@@ -35,6 +35,8 @@ import { RecentPagesService } from '../../core/services/recent-pages.service';
       padding: 2px 0;
       min-height: 1.5em;
       word-wrap: break-word;
+      flex: 1;
+      min-width: 0;
     }
     .block-content:empty::after {
       content: ' ';
