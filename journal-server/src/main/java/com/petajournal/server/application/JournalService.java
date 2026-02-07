@@ -43,7 +43,8 @@ public class JournalService {
         // Create new journal page
         UUID id = UUID.randomUUID();
         Instant now = Instant.now();
-        String dirPath = "journals/" + date.getYear() + "/" + String.format("%02d", date.getMonthValue());
+
+        String dirPath = "journals";
         String fileName = date.format(DateTimeFormatter.ISO_LOCAL_DATE);
         String title = date.format(DateTimeFormatter.ofPattern("yyyy年M月d日"));
 

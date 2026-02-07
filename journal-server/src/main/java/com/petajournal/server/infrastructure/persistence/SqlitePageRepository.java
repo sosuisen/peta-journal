@@ -43,12 +43,13 @@ public class SqlitePageRepository implements PageRepository {
 
     @Override
     public Optional<Page> findJournal(LocalDate date) {
-        String dirPath = "journals/" + date.getYear() + "/" + String.format("%02d", date.getMonthValue());
+        String dirPath = "journals";
         String fileName = date.format(DateTimeFormatter.ISO_LOCAL_DATE);
 
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT id, dir_path, file_name, created_date, modified_date, properties_json FROM pages WHERE dir_path = ? AND file_name = ?")) {
+                     "SELECT id, dir_path, file_name, created_date, modified_date, properties_json FROM pages " +
+                     "WHERE dir_path = ? AND file_name = ?")) {
             ps.setString(1, dirPath);
             ps.setString(2, fileName);
             try (ResultSet rs = ps.executeQuery()) {
