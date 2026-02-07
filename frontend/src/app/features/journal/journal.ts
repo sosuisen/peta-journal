@@ -77,7 +77,11 @@ export class JournalComponent implements OnInit, OnDestroy {
     this.routeSub = this.route.paramMap.subscribe(params => {
       let date = params.get('date');
       if (!date || date === 'today') {
-        date = new Date().toISOString().split('T')[0];
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        date = `${year}-${month}-${day}`;
       }
       this.currentDate.set(date);
       this.loadJournal(date);
