@@ -1,0 +1,126 @@
+import { Component, input, output, computed, inject } from '@angular/core';
+import { Block } from '../../core/models/block.model';
+import { OutlineStateService } from '../../core/services/outline-state.service';
+import { BlockEditorComponent } from './block-editor';
+import { BlockViewComponent } from './block-view';
+
+@Component({
+  selector: 'app-outline-block',
+  imports: [BlockEditorComponent, BlockViewComponent],
+  template: `
+    <div
+      class="outline-block"
+      [style.padding-left.px]="indentPx()"
+      [class.selected]="isSelected()"
+    >
+      <div class="block-controls">
+        @if (hasChildren()) {
+          <button
+            class="collapse-toggle"
+            (click)="toggleCollapse()"
+            [class.collapsed]="isCollapsed()"
+          >
+            <span class="triangle">&#9654;</span>
+          </button>
+        } @else {
+          <span class="bullet">&bull;</span>
+        }
+      </div>
+      <div class="block-body">
+        @if (isEditing()) {
+          <app-block-editor
+            [body]="block().body"
+            [blockId]="block().id"
+            (bodyChange)="bodyChanged.emit($event)"
+            (blurred)="editFinished.emit()"
+            (enterPressed)="enterPressed.emit($event)"
+            (backspaceAtStart)="backspaceAtStart.emit()"
+            (deleteAtEnd)="deleteAtEnd.emit()"
+            (navigateUp)="navigateUp.emit()"
+            (navigateDown)="navigateDown.emit()"
+            (indentRequested)="indentRequested.emit()"
+            (outdentRequested)="outdentRequested.emit()"
+            (moveUp)="moveUp.emit()"
+            (moveDown)="moveDown.emit()"
+          />
+        } @else {
+          <app-block-view
+            [html]="block().html"
+            (clicked)="editRequested.emit($event)"
+          />
+        }
+      </div>
+    </div>
+  `,
+  styles: [`
+    .outline-block {
+      display: flex;
+      align-items: flex-start;
+      min-height: 28px;
+    }
+    .outline-block.selected {
+      background: rgba(0, 120, 215, 0.1);
+    }
+    .block-controls {
+      width: 24px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding-top: 2px;
+    }
+    .collapse-toggle {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      font-size: 10px;
+      color: #666;
+      transition: transform 0.15s;
+      line-height: 1;
+    }
+    .collapse-toggle .triangle {
+      display: inline-block;
+      transition: transform 0.15s;
+    }
+    .collapse-toggle:not(.collapsed) .triangle {
+      transform: rotate(90deg);
+    }
+    .bullet {
+      color: #999;
+      font-size: 14px;
+    }
+    .block-body {
+      flex: 1;
+      min-width: 0;
+    }
+  `]
+})
+export class OutlineBlockComponent {
+  private readonly state = inject(OutlineStateService);
+
+  readonly block = input.required<Block>();
+
+  readonly bodyChanged = output<string>();
+  readonly editRequested = output<number>();
+  readonly editFinished = output<void>();
+  readonly enterPressed = output<{ cursorPos: number }>();
+  readonly backspaceAtStart = output<void>();
+  readonly deleteAtEnd = output<void>();
+  readonly navigateUp = output<void>();
+  readonly navigateDown = output<void>();
+  readonly indentRequested = output<void>();
+  readonly outdentRequested = output<void>();
+  readonly moveUp = output<void>();
+  readonly moveDown = output<void>();
+
+  readonly indentPx = computed(() => this.block().level * 24);
+  readonly hasChildren = computed(() => this.state.hasChildren(this.block().id));
+  readonly isEditing = computed(() => this.state.editingBlockId() === this.block().id);
+  readonly isSelected = computed(() => this.state.selectedBlockIds().has(this.block().id));
+  readonly isCollapsed = computed(() => this.block().collapsed);
+
+  toggleCollapse(): void {
+    this.state.toggleCollapsed(this.block().id);
+  }
+}

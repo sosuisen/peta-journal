@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package petajournal;
+
+option java_package = "com.petajournal.proto";
+option java_outer_classname = "BlockProto";
+option java_multiple_files = true;
+
+import "common.proto";
+
+message Block {
+  string id = 1;                    // 7-char hex (first 7 of UUID)
+  string page_id = 2;              // UUID of parent page
+  Timestamp created_date = 3;
+  Timestamp modified_date = 4;
+  string idx = 5;                   // Fractional index string for ordering
+  int32 level = 6;                  // Indentation level (0-based)
+  string body = 7;                  // Markdown source text
+  string html = 8;                  // Parsed HTML
+  bool collapsed = 9;              // Whether children are collapsed
+  repeated string types = 10;      // Block types (e.g. "task", "heading")
+  string properties_json = 11;     // Extensible JSON properties
+}

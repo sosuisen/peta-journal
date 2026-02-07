@@ -1,0 +1,190 @@
+syntax = "proto3";
+
+package petajournal;
+
+option java_package = "com.petajournal.proto";
+option java_outer_classname = "ApiProto";
+option java_multiple_files = true;
+
+import "page.proto";
+import "block.proto";
+import "search.proto";
+import "common.proto";
+
+// Top-level request envelope
+message ApiRequest {
+  string request_id = 1;           // Correlation ID
+  oneof payload {
+    GetPageRequest get_page = 10;
+    GetJournalRequest get_journal = 11;
+    CreatePageRequest create_page = 12;
+    DeletePageRequest delete_page = 13;
+    UpdatePageRequest update_page = 14;
+    CreateBlockRequest create_block = 20;
+    UpdateBlockRequest update_block = 21;
+    MoveBlocksRequest move_blocks = 22;
+    DeleteBlockRequest delete_block = 23;
+    SearchPageNamesRequest search_page_names = 30;
+    SearchFullTextRequest search_full_text = 31;
+    GetRecentPagesRequest get_recent_pages = 40;
+    GetBacklinksRequest get_backlinks = 41;
+  }
+}
+
+// Top-level response envelope
+message ApiResponse {
+  string request_id = 1;           // Correlation ID (matches request)
+  bool success = 2;
+  string error_message = 3;        // Set when success=false
+  oneof payload {
+    GetPageResponse get_page = 10;
+    GetJournalResponse get_journal = 11;
+    CreatePageResponse create_page = 12;
+    DeletePageResponse delete_page = 13;
+    UpdatePageResponse update_page = 14;
+    CreateBlockResponse create_block = 20;
+    UpdateBlockResponse update_block = 21;
+    MoveBlocksResponse move_blocks = 22;
+    DeleteBlockResponse delete_block = 23;
+    SearchPageNamesResponse search_page_names = 30;
+    SearchFullTextResponse search_full_text = 31;
+    GetRecentPagesResponse get_recent_pages = 40;
+    GetBacklinksResponse get_backlinks = 41;
+  }
+}
+
+// --- Page operations ---
+
+message GetPageRequest {
+  string page_id = 1;
+}
+
+message GetPageResponse {
+  Page page = 1;
+  repeated Block blocks = 2;
+}
+
+message GetJournalRequest {
+  string date = 1;                  // ISO date: "2025-01-15"
+}
+
+message GetJournalResponse {
+  Page page = 1;
+  repeated Block blocks = 2;
+  bool created = 3;                // true if journal was just created
+}
+
+message CreatePageRequest {
+  string title = 1;
+  string dir_path = 2;             // Optional, defaults to "pages"
+  repeated string tags = 3;
+}
+
+message CreatePageResponse {
+  Page page = 1;
+}
+
+message DeletePageRequest {
+  string page_id = 1;
+}
+
+message DeletePageResponse {
+}
+
+message UpdatePageRequest {
+  string page_id = 1;
+  optional string title = 2;       // Update first title
+  repeated string tags = 3;
+  string properties_json = 4;
+}
+
+message UpdatePageResponse {
+  Page page = 1;
+}
+
+// --- Block operations ---
+
+message CreateBlockRequest {
+  string page_id = 1;
+  string after_block_id = 2;       // Insert after this block (empty = first)
+  int32 level = 3;
+  string body = 4;
+}
+
+message CreateBlockResponse {
+  Block block = 1;
+}
+
+message UpdateBlockRequest {
+  string block_id = 1;
+  optional string body = 2;
+  optional int32 level = 3;
+  optional bool collapsed = 4;
+  optional string properties_json = 5;
+}
+
+message UpdateBlockResponse {
+  Block block = 1;
+}
+
+message MoveBlocksRequest {
+  repeated string block_ids = 1;
+  string target_page_id = 2;       // Same page or different page
+  string after_block_id = 3;       // Insert after this block
+  optional int32 level_delta = 4;  // Change in indentation level
+}
+
+message MoveBlocksResponse {
+  repeated Block blocks = 1;
+}
+
+message DeleteBlockRequest {
+  string block_id = 1;
+}
+
+message DeleteBlockResponse {
+}
+
+// --- Search operations ---
+
+message SearchPageNamesRequest {
+  string query = 1;
+  int32 max_results = 2;
+}
+
+message SearchPageNamesResponse {
+  repeated SearchResult results = 1;
+}
+
+message SearchFullTextRequest {
+  string query = 1;
+  int32 max_results = 2;
+}
+
+message SearchFullTextResponse {
+  repeated SearchResult results = 1;
+  int32 total_hits = 2;
+}
+
+// --- Navigation operations ---
+
+message GetRecentPagesRequest {
+  int32 max_results = 1;           // Default 20
+}
+
+message GetRecentPagesResponse {
+  repeated Page pages = 1;
+}
+
+message GetBacklinksRequest {
+  string page_id = 1;
+}
+
+message GetBacklinksResponse {
+  repeated BacklinkEntry entries = 1;
+}
+
+message BacklinkEntry {
+  Page source_page = 1;
+  Block source_block = 2;          // The block containing the link
+}

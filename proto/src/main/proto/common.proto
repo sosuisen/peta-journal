@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package petajournal;
+
+option java_package = "com.petajournal.proto";
+option java_outer_classname = "CommonProto";
+option java_multiple_files = true;
+
+// Timestamp as Unix epoch milliseconds
+message Timestamp {
+  int64 millis = 1;
+}
