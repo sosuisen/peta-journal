@@ -31,22 +31,27 @@ import { BlockViewComponent } from './block-view';
           <app-block-editor
             [body]="block().body"
             [blockId]="block().id"
+            [status]="block().status"
             (bodyChange)="bodyChanged.emit($event)"
             (blurred)="editFinished.emit()"
             (enterPressed)="enterPressed.emit($event)"
             (backspaceAtStart)="backspaceAtStart.emit()"
             (deleteAtEnd)="deleteAtEnd.emit()"
-            (navigateUp)="navigateUp.emit()"
-            (navigateDown)="navigateDown.emit()"
+            (navigateUp)="navigateUp.emit($event)"
+            (navigateDown)="navigateDown.emit($event)"
             (indentRequested)="indentRequested.emit()"
             (outdentRequested)="outdentRequested.emit()"
             (moveUp)="moveUp.emit()"
             (moveDown)="moveDown.emit()"
+            (statusCycleRequested)="statusCycleRequested.emit()"
+            (statusToggled)="taskToggled.emit()"
           />
         } @else {
           <app-block-view
             [html]="block().html"
+            [status]="block().status"
             (clicked)="editRequested.emit($event)"
+            (taskToggled)="taskToggled.emit()"
           />
         }
       </div>
@@ -107,12 +112,14 @@ export class OutlineBlockComponent {
   readonly enterPressed = output<{ cursorPos: number }>();
   readonly backspaceAtStart = output<void>();
   readonly deleteAtEnd = output<void>();
-  readonly navigateUp = output<void>();
-  readonly navigateDown = output<void>();
+  readonly navigateUp = output<number>();
+  readonly navigateDown = output<number>();
   readonly indentRequested = output<void>();
   readonly outdentRequested = output<void>();
   readonly moveUp = output<void>();
   readonly moveDown = output<void>();
+  readonly taskToggled = output<void>();
+  readonly statusCycleRequested = output<void>();
 
   readonly indentPx = computed(() => this.block().level * 24);
   readonly hasChildren = computed(() => this.state.hasChildren(this.block().id));

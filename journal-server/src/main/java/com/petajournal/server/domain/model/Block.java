@@ -14,6 +14,7 @@ public record Block(
     String body,         // Markdown source text
     String html,         // Parsed HTML
     boolean collapsed,
-    List<String> types,  // Block types (e.g. "task", "heading")
+    String status,       // Block status: normal, todo, running, done
+    List<String> types,  // Block types (e.g. "heading", "code")
     String propertiesJson
 ) {}

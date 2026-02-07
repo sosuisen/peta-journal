@@ -1,4 +1,4 @@
-import { Component, input, output, inject, computed } from '@angular/core';
+import { Component, input, output, inject, computed, viewChild, ElementRef, effect } from '@angular/core';
 import { Router } from '@angular/router';
 import { DomSanitizer } from '@angular/platform-browser';
 import { ApiService } from '../../core/services/api.service';
@@ -7,6 +7,15 @@ import { RecentPagesService } from '../../core/services/recent-pages.service';
 @Component({
   selector: 'app-block-view',
   template: `
+    @if (status() !== 'normal') {
+      <input
+        #checkbox
+        type="checkbox"
+        class="task-checkbox"
+        [checked]="status() === 'done'"
+        (click)="onCheckboxClick($event)"
+      />
+    }
     <div
       class="block-content"
       [innerHTML]="trustedHtml()"
@@ -14,7 +23,12 @@ import { RecentPagesService } from '../../core/services/recent-pages.service';
     ></div>
   `,
   styles: [`
-    :host { display: block; flex: 1; min-width: 0; }
+    :host {
+      display: flex;
+      align-items: flex-start;
+      flex: 1;
+      min-width: 0;
+    }
     .block-content {
       cursor: text;
       line-height: 1.5;
@@ -40,6 +54,16 @@ import { RecentPagesService } from '../../core/services/recent-pages.service';
     :host ::ng-deep .wiki-link-new:hover {
       color: #c9302c;
     }
+    :host ::ng-deep input[type="checkbox"] {
+      cursor: pointer;
+      margin-right: 4px;
+    }
+    .task-checkbox {
+      cursor: pointer;
+      margin-right: 6px;
+      margin-top: 4px;
+      flex-shrink: 0;
+    }
   `]
 })
 export class BlockViewComponent {
@@ -49,11 +73,31 @@ export class BlockViewComponent {
   private readonly recentPages = inject(RecentPagesService);
 
   readonly html = input.required<string>();
+  readonly status = input.required<string>();
   readonly clicked = output<number>();
+  readonly taskToggled = output<void>();
   readonly trustedHtml = computed(() => this.sanitizer.bypassSecurityTrustHtml(this.html()));
+
+  private readonly checkboxRef = viewChild<ElementRef<HTMLInputElement>>('checkbox');
+
+  constructor() {
+    effect(() => {
+      const checkbox = this.checkboxRef()?.nativeElement;
+      if (checkbox) {
+        checkbox.indeterminate = this.status() === 'running';
+      }
+    });
+  }
+
+  onCheckboxClick(event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.taskToggled.emit();
+  }
 
   async onClick(event: MouseEvent): Promise<void> {
     const target = event.target as HTMLElement;
+
     const link = target.closest('.wiki-link') as HTMLElement | null;
     if (!link) {
       this.clicked.emit(this.getTextOffsetAtPoint(event.clientX, event.clientY));

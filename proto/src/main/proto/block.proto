@@ -18,6 +18,7 @@ message Block {
   string body = 7;                  // Markdown source text
   string html = 8;                  // Parsed HTML
   bool collapsed = 9;              // Whether children are collapsed
-  repeated string types = 10;      // Block types (e.g. "task", "heading")
-  string properties_json = 11;     // Extensible JSON properties
+  string status = 10;              // Block status: normal, todo, running, done
+  repeated string types = 11;      // Block types (e.g. "heading", "code")
+  string properties_json = 12;     // Extensible JSON properties
 }

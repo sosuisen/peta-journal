@@ -378,6 +378,9 @@ export namespace petajournal {
         /** Block collapsed */
         collapsed?: (boolean|null);
 
+        /** Block status */
+        status?: (string|null);
+
         /** Block types */
         types?: (string[]|null);
 
@@ -420,6 +423,9 @@ export namespace petajournal {
 
         /** Block collapsed. */
         public collapsed: boolean;
+
+        /** Block status. */
+        public status: string;
 
         /** Block types. */
         public types: string[];
@@ -865,6 +871,9 @@ export namespace petajournal {
         /** ApiRequest deleteBlock */
         deleteBlock?: (petajournal.IDeleteBlockRequest|null);
 
+        /** ApiRequest updateBlockStatus */
+        updateBlockStatus?: (petajournal.IUpdateBlockStatusRequest|null);
+
         /** ApiRequest searchPageNames */
         searchPageNames?: (petajournal.ISearchPageNamesRequest|null);
 
@@ -917,6 +926,9 @@ export namespace petajournal {
         /** ApiRequest deleteBlock. */
         public deleteBlock?: (petajournal.IDeleteBlockRequest|null);
 
+        /** ApiRequest updateBlockStatus. */
+        public updateBlockStatus?: (petajournal.IUpdateBlockStatusRequest|null);
+
         /** ApiRequest searchPageNames. */
         public searchPageNames?: (petajournal.ISearchPageNamesRequest|null);
 
@@ -930,7 +942,7 @@ export namespace petajournal {
         public getBacklinks?: (petajournal.IGetBacklinksRequest|null);
 
         /** ApiRequest payload. */
-        public payload?: ("getPage"|"getJournal"|"createPage"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks");
+        public payload?: ("getPage"|"getJournal"|"createPage"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks");
 
         /**
          * Creates a new ApiRequest instance using the specified properties.
@@ -1049,6 +1061,9 @@ export namespace petajournal {
         /** ApiResponse deleteBlock */
         deleteBlock?: (petajournal.IDeleteBlockResponse|null);
 
+        /** ApiResponse updateBlockStatus */
+        updateBlockStatus?: (petajournal.IUpdateBlockStatusResponse|null);
+
         /** ApiResponse searchPageNames */
         searchPageNames?: (petajournal.ISearchPageNamesResponse|null);
 
@@ -1107,6 +1122,9 @@ export namespace petajournal {
         /** ApiResponse deleteBlock. */
         public deleteBlock?: (petajournal.IDeleteBlockResponse|null);
 
+        /** ApiResponse updateBlockStatus. */
+        public updateBlockStatus?: (petajournal.IUpdateBlockStatusResponse|null);
+
         /** ApiResponse searchPageNames. */
         public searchPageNames?: (petajournal.ISearchPageNamesResponse|null);
 
@@ -1120,7 +1138,7 @@ export namespace petajournal {
         public getBacklinks?: (petajournal.IGetBacklinksResponse|null);
 
         /** ApiResponse payload. */
-        public payload?: ("getPage"|"getJournal"|"createPage"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks");
+        public payload?: ("getPage"|"getJournal"|"createPage"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks");
 
         /**
          * Creates a new ApiResponse instance using the specified properties.
@@ -2439,6 +2457,9 @@ export namespace petajournal {
         /** UpdateBlockRequest collapsed */
         collapsed?: (boolean|null);
 
+        /** UpdateBlockRequest status */
+        status?: (string|null);
+
         /** UpdateBlockRequest propertiesJson */
         propertiesJson?: (string|null);
     }
@@ -2463,6 +2484,9 @@ export namespace petajournal {
 
         /** UpdateBlockRequest collapsed. */
         public collapsed?: (boolean|null);
+
+        /** UpdateBlockRequest status. */
+        public status?: (string|null);
 
         /** UpdateBlockRequest propertiesJson. */
         public propertiesJson?: (string|null);
@@ -3036,6 +3060,206 @@ export namespace petajournal {
 
         /**
          * Gets the default type url for DeleteBlockResponse
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of an UpdateBlockStatusRequest. */
+    interface IUpdateBlockStatusRequest {
+
+        /** UpdateBlockStatusRequest blockId */
+        blockId?: (string|null);
+
+        /** UpdateBlockStatusRequest status */
+        status?: (string|null);
+    }
+
+    /** Represents an UpdateBlockStatusRequest. */
+    class UpdateBlockStatusRequest implements IUpdateBlockStatusRequest {
+
+        /**
+         * Constructs a new UpdateBlockStatusRequest.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: petajournal.IUpdateBlockStatusRequest);
+
+        /** UpdateBlockStatusRequest blockId. */
+        public blockId: string;
+
+        /** UpdateBlockStatusRequest status. */
+        public status: string;
+
+        /**
+         * Creates a new UpdateBlockStatusRequest instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns UpdateBlockStatusRequest instance
+         */
+        public static create(properties?: petajournal.IUpdateBlockStatusRequest): petajournal.UpdateBlockStatusRequest;
+
+        /**
+         * Encodes the specified UpdateBlockStatusRequest message. Does not implicitly {@link petajournal.UpdateBlockStatusRequest.verify|verify} messages.
+         * @param message UpdateBlockStatusRequest message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: petajournal.IUpdateBlockStatusRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified UpdateBlockStatusRequest message, length delimited. Does not implicitly {@link petajournal.UpdateBlockStatusRequest.verify|verify} messages.
+         * @param message UpdateBlockStatusRequest message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encodeDelimited(message: petajournal.IUpdateBlockStatusRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes an UpdateBlockStatusRequest message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns UpdateBlockStatusRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.UpdateBlockStatusRequest;
+
+        /**
+         * Decodes an UpdateBlockStatusRequest message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns UpdateBlockStatusRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.UpdateBlockStatusRequest;
+
+        /**
+         * Verifies an UpdateBlockStatusRequest message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        public static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates an UpdateBlockStatusRequest message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns UpdateBlockStatusRequest
+         */
+        public static fromObject(object: { [k: string]: any }): petajournal.UpdateBlockStatusRequest;
+
+        /**
+         * Creates a plain object from an UpdateBlockStatusRequest message. Also converts values to other types if specified.
+         * @param message UpdateBlockStatusRequest
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        public static toObject(message: petajournal.UpdateBlockStatusRequest, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this UpdateBlockStatusRequest to JSON.
+         * @returns JSON object
+         */
+        public toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the default type url for UpdateBlockStatusRequest
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of an UpdateBlockStatusResponse. */
+    interface IUpdateBlockStatusResponse {
+
+        /** UpdateBlockStatusResponse block */
+        block?: (petajournal.IBlock|null);
+    }
+
+    /** Represents an UpdateBlockStatusResponse. */
+    class UpdateBlockStatusResponse implements IUpdateBlockStatusResponse {
+
+        /**
+         * Constructs a new UpdateBlockStatusResponse.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: petajournal.IUpdateBlockStatusResponse);
+
+        /** UpdateBlockStatusResponse block. */
+        public block?: (petajournal.IBlock|null);
+
+        /**
+         * Creates a new UpdateBlockStatusResponse instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns UpdateBlockStatusResponse instance
+         */
+        public static create(properties?: petajournal.IUpdateBlockStatusResponse): petajournal.UpdateBlockStatusResponse;
+
+        /**
+         * Encodes the specified UpdateBlockStatusResponse message. Does not implicitly {@link petajournal.UpdateBlockStatusResponse.verify|verify} messages.
+         * @param message UpdateBlockStatusResponse message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: petajournal.IUpdateBlockStatusResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified UpdateBlockStatusResponse message, length delimited. Does not implicitly {@link petajournal.UpdateBlockStatusResponse.verify|verify} messages.
+         * @param message UpdateBlockStatusResponse message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encodeDelimited(message: petajournal.IUpdateBlockStatusResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes an UpdateBlockStatusResponse message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns UpdateBlockStatusResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.UpdateBlockStatusResponse;
+
+        /**
+         * Decodes an UpdateBlockStatusResponse message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns UpdateBlockStatusResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.UpdateBlockStatusResponse;
+
+        /**
+         * Verifies an UpdateBlockStatusResponse message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        public static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates an UpdateBlockStatusResponse message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns UpdateBlockStatusResponse
+         */
+        public static fromObject(object: { [k: string]: any }): petajournal.UpdateBlockStatusResponse;
+
+        /**
+         * Creates a plain object from an UpdateBlockStatusResponse message. Also converts values to other types if specified.
+         * @param message UpdateBlockStatusResponse
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        public static toObject(message: petajournal.UpdateBlockStatusResponse, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this UpdateBlockStatusResponse to JSON.
+         * @returns JSON object
+         */
+        public toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the default type url for UpdateBlockStatusResponse
          * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
          * @returns The default type url
          */

@@ -19,6 +19,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 @ApplicationScoped
 public class BlockService {
@@ -37,6 +39,8 @@ public class BlockService {
 
     @Inject
     SyncService syncService;
+
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public Block createBlock(UUID pageId, String afterBlockId, int level, String body) {
         String id = BlockIdGenerator.generate();
@@ -70,8 +74,9 @@ public class BlockService {
         }
 
         List<String> types = detectBlockTypes(body);
+        String status = "normal";  // Default status
 
-        Block block = new Block(id, pageId, now, now, idx, level, body, html, false, types, "{}");
+        Block block = new Block(id, pageId, now, now, idx, level, body, html, false, status, types, "{}");
         block = blockRepository.save(block);
 
         // Update page modified date
@@ -87,7 +92,7 @@ public class BlockService {
         return block;
     }
 
-    public Block updateBlock(String blockId, String body, Integer level, Boolean collapsed, String propertiesJson) {
+    public Block updateBlock(String blockId, String body, Integer level, Boolean collapsed, String status, String propertiesJson) {
         Block existing = blockRepository.findById(blockId)
                 .orElseThrow(() -> new IllegalArgumentException("Block not found: " + blockId));
 
@@ -95,6 +100,7 @@ public class BlockService {
         String newHtml = body != null ? parseBody(body) : existing.html();
         int newLevel = level != null ? level : existing.level();
         boolean newCollapsed = collapsed != null ? collapsed : existing.collapsed();
+        String newStatus = status != null ? status : existing.status();
         String newProps = propertiesJson != null ? propertiesJson : existing.propertiesJson();
         List<String> types = body != null ? detectBlockTypes(body) : existing.types();
 
@@ -108,6 +114,7 @@ public class BlockService {
                 newBody,
                 newHtml,
                 newCollapsed,
+                newStatus,
                 types,
                 newProps
         );
@@ -165,6 +172,7 @@ public class BlockService {
                     block.body(),
                     block.html(),
                     block.collapsed(),
+                    block.status(),
                     block.types(),
                     block.propertiesJson()
             );
@@ -188,6 +196,17 @@ public class BlockService {
             touchPage(b.pageId());
             syncService.notifyChange("block", blockId);
         });
+    }
+
+    /**
+     * Update block status with validation.
+     * Valid statuses: normal, todo, running, done
+     */
+    public Block updateBlockStatus(String blockId, String status) {
+        if (!List.of("normal", "todo", "running", "done").contains(status)) {
+            throw new IllegalArgumentException("Invalid status: " + status);
+        }
+        return updateBlock(blockId, null, null, null, status, null);
     }
 
     private void touchPage(UUID pageId) {
@@ -238,9 +257,6 @@ public class BlockService {
         List<String> types = new ArrayList<>();
         if (body == null) return types;
         String trimmed = body.trim();
-        if (trimmed.startsWith("- [ ]") || trimmed.startsWith("- [x]") || trimmed.startsWith("- [/]")) {
-            types.add("task");
-        }
         if (trimmed.startsWith("#")) {
             types.add("heading");
         }

@@ -23,12 +23,14 @@ import { Block } from '../../core/models/block.model';
           (enterPressed)="onEnterPressed(block, $event)"
           (backspaceAtStart)="onBackspaceAtStart(block)"
           (deleteAtEnd)="onDeleteAtEnd(block)"
-          (navigateUp)="onNavigateUp(block)"
-          (navigateDown)="onNavigateDown(block)"
+          (navigateUp)="onNavigateUp(block, $event)"
+          (navigateDown)="onNavigateDown(block, $event)"
           (indentRequested)="onIndent(block)"
           (outdentRequested)="onOutdent(block)"
           (moveUp)="onMoveUp(block)"
           (moveDown)="onMoveDown(block)"
+          (taskToggled)="onCheckboxToggled(block)"
+          (statusCycleRequested)="onStatusCycleRequested(block)"
         />
       </div>
     </cdk-virtual-scroll-viewport>
@@ -167,19 +169,35 @@ export class OutlineComponent {
     await this.api.deleteBlock(nextBlock.id);
   }
 
-  onNavigateUp(block: Block): void {
+  async onNavigateUp(block: Block, cursorPos: number): Promise<void> {
     const blocks = this.state.visibleBlocks();
     const idx = blocks.findIndex(b => b.id === block.id);
     if (idx > 0) {
-      this.state.setEditingBlock(blocks[idx - 1].id);
+      // Save and update HTML before navigating
+      await this.saveBlockIfDirty(block);
+      this.state.setEditingBlock(blocks[idx - 1].id, cursorPos);
     }
   }
 
-  onNavigateDown(block: Block): void {
+  async onNavigateDown(block: Block, cursorPos: number): Promise<void> {
     const blocks = this.state.visibleBlocks();
     const idx = blocks.findIndex(b => b.id === block.id);
     if (idx < blocks.length - 1) {
-      this.state.setEditingBlock(blocks[idx + 1].id);
+      // Save and update HTML before navigating
+      await this.saveBlockIfDirty(block);
+      this.state.setEditingBlock(blocks[idx + 1].id, cursorPos);
+    }
+  }
+
+  private async saveBlockIfDirty(block: Block): Promise<void> {
+    if (!this.dirtyBlockIds.has(block.id)) return;
+
+    this.dirtyBlockIds.delete(block.id);
+    await this.autoSave.flushBlock(block.id);
+    const current = this.state.getBlockById(block.id);
+    if (current) {
+      const updated = await this.api.updateBlock(block.id, { body: current.body });
+      this.state.updateBlock(block.id, { html: updated.html });
     }
   }
 
@@ -192,6 +210,15 @@ export class OutlineComponent {
   private canPlace(blockLevel: number, prevBlock: Block | undefined): boolean {
     if (!prevBlock) return blockLevel === 0;
     return prevBlock.level === blockLevel || prevBlock.level === blockLevel - 1;
+  }
+
+  /**
+   * Get the last descendant of a block (the last child in the entire subtree).
+   */
+  private getLastDescendant(blockId: string): Block | null {
+    const children = this.state.getChildren(blockId);
+    if (children.length === 0) return null;
+    return children[children.length - 1];
   }
 
   async onIndent(block: Block): Promise<void> {
@@ -215,8 +242,58 @@ export class OutlineComponent {
     const idx = blocks.findIndex(b => b.id === block.id);
     const prevBlock = idx > 0 ? blocks[idx - 1] : undefined;
     const newLevel = block.level - 1;
-    if (!this.canPlace(newLevel, prevBlock)) return;
 
+    // Check normal placement
+    if (!this.canPlace(newLevel, prevBlock)) {
+      // Exception: outdenting by 1 level is allowed by placing after the last child of the current parent
+      // Find the current parent (the block with level = current level - 1 before the current block)
+      let currentParentIdx = -1;
+      for (let i = idx - 1; i >= 0; i--) {
+        if (blocks[i].level === block.level - 1) {
+          currentParentIdx = i;
+          break;
+        }
+      }
+
+      if (currentParentIdx >= 0) {
+        const currentParent = blocks[currentParentIdx];
+
+        // Get ALL children of the current parent (including the block being moved)
+        const allChildren = this.state.getChildren(currentParent.id);
+
+        // Find the last child (excluding the block being moved and its descendants)
+        const group = this.state.getBlockWithChildren(block.id);
+        const movingIds = new Set(group.map(b => b.id));
+
+        let lastChildId = currentParent.id;
+        for (const child of allChildren) {
+          if (!movingIds.has(child.id)) {
+            lastChildId = child.id;
+          }
+        }
+
+        // Allow outdent by placing after the last child
+        const groupIds = group.map(b => b.id);
+
+        // Update levels
+        for (const b of group) {
+          this.state.updateBlock(b.id, { level: b.level - 1 });
+        }
+        await Promise.all(group.map(b => this.api.updateBlock(b.id, { level: b.level - 1 })));
+
+        // Move after the last child (if it's not the parent itself)
+        if (lastChildId !== currentParent.id) {
+          await this.api.moveBlocks(groupIds, block.pageId, lastChildId);
+          this.state.deleteBlocks(groupIds);
+          this.state.addBlocks(group.map(b => ({ ...b, level: b.level - 1 })), lastChildId);
+        }
+        return;
+      }
+
+      return; // Cannot place
+    }
+
+    // Normal outdent
     const group = this.state.getBlockWithChildren(block.id);
     for (const b of group) {
       this.state.updateBlock(b.id, { level: b.level - 1 });
@@ -260,6 +337,37 @@ export class OutlineComponent {
     this.state.deleteBlocks(groupIds);
     this.state.addBlocks(group, targetBlock.id);
     this.focusEditor();
+  }
+
+  async onCheckboxToggled(block: Block): Promise<void> {
+    try {
+      // Checkbox click: todo → running → done (stop there)
+      let newStatus = block.status;
+      if (block.status === 'todo') {
+        newStatus = 'running';
+      } else if (block.status === 'running') {
+        newStatus = 'done';
+      }
+      if (newStatus !== block.status) {
+        const updated = await this.api.updateBlockStatus(block.id, newStatus);
+        this.state.updateBlock(block.id, { status: updated.status });
+      }
+    } catch (e) {
+      console.error('Failed to toggle task status:', e);
+    }
+  }
+
+  async onStatusCycleRequested(block: Block): Promise<void> {
+    try {
+      // Ctrl+Enter: normal → todo → running → done → normal
+      const cycle = ['normal', 'todo', 'running', 'done'];
+      const currentIndex = cycle.indexOf(block.status);
+      const newStatus = cycle[(currentIndex + 1) % cycle.length];
+      const updated = await this.api.updateBlockStatus(block.id, newStatus);
+      this.state.updateBlock(block.id, { status: updated.status });
+    } catch (e) {
+      console.error('Failed to cycle status:', e);
+    }
   }
 
   private focusEditor(blockId?: string): void {

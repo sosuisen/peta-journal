@@ -93,7 +93,7 @@ public class OutlineMarkdownParser {
             blocks.add(new Block(
                     blockId, pageId, now, now, idx,
                     pb.level(), pb.body(), "",
-                    pb.collapsed(), pb.types(), "{}"
+                    pb.collapsed(), "normal", pb.types(), "{}"
             ));
             prevIdx = idx;
         }

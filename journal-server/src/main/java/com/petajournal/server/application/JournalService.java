@@ -56,7 +56,7 @@ public class JournalService {
 
         // Create initial empty block
         String blockId = BlockIdGenerator.generate();
-        Block block = new Block(blockId, id, now, now, FractionalIndexer.initial(), 0, "", "", false, List.of(), "{}");
+        Block block = new Block(blockId, id, now, now, FractionalIndexer.initial(), 0, "", "", false, "normal", List.of(), "{}");
         block = blockRepository.save(block);
 
         return new JournalResult(page, List.of(block), true);

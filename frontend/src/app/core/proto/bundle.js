@@ -918,6 +918,7 @@ export const petajournal = $root.petajournal = (() => {
          * @property {string|null} [body] Block body
          * @property {string|null} [html] Block html
          * @property {boolean|null} [collapsed] Block collapsed
+         * @property {string|null} [status] Block status
          * @property {Array.<string>|null} [types] Block types
          * @property {string|null} [propertiesJson] Block propertiesJson
          */
@@ -1011,6 +1012,14 @@ export const petajournal = $root.petajournal = (() => {
         Block.prototype.collapsed = false;
 
         /**
+         * Block status.
+         * @member {string} status
+         * @memberof petajournal.Block
+         * @instance
+         */
+        Block.prototype.status = "";
+
+        /**
          * Block types.
          * @member {Array.<string>} types
          * @memberof petajournal.Block
@@ -1068,11 +1077,13 @@ export const petajournal = $root.petajournal = (() => {
                 writer.uint32(/* id 8, wireType 2 =*/66).string(message.html);
             if (message.collapsed != null && Object.hasOwnProperty.call(message, "collapsed"))
                 writer.uint32(/* id 9, wireType 0 =*/72).bool(message.collapsed);
+            if (message.status != null && Object.hasOwnProperty.call(message, "status"))
+                writer.uint32(/* id 10, wireType 2 =*/82).string(message.status);
             if (message.types != null && message.types.length)
                 for (let i = 0; i < message.types.length; ++i)
-                    writer.uint32(/* id 10, wireType 2 =*/82).string(message.types[i]);
+                    writer.uint32(/* id 11, wireType 2 =*/90).string(message.types[i]);
             if (message.propertiesJson != null && Object.hasOwnProperty.call(message, "propertiesJson"))
-                writer.uint32(/* id 11, wireType 2 =*/90).string(message.propertiesJson);
+                writer.uint32(/* id 12, wireType 2 =*/98).string(message.propertiesJson);
             return writer;
         };
 
@@ -1146,12 +1157,16 @@ export const petajournal = $root.petajournal = (() => {
                         break;
                     }
                 case 10: {
+                        message.status = reader.string();
+                        break;
+                    }
+                case 11: {
                         if (!(message.types && message.types.length))
                             message.types = [];
                         message.types.push(reader.string());
                         break;
                     }
-                case 11: {
+                case 12: {
                         message.propertiesJson = reader.string();
                         break;
                     }
@@ -1221,6 +1236,9 @@ export const petajournal = $root.petajournal = (() => {
             if (message.collapsed != null && message.hasOwnProperty("collapsed"))
                 if (typeof message.collapsed !== "boolean")
                     return "collapsed: boolean expected";
+            if (message.status != null && message.hasOwnProperty("status"))
+                if (!$util.isString(message.status))
+                    return "status: string expected";
             if (message.types != null && message.hasOwnProperty("types")) {
                 if (!Array.isArray(message.types))
                     return "types: array expected";
@@ -1270,6 +1288,8 @@ export const petajournal = $root.petajournal = (() => {
                 message.html = String(object.html);
             if (object.collapsed != null)
                 message.collapsed = Boolean(object.collapsed);
+            if (object.status != null)
+                message.status = String(object.status);
             if (object.types) {
                 if (!Array.isArray(object.types))
                     throw TypeError(".petajournal.Block.types: array expected");
@@ -1307,6 +1327,7 @@ export const petajournal = $root.petajournal = (() => {
                 object.body = "";
                 object.html = "";
                 object.collapsed = false;
+                object.status = "";
                 object.propertiesJson = "";
             }
             if (message.id != null && message.hasOwnProperty("id"))
@@ -1327,6 +1348,8 @@ export const petajournal = $root.petajournal = (() => {
                 object.html = message.html;
             if (message.collapsed != null && message.hasOwnProperty("collapsed"))
                 object.collapsed = message.collapsed;
+            if (message.status != null && message.hasOwnProperty("status"))
+                object.status = message.status;
             if (message.types && message.types.length) {
                 object.types = [];
                 for (let j = 0; j < message.types.length; ++j)
@@ -2159,6 +2182,7 @@ export const petajournal = $root.petajournal = (() => {
          * @property {petajournal.IUpdateBlockRequest|null} [updateBlock] ApiRequest updateBlock
          * @property {petajournal.IMoveBlocksRequest|null} [moveBlocks] ApiRequest moveBlocks
          * @property {petajournal.IDeleteBlockRequest|null} [deleteBlock] ApiRequest deleteBlock
+         * @property {petajournal.IUpdateBlockStatusRequest|null} [updateBlockStatus] ApiRequest updateBlockStatus
          * @property {petajournal.ISearchPageNamesRequest|null} [searchPageNames] ApiRequest searchPageNames
          * @property {petajournal.ISearchFullTextRequest|null} [searchFullText] ApiRequest searchFullText
          * @property {petajournal.IGetRecentPagesRequest|null} [getRecentPages] ApiRequest getRecentPages
@@ -2261,6 +2285,14 @@ export const petajournal = $root.petajournal = (() => {
         ApiRequest.prototype.deleteBlock = null;
 
         /**
+         * ApiRequest updateBlockStatus.
+         * @member {petajournal.IUpdateBlockStatusRequest|null|undefined} updateBlockStatus
+         * @memberof petajournal.ApiRequest
+         * @instance
+         */
+        ApiRequest.prototype.updateBlockStatus = null;
+
+        /**
          * ApiRequest searchPageNames.
          * @member {petajournal.ISearchPageNamesRequest|null|undefined} searchPageNames
          * @memberof petajournal.ApiRequest
@@ -2297,12 +2329,12 @@ export const petajournal = $root.petajournal = (() => {
 
         /**
          * ApiRequest payload.
-         * @member {"getPage"|"getJournal"|"createPage"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|undefined} payload
+         * @member {"getPage"|"getJournal"|"createPage"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|undefined} payload
          * @memberof petajournal.ApiRequest
          * @instance
          */
         Object.defineProperty(ApiRequest.prototype, "payload", {
-            get: $util.oneOfGetter($oneOfFields = ["getPage", "getJournal", "createPage", "deletePage", "updatePage", "createBlock", "updateBlock", "moveBlocks", "deleteBlock", "searchPageNames", "searchFullText", "getRecentPages", "getBacklinks"]),
+            get: $util.oneOfGetter($oneOfFields = ["getPage", "getJournal", "createPage", "deletePage", "updatePage", "createBlock", "updateBlock", "moveBlocks", "deleteBlock", "updateBlockStatus", "searchPageNames", "searchFullText", "getRecentPages", "getBacklinks"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
@@ -2350,6 +2382,8 @@ export const petajournal = $root.petajournal = (() => {
                 $root.petajournal.MoveBlocksRequest.encode(message.moveBlocks, writer.uint32(/* id 22, wireType 2 =*/178).fork()).ldelim();
             if (message.deleteBlock != null && Object.hasOwnProperty.call(message, "deleteBlock"))
                 $root.petajournal.DeleteBlockRequest.encode(message.deleteBlock, writer.uint32(/* id 23, wireType 2 =*/186).fork()).ldelim();
+            if (message.updateBlockStatus != null && Object.hasOwnProperty.call(message, "updateBlockStatus"))
+                $root.petajournal.UpdateBlockStatusRequest.encode(message.updateBlockStatus, writer.uint32(/* id 24, wireType 2 =*/194).fork()).ldelim();
             if (message.searchPageNames != null && Object.hasOwnProperty.call(message, "searchPageNames"))
                 $root.petajournal.SearchPageNamesRequest.encode(message.searchPageNames, writer.uint32(/* id 30, wireType 2 =*/242).fork()).ldelim();
             if (message.searchFullText != null && Object.hasOwnProperty.call(message, "searchFullText"))
@@ -2432,6 +2466,10 @@ export const petajournal = $root.petajournal = (() => {
                     }
                 case 23: {
                         message.deleteBlock = $root.petajournal.DeleteBlockRequest.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 24: {
+                        message.updateBlockStatus = $root.petajournal.UpdateBlockStatusRequest.decode(reader, reader.uint32());
                         break;
                     }
                 case 30: {
@@ -2577,6 +2615,16 @@ export const petajournal = $root.petajournal = (() => {
                         return "deleteBlock." + error;
                 }
             }
+            if (message.updateBlockStatus != null && message.hasOwnProperty("updateBlockStatus")) {
+                if (properties.payload === 1)
+                    return "payload: multiple values";
+                properties.payload = 1;
+                {
+                    let error = $root.petajournal.UpdateBlockStatusRequest.verify(message.updateBlockStatus);
+                    if (error)
+                        return "updateBlockStatus." + error;
+                }
+            }
             if (message.searchPageNames != null && message.hasOwnProperty("searchPageNames")) {
                 if (properties.payload === 1)
                     return "payload: multiple values";
@@ -2679,6 +2727,11 @@ export const petajournal = $root.petajournal = (() => {
                     throw TypeError(".petajournal.ApiRequest.deleteBlock: object expected");
                 message.deleteBlock = $root.petajournal.DeleteBlockRequest.fromObject(object.deleteBlock);
             }
+            if (object.updateBlockStatus != null) {
+                if (typeof object.updateBlockStatus !== "object")
+                    throw TypeError(".petajournal.ApiRequest.updateBlockStatus: object expected");
+                message.updateBlockStatus = $root.petajournal.UpdateBlockStatusRequest.fromObject(object.updateBlockStatus);
+            }
             if (object.searchPageNames != null) {
                 if (typeof object.searchPageNames !== "object")
                     throw TypeError(".petajournal.ApiRequest.searchPageNames: object expected");
@@ -2764,6 +2817,11 @@ export const petajournal = $root.petajournal = (() => {
                 if (options.oneofs)
                     object.payload = "deleteBlock";
             }
+            if (message.updateBlockStatus != null && message.hasOwnProperty("updateBlockStatus")) {
+                object.updateBlockStatus = $root.petajournal.UpdateBlockStatusRequest.toObject(message.updateBlockStatus, options);
+                if (options.oneofs)
+                    object.payload = "updateBlockStatus";
+            }
             if (message.searchPageNames != null && message.hasOwnProperty("searchPageNames")) {
                 object.searchPageNames = $root.petajournal.SearchPageNamesRequest.toObject(message.searchPageNames, options);
                 if (options.oneofs)
@@ -2834,6 +2892,7 @@ export const petajournal = $root.petajournal = (() => {
          * @property {petajournal.IUpdateBlockResponse|null} [updateBlock] ApiResponse updateBlock
          * @property {petajournal.IMoveBlocksResponse|null} [moveBlocks] ApiResponse moveBlocks
          * @property {petajournal.IDeleteBlockResponse|null} [deleteBlock] ApiResponse deleteBlock
+         * @property {petajournal.IUpdateBlockStatusResponse|null} [updateBlockStatus] ApiResponse updateBlockStatus
          * @property {petajournal.ISearchPageNamesResponse|null} [searchPageNames] ApiResponse searchPageNames
          * @property {petajournal.ISearchFullTextResponse|null} [searchFullText] ApiResponse searchFullText
          * @property {petajournal.IGetRecentPagesResponse|null} [getRecentPages] ApiResponse getRecentPages
@@ -2952,6 +3011,14 @@ export const petajournal = $root.petajournal = (() => {
         ApiResponse.prototype.deleteBlock = null;
 
         /**
+         * ApiResponse updateBlockStatus.
+         * @member {petajournal.IUpdateBlockStatusResponse|null|undefined} updateBlockStatus
+         * @memberof petajournal.ApiResponse
+         * @instance
+         */
+        ApiResponse.prototype.updateBlockStatus = null;
+
+        /**
          * ApiResponse searchPageNames.
          * @member {petajournal.ISearchPageNamesResponse|null|undefined} searchPageNames
          * @memberof petajournal.ApiResponse
@@ -2988,12 +3055,12 @@ export const petajournal = $root.petajournal = (() => {
 
         /**
          * ApiResponse payload.
-         * @member {"getPage"|"getJournal"|"createPage"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|undefined} payload
+         * @member {"getPage"|"getJournal"|"createPage"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|undefined} payload
          * @memberof petajournal.ApiResponse
          * @instance
          */
         Object.defineProperty(ApiResponse.prototype, "payload", {
-            get: $util.oneOfGetter($oneOfFields = ["getPage", "getJournal", "createPage", "deletePage", "updatePage", "createBlock", "updateBlock", "moveBlocks", "deleteBlock", "searchPageNames", "searchFullText", "getRecentPages", "getBacklinks"]),
+            get: $util.oneOfGetter($oneOfFields = ["getPage", "getJournal", "createPage", "deletePage", "updatePage", "createBlock", "updateBlock", "moveBlocks", "deleteBlock", "updateBlockStatus", "searchPageNames", "searchFullText", "getRecentPages", "getBacklinks"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
@@ -3045,6 +3112,8 @@ export const petajournal = $root.petajournal = (() => {
                 $root.petajournal.MoveBlocksResponse.encode(message.moveBlocks, writer.uint32(/* id 22, wireType 2 =*/178).fork()).ldelim();
             if (message.deleteBlock != null && Object.hasOwnProperty.call(message, "deleteBlock"))
                 $root.petajournal.DeleteBlockResponse.encode(message.deleteBlock, writer.uint32(/* id 23, wireType 2 =*/186).fork()).ldelim();
+            if (message.updateBlockStatus != null && Object.hasOwnProperty.call(message, "updateBlockStatus"))
+                $root.petajournal.UpdateBlockStatusResponse.encode(message.updateBlockStatus, writer.uint32(/* id 24, wireType 2 =*/194).fork()).ldelim();
             if (message.searchPageNames != null && Object.hasOwnProperty.call(message, "searchPageNames"))
                 $root.petajournal.SearchPageNamesResponse.encode(message.searchPageNames, writer.uint32(/* id 30, wireType 2 =*/242).fork()).ldelim();
             if (message.searchFullText != null && Object.hasOwnProperty.call(message, "searchFullText"))
@@ -3135,6 +3204,10 @@ export const petajournal = $root.petajournal = (() => {
                     }
                 case 23: {
                         message.deleteBlock = $root.petajournal.DeleteBlockResponse.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 24: {
+                        message.updateBlockStatus = $root.petajournal.UpdateBlockStatusResponse.decode(reader, reader.uint32());
                         break;
                     }
                 case 30: {
@@ -3286,6 +3359,16 @@ export const petajournal = $root.petajournal = (() => {
                         return "deleteBlock." + error;
                 }
             }
+            if (message.updateBlockStatus != null && message.hasOwnProperty("updateBlockStatus")) {
+                if (properties.payload === 1)
+                    return "payload: multiple values";
+                properties.payload = 1;
+                {
+                    let error = $root.petajournal.UpdateBlockStatusResponse.verify(message.updateBlockStatus);
+                    if (error)
+                        return "updateBlockStatus." + error;
+                }
+            }
             if (message.searchPageNames != null && message.hasOwnProperty("searchPageNames")) {
                 if (properties.payload === 1)
                     return "payload: multiple values";
@@ -3392,6 +3475,11 @@ export const petajournal = $root.petajournal = (() => {
                     throw TypeError(".petajournal.ApiResponse.deleteBlock: object expected");
                 message.deleteBlock = $root.petajournal.DeleteBlockResponse.fromObject(object.deleteBlock);
             }
+            if (object.updateBlockStatus != null) {
+                if (typeof object.updateBlockStatus !== "object")
+                    throw TypeError(".petajournal.ApiResponse.updateBlockStatus: object expected");
+                message.updateBlockStatus = $root.petajournal.UpdateBlockStatusResponse.fromObject(object.updateBlockStatus);
+            }
             if (object.searchPageNames != null) {
                 if (typeof object.searchPageNames !== "object")
                     throw TypeError(".petajournal.ApiResponse.searchPageNames: object expected");
@@ -3483,6 +3571,11 @@ export const petajournal = $root.petajournal = (() => {
                 object.deleteBlock = $root.petajournal.DeleteBlockResponse.toObject(message.deleteBlock, options);
                 if (options.oneofs)
                     object.payload = "deleteBlock";
+            }
+            if (message.updateBlockStatus != null && message.hasOwnProperty("updateBlockStatus")) {
+                object.updateBlockStatus = $root.petajournal.UpdateBlockStatusResponse.toObject(message.updateBlockStatus, options);
+                if (options.oneofs)
+                    object.payload = "updateBlockStatus";
             }
             if (message.searchPageNames != null && message.hasOwnProperty("searchPageNames")) {
                 object.searchPageNames = $root.petajournal.SearchPageNamesResponse.toObject(message.searchPageNames, options);
@@ -6352,6 +6445,7 @@ export const petajournal = $root.petajournal = (() => {
          * @property {string|null} [body] UpdateBlockRequest body
          * @property {number|null} [level] UpdateBlockRequest level
          * @property {boolean|null} [collapsed] UpdateBlockRequest collapsed
+         * @property {string|null} [status] UpdateBlockRequest status
          * @property {string|null} [propertiesJson] UpdateBlockRequest propertiesJson
          */
 
@@ -6403,6 +6497,14 @@ export const petajournal = $root.petajournal = (() => {
         UpdateBlockRequest.prototype.collapsed = null;
 
         /**
+         * UpdateBlockRequest status.
+         * @member {string|null|undefined} status
+         * @memberof petajournal.UpdateBlockRequest
+         * @instance
+         */
+        UpdateBlockRequest.prototype.status = null;
+
+        /**
          * UpdateBlockRequest propertiesJson.
          * @member {string|null|undefined} propertiesJson
          * @memberof petajournal.UpdateBlockRequest
@@ -6428,6 +6530,12 @@ export const petajournal = $root.petajournal = (() => {
         // Virtual OneOf for proto3 optional field
         Object.defineProperty(UpdateBlockRequest.prototype, "_collapsed", {
             get: $util.oneOfGetter($oneOfFields = ["collapsed"]),
+            set: $util.oneOfSetter($oneOfFields)
+        });
+
+        // Virtual OneOf for proto3 optional field
+        Object.defineProperty(UpdateBlockRequest.prototype, "_status", {
+            get: $util.oneOfGetter($oneOfFields = ["status"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
@@ -6469,8 +6577,10 @@ export const petajournal = $root.petajournal = (() => {
                 writer.uint32(/* id 3, wireType 0 =*/24).int32(message.level);
             if (message.collapsed != null && Object.hasOwnProperty.call(message, "collapsed"))
                 writer.uint32(/* id 4, wireType 0 =*/32).bool(message.collapsed);
+            if (message.status != null && Object.hasOwnProperty.call(message, "status"))
+                writer.uint32(/* id 5, wireType 2 =*/42).string(message.status);
             if (message.propertiesJson != null && Object.hasOwnProperty.call(message, "propertiesJson"))
-                writer.uint32(/* id 5, wireType 2 =*/42).string(message.propertiesJson);
+                writer.uint32(/* id 6, wireType 2 =*/50).string(message.propertiesJson);
             return writer;
         };
 
@@ -6524,6 +6634,10 @@ export const petajournal = $root.petajournal = (() => {
                         break;
                     }
                 case 5: {
+                        message.status = reader.string();
+                        break;
+                    }
+                case 6: {
                         message.propertiesJson = reader.string();
                         break;
                     }
@@ -6581,6 +6695,11 @@ export const petajournal = $root.petajournal = (() => {
                 if (typeof message.collapsed !== "boolean")
                     return "collapsed: boolean expected";
             }
+            if (message.status != null && message.hasOwnProperty("status")) {
+                properties._status = 1;
+                if (!$util.isString(message.status))
+                    return "status: string expected";
+            }
             if (message.propertiesJson != null && message.hasOwnProperty("propertiesJson")) {
                 properties._propertiesJson = 1;
                 if (!$util.isString(message.propertiesJson))
@@ -6609,6 +6728,8 @@ export const petajournal = $root.petajournal = (() => {
                 message.level = object.level | 0;
             if (object.collapsed != null)
                 message.collapsed = Boolean(object.collapsed);
+            if (object.status != null)
+                message.status = String(object.status);
             if (object.propertiesJson != null)
                 message.propertiesJson = String(object.propertiesJson);
             return message;
@@ -6645,6 +6766,11 @@ export const petajournal = $root.petajournal = (() => {
                 object.collapsed = message.collapsed;
                 if (options.oneofs)
                     object._collapsed = "collapsed";
+            }
+            if (message.status != null && message.hasOwnProperty("status")) {
+                object.status = message.status;
+                if (options.oneofs)
+                    object._status = "status";
             }
             if (message.propertiesJson != null && message.hasOwnProperty("propertiesJson")) {
                 object.propertiesJson = message.propertiesJson;
@@ -7805,6 +7931,445 @@ export const petajournal = $root.petajournal = (() => {
         };
 
         return DeleteBlockResponse;
+    })();
+
+    petajournal.UpdateBlockStatusRequest = (function() {
+
+        /**
+         * Properties of an UpdateBlockStatusRequest.
+         * @memberof petajournal
+         * @interface IUpdateBlockStatusRequest
+         * @property {string|null} [blockId] UpdateBlockStatusRequest blockId
+         * @property {string|null} [status] UpdateBlockStatusRequest status
+         */
+
+        /**
+         * Constructs a new UpdateBlockStatusRequest.
+         * @memberof petajournal
+         * @classdesc Represents an UpdateBlockStatusRequest.
+         * @implements IUpdateBlockStatusRequest
+         * @constructor
+         * @param {petajournal.IUpdateBlockStatusRequest=} [properties] Properties to set
+         */
+        function UpdateBlockStatusRequest(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * UpdateBlockStatusRequest blockId.
+         * @member {string} blockId
+         * @memberof petajournal.UpdateBlockStatusRequest
+         * @instance
+         */
+        UpdateBlockStatusRequest.prototype.blockId = "";
+
+        /**
+         * UpdateBlockStatusRequest status.
+         * @member {string} status
+         * @memberof petajournal.UpdateBlockStatusRequest
+         * @instance
+         */
+        UpdateBlockStatusRequest.prototype.status = "";
+
+        /**
+         * Creates a new UpdateBlockStatusRequest instance using the specified properties.
+         * @function create
+         * @memberof petajournal.UpdateBlockStatusRequest
+         * @static
+         * @param {petajournal.IUpdateBlockStatusRequest=} [properties] Properties to set
+         * @returns {petajournal.UpdateBlockStatusRequest} UpdateBlockStatusRequest instance
+         */
+        UpdateBlockStatusRequest.create = function create(properties) {
+            return new UpdateBlockStatusRequest(properties);
+        };
+
+        /**
+         * Encodes the specified UpdateBlockStatusRequest message. Does not implicitly {@link petajournal.UpdateBlockStatusRequest.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.UpdateBlockStatusRequest
+         * @static
+         * @param {petajournal.IUpdateBlockStatusRequest} message UpdateBlockStatusRequest message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        UpdateBlockStatusRequest.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.blockId != null && Object.hasOwnProperty.call(message, "blockId"))
+                writer.uint32(/* id 1, wireType 2 =*/10).string(message.blockId);
+            if (message.status != null && Object.hasOwnProperty.call(message, "status"))
+                writer.uint32(/* id 2, wireType 2 =*/18).string(message.status);
+            return writer;
+        };
+
+        /**
+         * Encodes the specified UpdateBlockStatusRequest message, length delimited. Does not implicitly {@link petajournal.UpdateBlockStatusRequest.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof petajournal.UpdateBlockStatusRequest
+         * @static
+         * @param {petajournal.IUpdateBlockStatusRequest} message UpdateBlockStatusRequest message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        UpdateBlockStatusRequest.encodeDelimited = function encodeDelimited(message, writer) {
+            return this.encode(message, writer).ldelim();
+        };
+
+        /**
+         * Decodes an UpdateBlockStatusRequest message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.UpdateBlockStatusRequest
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.UpdateBlockStatusRequest} UpdateBlockStatusRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        UpdateBlockStatusRequest.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.UpdateBlockStatusRequest();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.blockId = reader.string();
+                        break;
+                    }
+                case 2: {
+                        message.status = reader.string();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Decodes an UpdateBlockStatusRequest message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof petajournal.UpdateBlockStatusRequest
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {petajournal.UpdateBlockStatusRequest} UpdateBlockStatusRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        UpdateBlockStatusRequest.decodeDelimited = function decodeDelimited(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies an UpdateBlockStatusRequest message.
+         * @function verify
+         * @memberof petajournal.UpdateBlockStatusRequest
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        UpdateBlockStatusRequest.verify = function verify(message) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            if (message.blockId != null && message.hasOwnProperty("blockId"))
+                if (!$util.isString(message.blockId))
+                    return "blockId: string expected";
+            if (message.status != null && message.hasOwnProperty("status"))
+                if (!$util.isString(message.status))
+                    return "status: string expected";
+            return null;
+        };
+
+        /**
+         * Creates an UpdateBlockStatusRequest message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof petajournal.UpdateBlockStatusRequest
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {petajournal.UpdateBlockStatusRequest} UpdateBlockStatusRequest
+         */
+        UpdateBlockStatusRequest.fromObject = function fromObject(object) {
+            if (object instanceof $root.petajournal.UpdateBlockStatusRequest)
+                return object;
+            let message = new $root.petajournal.UpdateBlockStatusRequest();
+            if (object.blockId != null)
+                message.blockId = String(object.blockId);
+            if (object.status != null)
+                message.status = String(object.status);
+            return message;
+        };
+
+        /**
+         * Creates a plain object from an UpdateBlockStatusRequest message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof petajournal.UpdateBlockStatusRequest
+         * @static
+         * @param {petajournal.UpdateBlockStatusRequest} message UpdateBlockStatusRequest
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        UpdateBlockStatusRequest.toObject = function toObject(message, options) {
+            if (!options)
+                options = {};
+            let object = {};
+            if (options.defaults) {
+                object.blockId = "";
+                object.status = "";
+            }
+            if (message.blockId != null && message.hasOwnProperty("blockId"))
+                object.blockId = message.blockId;
+            if (message.status != null && message.hasOwnProperty("status"))
+                object.status = message.status;
+            return object;
+        };
+
+        /**
+         * Converts this UpdateBlockStatusRequest to JSON.
+         * @function toJSON
+         * @memberof petajournal.UpdateBlockStatusRequest
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        UpdateBlockStatusRequest.prototype.toJSON = function toJSON() {
+            return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        /**
+         * Gets the default type url for UpdateBlockStatusRequest
+         * @function getTypeUrl
+         * @memberof petajournal.UpdateBlockStatusRequest
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        UpdateBlockStatusRequest.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.UpdateBlockStatusRequest";
+        };
+
+        return UpdateBlockStatusRequest;
+    })();
+
+    petajournal.UpdateBlockStatusResponse = (function() {
+
+        /**
+         * Properties of an UpdateBlockStatusResponse.
+         * @memberof petajournal
+         * @interface IUpdateBlockStatusResponse
+         * @property {petajournal.IBlock|null} [block] UpdateBlockStatusResponse block
+         */
+
+        /**
+         * Constructs a new UpdateBlockStatusResponse.
+         * @memberof petajournal
+         * @classdesc Represents an UpdateBlockStatusResponse.
+         * @implements IUpdateBlockStatusResponse
+         * @constructor
+         * @param {petajournal.IUpdateBlockStatusResponse=} [properties] Properties to set
+         */
+        function UpdateBlockStatusResponse(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * UpdateBlockStatusResponse block.
+         * @member {petajournal.IBlock|null|undefined} block
+         * @memberof petajournal.UpdateBlockStatusResponse
+         * @instance
+         */
+        UpdateBlockStatusResponse.prototype.block = null;
+
+        /**
+         * Creates a new UpdateBlockStatusResponse instance using the specified properties.
+         * @function create
+         * @memberof petajournal.UpdateBlockStatusResponse
+         * @static
+         * @param {petajournal.IUpdateBlockStatusResponse=} [properties] Properties to set
+         * @returns {petajournal.UpdateBlockStatusResponse} UpdateBlockStatusResponse instance
+         */
+        UpdateBlockStatusResponse.create = function create(properties) {
+            return new UpdateBlockStatusResponse(properties);
+        };
+
+        /**
+         * Encodes the specified UpdateBlockStatusResponse message. Does not implicitly {@link petajournal.UpdateBlockStatusResponse.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.UpdateBlockStatusResponse
+         * @static
+         * @param {petajournal.IUpdateBlockStatusResponse} message UpdateBlockStatusResponse message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        UpdateBlockStatusResponse.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.block != null && Object.hasOwnProperty.call(message, "block"))
+                $root.petajournal.Block.encode(message.block, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+            return writer;
+        };
+
+        /**
+         * Encodes the specified UpdateBlockStatusResponse message, length delimited. Does not implicitly {@link petajournal.UpdateBlockStatusResponse.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof petajournal.UpdateBlockStatusResponse
+         * @static
+         * @param {petajournal.IUpdateBlockStatusResponse} message UpdateBlockStatusResponse message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        UpdateBlockStatusResponse.encodeDelimited = function encodeDelimited(message, writer) {
+            return this.encode(message, writer).ldelim();
+        };
+
+        /**
+         * Decodes an UpdateBlockStatusResponse message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.UpdateBlockStatusResponse
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.UpdateBlockStatusResponse} UpdateBlockStatusResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        UpdateBlockStatusResponse.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.UpdateBlockStatusResponse();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.block = $root.petajournal.Block.decode(reader, reader.uint32());
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Decodes an UpdateBlockStatusResponse message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof petajournal.UpdateBlockStatusResponse
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {petajournal.UpdateBlockStatusResponse} UpdateBlockStatusResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        UpdateBlockStatusResponse.decodeDelimited = function decodeDelimited(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies an UpdateBlockStatusResponse message.
+         * @function verify
+         * @memberof petajournal.UpdateBlockStatusResponse
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        UpdateBlockStatusResponse.verify = function verify(message) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            if (message.block != null && message.hasOwnProperty("block")) {
+                let error = $root.petajournal.Block.verify(message.block);
+                if (error)
+                    return "block." + error;
+            }
+            return null;
+        };
+
+        /**
+         * Creates an UpdateBlockStatusResponse message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof petajournal.UpdateBlockStatusResponse
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {petajournal.UpdateBlockStatusResponse} UpdateBlockStatusResponse
+         */
+        UpdateBlockStatusResponse.fromObject = function fromObject(object) {
+            if (object instanceof $root.petajournal.UpdateBlockStatusResponse)
+                return object;
+            let message = new $root.petajournal.UpdateBlockStatusResponse();
+            if (object.block != null) {
+                if (typeof object.block !== "object")
+                    throw TypeError(".petajournal.UpdateBlockStatusResponse.block: object expected");
+                message.block = $root.petajournal.Block.fromObject(object.block);
+            }
+            return message;
+        };
+
+        /**
+         * Creates a plain object from an UpdateBlockStatusResponse message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof petajournal.UpdateBlockStatusResponse
+         * @static
+         * @param {petajournal.UpdateBlockStatusResponse} message UpdateBlockStatusResponse
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        UpdateBlockStatusResponse.toObject = function toObject(message, options) {
+            if (!options)
+                options = {};
+            let object = {};
+            if (options.defaults)
+                object.block = null;
+            if (message.block != null && message.hasOwnProperty("block"))
+                object.block = $root.petajournal.Block.toObject(message.block, options);
+            return object;
+        };
+
+        /**
+         * Converts this UpdateBlockStatusResponse to JSON.
+         * @function toJSON
+         * @memberof petajournal.UpdateBlockStatusResponse
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        UpdateBlockStatusResponse.prototype.toJSON = function toJSON() {
+            return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        /**
+         * Gets the default type url for UpdateBlockStatusResponse
+         * @function getTypeUrl
+         * @memberof petajournal.UpdateBlockStatusResponse
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        UpdateBlockStatusResponse.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.UpdateBlockStatusResponse";
+        };
+
+        return UpdateBlockStatusResponse;
     })();
 
     petajournal.SearchPageNamesRequest = (function() {

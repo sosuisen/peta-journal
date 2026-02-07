@@ -74,6 +74,7 @@ public class JournalWebSocket {
                 case UPDATE_BLOCK -> response.setUpdateBlock(handleUpdateBlock(request.getUpdateBlock()));
                 case MOVE_BLOCKS -> response.setMoveBlocks(handleMoveBlocks(request.getMoveBlocks()));
                 case DELETE_BLOCK -> response.setDeleteBlock(handleDeleteBlock(request.getDeleteBlock()));
+                case UPDATE_BLOCK_STATUS -> response.setUpdateBlockStatus(handleUpdateBlockStatus(request.getUpdateBlockStatus()));
                 case SEARCH_PAGE_NAMES -> response.setSearchPageNames(handleSearchPageNames(request.getSearchPageNames()));
                 case SEARCH_FULL_TEXT -> response.setSearchFullText(handleSearchFullText(request.getSearchFullText()));
                 case GET_RECENT_PAGES -> response.setGetRecentPages(handleGetRecentPages(request.getGetRecentPages()));
@@ -160,6 +161,7 @@ public class JournalWebSocket {
                 req.hasBody() ? req.getBody() : null,
                 req.hasLevel() ? req.getLevel() : null,
                 req.hasCollapsed() ? req.getCollapsed() : null,
+                req.hasStatus() ? req.getStatus() : null,
                 req.hasPropertiesJson() ? req.getPropertiesJson() : null
         );
         return UpdateBlockResponse.newBuilder()
@@ -182,6 +184,13 @@ public class JournalWebSocket {
     private DeleteBlockResponse handleDeleteBlock(DeleteBlockRequest req) {
         blockService.deleteBlock(req.getBlockId());
         return DeleteBlockResponse.newBuilder().build();
+    }
+
+    private UpdateBlockStatusResponse handleUpdateBlockStatus(UpdateBlockStatusRequest req) {
+        var block = blockService.updateBlockStatus(req.getBlockId(), req.getStatus());
+        return UpdateBlockStatusResponse.newBuilder()
+                .setBlock(ProtoConverter.toProto(block))
+                .build();
     }
 
     private SearchPageNamesResponse handleSearchPageNames(SearchPageNamesRequest req) {

@@ -40,6 +40,7 @@ function toBlock(b: any): Block {
     body: b.body ?? '',
     html: b.html ?? '',
     collapsed: b.collapsed ?? false,
+    status: b.status ?? 'normal',
     types: b.types ?? [],
     propertiesJson: b.propertiesJson ?? '',
   };
@@ -87,6 +88,11 @@ export class ApiService {
 
   async deleteBlock(blockId: string): Promise<void> {
     await this.proto.send({ deleteBlock: { blockId } });
+  }
+
+  async updateBlockStatus(blockId: string, status: string): Promise<Block> {
+    const resp: any = await this.proto.send({ updateBlockStatus: { blockId, status } });
+    return toBlock(resp.updateBlockStatus.block);
   }
 
   async searchPageNames(query: string, maxResults = 20): Promise<SearchPageNamesResult> {

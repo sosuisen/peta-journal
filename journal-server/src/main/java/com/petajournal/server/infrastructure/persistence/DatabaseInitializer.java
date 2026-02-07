@@ -69,6 +69,7 @@ public class DatabaseInitializer {
                     body TEXT NOT NULL DEFAULT '',
                     html TEXT NOT NULL DEFAULT '',
                     collapsed INTEGER NOT NULL DEFAULT 0,
+                    status TEXT NOT NULL DEFAULT 'normal' CHECK(status IN ('normal', 'todo', 'running', 'done')),
                     properties_json TEXT DEFAULT '{}',
                     FOREIGN KEY (page_id) REFERENCES pages(id) ON DELETE CASCADE
                 )
@@ -97,6 +98,15 @@ public class DatabaseInitializer {
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_page_titles_title ON page_titles(title)");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_blocks_page_id ON blocks(page_id, idx)");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_blocks_body_link ON blocks(body)");
+            stmt.execute("CREATE INDEX IF NOT EXISTS idx_blocks_status ON blocks(status)");
+
+            // Migration: Add status column to existing databases (without CHECK constraint - SQLite limitation)
+            try {
+                stmt.execute("ALTER TABLE blocks ADD COLUMN status TEXT NOT NULL DEFAULT 'normal'");
+                LOG.info("Added status column to blocks table");
+            } catch (SQLException e) {
+                // Column already exists, ignore
+            }
 
             LOG.info("Database schema initialized successfully.");
         } catch (SQLException e) {

@@ -50,7 +50,7 @@ public class ImportService {
             Block withHtml = new Block(
                     block.id(), block.pageId(), block.createdDate(), block.modifiedDate(),
                     block.idx(), block.level(), block.body(), html,
-                    block.collapsed(), block.types(), block.propertiesJson()
+                    block.collapsed(), block.status(), block.types(), block.propertiesJson()
             );
             blockRepository.save(withHtml);
             searchService.indexBlock(withHtml, page.primaryTitle());

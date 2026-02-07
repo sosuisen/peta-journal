@@ -48,6 +48,7 @@ final class ProtoConverter {
                 .setBody(block.body())
                 .setHtml(block.html())
                 .setCollapsed(block.collapsed())
+                .setStatus(block.status() != null ? block.status() : "normal")
                 .setPropertiesJson(block.propertiesJson() != null ? block.propertiesJson() : "{}");
         if (block.types() != null) {
             b.addAllTypes(block.types());

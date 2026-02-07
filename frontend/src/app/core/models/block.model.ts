@@ -8,6 +8,7 @@ export interface Block {
   body: string;
   html: string;
   collapsed: boolean;
+  status: string;  // normal, todo, running, done
   types: string[];
   propertiesJson: string;
 }

@@ -24,6 +24,7 @@ message ApiRequest {
     UpdateBlockRequest update_block = 21;
     MoveBlocksRequest move_blocks = 22;
     DeleteBlockRequest delete_block = 23;
+    UpdateBlockStatusRequest update_block_status = 24;
     SearchPageNamesRequest search_page_names = 30;
     SearchFullTextRequest search_full_text = 31;
     GetRecentPagesRequest get_recent_pages = 40;
@@ -46,6 +47,7 @@ message ApiResponse {
     UpdateBlockResponse update_block = 21;
     MoveBlocksResponse move_blocks = 22;
     DeleteBlockResponse delete_block = 23;
+    UpdateBlockStatusResponse update_block_status = 24;
     SearchPageNamesResponse search_page_names = 30;
     SearchFullTextResponse search_full_text = 31;
     GetRecentPagesResponse get_recent_pages = 40;
@@ -120,7 +122,8 @@ message UpdateBlockRequest {
   optional string body = 2;
   optional int32 level = 3;
   optional bool collapsed = 4;
-  optional string properties_json = 5;
+  optional string status = 5;
+  optional string properties_json = 6;
 }
 
 message UpdateBlockResponse {
@@ -143,6 +146,15 @@ message DeleteBlockRequest {
 }
 
 message DeleteBlockResponse {
+}
+
+message UpdateBlockStatusRequest {
+  string block_id = 1;
+  string status = 2;  // normal, todo, running, done
+}
+
+message UpdateBlockStatusResponse {
+  Block block = 1;
 }
 
 // --- Search operations ---
