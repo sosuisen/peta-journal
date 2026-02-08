@@ -33,8 +33,8 @@ import { BlockViewComponent } from './block-view';
             [blockId]="block().id"
             [status]="block().status"
             (bodyChange)="bodyChanged.emit($event)"
-            (blurred)="editFinished.emit()"
-            (enterPressed)="enterPressed.emit($event)"
+            (blurred)="onEditFinished()"
+            (enterPressed)="onEnterPressed($event)"
             (backspaceAtStart)="backspaceAtStart.emit()"
             (deleteAtEnd)="deleteAtEnd.emit()"
             (navigateUp)="navigateUp.emit($event)"
@@ -130,5 +130,53 @@ export class OutlineBlockComponent {
 
   toggleCollapse(): void {
     this.collapseToggled.emit();
+  }
+
+  onEditFinished(): void {
+    this.createDuplicateTextarea();
+    this.editFinished.emit();
+  }
+
+  onEnterPressed(event: { cursorPos: number }): void {
+    this.createDuplicateTextarea();
+    this.enterPressed.emit(event);
+  }
+
+  private createDuplicateTextarea(): void {
+    const textarea = document.getElementById('block-editor-' + this.block().id) as HTMLTextAreaElement;
+    if (!textarea) return;
+
+    // Create div duplicate
+    const duplicate = document.createElement('div');
+    duplicate.textContent = textarea.value;
+    duplicate.style.pointerEvents = 'none';
+
+    // Copy styles
+    const computedStyle = window.getComputedStyle(textarea);
+    duplicate.style.font = computedStyle.font;
+    duplicate.style.fontSize = computedStyle.fontSize;
+    duplicate.style.fontFamily = computedStyle.fontFamily;
+    duplicate.style.lineHeight = computedStyle.lineHeight;
+    duplicate.style.padding = computedStyle.padding;
+    duplicate.style.whiteSpace = 'pre-wrap';
+    duplicate.style.wordWrap = 'break-word';
+    duplicate.style.overflow = 'hidden';
+
+    // Get exact position
+    const rect = textarea.getBoundingClientRect();
+    duplicate.style.position = 'absolute';
+    duplicate.style.left = (rect.left + window.scrollX) + 'px';
+    duplicate.style.top = (rect.top + window.scrollY) + 'px';
+    duplicate.style.width = rect.width + 'px';
+    duplicate.style.height = rect.height + 'px';
+    duplicate.style.zIndex = '0';
+
+    // Append to body
+    document.body.appendChild(duplicate);
+
+    // Remove after 0.15s
+    setTimeout(() => {
+      duplicate.remove();
+    }, 150);
   }
 }
