@@ -101,13 +101,15 @@ export class JournalComponent implements OnInit, OnDestroy {
   goToPrevDay(): void {
     const d = new Date(this.currentDate() + 'T00:00:00');
     d.setDate(d.getDate() - 1);
-    this.router.navigate(['/journals', d.toISOString().split('T')[0]]);
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    this.router.navigate(['/journals', dateStr]);
   }
 
   goToNextDay(): void {
     const d = new Date(this.currentDate() + 'T00:00:00');
     d.setDate(d.getDate() + 1);
-    this.router.navigate(['/journals', d.toISOString().split('T')[0]]);
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    this.router.navigate(['/journals', dateStr]);
   }
 
   onDateSelected(date: string): void {
