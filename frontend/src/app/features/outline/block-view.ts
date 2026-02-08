@@ -71,10 +71,10 @@ import hljs from 'highlight.js';
       color: #d63384;
     }
     :host ::ng-deep pre {
-      background: #f6f8fa;
+      background: #fffbf0;
       padding: 16px;
       border-radius: 6px;
-      border: 1px solid #d0d7de;
+      border: 1px solid #e8ddc3;
       overflow-x: auto;
       margin: 8px 0;
       position: relative;
@@ -112,7 +112,7 @@ import hljs from 'highlight.js';
       padding: 8px 16px;
       border-left: 4px solid #d0d7de;
       background: #f6f8fa;
-      color: #57606a;
+      color: #000;
     }
     :host ::ng-deep blockquote p {
       margin: 0;
