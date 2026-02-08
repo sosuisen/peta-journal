@@ -31,6 +31,7 @@ import { Block } from '../../core/models/block.model';
           (moveDown)="onMoveDown(block)"
           (taskToggled)="onCheckboxToggled(block)"
           (statusCycleRequested)="onStatusCycleRequested(block)"
+          (collapseToggled)="onCollapseToggled(block)"
         />
       </div>
     </cdk-virtual-scroll-viewport>
@@ -370,6 +371,22 @@ export class OutlineComponent {
       this.state.updateBlock(block.id, { status: updated.status });
     } catch (e) {
       console.error('Failed to cycle status:', e);
+    }
+  }
+
+  async onCollapseToggled(block: Block): Promise<void> {
+    try {
+      const newCollapsed = !block.collapsed;
+      // Update local state immediately for responsive UI
+      this.state.toggleCollapsed(block.id);
+      this.state.updateBlock(block.id, { collapsed: newCollapsed });
+      // Persist to backend
+      await this.api.updateBlock(block.id, { collapsed: newCollapsed });
+    } catch (e) {
+      console.error('Failed to toggle collapse:', e);
+      // Revert on error
+      this.state.toggleCollapsed(block.id);
+      this.state.updateBlock(block.id, { collapsed: block.collapsed });
     }
   }
 

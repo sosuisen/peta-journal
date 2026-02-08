@@ -120,6 +120,7 @@ export class OutlineBlockComponent {
   readonly moveDown = output<void>();
   readonly taskToggled = output<void>();
   readonly statusCycleRequested = output<void>();
+  readonly collapseToggled = output<void>();
 
   readonly indentPx = computed(() => this.block().level * 24);
   readonly hasChildren = computed(() => this.state.hasChildren(this.block().id));
@@ -128,6 +129,6 @@ export class OutlineBlockComponent {
   readonly isCollapsed = computed(() => this.block().collapsed);
 
   toggleCollapse(): void {
-    this.state.toggleCollapsed(this.block().id);
+    this.collapseToggled.emit();
   }
 }
