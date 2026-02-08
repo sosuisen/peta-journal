@@ -60,6 +60,29 @@ import { RecentPagesService } from '../../core/services/recent-pages.service';
       cursor: pointer;
       margin-right: 4px;
     }
+    :host ::ng-deep code {
+      background: #f5f5f5;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+      font-size: 0.9em;
+      color: #d63384;
+    }
+    :host ::ng-deep pre {
+      background: #f5f5f5;
+      padding: 12px;
+      border-radius: 4px;
+      border: 1px solid #e0e0e0;
+      overflow-x: auto;
+      margin: 8px 0;
+    }
+    :host ::ng-deep pre code {
+      background: none;
+      padding: 0;
+      color: inherit;
+      font-size: 0.875em;
+      border-radius: 0;
+    }
     .task-checkbox {
       cursor: pointer;
       margin-right: 6px;
