@@ -34,6 +34,12 @@ public class JournalWebSocket {
     @Inject
     SearchService searchService;
 
+    @Inject
+    com.petajournal.server.application.ConfigService configService;
+
+    @Inject
+    com.petajournal.server.application.FolderChooserService folderChooserService;
+
     @OnOpen
     void onOpen() {
         LOG.info("WebSocket client connected");
@@ -80,6 +86,9 @@ public class JournalWebSocket {
                 case GET_RECENT_PAGES -> response.setGetRecentPages(handleGetRecentPages(request.getGetRecentPages()));
                 case GET_BACKLINKS -> response.setGetBacklinks(handleGetBacklinks(request.getGetBacklinks()));
                 case GET_MOST_RECENT_JOURNAL_BEFORE -> response.setGetMostRecentJournalBefore(handleGetMostRecentJournalBefore(request.getGetMostRecentJournalBefore()));
+                case GET_CONFIG -> response.setGetConfig(handleGetConfig(request.getGetConfig()));
+                case SET_MARKDOWN_DIR -> response.setSetMarkdownDir(handleSetMarkdownDir(request.getSetMarkdownDir()));
+                case CHOOSE_FOLDER -> response.setChooseFolder(handleChooseFolder(request.getChooseFolder()));
                 default -> {
                     response.setSuccess(false);
                     response.setErrorMessage("Unknown request type: " + request.getPayloadCase());
@@ -236,6 +245,26 @@ public class JournalWebSocket {
         var entries = pageService.getBacklinks(UUID.fromString(req.getPageId()));
         return GetBacklinksResponse.newBuilder()
                 .addAllEntries(entries.stream().map(ProtoConverter::toProto).toList())
+                .build();
+    }
+
+    private GetConfigResponse handleGetConfig(GetConfigRequest req) {
+        String markdownDir = configService.getMarkdownDir();
+        return GetConfigResponse.newBuilder()
+                .setMarkdownDir(markdownDir != null ? markdownDir : "")
+                .build();
+    }
+
+    private SetMarkdownDirResponse handleSetMarkdownDir(SetMarkdownDirRequest req) {
+        configService.setMarkdownDir(req.getMarkdownDir());
+        return SetMarkdownDirResponse.newBuilder().build();
+    }
+
+    private ChooseFolderResponse handleChooseFolder(ChooseFolderRequest req) {
+        var choice = folderChooserService.chooseFolder();
+        return ChooseFolderResponse.newBuilder()
+                .setSelected(choice.selected)
+                .setPath(choice.path)
                 .build();
     }
 }
