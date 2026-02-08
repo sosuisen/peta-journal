@@ -73,9 +73,14 @@ export class JournalComponent implements OnInit, OnDestroy {
     const d = this.currentDate();
     if (!d) return '';
     try {
-      return new Date(d + 'T00:00:00').toLocaleDateString('en-US', {
-        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+      const date = new Date(d + 'T00:00:00');
+      const dateStr = date.toLocaleDateString(undefined, {
+        year: 'numeric', month: 'long', day: 'numeric'
       });
+      const weekdayStr = date.toLocaleDateString(undefined, {
+        weekday: 'long'
+      });
+      return `${dateStr} ${weekdayStr}`;
     } catch {
       return d;
     }
