@@ -40,6 +40,9 @@ public class BlockService {
     @Inject
     SyncService syncService;
 
+    @Inject
+    com.petajournal.server.infrastructure.export.MarkdownExportService exportService;
+
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public Block createBlock(UUID pageId, String afterBlockId, int level, String body) {
@@ -89,6 +92,10 @@ public class BlockService {
         searchService.indexBlock(block, page.primaryTitle());
 
         syncService.notifyChange("block", id);
+
+        // Queue for export
+        exportService.queueExport(pageId);
+
         return block;
     }
 
@@ -130,6 +137,10 @@ public class BlockService {
         }
 
         syncService.notifyChange("block", blockId);
+
+        // Queue for export
+        exportService.queueExport(existing.pageId());
+
         return updated;
     }
 
@@ -193,6 +204,10 @@ public class BlockService {
         }
 
         touchPage(targetPageId);
+
+        // Queue for export
+        exportService.queueExport(targetPageId);
+
         return movedBlocks;
     }
 
@@ -203,6 +218,8 @@ public class BlockService {
         block.ifPresent(b -> {
             touchPage(b.pageId());
             syncService.notifyChange("block", blockId);
+            // Queue for export
+            exportService.queueExport(b.pageId());
         });
     }
 

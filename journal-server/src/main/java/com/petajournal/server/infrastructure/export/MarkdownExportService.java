@@ -1,5 +1,6 @@
 package com.petajournal.server.infrastructure.export;
 
+import com.petajournal.server.application.ConfigService;
 import com.petajournal.server.domain.model.Block;
 import com.petajournal.server.domain.model.Page;
 import com.petajournal.server.domain.model.PageTitle;
@@ -8,7 +9,6 @@ import com.petajournal.server.domain.repository.PageRepository;
 import io.quarkus.scheduler.Scheduled;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 import java.io.IOException;
@@ -23,8 +23,8 @@ public class MarkdownExportService {
 
     private static final Logger LOG = Logger.getLogger(MarkdownExportService.class);
 
-    @ConfigProperty(name = "petajournal.export.dir")
-    String exportDir;
+    @Inject
+    ConfigService configService;
 
     @Inject
     ExportQueueRepository exportQueueRepository;
@@ -54,6 +54,12 @@ public class MarkdownExportService {
     }
 
     void exportPage(UUID pageId) throws IOException {
+        String markdownDir = configService.getMarkdownDir();
+        if (markdownDir == null || markdownDir.trim().isEmpty()) {
+            LOG.warn("Markdown directory not configured, skipping export");
+            return;
+        }
+
         var pageOpt = pageRepository.findById(pageId);
         if (pageOpt.isEmpty()) return;
 
@@ -61,7 +67,7 @@ public class MarkdownExportService {
         List<Block> blocks = blockRepository.findByPageId(pageId);
 
         String markdown = serializeToOutlineMarkdown(page, blocks);
-        Path dir = Path.of(resolveHome(exportDir), page.dirPath());
+        Path dir = Path.of(markdownDir, page.dirPath());
         Files.createDirectories(dir);
         Path filePath = dir.resolve(page.fileName() + ".md");
 
@@ -80,66 +86,40 @@ public class MarkdownExportService {
     String serializeToOutlineMarkdown(Page page, List<Block> blocks) {
         StringBuilder sb = new StringBuilder();
 
-        // YAML frontmatter
-        sb.append("---\n");
-        sb.append("id: ").append(page.id()).append("\n");
-        if (page.titles() != null && !page.titles().isEmpty()) {
-            if (page.titles().size() == 1) {
-                sb.append("title: ").append(yamlEscape(page.titles().getFirst().title())).append("\n");
-            } else {
-                sb.append("titles:\n");
-                for (PageTitle t : page.titles()) {
-                    sb.append("  - ").append(yamlEscape(t.title())).append("\n");
-                }
-            }
-        }
-        if (page.tags() != null && !page.tags().isEmpty()) {
-            sb.append("tags:\n");
-            for (String tag : page.tags()) {
-                sb.append("  - ").append(tag).append("\n");
-            }
-        }
-        sb.append("created: ").append(page.createdDate()).append("\n");
-        sb.append("modified: ").append(page.modifiedDate()).append("\n");
-        sb.append("---\n\n");
+        // Blocks separated by empty lines
+        // Level 0 (depth 1): no prefix
+        // Level 1 (depth 2): "- "
+        // Level 2 (depth 3): "  - " (2 spaces + "- ")
+        // Level n (depth n+1): repeat("  ", n-1) + "- "
 
-        // Blocks separated by blank lines with pandoc attributes
-        for (Block block : blocks) {
+        for (int i = 0; i < blocks.size(); i++) {
+            Block block = blocks.get(i);
             String body = block.body();
             if (body == null) body = "";
 
-            // Indent by level
-            String indent = "  ".repeat(block.level());
-            String indentedBody = body.lines()
-                    .map(line -> indent + line)
-                    .reduce((a, b2) -> a + "\n" + b2)
-                    .orElse(indent);
-
-            sb.append(indentedBody);
-
-            // Pandoc-style attributes
-            StringBuilder attrs = new StringBuilder();
-            attrs.append("{#").append(block.id());
-            if (block.collapsed()) {
-                attrs.append(" .collapsed");
+            // Add prefix based on level
+            String prefix = "";
+            if (block.level() > 0) {
+                prefix = "  ".repeat(block.level() - 1) + "- ";
             }
-            if (block.types() != null) {
-                for (String type : block.types()) {
-                    attrs.append(" .").append(type);
+
+            // First line gets the prefix, subsequent lines don't need indenting
+            String[] lines = body.split("\n", -1);
+            for (int j = 0; j < lines.length; j++) {
+                if (j == 0) {
+                    sb.append(prefix).append(lines[j]).append("\n");
+                } else {
+                    sb.append(lines[j]).append("\n");
                 }
             }
-            attrs.append("}");
-            sb.append(" ").append(attrs).append("\n\n");
+
+            // Add blank line separator between blocks (except after last block)
+            if (i < blocks.size() - 1) {
+                sb.append("\n");
+            }
         }
 
         return sb.toString();
-    }
-
-    private String yamlEscape(String value) {
-        if (value.contains(":") || value.contains("\"") || value.contains("'") || value.contains("\n")) {
-            return "\"" + value.replace("\"", "\\\"") + "\"";
-        }
-        return value;
     }
 
     private void writeWithLock(Path path, String content) throws IOException {
@@ -155,12 +135,5 @@ public class MarkdownExportService {
                 lock.release();
             }
         }
-    }
-
-    private String resolveHome(String path) {
-        if (path.startsWith("~")) {
-            return System.getProperty("user.home") + path.substring(1);
-        }
-        return path;
     }
 }

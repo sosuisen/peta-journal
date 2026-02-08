@@ -35,6 +35,9 @@ public class PageService {
     @Inject
     SyncService syncService;
 
+    @Inject
+    com.petajournal.server.infrastructure.export.MarkdownExportService exportService;
+
     public Optional<Page> getPage(UUID pageId) {
         return pageRepository.findById(pageId);
     }
@@ -69,6 +72,10 @@ public class PageService {
         blockRepository.save(block);
 
         syncService.notifyChange("page", id.toString());
+
+        // Queue for export
+        exportService.queueExport(id);
+
         return page;
     }
 
@@ -96,6 +103,10 @@ public class PageService {
         updated = pageRepository.save(updated);
         searchService.indexPage(updated);
         syncService.notifyChange("page", pageId.toString());
+
+        // Queue for export
+        exportService.queueExport(pageId);
+
         return updated;
     }
 
