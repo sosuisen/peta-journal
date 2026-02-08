@@ -107,6 +107,16 @@ import hljs from 'highlight.js';
       pointer-events: none;
       user-select: none;
     }
+    :host ::ng-deep blockquote {
+      margin: 8px 0;
+      padding: 8px 16px;
+      border-left: 4px solid #d0d7de;
+      background: #f6f8fa;
+      color: #57606a;
+    }
+    :host ::ng-deep blockquote p {
+      margin: 0;
+    }
     .task-checkbox {
       cursor: pointer;
       margin-right: 6px;
