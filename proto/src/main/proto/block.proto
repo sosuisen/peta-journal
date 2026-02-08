@@ -11,14 +11,16 @@ import "common.proto";
 message Block {
   string id = 1;                    // 7-char hex (first 7 of UUID)
   string page_id = 2;              // UUID of parent page
-  Timestamp created_date = 3;
-  Timestamp modified_date = 4;
-  string idx = 5;                   // Fractional index string for ordering
-  int32 level = 6;                  // Indentation level (0-based)
-  string body = 7;                  // Markdown source text
-  string html = 8;                  // Parsed HTML
-  bool collapsed = 9;              // Whether children are collapsed
-  string status = 10;              // Block status: normal, todo, running, done
-  repeated string types = 11;      // Block types (e.g. "heading", "code")
-  string properties_json = 12;     // Extensible JSON properties
+  string dir_path = 3;             // Directory path of the page
+  string file_name = 4;            // File name of the page
+  Timestamp created_date = 5;
+  Timestamp modified_date = 6;
+  string idx = 7;                   // Fractional index string for ordering
+  int32 level = 8;                  // Indentation level (0-based)
+  string body = 9;                  // Markdown source text
+  string html = 10;                 // Parsed HTML
+  bool collapsed = 11;              // Whether children are collapsed
+  string status = 12;              // Block status: normal, todo, running, done
+  repeated string types = 13;      // Block types (e.g. "heading", "code")
+  string properties_json = 14;     // Extensible JSON properties
 }

@@ -65,7 +65,7 @@ public class PageService {
 
         // Create initial empty block
         String blockId = BlockIdGenerator.generate();
-        Block block = new Block(blockId, id, now, now, FractionalIndexer.initial(), 0, "", "", false, "normal", List.of(), "{}");
+        Block block = new Block(blockId, id, page.dirPath(), page.fileName(), now, now, FractionalIndexer.initial(), 0, "", "", false, "normal", List.of(), "{}");
         blockRepository.save(block);
 
         syncService.notifyChange("page", id.toString());

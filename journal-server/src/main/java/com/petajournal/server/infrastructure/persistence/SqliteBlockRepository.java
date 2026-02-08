@@ -22,7 +22,9 @@ public class SqliteBlockRepository implements BlockRepository {
     public Optional<Block> findById(String id) {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT id, page_id, created_date, modified_date, idx, level, body, html, collapsed, status, properties_json FROM blocks WHERE id = ?")) {
+                     "SELECT b.id, b.page_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.html, b.collapsed, b.status, b.properties_json, " +
+                     "p.dir_path, p.file_name " +
+                     "FROM blocks b JOIN pages p ON b.page_id = p.id WHERE b.id = ?")) {
             ps.setString(1, id);
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) return Optional.empty();
@@ -37,7 +39,9 @@ public class SqliteBlockRepository implements BlockRepository {
     public List<Block> findByPageId(UUID pageId) {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT id, page_id, created_date, modified_date, idx, level, body, html, collapsed, status, properties_json FROM blocks WHERE page_id = ? ORDER BY idx")) {
+                     "SELECT b.id, b.page_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.html, b.collapsed, b.status, b.properties_json, " +
+                     "p.dir_path, p.file_name " +
+                     "FROM blocks b JOIN pages p ON b.page_id = p.id WHERE b.page_id = ? ORDER BY b.idx")) {
             ps.setString(1, pageId.toString());
             List<Block> blocks = new ArrayList<>();
             try (ResultSet rs = ps.executeQuery()) {
@@ -167,7 +171,9 @@ public class SqliteBlockRepository implements BlockRepository {
         String pattern = "%[[" + pageTitle + "]]%";
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT id, page_id, created_date, modified_date, idx, level, body, html, collapsed, status, properties_json FROM blocks WHERE body LIKE ?")) {
+                     "SELECT b.id, b.page_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.html, b.collapsed, b.status, b.properties_json, " +
+                     "p.dir_path, p.file_name " +
+                     "FROM blocks b JOIN pages p ON b.page_id = p.id WHERE b.body LIKE ?")) {
             ps.setString(1, pattern);
             List<Block> blocks = new ArrayList<>();
             try (ResultSet rs = ps.executeQuery()) {
@@ -186,6 +192,8 @@ public class SqliteBlockRepository implements BlockRepository {
         return new Block(
                 blockId,
                 UUID.fromString(rs.getString("page_id")),
+                rs.getString("dir_path"),
+                rs.getString("file_name"),
                 Instant.ofEpochMilli(rs.getLong("created_date")),
                 Instant.ofEpochMilli(rs.getLong("modified_date")),
                 rs.getString("idx"),

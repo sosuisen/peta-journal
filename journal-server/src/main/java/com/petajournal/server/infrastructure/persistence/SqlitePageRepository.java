@@ -62,6 +62,27 @@ public class SqlitePageRepository implements PageRepository {
     }
 
     @Override
+    public Optional<Page> findMostRecentJournalBefore(LocalDate beforeDate) {
+        String dirPath = "journals";
+        String fileName = beforeDate.format(DateTimeFormatter.ISO_LOCAL_DATE);
+
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "SELECT id, dir_path, file_name, created_date, modified_date, properties_json FROM pages " +
+                     "WHERE dir_path = ? AND file_name < ? " +
+                     "ORDER BY file_name DESC LIMIT 1")) {
+            ps.setString(1, dirPath);
+            ps.setString(2, fileName);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) return Optional.empty();
+                return Optional.of(mapPage(conn, rs));
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to find most recent journal before: " + beforeDate, e);
+        }
+    }
+
+    @Override
     public List<Page> findByTag(String tag) {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(

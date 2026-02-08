@@ -6,6 +6,7 @@ import { OutlineComponent } from '../outline/outline';
 import { ApiService } from '../../core/services/api.service';
 import { Page } from '../../core/models/page.model';
 import { CalendarComponent } from '../../shared/calendar';
+import { OutlineStateService } from '../../core/services/outline-state.service';
 
 @Component({
   selector: 'app-journal',
@@ -23,7 +24,7 @@ import { CalendarComponent } from '../../shared/calendar';
       />
     }
     @if (page()) {
-      <app-outline [pageId]="page()!.id" />
+      <app-outline [pageId]="page()!.id" (loadMore)="onLoadMore($event)" />
     }
   `,
   styles: [`
@@ -63,7 +64,10 @@ export class JournalComponent implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly api = inject(ApiService);
   private readonly title = inject(Title);
+  private readonly outlineState = inject(OutlineStateService);
   private routeSub?: Subscription;
+  private loadedDates = new Set<string>();
+  private loading = false;
 
   readonly currentDate = signal('');
   readonly page = signal<Page | null>(null);
@@ -109,6 +113,106 @@ export class JournalComponent implements OnInit, OnDestroy {
     const result = await this.api.getJournal(date);
     this.page.set(result.page);
     this.title.setTitle(date);
+    this.loadedDates.clear();
+    this.loadedDates.add(date);
+
+    // Pre-load previous journals to fill the buffer
+    await this.loadInitialBuffer(date);
+  }
+
+  private async loadInitialBuffer(currentDate: string): Promise<void> {
+    if (this.loading) return;
+    this.loading = true;
+
+    try {
+      let dateStr = currentDate;
+      const targetBufferSize = 100;
+
+      while (this.outlineState.blocks().length < targetBufferSize) {
+        console.log('Loading initial buffer - current blocks:', this.outlineState.blocks().length);
+        const result = await this.api.getMostRecentJournalBefore(dateStr);
+
+        if (!result.found) {
+          console.log('No more journals for initial buffer');
+          break;
+        }
+
+        console.log('Pre-loaded journal:', result.page!.fileName, '- blocks:', result.blocks.length);
+
+        if (this.loadedDates.has(result.page!.fileName)) {
+          dateStr = result.page!.fileName;
+          continue;
+        }
+
+        this.loadedDates.add(result.page!.fileName);
+        const currentBlocks = this.outlineState.blocks();
+        this.outlineState.setBlocks([...currentBlocks, ...result.blocks]);
+
+        dateStr = result.page!.fileName;
+      }
+
+      console.log('Initial buffer loaded - total blocks:', this.outlineState.blocks().length);
+    } catch (e) {
+      console.error('Failed to load initial buffer:', e);
+    } finally {
+      this.loading = false;
+    }
+  }
+
+  async onLoadMore(event: { filepath: string; currentIndex: number }): Promise<void> {
+    console.log('onLoadMore called - filepath:', event.filepath, 'currentIndex:', event.currentIndex);
+
+    if (this.loading) {
+      console.log('Already loading, skipping');
+      return;
+    }
+
+    this.loading = true;
+
+    try {
+      // Extract date from filepath (e.g., "journals2026-02-08" → "2026-02-08")
+      const match = event.filepath.match(/(\d{4}-\d{2}-\d{2})/);
+      if (!match) {
+        console.error('Could not extract date from filepath:', event.filepath);
+        return;
+      }
+
+      let currentDateStr = match[1];
+
+      // Keep loading until we have 100 blocks of buffer
+      while (this.outlineState.blocks().length < event.currentIndex + 100) {
+        console.log('Finding most recent journal before:', currentDateStr);
+        const result = await this.api.getMostRecentJournalBefore(currentDateStr);
+
+        if (!result.found) {
+          console.log('No more journals found, stopping');
+          break;
+        }
+
+        console.log('Found journal:', result.page!.fileName, '- blocks:', result.blocks.length);
+
+        if (this.loadedDates.has(result.page!.fileName)) {
+          console.log('Already loaded:', result.page!.fileName);
+          currentDateStr = result.page!.fileName;
+          continue;
+        }
+
+        this.loadedDates.add(result.page!.fileName);
+
+        // Append blocks from this journal
+        const currentBlocks = this.outlineState.blocks();
+        this.outlineState.setBlocks([...currentBlocks, ...result.blocks]);
+        console.log('Appended blocks - total now:', this.outlineState.blocks().length);
+
+        currentDateStr = result.page!.fileName;
+      }
+
+      console.log('Finished loading - total blocks:', this.outlineState.blocks().length);
+    } catch (e) {
+      console.error('Failed to load previous days:', e);
+    } finally {
+      this.loading = false;
+    }
   }
 
   goToPrevDay(): void {

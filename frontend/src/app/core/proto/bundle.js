@@ -911,6 +911,8 @@ export const petajournal = $root.petajournal = (() => {
          * @interface IBlock
          * @property {string|null} [id] Block id
          * @property {string|null} [pageId] Block pageId
+         * @property {string|null} [dirPath] Block dirPath
+         * @property {string|null} [fileName] Block fileName
          * @property {petajournal.ITimestamp|null} [createdDate] Block createdDate
          * @property {petajournal.ITimestamp|null} [modifiedDate] Block modifiedDate
          * @property {string|null} [idx] Block idx
@@ -954,6 +956,22 @@ export const petajournal = $root.petajournal = (() => {
          * @instance
          */
         Block.prototype.pageId = "";
+
+        /**
+         * Block dirPath.
+         * @member {string} dirPath
+         * @memberof petajournal.Block
+         * @instance
+         */
+        Block.prototype.dirPath = "";
+
+        /**
+         * Block fileName.
+         * @member {string} fileName
+         * @memberof petajournal.Block
+         * @instance
+         */
+        Block.prototype.fileName = "";
 
         /**
          * Block createdDate.
@@ -1063,27 +1081,31 @@ export const petajournal = $root.petajournal = (() => {
                 writer.uint32(/* id 1, wireType 2 =*/10).string(message.id);
             if (message.pageId != null && Object.hasOwnProperty.call(message, "pageId"))
                 writer.uint32(/* id 2, wireType 2 =*/18).string(message.pageId);
+            if (message.dirPath != null && Object.hasOwnProperty.call(message, "dirPath"))
+                writer.uint32(/* id 3, wireType 2 =*/26).string(message.dirPath);
+            if (message.fileName != null && Object.hasOwnProperty.call(message, "fileName"))
+                writer.uint32(/* id 4, wireType 2 =*/34).string(message.fileName);
             if (message.createdDate != null && Object.hasOwnProperty.call(message, "createdDate"))
-                $root.petajournal.Timestamp.encode(message.createdDate, writer.uint32(/* id 3, wireType 2 =*/26).fork()).ldelim();
+                $root.petajournal.Timestamp.encode(message.createdDate, writer.uint32(/* id 5, wireType 2 =*/42).fork()).ldelim();
             if (message.modifiedDate != null && Object.hasOwnProperty.call(message, "modifiedDate"))
-                $root.petajournal.Timestamp.encode(message.modifiedDate, writer.uint32(/* id 4, wireType 2 =*/34).fork()).ldelim();
+                $root.petajournal.Timestamp.encode(message.modifiedDate, writer.uint32(/* id 6, wireType 2 =*/50).fork()).ldelim();
             if (message.idx != null && Object.hasOwnProperty.call(message, "idx"))
-                writer.uint32(/* id 5, wireType 2 =*/42).string(message.idx);
+                writer.uint32(/* id 7, wireType 2 =*/58).string(message.idx);
             if (message.level != null && Object.hasOwnProperty.call(message, "level"))
-                writer.uint32(/* id 6, wireType 0 =*/48).int32(message.level);
+                writer.uint32(/* id 8, wireType 0 =*/64).int32(message.level);
             if (message.body != null && Object.hasOwnProperty.call(message, "body"))
-                writer.uint32(/* id 7, wireType 2 =*/58).string(message.body);
+                writer.uint32(/* id 9, wireType 2 =*/74).string(message.body);
             if (message.html != null && Object.hasOwnProperty.call(message, "html"))
-                writer.uint32(/* id 8, wireType 2 =*/66).string(message.html);
+                writer.uint32(/* id 10, wireType 2 =*/82).string(message.html);
             if (message.collapsed != null && Object.hasOwnProperty.call(message, "collapsed"))
-                writer.uint32(/* id 9, wireType 0 =*/72).bool(message.collapsed);
+                writer.uint32(/* id 11, wireType 0 =*/88).bool(message.collapsed);
             if (message.status != null && Object.hasOwnProperty.call(message, "status"))
-                writer.uint32(/* id 10, wireType 2 =*/82).string(message.status);
+                writer.uint32(/* id 12, wireType 2 =*/98).string(message.status);
             if (message.types != null && message.types.length)
                 for (let i = 0; i < message.types.length; ++i)
-                    writer.uint32(/* id 11, wireType 2 =*/90).string(message.types[i]);
+                    writer.uint32(/* id 13, wireType 2 =*/106).string(message.types[i]);
             if (message.propertiesJson != null && Object.hasOwnProperty.call(message, "propertiesJson"))
-                writer.uint32(/* id 12, wireType 2 =*/98).string(message.propertiesJson);
+                writer.uint32(/* id 14, wireType 2 =*/114).string(message.propertiesJson);
             return writer;
         };
 
@@ -1129,44 +1151,52 @@ export const petajournal = $root.petajournal = (() => {
                         break;
                     }
                 case 3: {
-                        message.createdDate = $root.petajournal.Timestamp.decode(reader, reader.uint32());
+                        message.dirPath = reader.string();
                         break;
                     }
                 case 4: {
-                        message.modifiedDate = $root.petajournal.Timestamp.decode(reader, reader.uint32());
+                        message.fileName = reader.string();
                         break;
                     }
                 case 5: {
-                        message.idx = reader.string();
+                        message.createdDate = $root.petajournal.Timestamp.decode(reader, reader.uint32());
                         break;
                     }
                 case 6: {
-                        message.level = reader.int32();
+                        message.modifiedDate = $root.petajournal.Timestamp.decode(reader, reader.uint32());
                         break;
                     }
                 case 7: {
-                        message.body = reader.string();
+                        message.idx = reader.string();
                         break;
                     }
                 case 8: {
-                        message.html = reader.string();
+                        message.level = reader.int32();
                         break;
                     }
                 case 9: {
-                        message.collapsed = reader.bool();
+                        message.body = reader.string();
                         break;
                     }
                 case 10: {
-                        message.status = reader.string();
+                        message.html = reader.string();
                         break;
                     }
                 case 11: {
+                        message.collapsed = reader.bool();
+                        break;
+                    }
+                case 12: {
+                        message.status = reader.string();
+                        break;
+                    }
+                case 13: {
                         if (!(message.types && message.types.length))
                             message.types = [];
                         message.types.push(reader.string());
                         break;
                     }
-                case 12: {
+                case 14: {
                         message.propertiesJson = reader.string();
                         break;
                     }
@@ -1211,6 +1241,12 @@ export const petajournal = $root.petajournal = (() => {
             if (message.pageId != null && message.hasOwnProperty("pageId"))
                 if (!$util.isString(message.pageId))
                     return "pageId: string expected";
+            if (message.dirPath != null && message.hasOwnProperty("dirPath"))
+                if (!$util.isString(message.dirPath))
+                    return "dirPath: string expected";
+            if (message.fileName != null && message.hasOwnProperty("fileName"))
+                if (!$util.isString(message.fileName))
+                    return "fileName: string expected";
             if (message.createdDate != null && message.hasOwnProperty("createdDate")) {
                 let error = $root.petajournal.Timestamp.verify(message.createdDate);
                 if (error)
@@ -1268,6 +1304,10 @@ export const petajournal = $root.petajournal = (() => {
                 message.id = String(object.id);
             if (object.pageId != null)
                 message.pageId = String(object.pageId);
+            if (object.dirPath != null)
+                message.dirPath = String(object.dirPath);
+            if (object.fileName != null)
+                message.fileName = String(object.fileName);
             if (object.createdDate != null) {
                 if (typeof object.createdDate !== "object")
                     throw TypeError(".petajournal.Block.createdDate: object expected");
@@ -1320,6 +1360,8 @@ export const petajournal = $root.petajournal = (() => {
             if (options.defaults) {
                 object.id = "";
                 object.pageId = "";
+                object.dirPath = "";
+                object.fileName = "";
                 object.createdDate = null;
                 object.modifiedDate = null;
                 object.idx = "";
@@ -1334,6 +1376,10 @@ export const petajournal = $root.petajournal = (() => {
                 object.id = message.id;
             if (message.pageId != null && message.hasOwnProperty("pageId"))
                 object.pageId = message.pageId;
+            if (message.dirPath != null && message.hasOwnProperty("dirPath"))
+                object.dirPath = message.dirPath;
+            if (message.fileName != null && message.hasOwnProperty("fileName"))
+                object.fileName = message.fileName;
             if (message.createdDate != null && message.hasOwnProperty("createdDate"))
                 object.createdDate = $root.petajournal.Timestamp.toObject(message.createdDate, options);
             if (message.modifiedDate != null && message.hasOwnProperty("modifiedDate"))
@@ -2187,6 +2233,7 @@ export const petajournal = $root.petajournal = (() => {
          * @property {petajournal.ISearchFullTextRequest|null} [searchFullText] ApiRequest searchFullText
          * @property {petajournal.IGetRecentPagesRequest|null} [getRecentPages] ApiRequest getRecentPages
          * @property {petajournal.IGetBacklinksRequest|null} [getBacklinks] ApiRequest getBacklinks
+         * @property {petajournal.IGetMostRecentJournalBeforeRequest|null} [getMostRecentJournalBefore] ApiRequest getMostRecentJournalBefore
          */
 
         /**
@@ -2324,17 +2371,25 @@ export const petajournal = $root.petajournal = (() => {
          */
         ApiRequest.prototype.getBacklinks = null;
 
+        /**
+         * ApiRequest getMostRecentJournalBefore.
+         * @member {petajournal.IGetMostRecentJournalBeforeRequest|null|undefined} getMostRecentJournalBefore
+         * @memberof petajournal.ApiRequest
+         * @instance
+         */
+        ApiRequest.prototype.getMostRecentJournalBefore = null;
+
         // OneOf field names bound to virtual getters and setters
         let $oneOfFields;
 
         /**
          * ApiRequest payload.
-         * @member {"getPage"|"getJournal"|"createPage"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|undefined} payload
+         * @member {"getPage"|"getJournal"|"createPage"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|undefined} payload
          * @memberof petajournal.ApiRequest
          * @instance
          */
         Object.defineProperty(ApiRequest.prototype, "payload", {
-            get: $util.oneOfGetter($oneOfFields = ["getPage", "getJournal", "createPage", "deletePage", "updatePage", "createBlock", "updateBlock", "moveBlocks", "deleteBlock", "updateBlockStatus", "searchPageNames", "searchFullText", "getRecentPages", "getBacklinks"]),
+            get: $util.oneOfGetter($oneOfFields = ["getPage", "getJournal", "createPage", "deletePage", "updatePage", "createBlock", "updateBlock", "moveBlocks", "deleteBlock", "updateBlockStatus", "searchPageNames", "searchFullText", "getRecentPages", "getBacklinks", "getMostRecentJournalBefore"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
@@ -2392,6 +2447,8 @@ export const petajournal = $root.petajournal = (() => {
                 $root.petajournal.GetRecentPagesRequest.encode(message.getRecentPages, writer.uint32(/* id 40, wireType 2 =*/322).fork()).ldelim();
             if (message.getBacklinks != null && Object.hasOwnProperty.call(message, "getBacklinks"))
                 $root.petajournal.GetBacklinksRequest.encode(message.getBacklinks, writer.uint32(/* id 41, wireType 2 =*/330).fork()).ldelim();
+            if (message.getMostRecentJournalBefore != null && Object.hasOwnProperty.call(message, "getMostRecentJournalBefore"))
+                $root.petajournal.GetMostRecentJournalBeforeRequest.encode(message.getMostRecentJournalBefore, writer.uint32(/* id 42, wireType 2 =*/338).fork()).ldelim();
             return writer;
         };
 
@@ -2486,6 +2543,10 @@ export const petajournal = $root.petajournal = (() => {
                     }
                 case 41: {
                         message.getBacklinks = $root.petajournal.GetBacklinksRequest.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 42: {
+                        message.getMostRecentJournalBefore = $root.petajournal.GetMostRecentJournalBeforeRequest.decode(reader, reader.uint32());
                         break;
                     }
                 default:
@@ -2665,6 +2726,16 @@ export const petajournal = $root.petajournal = (() => {
                         return "getBacklinks." + error;
                 }
             }
+            if (message.getMostRecentJournalBefore != null && message.hasOwnProperty("getMostRecentJournalBefore")) {
+                if (properties.payload === 1)
+                    return "payload: multiple values";
+                properties.payload = 1;
+                {
+                    let error = $root.petajournal.GetMostRecentJournalBeforeRequest.verify(message.getMostRecentJournalBefore);
+                    if (error)
+                        return "getMostRecentJournalBefore." + error;
+                }
+            }
             return null;
         };
 
@@ -2751,6 +2822,11 @@ export const petajournal = $root.petajournal = (() => {
                 if (typeof object.getBacklinks !== "object")
                     throw TypeError(".petajournal.ApiRequest.getBacklinks: object expected");
                 message.getBacklinks = $root.petajournal.GetBacklinksRequest.fromObject(object.getBacklinks);
+            }
+            if (object.getMostRecentJournalBefore != null) {
+                if (typeof object.getMostRecentJournalBefore !== "object")
+                    throw TypeError(".petajournal.ApiRequest.getMostRecentJournalBefore: object expected");
+                message.getMostRecentJournalBefore = $root.petajournal.GetMostRecentJournalBeforeRequest.fromObject(object.getMostRecentJournalBefore);
             }
             return message;
         };
@@ -2842,6 +2918,11 @@ export const petajournal = $root.petajournal = (() => {
                 if (options.oneofs)
                     object.payload = "getBacklinks";
             }
+            if (message.getMostRecentJournalBefore != null && message.hasOwnProperty("getMostRecentJournalBefore")) {
+                object.getMostRecentJournalBefore = $root.petajournal.GetMostRecentJournalBeforeRequest.toObject(message.getMostRecentJournalBefore, options);
+                if (options.oneofs)
+                    object.payload = "getMostRecentJournalBefore";
+            }
             return object;
         };
 
@@ -2897,6 +2978,7 @@ export const petajournal = $root.petajournal = (() => {
          * @property {petajournal.ISearchFullTextResponse|null} [searchFullText] ApiResponse searchFullText
          * @property {petajournal.IGetRecentPagesResponse|null} [getRecentPages] ApiResponse getRecentPages
          * @property {petajournal.IGetBacklinksResponse|null} [getBacklinks] ApiResponse getBacklinks
+         * @property {petajournal.IGetMostRecentJournalBeforeResponse|null} [getMostRecentJournalBefore] ApiResponse getMostRecentJournalBefore
          */
 
         /**
@@ -3050,17 +3132,25 @@ export const petajournal = $root.petajournal = (() => {
          */
         ApiResponse.prototype.getBacklinks = null;
 
+        /**
+         * ApiResponse getMostRecentJournalBefore.
+         * @member {petajournal.IGetMostRecentJournalBeforeResponse|null|undefined} getMostRecentJournalBefore
+         * @memberof petajournal.ApiResponse
+         * @instance
+         */
+        ApiResponse.prototype.getMostRecentJournalBefore = null;
+
         // OneOf field names bound to virtual getters and setters
         let $oneOfFields;
 
         /**
          * ApiResponse payload.
-         * @member {"getPage"|"getJournal"|"createPage"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|undefined} payload
+         * @member {"getPage"|"getJournal"|"createPage"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|undefined} payload
          * @memberof petajournal.ApiResponse
          * @instance
          */
         Object.defineProperty(ApiResponse.prototype, "payload", {
-            get: $util.oneOfGetter($oneOfFields = ["getPage", "getJournal", "createPage", "deletePage", "updatePage", "createBlock", "updateBlock", "moveBlocks", "deleteBlock", "updateBlockStatus", "searchPageNames", "searchFullText", "getRecentPages", "getBacklinks"]),
+            get: $util.oneOfGetter($oneOfFields = ["getPage", "getJournal", "createPage", "deletePage", "updatePage", "createBlock", "updateBlock", "moveBlocks", "deleteBlock", "updateBlockStatus", "searchPageNames", "searchFullText", "getRecentPages", "getBacklinks", "getMostRecentJournalBefore"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
@@ -3122,6 +3212,8 @@ export const petajournal = $root.petajournal = (() => {
                 $root.petajournal.GetRecentPagesResponse.encode(message.getRecentPages, writer.uint32(/* id 40, wireType 2 =*/322).fork()).ldelim();
             if (message.getBacklinks != null && Object.hasOwnProperty.call(message, "getBacklinks"))
                 $root.petajournal.GetBacklinksResponse.encode(message.getBacklinks, writer.uint32(/* id 41, wireType 2 =*/330).fork()).ldelim();
+            if (message.getMostRecentJournalBefore != null && Object.hasOwnProperty.call(message, "getMostRecentJournalBefore"))
+                $root.petajournal.GetMostRecentJournalBeforeResponse.encode(message.getMostRecentJournalBefore, writer.uint32(/* id 42, wireType 2 =*/338).fork()).ldelim();
             return writer;
         };
 
@@ -3224,6 +3316,10 @@ export const petajournal = $root.petajournal = (() => {
                     }
                 case 41: {
                         message.getBacklinks = $root.petajournal.GetBacklinksResponse.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 42: {
+                        message.getMostRecentJournalBefore = $root.petajournal.GetMostRecentJournalBeforeResponse.decode(reader, reader.uint32());
                         break;
                     }
                 default:
@@ -3409,6 +3505,16 @@ export const petajournal = $root.petajournal = (() => {
                         return "getBacklinks." + error;
                 }
             }
+            if (message.getMostRecentJournalBefore != null && message.hasOwnProperty("getMostRecentJournalBefore")) {
+                if (properties.payload === 1)
+                    return "payload: multiple values";
+                properties.payload = 1;
+                {
+                    let error = $root.petajournal.GetMostRecentJournalBeforeResponse.verify(message.getMostRecentJournalBefore);
+                    if (error)
+                        return "getMostRecentJournalBefore." + error;
+                }
+            }
             return null;
         };
 
@@ -3499,6 +3605,11 @@ export const petajournal = $root.petajournal = (() => {
                 if (typeof object.getBacklinks !== "object")
                     throw TypeError(".petajournal.ApiResponse.getBacklinks: object expected");
                 message.getBacklinks = $root.petajournal.GetBacklinksResponse.fromObject(object.getBacklinks);
+            }
+            if (object.getMostRecentJournalBefore != null) {
+                if (typeof object.getMostRecentJournalBefore !== "object")
+                    throw TypeError(".petajournal.ApiResponse.getMostRecentJournalBefore: object expected");
+                message.getMostRecentJournalBefore = $root.petajournal.GetMostRecentJournalBeforeResponse.fromObject(object.getMostRecentJournalBefore);
             }
             return message;
         };
@@ -3596,6 +3707,11 @@ export const petajournal = $root.petajournal = (() => {
                 object.getBacklinks = $root.petajournal.GetBacklinksResponse.toObject(message.getBacklinks, options);
                 if (options.oneofs)
                     object.payload = "getBacklinks";
+            }
+            if (message.getMostRecentJournalBefore != null && message.hasOwnProperty("getMostRecentJournalBefore")) {
+                object.getMostRecentJournalBefore = $root.petajournal.GetMostRecentJournalBeforeResponse.toObject(message.getMostRecentJournalBefore, options);
+                if (options.oneofs)
+                    object.payload = "getMostRecentJournalBefore";
             }
             return object;
         };
@@ -10405,6 +10521,490 @@ export const petajournal = $root.petajournal = (() => {
         };
 
         return BacklinkEntry;
+    })();
+
+    petajournal.GetMostRecentJournalBeforeRequest = (function() {
+
+        /**
+         * Properties of a GetMostRecentJournalBeforeRequest.
+         * @memberof petajournal
+         * @interface IGetMostRecentJournalBeforeRequest
+         * @property {string|null} [beforeDate] GetMostRecentJournalBeforeRequest beforeDate
+         */
+
+        /**
+         * Constructs a new GetMostRecentJournalBeforeRequest.
+         * @memberof petajournal
+         * @classdesc Represents a GetMostRecentJournalBeforeRequest.
+         * @implements IGetMostRecentJournalBeforeRequest
+         * @constructor
+         * @param {petajournal.IGetMostRecentJournalBeforeRequest=} [properties] Properties to set
+         */
+        function GetMostRecentJournalBeforeRequest(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * GetMostRecentJournalBeforeRequest beforeDate.
+         * @member {string} beforeDate
+         * @memberof petajournal.GetMostRecentJournalBeforeRequest
+         * @instance
+         */
+        GetMostRecentJournalBeforeRequest.prototype.beforeDate = "";
+
+        /**
+         * Creates a new GetMostRecentJournalBeforeRequest instance using the specified properties.
+         * @function create
+         * @memberof petajournal.GetMostRecentJournalBeforeRequest
+         * @static
+         * @param {petajournal.IGetMostRecentJournalBeforeRequest=} [properties] Properties to set
+         * @returns {petajournal.GetMostRecentJournalBeforeRequest} GetMostRecentJournalBeforeRequest instance
+         */
+        GetMostRecentJournalBeforeRequest.create = function create(properties) {
+            return new GetMostRecentJournalBeforeRequest(properties);
+        };
+
+        /**
+         * Encodes the specified GetMostRecentJournalBeforeRequest message. Does not implicitly {@link petajournal.GetMostRecentJournalBeforeRequest.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.GetMostRecentJournalBeforeRequest
+         * @static
+         * @param {petajournal.IGetMostRecentJournalBeforeRequest} message GetMostRecentJournalBeforeRequest message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        GetMostRecentJournalBeforeRequest.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.beforeDate != null && Object.hasOwnProperty.call(message, "beforeDate"))
+                writer.uint32(/* id 1, wireType 2 =*/10).string(message.beforeDate);
+            return writer;
+        };
+
+        /**
+         * Encodes the specified GetMostRecentJournalBeforeRequest message, length delimited. Does not implicitly {@link petajournal.GetMostRecentJournalBeforeRequest.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof petajournal.GetMostRecentJournalBeforeRequest
+         * @static
+         * @param {petajournal.IGetMostRecentJournalBeforeRequest} message GetMostRecentJournalBeforeRequest message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        GetMostRecentJournalBeforeRequest.encodeDelimited = function encodeDelimited(message, writer) {
+            return this.encode(message, writer).ldelim();
+        };
+
+        /**
+         * Decodes a GetMostRecentJournalBeforeRequest message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.GetMostRecentJournalBeforeRequest
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.GetMostRecentJournalBeforeRequest} GetMostRecentJournalBeforeRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        GetMostRecentJournalBeforeRequest.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.GetMostRecentJournalBeforeRequest();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.beforeDate = reader.string();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Decodes a GetMostRecentJournalBeforeRequest message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof petajournal.GetMostRecentJournalBeforeRequest
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {petajournal.GetMostRecentJournalBeforeRequest} GetMostRecentJournalBeforeRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        GetMostRecentJournalBeforeRequest.decodeDelimited = function decodeDelimited(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies a GetMostRecentJournalBeforeRequest message.
+         * @function verify
+         * @memberof petajournal.GetMostRecentJournalBeforeRequest
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        GetMostRecentJournalBeforeRequest.verify = function verify(message) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            if (message.beforeDate != null && message.hasOwnProperty("beforeDate"))
+                if (!$util.isString(message.beforeDate))
+                    return "beforeDate: string expected";
+            return null;
+        };
+
+        /**
+         * Creates a GetMostRecentJournalBeforeRequest message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof petajournal.GetMostRecentJournalBeforeRequest
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {petajournal.GetMostRecentJournalBeforeRequest} GetMostRecentJournalBeforeRequest
+         */
+        GetMostRecentJournalBeforeRequest.fromObject = function fromObject(object) {
+            if (object instanceof $root.petajournal.GetMostRecentJournalBeforeRequest)
+                return object;
+            let message = new $root.petajournal.GetMostRecentJournalBeforeRequest();
+            if (object.beforeDate != null)
+                message.beforeDate = String(object.beforeDate);
+            return message;
+        };
+
+        /**
+         * Creates a plain object from a GetMostRecentJournalBeforeRequest message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof petajournal.GetMostRecentJournalBeforeRequest
+         * @static
+         * @param {petajournal.GetMostRecentJournalBeforeRequest} message GetMostRecentJournalBeforeRequest
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        GetMostRecentJournalBeforeRequest.toObject = function toObject(message, options) {
+            if (!options)
+                options = {};
+            let object = {};
+            if (options.defaults)
+                object.beforeDate = "";
+            if (message.beforeDate != null && message.hasOwnProperty("beforeDate"))
+                object.beforeDate = message.beforeDate;
+            return object;
+        };
+
+        /**
+         * Converts this GetMostRecentJournalBeforeRequest to JSON.
+         * @function toJSON
+         * @memberof petajournal.GetMostRecentJournalBeforeRequest
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        GetMostRecentJournalBeforeRequest.prototype.toJSON = function toJSON() {
+            return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        /**
+         * Gets the default type url for GetMostRecentJournalBeforeRequest
+         * @function getTypeUrl
+         * @memberof petajournal.GetMostRecentJournalBeforeRequest
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        GetMostRecentJournalBeforeRequest.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.GetMostRecentJournalBeforeRequest";
+        };
+
+        return GetMostRecentJournalBeforeRequest;
+    })();
+
+    petajournal.GetMostRecentJournalBeforeResponse = (function() {
+
+        /**
+         * Properties of a GetMostRecentJournalBeforeResponse.
+         * @memberof petajournal
+         * @interface IGetMostRecentJournalBeforeResponse
+         * @property {boolean|null} [found] GetMostRecentJournalBeforeResponse found
+         * @property {petajournal.IPage|null} [page] GetMostRecentJournalBeforeResponse page
+         * @property {Array.<petajournal.IBlock>|null} [blocks] GetMostRecentJournalBeforeResponse blocks
+         */
+
+        /**
+         * Constructs a new GetMostRecentJournalBeforeResponse.
+         * @memberof petajournal
+         * @classdesc Represents a GetMostRecentJournalBeforeResponse.
+         * @implements IGetMostRecentJournalBeforeResponse
+         * @constructor
+         * @param {petajournal.IGetMostRecentJournalBeforeResponse=} [properties] Properties to set
+         */
+        function GetMostRecentJournalBeforeResponse(properties) {
+            this.blocks = [];
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * GetMostRecentJournalBeforeResponse found.
+         * @member {boolean} found
+         * @memberof petajournal.GetMostRecentJournalBeforeResponse
+         * @instance
+         */
+        GetMostRecentJournalBeforeResponse.prototype.found = false;
+
+        /**
+         * GetMostRecentJournalBeforeResponse page.
+         * @member {petajournal.IPage|null|undefined} page
+         * @memberof petajournal.GetMostRecentJournalBeforeResponse
+         * @instance
+         */
+        GetMostRecentJournalBeforeResponse.prototype.page = null;
+
+        /**
+         * GetMostRecentJournalBeforeResponse blocks.
+         * @member {Array.<petajournal.IBlock>} blocks
+         * @memberof petajournal.GetMostRecentJournalBeforeResponse
+         * @instance
+         */
+        GetMostRecentJournalBeforeResponse.prototype.blocks = $util.emptyArray;
+
+        /**
+         * Creates a new GetMostRecentJournalBeforeResponse instance using the specified properties.
+         * @function create
+         * @memberof petajournal.GetMostRecentJournalBeforeResponse
+         * @static
+         * @param {petajournal.IGetMostRecentJournalBeforeResponse=} [properties] Properties to set
+         * @returns {petajournal.GetMostRecentJournalBeforeResponse} GetMostRecentJournalBeforeResponse instance
+         */
+        GetMostRecentJournalBeforeResponse.create = function create(properties) {
+            return new GetMostRecentJournalBeforeResponse(properties);
+        };
+
+        /**
+         * Encodes the specified GetMostRecentJournalBeforeResponse message. Does not implicitly {@link petajournal.GetMostRecentJournalBeforeResponse.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.GetMostRecentJournalBeforeResponse
+         * @static
+         * @param {petajournal.IGetMostRecentJournalBeforeResponse} message GetMostRecentJournalBeforeResponse message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        GetMostRecentJournalBeforeResponse.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.found != null && Object.hasOwnProperty.call(message, "found"))
+                writer.uint32(/* id 1, wireType 0 =*/8).bool(message.found);
+            if (message.page != null && Object.hasOwnProperty.call(message, "page"))
+                $root.petajournal.Page.encode(message.page, writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim();
+            if (message.blocks != null && message.blocks.length)
+                for (let i = 0; i < message.blocks.length; ++i)
+                    $root.petajournal.Block.encode(message.blocks[i], writer.uint32(/* id 3, wireType 2 =*/26).fork()).ldelim();
+            return writer;
+        };
+
+        /**
+         * Encodes the specified GetMostRecentJournalBeforeResponse message, length delimited. Does not implicitly {@link petajournal.GetMostRecentJournalBeforeResponse.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof petajournal.GetMostRecentJournalBeforeResponse
+         * @static
+         * @param {petajournal.IGetMostRecentJournalBeforeResponse} message GetMostRecentJournalBeforeResponse message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        GetMostRecentJournalBeforeResponse.encodeDelimited = function encodeDelimited(message, writer) {
+            return this.encode(message, writer).ldelim();
+        };
+
+        /**
+         * Decodes a GetMostRecentJournalBeforeResponse message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.GetMostRecentJournalBeforeResponse
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.GetMostRecentJournalBeforeResponse} GetMostRecentJournalBeforeResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        GetMostRecentJournalBeforeResponse.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.GetMostRecentJournalBeforeResponse();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.found = reader.bool();
+                        break;
+                    }
+                case 2: {
+                        message.page = $root.petajournal.Page.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 3: {
+                        if (!(message.blocks && message.blocks.length))
+                            message.blocks = [];
+                        message.blocks.push($root.petajournal.Block.decode(reader, reader.uint32()));
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Decodes a GetMostRecentJournalBeforeResponse message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof petajournal.GetMostRecentJournalBeforeResponse
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {petajournal.GetMostRecentJournalBeforeResponse} GetMostRecentJournalBeforeResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        GetMostRecentJournalBeforeResponse.decodeDelimited = function decodeDelimited(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies a GetMostRecentJournalBeforeResponse message.
+         * @function verify
+         * @memberof petajournal.GetMostRecentJournalBeforeResponse
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        GetMostRecentJournalBeforeResponse.verify = function verify(message) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            if (message.found != null && message.hasOwnProperty("found"))
+                if (typeof message.found !== "boolean")
+                    return "found: boolean expected";
+            if (message.page != null && message.hasOwnProperty("page")) {
+                let error = $root.petajournal.Page.verify(message.page);
+                if (error)
+                    return "page." + error;
+            }
+            if (message.blocks != null && message.hasOwnProperty("blocks")) {
+                if (!Array.isArray(message.blocks))
+                    return "blocks: array expected";
+                for (let i = 0; i < message.blocks.length; ++i) {
+                    let error = $root.petajournal.Block.verify(message.blocks[i]);
+                    if (error)
+                        return "blocks." + error;
+                }
+            }
+            return null;
+        };
+
+        /**
+         * Creates a GetMostRecentJournalBeforeResponse message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof petajournal.GetMostRecentJournalBeforeResponse
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {petajournal.GetMostRecentJournalBeforeResponse} GetMostRecentJournalBeforeResponse
+         */
+        GetMostRecentJournalBeforeResponse.fromObject = function fromObject(object) {
+            if (object instanceof $root.petajournal.GetMostRecentJournalBeforeResponse)
+                return object;
+            let message = new $root.petajournal.GetMostRecentJournalBeforeResponse();
+            if (object.found != null)
+                message.found = Boolean(object.found);
+            if (object.page != null) {
+                if (typeof object.page !== "object")
+                    throw TypeError(".petajournal.GetMostRecentJournalBeforeResponse.page: object expected");
+                message.page = $root.petajournal.Page.fromObject(object.page);
+            }
+            if (object.blocks) {
+                if (!Array.isArray(object.blocks))
+                    throw TypeError(".petajournal.GetMostRecentJournalBeforeResponse.blocks: array expected");
+                message.blocks = [];
+                for (let i = 0; i < object.blocks.length; ++i) {
+                    if (typeof object.blocks[i] !== "object")
+                        throw TypeError(".petajournal.GetMostRecentJournalBeforeResponse.blocks: object expected");
+                    message.blocks[i] = $root.petajournal.Block.fromObject(object.blocks[i]);
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Creates a plain object from a GetMostRecentJournalBeforeResponse message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof petajournal.GetMostRecentJournalBeforeResponse
+         * @static
+         * @param {petajournal.GetMostRecentJournalBeforeResponse} message GetMostRecentJournalBeforeResponse
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        GetMostRecentJournalBeforeResponse.toObject = function toObject(message, options) {
+            if (!options)
+                options = {};
+            let object = {};
+            if (options.arrays || options.defaults)
+                object.blocks = [];
+            if (options.defaults) {
+                object.found = false;
+                object.page = null;
+            }
+            if (message.found != null && message.hasOwnProperty("found"))
+                object.found = message.found;
+            if (message.page != null && message.hasOwnProperty("page"))
+                object.page = $root.petajournal.Page.toObject(message.page, options);
+            if (message.blocks && message.blocks.length) {
+                object.blocks = [];
+                for (let j = 0; j < message.blocks.length; ++j)
+                    object.blocks[j] = $root.petajournal.Block.toObject(message.blocks[j], options);
+            }
+            return object;
+        };
+
+        /**
+         * Converts this GetMostRecentJournalBeforeResponse to JSON.
+         * @function toJSON
+         * @memberof petajournal.GetMostRecentJournalBeforeResponse
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        GetMostRecentJournalBeforeResponse.prototype.toJSON = function toJSON() {
+            return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        /**
+         * Gets the default type url for GetMostRecentJournalBeforeResponse
+         * @function getTypeUrl
+         * @memberof petajournal.GetMostRecentJournalBeforeResponse
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        GetMostRecentJournalBeforeResponse.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.GetMostRecentJournalBeforeResponse";
+        };
+
+        return GetMostRecentJournalBeforeResponse;
     })();
 
     return petajournal;

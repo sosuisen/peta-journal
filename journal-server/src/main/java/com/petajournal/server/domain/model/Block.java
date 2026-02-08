@@ -7,6 +7,8 @@ import java.util.UUID;
 public record Block(
     String id,           // 7-char hex
     UUID pageId,
+    String dirPath,
+    String fileName,
     Instant createdDate,
     Instant modifiedDate,
     String idx,          // Fractional index string for ordering

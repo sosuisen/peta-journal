@@ -79,6 +79,7 @@ public class JournalWebSocket {
                 case SEARCH_FULL_TEXT -> response.setSearchFullText(handleSearchFullText(request.getSearchFullText()));
                 case GET_RECENT_PAGES -> response.setGetRecentPages(handleGetRecentPages(request.getGetRecentPages()));
                 case GET_BACKLINKS -> response.setGetBacklinks(handleGetBacklinks(request.getGetBacklinks()));
+                case GET_MOST_RECENT_JOURNAL_BEFORE -> response.setGetMostRecentJournalBefore(handleGetMostRecentJournalBefore(request.getGetMostRecentJournalBefore()));
                 default -> {
                     response.setSuccess(false);
                     response.setErrorMessage("Unknown request type: " + request.getPayloadCase());
@@ -117,6 +118,21 @@ public class JournalWebSocket {
                 .addAllBlocks(result.blocks().stream().map(ProtoConverter::toProto).toList())
                 .setCreated(result.created())
                 .build();
+    }
+
+    private GetMostRecentJournalBeforeResponse handleGetMostRecentJournalBefore(GetMostRecentJournalBeforeRequest req) {
+        LocalDate beforeDate = LocalDate.parse(req.getBeforeDate());
+        var result = journalService.getMostRecentJournalBefore(beforeDate);
+
+        GetMostRecentJournalBeforeResponse.Builder builder = GetMostRecentJournalBeforeResponse.newBuilder()
+                .setFound(result.found());
+
+        if (result.found()) {
+            builder.setPage(ProtoConverter.toProto(result.page()))
+                    .addAllBlocks(result.blocks().stream().map(ProtoConverter::toProto).toList());
+        }
+
+        return builder.build();
     }
 
     private CreatePageResponse handleCreatePage(CreatePageRequest req) {

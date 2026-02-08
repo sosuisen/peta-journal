@@ -9,7 +9,6 @@ option java_multiple_files = true;
 import "page.proto";
 import "block.proto";
 import "search.proto";
-import "common.proto";
 
 // Top-level request envelope
 message ApiRequest {
@@ -29,6 +28,7 @@ message ApiRequest {
     SearchFullTextRequest search_full_text = 31;
     GetRecentPagesRequest get_recent_pages = 40;
     GetBacklinksRequest get_backlinks = 41;
+    GetMostRecentJournalBeforeRequest get_most_recent_journal_before = 42;
   }
 }
 
@@ -52,6 +52,7 @@ message ApiResponse {
     SearchFullTextResponse search_full_text = 31;
     GetRecentPagesResponse get_recent_pages = 40;
     GetBacklinksResponse get_backlinks = 41;
+    GetMostRecentJournalBeforeResponse get_most_recent_journal_before = 42;
   }
 }
 
@@ -199,4 +200,14 @@ message GetBacklinksResponse {
 message BacklinkEntry {
   Page source_page = 1;
   Block source_block = 2;          // The block containing the link
+}
+
+message GetMostRecentJournalBeforeRequest {
+  string before_date = 1;          // ISO date: "2025-01-15"
+}
+
+message GetMostRecentJournalBeforeResponse {
+  bool found = 1;                  // true if a journal was found
+  Page page = 2;
+  repeated Block blocks = 3;
 }

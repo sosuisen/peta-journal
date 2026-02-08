@@ -1,6 +1,8 @@
 export interface Block {
   id: string;
   pageId: string;
+  dirPath: string;
+  fileName: string;
   createdDate: number;
   modifiedDate: number;
   idx: string;

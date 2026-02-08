@@ -1,5 +1,5 @@
-import { Component, inject, input, effect, Injector, afterNextRender } from '@angular/core';
-import { ScrollingModule } from '@angular/cdk/scrolling';
+import { Component, inject, input, output, effect, Injector, afterNextRender, viewChild } from '@angular/core';
+import { ScrollingModule, CdkVirtualScrollViewport } from '@angular/cdk/scrolling';
 import { OutlineBlockComponent } from './outline-block';
 import { OutlineStateService } from '../../core/services/outline-state.service';
 import { ApiService } from '../../core/services/api.service';
@@ -10,7 +10,7 @@ import { Block } from '../../core/models/block.model';
   selector: 'app-outline',
   imports: [ScrollingModule, OutlineBlockComponent],
   template: `
-    <cdk-virtual-scroll-viewport itemSize="28" class="outline-viewport">
+    <cdk-virtual-scroll-viewport #viewport itemSize="28" class="outline-viewport" (scrolledIndexChange)="onScrolledIndexChange($event)">
       <div
         *cdkVirtualFor="let block of state.visibleBlocks(); trackBy: trackById"
         class="outline-item"
@@ -62,7 +62,9 @@ export class OutlineComponent {
   private readonly autoSave = inject(AutoSaveService);
   private readonly injector = inject(Injector);
   readonly pageId = input.required<string>();
+  readonly loadMore = output<{ filepath: string; currentIndex: number }>();  // Emits when should load more
   private readonly dirtyBlockIds = new Set<string>();
+  private readonly viewport = viewChild<CdkVirtualScrollViewport>('viewport');
 
   constructor() {
     effect(() => {
@@ -70,6 +72,21 @@ export class OutlineComponent {
       if (id) this.loadBlocks(id);
     });
 
+  }
+
+  onScrolledIndexChange(index: number): void {
+    const blocks = this.state.visibleBlocks();
+    const totalBlocks = blocks.length;
+
+    console.log('Scrolled index changed:', index, 'Total blocks:', totalBlocks);
+
+    // Check if we need more buffer (100 blocks ahead)
+    if (totalBlocks < index + 100 && totalBlocks > 0) {
+      const lastBlock = blocks[totalBlocks - 1];
+      const filepath = lastBlock.dirPath + lastBlock.fileName;
+      console.log('Need more buffer! Current index:', index, 'Total:', totalBlocks);
+      this.loadMore.emit({ filepath, currentIndex: index });
+    }
   }
 
   trackById(_index: number, block: Block): string {

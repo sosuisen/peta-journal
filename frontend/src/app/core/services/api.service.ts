@@ -6,6 +6,7 @@ import { SearchResult } from '../models/search.model';
 
 interface GetPageResult { page: Page; blocks: Block[] }
 interface GetJournalResult { page: Page; blocks: Block[]; created: boolean }
+interface GetMostRecentJournalBeforeResult { found: boolean; page: Page | null; blocks: Block[] }
 interface SearchPageNamesResult { results: SearchResult[] }
 interface SearchFullTextResult { results: SearchResult[]; totalHits: number }
 interface GetRecentPagesResult { pages: Page[] }
@@ -33,6 +34,8 @@ function toBlock(b: any): Block {
   return {
     id: b.id ?? '',
     pageId: b.pageId ?? '',
+    dirPath: b.dirPath ?? '',
+    fileName: b.fileName ?? '',
     createdDate: b.createdDate?.millis?.toNumber?.() ?? Number(b.createdDate?.millis ?? 0),
     modifiedDate: b.modifiedDate?.millis?.toNumber?.() ?? Number(b.modifiedDate?.millis ?? 0),
     idx: b.idx ?? '',
@@ -60,6 +63,15 @@ export class ApiService {
     const resp: any = await this.proto.send({ getJournal: { date } });
     const r = resp.getJournal;
     return { page: toPage(r.page), blocks: (r.blocks ?? []).map(toBlock), created: r.created ?? false };
+  }
+
+  async getMostRecentJournalBefore(beforeDate: string): Promise<GetMostRecentJournalBeforeResult> {
+    const resp: any = await this.proto.send({ getMostRecentJournalBefore: { beforeDate } });
+    const r = resp.getMostRecentJournalBefore;
+    if (!r.found) {
+      return { found: false, page: null, blocks: [] };
+    }
+    return { found: true, page: toPage(r.page), blocks: (r.blocks ?? []).map(toBlock) };
   }
 
   async createPage(title: string, dirPath?: string, tags?: string[]): Promise<Page> {

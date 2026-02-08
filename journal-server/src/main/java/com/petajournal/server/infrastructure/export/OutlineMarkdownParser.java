@@ -81,7 +81,7 @@ public class OutlineMarkdownParser {
         return new Page(id, dirPath, fileName, created, modified, tags, titles, "{}");
     }
 
-    public List<Block> toBlocks(ParseResult result, UUID pageId) {
+    public List<Block> toBlocks(ParseResult result, UUID pageId, String dirPath, String fileName) {
         List<Block> blocks = new ArrayList<>();
         Instant now = Instant.now();
         String prevIdx = null;
@@ -91,7 +91,7 @@ public class OutlineMarkdownParser {
             String blockId = (pb.id() != null && !pb.id().isEmpty()) ? pb.id() : BlockIdGenerator.generate();
 
             blocks.add(new Block(
-                    blockId, pageId, now, now, idx,
+                    blockId, pageId, dirPath, fileName, now, now, idx,
                     pb.level(), pb.body(), "",
                     pb.collapsed(), "normal", pb.types(), "{}"
             ));

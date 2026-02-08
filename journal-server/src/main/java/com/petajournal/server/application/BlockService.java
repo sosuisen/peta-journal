@@ -76,17 +76,17 @@ public class BlockService {
         List<String> types = detectBlockTypes(body);
         String status = "normal";  // Default status
 
-        Block block = new Block(id, pageId, now, now, idx, level, body, html, false, status, types, "{}");
+        // Get page to get dir_path and file_name
+        Page page = pageRepository.findById(pageId).orElseThrow(() -> new IllegalArgumentException("Page not found: " + pageId));
+
+        Block block = new Block(id, pageId, page.dirPath(), page.fileName(), now, now, idx, level, body, html, false, status, types, "{}");
         block = blockRepository.save(block);
 
         // Update page modified date
         touchPage(pageId);
 
         // Index for search
-        Page page = pageRepository.findById(pageId).orElse(null);
-        if (page != null) {
-            searchService.indexBlock(block, page.primaryTitle());
-        }
+        searchService.indexBlock(block, page.primaryTitle());
 
         syncService.notifyChange("block", id);
         return block;
@@ -107,6 +107,8 @@ public class BlockService {
         Block updated = new Block(
                 existing.id(),
                 existing.pageId(),
+                existing.dirPath(),
+                existing.fileName(),
                 existing.createdDate(),
                 Instant.now(),
                 existing.idx(),
@@ -155,6 +157,10 @@ public class BlockService {
         int delta = levelDelta != null ? levelDelta : 0;
         Instant now = Instant.now();
 
+        // Get target page to get dir_path and file_name
+        Page targetPage = pageRepository.findById(targetPageId)
+                .orElseThrow(() -> new IllegalArgumentException("Target page not found: " + targetPageId));
+
         for (String blockId : blockIds) {
             Block block = blockRepository.findById(blockId)
                     .orElseThrow(() -> new IllegalArgumentException("Block not found: " + blockId));
@@ -165,6 +171,8 @@ public class BlockService {
             Block moved = new Block(
                     block.id(),
                     targetPageId,
+                    targetPage.dirPath(),
+                    targetPage.fileName(),
                     block.createdDate(),
                     now,
                     newIdx,

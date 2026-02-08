@@ -41,6 +41,8 @@ final class ProtoConverter {
         Block.Builder b = Block.newBuilder()
                 .setId(block.id())
                 .setPageId(block.pageId().toString())
+                .setDirPath(block.dirPath())
+                .setFileName(block.fileName())
                 .setCreatedDate(Timestamp.newBuilder().setMillis(block.createdDate().toEpochMilli()).build())
                 .setModifiedDate(Timestamp.newBuilder().setMillis(block.modifiedDate().toEpochMilli()).build())
                 .setIdx(block.idx())

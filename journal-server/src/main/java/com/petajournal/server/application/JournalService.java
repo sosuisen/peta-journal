@@ -31,6 +31,7 @@ public class JournalService {
     SearchService searchService;
 
     public record JournalResult(Page page, List<Block> blocks, boolean created) {}
+    public record MostRecentJournalResult(boolean found, Page page, List<Block> blocks) {}
 
     public JournalResult getOrCreateJournal(LocalDate date) {
         Optional<Page> existing = pageRepository.findJournal(date);
@@ -57,9 +58,20 @@ public class JournalService {
 
         // Create initial empty block
         String blockId = BlockIdGenerator.generate();
-        Block block = new Block(blockId, id, now, now, FractionalIndexer.initial(), 0, "", "", false, "normal", List.of(), "{}");
+        Block block = new Block(blockId, id, page.dirPath(), page.fileName(), now, now, FractionalIndexer.initial(), 0, "", "", false, "normal", List.of(), "{}");
         block = blockRepository.save(block);
 
         return new JournalResult(page, List.of(block), true);
+    }
+
+    public MostRecentJournalResult getMostRecentJournalBefore(LocalDate beforeDate) {
+        Optional<Page> pageOpt = pageRepository.findMostRecentJournalBefore(beforeDate);
+        if (pageOpt.isEmpty()) {
+            return new MostRecentJournalResult(false, null, List.of());
+        }
+
+        Page page = pageOpt.get();
+        List<Block> blocks = blockRepository.findByPageId(page.id());
+        return new MostRecentJournalResult(true, page, blocks);
     }
 }
