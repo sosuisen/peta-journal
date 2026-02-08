@@ -301,7 +301,19 @@ export class OutlineComponent {
     if (idx <= 0) return;
     const prevBlock = blocks[idx - 1];
     const newLevel = block.level + 1;
-    if (!this.canPlace(newLevel, prevBlock)) return;
+
+    // Check normal placement
+    if (!this.canPlace(newLevel, prevBlock)) {
+      // Exception: indenting by 1 level is allowed if there is a block at the same level before
+      let hasSameLevelBefore = false;
+      for (let i = idx - 1; i >= 0; i--) {
+        if (blocks[i].level === block.level) {
+          hasSameLevelBefore = true;
+          break;
+        }
+      }
+      if (!hasSameLevelBefore) return;
+    }
 
     const group = this.state.getBlockWithChildren(block.id);
     for (const b of group) {
