@@ -24,7 +24,7 @@ import { OutlineStateService } from '../../core/services/outline-state.service';
       />
     }
     @if (page()) {
-      <app-outline [pageId]="page()!.id" (loadMore)="onLoadMore($event)" />
+      <app-outline [pageId]="page()!.id" [disableAutoLoad]="true" [currentPageDate]="topVisibleDate()" (loadMore)="onLoadMore($event)" (topBlockChanged)="onTopBlockChanged($event)" />
     }
   `,
   styles: [`
@@ -70,11 +70,12 @@ export class JournalComponent implements OnInit, OnDestroy {
   private loading = false;
 
   readonly currentDate = signal('');
+  readonly topVisibleDate = signal('');  // Date of the top visible block
   readonly page = signal<Page | null>(null);
   readonly showCalendar = signal(false);
 
   readonly displayDate = computed(() => {
-    const d = this.currentDate();
+    const d = this.topVisibleDate() || this.currentDate();
     if (!d) return '';
     try {
       const date = new Date(d + 'T00:00:00');
@@ -113,8 +114,12 @@ export class JournalComponent implements OnInit, OnDestroy {
     const result = await this.api.getJournal(date);
     this.page.set(result.page);
     this.title.setTitle(date);
+    this.topVisibleDate.set(date);  // Reset to current date
     this.loadedDates.clear();
     this.loadedDates.add(date);
+
+    // Manually load today's blocks first
+    this.outlineState.setBlocks(result.blocks);
 
     // Pre-load previous journals to fill the buffer
     await this.loadInitialBuffer(date);
@@ -129,15 +134,11 @@ export class JournalComponent implements OnInit, OnDestroy {
       const targetBufferSize = 100;
 
       while (this.outlineState.blocks().length < targetBufferSize) {
-        console.log('Loading initial buffer - current blocks:', this.outlineState.blocks().length);
         const result = await this.api.getMostRecentJournalBefore(dateStr);
 
         if (!result.found) {
-          console.log('No more journals for initial buffer');
           break;
         }
-
-        console.log('Pre-loaded journal:', result.page!.fileName, '- blocks:', result.blocks.length);
 
         if (this.loadedDates.has(result.page!.fileName)) {
           dateStr = result.page!.fileName;
@@ -150,8 +151,6 @@ export class JournalComponent implements OnInit, OnDestroy {
 
         dateStr = result.page!.fileName;
       }
-
-      console.log('Initial buffer loaded - total blocks:', this.outlineState.blocks().length);
     } catch (e) {
       console.error('Failed to load initial buffer:', e);
     } finally {
@@ -160,12 +159,7 @@ export class JournalComponent implements OnInit, OnDestroy {
   }
 
   async onLoadMore(event: { filepath: string; currentIndex: number }): Promise<void> {
-    console.log('onLoadMore called - filepath:', event.filepath, 'currentIndex:', event.currentIndex);
-
-    if (this.loading) {
-      console.log('Already loading, skipping');
-      return;
-    }
+    if (this.loading) return;
 
     this.loading = true;
 
@@ -181,18 +175,13 @@ export class JournalComponent implements OnInit, OnDestroy {
 
       // Keep loading until we have 100 blocks of buffer
       while (this.outlineState.blocks().length < event.currentIndex + 100) {
-        console.log('Finding most recent journal before:', currentDateStr);
         const result = await this.api.getMostRecentJournalBefore(currentDateStr);
 
         if (!result.found) {
-          console.log('No more journals found, stopping');
           break;
         }
 
-        console.log('Found journal:', result.page!.fileName, '- blocks:', result.blocks.length);
-
         if (this.loadedDates.has(result.page!.fileName)) {
-          console.log('Already loaded:', result.page!.fileName);
           currentDateStr = result.page!.fileName;
           continue;
         }
@@ -202,12 +191,9 @@ export class JournalComponent implements OnInit, OnDestroy {
         // Append blocks from this journal
         const currentBlocks = this.outlineState.blocks();
         this.outlineState.setBlocks([...currentBlocks, ...result.blocks]);
-        console.log('Appended blocks - total now:', this.outlineState.blocks().length);
 
         currentDateStr = result.page!.fileName;
       }
-
-      console.log('Finished loading - total blocks:', this.outlineState.blocks().length);
     } catch (e) {
       console.error('Failed to load previous days:', e);
     } finally {
@@ -232,5 +218,9 @@ export class JournalComponent implements OnInit, OnDestroy {
   onDateSelected(date: string): void {
     this.showCalendar.set(false);
     this.router.navigate(['/journals', date]);
+  }
+
+  onTopBlockChanged(fileName: string): void {
+    this.topVisibleDate.set(fileName);
   }
 }

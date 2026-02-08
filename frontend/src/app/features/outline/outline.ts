@@ -10,11 +10,16 @@ import { Block } from '../../core/models/block.model';
   selector: 'app-outline',
   imports: [ScrollingModule, OutlineBlockComponent],
   template: `
-    <cdk-virtual-scroll-viewport #viewport itemSize="28" class="outline-viewport" (scrolledIndexChange)="onScrolledIndexChange($event)">
+    <cdk-virtual-scroll-viewport #viewport [itemSize]="40" class="outline-viewport" (scrolledIndexChange)="onScrolledIndexChange($event)">
       <div
-        *cdkVirtualFor="let block of state.visibleBlocks(); trackBy: trackById"
+        *cdkVirtualFor="let block of state.visibleBlocks(); let i = index; trackBy: trackById"
         class="outline-item"
       >
+        @if (isFirstBlockOfDate(i) && block.fileName !== currentPageDate()) {
+          <div class="date-header">
+            {{ formatDateHeader(block.fileName) }}
+          </div>
+        }
         <app-outline-block
           [block]="block"
           (bodyChanged)="onBodyChanged(block, $event)"
@@ -54,6 +59,13 @@ import { Block } from '../../core/models/block.model';
         max-width: 900px;
       }
     }
+    .date-header {
+      margin: 0;
+      padding: 16px 0 8px 0;
+      font-size: 1.5em;
+      font-weight: bold;
+      border-top: 1px solid #ddd;
+    }
   `]
 })
 export class OutlineComponent {
@@ -62,12 +74,16 @@ export class OutlineComponent {
   private readonly autoSave = inject(AutoSaveService);
   private readonly injector = inject(Injector);
   readonly pageId = input.required<string>();
+  readonly disableAutoLoad = input<boolean>(false);  // Disable automatic block loading
+  readonly currentPageDate = input<string>('');  // Date shown in page header
   readonly loadMore = output<{ filepath: string; currentIndex: number }>();  // Emits when should load more
+  readonly topBlockChanged = output<string>();  // Emits fileName of top visible block
   private readonly dirtyBlockIds = new Set<string>();
   private readonly viewport = viewChild<CdkVirtualScrollViewport>('viewport');
 
   constructor() {
     effect(() => {
+      if (this.disableAutoLoad()) return;  // Skip auto-loading if disabled
       const id = this.pageId();
       if (id) this.loadBlocks(id);
     });
@@ -78,19 +94,47 @@ export class OutlineComponent {
     const blocks = this.state.visibleBlocks();
     const totalBlocks = blocks.length;
 
-    console.log('Scrolled index changed:', index, 'Total blocks:', totalBlocks);
+    // Emit the top visible block's fileName
+    if (index >= 0 && index < totalBlocks) {
+      const topBlock = blocks[index];
+      this.topBlockChanged.emit(topBlock.fileName);
+    }
 
     // Check if we need more buffer (100 blocks ahead)
     if (totalBlocks < index + 100 && totalBlocks > 0) {
       const lastBlock = blocks[totalBlocks - 1];
       const filepath = lastBlock.dirPath + lastBlock.fileName;
-      console.log('Need more buffer! Current index:', index, 'Total:', totalBlocks);
       this.loadMore.emit({ filepath, currentIndex: index });
     }
   }
 
   trackById(_index: number, block: Block): string {
     return block.id;
+  }
+
+  isFirstBlockOfDate(index: number): boolean {
+    const blocks = this.state.visibleBlocks();
+    if (index === 0) return true;
+    const currentBlock = blocks[index];
+    const previousBlock = blocks[index - 1];
+    return currentBlock.fileName !== previousBlock.fileName;
+  }
+
+  formatDateHeader(fileName: string): string {
+    try {
+      const date = new Date(fileName + 'T00:00:00');
+      const dateStr = date.toLocaleDateString('ja-JP', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+      const weekdayStr = date.toLocaleDateString('ja-JP', {
+        weekday: 'long'
+      });
+      return `${dateStr} ${weekdayStr}`;
+    } catch {
+      return fileName;
+    }
   }
 
   private async loadBlocks(pageId: string): Promise<void> {
