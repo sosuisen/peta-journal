@@ -1,8 +1,9 @@
-import { Component, input, output, inject, computed, viewChild, ElementRef, effect } from '@angular/core';
+import { Component, input, output, inject, computed, viewChild, ElementRef, effect, afterNextRender, Injector } from '@angular/core';
 import { Router } from '@angular/router';
 import { DomSanitizer } from '@angular/platform-browser';
 import { ApiService } from '../../core/services/api.service';
 import { RecentPagesService } from '../../core/services/recent-pages.service';
+import hljs from 'highlight.js';
 
 @Component({
   selector: 'app-block-view',
@@ -17,6 +18,7 @@ import { RecentPagesService } from '../../core/services/recent-pages.service';
       />
     }
     <div
+      #content
       class="block-content"
       [innerHTML]="trustedHtml()"
       (click)="onClick($event)"
@@ -69,12 +71,13 @@ import { RecentPagesService } from '../../core/services/recent-pages.service';
       color: #d63384;
     }
     :host ::ng-deep pre {
-      background: #f5f5f5;
-      padding: 12px;
-      border-radius: 4px;
-      border: 1px solid #e0e0e0;
+      background: #f6f8fa;
+      padding: 16px;
+      border-radius: 6px;
+      border: 1px solid #d0d7de;
       overflow-x: auto;
       margin: 8px 0;
+      position: relative;
     }
     :host ::ng-deep pre code {
       background: none;
@@ -82,6 +85,27 @@ import { RecentPagesService } from '../../core/services/recent-pages.service';
       color: inherit;
       font-size: 0.875em;
       border-radius: 0;
+      display: block;
+    }
+    :host ::ng-deep pre code.hljs {
+      background: none;
+    }
+    :host ::ng-deep .code-lang-label {
+      position: absolute;
+      top: 8px;
+      right: 12px;
+      background: transparent;
+      border: none;
+      border-radius: 3px;
+      padding: 2px 6px;
+      font-size: 10px;
+      font-weight: 400;
+      color: #000;
+      text-transform: lowercase;
+      letter-spacing: 0;
+      opacity: 0.5;
+      pointer-events: none;
+      user-select: none;
     }
     .task-checkbox {
       cursor: pointer;
@@ -96,6 +120,7 @@ export class BlockViewComponent {
   private readonly api = inject(ApiService);
   private readonly sanitizer = inject(DomSanitizer);
   private readonly recentPages = inject(RecentPagesService);
+  private readonly injector = inject(Injector);
 
   readonly html = input.required<string>();
   readonly status = input.required<string>();
@@ -104,12 +129,46 @@ export class BlockViewComponent {
   readonly trustedHtml = computed(() => this.sanitizer.bypassSecurityTrustHtml(this.html()));
 
   private readonly checkboxRef = viewChild<ElementRef<HTMLInputElement>>('checkbox');
+  private readonly contentRef = viewChild<ElementRef<HTMLDivElement>>('content');
 
   constructor() {
     effect(() => {
       const checkbox = this.checkboxRef()?.nativeElement;
       if (checkbox) {
         checkbox.indeterminate = this.status() === 'running';
+      }
+    });
+
+    // Apply syntax highlighting when HTML changes
+    effect(() => {
+      const html = this.html();
+      if (html) {
+        afterNextRender(() => {
+          const content = this.contentRef()?.nativeElement;
+          if (content) {
+            content.querySelectorAll('pre code').forEach((block) => {
+              const codeEl = block as HTMLElement;
+              const preEl = codeEl.parentElement as HTMLPreElement;
+
+              // Apply syntax highlighting
+              hljs.highlightElement(codeEl);
+
+              // Add language label if not already added
+              if (preEl && !preEl.querySelector('.code-lang-label')) {
+                const classes = codeEl.className.split(' ');
+                const langClass = classes.find(c => c.startsWith('language-'));
+                if (langClass) {
+                  const lang = langClass.replace('language-', '');
+                  const label = document.createElement('div');
+                  label.className = 'code-lang-label';
+                  label.textContent = lang;
+                  preEl.style.position = 'relative';
+                  preEl.appendChild(label);
+                }
+              }
+            });
+          }
+        }, { injector: this.injector });
       }
     });
   }

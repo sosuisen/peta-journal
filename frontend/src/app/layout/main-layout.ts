@@ -157,8 +157,11 @@ import { OutlineStateService } from '../core/services/outline-state.service';
     .content {
       flex: 1;
       overflow-y: auto;
-      padding: 0 0 0 24px;
+      padding: 0 0 0 8px;
       box-sizing: border-box;
+    }
+    @media (min-width: 768px) {
+      .content { padding-left: 24px; }
     }
     .footer {
       display: flex;

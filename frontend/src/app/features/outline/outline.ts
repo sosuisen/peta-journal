@@ -37,13 +37,22 @@ import { Block } from '../../core/models/block.model';
     </cdk-virtual-scroll-viewport>
   `,
   styles: [`
-    :host { display: block; height: 100%; }
+    :host { display: block; height: 100%; width: 100%; }
     .outline-viewport {
       height: 100%;
+      width: 100% !important;
+    }
+    .outline-viewport ::ng-deep .cdk-virtual-scroll-content-wrapper {
       width: 100%;
     }
     .outline-item {
       width: 100%;
+      box-sizing: border-box;
+    }
+    @media (min-width: 1024px) {
+      .outline-item {
+        max-width: 900px;
+      }
     }
   `]
 })
