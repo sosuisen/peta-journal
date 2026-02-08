@@ -6,6 +6,7 @@ import { WebSocketService } from '../core/services/websocket.service';
 import { ApiService } from '../core/services/api.service';
 import { RecentPagesService } from '../core/services/recent-pages.service';
 import { OutlineStateService } from '../core/services/outline-state.service';
+import { ConfigService } from '../core/services/config.service';
 
 @Component({
   selector: 'app-main-layout',
@@ -35,9 +36,12 @@ import { OutlineStateService } from '../core/services/outline-state.service';
         </div>
       </header>
       <div class="body">
-        <aside class="sidebar" [class.collapsed]="sidebarCollapsed()">
+        <aside class="sidebar" [class.collapsed]="sidebarCollapsed()" [style.width.px]="sidebarCollapsed() ? 0 : config.sidebarWidth()">
           <app-sidebar />
         </aside>
+        @if (!sidebarCollapsed()) {
+          <div class="resize-handle" (mousedown)="startResize($event)"></div>
+        }
         <main class="content">
           <router-outlet />
         </main>
@@ -145,14 +149,29 @@ import { OutlineStateService } from '../core/services/outline-state.service';
       overflow: hidden;
     }
     .sidebar {
-      width: 260px;
       flex-shrink: 0;
       overflow-y: auto;
-      transition: width 0.2s, margin-left 0.2s;
+      transition: width 0.2s;
+      min-width: 150px;
+      max-width: 600px;
     }
     .sidebar.collapsed {
-      width: 0;
+      width: 0 !important;
+      min-width: 0;
       overflow: hidden;
+    }
+    .resize-handle {
+      width: 4px;
+      cursor: col-resize;
+      background: transparent;
+      flex-shrink: 0;
+      position: relative;
+    }
+    .resize-handle:hover {
+      background: #007bff;
+    }
+    .resize-handle:active {
+      background: #0056b3;
     }
     .content {
       flex: 1;
@@ -183,15 +202,42 @@ import { OutlineStateService } from '../core/services/outline-state.service';
 export class MainLayoutComponent {
   readonly ws = inject(WebSocketService);
   readonly outlineState = inject(OutlineStateService);
+  readonly config = inject(ConfigService);
   private readonly router = inject(Router);
   private readonly api = inject(ApiService);
   private readonly recentPages = inject(RecentPagesService);
   private readonly searchBar = viewChild(SearchBarComponent);
   readonly sidebarCollapsed = signal(false);
   readonly pageMenuOpen = signal(false);
+  private isResizing = false;
+  private startX = 0;
+  private startWidth = 0;
 
   constructor() {
     this.ws.connect();
+  }
+
+  startResize(event: MouseEvent): void {
+    event.preventDefault();
+    this.isResizing = true;
+    this.startX = event.clientX;
+    this.startWidth = this.config.sidebarWidth();
+
+    const onMouseMove = (e: MouseEvent) => {
+      if (!this.isResizing) return;
+      const delta = e.clientX - this.startX;
+      const newWidth = Math.max(150, Math.min(600, this.startWidth + delta));
+      this.config.setSidebarWidth(newWidth);
+    };
+
+    const onMouseUp = () => {
+      this.isResizing = false;
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
   }
 
   goHome(): void {
