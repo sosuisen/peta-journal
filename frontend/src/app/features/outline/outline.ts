@@ -100,8 +100,11 @@ export class OutlineComponent {
     if (current) {
       const updated = await this.api.updateBlock(block.id, { body: current.body });
       this.state.updateBlock(block.id, { html: updated.html });
+      // Switch to view mode AFTER HTML is updated (prevents flash)
+      this.state.setEditingBlock(null);
+    } else {
+      this.state.setEditingBlock(null);
     }
-    this.state.setEditingBlock(null);
   }
 
   async onEnterPressed(block: Block, event: { cursorPos: number }): Promise<void> {
