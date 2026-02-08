@@ -13,8 +13,9 @@ import { OutlineStateService } from '../../core/services/outline-state.service';
   imports: [OutlineComponent, CalendarComponent],
   template: `
     <div class="journal-header">
-      <button class="nav-btn" (click)="goToPrevDay()">&lt;</button>
+      <button class="calendar-btn" (click)="showCalendar.set(!showCalendar())">📅</button>
       <h2 class="journal-date" (click)="showCalendar.set(!showCalendar())">{{ displayDate() }}</h2>
+      <button class="nav-btn" (click)="goToPrevDay()">&lt;</button>
       <button class="nav-btn" (click)="goToNextDay()">&gt;</button>
     </div>
     @if (showCalendar()) {
@@ -43,6 +44,15 @@ import { OutlineStateService } from '../../core/services/outline-state.service';
       gap: 12px;
       padding: 16px 0;
     }
+    .calendar-btn {
+      background: none;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 4px 8px;
+      cursor: pointer;
+      font-size: 18px;
+    }
+    .calendar-btn:hover { background: #f0f0f0; }
     .nav-btn {
       background: none;
       border: 1px solid #ddd;
