@@ -6,6 +6,7 @@ import com.petajournal.server.domain.repository.BlockRepository;
 import com.petajournal.server.domain.repository.PageRepository;
 import com.petajournal.server.domain.repository.SearchService;
 import io.quarkus.runtime.StartupEvent;
+import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
@@ -27,7 +28,7 @@ public class SearchIndexRebuilder {
     @Inject
     SearchService searchService;
 
-    void onStartup(@Observes StartupEvent event) {
+    void onStartup(@Observes @Priority(100) StartupEvent event) {
         LOG.info("Rebuilding search index...");
         searchService.deleteAll();
 

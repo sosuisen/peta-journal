@@ -39,7 +39,7 @@ public class MarkdownExportService {
         exportQueueRepository.enqueue(pageId);
     }
 
-    @Scheduled(every = "${petajournal.export.interval}s")
+    @Scheduled(every = "${petajournal.export.interval}s", delay = 5, delayUnit = java.util.concurrent.TimeUnit.SECONDS)
     void processExportQueue() {
         List<UUID> pageIds = exportQueueRepository.dequeueAll();
         for (UUID pageId : pageIds) {

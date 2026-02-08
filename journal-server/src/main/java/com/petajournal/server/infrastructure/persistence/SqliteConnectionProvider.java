@@ -21,12 +21,25 @@ public class SqliteConnectionProvider {
 
     public Connection getConnection() throws SQLException {
         Path path = Path.of(resolveHome(dbPath));
+        boolean dbExists = Files.exists(path);
+
         try {
-            Files.createDirectories(path.getParent());
+            // Ensure parent directory exists
+            if (path.getParent() != null) {
+                Files.createDirectories(path.getParent());
+                LOG.debugv("Database directory: {0}", path.getParent());
+            }
         } catch (IOException e) {
             throw new SQLException("Cannot create database directory: " + path.getParent(), e);
         }
-        LOG.debugv("Connecting to SQLite database: {0}", path);
+
+        if (!dbExists) {
+            LOG.infov("Creating new SQLite database at: {0}", path);
+        } else {
+            LOG.debugv("Connecting to existing SQLite database: {0}", path);
+        }
+
+        // SQLite automatically creates the database file if it doesn't exist
         return DriverManager.getConnection("jdbc:sqlite:" + path);
     }
 

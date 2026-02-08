@@ -1,5 +1,12 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.10)
 project(cmark-gfm)
+
+# Fix for MSVC UTF-8 encoding issues (especially on Japanese Windows)
+if(MSVC)
+  add_compile_options(/utf-8)
+  # Disable warning C4819 (code page issues)
+  add_compile_options(/wd4819)
+endif()
 
 set(PROJECT_VERSION_MAJOR 0)
 set(PROJECT_VERSION_MINOR 29)
