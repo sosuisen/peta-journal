@@ -129,6 +129,21 @@ export class BlockEditorComponent implements AfterViewInit {
       return;
     }
 
+    if (event.key === 'Enter' && event.shiftKey && !event.ctrlKey) {
+      // Shift+Enter: Insert GFM hard line break (two spaces + newline)
+      event.preventDefault();
+      const before = value.substring(0, selectionStart);
+      const after = value.substring(selectionEnd);
+      const newValue = before + '  \n' + after;
+      const newCursorPos = selectionStart + 3; // After the two spaces and newline
+
+      el.value = newValue;
+      el.setSelectionRange(newCursorPos, newCursorPos);
+      this.bodyChange.emit(newValue);
+      this.autoResize(el);
+      return;
+    }
+
     if (event.key === 'Enter' && !event.shiftKey && !event.ctrlKey) {
       event.preventDefault();
       this.enterPressed.emit({ cursorPos: selectionStart });
