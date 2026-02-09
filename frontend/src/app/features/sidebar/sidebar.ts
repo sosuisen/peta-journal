@@ -10,7 +10,7 @@ import { Page } from '../../core/models/page.model';
       <div class="sidebar-content">
         <div class="sidebar-section">
           <button class="sidebar-btn" (click)="goToToday()">
-            <span class="icon">&#128197;</span> Journal
+            <span class="icon">&#128197;</span> Today
           </button>
         </div>
 

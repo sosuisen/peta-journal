@@ -124,7 +124,9 @@ export class JournalComponent implements OnInit, OnDestroy {
   private async loadJournal(date: string): Promise<void> {
     const result = await this.api.getJournal(date);
     this.page.set(result.page);
-    this.title.setTitle(date);
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    this.title.setTitle(date === todayStr ? 'Today' : date);
     this.topVisibleDate.set(date);  // Reset to current date
     this.loadedDates.clear();
     this.loadedDates.add(date);

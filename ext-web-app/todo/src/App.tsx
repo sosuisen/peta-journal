@@ -124,7 +124,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <h1>PetaJournal Todo</h1>
+      <h1>PetaApps ToDo</h1>
 
       {error && <div className="error">{error}</div>}
       {!connected && !error && <div className="connecting">Connecting...</div>}
