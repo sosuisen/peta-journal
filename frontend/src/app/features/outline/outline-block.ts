@@ -161,27 +161,34 @@ export class OutlineBlockComponent {
     const textarea = document.getElementById('block-editor-' + this.block().id) as HTMLTextAreaElement;
     if (!textarea) return;
 
-    // Create div duplicate
-    const duplicate = document.createElement('div');
-    duplicate.textContent = textarea.value;
+    // Create textarea duplicate with identical styling
+    const duplicate = document.createElement('textarea');
+    duplicate.value = textarea.value;
+    duplicate.readOnly = true;
+    duplicate.tabIndex = -1;
     duplicate.style.pointerEvents = 'none';
 
-    // Copy styles
+    // Copy all relevant styles from the original textarea
     const computedStyle = window.getComputedStyle(textarea);
     duplicate.style.font = computedStyle.font;
     duplicate.style.fontSize = computedStyle.fontSize;
     duplicate.style.fontFamily = computedStyle.fontFamily;
     duplicate.style.lineHeight = computedStyle.lineHeight;
     duplicate.style.padding = computedStyle.padding;
-    duplicate.style.whiteSpace = 'pre-wrap';
-    duplicate.style.wordWrap = 'break-word';
+    duplicate.style.border = 'none';
+    duplicate.style.outline = 'none';
+    duplicate.style.resize = 'none';
+    duplicate.style.background = 'transparent';
     duplicate.style.overflow = 'hidden';
+    duplicate.style.color = computedStyle.color;
+    duplicate.style.letterSpacing = computedStyle.letterSpacing;
+    duplicate.style.wordSpacing = computedStyle.wordSpacing;
 
     // Get exact position
     const rect = textarea.getBoundingClientRect();
     duplicate.style.position = 'absolute';
     duplicate.style.left = (rect.left + window.scrollX) + 'px';
-    duplicate.style.top = (rect.top + window.scrollY - 0.2) + 'px';  // 0.2px offset upward
+    duplicate.style.top = (rect.top + window.scrollY) + 'px';
     duplicate.style.width = rect.width + 'px';
     duplicate.style.height = rect.height + 'px';
     duplicate.style.zIndex = '0';
