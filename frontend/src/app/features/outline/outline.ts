@@ -395,11 +395,16 @@ export class OutlineComponent {
     const group = this.state.getBlockWithChildren(block.id);
     const groupIds = group.map(b => b.id);
 
-    // Standard placement: move one position up
-    const newPrev = idx >= 2 ? blocks[idx - 2] : undefined;
-    if (this.canPlace(block.level, newPrev)) {
-      // Normal move up
-      const prevPrevId = newPrev?.id ?? '';
+    // Standard placement: move entire tree before the entire previous tree
+    const prevBlock = blocks[idx - 1];
+    if (this.canPlace(block.level, prevBlock)) {
+      // Find the previous block's position in allBlocks to move before its entire tree
+      const allBlocks = this.state.blocks();
+      const prevBlockIdx = allBlocks.findIndex(b => b.id === prevBlock.id);
+      const targetPrev = prevBlockIdx > 0 ? allBlocks[prevBlockIdx - 1] : undefined;
+      const prevPrevId = targetPrev?.id ?? '';
+
+      // Normal move up - move before the entire previous tree
       await this.api.moveBlocks(groupIds, block.pageId, prevPrevId);
       this.state.deleteBlocks(groupIds);
       this.state.addBlocks(group, prevPrevId || '');
@@ -448,12 +453,16 @@ export class OutlineComponent {
     if (lastChildIdx >= allBlocks.length - 1) return;
     const targetBlock = allBlocks[lastChildIdx + 1];
 
-    // Standard placement: move one position down
+    // Standard placement: move entire tree after the entire next tree
     if (this.canPlace(block.level, targetBlock)) {
-      // Normal move down
-      await this.api.moveBlocks(groupIds, block.pageId, targetBlock.id);
+      // Get the target block and all its children to find the bottom of the next tree
+      const targetGroup = this.state.getBlockWithChildren(targetBlock.id);
+      const lastTargetDescendant = targetGroup[targetGroup.length - 1];
+
+      // Normal move down - move after the entire next tree
+      await this.api.moveBlocks(groupIds, block.pageId, lastTargetDescendant.id);
       this.state.deleteBlocks(groupIds);
-      this.state.addBlocks(group, targetBlock.id);
+      this.state.addBlocks(group, lastTargetDescendant.id);
       this.focusEditor();
       return;
     }
