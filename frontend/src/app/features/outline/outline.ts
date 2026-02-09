@@ -391,15 +391,45 @@ export class OutlineComponent {
     const blocks = this.state.visibleBlocks();
     const idx = blocks.findIndex(b => b.id === block.id);
     if (idx <= 0) return;
-    const newPrev = idx >= 2 ? blocks[idx - 2] : undefined;
-    if (!this.canPlace(block.level, newPrev)) return;
 
     const group = this.state.getBlockWithChildren(block.id);
     const groupIds = group.map(b => b.id);
-    const prevPrevId = newPrev?.id ?? '';
-    await this.api.moveBlocks(groupIds, block.pageId, prevPrevId);
+
+    // Standard placement: move one position up
+    const newPrev = idx >= 2 ? blocks[idx - 2] : undefined;
+    if (this.canPlace(block.level, newPrev)) {
+      // Normal move up
+      const prevPrevId = newPrev?.id ?? '';
+      await this.api.moveBlocks(groupIds, block.pageId, prevPrevId);
+      this.state.deleteBlocks(groupIds);
+      this.state.addBlocks(group, prevPrevId || '');
+      this.focusEditor();
+      return;
+    }
+
+    // Exception: If there's a block at the same level above, move just above it
+    let sameLevelBlockIdx = -1;
+    for (let i = idx - 1; i >= 0; i--) {
+      if (blocks[i].level === block.level) {
+        sameLevelBlockIdx = i;
+        break;
+      }
+    }
+
+    if (sameLevelBlockIdx === -1) return; // No same-level block found above
+
+    // Find the block with children to determine the actual position
+    const allBlocks = this.state.blocks();
+    const sameLevelBlock = blocks[sameLevelBlockIdx];
+    const sameLevelIdx = allBlocks.findIndex(b => b.id === sameLevelBlock.id);
+
+    // Move to just before the same-level block (considering its children)
+    const targetPrev = sameLevelIdx > 0 ? allBlocks[sameLevelIdx - 1] : undefined;
+    const targetPrevId = targetPrev?.id ?? '';
+
+    await this.api.moveBlocks(groupIds, block.pageId, targetPrevId);
     this.state.deleteBlocks(groupIds);
-    this.state.addBlocks(group, prevPrevId || '');
+    this.state.addBlocks(group, targetPrevId);
     this.focusEditor();
   }
 
@@ -417,11 +447,37 @@ export class OutlineComponent {
     const lastChildIdx = allBlocks.findIndex(b => b.id === group[group.length - 1].id);
     if (lastChildIdx >= allBlocks.length - 1) return;
     const targetBlock = allBlocks[lastChildIdx + 1];
-    if (!this.canPlace(block.level, targetBlock)) return;
 
-    await this.api.moveBlocks(groupIds, block.pageId, targetBlock.id);
+    // Standard placement: move one position down
+    if (this.canPlace(block.level, targetBlock)) {
+      // Normal move down
+      await this.api.moveBlocks(groupIds, block.pageId, targetBlock.id);
+      this.state.deleteBlocks(groupIds);
+      this.state.addBlocks(group, targetBlock.id);
+      this.focusEditor();
+      return;
+    }
+
+    // Exception: If there's a block at the same level below, move just after it (and its children)
+    let sameLevelBlockIdx = -1;
+    for (let i = idx + 1; i < blocks.length; i++) {
+      if (blocks[i].level === block.level) {
+        sameLevelBlockIdx = i;
+        break;
+      }
+    }
+
+    if (sameLevelBlockIdx === -1) return; // No same-level block found below
+
+    // Get the same-level block and all its children
+    const sameLevelBlock = blocks[sameLevelBlockIdx];
+    const sameLevelGroup = this.state.getBlockWithChildren(sameLevelBlock.id);
+    const lastDescendant = sameLevelGroup[sameLevelGroup.length - 1];
+
+    // Move to just after the same-level block and all its children
+    await this.api.moveBlocks(groupIds, block.pageId, lastDescendant.id);
     this.state.deleteBlocks(groupIds);
-    this.state.addBlocks(group, targetBlock.id);
+    this.state.addBlocks(group, lastDescendant.id);
     this.focusEditor();
   }
 
