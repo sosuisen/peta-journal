@@ -135,14 +135,33 @@ public class LuceneSearchService implements SearchService {
     @Override
     public List<SearchResult> searchPageNames(String query, int maxResults) {
         if (maxResults <= 0) maxResults = 20;
-        List<SearchResult> results = new ArrayList<>();
         try (DirectoryReader reader = DirectoryReader.open(writer)) {
+            // Try prefix search first (query*)
+            List<SearchResult> results = searchPageNamesByPattern(
+                    QueryParser.escape(query) + "*", reader, maxResults, false);
+            if (!results.isEmpty()) {
+                return results;
+            }
+            // Fallback to contains search (*query*)
+            return searchPageNamesByPattern(
+                    "*" + QueryParser.escape(query) + "*", reader, maxResults, true);
+        } catch (Exception e) {
+            LOG.warnv("Page name search failed for query: {0}", query, e);
+        }
+        return List.of();
+    }
+
+    private List<SearchResult> searchPageNamesByPattern(String pattern, DirectoryReader reader,
+                                                        int maxResults, boolean allowLeadingWildcard) {
+        List<SearchResult> results = new ArrayList<>();
+        try {
             IndexSearcher searcher = new IndexSearcher(reader);
             QueryParser parser = new QueryParser(FIELD_PAGE_TITLE, analyzer);
             parser.setDefaultOperator(QueryParser.Operator.AND);
+            parser.setAllowLeadingWildcard(allowLeadingWildcard);
 
             BooleanQuery.Builder bq = new BooleanQuery.Builder();
-            bq.add(parser.parse(QueryParser.escape(query) + "*"), BooleanClause.Occur.MUST);
+            bq.add(parser.parse(pattern), BooleanClause.Occur.MUST);
             bq.add(new TermQuery(new Term(FIELD_TYPE, "page")), BooleanClause.Occur.MUST);
 
             TopDocs topDocs = searcher.search(bq.build(), maxResults);
@@ -157,7 +176,7 @@ public class LuceneSearchService implements SearchService {
                 ));
             }
         } catch (Exception e) {
-            LOG.warnv("Page name search failed for query: {0}", query, e);
+            LOG.warnv("Page name search by pattern failed: {0}", pattern, e);
         }
         return results;
     }
