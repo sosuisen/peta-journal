@@ -98,8 +98,19 @@ export class WikiLinkAutocompleteComponent {
   }
 
   async createAndLink(): Promise<void> {
-    const title = this.query().trim();
-    if (!title) return;
+    let title = this.query().trim();
+
+    // If empty or whitespace-only, generate timestamp-based title
+    if (!title) {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const hour = String(now.getHours()).padStart(2, '0');
+      const minute = String(now.getMinutes()).padStart(2, '0');
+      title = `Untitled-${year}${month}${day}${hour}${minute}`;
+    }
+
     await this.api.createPage(title);
     const handler = this.onSelect();
     if (handler) handler(title);

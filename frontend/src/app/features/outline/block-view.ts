@@ -207,8 +207,22 @@ export class BlockViewComponent {
       return;
     }
 
-    const pageTitle = link.dataset['pageTitle'];
+    let pageTitle = link.dataset['pageTitle'];
     if (pageTitle) {
+      // Trim leading and trailing whitespace
+      pageTitle = pageTitle.trim();
+
+      // If empty or whitespace-only, generate timestamp-based title
+      if (!pageTitle) {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hour = String(now.getHours()).padStart(2, '0');
+        const minute = String(now.getMinutes()).padStart(2, '0');
+        pageTitle = `Untitled-${year}${month}${day}${hour}${minute}`;
+      }
+
       const page = await this.api.createPage(pageTitle);
       this.recentPages.refresh();
       this.router.navigate(['/pages', page.id]);

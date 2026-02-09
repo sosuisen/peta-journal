@@ -47,8 +47,22 @@ public class PageService {
     }
 
     public Page createPage(String title, String dirPath, List<String> tags) {
+        // Validate: reject empty or whitespace-only titles
+        if (title == null || title.trim().isEmpty()) {
+            throw new IllegalArgumentException("Page title cannot be empty or whitespace-only");
+        }
+
+        // Validate: reject titles with leading or trailing whitespace
+        if (!title.equals(title.trim())) {
+            throw new IllegalArgumentException("Page title cannot have leading or trailing whitespace");
+        }
+
         String dir = (dirPath == null || dirPath.isEmpty()) ? "pages" : dirPath;
-        String fileName = title.toLowerCase().replaceAll("[^a-z0-9\\-]", "-").replaceAll("-+", "-");
+
+        // Use title as-is for filename (preserve case, spaces, Japanese, etc.)
+        // Only remove characters that are invalid for filenames on most filesystems
+        String fileName = title
+            .replaceAll("[<>:\"/\\\\|?*]", "");  // Remove Windows/Unix invalid filename characters
 
         // Check for duplicate by exact title match
         var existing = pageRepository.findByExactTitle(title);

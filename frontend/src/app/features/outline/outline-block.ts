@@ -84,6 +84,7 @@ import { BlockViewComponent } from './block-view';
       color: #666;
       transition: transform 0.15s;
       line-height: 1;
+      margin-top: 3px;
     }
     .collapse-toggle .triangle {
       display: inline-block;

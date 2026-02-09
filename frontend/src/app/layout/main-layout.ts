@@ -246,8 +246,23 @@ export class MainLayoutComponent {
 
   async createNewPage(): Promise<void> {
     const searchQuery = this.searchBar()?.query().trim();
-    const title = searchQuery || prompt('Page title:');
-    if (title) {
+    let title = searchQuery || prompt('Page title:');
+
+    if (title !== null) {
+      // Trim leading and trailing whitespace
+      title = title.trim();
+
+      // If empty or whitespace-only, generate timestamp-based title
+      if (!title) {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hour = String(now.getHours()).padStart(2, '0');
+        const minute = String(now.getMinutes()).padStart(2, '0');
+        title = `Untitled-${year}${month}${day}${hour}${minute}`;
+      }
+
       const page = await this.api.createPage(title);
       this.recentPages.refresh();
       if (searchQuery) {
