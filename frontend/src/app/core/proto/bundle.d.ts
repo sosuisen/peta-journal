@@ -121,9 +121,6 @@ export namespace petajournal {
         /** Page tags */
         tags?: (string[]|null);
 
-        /** Page titles */
-        titles?: (petajournal.IPageTitle[]|null);
-
         /** Page propertiesJson */
         propertiesJson?: (string|null);
     }
@@ -154,9 +151,6 @@ export namespace petajournal {
 
         /** Page tags. */
         public tags: string[];
-
-        /** Page titles. */
-        public titles: petajournal.IPageTitle[];
 
         /** Page propertiesJson. */
         public propertiesJson: string;
@@ -233,115 +227,6 @@ export namespace petajournal {
 
         /**
          * Gets the default type url for Page
-         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
-         * @returns The default type url
-         */
-        public static getTypeUrl(typeUrlPrefix?: string): string;
-    }
-
-    /** Properties of a PageTitle. */
-    interface IPageTitle {
-
-        /** PageTitle pageId */
-        pageId?: (string|null);
-
-        /** PageTitle orderIndex */
-        orderIndex?: (number|null);
-
-        /** PageTitle title */
-        title?: (string|null);
-    }
-
-    /** Represents a PageTitle. */
-    class PageTitle implements IPageTitle {
-
-        /**
-         * Constructs a new PageTitle.
-         * @param [properties] Properties to set
-         */
-        constructor(properties?: petajournal.IPageTitle);
-
-        /** PageTitle pageId. */
-        public pageId: string;
-
-        /** PageTitle orderIndex. */
-        public orderIndex: number;
-
-        /** PageTitle title. */
-        public title: string;
-
-        /**
-         * Creates a new PageTitle instance using the specified properties.
-         * @param [properties] Properties to set
-         * @returns PageTitle instance
-         */
-        public static create(properties?: petajournal.IPageTitle): petajournal.PageTitle;
-
-        /**
-         * Encodes the specified PageTitle message. Does not implicitly {@link petajournal.PageTitle.verify|verify} messages.
-         * @param message PageTitle message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encode(message: petajournal.IPageTitle, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
-         * Encodes the specified PageTitle message, length delimited. Does not implicitly {@link petajournal.PageTitle.verify|verify} messages.
-         * @param message PageTitle message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encodeDelimited(message: petajournal.IPageTitle, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
-         * Decodes a PageTitle message from the specified reader or buffer.
-         * @param reader Reader or buffer to decode from
-         * @param [length] Message length if known beforehand
-         * @returns PageTitle
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.PageTitle;
-
-        /**
-         * Decodes a PageTitle message from the specified reader or buffer, length delimited.
-         * @param reader Reader or buffer to decode from
-         * @returns PageTitle
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.PageTitle;
-
-        /**
-         * Verifies a PageTitle message.
-         * @param message Plain object to verify
-         * @returns `null` if valid, otherwise the reason why it is not
-         */
-        public static verify(message: { [k: string]: any }): (string|null);
-
-        /**
-         * Creates a PageTitle message from a plain object. Also converts values to their respective internal types.
-         * @param object Plain object
-         * @returns PageTitle
-         */
-        public static fromObject(object: { [k: string]: any }): petajournal.PageTitle;
-
-        /**
-         * Creates a plain object from a PageTitle message. Also converts values to other types if specified.
-         * @param message PageTitle
-         * @param [options] Conversion options
-         * @returns Plain object
-         */
-        public static toObject(message: petajournal.PageTitle, options?: $protobuf.IConversionOptions): { [k: string]: any };
-
-        /**
-         * Converts this PageTitle to JSON.
-         * @returns JSON object
-         */
-        public toJSON(): { [k: string]: any };
-
-        /**
-         * Gets the default type url for PageTitle
          * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
          * @returns The default type url
          */

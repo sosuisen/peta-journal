@@ -21,11 +21,6 @@ function toPage(p: any): Page {
     createdDate: p.createdDate?.millis?.toNumber?.() ?? Number(p.createdDate?.millis ?? 0),
     modifiedDate: p.modifiedDate?.millis?.toNumber?.() ?? Number(p.modifiedDate?.millis ?? 0),
     tags: p.tags ?? [],
-    titles: (p.titles ?? []).map((t: any) => ({
-      pageId: t.pageId ?? '',
-      orderIndex: t.orderIndex ?? 0,
-      title: t.title ?? '',
-    })),
     propertiesJson: p.propertiesJson ?? '',
   };
 }

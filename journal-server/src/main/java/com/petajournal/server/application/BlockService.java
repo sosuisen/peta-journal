@@ -89,7 +89,7 @@ public class BlockService {
         touchPage(pageId);
 
         // Index for search
-        searchService.indexBlock(block, page.primaryTitle());
+        searchService.indexBlock(block, page.fileName());
 
         syncService.notifyChange("block", id);
 
@@ -133,7 +133,7 @@ public class BlockService {
 
         Page page = pageRepository.findById(existing.pageId()).orElse(null);
         if (page != null) {
-            searchService.indexBlock(updated, page.primaryTitle());
+            searchService.indexBlock(updated, page.fileName());
         }
 
         syncService.notifyChange("block", blockId);
@@ -239,7 +239,7 @@ public class BlockService {
             Page updated = new Page(
                     page.id(), page.dirPath(), page.fileName(),
                     page.createdDate(), Instant.now(),
-                    page.tags(), page.titles(), page.propertiesJson()
+                    page.tags(), page.propertiesJson()
             );
             pageRepository.save(updated);
         });
@@ -259,7 +259,7 @@ public class BlockService {
             String pageName = matcher.group(1);
             List<Page> pages = pageRepository.findByTitle(pageName);
             Optional<Page> exactMatch = pages.stream()
-                    .filter(p -> p.primaryTitle().equalsIgnoreCase(pageName))
+                    .filter(p -> p.fileName().equalsIgnoreCase(pageName))
                     .findFirst();
             String replacement;
             if (exactMatch.isPresent()) {

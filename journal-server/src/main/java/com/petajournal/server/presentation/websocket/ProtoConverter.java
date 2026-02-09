@@ -2,7 +2,6 @@ package com.petajournal.server.presentation.websocket;
 
 import com.petajournal.proto.*;
 import com.petajournal.server.domain.model.BacklinkEntry;
-import com.petajournal.server.domain.model.PageTitle;
 
 import java.util.List;
 import java.util.UUID;
@@ -24,15 +23,6 @@ final class ProtoConverter {
                 .setPropertiesJson(page.propertiesJson() != null ? page.propertiesJson() : "{}");
         if (page.tags() != null) {
             b.addAllTags(page.tags());
-        }
-        if (page.titles() != null) {
-            for (PageTitle t : page.titles()) {
-                b.addTitles(com.petajournal.proto.PageTitle.newBuilder()
-                        .setPageId(t.pageId().toString())
-                        .setOrderIndex(t.orderIndex())
-                        .setTitle(t.title())
-                        .build());
-            }
         }
         return b.build();
     }

@@ -3,7 +3,6 @@ package com.petajournal.server.application;
 import com.petajournal.server.domain.model.BacklinkEntry;
 import com.petajournal.server.domain.model.Block;
 import com.petajournal.server.domain.model.Page;
-import com.petajournal.server.domain.model.PageTitle;
 import com.petajournal.server.domain.repository.BlockRepository;
 import com.petajournal.server.domain.repository.PageRepository;
 import com.petajournal.server.domain.repository.SearchService;
@@ -73,10 +72,7 @@ public class PageService {
         UUID id = UUID.randomUUID();
         Instant now = Instant.now();
 
-        List<PageTitle> titles = new ArrayList<>();
-        titles.add(new PageTitle(id, 0, title));
-
-        Page page = new Page(id, dir, fileName, now, now, tags != null ? tags : List.of(), titles, "{}");
+        Page page = new Page(id, dir, fileName, now, now, tags != null ? tags : List.of(), "{}");
         page = pageRepository.save(page);
         searchService.indexPage(page);
 
@@ -97,20 +93,26 @@ public class PageService {
         Page existing = pageRepository.findById(pageId)
                 .orElseThrow(() -> new IllegalArgumentException("Page not found: " + pageId));
 
-        List<PageTitle> titles = existing.titles();
+        // If title is provided, use it as the new fileName (after sanitization)
+        String fileName = existing.fileName();
         if (title != null) {
-            titles = new ArrayList<>();
-            titles.add(new PageTitle(pageId, 0, title));
+            // Validate and sanitize the new title
+            if (title.trim().isEmpty()) {
+                throw new IllegalArgumentException("Page title cannot be empty or whitespace-only");
+            }
+            if (!title.equals(title.trim())) {
+                throw new IllegalArgumentException("Page title cannot have leading or trailing whitespace");
+            }
+            fileName = title.replaceAll("[<>:\"/\\\\|?*]", "");
         }
 
         Page updated = new Page(
                 existing.id(),
                 existing.dirPath(),
-                existing.fileName(),
+                fileName,
                 existing.createdDate(),
                 Instant.now(),
                 tags != null ? tags : existing.tags(),
-                titles,
                 propertiesJson != null ? propertiesJson : existing.propertiesJson()
         );
 
@@ -143,13 +145,11 @@ public class PageService {
         if (targetPage == null) return entries;
 
         for (Page source : sources) {
-            // Find the specific blocks that link to this page
-            for (String title : targetPage.titles().stream().map(PageTitle::title).toList()) {
-                List<Block> linkingBlocks = blockRepository.findByPageIdContainingLink(title);
-                for (Block block : linkingBlocks) {
-                    if (block.pageId().equals(source.id())) {
-                        entries.add(new BacklinkEntry(source, block));
-                    }
+            // Find the specific blocks that link to this page (using fileName as title)
+            List<Block> linkingBlocks = blockRepository.findByPageIdContainingLink(targetPage.fileName());
+            for (Block block : linkingBlocks) {
+                if (block.pageId().equals(source.id())) {
+                    entries.add(new BacklinkEntry(source, block));
                 }
             }
         }

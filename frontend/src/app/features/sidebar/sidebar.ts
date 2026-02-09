@@ -1,6 +1,7 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { RecentPagesService } from '../../core/services/recent-pages.service';
+import { Page } from '../../core/models/page.model';
 
 @Component({
   selector: 'app-sidebar',
@@ -17,7 +18,7 @@ import { RecentPagesService } from '../../core/services/recent-pages.service';
           <h3 class="section-title">Recent Pages</h3>
           @for (page of recentPages.recentPages(); track page.id) {
             <div class="sidebar-item" (click)="goToPage(page.id)">
-              {{ page.titles.length > 0 ? page.titles[0].title : page.fileName }}
+              {{ formatPageTitle(page) }}
             </div>
           }
         </div>
@@ -117,5 +118,27 @@ export class SidebarComponent implements OnInit {
 
   goToPage(pageId: string): void {
     this.router.navigate(['/pages', pageId]);
+  }
+
+  formatPageTitle(page: Page): string {
+    // For journal pages (dirPath starts with 'journal'), format as locale date
+    if (page.dirPath.startsWith('journal')) {
+      try {
+        const date = new Date(page.fileName + 'T00:00:00');
+        const dateStr = date.toLocaleDateString('ja-JP', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+        const weekdayStr = date.toLocaleDateString('ja-JP', {
+          weekday: 'long'
+        });
+        return `${dateStr} ${weekdayStr}`;
+      } catch {
+        return page.fileName;
+      }
+    }
+    // For regular pages, use fileName as-is
+    return page.fileName;
   }
 }

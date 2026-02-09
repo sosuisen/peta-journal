@@ -2,7 +2,6 @@ package com.petajournal.server.application;
 
 import com.petajournal.server.domain.model.Block;
 import com.petajournal.server.domain.model.Page;
-import com.petajournal.server.domain.model.PageTitle;
 import com.petajournal.server.domain.repository.BlockRepository;
 import com.petajournal.server.domain.repository.PageRepository;
 import com.petajournal.server.domain.repository.SearchService;
@@ -47,12 +46,9 @@ public class JournalService {
 
         String dirPath = "journals";
         String fileName = date.format(DateTimeFormatter.ISO_LOCAL_DATE);
-        String title = date.format(DateTimeFormatter.ofPattern("yyyy年M月d日"));
+        List<String> tags = List.of();
 
-        List<PageTitle> titles = List.of(new PageTitle(id, 0, title));
-        List<String> tags = List.of("journal");
-
-        Page page = new Page(id, dirPath, fileName, now, now, tags, titles, "{}");
+        Page page = new Page(id, dirPath, fileName, now, now, tags, "{}");
         page = pageRepository.save(page);
         searchService.indexPage(page);
 

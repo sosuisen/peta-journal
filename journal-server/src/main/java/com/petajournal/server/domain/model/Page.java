@@ -11,13 +11,6 @@ public record Page(
     Instant createdDate,
     Instant modifiedDate,
     List<String> tags,
-    List<PageTitle> titles,
     String propertiesJson
 ) {
-    public String primaryTitle() {
-        if (titles == null || titles.isEmpty()) {
-            return fileName;
-        }
-        return titles.getFirst().title();
-    }
 }

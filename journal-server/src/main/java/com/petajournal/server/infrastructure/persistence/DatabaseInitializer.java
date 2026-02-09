@@ -43,18 +43,6 @@ public class DatabaseInitializer {
                 """);
             LOG.info("Pages table created");
 
-            LOG.info("Creating page_titles table...");
-            stmt.execute("""
-                CREATE TABLE IF NOT EXISTS page_titles (
-                    page_id TEXT NOT NULL,
-                    order_index INTEGER NOT NULL,
-                    title TEXT NOT NULL,
-                    PRIMARY KEY (page_id, order_index),
-                    FOREIGN KEY (page_id) REFERENCES pages(id) ON DELETE CASCADE
-                )
-                """);
-            LOG.info("Page_titles table created");
-
             LOG.info("Creating page_tags table...");
             stmt.execute("""
                 CREATE TABLE IF NOT EXISTS page_tags (
@@ -110,7 +98,6 @@ public class DatabaseInitializer {
             LOG.info("Creating indexes...");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_pages_dir_file ON pages(dir_path, file_name)");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_pages_modified ON pages(modified_date DESC)");
-            stmt.execute("CREATE INDEX IF NOT EXISTS idx_page_titles_title ON page_titles(title)");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_blocks_page_id ON blocks(page_id, idx)");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_blocks_body_link ON blocks(body)");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_blocks_status ON blocks(status)");

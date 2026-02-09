@@ -2,7 +2,6 @@ package com.petajournal.server.infrastructure.export;
 
 import com.petajournal.server.domain.model.Block;
 import com.petajournal.server.domain.model.Page;
-import com.petajournal.server.domain.model.PageTitle;
 import com.petajournal.server.infrastructure.persistence.BlockIdGenerator;
 import com.petajournal.server.infrastructure.persistence.FractionalIndexer;
 
@@ -64,11 +63,6 @@ public class OutlineMarkdownParser {
         Instant created = fm.containsKey("created") ? Instant.parse(fm.get("created")) : now;
         Instant modified = fm.containsKey("modified") ? Instant.parse(fm.get("modified")) : now;
 
-        List<PageTitle> titles = new ArrayList<>();
-        if (fm.containsKey("title")) {
-            titles.add(new PageTitle(id, 0, fm.get("title")));
-        }
-
         List<String> tags = new ArrayList<>();
         if (fm.containsKey("tags")) {
             // Tags are stored as "tag1,tag2" in simplified frontmatter
@@ -78,7 +72,7 @@ public class OutlineMarkdownParser {
             }
         }
 
-        return new Page(id, dirPath, fileName, created, modified, tags, titles, "{}");
+        return new Page(id, dirPath, fileName, created, modified, tags, "{}");
     }
 
     public List<Block> toBlocks(ParseResult result, UUID pageId, String dirPath, String fileName) {

@@ -53,10 +53,10 @@ public class ImportService {
                     block.collapsed(), block.status(), block.types(), block.propertiesJson()
             );
             blockRepository.save(withHtml);
-            searchService.indexBlock(withHtml, page.primaryTitle());
+            searchService.indexBlock(withHtml, page.fileName());
         }
 
-        LOG.infov("Imported page from {0}: {1}", filePath, page.primaryTitle());
+        LOG.infov("Imported page from {0}: {1}", filePath, page.fileName());
         return page;
     }
 }

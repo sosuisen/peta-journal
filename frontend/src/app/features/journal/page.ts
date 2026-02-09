@@ -55,7 +55,26 @@ export class PageComponent implements OnInit, OnDestroy {
   pageTitle(): string {
     const p = this.page();
     if (!p) return '';
-    return p.titles.length > 0 ? p.titles[0].title : p.fileName;
+
+    // For journal pages (dirPath starts with 'journal'), format as locale date
+    if (p.dirPath.startsWith('journal')) {
+      try {
+        const date = new Date(p.fileName + 'T00:00:00');
+        const dateStr = date.toLocaleDateString('ja-JP', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+        const weekdayStr = date.toLocaleDateString('ja-JP', {
+          weekday: 'long'
+        });
+        return `${dateStr} ${weekdayStr}`;
+      } catch {
+        return p.fileName;
+      }
+    }
+    // For regular pages, use fileName as-is
+    return p.fileName;
   }
 
   ngOnInit(): void {
@@ -113,8 +132,7 @@ export class PageComponent implements OnInit, OnDestroy {
     try {
       const result = await this.api.getPage(pageId);
       this.page.set(result.page);
-      const name = result.page.titles.length > 0 ? result.page.titles[0].title : result.page.fileName;
-      this.title.setTitle(name);
+      this.title.setTitle(this.pageTitle());
     } catch (e) {
       console.error('Failed to load page:', pageId, e);
     }

@@ -247,7 +247,6 @@ export const petajournal = $root.petajournal = (() => {
          * @property {petajournal.ITimestamp|null} [createdDate] Page createdDate
          * @property {petajournal.ITimestamp|null} [modifiedDate] Page modifiedDate
          * @property {Array.<string>|null} [tags] Page tags
-         * @property {Array.<petajournal.IPageTitle>|null} [titles] Page titles
          * @property {string|null} [propertiesJson] Page propertiesJson
          */
 
@@ -261,7 +260,6 @@ export const petajournal = $root.petajournal = (() => {
          */
         function Page(properties) {
             this.tags = [];
-            this.titles = [];
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
                     if (properties[keys[i]] != null)
@@ -317,14 +315,6 @@ export const petajournal = $root.petajournal = (() => {
         Page.prototype.tags = $util.emptyArray;
 
         /**
-         * Page titles.
-         * @member {Array.<petajournal.IPageTitle>} titles
-         * @memberof petajournal.Page
-         * @instance
-         */
-        Page.prototype.titles = $util.emptyArray;
-
-        /**
          * Page propertiesJson.
          * @member {string} propertiesJson
          * @memberof petajournal.Page
@@ -369,9 +359,6 @@ export const petajournal = $root.petajournal = (() => {
             if (message.tags != null && message.tags.length)
                 for (let i = 0; i < message.tags.length; ++i)
                     writer.uint32(/* id 6, wireType 2 =*/50).string(message.tags[i]);
-            if (message.titles != null && message.titles.length)
-                for (let i = 0; i < message.titles.length; ++i)
-                    $root.petajournal.PageTitle.encode(message.titles[i], writer.uint32(/* id 7, wireType 2 =*/58).fork()).ldelim();
             if (message.propertiesJson != null && Object.hasOwnProperty.call(message, "propertiesJson"))
                 writer.uint32(/* id 8, wireType 2 =*/66).string(message.propertiesJson);
             return writer;
@@ -434,12 +421,6 @@ export const petajournal = $root.petajournal = (() => {
                         if (!(message.tags && message.tags.length))
                             message.tags = [];
                         message.tags.push(reader.string());
-                        break;
-                    }
-                case 7: {
-                        if (!(message.titles && message.titles.length))
-                            message.titles = [];
-                        message.titles.push($root.petajournal.PageTitle.decode(reader, reader.uint32()));
                         break;
                     }
                 case 8: {
@@ -507,15 +488,6 @@ export const petajournal = $root.petajournal = (() => {
                     if (!$util.isString(message.tags[i]))
                         return "tags: string[] expected";
             }
-            if (message.titles != null && message.hasOwnProperty("titles")) {
-                if (!Array.isArray(message.titles))
-                    return "titles: array expected";
-                for (let i = 0; i < message.titles.length; ++i) {
-                    let error = $root.petajournal.PageTitle.verify(message.titles[i]);
-                    if (error)
-                        return "titles." + error;
-                }
-            }
             if (message.propertiesJson != null && message.hasOwnProperty("propertiesJson"))
                 if (!$util.isString(message.propertiesJson))
                     return "propertiesJson: string expected";
@@ -557,16 +529,6 @@ export const petajournal = $root.petajournal = (() => {
                 for (let i = 0; i < object.tags.length; ++i)
                     message.tags[i] = String(object.tags[i]);
             }
-            if (object.titles) {
-                if (!Array.isArray(object.titles))
-                    throw TypeError(".petajournal.Page.titles: array expected");
-                message.titles = [];
-                for (let i = 0; i < object.titles.length; ++i) {
-                    if (typeof object.titles[i] !== "object")
-                        throw TypeError(".petajournal.Page.titles: object expected");
-                    message.titles[i] = $root.petajournal.PageTitle.fromObject(object.titles[i]);
-                }
-            }
             if (object.propertiesJson != null)
                 message.propertiesJson = String(object.propertiesJson);
             return message;
@@ -585,10 +547,8 @@ export const petajournal = $root.petajournal = (() => {
             if (!options)
                 options = {};
             let object = {};
-            if (options.arrays || options.defaults) {
+            if (options.arrays || options.defaults)
                 object.tags = [];
-                object.titles = [];
-            }
             if (options.defaults) {
                 object.id = "";
                 object.dirPath = "";
@@ -611,11 +571,6 @@ export const petajournal = $root.petajournal = (() => {
                 object.tags = [];
                 for (let j = 0; j < message.tags.length; ++j)
                     object.tags[j] = message.tags[j];
-            }
-            if (message.titles && message.titles.length) {
-                object.titles = [];
-                for (let j = 0; j < message.titles.length; ++j)
-                    object.titles[j] = $root.petajournal.PageTitle.toObject(message.titles[j], options);
             }
             if (message.propertiesJson != null && message.hasOwnProperty("propertiesJson"))
                 object.propertiesJson = message.propertiesJson;
@@ -649,258 +604,6 @@ export const petajournal = $root.petajournal = (() => {
         };
 
         return Page;
-    })();
-
-    petajournal.PageTitle = (function() {
-
-        /**
-         * Properties of a PageTitle.
-         * @memberof petajournal
-         * @interface IPageTitle
-         * @property {string|null} [pageId] PageTitle pageId
-         * @property {number|null} [orderIndex] PageTitle orderIndex
-         * @property {string|null} [title] PageTitle title
-         */
-
-        /**
-         * Constructs a new PageTitle.
-         * @memberof petajournal
-         * @classdesc Represents a PageTitle.
-         * @implements IPageTitle
-         * @constructor
-         * @param {petajournal.IPageTitle=} [properties] Properties to set
-         */
-        function PageTitle(properties) {
-            if (properties)
-                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                    if (properties[keys[i]] != null)
-                        this[keys[i]] = properties[keys[i]];
-        }
-
-        /**
-         * PageTitle pageId.
-         * @member {string} pageId
-         * @memberof petajournal.PageTitle
-         * @instance
-         */
-        PageTitle.prototype.pageId = "";
-
-        /**
-         * PageTitle orderIndex.
-         * @member {number} orderIndex
-         * @memberof petajournal.PageTitle
-         * @instance
-         */
-        PageTitle.prototype.orderIndex = 0;
-
-        /**
-         * PageTitle title.
-         * @member {string} title
-         * @memberof petajournal.PageTitle
-         * @instance
-         */
-        PageTitle.prototype.title = "";
-
-        /**
-         * Creates a new PageTitle instance using the specified properties.
-         * @function create
-         * @memberof petajournal.PageTitle
-         * @static
-         * @param {petajournal.IPageTitle=} [properties] Properties to set
-         * @returns {petajournal.PageTitle} PageTitle instance
-         */
-        PageTitle.create = function create(properties) {
-            return new PageTitle(properties);
-        };
-
-        /**
-         * Encodes the specified PageTitle message. Does not implicitly {@link petajournal.PageTitle.verify|verify} messages.
-         * @function encode
-         * @memberof petajournal.PageTitle
-         * @static
-         * @param {petajournal.IPageTitle} message PageTitle message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        PageTitle.encode = function encode(message, writer) {
-            if (!writer)
-                writer = $Writer.create();
-            if (message.pageId != null && Object.hasOwnProperty.call(message, "pageId"))
-                writer.uint32(/* id 1, wireType 2 =*/10).string(message.pageId);
-            if (message.orderIndex != null && Object.hasOwnProperty.call(message, "orderIndex"))
-                writer.uint32(/* id 2, wireType 0 =*/16).int32(message.orderIndex);
-            if (message.title != null && Object.hasOwnProperty.call(message, "title"))
-                writer.uint32(/* id 3, wireType 2 =*/26).string(message.title);
-            return writer;
-        };
-
-        /**
-         * Encodes the specified PageTitle message, length delimited. Does not implicitly {@link petajournal.PageTitle.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof petajournal.PageTitle
-         * @static
-         * @param {petajournal.IPageTitle} message PageTitle message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        PageTitle.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
-         * Decodes a PageTitle message from the specified reader or buffer.
-         * @function decode
-         * @memberof petajournal.PageTitle
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @param {number} [length] Message length if known beforehand
-         * @returns {petajournal.PageTitle} PageTitle
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        PageTitle.decode = function decode(reader, length, error) {
-            if (!(reader instanceof $Reader))
-                reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.PageTitle();
-            while (reader.pos < end) {
-                let tag = reader.uint32();
-                if (tag === error)
-                    break;
-                switch (tag >>> 3) {
-                case 1: {
-                        message.pageId = reader.string();
-                        break;
-                    }
-                case 2: {
-                        message.orderIndex = reader.int32();
-                        break;
-                    }
-                case 3: {
-                        message.title = reader.string();
-                        break;
-                    }
-                default:
-                    reader.skipType(tag & 7);
-                    break;
-                }
-            }
-            return message;
-        };
-
-        /**
-         * Decodes a PageTitle message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof petajournal.PageTitle
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {petajournal.PageTitle} PageTitle
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        PageTitle.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
-        };
-
-        /**
-         * Verifies a PageTitle message.
-         * @function verify
-         * @memberof petajournal.PageTitle
-         * @static
-         * @param {Object.<string,*>} message Plain object to verify
-         * @returns {string|null} `null` if valid, otherwise the reason why it is not
-         */
-        PageTitle.verify = function verify(message) {
-            if (typeof message !== "object" || message === null)
-                return "object expected";
-            if (message.pageId != null && message.hasOwnProperty("pageId"))
-                if (!$util.isString(message.pageId))
-                    return "pageId: string expected";
-            if (message.orderIndex != null && message.hasOwnProperty("orderIndex"))
-                if (!$util.isInteger(message.orderIndex))
-                    return "orderIndex: integer expected";
-            if (message.title != null && message.hasOwnProperty("title"))
-                if (!$util.isString(message.title))
-                    return "title: string expected";
-            return null;
-        };
-
-        /**
-         * Creates a PageTitle message from a plain object. Also converts values to their respective internal types.
-         * @function fromObject
-         * @memberof petajournal.PageTitle
-         * @static
-         * @param {Object.<string,*>} object Plain object
-         * @returns {petajournal.PageTitle} PageTitle
-         */
-        PageTitle.fromObject = function fromObject(object) {
-            if (object instanceof $root.petajournal.PageTitle)
-                return object;
-            let message = new $root.petajournal.PageTitle();
-            if (object.pageId != null)
-                message.pageId = String(object.pageId);
-            if (object.orderIndex != null)
-                message.orderIndex = object.orderIndex | 0;
-            if (object.title != null)
-                message.title = String(object.title);
-            return message;
-        };
-
-        /**
-         * Creates a plain object from a PageTitle message. Also converts values to other types if specified.
-         * @function toObject
-         * @memberof petajournal.PageTitle
-         * @static
-         * @param {petajournal.PageTitle} message PageTitle
-         * @param {$protobuf.IConversionOptions} [options] Conversion options
-         * @returns {Object.<string,*>} Plain object
-         */
-        PageTitle.toObject = function toObject(message, options) {
-            if (!options)
-                options = {};
-            let object = {};
-            if (options.defaults) {
-                object.pageId = "";
-                object.orderIndex = 0;
-                object.title = "";
-            }
-            if (message.pageId != null && message.hasOwnProperty("pageId"))
-                object.pageId = message.pageId;
-            if (message.orderIndex != null && message.hasOwnProperty("orderIndex"))
-                object.orderIndex = message.orderIndex;
-            if (message.title != null && message.hasOwnProperty("title"))
-                object.title = message.title;
-            return object;
-        };
-
-        /**
-         * Converts this PageTitle to JSON.
-         * @function toJSON
-         * @memberof petajournal.PageTitle
-         * @instance
-         * @returns {Object.<string,*>} JSON object
-         */
-        PageTitle.prototype.toJSON = function toJSON() {
-            return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
-        };
-
-        /**
-         * Gets the default type url for PageTitle
-         * @function getTypeUrl
-         * @memberof petajournal.PageTitle
-         * @static
-         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
-         * @returns {string} The default type url
-         */
-        PageTitle.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-            if (typeUrlPrefix === undefined) {
-                typeUrlPrefix = "type.googleapis.com";
-            }
-            return typeUrlPrefix + "/petajournal.PageTitle";
-        };
-
-        return PageTitle;
     })();
 
     petajournal.Block = (function() {

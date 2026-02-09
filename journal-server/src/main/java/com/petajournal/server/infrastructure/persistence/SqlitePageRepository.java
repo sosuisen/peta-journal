@@ -1,7 +1,6 @@
 package com.petajournal.server.infrastructure.persistence;
 
 import com.petajournal.server.domain.model.Page;
-import com.petajournal.server.domain.model.PageTitle;
 import com.petajournal.server.domain.repository.PageRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -138,8 +137,8 @@ public class SqlitePageRepository implements PageRepository {
     public List<Page> findByTitle(String titleQuery) {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT DISTINCT p.id, p.dir_path, p.file_name, p.created_date, p.modified_date, p.properties_json " +
-                     "FROM pages p JOIN page_titles t ON p.id = t.page_id WHERE t.title LIKE ? ORDER BY p.modified_date DESC LIMIT 20")) {
+                     "SELECT id, dir_path, file_name, created_date, modified_date, properties_json " +
+                     "FROM pages WHERE file_name LIKE ? ORDER BY modified_date DESC LIMIT 20")) {
             ps.setString(1, "%" + titleQuery + "%");
             return mapPages(conn, ps);
         } catch (SQLException e) {
@@ -151,8 +150,8 @@ public class SqlitePageRepository implements PageRepository {
     public Optional<Page> findByExactTitle(String title) {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT p.id, p.dir_path, p.file_name, p.created_date, p.modified_date, p.properties_json " +
-                     "FROM pages p JOIN page_titles t ON p.id = t.page_id WHERE t.title = ? LIMIT 1")) {
+                     "SELECT id, dir_path, file_name, created_date, modified_date, properties_json " +
+                     "FROM pages WHERE file_name = ? LIMIT 1")) {
             ps.setString(1, title);
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) return Optional.empty();
@@ -184,24 +183,6 @@ public class SqlitePageRepository implements PageRepository {
                     ps.setLong(9, page.modifiedDate().toEpochMilli());
                     ps.setString(10, page.propertiesJson());
                     ps.executeUpdate();
-                }
-
-                // Replace titles
-                try (PreparedStatement ps = conn.prepareStatement("DELETE FROM page_titles WHERE page_id = ?")) {
-                    ps.setString(1, page.id().toString());
-                    ps.executeUpdate();
-                }
-                if (page.titles() != null) {
-                    try (PreparedStatement ps = conn.prepareStatement(
-                            "INSERT INTO page_titles (page_id, order_index, title) VALUES (?, ?, ?)")) {
-                        for (PageTitle title : page.titles()) {
-                            ps.setString(1, page.id().toString());
-                            ps.setInt(2, title.orderIndex());
-                            ps.setString(3, title.title());
-                            ps.addBatch();
-                        }
-                        ps.executeBatch();
-                    }
                 }
 
                 // Replace tags
@@ -247,31 +228,29 @@ public class SqlitePageRepository implements PageRepository {
     public List<Page> findBacklinkSources(UUID targetPageId) {
         // Find pages that have blocks containing [[page title]] links to the target page
         try (Connection conn = connectionProvider.getConnection()) {
-            // First get the target page's titles
-            List<String> titles = new ArrayList<>();
-            try (PreparedStatement ps = conn.prepareStatement("SELECT title FROM page_titles WHERE page_id = ?")) {
+            // First get the target page's fileName (used as title)
+            String fileName = null;
+            try (PreparedStatement ps = conn.prepareStatement("SELECT file_name FROM pages WHERE id = ?")) {
                 ps.setString(1, targetPageId.toString());
                 try (ResultSet rs = ps.executeQuery()) {
-                    while (rs.next()) {
-                        titles.add(rs.getString("title"));
+                    if (rs.next()) {
+                        fileName = rs.getString("file_name");
                     }
                 }
             }
 
-            if (titles.isEmpty()) return List.of();
+            if (fileName == null) return List.of();
 
-            // Find pages with blocks that contain [[title]]
+            // Find pages with blocks that contain [[fileName]]
             Set<UUID> sourcePageIds = new LinkedHashSet<>();
-            for (String title : titles) {
-                String pattern = "%[[" + title + "]]%";
-                try (PreparedStatement ps = conn.prepareStatement(
-                        "SELECT DISTINCT page_id FROM blocks WHERE body LIKE ? AND page_id != ?")) {
-                    ps.setString(1, pattern);
-                    ps.setString(2, targetPageId.toString());
-                    try (ResultSet rs = ps.executeQuery()) {
-                        while (rs.next()) {
-                            sourcePageIds.add(UUID.fromString(rs.getString("page_id")));
-                        }
+            String pattern = "%[[" + fileName + "]]%";
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "SELECT DISTINCT page_id FROM blocks WHERE body LIKE ? AND page_id != ?")) {
+                ps.setString(1, pattern);
+                ps.setString(2, targetPageId.toString());
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        sourcePageIds.add(UUID.fromString(rs.getString("page_id")));
                     }
                 }
             }
@@ -295,7 +274,6 @@ public class SqlitePageRepository implements PageRepository {
                 Instant.ofEpochMilli(rs.getLong("created_date")),
                 Instant.ofEpochMilli(rs.getLong("modified_date")),
                 loadTags(conn, id),
-                loadTitles(conn, id),
                 rs.getString("properties_json")
         );
     }
@@ -321,23 +299,5 @@ public class SqlitePageRepository implements PageRepository {
             }
         }
         return tags;
-    }
-
-    private List<PageTitle> loadTitles(Connection conn, UUID pageId) throws SQLException {
-        List<PageTitle> titles = new ArrayList<>();
-        try (PreparedStatement ps = conn.prepareStatement(
-                "SELECT page_id, order_index, title FROM page_titles WHERE page_id = ? ORDER BY order_index")) {
-            ps.setString(1, pageId.toString());
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    titles.add(new PageTitle(
-                            UUID.fromString(rs.getString("page_id")),
-                            rs.getInt("order_index"),
-                            rs.getString("title")
-                    ));
-                }
-            }
-        }
-        return titles;
     }
 }

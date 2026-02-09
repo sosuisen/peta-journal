@@ -35,7 +35,7 @@ public class SearchIndexRebuilder {
         List<Page> pages = pageRepository.findAll();
         for (Page page : pages) {
             searchService.indexPage(page);
-            String pageTitle = page.primaryTitle();
+            String pageTitle = page.fileName();
             List<Block> blocks = blockRepository.findByPageId(page.id());
             for (Block block : blocks) {
                 if (block.body() != null && !block.body().isBlank()) {
