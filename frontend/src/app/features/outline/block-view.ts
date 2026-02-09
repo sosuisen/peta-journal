@@ -44,6 +44,9 @@ import hljs from 'highlight.js';
       content: ' ';
       white-space: pre;
     }
+    :host ::ng-deep .block-content > p {
+      margin: 0;
+    }
     :host ::ng-deep .wiki-link {
       color: #007bff;
       cursor: pointer;
@@ -122,6 +125,9 @@ import hljs from 'highlight.js';
       margin-right: 6px;
       margin-top: 4px;
       flex-shrink: 0;
+    }
+    .task-checkbox ~ .block-content {
+      padding-left: 2px;
     }
   `]
 })
