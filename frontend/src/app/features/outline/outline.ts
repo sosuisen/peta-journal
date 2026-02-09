@@ -37,6 +37,7 @@ import { Block } from '../../core/models/block.model';
           (taskToggled)="onCheckboxToggled(block)"
           (statusCycleRequested)="onStatusCycleRequested(block)"
           (collapseToggled)="onCollapseToggled(block)"
+          (pasteDetected)="onPaste(block, $event)"
         />
       </div>
     </cdk-virtual-scroll-viewport>
@@ -541,6 +542,139 @@ export class OutlineComponent {
       this.state.toggleCollapsed(block.id);
       this.state.updateBlock(block.id, { collapsed: block.collapsed });
     }
+  }
+
+  async onPaste(block: Block, event: { text: string; html: string; cursorPos: number }): Promise<void> {
+    const parsedBlocks = this.parseTextIntoBlocks(event.text);
+
+    if (parsedBlocks.length === 0) return;
+
+    try {
+      // First block replaces current editing block
+      const firstBlock = parsedBlocks[0];
+      await this.api.updateBlock(block.id, { body: firstBlock.body });
+      this.state.updateBlock(block.id, { body: firstBlock.body });
+
+      // Update status if needed
+      if (firstBlock.status !== 'normal') {
+        await this.api.updateBlockStatus(block.id, firstBlock.status);
+        this.state.updateBlock(block.id, { status: firstBlock.status });
+      }
+
+      // Add remaining blocks after the current block with level 0
+      if (parsedBlocks.length > 1) {
+        let prevBlockId = block.id;
+        for (let i = 1; i < parsedBlocks.length; i++) {
+          const parsedBlock = parsedBlocks[i];
+          const newBlock = await this.api.createBlock(
+            block.pageId,
+            prevBlockId,
+            0, // level is always 0
+            parsedBlock.body
+          );
+          this.state.addBlocks([newBlock], prevBlockId);
+
+          // Update status if needed
+          if (parsedBlock.status !== 'normal') {
+            await this.api.updateBlockStatus(newBlock.id, parsedBlock.status);
+            this.state.updateBlock(newBlock.id, { status: parsedBlock.status });
+          }
+
+          prevBlockId = newBlock.id;
+        }
+      }
+
+      // Focus the last created block or the current block
+      this.focusEditor();
+    } catch (e) {
+      console.error('Failed to process paste:', e);
+    }
+  }
+
+  private parseTextIntoBlocks(text: string): Array<{ body: string; status: string }> {
+    const blocks: Array<{ body: string; status: string }> = [];
+    const lines = text.split('\n');
+    let currentParagraph: string[] = [];
+    let blankLineCount = 0;
+
+    for (const line of lines) {
+      const trimmedLine = line.trim();
+
+      // Check if line is blank
+      if (trimmedLine === '') {
+        blankLineCount++;
+        if (currentParagraph.length > 0 && blankLineCount === 1) {
+          // Keep the blank line as part of the paragraph
+          currentParagraph.push(line);
+        }
+        continue;
+      }
+
+      // Check if line starts with list markers (after removing leading whitespace)
+      const lineWithoutLeadingSpace = line.trimStart();
+      let isListItem = false;
+      let listItemBody = '';
+      let listItemStatus = 'normal';
+
+      if (lineWithoutLeadingSpace.startsWith('- [x] ')) {
+        isListItem = true;
+        listItemBody = lineWithoutLeadingSpace.substring(6); // Remove "- [x] "
+        listItemStatus = 'done';
+      } else if (lineWithoutLeadingSpace.startsWith('- [ ] ')) {
+        isListItem = true;
+        listItemBody = lineWithoutLeadingSpace.substring(6); // Remove "- [ ] "
+        listItemStatus = 'todo';
+      } else if (lineWithoutLeadingSpace.startsWith('- ')) {
+        isListItem = true;
+        listItemBody = lineWithoutLeadingSpace.substring(2); // Remove "- "
+        listItemStatus = 'normal';
+      }
+
+      // If we have one or more blank lines, flush the current paragraph
+      if (blankLineCount >= 1 && currentParagraph.length > 0) {
+        // Remove trailing blank lines from the paragraph
+        while (currentParagraph.length > 0 && currentParagraph[currentParagraph.length - 1].trim() === '') {
+          currentParagraph.pop();
+        }
+        if (currentParagraph.length > 0) {
+          blocks.push({ body: currentParagraph.join('\n'), status: 'normal' });
+          currentParagraph = [];
+        }
+      }
+
+      // If this is a list item, flush current paragraph and add as new block
+      if (isListItem) {
+        if (currentParagraph.length > 0) {
+          // Remove trailing blank lines
+          while (currentParagraph.length > 0 && currentParagraph[currentParagraph.length - 1].trim() === '') {
+            currentParagraph.pop();
+          }
+          if (currentParagraph.length > 0) {
+            blocks.push({ body: currentParagraph.join('\n'), status: 'normal' });
+            currentParagraph = [];
+          }
+        }
+        blocks.push({ body: listItemBody, status: listItemStatus });
+        blankLineCount = 0;
+      } else {
+        // Regular line, add to current paragraph
+        currentParagraph.push(line);
+        blankLineCount = 0;
+      }
+    }
+
+    // Flush any remaining paragraph
+    if (currentParagraph.length > 0) {
+      // Remove trailing blank lines
+      while (currentParagraph.length > 0 && currentParagraph[currentParagraph.length - 1].trim() === '') {
+        currentParagraph.pop();
+      }
+      if (currentParagraph.length > 0) {
+        blocks.push({ body: currentParagraph.join('\n'), status: 'normal' });
+      }
+    }
+
+    return blocks;
   }
 
   private focusEditor(blockId?: string): void {

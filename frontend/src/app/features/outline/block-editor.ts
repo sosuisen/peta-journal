@@ -19,6 +19,7 @@ import { OutlineStateService } from '../../core/services/outline-state.service';
       [value]="body()"
       (input)="onInput($event)"
       (keydown)="onKeydown($event)"
+      (paste)="onPaste($event)"
       (blur)="blurred.emit()"
       rows="1"
     ></textarea>
@@ -70,6 +71,7 @@ export class BlockEditorComponent implements AfterViewInit {
   readonly moveDown = output<void>();
   readonly statusCycleRequested = output<void>();
   readonly statusToggled = output<void>();
+  readonly pasteDetected = output<{ text: string; html: string; cursorPos: number }>();
 
   private readonly editorRef = viewChild.required<ElementRef<HTMLTextAreaElement>>('editor');
   private readonly checkboxRef = viewChild<ElementRef<HTMLInputElement>>('checkbox');
@@ -220,6 +222,27 @@ export class BlockEditorComponent implements AfterViewInit {
       }
       return;
     }
+  }
+
+  onPaste(event: ClipboardEvent): void {
+    const el = event.target as HTMLTextAreaElement;
+    const clipboardData = event.clipboardData;
+
+    if (!clipboardData) return;
+
+    // Get both plain text and HTML from clipboard
+    const text = clipboardData.getData('text/plain');
+    const html = clipboardData.getData('text/html');
+
+    // Prevent default paste behavior - we'll handle it ourselves
+    event.preventDefault();
+
+    // Emit the paste event with clipboard data
+    this.pasteDetected.emit({
+      text,
+      html,
+      cursorPos: el.selectionStart
+    });
   }
 
   private autoResize(el: HTMLTextAreaElement): void {
