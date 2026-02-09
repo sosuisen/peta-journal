@@ -35,21 +35,34 @@ public class MarkdownExportService {
     @Inject
     BlockRepository blockRepository;
 
+    private volatile boolean isProcessing = false;
+
     public void queueExport(UUID pageId) {
         exportQueueRepository.enqueue(pageId);
     }
 
     @Scheduled(every = "${petajournal.export.interval}s", delay = 5, delayUnit = java.util.concurrent.TimeUnit.SECONDS)
     void processExportQueue() {
-        List<UUID> pageIds = exportQueueRepository.dequeueAll();
-        for (UUID pageId : pageIds) {
-            try {
-                exportPage(pageId);
-            } catch (Exception e) {
-                LOG.warnv("Failed to export page {0}: {1}", pageId, e.getMessage());
-                // Re-queue for retry
-                exportQueueRepository.enqueue(pageId);
+        // Skip if already processing to prevent concurrent execution
+        if (isProcessing) {
+            LOG.debug("Export queue processing already in progress, skipping this run");
+            return;
+        }
+
+        isProcessing = true;
+        try {
+            List<UUID> pageIds = exportQueueRepository.dequeueAll();
+            for (UUID pageId : pageIds) {
+                try {
+                    exportPage(pageId);
+                } catch (Exception e) {
+                    LOG.warnv("Failed to export page {0}: {1}", pageId, e.getMessage());
+                    // Re-queue for retry
+                    exportQueueRepository.enqueue(pageId);
+                }
             }
+        } finally {
+            isProcessing = false;
         }
     }
 

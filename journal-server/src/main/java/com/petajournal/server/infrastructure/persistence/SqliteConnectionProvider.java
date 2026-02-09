@@ -40,7 +40,17 @@ public class SqliteConnectionProvider {
         }
 
         // SQLite automatically creates the database file if it doesn't exist
-        return DriverManager.getConnection("jdbc:sqlite:" + path);
+        // Enable WAL mode for better concurrency and set busy timeout
+        String url = "jdbc:sqlite:" + path + "?journal_mode=WAL&busy_timeout=30000";
+        Connection conn = DriverManager.getConnection(url);
+
+        // Set additional pragmas for better concurrency
+        try (var stmt = conn.createStatement()) {
+            stmt.execute("PRAGMA synchronous = NORMAL");
+            stmt.execute("PRAGMA temp_store = MEMORY");
+        }
+
+        return conn;
     }
 
     private String resolveHome(String path) {
