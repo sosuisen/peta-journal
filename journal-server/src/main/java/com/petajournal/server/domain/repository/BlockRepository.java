@@ -23,4 +23,6 @@ public interface BlockRepository {
     void deleteByPageId(UUID pageId);
 
     List<Block> findByPageIdContainingLink(String pageTitle);
+
+    List<Block> findByStatuses(List<String> statuses);
 }

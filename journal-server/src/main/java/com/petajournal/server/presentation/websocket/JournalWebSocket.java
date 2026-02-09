@@ -80,6 +80,7 @@ public class JournalWebSocket {
                 case GET_RECENT_PAGES -> response.setGetRecentPages(handleGetRecentPages(request.getGetRecentPages()));
                 case GET_BACKLINKS -> response.setGetBacklinks(handleGetBacklinks(request.getGetBacklinks()));
                 case GET_MOST_RECENT_JOURNAL_BEFORE -> response.setGetMostRecentJournalBefore(handleGetMostRecentJournalBefore(request.getGetMostRecentJournalBefore()));
+                case GET_BLOCKS_BY_STATUS -> response.setGetBlocksByStatus(handleGetBlocksByStatus(request.getGetBlocksByStatus()));
                 default -> {
                     response.setSuccess(false);
                     response.setErrorMessage("Unknown request type: " + request.getPayloadCase());
@@ -229,6 +230,13 @@ public class JournalWebSocket {
         var pages = pageService.getRecentPages(max);
         return GetRecentPagesResponse.newBuilder()
                 .addAllPages(pages.stream().map(ProtoConverter::toProto).toList())
+                .build();
+    }
+
+    private GetBlocksByStatusResponse handleGetBlocksByStatus(GetBlocksByStatusRequest req) {
+        var blocks = blockService.getBlocksByStatuses(req.getStatusesList());
+        return GetBlocksByStatusResponse.newBuilder()
+                .addAllBlocks(blocks.stream().map(ProtoConverter::toProto).toList())
                 .build();
     }
 

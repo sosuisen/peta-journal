@@ -227,6 +227,10 @@ public class BlockService {
      * Update block status with validation.
      * Valid statuses: normal, todo, running, done
      */
+    public List<Block> getBlocksByStatuses(List<String> statuses) {
+        return blockRepository.findByStatuses(statuses);
+    }
+
     public Block updateBlockStatus(String blockId, String status) {
         if (!List.of("normal", "todo", "running", "done").contains(status)) {
             throw new IllegalArgumentException("Invalid status: " + status);

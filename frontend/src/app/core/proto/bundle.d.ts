@@ -785,6 +785,9 @@ export namespace petajournal {
 
         /** ApiRequest getMostRecentJournalBefore */
         getMostRecentJournalBefore?: (petajournal.IGetMostRecentJournalBeforeRequest|null);
+
+        /** ApiRequest getBlocksByStatus */
+        getBlocksByStatus?: (petajournal.IGetBlocksByStatusRequest|null);
     }
 
     /** Represents an ApiRequest. */
@@ -844,8 +847,11 @@ export namespace petajournal {
         /** ApiRequest getMostRecentJournalBefore. */
         public getMostRecentJournalBefore?: (petajournal.IGetMostRecentJournalBeforeRequest|null);
 
+        /** ApiRequest getBlocksByStatus. */
+        public getBlocksByStatus?: (petajournal.IGetBlocksByStatusRequest|null);
+
         /** ApiRequest payload. */
-        public payload?: ("getPage"|"getJournal"|"createPage"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore");
+        public payload?: ("getPage"|"getJournal"|"createPage"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getBlocksByStatus");
 
         /**
          * Creates a new ApiRequest instance using the specified properties.
@@ -981,6 +987,9 @@ export namespace petajournal {
 
         /** ApiResponse getMostRecentJournalBefore */
         getMostRecentJournalBefore?: (petajournal.IGetMostRecentJournalBeforeResponse|null);
+
+        /** ApiResponse getBlocksByStatus */
+        getBlocksByStatus?: (petajournal.IGetBlocksByStatusResponse|null);
     }
 
     /** Represents an ApiResponse. */
@@ -1046,8 +1055,11 @@ export namespace petajournal {
         /** ApiResponse getMostRecentJournalBefore. */
         public getMostRecentJournalBefore?: (petajournal.IGetMostRecentJournalBeforeResponse|null);
 
+        /** ApiResponse getBlocksByStatus. */
+        public getBlocksByStatus?: (petajournal.IGetBlocksByStatusResponse|null);
+
         /** ApiResponse payload. */
-        public payload?: ("getPage"|"getJournal"|"createPage"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore");
+        public payload?: ("getPage"|"getJournal"|"createPage"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getBlocksByStatus");
 
         /**
          * Creates a new ApiResponse instance using the specified properties.
@@ -4272,6 +4284,200 @@ export namespace petajournal {
 
         /**
          * Gets the default type url for GetMostRecentJournalBeforeResponse
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a GetBlocksByStatusRequest. */
+    interface IGetBlocksByStatusRequest {
+
+        /** GetBlocksByStatusRequest statuses */
+        statuses?: (string[]|null);
+    }
+
+    /** Represents a GetBlocksByStatusRequest. */
+    class GetBlocksByStatusRequest implements IGetBlocksByStatusRequest {
+
+        /**
+         * Constructs a new GetBlocksByStatusRequest.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: petajournal.IGetBlocksByStatusRequest);
+
+        /** GetBlocksByStatusRequest statuses. */
+        public statuses: string[];
+
+        /**
+         * Creates a new GetBlocksByStatusRequest instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns GetBlocksByStatusRequest instance
+         */
+        public static create(properties?: petajournal.IGetBlocksByStatusRequest): petajournal.GetBlocksByStatusRequest;
+
+        /**
+         * Encodes the specified GetBlocksByStatusRequest message. Does not implicitly {@link petajournal.GetBlocksByStatusRequest.verify|verify} messages.
+         * @param message GetBlocksByStatusRequest message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: petajournal.IGetBlocksByStatusRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified GetBlocksByStatusRequest message, length delimited. Does not implicitly {@link petajournal.GetBlocksByStatusRequest.verify|verify} messages.
+         * @param message GetBlocksByStatusRequest message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encodeDelimited(message: petajournal.IGetBlocksByStatusRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a GetBlocksByStatusRequest message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns GetBlocksByStatusRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.GetBlocksByStatusRequest;
+
+        /**
+         * Decodes a GetBlocksByStatusRequest message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns GetBlocksByStatusRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.GetBlocksByStatusRequest;
+
+        /**
+         * Verifies a GetBlocksByStatusRequest message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        public static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a GetBlocksByStatusRequest message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns GetBlocksByStatusRequest
+         */
+        public static fromObject(object: { [k: string]: any }): petajournal.GetBlocksByStatusRequest;
+
+        /**
+         * Creates a plain object from a GetBlocksByStatusRequest message. Also converts values to other types if specified.
+         * @param message GetBlocksByStatusRequest
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        public static toObject(message: petajournal.GetBlocksByStatusRequest, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this GetBlocksByStatusRequest to JSON.
+         * @returns JSON object
+         */
+        public toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the default type url for GetBlocksByStatusRequest
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a GetBlocksByStatusResponse. */
+    interface IGetBlocksByStatusResponse {
+
+        /** GetBlocksByStatusResponse blocks */
+        blocks?: (petajournal.IBlock[]|null);
+    }
+
+    /** Represents a GetBlocksByStatusResponse. */
+    class GetBlocksByStatusResponse implements IGetBlocksByStatusResponse {
+
+        /**
+         * Constructs a new GetBlocksByStatusResponse.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: petajournal.IGetBlocksByStatusResponse);
+
+        /** GetBlocksByStatusResponse blocks. */
+        public blocks: petajournal.IBlock[];
+
+        /**
+         * Creates a new GetBlocksByStatusResponse instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns GetBlocksByStatusResponse instance
+         */
+        public static create(properties?: petajournal.IGetBlocksByStatusResponse): petajournal.GetBlocksByStatusResponse;
+
+        /**
+         * Encodes the specified GetBlocksByStatusResponse message. Does not implicitly {@link petajournal.GetBlocksByStatusResponse.verify|verify} messages.
+         * @param message GetBlocksByStatusResponse message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: petajournal.IGetBlocksByStatusResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified GetBlocksByStatusResponse message, length delimited. Does not implicitly {@link petajournal.GetBlocksByStatusResponse.verify|verify} messages.
+         * @param message GetBlocksByStatusResponse message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encodeDelimited(message: petajournal.IGetBlocksByStatusResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a GetBlocksByStatusResponse message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns GetBlocksByStatusResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.GetBlocksByStatusResponse;
+
+        /**
+         * Decodes a GetBlocksByStatusResponse message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns GetBlocksByStatusResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.GetBlocksByStatusResponse;
+
+        /**
+         * Verifies a GetBlocksByStatusResponse message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        public static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a GetBlocksByStatusResponse message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns GetBlocksByStatusResponse
+         */
+        public static fromObject(object: { [k: string]: any }): petajournal.GetBlocksByStatusResponse;
+
+        /**
+         * Creates a plain object from a GetBlocksByStatusResponse message. Also converts values to other types if specified.
+         * @param message GetBlocksByStatusResponse
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        public static toObject(message: petajournal.GetBlocksByStatusResponse, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this GetBlocksByStatusResponse to JSON.
+         * @returns JSON object
+         */
+        public toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the default type url for GetBlocksByStatusResponse
          * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
          * @returns The default type url
          */

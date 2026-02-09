@@ -29,6 +29,7 @@ message ApiRequest {
     GetRecentPagesRequest get_recent_pages = 40;
     GetBacklinksRequest get_backlinks = 41;
     GetMostRecentJournalBeforeRequest get_most_recent_journal_before = 42;
+    GetBlocksByStatusRequest get_blocks_by_status = 50;
   }
 }
 
@@ -53,6 +54,7 @@ message ApiResponse {
     GetRecentPagesResponse get_recent_pages = 40;
     GetBacklinksResponse get_backlinks = 41;
     GetMostRecentJournalBeforeResponse get_most_recent_journal_before = 42;
+    GetBlocksByStatusResponse get_blocks_by_status = 50;
   }
 }
 
@@ -210,4 +212,14 @@ message GetMostRecentJournalBeforeResponse {
   bool found = 1;                  // true if a journal was found
   Page page = 2;
   repeated Block blocks = 3;
+}
+
+// --- Block query operations ---
+
+message GetBlocksByStatusRequest {
+  repeated string statuses = 1;    // e.g. ["todo", "running", "done"]
+}
+
+message GetBlocksByStatusResponse {
+  repeated Block blocks = 1;
 }

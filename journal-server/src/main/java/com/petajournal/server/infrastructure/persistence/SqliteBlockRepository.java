@@ -187,6 +187,36 @@ public class SqliteBlockRepository implements BlockRepository {
         }
     }
 
+    @Override
+    public List<Block> findByStatuses(List<String> statuses) {
+        if (statuses == null || statuses.isEmpty()) {
+            return List.of();
+        }
+        StringBuilder placeholders = new StringBuilder();
+        for (int i = 0; i < statuses.size(); i++) {
+            if (i > 0) placeholders.append(",");
+            placeholders.append("?");
+        }
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "SELECT b.id, b.page_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.html, b.collapsed, b.status, b.properties_json, " +
+                     "p.dir_path, p.file_name " +
+                     "FROM blocks b JOIN pages p ON b.page_id = p.id WHERE b.status IN (" + placeholders + ") ORDER BY b.created_date DESC")) {
+            for (int i = 0; i < statuses.size(); i++) {
+                ps.setString(i + 1, statuses.get(i));
+            }
+            List<Block> blocks = new ArrayList<>();
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    blocks.add(mapBlock(conn, rs));
+                }
+            }
+            return blocks;
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to find blocks by statuses", e);
+        }
+    }
+
     private Block mapBlock(Connection conn, ResultSet rs) throws SQLException {
         String blockId = rs.getString("id");
         return new Block(
