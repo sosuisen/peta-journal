@@ -166,7 +166,7 @@ export class OutlineBlockComponent {
     const rect = textarea.getBoundingClientRect();
     duplicate.style.position = 'absolute';
     duplicate.style.left = (rect.left + window.scrollX) + 'px';
-    duplicate.style.top = (rect.top + window.scrollY) + 'px';
+    duplicate.style.top = (rect.top + window.scrollY - 0.2) + 'px';  // 0.2px offset upward
     duplicate.style.width = rect.width + 'px';
     duplicate.style.height = rect.height + 'px';
     duplicate.style.zIndex = '0';
