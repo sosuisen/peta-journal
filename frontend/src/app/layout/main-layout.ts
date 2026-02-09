@@ -152,7 +152,7 @@ import { ConfigService } from '../core/services/config.service';
       flex-shrink: 0;
       overflow-y: auto;
       transition: width 0.2s;
-      min-width: 150px;
+      min-width: 200px;
       max-width: 600px;
     }
     .sidebar.collapsed {
@@ -226,7 +226,7 @@ export class MainLayoutComponent {
     const onMouseMove = (e: MouseEvent) => {
       if (!this.isResizing) return;
       const delta = e.clientX - this.startX;
-      const newWidth = Math.max(150, Math.min(600, this.startWidth + delta));
+      const newWidth = Math.max(200, Math.min(600, this.startWidth + delta));
       this.config.setSidebarWidth(newWidth);
     };
 
