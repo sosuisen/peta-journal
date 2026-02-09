@@ -15,7 +15,7 @@ import { Block } from '../../core/models/block.model';
         *cdkVirtualFor="let block of state.visibleBlocks(); let i = index; trackBy: trackById"
         class="outline-item"
       >
-        @if (isFirstBlockOfDate(i) && block.fileName !== currentPageDate()) {
+        @if (isFirstBlockOfDate(i) && block.fileName !== currentPageDate() && isJournalDate(block.fileName)) {
           <div class="date-header">
             {{ formatDateHeader(block.fileName) }}
           </div>
@@ -118,6 +118,12 @@ export class OutlineComponent {
     const currentBlock = blocks[index];
     const previousBlock = blocks[index - 1];
     return currentBlock.fileName !== previousBlock.fileName;
+  }
+
+  isJournalDate(fileName: string): boolean {
+    // Check if fileName matches journal date format (YYYY-MM-DD)
+    const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+    return datePattern.test(fileName);
   }
 
   formatDateHeader(fileName: string): string {
