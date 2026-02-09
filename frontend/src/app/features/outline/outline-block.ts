@@ -192,13 +192,21 @@ export class OutlineBlockComponent {
     duplicate.style.width = rect.width + 'px';
     duplicate.style.height = rect.height + 'px';
     duplicate.style.zIndex = '0';
+    duplicate.style.transition = 'opacity 0.7s ease-out';
+    duplicate.style.opacity = '1';
 
     // Append to body
     document.body.appendChild(duplicate);
 
-    // Remove after 0.15s
-    setTimeout(() => {
+    // Force reflow so the browser registers opacity:1 before transitioning to 0
+    duplicate.offsetHeight;
+
+    // Trigger fade out
+    duplicate.style.opacity = '0';
+
+    // Remove after transition
+    duplicate.addEventListener('transitionend', () => {
       duplicate.remove();
-    }, 150);
+    });
   }
 }
