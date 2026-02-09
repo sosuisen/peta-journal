@@ -34,6 +34,17 @@ public class ConfigService {
         saveConfig(config);
     }
 
+    public String getWeekNumbering() {
+        Map<String, Object> config = loadConfig();
+        return (String) config.getOrDefault("weekNumbering", "us");
+    }
+
+    public void setWeekNumbering(String weekNumbering) {
+        Map<String, Object> config = loadConfig();
+        config.put("weekNumbering", weekNumbering);
+        saveConfig(config);
+    }
+
     private Map<String, Object> loadConfig() {
         try {
             Path configPath = getConfigPath();

@@ -2,9 +2,11 @@ import { Component, inject, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { RecentPagesService } from '../../core/services/recent-pages.service';
 import { Page } from '../../core/models/page.model';
+import { CalendarComponent } from '../../shared/calendar';
 
 @Component({
   selector: 'app-sidebar',
+  imports: [CalendarComponent],
   template: `
     <nav class="sidebar">
       <div class="sidebar-content">
@@ -12,6 +14,10 @@ import { Page } from '../../core/models/page.model';
           <button class="sidebar-btn" (click)="goToToday()">
             <span class="icon">&#128197;</span> Today
           </button>
+          <app-calendar
+            [selectedDate]="today"
+            (dateSelected)="goToDate($event)"
+          />
         </div>
 
         <div class="sidebar-section">
@@ -62,6 +68,7 @@ import { Page } from '../../core/models/page.model';
       font-size: 14px;
     }
     .sidebar-btn:hover { background: #e9ecef; }
+    app-calendar { margin-top: 8px; display: block; }
     .icon { margin-right: 8px; }
     .section-title {
       font-size: 11px;
@@ -107,6 +114,7 @@ import { Page } from '../../core/models/page.model';
 export class SidebarComponent implements OnInit {
   readonly recentPages = inject(RecentPagesService);
   private readonly router = inject(Router);
+  readonly today = new Date().toISOString().split('T')[0];
 
   ngOnInit(): void {
     this.recentPages.refresh();
@@ -114,6 +122,10 @@ export class SidebarComponent implements OnInit {
 
   goToToday(): void {
     this.router.navigate(['/journals', 'today']);
+  }
+
+  goToDate(date: string): void {
+    this.router.navigate(['/journals', date]);
   }
 
   goToPage(pageId: string): void {

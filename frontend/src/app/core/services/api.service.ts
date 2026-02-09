@@ -148,4 +148,16 @@ export class ApiService {
       })),
     };
   }
+
+  async getConfig(): Promise<{ weekNumbering: string }> {
+    const resp: any = await this.proto.send({ getConfig: {} });
+    const r = resp.getConfig;
+    return { weekNumbering: r.weekNumbering ?? 'us' };
+  }
+
+  async updateConfig(weekNumbering: string): Promise<{ weekNumbering: string }> {
+    const resp: any = await this.proto.send({ updateConfig: { weekNumbering } });
+    const r = resp.updateConfig;
+    return { weekNumbering: r.weekNumbering ?? 'us' };
+  }
 }

@@ -1,4 +1,5 @@
-import { Component, input, output, signal, computed } from '@angular/core';
+import { Component, inject, input, output, signal, computed } from '@angular/core';
+import { ConfigService } from '../core/services/config.service';
 
 interface CalendarDay {
   date: string;
@@ -6,6 +7,11 @@ interface CalendarDay {
   isCurrentMonth: boolean;
   isToday: boolean;
   isSelected: boolean;
+}
+
+interface CalendarWeek {
+  weekNumber: number;
+  days: CalendarDay[];
 }
 
 @Component({
@@ -18,19 +24,23 @@ interface CalendarDay {
         <button (click)="nextMonth()">&gt;</button>
       </div>
       <div class="calendar-grid">
-        @for (label of dayLabels; track label) {
+        <div class="week-label"></div>
+        @for (label of dayLabels(); track label) {
           <div class="day-label">{{ label }}</div>
         }
-        @for (day of days(); track day.date) {
-          <div
-            class="day-cell"
-            [class.other-month]="!day.isCurrentMonth"
-            [class.today]="day.isToday"
-            [class.selected]="day.isSelected"
-            (click)="selectDay(day)"
-          >
-            {{ day.day }}
-          </div>
+        @for (week of weeks(); track week.weekNumber) {
+          <div class="week-number">{{ week.weekNumber.toString().padStart(2, '0') }}</div>
+          @for (day of week.days; track day.date) {
+            <div
+              class="day-cell"
+              [class.other-month]="!day.isCurrentMonth"
+              [class.today]="day.isToday"
+              [class.selected]="day.isSelected"
+              (click)="selectDay(day)"
+            >
+              {{ day.day }}
+            </div>
+          }
         }
       </div>
     </div>
@@ -40,40 +50,48 @@ interface CalendarDay {
       background: white;
       border: 1px solid #ddd;
       border-radius: 8px;
-      padding: 12px;
-      width: 280px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      padding: 6px;
+      width: 100%;
+      box-sizing: border-box;
     }
     .calendar-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 8px;
+      margin-bottom: 4px;
       font-weight: 600;
+      font-size: 12px;
     }
     .calendar-header button {
       background: none;
       border: none;
       cursor: pointer;
-      padding: 4px 8px;
-      font-size: 14px;
+      padding: 2px 6px;
+      font-size: 12px;
     }
     .calendar-grid {
       display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      gap: 2px;
+      grid-template-columns: auto repeat(7, 1fr);
+      gap: 1px;
       text-align: center;
     }
+    .week-label, .week-number {
+      font-size: 9px;
+      color: #aaa;
+      padding: 2px 4px 2px 0;
+      text-align: right;
+      border-right: 1px solid #ddd;
+    }
     .day-label {
-      font-size: 11px;
+      font-size: 10px;
       color: #888;
-      padding: 4px;
+      padding: 2px;
     }
     .day-cell {
-      padding: 6px;
+      padding: 3px;
       cursor: pointer;
       border-radius: 4px;
-      font-size: 13px;
+      font-size: 11px;
     }
     .day-cell:hover { background: #f0f0f0; }
     .day-cell.other-month { color: #ccc; }
@@ -82,10 +100,17 @@ interface CalendarDay {
   `]
 })
 export class CalendarComponent {
+  private readonly configService = inject(ConfigService);
+
   readonly selectedDate = input('');
   readonly dateSelected = output<string>();
 
-  readonly dayLabels = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+  private readonly US_DAY_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+  private readonly ISO_DAY_LABELS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+
+  readonly dayLabels = computed(() =>
+    this.configService.weekNumbering() === 'iso' ? this.ISO_DAY_LABELS : this.US_DAY_LABELS
+  );
   readonly viewYear = signal(new Date().getFullYear());
   readonly viewMonth = signal(new Date().getMonth());
 
@@ -94,13 +119,31 @@ export class CalendarComponent {
     return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   });
 
-  readonly days = computed((): CalendarDay[] => {
+  readonly weeks = computed((): CalendarWeek[] => {
+    const allDays = this.days();
+    const iso = this.configService.weekNumbering() === 'iso';
+    const result: CalendarWeek[] = [];
+    for (let i = 0; i < allDays.length; i += 7) {
+      const weekDays = allDays.slice(i, i + 7);
+      const firstOfWeek = new Date(weekDays[0].date + 'T00:00:00');
+      const weekNumber = iso
+        ? this.getISOWeekNumber(firstOfWeek)
+        : this.getUSWeekNumber(firstOfWeek);
+      result.push({ weekNumber, days: weekDays });
+    }
+    return result;
+  });
+
+  private readonly days = computed((): CalendarDay[] => {
     const year = this.viewYear();
     const month = this.viewMonth();
+    const iso = this.configService.weekNumbering() === 'iso';
     const today = new Date().toISOString().split('T')[0];
     const selected = this.selectedDate();
 
-    const firstDay = new Date(year, month, 1).getDay();
+    const rawDay = new Date(year, month, 1).getDay();
+    // US: Sunday=0, ISO: Monday=0
+    const firstDay = iso ? (rawDay + 6) % 7 : rawDay;
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const daysInPrevMonth = new Date(year, month, 0).getDate();
 
@@ -146,6 +189,26 @@ export class CalendarComponent {
 
   selectDay(day: CalendarDay): void {
     this.dateSelected.emit(day.date);
+  }
+
+  private getISOWeekNumber(date: Date): number {
+    const d = new Date(date.getTime());
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
+    const yearStart = new Date(d.getFullYear(), 0, 4);
+    return 1 + Math.round(((d.getTime() - yearStart.getTime()) / 86400000 - 3 + ((yearStart.getDay() + 6) % 7)) / 7);
+  }
+
+  private getUSWeekNumber(date: Date): number {
+    // US: week containing Jan 1 = week 1, weeks start Sunday
+    const d = new Date(date.getTime());
+    d.setHours(0, 0, 0, 0);
+    const yearStart = new Date(d.getFullYear(), 0, 1);
+    // Move yearStart back to its containing Sunday
+    const yearStartSunday = new Date(yearStart.getTime());
+    yearStartSunday.setDate(yearStartSunday.getDate() - yearStartSunday.getDay());
+    const diff = d.getTime() - yearStartSunday.getTime();
+    return 1 + Math.floor(diff / (7 * 86400000));
   }
 
   private formatDate(year: number, month: number, day: number): string {

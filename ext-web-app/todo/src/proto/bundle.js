@@ -1092,6 +1092,8 @@ export const petajournal = $root.petajournal = (() => {
          * @property {petajournal.IGetBacklinksRequest|null} [getBacklinks] ApiRequest getBacklinks
          * @property {petajournal.IGetMostRecentJournalBeforeRequest|null} [getMostRecentJournalBefore] ApiRequest getMostRecentJournalBefore
          * @property {petajournal.IGetBlocksByStatusRequest|null} [getBlocksByStatus] ApiRequest getBlocksByStatus
+         * @property {petajournal.IGetConfigRequest|null} [getConfig] ApiRequest getConfig
+         * @property {petajournal.IUpdateConfigRequest|null} [updateConfig] ApiRequest updateConfig
          */
 
         /**
@@ -1245,17 +1247,33 @@ export const petajournal = $root.petajournal = (() => {
          */
         ApiRequest.prototype.getBlocksByStatus = null;
 
+        /**
+         * ApiRequest getConfig.
+         * @member {petajournal.IGetConfigRequest|null|undefined} getConfig
+         * @memberof petajournal.ApiRequest
+         * @instance
+         */
+        ApiRequest.prototype.getConfig = null;
+
+        /**
+         * ApiRequest updateConfig.
+         * @member {petajournal.IUpdateConfigRequest|null|undefined} updateConfig
+         * @memberof petajournal.ApiRequest
+         * @instance
+         */
+        ApiRequest.prototype.updateConfig = null;
+
         // OneOf field names bound to virtual getters and setters
         let $oneOfFields;
 
         /**
          * ApiRequest payload.
-         * @member {"getPage"|"getJournal"|"createPage"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getBlocksByStatus"|undefined} payload
+         * @member {"getPage"|"getJournal"|"createPage"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getBlocksByStatus"|"getConfig"|"updateConfig"|undefined} payload
          * @memberof petajournal.ApiRequest
          * @instance
          */
         Object.defineProperty(ApiRequest.prototype, "payload", {
-            get: $util.oneOfGetter($oneOfFields = ["getPage", "getJournal", "createPage", "deletePage", "updatePage", "createBlock", "updateBlock", "moveBlocks", "deleteBlock", "updateBlockStatus", "searchPageNames", "searchFullText", "getRecentPages", "getBacklinks", "getMostRecentJournalBefore", "getBlocksByStatus"]),
+            get: $util.oneOfGetter($oneOfFields = ["getPage", "getJournal", "createPage", "deletePage", "updatePage", "createBlock", "updateBlock", "moveBlocks", "deleteBlock", "updateBlockStatus", "searchPageNames", "searchFullText", "getRecentPages", "getBacklinks", "getMostRecentJournalBefore", "getBlocksByStatus", "getConfig", "updateConfig"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
@@ -1317,6 +1335,10 @@ export const petajournal = $root.petajournal = (() => {
                 $root.petajournal.GetMostRecentJournalBeforeRequest.encode(message.getMostRecentJournalBefore, writer.uint32(/* id 42, wireType 2 =*/338).fork()).ldelim();
             if (message.getBlocksByStatus != null && Object.hasOwnProperty.call(message, "getBlocksByStatus"))
                 $root.petajournal.GetBlocksByStatusRequest.encode(message.getBlocksByStatus, writer.uint32(/* id 50, wireType 2 =*/402).fork()).ldelim();
+            if (message.getConfig != null && Object.hasOwnProperty.call(message, "getConfig"))
+                $root.petajournal.GetConfigRequest.encode(message.getConfig, writer.uint32(/* id 60, wireType 2 =*/482).fork()).ldelim();
+            if (message.updateConfig != null && Object.hasOwnProperty.call(message, "updateConfig"))
+                $root.petajournal.UpdateConfigRequest.encode(message.updateConfig, writer.uint32(/* id 61, wireType 2 =*/490).fork()).ldelim();
             return writer;
         };
 
@@ -1408,6 +1430,14 @@ export const petajournal = $root.petajournal = (() => {
                         message.getBlocksByStatus = $root.petajournal.GetBlocksByStatusRequest.decode(reader, reader.uint32());
                         break;
                     }
+                case 60: {
+                        message.getConfig = $root.petajournal.GetConfigRequest.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 61: {
+                        message.updateConfig = $root.petajournal.UpdateConfigRequest.decode(reader, reader.uint32());
+                        break;
+                    }
                 default:
                     reader.skipType(tag & 7);
                     break;
@@ -1459,6 +1489,8 @@ export const petajournal = $root.petajournal = (() => {
          * @property {petajournal.IGetBacklinksResponse|null} [getBacklinks] ApiResponse getBacklinks
          * @property {petajournal.IGetMostRecentJournalBeforeResponse|null} [getMostRecentJournalBefore] ApiResponse getMostRecentJournalBefore
          * @property {petajournal.IGetBlocksByStatusResponse|null} [getBlocksByStatus] ApiResponse getBlocksByStatus
+         * @property {petajournal.IGetConfigResponse|null} [getConfig] ApiResponse getConfig
+         * @property {petajournal.IUpdateConfigResponse|null} [updateConfig] ApiResponse updateConfig
          */
 
         /**
@@ -1628,17 +1660,33 @@ export const petajournal = $root.petajournal = (() => {
          */
         ApiResponse.prototype.getBlocksByStatus = null;
 
+        /**
+         * ApiResponse getConfig.
+         * @member {petajournal.IGetConfigResponse|null|undefined} getConfig
+         * @memberof petajournal.ApiResponse
+         * @instance
+         */
+        ApiResponse.prototype.getConfig = null;
+
+        /**
+         * ApiResponse updateConfig.
+         * @member {petajournal.IUpdateConfigResponse|null|undefined} updateConfig
+         * @memberof petajournal.ApiResponse
+         * @instance
+         */
+        ApiResponse.prototype.updateConfig = null;
+
         // OneOf field names bound to virtual getters and setters
         let $oneOfFields;
 
         /**
          * ApiResponse payload.
-         * @member {"getPage"|"getJournal"|"createPage"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getBlocksByStatus"|undefined} payload
+         * @member {"getPage"|"getJournal"|"createPage"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getBlocksByStatus"|"getConfig"|"updateConfig"|undefined} payload
          * @memberof petajournal.ApiResponse
          * @instance
          */
         Object.defineProperty(ApiResponse.prototype, "payload", {
-            get: $util.oneOfGetter($oneOfFields = ["getPage", "getJournal", "createPage", "deletePage", "updatePage", "createBlock", "updateBlock", "moveBlocks", "deleteBlock", "updateBlockStatus", "searchPageNames", "searchFullText", "getRecentPages", "getBacklinks", "getMostRecentJournalBefore", "getBlocksByStatus"]),
+            get: $util.oneOfGetter($oneOfFields = ["getPage", "getJournal", "createPage", "deletePage", "updatePage", "createBlock", "updateBlock", "moveBlocks", "deleteBlock", "updateBlockStatus", "searchPageNames", "searchFullText", "getRecentPages", "getBacklinks", "getMostRecentJournalBefore", "getBlocksByStatus", "getConfig", "updateConfig"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
@@ -1704,6 +1752,10 @@ export const petajournal = $root.petajournal = (() => {
                 $root.petajournal.GetMostRecentJournalBeforeResponse.encode(message.getMostRecentJournalBefore, writer.uint32(/* id 42, wireType 2 =*/338).fork()).ldelim();
             if (message.getBlocksByStatus != null && Object.hasOwnProperty.call(message, "getBlocksByStatus"))
                 $root.petajournal.GetBlocksByStatusResponse.encode(message.getBlocksByStatus, writer.uint32(/* id 50, wireType 2 =*/402).fork()).ldelim();
+            if (message.getConfig != null && Object.hasOwnProperty.call(message, "getConfig"))
+                $root.petajournal.GetConfigResponse.encode(message.getConfig, writer.uint32(/* id 60, wireType 2 =*/482).fork()).ldelim();
+            if (message.updateConfig != null && Object.hasOwnProperty.call(message, "updateConfig"))
+                $root.petajournal.UpdateConfigResponse.encode(message.updateConfig, writer.uint32(/* id 61, wireType 2 =*/490).fork()).ldelim();
             return writer;
         };
 
@@ -1801,6 +1853,14 @@ export const petajournal = $root.petajournal = (() => {
                     }
                 case 50: {
                         message.getBlocksByStatus = $root.petajournal.GetBlocksByStatusResponse.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 60: {
+                        message.getConfig = $root.petajournal.GetConfigResponse.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 61: {
+                        message.updateConfig = $root.petajournal.UpdateConfigResponse.decode(reader, reader.uint32());
                         break;
                     }
                 default:
@@ -5953,6 +6013,435 @@ export const petajournal = $root.petajournal = (() => {
         };
 
         return GetBlocksByStatusResponse;
+    })();
+
+    petajournal.GetConfigRequest = (function() {
+
+        /**
+         * Properties of a GetConfigRequest.
+         * @memberof petajournal
+         * @interface IGetConfigRequest
+         */
+
+        /**
+         * Constructs a new GetConfigRequest.
+         * @memberof petajournal
+         * @classdesc Represents a GetConfigRequest.
+         * @implements IGetConfigRequest
+         * @constructor
+         * @param {petajournal.IGetConfigRequest=} [properties] Properties to set
+         */
+        function GetConfigRequest(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * Creates a new GetConfigRequest instance using the specified properties.
+         * @function create
+         * @memberof petajournal.GetConfigRequest
+         * @static
+         * @param {petajournal.IGetConfigRequest=} [properties] Properties to set
+         * @returns {petajournal.GetConfigRequest} GetConfigRequest instance
+         */
+        GetConfigRequest.create = function create(properties) {
+            return new GetConfigRequest(properties);
+        };
+
+        /**
+         * Encodes the specified GetConfigRequest message. Does not implicitly {@link petajournal.GetConfigRequest.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.GetConfigRequest
+         * @static
+         * @param {petajournal.IGetConfigRequest} message GetConfigRequest message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        GetConfigRequest.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            return writer;
+        };
+
+        /**
+         * Decodes a GetConfigRequest message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.GetConfigRequest
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.GetConfigRequest} GetConfigRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        GetConfigRequest.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.GetConfigRequest();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for GetConfigRequest
+         * @function getTypeUrl
+         * @memberof petajournal.GetConfigRequest
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        GetConfigRequest.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.GetConfigRequest";
+        };
+
+        return GetConfigRequest;
+    })();
+
+    petajournal.GetConfigResponse = (function() {
+
+        /**
+         * Properties of a GetConfigResponse.
+         * @memberof petajournal
+         * @interface IGetConfigResponse
+         * @property {string|null} [weekNumbering] GetConfigResponse weekNumbering
+         */
+
+        /**
+         * Constructs a new GetConfigResponse.
+         * @memberof petajournal
+         * @classdesc Represents a GetConfigResponse.
+         * @implements IGetConfigResponse
+         * @constructor
+         * @param {petajournal.IGetConfigResponse=} [properties] Properties to set
+         */
+        function GetConfigResponse(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * GetConfigResponse weekNumbering.
+         * @member {string} weekNumbering
+         * @memberof petajournal.GetConfigResponse
+         * @instance
+         */
+        GetConfigResponse.prototype.weekNumbering = "";
+
+        /**
+         * Creates a new GetConfigResponse instance using the specified properties.
+         * @function create
+         * @memberof petajournal.GetConfigResponse
+         * @static
+         * @param {petajournal.IGetConfigResponse=} [properties] Properties to set
+         * @returns {petajournal.GetConfigResponse} GetConfigResponse instance
+         */
+        GetConfigResponse.create = function create(properties) {
+            return new GetConfigResponse(properties);
+        };
+
+        /**
+         * Encodes the specified GetConfigResponse message. Does not implicitly {@link petajournal.GetConfigResponse.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.GetConfigResponse
+         * @static
+         * @param {petajournal.IGetConfigResponse} message GetConfigResponse message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        GetConfigResponse.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.weekNumbering != null && Object.hasOwnProperty.call(message, "weekNumbering"))
+                writer.uint32(/* id 1, wireType 2 =*/10).string(message.weekNumbering);
+            return writer;
+        };
+
+        /**
+         * Decodes a GetConfigResponse message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.GetConfigResponse
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.GetConfigResponse} GetConfigResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        GetConfigResponse.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.GetConfigResponse();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.weekNumbering = reader.string();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for GetConfigResponse
+         * @function getTypeUrl
+         * @memberof petajournal.GetConfigResponse
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        GetConfigResponse.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.GetConfigResponse";
+        };
+
+        return GetConfigResponse;
+    })();
+
+    petajournal.UpdateConfigRequest = (function() {
+
+        /**
+         * Properties of an UpdateConfigRequest.
+         * @memberof petajournal
+         * @interface IUpdateConfigRequest
+         * @property {string|null} [weekNumbering] UpdateConfigRequest weekNumbering
+         */
+
+        /**
+         * Constructs a new UpdateConfigRequest.
+         * @memberof petajournal
+         * @classdesc Represents an UpdateConfigRequest.
+         * @implements IUpdateConfigRequest
+         * @constructor
+         * @param {petajournal.IUpdateConfigRequest=} [properties] Properties to set
+         */
+        function UpdateConfigRequest(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * UpdateConfigRequest weekNumbering.
+         * @member {string} weekNumbering
+         * @memberof petajournal.UpdateConfigRequest
+         * @instance
+         */
+        UpdateConfigRequest.prototype.weekNumbering = "";
+
+        /**
+         * Creates a new UpdateConfigRequest instance using the specified properties.
+         * @function create
+         * @memberof petajournal.UpdateConfigRequest
+         * @static
+         * @param {petajournal.IUpdateConfigRequest=} [properties] Properties to set
+         * @returns {petajournal.UpdateConfigRequest} UpdateConfigRequest instance
+         */
+        UpdateConfigRequest.create = function create(properties) {
+            return new UpdateConfigRequest(properties);
+        };
+
+        /**
+         * Encodes the specified UpdateConfigRequest message. Does not implicitly {@link petajournal.UpdateConfigRequest.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.UpdateConfigRequest
+         * @static
+         * @param {petajournal.IUpdateConfigRequest} message UpdateConfigRequest message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        UpdateConfigRequest.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.weekNumbering != null && Object.hasOwnProperty.call(message, "weekNumbering"))
+                writer.uint32(/* id 1, wireType 2 =*/10).string(message.weekNumbering);
+            return writer;
+        };
+
+        /**
+         * Decodes an UpdateConfigRequest message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.UpdateConfigRequest
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.UpdateConfigRequest} UpdateConfigRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        UpdateConfigRequest.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.UpdateConfigRequest();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.weekNumbering = reader.string();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for UpdateConfigRequest
+         * @function getTypeUrl
+         * @memberof petajournal.UpdateConfigRequest
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        UpdateConfigRequest.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.UpdateConfigRequest";
+        };
+
+        return UpdateConfigRequest;
+    })();
+
+    petajournal.UpdateConfigResponse = (function() {
+
+        /**
+         * Properties of an UpdateConfigResponse.
+         * @memberof petajournal
+         * @interface IUpdateConfigResponse
+         * @property {string|null} [weekNumbering] UpdateConfigResponse weekNumbering
+         */
+
+        /**
+         * Constructs a new UpdateConfigResponse.
+         * @memberof petajournal
+         * @classdesc Represents an UpdateConfigResponse.
+         * @implements IUpdateConfigResponse
+         * @constructor
+         * @param {petajournal.IUpdateConfigResponse=} [properties] Properties to set
+         */
+        function UpdateConfigResponse(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * UpdateConfigResponse weekNumbering.
+         * @member {string} weekNumbering
+         * @memberof petajournal.UpdateConfigResponse
+         * @instance
+         */
+        UpdateConfigResponse.prototype.weekNumbering = "";
+
+        /**
+         * Creates a new UpdateConfigResponse instance using the specified properties.
+         * @function create
+         * @memberof petajournal.UpdateConfigResponse
+         * @static
+         * @param {petajournal.IUpdateConfigResponse=} [properties] Properties to set
+         * @returns {petajournal.UpdateConfigResponse} UpdateConfigResponse instance
+         */
+        UpdateConfigResponse.create = function create(properties) {
+            return new UpdateConfigResponse(properties);
+        };
+
+        /**
+         * Encodes the specified UpdateConfigResponse message. Does not implicitly {@link petajournal.UpdateConfigResponse.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.UpdateConfigResponse
+         * @static
+         * @param {petajournal.IUpdateConfigResponse} message UpdateConfigResponse message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        UpdateConfigResponse.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.weekNumbering != null && Object.hasOwnProperty.call(message, "weekNumbering"))
+                writer.uint32(/* id 1, wireType 2 =*/10).string(message.weekNumbering);
+            return writer;
+        };
+
+        /**
+         * Decodes an UpdateConfigResponse message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.UpdateConfigResponse
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.UpdateConfigResponse} UpdateConfigResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        UpdateConfigResponse.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.UpdateConfigResponse();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.weekNumbering = reader.string();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for UpdateConfigResponse
+         * @function getTypeUrl
+         * @memberof petajournal.UpdateConfigResponse
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        UpdateConfigResponse.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.UpdateConfigResponse";
+        };
+
+        return UpdateConfigResponse;
     })();
 
     return petajournal;

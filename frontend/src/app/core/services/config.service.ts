@@ -1,4 +1,7 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
+import { ApiService } from './api.service';
+
+export type WeekNumbering = 'us' | 'iso';
 
 interface AppConfig {
   sidebarWidth: number;
@@ -12,12 +15,23 @@ const CONFIG_KEY = 'peta-journal-config';
 
 @Injectable({ providedIn: 'root' })
 export class ConfigService {
+  private readonly api = inject(ApiService);
   private config: AppConfig;
   readonly sidebarWidth = signal(DEFAULT_CONFIG.sidebarWidth);
+  readonly weekNumbering = signal<WeekNumbering>('us');
 
   constructor() {
     this.config = this.loadConfig();
     this.sidebarWidth.set(this.config.sidebarWidth);
+    this.loadWeekNumberingFromServer();
+  }
+
+  private loadWeekNumberingFromServer(): void {
+    this.api.getConfig().then(c => {
+      this.weekNumbering.set((c.weekNumbering as WeekNumbering) || 'us');
+    }).catch(e => {
+      console.error('Failed to load config from server:', e);
+    });
   }
 
   private loadConfig(): AppConfig {
@@ -45,5 +59,12 @@ export class ConfigService {
     this.config.sidebarWidth = width;
     this.sidebarWidth.set(width);
     this.saveConfig();
+  }
+
+  setWeekNumbering(value: WeekNumbering): void {
+    this.weekNumbering.set(value);
+    this.api.updateConfig(value).catch(e => {
+      console.error('Failed to save weekNumbering to server:', e);
+    });
   }
 }

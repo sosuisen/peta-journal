@@ -30,6 +30,8 @@ message ApiRequest {
     GetBacklinksRequest get_backlinks = 41;
     GetMostRecentJournalBeforeRequest get_most_recent_journal_before = 42;
     GetBlocksByStatusRequest get_blocks_by_status = 50;
+    GetConfigRequest get_config = 60;
+    UpdateConfigRequest update_config = 61;
   }
 }
 
@@ -55,6 +57,8 @@ message ApiResponse {
     GetBacklinksResponse get_backlinks = 41;
     GetMostRecentJournalBeforeResponse get_most_recent_journal_before = 42;
     GetBlocksByStatusResponse get_blocks_by_status = 50;
+    GetConfigResponse get_config = 60;
+    UpdateConfigResponse update_config = 61;
   }
 }
 
@@ -222,4 +226,20 @@ message GetBlocksByStatusRequest {
 
 message GetBlocksByStatusResponse {
   repeated Block blocks = 1;
+}
+
+// --- Config operations ---
+
+message GetConfigRequest {}
+
+message GetConfigResponse {
+  string week_numbering = 1;
+}
+
+message UpdateConfigRequest {
+  string week_numbering = 1;
+}
+
+message UpdateConfigResponse {
+  string week_numbering = 1;
 }

@@ -2,6 +2,7 @@ package com.petajournal.server.presentation.websocket;
 
 import com.petajournal.proto.*;
 import com.petajournal.server.application.BlockService;
+import com.petajournal.server.application.ConfigService;
 import com.petajournal.server.application.JournalService;
 import com.petajournal.server.application.PageService;
 import com.petajournal.server.domain.model.BacklinkEntry;
@@ -33,6 +34,9 @@ public class JournalWebSocket {
 
     @Inject
     SearchService searchService;
+
+    @Inject
+    ConfigService configService;
 
     @OnOpen
     void onOpen() {
@@ -81,6 +85,8 @@ public class JournalWebSocket {
                 case GET_BACKLINKS -> response.setGetBacklinks(handleGetBacklinks(request.getGetBacklinks()));
                 case GET_MOST_RECENT_JOURNAL_BEFORE -> response.setGetMostRecentJournalBefore(handleGetMostRecentJournalBefore(request.getGetMostRecentJournalBefore()));
                 case GET_BLOCKS_BY_STATUS -> response.setGetBlocksByStatus(handleGetBlocksByStatus(request.getGetBlocksByStatus()));
+                case GET_CONFIG -> response.setGetConfig(handleGetConfig());
+                case UPDATE_CONFIG -> response.setUpdateConfig(handleUpdateConfig(request.getUpdateConfig()));
                 default -> {
                     response.setSuccess(false);
                     response.setErrorMessage("Unknown request type: " + request.getPayloadCase());
@@ -244,6 +250,19 @@ public class JournalWebSocket {
         var entries = pageService.getBacklinks(UUID.fromString(req.getPageId()));
         return GetBacklinksResponse.newBuilder()
                 .addAllEntries(entries.stream().map(ProtoConverter::toProto).toList())
+                .build();
+    }
+
+    private GetConfigResponse handleGetConfig() {
+        return GetConfigResponse.newBuilder()
+                .setWeekNumbering(configService.getWeekNumbering())
+                .build();
+    }
+
+    private UpdateConfigResponse handleUpdateConfig(UpdateConfigRequest req) {
+        configService.setWeekNumbering(req.getWeekNumbering());
+        return UpdateConfigResponse.newBuilder()
+                .setWeekNumbering(configService.getWeekNumbering())
                 .build();
     }
 }
