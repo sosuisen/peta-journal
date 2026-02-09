@@ -22,7 +22,7 @@ import { BlockViewComponent } from './block-view';
           >
             <span class="triangle">&#9654;</span>
           </button>
-        } @else {
+        } @else if (shouldShowBullet()) {
           <span class="bullet">&bull;</span>
         }
       </div>
@@ -129,6 +129,18 @@ export class OutlineBlockComponent {
   readonly isEditing = computed(() => this.state.editingBlockId() === this.block().id);
   readonly isSelected = computed(() => this.state.selectedBlockIds().has(this.block().id));
   readonly isCollapsed = computed(() => this.block().collapsed);
+  readonly shouldShowBullet = computed(() => {
+    // Don't show bullet if block has children (collapse toggle is shown instead)
+    if (this.hasChildren()) return false;
+    // In view mode (not editing), hide bullet for empty lines and lines starting with #
+    if (!this.isEditing()) {
+      const body = this.block().body.trim();
+      if (body === '' || body.startsWith('#')) {
+        return false;
+      }
+    }
+    return true;
+  });
 
   toggleCollapse(): void {
     this.collapseToggled.emit();
