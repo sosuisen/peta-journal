@@ -195,6 +195,14 @@ export class OutlineComponent {
     const beforeText = block.body.substring(0, cursorPos);
     const afterText = block.body.substring(cursorPos);
 
+    if (block.body.length === 0 && block.level > 0) {
+      // Empty block with indent: outdent instead of creating new block
+      this.state.setEditingBlock(block.id);
+      await this.onOutdent(block);
+      this.focusEditor(block.id);
+      return;
+    }
+
     if (cursorPos === 0 && block.body.length > 0) {
       // Enter at beginning: create new empty block before current block
       const allBlocks = this.state.blocks();
