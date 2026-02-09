@@ -158,6 +158,10 @@ export class OutlineBlockComponent {
   }
 
   private createDuplicateTextarea(): void {
+    // Skip for blocks whose rendered style differs significantly from the textarea
+    const trimmed = this.block().body.trimStart();
+    if (trimmed.startsWith('#') || trimmed.startsWith('```') || trimmed.startsWith('>')) return;
+
     const textarea = document.getElementById('block-editor-' + this.block().id) as HTMLTextAreaElement;
     if (!textarea) return;
 
