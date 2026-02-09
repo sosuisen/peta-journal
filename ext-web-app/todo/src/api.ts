@@ -56,12 +56,8 @@ function send(payload: Partial<petajournal.IApiRequest>): Promise<petajournal.IA
       return;
     }
     const id = String(++requestId);
-    const props = { requestId: id, ...payload };
-    console.log('[ws-send] props:', JSON.stringify(props));
-    const request = ApiRequest.create(props);
-    console.log('[ws-send] request.payload:', (request as any).payload, 'getBlocksByStatus:', request.getBlocksByStatus);
+    const request = ApiRequest.create({ requestId: id, ...payload });
     const bytes = ApiRequest.encode(request).finish();
-    console.log('[ws-send] encoded bytes:', bytes.length, Array.from(bytes.slice(0, 30)));
     pending.set(id, { resolve, reject });
     ws.send(bytes);
   });
