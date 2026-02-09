@@ -196,13 +196,20 @@ export class OutlineComponent {
     const afterText = block.body.substring(cursorPos);
 
     if (cursorPos === 0 && block.body.length > 0) {
-      const newBlock = await this.api.createBlock(block.pageId, '', block.level, '');
-      this.state.addBlock(newBlock, '');
-      const idx = this.state.getBlockIndex(block.id);
-      if (idx > 0) {
-        const prevBlock = this.state.blocks()[idx - 1];
-        this.state.addBlock(newBlock, prevBlock.id);
-      }
+      // Enter at beginning: create new empty block before current block
+      const allBlocks = this.state.blocks();
+      const idx = allBlocks.findIndex(b => b.id === block.id);
+
+      // Find the block just before the current block
+      const prevBlockId = idx > 0 ? allBlocks[idx - 1].id : '';
+
+      // Create new empty block with same level as current block
+      const newBlock = await this.api.createBlock(block.pageId, prevBlockId, block.level, '');
+      this.state.addBlock(newBlock, prevBlockId);
+
+      // Focus the new block
+      this.state.setEditingBlock(newBlock.id);
+      this.focusEditor(newBlock.id);
     } else {
       this.state.updateBlock(block.id, { body: beforeText });
       const updatedOriginal = await this.api.updateBlock(block.id, { body: beforeText });
