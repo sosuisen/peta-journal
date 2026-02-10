@@ -3,12 +3,16 @@ package com.petajournal.server.infrastructure.persistence;
 /**
  * Generates fractional index strings for ordering blocks.
  * Uses lexicographic midpoint calculation between two strings.
+ * Alphabet: 0-9 A-Z a-z (62 characters, in ASCII order).
  */
 public final class FractionalIndexer {
 
+    private static final String ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    private static final int RADIX = ALPHABET.length(); // 62
+    private static final char MIN_CHAR = ALPHABET.charAt(0);            // '0'
+    private static final char MID_CHAR = ALPHABET.charAt(RADIX / 2);    // 'V'
+    private static final char MAX_CHAR = ALPHABET.charAt(RADIX - 1);    // 'z'
     private static final String FIRST = "a0";
-    private static final char BASE = 'a';
-    private static final int RADIX = 26; // a-z
 
     private FractionalIndexer() {}
 
@@ -37,29 +41,38 @@ public final class FractionalIndexer {
         return midpoint(before, after);
     }
 
+    private static int indexOf(char c) {
+        int idx = ALPHABET.indexOf(c);
+        if (idx < 0) {
+            throw new IllegalArgumentException("Character not in alphabet: " + c);
+        }
+        return idx;
+    }
+
     private static String append(String idx) {
-        // Simply add a character beyond the last
         int len = idx.length();
         char last = idx.charAt(len - 1);
-        if (last < 'z') {
-            return idx.substring(0, len - 1) + (char)(last + 1);
+        int pos = indexOf(last);
+        if (pos < RADIX - 1) {
+            return idx.substring(0, len - 1) + ALPHABET.charAt(pos + 1);
         }
-        // Extend with 'n' (middle of a-z)
-        return idx + "n";
+        // Last char is max, extend with mid character
+        return idx + MID_CHAR;
     }
 
     private static String prepend(String idx) {
         int len = idx.length();
-        char first = idx.charAt(len - 1);
-        if (first > 'a') {
-            return idx.substring(0, len - 1) + (char)(first - 1);
+        char last = idx.charAt(len - 1);
+        int pos = indexOf(last);
+        if (pos > 0) {
+            return idx.substring(0, len - 1) + ALPHABET.charAt(pos - 1);
         }
-        // Need to go deeper
-        return idx + "a";
+        // Last char is min, extend deeper
+        return idx + MIN_CHAR;
     }
 
     private static String midpoint(String a, String b) {
-        // Pad to same length
+        // Pad to same length using the minimum character
         int maxLen = Math.max(a.length(), b.length());
         String pa = pad(a, maxLen);
         String pb = pad(b, maxLen);
@@ -68,25 +81,25 @@ public final class FractionalIndexer {
         boolean found = false;
 
         for (int i = 0; i < maxLen; i++) {
-            char ca = pa.charAt(i);
-            char cb = pb.charAt(i);
+            int ia = indexOf(pa.charAt(i));
+            int ib = indexOf(pb.charAt(i));
 
             if (!found) {
-                if (ca == cb) {
-                    result.append(ca);
-                } else if (cb - ca > 1) {
-                    result.append((char)(ca + (cb - ca) / 2));
+                if (ia == ib) {
+                    result.append(ALPHABET.charAt(ia));
+                } else if (ib - ia > 1) {
+                    result.append(ALPHABET.charAt(ia + (ib - ia) / 2));
                     found = true;
                 } else {
-                    // Adjacent chars, carry to next position
-                    result.append(ca);
+                    // Adjacent positions, carry to next level
+                    result.append(ALPHABET.charAt(ia));
                 }
             }
         }
 
         if (!found) {
             // Couldn't find midpoint within existing length, extend
-            result.append('n');
+            result.append(MID_CHAR);
         }
 
         return result.toString();
@@ -96,7 +109,7 @@ public final class FractionalIndexer {
         if (s.length() >= length) return s;
         StringBuilder sb = new StringBuilder(s);
         while (sb.length() < length) {
-            sb.append('a');
+            sb.append(MIN_CHAR);
         }
         return sb.toString();
     }
