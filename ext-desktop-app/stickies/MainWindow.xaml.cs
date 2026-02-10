@@ -299,7 +299,7 @@ public sealed partial class MainWindow : Window
                 };
                 marker = $"<span style=\"margin-right:6px;font-size:16px;\">{label}</span>";
             }
-            else if (!isHeading && !isBlockquote && !isCodeFence && !isEmpty)
+            else if (!isHeading && !isEmpty)
             {
                 marker = "<span style=\"margin-right:6px;color:#999;\">&#x2022;</span>";
             }
