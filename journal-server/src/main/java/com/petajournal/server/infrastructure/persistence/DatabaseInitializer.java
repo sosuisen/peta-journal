@@ -98,7 +98,7 @@ public class DatabaseInitializer {
             LOG.info("Creating indexes...");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_pages_dir_file ON pages(dir_path, file_name)");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_pages_modified ON pages(modified_date DESC)");
-            stmt.execute("CREATE INDEX IF NOT EXISTS idx_blocks_page_id ON blocks(page_id, idx)");
+            stmt.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_blocks_page_id ON blocks(page_id, idx)");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_blocks_body_link ON blocks(body)");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_blocks_status ON blocks(status)");
             LOG.info("Indexes created");
@@ -110,6 +110,15 @@ public class DatabaseInitializer {
                 LOG.info("Added status column to blocks table");
             } catch (SQLException e) {
                 // Column already exists, ignore
+            }
+
+            // Migration: Upgrade idx index to UNIQUE for existing databases
+            try {
+                stmt.execute("DROP INDEX IF EXISTS idx_blocks_page_id");
+                stmt.execute("CREATE UNIQUE INDEX idx_blocks_page_id ON blocks(page_id, idx)");
+                LOG.info("Upgraded blocks page_id/idx index to UNIQUE");
+            } catch (SQLException e2) {
+                LOG.warn("Could not upgrade idx index to UNIQUE (duplicate idx values may exist): " + e2.getMessage());
             }
 
             LOG.info("=== DatabaseInitializer: Schema initialization completed successfully ===");
