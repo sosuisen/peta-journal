@@ -6,6 +6,7 @@ import { RecentPagesService } from '../../core/services/recent-pages.service';
 import { SearchResult } from '../../core/models/search.model';
 import { generateUntitledTitle } from '../../core/utils/title.utils';
 import { classifyJournalFileName } from '../../core/utils/journal-filename.utils';
+import { validateFileName } from '../../core/utils/filename-validation.utils';
 
 @Component({
   selector: 'app-search-bar',
@@ -142,6 +143,8 @@ export class SearchBarComponent {
     if (classifyJournalFileName(title) !== 'none') {
       this.router.navigate(['/journals', title]);
     } else {
+      const error = validateFileName(title);
+      if (error) { alert(error); return; }
       const page = await this.api.createPage(title);
       this.recentPages.refresh();
       this.router.navigate(['/docs', page.id]);

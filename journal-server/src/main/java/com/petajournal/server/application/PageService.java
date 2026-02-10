@@ -55,7 +55,8 @@ public class PageService {
 
         String dir = (dirPath == null || dirPath.isEmpty()) ? "docs" : dirPath;
 
-        String fileName = sanitizeFileName(title);
+        validateFileName(title);
+        String fileName = title;
 
         // Reject journal-type names as doc titles
         if (JournalFileNameMatcher.isJournalFileName(fileName)) {
@@ -90,17 +91,16 @@ public class PageService {
         Page existing = pageRepository.findById(pageId)
                 .orElseThrow(() -> new IllegalArgumentException("Page not found: " + pageId));
 
-        // If title is provided, use it as the new fileName (after sanitization)
         String fileName = existing.fileName();
         if (title != null) {
-            // Validate and sanitize the new title
             if (title.trim().isEmpty()) {
                 throw new IllegalArgumentException("Page title cannot be empty or whitespace-only");
             }
             if (!title.equals(title.trim())) {
                 throw new IllegalArgumentException("Page title cannot have leading or trailing whitespace");
             }
-            fileName = sanitizeFileName(title);
+            validateFileName(title);
+            fileName = title;
         }
 
         Page updated = new Page(
@@ -151,7 +151,25 @@ public class PageService {
         return entries;
     }
 
-    private static String sanitizeFileName(String title) {
-        return title.replaceAll("[<>:\"/\\\\|?*]", "");
+    private static final java.util.regex.Pattern FORBIDDEN_CHARS = java.util.regex.Pattern.compile(
+            "[<>:\"/\\\\|?*\\x00-\\x1F\\x7F]");
+    private static final java.util.regex.Pattern RESERVED_NAMES = java.util.regex.Pattern.compile(
+            "^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$", java.util.regex.Pattern.CASE_INSENSITIVE);
+
+    static void validateFileName(String title) {
+        var matcher = FORBIDDEN_CHARS.matcher(title);
+        if (matcher.find()) {
+            String ch = matcher.group();
+            if (ch.charAt(0) < 0x20 || ch.charAt(0) == 0x7F) {
+                throw new IllegalArgumentException("Title contains a control character (not allowed in filenames)");
+            }
+            throw new IllegalArgumentException("Title contains '" + ch + "' (not allowed in filenames)");
+        }
+        if (title.endsWith(".") || title.endsWith(" ")) {
+            throw new IllegalArgumentException("Title cannot end with a dot or space");
+        }
+        if (RESERVED_NAMES.matcher(title).matches()) {
+            throw new IllegalArgumentException("Title '" + title + "' is a reserved name on Windows");
+        }
     }
 }

@@ -7,6 +7,7 @@ import { ApiService } from '../../core/services/api.service';
 import { Page } from '../../core/models/page.model';
 import { RecentPagesService } from '../../core/services/recent-pages.service';
 import { formatJournalDate } from '../../core/utils/date.utils';
+import { validateFileName } from '../../core/utils/filename-validation.utils';
 
 @Component({
   selector: 'app-page',
@@ -99,15 +100,13 @@ export class PageComponent implements OnInit, OnDestroy {
   private async saveTitle(newTitle: string): Promise<void> {
     const p = this.page();
     if (!p) return;
-    try {
-      const updated = await this.api.updatePage(p.id, { title: newTitle });
-      this.page.set(updated);
-      this.originalTitle = newTitle;
-      this.title.setTitle(newTitle);
-      this.recentPages.refresh();
-    } catch (e) {
-      console.error('Failed to update page title:', e);
-    }
+    const error = validateFileName(newTitle);
+    if (error) { alert(error); return; }
+    const updated = await this.api.updatePage(p.id, { title: newTitle });
+    this.page.set(updated);
+    this.originalTitle = newTitle;
+    this.title.setTitle(newTitle);
+    this.recentPages.refresh();
   }
 
   private async loadPage(pageId: string): Promise<void> {

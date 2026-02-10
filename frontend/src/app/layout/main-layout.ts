@@ -9,6 +9,7 @@ import { OutlineStateService } from '../core/services/outline-state.service';
 import { ConfigService } from '../core/services/config.service';
 import { generateUntitledTitle } from '../core/utils/title.utils';
 import { classifyJournalFileName } from '../core/utils/journal-filename.utils';
+import { validateFileName } from '../core/utils/filename-validation.utils';
 
 @Component({
   selector: 'app-main-layout',
@@ -268,6 +269,8 @@ export class MainLayoutComponent {
       if (classifyJournalFileName(title) !== 'none') {
         this.router.navigate(['/journals', title]);
       } else {
+        const error = validateFileName(title);
+        if (error) { alert(error); return; }
         const page = await this.api.createPage(title);
         this.recentPages.refresh();
         this.router.navigate(['/docs', page.id]);
