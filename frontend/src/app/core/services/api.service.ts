@@ -69,12 +69,6 @@ export class ApiService {
     return { found: true, page: toPage(r.page), blocks: (r.blocks ?? []).map(toBlock) };
   }
 
-  async getWeeklyJournal(year: number, week: number): Promise<GetJournalResult> {
-    const resp: any = await this.proto.send({ getWeeklyJournal: { year, week } });
-    const r = resp.getWeeklyJournal;
-    return { page: toPage(r.page), blocks: (r.blocks ?? []).map(toBlock), created: r.created ?? false };
-  }
-
   async getJournalByName(fileName: string): Promise<GetJournalResult> {
     const resp: any = await this.proto.send({ getJournalByName: { fileName } });
     const r = resp.getJournalByName;

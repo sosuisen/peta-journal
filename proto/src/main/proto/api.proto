@@ -29,7 +29,6 @@ message ApiRequest {
     GetRecentPagesRequest get_recent_pages = 40;
     GetBacklinksRequest get_backlinks = 41;
     GetMostRecentJournalBeforeRequest get_most_recent_journal_before = 42;
-    GetWeeklyJournalRequest get_weekly_journal = 43;
     GetBlocksByStatusRequest get_blocks_by_status = 50;
     GetConfigRequest get_config = 60;
     UpdateConfigRequest update_config = 61;
@@ -58,7 +57,6 @@ message ApiResponse {
     GetRecentPagesResponse get_recent_pages = 40;
     GetBacklinksResponse get_backlinks = 41;
     GetMostRecentJournalBeforeResponse get_most_recent_journal_before = 42;
-    GetWeeklyJournalResponse get_weekly_journal = 43;
     GetJournalByNameResponse get_journal_by_name = 44;
     GetBlocksByStatusResponse get_blocks_by_status = 50;
     GetConfigResponse get_config = 60;
@@ -220,19 +218,6 @@ message GetMostRecentJournalBeforeResponse {
   bool found = 1;                  // true if a journal was found
   Page page = 2;
   repeated Block blocks = 3;
-}
-
-// --- Weekly journal operations ---
-
-message GetWeeklyJournalRequest {
-  int32 year = 1;
-  int32 week = 2;
-}
-
-message GetWeeklyJournalResponse {
-  Page page = 1;
-  repeated Block blocks = 2;
-  bool created = 3;
 }
 
 // --- Block query operations ---
