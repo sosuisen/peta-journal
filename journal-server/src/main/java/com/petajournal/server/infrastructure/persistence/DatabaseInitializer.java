@@ -112,14 +112,6 @@ public class DatabaseInitializer {
                 // Column already exists, ignore
             }
 
-            // Migration: Upgrade idx index to UNIQUE for existing databases
-            try {
-                stmt.execute("DROP INDEX IF EXISTS idx_blocks_page_id");
-                stmt.execute("CREATE UNIQUE INDEX idx_blocks_page_id ON blocks(page_id, idx)");
-                LOG.info("Upgraded blocks page_id/idx index to UNIQUE");
-            } catch (SQLException e2) {
-                LOG.warn("Could not upgrade idx index to UNIQUE (duplicate idx values may exist): " + e2.getMessage());
-            }
 
             LOG.info("=== DatabaseInitializer: Schema initialization completed successfully ===");
         } catch (SQLException e) {
