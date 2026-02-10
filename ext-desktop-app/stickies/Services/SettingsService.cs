@@ -28,6 +28,9 @@ public class StickyWindowSettings
 
     [JsonPropertyName("zoomFactor")]
     public double ZoomFactor { get; set; } = 1.0;
+
+    [JsonPropertyName("alwaysOnTop")]
+    public bool AlwaysOnTop { get; set; } = false;
 }
 
 public class StickiesSettings

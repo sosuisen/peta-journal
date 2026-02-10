@@ -65,6 +65,7 @@ public sealed partial class MainWindow : Window
                 presenter.IsMinimizable = false;
                 presenter.IsMaximizable = false;
                 presenter.SetBorderAndTitleBar(true, false);
+                presenter.IsAlwaysOnTop = _windowSettings.AlwaysOnTop;
             }
         }
     }
@@ -73,6 +74,7 @@ public sealed partial class MainWindow : Window
     {
         _backgroundColor = _windowSettings.BackgroundColor;
         _currentPageId = _windowSettings.PageId;
+        UpdatePinIcon();
 
         if (_appWindow != null)
         {
@@ -302,6 +304,11 @@ public sealed partial class MainWindow : Window
                 marker = "<span style=\"margin-right:6px;color:#999;\">&#x2022;</span>";
             }
 
+            if (isEmpty)
+            {
+                return $"<div style=\"padding-left:{indent + 8}px;height:1.6em;\"></div>";
+            }
+
             var content = !string.IsNullOrEmpty(block.Html) ? block.Html : EscapeHtml(block.Body);
             var style = marker.Length > 0
                 ? $"padding-left:{indent}px;padding:4px 8px 4px {indent + 8}px;display:flex;align-items:baseline;"
@@ -433,6 +440,25 @@ public sealed partial class MainWindow : Window
     private void CloseButton_Click(object sender, RoutedEventArgs e)
     {
         Close();
+    }
+
+    // --- Always on Top ---
+
+    private void PinButton_Click(object sender, RoutedEventArgs e)
+    {
+        _windowSettings.AlwaysOnTop = !_windowSettings.AlwaysOnTop;
+        if (_appWindow?.Presenter is OverlappedPresenter presenter)
+        {
+            presenter.IsAlwaysOnTop = _windowSettings.AlwaysOnTop;
+        }
+        UpdatePinIcon();
+        _settingsService.UpdateWindow(_windowSettings);
+    }
+
+    private void UpdatePinIcon()
+    {
+        // E718 = Pin, E77A = PinFill (pinned)
+        PinIcon.Glyph = _windowSettings.AlwaysOnTop ? "\uE841" : "\uE718";
     }
 
     // --- Background Color ---

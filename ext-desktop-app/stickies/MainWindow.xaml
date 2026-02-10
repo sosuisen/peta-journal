@@ -79,6 +79,12 @@
                         </MenuFlyout>
                     </Button.Flyout>
                 </Button>
+                <Button x:Name="PinButton" Click="PinButton_Click"
+                        Width="32" Height="32" Padding="0"
+                        Background="Transparent" BorderThickness="0"
+                        ToolTipService.ToolTip="Toggle always on top">
+                    <FontIcon x:Name="PinIcon" Glyph="&#xE718;" FontSize="14" />
+                </Button>
                 <Button x:Name="CloseButton" Click="CloseButton_Click"
                         Width="32" Height="32" Padding="0"
                         Background="Transparent" BorderThickness="0"
