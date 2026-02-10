@@ -564,6 +564,14 @@ export class OutlineComponent {
 
     if (parsedBlocks.length === 0) return;
 
+    // Split existing text at caret position
+    const before = block.body.substring(0, event.cursorPos);
+    const after = block.body.substring(event.cursorPos);
+
+    // Merge existing text around pasted content
+    parsedBlocks[0].body = before + parsedBlocks[0].body;
+    parsedBlocks[parsedBlocks.length - 1].body = parsedBlocks[parsedBlocks.length - 1].body + after;
+
     try {
       // First block replaces current editing block
       const firstBlock = parsedBlocks[0];
