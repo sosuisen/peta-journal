@@ -391,9 +391,9 @@ export class OutlineComponent {
 
         // Move after the last child (if it's not the parent itself)
         if (lastChildId !== currentParent.id) {
-          await this.api.moveBlocks(groupIds, block.pageId, lastChildId);
+          const moved = await this.api.moveBlocks(groupIds, block.pageId, lastChildId);
           this.state.deleteBlocks(groupIds);
-          this.state.addBlocks(group.map(b => ({ ...b, level: b.level - 1 })), lastChildId);
+          this.state.addBlocks(moved, lastChildId);
         }
         return;
       }
@@ -427,9 +427,9 @@ export class OutlineComponent {
       const prevPrevId = targetPrev?.id ?? '';
 
       // Normal move up - move before the entire previous tree
-      await this.api.moveBlocks(groupIds, block.pageId, prevPrevId);
+      const moved = await this.api.moveBlocks(groupIds, block.pageId, prevPrevId);
       this.state.deleteBlocks(groupIds);
-      this.state.addBlocks(group, prevPrevId || '');
+      this.state.addBlocks(moved, prevPrevId || '');
       this.focusEditor();
       return;
     }
@@ -454,9 +454,9 @@ export class OutlineComponent {
     const targetPrev = sameLevelIdx > 0 ? allBlocks[sameLevelIdx - 1] : undefined;
     const targetPrevId = targetPrev?.id ?? '';
 
-    await this.api.moveBlocks(groupIds, block.pageId, targetPrevId);
+    const moved = await this.api.moveBlocks(groupIds, block.pageId, targetPrevId);
     this.state.deleteBlocks(groupIds);
-    this.state.addBlocks(group, targetPrevId);
+    this.state.addBlocks(moved, targetPrevId);
     this.focusEditor();
   }
 
@@ -482,9 +482,9 @@ export class OutlineComponent {
       const lastTargetDescendant = targetGroup[targetGroup.length - 1];
 
       // Normal move down - move after the entire next tree
-      await this.api.moveBlocks(groupIds, block.pageId, lastTargetDescendant.id);
+      const moved = await this.api.moveBlocks(groupIds, block.pageId, lastTargetDescendant.id);
       this.state.deleteBlocks(groupIds);
-      this.state.addBlocks(group, lastTargetDescendant.id);
+      this.state.addBlocks(moved, lastTargetDescendant.id);
       this.focusEditor();
       return;
     }
@@ -506,9 +506,9 @@ export class OutlineComponent {
     const lastDescendant = sameLevelGroup[sameLevelGroup.length - 1];
 
     // Move to just after the same-level block and all its children
-    await this.api.moveBlocks(groupIds, block.pageId, lastDescendant.id);
+    const moved = await this.api.moveBlocks(groupIds, block.pageId, lastDescendant.id);
     this.state.deleteBlocks(groupIds);
-    this.state.addBlocks(group, lastDescendant.id);
+    this.state.addBlocks(moved, lastDescendant.id);
     this.focusEditor();
   }
 
