@@ -6,6 +6,7 @@ import { ApiService } from '../../core/services/api.service';
 import { AutoSaveService } from '../../core/services/auto-save.service';
 import { Block } from '../../core/models/block.model';
 import { formatJournalDate } from '../../core/utils/date.utils';
+import { isJournalFileName } from '../../core/utils/journal-filename.utils';
 
 @Component({
   selector: 'app-outline',
@@ -123,9 +124,7 @@ export class OutlineComponent {
   }
 
   isJournalDate(fileName: string): boolean {
-    // Check if fileName matches journal date format (YYYY-MM-DD)
-    const datePattern = /^\d{4}-\d{2}-\d{2}$/;
-    return datePattern.test(fileName);
+    return isJournalFileName(fileName);
   }
 
   formatDateHeader(fileName: string): string {

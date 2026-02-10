@@ -8,6 +8,8 @@ import { Page } from '../../core/models/page.model';
 import { CalendarComponent } from '../../shared/calendar';
 import { OutlineStateService } from '../../core/services/outline-state.service';
 import { formatJournalDate, formatDateToIso } from '../../core/utils/date.utils';
+import { classifyJournalFileName, JournalType } from '../../core/utils/journal-filename.utils';
+import { RecentPagesService } from '../../core/services/recent-pages.service';
 
 @Component({
   selector: 'app-journal',
@@ -16,13 +18,18 @@ import { formatJournalDate, formatDateToIso } from '../../core/utils/date.utils'
     <div class="journal-header">
       <h2 class="journal-date" (click)="showCalendar.set(!showCalendar())">{{ displayDate() }}</h2>
       <button class="calendar-btn" (click)="showCalendar.set(!showCalendar())">📅</button>
-      <button class="nav-btn" (click)="goToPrevDay()">&lt;</button>
-      <button class="nav-btn" (click)="goToNextDay()">&gt;</button>
+      @if (journalType() === 'daily') {
+        <button class="nav-btn" (click)="goToPrevDay()">&lt;</button>
+        <button class="nav-btn" (click)="goToNextDay()">&gt;</button>
+      }
     </div>
     @if (showCalendar()) {
       <app-calendar
         [selectedDate]="currentDate()"
         (dateSelected)="onDateSelected($event)"
+        (weekClicked)="goToWeek($event)"
+        (monthClicked)="goToMonth($event)"
+        (yearClicked)="goToYear($event)"
       />
     }
     @if (page()) {
@@ -77,11 +84,13 @@ export class JournalComponent implements OnInit, OnDestroy {
   private readonly api = inject(ApiService);
   private readonly title = inject(Title);
   private readonly outlineState = inject(OutlineStateService);
+  private readonly recentPages = inject(RecentPagesService);
   private routeSub?: Subscription;
   private loadedDates = new Set<string>();
   private loading = false;
 
   readonly currentDate = signal('');
+  readonly journalType = signal<JournalType>('daily');
   readonly topVisibleDate = signal('');  // Date of the top visible block
   readonly page = signal<Page | null>(null);
   readonly showCalendar = signal(false);
@@ -99,6 +108,7 @@ export class JournalComponent implements OnInit, OnDestroy {
         date = formatDateToIso(new Date());
       }
       this.currentDate.set(date);
+      this.journalType.set(classifyJournalFileName(date));
       this.loadJournal(date);
     });
   }
@@ -108,19 +118,30 @@ export class JournalComponent implements OnInit, OnDestroy {
   }
 
   private async loadJournal(date: string): Promise<void> {
-    const result = await this.api.getJournal(date);
+    const type = classifyJournalFileName(date);
+    let result;
+    if (type === 'daily') {
+      result = await this.api.getJournal(date);
+    } else {
+      result = await this.api.getJournalByName(date);
+    }
     this.page.set(result.page);
+    if (result.created) {
+      this.recentPages.refresh();
+    }
     const todayStr = formatDateToIso(new Date());
-    this.title.setTitle(date === todayStr ? 'Today' : date);
+    this.title.setTitle(date === todayStr ? 'Today' : formatJournalDate(date));
     this.topVisibleDate.set(date);  // Reset to current date
     this.loadedDates.clear();
     this.loadedDates.add(date);
 
-    // Manually load today's blocks first
+    // Manually load blocks first
     this.outlineState.setBlocks(result.blocks);
 
-    // Pre-load previous journals to fill the buffer
-    await this.loadInitialBuffer(date);
+    // Pre-load previous journals to fill the buffer (daily only)
+    if (type === 'daily') {
+      await this.loadInitialBuffer(date);
+    }
   }
 
   private async loadInitialBuffer(currentDate: string): Promise<void> {
@@ -209,6 +230,21 @@ export class JournalComponent implements OnInit, OnDestroy {
     const d = new Date(this.currentDate() + 'T00:00:00');
     d.setDate(d.getDate() + 1);
     this.router.navigate(['/journals', formatDateToIso(d)]);
+  }
+
+  goToWeek(event: { year: number; week: number }): void {
+    this.showCalendar.set(false);
+    this.router.navigate(['/journals', `${event.year}-W${event.week}`]);
+  }
+
+  goToMonth(event: { year: number; month: number }): void {
+    this.showCalendar.set(false);
+    this.router.navigate(['/journals', `${event.year}-${String(event.month).padStart(2, '0')}`]);
+  }
+
+  goToYear(year: number): void {
+    this.showCalendar.set(false);
+    this.router.navigate(['/journals', String(year)]);
   }
 
   onDateSelected(date: string): void {

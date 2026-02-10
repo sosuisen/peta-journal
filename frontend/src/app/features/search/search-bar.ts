@@ -5,6 +5,7 @@ import { ApiService } from '../../core/services/api.service';
 import { RecentPagesService } from '../../core/services/recent-pages.service';
 import { SearchResult } from '../../core/models/search.model';
 import { generateUntitledTitle } from '../../core/utils/title.utils';
+import { classifyJournalFileName } from '../../core/utils/journal-filename.utils';
 
 @Component({
   selector: 'app-search-bar',
@@ -135,12 +136,16 @@ export class SearchBarComponent {
       title = generateUntitledTitle();
     }
 
-    const page = await this.api.createPage(title);
     this.showDropdown.set(false);
     this.query.set('');
     this.results.set([]);
-    this.recentPages.refresh();
-    this.router.navigate(['/pages', page.id]);
+    if (classifyJournalFileName(title) !== 'none') {
+      this.router.navigate(['/journals', title]);
+    } else {
+      const page = await this.api.createPage(title);
+      this.recentPages.refresh();
+      this.router.navigate(['/pages', page.id]);
+    }
   }
 
   onKeydown(event: KeyboardEvent): void {

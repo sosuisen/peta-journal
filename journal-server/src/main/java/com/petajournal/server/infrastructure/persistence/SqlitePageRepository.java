@@ -68,7 +68,7 @@ public class SqlitePageRepository implements PageRepository {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
                      "SELECT id, dir_path, file_name, created_date, modified_date, properties_json FROM pages " +
-                     "WHERE dir_path = ? AND file_name < ? " +
+                     "WHERE dir_path = ? AND file_name < ? AND file_name GLOB '????-??-??' " +
                      "ORDER BY file_name DESC LIMIT 1")) {
             ps.setString(1, dirPath);
             ps.setString(2, fileName);

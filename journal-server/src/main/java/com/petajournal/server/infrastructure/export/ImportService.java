@@ -35,7 +35,7 @@ public class ImportService {
     public Page importFile(Path filePath) throws IOException {
         String content = Files.readString(filePath);
         String fileName = filePath.getFileName().toString().replaceAll("\\.md$", "");
-        String dirPath = filePath.getParent() != null ? filePath.getParent().toString() : "pages";
+        String dirPath = filePath.getParent() != null ? filePath.getParent().toString() : "docs";
 
         OutlineMarkdownParser parser = new OutlineMarkdownParser();
         OutlineMarkdownParser.ParseResult result = parser.parse(content);

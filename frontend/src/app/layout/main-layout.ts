@@ -8,6 +8,7 @@ import { RecentPagesService } from '../core/services/recent-pages.service';
 import { OutlineStateService } from '../core/services/outline-state.service';
 import { ConfigService } from '../core/services/config.service';
 import { generateUntitledTitle } from '../core/utils/title.utils';
+import { classifyJournalFileName } from '../core/utils/journal-filename.utils';
 
 @Component({
   selector: 'app-main-layout',
@@ -258,15 +259,19 @@ export class MainLayoutComponent {
         title = generateUntitledTitle();
       }
 
-      const page = await this.api.createPage(title);
-      this.recentPages.refresh();
       if (searchQuery) {
         this.searchBar()?.query.set('');
         this.searchBar()?.results.set([]);
         this.searchBar()?.showDropdown.set(false);
         this.searchBar()?.showCreateButton.set(false);
       }
-      this.router.navigate(['/pages', page.id]);
+      if (classifyJournalFileName(title) !== 'none') {
+        this.router.navigate(['/journals', title]);
+      } else {
+        const page = await this.api.createPage(title);
+        this.recentPages.refresh();
+        this.router.navigate(['/pages', page.id]);
+      }
     }
   }
 

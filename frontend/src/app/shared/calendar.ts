@@ -21,7 +21,7 @@ interface CalendarWeek {
     <div class="calendar">
       <div class="calendar-header">
         <button (click)="prevMonth()">&lt;</button>
-        <span>{{ monthLabel() }}</span>
+        <span><span class="month-label" (click)="onMonthClick()">{{ monthName() }}</span> <span class="year-label" (click)="onYearClick()">{{ viewYear() }}</span></span>
         <button (click)="nextMonth()">&gt;</button>
       </div>
       <div class="calendar-grid">
@@ -30,7 +30,7 @@ interface CalendarWeek {
           <div class="day-label">{{ label }}</div>
         }
         @for (week of weeks(); track week.weekNumber) {
-          <div class="week-number">{{ week.weekNumber.toString().padStart(2, '0') }}</div>
+          <div class="week-number" (click)="onWeekClick(week)">{{ week.weekNumber.toString().padStart(2, '0') }}</div>
           @for (day of week.days; track day.date) {
             <div
               class="day-cell"
@@ -70,6 +70,15 @@ interface CalendarWeek {
       padding: 2px 6px;
       font-size: 12px;
     }
+    .month-label, .year-label {
+      cursor: pointer;
+      border-radius: 4px;
+      padding: 2px 4px;
+    }
+    .month-label:hover, .year-label:hover {
+      background: #e9ecef;
+      color: #007bff;
+    }
     .calendar-grid {
       display: grid;
       grid-template-columns: auto repeat(7, 1fr);
@@ -82,6 +91,14 @@ interface CalendarWeek {
       padding: 2px 4px 2px 0;
       text-align: right;
       border-right: 1px solid #ddd;
+    }
+    .week-number {
+      cursor: pointer;
+      border-radius: 2px;
+    }
+    .week-number:hover {
+      background: #e9ecef;
+      color: #007bff;
     }
     .day-label {
       font-size: 10px;
@@ -105,6 +122,9 @@ export class CalendarComponent {
 
   readonly selectedDate = input('');
   readonly dateSelected = output<string>();
+  readonly weekClicked = output<{ year: number; week: number }>();
+  readonly monthClicked = output<{ year: number; month: number }>();
+  readonly yearClicked = output<number>();
 
   private readonly US_DAY_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
   private readonly ISO_DAY_LABELS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
@@ -115,9 +135,9 @@ export class CalendarComponent {
   readonly viewYear = signal(new Date().getFullYear());
   readonly viewMonth = signal(new Date().getMonth());
 
-  readonly monthLabel = computed(() => {
+  readonly monthName = computed(() => {
     const date = new Date(this.viewYear(), this.viewMonth(), 1);
-    return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    return date.toLocaleDateString('en-US', { month: 'long' });
   });
 
   readonly weeks = computed((): CalendarWeek[] => {
@@ -186,6 +206,28 @@ export class CalendarComponent {
     } else {
       this.viewMonth.update(m => m + 1);
     }
+  }
+
+  onMonthClick(): void {
+    this.monthClicked.emit({ year: this.viewYear(), month: this.viewMonth() + 1 });
+  }
+
+  onYearClick(): void {
+    this.yearClicked.emit(this.viewYear());
+  }
+
+  onWeekClick(week: CalendarWeek): void {
+    const firstOfWeek = new Date(week.days[0].date + 'T00:00:00');
+    const iso = this.configService.weekNumbering() === 'iso';
+    const year = iso ? this.getISOWeekYear(firstOfWeek) : firstOfWeek.getFullYear();
+    this.weekClicked.emit({ year, week: week.weekNumber });
+  }
+
+  private getISOWeekYear(date: Date): number {
+    const d = new Date(date.getTime());
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
+    return d.getFullYear();
   }
 
   selectDay(day: CalendarDay): void {

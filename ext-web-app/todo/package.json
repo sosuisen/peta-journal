@@ -4,8 +4,8 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "dev": "npm run generate-proto && vite",
+    "build": "npm run generate-proto && tsc -b && vite build",
     "preview": "vite preview",
     "generate-proto": "bash generate-proto.sh"
   },

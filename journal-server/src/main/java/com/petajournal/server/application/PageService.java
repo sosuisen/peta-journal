@@ -11,6 +11,7 @@ import jakarta.inject.Inject;
 
 import com.petajournal.server.domain.BlockIdGenerator;
 import com.petajournal.server.domain.FractionalIndexer;
+import com.petajournal.server.domain.JournalFileNameMatcher;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -52,9 +53,14 @@ public class PageService {
             throw new IllegalArgumentException("Page title cannot have leading or trailing whitespace");
         }
 
-        String dir = (dirPath == null || dirPath.isEmpty()) ? "pages" : dirPath;
+        String dir = (dirPath == null || dirPath.isEmpty()) ? "docs" : dirPath;
 
         String fileName = sanitizeFileName(title);
+
+        // Reject journal-type names as doc titles
+        if (JournalFileNameMatcher.isJournalFileName(fileName)) {
+            throw new IllegalArgumentException("Cannot create a doc with a journal-type name: " + title);
+        }
 
         // Check for duplicate by exact title match
         var existing = pageRepository.findByExactTitle(title);

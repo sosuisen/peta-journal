@@ -3,6 +3,24 @@
  * Returns the fileName as-is if parsing fails.
  */
 export function formatJournalDate(fileName: string): string {
+  // Yearly journal: "2024" → "2024年"
+  const yearMatch = fileName.match(/^\d{4}$/);
+  if (yearMatch) {
+    return `${fileName}年`;
+  }
+
+  // Monthly journal: "2024-08" → "2024年8月"
+  const monthMatch = fileName.match(/^(\d{4})-(\d{2})$/);
+  if (monthMatch) {
+    return `${monthMatch[1]}年${parseInt(monthMatch[2], 10)}月`;
+  }
+
+  // Weekly journal: "2026-W7" → "2026 Week 7"
+  const weekMatch = fileName.match(/^(\d{4})-W(\d+)$/);
+  if (weekMatch) {
+    return `${weekMatch[1]} Week ${weekMatch[2]}`;
+  }
+
   try {
     const date = new Date(fileName + 'T00:00:00');
     const dateStr = date.toLocaleDateString('ja-JP', {

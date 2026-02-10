@@ -29,9 +29,11 @@ message ApiRequest {
     GetRecentPagesRequest get_recent_pages = 40;
     GetBacklinksRequest get_backlinks = 41;
     GetMostRecentJournalBeforeRequest get_most_recent_journal_before = 42;
+    GetWeeklyJournalRequest get_weekly_journal = 43;
     GetBlocksByStatusRequest get_blocks_by_status = 50;
     GetConfigRequest get_config = 60;
     UpdateConfigRequest update_config = 61;
+    GetJournalByNameRequest get_journal_by_name = 44;
   }
 }
 
@@ -56,6 +58,8 @@ message ApiResponse {
     GetRecentPagesResponse get_recent_pages = 40;
     GetBacklinksResponse get_backlinks = 41;
     GetMostRecentJournalBeforeResponse get_most_recent_journal_before = 42;
+    GetWeeklyJournalResponse get_weekly_journal = 43;
+    GetJournalByNameResponse get_journal_by_name = 44;
     GetBlocksByStatusResponse get_blocks_by_status = 50;
     GetConfigResponse get_config = 60;
     UpdateConfigResponse update_config = 61;
@@ -85,7 +89,7 @@ message GetJournalResponse {
 
 message CreatePageRequest {
   string title = 1;
-  string dir_path = 2;             // Optional, defaults to "pages"
+  string dir_path = 2;             // Optional, defaults to "docs"
   repeated string tags = 3;
 }
 
@@ -218,6 +222,19 @@ message GetMostRecentJournalBeforeResponse {
   repeated Block blocks = 3;
 }
 
+// --- Weekly journal operations ---
+
+message GetWeeklyJournalRequest {
+  int32 year = 1;
+  int32 week = 2;
+}
+
+message GetWeeklyJournalResponse {
+  Page page = 1;
+  repeated Block blocks = 2;
+  bool created = 3;
+}
+
 // --- Block query operations ---
 
 message GetBlocksByStatusRequest {
@@ -226,6 +243,18 @@ message GetBlocksByStatusRequest {
 
 message GetBlocksByStatusResponse {
   repeated Block blocks = 1;
+}
+
+// --- Journal by name operations ---
+
+message GetJournalByNameRequest {
+  string file_name = 1;
+}
+
+message GetJournalByNameResponse {
+  Page page = 1;
+  repeated Block blocks = 2;
+  bool created = 3;
 }
 
 // --- Config operations ---

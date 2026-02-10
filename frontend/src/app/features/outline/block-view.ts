@@ -5,6 +5,7 @@ import { ApiService } from '../../core/services/api.service';
 import { RecentPagesService } from '../../core/services/recent-pages.service';
 import hljs from 'highlight.js';
 import { generateUntitledTitle } from '../../core/utils/title.utils';
+import { classifyJournalFileName } from '../../core/utils/journal-filename.utils';
 
 @Component({
   selector: 'app-block-view',
@@ -224,9 +225,13 @@ export class BlockViewComponent {
         pageTitle = generateUntitledTitle();
       }
 
-      const page = await this.api.createPage(pageTitle);
-      this.recentPages.refresh();
-      this.router.navigate(['/pages', page.id]);
+      if (classifyJournalFileName(pageTitle) !== 'none') {
+        this.router.navigate(['/journals', pageTitle]);
+      } else {
+        const page = await this.api.createPage(pageTitle);
+        this.recentPages.refresh();
+        this.router.navigate(['/pages', page.id]);
+      }
     }
   }
 

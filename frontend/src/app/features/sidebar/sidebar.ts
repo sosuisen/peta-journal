@@ -1,5 +1,6 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
+import { ApiService } from '../../core/services/api.service';
 import { RecentPagesService } from '../../core/services/recent-pages.service';
 import { Page } from '../../core/models/page.model';
 import { CalendarComponent } from '../../shared/calendar';
@@ -18,6 +19,9 @@ import { formatJournalDate, formatDateToIso } from '../../core/utils/date.utils'
           <app-calendar
             [selectedDate]="today"
             (dateSelected)="goToDate($event)"
+            (weekClicked)="goToWeek($event)"
+            (monthClicked)="goToMonth($event)"
+            (yearClicked)="goToYear($event)"
           />
         </div>
 
@@ -115,6 +119,7 @@ import { formatJournalDate, formatDateToIso } from '../../core/utils/date.utils'
 export class SidebarComponent implements OnInit {
   readonly recentPages = inject(RecentPagesService);
   private readonly router = inject(Router);
+  private readonly api = inject(ApiService);
   readonly today = formatDateToIso(new Date());
 
   ngOnInit(): void {
@@ -127,6 +132,18 @@ export class SidebarComponent implements OnInit {
 
   goToDate(date: string): void {
     this.router.navigate(['/journals', date]);
+  }
+
+  goToWeek(event: { year: number; week: number }): void {
+    this.router.navigate(['/journals', `${event.year}-W${event.week}`]);
+  }
+
+  goToMonth(event: { year: number; month: number }): void {
+    this.router.navigate(['/journals', `${event.year}-${String(event.month).padStart(2, '0')}`]);
+  }
+
+  goToYear(year: number): void {
+    this.router.navigate(['/journals', String(year)]);
   }
 
   goToPage(pageId: string): void {
