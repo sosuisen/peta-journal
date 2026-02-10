@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { RecentPagesService } from '../../core/services/recent-pages.service';
 import { Page } from '../../core/models/page.model';
 import { CalendarComponent } from '../../shared/calendar';
+import { formatJournalDate } from '../../core/utils/date.utils';
 
 @Component({
   selector: 'app-sidebar',
@@ -133,24 +134,9 @@ export class SidebarComponent implements OnInit {
   }
 
   formatPageTitle(page: Page): string {
-    // For journal pages (dirPath starts with 'journal'), format as locale date
     if (page.dirPath.startsWith('journal')) {
-      try {
-        const date = new Date(page.fileName + 'T00:00:00');
-        const dateStr = date.toLocaleDateString('ja-JP', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        });
-        const weekdayStr = date.toLocaleDateString('ja-JP', {
-          weekday: 'long'
-        });
-        return `${dateStr} ${weekdayStr}`;
-      } catch {
-        return page.fileName;
-      }
+      return formatJournalDate(page.fileName);
     }
-    // For regular pages, use fileName as-is
     return page.fileName;
   }
 }

@@ -7,6 +7,7 @@ import { ApiService } from '../../core/services/api.service';
 import { Page } from '../../core/models/page.model';
 import { CalendarComponent } from '../../shared/calendar';
 import { OutlineStateService } from '../../core/services/outline-state.service';
+import { formatJournalDate, formatDateToIso } from '../../core/utils/date.utils';
 
 @Component({
   selector: 'app-journal',
@@ -88,29 +89,14 @@ export class JournalComponent implements OnInit, OnDestroy {
   readonly displayDate = computed(() => {
     const d = this.topVisibleDate() || this.currentDate();
     if (!d) return '';
-    try {
-      const date = new Date(d + 'T00:00:00');
-      const dateStr = date.toLocaleDateString(undefined, {
-        year: 'numeric', month: 'long', day: 'numeric'
-      });
-      const weekdayStr = date.toLocaleDateString(undefined, {
-        weekday: 'long'
-      });
-      return `${dateStr} ${weekdayStr}`;
-    } catch {
-      return d;
-    }
+    return formatJournalDate(d);
   });
 
   ngOnInit(): void {
     this.routeSub = this.route.paramMap.subscribe(params => {
       let date = params.get('date');
       if (!date || date === 'today') {
-        const today = new Date();
-        const year = today.getFullYear();
-        const month = String(today.getMonth() + 1).padStart(2, '0');
-        const day = String(today.getDate()).padStart(2, '0');
-        date = `${year}-${month}-${day}`;
+        date = formatDateToIso(new Date());
       }
       this.currentDate.set(date);
       this.loadJournal(date);
@@ -124,8 +110,7 @@ export class JournalComponent implements OnInit, OnDestroy {
   private async loadJournal(date: string): Promise<void> {
     const result = await this.api.getJournal(date);
     this.page.set(result.page);
-    const today = new Date();
-    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const todayStr = formatDateToIso(new Date());
     this.title.setTitle(date === todayStr ? 'Today' : date);
     this.topVisibleDate.set(date);  // Reset to current date
     this.loadedDates.clear();
@@ -217,15 +202,13 @@ export class JournalComponent implements OnInit, OnDestroy {
   goToPrevDay(): void {
     const d = new Date(this.currentDate() + 'T00:00:00');
     d.setDate(d.getDate() - 1);
-    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    this.router.navigate(['/journals', dateStr]);
+    this.router.navigate(['/journals', formatDateToIso(d)]);
   }
 
   goToNextDay(): void {
     const d = new Date(this.currentDate() + 'T00:00:00');
     d.setDate(d.getDate() + 1);
-    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    this.router.navigate(['/journals', dateStr]);
+    this.router.navigate(['/journals', formatDateToIso(d)]);
   }
 
   onDateSelected(date: string): void {

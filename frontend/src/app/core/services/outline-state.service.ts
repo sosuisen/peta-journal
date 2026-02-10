@@ -33,11 +33,6 @@ export class OutlineStateService {
     return result;
   });
 
-  readonly selectedBlocks = computed(() => {
-    const ids = this._selectedBlockIds();
-    return this._blocks().filter(b => ids.has(b.id));
-  });
-
   setBlocks(blocks: Block[]): void {
     this._blocks.set(blocks);
     const collapsed = new Set<string>();
@@ -84,18 +79,6 @@ export class OutlineStateService {
       else next.add(blockId);
       return next;
     });
-  }
-
-  selectBlocks(blockIds: string[]): void {
-    this._selectedBlockIds.set(new Set(blockIds));
-  }
-
-  clearSelection(): void {
-    this._selectedBlockIds.set(new Set());
-  }
-
-  getBlockIndex(blockId: string): number {
-    return this._blocks().findIndex(b => b.id === blockId);
   }
 
   getBlockById(blockId: string): Block | undefined {

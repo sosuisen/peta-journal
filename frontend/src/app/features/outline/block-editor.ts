@@ -252,71 +252,31 @@ export class BlockEditorComponent implements AfterViewInit {
 
   /**
    * Check if the cursor is on the first line of the textarea.
-   * Uses a temporary element to measure line positions accounting for text wrapping.
    */
   private isOnFirstLine(el: HTMLTextAreaElement): boolean {
-    const start = el.selectionStart;
-    const value = el.value;
-
-    // If empty or at position 0, definitely on first line
-    if (!value || start === 0) return true;
-
-    // Create a temporary div to measure text rendering
-    const div = document.createElement('div');
-    const style = window.getComputedStyle(el);
-
-    // Copy relevant styles to match textarea rendering
-    div.style.position = 'absolute';
-    div.style.visibility = 'hidden';
-    div.style.whiteSpace = 'pre-wrap';
-    div.style.wordWrap = 'break-word';
-    div.style.width = el.clientWidth + 'px';
-    div.style.font = style.font;
-    div.style.letterSpacing = style.letterSpacing;
-    div.style.lineHeight = style.lineHeight;
-
-    document.body.appendChild(div);
-
-    // Create a marker span at cursor position
-    const textBefore = document.createTextNode(value.substring(0, start));
-    const marker = document.createElement('span');
-    marker.textContent = '|';
-
-    div.appendChild(textBefore);
-    div.appendChild(marker);
-
-    // Get Y position of cursor
-    const cursorY = marker.offsetTop;
-
-    // Get Y position of first character
-    div.textContent = '';
-    const firstChar = document.createElement('span');
-    firstChar.textContent = value.charAt(0) || '|';
-    div.appendChild(firstChar);
-    const firstLineY = firstChar.offsetTop;
-
-    document.body.removeChild(div);
-
-    // Compare Y positions (within small tolerance for rounding)
+    if (!el.value || el.selectionStart === 0) return true;
+    const cursorY = this.measureYAtPosition(el, el.selectionStart);
+    const firstLineY = this.measureYAtPosition(el, 0);
     return Math.abs(cursorY - firstLineY) < 5;
   }
 
   /**
    * Check if the cursor is on the last line of the textarea.
-   * Uses a temporary element to measure line positions accounting for text wrapping.
    */
   private isOnLastLine(el: HTMLTextAreaElement): boolean {
-    const start = el.selectionStart;
-    const value = el.value;
+    if (!el.value || el.selectionStart === el.value.length) return true;
+    const cursorY = this.measureYAtPosition(el, el.selectionStart);
+    const endY = this.measureYAtPosition(el, el.value.length);
+    return Math.abs(endY - cursorY) < 5;
+  }
 
-    // If empty or at end, definitely on last line
-    if (!value || start === value.length) return true;
-
-    // Create a temporary div to measure text rendering
+  /**
+   * Measure the Y offset of a text position within a textarea using a mirror div.
+   */
+  private measureYAtPosition(el: HTMLTextAreaElement, position: number): number {
     const div = document.createElement('div');
     const style = window.getComputedStyle(el);
 
-    // Copy relevant styles to match textarea rendering
     div.style.position = 'absolute';
     div.style.visibility = 'hidden';
     div.style.whiteSpace = 'pre-wrap';
@@ -328,27 +288,14 @@ export class BlockEditorComponent implements AfterViewInit {
 
     document.body.appendChild(div);
 
-    // Create a marker span at cursor position
-    const textBefore = document.createTextNode(value.substring(0, start));
+    const textBefore = document.createTextNode(el.value.substring(0, position));
     const marker = document.createElement('span');
     marker.textContent = '|';
-
     div.appendChild(textBefore);
     div.appendChild(marker);
 
-    // Get Y position of cursor
-    const cursorY = marker.offsetTop;
-
-    // Get Y position of last character
-    div.textContent = value;
-    const lastChar = document.createElement('span');
-    lastChar.textContent = '|';
-    div.appendChild(lastChar);
-    const lastLineY = lastChar.offsetTop;
-
+    const y = marker.offsetTop;
     document.body.removeChild(div);
-
-    // Compare Y positions (within small tolerance for rounding)
-    return Math.abs(lastLineY - cursorY) < 5;
+    return y;
   }
 }

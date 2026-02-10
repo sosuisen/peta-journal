@@ -5,6 +5,7 @@ import { OutlineStateService } from '../../core/services/outline-state.service';
 import { ApiService } from '../../core/services/api.service';
 import { AutoSaveService } from '../../core/services/auto-save.service';
 import { Block } from '../../core/models/block.model';
+import { formatJournalDate } from '../../core/utils/date.utils';
 
 @Component({
   selector: 'app-outline',
@@ -128,20 +129,7 @@ export class OutlineComponent {
   }
 
   formatDateHeader(fileName: string): string {
-    try {
-      const date = new Date(fileName + 'T00:00:00');
-      const dateStr = date.toLocaleDateString('ja-JP', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-      const weekdayStr = date.toLocaleDateString('ja-JP', {
-        weekday: 'long'
-      });
-      return `${dateStr} ${weekdayStr}`;
-    } catch {
-      return fileName;
-    }
+    return formatJournalDate(fileName);
   }
 
   private async loadBlocks(pageId: string): Promise<void> {
@@ -306,15 +294,6 @@ export class OutlineComponent {
   private canPlace(blockLevel: number, prevBlock: Block | undefined): boolean {
     if (!prevBlock) return blockLevel === 0;
     return prevBlock.level === blockLevel || prevBlock.level === blockLevel - 1;
-  }
-
-  /**
-   * Get the last descendant of a block (the last child in the entire subtree).
-   */
-  private getLastDescendant(blockId: string): Block | null {
-    const children = this.state.getChildren(blockId);
-    if (children.length === 0) return null;
-    return children[children.length - 1];
   }
 
   async onIndent(block: Block): Promise<void> {

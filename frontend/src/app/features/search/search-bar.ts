@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
 import { RecentPagesService } from '../../core/services/recent-pages.service';
 import { SearchResult } from '../../core/models/search.model';
+import { generateUntitledTitle } from '../../core/utils/title.utils';
 
 @Component({
   selector: 'app-search-bar',
@@ -131,13 +132,7 @@ export class SearchBarComponent {
 
     // If empty or whitespace-only, generate timestamp-based title
     if (!title) {
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = String(now.getMonth() + 1).padStart(2, '0');
-      const day = String(now.getDate()).padStart(2, '0');
-      const hour = String(now.getHours()).padStart(2, '0');
-      const minute = String(now.getMinutes()).padStart(2, '0');
-      title = `Untitled-${year}${month}${day}${hour}${minute}`;
+      title = generateUntitledTitle();
     }
 
     const page = await this.api.createPage(title);

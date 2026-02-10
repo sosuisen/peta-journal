@@ -6,6 +6,7 @@ import { OutlineComponent } from '../outline/outline';
 import { ApiService } from '../../core/services/api.service';
 import { Page } from '../../core/models/page.model';
 import { RecentPagesService } from '../../core/services/recent-pages.service';
+import { formatJournalDate } from '../../core/utils/date.utils';
 
 @Component({
   selector: 'app-page',
@@ -56,24 +57,9 @@ export class PageComponent implements OnInit, OnDestroy {
     const p = this.page();
     if (!p) return '';
 
-    // For journal pages (dirPath starts with 'journal'), format as locale date
     if (p.dirPath.startsWith('journal')) {
-      try {
-        const date = new Date(p.fileName + 'T00:00:00');
-        const dateStr = date.toLocaleDateString('ja-JP', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        });
-        const weekdayStr = date.toLocaleDateString('ja-JP', {
-          weekday: 'long'
-        });
-        return `${dateStr} ${weekdayStr}`;
-      } catch {
-        return p.fileName;
-      }
+      return formatJournalDate(p.fileName);
     }
-    // For regular pages, use fileName as-is
     return p.fileName;
   }
 
