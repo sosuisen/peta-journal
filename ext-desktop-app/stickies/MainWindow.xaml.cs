@@ -364,11 +364,16 @@ public sealed partial class MainWindow : Window
         return text.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
     }
 
-    // --- New Window ---
+    // --- New Window / Close ---
 
     private void NewWindowButton_Click(object sender, RoutedEventArgs e)
     {
         App.CreateNewWindow();
+    }
+
+    private void CloseButton_Click(object sender, RoutedEventArgs e)
+    {
+        Close();
     }
 
     // --- Background Color ---

@@ -42,42 +42,50 @@
                        FontSize="13" FontWeight="SemiBold"
                        TextTrimming="CharacterEllipsis" />
 
-            <!-- Right: Color menu -->
-            <Button x:Name="MenuButton" Grid.Column="2"
-                    Width="32" Height="32" Padding="0" Margin="0,0,40,0"
-                    Background="Transparent" BorderThickness="0"
-                    ToolTipService.ToolTip="Background color">
-                <FontIcon Glyph="&#xE712;" FontSize="14" />
-                <Button.Flyout>
-                    <MenuFlyout>
-                        <MenuFlyoutItem Text="Yellow" Tag="#FFFDD0" Click="ColorMenuItem_Click">
-                            <MenuFlyoutItem.Icon>
-                                <FontIcon Glyph="&#xEA3A;" Foreground="#FFFDD0" />
-                            </MenuFlyoutItem.Icon>
-                        </MenuFlyoutItem>
-                        <MenuFlyoutItem Text="Pink" Tag="#FFD1DC" Click="ColorMenuItem_Click">
-                            <MenuFlyoutItem.Icon>
-                                <FontIcon Glyph="&#xEA3A;" Foreground="#FFD1DC" />
-                            </MenuFlyoutItem.Icon>
-                        </MenuFlyoutItem>
-                        <MenuFlyoutItem Text="Green" Tag="#D0F0C0" Click="ColorMenuItem_Click">
-                            <MenuFlyoutItem.Icon>
-                                <FontIcon Glyph="&#xEA3A;" Foreground="#D0F0C0" />
-                            </MenuFlyoutItem.Icon>
-                        </MenuFlyoutItem>
-                        <MenuFlyoutItem Text="Blue" Tag="#D0E8FF" Click="ColorMenuItem_Click">
-                            <MenuFlyoutItem.Icon>
-                                <FontIcon Glyph="&#xEA3A;" Foreground="#D0E8FF" />
-                            </MenuFlyoutItem.Icon>
-                        </MenuFlyoutItem>
-                        <MenuFlyoutItem Text="White" Tag="#FFFFFF" Click="ColorMenuItem_Click">
-                            <MenuFlyoutItem.Icon>
-                                <FontIcon Glyph="&#xEA3A;" Foreground="#FFFFFF" />
-                            </MenuFlyoutItem.Icon>
-                        </MenuFlyoutItem>
-                    </MenuFlyout>
-                </Button.Flyout>
-            </Button>
+            <!-- Right: Color menu + Close -->
+            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Spacing="2">
+                <Button x:Name="MenuButton"
+                        Width="32" Height="32" Padding="0"
+                        Background="Transparent" BorderThickness="0"
+                        ToolTipService.ToolTip="Background color">
+                    <FontIcon Glyph="&#xE712;" FontSize="14" />
+                    <Button.Flyout>
+                        <MenuFlyout>
+                            <MenuFlyoutItem Text="Yellow" Tag="#FFFDD0" Click="ColorMenuItem_Click">
+                                <MenuFlyoutItem.Icon>
+                                    <FontIcon Glyph="&#xEA3A;" Foreground="#FFFDD0" />
+                                </MenuFlyoutItem.Icon>
+                            </MenuFlyoutItem>
+                            <MenuFlyoutItem Text="Pink" Tag="#FFD1DC" Click="ColorMenuItem_Click">
+                                <MenuFlyoutItem.Icon>
+                                    <FontIcon Glyph="&#xEA3A;" Foreground="#FFD1DC" />
+                                </MenuFlyoutItem.Icon>
+                            </MenuFlyoutItem>
+                            <MenuFlyoutItem Text="Green" Tag="#D0F0C0" Click="ColorMenuItem_Click">
+                                <MenuFlyoutItem.Icon>
+                                    <FontIcon Glyph="&#xEA3A;" Foreground="#D0F0C0" />
+                                </MenuFlyoutItem.Icon>
+                            </MenuFlyoutItem>
+                            <MenuFlyoutItem Text="Blue" Tag="#D0E8FF" Click="ColorMenuItem_Click">
+                                <MenuFlyoutItem.Icon>
+                                    <FontIcon Glyph="&#xEA3A;" Foreground="#D0E8FF" />
+                                </MenuFlyoutItem.Icon>
+                            </MenuFlyoutItem>
+                            <MenuFlyoutItem Text="White" Tag="#FFFFFF" Click="ColorMenuItem_Click">
+                                <MenuFlyoutItem.Icon>
+                                    <FontIcon Glyph="&#xEA3A;" Foreground="#FFFFFF" />
+                                </MenuFlyoutItem.Icon>
+                            </MenuFlyoutItem>
+                        </MenuFlyout>
+                    </Button.Flyout>
+                </Button>
+                <Button x:Name="CloseButton" Click="CloseButton_Click"
+                        Width="32" Height="32" Padding="0"
+                        Background="Transparent" BorderThickness="0"
+                        ToolTipService.ToolTip="Close">
+                    <FontIcon Glyph="&#xE711;" FontSize="14" />
+                </Button>
+            </StackPanel>
         </Grid>
 
         <!-- Main Content Area -->
