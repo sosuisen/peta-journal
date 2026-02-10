@@ -23,6 +23,7 @@ public sealed partial class MainWindow : Window
     private string _backgroundColor = "#FFFDD0";
     private AppWindow? _appWindow;
     private bool _initialized;
+    private bool _isDeactivated;
 
     public string WindowId => _windowSettings.Id;
 
@@ -63,6 +64,7 @@ public sealed partial class MainWindow : Window
             {
                 presenter.IsMinimizable = false;
                 presenter.IsMaximizable = false;
+                presenter.SetBorderAndTitleBar(true, false);
             }
         }
     }
@@ -117,12 +119,14 @@ public sealed partial class MainWindow : Window
     {
         if (args.WindowActivationState == WindowActivationState.Deactivated)
         {
+            _isDeactivated = true;
             TitleBarRow.Visibility = Visibility.Collapsed;
             SearchPanel.Visibility = Visibility.Collapsed;
             _ = ExecuteScriptAsync("document.body.style.overflow='hidden'");
         }
         else
         {
+            _isDeactivated = false;
             TitleBarRow.Visibility = Visibility.Visible;
             _ = ExecuteScriptAsync("document.body.style.overflow='auto'");
 
@@ -284,6 +288,7 @@ public sealed partial class MainWindow : Window
     color: #333;
     padding: 12px;
     overflow-wrap: break-word;
+    overflow: {(_isDeactivated ? "hidden" : "auto")};
   }}
   a {{ color: #2563eb; }}
   code {{
