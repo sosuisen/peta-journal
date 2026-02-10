@@ -21,6 +21,10 @@ function formatDate(block: Block): string {
   return new Date(ms).toLocaleDateString();
 }
 
+function isJournal(block: Block): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(block.fileName || '');
+}
+
 const STATUS_ORDER: Record<string, number> = { todo: 0, running: 1, done: 2 };
 const NEXT_STATUS: Record<string, string> = { todo: 'running', running: 'done', done: 'todo' };
 
@@ -50,6 +54,8 @@ export default function App() {
   const [showTodo, setShowTodo] = useState(true);
   const [showRunning, setShowRunning] = useState(true);
   const [showDone, setShowDone] = useState(false);
+  const [showJournal, setShowJournal] = useState(true);
+  const [showPage, setShowPage] = useState(true);
   const [sortKey, setSortKey] = useState<SortKey>('created_date');
 
   const connectedRef = useRef(false);
@@ -120,7 +126,11 @@ export default function App() {
     }
   };
 
-  const sorted = sortBlocks(blocks, sortKey);
+  const filtered = blocks.filter((b) => {
+    if (isJournal(b)) return showJournal;
+    return showPage;
+  });
+  const sorted = sortBlocks(filtered, sortKey);
 
   return (
     <div className="app">
@@ -146,6 +156,15 @@ export default function App() {
         <label className="checkbox">
           <input type="checkbox" checked={showDone} onChange={(e) => setShowDone(e.target.checked)} />
           Done
+        </label>
+
+        <label className="checkbox">
+          <input type="checkbox" checked={showJournal} onChange={(e) => setShowJournal(e.target.checked)} />
+          Journal
+        </label>
+        <label className="checkbox">
+          <input type="checkbox" checked={showPage} onChange={(e) => setShowPage(e.target.checked)} />
+          Page
         </label>
 
         <label>
