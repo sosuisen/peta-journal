@@ -1,5 +1,6 @@
 import { Component, inject, input, output, signal, computed } from '@angular/core';
 import { ConfigService } from '../core/services/config.service';
+import { formatDateToIso } from '../core/utils/date.utils';
 
 interface CalendarDay {
   date: string;
@@ -138,7 +139,7 @@ export class CalendarComponent {
     const year = this.viewYear();
     const month = this.viewMonth();
     const iso = this.configService.weekNumbering() === 'iso';
-    const today = new Date().toISOString().split('T')[0];
+    const today = formatDateToIso(new Date());
     const selected = this.selectedDate();
 
     const rawDay = new Date(year, month, 1).getDay();
@@ -213,6 +214,6 @@ export class CalendarComponent {
 
   private formatDate(year: number, month: number, day: number): string {
     const d = new Date(year, month, day);
-    return d.toISOString().split('T')[0];
+    return formatDateToIso(d);
   }
 }

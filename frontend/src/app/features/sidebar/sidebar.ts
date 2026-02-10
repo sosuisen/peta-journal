@@ -3,7 +3,7 @@ import { Router } from '@angular/router';
 import { RecentPagesService } from '../../core/services/recent-pages.service';
 import { Page } from '../../core/models/page.model';
 import { CalendarComponent } from '../../shared/calendar';
-import { formatJournalDate } from '../../core/utils/date.utils';
+import { formatJournalDate, formatDateToIso } from '../../core/utils/date.utils';
 
 @Component({
   selector: 'app-sidebar',
@@ -115,7 +115,7 @@ import { formatJournalDate } from '../../core/utils/date.utils';
 export class SidebarComponent implements OnInit {
   readonly recentPages = inject(RecentPagesService);
   private readonly router = inject(Router);
-  readonly today = new Date().toISOString().split('T')[0];
+  readonly today = formatDateToIso(new Date());
 
   ngOnInit(): void {
     this.recentPages.refresh();
