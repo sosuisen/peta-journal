@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -78,9 +79,10 @@ public sealed partial class MainWindow : Window
 
         if (_appWindow != null)
         {
+            var scale = GetScaleFactor();
             _appWindow.MoveAndResize(new RectInt32(
                 _windowSettings.X, _windowSettings.Y,
-                _windowSettings.Width, _windowSettings.Height));
+                (int)(_windowSettings.Width * scale), (int)(_windowSettings.Height * scale)));
         }
     }
 
@@ -483,18 +485,35 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    // --- DPI helpers ---
+
+    [DllImport("user32.dll")]
+    private static extern uint GetDpiForWindow(nint hwnd);
+
+    private double GetScaleFactor()
+    {
+        // Prefer XamlRoot when available (after XAML tree is loaded)
+        var xamlScale = Content?.XamlRoot?.RasterizationScale;
+        if (xamlScale.HasValue) return xamlScale.Value;
+
+        // Fallback to Win32 API (works before XAML tree is ready)
+        var hwnd = WindowNative.GetWindowHandle(this);
+        return GetDpiForWindow(hwnd) / 96.0;
+    }
+
     // --- Window state persistence ---
 
     private void AppWindow_Changed(AppWindow sender, AppWindowChangedEventArgs args)
     {
         if (args.DidPositionChange || args.DidSizeChange)
         {
+            var scale = GetScaleFactor();
             var pos = sender.Position;
             var size = sender.Size;
             _windowSettings.X = pos.X;
             _windowSettings.Y = pos.Y;
-            _windowSettings.Width = size.Width;
-            _windowSettings.Height = size.Height;
+            _windowSettings.Width = (int)(size.Width / scale);
+            _windowSettings.Height = (int)(size.Height / scale);
             _settingsService.UpdateWindow(_windowSettings);
         }
     }

@@ -18,7 +18,7 @@ function blockCreatedMs(block: Block): number {
 function formatDate(block: Block): string {
   const ms = blockCreatedMs(block);
   if (!ms) return '';
-  return new Date(ms).toLocaleString();
+  return new Date(ms).toLocaleDateString();
 }
 
 const STATUS_ORDER: Record<string, number> = { todo: 0, running: 1, done: 2 };
@@ -166,11 +166,13 @@ export default function App() {
         {sorted.length === 0 && !loading && <div className="empty">No blocks found</div>}
         {sorted.map((block) => (
           <div key={block.id} className="block-row" onClick={() => openPage(block)}>
-            <span className="block-page">{block.fileName}</span>
-            <span
-              className="block-content"
-              dangerouslySetInnerHTML={{ __html: block.html || block.body || '' }}
-            />
+            <div className="block-main">
+              <span className="block-page">{block.fileName}</span>
+              <span
+                className="block-content"
+                dangerouslySetInnerHTML={{ __html: block.html || block.body || '' }}
+              />
+            </div>
             <span className="block-date">{formatDate(block)}</span>
             <button
               className={`badge badge-${block.status}`}

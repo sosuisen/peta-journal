@@ -17,7 +17,7 @@ body {
 }
 
 h1 {
-  font-size: 1.5rem;
+  font-size: 1.2rem;
   margin-bottom: 16px;
 }
 
@@ -50,7 +50,7 @@ h1 {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 0.875rem;
+  font-size: 0.7rem;
 }
 
 .filter-bar input[type='date'] {
@@ -110,18 +110,24 @@ h1 {
   background: #f8f9fa;
 }
 
+.block-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .block-page {
-  flex: 0 0 140px;
-  font-size: 0.8rem;
-  color: #666;
+  font-size: 0.56rem;
+  color: #999;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 1.2;
 }
 
 .block-content {
-  flex: 1;
-  font-size: 0.9rem;
+  font-size: 0.72rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -133,8 +139,8 @@ h1 {
 }
 
 .block-date {
-  flex: 0 0 150px;
-  font-size: 0.75rem;
+  flex: 0 0 auto;
+  font-size: 0.6rem;
   color: #999;
   text-align: right;
 }
@@ -144,7 +150,7 @@ h1 {
   padding: 2px 10px;
   border: none;
   border-radius: 12px;
-  font-size: 0.75rem;
+  font-size: 0.6rem;
   font-weight: 600;
   cursor: pointer;
   text-transform: uppercase;
