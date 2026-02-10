@@ -212,7 +212,11 @@ export class BlockViewComponent {
 
     const pageId = link.dataset['pageId'];
     if (pageId) {
-      this.router.navigate(['/pages', pageId]);
+      if (event.ctrlKey || event.metaKey) {
+        window.open(`/docs/${pageId}`, '_blank');
+      } else {
+        this.router.navigate(['/docs', pageId]);
+      }
       return;
     }
 
@@ -227,13 +231,21 @@ export class BlockViewComponent {
       }
 
       if (classifyJournalFileName(pageTitle) !== 'none') {
-        this.router.navigate(['/journals', pageTitle]);
+        if (event.ctrlKey || event.metaKey) {
+          window.open(`/journals/${pageTitle}`, '_blank');
+        } else {
+          this.router.navigate(['/journals', pageTitle]);
+        }
       } else {
         const error = validateFileName(pageTitle);
         if (error) { alert(error); return; }
         const page = await this.api.createPage(pageTitle);
         this.recentPages.refresh();
-        this.router.navigate(['/pages', page.id]);
+        if (event.ctrlKey || event.metaKey) {
+          window.open(`/docs/${page.id}`, '_blank');
+        } else {
+          this.router.navigate(['/docs', page.id]);
+        }
       }
     }
   }
