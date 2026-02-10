@@ -269,13 +269,13 @@ export class MainLayoutComponent {
         this.searchBar()?.showCreateButton.set(false);
       }
       if (classifyJournalFileName(title) !== 'none') {
-        this.nav.navigateToPage(title, '');
+        this.nav.navigateToPage(title);
       } else {
         const error = validateFileName(title);
         if (error) { alert(error); return; }
-        const page = await this.api.createPage(title);
+        const result = await this.api.getDocByName(title);
         this.recentPages.refresh();
-        this.nav.navigateToPage(page.fileName, page.id);
+        this.nav.navigateToPage(result.page.fileName);
       }
     }
   }
@@ -284,8 +284,10 @@ export class MainLayoutComponent {
     const url = this.router.url;
     const match = url.match(/\/docs\/(.+)/);
     if (!match) return;
-    if (!confirm('Delete this page?')) return;
-    await this.api.deletePage(match[1]);
+    const fileName = decodeURIComponent(match[1]);
+    if (!confirm(`Delete "${fileName}"?`)) return;
+    const result = await this.api.getDocByName(fileName);
+    await this.api.deletePage(result.page.id);
     this.recentPages.refresh();
     this.router.navigate(['/journals/today']);
   }

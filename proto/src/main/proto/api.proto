@@ -15,8 +15,7 @@ message ApiRequest {
   string request_id = 1;           // Correlation ID
   oneof payload {
     GetPageRequest get_page = 10;
-    GetJournalRequest get_journal = 11;
-    CreatePageRequest create_page = 12;
+    GetDocByNameRequest get_doc_by_name = 12;
     DeletePageRequest delete_page = 13;
     UpdatePageRequest update_page = 14;
     CreateBlockRequest create_block = 20;
@@ -43,8 +42,7 @@ message ApiResponse {
   string error_message = 3;        // Set when success=false
   oneof payload {
     GetPageResponse get_page = 10;
-    GetJournalResponse get_journal = 11;
-    CreatePageResponse create_page = 12;
+    GetDocByNameResponse get_doc_by_name = 12;
     DeletePageResponse delete_page = 13;
     UpdatePageResponse update_page = 14;
     CreateBlockResponse create_block = 20;
@@ -75,24 +73,16 @@ message GetPageResponse {
   repeated Block blocks = 2;
 }
 
-message GetJournalRequest {
-  string date = 1;                  // ISO date: "2025-01-15"
-}
-
-message GetJournalResponse {
-  Page page = 1;
-  repeated Block blocks = 2;
-  bool created = 3;                // true if journal was just created
-}
-
-message CreatePageRequest {
+message GetDocByNameRequest {
   string title = 1;
   string dir_path = 2;             // Optional, defaults to "docs"
   repeated string tags = 3;
 }
 
-message CreatePageResponse {
+message GetDocByNameResponse {
   Page page = 1;
+  repeated Block blocks = 2;
+  bool created = 3;
 }
 
 message DeletePageRequest {

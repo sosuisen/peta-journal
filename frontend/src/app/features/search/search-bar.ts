@@ -127,7 +127,7 @@ export class SearchBarComponent {
     this.query.set('');
     this.results.set([]);
     this.showCreateButton.set(false);
-    this.nav.navigateToPage(result.pageTitle, result.pageId);
+    this.nav.navigateToPage(result.pageTitle);
   }
 
   async createPage(): Promise<void> {
@@ -142,13 +142,13 @@ export class SearchBarComponent {
     this.query.set('');
     this.results.set([]);
     if (classifyJournalFileName(title) !== 'none') {
-      this.nav.navigateToPage(title, '');
+      this.nav.navigateToPage(title);
     } else {
       const error = validateFileName(title);
       if (error) { alert(error); return; }
-      const page = await this.api.createPage(title);
+      const result = await this.api.getDocByName(title);
       this.recentPages.refresh();
-      this.nav.navigateToPage(page.fileName, page.id);
+      this.nav.navigateToPage(result.page.fileName);
     }
   }
 

@@ -12,7 +12,7 @@ export const routes: Routes = [
         loadComponent: () => import('./features/journal/journal').then(m => m.JournalComponent),
       },
       {
-        path: 'docs/:id',
+        path: 'docs/:fileName',
         loadComponent: () => import('./features/journal/page').then(m => m.PageComponent),
       },
     ]

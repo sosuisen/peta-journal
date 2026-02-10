@@ -6,20 +6,13 @@ import { classifyJournalFileName } from '../utils/journal-filename.utils';
 export class NavigationService {
   private readonly router = inject(Router);
 
-  /** Navigate to a page by fileName (used as the source of truth for routing). */
-  navigateToPage(fileName: string, pageId: string, newTab = false): void {
-    if (classifyJournalFileName(fileName) !== 'none') {
-      if (newTab) {
-        window.open(`/journals/${fileName}`, '_blank');
-      } else {
-        this.router.navigate(['/journals', fileName]);
-      }
+  /** Navigate to a page by fileName. Journals go to /journals/, docs go to /docs/. */
+  navigateToPage(fileName: string, newTab = false): void {
+    const prefix = classifyJournalFileName(fileName) !== 'none' ? '/journals' : '/docs';
+    if (newTab) {
+      window.open(`${prefix}/${encodeURIComponent(fileName)}`, '_blank');
     } else {
-      if (newTab) {
-        window.open(`/docs/${pageId}`, '_blank');
-      } else {
-        this.router.navigate(['/docs', pageId]);
-      }
+      this.router.navigate([prefix, fileName]);
     }
   }
 }

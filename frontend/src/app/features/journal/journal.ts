@@ -120,13 +120,7 @@ export class JournalComponent implements OnInit, OnDestroy {
   }
 
   private async loadJournal(date: string): Promise<void> {
-    const type = classifyJournalFileName(date);
-    let result;
-    if (type === 'daily') {
-      result = await this.api.getJournal(date);
-    } else {
-      result = await this.api.getJournalByName(date);
-    }
+    const result = await this.api.getJournalByName(date);
     this.page.set(result.page);
     if (result.created) {
       this.recentPages.refresh();
@@ -141,7 +135,7 @@ export class JournalComponent implements OnInit, OnDestroy {
     this.outlineState.setBlocks(result.blocks);
 
     // Pre-load previous journals to fill the buffer (daily only)
-    if (type === 'daily') {
+    if (this.journalType() === 'daily') {
       await this.loadInitialBuffer(date);
     }
   }
@@ -237,18 +231,18 @@ export class JournalComponent implements OnInit, OnDestroy {
   goToWeek(event: { year: number; week: number; ctrlKey: boolean }): void {
     if (!event.ctrlKey) this.showCalendar.set(false);
     const fileName = `${event.year}-W${String(event.week).padStart(2, '0')}`;
-    this.nav.navigateToPage(fileName, '', event.ctrlKey);
+    this.nav.navigateToPage(fileName, event.ctrlKey);
   }
 
   goToMonth(event: { year: number; month: number; ctrlKey: boolean }): void {
     if (!event.ctrlKey) this.showCalendar.set(false);
     const fileName = `${event.year}-${String(event.month).padStart(2, '0')}`;
-    this.nav.navigateToPage(fileName, '', event.ctrlKey);
+    this.nav.navigateToPage(fileName, event.ctrlKey);
   }
 
   goToYear(event: { year: number; ctrlKey: boolean }): void {
     if (!event.ctrlKey) this.showCalendar.set(false);
-    this.nav.navigateToPage(String(event.year), '', event.ctrlKey);
+    this.nav.navigateToPage(String(event.year), event.ctrlKey);
   }
 
   onDateSelected(date: string): void {

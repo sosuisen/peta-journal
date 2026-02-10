@@ -136,20 +136,20 @@ export class SidebarComponent implements OnInit {
 
   goToWeek(event: { year: number; week: number; ctrlKey: boolean }): void {
     const fileName = `${event.year}-W${String(event.week).padStart(2, '0')}`;
-    this.nav.navigateToPage(fileName, '', event.ctrlKey);
+    this.nav.navigateToPage(fileName, event.ctrlKey);
   }
 
   goToMonth(event: { year: number; month: number; ctrlKey: boolean }): void {
     const fileName = `${event.year}-${String(event.month).padStart(2, '0')}`;
-    this.nav.navigateToPage(fileName, '', event.ctrlKey);
+    this.nav.navigateToPage(fileName, event.ctrlKey);
   }
 
   goToYear(event: { year: number; ctrlKey: boolean }): void {
-    this.nav.navigateToPage(String(event.year), '', event.ctrlKey);
+    this.nav.navigateToPage(String(event.year), event.ctrlKey);
   }
 
   goToPage(page: Page): void {
-    this.nav.navigateToPage(page.fileName, page.id);
+    this.nav.navigateToPage(page.fileName);
   }
 
   formatPageTitle(page: Page): string {

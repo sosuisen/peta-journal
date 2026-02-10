@@ -66,8 +66,8 @@ export class PageComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.routeSub = this.route.paramMap.subscribe(params => {
-      const id = params.get('id');
-      if (id) this.loadPage(id);
+      const fileName = params.get('fileName');
+      if (fileName) this.loadPage(fileName);
     });
   }
 
@@ -109,14 +109,14 @@ export class PageComponent implements OnInit, OnDestroy {
     this.recentPages.refresh();
   }
 
-  private async loadPage(pageId: string): Promise<void> {
+  private async loadPage(fileName: string): Promise<void> {
     try {
-      const result = await this.api.getPage(pageId);
+      const result = await this.api.getDocByName(fileName);
       this.page.set(result.page);
       this.originalTitle = this.pageTitle();
       this.title.setTitle(this.pageTitle());
     } catch (e) {
-      console.error('Failed to load page:', pageId, e);
+      console.error('Failed to load page:', fileName, e);
     }
   }
 }

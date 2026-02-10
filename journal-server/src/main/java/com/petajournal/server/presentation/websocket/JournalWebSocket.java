@@ -70,8 +70,7 @@ public class JournalWebSocket {
 
             switch (request.getPayloadCase()) {
                 case GET_PAGE -> response.setGetPage(handleGetPage(request.getGetPage()));
-                case GET_JOURNAL -> response.setGetJournal(handleGetJournal(request.getGetJournal()));
-                case CREATE_PAGE -> response.setCreatePage(handleCreatePage(request.getCreatePage()));
+                case GET_DOC_BY_NAME -> response.setGetDocByName(handleGetDocByName(request.getGetDocByName()));
                 case DELETE_PAGE -> response.setDeletePage(handleDeletePage(request.getDeletePage()));
                 case UPDATE_PAGE -> response.setUpdatePage(handleUpdatePage(request.getUpdatePage()));
                 case CREATE_BLOCK -> response.setCreateBlock(handleCreateBlock(request.getCreateBlock()));
@@ -117,17 +116,6 @@ public class JournalWebSocket {
                 .build();
     }
 
-    private GetJournalResponse handleGetJournal(GetJournalRequest req) {
-        LocalDate date = LocalDate.parse(req.getDate());
-        var result = journalService.getOrCreateJournal(date);
-
-        return GetJournalResponse.newBuilder()
-                .setPage(ProtoConverter.toProto(result.page()))
-                .addAllBlocks(result.blocks().stream().map(ProtoConverter::toProto).toList())
-                .setCreated(result.created())
-                .build();
-    }
-
     private GetMostRecentJournalBeforeResponse handleGetMostRecentJournalBefore(GetMostRecentJournalBeforeRequest req) {
         LocalDate beforeDate = LocalDate.parse(req.getBeforeDate());
         var result = journalService.getMostRecentJournalBefore(beforeDate);
@@ -143,10 +131,12 @@ public class JournalWebSocket {
         return builder.build();
     }
 
-    private CreatePageResponse handleCreatePage(CreatePageRequest req) {
-        var page = pageService.createPage(req.getTitle(), req.getDirPath(), req.getTagsList());
-        return CreatePageResponse.newBuilder()
-                .setPage(ProtoConverter.toProto(page))
+    private GetDocByNameResponse handleGetDocByName(GetDocByNameRequest req) {
+        var result = pageService.getOrCreateDoc(req.getTitle(), req.getDirPath(), req.getTagsList());
+        return GetDocByNameResponse.newBuilder()
+                .setPage(ProtoConverter.toProto(result.page()))
+                .addAllBlocks(result.blocks().stream().map(ProtoConverter::toProto).toList())
+                .setCreated(result.created())
                 .build();
     }
 

@@ -42,7 +42,9 @@ public class PageService {
         return blockRepository.findByPageId(pageId);
     }
 
-    public Page createPage(String title, String dirPath, List<String> tags) {
+    public record DocResult(Page page, List<Block> blocks, boolean created) {}
+
+    public DocResult getOrCreateDoc(String title, String dirPath, List<String> tags) {
         // Validate: reject empty or whitespace-only titles
         if (title == null || title.trim().isEmpty()) {
             throw new IllegalArgumentException("Page title cannot be empty or whitespace-only");
@@ -66,7 +68,9 @@ public class PageService {
         // Check for duplicate by exact title match
         var existing = pageRepository.findByExactTitle(title);
         if (existing.isPresent()) {
-            return existing.get();
+            Page page = existing.get();
+            List<Block> blocks = blockRepository.findByPageId(page.id());
+            return new DocResult(page, blocks, false);
         }
 
         UUID id = UUID.randomUUID();
@@ -84,7 +88,7 @@ public class PageService {
         // Queue for export
         exportService.queueExport(id);
 
-        return page;
+        return new DocResult(page, List.of(block), true);
     }
 
     public Page updatePage(UUID pageId, String title, List<String> tags, String propertiesJson) {

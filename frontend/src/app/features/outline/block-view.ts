@@ -215,7 +215,7 @@ export class BlockViewComponent {
     const pageId = link.dataset['pageId'];
     if (pageId) {
       const linkText = (link.textContent ?? '').trim();
-      this.nav.navigateToPage(linkText, pageId, newTab);
+      this.nav.navigateToPage(linkText, newTab);
       return;
     }
 
@@ -227,13 +227,13 @@ export class BlockViewComponent {
       }
 
       if (classifyJournalFileName(pageTitle) !== 'none') {
-        this.nav.navigateToPage(pageTitle, '', newTab);
+        this.nav.navigateToPage(pageTitle, newTab);
       } else {
         const error = validateFileName(pageTitle);
         if (error) { alert(error); return; }
-        const page = await this.api.createPage(pageTitle);
+        const result = await this.api.getDocByName(pageTitle);
         this.recentPages.refresh();
-        this.nav.navigateToPage(page.fileName, page.id, newTab);
+        this.nav.navigateToPage(result.page.fileName, newTab);
       }
     }
   }
