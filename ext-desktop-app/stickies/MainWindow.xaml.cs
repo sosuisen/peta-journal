@@ -279,7 +279,13 @@ public sealed partial class MainWindow : Window
         var blocksHtml = string.Join("\n", blocks.Select(block =>
         {
             var indent = block.Level * 24;
-            var checkbox = "";
+            var types = block.Types_;
+            var isHeading = types.Contains("heading");
+            var isBlockquote = types.Contains("blockquote");
+            var isCodeFence = types.Contains("code");
+            var isEmpty = string.IsNullOrWhiteSpace(block.Body);
+
+            var marker = "";
             if (block.Status != "normal" && !string.IsNullOrEmpty(block.Status))
             {
                 var label = block.Status switch
@@ -289,13 +295,18 @@ public sealed partial class MainWindow : Window
                     "done" => "&#x2611;",
                     _ => ""
                 };
-                checkbox = $"<span style=\"margin-right:6px;font-size:16px;\">{label}</span>";
+                marker = $"<span style=\"margin-right:6px;font-size:16px;\">{label}</span>";
             }
+            else if (!isHeading && !isBlockquote && !isCodeFence && !isEmpty)
+            {
+                marker = "<span style=\"margin-right:6px;color:#999;\">&#x2022;</span>";
+            }
+
             var content = !string.IsNullOrEmpty(block.Html) ? block.Html : EscapeHtml(block.Body);
-            var style = checkbox.Length > 0
+            var style = marker.Length > 0
                 ? $"padding-left:{indent}px;padding:4px 8px 4px {indent + 8}px;display:flex;align-items:baseline;"
                 : $"padding-left:{indent}px;padding:4px 8px 4px {indent + 8}px;";
-            return $"<div style=\"{style}\">{checkbox}<div>{content}</div></div>";
+            return $"<div style=\"{style}\">{marker}<div>{content}</div></div>";
         }));
 
         return $@"<!DOCTYPE html>

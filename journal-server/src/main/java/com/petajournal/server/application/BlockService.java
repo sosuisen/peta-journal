@@ -292,6 +292,9 @@ public class BlockService {
         if (trimmed.startsWith("```")) {
             types.add("code");
         }
+        if (trimmed.startsWith(">")) {
+            types.add("blockquote");
+        }
         return types;
     }
 }
