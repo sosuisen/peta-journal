@@ -82,19 +82,6 @@ public class SqlitePageRepository implements PageRepository {
     }
 
     @Override
-    public List<Page> findByTag(String tag) {
-        try (Connection conn = connectionProvider.getConnection();
-             PreparedStatement ps = conn.prepareStatement(
-                     "SELECT p.id, p.dir_path, p.file_name, p.created_date, p.modified_date, p.properties_json " +
-                     "FROM pages p JOIN page_tags t ON p.id = t.page_id WHERE t.tag = ? ORDER BY p.modified_date DESC")) {
-            ps.setString(1, tag);
-            return mapPages(conn, ps);
-        } catch (SQLException e) {
-            throw new RuntimeException("Failed to find pages by tag: " + tag, e);
-        }
-    }
-
-    @Override
     public Optional<Page> findByDirPathAndFileName(String dirPath, String fileName) {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(

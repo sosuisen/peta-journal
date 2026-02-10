@@ -5,8 +5,8 @@ import com.petajournal.server.domain.model.Page;
 import com.petajournal.server.domain.repository.BlockRepository;
 import com.petajournal.server.domain.repository.PageRepository;
 import com.petajournal.server.domain.repository.SearchService;
-import com.petajournal.server.infrastructure.persistence.BlockIdGenerator;
-import com.petajournal.server.infrastructure.persistence.FractionalIndexer;
+import com.petajournal.server.domain.BlockIdGenerator;
+import com.petajournal.server.domain.FractionalIndexer;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 

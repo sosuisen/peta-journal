@@ -14,10 +14,6 @@ public interface BlockRepository {
 
     Block save(Block block);
 
-    void updateIndex(String blockId, String newIdx);
-
-    void updateLevel(String blockId, int newLevel);
-
     void delete(String id);
 
     void deleteByPageId(UUID pageId);

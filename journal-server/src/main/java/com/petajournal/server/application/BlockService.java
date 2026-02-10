@@ -6,9 +6,8 @@ import com.petajournal.server.domain.repository.BlockRepository;
 import com.petajournal.server.domain.repository.MarkdownParser;
 import com.petajournal.server.domain.repository.PageRepository;
 import com.petajournal.server.domain.repository.SearchService;
-import com.petajournal.server.domain.repository.SyncService;
-import com.petajournal.server.infrastructure.persistence.BlockIdGenerator;
-import com.petajournal.server.infrastructure.persistence.FractionalIndexer;
+import com.petajournal.server.domain.BlockIdGenerator;
+import com.petajournal.server.domain.FractionalIndexer;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -19,8 +18,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 
 @ApplicationScoped
 public class BlockService {
@@ -38,43 +35,15 @@ public class BlockService {
     SearchService searchService;
 
     @Inject
-    SyncService syncService;
-
-    @Inject
     com.petajournal.server.infrastructure.export.MarkdownExportService exportService;
-
-    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public Block createBlock(UUID pageId, String afterBlockId, int level, String body) {
         String id = BlockIdGenerator.generate();
         Instant now = Instant.now();
         String html = parseBody(body);
 
-        // Calculate fractional index
         List<Block> existingBlocks = blockRepository.findByPageId(pageId);
-        String idx;
-        if (afterBlockId == null || afterBlockId.isEmpty()) {
-            // Insert at beginning
-            if (existingBlocks.isEmpty()) {
-                idx = FractionalIndexer.initial();
-            } else {
-                idx = FractionalIndexer.between(null, existingBlocks.getFirst().idx());
-            }
-        } else {
-            // Insert after specified block
-            String afterIdx = null;
-            String nextIdx = null;
-            for (int i = 0; i < existingBlocks.size(); i++) {
-                if (existingBlocks.get(i).id().equals(afterBlockId)) {
-                    afterIdx = existingBlocks.get(i).idx();
-                    if (i + 1 < existingBlocks.size()) {
-                        nextIdx = existingBlocks.get(i + 1).idx();
-                    }
-                    break;
-                }
-            }
-            idx = FractionalIndexer.between(afterIdx, nextIdx);
-        }
+        String idx = calculateInsertionIndex(existingBlocks, afterBlockId);
 
         List<String> types = detectBlockTypes(body);
         String status = "normal";  // Default status
@@ -90,8 +59,6 @@ public class BlockService {
 
         // Index for search
         searchService.indexBlock(block, page.fileName());
-
-        syncService.notifyChange("block", id);
 
         // Queue for export
         exportService.queueExport(pageId);
@@ -135,8 +102,6 @@ public class BlockService {
         if (page != null) {
             searchService.indexBlock(updated, page.fileName());
         }
-
-        syncService.notifyChange("block", blockId);
 
         // Queue for export
         exportService.queueExport(existing.pageId());
@@ -217,7 +182,6 @@ public class BlockService {
         searchService.removeBlock(blockId);
         block.ifPresent(b -> {
             touchPage(b.pageId());
-            syncService.notifyChange("block", blockId);
             // Queue for export
             exportService.queueExport(b.pageId());
         });
@@ -236,6 +200,32 @@ public class BlockService {
             throw new IllegalArgumentException("Invalid status: " + status);
         }
         return updateBlock(blockId, null, null, null, status, null);
+    }
+
+    /**
+     * Calculate the fractional index for inserting a block after the specified block.
+     * If afterBlockId is null/empty, returns an index for the beginning of the list.
+     */
+    private String calculateInsertionIndex(List<Block> existingBlocks, String afterBlockId) {
+        if (afterBlockId == null || afterBlockId.isEmpty()) {
+            if (existingBlocks.isEmpty()) {
+                return FractionalIndexer.initial();
+            }
+            return FractionalIndexer.between(null, existingBlocks.getFirst().idx());
+        }
+
+        String afterIdx = null;
+        String nextIdx = null;
+        for (int i = 0; i < existingBlocks.size(); i++) {
+            if (existingBlocks.get(i).id().equals(afterBlockId)) {
+                afterIdx = existingBlocks.get(i).idx();
+                if (i + 1 < existingBlocks.size()) {
+                    nextIdx = existingBlocks.get(i + 1).idx();
+                }
+                break;
+            }
+        }
+        return FractionalIndexer.between(afterIdx, nextIdx);
     }
 
     private void touchPage(UUID pageId) {

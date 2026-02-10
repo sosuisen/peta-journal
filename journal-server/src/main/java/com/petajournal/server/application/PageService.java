@@ -6,12 +6,11 @@ import com.petajournal.server.domain.model.Page;
 import com.petajournal.server.domain.repository.BlockRepository;
 import com.petajournal.server.domain.repository.PageRepository;
 import com.petajournal.server.domain.repository.SearchService;
-import com.petajournal.server.domain.repository.SyncService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
-import com.petajournal.server.infrastructure.persistence.BlockIdGenerator;
-import com.petajournal.server.infrastructure.persistence.FractionalIndexer;
+import com.petajournal.server.domain.BlockIdGenerator;
+import com.petajournal.server.domain.FractionalIndexer;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -30,9 +29,6 @@ public class PageService {
 
     @Inject
     SearchService searchService;
-
-    @Inject
-    SyncService syncService;
 
     @Inject
     com.petajournal.server.infrastructure.export.MarkdownExportService exportService;
@@ -58,10 +54,7 @@ public class PageService {
 
         String dir = (dirPath == null || dirPath.isEmpty()) ? "pages" : dirPath;
 
-        // Use title as-is for filename (preserve case, spaces, Japanese, etc.)
-        // Only remove characters that are invalid for filenames on most filesystems
-        String fileName = title
-            .replaceAll("[<>:\"/\\\\|?*]", "");  // Remove Windows/Unix invalid filename characters
+        String fileName = sanitizeFileName(title);
 
         // Check for duplicate by exact title match
         var existing = pageRepository.findByExactTitle(title);
@@ -80,8 +73,6 @@ public class PageService {
         String blockId = BlockIdGenerator.generate();
         Block block = new Block(blockId, id, page.dirPath(), page.fileName(), now, now, FractionalIndexer.initial(), 0, "", "", false, "normal", List.of(), "{}");
         blockRepository.save(block);
-
-        syncService.notifyChange("page", id.toString());
 
         // Queue for export
         exportService.queueExport(id);
@@ -103,7 +94,7 @@ public class PageService {
             if (!title.equals(title.trim())) {
                 throw new IllegalArgumentException("Page title cannot have leading or trailing whitespace");
             }
-            fileName = title.replaceAll("[<>:\"/\\\\|?*]", "");
+            fileName = sanitizeFileName(title);
         }
 
         Page updated = new Page(
@@ -118,7 +109,6 @@ public class PageService {
 
         updated = pageRepository.save(updated);
         searchService.indexPage(updated);
-        syncService.notifyChange("page", pageId.toString());
 
         // Queue for export
         exportService.queueExport(pageId);
@@ -130,7 +120,6 @@ public class PageService {
         searchService.removePage(pageId.toString());
         blockRepository.deleteByPageId(pageId);
         pageRepository.delete(pageId);
-        syncService.notifyChange("page", pageId.toString());
     }
 
     public List<Page> getRecentPages(int maxResults) {
@@ -154,5 +143,9 @@ public class PageService {
             }
         }
         return entries;
+    }
+
+    private static String sanitizeFileName(String title) {
+        return title.replaceAll("[<>:\"/\\\\|?*]", "");
     }
 }

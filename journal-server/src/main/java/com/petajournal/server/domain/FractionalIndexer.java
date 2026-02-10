@@ -1,4 +1,4 @@
-package com.petajournal.server.infrastructure.persistence;
+package com.petajournal.server.domain;
 
 /**
  * Generates fractional index strings for ordering blocks.

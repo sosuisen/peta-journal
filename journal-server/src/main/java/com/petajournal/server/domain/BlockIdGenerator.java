@@ -1,4 +1,4 @@
-package com.petajournal.server.infrastructure.persistence;
+package com.petajournal.server.domain;
 
 import java.util.UUID;
 

@@ -98,7 +98,21 @@ public class MarkdownExportService {
     String serializeToOutlineMarkdown(Page page, List<Block> blocks) {
         StringBuilder sb = new StringBuilder();
 
-        // YAML frontmatter
+        appendFrontmatter(sb, page);
+
+        for (int i = 0; i < blocks.size(); i++) {
+            appendBlock(sb, blocks.get(i));
+
+            // Add blank line separator between blocks (except after last block)
+            if (i < blocks.size() - 1) {
+                sb.append("\n");
+            }
+        }
+
+        return sb.toString();
+    }
+
+    private void appendFrontmatter(StringBuilder sb, Page page) {
         sb.append("---\n");
         sb.append("id: ").append(page.id()).append("\n");
         sb.append("created: ").append(page.createdDate()).append("\n");
@@ -110,64 +124,50 @@ public class MarkdownExportService {
             }
         }
         sb.append("---\n\n");
+    }
 
-        // Blocks separated by empty lines
-        // Level 0 (depth 1): no prefix (or " [ ] " / " [x] " for todo/done)
-        // Level 1 (depth 2): "- " (or "- [ ] " / "- [x] " for todo/done)
-        // Level 2 (depth 3): "  - " (2 spaces + "- ")
-        // Level n (depth n+1): repeat("  ", n-1) + "- "
+    private void appendBlock(StringBuilder sb, Block block) {
+        String body = block.body();
+        if (body == null) body = "";
 
-        for (int i = 0; i < blocks.size(); i++) {
-            Block block = blocks.get(i);
-            String body = block.body();
-            if (body == null) body = "";
+        // Add prefix based on level and status
+        String prefix = "";
+        String status = block.status() != null ? block.status() : "normal";
 
-            // Add prefix based on level and status
-            String prefix = "";
-            String status = block.status() != null ? block.status() : "normal";
-
-            if (block.level() == 0) {
-                // Level 0: add checkbox only for todo/done
-                if ("todo".equals(status)) {
-                    prefix = "[ ] ";
-                } else if ("done".equals(status)) {
-                    prefix = "[x] ";
-                }
+        if (block.level() == 0) {
+            // Level 0: add checkbox only for todo/done
+            if ("todo".equals(status)) {
+                prefix = "[ ] ";
+            } else if ("done".equals(status)) {
+                prefix = "[x] ";
+            }
+        } else {
+            // Level 1+: always add bullet, with checkbox for todo/done
+            String indent = "  ".repeat(block.level() - 1);
+            if ("todo".equals(status)) {
+                prefix = indent + "- [ ] ";
+            } else if ("done".equals(status)) {
+                prefix = indent + "- [x] ";
             } else {
-                // Level 1+: always add bullet, with checkbox for todo/done
-                String indent = "  ".repeat(block.level() - 1);
-                if ("todo".equals(status)) {
-                    prefix = indent + "- [ ] ";
-                } else if ("done".equals(status)) {
-                    prefix = indent + "- [x] ";
-                } else {
-                    prefix = indent + "- ";
-                }
-            }
-
-            // First line gets the prefix, subsequent lines don't need indenting
-            String[] lines = body.split("\n", -1);
-            for (int j = 0; j < lines.length; j++) {
-                if (j == 0) {
-                    sb.append(prefix).append(lines[j]);
-                } else {
-                    sb.append(lines[j]);
-                }
-
-                // Add block ID at the end of the last line
-                if (j == lines.length - 1) {
-                    sb.append(" {#").append(block.id()).append("}");
-                }
-                sb.append("\n");
-            }
-
-            // Add blank line separator between blocks (except after last block)
-            if (i < blocks.size() - 1) {
-                sb.append("\n");
+                prefix = indent + "- ";
             }
         }
 
-        return sb.toString();
+        // First line gets the prefix, subsequent lines don't need indenting
+        String[] lines = body.split("\n", -1);
+        for (int j = 0; j < lines.length; j++) {
+            if (j == 0) {
+                sb.append(prefix).append(lines[j]);
+            } else {
+                sb.append(lines[j]);
+            }
+
+            // Add block ID at the end of the last line
+            if (j == lines.length - 1) {
+                sb.append(" {#").append(block.id()).append("}");
+            }
+            sb.append("\n");
+        }
     }
 
     private void writeWithLock(Path path, String content) throws IOException {

@@ -2,8 +2,8 @@ package com.petajournal.server.infrastructure.export;
 
 import com.petajournal.server.domain.model.Block;
 import com.petajournal.server.domain.model.Page;
-import com.petajournal.server.infrastructure.persistence.BlockIdGenerator;
-import com.petajournal.server.infrastructure.persistence.FractionalIndexer;
+import com.petajournal.server.domain.BlockIdGenerator;
+import com.petajournal.server.domain.FractionalIndexer;
 
 import java.time.Instant;
 import java.util.*;

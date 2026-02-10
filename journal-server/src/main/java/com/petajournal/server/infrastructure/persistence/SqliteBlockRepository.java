@@ -117,34 +117,6 @@ public class SqliteBlockRepository implements BlockRepository {
     }
 
     @Override
-    public void updateIndex(String blockId, String newIdx) {
-        try (Connection conn = connectionProvider.getConnection();
-             PreparedStatement ps = conn.prepareStatement(
-                     "UPDATE blocks SET idx = ?, modified_date = ? WHERE id = ?")) {
-            ps.setString(1, newIdx);
-            ps.setLong(2, Instant.now().toEpochMilli());
-            ps.setString(3, blockId);
-            ps.executeUpdate();
-        } catch (SQLException e) {
-            throw new RuntimeException("Failed to update block index: " + blockId, e);
-        }
-    }
-
-    @Override
-    public void updateLevel(String blockId, int newLevel) {
-        try (Connection conn = connectionProvider.getConnection();
-             PreparedStatement ps = conn.prepareStatement(
-                     "UPDATE blocks SET level = ?, modified_date = ? WHERE id = ?")) {
-            ps.setInt(1, newLevel);
-            ps.setLong(2, Instant.now().toEpochMilli());
-            ps.setString(3, blockId);
-            ps.executeUpdate();
-        } catch (SQLException e) {
-            throw new RuntimeException("Failed to update block level: " + blockId, e);
-        }
-    }
-
-    @Override
     public void delete(String id) {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement("DELETE FROM blocks WHERE id = ?")) {
