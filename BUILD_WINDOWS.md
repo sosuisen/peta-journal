@@ -65,6 +65,7 @@ cmake --build . --config Release
 To run tests:
 ```powershell
 ctest -C Release
+```
 
 #### Using MinGW
 
