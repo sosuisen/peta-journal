@@ -257,6 +257,20 @@ public sealed partial class MainWindow : Window
                     _ = Windows.System.Launcher.LaunchUriAsync(uri);
                 }
             };
+            ContentWebView.CoreWebView2.WebMessageReceived += (sender, e) =>
+            {
+                try
+                {
+                    var msg = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, double>>(e.WebMessageAsJson);
+                    if (msg != null && msg.TryGetValue("zoom", out var factor))
+                    {
+                        _windowSettings.ZoomFactor = factor;
+                        _settingsService.UpdateWindow(_windowSettings);
+                    }
+                }
+                catch { }
+            };
+            ContentWebView.CoreWebView2.Settings.IsZoomControlEnabled = false;
         }
     }
 
@@ -299,6 +313,7 @@ public sealed partial class MainWindow : Window
     padding: 12px;
     overflow-wrap: break-word;
     overflow: {(_isDeactivated ? "hidden" : "auto")};
+    zoom: {_windowSettings.ZoomFactor.ToString(System.Globalization.CultureInfo.InvariantCulture)};
   }}
   a {{ color: #2563eb; }}
   code {{
@@ -332,6 +347,24 @@ public sealed partial class MainWindow : Window
 </head>
 <body>
 {blocksHtml}
+<script>
+(function(){{
+  var z={(_windowSettings.ZoomFactor * 100).ToString(System.Globalization.CultureInfo.InvariantCulture)};
+  function apply(){{ document.body.style.zoom=z+'%'; window.chrome.webview.postMessage({{zoom:z/100}}); }}
+  document.addEventListener('wheel',function(e){{
+    if(!e.ctrlKey)return;
+    e.preventDefault();
+    z=Math.min(300,Math.max(30,z+(e.deltaY<0?10:-10)));
+    apply();
+  }},{{passive:false}});
+  document.addEventListener('keydown',function(e){{
+    if(!e.ctrlKey)return;
+    if(e.key==='+'||e.key==='='){{ e.preventDefault(); z=Math.min(300,z+10); apply(); }}
+    else if(e.key==='-'){{ e.preventDefault(); z=Math.max(30,z-10); apply(); }}
+    else if(e.key==='0'){{ e.preventDefault(); z=100; apply(); }}
+  }});
+}})();
+</script>
 </body>
 </html>";
     }

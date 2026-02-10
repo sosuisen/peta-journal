@@ -25,6 +25,9 @@ public class StickyWindowSettings
 
     [JsonPropertyName("backgroundColor")]
     public string BackgroundColor { get; set; } = "#FFFDD0";
+
+    [JsonPropertyName("zoomFactor")]
+    public double ZoomFactor { get; set; } = 1.0;
 }
 
 public class StickiesSettings
