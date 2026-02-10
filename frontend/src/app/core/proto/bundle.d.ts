@@ -786,9 +786,6 @@ export namespace petajournal {
         /** ApiRequest getMostRecentJournalBefore */
         getMostRecentJournalBefore?: (petajournal.IGetMostRecentJournalBeforeRequest|null);
 
-        /** ApiRequest getWeeklyJournal */
-        getWeeklyJournal?: (petajournal.IGetWeeklyJournalRequest|null);
-
         /** ApiRequest getBlocksByStatus */
         getBlocksByStatus?: (petajournal.IGetBlocksByStatusRequest|null);
 
@@ -859,9 +856,6 @@ export namespace petajournal {
         /** ApiRequest getMostRecentJournalBefore. */
         public getMostRecentJournalBefore?: (petajournal.IGetMostRecentJournalBeforeRequest|null);
 
-        /** ApiRequest getWeeklyJournal. */
-        public getWeeklyJournal?: (petajournal.IGetWeeklyJournalRequest|null);
-
         /** ApiRequest getBlocksByStatus. */
         public getBlocksByStatus?: (petajournal.IGetBlocksByStatusRequest|null);
 
@@ -875,7 +869,7 @@ export namespace petajournal {
         public getJournalByName?: (petajournal.IGetJournalByNameRequest|null);
 
         /** ApiRequest payload. */
-        public payload?: ("getPage"|"getJournal"|"createPage"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getWeeklyJournal"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"getJournalByName");
+        public payload?: ("getPage"|"getJournal"|"createPage"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"getJournalByName");
 
         /**
          * Creates a new ApiRequest instance using the specified properties.
@@ -1012,9 +1006,6 @@ export namespace petajournal {
         /** ApiResponse getMostRecentJournalBefore */
         getMostRecentJournalBefore?: (petajournal.IGetMostRecentJournalBeforeResponse|null);
 
-        /** ApiResponse getWeeklyJournal */
-        getWeeklyJournal?: (petajournal.IGetWeeklyJournalResponse|null);
-
         /** ApiResponse getJournalByName */
         getJournalByName?: (petajournal.IGetJournalByNameResponse|null);
 
@@ -1091,9 +1082,6 @@ export namespace petajournal {
         /** ApiResponse getMostRecentJournalBefore. */
         public getMostRecentJournalBefore?: (petajournal.IGetMostRecentJournalBeforeResponse|null);
 
-        /** ApiResponse getWeeklyJournal. */
-        public getWeeklyJournal?: (petajournal.IGetWeeklyJournalResponse|null);
-
         /** ApiResponse getJournalByName. */
         public getJournalByName?: (petajournal.IGetJournalByNameResponse|null);
 
@@ -1107,7 +1095,7 @@ export namespace petajournal {
         public updateConfig?: (petajournal.IUpdateConfigResponse|null);
 
         /** ApiResponse payload. */
-        public payload?: ("getPage"|"getJournal"|"createPage"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getWeeklyJournal"|"getJournalByName"|"getBlocksByStatus"|"getConfig"|"updateConfig");
+        public payload?: ("getPage"|"getJournal"|"createPage"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getJournalByName"|"getBlocksByStatus"|"getConfig"|"updateConfig");
 
         /**
          * Creates a new ApiResponse instance using the specified properties.
@@ -4332,218 +4320,6 @@ export namespace petajournal {
 
         /**
          * Gets the default type url for GetMostRecentJournalBeforeResponse
-         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
-         * @returns The default type url
-         */
-        public static getTypeUrl(typeUrlPrefix?: string): string;
-    }
-
-    /** Properties of a GetWeeklyJournalRequest. */
-    interface IGetWeeklyJournalRequest {
-
-        /** GetWeeklyJournalRequest year */
-        year?: (number|null);
-
-        /** GetWeeklyJournalRequest week */
-        week?: (number|null);
-    }
-
-    /** Represents a GetWeeklyJournalRequest. */
-    class GetWeeklyJournalRequest implements IGetWeeklyJournalRequest {
-
-        /**
-         * Constructs a new GetWeeklyJournalRequest.
-         * @param [properties] Properties to set
-         */
-        constructor(properties?: petajournal.IGetWeeklyJournalRequest);
-
-        /** GetWeeklyJournalRequest year. */
-        public year: number;
-
-        /** GetWeeklyJournalRequest week. */
-        public week: number;
-
-        /**
-         * Creates a new GetWeeklyJournalRequest instance using the specified properties.
-         * @param [properties] Properties to set
-         * @returns GetWeeklyJournalRequest instance
-         */
-        public static create(properties?: petajournal.IGetWeeklyJournalRequest): petajournal.GetWeeklyJournalRequest;
-
-        /**
-         * Encodes the specified GetWeeklyJournalRequest message. Does not implicitly {@link petajournal.GetWeeklyJournalRequest.verify|verify} messages.
-         * @param message GetWeeklyJournalRequest message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encode(message: petajournal.IGetWeeklyJournalRequest, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
-         * Encodes the specified GetWeeklyJournalRequest message, length delimited. Does not implicitly {@link petajournal.GetWeeklyJournalRequest.verify|verify} messages.
-         * @param message GetWeeklyJournalRequest message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encodeDelimited(message: petajournal.IGetWeeklyJournalRequest, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
-         * Decodes a GetWeeklyJournalRequest message from the specified reader or buffer.
-         * @param reader Reader or buffer to decode from
-         * @param [length] Message length if known beforehand
-         * @returns GetWeeklyJournalRequest
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.GetWeeklyJournalRequest;
-
-        /**
-         * Decodes a GetWeeklyJournalRequest message from the specified reader or buffer, length delimited.
-         * @param reader Reader or buffer to decode from
-         * @returns GetWeeklyJournalRequest
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.GetWeeklyJournalRequest;
-
-        /**
-         * Verifies a GetWeeklyJournalRequest message.
-         * @param message Plain object to verify
-         * @returns `null` if valid, otherwise the reason why it is not
-         */
-        public static verify(message: { [k: string]: any }): (string|null);
-
-        /**
-         * Creates a GetWeeklyJournalRequest message from a plain object. Also converts values to their respective internal types.
-         * @param object Plain object
-         * @returns GetWeeklyJournalRequest
-         */
-        public static fromObject(object: { [k: string]: any }): petajournal.GetWeeklyJournalRequest;
-
-        /**
-         * Creates a plain object from a GetWeeklyJournalRequest message. Also converts values to other types if specified.
-         * @param message GetWeeklyJournalRequest
-         * @param [options] Conversion options
-         * @returns Plain object
-         */
-        public static toObject(message: petajournal.GetWeeklyJournalRequest, options?: $protobuf.IConversionOptions): { [k: string]: any };
-
-        /**
-         * Converts this GetWeeklyJournalRequest to JSON.
-         * @returns JSON object
-         */
-        public toJSON(): { [k: string]: any };
-
-        /**
-         * Gets the default type url for GetWeeklyJournalRequest
-         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
-         * @returns The default type url
-         */
-        public static getTypeUrl(typeUrlPrefix?: string): string;
-    }
-
-    /** Properties of a GetWeeklyJournalResponse. */
-    interface IGetWeeklyJournalResponse {
-
-        /** GetWeeklyJournalResponse page */
-        page?: (petajournal.IPage|null);
-
-        /** GetWeeklyJournalResponse blocks */
-        blocks?: (petajournal.IBlock[]|null);
-
-        /** GetWeeklyJournalResponse created */
-        created?: (boolean|null);
-    }
-
-    /** Represents a GetWeeklyJournalResponse. */
-    class GetWeeklyJournalResponse implements IGetWeeklyJournalResponse {
-
-        /**
-         * Constructs a new GetWeeklyJournalResponse.
-         * @param [properties] Properties to set
-         */
-        constructor(properties?: petajournal.IGetWeeklyJournalResponse);
-
-        /** GetWeeklyJournalResponse page. */
-        public page?: (petajournal.IPage|null);
-
-        /** GetWeeklyJournalResponse blocks. */
-        public blocks: petajournal.IBlock[];
-
-        /** GetWeeklyJournalResponse created. */
-        public created: boolean;
-
-        /**
-         * Creates a new GetWeeklyJournalResponse instance using the specified properties.
-         * @param [properties] Properties to set
-         * @returns GetWeeklyJournalResponse instance
-         */
-        public static create(properties?: petajournal.IGetWeeklyJournalResponse): petajournal.GetWeeklyJournalResponse;
-
-        /**
-         * Encodes the specified GetWeeklyJournalResponse message. Does not implicitly {@link petajournal.GetWeeklyJournalResponse.verify|verify} messages.
-         * @param message GetWeeklyJournalResponse message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encode(message: petajournal.IGetWeeklyJournalResponse, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
-         * Encodes the specified GetWeeklyJournalResponse message, length delimited. Does not implicitly {@link petajournal.GetWeeklyJournalResponse.verify|verify} messages.
-         * @param message GetWeeklyJournalResponse message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encodeDelimited(message: petajournal.IGetWeeklyJournalResponse, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
-         * Decodes a GetWeeklyJournalResponse message from the specified reader or buffer.
-         * @param reader Reader or buffer to decode from
-         * @param [length] Message length if known beforehand
-         * @returns GetWeeklyJournalResponse
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.GetWeeklyJournalResponse;
-
-        /**
-         * Decodes a GetWeeklyJournalResponse message from the specified reader or buffer, length delimited.
-         * @param reader Reader or buffer to decode from
-         * @returns GetWeeklyJournalResponse
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.GetWeeklyJournalResponse;
-
-        /**
-         * Verifies a GetWeeklyJournalResponse message.
-         * @param message Plain object to verify
-         * @returns `null` if valid, otherwise the reason why it is not
-         */
-        public static verify(message: { [k: string]: any }): (string|null);
-
-        /**
-         * Creates a GetWeeklyJournalResponse message from a plain object. Also converts values to their respective internal types.
-         * @param object Plain object
-         * @returns GetWeeklyJournalResponse
-         */
-        public static fromObject(object: { [k: string]: any }): petajournal.GetWeeklyJournalResponse;
-
-        /**
-         * Creates a plain object from a GetWeeklyJournalResponse message. Also converts values to other types if specified.
-         * @param message GetWeeklyJournalResponse
-         * @param [options] Conversion options
-         * @returns Plain object
-         */
-        public static toObject(message: petajournal.GetWeeklyJournalResponse, options?: $protobuf.IConversionOptions): { [k: string]: any };
-
-        /**
-         * Converts this GetWeeklyJournalResponse to JSON.
-         * @returns JSON object
-         */
-        public toJSON(): { [k: string]: any };
-
-        /**
-         * Gets the default type url for GetWeeklyJournalResponse
          * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
          * @returns The default type url
          */

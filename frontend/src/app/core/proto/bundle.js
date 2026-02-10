@@ -1937,7 +1937,6 @@ export const petajournal = $root.petajournal = (() => {
          * @property {petajournal.IGetRecentPagesRequest|null} [getRecentPages] ApiRequest getRecentPages
          * @property {petajournal.IGetBacklinksRequest|null} [getBacklinks] ApiRequest getBacklinks
          * @property {petajournal.IGetMostRecentJournalBeforeRequest|null} [getMostRecentJournalBefore] ApiRequest getMostRecentJournalBefore
-         * @property {petajournal.IGetWeeklyJournalRequest|null} [getWeeklyJournal] ApiRequest getWeeklyJournal
          * @property {petajournal.IGetBlocksByStatusRequest|null} [getBlocksByStatus] ApiRequest getBlocksByStatus
          * @property {petajournal.IGetConfigRequest|null} [getConfig] ApiRequest getConfig
          * @property {petajournal.IUpdateConfigRequest|null} [updateConfig] ApiRequest updateConfig
@@ -2088,14 +2087,6 @@ export const petajournal = $root.petajournal = (() => {
         ApiRequest.prototype.getMostRecentJournalBefore = null;
 
         /**
-         * ApiRequest getWeeklyJournal.
-         * @member {petajournal.IGetWeeklyJournalRequest|null|undefined} getWeeklyJournal
-         * @memberof petajournal.ApiRequest
-         * @instance
-         */
-        ApiRequest.prototype.getWeeklyJournal = null;
-
-        /**
          * ApiRequest getBlocksByStatus.
          * @member {petajournal.IGetBlocksByStatusRequest|null|undefined} getBlocksByStatus
          * @memberof petajournal.ApiRequest
@@ -2132,12 +2123,12 @@ export const petajournal = $root.petajournal = (() => {
 
         /**
          * ApiRequest payload.
-         * @member {"getPage"|"getJournal"|"createPage"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getWeeklyJournal"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"getJournalByName"|undefined} payload
+         * @member {"getPage"|"getJournal"|"createPage"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"getJournalByName"|undefined} payload
          * @memberof petajournal.ApiRequest
          * @instance
          */
         Object.defineProperty(ApiRequest.prototype, "payload", {
-            get: $util.oneOfGetter($oneOfFields = ["getPage", "getJournal", "createPage", "deletePage", "updatePage", "createBlock", "updateBlock", "moveBlocks", "deleteBlock", "updateBlockStatus", "searchPageNames", "searchFullText", "getRecentPages", "getBacklinks", "getMostRecentJournalBefore", "getWeeklyJournal", "getBlocksByStatus", "getConfig", "updateConfig", "getJournalByName"]),
+            get: $util.oneOfGetter($oneOfFields = ["getPage", "getJournal", "createPage", "deletePage", "updatePage", "createBlock", "updateBlock", "moveBlocks", "deleteBlock", "updateBlockStatus", "searchPageNames", "searchFullText", "getRecentPages", "getBacklinks", "getMostRecentJournalBefore", "getBlocksByStatus", "getConfig", "updateConfig", "getJournalByName"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
@@ -2197,8 +2188,6 @@ export const petajournal = $root.petajournal = (() => {
                 $root.petajournal.GetBacklinksRequest.encode(message.getBacklinks, writer.uint32(/* id 41, wireType 2 =*/330).fork()).ldelim();
             if (message.getMostRecentJournalBefore != null && Object.hasOwnProperty.call(message, "getMostRecentJournalBefore"))
                 $root.petajournal.GetMostRecentJournalBeforeRequest.encode(message.getMostRecentJournalBefore, writer.uint32(/* id 42, wireType 2 =*/338).fork()).ldelim();
-            if (message.getWeeklyJournal != null && Object.hasOwnProperty.call(message, "getWeeklyJournal"))
-                $root.petajournal.GetWeeklyJournalRequest.encode(message.getWeeklyJournal, writer.uint32(/* id 43, wireType 2 =*/346).fork()).ldelim();
             if (message.getJournalByName != null && Object.hasOwnProperty.call(message, "getJournalByName"))
                 $root.petajournal.GetJournalByNameRequest.encode(message.getJournalByName, writer.uint32(/* id 44, wireType 2 =*/354).fork()).ldelim();
             if (message.getBlocksByStatus != null && Object.hasOwnProperty.call(message, "getBlocksByStatus"))
@@ -2305,10 +2294,6 @@ export const petajournal = $root.petajournal = (() => {
                     }
                 case 42: {
                         message.getMostRecentJournalBefore = $root.petajournal.GetMostRecentJournalBeforeRequest.decode(reader, reader.uint32());
-                        break;
-                    }
-                case 43: {
-                        message.getWeeklyJournal = $root.petajournal.GetWeeklyJournalRequest.decode(reader, reader.uint32());
                         break;
                     }
                 case 50: {
@@ -2514,16 +2499,6 @@ export const petajournal = $root.petajournal = (() => {
                         return "getMostRecentJournalBefore." + error;
                 }
             }
-            if (message.getWeeklyJournal != null && message.hasOwnProperty("getWeeklyJournal")) {
-                if (properties.payload === 1)
-                    return "payload: multiple values";
-                properties.payload = 1;
-                {
-                    let error = $root.petajournal.GetWeeklyJournalRequest.verify(message.getWeeklyJournal);
-                    if (error)
-                        return "getWeeklyJournal." + error;
-                }
-            }
             if (message.getBlocksByStatus != null && message.hasOwnProperty("getBlocksByStatus")) {
                 if (properties.payload === 1)
                     return "payload: multiple values";
@@ -2656,11 +2631,6 @@ export const petajournal = $root.petajournal = (() => {
                     throw TypeError(".petajournal.ApiRequest.getMostRecentJournalBefore: object expected");
                 message.getMostRecentJournalBefore = $root.petajournal.GetMostRecentJournalBeforeRequest.fromObject(object.getMostRecentJournalBefore);
             }
-            if (object.getWeeklyJournal != null) {
-                if (typeof object.getWeeklyJournal !== "object")
-                    throw TypeError(".petajournal.ApiRequest.getWeeklyJournal: object expected");
-                message.getWeeklyJournal = $root.petajournal.GetWeeklyJournalRequest.fromObject(object.getWeeklyJournal);
-            }
             if (object.getBlocksByStatus != null) {
                 if (typeof object.getBlocksByStatus !== "object")
                     throw TypeError(".petajournal.ApiRequest.getBlocksByStatus: object expected");
@@ -2776,11 +2746,6 @@ export const petajournal = $root.petajournal = (() => {
                 if (options.oneofs)
                     object.payload = "getMostRecentJournalBefore";
             }
-            if (message.getWeeklyJournal != null && message.hasOwnProperty("getWeeklyJournal")) {
-                object.getWeeklyJournal = $root.petajournal.GetWeeklyJournalRequest.toObject(message.getWeeklyJournal, options);
-                if (options.oneofs)
-                    object.payload = "getWeeklyJournal";
-            }
             if (message.getJournalByName != null && message.hasOwnProperty("getJournalByName")) {
                 object.getJournalByName = $root.petajournal.GetJournalByNameRequest.toObject(message.getJournalByName, options);
                 if (options.oneofs)
@@ -2857,7 +2822,6 @@ export const petajournal = $root.petajournal = (() => {
          * @property {petajournal.IGetRecentPagesResponse|null} [getRecentPages] ApiResponse getRecentPages
          * @property {petajournal.IGetBacklinksResponse|null} [getBacklinks] ApiResponse getBacklinks
          * @property {petajournal.IGetMostRecentJournalBeforeResponse|null} [getMostRecentJournalBefore] ApiResponse getMostRecentJournalBefore
-         * @property {petajournal.IGetWeeklyJournalResponse|null} [getWeeklyJournal] ApiResponse getWeeklyJournal
          * @property {petajournal.IGetJournalByNameResponse|null} [getJournalByName] ApiResponse getJournalByName
          * @property {petajournal.IGetBlocksByStatusResponse|null} [getBlocksByStatus] ApiResponse getBlocksByStatus
          * @property {petajournal.IGetConfigResponse|null} [getConfig] ApiResponse getConfig
@@ -3024,14 +2988,6 @@ export const petajournal = $root.petajournal = (() => {
         ApiResponse.prototype.getMostRecentJournalBefore = null;
 
         /**
-         * ApiResponse getWeeklyJournal.
-         * @member {petajournal.IGetWeeklyJournalResponse|null|undefined} getWeeklyJournal
-         * @memberof petajournal.ApiResponse
-         * @instance
-         */
-        ApiResponse.prototype.getWeeklyJournal = null;
-
-        /**
          * ApiResponse getJournalByName.
          * @member {petajournal.IGetJournalByNameResponse|null|undefined} getJournalByName
          * @memberof petajournal.ApiResponse
@@ -3068,12 +3024,12 @@ export const petajournal = $root.petajournal = (() => {
 
         /**
          * ApiResponse payload.
-         * @member {"getPage"|"getJournal"|"createPage"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getWeeklyJournal"|"getJournalByName"|"getBlocksByStatus"|"getConfig"|"updateConfig"|undefined} payload
+         * @member {"getPage"|"getJournal"|"createPage"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getJournalByName"|"getBlocksByStatus"|"getConfig"|"updateConfig"|undefined} payload
          * @memberof petajournal.ApiResponse
          * @instance
          */
         Object.defineProperty(ApiResponse.prototype, "payload", {
-            get: $util.oneOfGetter($oneOfFields = ["getPage", "getJournal", "createPage", "deletePage", "updatePage", "createBlock", "updateBlock", "moveBlocks", "deleteBlock", "updateBlockStatus", "searchPageNames", "searchFullText", "getRecentPages", "getBacklinks", "getMostRecentJournalBefore", "getWeeklyJournal", "getJournalByName", "getBlocksByStatus", "getConfig", "updateConfig"]),
+            get: $util.oneOfGetter($oneOfFields = ["getPage", "getJournal", "createPage", "deletePage", "updatePage", "createBlock", "updateBlock", "moveBlocks", "deleteBlock", "updateBlockStatus", "searchPageNames", "searchFullText", "getRecentPages", "getBacklinks", "getMostRecentJournalBefore", "getJournalByName", "getBlocksByStatus", "getConfig", "updateConfig"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
@@ -3137,8 +3093,6 @@ export const petajournal = $root.petajournal = (() => {
                 $root.petajournal.GetBacklinksResponse.encode(message.getBacklinks, writer.uint32(/* id 41, wireType 2 =*/330).fork()).ldelim();
             if (message.getMostRecentJournalBefore != null && Object.hasOwnProperty.call(message, "getMostRecentJournalBefore"))
                 $root.petajournal.GetMostRecentJournalBeforeResponse.encode(message.getMostRecentJournalBefore, writer.uint32(/* id 42, wireType 2 =*/338).fork()).ldelim();
-            if (message.getWeeklyJournal != null && Object.hasOwnProperty.call(message, "getWeeklyJournal"))
-                $root.petajournal.GetWeeklyJournalResponse.encode(message.getWeeklyJournal, writer.uint32(/* id 43, wireType 2 =*/346).fork()).ldelim();
             if (message.getJournalByName != null && Object.hasOwnProperty.call(message, "getJournalByName"))
                 $root.petajournal.GetJournalByNameResponse.encode(message.getJournalByName, writer.uint32(/* id 44, wireType 2 =*/354).fork()).ldelim();
             if (message.getBlocksByStatus != null && Object.hasOwnProperty.call(message, "getBlocksByStatus"))
@@ -3253,10 +3207,6 @@ export const petajournal = $root.petajournal = (() => {
                     }
                 case 42: {
                         message.getMostRecentJournalBefore = $root.petajournal.GetMostRecentJournalBeforeResponse.decode(reader, reader.uint32());
-                        break;
-                    }
-                case 43: {
-                        message.getWeeklyJournal = $root.petajournal.GetWeeklyJournalResponse.decode(reader, reader.uint32());
                         break;
                     }
                 case 44: {
@@ -3468,16 +3418,6 @@ export const petajournal = $root.petajournal = (() => {
                         return "getMostRecentJournalBefore." + error;
                 }
             }
-            if (message.getWeeklyJournal != null && message.hasOwnProperty("getWeeklyJournal")) {
-                if (properties.payload === 1)
-                    return "payload: multiple values";
-                properties.payload = 1;
-                {
-                    let error = $root.petajournal.GetWeeklyJournalResponse.verify(message.getWeeklyJournal);
-                    if (error)
-                        return "getWeeklyJournal." + error;
-                }
-            }
             if (message.getJournalByName != null && message.hasOwnProperty("getJournalByName")) {
                 if (properties.payload === 1)
                     return "payload: multiple values";
@@ -3614,11 +3554,6 @@ export const petajournal = $root.petajournal = (() => {
                     throw TypeError(".petajournal.ApiResponse.getMostRecentJournalBefore: object expected");
                 message.getMostRecentJournalBefore = $root.petajournal.GetMostRecentJournalBeforeResponse.fromObject(object.getMostRecentJournalBefore);
             }
-            if (object.getWeeklyJournal != null) {
-                if (typeof object.getWeeklyJournal !== "object")
-                    throw TypeError(".petajournal.ApiResponse.getWeeklyJournal: object expected");
-                message.getWeeklyJournal = $root.petajournal.GetWeeklyJournalResponse.fromObject(object.getWeeklyJournal);
-            }
             if (object.getJournalByName != null) {
                 if (typeof object.getJournalByName !== "object")
                     throw TypeError(".petajournal.ApiResponse.getJournalByName: object expected");
@@ -3740,11 +3675,6 @@ export const petajournal = $root.petajournal = (() => {
                 object.getMostRecentJournalBefore = $root.petajournal.GetMostRecentJournalBeforeResponse.toObject(message.getMostRecentJournalBefore, options);
                 if (options.oneofs)
                     object.payload = "getMostRecentJournalBefore";
-            }
-            if (message.getWeeklyJournal != null && message.hasOwnProperty("getWeeklyJournal")) {
-                object.getWeeklyJournal = $root.petajournal.GetWeeklyJournalResponse.toObject(message.getWeeklyJournal, options);
-                if (options.oneofs)
-                    object.payload = "getWeeklyJournal";
             }
             if (message.getJournalByName != null && message.hasOwnProperty("getJournalByName")) {
                 object.getJournalByName = $root.petajournal.GetJournalByNameResponse.toObject(message.getJournalByName, options);
@@ -11058,514 +10988,6 @@ export const petajournal = $root.petajournal = (() => {
         };
 
         return GetMostRecentJournalBeforeResponse;
-    })();
-
-    petajournal.GetWeeklyJournalRequest = (function() {
-
-        /**
-         * Properties of a GetWeeklyJournalRequest.
-         * @memberof petajournal
-         * @interface IGetWeeklyJournalRequest
-         * @property {number|null} [year] GetWeeklyJournalRequest year
-         * @property {number|null} [week] GetWeeklyJournalRequest week
-         */
-
-        /**
-         * Constructs a new GetWeeklyJournalRequest.
-         * @memberof petajournal
-         * @classdesc Represents a GetWeeklyJournalRequest.
-         * @implements IGetWeeklyJournalRequest
-         * @constructor
-         * @param {petajournal.IGetWeeklyJournalRequest=} [properties] Properties to set
-         */
-        function GetWeeklyJournalRequest(properties) {
-            if (properties)
-                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                    if (properties[keys[i]] != null)
-                        this[keys[i]] = properties[keys[i]];
-        }
-
-        /**
-         * GetWeeklyJournalRequest year.
-         * @member {number} year
-         * @memberof petajournal.GetWeeklyJournalRequest
-         * @instance
-         */
-        GetWeeklyJournalRequest.prototype.year = 0;
-
-        /**
-         * GetWeeklyJournalRequest week.
-         * @member {number} week
-         * @memberof petajournal.GetWeeklyJournalRequest
-         * @instance
-         */
-        GetWeeklyJournalRequest.prototype.week = 0;
-
-        /**
-         * Creates a new GetWeeklyJournalRequest instance using the specified properties.
-         * @function create
-         * @memberof petajournal.GetWeeklyJournalRequest
-         * @static
-         * @param {petajournal.IGetWeeklyJournalRequest=} [properties] Properties to set
-         * @returns {petajournal.GetWeeklyJournalRequest} GetWeeklyJournalRequest instance
-         */
-        GetWeeklyJournalRequest.create = function create(properties) {
-            return new GetWeeklyJournalRequest(properties);
-        };
-
-        /**
-         * Encodes the specified GetWeeklyJournalRequest message. Does not implicitly {@link petajournal.GetWeeklyJournalRequest.verify|verify} messages.
-         * @function encode
-         * @memberof petajournal.GetWeeklyJournalRequest
-         * @static
-         * @param {petajournal.IGetWeeklyJournalRequest} message GetWeeklyJournalRequest message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        GetWeeklyJournalRequest.encode = function encode(message, writer) {
-            if (!writer)
-                writer = $Writer.create();
-            if (message.year != null && Object.hasOwnProperty.call(message, "year"))
-                writer.uint32(/* id 1, wireType 0 =*/8).int32(message.year);
-            if (message.week != null && Object.hasOwnProperty.call(message, "week"))
-                writer.uint32(/* id 2, wireType 0 =*/16).int32(message.week);
-            return writer;
-        };
-
-        /**
-         * Encodes the specified GetWeeklyJournalRequest message, length delimited. Does not implicitly {@link petajournal.GetWeeklyJournalRequest.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof petajournal.GetWeeklyJournalRequest
-         * @static
-         * @param {petajournal.IGetWeeklyJournalRequest} message GetWeeklyJournalRequest message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        GetWeeklyJournalRequest.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
-         * Decodes a GetWeeklyJournalRequest message from the specified reader or buffer.
-         * @function decode
-         * @memberof petajournal.GetWeeklyJournalRequest
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @param {number} [length] Message length if known beforehand
-         * @returns {petajournal.GetWeeklyJournalRequest} GetWeeklyJournalRequest
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        GetWeeklyJournalRequest.decode = function decode(reader, length, error) {
-            if (!(reader instanceof $Reader))
-                reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.GetWeeklyJournalRequest();
-            while (reader.pos < end) {
-                let tag = reader.uint32();
-                if (tag === error)
-                    break;
-                switch (tag >>> 3) {
-                case 1: {
-                        message.year = reader.int32();
-                        break;
-                    }
-                case 2: {
-                        message.week = reader.int32();
-                        break;
-                    }
-                default:
-                    reader.skipType(tag & 7);
-                    break;
-                }
-            }
-            return message;
-        };
-
-        /**
-         * Decodes a GetWeeklyJournalRequest message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof petajournal.GetWeeklyJournalRequest
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {petajournal.GetWeeklyJournalRequest} GetWeeklyJournalRequest
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        GetWeeklyJournalRequest.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
-        };
-
-        /**
-         * Verifies a GetWeeklyJournalRequest message.
-         * @function verify
-         * @memberof petajournal.GetWeeklyJournalRequest
-         * @static
-         * @param {Object.<string,*>} message Plain object to verify
-         * @returns {string|null} `null` if valid, otherwise the reason why it is not
-         */
-        GetWeeklyJournalRequest.verify = function verify(message) {
-            if (typeof message !== "object" || message === null)
-                return "object expected";
-            if (message.year != null && message.hasOwnProperty("year"))
-                if (!$util.isInteger(message.year))
-                    return "year: integer expected";
-            if (message.week != null && message.hasOwnProperty("week"))
-                if (!$util.isInteger(message.week))
-                    return "week: integer expected";
-            return null;
-        };
-
-        /**
-         * Creates a GetWeeklyJournalRequest message from a plain object. Also converts values to their respective internal types.
-         * @function fromObject
-         * @memberof petajournal.GetWeeklyJournalRequest
-         * @static
-         * @param {Object.<string,*>} object Plain object
-         * @returns {petajournal.GetWeeklyJournalRequest} GetWeeklyJournalRequest
-         */
-        GetWeeklyJournalRequest.fromObject = function fromObject(object) {
-            if (object instanceof $root.petajournal.GetWeeklyJournalRequest)
-                return object;
-            let message = new $root.petajournal.GetWeeklyJournalRequest();
-            if (object.year != null)
-                message.year = object.year | 0;
-            if (object.week != null)
-                message.week = object.week | 0;
-            return message;
-        };
-
-        /**
-         * Creates a plain object from a GetWeeklyJournalRequest message. Also converts values to other types if specified.
-         * @function toObject
-         * @memberof petajournal.GetWeeklyJournalRequest
-         * @static
-         * @param {petajournal.GetWeeklyJournalRequest} message GetWeeklyJournalRequest
-         * @param {$protobuf.IConversionOptions} [options] Conversion options
-         * @returns {Object.<string,*>} Plain object
-         */
-        GetWeeklyJournalRequest.toObject = function toObject(message, options) {
-            if (!options)
-                options = {};
-            let object = {};
-            if (options.defaults) {
-                object.year = 0;
-                object.week = 0;
-            }
-            if (message.year != null && message.hasOwnProperty("year"))
-                object.year = message.year;
-            if (message.week != null && message.hasOwnProperty("week"))
-                object.week = message.week;
-            return object;
-        };
-
-        /**
-         * Converts this GetWeeklyJournalRequest to JSON.
-         * @function toJSON
-         * @memberof petajournal.GetWeeklyJournalRequest
-         * @instance
-         * @returns {Object.<string,*>} JSON object
-         */
-        GetWeeklyJournalRequest.prototype.toJSON = function toJSON() {
-            return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
-        };
-
-        /**
-         * Gets the default type url for GetWeeklyJournalRequest
-         * @function getTypeUrl
-         * @memberof petajournal.GetWeeklyJournalRequest
-         * @static
-         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
-         * @returns {string} The default type url
-         */
-        GetWeeklyJournalRequest.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-            if (typeUrlPrefix === undefined) {
-                typeUrlPrefix = "type.googleapis.com";
-            }
-            return typeUrlPrefix + "/petajournal.GetWeeklyJournalRequest";
-        };
-
-        return GetWeeklyJournalRequest;
-    })();
-
-    petajournal.GetWeeklyJournalResponse = (function() {
-
-        /**
-         * Properties of a GetWeeklyJournalResponse.
-         * @memberof petajournal
-         * @interface IGetWeeklyJournalResponse
-         * @property {petajournal.IPage|null} [page] GetWeeklyJournalResponse page
-         * @property {Array.<petajournal.IBlock>|null} [blocks] GetWeeklyJournalResponse blocks
-         * @property {boolean|null} [created] GetWeeklyJournalResponse created
-         */
-
-        /**
-         * Constructs a new GetWeeklyJournalResponse.
-         * @memberof petajournal
-         * @classdesc Represents a GetWeeklyJournalResponse.
-         * @implements IGetWeeklyJournalResponse
-         * @constructor
-         * @param {petajournal.IGetWeeklyJournalResponse=} [properties] Properties to set
-         */
-        function GetWeeklyJournalResponse(properties) {
-            this.blocks = [];
-            if (properties)
-                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                    if (properties[keys[i]] != null)
-                        this[keys[i]] = properties[keys[i]];
-        }
-
-        /**
-         * GetWeeklyJournalResponse page.
-         * @member {petajournal.IPage|null|undefined} page
-         * @memberof petajournal.GetWeeklyJournalResponse
-         * @instance
-         */
-        GetWeeklyJournalResponse.prototype.page = null;
-
-        /**
-         * GetWeeklyJournalResponse blocks.
-         * @member {Array.<petajournal.IBlock>} blocks
-         * @memberof petajournal.GetWeeklyJournalResponse
-         * @instance
-         */
-        GetWeeklyJournalResponse.prototype.blocks = $util.emptyArray;
-
-        /**
-         * GetWeeklyJournalResponse created.
-         * @member {boolean} created
-         * @memberof petajournal.GetWeeklyJournalResponse
-         * @instance
-         */
-        GetWeeklyJournalResponse.prototype.created = false;
-
-        /**
-         * Creates a new GetWeeklyJournalResponse instance using the specified properties.
-         * @function create
-         * @memberof petajournal.GetWeeklyJournalResponse
-         * @static
-         * @param {petajournal.IGetWeeklyJournalResponse=} [properties] Properties to set
-         * @returns {petajournal.GetWeeklyJournalResponse} GetWeeklyJournalResponse instance
-         */
-        GetWeeklyJournalResponse.create = function create(properties) {
-            return new GetWeeklyJournalResponse(properties);
-        };
-
-        /**
-         * Encodes the specified GetWeeklyJournalResponse message. Does not implicitly {@link petajournal.GetWeeklyJournalResponse.verify|verify} messages.
-         * @function encode
-         * @memberof petajournal.GetWeeklyJournalResponse
-         * @static
-         * @param {petajournal.IGetWeeklyJournalResponse} message GetWeeklyJournalResponse message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        GetWeeklyJournalResponse.encode = function encode(message, writer) {
-            if (!writer)
-                writer = $Writer.create();
-            if (message.page != null && Object.hasOwnProperty.call(message, "page"))
-                $root.petajournal.Page.encode(message.page, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
-            if (message.blocks != null && message.blocks.length)
-                for (let i = 0; i < message.blocks.length; ++i)
-                    $root.petajournal.Block.encode(message.blocks[i], writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim();
-            if (message.created != null && Object.hasOwnProperty.call(message, "created"))
-                writer.uint32(/* id 3, wireType 0 =*/24).bool(message.created);
-            return writer;
-        };
-
-        /**
-         * Encodes the specified GetWeeklyJournalResponse message, length delimited. Does not implicitly {@link petajournal.GetWeeklyJournalResponse.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof petajournal.GetWeeklyJournalResponse
-         * @static
-         * @param {petajournal.IGetWeeklyJournalResponse} message GetWeeklyJournalResponse message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        GetWeeklyJournalResponse.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
-         * Decodes a GetWeeklyJournalResponse message from the specified reader or buffer.
-         * @function decode
-         * @memberof petajournal.GetWeeklyJournalResponse
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @param {number} [length] Message length if known beforehand
-         * @returns {petajournal.GetWeeklyJournalResponse} GetWeeklyJournalResponse
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        GetWeeklyJournalResponse.decode = function decode(reader, length, error) {
-            if (!(reader instanceof $Reader))
-                reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.GetWeeklyJournalResponse();
-            while (reader.pos < end) {
-                let tag = reader.uint32();
-                if (tag === error)
-                    break;
-                switch (tag >>> 3) {
-                case 1: {
-                        message.page = $root.petajournal.Page.decode(reader, reader.uint32());
-                        break;
-                    }
-                case 2: {
-                        if (!(message.blocks && message.blocks.length))
-                            message.blocks = [];
-                        message.blocks.push($root.petajournal.Block.decode(reader, reader.uint32()));
-                        break;
-                    }
-                case 3: {
-                        message.created = reader.bool();
-                        break;
-                    }
-                default:
-                    reader.skipType(tag & 7);
-                    break;
-                }
-            }
-            return message;
-        };
-
-        /**
-         * Decodes a GetWeeklyJournalResponse message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof petajournal.GetWeeklyJournalResponse
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {petajournal.GetWeeklyJournalResponse} GetWeeklyJournalResponse
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        GetWeeklyJournalResponse.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
-        };
-
-        /**
-         * Verifies a GetWeeklyJournalResponse message.
-         * @function verify
-         * @memberof petajournal.GetWeeklyJournalResponse
-         * @static
-         * @param {Object.<string,*>} message Plain object to verify
-         * @returns {string|null} `null` if valid, otherwise the reason why it is not
-         */
-        GetWeeklyJournalResponse.verify = function verify(message) {
-            if (typeof message !== "object" || message === null)
-                return "object expected";
-            if (message.page != null && message.hasOwnProperty("page")) {
-                let error = $root.petajournal.Page.verify(message.page);
-                if (error)
-                    return "page." + error;
-            }
-            if (message.blocks != null && message.hasOwnProperty("blocks")) {
-                if (!Array.isArray(message.blocks))
-                    return "blocks: array expected";
-                for (let i = 0; i < message.blocks.length; ++i) {
-                    let error = $root.petajournal.Block.verify(message.blocks[i]);
-                    if (error)
-                        return "blocks." + error;
-                }
-            }
-            if (message.created != null && message.hasOwnProperty("created"))
-                if (typeof message.created !== "boolean")
-                    return "created: boolean expected";
-            return null;
-        };
-
-        /**
-         * Creates a GetWeeklyJournalResponse message from a plain object. Also converts values to their respective internal types.
-         * @function fromObject
-         * @memberof petajournal.GetWeeklyJournalResponse
-         * @static
-         * @param {Object.<string,*>} object Plain object
-         * @returns {petajournal.GetWeeklyJournalResponse} GetWeeklyJournalResponse
-         */
-        GetWeeklyJournalResponse.fromObject = function fromObject(object) {
-            if (object instanceof $root.petajournal.GetWeeklyJournalResponse)
-                return object;
-            let message = new $root.petajournal.GetWeeklyJournalResponse();
-            if (object.page != null) {
-                if (typeof object.page !== "object")
-                    throw TypeError(".petajournal.GetWeeklyJournalResponse.page: object expected");
-                message.page = $root.petajournal.Page.fromObject(object.page);
-            }
-            if (object.blocks) {
-                if (!Array.isArray(object.blocks))
-                    throw TypeError(".petajournal.GetWeeklyJournalResponse.blocks: array expected");
-                message.blocks = [];
-                for (let i = 0; i < object.blocks.length; ++i) {
-                    if (typeof object.blocks[i] !== "object")
-                        throw TypeError(".petajournal.GetWeeklyJournalResponse.blocks: object expected");
-                    message.blocks[i] = $root.petajournal.Block.fromObject(object.blocks[i]);
-                }
-            }
-            if (object.created != null)
-                message.created = Boolean(object.created);
-            return message;
-        };
-
-        /**
-         * Creates a plain object from a GetWeeklyJournalResponse message. Also converts values to other types if specified.
-         * @function toObject
-         * @memberof petajournal.GetWeeklyJournalResponse
-         * @static
-         * @param {petajournal.GetWeeklyJournalResponse} message GetWeeklyJournalResponse
-         * @param {$protobuf.IConversionOptions} [options] Conversion options
-         * @returns {Object.<string,*>} Plain object
-         */
-        GetWeeklyJournalResponse.toObject = function toObject(message, options) {
-            if (!options)
-                options = {};
-            let object = {};
-            if (options.arrays || options.defaults)
-                object.blocks = [];
-            if (options.defaults) {
-                object.page = null;
-                object.created = false;
-            }
-            if (message.page != null && message.hasOwnProperty("page"))
-                object.page = $root.petajournal.Page.toObject(message.page, options);
-            if (message.blocks && message.blocks.length) {
-                object.blocks = [];
-                for (let j = 0; j < message.blocks.length; ++j)
-                    object.blocks[j] = $root.petajournal.Block.toObject(message.blocks[j], options);
-            }
-            if (message.created != null && message.hasOwnProperty("created"))
-                object.created = message.created;
-            return object;
-        };
-
-        /**
-         * Converts this GetWeeklyJournalResponse to JSON.
-         * @function toJSON
-         * @memberof petajournal.GetWeeklyJournalResponse
-         * @instance
-         * @returns {Object.<string,*>} JSON object
-         */
-        GetWeeklyJournalResponse.prototype.toJSON = function toJSON() {
-            return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
-        };
-
-        /**
-         * Gets the default type url for GetWeeklyJournalResponse
-         * @function getTypeUrl
-         * @memberof petajournal.GetWeeklyJournalResponse
-         * @static
-         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
-         * @returns {string} The default type url
-         */
-        GetWeeklyJournalResponse.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-            if (typeUrlPrefix === undefined) {
-                typeUrlPrefix = "type.googleapis.com";
-            }
-            return typeUrlPrefix + "/petajournal.GetWeeklyJournalResponse";
-        };
-
-        return GetWeeklyJournalResponse;
     })();
 
     petajournal.GetBlocksByStatusRequest = (function() {
