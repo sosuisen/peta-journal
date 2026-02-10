@@ -575,8 +575,9 @@ export class OutlineComponent {
     try {
       // First block replaces current editing block
       const firstBlock = parsedBlocks[0];
-      await this.api.updateBlock(block.id, { body: firstBlock.body });
-      this.state.updateBlock(block.id, { body: firstBlock.body });
+      const updated = await this.api.updateBlock(block.id, { body: firstBlock.body });
+      this.state.updateBlock(block.id, { body: firstBlock.body, html: updated.html });
+      this.dirtyBlockIds.add(block.id);
 
       // Update status if needed
       if (firstBlock.status !== 'normal') {
