@@ -147,7 +147,7 @@ export class SidebarComponent implements OnInit {
   }
 
   goToPage(pageId: string): void {
-    this.router.navigate(['/pages', pageId]);
+    this.router.navigate(['/docs', pageId]);
   }
 
   formatPageTitle(page: Page): string {

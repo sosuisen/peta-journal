@@ -270,14 +270,14 @@ export class MainLayoutComponent {
       } else {
         const page = await this.api.createPage(title);
         this.recentPages.refresh();
-        this.router.navigate(['/pages', page.id]);
+        this.router.navigate(['/docs', page.id]);
       }
     }
   }
 
   async deletePage(): Promise<void> {
     const url = this.router.url;
-    const match = url.match(/\/pages\/(.+)/);
+    const match = url.match(/\/docs\/(.+)/);
     if (!match) return;
     if (!confirm('Delete this page?')) return;
     await this.api.deletePage(match[1]);

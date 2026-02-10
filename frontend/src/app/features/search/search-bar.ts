@@ -125,7 +125,7 @@ export class SearchBarComponent {
     this.query.set('');
     this.results.set([]);
     this.showCreateButton.set(false);
-    this.router.navigate(['/pages', result.pageId]);
+    this.router.navigate(['/docs', result.pageId]);
   }
 
   async createPage(): Promise<void> {
@@ -144,7 +144,7 @@ export class SearchBarComponent {
     } else {
       const page = await this.api.createPage(title);
       this.recentPages.refresh();
-      this.router.navigate(['/pages', page.id]);
+      this.router.navigate(['/docs', page.id]);
     }
   }
 
