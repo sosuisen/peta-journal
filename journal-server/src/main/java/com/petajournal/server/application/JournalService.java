@@ -72,7 +72,7 @@ public class JournalService {
     }
 
     public JournalResult getOrCreateWeeklyJournal(int year, int week) {
-        String fileName = year + "-W" + week;
+        String fileName = year + "-W" + String.format("%02d", week);
         Optional<Page> existing = pageRepository.findByDirPathAndFileName("journals", fileName);
         if (existing.isPresent()) {
             Page page = existing.get();
@@ -202,7 +202,7 @@ public class JournalService {
         List<Block> blocks = new ArrayList<>();
         String afterBlockId = "";
         for (int w : weekNumbers) {
-            String body = "[[" + year + "-W" + w + "]]";
+            String body = "[[" + year + "-W" + String.format("%02d", w) + "]]";
             Block block = blockService.createBlock(id, afterBlockId, 0, body);
             blocks.add(block);
             afterBlockId = block.id();

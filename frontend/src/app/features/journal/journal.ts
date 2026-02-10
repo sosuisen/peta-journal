@@ -234,7 +234,7 @@ export class JournalComponent implements OnInit, OnDestroy {
 
   goToWeek(event: { year: number; week: number }): void {
     this.showCalendar.set(false);
-    this.router.navigate(['/journals', `${event.year}-W${event.week}`]);
+    this.router.navigate(['/journals', `${event.year}-W${String(event.week).padStart(2, '0')}`]);
   }
 
   goToMonth(event: { year: number; month: number }): void {

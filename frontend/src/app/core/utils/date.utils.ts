@@ -15,7 +15,7 @@ export function formatJournalDate(fileName: string): string {
     return `${monthMatch[1]}年${parseInt(monthMatch[2], 10)}月`;
   }
 
-  // Weekly journal: "2026-W7" → "2026 Week 7"
+  // Weekly journal: "2026-W07" → "2026 Week 7"
   const weekMatch = fileName.match(/^(\d{4})-W(\d+)$/);
   if (weekMatch) {
     return `${weekMatch[1]} Week ${weekMatch[2]}`;
