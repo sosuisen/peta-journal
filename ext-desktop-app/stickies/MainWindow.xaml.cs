@@ -247,6 +247,16 @@ public sealed partial class MainWindow : Window
         if (ContentWebView.CoreWebView2 == null)
         {
             await ContentWebView.EnsureCoreWebView2Async();
+            ContentWebView.CoreWebView2.NavigationStarting += (sender, e) =>
+            {
+                if (Uri.TryCreate(e.Uri, UriKind.Absolute, out var uri)
+                    && uri.Scheme != "http" && uri.Scheme != "https"
+                    && uri.Scheme != "about" && uri.Scheme != "data")
+                {
+                    e.Cancel = true;
+                    _ = Windows.System.Launcher.LaunchUriAsync(uri);
+                }
+            };
         }
     }
 
