@@ -1,8 +1,8 @@
 import { Component, input, output, inject, computed, viewChild, ElementRef, effect, afterNextRender, Injector } from '@angular/core';
-import { Router } from '@angular/router';
 import { DomSanitizer } from '@angular/platform-browser';
 import { ApiService } from '../../core/services/api.service';
 import { RecentPagesService } from '../../core/services/recent-pages.service';
+import { NavigationService } from '../../core/services/navigation.service';
 import hljs from 'highlight.js';
 import { generateUntitledTitle } from '../../core/utils/title.utils';
 import { classifyJournalFileName } from '../../core/utils/journal-filename.utils';
@@ -135,7 +135,7 @@ import { validateFileName } from '../../core/utils/filename-validation.utils';
   `]
 })
 export class BlockViewComponent {
-  private readonly router = inject(Router);
+  private readonly nav = inject(NavigationService);
   private readonly api = inject(ApiService);
   private readonly sanitizer = inject(DomSanitizer);
   private readonly recentPages = inject(RecentPagesService);
@@ -210,42 +210,30 @@ export class BlockViewComponent {
     event.preventDefault();
     event.stopPropagation();
 
+    const newTab = event.ctrlKey || event.metaKey;
+
     const pageId = link.dataset['pageId'];
     if (pageId) {
-      if (event.ctrlKey || event.metaKey) {
-        window.open(`/docs/${pageId}`, '_blank');
-      } else {
-        this.router.navigate(['/docs', pageId]);
-      }
+      const linkText = (link.textContent ?? '').trim();
+      this.nav.navigateToPage(linkText, pageId, newTab);
       return;
     }
 
     let pageTitle = link.dataset['pageTitle'];
     if (pageTitle) {
-      // Trim leading and trailing whitespace
       pageTitle = pageTitle.trim();
-
-      // If empty or whitespace-only, generate timestamp-based title
       if (!pageTitle) {
         pageTitle = generateUntitledTitle();
       }
 
       if (classifyJournalFileName(pageTitle) !== 'none') {
-        if (event.ctrlKey || event.metaKey) {
-          window.open(`/journals/${pageTitle}`, '_blank');
-        } else {
-          this.router.navigate(['/journals', pageTitle]);
-        }
+        this.nav.navigateToPage(pageTitle, '', newTab);
       } else {
         const error = validateFileName(pageTitle);
         if (error) { alert(error); return; }
         const page = await this.api.createPage(pageTitle);
         this.recentPages.refresh();
-        if (event.ctrlKey || event.metaKey) {
-          window.open(`/docs/${page.id}`, '_blank');
-        } else {
-          this.router.navigate(['/docs', page.id]);
-        }
+        this.nav.navigateToPage(page.fileName, page.id, newTab);
       }
     }
   }

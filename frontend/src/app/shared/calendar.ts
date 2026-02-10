@@ -21,7 +21,7 @@ interface CalendarWeek {
     <div class="calendar">
       <div class="calendar-header">
         <button (click)="prevMonth()">&lt;</button>
-        <span><span class="month-label" (click)="onMonthClick()">{{ monthName() }}</span> <span class="year-label" (click)="onYearClick()">{{ viewYear() }}</span></span>
+        <span><span class="month-label" (click)="onMonthClick($event)">{{ monthName() }}</span> <span class="year-label" (click)="onYearClick($event)">{{ viewYear() }}</span></span>
         <button (click)="nextMonth()">&gt;</button>
       </div>
       <div class="calendar-grid">
@@ -30,7 +30,7 @@ interface CalendarWeek {
           <div class="day-label">{{ label }}</div>
         }
         @for (week of weeks(); track week.weekNumber) {
-          <div class="week-number" (click)="onWeekClick(week)">{{ week.weekNumber.toString().padStart(2, '0') }}</div>
+          <div class="week-number" (click)="onWeekClick(week, $event)">{{ week.weekNumber.toString().padStart(2, '0') }}</div>
           @for (day of week.days; track day.date) {
             <div
               class="day-cell"
@@ -122,9 +122,9 @@ export class CalendarComponent {
 
   readonly selectedDate = input('');
   readonly dateSelected = output<string>();
-  readonly weekClicked = output<{ year: number; week: number }>();
-  readonly monthClicked = output<{ year: number; month: number }>();
-  readonly yearClicked = output<number>();
+  readonly weekClicked = output<{ year: number; week: number; ctrlKey: boolean }>();
+  readonly monthClicked = output<{ year: number; month: number; ctrlKey: boolean }>();
+  readonly yearClicked = output<{ year: number; ctrlKey: boolean }>();
 
   private readonly US_DAY_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
   private readonly ISO_DAY_LABELS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
@@ -208,19 +208,19 @@ export class CalendarComponent {
     }
   }
 
-  onMonthClick(): void {
-    this.monthClicked.emit({ year: this.viewYear(), month: this.viewMonth() + 1 });
+  onMonthClick(event: MouseEvent): void {
+    this.monthClicked.emit({ year: this.viewYear(), month: this.viewMonth() + 1, ctrlKey: event.ctrlKey || event.metaKey });
   }
 
-  onYearClick(): void {
-    this.yearClicked.emit(this.viewYear());
+  onYearClick(event: MouseEvent): void {
+    this.yearClicked.emit({ year: this.viewYear(), ctrlKey: event.ctrlKey || event.metaKey });
   }
 
-  onWeekClick(week: CalendarWeek): void {
+  onWeekClick(week: CalendarWeek, event: MouseEvent): void {
     const firstOfWeek = new Date(week.days[0].date + 'T00:00:00');
     const iso = this.configService.weekNumbering() === 'iso';
     const year = iso ? this.getISOWeekYear(firstOfWeek) : firstOfWeek.getFullYear();
-    this.weekClicked.emit({ year, week: week.weekNumber });
+    this.weekClicked.emit({ year, week: week.weekNumber, ctrlKey: event.ctrlKey || event.metaKey });
   }
 
   private getISOWeekYear(date: Date): number {

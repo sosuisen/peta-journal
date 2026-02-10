@@ -1,10 +1,10 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
-import { ApiService } from '../../core/services/api.service';
 import { RecentPagesService } from '../../core/services/recent-pages.service';
 import { Page } from '../../core/models/page.model';
 import { CalendarComponent } from '../../shared/calendar';
 import { formatJournalDate, formatDateToIso } from '../../core/utils/date.utils';
+import { NavigationService } from '../../core/services/navigation.service';
 
 @Component({
   selector: 'app-sidebar',
@@ -28,7 +28,7 @@ import { formatJournalDate, formatDateToIso } from '../../core/utils/date.utils'
         <div class="sidebar-section">
           <h3 class="section-title">Recent Pages</h3>
           @for (page of recentPages.recentPages(); track page.id) {
-            <div class="sidebar-item" (click)="goToPage(page.id)">
+            <div class="sidebar-item" (click)="goToPage(page)">
               {{ formatPageTitle(page) }}
             </div>
           }
@@ -119,7 +119,7 @@ import { formatJournalDate, formatDateToIso } from '../../core/utils/date.utils'
 export class SidebarComponent implements OnInit {
   readonly recentPages = inject(RecentPagesService);
   private readonly router = inject(Router);
-  private readonly api = inject(ApiService);
+  private readonly nav = inject(NavigationService);
   readonly today = formatDateToIso(new Date());
 
   ngOnInit(): void {
@@ -134,20 +134,22 @@ export class SidebarComponent implements OnInit {
     this.router.navigate(['/journals', date]);
   }
 
-  goToWeek(event: { year: number; week: number }): void {
-    this.router.navigate(['/journals', `${event.year}-W${String(event.week).padStart(2, '0')}`]);
+  goToWeek(event: { year: number; week: number; ctrlKey: boolean }): void {
+    const fileName = `${event.year}-W${String(event.week).padStart(2, '0')}`;
+    this.nav.navigateToPage(fileName, '', event.ctrlKey);
   }
 
-  goToMonth(event: { year: number; month: number }): void {
-    this.router.navigate(['/journals', `${event.year}-${String(event.month).padStart(2, '0')}`]);
+  goToMonth(event: { year: number; month: number; ctrlKey: boolean }): void {
+    const fileName = `${event.year}-${String(event.month).padStart(2, '0')}`;
+    this.nav.navigateToPage(fileName, '', event.ctrlKey);
   }
 
-  goToYear(year: number): void {
-    this.router.navigate(['/journals', String(year)]);
+  goToYear(event: { year: number; ctrlKey: boolean }): void {
+    this.nav.navigateToPage(String(event.year), '', event.ctrlKey);
   }
 
-  goToPage(pageId: string): void {
-    this.router.navigate(['/docs', pageId]);
+  goToPage(page: Page): void {
+    this.nav.navigateToPage(page.fileName, page.id);
   }
 
   formatPageTitle(page: Page): string {

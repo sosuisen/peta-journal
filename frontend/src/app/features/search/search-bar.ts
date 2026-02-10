@@ -1,8 +1,9 @@
 import { Component, ElementRef, inject, signal, viewChild } from '@angular/core';
-import { Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
+
 import { RecentPagesService } from '../../core/services/recent-pages.service';
+import { NavigationService } from '../../core/services/navigation.service';
 import { SearchResult } from '../../core/models/search.model';
 import { generateUntitledTitle } from '../../core/utils/title.utils';
 import { classifyJournalFileName } from '../../core/utils/journal-filename.utils';
@@ -88,7 +89,7 @@ import { validateFileName } from '../../core/utils/filename-validation.utils';
 })
 export class SearchBarComponent {
   private readonly api = inject(ApiService);
-  private readonly router = inject(Router);
+  private readonly nav = inject(NavigationService);
   private readonly recentPages = inject(RecentPagesService);
   private readonly searchInput = viewChild<ElementRef<HTMLInputElement>>('searchInput');
 
@@ -126,7 +127,7 @@ export class SearchBarComponent {
     this.query.set('');
     this.results.set([]);
     this.showCreateButton.set(false);
-    this.router.navigate(['/docs', result.pageId]);
+    this.nav.navigateToPage(result.pageTitle, result.pageId);
   }
 
   async createPage(): Promise<void> {
@@ -141,13 +142,13 @@ export class SearchBarComponent {
     this.query.set('');
     this.results.set([]);
     if (classifyJournalFileName(title) !== 'none') {
-      this.router.navigate(['/journals', title]);
+      this.nav.navigateToPage(title, '');
     } else {
       const error = validateFileName(title);
       if (error) { alert(error); return; }
       const page = await this.api.createPage(title);
       this.recentPages.refresh();
-      this.router.navigate(['/docs', page.id]);
+      this.nav.navigateToPage(page.fileName, page.id);
     }
   }
 

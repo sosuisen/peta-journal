@@ -5,6 +5,7 @@ import { SidebarComponent } from '../features/sidebar/sidebar';
 import { WebSocketService } from '../core/services/websocket.service';
 import { ApiService } from '../core/services/api.service';
 import { RecentPagesService } from '../core/services/recent-pages.service';
+import { NavigationService } from '../core/services/navigation.service';
 import { OutlineStateService } from '../core/services/outline-state.service';
 import { ConfigService } from '../core/services/config.service';
 import { generateUntitledTitle } from '../core/utils/title.utils';
@@ -208,6 +209,7 @@ export class MainLayoutComponent {
   readonly config = inject(ConfigService);
   private readonly router = inject(Router);
   private readonly api = inject(ApiService);
+  private readonly nav = inject(NavigationService);
   private readonly recentPages = inject(RecentPagesService);
   private readonly searchBar = viewChild(SearchBarComponent);
   readonly sidebarCollapsed = signal(false);
@@ -267,13 +269,13 @@ export class MainLayoutComponent {
         this.searchBar()?.showCreateButton.set(false);
       }
       if (classifyJournalFileName(title) !== 'none') {
-        this.router.navigate(['/journals', title]);
+        this.nav.navigateToPage(title, '');
       } else {
         const error = validateFileName(title);
         if (error) { alert(error); return; }
         const page = await this.api.createPage(title);
         this.recentPages.refresh();
-        this.router.navigate(['/docs', page.id]);
+        this.nav.navigateToPage(page.fileName, page.id);
       }
     }
   }
