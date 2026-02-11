@@ -72,6 +72,10 @@ public class ConfigService {
         }
     }
 
+    public String getConfigDir() {
+        return configDir;
+    }
+
     private Path getConfigPath() {
         return Paths.get(configDir, CONFIG_FILE_NAME);
     }

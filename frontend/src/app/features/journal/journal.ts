@@ -11,6 +11,7 @@ import { formatJournalDate, formatDateToIso } from '../../core/utils/date.utils'
 import { classifyJournalFileName, JournalType } from '../../core/utils/journal-filename.utils';
 import { RecentPagesService } from '../../core/services/recent-pages.service';
 import { NavigationService } from '../../core/services/navigation.service';
+import { ExtensionFunctionService } from '../../core/services/extension-function.service';
 
 @Component({
   selector: 'app-journal',
@@ -87,6 +88,7 @@ export class JournalComponent implements OnInit, OnDestroy {
   private readonly outlineState = inject(OutlineStateService);
   private readonly recentPages = inject(RecentPagesService);
   private readonly nav = inject(NavigationService);
+  private readonly extensionFunctions = inject(ExtensionFunctionService);
   private routeSub?: Subscription;
   private loadedDates = new Set<string>();
   private loading = false;
@@ -133,6 +135,14 @@ export class JournalComponent implements OnInit, OnDestroy {
 
     // Manually load blocks first
     this.outlineState.setBlocks(result.blocks);
+
+    if (result.created) {
+      this.extensionFunctions.emitPageCreate({
+        pageId: result.page.id,
+        fileName: date,
+        dirName: result.page.dirPath
+      });
+    }
 
     // Pre-load previous journals to fill the buffer (daily only)
     if (this.journalType() === 'daily') {
