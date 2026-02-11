@@ -4,6 +4,7 @@ import { provideHttpClient } from '@angular/common/http';
 
 import { routes } from './app.routes';
 import { GlobalUrlSchemeInterceptorService } from './core/services/global-url-scheme-interceptor.service';
+import { ExtensionFunctionService } from './core/services/extension-function.service';
 
 function initializeUrlSchemeInterceptor(interceptor: GlobalUrlSchemeInterceptorService) {
   return () => {
@@ -20,6 +21,12 @@ export const appConfig: ApplicationConfig = {
       provide: APP_INITIALIZER,
       useFactory: initializeUrlSchemeInterceptor,
       deps: [GlobalUrlSchemeInterceptorService],
+      multi: true
+    },
+    {
+      provide: APP_INITIALIZER,
+      useFactory: (svc: ExtensionFunctionService) => () => svc.initialize(),
+      deps: [ExtensionFunctionService],
       multi: true
     }
   ]

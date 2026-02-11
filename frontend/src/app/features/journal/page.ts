@@ -8,6 +8,7 @@ import { Page } from '../../core/models/page.model';
 import { RecentPagesService } from '../../core/services/recent-pages.service';
 import { formatJournalDate } from '../../core/utils/date.utils';
 import { validateFileName } from '../../core/utils/filename-validation.utils';
+import { ExtensionFunctionService } from '../../core/services/extension-function.service';
 
 @Component({
   selector: 'app-page',
@@ -49,6 +50,7 @@ export class PageComponent implements OnInit, OnDestroy {
   private readonly api = inject(ApiService);
   private readonly title = inject(Title);
   private readonly recentPages = inject(RecentPagesService);
+  private readonly extensionFunctions = inject(ExtensionFunctionService);
   private routeSub?: Subscription;
 
   readonly page = signal<Page | null>(null);
@@ -113,6 +115,13 @@ export class PageComponent implements OnInit, OnDestroy {
     try {
       const result = await this.api.getDocByName(fileName);
       this.page.set(result.page);
+      if (result.created) {
+        this.extensionFunctions.emitPageCreate({
+          pageId: result.page.id,
+          fileName: result.page.fileName,
+          dirName: result.page.dirPath
+        });
+      }
       this.originalTitle = this.pageTitle();
       this.title.setTitle(this.pageTitle());
     } catch (e) {
