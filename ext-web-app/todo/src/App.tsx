@@ -55,7 +55,7 @@ export default function App() {
   const [showRunning, setShowRunning] = useState(true);
   const [showDone, setShowDone] = useState(false);
   const [showJournal, setShowJournal] = useState(true);
-  const [showPage, setShowPage] = useState(true);
+  const [showPage, setShowPage] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>('created_date');
 
   const connectedRef = useRef(false);
@@ -99,6 +99,12 @@ export default function App() {
   useEffect(() => {
     if (connected) fetchBlocks();
   }, [showTodo, showRunning, showDone, fromDate]);  // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!connected) return;
+    const id = setInterval(fetchBlocks, 10000);
+    return () => clearInterval(id);
+  }, [connected, fetchBlocks]);
 
   const openPage = (block: Block) => {
     const pageId = block.pageId;
