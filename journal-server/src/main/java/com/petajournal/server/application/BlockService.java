@@ -37,6 +37,9 @@ public class BlockService {
     @Inject
     com.petajournal.server.infrastructure.export.MarkdownExportService exportService;
 
+    @Inject
+    TreeMarkdownConverter treeMarkdownConverter;
+
     public Block createBlock(UUID pageId, String afterBlockId, int level, String body) {
         String id = BlockIdGenerator.generate();
         Instant now = Instant.now();
@@ -200,6 +203,24 @@ public class BlockService {
             throw new IllegalArgumentException("Invalid status: " + status);
         }
         return updateBlock(blockId, null, null, null, status, null);
+    }
+
+    public record TreeMarkdownExport(String treeMarkdown, String html, String flatMarkdown) {}
+
+    public TreeMarkdownExport exportTreeMarkdown(List<String> blockIds) {
+        List<Block> blocks = blockIds.stream()
+            .map(id -> blockRepository.findById(id))
+            .filter(Optional::isPresent)
+            .map(Optional::get)
+            .toList();
+        String treeMd = treeMarkdownConverter.blocksToTreeMarkdown(blocks);
+        String html = markdownParser.parseToHtml(treeMd);
+        String flatMd = treeMarkdownConverter.blocksToFlatMarkdown(blocks);
+        return new TreeMarkdownExport(treeMd, html, flatMd);
+    }
+
+    public String importTreeMarkdown(String treeMarkdown) {
+        return treeMarkdownConverter.treeMarkdownToFlatMarkdown(treeMarkdown);
     }
 
     /**

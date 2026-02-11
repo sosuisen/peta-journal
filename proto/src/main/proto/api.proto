@@ -32,6 +32,8 @@ message ApiRequest {
     GetConfigRequest get_config = 60;
     UpdateConfigRequest update_config = 61;
     GetJournalByNameRequest get_journal_by_name = 44;
+    ExportTreeMarkdownRequest export_tree_markdown = 70;
+    ImportTreeMarkdownRequest import_tree_markdown = 71;
   }
 }
 
@@ -59,6 +61,8 @@ message ApiResponse {
     GetBlocksByStatusResponse get_blocks_by_status = 50;
     GetConfigResponse get_config = 60;
     UpdateConfigResponse update_config = 61;
+    ExportTreeMarkdownResponse export_tree_markdown = 70;
+    ImportTreeMarkdownResponse import_tree_markdown = 71;
   }
 }
 
@@ -246,4 +250,24 @@ message UpdateConfigRequest {
 
 message UpdateConfigResponse {
   string week_numbering = 1;
+}
+
+// --- Tree Markdown operations ---
+
+message ExportTreeMarkdownRequest {
+  repeated string block_ids = 1;
+}
+
+message ExportTreeMarkdownResponse {
+  string tree_markdown = 1;
+  string html = 2;
+  string flat_markdown = 3;
+}
+
+message ImportTreeMarkdownRequest {
+  string tree_markdown = 1;
+}
+
+message ImportTreeMarkdownResponse {
+  string flat_markdown = 1;
 }

@@ -46,6 +46,7 @@ import { BlockViewComponent } from './block-view';
             (statusCycleRequested)="statusCycleRequested.emit()"
             (statusToggled)="taskToggled.emit()"
             (pasteDetected)="pasteDetected.emit($event)"
+            (dragBeyondBounds)="dragBeyondBounds.emit($event)"
           />
         } @else {
           <app-block-view
@@ -124,6 +125,7 @@ export class OutlineBlockComponent {
   readonly statusCycleRequested = output<void>();
   readonly collapseToggled = output<void>();
   readonly pasteDetected = output<{ text: string; html: string; cursorPos: number }>();
+  readonly dragBeyondBounds = output<'above' | 'below'>();
 
   readonly indentPx = computed(() => this.block().level * 24);
   readonly hasChildren = computed(() => this.state.hasChildren(this.block().id));

@@ -7,12 +7,14 @@ export class OutlineStateService {
   private readonly _editingBlockId = signal<string | null>(null);
   private readonly _selectedBlockIds = signal<Set<string>>(new Set());
   private readonly _collapsedBlockIds = signal<Set<string>>(new Set());
+  private readonly _blockSelectionMode = signal<boolean>(false);
   private readonly _pendingCursorPosition = signal<number | null>(null);
 
   readonly blocks = this._blocks.asReadonly();
   readonly editingBlockId = this._editingBlockId.asReadonly();
   readonly pendingCursorPosition = this._pendingCursorPosition.asReadonly();
   readonly selectedBlockIds = this._selectedBlockIds.asReadonly();
+  readonly blockSelectionMode = this._blockSelectionMode.asReadonly();
 
   readonly visibleBlocks = computed(() => {
     const blocks = this._blocks();
@@ -131,5 +133,18 @@ export class OutlineStateService {
   deleteBlocks(blockIds: string[]): void {
     const idSet = new Set(blockIds);
     this._blocks.update(blocks => blocks.filter(b => !idSet.has(b.id)));
+  }
+
+  setSelectedBlockIds(ids: Set<string>): void {
+    this._selectedBlockIds.set(ids);
+  }
+
+  setBlockSelectionMode(active: boolean): void {
+    this._blockSelectionMode.set(active);
+  }
+
+  clearSelection(): void {
+    this._selectedBlockIds.set(new Set());
+    this._blockSelectionMode.set(false);
   }
 }

@@ -1940,6 +1940,8 @@ export const petajournal = $root.petajournal = (() => {
          * @property {petajournal.IGetConfigRequest|null} [getConfig] ApiRequest getConfig
          * @property {petajournal.IUpdateConfigRequest|null} [updateConfig] ApiRequest updateConfig
          * @property {petajournal.IGetJournalByNameRequest|null} [getJournalByName] ApiRequest getJournalByName
+         * @property {petajournal.IExportTreeMarkdownRequest|null} [exportTreeMarkdown] ApiRequest exportTreeMarkdown
+         * @property {petajournal.IImportTreeMarkdownRequest|null} [importTreeMarkdown] ApiRequest importTreeMarkdown
          */
 
         /**
@@ -2109,17 +2111,33 @@ export const petajournal = $root.petajournal = (() => {
          */
         ApiRequest.prototype.getJournalByName = null;
 
+        /**
+         * ApiRequest exportTreeMarkdown.
+         * @member {petajournal.IExportTreeMarkdownRequest|null|undefined} exportTreeMarkdown
+         * @memberof petajournal.ApiRequest
+         * @instance
+         */
+        ApiRequest.prototype.exportTreeMarkdown = null;
+
+        /**
+         * ApiRequest importTreeMarkdown.
+         * @member {petajournal.IImportTreeMarkdownRequest|null|undefined} importTreeMarkdown
+         * @memberof petajournal.ApiRequest
+         * @instance
+         */
+        ApiRequest.prototype.importTreeMarkdown = null;
+
         // OneOf field names bound to virtual getters and setters
         let $oneOfFields;
 
         /**
          * ApiRequest payload.
-         * @member {"getPage"|"getDocByName"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"getJournalByName"|undefined} payload
+         * @member {"getPage"|"getDocByName"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"getJournalByName"|"exportTreeMarkdown"|"importTreeMarkdown"|undefined} payload
          * @memberof petajournal.ApiRequest
          * @instance
          */
         Object.defineProperty(ApiRequest.prototype, "payload", {
-            get: $util.oneOfGetter($oneOfFields = ["getPage", "getDocByName", "deletePage", "updatePage", "createBlock", "updateBlock", "moveBlocks", "deleteBlock", "updateBlockStatus", "searchPageNames", "searchFullText", "getRecentPages", "getBacklinks", "getMostRecentJournalBefore", "getBlocksByStatus", "getConfig", "updateConfig", "getJournalByName"]),
+            get: $util.oneOfGetter($oneOfFields = ["getPage", "getDocByName", "deletePage", "updatePage", "createBlock", "updateBlock", "moveBlocks", "deleteBlock", "updateBlockStatus", "searchPageNames", "searchFullText", "getRecentPages", "getBacklinks", "getMostRecentJournalBefore", "getBlocksByStatus", "getConfig", "updateConfig", "getJournalByName", "exportTreeMarkdown", "importTreeMarkdown"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
@@ -2185,6 +2203,10 @@ export const petajournal = $root.petajournal = (() => {
                 $root.petajournal.GetConfigRequest.encode(message.getConfig, writer.uint32(/* id 60, wireType 2 =*/482).fork()).ldelim();
             if (message.updateConfig != null && Object.hasOwnProperty.call(message, "updateConfig"))
                 $root.petajournal.UpdateConfigRequest.encode(message.updateConfig, writer.uint32(/* id 61, wireType 2 =*/490).fork()).ldelim();
+            if (message.exportTreeMarkdown != null && Object.hasOwnProperty.call(message, "exportTreeMarkdown"))
+                $root.petajournal.ExportTreeMarkdownRequest.encode(message.exportTreeMarkdown, writer.uint32(/* id 70, wireType 2 =*/562).fork()).ldelim();
+            if (message.importTreeMarkdown != null && Object.hasOwnProperty.call(message, "importTreeMarkdown"))
+                $root.petajournal.ImportTreeMarkdownRequest.encode(message.importTreeMarkdown, writer.uint32(/* id 71, wireType 2 =*/570).fork()).ldelim();
             return writer;
         };
 
@@ -2295,6 +2317,14 @@ export const petajournal = $root.petajournal = (() => {
                     }
                 case 44: {
                         message.getJournalByName = $root.petajournal.GetJournalByNameRequest.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 70: {
+                        message.exportTreeMarkdown = $root.petajournal.ExportTreeMarkdownRequest.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 71: {
+                        message.importTreeMarkdown = $root.petajournal.ImportTreeMarkdownRequest.decode(reader, reader.uint32());
                         break;
                     }
                 default:
@@ -2514,6 +2544,26 @@ export const petajournal = $root.petajournal = (() => {
                         return "getJournalByName." + error;
                 }
             }
+            if (message.exportTreeMarkdown != null && message.hasOwnProperty("exportTreeMarkdown")) {
+                if (properties.payload === 1)
+                    return "payload: multiple values";
+                properties.payload = 1;
+                {
+                    let error = $root.petajournal.ExportTreeMarkdownRequest.verify(message.exportTreeMarkdown);
+                    if (error)
+                        return "exportTreeMarkdown." + error;
+                }
+            }
+            if (message.importTreeMarkdown != null && message.hasOwnProperty("importTreeMarkdown")) {
+                if (properties.payload === 1)
+                    return "payload: multiple values";
+                properties.payload = 1;
+                {
+                    let error = $root.petajournal.ImportTreeMarkdownRequest.verify(message.importTreeMarkdown);
+                    if (error)
+                        return "importTreeMarkdown." + error;
+                }
+            }
             return null;
         };
 
@@ -2620,6 +2670,16 @@ export const petajournal = $root.petajournal = (() => {
                 if (typeof object.getJournalByName !== "object")
                     throw TypeError(".petajournal.ApiRequest.getJournalByName: object expected");
                 message.getJournalByName = $root.petajournal.GetJournalByNameRequest.fromObject(object.getJournalByName);
+            }
+            if (object.exportTreeMarkdown != null) {
+                if (typeof object.exportTreeMarkdown !== "object")
+                    throw TypeError(".petajournal.ApiRequest.exportTreeMarkdown: object expected");
+                message.exportTreeMarkdown = $root.petajournal.ExportTreeMarkdownRequest.fromObject(object.exportTreeMarkdown);
+            }
+            if (object.importTreeMarkdown != null) {
+                if (typeof object.importTreeMarkdown !== "object")
+                    throw TypeError(".petajournal.ApiRequest.importTreeMarkdown: object expected");
+                message.importTreeMarkdown = $root.petajournal.ImportTreeMarkdownRequest.fromObject(object.importTreeMarkdown);
             }
             return message;
         };
@@ -2731,6 +2791,16 @@ export const petajournal = $root.petajournal = (() => {
                 if (options.oneofs)
                     object.payload = "updateConfig";
             }
+            if (message.exportTreeMarkdown != null && message.hasOwnProperty("exportTreeMarkdown")) {
+                object.exportTreeMarkdown = $root.petajournal.ExportTreeMarkdownRequest.toObject(message.exportTreeMarkdown, options);
+                if (options.oneofs)
+                    object.payload = "exportTreeMarkdown";
+            }
+            if (message.importTreeMarkdown != null && message.hasOwnProperty("importTreeMarkdown")) {
+                object.importTreeMarkdown = $root.petajournal.ImportTreeMarkdownRequest.toObject(message.importTreeMarkdown, options);
+                if (options.oneofs)
+                    object.payload = "importTreeMarkdown";
+            }
             return object;
         };
 
@@ -2790,6 +2860,8 @@ export const petajournal = $root.petajournal = (() => {
          * @property {petajournal.IGetBlocksByStatusResponse|null} [getBlocksByStatus] ApiResponse getBlocksByStatus
          * @property {petajournal.IGetConfigResponse|null} [getConfig] ApiResponse getConfig
          * @property {petajournal.IUpdateConfigResponse|null} [updateConfig] ApiResponse updateConfig
+         * @property {petajournal.IExportTreeMarkdownResponse|null} [exportTreeMarkdown] ApiResponse exportTreeMarkdown
+         * @property {petajournal.IImportTreeMarkdownResponse|null} [importTreeMarkdown] ApiResponse importTreeMarkdown
          */
 
         /**
@@ -2975,17 +3047,33 @@ export const petajournal = $root.petajournal = (() => {
          */
         ApiResponse.prototype.updateConfig = null;
 
+        /**
+         * ApiResponse exportTreeMarkdown.
+         * @member {petajournal.IExportTreeMarkdownResponse|null|undefined} exportTreeMarkdown
+         * @memberof petajournal.ApiResponse
+         * @instance
+         */
+        ApiResponse.prototype.exportTreeMarkdown = null;
+
+        /**
+         * ApiResponse importTreeMarkdown.
+         * @member {petajournal.IImportTreeMarkdownResponse|null|undefined} importTreeMarkdown
+         * @memberof petajournal.ApiResponse
+         * @instance
+         */
+        ApiResponse.prototype.importTreeMarkdown = null;
+
         // OneOf field names bound to virtual getters and setters
         let $oneOfFields;
 
         /**
          * ApiResponse payload.
-         * @member {"getPage"|"getDocByName"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getJournalByName"|"getBlocksByStatus"|"getConfig"|"updateConfig"|undefined} payload
+         * @member {"getPage"|"getDocByName"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getJournalByName"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"exportTreeMarkdown"|"importTreeMarkdown"|undefined} payload
          * @memberof petajournal.ApiResponse
          * @instance
          */
         Object.defineProperty(ApiResponse.prototype, "payload", {
-            get: $util.oneOfGetter($oneOfFields = ["getPage", "getDocByName", "deletePage", "updatePage", "createBlock", "updateBlock", "moveBlocks", "deleteBlock", "updateBlockStatus", "searchPageNames", "searchFullText", "getRecentPages", "getBacklinks", "getMostRecentJournalBefore", "getJournalByName", "getBlocksByStatus", "getConfig", "updateConfig"]),
+            get: $util.oneOfGetter($oneOfFields = ["getPage", "getDocByName", "deletePage", "updatePage", "createBlock", "updateBlock", "moveBlocks", "deleteBlock", "updateBlockStatus", "searchPageNames", "searchFullText", "getRecentPages", "getBacklinks", "getMostRecentJournalBefore", "getJournalByName", "getBlocksByStatus", "getConfig", "updateConfig", "exportTreeMarkdown", "importTreeMarkdown"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
@@ -3055,6 +3143,10 @@ export const petajournal = $root.petajournal = (() => {
                 $root.petajournal.GetConfigResponse.encode(message.getConfig, writer.uint32(/* id 60, wireType 2 =*/482).fork()).ldelim();
             if (message.updateConfig != null && Object.hasOwnProperty.call(message, "updateConfig"))
                 $root.petajournal.UpdateConfigResponse.encode(message.updateConfig, writer.uint32(/* id 61, wireType 2 =*/490).fork()).ldelim();
+            if (message.exportTreeMarkdown != null && Object.hasOwnProperty.call(message, "exportTreeMarkdown"))
+                $root.petajournal.ExportTreeMarkdownResponse.encode(message.exportTreeMarkdown, writer.uint32(/* id 70, wireType 2 =*/562).fork()).ldelim();
+            if (message.importTreeMarkdown != null && Object.hasOwnProperty.call(message, "importTreeMarkdown"))
+                $root.petajournal.ImportTreeMarkdownResponse.encode(message.importTreeMarkdown, writer.uint32(/* id 71, wireType 2 =*/570).fork()).ldelim();
             return writer;
         };
 
@@ -3173,6 +3265,14 @@ export const petajournal = $root.petajournal = (() => {
                     }
                 case 61: {
                         message.updateConfig = $root.petajournal.UpdateConfigResponse.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 70: {
+                        message.exportTreeMarkdown = $root.petajournal.ExportTreeMarkdownResponse.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 71: {
+                        message.importTreeMarkdown = $root.petajournal.ImportTreeMarkdownResponse.decode(reader, reader.uint32());
                         break;
                     }
                 default:
@@ -3398,6 +3498,26 @@ export const petajournal = $root.petajournal = (() => {
                         return "updateConfig." + error;
                 }
             }
+            if (message.exportTreeMarkdown != null && message.hasOwnProperty("exportTreeMarkdown")) {
+                if (properties.payload === 1)
+                    return "payload: multiple values";
+                properties.payload = 1;
+                {
+                    let error = $root.petajournal.ExportTreeMarkdownResponse.verify(message.exportTreeMarkdown);
+                    if (error)
+                        return "exportTreeMarkdown." + error;
+                }
+            }
+            if (message.importTreeMarkdown != null && message.hasOwnProperty("importTreeMarkdown")) {
+                if (properties.payload === 1)
+                    return "payload: multiple values";
+                properties.payload = 1;
+                {
+                    let error = $root.petajournal.ImportTreeMarkdownResponse.verify(message.importTreeMarkdown);
+                    if (error)
+                        return "importTreeMarkdown." + error;
+                }
+            }
             return null;
         };
 
@@ -3508,6 +3628,16 @@ export const petajournal = $root.petajournal = (() => {
                 if (typeof object.updateConfig !== "object")
                     throw TypeError(".petajournal.ApiResponse.updateConfig: object expected");
                 message.updateConfig = $root.petajournal.UpdateConfigResponse.fromObject(object.updateConfig);
+            }
+            if (object.exportTreeMarkdown != null) {
+                if (typeof object.exportTreeMarkdown !== "object")
+                    throw TypeError(".petajournal.ApiResponse.exportTreeMarkdown: object expected");
+                message.exportTreeMarkdown = $root.petajournal.ExportTreeMarkdownResponse.fromObject(object.exportTreeMarkdown);
+            }
+            if (object.importTreeMarkdown != null) {
+                if (typeof object.importTreeMarkdown !== "object")
+                    throw TypeError(".petajournal.ApiResponse.importTreeMarkdown: object expected");
+                message.importTreeMarkdown = $root.petajournal.ImportTreeMarkdownResponse.fromObject(object.importTreeMarkdown);
             }
             return message;
         };
@@ -3625,6 +3755,16 @@ export const petajournal = $root.petajournal = (() => {
                 object.updateConfig = $root.petajournal.UpdateConfigResponse.toObject(message.updateConfig, options);
                 if (options.oneofs)
                     object.payload = "updateConfig";
+            }
+            if (message.exportTreeMarkdown != null && message.hasOwnProperty("exportTreeMarkdown")) {
+                object.exportTreeMarkdown = $root.petajournal.ExportTreeMarkdownResponse.toObject(message.exportTreeMarkdown, options);
+                if (options.oneofs)
+                    object.payload = "exportTreeMarkdown";
+            }
+            if (message.importTreeMarkdown != null && message.hasOwnProperty("importTreeMarkdown")) {
+                object.importTreeMarkdown = $root.petajournal.ImportTreeMarkdownResponse.toObject(message.importTreeMarkdown, options);
+                if (options.oneofs)
+                    object.payload = "importTreeMarkdown";
             }
             return object;
         };
@@ -12226,6 +12366,889 @@ export const petajournal = $root.petajournal = (() => {
         };
 
         return UpdateConfigResponse;
+    })();
+
+    petajournal.ExportTreeMarkdownRequest = (function() {
+
+        /**
+         * Properties of an ExportTreeMarkdownRequest.
+         * @memberof petajournal
+         * @interface IExportTreeMarkdownRequest
+         * @property {Array.<string>|null} [blockIds] ExportTreeMarkdownRequest blockIds
+         */
+
+        /**
+         * Constructs a new ExportTreeMarkdownRequest.
+         * @memberof petajournal
+         * @classdesc Represents an ExportTreeMarkdownRequest.
+         * @implements IExportTreeMarkdownRequest
+         * @constructor
+         * @param {petajournal.IExportTreeMarkdownRequest=} [properties] Properties to set
+         */
+        function ExportTreeMarkdownRequest(properties) {
+            this.blockIds = [];
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * ExportTreeMarkdownRequest blockIds.
+         * @member {Array.<string>} blockIds
+         * @memberof petajournal.ExportTreeMarkdownRequest
+         * @instance
+         */
+        ExportTreeMarkdownRequest.prototype.blockIds = $util.emptyArray;
+
+        /**
+         * Creates a new ExportTreeMarkdownRequest instance using the specified properties.
+         * @function create
+         * @memberof petajournal.ExportTreeMarkdownRequest
+         * @static
+         * @param {petajournal.IExportTreeMarkdownRequest=} [properties] Properties to set
+         * @returns {petajournal.ExportTreeMarkdownRequest} ExportTreeMarkdownRequest instance
+         */
+        ExportTreeMarkdownRequest.create = function create(properties) {
+            return new ExportTreeMarkdownRequest(properties);
+        };
+
+        /**
+         * Encodes the specified ExportTreeMarkdownRequest message. Does not implicitly {@link petajournal.ExportTreeMarkdownRequest.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.ExportTreeMarkdownRequest
+         * @static
+         * @param {petajournal.IExportTreeMarkdownRequest} message ExportTreeMarkdownRequest message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        ExportTreeMarkdownRequest.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.blockIds != null && message.blockIds.length)
+                for (let i = 0; i < message.blockIds.length; ++i)
+                    writer.uint32(/* id 1, wireType 2 =*/10).string(message.blockIds[i]);
+            return writer;
+        };
+
+        /**
+         * Encodes the specified ExportTreeMarkdownRequest message, length delimited. Does not implicitly {@link petajournal.ExportTreeMarkdownRequest.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof petajournal.ExportTreeMarkdownRequest
+         * @static
+         * @param {petajournal.IExportTreeMarkdownRequest} message ExportTreeMarkdownRequest message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        ExportTreeMarkdownRequest.encodeDelimited = function encodeDelimited(message, writer) {
+            return this.encode(message, writer).ldelim();
+        };
+
+        /**
+         * Decodes an ExportTreeMarkdownRequest message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.ExportTreeMarkdownRequest
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.ExportTreeMarkdownRequest} ExportTreeMarkdownRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        ExportTreeMarkdownRequest.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.ExportTreeMarkdownRequest();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        if (!(message.blockIds && message.blockIds.length))
+                            message.blockIds = [];
+                        message.blockIds.push(reader.string());
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Decodes an ExportTreeMarkdownRequest message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof petajournal.ExportTreeMarkdownRequest
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {petajournal.ExportTreeMarkdownRequest} ExportTreeMarkdownRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        ExportTreeMarkdownRequest.decodeDelimited = function decodeDelimited(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies an ExportTreeMarkdownRequest message.
+         * @function verify
+         * @memberof petajournal.ExportTreeMarkdownRequest
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        ExportTreeMarkdownRequest.verify = function verify(message) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            if (message.blockIds != null && message.hasOwnProperty("blockIds")) {
+                if (!Array.isArray(message.blockIds))
+                    return "blockIds: array expected";
+                for (let i = 0; i < message.blockIds.length; ++i)
+                    if (!$util.isString(message.blockIds[i]))
+                        return "blockIds: string[] expected";
+            }
+            return null;
+        };
+
+        /**
+         * Creates an ExportTreeMarkdownRequest message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof petajournal.ExportTreeMarkdownRequest
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {petajournal.ExportTreeMarkdownRequest} ExportTreeMarkdownRequest
+         */
+        ExportTreeMarkdownRequest.fromObject = function fromObject(object) {
+            if (object instanceof $root.petajournal.ExportTreeMarkdownRequest)
+                return object;
+            let message = new $root.petajournal.ExportTreeMarkdownRequest();
+            if (object.blockIds) {
+                if (!Array.isArray(object.blockIds))
+                    throw TypeError(".petajournal.ExportTreeMarkdownRequest.blockIds: array expected");
+                message.blockIds = [];
+                for (let i = 0; i < object.blockIds.length; ++i)
+                    message.blockIds[i] = String(object.blockIds[i]);
+            }
+            return message;
+        };
+
+        /**
+         * Creates a plain object from an ExportTreeMarkdownRequest message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof petajournal.ExportTreeMarkdownRequest
+         * @static
+         * @param {petajournal.ExportTreeMarkdownRequest} message ExportTreeMarkdownRequest
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        ExportTreeMarkdownRequest.toObject = function toObject(message, options) {
+            if (!options)
+                options = {};
+            let object = {};
+            if (options.arrays || options.defaults)
+                object.blockIds = [];
+            if (message.blockIds && message.blockIds.length) {
+                object.blockIds = [];
+                for (let j = 0; j < message.blockIds.length; ++j)
+                    object.blockIds[j] = message.blockIds[j];
+            }
+            return object;
+        };
+
+        /**
+         * Converts this ExportTreeMarkdownRequest to JSON.
+         * @function toJSON
+         * @memberof petajournal.ExportTreeMarkdownRequest
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        ExportTreeMarkdownRequest.prototype.toJSON = function toJSON() {
+            return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        /**
+         * Gets the default type url for ExportTreeMarkdownRequest
+         * @function getTypeUrl
+         * @memberof petajournal.ExportTreeMarkdownRequest
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        ExportTreeMarkdownRequest.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.ExportTreeMarkdownRequest";
+        };
+
+        return ExportTreeMarkdownRequest;
+    })();
+
+    petajournal.ExportTreeMarkdownResponse = (function() {
+
+        /**
+         * Properties of an ExportTreeMarkdownResponse.
+         * @memberof petajournal
+         * @interface IExportTreeMarkdownResponse
+         * @property {string|null} [treeMarkdown] ExportTreeMarkdownResponse treeMarkdown
+         * @property {string|null} [html] ExportTreeMarkdownResponse html
+         * @property {string|null} [flatMarkdown] ExportTreeMarkdownResponse flatMarkdown
+         */
+
+        /**
+         * Constructs a new ExportTreeMarkdownResponse.
+         * @memberof petajournal
+         * @classdesc Represents an ExportTreeMarkdownResponse.
+         * @implements IExportTreeMarkdownResponse
+         * @constructor
+         * @param {petajournal.IExportTreeMarkdownResponse=} [properties] Properties to set
+         */
+        function ExportTreeMarkdownResponse(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * ExportTreeMarkdownResponse treeMarkdown.
+         * @member {string} treeMarkdown
+         * @memberof petajournal.ExportTreeMarkdownResponse
+         * @instance
+         */
+        ExportTreeMarkdownResponse.prototype.treeMarkdown = "";
+
+        /**
+         * ExportTreeMarkdownResponse html.
+         * @member {string} html
+         * @memberof petajournal.ExportTreeMarkdownResponse
+         * @instance
+         */
+        ExportTreeMarkdownResponse.prototype.html = "";
+
+        /**
+         * ExportTreeMarkdownResponse flatMarkdown.
+         * @member {string} flatMarkdown
+         * @memberof petajournal.ExportTreeMarkdownResponse
+         * @instance
+         */
+        ExportTreeMarkdownResponse.prototype.flatMarkdown = "";
+
+        /**
+         * Creates a new ExportTreeMarkdownResponse instance using the specified properties.
+         * @function create
+         * @memberof petajournal.ExportTreeMarkdownResponse
+         * @static
+         * @param {petajournal.IExportTreeMarkdownResponse=} [properties] Properties to set
+         * @returns {petajournal.ExportTreeMarkdownResponse} ExportTreeMarkdownResponse instance
+         */
+        ExportTreeMarkdownResponse.create = function create(properties) {
+            return new ExportTreeMarkdownResponse(properties);
+        };
+
+        /**
+         * Encodes the specified ExportTreeMarkdownResponse message. Does not implicitly {@link petajournal.ExportTreeMarkdownResponse.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.ExportTreeMarkdownResponse
+         * @static
+         * @param {petajournal.IExportTreeMarkdownResponse} message ExportTreeMarkdownResponse message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        ExportTreeMarkdownResponse.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.treeMarkdown != null && Object.hasOwnProperty.call(message, "treeMarkdown"))
+                writer.uint32(/* id 1, wireType 2 =*/10).string(message.treeMarkdown);
+            if (message.html != null && Object.hasOwnProperty.call(message, "html"))
+                writer.uint32(/* id 2, wireType 2 =*/18).string(message.html);
+            if (message.flatMarkdown != null && Object.hasOwnProperty.call(message, "flatMarkdown"))
+                writer.uint32(/* id 3, wireType 2 =*/26).string(message.flatMarkdown);
+            return writer;
+        };
+
+        /**
+         * Encodes the specified ExportTreeMarkdownResponse message, length delimited. Does not implicitly {@link petajournal.ExportTreeMarkdownResponse.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof petajournal.ExportTreeMarkdownResponse
+         * @static
+         * @param {petajournal.IExportTreeMarkdownResponse} message ExportTreeMarkdownResponse message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        ExportTreeMarkdownResponse.encodeDelimited = function encodeDelimited(message, writer) {
+            return this.encode(message, writer).ldelim();
+        };
+
+        /**
+         * Decodes an ExportTreeMarkdownResponse message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.ExportTreeMarkdownResponse
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.ExportTreeMarkdownResponse} ExportTreeMarkdownResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        ExportTreeMarkdownResponse.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.ExportTreeMarkdownResponse();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.treeMarkdown = reader.string();
+                        break;
+                    }
+                case 2: {
+                        message.html = reader.string();
+                        break;
+                    }
+                case 3: {
+                        message.flatMarkdown = reader.string();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Decodes an ExportTreeMarkdownResponse message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof petajournal.ExportTreeMarkdownResponse
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {petajournal.ExportTreeMarkdownResponse} ExportTreeMarkdownResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        ExportTreeMarkdownResponse.decodeDelimited = function decodeDelimited(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies an ExportTreeMarkdownResponse message.
+         * @function verify
+         * @memberof petajournal.ExportTreeMarkdownResponse
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        ExportTreeMarkdownResponse.verify = function verify(message) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            if (message.treeMarkdown != null && message.hasOwnProperty("treeMarkdown"))
+                if (!$util.isString(message.treeMarkdown))
+                    return "treeMarkdown: string expected";
+            if (message.html != null && message.hasOwnProperty("html"))
+                if (!$util.isString(message.html))
+                    return "html: string expected";
+            if (message.flatMarkdown != null && message.hasOwnProperty("flatMarkdown"))
+                if (!$util.isString(message.flatMarkdown))
+                    return "flatMarkdown: string expected";
+            return null;
+        };
+
+        /**
+         * Creates an ExportTreeMarkdownResponse message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof petajournal.ExportTreeMarkdownResponse
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {petajournal.ExportTreeMarkdownResponse} ExportTreeMarkdownResponse
+         */
+        ExportTreeMarkdownResponse.fromObject = function fromObject(object) {
+            if (object instanceof $root.petajournal.ExportTreeMarkdownResponse)
+                return object;
+            let message = new $root.petajournal.ExportTreeMarkdownResponse();
+            if (object.treeMarkdown != null)
+                message.treeMarkdown = String(object.treeMarkdown);
+            if (object.html != null)
+                message.html = String(object.html);
+            if (object.flatMarkdown != null)
+                message.flatMarkdown = String(object.flatMarkdown);
+            return message;
+        };
+
+        /**
+         * Creates a plain object from an ExportTreeMarkdownResponse message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof petajournal.ExportTreeMarkdownResponse
+         * @static
+         * @param {petajournal.ExportTreeMarkdownResponse} message ExportTreeMarkdownResponse
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        ExportTreeMarkdownResponse.toObject = function toObject(message, options) {
+            if (!options)
+                options = {};
+            let object = {};
+            if (options.defaults) {
+                object.treeMarkdown = "";
+                object.html = "";
+                object.flatMarkdown = "";
+            }
+            if (message.treeMarkdown != null && message.hasOwnProperty("treeMarkdown"))
+                object.treeMarkdown = message.treeMarkdown;
+            if (message.html != null && message.hasOwnProperty("html"))
+                object.html = message.html;
+            if (message.flatMarkdown != null && message.hasOwnProperty("flatMarkdown"))
+                object.flatMarkdown = message.flatMarkdown;
+            return object;
+        };
+
+        /**
+         * Converts this ExportTreeMarkdownResponse to JSON.
+         * @function toJSON
+         * @memberof petajournal.ExportTreeMarkdownResponse
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        ExportTreeMarkdownResponse.prototype.toJSON = function toJSON() {
+            return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        /**
+         * Gets the default type url for ExportTreeMarkdownResponse
+         * @function getTypeUrl
+         * @memberof petajournal.ExportTreeMarkdownResponse
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        ExportTreeMarkdownResponse.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.ExportTreeMarkdownResponse";
+        };
+
+        return ExportTreeMarkdownResponse;
+    })();
+
+    petajournal.ImportTreeMarkdownRequest = (function() {
+
+        /**
+         * Properties of an ImportTreeMarkdownRequest.
+         * @memberof petajournal
+         * @interface IImportTreeMarkdownRequest
+         * @property {string|null} [treeMarkdown] ImportTreeMarkdownRequest treeMarkdown
+         */
+
+        /**
+         * Constructs a new ImportTreeMarkdownRequest.
+         * @memberof petajournal
+         * @classdesc Represents an ImportTreeMarkdownRequest.
+         * @implements IImportTreeMarkdownRequest
+         * @constructor
+         * @param {petajournal.IImportTreeMarkdownRequest=} [properties] Properties to set
+         */
+        function ImportTreeMarkdownRequest(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * ImportTreeMarkdownRequest treeMarkdown.
+         * @member {string} treeMarkdown
+         * @memberof petajournal.ImportTreeMarkdownRequest
+         * @instance
+         */
+        ImportTreeMarkdownRequest.prototype.treeMarkdown = "";
+
+        /**
+         * Creates a new ImportTreeMarkdownRequest instance using the specified properties.
+         * @function create
+         * @memberof petajournal.ImportTreeMarkdownRequest
+         * @static
+         * @param {petajournal.IImportTreeMarkdownRequest=} [properties] Properties to set
+         * @returns {petajournal.ImportTreeMarkdownRequest} ImportTreeMarkdownRequest instance
+         */
+        ImportTreeMarkdownRequest.create = function create(properties) {
+            return new ImportTreeMarkdownRequest(properties);
+        };
+
+        /**
+         * Encodes the specified ImportTreeMarkdownRequest message. Does not implicitly {@link petajournal.ImportTreeMarkdownRequest.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.ImportTreeMarkdownRequest
+         * @static
+         * @param {petajournal.IImportTreeMarkdownRequest} message ImportTreeMarkdownRequest message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        ImportTreeMarkdownRequest.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.treeMarkdown != null && Object.hasOwnProperty.call(message, "treeMarkdown"))
+                writer.uint32(/* id 1, wireType 2 =*/10).string(message.treeMarkdown);
+            return writer;
+        };
+
+        /**
+         * Encodes the specified ImportTreeMarkdownRequest message, length delimited. Does not implicitly {@link petajournal.ImportTreeMarkdownRequest.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof petajournal.ImportTreeMarkdownRequest
+         * @static
+         * @param {petajournal.IImportTreeMarkdownRequest} message ImportTreeMarkdownRequest message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        ImportTreeMarkdownRequest.encodeDelimited = function encodeDelimited(message, writer) {
+            return this.encode(message, writer).ldelim();
+        };
+
+        /**
+         * Decodes an ImportTreeMarkdownRequest message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.ImportTreeMarkdownRequest
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.ImportTreeMarkdownRequest} ImportTreeMarkdownRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        ImportTreeMarkdownRequest.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.ImportTreeMarkdownRequest();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.treeMarkdown = reader.string();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Decodes an ImportTreeMarkdownRequest message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof petajournal.ImportTreeMarkdownRequest
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {petajournal.ImportTreeMarkdownRequest} ImportTreeMarkdownRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        ImportTreeMarkdownRequest.decodeDelimited = function decodeDelimited(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies an ImportTreeMarkdownRequest message.
+         * @function verify
+         * @memberof petajournal.ImportTreeMarkdownRequest
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        ImportTreeMarkdownRequest.verify = function verify(message) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            if (message.treeMarkdown != null && message.hasOwnProperty("treeMarkdown"))
+                if (!$util.isString(message.treeMarkdown))
+                    return "treeMarkdown: string expected";
+            return null;
+        };
+
+        /**
+         * Creates an ImportTreeMarkdownRequest message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof petajournal.ImportTreeMarkdownRequest
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {petajournal.ImportTreeMarkdownRequest} ImportTreeMarkdownRequest
+         */
+        ImportTreeMarkdownRequest.fromObject = function fromObject(object) {
+            if (object instanceof $root.petajournal.ImportTreeMarkdownRequest)
+                return object;
+            let message = new $root.petajournal.ImportTreeMarkdownRequest();
+            if (object.treeMarkdown != null)
+                message.treeMarkdown = String(object.treeMarkdown);
+            return message;
+        };
+
+        /**
+         * Creates a plain object from an ImportTreeMarkdownRequest message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof petajournal.ImportTreeMarkdownRequest
+         * @static
+         * @param {petajournal.ImportTreeMarkdownRequest} message ImportTreeMarkdownRequest
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        ImportTreeMarkdownRequest.toObject = function toObject(message, options) {
+            if (!options)
+                options = {};
+            let object = {};
+            if (options.defaults)
+                object.treeMarkdown = "";
+            if (message.treeMarkdown != null && message.hasOwnProperty("treeMarkdown"))
+                object.treeMarkdown = message.treeMarkdown;
+            return object;
+        };
+
+        /**
+         * Converts this ImportTreeMarkdownRequest to JSON.
+         * @function toJSON
+         * @memberof petajournal.ImportTreeMarkdownRequest
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        ImportTreeMarkdownRequest.prototype.toJSON = function toJSON() {
+            return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        /**
+         * Gets the default type url for ImportTreeMarkdownRequest
+         * @function getTypeUrl
+         * @memberof petajournal.ImportTreeMarkdownRequest
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        ImportTreeMarkdownRequest.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.ImportTreeMarkdownRequest";
+        };
+
+        return ImportTreeMarkdownRequest;
+    })();
+
+    petajournal.ImportTreeMarkdownResponse = (function() {
+
+        /**
+         * Properties of an ImportTreeMarkdownResponse.
+         * @memberof petajournal
+         * @interface IImportTreeMarkdownResponse
+         * @property {string|null} [flatMarkdown] ImportTreeMarkdownResponse flatMarkdown
+         */
+
+        /**
+         * Constructs a new ImportTreeMarkdownResponse.
+         * @memberof petajournal
+         * @classdesc Represents an ImportTreeMarkdownResponse.
+         * @implements IImportTreeMarkdownResponse
+         * @constructor
+         * @param {petajournal.IImportTreeMarkdownResponse=} [properties] Properties to set
+         */
+        function ImportTreeMarkdownResponse(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * ImportTreeMarkdownResponse flatMarkdown.
+         * @member {string} flatMarkdown
+         * @memberof petajournal.ImportTreeMarkdownResponse
+         * @instance
+         */
+        ImportTreeMarkdownResponse.prototype.flatMarkdown = "";
+
+        /**
+         * Creates a new ImportTreeMarkdownResponse instance using the specified properties.
+         * @function create
+         * @memberof petajournal.ImportTreeMarkdownResponse
+         * @static
+         * @param {petajournal.IImportTreeMarkdownResponse=} [properties] Properties to set
+         * @returns {petajournal.ImportTreeMarkdownResponse} ImportTreeMarkdownResponse instance
+         */
+        ImportTreeMarkdownResponse.create = function create(properties) {
+            return new ImportTreeMarkdownResponse(properties);
+        };
+
+        /**
+         * Encodes the specified ImportTreeMarkdownResponse message. Does not implicitly {@link petajournal.ImportTreeMarkdownResponse.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.ImportTreeMarkdownResponse
+         * @static
+         * @param {petajournal.IImportTreeMarkdownResponse} message ImportTreeMarkdownResponse message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        ImportTreeMarkdownResponse.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.flatMarkdown != null && Object.hasOwnProperty.call(message, "flatMarkdown"))
+                writer.uint32(/* id 1, wireType 2 =*/10).string(message.flatMarkdown);
+            return writer;
+        };
+
+        /**
+         * Encodes the specified ImportTreeMarkdownResponse message, length delimited. Does not implicitly {@link petajournal.ImportTreeMarkdownResponse.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof petajournal.ImportTreeMarkdownResponse
+         * @static
+         * @param {petajournal.IImportTreeMarkdownResponse} message ImportTreeMarkdownResponse message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        ImportTreeMarkdownResponse.encodeDelimited = function encodeDelimited(message, writer) {
+            return this.encode(message, writer).ldelim();
+        };
+
+        /**
+         * Decodes an ImportTreeMarkdownResponse message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.ImportTreeMarkdownResponse
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.ImportTreeMarkdownResponse} ImportTreeMarkdownResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        ImportTreeMarkdownResponse.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.ImportTreeMarkdownResponse();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.flatMarkdown = reader.string();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Decodes an ImportTreeMarkdownResponse message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof petajournal.ImportTreeMarkdownResponse
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {petajournal.ImportTreeMarkdownResponse} ImportTreeMarkdownResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        ImportTreeMarkdownResponse.decodeDelimited = function decodeDelimited(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies an ImportTreeMarkdownResponse message.
+         * @function verify
+         * @memberof petajournal.ImportTreeMarkdownResponse
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        ImportTreeMarkdownResponse.verify = function verify(message) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            if (message.flatMarkdown != null && message.hasOwnProperty("flatMarkdown"))
+                if (!$util.isString(message.flatMarkdown))
+                    return "flatMarkdown: string expected";
+            return null;
+        };
+
+        /**
+         * Creates an ImportTreeMarkdownResponse message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof petajournal.ImportTreeMarkdownResponse
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {petajournal.ImportTreeMarkdownResponse} ImportTreeMarkdownResponse
+         */
+        ImportTreeMarkdownResponse.fromObject = function fromObject(object) {
+            if (object instanceof $root.petajournal.ImportTreeMarkdownResponse)
+                return object;
+            let message = new $root.petajournal.ImportTreeMarkdownResponse();
+            if (object.flatMarkdown != null)
+                message.flatMarkdown = String(object.flatMarkdown);
+            return message;
+        };
+
+        /**
+         * Creates a plain object from an ImportTreeMarkdownResponse message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof petajournal.ImportTreeMarkdownResponse
+         * @static
+         * @param {petajournal.ImportTreeMarkdownResponse} message ImportTreeMarkdownResponse
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        ImportTreeMarkdownResponse.toObject = function toObject(message, options) {
+            if (!options)
+                options = {};
+            let object = {};
+            if (options.defaults)
+                object.flatMarkdown = "";
+            if (message.flatMarkdown != null && message.hasOwnProperty("flatMarkdown"))
+                object.flatMarkdown = message.flatMarkdown;
+            return object;
+        };
+
+        /**
+         * Converts this ImportTreeMarkdownResponse to JSON.
+         * @function toJSON
+         * @memberof petajournal.ImportTreeMarkdownResponse
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        ImportTreeMarkdownResponse.prototype.toJSON = function toJSON() {
+            return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        /**
+         * Gets the default type url for ImportTreeMarkdownResponse
+         * @function getTypeUrl
+         * @memberof petajournal.ImportTreeMarkdownResponse
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        ImportTreeMarkdownResponse.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.ImportTreeMarkdownResponse";
+        };
+
+        return ImportTreeMarkdownResponse;
     })();
 
     return petajournal;

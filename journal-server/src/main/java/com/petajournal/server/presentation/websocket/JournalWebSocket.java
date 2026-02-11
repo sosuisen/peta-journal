@@ -87,6 +87,8 @@ public class JournalWebSocket {
                 case GET_BLOCKS_BY_STATUS -> response.setGetBlocksByStatus(handleGetBlocksByStatus(request.getGetBlocksByStatus()));
                 case GET_CONFIG -> response.setGetConfig(handleGetConfig());
                 case UPDATE_CONFIG -> response.setUpdateConfig(handleUpdateConfig(request.getUpdateConfig()));
+                case EXPORT_TREE_MARKDOWN -> response.setExportTreeMarkdown(handleExportTreeMarkdown(request.getExportTreeMarkdown()));
+                case IMPORT_TREE_MARKDOWN -> response.setImportTreeMarkdown(handleImportTreeMarkdown(request.getImportTreeMarkdown()));
                 default -> {
                     response.setSuccess(false);
                     response.setErrorMessage("Unknown request type: " + request.getPayloadCase());
@@ -263,6 +265,22 @@ public class JournalWebSocket {
         configService.setWeekNumbering(req.getWeekNumbering());
         return UpdateConfigResponse.newBuilder()
                 .setWeekNumbering(configService.getWeekNumbering())
+                .build();
+    }
+
+    private ExportTreeMarkdownResponse handleExportTreeMarkdown(ExportTreeMarkdownRequest req) {
+        var result = blockService.exportTreeMarkdown(req.getBlockIdsList());
+        return ExportTreeMarkdownResponse.newBuilder()
+                .setTreeMarkdown(result.treeMarkdown())
+                .setHtml(result.html())
+                .setFlatMarkdown(result.flatMarkdown())
+                .build();
+    }
+
+    private ImportTreeMarkdownResponse handleImportTreeMarkdown(ImportTreeMarkdownRequest req) {
+        String flatMd = blockService.importTreeMarkdown(req.getTreeMarkdown());
+        return ImportTreeMarkdownResponse.newBuilder()
+                .setFlatMarkdown(flatMd)
                 .build();
     }
 }

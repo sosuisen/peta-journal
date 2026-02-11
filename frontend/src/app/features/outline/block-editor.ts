@@ -1,4 +1,4 @@
-import { Component, input, output, ElementRef, viewChild, AfterViewInit, inject, effect } from '@angular/core';
+import { Component, input, output, ElementRef, viewChild, AfterViewInit, inject, effect, OnDestroy } from '@angular/core';
 import { OutlineStateService } from '../../core/services/outline-state.service';
 
 @Component({
@@ -21,6 +21,7 @@ import { OutlineStateService } from '../../core/services/outline-state.service';
       (keydown)="onKeydown($event)"
       (paste)="onPaste($event)"
       (blur)="blurred.emit()"
+      (mousedown)="onMouseDown($event)"
       rows="1"
     ></textarea>
   `,
@@ -52,7 +53,7 @@ import { OutlineStateService } from '../../core/services/outline-state.service';
     }
   `]
 })
-export class BlockEditorComponent implements AfterViewInit {
+export class BlockEditorComponent implements AfterViewInit, OnDestroy {
   private readonly state = inject(OutlineStateService);
   readonly body = input.required<string>();
   readonly blockId = input.required<string>();
@@ -72,9 +73,15 @@ export class BlockEditorComponent implements AfterViewInit {
   readonly statusCycleRequested = output<void>();
   readonly statusToggled = output<void>();
   readonly pasteDetected = output<{ text: string; html: string; cursorPos: number }>();
+  readonly dragBeyondBounds = output<'above' | 'below'>();
 
   private readonly editorRef = viewChild.required<ElementRef<HTMLTextAreaElement>>('editor');
   private readonly checkboxRef = viewChild<ElementRef<HTMLInputElement>>('checkbox');
+
+  private textareaRect: DOMRect | null = null;
+  private isDragging = false;
+  private mouseMoveHandler = (e: MouseEvent) => this.onDocMouseMove(e);
+  private mouseUpHandler = () => this.onDocMouseUp();
 
   constructor() {
     effect(() => {
@@ -243,6 +250,41 @@ export class BlockEditorComponent implements AfterViewInit {
       html,
       cursorPos: el.selectionStart
     });
+  }
+
+  onMouseDown(event: MouseEvent): void {
+    const el = event.target as HTMLTextAreaElement;
+    this.textareaRect = el.getBoundingClientRect();
+    this.isDragging = true;
+    document.addEventListener('mousemove', this.mouseMoveHandler);
+    document.addEventListener('mouseup', this.mouseUpHandler);
+  }
+
+  private onDocMouseMove(e: MouseEvent): void {
+    if (!this.isDragging || !this.textareaRect) return;
+    const el = this.editorRef().nativeElement;
+    // Only trigger if user has started selecting text
+    if (el.selectionStart === el.selectionEnd) return;
+
+    const threshold = 10;
+    if (e.clientY < this.textareaRect.top - threshold) {
+      this.dragBeyondBounds.emit('above');
+      this.onDocMouseUp();
+    } else if (e.clientY > this.textareaRect.bottom + threshold) {
+      this.dragBeyondBounds.emit('below');
+      this.onDocMouseUp();
+    }
+  }
+
+  private onDocMouseUp(): void {
+    this.isDragging = false;
+    this.textareaRect = null;
+    document.removeEventListener('mousemove', this.mouseMoveHandler);
+    document.removeEventListener('mouseup', this.mouseUpHandler);
+  }
+
+  ngOnDestroy(): void {
+    this.onDocMouseUp();
   }
 
   private autoResize(el: HTMLTextAreaElement): void {

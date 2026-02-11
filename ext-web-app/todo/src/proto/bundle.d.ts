@@ -474,11 +474,8 @@ export namespace petajournal {
         /** ApiRequest getPage */
         getPage?: (petajournal.IGetPageRequest|null);
 
-        /** ApiRequest getJournal */
-        getJournal?: (petajournal.IGetJournalRequest|null);
-
-        /** ApiRequest createPage */
-        createPage?: (petajournal.ICreatePageRequest|null);
+        /** ApiRequest getDocByName */
+        getDocByName?: (petajournal.IGetDocByNameRequest|null);
 
         /** ApiRequest deletePage */
         deletePage?: (petajournal.IDeletePageRequest|null);
@@ -524,6 +521,15 @@ export namespace petajournal {
 
         /** ApiRequest updateConfig */
         updateConfig?: (petajournal.IUpdateConfigRequest|null);
+
+        /** ApiRequest getJournalByName */
+        getJournalByName?: (petajournal.IGetJournalByNameRequest|null);
+
+        /** ApiRequest exportTreeMarkdown */
+        exportTreeMarkdown?: (petajournal.IExportTreeMarkdownRequest|null);
+
+        /** ApiRequest importTreeMarkdown */
+        importTreeMarkdown?: (petajournal.IImportTreeMarkdownRequest|null);
     }
 
     /** Represents an ApiRequest. */
@@ -541,11 +547,8 @@ export namespace petajournal {
         /** ApiRequest getPage. */
         public getPage?: (petajournal.IGetPageRequest|null);
 
-        /** ApiRequest getJournal. */
-        public getJournal?: (petajournal.IGetJournalRequest|null);
-
-        /** ApiRequest createPage. */
-        public createPage?: (petajournal.ICreatePageRequest|null);
+        /** ApiRequest getDocByName. */
+        public getDocByName?: (petajournal.IGetDocByNameRequest|null);
 
         /** ApiRequest deletePage. */
         public deletePage?: (petajournal.IDeletePageRequest|null);
@@ -592,8 +595,17 @@ export namespace petajournal {
         /** ApiRequest updateConfig. */
         public updateConfig?: (petajournal.IUpdateConfigRequest|null);
 
+        /** ApiRequest getJournalByName. */
+        public getJournalByName?: (petajournal.IGetJournalByNameRequest|null);
+
+        /** ApiRequest exportTreeMarkdown. */
+        public exportTreeMarkdown?: (petajournal.IExportTreeMarkdownRequest|null);
+
+        /** ApiRequest importTreeMarkdown. */
+        public importTreeMarkdown?: (petajournal.IImportTreeMarkdownRequest|null);
+
         /** ApiRequest payload. */
-        public payload?: ("getPage"|"getJournal"|"createPage"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getBlocksByStatus"|"getConfig"|"updateConfig");
+        public payload?: ("getPage"|"getDocByName"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"getJournalByName"|"exportTreeMarkdown"|"importTreeMarkdown");
 
         /**
          * Creates a new ApiRequest instance using the specified properties.
@@ -643,11 +655,8 @@ export namespace petajournal {
         /** ApiResponse getPage */
         getPage?: (petajournal.IGetPageResponse|null);
 
-        /** ApiResponse getJournal */
-        getJournal?: (petajournal.IGetJournalResponse|null);
-
-        /** ApiResponse createPage */
-        createPage?: (petajournal.ICreatePageResponse|null);
+        /** ApiResponse getDocByName */
+        getDocByName?: (petajournal.IGetDocByNameResponse|null);
 
         /** ApiResponse deletePage */
         deletePage?: (petajournal.IDeletePageResponse|null);
@@ -685,6 +694,9 @@ export namespace petajournal {
         /** ApiResponse getMostRecentJournalBefore */
         getMostRecentJournalBefore?: (petajournal.IGetMostRecentJournalBeforeResponse|null);
 
+        /** ApiResponse getJournalByName */
+        getJournalByName?: (petajournal.IGetJournalByNameResponse|null);
+
         /** ApiResponse getBlocksByStatus */
         getBlocksByStatus?: (petajournal.IGetBlocksByStatusResponse|null);
 
@@ -693,6 +705,12 @@ export namespace petajournal {
 
         /** ApiResponse updateConfig */
         updateConfig?: (petajournal.IUpdateConfigResponse|null);
+
+        /** ApiResponse exportTreeMarkdown */
+        exportTreeMarkdown?: (petajournal.IExportTreeMarkdownResponse|null);
+
+        /** ApiResponse importTreeMarkdown */
+        importTreeMarkdown?: (petajournal.IImportTreeMarkdownResponse|null);
     }
 
     /** Represents an ApiResponse. */
@@ -716,11 +734,8 @@ export namespace petajournal {
         /** ApiResponse getPage. */
         public getPage?: (petajournal.IGetPageResponse|null);
 
-        /** ApiResponse getJournal. */
-        public getJournal?: (petajournal.IGetJournalResponse|null);
-
-        /** ApiResponse createPage. */
-        public createPage?: (petajournal.ICreatePageResponse|null);
+        /** ApiResponse getDocByName. */
+        public getDocByName?: (petajournal.IGetDocByNameResponse|null);
 
         /** ApiResponse deletePage. */
         public deletePage?: (petajournal.IDeletePageResponse|null);
@@ -758,6 +773,9 @@ export namespace petajournal {
         /** ApiResponse getMostRecentJournalBefore. */
         public getMostRecentJournalBefore?: (petajournal.IGetMostRecentJournalBeforeResponse|null);
 
+        /** ApiResponse getJournalByName. */
+        public getJournalByName?: (petajournal.IGetJournalByNameResponse|null);
+
         /** ApiResponse getBlocksByStatus. */
         public getBlocksByStatus?: (petajournal.IGetBlocksByStatusResponse|null);
 
@@ -767,8 +785,14 @@ export namespace petajournal {
         /** ApiResponse updateConfig. */
         public updateConfig?: (petajournal.IUpdateConfigResponse|null);
 
+        /** ApiResponse exportTreeMarkdown. */
+        public exportTreeMarkdown?: (petajournal.IExportTreeMarkdownResponse|null);
+
+        /** ApiResponse importTreeMarkdown. */
+        public importTreeMarkdown?: (petajournal.IImportTreeMarkdownResponse|null);
+
         /** ApiResponse payload. */
-        public payload?: ("getPage"|"getJournal"|"createPage"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getBlocksByStatus"|"getConfig"|"updateConfig");
+        public payload?: ("getPage"|"getDocByName"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getJournalByName"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"exportTreeMarkdown"|"importTreeMarkdown");
 
         /**
          * Creates a new ApiResponse instance using the specified properties.
@@ -913,232 +937,128 @@ export namespace petajournal {
         public static getTypeUrl(typeUrlPrefix?: string): string;
     }
 
-    /** Properties of a GetJournalRequest. */
-    interface IGetJournalRequest {
+    /** Properties of a GetDocByNameRequest. */
+    interface IGetDocByNameRequest {
 
-        /** GetJournalRequest date */
-        date?: (string|null);
-    }
-
-    /** Represents a GetJournalRequest. */
-    class GetJournalRequest implements IGetJournalRequest {
-
-        /**
-         * Constructs a new GetJournalRequest.
-         * @param [properties] Properties to set
-         */
-        constructor(properties?: petajournal.IGetJournalRequest);
-
-        /** GetJournalRequest date. */
-        public date: string;
-
-        /**
-         * Creates a new GetJournalRequest instance using the specified properties.
-         * @param [properties] Properties to set
-         * @returns GetJournalRequest instance
-         */
-        public static create(properties?: petajournal.IGetJournalRequest): petajournal.GetJournalRequest;
-
-        /**
-         * Encodes the specified GetJournalRequest message. Does not implicitly {@link petajournal.GetJournalRequest.verify|verify} messages.
-         * @param message GetJournalRequest message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encode(message: petajournal.IGetJournalRequest, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
-         * Decodes a GetJournalRequest message from the specified reader or buffer.
-         * @param reader Reader or buffer to decode from
-         * @param [length] Message length if known beforehand
-         * @returns GetJournalRequest
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.GetJournalRequest;
-
-        /**
-         * Gets the default type url for GetJournalRequest
-         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
-         * @returns The default type url
-         */
-        public static getTypeUrl(typeUrlPrefix?: string): string;
-    }
-
-    /** Properties of a GetJournalResponse. */
-    interface IGetJournalResponse {
-
-        /** GetJournalResponse page */
-        page?: (petajournal.IPage|null);
-
-        /** GetJournalResponse blocks */
-        blocks?: (petajournal.IBlock[]|null);
-
-        /** GetJournalResponse created */
-        created?: (boolean|null);
-    }
-
-    /** Represents a GetJournalResponse. */
-    class GetJournalResponse implements IGetJournalResponse {
-
-        /**
-         * Constructs a new GetJournalResponse.
-         * @param [properties] Properties to set
-         */
-        constructor(properties?: petajournal.IGetJournalResponse);
-
-        /** GetJournalResponse page. */
-        public page?: (petajournal.IPage|null);
-
-        /** GetJournalResponse blocks. */
-        public blocks: petajournal.IBlock[];
-
-        /** GetJournalResponse created. */
-        public created: boolean;
-
-        /**
-         * Creates a new GetJournalResponse instance using the specified properties.
-         * @param [properties] Properties to set
-         * @returns GetJournalResponse instance
-         */
-        public static create(properties?: petajournal.IGetJournalResponse): petajournal.GetJournalResponse;
-
-        /**
-         * Encodes the specified GetJournalResponse message. Does not implicitly {@link petajournal.GetJournalResponse.verify|verify} messages.
-         * @param message GetJournalResponse message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encode(message: petajournal.IGetJournalResponse, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
-         * Decodes a GetJournalResponse message from the specified reader or buffer.
-         * @param reader Reader or buffer to decode from
-         * @param [length] Message length if known beforehand
-         * @returns GetJournalResponse
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.GetJournalResponse;
-
-        /**
-         * Gets the default type url for GetJournalResponse
-         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
-         * @returns The default type url
-         */
-        public static getTypeUrl(typeUrlPrefix?: string): string;
-    }
-
-    /** Properties of a CreatePageRequest. */
-    interface ICreatePageRequest {
-
-        /** CreatePageRequest title */
+        /** GetDocByNameRequest title */
         title?: (string|null);
 
-        /** CreatePageRequest dirPath */
+        /** GetDocByNameRequest dirPath */
         dirPath?: (string|null);
 
-        /** CreatePageRequest tags */
+        /** GetDocByNameRequest tags */
         tags?: (string[]|null);
     }
 
-    /** Represents a CreatePageRequest. */
-    class CreatePageRequest implements ICreatePageRequest {
+    /** Represents a GetDocByNameRequest. */
+    class GetDocByNameRequest implements IGetDocByNameRequest {
 
         /**
-         * Constructs a new CreatePageRequest.
+         * Constructs a new GetDocByNameRequest.
          * @param [properties] Properties to set
          */
-        constructor(properties?: petajournal.ICreatePageRequest);
+        constructor(properties?: petajournal.IGetDocByNameRequest);
 
-        /** CreatePageRequest title. */
+        /** GetDocByNameRequest title. */
         public title: string;
 
-        /** CreatePageRequest dirPath. */
+        /** GetDocByNameRequest dirPath. */
         public dirPath: string;
 
-        /** CreatePageRequest tags. */
+        /** GetDocByNameRequest tags. */
         public tags: string[];
 
         /**
-         * Creates a new CreatePageRequest instance using the specified properties.
+         * Creates a new GetDocByNameRequest instance using the specified properties.
          * @param [properties] Properties to set
-         * @returns CreatePageRequest instance
+         * @returns GetDocByNameRequest instance
          */
-        public static create(properties?: petajournal.ICreatePageRequest): petajournal.CreatePageRequest;
+        public static create(properties?: petajournal.IGetDocByNameRequest): petajournal.GetDocByNameRequest;
 
         /**
-         * Encodes the specified CreatePageRequest message. Does not implicitly {@link petajournal.CreatePageRequest.verify|verify} messages.
-         * @param message CreatePageRequest message or plain object to encode
+         * Encodes the specified GetDocByNameRequest message. Does not implicitly {@link petajournal.GetDocByNameRequest.verify|verify} messages.
+         * @param message GetDocByNameRequest message or plain object to encode
          * @param [writer] Writer to encode to
          * @returns Writer
          */
-        public static encode(message: petajournal.ICreatePageRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+        public static encode(message: petajournal.IGetDocByNameRequest, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Decodes a CreatePageRequest message from the specified reader or buffer.
+         * Decodes a GetDocByNameRequest message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
-         * @returns CreatePageRequest
+         * @returns GetDocByNameRequest
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.CreatePageRequest;
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.GetDocByNameRequest;
 
         /**
-         * Gets the default type url for CreatePageRequest
+         * Gets the default type url for GetDocByNameRequest
          * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
          * @returns The default type url
          */
         public static getTypeUrl(typeUrlPrefix?: string): string;
     }
 
-    /** Properties of a CreatePageResponse. */
-    interface ICreatePageResponse {
+    /** Properties of a GetDocByNameResponse. */
+    interface IGetDocByNameResponse {
 
-        /** CreatePageResponse page */
+        /** GetDocByNameResponse page */
         page?: (petajournal.IPage|null);
+
+        /** GetDocByNameResponse blocks */
+        blocks?: (petajournal.IBlock[]|null);
+
+        /** GetDocByNameResponse created */
+        created?: (boolean|null);
     }
 
-    /** Represents a CreatePageResponse. */
-    class CreatePageResponse implements ICreatePageResponse {
+    /** Represents a GetDocByNameResponse. */
+    class GetDocByNameResponse implements IGetDocByNameResponse {
 
         /**
-         * Constructs a new CreatePageResponse.
+         * Constructs a new GetDocByNameResponse.
          * @param [properties] Properties to set
          */
-        constructor(properties?: petajournal.ICreatePageResponse);
+        constructor(properties?: petajournal.IGetDocByNameResponse);
 
-        /** CreatePageResponse page. */
+        /** GetDocByNameResponse page. */
         public page?: (petajournal.IPage|null);
 
-        /**
-         * Creates a new CreatePageResponse instance using the specified properties.
-         * @param [properties] Properties to set
-         * @returns CreatePageResponse instance
-         */
-        public static create(properties?: petajournal.ICreatePageResponse): petajournal.CreatePageResponse;
+        /** GetDocByNameResponse blocks. */
+        public blocks: petajournal.IBlock[];
+
+        /** GetDocByNameResponse created. */
+        public created: boolean;
 
         /**
-         * Encodes the specified CreatePageResponse message. Does not implicitly {@link petajournal.CreatePageResponse.verify|verify} messages.
-         * @param message CreatePageResponse message or plain object to encode
+         * Creates a new GetDocByNameResponse instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns GetDocByNameResponse instance
+         */
+        public static create(properties?: petajournal.IGetDocByNameResponse): petajournal.GetDocByNameResponse;
+
+        /**
+         * Encodes the specified GetDocByNameResponse message. Does not implicitly {@link petajournal.GetDocByNameResponse.verify|verify} messages.
+         * @param message GetDocByNameResponse message or plain object to encode
          * @param [writer] Writer to encode to
          * @returns Writer
          */
-        public static encode(message: petajournal.ICreatePageResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+        public static encode(message: petajournal.IGetDocByNameResponse, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Decodes a CreatePageResponse message from the specified reader or buffer.
+         * Decodes a GetDocByNameResponse message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
-         * @returns CreatePageResponse
+         * @returns GetDocByNameResponse
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.CreatePageResponse;
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.GetDocByNameResponse;
 
         /**
-         * Gets the default type url for CreatePageResponse
+         * Gets the default type url for GetDocByNameResponse
          * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
          * @returns The default type url
          */
@@ -2663,6 +2583,122 @@ export namespace petajournal {
         public static getTypeUrl(typeUrlPrefix?: string): string;
     }
 
+    /** Properties of a GetJournalByNameRequest. */
+    interface IGetJournalByNameRequest {
+
+        /** GetJournalByNameRequest fileName */
+        fileName?: (string|null);
+    }
+
+    /** Represents a GetJournalByNameRequest. */
+    class GetJournalByNameRequest implements IGetJournalByNameRequest {
+
+        /**
+         * Constructs a new GetJournalByNameRequest.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: petajournal.IGetJournalByNameRequest);
+
+        /** GetJournalByNameRequest fileName. */
+        public fileName: string;
+
+        /**
+         * Creates a new GetJournalByNameRequest instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns GetJournalByNameRequest instance
+         */
+        public static create(properties?: petajournal.IGetJournalByNameRequest): petajournal.GetJournalByNameRequest;
+
+        /**
+         * Encodes the specified GetJournalByNameRequest message. Does not implicitly {@link petajournal.GetJournalByNameRequest.verify|verify} messages.
+         * @param message GetJournalByNameRequest message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: petajournal.IGetJournalByNameRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a GetJournalByNameRequest message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns GetJournalByNameRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.GetJournalByNameRequest;
+
+        /**
+         * Gets the default type url for GetJournalByNameRequest
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a GetJournalByNameResponse. */
+    interface IGetJournalByNameResponse {
+
+        /** GetJournalByNameResponse page */
+        page?: (petajournal.IPage|null);
+
+        /** GetJournalByNameResponse blocks */
+        blocks?: (petajournal.IBlock[]|null);
+
+        /** GetJournalByNameResponse created */
+        created?: (boolean|null);
+    }
+
+    /** Represents a GetJournalByNameResponse. */
+    class GetJournalByNameResponse implements IGetJournalByNameResponse {
+
+        /**
+         * Constructs a new GetJournalByNameResponse.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: petajournal.IGetJournalByNameResponse);
+
+        /** GetJournalByNameResponse page. */
+        public page?: (petajournal.IPage|null);
+
+        /** GetJournalByNameResponse blocks. */
+        public blocks: petajournal.IBlock[];
+
+        /** GetJournalByNameResponse created. */
+        public created: boolean;
+
+        /**
+         * Creates a new GetJournalByNameResponse instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns GetJournalByNameResponse instance
+         */
+        public static create(properties?: petajournal.IGetJournalByNameResponse): petajournal.GetJournalByNameResponse;
+
+        /**
+         * Encodes the specified GetJournalByNameResponse message. Does not implicitly {@link petajournal.GetJournalByNameResponse.verify|verify} messages.
+         * @param message GetJournalByNameResponse message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: petajournal.IGetJournalByNameResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a GetJournalByNameResponse message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns GetJournalByNameResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.GetJournalByNameResponse;
+
+        /**
+         * Gets the default type url for GetJournalByNameResponse
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
     /** Properties of a GetConfigRequest. */
     interface IGetConfigRequest {
     }
@@ -2859,6 +2895,226 @@ export namespace petajournal {
 
         /**
          * Gets the default type url for UpdateConfigResponse
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of an ExportTreeMarkdownRequest. */
+    interface IExportTreeMarkdownRequest {
+
+        /** ExportTreeMarkdownRequest blockIds */
+        blockIds?: (string[]|null);
+    }
+
+    /** Represents an ExportTreeMarkdownRequest. */
+    class ExportTreeMarkdownRequest implements IExportTreeMarkdownRequest {
+
+        /**
+         * Constructs a new ExportTreeMarkdownRequest.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: petajournal.IExportTreeMarkdownRequest);
+
+        /** ExportTreeMarkdownRequest blockIds. */
+        public blockIds: string[];
+
+        /**
+         * Creates a new ExportTreeMarkdownRequest instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns ExportTreeMarkdownRequest instance
+         */
+        public static create(properties?: petajournal.IExportTreeMarkdownRequest): petajournal.ExportTreeMarkdownRequest;
+
+        /**
+         * Encodes the specified ExportTreeMarkdownRequest message. Does not implicitly {@link petajournal.ExportTreeMarkdownRequest.verify|verify} messages.
+         * @param message ExportTreeMarkdownRequest message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: petajournal.IExportTreeMarkdownRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes an ExportTreeMarkdownRequest message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns ExportTreeMarkdownRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.ExportTreeMarkdownRequest;
+
+        /**
+         * Gets the default type url for ExportTreeMarkdownRequest
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of an ExportTreeMarkdownResponse. */
+    interface IExportTreeMarkdownResponse {
+
+        /** ExportTreeMarkdownResponse treeMarkdown */
+        treeMarkdown?: (string|null);
+
+        /** ExportTreeMarkdownResponse html */
+        html?: (string|null);
+
+        /** ExportTreeMarkdownResponse flatMarkdown */
+        flatMarkdown?: (string|null);
+    }
+
+    /** Represents an ExportTreeMarkdownResponse. */
+    class ExportTreeMarkdownResponse implements IExportTreeMarkdownResponse {
+
+        /**
+         * Constructs a new ExportTreeMarkdownResponse.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: petajournal.IExportTreeMarkdownResponse);
+
+        /** ExportTreeMarkdownResponse treeMarkdown. */
+        public treeMarkdown: string;
+
+        /** ExportTreeMarkdownResponse html. */
+        public html: string;
+
+        /** ExportTreeMarkdownResponse flatMarkdown. */
+        public flatMarkdown: string;
+
+        /**
+         * Creates a new ExportTreeMarkdownResponse instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns ExportTreeMarkdownResponse instance
+         */
+        public static create(properties?: petajournal.IExportTreeMarkdownResponse): petajournal.ExportTreeMarkdownResponse;
+
+        /**
+         * Encodes the specified ExportTreeMarkdownResponse message. Does not implicitly {@link petajournal.ExportTreeMarkdownResponse.verify|verify} messages.
+         * @param message ExportTreeMarkdownResponse message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: petajournal.IExportTreeMarkdownResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes an ExportTreeMarkdownResponse message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns ExportTreeMarkdownResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.ExportTreeMarkdownResponse;
+
+        /**
+         * Gets the default type url for ExportTreeMarkdownResponse
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of an ImportTreeMarkdownRequest. */
+    interface IImportTreeMarkdownRequest {
+
+        /** ImportTreeMarkdownRequest treeMarkdown */
+        treeMarkdown?: (string|null);
+    }
+
+    /** Represents an ImportTreeMarkdownRequest. */
+    class ImportTreeMarkdownRequest implements IImportTreeMarkdownRequest {
+
+        /**
+         * Constructs a new ImportTreeMarkdownRequest.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: petajournal.IImportTreeMarkdownRequest);
+
+        /** ImportTreeMarkdownRequest treeMarkdown. */
+        public treeMarkdown: string;
+
+        /**
+         * Creates a new ImportTreeMarkdownRequest instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns ImportTreeMarkdownRequest instance
+         */
+        public static create(properties?: petajournal.IImportTreeMarkdownRequest): petajournal.ImportTreeMarkdownRequest;
+
+        /**
+         * Encodes the specified ImportTreeMarkdownRequest message. Does not implicitly {@link petajournal.ImportTreeMarkdownRequest.verify|verify} messages.
+         * @param message ImportTreeMarkdownRequest message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: petajournal.IImportTreeMarkdownRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes an ImportTreeMarkdownRequest message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns ImportTreeMarkdownRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.ImportTreeMarkdownRequest;
+
+        /**
+         * Gets the default type url for ImportTreeMarkdownRequest
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of an ImportTreeMarkdownResponse. */
+    interface IImportTreeMarkdownResponse {
+
+        /** ImportTreeMarkdownResponse flatMarkdown */
+        flatMarkdown?: (string|null);
+    }
+
+    /** Represents an ImportTreeMarkdownResponse. */
+    class ImportTreeMarkdownResponse implements IImportTreeMarkdownResponse {
+
+        /**
+         * Constructs a new ImportTreeMarkdownResponse.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: petajournal.IImportTreeMarkdownResponse);
+
+        /** ImportTreeMarkdownResponse flatMarkdown. */
+        public flatMarkdown: string;
+
+        /**
+         * Creates a new ImportTreeMarkdownResponse instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns ImportTreeMarkdownResponse instance
+         */
+        public static create(properties?: petajournal.IImportTreeMarkdownResponse): petajournal.ImportTreeMarkdownResponse;
+
+        /**
+         * Encodes the specified ImportTreeMarkdownResponse message. Does not implicitly {@link petajournal.ImportTreeMarkdownResponse.verify|verify} messages.
+         * @param message ImportTreeMarkdownResponse message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: petajournal.IImportTreeMarkdownResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes an ImportTreeMarkdownResponse message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns ImportTreeMarkdownResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.ImportTreeMarkdownResponse;
+
+        /**
+         * Gets the default type url for ImportTreeMarkdownResponse
          * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
          * @returns The default type url
          */

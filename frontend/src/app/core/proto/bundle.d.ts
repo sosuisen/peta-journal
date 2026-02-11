@@ -794,6 +794,12 @@ export namespace petajournal {
 
         /** ApiRequest getJournalByName */
         getJournalByName?: (petajournal.IGetJournalByNameRequest|null);
+
+        /** ApiRequest exportTreeMarkdown */
+        exportTreeMarkdown?: (petajournal.IExportTreeMarkdownRequest|null);
+
+        /** ApiRequest importTreeMarkdown */
+        importTreeMarkdown?: (petajournal.IImportTreeMarkdownRequest|null);
     }
 
     /** Represents an ApiRequest. */
@@ -862,8 +868,14 @@ export namespace petajournal {
         /** ApiRequest getJournalByName. */
         public getJournalByName?: (petajournal.IGetJournalByNameRequest|null);
 
+        /** ApiRequest exportTreeMarkdown. */
+        public exportTreeMarkdown?: (petajournal.IExportTreeMarkdownRequest|null);
+
+        /** ApiRequest importTreeMarkdown. */
+        public importTreeMarkdown?: (petajournal.IImportTreeMarkdownRequest|null);
+
         /** ApiRequest payload. */
-        public payload?: ("getPage"|"getDocByName"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"getJournalByName");
+        public payload?: ("getPage"|"getDocByName"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"getJournalByName"|"exportTreeMarkdown"|"importTreeMarkdown");
 
         /**
          * Creates a new ApiRequest instance using the specified properties.
@@ -1008,6 +1020,12 @@ export namespace petajournal {
 
         /** ApiResponse updateConfig */
         updateConfig?: (petajournal.IUpdateConfigResponse|null);
+
+        /** ApiResponse exportTreeMarkdown */
+        exportTreeMarkdown?: (petajournal.IExportTreeMarkdownResponse|null);
+
+        /** ApiResponse importTreeMarkdown */
+        importTreeMarkdown?: (petajournal.IImportTreeMarkdownResponse|null);
     }
 
     /** Represents an ApiResponse. */
@@ -1082,8 +1100,14 @@ export namespace petajournal {
         /** ApiResponse updateConfig. */
         public updateConfig?: (petajournal.IUpdateConfigResponse|null);
 
+        /** ApiResponse exportTreeMarkdown. */
+        public exportTreeMarkdown?: (petajournal.IExportTreeMarkdownResponse|null);
+
+        /** ApiResponse importTreeMarkdown. */
+        public importTreeMarkdown?: (petajournal.IImportTreeMarkdownResponse|null);
+
         /** ApiResponse payload. */
-        public payload?: ("getPage"|"getDocByName"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getJournalByName"|"getBlocksByStatus"|"getConfig"|"updateConfig");
+        public payload?: ("getPage"|"getDocByName"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getJournalByName"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"exportTreeMarkdown"|"importTreeMarkdown");
 
         /**
          * Creates a new ApiResponse instance using the specified properties.
@@ -4896,6 +4920,406 @@ export namespace petajournal {
 
         /**
          * Gets the default type url for UpdateConfigResponse
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of an ExportTreeMarkdownRequest. */
+    interface IExportTreeMarkdownRequest {
+
+        /** ExportTreeMarkdownRequest blockIds */
+        blockIds?: (string[]|null);
+    }
+
+    /** Represents an ExportTreeMarkdownRequest. */
+    class ExportTreeMarkdownRequest implements IExportTreeMarkdownRequest {
+
+        /**
+         * Constructs a new ExportTreeMarkdownRequest.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: petajournal.IExportTreeMarkdownRequest);
+
+        /** ExportTreeMarkdownRequest blockIds. */
+        public blockIds: string[];
+
+        /**
+         * Creates a new ExportTreeMarkdownRequest instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns ExportTreeMarkdownRequest instance
+         */
+        public static create(properties?: petajournal.IExportTreeMarkdownRequest): petajournal.ExportTreeMarkdownRequest;
+
+        /**
+         * Encodes the specified ExportTreeMarkdownRequest message. Does not implicitly {@link petajournal.ExportTreeMarkdownRequest.verify|verify} messages.
+         * @param message ExportTreeMarkdownRequest message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: petajournal.IExportTreeMarkdownRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified ExportTreeMarkdownRequest message, length delimited. Does not implicitly {@link petajournal.ExportTreeMarkdownRequest.verify|verify} messages.
+         * @param message ExportTreeMarkdownRequest message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encodeDelimited(message: petajournal.IExportTreeMarkdownRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes an ExportTreeMarkdownRequest message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns ExportTreeMarkdownRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.ExportTreeMarkdownRequest;
+
+        /**
+         * Decodes an ExportTreeMarkdownRequest message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns ExportTreeMarkdownRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.ExportTreeMarkdownRequest;
+
+        /**
+         * Verifies an ExportTreeMarkdownRequest message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        public static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates an ExportTreeMarkdownRequest message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns ExportTreeMarkdownRequest
+         */
+        public static fromObject(object: { [k: string]: any }): petajournal.ExportTreeMarkdownRequest;
+
+        /**
+         * Creates a plain object from an ExportTreeMarkdownRequest message. Also converts values to other types if specified.
+         * @param message ExportTreeMarkdownRequest
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        public static toObject(message: petajournal.ExportTreeMarkdownRequest, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this ExportTreeMarkdownRequest to JSON.
+         * @returns JSON object
+         */
+        public toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the default type url for ExportTreeMarkdownRequest
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of an ExportTreeMarkdownResponse. */
+    interface IExportTreeMarkdownResponse {
+
+        /** ExportTreeMarkdownResponse treeMarkdown */
+        treeMarkdown?: (string|null);
+
+        /** ExportTreeMarkdownResponse html */
+        html?: (string|null);
+
+        /** ExportTreeMarkdownResponse flatMarkdown */
+        flatMarkdown?: (string|null);
+    }
+
+    /** Represents an ExportTreeMarkdownResponse. */
+    class ExportTreeMarkdownResponse implements IExportTreeMarkdownResponse {
+
+        /**
+         * Constructs a new ExportTreeMarkdownResponse.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: petajournal.IExportTreeMarkdownResponse);
+
+        /** ExportTreeMarkdownResponse treeMarkdown. */
+        public treeMarkdown: string;
+
+        /** ExportTreeMarkdownResponse html. */
+        public html: string;
+
+        /** ExportTreeMarkdownResponse flatMarkdown. */
+        public flatMarkdown: string;
+
+        /**
+         * Creates a new ExportTreeMarkdownResponse instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns ExportTreeMarkdownResponse instance
+         */
+        public static create(properties?: petajournal.IExportTreeMarkdownResponse): petajournal.ExportTreeMarkdownResponse;
+
+        /**
+         * Encodes the specified ExportTreeMarkdownResponse message. Does not implicitly {@link petajournal.ExportTreeMarkdownResponse.verify|verify} messages.
+         * @param message ExportTreeMarkdownResponse message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: petajournal.IExportTreeMarkdownResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified ExportTreeMarkdownResponse message, length delimited. Does not implicitly {@link petajournal.ExportTreeMarkdownResponse.verify|verify} messages.
+         * @param message ExportTreeMarkdownResponse message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encodeDelimited(message: petajournal.IExportTreeMarkdownResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes an ExportTreeMarkdownResponse message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns ExportTreeMarkdownResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.ExportTreeMarkdownResponse;
+
+        /**
+         * Decodes an ExportTreeMarkdownResponse message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns ExportTreeMarkdownResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.ExportTreeMarkdownResponse;
+
+        /**
+         * Verifies an ExportTreeMarkdownResponse message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        public static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates an ExportTreeMarkdownResponse message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns ExportTreeMarkdownResponse
+         */
+        public static fromObject(object: { [k: string]: any }): petajournal.ExportTreeMarkdownResponse;
+
+        /**
+         * Creates a plain object from an ExportTreeMarkdownResponse message. Also converts values to other types if specified.
+         * @param message ExportTreeMarkdownResponse
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        public static toObject(message: petajournal.ExportTreeMarkdownResponse, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this ExportTreeMarkdownResponse to JSON.
+         * @returns JSON object
+         */
+        public toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the default type url for ExportTreeMarkdownResponse
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of an ImportTreeMarkdownRequest. */
+    interface IImportTreeMarkdownRequest {
+
+        /** ImportTreeMarkdownRequest treeMarkdown */
+        treeMarkdown?: (string|null);
+    }
+
+    /** Represents an ImportTreeMarkdownRequest. */
+    class ImportTreeMarkdownRequest implements IImportTreeMarkdownRequest {
+
+        /**
+         * Constructs a new ImportTreeMarkdownRequest.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: petajournal.IImportTreeMarkdownRequest);
+
+        /** ImportTreeMarkdownRequest treeMarkdown. */
+        public treeMarkdown: string;
+
+        /**
+         * Creates a new ImportTreeMarkdownRequest instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns ImportTreeMarkdownRequest instance
+         */
+        public static create(properties?: petajournal.IImportTreeMarkdownRequest): petajournal.ImportTreeMarkdownRequest;
+
+        /**
+         * Encodes the specified ImportTreeMarkdownRequest message. Does not implicitly {@link petajournal.ImportTreeMarkdownRequest.verify|verify} messages.
+         * @param message ImportTreeMarkdownRequest message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: petajournal.IImportTreeMarkdownRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified ImportTreeMarkdownRequest message, length delimited. Does not implicitly {@link petajournal.ImportTreeMarkdownRequest.verify|verify} messages.
+         * @param message ImportTreeMarkdownRequest message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encodeDelimited(message: petajournal.IImportTreeMarkdownRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes an ImportTreeMarkdownRequest message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns ImportTreeMarkdownRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.ImportTreeMarkdownRequest;
+
+        /**
+         * Decodes an ImportTreeMarkdownRequest message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns ImportTreeMarkdownRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.ImportTreeMarkdownRequest;
+
+        /**
+         * Verifies an ImportTreeMarkdownRequest message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        public static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates an ImportTreeMarkdownRequest message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns ImportTreeMarkdownRequest
+         */
+        public static fromObject(object: { [k: string]: any }): petajournal.ImportTreeMarkdownRequest;
+
+        /**
+         * Creates a plain object from an ImportTreeMarkdownRequest message. Also converts values to other types if specified.
+         * @param message ImportTreeMarkdownRequest
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        public static toObject(message: petajournal.ImportTreeMarkdownRequest, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this ImportTreeMarkdownRequest to JSON.
+         * @returns JSON object
+         */
+        public toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the default type url for ImportTreeMarkdownRequest
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of an ImportTreeMarkdownResponse. */
+    interface IImportTreeMarkdownResponse {
+
+        /** ImportTreeMarkdownResponse flatMarkdown */
+        flatMarkdown?: (string|null);
+    }
+
+    /** Represents an ImportTreeMarkdownResponse. */
+    class ImportTreeMarkdownResponse implements IImportTreeMarkdownResponse {
+
+        /**
+         * Constructs a new ImportTreeMarkdownResponse.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: petajournal.IImportTreeMarkdownResponse);
+
+        /** ImportTreeMarkdownResponse flatMarkdown. */
+        public flatMarkdown: string;
+
+        /**
+         * Creates a new ImportTreeMarkdownResponse instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns ImportTreeMarkdownResponse instance
+         */
+        public static create(properties?: petajournal.IImportTreeMarkdownResponse): petajournal.ImportTreeMarkdownResponse;
+
+        /**
+         * Encodes the specified ImportTreeMarkdownResponse message. Does not implicitly {@link petajournal.ImportTreeMarkdownResponse.verify|verify} messages.
+         * @param message ImportTreeMarkdownResponse message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: petajournal.IImportTreeMarkdownResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified ImportTreeMarkdownResponse message, length delimited. Does not implicitly {@link petajournal.ImportTreeMarkdownResponse.verify|verify} messages.
+         * @param message ImportTreeMarkdownResponse message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encodeDelimited(message: petajournal.IImportTreeMarkdownResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes an ImportTreeMarkdownResponse message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns ImportTreeMarkdownResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.ImportTreeMarkdownResponse;
+
+        /**
+         * Decodes an ImportTreeMarkdownResponse message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns ImportTreeMarkdownResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.ImportTreeMarkdownResponse;
+
+        /**
+         * Verifies an ImportTreeMarkdownResponse message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        public static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates an ImportTreeMarkdownResponse message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns ImportTreeMarkdownResponse
+         */
+        public static fromObject(object: { [k: string]: any }): petajournal.ImportTreeMarkdownResponse;
+
+        /**
+         * Creates a plain object from an ImportTreeMarkdownResponse message. Also converts values to other types if specified.
+         * @param message ImportTreeMarkdownResponse
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        public static toObject(message: petajournal.ImportTreeMarkdownResponse, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this ImportTreeMarkdownResponse to JSON.
+         * @returns JSON object
+         */
+        public toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the default type url for ImportTreeMarkdownResponse
          * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
          * @returns The default type url
          */

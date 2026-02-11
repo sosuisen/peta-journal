@@ -1077,8 +1077,7 @@ export const petajournal = $root.petajournal = (() => {
          * @interface IApiRequest
          * @property {string|null} [requestId] ApiRequest requestId
          * @property {petajournal.IGetPageRequest|null} [getPage] ApiRequest getPage
-         * @property {petajournal.IGetJournalRequest|null} [getJournal] ApiRequest getJournal
-         * @property {petajournal.ICreatePageRequest|null} [createPage] ApiRequest createPage
+         * @property {petajournal.IGetDocByNameRequest|null} [getDocByName] ApiRequest getDocByName
          * @property {petajournal.IDeletePageRequest|null} [deletePage] ApiRequest deletePage
          * @property {petajournal.IUpdatePageRequest|null} [updatePage] ApiRequest updatePage
          * @property {petajournal.ICreateBlockRequest|null} [createBlock] ApiRequest createBlock
@@ -1094,6 +1093,9 @@ export const petajournal = $root.petajournal = (() => {
          * @property {petajournal.IGetBlocksByStatusRequest|null} [getBlocksByStatus] ApiRequest getBlocksByStatus
          * @property {petajournal.IGetConfigRequest|null} [getConfig] ApiRequest getConfig
          * @property {petajournal.IUpdateConfigRequest|null} [updateConfig] ApiRequest updateConfig
+         * @property {petajournal.IGetJournalByNameRequest|null} [getJournalByName] ApiRequest getJournalByName
+         * @property {petajournal.IExportTreeMarkdownRequest|null} [exportTreeMarkdown] ApiRequest exportTreeMarkdown
+         * @property {petajournal.IImportTreeMarkdownRequest|null} [importTreeMarkdown] ApiRequest importTreeMarkdown
          */
 
         /**
@@ -1128,20 +1130,12 @@ export const petajournal = $root.petajournal = (() => {
         ApiRequest.prototype.getPage = null;
 
         /**
-         * ApiRequest getJournal.
-         * @member {petajournal.IGetJournalRequest|null|undefined} getJournal
+         * ApiRequest getDocByName.
+         * @member {petajournal.IGetDocByNameRequest|null|undefined} getDocByName
          * @memberof petajournal.ApiRequest
          * @instance
          */
-        ApiRequest.prototype.getJournal = null;
-
-        /**
-         * ApiRequest createPage.
-         * @member {petajournal.ICreatePageRequest|null|undefined} createPage
-         * @memberof petajournal.ApiRequest
-         * @instance
-         */
-        ApiRequest.prototype.createPage = null;
+        ApiRequest.prototype.getDocByName = null;
 
         /**
          * ApiRequest deletePage.
@@ -1263,17 +1257,41 @@ export const petajournal = $root.petajournal = (() => {
          */
         ApiRequest.prototype.updateConfig = null;
 
+        /**
+         * ApiRequest getJournalByName.
+         * @member {petajournal.IGetJournalByNameRequest|null|undefined} getJournalByName
+         * @memberof petajournal.ApiRequest
+         * @instance
+         */
+        ApiRequest.prototype.getJournalByName = null;
+
+        /**
+         * ApiRequest exportTreeMarkdown.
+         * @member {petajournal.IExportTreeMarkdownRequest|null|undefined} exportTreeMarkdown
+         * @memberof petajournal.ApiRequest
+         * @instance
+         */
+        ApiRequest.prototype.exportTreeMarkdown = null;
+
+        /**
+         * ApiRequest importTreeMarkdown.
+         * @member {petajournal.IImportTreeMarkdownRequest|null|undefined} importTreeMarkdown
+         * @memberof petajournal.ApiRequest
+         * @instance
+         */
+        ApiRequest.prototype.importTreeMarkdown = null;
+
         // OneOf field names bound to virtual getters and setters
         let $oneOfFields;
 
         /**
          * ApiRequest payload.
-         * @member {"getPage"|"getJournal"|"createPage"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getBlocksByStatus"|"getConfig"|"updateConfig"|undefined} payload
+         * @member {"getPage"|"getDocByName"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"getJournalByName"|"exportTreeMarkdown"|"importTreeMarkdown"|undefined} payload
          * @memberof petajournal.ApiRequest
          * @instance
          */
         Object.defineProperty(ApiRequest.prototype, "payload", {
-            get: $util.oneOfGetter($oneOfFields = ["getPage", "getJournal", "createPage", "deletePage", "updatePage", "createBlock", "updateBlock", "moveBlocks", "deleteBlock", "updateBlockStatus", "searchPageNames", "searchFullText", "getRecentPages", "getBacklinks", "getMostRecentJournalBefore", "getBlocksByStatus", "getConfig", "updateConfig"]),
+            get: $util.oneOfGetter($oneOfFields = ["getPage", "getDocByName", "deletePage", "updatePage", "createBlock", "updateBlock", "moveBlocks", "deleteBlock", "updateBlockStatus", "searchPageNames", "searchFullText", "getRecentPages", "getBacklinks", "getMostRecentJournalBefore", "getBlocksByStatus", "getConfig", "updateConfig", "getJournalByName", "exportTreeMarkdown", "importTreeMarkdown"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
@@ -1305,10 +1323,8 @@ export const petajournal = $root.petajournal = (() => {
                 writer.uint32(/* id 1, wireType 2 =*/10).string(message.requestId);
             if (message.getPage != null && Object.hasOwnProperty.call(message, "getPage"))
                 $root.petajournal.GetPageRequest.encode(message.getPage, writer.uint32(/* id 10, wireType 2 =*/82).fork()).ldelim();
-            if (message.getJournal != null && Object.hasOwnProperty.call(message, "getJournal"))
-                $root.petajournal.GetJournalRequest.encode(message.getJournal, writer.uint32(/* id 11, wireType 2 =*/90).fork()).ldelim();
-            if (message.createPage != null && Object.hasOwnProperty.call(message, "createPage"))
-                $root.petajournal.CreatePageRequest.encode(message.createPage, writer.uint32(/* id 12, wireType 2 =*/98).fork()).ldelim();
+            if (message.getDocByName != null && Object.hasOwnProperty.call(message, "getDocByName"))
+                $root.petajournal.GetDocByNameRequest.encode(message.getDocByName, writer.uint32(/* id 12, wireType 2 =*/98).fork()).ldelim();
             if (message.deletePage != null && Object.hasOwnProperty.call(message, "deletePage"))
                 $root.petajournal.DeletePageRequest.encode(message.deletePage, writer.uint32(/* id 13, wireType 2 =*/106).fork()).ldelim();
             if (message.updatePage != null && Object.hasOwnProperty.call(message, "updatePage"))
@@ -1333,12 +1349,18 @@ export const petajournal = $root.petajournal = (() => {
                 $root.petajournal.GetBacklinksRequest.encode(message.getBacklinks, writer.uint32(/* id 41, wireType 2 =*/330).fork()).ldelim();
             if (message.getMostRecentJournalBefore != null && Object.hasOwnProperty.call(message, "getMostRecentJournalBefore"))
                 $root.petajournal.GetMostRecentJournalBeforeRequest.encode(message.getMostRecentJournalBefore, writer.uint32(/* id 42, wireType 2 =*/338).fork()).ldelim();
+            if (message.getJournalByName != null && Object.hasOwnProperty.call(message, "getJournalByName"))
+                $root.petajournal.GetJournalByNameRequest.encode(message.getJournalByName, writer.uint32(/* id 44, wireType 2 =*/354).fork()).ldelim();
             if (message.getBlocksByStatus != null && Object.hasOwnProperty.call(message, "getBlocksByStatus"))
                 $root.petajournal.GetBlocksByStatusRequest.encode(message.getBlocksByStatus, writer.uint32(/* id 50, wireType 2 =*/402).fork()).ldelim();
             if (message.getConfig != null && Object.hasOwnProperty.call(message, "getConfig"))
                 $root.petajournal.GetConfigRequest.encode(message.getConfig, writer.uint32(/* id 60, wireType 2 =*/482).fork()).ldelim();
             if (message.updateConfig != null && Object.hasOwnProperty.call(message, "updateConfig"))
                 $root.petajournal.UpdateConfigRequest.encode(message.updateConfig, writer.uint32(/* id 61, wireType 2 =*/490).fork()).ldelim();
+            if (message.exportTreeMarkdown != null && Object.hasOwnProperty.call(message, "exportTreeMarkdown"))
+                $root.petajournal.ExportTreeMarkdownRequest.encode(message.exportTreeMarkdown, writer.uint32(/* id 70, wireType 2 =*/562).fork()).ldelim();
+            if (message.importTreeMarkdown != null && Object.hasOwnProperty.call(message, "importTreeMarkdown"))
+                $root.petajournal.ImportTreeMarkdownRequest.encode(message.importTreeMarkdown, writer.uint32(/* id 71, wireType 2 =*/570).fork()).ldelim();
             return writer;
         };
 
@@ -1370,12 +1392,8 @@ export const petajournal = $root.petajournal = (() => {
                         message.getPage = $root.petajournal.GetPageRequest.decode(reader, reader.uint32());
                         break;
                     }
-                case 11: {
-                        message.getJournal = $root.petajournal.GetJournalRequest.decode(reader, reader.uint32());
-                        break;
-                    }
                 case 12: {
-                        message.createPage = $root.petajournal.CreatePageRequest.decode(reader, reader.uint32());
+                        message.getDocByName = $root.petajournal.GetDocByNameRequest.decode(reader, reader.uint32());
                         break;
                     }
                 case 13: {
@@ -1438,6 +1456,18 @@ export const petajournal = $root.petajournal = (() => {
                         message.updateConfig = $root.petajournal.UpdateConfigRequest.decode(reader, reader.uint32());
                         break;
                     }
+                case 44: {
+                        message.getJournalByName = $root.petajournal.GetJournalByNameRequest.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 70: {
+                        message.exportTreeMarkdown = $root.petajournal.ExportTreeMarkdownRequest.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 71: {
+                        message.importTreeMarkdown = $root.petajournal.ImportTreeMarkdownRequest.decode(reader, reader.uint32());
+                        break;
+                    }
                 default:
                     reader.skipType(tag & 7);
                     break;
@@ -1474,8 +1504,7 @@ export const petajournal = $root.petajournal = (() => {
          * @property {boolean|null} [success] ApiResponse success
          * @property {string|null} [errorMessage] ApiResponse errorMessage
          * @property {petajournal.IGetPageResponse|null} [getPage] ApiResponse getPage
-         * @property {petajournal.IGetJournalResponse|null} [getJournal] ApiResponse getJournal
-         * @property {petajournal.ICreatePageResponse|null} [createPage] ApiResponse createPage
+         * @property {petajournal.IGetDocByNameResponse|null} [getDocByName] ApiResponse getDocByName
          * @property {petajournal.IDeletePageResponse|null} [deletePage] ApiResponse deletePage
          * @property {petajournal.IUpdatePageResponse|null} [updatePage] ApiResponse updatePage
          * @property {petajournal.ICreateBlockResponse|null} [createBlock] ApiResponse createBlock
@@ -1488,9 +1517,12 @@ export const petajournal = $root.petajournal = (() => {
          * @property {petajournal.IGetRecentPagesResponse|null} [getRecentPages] ApiResponse getRecentPages
          * @property {petajournal.IGetBacklinksResponse|null} [getBacklinks] ApiResponse getBacklinks
          * @property {petajournal.IGetMostRecentJournalBeforeResponse|null} [getMostRecentJournalBefore] ApiResponse getMostRecentJournalBefore
+         * @property {petajournal.IGetJournalByNameResponse|null} [getJournalByName] ApiResponse getJournalByName
          * @property {petajournal.IGetBlocksByStatusResponse|null} [getBlocksByStatus] ApiResponse getBlocksByStatus
          * @property {petajournal.IGetConfigResponse|null} [getConfig] ApiResponse getConfig
          * @property {petajournal.IUpdateConfigResponse|null} [updateConfig] ApiResponse updateConfig
+         * @property {petajournal.IExportTreeMarkdownResponse|null} [exportTreeMarkdown] ApiResponse exportTreeMarkdown
+         * @property {petajournal.IImportTreeMarkdownResponse|null} [importTreeMarkdown] ApiResponse importTreeMarkdown
          */
 
         /**
@@ -1541,20 +1573,12 @@ export const petajournal = $root.petajournal = (() => {
         ApiResponse.prototype.getPage = null;
 
         /**
-         * ApiResponse getJournal.
-         * @member {petajournal.IGetJournalResponse|null|undefined} getJournal
+         * ApiResponse getDocByName.
+         * @member {petajournal.IGetDocByNameResponse|null|undefined} getDocByName
          * @memberof petajournal.ApiResponse
          * @instance
          */
-        ApiResponse.prototype.getJournal = null;
-
-        /**
-         * ApiResponse createPage.
-         * @member {petajournal.ICreatePageResponse|null|undefined} createPage
-         * @memberof petajournal.ApiResponse
-         * @instance
-         */
-        ApiResponse.prototype.createPage = null;
+        ApiResponse.prototype.getDocByName = null;
 
         /**
          * ApiResponse deletePage.
@@ -1653,6 +1677,14 @@ export const petajournal = $root.petajournal = (() => {
         ApiResponse.prototype.getMostRecentJournalBefore = null;
 
         /**
+         * ApiResponse getJournalByName.
+         * @member {petajournal.IGetJournalByNameResponse|null|undefined} getJournalByName
+         * @memberof petajournal.ApiResponse
+         * @instance
+         */
+        ApiResponse.prototype.getJournalByName = null;
+
+        /**
          * ApiResponse getBlocksByStatus.
          * @member {petajournal.IGetBlocksByStatusResponse|null|undefined} getBlocksByStatus
          * @memberof petajournal.ApiResponse
@@ -1676,17 +1708,33 @@ export const petajournal = $root.petajournal = (() => {
          */
         ApiResponse.prototype.updateConfig = null;
 
+        /**
+         * ApiResponse exportTreeMarkdown.
+         * @member {petajournal.IExportTreeMarkdownResponse|null|undefined} exportTreeMarkdown
+         * @memberof petajournal.ApiResponse
+         * @instance
+         */
+        ApiResponse.prototype.exportTreeMarkdown = null;
+
+        /**
+         * ApiResponse importTreeMarkdown.
+         * @member {petajournal.IImportTreeMarkdownResponse|null|undefined} importTreeMarkdown
+         * @memberof petajournal.ApiResponse
+         * @instance
+         */
+        ApiResponse.prototype.importTreeMarkdown = null;
+
         // OneOf field names bound to virtual getters and setters
         let $oneOfFields;
 
         /**
          * ApiResponse payload.
-         * @member {"getPage"|"getJournal"|"createPage"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getBlocksByStatus"|"getConfig"|"updateConfig"|undefined} payload
+         * @member {"getPage"|"getDocByName"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getJournalByName"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"exportTreeMarkdown"|"importTreeMarkdown"|undefined} payload
          * @memberof petajournal.ApiResponse
          * @instance
          */
         Object.defineProperty(ApiResponse.prototype, "payload", {
-            get: $util.oneOfGetter($oneOfFields = ["getPage", "getJournal", "createPage", "deletePage", "updatePage", "createBlock", "updateBlock", "moveBlocks", "deleteBlock", "updateBlockStatus", "searchPageNames", "searchFullText", "getRecentPages", "getBacklinks", "getMostRecentJournalBefore", "getBlocksByStatus", "getConfig", "updateConfig"]),
+            get: $util.oneOfGetter($oneOfFields = ["getPage", "getDocByName", "deletePage", "updatePage", "createBlock", "updateBlock", "moveBlocks", "deleteBlock", "updateBlockStatus", "searchPageNames", "searchFullText", "getRecentPages", "getBacklinks", "getMostRecentJournalBefore", "getJournalByName", "getBlocksByStatus", "getConfig", "updateConfig", "exportTreeMarkdown", "importTreeMarkdown"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
@@ -1722,10 +1770,8 @@ export const petajournal = $root.petajournal = (() => {
                 writer.uint32(/* id 3, wireType 2 =*/26).string(message.errorMessage);
             if (message.getPage != null && Object.hasOwnProperty.call(message, "getPage"))
                 $root.petajournal.GetPageResponse.encode(message.getPage, writer.uint32(/* id 10, wireType 2 =*/82).fork()).ldelim();
-            if (message.getJournal != null && Object.hasOwnProperty.call(message, "getJournal"))
-                $root.petajournal.GetJournalResponse.encode(message.getJournal, writer.uint32(/* id 11, wireType 2 =*/90).fork()).ldelim();
-            if (message.createPage != null && Object.hasOwnProperty.call(message, "createPage"))
-                $root.petajournal.CreatePageResponse.encode(message.createPage, writer.uint32(/* id 12, wireType 2 =*/98).fork()).ldelim();
+            if (message.getDocByName != null && Object.hasOwnProperty.call(message, "getDocByName"))
+                $root.petajournal.GetDocByNameResponse.encode(message.getDocByName, writer.uint32(/* id 12, wireType 2 =*/98).fork()).ldelim();
             if (message.deletePage != null && Object.hasOwnProperty.call(message, "deletePage"))
                 $root.petajournal.DeletePageResponse.encode(message.deletePage, writer.uint32(/* id 13, wireType 2 =*/106).fork()).ldelim();
             if (message.updatePage != null && Object.hasOwnProperty.call(message, "updatePage"))
@@ -1750,12 +1796,18 @@ export const petajournal = $root.petajournal = (() => {
                 $root.petajournal.GetBacklinksResponse.encode(message.getBacklinks, writer.uint32(/* id 41, wireType 2 =*/330).fork()).ldelim();
             if (message.getMostRecentJournalBefore != null && Object.hasOwnProperty.call(message, "getMostRecentJournalBefore"))
                 $root.petajournal.GetMostRecentJournalBeforeResponse.encode(message.getMostRecentJournalBefore, writer.uint32(/* id 42, wireType 2 =*/338).fork()).ldelim();
+            if (message.getJournalByName != null && Object.hasOwnProperty.call(message, "getJournalByName"))
+                $root.petajournal.GetJournalByNameResponse.encode(message.getJournalByName, writer.uint32(/* id 44, wireType 2 =*/354).fork()).ldelim();
             if (message.getBlocksByStatus != null && Object.hasOwnProperty.call(message, "getBlocksByStatus"))
                 $root.petajournal.GetBlocksByStatusResponse.encode(message.getBlocksByStatus, writer.uint32(/* id 50, wireType 2 =*/402).fork()).ldelim();
             if (message.getConfig != null && Object.hasOwnProperty.call(message, "getConfig"))
                 $root.petajournal.GetConfigResponse.encode(message.getConfig, writer.uint32(/* id 60, wireType 2 =*/482).fork()).ldelim();
             if (message.updateConfig != null && Object.hasOwnProperty.call(message, "updateConfig"))
                 $root.petajournal.UpdateConfigResponse.encode(message.updateConfig, writer.uint32(/* id 61, wireType 2 =*/490).fork()).ldelim();
+            if (message.exportTreeMarkdown != null && Object.hasOwnProperty.call(message, "exportTreeMarkdown"))
+                $root.petajournal.ExportTreeMarkdownResponse.encode(message.exportTreeMarkdown, writer.uint32(/* id 70, wireType 2 =*/562).fork()).ldelim();
+            if (message.importTreeMarkdown != null && Object.hasOwnProperty.call(message, "importTreeMarkdown"))
+                $root.petajournal.ImportTreeMarkdownResponse.encode(message.importTreeMarkdown, writer.uint32(/* id 71, wireType 2 =*/570).fork()).ldelim();
             return writer;
         };
 
@@ -1795,12 +1847,8 @@ export const petajournal = $root.petajournal = (() => {
                         message.getPage = $root.petajournal.GetPageResponse.decode(reader, reader.uint32());
                         break;
                     }
-                case 11: {
-                        message.getJournal = $root.petajournal.GetJournalResponse.decode(reader, reader.uint32());
-                        break;
-                    }
                 case 12: {
-                        message.createPage = $root.petajournal.CreatePageResponse.decode(reader, reader.uint32());
+                        message.getDocByName = $root.petajournal.GetDocByNameResponse.decode(reader, reader.uint32());
                         break;
                     }
                 case 13: {
@@ -1851,6 +1899,10 @@ export const petajournal = $root.petajournal = (() => {
                         message.getMostRecentJournalBefore = $root.petajournal.GetMostRecentJournalBeforeResponse.decode(reader, reader.uint32());
                         break;
                     }
+                case 44: {
+                        message.getJournalByName = $root.petajournal.GetJournalByNameResponse.decode(reader, reader.uint32());
+                        break;
+                    }
                 case 50: {
                         message.getBlocksByStatus = $root.petajournal.GetBlocksByStatusResponse.decode(reader, reader.uint32());
                         break;
@@ -1861,6 +1913,14 @@ export const petajournal = $root.petajournal = (() => {
                     }
                 case 61: {
                         message.updateConfig = $root.petajournal.UpdateConfigResponse.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 70: {
+                        message.exportTreeMarkdown = $root.petajournal.ExportTreeMarkdownResponse.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 71: {
+                        message.importTreeMarkdown = $root.petajournal.ImportTreeMarkdownResponse.decode(reader, reader.uint32());
                         break;
                     }
                 default:
@@ -2130,282 +2190,26 @@ export const petajournal = $root.petajournal = (() => {
         return GetPageResponse;
     })();
 
-    petajournal.GetJournalRequest = (function() {
+    petajournal.GetDocByNameRequest = (function() {
 
         /**
-         * Properties of a GetJournalRequest.
+         * Properties of a GetDocByNameRequest.
          * @memberof petajournal
-         * @interface IGetJournalRequest
-         * @property {string|null} [date] GetJournalRequest date
+         * @interface IGetDocByNameRequest
+         * @property {string|null} [title] GetDocByNameRequest title
+         * @property {string|null} [dirPath] GetDocByNameRequest dirPath
+         * @property {Array.<string>|null} [tags] GetDocByNameRequest tags
          */
 
         /**
-         * Constructs a new GetJournalRequest.
+         * Constructs a new GetDocByNameRequest.
          * @memberof petajournal
-         * @classdesc Represents a GetJournalRequest.
-         * @implements IGetJournalRequest
+         * @classdesc Represents a GetDocByNameRequest.
+         * @implements IGetDocByNameRequest
          * @constructor
-         * @param {petajournal.IGetJournalRequest=} [properties] Properties to set
+         * @param {petajournal.IGetDocByNameRequest=} [properties] Properties to set
          */
-        function GetJournalRequest(properties) {
-            if (properties)
-                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                    if (properties[keys[i]] != null)
-                        this[keys[i]] = properties[keys[i]];
-        }
-
-        /**
-         * GetJournalRequest date.
-         * @member {string} date
-         * @memberof petajournal.GetJournalRequest
-         * @instance
-         */
-        GetJournalRequest.prototype.date = "";
-
-        /**
-         * Creates a new GetJournalRequest instance using the specified properties.
-         * @function create
-         * @memberof petajournal.GetJournalRequest
-         * @static
-         * @param {petajournal.IGetJournalRequest=} [properties] Properties to set
-         * @returns {petajournal.GetJournalRequest} GetJournalRequest instance
-         */
-        GetJournalRequest.create = function create(properties) {
-            return new GetJournalRequest(properties);
-        };
-
-        /**
-         * Encodes the specified GetJournalRequest message. Does not implicitly {@link petajournal.GetJournalRequest.verify|verify} messages.
-         * @function encode
-         * @memberof petajournal.GetJournalRequest
-         * @static
-         * @param {petajournal.IGetJournalRequest} message GetJournalRequest message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        GetJournalRequest.encode = function encode(message, writer) {
-            if (!writer)
-                writer = $Writer.create();
-            if (message.date != null && Object.hasOwnProperty.call(message, "date"))
-                writer.uint32(/* id 1, wireType 2 =*/10).string(message.date);
-            return writer;
-        };
-
-        /**
-         * Decodes a GetJournalRequest message from the specified reader or buffer.
-         * @function decode
-         * @memberof petajournal.GetJournalRequest
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @param {number} [length] Message length if known beforehand
-         * @returns {petajournal.GetJournalRequest} GetJournalRequest
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        GetJournalRequest.decode = function decode(reader, length, error) {
-            if (!(reader instanceof $Reader))
-                reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.GetJournalRequest();
-            while (reader.pos < end) {
-                let tag = reader.uint32();
-                if (tag === error)
-                    break;
-                switch (tag >>> 3) {
-                case 1: {
-                        message.date = reader.string();
-                        break;
-                    }
-                default:
-                    reader.skipType(tag & 7);
-                    break;
-                }
-            }
-            return message;
-        };
-
-        /**
-         * Gets the default type url for GetJournalRequest
-         * @function getTypeUrl
-         * @memberof petajournal.GetJournalRequest
-         * @static
-         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
-         * @returns {string} The default type url
-         */
-        GetJournalRequest.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-            if (typeUrlPrefix === undefined) {
-                typeUrlPrefix = "type.googleapis.com";
-            }
-            return typeUrlPrefix + "/petajournal.GetJournalRequest";
-        };
-
-        return GetJournalRequest;
-    })();
-
-    petajournal.GetJournalResponse = (function() {
-
-        /**
-         * Properties of a GetJournalResponse.
-         * @memberof petajournal
-         * @interface IGetJournalResponse
-         * @property {petajournal.IPage|null} [page] GetJournalResponse page
-         * @property {Array.<petajournal.IBlock>|null} [blocks] GetJournalResponse blocks
-         * @property {boolean|null} [created] GetJournalResponse created
-         */
-
-        /**
-         * Constructs a new GetJournalResponse.
-         * @memberof petajournal
-         * @classdesc Represents a GetJournalResponse.
-         * @implements IGetJournalResponse
-         * @constructor
-         * @param {petajournal.IGetJournalResponse=} [properties] Properties to set
-         */
-        function GetJournalResponse(properties) {
-            this.blocks = [];
-            if (properties)
-                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
-                    if (properties[keys[i]] != null)
-                        this[keys[i]] = properties[keys[i]];
-        }
-
-        /**
-         * GetJournalResponse page.
-         * @member {petajournal.IPage|null|undefined} page
-         * @memberof petajournal.GetJournalResponse
-         * @instance
-         */
-        GetJournalResponse.prototype.page = null;
-
-        /**
-         * GetJournalResponse blocks.
-         * @member {Array.<petajournal.IBlock>} blocks
-         * @memberof petajournal.GetJournalResponse
-         * @instance
-         */
-        GetJournalResponse.prototype.blocks = $util.emptyArray;
-
-        /**
-         * GetJournalResponse created.
-         * @member {boolean} created
-         * @memberof petajournal.GetJournalResponse
-         * @instance
-         */
-        GetJournalResponse.prototype.created = false;
-
-        /**
-         * Creates a new GetJournalResponse instance using the specified properties.
-         * @function create
-         * @memberof petajournal.GetJournalResponse
-         * @static
-         * @param {petajournal.IGetJournalResponse=} [properties] Properties to set
-         * @returns {petajournal.GetJournalResponse} GetJournalResponse instance
-         */
-        GetJournalResponse.create = function create(properties) {
-            return new GetJournalResponse(properties);
-        };
-
-        /**
-         * Encodes the specified GetJournalResponse message. Does not implicitly {@link petajournal.GetJournalResponse.verify|verify} messages.
-         * @function encode
-         * @memberof petajournal.GetJournalResponse
-         * @static
-         * @param {petajournal.IGetJournalResponse} message GetJournalResponse message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        GetJournalResponse.encode = function encode(message, writer) {
-            if (!writer)
-                writer = $Writer.create();
-            if (message.page != null && Object.hasOwnProperty.call(message, "page"))
-                $root.petajournal.Page.encode(message.page, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
-            if (message.blocks != null && message.blocks.length)
-                for (let i = 0; i < message.blocks.length; ++i)
-                    $root.petajournal.Block.encode(message.blocks[i], writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim();
-            if (message.created != null && Object.hasOwnProperty.call(message, "created"))
-                writer.uint32(/* id 3, wireType 0 =*/24).bool(message.created);
-            return writer;
-        };
-
-        /**
-         * Decodes a GetJournalResponse message from the specified reader or buffer.
-         * @function decode
-         * @memberof petajournal.GetJournalResponse
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @param {number} [length] Message length if known beforehand
-         * @returns {petajournal.GetJournalResponse} GetJournalResponse
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        GetJournalResponse.decode = function decode(reader, length, error) {
-            if (!(reader instanceof $Reader))
-                reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.GetJournalResponse();
-            while (reader.pos < end) {
-                let tag = reader.uint32();
-                if (tag === error)
-                    break;
-                switch (tag >>> 3) {
-                case 1: {
-                        message.page = $root.petajournal.Page.decode(reader, reader.uint32());
-                        break;
-                    }
-                case 2: {
-                        if (!(message.blocks && message.blocks.length))
-                            message.blocks = [];
-                        message.blocks.push($root.petajournal.Block.decode(reader, reader.uint32()));
-                        break;
-                    }
-                case 3: {
-                        message.created = reader.bool();
-                        break;
-                    }
-                default:
-                    reader.skipType(tag & 7);
-                    break;
-                }
-            }
-            return message;
-        };
-
-        /**
-         * Gets the default type url for GetJournalResponse
-         * @function getTypeUrl
-         * @memberof petajournal.GetJournalResponse
-         * @static
-         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
-         * @returns {string} The default type url
-         */
-        GetJournalResponse.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
-            if (typeUrlPrefix === undefined) {
-                typeUrlPrefix = "type.googleapis.com";
-            }
-            return typeUrlPrefix + "/petajournal.GetJournalResponse";
-        };
-
-        return GetJournalResponse;
-    })();
-
-    petajournal.CreatePageRequest = (function() {
-
-        /**
-         * Properties of a CreatePageRequest.
-         * @memberof petajournal
-         * @interface ICreatePageRequest
-         * @property {string|null} [title] CreatePageRequest title
-         * @property {string|null} [dirPath] CreatePageRequest dirPath
-         * @property {Array.<string>|null} [tags] CreatePageRequest tags
-         */
-
-        /**
-         * Constructs a new CreatePageRequest.
-         * @memberof petajournal
-         * @classdesc Represents a CreatePageRequest.
-         * @implements ICreatePageRequest
-         * @constructor
-         * @param {petajournal.ICreatePageRequest=} [properties] Properties to set
-         */
-        function CreatePageRequest(properties) {
+        function GetDocByNameRequest(properties) {
             this.tags = [];
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
@@ -2414,51 +2218,51 @@ export const petajournal = $root.petajournal = (() => {
         }
 
         /**
-         * CreatePageRequest title.
+         * GetDocByNameRequest title.
          * @member {string} title
-         * @memberof petajournal.CreatePageRequest
+         * @memberof petajournal.GetDocByNameRequest
          * @instance
          */
-        CreatePageRequest.prototype.title = "";
+        GetDocByNameRequest.prototype.title = "";
 
         /**
-         * CreatePageRequest dirPath.
+         * GetDocByNameRequest dirPath.
          * @member {string} dirPath
-         * @memberof petajournal.CreatePageRequest
+         * @memberof petajournal.GetDocByNameRequest
          * @instance
          */
-        CreatePageRequest.prototype.dirPath = "";
+        GetDocByNameRequest.prototype.dirPath = "";
 
         /**
-         * CreatePageRequest tags.
+         * GetDocByNameRequest tags.
          * @member {Array.<string>} tags
-         * @memberof petajournal.CreatePageRequest
+         * @memberof petajournal.GetDocByNameRequest
          * @instance
          */
-        CreatePageRequest.prototype.tags = $util.emptyArray;
+        GetDocByNameRequest.prototype.tags = $util.emptyArray;
 
         /**
-         * Creates a new CreatePageRequest instance using the specified properties.
+         * Creates a new GetDocByNameRequest instance using the specified properties.
          * @function create
-         * @memberof petajournal.CreatePageRequest
+         * @memberof petajournal.GetDocByNameRequest
          * @static
-         * @param {petajournal.ICreatePageRequest=} [properties] Properties to set
-         * @returns {petajournal.CreatePageRequest} CreatePageRequest instance
+         * @param {petajournal.IGetDocByNameRequest=} [properties] Properties to set
+         * @returns {petajournal.GetDocByNameRequest} GetDocByNameRequest instance
          */
-        CreatePageRequest.create = function create(properties) {
-            return new CreatePageRequest(properties);
+        GetDocByNameRequest.create = function create(properties) {
+            return new GetDocByNameRequest(properties);
         };
 
         /**
-         * Encodes the specified CreatePageRequest message. Does not implicitly {@link petajournal.CreatePageRequest.verify|verify} messages.
+         * Encodes the specified GetDocByNameRequest message. Does not implicitly {@link petajournal.GetDocByNameRequest.verify|verify} messages.
          * @function encode
-         * @memberof petajournal.CreatePageRequest
+         * @memberof petajournal.GetDocByNameRequest
          * @static
-         * @param {petajournal.ICreatePageRequest} message CreatePageRequest message or plain object to encode
+         * @param {petajournal.IGetDocByNameRequest} message GetDocByNameRequest message or plain object to encode
          * @param {$protobuf.Writer} [writer] Writer to encode to
          * @returns {$protobuf.Writer} Writer
          */
-        CreatePageRequest.encode = function encode(message, writer) {
+        GetDocByNameRequest.encode = function encode(message, writer) {
             if (!writer)
                 writer = $Writer.create();
             if (message.title != null && Object.hasOwnProperty.call(message, "title"))
@@ -2472,20 +2276,20 @@ export const petajournal = $root.petajournal = (() => {
         };
 
         /**
-         * Decodes a CreatePageRequest message from the specified reader or buffer.
+         * Decodes a GetDocByNameRequest message from the specified reader or buffer.
          * @function decode
-         * @memberof petajournal.CreatePageRequest
+         * @memberof petajournal.GetDocByNameRequest
          * @static
          * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
          * @param {number} [length] Message length if known beforehand
-         * @returns {petajournal.CreatePageRequest} CreatePageRequest
+         * @returns {petajournal.GetDocByNameRequest} GetDocByNameRequest
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        CreatePageRequest.decode = function decode(reader, length, error) {
+        GetDocByNameRequest.decode = function decode(reader, length, error) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.CreatePageRequest();
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.GetDocByNameRequest();
             while (reader.pos < end) {
                 let tag = reader.uint32();
                 if (tag === error)
@@ -2514,41 +2318,44 @@ export const petajournal = $root.petajournal = (() => {
         };
 
         /**
-         * Gets the default type url for CreatePageRequest
+         * Gets the default type url for GetDocByNameRequest
          * @function getTypeUrl
-         * @memberof petajournal.CreatePageRequest
+         * @memberof petajournal.GetDocByNameRequest
          * @static
          * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
          * @returns {string} The default type url
          */
-        CreatePageRequest.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+        GetDocByNameRequest.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
             if (typeUrlPrefix === undefined) {
                 typeUrlPrefix = "type.googleapis.com";
             }
-            return typeUrlPrefix + "/petajournal.CreatePageRequest";
+            return typeUrlPrefix + "/petajournal.GetDocByNameRequest";
         };
 
-        return CreatePageRequest;
+        return GetDocByNameRequest;
     })();
 
-    petajournal.CreatePageResponse = (function() {
+    petajournal.GetDocByNameResponse = (function() {
 
         /**
-         * Properties of a CreatePageResponse.
+         * Properties of a GetDocByNameResponse.
          * @memberof petajournal
-         * @interface ICreatePageResponse
-         * @property {petajournal.IPage|null} [page] CreatePageResponse page
+         * @interface IGetDocByNameResponse
+         * @property {petajournal.IPage|null} [page] GetDocByNameResponse page
+         * @property {Array.<petajournal.IBlock>|null} [blocks] GetDocByNameResponse blocks
+         * @property {boolean|null} [created] GetDocByNameResponse created
          */
 
         /**
-         * Constructs a new CreatePageResponse.
+         * Constructs a new GetDocByNameResponse.
          * @memberof petajournal
-         * @classdesc Represents a CreatePageResponse.
-         * @implements ICreatePageResponse
+         * @classdesc Represents a GetDocByNameResponse.
+         * @implements IGetDocByNameResponse
          * @constructor
-         * @param {petajournal.ICreatePageResponse=} [properties] Properties to set
+         * @param {petajournal.IGetDocByNameResponse=} [properties] Properties to set
          */
-        function CreatePageResponse(properties) {
+        function GetDocByNameResponse(properties) {
+            this.blocks = [];
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
                     if (properties[keys[i]] != null)
@@ -2556,57 +2363,78 @@ export const petajournal = $root.petajournal = (() => {
         }
 
         /**
-         * CreatePageResponse page.
+         * GetDocByNameResponse page.
          * @member {petajournal.IPage|null|undefined} page
-         * @memberof petajournal.CreatePageResponse
+         * @memberof petajournal.GetDocByNameResponse
          * @instance
          */
-        CreatePageResponse.prototype.page = null;
+        GetDocByNameResponse.prototype.page = null;
 
         /**
-         * Creates a new CreatePageResponse instance using the specified properties.
-         * @function create
-         * @memberof petajournal.CreatePageResponse
-         * @static
-         * @param {petajournal.ICreatePageResponse=} [properties] Properties to set
-         * @returns {petajournal.CreatePageResponse} CreatePageResponse instance
+         * GetDocByNameResponse blocks.
+         * @member {Array.<petajournal.IBlock>} blocks
+         * @memberof petajournal.GetDocByNameResponse
+         * @instance
          */
-        CreatePageResponse.create = function create(properties) {
-            return new CreatePageResponse(properties);
+        GetDocByNameResponse.prototype.blocks = $util.emptyArray;
+
+        /**
+         * GetDocByNameResponse created.
+         * @member {boolean} created
+         * @memberof petajournal.GetDocByNameResponse
+         * @instance
+         */
+        GetDocByNameResponse.prototype.created = false;
+
+        /**
+         * Creates a new GetDocByNameResponse instance using the specified properties.
+         * @function create
+         * @memberof petajournal.GetDocByNameResponse
+         * @static
+         * @param {petajournal.IGetDocByNameResponse=} [properties] Properties to set
+         * @returns {petajournal.GetDocByNameResponse} GetDocByNameResponse instance
+         */
+        GetDocByNameResponse.create = function create(properties) {
+            return new GetDocByNameResponse(properties);
         };
 
         /**
-         * Encodes the specified CreatePageResponse message. Does not implicitly {@link petajournal.CreatePageResponse.verify|verify} messages.
+         * Encodes the specified GetDocByNameResponse message. Does not implicitly {@link petajournal.GetDocByNameResponse.verify|verify} messages.
          * @function encode
-         * @memberof petajournal.CreatePageResponse
+         * @memberof petajournal.GetDocByNameResponse
          * @static
-         * @param {petajournal.ICreatePageResponse} message CreatePageResponse message or plain object to encode
+         * @param {petajournal.IGetDocByNameResponse} message GetDocByNameResponse message or plain object to encode
          * @param {$protobuf.Writer} [writer] Writer to encode to
          * @returns {$protobuf.Writer} Writer
          */
-        CreatePageResponse.encode = function encode(message, writer) {
+        GetDocByNameResponse.encode = function encode(message, writer) {
             if (!writer)
                 writer = $Writer.create();
             if (message.page != null && Object.hasOwnProperty.call(message, "page"))
                 $root.petajournal.Page.encode(message.page, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+            if (message.blocks != null && message.blocks.length)
+                for (let i = 0; i < message.blocks.length; ++i)
+                    $root.petajournal.Block.encode(message.blocks[i], writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim();
+            if (message.created != null && Object.hasOwnProperty.call(message, "created"))
+                writer.uint32(/* id 3, wireType 0 =*/24).bool(message.created);
             return writer;
         };
 
         /**
-         * Decodes a CreatePageResponse message from the specified reader or buffer.
+         * Decodes a GetDocByNameResponse message from the specified reader or buffer.
          * @function decode
-         * @memberof petajournal.CreatePageResponse
+         * @memberof petajournal.GetDocByNameResponse
          * @static
          * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
          * @param {number} [length] Message length if known beforehand
-         * @returns {petajournal.CreatePageResponse} CreatePageResponse
+         * @returns {petajournal.GetDocByNameResponse} GetDocByNameResponse
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        CreatePageResponse.decode = function decode(reader, length, error) {
+        GetDocByNameResponse.decode = function decode(reader, length, error) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.CreatePageResponse();
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.GetDocByNameResponse();
             while (reader.pos < end) {
                 let tag = reader.uint32();
                 if (tag === error)
@@ -2614,6 +2442,16 @@ export const petajournal = $root.petajournal = (() => {
                 switch (tag >>> 3) {
                 case 1: {
                         message.page = $root.petajournal.Page.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 2: {
+                        if (!(message.blocks && message.blocks.length))
+                            message.blocks = [];
+                        message.blocks.push($root.petajournal.Block.decode(reader, reader.uint32()));
+                        break;
+                    }
+                case 3: {
+                        message.created = reader.bool();
                         break;
                     }
                 default:
@@ -2625,21 +2463,21 @@ export const petajournal = $root.petajournal = (() => {
         };
 
         /**
-         * Gets the default type url for CreatePageResponse
+         * Gets the default type url for GetDocByNameResponse
          * @function getTypeUrl
-         * @memberof petajournal.CreatePageResponse
+         * @memberof petajournal.GetDocByNameResponse
          * @static
          * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
          * @returns {string} The default type url
          */
-        CreatePageResponse.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+        GetDocByNameResponse.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
             if (typeUrlPrefix === undefined) {
                 typeUrlPrefix = "type.googleapis.com";
             }
-            return typeUrlPrefix + "/petajournal.CreatePageResponse";
+            return typeUrlPrefix + "/petajournal.GetDocByNameResponse";
         };
 
-        return CreatePageResponse;
+        return GetDocByNameResponse;
     })();
 
     petajournal.DeletePageRequest = (function() {
@@ -6015,6 +5853,262 @@ export const petajournal = $root.petajournal = (() => {
         return GetBlocksByStatusResponse;
     })();
 
+    petajournal.GetJournalByNameRequest = (function() {
+
+        /**
+         * Properties of a GetJournalByNameRequest.
+         * @memberof petajournal
+         * @interface IGetJournalByNameRequest
+         * @property {string|null} [fileName] GetJournalByNameRequest fileName
+         */
+
+        /**
+         * Constructs a new GetJournalByNameRequest.
+         * @memberof petajournal
+         * @classdesc Represents a GetJournalByNameRequest.
+         * @implements IGetJournalByNameRequest
+         * @constructor
+         * @param {petajournal.IGetJournalByNameRequest=} [properties] Properties to set
+         */
+        function GetJournalByNameRequest(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * GetJournalByNameRequest fileName.
+         * @member {string} fileName
+         * @memberof petajournal.GetJournalByNameRequest
+         * @instance
+         */
+        GetJournalByNameRequest.prototype.fileName = "";
+
+        /**
+         * Creates a new GetJournalByNameRequest instance using the specified properties.
+         * @function create
+         * @memberof petajournal.GetJournalByNameRequest
+         * @static
+         * @param {petajournal.IGetJournalByNameRequest=} [properties] Properties to set
+         * @returns {petajournal.GetJournalByNameRequest} GetJournalByNameRequest instance
+         */
+        GetJournalByNameRequest.create = function create(properties) {
+            return new GetJournalByNameRequest(properties);
+        };
+
+        /**
+         * Encodes the specified GetJournalByNameRequest message. Does not implicitly {@link petajournal.GetJournalByNameRequest.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.GetJournalByNameRequest
+         * @static
+         * @param {petajournal.IGetJournalByNameRequest} message GetJournalByNameRequest message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        GetJournalByNameRequest.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.fileName != null && Object.hasOwnProperty.call(message, "fileName"))
+                writer.uint32(/* id 1, wireType 2 =*/10).string(message.fileName);
+            return writer;
+        };
+
+        /**
+         * Decodes a GetJournalByNameRequest message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.GetJournalByNameRequest
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.GetJournalByNameRequest} GetJournalByNameRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        GetJournalByNameRequest.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.GetJournalByNameRequest();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.fileName = reader.string();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for GetJournalByNameRequest
+         * @function getTypeUrl
+         * @memberof petajournal.GetJournalByNameRequest
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        GetJournalByNameRequest.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.GetJournalByNameRequest";
+        };
+
+        return GetJournalByNameRequest;
+    })();
+
+    petajournal.GetJournalByNameResponse = (function() {
+
+        /**
+         * Properties of a GetJournalByNameResponse.
+         * @memberof petajournal
+         * @interface IGetJournalByNameResponse
+         * @property {petajournal.IPage|null} [page] GetJournalByNameResponse page
+         * @property {Array.<petajournal.IBlock>|null} [blocks] GetJournalByNameResponse blocks
+         * @property {boolean|null} [created] GetJournalByNameResponse created
+         */
+
+        /**
+         * Constructs a new GetJournalByNameResponse.
+         * @memberof petajournal
+         * @classdesc Represents a GetJournalByNameResponse.
+         * @implements IGetJournalByNameResponse
+         * @constructor
+         * @param {petajournal.IGetJournalByNameResponse=} [properties] Properties to set
+         */
+        function GetJournalByNameResponse(properties) {
+            this.blocks = [];
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * GetJournalByNameResponse page.
+         * @member {petajournal.IPage|null|undefined} page
+         * @memberof petajournal.GetJournalByNameResponse
+         * @instance
+         */
+        GetJournalByNameResponse.prototype.page = null;
+
+        /**
+         * GetJournalByNameResponse blocks.
+         * @member {Array.<petajournal.IBlock>} blocks
+         * @memberof petajournal.GetJournalByNameResponse
+         * @instance
+         */
+        GetJournalByNameResponse.prototype.blocks = $util.emptyArray;
+
+        /**
+         * GetJournalByNameResponse created.
+         * @member {boolean} created
+         * @memberof petajournal.GetJournalByNameResponse
+         * @instance
+         */
+        GetJournalByNameResponse.prototype.created = false;
+
+        /**
+         * Creates a new GetJournalByNameResponse instance using the specified properties.
+         * @function create
+         * @memberof petajournal.GetJournalByNameResponse
+         * @static
+         * @param {petajournal.IGetJournalByNameResponse=} [properties] Properties to set
+         * @returns {petajournal.GetJournalByNameResponse} GetJournalByNameResponse instance
+         */
+        GetJournalByNameResponse.create = function create(properties) {
+            return new GetJournalByNameResponse(properties);
+        };
+
+        /**
+         * Encodes the specified GetJournalByNameResponse message. Does not implicitly {@link petajournal.GetJournalByNameResponse.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.GetJournalByNameResponse
+         * @static
+         * @param {petajournal.IGetJournalByNameResponse} message GetJournalByNameResponse message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        GetJournalByNameResponse.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.page != null && Object.hasOwnProperty.call(message, "page"))
+                $root.petajournal.Page.encode(message.page, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+            if (message.blocks != null && message.blocks.length)
+                for (let i = 0; i < message.blocks.length; ++i)
+                    $root.petajournal.Block.encode(message.blocks[i], writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim();
+            if (message.created != null && Object.hasOwnProperty.call(message, "created"))
+                writer.uint32(/* id 3, wireType 0 =*/24).bool(message.created);
+            return writer;
+        };
+
+        /**
+         * Decodes a GetJournalByNameResponse message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.GetJournalByNameResponse
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.GetJournalByNameResponse} GetJournalByNameResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        GetJournalByNameResponse.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.GetJournalByNameResponse();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.page = $root.petajournal.Page.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 2: {
+                        if (!(message.blocks && message.blocks.length))
+                            message.blocks = [];
+                        message.blocks.push($root.petajournal.Block.decode(reader, reader.uint32()));
+                        break;
+                    }
+                case 3: {
+                        message.created = reader.bool();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for GetJournalByNameResponse
+         * @function getTypeUrl
+         * @memberof petajournal.GetJournalByNameResponse
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        GetJournalByNameResponse.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.GetJournalByNameResponse";
+        };
+
+        return GetJournalByNameResponse;
+    })();
+
     petajournal.GetConfigRequest = (function() {
 
         /**
@@ -6442,6 +6536,484 @@ export const petajournal = $root.petajournal = (() => {
         };
 
         return UpdateConfigResponse;
+    })();
+
+    petajournal.ExportTreeMarkdownRequest = (function() {
+
+        /**
+         * Properties of an ExportTreeMarkdownRequest.
+         * @memberof petajournal
+         * @interface IExportTreeMarkdownRequest
+         * @property {Array.<string>|null} [blockIds] ExportTreeMarkdownRequest blockIds
+         */
+
+        /**
+         * Constructs a new ExportTreeMarkdownRequest.
+         * @memberof petajournal
+         * @classdesc Represents an ExportTreeMarkdownRequest.
+         * @implements IExportTreeMarkdownRequest
+         * @constructor
+         * @param {petajournal.IExportTreeMarkdownRequest=} [properties] Properties to set
+         */
+        function ExportTreeMarkdownRequest(properties) {
+            this.blockIds = [];
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * ExportTreeMarkdownRequest blockIds.
+         * @member {Array.<string>} blockIds
+         * @memberof petajournal.ExportTreeMarkdownRequest
+         * @instance
+         */
+        ExportTreeMarkdownRequest.prototype.blockIds = $util.emptyArray;
+
+        /**
+         * Creates a new ExportTreeMarkdownRequest instance using the specified properties.
+         * @function create
+         * @memberof petajournal.ExportTreeMarkdownRequest
+         * @static
+         * @param {petajournal.IExportTreeMarkdownRequest=} [properties] Properties to set
+         * @returns {petajournal.ExportTreeMarkdownRequest} ExportTreeMarkdownRequest instance
+         */
+        ExportTreeMarkdownRequest.create = function create(properties) {
+            return new ExportTreeMarkdownRequest(properties);
+        };
+
+        /**
+         * Encodes the specified ExportTreeMarkdownRequest message. Does not implicitly {@link petajournal.ExportTreeMarkdownRequest.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.ExportTreeMarkdownRequest
+         * @static
+         * @param {petajournal.IExportTreeMarkdownRequest} message ExportTreeMarkdownRequest message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        ExportTreeMarkdownRequest.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.blockIds != null && message.blockIds.length)
+                for (let i = 0; i < message.blockIds.length; ++i)
+                    writer.uint32(/* id 1, wireType 2 =*/10).string(message.blockIds[i]);
+            return writer;
+        };
+
+        /**
+         * Decodes an ExportTreeMarkdownRequest message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.ExportTreeMarkdownRequest
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.ExportTreeMarkdownRequest} ExportTreeMarkdownRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        ExportTreeMarkdownRequest.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.ExportTreeMarkdownRequest();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        if (!(message.blockIds && message.blockIds.length))
+                            message.blockIds = [];
+                        message.blockIds.push(reader.string());
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for ExportTreeMarkdownRequest
+         * @function getTypeUrl
+         * @memberof petajournal.ExportTreeMarkdownRequest
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        ExportTreeMarkdownRequest.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.ExportTreeMarkdownRequest";
+        };
+
+        return ExportTreeMarkdownRequest;
+    })();
+
+    petajournal.ExportTreeMarkdownResponse = (function() {
+
+        /**
+         * Properties of an ExportTreeMarkdownResponse.
+         * @memberof petajournal
+         * @interface IExportTreeMarkdownResponse
+         * @property {string|null} [treeMarkdown] ExportTreeMarkdownResponse treeMarkdown
+         * @property {string|null} [html] ExportTreeMarkdownResponse html
+         * @property {string|null} [flatMarkdown] ExportTreeMarkdownResponse flatMarkdown
+         */
+
+        /**
+         * Constructs a new ExportTreeMarkdownResponse.
+         * @memberof petajournal
+         * @classdesc Represents an ExportTreeMarkdownResponse.
+         * @implements IExportTreeMarkdownResponse
+         * @constructor
+         * @param {petajournal.IExportTreeMarkdownResponse=} [properties] Properties to set
+         */
+        function ExportTreeMarkdownResponse(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * ExportTreeMarkdownResponse treeMarkdown.
+         * @member {string} treeMarkdown
+         * @memberof petajournal.ExportTreeMarkdownResponse
+         * @instance
+         */
+        ExportTreeMarkdownResponse.prototype.treeMarkdown = "";
+
+        /**
+         * ExportTreeMarkdownResponse html.
+         * @member {string} html
+         * @memberof petajournal.ExportTreeMarkdownResponse
+         * @instance
+         */
+        ExportTreeMarkdownResponse.prototype.html = "";
+
+        /**
+         * ExportTreeMarkdownResponse flatMarkdown.
+         * @member {string} flatMarkdown
+         * @memberof petajournal.ExportTreeMarkdownResponse
+         * @instance
+         */
+        ExportTreeMarkdownResponse.prototype.flatMarkdown = "";
+
+        /**
+         * Creates a new ExportTreeMarkdownResponse instance using the specified properties.
+         * @function create
+         * @memberof petajournal.ExportTreeMarkdownResponse
+         * @static
+         * @param {petajournal.IExportTreeMarkdownResponse=} [properties] Properties to set
+         * @returns {petajournal.ExportTreeMarkdownResponse} ExportTreeMarkdownResponse instance
+         */
+        ExportTreeMarkdownResponse.create = function create(properties) {
+            return new ExportTreeMarkdownResponse(properties);
+        };
+
+        /**
+         * Encodes the specified ExportTreeMarkdownResponse message. Does not implicitly {@link petajournal.ExportTreeMarkdownResponse.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.ExportTreeMarkdownResponse
+         * @static
+         * @param {petajournal.IExportTreeMarkdownResponse} message ExportTreeMarkdownResponse message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        ExportTreeMarkdownResponse.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.treeMarkdown != null && Object.hasOwnProperty.call(message, "treeMarkdown"))
+                writer.uint32(/* id 1, wireType 2 =*/10).string(message.treeMarkdown);
+            if (message.html != null && Object.hasOwnProperty.call(message, "html"))
+                writer.uint32(/* id 2, wireType 2 =*/18).string(message.html);
+            if (message.flatMarkdown != null && Object.hasOwnProperty.call(message, "flatMarkdown"))
+                writer.uint32(/* id 3, wireType 2 =*/26).string(message.flatMarkdown);
+            return writer;
+        };
+
+        /**
+         * Decodes an ExportTreeMarkdownResponse message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.ExportTreeMarkdownResponse
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.ExportTreeMarkdownResponse} ExportTreeMarkdownResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        ExportTreeMarkdownResponse.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.ExportTreeMarkdownResponse();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.treeMarkdown = reader.string();
+                        break;
+                    }
+                case 2: {
+                        message.html = reader.string();
+                        break;
+                    }
+                case 3: {
+                        message.flatMarkdown = reader.string();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for ExportTreeMarkdownResponse
+         * @function getTypeUrl
+         * @memberof petajournal.ExportTreeMarkdownResponse
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        ExportTreeMarkdownResponse.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.ExportTreeMarkdownResponse";
+        };
+
+        return ExportTreeMarkdownResponse;
+    })();
+
+    petajournal.ImportTreeMarkdownRequest = (function() {
+
+        /**
+         * Properties of an ImportTreeMarkdownRequest.
+         * @memberof petajournal
+         * @interface IImportTreeMarkdownRequest
+         * @property {string|null} [treeMarkdown] ImportTreeMarkdownRequest treeMarkdown
+         */
+
+        /**
+         * Constructs a new ImportTreeMarkdownRequest.
+         * @memberof petajournal
+         * @classdesc Represents an ImportTreeMarkdownRequest.
+         * @implements IImportTreeMarkdownRequest
+         * @constructor
+         * @param {petajournal.IImportTreeMarkdownRequest=} [properties] Properties to set
+         */
+        function ImportTreeMarkdownRequest(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * ImportTreeMarkdownRequest treeMarkdown.
+         * @member {string} treeMarkdown
+         * @memberof petajournal.ImportTreeMarkdownRequest
+         * @instance
+         */
+        ImportTreeMarkdownRequest.prototype.treeMarkdown = "";
+
+        /**
+         * Creates a new ImportTreeMarkdownRequest instance using the specified properties.
+         * @function create
+         * @memberof petajournal.ImportTreeMarkdownRequest
+         * @static
+         * @param {petajournal.IImportTreeMarkdownRequest=} [properties] Properties to set
+         * @returns {petajournal.ImportTreeMarkdownRequest} ImportTreeMarkdownRequest instance
+         */
+        ImportTreeMarkdownRequest.create = function create(properties) {
+            return new ImportTreeMarkdownRequest(properties);
+        };
+
+        /**
+         * Encodes the specified ImportTreeMarkdownRequest message. Does not implicitly {@link petajournal.ImportTreeMarkdownRequest.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.ImportTreeMarkdownRequest
+         * @static
+         * @param {petajournal.IImportTreeMarkdownRequest} message ImportTreeMarkdownRequest message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        ImportTreeMarkdownRequest.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.treeMarkdown != null && Object.hasOwnProperty.call(message, "treeMarkdown"))
+                writer.uint32(/* id 1, wireType 2 =*/10).string(message.treeMarkdown);
+            return writer;
+        };
+
+        /**
+         * Decodes an ImportTreeMarkdownRequest message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.ImportTreeMarkdownRequest
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.ImportTreeMarkdownRequest} ImportTreeMarkdownRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        ImportTreeMarkdownRequest.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.ImportTreeMarkdownRequest();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.treeMarkdown = reader.string();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for ImportTreeMarkdownRequest
+         * @function getTypeUrl
+         * @memberof petajournal.ImportTreeMarkdownRequest
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        ImportTreeMarkdownRequest.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.ImportTreeMarkdownRequest";
+        };
+
+        return ImportTreeMarkdownRequest;
+    })();
+
+    petajournal.ImportTreeMarkdownResponse = (function() {
+
+        /**
+         * Properties of an ImportTreeMarkdownResponse.
+         * @memberof petajournal
+         * @interface IImportTreeMarkdownResponse
+         * @property {string|null} [flatMarkdown] ImportTreeMarkdownResponse flatMarkdown
+         */
+
+        /**
+         * Constructs a new ImportTreeMarkdownResponse.
+         * @memberof petajournal
+         * @classdesc Represents an ImportTreeMarkdownResponse.
+         * @implements IImportTreeMarkdownResponse
+         * @constructor
+         * @param {petajournal.IImportTreeMarkdownResponse=} [properties] Properties to set
+         */
+        function ImportTreeMarkdownResponse(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * ImportTreeMarkdownResponse flatMarkdown.
+         * @member {string} flatMarkdown
+         * @memberof petajournal.ImportTreeMarkdownResponse
+         * @instance
+         */
+        ImportTreeMarkdownResponse.prototype.flatMarkdown = "";
+
+        /**
+         * Creates a new ImportTreeMarkdownResponse instance using the specified properties.
+         * @function create
+         * @memberof petajournal.ImportTreeMarkdownResponse
+         * @static
+         * @param {petajournal.IImportTreeMarkdownResponse=} [properties] Properties to set
+         * @returns {petajournal.ImportTreeMarkdownResponse} ImportTreeMarkdownResponse instance
+         */
+        ImportTreeMarkdownResponse.create = function create(properties) {
+            return new ImportTreeMarkdownResponse(properties);
+        };
+
+        /**
+         * Encodes the specified ImportTreeMarkdownResponse message. Does not implicitly {@link petajournal.ImportTreeMarkdownResponse.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.ImportTreeMarkdownResponse
+         * @static
+         * @param {petajournal.IImportTreeMarkdownResponse} message ImportTreeMarkdownResponse message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        ImportTreeMarkdownResponse.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.flatMarkdown != null && Object.hasOwnProperty.call(message, "flatMarkdown"))
+                writer.uint32(/* id 1, wireType 2 =*/10).string(message.flatMarkdown);
+            return writer;
+        };
+
+        /**
+         * Decodes an ImportTreeMarkdownResponse message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.ImportTreeMarkdownResponse
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.ImportTreeMarkdownResponse} ImportTreeMarkdownResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        ImportTreeMarkdownResponse.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.ImportTreeMarkdownResponse();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.flatMarkdown = reader.string();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for ImportTreeMarkdownResponse
+         * @function getTypeUrl
+         * @memberof petajournal.ImportTreeMarkdownResponse
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        ImportTreeMarkdownResponse.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.ImportTreeMarkdownResponse";
+        };
+
+        return ImportTreeMarkdownResponse;
     })();
 
     return petajournal;

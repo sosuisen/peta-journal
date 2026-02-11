@@ -1,10 +1,11 @@
-import { Component, inject, input, output, effect, Injector, afterNextRender, viewChild } from '@angular/core';
+import { Component, inject, input, output, effect, Injector, afterNextRender, viewChild, OnDestroy } from '@angular/core';
 import { ScrollingModule, CdkVirtualScrollViewport } from '@angular/cdk/scrolling';
 import { OutlineBlockComponent } from './outline-block';
 import { OutlineStateService } from '../../core/services/outline-state.service';
 import { ApiService } from '../../core/services/api.service';
 import { AutoSaveService } from '../../core/services/auto-save.service';
 import { Block } from '../../core/models/block.model';
+import { ClipboardService } from '../../core/services/clipboard.service';
 import { formatJournalDate } from '../../core/utils/date.utils';
 import { isJournalFileName } from '../../core/utils/journal-filename.utils';
 
@@ -16,6 +17,7 @@ import { isJournalFileName } from '../../core/utils/journal-filename.utils';
       <div
         *cdkVirtualFor="let block of state.visibleBlocks(); let i = index; trackBy: trackById"
         class="outline-item"
+        (mouseenter)="onBlockMouseEnter(block)"
       >
         @if (isFirstBlockOfDate(i) && block.fileName !== currentPageDate() && isJournalDate(block.fileName)) {
           <div class="date-header">
@@ -40,6 +42,7 @@ import { isJournalFileName } from '../../core/utils/journal-filename.utils';
           (statusCycleRequested)="onStatusCycleRequested(block)"
           (collapseToggled)="onCollapseToggled(block)"
           (pasteDetected)="onPaste(block, $event)"
+          (dragBeyondBounds)="onDragBeyondBounds(block, $event)"
         />
       </div>
     </cdk-virtual-scroll-viewport>
@@ -71,11 +74,12 @@ import { isJournalFileName } from '../../core/utils/journal-filename.utils';
     }
   `]
 })
-export class OutlineComponent {
+export class OutlineComponent implements OnDestroy {
   readonly state = inject(OutlineStateService);
   private readonly api = inject(ApiService);
   private readonly autoSave = inject(AutoSaveService);
   private readonly injector = inject(Injector);
+  private readonly clipboard = inject(ClipboardService);
   readonly pageId = input.required<string>();
   readonly disableAutoLoad = input<boolean>(false);  // Disable automatic block loading
   readonly currentPageDate = input<string>('');  // Date shown in page header
@@ -83,6 +87,13 @@ export class OutlineComponent {
   readonly topBlockChanged = output<string>();  // Emits fileName of top visible block
   private readonly dirtyBlockIds = new Set<string>();
   private readonly viewport = viewChild<CdkVirtualScrollViewport>('viewport');
+  private selectionAnchorBlockId: string | null = null;
+  private isSelectionDragging = false;
+  private selectionKeydownHandler = (e: KeyboardEvent) => this.handleSelectionKeydown(e);
+  private selectionMouseUpHandler = () => this.onSelectionMouseUp();
+  private selectionClickHandler = (e: MouseEvent) => this.onSelectionClick(e);
+  private selectionCopyHandler = (e: ClipboardEvent) => this.onSelectionCopy(e);
+  private selectionCutHandler = (e: ClipboardEvent) => this.onSelectionCut(e);
 
   constructor() {
     effect(() => {
@@ -141,6 +152,7 @@ export class OutlineComponent {
   }
 
   onEditRequested(blockId: string, cursorPosition: number): void {
+    if (this.state.blockSelectionMode()) return;
     this.state.setEditingBlock(blockId, cursorPosition);
   }
 
@@ -538,7 +550,24 @@ export class OutlineComponent {
   }
 
   async onPaste(block: Block, event: { text: string; html: string; cursorPos: number }): Promise<void> {
-    const parsedBlocks = this.parseTextIntoBlocks(event.text);
+    let textToParse = event.text;
+
+    // Check 1: If we have stored flat markdown for this clipboard content, use it
+    const flatMd = this.clipboard.consume(event.text);
+    if (flatMd !== null) {
+      textToParse = flatMd;
+    }
+    // Check 2: If text looks like tree markdown (starts with "- "), convert it
+    else if (event.text.trimStart().startsWith('- ')) {
+      try {
+        const result = await this.api.importTreeMarkdown(event.text);
+        textToParse = result.flatMarkdown;
+      } catch (e) {
+        console.error('Failed to import tree markdown, using raw text:', e);
+      }
+    }
+
+    const parsedBlocks = this.parseTextIntoBlocks(textToParse);
 
     if (parsedBlocks.length === 0) return;
 
@@ -677,6 +706,392 @@ export class OutlineComponent {
     }
 
     return blocks;
+  }
+
+  onDragBeyondBounds(block: Block, direction: 'above' | 'below'): void {
+    // Exit edit mode
+    this.state.setEditingBlock(null);
+    // Enter selection mode
+    this.state.setBlockSelectionMode(true);
+    this.selectionAnchorBlockId = block.id;
+    this.isSelectionDragging = true;
+
+    // Select anchor block + children
+    const group = this.state.getBlockWithChildren(block.id);
+    const selectedSet = new Set<string>(group.map(b => b.id));
+    this.state.setSelectedBlockIds(selectedSet);
+
+    // Register document-level listeners
+    document.addEventListener('mouseup', this.selectionMouseUpHandler);
+    document.addEventListener('keydown', this.selectionKeydownHandler);
+    document.addEventListener('copy', this.selectionCopyHandler);
+    document.addEventListener('cut', this.selectionCutHandler);
+  }
+
+  onBlockMouseEnter(block: Block): void {
+    if (!this.isSelectionDragging) return;
+
+    const visibleBlocks = this.state.visibleBlocks();
+    const anchorIdx = visibleBlocks.findIndex(b => b.id === this.selectionAnchorBlockId);
+    const currentIdx = visibleBlocks.findIndex(b => b.id === block.id);
+    if (anchorIdx < 0 || currentIdx < 0) return;
+
+    const [start, end] = [Math.min(anchorIdx, currentIdx), Math.max(anchorIdx, currentIdx)];
+    const selectedSet = new Set<string>();
+    for (let i = start; i <= end; i++) {
+      // getBlockWithChildren uses _blocks() (all blocks) so collapsed children are included
+      const group = this.state.getBlockWithChildren(visibleBlocks[i].id);
+      group.forEach(b => selectedSet.add(b.id));
+    }
+    this.state.setSelectedBlockIds(selectedSet);
+  }
+
+  private onSelectionMouseUp(): void {
+    this.isSelectionDragging = false;
+    document.removeEventListener('mouseup', this.selectionMouseUpHandler);
+
+    // Add click listener to detect clicks outside selection
+    // Use setTimeout to avoid the current mouseup from triggering it
+    setTimeout(() => {
+      document.addEventListener('click', this.selectionClickHandler);
+    }, 0);
+  }
+
+  private onSelectionClick(e: MouseEvent): void {
+    // Check if click is on a selected block
+    const target = e.target as HTMLElement;
+    const blockEl = target.closest('.outline-block.selected');
+    if (!blockEl) {
+      this.exitSelectionMode();
+    }
+  }
+
+  handleSelectionKeydown(e: KeyboardEvent): void {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      this.exitSelectionMode();
+      return;
+    }
+
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      e.preventDefault();
+      this.deleteSelectedBlocks();
+      return;
+    }
+
+    if (e.shiftKey && e.altKey) {
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        this.moveSelectedBlocksUp();
+        return;
+      }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        this.moveSelectedBlocksDown();
+        return;
+      }
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        this.outdentSelectedBlocks();
+        return;
+      }
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        this.indentSelectedBlocks();
+        return;
+      }
+    }
+
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      if (e.shiftKey) {
+        this.outdentSelectedBlocks();
+      } else {
+        this.indentSelectedBlocks();
+      }
+      return;
+    }
+
+    if (e.ctrlKey && e.key === 'c') {
+      e.preventDefault();
+      this.copySelectedBlocks();
+      return;
+    }
+
+    if (e.ctrlKey && e.key === 'x') {
+      e.preventDefault();
+      this.cutSelectedBlocks();
+      return;
+    }
+  }
+
+  private getSelectedRootBlocks(): Block[] {
+    const selectedIds = this.state.selectedBlockIds();
+    const allBlocks = this.state.blocks();
+    const roots: Block[] = [];
+
+    for (const block of allBlocks) {
+      if (!selectedIds.has(block.id)) continue;
+      // Check if parent is in selection
+      const idx = allBlocks.indexOf(block);
+      let isRoot = true;
+      for (let i = idx - 1; i >= 0; i--) {
+        if (allBlocks[i].level < block.level) {
+          if (selectedIds.has(allBlocks[i].id)) {
+            isRoot = false;
+          }
+          break;
+        }
+      }
+      if (isRoot) roots.push(block);
+    }
+    return roots;
+  }
+
+  private getOrderedSelectedBlockIds(): string[] {
+    const selectedIds = this.state.selectedBlockIds();
+    const allBlocks = this.state.blocks();
+    return allBlocks.filter(b => selectedIds.has(b.id)).map(b => b.id);
+  }
+
+  private async deleteSelectedBlocks(): Promise<void> {
+    const selectedIds = this.getOrderedSelectedBlockIds();
+    if (selectedIds.length === 0) return;
+
+    this.exitSelectionMode();
+
+    // Delete from state first for responsiveness
+    this.state.deleteBlocks(selectedIds);
+
+    // Delete from backend
+    try {
+      await Promise.all(selectedIds.map(id => this.api.deleteBlock(id)));
+    } catch (e) {
+      console.error('Failed to delete selected blocks:', e);
+    }
+  }
+
+  private async moveSelectedBlocksUp(): Promise<void> {
+    const rootBlocks = this.getSelectedRootBlocks();
+    if (rootBlocks.length === 0) return;
+
+    const minLevel = Math.min(...rootBlocks.map(b => b.level));
+    const firstRoot = rootBlocks[0];
+    const visibleBlocks = this.state.visibleBlocks();
+    const firstIdx = visibleBlocks.findIndex(b => b.id === firstRoot.id);
+    if (firstIdx <= 0) return;
+
+    const prevBlock = visibleBlocks[firstIdx - 1];
+
+    // Collect all selected block IDs (roots + children) in order
+    const allSelectedIds: string[] = [];
+    for (const root of rootBlocks) {
+      const group = this.state.getBlockWithChildren(root.id);
+      group.forEach(b => allSelectedIds.push(b.id));
+    }
+
+    const allBlocks = this.state.blocks();
+
+    if (this.canPlace(minLevel, prevBlock)) {
+      // Find target: place before the previous block
+      const prevBlockAllIdx = allBlocks.findIndex(b => b.id === prevBlock.id);
+      const targetPrev = prevBlockAllIdx > 0 ? allBlocks[prevBlockAllIdx - 1] : undefined;
+      const targetPrevId = targetPrev?.id ?? '';
+
+      try {
+        const moved = await this.api.moveBlocks(allSelectedIds, firstRoot.pageId, targetPrevId);
+        this.state.deleteBlocks(allSelectedIds);
+        this.state.addBlocks(moved, targetPrevId);
+      } catch (e) {
+        console.error('Failed to move selected blocks up:', e);
+      }
+      return;
+    }
+
+    // Exception: find same-level block above
+    let sameLevelBlockIdx = -1;
+    for (let i = firstIdx - 1; i >= 0; i--) {
+      if (visibleBlocks[i].level === minLevel) {
+        sameLevelBlockIdx = i;
+        break;
+      }
+    }
+    if (sameLevelBlockIdx === -1) return;
+
+    const sameLevelBlock = visibleBlocks[sameLevelBlockIdx];
+    const sameLevelIdx = allBlocks.findIndex(b => b.id === sameLevelBlock.id);
+    const targetPrev = sameLevelIdx > 0 ? allBlocks[sameLevelIdx - 1] : undefined;
+    const targetPrevId = targetPrev?.id ?? '';
+
+    try {
+      const moved = await this.api.moveBlocks(allSelectedIds, firstRoot.pageId, targetPrevId);
+      this.state.deleteBlocks(allSelectedIds);
+      this.state.addBlocks(moved, targetPrevId);
+    } catch (e) {
+      console.error('Failed to move selected blocks up:', e);
+    }
+  }
+
+  private async moveSelectedBlocksDown(): Promise<void> {
+    const rootBlocks = this.getSelectedRootBlocks();
+    if (rootBlocks.length === 0) return;
+
+    const minLevel = Math.min(...rootBlocks.map(b => b.level));
+    const lastRoot = rootBlocks[rootBlocks.length - 1];
+    const lastRootGroup = this.state.getBlockWithChildren(lastRoot.id);
+    const lastBlock = lastRootGroup[lastRootGroup.length - 1];
+
+    const allBlocks = this.state.blocks();
+    const lastBlockIdx = allBlocks.findIndex(b => b.id === lastBlock.id);
+    if (lastBlockIdx >= allBlocks.length - 1) return;
+
+    const nextBlock = allBlocks[lastBlockIdx + 1];
+
+    // Collect all selected block IDs in order
+    const allSelectedIds: string[] = [];
+    for (const root of rootBlocks) {
+      const group = this.state.getBlockWithChildren(root.id);
+      group.forEach(b => allSelectedIds.push(b.id));
+    }
+
+    if (this.canPlace(minLevel, nextBlock)) {
+      const nextGroup = this.state.getBlockWithChildren(nextBlock.id);
+      const targetAfter = nextGroup[nextGroup.length - 1];
+
+      try {
+        const moved = await this.api.moveBlocks(allSelectedIds, lastRoot.pageId, targetAfter.id);
+        this.state.deleteBlocks(allSelectedIds);
+        this.state.addBlocks(moved, targetAfter.id);
+      } catch (e) {
+        console.error('Failed to move selected blocks down:', e);
+      }
+      return;
+    }
+
+    // Exception: find same-level block below
+    const visibleBlocks = this.state.visibleBlocks();
+    const lastRootVisIdx = visibleBlocks.findIndex(b => b.id === lastRoot.id);
+    let sameLevelBlockIdx = -1;
+    for (let i = lastRootVisIdx + 1; i < visibleBlocks.length; i++) {
+      if (visibleBlocks[i].level === minLevel) {
+        sameLevelBlockIdx = i;
+        break;
+      }
+    }
+    if (sameLevelBlockIdx === -1) return;
+
+    const sameLevelBlock = visibleBlocks[sameLevelBlockIdx];
+    const sameLevelGroup = this.state.getBlockWithChildren(sameLevelBlock.id);
+    const lastDescendant = sameLevelGroup[sameLevelGroup.length - 1];
+
+    try {
+      const moved = await this.api.moveBlocks(allSelectedIds, lastRoot.pageId, lastDescendant.id);
+      this.state.deleteBlocks(allSelectedIds);
+      this.state.addBlocks(moved, lastDescendant.id);
+    } catch (e) {
+      console.error('Failed to move selected blocks down:', e);
+    }
+  }
+
+  private async indentSelectedBlocks(): Promise<void> {
+    const selectedIds = this.state.selectedBlockIds();
+    const allBlocks = this.state.blocks();
+    const blocksToIndent = allBlocks.filter(b => selectedIds.has(b.id));
+
+    // Check: first selected block must have a block before it
+    if (blocksToIndent.length === 0) return;
+    const firstIdx = allBlocks.findIndex(b => b.id === blocksToIndent[0].id);
+    if (firstIdx <= 0) return;
+
+    // Update state
+    for (const b of blocksToIndent) {
+      this.state.updateBlock(b.id, { level: b.level + 1 });
+    }
+
+    // Update backend
+    try {
+      await Promise.all(blocksToIndent.map(b => this.api.updateBlock(b.id, { level: b.level + 1 })));
+    } catch (e) {
+      console.error('Failed to indent selected blocks:', e);
+    }
+  }
+
+  private async outdentSelectedBlocks(): Promise<void> {
+    const selectedIds = this.state.selectedBlockIds();
+    const allBlocks = this.state.blocks();
+    const blocksToOutdent = allBlocks.filter(b => selectedIds.has(b.id));
+
+    // Check: all blocks must have level > 0
+    if (blocksToOutdent.some(b => b.level <= 0)) return;
+
+    // Update state
+    for (const b of blocksToOutdent) {
+      this.state.updateBlock(b.id, { level: b.level - 1 });
+    }
+
+    // Update backend
+    try {
+      await Promise.all(blocksToOutdent.map(b => this.api.updateBlock(b.id, { level: b.level - 1 })));
+    } catch (e) {
+      console.error('Failed to outdent selected blocks:', e);
+    }
+  }
+
+  private async copySelectedBlocks(): Promise<void> {
+    const orderedIds = this.getOrderedSelectedBlockIds();
+    if (orderedIds.length === 0) return;
+
+    try {
+      const result = await this.api.exportTreeMarkdown(orderedIds);
+
+      // Write to system clipboard
+      const clipboardItem = new ClipboardItem({
+        'text/plain': new Blob([result.treeMarkdown], { type: 'text/plain' }),
+        'text/html': new Blob([result.html], { type: 'text/html' }),
+      });
+      await navigator.clipboard.write([clipboardItem]);
+
+      // Store flat markdown in memory
+      this.clipboard.store(result.flatMarkdown, result.treeMarkdown);
+    } catch (e) {
+      console.error('Failed to copy selected blocks:', e);
+    }
+  }
+
+  private async cutSelectedBlocks(): Promise<void> {
+    await this.copySelectedBlocks();
+    await this.deleteSelectedBlocks();
+  }
+
+  private onSelectionCopy(e: ClipboardEvent): void {
+    if (!this.state.blockSelectionMode()) return;
+    e.preventDefault();
+    this.copySelectedBlocks();
+  }
+
+  private onSelectionCut(e: ClipboardEvent): void {
+    if (!this.state.blockSelectionMode()) return;
+    e.preventDefault();
+    this.cutSelectedBlocks();
+  }
+
+  exitSelectionMode(): void {
+    this.state.clearSelection();
+    this.selectionAnchorBlockId = null;
+    this.isSelectionDragging = false;
+    document.removeEventListener('mouseup', this.selectionMouseUpHandler);
+    document.removeEventListener('keydown', this.selectionKeydownHandler);
+    document.removeEventListener('click', this.selectionClickHandler);
+    document.removeEventListener('copy', this.selectionCopyHandler);
+    document.removeEventListener('cut', this.selectionCutHandler);
+  }
+
+  ngOnDestroy(): void {
+    document.removeEventListener('mouseup', this.selectionMouseUpHandler);
+    document.removeEventListener('keydown', this.selectionKeydownHandler);
+    document.removeEventListener('click', this.selectionClickHandler);
+    document.removeEventListener('copy', this.selectionCopyHandler);
+    document.removeEventListener('cut', this.selectionCutHandler);
   }
 
   private focusEditor(blockId?: string): void {

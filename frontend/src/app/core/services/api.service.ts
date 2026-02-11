@@ -162,4 +162,16 @@ export class ApiService {
     const r = resp.updateConfig;
     return { weekNumbering: r.weekNumbering ?? 'us' };
   }
+
+  async exportTreeMarkdown(blockIds: string[]): Promise<{ treeMarkdown: string; html: string; flatMarkdown: string }> {
+    const resp: any = await this.proto.send({ exportTreeMarkdown: { blockIds } });
+    const r = resp.exportTreeMarkdown;
+    return { treeMarkdown: r.treeMarkdown ?? '', html: r.html ?? '', flatMarkdown: r.flatMarkdown ?? '' };
+  }
+
+  async importTreeMarkdown(treeMarkdown: string): Promise<{ flatMarkdown: string }> {
+    const resp: any = await this.proto.send({ importTreeMarkdown: { treeMarkdown } });
+    const r = resp.importTreeMarkdown;
+    return { flatMarkdown: r.flatMarkdown ?? '' };
+  }
 }
