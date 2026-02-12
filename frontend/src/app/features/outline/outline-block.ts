@@ -150,14 +150,16 @@ export class OutlineBlockComponent {
   }
 
   onEditFinished(): void {
-    if (!this.state.suppressDuplicateAnimation) {
+    // Only show fadeout duplicate when losing focus naturally (clicking away).
+    // For programmatic transitions (enter, backspace, move), editingBlockId
+    // has already changed before blur fires.
+    if (this.isEditing()) {
       this.createDuplicateTextarea();
     }
     this.editFinished.emit();
   }
 
   onEnterPressed(event: { cursorPos: number }): void {
-    this.createDuplicateTextarea();
     this.enterPressed.emit(event);
   }
 

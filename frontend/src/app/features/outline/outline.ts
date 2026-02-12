@@ -187,44 +187,50 @@ export class OutlineComponent implements OnDestroy {
   async onEnterPressed(block: Block, event: { cursorPos: number }): Promise<void> {
     this.autoSave.cancelBlock(block.id);
     this.dirtyBlockIds.delete(block.id);
+    // Suppress duplicate animation — block content changes immediately
+
     // Clear editing immediately so any blur during await won't match
     this.state.setEditingBlock(null);
 
-    const { cursorPos } = event;
-    const beforeText = block.body.substring(0, cursorPos);
-    const afterText = block.body.substring(cursorPos);
+    try {
+      const { cursorPos } = event;
+      const beforeText = block.body.substring(0, cursorPos);
+      const afterText = block.body.substring(cursorPos);
 
-    if (block.body.length === 0 && block.level > 0) {
-      // Empty block with indent: outdent instead of creating new block
-      this.state.setEditingBlock(block.id);
-      await this.onOutdent(block);
-      this.focusEditor(block.id);
-      return;
-    }
+      if (block.body.length === 0 && block.level > 0) {
+        // Empty block with indent: outdent instead of creating new block
+        this.state.setEditingBlock(block.id);
+        await this.onOutdent(block);
+        this.focusEditor(block.id);
+        return;
+      }
 
-    if (cursorPos === 0 && block.body.length > 0) {
-      // Enter at beginning: create new empty block before current block
-      const allBlocks = this.state.blocks();
-      const idx = allBlocks.findIndex(b => b.id === block.id);
+      if (cursorPos === 0 && block.body.length > 0) {
+        // Enter at beginning: create new empty block before current block
+        const allBlocks = this.state.blocks();
+        const idx = allBlocks.findIndex(b => b.id === block.id);
 
-      // Find the block just before the current block
-      const prevBlockId = idx > 0 ? allBlocks[idx - 1].id : '';
+        // Find the block just before the current block
+        const prevBlockId = idx > 0 ? allBlocks[idx - 1].id : '';
 
-      // Create new empty block with same level as current block
-      const newBlock = await this.api.createBlock(block.pageId, prevBlockId, block.level, '');
-      this.state.addBlock(newBlock, prevBlockId);
+        // Create new empty block with same level as current block
+        const newBlock = await this.api.createBlock(block.pageId, prevBlockId, block.level, '');
+        this.state.addBlock(newBlock, prevBlockId);
 
-      // Focus the new block
-      this.state.setEditingBlock(newBlock.id);
-      this.focusEditor(newBlock.id);
-    } else {
-      this.state.updateBlock(block.id, { body: beforeText });
-      const updatedOriginal = await this.api.updateBlock(block.id, { body: beforeText });
-      this.state.updateBlock(block.id, { html: updatedOriginal.html });
-      const newBlock = await this.api.createBlock(block.pageId, block.id, block.level, afterText);
-      this.state.addBlock(newBlock, block.id);
-      this.state.setEditingBlock(newBlock.id);
-      this.focusEditor(newBlock.id);
+        // Focus the new block
+        this.state.setEditingBlock(newBlock.id);
+        this.focusEditor(newBlock.id);
+      } else {
+        this.state.updateBlock(block.id, { body: beforeText });
+        const updatedOriginal = await this.api.updateBlock(block.id, { body: beforeText });
+        this.state.updateBlock(block.id, { html: updatedOriginal.html });
+        const newBlock = await this.api.createBlock(block.pageId, block.id, block.level, afterText);
+        this.state.addBlock(newBlock, block.id);
+        this.state.setEditingBlock(newBlock.id);
+        this.focusEditor(newBlock.id);
+      }
+    } finally {
+
     }
   }
 
@@ -236,12 +242,15 @@ export class OutlineComponent implements OnDestroy {
     this.autoSave.cancelBlock(block.id);
     this.dirtyBlockIds.delete(block.id);
 
+
     const prevBlock = blocks[idx - 1];
     const mergedBody = prevBlock.body + block.body;
     this.state.updateBlock(prevBlock.id, { body: mergedBody });
     this.state.deleteBlock(block.id);
     this.state.setEditingBlock(prevBlock.id);
     this.focusEditor(prevBlock.id);
+    // Reset after microtask — DOM removal (and blur) may be deferred by virtual scroll
+
     const updatedPrev = await this.api.updateBlock(prevBlock.id, { body: mergedBody });
     this.state.updateBlock(prevBlock.id, { html: updatedPrev.html });
     await this.api.deleteBlock(block.id);
@@ -256,9 +265,11 @@ export class OutlineComponent implements OnDestroy {
     this.autoSave.cancelBlock(nextBlock.id);
     this.dirtyBlockIds.delete(nextBlock.id);
 
+
     const mergedBody = block.body + nextBlock.body;
     this.state.updateBlock(block.id, { body: mergedBody });
     this.state.deleteBlock(nextBlock.id);
+
     const updatedBlock = await this.api.updateBlock(block.id, { body: mergedBody });
     this.state.updateBlock(block.id, { html: updatedBlock.html });
     await this.api.deleteBlock(nextBlock.id);
@@ -407,7 +418,7 @@ export class OutlineComponent implements OnDestroy {
     const groupIds = group.map(b => b.id);
 
     // Suppress duplicate animation during move — block reappears at new position
-    this.state.suppressDuplicateAnimation = true;
+
     this.state.setEditingBlock(null);
 
     try {
@@ -457,7 +468,7 @@ export class OutlineComponent implements OnDestroy {
       this.state.setEditingBlock(block.id);
       this.focusEditor(block.id);
     } finally {
-      this.state.suppressDuplicateAnimation = false;
+
     }
   }
 
@@ -477,7 +488,7 @@ export class OutlineComponent implements OnDestroy {
     const targetBlock = allBlocks[lastChildIdx + 1];
 
     // Suppress duplicate animation during move — block reappears at new position
-    this.state.suppressDuplicateAnimation = true;
+
     this.state.setEditingBlock(null);
 
     try {
@@ -521,7 +532,7 @@ export class OutlineComponent implements OnDestroy {
       this.state.setEditingBlock(block.id);
       this.focusEditor(block.id);
     } finally {
-      this.state.suppressDuplicateAnimation = false;
+
     }
   }
 

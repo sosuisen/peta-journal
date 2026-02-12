@@ -9,8 +9,6 @@ export class OutlineStateService {
   private readonly _collapsedBlockIds = signal<Set<string>>(new Set());
   private readonly _blockSelectionMode = signal<boolean>(false);
   private readonly _pendingCursorPosition = signal<number | null>(null);
-  private _suppressDuplicateAnimation = false;
-
   readonly blocks = this._blocks.asReadonly();
   readonly editingBlockId = this._editingBlockId.asReadonly();
   readonly pendingCursorPosition = this._pendingCursorPosition.asReadonly();
@@ -69,13 +67,6 @@ export class OutlineStateService {
     this._editingBlockId.set(blockId);
   }
 
-  get suppressDuplicateAnimation(): boolean {
-    return this._suppressDuplicateAnimation;
-  }
-
-  set suppressDuplicateAnimation(value: boolean) {
-    this._suppressDuplicateAnimation = value;
-  }
 
   consumePendingCursorPosition(): number | null {
     const pos = this._pendingCursorPosition();
