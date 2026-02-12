@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { connect, getBlocksByStatus, updateBlockStatus, type Block } from './api';
+import { connect, onConnectionStateChange, getBlocksByStatus, updateBlockStatus, type ConnectionState, type Block } from './api';
 
 type SortKey = 'file_name' | 'created_date' | 'status';
 
@@ -44,7 +44,7 @@ function sortBlocks(blocks: Block[], key: SortKey): Block[] {
 }
 
 export default function App() {
-  const [connected, setConnected] = useState(false);
+  const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const [error, setError] = useState('');
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [loading, setLoading] = useState(false);
@@ -85,16 +85,32 @@ export default function App() {
     }
   }, [showTodo, showRunning, showDone, fromDate]);
 
-  useEffect(() => {
+  const tryConnect = useCallback(() => {
+    setError('');
     connect()
       .then(() => {
         connectedRef.current = true;
-        setConnected(true);
         setError('');
         fetchBlocks();
       })
-      .catch((e) => setError('Connection failed: ' + e));
+      .catch(() => {
+        connectedRef.current = false;
+        setTimeout(tryConnect, 3000);
+      });
   }, []);  // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    onConnectionStateChange((state) => {
+      setConnectionState(state);
+      if (state === 'disconnected' || state === 'error') {
+        connectedRef.current = false;
+        setTimeout(tryConnect, 3000);
+      }
+    });
+    tryConnect();
+  }, [tryConnect]);
+
+  const connected = connectionState === 'connected';
 
   useEffect(() => {
     if (connected) fetchBlocks();
@@ -143,7 +159,6 @@ export default function App() {
       <h1>PetaApps ToDo</h1>
 
       {error && <div className="error">{error}</div>}
-      {!connected && !error && <div className="connecting">Connecting...</div>}
 
       <div className="filter-bar">
         <label>
@@ -209,6 +224,9 @@ export default function App() {
           </div>
         ))}
       </div>
+      <footer className="footer">
+        <span className={`connection-status ${connectionState}`}>{connectionState}</span>
+      </footer>
     </div>
   );
 }

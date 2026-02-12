@@ -4,9 +4,16 @@ const { ApiRequest, ApiResponse } = petajournal;
 
 type Block = petajournal.IBlock;
 
+export type ConnectionState = 'connecting' | 'connected' | 'disconnected' | 'error';
+
 let ws: WebSocket | null = null;
 let requestId = 0;
 const pending = new Map<string, { resolve: (r: petajournal.IApiResponse) => void; reject: (e: Error) => void }>();
+let stateCallback: ((state: ConnectionState) => void) | null = null;
+
+export function onConnectionStateChange(cb: (state: ConnectionState) => void): void {
+  stateCallback = cb;
+}
 
 function getWsUrl(): string {
   const params = new URLSearchParams(window.location.search);
@@ -21,11 +28,12 @@ export function connect(): Promise<void> {
       resolve();
       return;
     }
+    stateCallback?.('connecting');
     ws = new WebSocket(getWsUrl());
     ws.binaryType = 'arraybuffer';
 
-    ws.onopen = () => resolve();
-    ws.onerror = (e) => reject(e);
+    ws.onopen = () => { stateCallback?.('connected'); resolve(); };
+    ws.onerror = (e) => { stateCallback?.('error'); reject(e); };
 
     ws.onmessage = (event) => {
       const data = new Uint8Array(event.data as ArrayBuffer);
@@ -40,11 +48,11 @@ export function connect(): Promise<void> {
 
     ws.onclose = () => {
       ws = null;
-      // Reject all pending requests
       for (const [, p] of pending) {
         p.reject(new Error('WebSocket closed'));
       }
       pending.clear();
+      stateCallback?.('disconnected');
     };
   });
 }

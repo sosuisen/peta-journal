@@ -13,7 +13,7 @@ body {
 .app {
   max-width: 960px;
   margin: 0 auto;
-  padding: 24px 16px;
+  padding: 24px 16px 32px;
 }
 
 h1 {
@@ -29,10 +29,25 @@ h1 {
   margin-bottom: 12px;
 }
 
-.connecting {
-  color: #666;
-  margin-bottom: 12px;
+.footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  padding: 2px 16px;
+  border-top: 1px solid #e0e0e0;
+  background: #fafafa;
+  height: 24px;
+  box-sizing: border-box;
+  font-size: 11px;
 }
+
+.connection-status.connected { color: #4caf50; }
+.connection-status.connecting { color: #ff9800; }
+.connection-status.disconnected { color: #999; }
+.connection-status.error { color: #f44336; }
 
 .filter-bar {
   display: flex;
