@@ -282,11 +282,16 @@ export class MainLayoutComponent {
 
   async deletePage(): Promise<void> {
     const url = this.router.url;
-    const match = url.match(/\/docs\/(.+)/);
-    if (!match) return;
-    const fileName = decodeURIComponent(match[1]);
+    const docsMatch = url.match(/\/docs\/(.+)/);
+    const journalMatch = url.match(/\/journals\/(.+)/);
+    const fileName = docsMatch ? decodeURIComponent(docsMatch[1])
+                   : journalMatch ? decodeURIComponent(journalMatch[1])
+                   : null;
+    if (!fileName || fileName === 'today') return;
     if (!confirm(`Delete "${fileName}"?`)) return;
-    const result = await this.api.getDocByName(fileName);
+    const result = journalMatch
+      ? await this.api.getJournalByName(fileName)
+      : await this.api.getDocByName(fileName);
     await this.api.deletePage(result.page.id);
     this.recentPages.refresh();
     this.router.navigate(['/journals/today']);
