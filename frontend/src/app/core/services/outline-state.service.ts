@@ -9,6 +9,7 @@ export class OutlineStateService {
   private readonly _collapsedBlockIds = signal<Set<string>>(new Set());
   private readonly _blockSelectionMode = signal<boolean>(false);
   private readonly _pendingCursorPosition = signal<number | null>(null);
+  private _suppressDuplicateAnimation = false;
 
   readonly blocks = this._blocks.asReadonly();
   readonly editingBlockId = this._editingBlockId.asReadonly();
@@ -66,6 +67,14 @@ export class OutlineStateService {
   setEditingBlock(blockId: string | null, cursorPosition: number | null = null): void {
     this._pendingCursorPosition.set(cursorPosition);
     this._editingBlockId.set(blockId);
+  }
+
+  get suppressDuplicateAnimation(): boolean {
+    return this._suppressDuplicateAnimation;
+  }
+
+  set suppressDuplicateAnimation(value: boolean) {
+    this._suppressDuplicateAnimation = value;
   }
 
   consumePendingCursorPosition(): number | null {
@@ -133,6 +142,21 @@ export class OutlineStateService {
   deleteBlocks(blockIds: string[]): void {
     const idSet = new Set(blockIds);
     this._blocks.update(blocks => blocks.filter(b => !idSet.has(b.id)));
+  }
+
+  /**
+   * Atomically remove old blocks and insert new blocks at the target position.
+   * This avoids the visual duplication that happens with separate delete + add calls.
+   */
+  replaceBlocks(oldBlockIds: string[], newBlocks: Block[], afterBlockId: string): void {
+    const idSet = new Set(oldBlockIds);
+    this._blocks.update(current => {
+      const filtered = current.filter(b => !idSet.has(b.id));
+      const idx = afterBlockId ? filtered.findIndex(b => b.id === afterBlockId) : -1;
+      const result = [...filtered];
+      result.splice(idx + 1, 0, ...newBlocks);
+      return result;
+    });
   }
 
   setSelectedBlockIds(ids: Set<string>): void {

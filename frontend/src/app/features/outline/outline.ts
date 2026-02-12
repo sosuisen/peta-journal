@@ -382,8 +382,7 @@ export class OutlineComponent implements OnDestroy {
         // Move after the last child (if it's not the parent itself)
         if (lastChildId !== currentParent.id) {
           const moved = await this.api.moveBlocks(groupIds, block.pageId, lastChildId);
-          this.state.deleteBlocks(groupIds);
-          this.state.addBlocks(moved, lastChildId);
+          this.state.replaceBlocks(groupIds, moved, lastChildId);
         }
         return;
       }
@@ -407,56 +406,59 @@ export class OutlineComponent implements OnDestroy {
     const group = this.state.getBlockWithChildren(block.id);
     const groupIds = group.map(b => b.id);
 
-    // Clear editing so blur from deleteBlocks won't trigger onEditFinished
+    // Suppress duplicate animation during move — block reappears at new position
+    this.state.suppressDuplicateAnimation = true;
     this.state.setEditingBlock(null);
 
-    // Standard placement: move entire tree before the entire previous tree
-    const prevBlock = blocks[idx - 1];
-    if (this.canPlace(block.level, prevBlock)) {
-      // Find the previous block's position in allBlocks to move before its entire tree
-      const allBlocks = this.state.blocks();
-      const prevBlockIdx = allBlocks.findIndex(b => b.id === prevBlock.id);
-      const targetPrev = prevBlockIdx > 0 ? allBlocks[prevBlockIdx - 1] : undefined;
-      const prevPrevId = targetPrev?.id ?? '';
+    try {
+      // Standard placement: move entire tree before the entire previous tree
+      const prevBlock = blocks[idx - 1];
+      if (this.canPlace(block.level, prevBlock)) {
+        // Find the previous block's position in allBlocks to move before its entire tree
+        const allBlocks = this.state.blocks();
+        const prevBlockIdx = allBlocks.findIndex(b => b.id === prevBlock.id);
+        const targetPrev = prevBlockIdx > 0 ? allBlocks[prevBlockIdx - 1] : undefined;
+        const prevPrevId = targetPrev?.id ?? '';
 
-      // Normal move up - move before the entire previous tree
-      const moved = await this.api.moveBlocks(groupIds, block.pageId, prevPrevId);
-      this.state.deleteBlocks(groupIds);
-      this.state.addBlocks(moved, prevPrevId || '');
+        // Normal move up - move before the entire previous tree
+        const moved = await this.api.moveBlocks(groupIds, block.pageId, prevPrevId);
+        this.state.replaceBlocks(groupIds, moved, prevPrevId || '');
+        this.state.setEditingBlock(block.id);
+        this.focusEditor(block.id);
+        return;
+      }
+
+      // Exception: If there's a block at the same level above, move just above it
+      let sameLevelBlockIdx = -1;
+      for (let i = idx - 1; i >= 0; i--) {
+        if (blocks[i].level === block.level) {
+          sameLevelBlockIdx = i;
+          break;
+        }
+      }
+
+      if (sameLevelBlockIdx === -1) {
+        // No same-level block found above — restore editing
+        this.state.setEditingBlock(block.id);
+        return;
+      }
+
+      // Find the block with children to determine the actual position
+      const allBlocks = this.state.blocks();
+      const sameLevelBlock = blocks[sameLevelBlockIdx];
+      const sameLevelIdx = allBlocks.findIndex(b => b.id === sameLevelBlock.id);
+
+      // Move to just before the same-level block (considering its children)
+      const targetPrev = sameLevelIdx > 0 ? allBlocks[sameLevelIdx - 1] : undefined;
+      const targetPrevId = targetPrev?.id ?? '';
+
+      const moved = await this.api.moveBlocks(groupIds, block.pageId, targetPrevId);
+      this.state.replaceBlocks(groupIds, moved, targetPrevId);
       this.state.setEditingBlock(block.id);
       this.focusEditor(block.id);
-      return;
+    } finally {
+      this.state.suppressDuplicateAnimation = false;
     }
-
-    // Exception: If there's a block at the same level above, move just above it
-    let sameLevelBlockIdx = -1;
-    for (let i = idx - 1; i >= 0; i--) {
-      if (blocks[i].level === block.level) {
-        sameLevelBlockIdx = i;
-        break;
-      }
-    }
-
-    if (sameLevelBlockIdx === -1) {
-      // No same-level block found above — restore editing
-      this.state.setEditingBlock(block.id);
-      return;
-    }
-
-    // Find the block with children to determine the actual position
-    const allBlocks = this.state.blocks();
-    const sameLevelBlock = blocks[sameLevelBlockIdx];
-    const sameLevelIdx = allBlocks.findIndex(b => b.id === sameLevelBlock.id);
-
-    // Move to just before the same-level block (considering its children)
-    const targetPrev = sameLevelIdx > 0 ? allBlocks[sameLevelIdx - 1] : undefined;
-    const targetPrevId = targetPrev?.id ?? '';
-
-    const moved = await this.api.moveBlocks(groupIds, block.pageId, targetPrevId);
-    this.state.deleteBlocks(groupIds);
-    this.state.addBlocks(moved, targetPrevId);
-    this.state.setEditingBlock(block.id);
-    this.focusEditor(block.id);
   }
 
   async onMoveDown(block: Block): Promise<void> {
@@ -474,50 +476,53 @@ export class OutlineComponent implements OnDestroy {
     if (lastChildIdx >= allBlocks.length - 1) return;
     const targetBlock = allBlocks[lastChildIdx + 1];
 
-    // Clear editing so blur from deleteBlocks won't trigger onEditFinished
+    // Suppress duplicate animation during move — block reappears at new position
+    this.state.suppressDuplicateAnimation = true;
     this.state.setEditingBlock(null);
 
-    // Standard placement: move entire tree after the entire next tree
-    if (this.canPlace(block.level, targetBlock)) {
-      // Get the target block and all its children to find the bottom of the next tree
-      const targetGroup = this.state.getBlockWithChildren(targetBlock.id);
-      const lastTargetDescendant = targetGroup[targetGroup.length - 1];
+    try {
+      // Standard placement: move entire tree after the entire next tree
+      if (this.canPlace(block.level, targetBlock)) {
+        // Get the target block and all its children to find the bottom of the next tree
+        const targetGroup = this.state.getBlockWithChildren(targetBlock.id);
+        const lastTargetDescendant = targetGroup[targetGroup.length - 1];
 
-      // Normal move down - move after the entire next tree
-      const moved = await this.api.moveBlocks(groupIds, block.pageId, lastTargetDescendant.id);
-      this.state.deleteBlocks(groupIds);
-      this.state.addBlocks(moved, lastTargetDescendant.id);
+        // Normal move down - move after the entire next tree
+        const moved = await this.api.moveBlocks(groupIds, block.pageId, lastTargetDescendant.id);
+        this.state.replaceBlocks(groupIds, moved, lastTargetDescendant.id);
+        this.state.setEditingBlock(block.id);
+        this.focusEditor(block.id);
+        return;
+      }
+
+      // Exception: If there's a block at the same level below, move just after it (and its children)
+      let sameLevelBlockIdx = -1;
+      for (let i = idx + 1; i < blocks.length; i++) {
+        if (blocks[i].level === block.level) {
+          sameLevelBlockIdx = i;
+          break;
+        }
+      }
+
+      if (sameLevelBlockIdx === -1) {
+        // No same-level block found below — restore editing
+        this.state.setEditingBlock(block.id);
+        return;
+      }
+
+      // Get the same-level block and all its children
+      const sameLevelBlock = blocks[sameLevelBlockIdx];
+      const sameLevelGroup = this.state.getBlockWithChildren(sameLevelBlock.id);
+      const lastDescendant = sameLevelGroup[sameLevelGroup.length - 1];
+
+      // Move to just after the same-level block and all its children
+      const moved = await this.api.moveBlocks(groupIds, block.pageId, lastDescendant.id);
+      this.state.replaceBlocks(groupIds, moved, lastDescendant.id);
       this.state.setEditingBlock(block.id);
       this.focusEditor(block.id);
-      return;
+    } finally {
+      this.state.suppressDuplicateAnimation = false;
     }
-
-    // Exception: If there's a block at the same level below, move just after it (and its children)
-    let sameLevelBlockIdx = -1;
-    for (let i = idx + 1; i < blocks.length; i++) {
-      if (blocks[i].level === block.level) {
-        sameLevelBlockIdx = i;
-        break;
-      }
-    }
-
-    if (sameLevelBlockIdx === -1) {
-      // No same-level block found below — restore editing
-      this.state.setEditingBlock(block.id);
-      return;
-    }
-
-    // Get the same-level block and all its children
-    const sameLevelBlock = blocks[sameLevelBlockIdx];
-    const sameLevelGroup = this.state.getBlockWithChildren(sameLevelBlock.id);
-    const lastDescendant = sameLevelGroup[sameLevelGroup.length - 1];
-
-    // Move to just after the same-level block and all its children
-    const moved = await this.api.moveBlocks(groupIds, block.pageId, lastDescendant.id);
-    this.state.deleteBlocks(groupIds);
-    this.state.addBlocks(moved, lastDescendant.id);
-    this.state.setEditingBlock(block.id);
-    this.focusEditor(block.id);
   }
 
   async onCheckboxToggled(block: Block): Promise<void> {
@@ -918,8 +923,7 @@ export class OutlineComponent implements OnDestroy {
 
       try {
         const moved = await this.api.moveBlocks(allSelectedIds, firstRoot.pageId, targetPrevId);
-        this.state.deleteBlocks(allSelectedIds);
-        this.state.addBlocks(moved, targetPrevId);
+        this.state.replaceBlocks(allSelectedIds, moved, targetPrevId);
       } catch (e) {
         console.error('Failed to move selected blocks up:', e);
       }
@@ -943,8 +947,7 @@ export class OutlineComponent implements OnDestroy {
 
     try {
       const moved = await this.api.moveBlocks(allSelectedIds, firstRoot.pageId, targetPrevId);
-      this.state.deleteBlocks(allSelectedIds);
-      this.state.addBlocks(moved, targetPrevId);
+      this.state.replaceBlocks(allSelectedIds, moved, targetPrevId);
     } catch (e) {
       console.error('Failed to move selected blocks up:', e);
     }
@@ -978,8 +981,7 @@ export class OutlineComponent implements OnDestroy {
 
       try {
         const moved = await this.api.moveBlocks(allSelectedIds, lastRoot.pageId, targetAfter.id);
-        this.state.deleteBlocks(allSelectedIds);
-        this.state.addBlocks(moved, targetAfter.id);
+        this.state.replaceBlocks(allSelectedIds, moved, targetAfter.id);
       } catch (e) {
         console.error('Failed to move selected blocks down:', e);
       }
@@ -1004,8 +1006,7 @@ export class OutlineComponent implements OnDestroy {
 
     try {
       const moved = await this.api.moveBlocks(allSelectedIds, lastRoot.pageId, lastDescendant.id);
-      this.state.deleteBlocks(allSelectedIds);
-      this.state.addBlocks(moved, lastDescendant.id);
+      this.state.replaceBlocks(allSelectedIds, moved, lastDescendant.id);
     } catch (e) {
       console.error('Failed to move selected blocks down:', e);
     }

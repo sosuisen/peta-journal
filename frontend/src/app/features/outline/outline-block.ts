@@ -150,7 +150,9 @@ export class OutlineBlockComponent {
   }
 
   onEditFinished(): void {
-    this.createDuplicateTextarea();
+    if (!this.state.suppressDuplicateAnimation) {
+      this.createDuplicateTextarea();
+    }
     this.editFinished.emit();
   }
 
