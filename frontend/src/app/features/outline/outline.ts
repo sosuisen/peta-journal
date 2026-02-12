@@ -407,6 +407,9 @@ export class OutlineComponent implements OnDestroy {
     const group = this.state.getBlockWithChildren(block.id);
     const groupIds = group.map(b => b.id);
 
+    // Clear editing so blur from deleteBlocks won't trigger onEditFinished
+    this.state.setEditingBlock(null);
+
     // Standard placement: move entire tree before the entire previous tree
     const prevBlock = blocks[idx - 1];
     if (this.canPlace(block.level, prevBlock)) {
@@ -420,7 +423,8 @@ export class OutlineComponent implements OnDestroy {
       const moved = await this.api.moveBlocks(groupIds, block.pageId, prevPrevId);
       this.state.deleteBlocks(groupIds);
       this.state.addBlocks(moved, prevPrevId || '');
-      this.focusEditor();
+      this.state.setEditingBlock(block.id);
+      this.focusEditor(block.id);
       return;
     }
 
@@ -433,7 +437,11 @@ export class OutlineComponent implements OnDestroy {
       }
     }
 
-    if (sameLevelBlockIdx === -1) return; // No same-level block found above
+    if (sameLevelBlockIdx === -1) {
+      // No same-level block found above — restore editing
+      this.state.setEditingBlock(block.id);
+      return;
+    }
 
     // Find the block with children to determine the actual position
     const allBlocks = this.state.blocks();
@@ -447,7 +455,8 @@ export class OutlineComponent implements OnDestroy {
     const moved = await this.api.moveBlocks(groupIds, block.pageId, targetPrevId);
     this.state.deleteBlocks(groupIds);
     this.state.addBlocks(moved, targetPrevId);
-    this.focusEditor();
+    this.state.setEditingBlock(block.id);
+    this.focusEditor(block.id);
   }
 
   async onMoveDown(block: Block): Promise<void> {
@@ -465,6 +474,9 @@ export class OutlineComponent implements OnDestroy {
     if (lastChildIdx >= allBlocks.length - 1) return;
     const targetBlock = allBlocks[lastChildIdx + 1];
 
+    // Clear editing so blur from deleteBlocks won't trigger onEditFinished
+    this.state.setEditingBlock(null);
+
     // Standard placement: move entire tree after the entire next tree
     if (this.canPlace(block.level, targetBlock)) {
       // Get the target block and all its children to find the bottom of the next tree
@@ -475,7 +487,8 @@ export class OutlineComponent implements OnDestroy {
       const moved = await this.api.moveBlocks(groupIds, block.pageId, lastTargetDescendant.id);
       this.state.deleteBlocks(groupIds);
       this.state.addBlocks(moved, lastTargetDescendant.id);
-      this.focusEditor();
+      this.state.setEditingBlock(block.id);
+      this.focusEditor(block.id);
       return;
     }
 
@@ -488,7 +501,11 @@ export class OutlineComponent implements OnDestroy {
       }
     }
 
-    if (sameLevelBlockIdx === -1) return; // No same-level block found below
+    if (sameLevelBlockIdx === -1) {
+      // No same-level block found below — restore editing
+      this.state.setEditingBlock(block.id);
+      return;
+    }
 
     // Get the same-level block and all its children
     const sameLevelBlock = blocks[sameLevelBlockIdx];
@@ -499,7 +516,8 @@ export class OutlineComponent implements OnDestroy {
     const moved = await this.api.moveBlocks(groupIds, block.pageId, lastDescendant.id);
     this.state.deleteBlocks(groupIds);
     this.state.addBlocks(moved, lastDescendant.id);
-    this.focusEditor();
+    this.state.setEditingBlock(block.id);
+    this.focusEditor(block.id);
   }
 
   async onCheckboxToggled(block: Block): Promise<void> {
