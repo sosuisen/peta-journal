@@ -224,6 +224,15 @@ public class LuceneSearchService implements SearchService {
     }
 
     @Override
+    public boolean isEmpty() {
+        try (DirectoryReader reader = DirectoryReader.open(writer)) {
+            return reader.numDocs() == 0;
+        } catch (IOException e) {
+            return true;
+        }
+    }
+
+    @Override
     public void deleteAll() {
         try {
             writer.deleteAll();
