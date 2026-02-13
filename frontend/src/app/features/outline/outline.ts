@@ -1,4 +1,4 @@
-import { Component, inject, input, output, effect, Injector, afterNextRender, viewChild, OnDestroy } from '@angular/core';
+import { Component, inject, input, output, effect, Injector, afterNextRender, viewChild, viewChildren, signal, OnDestroy } from '@angular/core';
 import { ScrollingModule, CdkVirtualScrollViewport } from '@angular/cdk/scrolling';
 import { OutlineBlockComponent } from './outline-block';
 import { OutlineStateService } from '../../core/services/outline-state.service';
@@ -8,6 +8,7 @@ import { Block } from '../../core/models/block.model';
 import { ClipboardService } from '../../core/services/clipboard.service';
 import { formatJournalDate } from '../../core/utils/date.utils';
 import { isJournalFileName } from '../../core/utils/journal-filename.utils';
+import { WikiLinkContext } from './block-editor';
 
 @Component({
   selector: 'app-outline',
@@ -25,7 +26,9 @@ import { isJournalFileName } from '../../core/utils/journal-filename.utils';
           </div>
         }
         <app-outline-block
+          #outlineBlock
           [block]="block"
+          [suggestionsVisible]="wikiSuggestionsBlockId() === block.id && wikiSuggestions().length > 0"
           (bodyChanged)="onBodyChanged(block, $event)"
           (editRequested)="onEditRequested(block.id, $event)"
           (editFinished)="onEditFinished(block)"
@@ -43,9 +46,29 @@ import { isJournalFileName } from '../../core/utils/journal-filename.utils';
           (collapseToggled)="onCollapseToggled(block)"
           (pasteDetected)="onPaste(block, $event)"
           (dragBeyondBounds)="onDragBeyondBounds(block, $event)"
+          (wikiLinkQueryChanged)="onWikiLinkQuery(block, $event)"
+          (wikiLinkSelected)="onWikiLinkKeyNav($event)"
         />
       </div>
     </cdk-virtual-scroll-viewport>
+    @if (wikiSuggestions().length > 0) {
+      <div
+        class="wiki-suggestions"
+        [style.left.px]="wikiSuggestionsPos().x"
+        [style.top.px]="wikiSuggestionsPos().y"
+      >
+        @for (suggestion of wikiSuggestions(); track suggestion; let i = $index) {
+          <div
+            class="wiki-suggestion-item"
+            [class.selected]="i === wikiSuggestionIndex()"
+            (mousedown)="selectWikiSuggestion(suggestion, $event)"
+            (mouseenter)="wikiSuggestionIndex.set(i)"
+          >
+            {{ suggestion }}
+          </div>
+        }
+      </div>
+    }
   `,
   styles: [`
     :host { display: block; height: 100%; width: 100%; }
@@ -72,6 +95,33 @@ import { isJournalFileName } from '../../core/utils/journal-filename.utils';
       font-weight: bold;
       border-top: 1px solid #ddd;
     }
+    .wiki-suggestions {
+      position: fixed;
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      max-height: 200px;
+      overflow-y: auto;
+      z-index: 1000;
+      min-width: 200px;
+      max-width: 400px;
+      padding: 4px 0;
+    }
+    .wiki-suggestion-item {
+      padding: 6px 12px;
+      cursor: pointer;
+      font-size: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .wiki-suggestion-item.selected {
+      background: #e8f0fe;
+    }
+    .wiki-suggestion-item:hover {
+      background: #f0f0f0;
+    }
   `]
 })
 export class OutlineComponent implements OnDestroy {
@@ -87,6 +137,15 @@ export class OutlineComponent implements OnDestroy {
   readonly topBlockChanged = output<string>();  // Emits fileName of top visible block
   private readonly dirtyBlockIds = new Set<string>();
   private readonly viewport = viewChild<CdkVirtualScrollViewport>('viewport');
+  private readonly outlineBlocks = viewChildren<OutlineBlockComponent>('outlineBlock');
+
+  // Wiki link suggestions state
+  readonly wikiSuggestions = signal<string[]>([]);
+  readonly wikiSuggestionIndex = signal(0);
+  readonly wikiSuggestionsBlockId = signal<string | null>(null);
+  readonly wikiSuggestionsPos = signal({ x: 0, y: 0 });
+  private wikiSearchTimer: ReturnType<typeof setTimeout> | null = null;
+
   private selectionAnchorBlockId: string | null = null;
   private isSelectionDragging = false;
   private selectionKeydownHandler = (e: KeyboardEvent) => this.handleSelectionKeydown(e);
@@ -165,6 +224,7 @@ export class OutlineComponent implements OnDestroy {
   }
 
   async onEditFinished(block: Block): Promise<void> {
+    this.closeWikiSuggestions();
     // If editing has already moved to a different block (e.g. Enter/Backspace/Delete),
     // don't clear it — the blur is from the old block-editor being removed from DOM.
     if (this.state.editingBlockId() !== block.id) return;
@@ -535,6 +595,70 @@ export class OutlineComponent implements OnDestroy {
       this.focusEditor(block.id);
     } finally {
 
+    }
+  }
+
+  onWikiLinkQuery(block: Block, ctx: WikiLinkContext | null): void {
+    if (!ctx) {
+      this.closeWikiSuggestions();
+      return;
+    }
+    this.wikiSuggestionsBlockId.set(block.id);
+    this.wikiSuggestionsPos.set({ x: ctx.rect.left, y: ctx.rect.bottom + 4 });
+
+    if (!ctx.query) {
+      this.wikiSuggestions.set([]);
+      return;
+    }
+
+    // Debounce search
+    if (this.wikiSearchTimer) clearTimeout(this.wikiSearchTimer);
+    this.wikiSearchTimer = setTimeout(async () => {
+      try {
+        const result = await this.api.searchPageNames(ctx.query, 10);
+        const titles = result.results.map(r => r.pageTitle);
+        this.wikiSuggestions.set(titles);
+        this.wikiSuggestionIndex.set(0);
+      } catch (e) {
+        this.wikiSuggestions.set([]);
+      }
+    }, 150);
+  }
+
+  onWikiLinkKeyNav(key: string): void {
+    const suggestions = this.wikiSuggestions();
+    if (suggestions.length === 0) return;
+    const idx = this.wikiSuggestionIndex();
+
+    if (key === 'ArrowDown') {
+      this.wikiSuggestionIndex.set((idx + 1) % suggestions.length);
+    } else if (key === 'ArrowUp') {
+      this.wikiSuggestionIndex.set((idx - 1 + suggestions.length) % suggestions.length);
+    } else if (key === 'Enter') {
+      this.selectWikiSuggestion(suggestions[idx]);
+    }
+  }
+
+  selectWikiSuggestion(title: string, event?: MouseEvent): void {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    const blockId = this.wikiSuggestionsBlockId();
+    if (!blockId) return;
+    const blockComp = this.outlineBlocks()?.find(
+      ob => ob.block().id === blockId
+    );
+    blockComp?.replaceWikiLinkQuery(title);
+    this.closeWikiSuggestions();
+  }
+
+  private closeWikiSuggestions(): void {
+    this.wikiSuggestions.set([]);
+    this.wikiSuggestionsBlockId.set(null);
+    if (this.wikiSearchTimer) {
+      clearTimeout(this.wikiSearchTimer);
+      this.wikiSearchTimer = null;
     }
   }
 
@@ -1152,6 +1276,7 @@ export class OutlineComponent implements OnDestroy {
     document.removeEventListener('click', this.selectionClickHandler);
     document.removeEventListener('copy', this.selectionCopyHandler);
     document.removeEventListener('cut', this.selectionCutHandler);
+    this.closeWikiSuggestions();
   }
 
   private focusEditor(blockId?: string): void {

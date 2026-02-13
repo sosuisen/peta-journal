@@ -1,6 +1,12 @@
 import { Component, input, output, ElementRef, viewChild, AfterViewInit, inject, effect, OnDestroy } from '@angular/core';
 import { OutlineStateService } from '../../core/services/outline-state.service';
 
+export interface WikiLinkContext {
+  query: string;
+  rect: DOMRect;
+}
+
+
 @Component({
   selector: 'app-block-editor',
   template: `
@@ -74,6 +80,9 @@ export class BlockEditorComponent implements AfterViewInit, OnDestroy {
   readonly statusToggled = output<void>();
   readonly pasteDetected = output<{ text: string; html: string; cursorPos: number }>();
   readonly dragBeyondBounds = output<'above' | 'below'>();
+  readonly wikiLinkQuery = output<WikiLinkContext | null>();
+  readonly wikiLinkSelect = output<string>(); // emits the key: 'ArrowUp', 'ArrowDown', 'Enter'
+  readonly suggestionsVisible = input<boolean>(false);
 
   private readonly editorRef = viewChild.required<ElementRef<HTMLTextAreaElement>>('editor');
   private readonly checkboxRef = viewChild<ElementRef<HTMLInputElement>>('checkbox');
@@ -126,11 +135,25 @@ export class BlockEditorComponent implements AfterViewInit, OnDestroy {
     const el = event.target as HTMLTextAreaElement;
     this.bodyChange.emit(el.value);
     this.autoResize(el);
+    this.checkWikiLinkContext(el);
   }
 
   onKeydown(event: KeyboardEvent): void {
     const el = event.target as HTMLTextAreaElement;
     const { selectionStart, selectionEnd, value } = el;
+
+    // When wiki link suggestions are visible, intercept navigation keys
+    if (this.suggestionsVisible()) {
+      if (event.key === 'ArrowUp' || event.key === 'ArrowDown' || event.key === 'Enter' || event.key === 'Escape') {
+        event.preventDefault();
+        if (event.key === 'Escape') {
+          this.wikiLinkQuery.emit(null);
+        } else {
+          this.wikiLinkSelect.emit(event.key);
+        }
+        return;
+      }
+    }
 
     if (event.key === 'Enter' && event.ctrlKey) {
       event.preventDefault();
@@ -220,6 +243,21 @@ export class BlockEditorComponent implements AfterViewInit, OnDestroy {
       return;
     }
 
+    // Auto-close [[ with ]]
+    if (event.key === '[' && selectionStart > 0 && value[selectionStart - 1] === '['
+        && value.substring(selectionStart, selectionStart + 2) !== ']]') {
+      event.preventDefault();
+      const before = value.substring(0, selectionStart);
+      const after = value.substring(selectionEnd);
+      const newValue = before + '[]]' + after;
+      const cursorPos = selectionStart + 1;
+      el.value = newValue;
+      el.setSelectionRange(cursorPos, cursorPos);
+      this.bodyChange.emit(newValue);
+      this.autoResize(el);
+      return;
+    }
+
     if (event.key === 'Tab') {
       event.preventDefault();
       if (event.shiftKey) {
@@ -285,6 +323,86 @@ export class BlockEditorComponent implements AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.onDocMouseUp();
+  }
+
+  private checkWikiLinkContext(el: HTMLTextAreaElement): void {
+    const { selectionStart, value } = el;
+    // Look backward for [[ before cursor
+    const before = value.substring(0, selectionStart);
+    const openIdx = before.lastIndexOf('[[');
+    if (openIdx === -1) {
+      this.wikiLinkQuery.emit(null);
+      return;
+    }
+    // Check there's no ]] between [[ and cursor (i.e., we're inside an open link)
+    const between = before.substring(openIdx + 2);
+    if (between.includes(']]')) {
+      this.wikiLinkQuery.emit(null);
+      return;
+    }
+    // Check there's a ]] after cursor
+    const after = value.substring(selectionStart);
+    if (!after.startsWith(']]') && !after.includes(']]')) {
+      this.wikiLinkQuery.emit(null);
+      return;
+    }
+    const query = between;
+    const rect = this.getCaretRect(el, selectionStart);
+    this.wikiLinkQuery.emit({ query, rect });
+  }
+
+  private getCaretRect(el: HTMLTextAreaElement, position: number): DOMRect {
+    const div = document.createElement('div');
+    const style = window.getComputedStyle(el);
+
+    div.style.position = 'absolute';
+    div.style.visibility = 'hidden';
+    div.style.whiteSpace = 'pre-wrap';
+    div.style.wordWrap = 'break-word';
+    div.style.width = el.clientWidth + 'px';
+    div.style.font = style.font;
+    div.style.letterSpacing = style.letterSpacing;
+    div.style.lineHeight = style.lineHeight;
+    div.style.padding = style.padding;
+
+    document.body.appendChild(div);
+
+    const textBefore = document.createTextNode(el.value.substring(0, position));
+    const marker = document.createElement('span');
+    marker.textContent = '\u200B';
+    div.appendChild(textBefore);
+    div.appendChild(marker);
+
+    const elRect = el.getBoundingClientRect();
+    const markerLeft = marker.offsetLeft;
+    const markerTop = marker.offsetTop;
+    const lineHeight = parseFloat(style.lineHeight) || 20;
+
+    document.body.removeChild(div);
+
+    return new DOMRect(
+      elRect.left + markerLeft - el.scrollLeft,
+      elRect.top + markerTop - el.scrollTop,
+      0,
+      lineHeight
+    );
+  }
+
+  replaceWikiLinkQuery(replacement: string): void {
+    const el = this.editorRef().nativeElement;
+    const { selectionStart, value } = el;
+    const before = value.substring(0, selectionStart);
+    const openIdx = before.lastIndexOf('[[');
+    if (openIdx === -1) return;
+    const after = value.substring(selectionStart);
+    const closeIdx = after.indexOf(']]');
+    if (closeIdx === -1) return;
+    const newValue = value.substring(0, openIdx + 2) + replacement + value.substring(selectionStart + closeIdx);
+    const newCursorPos = openIdx + 2 + replacement.length;
+    el.value = newValue;
+    el.setSelectionRange(newCursorPos, newCursorPos);
+    this.bodyChange.emit(newValue);
+    this.autoResize(el);
   }
 
   private autoResize(el: HTMLTextAreaElement): void {

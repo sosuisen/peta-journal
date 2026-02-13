@@ -1,7 +1,7 @@
-import { Component, input, output, computed, inject } from '@angular/core';
+import { Component, input, output, computed, inject, viewChild } from '@angular/core';
 import { Block } from '../../core/models/block.model';
 import { OutlineStateService } from '../../core/services/outline-state.service';
-import { BlockEditorComponent } from './block-editor';
+import { BlockEditorComponent, WikiLinkContext } from './block-editor';
 import { BlockViewComponent } from './block-view';
 
 @Component({
@@ -29,9 +29,11 @@ import { BlockViewComponent } from './block-view';
       <div class="block-body">
         @if (isEditing()) {
           <app-block-editor
+            #editor
             [body]="block().body"
             [blockId]="block().id"
             [status]="block().status"
+            [suggestionsVisible]="suggestionsVisible()"
             (bodyChange)="bodyChanged.emit($event)"
             (blurred)="onEditFinished()"
             (enterPressed)="onEnterPressed($event)"
@@ -47,6 +49,8 @@ import { BlockViewComponent } from './block-view';
             (statusToggled)="taskToggled.emit()"
             (pasteDetected)="pasteDetected.emit($event)"
             (dragBeyondBounds)="dragBeyondBounds.emit($event)"
+            (wikiLinkQuery)="wikiLinkQueryChanged.emit($event)"
+            (wikiLinkSelect)="wikiLinkSelected.emit($event)"
           />
         } @else {
           <app-block-view
@@ -126,6 +130,11 @@ export class OutlineBlockComponent {
   readonly collapseToggled = output<void>();
   readonly pasteDetected = output<{ text: string; html: string; cursorPos: number }>();
   readonly dragBeyondBounds = output<'above' | 'below'>();
+  readonly wikiLinkQueryChanged = output<WikiLinkContext | null>();
+  readonly wikiLinkSelected = output<string>();
+  readonly suggestionsVisible = input<boolean>(false);
+
+  private readonly editorRef = viewChild<BlockEditorComponent>('editor');
 
   readonly indentPx = computed(() => this.block().level * 24);
   readonly hasChildren = computed(() => this.state.hasChildren(this.block().id));
@@ -144,6 +153,10 @@ export class OutlineBlockComponent {
     }
     return true;
   });
+
+  replaceWikiLinkQuery(replacement: string): void {
+    this.editorRef()?.replaceWikiLinkQuery(replacement);
+  }
 
   toggleCollapse(): void {
     this.collapseToggled.emit();
