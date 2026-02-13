@@ -229,7 +229,10 @@ export class BlockViewComponent {
       if (classifyJournalFileName(pageTitle) !== 'none') {
         this.nav.navigateToPage(pageTitle, newTab);
       } else {
-        const error = validateFileName(pageTitle);
+        // Validate only the file_name part (after last slash)
+        const lastSlash = pageTitle.lastIndexOf('/');
+        const fileNamePart = lastSlash >= 0 ? pageTitle.substring(lastSlash + 1) : pageTitle;
+        const error = validateFileName(fileNamePart);
         if (error) { alert(error); return; }
         const result = await this.api.getDocByName(pageTitle);
         this.recentPages.refresh();

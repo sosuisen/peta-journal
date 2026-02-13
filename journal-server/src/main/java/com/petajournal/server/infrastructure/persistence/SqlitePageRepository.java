@@ -128,7 +128,7 @@ public class SqlitePageRepository implements PageRepository {
     public List<Page> findByTitle(String titleQuery) {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT id, dir_path, file_name, created_date, modified_date, properties_json " +
+                     "SELECT id, dir_path, file_name, type, created_date, modified_date, properties_json " +
                      "FROM pages WHERE file_name LIKE ? ORDER BY modified_date DESC LIMIT 20")) {
             ps.setString(1, "%" + titleQuery + "%");
             return mapPages(conn, ps);
