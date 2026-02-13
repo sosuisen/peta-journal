@@ -37,7 +37,7 @@ public class SqliteBlockRepository implements BlockRepository {
 
     @Override
     public List<Block> findByPageId(UUID pageId) {
-        LOG.infov("findByPageId: pageId={0}", pageId);
+        LOG.debugv("findByPageId: pageId={0}", pageId);
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
                      "SELECT b.id, b.page_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.html, b.collapsed, b.status, b.properties_json, " +
@@ -50,7 +50,7 @@ public class SqliteBlockRepository implements BlockRepository {
                     blocks.add(mapBlock(conn, rs));
                 }
             }
-            LOG.infov("findByPageId: found {0} blocks", blocks.size());
+            LOG.debugv("findByPageId: found {0} blocks", blocks.size());
             return blocks;
         } catch (SQLException e) {
             throw new RuntimeException("Failed to find blocks by page: " + pageId, e);

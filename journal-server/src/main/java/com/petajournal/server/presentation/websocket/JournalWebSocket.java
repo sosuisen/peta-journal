@@ -53,7 +53,7 @@ public class JournalWebSocket {
 
     @OnOpen
     void onOpen() {
-        LOG.info("WebSocket client connected: " + connection.id());
+        LOG.debug("WebSocket client connected: " + connection.id());
         eventBroadcastService.sendConnectedEvent(connection);
     }
 
