@@ -22,6 +22,9 @@ import { validateFileName } from '../core/utils/filename-validation.utils';
           <button class="menu-btn" (click)="sidebarCollapsed.set(!sidebarCollapsed())">
             &#9776;
           </button>
+          <button class="menu-btn" title="Today's journal" (click)="goHome()">
+            &#128197;
+          </button>
         </div>
         <div class="header-center">
           <button class="new-page-btn" title="New page" (click)="createNewPage()">+</button>

@@ -14,11 +14,6 @@ import { NavigationService } from '../../core/services/navigation.service';
   template: `
     <nav class="sidebar">
       <div class="sidebar-content">
-        <div class="sidebar-section">
-          <button class="sidebar-btn" (click)="goToToday()">
-            <span class="icon">&#128197;</span> Journal
-          </button>
-        </div>
         @if (isJournalPage()) {
           <div class="sidebar-section">
             <app-calendar
@@ -68,19 +63,7 @@ import { NavigationService } from '../../core/services/navigation.service';
       padding: 12px;
     }
     .sidebar-section { margin-bottom: 20px; }
-    .sidebar-btn {
-      width: 100%;
-      text-align: left;
-      padding: 8px 12px;
-      border: none;
-      background: none;
-      cursor: pointer;
-      border-radius: 6px;
-      font-size: 14px;
-    }
-    .sidebar-btn:hover { background: #e9ecef; }
-    app-calendar { margin-top: 8px; display: block; }
-    .icon { margin-right: 8px; }
+    app-calendar { display: block; }
     .section-title {
       font-size: 11px;
       text-transform: uppercase;
@@ -137,10 +120,6 @@ export class SidebarComponent implements OnInit {
 
   ngOnInit(): void {
     this.recentPages.refresh();
-  }
-
-  goToToday(): void {
-    this.router.navigate(['/journals', 'today']);
   }
 
   goToDate(date: string): void {
