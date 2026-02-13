@@ -204,6 +204,38 @@ public class SqlitePageRepository implements PageRepository {
     }
 
     @Override
+    public List<Page> findByPathPrefix(String query, int maxResults) {
+        if (maxResults <= 0) maxResults = 20;
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "SELECT id, dir_path, file_name, type, created_date, modified_date, properties_json " +
+                     "FROM pages WHERE (dir_path || file_name) LIKE ? || '%' " +
+                     "ORDER BY modified_date DESC LIMIT ?")) {
+            ps.setString(1, query);
+            ps.setInt(2, maxResults);
+            return mapPages(conn, ps);
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to find pages by path prefix: " + query, e);
+        }
+    }
+
+    @Override
+    public List<Page> findByPathContains(String query, int maxResults) {
+        if (maxResults <= 0) maxResults = 20;
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "SELECT id, dir_path, file_name, type, created_date, modified_date, properties_json " +
+                     "FROM pages WHERE (dir_path || file_name) LIKE '%' || ? || '%' " +
+                     "ORDER BY modified_date DESC LIMIT ?")) {
+            ps.setString(1, query);
+            ps.setInt(2, maxResults);
+            return mapPages(conn, ps);
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to find pages by path contains: " + query, e);
+        }
+    }
+
+    @Override
     public List<Page> findBacklinkSources(UUID targetPageId) {
         // Find pages that have blocks containing [[page title]] links to the target page
         try (Connection conn = connectionProvider.getConnection()) {

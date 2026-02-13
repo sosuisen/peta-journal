@@ -28,4 +28,8 @@ public interface PageRepository {
     void delete(UUID id);
 
     List<Page> findBacklinkSources(UUID targetPageId);
+
+    List<Page> findByPathPrefix(String query, int maxResults);
+
+    List<Page> findByPathContains(String query, int maxResults);
 }

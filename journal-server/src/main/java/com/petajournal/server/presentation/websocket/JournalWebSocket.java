@@ -6,6 +6,9 @@ import com.petajournal.server.application.ConfigService;
 import com.petajournal.server.application.JournalService;
 import com.petajournal.server.application.PageService;
 import com.petajournal.server.domain.model.BacklinkEntry;
+import com.petajournal.server.domain.model.Page;
+import com.petajournal.server.domain.model.SearchResult;
+import com.petajournal.server.domain.repository.PageRepository;
 import com.petajournal.server.domain.repository.SearchService;
 import io.quarkus.websockets.next.OnBinaryMessage;
 import io.quarkus.websockets.next.OnOpen;
@@ -35,6 +38,9 @@ public class JournalWebSocket {
 
     @Inject
     SearchService searchService;
+
+    @Inject
+    PageRepository pageRepository;
 
     @Inject
     ConfigService configService;
@@ -241,10 +247,35 @@ public class JournalWebSocket {
     }
 
     private SearchPageNamesResponse handleSearchPageNames(SearchPageNamesRequest req) {
-        var results = searchService.searchPageNames(req.getQuery(), req.getMaxResults());
+        String query = req.getQuery();
+        int maxResults = req.getMaxResults() > 0 ? req.getMaxResults() : 20;
+
+        // 1st: SQLite prefix search on dir_path || file_name
+        List<Page> prefixPages = pageRepository.findByPathPrefix(query, maxResults);
+        if (!prefixPages.isEmpty()) {
+            return SearchPageNamesResponse.newBuilder()
+                    .addAllResults(prefixPages.stream().map(JournalWebSocket::pageToSearchResult).map(ProtoConverter::toProto).toList())
+                    .build();
+        }
+
+        // 2nd: Lucene fallback (fuzzy/token-based)
+        var luceneResults = searchService.searchPageNames(query, maxResults);
+        if (!luceneResults.isEmpty()) {
+            return SearchPageNamesResponse.newBuilder()
+                    .addAllResults(luceneResults.stream().map(ProtoConverter::toProto).toList())
+                    .build();
+        }
+
+        // 3rd: SQLite contains search
+        List<Page> containsPages = pageRepository.findByPathContains(query, maxResults);
         return SearchPageNamesResponse.newBuilder()
-                .addAllResults(results.stream().map(ProtoConverter::toProto).toList())
+                .addAllResults(containsPages.stream().map(JournalWebSocket::pageToSearchResult).map(ProtoConverter::toProto).toList())
                 .build();
+    }
+
+    private static SearchResult pageToSearchResult(Page page) {
+        String pageTitle = page.dirPath() + page.fileName();
+        return new SearchResult(page.id(), pageTitle, "", pageTitle, 1.0f);
     }
 
     private SearchFullTextResponse handleSearchFullText(SearchFullTextRequest req) {

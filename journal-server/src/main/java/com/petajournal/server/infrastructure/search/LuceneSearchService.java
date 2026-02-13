@@ -84,7 +84,7 @@ public class LuceneSearchService implements SearchService {
             Document doc = new Document();
             doc.add(new StringField(FIELD_TYPE, "page", Field.Store.YES));
             doc.add(new StringField(FIELD_PAGE_ID, page.id().toString(), Field.Store.YES));
-            String title = page.fileName();
+            String title = page.dirPath() + page.fileName();
             doc.add(new TextField(FIELD_PAGE_TITLE, title, Field.Store.YES));
             doc.add(new StringField(FIELD_BLOCK_ID, "", Field.Store.YES));
             writer.addDocument(doc);
