@@ -626,7 +626,7 @@ export class OutlineComponent implements OnDestroy {
         this.state.updateBlock(block.id, { status: firstBlock.status });
       }
 
-      // Add remaining blocks after the current block with level 0
+      // Add remaining blocks after the current block
       if (parsedBlocks.length > 1) {
         let prevBlockId = block.id;
         for (let i = 1; i < parsedBlocks.length; i++) {
@@ -634,7 +634,7 @@ export class OutlineComponent implements OnDestroy {
           const newBlock = await this.api.createBlock(
             block.pageId,
             prevBlockId,
-            0, // level is always 0
+            block.level + parsedBlock.level,
             parsedBlock.body
           );
           this.state.addBlocks([newBlock], prevBlockId);
@@ -656,10 +656,28 @@ export class OutlineComponent implements OnDestroy {
     }
   }
 
-  private parseTextIntoBlocks(text: string): Array<{ body: string; status: string }> {
-    const blocks: Array<{ body: string; status: string }> = [];
+  private countIndentLevel(line: string): number {
+    let level = 0;
+    let i = 0;
+    while (i < line.length) {
+      if (line[i] === '\t') {
+        level++;
+        i++;
+      } else if (line[i] === ' ' && i + 1 < line.length && line[i + 1] === ' ') {
+        level++;
+        i += 2;
+      } else {
+        break;
+      }
+    }
+    return level;
+  }
+
+  private parseTextIntoBlocks(text: string): Array<{ body: string; status: string; level: number }> {
+    const blocks: Array<{ body: string; status: string; level: number }> = [];
     const lines = text.split('\n');
     let currentParagraph: string[] = [];
+    let currentParagraphLevel = 0;
     let blankLineCount = 0;
 
     for (const line of lines) {
@@ -674,6 +692,8 @@ export class OutlineComponent implements OnDestroy {
         }
         continue;
       }
+
+      const lineLevel = this.countIndentLevel(line);
 
       // Check if line starts with list markers (after removing leading whitespace)
       const lineWithoutLeadingSpace = line.trimStart();
@@ -702,7 +722,7 @@ export class OutlineComponent implements OnDestroy {
           currentParagraph.pop();
         }
         if (currentParagraph.length > 0) {
-          blocks.push({ body: currentParagraph.join('\n'), status: 'normal' });
+          blocks.push({ body: currentParagraph.join('\n'), status: 'normal', level: currentParagraphLevel });
           currentParagraph = [];
         }
       }
@@ -715,14 +735,17 @@ export class OutlineComponent implements OnDestroy {
             currentParagraph.pop();
           }
           if (currentParagraph.length > 0) {
-            blocks.push({ body: currentParagraph.join('\n'), status: 'normal' });
+            blocks.push({ body: currentParagraph.join('\n'), status: 'normal', level: currentParagraphLevel });
             currentParagraph = [];
           }
         }
-        blocks.push({ body: listItemBody, status: listItemStatus });
+        blocks.push({ body: listItemBody, status: listItemStatus, level: lineLevel + 1 });
         blankLineCount = 0;
       } else {
         // Regular line, add to current paragraph
+        if (currentParagraph.length === 0) {
+          currentParagraphLevel = lineLevel;
+        }
         currentParagraph.push(line);
         blankLineCount = 0;
       }
@@ -735,7 +758,15 @@ export class OutlineComponent implements OnDestroy {
         currentParagraph.pop();
       }
       if (currentParagraph.length > 0) {
-        blocks.push({ body: currentParagraph.join('\n'), status: 'normal' });
+        blocks.push({ body: currentParagraph.join('\n'), status: 'normal', level: currentParagraphLevel });
+      }
+    }
+
+    // Normalize levels: subtract the top block's level, clamp to 0
+    if (blocks.length > 0) {
+      const topLevel = blocks[0].level;
+      for (const block of blocks) {
+        block.level = Math.max(0, block.level - topLevel);
       }
     }
 

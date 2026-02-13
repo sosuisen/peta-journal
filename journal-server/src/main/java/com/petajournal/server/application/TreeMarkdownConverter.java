@@ -14,7 +14,8 @@ public class TreeMarkdownConverter {
      * Normalizes levels relative to the minimum level in the list.
      */
     public String blocksToTreeMarkdown(List<Block> blocks) {
-        if (blocks.isEmpty()) return "";
+        if (blocks.isEmpty())
+            return "";
 
         int minLevel = blocks.stream().mapToInt(Block::level).min().orElse(0);
         StringBuilder sb = new StringBuilder();
@@ -60,41 +61,70 @@ public class TreeMarkdownConverter {
      * Each list item becomes a separate paragraph, separated by blank lines.
      */
     public String treeMarkdownToFlatMarkdown(String treeMd) {
-        if (treeMd == null || treeMd.isEmpty()) return "";
+        if (treeMd == null || treeMd.isEmpty())
+            return "";
 
         List<String> items = new ArrayList<>();
-        String[] lines = treeMd.split("\n", -1);
+        String[] lines = treeMd.replace("\r", "").split("\n", -1);
         StringBuilder currentItem = null;
+        int blockPrefixLen = 0;
 
         for (String line : lines) {
-            // Count leading spaces
-            int spaces = 0;
-            while (spaces < line.length() && line.charAt(spaces) == ' ') {
-                spaces++;
-            }
+            int markerPos = findListMarkerPos(line);
 
-            String trimmedFromIndent = line.substring(spaces);
-
-            // Check if this is a new list item
-            if (trimmedFromIndent.startsWith("- ")) {
-                // Flush previous item
+            if (markerPos >= 0) {
+                // New block — flush previous
                 if (currentItem != null) {
                     items.add(currentItem.toString());
                 }
-                // Start new item - strip the "- " prefix
-                currentItem = new StringBuilder(trimmedFromIndent.substring(2));
-            } else if (currentItem != null) {
-                // Continuation line - strip the indent
-                String content = trimmedFromIndent;
+                blockPrefixLen = markerPos + 2; // indent + "- "
+                currentItem = new StringBuilder(removeOneIndent(line));
+            } else if (currentItem != null && line.length() >= blockPrefixLen) {
+                // Continuation line — strip the block's full prefix length
+                String content = line.substring(blockPrefixLen);
                 currentItem.append("\n").append(content);
             }
         }
 
-        // Flush last item
         if (currentItem != null) {
             items.add(currentItem.toString());
         }
 
         return String.join("\n\n", items);
+    }
+
+    /**
+     * Find the position of "- " list marker after optional indent ("  " or "\t").
+     * Returns the index of '-' or -1 if not a list item line.
+     */
+    private int findListMarkerPos(String line) {
+        int pos = 0;
+        while (pos < line.length()) {
+            if (pos + 1 < line.length() && line.charAt(pos) == '-' && line.charAt(pos + 1) == ' ') {
+                return pos;
+            } else if (pos + 1 < line.length() && line.charAt(pos) == ' ' && line.charAt(pos + 1) == ' ') {
+                pos += 2;
+            } else if (line.charAt(pos) == '\t') {
+                pos += 1;
+            } else {
+                return -1;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Remove one indent token from the start of a line.
+     * One token is "- " (list marker), "  " (double space), or "\t" (tab).
+     */
+    private String removeOneIndent(String line) {
+        if (line.startsWith("- ")) {
+            return line.substring(2);
+        } else if (line.startsWith("\t")) {
+            return line.substring(1);
+        } else if (line.startsWith("  ")) {
+            return line.substring(2);
+        }
+        return line;
     }
 }
