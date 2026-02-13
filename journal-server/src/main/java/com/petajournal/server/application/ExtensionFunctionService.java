@@ -1,8 +1,9 @@
 package com.petajournal.server.application;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.annotation.PostConstruct;
+import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 
@@ -31,8 +32,7 @@ public class ExtensionFunctionService {
 
     public record ExtensionFunction(String dirName, String name) {}
 
-    @PostConstruct
-    void scanFunctions() {
+    void onStart(@Observes StartupEvent ev) {
         Path functionsDir = Paths.get(configService.getConfigDir(), FUNCTIONS_DIR);
         if (!Files.isDirectory(functionsDir)) {
             LOG.infov("Functions directory not found: {0}", functionsDir);
@@ -53,7 +53,6 @@ public class ExtensionFunctionService {
                     Map<String, Object> config = objectMapper.readValue(configPath.toFile(), Map.class);
                     String name = (String) config.getOrDefault("name", entry.getFileName().toString());
                     found.add(new ExtensionFunction(entry.getFileName().toString(), name));
-                    LOG.infov("Found extension function: {0} ({1})", name, entry.getFileName());
                 } catch (IOException e) {
                     LOG.warnv("Failed to read config.json in {0}: {1}", entry.getFileName(), e.getMessage());
                 }
@@ -62,6 +61,9 @@ public class ExtensionFunctionService {
             LOG.error("Failed to scan functions directory", e);
         }
         this.functions = Collections.unmodifiableList(found);
+        for (ExtensionFunction f : found) {
+            LOG.infov("Loaded extension function: {0}", f.name());
+        }
     }
 
     public List<ExtensionFunction> listFunctions() {

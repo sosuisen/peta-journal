@@ -29,8 +29,10 @@ public class SearchIndexRebuilder {
     SearchService searchService;
 
     void onStartup(@Observes @Priority(100) StartupEvent event) {
-        LOG.info("Rebuilding search index...");
-        searchService.deleteAll();
+        if (!searchService.isEmpty()) {
+            return;
+        }
+        LOG.info("Building search index...");
 
         List<Page> pages = pageRepository.findAll();
         for (Page page : pages) {
@@ -43,6 +45,6 @@ public class SearchIndexRebuilder {
                 }
             }
         }
-        LOG.infov("Search index rebuilt: {0} pages indexed", pages.size());
+        LOG.infov("Search index built: {0} pages indexed", pages.size());
     }
 }

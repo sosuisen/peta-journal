@@ -21,4 +21,6 @@ public interface SearchService {
     List<SearchResult> searchFullText(String query, int maxResults);
 
     void deleteAll();
+
+    boolean isEmpty();
 }

@@ -22,7 +22,6 @@ public class ConfigurationStartup {
 
     @PostConstruct
     void checkConfiguration() {
-        LOG.info("=== ConfigurationStartup: Starting configuration check ===");
 
         String markdownDir = configService.getMarkdownDir();
         LOG.infov("Current markdown directory: [{0}]", markdownDir);
@@ -40,9 +39,8 @@ public class ConfigurationStartup {
                 LOG.error("No markdown directory selected. Application may not function correctly.");
             }
         } else {
-            LOG.infov("Markdown directory already configured: {0}", markdownDir);
+            // already configured
         }
 
-        LOG.info("=== ConfigurationStartup: Configuration check complete ===");
     }
 }

@@ -15,7 +15,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;
 
-@Path("/")
+@Path("/api/functions")
 public class FunctionsResource {
 
     private static final Logger LOG = Logger.getLogger(FunctionsResource.class);
@@ -26,16 +26,15 @@ public class FunctionsResource {
     public record FunctionInfo(String name, String url) {}
 
     @GET
-    @Path("/api/functions")
     @Produces(MediaType.APPLICATION_JSON)
     public List<FunctionInfo> listFunctions() {
         return extensionFunctionService.listFunctions().stream()
-            .map(f -> new FunctionInfo(f.name(), "/functions/" + f.dirName() + "/index.html"))
+            .map(f -> new FunctionInfo(f.name(), "/api/functions/" + f.dirName() + "/index.html"))
             .toList();
     }
 
     @GET
-    @Path("/functions/{dirName}/{path:.*}")
+    @Path("/{dirName}/{path:.*}")
     public Response serveFile(@PathParam("dirName") String dirName, @PathParam("path") String path) {
         // Security: reject path traversal
         if (dirName.contains("..") || path.contains("..")) {

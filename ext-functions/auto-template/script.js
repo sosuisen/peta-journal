@@ -12,37 +12,40 @@
 
   function parseTemplates(text) {
     const results = [];
-    // Split by --- lines (section separators)
-    const sections = text.split(/^---$/m);
+    // Split by --- lines into alternating frontmatter/markdown sections
+    const sections = text.split(/^---\r?$/m);
 
-    for (const section of sections) {
-      const trimmed = section.trim();
-      if (!trimmed) continue;
+    // sections[0] is before the first ---, should be empty
+    // Then: frontmatter, markdown, frontmatter, markdown, ...
+    for (let i = 1; i < sections.length; i += 2) {
+      const frontmatter = sections[i].trim();
+      const markdown = (i + 1 < sections.length) ? sections[i + 1].trim() : '';
 
-      // Find the pattern line and body
-      const lines = trimmed.split('\n');
+      if (!frontmatter) continue;
+
+      // Parse pattern from frontmatter
       let patterns = [];
-      let bodyStartIdx = -1;
-
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (line.startsWith('pattern:')) {
-          const patternStr = line.substring('pattern:'.length).trim();
-          // Support comma-separated patterns
+      for (const line of frontmatter.split('\n')) {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('pattern:')) {
+          const patternStr = trimmed.substring('pattern:'.length).trim();
           patterns = patternStr.split(',').map(p => p.trim()).filter(p => p);
-        } else if (line === '' && patterns.length > 0 && bodyStartIdx === -1) {
-          bodyStartIdx = i + 1;
         }
       }
 
-      if (patterns.length > 0 && bodyStartIdx >= 0) {
-        const body = lines.slice(bodyStartIdx).join('\n').trim();
-        if (body) {
-          results.push({ patterns, body });
-        }
+      if (patterns.length > 0 && markdown) {
+        results.push({ patterns, body: markdown });
       }
     }
     return results;
+  }
+
+  function parseBlock(text) {
+    const match = text.match(/^( *)- ?/);
+    if (!match) return { level: 0, body: text };
+    const level = Math.floor(match[1].length / 2) + 1;
+    const body = text.substring(match[0].length);
+    return { level, body };
   }
 
   function matchesPattern(pattern, fileName, dirName) {
@@ -51,12 +54,12 @@
       return /^\d{4}-\d{2}-\d{2}$/.test(fileName);
     }
 
-    // Day of week: :Sunday, :Monday, etc.
+    // Day of week: Sunday, Monday, etc.
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    if (pattern.startsWith(':') && days.includes(pattern.substring(1))) {
+    if (days.includes(pattern)) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(fileName)) return false;
       const date = new Date(fileName + 'T00:00:00');
-      return days[date.getDay()] === pattern.substring(1);
+      return days[date.getDay()] === pattern;
     }
 
     // weekly: YYYY-Wnn
@@ -120,19 +123,19 @@
     const allBlocks = [];
     for (const template of matched) {
       // Split body by blank lines into blocks (flat markdown)
-      const blocks = template.body.split(/\n\n+/);
+      const blocks = template.body.split(/(?:\r?\n){2,}/);
       for (const blockBody of blocks) {
         const trimmed = blockBody.trim();
-        if (trimmed) {
-          allBlocks.push(trimmed);
-        }
+        if (!trimmed) continue;
+        const block = parseBlock(trimmed);
+        allBlocks.push(block);
       }
     }
 
     // Send CreateBlock messages sequentially, waiting for response
     let lastBlockId = '';
-    for (const body of allBlocks) {
-      lastBlockId = await createBlock(pageId, lastBlockId, 0, body);
+    for (const block of allBlocks) {
+      lastBlockId = await createBlock(pageId, lastBlockId, block.level, block.body);
     }
 
     console.log('[auto-template] Created', allBlocks.length, 'blocks for:', fileName);
