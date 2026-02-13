@@ -1,7 +1,5 @@
 import { Component, inject, OnInit } from '@angular/core';
-import { NavigationEnd, Router } from '@angular/router';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { filter, map } from 'rxjs';
+import { Router } from '@angular/router';
 import { RecentPagesService } from '../../core/services/recent-pages.service';
 import { Page } from '../../core/models/page.model';
 import { CalendarComponent } from '../../shared/calendar';
@@ -14,17 +12,15 @@ import { NavigationService } from '../../core/services/navigation.service';
   template: `
     <nav class="sidebar">
       <div class="sidebar-content">
-        @if (isJournalPage()) {
-          <div class="sidebar-section">
-            <app-calendar
-              [selectedDate]="today"
-              (dateSelected)="goToDate($event)"
-              (weekClicked)="goToWeek($event)"
-              (monthClicked)="goToMonth($event)"
-              (yearClicked)="goToYear($event)"
-            />
-          </div>
-        }
+        <div class="sidebar-section">
+          <app-calendar
+            [selectedDate]="today"
+            (dateSelected)="goToDate($event)"
+            (weekClicked)="goToWeek($event)"
+            (monthClicked)="goToMonth($event)"
+            (yearClicked)="goToYear($event)"
+          />
+        </div>
 
         <div class="sidebar-section">
           <h3 class="section-title">Recent Pages</h3>
@@ -110,13 +106,6 @@ export class SidebarComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly nav = inject(NavigationService);
   readonly today = formatDateToIso(new Date());
-  readonly isJournalPage = toSignal(
-    this.router.events.pipe(
-      filter((e): e is NavigationEnd => e instanceof NavigationEnd),
-      map(e => e.urlAfterRedirects.startsWith('/journals'))
-    ),
-    { initialValue: this.router.url.startsWith('/journals') }
-  );
 
   ngOnInit(): void {
     this.recentPages.refresh();
