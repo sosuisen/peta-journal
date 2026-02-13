@@ -35,20 +35,22 @@ public class ImportService {
     public Page importFile(Path filePath) throws IOException {
         String content = Files.readString(filePath);
         String fileName = filePath.getFileName().toString().replaceAll("\\.md$", "");
-        String dirPath = filePath.getParent() != null ? filePath.getParent().toString() : "docs";
+        String parentDir = filePath.getParent() != null ? filePath.getParent().toString().replace('\\', '/') : "";
+        String type = parentDir.contains("journal") ? "journal" : "doc";
 
         OutlineMarkdownParser parser = new OutlineMarkdownParser();
         OutlineMarkdownParser.ParseResult result = parser.parse(content);
 
-        Page page = parser.toPage(result, dirPath, fileName);
+        Page page = parser.toPage(result, "", fileName, type);
         page = pageRepository.save(page);
         searchService.indexPage(page);
 
-        List<Block> blocks = parser.toBlocks(result, page.id(), page.dirPath(), page.fileName());
+        List<Block> blocks = parser.toBlocks(result, page.id(), page.dirPath(), page.fileName(), page.type());
         for (Block block : blocks) {
             String html = markdownParser.parseToHtml(block.body());
             Block withHtml = new Block(
-                    block.id(), block.pageId(), block.dirPath(), block.fileName(), block.createdDate(), block.modifiedDate(),
+                    block.id(), block.pageId(), block.dirPath(), block.fileName(), block.type(),
+                    block.createdDate(), block.modifiedDate(),
                     block.idx(), block.level(), block.body(), html,
                     block.collapsed(), block.status(), block.types(), block.propertiesJson()
             );

@@ -141,13 +141,13 @@ export class SidebarComponent implements OnInit {
   }
 
   goToPage(page: Page): void {
-    this.nav.navigateToPage(page.fileName);
+    this.nav.navigateToPage(page.dirPath + page.fileName);
   }
 
   formatPageTitle(page: Page): string {
-    if (page.dirPath.startsWith('journal')) {
+    if (page.type === 'journal') {
       return formatJournalDate(page.fileName);
     }
-    return page.fileName;
+    return page.dirPath ? page.dirPath + page.fileName : page.fileName;
   }
 }

@@ -21,9 +21,7 @@ public interface PageRepository {
 
     List<Page> findByTitle(String titleQuery);
 
-    Optional<Page> findByExactTitle(String title);
-
-    Optional<Page> findByDirPathAndFileName(String dirPath, String fileName);
+    Optional<Page> findByTypeDirPathFileName(String type, String dirPath, String fileName);
 
     Page save(Page page);
 

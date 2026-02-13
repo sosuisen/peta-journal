@@ -233,7 +233,7 @@ export class BlockViewComponent {
         if (error) { alert(error); return; }
         const result = await this.api.getDocByName(pageTitle);
         this.recentPages.refresh();
-        this.nav.navigateToPage(result.page.fileName, newTab);
+        this.nav.navigateToPage(result.page.dirPath + result.page.fileName, newTab);
       }
     }
   }

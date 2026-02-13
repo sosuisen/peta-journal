@@ -55,18 +55,18 @@ public class PageService {
             throw new IllegalArgumentException("Page title cannot have leading or trailing whitespace");
         }
 
-        String dir = (dirPath == null || dirPath.isEmpty()) ? "docs" : dirPath;
-
-        validateFileName(title);
+        String dir = (dirPath == null) ? "" : dirPath;
         String fileName = title;
+
+        validateFileName(fileName);
 
         // Reject journal-type names as doc titles
         if (JournalFileNameMatcher.isJournalFileName(fileName)) {
             throw new IllegalArgumentException("Cannot create a doc with a journal-type name: " + title);
         }
 
-        // Check for duplicate by exact title match
-        var existing = pageRepository.findByExactTitle(title);
+        // Check for duplicate using (type, dir_path, file_name) index
+        var existing = pageRepository.findByTypeDirPathFileName("doc", dir, fileName);
         if (existing.isPresent()) {
             Page page = existing.get();
             List<Block> blocks = blockRepository.findByPageId(page.id());
@@ -76,13 +76,13 @@ public class PageService {
         UUID id = UUID.randomUUID();
         Instant now = Instant.now();
 
-        Page page = new Page(id, dir, fileName, now, now, tags != null ? tags : List.of(), "{}");
+        Page page = new Page(id, dir, fileName, "doc", now, now, tags != null ? tags : List.of(), "{}");
         page = pageRepository.save(page);
         searchService.indexPage(page);
 
         // Create initial empty block
         String blockId = BlockIdGenerator.generate();
-        Block block = new Block(blockId, id, page.dirPath(), page.fileName(), now, now, FractionalIndexer.initial(), 0, "", "", false, "normal", List.of(), "{}");
+        Block block = new Block(blockId, id, page.dirPath(), page.fileName(), page.type(), now, now, FractionalIndexer.initial(), 0, "", "", false, "normal", List.of(), "{}");
         blockRepository.save(block);
 
         // Queue for export
@@ -111,6 +111,7 @@ public class PageService {
                 existing.id(),
                 existing.dirPath(),
                 fileName,
+                existing.type(),
                 existing.createdDate(),
                 Instant.now(),
                 tags != null ? tags : existing.tags(),

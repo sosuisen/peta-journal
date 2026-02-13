@@ -144,11 +144,15 @@ export class SearchBarComponent {
     if (classifyJournalFileName(title) !== 'none') {
       this.nav.navigateToPage(title);
     } else {
-      const error = validateFileName(title);
+      // Extract file_name from path (e.g. "cat/01.md" → "01")
+      const stripped = title.replace(/\.md$/, '');
+      const lastSlash = stripped.lastIndexOf('/');
+      const fileName = lastSlash >= 0 ? stripped.substring(lastSlash + 1) : stripped;
+      const error = validateFileName(fileName);
       if (error) { alert(error); return; }
       const result = await this.api.getDocByName(title);
       this.recentPages.refresh();
-      this.nav.navigateToPage(result.page.fileName);
+      this.nav.navigateToPage(result.page.dirPath + result.page.fileName);
     }
   }
 

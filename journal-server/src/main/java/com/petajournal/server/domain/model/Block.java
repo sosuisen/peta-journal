@@ -9,6 +9,7 @@ public record Block(
     UUID pageId,
     String dirPath,
     String fileName,
+    String type,         // "journal" or "doc" (from parent page)
     Instant createdDate,
     Instant modifiedDate,
     String idx,          // Fractional index string for ordering

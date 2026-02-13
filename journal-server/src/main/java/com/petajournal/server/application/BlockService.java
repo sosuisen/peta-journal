@@ -65,7 +65,7 @@ public class BlockService {
         // Get page to get dir_path and file_name
         Page page = pageRepository.findById(pageId).orElseThrow(() -> new IllegalArgumentException("Page not found: " + pageId));
 
-        Block block = new Block(id, pageId, page.dirPath(), page.fileName(), now, now, idx, level, body, html, false, status, types, "{}");
+        Block block = new Block(id, pageId, page.dirPath(), page.fileName(), page.type(), now, now, idx, level, body, html, false, status, types, "{}");
         block = blockRepository.save(block);
 
         // Update page modified date
@@ -97,6 +97,7 @@ public class BlockService {
                 existing.pageId(),
                 existing.dirPath(),
                 existing.fileName(),
+                existing.type(),
                 existing.createdDate(),
                 Instant.now(),
                 existing.idx(),
@@ -163,6 +164,7 @@ public class BlockService {
                     targetPageId,
                     targetPage.dirPath(),
                     targetPage.fileName(),
+                    targetPage.type(),
                     block.createdDate(),
                     now,
                     newIdx,
@@ -283,7 +285,7 @@ public class BlockService {
     private void touchPage(UUID pageId) {
         pageRepository.findById(pageId).ifPresent(page -> {
             Page updated = new Page(
-                    page.id(), page.dirPath(), page.fileName(),
+                    page.id(), page.dirPath(), page.fileName(), page.type(),
                     page.createdDate(), Instant.now(),
                     page.tags(), page.propertiesJson()
             );

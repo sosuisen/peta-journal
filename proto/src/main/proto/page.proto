@@ -10,8 +10,9 @@ import "common.proto";
 
 message Page {
   string id = 1;                    // UUID
-  string dir_path = 2;             // e.g. "journals/2025/01"
+  string dir_path = 2;             // Sub-path within type dir, e.g. "" (empty = root)
   string file_name = 3;            // e.g. "2025-01-15" or "my-page"
+  string type = 9;                 // "journal" or "doc"
   Timestamp created_date = 4;
   Timestamp modified_date = 5;
   repeated string tags = 6;

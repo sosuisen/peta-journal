@@ -55,17 +55,16 @@ public class JournalService {
         UUID id = UUID.randomUUID();
         Instant now = Instant.now();
 
-        String dirPath = "journals";
         String fileName = date.format(DateTimeFormatter.ISO_LOCAL_DATE);
         List<String> tags = List.of();
 
-        Page page = new Page(id, dirPath, fileName, now, now, tags, "{}");
+        Page page = new Page(id, "", fileName, "journal", now, now, tags, "{}");
         page = pageRepository.save(page);
         searchService.indexPage(page);
 
         // Create initial empty block
         String blockId = BlockIdGenerator.generate();
-        Block block = new Block(blockId, id, page.dirPath(), page.fileName(), now, now, FractionalIndexer.initial(), 0, "", "", false, "normal", List.of(), "{}");
+        Block block = new Block(blockId, id, page.dirPath(), page.fileName(), page.type(), now, now, FractionalIndexer.initial(), 0, "", "", false, "normal", List.of(), "{}");
         block = blockRepository.save(block);
 
         return new JournalResult(page, List.of(block), true);
@@ -73,7 +72,7 @@ public class JournalService {
 
     public JournalResult getOrCreateWeeklyJournal(int year, int week) {
         String fileName = year + "-W" + String.format("%02d", week);
-        Optional<Page> existing = pageRepository.findByDirPathAndFileName("journals", fileName);
+        Optional<Page> existing = pageRepository.findByTypeDirPathFileName("journal", "", fileName);
         if (existing.isPresent()) {
             Page page = existing.get();
             List<Block> blocks = blockRepository.findByPageId(page.id());
@@ -84,7 +83,7 @@ public class JournalService {
         UUID id = UUID.randomUUID();
         Instant now = Instant.now();
 
-        Page page = new Page(id, "journals", fileName, now, now, List.of(), "{}");
+        Page page = new Page(id, "", fileName, "journal", now, now, List.of(), "{}");
         page = pageRepository.save(page);
         searchService.indexPage(page);
 
@@ -154,7 +153,7 @@ public class JournalService {
 
     private JournalResult getOrCreateYearlyJournal(int year) {
         String fileName = String.valueOf(year);
-        Optional<Page> existing = pageRepository.findByDirPathAndFileName("journals", fileName);
+        Optional<Page> existing = pageRepository.findByTypeDirPathFileName("journal", "", fileName);
         if (existing.isPresent()) {
             Page page = existing.get();
             List<Block> blocks = blockRepository.findByPageId(page.id());
@@ -164,7 +163,7 @@ public class JournalService {
         UUID id = UUID.randomUUID();
         Instant now = Instant.now();
 
-        Page page = new Page(id, "journals", fileName, now, now, List.of(), "{}");
+        Page page = new Page(id, "", fileName, "journal", now, now, List.of(), "{}");
         page = pageRepository.save(page);
         searchService.indexPage(page);
 
@@ -183,7 +182,7 @@ public class JournalService {
 
     private JournalResult getOrCreateMonthlyJournal(int year, int month) {
         String fileName = year + "-" + String.format("%02d", month);
-        Optional<Page> existing = pageRepository.findByDirPathAndFileName("journals", fileName);
+        Optional<Page> existing = pageRepository.findByTypeDirPathFileName("journal", "", fileName);
         if (existing.isPresent()) {
             Page page = existing.get();
             List<Block> blocks = blockRepository.findByPageId(page.id());
@@ -193,7 +192,7 @@ public class JournalService {
         UUID id = UUID.randomUUID();
         Instant now = Instant.now();
 
-        Page page = new Page(id, "journals", fileName, now, now, List.of(), "{}");
+        Page page = new Page(id, "", fileName, "journal", now, now, List.of(), "{}");
         page = pageRepository.save(page);
         searchService.indexPage(page);
 

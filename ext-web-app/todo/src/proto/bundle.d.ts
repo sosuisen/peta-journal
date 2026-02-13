@@ -67,6 +67,9 @@ export namespace petajournal {
         /** Page fileName */
         fileName?: (string|null);
 
+        /** Page type */
+        type?: (string|null);
+
         /** Page createdDate */
         createdDate?: (petajournal.ITimestamp|null);
 
@@ -97,6 +100,9 @@ export namespace petajournal {
 
         /** Page fileName. */
         public fileName: string;
+
+        /** Page type. */
+        public type: string;
 
         /** Page createdDate. */
         public createdDate?: (petajournal.ITimestamp|null);
@@ -158,6 +164,9 @@ export namespace petajournal {
         /** Block fileName */
         fileName?: (string|null);
 
+        /** Block type */
+        type?: (string|null);
+
         /** Block createdDate */
         createdDate?: (petajournal.ITimestamp|null);
 
@@ -209,6 +218,9 @@ export namespace petajournal {
 
         /** Block fileName. */
         public fileName: string;
+
+        /** Block type. */
+        public type: string;
 
         /** Block createdDate. */
         public createdDate?: (petajournal.ITimestamp|null);

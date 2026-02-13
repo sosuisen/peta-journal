@@ -11,8 +11,9 @@ import "common.proto";
 message Block {
   string id = 1;                    // 7-char hex (first 7 of UUID)
   string page_id = 2;              // UUID of parent page
-  string dir_path = 3;             // Directory path of the page
+  string dir_path = 3;             // Sub-path within type dir
   string file_name = 4;            // File name of the page
+  string type = 15;                // "journal" or "doc" (from parent page)
   Timestamp created_date = 5;
   Timestamp modified_date = 6;
   string idx = 7;                   // Fractional index string for ordering

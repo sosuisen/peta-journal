@@ -143,8 +143,10 @@ export class OutlineComponent implements OnDestroy {
   }
 
   private async loadBlocks(pageId: string): Promise<void> {
+    console.log('[outline] loadBlocks called, pageId=', pageId);
     try {
       const result = await this.api.getPage(pageId);
+      console.log('[outline] loadBlocks result: blocks=', result.blocks.length);
       this.state.setBlocks(result.blocks);
     } catch (e) {
       console.error('Failed to load blocks for page:', pageId, e);

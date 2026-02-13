@@ -79,7 +79,9 @@ public class MarkdownExportService {
         List<Block> blocks = blockRepository.findByPageId(pageId);
 
         String markdown = serializeToOutlineMarkdown(page, blocks);
-        Path dir = Path.of(markdownDir, page.dirPath());
+        String typeDir = page.type() + "s";
+        String subDir = page.dirPath();
+        Path dir = subDir.isEmpty() ? Path.of(markdownDir, typeDir) : Path.of(markdownDir, typeDir, subDir);
         Files.createDirectories(dir);
         Path filePath = dir.resolve(page.fileName() + ".md");
 
@@ -162,9 +164,13 @@ public class MarkdownExportService {
                 sb.append(lines[j]);
             }
 
-            // Add block ID at the end of the last line
+            // Add block ID (and collapsed attr) at the end of the last line
             if (j == lines.length - 1) {
-                sb.append(" {#").append(block.id()).append("}");
+                sb.append(" {#").append(block.id());
+                if (block.collapsed()) {
+                    sb.append(" .collapsed");
+                }
+                sb.append("}");
             }
             sb.append("\n");
         }

@@ -60,16 +60,18 @@ export class PageComponent implements OnInit, OnDestroy {
     const p = this.page();
     if (!p) return '';
 
-    if (p.dirPath.startsWith('journal')) {
+    if (p.type === 'journal') {
       return formatJournalDate(p.fileName);
     }
-    return p.fileName;
+    return p.dirPath ? p.dirPath + p.fileName : p.fileName;
   }
 
   ngOnInit(): void {
-    this.routeSub = this.route.paramMap.subscribe(params => {
-      const fileName = params.get('fileName');
-      if (fileName) this.loadPage(fileName);
+    this.routeSub = this.route.url.subscribe(segments => {
+      // Strip leading "docs" segment, join rest: ["docs", "cat", "mypage"] → "cat/mypage"
+      const parts = segments.map(s => s.path).filter(s => s !== 'docs');
+      const fullPath = parts.join('/');
+      if (fullPath) this.loadPage(fullPath);
     });
   }
 

@@ -6,13 +6,14 @@ import { classifyJournalFileName } from '../utils/journal-filename.utils';
 export class NavigationService {
   private readonly router = inject(Router);
 
-  /** Navigate to a page by fileName. Journals go to /journals/, docs go to /docs/. */
-  navigateToPage(fileName: string, newTab = false): void {
-    const prefix = classifyJournalFileName(fileName) !== 'none' ? '/journals' : '/docs';
+  /** Navigate to a page by title (optionally with dirPath prefix like "cat/mypage"). */
+  navigateToPage(pageTitle: string, newTab = false): void {
+    const isJournal = classifyJournalFileName(pageTitle) !== 'none';
+    const prefix = isJournal ? '/journals' : '/docs';
     if (newTab) {
-      window.open(`${prefix}/${encodeURIComponent(fileName)}`, '_blank');
+      window.open(`${prefix}/${pageTitle}`, '_blank');
     } else {
-      this.router.navigate([prefix, fileName]);
+      this.router.navigateByUrl(`${prefix}/${pageTitle}`);
     }
   }
 }

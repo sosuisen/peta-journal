@@ -19,6 +19,7 @@ function toPage(p: any): Page {
     id: p.id ?? '',
     dirPath: p.dirPath ?? '',
     fileName: p.fileName ?? '',
+    type: p.type ?? 'doc',
     createdDate: p.createdDate?.millis?.toNumber?.() ?? Number(p.createdDate?.millis ?? 0),
     modifiedDate: p.modifiedDate?.millis?.toNumber?.() ?? Number(p.modifiedDate?.millis ?? 0),
     tags: p.tags ?? [],
@@ -32,6 +33,7 @@ function toBlock(b: any): Block {
     pageId: b.pageId ?? '',
     dirPath: b.dirPath ?? '',
     fileName: b.fileName ?? '',
+    type: b.type ?? 'doc',
     createdDate: b.createdDate?.millis?.toNumber?.() ?? Number(b.createdDate?.millis ?? 0),
     modifiedDate: b.modifiedDate?.millis?.toNumber?.() ?? Number(b.modifiedDate?.millis ?? 0),
     idx: b.idx ?? '',
@@ -71,6 +73,18 @@ export class ApiService {
   }
 
   async getDocByName(title: string, dirPath?: string, tags?: string[]): Promise<GetDocResult> {
+    // Parse path: "cat/01.md" → dirPath="cat/", title="01"
+    if (!dirPath) {
+      const stripped = title.replace(/\.md$/, '');
+      const lastSlash = stripped.lastIndexOf('/');
+      if (lastSlash >= 0) {
+        dirPath = stripped.substring(0, lastSlash + 1);
+        title = stripped.substring(lastSlash + 1);
+      } else {
+        dirPath = '';
+        title = stripped;
+      }
+    }
     const resp: any = await this.proto.send({ getDocByName: { title, dirPath, tags } });
     const r = resp.getDocByName;
     return { page: toPage(r.page), blocks: (r.blocks ?? []).map(toBlock), created: r.created ?? false };

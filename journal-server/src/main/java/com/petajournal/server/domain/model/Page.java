@@ -8,6 +8,7 @@ public record Page(
     UUID id,
     String dirPath,
     String fileName,
+    String type,        // "journal" or "doc"
     Instant createdDate,
     Instant modifiedDate,
     List<String> tags,
