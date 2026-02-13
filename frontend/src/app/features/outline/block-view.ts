@@ -50,6 +50,11 @@ import { validateFileName } from '../../core/utils/filename-validation.utils';
     :host ::ng-deep .block-content > p {
       margin: 0;
     }
+    :host ::ng-deep .block-content h1 { font-size: 1.6em; margin: 0; }
+    :host ::ng-deep .block-content h2 { font-size: 1.4em; margin: 0; }
+    :host ::ng-deep .block-content h3 { font-size: 1.2em; margin: 0; }
+    :host ::ng-deep .block-content h4 { font-size: 1.1em; margin: 0; }
+    :host ::ng-deep .block-content h5 { font-size: 1em; margin: 0; }
     :host ::ng-deep .wiki-link {
       color: #007bff;
       cursor: pointer;
