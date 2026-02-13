@@ -540,13 +540,10 @@ export class OutlineComponent implements OnDestroy {
 
   async onCheckboxToggled(block: Block): Promise<void> {
     try {
-      // Checkbox click: todo → running → done (stop there)
-      let newStatus = block.status;
-      if (block.status === 'todo') {
-        newStatus = 'running';
-      } else if (block.status === 'running') {
-        newStatus = 'done';
-      }
+      // Checkbox click: normal → todo → running → done → normal → ...
+      const cycle = ['normal', 'todo', 'running', 'done'];
+      const currentIndex = cycle.indexOf(block.status);
+      const newStatus = cycle[(currentIndex + 1) % cycle.length];
       if (newStatus !== block.status) {
         const updated = await this.api.updateBlockStatus(block.id, newStatus);
         this.state.updateBlock(block.id, { status: updated.status });
