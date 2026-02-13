@@ -150,7 +150,7 @@ export class ApiService {
     return { pages: (resp.getRecentPages.pages ?? []).map(toPage) };
   }
 
-  async updatePage(pageId: string, updates: { title?: string }): Promise<Page> {
+  async updatePage(pageId: string, updates: { title?: string; dirPath?: string }): Promise<Page> {
     const resp: any = await this.proto.send({ updatePage: { pageId, ...updates } });
     return toPage(resp.updatePage.page);
   }

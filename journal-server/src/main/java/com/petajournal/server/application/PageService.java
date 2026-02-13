@@ -91,7 +91,7 @@ public class PageService {
         return new DocResult(page, List.of(block), true);
     }
 
-    public Page updatePage(UUID pageId, String title, List<String> tags, String propertiesJson) {
+    public Page updatePage(UUID pageId, String title, List<String> tags, String propertiesJson, String dirPath) {
         Page existing = pageRepository.findById(pageId)
                 .orElseThrow(() -> new IllegalArgumentException("Page not found: " + pageId));
 
@@ -107,9 +107,14 @@ public class PageService {
             fileName = title;
         }
 
+        String newDirPath = existing.dirPath();
+        if (dirPath != null) {
+            newDirPath = dirPath;
+        }
+
         Page updated = new Page(
                 existing.id(),
-                existing.dirPath(),
+                newDirPath,
                 fileName,
                 existing.type(),
                 existing.createdDate(),

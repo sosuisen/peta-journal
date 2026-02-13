@@ -102,6 +102,7 @@ message UpdatePageRequest {
   optional string title = 2;       // Update first title
   repeated string tags = 3;
   string properties_json = 4;
+  optional string dir_path = 5;
 }
 
 message UpdatePageResponse {

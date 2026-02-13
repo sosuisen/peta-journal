@@ -189,7 +189,8 @@ public class JournalWebSocket {
                 UUID.fromString(req.getPageId()),
                 req.hasTitle() ? req.getTitle() : null,
                 req.getTagsList().isEmpty() ? null : req.getTagsList(),
-                req.getPropertiesJson().isEmpty() ? null : req.getPropertiesJson()
+                req.getPropertiesJson().isEmpty() ? null : req.getPropertiesJson(),
+                req.hasDirPath() ? req.getDirPath() : null
         );
         return UpdatePageResponse.newBuilder()
                 .setPage(ProtoConverter.toProto(page))

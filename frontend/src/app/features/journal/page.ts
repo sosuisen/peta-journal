@@ -16,6 +16,18 @@ import { ExtensionFunctionService } from '../../core/services/extension-function
   template: `
     @if (page()) {
       <div class="page-header">
+        @if (page()!.dirPath) {
+          <div class="dir-path-row">
+            <textarea
+              class="dir-path-textarea"
+              [value]="dirPathWithoutSlash()"
+              (keydown.enter)="onDirPathEnter($event)"
+              (blur)="saveDirPath($event)"
+              rows="1"
+            ></textarea>
+            <span class="dir-path-slash">/</span>
+          </div>
+        }
         <textarea
           class="page-title-textarea"
           [value]="pageTitle()"
@@ -31,8 +43,38 @@ import { ExtensionFunctionService } from '../../core/services/extension-function
   styles: [`
     :host { display: flex; flex-direction: column; height: 100%; }
     .page-header { padding: 16px 0; }
+    .dir-path-row {
+      display: flex;
+      align-items: baseline;
+      padding: 0 2px;
+    }
+    .dir-path-textarea {
+      font-size: 1.0em;
+      color: var(--text-secondary, #666);
+      font-family: inherit;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      padding: 2px 2px;
+      outline: none;
+      resize: none;
+      overflow: hidden;
+      background: transparent;
+      line-height: 1.2;
+      width: auto;
+      max-width: 80%;
+      field-sizing: content;
+    }
+    .dir-path-textarea:hover { background: var(--hover-bg, rgba(0,0,0,0.04)); }
+    .dir-path-textarea:focus {
+      background: white;
+      border-color: var(--border-color, #ccc);
+    }
+    .dir-path-slash {
+      font-size: 1.0em;
+      color: var(--text-secondary, #666);
+    }
     .page-title-textarea {
-      margin: 0; font-size: 1.5em; font-weight: bold; font-family: inherit;
+      margin: 0; font-size: 2em; font-weight: bold; font-family: inherit;
       width: 100%; border: 1px solid transparent; border-radius: 4px;
       padding: 4px; outline: none; box-sizing: border-box;
       resize: none; overflow: hidden; background: transparent;
@@ -63,7 +105,7 @@ export class PageComponent implements OnInit, OnDestroy {
     if (p.type === 'journal') {
       return formatJournalDate(p.fileName);
     }
-    return p.dirPath ? p.dirPath + p.fileName : p.fileName;
+    return p.fileName;
   }
 
   ngOnInit(): void {
@@ -77,6 +119,35 @@ export class PageComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.routeSub?.unsubscribe();
+  }
+
+  dirPathWithoutSlash(): string {
+    const p = this.page();
+    if (!p) return '';
+    return p.dirPath.replace(/\/$/, '');
+  }
+
+  onDirPathEnter(event: Event): void {
+    event.preventDefault();
+    (event.target as HTMLTextAreaElement).blur();
+  }
+
+  async saveDirPath(event: Event): Promise<void> {
+    const p = this.page();
+    if (!p) return;
+    const textarea = event.target as HTMLTextAreaElement;
+    let newDirPath = textarea.value.replace(/[\r\n]+/g, ' ').trim();
+    // Normalize: ensure trailing slash if non-empty
+    if (newDirPath && !newDirPath.endsWith('/')) {
+      newDirPath += '/';
+    }
+    if (newDirPath === p.dirPath) {
+      textarea.value = this.dirPathWithoutSlash();
+      return;
+    }
+    const updated = await this.api.updatePage(p.id, { dirPath: newDirPath });
+    this.page.set(updated);
+    this.recentPages.refresh();
   }
 
   onTitleEnter(event: Event): void {
@@ -104,6 +175,24 @@ export class PageComponent implements OnInit, OnDestroy {
   private async saveTitle(newTitle: string): Promise<void> {
     const p = this.page();
     if (!p) return;
+
+    const slashIdx = newTitle.lastIndexOf('/');
+    if (slashIdx >= 0) {
+      // "lesson/abc" → dirPath += "lesson/", title = "abc"
+      const extraDir = newTitle.substring(0, slashIdx + 1);
+      const fileName = newTitle.substring(slashIdx + 1);
+      if (!fileName) { alert('Page name cannot be empty'); return; }
+      const error = validateFileName(fileName);
+      if (error) { alert(error); return; }
+      const newDirPath = (p.dirPath || '') + extraDir;
+      const updated = await this.api.updatePage(p.id, { title: fileName, dirPath: newDirPath });
+      this.page.set(updated);
+      this.originalTitle = fileName;
+      this.title.setTitle(fileName);
+      this.recentPages.refresh();
+      return;
+    }
+
     const error = validateFileName(newTitle);
     if (error) { alert(error); return; }
     const updated = await this.api.updatePage(p.id, { title: newTitle });

@@ -5279,6 +5279,7 @@ export const petajournal = $root.petajournal = (() => {
          * @property {string|null} [title] UpdatePageRequest title
          * @property {Array.<string>|null} [tags] UpdatePageRequest tags
          * @property {string|null} [propertiesJson] UpdatePageRequest propertiesJson
+         * @property {string|null} [dirPath] UpdatePageRequest dirPath
          */
 
         /**
@@ -5329,12 +5330,26 @@ export const petajournal = $root.petajournal = (() => {
          */
         UpdatePageRequest.prototype.propertiesJson = "";
 
+        /**
+         * UpdatePageRequest dirPath.
+         * @member {string|null|undefined} dirPath
+         * @memberof petajournal.UpdatePageRequest
+         * @instance
+         */
+        UpdatePageRequest.prototype.dirPath = null;
+
         // OneOf field names bound to virtual getters and setters
         let $oneOfFields;
 
         // Virtual OneOf for proto3 optional field
         Object.defineProperty(UpdatePageRequest.prototype, "_title", {
             get: $util.oneOfGetter($oneOfFields = ["title"]),
+            set: $util.oneOfSetter($oneOfFields)
+        });
+
+        // Virtual OneOf for proto3 optional field
+        Object.defineProperty(UpdatePageRequest.prototype, "_dirPath", {
+            get: $util.oneOfGetter($oneOfFields = ["dirPath"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
@@ -5371,6 +5386,8 @@ export const petajournal = $root.petajournal = (() => {
                     writer.uint32(/* id 3, wireType 2 =*/26).string(message.tags[i]);
             if (message.propertiesJson != null && Object.hasOwnProperty.call(message, "propertiesJson"))
                 writer.uint32(/* id 4, wireType 2 =*/34).string(message.propertiesJson);
+            if (message.dirPath != null && Object.hasOwnProperty.call(message, "dirPath"))
+                writer.uint32(/* id 5, wireType 2 =*/42).string(message.dirPath);
             return writer;
         };
 
@@ -5423,6 +5440,10 @@ export const petajournal = $root.petajournal = (() => {
                     }
                 case 4: {
                         message.propertiesJson = reader.string();
+                        break;
+                    }
+                case 5: {
+                        message.dirPath = reader.string();
                         break;
                     }
                 default:
@@ -5479,6 +5500,11 @@ export const petajournal = $root.petajournal = (() => {
             if (message.propertiesJson != null && message.hasOwnProperty("propertiesJson"))
                 if (!$util.isString(message.propertiesJson))
                     return "propertiesJson: string expected";
+            if (message.dirPath != null && message.hasOwnProperty("dirPath")) {
+                properties._dirPath = 1;
+                if (!$util.isString(message.dirPath))
+                    return "dirPath: string expected";
+            }
             return null;
         };
 
@@ -5507,6 +5533,8 @@ export const petajournal = $root.petajournal = (() => {
             }
             if (object.propertiesJson != null)
                 message.propertiesJson = String(object.propertiesJson);
+            if (object.dirPath != null)
+                message.dirPath = String(object.dirPath);
             return message;
         };
 
@@ -5543,6 +5571,11 @@ export const petajournal = $root.petajournal = (() => {
             }
             if (message.propertiesJson != null && message.hasOwnProperty("propertiesJson"))
                 object.propertiesJson = message.propertiesJson;
+            if (message.dirPath != null && message.hasOwnProperty("dirPath")) {
+                object.dirPath = message.dirPath;
+                if (options.oneofs)
+                    object._dirPath = "dirPath";
+            }
             return object;
         };
 
