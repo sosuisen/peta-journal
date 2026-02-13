@@ -63,6 +63,7 @@ message ApiResponse {
     UpdateConfigResponse update_config = 61;
     ExportTreeMarkdownResponse export_tree_markdown = 70;
     ImportTreeMarkdownResponse import_tree_markdown = 71;
+    ServerEvent server_event = 100;
   }
 }
 
@@ -270,4 +271,22 @@ message ImportTreeMarkdownRequest {
 
 message ImportTreeMarkdownResponse {
   string flat_markdown = 1;
+}
+
+// --- Server-pushed events ---
+
+message ServerEvent {
+  string originator_session_id = 1;  // For future use (originator exclusion)
+  oneof event {
+    ConnectedEvent connected = 10;
+    PagesUpdatedEvent pages_updated = 20;
+  }
+}
+
+message ConnectedEvent {
+  string session_id = 1;
+}
+
+message PagesUpdatedEvent {
+  string page_id = 1;
 }

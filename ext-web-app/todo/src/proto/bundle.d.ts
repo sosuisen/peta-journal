@@ -711,6 +711,9 @@ export namespace petajournal {
 
         /** ApiResponse importTreeMarkdown */
         importTreeMarkdown?: (petajournal.IImportTreeMarkdownResponse|null);
+
+        /** ApiResponse serverEvent */
+        serverEvent?: (petajournal.IServerEvent|null);
     }
 
     /** Represents an ApiResponse. */
@@ -791,8 +794,11 @@ export namespace petajournal {
         /** ApiResponse importTreeMarkdown. */
         public importTreeMarkdown?: (petajournal.IImportTreeMarkdownResponse|null);
 
+        /** ApiResponse serverEvent. */
+        public serverEvent?: (petajournal.IServerEvent|null);
+
         /** ApiResponse payload. */
-        public payload?: ("getPage"|"getDocByName"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getJournalByName"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"exportTreeMarkdown"|"importTreeMarkdown");
+        public payload?: ("getPage"|"getDocByName"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getJournalByName"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"exportTreeMarkdown"|"importTreeMarkdown"|"serverEvent");
 
         /**
          * Creates a new ApiResponse instance using the specified properties.
@@ -3115,6 +3121,177 @@ export namespace petajournal {
 
         /**
          * Gets the default type url for ImportTreeMarkdownResponse
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a ServerEvent. */
+    interface IServerEvent {
+
+        /** ServerEvent originatorSessionId */
+        originatorSessionId?: (string|null);
+
+        /** ServerEvent connected */
+        connected?: (petajournal.IConnectedEvent|null);
+
+        /** ServerEvent pagesUpdated */
+        pagesUpdated?: (petajournal.IPagesUpdatedEvent|null);
+    }
+
+    /** Represents a ServerEvent. */
+    class ServerEvent implements IServerEvent {
+
+        /**
+         * Constructs a new ServerEvent.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: petajournal.IServerEvent);
+
+        /** ServerEvent originatorSessionId. */
+        public originatorSessionId: string;
+
+        /** ServerEvent connected. */
+        public connected?: (petajournal.IConnectedEvent|null);
+
+        /** ServerEvent pagesUpdated. */
+        public pagesUpdated?: (petajournal.IPagesUpdatedEvent|null);
+
+        /** ServerEvent event. */
+        public event?: ("connected"|"pagesUpdated");
+
+        /**
+         * Creates a new ServerEvent instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns ServerEvent instance
+         */
+        public static create(properties?: petajournal.IServerEvent): petajournal.ServerEvent;
+
+        /**
+         * Encodes the specified ServerEvent message. Does not implicitly {@link petajournal.ServerEvent.verify|verify} messages.
+         * @param message ServerEvent message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: petajournal.IServerEvent, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a ServerEvent message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns ServerEvent
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.ServerEvent;
+
+        /**
+         * Gets the default type url for ServerEvent
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a ConnectedEvent. */
+    interface IConnectedEvent {
+
+        /** ConnectedEvent sessionId */
+        sessionId?: (string|null);
+    }
+
+    /** Represents a ConnectedEvent. */
+    class ConnectedEvent implements IConnectedEvent {
+
+        /**
+         * Constructs a new ConnectedEvent.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: petajournal.IConnectedEvent);
+
+        /** ConnectedEvent sessionId. */
+        public sessionId: string;
+
+        /**
+         * Creates a new ConnectedEvent instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns ConnectedEvent instance
+         */
+        public static create(properties?: petajournal.IConnectedEvent): petajournal.ConnectedEvent;
+
+        /**
+         * Encodes the specified ConnectedEvent message. Does not implicitly {@link petajournal.ConnectedEvent.verify|verify} messages.
+         * @param message ConnectedEvent message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: petajournal.IConnectedEvent, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a ConnectedEvent message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns ConnectedEvent
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.ConnectedEvent;
+
+        /**
+         * Gets the default type url for ConnectedEvent
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a PagesUpdatedEvent. */
+    interface IPagesUpdatedEvent {
+
+        /** PagesUpdatedEvent pageId */
+        pageId?: (string|null);
+    }
+
+    /** Represents a PagesUpdatedEvent. */
+    class PagesUpdatedEvent implements IPagesUpdatedEvent {
+
+        /**
+         * Constructs a new PagesUpdatedEvent.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: petajournal.IPagesUpdatedEvent);
+
+        /** PagesUpdatedEvent pageId. */
+        public pageId: string;
+
+        /**
+         * Creates a new PagesUpdatedEvent instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns PagesUpdatedEvent instance
+         */
+        public static create(properties?: petajournal.IPagesUpdatedEvent): petajournal.PagesUpdatedEvent;
+
+        /**
+         * Encodes the specified PagesUpdatedEvent message. Does not implicitly {@link petajournal.PagesUpdatedEvent.verify|verify} messages.
+         * @param message PagesUpdatedEvent message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: petajournal.IPagesUpdatedEvent, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a PagesUpdatedEvent message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns PagesUpdatedEvent
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.PagesUpdatedEvent;
+
+        /**
+         * Gets the default type url for PagesUpdatedEvent
          * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
          * @returns The default type url
          */

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { connect, onConnectionStateChange, getBlocksByStatus, updateBlockStatus, type ConnectionState, type Block } from './api';
+import { connect, onConnectionStateChange, onServerEvent, getBlocksByStatus, updateBlockStatus, type ConnectionState, type Block } from './api';
 
 type SortKey = 'file_name' | 'created_date' | 'status';
 
@@ -117,10 +117,12 @@ export default function App() {
   }, [showTodo, showRunning, showDone, fromDate]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!connected) return;
-    const id = setInterval(fetchBlocks, 10000);
-    return () => clearInterval(id);
-  }, [connected, fetchBlocks]);
+    onServerEvent((event) => {
+      if (event.pagesUpdated) {
+        fetchBlocks();
+      }
+    });
+  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const openPage = (block: Block) => {
     const pageId = block.pageId;
@@ -197,9 +199,6 @@ export default function App() {
           </select>
         </label>
 
-        <button onClick={fetchBlocks} disabled={loading}>
-          {loading ? 'Loading...' : 'Refresh'}
-        </button>
       </div>
 
       <div className="block-list">

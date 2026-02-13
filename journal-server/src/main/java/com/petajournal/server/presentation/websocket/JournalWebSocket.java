@@ -10,6 +10,7 @@ import com.petajournal.server.domain.repository.SearchService;
 import io.quarkus.websockets.next.OnBinaryMessage;
 import io.quarkus.websockets.next.OnOpen;
 import io.quarkus.websockets.next.WebSocket;
+import io.quarkus.websockets.next.WebSocketConnection;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 
@@ -38,9 +39,16 @@ public class JournalWebSocket {
     @Inject
     ConfigService configService;
 
+    @Inject
+    WebSocketConnection connection;
+
+    @Inject
+    EventBroadcastService eventBroadcastService;
+
     @OnOpen
     void onOpen() {
-        LOG.info("WebSocket client connected");
+        LOG.info("WebSocket client connected: " + connection.id());
+        eventBroadcastService.sendConnectedEvent(connection);
     }
 
     @OnBinaryMessage
@@ -48,7 +56,17 @@ public class JournalWebSocket {
         try {
             byte[] bytes = message.getBytes();
             ApiRequest request = ApiRequest.parseFrom(bytes);
+
+            // Pre-capture pageId for delete (block is gone after delete)
+            String pageIdForBroadcast = extractPageIdForBroadcast(request);
+
             ApiResponse response = handleRequest(request);
+
+            // Broadcast pages-updated for successful mutations
+            if (response.getSuccess() && pageIdForBroadcast != null) {
+                eventBroadcastService.broadcastPagesUpdated(pageIdForBroadcast, connection.id());
+            }
+
             return Buffer.buffer(response.toByteArray());
         } catch (Exception e) {
             LOG.error("Error processing WebSocket message", e);
@@ -58,6 +76,19 @@ public class JournalWebSocket {
                     .build();
             return Buffer.buffer(errorResponse.toByteArray());
         }
+    }
+
+    private String extractPageIdForBroadcast(ApiRequest request) {
+        return switch (request.getPayloadCase()) {
+            case CREATE_BLOCK -> request.getCreateBlock().getPageId();
+            case UPDATE_BLOCK -> blockService.getBlockPageId(request.getUpdateBlock().getBlockId());
+            case MOVE_BLOCKS -> request.getMoveBlocks().getTargetPageId();
+            case DELETE_BLOCK -> blockService.getBlockPageId(request.getDeleteBlock().getBlockId());
+            case UPDATE_BLOCK_STATUS -> blockService.getBlockPageId(request.getUpdateBlockStatus().getBlockId());
+            case DELETE_PAGE -> request.getDeletePage().getPageId();
+            case UPDATE_PAGE -> request.getUpdatePage().getPageId();
+            default -> null;
+        };
     }
 
     private ApiResponse handleRequest(ApiRequest request) {

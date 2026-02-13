@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { firstValueFrom, filter, map, timeout } from 'rxjs';
+import { firstValueFrom, filter, map, timeout, share } from 'rxjs';
 import { WebSocketService } from './websocket.service';
 // @ts-ignore
 import { petajournal } from '../proto/bundle.js';
@@ -8,6 +8,13 @@ import { petajournal } from '../proto/bundle.js';
 export class ProtobufService {
   private readonly ws = inject(WebSocketService);
   private requestCounter = 0;
+
+  readonly events$ = this.ws.messages$.pipe(
+    map((buf: ArrayBuffer) => petajournal.ApiResponse.decode(new Uint8Array(buf))),
+    filter((resp: InstanceType<typeof petajournal.ApiResponse>) => !resp.requestId && !!resp.serverEvent),
+    map((resp: InstanceType<typeof petajournal.ApiResponse>) => resp.serverEvent!),
+    share()
+  );
 
   async send<T>(payload: Record<string, unknown>): Promise<T> {
     const requestId = `req-${++this.requestCounter}-${Date.now()}`;

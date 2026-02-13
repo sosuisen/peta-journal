@@ -10,9 +10,19 @@ let ws: WebSocket | null = null;
 let requestId = 0;
 const pending = new Map<string, { resolve: (r: petajournal.IApiResponse) => void; reject: (e: Error) => void }>();
 let stateCallback: ((state: ConnectionState) => void) | null = null;
+let sessionId: string | null = null;
+let serverEventCallback: ((event: petajournal.IServerEvent) => void) | null = null;
 
 export function onConnectionStateChange(cb: (state: ConnectionState) => void): void {
   stateCallback = cb;
+}
+
+export function onServerEvent(cb: (event: petajournal.IServerEvent) => void): void {
+  serverEventCallback = cb;
+}
+
+export function getSessionId(): string | null {
+  return sessionId;
 }
 
 function getWsUrl(): string {
@@ -38,6 +48,17 @@ export function connect(): Promise<void> {
     ws.onmessage = (event) => {
       const data = new Uint8Array(event.data as ArrayBuffer);
       const response = ApiResponse.decode(data);
+
+      // Handle server-pushed events (no requestId)
+      if (!response.requestId && response.serverEvent) {
+        const evt = response.serverEvent;
+        if (evt.connected) {
+          sessionId = evt.connected.sessionId || null;
+        }
+        serverEventCallback?.(evt);
+        return;
+      }
+
       const id = response.requestId;
       const p = pending.get(id);
       if (p) {

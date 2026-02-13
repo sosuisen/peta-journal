@@ -209,6 +209,12 @@ public class BlockService {
         return blockRepository.findByStatuses(statuses);
     }
 
+    public String getBlockPageId(String blockId) {
+        return blockRepository.findById(blockId)
+                .map(b -> b.pageId().toString())
+                .orElse(null);
+    }
+
     public Block updateBlockStatus(String blockId, String status) {
         if (!List.of("normal", "todo", "running", "done").contains(status)) {
             throw new IllegalArgumentException("Invalid status: " + status);

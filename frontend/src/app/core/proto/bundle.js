@@ -2862,6 +2862,7 @@ export const petajournal = $root.petajournal = (() => {
          * @property {petajournal.IUpdateConfigResponse|null} [updateConfig] ApiResponse updateConfig
          * @property {petajournal.IExportTreeMarkdownResponse|null} [exportTreeMarkdown] ApiResponse exportTreeMarkdown
          * @property {petajournal.IImportTreeMarkdownResponse|null} [importTreeMarkdown] ApiResponse importTreeMarkdown
+         * @property {petajournal.IServerEvent|null} [serverEvent] ApiResponse serverEvent
          */
 
         /**
@@ -3063,17 +3064,25 @@ export const petajournal = $root.petajournal = (() => {
          */
         ApiResponse.prototype.importTreeMarkdown = null;
 
+        /**
+         * ApiResponse serverEvent.
+         * @member {petajournal.IServerEvent|null|undefined} serverEvent
+         * @memberof petajournal.ApiResponse
+         * @instance
+         */
+        ApiResponse.prototype.serverEvent = null;
+
         // OneOf field names bound to virtual getters and setters
         let $oneOfFields;
 
         /**
          * ApiResponse payload.
-         * @member {"getPage"|"getDocByName"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getJournalByName"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"exportTreeMarkdown"|"importTreeMarkdown"|undefined} payload
+         * @member {"getPage"|"getDocByName"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getJournalByName"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"exportTreeMarkdown"|"importTreeMarkdown"|"serverEvent"|undefined} payload
          * @memberof petajournal.ApiResponse
          * @instance
          */
         Object.defineProperty(ApiResponse.prototype, "payload", {
-            get: $util.oneOfGetter($oneOfFields = ["getPage", "getDocByName", "deletePage", "updatePage", "createBlock", "updateBlock", "moveBlocks", "deleteBlock", "updateBlockStatus", "searchPageNames", "searchFullText", "getRecentPages", "getBacklinks", "getMostRecentJournalBefore", "getJournalByName", "getBlocksByStatus", "getConfig", "updateConfig", "exportTreeMarkdown", "importTreeMarkdown"]),
+            get: $util.oneOfGetter($oneOfFields = ["getPage", "getDocByName", "deletePage", "updatePage", "createBlock", "updateBlock", "moveBlocks", "deleteBlock", "updateBlockStatus", "searchPageNames", "searchFullText", "getRecentPages", "getBacklinks", "getMostRecentJournalBefore", "getJournalByName", "getBlocksByStatus", "getConfig", "updateConfig", "exportTreeMarkdown", "importTreeMarkdown", "serverEvent"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
@@ -3147,6 +3156,8 @@ export const petajournal = $root.petajournal = (() => {
                 $root.petajournal.ExportTreeMarkdownResponse.encode(message.exportTreeMarkdown, writer.uint32(/* id 70, wireType 2 =*/562).fork()).ldelim();
             if (message.importTreeMarkdown != null && Object.hasOwnProperty.call(message, "importTreeMarkdown"))
                 $root.petajournal.ImportTreeMarkdownResponse.encode(message.importTreeMarkdown, writer.uint32(/* id 71, wireType 2 =*/570).fork()).ldelim();
+            if (message.serverEvent != null && Object.hasOwnProperty.call(message, "serverEvent"))
+                $root.petajournal.ServerEvent.encode(message.serverEvent, writer.uint32(/* id 100, wireType 2 =*/802).fork()).ldelim();
             return writer;
         };
 
@@ -3273,6 +3284,10 @@ export const petajournal = $root.petajournal = (() => {
                     }
                 case 71: {
                         message.importTreeMarkdown = $root.petajournal.ImportTreeMarkdownResponse.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 100: {
+                        message.serverEvent = $root.petajournal.ServerEvent.decode(reader, reader.uint32());
                         break;
                     }
                 default:
@@ -3518,6 +3533,16 @@ export const petajournal = $root.petajournal = (() => {
                         return "importTreeMarkdown." + error;
                 }
             }
+            if (message.serverEvent != null && message.hasOwnProperty("serverEvent")) {
+                if (properties.payload === 1)
+                    return "payload: multiple values";
+                properties.payload = 1;
+                {
+                    let error = $root.petajournal.ServerEvent.verify(message.serverEvent);
+                    if (error)
+                        return "serverEvent." + error;
+                }
+            }
             return null;
         };
 
@@ -3638,6 +3663,11 @@ export const petajournal = $root.petajournal = (() => {
                 if (typeof object.importTreeMarkdown !== "object")
                     throw TypeError(".petajournal.ApiResponse.importTreeMarkdown: object expected");
                 message.importTreeMarkdown = $root.petajournal.ImportTreeMarkdownResponse.fromObject(object.importTreeMarkdown);
+            }
+            if (object.serverEvent != null) {
+                if (typeof object.serverEvent !== "object")
+                    throw TypeError(".petajournal.ApiResponse.serverEvent: object expected");
+                message.serverEvent = $root.petajournal.ServerEvent.fromObject(object.serverEvent);
             }
             return message;
         };
@@ -3765,6 +3795,11 @@ export const petajournal = $root.petajournal = (() => {
                 object.importTreeMarkdown = $root.petajournal.ImportTreeMarkdownResponse.toObject(message.importTreeMarkdown, options);
                 if (options.oneofs)
                     object.payload = "importTreeMarkdown";
+            }
+            if (message.serverEvent != null && message.hasOwnProperty("serverEvent")) {
+                object.serverEvent = $root.petajournal.ServerEvent.toObject(message.serverEvent, options);
+                if (options.oneofs)
+                    object.payload = "serverEvent";
             }
             return object;
         };
@@ -13249,6 +13284,704 @@ export const petajournal = $root.petajournal = (() => {
         };
 
         return ImportTreeMarkdownResponse;
+    })();
+
+    petajournal.ServerEvent = (function() {
+
+        /**
+         * Properties of a ServerEvent.
+         * @memberof petajournal
+         * @interface IServerEvent
+         * @property {string|null} [originatorSessionId] ServerEvent originatorSessionId
+         * @property {petajournal.IConnectedEvent|null} [connected] ServerEvent connected
+         * @property {petajournal.IPagesUpdatedEvent|null} [pagesUpdated] ServerEvent pagesUpdated
+         */
+
+        /**
+         * Constructs a new ServerEvent.
+         * @memberof petajournal
+         * @classdesc Represents a ServerEvent.
+         * @implements IServerEvent
+         * @constructor
+         * @param {petajournal.IServerEvent=} [properties] Properties to set
+         */
+        function ServerEvent(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * ServerEvent originatorSessionId.
+         * @member {string} originatorSessionId
+         * @memberof petajournal.ServerEvent
+         * @instance
+         */
+        ServerEvent.prototype.originatorSessionId = "";
+
+        /**
+         * ServerEvent connected.
+         * @member {petajournal.IConnectedEvent|null|undefined} connected
+         * @memberof petajournal.ServerEvent
+         * @instance
+         */
+        ServerEvent.prototype.connected = null;
+
+        /**
+         * ServerEvent pagesUpdated.
+         * @member {petajournal.IPagesUpdatedEvent|null|undefined} pagesUpdated
+         * @memberof petajournal.ServerEvent
+         * @instance
+         */
+        ServerEvent.prototype.pagesUpdated = null;
+
+        // OneOf field names bound to virtual getters and setters
+        let $oneOfFields;
+
+        /**
+         * ServerEvent event.
+         * @member {"connected"|"pagesUpdated"|undefined} event
+         * @memberof petajournal.ServerEvent
+         * @instance
+         */
+        Object.defineProperty(ServerEvent.prototype, "event", {
+            get: $util.oneOfGetter($oneOfFields = ["connected", "pagesUpdated"]),
+            set: $util.oneOfSetter($oneOfFields)
+        });
+
+        /**
+         * Creates a new ServerEvent instance using the specified properties.
+         * @function create
+         * @memberof petajournal.ServerEvent
+         * @static
+         * @param {petajournal.IServerEvent=} [properties] Properties to set
+         * @returns {petajournal.ServerEvent} ServerEvent instance
+         */
+        ServerEvent.create = function create(properties) {
+            return new ServerEvent(properties);
+        };
+
+        /**
+         * Encodes the specified ServerEvent message. Does not implicitly {@link petajournal.ServerEvent.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.ServerEvent
+         * @static
+         * @param {petajournal.IServerEvent} message ServerEvent message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        ServerEvent.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.originatorSessionId != null && Object.hasOwnProperty.call(message, "originatorSessionId"))
+                writer.uint32(/* id 1, wireType 2 =*/10).string(message.originatorSessionId);
+            if (message.connected != null && Object.hasOwnProperty.call(message, "connected"))
+                $root.petajournal.ConnectedEvent.encode(message.connected, writer.uint32(/* id 10, wireType 2 =*/82).fork()).ldelim();
+            if (message.pagesUpdated != null && Object.hasOwnProperty.call(message, "pagesUpdated"))
+                $root.petajournal.PagesUpdatedEvent.encode(message.pagesUpdated, writer.uint32(/* id 20, wireType 2 =*/162).fork()).ldelim();
+            return writer;
+        };
+
+        /**
+         * Encodes the specified ServerEvent message, length delimited. Does not implicitly {@link petajournal.ServerEvent.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof petajournal.ServerEvent
+         * @static
+         * @param {petajournal.IServerEvent} message ServerEvent message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        ServerEvent.encodeDelimited = function encodeDelimited(message, writer) {
+            return this.encode(message, writer).ldelim();
+        };
+
+        /**
+         * Decodes a ServerEvent message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.ServerEvent
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.ServerEvent} ServerEvent
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        ServerEvent.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.ServerEvent();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.originatorSessionId = reader.string();
+                        break;
+                    }
+                case 10: {
+                        message.connected = $root.petajournal.ConnectedEvent.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 20: {
+                        message.pagesUpdated = $root.petajournal.PagesUpdatedEvent.decode(reader, reader.uint32());
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Decodes a ServerEvent message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof petajournal.ServerEvent
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {petajournal.ServerEvent} ServerEvent
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        ServerEvent.decodeDelimited = function decodeDelimited(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies a ServerEvent message.
+         * @function verify
+         * @memberof petajournal.ServerEvent
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        ServerEvent.verify = function verify(message) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            let properties = {};
+            if (message.originatorSessionId != null && message.hasOwnProperty("originatorSessionId"))
+                if (!$util.isString(message.originatorSessionId))
+                    return "originatorSessionId: string expected";
+            if (message.connected != null && message.hasOwnProperty("connected")) {
+                properties.event = 1;
+                {
+                    let error = $root.petajournal.ConnectedEvent.verify(message.connected);
+                    if (error)
+                        return "connected." + error;
+                }
+            }
+            if (message.pagesUpdated != null && message.hasOwnProperty("pagesUpdated")) {
+                if (properties.event === 1)
+                    return "event: multiple values";
+                properties.event = 1;
+                {
+                    let error = $root.petajournal.PagesUpdatedEvent.verify(message.pagesUpdated);
+                    if (error)
+                        return "pagesUpdated." + error;
+                }
+            }
+            return null;
+        };
+
+        /**
+         * Creates a ServerEvent message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof petajournal.ServerEvent
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {petajournal.ServerEvent} ServerEvent
+         */
+        ServerEvent.fromObject = function fromObject(object) {
+            if (object instanceof $root.petajournal.ServerEvent)
+                return object;
+            let message = new $root.petajournal.ServerEvent();
+            if (object.originatorSessionId != null)
+                message.originatorSessionId = String(object.originatorSessionId);
+            if (object.connected != null) {
+                if (typeof object.connected !== "object")
+                    throw TypeError(".petajournal.ServerEvent.connected: object expected");
+                message.connected = $root.petajournal.ConnectedEvent.fromObject(object.connected);
+            }
+            if (object.pagesUpdated != null) {
+                if (typeof object.pagesUpdated !== "object")
+                    throw TypeError(".petajournal.ServerEvent.pagesUpdated: object expected");
+                message.pagesUpdated = $root.petajournal.PagesUpdatedEvent.fromObject(object.pagesUpdated);
+            }
+            return message;
+        };
+
+        /**
+         * Creates a plain object from a ServerEvent message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof petajournal.ServerEvent
+         * @static
+         * @param {petajournal.ServerEvent} message ServerEvent
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        ServerEvent.toObject = function toObject(message, options) {
+            if (!options)
+                options = {};
+            let object = {};
+            if (options.defaults)
+                object.originatorSessionId = "";
+            if (message.originatorSessionId != null && message.hasOwnProperty("originatorSessionId"))
+                object.originatorSessionId = message.originatorSessionId;
+            if (message.connected != null && message.hasOwnProperty("connected")) {
+                object.connected = $root.petajournal.ConnectedEvent.toObject(message.connected, options);
+                if (options.oneofs)
+                    object.event = "connected";
+            }
+            if (message.pagesUpdated != null && message.hasOwnProperty("pagesUpdated")) {
+                object.pagesUpdated = $root.petajournal.PagesUpdatedEvent.toObject(message.pagesUpdated, options);
+                if (options.oneofs)
+                    object.event = "pagesUpdated";
+            }
+            return object;
+        };
+
+        /**
+         * Converts this ServerEvent to JSON.
+         * @function toJSON
+         * @memberof petajournal.ServerEvent
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        ServerEvent.prototype.toJSON = function toJSON() {
+            return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        /**
+         * Gets the default type url for ServerEvent
+         * @function getTypeUrl
+         * @memberof petajournal.ServerEvent
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        ServerEvent.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.ServerEvent";
+        };
+
+        return ServerEvent;
+    })();
+
+    petajournal.ConnectedEvent = (function() {
+
+        /**
+         * Properties of a ConnectedEvent.
+         * @memberof petajournal
+         * @interface IConnectedEvent
+         * @property {string|null} [sessionId] ConnectedEvent sessionId
+         */
+
+        /**
+         * Constructs a new ConnectedEvent.
+         * @memberof petajournal
+         * @classdesc Represents a ConnectedEvent.
+         * @implements IConnectedEvent
+         * @constructor
+         * @param {petajournal.IConnectedEvent=} [properties] Properties to set
+         */
+        function ConnectedEvent(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * ConnectedEvent sessionId.
+         * @member {string} sessionId
+         * @memberof petajournal.ConnectedEvent
+         * @instance
+         */
+        ConnectedEvent.prototype.sessionId = "";
+
+        /**
+         * Creates a new ConnectedEvent instance using the specified properties.
+         * @function create
+         * @memberof petajournal.ConnectedEvent
+         * @static
+         * @param {petajournal.IConnectedEvent=} [properties] Properties to set
+         * @returns {petajournal.ConnectedEvent} ConnectedEvent instance
+         */
+        ConnectedEvent.create = function create(properties) {
+            return new ConnectedEvent(properties);
+        };
+
+        /**
+         * Encodes the specified ConnectedEvent message. Does not implicitly {@link petajournal.ConnectedEvent.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.ConnectedEvent
+         * @static
+         * @param {petajournal.IConnectedEvent} message ConnectedEvent message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        ConnectedEvent.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.sessionId != null && Object.hasOwnProperty.call(message, "sessionId"))
+                writer.uint32(/* id 1, wireType 2 =*/10).string(message.sessionId);
+            return writer;
+        };
+
+        /**
+         * Encodes the specified ConnectedEvent message, length delimited. Does not implicitly {@link petajournal.ConnectedEvent.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof petajournal.ConnectedEvent
+         * @static
+         * @param {petajournal.IConnectedEvent} message ConnectedEvent message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        ConnectedEvent.encodeDelimited = function encodeDelimited(message, writer) {
+            return this.encode(message, writer).ldelim();
+        };
+
+        /**
+         * Decodes a ConnectedEvent message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.ConnectedEvent
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.ConnectedEvent} ConnectedEvent
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        ConnectedEvent.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.ConnectedEvent();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.sessionId = reader.string();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Decodes a ConnectedEvent message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof petajournal.ConnectedEvent
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {petajournal.ConnectedEvent} ConnectedEvent
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        ConnectedEvent.decodeDelimited = function decodeDelimited(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies a ConnectedEvent message.
+         * @function verify
+         * @memberof petajournal.ConnectedEvent
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        ConnectedEvent.verify = function verify(message) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            if (message.sessionId != null && message.hasOwnProperty("sessionId"))
+                if (!$util.isString(message.sessionId))
+                    return "sessionId: string expected";
+            return null;
+        };
+
+        /**
+         * Creates a ConnectedEvent message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof petajournal.ConnectedEvent
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {petajournal.ConnectedEvent} ConnectedEvent
+         */
+        ConnectedEvent.fromObject = function fromObject(object) {
+            if (object instanceof $root.petajournal.ConnectedEvent)
+                return object;
+            let message = new $root.petajournal.ConnectedEvent();
+            if (object.sessionId != null)
+                message.sessionId = String(object.sessionId);
+            return message;
+        };
+
+        /**
+         * Creates a plain object from a ConnectedEvent message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof petajournal.ConnectedEvent
+         * @static
+         * @param {petajournal.ConnectedEvent} message ConnectedEvent
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        ConnectedEvent.toObject = function toObject(message, options) {
+            if (!options)
+                options = {};
+            let object = {};
+            if (options.defaults)
+                object.sessionId = "";
+            if (message.sessionId != null && message.hasOwnProperty("sessionId"))
+                object.sessionId = message.sessionId;
+            return object;
+        };
+
+        /**
+         * Converts this ConnectedEvent to JSON.
+         * @function toJSON
+         * @memberof petajournal.ConnectedEvent
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        ConnectedEvent.prototype.toJSON = function toJSON() {
+            return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        /**
+         * Gets the default type url for ConnectedEvent
+         * @function getTypeUrl
+         * @memberof petajournal.ConnectedEvent
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        ConnectedEvent.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.ConnectedEvent";
+        };
+
+        return ConnectedEvent;
+    })();
+
+    petajournal.PagesUpdatedEvent = (function() {
+
+        /**
+         * Properties of a PagesUpdatedEvent.
+         * @memberof petajournal
+         * @interface IPagesUpdatedEvent
+         * @property {string|null} [pageId] PagesUpdatedEvent pageId
+         */
+
+        /**
+         * Constructs a new PagesUpdatedEvent.
+         * @memberof petajournal
+         * @classdesc Represents a PagesUpdatedEvent.
+         * @implements IPagesUpdatedEvent
+         * @constructor
+         * @param {petajournal.IPagesUpdatedEvent=} [properties] Properties to set
+         */
+        function PagesUpdatedEvent(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * PagesUpdatedEvent pageId.
+         * @member {string} pageId
+         * @memberof petajournal.PagesUpdatedEvent
+         * @instance
+         */
+        PagesUpdatedEvent.prototype.pageId = "";
+
+        /**
+         * Creates a new PagesUpdatedEvent instance using the specified properties.
+         * @function create
+         * @memberof petajournal.PagesUpdatedEvent
+         * @static
+         * @param {petajournal.IPagesUpdatedEvent=} [properties] Properties to set
+         * @returns {petajournal.PagesUpdatedEvent} PagesUpdatedEvent instance
+         */
+        PagesUpdatedEvent.create = function create(properties) {
+            return new PagesUpdatedEvent(properties);
+        };
+
+        /**
+         * Encodes the specified PagesUpdatedEvent message. Does not implicitly {@link petajournal.PagesUpdatedEvent.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.PagesUpdatedEvent
+         * @static
+         * @param {petajournal.IPagesUpdatedEvent} message PagesUpdatedEvent message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        PagesUpdatedEvent.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.pageId != null && Object.hasOwnProperty.call(message, "pageId"))
+                writer.uint32(/* id 1, wireType 2 =*/10).string(message.pageId);
+            return writer;
+        };
+
+        /**
+         * Encodes the specified PagesUpdatedEvent message, length delimited. Does not implicitly {@link petajournal.PagesUpdatedEvent.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof petajournal.PagesUpdatedEvent
+         * @static
+         * @param {petajournal.IPagesUpdatedEvent} message PagesUpdatedEvent message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        PagesUpdatedEvent.encodeDelimited = function encodeDelimited(message, writer) {
+            return this.encode(message, writer).ldelim();
+        };
+
+        /**
+         * Decodes a PagesUpdatedEvent message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.PagesUpdatedEvent
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.PagesUpdatedEvent} PagesUpdatedEvent
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        PagesUpdatedEvent.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.PagesUpdatedEvent();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.pageId = reader.string();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Decodes a PagesUpdatedEvent message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof petajournal.PagesUpdatedEvent
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {petajournal.PagesUpdatedEvent} PagesUpdatedEvent
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        PagesUpdatedEvent.decodeDelimited = function decodeDelimited(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies a PagesUpdatedEvent message.
+         * @function verify
+         * @memberof petajournal.PagesUpdatedEvent
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        PagesUpdatedEvent.verify = function verify(message) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            if (message.pageId != null && message.hasOwnProperty("pageId"))
+                if (!$util.isString(message.pageId))
+                    return "pageId: string expected";
+            return null;
+        };
+
+        /**
+         * Creates a PagesUpdatedEvent message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof petajournal.PagesUpdatedEvent
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {petajournal.PagesUpdatedEvent} PagesUpdatedEvent
+         */
+        PagesUpdatedEvent.fromObject = function fromObject(object) {
+            if (object instanceof $root.petajournal.PagesUpdatedEvent)
+                return object;
+            let message = new $root.petajournal.PagesUpdatedEvent();
+            if (object.pageId != null)
+                message.pageId = String(object.pageId);
+            return message;
+        };
+
+        /**
+         * Creates a plain object from a PagesUpdatedEvent message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof petajournal.PagesUpdatedEvent
+         * @static
+         * @param {petajournal.PagesUpdatedEvent} message PagesUpdatedEvent
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        PagesUpdatedEvent.toObject = function toObject(message, options) {
+            if (!options)
+                options = {};
+            let object = {};
+            if (options.defaults)
+                object.pageId = "";
+            if (message.pageId != null && message.hasOwnProperty("pageId"))
+                object.pageId = message.pageId;
+            return object;
+        };
+
+        /**
+         * Converts this PagesUpdatedEvent to JSON.
+         * @function toJSON
+         * @memberof petajournal.PagesUpdatedEvent
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        PagesUpdatedEvent.prototype.toJSON = function toJSON() {
+            return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        /**
+         * Gets the default type url for PagesUpdatedEvent
+         * @function getTypeUrl
+         * @memberof petajournal.PagesUpdatedEvent
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        PagesUpdatedEvent.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.PagesUpdatedEvent";
+        };
+
+        return PagesUpdatedEvent;
     })();
 
     return petajournal;
