@@ -10,6 +10,7 @@ import com.petajournal.server.domain.BlockIdGenerator;
 import com.petajournal.server.domain.FractionalIndexer;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import org.jboss.logging.Logger;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -21,6 +22,8 @@ import java.util.regex.Pattern;
 
 @ApplicationScoped
 public class BlockService {
+
+    private static final Logger LOG = Logger.getLogger(BlockService.class);
 
     @Inject
     BlockRepository blockRepository;
@@ -46,7 +49,15 @@ public class BlockService {
         String html = parseBody(body);
 
         List<Block> existingBlocks = blockRepository.findByPageId(pageId);
-        String idx = calculateInsertionIndex(existingBlocks, afterBlockId);
+        String idx;
+        try {
+            idx = calculateInsertionIndex(existingBlocks, afterBlockId);
+        } catch (IllegalStateException e) {
+            // Fractional index exhausted — reindex and retry
+            reindexPage(pageId, existingBlocks);
+            existingBlocks = blockRepository.findByPageId(pageId);
+            idx = calculateInsertionIndex(existingBlocks, afterBlockId);
+        }
 
         List<String> types = detectBlockTypes(body);
         String status = "normal";  // Default status
@@ -221,6 +232,20 @@ public class BlockService {
 
     public String importTreeMarkdown(String treeMarkdown) {
         return treeMarkdownConverter.treeMarkdownToFlatMarkdown(treeMarkdown);
+    }
+
+    /**
+     * Re-assign fresh fractional indices to all blocks on a page.
+     * WARNING: This operation reassigns all idx values on a page. In a future CRDT-based
+     * sync system, this will conflict with remote changes and may cause ordering issues.
+     */
+    private void reindexPage(UUID pageId, List<Block> blocks) {
+        LOG.warnv("REINDEX: Reassigning fractional indices for page {0} ({1} blocks). " +
+                "This may cause conflicts with CRDT-based sync.", pageId, blocks.size());
+        List<String> newIndices = FractionalIndexer.generateIndices(blocks.size());
+        for (int i = 0; i < blocks.size(); i++) {
+            blockRepository.updateIndex(blocks.get(i).id(), newIndices.get(i));
+        }
     }
 
     /**

@@ -1,5 +1,8 @@
 package com.petajournal.server.domain;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Generates fractional index strings for ordering blocks.
  * Uses lexicographic midpoint calculation between two strings.
@@ -12,7 +15,7 @@ public final class FractionalIndexer {
     private static final char MIN_CHAR = ALPHABET.charAt(0);            // '0'
     private static final char MID_CHAR = ALPHABET.charAt(RADIX / 2);    // 'V'
     private static final char MAX_CHAR = ALPHABET.charAt(RADIX - 1);    // 'z'
-    private static final String FIRST = "a0";
+    private static final String FIRST = "z0";
 
     private FractionalIndexer() {}
 
@@ -61,14 +64,16 @@ public final class FractionalIndexer {
     }
 
     private static String prepend(String idx) {
-        int len = idx.length();
-        char last = idx.charAt(len - 1);
-        int pos = indexOf(last);
-        if (pos > 0) {
-            return idx.substring(0, len - 1) + ALPHABET.charAt(pos - 1);
+        // Find the rightmost character that can be decremented
+        for (int i = idx.length() - 1; i >= 0; i--) {
+            int pos = indexOf(idx.charAt(i));
+            if (pos > 0) {
+                // Decrement this character and truncate everything after it
+                return idx.substring(0, i) + ALPHABET.charAt(pos - 1);
+            }
         }
-        // Last char is min, extend deeper
-        return idx + MIN_CHAR;
+        // All characters are '0' (minimum). This shouldn't happen with initial "a0".
+        throw new IllegalStateException("Cannot prepend before index: " + idx);
     }
 
     private static String midpoint(String a, String b) {
@@ -103,6 +108,21 @@ public final class FractionalIndexer {
         }
 
         return result.toString();
+    }
+
+    /**
+     * Generates evenly spaced indices for re-indexing.
+     */
+    public static List<String> generateIndices(int count) {
+        List<String> indices = new ArrayList<>(count);
+        if (count == 0) return indices;
+        String current = FIRST;
+        indices.add(current);
+        for (int i = 1; i < count; i++) {
+            current = append(current);
+            indices.add(current);
+        }
+        return indices;
     }
 
     private static String pad(String s, int length) {

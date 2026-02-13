@@ -21,4 +21,6 @@ public interface BlockRepository {
     List<Block> findByPageIdContainingLink(String pageTitle);
 
     List<Block> findByStatuses(List<String> statuses);
+
+    void updateIndex(String blockId, String newIdx);
 }

@@ -189,6 +189,18 @@ public class SqliteBlockRepository implements BlockRepository {
         }
     }
 
+    @Override
+    public void updateIndex(String blockId, String newIdx) {
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement("UPDATE blocks SET idx = ? WHERE id = ?")) {
+            ps.setString(1, newIdx);
+            ps.setString(2, blockId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to update index for block: " + blockId, e);
+        }
+    }
+
     private Block mapBlock(Connection conn, ResultSet rs) throws SQLException {
         String blockId = rs.getString("id");
         return new Block(
