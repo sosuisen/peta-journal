@@ -125,10 +125,12 @@ export default function App() {
   }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const openPage = (block: Block) => {
-    const pageId = block.pageId;
-    if (pageId) {
-      window.open(`http://localhost:4200/pages/${pageId}`, 'peta-journal');
-    }
+    const fileName = block.fileName;
+    if (!fileName) return;
+    const isJournal = /^\d{4}(-\d{2}(-\d{2})?|-W\d{1,2})?$/.test(fileName);
+    const prefix = isJournal ? '/journals' : '/docs';
+    const path = `${prefix}/${block.dirPath || ''}${fileName}`;
+    window.open(`http://localhost:4200${path}#${block.id}`, 'peta-journal');
   };
 
   const handleStatusToggle = async (block: Block) => {

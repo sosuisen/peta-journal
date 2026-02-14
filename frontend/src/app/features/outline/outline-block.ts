@@ -9,6 +9,7 @@ import { BlockViewComponent } from './block-view';
   imports: [BlockEditorComponent, BlockViewComponent],
   template: `
     <div
+      [id]="block().id"
       class="outline-block"
       [style.padding-left.px]="indentPx()"
       [class.selected]="isSelected()"
