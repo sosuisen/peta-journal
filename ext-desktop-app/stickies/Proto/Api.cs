@@ -25,129 +25,148 @@ namespace Petajournal {
       byte[] descriptorData = global::System.Convert.FromBase64String(
           string.Concat(
             "CglhcGkucHJvdG8SC3BldGFqb3VybmFsGgpwYWdlLnByb3RvGgtibG9jay5w",
-            "cm90bxoMc2VhcmNoLnByb3RvIu4ICgpBcGlSZXF1ZXN0EhIKCnJlcXVlc3Rf",
+            "cm90bxoMc2VhcmNoLnByb3RvIpIKCgpBcGlSZXF1ZXN0EhIKCnJlcXVlc3Rf",
             "aWQYASABKAkSLwoIZ2V0X3BhZ2UYCiABKAsyGy5wZXRham91cm5hbC5HZXRQ",
-            "YWdlUmVxdWVzdEgAEjUKC2dldF9qb3VybmFsGAsgASgLMh4ucGV0YWpvdXJu",
-            "YWwuR2V0Sm91cm5hbFJlcXVlc3RIABI1CgtjcmVhdGVfcGFnZRgMIAEoCzIe",
-            "LnBldGFqb3VybmFsLkNyZWF0ZVBhZ2VSZXF1ZXN0SAASNQoLZGVsZXRlX3Bh",
-            "Z2UYDSABKAsyHi5wZXRham91cm5hbC5EZWxldGVQYWdlUmVxdWVzdEgAEjUK",
-            "C3VwZGF0ZV9wYWdlGA4gASgLMh4ucGV0YWpvdXJuYWwuVXBkYXRlUGFnZVJl",
-            "cXVlc3RIABI3CgxjcmVhdGVfYmxvY2sYFCABKAsyHy5wZXRham91cm5hbC5D",
-            "cmVhdGVCbG9ja1JlcXVlc3RIABI3Cgx1cGRhdGVfYmxvY2sYFSABKAsyHy5w",
-            "ZXRham91cm5hbC5VcGRhdGVCbG9ja1JlcXVlc3RIABI1Cgttb3ZlX2Jsb2Nr",
-            "cxgWIAEoCzIeLnBldGFqb3VybmFsLk1vdmVCbG9ja3NSZXF1ZXN0SAASNwoM",
-            "ZGVsZXRlX2Jsb2NrGBcgASgLMh8ucGV0YWpvdXJuYWwuRGVsZXRlQmxvY2tS",
-            "ZXF1ZXN0SAASRAoTdXBkYXRlX2Jsb2NrX3N0YXR1cxgYIAEoCzIlLnBldGFq",
-            "b3VybmFsLlVwZGF0ZUJsb2NrU3RhdHVzUmVxdWVzdEgAEkAKEXNlYXJjaF9w",
-            "YWdlX25hbWVzGB4gASgLMiMucGV0YWpvdXJuYWwuU2VhcmNoUGFnZU5hbWVz",
-            "UmVxdWVzdEgAEj4KEHNlYXJjaF9mdWxsX3RleHQYHyABKAsyIi5wZXRham91",
-            "cm5hbC5TZWFyY2hGdWxsVGV4dFJlcXVlc3RIABI+ChBnZXRfcmVjZW50X3Bh",
-            "Z2VzGCggASgLMiIucGV0YWpvdXJuYWwuR2V0UmVjZW50UGFnZXNSZXF1ZXN0",
-            "SAASOQoNZ2V0X2JhY2tsaW5rcxgpIAEoCzIgLnBldGFqb3VybmFsLkdldEJh",
-            "Y2tsaW5rc1JlcXVlc3RIABJYCh5nZXRfbW9zdF9yZWNlbnRfam91cm5hbF9i",
-            "ZWZvcmUYKiABKAsyLi5wZXRham91cm5hbC5HZXRNb3N0UmVjZW50Sm91cm5h",
-            "bEJlZm9yZVJlcXVlc3RIABJFChRnZXRfYmxvY2tzX2J5X3N0YXR1cxgyIAEo",
-            "CzIlLnBldGFqb3VybmFsLkdldEJsb2Nrc0J5U3RhdHVzUmVxdWVzdEgAEjMK",
-            "CmdldF9jb25maWcYPCABKAsyHS5wZXRham91cm5hbC5HZXRDb25maWdSZXF1",
-            "ZXN0SAASOQoNdXBkYXRlX2NvbmZpZxg9IAEoCzIgLnBldGFqb3VybmFsLlVw",
-            "ZGF0ZUNvbmZpZ1JlcXVlc3RIAEIJCgdwYXlsb2FkIqkJCgtBcGlSZXNwb25z",
-            "ZRISCgpyZXF1ZXN0X2lkGAEgASgJEg8KB3N1Y2Nlc3MYAiABKAgSFQoNZXJy",
-            "b3JfbWVzc2FnZRgDIAEoCRIwCghnZXRfcGFnZRgKIAEoCzIcLnBldGFqb3Vy",
-            "bmFsLkdldFBhZ2VSZXNwb25zZUgAEjYKC2dldF9qb3VybmFsGAsgASgLMh8u",
-            "cGV0YWpvdXJuYWwuR2V0Sm91cm5hbFJlc3BvbnNlSAASNgoLY3JlYXRlX3Bh",
-            "Z2UYDCABKAsyHy5wZXRham91cm5hbC5DcmVhdGVQYWdlUmVzcG9uc2VIABI2",
-            "CgtkZWxldGVfcGFnZRgNIAEoCzIfLnBldGFqb3VybmFsLkRlbGV0ZVBhZ2VS",
-            "ZXNwb25zZUgAEjYKC3VwZGF0ZV9wYWdlGA4gASgLMh8ucGV0YWpvdXJuYWwu",
-            "VXBkYXRlUGFnZVJlc3BvbnNlSAASOAoMY3JlYXRlX2Jsb2NrGBQgASgLMiAu",
-            "cGV0YWpvdXJuYWwuQ3JlYXRlQmxvY2tSZXNwb25zZUgAEjgKDHVwZGF0ZV9i",
-            "bG9jaxgVIAEoCzIgLnBldGFqb3VybmFsLlVwZGF0ZUJsb2NrUmVzcG9uc2VI",
-            "ABI2Cgttb3ZlX2Jsb2NrcxgWIAEoCzIfLnBldGFqb3VybmFsLk1vdmVCbG9j",
-            "a3NSZXNwb25zZUgAEjgKDGRlbGV0ZV9ibG9jaxgXIAEoCzIgLnBldGFqb3Vy",
-            "bmFsLkRlbGV0ZUJsb2NrUmVzcG9uc2VIABJFChN1cGRhdGVfYmxvY2tfc3Rh",
-            "dHVzGBggASgLMiYucGV0YWpvdXJuYWwuVXBkYXRlQmxvY2tTdGF0dXNSZXNw",
-            "b25zZUgAEkEKEXNlYXJjaF9wYWdlX25hbWVzGB4gASgLMiQucGV0YWpvdXJu",
-            "YWwuU2VhcmNoUGFnZU5hbWVzUmVzcG9uc2VIABI/ChBzZWFyY2hfZnVsbF90",
-            "ZXh0GB8gASgLMiMucGV0YWpvdXJuYWwuU2VhcmNoRnVsbFRleHRSZXNwb25z",
-            "ZUgAEj8KEGdldF9yZWNlbnRfcGFnZXMYKCABKAsyIy5wZXRham91cm5hbC5H",
-            "ZXRSZWNlbnRQYWdlc1Jlc3BvbnNlSAASOgoNZ2V0X2JhY2tsaW5rcxgpIAEo",
-            "CzIhLnBldGFqb3VybmFsLkdldEJhY2tsaW5rc1Jlc3BvbnNlSAASWQoeZ2V0",
-            "X21vc3RfcmVjZW50X2pvdXJuYWxfYmVmb3JlGCogASgLMi8ucGV0YWpvdXJu",
-            "YWwuR2V0TW9zdFJlY2VudEpvdXJuYWxCZWZvcmVSZXNwb25zZUgAEkYKFGdl",
-            "dF9ibG9ja3NfYnlfc3RhdHVzGDIgASgLMiYucGV0YWpvdXJuYWwuR2V0Qmxv",
-            "Y2tzQnlTdGF0dXNSZXNwb25zZUgAEjQKCmdldF9jb25maWcYPCABKAsyHi5w",
-            "ZXRham91cm5hbC5HZXRDb25maWdSZXNwb25zZUgAEjoKDXVwZGF0ZV9jb25m",
-            "aWcYPSABKAsyIS5wZXRham91cm5hbC5VcGRhdGVDb25maWdSZXNwb25zZUgA",
-            "QgkKB3BheWxvYWQiIQoOR2V0UGFnZVJlcXVlc3QSDwoHcGFnZV9pZBgBIAEo",
-            "CSJWCg9HZXRQYWdlUmVzcG9uc2USHwoEcGFnZRgBIAEoCzIRLnBldGFqb3Vy",
-            "bmFsLlBhZ2USIgoGYmxvY2tzGAIgAygLMhIucGV0YWpvdXJuYWwuQmxvY2si",
-            "IQoRR2V0Sm91cm5hbFJlcXVlc3QSDAoEZGF0ZRgBIAEoCSJqChJHZXRKb3Vy",
-            "bmFsUmVzcG9uc2USHwoEcGFnZRgBIAEoCzIRLnBldGFqb3VybmFsLlBhZ2US",
-            "IgoGYmxvY2tzGAIgAygLMhIucGV0YWpvdXJuYWwuQmxvY2sSDwoHY3JlYXRl",
-            "ZBgDIAEoCCJCChFDcmVhdGVQYWdlUmVxdWVzdBINCgV0aXRsZRgBIAEoCRIQ",
-            "CghkaXJfcGF0aBgCIAEoCRIMCgR0YWdzGAMgAygJIjUKEkNyZWF0ZVBhZ2VS",
-            "ZXNwb25zZRIfCgRwYWdlGAEgASgLMhEucGV0YWpvdXJuYWwuUGFnZSIkChFE",
-            "ZWxldGVQYWdlUmVxdWVzdBIPCgdwYWdlX2lkGAEgASgJIhQKEkRlbGV0ZVBh",
-            "Z2VSZXNwb25zZSJpChFVcGRhdGVQYWdlUmVxdWVzdBIPCgdwYWdlX2lkGAEg",
-            "ASgJEhIKBXRpdGxlGAIgASgJSACIAQESDAoEdGFncxgDIAMoCRIXCg9wcm9w",
-            "ZXJ0aWVzX2pzb24YBCABKAlCCAoGX3RpdGxlIjUKElVwZGF0ZVBhZ2VSZXNw",
-            "b25zZRIfCgRwYWdlGAEgASgLMhEucGV0YWpvdXJuYWwuUGFnZSJaChJDcmVh",
-            "dGVCbG9ja1JlcXVlc3QSDwoHcGFnZV9pZBgBIAEoCRIWCg5hZnRlcl9ibG9j",
-            "a19pZBgCIAEoCRINCgVsZXZlbBgDIAEoBRIMCgRib2R5GAQgASgJIjgKE0Ny",
-            "ZWF0ZUJsb2NrUmVzcG9uc2USIQoFYmxvY2sYASABKAsyEi5wZXRham91cm5h",
-            "bC5CbG9jayLYAQoSVXBkYXRlQmxvY2tSZXF1ZXN0EhAKCGJsb2NrX2lkGAEg",
-            "ASgJEhEKBGJvZHkYAiABKAlIAIgBARISCgVsZXZlbBgDIAEoBUgBiAEBEhYK",
-            "CWNvbGxhcHNlZBgEIAEoCEgCiAEBEhMKBnN0YXR1cxgFIAEoCUgDiAEBEhwK",
-            "D3Byb3BlcnRpZXNfanNvbhgGIAEoCUgEiAEBQgcKBV9ib2R5QggKBl9sZXZl",
-            "bEIMCgpfY29sbGFwc2VkQgkKB19zdGF0dXNCEgoQX3Byb3BlcnRpZXNfanNv",
-            "biI4ChNVcGRhdGVCbG9ja1Jlc3BvbnNlEiEKBWJsb2NrGAEgASgLMhIucGV0",
-            "YWpvdXJuYWwuQmxvY2sigAEKEU1vdmVCbG9ja3NSZXF1ZXN0EhEKCWJsb2Nr",
-            "X2lkcxgBIAMoCRIWCg50YXJnZXRfcGFnZV9pZBgCIAEoCRIWCg5hZnRlcl9i",
-            "bG9ja19pZBgDIAEoCRIYCgtsZXZlbF9kZWx0YRgEIAEoBUgAiAEBQg4KDF9s",
-            "ZXZlbF9kZWx0YSI4ChJNb3ZlQmxvY2tzUmVzcG9uc2USIgoGYmxvY2tzGAEg",
-            "AygLMhIucGV0YWpvdXJuYWwuQmxvY2siJgoSRGVsZXRlQmxvY2tSZXF1ZXN0",
-            "EhAKCGJsb2NrX2lkGAEgASgJIhUKE0RlbGV0ZUJsb2NrUmVzcG9uc2UiPAoY",
-            "VXBkYXRlQmxvY2tTdGF0dXNSZXF1ZXN0EhAKCGJsb2NrX2lkGAEgASgJEg4K",
-            "BnN0YXR1cxgCIAEoCSI+ChlVcGRhdGVCbG9ja1N0YXR1c1Jlc3BvbnNlEiEK",
-            "BWJsb2NrGAEgASgLMhIucGV0YWpvdXJuYWwuQmxvY2siPAoWU2VhcmNoUGFn",
-            "ZU5hbWVzUmVxdWVzdBINCgVxdWVyeRgBIAEoCRITCgttYXhfcmVzdWx0cxgC",
-            "IAEoBSJFChdTZWFyY2hQYWdlTmFtZXNSZXNwb25zZRIqCgdyZXN1bHRzGAEg",
-            "AygLMhkucGV0YWpvdXJuYWwuU2VhcmNoUmVzdWx0IjsKFVNlYXJjaEZ1bGxU",
-            "ZXh0UmVxdWVzdBINCgVxdWVyeRgBIAEoCRITCgttYXhfcmVzdWx0cxgCIAEo",
-            "BSJYChZTZWFyY2hGdWxsVGV4dFJlc3BvbnNlEioKB3Jlc3VsdHMYASADKAsy",
-            "GS5wZXRham91cm5hbC5TZWFyY2hSZXN1bHQSEgoKdG90YWxfaGl0cxgCIAEo",
-            "BSIsChVHZXRSZWNlbnRQYWdlc1JlcXVlc3QSEwoLbWF4X3Jlc3VsdHMYASAB",
-            "KAUiOgoWR2V0UmVjZW50UGFnZXNSZXNwb25zZRIgCgVwYWdlcxgBIAMoCzIR",
-            "LnBldGFqb3VybmFsLlBhZ2UiJgoTR2V0QmFja2xpbmtzUmVxdWVzdBIPCgdw",
-            "YWdlX2lkGAEgASgJIkMKFEdldEJhY2tsaW5rc1Jlc3BvbnNlEisKB2VudHJp",
-            "ZXMYASADKAsyGi5wZXRham91cm5hbC5CYWNrbGlua0VudHJ5ImEKDUJhY2ts",
-            "aW5rRW50cnkSJgoLc291cmNlX3BhZ2UYASABKAsyES5wZXRham91cm5hbC5Q",
-            "YWdlEigKDHNvdXJjZV9ibG9jaxgCIAEoCzISLnBldGFqb3VybmFsLkJsb2Nr",
-            "IjgKIUdldE1vc3RSZWNlbnRKb3VybmFsQmVmb3JlUmVxdWVzdBITCgtiZWZv",
-            "cmVfZGF0ZRgBIAEoCSJ4CiJHZXRNb3N0UmVjZW50Sm91cm5hbEJlZm9yZVJl",
-            "c3BvbnNlEg0KBWZvdW5kGAEgASgIEh8KBHBhZ2UYAiABKAsyES5wZXRham91",
-            "cm5hbC5QYWdlEiIKBmJsb2NrcxgDIAMoCzISLnBldGFqb3VybmFsLkJsb2Nr",
-            "IiwKGEdldEJsb2Nrc0J5U3RhdHVzUmVxdWVzdBIQCghzdGF0dXNlcxgBIAMo",
-            "CSI/ChlHZXRCbG9ja3NCeVN0YXR1c1Jlc3BvbnNlEiIKBmJsb2NrcxgBIAMo",
-            "CzISLnBldGFqb3VybmFsLkJsb2NrIhIKEEdldENvbmZpZ1JlcXVlc3QiKwoR",
-            "R2V0Q29uZmlnUmVzcG9uc2USFgoOd2Vla19udW1iZXJpbmcYASABKAkiLQoT",
-            "VXBkYXRlQ29uZmlnUmVxdWVzdBIWCg53ZWVrX251bWJlcmluZxgBIAEoCSIu",
-            "ChRVcGRhdGVDb25maWdSZXNwb25zZRIWCg53ZWVrX251bWJlcmluZxgBIAEo",
-            "CUIjChVjb20ucGV0YWpvdXJuYWwucHJvdG9CCEFwaVByb3RvUAFiBnByb3Rv",
-            "Mw=="));
+            "YWdlUmVxdWVzdEgAEjsKD2dldF9kb2NfYnlfbmFtZRgMIAEoCzIgLnBldGFq",
+            "b3VybmFsLkdldERvY0J5TmFtZVJlcXVlc3RIABI1CgtkZWxldGVfcGFnZRgN",
+            "IAEoCzIeLnBldGFqb3VybmFsLkRlbGV0ZVBhZ2VSZXF1ZXN0SAASNQoLdXBk",
+            "YXRlX3BhZ2UYDiABKAsyHi5wZXRham91cm5hbC5VcGRhdGVQYWdlUmVxdWVz",
+            "dEgAEjcKDGNyZWF0ZV9ibG9jaxgUIAEoCzIfLnBldGFqb3VybmFsLkNyZWF0",
+            "ZUJsb2NrUmVxdWVzdEgAEjcKDHVwZGF0ZV9ibG9jaxgVIAEoCzIfLnBldGFq",
+            "b3VybmFsLlVwZGF0ZUJsb2NrUmVxdWVzdEgAEjUKC21vdmVfYmxvY2tzGBYg",
+            "ASgLMh4ucGV0YWpvdXJuYWwuTW92ZUJsb2Nrc1JlcXVlc3RIABI3CgxkZWxl",
+            "dGVfYmxvY2sYFyABKAsyHy5wZXRham91cm5hbC5EZWxldGVCbG9ja1JlcXVl",
+            "c3RIABJEChN1cGRhdGVfYmxvY2tfc3RhdHVzGBggASgLMiUucGV0YWpvdXJu",
+            "YWwuVXBkYXRlQmxvY2tTdGF0dXNSZXF1ZXN0SAASQAoRc2VhcmNoX3BhZ2Vf",
+            "bmFtZXMYHiABKAsyIy5wZXRham91cm5hbC5TZWFyY2hQYWdlTmFtZXNSZXF1",
+            "ZXN0SAASPgoQc2VhcmNoX2Z1bGxfdGV4dBgfIAEoCzIiLnBldGFqb3VybmFs",
+            "LlNlYXJjaEZ1bGxUZXh0UmVxdWVzdEgAEj4KEGdldF9yZWNlbnRfcGFnZXMY",
+            "KCABKAsyIi5wZXRham91cm5hbC5HZXRSZWNlbnRQYWdlc1JlcXVlc3RIABI5",
+            "Cg1nZXRfYmFja2xpbmtzGCkgASgLMiAucGV0YWpvdXJuYWwuR2V0QmFja2xp",
+            "bmtzUmVxdWVzdEgAElgKHmdldF9tb3N0X3JlY2VudF9qb3VybmFsX2JlZm9y",
+            "ZRgqIAEoCzIuLnBldGFqb3VybmFsLkdldE1vc3RSZWNlbnRKb3VybmFsQmVm",
+            "b3JlUmVxdWVzdEgAEkUKFGdldF9ibG9ja3NfYnlfc3RhdHVzGDIgASgLMiUu",
+            "cGV0YWpvdXJuYWwuR2V0QmxvY2tzQnlTdGF0dXNSZXF1ZXN0SAASMwoKZ2V0",
+            "X2NvbmZpZxg8IAEoCzIdLnBldGFqb3VybmFsLkdldENvbmZpZ1JlcXVlc3RI",
+            "ABI5Cg11cGRhdGVfY29uZmlnGD0gASgLMiAucGV0YWpvdXJuYWwuVXBkYXRl",
+            "Q29uZmlnUmVxdWVzdEgAEkMKE2dldF9qb3VybmFsX2J5X25hbWUYLCABKAsy",
+            "JC5wZXRham91cm5hbC5HZXRKb3VybmFsQnlOYW1lUmVxdWVzdEgAEkYKFGV4",
+            "cG9ydF90cmVlX21hcmtkb3duGEYgASgLMiYucGV0YWpvdXJuYWwuRXhwb3J0",
+            "VHJlZU1hcmtkb3duUmVxdWVzdEgAEkYKFGltcG9ydF90cmVlX21hcmtkb3du",
+            "GEcgASgLMiYucGV0YWpvdXJuYWwuSW1wb3J0VHJlZU1hcmtkb3duUmVxdWVz",
+            "dEgAQgkKB3BheWxvYWQigQsKC0FwaVJlc3BvbnNlEhIKCnJlcXVlc3RfaWQY",
+            "ASABKAkSDwoHc3VjY2VzcxgCIAEoCBIVCg1lcnJvcl9tZXNzYWdlGAMgASgJ",
+            "EjAKCGdldF9wYWdlGAogASgLMhwucGV0YWpvdXJuYWwuR2V0UGFnZVJlc3Bv",
+            "bnNlSAASPAoPZ2V0X2RvY19ieV9uYW1lGAwgASgLMiEucGV0YWpvdXJuYWwu",
+            "R2V0RG9jQnlOYW1lUmVzcG9uc2VIABI2CgtkZWxldGVfcGFnZRgNIAEoCzIf",
+            "LnBldGFqb3VybmFsLkRlbGV0ZVBhZ2VSZXNwb25zZUgAEjYKC3VwZGF0ZV9w",
+            "YWdlGA4gASgLMh8ucGV0YWpvdXJuYWwuVXBkYXRlUGFnZVJlc3BvbnNlSAAS",
+            "OAoMY3JlYXRlX2Jsb2NrGBQgASgLMiAucGV0YWpvdXJuYWwuQ3JlYXRlQmxv",
+            "Y2tSZXNwb25zZUgAEjgKDHVwZGF0ZV9ibG9jaxgVIAEoCzIgLnBldGFqb3Vy",
+            "bmFsLlVwZGF0ZUJsb2NrUmVzcG9uc2VIABI2Cgttb3ZlX2Jsb2NrcxgWIAEo",
+            "CzIfLnBldGFqb3VybmFsLk1vdmVCbG9ja3NSZXNwb25zZUgAEjgKDGRlbGV0",
+            "ZV9ibG9jaxgXIAEoCzIgLnBldGFqb3VybmFsLkRlbGV0ZUJsb2NrUmVzcG9u",
+            "c2VIABJFChN1cGRhdGVfYmxvY2tfc3RhdHVzGBggASgLMiYucGV0YWpvdXJu",
+            "YWwuVXBkYXRlQmxvY2tTdGF0dXNSZXNwb25zZUgAEkEKEXNlYXJjaF9wYWdl",
+            "X25hbWVzGB4gASgLMiQucGV0YWpvdXJuYWwuU2VhcmNoUGFnZU5hbWVzUmVz",
+            "cG9uc2VIABI/ChBzZWFyY2hfZnVsbF90ZXh0GB8gASgLMiMucGV0YWpvdXJu",
+            "YWwuU2VhcmNoRnVsbFRleHRSZXNwb25zZUgAEj8KEGdldF9yZWNlbnRfcGFn",
+            "ZXMYKCABKAsyIy5wZXRham91cm5hbC5HZXRSZWNlbnRQYWdlc1Jlc3BvbnNl",
+            "SAASOgoNZ2V0X2JhY2tsaW5rcxgpIAEoCzIhLnBldGFqb3VybmFsLkdldEJh",
+            "Y2tsaW5rc1Jlc3BvbnNlSAASWQoeZ2V0X21vc3RfcmVjZW50X2pvdXJuYWxf",
+            "YmVmb3JlGCogASgLMi8ucGV0YWpvdXJuYWwuR2V0TW9zdFJlY2VudEpvdXJu",
+            "YWxCZWZvcmVSZXNwb25zZUgAEkQKE2dldF9qb3VybmFsX2J5X25hbWUYLCAB",
+            "KAsyJS5wZXRham91cm5hbC5HZXRKb3VybmFsQnlOYW1lUmVzcG9uc2VIABJG",
+            "ChRnZXRfYmxvY2tzX2J5X3N0YXR1cxgyIAEoCzImLnBldGFqb3VybmFsLkdl",
+            "dEJsb2Nrc0J5U3RhdHVzUmVzcG9uc2VIABI0CgpnZXRfY29uZmlnGDwgASgL",
+            "Mh4ucGV0YWpvdXJuYWwuR2V0Q29uZmlnUmVzcG9uc2VIABI6Cg11cGRhdGVf",
+            "Y29uZmlnGD0gASgLMiEucGV0YWpvdXJuYWwuVXBkYXRlQ29uZmlnUmVzcG9u",
+            "c2VIABJHChRleHBvcnRfdHJlZV9tYXJrZG93bhhGIAEoCzInLnBldGFqb3Vy",
+            "bmFsLkV4cG9ydFRyZWVNYXJrZG93blJlc3BvbnNlSAASRwoUaW1wb3J0X3Ry",
+            "ZWVfbWFya2Rvd24YRyABKAsyJy5wZXRham91cm5hbC5JbXBvcnRUcmVlTWFy",
+            "a2Rvd25SZXNwb25zZUgAEjAKDHNlcnZlcl9ldmVudBhkIAEoCzIYLnBldGFq",
+            "b3VybmFsLlNlcnZlckV2ZW50SABCCQoHcGF5bG9hZCIhCg5HZXRQYWdlUmVx",
+            "dWVzdBIPCgdwYWdlX2lkGAEgASgJIlYKD0dldFBhZ2VSZXNwb25zZRIfCgRw",
+            "YWdlGAEgASgLMhEucGV0YWpvdXJuYWwuUGFnZRIiCgZibG9ja3MYAiADKAsy",
+            "Ei5wZXRham91cm5hbC5CbG9jayJEChNHZXREb2NCeU5hbWVSZXF1ZXN0Eg0K",
+            "BXRpdGxlGAEgASgJEhAKCGRpcl9wYXRoGAIgASgJEgwKBHRhZ3MYAyADKAki",
+            "bAoUR2V0RG9jQnlOYW1lUmVzcG9uc2USHwoEcGFnZRgBIAEoCzIRLnBldGFq",
+            "b3VybmFsLlBhZ2USIgoGYmxvY2tzGAIgAygLMhIucGV0YWpvdXJuYWwuQmxv",
+            "Y2sSDwoHY3JlYXRlZBgDIAEoCCIkChFEZWxldGVQYWdlUmVxdWVzdBIPCgdw",
+            "YWdlX2lkGAEgASgJIhQKEkRlbGV0ZVBhZ2VSZXNwb25zZSKNAQoRVXBkYXRl",
+            "UGFnZVJlcXVlc3QSDwoHcGFnZV9pZBgBIAEoCRISCgV0aXRsZRgCIAEoCUgA",
+            "iAEBEgwKBHRhZ3MYAyADKAkSFwoPcHJvcGVydGllc19qc29uGAQgASgJEhUK",
+            "CGRpcl9wYXRoGAUgASgJSAGIAQFCCAoGX3RpdGxlQgsKCV9kaXJfcGF0aCI1",
+            "ChJVcGRhdGVQYWdlUmVzcG9uc2USHwoEcGFnZRgBIAEoCzIRLnBldGFqb3Vy",
+            "bmFsLlBhZ2UiWgoSQ3JlYXRlQmxvY2tSZXF1ZXN0Eg8KB3BhZ2VfaWQYASAB",
+            "KAkSFgoOYWZ0ZXJfYmxvY2tfaWQYAiABKAkSDQoFbGV2ZWwYAyABKAUSDAoE",
+            "Ym9keRgEIAEoCSI4ChNDcmVhdGVCbG9ja1Jlc3BvbnNlEiEKBWJsb2NrGAEg",
+            "ASgLMhIucGV0YWpvdXJuYWwuQmxvY2si2AEKElVwZGF0ZUJsb2NrUmVxdWVz",
+            "dBIQCghibG9ja19pZBgBIAEoCRIRCgRib2R5GAIgASgJSACIAQESEgoFbGV2",
+            "ZWwYAyABKAVIAYgBARIWCgljb2xsYXBzZWQYBCABKAhIAogBARITCgZzdGF0",
+            "dXMYBSABKAlIA4gBARIcCg9wcm9wZXJ0aWVzX2pzb24YBiABKAlIBIgBAUIH",
+            "CgVfYm9keUIICgZfbGV2ZWxCDAoKX2NvbGxhcHNlZEIJCgdfc3RhdHVzQhIK",
+            "EF9wcm9wZXJ0aWVzX2pzb24iOAoTVXBkYXRlQmxvY2tSZXNwb25zZRIhCgVi",
+            "bG9jaxgBIAEoCzISLnBldGFqb3VybmFsLkJsb2NrIoABChFNb3ZlQmxvY2tz",
+            "UmVxdWVzdBIRCglibG9ja19pZHMYASADKAkSFgoOdGFyZ2V0X3BhZ2VfaWQY",
+            "AiABKAkSFgoOYWZ0ZXJfYmxvY2tfaWQYAyABKAkSGAoLbGV2ZWxfZGVsdGEY",
+            "BCABKAVIAIgBAUIOCgxfbGV2ZWxfZGVsdGEiOAoSTW92ZUJsb2Nrc1Jlc3Bv",
+            "bnNlEiIKBmJsb2NrcxgBIAMoCzISLnBldGFqb3VybmFsLkJsb2NrIiYKEkRl",
+            "bGV0ZUJsb2NrUmVxdWVzdBIQCghibG9ja19pZBgBIAEoCSIVChNEZWxldGVC",
+            "bG9ja1Jlc3BvbnNlIjwKGFVwZGF0ZUJsb2NrU3RhdHVzUmVxdWVzdBIQCghi",
+            "bG9ja19pZBgBIAEoCRIOCgZzdGF0dXMYAiABKAkiPgoZVXBkYXRlQmxvY2tT",
+            "dGF0dXNSZXNwb25zZRIhCgVibG9jaxgBIAEoCzISLnBldGFqb3VybmFsLkJs",
+            "b2NrIjwKFlNlYXJjaFBhZ2VOYW1lc1JlcXVlc3QSDQoFcXVlcnkYASABKAkS",
+            "EwoLbWF4X3Jlc3VsdHMYAiABKAUiRQoXU2VhcmNoUGFnZU5hbWVzUmVzcG9u",
+            "c2USKgoHcmVzdWx0cxgBIAMoCzIZLnBldGFqb3VybmFsLlNlYXJjaFJlc3Vs",
+            "dCI7ChVTZWFyY2hGdWxsVGV4dFJlcXVlc3QSDQoFcXVlcnkYASABKAkSEwoL",
+            "bWF4X3Jlc3VsdHMYAiABKAUiWAoWU2VhcmNoRnVsbFRleHRSZXNwb25zZRIq",
+            "CgdyZXN1bHRzGAEgAygLMhkucGV0YWpvdXJuYWwuU2VhcmNoUmVzdWx0EhIK",
+            "CnRvdGFsX2hpdHMYAiABKAUiLAoVR2V0UmVjZW50UGFnZXNSZXF1ZXN0EhMK",
+            "C21heF9yZXN1bHRzGAEgASgFIjoKFkdldFJlY2VudFBhZ2VzUmVzcG9uc2US",
+            "IAoFcGFnZXMYASADKAsyES5wZXRham91cm5hbC5QYWdlIiYKE0dldEJhY2ts",
+            "aW5rc1JlcXVlc3QSDwoHcGFnZV9pZBgBIAEoCSJDChRHZXRCYWNrbGlua3NS",
+            "ZXNwb25zZRIrCgdlbnRyaWVzGAEgAygLMhoucGV0YWpvdXJuYWwuQmFja2xp",
+            "bmtFbnRyeSJhCg1CYWNrbGlua0VudHJ5EiYKC3NvdXJjZV9wYWdlGAEgASgL",
+            "MhEucGV0YWpvdXJuYWwuUGFnZRIoCgxzb3VyY2VfYmxvY2sYAiABKAsyEi5w",
+            "ZXRham91cm5hbC5CbG9jayI4CiFHZXRNb3N0UmVjZW50Sm91cm5hbEJlZm9y",
+            "ZVJlcXVlc3QSEwoLYmVmb3JlX2RhdGUYASABKAkieAoiR2V0TW9zdFJlY2Vu",
+            "dEpvdXJuYWxCZWZvcmVSZXNwb25zZRINCgVmb3VuZBgBIAEoCBIfCgRwYWdl",
+            "GAIgASgLMhEucGV0YWpvdXJuYWwuUGFnZRIiCgZibG9ja3MYAyADKAsyEi5w",
+            "ZXRham91cm5hbC5CbG9jayIsChhHZXRCbG9ja3NCeVN0YXR1c1JlcXVlc3QS",
+            "EAoIc3RhdHVzZXMYASADKAkiPwoZR2V0QmxvY2tzQnlTdGF0dXNSZXNwb25z",
+            "ZRIiCgZibG9ja3MYASADKAsyEi5wZXRham91cm5hbC5CbG9jayIsChdHZXRK",
+            "b3VybmFsQnlOYW1lUmVxdWVzdBIRCglmaWxlX25hbWUYASABKAkicAoYR2V0",
+            "Sm91cm5hbEJ5TmFtZVJlc3BvbnNlEh8KBHBhZ2UYASABKAsyES5wZXRham91",
+            "cm5hbC5QYWdlEiIKBmJsb2NrcxgCIAMoCzISLnBldGFqb3VybmFsLkJsb2Nr",
+            "Eg8KB2NyZWF0ZWQYAyABKAgiEgoQR2V0Q29uZmlnUmVxdWVzdCIrChFHZXRD",
+            "b25maWdSZXNwb25zZRIWCg53ZWVrX251bWJlcmluZxgBIAEoCSItChNVcGRh",
+            "dGVDb25maWdSZXF1ZXN0EhYKDndlZWtfbnVtYmVyaW5nGAEgASgJIi4KFFVw",
+            "ZGF0ZUNvbmZpZ1Jlc3BvbnNlEhYKDndlZWtfbnVtYmVyaW5nGAEgASgJIi4K",
+            "GUV4cG9ydFRyZWVNYXJrZG93blJlcXVlc3QSEQoJYmxvY2tfaWRzGAEgAygJ",
+            "IlgKGkV4cG9ydFRyZWVNYXJrZG93blJlc3BvbnNlEhUKDXRyZWVfbWFya2Rv",
+            "d24YASABKAkSDAoEaHRtbBgCIAEoCRIVCg1mbGF0X21hcmtkb3duGAMgASgJ",
+            "IjIKGUltcG9ydFRyZWVNYXJrZG93blJlcXVlc3QSFQoNdHJlZV9tYXJrZG93",
+            "bhgBIAEoCSIzChpJbXBvcnRUcmVlTWFya2Rvd25SZXNwb25zZRIVCg1mbGF0",
+            "X21hcmtkb3duGAEgASgJIqABCgtTZXJ2ZXJFdmVudBIdChVvcmlnaW5hdG9y",
+            "X3Nlc3Npb25faWQYASABKAkSMAoJY29ubmVjdGVkGAogASgLMhsucGV0YWpv",
+            "dXJuYWwuQ29ubmVjdGVkRXZlbnRIABI3Cg1wYWdlc191cGRhdGVkGBQgASgL",
+            "Mh4ucGV0YWpvdXJuYWwuUGFnZXNVcGRhdGVkRXZlbnRIAEIHCgVldmVudCIk",
+            "Cg5Db25uZWN0ZWRFdmVudBISCgpzZXNzaW9uX2lkGAEgASgJIiQKEVBhZ2Vz",
+            "VXBkYXRlZEV2ZW50Eg8KB3BhZ2VfaWQYASABKAlCIwoVY29tLnBldGFqb3Vy",
+            "bmFsLnByb3RvQghBcGlQcm90b1ABYgZwcm90bzM="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::Petajournal.PageReflection.Descriptor, global::Petajournal.BlockReflection.Descriptor, global::Petajournal.SearchReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
-            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.ApiRequest), global::Petajournal.ApiRequest.Parser, new[]{ "RequestId", "GetPage", "GetJournal", "CreatePage", "DeletePage", "UpdatePage", "CreateBlock", "UpdateBlock", "MoveBlocks", "DeleteBlock", "UpdateBlockStatus", "SearchPageNames", "SearchFullText", "GetRecentPages", "GetBacklinks", "GetMostRecentJournalBefore", "GetBlocksByStatus", "GetConfig", "UpdateConfig" }, new[]{ "Payload" }, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.ApiResponse), global::Petajournal.ApiResponse.Parser, new[]{ "RequestId", "Success", "ErrorMessage", "GetPage", "GetJournal", "CreatePage", "DeletePage", "UpdatePage", "CreateBlock", "UpdateBlock", "MoveBlocks", "DeleteBlock", "UpdateBlockStatus", "SearchPageNames", "SearchFullText", "GetRecentPages", "GetBacklinks", "GetMostRecentJournalBefore", "GetBlocksByStatus", "GetConfig", "UpdateConfig" }, new[]{ "Payload" }, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.ApiRequest), global::Petajournal.ApiRequest.Parser, new[]{ "RequestId", "GetPage", "GetDocByName", "DeletePage", "UpdatePage", "CreateBlock", "UpdateBlock", "MoveBlocks", "DeleteBlock", "UpdateBlockStatus", "SearchPageNames", "SearchFullText", "GetRecentPages", "GetBacklinks", "GetMostRecentJournalBefore", "GetBlocksByStatus", "GetConfig", "UpdateConfig", "GetJournalByName", "ExportTreeMarkdown", "ImportTreeMarkdown" }, new[]{ "Payload" }, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.ApiResponse), global::Petajournal.ApiResponse.Parser, new[]{ "RequestId", "Success", "ErrorMessage", "GetPage", "GetDocByName", "DeletePage", "UpdatePage", "CreateBlock", "UpdateBlock", "MoveBlocks", "DeleteBlock", "UpdateBlockStatus", "SearchPageNames", "SearchFullText", "GetRecentPages", "GetBacklinks", "GetMostRecentJournalBefore", "GetJournalByName", "GetBlocksByStatus", "GetConfig", "UpdateConfig", "ExportTreeMarkdown", "ImportTreeMarkdown", "ServerEvent" }, new[]{ "Payload" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetPageRequest), global::Petajournal.GetPageRequest.Parser, new[]{ "PageId" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetPageResponse), global::Petajournal.GetPageResponse.Parser, new[]{ "Page", "Blocks" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetJournalRequest), global::Petajournal.GetJournalRequest.Parser, new[]{ "Date" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetJournalResponse), global::Petajournal.GetJournalResponse.Parser, new[]{ "Page", "Blocks", "Created" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.CreatePageRequest), global::Petajournal.CreatePageRequest.Parser, new[]{ "Title", "DirPath", "Tags" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.CreatePageResponse), global::Petajournal.CreatePageResponse.Parser, new[]{ "Page" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetDocByNameRequest), global::Petajournal.GetDocByNameRequest.Parser, new[]{ "Title", "DirPath", "Tags" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetDocByNameResponse), global::Petajournal.GetDocByNameResponse.Parser, new[]{ "Page", "Blocks", "Created" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.DeletePageRequest), global::Petajournal.DeletePageRequest.Parser, new[]{ "PageId" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.DeletePageResponse), global::Petajournal.DeletePageResponse.Parser, null, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.UpdatePageRequest), global::Petajournal.UpdatePageRequest.Parser, new[]{ "PageId", "Title", "Tags", "PropertiesJson" }, new[]{ "Title" }, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.UpdatePageRequest), global::Petajournal.UpdatePageRequest.Parser, new[]{ "PageId", "Title", "Tags", "PropertiesJson", "DirPath" }, new[]{ "Title", "DirPath" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.UpdatePageResponse), global::Petajournal.UpdatePageResponse.Parser, new[]{ "Page" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.CreateBlockRequest), global::Petajournal.CreateBlockRequest.Parser, new[]{ "PageId", "AfterBlockId", "Level", "Body" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.CreateBlockResponse), global::Petajournal.CreateBlockResponse.Parser, new[]{ "Block" }, null, null, null, null),
@@ -172,10 +191,19 @@ namespace Petajournal {
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetMostRecentJournalBeforeResponse), global::Petajournal.GetMostRecentJournalBeforeResponse.Parser, new[]{ "Found", "Page", "Blocks" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetBlocksByStatusRequest), global::Petajournal.GetBlocksByStatusRequest.Parser, new[]{ "Statuses" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetBlocksByStatusResponse), global::Petajournal.GetBlocksByStatusResponse.Parser, new[]{ "Blocks" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetJournalByNameRequest), global::Petajournal.GetJournalByNameRequest.Parser, new[]{ "FileName" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetJournalByNameResponse), global::Petajournal.GetJournalByNameResponse.Parser, new[]{ "Page", "Blocks", "Created" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetConfigRequest), global::Petajournal.GetConfigRequest.Parser, null, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetConfigResponse), global::Petajournal.GetConfigResponse.Parser, new[]{ "WeekNumbering" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.UpdateConfigRequest), global::Petajournal.UpdateConfigRequest.Parser, new[]{ "WeekNumbering" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.UpdateConfigResponse), global::Petajournal.UpdateConfigResponse.Parser, new[]{ "WeekNumbering" }, null, null, null, null)
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.UpdateConfigResponse), global::Petajournal.UpdateConfigResponse.Parser, new[]{ "WeekNumbering" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.ExportTreeMarkdownRequest), global::Petajournal.ExportTreeMarkdownRequest.Parser, new[]{ "BlockIds" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.ExportTreeMarkdownResponse), global::Petajournal.ExportTreeMarkdownResponse.Parser, new[]{ "TreeMarkdown", "Html", "FlatMarkdown" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.ImportTreeMarkdownRequest), global::Petajournal.ImportTreeMarkdownRequest.Parser, new[]{ "TreeMarkdown" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.ImportTreeMarkdownResponse), global::Petajournal.ImportTreeMarkdownResponse.Parser, new[]{ "FlatMarkdown" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.ServerEvent), global::Petajournal.ServerEvent.Parser, new[]{ "OriginatorSessionId", "Connected", "PagesUpdated" }, new[]{ "Event" }, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.ConnectedEvent), global::Petajournal.ConnectedEvent.Parser, new[]{ "SessionId" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.PagesUpdatedEvent), global::Petajournal.PagesUpdatedEvent.Parser, new[]{ "PageId" }, null, null, null, null)
           }));
     }
     #endregion
@@ -225,11 +253,8 @@ namespace Petajournal {
         case PayloadOneofCase.GetPage:
           GetPage = other.GetPage.Clone();
           break;
-        case PayloadOneofCase.GetJournal:
-          GetJournal = other.GetJournal.Clone();
-          break;
-        case PayloadOneofCase.CreatePage:
-          CreatePage = other.CreatePage.Clone();
+        case PayloadOneofCase.GetDocByName:
+          GetDocByName = other.GetDocByName.Clone();
           break;
         case PayloadOneofCase.DeletePage:
           DeletePage = other.DeletePage.Clone();
@@ -276,6 +301,15 @@ namespace Petajournal {
         case PayloadOneofCase.UpdateConfig:
           UpdateConfig = other.UpdateConfig.Clone();
           break;
+        case PayloadOneofCase.GetJournalByName:
+          GetJournalByName = other.GetJournalByName.Clone();
+          break;
+        case PayloadOneofCase.ExportTreeMarkdown:
+          ExportTreeMarkdown = other.ExportTreeMarkdown.Clone();
+          break;
+        case PayloadOneofCase.ImportTreeMarkdown:
+          ImportTreeMarkdown = other.ImportTreeMarkdown.Clone();
+          break;
       }
 
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
@@ -314,27 +348,15 @@ namespace Petajournal {
       }
     }
 
-    /// <summary>Field number for the "get_journal" field.</summary>
-    public const int GetJournalFieldNumber = 11;
+    /// <summary>Field number for the "get_doc_by_name" field.</summary>
+    public const int GetDocByNameFieldNumber = 12;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Petajournal.GetJournalRequest GetJournal {
-      get { return payloadCase_ == PayloadOneofCase.GetJournal ? (global::Petajournal.GetJournalRequest) payload_ : null; }
+    public global::Petajournal.GetDocByNameRequest GetDocByName {
+      get { return payloadCase_ == PayloadOneofCase.GetDocByName ? (global::Petajournal.GetDocByNameRequest) payload_ : null; }
       set {
         payload_ = value;
-        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.GetJournal;
-      }
-    }
-
-    /// <summary>Field number for the "create_page" field.</summary>
-    public const int CreatePageFieldNumber = 12;
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Petajournal.CreatePageRequest CreatePage {
-      get { return payloadCase_ == PayloadOneofCase.CreatePage ? (global::Petajournal.CreatePageRequest) payload_ : null; }
-      set {
-        payload_ = value;
-        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.CreatePage;
+        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.GetDocByName;
       }
     }
 
@@ -518,13 +540,48 @@ namespace Petajournal {
       }
     }
 
+    /// <summary>Field number for the "get_journal_by_name" field.</summary>
+    public const int GetJournalByNameFieldNumber = 44;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Petajournal.GetJournalByNameRequest GetJournalByName {
+      get { return payloadCase_ == PayloadOneofCase.GetJournalByName ? (global::Petajournal.GetJournalByNameRequest) payload_ : null; }
+      set {
+        payload_ = value;
+        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.GetJournalByName;
+      }
+    }
+
+    /// <summary>Field number for the "export_tree_markdown" field.</summary>
+    public const int ExportTreeMarkdownFieldNumber = 70;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Petajournal.ExportTreeMarkdownRequest ExportTreeMarkdown {
+      get { return payloadCase_ == PayloadOneofCase.ExportTreeMarkdown ? (global::Petajournal.ExportTreeMarkdownRequest) payload_ : null; }
+      set {
+        payload_ = value;
+        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.ExportTreeMarkdown;
+      }
+    }
+
+    /// <summary>Field number for the "import_tree_markdown" field.</summary>
+    public const int ImportTreeMarkdownFieldNumber = 71;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Petajournal.ImportTreeMarkdownRequest ImportTreeMarkdown {
+      get { return payloadCase_ == PayloadOneofCase.ImportTreeMarkdown ? (global::Petajournal.ImportTreeMarkdownRequest) payload_ : null; }
+      set {
+        payload_ = value;
+        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.ImportTreeMarkdown;
+      }
+    }
+
     private object payload_;
     /// <summary>Enum of possible cases for the "payload" oneof.</summary>
     public enum PayloadOneofCase {
       None = 0,
       GetPage = 10,
-      GetJournal = 11,
-      CreatePage = 12,
+      GetDocByName = 12,
       DeletePage = 13,
       UpdatePage = 14,
       CreateBlock = 20,
@@ -540,6 +597,9 @@ namespace Petajournal {
       GetBlocksByStatus = 50,
       GetConfig = 60,
       UpdateConfig = 61,
+      GetJournalByName = 44,
+      ExportTreeMarkdown = 70,
+      ImportTreeMarkdown = 71,
     }
     private PayloadOneofCase payloadCase_ = PayloadOneofCase.None;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -572,8 +632,7 @@ namespace Petajournal {
       }
       if (RequestId != other.RequestId) return false;
       if (!object.Equals(GetPage, other.GetPage)) return false;
-      if (!object.Equals(GetJournal, other.GetJournal)) return false;
-      if (!object.Equals(CreatePage, other.CreatePage)) return false;
+      if (!object.Equals(GetDocByName, other.GetDocByName)) return false;
       if (!object.Equals(DeletePage, other.DeletePage)) return false;
       if (!object.Equals(UpdatePage, other.UpdatePage)) return false;
       if (!object.Equals(CreateBlock, other.CreateBlock)) return false;
@@ -589,6 +648,9 @@ namespace Petajournal {
       if (!object.Equals(GetBlocksByStatus, other.GetBlocksByStatus)) return false;
       if (!object.Equals(GetConfig, other.GetConfig)) return false;
       if (!object.Equals(UpdateConfig, other.UpdateConfig)) return false;
+      if (!object.Equals(GetJournalByName, other.GetJournalByName)) return false;
+      if (!object.Equals(ExportTreeMarkdown, other.ExportTreeMarkdown)) return false;
+      if (!object.Equals(ImportTreeMarkdown, other.ImportTreeMarkdown)) return false;
       if (PayloadCase != other.PayloadCase) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
@@ -599,8 +661,7 @@ namespace Petajournal {
       int hash = 1;
       if (RequestId.Length != 0) hash ^= RequestId.GetHashCode();
       if (payloadCase_ == PayloadOneofCase.GetPage) hash ^= GetPage.GetHashCode();
-      if (payloadCase_ == PayloadOneofCase.GetJournal) hash ^= GetJournal.GetHashCode();
-      if (payloadCase_ == PayloadOneofCase.CreatePage) hash ^= CreatePage.GetHashCode();
+      if (payloadCase_ == PayloadOneofCase.GetDocByName) hash ^= GetDocByName.GetHashCode();
       if (payloadCase_ == PayloadOneofCase.DeletePage) hash ^= DeletePage.GetHashCode();
       if (payloadCase_ == PayloadOneofCase.UpdatePage) hash ^= UpdatePage.GetHashCode();
       if (payloadCase_ == PayloadOneofCase.CreateBlock) hash ^= CreateBlock.GetHashCode();
@@ -616,6 +677,9 @@ namespace Petajournal {
       if (payloadCase_ == PayloadOneofCase.GetBlocksByStatus) hash ^= GetBlocksByStatus.GetHashCode();
       if (payloadCase_ == PayloadOneofCase.GetConfig) hash ^= GetConfig.GetHashCode();
       if (payloadCase_ == PayloadOneofCase.UpdateConfig) hash ^= UpdateConfig.GetHashCode();
+      if (payloadCase_ == PayloadOneofCase.GetJournalByName) hash ^= GetJournalByName.GetHashCode();
+      if (payloadCase_ == PayloadOneofCase.ExportTreeMarkdown) hash ^= ExportTreeMarkdown.GetHashCode();
+      if (payloadCase_ == PayloadOneofCase.ImportTreeMarkdown) hash ^= ImportTreeMarkdown.GetHashCode();
       hash ^= (int) payloadCase_;
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
@@ -643,13 +707,9 @@ namespace Petajournal {
         output.WriteRawTag(82);
         output.WriteMessage(GetPage);
       }
-      if (payloadCase_ == PayloadOneofCase.GetJournal) {
-        output.WriteRawTag(90);
-        output.WriteMessage(GetJournal);
-      }
-      if (payloadCase_ == PayloadOneofCase.CreatePage) {
+      if (payloadCase_ == PayloadOneofCase.GetDocByName) {
         output.WriteRawTag(98);
-        output.WriteMessage(CreatePage);
+        output.WriteMessage(GetDocByName);
       }
       if (payloadCase_ == PayloadOneofCase.DeletePage) {
         output.WriteRawTag(106);
@@ -699,6 +759,10 @@ namespace Petajournal {
         output.WriteRawTag(210, 2);
         output.WriteMessage(GetMostRecentJournalBefore);
       }
+      if (payloadCase_ == PayloadOneofCase.GetJournalByName) {
+        output.WriteRawTag(226, 2);
+        output.WriteMessage(GetJournalByName);
+      }
       if (payloadCase_ == PayloadOneofCase.GetBlocksByStatus) {
         output.WriteRawTag(146, 3);
         output.WriteMessage(GetBlocksByStatus);
@@ -710,6 +774,14 @@ namespace Petajournal {
       if (payloadCase_ == PayloadOneofCase.UpdateConfig) {
         output.WriteRawTag(234, 3);
         output.WriteMessage(UpdateConfig);
+      }
+      if (payloadCase_ == PayloadOneofCase.ExportTreeMarkdown) {
+        output.WriteRawTag(178, 4);
+        output.WriteMessage(ExportTreeMarkdown);
+      }
+      if (payloadCase_ == PayloadOneofCase.ImportTreeMarkdown) {
+        output.WriteRawTag(186, 4);
+        output.WriteMessage(ImportTreeMarkdown);
       }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
@@ -729,13 +801,9 @@ namespace Petajournal {
         output.WriteRawTag(82);
         output.WriteMessage(GetPage);
       }
-      if (payloadCase_ == PayloadOneofCase.GetJournal) {
-        output.WriteRawTag(90);
-        output.WriteMessage(GetJournal);
-      }
-      if (payloadCase_ == PayloadOneofCase.CreatePage) {
+      if (payloadCase_ == PayloadOneofCase.GetDocByName) {
         output.WriteRawTag(98);
-        output.WriteMessage(CreatePage);
+        output.WriteMessage(GetDocByName);
       }
       if (payloadCase_ == PayloadOneofCase.DeletePage) {
         output.WriteRawTag(106);
@@ -785,6 +853,10 @@ namespace Petajournal {
         output.WriteRawTag(210, 2);
         output.WriteMessage(GetMostRecentJournalBefore);
       }
+      if (payloadCase_ == PayloadOneofCase.GetJournalByName) {
+        output.WriteRawTag(226, 2);
+        output.WriteMessage(GetJournalByName);
+      }
       if (payloadCase_ == PayloadOneofCase.GetBlocksByStatus) {
         output.WriteRawTag(146, 3);
         output.WriteMessage(GetBlocksByStatus);
@@ -796,6 +868,14 @@ namespace Petajournal {
       if (payloadCase_ == PayloadOneofCase.UpdateConfig) {
         output.WriteRawTag(234, 3);
         output.WriteMessage(UpdateConfig);
+      }
+      if (payloadCase_ == PayloadOneofCase.ExportTreeMarkdown) {
+        output.WriteRawTag(178, 4);
+        output.WriteMessage(ExportTreeMarkdown);
+      }
+      if (payloadCase_ == PayloadOneofCase.ImportTreeMarkdown) {
+        output.WriteRawTag(186, 4);
+        output.WriteMessage(ImportTreeMarkdown);
       }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
@@ -813,11 +893,8 @@ namespace Petajournal {
       if (payloadCase_ == PayloadOneofCase.GetPage) {
         size += 1 + pb::CodedOutputStream.ComputeMessageSize(GetPage);
       }
-      if (payloadCase_ == PayloadOneofCase.GetJournal) {
-        size += 1 + pb::CodedOutputStream.ComputeMessageSize(GetJournal);
-      }
-      if (payloadCase_ == PayloadOneofCase.CreatePage) {
-        size += 1 + pb::CodedOutputStream.ComputeMessageSize(CreatePage);
+      if (payloadCase_ == PayloadOneofCase.GetDocByName) {
+        size += 1 + pb::CodedOutputStream.ComputeMessageSize(GetDocByName);
       }
       if (payloadCase_ == PayloadOneofCase.DeletePage) {
         size += 1 + pb::CodedOutputStream.ComputeMessageSize(DeletePage);
@@ -864,6 +941,15 @@ namespace Petajournal {
       if (payloadCase_ == PayloadOneofCase.UpdateConfig) {
         size += 2 + pb::CodedOutputStream.ComputeMessageSize(UpdateConfig);
       }
+      if (payloadCase_ == PayloadOneofCase.GetJournalByName) {
+        size += 2 + pb::CodedOutputStream.ComputeMessageSize(GetJournalByName);
+      }
+      if (payloadCase_ == PayloadOneofCase.ExportTreeMarkdown) {
+        size += 2 + pb::CodedOutputStream.ComputeMessageSize(ExportTreeMarkdown);
+      }
+      if (payloadCase_ == PayloadOneofCase.ImportTreeMarkdown) {
+        size += 2 + pb::CodedOutputStream.ComputeMessageSize(ImportTreeMarkdown);
+      }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
       }
@@ -886,17 +972,11 @@ namespace Petajournal {
           }
           GetPage.MergeFrom(other.GetPage);
           break;
-        case PayloadOneofCase.GetJournal:
-          if (GetJournal == null) {
-            GetJournal = new global::Petajournal.GetJournalRequest();
+        case PayloadOneofCase.GetDocByName:
+          if (GetDocByName == null) {
+            GetDocByName = new global::Petajournal.GetDocByNameRequest();
           }
-          GetJournal.MergeFrom(other.GetJournal);
-          break;
-        case PayloadOneofCase.CreatePage:
-          if (CreatePage == null) {
-            CreatePage = new global::Petajournal.CreatePageRequest();
-          }
-          CreatePage.MergeFrom(other.CreatePage);
+          GetDocByName.MergeFrom(other.GetDocByName);
           break;
         case PayloadOneofCase.DeletePage:
           if (DeletePage == null) {
@@ -988,6 +1068,24 @@ namespace Petajournal {
           }
           UpdateConfig.MergeFrom(other.UpdateConfig);
           break;
+        case PayloadOneofCase.GetJournalByName:
+          if (GetJournalByName == null) {
+            GetJournalByName = new global::Petajournal.GetJournalByNameRequest();
+          }
+          GetJournalByName.MergeFrom(other.GetJournalByName);
+          break;
+        case PayloadOneofCase.ExportTreeMarkdown:
+          if (ExportTreeMarkdown == null) {
+            ExportTreeMarkdown = new global::Petajournal.ExportTreeMarkdownRequest();
+          }
+          ExportTreeMarkdown.MergeFrom(other.ExportTreeMarkdown);
+          break;
+        case PayloadOneofCase.ImportTreeMarkdown:
+          if (ImportTreeMarkdown == null) {
+            ImportTreeMarkdown = new global::Petajournal.ImportTreeMarkdownRequest();
+          }
+          ImportTreeMarkdown.MergeFrom(other.ImportTreeMarkdown);
+          break;
       }
 
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
@@ -1022,22 +1120,13 @@ namespace Petajournal {
             GetPage = subBuilder;
             break;
           }
-          case 90: {
-            global::Petajournal.GetJournalRequest subBuilder = new global::Petajournal.GetJournalRequest();
-            if (payloadCase_ == PayloadOneofCase.GetJournal) {
-              subBuilder.MergeFrom(GetJournal);
-            }
-            input.ReadMessage(subBuilder);
-            GetJournal = subBuilder;
-            break;
-          }
           case 98: {
-            global::Petajournal.CreatePageRequest subBuilder = new global::Petajournal.CreatePageRequest();
-            if (payloadCase_ == PayloadOneofCase.CreatePage) {
-              subBuilder.MergeFrom(CreatePage);
+            global::Petajournal.GetDocByNameRequest subBuilder = new global::Petajournal.GetDocByNameRequest();
+            if (payloadCase_ == PayloadOneofCase.GetDocByName) {
+              subBuilder.MergeFrom(GetDocByName);
             }
             input.ReadMessage(subBuilder);
-            CreatePage = subBuilder;
+            GetDocByName = subBuilder;
             break;
           }
           case 106: {
@@ -1148,6 +1237,15 @@ namespace Petajournal {
             GetMostRecentJournalBefore = subBuilder;
             break;
           }
+          case 354: {
+            global::Petajournal.GetJournalByNameRequest subBuilder = new global::Petajournal.GetJournalByNameRequest();
+            if (payloadCase_ == PayloadOneofCase.GetJournalByName) {
+              subBuilder.MergeFrom(GetJournalByName);
+            }
+            input.ReadMessage(subBuilder);
+            GetJournalByName = subBuilder;
+            break;
+          }
           case 402: {
             global::Petajournal.GetBlocksByStatusRequest subBuilder = new global::Petajournal.GetBlocksByStatusRequest();
             if (payloadCase_ == PayloadOneofCase.GetBlocksByStatus) {
@@ -1173,6 +1271,24 @@ namespace Petajournal {
             }
             input.ReadMessage(subBuilder);
             UpdateConfig = subBuilder;
+            break;
+          }
+          case 562: {
+            global::Petajournal.ExportTreeMarkdownRequest subBuilder = new global::Petajournal.ExportTreeMarkdownRequest();
+            if (payloadCase_ == PayloadOneofCase.ExportTreeMarkdown) {
+              subBuilder.MergeFrom(ExportTreeMarkdown);
+            }
+            input.ReadMessage(subBuilder);
+            ExportTreeMarkdown = subBuilder;
+            break;
+          }
+          case 570: {
+            global::Petajournal.ImportTreeMarkdownRequest subBuilder = new global::Petajournal.ImportTreeMarkdownRequest();
+            if (payloadCase_ == PayloadOneofCase.ImportTreeMarkdown) {
+              subBuilder.MergeFrom(ImportTreeMarkdown);
+            }
+            input.ReadMessage(subBuilder);
+            ImportTreeMarkdown = subBuilder;
             break;
           }
         }
@@ -1207,22 +1323,13 @@ namespace Petajournal {
             GetPage = subBuilder;
             break;
           }
-          case 90: {
-            global::Petajournal.GetJournalRequest subBuilder = new global::Petajournal.GetJournalRequest();
-            if (payloadCase_ == PayloadOneofCase.GetJournal) {
-              subBuilder.MergeFrom(GetJournal);
-            }
-            input.ReadMessage(subBuilder);
-            GetJournal = subBuilder;
-            break;
-          }
           case 98: {
-            global::Petajournal.CreatePageRequest subBuilder = new global::Petajournal.CreatePageRequest();
-            if (payloadCase_ == PayloadOneofCase.CreatePage) {
-              subBuilder.MergeFrom(CreatePage);
+            global::Petajournal.GetDocByNameRequest subBuilder = new global::Petajournal.GetDocByNameRequest();
+            if (payloadCase_ == PayloadOneofCase.GetDocByName) {
+              subBuilder.MergeFrom(GetDocByName);
             }
             input.ReadMessage(subBuilder);
-            CreatePage = subBuilder;
+            GetDocByName = subBuilder;
             break;
           }
           case 106: {
@@ -1333,6 +1440,15 @@ namespace Petajournal {
             GetMostRecentJournalBefore = subBuilder;
             break;
           }
+          case 354: {
+            global::Petajournal.GetJournalByNameRequest subBuilder = new global::Petajournal.GetJournalByNameRequest();
+            if (payloadCase_ == PayloadOneofCase.GetJournalByName) {
+              subBuilder.MergeFrom(GetJournalByName);
+            }
+            input.ReadMessage(subBuilder);
+            GetJournalByName = subBuilder;
+            break;
+          }
           case 402: {
             global::Petajournal.GetBlocksByStatusRequest subBuilder = new global::Petajournal.GetBlocksByStatusRequest();
             if (payloadCase_ == PayloadOneofCase.GetBlocksByStatus) {
@@ -1358,6 +1474,24 @@ namespace Petajournal {
             }
             input.ReadMessage(subBuilder);
             UpdateConfig = subBuilder;
+            break;
+          }
+          case 562: {
+            global::Petajournal.ExportTreeMarkdownRequest subBuilder = new global::Petajournal.ExportTreeMarkdownRequest();
+            if (payloadCase_ == PayloadOneofCase.ExportTreeMarkdown) {
+              subBuilder.MergeFrom(ExportTreeMarkdown);
+            }
+            input.ReadMessage(subBuilder);
+            ExportTreeMarkdown = subBuilder;
+            break;
+          }
+          case 570: {
+            global::Petajournal.ImportTreeMarkdownRequest subBuilder = new global::Petajournal.ImportTreeMarkdownRequest();
+            if (payloadCase_ == PayloadOneofCase.ImportTreeMarkdown) {
+              subBuilder.MergeFrom(ImportTreeMarkdown);
+            }
+            input.ReadMessage(subBuilder);
+            ImportTreeMarkdown = subBuilder;
             break;
           }
         }
@@ -1412,11 +1546,8 @@ namespace Petajournal {
         case PayloadOneofCase.GetPage:
           GetPage = other.GetPage.Clone();
           break;
-        case PayloadOneofCase.GetJournal:
-          GetJournal = other.GetJournal.Clone();
-          break;
-        case PayloadOneofCase.CreatePage:
-          CreatePage = other.CreatePage.Clone();
+        case PayloadOneofCase.GetDocByName:
+          GetDocByName = other.GetDocByName.Clone();
           break;
         case PayloadOneofCase.DeletePage:
           DeletePage = other.DeletePage.Clone();
@@ -1454,6 +1585,9 @@ namespace Petajournal {
         case PayloadOneofCase.GetMostRecentJournalBefore:
           GetMostRecentJournalBefore = other.GetMostRecentJournalBefore.Clone();
           break;
+        case PayloadOneofCase.GetJournalByName:
+          GetJournalByName = other.GetJournalByName.Clone();
+          break;
         case PayloadOneofCase.GetBlocksByStatus:
           GetBlocksByStatus = other.GetBlocksByStatus.Clone();
           break;
@@ -1462,6 +1596,15 @@ namespace Petajournal {
           break;
         case PayloadOneofCase.UpdateConfig:
           UpdateConfig = other.UpdateConfig.Clone();
+          break;
+        case PayloadOneofCase.ExportTreeMarkdown:
+          ExportTreeMarkdown = other.ExportTreeMarkdown.Clone();
+          break;
+        case PayloadOneofCase.ImportTreeMarkdown:
+          ImportTreeMarkdown = other.ImportTreeMarkdown.Clone();
+          break;
+        case PayloadOneofCase.ServerEvent:
+          ServerEvent = other.ServerEvent.Clone();
           break;
       }
 
@@ -1528,27 +1671,15 @@ namespace Petajournal {
       }
     }
 
-    /// <summary>Field number for the "get_journal" field.</summary>
-    public const int GetJournalFieldNumber = 11;
+    /// <summary>Field number for the "get_doc_by_name" field.</summary>
+    public const int GetDocByNameFieldNumber = 12;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Petajournal.GetJournalResponse GetJournal {
-      get { return payloadCase_ == PayloadOneofCase.GetJournal ? (global::Petajournal.GetJournalResponse) payload_ : null; }
+    public global::Petajournal.GetDocByNameResponse GetDocByName {
+      get { return payloadCase_ == PayloadOneofCase.GetDocByName ? (global::Petajournal.GetDocByNameResponse) payload_ : null; }
       set {
         payload_ = value;
-        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.GetJournal;
-      }
-    }
-
-    /// <summary>Field number for the "create_page" field.</summary>
-    public const int CreatePageFieldNumber = 12;
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Petajournal.CreatePageResponse CreatePage {
-      get { return payloadCase_ == PayloadOneofCase.CreatePage ? (global::Petajournal.CreatePageResponse) payload_ : null; }
-      set {
-        payload_ = value;
-        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.CreatePage;
+        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.GetDocByName;
       }
     }
 
@@ -1696,6 +1827,18 @@ namespace Petajournal {
       }
     }
 
+    /// <summary>Field number for the "get_journal_by_name" field.</summary>
+    public const int GetJournalByNameFieldNumber = 44;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Petajournal.GetJournalByNameResponse GetJournalByName {
+      get { return payloadCase_ == PayloadOneofCase.GetJournalByName ? (global::Petajournal.GetJournalByNameResponse) payload_ : null; }
+      set {
+        payload_ = value;
+        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.GetJournalByName;
+      }
+    }
+
     /// <summary>Field number for the "get_blocks_by_status" field.</summary>
     public const int GetBlocksByStatusFieldNumber = 50;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -1732,13 +1875,48 @@ namespace Petajournal {
       }
     }
 
+    /// <summary>Field number for the "export_tree_markdown" field.</summary>
+    public const int ExportTreeMarkdownFieldNumber = 70;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Petajournal.ExportTreeMarkdownResponse ExportTreeMarkdown {
+      get { return payloadCase_ == PayloadOneofCase.ExportTreeMarkdown ? (global::Petajournal.ExportTreeMarkdownResponse) payload_ : null; }
+      set {
+        payload_ = value;
+        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.ExportTreeMarkdown;
+      }
+    }
+
+    /// <summary>Field number for the "import_tree_markdown" field.</summary>
+    public const int ImportTreeMarkdownFieldNumber = 71;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Petajournal.ImportTreeMarkdownResponse ImportTreeMarkdown {
+      get { return payloadCase_ == PayloadOneofCase.ImportTreeMarkdown ? (global::Petajournal.ImportTreeMarkdownResponse) payload_ : null; }
+      set {
+        payload_ = value;
+        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.ImportTreeMarkdown;
+      }
+    }
+
+    /// <summary>Field number for the "server_event" field.</summary>
+    public const int ServerEventFieldNumber = 100;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Petajournal.ServerEvent ServerEvent {
+      get { return payloadCase_ == PayloadOneofCase.ServerEvent ? (global::Petajournal.ServerEvent) payload_ : null; }
+      set {
+        payload_ = value;
+        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.ServerEvent;
+      }
+    }
+
     private object payload_;
     /// <summary>Enum of possible cases for the "payload" oneof.</summary>
     public enum PayloadOneofCase {
       None = 0,
       GetPage = 10,
-      GetJournal = 11,
-      CreatePage = 12,
+      GetDocByName = 12,
       DeletePage = 13,
       UpdatePage = 14,
       CreateBlock = 20,
@@ -1751,9 +1929,13 @@ namespace Petajournal {
       GetRecentPages = 40,
       GetBacklinks = 41,
       GetMostRecentJournalBefore = 42,
+      GetJournalByName = 44,
       GetBlocksByStatus = 50,
       GetConfig = 60,
       UpdateConfig = 61,
+      ExportTreeMarkdown = 70,
+      ImportTreeMarkdown = 71,
+      ServerEvent = 100,
     }
     private PayloadOneofCase payloadCase_ = PayloadOneofCase.None;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -1788,8 +1970,7 @@ namespace Petajournal {
       if (Success != other.Success) return false;
       if (ErrorMessage != other.ErrorMessage) return false;
       if (!object.Equals(GetPage, other.GetPage)) return false;
-      if (!object.Equals(GetJournal, other.GetJournal)) return false;
-      if (!object.Equals(CreatePage, other.CreatePage)) return false;
+      if (!object.Equals(GetDocByName, other.GetDocByName)) return false;
       if (!object.Equals(DeletePage, other.DeletePage)) return false;
       if (!object.Equals(UpdatePage, other.UpdatePage)) return false;
       if (!object.Equals(CreateBlock, other.CreateBlock)) return false;
@@ -1802,9 +1983,13 @@ namespace Petajournal {
       if (!object.Equals(GetRecentPages, other.GetRecentPages)) return false;
       if (!object.Equals(GetBacklinks, other.GetBacklinks)) return false;
       if (!object.Equals(GetMostRecentJournalBefore, other.GetMostRecentJournalBefore)) return false;
+      if (!object.Equals(GetJournalByName, other.GetJournalByName)) return false;
       if (!object.Equals(GetBlocksByStatus, other.GetBlocksByStatus)) return false;
       if (!object.Equals(GetConfig, other.GetConfig)) return false;
       if (!object.Equals(UpdateConfig, other.UpdateConfig)) return false;
+      if (!object.Equals(ExportTreeMarkdown, other.ExportTreeMarkdown)) return false;
+      if (!object.Equals(ImportTreeMarkdown, other.ImportTreeMarkdown)) return false;
+      if (!object.Equals(ServerEvent, other.ServerEvent)) return false;
       if (PayloadCase != other.PayloadCase) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
@@ -1817,8 +2002,7 @@ namespace Petajournal {
       if (Success != false) hash ^= Success.GetHashCode();
       if (ErrorMessage.Length != 0) hash ^= ErrorMessage.GetHashCode();
       if (payloadCase_ == PayloadOneofCase.GetPage) hash ^= GetPage.GetHashCode();
-      if (payloadCase_ == PayloadOneofCase.GetJournal) hash ^= GetJournal.GetHashCode();
-      if (payloadCase_ == PayloadOneofCase.CreatePage) hash ^= CreatePage.GetHashCode();
+      if (payloadCase_ == PayloadOneofCase.GetDocByName) hash ^= GetDocByName.GetHashCode();
       if (payloadCase_ == PayloadOneofCase.DeletePage) hash ^= DeletePage.GetHashCode();
       if (payloadCase_ == PayloadOneofCase.UpdatePage) hash ^= UpdatePage.GetHashCode();
       if (payloadCase_ == PayloadOneofCase.CreateBlock) hash ^= CreateBlock.GetHashCode();
@@ -1831,9 +2015,13 @@ namespace Petajournal {
       if (payloadCase_ == PayloadOneofCase.GetRecentPages) hash ^= GetRecentPages.GetHashCode();
       if (payloadCase_ == PayloadOneofCase.GetBacklinks) hash ^= GetBacklinks.GetHashCode();
       if (payloadCase_ == PayloadOneofCase.GetMostRecentJournalBefore) hash ^= GetMostRecentJournalBefore.GetHashCode();
+      if (payloadCase_ == PayloadOneofCase.GetJournalByName) hash ^= GetJournalByName.GetHashCode();
       if (payloadCase_ == PayloadOneofCase.GetBlocksByStatus) hash ^= GetBlocksByStatus.GetHashCode();
       if (payloadCase_ == PayloadOneofCase.GetConfig) hash ^= GetConfig.GetHashCode();
       if (payloadCase_ == PayloadOneofCase.UpdateConfig) hash ^= UpdateConfig.GetHashCode();
+      if (payloadCase_ == PayloadOneofCase.ExportTreeMarkdown) hash ^= ExportTreeMarkdown.GetHashCode();
+      if (payloadCase_ == PayloadOneofCase.ImportTreeMarkdown) hash ^= ImportTreeMarkdown.GetHashCode();
+      if (payloadCase_ == PayloadOneofCase.ServerEvent) hash ^= ServerEvent.GetHashCode();
       hash ^= (int) payloadCase_;
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
@@ -1869,13 +2057,9 @@ namespace Petajournal {
         output.WriteRawTag(82);
         output.WriteMessage(GetPage);
       }
-      if (payloadCase_ == PayloadOneofCase.GetJournal) {
-        output.WriteRawTag(90);
-        output.WriteMessage(GetJournal);
-      }
-      if (payloadCase_ == PayloadOneofCase.CreatePage) {
+      if (payloadCase_ == PayloadOneofCase.GetDocByName) {
         output.WriteRawTag(98);
-        output.WriteMessage(CreatePage);
+        output.WriteMessage(GetDocByName);
       }
       if (payloadCase_ == PayloadOneofCase.DeletePage) {
         output.WriteRawTag(106);
@@ -1925,6 +2109,10 @@ namespace Petajournal {
         output.WriteRawTag(210, 2);
         output.WriteMessage(GetMostRecentJournalBefore);
       }
+      if (payloadCase_ == PayloadOneofCase.GetJournalByName) {
+        output.WriteRawTag(226, 2);
+        output.WriteMessage(GetJournalByName);
+      }
       if (payloadCase_ == PayloadOneofCase.GetBlocksByStatus) {
         output.WriteRawTag(146, 3);
         output.WriteMessage(GetBlocksByStatus);
@@ -1936,6 +2124,18 @@ namespace Petajournal {
       if (payloadCase_ == PayloadOneofCase.UpdateConfig) {
         output.WriteRawTag(234, 3);
         output.WriteMessage(UpdateConfig);
+      }
+      if (payloadCase_ == PayloadOneofCase.ExportTreeMarkdown) {
+        output.WriteRawTag(178, 4);
+        output.WriteMessage(ExportTreeMarkdown);
+      }
+      if (payloadCase_ == PayloadOneofCase.ImportTreeMarkdown) {
+        output.WriteRawTag(186, 4);
+        output.WriteMessage(ImportTreeMarkdown);
+      }
+      if (payloadCase_ == PayloadOneofCase.ServerEvent) {
+        output.WriteRawTag(162, 6);
+        output.WriteMessage(ServerEvent);
       }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
@@ -1963,13 +2163,9 @@ namespace Petajournal {
         output.WriteRawTag(82);
         output.WriteMessage(GetPage);
       }
-      if (payloadCase_ == PayloadOneofCase.GetJournal) {
-        output.WriteRawTag(90);
-        output.WriteMessage(GetJournal);
-      }
-      if (payloadCase_ == PayloadOneofCase.CreatePage) {
+      if (payloadCase_ == PayloadOneofCase.GetDocByName) {
         output.WriteRawTag(98);
-        output.WriteMessage(CreatePage);
+        output.WriteMessage(GetDocByName);
       }
       if (payloadCase_ == PayloadOneofCase.DeletePage) {
         output.WriteRawTag(106);
@@ -2019,6 +2215,10 @@ namespace Petajournal {
         output.WriteRawTag(210, 2);
         output.WriteMessage(GetMostRecentJournalBefore);
       }
+      if (payloadCase_ == PayloadOneofCase.GetJournalByName) {
+        output.WriteRawTag(226, 2);
+        output.WriteMessage(GetJournalByName);
+      }
       if (payloadCase_ == PayloadOneofCase.GetBlocksByStatus) {
         output.WriteRawTag(146, 3);
         output.WriteMessage(GetBlocksByStatus);
@@ -2030,6 +2230,18 @@ namespace Petajournal {
       if (payloadCase_ == PayloadOneofCase.UpdateConfig) {
         output.WriteRawTag(234, 3);
         output.WriteMessage(UpdateConfig);
+      }
+      if (payloadCase_ == PayloadOneofCase.ExportTreeMarkdown) {
+        output.WriteRawTag(178, 4);
+        output.WriteMessage(ExportTreeMarkdown);
+      }
+      if (payloadCase_ == PayloadOneofCase.ImportTreeMarkdown) {
+        output.WriteRawTag(186, 4);
+        output.WriteMessage(ImportTreeMarkdown);
+      }
+      if (payloadCase_ == PayloadOneofCase.ServerEvent) {
+        output.WriteRawTag(162, 6);
+        output.WriteMessage(ServerEvent);
       }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
@@ -2053,11 +2265,8 @@ namespace Petajournal {
       if (payloadCase_ == PayloadOneofCase.GetPage) {
         size += 1 + pb::CodedOutputStream.ComputeMessageSize(GetPage);
       }
-      if (payloadCase_ == PayloadOneofCase.GetJournal) {
-        size += 1 + pb::CodedOutputStream.ComputeMessageSize(GetJournal);
-      }
-      if (payloadCase_ == PayloadOneofCase.CreatePage) {
-        size += 1 + pb::CodedOutputStream.ComputeMessageSize(CreatePage);
+      if (payloadCase_ == PayloadOneofCase.GetDocByName) {
+        size += 1 + pb::CodedOutputStream.ComputeMessageSize(GetDocByName);
       }
       if (payloadCase_ == PayloadOneofCase.DeletePage) {
         size += 1 + pb::CodedOutputStream.ComputeMessageSize(DeletePage);
@@ -2095,6 +2304,9 @@ namespace Petajournal {
       if (payloadCase_ == PayloadOneofCase.GetMostRecentJournalBefore) {
         size += 2 + pb::CodedOutputStream.ComputeMessageSize(GetMostRecentJournalBefore);
       }
+      if (payloadCase_ == PayloadOneofCase.GetJournalByName) {
+        size += 2 + pb::CodedOutputStream.ComputeMessageSize(GetJournalByName);
+      }
       if (payloadCase_ == PayloadOneofCase.GetBlocksByStatus) {
         size += 2 + pb::CodedOutputStream.ComputeMessageSize(GetBlocksByStatus);
       }
@@ -2103,6 +2315,15 @@ namespace Petajournal {
       }
       if (payloadCase_ == PayloadOneofCase.UpdateConfig) {
         size += 2 + pb::CodedOutputStream.ComputeMessageSize(UpdateConfig);
+      }
+      if (payloadCase_ == PayloadOneofCase.ExportTreeMarkdown) {
+        size += 2 + pb::CodedOutputStream.ComputeMessageSize(ExportTreeMarkdown);
+      }
+      if (payloadCase_ == PayloadOneofCase.ImportTreeMarkdown) {
+        size += 2 + pb::CodedOutputStream.ComputeMessageSize(ImportTreeMarkdown);
+      }
+      if (payloadCase_ == PayloadOneofCase.ServerEvent) {
+        size += 2 + pb::CodedOutputStream.ComputeMessageSize(ServerEvent);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -2132,17 +2353,11 @@ namespace Petajournal {
           }
           GetPage.MergeFrom(other.GetPage);
           break;
-        case PayloadOneofCase.GetJournal:
-          if (GetJournal == null) {
-            GetJournal = new global::Petajournal.GetJournalResponse();
+        case PayloadOneofCase.GetDocByName:
+          if (GetDocByName == null) {
+            GetDocByName = new global::Petajournal.GetDocByNameResponse();
           }
-          GetJournal.MergeFrom(other.GetJournal);
-          break;
-        case PayloadOneofCase.CreatePage:
-          if (CreatePage == null) {
-            CreatePage = new global::Petajournal.CreatePageResponse();
-          }
-          CreatePage.MergeFrom(other.CreatePage);
+          GetDocByName.MergeFrom(other.GetDocByName);
           break;
         case PayloadOneofCase.DeletePage:
           if (DeletePage == null) {
@@ -2216,6 +2431,12 @@ namespace Petajournal {
           }
           GetMostRecentJournalBefore.MergeFrom(other.GetMostRecentJournalBefore);
           break;
+        case PayloadOneofCase.GetJournalByName:
+          if (GetJournalByName == null) {
+            GetJournalByName = new global::Petajournal.GetJournalByNameResponse();
+          }
+          GetJournalByName.MergeFrom(other.GetJournalByName);
+          break;
         case PayloadOneofCase.GetBlocksByStatus:
           if (GetBlocksByStatus == null) {
             GetBlocksByStatus = new global::Petajournal.GetBlocksByStatusResponse();
@@ -2233,6 +2454,24 @@ namespace Petajournal {
             UpdateConfig = new global::Petajournal.UpdateConfigResponse();
           }
           UpdateConfig.MergeFrom(other.UpdateConfig);
+          break;
+        case PayloadOneofCase.ExportTreeMarkdown:
+          if (ExportTreeMarkdown == null) {
+            ExportTreeMarkdown = new global::Petajournal.ExportTreeMarkdownResponse();
+          }
+          ExportTreeMarkdown.MergeFrom(other.ExportTreeMarkdown);
+          break;
+        case PayloadOneofCase.ImportTreeMarkdown:
+          if (ImportTreeMarkdown == null) {
+            ImportTreeMarkdown = new global::Petajournal.ImportTreeMarkdownResponse();
+          }
+          ImportTreeMarkdown.MergeFrom(other.ImportTreeMarkdown);
+          break;
+        case PayloadOneofCase.ServerEvent:
+          if (ServerEvent == null) {
+            ServerEvent = new global::Petajournal.ServerEvent();
+          }
+          ServerEvent.MergeFrom(other.ServerEvent);
           break;
       }
 
@@ -2276,22 +2515,13 @@ namespace Petajournal {
             GetPage = subBuilder;
             break;
           }
-          case 90: {
-            global::Petajournal.GetJournalResponse subBuilder = new global::Petajournal.GetJournalResponse();
-            if (payloadCase_ == PayloadOneofCase.GetJournal) {
-              subBuilder.MergeFrom(GetJournal);
-            }
-            input.ReadMessage(subBuilder);
-            GetJournal = subBuilder;
-            break;
-          }
           case 98: {
-            global::Petajournal.CreatePageResponse subBuilder = new global::Petajournal.CreatePageResponse();
-            if (payloadCase_ == PayloadOneofCase.CreatePage) {
-              subBuilder.MergeFrom(CreatePage);
+            global::Petajournal.GetDocByNameResponse subBuilder = new global::Petajournal.GetDocByNameResponse();
+            if (payloadCase_ == PayloadOneofCase.GetDocByName) {
+              subBuilder.MergeFrom(GetDocByName);
             }
             input.ReadMessage(subBuilder);
-            CreatePage = subBuilder;
+            GetDocByName = subBuilder;
             break;
           }
           case 106: {
@@ -2402,6 +2632,15 @@ namespace Petajournal {
             GetMostRecentJournalBefore = subBuilder;
             break;
           }
+          case 354: {
+            global::Petajournal.GetJournalByNameResponse subBuilder = new global::Petajournal.GetJournalByNameResponse();
+            if (payloadCase_ == PayloadOneofCase.GetJournalByName) {
+              subBuilder.MergeFrom(GetJournalByName);
+            }
+            input.ReadMessage(subBuilder);
+            GetJournalByName = subBuilder;
+            break;
+          }
           case 402: {
             global::Petajournal.GetBlocksByStatusResponse subBuilder = new global::Petajournal.GetBlocksByStatusResponse();
             if (payloadCase_ == PayloadOneofCase.GetBlocksByStatus) {
@@ -2427,6 +2666,33 @@ namespace Petajournal {
             }
             input.ReadMessage(subBuilder);
             UpdateConfig = subBuilder;
+            break;
+          }
+          case 562: {
+            global::Petajournal.ExportTreeMarkdownResponse subBuilder = new global::Petajournal.ExportTreeMarkdownResponse();
+            if (payloadCase_ == PayloadOneofCase.ExportTreeMarkdown) {
+              subBuilder.MergeFrom(ExportTreeMarkdown);
+            }
+            input.ReadMessage(subBuilder);
+            ExportTreeMarkdown = subBuilder;
+            break;
+          }
+          case 570: {
+            global::Petajournal.ImportTreeMarkdownResponse subBuilder = new global::Petajournal.ImportTreeMarkdownResponse();
+            if (payloadCase_ == PayloadOneofCase.ImportTreeMarkdown) {
+              subBuilder.MergeFrom(ImportTreeMarkdown);
+            }
+            input.ReadMessage(subBuilder);
+            ImportTreeMarkdown = subBuilder;
+            break;
+          }
+          case 802: {
+            global::Petajournal.ServerEvent subBuilder = new global::Petajournal.ServerEvent();
+            if (payloadCase_ == PayloadOneofCase.ServerEvent) {
+              subBuilder.MergeFrom(ServerEvent);
+            }
+            input.ReadMessage(subBuilder);
+            ServerEvent = subBuilder;
             break;
           }
         }
@@ -2469,22 +2735,13 @@ namespace Petajournal {
             GetPage = subBuilder;
             break;
           }
-          case 90: {
-            global::Petajournal.GetJournalResponse subBuilder = new global::Petajournal.GetJournalResponse();
-            if (payloadCase_ == PayloadOneofCase.GetJournal) {
-              subBuilder.MergeFrom(GetJournal);
-            }
-            input.ReadMessage(subBuilder);
-            GetJournal = subBuilder;
-            break;
-          }
           case 98: {
-            global::Petajournal.CreatePageResponse subBuilder = new global::Petajournal.CreatePageResponse();
-            if (payloadCase_ == PayloadOneofCase.CreatePage) {
-              subBuilder.MergeFrom(CreatePage);
+            global::Petajournal.GetDocByNameResponse subBuilder = new global::Petajournal.GetDocByNameResponse();
+            if (payloadCase_ == PayloadOneofCase.GetDocByName) {
+              subBuilder.MergeFrom(GetDocByName);
             }
             input.ReadMessage(subBuilder);
-            CreatePage = subBuilder;
+            GetDocByName = subBuilder;
             break;
           }
           case 106: {
@@ -2595,6 +2852,15 @@ namespace Petajournal {
             GetMostRecentJournalBefore = subBuilder;
             break;
           }
+          case 354: {
+            global::Petajournal.GetJournalByNameResponse subBuilder = new global::Petajournal.GetJournalByNameResponse();
+            if (payloadCase_ == PayloadOneofCase.GetJournalByName) {
+              subBuilder.MergeFrom(GetJournalByName);
+            }
+            input.ReadMessage(subBuilder);
+            GetJournalByName = subBuilder;
+            break;
+          }
           case 402: {
             global::Petajournal.GetBlocksByStatusResponse subBuilder = new global::Petajournal.GetBlocksByStatusResponse();
             if (payloadCase_ == PayloadOneofCase.GetBlocksByStatus) {
@@ -2620,6 +2886,33 @@ namespace Petajournal {
             }
             input.ReadMessage(subBuilder);
             UpdateConfig = subBuilder;
+            break;
+          }
+          case 562: {
+            global::Petajournal.ExportTreeMarkdownResponse subBuilder = new global::Petajournal.ExportTreeMarkdownResponse();
+            if (payloadCase_ == PayloadOneofCase.ExportTreeMarkdown) {
+              subBuilder.MergeFrom(ExportTreeMarkdown);
+            }
+            input.ReadMessage(subBuilder);
+            ExportTreeMarkdown = subBuilder;
+            break;
+          }
+          case 570: {
+            global::Petajournal.ImportTreeMarkdownResponse subBuilder = new global::Petajournal.ImportTreeMarkdownResponse();
+            if (payloadCase_ == PayloadOneofCase.ImportTreeMarkdown) {
+              subBuilder.MergeFrom(ImportTreeMarkdown);
+            }
+            input.ReadMessage(subBuilder);
+            ImportTreeMarkdown = subBuilder;
+            break;
+          }
+          case 802: {
+            global::Petajournal.ServerEvent subBuilder = new global::Petajournal.ServerEvent();
+            if (payloadCase_ == PayloadOneofCase.ServerEvent) {
+              subBuilder.MergeFrom(ServerEvent);
+            }
+            input.ReadMessage(subBuilder);
+            ServerEvent = subBuilder;
             break;
           }
         }
@@ -3061,16 +3354,16 @@ namespace Petajournal {
   }
 
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
-  public sealed partial class GetJournalRequest : pb::IMessage<GetJournalRequest>
+  public sealed partial class GetDocByNameRequest : pb::IMessage<GetDocByNameRequest>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
   #endif
   {
-    private static readonly pb::MessageParser<GetJournalRequest> _parser = new pb::MessageParser<GetJournalRequest>(() => new GetJournalRequest());
+    private static readonly pb::MessageParser<GetDocByNameRequest> _parser = new pb::MessageParser<GetDocByNameRequest>(() => new GetDocByNameRequest());
     private pb::UnknownFieldSet _unknownFields;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public static pb::MessageParser<GetJournalRequest> Parser { get { return _parser; } }
+    public static pb::MessageParser<GetDocByNameRequest> Parser { get { return _parser; } }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -3086,7 +3379,7 @@ namespace Petajournal {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public GetJournalRequest() {
+    public GetDocByNameRequest() {
       OnConstruction();
     }
 
@@ -3094,481 +3387,7 @@ namespace Petajournal {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public GetJournalRequest(GetJournalRequest other) : this() {
-      date_ = other.date_;
-      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
-    }
-
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public GetJournalRequest Clone() {
-      return new GetJournalRequest(this);
-    }
-
-    /// <summary>Field number for the "date" field.</summary>
-    public const int DateFieldNumber = 1;
-    private string date_ = "";
-    /// <summary>
-    /// ISO date: "2025-01-15"
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string Date {
-      get { return date_; }
-      set {
-        date_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
-      }
-    }
-
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public override bool Equals(object other) {
-      return Equals(other as GetJournalRequest);
-    }
-
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public bool Equals(GetJournalRequest other) {
-      if (ReferenceEquals(other, null)) {
-        return false;
-      }
-      if (ReferenceEquals(other, this)) {
-        return true;
-      }
-      if (Date != other.Date) return false;
-      return Equals(_unknownFields, other._unknownFields);
-    }
-
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public override int GetHashCode() {
-      int hash = 1;
-      if (Date.Length != 0) hash ^= Date.GetHashCode();
-      if (_unknownFields != null) {
-        hash ^= _unknownFields.GetHashCode();
-      }
-      return hash;
-    }
-
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public override string ToString() {
-      return pb::JsonFormatter.ToDiagnosticString(this);
-    }
-
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public void WriteTo(pb::CodedOutputStream output) {
-    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
-      output.WriteRawMessage(this);
-    #else
-      if (Date.Length != 0) {
-        output.WriteRawTag(10);
-        output.WriteString(Date);
-      }
-      if (_unknownFields != null) {
-        _unknownFields.WriteTo(output);
-      }
-    #endif
-    }
-
-    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
-      if (Date.Length != 0) {
-        output.WriteRawTag(10);
-        output.WriteString(Date);
-      }
-      if (_unknownFields != null) {
-        _unknownFields.WriteTo(ref output);
-      }
-    }
-    #endif
-
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public int CalculateSize() {
-      int size = 0;
-      if (Date.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(Date);
-      }
-      if (_unknownFields != null) {
-        size += _unknownFields.CalculateSize();
-      }
-      return size;
-    }
-
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public void MergeFrom(GetJournalRequest other) {
-      if (other == null) {
-        return;
-      }
-      if (other.Date.Length != 0) {
-        Date = other.Date;
-      }
-      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
-    }
-
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public void MergeFrom(pb::CodedInputStream input) {
-    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
-      input.ReadRawMessage(this);
-    #else
-      uint tag;
-      while ((tag = input.ReadTag()) != 0) {
-      if ((tag & 7) == 4) {
-        // Abort on any end group tag.
-        return;
-      }
-      switch(tag) {
-          default:
-            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
-            break;
-          case 10: {
-            Date = input.ReadString();
-            break;
-          }
-        }
-      }
-    #endif
-    }
-
-    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
-      uint tag;
-      while ((tag = input.ReadTag()) != 0) {
-      if ((tag & 7) == 4) {
-        // Abort on any end group tag.
-        return;
-      }
-      switch(tag) {
-          default:
-            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
-            break;
-          case 10: {
-            Date = input.ReadString();
-            break;
-          }
-        }
-      }
-    }
-    #endif
-
-  }
-
-  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
-  public sealed partial class GetJournalResponse : pb::IMessage<GetJournalResponse>
-  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
-      , pb::IBufferMessage
-  #endif
-  {
-    private static readonly pb::MessageParser<GetJournalResponse> _parser = new pb::MessageParser<GetJournalResponse>(() => new GetJournalResponse());
-    private pb::UnknownFieldSet _unknownFields;
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public static pb::MessageParser<GetJournalResponse> Parser { get { return _parser; } }
-
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public static pbr::MessageDescriptor Descriptor {
-      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[5]; }
-    }
-
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    pbr::MessageDescriptor pb::IMessage.Descriptor {
-      get { return Descriptor; }
-    }
-
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public GetJournalResponse() {
-      OnConstruction();
-    }
-
-    partial void OnConstruction();
-
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public GetJournalResponse(GetJournalResponse other) : this() {
-      page_ = other.page_ != null ? other.page_.Clone() : null;
-      blocks_ = other.blocks_.Clone();
-      created_ = other.created_;
-      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
-    }
-
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public GetJournalResponse Clone() {
-      return new GetJournalResponse(this);
-    }
-
-    /// <summary>Field number for the "page" field.</summary>
-    public const int PageFieldNumber = 1;
-    private global::Petajournal.Page page_;
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Petajournal.Page Page {
-      get { return page_; }
-      set {
-        page_ = value;
-      }
-    }
-
-    /// <summary>Field number for the "blocks" field.</summary>
-    public const int BlocksFieldNumber = 2;
-    private static readonly pb::FieldCodec<global::Petajournal.Block> _repeated_blocks_codec
-        = pb::FieldCodec.ForMessage(18, global::Petajournal.Block.Parser);
-    private readonly pbc::RepeatedField<global::Petajournal.Block> blocks_ = new pbc::RepeatedField<global::Petajournal.Block>();
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public pbc::RepeatedField<global::Petajournal.Block> Blocks {
-      get { return blocks_; }
-    }
-
-    /// <summary>Field number for the "created" field.</summary>
-    public const int CreatedFieldNumber = 3;
-    private bool created_;
-    /// <summary>
-    /// true if journal was just created
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public bool Created {
-      get { return created_; }
-      set {
-        created_ = value;
-      }
-    }
-
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public override bool Equals(object other) {
-      return Equals(other as GetJournalResponse);
-    }
-
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public bool Equals(GetJournalResponse other) {
-      if (ReferenceEquals(other, null)) {
-        return false;
-      }
-      if (ReferenceEquals(other, this)) {
-        return true;
-      }
-      if (!object.Equals(Page, other.Page)) return false;
-      if(!blocks_.Equals(other.blocks_)) return false;
-      if (Created != other.Created) return false;
-      return Equals(_unknownFields, other._unknownFields);
-    }
-
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public override int GetHashCode() {
-      int hash = 1;
-      if (page_ != null) hash ^= Page.GetHashCode();
-      hash ^= blocks_.GetHashCode();
-      if (Created != false) hash ^= Created.GetHashCode();
-      if (_unknownFields != null) {
-        hash ^= _unknownFields.GetHashCode();
-      }
-      return hash;
-    }
-
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public override string ToString() {
-      return pb::JsonFormatter.ToDiagnosticString(this);
-    }
-
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public void WriteTo(pb::CodedOutputStream output) {
-    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
-      output.WriteRawMessage(this);
-    #else
-      if (page_ != null) {
-        output.WriteRawTag(10);
-        output.WriteMessage(Page);
-      }
-      blocks_.WriteTo(output, _repeated_blocks_codec);
-      if (Created != false) {
-        output.WriteRawTag(24);
-        output.WriteBool(Created);
-      }
-      if (_unknownFields != null) {
-        _unknownFields.WriteTo(output);
-      }
-    #endif
-    }
-
-    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
-      if (page_ != null) {
-        output.WriteRawTag(10);
-        output.WriteMessage(Page);
-      }
-      blocks_.WriteTo(ref output, _repeated_blocks_codec);
-      if (Created != false) {
-        output.WriteRawTag(24);
-        output.WriteBool(Created);
-      }
-      if (_unknownFields != null) {
-        _unknownFields.WriteTo(ref output);
-      }
-    }
-    #endif
-
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public int CalculateSize() {
-      int size = 0;
-      if (page_ != null) {
-        size += 1 + pb::CodedOutputStream.ComputeMessageSize(Page);
-      }
-      size += blocks_.CalculateSize(_repeated_blocks_codec);
-      if (Created != false) {
-        size += 1 + 1;
-      }
-      if (_unknownFields != null) {
-        size += _unknownFields.CalculateSize();
-      }
-      return size;
-    }
-
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public void MergeFrom(GetJournalResponse other) {
-      if (other == null) {
-        return;
-      }
-      if (other.page_ != null) {
-        if (page_ == null) {
-          Page = new global::Petajournal.Page();
-        }
-        Page.MergeFrom(other.Page);
-      }
-      blocks_.Add(other.blocks_);
-      if (other.Created != false) {
-        Created = other.Created;
-      }
-      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
-    }
-
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public void MergeFrom(pb::CodedInputStream input) {
-    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
-      input.ReadRawMessage(this);
-    #else
-      uint tag;
-      while ((tag = input.ReadTag()) != 0) {
-      if ((tag & 7) == 4) {
-        // Abort on any end group tag.
-        return;
-      }
-      switch(tag) {
-          default:
-            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
-            break;
-          case 10: {
-            if (page_ == null) {
-              Page = new global::Petajournal.Page();
-            }
-            input.ReadMessage(Page);
-            break;
-          }
-          case 18: {
-            blocks_.AddEntriesFrom(input, _repeated_blocks_codec);
-            break;
-          }
-          case 24: {
-            Created = input.ReadBool();
-            break;
-          }
-        }
-      }
-    #endif
-    }
-
-    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
-      uint tag;
-      while ((tag = input.ReadTag()) != 0) {
-      if ((tag & 7) == 4) {
-        // Abort on any end group tag.
-        return;
-      }
-      switch(tag) {
-          default:
-            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
-            break;
-          case 10: {
-            if (page_ == null) {
-              Page = new global::Petajournal.Page();
-            }
-            input.ReadMessage(Page);
-            break;
-          }
-          case 18: {
-            blocks_.AddEntriesFrom(ref input, _repeated_blocks_codec);
-            break;
-          }
-          case 24: {
-            Created = input.ReadBool();
-            break;
-          }
-        }
-      }
-    }
-    #endif
-
-  }
-
-  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
-  public sealed partial class CreatePageRequest : pb::IMessage<CreatePageRequest>
-  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
-      , pb::IBufferMessage
-  #endif
-  {
-    private static readonly pb::MessageParser<CreatePageRequest> _parser = new pb::MessageParser<CreatePageRequest>(() => new CreatePageRequest());
-    private pb::UnknownFieldSet _unknownFields;
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public static pb::MessageParser<CreatePageRequest> Parser { get { return _parser; } }
-
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public static pbr::MessageDescriptor Descriptor {
-      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[6]; }
-    }
-
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    pbr::MessageDescriptor pb::IMessage.Descriptor {
-      get { return Descriptor; }
-    }
-
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public CreatePageRequest() {
-      OnConstruction();
-    }
-
-    partial void OnConstruction();
-
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public CreatePageRequest(CreatePageRequest other) : this() {
+    public GetDocByNameRequest(GetDocByNameRequest other) : this() {
       title_ = other.title_;
       dirPath_ = other.dirPath_;
       tags_ = other.tags_.Clone();
@@ -3577,8 +3396,8 @@ namespace Petajournal {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public CreatePageRequest Clone() {
-      return new CreatePageRequest(this);
+    public GetDocByNameRequest Clone() {
+      return new GetDocByNameRequest(this);
     }
 
     /// <summary>Field number for the "title" field.</summary>
@@ -3597,7 +3416,7 @@ namespace Petajournal {
     public const int DirPathFieldNumber = 2;
     private string dirPath_ = "";
     /// <summary>
-    /// Optional, defaults to "pages"
+    /// Optional, defaults to "docs"
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -3622,12 +3441,12 @@ namespace Petajournal {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
-      return Equals(other as CreatePageRequest);
+      return Equals(other as GetDocByNameRequest);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public bool Equals(CreatePageRequest other) {
+    public bool Equals(GetDocByNameRequest other) {
       if (ReferenceEquals(other, null)) {
         return false;
       }
@@ -3718,7 +3537,7 @@ namespace Petajournal {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public void MergeFrom(CreatePageRequest other) {
+    public void MergeFrom(GetDocByNameRequest other) {
       if (other == null) {
         return;
       }
@@ -3799,21 +3618,21 @@ namespace Petajournal {
   }
 
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
-  public sealed partial class CreatePageResponse : pb::IMessage<CreatePageResponse>
+  public sealed partial class GetDocByNameResponse : pb::IMessage<GetDocByNameResponse>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
   #endif
   {
-    private static readonly pb::MessageParser<CreatePageResponse> _parser = new pb::MessageParser<CreatePageResponse>(() => new CreatePageResponse());
+    private static readonly pb::MessageParser<GetDocByNameResponse> _parser = new pb::MessageParser<GetDocByNameResponse>(() => new GetDocByNameResponse());
     private pb::UnknownFieldSet _unknownFields;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public static pb::MessageParser<CreatePageResponse> Parser { get { return _parser; } }
+    public static pb::MessageParser<GetDocByNameResponse> Parser { get { return _parser; } }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[7]; }
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[5]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -3824,7 +3643,7 @@ namespace Petajournal {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public CreatePageResponse() {
+    public GetDocByNameResponse() {
       OnConstruction();
     }
 
@@ -3832,15 +3651,17 @@ namespace Petajournal {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public CreatePageResponse(CreatePageResponse other) : this() {
+    public GetDocByNameResponse(GetDocByNameResponse other) : this() {
       page_ = other.page_ != null ? other.page_.Clone() : null;
+      blocks_ = other.blocks_.Clone();
+      created_ = other.created_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public CreatePageResponse Clone() {
-      return new CreatePageResponse(this);
+    public GetDocByNameResponse Clone() {
+      return new GetDocByNameResponse(this);
     }
 
     /// <summary>Field number for the "page" field.</summary>
@@ -3855,15 +3676,38 @@ namespace Petajournal {
       }
     }
 
+    /// <summary>Field number for the "blocks" field.</summary>
+    public const int BlocksFieldNumber = 2;
+    private static readonly pb::FieldCodec<global::Petajournal.Block> _repeated_blocks_codec
+        = pb::FieldCodec.ForMessage(18, global::Petajournal.Block.Parser);
+    private readonly pbc::RepeatedField<global::Petajournal.Block> blocks_ = new pbc::RepeatedField<global::Petajournal.Block>();
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public override bool Equals(object other) {
-      return Equals(other as CreatePageResponse);
+    public pbc::RepeatedField<global::Petajournal.Block> Blocks {
+      get { return blocks_; }
+    }
+
+    /// <summary>Field number for the "created" field.</summary>
+    public const int CreatedFieldNumber = 3;
+    private bool created_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Created {
+      get { return created_; }
+      set {
+        created_ = value;
+      }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public bool Equals(CreatePageResponse other) {
+    public override bool Equals(object other) {
+      return Equals(other as GetDocByNameResponse);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(GetDocByNameResponse other) {
       if (ReferenceEquals(other, null)) {
         return false;
       }
@@ -3871,6 +3715,8 @@ namespace Petajournal {
         return true;
       }
       if (!object.Equals(Page, other.Page)) return false;
+      if(!blocks_.Equals(other.blocks_)) return false;
+      if (Created != other.Created) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -3879,6 +3725,8 @@ namespace Petajournal {
     public override int GetHashCode() {
       int hash = 1;
       if (page_ != null) hash ^= Page.GetHashCode();
+      hash ^= blocks_.GetHashCode();
+      if (Created != false) hash ^= Created.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -3901,6 +3749,11 @@ namespace Petajournal {
         output.WriteRawTag(10);
         output.WriteMessage(Page);
       }
+      blocks_.WriteTo(output, _repeated_blocks_codec);
+      if (Created != false) {
+        output.WriteRawTag(24);
+        output.WriteBool(Created);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -3915,6 +3768,11 @@ namespace Petajournal {
         output.WriteRawTag(10);
         output.WriteMessage(Page);
       }
+      blocks_.WriteTo(ref output, _repeated_blocks_codec);
+      if (Created != false) {
+        output.WriteRawTag(24);
+        output.WriteBool(Created);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -3928,6 +3786,10 @@ namespace Petajournal {
       if (page_ != null) {
         size += 1 + pb::CodedOutputStream.ComputeMessageSize(Page);
       }
+      size += blocks_.CalculateSize(_repeated_blocks_codec);
+      if (Created != false) {
+        size += 1 + 1;
+      }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
       }
@@ -3936,7 +3798,7 @@ namespace Petajournal {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public void MergeFrom(CreatePageResponse other) {
+    public void MergeFrom(GetDocByNameResponse other) {
       if (other == null) {
         return;
       }
@@ -3945,6 +3807,10 @@ namespace Petajournal {
           Page = new global::Petajournal.Page();
         }
         Page.MergeFrom(other.Page);
+      }
+      blocks_.Add(other.blocks_);
+      if (other.Created != false) {
+        Created = other.Created;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -3970,6 +3836,14 @@ namespace Petajournal {
               Page = new global::Petajournal.Page();
             }
             input.ReadMessage(Page);
+            break;
+          }
+          case 18: {
+            blocks_.AddEntriesFrom(input, _repeated_blocks_codec);
+            break;
+          }
+          case 24: {
+            Created = input.ReadBool();
             break;
           }
         }
@@ -3998,6 +3872,14 @@ namespace Petajournal {
             input.ReadMessage(Page);
             break;
           }
+          case 18: {
+            blocks_.AddEntriesFrom(ref input, _repeated_blocks_codec);
+            break;
+          }
+          case 24: {
+            Created = input.ReadBool();
+            break;
+          }
         }
       }
     }
@@ -4020,7 +3902,7 @@ namespace Petajournal {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[8]; }
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[6]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -4218,7 +4100,7 @@ namespace Petajournal {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[9]; }
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[7]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -4379,7 +4261,7 @@ namespace Petajournal {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[10]; }
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[8]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -4403,6 +4285,7 @@ namespace Petajournal {
       title_ = other.title_;
       tags_ = other.tags_.Clone();
       propertiesJson_ = other.propertiesJson_;
+      dirPath_ = other.dirPath_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -4476,6 +4359,32 @@ namespace Petajournal {
       }
     }
 
+    /// <summary>Field number for the "dir_path" field.</summary>
+    public const int DirPathFieldNumber = 5;
+    private readonly static string DirPathDefaultValue = "";
+
+    private string dirPath_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string DirPath {
+      get { return dirPath_ ?? DirPathDefaultValue; }
+      set {
+        dirPath_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+    /// <summary>Gets whether the "dir_path" field is set</summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool HasDirPath {
+      get { return dirPath_ != null; }
+    }
+    /// <summary>Clears the value of the "dir_path" field</summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void ClearDirPath() {
+      dirPath_ = null;
+    }
+
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -4495,6 +4404,7 @@ namespace Petajournal {
       if (Title != other.Title) return false;
       if(!tags_.Equals(other.tags_)) return false;
       if (PropertiesJson != other.PropertiesJson) return false;
+      if (DirPath != other.DirPath) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -4506,6 +4416,7 @@ namespace Petajournal {
       if (HasTitle) hash ^= Title.GetHashCode();
       hash ^= tags_.GetHashCode();
       if (PropertiesJson.Length != 0) hash ^= PropertiesJson.GetHashCode();
+      if (HasDirPath) hash ^= DirPath.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -4537,6 +4448,10 @@ namespace Petajournal {
         output.WriteRawTag(34);
         output.WriteString(PropertiesJson);
       }
+      if (HasDirPath) {
+        output.WriteRawTag(42);
+        output.WriteString(DirPath);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -4560,6 +4475,10 @@ namespace Petajournal {
         output.WriteRawTag(34);
         output.WriteString(PropertiesJson);
       }
+      if (HasDirPath) {
+        output.WriteRawTag(42);
+        output.WriteString(DirPath);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -4579,6 +4498,9 @@ namespace Petajournal {
       size += tags_.CalculateSize(_repeated_tags_codec);
       if (PropertiesJson.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(PropertiesJson);
+      }
+      if (HasDirPath) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(DirPath);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -4601,6 +4523,9 @@ namespace Petajournal {
       tags_.Add(other.tags_);
       if (other.PropertiesJson.Length != 0) {
         PropertiesJson = other.PropertiesJson;
+      }
+      if (other.HasDirPath) {
+        DirPath = other.DirPath;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -4635,6 +4560,10 @@ namespace Petajournal {
           }
           case 34: {
             PropertiesJson = input.ReadString();
+            break;
+          }
+          case 42: {
+            DirPath = input.ReadString();
             break;
           }
         }
@@ -4672,6 +4601,10 @@ namespace Petajournal {
             PropertiesJson = input.ReadString();
             break;
           }
+          case 42: {
+            DirPath = input.ReadString();
+            break;
+          }
         }
       }
     }
@@ -4694,7 +4627,7 @@ namespace Petajournal {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[11]; }
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[9]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -4901,7 +4834,7 @@ namespace Petajournal {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[12]; }
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[10]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -5213,7 +5146,7 @@ namespace Petajournal {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[13]; }
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[11]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -5421,7 +5354,7 @@ namespace Petajournal {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[14]; }
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[12]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -5877,7 +5810,7 @@ namespace Petajournal {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[15]; }
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[13]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -6085,7 +6018,7 @@ namespace Petajournal {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[16]; }
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[14]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -6408,7 +6341,7 @@ namespace Petajournal {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[17]; }
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[15]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -6595,7 +6528,7 @@ namespace Petajournal {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[18]; }
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[16]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -6793,7 +6726,7 @@ namespace Petajournal {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[19]; }
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[17]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -6954,7 +6887,7 @@ namespace Petajournal {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[20]; }
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[18]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -7192,7 +7125,7 @@ namespace Petajournal {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[21]; }
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[19]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -7399,7 +7332,7 @@ namespace Petajournal {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[22]; }
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[20]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -7634,7 +7567,7 @@ namespace Petajournal {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[23]; }
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[21]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -7821,7 +7754,7 @@ namespace Petajournal {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[24]; }
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[22]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -8056,7 +7989,7 @@ namespace Petajournal {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[25]; }
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[23]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -8280,7 +8213,7 @@ namespace Petajournal {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[26]; }
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[24]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -8481,7 +8414,7 @@ namespace Petajournal {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[27]; }
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[25]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -8668,7 +8601,7 @@ namespace Petajournal {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[28]; }
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[26]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -8866,7 +8799,7 @@ namespace Petajournal {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[29]; }
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[27]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -9053,7 +8986,7 @@ namespace Petajournal {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[30]; }
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[28]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -9309,7 +9242,7 @@ namespace Petajournal {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[31]; }
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[29]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -9510,7 +9443,7 @@ namespace Petajournal {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[32]; }
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[30]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -9783,7 +9716,7 @@ namespace Petajournal {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[33]; }
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[31]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -9973,7 +9906,7 @@ namespace Petajournal {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[34]; }
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[32]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -10136,6 +10069,474 @@ namespace Petajournal {
             break;
           case 10: {
             blocks_.AddEntriesFrom(ref input, _repeated_blocks_codec);
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class GetJournalByNameRequest : pb::IMessage<GetJournalByNameRequest>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<GetJournalByNameRequest> _parser = new pb::MessageParser<GetJournalByNameRequest>(() => new GetJournalByNameRequest());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<GetJournalByNameRequest> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[33]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public GetJournalByNameRequest() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public GetJournalByNameRequest(GetJournalByNameRequest other) : this() {
+      fileName_ = other.fileName_;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public GetJournalByNameRequest Clone() {
+      return new GetJournalByNameRequest(this);
+    }
+
+    /// <summary>Field number for the "file_name" field.</summary>
+    public const int FileNameFieldNumber = 1;
+    private string fileName_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string FileName {
+      get { return fileName_; }
+      set {
+        fileName_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as GetJournalByNameRequest);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(GetJournalByNameRequest other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (FileName != other.FileName) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (FileName.Length != 0) hash ^= FileName.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (FileName.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(FileName);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (FileName.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(FileName);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (FileName.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(FileName);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(GetJournalByNameRequest other) {
+      if (other == null) {
+        return;
+      }
+      if (other.FileName.Length != 0) {
+        FileName = other.FileName;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            FileName = input.ReadString();
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            FileName = input.ReadString();
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class GetJournalByNameResponse : pb::IMessage<GetJournalByNameResponse>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<GetJournalByNameResponse> _parser = new pb::MessageParser<GetJournalByNameResponse>(() => new GetJournalByNameResponse());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<GetJournalByNameResponse> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[34]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public GetJournalByNameResponse() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public GetJournalByNameResponse(GetJournalByNameResponse other) : this() {
+      page_ = other.page_ != null ? other.page_.Clone() : null;
+      blocks_ = other.blocks_.Clone();
+      created_ = other.created_;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public GetJournalByNameResponse Clone() {
+      return new GetJournalByNameResponse(this);
+    }
+
+    /// <summary>Field number for the "page" field.</summary>
+    public const int PageFieldNumber = 1;
+    private global::Petajournal.Page page_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Petajournal.Page Page {
+      get { return page_; }
+      set {
+        page_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "blocks" field.</summary>
+    public const int BlocksFieldNumber = 2;
+    private static readonly pb::FieldCodec<global::Petajournal.Block> _repeated_blocks_codec
+        = pb::FieldCodec.ForMessage(18, global::Petajournal.Block.Parser);
+    private readonly pbc::RepeatedField<global::Petajournal.Block> blocks_ = new pbc::RepeatedField<global::Petajournal.Block>();
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public pbc::RepeatedField<global::Petajournal.Block> Blocks {
+      get { return blocks_; }
+    }
+
+    /// <summary>Field number for the "created" field.</summary>
+    public const int CreatedFieldNumber = 3;
+    private bool created_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Created {
+      get { return created_; }
+      set {
+        created_ = value;
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as GetJournalByNameResponse);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(GetJournalByNameResponse other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (!object.Equals(Page, other.Page)) return false;
+      if(!blocks_.Equals(other.blocks_)) return false;
+      if (Created != other.Created) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (page_ != null) hash ^= Page.GetHashCode();
+      hash ^= blocks_.GetHashCode();
+      if (Created != false) hash ^= Created.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (page_ != null) {
+        output.WriteRawTag(10);
+        output.WriteMessage(Page);
+      }
+      blocks_.WriteTo(output, _repeated_blocks_codec);
+      if (Created != false) {
+        output.WriteRawTag(24);
+        output.WriteBool(Created);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (page_ != null) {
+        output.WriteRawTag(10);
+        output.WriteMessage(Page);
+      }
+      blocks_.WriteTo(ref output, _repeated_blocks_codec);
+      if (Created != false) {
+        output.WriteRawTag(24);
+        output.WriteBool(Created);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (page_ != null) {
+        size += 1 + pb::CodedOutputStream.ComputeMessageSize(Page);
+      }
+      size += blocks_.CalculateSize(_repeated_blocks_codec);
+      if (Created != false) {
+        size += 1 + 1;
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(GetJournalByNameResponse other) {
+      if (other == null) {
+        return;
+      }
+      if (other.page_ != null) {
+        if (page_ == null) {
+          Page = new global::Petajournal.Page();
+        }
+        Page.MergeFrom(other.Page);
+      }
+      blocks_.Add(other.blocks_);
+      if (other.Created != false) {
+        Created = other.Created;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            if (page_ == null) {
+              Page = new global::Petajournal.Page();
+            }
+            input.ReadMessage(Page);
+            break;
+          }
+          case 18: {
+            blocks_.AddEntriesFrom(input, _repeated_blocks_codec);
+            break;
+          }
+          case 24: {
+            Created = input.ReadBool();
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            if (page_ == null) {
+              Page = new global::Petajournal.Page();
+            }
+            input.ReadMessage(Page);
+            break;
+          }
+          case 18: {
+            blocks_.AddEntriesFrom(ref input, _repeated_blocks_codec);
+            break;
+          }
+          case 24: {
+            Created = input.ReadBool();
             break;
           }
         }
@@ -10891,6 +11292,1591 @@ namespace Petajournal {
             break;
           case 10: {
             WeekNumbering = input.ReadString();
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class ExportTreeMarkdownRequest : pb::IMessage<ExportTreeMarkdownRequest>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<ExportTreeMarkdownRequest> _parser = new pb::MessageParser<ExportTreeMarkdownRequest>(() => new ExportTreeMarkdownRequest());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<ExportTreeMarkdownRequest> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[39]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public ExportTreeMarkdownRequest() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public ExportTreeMarkdownRequest(ExportTreeMarkdownRequest other) : this() {
+      blockIds_ = other.blockIds_.Clone();
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public ExportTreeMarkdownRequest Clone() {
+      return new ExportTreeMarkdownRequest(this);
+    }
+
+    /// <summary>Field number for the "block_ids" field.</summary>
+    public const int BlockIdsFieldNumber = 1;
+    private static readonly pb::FieldCodec<string> _repeated_blockIds_codec
+        = pb::FieldCodec.ForString(10);
+    private readonly pbc::RepeatedField<string> blockIds_ = new pbc::RepeatedField<string>();
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public pbc::RepeatedField<string> BlockIds {
+      get { return blockIds_; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as ExportTreeMarkdownRequest);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(ExportTreeMarkdownRequest other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if(!blockIds_.Equals(other.blockIds_)) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      hash ^= blockIds_.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      blockIds_.WriteTo(output, _repeated_blockIds_codec);
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      blockIds_.WriteTo(ref output, _repeated_blockIds_codec);
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      size += blockIds_.CalculateSize(_repeated_blockIds_codec);
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(ExportTreeMarkdownRequest other) {
+      if (other == null) {
+        return;
+      }
+      blockIds_.Add(other.blockIds_);
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            blockIds_.AddEntriesFrom(input, _repeated_blockIds_codec);
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            blockIds_.AddEntriesFrom(ref input, _repeated_blockIds_codec);
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class ExportTreeMarkdownResponse : pb::IMessage<ExportTreeMarkdownResponse>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<ExportTreeMarkdownResponse> _parser = new pb::MessageParser<ExportTreeMarkdownResponse>(() => new ExportTreeMarkdownResponse());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<ExportTreeMarkdownResponse> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[40]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public ExportTreeMarkdownResponse() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public ExportTreeMarkdownResponse(ExportTreeMarkdownResponse other) : this() {
+      treeMarkdown_ = other.treeMarkdown_;
+      html_ = other.html_;
+      flatMarkdown_ = other.flatMarkdown_;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public ExportTreeMarkdownResponse Clone() {
+      return new ExportTreeMarkdownResponse(this);
+    }
+
+    /// <summary>Field number for the "tree_markdown" field.</summary>
+    public const int TreeMarkdownFieldNumber = 1;
+    private string treeMarkdown_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string TreeMarkdown {
+      get { return treeMarkdown_; }
+      set {
+        treeMarkdown_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "html" field.</summary>
+    public const int HtmlFieldNumber = 2;
+    private string html_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Html {
+      get { return html_; }
+      set {
+        html_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "flat_markdown" field.</summary>
+    public const int FlatMarkdownFieldNumber = 3;
+    private string flatMarkdown_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string FlatMarkdown {
+      get { return flatMarkdown_; }
+      set {
+        flatMarkdown_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as ExportTreeMarkdownResponse);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(ExportTreeMarkdownResponse other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (TreeMarkdown != other.TreeMarkdown) return false;
+      if (Html != other.Html) return false;
+      if (FlatMarkdown != other.FlatMarkdown) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (TreeMarkdown.Length != 0) hash ^= TreeMarkdown.GetHashCode();
+      if (Html.Length != 0) hash ^= Html.GetHashCode();
+      if (FlatMarkdown.Length != 0) hash ^= FlatMarkdown.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (TreeMarkdown.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(TreeMarkdown);
+      }
+      if (Html.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(Html);
+      }
+      if (FlatMarkdown.Length != 0) {
+        output.WriteRawTag(26);
+        output.WriteString(FlatMarkdown);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (TreeMarkdown.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(TreeMarkdown);
+      }
+      if (Html.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(Html);
+      }
+      if (FlatMarkdown.Length != 0) {
+        output.WriteRawTag(26);
+        output.WriteString(FlatMarkdown);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (TreeMarkdown.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(TreeMarkdown);
+      }
+      if (Html.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Html);
+      }
+      if (FlatMarkdown.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(FlatMarkdown);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(ExportTreeMarkdownResponse other) {
+      if (other == null) {
+        return;
+      }
+      if (other.TreeMarkdown.Length != 0) {
+        TreeMarkdown = other.TreeMarkdown;
+      }
+      if (other.Html.Length != 0) {
+        Html = other.Html;
+      }
+      if (other.FlatMarkdown.Length != 0) {
+        FlatMarkdown = other.FlatMarkdown;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            TreeMarkdown = input.ReadString();
+            break;
+          }
+          case 18: {
+            Html = input.ReadString();
+            break;
+          }
+          case 26: {
+            FlatMarkdown = input.ReadString();
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            TreeMarkdown = input.ReadString();
+            break;
+          }
+          case 18: {
+            Html = input.ReadString();
+            break;
+          }
+          case 26: {
+            FlatMarkdown = input.ReadString();
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class ImportTreeMarkdownRequest : pb::IMessage<ImportTreeMarkdownRequest>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<ImportTreeMarkdownRequest> _parser = new pb::MessageParser<ImportTreeMarkdownRequest>(() => new ImportTreeMarkdownRequest());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<ImportTreeMarkdownRequest> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[41]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public ImportTreeMarkdownRequest() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public ImportTreeMarkdownRequest(ImportTreeMarkdownRequest other) : this() {
+      treeMarkdown_ = other.treeMarkdown_;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public ImportTreeMarkdownRequest Clone() {
+      return new ImportTreeMarkdownRequest(this);
+    }
+
+    /// <summary>Field number for the "tree_markdown" field.</summary>
+    public const int TreeMarkdownFieldNumber = 1;
+    private string treeMarkdown_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string TreeMarkdown {
+      get { return treeMarkdown_; }
+      set {
+        treeMarkdown_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as ImportTreeMarkdownRequest);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(ImportTreeMarkdownRequest other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (TreeMarkdown != other.TreeMarkdown) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (TreeMarkdown.Length != 0) hash ^= TreeMarkdown.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (TreeMarkdown.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(TreeMarkdown);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (TreeMarkdown.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(TreeMarkdown);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (TreeMarkdown.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(TreeMarkdown);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(ImportTreeMarkdownRequest other) {
+      if (other == null) {
+        return;
+      }
+      if (other.TreeMarkdown.Length != 0) {
+        TreeMarkdown = other.TreeMarkdown;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            TreeMarkdown = input.ReadString();
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            TreeMarkdown = input.ReadString();
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class ImportTreeMarkdownResponse : pb::IMessage<ImportTreeMarkdownResponse>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<ImportTreeMarkdownResponse> _parser = new pb::MessageParser<ImportTreeMarkdownResponse>(() => new ImportTreeMarkdownResponse());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<ImportTreeMarkdownResponse> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[42]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public ImportTreeMarkdownResponse() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public ImportTreeMarkdownResponse(ImportTreeMarkdownResponse other) : this() {
+      flatMarkdown_ = other.flatMarkdown_;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public ImportTreeMarkdownResponse Clone() {
+      return new ImportTreeMarkdownResponse(this);
+    }
+
+    /// <summary>Field number for the "flat_markdown" field.</summary>
+    public const int FlatMarkdownFieldNumber = 1;
+    private string flatMarkdown_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string FlatMarkdown {
+      get { return flatMarkdown_; }
+      set {
+        flatMarkdown_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as ImportTreeMarkdownResponse);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(ImportTreeMarkdownResponse other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (FlatMarkdown != other.FlatMarkdown) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (FlatMarkdown.Length != 0) hash ^= FlatMarkdown.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (FlatMarkdown.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(FlatMarkdown);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (FlatMarkdown.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(FlatMarkdown);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (FlatMarkdown.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(FlatMarkdown);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(ImportTreeMarkdownResponse other) {
+      if (other == null) {
+        return;
+      }
+      if (other.FlatMarkdown.Length != 0) {
+        FlatMarkdown = other.FlatMarkdown;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            FlatMarkdown = input.ReadString();
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            FlatMarkdown = input.ReadString();
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class ServerEvent : pb::IMessage<ServerEvent>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<ServerEvent> _parser = new pb::MessageParser<ServerEvent>(() => new ServerEvent());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<ServerEvent> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[43]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public ServerEvent() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public ServerEvent(ServerEvent other) : this() {
+      originatorSessionId_ = other.originatorSessionId_;
+      switch (other.EventCase) {
+        case EventOneofCase.Connected:
+          Connected = other.Connected.Clone();
+          break;
+        case EventOneofCase.PagesUpdated:
+          PagesUpdated = other.PagesUpdated.Clone();
+          break;
+      }
+
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public ServerEvent Clone() {
+      return new ServerEvent(this);
+    }
+
+    /// <summary>Field number for the "originator_session_id" field.</summary>
+    public const int OriginatorSessionIdFieldNumber = 1;
+    private string originatorSessionId_ = "";
+    /// <summary>
+    /// For future use (originator exclusion)
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string OriginatorSessionId {
+      get { return originatorSessionId_; }
+      set {
+        originatorSessionId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "connected" field.</summary>
+    public const int ConnectedFieldNumber = 10;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Petajournal.ConnectedEvent Connected {
+      get { return eventCase_ == EventOneofCase.Connected ? (global::Petajournal.ConnectedEvent) event_ : null; }
+      set {
+        event_ = value;
+        eventCase_ = value == null ? EventOneofCase.None : EventOneofCase.Connected;
+      }
+    }
+
+    /// <summary>Field number for the "pages_updated" field.</summary>
+    public const int PagesUpdatedFieldNumber = 20;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Petajournal.PagesUpdatedEvent PagesUpdated {
+      get { return eventCase_ == EventOneofCase.PagesUpdated ? (global::Petajournal.PagesUpdatedEvent) event_ : null; }
+      set {
+        event_ = value;
+        eventCase_ = value == null ? EventOneofCase.None : EventOneofCase.PagesUpdated;
+      }
+    }
+
+    private object event_;
+    /// <summary>Enum of possible cases for the "event" oneof.</summary>
+    public enum EventOneofCase {
+      None = 0,
+      Connected = 10,
+      PagesUpdated = 20,
+    }
+    private EventOneofCase eventCase_ = EventOneofCase.None;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public EventOneofCase EventCase {
+      get { return eventCase_; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void ClearEvent() {
+      eventCase_ = EventOneofCase.None;
+      event_ = null;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as ServerEvent);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(ServerEvent other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (OriginatorSessionId != other.OriginatorSessionId) return false;
+      if (!object.Equals(Connected, other.Connected)) return false;
+      if (!object.Equals(PagesUpdated, other.PagesUpdated)) return false;
+      if (EventCase != other.EventCase) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (OriginatorSessionId.Length != 0) hash ^= OriginatorSessionId.GetHashCode();
+      if (eventCase_ == EventOneofCase.Connected) hash ^= Connected.GetHashCode();
+      if (eventCase_ == EventOneofCase.PagesUpdated) hash ^= PagesUpdated.GetHashCode();
+      hash ^= (int) eventCase_;
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (OriginatorSessionId.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(OriginatorSessionId);
+      }
+      if (eventCase_ == EventOneofCase.Connected) {
+        output.WriteRawTag(82);
+        output.WriteMessage(Connected);
+      }
+      if (eventCase_ == EventOneofCase.PagesUpdated) {
+        output.WriteRawTag(162, 1);
+        output.WriteMessage(PagesUpdated);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (OriginatorSessionId.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(OriginatorSessionId);
+      }
+      if (eventCase_ == EventOneofCase.Connected) {
+        output.WriteRawTag(82);
+        output.WriteMessage(Connected);
+      }
+      if (eventCase_ == EventOneofCase.PagesUpdated) {
+        output.WriteRawTag(162, 1);
+        output.WriteMessage(PagesUpdated);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (OriginatorSessionId.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(OriginatorSessionId);
+      }
+      if (eventCase_ == EventOneofCase.Connected) {
+        size += 1 + pb::CodedOutputStream.ComputeMessageSize(Connected);
+      }
+      if (eventCase_ == EventOneofCase.PagesUpdated) {
+        size += 2 + pb::CodedOutputStream.ComputeMessageSize(PagesUpdated);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(ServerEvent other) {
+      if (other == null) {
+        return;
+      }
+      if (other.OriginatorSessionId.Length != 0) {
+        OriginatorSessionId = other.OriginatorSessionId;
+      }
+      switch (other.EventCase) {
+        case EventOneofCase.Connected:
+          if (Connected == null) {
+            Connected = new global::Petajournal.ConnectedEvent();
+          }
+          Connected.MergeFrom(other.Connected);
+          break;
+        case EventOneofCase.PagesUpdated:
+          if (PagesUpdated == null) {
+            PagesUpdated = new global::Petajournal.PagesUpdatedEvent();
+          }
+          PagesUpdated.MergeFrom(other.PagesUpdated);
+          break;
+      }
+
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            OriginatorSessionId = input.ReadString();
+            break;
+          }
+          case 82: {
+            global::Petajournal.ConnectedEvent subBuilder = new global::Petajournal.ConnectedEvent();
+            if (eventCase_ == EventOneofCase.Connected) {
+              subBuilder.MergeFrom(Connected);
+            }
+            input.ReadMessage(subBuilder);
+            Connected = subBuilder;
+            break;
+          }
+          case 162: {
+            global::Petajournal.PagesUpdatedEvent subBuilder = new global::Petajournal.PagesUpdatedEvent();
+            if (eventCase_ == EventOneofCase.PagesUpdated) {
+              subBuilder.MergeFrom(PagesUpdated);
+            }
+            input.ReadMessage(subBuilder);
+            PagesUpdated = subBuilder;
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            OriginatorSessionId = input.ReadString();
+            break;
+          }
+          case 82: {
+            global::Petajournal.ConnectedEvent subBuilder = new global::Petajournal.ConnectedEvent();
+            if (eventCase_ == EventOneofCase.Connected) {
+              subBuilder.MergeFrom(Connected);
+            }
+            input.ReadMessage(subBuilder);
+            Connected = subBuilder;
+            break;
+          }
+          case 162: {
+            global::Petajournal.PagesUpdatedEvent subBuilder = new global::Petajournal.PagesUpdatedEvent();
+            if (eventCase_ == EventOneofCase.PagesUpdated) {
+              subBuilder.MergeFrom(PagesUpdated);
+            }
+            input.ReadMessage(subBuilder);
+            PagesUpdated = subBuilder;
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class ConnectedEvent : pb::IMessage<ConnectedEvent>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<ConnectedEvent> _parser = new pb::MessageParser<ConnectedEvent>(() => new ConnectedEvent());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<ConnectedEvent> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[44]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public ConnectedEvent() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public ConnectedEvent(ConnectedEvent other) : this() {
+      sessionId_ = other.sessionId_;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public ConnectedEvent Clone() {
+      return new ConnectedEvent(this);
+    }
+
+    /// <summary>Field number for the "session_id" field.</summary>
+    public const int SessionIdFieldNumber = 1;
+    private string sessionId_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string SessionId {
+      get { return sessionId_; }
+      set {
+        sessionId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as ConnectedEvent);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(ConnectedEvent other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (SessionId != other.SessionId) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (SessionId.Length != 0) hash ^= SessionId.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (SessionId.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(SessionId);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (SessionId.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(SessionId);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (SessionId.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(SessionId);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(ConnectedEvent other) {
+      if (other == null) {
+        return;
+      }
+      if (other.SessionId.Length != 0) {
+        SessionId = other.SessionId;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            SessionId = input.ReadString();
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            SessionId = input.ReadString();
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class PagesUpdatedEvent : pb::IMessage<PagesUpdatedEvent>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<PagesUpdatedEvent> _parser = new pb::MessageParser<PagesUpdatedEvent>(() => new PagesUpdatedEvent());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<PagesUpdatedEvent> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[45]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public PagesUpdatedEvent() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public PagesUpdatedEvent(PagesUpdatedEvent other) : this() {
+      pageId_ = other.pageId_;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public PagesUpdatedEvent Clone() {
+      return new PagesUpdatedEvent(this);
+    }
+
+    /// <summary>Field number for the "page_id" field.</summary>
+    public const int PageIdFieldNumber = 1;
+    private string pageId_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string PageId {
+      get { return pageId_; }
+      set {
+        pageId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as PagesUpdatedEvent);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(PagesUpdatedEvent other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (PageId != other.PageId) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (PageId.Length != 0) hash ^= PageId.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (PageId.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(PageId);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (PageId.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(PageId);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (PageId.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(PageId);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(PagesUpdatedEvent other) {
+      if (other == null) {
+        return;
+      }
+      if (other.PageId.Length != 0) {
+        PageId = other.PageId;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            PageId = input.ReadString();
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            PageId = input.ReadString();
             break;
           }
         }

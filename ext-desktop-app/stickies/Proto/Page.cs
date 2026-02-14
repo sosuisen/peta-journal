@@ -24,17 +24,17 @@ namespace Petajournal {
     static PageReflection() {
       byte[] descriptorData = global::System.Convert.FromBase64String(
           string.Concat(
-            "CgpwYWdlLnByb3RvEgtwZXRham91cm5hbBoMY29tbW9uLnByb3RvIrsBCgRQ",
+            "CgpwYWdlLnByb3RvEgtwZXRham91cm5hbBoMY29tbW9uLnByb3RvIskBCgRQ",
             "YWdlEgoKAmlkGAEgASgJEhAKCGRpcl9wYXRoGAIgASgJEhEKCWZpbGVfbmFt",
-            "ZRgDIAEoCRIsCgxjcmVhdGVkX2RhdGUYBCABKAsyFi5wZXRham91cm5hbC5U",
-            "aW1lc3RhbXASLQoNbW9kaWZpZWRfZGF0ZRgFIAEoCzIWLnBldGFqb3VybmFs",
-            "LlRpbWVzdGFtcBIMCgR0YWdzGAYgAygJEhcKD3Byb3BlcnRpZXNfanNvbhgI",
-            "IAEoCUIkChVjb20ucGV0YWpvdXJuYWwucHJvdG9CCVBhZ2VQcm90b1ABYgZw",
-            "cm90bzM="));
+            "ZRgDIAEoCRIMCgR0eXBlGAkgASgJEiwKDGNyZWF0ZWRfZGF0ZRgEIAEoCzIW",
+            "LnBldGFqb3VybmFsLlRpbWVzdGFtcBItCg1tb2RpZmllZF9kYXRlGAUgASgL",
+            "MhYucGV0YWpvdXJuYWwuVGltZXN0YW1wEgwKBHRhZ3MYBiADKAkSFwoPcHJv",
+            "cGVydGllc19qc29uGAggASgJQiQKFWNvbS5wZXRham91cm5hbC5wcm90b0IJ",
+            "UGFnZVByb3RvUAFiBnByb3RvMw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::Petajournal.CommonReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
-            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.Page), global::Petajournal.Page.Parser, new[]{ "Id", "DirPath", "FileName", "CreatedDate", "ModifiedDate", "Tags", "PropertiesJson" }, null, null, null, null)
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.Page), global::Petajournal.Page.Parser, new[]{ "Id", "DirPath", "FileName", "Type", "CreatedDate", "ModifiedDate", "Tags", "PropertiesJson" }, null, null, null, null)
           }));
     }
     #endregion
@@ -79,6 +79,7 @@ namespace Petajournal {
       id_ = other.id_;
       dirPath_ = other.dirPath_;
       fileName_ = other.fileName_;
+      type_ = other.type_;
       createdDate_ = other.createdDate_ != null ? other.createdDate_.Clone() : null;
       modifiedDate_ = other.modifiedDate_ != null ? other.modifiedDate_.Clone() : null;
       tags_ = other.tags_.Clone();
@@ -111,7 +112,7 @@ namespace Petajournal {
     public const int DirPathFieldNumber = 2;
     private string dirPath_ = "";
     /// <summary>
-    /// e.g. "journals/2025/01"
+    /// Sub-path within type dir, e.g. "" (empty = root)
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -134,6 +135,21 @@ namespace Petajournal {
       get { return fileName_; }
       set {
         fileName_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "type" field.</summary>
+    public const int TypeFieldNumber = 9;
+    private string type_ = "";
+    /// <summary>
+    /// "journal" or "doc"
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Type {
+      get { return type_; }
+      set {
+        type_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
       }
     }
 
@@ -205,6 +221,7 @@ namespace Petajournal {
       if (Id != other.Id) return false;
       if (DirPath != other.DirPath) return false;
       if (FileName != other.FileName) return false;
+      if (Type != other.Type) return false;
       if (!object.Equals(CreatedDate, other.CreatedDate)) return false;
       if (!object.Equals(ModifiedDate, other.ModifiedDate)) return false;
       if(!tags_.Equals(other.tags_)) return false;
@@ -219,6 +236,7 @@ namespace Petajournal {
       if (Id.Length != 0) hash ^= Id.GetHashCode();
       if (DirPath.Length != 0) hash ^= DirPath.GetHashCode();
       if (FileName.Length != 0) hash ^= FileName.GetHashCode();
+      if (Type.Length != 0) hash ^= Type.GetHashCode();
       if (createdDate_ != null) hash ^= CreatedDate.GetHashCode();
       if (modifiedDate_ != null) hash ^= ModifiedDate.GetHashCode();
       hash ^= tags_.GetHashCode();
@@ -266,6 +284,10 @@ namespace Petajournal {
         output.WriteRawTag(66);
         output.WriteString(PropertiesJson);
       }
+      if (Type.Length != 0) {
+        output.WriteRawTag(74);
+        output.WriteString(Type);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -301,6 +323,10 @@ namespace Petajournal {
         output.WriteRawTag(66);
         output.WriteString(PropertiesJson);
       }
+      if (Type.Length != 0) {
+        output.WriteRawTag(74);
+        output.WriteString(Type);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -319,6 +345,9 @@ namespace Petajournal {
       }
       if (FileName.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(FileName);
+      }
+      if (Type.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Type);
       }
       if (createdDate_ != null) {
         size += 1 + pb::CodedOutputStream.ComputeMessageSize(CreatedDate);
@@ -350,6 +379,9 @@ namespace Petajournal {
       }
       if (other.FileName.Length != 0) {
         FileName = other.FileName;
+      }
+      if (other.Type.Length != 0) {
+        Type = other.Type;
       }
       if (other.createdDate_ != null) {
         if (createdDate_ == null) {
@@ -420,6 +452,10 @@ namespace Petajournal {
             PropertiesJson = input.ReadString();
             break;
           }
+          case 74: {
+            Type = input.ReadString();
+            break;
+          }
         }
       }
     #endif
@@ -471,6 +507,10 @@ namespace Petajournal {
           }
           case 66: {
             PropertiesJson = input.ReadString();
+            break;
+          }
+          case 74: {
+            Type = input.ReadString();
             break;
           }
         }

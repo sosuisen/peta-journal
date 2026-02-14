@@ -18,7 +18,6 @@ public sealed partial class MainWindow : Window
     private readonly JournalApiService _api;
     private readonly SettingsService _settingsService;
     private StickyWindowSettings _windowSettings;
-    private DispatcherTimer? _refreshTimer;
     private DispatcherTimer? _debounceTimer;
     private string? _currentPageId;
     private string _backgroundColor = "#FFFDD0";
@@ -39,8 +38,8 @@ public sealed partial class MainWindow : Window
         SetupTitleBar();
         SetupAppWindow();
         RestoreState();
-        SetupRefreshTimer();
 
+        _api.PageUpdated += OnPageUpdated;
         Activated += OnActivated;
         Closed += OnClosed;
     }
@@ -104,17 +103,13 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private void SetupRefreshTimer()
+    private void OnPageUpdated(string pageId)
     {
-        _refreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(10) };
-        _refreshTimer.Tick += async (_, _) =>
+        if (pageId != _currentPageId) return;
+        DispatcherQueue.TryEnqueue(async () =>
         {
-            if (!string.IsNullOrEmpty(_currentPageId))
-            {
-                await LoadPageAsync(_currentPageId, isRefresh: true);
-            }
-        };
-        _refreshTimer.Start();
+            await LoadPageAsync(pageId, isRefresh: true);
+        });
     }
 
     // --- Title bar visibility on focus/unfocus ---
@@ -520,7 +515,7 @@ public sealed partial class MainWindow : Window
 
     private void OnClosed(object sender, WindowEventArgs args)
     {
-        _refreshTimer?.Stop();
+        _api.PageUpdated -= OnPageUpdated;
         _settingsService.UpdateWindow(_windowSettings);
         App.OnWindowClosed(this);
     }

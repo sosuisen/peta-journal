@@ -16,6 +16,9 @@ public class JournalApiService : IDisposable
 
     public event Action? Connected;
     public event Action? Disconnected;
+    public event Action<string>? PageUpdated;
+
+    public string? SessionId { get; private set; }
 
     public JournalApiService(string host = "localhost", int port = 8080)
     {
@@ -84,7 +87,11 @@ public class JournalApiService : IDisposable
                     break;
 
                 var response = ApiResponse.Parser.ParseFrom(ms.ToArray());
-                if (_pending.TryRemove(response.RequestId, out var tcs))
+                if (response.PayloadCase == ApiResponse.PayloadOneofCase.ServerEvent)
+                {
+                    HandleServerEvent(response.ServerEvent);
+                }
+                else if (_pending.TryRemove(response.RequestId, out var tcs))
                 {
                     tcs.TrySetResult(response);
                 }
@@ -103,6 +110,19 @@ public class JournalApiService : IDisposable
                 }
             }
             Disconnected?.Invoke();
+        }
+    }
+
+    private void HandleServerEvent(ServerEvent serverEvent)
+    {
+        switch (serverEvent.EventCase)
+        {
+            case ServerEvent.EventOneofCase.Connected:
+                SessionId = serverEvent.Connected.SessionId;
+                break;
+            case ServerEvent.EventOneofCase.PagesUpdated:
+                PageUpdated?.Invoke(serverEvent.PagesUpdated.PageId);
+                break;
         }
     }
 
