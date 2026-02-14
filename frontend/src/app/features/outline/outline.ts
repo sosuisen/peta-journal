@@ -967,12 +967,7 @@ export class OutlineComponent implements OnDestroy {
   }
 
   private onSelectionClick(e: MouseEvent): void {
-    // Check if click is on a selected block
-    const target = e.target as HTMLElement;
-    const blockEl = target.closest('.outline-block.selected');
-    if (!blockEl) {
-      this.exitSelectionMode();
-    }
+    this.exitSelectionMode();
   }
 
   handleSelectionKeydown(e: KeyboardEvent): void {
