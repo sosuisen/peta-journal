@@ -82,6 +82,7 @@ import { WikiLinkContext } from './block-editor';
     }
     .outline-viewport ::ng-deep .cdk-virtual-scroll-content-wrapper {
       width: 100%;
+      user-select: none;
     }
     .outline-item {
       width: 100%;
