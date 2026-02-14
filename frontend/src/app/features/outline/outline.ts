@@ -52,6 +52,8 @@ import { WikiLinkContext } from './block-editor';
           (wikiLinkQueryChanged)="onWikiLinkQuery(block, $event)"
           (wikiLinkSelected)="onWikiLinkKeyNav($event)"
           (openWikiLink)="onOpenWikiLink($event)"
+          (shiftSelectUp)="onShiftSelectUp(block)"
+          (shiftSelectDown)="onShiftSelectDown(block)"
         />
       </div>
     </cdk-virtual-scroll-viewport>
@@ -154,6 +156,7 @@ export class OutlineComponent implements OnDestroy {
   private wikiSearchTimer: ReturnType<typeof setTimeout> | null = null;
 
   private selectionAnchorBlockId: string | null = null;
+  private selectionExtentBlockId: string | null = null;
   private isSelectionDragging = false;
   private selectionKeydownHandler = (e: KeyboardEvent) => this.handleSelectionKeydown(e);
   private selectionMouseUpHandler = () => this.onSelectionMouseUp();
@@ -660,6 +663,82 @@ export class OutlineComponent implements OnDestroy {
     }
   }
 
+  onShiftSelectUp(block: Block): void {
+    this.startShiftSelection(block);
+  }
+
+  onShiftSelectDown(block: Block): void {
+    this.startShiftSelection(block);
+  }
+
+  private startShiftSelection(block: Block): void {
+    this.state.setEditingBlock(null);
+    this.state.setBlockSelectionMode(true);
+    this.selectionAnchorBlockId = block.id;
+    this.selectionExtentBlockId = block.id;
+    // Initial selection: only the current block, no subtree
+    this.state.setSelectedBlockIds(new Set([block.id]));
+
+    document.addEventListener('keydown', this.selectionKeydownHandler);
+    document.addEventListener('click', this.selectionClickHandler);
+    document.addEventListener('copy', this.selectionCopyHandler);
+    document.addEventListener('cut', this.selectionCutHandler);
+  }
+
+  private shiftExtendUp(): void {
+    const blocks = this.state.visibleBlocks();
+    let extentIdx = blocks.findIndex(b => b.id === this.selectionExtentBlockId);
+    const anchorIdx = blocks.findIndex(b => b.id === this.selectionAnchorBlockId);
+    if (extentIdx < 0 || anchorIdx < 0 || extentIdx <= 0) return;
+
+    // When expanding upward, skip past blocks already in selection
+    if (extentIdx <= anchorIdx) {
+      const selected = this.state.selectedBlockIds();
+      while (extentIdx - 1 >= 0 && selected.has(blocks[extentIdx - 1].id)) {
+        extentIdx--;
+      }
+      if (extentIdx <= 0) return;
+    }
+
+    this.selectionExtentBlockId = blocks[extentIdx - 1].id;
+    this.updateShiftSelection();
+  }
+
+  private shiftExtendDown(): void {
+    const blocks = this.state.visibleBlocks();
+    let extentIdx = blocks.findIndex(b => b.id === this.selectionExtentBlockId);
+    const anchorIdx = blocks.findIndex(b => b.id === this.selectionAnchorBlockId);
+    if (extentIdx < 0 || anchorIdx < 0 || extentIdx >= blocks.length - 1) return;
+
+    // When expanding downward, skip past blocks already in selection
+    if (extentIdx >= anchorIdx) {
+      const selected = this.state.selectedBlockIds();
+      while (extentIdx + 1 < blocks.length && selected.has(blocks[extentIdx + 1].id)) {
+        extentIdx++;
+      }
+      if (extentIdx >= blocks.length - 1) return;
+    }
+
+    this.selectionExtentBlockId = blocks[extentIdx + 1].id;
+    this.updateShiftSelection();
+  }
+
+  private updateShiftSelection(): void {
+    const blocks = this.state.visibleBlocks();
+    const anchorIdx = blocks.findIndex(b => b.id === this.selectionAnchorBlockId);
+    const extentIdx = blocks.findIndex(b => b.id === this.selectionExtentBlockId);
+    if (anchorIdx < 0 || extentIdx < 0) return;
+
+    const start = Math.min(anchorIdx, extentIdx);
+    const end = Math.max(anchorIdx, extentIdx);
+    const selectedSet = new Set<string>();
+    for (let i = start; i <= end; i++) {
+      const group = this.state.getBlockWithChildren(blocks[i].id);
+      group.forEach(b => selectedSet.add(b.id));
+    }
+    this.state.setSelectedBlockIds(selectedSet);
+  }
+
   selectWikiSuggestion(title: string, event?: MouseEvent): void {
     if (event) {
       event.preventDefault();
@@ -939,6 +1018,7 @@ export class OutlineComponent implements OnDestroy {
 
   onBlockMouseEnter(block: Block): void {
     if (!this.isSelectionDragging) return;
+    this.selectionExtentBlockId = block.id;
 
     const visibleBlocks = this.state.visibleBlocks();
     const anchorIdx = visibleBlocks.findIndex(b => b.id === this.selectionAnchorBlockId);
@@ -1002,6 +1082,19 @@ export class OutlineComponent implements OnDestroy {
       if (e.key === 'ArrowRight') {
         e.preventDefault();
         this.indentSelectedBlocks();
+        return;
+      }
+    }
+
+    if (e.shiftKey && !e.altKey && !e.ctrlKey) {
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        this.shiftExtendUp();
+        return;
+      }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        this.shiftExtendDown();
         return;
       }
     }
@@ -1278,6 +1371,7 @@ export class OutlineComponent implements OnDestroy {
   exitSelectionMode(): void {
     this.state.clearSelection();
     this.selectionAnchorBlockId = null;
+    this.selectionExtentBlockId = null;
     this.isSelectionDragging = false;
     document.removeEventListener('mouseup', this.selectionMouseUpHandler);
     document.removeEventListener('keydown', this.selectionKeydownHandler);

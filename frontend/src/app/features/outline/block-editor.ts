@@ -83,6 +83,8 @@ export class BlockEditorComponent implements AfterViewInit, OnDestroy {
   readonly wikiLinkQuery = output<WikiLinkContext | null>();
   readonly wikiLinkSelect = output<string>(); // emits the key: 'ArrowUp', 'ArrowDown', 'Enter'
   readonly openWikiLink = output<string>();
+  readonly shiftSelectUp = output<void>();
+  readonly shiftSelectDown = output<void>();
   readonly suggestionsVisible = input<boolean>(false);
 
   private readonly editorRef = viewChild.required<ElementRef<HTMLTextAreaElement>>('editor');
@@ -246,6 +248,21 @@ export class BlockEditorComponent implements AfterViewInit, OnDestroy {
       if (event.key === 'ArrowRight') {
         event.preventDefault();
         this.indentRequested.emit();
+        return;
+      }
+    }
+
+    if (event.shiftKey && !event.altKey && !event.ctrlKey) {
+      if (event.key === 'ArrowUp' && this.isOnFirstLine(el)) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.shiftSelectUp.emit();
+        return;
+      }
+      if (event.key === 'ArrowDown' && this.isOnLastLine(el)) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.shiftSelectDown.emit();
         return;
       }
     }

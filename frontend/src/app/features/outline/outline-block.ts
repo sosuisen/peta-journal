@@ -53,6 +53,8 @@ import { BlockViewComponent } from './block-view';
             (wikiLinkQuery)="wikiLinkQueryChanged.emit($event)"
             (wikiLinkSelect)="wikiLinkSelected.emit($event)"
             (openWikiLink)="openWikiLink.emit($event)"
+            (shiftSelectUp)="shiftSelectUp.emit()"
+            (shiftSelectDown)="shiftSelectDown.emit()"
           />
         } @else {
           <app-block-view
@@ -135,6 +137,8 @@ export class OutlineBlockComponent {
   readonly wikiLinkQueryChanged = output<WikiLinkContext | null>();
   readonly wikiLinkSelected = output<string>();
   readonly openWikiLink = output<string>();
+  readonly shiftSelectUp = output<void>();
+  readonly shiftSelectDown = output<void>();
   readonly suggestionsVisible = input<boolean>(false);
 
   private readonly editorRef = viewChild<BlockEditorComponent>('editor');
