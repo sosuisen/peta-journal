@@ -7,7 +7,10 @@ import { AutoSaveService } from '../../core/services/auto-save.service';
 import { Block } from '../../core/models/block.model';
 import { ClipboardService } from '../../core/services/clipboard.service';
 import { formatJournalDate } from '../../core/utils/date.utils';
-import { isJournalFileName } from '../../core/utils/journal-filename.utils';
+import { classifyJournalFileName, isJournalFileName } from '../../core/utils/journal-filename.utils';
+import { NavigationService } from '../../core/services/navigation.service';
+import { RecentPagesService } from '../../core/services/recent-pages.service';
+import { validateFileName } from '../../core/utils/filename-validation.utils';
 import { WikiLinkContext } from './block-editor';
 
 @Component({
@@ -48,6 +51,7 @@ import { WikiLinkContext } from './block-editor';
           (dragBeyondBounds)="onDragBeyondBounds(block, $event)"
           (wikiLinkQueryChanged)="onWikiLinkQuery(block, $event)"
           (wikiLinkSelected)="onWikiLinkKeyNav($event)"
+          (openWikiLink)="onOpenWikiLink($event)"
         />
       </div>
     </cdk-virtual-scroll-viewport>
@@ -130,6 +134,8 @@ export class OutlineComponent implements OnDestroy {
   private readonly autoSave = inject(AutoSaveService);
   private readonly injector = inject(Injector);
   private readonly clipboard = inject(ClipboardService);
+  private readonly nav = inject(NavigationService);
+  private readonly recentPages = inject(RecentPagesService);
   readonly pageId = input.required<string>();
   readonly disableAutoLoad = input<boolean>(false);  // Disable automatic block loading
   readonly currentPageDate = input<string>('');  // Date shown in page header
@@ -636,6 +642,20 @@ export class OutlineComponent implements OnDestroy {
       this.wikiSuggestionIndex.set((idx - 1 + suggestions.length) % suggestions.length);
     } else if (key === 'Enter') {
       this.selectWikiSuggestion(suggestions[idx]);
+    }
+  }
+
+  async onOpenWikiLink(linkText: string): Promise<void> {
+    if (classifyJournalFileName(linkText) !== 'none') {
+      this.nav.navigateToPage(linkText);
+    } else {
+      const lastSlash = linkText.lastIndexOf('/');
+      const fileNamePart = lastSlash >= 0 ? linkText.substring(lastSlash + 1) : linkText;
+      const error = validateFileName(fileNamePart);
+      if (error) { alert(error); return; }
+      const result = await this.api.getDocByName(linkText);
+      this.recentPages.refresh();
+      this.nav.navigateToPage(result.page.dirPath + result.page.fileName);
     }
   }
 

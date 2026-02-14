@@ -1195,6 +1195,9 @@ export namespace petajournal {
 
         /** UpdatePageRequest propertiesJson */
         propertiesJson?: (string|null);
+
+        /** UpdatePageRequest dirPath */
+        dirPath?: (string|null);
     }
 
     /** Represents an UpdatePageRequest. */
@@ -1217,6 +1220,9 @@ export namespace petajournal {
 
         /** UpdatePageRequest propertiesJson. */
         public propertiesJson: string;
+
+        /** UpdatePageRequest dirPath. */
+        public dirPath?: (string|null);
 
         /**
          * Creates a new UpdatePageRequest instance using the specified properties.

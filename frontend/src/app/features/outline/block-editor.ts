@@ -82,6 +82,7 @@ export class BlockEditorComponent implements AfterViewInit, OnDestroy {
   readonly dragBeyondBounds = output<'above' | 'below'>();
   readonly wikiLinkQuery = output<WikiLinkContext | null>();
   readonly wikiLinkSelect = output<string>(); // emits the key: 'ArrowUp', 'ArrowDown', 'Enter'
+  readonly openWikiLink = output<string>();
   readonly suggestionsVisible = input<boolean>(false);
 
   private readonly editorRef = viewChild.required<ElementRef<HTMLTextAreaElement>>('editor');
@@ -152,6 +153,27 @@ export class BlockEditorComponent implements AfterViewInit, OnDestroy {
           this.wikiLinkSelect.emit(event.key);
         }
         return;
+      }
+    }
+
+    // Ctrl+O: open wiki link at caret
+    if (event.key === 'o' && event.ctrlKey) {
+      const before = value.substring(0, selectionStart);
+      const openIdx = before.lastIndexOf('[[');
+      if (openIdx !== -1) {
+        const between = before.substring(openIdx + 2);
+        if (!between.includes(']]')) {
+          const after = value.substring(selectionStart);
+          const closeIdx = after.indexOf(']]');
+          if (closeIdx !== -1) {
+            const linkText = (between + after.substring(0, closeIdx)).trim();
+            if (linkText) {
+              event.preventDefault();
+              this.openWikiLink.emit(linkText);
+              return;
+            }
+          }
+        }
       }
     }
 

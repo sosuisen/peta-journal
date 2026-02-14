@@ -51,6 +51,7 @@ import { BlockViewComponent } from './block-view';
             (dragBeyondBounds)="dragBeyondBounds.emit($event)"
             (wikiLinkQuery)="wikiLinkQueryChanged.emit($event)"
             (wikiLinkSelect)="wikiLinkSelected.emit($event)"
+            (openWikiLink)="openWikiLink.emit($event)"
           />
         } @else {
           <app-block-view
@@ -132,6 +133,7 @@ export class OutlineBlockComponent {
   readonly dragBeyondBounds = output<'above' | 'below'>();
   readonly wikiLinkQueryChanged = output<WikiLinkContext | null>();
   readonly wikiLinkSelected = output<string>();
+  readonly openWikiLink = output<string>();
   readonly suggestionsVisible = input<boolean>(false);
 
   private readonly editorRef = viewChild<BlockEditorComponent>('editor');
