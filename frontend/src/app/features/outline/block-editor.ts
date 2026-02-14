@@ -90,6 +90,7 @@ export class BlockEditorComponent implements AfterViewInit, OnDestroy {
 
   private textareaRect: DOMRect | null = null;
   private isDragging = false;
+  private dragSkipSelectionCheck = false;
   private mouseMoveHandler = (e: MouseEvent) => this.onDocMouseMove(e);
   private mouseUpHandler = () => this.onDocMouseUp();
 
@@ -111,6 +112,16 @@ export class BlockEditorComponent implements AfterViewInit, OnDestroy {
     }
     el.focus();
     this.autoResize(el);
+
+    // If edit was triggered by a mouse press, start drag tracking
+    // so dragging continues seamlessly from the original mousedown.
+    if (this.state.consumePendingMouseDrag()) {
+      this.textareaRect = el.getBoundingClientRect();
+      this.isDragging = true;
+      this.dragSkipSelectionCheck = true;
+      document.addEventListener('mousemove', this.mouseMoveHandler);
+      document.addEventListener('mouseup', this.mouseUpHandler);
+    }
   }
 
   setCursorPosition(pos: number): void {
@@ -322,9 +333,11 @@ export class BlockEditorComponent implements AfterViewInit, OnDestroy {
 
   private onDocMouseMove(e: MouseEvent): void {
     if (!this.isDragging || !this.textareaRect) return;
-    const el = this.editorRef().nativeElement;
-    // Only trigger if user has started selecting text
-    if (el.selectionStart === el.selectionEnd) return;
+    if (!this.dragSkipSelectionCheck) {
+      const el = this.editorRef().nativeElement;
+      // Only trigger if user has started selecting text
+      if (el.selectionStart === el.selectionEnd) return;
+    }
 
     const threshold = 10;
     if (e.clientY < this.textareaRect.top - threshold) {
@@ -338,6 +351,7 @@ export class BlockEditorComponent implements AfterViewInit, OnDestroy {
 
   private onDocMouseUp(): void {
     this.isDragging = false;
+    this.dragSkipSelectionCheck = false;
     this.textareaRect = null;
     document.removeEventListener('mousemove', this.mouseMoveHandler);
     document.removeEventListener('mouseup', this.mouseUpHandler);

@@ -9,6 +9,7 @@ export class OutlineStateService {
   private readonly _collapsedBlockIds = signal<Set<string>>(new Set());
   private readonly _blockSelectionMode = signal<boolean>(false);
   private readonly _pendingCursorPosition = signal<number | null>(null);
+  private readonly _pendingMouseDrag = signal<boolean>(false);
   readonly blocks = this._blocks.asReadonly();
   readonly editingBlockId = this._editingBlockId.asReadonly();
   readonly pendingCursorPosition = this._pendingCursorPosition.asReadonly();
@@ -62,8 +63,9 @@ export class OutlineStateService {
     this._blocks.update(blocks => blocks.filter(b => b.id !== blockId));
   }
 
-  setEditingBlock(blockId: string | null, cursorPosition: number | null = null): void {
+  setEditingBlock(blockId: string | null, cursorPosition: number | null = null, mouseDrag = false): void {
     this._pendingCursorPosition.set(cursorPosition);
+    this._pendingMouseDrag.set(mouseDrag);
     this._editingBlockId.set(blockId);
   }
 
@@ -72,6 +74,12 @@ export class OutlineStateService {
     const pos = this._pendingCursorPosition();
     this._pendingCursorPosition.set(null);
     return pos;
+  }
+
+  consumePendingMouseDrag(): boolean {
+    const drag = this._pendingMouseDrag();
+    this._pendingMouseDrag.set(false);
+    return drag;
   }
 
   toggleCollapsed(blockId: string): void {

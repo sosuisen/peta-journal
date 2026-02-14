@@ -221,7 +221,7 @@ export class OutlineComponent implements OnDestroy {
 
   onEditRequested(blockId: string, cursorPosition: number): void {
     if (this.state.blockSelectionMode()) return;
-    this.state.setEditingBlock(blockId, cursorPosition);
+    this.state.setEditingBlock(blockId, cursorPosition, true);
   }
 
   onBodyChanged(block: Block, newBody: string): void {

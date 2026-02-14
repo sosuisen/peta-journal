@@ -24,7 +24,7 @@ import { validateFileName } from '../../core/utils/filename-validation.utils';
       #content
       class="block-content"
       [innerHTML]="trustedHtml()"
-      (click)="onClick($event)"
+      (mousedown)="onClick($event)"
     ></div>
   `,
   styles: [`
