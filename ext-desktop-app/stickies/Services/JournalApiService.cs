@@ -9,13 +9,19 @@ public class JournalApiService : IDisposable
 {
     private ClientWebSocket? _ws;
     private CancellationTokenSource? _cts;
+    private CancellationTokenSource? _reconnectCts;
     private readonly ConcurrentDictionary<string, TaskCompletionSource<ApiResponse>> _pending = new();
     private int _requestId;
     private readonly string _host;
     private readonly int _port;
+    private bool _intentionalDisconnect;
+
+    private static readonly TimeSpan InitialDelay = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan MaxDelay = TimeSpan.FromSeconds(30);
 
     public event Action? Connected;
     public event Action? Disconnected;
+    public event Action? Reconnecting;
     public event Action<string>? PageUpdated;
 
     public string? SessionId { get; private set; }
@@ -30,16 +36,42 @@ public class JournalApiService : IDisposable
 
     public async Task ConnectAsync()
     {
-        _ws = new ClientWebSocket();
-        _cts = new CancellationTokenSource();
-        var uri = new Uri($"ws://{_host}:{_port}/ws");
-        await _ws.ConnectAsync(uri, _cts.Token);
-        _ = Task.Run(() => ReceiveLoop(_cts.Token));
-        Connected?.Invoke();
+        _intentionalDisconnect = false;
+        _reconnectCts?.Cancel();
+        _reconnectCts = new CancellationTokenSource();
+        await ConnectWithRetryAsync(_reconnectCts.Token);
+    }
+
+    private async Task ConnectWithRetryAsync(CancellationToken ct)
+    {
+        var delay = InitialDelay;
+        while (!ct.IsCancellationRequested)
+        {
+            try
+            {
+                _ws?.Dispose();
+                _ws = new ClientWebSocket();
+                _cts = new CancellationTokenSource();
+                var uri = new Uri($"ws://{_host}:{_port}/ws");
+                await _ws.ConnectAsync(uri, ct);
+                _ = Task.Run(() => ReceiveLoop(_cts.Token));
+                Connected?.Invoke();
+                return;
+            }
+            catch when (!ct.IsCancellationRequested)
+            {
+                Reconnecting?.Invoke();
+                try { await Task.Delay(delay, ct); }
+                catch (OperationCanceledException) { return; }
+                delay = TimeSpan.FromSeconds(Math.Min(delay.TotalSeconds * 2, MaxDelay.TotalSeconds));
+            }
+        }
     }
 
     public async Task DisconnectAsync()
     {
+        _intentionalDisconnect = true;
+        _reconnectCts?.Cancel();
         if (_ws?.State == WebSocketState.Open)
         {
             await _ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "", CancellationToken.None);
@@ -101,7 +133,6 @@ public class JournalApiService : IDisposable
         catch (WebSocketException) { }
         finally
         {
-            // Reject all pending requests
             foreach (var kvp in _pending)
             {
                 if (_pending.TryRemove(kvp.Key, out var tcs))
@@ -110,6 +141,11 @@ public class JournalApiService : IDisposable
                 }
             }
             Disconnected?.Invoke();
+
+            if (!_intentionalDisconnect && _reconnectCts is { IsCancellationRequested: false })
+            {
+                _ = Task.Run(() => ConnectWithRetryAsync(_reconnectCts.Token));
+            }
         }
     }
 
@@ -152,6 +188,9 @@ public class JournalApiService : IDisposable
 
     public void Dispose()
     {
+        _intentionalDisconnect = true;
+        _reconnectCts?.Cancel();
+        _reconnectCts?.Dispose();
         _cts?.Cancel();
         _ws?.Dispose();
         _cts?.Dispose();

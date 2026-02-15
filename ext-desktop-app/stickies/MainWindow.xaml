@@ -35,11 +35,17 @@
                 </Button>
             </StackPanel>
 
-            <!-- Center: Page Title -->
+            <!-- Center: Page Title / Reconnecting -->
             <TextBlock x:Name="PageTitleText" Grid.Column="1"
                        Text="Stickies"
                        VerticalAlignment="Center" HorizontalAlignment="Center"
                        FontSize="13" FontWeight="SemiBold"
+                       TextTrimming="CharacterEllipsis" />
+            <TextBlock x:Name="ReconnectingText" Grid.Column="1"
+                       Text="Reconnecting..."
+                       Visibility="Collapsed"
+                       VerticalAlignment="Center" HorizontalAlignment="Center"
+                       FontSize="12" Foreground="#999999"
                        TextTrimming="CharacterEllipsis" />
 
             <!-- Right: Color menu + Close -->

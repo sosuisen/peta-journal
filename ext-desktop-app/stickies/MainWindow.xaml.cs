@@ -40,6 +40,9 @@ public sealed partial class MainWindow : Window
         RestoreState();
 
         _api.PageUpdated += OnPageUpdated;
+        _api.Connected += OnApiConnected;
+        _api.Disconnected += OnApiDisconnected;
+        _api.Reconnecting += OnApiReconnecting;
         Activated += OnActivated;
         Closed += OnClosed;
     }
@@ -101,6 +104,38 @@ public sealed partial class MainWindow : Window
             ShowSearch();
             ShowEmptyContent();
         }
+    }
+
+    private void OnApiConnected()
+    {
+        DispatcherQueue.TryEnqueue(async () =>
+        {
+            ReconnectingText.Visibility = Visibility.Collapsed;
+            PageTitleText.Visibility = Visibility.Visible;
+
+            if (!string.IsNullOrEmpty(_currentPageId))
+            {
+                await LoadPageAsync(_currentPageId, isRefresh: true);
+            }
+        });
+    }
+
+    private void OnApiDisconnected()
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            ReconnectingText.Visibility = Visibility.Visible;
+            PageTitleText.Visibility = Visibility.Collapsed;
+        });
+    }
+
+    private void OnApiReconnecting()
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            ReconnectingText.Visibility = Visibility.Visible;
+            PageTitleText.Visibility = Visibility.Collapsed;
+        });
     }
 
     private void OnPageUpdated(string pageId)
@@ -516,6 +551,9 @@ public sealed partial class MainWindow : Window
     private void OnClosed(object sender, WindowEventArgs args)
     {
         _api.PageUpdated -= OnPageUpdated;
+        _api.Connected -= OnApiConnected;
+        _api.Disconnected -= OnApiDisconnected;
+        _api.Reconnecting -= OnApiReconnecting;
         _settingsService.UpdateWindow(_windowSettings);
         App.OnWindowClosed(this);
     }
