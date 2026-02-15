@@ -17,7 +17,7 @@ import { WikiLinkContext } from './block-editor';
   selector: 'app-outline',
   imports: [ScrollingModule, OutlineBlockComponent],
   template: `
-    <cdk-virtual-scroll-viewport #viewport [itemSize]="40" class="outline-viewport" (scrolledIndexChange)="onScrolledIndexChange($event)">
+    <cdk-virtual-scroll-viewport #viewport [itemSize]="40" [minBufferPx]="500" [maxBufferPx]="600" class="outline-viewport" (scrolledIndexChange)="onScrolledIndexChange($event)">
       <div
         *cdkVirtualFor="let block of state.visibleBlocks(); let i = index; trackBy: trackById"
         class="outline-item"
