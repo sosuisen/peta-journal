@@ -69,6 +69,14 @@ import { validateFileName } from '../../core/utils/filename-validation.utils';
     :host ::ng-deep .wiki-link-new:hover {
       color: #c9302c;
     }
+    :host ::ng-deep .block-content a:not(.wiki-link) {
+      color: #007bff;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+    :host ::ng-deep .block-content a:not(.wiki-link):hover {
+      color: #0056b3;
+    }
     :host ::ng-deep input[type="checkbox"] {
       cursor: pointer;
       margin-right: 4px;
@@ -205,6 +213,15 @@ export class BlockViewComponent {
 
   async onClick(event: MouseEvent): Promise<void> {
     const target = event.target as HTMLElement;
+
+    // Check for markdown link [name](url)
+    const anchor = target.closest('a:not(.wiki-link)') as HTMLAnchorElement | null;
+    if (anchor?.href) {
+      event.preventDefault();
+      event.stopPropagation();
+      window.open(anchor.href, '_blank');
+      return;
+    }
 
     const link = target.closest('.wiki-link') as HTMLElement | null;
     if (!link) {
