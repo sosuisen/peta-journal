@@ -20,6 +20,7 @@ import { generateUntitledTitle } from '../../core/utils/title.utils';
       #content
       class="block-content"
       [innerHTML]="trustedHtml()"
+      (mousedown)="onMouseDown($event)"
       (click)="onClick($event)"
     ></div>
   `,
@@ -208,10 +209,18 @@ export class BlockViewComponent {
     this.taskToggled.emit();
   }
 
+  /** Start editing on mousedown (same timing as before) — skip links. */
+  onMouseDown(event: MouseEvent): void {
+    const target = event.target as HTMLElement;
+    if (target.closest('a')) return;
+    this.clicked.emit(this.getTextOffsetAtPoint(event.clientX, event.clientY));
+  }
+
+  /** Handle link clicks (enables native Ctrl+click for background tabs). */
   onClick(event: MouseEvent): void {
     const target = event.target as HTMLElement;
 
-    // Check for external link [name](url)
+    // External link [name](url)
     const anchor = target.closest('a:not(.wiki-link):not(.wiki-link-new)') as HTMLAnchorElement | null;
     if (anchor?.href) {
       event.preventDefault();
@@ -220,7 +229,7 @@ export class BlockViewComponent {
       return;
     }
 
-    // Check for wiki link
+    // Wiki link
     const link = target.closest('.wiki-link, .wiki-link-new') as HTMLAnchorElement | null;
     if (link) {
       const newTab = event.ctrlKey || event.metaKey;
@@ -242,9 +251,6 @@ export class BlockViewComponent {
       }
       return;
     }
-
-    // Click to edit
-    this.clicked.emit(this.getTextOffsetAtPoint(event.clientX, event.clientY));
   }
 
   private addHrefsToWikiLinks(html: string): string {
