@@ -6,7 +6,11 @@ export const routes: Routes = [
     path: '',
     component: MainLayoutComponent,
     children: [
-      { path: '', redirectTo: 'pages/today', pathMatch: 'full' },
+      { path: '', redirectTo: 'today', pathMatch: 'full' },
+      {
+        path: 'today',
+        loadComponent: () => import('./features/journal/page-dispatcher').then(m => m.PageDispatcherComponent),
+      },
       {
         path: 'pages/**',
         loadComponent: () => import('./features/journal/page-dispatcher').then(m => m.PageDispatcherComponent),

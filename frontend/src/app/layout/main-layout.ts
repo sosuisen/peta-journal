@@ -249,7 +249,7 @@ export class MainLayoutComponent {
   }
 
   goHome(): void {
-    this.router.navigateByUrl('/pages/today');
+    this.router.navigateByUrl('/today');
   }
 
   async createNewPage(): Promise<void> {
@@ -291,7 +291,7 @@ export class MainLayoutComponent {
       : await this.api.getDocByName(fileName);
     await this.api.deletePage(result.page.id);
     this.recentPages.refresh();
-    this.router.navigateByUrl('/pages/today');
+    this.router.navigateByUrl('/today');
   }
 
   exportPage(): void {
