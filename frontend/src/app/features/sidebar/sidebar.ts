@@ -24,7 +24,7 @@ import { NavigationService } from '../../core/services/navigation.service';
         <div class="sidebar-section">
           <h3 class="section-title">Recent Pages</h3>
           @for (page of recentPages.recentPages(); track page.id) {
-            <div class="sidebar-item" (click)="goToPage(page)">
+            <div class="sidebar-item" (click)="goToPage(page, $event)">
               {{ formatPageTitle(page) }}
             </div>
           }
@@ -109,8 +109,8 @@ export class SidebarComponent implements OnInit {
     this.recentPages.refresh();
   }
 
-  goToDate(date: string): void {
-    this.nav.navigateToPage(date);
+  goToDate(event: { date: string; ctrlKey: boolean }): void {
+    this.nav.navigateToPage(event.date, event.ctrlKey);
   }
 
   goToWeek(event: { year: number; week: number; ctrlKey: boolean }): void {
@@ -127,8 +127,8 @@ export class SidebarComponent implements OnInit {
     this.nav.navigateToPage(String(event.year), event.ctrlKey);
   }
 
-  goToPage(page: Page): void {
-    this.nav.navigateToPage(page.dirPath + page.fileName);
+  goToPage(page: Page, event: MouseEvent): void {
+    this.nav.navigateToPage(page.dirPath + page.fileName, event.ctrlKey || event.metaKey);
   }
 
   formatPageTitle(page: Page): string {

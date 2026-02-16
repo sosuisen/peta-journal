@@ -37,7 +37,7 @@ interface CalendarWeek {
               [class.other-month]="!day.isCurrentMonth"
               [class.today]="day.isToday"
               [class.selected]="day.isSelected"
-              (click)="selectDay(day)"
+              (click)="selectDay(day, $event)"
             >
               {{ day.day }}
             </div>
@@ -121,7 +121,7 @@ export class CalendarComponent {
   private readonly configService = inject(ConfigService);
 
   readonly selectedDate = input('');
-  readonly dateSelected = output<string>();
+  readonly dateSelected = output<{ date: string; ctrlKey: boolean }>();
   readonly weekClicked = output<{ year: number; week: number; ctrlKey: boolean }>();
   readonly monthClicked = output<{ year: number; month: number; ctrlKey: boolean }>();
   readonly yearClicked = output<{ year: number; ctrlKey: boolean }>();
@@ -230,8 +230,8 @@ export class CalendarComponent {
     return d.getFullYear();
   }
 
-  selectDay(day: CalendarDay): void {
-    this.dateSelected.emit(day.date);
+  selectDay(day: CalendarDay, event: MouseEvent): void {
+    this.dateSelected.emit({ date: day.date, ctrlKey: event.ctrlKey || event.metaKey });
   }
 
   private getISOWeekNumber(date: Date): number {

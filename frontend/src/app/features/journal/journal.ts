@@ -247,9 +247,9 @@ export class JournalComponent {
     this.nav.navigateToPage(String(event.year), event.ctrlKey);
   }
 
-  onDateSelected(date: string): void {
-    this.showCalendar.set(false);
-    this.nav.navigateToPage(date);
+  onDateSelected(event: { date: string; ctrlKey: boolean }): void {
+    if (!event.ctrlKey) this.showCalendar.set(false);
+    this.nav.navigateToPage(event.date, event.ctrlKey);
   }
 
   onTopBlockChanged(fileName: string): void {
