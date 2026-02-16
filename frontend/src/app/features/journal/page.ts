@@ -1,9 +1,10 @@
-import { Component, inject, input, signal, effect } from '@angular/core';
+import { Component, inject, input, signal, computed, effect, Injector, afterNextRender, ElementRef, viewChild } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { OutlineComponent } from '../outline/outline';
 import { ApiService } from '../../core/services/api.service';
 import { Page } from '../../core/models/page.model';
 import { RecentPagesService } from '../../core/services/recent-pages.service';
+import { NavigationService } from '../../core/services/navigation.service';
 import { formatJournalDate } from '../../core/utils/date.utils';
 import { validateFileName } from '../../core/utils/filename-validation.utils';
 import { ExtensionFunctionService } from '../../core/services/extension-function.service';
@@ -14,26 +15,35 @@ import { ExtensionFunctionService } from '../../core/services/extension-function
   template: `
     @if (page()) {
       <div class="page-header">
-        @if (page()!.dirPath) {
-          <div class="dir-path-row">
-            <textarea
-              class="dir-path-textarea"
-              [value]="dirPathWithoutSlash()"
-              (keydown.enter)="onDirPathEnter($event)"
-              (blur)="saveDirPath($event)"
-              rows="1"
-            ></textarea>
-            <span class="dir-path-slash">/</span>
+        @if (editing()) {
+          <div class="edit-row" (focusout)="onEditRowFocusOut($event)">
+            <input
+              class="edit-dir-path"
+              [value]="editDirPath()"
+              (input)="editDirPath.set(asInputValue($event))"
+              (keydown.enter)="save()"
+              (keydown.escape)="cancelEdit()"
+            />
+            <span class="edit-slash">/</span>
+            <input
+              #fileNameInput
+              class="edit-file-name"
+              [value]="editFileName()"
+              (input)="editFileName.set(asInputValue($event))"
+              (keydown.enter)="save()"
+              (keydown.escape)="cancelEdit()"
+            />
           </div>
+        } @else {
+          @if (page()!.dirPath) {
+            <div class="dir-path-breadcrumb">
+              @for (seg of dirPathSegments(); track seg.path) {
+                <a class="dir-segment" (click)="navigateToSegment(seg.path)">{{ seg.name }}</a><span class="breadcrumb-slash">/</span>
+              }
+            </div>
+          }
+          <h2 class="page-title" (click)="startEdit($event)">{{ pageTitle() }}</h2>
         }
-        <textarea
-          class="page-title-textarea"
-          [value]="pageTitle()"
-          (keydown.enter)="onTitleEnter($event)"
-          (input)="onTitleInput($event)"
-          (blur)="saveTitleFromTextarea($event)"
-          rows="1"
-        ></textarea>
       </div>
       <app-outline [pageId]="page()!.id" />
     }
@@ -41,64 +51,108 @@ import { ExtensionFunctionService } from '../../core/services/extension-function
   styles: [`
     :host { display: flex; flex-direction: column; height: 100%; }
     .page-header { padding: 16px 0; }
-    .dir-path-row {
+
+    /* View mode — match edit-mode padding+border so no layout jump */
+    .dir-path-breadcrumb {
       display: flex;
       align-items: baseline;
-      padding: 0 2px;
+      padding: 4px 6px;
+      border: 1px solid transparent;
+      flex-wrap: wrap;
     }
-    .dir-path-textarea {
+    .dir-segment {
+      color: var(--text-secondary, #666);
+      cursor: pointer;
+      text-decoration: none;
+      font-size: 1.0em;
+    }
+    .dir-segment:hover { text-decoration: underline; }
+    .breadcrumb-slash {
+      color: var(--text-secondary, #666);
+      font-size: 1.0em;
+      margin: 0 1px;
+    }
+    .page-title {
+      margin: 0;
+      font-size: 2em;
+      font-weight: bold;
+      padding: 4px 6px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      border-radius: 4px;
+      line-height: 1.2;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .page-title:hover { background: var(--hover-bg, rgba(0,0,0,0.04)); }
+
+    /* Edit mode */
+    .edit-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+    }
+    .edit-dir-path, .edit-file-name {
+      font-family: inherit;
+      border: 1px solid #e8ddc3;
+      border-radius: 4px;
+      padding: 4px 6px;
+      outline: none;
+      background: #fffde7;
+    }
+    .edit-dir-path {
       font-size: 1.0em;
       color: var(--text-secondary, #666);
-      font-family: inherit;
-      border: 1px solid transparent;
-      border-radius: 4px;
-      padding: 2px 2px;
-      outline: none;
-      resize: none;
-      overflow: hidden;
-      background: transparent;
-      line-height: 1.2;
       width: auto;
-      max-width: 80%;
+      min-width: 60px;
       field-sizing: content;
     }
-    .dir-path-textarea:hover { background: var(--hover-bg, rgba(0,0,0,0.04)); }
-    .dir-path-textarea:focus {
-      background: white;
-      border-color: var(--border-color, #ccc);
+    .edit-file-name {
+      font-size: 2em;
+      font-weight: bold;
+      width: 100%;
+      box-sizing: border-box;
     }
-    .dir-path-slash {
+    .edit-slash {
       font-size: 1.0em;
       color: var(--text-secondary, #666);
-    }
-    .page-title-textarea {
-      margin: 0; font-size: 2em; font-weight: bold; font-family: inherit;
-      width: 100%; border: 1px solid transparent; border-radius: 4px;
-      padding: 4px; outline: none; box-sizing: border-box;
-      resize: none; overflow: hidden; background: transparent;
-      line-height: 1.2;
-    }
-    .page-title-textarea:hover { background: var(--hover-bg, rgba(0,0,0,0.04)); }
-    .page-title-textarea:focus {
-      background: white;
-      border-color: var(--border-color, #ccc);
+      margin: 0 2px;
     }
   `]
 })
 export class PageComponent {
   readonly pageName = input.required<string>();
   private readonly api = inject(ApiService);
-  private readonly title = inject(Title);
+  private readonly titleService = inject(Title);
   private readonly recentPages = inject(RecentPagesService);
+  private readonly navigation = inject(NavigationService);
   private readonly extensionFunctions = inject(ExtensionFunctionService);
+  private readonly injector = inject(Injector);
+
+  readonly fileNameInput = viewChild<ElementRef<HTMLInputElement>>('fileNameInput');
 
   readonly page = signal<Page | null>(null);
-  private originalTitle = '';
+  readonly editing = signal(false);
+  readonly editDirPath = signal('');
+  readonly editFileName = signal('');
+
+  readonly dirPathSegments = computed(() => {
+    const p = this.page();
+    if (!p || !p.dirPath) return [];
+    const parts = p.dirPath.replace(/\/$/, '').split('/');
+    const segments: { name: string; path: string }[] = [];
+    for (let i = 0; i < parts.length; i++) {
+      segments.push({
+        name: parts[i],
+        path: parts.slice(0, i + 1).join('/'),
+      });
+    }
+    return segments;
+  });
 
   pageTitle(): string {
     const p = this.page();
     if (!p) return '';
-
     if (p.type === 'journal') {
       return formatJournalDate(p.fileName);
     }
@@ -112,85 +166,86 @@ export class PageComponent {
     });
   }
 
-  dirPathWithoutSlash(): string {
-    const p = this.page();
-    if (!p) return '';
-    return p.dirPath.replace(/\/$/, '');
+  asInputValue(event: Event): string {
+    return (event.target as HTMLInputElement).value;
   }
 
-  onDirPathEnter(event: Event): void {
-    event.preventDefault();
-    (event.target as HTMLTextAreaElement).blur();
+  navigateToSegment(path: string): void {
+    this.navigation.navigateToPage(path);
   }
 
-  async saveDirPath(event: Event): Promise<void> {
+  startEdit(event: MouseEvent): void {
     const p = this.page();
     if (!p) return;
-    const textarea = event.target as HTMLTextAreaElement;
-    let newDirPath = textarea.value.replace(/[\r\n]+/g, ' ').trim();
-    // Normalize: ensure trailing slash if non-empty
+    this.editDirPath.set(p.dirPath.replace(/\/$/, ''));
+    this.editFileName.set(p.fileName);
+
+    // Determine caret position from click coordinates
+    let caretPos = p.fileName.length;
+    const range = document.caretRangeFromPoint(event.clientX, event.clientY);
+    if (range) {
+      caretPos = range.startOffset;
+    }
+
+    this.editing.set(true);
+    afterNextRender(() => {
+      const input = this.fileNameInput()?.nativeElement;
+      if (input) {
+        input.focus();
+        input.setSelectionRange(caretPos, caretPos);
+      }
+    }, { injector: this.injector });
+  }
+
+  async save(): Promise<void> {
+    const p = this.page();
+    if (!p) return;
+
+    const newFileName = this.editFileName().trim();
+    if (!newFileName) {
+      alert('Page name cannot be empty');
+      return;
+    }
+    const error = validateFileName(newFileName);
+    if (error) {
+      alert(error);
+      return;
+    }
+
+    let newDirPath = this.editDirPath().trim();
     if (newDirPath && !newDirPath.endsWith('/')) {
       newDirPath += '/';
     }
-    if (newDirPath === p.dirPath) {
-      textarea.value = this.dirPathWithoutSlash();
+
+    const titleChanged = newFileName !== p.fileName;
+    const dirChanged = newDirPath !== p.dirPath;
+
+    if (!titleChanged && !dirChanged) {
+      this.editing.set(false);
       return;
     }
-    const updated = await this.api.updatePage(p.id, { dirPath: newDirPath });
+
+    const updates: { title?: string; dirPath?: string } = {};
+    if (titleChanged) updates.title = newFileName;
+    if (dirChanged) updates.dirPath = newDirPath;
+
+    const updated = await this.api.updatePage(p.id, updates);
     this.page.set(updated);
+    this.titleService.setTitle(this.pageTitle());
     this.recentPages.refresh();
+    this.editing.set(false);
   }
 
-  onTitleEnter(event: Event): void {
-    event.preventDefault();
-    const textarea = event.target as HTMLTextAreaElement;
-    textarea.blur();
+  cancelEdit(): void {
+    this.editing.set(false);
   }
 
-  onTitleInput(event: Event): void {
-    const textarea = event.target as HTMLTextAreaElement;
-    textarea.style.height = 'auto';
-    textarea.style.height = textarea.scrollHeight + 'px';
-  }
-
-  async saveTitleFromTextarea(event: Event): Promise<void> {
-    const textarea = event.target as HTMLTextAreaElement;
-    const newTitle = textarea.value.replace(/[\r\n]+/g, ' ').trim();
-    if (!newTitle || newTitle === this.originalTitle) {
-      textarea.value = this.originalTitle;
-      return;
+  onEditRowFocusOut(event: FocusEvent): void {
+    const editRow = (event.currentTarget as HTMLElement);
+    const newFocus = event.relatedTarget as Node | null;
+    if (!newFocus || !editRow.contains(newFocus)) {
+      this.save();
     }
-    await this.saveTitle(newTitle);
-  }
-
-  private async saveTitle(newTitle: string): Promise<void> {
-    const p = this.page();
-    if (!p) return;
-
-    const slashIdx = newTitle.lastIndexOf('/');
-    if (slashIdx >= 0) {
-      // "lesson/abc" → dirPath += "lesson/", title = "abc"
-      const extraDir = newTitle.substring(0, slashIdx + 1);
-      const fileName = newTitle.substring(slashIdx + 1);
-      if (!fileName) { alert('Page name cannot be empty'); return; }
-      const error = validateFileName(fileName);
-      if (error) { alert(error); return; }
-      const newDirPath = (p.dirPath || '') + extraDir;
-      const updated = await this.api.updatePage(p.id, { title: fileName, dirPath: newDirPath });
-      this.page.set(updated);
-      this.originalTitle = fileName;
-      this.title.setTitle(fileName);
-      this.recentPages.refresh();
-      return;
-    }
-
-    const error = validateFileName(newTitle);
-    if (error) { alert(error); return; }
-    const updated = await this.api.updatePage(p.id, { title: newTitle });
-    this.page.set(updated);
-    this.originalTitle = newTitle;
-    this.title.setTitle(newTitle);
-    this.recentPages.refresh();
   }
 
   private async loadPage(fileName: string): Promise<void> {
@@ -205,8 +260,7 @@ export class PageComponent {
           dirName: result.page.dirPath
         });
       }
-      this.originalTitle = this.pageTitle();
-      this.title.setTitle(this.pageTitle());
+      this.titleService.setTitle(this.pageTitle());
     } catch (e) {
       console.error('Failed to load page:', fileName, e);
     }
