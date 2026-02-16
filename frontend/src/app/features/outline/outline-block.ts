@@ -55,6 +55,7 @@ import { BlockViewComponent } from './block-view';
             (openWikiLink)="openWikiLink.emit($event)"
             (shiftSelectUp)="shiftSelectUp.emit()"
             (shiftSelectDown)="shiftSelectDown.emit()"
+            (collapseToggled)="collapseToggled.emit()"
           />
         } @else {
           <app-block-view

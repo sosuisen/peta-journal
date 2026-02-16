@@ -85,6 +85,7 @@ export class BlockEditorComponent implements AfterViewInit, OnDestroy {
   readonly openWikiLink = output<string>();
   readonly shiftSelectUp = output<void>();
   readonly shiftSelectDown = output<void>();
+  readonly collapseToggled = output<void>();
   readonly suggestionsVisible = input<boolean>(false);
 
   private readonly editorRef = viewChild.required<ElementRef<HTMLTextAreaElement>>('editor');
@@ -226,6 +227,12 @@ export class BlockEditorComponent implements AfterViewInit, OnDestroy {
     if (event.key === 'Delete' && selectionStart === value.length && selectionEnd === value.length) {
       event.preventDefault();
       this.deleteAtEnd.emit();
+      return;
+    }
+
+    if (event.ctrlKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+      event.preventDefault();
+      this.collapseToggled.emit();
       return;
     }
 
