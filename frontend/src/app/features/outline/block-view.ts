@@ -1,12 +1,8 @@
 import { Component, input, output, inject, computed, viewChild, ElementRef, effect, afterNextRender, Injector } from '@angular/core';
 import { DomSanitizer } from '@angular/platform-browser';
-import { ApiService } from '../../core/services/api.service';
-import { RecentPagesService } from '../../core/services/recent-pages.service';
-import { NavigationService } from '../../core/services/navigation.service';
+import { Router } from '@angular/router';
 import hljs from 'highlight.js';
 import { generateUntitledTitle } from '../../core/utils/title.utils';
-import { classifyJournalFileName } from '../../core/utils/journal-filename.utils';
-import { validateFileName } from '../../core/utils/filename-validation.utils';
 
 @Component({
   selector: 'app-block-view',
@@ -24,7 +20,7 @@ import { validateFileName } from '../../core/utils/filename-validation.utils';
       #content
       class="block-content"
       [innerHTML]="trustedHtml()"
-      (mousedown)="onClick($event)"
+      (click)="onClick($event)"
     ></div>
   `,
   styles: [`
@@ -148,17 +144,18 @@ import { validateFileName } from '../../core/utils/filename-validation.utils';
   `]
 })
 export class BlockViewComponent {
-  private readonly nav = inject(NavigationService);
-  private readonly api = inject(ApiService);
+  private readonly router = inject(Router);
   private readonly sanitizer = inject(DomSanitizer);
-  private readonly recentPages = inject(RecentPagesService);
   private readonly injector = inject(Injector);
 
   readonly html = input.required<string>();
   readonly status = input.required<string>();
   readonly clicked = output<number>();
   readonly taskToggled = output<void>();
-  readonly trustedHtml = computed(() => this.sanitizer.bypassSecurityTrustHtml(this.html()));
+  readonly trustedHtml = computed(() => {
+    const html = this.addHrefsToWikiLinks(this.html());
+    return this.sanitizer.bypassSecurityTrustHtml(html);
+  });
 
   private readonly checkboxRef = viewChild<ElementRef<HTMLInputElement>>('checkbox');
   private readonly contentRef = viewChild<ElementRef<HTMLDivElement>>('content');
@@ -211,11 +208,11 @@ export class BlockViewComponent {
     this.taskToggled.emit();
   }
 
-  async onClick(event: MouseEvent): Promise<void> {
+  onClick(event: MouseEvent): void {
     const target = event.target as HTMLElement;
 
-    // Check for markdown link [name](url)
-    const anchor = target.closest('a:not(.wiki-link)') as HTMLAnchorElement | null;
+    // Check for external link [name](url)
+    const anchor = target.closest('a:not(.wiki-link):not(.wiki-link-new)') as HTMLAnchorElement | null;
     if (anchor?.href) {
       event.preventDefault();
       event.stopPropagation();
@@ -223,44 +220,53 @@ export class BlockViewComponent {
       return;
     }
 
-    const link = target.closest('.wiki-link') as HTMLElement | null;
-    if (!link) {
-      this.clicked.emit(this.getTextOffsetAtPoint(event.clientX, event.clientY));
-      return;
-    }
+    // Check for wiki link
+    const link = target.closest('.wiki-link, .wiki-link-new') as HTMLAnchorElement | null;
+    if (link) {
+      const newTab = event.ctrlKey || event.metaKey;
+      const href = link.getAttribute('href');
 
-    event.preventDefault();
-    event.stopPropagation();
-
-    const newTab = event.ctrlKey || event.metaKey;
-
-    const pageId = link.dataset['pageId'];
-    if (pageId) {
-      const linkText = (link.textContent ?? '').trim();
-      this.nav.navigateToPage(linkText, newTab);
-      return;
-    }
-
-    let pageTitle = link.dataset['pageTitle'];
-    if (pageTitle) {
-      pageTitle = pageTitle.trim();
-      if (!pageTitle) {
-        pageTitle = generateUntitledTitle();
+      if (newTab && href) {
+        // Let browser handle natively — opens href in background tab
+        return;
       }
 
-      if (classifyJournalFileName(pageTitle) !== 'none') {
-        this.nav.navigateToPage(pageTitle, newTab);
+      event.preventDefault();
+      event.stopPropagation();
+
+      const url = href || '/pages/' + generateUntitledTitle();
+      if (newTab) {
+        window.open(url, '_blank');
       } else {
-        // Validate only the file_name part (after last slash)
-        const lastSlash = pageTitle.lastIndexOf('/');
-        const fileNamePart = lastSlash >= 0 ? pageTitle.substring(lastSlash + 1) : pageTitle;
-        const error = validateFileName(fileNamePart);
-        if (error) { alert(error); return; }
-        const result = await this.api.getDocByName(pageTitle);
-        this.recentPages.refresh();
-        this.nav.navigateToPage(result.page.dirPath + result.page.fileName, newTab);
+        this.router.navigateByUrl(url);
       }
+      return;
     }
+
+    // Click to edit
+    this.clicked.emit(this.getTextOffsetAtPoint(event.clientX, event.clientY));
+  }
+
+  private addHrefsToWikiLinks(html: string): string {
+    if (!html.includes('wiki-link')) return html;
+    const template = document.createElement('template');
+    template.innerHTML = html;
+    const fragment = template.content;
+    fragment.querySelectorAll('.wiki-link, .wiki-link-new').forEach(el => {
+      const pageTitle = el.getAttribute('data-page-title');
+      const pageId = el.getAttribute('data-page-id');
+      if (pageTitle) {
+        el.setAttribute('href', '/pages/' + pageTitle);
+      } else if (pageId) {
+        const linkText = (el.textContent || '').trim();
+        if (linkText) {
+          el.setAttribute('href', '/pages/' + linkText);
+        }
+      }
+    });
+    const div = document.createElement('div');
+    div.appendChild(fragment.cloneNode(true));
+    return div.innerHTML;
   }
 
   private getTextOffsetAtPoint(x: number, y: number): number {

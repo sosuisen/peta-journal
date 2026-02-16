@@ -1,5 +1,4 @@
 import { Component, inject, OnInit } from '@angular/core';
-import { Router } from '@angular/router';
 import { RecentPagesService } from '../../core/services/recent-pages.service';
 import { Page } from '../../core/models/page.model';
 import { CalendarComponent } from '../../shared/calendar';
@@ -103,7 +102,6 @@ import { NavigationService } from '../../core/services/navigation.service';
 })
 export class SidebarComponent implements OnInit {
   readonly recentPages = inject(RecentPagesService);
-  private readonly router = inject(Router);
   private readonly nav = inject(NavigationService);
   readonly today = formatDateToIso(new Date());
 
@@ -112,7 +110,7 @@ export class SidebarComponent implements OnInit {
   }
 
   goToDate(date: string): void {
-    this.router.navigate(['/journals', date]);
+    this.nav.navigateToPage(date);
   }
 
   goToWeek(event: { year: number; week: number; ctrlKey: boolean }): void {

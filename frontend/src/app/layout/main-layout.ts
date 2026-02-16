@@ -249,7 +249,7 @@ export class MainLayoutComponent {
   }
 
   goHome(): void {
-    this.router.navigate(['/journals/today']);
+    this.router.navigateByUrl('/pages/today');
   }
 
   async createNewPage(): Promise<void> {
@@ -271,33 +271,27 @@ export class MainLayoutComponent {
         this.searchBar()?.showDropdown.set(false);
         this.searchBar()?.showCreateButton.set(false);
       }
-      if (classifyJournalFileName(title) !== 'none') {
-        this.nav.navigateToPage(title);
-      } else {
+      if (classifyJournalFileName(title) === 'none') {
         const error = validateFileName(title);
         if (error) { alert(error); return; }
-        const result = await this.api.getDocByName(title);
-        this.recentPages.refresh();
-        this.nav.navigateToPage(result.page.fileName);
       }
+      this.nav.navigateToPage(title);
     }
   }
 
   async deletePage(): Promise<void> {
     const url = this.router.url;
-    const docsMatch = url.match(/\/docs\/(.+)/);
-    const journalMatch = url.match(/\/journals\/(.+)/);
-    const fileName = docsMatch ? decodeURIComponent(docsMatch[1])
-                   : journalMatch ? decodeURIComponent(journalMatch[1])
-                   : null;
+    const match = url.match(/\/(?:pages|docs|journals)\/(.+)/);
+    const fileName = match ? decodeURIComponent(match[1]) : null;
     if (!fileName || fileName === 'today') return;
     if (!confirm(`Delete "${fileName}"?`)) return;
-    const result = journalMatch
+    const isJournal = classifyJournalFileName(fileName) !== 'none';
+    const result = isJournal
       ? await this.api.getJournalByName(fileName)
       : await this.api.getDocByName(fileName);
     await this.api.deletePage(result.page.id);
     this.recentPages.refresh();
-    this.router.navigate(['/journals/today']);
+    this.router.navigateByUrl('/pages/today');
   }
 
   exportPage(): void {

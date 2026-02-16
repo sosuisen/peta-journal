@@ -1,7 +1,5 @@
-import { Component, inject, signal, computed, OnInit, OnDestroy } from '@angular/core';
+import { Component, inject, input, signal, computed, effect } from '@angular/core';
 import { Title } from '@angular/platform-browser';
-import { ActivatedRoute, Router } from '@angular/router';
-import { Subscription } from 'rxjs';
 import { OutlineComponent } from '../outline/outline';
 import { ApiService } from '../../core/services/api.service';
 import { Page } from '../../core/models/page.model';
@@ -80,16 +78,14 @@ import { ExtensionFunctionService } from '../../core/services/extension-function
     }
   `]
 })
-export class JournalComponent implements OnInit, OnDestroy {
-  private readonly route = inject(ActivatedRoute);
-  private readonly router = inject(Router);
+export class JournalComponent {
+  readonly pageName = input.required<string>();
   private readonly api = inject(ApiService);
   private readonly title = inject(Title);
   private readonly outlineState = inject(OutlineStateService);
   private readonly recentPages = inject(RecentPagesService);
   private readonly nav = inject(NavigationService);
   private readonly extensionFunctions = inject(ExtensionFunctionService);
-  private routeSub?: Subscription;
   private loadedDates = new Set<string>();
   private loading = false;
 
@@ -105,9 +101,9 @@ export class JournalComponent implements OnInit, OnDestroy {
     return formatJournalDate(d);
   });
 
-  ngOnInit(): void {
-    this.routeSub = this.route.paramMap.subscribe(params => {
-      let date = params.get('date');
+  constructor() {
+    effect(() => {
+      let date = this.pageName();
       if (!date || date === 'today') {
         date = formatDateToIso(new Date());
       }
@@ -115,10 +111,6 @@ export class JournalComponent implements OnInit, OnDestroy {
       this.journalType.set(classifyJournalFileName(date));
       this.loadJournal(date);
     });
-  }
-
-  ngOnDestroy(): void {
-    this.routeSub?.unsubscribe();
   }
 
   private async loadJournal(date: string): Promise<void> {
@@ -229,13 +221,13 @@ export class JournalComponent implements OnInit, OnDestroy {
   goToPrevDay(): void {
     const d = new Date(this.currentDate() + 'T00:00:00');
     d.setDate(d.getDate() - 1);
-    this.router.navigate(['/journals', formatDateToIso(d)]);
+    this.nav.navigateToPage(formatDateToIso(d));
   }
 
   goToNextDay(): void {
     const d = new Date(this.currentDate() + 'T00:00:00');
     d.setDate(d.getDate() + 1);
-    this.router.navigate(['/journals', formatDateToIso(d)]);
+    this.nav.navigateToPage(formatDateToIso(d));
   }
 
   goToWeek(event: { year: number; week: number; ctrlKey: boolean }): void {
@@ -257,7 +249,7 @@ export class JournalComponent implements OnInit, OnDestroy {
 
   onDateSelected(date: string): void {
     this.showCalendar.set(false);
-    this.router.navigate(['/journals', date]);
+    this.nav.navigateToPage(date);
   }
 
   onTopBlockChanged(fileName: string): void {

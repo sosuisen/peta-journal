@@ -1,8 +1,6 @@
 import { Component, ElementRef, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
-
-import { RecentPagesService } from '../../core/services/recent-pages.service';
 import { NavigationService } from '../../core/services/navigation.service';
 import { SearchResult } from '../../core/models/search.model';
 import { generateUntitledTitle } from '../../core/utils/title.utils';
@@ -90,7 +88,6 @@ import { validateFileName } from '../../core/utils/filename-validation.utils';
 export class SearchBarComponent {
   private readonly api = inject(ApiService);
   private readonly nav = inject(NavigationService);
-  private readonly recentPages = inject(RecentPagesService);
   private readonly searchInput = viewChild<ElementRef<HTMLInputElement>>('searchInput');
 
   /** Exposed so parent can read the current query */
@@ -138,22 +135,20 @@ export class SearchBarComponent {
       title = generateUntitledTitle();
     }
 
-    this.showDropdown.set(false);
-    this.query.set('');
-    this.results.set([]);
-    if (classifyJournalFileName(title) !== 'none') {
-      this.nav.navigateToPage(title);
-    } else {
-      // Extract file_name from path (e.g. "cat/01.md" → "01")
+    // Validate non-journal file names
+    if (classifyJournalFileName(title) === 'none') {
       const stripped = title.replace(/\.md$/, '');
       const lastSlash = stripped.lastIndexOf('/');
       const fileName = lastSlash >= 0 ? stripped.substring(lastSlash + 1) : stripped;
       const error = validateFileName(fileName);
       if (error) { alert(error); return; }
-      const result = await this.api.getDocByName(title);
-      this.recentPages.refresh();
-      this.nav.navigateToPage(result.page.dirPath + result.page.fileName);
     }
+
+    this.showDropdown.set(false);
+    this.query.set('');
+    this.results.set([]);
+    this.showCreateButton.set(false);
+    this.nav.navigateToPage(title);
   }
 
   onKeydown(event: KeyboardEvent): void {

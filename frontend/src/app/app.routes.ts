@@ -6,14 +6,16 @@ export const routes: Routes = [
     path: '',
     component: MainLayoutComponent,
     children: [
-      { path: '', redirectTo: 'journals/today', pathMatch: 'full' },
+      { path: '', redirectTo: 'pages/today', pathMatch: 'full' },
       {
-        path: 'journals/:date',
-        loadComponent: () => import('./features/journal/journal').then(m => m.JournalComponent),
+        path: 'pages/**',
+        loadComponent: () => import('./features/journal/page-dispatcher').then(m => m.PageDispatcherComponent),
       },
+      // Backward compat redirects
+      { path: 'journals/:date', redirectTo: 'pages/:date' },
       {
         path: 'docs/**',
-        loadComponent: () => import('./features/journal/page').then(m => m.PageComponent),
+        loadComponent: () => import('./features/journal/page-dispatcher').then(m => m.PageDispatcherComponent),
       },
     ]
   }

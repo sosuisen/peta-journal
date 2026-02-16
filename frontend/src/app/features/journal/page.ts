@@ -1,7 +1,5 @@
-import { Component, inject, signal, OnInit, OnDestroy } from '@angular/core';
+import { Component, inject, input, signal, effect } from '@angular/core';
 import { Title } from '@angular/platform-browser';
-import { ActivatedRoute } from '@angular/router';
-import { Subscription } from 'rxjs';
 import { OutlineComponent } from '../outline/outline';
 import { ApiService } from '../../core/services/api.service';
 import { Page } from '../../core/models/page.model';
@@ -87,13 +85,12 @@ import { ExtensionFunctionService } from '../../core/services/extension-function
     }
   `]
 })
-export class PageComponent implements OnInit, OnDestroy {
-  private readonly route = inject(ActivatedRoute);
+export class PageComponent {
+  readonly pageName = input.required<string>();
   private readonly api = inject(ApiService);
   private readonly title = inject(Title);
   private readonly recentPages = inject(RecentPagesService);
   private readonly extensionFunctions = inject(ExtensionFunctionService);
-  private routeSub?: Subscription;
 
   readonly page = signal<Page | null>(null);
   private originalTitle = '';
@@ -108,17 +105,11 @@ export class PageComponent implements OnInit, OnDestroy {
     return p.fileName;
   }
 
-  ngOnInit(): void {
-    this.routeSub = this.route.url.subscribe(segments => {
-      // Strip leading "docs" segment, join rest: ["docs", "cat", "mypage"] → "cat/mypage"
-      const parts = segments.map(s => s.path).filter(s => s !== 'docs');
-      const fullPath = parts.join('/');
-      if (fullPath) this.loadPage(fullPath);
+  constructor() {
+    effect(() => {
+      const name = this.pageName();
+      if (name) this.loadPage(name);
     });
-  }
-
-  ngOnDestroy(): void {
-    this.routeSub?.unsubscribe();
   }
 
   dirPathWithoutSlash(): string {
@@ -207,6 +198,7 @@ export class PageComponent implements OnInit, OnDestroy {
       const result = await this.api.getDocByName(fileName);
       this.page.set(result.page);
       if (result.created) {
+        this.recentPages.refresh();
         this.extensionFunctions.emitPageCreate({
           pageId: result.page.id,
           fileName: result.page.fileName,
