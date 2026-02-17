@@ -102,11 +102,19 @@ public class SqlitePageRepository implements PageRepository {
     }
 
     @Override
-    public List<Page> findRecent(int maxResults) {
+    public List<Page> findRecent(int maxResults, String type) {
+        String sql = "SELECT id, dir_path, file_name, type, created_date, modified_date, properties_json FROM pages";
+        if (type != null) {
+            sql += " WHERE type = ?";
+        }
+        sql += " ORDER BY modified_date DESC LIMIT ?";
         try (Connection conn = connectionProvider.getConnection();
-             PreparedStatement ps = conn.prepareStatement(
-                     "SELECT id, dir_path, file_name, type, created_date, modified_date, properties_json FROM pages ORDER BY modified_date DESC LIMIT ?")) {
-            ps.setInt(1, maxResults > 0 ? maxResults : 20);
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            int paramIndex = 1;
+            if (type != null) {
+                ps.setString(paramIndex++, type);
+            }
+            ps.setInt(paramIndex, maxResults > 0 ? maxResults : 10);
             return mapPages(conn, ps);
         } catch (SQLException e) {
             throw new RuntimeException("Failed to find recent pages", e);

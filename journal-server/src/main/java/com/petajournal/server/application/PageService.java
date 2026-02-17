@@ -138,8 +138,8 @@ public class PageService {
         pageRepository.delete(pageId);
     }
 
-    public List<Page> getRecentPages(int maxResults) {
-        return pageRepository.findRecent(maxResults);
+    public List<Page> getRecentPages(int maxResults, String type) {
+        return pageRepository.findRecent(maxResults, type);
     }
 
     public List<BacklinkEntry> getBacklinks(UUID pageId) {

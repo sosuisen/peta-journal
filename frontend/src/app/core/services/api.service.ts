@@ -145,8 +145,8 @@ export class ApiService {
     };
   }
 
-  async getRecentPages(maxResults = 20): Promise<GetRecentPagesResult> {
-    const resp: any = await this.proto.send({ getRecentPages: { maxResults } });
+  async getRecentPages(maxResults = 10, type?: string): Promise<GetRecentPagesResult> {
+    const resp: any = await this.proto.send({ getRecentPages: { maxResults, type: type ?? '' } });
     return { pages: (resp.getRecentPages.pages ?? []).map(toPage) };
   }
 

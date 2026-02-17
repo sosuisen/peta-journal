@@ -288,8 +288,9 @@ public class JournalWebSocket {
     }
 
     private GetRecentPagesResponse handleGetRecentPages(GetRecentPagesRequest req) {
-        int max = req.getMaxResults() > 0 ? req.getMaxResults() : 20;
-        var pages = pageService.getRecentPages(max);
+        int max = req.getMaxResults() > 0 ? req.getMaxResults() : 10;
+        String type = req.getType().isEmpty() ? null : req.getType();
+        var pages = pageService.getRecentPages(max, type);
         return GetRecentPagesResponse.newBuilder()
                 .addAllPages(pages.stream().map(ProtoConverter::toProto).toList())
                 .build();

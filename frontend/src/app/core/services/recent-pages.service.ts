@@ -32,8 +32,8 @@ export class RecentPagesService {
 
   async refresh(): Promise<void> {
     try {
-      const result = await this.api.getRecentPages(20);
-      this._recentPages.set(result.pages.filter(p => p.type !== 'journal').slice(0, 10));
+      const result = await this.api.getRecentPages(10, 'doc');
+      this._recentPages.set(result.pages);
     } catch {
       // WebSocket may not be ready yet
     }

@@ -3476,6 +3476,9 @@ export namespace petajournal {
 
         /** GetRecentPagesRequest maxResults */
         maxResults?: (number|null);
+
+        /** GetRecentPagesRequest type */
+        type?: (string|null);
     }
 
     /** Represents a GetRecentPagesRequest. */
@@ -3489,6 +3492,9 @@ export namespace petajournal {
 
         /** GetRecentPagesRequest maxResults. */
         public maxResults: number;
+
+        /** GetRecentPagesRequest type. */
+        public type: string;
 
         /**
          * Creates a new GetRecentPagesRequest instance using the specified properties.

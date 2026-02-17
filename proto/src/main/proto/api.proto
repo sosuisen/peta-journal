@@ -186,7 +186,8 @@ message SearchFullTextResponse {
 // --- Navigation operations ---
 
 message GetRecentPagesRequest {
-  int32 max_results = 1;           // Default 20
+  int32 max_results = 1;           // Default 10
+  string type = 2;                 // Optional: "doc", "journal". Empty = all types
 }
 
 message GetRecentPagesResponse {

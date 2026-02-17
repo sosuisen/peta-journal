@@ -15,7 +15,7 @@ public interface PageRepository {
 
     Optional<Page> findMostRecentJournalBefore(LocalDate beforeDate);
 
-    List<Page> findRecent(int maxResults);
+    List<Page> findRecent(int maxResults, String type);
 
     List<Page> findAll();
 

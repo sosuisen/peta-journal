@@ -9181,6 +9181,7 @@ export const petajournal = $root.petajournal = (() => {
          * @memberof petajournal
          * @interface IGetRecentPagesRequest
          * @property {number|null} [maxResults] GetRecentPagesRequest maxResults
+         * @property {string|null} [type] GetRecentPagesRequest type
          */
 
         /**
@@ -9205,6 +9206,14 @@ export const petajournal = $root.petajournal = (() => {
          * @instance
          */
         GetRecentPagesRequest.prototype.maxResults = 0;
+
+        /**
+         * GetRecentPagesRequest type.
+         * @member {string} type
+         * @memberof petajournal.GetRecentPagesRequest
+         * @instance
+         */
+        GetRecentPagesRequest.prototype.type = "";
 
         /**
          * Creates a new GetRecentPagesRequest instance using the specified properties.
@@ -9232,6 +9241,8 @@ export const petajournal = $root.petajournal = (() => {
                 writer = $Writer.create();
             if (message.maxResults != null && Object.hasOwnProperty.call(message, "maxResults"))
                 writer.uint32(/* id 1, wireType 0 =*/8).int32(message.maxResults);
+            if (message.type != null && Object.hasOwnProperty.call(message, "type"))
+                writer.uint32(/* id 2, wireType 2 =*/18).string(message.type);
             return writer;
         };
 
@@ -9272,6 +9283,10 @@ export const petajournal = $root.petajournal = (() => {
                         message.maxResults = reader.int32();
                         break;
                     }
+                case 2: {
+                        message.type = reader.string();
+                        break;
+                    }
                 default:
                     reader.skipType(tag & 7);
                     break;
@@ -9310,6 +9325,9 @@ export const petajournal = $root.petajournal = (() => {
             if (message.maxResults != null && message.hasOwnProperty("maxResults"))
                 if (!$util.isInteger(message.maxResults))
                     return "maxResults: integer expected";
+            if (message.type != null && message.hasOwnProperty("type"))
+                if (!$util.isString(message.type))
+                    return "type: string expected";
             return null;
         };
 
@@ -9327,6 +9345,8 @@ export const petajournal = $root.petajournal = (() => {
             let message = new $root.petajournal.GetRecentPagesRequest();
             if (object.maxResults != null)
                 message.maxResults = object.maxResults | 0;
+            if (object.type != null)
+                message.type = String(object.type);
             return message;
         };
 
@@ -9343,10 +9363,14 @@ export const petajournal = $root.petajournal = (() => {
             if (!options)
                 options = {};
             let object = {};
-            if (options.defaults)
+            if (options.defaults) {
                 object.maxResults = 0;
+                object.type = "";
+            }
             if (message.maxResults != null && message.hasOwnProperty("maxResults"))
                 object.maxResults = message.maxResults;
+            if (message.type != null && message.hasOwnProperty("type"))
+                object.type = message.type;
             return object;
         };
 
