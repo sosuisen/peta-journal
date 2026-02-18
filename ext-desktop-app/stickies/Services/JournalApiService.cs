@@ -176,14 +176,14 @@ public class JournalApiService : IDisposable
         return response.Success ? response.SearchPageNames : null;
     }
 
-    public async Task<GetPageResponse?> GetPageAsync(string pageId)
+    public async Task<GetPageByIdResponse?> GetPageByIdAsync(string pageId)
     {
         var request = new ApiRequest
         {
-            GetPage = new GetPageRequest { PageId = pageId }
+            GetPageById = new GetPageByIdRequest { PageId = pageId }
         };
         var response = await SendAsync(request);
-        return response.Success ? response.GetPage : null;
+        return response.Success ? response.GetPageById : null;
     }
 
     public void Dispose()

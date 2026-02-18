@@ -1106,8 +1106,8 @@ export const petajournal = $root.petajournal = (() => {
          * @memberof petajournal
          * @interface IApiRequest
          * @property {string|null} [requestId] ApiRequest requestId
-         * @property {petajournal.IGetPageRequest|null} [getPage] ApiRequest getPage
-         * @property {petajournal.IGetDocByNameRequest|null} [getDocByName] ApiRequest getDocByName
+         * @property {petajournal.IGetPageByIdRequest|null} [getPageById] ApiRequest getPageById
+         * @property {petajournal.IGetOrCreateDocRequest|null} [getOrCreateDoc] ApiRequest getOrCreateDoc
          * @property {petajournal.IDeletePageRequest|null} [deletePage] ApiRequest deletePage
          * @property {petajournal.IUpdatePageRequest|null} [updatePage] ApiRequest updatePage
          * @property {petajournal.ICreateBlockRequest|null} [createBlock] ApiRequest createBlock
@@ -1123,7 +1123,7 @@ export const petajournal = $root.petajournal = (() => {
          * @property {petajournal.IGetBlocksByStatusRequest|null} [getBlocksByStatus] ApiRequest getBlocksByStatus
          * @property {petajournal.IGetConfigRequest|null} [getConfig] ApiRequest getConfig
          * @property {petajournal.IUpdateConfigRequest|null} [updateConfig] ApiRequest updateConfig
-         * @property {petajournal.IGetJournalByNameRequest|null} [getJournalByName] ApiRequest getJournalByName
+         * @property {petajournal.IGetOrCreateJournalRequest|null} [getOrCreateJournal] ApiRequest getOrCreateJournal
          * @property {petajournal.IExportTreeMarkdownRequest|null} [exportTreeMarkdown] ApiRequest exportTreeMarkdown
          * @property {petajournal.IImportTreeMarkdownRequest|null} [importTreeMarkdown] ApiRequest importTreeMarkdown
          */
@@ -1152,20 +1152,20 @@ export const petajournal = $root.petajournal = (() => {
         ApiRequest.prototype.requestId = "";
 
         /**
-         * ApiRequest getPage.
-         * @member {petajournal.IGetPageRequest|null|undefined} getPage
+         * ApiRequest getPageById.
+         * @member {petajournal.IGetPageByIdRequest|null|undefined} getPageById
          * @memberof petajournal.ApiRequest
          * @instance
          */
-        ApiRequest.prototype.getPage = null;
+        ApiRequest.prototype.getPageById = null;
 
         /**
-         * ApiRequest getDocByName.
-         * @member {petajournal.IGetDocByNameRequest|null|undefined} getDocByName
+         * ApiRequest getOrCreateDoc.
+         * @member {petajournal.IGetOrCreateDocRequest|null|undefined} getOrCreateDoc
          * @memberof petajournal.ApiRequest
          * @instance
          */
-        ApiRequest.prototype.getDocByName = null;
+        ApiRequest.prototype.getOrCreateDoc = null;
 
         /**
          * ApiRequest deletePage.
@@ -1288,12 +1288,12 @@ export const petajournal = $root.petajournal = (() => {
         ApiRequest.prototype.updateConfig = null;
 
         /**
-         * ApiRequest getJournalByName.
-         * @member {petajournal.IGetJournalByNameRequest|null|undefined} getJournalByName
+         * ApiRequest getOrCreateJournal.
+         * @member {petajournal.IGetOrCreateJournalRequest|null|undefined} getOrCreateJournal
          * @memberof petajournal.ApiRequest
          * @instance
          */
-        ApiRequest.prototype.getJournalByName = null;
+        ApiRequest.prototype.getOrCreateJournal = null;
 
         /**
          * ApiRequest exportTreeMarkdown.
@@ -1316,12 +1316,12 @@ export const petajournal = $root.petajournal = (() => {
 
         /**
          * ApiRequest payload.
-         * @member {"getPage"|"getDocByName"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"getJournalByName"|"exportTreeMarkdown"|"importTreeMarkdown"|undefined} payload
+         * @member {"getPageById"|"getOrCreateDoc"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"getOrCreateJournal"|"exportTreeMarkdown"|"importTreeMarkdown"|undefined} payload
          * @memberof petajournal.ApiRequest
          * @instance
          */
         Object.defineProperty(ApiRequest.prototype, "payload", {
-            get: $util.oneOfGetter($oneOfFields = ["getPage", "getDocByName", "deletePage", "updatePage", "createBlock", "updateBlock", "moveBlocks", "deleteBlock", "updateBlockStatus", "searchPageNames", "searchFullText", "getRecentPages", "getBacklinks", "getMostRecentJournalBefore", "getBlocksByStatus", "getConfig", "updateConfig", "getJournalByName", "exportTreeMarkdown", "importTreeMarkdown"]),
+            get: $util.oneOfGetter($oneOfFields = ["getPageById", "getOrCreateDoc", "deletePage", "updatePage", "createBlock", "updateBlock", "moveBlocks", "deleteBlock", "updateBlockStatus", "searchPageNames", "searchFullText", "getRecentPages", "getBacklinks", "getMostRecentJournalBefore", "getBlocksByStatus", "getConfig", "updateConfig", "getOrCreateJournal", "exportTreeMarkdown", "importTreeMarkdown"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
@@ -1351,10 +1351,10 @@ export const petajournal = $root.petajournal = (() => {
                 writer = $Writer.create();
             if (message.requestId != null && Object.hasOwnProperty.call(message, "requestId"))
                 writer.uint32(/* id 1, wireType 2 =*/10).string(message.requestId);
-            if (message.getPage != null && Object.hasOwnProperty.call(message, "getPage"))
-                $root.petajournal.GetPageRequest.encode(message.getPage, writer.uint32(/* id 10, wireType 2 =*/82).fork()).ldelim();
-            if (message.getDocByName != null && Object.hasOwnProperty.call(message, "getDocByName"))
-                $root.petajournal.GetDocByNameRequest.encode(message.getDocByName, writer.uint32(/* id 12, wireType 2 =*/98).fork()).ldelim();
+            if (message.getPageById != null && Object.hasOwnProperty.call(message, "getPageById"))
+                $root.petajournal.GetPageByIdRequest.encode(message.getPageById, writer.uint32(/* id 10, wireType 2 =*/82).fork()).ldelim();
+            if (message.getOrCreateDoc != null && Object.hasOwnProperty.call(message, "getOrCreateDoc"))
+                $root.petajournal.GetOrCreateDocRequest.encode(message.getOrCreateDoc, writer.uint32(/* id 12, wireType 2 =*/98).fork()).ldelim();
             if (message.deletePage != null && Object.hasOwnProperty.call(message, "deletePage"))
                 $root.petajournal.DeletePageRequest.encode(message.deletePage, writer.uint32(/* id 13, wireType 2 =*/106).fork()).ldelim();
             if (message.updatePage != null && Object.hasOwnProperty.call(message, "updatePage"))
@@ -1379,8 +1379,8 @@ export const petajournal = $root.petajournal = (() => {
                 $root.petajournal.GetBacklinksRequest.encode(message.getBacklinks, writer.uint32(/* id 41, wireType 2 =*/330).fork()).ldelim();
             if (message.getMostRecentJournalBefore != null && Object.hasOwnProperty.call(message, "getMostRecentJournalBefore"))
                 $root.petajournal.GetMostRecentJournalBeforeRequest.encode(message.getMostRecentJournalBefore, writer.uint32(/* id 42, wireType 2 =*/338).fork()).ldelim();
-            if (message.getJournalByName != null && Object.hasOwnProperty.call(message, "getJournalByName"))
-                $root.petajournal.GetJournalByNameRequest.encode(message.getJournalByName, writer.uint32(/* id 44, wireType 2 =*/354).fork()).ldelim();
+            if (message.getOrCreateJournal != null && Object.hasOwnProperty.call(message, "getOrCreateJournal"))
+                $root.petajournal.GetOrCreateJournalRequest.encode(message.getOrCreateJournal, writer.uint32(/* id 44, wireType 2 =*/354).fork()).ldelim();
             if (message.getBlocksByStatus != null && Object.hasOwnProperty.call(message, "getBlocksByStatus"))
                 $root.petajournal.GetBlocksByStatusRequest.encode(message.getBlocksByStatus, writer.uint32(/* id 50, wireType 2 =*/402).fork()).ldelim();
             if (message.getConfig != null && Object.hasOwnProperty.call(message, "getConfig"))
@@ -1419,11 +1419,11 @@ export const petajournal = $root.petajournal = (() => {
                         break;
                     }
                 case 10: {
-                        message.getPage = $root.petajournal.GetPageRequest.decode(reader, reader.uint32());
+                        message.getPageById = $root.petajournal.GetPageByIdRequest.decode(reader, reader.uint32());
                         break;
                     }
                 case 12: {
-                        message.getDocByName = $root.petajournal.GetDocByNameRequest.decode(reader, reader.uint32());
+                        message.getOrCreateDoc = $root.petajournal.GetOrCreateDocRequest.decode(reader, reader.uint32());
                         break;
                     }
                 case 13: {
@@ -1487,7 +1487,7 @@ export const petajournal = $root.petajournal = (() => {
                         break;
                     }
                 case 44: {
-                        message.getJournalByName = $root.petajournal.GetJournalByNameRequest.decode(reader, reader.uint32());
+                        message.getOrCreateJournal = $root.petajournal.GetOrCreateJournalRequest.decode(reader, reader.uint32());
                         break;
                     }
                 case 70: {
@@ -1533,8 +1533,8 @@ export const petajournal = $root.petajournal = (() => {
          * @property {string|null} [requestId] ApiResponse requestId
          * @property {boolean|null} [success] ApiResponse success
          * @property {string|null} [errorMessage] ApiResponse errorMessage
-         * @property {petajournal.IGetPageResponse|null} [getPage] ApiResponse getPage
-         * @property {petajournal.IGetDocByNameResponse|null} [getDocByName] ApiResponse getDocByName
+         * @property {petajournal.IGetPageByIdResponse|null} [getPageById] ApiResponse getPageById
+         * @property {petajournal.IGetOrCreateDocResponse|null} [getOrCreateDoc] ApiResponse getOrCreateDoc
          * @property {petajournal.IDeletePageResponse|null} [deletePage] ApiResponse deletePage
          * @property {petajournal.IUpdatePageResponse|null} [updatePage] ApiResponse updatePage
          * @property {petajournal.ICreateBlockResponse|null} [createBlock] ApiResponse createBlock
@@ -1547,7 +1547,7 @@ export const petajournal = $root.petajournal = (() => {
          * @property {petajournal.IGetRecentPagesResponse|null} [getRecentPages] ApiResponse getRecentPages
          * @property {petajournal.IGetBacklinksResponse|null} [getBacklinks] ApiResponse getBacklinks
          * @property {petajournal.IGetMostRecentJournalBeforeResponse|null} [getMostRecentJournalBefore] ApiResponse getMostRecentJournalBefore
-         * @property {petajournal.IGetJournalByNameResponse|null} [getJournalByName] ApiResponse getJournalByName
+         * @property {petajournal.IGetOrCreateJournalResponse|null} [getOrCreateJournal] ApiResponse getOrCreateJournal
          * @property {petajournal.IGetBlocksByStatusResponse|null} [getBlocksByStatus] ApiResponse getBlocksByStatus
          * @property {petajournal.IGetConfigResponse|null} [getConfig] ApiResponse getConfig
          * @property {petajournal.IUpdateConfigResponse|null} [updateConfig] ApiResponse updateConfig
@@ -1596,20 +1596,20 @@ export const petajournal = $root.petajournal = (() => {
         ApiResponse.prototype.errorMessage = "";
 
         /**
-         * ApiResponse getPage.
-         * @member {petajournal.IGetPageResponse|null|undefined} getPage
+         * ApiResponse getPageById.
+         * @member {petajournal.IGetPageByIdResponse|null|undefined} getPageById
          * @memberof petajournal.ApiResponse
          * @instance
          */
-        ApiResponse.prototype.getPage = null;
+        ApiResponse.prototype.getPageById = null;
 
         /**
-         * ApiResponse getDocByName.
-         * @member {petajournal.IGetDocByNameResponse|null|undefined} getDocByName
+         * ApiResponse getOrCreateDoc.
+         * @member {petajournal.IGetOrCreateDocResponse|null|undefined} getOrCreateDoc
          * @memberof petajournal.ApiResponse
          * @instance
          */
-        ApiResponse.prototype.getDocByName = null;
+        ApiResponse.prototype.getOrCreateDoc = null;
 
         /**
          * ApiResponse deletePage.
@@ -1708,12 +1708,12 @@ export const petajournal = $root.petajournal = (() => {
         ApiResponse.prototype.getMostRecentJournalBefore = null;
 
         /**
-         * ApiResponse getJournalByName.
-         * @member {petajournal.IGetJournalByNameResponse|null|undefined} getJournalByName
+         * ApiResponse getOrCreateJournal.
+         * @member {petajournal.IGetOrCreateJournalResponse|null|undefined} getOrCreateJournal
          * @memberof petajournal.ApiResponse
          * @instance
          */
-        ApiResponse.prototype.getJournalByName = null;
+        ApiResponse.prototype.getOrCreateJournal = null;
 
         /**
          * ApiResponse getBlocksByStatus.
@@ -1768,12 +1768,12 @@ export const petajournal = $root.petajournal = (() => {
 
         /**
          * ApiResponse payload.
-         * @member {"getPage"|"getDocByName"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getJournalByName"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"exportTreeMarkdown"|"importTreeMarkdown"|"serverEvent"|undefined} payload
+         * @member {"getPageById"|"getOrCreateDoc"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getOrCreateJournal"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"exportTreeMarkdown"|"importTreeMarkdown"|"serverEvent"|undefined} payload
          * @memberof petajournal.ApiResponse
          * @instance
          */
         Object.defineProperty(ApiResponse.prototype, "payload", {
-            get: $util.oneOfGetter($oneOfFields = ["getPage", "getDocByName", "deletePage", "updatePage", "createBlock", "updateBlock", "moveBlocks", "deleteBlock", "updateBlockStatus", "searchPageNames", "searchFullText", "getRecentPages", "getBacklinks", "getMostRecentJournalBefore", "getJournalByName", "getBlocksByStatus", "getConfig", "updateConfig", "exportTreeMarkdown", "importTreeMarkdown", "serverEvent"]),
+            get: $util.oneOfGetter($oneOfFields = ["getPageById", "getOrCreateDoc", "deletePage", "updatePage", "createBlock", "updateBlock", "moveBlocks", "deleteBlock", "updateBlockStatus", "searchPageNames", "searchFullText", "getRecentPages", "getBacklinks", "getMostRecentJournalBefore", "getOrCreateJournal", "getBlocksByStatus", "getConfig", "updateConfig", "exportTreeMarkdown", "importTreeMarkdown", "serverEvent"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
@@ -1807,10 +1807,10 @@ export const petajournal = $root.petajournal = (() => {
                 writer.uint32(/* id 2, wireType 0 =*/16).bool(message.success);
             if (message.errorMessage != null && Object.hasOwnProperty.call(message, "errorMessage"))
                 writer.uint32(/* id 3, wireType 2 =*/26).string(message.errorMessage);
-            if (message.getPage != null && Object.hasOwnProperty.call(message, "getPage"))
-                $root.petajournal.GetPageResponse.encode(message.getPage, writer.uint32(/* id 10, wireType 2 =*/82).fork()).ldelim();
-            if (message.getDocByName != null && Object.hasOwnProperty.call(message, "getDocByName"))
-                $root.petajournal.GetDocByNameResponse.encode(message.getDocByName, writer.uint32(/* id 12, wireType 2 =*/98).fork()).ldelim();
+            if (message.getPageById != null && Object.hasOwnProperty.call(message, "getPageById"))
+                $root.petajournal.GetPageByIdResponse.encode(message.getPageById, writer.uint32(/* id 10, wireType 2 =*/82).fork()).ldelim();
+            if (message.getOrCreateDoc != null && Object.hasOwnProperty.call(message, "getOrCreateDoc"))
+                $root.petajournal.GetOrCreateDocResponse.encode(message.getOrCreateDoc, writer.uint32(/* id 12, wireType 2 =*/98).fork()).ldelim();
             if (message.deletePage != null && Object.hasOwnProperty.call(message, "deletePage"))
                 $root.petajournal.DeletePageResponse.encode(message.deletePage, writer.uint32(/* id 13, wireType 2 =*/106).fork()).ldelim();
             if (message.updatePage != null && Object.hasOwnProperty.call(message, "updatePage"))
@@ -1835,8 +1835,8 @@ export const petajournal = $root.petajournal = (() => {
                 $root.petajournal.GetBacklinksResponse.encode(message.getBacklinks, writer.uint32(/* id 41, wireType 2 =*/330).fork()).ldelim();
             if (message.getMostRecentJournalBefore != null && Object.hasOwnProperty.call(message, "getMostRecentJournalBefore"))
                 $root.petajournal.GetMostRecentJournalBeforeResponse.encode(message.getMostRecentJournalBefore, writer.uint32(/* id 42, wireType 2 =*/338).fork()).ldelim();
-            if (message.getJournalByName != null && Object.hasOwnProperty.call(message, "getJournalByName"))
-                $root.petajournal.GetJournalByNameResponse.encode(message.getJournalByName, writer.uint32(/* id 44, wireType 2 =*/354).fork()).ldelim();
+            if (message.getOrCreateJournal != null && Object.hasOwnProperty.call(message, "getOrCreateJournal"))
+                $root.petajournal.GetOrCreateJournalResponse.encode(message.getOrCreateJournal, writer.uint32(/* id 44, wireType 2 =*/354).fork()).ldelim();
             if (message.getBlocksByStatus != null && Object.hasOwnProperty.call(message, "getBlocksByStatus"))
                 $root.petajournal.GetBlocksByStatusResponse.encode(message.getBlocksByStatus, writer.uint32(/* id 50, wireType 2 =*/402).fork()).ldelim();
             if (message.getConfig != null && Object.hasOwnProperty.call(message, "getConfig"))
@@ -1885,11 +1885,11 @@ export const petajournal = $root.petajournal = (() => {
                         break;
                     }
                 case 10: {
-                        message.getPage = $root.petajournal.GetPageResponse.decode(reader, reader.uint32());
+                        message.getPageById = $root.petajournal.GetPageByIdResponse.decode(reader, reader.uint32());
                         break;
                     }
                 case 12: {
-                        message.getDocByName = $root.petajournal.GetDocByNameResponse.decode(reader, reader.uint32());
+                        message.getOrCreateDoc = $root.petajournal.GetOrCreateDocResponse.decode(reader, reader.uint32());
                         break;
                     }
                 case 13: {
@@ -1941,7 +1941,7 @@ export const petajournal = $root.petajournal = (() => {
                         break;
                     }
                 case 44: {
-                        message.getJournalByName = $root.petajournal.GetJournalByNameResponse.decode(reader, reader.uint32());
+                        message.getOrCreateJournal = $root.petajournal.GetOrCreateJournalResponse.decode(reader, reader.uint32());
                         break;
                     }
                 case 50: {
@@ -1994,24 +1994,24 @@ export const petajournal = $root.petajournal = (() => {
         return ApiResponse;
     })();
 
-    petajournal.GetPageRequest = (function() {
+    petajournal.GetPageByIdRequest = (function() {
 
         /**
-         * Properties of a GetPageRequest.
+         * Properties of a GetPageByIdRequest.
          * @memberof petajournal
-         * @interface IGetPageRequest
-         * @property {string|null} [pageId] GetPageRequest pageId
+         * @interface IGetPageByIdRequest
+         * @property {string|null} [pageId] GetPageByIdRequest pageId
          */
 
         /**
-         * Constructs a new GetPageRequest.
+         * Constructs a new GetPageByIdRequest.
          * @memberof petajournal
-         * @classdesc Represents a GetPageRequest.
-         * @implements IGetPageRequest
+         * @classdesc Represents a GetPageByIdRequest.
+         * @implements IGetPageByIdRequest
          * @constructor
-         * @param {petajournal.IGetPageRequest=} [properties] Properties to set
+         * @param {petajournal.IGetPageByIdRequest=} [properties] Properties to set
          */
-        function GetPageRequest(properties) {
+        function GetPageByIdRequest(properties) {
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
                     if (properties[keys[i]] != null)
@@ -2019,35 +2019,35 @@ export const petajournal = $root.petajournal = (() => {
         }
 
         /**
-         * GetPageRequest pageId.
+         * GetPageByIdRequest pageId.
          * @member {string} pageId
-         * @memberof petajournal.GetPageRequest
+         * @memberof petajournal.GetPageByIdRequest
          * @instance
          */
-        GetPageRequest.prototype.pageId = "";
+        GetPageByIdRequest.prototype.pageId = "";
 
         /**
-         * Creates a new GetPageRequest instance using the specified properties.
+         * Creates a new GetPageByIdRequest instance using the specified properties.
          * @function create
-         * @memberof petajournal.GetPageRequest
+         * @memberof petajournal.GetPageByIdRequest
          * @static
-         * @param {petajournal.IGetPageRequest=} [properties] Properties to set
-         * @returns {petajournal.GetPageRequest} GetPageRequest instance
+         * @param {petajournal.IGetPageByIdRequest=} [properties] Properties to set
+         * @returns {petajournal.GetPageByIdRequest} GetPageByIdRequest instance
          */
-        GetPageRequest.create = function create(properties) {
-            return new GetPageRequest(properties);
+        GetPageByIdRequest.create = function create(properties) {
+            return new GetPageByIdRequest(properties);
         };
 
         /**
-         * Encodes the specified GetPageRequest message. Does not implicitly {@link petajournal.GetPageRequest.verify|verify} messages.
+         * Encodes the specified GetPageByIdRequest message. Does not implicitly {@link petajournal.GetPageByIdRequest.verify|verify} messages.
          * @function encode
-         * @memberof petajournal.GetPageRequest
+         * @memberof petajournal.GetPageByIdRequest
          * @static
-         * @param {petajournal.IGetPageRequest} message GetPageRequest message or plain object to encode
+         * @param {petajournal.IGetPageByIdRequest} message GetPageByIdRequest message or plain object to encode
          * @param {$protobuf.Writer} [writer] Writer to encode to
          * @returns {$protobuf.Writer} Writer
          */
-        GetPageRequest.encode = function encode(message, writer) {
+        GetPageByIdRequest.encode = function encode(message, writer) {
             if (!writer)
                 writer = $Writer.create();
             if (message.pageId != null && Object.hasOwnProperty.call(message, "pageId"))
@@ -2056,20 +2056,20 @@ export const petajournal = $root.petajournal = (() => {
         };
 
         /**
-         * Decodes a GetPageRequest message from the specified reader or buffer.
+         * Decodes a GetPageByIdRequest message from the specified reader or buffer.
          * @function decode
-         * @memberof petajournal.GetPageRequest
+         * @memberof petajournal.GetPageByIdRequest
          * @static
          * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
          * @param {number} [length] Message length if known beforehand
-         * @returns {petajournal.GetPageRequest} GetPageRequest
+         * @returns {petajournal.GetPageByIdRequest} GetPageByIdRequest
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        GetPageRequest.decode = function decode(reader, length, error) {
+        GetPageByIdRequest.decode = function decode(reader, length, error) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.GetPageRequest();
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.GetPageByIdRequest();
             while (reader.pos < end) {
                 let tag = reader.uint32();
                 if (tag === error)
@@ -2088,42 +2088,42 @@ export const petajournal = $root.petajournal = (() => {
         };
 
         /**
-         * Gets the default type url for GetPageRequest
+         * Gets the default type url for GetPageByIdRequest
          * @function getTypeUrl
-         * @memberof petajournal.GetPageRequest
+         * @memberof petajournal.GetPageByIdRequest
          * @static
          * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
          * @returns {string} The default type url
          */
-        GetPageRequest.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+        GetPageByIdRequest.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
             if (typeUrlPrefix === undefined) {
                 typeUrlPrefix = "type.googleapis.com";
             }
-            return typeUrlPrefix + "/petajournal.GetPageRequest";
+            return typeUrlPrefix + "/petajournal.GetPageByIdRequest";
         };
 
-        return GetPageRequest;
+        return GetPageByIdRequest;
     })();
 
-    petajournal.GetPageResponse = (function() {
+    petajournal.GetPageByIdResponse = (function() {
 
         /**
-         * Properties of a GetPageResponse.
+         * Properties of a GetPageByIdResponse.
          * @memberof petajournal
-         * @interface IGetPageResponse
-         * @property {petajournal.IPage|null} [page] GetPageResponse page
-         * @property {Array.<petajournal.IBlock>|null} [blocks] GetPageResponse blocks
+         * @interface IGetPageByIdResponse
+         * @property {petajournal.IPage|null} [page] GetPageByIdResponse page
+         * @property {Array.<petajournal.IBlock>|null} [blocks] GetPageByIdResponse blocks
          */
 
         /**
-         * Constructs a new GetPageResponse.
+         * Constructs a new GetPageByIdResponse.
          * @memberof petajournal
-         * @classdesc Represents a GetPageResponse.
-         * @implements IGetPageResponse
+         * @classdesc Represents a GetPageByIdResponse.
+         * @implements IGetPageByIdResponse
          * @constructor
-         * @param {petajournal.IGetPageResponse=} [properties] Properties to set
+         * @param {petajournal.IGetPageByIdResponse=} [properties] Properties to set
          */
-        function GetPageResponse(properties) {
+        function GetPageByIdResponse(properties) {
             this.blocks = [];
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
@@ -2132,43 +2132,43 @@ export const petajournal = $root.petajournal = (() => {
         }
 
         /**
-         * GetPageResponse page.
+         * GetPageByIdResponse page.
          * @member {petajournal.IPage|null|undefined} page
-         * @memberof petajournal.GetPageResponse
+         * @memberof petajournal.GetPageByIdResponse
          * @instance
          */
-        GetPageResponse.prototype.page = null;
+        GetPageByIdResponse.prototype.page = null;
 
         /**
-         * GetPageResponse blocks.
+         * GetPageByIdResponse blocks.
          * @member {Array.<petajournal.IBlock>} blocks
-         * @memberof petajournal.GetPageResponse
+         * @memberof petajournal.GetPageByIdResponse
          * @instance
          */
-        GetPageResponse.prototype.blocks = $util.emptyArray;
+        GetPageByIdResponse.prototype.blocks = $util.emptyArray;
 
         /**
-         * Creates a new GetPageResponse instance using the specified properties.
+         * Creates a new GetPageByIdResponse instance using the specified properties.
          * @function create
-         * @memberof petajournal.GetPageResponse
+         * @memberof petajournal.GetPageByIdResponse
          * @static
-         * @param {petajournal.IGetPageResponse=} [properties] Properties to set
-         * @returns {petajournal.GetPageResponse} GetPageResponse instance
+         * @param {petajournal.IGetPageByIdResponse=} [properties] Properties to set
+         * @returns {petajournal.GetPageByIdResponse} GetPageByIdResponse instance
          */
-        GetPageResponse.create = function create(properties) {
-            return new GetPageResponse(properties);
+        GetPageByIdResponse.create = function create(properties) {
+            return new GetPageByIdResponse(properties);
         };
 
         /**
-         * Encodes the specified GetPageResponse message. Does not implicitly {@link petajournal.GetPageResponse.verify|verify} messages.
+         * Encodes the specified GetPageByIdResponse message. Does not implicitly {@link petajournal.GetPageByIdResponse.verify|verify} messages.
          * @function encode
-         * @memberof petajournal.GetPageResponse
+         * @memberof petajournal.GetPageByIdResponse
          * @static
-         * @param {petajournal.IGetPageResponse} message GetPageResponse message or plain object to encode
+         * @param {petajournal.IGetPageByIdResponse} message GetPageByIdResponse message or plain object to encode
          * @param {$protobuf.Writer} [writer] Writer to encode to
          * @returns {$protobuf.Writer} Writer
          */
-        GetPageResponse.encode = function encode(message, writer) {
+        GetPageByIdResponse.encode = function encode(message, writer) {
             if (!writer)
                 writer = $Writer.create();
             if (message.page != null && Object.hasOwnProperty.call(message, "page"))
@@ -2180,20 +2180,20 @@ export const petajournal = $root.petajournal = (() => {
         };
 
         /**
-         * Decodes a GetPageResponse message from the specified reader or buffer.
+         * Decodes a GetPageByIdResponse message from the specified reader or buffer.
          * @function decode
-         * @memberof petajournal.GetPageResponse
+         * @memberof petajournal.GetPageByIdResponse
          * @static
          * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
          * @param {number} [length] Message length if known beforehand
-         * @returns {petajournal.GetPageResponse} GetPageResponse
+         * @returns {petajournal.GetPageByIdResponse} GetPageByIdResponse
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        GetPageResponse.decode = function decode(reader, length, error) {
+        GetPageByIdResponse.decode = function decode(reader, length, error) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.GetPageResponse();
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.GetPageByIdResponse();
             while (reader.pos < end) {
                 let tag = reader.uint32();
                 if (tag === error)
@@ -2218,43 +2218,43 @@ export const petajournal = $root.petajournal = (() => {
         };
 
         /**
-         * Gets the default type url for GetPageResponse
+         * Gets the default type url for GetPageByIdResponse
          * @function getTypeUrl
-         * @memberof petajournal.GetPageResponse
+         * @memberof petajournal.GetPageByIdResponse
          * @static
          * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
          * @returns {string} The default type url
          */
-        GetPageResponse.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+        GetPageByIdResponse.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
             if (typeUrlPrefix === undefined) {
                 typeUrlPrefix = "type.googleapis.com";
             }
-            return typeUrlPrefix + "/petajournal.GetPageResponse";
+            return typeUrlPrefix + "/petajournal.GetPageByIdResponse";
         };
 
-        return GetPageResponse;
+        return GetPageByIdResponse;
     })();
 
-    petajournal.GetDocByNameRequest = (function() {
+    petajournal.GetOrCreateDocRequest = (function() {
 
         /**
-         * Properties of a GetDocByNameRequest.
+         * Properties of a GetOrCreateDocRequest.
          * @memberof petajournal
-         * @interface IGetDocByNameRequest
-         * @property {string|null} [title] GetDocByNameRequest title
-         * @property {string|null} [dirPath] GetDocByNameRequest dirPath
-         * @property {Array.<string>|null} [tags] GetDocByNameRequest tags
+         * @interface IGetOrCreateDocRequest
+         * @property {string|null} [title] GetOrCreateDocRequest title
+         * @property {string|null} [dirPath] GetOrCreateDocRequest dirPath
+         * @property {Array.<string>|null} [tags] GetOrCreateDocRequest tags
          */
 
         /**
-         * Constructs a new GetDocByNameRequest.
+         * Constructs a new GetOrCreateDocRequest.
          * @memberof petajournal
-         * @classdesc Represents a GetDocByNameRequest.
-         * @implements IGetDocByNameRequest
+         * @classdesc Represents a GetOrCreateDocRequest.
+         * @implements IGetOrCreateDocRequest
          * @constructor
-         * @param {petajournal.IGetDocByNameRequest=} [properties] Properties to set
+         * @param {petajournal.IGetOrCreateDocRequest=} [properties] Properties to set
          */
-        function GetDocByNameRequest(properties) {
+        function GetOrCreateDocRequest(properties) {
             this.tags = [];
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
@@ -2263,51 +2263,51 @@ export const petajournal = $root.petajournal = (() => {
         }
 
         /**
-         * GetDocByNameRequest title.
+         * GetOrCreateDocRequest title.
          * @member {string} title
-         * @memberof petajournal.GetDocByNameRequest
+         * @memberof petajournal.GetOrCreateDocRequest
          * @instance
          */
-        GetDocByNameRequest.prototype.title = "";
+        GetOrCreateDocRequest.prototype.title = "";
 
         /**
-         * GetDocByNameRequest dirPath.
+         * GetOrCreateDocRequest dirPath.
          * @member {string} dirPath
-         * @memberof petajournal.GetDocByNameRequest
+         * @memberof petajournal.GetOrCreateDocRequest
          * @instance
          */
-        GetDocByNameRequest.prototype.dirPath = "";
+        GetOrCreateDocRequest.prototype.dirPath = "";
 
         /**
-         * GetDocByNameRequest tags.
+         * GetOrCreateDocRequest tags.
          * @member {Array.<string>} tags
-         * @memberof petajournal.GetDocByNameRequest
+         * @memberof petajournal.GetOrCreateDocRequest
          * @instance
          */
-        GetDocByNameRequest.prototype.tags = $util.emptyArray;
+        GetOrCreateDocRequest.prototype.tags = $util.emptyArray;
 
         /**
-         * Creates a new GetDocByNameRequest instance using the specified properties.
+         * Creates a new GetOrCreateDocRequest instance using the specified properties.
          * @function create
-         * @memberof petajournal.GetDocByNameRequest
+         * @memberof petajournal.GetOrCreateDocRequest
          * @static
-         * @param {petajournal.IGetDocByNameRequest=} [properties] Properties to set
-         * @returns {petajournal.GetDocByNameRequest} GetDocByNameRequest instance
+         * @param {petajournal.IGetOrCreateDocRequest=} [properties] Properties to set
+         * @returns {petajournal.GetOrCreateDocRequest} GetOrCreateDocRequest instance
          */
-        GetDocByNameRequest.create = function create(properties) {
-            return new GetDocByNameRequest(properties);
+        GetOrCreateDocRequest.create = function create(properties) {
+            return new GetOrCreateDocRequest(properties);
         };
 
         /**
-         * Encodes the specified GetDocByNameRequest message. Does not implicitly {@link petajournal.GetDocByNameRequest.verify|verify} messages.
+         * Encodes the specified GetOrCreateDocRequest message. Does not implicitly {@link petajournal.GetOrCreateDocRequest.verify|verify} messages.
          * @function encode
-         * @memberof petajournal.GetDocByNameRequest
+         * @memberof petajournal.GetOrCreateDocRequest
          * @static
-         * @param {petajournal.IGetDocByNameRequest} message GetDocByNameRequest message or plain object to encode
+         * @param {petajournal.IGetOrCreateDocRequest} message GetOrCreateDocRequest message or plain object to encode
          * @param {$protobuf.Writer} [writer] Writer to encode to
          * @returns {$protobuf.Writer} Writer
          */
-        GetDocByNameRequest.encode = function encode(message, writer) {
+        GetOrCreateDocRequest.encode = function encode(message, writer) {
             if (!writer)
                 writer = $Writer.create();
             if (message.title != null && Object.hasOwnProperty.call(message, "title"))
@@ -2321,20 +2321,20 @@ export const petajournal = $root.petajournal = (() => {
         };
 
         /**
-         * Decodes a GetDocByNameRequest message from the specified reader or buffer.
+         * Decodes a GetOrCreateDocRequest message from the specified reader or buffer.
          * @function decode
-         * @memberof petajournal.GetDocByNameRequest
+         * @memberof petajournal.GetOrCreateDocRequest
          * @static
          * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
          * @param {number} [length] Message length if known beforehand
-         * @returns {petajournal.GetDocByNameRequest} GetDocByNameRequest
+         * @returns {petajournal.GetOrCreateDocRequest} GetOrCreateDocRequest
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        GetDocByNameRequest.decode = function decode(reader, length, error) {
+        GetOrCreateDocRequest.decode = function decode(reader, length, error) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.GetDocByNameRequest();
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.GetOrCreateDocRequest();
             while (reader.pos < end) {
                 let tag = reader.uint32();
                 if (tag === error)
@@ -2363,43 +2363,43 @@ export const petajournal = $root.petajournal = (() => {
         };
 
         /**
-         * Gets the default type url for GetDocByNameRequest
+         * Gets the default type url for GetOrCreateDocRequest
          * @function getTypeUrl
-         * @memberof petajournal.GetDocByNameRequest
+         * @memberof petajournal.GetOrCreateDocRequest
          * @static
          * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
          * @returns {string} The default type url
          */
-        GetDocByNameRequest.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+        GetOrCreateDocRequest.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
             if (typeUrlPrefix === undefined) {
                 typeUrlPrefix = "type.googleapis.com";
             }
-            return typeUrlPrefix + "/petajournal.GetDocByNameRequest";
+            return typeUrlPrefix + "/petajournal.GetOrCreateDocRequest";
         };
 
-        return GetDocByNameRequest;
+        return GetOrCreateDocRequest;
     })();
 
-    petajournal.GetDocByNameResponse = (function() {
+    petajournal.GetOrCreateDocResponse = (function() {
 
         /**
-         * Properties of a GetDocByNameResponse.
+         * Properties of a GetOrCreateDocResponse.
          * @memberof petajournal
-         * @interface IGetDocByNameResponse
-         * @property {petajournal.IPage|null} [page] GetDocByNameResponse page
-         * @property {Array.<petajournal.IBlock>|null} [blocks] GetDocByNameResponse blocks
-         * @property {boolean|null} [created] GetDocByNameResponse created
+         * @interface IGetOrCreateDocResponse
+         * @property {petajournal.IPage|null} [page] GetOrCreateDocResponse page
+         * @property {Array.<petajournal.IBlock>|null} [blocks] GetOrCreateDocResponse blocks
+         * @property {boolean|null} [created] GetOrCreateDocResponse created
          */
 
         /**
-         * Constructs a new GetDocByNameResponse.
+         * Constructs a new GetOrCreateDocResponse.
          * @memberof petajournal
-         * @classdesc Represents a GetDocByNameResponse.
-         * @implements IGetDocByNameResponse
+         * @classdesc Represents a GetOrCreateDocResponse.
+         * @implements IGetOrCreateDocResponse
          * @constructor
-         * @param {petajournal.IGetDocByNameResponse=} [properties] Properties to set
+         * @param {petajournal.IGetOrCreateDocResponse=} [properties] Properties to set
          */
-        function GetDocByNameResponse(properties) {
+        function GetOrCreateDocResponse(properties) {
             this.blocks = [];
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
@@ -2408,51 +2408,51 @@ export const petajournal = $root.petajournal = (() => {
         }
 
         /**
-         * GetDocByNameResponse page.
+         * GetOrCreateDocResponse page.
          * @member {petajournal.IPage|null|undefined} page
-         * @memberof petajournal.GetDocByNameResponse
+         * @memberof petajournal.GetOrCreateDocResponse
          * @instance
          */
-        GetDocByNameResponse.prototype.page = null;
+        GetOrCreateDocResponse.prototype.page = null;
 
         /**
-         * GetDocByNameResponse blocks.
+         * GetOrCreateDocResponse blocks.
          * @member {Array.<petajournal.IBlock>} blocks
-         * @memberof petajournal.GetDocByNameResponse
+         * @memberof petajournal.GetOrCreateDocResponse
          * @instance
          */
-        GetDocByNameResponse.prototype.blocks = $util.emptyArray;
+        GetOrCreateDocResponse.prototype.blocks = $util.emptyArray;
 
         /**
-         * GetDocByNameResponse created.
+         * GetOrCreateDocResponse created.
          * @member {boolean} created
-         * @memberof petajournal.GetDocByNameResponse
+         * @memberof petajournal.GetOrCreateDocResponse
          * @instance
          */
-        GetDocByNameResponse.prototype.created = false;
+        GetOrCreateDocResponse.prototype.created = false;
 
         /**
-         * Creates a new GetDocByNameResponse instance using the specified properties.
+         * Creates a new GetOrCreateDocResponse instance using the specified properties.
          * @function create
-         * @memberof petajournal.GetDocByNameResponse
+         * @memberof petajournal.GetOrCreateDocResponse
          * @static
-         * @param {petajournal.IGetDocByNameResponse=} [properties] Properties to set
-         * @returns {petajournal.GetDocByNameResponse} GetDocByNameResponse instance
+         * @param {petajournal.IGetOrCreateDocResponse=} [properties] Properties to set
+         * @returns {petajournal.GetOrCreateDocResponse} GetOrCreateDocResponse instance
          */
-        GetDocByNameResponse.create = function create(properties) {
-            return new GetDocByNameResponse(properties);
+        GetOrCreateDocResponse.create = function create(properties) {
+            return new GetOrCreateDocResponse(properties);
         };
 
         /**
-         * Encodes the specified GetDocByNameResponse message. Does not implicitly {@link petajournal.GetDocByNameResponse.verify|verify} messages.
+         * Encodes the specified GetOrCreateDocResponse message. Does not implicitly {@link petajournal.GetOrCreateDocResponse.verify|verify} messages.
          * @function encode
-         * @memberof petajournal.GetDocByNameResponse
+         * @memberof petajournal.GetOrCreateDocResponse
          * @static
-         * @param {petajournal.IGetDocByNameResponse} message GetDocByNameResponse message or plain object to encode
+         * @param {petajournal.IGetOrCreateDocResponse} message GetOrCreateDocResponse message or plain object to encode
          * @param {$protobuf.Writer} [writer] Writer to encode to
          * @returns {$protobuf.Writer} Writer
          */
-        GetDocByNameResponse.encode = function encode(message, writer) {
+        GetOrCreateDocResponse.encode = function encode(message, writer) {
             if (!writer)
                 writer = $Writer.create();
             if (message.page != null && Object.hasOwnProperty.call(message, "page"))
@@ -2466,20 +2466,20 @@ export const petajournal = $root.petajournal = (() => {
         };
 
         /**
-         * Decodes a GetDocByNameResponse message from the specified reader or buffer.
+         * Decodes a GetOrCreateDocResponse message from the specified reader or buffer.
          * @function decode
-         * @memberof petajournal.GetDocByNameResponse
+         * @memberof petajournal.GetOrCreateDocResponse
          * @static
          * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
          * @param {number} [length] Message length if known beforehand
-         * @returns {petajournal.GetDocByNameResponse} GetDocByNameResponse
+         * @returns {petajournal.GetOrCreateDocResponse} GetOrCreateDocResponse
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        GetDocByNameResponse.decode = function decode(reader, length, error) {
+        GetOrCreateDocResponse.decode = function decode(reader, length, error) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.GetDocByNameResponse();
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.GetOrCreateDocResponse();
             while (reader.pos < end) {
                 let tag = reader.uint32();
                 if (tag === error)
@@ -2508,21 +2508,21 @@ export const petajournal = $root.petajournal = (() => {
         };
 
         /**
-         * Gets the default type url for GetDocByNameResponse
+         * Gets the default type url for GetOrCreateDocResponse
          * @function getTypeUrl
-         * @memberof petajournal.GetDocByNameResponse
+         * @memberof petajournal.GetOrCreateDocResponse
          * @static
          * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
          * @returns {string} The default type url
          */
-        GetDocByNameResponse.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+        GetOrCreateDocResponse.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
             if (typeUrlPrefix === undefined) {
                 typeUrlPrefix = "type.googleapis.com";
             }
-            return typeUrlPrefix + "/petajournal.GetDocByNameResponse";
+            return typeUrlPrefix + "/petajournal.GetOrCreateDocResponse";
         };
 
-        return GetDocByNameResponse;
+        return GetOrCreateDocResponse;
     })();
 
     petajournal.DeletePageRequest = (function() {
@@ -4862,6 +4862,7 @@ export const petajournal = $root.petajournal = (() => {
          * @memberof petajournal
          * @interface IGetRecentPagesRequest
          * @property {number|null} [maxResults] GetRecentPagesRequest maxResults
+         * @property {string|null} [type] GetRecentPagesRequest type
          */
 
         /**
@@ -4886,6 +4887,14 @@ export const petajournal = $root.petajournal = (() => {
          * @instance
          */
         GetRecentPagesRequest.prototype.maxResults = 0;
+
+        /**
+         * GetRecentPagesRequest type.
+         * @member {string} type
+         * @memberof petajournal.GetRecentPagesRequest
+         * @instance
+         */
+        GetRecentPagesRequest.prototype.type = "";
 
         /**
          * Creates a new GetRecentPagesRequest instance using the specified properties.
@@ -4913,6 +4922,8 @@ export const petajournal = $root.petajournal = (() => {
                 writer = $Writer.create();
             if (message.maxResults != null && Object.hasOwnProperty.call(message, "maxResults"))
                 writer.uint32(/* id 1, wireType 0 =*/8).int32(message.maxResults);
+            if (message.type != null && Object.hasOwnProperty.call(message, "type"))
+                writer.uint32(/* id 2, wireType 2 =*/18).string(message.type);
             return writer;
         };
 
@@ -4938,6 +4949,10 @@ export const petajournal = $root.petajournal = (() => {
                 switch (tag >>> 3) {
                 case 1: {
                         message.maxResults = reader.int32();
+                        break;
+                    }
+                case 2: {
+                        message.type = reader.string();
                         break;
                     }
                 default:
@@ -5919,24 +5934,24 @@ export const petajournal = $root.petajournal = (() => {
         return GetBlocksByStatusResponse;
     })();
 
-    petajournal.GetJournalByNameRequest = (function() {
+    petajournal.GetOrCreateJournalRequest = (function() {
 
         /**
-         * Properties of a GetJournalByNameRequest.
+         * Properties of a GetOrCreateJournalRequest.
          * @memberof petajournal
-         * @interface IGetJournalByNameRequest
-         * @property {string|null} [fileName] GetJournalByNameRequest fileName
+         * @interface IGetOrCreateJournalRequest
+         * @property {string|null} [fileName] GetOrCreateJournalRequest fileName
          */
 
         /**
-         * Constructs a new GetJournalByNameRequest.
+         * Constructs a new GetOrCreateJournalRequest.
          * @memberof petajournal
-         * @classdesc Represents a GetJournalByNameRequest.
-         * @implements IGetJournalByNameRequest
+         * @classdesc Represents a GetOrCreateJournalRequest.
+         * @implements IGetOrCreateJournalRequest
          * @constructor
-         * @param {petajournal.IGetJournalByNameRequest=} [properties] Properties to set
+         * @param {petajournal.IGetOrCreateJournalRequest=} [properties] Properties to set
          */
-        function GetJournalByNameRequest(properties) {
+        function GetOrCreateJournalRequest(properties) {
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
                     if (properties[keys[i]] != null)
@@ -5944,35 +5959,35 @@ export const petajournal = $root.petajournal = (() => {
         }
 
         /**
-         * GetJournalByNameRequest fileName.
+         * GetOrCreateJournalRequest fileName.
          * @member {string} fileName
-         * @memberof petajournal.GetJournalByNameRequest
+         * @memberof petajournal.GetOrCreateJournalRequest
          * @instance
          */
-        GetJournalByNameRequest.prototype.fileName = "";
+        GetOrCreateJournalRequest.prototype.fileName = "";
 
         /**
-         * Creates a new GetJournalByNameRequest instance using the specified properties.
+         * Creates a new GetOrCreateJournalRequest instance using the specified properties.
          * @function create
-         * @memberof petajournal.GetJournalByNameRequest
+         * @memberof petajournal.GetOrCreateJournalRequest
          * @static
-         * @param {petajournal.IGetJournalByNameRequest=} [properties] Properties to set
-         * @returns {petajournal.GetJournalByNameRequest} GetJournalByNameRequest instance
+         * @param {petajournal.IGetOrCreateJournalRequest=} [properties] Properties to set
+         * @returns {petajournal.GetOrCreateJournalRequest} GetOrCreateJournalRequest instance
          */
-        GetJournalByNameRequest.create = function create(properties) {
-            return new GetJournalByNameRequest(properties);
+        GetOrCreateJournalRequest.create = function create(properties) {
+            return new GetOrCreateJournalRequest(properties);
         };
 
         /**
-         * Encodes the specified GetJournalByNameRequest message. Does not implicitly {@link petajournal.GetJournalByNameRequest.verify|verify} messages.
+         * Encodes the specified GetOrCreateJournalRequest message. Does not implicitly {@link petajournal.GetOrCreateJournalRequest.verify|verify} messages.
          * @function encode
-         * @memberof petajournal.GetJournalByNameRequest
+         * @memberof petajournal.GetOrCreateJournalRequest
          * @static
-         * @param {petajournal.IGetJournalByNameRequest} message GetJournalByNameRequest message or plain object to encode
+         * @param {petajournal.IGetOrCreateJournalRequest} message GetOrCreateJournalRequest message or plain object to encode
          * @param {$protobuf.Writer} [writer] Writer to encode to
          * @returns {$protobuf.Writer} Writer
          */
-        GetJournalByNameRequest.encode = function encode(message, writer) {
+        GetOrCreateJournalRequest.encode = function encode(message, writer) {
             if (!writer)
                 writer = $Writer.create();
             if (message.fileName != null && Object.hasOwnProperty.call(message, "fileName"))
@@ -5981,20 +5996,20 @@ export const petajournal = $root.petajournal = (() => {
         };
 
         /**
-         * Decodes a GetJournalByNameRequest message from the specified reader or buffer.
+         * Decodes a GetOrCreateJournalRequest message from the specified reader or buffer.
          * @function decode
-         * @memberof petajournal.GetJournalByNameRequest
+         * @memberof petajournal.GetOrCreateJournalRequest
          * @static
          * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
          * @param {number} [length] Message length if known beforehand
-         * @returns {petajournal.GetJournalByNameRequest} GetJournalByNameRequest
+         * @returns {petajournal.GetOrCreateJournalRequest} GetOrCreateJournalRequest
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        GetJournalByNameRequest.decode = function decode(reader, length, error) {
+        GetOrCreateJournalRequest.decode = function decode(reader, length, error) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.GetJournalByNameRequest();
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.GetOrCreateJournalRequest();
             while (reader.pos < end) {
                 let tag = reader.uint32();
                 if (tag === error)
@@ -6013,43 +6028,43 @@ export const petajournal = $root.petajournal = (() => {
         };
 
         /**
-         * Gets the default type url for GetJournalByNameRequest
+         * Gets the default type url for GetOrCreateJournalRequest
          * @function getTypeUrl
-         * @memberof petajournal.GetJournalByNameRequest
+         * @memberof petajournal.GetOrCreateJournalRequest
          * @static
          * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
          * @returns {string} The default type url
          */
-        GetJournalByNameRequest.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+        GetOrCreateJournalRequest.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
             if (typeUrlPrefix === undefined) {
                 typeUrlPrefix = "type.googleapis.com";
             }
-            return typeUrlPrefix + "/petajournal.GetJournalByNameRequest";
+            return typeUrlPrefix + "/petajournal.GetOrCreateJournalRequest";
         };
 
-        return GetJournalByNameRequest;
+        return GetOrCreateJournalRequest;
     })();
 
-    petajournal.GetJournalByNameResponse = (function() {
+    petajournal.GetOrCreateJournalResponse = (function() {
 
         /**
-         * Properties of a GetJournalByNameResponse.
+         * Properties of a GetOrCreateJournalResponse.
          * @memberof petajournal
-         * @interface IGetJournalByNameResponse
-         * @property {petajournal.IPage|null} [page] GetJournalByNameResponse page
-         * @property {Array.<petajournal.IBlock>|null} [blocks] GetJournalByNameResponse blocks
-         * @property {boolean|null} [created] GetJournalByNameResponse created
+         * @interface IGetOrCreateJournalResponse
+         * @property {petajournal.IPage|null} [page] GetOrCreateJournalResponse page
+         * @property {Array.<petajournal.IBlock>|null} [blocks] GetOrCreateJournalResponse blocks
+         * @property {boolean|null} [created] GetOrCreateJournalResponse created
          */
 
         /**
-         * Constructs a new GetJournalByNameResponse.
+         * Constructs a new GetOrCreateJournalResponse.
          * @memberof petajournal
-         * @classdesc Represents a GetJournalByNameResponse.
-         * @implements IGetJournalByNameResponse
+         * @classdesc Represents a GetOrCreateJournalResponse.
+         * @implements IGetOrCreateJournalResponse
          * @constructor
-         * @param {petajournal.IGetJournalByNameResponse=} [properties] Properties to set
+         * @param {petajournal.IGetOrCreateJournalResponse=} [properties] Properties to set
          */
-        function GetJournalByNameResponse(properties) {
+        function GetOrCreateJournalResponse(properties) {
             this.blocks = [];
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
@@ -6058,51 +6073,51 @@ export const petajournal = $root.petajournal = (() => {
         }
 
         /**
-         * GetJournalByNameResponse page.
+         * GetOrCreateJournalResponse page.
          * @member {petajournal.IPage|null|undefined} page
-         * @memberof petajournal.GetJournalByNameResponse
+         * @memberof petajournal.GetOrCreateJournalResponse
          * @instance
          */
-        GetJournalByNameResponse.prototype.page = null;
+        GetOrCreateJournalResponse.prototype.page = null;
 
         /**
-         * GetJournalByNameResponse blocks.
+         * GetOrCreateJournalResponse blocks.
          * @member {Array.<petajournal.IBlock>} blocks
-         * @memberof petajournal.GetJournalByNameResponse
+         * @memberof petajournal.GetOrCreateJournalResponse
          * @instance
          */
-        GetJournalByNameResponse.prototype.blocks = $util.emptyArray;
+        GetOrCreateJournalResponse.prototype.blocks = $util.emptyArray;
 
         /**
-         * GetJournalByNameResponse created.
+         * GetOrCreateJournalResponse created.
          * @member {boolean} created
-         * @memberof petajournal.GetJournalByNameResponse
+         * @memberof petajournal.GetOrCreateJournalResponse
          * @instance
          */
-        GetJournalByNameResponse.prototype.created = false;
+        GetOrCreateJournalResponse.prototype.created = false;
 
         /**
-         * Creates a new GetJournalByNameResponse instance using the specified properties.
+         * Creates a new GetOrCreateJournalResponse instance using the specified properties.
          * @function create
-         * @memberof petajournal.GetJournalByNameResponse
+         * @memberof petajournal.GetOrCreateJournalResponse
          * @static
-         * @param {petajournal.IGetJournalByNameResponse=} [properties] Properties to set
-         * @returns {petajournal.GetJournalByNameResponse} GetJournalByNameResponse instance
+         * @param {petajournal.IGetOrCreateJournalResponse=} [properties] Properties to set
+         * @returns {petajournal.GetOrCreateJournalResponse} GetOrCreateJournalResponse instance
          */
-        GetJournalByNameResponse.create = function create(properties) {
-            return new GetJournalByNameResponse(properties);
+        GetOrCreateJournalResponse.create = function create(properties) {
+            return new GetOrCreateJournalResponse(properties);
         };
 
         /**
-         * Encodes the specified GetJournalByNameResponse message. Does not implicitly {@link petajournal.GetJournalByNameResponse.verify|verify} messages.
+         * Encodes the specified GetOrCreateJournalResponse message. Does not implicitly {@link petajournal.GetOrCreateJournalResponse.verify|verify} messages.
          * @function encode
-         * @memberof petajournal.GetJournalByNameResponse
+         * @memberof petajournal.GetOrCreateJournalResponse
          * @static
-         * @param {petajournal.IGetJournalByNameResponse} message GetJournalByNameResponse message or plain object to encode
+         * @param {petajournal.IGetOrCreateJournalResponse} message GetOrCreateJournalResponse message or plain object to encode
          * @param {$protobuf.Writer} [writer] Writer to encode to
          * @returns {$protobuf.Writer} Writer
          */
-        GetJournalByNameResponse.encode = function encode(message, writer) {
+        GetOrCreateJournalResponse.encode = function encode(message, writer) {
             if (!writer)
                 writer = $Writer.create();
             if (message.page != null && Object.hasOwnProperty.call(message, "page"))
@@ -6116,20 +6131,20 @@ export const petajournal = $root.petajournal = (() => {
         };
 
         /**
-         * Decodes a GetJournalByNameResponse message from the specified reader or buffer.
+         * Decodes a GetOrCreateJournalResponse message from the specified reader or buffer.
          * @function decode
-         * @memberof petajournal.GetJournalByNameResponse
+         * @memberof petajournal.GetOrCreateJournalResponse
          * @static
          * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
          * @param {number} [length] Message length if known beforehand
-         * @returns {petajournal.GetJournalByNameResponse} GetJournalByNameResponse
+         * @returns {petajournal.GetOrCreateJournalResponse} GetOrCreateJournalResponse
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        GetJournalByNameResponse.decode = function decode(reader, length, error) {
+        GetOrCreateJournalResponse.decode = function decode(reader, length, error) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.GetJournalByNameResponse();
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.GetOrCreateJournalResponse();
             while (reader.pos < end) {
                 let tag = reader.uint32();
                 if (tag === error)
@@ -6158,21 +6173,21 @@ export const petajournal = $root.petajournal = (() => {
         };
 
         /**
-         * Gets the default type url for GetJournalByNameResponse
+         * Gets the default type url for GetOrCreateJournalResponse
          * @function getTypeUrl
-         * @memberof petajournal.GetJournalByNameResponse
+         * @memberof petajournal.GetOrCreateJournalResponse
          * @static
          * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
          * @returns {string} The default type url
          */
-        GetJournalByNameResponse.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+        GetOrCreateJournalResponse.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
             if (typeUrlPrefix === undefined) {
                 typeUrlPrefix = "type.googleapis.com";
             }
-            return typeUrlPrefix + "/petajournal.GetJournalByNameResponse";
+            return typeUrlPrefix + "/petajournal.GetOrCreateJournalResponse";
         };
 
-        return GetJournalByNameResponse;
+        return GetOrCreateJournalResponse;
     })();
 
     petajournal.GetConfigRequest = (function() {

@@ -18,7 +18,7 @@ public class McpPageTools {
     McpJsonHelper jsonHelper;
 
     @Tool(description = "Get a page and its blocks by page ID")
-    String get_page(
+    String get_page_by_id(
             @ToolArg(description = "UUID of the page") String pageId
     ) {
         var page = pageService.getPage(UUID.fromString(pageId))
@@ -28,7 +28,7 @@ public class McpPageTools {
     }
 
     @Tool(description = "Get or create a document page by title. Returns the page and its blocks. If the page does not exist, it is created with an empty block.")
-    String get_doc_by_name(
+    String get_or_create_doc(
             @ToolArg(description = "Title of the document (used as file name)") String title,
             @ToolArg(description = "Directory path (e.g. 'projects/'). Empty string for root.") String dirPath,
             @ToolArg(description = "Comma-separated tags (e.g. 'tag1,tag2'). Empty string for no tags.") String tags

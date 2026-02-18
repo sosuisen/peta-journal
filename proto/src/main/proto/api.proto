@@ -14,8 +14,8 @@ import "search.proto";
 message ApiRequest {
   string request_id = 1;           // Correlation ID
   oneof payload {
-    GetPageRequest get_page = 10;
-    GetDocByNameRequest get_doc_by_name = 12;
+    GetPageByIdRequest get_page_by_id = 10;
+    GetOrCreateDocRequest get_or_create_doc = 12;
     DeletePageRequest delete_page = 13;
     UpdatePageRequest update_page = 14;
     CreateBlockRequest create_block = 20;
@@ -31,7 +31,7 @@ message ApiRequest {
     GetBlocksByStatusRequest get_blocks_by_status = 50;
     GetConfigRequest get_config = 60;
     UpdateConfigRequest update_config = 61;
-    GetJournalByNameRequest get_journal_by_name = 44;
+    GetOrCreateJournalRequest get_or_create_journal = 44;
     ExportTreeMarkdownRequest export_tree_markdown = 70;
     ImportTreeMarkdownRequest import_tree_markdown = 71;
   }
@@ -43,8 +43,8 @@ message ApiResponse {
   bool success = 2;
   string error_message = 3;        // Set when success=false
   oneof payload {
-    GetPageResponse get_page = 10;
-    GetDocByNameResponse get_doc_by_name = 12;
+    GetPageByIdResponse get_page_by_id = 10;
+    GetOrCreateDocResponse get_or_create_doc = 12;
     DeletePageResponse delete_page = 13;
     UpdatePageResponse update_page = 14;
     CreateBlockResponse create_block = 20;
@@ -57,7 +57,7 @@ message ApiResponse {
     GetRecentPagesResponse get_recent_pages = 40;
     GetBacklinksResponse get_backlinks = 41;
     GetMostRecentJournalBeforeResponse get_most_recent_journal_before = 42;
-    GetJournalByNameResponse get_journal_by_name = 44;
+    GetOrCreateJournalResponse get_or_create_journal = 44;
     GetBlocksByStatusResponse get_blocks_by_status = 50;
     GetConfigResponse get_config = 60;
     UpdateConfigResponse update_config = 61;
@@ -69,22 +69,22 @@ message ApiResponse {
 
 // --- Page operations ---
 
-message GetPageRequest {
+message GetPageByIdRequest {
   string page_id = 1;
 }
 
-message GetPageResponse {
+message GetPageByIdResponse {
   Page page = 1;
   repeated Block blocks = 2;
 }
 
-message GetDocByNameRequest {
+message GetOrCreateDocRequest {
   string title = 1;
   string dir_path = 2;             // Optional, defaults to "docs"
   repeated string tags = 3;
 }
 
-message GetDocByNameResponse {
+message GetOrCreateDocResponse {
   Page page = 1;
   repeated Block blocks = 2;
   bool created = 3;
@@ -229,11 +229,11 @@ message GetBlocksByStatusResponse {
 
 // --- Journal by name operations ---
 
-message GetJournalByNameRequest {
+message GetOrCreateJournalRequest {
   string file_name = 1;
 }
 
-message GetJournalByNameResponse {
+message GetOrCreateJournalResponse {
   Page page = 1;
   repeated Block blocks = 2;
   bool created = 3;

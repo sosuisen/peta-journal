@@ -245,7 +245,7 @@ public sealed partial class MainWindow : Window
         try
         {
             if (!_api.IsConnected) await _api.ConnectAsync();
-            var response = await _api.GetPageAsync(pageId);
+            var response = await _api.GetPageByIdAsync(pageId);
             if (response == null) return;
 
             var page = response.Page;

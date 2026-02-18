@@ -106,8 +106,8 @@ public class JournalWebSocket {
                     .setSuccess(true);
 
             switch (request.getPayloadCase()) {
-                case GET_PAGE -> response.setGetPage(handleGetPage(request.getGetPage()));
-                case GET_DOC_BY_NAME -> response.setGetDocByName(handleGetDocByName(request.getGetDocByName()));
+                case GET_PAGE_BY_ID -> response.setGetPageById(handleGetPageById(request.getGetPageById()));
+                case GET_OR_CREATE_DOC -> response.setGetOrCreateDoc(handleGetOrCreateDoc(request.getGetOrCreateDoc()));
                 case DELETE_PAGE -> response.setDeletePage(handleDeletePage(request.getDeletePage()));
                 case UPDATE_PAGE -> response.setUpdatePage(handleUpdatePage(request.getUpdatePage()));
                 case CREATE_BLOCK -> response.setCreateBlock(handleCreateBlock(request.getCreateBlock()));
@@ -120,7 +120,7 @@ public class JournalWebSocket {
                 case GET_RECENT_PAGES -> response.setGetRecentPages(handleGetRecentPages(request.getGetRecentPages()));
                 case GET_BACKLINKS -> response.setGetBacklinks(handleGetBacklinks(request.getGetBacklinks()));
                 case GET_MOST_RECENT_JOURNAL_BEFORE -> response.setGetMostRecentJournalBefore(handleGetMostRecentJournalBefore(request.getGetMostRecentJournalBefore()));
-                case GET_JOURNAL_BY_NAME -> response.setGetJournalByName(handleGetJournalByName(request.getGetJournalByName()));
+                case GET_OR_CREATE_JOURNAL -> response.setGetOrCreateJournal(handleGetOrCreateJournal(request.getGetOrCreateJournal()));
                 case GET_BLOCKS_BY_STATUS -> response.setGetBlocksByStatus(handleGetBlocksByStatus(request.getGetBlocksByStatus()));
                 case GET_CONFIG -> response.setGetConfig(handleGetConfig());
                 case UPDATE_CONFIG -> response.setUpdateConfig(handleUpdateConfig(request.getUpdateConfig()));
@@ -143,13 +143,13 @@ public class JournalWebSocket {
         }
     }
 
-    private GetPageResponse handleGetPage(GetPageRequest req) {
+    private GetPageByIdResponse handleGetPageById(GetPageByIdRequest req) {
         UUID pageId = UUID.fromString(req.getPageId());
         var page = pageService.getPage(pageId)
                 .orElseThrow(() -> new IllegalArgumentException("Page not found: " + pageId));
         var blocks = pageService.getPageBlocks(pageId);
 
-        return GetPageResponse.newBuilder()
+        return GetPageByIdResponse.newBuilder()
                 .setPage(ProtoConverter.toProto(page))
                 .addAllBlocks(blocks.stream().map(ProtoConverter::toProto).toList())
                 .build();
@@ -170,9 +170,9 @@ public class JournalWebSocket {
         return builder.build();
     }
 
-    private GetDocByNameResponse handleGetDocByName(GetDocByNameRequest req) {
+    private GetOrCreateDocResponse handleGetOrCreateDoc(GetOrCreateDocRequest req) {
         var result = pageService.getOrCreateDoc(req.getTitle(), req.getDirPath(), req.getTagsList());
-        return GetDocByNameResponse.newBuilder()
+        return GetOrCreateDocResponse.newBuilder()
                 .setPage(ProtoConverter.toProto(result.page()))
                 .addAllBlocks(result.blocks().stream().map(ProtoConverter::toProto).toList())
                 .setCreated(result.created())
@@ -305,9 +305,9 @@ public class JournalWebSocket {
                 .build();
     }
 
-    private GetJournalByNameResponse handleGetJournalByName(GetJournalByNameRequest req) {
+    private GetOrCreateJournalResponse handleGetOrCreateJournal(GetOrCreateJournalRequest req) {
         var result = journalService.getOrCreateJournalByName(req.getFileName());
-        return GetJournalByNameResponse.newBuilder()
+        return GetOrCreateJournalResponse.newBuilder()
                 .setPage(ProtoConverter.toProto(result.page()))
                 .addAllBlocks(result.blocks().stream().map(ProtoConverter::toProto).toList())
                 .setCreated(result.created())

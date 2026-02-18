@@ -22,7 +22,7 @@ public class McpJournalTools {
     McpJsonHelper jsonHelper;
 
     @Tool(description = "Get or create a journal page by file name. Supports daily (YYYY-MM-DD), weekly (YYYY-WNN), monthly (YYYY-MM), and yearly (YYYY) formats.")
-    String get_journal_by_name(
+    String get_or_create_journal(
             @ToolArg(description = "Journal file name (e.g. '2026-02-18', '2026-W08', '2026-02', '2026')") String fileName
     ) {
         var result = journalService.getOrCreateJournalByName(fileName);

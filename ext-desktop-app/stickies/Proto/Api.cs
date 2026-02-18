@@ -25,145 +25,147 @@ namespace Petajournal {
       byte[] descriptorData = global::System.Convert.FromBase64String(
           string.Concat(
             "CglhcGkucHJvdG8SC3BldGFqb3VybmFsGgpwYWdlLnByb3RvGgtibG9jay5w",
-            "cm90bxoMc2VhcmNoLnByb3RvIpIKCgpBcGlSZXF1ZXN0EhIKCnJlcXVlc3Rf",
-            "aWQYASABKAkSLwoIZ2V0X3BhZ2UYCiABKAsyGy5wZXRham91cm5hbC5HZXRQ",
-            "YWdlUmVxdWVzdEgAEjsKD2dldF9kb2NfYnlfbmFtZRgMIAEoCzIgLnBldGFq",
-            "b3VybmFsLkdldERvY0J5TmFtZVJlcXVlc3RIABI1CgtkZWxldGVfcGFnZRgN",
-            "IAEoCzIeLnBldGFqb3VybmFsLkRlbGV0ZVBhZ2VSZXF1ZXN0SAASNQoLdXBk",
-            "YXRlX3BhZ2UYDiABKAsyHi5wZXRham91cm5hbC5VcGRhdGVQYWdlUmVxdWVz",
-            "dEgAEjcKDGNyZWF0ZV9ibG9jaxgUIAEoCzIfLnBldGFqb3VybmFsLkNyZWF0",
-            "ZUJsb2NrUmVxdWVzdEgAEjcKDHVwZGF0ZV9ibG9jaxgVIAEoCzIfLnBldGFq",
-            "b3VybmFsLlVwZGF0ZUJsb2NrUmVxdWVzdEgAEjUKC21vdmVfYmxvY2tzGBYg",
-            "ASgLMh4ucGV0YWpvdXJuYWwuTW92ZUJsb2Nrc1JlcXVlc3RIABI3CgxkZWxl",
-            "dGVfYmxvY2sYFyABKAsyHy5wZXRham91cm5hbC5EZWxldGVCbG9ja1JlcXVl",
-            "c3RIABJEChN1cGRhdGVfYmxvY2tfc3RhdHVzGBggASgLMiUucGV0YWpvdXJu",
-            "YWwuVXBkYXRlQmxvY2tTdGF0dXNSZXF1ZXN0SAASQAoRc2VhcmNoX3BhZ2Vf",
-            "bmFtZXMYHiABKAsyIy5wZXRham91cm5hbC5TZWFyY2hQYWdlTmFtZXNSZXF1",
-            "ZXN0SAASPgoQc2VhcmNoX2Z1bGxfdGV4dBgfIAEoCzIiLnBldGFqb3VybmFs",
-            "LlNlYXJjaEZ1bGxUZXh0UmVxdWVzdEgAEj4KEGdldF9yZWNlbnRfcGFnZXMY",
-            "KCABKAsyIi5wZXRham91cm5hbC5HZXRSZWNlbnRQYWdlc1JlcXVlc3RIABI5",
-            "Cg1nZXRfYmFja2xpbmtzGCkgASgLMiAucGV0YWpvdXJuYWwuR2V0QmFja2xp",
-            "bmtzUmVxdWVzdEgAElgKHmdldF9tb3N0X3JlY2VudF9qb3VybmFsX2JlZm9y",
-            "ZRgqIAEoCzIuLnBldGFqb3VybmFsLkdldE1vc3RSZWNlbnRKb3VybmFsQmVm",
-            "b3JlUmVxdWVzdEgAEkUKFGdldF9ibG9ja3NfYnlfc3RhdHVzGDIgASgLMiUu",
-            "cGV0YWpvdXJuYWwuR2V0QmxvY2tzQnlTdGF0dXNSZXF1ZXN0SAASMwoKZ2V0",
-            "X2NvbmZpZxg8IAEoCzIdLnBldGFqb3VybmFsLkdldENvbmZpZ1JlcXVlc3RI",
-            "ABI5Cg11cGRhdGVfY29uZmlnGD0gASgLMiAucGV0YWpvdXJuYWwuVXBkYXRl",
-            "Q29uZmlnUmVxdWVzdEgAEkMKE2dldF9qb3VybmFsX2J5X25hbWUYLCABKAsy",
-            "JC5wZXRham91cm5hbC5HZXRKb3VybmFsQnlOYW1lUmVxdWVzdEgAEkYKFGV4",
-            "cG9ydF90cmVlX21hcmtkb3duGEYgASgLMiYucGV0YWpvdXJuYWwuRXhwb3J0",
-            "VHJlZU1hcmtkb3duUmVxdWVzdEgAEkYKFGltcG9ydF90cmVlX21hcmtkb3du",
-            "GEcgASgLMiYucGV0YWpvdXJuYWwuSW1wb3J0VHJlZU1hcmtkb3duUmVxdWVz",
-            "dEgAQgkKB3BheWxvYWQigQsKC0FwaVJlc3BvbnNlEhIKCnJlcXVlc3RfaWQY",
-            "ASABKAkSDwoHc3VjY2VzcxgCIAEoCBIVCg1lcnJvcl9tZXNzYWdlGAMgASgJ",
-            "EjAKCGdldF9wYWdlGAogASgLMhwucGV0YWpvdXJuYWwuR2V0UGFnZVJlc3Bv",
-            "bnNlSAASPAoPZ2V0X2RvY19ieV9uYW1lGAwgASgLMiEucGV0YWpvdXJuYWwu",
-            "R2V0RG9jQnlOYW1lUmVzcG9uc2VIABI2CgtkZWxldGVfcGFnZRgNIAEoCzIf",
-            "LnBldGFqb3VybmFsLkRlbGV0ZVBhZ2VSZXNwb25zZUgAEjYKC3VwZGF0ZV9w",
-            "YWdlGA4gASgLMh8ucGV0YWpvdXJuYWwuVXBkYXRlUGFnZVJlc3BvbnNlSAAS",
-            "OAoMY3JlYXRlX2Jsb2NrGBQgASgLMiAucGV0YWpvdXJuYWwuQ3JlYXRlQmxv",
-            "Y2tSZXNwb25zZUgAEjgKDHVwZGF0ZV9ibG9jaxgVIAEoCzIgLnBldGFqb3Vy",
-            "bmFsLlVwZGF0ZUJsb2NrUmVzcG9uc2VIABI2Cgttb3ZlX2Jsb2NrcxgWIAEo",
-            "CzIfLnBldGFqb3VybmFsLk1vdmVCbG9ja3NSZXNwb25zZUgAEjgKDGRlbGV0",
-            "ZV9ibG9jaxgXIAEoCzIgLnBldGFqb3VybmFsLkRlbGV0ZUJsb2NrUmVzcG9u",
-            "c2VIABJFChN1cGRhdGVfYmxvY2tfc3RhdHVzGBggASgLMiYucGV0YWpvdXJu",
-            "YWwuVXBkYXRlQmxvY2tTdGF0dXNSZXNwb25zZUgAEkEKEXNlYXJjaF9wYWdl",
-            "X25hbWVzGB4gASgLMiQucGV0YWpvdXJuYWwuU2VhcmNoUGFnZU5hbWVzUmVz",
-            "cG9uc2VIABI/ChBzZWFyY2hfZnVsbF90ZXh0GB8gASgLMiMucGV0YWpvdXJu",
-            "YWwuU2VhcmNoRnVsbFRleHRSZXNwb25zZUgAEj8KEGdldF9yZWNlbnRfcGFn",
-            "ZXMYKCABKAsyIy5wZXRham91cm5hbC5HZXRSZWNlbnRQYWdlc1Jlc3BvbnNl",
-            "SAASOgoNZ2V0X2JhY2tsaW5rcxgpIAEoCzIhLnBldGFqb3VybmFsLkdldEJh",
-            "Y2tsaW5rc1Jlc3BvbnNlSAASWQoeZ2V0X21vc3RfcmVjZW50X2pvdXJuYWxf",
-            "YmVmb3JlGCogASgLMi8ucGV0YWpvdXJuYWwuR2V0TW9zdFJlY2VudEpvdXJu",
-            "YWxCZWZvcmVSZXNwb25zZUgAEkQKE2dldF9qb3VybmFsX2J5X25hbWUYLCAB",
-            "KAsyJS5wZXRham91cm5hbC5HZXRKb3VybmFsQnlOYW1lUmVzcG9uc2VIABJG",
-            "ChRnZXRfYmxvY2tzX2J5X3N0YXR1cxgyIAEoCzImLnBldGFqb3VybmFsLkdl",
-            "dEJsb2Nrc0J5U3RhdHVzUmVzcG9uc2VIABI0CgpnZXRfY29uZmlnGDwgASgL",
-            "Mh4ucGV0YWpvdXJuYWwuR2V0Q29uZmlnUmVzcG9uc2VIABI6Cg11cGRhdGVf",
-            "Y29uZmlnGD0gASgLMiEucGV0YWpvdXJuYWwuVXBkYXRlQ29uZmlnUmVzcG9u",
-            "c2VIABJHChRleHBvcnRfdHJlZV9tYXJrZG93bhhGIAEoCzInLnBldGFqb3Vy",
-            "bmFsLkV4cG9ydFRyZWVNYXJrZG93blJlc3BvbnNlSAASRwoUaW1wb3J0X3Ry",
-            "ZWVfbWFya2Rvd24YRyABKAsyJy5wZXRham91cm5hbC5JbXBvcnRUcmVlTWFy",
-            "a2Rvd25SZXNwb25zZUgAEjAKDHNlcnZlcl9ldmVudBhkIAEoCzIYLnBldGFq",
-            "b3VybmFsLlNlcnZlckV2ZW50SABCCQoHcGF5bG9hZCIhCg5HZXRQYWdlUmVx",
-            "dWVzdBIPCgdwYWdlX2lkGAEgASgJIlYKD0dldFBhZ2VSZXNwb25zZRIfCgRw",
-            "YWdlGAEgASgLMhEucGV0YWpvdXJuYWwuUGFnZRIiCgZibG9ja3MYAiADKAsy",
-            "Ei5wZXRham91cm5hbC5CbG9jayJEChNHZXREb2NCeU5hbWVSZXF1ZXN0Eg0K",
-            "BXRpdGxlGAEgASgJEhAKCGRpcl9wYXRoGAIgASgJEgwKBHRhZ3MYAyADKAki",
-            "bAoUR2V0RG9jQnlOYW1lUmVzcG9uc2USHwoEcGFnZRgBIAEoCzIRLnBldGFq",
-            "b3VybmFsLlBhZ2USIgoGYmxvY2tzGAIgAygLMhIucGV0YWpvdXJuYWwuQmxv",
-            "Y2sSDwoHY3JlYXRlZBgDIAEoCCIkChFEZWxldGVQYWdlUmVxdWVzdBIPCgdw",
-            "YWdlX2lkGAEgASgJIhQKEkRlbGV0ZVBhZ2VSZXNwb25zZSKNAQoRVXBkYXRl",
-            "UGFnZVJlcXVlc3QSDwoHcGFnZV9pZBgBIAEoCRISCgV0aXRsZRgCIAEoCUgA",
-            "iAEBEgwKBHRhZ3MYAyADKAkSFwoPcHJvcGVydGllc19qc29uGAQgASgJEhUK",
-            "CGRpcl9wYXRoGAUgASgJSAGIAQFCCAoGX3RpdGxlQgsKCV9kaXJfcGF0aCI1",
-            "ChJVcGRhdGVQYWdlUmVzcG9uc2USHwoEcGFnZRgBIAEoCzIRLnBldGFqb3Vy",
-            "bmFsLlBhZ2UiWgoSQ3JlYXRlQmxvY2tSZXF1ZXN0Eg8KB3BhZ2VfaWQYASAB",
-            "KAkSFgoOYWZ0ZXJfYmxvY2tfaWQYAiABKAkSDQoFbGV2ZWwYAyABKAUSDAoE",
-            "Ym9keRgEIAEoCSI4ChNDcmVhdGVCbG9ja1Jlc3BvbnNlEiEKBWJsb2NrGAEg",
-            "ASgLMhIucGV0YWpvdXJuYWwuQmxvY2si2AEKElVwZGF0ZUJsb2NrUmVxdWVz",
-            "dBIQCghibG9ja19pZBgBIAEoCRIRCgRib2R5GAIgASgJSACIAQESEgoFbGV2",
-            "ZWwYAyABKAVIAYgBARIWCgljb2xsYXBzZWQYBCABKAhIAogBARITCgZzdGF0",
-            "dXMYBSABKAlIA4gBARIcCg9wcm9wZXJ0aWVzX2pzb24YBiABKAlIBIgBAUIH",
-            "CgVfYm9keUIICgZfbGV2ZWxCDAoKX2NvbGxhcHNlZEIJCgdfc3RhdHVzQhIK",
-            "EF9wcm9wZXJ0aWVzX2pzb24iOAoTVXBkYXRlQmxvY2tSZXNwb25zZRIhCgVi",
-            "bG9jaxgBIAEoCzISLnBldGFqb3VybmFsLkJsb2NrIoABChFNb3ZlQmxvY2tz",
-            "UmVxdWVzdBIRCglibG9ja19pZHMYASADKAkSFgoOdGFyZ2V0X3BhZ2VfaWQY",
-            "AiABKAkSFgoOYWZ0ZXJfYmxvY2tfaWQYAyABKAkSGAoLbGV2ZWxfZGVsdGEY",
-            "BCABKAVIAIgBAUIOCgxfbGV2ZWxfZGVsdGEiOAoSTW92ZUJsb2Nrc1Jlc3Bv",
-            "bnNlEiIKBmJsb2NrcxgBIAMoCzISLnBldGFqb3VybmFsLkJsb2NrIiYKEkRl",
-            "bGV0ZUJsb2NrUmVxdWVzdBIQCghibG9ja19pZBgBIAEoCSIVChNEZWxldGVC",
-            "bG9ja1Jlc3BvbnNlIjwKGFVwZGF0ZUJsb2NrU3RhdHVzUmVxdWVzdBIQCghi",
-            "bG9ja19pZBgBIAEoCRIOCgZzdGF0dXMYAiABKAkiPgoZVXBkYXRlQmxvY2tT",
-            "dGF0dXNSZXNwb25zZRIhCgVibG9jaxgBIAEoCzISLnBldGFqb3VybmFsLkJs",
-            "b2NrIjwKFlNlYXJjaFBhZ2VOYW1lc1JlcXVlc3QSDQoFcXVlcnkYASABKAkS",
-            "EwoLbWF4X3Jlc3VsdHMYAiABKAUiRQoXU2VhcmNoUGFnZU5hbWVzUmVzcG9u",
-            "c2USKgoHcmVzdWx0cxgBIAMoCzIZLnBldGFqb3VybmFsLlNlYXJjaFJlc3Vs",
-            "dCI7ChVTZWFyY2hGdWxsVGV4dFJlcXVlc3QSDQoFcXVlcnkYASABKAkSEwoL",
-            "bWF4X3Jlc3VsdHMYAiABKAUiWAoWU2VhcmNoRnVsbFRleHRSZXNwb25zZRIq",
-            "CgdyZXN1bHRzGAEgAygLMhkucGV0YWpvdXJuYWwuU2VhcmNoUmVzdWx0EhIK",
-            "CnRvdGFsX2hpdHMYAiABKAUiLAoVR2V0UmVjZW50UGFnZXNSZXF1ZXN0EhMK",
-            "C21heF9yZXN1bHRzGAEgASgFIjoKFkdldFJlY2VudFBhZ2VzUmVzcG9uc2US",
-            "IAoFcGFnZXMYASADKAsyES5wZXRham91cm5hbC5QYWdlIiYKE0dldEJhY2ts",
-            "aW5rc1JlcXVlc3QSDwoHcGFnZV9pZBgBIAEoCSJDChRHZXRCYWNrbGlua3NS",
-            "ZXNwb25zZRIrCgdlbnRyaWVzGAEgAygLMhoucGV0YWpvdXJuYWwuQmFja2xp",
-            "bmtFbnRyeSJhCg1CYWNrbGlua0VudHJ5EiYKC3NvdXJjZV9wYWdlGAEgASgL",
-            "MhEucGV0YWpvdXJuYWwuUGFnZRIoCgxzb3VyY2VfYmxvY2sYAiABKAsyEi5w",
-            "ZXRham91cm5hbC5CbG9jayI4CiFHZXRNb3N0UmVjZW50Sm91cm5hbEJlZm9y",
-            "ZVJlcXVlc3QSEwoLYmVmb3JlX2RhdGUYASABKAkieAoiR2V0TW9zdFJlY2Vu",
-            "dEpvdXJuYWxCZWZvcmVSZXNwb25zZRINCgVmb3VuZBgBIAEoCBIfCgRwYWdl",
-            "GAIgASgLMhEucGV0YWpvdXJuYWwuUGFnZRIiCgZibG9ja3MYAyADKAsyEi5w",
-            "ZXRham91cm5hbC5CbG9jayIsChhHZXRCbG9ja3NCeVN0YXR1c1JlcXVlc3QS",
-            "EAoIc3RhdHVzZXMYASADKAkiPwoZR2V0QmxvY2tzQnlTdGF0dXNSZXNwb25z",
-            "ZRIiCgZibG9ja3MYASADKAsyEi5wZXRham91cm5hbC5CbG9jayIsChdHZXRK",
-            "b3VybmFsQnlOYW1lUmVxdWVzdBIRCglmaWxlX25hbWUYASABKAkicAoYR2V0",
-            "Sm91cm5hbEJ5TmFtZVJlc3BvbnNlEh8KBHBhZ2UYASABKAsyES5wZXRham91",
-            "cm5hbC5QYWdlEiIKBmJsb2NrcxgCIAMoCzISLnBldGFqb3VybmFsLkJsb2Nr",
-            "Eg8KB2NyZWF0ZWQYAyABKAgiEgoQR2V0Q29uZmlnUmVxdWVzdCIrChFHZXRD",
-            "b25maWdSZXNwb25zZRIWCg53ZWVrX251bWJlcmluZxgBIAEoCSItChNVcGRh",
-            "dGVDb25maWdSZXF1ZXN0EhYKDndlZWtfbnVtYmVyaW5nGAEgASgJIi4KFFVw",
-            "ZGF0ZUNvbmZpZ1Jlc3BvbnNlEhYKDndlZWtfbnVtYmVyaW5nGAEgASgJIi4K",
-            "GUV4cG9ydFRyZWVNYXJrZG93blJlcXVlc3QSEQoJYmxvY2tfaWRzGAEgAygJ",
-            "IlgKGkV4cG9ydFRyZWVNYXJrZG93blJlc3BvbnNlEhUKDXRyZWVfbWFya2Rv",
-            "d24YASABKAkSDAoEaHRtbBgCIAEoCRIVCg1mbGF0X21hcmtkb3duGAMgASgJ",
-            "IjIKGUltcG9ydFRyZWVNYXJrZG93blJlcXVlc3QSFQoNdHJlZV9tYXJrZG93",
-            "bhgBIAEoCSIzChpJbXBvcnRUcmVlTWFya2Rvd25SZXNwb25zZRIVCg1mbGF0",
-            "X21hcmtkb3duGAEgASgJIqABCgtTZXJ2ZXJFdmVudBIdChVvcmlnaW5hdG9y",
-            "X3Nlc3Npb25faWQYASABKAkSMAoJY29ubmVjdGVkGAogASgLMhsucGV0YWpv",
-            "dXJuYWwuQ29ubmVjdGVkRXZlbnRIABI3Cg1wYWdlc191cGRhdGVkGBQgASgL",
-            "Mh4ucGV0YWpvdXJuYWwuUGFnZXNVcGRhdGVkRXZlbnRIAEIHCgVldmVudCIk",
-            "Cg5Db25uZWN0ZWRFdmVudBISCgpzZXNzaW9uX2lkGAEgASgJIiQKEVBhZ2Vz",
-            "VXBkYXRlZEV2ZW50Eg8KB3BhZ2VfaWQYASABKAlCIwoVY29tLnBldGFqb3Vy",
-            "bmFsLnByb3RvQghBcGlQcm90b1ABYgZwcm90bzM="));
+            "cm90bxoMc2VhcmNoLnByb3RvIqQKCgpBcGlSZXF1ZXN0EhIKCnJlcXVlc3Rf",
+            "aWQYASABKAkSOQoOZ2V0X3BhZ2VfYnlfaWQYCiABKAsyHy5wZXRham91cm5h",
+            "bC5HZXRQYWdlQnlJZFJlcXVlc3RIABI/ChFnZXRfb3JfY3JlYXRlX2RvYxgM",
+            "IAEoCzIiLnBldGFqb3VybmFsLkdldE9yQ3JlYXRlRG9jUmVxdWVzdEgAEjUK",
+            "C2RlbGV0ZV9wYWdlGA0gASgLMh4ucGV0YWpvdXJuYWwuRGVsZXRlUGFnZVJl",
+            "cXVlc3RIABI1Cgt1cGRhdGVfcGFnZRgOIAEoCzIeLnBldGFqb3VybmFsLlVw",
+            "ZGF0ZVBhZ2VSZXF1ZXN0SAASNwoMY3JlYXRlX2Jsb2NrGBQgASgLMh8ucGV0",
+            "YWpvdXJuYWwuQ3JlYXRlQmxvY2tSZXF1ZXN0SAASNwoMdXBkYXRlX2Jsb2Nr",
+            "GBUgASgLMh8ucGV0YWpvdXJuYWwuVXBkYXRlQmxvY2tSZXF1ZXN0SAASNQoL",
+            "bW92ZV9ibG9ja3MYFiABKAsyHi5wZXRham91cm5hbC5Nb3ZlQmxvY2tzUmVx",
+            "dWVzdEgAEjcKDGRlbGV0ZV9ibG9jaxgXIAEoCzIfLnBldGFqb3VybmFsLkRl",
+            "bGV0ZUJsb2NrUmVxdWVzdEgAEkQKE3VwZGF0ZV9ibG9ja19zdGF0dXMYGCAB",
+            "KAsyJS5wZXRham91cm5hbC5VcGRhdGVCbG9ja1N0YXR1c1JlcXVlc3RIABJA",
+            "ChFzZWFyY2hfcGFnZV9uYW1lcxgeIAEoCzIjLnBldGFqb3VybmFsLlNlYXJj",
+            "aFBhZ2VOYW1lc1JlcXVlc3RIABI+ChBzZWFyY2hfZnVsbF90ZXh0GB8gASgL",
+            "MiIucGV0YWpvdXJuYWwuU2VhcmNoRnVsbFRleHRSZXF1ZXN0SAASPgoQZ2V0",
+            "X3JlY2VudF9wYWdlcxgoIAEoCzIiLnBldGFqb3VybmFsLkdldFJlY2VudFBh",
+            "Z2VzUmVxdWVzdEgAEjkKDWdldF9iYWNrbGlua3MYKSABKAsyIC5wZXRham91",
+            "cm5hbC5HZXRCYWNrbGlua3NSZXF1ZXN0SAASWAoeZ2V0X21vc3RfcmVjZW50",
+            "X2pvdXJuYWxfYmVmb3JlGCogASgLMi4ucGV0YWpvdXJuYWwuR2V0TW9zdFJl",
+            "Y2VudEpvdXJuYWxCZWZvcmVSZXF1ZXN0SAASRQoUZ2V0X2Jsb2Nrc19ieV9z",
+            "dGF0dXMYMiABKAsyJS5wZXRham91cm5hbC5HZXRCbG9ja3NCeVN0YXR1c1Jl",
+            "cXVlc3RIABIzCgpnZXRfY29uZmlnGDwgASgLMh0ucGV0YWpvdXJuYWwuR2V0",
+            "Q29uZmlnUmVxdWVzdEgAEjkKDXVwZGF0ZV9jb25maWcYPSABKAsyIC5wZXRh",
+            "am91cm5hbC5VcGRhdGVDb25maWdSZXF1ZXN0SAASRwoVZ2V0X29yX2NyZWF0",
+            "ZV9qb3VybmFsGCwgASgLMiYucGV0YWpvdXJuYWwuR2V0T3JDcmVhdGVKb3Vy",
+            "bmFsUmVxdWVzdEgAEkYKFGV4cG9ydF90cmVlX21hcmtkb3duGEYgASgLMiYu",
+            "cGV0YWpvdXJuYWwuRXhwb3J0VHJlZU1hcmtkb3duUmVxdWVzdEgAEkYKFGlt",
+            "cG9ydF90cmVlX21hcmtkb3duGEcgASgLMiYucGV0YWpvdXJuYWwuSW1wb3J0",
+            "VHJlZU1hcmtkb3duUmVxdWVzdEgAQgkKB3BheWxvYWQikwsKC0FwaVJlc3Bv",
+            "bnNlEhIKCnJlcXVlc3RfaWQYASABKAkSDwoHc3VjY2VzcxgCIAEoCBIVCg1l",
+            "cnJvcl9tZXNzYWdlGAMgASgJEjoKDmdldF9wYWdlX2J5X2lkGAogASgLMiAu",
+            "cGV0YWpvdXJuYWwuR2V0UGFnZUJ5SWRSZXNwb25zZUgAEkAKEWdldF9vcl9j",
+            "cmVhdGVfZG9jGAwgASgLMiMucGV0YWpvdXJuYWwuR2V0T3JDcmVhdGVEb2NS",
+            "ZXNwb25zZUgAEjYKC2RlbGV0ZV9wYWdlGA0gASgLMh8ucGV0YWpvdXJuYWwu",
+            "RGVsZXRlUGFnZVJlc3BvbnNlSAASNgoLdXBkYXRlX3BhZ2UYDiABKAsyHy5w",
+            "ZXRham91cm5hbC5VcGRhdGVQYWdlUmVzcG9uc2VIABI4CgxjcmVhdGVfYmxv",
+            "Y2sYFCABKAsyIC5wZXRham91cm5hbC5DcmVhdGVCbG9ja1Jlc3BvbnNlSAAS",
+            "OAoMdXBkYXRlX2Jsb2NrGBUgASgLMiAucGV0YWpvdXJuYWwuVXBkYXRlQmxv",
+            "Y2tSZXNwb25zZUgAEjYKC21vdmVfYmxvY2tzGBYgASgLMh8ucGV0YWpvdXJu",
+            "YWwuTW92ZUJsb2Nrc1Jlc3BvbnNlSAASOAoMZGVsZXRlX2Jsb2NrGBcgASgL",
+            "MiAucGV0YWpvdXJuYWwuRGVsZXRlQmxvY2tSZXNwb25zZUgAEkUKE3VwZGF0",
+            "ZV9ibG9ja19zdGF0dXMYGCABKAsyJi5wZXRham91cm5hbC5VcGRhdGVCbG9j",
+            "a1N0YXR1c1Jlc3BvbnNlSAASQQoRc2VhcmNoX3BhZ2VfbmFtZXMYHiABKAsy",
+            "JC5wZXRham91cm5hbC5TZWFyY2hQYWdlTmFtZXNSZXNwb25zZUgAEj8KEHNl",
+            "YXJjaF9mdWxsX3RleHQYHyABKAsyIy5wZXRham91cm5hbC5TZWFyY2hGdWxs",
+            "VGV4dFJlc3BvbnNlSAASPwoQZ2V0X3JlY2VudF9wYWdlcxgoIAEoCzIjLnBl",
+            "dGFqb3VybmFsLkdldFJlY2VudFBhZ2VzUmVzcG9uc2VIABI6Cg1nZXRfYmFj",
+            "a2xpbmtzGCkgASgLMiEucGV0YWpvdXJuYWwuR2V0QmFja2xpbmtzUmVzcG9u",
+            "c2VIABJZCh5nZXRfbW9zdF9yZWNlbnRfam91cm5hbF9iZWZvcmUYKiABKAsy",
+            "Ly5wZXRham91cm5hbC5HZXRNb3N0UmVjZW50Sm91cm5hbEJlZm9yZVJlc3Bv",
+            "bnNlSAASSAoVZ2V0X29yX2NyZWF0ZV9qb3VybmFsGCwgASgLMicucGV0YWpv",
+            "dXJuYWwuR2V0T3JDcmVhdGVKb3VybmFsUmVzcG9uc2VIABJGChRnZXRfYmxv",
+            "Y2tzX2J5X3N0YXR1cxgyIAEoCzImLnBldGFqb3VybmFsLkdldEJsb2Nrc0J5",
+            "U3RhdHVzUmVzcG9uc2VIABI0CgpnZXRfY29uZmlnGDwgASgLMh4ucGV0YWpv",
+            "dXJuYWwuR2V0Q29uZmlnUmVzcG9uc2VIABI6Cg11cGRhdGVfY29uZmlnGD0g",
+            "ASgLMiEucGV0YWpvdXJuYWwuVXBkYXRlQ29uZmlnUmVzcG9uc2VIABJHChRl",
+            "eHBvcnRfdHJlZV9tYXJrZG93bhhGIAEoCzInLnBldGFqb3VybmFsLkV4cG9y",
+            "dFRyZWVNYXJrZG93blJlc3BvbnNlSAASRwoUaW1wb3J0X3RyZWVfbWFya2Rv",
+            "d24YRyABKAsyJy5wZXRham91cm5hbC5JbXBvcnRUcmVlTWFya2Rvd25SZXNw",
+            "b25zZUgAEjAKDHNlcnZlcl9ldmVudBhkIAEoCzIYLnBldGFqb3VybmFsLlNl",
+            "cnZlckV2ZW50SABCCQoHcGF5bG9hZCIlChJHZXRQYWdlQnlJZFJlcXVlc3QS",
+            "DwoHcGFnZV9pZBgBIAEoCSJaChNHZXRQYWdlQnlJZFJlc3BvbnNlEh8KBHBh",
+            "Z2UYASABKAsyES5wZXRham91cm5hbC5QYWdlEiIKBmJsb2NrcxgCIAMoCzIS",
+            "LnBldGFqb3VybmFsLkJsb2NrIkYKFUdldE9yQ3JlYXRlRG9jUmVxdWVzdBIN",
+            "CgV0aXRsZRgBIAEoCRIQCghkaXJfcGF0aBgCIAEoCRIMCgR0YWdzGAMgAygJ",
+            "Im4KFkdldE9yQ3JlYXRlRG9jUmVzcG9uc2USHwoEcGFnZRgBIAEoCzIRLnBl",
+            "dGFqb3VybmFsLlBhZ2USIgoGYmxvY2tzGAIgAygLMhIucGV0YWpvdXJuYWwu",
+            "QmxvY2sSDwoHY3JlYXRlZBgDIAEoCCIkChFEZWxldGVQYWdlUmVxdWVzdBIP",
+            "CgdwYWdlX2lkGAEgASgJIhQKEkRlbGV0ZVBhZ2VSZXNwb25zZSKNAQoRVXBk",
+            "YXRlUGFnZVJlcXVlc3QSDwoHcGFnZV9pZBgBIAEoCRISCgV0aXRsZRgCIAEo",
+            "CUgAiAEBEgwKBHRhZ3MYAyADKAkSFwoPcHJvcGVydGllc19qc29uGAQgASgJ",
+            "EhUKCGRpcl9wYXRoGAUgASgJSAGIAQFCCAoGX3RpdGxlQgsKCV9kaXJfcGF0",
+            "aCI1ChJVcGRhdGVQYWdlUmVzcG9uc2USHwoEcGFnZRgBIAEoCzIRLnBldGFq",
+            "b3VybmFsLlBhZ2UiWgoSQ3JlYXRlQmxvY2tSZXF1ZXN0Eg8KB3BhZ2VfaWQY",
+            "ASABKAkSFgoOYWZ0ZXJfYmxvY2tfaWQYAiABKAkSDQoFbGV2ZWwYAyABKAUS",
+            "DAoEYm9keRgEIAEoCSI4ChNDcmVhdGVCbG9ja1Jlc3BvbnNlEiEKBWJsb2Nr",
+            "GAEgASgLMhIucGV0YWpvdXJuYWwuQmxvY2si2AEKElVwZGF0ZUJsb2NrUmVx",
+            "dWVzdBIQCghibG9ja19pZBgBIAEoCRIRCgRib2R5GAIgASgJSACIAQESEgoF",
+            "bGV2ZWwYAyABKAVIAYgBARIWCgljb2xsYXBzZWQYBCABKAhIAogBARITCgZz",
+            "dGF0dXMYBSABKAlIA4gBARIcCg9wcm9wZXJ0aWVzX2pzb24YBiABKAlIBIgB",
+            "AUIHCgVfYm9keUIICgZfbGV2ZWxCDAoKX2NvbGxhcHNlZEIJCgdfc3RhdHVz",
+            "QhIKEF9wcm9wZXJ0aWVzX2pzb24iOAoTVXBkYXRlQmxvY2tSZXNwb25zZRIh",
+            "CgVibG9jaxgBIAEoCzISLnBldGFqb3VybmFsLkJsb2NrIoABChFNb3ZlQmxv",
+            "Y2tzUmVxdWVzdBIRCglibG9ja19pZHMYASADKAkSFgoOdGFyZ2V0X3BhZ2Vf",
+            "aWQYAiABKAkSFgoOYWZ0ZXJfYmxvY2tfaWQYAyABKAkSGAoLbGV2ZWxfZGVs",
+            "dGEYBCABKAVIAIgBAUIOCgxfbGV2ZWxfZGVsdGEiOAoSTW92ZUJsb2Nrc1Jl",
+            "c3BvbnNlEiIKBmJsb2NrcxgBIAMoCzISLnBldGFqb3VybmFsLkJsb2NrIiYK",
+            "EkRlbGV0ZUJsb2NrUmVxdWVzdBIQCghibG9ja19pZBgBIAEoCSIVChNEZWxl",
+            "dGVCbG9ja1Jlc3BvbnNlIjwKGFVwZGF0ZUJsb2NrU3RhdHVzUmVxdWVzdBIQ",
+            "CghibG9ja19pZBgBIAEoCRIOCgZzdGF0dXMYAiABKAkiPgoZVXBkYXRlQmxv",
+            "Y2tTdGF0dXNSZXNwb25zZRIhCgVibG9jaxgBIAEoCzISLnBldGFqb3VybmFs",
+            "LkJsb2NrIjwKFlNlYXJjaFBhZ2VOYW1lc1JlcXVlc3QSDQoFcXVlcnkYASAB",
+            "KAkSEwoLbWF4X3Jlc3VsdHMYAiABKAUiRQoXU2VhcmNoUGFnZU5hbWVzUmVz",
+            "cG9uc2USKgoHcmVzdWx0cxgBIAMoCzIZLnBldGFqb3VybmFsLlNlYXJjaFJl",
+            "c3VsdCI7ChVTZWFyY2hGdWxsVGV4dFJlcXVlc3QSDQoFcXVlcnkYASABKAkS",
+            "EwoLbWF4X3Jlc3VsdHMYAiABKAUiWAoWU2VhcmNoRnVsbFRleHRSZXNwb25z",
+            "ZRIqCgdyZXN1bHRzGAEgAygLMhkucGV0YWpvdXJuYWwuU2VhcmNoUmVzdWx0",
+            "EhIKCnRvdGFsX2hpdHMYAiABKAUiOgoVR2V0UmVjZW50UGFnZXNSZXF1ZXN0",
+            "EhMKC21heF9yZXN1bHRzGAEgASgFEgwKBHR5cGUYAiABKAkiOgoWR2V0UmVj",
+            "ZW50UGFnZXNSZXNwb25zZRIgCgVwYWdlcxgBIAMoCzIRLnBldGFqb3VybmFs",
+            "LlBhZ2UiJgoTR2V0QmFja2xpbmtzUmVxdWVzdBIPCgdwYWdlX2lkGAEgASgJ",
+            "IkMKFEdldEJhY2tsaW5rc1Jlc3BvbnNlEisKB2VudHJpZXMYASADKAsyGi5w",
+            "ZXRham91cm5hbC5CYWNrbGlua0VudHJ5ImEKDUJhY2tsaW5rRW50cnkSJgoL",
+            "c291cmNlX3BhZ2UYASABKAsyES5wZXRham91cm5hbC5QYWdlEigKDHNvdXJj",
+            "ZV9ibG9jaxgCIAEoCzISLnBldGFqb3VybmFsLkJsb2NrIjgKIUdldE1vc3RS",
+            "ZWNlbnRKb3VybmFsQmVmb3JlUmVxdWVzdBITCgtiZWZvcmVfZGF0ZRgBIAEo",
+            "CSJ4CiJHZXRNb3N0UmVjZW50Sm91cm5hbEJlZm9yZVJlc3BvbnNlEg0KBWZv",
+            "dW5kGAEgASgIEh8KBHBhZ2UYAiABKAsyES5wZXRham91cm5hbC5QYWdlEiIK",
+            "BmJsb2NrcxgDIAMoCzISLnBldGFqb3VybmFsLkJsb2NrIiwKGEdldEJsb2Nr",
+            "c0J5U3RhdHVzUmVxdWVzdBIQCghzdGF0dXNlcxgBIAMoCSI/ChlHZXRCbG9j",
+            "a3NCeVN0YXR1c1Jlc3BvbnNlEiIKBmJsb2NrcxgBIAMoCzISLnBldGFqb3Vy",
+            "bmFsLkJsb2NrIi4KGUdldE9yQ3JlYXRlSm91cm5hbFJlcXVlc3QSEQoJZmls",
+            "ZV9uYW1lGAEgASgJInIKGkdldE9yQ3JlYXRlSm91cm5hbFJlc3BvbnNlEh8K",
+            "BHBhZ2UYASABKAsyES5wZXRham91cm5hbC5QYWdlEiIKBmJsb2NrcxgCIAMo",
+            "CzISLnBldGFqb3VybmFsLkJsb2NrEg8KB2NyZWF0ZWQYAyABKAgiEgoQR2V0",
+            "Q29uZmlnUmVxdWVzdCIrChFHZXRDb25maWdSZXNwb25zZRIWCg53ZWVrX251",
+            "bWJlcmluZxgBIAEoCSItChNVcGRhdGVDb25maWdSZXF1ZXN0EhYKDndlZWtf",
+            "bnVtYmVyaW5nGAEgASgJIi4KFFVwZGF0ZUNvbmZpZ1Jlc3BvbnNlEhYKDndl",
+            "ZWtfbnVtYmVyaW5nGAEgASgJIi4KGUV4cG9ydFRyZWVNYXJrZG93blJlcXVl",
+            "c3QSEQoJYmxvY2tfaWRzGAEgAygJIlgKGkV4cG9ydFRyZWVNYXJrZG93blJl",
+            "c3BvbnNlEhUKDXRyZWVfbWFya2Rvd24YASABKAkSDAoEaHRtbBgCIAEoCRIV",
+            "Cg1mbGF0X21hcmtkb3duGAMgASgJIjIKGUltcG9ydFRyZWVNYXJrZG93blJl",
+            "cXVlc3QSFQoNdHJlZV9tYXJrZG93bhgBIAEoCSIzChpJbXBvcnRUcmVlTWFy",
+            "a2Rvd25SZXNwb25zZRIVCg1mbGF0X21hcmtkb3duGAEgASgJIqABCgtTZXJ2",
+            "ZXJFdmVudBIdChVvcmlnaW5hdG9yX3Nlc3Npb25faWQYASABKAkSMAoJY29u",
+            "bmVjdGVkGAogASgLMhsucGV0YWpvdXJuYWwuQ29ubmVjdGVkRXZlbnRIABI3",
+            "Cg1wYWdlc191cGRhdGVkGBQgASgLMh4ucGV0YWpvdXJuYWwuUGFnZXNVcGRh",
+            "dGVkRXZlbnRIAEIHCgVldmVudCIkCg5Db25uZWN0ZWRFdmVudBISCgpzZXNz",
+            "aW9uX2lkGAEgASgJIiQKEVBhZ2VzVXBkYXRlZEV2ZW50Eg8KB3BhZ2VfaWQY",
+            "ASABKAlCIwoVY29tLnBldGFqb3VybmFsLnByb3RvQghBcGlQcm90b1ABYgZw",
+            "cm90bzM="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::Petajournal.PageReflection.Descriptor, global::Petajournal.BlockReflection.Descriptor, global::Petajournal.SearchReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
-            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.ApiRequest), global::Petajournal.ApiRequest.Parser, new[]{ "RequestId", "GetPage", "GetDocByName", "DeletePage", "UpdatePage", "CreateBlock", "UpdateBlock", "MoveBlocks", "DeleteBlock", "UpdateBlockStatus", "SearchPageNames", "SearchFullText", "GetRecentPages", "GetBacklinks", "GetMostRecentJournalBefore", "GetBlocksByStatus", "GetConfig", "UpdateConfig", "GetJournalByName", "ExportTreeMarkdown", "ImportTreeMarkdown" }, new[]{ "Payload" }, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.ApiResponse), global::Petajournal.ApiResponse.Parser, new[]{ "RequestId", "Success", "ErrorMessage", "GetPage", "GetDocByName", "DeletePage", "UpdatePage", "CreateBlock", "UpdateBlock", "MoveBlocks", "DeleteBlock", "UpdateBlockStatus", "SearchPageNames", "SearchFullText", "GetRecentPages", "GetBacklinks", "GetMostRecentJournalBefore", "GetJournalByName", "GetBlocksByStatus", "GetConfig", "UpdateConfig", "ExportTreeMarkdown", "ImportTreeMarkdown", "ServerEvent" }, new[]{ "Payload" }, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetPageRequest), global::Petajournal.GetPageRequest.Parser, new[]{ "PageId" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetPageResponse), global::Petajournal.GetPageResponse.Parser, new[]{ "Page", "Blocks" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetDocByNameRequest), global::Petajournal.GetDocByNameRequest.Parser, new[]{ "Title", "DirPath", "Tags" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetDocByNameResponse), global::Petajournal.GetDocByNameResponse.Parser, new[]{ "Page", "Blocks", "Created" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.ApiRequest), global::Petajournal.ApiRequest.Parser, new[]{ "RequestId", "GetPageById", "GetOrCreateDoc", "DeletePage", "UpdatePage", "CreateBlock", "UpdateBlock", "MoveBlocks", "DeleteBlock", "UpdateBlockStatus", "SearchPageNames", "SearchFullText", "GetRecentPages", "GetBacklinks", "GetMostRecentJournalBefore", "GetBlocksByStatus", "GetConfig", "UpdateConfig", "GetOrCreateJournal", "ExportTreeMarkdown", "ImportTreeMarkdown" }, new[]{ "Payload" }, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.ApiResponse), global::Petajournal.ApiResponse.Parser, new[]{ "RequestId", "Success", "ErrorMessage", "GetPageById", "GetOrCreateDoc", "DeletePage", "UpdatePage", "CreateBlock", "UpdateBlock", "MoveBlocks", "DeleteBlock", "UpdateBlockStatus", "SearchPageNames", "SearchFullText", "GetRecentPages", "GetBacklinks", "GetMostRecentJournalBefore", "GetOrCreateJournal", "GetBlocksByStatus", "GetConfig", "UpdateConfig", "ExportTreeMarkdown", "ImportTreeMarkdown", "ServerEvent" }, new[]{ "Payload" }, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetPageByIdRequest), global::Petajournal.GetPageByIdRequest.Parser, new[]{ "PageId" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetPageByIdResponse), global::Petajournal.GetPageByIdResponse.Parser, new[]{ "Page", "Blocks" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetOrCreateDocRequest), global::Petajournal.GetOrCreateDocRequest.Parser, new[]{ "Title", "DirPath", "Tags" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetOrCreateDocResponse), global::Petajournal.GetOrCreateDocResponse.Parser, new[]{ "Page", "Blocks", "Created" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.DeletePageRequest), global::Petajournal.DeletePageRequest.Parser, new[]{ "PageId" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.DeletePageResponse), global::Petajournal.DeletePageResponse.Parser, null, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.UpdatePageRequest), global::Petajournal.UpdatePageRequest.Parser, new[]{ "PageId", "Title", "Tags", "PropertiesJson", "DirPath" }, new[]{ "Title", "DirPath" }, null, null, null),
@@ -182,7 +184,7 @@ namespace Petajournal {
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.SearchPageNamesResponse), global::Petajournal.SearchPageNamesResponse.Parser, new[]{ "Results" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.SearchFullTextRequest), global::Petajournal.SearchFullTextRequest.Parser, new[]{ "Query", "MaxResults" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.SearchFullTextResponse), global::Petajournal.SearchFullTextResponse.Parser, new[]{ "Results", "TotalHits" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetRecentPagesRequest), global::Petajournal.GetRecentPagesRequest.Parser, new[]{ "MaxResults" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetRecentPagesRequest), global::Petajournal.GetRecentPagesRequest.Parser, new[]{ "MaxResults", "Type" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetRecentPagesResponse), global::Petajournal.GetRecentPagesResponse.Parser, new[]{ "Pages" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetBacklinksRequest), global::Petajournal.GetBacklinksRequest.Parser, new[]{ "PageId" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetBacklinksResponse), global::Petajournal.GetBacklinksResponse.Parser, new[]{ "Entries" }, null, null, null, null),
@@ -191,8 +193,8 @@ namespace Petajournal {
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetMostRecentJournalBeforeResponse), global::Petajournal.GetMostRecentJournalBeforeResponse.Parser, new[]{ "Found", "Page", "Blocks" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetBlocksByStatusRequest), global::Petajournal.GetBlocksByStatusRequest.Parser, new[]{ "Statuses" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetBlocksByStatusResponse), global::Petajournal.GetBlocksByStatusResponse.Parser, new[]{ "Blocks" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetJournalByNameRequest), global::Petajournal.GetJournalByNameRequest.Parser, new[]{ "FileName" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetJournalByNameResponse), global::Petajournal.GetJournalByNameResponse.Parser, new[]{ "Page", "Blocks", "Created" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetOrCreateJournalRequest), global::Petajournal.GetOrCreateJournalRequest.Parser, new[]{ "FileName" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetOrCreateJournalResponse), global::Petajournal.GetOrCreateJournalResponse.Parser, new[]{ "Page", "Blocks", "Created" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetConfigRequest), global::Petajournal.GetConfigRequest.Parser, null, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetConfigResponse), global::Petajournal.GetConfigResponse.Parser, new[]{ "WeekNumbering" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.UpdateConfigRequest), global::Petajournal.UpdateConfigRequest.Parser, new[]{ "WeekNumbering" }, null, null, null, null),
@@ -250,11 +252,11 @@ namespace Petajournal {
     public ApiRequest(ApiRequest other) : this() {
       requestId_ = other.requestId_;
       switch (other.PayloadCase) {
-        case PayloadOneofCase.GetPage:
-          GetPage = other.GetPage.Clone();
+        case PayloadOneofCase.GetPageById:
+          GetPageById = other.GetPageById.Clone();
           break;
-        case PayloadOneofCase.GetDocByName:
-          GetDocByName = other.GetDocByName.Clone();
+        case PayloadOneofCase.GetOrCreateDoc:
+          GetOrCreateDoc = other.GetOrCreateDoc.Clone();
           break;
         case PayloadOneofCase.DeletePage:
           DeletePage = other.DeletePage.Clone();
@@ -301,8 +303,8 @@ namespace Petajournal {
         case PayloadOneofCase.UpdateConfig:
           UpdateConfig = other.UpdateConfig.Clone();
           break;
-        case PayloadOneofCase.GetJournalByName:
-          GetJournalByName = other.GetJournalByName.Clone();
+        case PayloadOneofCase.GetOrCreateJournal:
+          GetOrCreateJournal = other.GetOrCreateJournal.Clone();
           break;
         case PayloadOneofCase.ExportTreeMarkdown:
           ExportTreeMarkdown = other.ExportTreeMarkdown.Clone();
@@ -336,27 +338,27 @@ namespace Petajournal {
       }
     }
 
-    /// <summary>Field number for the "get_page" field.</summary>
-    public const int GetPageFieldNumber = 10;
+    /// <summary>Field number for the "get_page_by_id" field.</summary>
+    public const int GetPageByIdFieldNumber = 10;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Petajournal.GetPageRequest GetPage {
-      get { return payloadCase_ == PayloadOneofCase.GetPage ? (global::Petajournal.GetPageRequest) payload_ : null; }
+    public global::Petajournal.GetPageByIdRequest GetPageById {
+      get { return payloadCase_ == PayloadOneofCase.GetPageById ? (global::Petajournal.GetPageByIdRequest) payload_ : null; }
       set {
         payload_ = value;
-        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.GetPage;
+        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.GetPageById;
       }
     }
 
-    /// <summary>Field number for the "get_doc_by_name" field.</summary>
-    public const int GetDocByNameFieldNumber = 12;
+    /// <summary>Field number for the "get_or_create_doc" field.</summary>
+    public const int GetOrCreateDocFieldNumber = 12;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Petajournal.GetDocByNameRequest GetDocByName {
-      get { return payloadCase_ == PayloadOneofCase.GetDocByName ? (global::Petajournal.GetDocByNameRequest) payload_ : null; }
+    public global::Petajournal.GetOrCreateDocRequest GetOrCreateDoc {
+      get { return payloadCase_ == PayloadOneofCase.GetOrCreateDoc ? (global::Petajournal.GetOrCreateDocRequest) payload_ : null; }
       set {
         payload_ = value;
-        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.GetDocByName;
+        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.GetOrCreateDoc;
       }
     }
 
@@ -540,15 +542,15 @@ namespace Petajournal {
       }
     }
 
-    /// <summary>Field number for the "get_journal_by_name" field.</summary>
-    public const int GetJournalByNameFieldNumber = 44;
+    /// <summary>Field number for the "get_or_create_journal" field.</summary>
+    public const int GetOrCreateJournalFieldNumber = 44;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Petajournal.GetJournalByNameRequest GetJournalByName {
-      get { return payloadCase_ == PayloadOneofCase.GetJournalByName ? (global::Petajournal.GetJournalByNameRequest) payload_ : null; }
+    public global::Petajournal.GetOrCreateJournalRequest GetOrCreateJournal {
+      get { return payloadCase_ == PayloadOneofCase.GetOrCreateJournal ? (global::Petajournal.GetOrCreateJournalRequest) payload_ : null; }
       set {
         payload_ = value;
-        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.GetJournalByName;
+        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.GetOrCreateJournal;
       }
     }
 
@@ -580,8 +582,8 @@ namespace Petajournal {
     /// <summary>Enum of possible cases for the "payload" oneof.</summary>
     public enum PayloadOneofCase {
       None = 0,
-      GetPage = 10,
-      GetDocByName = 12,
+      GetPageById = 10,
+      GetOrCreateDoc = 12,
       DeletePage = 13,
       UpdatePage = 14,
       CreateBlock = 20,
@@ -597,7 +599,7 @@ namespace Petajournal {
       GetBlocksByStatus = 50,
       GetConfig = 60,
       UpdateConfig = 61,
-      GetJournalByName = 44,
+      GetOrCreateJournal = 44,
       ExportTreeMarkdown = 70,
       ImportTreeMarkdown = 71,
     }
@@ -631,8 +633,8 @@ namespace Petajournal {
         return true;
       }
       if (RequestId != other.RequestId) return false;
-      if (!object.Equals(GetPage, other.GetPage)) return false;
-      if (!object.Equals(GetDocByName, other.GetDocByName)) return false;
+      if (!object.Equals(GetPageById, other.GetPageById)) return false;
+      if (!object.Equals(GetOrCreateDoc, other.GetOrCreateDoc)) return false;
       if (!object.Equals(DeletePage, other.DeletePage)) return false;
       if (!object.Equals(UpdatePage, other.UpdatePage)) return false;
       if (!object.Equals(CreateBlock, other.CreateBlock)) return false;
@@ -648,7 +650,7 @@ namespace Petajournal {
       if (!object.Equals(GetBlocksByStatus, other.GetBlocksByStatus)) return false;
       if (!object.Equals(GetConfig, other.GetConfig)) return false;
       if (!object.Equals(UpdateConfig, other.UpdateConfig)) return false;
-      if (!object.Equals(GetJournalByName, other.GetJournalByName)) return false;
+      if (!object.Equals(GetOrCreateJournal, other.GetOrCreateJournal)) return false;
       if (!object.Equals(ExportTreeMarkdown, other.ExportTreeMarkdown)) return false;
       if (!object.Equals(ImportTreeMarkdown, other.ImportTreeMarkdown)) return false;
       if (PayloadCase != other.PayloadCase) return false;
@@ -660,8 +662,8 @@ namespace Petajournal {
     public override int GetHashCode() {
       int hash = 1;
       if (RequestId.Length != 0) hash ^= RequestId.GetHashCode();
-      if (payloadCase_ == PayloadOneofCase.GetPage) hash ^= GetPage.GetHashCode();
-      if (payloadCase_ == PayloadOneofCase.GetDocByName) hash ^= GetDocByName.GetHashCode();
+      if (payloadCase_ == PayloadOneofCase.GetPageById) hash ^= GetPageById.GetHashCode();
+      if (payloadCase_ == PayloadOneofCase.GetOrCreateDoc) hash ^= GetOrCreateDoc.GetHashCode();
       if (payloadCase_ == PayloadOneofCase.DeletePage) hash ^= DeletePage.GetHashCode();
       if (payloadCase_ == PayloadOneofCase.UpdatePage) hash ^= UpdatePage.GetHashCode();
       if (payloadCase_ == PayloadOneofCase.CreateBlock) hash ^= CreateBlock.GetHashCode();
@@ -677,7 +679,7 @@ namespace Petajournal {
       if (payloadCase_ == PayloadOneofCase.GetBlocksByStatus) hash ^= GetBlocksByStatus.GetHashCode();
       if (payloadCase_ == PayloadOneofCase.GetConfig) hash ^= GetConfig.GetHashCode();
       if (payloadCase_ == PayloadOneofCase.UpdateConfig) hash ^= UpdateConfig.GetHashCode();
-      if (payloadCase_ == PayloadOneofCase.GetJournalByName) hash ^= GetJournalByName.GetHashCode();
+      if (payloadCase_ == PayloadOneofCase.GetOrCreateJournal) hash ^= GetOrCreateJournal.GetHashCode();
       if (payloadCase_ == PayloadOneofCase.ExportTreeMarkdown) hash ^= ExportTreeMarkdown.GetHashCode();
       if (payloadCase_ == PayloadOneofCase.ImportTreeMarkdown) hash ^= ImportTreeMarkdown.GetHashCode();
       hash ^= (int) payloadCase_;
@@ -703,13 +705,13 @@ namespace Petajournal {
         output.WriteRawTag(10);
         output.WriteString(RequestId);
       }
-      if (payloadCase_ == PayloadOneofCase.GetPage) {
+      if (payloadCase_ == PayloadOneofCase.GetPageById) {
         output.WriteRawTag(82);
-        output.WriteMessage(GetPage);
+        output.WriteMessage(GetPageById);
       }
-      if (payloadCase_ == PayloadOneofCase.GetDocByName) {
+      if (payloadCase_ == PayloadOneofCase.GetOrCreateDoc) {
         output.WriteRawTag(98);
-        output.WriteMessage(GetDocByName);
+        output.WriteMessage(GetOrCreateDoc);
       }
       if (payloadCase_ == PayloadOneofCase.DeletePage) {
         output.WriteRawTag(106);
@@ -759,9 +761,9 @@ namespace Petajournal {
         output.WriteRawTag(210, 2);
         output.WriteMessage(GetMostRecentJournalBefore);
       }
-      if (payloadCase_ == PayloadOneofCase.GetJournalByName) {
+      if (payloadCase_ == PayloadOneofCase.GetOrCreateJournal) {
         output.WriteRawTag(226, 2);
-        output.WriteMessage(GetJournalByName);
+        output.WriteMessage(GetOrCreateJournal);
       }
       if (payloadCase_ == PayloadOneofCase.GetBlocksByStatus) {
         output.WriteRawTag(146, 3);
@@ -797,13 +799,13 @@ namespace Petajournal {
         output.WriteRawTag(10);
         output.WriteString(RequestId);
       }
-      if (payloadCase_ == PayloadOneofCase.GetPage) {
+      if (payloadCase_ == PayloadOneofCase.GetPageById) {
         output.WriteRawTag(82);
-        output.WriteMessage(GetPage);
+        output.WriteMessage(GetPageById);
       }
-      if (payloadCase_ == PayloadOneofCase.GetDocByName) {
+      if (payloadCase_ == PayloadOneofCase.GetOrCreateDoc) {
         output.WriteRawTag(98);
-        output.WriteMessage(GetDocByName);
+        output.WriteMessage(GetOrCreateDoc);
       }
       if (payloadCase_ == PayloadOneofCase.DeletePage) {
         output.WriteRawTag(106);
@@ -853,9 +855,9 @@ namespace Petajournal {
         output.WriteRawTag(210, 2);
         output.WriteMessage(GetMostRecentJournalBefore);
       }
-      if (payloadCase_ == PayloadOneofCase.GetJournalByName) {
+      if (payloadCase_ == PayloadOneofCase.GetOrCreateJournal) {
         output.WriteRawTag(226, 2);
-        output.WriteMessage(GetJournalByName);
+        output.WriteMessage(GetOrCreateJournal);
       }
       if (payloadCase_ == PayloadOneofCase.GetBlocksByStatus) {
         output.WriteRawTag(146, 3);
@@ -890,11 +892,11 @@ namespace Petajournal {
       if (RequestId.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(RequestId);
       }
-      if (payloadCase_ == PayloadOneofCase.GetPage) {
-        size += 1 + pb::CodedOutputStream.ComputeMessageSize(GetPage);
+      if (payloadCase_ == PayloadOneofCase.GetPageById) {
+        size += 1 + pb::CodedOutputStream.ComputeMessageSize(GetPageById);
       }
-      if (payloadCase_ == PayloadOneofCase.GetDocByName) {
-        size += 1 + pb::CodedOutputStream.ComputeMessageSize(GetDocByName);
+      if (payloadCase_ == PayloadOneofCase.GetOrCreateDoc) {
+        size += 1 + pb::CodedOutputStream.ComputeMessageSize(GetOrCreateDoc);
       }
       if (payloadCase_ == PayloadOneofCase.DeletePage) {
         size += 1 + pb::CodedOutputStream.ComputeMessageSize(DeletePage);
@@ -941,8 +943,8 @@ namespace Petajournal {
       if (payloadCase_ == PayloadOneofCase.UpdateConfig) {
         size += 2 + pb::CodedOutputStream.ComputeMessageSize(UpdateConfig);
       }
-      if (payloadCase_ == PayloadOneofCase.GetJournalByName) {
-        size += 2 + pb::CodedOutputStream.ComputeMessageSize(GetJournalByName);
+      if (payloadCase_ == PayloadOneofCase.GetOrCreateJournal) {
+        size += 2 + pb::CodedOutputStream.ComputeMessageSize(GetOrCreateJournal);
       }
       if (payloadCase_ == PayloadOneofCase.ExportTreeMarkdown) {
         size += 2 + pb::CodedOutputStream.ComputeMessageSize(ExportTreeMarkdown);
@@ -966,17 +968,17 @@ namespace Petajournal {
         RequestId = other.RequestId;
       }
       switch (other.PayloadCase) {
-        case PayloadOneofCase.GetPage:
-          if (GetPage == null) {
-            GetPage = new global::Petajournal.GetPageRequest();
+        case PayloadOneofCase.GetPageById:
+          if (GetPageById == null) {
+            GetPageById = new global::Petajournal.GetPageByIdRequest();
           }
-          GetPage.MergeFrom(other.GetPage);
+          GetPageById.MergeFrom(other.GetPageById);
           break;
-        case PayloadOneofCase.GetDocByName:
-          if (GetDocByName == null) {
-            GetDocByName = new global::Petajournal.GetDocByNameRequest();
+        case PayloadOneofCase.GetOrCreateDoc:
+          if (GetOrCreateDoc == null) {
+            GetOrCreateDoc = new global::Petajournal.GetOrCreateDocRequest();
           }
-          GetDocByName.MergeFrom(other.GetDocByName);
+          GetOrCreateDoc.MergeFrom(other.GetOrCreateDoc);
           break;
         case PayloadOneofCase.DeletePage:
           if (DeletePage == null) {
@@ -1068,11 +1070,11 @@ namespace Petajournal {
           }
           UpdateConfig.MergeFrom(other.UpdateConfig);
           break;
-        case PayloadOneofCase.GetJournalByName:
-          if (GetJournalByName == null) {
-            GetJournalByName = new global::Petajournal.GetJournalByNameRequest();
+        case PayloadOneofCase.GetOrCreateJournal:
+          if (GetOrCreateJournal == null) {
+            GetOrCreateJournal = new global::Petajournal.GetOrCreateJournalRequest();
           }
-          GetJournalByName.MergeFrom(other.GetJournalByName);
+          GetOrCreateJournal.MergeFrom(other.GetOrCreateJournal);
           break;
         case PayloadOneofCase.ExportTreeMarkdown:
           if (ExportTreeMarkdown == null) {
@@ -1112,21 +1114,21 @@ namespace Petajournal {
             break;
           }
           case 82: {
-            global::Petajournal.GetPageRequest subBuilder = new global::Petajournal.GetPageRequest();
-            if (payloadCase_ == PayloadOneofCase.GetPage) {
-              subBuilder.MergeFrom(GetPage);
+            global::Petajournal.GetPageByIdRequest subBuilder = new global::Petajournal.GetPageByIdRequest();
+            if (payloadCase_ == PayloadOneofCase.GetPageById) {
+              subBuilder.MergeFrom(GetPageById);
             }
             input.ReadMessage(subBuilder);
-            GetPage = subBuilder;
+            GetPageById = subBuilder;
             break;
           }
           case 98: {
-            global::Petajournal.GetDocByNameRequest subBuilder = new global::Petajournal.GetDocByNameRequest();
-            if (payloadCase_ == PayloadOneofCase.GetDocByName) {
-              subBuilder.MergeFrom(GetDocByName);
+            global::Petajournal.GetOrCreateDocRequest subBuilder = new global::Petajournal.GetOrCreateDocRequest();
+            if (payloadCase_ == PayloadOneofCase.GetOrCreateDoc) {
+              subBuilder.MergeFrom(GetOrCreateDoc);
             }
             input.ReadMessage(subBuilder);
-            GetDocByName = subBuilder;
+            GetOrCreateDoc = subBuilder;
             break;
           }
           case 106: {
@@ -1238,12 +1240,12 @@ namespace Petajournal {
             break;
           }
           case 354: {
-            global::Petajournal.GetJournalByNameRequest subBuilder = new global::Petajournal.GetJournalByNameRequest();
-            if (payloadCase_ == PayloadOneofCase.GetJournalByName) {
-              subBuilder.MergeFrom(GetJournalByName);
+            global::Petajournal.GetOrCreateJournalRequest subBuilder = new global::Petajournal.GetOrCreateJournalRequest();
+            if (payloadCase_ == PayloadOneofCase.GetOrCreateJournal) {
+              subBuilder.MergeFrom(GetOrCreateJournal);
             }
             input.ReadMessage(subBuilder);
-            GetJournalByName = subBuilder;
+            GetOrCreateJournal = subBuilder;
             break;
           }
           case 402: {
@@ -1315,21 +1317,21 @@ namespace Petajournal {
             break;
           }
           case 82: {
-            global::Petajournal.GetPageRequest subBuilder = new global::Petajournal.GetPageRequest();
-            if (payloadCase_ == PayloadOneofCase.GetPage) {
-              subBuilder.MergeFrom(GetPage);
+            global::Petajournal.GetPageByIdRequest subBuilder = new global::Petajournal.GetPageByIdRequest();
+            if (payloadCase_ == PayloadOneofCase.GetPageById) {
+              subBuilder.MergeFrom(GetPageById);
             }
             input.ReadMessage(subBuilder);
-            GetPage = subBuilder;
+            GetPageById = subBuilder;
             break;
           }
           case 98: {
-            global::Petajournal.GetDocByNameRequest subBuilder = new global::Petajournal.GetDocByNameRequest();
-            if (payloadCase_ == PayloadOneofCase.GetDocByName) {
-              subBuilder.MergeFrom(GetDocByName);
+            global::Petajournal.GetOrCreateDocRequest subBuilder = new global::Petajournal.GetOrCreateDocRequest();
+            if (payloadCase_ == PayloadOneofCase.GetOrCreateDoc) {
+              subBuilder.MergeFrom(GetOrCreateDoc);
             }
             input.ReadMessage(subBuilder);
-            GetDocByName = subBuilder;
+            GetOrCreateDoc = subBuilder;
             break;
           }
           case 106: {
@@ -1441,12 +1443,12 @@ namespace Petajournal {
             break;
           }
           case 354: {
-            global::Petajournal.GetJournalByNameRequest subBuilder = new global::Petajournal.GetJournalByNameRequest();
-            if (payloadCase_ == PayloadOneofCase.GetJournalByName) {
-              subBuilder.MergeFrom(GetJournalByName);
+            global::Petajournal.GetOrCreateJournalRequest subBuilder = new global::Petajournal.GetOrCreateJournalRequest();
+            if (payloadCase_ == PayloadOneofCase.GetOrCreateJournal) {
+              subBuilder.MergeFrom(GetOrCreateJournal);
             }
             input.ReadMessage(subBuilder);
-            GetJournalByName = subBuilder;
+            GetOrCreateJournal = subBuilder;
             break;
           }
           case 402: {
@@ -1543,11 +1545,11 @@ namespace Petajournal {
       success_ = other.success_;
       errorMessage_ = other.errorMessage_;
       switch (other.PayloadCase) {
-        case PayloadOneofCase.GetPage:
-          GetPage = other.GetPage.Clone();
+        case PayloadOneofCase.GetPageById:
+          GetPageById = other.GetPageById.Clone();
           break;
-        case PayloadOneofCase.GetDocByName:
-          GetDocByName = other.GetDocByName.Clone();
+        case PayloadOneofCase.GetOrCreateDoc:
+          GetOrCreateDoc = other.GetOrCreateDoc.Clone();
           break;
         case PayloadOneofCase.DeletePage:
           DeletePage = other.DeletePage.Clone();
@@ -1585,8 +1587,8 @@ namespace Petajournal {
         case PayloadOneofCase.GetMostRecentJournalBefore:
           GetMostRecentJournalBefore = other.GetMostRecentJournalBefore.Clone();
           break;
-        case PayloadOneofCase.GetJournalByName:
-          GetJournalByName = other.GetJournalByName.Clone();
+        case PayloadOneofCase.GetOrCreateJournal:
+          GetOrCreateJournal = other.GetOrCreateJournal.Clone();
           break;
         case PayloadOneofCase.GetBlocksByStatus:
           GetBlocksByStatus = other.GetBlocksByStatus.Clone();
@@ -1659,27 +1661,27 @@ namespace Petajournal {
       }
     }
 
-    /// <summary>Field number for the "get_page" field.</summary>
-    public const int GetPageFieldNumber = 10;
+    /// <summary>Field number for the "get_page_by_id" field.</summary>
+    public const int GetPageByIdFieldNumber = 10;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Petajournal.GetPageResponse GetPage {
-      get { return payloadCase_ == PayloadOneofCase.GetPage ? (global::Petajournal.GetPageResponse) payload_ : null; }
+    public global::Petajournal.GetPageByIdResponse GetPageById {
+      get { return payloadCase_ == PayloadOneofCase.GetPageById ? (global::Petajournal.GetPageByIdResponse) payload_ : null; }
       set {
         payload_ = value;
-        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.GetPage;
+        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.GetPageById;
       }
     }
 
-    /// <summary>Field number for the "get_doc_by_name" field.</summary>
-    public const int GetDocByNameFieldNumber = 12;
+    /// <summary>Field number for the "get_or_create_doc" field.</summary>
+    public const int GetOrCreateDocFieldNumber = 12;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Petajournal.GetDocByNameResponse GetDocByName {
-      get { return payloadCase_ == PayloadOneofCase.GetDocByName ? (global::Petajournal.GetDocByNameResponse) payload_ : null; }
+    public global::Petajournal.GetOrCreateDocResponse GetOrCreateDoc {
+      get { return payloadCase_ == PayloadOneofCase.GetOrCreateDoc ? (global::Petajournal.GetOrCreateDocResponse) payload_ : null; }
       set {
         payload_ = value;
-        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.GetDocByName;
+        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.GetOrCreateDoc;
       }
     }
 
@@ -1827,15 +1829,15 @@ namespace Petajournal {
       }
     }
 
-    /// <summary>Field number for the "get_journal_by_name" field.</summary>
-    public const int GetJournalByNameFieldNumber = 44;
+    /// <summary>Field number for the "get_or_create_journal" field.</summary>
+    public const int GetOrCreateJournalFieldNumber = 44;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public global::Petajournal.GetJournalByNameResponse GetJournalByName {
-      get { return payloadCase_ == PayloadOneofCase.GetJournalByName ? (global::Petajournal.GetJournalByNameResponse) payload_ : null; }
+    public global::Petajournal.GetOrCreateJournalResponse GetOrCreateJournal {
+      get { return payloadCase_ == PayloadOneofCase.GetOrCreateJournal ? (global::Petajournal.GetOrCreateJournalResponse) payload_ : null; }
       set {
         payload_ = value;
-        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.GetJournalByName;
+        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.GetOrCreateJournal;
       }
     }
 
@@ -1915,8 +1917,8 @@ namespace Petajournal {
     /// <summary>Enum of possible cases for the "payload" oneof.</summary>
     public enum PayloadOneofCase {
       None = 0,
-      GetPage = 10,
-      GetDocByName = 12,
+      GetPageById = 10,
+      GetOrCreateDoc = 12,
       DeletePage = 13,
       UpdatePage = 14,
       CreateBlock = 20,
@@ -1929,7 +1931,7 @@ namespace Petajournal {
       GetRecentPages = 40,
       GetBacklinks = 41,
       GetMostRecentJournalBefore = 42,
-      GetJournalByName = 44,
+      GetOrCreateJournal = 44,
       GetBlocksByStatus = 50,
       GetConfig = 60,
       UpdateConfig = 61,
@@ -1969,8 +1971,8 @@ namespace Petajournal {
       if (RequestId != other.RequestId) return false;
       if (Success != other.Success) return false;
       if (ErrorMessage != other.ErrorMessage) return false;
-      if (!object.Equals(GetPage, other.GetPage)) return false;
-      if (!object.Equals(GetDocByName, other.GetDocByName)) return false;
+      if (!object.Equals(GetPageById, other.GetPageById)) return false;
+      if (!object.Equals(GetOrCreateDoc, other.GetOrCreateDoc)) return false;
       if (!object.Equals(DeletePage, other.DeletePage)) return false;
       if (!object.Equals(UpdatePage, other.UpdatePage)) return false;
       if (!object.Equals(CreateBlock, other.CreateBlock)) return false;
@@ -1983,7 +1985,7 @@ namespace Petajournal {
       if (!object.Equals(GetRecentPages, other.GetRecentPages)) return false;
       if (!object.Equals(GetBacklinks, other.GetBacklinks)) return false;
       if (!object.Equals(GetMostRecentJournalBefore, other.GetMostRecentJournalBefore)) return false;
-      if (!object.Equals(GetJournalByName, other.GetJournalByName)) return false;
+      if (!object.Equals(GetOrCreateJournal, other.GetOrCreateJournal)) return false;
       if (!object.Equals(GetBlocksByStatus, other.GetBlocksByStatus)) return false;
       if (!object.Equals(GetConfig, other.GetConfig)) return false;
       if (!object.Equals(UpdateConfig, other.UpdateConfig)) return false;
@@ -2001,8 +2003,8 @@ namespace Petajournal {
       if (RequestId.Length != 0) hash ^= RequestId.GetHashCode();
       if (Success != false) hash ^= Success.GetHashCode();
       if (ErrorMessage.Length != 0) hash ^= ErrorMessage.GetHashCode();
-      if (payloadCase_ == PayloadOneofCase.GetPage) hash ^= GetPage.GetHashCode();
-      if (payloadCase_ == PayloadOneofCase.GetDocByName) hash ^= GetDocByName.GetHashCode();
+      if (payloadCase_ == PayloadOneofCase.GetPageById) hash ^= GetPageById.GetHashCode();
+      if (payloadCase_ == PayloadOneofCase.GetOrCreateDoc) hash ^= GetOrCreateDoc.GetHashCode();
       if (payloadCase_ == PayloadOneofCase.DeletePage) hash ^= DeletePage.GetHashCode();
       if (payloadCase_ == PayloadOneofCase.UpdatePage) hash ^= UpdatePage.GetHashCode();
       if (payloadCase_ == PayloadOneofCase.CreateBlock) hash ^= CreateBlock.GetHashCode();
@@ -2015,7 +2017,7 @@ namespace Petajournal {
       if (payloadCase_ == PayloadOneofCase.GetRecentPages) hash ^= GetRecentPages.GetHashCode();
       if (payloadCase_ == PayloadOneofCase.GetBacklinks) hash ^= GetBacklinks.GetHashCode();
       if (payloadCase_ == PayloadOneofCase.GetMostRecentJournalBefore) hash ^= GetMostRecentJournalBefore.GetHashCode();
-      if (payloadCase_ == PayloadOneofCase.GetJournalByName) hash ^= GetJournalByName.GetHashCode();
+      if (payloadCase_ == PayloadOneofCase.GetOrCreateJournal) hash ^= GetOrCreateJournal.GetHashCode();
       if (payloadCase_ == PayloadOneofCase.GetBlocksByStatus) hash ^= GetBlocksByStatus.GetHashCode();
       if (payloadCase_ == PayloadOneofCase.GetConfig) hash ^= GetConfig.GetHashCode();
       if (payloadCase_ == PayloadOneofCase.UpdateConfig) hash ^= UpdateConfig.GetHashCode();
@@ -2053,13 +2055,13 @@ namespace Petajournal {
         output.WriteRawTag(26);
         output.WriteString(ErrorMessage);
       }
-      if (payloadCase_ == PayloadOneofCase.GetPage) {
+      if (payloadCase_ == PayloadOneofCase.GetPageById) {
         output.WriteRawTag(82);
-        output.WriteMessage(GetPage);
+        output.WriteMessage(GetPageById);
       }
-      if (payloadCase_ == PayloadOneofCase.GetDocByName) {
+      if (payloadCase_ == PayloadOneofCase.GetOrCreateDoc) {
         output.WriteRawTag(98);
-        output.WriteMessage(GetDocByName);
+        output.WriteMessage(GetOrCreateDoc);
       }
       if (payloadCase_ == PayloadOneofCase.DeletePage) {
         output.WriteRawTag(106);
@@ -2109,9 +2111,9 @@ namespace Petajournal {
         output.WriteRawTag(210, 2);
         output.WriteMessage(GetMostRecentJournalBefore);
       }
-      if (payloadCase_ == PayloadOneofCase.GetJournalByName) {
+      if (payloadCase_ == PayloadOneofCase.GetOrCreateJournal) {
         output.WriteRawTag(226, 2);
-        output.WriteMessage(GetJournalByName);
+        output.WriteMessage(GetOrCreateJournal);
       }
       if (payloadCase_ == PayloadOneofCase.GetBlocksByStatus) {
         output.WriteRawTag(146, 3);
@@ -2159,13 +2161,13 @@ namespace Petajournal {
         output.WriteRawTag(26);
         output.WriteString(ErrorMessage);
       }
-      if (payloadCase_ == PayloadOneofCase.GetPage) {
+      if (payloadCase_ == PayloadOneofCase.GetPageById) {
         output.WriteRawTag(82);
-        output.WriteMessage(GetPage);
+        output.WriteMessage(GetPageById);
       }
-      if (payloadCase_ == PayloadOneofCase.GetDocByName) {
+      if (payloadCase_ == PayloadOneofCase.GetOrCreateDoc) {
         output.WriteRawTag(98);
-        output.WriteMessage(GetDocByName);
+        output.WriteMessage(GetOrCreateDoc);
       }
       if (payloadCase_ == PayloadOneofCase.DeletePage) {
         output.WriteRawTag(106);
@@ -2215,9 +2217,9 @@ namespace Petajournal {
         output.WriteRawTag(210, 2);
         output.WriteMessage(GetMostRecentJournalBefore);
       }
-      if (payloadCase_ == PayloadOneofCase.GetJournalByName) {
+      if (payloadCase_ == PayloadOneofCase.GetOrCreateJournal) {
         output.WriteRawTag(226, 2);
-        output.WriteMessage(GetJournalByName);
+        output.WriteMessage(GetOrCreateJournal);
       }
       if (payloadCase_ == PayloadOneofCase.GetBlocksByStatus) {
         output.WriteRawTag(146, 3);
@@ -2262,11 +2264,11 @@ namespace Petajournal {
       if (ErrorMessage.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(ErrorMessage);
       }
-      if (payloadCase_ == PayloadOneofCase.GetPage) {
-        size += 1 + pb::CodedOutputStream.ComputeMessageSize(GetPage);
+      if (payloadCase_ == PayloadOneofCase.GetPageById) {
+        size += 1 + pb::CodedOutputStream.ComputeMessageSize(GetPageById);
       }
-      if (payloadCase_ == PayloadOneofCase.GetDocByName) {
-        size += 1 + pb::CodedOutputStream.ComputeMessageSize(GetDocByName);
+      if (payloadCase_ == PayloadOneofCase.GetOrCreateDoc) {
+        size += 1 + pb::CodedOutputStream.ComputeMessageSize(GetOrCreateDoc);
       }
       if (payloadCase_ == PayloadOneofCase.DeletePage) {
         size += 1 + pb::CodedOutputStream.ComputeMessageSize(DeletePage);
@@ -2304,8 +2306,8 @@ namespace Petajournal {
       if (payloadCase_ == PayloadOneofCase.GetMostRecentJournalBefore) {
         size += 2 + pb::CodedOutputStream.ComputeMessageSize(GetMostRecentJournalBefore);
       }
-      if (payloadCase_ == PayloadOneofCase.GetJournalByName) {
-        size += 2 + pb::CodedOutputStream.ComputeMessageSize(GetJournalByName);
+      if (payloadCase_ == PayloadOneofCase.GetOrCreateJournal) {
+        size += 2 + pb::CodedOutputStream.ComputeMessageSize(GetOrCreateJournal);
       }
       if (payloadCase_ == PayloadOneofCase.GetBlocksByStatus) {
         size += 2 + pb::CodedOutputStream.ComputeMessageSize(GetBlocksByStatus);
@@ -2347,17 +2349,17 @@ namespace Petajournal {
         ErrorMessage = other.ErrorMessage;
       }
       switch (other.PayloadCase) {
-        case PayloadOneofCase.GetPage:
-          if (GetPage == null) {
-            GetPage = new global::Petajournal.GetPageResponse();
+        case PayloadOneofCase.GetPageById:
+          if (GetPageById == null) {
+            GetPageById = new global::Petajournal.GetPageByIdResponse();
           }
-          GetPage.MergeFrom(other.GetPage);
+          GetPageById.MergeFrom(other.GetPageById);
           break;
-        case PayloadOneofCase.GetDocByName:
-          if (GetDocByName == null) {
-            GetDocByName = new global::Petajournal.GetDocByNameResponse();
+        case PayloadOneofCase.GetOrCreateDoc:
+          if (GetOrCreateDoc == null) {
+            GetOrCreateDoc = new global::Petajournal.GetOrCreateDocResponse();
           }
-          GetDocByName.MergeFrom(other.GetDocByName);
+          GetOrCreateDoc.MergeFrom(other.GetOrCreateDoc);
           break;
         case PayloadOneofCase.DeletePage:
           if (DeletePage == null) {
@@ -2431,11 +2433,11 @@ namespace Petajournal {
           }
           GetMostRecentJournalBefore.MergeFrom(other.GetMostRecentJournalBefore);
           break;
-        case PayloadOneofCase.GetJournalByName:
-          if (GetJournalByName == null) {
-            GetJournalByName = new global::Petajournal.GetJournalByNameResponse();
+        case PayloadOneofCase.GetOrCreateJournal:
+          if (GetOrCreateJournal == null) {
+            GetOrCreateJournal = new global::Petajournal.GetOrCreateJournalResponse();
           }
-          GetJournalByName.MergeFrom(other.GetJournalByName);
+          GetOrCreateJournal.MergeFrom(other.GetOrCreateJournal);
           break;
         case PayloadOneofCase.GetBlocksByStatus:
           if (GetBlocksByStatus == null) {
@@ -2507,21 +2509,21 @@ namespace Petajournal {
             break;
           }
           case 82: {
-            global::Petajournal.GetPageResponse subBuilder = new global::Petajournal.GetPageResponse();
-            if (payloadCase_ == PayloadOneofCase.GetPage) {
-              subBuilder.MergeFrom(GetPage);
+            global::Petajournal.GetPageByIdResponse subBuilder = new global::Petajournal.GetPageByIdResponse();
+            if (payloadCase_ == PayloadOneofCase.GetPageById) {
+              subBuilder.MergeFrom(GetPageById);
             }
             input.ReadMessage(subBuilder);
-            GetPage = subBuilder;
+            GetPageById = subBuilder;
             break;
           }
           case 98: {
-            global::Petajournal.GetDocByNameResponse subBuilder = new global::Petajournal.GetDocByNameResponse();
-            if (payloadCase_ == PayloadOneofCase.GetDocByName) {
-              subBuilder.MergeFrom(GetDocByName);
+            global::Petajournal.GetOrCreateDocResponse subBuilder = new global::Petajournal.GetOrCreateDocResponse();
+            if (payloadCase_ == PayloadOneofCase.GetOrCreateDoc) {
+              subBuilder.MergeFrom(GetOrCreateDoc);
             }
             input.ReadMessage(subBuilder);
-            GetDocByName = subBuilder;
+            GetOrCreateDoc = subBuilder;
             break;
           }
           case 106: {
@@ -2633,12 +2635,12 @@ namespace Petajournal {
             break;
           }
           case 354: {
-            global::Petajournal.GetJournalByNameResponse subBuilder = new global::Petajournal.GetJournalByNameResponse();
-            if (payloadCase_ == PayloadOneofCase.GetJournalByName) {
-              subBuilder.MergeFrom(GetJournalByName);
+            global::Petajournal.GetOrCreateJournalResponse subBuilder = new global::Petajournal.GetOrCreateJournalResponse();
+            if (payloadCase_ == PayloadOneofCase.GetOrCreateJournal) {
+              subBuilder.MergeFrom(GetOrCreateJournal);
             }
             input.ReadMessage(subBuilder);
-            GetJournalByName = subBuilder;
+            GetOrCreateJournal = subBuilder;
             break;
           }
           case 402: {
@@ -2727,21 +2729,21 @@ namespace Petajournal {
             break;
           }
           case 82: {
-            global::Petajournal.GetPageResponse subBuilder = new global::Petajournal.GetPageResponse();
-            if (payloadCase_ == PayloadOneofCase.GetPage) {
-              subBuilder.MergeFrom(GetPage);
+            global::Petajournal.GetPageByIdResponse subBuilder = new global::Petajournal.GetPageByIdResponse();
+            if (payloadCase_ == PayloadOneofCase.GetPageById) {
+              subBuilder.MergeFrom(GetPageById);
             }
             input.ReadMessage(subBuilder);
-            GetPage = subBuilder;
+            GetPageById = subBuilder;
             break;
           }
           case 98: {
-            global::Petajournal.GetDocByNameResponse subBuilder = new global::Petajournal.GetDocByNameResponse();
-            if (payloadCase_ == PayloadOneofCase.GetDocByName) {
-              subBuilder.MergeFrom(GetDocByName);
+            global::Petajournal.GetOrCreateDocResponse subBuilder = new global::Petajournal.GetOrCreateDocResponse();
+            if (payloadCase_ == PayloadOneofCase.GetOrCreateDoc) {
+              subBuilder.MergeFrom(GetOrCreateDoc);
             }
             input.ReadMessage(subBuilder);
-            GetDocByName = subBuilder;
+            GetOrCreateDoc = subBuilder;
             break;
           }
           case 106: {
@@ -2853,12 +2855,12 @@ namespace Petajournal {
             break;
           }
           case 354: {
-            global::Petajournal.GetJournalByNameResponse subBuilder = new global::Petajournal.GetJournalByNameResponse();
-            if (payloadCase_ == PayloadOneofCase.GetJournalByName) {
-              subBuilder.MergeFrom(GetJournalByName);
+            global::Petajournal.GetOrCreateJournalResponse subBuilder = new global::Petajournal.GetOrCreateJournalResponse();
+            if (payloadCase_ == PayloadOneofCase.GetOrCreateJournal) {
+              subBuilder.MergeFrom(GetOrCreateJournal);
             }
             input.ReadMessage(subBuilder);
-            GetJournalByName = subBuilder;
+            GetOrCreateJournal = subBuilder;
             break;
           }
           case 402: {
@@ -2923,16 +2925,16 @@ namespace Petajournal {
   }
 
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
-  public sealed partial class GetPageRequest : pb::IMessage<GetPageRequest>
+  public sealed partial class GetPageByIdRequest : pb::IMessage<GetPageByIdRequest>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
   #endif
   {
-    private static readonly pb::MessageParser<GetPageRequest> _parser = new pb::MessageParser<GetPageRequest>(() => new GetPageRequest());
+    private static readonly pb::MessageParser<GetPageByIdRequest> _parser = new pb::MessageParser<GetPageByIdRequest>(() => new GetPageByIdRequest());
     private pb::UnknownFieldSet _unknownFields;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public static pb::MessageParser<GetPageRequest> Parser { get { return _parser; } }
+    public static pb::MessageParser<GetPageByIdRequest> Parser { get { return _parser; } }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -2948,7 +2950,7 @@ namespace Petajournal {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public GetPageRequest() {
+    public GetPageByIdRequest() {
       OnConstruction();
     }
 
@@ -2956,15 +2958,15 @@ namespace Petajournal {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public GetPageRequest(GetPageRequest other) : this() {
+    public GetPageByIdRequest(GetPageByIdRequest other) : this() {
       pageId_ = other.pageId_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public GetPageRequest Clone() {
-      return new GetPageRequest(this);
+    public GetPageByIdRequest Clone() {
+      return new GetPageByIdRequest(this);
     }
 
     /// <summary>Field number for the "page_id" field.</summary>
@@ -2982,12 +2984,12 @@ namespace Petajournal {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
-      return Equals(other as GetPageRequest);
+      return Equals(other as GetPageByIdRequest);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public bool Equals(GetPageRequest other) {
+    public bool Equals(GetPageByIdRequest other) {
       if (ReferenceEquals(other, null)) {
         return false;
       }
@@ -3060,7 +3062,7 @@ namespace Petajournal {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public void MergeFrom(GetPageRequest other) {
+    public void MergeFrom(GetPageByIdRequest other) {
       if (other == null) {
         return;
       }
@@ -3121,16 +3123,16 @@ namespace Petajournal {
   }
 
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
-  public sealed partial class GetPageResponse : pb::IMessage<GetPageResponse>
+  public sealed partial class GetPageByIdResponse : pb::IMessage<GetPageByIdResponse>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
   #endif
   {
-    private static readonly pb::MessageParser<GetPageResponse> _parser = new pb::MessageParser<GetPageResponse>(() => new GetPageResponse());
+    private static readonly pb::MessageParser<GetPageByIdResponse> _parser = new pb::MessageParser<GetPageByIdResponse>(() => new GetPageByIdResponse());
     private pb::UnknownFieldSet _unknownFields;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public static pb::MessageParser<GetPageResponse> Parser { get { return _parser; } }
+    public static pb::MessageParser<GetPageByIdResponse> Parser { get { return _parser; } }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -3146,7 +3148,7 @@ namespace Petajournal {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public GetPageResponse() {
+    public GetPageByIdResponse() {
       OnConstruction();
     }
 
@@ -3154,7 +3156,7 @@ namespace Petajournal {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public GetPageResponse(GetPageResponse other) : this() {
+    public GetPageByIdResponse(GetPageByIdResponse other) : this() {
       page_ = other.page_ != null ? other.page_.Clone() : null;
       blocks_ = other.blocks_.Clone();
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
@@ -3162,8 +3164,8 @@ namespace Petajournal {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public GetPageResponse Clone() {
-      return new GetPageResponse(this);
+    public GetPageByIdResponse Clone() {
+      return new GetPageByIdResponse(this);
     }
 
     /// <summary>Field number for the "page" field.</summary>
@@ -3192,12 +3194,12 @@ namespace Petajournal {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
-      return Equals(other as GetPageResponse);
+      return Equals(other as GetPageByIdResponse);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public bool Equals(GetPageResponse other) {
+    public bool Equals(GetPageByIdResponse other) {
       if (ReferenceEquals(other, null)) {
         return false;
       }
@@ -3275,7 +3277,7 @@ namespace Petajournal {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public void MergeFrom(GetPageResponse other) {
+    public void MergeFrom(GetPageByIdResponse other) {
       if (other == null) {
         return;
       }
@@ -3354,16 +3356,16 @@ namespace Petajournal {
   }
 
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
-  public sealed partial class GetDocByNameRequest : pb::IMessage<GetDocByNameRequest>
+  public sealed partial class GetOrCreateDocRequest : pb::IMessage<GetOrCreateDocRequest>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
   #endif
   {
-    private static readonly pb::MessageParser<GetDocByNameRequest> _parser = new pb::MessageParser<GetDocByNameRequest>(() => new GetDocByNameRequest());
+    private static readonly pb::MessageParser<GetOrCreateDocRequest> _parser = new pb::MessageParser<GetOrCreateDocRequest>(() => new GetOrCreateDocRequest());
     private pb::UnknownFieldSet _unknownFields;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public static pb::MessageParser<GetDocByNameRequest> Parser { get { return _parser; } }
+    public static pb::MessageParser<GetOrCreateDocRequest> Parser { get { return _parser; } }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -3379,7 +3381,7 @@ namespace Petajournal {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public GetDocByNameRequest() {
+    public GetOrCreateDocRequest() {
       OnConstruction();
     }
 
@@ -3387,7 +3389,7 @@ namespace Petajournal {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public GetDocByNameRequest(GetDocByNameRequest other) : this() {
+    public GetOrCreateDocRequest(GetOrCreateDocRequest other) : this() {
       title_ = other.title_;
       dirPath_ = other.dirPath_;
       tags_ = other.tags_.Clone();
@@ -3396,8 +3398,8 @@ namespace Petajournal {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public GetDocByNameRequest Clone() {
-      return new GetDocByNameRequest(this);
+    public GetOrCreateDocRequest Clone() {
+      return new GetOrCreateDocRequest(this);
     }
 
     /// <summary>Field number for the "title" field.</summary>
@@ -3441,12 +3443,12 @@ namespace Petajournal {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
-      return Equals(other as GetDocByNameRequest);
+      return Equals(other as GetOrCreateDocRequest);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public bool Equals(GetDocByNameRequest other) {
+    public bool Equals(GetOrCreateDocRequest other) {
       if (ReferenceEquals(other, null)) {
         return false;
       }
@@ -3537,7 +3539,7 @@ namespace Petajournal {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public void MergeFrom(GetDocByNameRequest other) {
+    public void MergeFrom(GetOrCreateDocRequest other) {
       if (other == null) {
         return;
       }
@@ -3618,16 +3620,16 @@ namespace Petajournal {
   }
 
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
-  public sealed partial class GetDocByNameResponse : pb::IMessage<GetDocByNameResponse>
+  public sealed partial class GetOrCreateDocResponse : pb::IMessage<GetOrCreateDocResponse>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
   #endif
   {
-    private static readonly pb::MessageParser<GetDocByNameResponse> _parser = new pb::MessageParser<GetDocByNameResponse>(() => new GetDocByNameResponse());
+    private static readonly pb::MessageParser<GetOrCreateDocResponse> _parser = new pb::MessageParser<GetOrCreateDocResponse>(() => new GetOrCreateDocResponse());
     private pb::UnknownFieldSet _unknownFields;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public static pb::MessageParser<GetDocByNameResponse> Parser { get { return _parser; } }
+    public static pb::MessageParser<GetOrCreateDocResponse> Parser { get { return _parser; } }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -3643,7 +3645,7 @@ namespace Petajournal {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public GetDocByNameResponse() {
+    public GetOrCreateDocResponse() {
       OnConstruction();
     }
 
@@ -3651,7 +3653,7 @@ namespace Petajournal {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public GetDocByNameResponse(GetDocByNameResponse other) : this() {
+    public GetOrCreateDocResponse(GetOrCreateDocResponse other) : this() {
       page_ = other.page_ != null ? other.page_.Clone() : null;
       blocks_ = other.blocks_.Clone();
       created_ = other.created_;
@@ -3660,8 +3662,8 @@ namespace Petajournal {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public GetDocByNameResponse Clone() {
-      return new GetDocByNameResponse(this);
+    public GetOrCreateDocResponse Clone() {
+      return new GetOrCreateDocResponse(this);
     }
 
     /// <summary>Field number for the "page" field.</summary>
@@ -3702,12 +3704,12 @@ namespace Petajournal {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
-      return Equals(other as GetDocByNameResponse);
+      return Equals(other as GetOrCreateDocResponse);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public bool Equals(GetDocByNameResponse other) {
+    public bool Equals(GetOrCreateDocResponse other) {
       if (ReferenceEquals(other, null)) {
         return false;
       }
@@ -3798,7 +3800,7 @@ namespace Petajournal {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public void MergeFrom(GetDocByNameResponse other) {
+    public void MergeFrom(GetOrCreateDocResponse other) {
       if (other == null) {
         return;
       }
@@ -8234,6 +8236,7 @@ namespace Petajournal {
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public GetRecentPagesRequest(GetRecentPagesRequest other) : this() {
       maxResults_ = other.maxResults_;
+      type_ = other.type_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -8247,7 +8250,7 @@ namespace Petajournal {
     public const int MaxResultsFieldNumber = 1;
     private int maxResults_;
     /// <summary>
-    /// Default 20
+    /// Default 10
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -8255,6 +8258,21 @@ namespace Petajournal {
       get { return maxResults_; }
       set {
         maxResults_ = value;
+      }
+    }
+
+    /// <summary>Field number for the "type" field.</summary>
+    public const int TypeFieldNumber = 2;
+    private string type_ = "";
+    /// <summary>
+    /// Optional: "doc", "journal". Empty = all types
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Type {
+      get { return type_; }
+      set {
+        type_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
       }
     }
 
@@ -8274,6 +8292,7 @@ namespace Petajournal {
         return true;
       }
       if (MaxResults != other.MaxResults) return false;
+      if (Type != other.Type) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -8282,6 +8301,7 @@ namespace Petajournal {
     public override int GetHashCode() {
       int hash = 1;
       if (MaxResults != 0) hash ^= MaxResults.GetHashCode();
+      if (Type.Length != 0) hash ^= Type.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -8304,6 +8324,10 @@ namespace Petajournal {
         output.WriteRawTag(8);
         output.WriteInt32(MaxResults);
       }
+      if (Type.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(Type);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -8318,6 +8342,10 @@ namespace Petajournal {
         output.WriteRawTag(8);
         output.WriteInt32(MaxResults);
       }
+      if (Type.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(Type);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -8330,6 +8358,9 @@ namespace Petajournal {
       int size = 0;
       if (MaxResults != 0) {
         size += 1 + pb::CodedOutputStream.ComputeInt32Size(MaxResults);
+      }
+      if (Type.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Type);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -8345,6 +8376,9 @@ namespace Petajournal {
       }
       if (other.MaxResults != 0) {
         MaxResults = other.MaxResults;
+      }
+      if (other.Type.Length != 0) {
+        Type = other.Type;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -8369,6 +8403,10 @@ namespace Petajournal {
             MaxResults = input.ReadInt32();
             break;
           }
+          case 18: {
+            Type = input.ReadString();
+            break;
+          }
         }
       }
     #endif
@@ -8390,6 +8428,10 @@ namespace Petajournal {
             break;
           case 8: {
             MaxResults = input.ReadInt32();
+            break;
+          }
+          case 18: {
+            Type = input.ReadString();
             break;
           }
         }
@@ -10079,16 +10121,16 @@ namespace Petajournal {
   }
 
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
-  public sealed partial class GetJournalByNameRequest : pb::IMessage<GetJournalByNameRequest>
+  public sealed partial class GetOrCreateJournalRequest : pb::IMessage<GetOrCreateJournalRequest>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
   #endif
   {
-    private static readonly pb::MessageParser<GetJournalByNameRequest> _parser = new pb::MessageParser<GetJournalByNameRequest>(() => new GetJournalByNameRequest());
+    private static readonly pb::MessageParser<GetOrCreateJournalRequest> _parser = new pb::MessageParser<GetOrCreateJournalRequest>(() => new GetOrCreateJournalRequest());
     private pb::UnknownFieldSet _unknownFields;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public static pb::MessageParser<GetJournalByNameRequest> Parser { get { return _parser; } }
+    public static pb::MessageParser<GetOrCreateJournalRequest> Parser { get { return _parser; } }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -10104,7 +10146,7 @@ namespace Petajournal {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public GetJournalByNameRequest() {
+    public GetOrCreateJournalRequest() {
       OnConstruction();
     }
 
@@ -10112,15 +10154,15 @@ namespace Petajournal {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public GetJournalByNameRequest(GetJournalByNameRequest other) : this() {
+    public GetOrCreateJournalRequest(GetOrCreateJournalRequest other) : this() {
       fileName_ = other.fileName_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public GetJournalByNameRequest Clone() {
-      return new GetJournalByNameRequest(this);
+    public GetOrCreateJournalRequest Clone() {
+      return new GetOrCreateJournalRequest(this);
     }
 
     /// <summary>Field number for the "file_name" field.</summary>
@@ -10138,12 +10180,12 @@ namespace Petajournal {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
-      return Equals(other as GetJournalByNameRequest);
+      return Equals(other as GetOrCreateJournalRequest);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public bool Equals(GetJournalByNameRequest other) {
+    public bool Equals(GetOrCreateJournalRequest other) {
       if (ReferenceEquals(other, null)) {
         return false;
       }
@@ -10216,7 +10258,7 @@ namespace Petajournal {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public void MergeFrom(GetJournalByNameRequest other) {
+    public void MergeFrom(GetOrCreateJournalRequest other) {
       if (other == null) {
         return;
       }
@@ -10277,16 +10319,16 @@ namespace Petajournal {
   }
 
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
-  public sealed partial class GetJournalByNameResponse : pb::IMessage<GetJournalByNameResponse>
+  public sealed partial class GetOrCreateJournalResponse : pb::IMessage<GetOrCreateJournalResponse>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
   #endif
   {
-    private static readonly pb::MessageParser<GetJournalByNameResponse> _parser = new pb::MessageParser<GetJournalByNameResponse>(() => new GetJournalByNameResponse());
+    private static readonly pb::MessageParser<GetOrCreateJournalResponse> _parser = new pb::MessageParser<GetOrCreateJournalResponse>(() => new GetOrCreateJournalResponse());
     private pb::UnknownFieldSet _unknownFields;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public static pb::MessageParser<GetJournalByNameResponse> Parser { get { return _parser; } }
+    public static pb::MessageParser<GetOrCreateJournalResponse> Parser { get { return _parser; } }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -10302,7 +10344,7 @@ namespace Petajournal {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public GetJournalByNameResponse() {
+    public GetOrCreateJournalResponse() {
       OnConstruction();
     }
 
@@ -10310,7 +10352,7 @@ namespace Petajournal {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public GetJournalByNameResponse(GetJournalByNameResponse other) : this() {
+    public GetOrCreateJournalResponse(GetOrCreateJournalResponse other) : this() {
       page_ = other.page_ != null ? other.page_.Clone() : null;
       blocks_ = other.blocks_.Clone();
       created_ = other.created_;
@@ -10319,8 +10361,8 @@ namespace Petajournal {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public GetJournalByNameResponse Clone() {
-      return new GetJournalByNameResponse(this);
+    public GetOrCreateJournalResponse Clone() {
+      return new GetOrCreateJournalResponse(this);
     }
 
     /// <summary>Field number for the "page" field.</summary>
@@ -10361,12 +10403,12 @@ namespace Petajournal {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
-      return Equals(other as GetJournalByNameResponse);
+      return Equals(other as GetOrCreateJournalResponse);
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public bool Equals(GetJournalByNameResponse other) {
+    public bool Equals(GetOrCreateJournalResponse other) {
       if (ReferenceEquals(other, null)) {
         return false;
       }
@@ -10457,7 +10499,7 @@ namespace Petajournal {
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public void MergeFrom(GetJournalByNameResponse other) {
+    public void MergeFrom(GetOrCreateJournalResponse other) {
       if (other == null) {
         return;
       }
