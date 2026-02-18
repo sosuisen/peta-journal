@@ -97,6 +97,13 @@
             <version>${lucene.version}</version>
         </dependency>
 
+        <!-- MCP Server -->
+        <dependency>
+            <groupId>io.quarkiverse.mcp</groupId>
+            <artifactId>quarkus-mcp-server-http</artifactId>
+            <version>1.10.1</version>
+        </dependency>
+
         <!-- Test -->
         <dependency>
             <groupId>io.quarkus</groupId>
