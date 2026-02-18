@@ -162,14 +162,23 @@ export class OutlineBlockComponent {
     return true;
   });
 
-  replaceWikiLinkQuery(replacement: string): void {
-    this.editorRef()?.replaceWikiLinkQuery(replacement);
+  /**
+   * Inserts a wiki-link replacement text into the block editor at the current cursor position.
+   * @param replacement - The wiki-link text to insert.
+   */
+  insertWikiLinkText(replacement: string): void {
+    this.editorRef()?.insertWikiLinkText(replacement);
   }
 
+  /** Emits a collapse toggle event for this block's children. */
   toggleCollapse(): void {
     this.collapseToggled.emit();
   }
 
+  /**
+   * Handles the end of block editing. Creates a fade-out duplicate textarea for visual
+   * continuity when focus is lost naturally (not via programmatic transitions).
+   */
   onEditFinished(): void {
     // Only show fadeout duplicate when losing focus naturally (clicking away).
     // For programmatic transitions (enter, backspace, move), editingBlockId
@@ -180,6 +189,10 @@ export class OutlineBlockComponent {
     this.editFinished.emit();
   }
 
+  /**
+   * Forwards the enter-pressed event from the block editor to the parent outline.
+   * @param event - Contains the cursor position at the time Enter was pressed.
+   */
   onEnterPressed(event: { cursorPos: number }): void {
     this.enterPressed.emit(event);
   }

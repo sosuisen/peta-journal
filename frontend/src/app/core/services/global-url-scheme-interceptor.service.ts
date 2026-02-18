@@ -27,10 +27,11 @@ export class GlobalUrlSchemeInterceptorService {
   ];
 
   private isInitialized = false;
+  private readonly boundHandleClick = this.handleClick.bind(this);
 
   /**
-   * Initialize the global click interceptor
-   * Call this once in app initialization
+   * Initialize the global click interceptor.
+   * Call this once in app initialization.
    */
   initialize(): void {
     if (this.isInitialized) {
@@ -38,18 +39,17 @@ export class GlobalUrlSchemeInterceptorService {
       return;
     }
 
-    // Add global click listener
-    document.addEventListener('click', this.handleClick.bind(this), true);
+    document.addEventListener('click', this.boundHandleClick, true);
     this.isInitialized = true;
 
     console.log('GlobalUrlSchemeInterceptorService initialized');
   }
 
   /**
-   * Cleanup - remove global listener
+   * Remove the global click listener and reset state.
    */
   destroy(): void {
-    document.removeEventListener('click', this.handleClick.bind(this), true);
+    document.removeEventListener('click', this.boundHandleClick, true);
     this.isInitialized = false;
   }
 

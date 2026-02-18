@@ -16,6 +16,10 @@ export class ExtensionFunctionService {
   private readonly outlineState = inject(OutlineStateService);
   private iframes: HTMLIFrameElement[] = [];
 
+  /**
+   * Loads registered extension functions from the server and creates hidden iframes for each.
+   * Also sets up a message listener to handle cross-origin messages from extensions.
+   */
   async initialize(): Promise<void> {
     try {
       const functions = await firstValueFrom(
@@ -34,6 +38,10 @@ export class ExtensionFunctionService {
     }
   }
 
+  /**
+   * Broadcasts a `PageCreate` event to all loaded extension iframes.
+   * @param event - The page creation event details.
+   */
   emitPageCreate(event: { pageId: string; fileName: string; dirName: string }): void {
     const message = { type: 'PageCreate', ...event };
     for (const iframe of this.iframes) {

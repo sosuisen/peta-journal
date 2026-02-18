@@ -150,6 +150,11 @@ export class PageComponent {
     return segments;
   });
 
+  /**
+   * Returns the display title for the current page.
+   * Journals are formatted as human-readable dates; documents use their file name.
+   * @returns The formatted page title string.
+   */
   pageTitle(): string {
     const p = this.page();
     if (!p) return '';
@@ -166,14 +171,27 @@ export class PageComponent {
     });
   }
 
+  /**
+   * Extracts the string value from an input element's event.
+   * @param event - The DOM input event.
+   * @returns The current value of the input element.
+   */
   asInputValue(event: Event): string {
     return (event.target as HTMLInputElement).value;
   }
 
+  /**
+   * Navigates to a page identified by a directory path breadcrumb segment.
+   * @param path - The directory path to navigate to.
+   */
   navigateToSegment(path: string): void {
     this.navigation.navigateToPage(path);
   }
 
+  /**
+   * Enters edit mode for the page title, placing the caret at the click position.
+   * @param event - The mouse click event on the page title.
+   */
   startEdit(event: MouseEvent): void {
     const p = this.page();
     if (!p) return;
@@ -197,6 +215,10 @@ export class PageComponent {
     }, { injector: this.injector });
   }
 
+  /**
+   * Saves the edited page title and/or directory path to the server.
+   * Validates the file name and exits edit mode on success.
+   */
   async save(): Promise<void> {
     const p = this.page();
     if (!p) return;
@@ -236,10 +258,15 @@ export class PageComponent {
     this.editing.set(false);
   }
 
+  /** Cancels edit mode and discards unsaved title changes. */
   cancelEdit(): void {
     this.editing.set(false);
   }
 
+  /**
+   * Auto-saves when focus leaves the edit row, unless focus moved to another element within it.
+   * @param event - The focus-out event from the edit row container.
+   */
   onEditRowFocusOut(event: FocusEvent): void {
     const editRow = (event.currentTarget as HTMLElement);
     const newFocus = event.relatedTarget as Node | null;
@@ -250,7 +277,7 @@ export class PageComponent {
 
   private async loadPage(fileName: string): Promise<void> {
     try {
-      const result = await this.api.getDocByName(fileName);
+      const result = await this.api.getOrCreateDoc(fileName);
       this.page.set(result.page);
       if (result.created) {
         this.recentPages.refresh();

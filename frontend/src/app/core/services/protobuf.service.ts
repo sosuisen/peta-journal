@@ -16,6 +16,12 @@ export class ProtobufService {
     share()
   );
 
+  /**
+   * Encodes and sends a protobuf API request over WebSocket, then waits for the matching response.
+   * @param payload - The request payload fields (excluding `requestId`, which is auto-generated).
+   * @returns The decoded API response cast to `T`.
+   * @throws Error if the server returns a failure or the request times out.
+   */
   async send<T>(payload: Record<string, unknown>): Promise<T> {
     const requestId = `req-${++this.requestCounter}-${Date.now()}`;
     const request = petajournal.ApiRequest.create({ requestId, ...payload });

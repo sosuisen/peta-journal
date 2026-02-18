@@ -97,6 +97,10 @@ export class SearchBarComponent {
   readonly showCreateButton = signal(false);
   readonly selectedIndex = signal(-1);
 
+  /**
+   * Handles search query input changes. Performs a page name search and updates results.
+   * @param value - The current search query string.
+   */
   async onQueryChange(value: string): Promise<void> {
     this.query.set(value);
     if (!value.trim()) {
@@ -111,6 +115,9 @@ export class SearchBarComponent {
     this.showCreateButton.set(!exactMatch && value.trim().length > 0);
   }
 
+  /**
+   * Performs a full-text search across all block content using the current query.
+   */
   async onFullTextSearch(): Promise<void> {
     const q = this.query().trim();
     if (!q) return;
@@ -119,6 +126,10 @@ export class SearchBarComponent {
     this.showCreateButton.set(false);
   }
 
+  /**
+   * Navigates to the page associated with the selected search result and resets the search state.
+   * @param result - The search result to navigate to.
+   */
   navigateToResult(result: SearchResult): void {
     this.showDropdown.set(false);
     this.query.set('');
@@ -127,6 +138,10 @@ export class SearchBarComponent {
     this.nav.navigateToPage(result.pageTitle);
   }
 
+  /**
+   * Creates a new page using the current query as the title.
+   * Generates a timestamp-based title if the query is empty, and validates the file name.
+   */
   async createPage(): Promise<void> {
     let title = this.query().trim();
 
@@ -151,6 +166,10 @@ export class SearchBarComponent {
     this.nav.navigateToPage(title);
   }
 
+  /**
+   * Handles keyboard navigation within the search dropdown (ArrowUp/Down, Enter, Escape).
+   * @param event - The keyboard event from the search input.
+   */
   onKeydown(event: KeyboardEvent): void {
     const maxIndex = this.results().length + (this.showCreateButton() && this.query().trim() ? 0 : -1);
 
@@ -177,10 +196,16 @@ export class SearchBarComponent {
     }
   }
 
+  /**
+   * Programmatically focuses the search input element.
+   */
   focusInput(): void {
     this.searchInput()?.nativeElement.focus();
   }
 
+  /**
+   * Hides the search dropdown after a short delay when the input loses focus.
+   */
   onBlur(): void {
     setTimeout(() => this.showDropdown.set(false), 200);
   }

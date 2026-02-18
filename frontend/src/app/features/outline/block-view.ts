@@ -203,6 +203,10 @@ export class BlockViewComponent {
     });
   }
 
+  /**
+   * Handles checkbox click by preventing the default toggle and emitting a task-toggled event.
+   * @param event - The mouse event from the checkbox click.
+   */
   onCheckboxClick(event: MouseEvent): void {
     event.preventDefault();
     event.stopPropagation();

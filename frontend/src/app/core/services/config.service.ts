@@ -55,12 +55,20 @@ export class ConfigService {
     }
   }
 
+  /**
+   * Updates the sidebar width and persists it to local storage.
+   * @param width - The new sidebar width in pixels.
+   */
   setSidebarWidth(width: number): void {
     this.config.sidebarWidth = width;
     this.sidebarWidth.set(width);
     this.saveConfig();
   }
 
+  /**
+   * Updates the week numbering system and persists it to the server.
+   * @param value - The week numbering system to use ('us' or 'iso').
+   */
   setWeekNumbering(value: WeekNumbering): void {
     this.weekNumbering.set(value);
     this.api.updateConfig(value).catch(e => {

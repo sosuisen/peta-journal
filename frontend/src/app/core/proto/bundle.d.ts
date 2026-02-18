@@ -753,11 +753,11 @@ export namespace petajournal {
         /** ApiRequest requestId */
         requestId?: (string|null);
 
-        /** ApiRequest getPage */
-        getPage?: (petajournal.IGetPageRequest|null);
+        /** ApiRequest getPageById */
+        getPageById?: (petajournal.IGetPageByIdRequest|null);
 
-        /** ApiRequest getDocByName */
-        getDocByName?: (petajournal.IGetDocByNameRequest|null);
+        /** ApiRequest getOrCreateDoc */
+        getOrCreateDoc?: (petajournal.IGetOrCreateDocRequest|null);
 
         /** ApiRequest deletePage */
         deletePage?: (petajournal.IDeletePageRequest|null);
@@ -804,8 +804,8 @@ export namespace petajournal {
         /** ApiRequest updateConfig */
         updateConfig?: (petajournal.IUpdateConfigRequest|null);
 
-        /** ApiRequest getJournalByName */
-        getJournalByName?: (petajournal.IGetJournalByNameRequest|null);
+        /** ApiRequest getOrCreateJournal */
+        getOrCreateJournal?: (petajournal.IGetOrCreateJournalRequest|null);
 
         /** ApiRequest exportTreeMarkdown */
         exportTreeMarkdown?: (petajournal.IExportTreeMarkdownRequest|null);
@@ -826,11 +826,11 @@ export namespace petajournal {
         /** ApiRequest requestId. */
         public requestId: string;
 
-        /** ApiRequest getPage. */
-        public getPage?: (petajournal.IGetPageRequest|null);
+        /** ApiRequest getPageById. */
+        public getPageById?: (petajournal.IGetPageByIdRequest|null);
 
-        /** ApiRequest getDocByName. */
-        public getDocByName?: (petajournal.IGetDocByNameRequest|null);
+        /** ApiRequest getOrCreateDoc. */
+        public getOrCreateDoc?: (petajournal.IGetOrCreateDocRequest|null);
 
         /** ApiRequest deletePage. */
         public deletePage?: (petajournal.IDeletePageRequest|null);
@@ -877,8 +877,8 @@ export namespace petajournal {
         /** ApiRequest updateConfig. */
         public updateConfig?: (petajournal.IUpdateConfigRequest|null);
 
-        /** ApiRequest getJournalByName. */
-        public getJournalByName?: (petajournal.IGetJournalByNameRequest|null);
+        /** ApiRequest getOrCreateJournal. */
+        public getOrCreateJournal?: (petajournal.IGetOrCreateJournalRequest|null);
 
         /** ApiRequest exportTreeMarkdown. */
         public exportTreeMarkdown?: (petajournal.IExportTreeMarkdownRequest|null);
@@ -887,7 +887,7 @@ export namespace petajournal {
         public importTreeMarkdown?: (petajournal.IImportTreeMarkdownRequest|null);
 
         /** ApiRequest payload. */
-        public payload?: ("getPage"|"getDocByName"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"getJournalByName"|"exportTreeMarkdown"|"importTreeMarkdown");
+        public payload?: ("getPageById"|"getOrCreateDoc"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"getOrCreateJournal"|"exportTreeMarkdown"|"importTreeMarkdown");
 
         /**
          * Creates a new ApiRequest instance using the specified properties.
@@ -979,11 +979,11 @@ export namespace petajournal {
         /** ApiResponse errorMessage */
         errorMessage?: (string|null);
 
-        /** ApiResponse getPage */
-        getPage?: (petajournal.IGetPageResponse|null);
+        /** ApiResponse getPageById */
+        getPageById?: (petajournal.IGetPageByIdResponse|null);
 
-        /** ApiResponse getDocByName */
-        getDocByName?: (petajournal.IGetDocByNameResponse|null);
+        /** ApiResponse getOrCreateDoc */
+        getOrCreateDoc?: (petajournal.IGetOrCreateDocResponse|null);
 
         /** ApiResponse deletePage */
         deletePage?: (petajournal.IDeletePageResponse|null);
@@ -1021,8 +1021,8 @@ export namespace petajournal {
         /** ApiResponse getMostRecentJournalBefore */
         getMostRecentJournalBefore?: (petajournal.IGetMostRecentJournalBeforeResponse|null);
 
-        /** ApiResponse getJournalByName */
-        getJournalByName?: (petajournal.IGetJournalByNameResponse|null);
+        /** ApiResponse getOrCreateJournal */
+        getOrCreateJournal?: (petajournal.IGetOrCreateJournalResponse|null);
 
         /** ApiResponse getBlocksByStatus */
         getBlocksByStatus?: (petajournal.IGetBlocksByStatusResponse|null);
@@ -1061,11 +1061,11 @@ export namespace petajournal {
         /** ApiResponse errorMessage. */
         public errorMessage: string;
 
-        /** ApiResponse getPage. */
-        public getPage?: (petajournal.IGetPageResponse|null);
+        /** ApiResponse getPageById. */
+        public getPageById?: (petajournal.IGetPageByIdResponse|null);
 
-        /** ApiResponse getDocByName. */
-        public getDocByName?: (petajournal.IGetDocByNameResponse|null);
+        /** ApiResponse getOrCreateDoc. */
+        public getOrCreateDoc?: (petajournal.IGetOrCreateDocResponse|null);
 
         /** ApiResponse deletePage. */
         public deletePage?: (petajournal.IDeletePageResponse|null);
@@ -1103,8 +1103,8 @@ export namespace petajournal {
         /** ApiResponse getMostRecentJournalBefore. */
         public getMostRecentJournalBefore?: (petajournal.IGetMostRecentJournalBeforeResponse|null);
 
-        /** ApiResponse getJournalByName. */
-        public getJournalByName?: (petajournal.IGetJournalByNameResponse|null);
+        /** ApiResponse getOrCreateJournal. */
+        public getOrCreateJournal?: (petajournal.IGetOrCreateJournalResponse|null);
 
         /** ApiResponse getBlocksByStatus. */
         public getBlocksByStatus?: (petajournal.IGetBlocksByStatusResponse|null);
@@ -1125,7 +1125,7 @@ export namespace petajournal {
         public serverEvent?: (petajournal.IServerEvent|null);
 
         /** ApiResponse payload. */
-        public payload?: ("getPage"|"getDocByName"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getJournalByName"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"exportTreeMarkdown"|"importTreeMarkdown"|"serverEvent");
+        public payload?: ("getPageById"|"getOrCreateDoc"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getOrCreateJournal"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"exportTreeMarkdown"|"importTreeMarkdown"|"serverEvent");
 
         /**
          * Creates a new ApiResponse instance using the specified properties.
@@ -1205,418 +1205,418 @@ export namespace petajournal {
         public static getTypeUrl(typeUrlPrefix?: string): string;
     }
 
-    /** Properties of a GetPageRequest. */
-    interface IGetPageRequest {
+    /** Properties of a GetPageByIdRequest. */
+    interface IGetPageByIdRequest {
 
-        /** GetPageRequest pageId */
+        /** GetPageByIdRequest pageId */
         pageId?: (string|null);
     }
 
-    /** Represents a GetPageRequest. */
-    class GetPageRequest implements IGetPageRequest {
+    /** Represents a GetPageByIdRequest. */
+    class GetPageByIdRequest implements IGetPageByIdRequest {
 
         /**
-         * Constructs a new GetPageRequest.
+         * Constructs a new GetPageByIdRequest.
          * @param [properties] Properties to set
          */
-        constructor(properties?: petajournal.IGetPageRequest);
+        constructor(properties?: petajournal.IGetPageByIdRequest);
 
-        /** GetPageRequest pageId. */
+        /** GetPageByIdRequest pageId. */
         public pageId: string;
 
         /**
-         * Creates a new GetPageRequest instance using the specified properties.
+         * Creates a new GetPageByIdRequest instance using the specified properties.
          * @param [properties] Properties to set
-         * @returns GetPageRequest instance
+         * @returns GetPageByIdRequest instance
          */
-        public static create(properties?: petajournal.IGetPageRequest): petajournal.GetPageRequest;
+        public static create(properties?: petajournal.IGetPageByIdRequest): petajournal.GetPageByIdRequest;
 
         /**
-         * Encodes the specified GetPageRequest message. Does not implicitly {@link petajournal.GetPageRequest.verify|verify} messages.
-         * @param message GetPageRequest message or plain object to encode
+         * Encodes the specified GetPageByIdRequest message. Does not implicitly {@link petajournal.GetPageByIdRequest.verify|verify} messages.
+         * @param message GetPageByIdRequest message or plain object to encode
          * @param [writer] Writer to encode to
          * @returns Writer
          */
-        public static encode(message: petajournal.IGetPageRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+        public static encode(message: petajournal.IGetPageByIdRequest, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified GetPageRequest message, length delimited. Does not implicitly {@link petajournal.GetPageRequest.verify|verify} messages.
-         * @param message GetPageRequest message or plain object to encode
+         * Encodes the specified GetPageByIdRequest message, length delimited. Does not implicitly {@link petajournal.GetPageByIdRequest.verify|verify} messages.
+         * @param message GetPageByIdRequest message or plain object to encode
          * @param [writer] Writer to encode to
          * @returns Writer
          */
-        public static encodeDelimited(message: petajournal.IGetPageRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+        public static encodeDelimited(message: petajournal.IGetPageByIdRequest, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Decodes a GetPageRequest message from the specified reader or buffer.
+         * Decodes a GetPageByIdRequest message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
-         * @returns GetPageRequest
+         * @returns GetPageByIdRequest
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.GetPageRequest;
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.GetPageByIdRequest;
 
         /**
-         * Decodes a GetPageRequest message from the specified reader or buffer, length delimited.
+         * Decodes a GetPageByIdRequest message from the specified reader or buffer, length delimited.
          * @param reader Reader or buffer to decode from
-         * @returns GetPageRequest
+         * @returns GetPageByIdRequest
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.GetPageRequest;
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.GetPageByIdRequest;
 
         /**
-         * Verifies a GetPageRequest message.
+         * Verifies a GetPageByIdRequest message.
          * @param message Plain object to verify
          * @returns `null` if valid, otherwise the reason why it is not
          */
         public static verify(message: { [k: string]: any }): (string|null);
 
         /**
-         * Creates a GetPageRequest message from a plain object. Also converts values to their respective internal types.
+         * Creates a GetPageByIdRequest message from a plain object. Also converts values to their respective internal types.
          * @param object Plain object
-         * @returns GetPageRequest
+         * @returns GetPageByIdRequest
          */
-        public static fromObject(object: { [k: string]: any }): petajournal.GetPageRequest;
+        public static fromObject(object: { [k: string]: any }): petajournal.GetPageByIdRequest;
 
         /**
-         * Creates a plain object from a GetPageRequest message. Also converts values to other types if specified.
-         * @param message GetPageRequest
+         * Creates a plain object from a GetPageByIdRequest message. Also converts values to other types if specified.
+         * @param message GetPageByIdRequest
          * @param [options] Conversion options
          * @returns Plain object
          */
-        public static toObject(message: petajournal.GetPageRequest, options?: $protobuf.IConversionOptions): { [k: string]: any };
+        public static toObject(message: petajournal.GetPageByIdRequest, options?: $protobuf.IConversionOptions): { [k: string]: any };
 
         /**
-         * Converts this GetPageRequest to JSON.
+         * Converts this GetPageByIdRequest to JSON.
          * @returns JSON object
          */
         public toJSON(): { [k: string]: any };
 
         /**
-         * Gets the default type url for GetPageRequest
+         * Gets the default type url for GetPageByIdRequest
          * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
          * @returns The default type url
          */
         public static getTypeUrl(typeUrlPrefix?: string): string;
     }
 
-    /** Properties of a GetPageResponse. */
-    interface IGetPageResponse {
+    /** Properties of a GetPageByIdResponse. */
+    interface IGetPageByIdResponse {
 
-        /** GetPageResponse page */
+        /** GetPageByIdResponse page */
         page?: (petajournal.IPage|null);
 
-        /** GetPageResponse blocks */
+        /** GetPageByIdResponse blocks */
         blocks?: (petajournal.IBlock[]|null);
     }
 
-    /** Represents a GetPageResponse. */
-    class GetPageResponse implements IGetPageResponse {
+    /** Represents a GetPageByIdResponse. */
+    class GetPageByIdResponse implements IGetPageByIdResponse {
 
         /**
-         * Constructs a new GetPageResponse.
+         * Constructs a new GetPageByIdResponse.
          * @param [properties] Properties to set
          */
-        constructor(properties?: petajournal.IGetPageResponse);
+        constructor(properties?: petajournal.IGetPageByIdResponse);
 
-        /** GetPageResponse page. */
+        /** GetPageByIdResponse page. */
         public page?: (petajournal.IPage|null);
 
-        /** GetPageResponse blocks. */
+        /** GetPageByIdResponse blocks. */
         public blocks: petajournal.IBlock[];
 
         /**
-         * Creates a new GetPageResponse instance using the specified properties.
+         * Creates a new GetPageByIdResponse instance using the specified properties.
          * @param [properties] Properties to set
-         * @returns GetPageResponse instance
+         * @returns GetPageByIdResponse instance
          */
-        public static create(properties?: petajournal.IGetPageResponse): petajournal.GetPageResponse;
+        public static create(properties?: petajournal.IGetPageByIdResponse): petajournal.GetPageByIdResponse;
 
         /**
-         * Encodes the specified GetPageResponse message. Does not implicitly {@link petajournal.GetPageResponse.verify|verify} messages.
-         * @param message GetPageResponse message or plain object to encode
+         * Encodes the specified GetPageByIdResponse message. Does not implicitly {@link petajournal.GetPageByIdResponse.verify|verify} messages.
+         * @param message GetPageByIdResponse message or plain object to encode
          * @param [writer] Writer to encode to
          * @returns Writer
          */
-        public static encode(message: petajournal.IGetPageResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+        public static encode(message: petajournal.IGetPageByIdResponse, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified GetPageResponse message, length delimited. Does not implicitly {@link petajournal.GetPageResponse.verify|verify} messages.
-         * @param message GetPageResponse message or plain object to encode
+         * Encodes the specified GetPageByIdResponse message, length delimited. Does not implicitly {@link petajournal.GetPageByIdResponse.verify|verify} messages.
+         * @param message GetPageByIdResponse message or plain object to encode
          * @param [writer] Writer to encode to
          * @returns Writer
          */
-        public static encodeDelimited(message: petajournal.IGetPageResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+        public static encodeDelimited(message: petajournal.IGetPageByIdResponse, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Decodes a GetPageResponse message from the specified reader or buffer.
+         * Decodes a GetPageByIdResponse message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
-         * @returns GetPageResponse
+         * @returns GetPageByIdResponse
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.GetPageResponse;
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.GetPageByIdResponse;
 
         /**
-         * Decodes a GetPageResponse message from the specified reader or buffer, length delimited.
+         * Decodes a GetPageByIdResponse message from the specified reader or buffer, length delimited.
          * @param reader Reader or buffer to decode from
-         * @returns GetPageResponse
+         * @returns GetPageByIdResponse
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.GetPageResponse;
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.GetPageByIdResponse;
 
         /**
-         * Verifies a GetPageResponse message.
+         * Verifies a GetPageByIdResponse message.
          * @param message Plain object to verify
          * @returns `null` if valid, otherwise the reason why it is not
          */
         public static verify(message: { [k: string]: any }): (string|null);
 
         /**
-         * Creates a GetPageResponse message from a plain object. Also converts values to their respective internal types.
+         * Creates a GetPageByIdResponse message from a plain object. Also converts values to their respective internal types.
          * @param object Plain object
-         * @returns GetPageResponse
+         * @returns GetPageByIdResponse
          */
-        public static fromObject(object: { [k: string]: any }): petajournal.GetPageResponse;
+        public static fromObject(object: { [k: string]: any }): petajournal.GetPageByIdResponse;
 
         /**
-         * Creates a plain object from a GetPageResponse message. Also converts values to other types if specified.
-         * @param message GetPageResponse
+         * Creates a plain object from a GetPageByIdResponse message. Also converts values to other types if specified.
+         * @param message GetPageByIdResponse
          * @param [options] Conversion options
          * @returns Plain object
          */
-        public static toObject(message: petajournal.GetPageResponse, options?: $protobuf.IConversionOptions): { [k: string]: any };
+        public static toObject(message: petajournal.GetPageByIdResponse, options?: $protobuf.IConversionOptions): { [k: string]: any };
 
         /**
-         * Converts this GetPageResponse to JSON.
+         * Converts this GetPageByIdResponse to JSON.
          * @returns JSON object
          */
         public toJSON(): { [k: string]: any };
 
         /**
-         * Gets the default type url for GetPageResponse
+         * Gets the default type url for GetPageByIdResponse
          * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
          * @returns The default type url
          */
         public static getTypeUrl(typeUrlPrefix?: string): string;
     }
 
-    /** Properties of a GetDocByNameRequest. */
-    interface IGetDocByNameRequest {
+    /** Properties of a GetOrCreateDocRequest. */
+    interface IGetOrCreateDocRequest {
 
-        /** GetDocByNameRequest title */
+        /** GetOrCreateDocRequest title */
         title?: (string|null);
 
-        /** GetDocByNameRequest dirPath */
+        /** GetOrCreateDocRequest dirPath */
         dirPath?: (string|null);
 
-        /** GetDocByNameRequest tags */
+        /** GetOrCreateDocRequest tags */
         tags?: (string[]|null);
     }
 
-    /** Represents a GetDocByNameRequest. */
-    class GetDocByNameRequest implements IGetDocByNameRequest {
+    /** Represents a GetOrCreateDocRequest. */
+    class GetOrCreateDocRequest implements IGetOrCreateDocRequest {
 
         /**
-         * Constructs a new GetDocByNameRequest.
+         * Constructs a new GetOrCreateDocRequest.
          * @param [properties] Properties to set
          */
-        constructor(properties?: petajournal.IGetDocByNameRequest);
+        constructor(properties?: petajournal.IGetOrCreateDocRequest);
 
-        /** GetDocByNameRequest title. */
+        /** GetOrCreateDocRequest title. */
         public title: string;
 
-        /** GetDocByNameRequest dirPath. */
+        /** GetOrCreateDocRequest dirPath. */
         public dirPath: string;
 
-        /** GetDocByNameRequest tags. */
+        /** GetOrCreateDocRequest tags. */
         public tags: string[];
 
         /**
-         * Creates a new GetDocByNameRequest instance using the specified properties.
+         * Creates a new GetOrCreateDocRequest instance using the specified properties.
          * @param [properties] Properties to set
-         * @returns GetDocByNameRequest instance
+         * @returns GetOrCreateDocRequest instance
          */
-        public static create(properties?: petajournal.IGetDocByNameRequest): petajournal.GetDocByNameRequest;
+        public static create(properties?: petajournal.IGetOrCreateDocRequest): petajournal.GetOrCreateDocRequest;
 
         /**
-         * Encodes the specified GetDocByNameRequest message. Does not implicitly {@link petajournal.GetDocByNameRequest.verify|verify} messages.
-         * @param message GetDocByNameRequest message or plain object to encode
+         * Encodes the specified GetOrCreateDocRequest message. Does not implicitly {@link petajournal.GetOrCreateDocRequest.verify|verify} messages.
+         * @param message GetOrCreateDocRequest message or plain object to encode
          * @param [writer] Writer to encode to
          * @returns Writer
          */
-        public static encode(message: petajournal.IGetDocByNameRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+        public static encode(message: petajournal.IGetOrCreateDocRequest, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified GetDocByNameRequest message, length delimited. Does not implicitly {@link petajournal.GetDocByNameRequest.verify|verify} messages.
-         * @param message GetDocByNameRequest message or plain object to encode
+         * Encodes the specified GetOrCreateDocRequest message, length delimited. Does not implicitly {@link petajournal.GetOrCreateDocRequest.verify|verify} messages.
+         * @param message GetOrCreateDocRequest message or plain object to encode
          * @param [writer] Writer to encode to
          * @returns Writer
          */
-        public static encodeDelimited(message: petajournal.IGetDocByNameRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+        public static encodeDelimited(message: petajournal.IGetOrCreateDocRequest, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Decodes a GetDocByNameRequest message from the specified reader or buffer.
+         * Decodes a GetOrCreateDocRequest message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
-         * @returns GetDocByNameRequest
+         * @returns GetOrCreateDocRequest
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.GetDocByNameRequest;
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.GetOrCreateDocRequest;
 
         /**
-         * Decodes a GetDocByNameRequest message from the specified reader or buffer, length delimited.
+         * Decodes a GetOrCreateDocRequest message from the specified reader or buffer, length delimited.
          * @param reader Reader or buffer to decode from
-         * @returns GetDocByNameRequest
+         * @returns GetOrCreateDocRequest
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.GetDocByNameRequest;
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.GetOrCreateDocRequest;
 
         /**
-         * Verifies a GetDocByNameRequest message.
+         * Verifies a GetOrCreateDocRequest message.
          * @param message Plain object to verify
          * @returns `null` if valid, otherwise the reason why it is not
          */
         public static verify(message: { [k: string]: any }): (string|null);
 
         /**
-         * Creates a GetDocByNameRequest message from a plain object. Also converts values to their respective internal types.
+         * Creates a GetOrCreateDocRequest message from a plain object. Also converts values to their respective internal types.
          * @param object Plain object
-         * @returns GetDocByNameRequest
+         * @returns GetOrCreateDocRequest
          */
-        public static fromObject(object: { [k: string]: any }): petajournal.GetDocByNameRequest;
+        public static fromObject(object: { [k: string]: any }): petajournal.GetOrCreateDocRequest;
 
         /**
-         * Creates a plain object from a GetDocByNameRequest message. Also converts values to other types if specified.
-         * @param message GetDocByNameRequest
+         * Creates a plain object from a GetOrCreateDocRequest message. Also converts values to other types if specified.
+         * @param message GetOrCreateDocRequest
          * @param [options] Conversion options
          * @returns Plain object
          */
-        public static toObject(message: petajournal.GetDocByNameRequest, options?: $protobuf.IConversionOptions): { [k: string]: any };
+        public static toObject(message: petajournal.GetOrCreateDocRequest, options?: $protobuf.IConversionOptions): { [k: string]: any };
 
         /**
-         * Converts this GetDocByNameRequest to JSON.
+         * Converts this GetOrCreateDocRequest to JSON.
          * @returns JSON object
          */
         public toJSON(): { [k: string]: any };
 
         /**
-         * Gets the default type url for GetDocByNameRequest
+         * Gets the default type url for GetOrCreateDocRequest
          * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
          * @returns The default type url
          */
         public static getTypeUrl(typeUrlPrefix?: string): string;
     }
 
-    /** Properties of a GetDocByNameResponse. */
-    interface IGetDocByNameResponse {
+    /** Properties of a GetOrCreateDocResponse. */
+    interface IGetOrCreateDocResponse {
 
-        /** GetDocByNameResponse page */
+        /** GetOrCreateDocResponse page */
         page?: (petajournal.IPage|null);
 
-        /** GetDocByNameResponse blocks */
+        /** GetOrCreateDocResponse blocks */
         blocks?: (petajournal.IBlock[]|null);
 
-        /** GetDocByNameResponse created */
+        /** GetOrCreateDocResponse created */
         created?: (boolean|null);
     }
 
-    /** Represents a GetDocByNameResponse. */
-    class GetDocByNameResponse implements IGetDocByNameResponse {
+    /** Represents a GetOrCreateDocResponse. */
+    class GetOrCreateDocResponse implements IGetOrCreateDocResponse {
 
         /**
-         * Constructs a new GetDocByNameResponse.
+         * Constructs a new GetOrCreateDocResponse.
          * @param [properties] Properties to set
          */
-        constructor(properties?: petajournal.IGetDocByNameResponse);
+        constructor(properties?: petajournal.IGetOrCreateDocResponse);
 
-        /** GetDocByNameResponse page. */
+        /** GetOrCreateDocResponse page. */
         public page?: (petajournal.IPage|null);
 
-        /** GetDocByNameResponse blocks. */
+        /** GetOrCreateDocResponse blocks. */
         public blocks: petajournal.IBlock[];
 
-        /** GetDocByNameResponse created. */
+        /** GetOrCreateDocResponse created. */
         public created: boolean;
 
         /**
-         * Creates a new GetDocByNameResponse instance using the specified properties.
+         * Creates a new GetOrCreateDocResponse instance using the specified properties.
          * @param [properties] Properties to set
-         * @returns GetDocByNameResponse instance
+         * @returns GetOrCreateDocResponse instance
          */
-        public static create(properties?: petajournal.IGetDocByNameResponse): petajournal.GetDocByNameResponse;
+        public static create(properties?: petajournal.IGetOrCreateDocResponse): petajournal.GetOrCreateDocResponse;
 
         /**
-         * Encodes the specified GetDocByNameResponse message. Does not implicitly {@link petajournal.GetDocByNameResponse.verify|verify} messages.
-         * @param message GetDocByNameResponse message or plain object to encode
+         * Encodes the specified GetOrCreateDocResponse message. Does not implicitly {@link petajournal.GetOrCreateDocResponse.verify|verify} messages.
+         * @param message GetOrCreateDocResponse message or plain object to encode
          * @param [writer] Writer to encode to
          * @returns Writer
          */
-        public static encode(message: petajournal.IGetDocByNameResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+        public static encode(message: petajournal.IGetOrCreateDocResponse, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified GetDocByNameResponse message, length delimited. Does not implicitly {@link petajournal.GetDocByNameResponse.verify|verify} messages.
-         * @param message GetDocByNameResponse message or plain object to encode
+         * Encodes the specified GetOrCreateDocResponse message, length delimited. Does not implicitly {@link petajournal.GetOrCreateDocResponse.verify|verify} messages.
+         * @param message GetOrCreateDocResponse message or plain object to encode
          * @param [writer] Writer to encode to
          * @returns Writer
          */
-        public static encodeDelimited(message: petajournal.IGetDocByNameResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+        public static encodeDelimited(message: petajournal.IGetOrCreateDocResponse, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Decodes a GetDocByNameResponse message from the specified reader or buffer.
+         * Decodes a GetOrCreateDocResponse message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
-         * @returns GetDocByNameResponse
+         * @returns GetOrCreateDocResponse
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.GetDocByNameResponse;
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.GetOrCreateDocResponse;
 
         /**
-         * Decodes a GetDocByNameResponse message from the specified reader or buffer, length delimited.
+         * Decodes a GetOrCreateDocResponse message from the specified reader or buffer, length delimited.
          * @param reader Reader or buffer to decode from
-         * @returns GetDocByNameResponse
+         * @returns GetOrCreateDocResponse
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.GetDocByNameResponse;
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.GetOrCreateDocResponse;
 
         /**
-         * Verifies a GetDocByNameResponse message.
+         * Verifies a GetOrCreateDocResponse message.
          * @param message Plain object to verify
          * @returns `null` if valid, otherwise the reason why it is not
          */
         public static verify(message: { [k: string]: any }): (string|null);
 
         /**
-         * Creates a GetDocByNameResponse message from a plain object. Also converts values to their respective internal types.
+         * Creates a GetOrCreateDocResponse message from a plain object. Also converts values to their respective internal types.
          * @param object Plain object
-         * @returns GetDocByNameResponse
+         * @returns GetOrCreateDocResponse
          */
-        public static fromObject(object: { [k: string]: any }): petajournal.GetDocByNameResponse;
+        public static fromObject(object: { [k: string]: any }): petajournal.GetOrCreateDocResponse;
 
         /**
-         * Creates a plain object from a GetDocByNameResponse message. Also converts values to other types if specified.
-         * @param message GetDocByNameResponse
+         * Creates a plain object from a GetOrCreateDocResponse message. Also converts values to other types if specified.
+         * @param message GetOrCreateDocResponse
          * @param [options] Conversion options
          * @returns Plain object
          */
-        public static toObject(message: petajournal.GetDocByNameResponse, options?: $protobuf.IConversionOptions): { [k: string]: any };
+        public static toObject(message: petajournal.GetOrCreateDocResponse, options?: $protobuf.IConversionOptions): { [k: string]: any };
 
         /**
-         * Converts this GetDocByNameResponse to JSON.
+         * Converts this GetOrCreateDocResponse to JSON.
          * @returns JSON object
          */
         public toJSON(): { [k: string]: any };
 
         /**
-         * Gets the default type url for GetDocByNameResponse
+         * Gets the default type url for GetOrCreateDocResponse
          * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
          * @returns The default type url
          */
@@ -4368,206 +4368,206 @@ export namespace petajournal {
         public static getTypeUrl(typeUrlPrefix?: string): string;
     }
 
-    /** Properties of a GetJournalByNameRequest. */
-    interface IGetJournalByNameRequest {
+    /** Properties of a GetOrCreateJournalRequest. */
+    interface IGetOrCreateJournalRequest {
 
-        /** GetJournalByNameRequest fileName */
+        /** GetOrCreateJournalRequest fileName */
         fileName?: (string|null);
     }
 
-    /** Represents a GetJournalByNameRequest. */
-    class GetJournalByNameRequest implements IGetJournalByNameRequest {
+    /** Represents a GetOrCreateJournalRequest. */
+    class GetOrCreateJournalRequest implements IGetOrCreateJournalRequest {
 
         /**
-         * Constructs a new GetJournalByNameRequest.
+         * Constructs a new GetOrCreateJournalRequest.
          * @param [properties] Properties to set
          */
-        constructor(properties?: petajournal.IGetJournalByNameRequest);
+        constructor(properties?: petajournal.IGetOrCreateJournalRequest);
 
-        /** GetJournalByNameRequest fileName. */
+        /** GetOrCreateJournalRequest fileName. */
         public fileName: string;
 
         /**
-         * Creates a new GetJournalByNameRequest instance using the specified properties.
+         * Creates a new GetOrCreateJournalRequest instance using the specified properties.
          * @param [properties] Properties to set
-         * @returns GetJournalByNameRequest instance
+         * @returns GetOrCreateJournalRequest instance
          */
-        public static create(properties?: petajournal.IGetJournalByNameRequest): petajournal.GetJournalByNameRequest;
+        public static create(properties?: petajournal.IGetOrCreateJournalRequest): petajournal.GetOrCreateJournalRequest;
 
         /**
-         * Encodes the specified GetJournalByNameRequest message. Does not implicitly {@link petajournal.GetJournalByNameRequest.verify|verify} messages.
-         * @param message GetJournalByNameRequest message or plain object to encode
+         * Encodes the specified GetOrCreateJournalRequest message. Does not implicitly {@link petajournal.GetOrCreateJournalRequest.verify|verify} messages.
+         * @param message GetOrCreateJournalRequest message or plain object to encode
          * @param [writer] Writer to encode to
          * @returns Writer
          */
-        public static encode(message: petajournal.IGetJournalByNameRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+        public static encode(message: petajournal.IGetOrCreateJournalRequest, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified GetJournalByNameRequest message, length delimited. Does not implicitly {@link petajournal.GetJournalByNameRequest.verify|verify} messages.
-         * @param message GetJournalByNameRequest message or plain object to encode
+         * Encodes the specified GetOrCreateJournalRequest message, length delimited. Does not implicitly {@link petajournal.GetOrCreateJournalRequest.verify|verify} messages.
+         * @param message GetOrCreateJournalRequest message or plain object to encode
          * @param [writer] Writer to encode to
          * @returns Writer
          */
-        public static encodeDelimited(message: petajournal.IGetJournalByNameRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+        public static encodeDelimited(message: petajournal.IGetOrCreateJournalRequest, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Decodes a GetJournalByNameRequest message from the specified reader or buffer.
+         * Decodes a GetOrCreateJournalRequest message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
-         * @returns GetJournalByNameRequest
+         * @returns GetOrCreateJournalRequest
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.GetJournalByNameRequest;
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.GetOrCreateJournalRequest;
 
         /**
-         * Decodes a GetJournalByNameRequest message from the specified reader or buffer, length delimited.
+         * Decodes a GetOrCreateJournalRequest message from the specified reader or buffer, length delimited.
          * @param reader Reader or buffer to decode from
-         * @returns GetJournalByNameRequest
+         * @returns GetOrCreateJournalRequest
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.GetJournalByNameRequest;
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.GetOrCreateJournalRequest;
 
         /**
-         * Verifies a GetJournalByNameRequest message.
+         * Verifies a GetOrCreateJournalRequest message.
          * @param message Plain object to verify
          * @returns `null` if valid, otherwise the reason why it is not
          */
         public static verify(message: { [k: string]: any }): (string|null);
 
         /**
-         * Creates a GetJournalByNameRequest message from a plain object. Also converts values to their respective internal types.
+         * Creates a GetOrCreateJournalRequest message from a plain object. Also converts values to their respective internal types.
          * @param object Plain object
-         * @returns GetJournalByNameRequest
+         * @returns GetOrCreateJournalRequest
          */
-        public static fromObject(object: { [k: string]: any }): petajournal.GetJournalByNameRequest;
+        public static fromObject(object: { [k: string]: any }): petajournal.GetOrCreateJournalRequest;
 
         /**
-         * Creates a plain object from a GetJournalByNameRequest message. Also converts values to other types if specified.
-         * @param message GetJournalByNameRequest
+         * Creates a plain object from a GetOrCreateJournalRequest message. Also converts values to other types if specified.
+         * @param message GetOrCreateJournalRequest
          * @param [options] Conversion options
          * @returns Plain object
          */
-        public static toObject(message: petajournal.GetJournalByNameRequest, options?: $protobuf.IConversionOptions): { [k: string]: any };
+        public static toObject(message: petajournal.GetOrCreateJournalRequest, options?: $protobuf.IConversionOptions): { [k: string]: any };
 
         /**
-         * Converts this GetJournalByNameRequest to JSON.
+         * Converts this GetOrCreateJournalRequest to JSON.
          * @returns JSON object
          */
         public toJSON(): { [k: string]: any };
 
         /**
-         * Gets the default type url for GetJournalByNameRequest
+         * Gets the default type url for GetOrCreateJournalRequest
          * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
          * @returns The default type url
          */
         public static getTypeUrl(typeUrlPrefix?: string): string;
     }
 
-    /** Properties of a GetJournalByNameResponse. */
-    interface IGetJournalByNameResponse {
+    /** Properties of a GetOrCreateJournalResponse. */
+    interface IGetOrCreateJournalResponse {
 
-        /** GetJournalByNameResponse page */
+        /** GetOrCreateJournalResponse page */
         page?: (petajournal.IPage|null);
 
-        /** GetJournalByNameResponse blocks */
+        /** GetOrCreateJournalResponse blocks */
         blocks?: (petajournal.IBlock[]|null);
 
-        /** GetJournalByNameResponse created */
+        /** GetOrCreateJournalResponse created */
         created?: (boolean|null);
     }
 
-    /** Represents a GetJournalByNameResponse. */
-    class GetJournalByNameResponse implements IGetJournalByNameResponse {
+    /** Represents a GetOrCreateJournalResponse. */
+    class GetOrCreateJournalResponse implements IGetOrCreateJournalResponse {
 
         /**
-         * Constructs a new GetJournalByNameResponse.
+         * Constructs a new GetOrCreateJournalResponse.
          * @param [properties] Properties to set
          */
-        constructor(properties?: petajournal.IGetJournalByNameResponse);
+        constructor(properties?: petajournal.IGetOrCreateJournalResponse);
 
-        /** GetJournalByNameResponse page. */
+        /** GetOrCreateJournalResponse page. */
         public page?: (petajournal.IPage|null);
 
-        /** GetJournalByNameResponse blocks. */
+        /** GetOrCreateJournalResponse blocks. */
         public blocks: petajournal.IBlock[];
 
-        /** GetJournalByNameResponse created. */
+        /** GetOrCreateJournalResponse created. */
         public created: boolean;
 
         /**
-         * Creates a new GetJournalByNameResponse instance using the specified properties.
+         * Creates a new GetOrCreateJournalResponse instance using the specified properties.
          * @param [properties] Properties to set
-         * @returns GetJournalByNameResponse instance
+         * @returns GetOrCreateJournalResponse instance
          */
-        public static create(properties?: petajournal.IGetJournalByNameResponse): petajournal.GetJournalByNameResponse;
+        public static create(properties?: petajournal.IGetOrCreateJournalResponse): petajournal.GetOrCreateJournalResponse;
 
         /**
-         * Encodes the specified GetJournalByNameResponse message. Does not implicitly {@link petajournal.GetJournalByNameResponse.verify|verify} messages.
-         * @param message GetJournalByNameResponse message or plain object to encode
+         * Encodes the specified GetOrCreateJournalResponse message. Does not implicitly {@link petajournal.GetOrCreateJournalResponse.verify|verify} messages.
+         * @param message GetOrCreateJournalResponse message or plain object to encode
          * @param [writer] Writer to encode to
          * @returns Writer
          */
-        public static encode(message: petajournal.IGetJournalByNameResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+        public static encode(message: petajournal.IGetOrCreateJournalResponse, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified GetJournalByNameResponse message, length delimited. Does not implicitly {@link petajournal.GetJournalByNameResponse.verify|verify} messages.
-         * @param message GetJournalByNameResponse message or plain object to encode
+         * Encodes the specified GetOrCreateJournalResponse message, length delimited. Does not implicitly {@link petajournal.GetOrCreateJournalResponse.verify|verify} messages.
+         * @param message GetOrCreateJournalResponse message or plain object to encode
          * @param [writer] Writer to encode to
          * @returns Writer
          */
-        public static encodeDelimited(message: petajournal.IGetJournalByNameResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+        public static encodeDelimited(message: petajournal.IGetOrCreateJournalResponse, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Decodes a GetJournalByNameResponse message from the specified reader or buffer.
+         * Decodes a GetOrCreateJournalResponse message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
-         * @returns GetJournalByNameResponse
+         * @returns GetOrCreateJournalResponse
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.GetJournalByNameResponse;
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.GetOrCreateJournalResponse;
 
         /**
-         * Decodes a GetJournalByNameResponse message from the specified reader or buffer, length delimited.
+         * Decodes a GetOrCreateJournalResponse message from the specified reader or buffer, length delimited.
          * @param reader Reader or buffer to decode from
-         * @returns GetJournalByNameResponse
+         * @returns GetOrCreateJournalResponse
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.GetJournalByNameResponse;
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.GetOrCreateJournalResponse;
 
         /**
-         * Verifies a GetJournalByNameResponse message.
+         * Verifies a GetOrCreateJournalResponse message.
          * @param message Plain object to verify
          * @returns `null` if valid, otherwise the reason why it is not
          */
         public static verify(message: { [k: string]: any }): (string|null);
 
         /**
-         * Creates a GetJournalByNameResponse message from a plain object. Also converts values to their respective internal types.
+         * Creates a GetOrCreateJournalResponse message from a plain object. Also converts values to their respective internal types.
          * @param object Plain object
-         * @returns GetJournalByNameResponse
+         * @returns GetOrCreateJournalResponse
          */
-        public static fromObject(object: { [k: string]: any }): petajournal.GetJournalByNameResponse;
+        public static fromObject(object: { [k: string]: any }): petajournal.GetOrCreateJournalResponse;
 
         /**
-         * Creates a plain object from a GetJournalByNameResponse message. Also converts values to other types if specified.
-         * @param message GetJournalByNameResponse
+         * Creates a plain object from a GetOrCreateJournalResponse message. Also converts values to other types if specified.
+         * @param message GetOrCreateJournalResponse
          * @param [options] Conversion options
          * @returns Plain object
          */
-        public static toObject(message: petajournal.GetJournalByNameResponse, options?: $protobuf.IConversionOptions): { [k: string]: any };
+        public static toObject(message: petajournal.GetOrCreateJournalResponse, options?: $protobuf.IConversionOptions): { [k: string]: any };
 
         /**
-         * Converts this GetJournalByNameResponse to JSON.
+         * Converts this GetOrCreateJournalResponse to JSON.
          * @returns JSON object
          */
         public toJSON(): { [k: string]: any };
 
         /**
-         * Gets the default type url for GetJournalByNameResponse
+         * Gets the default type url for GetOrCreateJournalResponse
          * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
          * @returns The default type url
          */

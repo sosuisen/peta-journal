@@ -30,6 +30,10 @@ export class RecentPagesService {
     });
   }
 
+  /**
+   * Fetches the most recently modified document pages from the server and updates the signal.
+   * @returns A promise that resolves when the refresh is complete.
+   */
   async refresh(): Promise<void> {
     try {
       const result = await this.api.getRecentPages(10, 'doc');

@@ -51,12 +51,22 @@ function toBlock(b: any): Block {
 export class ApiService {
   private readonly proto = inject(ProtobufService);
 
-  async getPage(pageId: string): Promise<GetPageResult> {
-    const resp: any = await this.proto.send({ getPage: { pageId } });
-    const r = resp.getPage;
+  /**
+   * Retrieves a page and its blocks by page ID.
+   * @param pageId - The UUID of the page to retrieve.
+   * @returns The page and its associated blocks.
+   */
+  async getPageById(pageId: string): Promise<GetPageResult> {
+    const resp: any = await this.proto.send({ getPageById: { pageId } });
+    const r = resp.getPageById;
     return { page: toPage(r.page), blocks: (r.blocks ?? []).map(toBlock) };
   }
 
+  /**
+   * Gets the most recent daily journal before the specified date.
+   * @param beforeDate - Date in YYYY-MM-DD format (exclusive upper bound).
+   * @returns The journal page and blocks if found, or a not-found result.
+   */
   async getMostRecentJournalBefore(beforeDate: string): Promise<GetMostRecentJournalBeforeResult> {
     const resp: any = await this.proto.send({ getMostRecentJournalBefore: { beforeDate } });
     const r = resp.getMostRecentJournalBefore;
@@ -66,13 +76,25 @@ export class ApiService {
     return { found: true, page: toPage(r.page), blocks: (r.blocks ?? []).map(toBlock) };
   }
 
-  async getJournalByName(fileName: string): Promise<GetJournalResult> {
-    const resp: any = await this.proto.send({ getJournalByName: { fileName } });
-    const r = resp.getJournalByName;
+  /**
+   * Gets or creates a journal page by file name (e.g., '2026-02-18', '2026-W08').
+   * @param fileName - The journal file name in daily, weekly, monthly, or yearly format.
+   * @returns The journal page, its blocks, and whether it was newly created.
+   */
+  async getOrCreateJournal(fileName: string): Promise<GetJournalResult> {
+    const resp: any = await this.proto.send({ getOrCreateJournal: { fileName } });
+    const r = resp.getOrCreateJournal;
     return { page: toPage(r.page), blocks: (r.blocks ?? []).map(toBlock), created: r.created ?? false };
   }
 
-  async getDocByName(title: string, dirPath?: string, tags?: string[]): Promise<GetDocResult> {
+  /**
+   * Gets or creates a document page by title. Parses path from title if dirPath is not provided.
+   * @param title - The document title, optionally including a path (e.g., 'projects/myDoc').
+   * @param dirPath - Optional directory path (e.g., 'projects/'). Parsed from title if omitted.
+   * @param tags - Optional array of tags to assign to the document.
+   * @returns The document page, its blocks, and whether it was newly created.
+   */
+  async getOrCreateDoc(title: string, dirPath?: string, tags?: string[]): Promise<GetDocResult> {
     // Parse path: "cat/01.md" → dirPath="cat/", title="01"
     if (!dirPath) {
       const stripped = title.replace(/\.md$/, '');
@@ -85,39 +107,81 @@ export class ApiService {
         title = stripped;
       }
     }
-    const resp: any = await this.proto.send({ getDocByName: { title, dirPath, tags } });
-    const r = resp.getDocByName;
+    const resp: any = await this.proto.send({ getOrCreateDoc: { title, dirPath, tags } });
+    const r = resp.getOrCreateDoc;
     return { page: toPage(r.page), blocks: (r.blocks ?? []).map(toBlock), created: r.created ?? false };
   }
 
+  /**
+   * Creates a new block in a page, inserted after the specified block.
+   * @param pageId - The UUID of the page to add the block to.
+   * @param afterBlockId - The block ID to insert after, or empty string to append at end.
+   * @param level - The indentation level (0-based).
+   * @param body - The markdown body text of the block.
+   * @returns The newly created block.
+   */
   async createBlock(pageId: string, afterBlockId: string, level: number, body: string): Promise<Block> {
     const resp: any = await this.proto.send({ createBlock: { pageId, afterBlockId, level, body } });
     return toBlock(resp.createBlock.block);
   }
 
+  /**
+   * Updates an existing block's body, level, collapsed state, or properties.
+   * @param blockId - The 7-char hex block ID.
+   * @param updates - An object with optional fields to update.
+   * @returns The updated block.
+   */
   async updateBlock(blockId: string, updates: { body?: string; level?: number; collapsed?: boolean; propertiesJson?: string }): Promise<Block> {
     const resp: any = await this.proto.send({ updateBlock: { blockId, ...updates } });
     return toBlock(resp.updateBlock.block);
   }
 
+  /**
+   * Moves blocks to a target page and position, returning blocks with fresh indices.
+   * @param blockIds - Array of block IDs to move.
+   * @param targetPageId - The UUID of the destination page.
+   * @param afterBlockId - The block ID to insert after, or empty string to insert at beginning.
+   * @param levelDelta - Optional indentation level adjustment.
+   * @returns The moved blocks with updated indices.
+   */
   async moveBlocks(blockIds: string[], targetPageId: string, afterBlockId: string, levelDelta?: number): Promise<Block[]> {
     const resp: any = await this.proto.send({ moveBlocks: { blockIds, targetPageId, afterBlockId, levelDelta } });
     return (resp.moveBlocks.blocks ?? []).map(toBlock);
   }
 
+  /**
+   * Deletes a page and all its blocks.
+   * @param pageId - The UUID of the page to delete.
+   */
   async deletePage(pageId: string): Promise<void> {
     await this.proto.send({ deletePage: { pageId } });
   }
 
+  /**
+   * Deletes a block by its ID.
+   * @param blockId - The 7-char hex block ID to delete.
+   */
   async deleteBlock(blockId: string): Promise<void> {
     await this.proto.send({ deleteBlock: { blockId } });
   }
 
+  /**
+   * Updates a block's status (e.g., 'normal', 'todo', 'running', 'done').
+   * @param blockId - The 7-char hex block ID.
+   * @param status - The new status value.
+   * @returns The updated block.
+   */
   async updateBlockStatus(blockId: string, status: string): Promise<Block> {
     const resp: any = await this.proto.send({ updateBlockStatus: { blockId, status } });
     return toBlock(resp.updateBlockStatus.block);
   }
 
+  /**
+   * Searches page names using prefix, fuzzy/token, and substring matching.
+   * @param query - The search query string.
+   * @param maxResults - Maximum number of results to return (default 20).
+   * @returns Matching search results.
+   */
   async searchPageNames(query: string, maxResults = 20): Promise<SearchPageNamesResult> {
     const resp: any = await this.proto.send({ searchPageNames: { query, maxResults } });
     return {
@@ -131,6 +195,12 @@ export class ApiService {
     };
   }
 
+  /**
+   * Performs a full-text search across all block content.
+   * @param query - The search query string.
+   * @param maxResults - Maximum number of results to return (default 20).
+   * @returns Matching search results and total hit count.
+   */
   async searchFullText(query: string, maxResults = 20): Promise<SearchFullTextResult> {
     const resp: any = await this.proto.send({ searchFullText: { query, maxResults } });
     return {
@@ -145,16 +215,33 @@ export class ApiService {
     };
   }
 
+  /**
+   * Gets recently modified pages, ordered by modification date (newest first).
+   * @param maxResults - Maximum number of pages to return (default 10).
+   * @param type - Optional filter by page type ('journal', 'doc', or omit for all).
+   * @returns The list of recently modified pages.
+   */
   async getRecentPages(maxResults = 10, type?: string): Promise<GetRecentPagesResult> {
     const resp: any = await this.proto.send({ getRecentPages: { maxResults, type: type ?? '' } });
     return { pages: (resp.getRecentPages.pages ?? []).map(toPage) };
   }
 
+  /**
+   * Updates a page's title or directory path.
+   * @param pageId - The UUID of the page to update.
+   * @param updates - An object with optional title and dirPath fields.
+   * @returns The updated page.
+   */
   async updatePage(pageId: string, updates: { title?: string; dirPath?: string }): Promise<Page> {
     const resp: any = await this.proto.send({ updatePage: { pageId, ...updates } });
     return toPage(resp.updatePage.page);
   }
 
+  /**
+   * Gets all pages and blocks that link to the specified page (backlinks).
+   * @param pageId - The UUID of the target page.
+   * @returns The backlink entries, each containing a source page and source block.
+   */
   async getBacklinks(pageId: string): Promise<GetBacklinksResult> {
     const resp: any = await this.proto.send({ getBacklinks: { pageId } });
     return {
@@ -165,24 +252,43 @@ export class ApiService {
     };
   }
 
+  /**
+   * Gets the server configuration (e.g., week numbering setting).
+   * @returns The current configuration.
+   */
   async getConfig(): Promise<{ weekNumbering: string }> {
     const resp: any = await this.proto.send({ getConfig: {} });
     const r = resp.getConfig;
     return { weekNumbering: r.weekNumbering ?? 'us' };
   }
 
+  /**
+   * Updates the server configuration.
+   * @param weekNumbering - The week numbering system ('us' or 'iso').
+   * @returns The updated configuration.
+   */
   async updateConfig(weekNumbering: string): Promise<{ weekNumbering: string }> {
     const resp: any = await this.proto.send({ updateConfig: { weekNumbering } });
     const r = resp.updateConfig;
     return { weekNumbering: r.weekNumbering ?? 'us' };
   }
 
+  /**
+   * Exports blocks as hierarchical tree markdown, flat markdown, and HTML.
+   * @param blockIds - Array of block IDs to export.
+   * @returns The tree markdown, flat markdown, and HTML representations.
+   */
   async exportTreeMarkdown(blockIds: string[]): Promise<{ treeMarkdown: string; html: string; flatMarkdown: string }> {
     const resp: any = await this.proto.send({ exportTreeMarkdown: { blockIds } });
     const r = resp.exportTreeMarkdown;
     return { treeMarkdown: r.treeMarkdown ?? '', html: r.html ?? '', flatMarkdown: r.flatMarkdown ?? '' };
   }
 
+  /**
+   * Imports tree markdown and converts it to flat markdown.
+   * @param treeMarkdown - The hierarchical tree markdown string to import.
+   * @returns The converted flat markdown representation.
+   */
   async importTreeMarkdown(treeMarkdown: string): Promise<{ flatMarkdown: string }> {
     const resp: any = await this.proto.send({ importTreeMarkdown: { treeMarkdown } });
     const r = resp.importTreeMarkdown;

@@ -23,11 +23,11 @@ export interface WikiLinkContext {
       #editor
       [id]="'block-editor-' + blockId()"
       [value]="body()"
-      (input)="onInput($event)"
+      (input)="onTextInput($event)"
       (keydown)="onKeydown($event)"
       (paste)="onPaste($event)"
       (blur)="blurred.emit()"
-      (mousedown)="onMouseDown($event)"
+      (mousedown)="onEditorMouseDown($event)"
       rows="1"
     ></textarea>
   `,
@@ -106,6 +106,11 @@ export class BlockEditorComponent implements AfterViewInit, OnDestroy {
     });
   }
 
+  /**
+   * Initializes the editor after the view is rendered.
+   * Sets cursor position, focuses the textarea, auto-resizes it,
+   * and starts drag tracking if the edit was triggered by a mouse press.
+   */
   ngAfterViewInit(): void {
     const el = this.editorRef().nativeElement;
     const pendingPos = this.state.consumePendingCursorPosition();
@@ -127,12 +132,19 @@ export class BlockEditorComponent implements AfterViewInit, OnDestroy {
     }
   }
 
+  /**
+   * Sets the cursor to a specific position within the textarea and focuses it.
+   * @param pos - The character index to place the cursor at.
+   */
   setCursorPosition(pos: number): void {
     const el = this.editorRef().nativeElement;
     el.setSelectionRange(pos, pos);
     el.focus();
   }
 
+  /**
+   * Moves the cursor to the end of the textarea content and focuses it.
+   */
   setCursorToEnd(): void {
     const el = this.editorRef().nativeElement;
     const len = el.value.length;
@@ -140,19 +152,33 @@ export class BlockEditorComponent implements AfterViewInit, OnDestroy {
     el.focus();
   }
 
+  /**
+   * Handles checkbox click by preventing the default toggle and emitting a status toggle event.
+   * @param event - The mouse event from the checkbox click.
+   */
   onCheckboxClick(event: MouseEvent): void {
     event.preventDefault();
     event.stopPropagation();
     this.statusToggled.emit();
   }
 
-  onInput(event: Event): void {
+  /**
+   * Handles text input in the textarea, emitting the new value
+   * and checking for wiki link context.
+   * @param event - The input event from the textarea.
+   */
+  onTextInput(event: Event): void {
     const el = event.target as HTMLTextAreaElement;
     this.bodyChange.emit(el.value);
     this.autoResize(el);
     this.checkWikiLinkContext(el);
   }
 
+  /**
+   * Handles keydown events in the textarea, dispatching keyboard shortcuts
+   * for navigation, editing, indentation, status cycling, and wiki link interaction.
+   * @param event - The keyboard event from the textarea.
+   */
   onKeydown(event: KeyboardEvent): void {
     const el = event.target as HTMLTextAreaElement;
     const { selectionStart, selectionEnd, value } = el;
@@ -326,6 +352,11 @@ export class BlockEditorComponent implements AfterViewInit, OnDestroy {
     }
   }
 
+  /**
+   * Handles paste events by preventing the default behavior and emitting
+   * the clipboard data (plain text and HTML) along with the cursor position.
+   * @param event - The clipboard paste event.
+   */
   onPaste(event: ClipboardEvent): void {
     const el = event.target as HTMLTextAreaElement;
     const clipboardData = event.clipboardData;
@@ -347,7 +378,12 @@ export class BlockEditorComponent implements AfterViewInit, OnDestroy {
     });
   }
 
-  onMouseDown(event: MouseEvent): void {
+  /**
+   * Handles mousedown on the textarea, initiating drag tracking
+   * to detect when selection extends beyond the editor bounds.
+   * @param event - The mouse event from the textarea.
+   */
+  onEditorMouseDown(event: MouseEvent): void {
     const el = event.target as HTMLTextAreaElement;
     this.textareaRect = el.getBoundingClientRect();
     this.isDragging = true;
@@ -381,6 +417,7 @@ export class BlockEditorComponent implements AfterViewInit, OnDestroy {
     document.removeEventListener('mouseup', this.mouseUpHandler);
   }
 
+  /** Cleans up document-level mouse event listeners on component destruction. */
   ngOnDestroy(): void {
     this.onDocMouseUp();
   }
@@ -448,7 +485,11 @@ export class BlockEditorComponent implements AfterViewInit, OnDestroy {
     );
   }
 
-  replaceWikiLinkQuery(replacement: string): void {
+  /**
+   * Replaces the current wiki link query text (between `[[` and `]]`) with the given replacement string.
+   * @param replacement - The text to insert as the wiki link content.
+   */
+  insertWikiLinkText(replacement: string): void {
     const el = this.editorRef().nativeElement;
     const { selectionStart, value } = el;
     const before = value.substring(0, selectionStart);

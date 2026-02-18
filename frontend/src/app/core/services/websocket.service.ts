@@ -18,6 +18,10 @@ export class WebSocketService implements OnDestroy {
   private readonly _messages$ = new Subject<ArrayBuffer>();
   readonly messages$ = this._messages$.asObservable();
 
+  /**
+   * Opens a WebSocket connection to the server.
+   * If a connection is already open or in progress, this is a no-op.
+   */
   connect(): void {
     if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
       return;
@@ -48,6 +52,11 @@ export class WebSocketService implements OnDestroy {
     };
   }
 
+  /**
+   * Sends binary data through the WebSocket connection.
+   * @param data - The encoded protobuf message to send.
+   * @throws Error if the WebSocket is not connected.
+   */
   send(data: Uint8Array): void {
     if (this.ws?.readyState !== WebSocket.OPEN) {
       throw new Error('WebSocket is not connected');
@@ -55,6 +64,12 @@ export class WebSocketService implements OnDestroy {
     this.ws.send(data);
   }
 
+  /**
+   * Returns a promise that resolves when the WebSocket connection is open,
+   * or rejects after the specified timeout.
+   * @param timeoutMs - Maximum time to wait in milliseconds (default: 10000).
+   * @returns A promise that resolves once the connection is established.
+   */
   waitForConnection(timeoutMs = 10000): Promise<void> {
     if (this.ws?.readyState === WebSocket.OPEN) {
       return Promise.resolve();
@@ -74,6 +89,9 @@ export class WebSocketService implements OnDestroy {
     });
   }
 
+  /**
+   * Closes the WebSocket connection and stops any pending reconnect attempts.
+   */
   disconnect(): void {
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);

@@ -22,7 +22,7 @@ import { validateFileName } from '../core/utils/filename-validation.utils';
           <button class="menu-btn" (click)="sidebarCollapsed.set(!sidebarCollapsed())">
             &#9776;
           </button>
-          <button class="menu-btn" title="Today's journal" (click)="goHome()">
+          <button class="menu-btn" title="Today's journal" (click)="navigateToToday()">
             &#128197;
           </button>
         </div>
@@ -36,7 +36,6 @@ import { validateFileName } from '../core/utils/filename-validation.utils';
             @if (pageMenuOpen()) {
               <div class="page-menu-dropdown" (click)="pageMenuOpen.set(false)">
                 <button class="page-menu-item" (click)="deletePage()">Delete page</button>
-                <button class="page-menu-item" (click)="exportPage()">Export as Markdown</button>
               </div>
             }
           </div>
@@ -47,7 +46,7 @@ import { validateFileName } from '../core/utils/filename-validation.utils';
           <app-sidebar />
         </aside>
         @if (!sidebarCollapsed()) {
-          <div class="resize-handle" (mousedown)="startResize($event)"></div>
+          <div class="resize-handle" (mousedown)="startSidebarResize($event)"></div>
         }
         <main class="content">
           <router-outlet />
@@ -225,7 +224,12 @@ export class MainLayoutComponent {
     this.ws.connect();
   }
 
-  startResize(event: MouseEvent): void {
+  /**
+   * Initiates sidebar width resizing via mouse drag. Attaches mousemove/mouseup listeners
+   * to handle the drag and cleans up on release.
+   * @param event - The mousedown event on the resize handle.
+   */
+  startSidebarResize(event: MouseEvent): void {
     event.preventDefault();
     this.isResizing = true;
     this.startX = event.clientX;
@@ -248,10 +252,15 @@ export class MainLayoutComponent {
     document.addEventListener('mouseup', onMouseUp);
   }
 
-  goHome(): void {
+  /** Navigates to today's daily journal. */
+  navigateToToday(): void {
     this.router.navigateByUrl('/today');
   }
 
+  /**
+   * Creates a new document page. Uses the current search query as the title if available,
+   * otherwise prompts the user. Generates a timestamp-based title if left empty.
+   */
   async createNewPage(): Promise<void> {
     const searchQuery = this.searchBar()?.query().trim();
     let title = searchQuery || prompt('Page title:');
@@ -279,6 +288,9 @@ export class MainLayoutComponent {
     }
   }
 
+  /**
+   * Deletes the currently viewed page after user confirmation, then navigates to today's journal.
+   */
   async deletePage(): Promise<void> {
     const url = this.router.url;
     const match = url.match(/\/(?:pages|docs|journals)\/(.+)/);
@@ -287,17 +299,17 @@ export class MainLayoutComponent {
     if (!confirm(`Delete "${fileName}"?`)) return;
     const isJournal = classifyJournalFileName(fileName) !== 'none';
     const result = isJournal
-      ? await this.api.getJournalByName(fileName)
-      : await this.api.getDocByName(fileName);
+      ? await this.api.getOrCreateJournal(fileName)
+      : await this.api.getOrCreateDoc(fileName);
     await this.api.deletePage(result.page.id);
     this.recentPages.refresh();
     this.router.navigateByUrl('/today');
   }
 
-  exportPage(): void {
-    // TODO: trigger server-side export for current page
-  }
-
+  /**
+   * Global keyboard shortcut handler. Focuses the search bar on Ctrl+/ or bare `/` key press.
+   * @param event - The keyboard event.
+   */
   @HostListener('document:keydown', ['$event'])
   onKeydown(event: KeyboardEvent): void {
     const isEditing = !!this.outlineState.editingBlockId();

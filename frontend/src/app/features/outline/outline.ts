@@ -42,7 +42,7 @@ import { WikiLinkContext } from './block-editor';
           (outdentRequested)="onOutdent(block)"
           (moveUp)="onMoveUp(block)"
           (moveDown)="onMoveDown(block)"
-          (taskToggled)="onCheckboxToggled(block)"
+          (taskToggled)="onTaskStatusToggled(block)"
           (statusCycleRequested)="onStatusCycleRequested(block)"
           (collapseToggled)="onCollapseToggled(block)"
           (pasteDetected)="onPaste(block, $event)"
@@ -65,7 +65,7 @@ import { WikiLinkContext } from './block-editor';
           <div
             class="wiki-suggestion-item"
             [class.selected]="i === wikiSuggestionIndex()"
-            (mousedown)="selectWikiSuggestion(suggestion, $event)"
+            (mousedown)="onWikiSuggestionSelected(suggestion, $event)"
             (mouseenter)="wikiSuggestionIndex.set(i)"
           >
             {{ suggestion }}
@@ -170,6 +170,11 @@ export class OutlineComponent implements OnDestroy {
 
   }
 
+  /**
+   * Handles the virtual scroll viewport emitting a new scrolled index.
+   * Emits the top visible block's file name and triggers loading more blocks when nearing the end.
+   * @param index - The index of the first visible item in the virtual scroll viewport
+   */
   onScrolledIndexChange(index: number): void {
     const blocks = this.state.visibleBlocks();
     const totalBlocks = blocks.length;
@@ -188,10 +193,22 @@ export class OutlineComponent implements OnDestroy {
     }
   }
 
+  /**
+   * TrackBy function for the virtual scroll's cdkVirtualFor directive.
+   * @param _index - The index of the item (unused)
+   * @param block - The block to track
+   * @returns The block's unique identifier
+   */
   trackById(_index: number, block: Block): string {
     return block.id;
   }
 
+  /**
+   * Determines whether the block at the given index is the first block of a new date group.
+   * Used in the template to render date header separators between journal entries.
+   * @param index - The index of the block in the visible blocks array
+   * @returns True if this block starts a new date group
+   */
   isFirstBlockOfDate(index: number): boolean {
     const blocks = this.state.visibleBlocks();
     if (index === 0) return true;
@@ -200,36 +217,61 @@ export class OutlineComponent implements OnDestroy {
     return currentBlock.fileName !== previousBlock.fileName;
   }
 
+  /**
+   * Checks whether the given file name matches a journal date format.
+   * Used in the template to conditionally show date headers.
+   * @param fileName - The file name to check
+   * @returns True if the file name represents a journal date
+   */
   isJournalDate(fileName: string): boolean {
     return isJournalFileName(fileName);
   }
 
+  /**
+   * Formats a journal file name into a human-readable date string for display as a date header.
+   * @param fileName - The journal file name to format
+   * @returns A formatted date string
+   */
   formatDateHeader(fileName: string): string {
     return formatJournalDate(fileName);
   }
 
   private async loadBlocks(pageId: string): Promise<void> {
-    console.log('[outline] loadBlocks called, pageId=', pageId);
     try {
-      const result = await this.api.getPage(pageId);
-      console.log('[outline] loadBlocks result: blocks=', result.blocks.length);
+      const result = await this.api.getPageById(pageId);
       this.state.setBlocks(result.blocks);
     } catch (e) {
       console.error('Failed to load blocks for page:', pageId, e);
     }
   }
 
+  /**
+   * Handles the user clicking on a block to start editing it.
+   * Ignored when block selection mode is active.
+   * @param blockId - The ID of the block to edit
+   * @param cursorPosition - The cursor position to place the caret at
+   */
   onEditRequested(blockId: string, cursorPosition: number): void {
     if (this.state.blockSelectionMode()) return;
     this.state.setEditingBlock(blockId, cursorPosition, true);
   }
 
+  /**
+   * Handles the user typing in a block editor, updating local state and scheduling an auto-save.
+   * @param block - The block being edited
+   * @param newBody - The updated body text
+   */
   onBodyChanged(block: Block, newBody: string): void {
     this.state.updateBlock(block.id, { body: newBody });
     this.dirtyBlockIds.add(block.id);
     this.autoSave.scheduleBlockUpdate(block.id, newBody);
   }
 
+  /**
+   * Handles the user leaving a block editor (blur). Flushes pending changes to the backend
+   * and switches the block back to view mode with updated HTML.
+   * @param block - The block that was being edited
+   */
   async onEditFinished(block: Block): Promise<void> {
     this.closeWikiSuggestions();
     // If editing has already moved to a different block (e.g. Enter/Backspace/Delete),
@@ -253,6 +295,13 @@ export class OutlineComponent implements OnDestroy {
     }
   }
 
+  /**
+   * Handles the user pressing Enter in a block editor. Splits the block at the cursor position,
+   * creating a new block with the text after the cursor. If the block is empty and indented,
+   * outdents instead. If the cursor is at the beginning, inserts an empty block before.
+   * @param block - The block where Enter was pressed
+   * @param event - Contains the cursor position at the time of the keypress
+   */
   async onEnterPressed(block: Block, event: { cursorPos: number }): Promise<void> {
     this.autoSave.cancelBlock(block.id);
     this.dirtyBlockIds.delete(block.id);
@@ -261,48 +310,49 @@ export class OutlineComponent implements OnDestroy {
     // Clear editing immediately so any blur during await won't match
     this.state.setEditingBlock(null);
 
-    try {
-      const { cursorPos } = event;
-      const beforeText = block.body.substring(0, cursorPos);
-      const afterText = block.body.substring(cursorPos);
+    const { cursorPos } = event;
+    const beforeText = block.body.substring(0, cursorPos);
+    const afterText = block.body.substring(cursorPos);
 
-      if (block.body.length === 0 && block.level > 0) {
-        // Empty block with indent: outdent instead of creating new block
-        this.state.setEditingBlock(block.id);
-        await this.onOutdent(block);
-        this.focusEditor(block.id);
-        return;
-      }
+    if (block.body.length === 0 && block.level > 0) {
+      // Empty block with indent: outdent instead of creating new block
+      this.state.setEditingBlock(block.id);
+      await this.onOutdent(block);
+      this.focusEditor(block.id);
+      return;
+    }
 
-      if (cursorPos === 0 && block.body.length > 0) {
-        // Enter at beginning: create new empty block before current block
-        const allBlocks = this.state.blocks();
-        const idx = allBlocks.findIndex(b => b.id === block.id);
+    if (cursorPos === 0 && block.body.length > 0) {
+      // Enter at beginning: create new empty block before current block
+      const allBlocks = this.state.blocks();
+      const idx = allBlocks.findIndex(b => b.id === block.id);
 
-        // Find the block just before the current block
-        const prevBlockId = idx > 0 ? allBlocks[idx - 1].id : '';
+      // Find the block just before the current block
+      const prevBlockId = idx > 0 ? allBlocks[idx - 1].id : '';
 
-        // Create new empty block with same level as current block
-        const newBlock = await this.api.createBlock(block.pageId, prevBlockId, block.level, '');
-        this.state.addBlock(newBlock, prevBlockId);
+      // Create new empty block with same level as current block
+      const newBlock = await this.api.createBlock(block.pageId, prevBlockId, block.level, '');
+      this.state.addBlock(newBlock, prevBlockId);
 
-        // Focus the new block
-        this.state.setEditingBlock(newBlock.id);
-        this.focusEditor(newBlock.id);
-      } else {
-        this.state.updateBlock(block.id, { body: beforeText });
-        const updatedOriginal = await this.api.updateBlock(block.id, { body: beforeText });
-        this.state.updateBlock(block.id, { html: updatedOriginal.html });
-        const newBlock = await this.api.createBlock(block.pageId, block.id, block.level, afterText);
-        this.state.addBlock(newBlock, block.id);
-        this.state.setEditingBlock(newBlock.id);
-        this.focusEditor(newBlock.id);
-      }
-    } finally {
-
+      // Focus the new block
+      this.state.setEditingBlock(newBlock.id);
+      this.focusEditor(newBlock.id);
+    } else {
+      this.state.updateBlock(block.id, { body: beforeText });
+      const updatedOriginal = await this.api.updateBlock(block.id, { body: beforeText });
+      this.state.updateBlock(block.id, { html: updatedOriginal.html });
+      const newBlock = await this.api.createBlock(block.pageId, block.id, block.level, afterText);
+      this.state.addBlock(newBlock, block.id);
+      this.state.setEditingBlock(newBlock.id);
+      this.focusEditor(newBlock.id);
     }
   }
 
+  /**
+   * Handles the user pressing Backspace at the start of a block.
+   * Merges the current block's content into the previous block and deletes the current block.
+   * @param block - The block where Backspace was pressed at position 0
+   */
   async onBackspaceAtStart(block: Block): Promise<void> {
     const blocks = this.state.visibleBlocks();
     const idx = blocks.findIndex(b => b.id === block.id);
@@ -325,6 +375,11 @@ export class OutlineComponent implements OnDestroy {
     await this.api.deleteBlock(block.id);
   }
 
+  /**
+   * Handles the user pressing Delete at the end of a block.
+   * Merges the next block's content into the current block and deletes the next block.
+   * @param block - The block where Delete was pressed at the end
+   */
   async onDeleteAtEnd(block: Block): Promise<void> {
     const blocks = this.state.visibleBlocks();
     const idx = blocks.findIndex(b => b.id === block.id);
@@ -344,6 +399,12 @@ export class OutlineComponent implements OnDestroy {
     await this.api.deleteBlock(nextBlock.id);
   }
 
+  /**
+   * Handles the user pressing the Up arrow key to navigate to the previous block.
+   * Saves any pending changes before moving focus.
+   * @param block - The block where the Up arrow was pressed
+   * @param cursorPos - The cursor position to restore in the target block
+   */
   async onNavigateUp(block: Block, cursorPos: number): Promise<void> {
     const blocks = this.state.visibleBlocks();
     const idx = blocks.findIndex(b => b.id === block.id);
@@ -354,6 +415,12 @@ export class OutlineComponent implements OnDestroy {
     }
   }
 
+  /**
+   * Handles the user pressing the Down arrow key to navigate to the next block.
+   * Saves any pending changes before moving focus.
+   * @param block - The block where the Down arrow was pressed
+   * @param cursorPos - The cursor position to restore in the target block
+   */
   async onNavigateDown(block: Block, cursorPos: number): Promise<void> {
     const blocks = this.state.visibleBlocks();
     const idx = blocks.findIndex(b => b.id === block.id);
@@ -387,6 +454,11 @@ export class OutlineComponent implements OnDestroy {
     return prevBlock.level === blockLevel || prevBlock.level === blockLevel - 1;
   }
 
+  /**
+   * Handles the user pressing Tab to indent a block and its children by one level.
+   * Validates placement constraints before allowing the indent.
+   * @param block - The block to indent
+   */
   async onIndent(block: Block): Promise<void> {
     const blocks = this.state.blocks();
     const idx = blocks.findIndex(b => b.id === block.id);
@@ -414,6 +486,11 @@ export class OutlineComponent implements OnDestroy {
     await Promise.all(group.map(b => this.api.updateBlock(b.id, { level: b.level + 1 })));
   }
 
+  /**
+   * Handles the user pressing Shift+Tab to outdent a block and its children by one level.
+   * May reposition the block after its parent's last child if normal placement is not possible.
+   * @param block - The block to outdent
+   */
   async onOutdent(block: Block): Promise<void> {
     if (block.level <= 0) return;
     const blocks = this.state.blocks();
@@ -478,6 +555,11 @@ export class OutlineComponent implements OnDestroy {
     await Promise.all(group.map(b => this.api.updateBlock(b.id, { level: b.level - 1 })));
   }
 
+  /**
+   * Handles the user pressing Alt+Shift+Up to move a block and its children up
+   * past the previous sibling tree.
+   * @param block - The block to move up
+   */
   async onMoveUp(block: Block): Promise<void> {
     const blocks = this.state.visibleBlocks();
     const idx = blocks.findIndex(b => b.id === block.id);
@@ -490,57 +572,58 @@ export class OutlineComponent implements OnDestroy {
 
     this.state.setEditingBlock(null);
 
-    try {
-      // Standard placement: move entire tree before the entire previous tree
-      const prevBlock = blocks[idx - 1];
-      if (this.canPlace(block.level, prevBlock)) {
-        // Find the previous block's position in allBlocks to move before its entire tree
-        const allBlocks = this.state.blocks();
-        const prevBlockIdx = allBlocks.findIndex(b => b.id === prevBlock.id);
-        const targetPrev = prevBlockIdx > 0 ? allBlocks[prevBlockIdx - 1] : undefined;
-        const prevPrevId = targetPrev?.id ?? '';
-
-        // Normal move up - move before the entire previous tree
-        const moved = await this.api.moveBlocks(groupIds, block.pageId, prevPrevId);
-        this.state.replaceBlocks(groupIds, moved, prevPrevId || '');
-        this.state.setEditingBlock(block.id);
-        this.focusEditor(block.id);
-        return;
-      }
-
-      // Exception: If there's a block at the same level above, move just above it
-      let sameLevelBlockIdx = -1;
-      for (let i = idx - 1; i >= 0; i--) {
-        if (blocks[i].level === block.level) {
-          sameLevelBlockIdx = i;
-          break;
-        }
-      }
-
-      if (sameLevelBlockIdx === -1) {
-        // No same-level block found above — restore editing
-        this.state.setEditingBlock(block.id);
-        return;
-      }
-
-      // Find the block with children to determine the actual position
+    // Standard placement: move entire tree before the entire previous tree
+    const prevBlock = blocks[idx - 1];
+    if (this.canPlace(block.level, prevBlock)) {
+      // Find the previous block's position in allBlocks to move before its entire tree
       const allBlocks = this.state.blocks();
-      const sameLevelBlock = blocks[sameLevelBlockIdx];
-      const sameLevelIdx = allBlocks.findIndex(b => b.id === sameLevelBlock.id);
+      const prevBlockIdx = allBlocks.findIndex(b => b.id === prevBlock.id);
+      const targetPrev = prevBlockIdx > 0 ? allBlocks[prevBlockIdx - 1] : undefined;
+      const prevPrevId = targetPrev?.id ?? '';
 
-      // Move to just before the same-level block (considering its children)
-      const targetPrev = sameLevelIdx > 0 ? allBlocks[sameLevelIdx - 1] : undefined;
-      const targetPrevId = targetPrev?.id ?? '';
-
-      const moved = await this.api.moveBlocks(groupIds, block.pageId, targetPrevId);
-      this.state.replaceBlocks(groupIds, moved, targetPrevId);
+      // Normal move up - move before the entire previous tree
+      const moved = await this.api.moveBlocks(groupIds, block.pageId, prevPrevId);
+      this.state.replaceBlocks(groupIds, moved, prevPrevId || '');
       this.state.setEditingBlock(block.id);
       this.focusEditor(block.id);
-    } finally {
-
+      return;
     }
+
+    // Exception: If there's a block at the same level above, move just above it
+    let sameLevelBlockIdx = -1;
+    for (let i = idx - 1; i >= 0; i--) {
+      if (blocks[i].level === block.level) {
+        sameLevelBlockIdx = i;
+        break;
+      }
+    }
+
+    if (sameLevelBlockIdx === -1) {
+      // No same-level block found above — restore editing
+      this.state.setEditingBlock(block.id);
+      return;
+    }
+
+    // Find the block with children to determine the actual position
+    const allBlocks = this.state.blocks();
+    const sameLevelBlock = blocks[sameLevelBlockIdx];
+    const sameLevelIdx = allBlocks.findIndex(b => b.id === sameLevelBlock.id);
+
+    // Move to just before the same-level block (considering its children)
+    const targetPrev = sameLevelIdx > 0 ? allBlocks[sameLevelIdx - 1] : undefined;
+    const targetPrevId = targetPrev?.id ?? '';
+
+    const moved = await this.api.moveBlocks(groupIds, block.pageId, targetPrevId);
+    this.state.replaceBlocks(groupIds, moved, targetPrevId);
+    this.state.setEditingBlock(block.id);
+    this.focusEditor(block.id);
   }
 
+  /**
+   * Handles the user pressing Alt+Shift+Down to move a block and its children down
+   * past the next sibling tree.
+   * @param block - The block to move down
+   */
   async onMoveDown(block: Block): Promise<void> {
     const blocks = this.state.visibleBlocks();
     const idx = blocks.findIndex(b => b.id === block.id);
@@ -560,51 +643,53 @@ export class OutlineComponent implements OnDestroy {
 
     this.state.setEditingBlock(null);
 
-    try {
-      // Standard placement: move entire tree after the entire next tree
-      if (this.canPlace(block.level, targetBlock)) {
-        // Get the target block and all its children to find the bottom of the next tree
-        const targetGroup = this.state.getBlockWithChildren(targetBlock.id);
-        const lastTargetDescendant = targetGroup[targetGroup.length - 1];
+    // Standard placement: move entire tree after the entire next tree
+    if (this.canPlace(block.level, targetBlock)) {
+      // Get the target block and all its children to find the bottom of the next tree
+      const targetGroup = this.state.getBlockWithChildren(targetBlock.id);
+      const lastTargetDescendant = targetGroup[targetGroup.length - 1];
 
-        // Normal move down - move after the entire next tree
-        const moved = await this.api.moveBlocks(groupIds, block.pageId, lastTargetDescendant.id);
-        this.state.replaceBlocks(groupIds, moved, lastTargetDescendant.id);
-        this.state.setEditingBlock(block.id);
-        this.focusEditor(block.id);
-        return;
-      }
-
-      // Exception: If there's a block at the same level below, move just after it (and its children)
-      let sameLevelBlockIdx = -1;
-      for (let i = idx + 1; i < blocks.length; i++) {
-        if (blocks[i].level === block.level) {
-          sameLevelBlockIdx = i;
-          break;
-        }
-      }
-
-      if (sameLevelBlockIdx === -1) {
-        // No same-level block found below — restore editing
-        this.state.setEditingBlock(block.id);
-        return;
-      }
-
-      // Get the same-level block and all its children
-      const sameLevelBlock = blocks[sameLevelBlockIdx];
-      const sameLevelGroup = this.state.getBlockWithChildren(sameLevelBlock.id);
-      const lastDescendant = sameLevelGroup[sameLevelGroup.length - 1];
-
-      // Move to just after the same-level block and all its children
-      const moved = await this.api.moveBlocks(groupIds, block.pageId, lastDescendant.id);
-      this.state.replaceBlocks(groupIds, moved, lastDescendant.id);
+      // Normal move down - move after the entire next tree
+      const moved = await this.api.moveBlocks(groupIds, block.pageId, lastTargetDescendant.id);
+      this.state.replaceBlocks(groupIds, moved, lastTargetDescendant.id);
       this.state.setEditingBlock(block.id);
       this.focusEditor(block.id);
-    } finally {
-
+      return;
     }
+
+    // Exception: If there's a block at the same level below, move just after it (and its children)
+    let sameLevelBlockIdx = -1;
+    for (let i = idx + 1; i < blocks.length; i++) {
+      if (blocks[i].level === block.level) {
+        sameLevelBlockIdx = i;
+        break;
+      }
+    }
+
+    if (sameLevelBlockIdx === -1) {
+      // No same-level block found below — restore editing
+      this.state.setEditingBlock(block.id);
+      return;
+    }
+
+    // Get the same-level block and all its children
+    const sameLevelBlock = blocks[sameLevelBlockIdx];
+    const sameLevelGroup = this.state.getBlockWithChildren(sameLevelBlock.id);
+    const lastDescendant = sameLevelGroup[sameLevelGroup.length - 1];
+
+    // Move to just after the same-level block and all its children
+    const moved = await this.api.moveBlocks(groupIds, block.pageId, lastDescendant.id);
+    this.state.replaceBlocks(groupIds, moved, lastDescendant.id);
+    this.state.setEditingBlock(block.id);
+    this.focusEditor(block.id);
   }
 
+  /**
+   * Handles the user typing inside a `[[wiki link]]` in the block editor.
+   * Positions the suggestion popup and performs a debounced search for matching page names.
+   * @param block - The block being edited
+   * @param ctx - The wiki link context with query text and caret position, or null to close suggestions
+   */
   onWikiLinkQuery(block: Block, ctx: WikiLinkContext | null): void {
     if (!ctx) {
       this.closeWikiSuggestions();
@@ -632,6 +717,11 @@ export class OutlineComponent implements OnDestroy {
     }, 150);
   }
 
+  /**
+   * Handles the user pressing arrow keys or Enter while the wiki link suggestion popup is open.
+   * Navigates the suggestion list or selects the highlighted suggestion.
+   * @param key - The key pressed ('ArrowUp', 'ArrowDown', or 'Enter')
+   */
   onWikiLinkKeyNav(key: string): void {
     const suggestions = this.wikiSuggestions();
     if (suggestions.length === 0) return;
@@ -642,18 +732,30 @@ export class OutlineComponent implements OnDestroy {
     } else if (key === 'ArrowUp') {
       this.wikiSuggestionIndex.set((idx - 1 + suggestions.length) % suggestions.length);
     } else if (key === 'Enter') {
-      this.selectWikiSuggestion(suggestions[idx]);
+      this.onWikiSuggestionSelected(suggestions[idx]);
     }
   }
 
+  /**
+   * Handles the user clicking on a wiki link to navigate to the linked page.
+   * @param linkText - The text content of the wiki link (page title)
+   */
   onOpenWikiLink(linkText: string): void {
     this.nav.navigateToPage(linkText);
   }
 
+  /**
+   * Handles the user pressing Shift+Up to begin or extend a multi-block selection upward.
+   * @param block - The block where Shift+Up was pressed
+   */
   onShiftSelectUp(block: Block): void {
     this.startShiftSelection(block);
   }
 
+  /**
+   * Handles the user pressing Shift+Down to begin or extend a multi-block selection downward.
+   * @param block - The block where Shift+Down was pressed
+   */
   onShiftSelectDown(block: Block): void {
     this.startShiftSelection(block);
   }
@@ -726,7 +828,13 @@ export class OutlineComponent implements OnDestroy {
     this.state.setSelectedBlockIds(selectedSet);
   }
 
-  selectWikiSuggestion(title: string, event?: MouseEvent): void {
+  /**
+   * Handles the user selecting a wiki link suggestion by clicking on it or pressing Enter.
+   * Inserts the selected page title into the block editor and closes the suggestions popup.
+   * @param title - The page title selected from the suggestions
+   * @param event - The mouse event if selected by click (used to prevent default behavior)
+   */
+  onWikiSuggestionSelected(title: string, event?: MouseEvent): void {
     if (event) {
       event.preventDefault();
       event.stopPropagation();
@@ -736,7 +844,7 @@ export class OutlineComponent implements OnDestroy {
     const blockComp = this.outlineBlocks()?.find(
       ob => ob.block().id === blockId
     );
-    blockComp?.replaceWikiLinkQuery(title);
+    blockComp?.insertWikiLinkText(title);
     this.closeWikiSuggestions();
   }
 
@@ -749,7 +857,12 @@ export class OutlineComponent implements OnDestroy {
     }
   }
 
-  async onCheckboxToggled(block: Block): Promise<void> {
+  /**
+   * Handles the user clicking a task checkbox to cycle through statuses:
+   * normal -> todo -> running -> done -> normal.
+   * @param block - The block whose task status was toggled
+   */
+  async onTaskStatusToggled(block: Block): Promise<void> {
     try {
       // Checkbox click: normal → todo → running → done → normal → ...
       const cycle = ['normal', 'todo', 'running', 'done'];
@@ -764,6 +877,11 @@ export class OutlineComponent implements OnDestroy {
     }
   }
 
+  /**
+   * Handles the user pressing Ctrl+Enter to cycle a block's status:
+   * normal -> todo -> running -> done -> normal.
+   * @param block - The block whose status should be cycled
+   */
   async onStatusCycleRequested(block: Block): Promise<void> {
     try {
       // Ctrl+Enter: normal → todo → running → done → normal
@@ -777,6 +895,12 @@ export class OutlineComponent implements OnDestroy {
     }
   }
 
+  /**
+   * Handles the user clicking the collapse/expand bullet or pressing the collapse shortcut.
+   * Toggles the collapsed state locally for immediate feedback, then persists to the backend.
+   * Reverts the state on error.
+   * @param block - The block whose collapsed state was toggled
+   */
   async onCollapseToggled(block: Block): Promise<void> {
     try {
       const newCollapsed = !block.collapsed;
@@ -793,6 +917,13 @@ export class OutlineComponent implements OnDestroy {
     }
   }
 
+  /**
+   * Handles the user pasting content into a block editor. Parses the pasted text into blocks,
+   * splits the current block at the cursor, and inserts the parsed blocks.
+   * Supports plain text, tree markdown, and internally copied flat markdown.
+   * @param block - The block where the paste occurred
+   * @param event - Contains the pasted text, HTML, and cursor position at the time of paste
+   */
   async onPaste(block: Block, event: { text: string; html: string; cursorPos: number }): Promise<void> {
     let textToParse = event.text;
 
@@ -983,6 +1114,12 @@ export class OutlineComponent implements OnDestroy {
     return blocks;
   }
 
+  /**
+   * Handles the user dragging the mouse beyond the bounds of a block editor.
+   * Exits edit mode and enters multi-block selection mode with drag tracking.
+   * @param block - The block where the drag started
+   * @param direction - Whether the drag went 'above' or 'below' the block
+   */
   onDragBeyondBounds(block: Block, direction: 'above' | 'below'): void {
     // Exit edit mode
     this.state.setEditingBlock(null);
@@ -1003,6 +1140,11 @@ export class OutlineComponent implements OnDestroy {
     document.addEventListener('cut', this.selectionCutHandler);
   }
 
+  /**
+   * Handles the user's mouse entering a block during a drag selection.
+   * Extends the selection range from the anchor block to the hovered block.
+   * @param block - The block the mouse entered
+   */
   onBlockMouseEnter(block: Block): void {
     if (!this.isSelectionDragging) return;
     this.selectionExtentBlockId = block.id;
@@ -1037,7 +1179,7 @@ export class OutlineComponent implements OnDestroy {
     this.exitSelectionMode();
   }
 
-  handleSelectionKeydown(e: KeyboardEvent): void {
+  private handleSelectionKeydown(e: KeyboardEvent): void {
     if (e.key === 'Escape') {
       e.preventDefault();
       this.exitSelectionMode();
@@ -1355,7 +1497,7 @@ export class OutlineComponent implements OnDestroy {
     this.cutSelectedBlocks();
   }
 
-  exitSelectionMode(): void {
+  private exitSelectionMode(): void {
     this.state.clearSelection();
     this.selectionAnchorBlockId = null;
     this.selectionExtentBlockId = null;
@@ -1367,6 +1509,7 @@ export class OutlineComponent implements OnDestroy {
     document.removeEventListener('cut', this.selectionCutHandler);
   }
 
+  /** Cleans up document-level event listeners and wiki suggestion state on component destruction. */
   ngOnDestroy(): void {
     document.removeEventListener('mouseup', this.selectionMouseUpHandler);
     document.removeEventListener('keydown', this.selectionKeydownHandler);

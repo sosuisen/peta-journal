@@ -114,7 +114,7 @@ export class JournalComponent {
   }
 
   private async loadJournal(date: string): Promise<void> {
-    const result = await this.api.getJournalByName(date);
+    const result = await this.api.getOrCreateJournal(date);
     this.page.set(result.page);
     if (result.created) {
       this.recentPages.refresh();
@@ -175,6 +175,11 @@ export class JournalComponent {
     }
   }
 
+  /**
+   * Loads additional previous journal entries when the user scrolls near the end of the outline.
+   * Continues loading until a buffer of 100 blocks beyond the current index is reached.
+   * @param event - Contains the filepath of the bottom-most block and the current scroll index.
+   */
   async onLoadMore(event: { filepath: string; currentIndex: number }): Promise<void> {
     if (this.loading) return;
 
@@ -218,40 +223,62 @@ export class JournalComponent {
     }
   }
 
+  /** Navigates to the journal for the previous day. */
   goToPrevDay(): void {
     const d = new Date(this.currentDate() + 'T00:00:00');
     d.setDate(d.getDate() - 1);
     this.nav.navigateToPage(formatDateToIso(d));
   }
 
+  /** Navigates to the journal for the next day. */
   goToNextDay(): void {
     const d = new Date(this.currentDate() + 'T00:00:00');
     d.setDate(d.getDate() + 1);
     this.nav.navigateToPage(formatDateToIso(d));
   }
 
+  /**
+   * Navigates to the weekly journal for the selected week and hides the calendar.
+   * @param event - Contains the year, week number, and whether Ctrl was held.
+   */
   goToWeek(event: { year: number; week: number; ctrlKey: boolean }): void {
     if (!event.ctrlKey) this.showCalendar.set(false);
     const fileName = `${event.year}-W${String(event.week).padStart(2, '0')}`;
     this.nav.navigateToPage(fileName, event.ctrlKey);
   }
 
+  /**
+   * Navigates to the monthly journal for the selected month and hides the calendar.
+   * @param event - Contains the year, month number, and whether Ctrl was held.
+   */
   goToMonth(event: { year: number; month: number; ctrlKey: boolean }): void {
     if (!event.ctrlKey) this.showCalendar.set(false);
     const fileName = `${event.year}-${String(event.month).padStart(2, '0')}`;
     this.nav.navigateToPage(fileName, event.ctrlKey);
   }
 
+  /**
+   * Navigates to the yearly journal for the selected year and hides the calendar.
+   * @param event - Contains the year and whether Ctrl was held.
+   */
   goToYear(event: { year: number; ctrlKey: boolean }): void {
     if (!event.ctrlKey) this.showCalendar.set(false);
     this.nav.navigateToPage(String(event.year), event.ctrlKey);
   }
 
+  /**
+   * Handles a date selection from the calendar picker and navigates to that daily journal.
+   * @param event - Contains the ISO date string and whether Ctrl was held.
+   */
   onDateSelected(event: { date: string; ctrlKey: boolean }): void {
     if (!event.ctrlKey) this.showCalendar.set(false);
     this.nav.navigateToPage(event.date, event.ctrlKey);
   }
 
+  /**
+   * Updates the displayed date in the header when the top visible block changes during scrolling.
+   * @param fileName - The file name (date string) of the top visible block's page.
+   */
   onTopBlockChanged(fileName: string): void {
     this.topVisibleDate.set(fileName);
   }
