@@ -10,7 +10,7 @@
     "generate-proto": "bash generate-proto.sh"
   },
   "dependencies": {
-    "protobufjs": "^7.4.0",
+    "protobufjs": "^8.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
