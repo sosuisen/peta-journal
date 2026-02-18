@@ -40,9 +40,18 @@ public class JournalService {
     @Inject
     BlockService blockService;
 
+    /** Result of getting or creating a journal page. */
     public record JournalResult(Page page, List<Block> blocks, boolean created) {}
+
+    /** Result of finding the most recent journal before a date. */
     public record MostRecentJournalResult(boolean found, Page page, List<Block> blocks) {}
 
+    /**
+     * Gets an existing daily journal page for the given date, or creates a new one.
+     *
+     * @param date the journal date
+     * @return the journal page with its blocks and whether it was newly created
+     */
     public JournalResult getOrCreateJournal(LocalDate date) {
         Optional<Page> existing = pageRepository.findJournal(date);
         if (existing.isPresent()) {
@@ -70,7 +79,7 @@ public class JournalService {
         return new JournalResult(page, List.of(block), true);
     }
 
-    public JournalResult getOrCreateWeeklyJournal(int year, int week) {
+    private JournalResult getOrCreateWeeklyJournal(int year, int week) {
         String fileName = year + "-W" + String.format("%02d", week);
         Optional<Page> existing = pageRepository.findByTypeDirPathFileName("journal", "", fileName);
         if (existing.isPresent()) {
@@ -125,6 +134,15 @@ public class JournalService {
         return days;
     }
 
+    /**
+     * Gets or creates a journal page by file name.
+     * Supports daily ({@code YYYY-MM-DD}), weekly ({@code YYYY-WNN}),
+     * monthly ({@code YYYY-MM}), and yearly ({@code YYYY}) formats.
+     *
+     * @param fileName the journal file name
+     * @return the journal page with its blocks and whether it was newly created
+     * @throws IllegalArgumentException if the file name is not a valid journal format
+     */
     public JournalResult getOrCreateJournalByName(String fileName) {
         JournalType type = JournalFileNameMatcher.classify(fileName);
         if (type == JournalType.NONE) {
@@ -250,6 +268,12 @@ public class JournalService {
         return (int) ((date.toEpochDay() - sunday1.toEpochDay()) / 7) + 1;
     }
 
+    /**
+     * Finds the most recent daily journal page before the specified date.
+     *
+     * @param beforeDate the exclusive upper bound date
+     * @return the result containing the journal page if found
+     */
     public MostRecentJournalResult getMostRecentJournalBefore(LocalDate beforeDate) {
         Optional<Page> pageOpt = pageRepository.findMostRecentJournalBefore(beforeDate);
         if (pageOpt.isEmpty()) {

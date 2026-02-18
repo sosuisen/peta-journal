@@ -38,8 +38,6 @@ public class ConfigurationStartup {
             } else {
                 LOG.error("No markdown directory selected. Application may not function correctly.");
             }
-        } else {
-            // already configured
         }
 
     }

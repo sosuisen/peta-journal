@@ -16,6 +16,11 @@ public class EventBroadcastService {
     @Inject
     OpenConnections openConnections;
 
+    /**
+     * Sends a connected event to a newly opened WebSocket connection.
+     *
+     * @param connection the WebSocket connection
+     */
     public void sendConnectedEvent(WebSocketConnection connection) {
         ServerEvent event = ServerEvent.newBuilder()
                 .setConnected(ConnectedEvent.newBuilder()
@@ -29,6 +34,12 @@ public class EventBroadcastService {
         connection.sendBinaryAndAwait(Buffer.buffer(response.toByteArray()));
     }
 
+    /**
+     * Broadcasts a pages-updated event to all connected clients.
+     *
+     * @param pageId                  the ID of the updated page
+     * @param originatorConnectionId  the connection that triggered the update
+     */
     public void broadcastPagesUpdated(String pageId, String originatorConnectionId) {
         ServerEvent event = ServerEvent.newBuilder()
                 .setOriginatorSessionId(originatorConnectionId)

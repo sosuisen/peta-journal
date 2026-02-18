@@ -12,6 +12,7 @@ public class FolderChooserService {
 
     private static final Logger LOG = Logger.getLogger(FolderChooserService.class);
 
+    /** Result of a folder selection dialog. */
     public static class FolderChoice {
         public final boolean selected;
         public final String path;
@@ -22,6 +23,11 @@ public class FolderChooserService {
         }
     }
 
+    /**
+     * Opens a native folder selection dialog appropriate for the current OS.
+     *
+     * @return the selection result containing the chosen path
+     */
     public FolderChoice chooseFolder() {
         String os = System.getProperty("os.name").toLowerCase();
 

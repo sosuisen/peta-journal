@@ -34,16 +34,38 @@ public class PageService {
     @Inject
     com.petajournal.server.infrastructure.export.MarkdownExportService exportService;
 
+    /**
+     * Retrieves a page by its ID.
+     *
+     * @param pageId the page UUID
+     * @return the page, or empty if not found
+     */
     public Optional<Page> getPage(UUID pageId) {
         return pageRepository.findById(pageId);
     }
 
+    /**
+     * Returns all blocks belonging to a page, ordered by index.
+     *
+     * @param pageId the page UUID
+     * @return the list of blocks
+     */
     public List<Block> getPageBlocks(UUID pageId) {
         return blockRepository.findByPageId(pageId);
     }
 
+    /** Result of getting or creating a document page. */
     public record DocResult(Page page, List<Block> blocks, boolean created) {}
 
+    /**
+     * Gets an existing document page by title and directory, or creates a new one.
+     *
+     * @param title   the document title (used as file name)
+     * @param dirPath the directory path (e.g. {@code "projects/"})
+     * @param tags    optional tags for the page
+     * @return the page with its blocks and whether it was newly created
+     * @throws IllegalArgumentException if the title is invalid or uses a journal-type name
+     */
     public DocResult getOrCreateDoc(String title, String dirPath, List<String> tags) {
         // Validate: reject empty or whitespace-only titles
         if (title == null || title.trim().isEmpty()) {
@@ -91,6 +113,17 @@ public class PageService {
         return new DocResult(page, List.of(block), true);
     }
 
+    /**
+     * Updates a page's metadata. Only non-null parameters are applied.
+     *
+     * @param pageId         the page to update
+     * @param title          new title, or {@code null} to keep current
+     * @param tags           new tags, or {@code null} to keep current
+     * @param propertiesJson new properties JSON, or {@code null} to keep current
+     * @param dirPath        new directory path, or {@code null} to keep current
+     * @return the updated page
+     * @throws IllegalArgumentException if the page is not found or the title is invalid
+     */
     public Page updatePage(UUID pageId, String title, List<String> tags, String propertiesJson, String dirPath) {
         Page existing = pageRepository.findById(pageId)
                 .orElseThrow(() -> new IllegalArgumentException("Page not found: " + pageId));
@@ -132,16 +165,34 @@ public class PageService {
         return updated;
     }
 
+    /**
+     * Deletes a page and all its blocks.
+     *
+     * @param pageId the page to delete
+     */
     public void deletePage(UUID pageId) {
         searchService.removePage(pageId.toString());
         blockRepository.deleteByPageId(pageId);
         pageRepository.delete(pageId);
     }
 
+    /**
+     * Returns recently modified pages, ordered by modification date (newest first).
+     *
+     * @param maxResults maximum number of results
+     * @param type       filter by page type ({@code "journal"}, {@code "doc"}), or {@code null} for all
+     * @return the list of recent pages
+     */
     public List<Page> getRecentPages(int maxResults, String type) {
         return pageRepository.findRecent(maxResults, type);
     }
 
+    /**
+     * Finds all pages and blocks that link to the given page (backlinks).
+     *
+     * @param pageId the target page UUID
+     * @return the list of backlink entries, each containing the source page and linking block
+     */
     public List<BacklinkEntry> getBacklinks(UUID pageId) {
         List<Page> sources = pageRepository.findBacklinkSources(pageId);
         List<BacklinkEntry> entries = new ArrayList<>();
@@ -166,7 +217,7 @@ public class PageService {
     private static final java.util.regex.Pattern RESERVED_NAMES = java.util.regex.Pattern.compile(
             "^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$", java.util.regex.Pattern.CASE_INSENSITIVE);
 
-    static void validateFileName(String title) {
+    private static void validateFileName(String title) {
         var matcher = FORBIDDEN_CHARS.matcher(title);
         if (matcher.find()) {
             String ch = matcher.group();

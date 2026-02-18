@@ -23,22 +23,42 @@ public class ConfigService {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    /**
+     * Returns the configured markdown export directory path.
+     *
+     * @return the directory path, or an empty string if not configured
+     */
     public String getMarkdownDir() {
         Map<String, Object> config = loadConfig();
         return (String) config.getOrDefault("markdownDir", "");
     }
 
+    /**
+     * Sets the markdown export directory path.
+     *
+     * @param markdownDir the directory path
+     */
     public void setMarkdownDir(String markdownDir) {
         Map<String, Object> config = loadConfig();
         config.put("markdownDir", markdownDir);
         saveConfig(config);
     }
 
+    /**
+     * Returns the week numbering system.
+     *
+     * @return {@code "us"} or {@code "iso"} (defaults to {@code "us"})
+     */
     public String getWeekNumbering() {
         Map<String, Object> config = loadConfig();
         return (String) config.getOrDefault("weekNumbering", "us");
     }
 
+    /**
+     * Sets the week numbering system.
+     *
+     * @param weekNumbering {@code "us"} or {@code "iso"}
+     */
     public void setWeekNumbering(String weekNumbering) {
         Map<String, Object> config = loadConfig();
         config.put("weekNumbering", weekNumbering);
@@ -72,6 +92,11 @@ public class ConfigService {
         }
     }
 
+    /**
+     * Returns the configuration directory path.
+     *
+     * @return the directory path
+     */
     public String getConfigDir() {
         return configDir;
     }

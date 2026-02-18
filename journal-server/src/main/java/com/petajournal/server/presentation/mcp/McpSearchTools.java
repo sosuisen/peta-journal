@@ -33,7 +33,7 @@ public class McpSearchTools {
         List<Page> prefixPages = pageRepository.findByPathPrefix(query, max);
         if (!prefixPages.isEmpty()) {
             return jsonHelper.toJson(Map.of("results",
-                    prefixPages.stream().map(McpSearchTools::pageToSearchResult).toList()));
+                    prefixPages.stream().map(SearchResult::fromPage).toList()));
         }
 
         // 2nd: Lucene fallback (fuzzy/token-based)
@@ -45,7 +45,7 @@ public class McpSearchTools {
         // 3rd: SQLite contains search
         List<Page> containsPages = pageRepository.findByPathContains(query, max);
         return jsonHelper.toJson(Map.of("results",
-                containsPages.stream().map(McpSearchTools::pageToSearchResult).toList()));
+                containsPages.stream().map(SearchResult::fromPage).toList()));
     }
 
     @Tool(description = "Full-text search across all block content. Returns matching blocks with page info and text snippets.")
@@ -57,8 +57,4 @@ public class McpSearchTools {
         return jsonHelper.toJson(Map.of("results", results, "totalHits", results.size()));
     }
 
-    private static SearchResult pageToSearchResult(Page page) {
-        String pageTitle = page.dirPath() + page.fileName();
-        return new SearchResult(page.id(), pageTitle, "", pageTitle, 1.0f);
-    }
 }

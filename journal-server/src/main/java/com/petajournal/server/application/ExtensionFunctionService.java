@@ -30,6 +30,7 @@ public class ExtensionFunctionService {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private List<ExtensionFunction> functions = Collections.emptyList();
 
+    /** An extension function loaded from the functions directory. */
     public record ExtensionFunction(String dirName, String name) {}
 
     void onStart(@Observes StartupEvent ev) {
@@ -66,10 +67,20 @@ public class ExtensionFunctionService {
         }
     }
 
+    /**
+     * Returns the list of discovered extension functions.
+     *
+     * @return an unmodifiable list of extension functions
+     */
     public List<ExtensionFunction> listFunctions() {
         return functions;
     }
 
+    /**
+     * Returns the path to the functions directory.
+     *
+     * @return the functions directory path
+     */
     public Path getFunctionsDir() {
         return Paths.get(configService.getConfigDir(), FUNCTIONS_DIR);
     }

@@ -43,6 +43,16 @@ public class BlockService {
     @Inject
     TreeMarkdownConverter treeMarkdownConverter;
 
+    /**
+     * Creates a new block on the specified page.
+     *
+     * @param pageId       the page to add the block to
+     * @param afterBlockId the block ID after which to insert, or empty/null to prepend
+     * @param level        the indentation level (0-based)
+     * @param body         the markdown body text
+     * @return the newly created block
+     * @throws IllegalArgumentException if the page is not found
+     */
     public Block createBlock(UUID pageId, String afterBlockId, int level, String body) {
         String id = BlockIdGenerator.generate();
         Instant now = Instant.now();
@@ -80,6 +90,18 @@ public class BlockService {
         return block;
     }
 
+    /**
+     * Updates an existing block. Only non-null parameters are applied.
+     *
+     * @param blockId        the block to update
+     * @param body           new markdown body, or {@code null} to keep current
+     * @param level          new indentation level, or {@code null} to keep current
+     * @param collapsed      new collapsed state, or {@code null} to keep current
+     * @param status         new status, or {@code null} to keep current
+     * @param propertiesJson new properties JSON, or {@code null} to keep current
+     * @return the updated block
+     * @throws IllegalArgumentException if the block is not found
+     */
     public Block updateBlock(String blockId, String body, Integer level, Boolean collapsed, String status, String propertiesJson) {
         Block existing = blockRepository.findById(blockId)
                 .orElseThrow(() -> new IllegalArgumentException("Block not found: " + blockId));
@@ -124,6 +146,16 @@ public class BlockService {
         return updated;
     }
 
+    /**
+     * Moves blocks to a target page at the specified position.
+     *
+     * @param blockIds     the IDs of blocks to move (order is preserved)
+     * @param targetPageId the destination page
+     * @param afterBlockId the block ID to insert after, or empty/null to prepend
+     * @param levelDelta   level adjustment to apply, or {@code null} for no change
+     * @return the moved blocks with updated indices
+     * @throws IllegalArgumentException if a block or the target page is not found
+     */
     public List<Block> moveBlocks(List<String> blockIds, UUID targetPageId, String afterBlockId, Integer levelDelta) {
         List<Block> movedBlocks = new ArrayList<>();
         List<Block> targetBlocks = blockRepository.findByPageId(targetPageId);
@@ -192,6 +224,11 @@ public class BlockService {
         return movedBlocks;
     }
 
+    /**
+     * Deletes a block and removes it from the search index.
+     *
+     * @param blockId the block to delete
+     */
     public void deleteBlock(String blockId) {
         Optional<Block> block = blockRepository.findById(blockId);
         blockRepository.delete(blockId);
@@ -203,20 +240,31 @@ public class BlockService {
         });
     }
 
-    /**
-     * Update block status with validation.
-     * Valid statuses: normal, todo, running, done
-     */
+    /** Returns all blocks matching the given statuses. */
     public List<Block> getBlocksByStatuses(List<String> statuses) {
         return blockRepository.findByStatuses(statuses);
     }
 
+    /**
+     * Returns the page ID that contains the given block.
+     *
+     * @param blockId the block to look up
+     * @return the page UUID as a string, or {@code null} if the block is not found
+     */
     public String getBlockPageId(String blockId) {
         return blockRepository.findById(blockId)
                 .map(b -> b.pageId().toString())
                 .orElse(null);
     }
 
+    /**
+     * Updates the status of a block.
+     *
+     * @param blockId the block to update
+     * @param status  the new status ({@code normal}, {@code todo}, {@code running}, or {@code done})
+     * @return the updated block
+     * @throws IllegalArgumentException if the status is invalid or the block is not found
+     */
     public Block updateBlockStatus(String blockId, String status) {
         if (!List.of("normal", "todo", "running", "done").contains(status)) {
             throw new IllegalArgumentException("Invalid status: " + status);
@@ -224,8 +272,15 @@ public class BlockService {
         return updateBlock(blockId, null, null, null, status, null);
     }
 
+    /** Result of exporting blocks as tree markdown. */
     public record TreeMarkdownExport(String treeMarkdown, String html, String flatMarkdown) {}
 
+    /**
+     * Exports blocks as hierarchical tree markdown, flat markdown, and HTML.
+     *
+     * @param blockIds the block IDs to export
+     * @return the exported representations
+     */
     public TreeMarkdownExport exportTreeMarkdown(List<String> blockIds) {
         List<Block> blocks = blockIds.stream()
             .map(id -> blockRepository.findById(id))
@@ -238,6 +293,12 @@ public class BlockService {
         return new TreeMarkdownExport(treeMd, html, flatMd);
     }
 
+    /**
+     * Converts tree markdown (indented with tabs) to flat markdown.
+     *
+     * @param treeMarkdown the hierarchical tree markdown input
+     * @return the converted flat markdown
+     */
     public String importTreeMarkdown(String treeMarkdown) {
         return treeMarkdownConverter.treeMarkdownToFlatMarkdown(treeMarkdown);
     }

@@ -255,7 +255,7 @@ public class JournalWebSocket {
         List<Page> prefixPages = pageRepository.findByPathPrefix(query, maxResults);
         if (!prefixPages.isEmpty()) {
             return SearchPageNamesResponse.newBuilder()
-                    .addAllResults(prefixPages.stream().map(JournalWebSocket::pageToSearchResult).map(ProtoConverter::toProto).toList())
+                    .addAllResults(prefixPages.stream().map(SearchResult::fromPage).map(ProtoConverter::toProto).toList())
                     .build();
         }
 
@@ -270,13 +270,8 @@ public class JournalWebSocket {
         // 3rd: SQLite contains search
         List<Page> containsPages = pageRepository.findByPathContains(query, maxResults);
         return SearchPageNamesResponse.newBuilder()
-                .addAllResults(containsPages.stream().map(JournalWebSocket::pageToSearchResult).map(ProtoConverter::toProto).toList())
+                .addAllResults(containsPages.stream().map(SearchResult::fromPage).map(ProtoConverter::toProto).toList())
                 .build();
-    }
-
-    private static SearchResult pageToSearchResult(Page page) {
-        String pageTitle = page.dirPath() + page.fileName();
-        return new SearchResult(page.id(), pageTitle, "", pageTitle, 1.0f);
     }
 
     private SearchFullTextResponse handleSearchFullText(SearchFullTextRequest req) {
