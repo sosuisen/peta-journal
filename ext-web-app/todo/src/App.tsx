@@ -3,11 +3,13 @@ import { connect, onConnectionStateChange, onServerEvent, getBlocksByStatus, upd
 
 type SortKey = 'file_name' | 'created_date' | 'status';
 
-function todayStr(): string {
+/** Returns today's date as an ISO string (YYYY-MM-DD). */
+function getTodayISODate(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-function blockCreatedMs(block: Block): number {
+/** Extracts the creation timestamp in milliseconds from a block. Returns 0 if unavailable. */
+function getBlockCreatedMillis(block: Block): number {
   if (block.createdDate && block.createdDate.millis) {
     const v = block.createdDate.millis;
     return typeof v === 'number' ? v : Number(v);
@@ -15,12 +17,14 @@ function blockCreatedMs(block: Block): number {
   return 0;
 }
 
+/** Formats a block's creation date for display using the browser's locale. */
 function formatDate(block: Block): string {
-  const ms = blockCreatedMs(block);
+  const ms = getBlockCreatedMillis(block);
   if (!ms) return '';
   return new Date(ms).toLocaleDateString();
 }
 
+/** Checks if a block belongs to a journal page (filename matches YYYY-MM-DD). */
 function isJournal(block: Block): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(block.fileName || '');
 }
@@ -28,6 +32,7 @@ function isJournal(block: Block): boolean {
 const STATUS_ORDER: Record<string, number> = { todo: 0, running: 1, done: 2 };
 const NEXT_STATUS: Record<string, string> = { todo: 'running', running: 'done', done: 'todo' };
 
+/** Sorts blocks by the specified key, returning a new array. */
 function sortBlocks(blocks: Block[], key: SortKey): Block[] {
   const sorted = [...blocks];
   sorted.sort((a, b) => {
@@ -35,7 +40,7 @@ function sortBlocks(blocks: Block[], key: SortKey): Block[] {
       case 'file_name':
         return (a.fileName || '').localeCompare(b.fileName || '');
       case 'created_date':
-        return blockCreatedMs(b) - blockCreatedMs(a); // desc
+        return getBlockCreatedMillis(b) - getBlockCreatedMillis(a); // desc
       case 'status':
         return (STATUS_ORDER[a.status || ''] ?? 9) - (STATUS_ORDER[b.status || ''] ?? 9);
     }
@@ -43,6 +48,7 @@ function sortBlocks(blocks: Block[], key: SortKey): Block[] {
   return sorted;
 }
 
+/** Main todo application component. Displays blocks with status filtering, sorting, and cycling. */
 export default function App() {
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const [error, setError] = useState('');
@@ -50,7 +56,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
 
   // Filters
-  const [fromDate, setFromDate] = useState(todayStr());
+  const [fromDate, setFromDate] = useState(getTodayISODate());
   const [showTodo, setShowTodo] = useState(true);
   const [showRunning, setShowRunning] = useState(true);
   const [showDone, setShowDone] = useState(false);
@@ -75,7 +81,7 @@ export default function App() {
       const result = await getBlocksByStatus(statuses);
       // Filter by date client-side: show blocks created on or before the selected date
       const filtered = fromDate
-        ? result.filter((b) => blockCreatedMs(b) <= new Date(fromDate).getTime() + 86400000 - 1)
+        ? result.filter((b) => getBlockCreatedMillis(b) <= new Date(fromDate).getTime() + 86400000 - 1)
         : result;
       setBlocks(filtered);
     } catch (e) {
@@ -85,7 +91,7 @@ export default function App() {
     }
   }, [showTodo, showRunning, showDone, fromDate]);
 
-  const tryConnect = useCallback(() => {
+  const connectWithRetry = useCallback(() => {
     setError('');
     connect()
       .then(() => {
@@ -95,7 +101,7 @@ export default function App() {
       })
       .catch(() => {
         connectedRef.current = false;
-        setTimeout(tryConnect, 3000);
+        setTimeout(connectWithRetry, 3000);
       });
   }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -104,11 +110,11 @@ export default function App() {
       setConnectionState(state);
       if (state === 'disconnected' || state === 'error') {
         connectedRef.current = false;
-        setTimeout(tryConnect, 3000);
+        setTimeout(connectWithRetry, 3000);
       }
     });
-    tryConnect();
-  }, [tryConnect]);
+    connectWithRetry();
+  }, [connectWithRetry]);
 
   const connected = connectionState === 'connected';
 
@@ -124,7 +130,7 @@ export default function App() {
     });
   }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
-  const openPage = (block: Block) => {
+  const openBlockInPetaJournal = (block: Block) => {
     const fileName = block.fileName;
     if (!fileName) return;
     const isJournal = /^\d{4}(-\d{2}(-\d{2})?|-W\d{1,2})?$/.test(fileName);
@@ -133,7 +139,7 @@ export default function App() {
     window.open(`http://localhost:4200${path}#${block.id}`, 'peta-journal');
   };
 
-  const handleStatusToggle = async (block: Block) => {
+  const cycleBlockStatus = async (block: Block) => {
     const next = NEXT_STATUS[block.status || 'todo'] || 'todo';
     try {
       const updated = await updateBlockStatus(block.id!, next);
@@ -206,7 +212,7 @@ export default function App() {
       <div className="block-list">
         {sorted.length === 0 && !loading && <div className="empty">No blocks found</div>}
         {sorted.map((block) => (
-          <div key={block.id} className="block-row" onClick={() => openPage(block)}>
+          <div key={block.id} className="block-row" onClick={() => openBlockInPetaJournal(block)}>
             <div className="block-main">
               <span className="block-page">{block.fileName}</span>
               <span
@@ -217,7 +223,7 @@ export default function App() {
             <span className="block-date">{formatDate(block)}</span>
             <button
               className={`badge badge-${block.status}`}
-              onClick={(e) => { e.stopPropagation(); handleStatusToggle(block); }}
+              onClick={(e) => { e.stopPropagation(); cycleBlockStatus(block); }}
               title="Click to cycle status"
             >
               {block.status}
