@@ -7,7 +7,6 @@ import { AutoSaveService } from '../../core/services/auto-save.service';
 import { Block } from '../../core/models/block.model';
 import { ClipboardService } from '../../core/services/clipboard.service';
 import { formatJournalDate } from '../../core/utils/date.utils';
-import { isJournalFileName } from '../../core/utils/journal-filename.utils';
 import { NavigationService } from '../../core/services/navigation.service';
 import { WikiLinkContext } from './block-editor';
 
@@ -21,7 +20,7 @@ import { WikiLinkContext } from './block-editor';
         class="outline-item"
         (mouseenter)="onBlockMouseEnter(block)"
       >
-        @if (isFirstBlockOfDate(i) && block.fileName !== currentPageDate() && isJournalDate(block.fileName)) {
+        @if (isFirstBlockOfDate(i) && block.fileName !== currentPageDate() && block.type === 'journal') {
           <div class="date-header">
             {{ formatDateHeader(block.fileName) }}
           </div>
@@ -215,16 +214,6 @@ export class OutlineComponent implements OnDestroy {
     const currentBlock = blocks[index];
     const previousBlock = blocks[index - 1];
     return currentBlock.fileName !== previousBlock.fileName;
-  }
-
-  /**
-   * Checks whether the given file name matches a journal date format.
-   * Used in the template to conditionally show date headers.
-   * @param fileName - The file name to check
-   * @returns True if the file name represents a journal date
-   */
-  isJournalDate(fileName: string): boolean {
-    return isJournalFileName(fileName);
   }
 
   /**

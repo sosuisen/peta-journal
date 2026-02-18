@@ -55,7 +55,8 @@ public class PageService {
     }
 
     /** Result of getting or creating a document page. */
-    public record DocResult(Page page, List<Block> blocks, boolean created) {}
+    public record DocResult(Page page, List<Block> blocks, boolean created) {
+    }
 
     /**
      * Gets an existing document page by title and directory, or creates a new one.
@@ -64,7 +65,8 @@ public class PageService {
      * @param dirPath the directory path (e.g. {@code "projects/"})
      * @param tags    optional tags for the page
      * @return the page with its blocks and whether it was newly created
-     * @throws IllegalArgumentException if the title is invalid or uses a journal-type name
+     * @throws IllegalArgumentException if the title is invalid or uses a
+     *                                  journal-type name
      */
     public DocResult getOrCreateDoc(String title, String dirPath, List<String> tags) {
         // Validate: reject empty or whitespace-only titles
@@ -82,8 +84,8 @@ public class PageService {
 
         validateFileName(fileName);
 
-        // Reject journal-type names as doc titles
-        if (JournalFileNameMatcher.isJournalFileName(fileName)) {
+        // Reject journal-type names as doc titles only when dirPath is empty
+        if (dir.isEmpty() && JournalFileNameMatcher.isJournalFileName(fileName)) {
             throw new IllegalArgumentException("Cannot create a doc with a journal-type name: " + title);
         }
 
@@ -104,7 +106,8 @@ public class PageService {
 
         // Create initial empty block
         String blockId = BlockIdGenerator.generate();
-        Block block = new Block(blockId, id, page.dirPath(), page.fileName(), page.type(), now, now, FractionalIndexer.initial(), 0, "", "", false, "normal", List.of(), "{}");
+        Block block = new Block(blockId, id, page.dirPath(), page.fileName(), page.type(), now, now,
+                FractionalIndexer.initial(), 0, "", "", false, "normal", List.of(), "{}");
         blockRepository.save(block);
 
         // Queue for export
@@ -122,7 +125,8 @@ public class PageService {
      * @param propertiesJson new properties JSON, or {@code null} to keep current
      * @param dirPath        new directory path, or {@code null} to keep current
      * @return the updated page
-     * @throws IllegalArgumentException if the page is not found or the title is invalid
+     * @throws IllegalArgumentException if the page is not found or the title is
+     *                                  invalid
      */
     public Page updatePage(UUID pageId, String title, List<String> tags, String propertiesJson, String dirPath) {
         Page existing = pageRepository.findById(pageId)
@@ -153,8 +157,7 @@ public class PageService {
                 existing.createdDate(),
                 Instant.now(),
                 tags != null ? tags : existing.tags(),
-                propertiesJson != null ? propertiesJson : existing.propertiesJson()
-        );
+                propertiesJson != null ? propertiesJson : existing.propertiesJson());
 
         updated = pageRepository.save(updated);
         searchService.indexPage(updated);
@@ -180,7 +183,8 @@ public class PageService {
      * Returns recently modified pages, ordered by modification date (newest first).
      *
      * @param maxResults maximum number of results
-     * @param type       filter by page type ({@code "journal"}, {@code "doc"}), or {@code null} for all
+     * @param type       filter by page type ({@code "journal"}, {@code "doc"}), or
+     *                   {@code null} for all
      * @return the list of recent pages
      */
     public List<Page> getRecentPages(int maxResults, String type) {
@@ -191,14 +195,16 @@ public class PageService {
      * Finds all pages and blocks that link to the given page (backlinks).
      *
      * @param pageId the target page UUID
-     * @return the list of backlink entries, each containing the source page and linking block
+     * @return the list of backlink entries, each containing the source page and
+     *         linking block
      */
     public List<BacklinkEntry> getBacklinks(UUID pageId) {
         List<Page> sources = pageRepository.findBacklinkSources(pageId);
         List<BacklinkEntry> entries = new ArrayList<>();
 
         Page targetPage = pageRepository.findById(pageId).orElse(null);
-        if (targetPage == null) return entries;
+        if (targetPage == null)
+            return entries;
 
         for (Page source : sources) {
             // Find the specific blocks that link to this page (using fileName as title)
