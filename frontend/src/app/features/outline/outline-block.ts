@@ -13,6 +13,7 @@ import { BlockViewComponent } from './block-view';
       class="outline-block"
       [style.padding-left.px]="indentPx()"
       [class.selected]="isSelected()"
+      [class.heading]="isHeading()"
     >
       <div class="block-controls">
         @if (hasChildren()) {
@@ -111,6 +112,9 @@ import { BlockViewComponent } from './block-view';
       flex: 1;
       min-width: 0;
     }
+    .outline-block.heading .block-body {
+      margin-left: -3px;
+    }
   `]
 })
 export class OutlineBlockComponent {
@@ -149,6 +153,7 @@ export class OutlineBlockComponent {
   readonly isEditing = computed(() => this.state.editingBlockId() === this.block().id);
   readonly isSelected = computed(() => this.state.selectedBlockIds().has(this.block().id));
   readonly isCollapsed = computed(() => this.block().collapsed);
+  readonly isHeading = computed(() => this.block().body.trimStart().startsWith('#'));
   readonly shouldShowBullet = computed(() => {
     // Don't show bullet if block has children (collapse toggle is shown instead)
     if (this.hasChildren()) return false;
