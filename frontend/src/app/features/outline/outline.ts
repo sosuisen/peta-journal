@@ -241,6 +241,7 @@ export class OutlineComponent implements OnDestroy {
    * @param cursorPosition - The cursor position to place the caret at
    */
   onEditRequested(blockId: string, cursorPosition: number): void {
+    console.log('[onEditRequested]', blockId);
     if (this.state.blockSelectionMode()) return;
     this.state.setEditingBlock(blockId, cursorPosition, true);
   }
@@ -294,10 +295,6 @@ export class OutlineComponent implements OnDestroy {
   async onEnterPressed(block: Block, event: { cursorPos: number }): Promise<void> {
     this.autoSave.cancelBlock(block.id);
     this.dirtyBlockIds.delete(block.id);
-    // Suppress duplicate animation — block content changes immediately
-
-    // Clear editing immediately so any blur during await won't match
-    this.state.setEditingBlock(null);
 
     const { cursorPos } = event;
     const beforeText = block.body.substring(0, cursorPos);
@@ -305,7 +302,6 @@ export class OutlineComponent implements OnDestroy {
 
     if (block.body.length === 0 && block.level > 0) {
       // Empty block with indent: outdent instead of creating new block
-      this.state.setEditingBlock(block.id);
       await this.onOutdent(block);
       this.focusEditor(block.id);
       return;
@@ -315,22 +311,21 @@ export class OutlineComponent implements OnDestroy {
       // Enter at beginning: create new empty block before current block
       const allBlocks = this.state.blocks();
       const idx = allBlocks.findIndex(b => b.id === block.id);
-
-      // Find the block just before the current block
       const prevBlockId = idx > 0 ? allBlocks[idx - 1].id : '';
 
-      // Create new empty block with same level as current block
       const newBlock = await this.api.createBlock(block.pageId, prevBlockId, block.level, '');
       this.state.addBlock(newBlock, prevBlockId);
-
-      // Focus the new block
       this.state.setEditingBlock(newBlock.id);
       this.focusEditor(newBlock.id);
     } else {
+      // Update old block body locally, keep editor visible during API calls
       this.state.updateBlock(block.id, { body: beforeText });
-      const updatedOriginal = await this.api.updateBlock(block.id, { body: beforeText });
+      const [updatedOriginal, newBlock] = await Promise.all([
+        this.api.updateBlock(block.id, { body: beforeText }),
+        this.api.createBlock(block.pageId, block.id, block.level, afterText),
+      ]);
+      // Update HTML before switching — prevents blink
       this.state.updateBlock(block.id, { html: updatedOriginal.html });
-      const newBlock = await this.api.createBlock(block.pageId, block.id, block.level, afterText);
       this.state.addBlock(newBlock, block.id);
       this.state.setEditingBlock(newBlock.id);
       this.focusEditor(newBlock.id);

@@ -88,6 +88,7 @@ export class OutlineStateService {
    * @param mouseDrag - Whether the edit was initiated by a mouse drag.
    */
   setEditingBlock(blockId: string | null, cursorPosition: number | null = null, mouseDrag = false): void {
+    console.log('[setEditingBlock]', blockId, new Error().stack?.split('\n').slice(1, 4).map(s => s.trim()).join(' < '));
     this._pendingCursorPosition.set(cursorPosition);
     this._pendingMouseDrag.set(mouseDrag);
     this._editingBlockId.set(blockId);
