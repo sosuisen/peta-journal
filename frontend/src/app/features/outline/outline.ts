@@ -141,6 +141,7 @@ export class OutlineComponent implements OnDestroy {
   readonly loadMore = output<{ filepath: string; currentIndex: number }>();  // Emits when should load more
   readonly topBlockChanged = output<string>();  // Emits fileName of top visible block
   private readonly dirtyBlockIds = new Set<string>();
+  private switchingEditBlock = false;
   private readonly viewport = viewChild<CdkVirtualScrollViewport>('viewport');
   private readonly outlineBlocks = viewChildren<OutlineBlockComponent>('outlineBlock');
 
@@ -240,9 +241,18 @@ export class OutlineComponent implements OnDestroy {
    * @param blockId - The ID of the block to edit
    * @param cursorPosition - The cursor position to place the caret at
    */
-  onEditRequested(blockId: string, cursorPosition: number): void {
+  async onEditRequested(blockId: string, cursorPosition: number): Promise<void> {
     console.log('[onEditRequested]', blockId);
     if (this.state.blockSelectionMode()) return;
+    const currentId = this.state.editingBlockId();
+    if (currentId && currentId !== blockId) {
+      const current = this.state.getBlockById(currentId);
+      if (current) {
+        this.switchingEditBlock = true;
+        await this.saveBlockIfDirty(current);
+        this.switchingEditBlock = false;
+      }
+    }
     this.state.setEditingBlock(blockId, cursorPosition, true);
   }
 
@@ -264,23 +274,25 @@ export class OutlineComponent implements OnDestroy {
    */
   async onEditFinished(block: Block): Promise<void> {
     this.closeWikiSuggestions();
-    // If editing has already moved to a different block (e.g. Enter/Backspace/Delete),
-    // don't clear it — the blur is from the old block-editor being removed from DOM.
-    if (this.state.editingBlockId() !== block.id) return;
+    if (this.switchingEditBlock) return;  // onEditRequested is handling save + switch
+    const isStillEditing = this.state.editingBlockId() === block.id;
 
     if (!this.dirtyBlockIds.has(block.id)) {
-      this.state.setEditingBlock(null);
+      if (isStillEditing) {
+        this.state.setEditingBlock(null);
+      }
       return;
     }
+    // Save dirty block even if editing has moved to another block
     this.dirtyBlockIds.delete(block.id);
     await this.autoSave.flushBlock(block.id);
     const current = this.state.getBlockById(block.id);
     if (current) {
       const updated = await this.api.updateBlock(block.id, { body: current.body });
       this.state.updateBlock(block.id, { html: updated.html });
-      // Switch to view mode AFTER HTML is updated (prevents flash)
-      this.state.setEditingBlock(null);
-    } else {
+    }
+    // Only clear editing if this block is still the active one
+    if (isStillEditing) {
       this.state.setEditingBlock(null);
     }
   }

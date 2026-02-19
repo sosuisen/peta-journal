@@ -180,82 +180,11 @@ export class OutlineBlockComponent {
     this.collapseToggled.emit();
   }
 
-  /**
-   * Handles the end of block editing. Creates a fade-out duplicate textarea for visual
-   * continuity when focus is lost naturally (not via programmatic transitions).
-   */
   onEditFinished(): void {
-    // Only show fadeout duplicate when losing focus naturally (clicking away).
-    // For programmatic transitions (enter, backspace, move), editingBlockId
-    // has already changed before blur fires.
-    if (this.isEditing()) {
-      this.createDuplicateTextarea();
-    }
     this.editFinished.emit();
   }
 
-  /**
-   * Forwards the enter-pressed event from the block editor to the parent outline.
-   * @param event - Contains the cursor position at the time Enter was pressed.
-   */
   onEnterPressed(event: { cursorPos: number }): void {
     this.enterPressed.emit(event);
-  }
-
-  private createDuplicateTextarea(): void {
-    // Skip for blocks whose rendered style differs significantly from the textarea
-    const trimmed = this.block().body.trimStart();
-    if (trimmed.startsWith('#') || trimmed.startsWith('```') || trimmed.startsWith('>')) return;
-
-    const textarea = document.getElementById('block-editor-' + this.block().id) as HTMLTextAreaElement;
-    if (!textarea) return;
-
-    // Create textarea duplicate with identical styling
-    const duplicate = document.createElement('textarea');
-    duplicate.value = textarea.value;
-    duplicate.readOnly = true;
-    duplicate.tabIndex = -1;
-    duplicate.style.pointerEvents = 'none';
-
-    // Copy all relevant styles from the original textarea
-    const computedStyle = window.getComputedStyle(textarea);
-    duplicate.style.font = computedStyle.font;
-    duplicate.style.fontSize = computedStyle.fontSize;
-    duplicate.style.fontFamily = computedStyle.fontFamily;
-    duplicate.style.lineHeight = computedStyle.lineHeight;
-    duplicate.style.padding = computedStyle.padding;
-    duplicate.style.border = 'none';
-    duplicate.style.outline = 'none';
-    duplicate.style.resize = 'none';
-    duplicate.style.background = 'transparent';
-    duplicate.style.overflow = 'hidden';
-    duplicate.style.color = computedStyle.color;
-    duplicate.style.letterSpacing = computedStyle.letterSpacing;
-    duplicate.style.wordSpacing = computedStyle.wordSpacing;
-
-    // Get exact position
-    const rect = textarea.getBoundingClientRect();
-    duplicate.style.position = 'absolute';
-    duplicate.style.left = (rect.left + window.scrollX) + 'px';
-    duplicate.style.top = (rect.top + window.scrollY) + 'px';
-    duplicate.style.width = rect.width + 'px';
-    duplicate.style.height = rect.height + 'px';
-    duplicate.style.zIndex = '0';
-    duplicate.style.transition = 'opacity 0.7s ease-out';
-    duplicate.style.opacity = '1';
-
-    // Append to body
-    document.body.appendChild(duplicate);
-
-    // Force reflow so the browser registers opacity:1 before transitioning to 0
-    duplicate.offsetHeight;
-
-    // Trigger fade out
-    duplicate.style.opacity = '0';
-
-    // Remove after transition
-    duplicate.addEventListener('transitionend', () => {
-      duplicate.remove();
-    });
   }
 }
