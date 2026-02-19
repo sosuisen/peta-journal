@@ -242,7 +242,6 @@ export class OutlineComponent implements OnDestroy {
    * @param cursorPosition - The cursor position to place the caret at
    */
   async onEditRequested(blockId: string, cursorPosition: number): Promise<void> {
-    console.log('[onEditRequested]', blockId);
     if (this.state.blockSelectionMode()) return;
     const currentId = this.state.editingBlockId();
     if (currentId && currentId !== blockId) {
