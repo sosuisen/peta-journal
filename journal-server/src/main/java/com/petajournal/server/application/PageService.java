@@ -89,6 +89,9 @@ public class PageService {
             throw new IllegalArgumentException("Cannot create a doc with a journal-type name: " + title);
         }
 
+        // Ensure all ancestor directory pages exist
+        ensureAncestorPages(dir);
+
         // Check for duplicate using (type, dir_path, file_name) index
         var existing = pageRepository.findByTypeDirPathFileName("doc", dir, fileName);
         if (existing.isPresent()) {
@@ -216,6 +219,39 @@ public class PageService {
             }
         }
         return entries;
+    }
+
+    /**
+     * Ensures that all ancestor directory pages exist for the given dirPath.
+     * For example, dirPath "dir1/dir2/" creates pages ("", "dir1") and ("dir1/", "dir2").
+     */
+    private void ensureAncestorPages(String dirPath) {
+        if (dirPath == null || dirPath.isEmpty()) return;
+
+        // Split "dir1/dir2/" into ["dir1", "dir2"]
+        String[] segments = dirPath.split("/");
+        StringBuilder currentDir = new StringBuilder();
+
+        for (String segment : segments) {
+            if (segment.isEmpty()) continue;
+
+            String parentDir = currentDir.toString();
+            var existing = pageRepository.findByTypeDirPathFileName("doc", parentDir, segment);
+            if (existing.isEmpty()) {
+                UUID id = UUID.randomUUID();
+                Instant now = Instant.now();
+                Page page = new Page(id, parentDir, segment, "doc", now, now, List.of(), "{}");
+                pageRepository.save(page);
+                searchService.indexPage(page);
+
+                String blockId = BlockIdGenerator.generate();
+                Block block = new Block(blockId, id, parentDir, segment, "doc", now, now,
+                        FractionalIndexer.initial(), 0, "", "", false, "normal", List.of(), "{}");
+                blockRepository.save(block);
+            }
+
+            currentDir.append(segment).append("/");
+        }
     }
 
     private static final java.util.regex.Pattern FORBIDDEN_CHARS = java.util.regex.Pattern.compile(
