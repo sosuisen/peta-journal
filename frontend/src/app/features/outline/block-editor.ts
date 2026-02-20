@@ -86,6 +86,8 @@ export class BlockEditorComponent implements AfterViewInit, OnDestroy {
   readonly shiftSelectUp = output<void>();
   readonly shiftSelectDown = output<void>();
   readonly collapseToggled = output<void>();
+  readonly undoRequested = output<void>();
+  readonly redoRequested = output<void>();
   readonly suggestionsVisible = input<boolean>(false);
 
   private readonly editorRef = viewChild.required<ElementRef<HTMLTextAreaElement>>('editor');
@@ -194,6 +196,17 @@ export class BlockEditorComponent implements AfterViewInit, OnDestroy {
         }
         return;
       }
+    }
+
+    // Ctrl+Z / Ctrl+Shift+Z: undo/redo
+    if ((event.key === 'z' || event.key === 'Z') && event.ctrlKey && !event.altKey) {
+      event.preventDefault();
+      if (event.shiftKey) {
+        this.redoRequested.emit();
+      } else {
+        this.undoRequested.emit();
+      }
+      return;
     }
 
     // Ctrl+O: open wiki link at caret

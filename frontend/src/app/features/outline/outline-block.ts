@@ -57,6 +57,8 @@ import { BlockViewComponent } from './block-view';
             (shiftSelectUp)="shiftSelectUp.emit()"
             (shiftSelectDown)="shiftSelectDown.emit()"
             (collapseToggled)="collapseToggled.emit()"
+            (undoRequested)="undoRequested.emit()"
+            (redoRequested)="redoRequested.emit()"
           />
         } @else {
           <app-block-view
@@ -144,6 +146,8 @@ export class OutlineBlockComponent {
   readonly openWikiLink = output<string>();
   readonly shiftSelectUp = output<void>();
   readonly shiftSelectDown = output<void>();
+  readonly undoRequested = output<void>();
+  readonly redoRequested = output<void>();
   readonly suggestionsVisible = input<boolean>(false);
 
   private readonly editorRef = viewChild<BlockEditorComponent>('editor');

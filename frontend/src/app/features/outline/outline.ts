@@ -6,6 +6,7 @@ import { ApiService } from '../../core/services/api.service';
 import { AutoSaveService } from '../../core/services/auto-save.service';
 import { Block } from '../../core/models/block.model';
 import { ClipboardService } from '../../core/services/clipboard.service';
+import { UndoService, UndoEntry } from '../../core/services/undo.service';
 import { formatJournalDate } from '../../core/utils/date.utils';
 import { NavigationService } from '../../core/services/navigation.service';
 import { WikiLinkContext } from './block-editor';
@@ -51,6 +52,8 @@ import { WikiLinkContext } from './block-editor';
           (openWikiLink)="onOpenWikiLink($event)"
           (shiftSelectUp)="onShiftSelectUp(block)"
           (shiftSelectDown)="onShiftSelectDown(block)"
+          (undoRequested)="performUndo()"
+          (redoRequested)="performRedo()"
         />
       </div>
     </cdk-virtual-scroll-viewport>
@@ -135,6 +138,7 @@ export class OutlineComponent implements OnDestroy {
   private readonly injector = inject(Injector);
   private readonly clipboard = inject(ClipboardService);
   private readonly nav = inject(NavigationService);
+  private readonly undo = inject(UndoService);
   readonly pageId = input.required<string>();
   readonly disableAutoLoad = input<boolean>(false);  // Disable automatic block loading
   readonly currentPageDate = input<string>('');  // Date shown in page header
@@ -168,6 +172,11 @@ export class OutlineComponent implements OnDestroy {
       if (id) this.loadBlocks(id);
     });
 
+    // Clear undo/redo stacks on page change
+    effect(() => {
+      this.pageId();
+      this.undo.clear();
+    });
   }
 
   /**
@@ -261,9 +270,14 @@ export class OutlineComponent implements OnDestroy {
    * @param newBody - The updated body text
    */
   onBodyChanged(block: Block, newBody: string): void {
+    const before = { ...block };
     this.state.updateBlock(block.id, { body: newBody });
     this.dirtyBlockIds.add(block.id);
     this.autoSave.scheduleBlockUpdate(block.id, newBody);
+    const after = { ...block, body: newBody };
+    this.undo.begin('body');
+    this.undo.pushUpdate(before, after);
+    this.undo.commit();
   }
 
   /**
@@ -326,9 +340,16 @@ export class OutlineComponent implements OnDestroy {
 
       const newBlock = await this.api.createBlock(block.pageId, prevBlockId, block.level, '');
       this.state.addBlock(newBlock, prevBlockId);
+
+      this.undo.begin('enter', { blockId: block.id, position: cursorPos });
+      this.undo.pushCreate(newBlock);
+      this.undo.commit({ blockId: newBlock.id, position: 0 });
+
       this.state.setEditingBlock(newBlock.id);
       this.focusEditor(newBlock.id);
     } else {
+      const originalBlock = { ...block };
+
       // Update old block body locally, keep editor visible during API calls
       this.state.updateBlock(block.id, { body: beforeText });
       const [updatedOriginal, newBlock] = await Promise.all([
@@ -338,6 +359,12 @@ export class OutlineComponent implements OnDestroy {
       // Update HTML before switching — prevents blink
       this.state.updateBlock(block.id, { html: updatedOriginal.html });
       this.state.addBlock(newBlock, block.id);
+
+      this.undo.begin('enter', { blockId: block.id, position: cursorPos });
+      this.undo.pushUpdate(originalBlock, { ...updatedOriginal, body: beforeText });
+      this.undo.pushCreate(newBlock);
+      this.undo.commit({ blockId: newBlock.id, position: 0 });
+
       this.state.setEditingBlock(newBlock.id);
       this.focusEditor(newBlock.id);
     }
@@ -356,18 +383,24 @@ export class OutlineComponent implements OnDestroy {
     this.autoSave.cancelBlock(block.id);
     this.dirtyBlockIds.delete(block.id);
 
-
     const prevBlock = blocks[idx - 1];
+    const originalPrev = { ...prevBlock };
+    const originalBlock = { ...block };
+    const cursorPos = prevBlock.body.length;
     const mergedBody = prevBlock.body + block.body;
     this.state.updateBlock(prevBlock.id, { body: mergedBody });
     this.state.deleteBlock(block.id);
     this.state.setEditingBlock(prevBlock.id);
     this.focusEditor(prevBlock.id);
-    // Reset after microtask — DOM removal (and blur) may be deferred by virtual scroll
 
     const updatedPrev = await this.api.updateBlock(prevBlock.id, { body: mergedBody });
     this.state.updateBlock(prevBlock.id, { html: updatedPrev.html });
     await this.api.deleteBlock(block.id);
+
+    this.undo.begin('backspace', { blockId: block.id, position: 0 });
+    this.undo.pushUpdate(originalPrev, { ...updatedPrev, body: mergedBody });
+    this.undo.pushDelete(originalBlock);
+    this.undo.commit({ blockId: prevBlock.id, position: cursorPos });
   }
 
   /**
@@ -384,7 +417,9 @@ export class OutlineComponent implements OnDestroy {
     this.autoSave.cancelBlock(nextBlock.id);
     this.dirtyBlockIds.delete(nextBlock.id);
 
-
+    const originalBlock = { ...block };
+    const originalNext = { ...nextBlock };
+    const cursorPos = block.body.length;
     const mergedBody = block.body + nextBlock.body;
     this.state.updateBlock(block.id, { body: mergedBody });
     this.state.deleteBlock(nextBlock.id);
@@ -392,6 +427,11 @@ export class OutlineComponent implements OnDestroy {
     const updatedBlock = await this.api.updateBlock(block.id, { body: mergedBody });
     this.state.updateBlock(block.id, { html: updatedBlock.html });
     await this.api.deleteBlock(nextBlock.id);
+
+    this.undo.begin('delete', { blockId: block.id, position: cursorPos });
+    this.undo.pushUpdate(originalBlock, { ...updatedBlock, body: mergedBody });
+    this.undo.pushDelete(originalNext);
+    this.undo.commit({ blockId: block.id, position: cursorPos });
   }
 
   /**
@@ -475,9 +515,12 @@ export class OutlineComponent implements OnDestroy {
     }
 
     const group = this.state.getBlockWithChildren(block.id);
+    this.undo.begin('indent');
     for (const b of group) {
+      this.undo.pushUpdate({ ...b }, { ...b, level: b.level + 1 });
       this.state.updateBlock(b.id, { level: b.level + 1 });
     }
+    this.undo.commit();
     await Promise.all(group.map(b => this.api.updateBlock(b.id, { level: b.level + 1 })));
   }
 
@@ -496,7 +539,6 @@ export class OutlineComponent implements OnDestroy {
     // Check normal placement
     if (!this.canPlace(newLevel, prevBlock)) {
       // Exception: outdenting by 1 level is allowed by placing after the last child of the current parent
-      // Find the current parent (the block with level = current level - 1 before the current block)
       let currentParentIdx = -1;
       for (let i = idx - 1; i >= 0; i--) {
         if (blocks[i].level === block.level - 1) {
@@ -507,11 +549,7 @@ export class OutlineComponent implements OnDestroy {
 
       if (currentParentIdx >= 0) {
         const currentParent = blocks[currentParentIdx];
-
-        // Get ALL children of the current parent (including the block being moved)
         const allChildren = this.state.getChildren(currentParent.id);
-
-        // Find the last child (excluding the block being moved and its descendants)
         const group = this.state.getBlockWithChildren(block.id);
         const movingIds = new Set(group.map(b => b.id));
 
@@ -522,8 +560,8 @@ export class OutlineComponent implements OnDestroy {
           }
         }
 
-        // Allow outdent by placing after the last child
         const groupIds = group.map(b => b.id);
+        const beforeSnapshots = group.map(b => ({ ...b }));
 
         // Update levels
         for (const b of group) {
@@ -535,6 +573,18 @@ export class OutlineComponent implements OnDestroy {
         if (lastChildId !== currentParent.id) {
           const moved = await this.api.moveBlocks(groupIds, block.pageId, lastChildId);
           this.state.replaceBlocks(groupIds, moved, lastChildId);
+
+          this.undo.begin('outdent');
+          for (let i = 0; i < beforeSnapshots.length; i++) {
+            this.undo.pushUpdate(beforeSnapshots[i], { ...moved[i] });
+          }
+          this.undo.commit();
+        } else {
+          this.undo.begin('outdent');
+          for (const b of beforeSnapshots) {
+            this.undo.pushUpdate(b, { ...b, level: b.level - 1 });
+          }
+          this.undo.commit();
         }
         return;
       }
@@ -544,9 +594,12 @@ export class OutlineComponent implements OnDestroy {
 
     // Normal outdent
     const group = this.state.getBlockWithChildren(block.id);
+    this.undo.begin('outdent');
     for (const b of group) {
+      this.undo.pushUpdate({ ...b }, { ...b, level: b.level - 1 });
       this.state.updateBlock(b.id, { level: b.level - 1 });
     }
+    this.undo.commit();
     await Promise.all(group.map(b => this.api.updateBlock(b.id, { level: b.level - 1 })));
   }
 
@@ -562,23 +615,27 @@ export class OutlineComponent implements OnDestroy {
 
     const group = this.state.getBlockWithChildren(block.id);
     const groupIds = group.map(b => b.id);
-
-    // Suppress duplicate animation during move — block reappears at new position
+    const beforeSnapshots = group.map(b => ({ ...b }));
 
     this.state.setEditingBlock(null);
 
     // Standard placement: move entire tree before the entire previous tree
     const prevBlock = blocks[idx - 1];
     if (this.canPlace(block.level, prevBlock)) {
-      // Find the previous block's position in allBlocks to move before its entire tree
       const allBlocks = this.state.blocks();
       const prevBlockIdx = allBlocks.findIndex(b => b.id === prevBlock.id);
       const targetPrev = prevBlockIdx > 0 ? allBlocks[prevBlockIdx - 1] : undefined;
       const prevPrevId = targetPrev?.id ?? '';
 
-      // Normal move up - move before the entire previous tree
       const moved = await this.api.moveBlocks(groupIds, block.pageId, prevPrevId);
       this.state.replaceBlocks(groupIds, moved, prevPrevId || '');
+
+      this.undo.begin('move');
+      for (let i = 0; i < beforeSnapshots.length; i++) {
+        this.undo.pushUpdate(beforeSnapshots[i], { ...moved[i] });
+      }
+      this.undo.commit();
+
       this.state.setEditingBlock(block.id);
       this.focusEditor(block.id);
       return;
@@ -594,22 +651,26 @@ export class OutlineComponent implements OnDestroy {
     }
 
     if (sameLevelBlockIdx === -1) {
-      // No same-level block found above — restore editing
       this.state.setEditingBlock(block.id);
       return;
     }
 
-    // Find the block with children to determine the actual position
     const allBlocks = this.state.blocks();
     const sameLevelBlock = blocks[sameLevelBlockIdx];
     const sameLevelIdx = allBlocks.findIndex(b => b.id === sameLevelBlock.id);
 
-    // Move to just before the same-level block (considering its children)
     const targetPrev = sameLevelIdx > 0 ? allBlocks[sameLevelIdx - 1] : undefined;
     const targetPrevId = targetPrev?.id ?? '';
 
     const moved = await this.api.moveBlocks(groupIds, block.pageId, targetPrevId);
     this.state.replaceBlocks(groupIds, moved, targetPrevId);
+
+    this.undo.begin('move');
+    for (let i = 0; i < beforeSnapshots.length; i++) {
+      this.undo.pushUpdate(beforeSnapshots[i], { ...moved[i] });
+    }
+    this.undo.commit();
+
     this.state.setEditingBlock(block.id);
     this.focusEditor(block.id);
   }
@@ -627,32 +688,35 @@ export class OutlineComponent implements OnDestroy {
     const children = this.state.getChildren(block.id);
     const group = [block, ...children];
     const groupIds = group.map(b => b.id);
+    const beforeSnapshots = group.map(b => ({ ...b }));
 
-    // Find the block after the entire group in visible blocks
     const allBlocks = this.state.blocks();
     const lastChildIdx = allBlocks.findIndex(b => b.id === group[group.length - 1].id);
     if (lastChildIdx >= allBlocks.length - 1) return;
     const targetBlock = allBlocks[lastChildIdx + 1];
 
-    // Suppress duplicate animation during move — block reappears at new position
-
     this.state.setEditingBlock(null);
 
     // Standard placement: move entire tree after the entire next tree
     if (this.canPlace(block.level, targetBlock)) {
-      // Get the target block and all its children to find the bottom of the next tree
       const targetGroup = this.state.getBlockWithChildren(targetBlock.id);
       const lastTargetDescendant = targetGroup[targetGroup.length - 1];
 
-      // Normal move down - move after the entire next tree
       const moved = await this.api.moveBlocks(groupIds, block.pageId, lastTargetDescendant.id);
       this.state.replaceBlocks(groupIds, moved, lastTargetDescendant.id);
+
+      this.undo.begin('move');
+      for (let i = 0; i < beforeSnapshots.length; i++) {
+        this.undo.pushUpdate(beforeSnapshots[i], { ...moved[i] });
+      }
+      this.undo.commit();
+
       this.state.setEditingBlock(block.id);
       this.focusEditor(block.id);
       return;
     }
 
-    // Exception: If there's a block at the same level below, move just after it (and its children)
+    // Exception: If there's a block at the same level below, move just after it
     let sameLevelBlockIdx = -1;
     for (let i = idx + 1; i < blocks.length; i++) {
       if (blocks[i].level === block.level) {
@@ -662,19 +726,23 @@ export class OutlineComponent implements OnDestroy {
     }
 
     if (sameLevelBlockIdx === -1) {
-      // No same-level block found below — restore editing
       this.state.setEditingBlock(block.id);
       return;
     }
 
-    // Get the same-level block and all its children
     const sameLevelBlock = blocks[sameLevelBlockIdx];
     const sameLevelGroup = this.state.getBlockWithChildren(sameLevelBlock.id);
     const lastDescendant = sameLevelGroup[sameLevelGroup.length - 1];
 
-    // Move to just after the same-level block and all its children
     const moved = await this.api.moveBlocks(groupIds, block.pageId, lastDescendant.id);
     this.state.replaceBlocks(groupIds, moved, lastDescendant.id);
+
+    this.undo.begin('move');
+    for (let i = 0; i < beforeSnapshots.length; i++) {
+      this.undo.pushUpdate(beforeSnapshots[i], { ...moved[i] });
+    }
+    this.undo.commit();
+
     this.state.setEditingBlock(block.id);
     this.focusEditor(block.id);
   }
@@ -859,13 +927,17 @@ export class OutlineComponent implements OnDestroy {
    */
   async onTaskStatusToggled(block: Block): Promise<void> {
     try {
-      // Checkbox click: normal → todo → running → done → normal → ...
+      const originalBlock = { ...block };
       const cycle = ['normal', 'todo', 'running', 'done'];
       const currentIndex = cycle.indexOf(block.status);
       const newStatus = cycle[(currentIndex + 1) % cycle.length];
       if (newStatus !== block.status) {
         const updated = await this.api.updateBlockStatus(block.id, newStatus);
         this.state.updateBlock(block.id, { status: updated.status });
+
+        this.undo.begin('status');
+        this.undo.pushUpdate(originalBlock, { ...originalBlock, status: newStatus });
+        this.undo.commit();
       }
     } catch (e) {
       console.error('Failed to toggle task status:', e);
@@ -879,12 +951,16 @@ export class OutlineComponent implements OnDestroy {
    */
   async onStatusCycleRequested(block: Block): Promise<void> {
     try {
-      // Ctrl+Enter: normal → todo → running → done → normal
+      const originalBlock = { ...block };
       const cycle = ['normal', 'todo', 'running', 'done'];
       const currentIndex = cycle.indexOf(block.status);
       const newStatus = cycle[(currentIndex + 1) % cycle.length];
       const updated = await this.api.updateBlockStatus(block.id, newStatus);
       this.state.updateBlock(block.id, { status: updated.status });
+
+      this.undo.begin('status');
+      this.undo.pushUpdate(originalBlock, { ...originalBlock, status: newStatus });
+      this.undo.commit();
     } catch (e) {
       console.error('Failed to cycle status:', e);
     }
@@ -898,12 +974,17 @@ export class OutlineComponent implements OnDestroy {
    */
   async onCollapseToggled(block: Block): Promise<void> {
     try {
+      const originalBlock = { ...block };
       const newCollapsed = !block.collapsed;
       // Update local state immediately for responsive UI
       this.state.toggleCollapsed(block.id);
       this.state.updateBlock(block.id, { collapsed: newCollapsed });
       // Persist to backend
       await this.api.updateBlock(block.id, { collapsed: newCollapsed });
+
+      this.undo.begin('collapse');
+      this.undo.pushUpdate(originalBlock, { ...originalBlock, collapsed: newCollapsed });
+      this.undo.commit();
     } catch (e) {
       console.error('Failed to toggle collapse:', e);
       // Revert on error
@@ -941,6 +1022,8 @@ export class OutlineComponent implements OnDestroy {
 
     if (parsedBlocks.length === 0) return;
 
+    const originalBlock = { ...block };
+
     // Split existing text at caret position
     const before = block.body.substring(0, event.cursorPos);
     const after = block.body.substring(event.cursorPos);
@@ -950,6 +1033,8 @@ export class OutlineComponent implements OnDestroy {
     parsedBlocks[parsedBlocks.length - 1].body = parsedBlocks[parsedBlocks.length - 1].body + after;
 
     try {
+      this.undo.begin('paste', { blockId: block.id, position: event.cursorPos });
+
       // First block replaces current editing block
       const firstBlock = parsedBlocks[0];
       const updated = await this.api.updateBlock(block.id, { body: firstBlock.body });
@@ -960,6 +1045,11 @@ export class OutlineComponent implements OnDestroy {
       if (firstBlock.status !== 'normal') {
         await this.api.updateBlockStatus(block.id, firstBlock.status);
         this.state.updateBlock(block.id, { status: firstBlock.status });
+      }
+
+      const afterFirstBlock = this.state.getBlockById(block.id);
+      if (afterFirstBlock) {
+        this.undo.pushUpdate(originalBlock, { ...afterFirstBlock });
       }
 
       // Add remaining blocks after the current block
@@ -981,14 +1071,20 @@ export class OutlineComponent implements OnDestroy {
             this.state.updateBlock(newBlock.id, { status: parsedBlock.status });
           }
 
+          const finalNewBlock = this.state.getBlockById(newBlock.id);
+          this.undo.pushCreate(finalNewBlock ?? newBlock);
+
           prevBlockId = newBlock.id;
         }
       }
+
+      this.undo.commit();
 
       // Focus the last created block or the current block
       this.focusEditor();
     } catch (e) {
       console.error('Failed to process paste:', e);
+      this.undo.abort();
     }
   }
 
@@ -1181,6 +1277,17 @@ export class OutlineComponent implements OnDestroy {
       return;
     }
 
+    // Ctrl+Z / Ctrl+Shift+Z in selection mode
+    if ((e.key === 'z' || e.key === 'Z') && e.ctrlKey && !e.altKey) {
+      e.preventDefault();
+      if (e.shiftKey) {
+        this.performRedo();
+      } else {
+        this.performUndo();
+      }
+      return;
+    }
+
     if (e.key === 'Delete' || e.key === 'Backspace') {
       e.preventDefault();
       this.deleteSelectedBlocks();
@@ -1279,7 +1386,16 @@ export class OutlineComponent implements OnDestroy {
     const selectedIds = this.getOrderedSelectedBlockIds();
     if (selectedIds.length === 0) return;
 
+    // Snapshot before deletion
+    const deletedBlocks = selectedIds.map(id => this.state.getBlockById(id)).filter((b): b is Block => !!b);
+
     this.exitSelectionMode();
+
+    this.undo.begin('delete-selection');
+    for (const b of deletedBlocks) {
+      this.undo.pushDelete({ ...b });
+    }
+    this.undo.commit();
 
     // Delete from state first for responsiveness
     this.state.deleteBlocks(selectedIds);
@@ -1304,17 +1420,19 @@ export class OutlineComponent implements OnDestroy {
 
     const prevBlock = visibleBlocks[firstIdx - 1];
 
-    // Collect all selected block IDs (roots + children) in order
     const allSelectedIds: string[] = [];
     for (const root of rootBlocks) {
       const group = this.state.getBlockWithChildren(root.id);
       group.forEach(b => allSelectedIds.push(b.id));
     }
+    const beforeSnapshots = allSelectedIds.map(id => {
+      const b = this.state.getBlockById(id);
+      return b ? { ...b } : null;
+    }).filter((b): b is Block => !!b);
 
     const allBlocks = this.state.blocks();
 
     if (this.canPlace(minLevel, prevBlock)) {
-      // Find target: place before the previous block
       const prevBlockAllIdx = allBlocks.findIndex(b => b.id === prevBlock.id);
       const targetPrev = prevBlockAllIdx > 0 ? allBlocks[prevBlockAllIdx - 1] : undefined;
       const targetPrevId = targetPrev?.id ?? '';
@@ -1322,13 +1440,18 @@ export class OutlineComponent implements OnDestroy {
       try {
         const moved = await this.api.moveBlocks(allSelectedIds, firstRoot.pageId, targetPrevId);
         this.state.replaceBlocks(allSelectedIds, moved, targetPrevId);
+
+        this.undo.begin('move-selection');
+        for (let i = 0; i < beforeSnapshots.length; i++) {
+          this.undo.pushUpdate(beforeSnapshots[i], { ...moved[i] });
+        }
+        this.undo.commit();
       } catch (e) {
         console.error('Failed to move selected blocks up:', e);
       }
       return;
     }
 
-    // Exception: find same-level block above
     let sameLevelBlockIdx = -1;
     for (let i = firstIdx - 1; i >= 0; i--) {
       if (visibleBlocks[i].level === minLevel) {
@@ -1346,6 +1469,12 @@ export class OutlineComponent implements OnDestroy {
     try {
       const moved = await this.api.moveBlocks(allSelectedIds, firstRoot.pageId, targetPrevId);
       this.state.replaceBlocks(allSelectedIds, moved, targetPrevId);
+
+      this.undo.begin('move-selection');
+      for (let i = 0; i < beforeSnapshots.length; i++) {
+        this.undo.pushUpdate(beforeSnapshots[i], { ...moved[i] });
+      }
+      this.undo.commit();
     } catch (e) {
       console.error('Failed to move selected blocks up:', e);
     }
@@ -1366,12 +1495,15 @@ export class OutlineComponent implements OnDestroy {
 
     const nextBlock = allBlocks[lastBlockIdx + 1];
 
-    // Collect all selected block IDs in order
     const allSelectedIds: string[] = [];
     for (const root of rootBlocks) {
       const group = this.state.getBlockWithChildren(root.id);
       group.forEach(b => allSelectedIds.push(b.id));
     }
+    const beforeSnapshots = allSelectedIds.map(id => {
+      const b = this.state.getBlockById(id);
+      return b ? { ...b } : null;
+    }).filter((b): b is Block => !!b);
 
     if (this.canPlace(minLevel, nextBlock)) {
       const nextGroup = this.state.getBlockWithChildren(nextBlock.id);
@@ -1380,13 +1512,18 @@ export class OutlineComponent implements OnDestroy {
       try {
         const moved = await this.api.moveBlocks(allSelectedIds, lastRoot.pageId, targetAfter.id);
         this.state.replaceBlocks(allSelectedIds, moved, targetAfter.id);
+
+        this.undo.begin('move-selection');
+        for (let i = 0; i < beforeSnapshots.length; i++) {
+          this.undo.pushUpdate(beforeSnapshots[i], { ...moved[i] });
+        }
+        this.undo.commit();
       } catch (e) {
         console.error('Failed to move selected blocks down:', e);
       }
       return;
     }
 
-    // Exception: find same-level block below
     const visibleBlocks = this.state.visibleBlocks();
     const lastRootVisIdx = visibleBlocks.findIndex(b => b.id === lastRoot.id);
     let sameLevelBlockIdx = -1;
@@ -1405,6 +1542,12 @@ export class OutlineComponent implements OnDestroy {
     try {
       const moved = await this.api.moveBlocks(allSelectedIds, lastRoot.pageId, lastDescendant.id);
       this.state.replaceBlocks(allSelectedIds, moved, lastDescendant.id);
+
+      this.undo.begin('move-selection');
+      for (let i = 0; i < beforeSnapshots.length; i++) {
+        this.undo.pushUpdate(beforeSnapshots[i], { ...moved[i] });
+      }
+      this.undo.commit();
     } catch (e) {
       console.error('Failed to move selected blocks down:', e);
     }
@@ -1415,17 +1558,17 @@ export class OutlineComponent implements OnDestroy {
     const allBlocks = this.state.blocks();
     const blocksToIndent = allBlocks.filter(b => selectedIds.has(b.id));
 
-    // Check: first selected block must have a block before it
     if (blocksToIndent.length === 0) return;
     const firstIdx = allBlocks.findIndex(b => b.id === blocksToIndent[0].id);
     if (firstIdx <= 0) return;
 
-    // Update state
+    this.undo.begin('indent-selection');
     for (const b of blocksToIndent) {
+      this.undo.pushUpdate({ ...b }, { ...b, level: b.level + 1 });
       this.state.updateBlock(b.id, { level: b.level + 1 });
     }
+    this.undo.commit();
 
-    // Update backend
     try {
       await Promise.all(blocksToIndent.map(b => this.api.updateBlock(b.id, { level: b.level + 1 })));
     } catch (e) {
@@ -1438,15 +1581,15 @@ export class OutlineComponent implements OnDestroy {
     const allBlocks = this.state.blocks();
     const blocksToOutdent = allBlocks.filter(b => selectedIds.has(b.id));
 
-    // Check: all blocks must have level > 0
     if (blocksToOutdent.some(b => b.level <= 0)) return;
 
-    // Update state
+    this.undo.begin('outdent-selection');
     for (const b of blocksToOutdent) {
+      this.undo.pushUpdate({ ...b }, { ...b, level: b.level - 1 });
       this.state.updateBlock(b.id, { level: b.level - 1 });
     }
+    this.undo.commit();
 
-    // Update backend
     try {
       await Promise.all(blocksToOutdent.map(b => this.api.updateBlock(b.id, { level: b.level - 1 })));
     } catch (e) {
@@ -1490,6 +1633,174 @@ export class OutlineComponent implements OnDestroy {
     if (!this.state.blockSelectionMode()) return;
     e.preventDefault();
     this.cutSelectedBlocks();
+  }
+
+  async performUndo(): Promise<void> {
+    if (this.undo.isPending()) return;
+
+    // Cancel pending auto-save for the editing block
+    const editingId = this.state.editingBlockId();
+    if (editingId && this.dirtyBlockIds.has(editingId)) {
+      this.dirtyBlockIds.delete(editingId);
+      this.autoSave.cancelBlock(editingId);
+    }
+
+    const entry = this.undo.popUndo();
+    if (!entry) return;
+
+    // Apply inverse ops in reverse order
+    for (let i = entry.ops.length - 1; i >= 0; i--) {
+      const op = entry.ops[i];
+      switch (op.type) {
+        case 'update':
+          this.state.updateBlock(op.before.id, op.before);
+          if (op.before.collapsed !== op.after.collapsed) {
+            this.state.toggleCollapsed(op.before.id);
+          }
+          break;
+        case 'create':
+          this.state.deleteBlock(op.block.id);
+          break;
+        case 'delete':
+          this.state.addBlock(op.block, this.findInsertionPoint(op.block));
+          break;
+      }
+    }
+
+    // Restore cursor
+    if (entry.cursorBefore) {
+      this.state.setEditingBlock(entry.cursorBefore.blockId, entry.cursorBefore.position);
+      this.focusEditor(entry.cursorBefore.blockId);
+    } else {
+      // For body edits and other entries without explicit cursor, keep editing the first updated block
+      const firstUpdate = entry.ops.find(op => op.type === 'update');
+      if (firstUpdate && firstUpdate.type === 'update') {
+        const pos = firstUpdate.before.body.length;
+        this.state.setEditingBlock(firstUpdate.before.id, pos);
+        this.focusEditor(firstUpdate.before.id);
+      } else {
+        this.state.setEditingBlock(null);
+      }
+    }
+
+    this.undo.pushRedo(entry);
+    this.syncToServer(entry, 'undo');
+  }
+
+  async performRedo(): Promise<void> {
+    if (this.undo.isPending()) return;
+
+    // Cancel pending auto-save for the editing block
+    const editingId = this.state.editingBlockId();
+    if (editingId && this.dirtyBlockIds.has(editingId)) {
+      this.dirtyBlockIds.delete(editingId);
+      this.autoSave.cancelBlock(editingId);
+    }
+
+    const entry = this.undo.popRedo();
+    if (!entry) return;
+
+    // Apply forward ops in order
+    for (const op of entry.ops) {
+      switch (op.type) {
+        case 'update':
+          this.state.updateBlock(op.after.id, op.after);
+          if (op.before.collapsed !== op.after.collapsed) {
+            this.state.toggleCollapsed(op.after.id);
+          }
+          break;
+        case 'create':
+          this.state.addBlock(op.block, this.findInsertionPoint(op.block));
+          break;
+        case 'delete':
+          this.state.deleteBlock(op.block.id);
+          break;
+      }
+    }
+
+    // Restore cursor
+    if (entry.cursorAfter) {
+      this.state.setEditingBlock(entry.cursorAfter.blockId, entry.cursorAfter.position);
+      this.focusEditor(entry.cursorAfter.blockId);
+    } else {
+      const firstUpdate = entry.ops.find(op => op.type === 'update');
+      if (firstUpdate && firstUpdate.type === 'update') {
+        const pos = firstUpdate.after.body.length;
+        this.state.setEditingBlock(firstUpdate.after.id, pos);
+        this.focusEditor(firstUpdate.after.id);
+      } else {
+        this.state.setEditingBlock(null);
+      }
+    }
+
+    this.undo.pushUndo(entry);
+    this.syncToServer(entry, 'redo');
+  }
+
+  private findInsertionPoint(block: Block): string {
+    const blocks = this.state.blocks();
+    let bestId = '';
+    for (const b of blocks) {
+      if (b.pageId === block.pageId && b.idx < block.idx) {
+        bestId = b.id;
+      }
+    }
+    return bestId;
+  }
+
+  private async syncToServer(entry: UndoEntry, dir: 'undo' | 'redo'): Promise<void> {
+    try {
+      const ops = dir === 'undo' ? [...entry.ops].reverse() : entry.ops;
+      for (const op of ops) {
+        if (op.type === 'update') {
+          const target = dir === 'undo' ? op.before : op.after;
+          const source = dir === 'undo' ? op.after : op.before;
+          await this.api.updateBlock(target.id, {
+            body: target.body,
+            level: target.level,
+            collapsed: target.collapsed,
+          });
+          if (target.status !== source.status) {
+            await this.api.updateBlockStatus(target.id, target.status);
+          }
+        } else if (op.type === 'create') {
+          if (dir === 'undo') {
+            // Undo a create = delete
+            await this.api.deleteBlock(op.block.id);
+          } else {
+            // Redo a create = recreate
+            const afterId = this.findInsertionPoint(op.block);
+            const newBlock = await this.api.createBlock(
+              op.block.pageId, afterId, op.block.level, op.block.body
+            );
+            // Remap: update local state with real server block
+            this.state.deleteBlock(op.block.id);
+            this.state.addBlock(newBlock, afterId);
+            op.block = newBlock;
+          }
+        } else if (op.type === 'delete') {
+          if (dir === 'undo') {
+            // Undo a delete = recreate
+            const afterId = this.findInsertionPoint(op.block);
+            const newBlock = await this.api.createBlock(
+              op.block.pageId, afterId, op.block.level, op.block.body
+            );
+            if (op.block.status !== 'normal') {
+              await this.api.updateBlockStatus(newBlock.id, op.block.status);
+            }
+            // Remap
+            this.state.deleteBlock(op.block.id);
+            this.state.addBlock(newBlock, afterId);
+            op.block = newBlock;
+          } else {
+            // Redo a delete = delete
+            await this.api.deleteBlock(op.block.id);
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Failed to sync undo/redo to server:', e);
+    }
   }
 
   private exitSelectionMode(): void {
