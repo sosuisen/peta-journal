@@ -46,6 +46,7 @@ import { WikiLinkContext } from './block-editor';
           (statusCycleRequested)="onStatusCycleRequested(block)"
           (collapseToggled)="onCollapseToggled(block)"
           (pasteDetected)="onPaste(block, $event)"
+          (imagePasteDetected)="onImagePaste(block, $event)"
           (dragBeyondBounds)="onDragBeyondBounds(block, $event)"
           (wikiLinkQueryChanged)="onWikiLinkQuery(block, $event)"
           (wikiLinkSelected)="onWikiLinkKeyNav($event)"
@@ -1085,6 +1086,31 @@ export class OutlineComponent implements OnDestroy {
     } catch (e) {
       console.error('Failed to process paste:', e);
       this.undo.abort();
+    }
+  }
+
+  async onImagePaste(block: Block, event: { file: File; cursorPos: number }): Promise<void> {
+    try {
+      const result = await this.api.uploadAsset(event.file);
+      const fileName = result.fileName;
+      const markdown = `![${fileName}](../assets/${fileName})`;
+
+      const before = block.body.substring(0, event.cursorPos);
+      const after = block.body.substring(event.cursorPos);
+      const newBody = before + markdown + after;
+
+      this.state.updateBlock(block.id, { body: newBody });
+      this.dirtyBlockIds.add(block.id);
+
+      const updated = await this.api.updateBlock(block.id, { body: newBody });
+      this.state.updateBlock(block.id, { html: updated.html });
+
+      // Place cursor after the inserted markdown
+      const newPos = event.cursorPos + markdown.length;
+      this.state.setEditingBlock(block.id, newPos);
+      this.focusEditor(block.id);
+    } catch (e) {
+      console.error('Failed to paste image:', e);
     }
   }
 

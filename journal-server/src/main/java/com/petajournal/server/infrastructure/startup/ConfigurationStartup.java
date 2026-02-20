@@ -8,6 +8,11 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
 @Startup
 @ApplicationScoped
 public class ConfigurationStartup {
@@ -34,11 +39,29 @@ public class ConfigurationStartup {
 
             if (choice.selected && !choice.path.isEmpty()) {
                 configService.setMarkdownDir(choice.path);
-                LOG.infov("Markdown directory configured: {0}", choice.path);
+                markdownDir = choice.path;
+                LOG.infov("Markdown directory configured: {0}", markdownDir);
             } else {
                 LOG.error("No markdown directory selected. Application may not function correctly.");
             }
         }
 
+        if (markdownDir != null && !markdownDir.trim().isEmpty()) {
+            ensureSubDirs(Paths.get(markdownDir));
+        }
+    }
+
+    private void ensureSubDirs(Path markdownPath) {
+        for (String name : new String[]{"assets", "docs", "journals"}) {
+            Path dir = markdownPath.resolve(name);
+            if (!Files.exists(dir)) {
+                try {
+                    Files.createDirectories(dir);
+                    LOG.infov("Created directory: {0}", dir);
+                } catch (IOException e) {
+                    LOG.errorv("Failed to create directory: {0}", dir, e);
+                }
+            }
+        }
     }
 }

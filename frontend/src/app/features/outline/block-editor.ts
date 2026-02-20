@@ -79,6 +79,7 @@ export class BlockEditorComponent implements AfterViewInit, OnDestroy {
   readonly statusCycleRequested = output<void>();
   readonly statusToggled = output<void>();
   readonly pasteDetected = output<{ text: string; html: string; cursorPos: number }>();
+  readonly imagePasteDetected = output<{ file: File; cursorPos: number }>();
   readonly dragBeyondBounds = output<'above' | 'below'>();
   readonly wikiLinkQuery = output<WikiLinkContext | null>();
   readonly wikiLinkSelect = output<string>(); // emits the key: 'ArrowUp', 'ArrowDown', 'Enter'
@@ -376,6 +377,14 @@ export class BlockEditorComponent implements AfterViewInit, OnDestroy {
 
     if (!clipboardData) return;
 
+    // Check for image files in clipboard
+    const imageFile = this.getImageFile(clipboardData);
+    if (imageFile) {
+      event.preventDefault();
+      this.imagePasteDetected.emit({ file: imageFile, cursorPos: el.selectionStart });
+      return;
+    }
+
     // Get both plain text and HTML from clipboard
     const text = clipboardData.getData('text/plain');
     const html = clipboardData.getData('text/html');
@@ -389,6 +398,17 @@ export class BlockEditorComponent implements AfterViewInit, OnDestroy {
       html,
       cursorPos: el.selectionStart
     });
+  }
+
+  private getImageFile(clipboardData: DataTransfer): File | null {
+    for (let i = 0; i < clipboardData.items.length; i++) {
+      const item = clipboardData.items[i];
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) return file;
+      }
+    }
+    return null;
   }
 
   /**

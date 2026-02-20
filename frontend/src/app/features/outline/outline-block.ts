@@ -50,6 +50,7 @@ import { BlockViewComponent } from './block-view';
             (statusCycleRequested)="statusCycleRequested.emit()"
             (statusToggled)="taskToggled.emit()"
             (pasteDetected)="pasteDetected.emit($event)"
+            (imagePasteDetected)="imagePasteDetected.emit($event)"
             (dragBeyondBounds)="dragBeyondBounds.emit($event)"
             (wikiLinkQuery)="wikiLinkQueryChanged.emit($event)"
             (wikiLinkSelect)="wikiLinkSelected.emit($event)"
@@ -140,6 +141,7 @@ export class OutlineBlockComponent {
   readonly statusCycleRequested = output<void>();
   readonly collapseToggled = output<void>();
   readonly pasteDetected = output<{ text: string; html: string; cursorPos: number }>();
+  readonly imagePasteDetected = output<{ file: File; cursorPos: number }>();
   readonly dragBeyondBounds = output<'above' | 'below'>();
   readonly wikiLinkQueryChanged = output<WikiLinkContext | null>();
   readonly wikiLinkSelected = output<string>();

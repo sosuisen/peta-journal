@@ -294,4 +294,17 @@ export class ApiService {
     const r = resp.importTreeMarkdown;
     return { flatMarkdown: r.flatMarkdown ?? '' };
   }
+
+  async uploadAsset(file: File): Promise<{ fileName: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const resp = await fetch('/api/assets/upload', {
+      method: 'POST',
+      body: formData,
+    });
+    if (!resp.ok) {
+      throw new Error(`Upload failed: ${resp.status}`);
+    }
+    return await resp.json();
+  }
 }
