@@ -244,6 +244,26 @@ public class SqlitePageRepository implements PageRepository {
     }
 
     @Override
+    public List<Page> findIndexPagesByDirSegment(String query, int maxResults) {
+        if (maxResults <= 0) maxResults = 20;
+        // Match dir_path ending with "query/" — i.e. last segment is query
+        // Pattern: %query/ matches "query/" and "dir1/query/"
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "SELECT id, dir_path, file_name, type, created_date, modified_date, properties_json " +
+                     "FROM pages WHERE file_name = 'index' AND " +
+                     "(dir_path = ? || '/' OR dir_path LIKE '%/' || ? || '/') " +
+                     "ORDER BY length(dir_path) ASC LIMIT ?")) {
+            ps.setString(1, query);
+            ps.setString(2, query);
+            ps.setInt(3, maxResults);
+            return mapPages(conn, ps);
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to find index pages by dir segment: " + query, e);
+        }
+    }
+
+    @Override
     public List<Page> findBacklinkSources(UUID targetPageId) {
         // Find pages that have blocks containing [[page title]] links to the target page
         try (Connection conn = connectionProvider.getConnection()) {

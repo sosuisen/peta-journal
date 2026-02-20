@@ -108,4 +108,14 @@ public interface PageRepository {
      * @return the matching pages
      */
     List<Page> findByPathContains(String query, int maxResults);
+
+    /**
+     * Finds index pages whose last dir_path segment matches the query.
+     * For example, query "dir2" matches dir_path "dir1/dir2/" with file_name "index".
+     *
+     * @param query      the segment name to match
+     * @param maxResults maximum number of results
+     * @return the matching index pages
+     */
+    List<Page> findIndexPagesByDirSegment(String query, int maxResults);
 }

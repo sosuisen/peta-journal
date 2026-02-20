@@ -185,7 +185,7 @@ export class PageComponent {
    * @param path - The directory path to navigate to.
    */
   navigateToSegment(path: string): void {
-    this.navigation.navigateToPage(path);
+    this.navigation.navigateToPage(path + '/index');
   }
 
   /**
@@ -275,21 +275,35 @@ export class PageComponent {
     }
   }
 
-  private async loadPage(fileName: string): Promise<void> {
+  private async loadPage(pageName: string): Promise<void> {
     try {
-      const result = await this.api.getOrCreateDoc(fileName);
-      this.page.set(result.page);
+      const result = await this.api.getOrCreateDoc(pageName);
+      const p = result.page;
+
+      // Compute canonical URL path from loaded page
+      const canonical = p.dirPath
+        ? p.dirPath.replace(/\/$/, '') + '/' + p.fileName
+        : p.fileName;
+
+      // If URL doesn't match canonical path, redirect
+      // e.g. server resolved "Quarkus" → dirPath="Quarkus/" fileName="index" → redirect to "Quarkus/index"
+      if (canonical !== pageName) {
+        this.navigation.navigateToPage(canonical, false, true);
+        return;
+      }
+
+      this.page.set(p);
       if (result.created) {
         this.recentPages.refresh();
         this.extensionFunctions.emitPageCreate({
-          pageId: result.page.id,
-          fileName: result.page.fileName,
-          dirName: result.page.dirPath
+          pageId: p.id,
+          fileName: p.fileName,
+          dirName: p.dirPath
         });
       }
       this.titleService.setTitle(this.pageTitle());
     } catch (e) {
-      console.error('Failed to load page:', fileName, e);
+      console.error('Failed to load page:', pageName, e);
     }
   }
 }

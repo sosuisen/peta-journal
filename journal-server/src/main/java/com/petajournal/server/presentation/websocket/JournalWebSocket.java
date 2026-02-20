@@ -251,11 +251,27 @@ public class JournalWebSocket {
         String query = req.getQuery();
         int maxResults = req.getMaxResults() > 0 ? req.getMaxResults() : 20;
 
+        // Collect results, deduplicating by page ID
+        java.util.Set<String> seenIds = new java.util.LinkedHashSet<>();
+        java.util.List<com.petajournal.proto.SearchResult> allResults = new java.util.ArrayList<>();
+
+        // 0th: Index pages whose last dir_path segment matches query (highest priority)
+        for (Page p : pageRepository.findIndexPagesByDirSegment(query, maxResults)) {
+            if (seenIds.add(p.id().toString())) {
+                allResults.add(ProtoConverter.toProto(SearchResult.fromPage(p)));
+            }
+        }
+
         // 1st: SQLite prefix search on dir_path || file_name
-        List<Page> prefixPages = pageRepository.findByPathPrefix(query, maxResults);
-        if (!prefixPages.isEmpty()) {
+        for (Page p : pageRepository.findByPathPrefix(query, maxResults)) {
+            if (seenIds.add(p.id().toString())) {
+                allResults.add(ProtoConverter.toProto(SearchResult.fromPage(p)));
+            }
+        }
+
+        if (!allResults.isEmpty()) {
             return SearchPageNamesResponse.newBuilder()
-                    .addAllResults(prefixPages.stream().map(SearchResult::fromPage).map(ProtoConverter::toProto).toList())
+                    .addAllResults(allResults.stream().limit(maxResults).toList())
                     .build();
         }
 

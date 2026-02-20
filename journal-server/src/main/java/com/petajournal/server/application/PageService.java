@@ -100,6 +100,16 @@ public class PageService {
             return new DocResult(page, blocks, false);
         }
 
+        // If no exact match, check if an index page exists at dir+fileName/
+        // e.g. dirPath="" fileName="Quarkus" → look for dirPath="Quarkus/" fileName="index"
+        String indexDir = dir + fileName + "/";
+        var indexPage = pageRepository.findByTypeDirPathFileName("doc", indexDir, "index");
+        if (indexPage.isPresent()) {
+            Page page = indexPage.get();
+            List<Block> blocks = blockRepository.findByPageId(page.id());
+            return new DocResult(page, blocks, false);
+        }
+
         UUID id = UUID.randomUUID();
         Instant now = Instant.now();
 
@@ -223,7 +233,7 @@ public class PageService {
 
     /**
      * Ensures that all ancestor directory pages exist for the given dirPath.
-     * For example, dirPath "dir1/dir2/" creates pages ("", "dir1") and ("dir1/", "dir2").
+     * For example, dirPath "dir1/dir2/" creates pages ("dir1/", "index") and ("dir1/dir2/", "index").
      */
     private void ensureAncestorPages(String dirPath) {
         if (dirPath == null || dirPath.isEmpty()) return;
@@ -235,22 +245,21 @@ public class PageService {
         for (String segment : segments) {
             if (segment.isEmpty()) continue;
 
-            String parentDir = currentDir.toString();
-            var existing = pageRepository.findByTypeDirPathFileName("doc", parentDir, segment);
+            currentDir.append(segment).append("/");
+            String indexDir = currentDir.toString();
+            var existing = pageRepository.findByTypeDirPathFileName("doc", indexDir, "index");
             if (existing.isEmpty()) {
                 UUID id = UUID.randomUUID();
                 Instant now = Instant.now();
-                Page page = new Page(id, parentDir, segment, "doc", now, now, List.of(), "{}");
+                Page page = new Page(id, indexDir, "index", "doc", now, now, List.of(), "{}");
                 pageRepository.save(page);
                 searchService.indexPage(page);
 
                 String blockId = BlockIdGenerator.generate();
-                Block block = new Block(blockId, id, parentDir, segment, "doc", now, now,
+                Block block = new Block(blockId, id, indexDir, "index", "doc", now, now,
                         FractionalIndexer.initial(), 0, "", "", false, "normal", List.of(), "{}");
                 blockRepository.save(block);
             }
-
-            currentDir.append(segment).append("/");
         }
     }
 
