@@ -19,6 +19,7 @@ import { ExtensionFunctionService } from '../../core/services/extension-function
         @if (editing()) {
           <div class="edit-row" (focusout)="onEditRowFocusOut($event)">
             <input
+              #dirPathInput
               class="edit-dir-path"
               [value]="editDirPath()"
               (input)="editDirPath.set(asInputValue($event))"
@@ -30,6 +31,7 @@ import { ExtensionFunctionService } from '../../core/services/extension-function
               #fileNameInput
               class="edit-file-name"
               [value]="editFileName()"
+              [disabled]="isIndexPage()"
               (input)="editFileName.set(asInputValue($event))"
               (keydown.enter)="save()"
               (keydown.escape)="cancelEdit()"
@@ -37,13 +39,21 @@ import { ExtensionFunctionService } from '../../core/services/extension-function
           </div>
         } @else {
           @if (page()!.dirPath) {
-            <div class="dir-path-breadcrumb">
-              @for (seg of dirPathSegments(); track seg.path) {
-                <a class="dir-segment" (click)="navigateToSegment(seg.path)">{{ seg.name }}</a><span class="breadcrumb-slash">/</span>
+            <div class="dir-path-breadcrumb" [class.index-breadcrumb]="isIndexPage()">
+              @for (seg of dirPathSegments(); track seg.path; let last = $last) {
+                @if (isIndexPage() && last) {
+                  <span class="dir-segment-title" (click)="startEdit($event)">{{ seg.name }}</span><span class="breadcrumb-slash">/</span>
+                } @else {
+                  <a class="dir-segment" (click)="navigateToSegment(seg.path)">{{ seg.name }}</a><span class="breadcrumb-slash">/</span>
+                }
               }
             </div>
           }
-          <h2 class="page-title" (click)="startEdit($event)">{{ pageTitle() }}</h2>
+          @if (isIndexPage()) {
+            <div class="index-label">index</div>
+          } @else {
+            <h2 class="page-title" (click)="startEdit($event)">{{ pageTitle() }}</h2>
+          }
         }
       </div>
       <app-outline [pageId]="page()!.id" />
@@ -86,6 +96,24 @@ import { ExtensionFunctionService } from '../../core/services/extension-function
       box-sizing: border-box;
     }
     .page-title:hover { background: var(--hover-bg, rgba(0,0,0,0.04)); }
+    .dir-segment-title {
+      font-size: 2em;
+      font-weight: bold;
+      color: #000;
+      cursor: pointer;
+    }
+    .dir-segment-title:hover { text-decoration: underline; }
+    .index-breadcrumb .dir-segment,
+    .index-breadcrumb .breadcrumb-slash {
+      font-size: 2em;
+      font-weight: bold;
+      color: #000;
+    }
+    .index-label {
+      padding: 4px 6px;
+      font-size: 1em;
+      color: #999;
+    }
 
     /* Edit mode */
     .edit-row {
@@ -114,6 +142,12 @@ import { ExtensionFunctionService } from '../../core/services/extension-function
       width: 100%;
       box-sizing: border-box;
     }
+    .edit-file-name:disabled {
+      background: #f0f0f0;
+      color: #999;
+      border-color: #ddd;
+      cursor: default;
+    }
     .edit-slash {
       font-size: 1.0em;
       color: var(--text-secondary, #666);
@@ -132,11 +166,13 @@ export class PageComponent {
   private readonly injector = inject(Injector);
 
   readonly fileNameInput = viewChild<ElementRef<HTMLInputElement>>('fileNameInput');
+  readonly dirPathInput = viewChild<ElementRef<HTMLInputElement>>('dirPathInput');
 
   readonly page = signal<Page | null>(null);
   readonly editing = signal(false);
   readonly editDirPath = signal('');
   readonly editFileName = signal('');
+  readonly isIndexPage = computed(() => this.page()?.fileName === 'index');
 
   readonly dirPathSegments = computed(() => {
     const p = this.page();
@@ -209,10 +245,18 @@ export class PageComponent {
 
     this.editing.set(true);
     afterNextRender(() => {
-      const input = this.fileNameInput()?.nativeElement;
-      if (input) {
-        input.focus();
-        input.setSelectionRange(caretPos, caretPos);
+      if (p.fileName === 'index') {
+        const input = this.dirPathInput()?.nativeElement;
+        if (input) {
+          input.focus();
+          input.setSelectionRange(input.value.length, input.value.length);
+        }
+      } else {
+        const input = this.fileNameInput()?.nativeElement;
+        if (input) {
+          input.focus();
+          input.setSelectionRange(caretPos, caretPos);
+        }
       }
     }, { injector: this.injector });
   }
