@@ -504,9 +504,11 @@ export class OutlineComponent implements OnDestroy {
 
     // Check normal placement
     if (!this.canPlace(newLevel, prevBlock)) {
-      // Exception: indenting by 1 level is allowed if there is a block at the same level before
+      // Exception: indenting by 1 level is allowed if there is a sibling at the same level
+      // within the same parent subtree (stop scanning at shallower levels)
       let hasSameLevelBefore = false;
       for (let i = idx - 1; i >= 0; i--) {
+        if (blocks[i].level < block.level) break; // exited current subtree
         if (blocks[i].level === block.level) {
           hasSameLevelBefore = true;
           break;
