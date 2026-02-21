@@ -1168,7 +1168,7 @@ export class OutlineComponent implements OnDestroy {
         }
 
         // Skip other metadata comments
-        if (/^<!-- [0-9a-f]{7}(?:-[0-9a-f-]+)? -->$/.test(line) || /^<!-- \w+=.*? -->$/.test(line)) {
+        if (/^<!-- [0-9a-f]{7,8}(-[0-9a-f-]+)? -->$/.test(line) || /^<!-- \w+=.*? -->$/.test(line)) {
           hasContent = true;
           continue;
         }

@@ -26,8 +26,12 @@ public class TreeMarkdownConverter {
             String indent = "  ".repeat(depth);
             String[] lines = block.body().split("\n", -1);
 
-            // First line with list marker
-            sb.append(indent).append("- ").append(lines[0]);
+            // First line with list marker (and GFM task prefix for todo/done)
+            String status = block.status() != null ? block.status() : "normal";
+            String marker = "- ";
+            if ("todo".equals(status)) marker = "- [ ] ";
+            else if ("done".equals(status)) marker = "- [x] ";
+            sb.append(indent).append(marker).append(lines[0]);
 
             // Continuation lines
             for (int j = 1; j < lines.length; j++) {
@@ -109,7 +113,12 @@ public class TreeMarkdownConverter {
                 }
                 currentDepth = markerPos / 2; // 2-space indent per depth level
                 blockPrefixLen = markerPos + 2; // indent + "- "
-                currentItem = new StringBuilder(removeOneIndent(line));
+                String firstLine = line.substring(blockPrefixLen);
+                // Re-add "- " for GFM task prefix so flat markdown parser can detect status
+                if (firstLine.startsWith("[ ] ") || firstLine.startsWith("[x] ")) {
+                    firstLine = "- " + firstLine;
+                }
+                currentItem = new StringBuilder(firstLine);
             } else if (currentItem != null && line.length() >= blockPrefixLen) {
                 // Continuation line — strip the block's full prefix length
                 String content = line.substring(blockPrefixLen);
@@ -149,18 +158,4 @@ public class TreeMarkdownConverter {
         return -1;
     }
 
-    /**
-     * Remove one indent token from the start of a line.
-     * One token is "- " (list marker), "  " (double space), or "\t" (tab).
-     */
-    private String removeOneIndent(String line) {
-        if (line.startsWith("- ")) {
-            return line.substring(2);
-        } else if (line.startsWith("\t")) {
-            return line.substring(1);
-        } else if (line.startsWith("  ")) {
-            return line.substring(2);
-        }
-        return line;
-    }
 }

@@ -16,7 +16,7 @@ import java.util.regex.Pattern;
  */
 public class OutlineMarkdownParser {
 
-    private static final Pattern ID_COMMENT = Pattern.compile("^<!--\\s*([0-9a-f]{7}(?:-[0-9a-f-]+)?)\\s*-->$");
+    private static final Pattern ID_COMMENT = Pattern.compile("^<!--\\s*([0-9a-f]{7,8}(-[0-9a-f-]+)?)\\s*-->$");
     private static final Pattern LEVEL_COMMENT = Pattern.compile("^<!--\\s*level=(\\d+)\\s*-->$");
     private static final Pattern COLLAPSED_COMMENT = Pattern.compile("^<!--\\s*collapsed=true\\s*-->$");
     private static final Pattern PROP_COMMENT = Pattern.compile("^<!--\\s*(\\w+)=(.*?)\\s*-->$");
