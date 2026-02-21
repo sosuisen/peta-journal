@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package petajournal;
+
+option java_package = "com.petajournal.proto";
+option java_outer_classname = "BookmarkProto";
+option java_multiple_files = true;
+
+import "common.proto";
+import "page.proto";
+
+message BookmarkGroup {
+  string id = 1;                      // UUID
+  string name = 2;                    // empty = default group
+  string sort_order = 3;              // fractional index
+  Timestamp created_at = 4;
+}
+
+message Bookmark {
+  string id = 1;                      // UUID
+  string group_id = 2;               // UUID of parent group
+  string target_type = 3;            // "block" or "page"
+  string target_id = 4;              // UUID of target
+  string sort_order = 5;             // fractional index within group
+  Timestamp created_at = 6;
+  Page target_page = 7;              // resolved page data (read only)
+}

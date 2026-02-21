@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { ProtobufService } from './protobuf.service';
 import { Block } from '../models/block.model';
+import { Bookmark, BookmarkGroup } from '../models/bookmark.model';
 import { Page } from '../models/page.model';
 import { SearchResult } from '../models/search.model';
 
@@ -13,6 +14,7 @@ interface SearchFullTextResult { results: SearchResult[]; totalHits: number }
 interface GetRecentPagesResult { pages: Page[] }
 interface BacklinkEntry { sourcePage: Page; sourceBlock: Block }
 interface GetBacklinksResult { entries: BacklinkEntry[] }
+interface GetBookmarksResult { groups: BookmarkGroup[]; bookmarks: Bookmark[] }
 
 function toPage(p: any): Page {
   return {
@@ -44,6 +46,27 @@ function toBlock(b: any): Block {
     status: b.status ?? 'normal',
     types: b.types ?? [],
     propertiesJson: b.propertiesJson ?? '',
+  };
+}
+
+function toBookmarkGroup(g: any): BookmarkGroup {
+  return {
+    id: g.id ?? '',
+    name: g.name ?? '',
+    sortOrder: g.sortOrder ?? '',
+    createdAt: g.createdAt?.millis?.toNumber?.() ?? Number(g.createdAt?.millis ?? 0),
+  };
+}
+
+function toBookmark(b: any): Bookmark {
+  return {
+    id: b.id ?? '',
+    groupId: b.groupId ?? '',
+    targetType: b.targetType ?? 'page',
+    targetId: b.targetId ?? '',
+    sortOrder: b.sortOrder ?? '',
+    createdAt: b.createdAt?.millis?.toNumber?.() ?? Number(b.createdAt?.millis ?? 0),
+    targetPage: b.targetPage ? toPage(b.targetPage) : null,
   };
 }
 
@@ -293,6 +316,48 @@ export class ApiService {
     const resp: any = await this.proto.send({ importTreeMarkdown: { treeMarkdown } });
     const r = resp.importTreeMarkdown;
     return { flatMarkdown: r.flatMarkdown ?? '' };
+  }
+
+  async getBookmarks(): Promise<GetBookmarksResult> {
+    const resp: any = await this.proto.send({ getBookmarks: {} });
+    const r = resp.getBookmarks;
+    return {
+      groups: (r.groups ?? []).map(toBookmarkGroup),
+      bookmarks: (r.bookmarks ?? []).map(toBookmark),
+    };
+  }
+
+  async createBookmarkGroup(name: string): Promise<BookmarkGroup> {
+    const resp: any = await this.proto.send({ createBookmarkGroup: { name } });
+    return toBookmarkGroup(resp.createBookmarkGroup.group);
+  }
+
+  async createBookmark(groupId: string, targetType: string, targetId: string): Promise<Bookmark> {
+    const resp: any = await this.proto.send({ createBookmark: { groupId, targetType, targetId } });
+    return toBookmark(resp.createBookmark.bookmark);
+  }
+
+  async deleteBookmark(bookmarkId: string): Promise<void> {
+    await this.proto.send({ deleteBookmark: { bookmarkId } });
+  }
+
+  async deleteBookmarkGroup(groupId: string): Promise<void> {
+    await this.proto.send({ deleteBookmarkGroup: { groupId } });
+  }
+
+  async moveBookmark(bookmarkId: string, targetGroupId: string, afterBookmarkId: string): Promise<Bookmark> {
+    const resp: any = await this.proto.send({ moveBookmark: { bookmarkId, targetGroupId, afterBookmarkId } });
+    return toBookmark(resp.moveBookmark.bookmark);
+  }
+
+  async moveBookmarkGroup(groupId: string, afterGroupId: string): Promise<BookmarkGroup> {
+    const resp: any = await this.proto.send({ moveBookmarkGroup: { groupId, afterGroupId } });
+    return toBookmarkGroup(resp.moveBookmarkGroup.group);
+  }
+
+  async updateBookmarkGroup(groupId: string, name: string): Promise<BookmarkGroup> {
+    const resp: any = await this.proto.send({ updateBookmarkGroup: { groupId, name } });
+    return toBookmarkGroup(resp.updateBookmarkGroup.group);
   }
 
   async uploadAsset(file: File): Promise<{ fileName: string }> {

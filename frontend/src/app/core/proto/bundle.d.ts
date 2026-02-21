@@ -747,6 +747,254 @@ export namespace petajournal {
         public static getTypeUrl(typeUrlPrefix?: string): string;
     }
 
+    /** Properties of a BookmarkGroup. */
+    interface IBookmarkGroup {
+
+        /** BookmarkGroup id */
+        id?: (string|null);
+
+        /** BookmarkGroup name */
+        name?: (string|null);
+
+        /** BookmarkGroup sortOrder */
+        sortOrder?: (string|null);
+
+        /** BookmarkGroup createdAt */
+        createdAt?: (petajournal.ITimestamp|null);
+    }
+
+    /** Represents a BookmarkGroup. */
+    class BookmarkGroup implements IBookmarkGroup {
+
+        /**
+         * Constructs a new BookmarkGroup.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: petajournal.IBookmarkGroup);
+
+        /** BookmarkGroup id. */
+        public id: string;
+
+        /** BookmarkGroup name. */
+        public name: string;
+
+        /** BookmarkGroup sortOrder. */
+        public sortOrder: string;
+
+        /** BookmarkGroup createdAt. */
+        public createdAt?: (petajournal.ITimestamp|null);
+
+        /**
+         * Creates a new BookmarkGroup instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns BookmarkGroup instance
+         */
+        public static create(properties?: petajournal.IBookmarkGroup): petajournal.BookmarkGroup;
+
+        /**
+         * Encodes the specified BookmarkGroup message. Does not implicitly {@link petajournal.BookmarkGroup.verify|verify} messages.
+         * @param message BookmarkGroup message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: petajournal.IBookmarkGroup, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified BookmarkGroup message, length delimited. Does not implicitly {@link petajournal.BookmarkGroup.verify|verify} messages.
+         * @param message BookmarkGroup message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encodeDelimited(message: petajournal.IBookmarkGroup, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a BookmarkGroup message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns BookmarkGroup
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.BookmarkGroup;
+
+        /**
+         * Decodes a BookmarkGroup message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns BookmarkGroup
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.BookmarkGroup;
+
+        /**
+         * Verifies a BookmarkGroup message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        public static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a BookmarkGroup message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns BookmarkGroup
+         */
+        public static fromObject(object: { [k: string]: any }): petajournal.BookmarkGroup;
+
+        /**
+         * Creates a plain object from a BookmarkGroup message. Also converts values to other types if specified.
+         * @param message BookmarkGroup
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        public static toObject(message: petajournal.BookmarkGroup, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this BookmarkGroup to JSON.
+         * @returns JSON object
+         */
+        public toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the default type url for BookmarkGroup
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a Bookmark. */
+    interface IBookmark {
+
+        /** Bookmark id */
+        id?: (string|null);
+
+        /** Bookmark groupId */
+        groupId?: (string|null);
+
+        /** Bookmark targetType */
+        targetType?: (string|null);
+
+        /** Bookmark targetId */
+        targetId?: (string|null);
+
+        /** Bookmark sortOrder */
+        sortOrder?: (string|null);
+
+        /** Bookmark createdAt */
+        createdAt?: (petajournal.ITimestamp|null);
+
+        /** Bookmark targetPage */
+        targetPage?: (petajournal.IPage|null);
+    }
+
+    /** Represents a Bookmark. */
+    class Bookmark implements IBookmark {
+
+        /**
+         * Constructs a new Bookmark.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: petajournal.IBookmark);
+
+        /** Bookmark id. */
+        public id: string;
+
+        /** Bookmark groupId. */
+        public groupId: string;
+
+        /** Bookmark targetType. */
+        public targetType: string;
+
+        /** Bookmark targetId. */
+        public targetId: string;
+
+        /** Bookmark sortOrder. */
+        public sortOrder: string;
+
+        /** Bookmark createdAt. */
+        public createdAt?: (petajournal.ITimestamp|null);
+
+        /** Bookmark targetPage. */
+        public targetPage?: (petajournal.IPage|null);
+
+        /**
+         * Creates a new Bookmark instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns Bookmark instance
+         */
+        public static create(properties?: petajournal.IBookmark): petajournal.Bookmark;
+
+        /**
+         * Encodes the specified Bookmark message. Does not implicitly {@link petajournal.Bookmark.verify|verify} messages.
+         * @param message Bookmark message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: petajournal.IBookmark, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified Bookmark message, length delimited. Does not implicitly {@link petajournal.Bookmark.verify|verify} messages.
+         * @param message Bookmark message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encodeDelimited(message: petajournal.IBookmark, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a Bookmark message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns Bookmark
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.Bookmark;
+
+        /**
+         * Decodes a Bookmark message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns Bookmark
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.Bookmark;
+
+        /**
+         * Verifies a Bookmark message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        public static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a Bookmark message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns Bookmark
+         */
+        public static fromObject(object: { [k: string]: any }): petajournal.Bookmark;
+
+        /**
+         * Creates a plain object from a Bookmark message. Also converts values to other types if specified.
+         * @param message Bookmark
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        public static toObject(message: petajournal.Bookmark, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this Bookmark to JSON.
+         * @returns JSON object
+         */
+        public toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the default type url for Bookmark
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
     /** Properties of an ApiRequest. */
     interface IApiRequest {
 
@@ -812,6 +1060,30 @@ export namespace petajournal {
 
         /** ApiRequest importTreeMarkdown */
         importTreeMarkdown?: (petajournal.IImportTreeMarkdownRequest|null);
+
+        /** ApiRequest getBookmarks */
+        getBookmarks?: (petajournal.IGetBookmarksRequest|null);
+
+        /** ApiRequest createBookmarkGroup */
+        createBookmarkGroup?: (petajournal.ICreateBookmarkGroupRequest|null);
+
+        /** ApiRequest createBookmark */
+        createBookmark?: (petajournal.ICreateBookmarkRequest|null);
+
+        /** ApiRequest deleteBookmark */
+        deleteBookmark?: (petajournal.IDeleteBookmarkRequest|null);
+
+        /** ApiRequest deleteBookmarkGroup */
+        deleteBookmarkGroup?: (petajournal.IDeleteBookmarkGroupRequest|null);
+
+        /** ApiRequest moveBookmark */
+        moveBookmark?: (petajournal.IMoveBookmarkRequest|null);
+
+        /** ApiRequest moveBookmarkGroup */
+        moveBookmarkGroup?: (petajournal.IMoveBookmarkGroupRequest|null);
+
+        /** ApiRequest updateBookmarkGroup */
+        updateBookmarkGroup?: (petajournal.IUpdateBookmarkGroupRequest|null);
     }
 
     /** Represents an ApiRequest. */
@@ -886,8 +1158,32 @@ export namespace petajournal {
         /** ApiRequest importTreeMarkdown. */
         public importTreeMarkdown?: (petajournal.IImportTreeMarkdownRequest|null);
 
+        /** ApiRequest getBookmarks. */
+        public getBookmarks?: (petajournal.IGetBookmarksRequest|null);
+
+        /** ApiRequest createBookmarkGroup. */
+        public createBookmarkGroup?: (petajournal.ICreateBookmarkGroupRequest|null);
+
+        /** ApiRequest createBookmark. */
+        public createBookmark?: (petajournal.ICreateBookmarkRequest|null);
+
+        /** ApiRequest deleteBookmark. */
+        public deleteBookmark?: (petajournal.IDeleteBookmarkRequest|null);
+
+        /** ApiRequest deleteBookmarkGroup. */
+        public deleteBookmarkGroup?: (petajournal.IDeleteBookmarkGroupRequest|null);
+
+        /** ApiRequest moveBookmark. */
+        public moveBookmark?: (petajournal.IMoveBookmarkRequest|null);
+
+        /** ApiRequest moveBookmarkGroup. */
+        public moveBookmarkGroup?: (petajournal.IMoveBookmarkGroupRequest|null);
+
+        /** ApiRequest updateBookmarkGroup. */
+        public updateBookmarkGroup?: (petajournal.IUpdateBookmarkGroupRequest|null);
+
         /** ApiRequest payload. */
-        public payload?: ("getPageById"|"getOrCreateDoc"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"getOrCreateJournal"|"exportTreeMarkdown"|"importTreeMarkdown");
+        public payload?: ("getPageById"|"getOrCreateDoc"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"getOrCreateJournal"|"exportTreeMarkdown"|"importTreeMarkdown"|"getBookmarks"|"createBookmarkGroup"|"createBookmark"|"deleteBookmark"|"deleteBookmarkGroup"|"moveBookmark"|"moveBookmarkGroup"|"updateBookmarkGroup");
 
         /**
          * Creates a new ApiRequest instance using the specified properties.
@@ -1039,6 +1335,30 @@ export namespace petajournal {
         /** ApiResponse importTreeMarkdown */
         importTreeMarkdown?: (petajournal.IImportTreeMarkdownResponse|null);
 
+        /** ApiResponse getBookmarks */
+        getBookmarks?: (petajournal.IGetBookmarksResponse|null);
+
+        /** ApiResponse createBookmarkGroup */
+        createBookmarkGroup?: (petajournal.ICreateBookmarkGroupResponse|null);
+
+        /** ApiResponse createBookmark */
+        createBookmark?: (petajournal.ICreateBookmarkResponse|null);
+
+        /** ApiResponse deleteBookmark */
+        deleteBookmark?: (petajournal.IDeleteBookmarkResponse|null);
+
+        /** ApiResponse deleteBookmarkGroup */
+        deleteBookmarkGroup?: (petajournal.IDeleteBookmarkGroupResponse|null);
+
+        /** ApiResponse moveBookmark */
+        moveBookmark?: (petajournal.IMoveBookmarkResponse|null);
+
+        /** ApiResponse moveBookmarkGroup */
+        moveBookmarkGroup?: (petajournal.IMoveBookmarkGroupResponse|null);
+
+        /** ApiResponse updateBookmarkGroup */
+        updateBookmarkGroup?: (petajournal.IUpdateBookmarkGroupResponse|null);
+
         /** ApiResponse serverEvent */
         serverEvent?: (petajournal.IServerEvent|null);
     }
@@ -1121,11 +1441,35 @@ export namespace petajournal {
         /** ApiResponse importTreeMarkdown. */
         public importTreeMarkdown?: (petajournal.IImportTreeMarkdownResponse|null);
 
+        /** ApiResponse getBookmarks. */
+        public getBookmarks?: (petajournal.IGetBookmarksResponse|null);
+
+        /** ApiResponse createBookmarkGroup. */
+        public createBookmarkGroup?: (petajournal.ICreateBookmarkGroupResponse|null);
+
+        /** ApiResponse createBookmark. */
+        public createBookmark?: (petajournal.ICreateBookmarkResponse|null);
+
+        /** ApiResponse deleteBookmark. */
+        public deleteBookmark?: (petajournal.IDeleteBookmarkResponse|null);
+
+        /** ApiResponse deleteBookmarkGroup. */
+        public deleteBookmarkGroup?: (petajournal.IDeleteBookmarkGroupResponse|null);
+
+        /** ApiResponse moveBookmark. */
+        public moveBookmark?: (petajournal.IMoveBookmarkResponse|null);
+
+        /** ApiResponse moveBookmarkGroup. */
+        public moveBookmarkGroup?: (petajournal.IMoveBookmarkGroupResponse|null);
+
+        /** ApiResponse updateBookmarkGroup. */
+        public updateBookmarkGroup?: (petajournal.IUpdateBookmarkGroupResponse|null);
+
         /** ApiResponse serverEvent. */
         public serverEvent?: (petajournal.IServerEvent|null);
 
         /** ApiResponse payload. */
-        public payload?: ("getPageById"|"getOrCreateDoc"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getOrCreateJournal"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"exportTreeMarkdown"|"importTreeMarkdown"|"serverEvent");
+        public payload?: ("getPageById"|"getOrCreateDoc"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getOrCreateJournal"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"exportTreeMarkdown"|"importTreeMarkdown"|"getBookmarks"|"createBookmarkGroup"|"createBookmark"|"deleteBookmark"|"deleteBookmarkGroup"|"moveBookmark"|"moveBookmarkGroup"|"updateBookmarkGroup"|"serverEvent");
 
         /**
          * Creates a new ApiResponse instance using the specified properties.
@@ -5350,6 +5694,1582 @@ export namespace petajournal {
 
         /**
          * Gets the default type url for ImportTreeMarkdownResponse
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a GetBookmarksRequest. */
+    interface IGetBookmarksRequest {
+    }
+
+    /** Represents a GetBookmarksRequest. */
+    class GetBookmarksRequest implements IGetBookmarksRequest {
+
+        /**
+         * Constructs a new GetBookmarksRequest.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: petajournal.IGetBookmarksRequest);
+
+        /**
+         * Creates a new GetBookmarksRequest instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns GetBookmarksRequest instance
+         */
+        public static create(properties?: petajournal.IGetBookmarksRequest): petajournal.GetBookmarksRequest;
+
+        /**
+         * Encodes the specified GetBookmarksRequest message. Does not implicitly {@link petajournal.GetBookmarksRequest.verify|verify} messages.
+         * @param message GetBookmarksRequest message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: petajournal.IGetBookmarksRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified GetBookmarksRequest message, length delimited. Does not implicitly {@link petajournal.GetBookmarksRequest.verify|verify} messages.
+         * @param message GetBookmarksRequest message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encodeDelimited(message: petajournal.IGetBookmarksRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a GetBookmarksRequest message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns GetBookmarksRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.GetBookmarksRequest;
+
+        /**
+         * Decodes a GetBookmarksRequest message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns GetBookmarksRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.GetBookmarksRequest;
+
+        /**
+         * Verifies a GetBookmarksRequest message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        public static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a GetBookmarksRequest message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns GetBookmarksRequest
+         */
+        public static fromObject(object: { [k: string]: any }): petajournal.GetBookmarksRequest;
+
+        /**
+         * Creates a plain object from a GetBookmarksRequest message. Also converts values to other types if specified.
+         * @param message GetBookmarksRequest
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        public static toObject(message: petajournal.GetBookmarksRequest, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this GetBookmarksRequest to JSON.
+         * @returns JSON object
+         */
+        public toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the default type url for GetBookmarksRequest
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a GetBookmarksResponse. */
+    interface IGetBookmarksResponse {
+
+        /** GetBookmarksResponse groups */
+        groups?: (petajournal.IBookmarkGroup[]|null);
+
+        /** GetBookmarksResponse bookmarks */
+        bookmarks?: (petajournal.IBookmark[]|null);
+    }
+
+    /** Represents a GetBookmarksResponse. */
+    class GetBookmarksResponse implements IGetBookmarksResponse {
+
+        /**
+         * Constructs a new GetBookmarksResponse.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: petajournal.IGetBookmarksResponse);
+
+        /** GetBookmarksResponse groups. */
+        public groups: petajournal.IBookmarkGroup[];
+
+        /** GetBookmarksResponse bookmarks. */
+        public bookmarks: petajournal.IBookmark[];
+
+        /**
+         * Creates a new GetBookmarksResponse instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns GetBookmarksResponse instance
+         */
+        public static create(properties?: petajournal.IGetBookmarksResponse): petajournal.GetBookmarksResponse;
+
+        /**
+         * Encodes the specified GetBookmarksResponse message. Does not implicitly {@link petajournal.GetBookmarksResponse.verify|verify} messages.
+         * @param message GetBookmarksResponse message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: petajournal.IGetBookmarksResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified GetBookmarksResponse message, length delimited. Does not implicitly {@link petajournal.GetBookmarksResponse.verify|verify} messages.
+         * @param message GetBookmarksResponse message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encodeDelimited(message: petajournal.IGetBookmarksResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a GetBookmarksResponse message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns GetBookmarksResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.GetBookmarksResponse;
+
+        /**
+         * Decodes a GetBookmarksResponse message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns GetBookmarksResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.GetBookmarksResponse;
+
+        /**
+         * Verifies a GetBookmarksResponse message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        public static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a GetBookmarksResponse message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns GetBookmarksResponse
+         */
+        public static fromObject(object: { [k: string]: any }): petajournal.GetBookmarksResponse;
+
+        /**
+         * Creates a plain object from a GetBookmarksResponse message. Also converts values to other types if specified.
+         * @param message GetBookmarksResponse
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        public static toObject(message: petajournal.GetBookmarksResponse, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this GetBookmarksResponse to JSON.
+         * @returns JSON object
+         */
+        public toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the default type url for GetBookmarksResponse
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a CreateBookmarkGroupRequest. */
+    interface ICreateBookmarkGroupRequest {
+
+        /** CreateBookmarkGroupRequest name */
+        name?: (string|null);
+    }
+
+    /** Represents a CreateBookmarkGroupRequest. */
+    class CreateBookmarkGroupRequest implements ICreateBookmarkGroupRequest {
+
+        /**
+         * Constructs a new CreateBookmarkGroupRequest.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: petajournal.ICreateBookmarkGroupRequest);
+
+        /** CreateBookmarkGroupRequest name. */
+        public name: string;
+
+        /**
+         * Creates a new CreateBookmarkGroupRequest instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns CreateBookmarkGroupRequest instance
+         */
+        public static create(properties?: petajournal.ICreateBookmarkGroupRequest): petajournal.CreateBookmarkGroupRequest;
+
+        /**
+         * Encodes the specified CreateBookmarkGroupRequest message. Does not implicitly {@link petajournal.CreateBookmarkGroupRequest.verify|verify} messages.
+         * @param message CreateBookmarkGroupRequest message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: petajournal.ICreateBookmarkGroupRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified CreateBookmarkGroupRequest message, length delimited. Does not implicitly {@link petajournal.CreateBookmarkGroupRequest.verify|verify} messages.
+         * @param message CreateBookmarkGroupRequest message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encodeDelimited(message: petajournal.ICreateBookmarkGroupRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a CreateBookmarkGroupRequest message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns CreateBookmarkGroupRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.CreateBookmarkGroupRequest;
+
+        /**
+         * Decodes a CreateBookmarkGroupRequest message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns CreateBookmarkGroupRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.CreateBookmarkGroupRequest;
+
+        /**
+         * Verifies a CreateBookmarkGroupRequest message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        public static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a CreateBookmarkGroupRequest message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns CreateBookmarkGroupRequest
+         */
+        public static fromObject(object: { [k: string]: any }): petajournal.CreateBookmarkGroupRequest;
+
+        /**
+         * Creates a plain object from a CreateBookmarkGroupRequest message. Also converts values to other types if specified.
+         * @param message CreateBookmarkGroupRequest
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        public static toObject(message: petajournal.CreateBookmarkGroupRequest, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this CreateBookmarkGroupRequest to JSON.
+         * @returns JSON object
+         */
+        public toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the default type url for CreateBookmarkGroupRequest
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a CreateBookmarkGroupResponse. */
+    interface ICreateBookmarkGroupResponse {
+
+        /** CreateBookmarkGroupResponse group */
+        group?: (petajournal.IBookmarkGroup|null);
+    }
+
+    /** Represents a CreateBookmarkGroupResponse. */
+    class CreateBookmarkGroupResponse implements ICreateBookmarkGroupResponse {
+
+        /**
+         * Constructs a new CreateBookmarkGroupResponse.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: petajournal.ICreateBookmarkGroupResponse);
+
+        /** CreateBookmarkGroupResponse group. */
+        public group?: (petajournal.IBookmarkGroup|null);
+
+        /**
+         * Creates a new CreateBookmarkGroupResponse instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns CreateBookmarkGroupResponse instance
+         */
+        public static create(properties?: petajournal.ICreateBookmarkGroupResponse): petajournal.CreateBookmarkGroupResponse;
+
+        /**
+         * Encodes the specified CreateBookmarkGroupResponse message. Does not implicitly {@link petajournal.CreateBookmarkGroupResponse.verify|verify} messages.
+         * @param message CreateBookmarkGroupResponse message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: petajournal.ICreateBookmarkGroupResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified CreateBookmarkGroupResponse message, length delimited. Does not implicitly {@link petajournal.CreateBookmarkGroupResponse.verify|verify} messages.
+         * @param message CreateBookmarkGroupResponse message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encodeDelimited(message: petajournal.ICreateBookmarkGroupResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a CreateBookmarkGroupResponse message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns CreateBookmarkGroupResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.CreateBookmarkGroupResponse;
+
+        /**
+         * Decodes a CreateBookmarkGroupResponse message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns CreateBookmarkGroupResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.CreateBookmarkGroupResponse;
+
+        /**
+         * Verifies a CreateBookmarkGroupResponse message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        public static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a CreateBookmarkGroupResponse message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns CreateBookmarkGroupResponse
+         */
+        public static fromObject(object: { [k: string]: any }): petajournal.CreateBookmarkGroupResponse;
+
+        /**
+         * Creates a plain object from a CreateBookmarkGroupResponse message. Also converts values to other types if specified.
+         * @param message CreateBookmarkGroupResponse
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        public static toObject(message: petajournal.CreateBookmarkGroupResponse, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this CreateBookmarkGroupResponse to JSON.
+         * @returns JSON object
+         */
+        public toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the default type url for CreateBookmarkGroupResponse
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a CreateBookmarkRequest. */
+    interface ICreateBookmarkRequest {
+
+        /** CreateBookmarkRequest groupId */
+        groupId?: (string|null);
+
+        /** CreateBookmarkRequest targetType */
+        targetType?: (string|null);
+
+        /** CreateBookmarkRequest targetId */
+        targetId?: (string|null);
+    }
+
+    /** Represents a CreateBookmarkRequest. */
+    class CreateBookmarkRequest implements ICreateBookmarkRequest {
+
+        /**
+         * Constructs a new CreateBookmarkRequest.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: petajournal.ICreateBookmarkRequest);
+
+        /** CreateBookmarkRequest groupId. */
+        public groupId: string;
+
+        /** CreateBookmarkRequest targetType. */
+        public targetType: string;
+
+        /** CreateBookmarkRequest targetId. */
+        public targetId: string;
+
+        /**
+         * Creates a new CreateBookmarkRequest instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns CreateBookmarkRequest instance
+         */
+        public static create(properties?: petajournal.ICreateBookmarkRequest): petajournal.CreateBookmarkRequest;
+
+        /**
+         * Encodes the specified CreateBookmarkRequest message. Does not implicitly {@link petajournal.CreateBookmarkRequest.verify|verify} messages.
+         * @param message CreateBookmarkRequest message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: petajournal.ICreateBookmarkRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified CreateBookmarkRequest message, length delimited. Does not implicitly {@link petajournal.CreateBookmarkRequest.verify|verify} messages.
+         * @param message CreateBookmarkRequest message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encodeDelimited(message: petajournal.ICreateBookmarkRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a CreateBookmarkRequest message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns CreateBookmarkRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.CreateBookmarkRequest;
+
+        /**
+         * Decodes a CreateBookmarkRequest message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns CreateBookmarkRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.CreateBookmarkRequest;
+
+        /**
+         * Verifies a CreateBookmarkRequest message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        public static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a CreateBookmarkRequest message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns CreateBookmarkRequest
+         */
+        public static fromObject(object: { [k: string]: any }): petajournal.CreateBookmarkRequest;
+
+        /**
+         * Creates a plain object from a CreateBookmarkRequest message. Also converts values to other types if specified.
+         * @param message CreateBookmarkRequest
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        public static toObject(message: petajournal.CreateBookmarkRequest, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this CreateBookmarkRequest to JSON.
+         * @returns JSON object
+         */
+        public toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the default type url for CreateBookmarkRequest
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a CreateBookmarkResponse. */
+    interface ICreateBookmarkResponse {
+
+        /** CreateBookmarkResponse bookmark */
+        bookmark?: (petajournal.IBookmark|null);
+    }
+
+    /** Represents a CreateBookmarkResponse. */
+    class CreateBookmarkResponse implements ICreateBookmarkResponse {
+
+        /**
+         * Constructs a new CreateBookmarkResponse.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: petajournal.ICreateBookmarkResponse);
+
+        /** CreateBookmarkResponse bookmark. */
+        public bookmark?: (petajournal.IBookmark|null);
+
+        /**
+         * Creates a new CreateBookmarkResponse instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns CreateBookmarkResponse instance
+         */
+        public static create(properties?: petajournal.ICreateBookmarkResponse): petajournal.CreateBookmarkResponse;
+
+        /**
+         * Encodes the specified CreateBookmarkResponse message. Does not implicitly {@link petajournal.CreateBookmarkResponse.verify|verify} messages.
+         * @param message CreateBookmarkResponse message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: petajournal.ICreateBookmarkResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified CreateBookmarkResponse message, length delimited. Does not implicitly {@link petajournal.CreateBookmarkResponse.verify|verify} messages.
+         * @param message CreateBookmarkResponse message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encodeDelimited(message: petajournal.ICreateBookmarkResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a CreateBookmarkResponse message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns CreateBookmarkResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.CreateBookmarkResponse;
+
+        /**
+         * Decodes a CreateBookmarkResponse message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns CreateBookmarkResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.CreateBookmarkResponse;
+
+        /**
+         * Verifies a CreateBookmarkResponse message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        public static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a CreateBookmarkResponse message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns CreateBookmarkResponse
+         */
+        public static fromObject(object: { [k: string]: any }): petajournal.CreateBookmarkResponse;
+
+        /**
+         * Creates a plain object from a CreateBookmarkResponse message. Also converts values to other types if specified.
+         * @param message CreateBookmarkResponse
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        public static toObject(message: petajournal.CreateBookmarkResponse, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this CreateBookmarkResponse to JSON.
+         * @returns JSON object
+         */
+        public toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the default type url for CreateBookmarkResponse
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a DeleteBookmarkRequest. */
+    interface IDeleteBookmarkRequest {
+
+        /** DeleteBookmarkRequest bookmarkId */
+        bookmarkId?: (string|null);
+    }
+
+    /** Represents a DeleteBookmarkRequest. */
+    class DeleteBookmarkRequest implements IDeleteBookmarkRequest {
+
+        /**
+         * Constructs a new DeleteBookmarkRequest.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: petajournal.IDeleteBookmarkRequest);
+
+        /** DeleteBookmarkRequest bookmarkId. */
+        public bookmarkId: string;
+
+        /**
+         * Creates a new DeleteBookmarkRequest instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns DeleteBookmarkRequest instance
+         */
+        public static create(properties?: petajournal.IDeleteBookmarkRequest): petajournal.DeleteBookmarkRequest;
+
+        /**
+         * Encodes the specified DeleteBookmarkRequest message. Does not implicitly {@link petajournal.DeleteBookmarkRequest.verify|verify} messages.
+         * @param message DeleteBookmarkRequest message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: petajournal.IDeleteBookmarkRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified DeleteBookmarkRequest message, length delimited. Does not implicitly {@link petajournal.DeleteBookmarkRequest.verify|verify} messages.
+         * @param message DeleteBookmarkRequest message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encodeDelimited(message: petajournal.IDeleteBookmarkRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a DeleteBookmarkRequest message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns DeleteBookmarkRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.DeleteBookmarkRequest;
+
+        /**
+         * Decodes a DeleteBookmarkRequest message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns DeleteBookmarkRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.DeleteBookmarkRequest;
+
+        /**
+         * Verifies a DeleteBookmarkRequest message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        public static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a DeleteBookmarkRequest message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns DeleteBookmarkRequest
+         */
+        public static fromObject(object: { [k: string]: any }): petajournal.DeleteBookmarkRequest;
+
+        /**
+         * Creates a plain object from a DeleteBookmarkRequest message. Also converts values to other types if specified.
+         * @param message DeleteBookmarkRequest
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        public static toObject(message: petajournal.DeleteBookmarkRequest, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this DeleteBookmarkRequest to JSON.
+         * @returns JSON object
+         */
+        public toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the default type url for DeleteBookmarkRequest
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a DeleteBookmarkResponse. */
+    interface IDeleteBookmarkResponse {
+    }
+
+    /** Represents a DeleteBookmarkResponse. */
+    class DeleteBookmarkResponse implements IDeleteBookmarkResponse {
+
+        /**
+         * Constructs a new DeleteBookmarkResponse.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: petajournal.IDeleteBookmarkResponse);
+
+        /**
+         * Creates a new DeleteBookmarkResponse instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns DeleteBookmarkResponse instance
+         */
+        public static create(properties?: petajournal.IDeleteBookmarkResponse): petajournal.DeleteBookmarkResponse;
+
+        /**
+         * Encodes the specified DeleteBookmarkResponse message. Does not implicitly {@link petajournal.DeleteBookmarkResponse.verify|verify} messages.
+         * @param message DeleteBookmarkResponse message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: petajournal.IDeleteBookmarkResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified DeleteBookmarkResponse message, length delimited. Does not implicitly {@link petajournal.DeleteBookmarkResponse.verify|verify} messages.
+         * @param message DeleteBookmarkResponse message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encodeDelimited(message: petajournal.IDeleteBookmarkResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a DeleteBookmarkResponse message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns DeleteBookmarkResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.DeleteBookmarkResponse;
+
+        /**
+         * Decodes a DeleteBookmarkResponse message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns DeleteBookmarkResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.DeleteBookmarkResponse;
+
+        /**
+         * Verifies a DeleteBookmarkResponse message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        public static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a DeleteBookmarkResponse message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns DeleteBookmarkResponse
+         */
+        public static fromObject(object: { [k: string]: any }): petajournal.DeleteBookmarkResponse;
+
+        /**
+         * Creates a plain object from a DeleteBookmarkResponse message. Also converts values to other types if specified.
+         * @param message DeleteBookmarkResponse
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        public static toObject(message: petajournal.DeleteBookmarkResponse, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this DeleteBookmarkResponse to JSON.
+         * @returns JSON object
+         */
+        public toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the default type url for DeleteBookmarkResponse
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a DeleteBookmarkGroupRequest. */
+    interface IDeleteBookmarkGroupRequest {
+
+        /** DeleteBookmarkGroupRequest groupId */
+        groupId?: (string|null);
+    }
+
+    /** Represents a DeleteBookmarkGroupRequest. */
+    class DeleteBookmarkGroupRequest implements IDeleteBookmarkGroupRequest {
+
+        /**
+         * Constructs a new DeleteBookmarkGroupRequest.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: petajournal.IDeleteBookmarkGroupRequest);
+
+        /** DeleteBookmarkGroupRequest groupId. */
+        public groupId: string;
+
+        /**
+         * Creates a new DeleteBookmarkGroupRequest instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns DeleteBookmarkGroupRequest instance
+         */
+        public static create(properties?: petajournal.IDeleteBookmarkGroupRequest): petajournal.DeleteBookmarkGroupRequest;
+
+        /**
+         * Encodes the specified DeleteBookmarkGroupRequest message. Does not implicitly {@link petajournal.DeleteBookmarkGroupRequest.verify|verify} messages.
+         * @param message DeleteBookmarkGroupRequest message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: petajournal.IDeleteBookmarkGroupRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified DeleteBookmarkGroupRequest message, length delimited. Does not implicitly {@link petajournal.DeleteBookmarkGroupRequest.verify|verify} messages.
+         * @param message DeleteBookmarkGroupRequest message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encodeDelimited(message: petajournal.IDeleteBookmarkGroupRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a DeleteBookmarkGroupRequest message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns DeleteBookmarkGroupRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.DeleteBookmarkGroupRequest;
+
+        /**
+         * Decodes a DeleteBookmarkGroupRequest message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns DeleteBookmarkGroupRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.DeleteBookmarkGroupRequest;
+
+        /**
+         * Verifies a DeleteBookmarkGroupRequest message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        public static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a DeleteBookmarkGroupRequest message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns DeleteBookmarkGroupRequest
+         */
+        public static fromObject(object: { [k: string]: any }): petajournal.DeleteBookmarkGroupRequest;
+
+        /**
+         * Creates a plain object from a DeleteBookmarkGroupRequest message. Also converts values to other types if specified.
+         * @param message DeleteBookmarkGroupRequest
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        public static toObject(message: petajournal.DeleteBookmarkGroupRequest, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this DeleteBookmarkGroupRequest to JSON.
+         * @returns JSON object
+         */
+        public toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the default type url for DeleteBookmarkGroupRequest
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a DeleteBookmarkGroupResponse. */
+    interface IDeleteBookmarkGroupResponse {
+    }
+
+    /** Represents a DeleteBookmarkGroupResponse. */
+    class DeleteBookmarkGroupResponse implements IDeleteBookmarkGroupResponse {
+
+        /**
+         * Constructs a new DeleteBookmarkGroupResponse.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: petajournal.IDeleteBookmarkGroupResponse);
+
+        /**
+         * Creates a new DeleteBookmarkGroupResponse instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns DeleteBookmarkGroupResponse instance
+         */
+        public static create(properties?: petajournal.IDeleteBookmarkGroupResponse): petajournal.DeleteBookmarkGroupResponse;
+
+        /**
+         * Encodes the specified DeleteBookmarkGroupResponse message. Does not implicitly {@link petajournal.DeleteBookmarkGroupResponse.verify|verify} messages.
+         * @param message DeleteBookmarkGroupResponse message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: petajournal.IDeleteBookmarkGroupResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified DeleteBookmarkGroupResponse message, length delimited. Does not implicitly {@link petajournal.DeleteBookmarkGroupResponse.verify|verify} messages.
+         * @param message DeleteBookmarkGroupResponse message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encodeDelimited(message: petajournal.IDeleteBookmarkGroupResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a DeleteBookmarkGroupResponse message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns DeleteBookmarkGroupResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.DeleteBookmarkGroupResponse;
+
+        /**
+         * Decodes a DeleteBookmarkGroupResponse message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns DeleteBookmarkGroupResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.DeleteBookmarkGroupResponse;
+
+        /**
+         * Verifies a DeleteBookmarkGroupResponse message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        public static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a DeleteBookmarkGroupResponse message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns DeleteBookmarkGroupResponse
+         */
+        public static fromObject(object: { [k: string]: any }): petajournal.DeleteBookmarkGroupResponse;
+
+        /**
+         * Creates a plain object from a DeleteBookmarkGroupResponse message. Also converts values to other types if specified.
+         * @param message DeleteBookmarkGroupResponse
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        public static toObject(message: petajournal.DeleteBookmarkGroupResponse, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this DeleteBookmarkGroupResponse to JSON.
+         * @returns JSON object
+         */
+        public toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the default type url for DeleteBookmarkGroupResponse
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a MoveBookmarkRequest. */
+    interface IMoveBookmarkRequest {
+
+        /** MoveBookmarkRequest bookmarkId */
+        bookmarkId?: (string|null);
+
+        /** MoveBookmarkRequest targetGroupId */
+        targetGroupId?: (string|null);
+
+        /** MoveBookmarkRequest afterBookmarkId */
+        afterBookmarkId?: (string|null);
+    }
+
+    /** Represents a MoveBookmarkRequest. */
+    class MoveBookmarkRequest implements IMoveBookmarkRequest {
+
+        /**
+         * Constructs a new MoveBookmarkRequest.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: petajournal.IMoveBookmarkRequest);
+
+        /** MoveBookmarkRequest bookmarkId. */
+        public bookmarkId: string;
+
+        /** MoveBookmarkRequest targetGroupId. */
+        public targetGroupId: string;
+
+        /** MoveBookmarkRequest afterBookmarkId. */
+        public afterBookmarkId: string;
+
+        /**
+         * Creates a new MoveBookmarkRequest instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns MoveBookmarkRequest instance
+         */
+        public static create(properties?: petajournal.IMoveBookmarkRequest): petajournal.MoveBookmarkRequest;
+
+        /**
+         * Encodes the specified MoveBookmarkRequest message. Does not implicitly {@link petajournal.MoveBookmarkRequest.verify|verify} messages.
+         * @param message MoveBookmarkRequest message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: petajournal.IMoveBookmarkRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified MoveBookmarkRequest message, length delimited. Does not implicitly {@link petajournal.MoveBookmarkRequest.verify|verify} messages.
+         * @param message MoveBookmarkRequest message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encodeDelimited(message: petajournal.IMoveBookmarkRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a MoveBookmarkRequest message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns MoveBookmarkRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.MoveBookmarkRequest;
+
+        /**
+         * Decodes a MoveBookmarkRequest message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns MoveBookmarkRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.MoveBookmarkRequest;
+
+        /**
+         * Verifies a MoveBookmarkRequest message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        public static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a MoveBookmarkRequest message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns MoveBookmarkRequest
+         */
+        public static fromObject(object: { [k: string]: any }): petajournal.MoveBookmarkRequest;
+
+        /**
+         * Creates a plain object from a MoveBookmarkRequest message. Also converts values to other types if specified.
+         * @param message MoveBookmarkRequest
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        public static toObject(message: petajournal.MoveBookmarkRequest, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this MoveBookmarkRequest to JSON.
+         * @returns JSON object
+         */
+        public toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the default type url for MoveBookmarkRequest
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a MoveBookmarkResponse. */
+    interface IMoveBookmarkResponse {
+
+        /** MoveBookmarkResponse bookmark */
+        bookmark?: (petajournal.IBookmark|null);
+    }
+
+    /** Represents a MoveBookmarkResponse. */
+    class MoveBookmarkResponse implements IMoveBookmarkResponse {
+
+        /**
+         * Constructs a new MoveBookmarkResponse.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: petajournal.IMoveBookmarkResponse);
+
+        /** MoveBookmarkResponse bookmark. */
+        public bookmark?: (petajournal.IBookmark|null);
+
+        /**
+         * Creates a new MoveBookmarkResponse instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns MoveBookmarkResponse instance
+         */
+        public static create(properties?: petajournal.IMoveBookmarkResponse): petajournal.MoveBookmarkResponse;
+
+        /**
+         * Encodes the specified MoveBookmarkResponse message. Does not implicitly {@link petajournal.MoveBookmarkResponse.verify|verify} messages.
+         * @param message MoveBookmarkResponse message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: petajournal.IMoveBookmarkResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified MoveBookmarkResponse message, length delimited. Does not implicitly {@link petajournal.MoveBookmarkResponse.verify|verify} messages.
+         * @param message MoveBookmarkResponse message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encodeDelimited(message: petajournal.IMoveBookmarkResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a MoveBookmarkResponse message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns MoveBookmarkResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.MoveBookmarkResponse;
+
+        /**
+         * Decodes a MoveBookmarkResponse message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns MoveBookmarkResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.MoveBookmarkResponse;
+
+        /**
+         * Verifies a MoveBookmarkResponse message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        public static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a MoveBookmarkResponse message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns MoveBookmarkResponse
+         */
+        public static fromObject(object: { [k: string]: any }): petajournal.MoveBookmarkResponse;
+
+        /**
+         * Creates a plain object from a MoveBookmarkResponse message. Also converts values to other types if specified.
+         * @param message MoveBookmarkResponse
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        public static toObject(message: petajournal.MoveBookmarkResponse, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this MoveBookmarkResponse to JSON.
+         * @returns JSON object
+         */
+        public toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the default type url for MoveBookmarkResponse
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a MoveBookmarkGroupRequest. */
+    interface IMoveBookmarkGroupRequest {
+
+        /** MoveBookmarkGroupRequest groupId */
+        groupId?: (string|null);
+
+        /** MoveBookmarkGroupRequest afterGroupId */
+        afterGroupId?: (string|null);
+    }
+
+    /** Represents a MoveBookmarkGroupRequest. */
+    class MoveBookmarkGroupRequest implements IMoveBookmarkGroupRequest {
+
+        /**
+         * Constructs a new MoveBookmarkGroupRequest.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: petajournal.IMoveBookmarkGroupRequest);
+
+        /** MoveBookmarkGroupRequest groupId. */
+        public groupId: string;
+
+        /** MoveBookmarkGroupRequest afterGroupId. */
+        public afterGroupId: string;
+
+        /**
+         * Creates a new MoveBookmarkGroupRequest instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns MoveBookmarkGroupRequest instance
+         */
+        public static create(properties?: petajournal.IMoveBookmarkGroupRequest): petajournal.MoveBookmarkGroupRequest;
+
+        /**
+         * Encodes the specified MoveBookmarkGroupRequest message. Does not implicitly {@link petajournal.MoveBookmarkGroupRequest.verify|verify} messages.
+         * @param message MoveBookmarkGroupRequest message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: petajournal.IMoveBookmarkGroupRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified MoveBookmarkGroupRequest message, length delimited. Does not implicitly {@link petajournal.MoveBookmarkGroupRequest.verify|verify} messages.
+         * @param message MoveBookmarkGroupRequest message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encodeDelimited(message: petajournal.IMoveBookmarkGroupRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a MoveBookmarkGroupRequest message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns MoveBookmarkGroupRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.MoveBookmarkGroupRequest;
+
+        /**
+         * Decodes a MoveBookmarkGroupRequest message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns MoveBookmarkGroupRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.MoveBookmarkGroupRequest;
+
+        /**
+         * Verifies a MoveBookmarkGroupRequest message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        public static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a MoveBookmarkGroupRequest message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns MoveBookmarkGroupRequest
+         */
+        public static fromObject(object: { [k: string]: any }): petajournal.MoveBookmarkGroupRequest;
+
+        /**
+         * Creates a plain object from a MoveBookmarkGroupRequest message. Also converts values to other types if specified.
+         * @param message MoveBookmarkGroupRequest
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        public static toObject(message: petajournal.MoveBookmarkGroupRequest, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this MoveBookmarkGroupRequest to JSON.
+         * @returns JSON object
+         */
+        public toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the default type url for MoveBookmarkGroupRequest
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a MoveBookmarkGroupResponse. */
+    interface IMoveBookmarkGroupResponse {
+
+        /** MoveBookmarkGroupResponse group */
+        group?: (petajournal.IBookmarkGroup|null);
+    }
+
+    /** Represents a MoveBookmarkGroupResponse. */
+    class MoveBookmarkGroupResponse implements IMoveBookmarkGroupResponse {
+
+        /**
+         * Constructs a new MoveBookmarkGroupResponse.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: petajournal.IMoveBookmarkGroupResponse);
+
+        /** MoveBookmarkGroupResponse group. */
+        public group?: (petajournal.IBookmarkGroup|null);
+
+        /**
+         * Creates a new MoveBookmarkGroupResponse instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns MoveBookmarkGroupResponse instance
+         */
+        public static create(properties?: petajournal.IMoveBookmarkGroupResponse): petajournal.MoveBookmarkGroupResponse;
+
+        /**
+         * Encodes the specified MoveBookmarkGroupResponse message. Does not implicitly {@link petajournal.MoveBookmarkGroupResponse.verify|verify} messages.
+         * @param message MoveBookmarkGroupResponse message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: petajournal.IMoveBookmarkGroupResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified MoveBookmarkGroupResponse message, length delimited. Does not implicitly {@link petajournal.MoveBookmarkGroupResponse.verify|verify} messages.
+         * @param message MoveBookmarkGroupResponse message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encodeDelimited(message: petajournal.IMoveBookmarkGroupResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a MoveBookmarkGroupResponse message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns MoveBookmarkGroupResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.MoveBookmarkGroupResponse;
+
+        /**
+         * Decodes a MoveBookmarkGroupResponse message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns MoveBookmarkGroupResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.MoveBookmarkGroupResponse;
+
+        /**
+         * Verifies a MoveBookmarkGroupResponse message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        public static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a MoveBookmarkGroupResponse message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns MoveBookmarkGroupResponse
+         */
+        public static fromObject(object: { [k: string]: any }): petajournal.MoveBookmarkGroupResponse;
+
+        /**
+         * Creates a plain object from a MoveBookmarkGroupResponse message. Also converts values to other types if specified.
+         * @param message MoveBookmarkGroupResponse
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        public static toObject(message: petajournal.MoveBookmarkGroupResponse, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this MoveBookmarkGroupResponse to JSON.
+         * @returns JSON object
+         */
+        public toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the default type url for MoveBookmarkGroupResponse
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of an UpdateBookmarkGroupRequest. */
+    interface IUpdateBookmarkGroupRequest {
+
+        /** UpdateBookmarkGroupRequest groupId */
+        groupId?: (string|null);
+
+        /** UpdateBookmarkGroupRequest name */
+        name?: (string|null);
+    }
+
+    /** Represents an UpdateBookmarkGroupRequest. */
+    class UpdateBookmarkGroupRequest implements IUpdateBookmarkGroupRequest {
+
+        /**
+         * Constructs a new UpdateBookmarkGroupRequest.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: petajournal.IUpdateBookmarkGroupRequest);
+
+        /** UpdateBookmarkGroupRequest groupId. */
+        public groupId: string;
+
+        /** UpdateBookmarkGroupRequest name. */
+        public name: string;
+
+        /**
+         * Creates a new UpdateBookmarkGroupRequest instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns UpdateBookmarkGroupRequest instance
+         */
+        public static create(properties?: petajournal.IUpdateBookmarkGroupRequest): petajournal.UpdateBookmarkGroupRequest;
+
+        /**
+         * Encodes the specified UpdateBookmarkGroupRequest message. Does not implicitly {@link petajournal.UpdateBookmarkGroupRequest.verify|verify} messages.
+         * @param message UpdateBookmarkGroupRequest message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: petajournal.IUpdateBookmarkGroupRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified UpdateBookmarkGroupRequest message, length delimited. Does not implicitly {@link petajournal.UpdateBookmarkGroupRequest.verify|verify} messages.
+         * @param message UpdateBookmarkGroupRequest message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encodeDelimited(message: petajournal.IUpdateBookmarkGroupRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes an UpdateBookmarkGroupRequest message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns UpdateBookmarkGroupRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.UpdateBookmarkGroupRequest;
+
+        /**
+         * Decodes an UpdateBookmarkGroupRequest message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns UpdateBookmarkGroupRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.UpdateBookmarkGroupRequest;
+
+        /**
+         * Verifies an UpdateBookmarkGroupRequest message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        public static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates an UpdateBookmarkGroupRequest message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns UpdateBookmarkGroupRequest
+         */
+        public static fromObject(object: { [k: string]: any }): petajournal.UpdateBookmarkGroupRequest;
+
+        /**
+         * Creates a plain object from an UpdateBookmarkGroupRequest message. Also converts values to other types if specified.
+         * @param message UpdateBookmarkGroupRequest
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        public static toObject(message: petajournal.UpdateBookmarkGroupRequest, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this UpdateBookmarkGroupRequest to JSON.
+         * @returns JSON object
+         */
+        public toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the default type url for UpdateBookmarkGroupRequest
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of an UpdateBookmarkGroupResponse. */
+    interface IUpdateBookmarkGroupResponse {
+
+        /** UpdateBookmarkGroupResponse group */
+        group?: (petajournal.IBookmarkGroup|null);
+    }
+
+    /** Represents an UpdateBookmarkGroupResponse. */
+    class UpdateBookmarkGroupResponse implements IUpdateBookmarkGroupResponse {
+
+        /**
+         * Constructs a new UpdateBookmarkGroupResponse.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: petajournal.IUpdateBookmarkGroupResponse);
+
+        /** UpdateBookmarkGroupResponse group. */
+        public group?: (petajournal.IBookmarkGroup|null);
+
+        /**
+         * Creates a new UpdateBookmarkGroupResponse instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns UpdateBookmarkGroupResponse instance
+         */
+        public static create(properties?: petajournal.IUpdateBookmarkGroupResponse): petajournal.UpdateBookmarkGroupResponse;
+
+        /**
+         * Encodes the specified UpdateBookmarkGroupResponse message. Does not implicitly {@link petajournal.UpdateBookmarkGroupResponse.verify|verify} messages.
+         * @param message UpdateBookmarkGroupResponse message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: petajournal.IUpdateBookmarkGroupResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified UpdateBookmarkGroupResponse message, length delimited. Does not implicitly {@link petajournal.UpdateBookmarkGroupResponse.verify|verify} messages.
+         * @param message UpdateBookmarkGroupResponse message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encodeDelimited(message: petajournal.IUpdateBookmarkGroupResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes an UpdateBookmarkGroupResponse message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns UpdateBookmarkGroupResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.UpdateBookmarkGroupResponse;
+
+        /**
+         * Decodes an UpdateBookmarkGroupResponse message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns UpdateBookmarkGroupResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.UpdateBookmarkGroupResponse;
+
+        /**
+         * Verifies an UpdateBookmarkGroupResponse message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        public static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates an UpdateBookmarkGroupResponse message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns UpdateBookmarkGroupResponse
+         */
+        public static fromObject(object: { [k: string]: any }): petajournal.UpdateBookmarkGroupResponse;
+
+        /**
+         * Creates a plain object from an UpdateBookmarkGroupResponse message. Also converts values to other types if specified.
+         * @param message UpdateBookmarkGroupResponse
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        public static toObject(message: petajournal.UpdateBookmarkGroupResponse, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this UpdateBookmarkGroupResponse to JSON.
+         * @returns JSON object
+         */
+        public toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the default type url for UpdateBookmarkGroupResponse
          * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
          * @returns The default type url
          */

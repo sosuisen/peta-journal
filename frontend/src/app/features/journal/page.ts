@@ -3,6 +3,7 @@ import { Title } from '@angular/platform-browser';
 import { OutlineComponent } from '../outline/outline';
 import { ApiService } from '../../core/services/api.service';
 import { Page } from '../../core/models/page.model';
+import { CurrentPageService } from '../../core/services/current-page.service';
 import { RecentPagesService } from '../../core/services/recent-pages.service';
 import { NavigationService } from '../../core/services/navigation.service';
 import { formatJournalDate } from '../../core/utils/date.utils';
@@ -124,6 +125,7 @@ export class PageComponent {
   readonly pageName = input.required<string>();
   private readonly api = inject(ApiService);
   private readonly titleService = inject(Title);
+  private readonly currentPageService = inject(CurrentPageService);
   private readonly recentPages = inject(RecentPagesService);
   private readonly navigation = inject(NavigationService);
   private readonly extensionFunctions = inject(ExtensionFunctionService);
@@ -293,6 +295,7 @@ export class PageComponent {
       }
 
       this.page.set(p);
+      this.currentPageService.setCurrentPage(p);
       if (result.created) {
         this.recentPages.refresh();
         this.extensionFunctions.emitPageCreate({

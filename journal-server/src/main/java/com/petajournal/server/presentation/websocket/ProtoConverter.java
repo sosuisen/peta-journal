@@ -60,6 +60,29 @@ final class ProtoConverter {
                 .build();
     }
 
+    static com.petajournal.proto.BookmarkGroup toProto(com.petajournal.server.domain.model.BookmarkGroup group) {
+        return com.petajournal.proto.BookmarkGroup.newBuilder()
+                .setId(group.id().toString())
+                .setName(group.name())
+                .setSortOrder(group.sortOrder())
+                .setCreatedAt(Timestamp.newBuilder().setMillis(group.createdAt().toEpochMilli()).build())
+                .build();
+    }
+
+    static com.petajournal.proto.Bookmark toProto(com.petajournal.server.domain.model.Bookmark bookmark) {
+        com.petajournal.proto.Bookmark.Builder b = com.petajournal.proto.Bookmark.newBuilder()
+                .setId(bookmark.id().toString())
+                .setGroupId(bookmark.groupId().toString())
+                .setTargetType(bookmark.targetType())
+                .setTargetId(bookmark.targetId())
+                .setSortOrder(bookmark.sortOrder())
+                .setCreatedAt(Timestamp.newBuilder().setMillis(bookmark.createdAt().toEpochMilli()).build());
+        if (bookmark.targetPage() != null) {
+            b.setTargetPage(toProto(bookmark.targetPage()));
+        }
+        return b.build();
+    }
+
     static com.petajournal.proto.BacklinkEntry toProto(BacklinkEntry entry) {
         com.petajournal.proto.BacklinkEntry.Builder b = com.petajournal.proto.BacklinkEntry.newBuilder()
                 .setSourcePage(toProto(entry.sourcePage()));

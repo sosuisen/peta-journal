@@ -81,11 +81,34 @@ public class DatabaseInitializer {
                 )
                 """);
 
+            stmt.execute("""
+                CREATE TABLE IF NOT EXISTS bookmark_groups (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL DEFAULT '',
+                    sort_order TEXT NOT NULL,
+                    created_at INTEGER NOT NULL
+                )
+                """);
+
+            stmt.execute("""
+                CREATE TABLE IF NOT EXISTS bookmarks (
+                    id TEXT PRIMARY KEY,
+                    group_id TEXT NOT NULL REFERENCES bookmark_groups(id) ON DELETE CASCADE,
+                    target_type TEXT NOT NULL CHECK(target_type IN ('block', 'page')),
+                    target_id TEXT NOT NULL,
+                    sort_order TEXT NOT NULL,
+                    created_at INTEGER NOT NULL,
+                    UNIQUE(target_type, target_id)
+                )
+                """);
+
             stmt.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_pages_type_dir_file ON pages(type, dir_path, file_name)");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_pages_modified ON pages(modified_date DESC)");
             stmt.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_blocks_page_id ON blocks(page_id, idx)");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_blocks_body_link ON blocks(body)");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_blocks_status ON blocks(status)");
+            stmt.execute("CREATE INDEX IF NOT EXISTS idx_bookmark_groups_sort ON bookmark_groups(sort_order)");
+            stmt.execute("CREATE INDEX IF NOT EXISTS idx_bookmarks_group_sort ON bookmarks(group_id, sort_order)");
 
             LOG.info("Database initialized");
         } catch (SQLException e) {

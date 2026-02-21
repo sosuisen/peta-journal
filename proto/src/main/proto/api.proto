@@ -9,6 +9,7 @@ option java_multiple_files = true;
 import "page.proto";
 import "block.proto";
 import "search.proto";
+import "bookmark.proto";
 
 // Top-level request envelope
 message ApiRequest {
@@ -34,6 +35,14 @@ message ApiRequest {
     GetOrCreateJournalRequest get_or_create_journal = 44;
     ExportTreeMarkdownRequest export_tree_markdown = 70;
     ImportTreeMarkdownRequest import_tree_markdown = 71;
+    GetBookmarksRequest get_bookmarks = 80;
+    CreateBookmarkGroupRequest create_bookmark_group = 81;
+    CreateBookmarkRequest create_bookmark = 82;
+    DeleteBookmarkRequest delete_bookmark = 83;
+    DeleteBookmarkGroupRequest delete_bookmark_group = 84;
+    MoveBookmarkRequest move_bookmark = 85;
+    MoveBookmarkGroupRequest move_bookmark_group = 86;
+    UpdateBookmarkGroupRequest update_bookmark_group = 87;
   }
 }
 
@@ -63,6 +72,14 @@ message ApiResponse {
     UpdateConfigResponse update_config = 61;
     ExportTreeMarkdownResponse export_tree_markdown = 70;
     ImportTreeMarkdownResponse import_tree_markdown = 71;
+    GetBookmarksResponse get_bookmarks = 80;
+    CreateBookmarkGroupResponse create_bookmark_group = 81;
+    CreateBookmarkResponse create_bookmark = 82;
+    DeleteBookmarkResponse delete_bookmark = 83;
+    DeleteBookmarkGroupResponse delete_bookmark_group = 84;
+    MoveBookmarkResponse move_bookmark = 85;
+    MoveBookmarkGroupResponse move_bookmark_group = 86;
+    UpdateBookmarkGroupResponse update_bookmark_group = 87;
     ServerEvent server_event = 100;
   }
 }
@@ -273,6 +290,73 @@ message ImportTreeMarkdownRequest {
 
 message ImportTreeMarkdownResponse {
   string flat_markdown = 1;
+}
+
+// --- Bookmark operations ---
+
+message GetBookmarksRequest {}
+
+message GetBookmarksResponse {
+  repeated BookmarkGroup groups = 1;
+  repeated Bookmark bookmarks = 2;
+}
+
+message CreateBookmarkGroupRequest {
+  string name = 1;
+}
+
+message CreateBookmarkGroupResponse {
+  BookmarkGroup group = 1;
+}
+
+message CreateBookmarkRequest {
+  string group_id = 1;
+  string target_type = 2;            // "page" or "block"
+  string target_id = 3;
+}
+
+message CreateBookmarkResponse {
+  Bookmark bookmark = 1;
+}
+
+message DeleteBookmarkRequest {
+  string bookmark_id = 1;
+}
+
+message DeleteBookmarkResponse {}
+
+message DeleteBookmarkGroupRequest {
+  string group_id = 1;
+}
+
+message DeleteBookmarkGroupResponse {}
+
+message MoveBookmarkRequest {
+  string bookmark_id = 1;
+  string target_group_id = 2;        // new group
+  string after_bookmark_id = 3;      // empty = first in group
+}
+
+message MoveBookmarkResponse {
+  Bookmark bookmark = 1;
+}
+
+message MoveBookmarkGroupRequest {
+  string group_id = 1;
+  string after_group_id = 2;         // empty = first
+}
+
+message MoveBookmarkGroupResponse {
+  BookmarkGroup group = 1;
+}
+
+message UpdateBookmarkGroupRequest {
+  string group_id = 1;
+  string name = 2;
+}
+
+message UpdateBookmarkGroupResponse {
+  BookmarkGroup group = 1;
 }
 
 // --- Server-pushed events ---

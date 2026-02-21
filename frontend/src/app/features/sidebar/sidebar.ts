@@ -2,12 +2,13 @@ import { Component, inject, OnInit } from '@angular/core';
 import { RecentPagesService } from '../../core/services/recent-pages.service';
 import { Page } from '../../core/models/page.model';
 import { CalendarComponent } from '../../shared/calendar';
+import { BookmarksSidebarComponent } from './bookmarks-sidebar';
 import { formatJournalDate, formatDateToIso } from '../../core/utils/date.utils';
 import { NavigationService } from '../../core/services/navigation.service';
 
 @Component({
   selector: 'app-sidebar',
-  imports: [CalendarComponent],
+  imports: [CalendarComponent, BookmarksSidebarComponent],
   template: `
     <nav class="sidebar">
       <div class="sidebar-content">
@@ -31,8 +32,7 @@ import { NavigationService } from '../../core/services/navigation.service';
         </div>
 
         <div class="sidebar-section">
-          <h3 class="section-title">Bookmarks</h3>
-          <div class="sidebar-placeholder">No bookmarks yet</div>
+          <app-bookmarks-sidebar />
         </div>
       </div>
 

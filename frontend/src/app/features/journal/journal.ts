@@ -7,6 +7,7 @@ import { CalendarComponent } from '../../shared/calendar';
 import { OutlineStateService } from '../../core/services/outline-state.service';
 import { formatJournalDate, formatDateToIso } from '../../core/utils/date.utils';
 import { classifyJournalFileName, JournalType } from '../../core/utils/journal-filename.utils';
+import { CurrentPageService } from '../../core/services/current-page.service';
 import { RecentPagesService } from '../../core/services/recent-pages.service';
 import { NavigationService } from '../../core/services/navigation.service';
 import { ExtensionFunctionService } from '../../core/services/extension-function.service';
@@ -83,6 +84,7 @@ export class JournalComponent {
   private readonly api = inject(ApiService);
   private readonly title = inject(Title);
   private readonly outlineState = inject(OutlineStateService);
+  private readonly currentPageService = inject(CurrentPageService);
   private readonly recentPages = inject(RecentPagesService);
   private readonly nav = inject(NavigationService);
   private readonly extensionFunctions = inject(ExtensionFunctionService);
@@ -116,6 +118,7 @@ export class JournalComponent {
   private async loadJournal(date: string): Promise<void> {
     const result = await this.api.getOrCreateJournal(date);
     this.page.set(result.page);
+    this.currentPageService.setCurrentPage(result.page);
     if (result.created) {
       this.recentPages.refresh();
     }

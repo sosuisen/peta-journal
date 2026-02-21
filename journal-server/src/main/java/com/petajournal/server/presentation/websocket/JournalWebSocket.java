@@ -2,6 +2,7 @@ package com.petajournal.server.presentation.websocket;
 
 import com.petajournal.proto.*;
 import com.petajournal.server.application.BlockService;
+import com.petajournal.server.application.BookmarkService;
 import com.petajournal.server.application.ConfigService;
 import com.petajournal.server.application.JournalService;
 import com.petajournal.server.application.PageService;
@@ -41,6 +42,9 @@ public class JournalWebSocket {
 
     @Inject
     PageRepository pageRepository;
+
+    @Inject
+    BookmarkService bookmarkService;
 
     @Inject
     ConfigService configService;
@@ -126,6 +130,14 @@ public class JournalWebSocket {
                 case UPDATE_CONFIG -> response.setUpdateConfig(handleUpdateConfig(request.getUpdateConfig()));
                 case EXPORT_TREE_MARKDOWN -> response.setExportTreeMarkdown(handleExportTreeMarkdown(request.getExportTreeMarkdown()));
                 case IMPORT_TREE_MARKDOWN -> response.setImportTreeMarkdown(handleImportTreeMarkdown(request.getImportTreeMarkdown()));
+                case GET_BOOKMARKS -> response.setGetBookmarks(handleGetBookmarks());
+                case CREATE_BOOKMARK_GROUP -> response.setCreateBookmarkGroup(handleCreateBookmarkGroup(request.getCreateBookmarkGroup()));
+                case CREATE_BOOKMARK -> response.setCreateBookmark(handleCreateBookmark(request.getCreateBookmark()));
+                case DELETE_BOOKMARK -> response.setDeleteBookmark(handleDeleteBookmark(request.getDeleteBookmark()));
+                case DELETE_BOOKMARK_GROUP -> response.setDeleteBookmarkGroup(handleDeleteBookmarkGroup(request.getDeleteBookmarkGroup()));
+                case MOVE_BOOKMARK -> response.setMoveBookmark(handleMoveBookmark(request.getMoveBookmark()));
+                case MOVE_BOOKMARK_GROUP -> response.setMoveBookmarkGroup(handleMoveBookmarkGroup(request.getMoveBookmarkGroup()));
+                case UPDATE_BOOKMARK_GROUP -> response.setUpdateBookmarkGroup(handleUpdateBookmarkGroup(request.getUpdateBookmarkGroup()));
                 default -> {
                     response.setSuccess(false);
                     response.setErrorMessage("Unknown request type: " + request.getPayloadCase());
@@ -356,6 +368,70 @@ public class JournalWebSocket {
         String flatMd = blockService.importTreeMarkdown(req.getTreeMarkdown());
         return ImportTreeMarkdownResponse.newBuilder()
                 .setFlatMarkdown(flatMd)
+                .build();
+    }
+
+    private GetBookmarksResponse handleGetBookmarks() {
+        var result = bookmarkService.getAllBookmarks();
+        return GetBookmarksResponse.newBuilder()
+                .addAllGroups(result.groups().stream().map(ProtoConverter::toProto).toList())
+                .addAllBookmarks(result.bookmarks().stream().map(ProtoConverter::toProto).toList())
+                .build();
+    }
+
+    private CreateBookmarkGroupResponse handleCreateBookmarkGroup(CreateBookmarkGroupRequest req) {
+        var group = bookmarkService.createGroup(req.getName());
+        return CreateBookmarkGroupResponse.newBuilder()
+                .setGroup(ProtoConverter.toProto(group))
+                .build();
+    }
+
+    private CreateBookmarkResponse handleCreateBookmark(CreateBookmarkRequest req) {
+        var bookmark = bookmarkService.createBookmark(
+                UUID.fromString(req.getGroupId()),
+                req.getTargetType(),
+                req.getTargetId()
+        );
+        return CreateBookmarkResponse.newBuilder()
+                .setBookmark(ProtoConverter.toProto(bookmark))
+                .build();
+    }
+
+    private DeleteBookmarkResponse handleDeleteBookmark(DeleteBookmarkRequest req) {
+        bookmarkService.deleteBookmark(UUID.fromString(req.getBookmarkId()));
+        return DeleteBookmarkResponse.newBuilder().build();
+    }
+
+    private DeleteBookmarkGroupResponse handleDeleteBookmarkGroup(DeleteBookmarkGroupRequest req) {
+        bookmarkService.deleteGroup(UUID.fromString(req.getGroupId()));
+        return DeleteBookmarkGroupResponse.newBuilder().build();
+    }
+
+    private MoveBookmarkResponse handleMoveBookmark(MoveBookmarkRequest req) {
+        var bookmark = bookmarkService.moveBookmark(
+                UUID.fromString(req.getBookmarkId()),
+                UUID.fromString(req.getTargetGroupId()),
+                req.getAfterBookmarkId().isEmpty() ? null : req.getAfterBookmarkId()
+        );
+        return MoveBookmarkResponse.newBuilder()
+                .setBookmark(ProtoConverter.toProto(bookmark))
+                .build();
+    }
+
+    private MoveBookmarkGroupResponse handleMoveBookmarkGroup(MoveBookmarkGroupRequest req) {
+        var group = bookmarkService.moveGroup(
+                UUID.fromString(req.getGroupId()),
+                req.getAfterGroupId().isEmpty() ? null : req.getAfterGroupId()
+        );
+        return MoveBookmarkGroupResponse.newBuilder()
+                .setGroup(ProtoConverter.toProto(group))
+                .build();
+    }
+
+    private UpdateBookmarkGroupResponse handleUpdateBookmarkGroup(UpdateBookmarkGroupRequest req) {
+        var group = bookmarkService.updateGroup(UUID.fromString(req.getGroupId()), req.getName());
+        return UpdateBookmarkGroupResponse.newBuilder()
+                .setGroup(ProtoConverter.toProto(group))
                 .build();
     }
 }
