@@ -72,7 +72,7 @@ public class JournalService {
         searchService.indexPage(page);
 
         // Create initial empty block
-        String blockId = BlockIdGenerator.generate();
+        UUID blockId = BlockIdGenerator.generate();
         Block block = new Block(blockId, id, page.dirPath(), page.fileName(), page.type(), now, now, FractionalIndexer.initial(), 0, "", "", false, "normal", List.of(), "{}");
         block = blockRepository.save(block);
 
@@ -99,7 +99,7 @@ public class JournalService {
         // Create blocks with wiki links to each day of the week
         List<LocalDate> weekDays = getWeekDays(year, week);
         List<Block> blocks = new ArrayList<>();
-        String afterBlockId = "";
+        UUID afterBlockId = null;
         for (LocalDate day : weekDays) {
             String body = "[[" + day.format(DateTimeFormatter.ISO_LOCAL_DATE) + "]]";
             Block block = blockService.createBlock(id, afterBlockId, 0, body);
@@ -187,7 +187,7 @@ public class JournalService {
 
         // Create blocks with wiki links to each month
         List<Block> blocks = new ArrayList<>();
-        String afterBlockId = "";
+        UUID afterBlockId = null;
         for (int m = 1; m <= 12; m++) {
             String body = "[[" + year + "-" + String.format("%02d", m) + "]]";
             Block block = blockService.createBlock(id, afterBlockId, 0, body);
@@ -217,7 +217,7 @@ public class JournalService {
         // Create blocks with wiki links to each week that overlaps this month
         List<Integer> weekNumbers = getWeeksInMonth(year, month);
         List<Block> blocks = new ArrayList<>();
-        String afterBlockId = "";
+        UUID afterBlockId = null;
         for (int w : weekNumbers) {
             String body = "[[" + year + "-W" + String.format("%02d", w) + "]]";
             Block block = blockService.createBlock(id, afterBlockId, 0, body);

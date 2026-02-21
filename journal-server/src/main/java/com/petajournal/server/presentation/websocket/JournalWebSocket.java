@@ -91,10 +91,10 @@ public class JournalWebSocket {
     private String extractPageIdForBroadcast(ApiRequest request) {
         return switch (request.getPayloadCase()) {
             case CREATE_BLOCK -> request.getCreateBlock().getPageId();
-            case UPDATE_BLOCK -> blockService.getBlockPageId(request.getUpdateBlock().getBlockId());
+            case UPDATE_BLOCK -> blockService.getBlockPageId(UUID.fromString(request.getUpdateBlock().getBlockId()));
             case MOVE_BLOCKS -> request.getMoveBlocks().getTargetPageId();
-            case DELETE_BLOCK -> blockService.getBlockPageId(request.getDeleteBlock().getBlockId());
-            case UPDATE_BLOCK_STATUS -> blockService.getBlockPageId(request.getUpdateBlockStatus().getBlockId());
+            case DELETE_BLOCK -> blockService.getBlockPageId(UUID.fromString(request.getDeleteBlock().getBlockId()));
+            case UPDATE_BLOCK_STATUS -> blockService.getBlockPageId(UUID.fromString(request.getUpdateBlockStatus().getBlockId()));
             case DELETE_PAGE -> request.getDeletePage().getPageId();
             case UPDATE_PAGE -> request.getUpdatePage().getPageId();
             default -> null;
@@ -212,7 +212,7 @@ public class JournalWebSocket {
     private CreateBlockResponse handleCreateBlock(CreateBlockRequest req) {
         var block = blockService.createBlock(
                 UUID.fromString(req.getPageId()),
-                req.getAfterBlockId(),
+                req.getAfterBlockId().isEmpty() ? null : UUID.fromString(req.getAfterBlockId()),
                 req.getLevel(),
                 req.getBody()
         );
@@ -223,7 +223,7 @@ public class JournalWebSocket {
 
     private UpdateBlockResponse handleUpdateBlock(UpdateBlockRequest req) {
         var block = blockService.updateBlock(
-                req.getBlockId(),
+                UUID.fromString(req.getBlockId()),
                 req.hasBody() ? req.getBody() : null,
                 req.hasLevel() ? req.getLevel() : null,
                 req.hasCollapsed() ? req.getCollapsed() : null,
@@ -237,9 +237,9 @@ public class JournalWebSocket {
 
     private MoveBlocksResponse handleMoveBlocks(MoveBlocksRequest req) {
         var blocks = blockService.moveBlocks(
-                req.getBlockIdsList(),
+                req.getBlockIdsList().stream().map(UUID::fromString).toList(),
                 UUID.fromString(req.getTargetPageId()),
-                req.getAfterBlockId(),
+                req.getAfterBlockId().isEmpty() ? null : UUID.fromString(req.getAfterBlockId()),
                 req.hasLevelDelta() ? req.getLevelDelta() : null
         );
         return MoveBlocksResponse.newBuilder()
@@ -248,12 +248,12 @@ public class JournalWebSocket {
     }
 
     private DeleteBlockResponse handleDeleteBlock(DeleteBlockRequest req) {
-        blockService.deleteBlock(req.getBlockId());
+        blockService.deleteBlock(UUID.fromString(req.getBlockId()));
         return DeleteBlockResponse.newBuilder().build();
     }
 
     private UpdateBlockStatusResponse handleUpdateBlockStatus(UpdateBlockStatusRequest req) {
-        var block = blockService.updateBlockStatus(req.getBlockId(), req.getStatus());
+        var block = blockService.updateBlockStatus(UUID.fromString(req.getBlockId()), req.getStatus());
         return UpdateBlockStatusResponse.newBuilder()
                 .setBlock(ProtoConverter.toProto(block))
                 .build();
@@ -356,7 +356,7 @@ public class JournalWebSocket {
     }
 
     private ExportTreeMarkdownResponse handleExportTreeMarkdown(ExportTreeMarkdownRequest req) {
-        var result = blockService.exportTreeMarkdown(req.getBlockIdsList());
+        var result = blockService.exportTreeMarkdown(req.getBlockIdsList().stream().map(UUID::fromString).toList());
         return ExportTreeMarkdownResponse.newBuilder()
                 .setTreeMarkdown(result.treeMarkdown())
                 .setHtml(result.html())

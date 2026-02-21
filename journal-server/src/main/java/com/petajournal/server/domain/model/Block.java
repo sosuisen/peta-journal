@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.UUID;
 
 public record Block(
-    String id,           // 7-char hex
+    UUID id,
     UUID pageId,
     String dirPath,
     String fileName,

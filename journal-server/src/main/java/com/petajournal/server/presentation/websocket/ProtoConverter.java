@@ -30,7 +30,7 @@ final class ProtoConverter {
 
     static Block toProto(com.petajournal.server.domain.model.Block block) {
         Block.Builder b = Block.newBuilder()
-                .setId(block.id())
+                .setId(block.id().toString())
                 .setPageId(block.pageId().toString())
                 .setDirPath(block.dirPath())
                 .setFileName(block.fileName())

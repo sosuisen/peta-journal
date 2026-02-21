@@ -82,7 +82,16 @@ public class OutlineMarkdownParser {
 
         for (ParsedBlock pb : result.blocks()) {
             String idx = FractionalIndexer.between(prevIdx, null);
-            String blockId = (pb.id() != null && !pb.id().isEmpty()) ? pb.id() : BlockIdGenerator.generate();
+            UUID blockId;
+            if (pb.id() != null && !pb.id().isEmpty()) {
+                try {
+                    blockId = UUID.fromString(pb.id());
+                } catch (IllegalArgumentException e) {
+                    blockId = BlockIdGenerator.generate();
+                }
+            } else {
+                blockId = BlockIdGenerator.generate();
+            }
 
             blocks.add(new Block(
                     blockId, pageId, dirPath, fileName, type, now, now, idx,

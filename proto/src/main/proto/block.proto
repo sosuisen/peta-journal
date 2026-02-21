@@ -9,7 +9,7 @@ option java_multiple_files = true;
 import "common.proto";
 
 message Block {
-  string id = 1;                    // 7-char hex (first 7 of UUID)
+  string id = 1;                    // UUID
   string page_id = 2;              // UUID of parent page
   string dir_path = 3;             // Sub-path within type dir
   string file_name = 4;            // File name of the page

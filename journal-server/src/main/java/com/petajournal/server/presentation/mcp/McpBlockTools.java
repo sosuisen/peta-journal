@@ -26,7 +26,7 @@ public class McpBlockTools {
     ) {
         var block = blockService.createBlock(
                 UUID.fromString(pageId),
-                afterBlockId,
+                afterBlockId.isEmpty() ? null : UUID.fromString(afterBlockId),
                 level,
                 body
         );
@@ -35,7 +35,7 @@ public class McpBlockTools {
 
     @Tool(description = "Update an existing block's body, level, collapsed state, or status. Only non-null fields are updated.")
     String update_block(
-            @ToolArg(description = "7-char hex block ID") String blockId,
+            @ToolArg(description = "UUID of the block") String blockId,
             @ToolArg(description = "New markdown body (null to keep current)") String body,
             @ToolArg(description = "New indentation level, or -1 to keep current") int level,
             @ToolArg(description = "New collapsed state: 'true', 'false', or 'null' to keep current") String collapsed,
@@ -44,15 +44,15 @@ public class McpBlockTools {
         Integer lvl = (level < 0) ? null : level;
         Boolean col = "null".equals(collapsed) ? null : Boolean.parseBoolean(collapsed);
         String st = "null".equals(status) ? null : status;
-        var block = blockService.updateBlock(blockId, body, lvl, col, st, null);
+        var block = blockService.updateBlock(UUID.fromString(blockId), body, lvl, col, st, null);
         return jsonHelper.toJson(Map.of("block", block));
     }
 
     @Tool(description = "Delete a block by its ID")
     String delete_block(
-            @ToolArg(description = "7-char hex block ID") String blockId
+            @ToolArg(description = "UUID of the block") String blockId
     ) {
-        blockService.deleteBlock(blockId);
+        blockService.deleteBlock(UUID.fromString(blockId));
         return jsonHelper.toJson(Map.of("deleted", true));
     }
 
@@ -63,18 +63,18 @@ public class McpBlockTools {
             @ToolArg(description = "Block ID to insert after (empty string to insert at beginning)") String afterBlockId,
             @ToolArg(description = "Level delta adjustment, or 0 for no change") int levelDelta
     ) {
-        List<String> ids = List.of(blockIds.split(","));
+        List<UUID> ids = List.of(blockIds.split(",")).stream().map(UUID::fromString).toList();
         Integer delta = (levelDelta == 0) ? null : levelDelta;
-        var blocks = blockService.moveBlocks(ids, UUID.fromString(targetPageId), afterBlockId, delta);
+        var blocks = blockService.moveBlocks(ids, UUID.fromString(targetPageId), afterBlockId.isEmpty() ? null : UUID.fromString(afterBlockId), delta);
         return jsonHelper.toJson(Map.of("blocks", blocks));
     }
 
     @Tool(description = "Update a block's status (normal, todo, running, done)")
     String update_block_status(
-            @ToolArg(description = "7-char hex block ID") String blockId,
+            @ToolArg(description = "UUID of the block") String blockId,
             @ToolArg(description = "New status: 'normal', 'todo', 'running', or 'done'") String status
     ) {
-        var block = blockService.updateBlockStatus(blockId, status);
+        var block = blockService.updateBlockStatus(UUID.fromString(blockId), status);
         return jsonHelper.toJson(Map.of("block", block));
     }
 
@@ -91,7 +91,7 @@ public class McpBlockTools {
     String export_tree_markdown(
             @ToolArg(description = "Comma-separated block IDs to export") String blockIds
     ) {
-        List<String> ids = List.of(blockIds.split(","));
+        List<UUID> ids = List.of(blockIds.split(",")).stream().map(UUID::fromString).toList();
         var result = blockService.exportTreeMarkdown(ids);
         return jsonHelper.toJson(Map.of(
                 "treeMarkdown", result.treeMarkdown(),

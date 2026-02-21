@@ -97,13 +97,13 @@ public class LuceneSearchService implements SearchService {
     @Override
     public void indexBlock(Block block, String pageTitle) {
         try {
-            writer.deleteDocuments(new Term(FIELD_BLOCK_ID, block.id()));
+            writer.deleteDocuments(new Term(FIELD_BLOCK_ID, block.id().toString()));
 
             Document doc = new Document();
             doc.add(new StringField(FIELD_TYPE, "block", Field.Store.YES));
             doc.add(new StringField(FIELD_PAGE_ID, block.pageId().toString(), Field.Store.YES));
             doc.add(new TextField(FIELD_PAGE_TITLE, pageTitle, Field.Store.YES));
-            doc.add(new StringField(FIELD_BLOCK_ID, block.id(), Field.Store.YES));
+            doc.add(new StringField(FIELD_BLOCK_ID, block.id().toString(), Field.Store.YES));
             doc.add(new TextField(FIELD_BODY, block.body(), Field.Store.YES));
             writer.addDocument(doc);
             writer.commit();

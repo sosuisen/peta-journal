@@ -118,7 +118,7 @@ public class PageService {
         searchService.indexPage(page);
 
         // Create initial empty block
-        String blockId = BlockIdGenerator.generate();
+        UUID blockId = BlockIdGenerator.generate();
         Block block = new Block(blockId, id, page.dirPath(), page.fileName(), page.type(), now, now,
                 FractionalIndexer.initial(), 0, "", "", false, "normal", List.of(), "{}");
         blockRepository.save(block);
@@ -255,7 +255,7 @@ public class PageService {
                 pageRepository.save(page);
                 searchService.indexPage(page);
 
-                String blockId = BlockIdGenerator.generate();
+                UUID blockId = BlockIdGenerator.generate();
                 Block block = new Block(blockId, id, indexDir, "index", "doc", now, now,
                         FractionalIndexer.initial(), 0, "", "", false, "normal", List.of(), "{}");
                 blockRepository.save(block);

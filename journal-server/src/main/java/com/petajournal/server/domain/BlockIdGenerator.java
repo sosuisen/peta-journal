@@ -7,9 +7,9 @@ public final class BlockIdGenerator {
     private BlockIdGenerator() {}
 
     /**
-     * Generates a 7-character hex block ID from a random UUID.
+     * Generates a random UUID for a block.
      */
-    public static String generate() {
-        return UUID.randomUUID().toString().replace("-", "").substring(0, 7);
+    public static UUID generate() {
+        return UUID.randomUUID();
     }
 }

@@ -53,8 +53,8 @@ public class BlockService {
      * @return the newly created block
      * @throws IllegalArgumentException if the page is not found
      */
-    public Block createBlock(UUID pageId, String afterBlockId, int level, String body) {
-        String id = BlockIdGenerator.generate();
+    public Block createBlock(UUID pageId, UUID afterBlockId, int level, String body) {
+        UUID id = BlockIdGenerator.generate();
         Instant now = Instant.now();
         String html = parseBody(body);
 
@@ -102,7 +102,7 @@ public class BlockService {
      * @return the updated block
      * @throws IllegalArgumentException if the block is not found
      */
-    public Block updateBlock(String blockId, String body, Integer level, Boolean collapsed, String status, String propertiesJson) {
+    public Block updateBlock(UUID blockId, String body, Integer level, Boolean collapsed, String status, String propertiesJson) {
         Block existing = blockRepository.findById(blockId)
                 .orElseThrow(() -> new IllegalArgumentException("Block not found: " + blockId));
 
@@ -156,14 +156,14 @@ public class BlockService {
      * @return the moved blocks with updated indices
      * @throws IllegalArgumentException if a block or the target page is not found
      */
-    public List<Block> moveBlocks(List<String> blockIds, UUID targetPageId, String afterBlockId, Integer levelDelta) {
+    public List<Block> moveBlocks(List<UUID> blockIds, UUID targetPageId, UUID afterBlockId, Integer levelDelta) {
         List<Block> movedBlocks = new ArrayList<>();
         List<Block> targetBlocks = blockRepository.findByPageId(targetPageId);
 
         // Find insertion point
         String afterIdx = null;
         String nextIdx = null;
-        if (afterBlockId != null && !afterBlockId.isEmpty()) {
+        if (afterBlockId != null) {
             for (int i = 0; i < targetBlocks.size(); i++) {
                 if (targetBlocks.get(i).id().equals(afterBlockId)) {
                     afterIdx = targetBlocks.get(i).idx();
@@ -184,7 +184,7 @@ public class BlockService {
         Page targetPage = pageRepository.findById(targetPageId)
                 .orElseThrow(() -> new IllegalArgumentException("Target page not found: " + targetPageId));
 
-        for (String blockId : blockIds) {
+        for (UUID blockId : blockIds) {
             Block block = blockRepository.findById(blockId)
                     .orElseThrow(() -> new IllegalArgumentException("Block not found: " + blockId));
 
@@ -229,10 +229,10 @@ public class BlockService {
      *
      * @param blockId the block to delete
      */
-    public void deleteBlock(String blockId) {
+    public void deleteBlock(UUID blockId) {
         Optional<Block> block = blockRepository.findById(blockId);
         blockRepository.delete(blockId);
-        searchService.removeBlock(blockId);
+        searchService.removeBlock(blockId.toString());
         block.ifPresent(b -> {
             touchPage(b.pageId());
             // Queue for export
@@ -251,7 +251,7 @@ public class BlockService {
      * @param blockId the block to look up
      * @return the page UUID as a string, or {@code null} if the block is not found
      */
-    public String getBlockPageId(String blockId) {
+    public String getBlockPageId(UUID blockId) {
         return blockRepository.findById(blockId)
                 .map(b -> b.pageId().toString())
                 .orElse(null);
@@ -265,7 +265,7 @@ public class BlockService {
      * @return the updated block
      * @throws IllegalArgumentException if the status is invalid or the block is not found
      */
-    public Block updateBlockStatus(String blockId, String status) {
+    public Block updateBlockStatus(UUID blockId, String status) {
         if (!List.of("normal", "todo", "running", "done").contains(status)) {
             throw new IllegalArgumentException("Invalid status: " + status);
         }
@@ -281,7 +281,7 @@ public class BlockService {
      * @param blockIds the block IDs to export
      * @return the exported representations
      */
-    public TreeMarkdownExport exportTreeMarkdown(List<String> blockIds) {
+    public TreeMarkdownExport exportTreeMarkdown(List<UUID> blockIds) {
         List<Block> blocks = blockIds.stream()
             .map(id -> blockRepository.findById(id))
             .filter(Optional::isPresent)
@@ -321,8 +321,8 @@ public class BlockService {
      * Calculate the fractional index for inserting a block after the specified block.
      * If afterBlockId is null/empty, returns an index for the beginning of the list.
      */
-    private String calculateInsertionIndex(List<Block> existingBlocks, String afterBlockId) {
-        if (afterBlockId == null || afterBlockId.isEmpty()) {
+    private String calculateInsertionIndex(List<Block> existingBlocks, UUID afterBlockId) {
+        if (afterBlockId == null) {
             if (existingBlocks.isEmpty()) {
                 return FractionalIndexer.initial();
             }

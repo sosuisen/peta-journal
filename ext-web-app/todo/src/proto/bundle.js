@@ -1126,6 +1126,14 @@ export const petajournal = $root.petajournal = (() => {
          * @property {petajournal.IGetOrCreateJournalRequest|null} [getOrCreateJournal] ApiRequest getOrCreateJournal
          * @property {petajournal.IExportTreeMarkdownRequest|null} [exportTreeMarkdown] ApiRequest exportTreeMarkdown
          * @property {petajournal.IImportTreeMarkdownRequest|null} [importTreeMarkdown] ApiRequest importTreeMarkdown
+         * @property {petajournal.IGetBookmarksRequest|null} [getBookmarks] ApiRequest getBookmarks
+         * @property {petajournal.ICreateBookmarkGroupRequest|null} [createBookmarkGroup] ApiRequest createBookmarkGroup
+         * @property {petajournal.ICreateBookmarkRequest|null} [createBookmark] ApiRequest createBookmark
+         * @property {petajournal.IDeleteBookmarkRequest|null} [deleteBookmark] ApiRequest deleteBookmark
+         * @property {petajournal.IDeleteBookmarkGroupRequest|null} [deleteBookmarkGroup] ApiRequest deleteBookmarkGroup
+         * @property {petajournal.IMoveBookmarkRequest|null} [moveBookmark] ApiRequest moveBookmark
+         * @property {petajournal.IMoveBookmarkGroupRequest|null} [moveBookmarkGroup] ApiRequest moveBookmarkGroup
+         * @property {petajournal.IUpdateBookmarkGroupRequest|null} [updateBookmarkGroup] ApiRequest updateBookmarkGroup
          */
 
         /**
@@ -1311,17 +1319,81 @@ export const petajournal = $root.petajournal = (() => {
          */
         ApiRequest.prototype.importTreeMarkdown = null;
 
+        /**
+         * ApiRequest getBookmarks.
+         * @member {petajournal.IGetBookmarksRequest|null|undefined} getBookmarks
+         * @memberof petajournal.ApiRequest
+         * @instance
+         */
+        ApiRequest.prototype.getBookmarks = null;
+
+        /**
+         * ApiRequest createBookmarkGroup.
+         * @member {petajournal.ICreateBookmarkGroupRequest|null|undefined} createBookmarkGroup
+         * @memberof petajournal.ApiRequest
+         * @instance
+         */
+        ApiRequest.prototype.createBookmarkGroup = null;
+
+        /**
+         * ApiRequest createBookmark.
+         * @member {petajournal.ICreateBookmarkRequest|null|undefined} createBookmark
+         * @memberof petajournal.ApiRequest
+         * @instance
+         */
+        ApiRequest.prototype.createBookmark = null;
+
+        /**
+         * ApiRequest deleteBookmark.
+         * @member {petajournal.IDeleteBookmarkRequest|null|undefined} deleteBookmark
+         * @memberof petajournal.ApiRequest
+         * @instance
+         */
+        ApiRequest.prototype.deleteBookmark = null;
+
+        /**
+         * ApiRequest deleteBookmarkGroup.
+         * @member {petajournal.IDeleteBookmarkGroupRequest|null|undefined} deleteBookmarkGroup
+         * @memberof petajournal.ApiRequest
+         * @instance
+         */
+        ApiRequest.prototype.deleteBookmarkGroup = null;
+
+        /**
+         * ApiRequest moveBookmark.
+         * @member {petajournal.IMoveBookmarkRequest|null|undefined} moveBookmark
+         * @memberof petajournal.ApiRequest
+         * @instance
+         */
+        ApiRequest.prototype.moveBookmark = null;
+
+        /**
+         * ApiRequest moveBookmarkGroup.
+         * @member {petajournal.IMoveBookmarkGroupRequest|null|undefined} moveBookmarkGroup
+         * @memberof petajournal.ApiRequest
+         * @instance
+         */
+        ApiRequest.prototype.moveBookmarkGroup = null;
+
+        /**
+         * ApiRequest updateBookmarkGroup.
+         * @member {petajournal.IUpdateBookmarkGroupRequest|null|undefined} updateBookmarkGroup
+         * @memberof petajournal.ApiRequest
+         * @instance
+         */
+        ApiRequest.prototype.updateBookmarkGroup = null;
+
         // OneOf field names bound to virtual getters and setters
         let $oneOfFields;
 
         /**
          * ApiRequest payload.
-         * @member {"getPageById"|"getOrCreateDoc"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"getOrCreateJournal"|"exportTreeMarkdown"|"importTreeMarkdown"|undefined} payload
+         * @member {"getPageById"|"getOrCreateDoc"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"getOrCreateJournal"|"exportTreeMarkdown"|"importTreeMarkdown"|"getBookmarks"|"createBookmarkGroup"|"createBookmark"|"deleteBookmark"|"deleteBookmarkGroup"|"moveBookmark"|"moveBookmarkGroup"|"updateBookmarkGroup"|undefined} payload
          * @memberof petajournal.ApiRequest
          * @instance
          */
         Object.defineProperty(ApiRequest.prototype, "payload", {
-            get: $util.oneOfGetter($oneOfFields = ["getPageById", "getOrCreateDoc", "deletePage", "updatePage", "createBlock", "updateBlock", "moveBlocks", "deleteBlock", "updateBlockStatus", "searchPageNames", "searchFullText", "getRecentPages", "getBacklinks", "getMostRecentJournalBefore", "getBlocksByStatus", "getConfig", "updateConfig", "getOrCreateJournal", "exportTreeMarkdown", "importTreeMarkdown"]),
+            get: $util.oneOfGetter($oneOfFields = ["getPageById", "getOrCreateDoc", "deletePage", "updatePage", "createBlock", "updateBlock", "moveBlocks", "deleteBlock", "updateBlockStatus", "searchPageNames", "searchFullText", "getRecentPages", "getBacklinks", "getMostRecentJournalBefore", "getBlocksByStatus", "getConfig", "updateConfig", "getOrCreateJournal", "exportTreeMarkdown", "importTreeMarkdown", "getBookmarks", "createBookmarkGroup", "createBookmark", "deleteBookmark", "deleteBookmarkGroup", "moveBookmark", "moveBookmarkGroup", "updateBookmarkGroup"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
@@ -1391,6 +1463,22 @@ export const petajournal = $root.petajournal = (() => {
                 $root.petajournal.ExportTreeMarkdownRequest.encode(message.exportTreeMarkdown, writer.uint32(/* id 70, wireType 2 =*/562).fork()).ldelim();
             if (message.importTreeMarkdown != null && Object.hasOwnProperty.call(message, "importTreeMarkdown"))
                 $root.petajournal.ImportTreeMarkdownRequest.encode(message.importTreeMarkdown, writer.uint32(/* id 71, wireType 2 =*/570).fork()).ldelim();
+            if (message.getBookmarks != null && Object.hasOwnProperty.call(message, "getBookmarks"))
+                $root.petajournal.GetBookmarksRequest.encode(message.getBookmarks, writer.uint32(/* id 80, wireType 2 =*/642).fork()).ldelim();
+            if (message.createBookmarkGroup != null && Object.hasOwnProperty.call(message, "createBookmarkGroup"))
+                $root.petajournal.CreateBookmarkGroupRequest.encode(message.createBookmarkGroup, writer.uint32(/* id 81, wireType 2 =*/650).fork()).ldelim();
+            if (message.createBookmark != null && Object.hasOwnProperty.call(message, "createBookmark"))
+                $root.petajournal.CreateBookmarkRequest.encode(message.createBookmark, writer.uint32(/* id 82, wireType 2 =*/658).fork()).ldelim();
+            if (message.deleteBookmark != null && Object.hasOwnProperty.call(message, "deleteBookmark"))
+                $root.petajournal.DeleteBookmarkRequest.encode(message.deleteBookmark, writer.uint32(/* id 83, wireType 2 =*/666).fork()).ldelim();
+            if (message.deleteBookmarkGroup != null && Object.hasOwnProperty.call(message, "deleteBookmarkGroup"))
+                $root.petajournal.DeleteBookmarkGroupRequest.encode(message.deleteBookmarkGroup, writer.uint32(/* id 84, wireType 2 =*/674).fork()).ldelim();
+            if (message.moveBookmark != null && Object.hasOwnProperty.call(message, "moveBookmark"))
+                $root.petajournal.MoveBookmarkRequest.encode(message.moveBookmark, writer.uint32(/* id 85, wireType 2 =*/682).fork()).ldelim();
+            if (message.moveBookmarkGroup != null && Object.hasOwnProperty.call(message, "moveBookmarkGroup"))
+                $root.petajournal.MoveBookmarkGroupRequest.encode(message.moveBookmarkGroup, writer.uint32(/* id 86, wireType 2 =*/690).fork()).ldelim();
+            if (message.updateBookmarkGroup != null && Object.hasOwnProperty.call(message, "updateBookmarkGroup"))
+                $root.petajournal.UpdateBookmarkGroupRequest.encode(message.updateBookmarkGroup, writer.uint32(/* id 87, wireType 2 =*/698).fork()).ldelim();
             return writer;
         };
 
@@ -1498,6 +1586,38 @@ export const petajournal = $root.petajournal = (() => {
                         message.importTreeMarkdown = $root.petajournal.ImportTreeMarkdownRequest.decode(reader, reader.uint32());
                         break;
                     }
+                case 80: {
+                        message.getBookmarks = $root.petajournal.GetBookmarksRequest.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 81: {
+                        message.createBookmarkGroup = $root.petajournal.CreateBookmarkGroupRequest.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 82: {
+                        message.createBookmark = $root.petajournal.CreateBookmarkRequest.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 83: {
+                        message.deleteBookmark = $root.petajournal.DeleteBookmarkRequest.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 84: {
+                        message.deleteBookmarkGroup = $root.petajournal.DeleteBookmarkGroupRequest.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 85: {
+                        message.moveBookmark = $root.petajournal.MoveBookmarkRequest.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 86: {
+                        message.moveBookmarkGroup = $root.petajournal.MoveBookmarkGroupRequest.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 87: {
+                        message.updateBookmarkGroup = $root.petajournal.UpdateBookmarkGroupRequest.decode(reader, reader.uint32());
+                        break;
+                    }
                 default:
                     reader.skipType(tag & 7);
                     break;
@@ -1553,6 +1673,14 @@ export const petajournal = $root.petajournal = (() => {
          * @property {petajournal.IUpdateConfigResponse|null} [updateConfig] ApiResponse updateConfig
          * @property {petajournal.IExportTreeMarkdownResponse|null} [exportTreeMarkdown] ApiResponse exportTreeMarkdown
          * @property {petajournal.IImportTreeMarkdownResponse|null} [importTreeMarkdown] ApiResponse importTreeMarkdown
+         * @property {petajournal.IGetBookmarksResponse|null} [getBookmarks] ApiResponse getBookmarks
+         * @property {petajournal.ICreateBookmarkGroupResponse|null} [createBookmarkGroup] ApiResponse createBookmarkGroup
+         * @property {petajournal.ICreateBookmarkResponse|null} [createBookmark] ApiResponse createBookmark
+         * @property {petajournal.IDeleteBookmarkResponse|null} [deleteBookmark] ApiResponse deleteBookmark
+         * @property {petajournal.IDeleteBookmarkGroupResponse|null} [deleteBookmarkGroup] ApiResponse deleteBookmarkGroup
+         * @property {petajournal.IMoveBookmarkResponse|null} [moveBookmark] ApiResponse moveBookmark
+         * @property {petajournal.IMoveBookmarkGroupResponse|null} [moveBookmarkGroup] ApiResponse moveBookmarkGroup
+         * @property {petajournal.IUpdateBookmarkGroupResponse|null} [updateBookmarkGroup] ApiResponse updateBookmarkGroup
          * @property {petajournal.IServerEvent|null} [serverEvent] ApiResponse serverEvent
          */
 
@@ -1756,6 +1884,70 @@ export const petajournal = $root.petajournal = (() => {
         ApiResponse.prototype.importTreeMarkdown = null;
 
         /**
+         * ApiResponse getBookmarks.
+         * @member {petajournal.IGetBookmarksResponse|null|undefined} getBookmarks
+         * @memberof petajournal.ApiResponse
+         * @instance
+         */
+        ApiResponse.prototype.getBookmarks = null;
+
+        /**
+         * ApiResponse createBookmarkGroup.
+         * @member {petajournal.ICreateBookmarkGroupResponse|null|undefined} createBookmarkGroup
+         * @memberof petajournal.ApiResponse
+         * @instance
+         */
+        ApiResponse.prototype.createBookmarkGroup = null;
+
+        /**
+         * ApiResponse createBookmark.
+         * @member {petajournal.ICreateBookmarkResponse|null|undefined} createBookmark
+         * @memberof petajournal.ApiResponse
+         * @instance
+         */
+        ApiResponse.prototype.createBookmark = null;
+
+        /**
+         * ApiResponse deleteBookmark.
+         * @member {petajournal.IDeleteBookmarkResponse|null|undefined} deleteBookmark
+         * @memberof petajournal.ApiResponse
+         * @instance
+         */
+        ApiResponse.prototype.deleteBookmark = null;
+
+        /**
+         * ApiResponse deleteBookmarkGroup.
+         * @member {petajournal.IDeleteBookmarkGroupResponse|null|undefined} deleteBookmarkGroup
+         * @memberof petajournal.ApiResponse
+         * @instance
+         */
+        ApiResponse.prototype.deleteBookmarkGroup = null;
+
+        /**
+         * ApiResponse moveBookmark.
+         * @member {petajournal.IMoveBookmarkResponse|null|undefined} moveBookmark
+         * @memberof petajournal.ApiResponse
+         * @instance
+         */
+        ApiResponse.prototype.moveBookmark = null;
+
+        /**
+         * ApiResponse moveBookmarkGroup.
+         * @member {petajournal.IMoveBookmarkGroupResponse|null|undefined} moveBookmarkGroup
+         * @memberof petajournal.ApiResponse
+         * @instance
+         */
+        ApiResponse.prototype.moveBookmarkGroup = null;
+
+        /**
+         * ApiResponse updateBookmarkGroup.
+         * @member {petajournal.IUpdateBookmarkGroupResponse|null|undefined} updateBookmarkGroup
+         * @memberof petajournal.ApiResponse
+         * @instance
+         */
+        ApiResponse.prototype.updateBookmarkGroup = null;
+
+        /**
          * ApiResponse serverEvent.
          * @member {petajournal.IServerEvent|null|undefined} serverEvent
          * @memberof petajournal.ApiResponse
@@ -1768,12 +1960,12 @@ export const petajournal = $root.petajournal = (() => {
 
         /**
          * ApiResponse payload.
-         * @member {"getPageById"|"getOrCreateDoc"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getOrCreateJournal"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"exportTreeMarkdown"|"importTreeMarkdown"|"serverEvent"|undefined} payload
+         * @member {"getPageById"|"getOrCreateDoc"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getOrCreateJournal"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"exportTreeMarkdown"|"importTreeMarkdown"|"getBookmarks"|"createBookmarkGroup"|"createBookmark"|"deleteBookmark"|"deleteBookmarkGroup"|"moveBookmark"|"moveBookmarkGroup"|"updateBookmarkGroup"|"serverEvent"|undefined} payload
          * @memberof petajournal.ApiResponse
          * @instance
          */
         Object.defineProperty(ApiResponse.prototype, "payload", {
-            get: $util.oneOfGetter($oneOfFields = ["getPageById", "getOrCreateDoc", "deletePage", "updatePage", "createBlock", "updateBlock", "moveBlocks", "deleteBlock", "updateBlockStatus", "searchPageNames", "searchFullText", "getRecentPages", "getBacklinks", "getMostRecentJournalBefore", "getOrCreateJournal", "getBlocksByStatus", "getConfig", "updateConfig", "exportTreeMarkdown", "importTreeMarkdown", "serverEvent"]),
+            get: $util.oneOfGetter($oneOfFields = ["getPageById", "getOrCreateDoc", "deletePage", "updatePage", "createBlock", "updateBlock", "moveBlocks", "deleteBlock", "updateBlockStatus", "searchPageNames", "searchFullText", "getRecentPages", "getBacklinks", "getMostRecentJournalBefore", "getOrCreateJournal", "getBlocksByStatus", "getConfig", "updateConfig", "exportTreeMarkdown", "importTreeMarkdown", "getBookmarks", "createBookmarkGroup", "createBookmark", "deleteBookmark", "deleteBookmarkGroup", "moveBookmark", "moveBookmarkGroup", "updateBookmarkGroup", "serverEvent"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
@@ -1847,6 +2039,22 @@ export const petajournal = $root.petajournal = (() => {
                 $root.petajournal.ExportTreeMarkdownResponse.encode(message.exportTreeMarkdown, writer.uint32(/* id 70, wireType 2 =*/562).fork()).ldelim();
             if (message.importTreeMarkdown != null && Object.hasOwnProperty.call(message, "importTreeMarkdown"))
                 $root.petajournal.ImportTreeMarkdownResponse.encode(message.importTreeMarkdown, writer.uint32(/* id 71, wireType 2 =*/570).fork()).ldelim();
+            if (message.getBookmarks != null && Object.hasOwnProperty.call(message, "getBookmarks"))
+                $root.petajournal.GetBookmarksResponse.encode(message.getBookmarks, writer.uint32(/* id 80, wireType 2 =*/642).fork()).ldelim();
+            if (message.createBookmarkGroup != null && Object.hasOwnProperty.call(message, "createBookmarkGroup"))
+                $root.petajournal.CreateBookmarkGroupResponse.encode(message.createBookmarkGroup, writer.uint32(/* id 81, wireType 2 =*/650).fork()).ldelim();
+            if (message.createBookmark != null && Object.hasOwnProperty.call(message, "createBookmark"))
+                $root.petajournal.CreateBookmarkResponse.encode(message.createBookmark, writer.uint32(/* id 82, wireType 2 =*/658).fork()).ldelim();
+            if (message.deleteBookmark != null && Object.hasOwnProperty.call(message, "deleteBookmark"))
+                $root.petajournal.DeleteBookmarkResponse.encode(message.deleteBookmark, writer.uint32(/* id 83, wireType 2 =*/666).fork()).ldelim();
+            if (message.deleteBookmarkGroup != null && Object.hasOwnProperty.call(message, "deleteBookmarkGroup"))
+                $root.petajournal.DeleteBookmarkGroupResponse.encode(message.deleteBookmarkGroup, writer.uint32(/* id 84, wireType 2 =*/674).fork()).ldelim();
+            if (message.moveBookmark != null && Object.hasOwnProperty.call(message, "moveBookmark"))
+                $root.petajournal.MoveBookmarkResponse.encode(message.moveBookmark, writer.uint32(/* id 85, wireType 2 =*/682).fork()).ldelim();
+            if (message.moveBookmarkGroup != null && Object.hasOwnProperty.call(message, "moveBookmarkGroup"))
+                $root.petajournal.MoveBookmarkGroupResponse.encode(message.moveBookmarkGroup, writer.uint32(/* id 86, wireType 2 =*/690).fork()).ldelim();
+            if (message.updateBookmarkGroup != null && Object.hasOwnProperty.call(message, "updateBookmarkGroup"))
+                $root.petajournal.UpdateBookmarkGroupResponse.encode(message.updateBookmarkGroup, writer.uint32(/* id 87, wireType 2 =*/698).fork()).ldelim();
             if (message.serverEvent != null && Object.hasOwnProperty.call(message, "serverEvent"))
                 $root.petajournal.ServerEvent.encode(message.serverEvent, writer.uint32(/* id 100, wireType 2 =*/802).fork()).ldelim();
             return writer;
@@ -1962,6 +2170,38 @@ export const petajournal = $root.petajournal = (() => {
                     }
                 case 71: {
                         message.importTreeMarkdown = $root.petajournal.ImportTreeMarkdownResponse.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 80: {
+                        message.getBookmarks = $root.petajournal.GetBookmarksResponse.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 81: {
+                        message.createBookmarkGroup = $root.petajournal.CreateBookmarkGroupResponse.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 82: {
+                        message.createBookmark = $root.petajournal.CreateBookmarkResponse.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 83: {
+                        message.deleteBookmark = $root.petajournal.DeleteBookmarkResponse.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 84: {
+                        message.deleteBookmarkGroup = $root.petajournal.DeleteBookmarkGroupResponse.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 85: {
+                        message.moveBookmark = $root.petajournal.MoveBookmarkResponse.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 86: {
+                        message.moveBookmarkGroup = $root.petajournal.MoveBookmarkGroupResponse.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 87: {
+                        message.updateBookmarkGroup = $root.petajournal.UpdateBookmarkGroupResponse.decode(reader, reader.uint32());
                         break;
                     }
                 case 100: {
@@ -7097,6 +7337,1850 @@ export const petajournal = $root.petajournal = (() => {
         return ImportTreeMarkdownResponse;
     })();
 
+    petajournal.GetBookmarksRequest = (function() {
+
+        /**
+         * Properties of a GetBookmarksRequest.
+         * @memberof petajournal
+         * @interface IGetBookmarksRequest
+         */
+
+        /**
+         * Constructs a new GetBookmarksRequest.
+         * @memberof petajournal
+         * @classdesc Represents a GetBookmarksRequest.
+         * @implements IGetBookmarksRequest
+         * @constructor
+         * @param {petajournal.IGetBookmarksRequest=} [properties] Properties to set
+         */
+        function GetBookmarksRequest(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * Creates a new GetBookmarksRequest instance using the specified properties.
+         * @function create
+         * @memberof petajournal.GetBookmarksRequest
+         * @static
+         * @param {petajournal.IGetBookmarksRequest=} [properties] Properties to set
+         * @returns {petajournal.GetBookmarksRequest} GetBookmarksRequest instance
+         */
+        GetBookmarksRequest.create = function create(properties) {
+            return new GetBookmarksRequest(properties);
+        };
+
+        /**
+         * Encodes the specified GetBookmarksRequest message. Does not implicitly {@link petajournal.GetBookmarksRequest.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.GetBookmarksRequest
+         * @static
+         * @param {petajournal.IGetBookmarksRequest} message GetBookmarksRequest message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        GetBookmarksRequest.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            return writer;
+        };
+
+        /**
+         * Decodes a GetBookmarksRequest message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.GetBookmarksRequest
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.GetBookmarksRequest} GetBookmarksRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        GetBookmarksRequest.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.GetBookmarksRequest();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for GetBookmarksRequest
+         * @function getTypeUrl
+         * @memberof petajournal.GetBookmarksRequest
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        GetBookmarksRequest.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.GetBookmarksRequest";
+        };
+
+        return GetBookmarksRequest;
+    })();
+
+    petajournal.GetBookmarksResponse = (function() {
+
+        /**
+         * Properties of a GetBookmarksResponse.
+         * @memberof petajournal
+         * @interface IGetBookmarksResponse
+         * @property {Array.<petajournal.IBookmarkGroup>|null} [groups] GetBookmarksResponse groups
+         * @property {Array.<petajournal.IBookmark>|null} [bookmarks] GetBookmarksResponse bookmarks
+         */
+
+        /**
+         * Constructs a new GetBookmarksResponse.
+         * @memberof petajournal
+         * @classdesc Represents a GetBookmarksResponse.
+         * @implements IGetBookmarksResponse
+         * @constructor
+         * @param {petajournal.IGetBookmarksResponse=} [properties] Properties to set
+         */
+        function GetBookmarksResponse(properties) {
+            this.groups = [];
+            this.bookmarks = [];
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * GetBookmarksResponse groups.
+         * @member {Array.<petajournal.IBookmarkGroup>} groups
+         * @memberof petajournal.GetBookmarksResponse
+         * @instance
+         */
+        GetBookmarksResponse.prototype.groups = $util.emptyArray;
+
+        /**
+         * GetBookmarksResponse bookmarks.
+         * @member {Array.<petajournal.IBookmark>} bookmarks
+         * @memberof petajournal.GetBookmarksResponse
+         * @instance
+         */
+        GetBookmarksResponse.prototype.bookmarks = $util.emptyArray;
+
+        /**
+         * Creates a new GetBookmarksResponse instance using the specified properties.
+         * @function create
+         * @memberof petajournal.GetBookmarksResponse
+         * @static
+         * @param {petajournal.IGetBookmarksResponse=} [properties] Properties to set
+         * @returns {petajournal.GetBookmarksResponse} GetBookmarksResponse instance
+         */
+        GetBookmarksResponse.create = function create(properties) {
+            return new GetBookmarksResponse(properties);
+        };
+
+        /**
+         * Encodes the specified GetBookmarksResponse message. Does not implicitly {@link petajournal.GetBookmarksResponse.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.GetBookmarksResponse
+         * @static
+         * @param {petajournal.IGetBookmarksResponse} message GetBookmarksResponse message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        GetBookmarksResponse.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.groups != null && message.groups.length)
+                for (let i = 0; i < message.groups.length; ++i)
+                    $root.petajournal.BookmarkGroup.encode(message.groups[i], writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+            if (message.bookmarks != null && message.bookmarks.length)
+                for (let i = 0; i < message.bookmarks.length; ++i)
+                    $root.petajournal.Bookmark.encode(message.bookmarks[i], writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim();
+            return writer;
+        };
+
+        /**
+         * Decodes a GetBookmarksResponse message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.GetBookmarksResponse
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.GetBookmarksResponse} GetBookmarksResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        GetBookmarksResponse.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.GetBookmarksResponse();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        if (!(message.groups && message.groups.length))
+                            message.groups = [];
+                        message.groups.push($root.petajournal.BookmarkGroup.decode(reader, reader.uint32()));
+                        break;
+                    }
+                case 2: {
+                        if (!(message.bookmarks && message.bookmarks.length))
+                            message.bookmarks = [];
+                        message.bookmarks.push($root.petajournal.Bookmark.decode(reader, reader.uint32()));
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for GetBookmarksResponse
+         * @function getTypeUrl
+         * @memberof petajournal.GetBookmarksResponse
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        GetBookmarksResponse.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.GetBookmarksResponse";
+        };
+
+        return GetBookmarksResponse;
+    })();
+
+    petajournal.CreateBookmarkGroupRequest = (function() {
+
+        /**
+         * Properties of a CreateBookmarkGroupRequest.
+         * @memberof petajournal
+         * @interface ICreateBookmarkGroupRequest
+         * @property {string|null} [name] CreateBookmarkGroupRequest name
+         */
+
+        /**
+         * Constructs a new CreateBookmarkGroupRequest.
+         * @memberof petajournal
+         * @classdesc Represents a CreateBookmarkGroupRequest.
+         * @implements ICreateBookmarkGroupRequest
+         * @constructor
+         * @param {petajournal.ICreateBookmarkGroupRequest=} [properties] Properties to set
+         */
+        function CreateBookmarkGroupRequest(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * CreateBookmarkGroupRequest name.
+         * @member {string} name
+         * @memberof petajournal.CreateBookmarkGroupRequest
+         * @instance
+         */
+        CreateBookmarkGroupRequest.prototype.name = "";
+
+        /**
+         * Creates a new CreateBookmarkGroupRequest instance using the specified properties.
+         * @function create
+         * @memberof petajournal.CreateBookmarkGroupRequest
+         * @static
+         * @param {petajournal.ICreateBookmarkGroupRequest=} [properties] Properties to set
+         * @returns {petajournal.CreateBookmarkGroupRequest} CreateBookmarkGroupRequest instance
+         */
+        CreateBookmarkGroupRequest.create = function create(properties) {
+            return new CreateBookmarkGroupRequest(properties);
+        };
+
+        /**
+         * Encodes the specified CreateBookmarkGroupRequest message. Does not implicitly {@link petajournal.CreateBookmarkGroupRequest.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.CreateBookmarkGroupRequest
+         * @static
+         * @param {petajournal.ICreateBookmarkGroupRequest} message CreateBookmarkGroupRequest message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        CreateBookmarkGroupRequest.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.name != null && Object.hasOwnProperty.call(message, "name"))
+                writer.uint32(/* id 1, wireType 2 =*/10).string(message.name);
+            return writer;
+        };
+
+        /**
+         * Decodes a CreateBookmarkGroupRequest message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.CreateBookmarkGroupRequest
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.CreateBookmarkGroupRequest} CreateBookmarkGroupRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        CreateBookmarkGroupRequest.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.CreateBookmarkGroupRequest();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.name = reader.string();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for CreateBookmarkGroupRequest
+         * @function getTypeUrl
+         * @memberof petajournal.CreateBookmarkGroupRequest
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        CreateBookmarkGroupRequest.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.CreateBookmarkGroupRequest";
+        };
+
+        return CreateBookmarkGroupRequest;
+    })();
+
+    petajournal.CreateBookmarkGroupResponse = (function() {
+
+        /**
+         * Properties of a CreateBookmarkGroupResponse.
+         * @memberof petajournal
+         * @interface ICreateBookmarkGroupResponse
+         * @property {petajournal.IBookmarkGroup|null} [group] CreateBookmarkGroupResponse group
+         */
+
+        /**
+         * Constructs a new CreateBookmarkGroupResponse.
+         * @memberof petajournal
+         * @classdesc Represents a CreateBookmarkGroupResponse.
+         * @implements ICreateBookmarkGroupResponse
+         * @constructor
+         * @param {petajournal.ICreateBookmarkGroupResponse=} [properties] Properties to set
+         */
+        function CreateBookmarkGroupResponse(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * CreateBookmarkGroupResponse group.
+         * @member {petajournal.IBookmarkGroup|null|undefined} group
+         * @memberof petajournal.CreateBookmarkGroupResponse
+         * @instance
+         */
+        CreateBookmarkGroupResponse.prototype.group = null;
+
+        /**
+         * Creates a new CreateBookmarkGroupResponse instance using the specified properties.
+         * @function create
+         * @memberof petajournal.CreateBookmarkGroupResponse
+         * @static
+         * @param {petajournal.ICreateBookmarkGroupResponse=} [properties] Properties to set
+         * @returns {petajournal.CreateBookmarkGroupResponse} CreateBookmarkGroupResponse instance
+         */
+        CreateBookmarkGroupResponse.create = function create(properties) {
+            return new CreateBookmarkGroupResponse(properties);
+        };
+
+        /**
+         * Encodes the specified CreateBookmarkGroupResponse message. Does not implicitly {@link petajournal.CreateBookmarkGroupResponse.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.CreateBookmarkGroupResponse
+         * @static
+         * @param {petajournal.ICreateBookmarkGroupResponse} message CreateBookmarkGroupResponse message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        CreateBookmarkGroupResponse.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.group != null && Object.hasOwnProperty.call(message, "group"))
+                $root.petajournal.BookmarkGroup.encode(message.group, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+            return writer;
+        };
+
+        /**
+         * Decodes a CreateBookmarkGroupResponse message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.CreateBookmarkGroupResponse
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.CreateBookmarkGroupResponse} CreateBookmarkGroupResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        CreateBookmarkGroupResponse.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.CreateBookmarkGroupResponse();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.group = $root.petajournal.BookmarkGroup.decode(reader, reader.uint32());
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for CreateBookmarkGroupResponse
+         * @function getTypeUrl
+         * @memberof petajournal.CreateBookmarkGroupResponse
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        CreateBookmarkGroupResponse.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.CreateBookmarkGroupResponse";
+        };
+
+        return CreateBookmarkGroupResponse;
+    })();
+
+    petajournal.CreateBookmarkRequest = (function() {
+
+        /**
+         * Properties of a CreateBookmarkRequest.
+         * @memberof petajournal
+         * @interface ICreateBookmarkRequest
+         * @property {string|null} [groupId] CreateBookmarkRequest groupId
+         * @property {string|null} [targetType] CreateBookmarkRequest targetType
+         * @property {string|null} [targetId] CreateBookmarkRequest targetId
+         */
+
+        /**
+         * Constructs a new CreateBookmarkRequest.
+         * @memberof petajournal
+         * @classdesc Represents a CreateBookmarkRequest.
+         * @implements ICreateBookmarkRequest
+         * @constructor
+         * @param {petajournal.ICreateBookmarkRequest=} [properties] Properties to set
+         */
+        function CreateBookmarkRequest(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * CreateBookmarkRequest groupId.
+         * @member {string} groupId
+         * @memberof petajournal.CreateBookmarkRequest
+         * @instance
+         */
+        CreateBookmarkRequest.prototype.groupId = "";
+
+        /**
+         * CreateBookmarkRequest targetType.
+         * @member {string} targetType
+         * @memberof petajournal.CreateBookmarkRequest
+         * @instance
+         */
+        CreateBookmarkRequest.prototype.targetType = "";
+
+        /**
+         * CreateBookmarkRequest targetId.
+         * @member {string} targetId
+         * @memberof petajournal.CreateBookmarkRequest
+         * @instance
+         */
+        CreateBookmarkRequest.prototype.targetId = "";
+
+        /**
+         * Creates a new CreateBookmarkRequest instance using the specified properties.
+         * @function create
+         * @memberof petajournal.CreateBookmarkRequest
+         * @static
+         * @param {petajournal.ICreateBookmarkRequest=} [properties] Properties to set
+         * @returns {petajournal.CreateBookmarkRequest} CreateBookmarkRequest instance
+         */
+        CreateBookmarkRequest.create = function create(properties) {
+            return new CreateBookmarkRequest(properties);
+        };
+
+        /**
+         * Encodes the specified CreateBookmarkRequest message. Does not implicitly {@link petajournal.CreateBookmarkRequest.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.CreateBookmarkRequest
+         * @static
+         * @param {petajournal.ICreateBookmarkRequest} message CreateBookmarkRequest message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        CreateBookmarkRequest.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.groupId != null && Object.hasOwnProperty.call(message, "groupId"))
+                writer.uint32(/* id 1, wireType 2 =*/10).string(message.groupId);
+            if (message.targetType != null && Object.hasOwnProperty.call(message, "targetType"))
+                writer.uint32(/* id 2, wireType 2 =*/18).string(message.targetType);
+            if (message.targetId != null && Object.hasOwnProperty.call(message, "targetId"))
+                writer.uint32(/* id 3, wireType 2 =*/26).string(message.targetId);
+            return writer;
+        };
+
+        /**
+         * Decodes a CreateBookmarkRequest message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.CreateBookmarkRequest
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.CreateBookmarkRequest} CreateBookmarkRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        CreateBookmarkRequest.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.CreateBookmarkRequest();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.groupId = reader.string();
+                        break;
+                    }
+                case 2: {
+                        message.targetType = reader.string();
+                        break;
+                    }
+                case 3: {
+                        message.targetId = reader.string();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for CreateBookmarkRequest
+         * @function getTypeUrl
+         * @memberof petajournal.CreateBookmarkRequest
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        CreateBookmarkRequest.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.CreateBookmarkRequest";
+        };
+
+        return CreateBookmarkRequest;
+    })();
+
+    petajournal.CreateBookmarkResponse = (function() {
+
+        /**
+         * Properties of a CreateBookmarkResponse.
+         * @memberof petajournal
+         * @interface ICreateBookmarkResponse
+         * @property {petajournal.IBookmark|null} [bookmark] CreateBookmarkResponse bookmark
+         */
+
+        /**
+         * Constructs a new CreateBookmarkResponse.
+         * @memberof petajournal
+         * @classdesc Represents a CreateBookmarkResponse.
+         * @implements ICreateBookmarkResponse
+         * @constructor
+         * @param {petajournal.ICreateBookmarkResponse=} [properties] Properties to set
+         */
+        function CreateBookmarkResponse(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * CreateBookmarkResponse bookmark.
+         * @member {petajournal.IBookmark|null|undefined} bookmark
+         * @memberof petajournal.CreateBookmarkResponse
+         * @instance
+         */
+        CreateBookmarkResponse.prototype.bookmark = null;
+
+        /**
+         * Creates a new CreateBookmarkResponse instance using the specified properties.
+         * @function create
+         * @memberof petajournal.CreateBookmarkResponse
+         * @static
+         * @param {petajournal.ICreateBookmarkResponse=} [properties] Properties to set
+         * @returns {petajournal.CreateBookmarkResponse} CreateBookmarkResponse instance
+         */
+        CreateBookmarkResponse.create = function create(properties) {
+            return new CreateBookmarkResponse(properties);
+        };
+
+        /**
+         * Encodes the specified CreateBookmarkResponse message. Does not implicitly {@link petajournal.CreateBookmarkResponse.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.CreateBookmarkResponse
+         * @static
+         * @param {petajournal.ICreateBookmarkResponse} message CreateBookmarkResponse message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        CreateBookmarkResponse.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.bookmark != null && Object.hasOwnProperty.call(message, "bookmark"))
+                $root.petajournal.Bookmark.encode(message.bookmark, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+            return writer;
+        };
+
+        /**
+         * Decodes a CreateBookmarkResponse message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.CreateBookmarkResponse
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.CreateBookmarkResponse} CreateBookmarkResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        CreateBookmarkResponse.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.CreateBookmarkResponse();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.bookmark = $root.petajournal.Bookmark.decode(reader, reader.uint32());
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for CreateBookmarkResponse
+         * @function getTypeUrl
+         * @memberof petajournal.CreateBookmarkResponse
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        CreateBookmarkResponse.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.CreateBookmarkResponse";
+        };
+
+        return CreateBookmarkResponse;
+    })();
+
+    petajournal.DeleteBookmarkRequest = (function() {
+
+        /**
+         * Properties of a DeleteBookmarkRequest.
+         * @memberof petajournal
+         * @interface IDeleteBookmarkRequest
+         * @property {string|null} [bookmarkId] DeleteBookmarkRequest bookmarkId
+         */
+
+        /**
+         * Constructs a new DeleteBookmarkRequest.
+         * @memberof petajournal
+         * @classdesc Represents a DeleteBookmarkRequest.
+         * @implements IDeleteBookmarkRequest
+         * @constructor
+         * @param {petajournal.IDeleteBookmarkRequest=} [properties] Properties to set
+         */
+        function DeleteBookmarkRequest(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * DeleteBookmarkRequest bookmarkId.
+         * @member {string} bookmarkId
+         * @memberof petajournal.DeleteBookmarkRequest
+         * @instance
+         */
+        DeleteBookmarkRequest.prototype.bookmarkId = "";
+
+        /**
+         * Creates a new DeleteBookmarkRequest instance using the specified properties.
+         * @function create
+         * @memberof petajournal.DeleteBookmarkRequest
+         * @static
+         * @param {petajournal.IDeleteBookmarkRequest=} [properties] Properties to set
+         * @returns {petajournal.DeleteBookmarkRequest} DeleteBookmarkRequest instance
+         */
+        DeleteBookmarkRequest.create = function create(properties) {
+            return new DeleteBookmarkRequest(properties);
+        };
+
+        /**
+         * Encodes the specified DeleteBookmarkRequest message. Does not implicitly {@link petajournal.DeleteBookmarkRequest.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.DeleteBookmarkRequest
+         * @static
+         * @param {petajournal.IDeleteBookmarkRequest} message DeleteBookmarkRequest message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        DeleteBookmarkRequest.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.bookmarkId != null && Object.hasOwnProperty.call(message, "bookmarkId"))
+                writer.uint32(/* id 1, wireType 2 =*/10).string(message.bookmarkId);
+            return writer;
+        };
+
+        /**
+         * Decodes a DeleteBookmarkRequest message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.DeleteBookmarkRequest
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.DeleteBookmarkRequest} DeleteBookmarkRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        DeleteBookmarkRequest.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.DeleteBookmarkRequest();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.bookmarkId = reader.string();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for DeleteBookmarkRequest
+         * @function getTypeUrl
+         * @memberof petajournal.DeleteBookmarkRequest
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        DeleteBookmarkRequest.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.DeleteBookmarkRequest";
+        };
+
+        return DeleteBookmarkRequest;
+    })();
+
+    petajournal.DeleteBookmarkResponse = (function() {
+
+        /**
+         * Properties of a DeleteBookmarkResponse.
+         * @memberof petajournal
+         * @interface IDeleteBookmarkResponse
+         */
+
+        /**
+         * Constructs a new DeleteBookmarkResponse.
+         * @memberof petajournal
+         * @classdesc Represents a DeleteBookmarkResponse.
+         * @implements IDeleteBookmarkResponse
+         * @constructor
+         * @param {petajournal.IDeleteBookmarkResponse=} [properties] Properties to set
+         */
+        function DeleteBookmarkResponse(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * Creates a new DeleteBookmarkResponse instance using the specified properties.
+         * @function create
+         * @memberof petajournal.DeleteBookmarkResponse
+         * @static
+         * @param {petajournal.IDeleteBookmarkResponse=} [properties] Properties to set
+         * @returns {petajournal.DeleteBookmarkResponse} DeleteBookmarkResponse instance
+         */
+        DeleteBookmarkResponse.create = function create(properties) {
+            return new DeleteBookmarkResponse(properties);
+        };
+
+        /**
+         * Encodes the specified DeleteBookmarkResponse message. Does not implicitly {@link petajournal.DeleteBookmarkResponse.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.DeleteBookmarkResponse
+         * @static
+         * @param {petajournal.IDeleteBookmarkResponse} message DeleteBookmarkResponse message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        DeleteBookmarkResponse.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            return writer;
+        };
+
+        /**
+         * Decodes a DeleteBookmarkResponse message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.DeleteBookmarkResponse
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.DeleteBookmarkResponse} DeleteBookmarkResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        DeleteBookmarkResponse.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.DeleteBookmarkResponse();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for DeleteBookmarkResponse
+         * @function getTypeUrl
+         * @memberof petajournal.DeleteBookmarkResponse
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        DeleteBookmarkResponse.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.DeleteBookmarkResponse";
+        };
+
+        return DeleteBookmarkResponse;
+    })();
+
+    petajournal.DeleteBookmarkGroupRequest = (function() {
+
+        /**
+         * Properties of a DeleteBookmarkGroupRequest.
+         * @memberof petajournal
+         * @interface IDeleteBookmarkGroupRequest
+         * @property {string|null} [groupId] DeleteBookmarkGroupRequest groupId
+         */
+
+        /**
+         * Constructs a new DeleteBookmarkGroupRequest.
+         * @memberof petajournal
+         * @classdesc Represents a DeleteBookmarkGroupRequest.
+         * @implements IDeleteBookmarkGroupRequest
+         * @constructor
+         * @param {petajournal.IDeleteBookmarkGroupRequest=} [properties] Properties to set
+         */
+        function DeleteBookmarkGroupRequest(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * DeleteBookmarkGroupRequest groupId.
+         * @member {string} groupId
+         * @memberof petajournal.DeleteBookmarkGroupRequest
+         * @instance
+         */
+        DeleteBookmarkGroupRequest.prototype.groupId = "";
+
+        /**
+         * Creates a new DeleteBookmarkGroupRequest instance using the specified properties.
+         * @function create
+         * @memberof petajournal.DeleteBookmarkGroupRequest
+         * @static
+         * @param {petajournal.IDeleteBookmarkGroupRequest=} [properties] Properties to set
+         * @returns {petajournal.DeleteBookmarkGroupRequest} DeleteBookmarkGroupRequest instance
+         */
+        DeleteBookmarkGroupRequest.create = function create(properties) {
+            return new DeleteBookmarkGroupRequest(properties);
+        };
+
+        /**
+         * Encodes the specified DeleteBookmarkGroupRequest message. Does not implicitly {@link petajournal.DeleteBookmarkGroupRequest.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.DeleteBookmarkGroupRequest
+         * @static
+         * @param {petajournal.IDeleteBookmarkGroupRequest} message DeleteBookmarkGroupRequest message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        DeleteBookmarkGroupRequest.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.groupId != null && Object.hasOwnProperty.call(message, "groupId"))
+                writer.uint32(/* id 1, wireType 2 =*/10).string(message.groupId);
+            return writer;
+        };
+
+        /**
+         * Decodes a DeleteBookmarkGroupRequest message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.DeleteBookmarkGroupRequest
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.DeleteBookmarkGroupRequest} DeleteBookmarkGroupRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        DeleteBookmarkGroupRequest.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.DeleteBookmarkGroupRequest();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.groupId = reader.string();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for DeleteBookmarkGroupRequest
+         * @function getTypeUrl
+         * @memberof petajournal.DeleteBookmarkGroupRequest
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        DeleteBookmarkGroupRequest.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.DeleteBookmarkGroupRequest";
+        };
+
+        return DeleteBookmarkGroupRequest;
+    })();
+
+    petajournal.DeleteBookmarkGroupResponse = (function() {
+
+        /**
+         * Properties of a DeleteBookmarkGroupResponse.
+         * @memberof petajournal
+         * @interface IDeleteBookmarkGroupResponse
+         */
+
+        /**
+         * Constructs a new DeleteBookmarkGroupResponse.
+         * @memberof petajournal
+         * @classdesc Represents a DeleteBookmarkGroupResponse.
+         * @implements IDeleteBookmarkGroupResponse
+         * @constructor
+         * @param {petajournal.IDeleteBookmarkGroupResponse=} [properties] Properties to set
+         */
+        function DeleteBookmarkGroupResponse(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * Creates a new DeleteBookmarkGroupResponse instance using the specified properties.
+         * @function create
+         * @memberof petajournal.DeleteBookmarkGroupResponse
+         * @static
+         * @param {petajournal.IDeleteBookmarkGroupResponse=} [properties] Properties to set
+         * @returns {petajournal.DeleteBookmarkGroupResponse} DeleteBookmarkGroupResponse instance
+         */
+        DeleteBookmarkGroupResponse.create = function create(properties) {
+            return new DeleteBookmarkGroupResponse(properties);
+        };
+
+        /**
+         * Encodes the specified DeleteBookmarkGroupResponse message. Does not implicitly {@link petajournal.DeleteBookmarkGroupResponse.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.DeleteBookmarkGroupResponse
+         * @static
+         * @param {petajournal.IDeleteBookmarkGroupResponse} message DeleteBookmarkGroupResponse message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        DeleteBookmarkGroupResponse.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            return writer;
+        };
+
+        /**
+         * Decodes a DeleteBookmarkGroupResponse message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.DeleteBookmarkGroupResponse
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.DeleteBookmarkGroupResponse} DeleteBookmarkGroupResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        DeleteBookmarkGroupResponse.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.DeleteBookmarkGroupResponse();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for DeleteBookmarkGroupResponse
+         * @function getTypeUrl
+         * @memberof petajournal.DeleteBookmarkGroupResponse
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        DeleteBookmarkGroupResponse.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.DeleteBookmarkGroupResponse";
+        };
+
+        return DeleteBookmarkGroupResponse;
+    })();
+
+    petajournal.MoveBookmarkRequest = (function() {
+
+        /**
+         * Properties of a MoveBookmarkRequest.
+         * @memberof petajournal
+         * @interface IMoveBookmarkRequest
+         * @property {string|null} [bookmarkId] MoveBookmarkRequest bookmarkId
+         * @property {string|null} [targetGroupId] MoveBookmarkRequest targetGroupId
+         * @property {string|null} [afterBookmarkId] MoveBookmarkRequest afterBookmarkId
+         */
+
+        /**
+         * Constructs a new MoveBookmarkRequest.
+         * @memberof petajournal
+         * @classdesc Represents a MoveBookmarkRequest.
+         * @implements IMoveBookmarkRequest
+         * @constructor
+         * @param {petajournal.IMoveBookmarkRequest=} [properties] Properties to set
+         */
+        function MoveBookmarkRequest(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * MoveBookmarkRequest bookmarkId.
+         * @member {string} bookmarkId
+         * @memberof petajournal.MoveBookmarkRequest
+         * @instance
+         */
+        MoveBookmarkRequest.prototype.bookmarkId = "";
+
+        /**
+         * MoveBookmarkRequest targetGroupId.
+         * @member {string} targetGroupId
+         * @memberof petajournal.MoveBookmarkRequest
+         * @instance
+         */
+        MoveBookmarkRequest.prototype.targetGroupId = "";
+
+        /**
+         * MoveBookmarkRequest afterBookmarkId.
+         * @member {string} afterBookmarkId
+         * @memberof petajournal.MoveBookmarkRequest
+         * @instance
+         */
+        MoveBookmarkRequest.prototype.afterBookmarkId = "";
+
+        /**
+         * Creates a new MoveBookmarkRequest instance using the specified properties.
+         * @function create
+         * @memberof petajournal.MoveBookmarkRequest
+         * @static
+         * @param {petajournal.IMoveBookmarkRequest=} [properties] Properties to set
+         * @returns {petajournal.MoveBookmarkRequest} MoveBookmarkRequest instance
+         */
+        MoveBookmarkRequest.create = function create(properties) {
+            return new MoveBookmarkRequest(properties);
+        };
+
+        /**
+         * Encodes the specified MoveBookmarkRequest message. Does not implicitly {@link petajournal.MoveBookmarkRequest.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.MoveBookmarkRequest
+         * @static
+         * @param {petajournal.IMoveBookmarkRequest} message MoveBookmarkRequest message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        MoveBookmarkRequest.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.bookmarkId != null && Object.hasOwnProperty.call(message, "bookmarkId"))
+                writer.uint32(/* id 1, wireType 2 =*/10).string(message.bookmarkId);
+            if (message.targetGroupId != null && Object.hasOwnProperty.call(message, "targetGroupId"))
+                writer.uint32(/* id 2, wireType 2 =*/18).string(message.targetGroupId);
+            if (message.afterBookmarkId != null && Object.hasOwnProperty.call(message, "afterBookmarkId"))
+                writer.uint32(/* id 3, wireType 2 =*/26).string(message.afterBookmarkId);
+            return writer;
+        };
+
+        /**
+         * Decodes a MoveBookmarkRequest message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.MoveBookmarkRequest
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.MoveBookmarkRequest} MoveBookmarkRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        MoveBookmarkRequest.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.MoveBookmarkRequest();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.bookmarkId = reader.string();
+                        break;
+                    }
+                case 2: {
+                        message.targetGroupId = reader.string();
+                        break;
+                    }
+                case 3: {
+                        message.afterBookmarkId = reader.string();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for MoveBookmarkRequest
+         * @function getTypeUrl
+         * @memberof petajournal.MoveBookmarkRequest
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        MoveBookmarkRequest.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.MoveBookmarkRequest";
+        };
+
+        return MoveBookmarkRequest;
+    })();
+
+    petajournal.MoveBookmarkResponse = (function() {
+
+        /**
+         * Properties of a MoveBookmarkResponse.
+         * @memberof petajournal
+         * @interface IMoveBookmarkResponse
+         * @property {petajournal.IBookmark|null} [bookmark] MoveBookmarkResponse bookmark
+         */
+
+        /**
+         * Constructs a new MoveBookmarkResponse.
+         * @memberof petajournal
+         * @classdesc Represents a MoveBookmarkResponse.
+         * @implements IMoveBookmarkResponse
+         * @constructor
+         * @param {petajournal.IMoveBookmarkResponse=} [properties] Properties to set
+         */
+        function MoveBookmarkResponse(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * MoveBookmarkResponse bookmark.
+         * @member {petajournal.IBookmark|null|undefined} bookmark
+         * @memberof petajournal.MoveBookmarkResponse
+         * @instance
+         */
+        MoveBookmarkResponse.prototype.bookmark = null;
+
+        /**
+         * Creates a new MoveBookmarkResponse instance using the specified properties.
+         * @function create
+         * @memberof petajournal.MoveBookmarkResponse
+         * @static
+         * @param {petajournal.IMoveBookmarkResponse=} [properties] Properties to set
+         * @returns {petajournal.MoveBookmarkResponse} MoveBookmarkResponse instance
+         */
+        MoveBookmarkResponse.create = function create(properties) {
+            return new MoveBookmarkResponse(properties);
+        };
+
+        /**
+         * Encodes the specified MoveBookmarkResponse message. Does not implicitly {@link petajournal.MoveBookmarkResponse.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.MoveBookmarkResponse
+         * @static
+         * @param {petajournal.IMoveBookmarkResponse} message MoveBookmarkResponse message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        MoveBookmarkResponse.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.bookmark != null && Object.hasOwnProperty.call(message, "bookmark"))
+                $root.petajournal.Bookmark.encode(message.bookmark, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+            return writer;
+        };
+
+        /**
+         * Decodes a MoveBookmarkResponse message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.MoveBookmarkResponse
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.MoveBookmarkResponse} MoveBookmarkResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        MoveBookmarkResponse.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.MoveBookmarkResponse();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.bookmark = $root.petajournal.Bookmark.decode(reader, reader.uint32());
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for MoveBookmarkResponse
+         * @function getTypeUrl
+         * @memberof petajournal.MoveBookmarkResponse
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        MoveBookmarkResponse.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.MoveBookmarkResponse";
+        };
+
+        return MoveBookmarkResponse;
+    })();
+
+    petajournal.MoveBookmarkGroupRequest = (function() {
+
+        /**
+         * Properties of a MoveBookmarkGroupRequest.
+         * @memberof petajournal
+         * @interface IMoveBookmarkGroupRequest
+         * @property {string|null} [groupId] MoveBookmarkGroupRequest groupId
+         * @property {string|null} [afterGroupId] MoveBookmarkGroupRequest afterGroupId
+         */
+
+        /**
+         * Constructs a new MoveBookmarkGroupRequest.
+         * @memberof petajournal
+         * @classdesc Represents a MoveBookmarkGroupRequest.
+         * @implements IMoveBookmarkGroupRequest
+         * @constructor
+         * @param {petajournal.IMoveBookmarkGroupRequest=} [properties] Properties to set
+         */
+        function MoveBookmarkGroupRequest(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * MoveBookmarkGroupRequest groupId.
+         * @member {string} groupId
+         * @memberof petajournal.MoveBookmarkGroupRequest
+         * @instance
+         */
+        MoveBookmarkGroupRequest.prototype.groupId = "";
+
+        /**
+         * MoveBookmarkGroupRequest afterGroupId.
+         * @member {string} afterGroupId
+         * @memberof petajournal.MoveBookmarkGroupRequest
+         * @instance
+         */
+        MoveBookmarkGroupRequest.prototype.afterGroupId = "";
+
+        /**
+         * Creates a new MoveBookmarkGroupRequest instance using the specified properties.
+         * @function create
+         * @memberof petajournal.MoveBookmarkGroupRequest
+         * @static
+         * @param {petajournal.IMoveBookmarkGroupRequest=} [properties] Properties to set
+         * @returns {petajournal.MoveBookmarkGroupRequest} MoveBookmarkGroupRequest instance
+         */
+        MoveBookmarkGroupRequest.create = function create(properties) {
+            return new MoveBookmarkGroupRequest(properties);
+        };
+
+        /**
+         * Encodes the specified MoveBookmarkGroupRequest message. Does not implicitly {@link petajournal.MoveBookmarkGroupRequest.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.MoveBookmarkGroupRequest
+         * @static
+         * @param {petajournal.IMoveBookmarkGroupRequest} message MoveBookmarkGroupRequest message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        MoveBookmarkGroupRequest.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.groupId != null && Object.hasOwnProperty.call(message, "groupId"))
+                writer.uint32(/* id 1, wireType 2 =*/10).string(message.groupId);
+            if (message.afterGroupId != null && Object.hasOwnProperty.call(message, "afterGroupId"))
+                writer.uint32(/* id 2, wireType 2 =*/18).string(message.afterGroupId);
+            return writer;
+        };
+
+        /**
+         * Decodes a MoveBookmarkGroupRequest message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.MoveBookmarkGroupRequest
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.MoveBookmarkGroupRequest} MoveBookmarkGroupRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        MoveBookmarkGroupRequest.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.MoveBookmarkGroupRequest();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.groupId = reader.string();
+                        break;
+                    }
+                case 2: {
+                        message.afterGroupId = reader.string();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for MoveBookmarkGroupRequest
+         * @function getTypeUrl
+         * @memberof petajournal.MoveBookmarkGroupRequest
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        MoveBookmarkGroupRequest.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.MoveBookmarkGroupRequest";
+        };
+
+        return MoveBookmarkGroupRequest;
+    })();
+
+    petajournal.MoveBookmarkGroupResponse = (function() {
+
+        /**
+         * Properties of a MoveBookmarkGroupResponse.
+         * @memberof petajournal
+         * @interface IMoveBookmarkGroupResponse
+         * @property {petajournal.IBookmarkGroup|null} [group] MoveBookmarkGroupResponse group
+         */
+
+        /**
+         * Constructs a new MoveBookmarkGroupResponse.
+         * @memberof petajournal
+         * @classdesc Represents a MoveBookmarkGroupResponse.
+         * @implements IMoveBookmarkGroupResponse
+         * @constructor
+         * @param {petajournal.IMoveBookmarkGroupResponse=} [properties] Properties to set
+         */
+        function MoveBookmarkGroupResponse(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * MoveBookmarkGroupResponse group.
+         * @member {petajournal.IBookmarkGroup|null|undefined} group
+         * @memberof petajournal.MoveBookmarkGroupResponse
+         * @instance
+         */
+        MoveBookmarkGroupResponse.prototype.group = null;
+
+        /**
+         * Creates a new MoveBookmarkGroupResponse instance using the specified properties.
+         * @function create
+         * @memberof petajournal.MoveBookmarkGroupResponse
+         * @static
+         * @param {petajournal.IMoveBookmarkGroupResponse=} [properties] Properties to set
+         * @returns {petajournal.MoveBookmarkGroupResponse} MoveBookmarkGroupResponse instance
+         */
+        MoveBookmarkGroupResponse.create = function create(properties) {
+            return new MoveBookmarkGroupResponse(properties);
+        };
+
+        /**
+         * Encodes the specified MoveBookmarkGroupResponse message. Does not implicitly {@link petajournal.MoveBookmarkGroupResponse.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.MoveBookmarkGroupResponse
+         * @static
+         * @param {petajournal.IMoveBookmarkGroupResponse} message MoveBookmarkGroupResponse message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        MoveBookmarkGroupResponse.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.group != null && Object.hasOwnProperty.call(message, "group"))
+                $root.petajournal.BookmarkGroup.encode(message.group, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+            return writer;
+        };
+
+        /**
+         * Decodes a MoveBookmarkGroupResponse message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.MoveBookmarkGroupResponse
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.MoveBookmarkGroupResponse} MoveBookmarkGroupResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        MoveBookmarkGroupResponse.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.MoveBookmarkGroupResponse();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.group = $root.petajournal.BookmarkGroup.decode(reader, reader.uint32());
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for MoveBookmarkGroupResponse
+         * @function getTypeUrl
+         * @memberof petajournal.MoveBookmarkGroupResponse
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        MoveBookmarkGroupResponse.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.MoveBookmarkGroupResponse";
+        };
+
+        return MoveBookmarkGroupResponse;
+    })();
+
+    petajournal.UpdateBookmarkGroupRequest = (function() {
+
+        /**
+         * Properties of an UpdateBookmarkGroupRequest.
+         * @memberof petajournal
+         * @interface IUpdateBookmarkGroupRequest
+         * @property {string|null} [groupId] UpdateBookmarkGroupRequest groupId
+         * @property {string|null} [name] UpdateBookmarkGroupRequest name
+         */
+
+        /**
+         * Constructs a new UpdateBookmarkGroupRequest.
+         * @memberof petajournal
+         * @classdesc Represents an UpdateBookmarkGroupRequest.
+         * @implements IUpdateBookmarkGroupRequest
+         * @constructor
+         * @param {petajournal.IUpdateBookmarkGroupRequest=} [properties] Properties to set
+         */
+        function UpdateBookmarkGroupRequest(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * UpdateBookmarkGroupRequest groupId.
+         * @member {string} groupId
+         * @memberof petajournal.UpdateBookmarkGroupRequest
+         * @instance
+         */
+        UpdateBookmarkGroupRequest.prototype.groupId = "";
+
+        /**
+         * UpdateBookmarkGroupRequest name.
+         * @member {string} name
+         * @memberof petajournal.UpdateBookmarkGroupRequest
+         * @instance
+         */
+        UpdateBookmarkGroupRequest.prototype.name = "";
+
+        /**
+         * Creates a new UpdateBookmarkGroupRequest instance using the specified properties.
+         * @function create
+         * @memberof petajournal.UpdateBookmarkGroupRequest
+         * @static
+         * @param {petajournal.IUpdateBookmarkGroupRequest=} [properties] Properties to set
+         * @returns {petajournal.UpdateBookmarkGroupRequest} UpdateBookmarkGroupRequest instance
+         */
+        UpdateBookmarkGroupRequest.create = function create(properties) {
+            return new UpdateBookmarkGroupRequest(properties);
+        };
+
+        /**
+         * Encodes the specified UpdateBookmarkGroupRequest message. Does not implicitly {@link petajournal.UpdateBookmarkGroupRequest.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.UpdateBookmarkGroupRequest
+         * @static
+         * @param {petajournal.IUpdateBookmarkGroupRequest} message UpdateBookmarkGroupRequest message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        UpdateBookmarkGroupRequest.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.groupId != null && Object.hasOwnProperty.call(message, "groupId"))
+                writer.uint32(/* id 1, wireType 2 =*/10).string(message.groupId);
+            if (message.name != null && Object.hasOwnProperty.call(message, "name"))
+                writer.uint32(/* id 2, wireType 2 =*/18).string(message.name);
+            return writer;
+        };
+
+        /**
+         * Decodes an UpdateBookmarkGroupRequest message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.UpdateBookmarkGroupRequest
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.UpdateBookmarkGroupRequest} UpdateBookmarkGroupRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        UpdateBookmarkGroupRequest.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.UpdateBookmarkGroupRequest();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.groupId = reader.string();
+                        break;
+                    }
+                case 2: {
+                        message.name = reader.string();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for UpdateBookmarkGroupRequest
+         * @function getTypeUrl
+         * @memberof petajournal.UpdateBookmarkGroupRequest
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        UpdateBookmarkGroupRequest.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.UpdateBookmarkGroupRequest";
+        };
+
+        return UpdateBookmarkGroupRequest;
+    })();
+
+    petajournal.UpdateBookmarkGroupResponse = (function() {
+
+        /**
+         * Properties of an UpdateBookmarkGroupResponse.
+         * @memberof petajournal
+         * @interface IUpdateBookmarkGroupResponse
+         * @property {petajournal.IBookmarkGroup|null} [group] UpdateBookmarkGroupResponse group
+         */
+
+        /**
+         * Constructs a new UpdateBookmarkGroupResponse.
+         * @memberof petajournal
+         * @classdesc Represents an UpdateBookmarkGroupResponse.
+         * @implements IUpdateBookmarkGroupResponse
+         * @constructor
+         * @param {petajournal.IUpdateBookmarkGroupResponse=} [properties] Properties to set
+         */
+        function UpdateBookmarkGroupResponse(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * UpdateBookmarkGroupResponse group.
+         * @member {petajournal.IBookmarkGroup|null|undefined} group
+         * @memberof petajournal.UpdateBookmarkGroupResponse
+         * @instance
+         */
+        UpdateBookmarkGroupResponse.prototype.group = null;
+
+        /**
+         * Creates a new UpdateBookmarkGroupResponse instance using the specified properties.
+         * @function create
+         * @memberof petajournal.UpdateBookmarkGroupResponse
+         * @static
+         * @param {petajournal.IUpdateBookmarkGroupResponse=} [properties] Properties to set
+         * @returns {petajournal.UpdateBookmarkGroupResponse} UpdateBookmarkGroupResponse instance
+         */
+        UpdateBookmarkGroupResponse.create = function create(properties) {
+            return new UpdateBookmarkGroupResponse(properties);
+        };
+
+        /**
+         * Encodes the specified UpdateBookmarkGroupResponse message. Does not implicitly {@link petajournal.UpdateBookmarkGroupResponse.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.UpdateBookmarkGroupResponse
+         * @static
+         * @param {petajournal.IUpdateBookmarkGroupResponse} message UpdateBookmarkGroupResponse message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        UpdateBookmarkGroupResponse.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.group != null && Object.hasOwnProperty.call(message, "group"))
+                $root.petajournal.BookmarkGroup.encode(message.group, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+            return writer;
+        };
+
+        /**
+         * Decodes an UpdateBookmarkGroupResponse message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.UpdateBookmarkGroupResponse
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.UpdateBookmarkGroupResponse} UpdateBookmarkGroupResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        UpdateBookmarkGroupResponse.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.UpdateBookmarkGroupResponse();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.group = $root.petajournal.BookmarkGroup.decode(reader, reader.uint32());
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for UpdateBookmarkGroupResponse
+         * @function getTypeUrl
+         * @memberof petajournal.UpdateBookmarkGroupResponse
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        UpdateBookmarkGroupResponse.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.UpdateBookmarkGroupResponse";
+        };
+
+        return UpdateBookmarkGroupResponse;
+    })();
+
     petajournal.ServerEvent = (function() {
 
         /**
@@ -7472,6 +9556,363 @@ export const petajournal = $root.petajournal = (() => {
         };
 
         return PagesUpdatedEvent;
+    })();
+
+    petajournal.BookmarkGroup = (function() {
+
+        /**
+         * Properties of a BookmarkGroup.
+         * @memberof petajournal
+         * @interface IBookmarkGroup
+         * @property {string|null} [id] BookmarkGroup id
+         * @property {string|null} [name] BookmarkGroup name
+         * @property {string|null} [sortOrder] BookmarkGroup sortOrder
+         * @property {petajournal.ITimestamp|null} [createdAt] BookmarkGroup createdAt
+         */
+
+        /**
+         * Constructs a new BookmarkGroup.
+         * @memberof petajournal
+         * @classdesc Represents a BookmarkGroup.
+         * @implements IBookmarkGroup
+         * @constructor
+         * @param {petajournal.IBookmarkGroup=} [properties] Properties to set
+         */
+        function BookmarkGroup(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * BookmarkGroup id.
+         * @member {string} id
+         * @memberof petajournal.BookmarkGroup
+         * @instance
+         */
+        BookmarkGroup.prototype.id = "";
+
+        /**
+         * BookmarkGroup name.
+         * @member {string} name
+         * @memberof petajournal.BookmarkGroup
+         * @instance
+         */
+        BookmarkGroup.prototype.name = "";
+
+        /**
+         * BookmarkGroup sortOrder.
+         * @member {string} sortOrder
+         * @memberof petajournal.BookmarkGroup
+         * @instance
+         */
+        BookmarkGroup.prototype.sortOrder = "";
+
+        /**
+         * BookmarkGroup createdAt.
+         * @member {petajournal.ITimestamp|null|undefined} createdAt
+         * @memberof petajournal.BookmarkGroup
+         * @instance
+         */
+        BookmarkGroup.prototype.createdAt = null;
+
+        /**
+         * Creates a new BookmarkGroup instance using the specified properties.
+         * @function create
+         * @memberof petajournal.BookmarkGroup
+         * @static
+         * @param {petajournal.IBookmarkGroup=} [properties] Properties to set
+         * @returns {petajournal.BookmarkGroup} BookmarkGroup instance
+         */
+        BookmarkGroup.create = function create(properties) {
+            return new BookmarkGroup(properties);
+        };
+
+        /**
+         * Encodes the specified BookmarkGroup message. Does not implicitly {@link petajournal.BookmarkGroup.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.BookmarkGroup
+         * @static
+         * @param {petajournal.IBookmarkGroup} message BookmarkGroup message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        BookmarkGroup.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.id != null && Object.hasOwnProperty.call(message, "id"))
+                writer.uint32(/* id 1, wireType 2 =*/10).string(message.id);
+            if (message.name != null && Object.hasOwnProperty.call(message, "name"))
+                writer.uint32(/* id 2, wireType 2 =*/18).string(message.name);
+            if (message.sortOrder != null && Object.hasOwnProperty.call(message, "sortOrder"))
+                writer.uint32(/* id 3, wireType 2 =*/26).string(message.sortOrder);
+            if (message.createdAt != null && Object.hasOwnProperty.call(message, "createdAt"))
+                $root.petajournal.Timestamp.encode(message.createdAt, writer.uint32(/* id 4, wireType 2 =*/34).fork()).ldelim();
+            return writer;
+        };
+
+        /**
+         * Decodes a BookmarkGroup message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.BookmarkGroup
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.BookmarkGroup} BookmarkGroup
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        BookmarkGroup.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.BookmarkGroup();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.id = reader.string();
+                        break;
+                    }
+                case 2: {
+                        message.name = reader.string();
+                        break;
+                    }
+                case 3: {
+                        message.sortOrder = reader.string();
+                        break;
+                    }
+                case 4: {
+                        message.createdAt = $root.petajournal.Timestamp.decode(reader, reader.uint32());
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for BookmarkGroup
+         * @function getTypeUrl
+         * @memberof petajournal.BookmarkGroup
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        BookmarkGroup.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.BookmarkGroup";
+        };
+
+        return BookmarkGroup;
+    })();
+
+    petajournal.Bookmark = (function() {
+
+        /**
+         * Properties of a Bookmark.
+         * @memberof petajournal
+         * @interface IBookmark
+         * @property {string|null} [id] Bookmark id
+         * @property {string|null} [groupId] Bookmark groupId
+         * @property {string|null} [targetType] Bookmark targetType
+         * @property {string|null} [targetId] Bookmark targetId
+         * @property {string|null} [sortOrder] Bookmark sortOrder
+         * @property {petajournal.ITimestamp|null} [createdAt] Bookmark createdAt
+         * @property {petajournal.IPage|null} [targetPage] Bookmark targetPage
+         */
+
+        /**
+         * Constructs a new Bookmark.
+         * @memberof petajournal
+         * @classdesc Represents a Bookmark.
+         * @implements IBookmark
+         * @constructor
+         * @param {petajournal.IBookmark=} [properties] Properties to set
+         */
+        function Bookmark(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * Bookmark id.
+         * @member {string} id
+         * @memberof petajournal.Bookmark
+         * @instance
+         */
+        Bookmark.prototype.id = "";
+
+        /**
+         * Bookmark groupId.
+         * @member {string} groupId
+         * @memberof petajournal.Bookmark
+         * @instance
+         */
+        Bookmark.prototype.groupId = "";
+
+        /**
+         * Bookmark targetType.
+         * @member {string} targetType
+         * @memberof petajournal.Bookmark
+         * @instance
+         */
+        Bookmark.prototype.targetType = "";
+
+        /**
+         * Bookmark targetId.
+         * @member {string} targetId
+         * @memberof petajournal.Bookmark
+         * @instance
+         */
+        Bookmark.prototype.targetId = "";
+
+        /**
+         * Bookmark sortOrder.
+         * @member {string} sortOrder
+         * @memberof petajournal.Bookmark
+         * @instance
+         */
+        Bookmark.prototype.sortOrder = "";
+
+        /**
+         * Bookmark createdAt.
+         * @member {petajournal.ITimestamp|null|undefined} createdAt
+         * @memberof petajournal.Bookmark
+         * @instance
+         */
+        Bookmark.prototype.createdAt = null;
+
+        /**
+         * Bookmark targetPage.
+         * @member {petajournal.IPage|null|undefined} targetPage
+         * @memberof petajournal.Bookmark
+         * @instance
+         */
+        Bookmark.prototype.targetPage = null;
+
+        /**
+         * Creates a new Bookmark instance using the specified properties.
+         * @function create
+         * @memberof petajournal.Bookmark
+         * @static
+         * @param {petajournal.IBookmark=} [properties] Properties to set
+         * @returns {petajournal.Bookmark} Bookmark instance
+         */
+        Bookmark.create = function create(properties) {
+            return new Bookmark(properties);
+        };
+
+        /**
+         * Encodes the specified Bookmark message. Does not implicitly {@link petajournal.Bookmark.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.Bookmark
+         * @static
+         * @param {petajournal.IBookmark} message Bookmark message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        Bookmark.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.id != null && Object.hasOwnProperty.call(message, "id"))
+                writer.uint32(/* id 1, wireType 2 =*/10).string(message.id);
+            if (message.groupId != null && Object.hasOwnProperty.call(message, "groupId"))
+                writer.uint32(/* id 2, wireType 2 =*/18).string(message.groupId);
+            if (message.targetType != null && Object.hasOwnProperty.call(message, "targetType"))
+                writer.uint32(/* id 3, wireType 2 =*/26).string(message.targetType);
+            if (message.targetId != null && Object.hasOwnProperty.call(message, "targetId"))
+                writer.uint32(/* id 4, wireType 2 =*/34).string(message.targetId);
+            if (message.sortOrder != null && Object.hasOwnProperty.call(message, "sortOrder"))
+                writer.uint32(/* id 5, wireType 2 =*/42).string(message.sortOrder);
+            if (message.createdAt != null && Object.hasOwnProperty.call(message, "createdAt"))
+                $root.petajournal.Timestamp.encode(message.createdAt, writer.uint32(/* id 6, wireType 2 =*/50).fork()).ldelim();
+            if (message.targetPage != null && Object.hasOwnProperty.call(message, "targetPage"))
+                $root.petajournal.Page.encode(message.targetPage, writer.uint32(/* id 7, wireType 2 =*/58).fork()).ldelim();
+            return writer;
+        };
+
+        /**
+         * Decodes a Bookmark message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.Bookmark
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.Bookmark} Bookmark
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        Bookmark.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.Bookmark();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.id = reader.string();
+                        break;
+                    }
+                case 2: {
+                        message.groupId = reader.string();
+                        break;
+                    }
+                case 3: {
+                        message.targetType = reader.string();
+                        break;
+                    }
+                case 4: {
+                        message.targetId = reader.string();
+                        break;
+                    }
+                case 5: {
+                        message.sortOrder = reader.string();
+                        break;
+                    }
+                case 6: {
+                        message.createdAt = $root.petajournal.Timestamp.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 7: {
+                        message.targetPage = $root.petajournal.Page.decode(reader, reader.uint32());
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for Bookmark
+         * @function getTypeUrl
+         * @memberof petajournal.Bookmark
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        Bookmark.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.Bookmark";
+        };
+
+        return Bookmark;
     })();
 
     return petajournal;

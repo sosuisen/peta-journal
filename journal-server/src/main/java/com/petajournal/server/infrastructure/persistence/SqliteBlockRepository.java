@@ -19,13 +19,13 @@ public class SqliteBlockRepository implements BlockRepository {
     SqliteConnectionProvider connectionProvider;
 
     @Override
-    public Optional<Block> findById(String id) {
+    public Optional<Block> findById(UUID id) {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
                      "SELECT b.id, b.page_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.html, b.collapsed, b.status, b.properties_json, " +
                      "p.dir_path, p.file_name, p.type " +
                      "FROM blocks b JOIN pages p ON b.page_id = p.id WHERE b.id = ?")) {
-            ps.setString(1, id);
+            ps.setString(1, id.toString());
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) return Optional.empty();
                 return Optional.of(mapBlock(conn, rs));
@@ -66,7 +66,7 @@ public class SqliteBlockRepository implements BlockRepository {
                         "INSERT INTO blocks (id, page_id, created_date, modified_date, idx, level, body, html, collapsed, status, properties_json) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) " +
                         "ON CONFLICT(id) DO UPDATE SET page_id=?, modified_date=?, idx=?, level=?, body=?, html=?, collapsed=?, status=?, properties_json=?")) {
-                    ps.setString(1, block.id());
+                    ps.setString(1, block.id().toString());
                     ps.setString(2, block.pageId().toString());
                     ps.setLong(3, block.createdDate().toEpochMilli());
                     ps.setLong(4, block.modifiedDate().toEpochMilli());
@@ -92,14 +92,14 @@ public class SqliteBlockRepository implements BlockRepository {
 
                 // Replace types
                 try (PreparedStatement ps = conn.prepareStatement("DELETE FROM block_types WHERE block_id = ?")) {
-                    ps.setString(1, block.id());
+                    ps.setString(1, block.id().toString());
                     ps.executeUpdate();
                 }
                 if (block.types() != null && !block.types().isEmpty()) {
                     try (PreparedStatement ps = conn.prepareStatement(
                             "INSERT INTO block_types (block_id, type) VALUES (?, ?)")) {
                         for (String type : block.types()) {
-                            ps.setString(1, block.id());
+                            ps.setString(1, block.id().toString());
                             ps.setString(2, type);
                             ps.addBatch();
                         }
@@ -119,10 +119,10 @@ public class SqliteBlockRepository implements BlockRepository {
     }
 
     @Override
-    public void delete(String id) {
+    public void delete(UUID id) {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement("DELETE FROM blocks WHERE id = ?")) {
-            ps.setString(1, id);
+            ps.setString(1, id.toString());
             ps.executeUpdate();
         } catch (SQLException e) {
             throw new RuntimeException("Failed to delete block: " + id, e);
@@ -192,11 +192,11 @@ public class SqliteBlockRepository implements BlockRepository {
     }
 
     @Override
-    public void updateIndex(String blockId, String newIdx) {
+    public void updateIndex(UUID blockId, String newIdx) {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement("UPDATE blocks SET idx = ? WHERE id = ?")) {
             ps.setString(1, newIdx);
-            ps.setString(2, blockId);
+            ps.setString(2, blockId.toString());
             ps.executeUpdate();
         } catch (SQLException e) {
             throw new RuntimeException("Failed to update index for block: " + blockId, e);
@@ -204,7 +204,8 @@ public class SqliteBlockRepository implements BlockRepository {
     }
 
     private Block mapBlock(Connection conn, ResultSet rs) throws SQLException {
-        String blockId = rs.getString("id");
+        String blockIdStr = rs.getString("id");
+        UUID blockId = UUID.fromString(blockIdStr);
         return new Block(
                 blockId,
                 UUID.fromString(rs.getString("page_id")),
@@ -219,7 +220,7 @@ public class SqliteBlockRepository implements BlockRepository {
                 rs.getString("html"),
                 rs.getInt("collapsed") != 0,
                 rs.getString("status"),
-                loadTypes(conn, blockId),
+                loadTypes(conn, blockIdStr),
                 rs.getString("properties_json")
         );
     }
