@@ -1138,6 +1138,8 @@ export class OutlineComponent implements OnDestroy {
         body = body.substring(6);
       }
 
+      // Whitespace-only body → empty
+      if (body.length > 0 && body.trim() === '') body = '';
       blocks.push({ body, status, level: currentLevel });
       currentBodyLines = [];
       currentLevel = 1;
@@ -1166,7 +1168,7 @@ export class OutlineComponent implements OnDestroy {
         }
 
         // Skip other metadata comments
-        if (/^<!-- #\S+ -->$/.test(line) || /^<!-- \w+=.*? -->$/.test(line)) {
+        if (/^<!-- [0-9a-f]{7}(?:-[0-9a-f-]+)? -->$/.test(line) || /^<!-- \w+=.*? -->$/.test(line)) {
           hasContent = true;
           continue;
         }

@@ -132,6 +132,9 @@ public class MarkdownExportService {
         String body = block.body();
         if (body == null) body = "";
 
+        // Empty body → single space (blank line would be a block separator)
+        if (body.isEmpty()) body = " ";
+
         String status = block.status() != null ? block.status() : "normal";
 
         // Prepend GFM task list prefix for todo/done
@@ -145,7 +148,7 @@ public class MarkdownExportService {
         sb.append(body).append("\n");
 
         // Write metadata comments
-        sb.append("<!-- #").append(block.id()).append(" -->\n");
+        sb.append("<!-- ").append(block.id()).append(" -->\n");
 
         if (block.level() > 1) {
             sb.append("<!-- level=").append(block.level()).append(" -->\n");

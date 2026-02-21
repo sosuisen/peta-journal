@@ -16,7 +16,7 @@ import java.util.regex.Pattern;
  */
 public class OutlineMarkdownParser {
 
-    private static final Pattern ID_COMMENT = Pattern.compile("^<!--\\s*#(\\S+)\\s*-->$");
+    private static final Pattern ID_COMMENT = Pattern.compile("^<!--\\s*([0-9a-f]{7}(?:-[0-9a-f-]+)?)\\s*-->$");
     private static final Pattern LEVEL_COMMENT = Pattern.compile("^<!--\\s*level=(\\d+)\\s*-->$");
     private static final Pattern COLLAPSED_COMMENT = Pattern.compile("^<!--\\s*collapsed=true\\s*-->$");
     private static final Pattern PROP_COMMENT = Pattern.compile("^<!--\\s*(\\w+)=(.*?)\\s*-->$");
@@ -238,6 +238,11 @@ public class OutlineMarkdownParser {
 
     private ParsedBlock buildParsedBlock(String id, int level, List<String> bodyLines, boolean collapsed, Map<String, String> props) {
         String body = String.join("\n", bodyLines);
+
+        // Whitespace-only body → empty
+        if (!body.isEmpty() && body.trim().isEmpty()) {
+            body = "";
+        }
 
         // Detect status from first body line
         String status = "normal";

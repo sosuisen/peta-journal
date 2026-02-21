@@ -50,6 +50,9 @@ public class TreeMarkdownConverter {
         for (int i = 0; i < blocks.size(); i++) {
             Block block = blocks.get(i);
             String body = block.body();
+            // Empty body → single space (blank line would be a block separator)
+            if (body == null || body.isEmpty()) body = " ";
+
             String status = block.status() != null ? block.status() : "normal";
 
             // Prepend GFM task list prefix for todo/done
@@ -60,7 +63,7 @@ public class TreeMarkdownConverter {
             }
 
             sb.append(body).append("\n");
-            sb.append("<!-- #").append(block.id()).append(" -->");
+            sb.append("<!-- ").append(block.id()).append(" -->");
 
             if (block.level() > 1) {
                 sb.append("\n<!-- level=").append(block.level()).append(" -->");
