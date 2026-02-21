@@ -42,7 +42,7 @@ import { formatJournalDate } from '../../core/utils/date.utils';
               (click)="goToBookmark(bm, $event)"
               (contextmenu)="onBookmarkContextMenu($event, bm)"
             >
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              <svg class="page-icon" width="11" height="11"><use href="#icon-page"/></svg>
               {{ formatBookmarkTitle(bm) }}
             </div>
           } @empty {
@@ -132,7 +132,7 @@ import { formatJournalDate } from '../../core/utils/date.utils';
       border-bottom: 2px solid transparent;
     }
     .bookmark-item:hover { background: #e9ecef; }
-    .bookmark-item svg { flex-shrink: 0; }
+    .page-icon { flex-shrink: 0; color: #666; }
     .bookmark-item.drop-above { border-top-color: #4a9eff; }
     .bookmark-item.drop-below { border-bottom-color: #4a9eff; }
     .empty-drop-zone {
