@@ -3,26 +3,23 @@ pattern: Monday
 ---
 ### AM
 
-- Sales Team Meeting
+- [ ] Check e-mails
+<!-- level=2 -->
 
-### 昼
+### PM
 
-- 
+Sale meeting
+<!-- level=2 -->
 
-### 夜
-
-- 
 ---
 pattern: Tuesday
 ---
-### 朝
+### AM
 
-- Development Team Meeting
+Dev meeting
+<!-- level=2 -->
 
-### 昼
+### PM
 
-- 
-
-### 夜
-
-- 
+ 
+<!-- level=2 --> 

@@ -59,7 +59,7 @@ export class ExtensionFunctionService {
   }
 
   private async handleCreateBlock(
-    data: { pageId: string; afterBlockId: string; level: number; body: string; requestId?: string },
+    data: { pageId: string; afterBlockId: string; level: number; body: string; status?: string; requestId?: string },
     source: Window | null
   ): Promise<void> {
     try {
@@ -83,6 +83,12 @@ export class ExtensionFunctionService {
 
       const newBlock = await this.api.createBlock(pageId, afterBlockId || (prevBlock?.id ?? ''), level, body);
       this.outlineState.addBlock(newBlock, afterBlockId || (prevBlock?.id ?? ''));
+
+      // Set status if provided
+      if (data.status && data.status !== 'normal') {
+        const updated = await this.api.updateBlockStatus(newBlock.id, data.status);
+        this.outlineState.updateBlock(newBlock.id, { status: updated.status });
+      }
 
       // Send result back to iframe
       if (source) {

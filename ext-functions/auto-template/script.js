@@ -41,11 +41,37 @@
   }
 
   function parseBlock(text) {
-    const match = text.match(/^( *)- ?/);
-    if (!match) return { level: 0, body: text };
-    const level = Math.floor(match[1].length / 2) + 1;
-    const body = text.substring(match[0].length);
-    return { level, body };
+    let level = 1;
+    let status = 'normal';
+    const bodyLines = [];
+
+    for (const line of text.split('\n')) {
+      const levelMatch = line.match(/^<!-- level=(\d+) -->\s*$/);
+      if (levelMatch) {
+        level = parseInt(levelMatch[1], 10);
+        continue;
+      }
+      // Skip other metadata comments
+      if (/^<!-- \w+=.*? -->\s*$/.test(line)) continue;
+
+      bodyLines.push(line);
+    }
+
+    let body = bodyLines.join('\n').trim();
+
+    // Detect GFM task prefix
+    if (body.startsWith('- [ ] ')) {
+      status = 'todo';
+      body = body.substring(6);
+    } else if (body.startsWith('- [x] ')) {
+      status = 'done';
+      body = body.substring(6);
+    }
+
+    // Whitespace-only body → empty
+    if (body.length > 0 && body.trim() === '') body = '';
+
+    return { level, body, status };
   }
 
   function matchesPattern(pattern, fileName, dirName) {
@@ -135,13 +161,13 @@
     // Send CreateBlock messages sequentially, waiting for response
     let lastBlockId = '';
     for (const block of allBlocks) {
-      lastBlockId = await createBlock(pageId, lastBlockId, block.level, block.body);
+      lastBlockId = await createBlock(pageId, lastBlockId, block.level, block.body, block.status);
     }
 
     console.log('[auto-template] Created', allBlocks.length, 'blocks for:', fileName);
   });
 
-  function createBlock(pageId, afterBlockId, level, body) {
+  function createBlock(pageId, afterBlockId, level, body, status) {
     return new Promise((resolve) => {
       const requestId = 'req-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
 
@@ -165,6 +191,7 @@
         afterBlockId,
         level,
         body,
+        status,
         requestId
       }, '*');
 
