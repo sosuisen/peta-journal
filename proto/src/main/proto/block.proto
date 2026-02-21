@@ -17,7 +17,7 @@ message Block {
   Timestamp created_date = 5;
   Timestamp modified_date = 6;
   string idx = 7;                   // Fractional index string for ordering
-  int32 level = 8;                  // Indentation level (0-based)
+  int32 level = 8;                  // Indentation level (1-based, 1=top level)
   string body = 9;                  // Markdown source text
   string html = 10;                 // Parsed HTML
   bool collapsed = 11;              // Whether children are collapsed

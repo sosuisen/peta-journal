@@ -132,47 +132,38 @@ public class MarkdownExportService {
         String body = block.body();
         if (body == null) body = "";
 
-        // Add prefix based on level and status
-        String prefix = "";
         String status = block.status() != null ? block.status() : "normal";
 
-        if (block.level() == 0) {
-            // Level 0: add checkbox only for todo/done
-            if ("todo".equals(status)) {
-                prefix = "[ ] ";
-            } else if ("done".equals(status)) {
-                prefix = "[x] ";
-            }
-        } else {
-            // Level 1+: always add bullet, with checkbox for todo/done
-            String indent = "  ".repeat(block.level() - 1);
-            if ("todo".equals(status)) {
-                prefix = indent + "- [ ] ";
-            } else if ("done".equals(status)) {
-                prefix = indent + "- [x] ";
-            } else {
-                prefix = indent + "- ";
-            }
+        // Prepend GFM task list prefix for todo/done
+        if ("todo".equals(status)) {
+            body = "- [ ] " + body;
+        } else if ("done".equals(status)) {
+            body = "- [x] " + body;
         }
 
-        // First line gets the prefix, subsequent lines don't need indenting
-        String[] lines = body.split("\n", -1);
-        for (int j = 0; j < lines.length; j++) {
-            if (j == 0) {
-                sb.append(prefix).append(lines[j]);
-            } else {
-                sb.append(lines[j]);
-            }
+        // Write body lines as-is (no indentation, no bullets)
+        sb.append(body).append("\n");
 
-            // Add block ID (and collapsed attr) at the end of the last line
-            if (j == lines.length - 1) {
-                sb.append(" {#").append(block.id());
-                if (block.collapsed()) {
-                    sb.append(" .collapsed");
-                }
-                sb.append("}");
+        // Write metadata comments
+        sb.append("<!-- #").append(block.id()).append(" -->\n");
+
+        if (block.level() > 1) {
+            sb.append("<!-- level=").append(block.level()).append(" -->\n");
+        }
+
+        if (block.collapsed()) {
+            sb.append("<!-- collapsed=true -->\n");
+        }
+
+        String props = block.propertiesJson();
+        if (props != null && !props.isEmpty() && !"{}".equals(props)) {
+            // Parse simple JSON properties {"key":"value",...} and write each as a comment
+            java.util.regex.Matcher m = java.util.regex.Pattern
+                    .compile("\"(\\w+)\"\\s*:\\s*\"([^\"]*)\"")
+                    .matcher(props);
+            while (m.find()) {
+                sb.append("<!-- ").append(m.group(1)).append("=").append(m.group(2)).append(" -->\n");
             }
-            sb.append("\n");
         }
     }
 

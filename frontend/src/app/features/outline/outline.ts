@@ -326,7 +326,7 @@ export class OutlineComponent implements OnDestroy {
     const beforeText = block.body.substring(0, cursorPos);
     const afterText = block.body.substring(cursorPos);
 
-    if (block.body.length === 0 && block.level > 0) {
+    if (block.body.length === 0 && block.level > 1) {
       // Empty block with indent: outdent instead of creating new block
       await this.onOutdent(block);
       this.focusEditor(block.id);
@@ -486,7 +486,7 @@ export class OutlineComponent implements OnDestroy {
    * If no previous block, the block must be at level 0 (root).
    */
   private canPlace(blockLevel: number, prevBlock: Block | undefined): boolean {
-    if (!prevBlock) return blockLevel === 0;
+    if (!prevBlock) return blockLevel === 1;
     return prevBlock.level === blockLevel || prevBlock.level === blockLevel - 1;
   }
 
@@ -531,7 +531,7 @@ export class OutlineComponent implements OnDestroy {
    * @param block - The block to outdent
    */
   async onOutdent(block: Block): Promise<void> {
-    if (block.level <= 0) return;
+    if (block.level <= 1) return;
     const blocks = this.state.blocks();
     const idx = blocks.findIndex(b => b.id === block.id);
     const prevBlock = idx > 0 ? blocks[idx - 1] : undefined;
@@ -1114,113 +1114,73 @@ export class OutlineComponent implements OnDestroy {
     }
   }
 
-  private countIndentLevel(line: string): number {
-    let level = 0;
-    let i = 0;
-    while (i < line.length) {
-      if (line[i] === '\t') {
-        level++;
-        i++;
-      } else if (line[i] === ' ' && i + 1 < line.length && line[i + 1] === ' ') {
-        level++;
-        i += 2;
-      } else {
-        break;
-      }
-    }
-    return level;
-  }
-
   private parseTextIntoBlocks(text: string): Array<{ body: string; status: string; level: number }> {
     const blocks: Array<{ body: string; status: string; level: number }> = [];
     const lines = text.split('\n');
-    let currentParagraph: string[] = [];
-    let currentParagraphLevel = 0;
-    let blankLineCount = 0;
+    let inCodeFence = false;
+
+    // Current block accumulation
+    let currentBodyLines: string[] = [];
+    let currentLevel = 1;
+    let hasContent = false;
+
+    const flushBlock = () => {
+      if (!hasContent) return;
+      let body = currentBodyLines.join('\n');
+      let status = 'normal';
+
+      // Detect status from first body line
+      if (body.startsWith('- [ ] ')) {
+        status = 'todo';
+        body = body.substring(6);
+      } else if (body.startsWith('- [x] ')) {
+        status = 'done';
+        body = body.substring(6);
+      }
+
+      blocks.push({ body, status, level: currentLevel });
+      currentBodyLines = [];
+      currentLevel = 1;
+      hasContent = false;
+    };
 
     for (const line of lines) {
-      const trimmedLine = line.trim();
+      // Track code fences
+      if (line.trim().startsWith('```')) {
+        inCodeFence = !inCodeFence;
+      }
 
-      // Check if line is blank
-      if (trimmedLine === '') {
-        blankLineCount++;
-        if (currentParagraph.length > 0 && blankLineCount === 1) {
-          // Keep the blank line as part of the paragraph
-          currentParagraph.push(line);
-        }
+      // Blank line outside code fence → flush current block
+      if (line === '' && !inCodeFence) {
+        flushBlock();
         continue;
       }
 
-      const lineLevel = this.countIndentLevel(line);
-
-      // Check if line starts with list markers (after removing leading whitespace)
-      const lineWithoutLeadingSpace = line.trimStart();
-      let isListItem = false;
-      let listItemBody = '';
-      let listItemStatus = 'normal';
-
-      if (lineWithoutLeadingSpace.startsWith('- [x] ')) {
-        isListItem = true;
-        listItemBody = lineWithoutLeadingSpace.substring(6); // Remove "- [x] "
-        listItemStatus = 'done';
-      } else if (lineWithoutLeadingSpace.startsWith('- [ ] ')) {
-        isListItem = true;
-        listItemBody = lineWithoutLeadingSpace.substring(6); // Remove "- [ ] "
-        listItemStatus = 'todo';
-      } else if (lineWithoutLeadingSpace.startsWith('- ')) {
-        isListItem = true;
-        listItemBody = lineWithoutLeadingSpace.substring(2); // Remove "- "
-        listItemStatus = 'normal';
-      }
-
-      // If we have one or more blank lines, flush the current paragraph
-      if (blankLineCount >= 1 && currentParagraph.length > 0) {
-        // Remove trailing blank lines from the paragraph
-        while (currentParagraph.length > 0 && currentParagraph[currentParagraph.length - 1].trim() === '') {
-          currentParagraph.pop();
+      // Try to match metadata comments (only outside code fences)
+      if (!inCodeFence) {
+        const levelMatch = line.match(/^<!-- level=(\d+) -->$/);
+        if (levelMatch) {
+          currentLevel = parseInt(levelMatch[1], 10);
+          hasContent = true;
+          continue;
         }
-        if (currentParagraph.length > 0) {
-          blocks.push({ body: currentParagraph.join('\n'), status: 'normal', level: currentParagraphLevel });
-          currentParagraph = [];
+
+        // Skip other metadata comments
+        if (/^<!-- #\S+ -->$/.test(line) || /^<!-- \w+=.*? -->$/.test(line)) {
+          hasContent = true;
+          continue;
         }
       }
 
-      // If this is a list item, flush current paragraph and add as new block
-      if (isListItem) {
-        if (currentParagraph.length > 0) {
-          // Remove trailing blank lines
-          while (currentParagraph.length > 0 && currentParagraph[currentParagraph.length - 1].trim() === '') {
-            currentParagraph.pop();
-          }
-          if (currentParagraph.length > 0) {
-            blocks.push({ body: currentParagraph.join('\n'), status: 'normal', level: currentParagraphLevel });
-            currentParagraph = [];
-          }
-        }
-        blocks.push({ body: listItemBody, status: listItemStatus, level: lineLevel + 1 });
-        blankLineCount = 0;
-      } else {
-        // Regular line, add to current paragraph
-        if (currentParagraph.length === 0) {
-          currentParagraphLevel = lineLevel;
-        }
-        currentParagraph.push(line);
-        blankLineCount = 0;
-      }
+      // Regular body line
+      currentBodyLines.push(line);
+      hasContent = true;
     }
 
-    // Flush any remaining paragraph
-    if (currentParagraph.length > 0) {
-      // Remove trailing blank lines
-      while (currentParagraph.length > 0 && currentParagraph[currentParagraph.length - 1].trim() === '') {
-        currentParagraph.pop();
-      }
-      if (currentParagraph.length > 0) {
-        blocks.push({ body: currentParagraph.join('\n'), status: 'normal', level: currentParagraphLevel });
-      }
-    }
+    // Flush last block
+    flushBlock();
 
-    // Normalize levels: subtract the top block's level, clamp to 0
+    // Normalize levels: subtract the top block's level to get relative offsets (0-based)
     if (blocks.length > 0) {
       const topLevel = blocks[0].level;
       for (const block of blocks) {
@@ -1607,7 +1567,7 @@ export class OutlineComponent implements OnDestroy {
     const allBlocks = this.state.blocks();
     const blocksToOutdent = allBlocks.filter(b => selectedIds.has(b.id));
 
-    if (blocksToOutdent.some(b => b.level <= 0)) return;
+    if (blocksToOutdent.some(b => b.level <= 1)) return;
 
     this.undo.begin('outdent-selection');
     for (const b of blocksToOutdent) {

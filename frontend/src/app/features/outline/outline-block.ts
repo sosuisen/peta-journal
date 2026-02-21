@@ -154,7 +154,7 @@ export class OutlineBlockComponent {
 
   private readonly editorRef = viewChild<BlockEditorComponent>('editor');
 
-  readonly indentPx = computed(() => this.block().level * 24);
+  readonly indentPx = computed(() => (this.block().level - 1) * 24);
   readonly hasChildren = computed(() => this.state.hasChildren(this.block().id));
   readonly isEditing = computed(() => this.state.editingBlockId() === this.block().id);
   readonly isSelected = computed(() => this.state.selectedBlockIds().has(this.block().id));

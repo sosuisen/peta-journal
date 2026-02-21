@@ -17,7 +17,7 @@ public class TreeMarkdownConverter {
         if (blocks.isEmpty())
             return "";
 
-        int minLevel = blocks.stream().mapToInt(Block::level).min().orElse(0);
+        int minLevel = blocks.stream().mapToInt(Block::level).min().orElse(1);
         StringBuilder sb = new StringBuilder();
 
         for (int i = 0; i < blocks.size(); i++) {
@@ -43,12 +43,33 @@ public class TreeMarkdownConverter {
     }
 
     /**
-     * Convert a list of blocks to Flat Markdown (blank-line separated bodies).
+     * Convert a list of blocks to Flat Markdown (HTML comment metadata format).
      */
     public String blocksToFlatMarkdown(List<Block> blocks) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < blocks.size(); i++) {
-            sb.append(blocks.get(i).body());
+            Block block = blocks.get(i);
+            String body = block.body();
+            String status = block.status() != null ? block.status() : "normal";
+
+            // Prepend GFM task list prefix for todo/done
+            if ("todo".equals(status)) {
+                body = "- [ ] " + body;
+            } else if ("done".equals(status)) {
+                body = "- [x] " + body;
+            }
+
+            sb.append(body).append("\n");
+            sb.append("<!-- #").append(block.id()).append(" -->");
+
+            if (block.level() > 1) {
+                sb.append("\n<!-- level=").append(block.level()).append(" -->");
+            }
+
+            if (block.collapsed()) {
+                sb.append("\n<!-- collapsed=true -->");
+            }
+
             if (i < blocks.size() - 1) {
                 sb.append("\n\n");
             }
@@ -57,8 +78,8 @@ public class TreeMarkdownConverter {
     }
 
     /**
-     * Parse Tree Markdown into Flat Markdown.
-     * Each list item becomes a separate paragraph, separated by blank lines.
+     * Parse Tree Markdown into Flat Markdown with HTML comment metadata.
+     * Each list item becomes a separate block with <!-- level=N --> when depth > 0.
      */
     public String treeMarkdownToFlatMarkdown(String treeMd) {
         if (treeMd == null || treeMd.isEmpty())
@@ -68,6 +89,7 @@ public class TreeMarkdownConverter {
         String[] lines = treeMd.replace("\r", "").split("\n", -1);
         StringBuilder currentItem = null;
         int blockPrefixLen = 0;
+        int currentDepth = 0;
 
         for (String line : lines) {
             int markerPos = findListMarkerPos(line);
@@ -75,8 +97,14 @@ public class TreeMarkdownConverter {
             if (markerPos >= 0) {
                 // New block — flush previous
                 if (currentItem != null) {
-                    items.add(currentItem.toString());
+                    int level = currentDepth + 1; // depth 0 → level 1
+                    String block = currentItem.toString();
+                    if (level > 1) {
+                        block += "\n<!-- level=" + level + " -->";
+                    }
+                    items.add(block);
                 }
+                currentDepth = markerPos / 2; // 2-space indent per depth level
                 blockPrefixLen = markerPos + 2; // indent + "- "
                 currentItem = new StringBuilder(removeOneIndent(line));
             } else if (currentItem != null && line.length() >= blockPrefixLen) {
@@ -87,7 +115,12 @@ public class TreeMarkdownConverter {
         }
 
         if (currentItem != null) {
-            items.add(currentItem.toString());
+            int level = currentDepth + 1;
+            String block = currentItem.toString();
+            if (level > 1) {
+                block += "\n<!-- level=" + level + " -->";
+            }
+            items.add(block);
         }
 
         return String.join("\n\n", items);

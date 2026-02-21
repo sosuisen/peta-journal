@@ -312,7 +312,7 @@ public sealed partial class MainWindow : Window
     {
         var blocksHtml = string.Join("\n", blocks.Select(block =>
         {
-            var indent = block.Level * 24;
+            var indent = (block.Level - 1) * 24;
             var types = block.Types_;
             var isHeading = types.Contains("heading");
             var isBlockquote = types.Contains("blockquote");

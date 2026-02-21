@@ -39,7 +39,7 @@ function toBlock(b: any): Block {
     createdDate: b.createdDate?.millis?.toNumber?.() ?? Number(b.createdDate?.millis ?? 0),
     modifiedDate: b.modifiedDate?.millis?.toNumber?.() ?? Number(b.modifiedDate?.millis ?? 0),
     idx: b.idx ?? '',
-    level: b.level ?? 0,
+    level: b.level ?? 1,
     body: b.body ?? '',
     html: b.html ?? '',
     collapsed: b.collapsed ?? false,

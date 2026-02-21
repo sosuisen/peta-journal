@@ -13,7 +13,7 @@ public record Block(
     Instant createdDate,
     Instant modifiedDate,
     String idx,          // Fractional index string for ordering
-    int level,           // Indentation level (0-based)
+    int level,           // Indentation level (1-based, 1=top level)
     String body,         // Markdown source text
     String html,         // Parsed HTML
     boolean collapsed,

@@ -12,12 +12,14 @@ import java.util.regex.Pattern;
 
 /**
  * Parses Outline Markdown format back into Page and Block domain objects.
- * Format: YAML frontmatter + blank-line separated blocks with pandoc attributes.
+ * Format: YAML frontmatter + blank-line separated blocks with HTML comment metadata.
  */
 public class OutlineMarkdownParser {
 
-    private static final Pattern ATTR_PATTERN = Pattern.compile("\\{#(\\w+)([^}]*)\\}\\s*$");
-    private static final Pattern CLASS_PATTERN = Pattern.compile("\\.(\\w+)");
+    private static final Pattern ID_COMMENT = Pattern.compile("^<!--\\s*#(\\S+)\\s*-->$");
+    private static final Pattern LEVEL_COMMENT = Pattern.compile("^<!--\\s*level=(\\d+)\\s*-->$");
+    private static final Pattern COLLAPSED_COMMENT = Pattern.compile("^<!--\\s*collapsed=true\\s*-->$");
+    private static final Pattern PROP_COMMENT = Pattern.compile("^<!--\\s*(\\w+)=(.*?)\\s*-->$");
 
     public record ParseResult(
         Map<String, String> frontmatter,
@@ -29,7 +31,9 @@ public class OutlineMarkdownParser {
         int level,
         String body,
         boolean collapsed,
-        List<String> types
+        List<String> types,
+        String status,
+        String propertiesJson
     ) {}
 
     public ParseResult parse(String markdown) {
@@ -96,7 +100,7 @@ public class OutlineMarkdownParser {
             blocks.add(new Block(
                     blockId, pageId, dirPath, fileName, type, now, now, idx,
                     pb.level(), pb.body(), "",
-                    pb.collapsed(), "normal", pb.types(), "{}"
+                    pb.collapsed(), pb.status(), pb.types(), pb.propertiesJson()
             ));
             prevIdx = idx;
         }
@@ -155,54 +159,117 @@ public class OutlineMarkdownParser {
         if (content.isEmpty()) return List.of();
 
         List<ParsedBlock> blocks = new ArrayList<>();
-        // Split on blank lines
-        String[] rawBlocks = content.split("\n\n");
+        String[] lines = content.split("\n", -1);
+        boolean inCodeFence = false;
 
-        for (String raw : rawBlocks) {
-            if (raw.isBlank()) continue;
+        // Current block accumulation
+        String currentId = null;
+        int currentLevel = 1;
+        boolean currentCollapsed = false;
+        List<String> currentBodyLines = new ArrayList<>();
+        Map<String, String> currentProps = new LinkedHashMap<>();
+        boolean hasContent = false;
 
-            String body = raw;
-            String id = null;
-            boolean collapsed = false;
-            List<String> types = new ArrayList<>();
+        for (String line : lines) {
+            // Track code fences
+            if (line.trim().startsWith("```")) {
+                inCodeFence = !inCodeFence;
+            }
 
-            // Check for pandoc attributes at end
-            Matcher attrMatcher = ATTR_PATTERN.matcher(raw);
-            if (attrMatcher.find()) {
-                id = attrMatcher.group(1);
-                String attrsStr = attrMatcher.group(2);
+            // Blank line outside code fence → flush current block
+            if (line.isEmpty() && !inCodeFence) {
+                if (hasContent) {
+                    blocks.add(buildParsedBlock(currentId, currentLevel, currentBodyLines, currentCollapsed, currentProps));
+                    currentId = null;
+                    currentLevel = 1;
+                    currentCollapsed = false;
+                    currentBodyLines = new ArrayList<>();
+                    currentProps = new LinkedHashMap<>();
+                    hasContent = false;
+                }
+                continue;
+            }
 
-                Matcher classMatcher = CLASS_PATTERN.matcher(attrsStr);
-                while (classMatcher.find()) {
-                    String cls = classMatcher.group(1);
-                    if ("collapsed".equals(cls)) {
-                        collapsed = true;
-                    } else {
-                        types.add(cls);
-                    }
+            // Try to match metadata comments (only outside code fences)
+            if (!inCodeFence) {
+                Matcher idMatcher = ID_COMMENT.matcher(line);
+                if (idMatcher.matches()) {
+                    currentId = idMatcher.group(1);
+                    hasContent = true;
+                    continue;
                 }
 
-                body = raw.substring(0, attrMatcher.start()).stripTrailing();
+                Matcher levelMatcher = LEVEL_COMMENT.matcher(line);
+                if (levelMatcher.matches()) {
+                    currentLevel = Integer.parseInt(levelMatcher.group(1));
+                    hasContent = true;
+                    continue;
+                }
+
+                Matcher collapsedMatcher = COLLAPSED_COMMENT.matcher(line);
+                if (collapsedMatcher.matches()) {
+                    currentCollapsed = true;
+                    hasContent = true;
+                    continue;
+                }
+
+                Matcher propMatcher = PROP_COMMENT.matcher(line);
+                if (propMatcher.matches()) {
+                    String key = propMatcher.group(1);
+                    String value = propMatcher.group(2);
+                    currentProps.put(key, value);
+                    hasContent = true;
+                    continue;
+                }
             }
 
-            // Detect indentation level (2 spaces per level)
-            int level = 0;
-            for (int i = 0; i < body.length(); i++) {
-                if (body.charAt(i) == ' ') level++;
-                else break;
-            }
-            level = level / 2;
+            // Regular body line
+            currentBodyLines.add(line);
+            hasContent = true;
+        }
 
-            // Remove indentation
-            String indent = "  ".repeat(level);
-            body = body.lines()
-                    .map(line -> line.startsWith(indent) ? line.substring(indent.length()) : line)
-                    .reduce((a, b) -> a + "\n" + b)
-                    .orElse("");
-
-            blocks.add(new ParsedBlock(id, level, body, collapsed, types));
+        // Flush last block
+        if (hasContent) {
+            blocks.add(buildParsedBlock(currentId, currentLevel, currentBodyLines, currentCollapsed, currentProps));
         }
 
         return blocks;
+    }
+
+    private ParsedBlock buildParsedBlock(String id, int level, List<String> bodyLines, boolean collapsed, Map<String, String> props) {
+        String body = String.join("\n", bodyLines);
+
+        // Detect status from first body line
+        String status = "normal";
+        if (body.startsWith("- [ ] ")) {
+            status = "todo";
+            body = body.substring(6);
+        } else if (body.startsWith("- [x] ")) {
+            status = "done";
+            body = body.substring(6);
+        }
+
+        // Detect block types from body
+        List<String> types = new ArrayList<>();
+        String trimmed = body.trim();
+        if (trimmed.startsWith("#")) types.add("heading");
+        if (trimmed.startsWith("```")) types.add("code");
+        if (trimmed.startsWith(">")) types.add("blockquote");
+
+        // Build properties JSON
+        String propsJson = "{}";
+        if (!props.isEmpty()) {
+            StringBuilder pj = new StringBuilder("{");
+            boolean first = true;
+            for (var entry : props.entrySet()) {
+                if (!first) pj.append(",");
+                pj.append("\"").append(entry.getKey()).append("\":\"").append(entry.getValue()).append("\"");
+                first = false;
+            }
+            pj.append("}");
+            propsJson = pj.toString();
+        }
+
+        return new ParsedBlock(id, level, body, collapsed, types, status, propsJson);
     }
 }

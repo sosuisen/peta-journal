@@ -110,6 +110,14 @@ public class DatabaseInitializer {
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_bookmark_groups_sort ON bookmark_groups(sort_order)");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_bookmarks_group_sort ON bookmarks(group_id, sort_order)");
 
+            // Migrate block levels from 0-based to 1-based (one-time)
+            var rs = stmt.executeQuery("SELECT COUNT(*) FROM blocks WHERE level = 0");
+            rs.next();
+            if (rs.getInt(1) > 0) {
+                stmt.execute("UPDATE blocks SET level = level + 1 WHERE level >= 0");
+                LOG.info("Migrating block levels from 0-based to 1-based");
+            }
+
             LOG.info("Database initialized");
         } catch (SQLException e) {
             LOG.error("Failed to initialize database", e);

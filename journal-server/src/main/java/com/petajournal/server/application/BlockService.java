@@ -48,7 +48,7 @@ public class BlockService {
      *
      * @param pageId       the page to add the block to
      * @param afterBlockId the block ID after which to insert, or empty/null to prepend
-     * @param level        the indentation level (0-based)
+     * @param level        the indentation level (1-based, 1=top level)
      * @param body         the markdown body text
      * @return the newly created block
      * @throws IllegalArgumentException if the page is not found
@@ -189,7 +189,7 @@ public class BlockService {
                     .orElseThrow(() -> new IllegalArgumentException("Block not found: " + blockId));
 
             String newIdx = FractionalIndexer.between(afterIdx, nextIdx);
-            int newLevel = Math.max(0, block.level() + delta);
+            int newLevel = Math.max(1, block.level() + delta);
 
             Block moved = new Block(
                     block.id(),

@@ -73,7 +73,7 @@ public class JournalService {
 
         // Create initial empty block
         UUID blockId = BlockIdGenerator.generate();
-        Block block = new Block(blockId, id, page.dirPath(), page.fileName(), page.type(), now, now, FractionalIndexer.initial(), 0, "", "", false, "normal", List.of(), "{}");
+        Block block = new Block(blockId, id, page.dirPath(), page.fileName(), page.type(), now, now, FractionalIndexer.initial(), 1, "", "", false, "normal", List.of(), "{}");
         block = blockRepository.save(block);
 
         return new JournalResult(page, List.of(block), true);
@@ -102,7 +102,7 @@ public class JournalService {
         UUID afterBlockId = null;
         for (LocalDate day : weekDays) {
             String body = "[[" + day.format(DateTimeFormatter.ISO_LOCAL_DATE) + "]]";
-            Block block = blockService.createBlock(id, afterBlockId, 0, body);
+            Block block = blockService.createBlock(id, afterBlockId, 1, body);
             blocks.add(block);
             afterBlockId = block.id();
         }
@@ -190,7 +190,7 @@ public class JournalService {
         UUID afterBlockId = null;
         for (int m = 1; m <= 12; m++) {
             String body = "[[" + year + "-" + String.format("%02d", m) + "]]";
-            Block block = blockService.createBlock(id, afterBlockId, 0, body);
+            Block block = blockService.createBlock(id, afterBlockId, 1, body);
             blocks.add(block);
             afterBlockId = block.id();
         }
@@ -220,7 +220,7 @@ public class JournalService {
         UUID afterBlockId = null;
         for (int w : weekNumbers) {
             String body = "[[" + year + "-W" + String.format("%02d", w) + "]]";
-            Block block = blockService.createBlock(id, afterBlockId, 0, body);
+            Block block = blockService.createBlock(id, afterBlockId, 1, body);
             blocks.add(block);
             afterBlockId = block.id();
         }

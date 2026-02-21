@@ -21,7 +21,7 @@ public class McpBlockTools {
     String create_block(
             @ToolArg(description = "UUID of the page") String pageId,
             @ToolArg(description = "Block ID to insert after (empty string to append at end)") String afterBlockId,
-            @ToolArg(description = "Indentation level (0-based)") int level,
+            @ToolArg(description = "Indentation level (1-based)") int level,
             @ToolArg(description = "Markdown body text") String body
     ) {
         var block = blockService.createBlock(
@@ -41,7 +41,7 @@ public class McpBlockTools {
             @ToolArg(description = "New collapsed state: 'true', 'false', or 'null' to keep current") String collapsed,
             @ToolArg(description = "New status: 'normal', 'todo', 'running', 'done', or 'null' to keep current") String status
     ) {
-        Integer lvl = (level < 0) ? null : level;
+        Integer lvl = (level < 1) ? null : level;
         Boolean col = "null".equals(collapsed) ? null : Boolean.parseBoolean(collapsed);
         String st = "null".equals(status) ? null : status;
         var block = blockService.updateBlock(UUID.fromString(blockId), body, lvl, col, st, null);

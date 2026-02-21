@@ -77,7 +77,7 @@ export class ExtensionFunctionService {
       }
 
       // Adjust level with canPlace constraint
-      while (level > 0 && !this.canPlace(level, prevBlock)) {
+      while (level > 1 && !this.canPlace(level, prevBlock)) {
         level--;
       }
 
@@ -105,7 +105,7 @@ export class ExtensionFunctionService {
   }
 
   private canPlace(blockLevel: number, prevBlock: { level: number } | undefined): boolean {
-    if (!prevBlock) return blockLevel === 0;
+    if (!prevBlock) return blockLevel === 1;
     return prevBlock.level === blockLevel || prevBlock.level === blockLevel - 1;
   }
 }

@@ -120,7 +120,7 @@ public class PageService {
         // Create initial empty block
         UUID blockId = BlockIdGenerator.generate();
         Block block = new Block(blockId, id, page.dirPath(), page.fileName(), page.type(), now, now,
-                FractionalIndexer.initial(), 0, "", "", false, "normal", List.of(), "{}");
+                FractionalIndexer.initial(), 1, "", "", false, "normal", List.of(), "{}");
         blockRepository.save(block);
 
         // Queue for export
@@ -257,7 +257,7 @@ public class PageService {
 
                 UUID blockId = BlockIdGenerator.generate();
                 Block block = new Block(blockId, id, indexDir, "index", "doc", now, now,
-                        FractionalIndexer.initial(), 0, "", "", false, "normal", List.of(), "{}");
+                        FractionalIndexer.initial(), 1, "", "", false, "normal", List.of(), "{}");
                 blockRepository.save(block);
             }
         }
