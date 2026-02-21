@@ -13,6 +13,7 @@ import { formatJournalDate } from '../../core/utils/date.utils';
         <div class="bookmark-group">
           <div
             class="group-header"
+            [class.default-group-header]="group.name === ''"
             [draggable]="group.name !== ''"
             (dragstart)="onGroupDragStart($event, group)"
             (dragover)="onGroupDragOver($event, group)"
@@ -41,6 +42,7 @@ import { formatJournalDate } from '../../core/utils/date.utils';
               (click)="goToBookmark(bm, $event)"
               (contextmenu)="onBookmarkContextMenu($event, bm)"
             >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
               {{ formatBookmarkTitle(bm) }}
             </div>
           } @empty {
@@ -81,14 +83,20 @@ import { formatJournalDate } from '../../core/utils/date.utils';
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin: 0 0 0 12px;
-      padding-right: 12px;
+      margin: 0 0 8px 0;
+      padding: 4px 12px;
+      border-bottom: 1px dashed #999;
+    }
+    .default-group-header {
+      background: #edeef0;
+      border-radius: 4px;
+      border-bottom: none;
     }
     .group-name {
       font-size: 11px;
       text-transform: uppercase;
-      color: #888;
-      margin: 0 0 8px 0;
+      color: #555;
+      margin: 0;
       letter-spacing: 0.5px;
       flex: 1;
       overflow: hidden;
@@ -103,7 +111,6 @@ import { formatJournalDate } from '../../core/utils/date.utils';
       cursor: pointer;
       font-size: 14px;
       padding: 0 4px;
-      margin-bottom: 8px;
       line-height: 1;
       visibility: hidden;
     }
@@ -118,10 +125,14 @@ import { formatJournalDate } from '../../core/utils/date.utils';
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      display: flex;
+      align-items: center;
+      gap: 6px;
       border-top: 2px solid transparent;
       border-bottom: 2px solid transparent;
     }
     .bookmark-item:hover { background: #e9ecef; }
+    .bookmark-item svg { flex-shrink: 0; }
     .bookmark-item.drop-above { border-top-color: #4a9eff; }
     .bookmark-item.drop-below { border-bottom-color: #4a9eff; }
     .empty-drop-zone {

@@ -22,15 +22,15 @@ import { validateFileName } from '../core/utils/filename-validation.utils';
           <button class="menu-btn" (click)="sidebarCollapsed.set(!sidebarCollapsed())">
             &#9776;
           </button>
-          <button class="menu-btn" title="Today's journal" (click)="navigateToToday()">
-            &#128197;
-          </button>
         </div>
         <div class="header-center">
           <button class="new-page-btn" title="New page" (click)="createNewPage()">+</button>
           <app-search-bar />
         </div>
         <div class="header-right">
+          <button class="menu-btn home-btn" title="Home" (click)="navigateToToday()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          </button>
           <div class="page-menu">
             <button class="page-menu-btn" (click)="pageMenuOpen.set(!pageMenuOpen())">&#8942;</button>
             @if (pageMenuOpen()) {
@@ -93,6 +93,7 @@ import { validateFileName } from '../core/utils/filename-validation.utils';
       border-radius: 4px;
     }
     .menu-btn:hover { background: #f0f0f0; }
+    .home-btn { display: flex; align-items: center; justify-content: center; }
     .header-center {
       flex: 1;
       display: flex;
@@ -114,7 +115,7 @@ import { validateFileName } from '../core/utils/filename-validation.utils';
       justify-content: center;
     }
     .new-page-btn:hover { background: #0056b3; }
-    .header-right { }
+    .header-right { display: flex; align-items: center; }
     .page-menu { position: relative; }
     .page-menu-btn {
       background: none;

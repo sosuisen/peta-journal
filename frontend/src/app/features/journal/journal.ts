@@ -18,7 +18,7 @@ import { ExtensionFunctionService } from '../../core/services/extension-function
   template: `
     <div class="journal-header">
       <h2 class="journal-date" (click)="showCalendar.set(!showCalendar())">{{ displayDate() }}</h2>
-      <button class="calendar-btn" (click)="showCalendar.set(!showCalendar())">📅</button>
+      <button class="calendar-btn" (click)="showCalendar.set(!showCalendar())"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></button>
       @if (journalType() === 'daily') {
         <button class="nav-btn" (click)="goToPrevDay()">&lt;</button>
         <button class="nav-btn" (click)="goToNextDay()">&gt;</button>
@@ -57,9 +57,12 @@ import { ExtensionFunctionService } from '../../core/services/extension-function
       background: none;
       border: 1px solid #ddd;
       border-radius: 4px;
-      padding: 4px 8px;
+      padding: 4px 12px;
       cursor: pointer;
-      font-size: 18px;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     .calendar-btn:hover { background: #f0f0f0; }
     .nav-btn {

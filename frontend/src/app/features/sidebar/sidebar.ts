@@ -4,6 +4,7 @@ import { Page } from '../../core/models/page.model';
 import { CalendarComponent } from '../../shared/calendar';
 import { BookmarksSidebarComponent } from './bookmarks-sidebar';
 import { formatJournalDate, formatDateToIso } from '../../core/utils/date.utils';
+import { Router } from '@angular/router';
 import { NavigationService } from '../../core/services/navigation.service';
 
 @Component({
@@ -23,9 +24,23 @@ import { NavigationService } from '../../core/services/navigation.service';
         </div>
 
         <div class="sidebar-section">
+          <div class="sidebar-item journal-link" (click)="goToToday()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="1" width="16" height="20" rx="1.5" ry="1.5"/>
+              <line x1="3" y1="13" x2="19" y2="13" stroke="#666" stroke-width="1"/>
+              <line x1="3" y1="17" x2="19" y2="17" stroke="#666" stroke-width="1"/>
+              <line x1="14" y1="2" x2="14" y2="20" stroke="#666" stroke-width="3"/>
+              <rect x="5" y="21" width="3" height="2" fill="#666" stroke="none"/>
+            </svg>
+            Journal
+          </div>
+        </div>
+
+        <div class="sidebar-section">
           <h3 class="section-title">Recent Pages</h3>
           @for (page of recentPages.recentPages(); track page.id) {
-            <div class="sidebar-item" (click)="goToPage(page, $event)">
+            <div class="sidebar-item recent-page-item" (click)="goToPage(page, $event)">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
               {{ formatPageTitle(page) }}
             </div>
           }
@@ -62,9 +77,12 @@ import { NavigationService } from '../../core/services/navigation.service';
     .section-title {
       font-size: 11px;
       text-transform: uppercase;
-      color: #888;
-      margin: 0 0 8px 12px;
+      color: #555;
+      margin: 0 0 8px 0;
+      padding: 4px 12px;
       letter-spacing: 0.5px;
+      background: #edeef0;
+      border-radius: 4px;
     }
     .sidebar-item {
       padding: 6px 12px;
@@ -76,6 +94,9 @@ import { NavigationService } from '../../core/services/navigation.service';
       text-overflow: ellipsis;
     }
     .sidebar-item:hover { background: #e9ecef; }
+    .journal-link { display: flex; align-items: center; gap: 6px; }
+    .recent-page-item { display: flex; align-items: center; gap: 6px; justify-content: flex-start; }
+    .recent-page-item svg { flex-shrink: 0; }
     .sidebar-placeholder {
       padding: 6px 12px;
       color: #aaa;
@@ -102,6 +123,7 @@ import { NavigationService } from '../../core/services/navigation.service';
 })
 export class SidebarComponent implements OnInit {
   readonly recentPages = inject(RecentPagesService);
+  private readonly router = inject(Router);
   private readonly nav = inject(NavigationService);
   readonly today = formatDateToIso(new Date());
 
@@ -114,6 +136,10 @@ export class SidebarComponent implements OnInit {
    * Navigates to the daily journal for the selected date.
    * @param event - Contains the ISO date string and whether Ctrl was held.
    */
+  goToToday(): void {
+    this.router.navigateByUrl('/today');
+  }
+
   goToDate(event: { date: string; ctrlKey: boolean }): void {
     this.nav.navigateToPage(event.date, event.ctrlKey);
   }
