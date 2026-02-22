@@ -148,6 +148,7 @@ export class OutlineComponent implements OnDestroy {
   private readonly dirtyBlockIds = new Set<string>();
   private switchingEditBlock = false;
   private movingEditBlock = false;
+  private operatingEnterKey = false;  // Prevents onEditFinished from flushing
   private readonly viewport = viewChild<CdkVirtualScrollViewport>('viewport');
   private readonly outlineBlocks = viewChildren<OutlineBlockComponent>('outlineBlock');
 
@@ -298,9 +299,7 @@ export class OutlineComponent implements OnDestroy {
     // If not in editing set, another handler already removed it
     if (!this.state.editingBlockIds().has(block.id)) return;
 
-    // If not focused, Enter handler is managing this block — don't interfere
-    const isFocused = this.state.focusedBlockId() === block.id;
-    if (!isFocused) return;
+    if (this.operatingEnterKey) return;
 
     if (!this.dirtyBlockIds.has(block.id)) {
       this.state.removeEditingBlock(block.id);
@@ -349,6 +348,8 @@ export class OutlineComponent implements OnDestroy {
       }
       // Has siblings below: fall through to create new block
     }
+
+    this.operatingEnterKey = true;
 
     if (cursorPos === 0 && block.body.length > 0) {
       // Enter at beginning: create new empty block before current block
@@ -430,6 +431,8 @@ export class OutlineComponent implements OnDestroy {
       this.state.updateBlock(block.id, { html: updatedOriginal.html });
       this.state.removeEditingBlock(block.id);
     }
+
+    this.operatingEnterKey = false;
   }
 
   /**
@@ -541,6 +544,7 @@ export class OutlineComponent implements OnDestroy {
     if (current) {
       const updated = await this.api.updateBlock(block.id, { body: current.body });
       this.state.updateBlock(block.id, { html: updated.html });
+      this.state.removeEditingBlock(block.id);
     }
   }
 
