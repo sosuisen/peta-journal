@@ -329,10 +329,21 @@ export class OutlineComponent implements OnDestroy {
     const afterText = block.body.substring(cursorPos);
 
     if (block.body.length === 0 && block.level > 1) {
-      // Empty block with indent: outdent instead of creating new block
-      await this.onOutdent(block);
-      this.focusEditor(block.id);
-      return;
+      // Check if there are same-level siblings below within the same parent
+      const vBlocks = this.state.visibleBlocks();
+      const vIdx = vBlocks.findIndex(b => b.id === block.id);
+      let hasSiblingBelow = false;
+      for (let i = vIdx + 1; i < vBlocks.length; i++) {
+        if (vBlocks[i].level < block.level) break;
+        if (vBlocks[i].level === block.level) { hasSiblingBelow = true; break; }
+      }
+      if (!hasSiblingBelow) {
+        // No siblings below: outdent instead of creating new block
+        await this.onOutdent(block);
+        this.focusEditor(block.id);
+        return;
+      }
+      // Has siblings below: fall through to create new block
     }
 
     if (cursorPos === 0 && block.body.length > 0) {
