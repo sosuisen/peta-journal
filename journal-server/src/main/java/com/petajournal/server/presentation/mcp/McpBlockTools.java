@@ -28,7 +28,8 @@ public class McpBlockTools {
                 UUID.fromString(pageId),
                 afterBlockId.isEmpty() ? null : UUID.fromString(afterBlockId),
                 level,
-                body
+                body,
+                null
         );
         return jsonHelper.toJson(Map.of("block", block));
     }

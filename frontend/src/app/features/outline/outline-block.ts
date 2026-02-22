@@ -156,7 +156,7 @@ export class OutlineBlockComponent {
 
   readonly indentPx = computed(() => (this.block().level - 1) * 24);
   readonly hasChildren = computed(() => this.state.hasChildren(this.block().id));
-  readonly isEditing = computed(() => this.state.editingBlockId() === this.block().id);
+  readonly isEditing = computed(() => this.state.editingBlockIds().has(this.block().id));
   readonly isSelected = computed(() => this.state.selectedBlockIds().has(this.block().id));
   readonly isCollapsed = computed(() => this.block().collapsed);
   readonly isHeading = computed(() => this.block().body.trimStart().startsWith('#'));

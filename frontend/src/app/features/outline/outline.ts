@@ -253,7 +253,7 @@ export class OutlineComponent implements OnDestroy {
    */
   async onEditRequested(blockId: string, cursorPosition: number): Promise<void> {
     if (this.state.blockSelectionMode()) return;
-    const currentId = this.state.editingBlockId();
+    const currentId = this.state.focusedBlockId();
     if (currentId && currentId !== blockId) {
       const current = this.state.getBlockById(currentId);
       if (current) {
@@ -262,7 +262,8 @@ export class OutlineComponent implements OnDestroy {
         this.switchingEditBlock = false;
       }
     }
-    this.state.setEditingBlock(blockId, cursorPosition, true);
+    this.state.addEditingBlock(blockId);
+    this.state.setFocusedBlock(blockId, cursorPosition);
   }
 
   /**
@@ -289,15 +290,19 @@ export class OutlineComponent implements OnDestroy {
   async onEditFinished(block: Block): Promise<void> {
     this.closeWikiSuggestions();
     if (this.switchingEditBlock) return;  // onEditRequested is handling save + switch
-    const isStillEditing = this.state.editingBlockId() === block.id;
+
+    // If not in editing set, another handler already removed it
+    if (!this.state.editingBlockIds().has(block.id)) return;
+
+    // If not focused, Enter handler is managing this block — don't interfere
+    const isFocused = this.state.focusedBlockId() === block.id;
+    if (!isFocused) return;
 
     if (!this.dirtyBlockIds.has(block.id)) {
-      if (isStillEditing) {
-        this.state.setEditingBlock(null);
-      }
+      this.state.removeEditingBlock(block.id);
       return;
     }
-    // Save dirty block even if editing has moved to another block
+    // Save dirty block
     this.dirtyBlockIds.delete(block.id);
     await this.autoSave.flushBlock(block.id);
     const current = this.state.getBlockById(block.id);
@@ -305,10 +310,7 @@ export class OutlineComponent implements OnDestroy {
       const updated = await this.api.updateBlock(block.id, { body: current.body });
       this.state.updateBlock(block.id, { html: updated.html });
     }
-    // Only clear editing if this block is still the active one
-    if (isStillEditing) {
-      this.state.setEditingBlock(null);
-    }
+    this.state.removeEditingBlock(block.id);
   }
 
   /**
@@ -346,8 +348,49 @@ export class OutlineComponent implements OnDestroy {
       this.undo.pushCreate(newBlock);
       this.undo.commit({ blockId: newBlock.id, position: 0 });
 
-      this.state.setEditingBlock(newBlock.id);
+      this.state.addEditingBlock(newBlock.id);
       this.focusEditor(newBlock.id);
+    } else if (cursorPos === block.body.length) {
+      // Enter at end: body unchanged — add optimistic block with client-generated ID
+      const newId = crypto.randomUUID();
+      const optimisticBlock: Block = {
+        id: newId,
+        pageId: block.pageId,
+        dirPath: block.dirPath,
+        fileName: block.fileName,
+        type: block.type,
+        createdDate: Date.now(),
+        modifiedDate: Date.now(),
+        idx: '',
+        level: block.level,
+        body: '',
+        html: '',
+        collapsed: false,
+        status: 'normal',
+        types: [],
+        propertiesJson: '',
+      };
+      this.api.createBlock(block.pageId, block.id, block.level, '', newId);
+      this.state.addBlock(optimisticBlock, block.id);
+
+      this.undo.begin('enter', { blockId: block.id, position: cursorPos });
+      this.undo.pushUpdate({ ...block }, { ...block });
+      this.undo.pushCreate(optimisticBlock);
+      this.undo.commit({ blockId: newId, position: 0 });
+
+      this.dirtyBlockIds.delete(block.id);
+      this.autoSave.cancelBlock(block.id);
+      this.state.addEditingBlock(newId);
+      this.state.setFocusedBlock(newId);
+      this.focusEditor(newId);
+
+      // Update old block body locally, keep editor visible during API calls
+      this.state.updateBlock(block.id, { body: beforeText });
+      const updatedOriginal = await this.api.updateBlock(block.id, { body: beforeText });
+      // Update HTML before switching — prevents blink
+      this.state.updateBlock(block.id, { html: updatedOriginal.html });
+      this.state.removeEditingBlock(block.id);
+
     } else {
       const originalBlock = { ...block };
 
@@ -357,8 +400,6 @@ export class OutlineComponent implements OnDestroy {
         this.api.updateBlock(block.id, { body: beforeText }),
         this.api.createBlock(block.pageId, block.id, block.level, afterText),
       ]);
-      // Update HTML before switching — prevents blink
-      this.state.updateBlock(block.id, { html: updatedOriginal.html });
       this.state.addBlock(newBlock, block.id);
 
       this.undo.begin('enter', { blockId: block.id, position: cursorPos });
@@ -366,8 +407,13 @@ export class OutlineComponent implements OnDestroy {
       this.undo.pushCreate(newBlock);
       this.undo.commit({ blockId: newBlock.id, position: 0 });
 
-      this.state.setEditingBlock(newBlock.id);
+      this.state.addEditingBlock(newBlock.id);
+      this.state.setFocusedBlock(newBlock.id);
       this.focusEditor(newBlock.id);
+
+      // Update HTML before switching — prevents blink
+      this.state.updateBlock(block.id, { html: updatedOriginal.html });
+      this.state.removeEditingBlock(block.id);
     }
   }
 
@@ -391,7 +437,7 @@ export class OutlineComponent implements OnDestroy {
     const mergedBody = prevBlock.body + block.body;
     this.state.updateBlock(prevBlock.id, { body: mergedBody });
     this.state.deleteBlock(block.id);
-    this.state.setEditingBlock(prevBlock.id);
+    this.state.addEditingBlock(prevBlock.id);
     this.focusEditor(prevBlock.id);
 
     const updatedPrev = await this.api.updateBlock(prevBlock.id, { body: mergedBody });
@@ -447,7 +493,9 @@ export class OutlineComponent implements OnDestroy {
     if (idx > 0) {
       // Save and update HTML before navigating
       await this.saveBlockIfDirty(block);
-      this.state.setEditingBlock(blocks[idx - 1].id, cursorPos);
+      this.state.addEditingBlock(blocks[idx - 1].id);
+      this.state.setFocusedBlock(blocks[idx - 1].id, cursorPos);
+      this.state.removeEditingBlock(block.id);
     }
   }
 
@@ -463,7 +511,9 @@ export class OutlineComponent implements OnDestroy {
     if (idx < blocks.length - 1) {
       // Save and update HTML before navigating
       await this.saveBlockIfDirty(block);
-      this.state.setEditingBlock(blocks[idx + 1].id, cursorPos);
+      this.state.addEditingBlock(blocks[idx + 1].id);
+      this.state.setFocusedBlock(blocks[idx + 1].id, cursorPos);
+      this.state.removeEditingBlock(block.id);
     }
   }
 
@@ -620,8 +670,6 @@ export class OutlineComponent implements OnDestroy {
     const groupIds = group.map(b => b.id);
     const beforeSnapshots = group.map(b => ({ ...b }));
 
-    this.state.setEditingBlock(null);
-
     // Standard placement: move entire tree before the entire previous tree
     const prevBlock = blocks[idx - 1];
     if (this.canPlace(block.level, prevBlock)) {
@@ -639,7 +687,6 @@ export class OutlineComponent implements OnDestroy {
       }
       this.undo.commit();
 
-      this.state.setEditingBlock(block.id);
       this.focusEditor(block.id);
       return;
     }
@@ -654,7 +701,6 @@ export class OutlineComponent implements OnDestroy {
     }
 
     if (sameLevelBlockIdx === -1) {
-      this.state.setEditingBlock(block.id);
       return;
     }
 
@@ -674,7 +720,6 @@ export class OutlineComponent implements OnDestroy {
     }
     this.undo.commit();
 
-    this.state.setEditingBlock(block.id);
     this.focusEditor(block.id);
   }
 
@@ -698,8 +743,6 @@ export class OutlineComponent implements OnDestroy {
     if (lastChildIdx >= allBlocks.length - 1) return;
     const targetBlock = allBlocks[lastChildIdx + 1];
 
-    this.state.setEditingBlock(null);
-
     // Standard placement: move entire tree after the entire next tree
     if (this.canPlace(block.level, targetBlock)) {
       const targetGroup = this.state.getBlockWithChildren(targetBlock.id);
@@ -714,7 +757,6 @@ export class OutlineComponent implements OnDestroy {
       }
       this.undo.commit();
 
-      this.state.setEditingBlock(block.id);
       this.focusEditor(block.id);
       return;
     }
@@ -729,7 +771,6 @@ export class OutlineComponent implements OnDestroy {
     }
 
     if (sameLevelBlockIdx === -1) {
-      this.state.setEditingBlock(block.id);
       return;
     }
 
@@ -746,7 +787,6 @@ export class OutlineComponent implements OnDestroy {
     }
     this.undo.commit();
 
-    this.state.setEditingBlock(block.id);
     this.focusEditor(block.id);
   }
 
@@ -827,7 +867,7 @@ export class OutlineComponent implements OnDestroy {
   }
 
   private startShiftSelection(block: Block): void {
-    this.state.setEditingBlock(null);
+    this.state.removeAllEditingBlocks();
     this.state.setBlockSelectionMode(true);
     this.selectionAnchorBlockId = block.id;
     this.selectionExtentBlockId = block.id;
@@ -1109,7 +1149,7 @@ export class OutlineComponent implements OnDestroy {
 
       // Place cursor after the inserted markdown
       const newPos = event.cursorPos + markdown.length;
-      this.state.setEditingBlock(block.id, newPos);
+      this.state.setFocusedBlock(block.id, newPos);
       this.focusEditor(block.id);
     } catch (e) {
       console.error('Failed to paste image:', e);
@@ -1203,7 +1243,7 @@ export class OutlineComponent implements OnDestroy {
    */
   onDragBeyondBounds(block: Block, direction: 'above' | 'below'): void {
     // Exit edit mode
-    this.state.setEditingBlock(null);
+    this.state.removeAllEditingBlocks();
     // Enter selection mode
     this.state.setBlockSelectionMode(true);
     this.selectionAnchorBlockId = block.id;
@@ -1629,7 +1669,7 @@ export class OutlineComponent implements OnDestroy {
     if (this.undo.isPending()) return;
 
     // Cancel pending auto-save for the editing block
-    const editingId = this.state.editingBlockId();
+    const editingId = this.state.focusedBlockId();
     if (editingId && this.dirtyBlockIds.has(editingId)) {
       this.dirtyBlockIds.delete(editingId);
       this.autoSave.cancelBlock(editingId);
@@ -1659,17 +1699,19 @@ export class OutlineComponent implements OnDestroy {
 
     // Restore cursor
     if (entry.cursorBefore) {
-      this.state.setEditingBlock(entry.cursorBefore.blockId, entry.cursorBefore.position);
+      this.state.addEditingBlock(entry.cursorBefore.blockId);
+      this.state.setFocusedBlock(entry.cursorBefore.blockId, entry.cursorBefore.position);
       this.focusEditor(entry.cursorBefore.blockId);
     } else {
       // For body edits and other entries without explicit cursor, keep editing the first updated block
       const firstUpdate = entry.ops.find(op => op.type === 'update');
       if (firstUpdate && firstUpdate.type === 'update') {
         const pos = firstUpdate.before.body.length;
-        this.state.setEditingBlock(firstUpdate.before.id, pos);
+        this.state.addEditingBlock(firstUpdate.before.id);
+        this.state.setFocusedBlock(firstUpdate.before.id, pos);
         this.focusEditor(firstUpdate.before.id);
       } else {
-        this.state.setEditingBlock(null);
+        this.state.removeAllEditingBlocks();
       }
     }
 
@@ -1681,7 +1723,7 @@ export class OutlineComponent implements OnDestroy {
     if (this.undo.isPending()) return;
 
     // Cancel pending auto-save for the editing block
-    const editingId = this.state.editingBlockId();
+    const editingId = this.state.focusedBlockId();
     if (editingId && this.dirtyBlockIds.has(editingId)) {
       this.dirtyBlockIds.delete(editingId);
       this.autoSave.cancelBlock(editingId);
@@ -1710,16 +1752,18 @@ export class OutlineComponent implements OnDestroy {
 
     // Restore cursor
     if (entry.cursorAfter) {
-      this.state.setEditingBlock(entry.cursorAfter.blockId, entry.cursorAfter.position);
+      this.state.addEditingBlock(entry.cursorAfter.blockId);
+      this.state.setFocusedBlock(entry.cursorAfter.blockId, entry.cursorAfter.position);
       this.focusEditor(entry.cursorAfter.blockId);
     } else {
       const firstUpdate = entry.ops.find(op => op.type === 'update');
       if (firstUpdate && firstUpdate.type === 'update') {
         const pos = firstUpdate.after.body.length;
-        this.state.setEditingBlock(firstUpdate.after.id, pos);
+        this.state.addEditingBlock(firstUpdate.after.id);
+        this.state.setFocusedBlock(firstUpdate.after.id, pos);
         this.focusEditor(firstUpdate.after.id);
       } else {
-        this.state.setEditingBlock(null);
+        this.state.removeAllEditingBlocks();
       }
     }
 

@@ -102,7 +102,7 @@ public class JournalService {
         UUID afterBlockId = null;
         for (LocalDate day : weekDays) {
             String body = "[[" + day.format(DateTimeFormatter.ISO_LOCAL_DATE) + "]]";
-            Block block = blockService.createBlock(id, afterBlockId, 1, body);
+            Block block = blockService.createBlock(id, afterBlockId, 1, body, null);
             blocks.add(block);
             afterBlockId = block.id();
         }
@@ -190,7 +190,7 @@ public class JournalService {
         UUID afterBlockId = null;
         for (int m = 1; m <= 12; m++) {
             String body = "[[" + year + "-" + String.format("%02d", m) + "]]";
-            Block block = blockService.createBlock(id, afterBlockId, 1, body);
+            Block block = blockService.createBlock(id, afterBlockId, 1, body, null);
             blocks.add(block);
             afterBlockId = block.id();
         }
@@ -220,7 +220,7 @@ public class JournalService {
         UUID afterBlockId = null;
         for (int w : weekNumbers) {
             String body = "[[" + year + "-W" + String.format("%02d", w) + "]]";
-            Block block = blockService.createBlock(id, afterBlockId, 1, body);
+            Block block = blockService.createBlock(id, afterBlockId, 1, body, null);
             blocks.add(block);
             afterBlockId = block.id();
         }

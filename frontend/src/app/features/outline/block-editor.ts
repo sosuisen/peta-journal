@@ -123,16 +123,6 @@ export class BlockEditorComponent implements AfterViewInit, OnDestroy {
     }
     el.focus();
     this.autoResize(el);
-
-    // If edit was triggered by a mouse press, start drag tracking
-    // so dragging continues seamlessly from the original mousedown.
-    if (this.state.consumePendingMouseDrag()) {
-      this.textareaRect = el.getBoundingClientRect();
-      this.isDragging = true;
-      this.dragSkipSelectionCheck = true;
-      document.addEventListener('mousemove', this.mouseMoveHandler);
-      document.addEventListener('mouseup', this.mouseUpHandler);
-    }
   }
 
   /**

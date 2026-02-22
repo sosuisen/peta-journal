@@ -143,8 +143,8 @@ export class ApiService {
    * @param body - The markdown body text of the block.
    * @returns The newly created block.
    */
-  async createBlock(pageId: string, afterBlockId: string, level: number, body: string): Promise<Block> {
-    const resp: any = await this.proto.send({ createBlock: { pageId, afterBlockId, level, body } });
+  async createBlock(pageId: string, afterBlockId: string, level: number, body: string, id?: string): Promise<Block> {
+    const resp: any = await this.proto.send({ createBlock: { pageId, afterBlockId, level, body, id: id ?? '' } });
     return toBlock(resp.createBlock.block);
   }
 

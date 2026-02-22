@@ -210,11 +210,13 @@ public class JournalWebSocket {
     }
 
     private CreateBlockResponse handleCreateBlock(CreateBlockRequest req) {
+        UUID clientId = req.getId().isEmpty() ? null : UUID.fromString(req.getId());
         var block = blockService.createBlock(
                 UUID.fromString(req.getPageId()),
                 req.getAfterBlockId().isEmpty() ? null : UUID.fromString(req.getAfterBlockId()),
                 req.getLevel(),
-                req.getBody()
+                req.getBody(),
+                clientId
         );
         return CreateBlockResponse.newBuilder()
                 .setBlock(ProtoConverter.toProto(block))

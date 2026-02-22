@@ -4,14 +4,15 @@ import { Block } from '../models/block.model';
 @Injectable({ providedIn: 'root' })
 export class OutlineStateService {
   private readonly _blocks = signal<Block[]>([]);
-  private readonly _editingBlockId = signal<string | null>(null);
+  private readonly _focusedBlockId = signal<string | null>(null);
+  private readonly _editingBlockIds = signal<Set<string>>(new Set());
   private readonly _selectedBlockIds = signal<Set<string>>(new Set());
   private readonly _collapsedBlockIds = signal<Set<string>>(new Set());
   private readonly _blockSelectionMode = signal<boolean>(false);
   private readonly _pendingCursorPosition = signal<number | null>(null);
-  private readonly _pendingMouseDrag = signal<boolean>(false);
   readonly blocks = this._blocks.asReadonly();
-  readonly editingBlockId = this._editingBlockId.asReadonly();
+  readonly focusedBlockId = this._focusedBlockId.asReadonly();
+  readonly editingBlockIds = this._editingBlockIds.asReadonly();
   readonly pendingCursorPosition = this._pendingCursorPosition.asReadonly();
   readonly selectedBlockIds = this._selectedBlockIds.asReadonly();
   readonly blockSelectionMode = this._blockSelectionMode.asReadonly();
@@ -82,17 +83,34 @@ export class OutlineStateService {
   }
 
   /**
-   * Sets the currently editing block and optionally stores a pending cursor position.
-   * @param blockId - The ID of the block to edit, or null to clear.
-   * @param cursorPosition - The cursor position to restore when the editor focuses.
-   * @param mouseDrag - Whether the edit was initiated by a mouse drag.
+   * Adds a block to the editing set (textarea visible).
    */
-  setEditingBlock(blockId: string | null, cursorPosition: number | null = null, mouseDrag = false): void {
-    this._pendingCursorPosition.set(cursorPosition);
-    this._pendingMouseDrag.set(mouseDrag);
-    this._editingBlockId.set(blockId);
+  addEditingBlock(blockId: string): void {
+    this._editingBlockIds.update(s => { const n = new Set(s); n.add(blockId); return n; });
+    console.log("Add editing block:", blockId);
   }
 
+  /**
+   * Focuses a block and sets a pending cursor position for the next time the block is edited.
+   */
+  setFocusedBlock(blockId: string, cursorPosition: number | null = null): void {
+    this._pendingCursorPosition.set(cursorPosition);
+    this._focusedBlockId.set(blockId);
+    console.log("Set focused block:", blockId);
+  }
+
+  /**
+   * Removes a block from the editing set (switches it to view mode).
+   */
+  removeEditingBlock(blockId: string): void {
+    this._editingBlockIds.update(s => { const n = new Set(s); n.delete(blockId); return n; });
+    console.log("Remove editing block:", blockId);
+  }
+
+  removeAllEditingBlocks(): void {
+    this._editingBlockIds.set(new Set());
+    console.log("Remove all editing blocks");
+  }
 
   /**
    * Returns and clears the pending cursor position (one-time read).
@@ -102,16 +120,6 @@ export class OutlineStateService {
     const pos = this._pendingCursorPosition();
     this._pendingCursorPosition.set(null);
     return pos;
-  }
-
-  /**
-   * Returns and clears the pending mouse drag flag (one-time read).
-   * @returns Whether the last edit was initiated by a mouse drag.
-   */
-  consumePendingMouseDrag(): boolean {
-    const drag = this._pendingMouseDrag();
-    this._pendingMouseDrag.set(false);
-    return drag;
   }
 
   /**

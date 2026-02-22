@@ -53,8 +53,8 @@ public class BlockService {
      * @return the newly created block
      * @throws IllegalArgumentException if the page is not found
      */
-    public Block createBlock(UUID pageId, UUID afterBlockId, int level, String body) {
-        UUID id = BlockIdGenerator.generate();
+    public Block createBlock(UUID pageId, UUID afterBlockId, int level, String body, UUID clientId) {
+        UUID id = clientId != null ? clientId : BlockIdGenerator.generate();
         Instant now = Instant.now();
         String html = parseBody(body);
 

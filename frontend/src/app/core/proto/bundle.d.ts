@@ -2387,6 +2387,9 @@ export namespace petajournal {
 
         /** CreateBlockRequest body */
         body?: (string|null);
+
+        /** CreateBlockRequest id */
+        id?: (string|null);
     }
 
     /** Represents a CreateBlockRequest. */
@@ -2409,6 +2412,9 @@ export namespace petajournal {
 
         /** CreateBlockRequest body. */
         public body: string;
+
+        /** CreateBlockRequest id. */
+        public id: string;
 
         /**
          * Creates a new CreateBlockRequest instance using the specified properties.

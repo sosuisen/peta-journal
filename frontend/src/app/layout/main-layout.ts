@@ -56,8 +56,8 @@ import { validateFileName } from '../core/utils/filename-validation.utils';
         <span class="connection-status" [class]="ws.connectionState()">
           {{ ws.connectionState() }}
         </span>
-        @if (outlineState.editingBlockId()) {
-          <span class="block-id">Block: {{ outlineState.editingBlockId() }}</span>
+        @if (outlineState.focusedBlockId()) {
+          <span class="block-id">Block: {{ outlineState.focusedBlockId() }}</span>
         }
       </footer>
     </div>
@@ -313,7 +313,7 @@ export class MainLayoutComponent {
    */
   @HostListener('document:keydown', ['$event'])
   onKeydown(event: KeyboardEvent): void {
-    const isEditing = !!this.outlineState.editingBlockId();
+    const isEditing = !!this.outlineState.focusedBlockId();
     if (event.key === '/' && event.ctrlKey) {
       event.preventDefault();
       this.searchBar()?.focusInput();

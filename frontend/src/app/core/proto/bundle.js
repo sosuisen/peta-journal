@@ -7022,6 +7022,7 @@ export const petajournal = $root.petajournal = (() => {
          * @property {string|null} [afterBlockId] CreateBlockRequest afterBlockId
          * @property {number|null} [level] CreateBlockRequest level
          * @property {string|null} [body] CreateBlockRequest body
+         * @property {string|null} [id] CreateBlockRequest id
          */
 
         /**
@@ -7072,6 +7073,14 @@ export const petajournal = $root.petajournal = (() => {
         CreateBlockRequest.prototype.body = "";
 
         /**
+         * CreateBlockRequest id.
+         * @member {string} id
+         * @memberof petajournal.CreateBlockRequest
+         * @instance
+         */
+        CreateBlockRequest.prototype.id = "";
+
+        /**
          * Creates a new CreateBlockRequest instance using the specified properties.
          * @function create
          * @memberof petajournal.CreateBlockRequest
@@ -7103,6 +7112,8 @@ export const petajournal = $root.petajournal = (() => {
                 writer.uint32(/* id 3, wireType 0 =*/24).int32(message.level);
             if (message.body != null && Object.hasOwnProperty.call(message, "body"))
                 writer.uint32(/* id 4, wireType 2 =*/34).string(message.body);
+            if (message.id != null && Object.hasOwnProperty.call(message, "id"))
+                writer.uint32(/* id 5, wireType 2 =*/42).string(message.id);
             return writer;
         };
 
@@ -7155,6 +7166,10 @@ export const petajournal = $root.petajournal = (() => {
                         message.body = reader.string();
                         break;
                     }
+                case 5: {
+                        message.id = reader.string();
+                        break;
+                    }
                 default:
                     reader.skipType(tag & 7);
                     break;
@@ -7202,6 +7217,9 @@ export const petajournal = $root.petajournal = (() => {
             if (message.body != null && message.hasOwnProperty("body"))
                 if (!$util.isString(message.body))
                     return "body: string expected";
+            if (message.id != null && message.hasOwnProperty("id"))
+                if (!$util.isString(message.id))
+                    return "id: string expected";
             return null;
         };
 
@@ -7225,6 +7243,8 @@ export const petajournal = $root.petajournal = (() => {
                 message.level = object.level | 0;
             if (object.body != null)
                 message.body = String(object.body);
+            if (object.id != null)
+                message.id = String(object.id);
             return message;
         };
 
@@ -7246,6 +7266,7 @@ export const petajournal = $root.petajournal = (() => {
                 object.afterBlockId = "";
                 object.level = 0;
                 object.body = "";
+                object.id = "";
             }
             if (message.pageId != null && message.hasOwnProperty("pageId"))
                 object.pageId = message.pageId;
@@ -7255,6 +7276,8 @@ export const petajournal = $root.petajournal = (() => {
                 object.level = message.level;
             if (message.body != null && message.hasOwnProperty("body"))
                 object.body = message.body;
+            if (message.id != null && message.hasOwnProperty("id"))
+                object.id = message.id;
             return object;
         };
 

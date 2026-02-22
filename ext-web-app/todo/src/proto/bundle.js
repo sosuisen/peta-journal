@@ -3283,6 +3283,7 @@ export const petajournal = $root.petajournal = (() => {
          * @property {string|null} [afterBlockId] CreateBlockRequest afterBlockId
          * @property {number|null} [level] CreateBlockRequest level
          * @property {string|null} [body] CreateBlockRequest body
+         * @property {string|null} [id] CreateBlockRequest id
          */
 
         /**
@@ -3333,6 +3334,14 @@ export const petajournal = $root.petajournal = (() => {
         CreateBlockRequest.prototype.body = "";
 
         /**
+         * CreateBlockRequest id.
+         * @member {string} id
+         * @memberof petajournal.CreateBlockRequest
+         * @instance
+         */
+        CreateBlockRequest.prototype.id = "";
+
+        /**
          * Creates a new CreateBlockRequest instance using the specified properties.
          * @function create
          * @memberof petajournal.CreateBlockRequest
@@ -3364,6 +3373,8 @@ export const petajournal = $root.petajournal = (() => {
                 writer.uint32(/* id 3, wireType 0 =*/24).int32(message.level);
             if (message.body != null && Object.hasOwnProperty.call(message, "body"))
                 writer.uint32(/* id 4, wireType 2 =*/34).string(message.body);
+            if (message.id != null && Object.hasOwnProperty.call(message, "id"))
+                writer.uint32(/* id 5, wireType 2 =*/42).string(message.id);
             return writer;
         };
 
@@ -3401,6 +3412,10 @@ export const petajournal = $root.petajournal = (() => {
                     }
                 case 4: {
                         message.body = reader.string();
+                        break;
+                    }
+                case 5: {
+                        message.id = reader.string();
                         break;
                     }
                 default:
