@@ -264,6 +264,7 @@ export class OutlineComponent implements OnDestroy {
     }
     this.state.addEditingBlock(blockId);
     this.state.setFocusedBlock(blockId, cursorPosition);
+    this.state.setPendingMouseDrag(true);
   }
 
   /**

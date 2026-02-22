@@ -10,6 +10,7 @@ export class OutlineStateService {
   private readonly _collapsedBlockIds = signal<Set<string>>(new Set());
   private readonly _blockSelectionMode = signal<boolean>(false);
   private readonly _pendingCursorPosition = signal<number | null>(null);
+  private readonly _pendingMouseDrag = signal<boolean>(false);
   readonly blocks = this._blocks.asReadonly();
   readonly focusedBlockId = this._focusedBlockId.asReadonly();
   readonly editingBlockIds = this._editingBlockIds.asReadonly();
@@ -120,6 +121,16 @@ export class OutlineStateService {
     const pos = this._pendingCursorPosition();
     this._pendingCursorPosition.set(null);
     return pos;
+  }
+
+  setPendingMouseDrag(value: boolean): void {
+    this._pendingMouseDrag.set(value);
+  }
+
+  consumePendingMouseDrag(): boolean {
+    const value = this._pendingMouseDrag();
+    this._pendingMouseDrag.set(false);
+    return value;
   }
 
   /**
