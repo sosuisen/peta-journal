@@ -88,7 +88,6 @@ export class OutlineStateService {
    */
   addEditingBlock(blockId: string): void {
     this._editingBlockIds.update(s => { const n = new Set(s); n.add(blockId); return n; });
-    console.log("Add editing block:", blockId);
   }
 
   /**
@@ -97,7 +96,6 @@ export class OutlineStateService {
   setFocusedBlock(blockId: string, cursorPosition: number | null = null): void {
     this._pendingCursorPosition.set(cursorPosition);
     this._focusedBlockId.set(blockId);
-    console.log("Set focused block:", blockId);
   }
 
   /**
@@ -105,12 +103,10 @@ export class OutlineStateService {
    */
   removeEditingBlock(blockId: string): void {
     this._editingBlockIds.update(s => { const n = new Set(s); n.delete(blockId); return n; });
-    console.log("Remove editing block:", blockId);
   }
 
   removeAllEditingBlocks(): void {
     this._editingBlockIds.set(new Set());
-    console.log("Remove all editing blocks");
   }
 
   /**

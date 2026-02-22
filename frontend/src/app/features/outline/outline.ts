@@ -147,6 +147,7 @@ export class OutlineComponent implements OnDestroy {
   readonly topBlockChanged = output<string>();  // Emits fileName of top visible block
   private readonly dirtyBlockIds = new Set<string>();
   private switchingEditBlock = false;
+  private movingEditBlock = false;
   private readonly viewport = viewChild<CdkVirtualScrollViewport>('viewport');
   private readonly outlineBlocks = viewChildren<OutlineBlockComponent>('outlineBlock');
 
@@ -291,6 +292,8 @@ export class OutlineComponent implements OnDestroy {
   async onEditFinished(block: Block): Promise<void> {
     this.closeWikiSuggestions();
     if (this.switchingEditBlock) return;  // onEditRequested is handling save + switch
+
+    if (this.movingEditBlock) return;  // onMoveUp/onMoveDown is handling save + switch
 
     // If not in editing set, another handler already removed it
     if (!this.state.editingBlockIds().has(block.id)) return;
@@ -691,7 +694,6 @@ export class OutlineComponent implements OnDestroy {
       const prevPrevId = targetPrev?.id ?? '';
 
       const moved = await this.api.moveBlocks(groupIds, block.pageId, prevPrevId);
-      this.state.replaceBlocks(groupIds, moved, prevPrevId || '');
 
       this.undo.begin('move');
       for (let i = 0; i < beforeSnapshots.length; i++) {
@@ -699,7 +701,12 @@ export class OutlineComponent implements OnDestroy {
       }
       this.undo.commit();
 
-      this.focusEditor(block.id);
+      this.movingEditBlock = true; // prevent onEditFinished from firing when we move the block
+      this.state.replaceBlocks(groupIds, moved, prevPrevId || '');
+      this.focusEditor(block.id, () => {
+        this.movingEditBlock = false;
+      });
+      
       return;
     }
 
@@ -724,7 +731,6 @@ export class OutlineComponent implements OnDestroy {
     const targetPrevId = targetPrev?.id ?? '';
 
     const moved = await this.api.moveBlocks(groupIds, block.pageId, targetPrevId);
-    this.state.replaceBlocks(groupIds, moved, targetPrevId);
 
     this.undo.begin('move');
     for (let i = 0; i < beforeSnapshots.length; i++) {
@@ -732,7 +738,11 @@ export class OutlineComponent implements OnDestroy {
     }
     this.undo.commit();
 
-    this.focusEditor(block.id);
+    this.movingEditBlock = true; // prevent onEditFinished from firing when we move the block
+    this.state.replaceBlocks(groupIds, moved, targetPrevId);
+    this.focusEditor(block.id, () => {
+      this.movingEditBlock = false;
+    });
   }
 
   /**
@@ -1871,13 +1881,14 @@ export class OutlineComponent implements OnDestroy {
     this.closeWikiSuggestions();
   }
 
-  private focusEditor(blockId?: string): void {
+  private focusEditor(blockId?: string, callback?: () => void): void {
     afterNextRender(() => {
       const selector = blockId
         ? `#block-editor-${blockId}`
         : 'app-block-editor textarea';
       const el = document.querySelector<HTMLTextAreaElement>(selector);
       el?.focus();
+      callback?.();
     }, { injector: this.injector });
   }
 }
