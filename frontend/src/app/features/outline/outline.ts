@@ -255,6 +255,15 @@ export class OutlineComponent implements OnDestroy {
     const blocks = this.state.visibleBlocks();
     const index = blocks.findIndex(b => b.id === blockId);
     if (index < 0) return;
+    const subtreeIds = this.state.getChildren(blockId).map(b => b.id);
+    this.state.setSelectedBlockIds(new Set([blockId, ...subtreeIds]));
+    this.state.setBlockSelectionMode(true);
+    this.selectionAnchorBlockId = blockId;
+    this.selectionExtentBlockId = blockId;
+    document.addEventListener('keydown', this.selectionKeydownHandler);
+    document.addEventListener('click', this.selectionClickHandler);
+    document.addEventListener('copy', this.selectionCopyHandler);
+    document.addEventListener('cut', this.selectionCutHandler);
     afterNextRender(() => {
       this.viewport()?.scrollToIndex(index);
     }, { injector: this.injector });
