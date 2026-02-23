@@ -1,4 +1,4 @@
-import { Component, ElementRef, inject, signal, viewChild } from '@angular/core';
+import { Component, computed, ElementRef, inject, signal, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
 import { NavigationService } from '../../core/services/navigation.service';
@@ -23,19 +23,30 @@ import { validateFileName } from '../../core/utils/filename-validation.utils';
         (focus)="showDropdown.set(true)"
         (blur)="onBlur()"
       />
-      @if (showDropdown() && (results().length > 0 || showCreateButton())) {
+      @if (showDropdown() && (pageResults().length > 0 || blockResults().length > 0 || showCreateButton())) {
         <div class="search-dropdown">
-          @for (result of results(); track result.pageId + result.blockId; let i = $index) {
+          @for (result of pageResults(); track result.pageId; let i = $index) {
             <div class="search-result" [class.selected]="i === selectedIndex()" (mousedown)="navigateToResult(result)">
-              <div class="result-title">{{ result.pageTitle }}</div>
-              @if (result.snippet) {
-                <div class="result-snippet" [innerHTML]="result.snippet"></div>
-              }
+              <div class="result-page">
+                <svg class="result-icon" width="14" height="14"><use href="#icon-page"/></svg>
+                <span class="page-title">{{ result.pageTitle }}</span>
+              </div>
             </div>
           }
           @if (showCreateButton() && query().trim()) {
-            <div class="search-create" [class.selected]="selectedIndex() === results().length" (mousedown)="createPage()">
+            <div class="search-create" [class.selected]="selectedIndex() === createButtonIndex()" (mousedown)="createPage()">
               + Create "{{ query() }}"
+            </div>
+          }
+          @for (result of blockResults(); track result.pageId + result.blockId; let i = $index) {
+            <div class="search-result" [class.selected]="blockResultOffset() + i === selectedIndex()" (mousedown)="navigateToResult(result)">
+              <div class="result-block">
+                <svg class="result-icon" width="14" height="14"><use href="#icon-block"/></svg>
+                <div class="block-content">
+                  <div class="block-page-path">{{ result.pageTitle }}</div>
+                  <div class="block-snippet" [innerHTML]="result.snippet"></div>
+                </div>
+              </div>
             </div>
           }
         </div>
@@ -74,8 +85,38 @@ import { validateFileName } from '../../core/utils/filename-validation.utils';
       cursor: pointer;
     }
     .search-result:hover, .search-result.selected { background: #f5f5f5; }
-    .result-title { font-weight: 500; }
-    .result-snippet { font-size: 12px; color: #666; margin-top: 2px; }
+    .result-page {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .result-icon {
+      flex-shrink: 0;
+      color: #888;
+    }
+    .page-title { font-weight: 500; }
+    .result-block {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .block-content {
+      min-width: 0;
+      flex: 1;
+    }
+    .block-page-path {
+      font-size: 12px;
+      color: #999;
+    }
+    .block-snippet {
+      font-size: 12px;
+      color: #666;
+      margin-top: 2px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .block-snippet mark { background: #fff3b0; }
     .search-create {
       padding: 8px 12px;
       cursor: pointer;
@@ -92,60 +133,78 @@ export class SearchBarComponent {
 
   /** Exposed so parent can read the current query */
   readonly query = signal('');
-  readonly results = signal<SearchResult[]>([]);
+  readonly pageResults = signal<SearchResult[]>([]);
+  readonly blockResults = signal<SearchResult[]>([]);
   readonly showDropdown = signal(false);
   readonly showCreateButton = signal(false);
   readonly selectedIndex = signal(-1);
 
+  /** Index of the create button in the flat navigation order */
+  readonly createButtonIndex = computed(() => this.pageResults().length);
+  /** Starting index of block results in the flat navigation order */
+  readonly blockResultOffset = computed(() =>
+    this.pageResults().length + (this.showCreateButton() && this.query().trim() ? 1 : 0)
+  );
+
+  private debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
   /**
-   * Handles search query input changes. Performs a page name search and updates results.
-   * @param value - The current search query string.
+   * Handles search query input changes with debounce.
+   * Fires both page-name and full-text searches in parallel, combining results (pages first).
    */
-  async onQueryChange(value: string): Promise<void> {
+  onQueryChange(value: string): void {
     this.query.set(value);
+
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer);
+    }
+
     if (!value.trim()) {
-      this.results.set([]);
+      this.pageResults.set([]);
+      this.blockResults.set([]);
       this.showCreateButton.set(false);
       return;
     }
-    const resp = await this.api.searchPageNames(value);
-    this.results.set(resp.results);
+
+    this.debounceTimer = setTimeout(() => this.executeSearch(value), 200);
+  }
+
+  private async executeSearch(value: string): Promise<void> {
+    const [pageResp, blockResp] = await Promise.all([
+      this.api.searchPageNames(value),
+      this.api.searchFullText(value),
+    ]);
+
+    // Deduplicate: remove block results whose pageId already appears in page results
+    const pageIds = new Set(pageResp.results.map(r => r.pageId));
+    const uniqueBlocks = blockResp.results.filter(r => !pageIds.has(r.pageId));
+
+    this.pageResults.set(pageResp.results);
+    this.blockResults.set(uniqueBlocks);
     this.selectedIndex.set(-1);
-    const exactMatch = resp.results.some(r => r.pageTitle.toLowerCase() === value.toLowerCase());
+
+    const exactMatch = pageResp.results.some(r => r.pageTitle.toLowerCase() === value.toLowerCase());
     this.showCreateButton.set(!exactMatch && value.trim().length > 0);
   }
 
   /**
-   * Performs a full-text search across all block content using the current query.
-   */
-  async onFullTextSearch(): Promise<void> {
-    const q = this.query().trim();
-    if (!q) return;
-    const resp = await this.api.searchFullText(q);
-    this.results.set(resp.results);
-    this.showCreateButton.set(false);
-  }
-
-  /**
    * Navigates to the page associated with the selected search result and resets the search state.
-   * @param result - The search result to navigate to.
    */
   navigateToResult(result: SearchResult): void {
     this.showDropdown.set(false);
     this.query.set('');
-    this.results.set([]);
+    this.pageResults.set([]);
+    this.blockResults.set([]);
     this.showCreateButton.set(false);
-    this.nav.navigateToPage(result.pageTitle);
+    this.nav.navigateToPage(result.pageTitle, false, false, result.blockId || undefined);
   }
 
   /**
    * Creates a new page using the current query as the title.
-   * Generates a timestamp-based title if the query is empty, and validates the file name.
    */
   async createPage(): Promise<void> {
     let title = this.query().trim();
 
-    // If empty or whitespace-only, generate timestamp-based title
     if (!title) {
       title = generateUntitledTitle();
     }
@@ -161,17 +220,19 @@ export class SearchBarComponent {
 
     this.showDropdown.set(false);
     this.query.set('');
-    this.results.set([]);
+    this.pageResults.set([]);
+    this.blockResults.set([]);
     this.showCreateButton.set(false);
     this.nav.navigateToPage(title);
   }
 
   /**
-   * Handles keyboard navigation within the search dropdown (ArrowUp/Down, Enter, Escape).
-   * @param event - The keyboard event from the search input.
+   * Handles keyboard navigation within the search dropdown.
    */
   onKeydown(event: KeyboardEvent): void {
-    const maxIndex = this.results().length + (this.showCreateButton() && this.query().trim() ? 0 : -1);
+    const hasCreate = this.showCreateButton() && !!this.query().trim();
+    const totalItems = this.pageResults().length + (hasCreate ? 1 : 0) + this.blockResults().length;
+    const maxIndex = totalItems - 1;
 
     if (event.key === 'ArrowDown') {
       event.preventDefault();
@@ -181,14 +242,18 @@ export class SearchBarComponent {
       this.selectedIndex.update(i => i > 0 ? i - 1 : maxIndex);
     } else if (event.key === 'Enter') {
       const idx = this.selectedIndex();
-      if (idx >= 0 && idx < this.results().length) {
-        event.preventDefault();
-        this.navigateToResult(this.results()[idx]);
-      } else if (idx === this.results().length && this.showCreateButton() && this.query().trim()) {
-        event.preventDefault();
+      if (idx < 0) return;
+      event.preventDefault();
+      const pageCount = this.pageResults().length;
+      if (idx < pageCount) {
+        this.navigateToResult(this.pageResults()[idx]);
+      } else if (hasCreate && idx === pageCount) {
         this.createPage();
       } else {
-        this.onFullTextSearch();
+        const blockIdx = idx - pageCount - (hasCreate ? 1 : 0);
+        if (blockIdx >= 0 && blockIdx < this.blockResults().length) {
+          this.navigateToResult(this.blockResults()[blockIdx]);
+        }
       }
     } else if (event.key === 'Escape') {
       this.showDropdown.set(false);
@@ -196,16 +261,10 @@ export class SearchBarComponent {
     }
   }
 
-  /**
-   * Programmatically focuses the search input element.
-   */
   focusInput(): void {
     this.searchInput()?.nativeElement.focus();
   }
 
-  /**
-   * Hides the search dropdown after a short delay when the input loses focus.
-   */
   onBlur(): void {
     setTimeout(() => this.showDropdown.set(false), 200);
   }

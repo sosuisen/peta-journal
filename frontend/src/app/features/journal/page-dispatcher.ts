@@ -12,7 +12,7 @@ import { PageComponent } from './page';
     @if (isJournal()) {
       <app-journal [pageName]="pageName()" />
     } @else {
-      <app-page [pageName]="pageName()" />
+      <app-page [pageName]="pageName()" [focusBlockId]="fragment()" />
     }
   `,
   styles: [`:host { display: flex; flex-direction: column; height: 100%; }`]
@@ -20,6 +20,7 @@ import { PageComponent } from './page';
 export class PageDispatcherComponent {
   private readonly route = inject(ActivatedRoute);
   private readonly urlSegments = toSignal(this.route.url, { initialValue: [] });
+  readonly fragment = toSignal(this.route.fragment, { initialValue: '' });
 
   readonly pageName = computed(() => {
     const segments = this.urlSegments();

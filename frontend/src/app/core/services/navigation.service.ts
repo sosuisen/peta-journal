@@ -6,12 +6,12 @@ export class NavigationService {
   private readonly router = inject(Router);
 
   /** Navigate to a page by title (optionally with dirPath prefix like "cat/mypage"). */
-  navigateToPage(pageTitle: string, newTab = false, replaceUrl = false): void {
+  navigateToPage(pageTitle: string, newTab = false, replaceUrl = false, fragment?: string): void {
     const url = '/pages/' + pageTitle;
     if (newTab) {
-      window.open(url, '_blank');
+      window.open(url + (fragment ? '#' + fragment : ''), '_blank');
     } else {
-      this.router.navigateByUrl(url, { replaceUrl });
+      this.router.navigate([url], { replaceUrl, fragment });
     }
   }
 }

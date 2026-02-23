@@ -277,7 +277,8 @@ export class MainLayoutComponent {
 
       if (searchQuery) {
         this.searchBar()?.query.set('');
-        this.searchBar()?.results.set([]);
+        this.searchBar()?.pageResults.set([]);
+        this.searchBar()?.blockResults.set([]);
         this.searchBar()?.showDropdown.set(false);
         this.searchBar()?.showCreateButton.set(false);
       }

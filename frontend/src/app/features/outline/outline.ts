@@ -141,6 +141,7 @@ export class OutlineComponent implements OnDestroy {
   private readonly nav = inject(NavigationService);
   private readonly undo = inject(UndoService);
   readonly pageId = input.required<string>();
+  readonly focusBlockId = input<string | null | undefined>('');
   readonly disableAutoLoad = input<boolean>(false);  // Disable automatic block loading
   readonly currentPageDate = input<string>('');  // Date shown in page header
   readonly loadMore = output<{ filepath: string; currentIndex: number }>();  // Emits when should load more
@@ -242,9 +243,21 @@ export class OutlineComponent implements OnDestroy {
     try {
       const result = await this.api.getPageById(pageId);
       this.state.setBlocks(result.blocks);
+      this.scrollToFocusBlock();
     } catch (e) {
       console.error('Failed to load blocks for page:', pageId, e);
     }
+  }
+
+  private scrollToFocusBlock(): void {
+    const blockId = this.focusBlockId();
+    if (!blockId) return;
+    const blocks = this.state.visibleBlocks();
+    const index = blocks.findIndex(b => b.id === blockId);
+    if (index < 0) return;
+    afterNextRender(() => {
+      this.viewport()?.scrollToIndex(index);
+    }, { injector: this.injector });
   }
 
   /**
