@@ -10,6 +10,7 @@ import { UndoService, UndoEntry } from '../../core/services/undo.service';
 import { formatJournalDate } from '../../core/utils/date.utils';
 import { NavigationService } from '../../core/services/navigation.service';
 import { WikiLinkContext } from './block-editor';
+import { findMoveDownTarget } from './move-utils';
 
 @Component({
   selector: 'app-outline',
@@ -777,57 +778,20 @@ export class OutlineComponent implements OnDestroy {
    * @param block - The block to move down
    */
   async onMoveDown(block: Block): Promise<void> {
-    const blocks = this.state.visibleBlocks();
-    const idx = blocks.findIndex(b => b.id === block.id);
-    if (idx >= blocks.length - 1) return;
+    const target = findMoveDownTarget(
+      this.state.visibleBlocks(),
+      this.state.blocks(),
+      block.id,
+    );
+    if (!target) return;
 
     const children = this.state.getChildren(block.id);
     const group = [block, ...children];
     const groupIds = group.map(b => b.id);
     const beforeSnapshots = group.map(b => ({ ...b }));
 
-    const allBlocks = this.state.blocks();
-    const lastChildIdx = allBlocks.findIndex(b => b.id === group[group.length - 1].id);
-    if (lastChildIdx >= allBlocks.length - 1) return;
-    const targetBlock = allBlocks[lastChildIdx + 1];
-
-    // Standard placement: move entire tree after the entire next tree
-    if (this.canPlace(block.level, targetBlock)) {
-      const targetGroup = this.state.getBlockWithChildren(targetBlock.id);
-      const lastTargetDescendant = targetGroup[targetGroup.length - 1];
-
-      const moved = await this.api.moveBlocks(groupIds, block.pageId, lastTargetDescendant.id);
-      this.state.replaceBlocks(groupIds, moved, lastTargetDescendant.id);
-
-      this.undo.begin('move');
-      for (let i = 0; i < beforeSnapshots.length; i++) {
-        this.undo.pushUpdate(beforeSnapshots[i], { ...moved[i] });
-      }
-      this.undo.commit();
-
-      this.focusEditor(block.id);
-      return;
-    }
-
-    // Exception: If there's a block at the same level below, move just after it
-    let sameLevelBlockIdx = -1;
-    for (let i = idx + 1; i < blocks.length; i++) {
-      if (blocks[i].level === block.level) {
-        sameLevelBlockIdx = i;
-        break;
-      }
-    }
-
-    if (sameLevelBlockIdx === -1) {
-      return;
-    }
-
-    const sameLevelBlock = blocks[sameLevelBlockIdx];
-    const sameLevelGroup = this.state.getBlockWithChildren(sameLevelBlock.id);
-    const lastDescendant = sameLevelGroup[sameLevelGroup.length - 1];
-
-    const moved = await this.api.moveBlocks(groupIds, block.pageId, lastDescendant.id);
-    this.state.replaceBlocks(groupIds, moved, lastDescendant.id);
+    const moved = await this.api.moveBlocks(groupIds, block.pageId, target.afterBlockId);
+    this.state.replaceBlocks(groupIds, moved, target.afterBlockId);
 
     this.undo.begin('move');
     for (let i = 0; i < beforeSnapshots.length; i++) {
@@ -1562,16 +1526,14 @@ export class OutlineComponent implements OnDestroy {
     const rootBlocks = this.getSelectedRootBlocks();
     if (rootBlocks.length === 0) return;
 
-    const minLevel = Math.min(...rootBlocks.map(b => b.level));
     const lastRoot = rootBlocks[rootBlocks.length - 1];
-    const lastRootGroup = this.state.getBlockWithChildren(lastRoot.id);
-    const lastBlock = lastRootGroup[lastRootGroup.length - 1];
 
-    const allBlocks = this.state.blocks();
-    const lastBlockIdx = allBlocks.findIndex(b => b.id === lastBlock.id);
-    if (lastBlockIdx >= allBlocks.length - 1) return;
-
-    const nextBlock = allBlocks[lastBlockIdx + 1];
+    const target = findMoveDownTarget(
+      this.state.visibleBlocks(),
+      this.state.blocks(),
+      lastRoot.id,
+    );
+    if (!target) return;
 
     const allSelectedIds: string[] = [];
     for (const root of rootBlocks) {
@@ -1583,43 +1545,9 @@ export class OutlineComponent implements OnDestroy {
       return b ? { ...b } : null;
     }).filter((b): b is Block => !!b);
 
-    if (this.canPlace(minLevel, nextBlock)) {
-      const nextGroup = this.state.getBlockWithChildren(nextBlock.id);
-      const targetAfter = nextGroup[nextGroup.length - 1];
-
-      try {
-        const moved = await this.api.moveBlocks(allSelectedIds, lastRoot.pageId, targetAfter.id);
-        this.state.replaceBlocks(allSelectedIds, moved, targetAfter.id);
-
-        this.undo.begin('move-selection');
-        for (let i = 0; i < beforeSnapshots.length; i++) {
-          this.undo.pushUpdate(beforeSnapshots[i], { ...moved[i] });
-        }
-        this.undo.commit();
-      } catch (e) {
-        console.error('Failed to move selected blocks down:', e);
-      }
-      return;
-    }
-
-    const visibleBlocks = this.state.visibleBlocks();
-    const lastRootVisIdx = visibleBlocks.findIndex(b => b.id === lastRoot.id);
-    let sameLevelBlockIdx = -1;
-    for (let i = lastRootVisIdx + 1; i < visibleBlocks.length; i++) {
-      if (visibleBlocks[i].level === minLevel) {
-        sameLevelBlockIdx = i;
-        break;
-      }
-    }
-    if (sameLevelBlockIdx === -1) return;
-
-    const sameLevelBlock = visibleBlocks[sameLevelBlockIdx];
-    const sameLevelGroup = this.state.getBlockWithChildren(sameLevelBlock.id);
-    const lastDescendant = sameLevelGroup[sameLevelGroup.length - 1];
-
     try {
-      const moved = await this.api.moveBlocks(allSelectedIds, lastRoot.pageId, lastDescendant.id);
-      this.state.replaceBlocks(allSelectedIds, moved, lastDescendant.id);
+      const moved = await this.api.moveBlocks(allSelectedIds, lastRoot.pageId, target.afterBlockId);
+      this.state.replaceBlocks(allSelectedIds, moved, target.afterBlockId);
 
       this.undo.begin('move-selection');
       for (let i = 0; i < beforeSnapshots.length; i++) {
