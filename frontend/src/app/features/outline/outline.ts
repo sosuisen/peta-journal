@@ -10,7 +10,7 @@ import { UndoService, UndoEntry } from '../../core/services/undo.service';
 import { formatJournalDate } from '../../core/utils/date.utils';
 import { NavigationService } from '../../core/services/navigation.service';
 import { WikiLinkContext } from './block-editor';
-import { findMoveDownTarget } from './move-utils';
+import { findMoveDownTarget, findMoveUpTarget } from './move-utils';
 
 @Component({
   selector: 'app-outline',
@@ -704,60 +704,14 @@ export class OutlineComponent implements OnDestroy {
    * @param block - The block to move up
    */
   async onMoveUp(block: Block): Promise<void> {
-    const blocks = this.state.visibleBlocks();
-    const idx = blocks.findIndex(b => b.id === block.id);
-    if (idx <= 0) return;
+    const target = findMoveUpTarget(this.state.blocks(), block.id);
+    if (!target) return;
 
     const group = this.state.getBlockWithChildren(block.id);
     const groupIds = group.map(b => b.id);
     const beforeSnapshots = group.map(b => ({ ...b }));
 
-    // Standard placement: move entire tree before the entire previous tree
-    const prevBlock = blocks[idx - 1];
-    if (this.canPlace(block.level, prevBlock)) {
-      const allBlocks = this.state.blocks();
-      const prevBlockIdx = allBlocks.findIndex(b => b.id === prevBlock.id);
-      const targetPrev = prevBlockIdx > 0 ? allBlocks[prevBlockIdx - 1] : undefined;
-      const prevPrevId = targetPrev?.id ?? '';
-
-      const moved = await this.api.moveBlocks(groupIds, block.pageId, prevPrevId);
-
-      this.undo.begin('move');
-      for (let i = 0; i < beforeSnapshots.length; i++) {
-        this.undo.pushUpdate(beforeSnapshots[i], { ...moved[i] });
-      }
-      this.undo.commit();
-
-      this.movingEditBlock = true; // prevent onEditFinished from firing when we move the block
-      this.state.replaceBlocks(groupIds, moved, prevPrevId || '');
-      this.focusEditor(block.id, () => {
-        this.movingEditBlock = false;
-      });
-      
-      return;
-    }
-
-    // Exception: If there's a block at the same level above, move just above it
-    let sameLevelBlockIdx = -1;
-    for (let i = idx - 1; i >= 0; i--) {
-      if (blocks[i].level === block.level) {
-        sameLevelBlockIdx = i;
-        break;
-      }
-    }
-
-    if (sameLevelBlockIdx === -1) {
-      return;
-    }
-
-    const allBlocks = this.state.blocks();
-    const sameLevelBlock = blocks[sameLevelBlockIdx];
-    const sameLevelIdx = allBlocks.findIndex(b => b.id === sameLevelBlock.id);
-
-    const targetPrev = sameLevelIdx > 0 ? allBlocks[sameLevelIdx - 1] : undefined;
-    const targetPrevId = targetPrev?.id ?? '';
-
-    const moved = await this.api.moveBlocks(groupIds, block.pageId, targetPrevId);
+    const moved = await this.api.moveBlocks(groupIds, block.pageId, target.afterBlockId);
 
     this.undo.begin('move');
     for (let i = 0; i < beforeSnapshots.length; i++) {
@@ -765,8 +719,8 @@ export class OutlineComponent implements OnDestroy {
     }
     this.undo.commit();
 
-    this.movingEditBlock = true; // prevent onEditFinished from firing when we move the block
-    this.state.replaceBlocks(groupIds, moved, targetPrevId);
+    this.movingEditBlock = true;
+    this.state.replaceBlocks(groupIds, moved, target.afterBlockId);
     this.focusEditor(block.id, () => {
       this.movingEditBlock = false;
     });
@@ -778,11 +732,7 @@ export class OutlineComponent implements OnDestroy {
    * @param block - The block to move down
    */
   async onMoveDown(block: Block): Promise<void> {
-    const target = findMoveDownTarget(
-      this.state.visibleBlocks(),
-      this.state.blocks(),
-      block.id,
-    );
+    const target = findMoveDownTarget(this.state.blocks(), block.id);
     if (!target) return;
 
     const children = this.state.getChildren(block.id);
@@ -1454,13 +1404,10 @@ export class OutlineComponent implements OnDestroy {
     const rootBlocks = this.getSelectedRootBlocks();
     if (rootBlocks.length === 0) return;
 
-    const minLevel = Math.min(...rootBlocks.map(b => b.level));
     const firstRoot = rootBlocks[0];
-    const visibleBlocks = this.state.visibleBlocks();
-    const firstIdx = visibleBlocks.findIndex(b => b.id === firstRoot.id);
-    if (firstIdx <= 0) return;
 
-    const prevBlock = visibleBlocks[firstIdx - 1];
+    const target = findMoveUpTarget(this.state.blocks(), firstRoot.id);
+    if (!target) return;
 
     const allSelectedIds: string[] = [];
     for (const root of rootBlocks) {
@@ -1472,45 +1419,9 @@ export class OutlineComponent implements OnDestroy {
       return b ? { ...b } : null;
     }).filter((b): b is Block => !!b);
 
-    const allBlocks = this.state.blocks();
-
-    if (this.canPlace(minLevel, prevBlock)) {
-      const prevBlockAllIdx = allBlocks.findIndex(b => b.id === prevBlock.id);
-      const targetPrev = prevBlockAllIdx > 0 ? allBlocks[prevBlockAllIdx - 1] : undefined;
-      const targetPrevId = targetPrev?.id ?? '';
-
-      try {
-        const moved = await this.api.moveBlocks(allSelectedIds, firstRoot.pageId, targetPrevId);
-        this.state.replaceBlocks(allSelectedIds, moved, targetPrevId);
-
-        this.undo.begin('move-selection');
-        for (let i = 0; i < beforeSnapshots.length; i++) {
-          this.undo.pushUpdate(beforeSnapshots[i], { ...moved[i] });
-        }
-        this.undo.commit();
-      } catch (e) {
-        console.error('Failed to move selected blocks up:', e);
-      }
-      return;
-    }
-
-    let sameLevelBlockIdx = -1;
-    for (let i = firstIdx - 1; i >= 0; i--) {
-      if (visibleBlocks[i].level === minLevel) {
-        sameLevelBlockIdx = i;
-        break;
-      }
-    }
-    if (sameLevelBlockIdx === -1) return;
-
-    const sameLevelBlock = visibleBlocks[sameLevelBlockIdx];
-    const sameLevelIdx = allBlocks.findIndex(b => b.id === sameLevelBlock.id);
-    const targetPrev = sameLevelIdx > 0 ? allBlocks[sameLevelIdx - 1] : undefined;
-    const targetPrevId = targetPrev?.id ?? '';
-
     try {
-      const moved = await this.api.moveBlocks(allSelectedIds, firstRoot.pageId, targetPrevId);
-      this.state.replaceBlocks(allSelectedIds, moved, targetPrevId);
+      const moved = await this.api.moveBlocks(allSelectedIds, firstRoot.pageId, target.afterBlockId);
+      this.state.replaceBlocks(allSelectedIds, moved, target.afterBlockId);
 
       this.undo.begin('move-selection');
       for (let i = 0; i < beforeSnapshots.length; i++) {
@@ -1528,11 +1439,7 @@ export class OutlineComponent implements OnDestroy {
 
     const lastRoot = rootBlocks[rootBlocks.length - 1];
 
-    const target = findMoveDownTarget(
-      this.state.visibleBlocks(),
-      this.state.blocks(),
-      lastRoot.id,
-    );
+    const target = findMoveDownTarget(this.state.blocks(), lastRoot.id);
     if (!target) return;
 
     const allSelectedIds: string[] = [];
