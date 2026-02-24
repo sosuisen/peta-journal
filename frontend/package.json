@@ -6,7 +6,7 @@
         "start": "npm run generate-proto && ng serve",
         "build": "npm run generate-proto && ng build",
         "watch": "npm run generate-proto && ng build --watch --configuration development",
-        "test": "npm run generate-proto && ng test",
+        "test": "ng test",
         "// note": "protobufjs-cli@2 conflict with protobufjs@8. Use npm i --legacy-peer-deps. This is patched in https://github.com/protobufjs/protobuf.js/pull/2118 but not yet released as of 2026-02-08.",
         "generate-proto": "pbjs -t static-module -w es6 --es6 -o src/app/core/proto/bundle.js ../proto/src/main/proto/common.proto ../proto/src/main/proto/page.proto ../proto/src/main/proto/block.proto ../proto/src/main/proto/search.proto ../proto/src/main/proto/bookmark.proto ../proto/src/main/proto/api.proto && pbts -o src/app/core/proto/bundle.d.ts src/app/core/proto/bundle.js",
         "postinstall": "npm run generate-proto"
@@ -42,6 +42,7 @@
         "@angular/build": "^21.1.3",
         "@angular/cli": "^21.1.3",
         "@angular/compiler-cli": "^21.1.0",
+        "jsdom": "^28.1.0",
         "protobufjs-cli": "^2.0.0",
         "typescript": "~5.9.2",
         "vitest": "^4.0.18"
