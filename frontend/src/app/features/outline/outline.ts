@@ -383,6 +383,10 @@ export class OutlineComponent implements OnDestroy {
       ? block.level + 1
       : block.level;
 
+    // For collapsed blocks, insert after the last descendant (end of subtree)
+    const descendants = block.collapsed ? this.state.getChildren(block.id) : [];
+    const afterBlockId = descendants.length > 0 ? descendants[descendants.length - 1].id : block.id;
+
     if (cursorPos === 0 && block.body.length > 0) {
       // Enter at beginning: create new empty block before current block
       const prevBlockId = blockIdx > 0 ? allBlocks[blockIdx - 1].id : '';
@@ -416,8 +420,8 @@ export class OutlineComponent implements OnDestroy {
         types: [],
         propertiesJson: '',
       };
-      this.api.createBlock(block.pageId, block.id, newLevel, '', newId);
-      this.state.addBlock(optimisticBlock, block.id);
+      this.api.createBlock(block.pageId, afterBlockId, newLevel, '', newId);
+      this.state.addBlock(optimisticBlock, afterBlockId);
 
       this.undo.begin('enter', { blockId: block.id, position: cursorPos });
       this.undo.pushUpdate({ ...block }, { ...block });
@@ -444,9 +448,9 @@ export class OutlineComponent implements OnDestroy {
       this.state.updateBlock(block.id, { body: beforeText });
       const [updatedOriginal, newBlock] = await Promise.all([
         this.api.updateBlock(block.id, { body: beforeText }),
-        this.api.createBlock(block.pageId, block.id, newLevel, afterText),
+        this.api.createBlock(block.pageId, afterBlockId, newLevel, afterText),
       ]);
-      this.state.addBlock(newBlock, block.id);
+      this.state.addBlock(newBlock, afterBlockId);
 
       this.undo.begin('enter', { blockId: block.id, position: cursorPos });
       this.undo.pushUpdate(originalBlock, { ...updatedOriginal, body: beforeText });
