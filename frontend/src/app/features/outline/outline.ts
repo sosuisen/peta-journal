@@ -374,11 +374,18 @@ export class OutlineComponent implements OnDestroy {
 
     this.operatingEnterKey = true;
 
+    // Determine level for new block: if the original block has a direct child
+    // (next block at level+1) immediately below and is not collapsed, inherit deeper level.
+    const allBlocks = this.state.blocks();
+    const blockIdx = allBlocks.findIndex(b => b.id === block.id);
+    const nextBlock = blockIdx >= 0 && blockIdx < allBlocks.length - 1 ? allBlocks[blockIdx + 1] : undefined;
+    const newLevel = (!block.collapsed && nextBlock && nextBlock.level === block.level + 1)
+      ? block.level + 1
+      : block.level;
+
     if (cursorPos === 0 && block.body.length > 0) {
       // Enter at beginning: create new empty block before current block
-      const allBlocks = this.state.blocks();
-      const idx = allBlocks.findIndex(b => b.id === block.id);
-      const prevBlockId = idx > 0 ? allBlocks[idx - 1].id : '';
+      const prevBlockId = blockIdx > 0 ? allBlocks[blockIdx - 1].id : '';
 
       const newBlock = await this.api.createBlock(block.pageId, prevBlockId, block.level, '');
       this.state.addBlock(newBlock, prevBlockId);
@@ -401,7 +408,7 @@ export class OutlineComponent implements OnDestroy {
         createdDate: Date.now(),
         modifiedDate: Date.now(),
         idx: '',
-        level: block.level,
+        level: newLevel,
         body: '',
         html: '',
         collapsed: false,
@@ -409,7 +416,7 @@ export class OutlineComponent implements OnDestroy {
         types: [],
         propertiesJson: '',
       };
-      this.api.createBlock(block.pageId, block.id, block.level, '', newId);
+      this.api.createBlock(block.pageId, block.id, newLevel, '', newId);
       this.state.addBlock(optimisticBlock, block.id);
 
       this.undo.begin('enter', { blockId: block.id, position: cursorPos });
@@ -437,7 +444,7 @@ export class OutlineComponent implements OnDestroy {
       this.state.updateBlock(block.id, { body: beforeText });
       const [updatedOriginal, newBlock] = await Promise.all([
         this.api.updateBlock(block.id, { body: beforeText }),
-        this.api.createBlock(block.pageId, block.id, block.level, afterText),
+        this.api.createBlock(block.pageId, block.id, newLevel, afterText),
       ]);
       this.state.addBlock(newBlock, block.id);
 
