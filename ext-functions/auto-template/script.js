@@ -74,6 +74,41 @@
     return { level, body, status };
   }
 
+  /**
+   * Split flat markdown text into block chunks, keeping code fences as single blocks.
+   */
+  function splitFlatMarkdown(text) {
+    const lines = text.split('\n');
+    const chunks = [];
+    let currentLines = [];
+    let inCodeFence = false;
+    let hasContent = false;
+
+    for (const line of lines) {
+      if (line.trim().startsWith('```')) {
+        inCodeFence = !inCodeFence;
+      }
+
+      if (line === '' && !inCodeFence) {
+        if (hasContent) {
+          chunks.push(currentLines.join('\n'));
+          currentLines = [];
+          hasContent = false;
+        }
+        continue;
+      }
+
+      currentLines.push(line);
+      hasContent = true;
+    }
+
+    if (hasContent) {
+      chunks.push(currentLines.join('\n'));
+    }
+
+    return chunks;
+  }
+
   function matchesPattern(pattern, fileName, dirName) {
     // daily: YYYY-MM-DD
     if (pattern === 'daily') {
@@ -148,10 +183,9 @@
     // Collect all blocks from all matched templates
     const allBlocks = [];
     for (const template of matched) {
-      // Split body by blank lines into blocks (flat markdown)
-      const blocks = template.body.split(/(?:\r?\n){2,}/);
-      for (const blockBody of blocks) {
-        const trimmed = blockBody.trim();
+      const chunks = splitFlatMarkdown(template.body);
+      for (const chunk of chunks) {
+        const trimmed = chunk.trim();
         if (!trimmed) continue;
         const block = parseBlock(trimmed);
         allBlocks.push(block);
