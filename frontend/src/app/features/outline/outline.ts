@@ -1015,23 +1015,29 @@ export class OutlineComponent implements OnDestroy {
    */
   async onPaste(block: Block, event: { text: string; html: string; cursorPos: number }): Promise<void> {
     let textToParse = event.text;
+    let isPlainText = true;
 
     // Check 1: If we have stored flat markdown for this clipboard content, use it
     const flatMd = this.clipboard.consume(event.text);
     if (flatMd !== null) {
       textToParse = flatMd;
+      isPlainText = false;
     }
     // Check 2: If text looks like tree markdown (starts with "- "), convert it
     else if (event.text.trimStart().startsWith('- ')) {
       try {
         const result = await this.api.importTreeMarkdown(event.text);
         textToParse = result.flatMarkdown;
+        isPlainText = false;
       } catch (e) {
         console.error('Failed to import tree markdown, using raw text:', e);
       }
     }
 
-    const parsedBlocks = this.parseTextIntoBlocks(textToParse);
+    const skipSplit = isPlainText && hasUnclosedCodeFence(block.body.substring(0, event.cursorPos));
+    const parsedBlocks = skipSplit
+      ? [{ body: textToParse, status: 'normal', level: 0 }]
+      : this.parseTextIntoBlocks(textToParse);
 
     if (parsedBlocks.length === 0) return;
 
