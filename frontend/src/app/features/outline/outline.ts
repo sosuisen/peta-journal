@@ -1765,7 +1765,11 @@ export class OutlineComponent implements OnDestroy {
         ? `#block-editor-${blockId}`
         : 'app-block-editor textarea';
       const el = document.querySelector<HTMLTextAreaElement>(selector);
-      el?.focus();
+      if (el) {
+        el.focus();
+        el.style.height = 'auto';
+        el.style.height = el.scrollHeight + 'px';
+      }
       callback?.();
     }, { injector: this.injector });
   }
