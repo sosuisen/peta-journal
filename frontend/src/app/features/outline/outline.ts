@@ -391,7 +391,10 @@ export class OutlineComponent implements OnDestroy {
       // Enter at beginning: create new empty block before current block
       const prevBlockId = blockIdx > 0 ? allBlocks[blockIdx - 1].id : '';
 
-      const newBlock = await this.api.createBlock(block.pageId, prevBlockId, block.level, '');
+      const [newBlock, updatedOriginal] = await Promise.all([
+        this.api.createBlock(block.pageId, prevBlockId, block.level, ''),
+        this.api.updateBlock(block.id, { body: block.body }),
+      ]);
       this.state.addBlock(newBlock, prevBlockId);
 
       this.undo.begin('enter', { blockId: block.id, position: cursorPos });
@@ -400,6 +403,9 @@ export class OutlineComponent implements OnDestroy {
 
       this.state.addEditingBlock(newBlock.id);
       this.focusEditor(newBlock.id);
+
+      this.state.updateBlock(block.id, { html: updatedOriginal.html });
+      this.state.removeEditingBlock(block.id);
     } else if (cursorPos === block.body.length) {
       // Enter at end: body unchanged — add optimistic block with client-generated ID
       const newId = crypto.randomUUID();
