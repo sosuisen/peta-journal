@@ -5,9 +5,12 @@ import jakarta.enterprise.context.ApplicationScoped;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @ApplicationScoped
 public class TreeMarkdownConverter {
+    record Marker(int pos, int level) {
+    }
 
     /**
      * Convert a list of blocks to Tree Markdown (nested list format).
@@ -29,8 +32,10 @@ public class TreeMarkdownConverter {
             // First line with list marker (and GFM task prefix for todo/done)
             String status = block.status() != null ? block.status() : "normal";
             String marker = "- ";
-            if ("todo".equals(status)) marker = "- [ ] ";
-            else if ("done".equals(status)) marker = "- [x] ";
+            if ("todo".equals(status))
+                marker = "- [ ] ";
+            else if ("done".equals(status))
+                marker = "- [x] ";
             sb.append(indent).append(marker).append(lines[0]);
 
             // Continuation lines
@@ -55,7 +60,8 @@ public class TreeMarkdownConverter {
             Block block = blocks.get(i);
             String body = block.body();
             // Empty body → single space (blank line would be a block separator)
-            if (body == null || body.isEmpty()) body = " ";
+            if (body == null || body.isEmpty())
+                body = " ";
 
             String status = block.status() != null ? block.status() : "normal";
 
@@ -96,23 +102,22 @@ public class TreeMarkdownConverter {
         String[] lines = treeMd.replace("\r", "").split("\n", -1);
         StringBuilder currentItem = null;
         int blockPrefixLen = 0;
-        int currentDepth = 0;
+        int currentLevel = 0;
 
         for (String line : lines) {
-            int markerPos = findListMarkerPos(line);
+            Optional<Marker> marker = findListMarkerPos(line);
 
-            if (markerPos >= 0) {
+            if (marker.isPresent()) {
                 // New block — flush previous
                 if (currentItem != null) {
-                    int level = currentDepth + 1; // depth 0 → level 1
                     String block = currentItem.toString();
-                    if (level > 1) {
-                        block += "\n<!-- level=" + level + " -->";
+                    if (currentLevel > 1) {
+                        block += "\n<!-- level=" + currentLevel + " -->";
                     }
                     items.add(block);
                 }
-                currentDepth = markerPos / 2; // 2-space indent per depth level
-                blockPrefixLen = markerPos + 2; // indent + "- "
+                currentLevel = marker.get().level();
+                blockPrefixLen = marker.get().pos() + 2; // indent + "- "
                 String firstLine = line.substring(blockPrefixLen);
                 // Re-add "- " for GFM task prefix so flat markdown parser can detect status
                 if (firstLine.startsWith("[ ] ") || firstLine.startsWith("[x] ")) {
@@ -127,10 +132,9 @@ public class TreeMarkdownConverter {
         }
 
         if (currentItem != null) {
-            int level = currentDepth + 1;
             String block = currentItem.toString();
-            if (level > 1) {
-                block += "\n<!-- level=" + level + " -->";
+            if (currentLevel > 1) {
+                block += "\n<!-- level=" + currentLevel + " -->";
             }
             items.add(block);
         }
@@ -139,23 +143,26 @@ public class TreeMarkdownConverter {
     }
 
     /**
-     * Find the position of "- " list marker after optional indent ("  " or "\t").
+     * Find the position of "- " list marker after optional indent (" " or "\t").
      * Returns the index of '-' or -1 if not a list item line.
      */
-    private int findListMarkerPos(String line) {
+    private Optional<Marker> findListMarkerPos(String line) {
         int pos = 0;
+        int level = 1; // level starts from 1 (level 1 = no indent)
         while (pos < line.length()) {
             if (pos + 1 < line.length() && line.charAt(pos) == '-' && line.charAt(pos + 1) == ' ') {
-                return pos;
+                return Optional.of(new Marker(pos, level));
             } else if (pos + 1 < line.length() && line.charAt(pos) == ' ' && line.charAt(pos + 1) == ' ') {
                 pos += 2;
+                level++;
             } else if (line.charAt(pos) == '\t') {
                 pos += 1;
+                level++;
             } else {
-                return -1;
+                return Optional.empty();
             }
         }
-        return -1;
+        return Optional.empty();
     }
 
 }
