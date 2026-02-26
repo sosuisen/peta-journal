@@ -6,6 +6,18 @@ export interface WikiLinkContext {
   rect: DOMRect;
 }
 
+export function hasUnclosedCodeFence(text: string): boolean {
+  let count = 0;
+  for (const line of text.split('\n')) {
+    if (line.trimStart().startsWith('```')) count++;
+  }
+  return count % 2 !== 0;
+}
+
+export function ensureCodeFenceClosed(text: string): string {
+  return hasUnclosedCodeFence(text) ? text + '\n```' : text;
+}
+
 
 @Component({
   selector: 'app-block-editor',
@@ -169,10 +181,28 @@ export class BlockEditorComponent implements AfterViewInit, OnDestroy {
    * @param event - The input event from the textarea.
    */
   onTextInput(event: Event): void {
+    const inputEvent = event as InputEvent;
     const el = event.target as HTMLTextAreaElement;
+
+    if (inputEvent.inputType === 'insertText' && inputEvent.data === '`') {
+      this.autoCloseCodeFence(el);
+    }
+
     this.bodyChange.emit(el.value);
     this.autoResize(el);
     this.checkWikiLinkContext(el);
+  }
+
+  private autoCloseCodeFence(el: HTMLTextAreaElement): void {
+    const { value, selectionStart } = el;
+    const lineStart = value.lastIndexOf('\n', selectionStart - 1) + 1;
+    const currentLine = value.substring(lineStart, selectionStart);
+    if (!currentLine.trimStart().startsWith('```')) return;
+    if (hasUnclosedCodeFence(value)) {
+      const newValue = value + '\n```';
+      el.value = newValue;
+      el.setSelectionRange(selectionStart, selectionStart);
+    }
   }
 
   /**

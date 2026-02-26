@@ -9,7 +9,7 @@ import { ClipboardService } from '../../core/services/clipboard.service';
 import { UndoService, UndoEntry } from '../../core/services/undo.service';
 import { formatJournalDate } from '../../core/utils/date.utils';
 import { NavigationService } from '../../core/services/navigation.service';
-import { WikiLinkContext } from './block-editor';
+import { WikiLinkContext, ensureCodeFenceClosed, hasUnclosedCodeFence } from './block-editor';
 import { findMoveDownTarget, findMoveUpTarget } from './move-utils';
 
 @Component({
@@ -325,6 +325,10 @@ export class OutlineComponent implements OnDestroy {
     if (this.operatingEnterKey) return;
 
     if (!this.dirtyBlockIds.has(block.id)) {
+      const current = this.state.getBlockById(block.id);
+      if (current && hasUnclosedCodeFence(current.body)) {
+        await this.saveBlockBody(block.id, current.body);
+      }
       this.state.removeEditingBlock(block.id);
       return;
     }
@@ -333,8 +337,7 @@ export class OutlineComponent implements OnDestroy {
     await this.autoSave.flushBlock(block.id);
     const current = this.state.getBlockById(block.id);
     if (current) {
-      const updated = await this.api.updateBlock(block.id, { body: current.body });
-      this.state.updateBlock(block.id, { html: updated.html });
+      await this.saveBlockBody(block.id, current.body);
     }
     this.state.removeEditingBlock(block.id);
   }
@@ -391,9 +394,9 @@ export class OutlineComponent implements OnDestroy {
       // Enter at beginning: create new empty block before current block
       const prevBlockId = blockIdx > 0 ? allBlocks[blockIdx - 1].id : '';
 
-      const [newBlock, updatedOriginal] = await Promise.all([
+      const [newBlock] = await Promise.all([
         this.api.createBlock(block.pageId, prevBlockId, block.level, ''),
-        this.api.updateBlock(block.id, { body: block.body }),
+        this.saveBlockBody(block.id, block.body),
       ]);
       this.state.addBlock(newBlock, prevBlockId);
 
@@ -404,7 +407,6 @@ export class OutlineComponent implements OnDestroy {
       this.state.addEditingBlock(newBlock.id);
       this.focusEditor(newBlock.id);
 
-      this.state.updateBlock(block.id, { html: updatedOriginal.html });
       this.state.removeEditingBlock(block.id);
     } else if (cursorPos === block.body.length) {
       // Enter at end: body unchanged — add optimistic block with client-generated ID
@@ -440,26 +442,20 @@ export class OutlineComponent implements OnDestroy {
       this.state.setFocusedBlock(newId);
       this.focusEditor(newId);
 
-      // Update old block body locally, keep editor visible during API calls
-      this.state.updateBlock(block.id, { body: beforeText });
-      const updatedOriginal = await this.api.updateBlock(block.id, { body: beforeText });
-      // Update HTML before switching — prevents blink
-      this.state.updateBlock(block.id, { html: updatedOriginal.html });
+      await this.saveBlockBody(block.id, beforeText);
       this.state.removeEditingBlock(block.id);
 
     } else {
       const originalBlock = { ...block };
 
-      // Update old block body locally, keep editor visible during API calls
-      this.state.updateBlock(block.id, { body: beforeText });
       const [updatedOriginal, newBlock] = await Promise.all([
-        this.api.updateBlock(block.id, { body: beforeText }),
+        this.saveBlockBody(block.id, beforeText),
         this.api.createBlock(block.pageId, afterBlockId, newLevel, afterText),
       ]);
       this.state.addBlock(newBlock, afterBlockId);
 
       this.undo.begin('enter', { blockId: block.id, position: cursorPos });
-      this.undo.pushUpdate(originalBlock, { ...updatedOriginal, body: beforeText });
+      this.undo.pushUpdate(originalBlock, updatedOriginal);
       this.undo.pushCreate(newBlock);
       this.undo.commit({ blockId: newBlock.id, position: 0 });
 
@@ -467,8 +463,6 @@ export class OutlineComponent implements OnDestroy {
       this.state.setFocusedBlock(newBlock.id);
       this.focusEditor(newBlock.id);
 
-      // Update HTML before switching — prevents blink
-      this.state.updateBlock(block.id, { html: updatedOriginal.html });
       this.state.removeEditingBlock(block.id);
     }
 
@@ -498,12 +492,11 @@ export class OutlineComponent implements OnDestroy {
     this.state.addEditingBlock(prevBlock.id);
     this.focusEditor(prevBlock.id);
 
-    const updatedPrev = await this.api.updateBlock(prevBlock.id, { body: mergedBody });
-    this.state.updateBlock(prevBlock.id, { html: updatedPrev.html });
+    const updatedPrev = await this.saveBlockBody(prevBlock.id, mergedBody);
     await this.api.deleteBlock(block.id);
 
     this.undo.begin('backspace', { blockId: block.id, position: 0 });
-    this.undo.pushUpdate(originalPrev, { ...updatedPrev, body: mergedBody });
+    this.undo.pushUpdate(originalPrev, updatedPrev);
     this.undo.pushDelete(originalBlock);
     this.undo.commit({ blockId: prevBlock.id, position: cursorPos });
   }
@@ -529,12 +522,11 @@ export class OutlineComponent implements OnDestroy {
     this.state.updateBlock(block.id, { body: mergedBody });
     this.state.deleteBlock(nextBlock.id);
 
-    const updatedBlock = await this.api.updateBlock(block.id, { body: mergedBody });
-    this.state.updateBlock(block.id, { html: updatedBlock.html });
+    const updatedBlock = await this.saveBlockBody(block.id, mergedBody);
     await this.api.deleteBlock(nextBlock.id);
 
     this.undo.begin('delete', { blockId: block.id, position: cursorPos });
-    this.undo.pushUpdate(originalBlock, { ...updatedBlock, body: mergedBody });
+    this.undo.pushUpdate(originalBlock, updatedBlock);
     this.undo.pushDelete(originalNext);
     this.undo.commit({ blockId: block.id, position: cursorPos });
   }
@@ -582,8 +574,7 @@ export class OutlineComponent implements OnDestroy {
     await this.autoSave.flushBlock(block.id);
     const current = this.state.getBlockById(block.id);
     if (current) {
-      const updated = await this.api.updateBlock(block.id, { body: current.body });
-      this.state.updateBlock(block.id, { html: updated.html });
+      await this.saveBlockBody(block.id, current.body);
       this.state.removeEditingBlock(block.id);
     }
   }
@@ -1059,8 +1050,7 @@ export class OutlineComponent implements OnDestroy {
 
       // First block replaces current editing block
       const firstBlock = parsedBlocks[0];
-      const updated = await this.api.updateBlock(block.id, { body: firstBlock.body });
-      this.state.updateBlock(block.id, { body: firstBlock.body, html: updated.html });
+      await this.saveBlockBody(block.id, firstBlock.body);
       this.dirtyBlockIds.add(block.id);
 
       // Update status if needed
@@ -1120,11 +1110,8 @@ export class OutlineComponent implements OnDestroy {
       const after = block.body.substring(event.cursorPos);
       const newBody = before + markdown + after;
 
-      this.state.updateBlock(block.id, { body: newBody });
+      await this.saveBlockBody(block.id, newBody);
       this.dirtyBlockIds.add(block.id);
-
-      const updated = await this.api.updateBlock(block.id, { body: newBody });
-      this.state.updateBlock(block.id, { html: updated.html });
 
       // Place cursor after the inserted markdown
       const newPos = event.cursorPos + markdown.length;
@@ -1757,6 +1744,14 @@ export class OutlineComponent implements OnDestroy {
     document.removeEventListener('copy', this.selectionCopyHandler);
     document.removeEventListener('cut', this.selectionCutHandler);
     this.closeWikiSuggestions();
+  }
+
+  private async saveBlockBody(blockId: string, body: string): Promise<Block> {
+    const normalized = ensureCodeFenceClosed(body);
+    this.state.updateBlock(blockId, { body: normalized });
+    const updated = await this.api.updateBlock(blockId, { body: normalized });
+    this.state.updateBlock(blockId, { html: updated.html });
+    return updated;
   }
 
   private focusEditor(blockId?: string, callback?: () => void): void {

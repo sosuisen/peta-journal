@@ -1,6 +1,7 @@
 import { Injectable, inject, OnDestroy } from '@angular/core';
 import { ApiService } from './api.service';
 import { Block } from '../models/block.model';
+import { ensureCodeFenceClosed } from '../../features/outline/block-editor';
 
 @Injectable({ providedIn: 'root' })
 export class AutoSaveService implements OnDestroy {
@@ -20,7 +21,7 @@ export class AutoSaveService implements OnDestroy {
 
     const timer = setTimeout(async () => {
       this.pendingEdits.delete(blockId);
-      await this.api.updateBlock(blockId, { body });
+      await this.api.updateBlock(blockId, { body: ensureCodeFenceClosed(body) });
     }, this.debounceMs);
 
     this.pendingEdits.set(blockId, { body, timer });
@@ -48,7 +49,7 @@ export class AutoSaveService implements OnDestroy {
     if (existing) {
       clearTimeout(existing.timer);
       this.pendingEdits.delete(blockId);
-      return await this.api.updateBlock(blockId, { body: existing.body });
+      return await this.api.updateBlock(blockId, { body: ensureCodeFenceClosed(existing.body) });
     }
     return null;
   }
