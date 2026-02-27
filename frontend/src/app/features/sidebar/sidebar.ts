@@ -265,6 +265,9 @@ export class SidebarComponent implements OnInit {
     if (page.type === 'journal') {
       return formatJournalDate(page.name);
     }
+    if (page.name === 'index' && page.dirPath) {
+      return page.dirPath;
+    }
     return page.dirPath ? page.dirPath + page.name : page.name;
   }
 }

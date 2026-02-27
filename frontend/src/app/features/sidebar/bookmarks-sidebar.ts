@@ -205,6 +205,9 @@ export class BookmarksSidebarComponent {
       if (bm.targetPage.type === 'journal') {
         return formatJournalDate(bm.targetPage.name);
       }
+      if (bm.targetPage.name === 'index' && bm.targetPage.dirPath) {
+        return bm.targetPage.dirPath;
+      }
       return bm.targetPage.dirPath
         ? bm.targetPage.dirPath + bm.targetPage.name
         : bm.targetPage.name;
