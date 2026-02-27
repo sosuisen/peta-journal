@@ -92,7 +92,7 @@ public interface PageRepository {
     List<Page> findBacklinkSources(UUID targetPageId);
 
     /**
-     * Finds pages whose full path (dir_path + file_name) starts with the query.
+     * Finds pages whose full path (dir_path + name) starts with the query.
      *
      * @param query      the prefix to search for
      * @param maxResults maximum number of results
@@ -101,7 +101,7 @@ public interface PageRepository {
     List<Page> findByPathPrefix(String query, int maxResults);
 
     /**
-     * Finds pages whose full path (dir_path + file_name) contains the query.
+     * Finds pages whose full path (dir_path + name) contains the query.
      *
      * @param query      the substring to search for
      * @param maxResults maximum number of results
@@ -111,7 +111,7 @@ public interface PageRepository {
 
     /**
      * Finds index pages whose last dir_path segment matches the query.
-     * For example, query "dir2" matches dir_path "dir1/dir2/" with file_name "index".
+     * For example, query "dir2" matches dir_path "dir1/dir2/" with name "index".
      *
      * @param query      the segment name to match
      * @param maxResults maximum number of results

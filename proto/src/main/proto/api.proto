@@ -246,7 +246,7 @@ message GetBlocksByStatusResponse {
 // --- Journal by name operations ---
 
 message GetOrCreateJournalRequest {
-  string file_name = 1;
+  string name = 1;
 }
 
 message GetOrCreateJournalResponse {

@@ -23,7 +23,7 @@ public class SqliteBlockRepository implements BlockRepository {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
                      "SELECT b.id, b.page_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.html, b.collapsed, b.status, " +
-                     "p.dir_path, p.file_name, p.type " +
+                     "p.dir_path, p.name, p.type " +
                      "FROM blocks b JOIN pages p ON b.page_id = p.id WHERE b.id = ?")) {
             ps.setString(1, id.toString());
             try (ResultSet rs = ps.executeQuery()) {
@@ -41,7 +41,7 @@ public class SqliteBlockRepository implements BlockRepository {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
                      "SELECT b.id, b.page_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.html, b.collapsed, b.status, " +
-                     "p.dir_path, p.file_name, p.type " +
+                     "p.dir_path, p.name, p.type " +
                      "FROM blocks b JOIN pages p ON b.page_id = p.id WHERE b.page_id = ? ORDER BY b.idx")) {
             ps.setString(1, pageId.toString());
             List<Block> blocks = new ArrayList<>();
@@ -144,7 +144,7 @@ public class SqliteBlockRepository implements BlockRepository {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
                      "SELECT b.id, b.page_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.html, b.collapsed, b.status, " +
-                     "p.dir_path, p.file_name, p.type " +
+                     "p.dir_path, p.name, p.type " +
                      "FROM blocks b JOIN pages p ON b.page_id = p.id WHERE b.body LIKE ?")) {
             ps.setString(1, pattern);
             List<Block> blocks = new ArrayList<>();
@@ -172,7 +172,7 @@ public class SqliteBlockRepository implements BlockRepository {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
                      "SELECT b.id, b.page_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.html, b.collapsed, b.status, " +
-                     "p.dir_path, p.file_name, p.type " +
+                     "p.dir_path, p.name, p.type " +
                      "FROM blocks b JOIN pages p ON b.page_id = p.id WHERE b.status IN (" + placeholders + ") ORDER BY b.created_date DESC")) {
             for (int i = 0; i < statuses.size(); i++) {
                 ps.setString(i + 1, statuses.get(i));
@@ -208,7 +208,7 @@ public class SqliteBlockRepository implements BlockRepository {
                 blockId,
                 UUID.fromString(rs.getString("page_id")),
                 rs.getString("dir_path"),
-                rs.getString("file_name"),
+                rs.getString("name"),
                 rs.getString("type"),
                 Instant.ofEpochMilli(rs.getLong("created_date")),
                 Instant.ofEpochMilli(rs.getLong("modified_date")),

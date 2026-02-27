@@ -24,19 +24,19 @@ namespace Petajournal {
     static BlockReflection() {
       byte[] descriptorData = global::System.Convert.FromBase64String(
           string.Concat(
-            "CgtibG9jay5wcm90bxILcGV0YWpvdXJuYWwaDGNvbW1vbi5wcm90byK3AgoF",
+            "CgtibG9jay5wcm90bxILcGV0YWpvdXJuYWwaDGNvbW1vbi5wcm90byKZAgoF",
             "QmxvY2sSCgoCaWQYASABKAkSDwoHcGFnZV9pZBgCIAEoCRIQCghkaXJfcGF0",
-            "aBgDIAEoCRIRCglmaWxlX25hbWUYBCABKAkSDAoEdHlwZRgPIAEoCRIsCgxj",
-            "cmVhdGVkX2RhdGUYBSABKAsyFi5wZXRham91cm5hbC5UaW1lc3RhbXASLQoN",
-            "bW9kaWZpZWRfZGF0ZRgGIAEoCzIWLnBldGFqb3VybmFsLlRpbWVzdGFtcBIL",
-            "CgNpZHgYByABKAkSDQoFbGV2ZWwYCCABKAUSDAoEYm9keRgJIAEoCRIMCgRo",
-            "dG1sGAogASgJEhEKCWNvbGxhcHNlZBgLIAEoCBIOCgZzdGF0dXMYDCABKAkS",
-            "DQoFdHlwZXMYDSADKAkSFwoPcHJvcGVydGllc19qc29uGA4gASgJQiUKFWNv",
-            "bS5wZXRham91cm5hbC5wcm90b0IKQmxvY2tQcm90b1ABYgZwcm90bzM="));
+            "aBgDIAEoCRIMCgRuYW1lGAQgASgJEgwKBHR5cGUYDyABKAkSLAoMY3JlYXRl",
+            "ZF9kYXRlGAUgASgLMhYucGV0YWpvdXJuYWwuVGltZXN0YW1wEi0KDW1vZGlm",
+            "aWVkX2RhdGUYBiABKAsyFi5wZXRham91cm5hbC5UaW1lc3RhbXASCwoDaWR4",
+            "GAcgASgJEg0KBWxldmVsGAggASgFEgwKBGJvZHkYCSABKAkSDAoEaHRtbBgK",
+            "IAEoCRIRCgljb2xsYXBzZWQYCyABKAgSDgoGc3RhdHVzGAwgASgJEg0KBXR5",
+            "cGVzGA0gAygJQiUKFWNvbS5wZXRham91cm5hbC5wcm90b0IKQmxvY2tQcm90",
+            "b1ABYgZwcm90bzM="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { global::Petajournal.CommonReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
-            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.Block), global::Petajournal.Block.Parser, new[]{ "Id", "PageId", "DirPath", "FileName", "Type", "CreatedDate", "ModifiedDate", "Idx", "Level", "Body", "Html", "Collapsed", "Status", "Types_", "PropertiesJson" }, null, null, null, null)
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.Block), global::Petajournal.Block.Parser, new[]{ "Id", "PageId", "DirPath", "Name", "Type", "CreatedDate", "ModifiedDate", "Idx", "Level", "Body", "Html", "Collapsed", "Status", "Types_" }, null, null, null, null)
           }));
     }
     #endregion
@@ -81,7 +81,7 @@ namespace Petajournal {
       id_ = other.id_;
       pageId_ = other.pageId_;
       dirPath_ = other.dirPath_;
-      fileName_ = other.fileName_;
+      name_ = other.name_;
       type_ = other.type_;
       createdDate_ = other.createdDate_ != null ? other.createdDate_.Clone() : null;
       modifiedDate_ = other.modifiedDate_ != null ? other.modifiedDate_.Clone() : null;
@@ -92,7 +92,6 @@ namespace Petajournal {
       collapsed_ = other.collapsed_;
       status_ = other.status_;
       types_ = other.types_.Clone();
-      propertiesJson_ = other.propertiesJson_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -106,7 +105,7 @@ namespace Petajournal {
     public const int IdFieldNumber = 1;
     private string id_ = "";
     /// <summary>
-    /// 7-char hex (first 7 of UUID)
+    /// UUID
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -147,18 +146,18 @@ namespace Petajournal {
       }
     }
 
-    /// <summary>Field number for the "file_name" field.</summary>
-    public const int FileNameFieldNumber = 4;
-    private string fileName_ = "";
+    /// <summary>Field number for the "name" field.</summary>
+    public const int NameFieldNumber = 4;
+    private string name_ = "";
     /// <summary>
-    /// File name of the page
+    /// Name of the page
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string FileName {
-      get { return fileName_; }
+    public string Name {
+      get { return name_; }
       set {
-        fileName_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+        name_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
       }
     }
 
@@ -220,7 +219,7 @@ namespace Petajournal {
     public const int LevelFieldNumber = 8;
     private int level_;
     /// <summary>
-    /// Indentation level (0-based)
+    /// Indentation level (1-based, 1=top level)
     /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
@@ -305,21 +304,6 @@ namespace Petajournal {
       get { return types_; }
     }
 
-    /// <summary>Field number for the "properties_json" field.</summary>
-    public const int PropertiesJsonFieldNumber = 14;
-    private string propertiesJson_ = "";
-    /// <summary>
-    /// Extensible JSON properties
-    /// </summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string PropertiesJson {
-      get { return propertiesJson_; }
-      set {
-        propertiesJson_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
-      }
-    }
-
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -338,7 +322,7 @@ namespace Petajournal {
       if (Id != other.Id) return false;
       if (PageId != other.PageId) return false;
       if (DirPath != other.DirPath) return false;
-      if (FileName != other.FileName) return false;
+      if (Name != other.Name) return false;
       if (Type != other.Type) return false;
       if (!object.Equals(CreatedDate, other.CreatedDate)) return false;
       if (!object.Equals(ModifiedDate, other.ModifiedDate)) return false;
@@ -349,7 +333,6 @@ namespace Petajournal {
       if (Collapsed != other.Collapsed) return false;
       if (Status != other.Status) return false;
       if(!types_.Equals(other.types_)) return false;
-      if (PropertiesJson != other.PropertiesJson) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -360,7 +343,7 @@ namespace Petajournal {
       if (Id.Length != 0) hash ^= Id.GetHashCode();
       if (PageId.Length != 0) hash ^= PageId.GetHashCode();
       if (DirPath.Length != 0) hash ^= DirPath.GetHashCode();
-      if (FileName.Length != 0) hash ^= FileName.GetHashCode();
+      if (Name.Length != 0) hash ^= Name.GetHashCode();
       if (Type.Length != 0) hash ^= Type.GetHashCode();
       if (createdDate_ != null) hash ^= CreatedDate.GetHashCode();
       if (modifiedDate_ != null) hash ^= ModifiedDate.GetHashCode();
@@ -371,7 +354,6 @@ namespace Petajournal {
       if (Collapsed != false) hash ^= Collapsed.GetHashCode();
       if (Status.Length != 0) hash ^= Status.GetHashCode();
       hash ^= types_.GetHashCode();
-      if (PropertiesJson.Length != 0) hash ^= PropertiesJson.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -402,9 +384,9 @@ namespace Petajournal {
         output.WriteRawTag(26);
         output.WriteString(DirPath);
       }
-      if (FileName.Length != 0) {
+      if (Name.Length != 0) {
         output.WriteRawTag(34);
-        output.WriteString(FileName);
+        output.WriteString(Name);
       }
       if (createdDate_ != null) {
         output.WriteRawTag(42);
@@ -439,10 +421,6 @@ namespace Petajournal {
         output.WriteString(Status);
       }
       types_.WriteTo(output, _repeated_types_codec);
-      if (PropertiesJson.Length != 0) {
-        output.WriteRawTag(114);
-        output.WriteString(PropertiesJson);
-      }
       if (Type.Length != 0) {
         output.WriteRawTag(122);
         output.WriteString(Type);
@@ -469,9 +447,9 @@ namespace Petajournal {
         output.WriteRawTag(26);
         output.WriteString(DirPath);
       }
-      if (FileName.Length != 0) {
+      if (Name.Length != 0) {
         output.WriteRawTag(34);
-        output.WriteString(FileName);
+        output.WriteString(Name);
       }
       if (createdDate_ != null) {
         output.WriteRawTag(42);
@@ -506,10 +484,6 @@ namespace Petajournal {
         output.WriteString(Status);
       }
       types_.WriteTo(ref output, _repeated_types_codec);
-      if (PropertiesJson.Length != 0) {
-        output.WriteRawTag(114);
-        output.WriteString(PropertiesJson);
-      }
       if (Type.Length != 0) {
         output.WriteRawTag(122);
         output.WriteString(Type);
@@ -533,8 +507,8 @@ namespace Petajournal {
       if (DirPath.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(DirPath);
       }
-      if (FileName.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(FileName);
+      if (Name.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Name);
       }
       if (Type.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(Type);
@@ -564,9 +538,6 @@ namespace Petajournal {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(Status);
       }
       size += types_.CalculateSize(_repeated_types_codec);
-      if (PropertiesJson.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(PropertiesJson);
-      }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
       }
@@ -588,8 +559,8 @@ namespace Petajournal {
       if (other.DirPath.Length != 0) {
         DirPath = other.DirPath;
       }
-      if (other.FileName.Length != 0) {
-        FileName = other.FileName;
+      if (other.Name.Length != 0) {
+        Name = other.Name;
       }
       if (other.Type.Length != 0) {
         Type = other.Type;
@@ -625,9 +596,6 @@ namespace Petajournal {
         Status = other.Status;
       }
       types_.Add(other.types_);
-      if (other.PropertiesJson.Length != 0) {
-        PropertiesJson = other.PropertiesJson;
-      }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
 
@@ -660,7 +628,7 @@ namespace Petajournal {
             break;
           }
           case 34: {
-            FileName = input.ReadString();
+            Name = input.ReadString();
             break;
           }
           case 42: {
@@ -705,10 +673,6 @@ namespace Petajournal {
             types_.AddEntriesFrom(input, _repeated_types_codec);
             break;
           }
-          case 114: {
-            PropertiesJson = input.ReadString();
-            break;
-          }
           case 122: {
             Type = input.ReadString();
             break;
@@ -745,7 +709,7 @@ namespace Petajournal {
             break;
           }
           case 34: {
-            FileName = input.ReadString();
+            Name = input.ReadString();
             break;
           }
           case 42: {
@@ -788,10 +752,6 @@ namespace Petajournal {
           }
           case 106: {
             types_.AddEntriesFrom(ref input, _repeated_types_codec);
-            break;
-          }
-          case 114: {
-            PropertiesJson = input.ReadString();
             break;
           }
           case 122: {

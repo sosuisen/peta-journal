@@ -7,7 +7,7 @@ import java.util.UUID;
 public record Page(
     UUID id,
     String dirPath,
-    String fileName,
+    String name,
     String type,        // "journal" or "doc"
     Instant createdDate,
     Instant modifiedDate,

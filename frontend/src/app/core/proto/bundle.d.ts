@@ -109,8 +109,8 @@ export namespace petajournal {
         /** Page dirPath */
         dirPath?: (string|null);
 
-        /** Page fileName */
-        fileName?: (string|null);
+        /** Page name */
+        name?: (string|null);
 
         /** Page type */
         type?: (string|null);
@@ -140,8 +140,8 @@ export namespace petajournal {
         /** Page dirPath. */
         public dirPath: string;
 
-        /** Page fileName. */
-        public fileName: string;
+        /** Page name. */
+        public name: string;
 
         /** Page type. */
         public type: string;
@@ -245,8 +245,8 @@ export namespace petajournal {
         /** Block dirPath */
         dirPath?: (string|null);
 
-        /** Block fileName */
-        fileName?: (string|null);
+        /** Block name */
+        name?: (string|null);
 
         /** Block type */
         type?: (string|null);
@@ -297,8 +297,8 @@ export namespace petajournal {
         /** Block dirPath. */
         public dirPath: string;
 
-        /** Block fileName. */
-        public fileName: string;
+        /** Block name. */
+        public name: string;
 
         /** Block type. */
         public type: string;
@@ -4697,8 +4697,8 @@ export namespace petajournal {
     /** Properties of a GetOrCreateJournalRequest. */
     interface IGetOrCreateJournalRequest {
 
-        /** GetOrCreateJournalRequest fileName */
-        fileName?: (string|null);
+        /** GetOrCreateJournalRequest name */
+        name?: (string|null);
     }
 
     /** Represents a GetOrCreateJournalRequest. */
@@ -4710,8 +4710,8 @@ export namespace petajournal {
          */
         constructor(properties?: petajournal.IGetOrCreateJournalRequest);
 
-        /** GetOrCreateJournalRequest fileName. */
-        public fileName: string;
+        /** GetOrCreateJournalRequest name. */
+        public name: string;
 
         /**
          * Creates a new GetOrCreateJournalRequest instance using the specified properties.

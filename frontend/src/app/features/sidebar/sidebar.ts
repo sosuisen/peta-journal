@@ -176,7 +176,7 @@ export class SidebarComponent implements OnInit {
    * @param event - The mouse event, used to detect Ctrl/Meta key modifier.
    */
   goToPage(page: Page, event: MouseEvent): void {
-    this.nav.navigateToPage(page.dirPath + page.fileName, event.ctrlKey || event.metaKey);
+    this.nav.navigateToPage(page.dirPath + page.name, event.ctrlKey || event.metaKey);
   }
 
   /**
@@ -187,8 +187,8 @@ export class SidebarComponent implements OnInit {
    */
   formatPageTitle(page: Page): string {
     if (page.type === 'journal') {
-      return formatJournalDate(page.fileName);
+      return formatJournalDate(page.name);
     }
-    return page.dirPath ? page.dirPath + page.fileName : page.fileName;
+    return page.dirPath ? page.dirPath + page.name : page.name;
   }
 }

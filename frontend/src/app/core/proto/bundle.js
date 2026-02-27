@@ -243,7 +243,7 @@ export const petajournal = $root.petajournal = (() => {
          * @interface IPage
          * @property {string|null} [id] Page id
          * @property {string|null} [dirPath] Page dirPath
-         * @property {string|null} [fileName] Page fileName
+         * @property {string|null} [name] Page name
          * @property {string|null} [type] Page type
          * @property {petajournal.ITimestamp|null} [createdDate] Page createdDate
          * @property {petajournal.ITimestamp|null} [modifiedDate] Page modifiedDate
@@ -283,12 +283,12 @@ export const petajournal = $root.petajournal = (() => {
         Page.prototype.dirPath = "";
 
         /**
-         * Page fileName.
-         * @member {string} fileName
+         * Page name.
+         * @member {string} name
          * @memberof petajournal.Page
          * @instance
          */
-        Page.prototype.fileName = "";
+        Page.prototype.name = "";
 
         /**
          * Page type.
@@ -350,8 +350,8 @@ export const petajournal = $root.petajournal = (() => {
                 writer.uint32(/* id 1, wireType 2 =*/10).string(message.id);
             if (message.dirPath != null && Object.hasOwnProperty.call(message, "dirPath"))
                 writer.uint32(/* id 2, wireType 2 =*/18).string(message.dirPath);
-            if (message.fileName != null && Object.hasOwnProperty.call(message, "fileName"))
-                writer.uint32(/* id 3, wireType 2 =*/26).string(message.fileName);
+            if (message.name != null && Object.hasOwnProperty.call(message, "name"))
+                writer.uint32(/* id 3, wireType 2 =*/26).string(message.name);
             if (message.createdDate != null && Object.hasOwnProperty.call(message, "createdDate"))
                 $root.petajournal.Timestamp.encode(message.createdDate, writer.uint32(/* id 4, wireType 2 =*/34).fork()).ldelim();
             if (message.modifiedDate != null && Object.hasOwnProperty.call(message, "modifiedDate"))
@@ -406,7 +406,7 @@ export const petajournal = $root.petajournal = (() => {
                         break;
                     }
                 case 3: {
-                        message.fileName = reader.string();
+                        message.name = reader.string();
                         break;
                     }
                 case 9: {
@@ -468,9 +468,9 @@ export const petajournal = $root.petajournal = (() => {
             if (message.dirPath != null && message.hasOwnProperty("dirPath"))
                 if (!$util.isString(message.dirPath))
                     return "dirPath: string expected";
-            if (message.fileName != null && message.hasOwnProperty("fileName"))
-                if (!$util.isString(message.fileName))
-                    return "fileName: string expected";
+            if (message.name != null && message.hasOwnProperty("name"))
+                if (!$util.isString(message.name))
+                    return "name: string expected";
             if (message.type != null && message.hasOwnProperty("type"))
                 if (!$util.isString(message.type))
                     return "type: string expected";
@@ -510,8 +510,8 @@ export const petajournal = $root.petajournal = (() => {
                 message.id = String(object.id);
             if (object.dirPath != null)
                 message.dirPath = String(object.dirPath);
-            if (object.fileName != null)
-                message.fileName = String(object.fileName);
+            if (object.name != null)
+                message.name = String(object.name);
             if (object.type != null)
                 message.type = String(object.type);
             if (object.createdDate != null) {
@@ -552,7 +552,7 @@ export const petajournal = $root.petajournal = (() => {
             if (options.defaults) {
                 object.id = "";
                 object.dirPath = "";
-                object.fileName = "";
+                object.name = "";
                 object.createdDate = null;
                 object.modifiedDate = null;
                 object.type = "";
@@ -561,8 +561,8 @@ export const petajournal = $root.petajournal = (() => {
                 object.id = message.id;
             if (message.dirPath != null && message.hasOwnProperty("dirPath"))
                 object.dirPath = message.dirPath;
-            if (message.fileName != null && message.hasOwnProperty("fileName"))
-                object.fileName = message.fileName;
+            if (message.name != null && message.hasOwnProperty("name"))
+                object.name = message.name;
             if (message.createdDate != null && message.hasOwnProperty("createdDate"))
                 object.createdDate = $root.petajournal.Timestamp.toObject(message.createdDate, options);
             if (message.modifiedDate != null && message.hasOwnProperty("modifiedDate"))
@@ -615,7 +615,7 @@ export const petajournal = $root.petajournal = (() => {
          * @property {string|null} [id] Block id
          * @property {string|null} [pageId] Block pageId
          * @property {string|null} [dirPath] Block dirPath
-         * @property {string|null} [fileName] Block fileName
+         * @property {string|null} [name] Block name
          * @property {string|null} [type] Block type
          * @property {petajournal.ITimestamp|null} [createdDate] Block createdDate
          * @property {petajournal.ITimestamp|null} [modifiedDate] Block modifiedDate
@@ -669,12 +669,12 @@ export const petajournal = $root.petajournal = (() => {
         Block.prototype.dirPath = "";
 
         /**
-         * Block fileName.
-         * @member {string} fileName
+         * Block name.
+         * @member {string} name
          * @memberof petajournal.Block
          * @instance
          */
-        Block.prototype.fileName = "";
+        Block.prototype.name = "";
 
         /**
          * Block type.
@@ -786,8 +786,8 @@ export const petajournal = $root.petajournal = (() => {
                 writer.uint32(/* id 2, wireType 2 =*/18).string(message.pageId);
             if (message.dirPath != null && Object.hasOwnProperty.call(message, "dirPath"))
                 writer.uint32(/* id 3, wireType 2 =*/26).string(message.dirPath);
-            if (message.fileName != null && Object.hasOwnProperty.call(message, "fileName"))
-                writer.uint32(/* id 4, wireType 2 =*/34).string(message.fileName);
+            if (message.name != null && Object.hasOwnProperty.call(message, "name"))
+                writer.uint32(/* id 4, wireType 2 =*/34).string(message.name);
             if (message.createdDate != null && Object.hasOwnProperty.call(message, "createdDate"))
                 $root.petajournal.Timestamp.encode(message.createdDate, writer.uint32(/* id 5, wireType 2 =*/42).fork()).ldelim();
             if (message.modifiedDate != null && Object.hasOwnProperty.call(message, "modifiedDate"))
@@ -858,7 +858,7 @@ export const petajournal = $root.petajournal = (() => {
                         break;
                     }
                 case 4: {
-                        message.fileName = reader.string();
+                        message.name = reader.string();
                         break;
                     }
                 case 15: {
@@ -947,9 +947,9 @@ export const petajournal = $root.petajournal = (() => {
             if (message.dirPath != null && message.hasOwnProperty("dirPath"))
                 if (!$util.isString(message.dirPath))
                     return "dirPath: string expected";
-            if (message.fileName != null && message.hasOwnProperty("fileName"))
-                if (!$util.isString(message.fileName))
-                    return "fileName: string expected";
+            if (message.name != null && message.hasOwnProperty("name"))
+                if (!$util.isString(message.name))
+                    return "name: string expected";
             if (message.type != null && message.hasOwnProperty("type"))
                 if (!$util.isString(message.type))
                     return "type: string expected";
@@ -1009,8 +1009,8 @@ export const petajournal = $root.petajournal = (() => {
                 message.pageId = String(object.pageId);
             if (object.dirPath != null)
                 message.dirPath = String(object.dirPath);
-            if (object.fileName != null)
-                message.fileName = String(object.fileName);
+            if (object.name != null)
+                message.name = String(object.name);
             if (object.type != null)
                 message.type = String(object.type);
             if (object.createdDate != null) {
@@ -1064,7 +1064,7 @@ export const petajournal = $root.petajournal = (() => {
                 object.id = "";
                 object.pageId = "";
                 object.dirPath = "";
-                object.fileName = "";
+                object.name = "";
                 object.createdDate = null;
                 object.modifiedDate = null;
                 object.idx = "";
@@ -1081,8 +1081,8 @@ export const petajournal = $root.petajournal = (() => {
                 object.pageId = message.pageId;
             if (message.dirPath != null && message.hasOwnProperty("dirPath"))
                 object.dirPath = message.dirPath;
-            if (message.fileName != null && message.hasOwnProperty("fileName"))
-                object.fileName = message.fileName;
+            if (message.name != null && message.hasOwnProperty("name"))
+                object.name = message.name;
             if (message.createdDate != null && message.hasOwnProperty("createdDate"))
                 object.createdDate = $root.petajournal.Timestamp.toObject(message.createdDate, options);
             if (message.modifiedDate != null && message.hasOwnProperty("modifiedDate"))
@@ -12350,7 +12350,7 @@ export const petajournal = $root.petajournal = (() => {
          * Properties of a GetOrCreateJournalRequest.
          * @memberof petajournal
          * @interface IGetOrCreateJournalRequest
-         * @property {string|null} [fileName] GetOrCreateJournalRequest fileName
+         * @property {string|null} [name] GetOrCreateJournalRequest name
          */
 
         /**
@@ -12369,12 +12369,12 @@ export const petajournal = $root.petajournal = (() => {
         }
 
         /**
-         * GetOrCreateJournalRequest fileName.
-         * @member {string} fileName
+         * GetOrCreateJournalRequest name.
+         * @member {string} name
          * @memberof petajournal.GetOrCreateJournalRequest
          * @instance
          */
-        GetOrCreateJournalRequest.prototype.fileName = "";
+        GetOrCreateJournalRequest.prototype.name = "";
 
         /**
          * Creates a new GetOrCreateJournalRequest instance using the specified properties.
@@ -12400,8 +12400,8 @@ export const petajournal = $root.petajournal = (() => {
         GetOrCreateJournalRequest.encode = function encode(message, writer) {
             if (!writer)
                 writer = $Writer.create();
-            if (message.fileName != null && Object.hasOwnProperty.call(message, "fileName"))
-                writer.uint32(/* id 1, wireType 2 =*/10).string(message.fileName);
+            if (message.name != null && Object.hasOwnProperty.call(message, "name"))
+                writer.uint32(/* id 1, wireType 2 =*/10).string(message.name);
             return writer;
         };
 
@@ -12439,7 +12439,7 @@ export const petajournal = $root.petajournal = (() => {
                     break;
                 switch (tag >>> 3) {
                 case 1: {
-                        message.fileName = reader.string();
+                        message.name = reader.string();
                         break;
                     }
                 default:
@@ -12477,9 +12477,9 @@ export const petajournal = $root.petajournal = (() => {
         GetOrCreateJournalRequest.verify = function verify(message) {
             if (typeof message !== "object" || message === null)
                 return "object expected";
-            if (message.fileName != null && message.hasOwnProperty("fileName"))
-                if (!$util.isString(message.fileName))
-                    return "fileName: string expected";
+            if (message.name != null && message.hasOwnProperty("name"))
+                if (!$util.isString(message.name))
+                    return "name: string expected";
             return null;
         };
 
@@ -12495,8 +12495,8 @@ export const petajournal = $root.petajournal = (() => {
             if (object instanceof $root.petajournal.GetOrCreateJournalRequest)
                 return object;
             let message = new $root.petajournal.GetOrCreateJournalRequest();
-            if (object.fileName != null)
-                message.fileName = String(object.fileName);
+            if (object.name != null)
+                message.name = String(object.name);
             return message;
         };
 
@@ -12514,9 +12514,9 @@ export const petajournal = $root.petajournal = (() => {
                 options = {};
             let object = {};
             if (options.defaults)
-                object.fileName = "";
-            if (message.fileName != null && message.hasOwnProperty("fileName"))
-                object.fileName = message.fileName;
+                object.name = "";
+            if (message.name != null && message.hasOwnProperty("name"))
+                object.name = message.name;
             return object;
         };
 

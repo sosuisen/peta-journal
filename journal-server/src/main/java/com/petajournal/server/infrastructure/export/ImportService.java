@@ -45,20 +45,20 @@ public class ImportService {
         page = pageRepository.save(page);
         searchService.indexPage(page);
 
-        List<Block> blocks = parser.toBlocks(result, page.id(), page.dirPath(), page.fileName(), page.type());
+        List<Block> blocks = parser.toBlocks(result, page.id(), page.dirPath(), page.name(), page.type());
         for (Block block : blocks) {
             String html = markdownParser.parseToHtml(block.body());
             Block withHtml = new Block(
-                    block.id(), block.pageId(), block.dirPath(), block.fileName(), block.type(),
+                    block.id(), block.pageId(), block.dirPath(), block.name(), block.type(),
                     block.createdDate(), block.modifiedDate(),
                     block.idx(), block.level(), block.body(), html,
                     block.collapsed(), block.status(), block.types()
             );
             blockRepository.save(withHtml);
-            searchService.indexBlock(withHtml, page.fileName());
+            searchService.indexBlock(withHtml, page.name());
         }
 
-        LOG.infov("Imported page from {0}: {1}", filePath, page.fileName());
+        LOG.infov("Imported page from {0}: {1}", filePath, page.name());
         return page;
     }
 }

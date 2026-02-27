@@ -29,7 +29,7 @@ public class McpSearchTools {
     ) {
         int max = maxResults > 0 ? maxResults : 20;
 
-        // 1st: SQLite prefix search on dir_path || file_name
+        // 1st: SQLite prefix search on dir_path || name
         List<Page> prefixPages = pageRepository.findByPathPrefix(query, max);
         if (!prefixPages.isEmpty()) {
             return jsonHelper.toJson(Map.of("results",

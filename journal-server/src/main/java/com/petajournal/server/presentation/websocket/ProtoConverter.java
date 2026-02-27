@@ -17,7 +17,7 @@ final class ProtoConverter {
         Page.Builder b = Page.newBuilder()
                 .setId(page.id().toString())
                 .setDirPath(page.dirPath())
-                .setFileName(page.fileName())
+                .setName(page.name())
                 .setType(page.type() != null ? page.type() : "doc")
                 .setCreatedDate(Timestamp.newBuilder().setMillis(page.createdDate().toEpochMilli()).build())
                 .setModifiedDate(Timestamp.newBuilder().setMillis(page.modifiedDate().toEpochMilli()).build());
@@ -32,7 +32,7 @@ final class ProtoConverter {
                 .setId(block.id().toString())
                 .setPageId(block.pageId().toString())
                 .setDirPath(block.dirPath())
-                .setFileName(block.fileName())
+                .setName(block.name())
                 .setType(block.type() != null ? block.type() : "doc")
                 .setCreatedDate(Timestamp.newBuilder().setMillis(block.createdDate().toEpochMilli()).build())
                 .setModifiedDate(Timestamp.newBuilder().setMillis(block.modifiedDate().toEpochMilli()).build())

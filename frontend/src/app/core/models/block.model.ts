@@ -2,7 +2,7 @@ export interface Block {
   id: string;
   pageId: string;
   dirPath: string;
-  fileName: string;
+  name: string;
   type: string;       // "journal" or "doc" (from parent page)
   createdDate: number;
   modifiedDate: number;

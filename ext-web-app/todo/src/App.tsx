@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { connect, onConnectionStateChange, onServerEvent, getBlocksByStatus, updateBlockStatus, type ConnectionState, type Block } from './api';
 
-type SortKey = 'file_name' | 'created_date' | 'status';
+type SortKey = 'name' | 'created_date' | 'status';
 
 /** Returns today's date as an ISO string (YYYY-MM-DD). */
 function getTodayISODate(): string {
@@ -26,7 +26,7 @@ function formatDate(block: Block): string {
 
 /** Checks if a block belongs to a journal page (filename matches YYYY-MM-DD). */
 function isJournal(block: Block): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(block.fileName || '');
+  return /^\d{4}-\d{2}-\d{2}$/.test(block.name || '');
 }
 
 const STATUS_ORDER: Record<string, number> = { todo: 0, running: 1, done: 2 };
@@ -37,8 +37,8 @@ function sortBlocks(blocks: Block[], key: SortKey): Block[] {
   const sorted = [...blocks];
   sorted.sort((a, b) => {
     switch (key) {
-      case 'file_name':
-        return (a.fileName || '').localeCompare(b.fileName || '');
+      case 'name':
+        return (a.name || '').localeCompare(b.name || '');
       case 'created_date':
         return getBlockCreatedMillis(b) - getBlockCreatedMillis(a); // desc
       case 'status':
@@ -131,11 +131,11 @@ export default function App() {
   }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const openBlockInPetaJournal = (block: Block) => {
-    const fileName = block.fileName;
-    if (!fileName) return;
-    const isJournal = /^\d{4}(-\d{2}(-\d{2})?|-W\d{1,2})?$/.test(fileName);
+    const name = block.name;
+    if (!name) return;
+    const isJournal = /^\d{4}(-\d{2}(-\d{2})?|-W\d{1,2})?$/.test(name);
     const prefix = isJournal ? '/journals' : '/docs';
-    const path = `${prefix}/${block.dirPath || ''}${fileName}`;
+    const path = `${prefix}/${block.dirPath || ''}${name}`;
     window.open(`http://localhost:4200${path}#${block.id}`, 'peta-journal');
   };
 
@@ -202,7 +202,7 @@ export default function App() {
           Sort:
           <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)}>
             <option value="created_date">Created Date</option>
-            <option value="file_name">Page Name</option>
+            <option value="name">Page Name</option>
             <option value="status">Status</option>
           </select>
         </label>
@@ -214,7 +214,7 @@ export default function App() {
         {sorted.map((block) => (
           <div key={block.id} className="block-row" onClick={() => openBlockInPetaJournal(block)}>
             <div className="block-main">
-              <span className="block-page">{block.fileName}</span>
+              <span className="block-page">{block.name}</span>
               <span
                 className="block-content"
                 dangerouslySetInnerHTML={{ __html: block.html || block.body || '' }}

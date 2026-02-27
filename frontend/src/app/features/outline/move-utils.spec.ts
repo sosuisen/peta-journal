@@ -8,7 +8,7 @@ function b(id: string, level: number): Block {
     id,
     pageId: 'page1',
     dirPath: '',
-    fileName: '',
+    name: '',
     type: 'doc',
     createdDate: 0,
     modifiedDate: 0,

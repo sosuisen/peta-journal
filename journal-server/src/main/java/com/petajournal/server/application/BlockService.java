@@ -72,17 +72,17 @@ public class BlockService {
         List<String> types = detectBlockTypes(body);
         String status = "normal";  // Default status
 
-        // Get page to get dir_path and file_name
+        // Get page to get dir_path and name
         Page page = pageRepository.findById(pageId).orElseThrow(() -> new IllegalArgumentException("Page not found: " + pageId));
 
-        Block block = new Block(id, pageId, page.dirPath(), page.fileName(), page.type(), now, now, idx, level, body, html, false, status, types);
+        Block block = new Block(id, pageId, page.dirPath(), page.name(), page.type(), now, now, idx, level, body, html, false, status, types);
         block = blockRepository.save(block);
 
         // Update page modified date
         touchPage(pageId);
 
         // Index for search
-        searchService.indexBlock(block, page.fileName());
+        searchService.indexBlock(block, page.name());
 
         // Queue for export
         exportService.queueExport(pageId);
@@ -116,7 +116,7 @@ public class BlockService {
                 existing.id(),
                 existing.pageId(),
                 existing.dirPath(),
-                existing.fileName(),
+                existing.name(),
                 existing.type(),
                 existing.createdDate(),
                 Instant.now(),
@@ -134,7 +134,7 @@ public class BlockService {
 
         Page page = pageRepository.findById(existing.pageId()).orElse(null);
         if (page != null) {
-            searchService.indexBlock(updated, page.fileName());
+            searchService.indexBlock(updated, page.name());
         }
 
         // Queue for export
@@ -177,7 +177,7 @@ public class BlockService {
         int delta = levelDelta != null ? levelDelta : 0;
         Instant now = Instant.now();
 
-        // Get target page to get dir_path and file_name
+        // Get target page to get dir_path and name
         Page targetPage = pageRepository.findById(targetPageId)
                 .orElseThrow(() -> new IllegalArgumentException("Target page not found: " + targetPageId));
 
@@ -192,7 +192,7 @@ public class BlockService {
                     block.id(),
                     targetPageId,
                     targetPage.dirPath(),
-                    targetPage.fileName(),
+                    targetPage.name(),
                     targetPage.type(),
                     block.createdDate(),
                     now,
@@ -342,7 +342,7 @@ public class BlockService {
     private void touchPage(UUID pageId) {
         pageRepository.findById(pageId).ifPresent(page -> {
             Page updated = new Page(
-                    page.id(), page.dirPath(), page.fileName(), page.type(),
+                    page.id(), page.dirPath(), page.name(), page.type(),
                     page.createdDate(), Instant.now(),
                     page.tags()
             );
@@ -364,7 +364,7 @@ public class BlockService {
             String pageName = matcher.group(1);
             List<Page> pages = pageRepository.findByTitle(pageName);
             Optional<Page> exactMatch = pages.stream()
-                    .filter(p -> p.fileName().equalsIgnoreCase(pageName))
+                    .filter(p -> p.name().equalsIgnoreCase(pageName))
                     .findFirst();
             String replacement;
             if (exactMatch.isPresent()) {

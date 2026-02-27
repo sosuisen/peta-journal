@@ -22,9 +22,9 @@ import { findMoveDownTarget, findMoveUpTarget } from './move-utils';
         class="outline-item"
         (mouseenter)="onBlockMouseEnter(block)"
       >
-        @if (isFirstBlockOfDate(i) && block.fileName !== currentPageDate() && block.type === 'journal') {
+        @if (isFirstBlockOfDate(i) && block.name !== currentPageDate() && block.type === 'journal') {
           <div class="date-header">
-            {{ formatDateHeader(block.fileName) }}
+            {{ formatDateHeader(block.name) }}
           </div>
         }
         <app-outline-block
@@ -146,7 +146,7 @@ export class OutlineComponent implements OnDestroy {
   readonly disableAutoLoad = input<boolean>(false);  // Disable automatic block loading
   readonly currentPageDate = input<string>('');  // Date shown in page header
   readonly loadMore = output<{ filepath: string; currentIndex: number }>();  // Emits when should load more
-  readonly topBlockChanged = output<string>();  // Emits fileName of top visible block
+  readonly topBlockChanged = output<string>();  // Emits name of top visible block
   private readonly dirtyBlockIds = new Set<string>();
   private switchingEditBlock = false;
   private movingEditBlock = false;
@@ -186,23 +186,23 @@ export class OutlineComponent implements OnDestroy {
 
   /**
    * Handles the virtual scroll viewport emitting a new scrolled index.
-   * Emits the top visible block's file name and triggers loading more blocks when nearing the end.
+   * Emits the top visible block's name and triggers loading more blocks when nearing the end.
    * @param index - The index of the first visible item in the virtual scroll viewport
    */
   onScrolledIndexChange(index: number): void {
     const blocks = this.state.visibleBlocks();
     const totalBlocks = blocks.length;
 
-    // Emit the top visible block's fileName
+    // Emit the top visible block's name
     if (index >= 0 && index < totalBlocks) {
       const topBlock = blocks[index];
-      this.topBlockChanged.emit(topBlock.fileName);
+      this.topBlockChanged.emit(topBlock.name);
     }
 
     // Check if we need more buffer (100 blocks ahead)
     if (totalBlocks < index + 100 && totalBlocks > 0) {
       const lastBlock = blocks[totalBlocks - 1];
-      const filepath = lastBlock.dirPath + lastBlock.fileName;
+      const filepath = lastBlock.dirPath + lastBlock.name;
       this.loadMore.emit({ filepath, currentIndex: index });
     }
   }
@@ -228,7 +228,7 @@ export class OutlineComponent implements OnDestroy {
     if (index === 0) return true;
     const currentBlock = blocks[index];
     const previousBlock = blocks[index - 1];
-    return currentBlock.fileName !== previousBlock.fileName;
+    return currentBlock.name !== previousBlock.name;
   }
 
   /**
@@ -415,7 +415,7 @@ export class OutlineComponent implements OnDestroy {
         id: newId,
         pageId: block.pageId,
         dirPath: block.dirPath,
-        fileName: block.fileName,
+        name: block.name,
         type: block.type,
         createdDate: Date.now(),
         modifiedDate: Date.now(),

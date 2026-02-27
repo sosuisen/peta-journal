@@ -163,16 +163,16 @@ export class JournalComponent {
           break;
         }
 
-        if (this.loadedDates.has(result.page!.fileName)) {
-          dateStr = result.page!.fileName;
+        if (this.loadedDates.has(result.page!.name)) {
+          dateStr = result.page!.name;
           continue;
         }
 
-        this.loadedDates.add(result.page!.fileName);
+        this.loadedDates.add(result.page!.name);
         const currentBlocks = this.outlineState.blocks();
         this.outlineState.setBlocks([...currentBlocks, ...result.blocks]);
 
-        dateStr = result.page!.fileName;
+        dateStr = result.page!.name;
       }
     } catch (e) {
       console.error('Failed to load initial buffer:', e);
@@ -209,18 +209,18 @@ export class JournalComponent {
           break;
         }
 
-        if (this.loadedDates.has(result.page!.fileName)) {
-          currentDateStr = result.page!.fileName;
+        if (this.loadedDates.has(result.page!.name)) {
+          currentDateStr = result.page!.name;
           continue;
         }
 
-        this.loadedDates.add(result.page!.fileName);
+        this.loadedDates.add(result.page!.name);
 
         // Append blocks from this journal
         const currentBlocks = this.outlineState.blocks();
         this.outlineState.setBlocks([...currentBlocks, ...result.blocks]);
 
-        currentDateStr = result.page!.fileName;
+        currentDateStr = result.page!.name;
       }
     } catch (e) {
       console.error('Failed to load previous days:', e);

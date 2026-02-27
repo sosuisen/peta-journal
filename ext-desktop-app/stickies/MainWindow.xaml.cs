@@ -266,7 +266,7 @@ public sealed partial class MainWindow : Window
 
             if (!isRefresh)
             {
-                PageTitleText.Text = page?.FileName ?? "Untitled";
+                PageTitleText.Text = page?.Name ?? "Untitled";
             }
 
             var html = BuildHtml(page, _currentBlocks);

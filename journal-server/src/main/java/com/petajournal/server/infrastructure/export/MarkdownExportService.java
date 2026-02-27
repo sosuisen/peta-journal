@@ -83,18 +83,18 @@ public class MarkdownExportService {
         String subDir = page.dirPath();
         Path dir = subDir.isEmpty() ? Path.of(markdownDir, typeDir) : Path.of(markdownDir, typeDir, subDir);
         Files.createDirectories(dir);
-        Path filePath = dir.resolve(page.fileName() + ".md");
+        Path filePath = dir.resolve(page.name() + ".md");
 
         try {
             writeWithLock(filePath, markdown);
         } catch (IOException e) {
             // File locked, write to alternate name
-            Path altPath = dir.resolve(page.fileName() + ".conflict.md");
+            Path altPath = dir.resolve(page.name() + ".conflict.md");
             LOG.warnv("File locked, writing to alternate: {0}", altPath);
             Files.writeString(altPath, markdown, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
         }
 
-        LOG.debugv("Exported page {0} to {1}", page.fileName(), filePath);
+        LOG.debugv("Exported page {0} to {1}", page.name(), filePath);
     }
 
     String serializeToOutlineMarkdown(Page page, List<Block> blocks) {

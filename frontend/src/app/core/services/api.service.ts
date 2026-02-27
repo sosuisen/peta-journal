@@ -20,7 +20,7 @@ function toPage(p: any): Page {
   return {
     id: p.id ?? '',
     dirPath: p.dirPath ?? '',
-    fileName: p.fileName ?? '',
+    name: p.name ?? '',
     type: p.type ?? 'doc',
     createdDate: p.createdDate?.millis?.toNumber?.() ?? Number(p.createdDate?.millis ?? 0),
     modifiedDate: p.modifiedDate?.millis?.toNumber?.() ?? Number(p.modifiedDate?.millis ?? 0),
@@ -33,7 +33,7 @@ function toBlock(b: any): Block {
     id: b.id ?? '',
     pageId: b.pageId ?? '',
     dirPath: b.dirPath ?? '',
-    fileName: b.fileName ?? '',
+    name: b.name ?? '',
     type: b.type ?? 'doc',
     createdDate: b.createdDate?.millis?.toNumber?.() ?? Number(b.createdDate?.millis ?? 0),
     modifiedDate: b.modifiedDate?.millis?.toNumber?.() ?? Number(b.modifiedDate?.millis ?? 0),
@@ -103,7 +103,7 @@ export class ApiService {
    * @returns The journal page, its blocks, and whether it was newly created.
    */
   async getOrCreateJournal(fileName: string): Promise<GetJournalResult> {
-    const resp: any = await this.proto.send({ getOrCreateJournal: { fileName } });
+    const resp: any = await this.proto.send({ getOrCreateJournal: { name: fileName } });
     const r = resp.getOrCreateJournal;
     return { page: toPage(r.page), blocks: (r.blocks ?? []).map(toBlock), created: r.created ?? false };
   }

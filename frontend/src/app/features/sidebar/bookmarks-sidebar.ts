@@ -203,11 +203,11 @@ export class BookmarksSidebarComponent {
   formatBookmarkTitle(bm: Bookmark): string {
     if (bm.targetPage) {
       if (bm.targetPage.type === 'journal') {
-        return formatJournalDate(bm.targetPage.fileName);
+        return formatJournalDate(bm.targetPage.name);
       }
       return bm.targetPage.dirPath
-        ? bm.targetPage.dirPath + bm.targetPage.fileName
-        : bm.targetPage.fileName;
+        ? bm.targetPage.dirPath + bm.targetPage.name
+        : bm.targetPage.name;
     }
     return bm.targetId;
   }
@@ -227,7 +227,7 @@ export class BookmarksSidebarComponent {
 
   goToBookmark(bm: Bookmark, event: MouseEvent): void {
     if (!bm.targetPage) return;
-    const path = bm.targetPage.dirPath + bm.targetPage.fileName;
+    const path = bm.targetPage.dirPath + bm.targetPage.name;
     this.nav.navigateToPage(path, event.ctrlKey || event.metaKey);
   }
 

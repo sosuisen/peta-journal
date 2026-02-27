@@ -1,7 +1,7 @@
 export interface Page {
   id: string;
   dirPath: string;
-  fileName: string;
+  name: string;
   type: string;       // "journal" or "doc"
   createdDate: number;
   modifiedDate: number;

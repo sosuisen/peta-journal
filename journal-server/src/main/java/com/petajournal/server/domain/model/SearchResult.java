@@ -17,7 +17,7 @@ public record SearchResult(
      * @return a search result with the page's full path as the title
      */
     public static SearchResult fromPage(Page page) {
-        String title = page.dirPath() + page.fileName();
+        String title = page.dirPath() + page.name();
         return new SearchResult(page.id(), title, "", title, 1.0f);
     }
 }

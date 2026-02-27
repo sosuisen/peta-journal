@@ -58,7 +58,7 @@ public class OutlineMarkdownParser {
         return new ParseResult(frontmatter, blocks);
     }
 
-    public Page toPage(ParseResult result, String dirPath, String fileName, String type) {
+    public Page toPage(ParseResult result, String dirPath, String name, String type) {
         Map<String, String> fm = result.frontmatter();
 
         UUID id = fm.containsKey("id") ? UUID.fromString(fm.get("id")) : UUID.randomUUID();
@@ -75,10 +75,10 @@ public class OutlineMarkdownParser {
             }
         }
 
-        return new Page(id, dirPath, fileName, type, created, modified, tags);
+        return new Page(id, dirPath, name, type, created, modified, tags);
     }
 
-    public List<Block> toBlocks(ParseResult result, UUID pageId, String dirPath, String fileName, String type) {
+    public List<Block> toBlocks(ParseResult result, UUID pageId, String dirPath, String name, String type) {
         List<Block> blocks = new ArrayList<>();
         Instant now = Instant.now();
         String prevIdx = null;
@@ -97,7 +97,7 @@ public class OutlineMarkdownParser {
             }
 
             blocks.add(new Block(
-                    blockId, pageId, dirPath, fileName, type, now, now, idx,
+                    blockId, pageId, dirPath, name, type, now, now, idx,
                     pb.level(), pb.body(), "",
                     pb.collapsed(), pb.status(), pb.types()
             ));

@@ -92,7 +92,7 @@ public class PageService {
         // Ensure all ancestor directory pages exist
         ensureAncestorPages(dir);
 
-        // Check for duplicate using (type, dir_path, file_name) index
+        // Check for duplicate using (type, dir_path, name) index
         var existing = pageRepository.findByTypeDirPathFileName("doc", dir, fileName);
         if (existing.isPresent()) {
             Page page = existing.get();
@@ -119,7 +119,7 @@ public class PageService {
 
         // Create initial empty block
         UUID blockId = BlockIdGenerator.generate();
-        Block block = new Block(blockId, id, page.dirPath(), page.fileName(), page.type(), now, now,
+        Block block = new Block(blockId, id, page.dirPath(), page.name(), page.type(), now, now,
                 FractionalIndexer.initial(), 1, "", "", false, "normal", List.of());
         blockRepository.save(block);
 
@@ -144,7 +144,7 @@ public class PageService {
         Page existing = pageRepository.findById(pageId)
                 .orElseThrow(() -> new IllegalArgumentException("Page not found: " + pageId));
 
-        String fileName = existing.fileName();
+        String fileName = existing.name();
         if (title != null) {
             if (title.trim().isEmpty()) {
                 throw new IllegalArgumentException("Page title cannot be empty or whitespace-only");
@@ -219,7 +219,7 @@ public class PageService {
 
         for (Page source : sources) {
             // Find the specific blocks that link to this page (using fileName as title)
-            List<Block> linkingBlocks = blockRepository.findByPageIdContainingLink(targetPage.fileName());
+            List<Block> linkingBlocks = blockRepository.findByPageIdContainingLink(targetPage.name());
             for (Block block : linkingBlocks) {
                 if (block.pageId().equals(source.id())) {
                     entries.add(new BacklinkEntry(source, block));

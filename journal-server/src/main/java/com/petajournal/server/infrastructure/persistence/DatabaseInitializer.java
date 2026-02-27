@@ -30,7 +30,7 @@ public class DatabaseInitializer {
                 CREATE TABLE IF NOT EXISTS pages (
                     id TEXT PRIMARY KEY,
                     dir_path TEXT NOT NULL,
-                    file_name TEXT NOT NULL,
+                    name TEXT NOT NULL,
                     type TEXT NOT NULL DEFAULT 'doc',
                     created_date INTEGER NOT NULL,
                     modified_date INTEGER NOT NULL
@@ -100,7 +100,20 @@ public class DatabaseInitializer {
                 )
                 """);
 
-            stmt.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_pages_type_dir_file ON pages(type, dir_path, file_name)");
+            // Migration: rename file_name → name in pages table
+            try {
+                stmt.execute("ALTER TABLE pages RENAME COLUMN file_name TO name");
+                LOG.info("Migrated pages.file_name → pages.name");
+            } catch (SQLException ignored) {
+                // Column already renamed or never existed as file_name
+            }
+            // Migration: drop old index
+            stmt.execute("DROP INDEX IF EXISTS idx_pages_type_dir_file");
+            // Migration: drop properties_json columns (unused)
+            try { stmt.execute("ALTER TABLE pages DROP COLUMN properties_json"); } catch (SQLException ignored) {}
+            try { stmt.execute("ALTER TABLE blocks DROP COLUMN properties_json"); } catch (SQLException ignored) {}
+
+            stmt.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_pages_type_dir_name ON pages(type, dir_path, name)");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_pages_modified ON pages(modified_date DESC)");
             stmt.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_blocks_page_id ON blocks(page_id, idx)");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_blocks_body_link ON blocks(body)");

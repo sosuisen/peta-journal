@@ -274,7 +274,7 @@ public class JournalWebSocket {
             }
         }
 
-        // 1st: SQLite prefix search on dir_path || file_name
+        // 1st: SQLite prefix search on dir_path || name
         for (Page p : pageRepository.findByPathPrefix(query, maxResults)) {
             if (seenIds.add(p.id().toString())) {
                 allResults.add(ProtoConverter.toProto(SearchResult.fromPage(p)));
@@ -334,7 +334,7 @@ public class JournalWebSocket {
     }
 
     private GetOrCreateJournalResponse handleGetOrCreateJournal(GetOrCreateJournalRequest req) {
-        var result = journalService.getOrCreateJournalByName(req.getFileName());
+        var result = journalService.getOrCreateJournalByName(req.getName());
         return GetOrCreateJournalResponse.newBuilder()
                 .setPage(ProtoConverter.toProto(result.page()))
                 .addAllBlocks(result.blocks().stream().map(ProtoConverter::toProto).toList())

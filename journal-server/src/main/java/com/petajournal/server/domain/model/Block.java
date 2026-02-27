@@ -8,7 +8,7 @@ public record Block(
     UUID id,
     UUID pageId,
     String dirPath,
-    String fileName,
+    String name,
     String type,         // "journal" or "doc" (from parent page)
     Instant createdDate,
     Instant modifiedDate,

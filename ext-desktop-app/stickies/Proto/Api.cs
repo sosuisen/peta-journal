@@ -25,154 +25,198 @@ namespace Petajournal {
       byte[] descriptorData = global::System.Convert.FromBase64String(
           string.Concat(
             "CglhcGkucHJvdG8SC3BldGFqb3VybmFsGgpwYWdlLnByb3RvGgtibG9jay5w",
-            "cm90bxoMc2VhcmNoLnByb3RvIqQKCgpBcGlSZXF1ZXN0EhIKCnJlcXVlc3Rf",
-            "aWQYASABKAkSOQoOZ2V0X3BhZ2VfYnlfaWQYCiABKAsyHy5wZXRham91cm5h",
-            "bC5HZXRQYWdlQnlJZFJlcXVlc3RIABI/ChFnZXRfb3JfY3JlYXRlX2RvYxgM",
-            "IAEoCzIiLnBldGFqb3VybmFsLkdldE9yQ3JlYXRlRG9jUmVxdWVzdEgAEjUK",
-            "C2RlbGV0ZV9wYWdlGA0gASgLMh4ucGV0YWpvdXJuYWwuRGVsZXRlUGFnZVJl",
-            "cXVlc3RIABI1Cgt1cGRhdGVfcGFnZRgOIAEoCzIeLnBldGFqb3VybmFsLlVw",
-            "ZGF0ZVBhZ2VSZXF1ZXN0SAASNwoMY3JlYXRlX2Jsb2NrGBQgASgLMh8ucGV0",
-            "YWpvdXJuYWwuQ3JlYXRlQmxvY2tSZXF1ZXN0SAASNwoMdXBkYXRlX2Jsb2Nr",
-            "GBUgASgLMh8ucGV0YWpvdXJuYWwuVXBkYXRlQmxvY2tSZXF1ZXN0SAASNQoL",
-            "bW92ZV9ibG9ja3MYFiABKAsyHi5wZXRham91cm5hbC5Nb3ZlQmxvY2tzUmVx",
-            "dWVzdEgAEjcKDGRlbGV0ZV9ibG9jaxgXIAEoCzIfLnBldGFqb3VybmFsLkRl",
-            "bGV0ZUJsb2NrUmVxdWVzdEgAEkQKE3VwZGF0ZV9ibG9ja19zdGF0dXMYGCAB",
-            "KAsyJS5wZXRham91cm5hbC5VcGRhdGVCbG9ja1N0YXR1c1JlcXVlc3RIABJA",
-            "ChFzZWFyY2hfcGFnZV9uYW1lcxgeIAEoCzIjLnBldGFqb3VybmFsLlNlYXJj",
-            "aFBhZ2VOYW1lc1JlcXVlc3RIABI+ChBzZWFyY2hfZnVsbF90ZXh0GB8gASgL",
-            "MiIucGV0YWpvdXJuYWwuU2VhcmNoRnVsbFRleHRSZXF1ZXN0SAASPgoQZ2V0",
-            "X3JlY2VudF9wYWdlcxgoIAEoCzIiLnBldGFqb3VybmFsLkdldFJlY2VudFBh",
-            "Z2VzUmVxdWVzdEgAEjkKDWdldF9iYWNrbGlua3MYKSABKAsyIC5wZXRham91",
-            "cm5hbC5HZXRCYWNrbGlua3NSZXF1ZXN0SAASWAoeZ2V0X21vc3RfcmVjZW50",
-            "X2pvdXJuYWxfYmVmb3JlGCogASgLMi4ucGV0YWpvdXJuYWwuR2V0TW9zdFJl",
-            "Y2VudEpvdXJuYWxCZWZvcmVSZXF1ZXN0SAASRQoUZ2V0X2Jsb2Nrc19ieV9z",
-            "dGF0dXMYMiABKAsyJS5wZXRham91cm5hbC5HZXRCbG9ja3NCeVN0YXR1c1Jl",
-            "cXVlc3RIABIzCgpnZXRfY29uZmlnGDwgASgLMh0ucGV0YWpvdXJuYWwuR2V0",
-            "Q29uZmlnUmVxdWVzdEgAEjkKDXVwZGF0ZV9jb25maWcYPSABKAsyIC5wZXRh",
-            "am91cm5hbC5VcGRhdGVDb25maWdSZXF1ZXN0SAASRwoVZ2V0X29yX2NyZWF0",
-            "ZV9qb3VybmFsGCwgASgLMiYucGV0YWpvdXJuYWwuR2V0T3JDcmVhdGVKb3Vy",
-            "bmFsUmVxdWVzdEgAEkYKFGV4cG9ydF90cmVlX21hcmtkb3duGEYgASgLMiYu",
-            "cGV0YWpvdXJuYWwuRXhwb3J0VHJlZU1hcmtkb3duUmVxdWVzdEgAEkYKFGlt",
-            "cG9ydF90cmVlX21hcmtkb3duGEcgASgLMiYucGV0YWpvdXJuYWwuSW1wb3J0",
-            "VHJlZU1hcmtkb3duUmVxdWVzdEgAQgkKB3BheWxvYWQikwsKC0FwaVJlc3Bv",
-            "bnNlEhIKCnJlcXVlc3RfaWQYASABKAkSDwoHc3VjY2VzcxgCIAEoCBIVCg1l",
-            "cnJvcl9tZXNzYWdlGAMgASgJEjoKDmdldF9wYWdlX2J5X2lkGAogASgLMiAu",
-            "cGV0YWpvdXJuYWwuR2V0UGFnZUJ5SWRSZXNwb25zZUgAEkAKEWdldF9vcl9j",
-            "cmVhdGVfZG9jGAwgASgLMiMucGV0YWpvdXJuYWwuR2V0T3JDcmVhdGVEb2NS",
-            "ZXNwb25zZUgAEjYKC2RlbGV0ZV9wYWdlGA0gASgLMh8ucGV0YWpvdXJuYWwu",
-            "RGVsZXRlUGFnZVJlc3BvbnNlSAASNgoLdXBkYXRlX3BhZ2UYDiABKAsyHy5w",
-            "ZXRham91cm5hbC5VcGRhdGVQYWdlUmVzcG9uc2VIABI4CgxjcmVhdGVfYmxv",
-            "Y2sYFCABKAsyIC5wZXRham91cm5hbC5DcmVhdGVCbG9ja1Jlc3BvbnNlSAAS",
-            "OAoMdXBkYXRlX2Jsb2NrGBUgASgLMiAucGV0YWpvdXJuYWwuVXBkYXRlQmxv",
-            "Y2tSZXNwb25zZUgAEjYKC21vdmVfYmxvY2tzGBYgASgLMh8ucGV0YWpvdXJu",
-            "YWwuTW92ZUJsb2Nrc1Jlc3BvbnNlSAASOAoMZGVsZXRlX2Jsb2NrGBcgASgL",
-            "MiAucGV0YWpvdXJuYWwuRGVsZXRlQmxvY2tSZXNwb25zZUgAEkUKE3VwZGF0",
-            "ZV9ibG9ja19zdGF0dXMYGCABKAsyJi5wZXRham91cm5hbC5VcGRhdGVCbG9j",
-            "a1N0YXR1c1Jlc3BvbnNlSAASQQoRc2VhcmNoX3BhZ2VfbmFtZXMYHiABKAsy",
-            "JC5wZXRham91cm5hbC5TZWFyY2hQYWdlTmFtZXNSZXNwb25zZUgAEj8KEHNl",
-            "YXJjaF9mdWxsX3RleHQYHyABKAsyIy5wZXRham91cm5hbC5TZWFyY2hGdWxs",
-            "VGV4dFJlc3BvbnNlSAASPwoQZ2V0X3JlY2VudF9wYWdlcxgoIAEoCzIjLnBl",
-            "dGFqb3VybmFsLkdldFJlY2VudFBhZ2VzUmVzcG9uc2VIABI6Cg1nZXRfYmFj",
-            "a2xpbmtzGCkgASgLMiEucGV0YWpvdXJuYWwuR2V0QmFja2xpbmtzUmVzcG9u",
-            "c2VIABJZCh5nZXRfbW9zdF9yZWNlbnRfam91cm5hbF9iZWZvcmUYKiABKAsy",
-            "Ly5wZXRham91cm5hbC5HZXRNb3N0UmVjZW50Sm91cm5hbEJlZm9yZVJlc3Bv",
-            "bnNlSAASSAoVZ2V0X29yX2NyZWF0ZV9qb3VybmFsGCwgASgLMicucGV0YWpv",
-            "dXJuYWwuR2V0T3JDcmVhdGVKb3VybmFsUmVzcG9uc2VIABJGChRnZXRfYmxv",
-            "Y2tzX2J5X3N0YXR1cxgyIAEoCzImLnBldGFqb3VybmFsLkdldEJsb2Nrc0J5",
-            "U3RhdHVzUmVzcG9uc2VIABI0CgpnZXRfY29uZmlnGDwgASgLMh4ucGV0YWpv",
-            "dXJuYWwuR2V0Q29uZmlnUmVzcG9uc2VIABI6Cg11cGRhdGVfY29uZmlnGD0g",
-            "ASgLMiEucGV0YWpvdXJuYWwuVXBkYXRlQ29uZmlnUmVzcG9uc2VIABJHChRl",
-            "eHBvcnRfdHJlZV9tYXJrZG93bhhGIAEoCzInLnBldGFqb3VybmFsLkV4cG9y",
-            "dFRyZWVNYXJrZG93blJlc3BvbnNlSAASRwoUaW1wb3J0X3RyZWVfbWFya2Rv",
-            "d24YRyABKAsyJy5wZXRham91cm5hbC5JbXBvcnRUcmVlTWFya2Rvd25SZXNw",
-            "b25zZUgAEjAKDHNlcnZlcl9ldmVudBhkIAEoCzIYLnBldGFqb3VybmFsLlNl",
-            "cnZlckV2ZW50SABCCQoHcGF5bG9hZCIlChJHZXRQYWdlQnlJZFJlcXVlc3QS",
-            "DwoHcGFnZV9pZBgBIAEoCSJaChNHZXRQYWdlQnlJZFJlc3BvbnNlEh8KBHBh",
-            "Z2UYASABKAsyES5wZXRham91cm5hbC5QYWdlEiIKBmJsb2NrcxgCIAMoCzIS",
-            "LnBldGFqb3VybmFsLkJsb2NrIkYKFUdldE9yQ3JlYXRlRG9jUmVxdWVzdBIN",
-            "CgV0aXRsZRgBIAEoCRIQCghkaXJfcGF0aBgCIAEoCRIMCgR0YWdzGAMgAygJ",
-            "Im4KFkdldE9yQ3JlYXRlRG9jUmVzcG9uc2USHwoEcGFnZRgBIAEoCzIRLnBl",
-            "dGFqb3VybmFsLlBhZ2USIgoGYmxvY2tzGAIgAygLMhIucGV0YWpvdXJuYWwu",
-            "QmxvY2sSDwoHY3JlYXRlZBgDIAEoCCIkChFEZWxldGVQYWdlUmVxdWVzdBIP",
-            "CgdwYWdlX2lkGAEgASgJIhQKEkRlbGV0ZVBhZ2VSZXNwb25zZSKNAQoRVXBk",
-            "YXRlUGFnZVJlcXVlc3QSDwoHcGFnZV9pZBgBIAEoCRISCgV0aXRsZRgCIAEo",
-            "CUgAiAEBEgwKBHRhZ3MYAyADKAkSFwoPcHJvcGVydGllc19qc29uGAQgASgJ",
-            "EhUKCGRpcl9wYXRoGAUgASgJSAGIAQFCCAoGX3RpdGxlQgsKCV9kaXJfcGF0",
-            "aCI1ChJVcGRhdGVQYWdlUmVzcG9uc2USHwoEcGFnZRgBIAEoCzIRLnBldGFq",
-            "b3VybmFsLlBhZ2UiWgoSQ3JlYXRlQmxvY2tSZXF1ZXN0Eg8KB3BhZ2VfaWQY",
-            "ASABKAkSFgoOYWZ0ZXJfYmxvY2tfaWQYAiABKAkSDQoFbGV2ZWwYAyABKAUS",
-            "DAoEYm9keRgEIAEoCSI4ChNDcmVhdGVCbG9ja1Jlc3BvbnNlEiEKBWJsb2Nr",
-            "GAEgASgLMhIucGV0YWpvdXJuYWwuQmxvY2si2AEKElVwZGF0ZUJsb2NrUmVx",
-            "dWVzdBIQCghibG9ja19pZBgBIAEoCRIRCgRib2R5GAIgASgJSACIAQESEgoF",
-            "bGV2ZWwYAyABKAVIAYgBARIWCgljb2xsYXBzZWQYBCABKAhIAogBARITCgZz",
-            "dGF0dXMYBSABKAlIA4gBARIcCg9wcm9wZXJ0aWVzX2pzb24YBiABKAlIBIgB",
-            "AUIHCgVfYm9keUIICgZfbGV2ZWxCDAoKX2NvbGxhcHNlZEIJCgdfc3RhdHVz",
-            "QhIKEF9wcm9wZXJ0aWVzX2pzb24iOAoTVXBkYXRlQmxvY2tSZXNwb25zZRIh",
-            "CgVibG9jaxgBIAEoCzISLnBldGFqb3VybmFsLkJsb2NrIoABChFNb3ZlQmxv",
-            "Y2tzUmVxdWVzdBIRCglibG9ja19pZHMYASADKAkSFgoOdGFyZ2V0X3BhZ2Vf",
-            "aWQYAiABKAkSFgoOYWZ0ZXJfYmxvY2tfaWQYAyABKAkSGAoLbGV2ZWxfZGVs",
-            "dGEYBCABKAVIAIgBAUIOCgxfbGV2ZWxfZGVsdGEiOAoSTW92ZUJsb2Nrc1Jl",
-            "c3BvbnNlEiIKBmJsb2NrcxgBIAMoCzISLnBldGFqb3VybmFsLkJsb2NrIiYK",
-            "EkRlbGV0ZUJsb2NrUmVxdWVzdBIQCghibG9ja19pZBgBIAEoCSIVChNEZWxl",
-            "dGVCbG9ja1Jlc3BvbnNlIjwKGFVwZGF0ZUJsb2NrU3RhdHVzUmVxdWVzdBIQ",
-            "CghibG9ja19pZBgBIAEoCRIOCgZzdGF0dXMYAiABKAkiPgoZVXBkYXRlQmxv",
-            "Y2tTdGF0dXNSZXNwb25zZRIhCgVibG9jaxgBIAEoCzISLnBldGFqb3VybmFs",
-            "LkJsb2NrIjwKFlNlYXJjaFBhZ2VOYW1lc1JlcXVlc3QSDQoFcXVlcnkYASAB",
-            "KAkSEwoLbWF4X3Jlc3VsdHMYAiABKAUiRQoXU2VhcmNoUGFnZU5hbWVzUmVz",
-            "cG9uc2USKgoHcmVzdWx0cxgBIAMoCzIZLnBldGFqb3VybmFsLlNlYXJjaFJl",
-            "c3VsdCI7ChVTZWFyY2hGdWxsVGV4dFJlcXVlc3QSDQoFcXVlcnkYASABKAkS",
-            "EwoLbWF4X3Jlc3VsdHMYAiABKAUiWAoWU2VhcmNoRnVsbFRleHRSZXNwb25z",
-            "ZRIqCgdyZXN1bHRzGAEgAygLMhkucGV0YWpvdXJuYWwuU2VhcmNoUmVzdWx0",
-            "EhIKCnRvdGFsX2hpdHMYAiABKAUiOgoVR2V0UmVjZW50UGFnZXNSZXF1ZXN0",
-            "EhMKC21heF9yZXN1bHRzGAEgASgFEgwKBHR5cGUYAiABKAkiOgoWR2V0UmVj",
-            "ZW50UGFnZXNSZXNwb25zZRIgCgVwYWdlcxgBIAMoCzIRLnBldGFqb3VybmFs",
-            "LlBhZ2UiJgoTR2V0QmFja2xpbmtzUmVxdWVzdBIPCgdwYWdlX2lkGAEgASgJ",
-            "IkMKFEdldEJhY2tsaW5rc1Jlc3BvbnNlEisKB2VudHJpZXMYASADKAsyGi5w",
-            "ZXRham91cm5hbC5CYWNrbGlua0VudHJ5ImEKDUJhY2tsaW5rRW50cnkSJgoL",
-            "c291cmNlX3BhZ2UYASABKAsyES5wZXRham91cm5hbC5QYWdlEigKDHNvdXJj",
-            "ZV9ibG9jaxgCIAEoCzISLnBldGFqb3VybmFsLkJsb2NrIjgKIUdldE1vc3RS",
-            "ZWNlbnRKb3VybmFsQmVmb3JlUmVxdWVzdBITCgtiZWZvcmVfZGF0ZRgBIAEo",
-            "CSJ4CiJHZXRNb3N0UmVjZW50Sm91cm5hbEJlZm9yZVJlc3BvbnNlEg0KBWZv",
-            "dW5kGAEgASgIEh8KBHBhZ2UYAiABKAsyES5wZXRham91cm5hbC5QYWdlEiIK",
-            "BmJsb2NrcxgDIAMoCzISLnBldGFqb3VybmFsLkJsb2NrIiwKGEdldEJsb2Nr",
-            "c0J5U3RhdHVzUmVxdWVzdBIQCghzdGF0dXNlcxgBIAMoCSI/ChlHZXRCbG9j",
-            "a3NCeVN0YXR1c1Jlc3BvbnNlEiIKBmJsb2NrcxgBIAMoCzISLnBldGFqb3Vy",
-            "bmFsLkJsb2NrIi4KGUdldE9yQ3JlYXRlSm91cm5hbFJlcXVlc3QSEQoJZmls",
-            "ZV9uYW1lGAEgASgJInIKGkdldE9yQ3JlYXRlSm91cm5hbFJlc3BvbnNlEh8K",
+            "cm90bxoMc2VhcmNoLnByb3RvGg5ib29rbWFyay5wcm90byK8DgoKQXBpUmVx",
+            "dWVzdBISCgpyZXF1ZXN0X2lkGAEgASgJEjkKDmdldF9wYWdlX2J5X2lkGAog",
+            "ASgLMh8ucGV0YWpvdXJuYWwuR2V0UGFnZUJ5SWRSZXF1ZXN0SAASPwoRZ2V0",
+            "X29yX2NyZWF0ZV9kb2MYDCABKAsyIi5wZXRham91cm5hbC5HZXRPckNyZWF0",
+            "ZURvY1JlcXVlc3RIABI1CgtkZWxldGVfcGFnZRgNIAEoCzIeLnBldGFqb3Vy",
+            "bmFsLkRlbGV0ZVBhZ2VSZXF1ZXN0SAASNQoLdXBkYXRlX3BhZ2UYDiABKAsy",
+            "Hi5wZXRham91cm5hbC5VcGRhdGVQYWdlUmVxdWVzdEgAEjcKDGNyZWF0ZV9i",
+            "bG9jaxgUIAEoCzIfLnBldGFqb3VybmFsLkNyZWF0ZUJsb2NrUmVxdWVzdEgA",
+            "EjcKDHVwZGF0ZV9ibG9jaxgVIAEoCzIfLnBldGFqb3VybmFsLlVwZGF0ZUJs",
+            "b2NrUmVxdWVzdEgAEjUKC21vdmVfYmxvY2tzGBYgASgLMh4ucGV0YWpvdXJu",
+            "YWwuTW92ZUJsb2Nrc1JlcXVlc3RIABI3CgxkZWxldGVfYmxvY2sYFyABKAsy",
+            "Hy5wZXRham91cm5hbC5EZWxldGVCbG9ja1JlcXVlc3RIABJEChN1cGRhdGVf",
+            "YmxvY2tfc3RhdHVzGBggASgLMiUucGV0YWpvdXJuYWwuVXBkYXRlQmxvY2tT",
+            "dGF0dXNSZXF1ZXN0SAASQAoRc2VhcmNoX3BhZ2VfbmFtZXMYHiABKAsyIy5w",
+            "ZXRham91cm5hbC5TZWFyY2hQYWdlTmFtZXNSZXF1ZXN0SAASPgoQc2VhcmNo",
+            "X2Z1bGxfdGV4dBgfIAEoCzIiLnBldGFqb3VybmFsLlNlYXJjaEZ1bGxUZXh0",
+            "UmVxdWVzdEgAEj4KEGdldF9yZWNlbnRfcGFnZXMYKCABKAsyIi5wZXRham91",
+            "cm5hbC5HZXRSZWNlbnRQYWdlc1JlcXVlc3RIABI5Cg1nZXRfYmFja2xpbmtz",
+            "GCkgASgLMiAucGV0YWpvdXJuYWwuR2V0QmFja2xpbmtzUmVxdWVzdEgAElgK",
+            "HmdldF9tb3N0X3JlY2VudF9qb3VybmFsX2JlZm9yZRgqIAEoCzIuLnBldGFq",
+            "b3VybmFsLkdldE1vc3RSZWNlbnRKb3VybmFsQmVmb3JlUmVxdWVzdEgAEkUK",
+            "FGdldF9ibG9ja3NfYnlfc3RhdHVzGDIgASgLMiUucGV0YWpvdXJuYWwuR2V0",
+            "QmxvY2tzQnlTdGF0dXNSZXF1ZXN0SAASMwoKZ2V0X2NvbmZpZxg8IAEoCzId",
+            "LnBldGFqb3VybmFsLkdldENvbmZpZ1JlcXVlc3RIABI5Cg11cGRhdGVfY29u",
+            "ZmlnGD0gASgLMiAucGV0YWpvdXJuYWwuVXBkYXRlQ29uZmlnUmVxdWVzdEgA",
+            "EkcKFWdldF9vcl9jcmVhdGVfam91cm5hbBgsIAEoCzImLnBldGFqb3VybmFs",
+            "LkdldE9yQ3JlYXRlSm91cm5hbFJlcXVlc3RIABJGChRleHBvcnRfdHJlZV9t",
+            "YXJrZG93bhhGIAEoCzImLnBldGFqb3VybmFsLkV4cG9ydFRyZWVNYXJrZG93",
+            "blJlcXVlc3RIABJGChRpbXBvcnRfdHJlZV9tYXJrZG93bhhHIAEoCzImLnBl",
+            "dGFqb3VybmFsLkltcG9ydFRyZWVNYXJrZG93blJlcXVlc3RIABI5Cg1nZXRf",
+            "Ym9va21hcmtzGFAgASgLMiAucGV0YWpvdXJuYWwuR2V0Qm9va21hcmtzUmVx",
+            "dWVzdEgAEkgKFWNyZWF0ZV9ib29rbWFya19ncm91cBhRIAEoCzInLnBldGFq",
+            "b3VybmFsLkNyZWF0ZUJvb2ttYXJrR3JvdXBSZXF1ZXN0SAASPQoPY3JlYXRl",
+            "X2Jvb2ttYXJrGFIgASgLMiIucGV0YWpvdXJuYWwuQ3JlYXRlQm9va21hcmtS",
+            "ZXF1ZXN0SAASPQoPZGVsZXRlX2Jvb2ttYXJrGFMgASgLMiIucGV0YWpvdXJu",
+            "YWwuRGVsZXRlQm9va21hcmtSZXF1ZXN0SAASSAoVZGVsZXRlX2Jvb2ttYXJr",
+            "X2dyb3VwGFQgASgLMicucGV0YWpvdXJuYWwuRGVsZXRlQm9va21hcmtHcm91",
+            "cFJlcXVlc3RIABI5Cg1tb3ZlX2Jvb2ttYXJrGFUgASgLMiAucGV0YWpvdXJu",
+            "YWwuTW92ZUJvb2ttYXJrUmVxdWVzdEgAEkQKE21vdmVfYm9va21hcmtfZ3Jv",
+            "dXAYViABKAsyJS5wZXRham91cm5hbC5Nb3ZlQm9va21hcmtHcm91cFJlcXVl",
+            "c3RIABJIChV1cGRhdGVfYm9va21hcmtfZ3JvdXAYVyABKAsyJy5wZXRham91",
+            "cm5hbC5VcGRhdGVCb29rbWFya0dyb3VwUmVxdWVzdEgAQgkKB3BheWxvYWQi",
+            "sw8KC0FwaVJlc3BvbnNlEhIKCnJlcXVlc3RfaWQYASABKAkSDwoHc3VjY2Vz",
+            "cxgCIAEoCBIVCg1lcnJvcl9tZXNzYWdlGAMgASgJEjoKDmdldF9wYWdlX2J5",
+            "X2lkGAogASgLMiAucGV0YWpvdXJuYWwuR2V0UGFnZUJ5SWRSZXNwb25zZUgA",
+            "EkAKEWdldF9vcl9jcmVhdGVfZG9jGAwgASgLMiMucGV0YWpvdXJuYWwuR2V0",
+            "T3JDcmVhdGVEb2NSZXNwb25zZUgAEjYKC2RlbGV0ZV9wYWdlGA0gASgLMh8u",
+            "cGV0YWpvdXJuYWwuRGVsZXRlUGFnZVJlc3BvbnNlSAASNgoLdXBkYXRlX3Bh",
+            "Z2UYDiABKAsyHy5wZXRham91cm5hbC5VcGRhdGVQYWdlUmVzcG9uc2VIABI4",
+            "CgxjcmVhdGVfYmxvY2sYFCABKAsyIC5wZXRham91cm5hbC5DcmVhdGVCbG9j",
+            "a1Jlc3BvbnNlSAASOAoMdXBkYXRlX2Jsb2NrGBUgASgLMiAucGV0YWpvdXJu",
+            "YWwuVXBkYXRlQmxvY2tSZXNwb25zZUgAEjYKC21vdmVfYmxvY2tzGBYgASgL",
+            "Mh8ucGV0YWpvdXJuYWwuTW92ZUJsb2Nrc1Jlc3BvbnNlSAASOAoMZGVsZXRl",
+            "X2Jsb2NrGBcgASgLMiAucGV0YWpvdXJuYWwuRGVsZXRlQmxvY2tSZXNwb25z",
+            "ZUgAEkUKE3VwZGF0ZV9ibG9ja19zdGF0dXMYGCABKAsyJi5wZXRham91cm5h",
+            "bC5VcGRhdGVCbG9ja1N0YXR1c1Jlc3BvbnNlSAASQQoRc2VhcmNoX3BhZ2Vf",
+            "bmFtZXMYHiABKAsyJC5wZXRham91cm5hbC5TZWFyY2hQYWdlTmFtZXNSZXNw",
+            "b25zZUgAEj8KEHNlYXJjaF9mdWxsX3RleHQYHyABKAsyIy5wZXRham91cm5h",
+            "bC5TZWFyY2hGdWxsVGV4dFJlc3BvbnNlSAASPwoQZ2V0X3JlY2VudF9wYWdl",
+            "cxgoIAEoCzIjLnBldGFqb3VybmFsLkdldFJlY2VudFBhZ2VzUmVzcG9uc2VI",
+            "ABI6Cg1nZXRfYmFja2xpbmtzGCkgASgLMiEucGV0YWpvdXJuYWwuR2V0QmFj",
+            "a2xpbmtzUmVzcG9uc2VIABJZCh5nZXRfbW9zdF9yZWNlbnRfam91cm5hbF9i",
+            "ZWZvcmUYKiABKAsyLy5wZXRham91cm5hbC5HZXRNb3N0UmVjZW50Sm91cm5h",
+            "bEJlZm9yZVJlc3BvbnNlSAASSAoVZ2V0X29yX2NyZWF0ZV9qb3VybmFsGCwg",
+            "ASgLMicucGV0YWpvdXJuYWwuR2V0T3JDcmVhdGVKb3VybmFsUmVzcG9uc2VI",
+            "ABJGChRnZXRfYmxvY2tzX2J5X3N0YXR1cxgyIAEoCzImLnBldGFqb3VybmFs",
+            "LkdldEJsb2Nrc0J5U3RhdHVzUmVzcG9uc2VIABI0CgpnZXRfY29uZmlnGDwg",
+            "ASgLMh4ucGV0YWpvdXJuYWwuR2V0Q29uZmlnUmVzcG9uc2VIABI6Cg11cGRh",
+            "dGVfY29uZmlnGD0gASgLMiEucGV0YWpvdXJuYWwuVXBkYXRlQ29uZmlnUmVz",
+            "cG9uc2VIABJHChRleHBvcnRfdHJlZV9tYXJrZG93bhhGIAEoCzInLnBldGFq",
+            "b3VybmFsLkV4cG9ydFRyZWVNYXJrZG93blJlc3BvbnNlSAASRwoUaW1wb3J0",
+            "X3RyZWVfbWFya2Rvd24YRyABKAsyJy5wZXRham91cm5hbC5JbXBvcnRUcmVl",
+            "TWFya2Rvd25SZXNwb25zZUgAEjoKDWdldF9ib29rbWFya3MYUCABKAsyIS5w",
+            "ZXRham91cm5hbC5HZXRCb29rbWFya3NSZXNwb25zZUgAEkkKFWNyZWF0ZV9i",
+            "b29rbWFya19ncm91cBhRIAEoCzIoLnBldGFqb3VybmFsLkNyZWF0ZUJvb2tt",
+            "YXJrR3JvdXBSZXNwb25zZUgAEj4KD2NyZWF0ZV9ib29rbWFyaxhSIAEoCzIj",
+            "LnBldGFqb3VybmFsLkNyZWF0ZUJvb2ttYXJrUmVzcG9uc2VIABI+Cg9kZWxl",
+            "dGVfYm9va21hcmsYUyABKAsyIy5wZXRham91cm5hbC5EZWxldGVCb29rbWFy",
+            "a1Jlc3BvbnNlSAASSQoVZGVsZXRlX2Jvb2ttYXJrX2dyb3VwGFQgASgLMigu",
+            "cGV0YWpvdXJuYWwuRGVsZXRlQm9va21hcmtHcm91cFJlc3BvbnNlSAASOgoN",
+            "bW92ZV9ib29rbWFyaxhVIAEoCzIhLnBldGFqb3VybmFsLk1vdmVCb29rbWFy",
+            "a1Jlc3BvbnNlSAASRQoTbW92ZV9ib29rbWFya19ncm91cBhWIAEoCzImLnBl",
+            "dGFqb3VybmFsLk1vdmVCb29rbWFya0dyb3VwUmVzcG9uc2VIABJJChV1cGRh",
+            "dGVfYm9va21hcmtfZ3JvdXAYVyABKAsyKC5wZXRham91cm5hbC5VcGRhdGVC",
+            "b29rbWFya0dyb3VwUmVzcG9uc2VIABIwCgxzZXJ2ZXJfZXZlbnQYZCABKAsy",
+            "GC5wZXRham91cm5hbC5TZXJ2ZXJFdmVudEgAQgkKB3BheWxvYWQiJQoSR2V0",
+            "UGFnZUJ5SWRSZXF1ZXN0Eg8KB3BhZ2VfaWQYASABKAkiWgoTR2V0UGFnZUJ5",
+            "SWRSZXNwb25zZRIfCgRwYWdlGAEgASgLMhEucGV0YWpvdXJuYWwuUGFnZRIi",
+            "CgZibG9ja3MYAiADKAsyEi5wZXRham91cm5hbC5CbG9jayJGChVHZXRPckNy",
+            "ZWF0ZURvY1JlcXVlc3QSDQoFdGl0bGUYASABKAkSEAoIZGlyX3BhdGgYAiAB",
+            "KAkSDAoEdGFncxgDIAMoCSJuChZHZXRPckNyZWF0ZURvY1Jlc3BvbnNlEh8K",
             "BHBhZ2UYASABKAsyES5wZXRham91cm5hbC5QYWdlEiIKBmJsb2NrcxgCIAMo",
-            "CzISLnBldGFqb3VybmFsLkJsb2NrEg8KB2NyZWF0ZWQYAyABKAgiEgoQR2V0",
-            "Q29uZmlnUmVxdWVzdCIrChFHZXRDb25maWdSZXNwb25zZRIWCg53ZWVrX251",
-            "bWJlcmluZxgBIAEoCSItChNVcGRhdGVDb25maWdSZXF1ZXN0EhYKDndlZWtf",
-            "bnVtYmVyaW5nGAEgASgJIi4KFFVwZGF0ZUNvbmZpZ1Jlc3BvbnNlEhYKDndl",
-            "ZWtfbnVtYmVyaW5nGAEgASgJIi4KGUV4cG9ydFRyZWVNYXJrZG93blJlcXVl",
-            "c3QSEQoJYmxvY2tfaWRzGAEgAygJIlgKGkV4cG9ydFRyZWVNYXJrZG93blJl",
-            "c3BvbnNlEhUKDXRyZWVfbWFya2Rvd24YASABKAkSDAoEaHRtbBgCIAEoCRIV",
-            "Cg1mbGF0X21hcmtkb3duGAMgASgJIjIKGUltcG9ydFRyZWVNYXJrZG93blJl",
-            "cXVlc3QSFQoNdHJlZV9tYXJrZG93bhgBIAEoCSIzChpJbXBvcnRUcmVlTWFy",
-            "a2Rvd25SZXNwb25zZRIVCg1mbGF0X21hcmtkb3duGAEgASgJIqABCgtTZXJ2",
-            "ZXJFdmVudBIdChVvcmlnaW5hdG9yX3Nlc3Npb25faWQYASABKAkSMAoJY29u",
-            "bmVjdGVkGAogASgLMhsucGV0YWpvdXJuYWwuQ29ubmVjdGVkRXZlbnRIABI3",
-            "Cg1wYWdlc191cGRhdGVkGBQgASgLMh4ucGV0YWpvdXJuYWwuUGFnZXNVcGRh",
-            "dGVkRXZlbnRIAEIHCgVldmVudCIkCg5Db25uZWN0ZWRFdmVudBISCgpzZXNz",
-            "aW9uX2lkGAEgASgJIiQKEVBhZ2VzVXBkYXRlZEV2ZW50Eg8KB3BhZ2VfaWQY",
-            "ASABKAlCIwoVY29tLnBldGFqb3VybmFsLnByb3RvQghBcGlQcm90b1ABYgZw",
-            "cm90bzM="));
+            "CzISLnBldGFqb3VybmFsLkJsb2NrEg8KB2NyZWF0ZWQYAyABKAgiJAoRRGVs",
+            "ZXRlUGFnZVJlcXVlc3QSDwoHcGFnZV9pZBgBIAEoCSIUChJEZWxldGVQYWdl",
+            "UmVzcG9uc2UidAoRVXBkYXRlUGFnZVJlcXVlc3QSDwoHcGFnZV9pZBgBIAEo",
+            "CRISCgV0aXRsZRgCIAEoCUgAiAEBEgwKBHRhZ3MYAyADKAkSFQoIZGlyX3Bh",
+            "dGgYBSABKAlIAYgBAUIICgZfdGl0bGVCCwoJX2Rpcl9wYXRoIjUKElVwZGF0",
+            "ZVBhZ2VSZXNwb25zZRIfCgRwYWdlGAEgASgLMhEucGV0YWpvdXJuYWwuUGFn",
+            "ZSJmChJDcmVhdGVCbG9ja1JlcXVlc3QSDwoHcGFnZV9pZBgBIAEoCRIWCg5h",
+            "ZnRlcl9ibG9ja19pZBgCIAEoCRINCgVsZXZlbBgDIAEoBRIMCgRib2R5GAQg",
+            "ASgJEgoKAmlkGAUgASgJIjgKE0NyZWF0ZUJsb2NrUmVzcG9uc2USIQoFYmxv",
+            "Y2sYASABKAsyEi5wZXRham91cm5hbC5CbG9jayKmAQoSVXBkYXRlQmxvY2tS",
+            "ZXF1ZXN0EhAKCGJsb2NrX2lkGAEgASgJEhEKBGJvZHkYAiABKAlIAIgBARIS",
+            "CgVsZXZlbBgDIAEoBUgBiAEBEhYKCWNvbGxhcHNlZBgEIAEoCEgCiAEBEhMK",
+            "BnN0YXR1cxgFIAEoCUgDiAEBQgcKBV9ib2R5QggKBl9sZXZlbEIMCgpfY29s",
+            "bGFwc2VkQgkKB19zdGF0dXMiOAoTVXBkYXRlQmxvY2tSZXNwb25zZRIhCgVi",
+            "bG9jaxgBIAEoCzISLnBldGFqb3VybmFsLkJsb2NrIoABChFNb3ZlQmxvY2tz",
+            "UmVxdWVzdBIRCglibG9ja19pZHMYASADKAkSFgoOdGFyZ2V0X3BhZ2VfaWQY",
+            "AiABKAkSFgoOYWZ0ZXJfYmxvY2tfaWQYAyABKAkSGAoLbGV2ZWxfZGVsdGEY",
+            "BCABKAVIAIgBAUIOCgxfbGV2ZWxfZGVsdGEiOAoSTW92ZUJsb2Nrc1Jlc3Bv",
+            "bnNlEiIKBmJsb2NrcxgBIAMoCzISLnBldGFqb3VybmFsLkJsb2NrIiYKEkRl",
+            "bGV0ZUJsb2NrUmVxdWVzdBIQCghibG9ja19pZBgBIAEoCSIVChNEZWxldGVC",
+            "bG9ja1Jlc3BvbnNlIjwKGFVwZGF0ZUJsb2NrU3RhdHVzUmVxdWVzdBIQCghi",
+            "bG9ja19pZBgBIAEoCRIOCgZzdGF0dXMYAiABKAkiPgoZVXBkYXRlQmxvY2tT",
+            "dGF0dXNSZXNwb25zZRIhCgVibG9jaxgBIAEoCzISLnBldGFqb3VybmFsLkJs",
+            "b2NrIjwKFlNlYXJjaFBhZ2VOYW1lc1JlcXVlc3QSDQoFcXVlcnkYASABKAkS",
+            "EwoLbWF4X3Jlc3VsdHMYAiABKAUiRQoXU2VhcmNoUGFnZU5hbWVzUmVzcG9u",
+            "c2USKgoHcmVzdWx0cxgBIAMoCzIZLnBldGFqb3VybmFsLlNlYXJjaFJlc3Vs",
+            "dCI7ChVTZWFyY2hGdWxsVGV4dFJlcXVlc3QSDQoFcXVlcnkYASABKAkSEwoL",
+            "bWF4X3Jlc3VsdHMYAiABKAUiWAoWU2VhcmNoRnVsbFRleHRSZXNwb25zZRIq",
+            "CgdyZXN1bHRzGAEgAygLMhkucGV0YWpvdXJuYWwuU2VhcmNoUmVzdWx0EhIK",
+            "CnRvdGFsX2hpdHMYAiABKAUiOgoVR2V0UmVjZW50UGFnZXNSZXF1ZXN0EhMK",
+            "C21heF9yZXN1bHRzGAEgASgFEgwKBHR5cGUYAiABKAkiOgoWR2V0UmVjZW50",
+            "UGFnZXNSZXNwb25zZRIgCgVwYWdlcxgBIAMoCzIRLnBldGFqb3VybmFsLlBh",
+            "Z2UiJgoTR2V0QmFja2xpbmtzUmVxdWVzdBIPCgdwYWdlX2lkGAEgASgJIkMK",
+            "FEdldEJhY2tsaW5rc1Jlc3BvbnNlEisKB2VudHJpZXMYASADKAsyGi5wZXRh",
+            "am91cm5hbC5CYWNrbGlua0VudHJ5ImEKDUJhY2tsaW5rRW50cnkSJgoLc291",
+            "cmNlX3BhZ2UYASABKAsyES5wZXRham91cm5hbC5QYWdlEigKDHNvdXJjZV9i",
+            "bG9jaxgCIAEoCzISLnBldGFqb3VybmFsLkJsb2NrIjgKIUdldE1vc3RSZWNl",
+            "bnRKb3VybmFsQmVmb3JlUmVxdWVzdBITCgtiZWZvcmVfZGF0ZRgBIAEoCSJ4",
+            "CiJHZXRNb3N0UmVjZW50Sm91cm5hbEJlZm9yZVJlc3BvbnNlEg0KBWZvdW5k",
+            "GAEgASgIEh8KBHBhZ2UYAiABKAsyES5wZXRham91cm5hbC5QYWdlEiIKBmJs",
+            "b2NrcxgDIAMoCzISLnBldGFqb3VybmFsLkJsb2NrIiwKGEdldEJsb2Nrc0J5",
+            "U3RhdHVzUmVxdWVzdBIQCghzdGF0dXNlcxgBIAMoCSI/ChlHZXRCbG9ja3NC",
+            "eVN0YXR1c1Jlc3BvbnNlEiIKBmJsb2NrcxgBIAMoCzISLnBldGFqb3VybmFs",
+            "LkJsb2NrIikKGUdldE9yQ3JlYXRlSm91cm5hbFJlcXVlc3QSDAoEbmFtZRgB",
+            "IAEoCSJyChpHZXRPckNyZWF0ZUpvdXJuYWxSZXNwb25zZRIfCgRwYWdlGAEg",
+            "ASgLMhEucGV0YWpvdXJuYWwuUGFnZRIiCgZibG9ja3MYAiADKAsyEi5wZXRh",
+            "am91cm5hbC5CbG9jaxIPCgdjcmVhdGVkGAMgASgIIhIKEEdldENvbmZpZ1Jl",
+            "cXVlc3QiKwoRR2V0Q29uZmlnUmVzcG9uc2USFgoOd2Vla19udW1iZXJpbmcY",
+            "ASABKAkiLQoTVXBkYXRlQ29uZmlnUmVxdWVzdBIWCg53ZWVrX251bWJlcmlu",
+            "ZxgBIAEoCSIuChRVcGRhdGVDb25maWdSZXNwb25zZRIWCg53ZWVrX251bWJl",
+            "cmluZxgBIAEoCSIuChlFeHBvcnRUcmVlTWFya2Rvd25SZXF1ZXN0EhEKCWJs",
+            "b2NrX2lkcxgBIAMoCSJYChpFeHBvcnRUcmVlTWFya2Rvd25SZXNwb25zZRIV",
+            "Cg10cmVlX21hcmtkb3duGAEgASgJEgwKBGh0bWwYAiABKAkSFQoNZmxhdF9t",
+            "YXJrZG93bhgDIAEoCSIyChlJbXBvcnRUcmVlTWFya2Rvd25SZXF1ZXN0EhUK",
+            "DXRyZWVfbWFya2Rvd24YASABKAkiMwoaSW1wb3J0VHJlZU1hcmtkb3duUmVz",
+            "cG9uc2USFQoNZmxhdF9tYXJrZG93bhgBIAEoCSIVChNHZXRCb29rbWFya3NS",
+            "ZXF1ZXN0ImwKFEdldEJvb2ttYXJrc1Jlc3BvbnNlEioKBmdyb3VwcxgBIAMo",
+            "CzIaLnBldGFqb3VybmFsLkJvb2ttYXJrR3JvdXASKAoJYm9va21hcmtzGAIg",
+            "AygLMhUucGV0YWpvdXJuYWwuQm9va21hcmsiKgoaQ3JlYXRlQm9va21hcmtH",
+            "cm91cFJlcXVlc3QSDAoEbmFtZRgBIAEoCSJIChtDcmVhdGVCb29rbWFya0dy",
+            "b3VwUmVzcG9uc2USKQoFZ3JvdXAYASABKAsyGi5wZXRham91cm5hbC5Cb29r",
+            "bWFya0dyb3VwIlEKFUNyZWF0ZUJvb2ttYXJrUmVxdWVzdBIQCghncm91cF9p",
+            "ZBgBIAEoCRITCgt0YXJnZXRfdHlwZRgCIAEoCRIRCgl0YXJnZXRfaWQYAyAB",
+            "KAkiQQoWQ3JlYXRlQm9va21hcmtSZXNwb25zZRInCghib29rbWFyaxgBIAEo",
+            "CzIVLnBldGFqb3VybmFsLkJvb2ttYXJrIiwKFURlbGV0ZUJvb2ttYXJrUmVx",
+            "dWVzdBITCgtib29rbWFya19pZBgBIAEoCSIYChZEZWxldGVCb29rbWFya1Jl",
+            "c3BvbnNlIi4KGkRlbGV0ZUJvb2ttYXJrR3JvdXBSZXF1ZXN0EhAKCGdyb3Vw",
+            "X2lkGAEgASgJIh0KG0RlbGV0ZUJvb2ttYXJrR3JvdXBSZXNwb25zZSJeChNN",
+            "b3ZlQm9va21hcmtSZXF1ZXN0EhMKC2Jvb2ttYXJrX2lkGAEgASgJEhcKD3Rh",
+            "cmdldF9ncm91cF9pZBgCIAEoCRIZChFhZnRlcl9ib29rbWFya19pZBgDIAEo",
+            "CSI/ChRNb3ZlQm9va21hcmtSZXNwb25zZRInCghib29rbWFyaxgBIAEoCzIV",
+            "LnBldGFqb3VybmFsLkJvb2ttYXJrIkQKGE1vdmVCb29rbWFya0dyb3VwUmVx",
+            "dWVzdBIQCghncm91cF9pZBgBIAEoCRIWCg5hZnRlcl9ncm91cF9pZBgCIAEo",
+            "CSJGChlNb3ZlQm9va21hcmtHcm91cFJlc3BvbnNlEikKBWdyb3VwGAEgASgL",
+            "MhoucGV0YWpvdXJuYWwuQm9va21hcmtHcm91cCI8ChpVcGRhdGVCb29rbWFy",
+            "a0dyb3VwUmVxdWVzdBIQCghncm91cF9pZBgBIAEoCRIMCgRuYW1lGAIgASgJ",
+            "IkgKG1VwZGF0ZUJvb2ttYXJrR3JvdXBSZXNwb25zZRIpCgVncm91cBgBIAEo",
+            "CzIaLnBldGFqb3VybmFsLkJvb2ttYXJrR3JvdXAioAEKC1NlcnZlckV2ZW50",
+            "Eh0KFW9yaWdpbmF0b3Jfc2Vzc2lvbl9pZBgBIAEoCRIwCgljb25uZWN0ZWQY",
+            "CiABKAsyGy5wZXRham91cm5hbC5Db25uZWN0ZWRFdmVudEgAEjcKDXBhZ2Vz",
+            "X3VwZGF0ZWQYFCABKAsyHi5wZXRham91cm5hbC5QYWdlc1VwZGF0ZWRFdmVu",
+            "dEgAQgcKBWV2ZW50IiQKDkNvbm5lY3RlZEV2ZW50EhIKCnNlc3Npb25faWQY",
+            "ASABKAkiJAoRUGFnZXNVcGRhdGVkRXZlbnQSDwoHcGFnZV9pZBgBIAEoCUIj",
+            "ChVjb20ucGV0YWpvdXJuYWwucHJvdG9CCEFwaVByb3RvUAFiBnByb3RvMw=="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
-          new pbr::FileDescriptor[] { global::Petajournal.PageReflection.Descriptor, global::Petajournal.BlockReflection.Descriptor, global::Petajournal.SearchReflection.Descriptor, },
+          new pbr::FileDescriptor[] { global::Petajournal.PageReflection.Descriptor, global::Petajournal.BlockReflection.Descriptor, global::Petajournal.SearchReflection.Descriptor, global::Petajournal.BookmarkReflection.Descriptor, },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {
-            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.ApiRequest), global::Petajournal.ApiRequest.Parser, new[]{ "RequestId", "GetPageById", "GetOrCreateDoc", "DeletePage", "UpdatePage", "CreateBlock", "UpdateBlock", "MoveBlocks", "DeleteBlock", "UpdateBlockStatus", "SearchPageNames", "SearchFullText", "GetRecentPages", "GetBacklinks", "GetMostRecentJournalBefore", "GetBlocksByStatus", "GetConfig", "UpdateConfig", "GetOrCreateJournal", "ExportTreeMarkdown", "ImportTreeMarkdown" }, new[]{ "Payload" }, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.ApiResponse), global::Petajournal.ApiResponse.Parser, new[]{ "RequestId", "Success", "ErrorMessage", "GetPageById", "GetOrCreateDoc", "DeletePage", "UpdatePage", "CreateBlock", "UpdateBlock", "MoveBlocks", "DeleteBlock", "UpdateBlockStatus", "SearchPageNames", "SearchFullText", "GetRecentPages", "GetBacklinks", "GetMostRecentJournalBefore", "GetOrCreateJournal", "GetBlocksByStatus", "GetConfig", "UpdateConfig", "ExportTreeMarkdown", "ImportTreeMarkdown", "ServerEvent" }, new[]{ "Payload" }, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.ApiRequest), global::Petajournal.ApiRequest.Parser, new[]{ "RequestId", "GetPageById", "GetOrCreateDoc", "DeletePage", "UpdatePage", "CreateBlock", "UpdateBlock", "MoveBlocks", "DeleteBlock", "UpdateBlockStatus", "SearchPageNames", "SearchFullText", "GetRecentPages", "GetBacklinks", "GetMostRecentJournalBefore", "GetBlocksByStatus", "GetConfig", "UpdateConfig", "GetOrCreateJournal", "ExportTreeMarkdown", "ImportTreeMarkdown", "GetBookmarks", "CreateBookmarkGroup", "CreateBookmark", "DeleteBookmark", "DeleteBookmarkGroup", "MoveBookmark", "MoveBookmarkGroup", "UpdateBookmarkGroup" }, new[]{ "Payload" }, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.ApiResponse), global::Petajournal.ApiResponse.Parser, new[]{ "RequestId", "Success", "ErrorMessage", "GetPageById", "GetOrCreateDoc", "DeletePage", "UpdatePage", "CreateBlock", "UpdateBlock", "MoveBlocks", "DeleteBlock", "UpdateBlockStatus", "SearchPageNames", "SearchFullText", "GetRecentPages", "GetBacklinks", "GetMostRecentJournalBefore", "GetOrCreateJournal", "GetBlocksByStatus", "GetConfig", "UpdateConfig", "ExportTreeMarkdown", "ImportTreeMarkdown", "GetBookmarks", "CreateBookmarkGroup", "CreateBookmark", "DeleteBookmark", "DeleteBookmarkGroup", "MoveBookmark", "MoveBookmarkGroup", "UpdateBookmarkGroup", "ServerEvent" }, new[]{ "Payload" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetPageByIdRequest), global::Petajournal.GetPageByIdRequest.Parser, new[]{ "PageId" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetPageByIdResponse), global::Petajournal.GetPageByIdResponse.Parser, new[]{ "Page", "Blocks" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetOrCreateDocRequest), global::Petajournal.GetOrCreateDocRequest.Parser, new[]{ "Title", "DirPath", "Tags" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetOrCreateDocResponse), global::Petajournal.GetOrCreateDocResponse.Parser, new[]{ "Page", "Blocks", "Created" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.DeletePageRequest), global::Petajournal.DeletePageRequest.Parser, new[]{ "PageId" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.DeletePageResponse), global::Petajournal.DeletePageResponse.Parser, null, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.UpdatePageRequest), global::Petajournal.UpdatePageRequest.Parser, new[]{ "PageId", "Title", "Tags", "PropertiesJson", "DirPath" }, new[]{ "Title", "DirPath" }, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.UpdatePageRequest), global::Petajournal.UpdatePageRequest.Parser, new[]{ "PageId", "Title", "Tags", "DirPath" }, new[]{ "Title", "DirPath" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.UpdatePageResponse), global::Petajournal.UpdatePageResponse.Parser, new[]{ "Page" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.CreateBlockRequest), global::Petajournal.CreateBlockRequest.Parser, new[]{ "PageId", "AfterBlockId", "Level", "Body" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.CreateBlockRequest), global::Petajournal.CreateBlockRequest.Parser, new[]{ "PageId", "AfterBlockId", "Level", "Body", "Id" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.CreateBlockResponse), global::Petajournal.CreateBlockResponse.Parser, new[]{ "Block" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.UpdateBlockRequest), global::Petajournal.UpdateBlockRequest.Parser, new[]{ "BlockId", "Body", "Level", "Collapsed", "Status", "PropertiesJson" }, new[]{ "Body", "Level", "Collapsed", "Status", "PropertiesJson" }, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.UpdateBlockRequest), global::Petajournal.UpdateBlockRequest.Parser, new[]{ "BlockId", "Body", "Level", "Collapsed", "Status" }, new[]{ "Body", "Level", "Collapsed", "Status" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.UpdateBlockResponse), global::Petajournal.UpdateBlockResponse.Parser, new[]{ "Block" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.MoveBlocksRequest), global::Petajournal.MoveBlocksRequest.Parser, new[]{ "BlockIds", "TargetPageId", "AfterBlockId", "LevelDelta" }, new[]{ "LevelDelta" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.MoveBlocksResponse), global::Petajournal.MoveBlocksResponse.Parser, new[]{ "Blocks" }, null, null, null, null),
@@ -193,7 +237,7 @@ namespace Petajournal {
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetMostRecentJournalBeforeResponse), global::Petajournal.GetMostRecentJournalBeforeResponse.Parser, new[]{ "Found", "Page", "Blocks" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetBlocksByStatusRequest), global::Petajournal.GetBlocksByStatusRequest.Parser, new[]{ "Statuses" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetBlocksByStatusResponse), global::Petajournal.GetBlocksByStatusResponse.Parser, new[]{ "Blocks" }, null, null, null, null),
-            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetOrCreateJournalRequest), global::Petajournal.GetOrCreateJournalRequest.Parser, new[]{ "FileName" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetOrCreateJournalRequest), global::Petajournal.GetOrCreateJournalRequest.Parser, new[]{ "Name" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetOrCreateJournalResponse), global::Petajournal.GetOrCreateJournalResponse.Parser, new[]{ "Page", "Blocks", "Created" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetConfigRequest), global::Petajournal.GetConfigRequest.Parser, null, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetConfigResponse), global::Petajournal.GetConfigResponse.Parser, new[]{ "WeekNumbering" }, null, null, null, null),
@@ -203,6 +247,22 @@ namespace Petajournal {
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.ExportTreeMarkdownResponse), global::Petajournal.ExportTreeMarkdownResponse.Parser, new[]{ "TreeMarkdown", "Html", "FlatMarkdown" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.ImportTreeMarkdownRequest), global::Petajournal.ImportTreeMarkdownRequest.Parser, new[]{ "TreeMarkdown" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.ImportTreeMarkdownResponse), global::Petajournal.ImportTreeMarkdownResponse.Parser, new[]{ "FlatMarkdown" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetBookmarksRequest), global::Petajournal.GetBookmarksRequest.Parser, null, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.GetBookmarksResponse), global::Petajournal.GetBookmarksResponse.Parser, new[]{ "Groups", "Bookmarks" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.CreateBookmarkGroupRequest), global::Petajournal.CreateBookmarkGroupRequest.Parser, new[]{ "Name" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.CreateBookmarkGroupResponse), global::Petajournal.CreateBookmarkGroupResponse.Parser, new[]{ "Group" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.CreateBookmarkRequest), global::Petajournal.CreateBookmarkRequest.Parser, new[]{ "GroupId", "TargetType", "TargetId" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.CreateBookmarkResponse), global::Petajournal.CreateBookmarkResponse.Parser, new[]{ "Bookmark" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.DeleteBookmarkRequest), global::Petajournal.DeleteBookmarkRequest.Parser, new[]{ "BookmarkId" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.DeleteBookmarkResponse), global::Petajournal.DeleteBookmarkResponse.Parser, null, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.DeleteBookmarkGroupRequest), global::Petajournal.DeleteBookmarkGroupRequest.Parser, new[]{ "GroupId" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.DeleteBookmarkGroupResponse), global::Petajournal.DeleteBookmarkGroupResponse.Parser, null, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.MoveBookmarkRequest), global::Petajournal.MoveBookmarkRequest.Parser, new[]{ "BookmarkId", "TargetGroupId", "AfterBookmarkId" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.MoveBookmarkResponse), global::Petajournal.MoveBookmarkResponse.Parser, new[]{ "Bookmark" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.MoveBookmarkGroupRequest), global::Petajournal.MoveBookmarkGroupRequest.Parser, new[]{ "GroupId", "AfterGroupId" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.MoveBookmarkGroupResponse), global::Petajournal.MoveBookmarkGroupResponse.Parser, new[]{ "Group" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.UpdateBookmarkGroupRequest), global::Petajournal.UpdateBookmarkGroupRequest.Parser, new[]{ "GroupId", "Name" }, null, null, null, null),
+            new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.UpdateBookmarkGroupResponse), global::Petajournal.UpdateBookmarkGroupResponse.Parser, new[]{ "Group" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.ServerEvent), global::Petajournal.ServerEvent.Parser, new[]{ "OriginatorSessionId", "Connected", "PagesUpdated" }, new[]{ "Event" }, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.ConnectedEvent), global::Petajournal.ConnectedEvent.Parser, new[]{ "SessionId" }, null, null, null, null),
             new pbr::GeneratedClrTypeInfo(typeof(global::Petajournal.PagesUpdatedEvent), global::Petajournal.PagesUpdatedEvent.Parser, new[]{ "PageId" }, null, null, null, null)
@@ -311,6 +371,30 @@ namespace Petajournal {
           break;
         case PayloadOneofCase.ImportTreeMarkdown:
           ImportTreeMarkdown = other.ImportTreeMarkdown.Clone();
+          break;
+        case PayloadOneofCase.GetBookmarks:
+          GetBookmarks = other.GetBookmarks.Clone();
+          break;
+        case PayloadOneofCase.CreateBookmarkGroup:
+          CreateBookmarkGroup = other.CreateBookmarkGroup.Clone();
+          break;
+        case PayloadOneofCase.CreateBookmark:
+          CreateBookmark = other.CreateBookmark.Clone();
+          break;
+        case PayloadOneofCase.DeleteBookmark:
+          DeleteBookmark = other.DeleteBookmark.Clone();
+          break;
+        case PayloadOneofCase.DeleteBookmarkGroup:
+          DeleteBookmarkGroup = other.DeleteBookmarkGroup.Clone();
+          break;
+        case PayloadOneofCase.MoveBookmark:
+          MoveBookmark = other.MoveBookmark.Clone();
+          break;
+        case PayloadOneofCase.MoveBookmarkGroup:
+          MoveBookmarkGroup = other.MoveBookmarkGroup.Clone();
+          break;
+        case PayloadOneofCase.UpdateBookmarkGroup:
+          UpdateBookmarkGroup = other.UpdateBookmarkGroup.Clone();
           break;
       }
 
@@ -578,6 +662,102 @@ namespace Petajournal {
       }
     }
 
+    /// <summary>Field number for the "get_bookmarks" field.</summary>
+    public const int GetBookmarksFieldNumber = 80;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Petajournal.GetBookmarksRequest GetBookmarks {
+      get { return payloadCase_ == PayloadOneofCase.GetBookmarks ? (global::Petajournal.GetBookmarksRequest) payload_ : null; }
+      set {
+        payload_ = value;
+        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.GetBookmarks;
+      }
+    }
+
+    /// <summary>Field number for the "create_bookmark_group" field.</summary>
+    public const int CreateBookmarkGroupFieldNumber = 81;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Petajournal.CreateBookmarkGroupRequest CreateBookmarkGroup {
+      get { return payloadCase_ == PayloadOneofCase.CreateBookmarkGroup ? (global::Petajournal.CreateBookmarkGroupRequest) payload_ : null; }
+      set {
+        payload_ = value;
+        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.CreateBookmarkGroup;
+      }
+    }
+
+    /// <summary>Field number for the "create_bookmark" field.</summary>
+    public const int CreateBookmarkFieldNumber = 82;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Petajournal.CreateBookmarkRequest CreateBookmark {
+      get { return payloadCase_ == PayloadOneofCase.CreateBookmark ? (global::Petajournal.CreateBookmarkRequest) payload_ : null; }
+      set {
+        payload_ = value;
+        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.CreateBookmark;
+      }
+    }
+
+    /// <summary>Field number for the "delete_bookmark" field.</summary>
+    public const int DeleteBookmarkFieldNumber = 83;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Petajournal.DeleteBookmarkRequest DeleteBookmark {
+      get { return payloadCase_ == PayloadOneofCase.DeleteBookmark ? (global::Petajournal.DeleteBookmarkRequest) payload_ : null; }
+      set {
+        payload_ = value;
+        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.DeleteBookmark;
+      }
+    }
+
+    /// <summary>Field number for the "delete_bookmark_group" field.</summary>
+    public const int DeleteBookmarkGroupFieldNumber = 84;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Petajournal.DeleteBookmarkGroupRequest DeleteBookmarkGroup {
+      get { return payloadCase_ == PayloadOneofCase.DeleteBookmarkGroup ? (global::Petajournal.DeleteBookmarkGroupRequest) payload_ : null; }
+      set {
+        payload_ = value;
+        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.DeleteBookmarkGroup;
+      }
+    }
+
+    /// <summary>Field number for the "move_bookmark" field.</summary>
+    public const int MoveBookmarkFieldNumber = 85;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Petajournal.MoveBookmarkRequest MoveBookmark {
+      get { return payloadCase_ == PayloadOneofCase.MoveBookmark ? (global::Petajournal.MoveBookmarkRequest) payload_ : null; }
+      set {
+        payload_ = value;
+        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.MoveBookmark;
+      }
+    }
+
+    /// <summary>Field number for the "move_bookmark_group" field.</summary>
+    public const int MoveBookmarkGroupFieldNumber = 86;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Petajournal.MoveBookmarkGroupRequest MoveBookmarkGroup {
+      get { return payloadCase_ == PayloadOneofCase.MoveBookmarkGroup ? (global::Petajournal.MoveBookmarkGroupRequest) payload_ : null; }
+      set {
+        payload_ = value;
+        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.MoveBookmarkGroup;
+      }
+    }
+
+    /// <summary>Field number for the "update_bookmark_group" field.</summary>
+    public const int UpdateBookmarkGroupFieldNumber = 87;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Petajournal.UpdateBookmarkGroupRequest UpdateBookmarkGroup {
+      get { return payloadCase_ == PayloadOneofCase.UpdateBookmarkGroup ? (global::Petajournal.UpdateBookmarkGroupRequest) payload_ : null; }
+      set {
+        payload_ = value;
+        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.UpdateBookmarkGroup;
+      }
+    }
+
     private object payload_;
     /// <summary>Enum of possible cases for the "payload" oneof.</summary>
     public enum PayloadOneofCase {
@@ -602,6 +782,14 @@ namespace Petajournal {
       GetOrCreateJournal = 44,
       ExportTreeMarkdown = 70,
       ImportTreeMarkdown = 71,
+      GetBookmarks = 80,
+      CreateBookmarkGroup = 81,
+      CreateBookmark = 82,
+      DeleteBookmark = 83,
+      DeleteBookmarkGroup = 84,
+      MoveBookmark = 85,
+      MoveBookmarkGroup = 86,
+      UpdateBookmarkGroup = 87,
     }
     private PayloadOneofCase payloadCase_ = PayloadOneofCase.None;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -653,6 +841,14 @@ namespace Petajournal {
       if (!object.Equals(GetOrCreateJournal, other.GetOrCreateJournal)) return false;
       if (!object.Equals(ExportTreeMarkdown, other.ExportTreeMarkdown)) return false;
       if (!object.Equals(ImportTreeMarkdown, other.ImportTreeMarkdown)) return false;
+      if (!object.Equals(GetBookmarks, other.GetBookmarks)) return false;
+      if (!object.Equals(CreateBookmarkGroup, other.CreateBookmarkGroup)) return false;
+      if (!object.Equals(CreateBookmark, other.CreateBookmark)) return false;
+      if (!object.Equals(DeleteBookmark, other.DeleteBookmark)) return false;
+      if (!object.Equals(DeleteBookmarkGroup, other.DeleteBookmarkGroup)) return false;
+      if (!object.Equals(MoveBookmark, other.MoveBookmark)) return false;
+      if (!object.Equals(MoveBookmarkGroup, other.MoveBookmarkGroup)) return false;
+      if (!object.Equals(UpdateBookmarkGroup, other.UpdateBookmarkGroup)) return false;
       if (PayloadCase != other.PayloadCase) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
@@ -682,6 +878,14 @@ namespace Petajournal {
       if (payloadCase_ == PayloadOneofCase.GetOrCreateJournal) hash ^= GetOrCreateJournal.GetHashCode();
       if (payloadCase_ == PayloadOneofCase.ExportTreeMarkdown) hash ^= ExportTreeMarkdown.GetHashCode();
       if (payloadCase_ == PayloadOneofCase.ImportTreeMarkdown) hash ^= ImportTreeMarkdown.GetHashCode();
+      if (payloadCase_ == PayloadOneofCase.GetBookmarks) hash ^= GetBookmarks.GetHashCode();
+      if (payloadCase_ == PayloadOneofCase.CreateBookmarkGroup) hash ^= CreateBookmarkGroup.GetHashCode();
+      if (payloadCase_ == PayloadOneofCase.CreateBookmark) hash ^= CreateBookmark.GetHashCode();
+      if (payloadCase_ == PayloadOneofCase.DeleteBookmark) hash ^= DeleteBookmark.GetHashCode();
+      if (payloadCase_ == PayloadOneofCase.DeleteBookmarkGroup) hash ^= DeleteBookmarkGroup.GetHashCode();
+      if (payloadCase_ == PayloadOneofCase.MoveBookmark) hash ^= MoveBookmark.GetHashCode();
+      if (payloadCase_ == PayloadOneofCase.MoveBookmarkGroup) hash ^= MoveBookmarkGroup.GetHashCode();
+      if (payloadCase_ == PayloadOneofCase.UpdateBookmarkGroup) hash ^= UpdateBookmarkGroup.GetHashCode();
       hash ^= (int) payloadCase_;
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
@@ -785,6 +989,38 @@ namespace Petajournal {
         output.WriteRawTag(186, 4);
         output.WriteMessage(ImportTreeMarkdown);
       }
+      if (payloadCase_ == PayloadOneofCase.GetBookmarks) {
+        output.WriteRawTag(130, 5);
+        output.WriteMessage(GetBookmarks);
+      }
+      if (payloadCase_ == PayloadOneofCase.CreateBookmarkGroup) {
+        output.WriteRawTag(138, 5);
+        output.WriteMessage(CreateBookmarkGroup);
+      }
+      if (payloadCase_ == PayloadOneofCase.CreateBookmark) {
+        output.WriteRawTag(146, 5);
+        output.WriteMessage(CreateBookmark);
+      }
+      if (payloadCase_ == PayloadOneofCase.DeleteBookmark) {
+        output.WriteRawTag(154, 5);
+        output.WriteMessage(DeleteBookmark);
+      }
+      if (payloadCase_ == PayloadOneofCase.DeleteBookmarkGroup) {
+        output.WriteRawTag(162, 5);
+        output.WriteMessage(DeleteBookmarkGroup);
+      }
+      if (payloadCase_ == PayloadOneofCase.MoveBookmark) {
+        output.WriteRawTag(170, 5);
+        output.WriteMessage(MoveBookmark);
+      }
+      if (payloadCase_ == PayloadOneofCase.MoveBookmarkGroup) {
+        output.WriteRawTag(178, 5);
+        output.WriteMessage(MoveBookmarkGroup);
+      }
+      if (payloadCase_ == PayloadOneofCase.UpdateBookmarkGroup) {
+        output.WriteRawTag(186, 5);
+        output.WriteMessage(UpdateBookmarkGroup);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -879,6 +1115,38 @@ namespace Petajournal {
         output.WriteRawTag(186, 4);
         output.WriteMessage(ImportTreeMarkdown);
       }
+      if (payloadCase_ == PayloadOneofCase.GetBookmarks) {
+        output.WriteRawTag(130, 5);
+        output.WriteMessage(GetBookmarks);
+      }
+      if (payloadCase_ == PayloadOneofCase.CreateBookmarkGroup) {
+        output.WriteRawTag(138, 5);
+        output.WriteMessage(CreateBookmarkGroup);
+      }
+      if (payloadCase_ == PayloadOneofCase.CreateBookmark) {
+        output.WriteRawTag(146, 5);
+        output.WriteMessage(CreateBookmark);
+      }
+      if (payloadCase_ == PayloadOneofCase.DeleteBookmark) {
+        output.WriteRawTag(154, 5);
+        output.WriteMessage(DeleteBookmark);
+      }
+      if (payloadCase_ == PayloadOneofCase.DeleteBookmarkGroup) {
+        output.WriteRawTag(162, 5);
+        output.WriteMessage(DeleteBookmarkGroup);
+      }
+      if (payloadCase_ == PayloadOneofCase.MoveBookmark) {
+        output.WriteRawTag(170, 5);
+        output.WriteMessage(MoveBookmark);
+      }
+      if (payloadCase_ == PayloadOneofCase.MoveBookmarkGroup) {
+        output.WriteRawTag(178, 5);
+        output.WriteMessage(MoveBookmarkGroup);
+      }
+      if (payloadCase_ == PayloadOneofCase.UpdateBookmarkGroup) {
+        output.WriteRawTag(186, 5);
+        output.WriteMessage(UpdateBookmarkGroup);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -951,6 +1219,30 @@ namespace Petajournal {
       }
       if (payloadCase_ == PayloadOneofCase.ImportTreeMarkdown) {
         size += 2 + pb::CodedOutputStream.ComputeMessageSize(ImportTreeMarkdown);
+      }
+      if (payloadCase_ == PayloadOneofCase.GetBookmarks) {
+        size += 2 + pb::CodedOutputStream.ComputeMessageSize(GetBookmarks);
+      }
+      if (payloadCase_ == PayloadOneofCase.CreateBookmarkGroup) {
+        size += 2 + pb::CodedOutputStream.ComputeMessageSize(CreateBookmarkGroup);
+      }
+      if (payloadCase_ == PayloadOneofCase.CreateBookmark) {
+        size += 2 + pb::CodedOutputStream.ComputeMessageSize(CreateBookmark);
+      }
+      if (payloadCase_ == PayloadOneofCase.DeleteBookmark) {
+        size += 2 + pb::CodedOutputStream.ComputeMessageSize(DeleteBookmark);
+      }
+      if (payloadCase_ == PayloadOneofCase.DeleteBookmarkGroup) {
+        size += 2 + pb::CodedOutputStream.ComputeMessageSize(DeleteBookmarkGroup);
+      }
+      if (payloadCase_ == PayloadOneofCase.MoveBookmark) {
+        size += 2 + pb::CodedOutputStream.ComputeMessageSize(MoveBookmark);
+      }
+      if (payloadCase_ == PayloadOneofCase.MoveBookmarkGroup) {
+        size += 2 + pb::CodedOutputStream.ComputeMessageSize(MoveBookmarkGroup);
+      }
+      if (payloadCase_ == PayloadOneofCase.UpdateBookmarkGroup) {
+        size += 2 + pb::CodedOutputStream.ComputeMessageSize(UpdateBookmarkGroup);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -1087,6 +1379,54 @@ namespace Petajournal {
             ImportTreeMarkdown = new global::Petajournal.ImportTreeMarkdownRequest();
           }
           ImportTreeMarkdown.MergeFrom(other.ImportTreeMarkdown);
+          break;
+        case PayloadOneofCase.GetBookmarks:
+          if (GetBookmarks == null) {
+            GetBookmarks = new global::Petajournal.GetBookmarksRequest();
+          }
+          GetBookmarks.MergeFrom(other.GetBookmarks);
+          break;
+        case PayloadOneofCase.CreateBookmarkGroup:
+          if (CreateBookmarkGroup == null) {
+            CreateBookmarkGroup = new global::Petajournal.CreateBookmarkGroupRequest();
+          }
+          CreateBookmarkGroup.MergeFrom(other.CreateBookmarkGroup);
+          break;
+        case PayloadOneofCase.CreateBookmark:
+          if (CreateBookmark == null) {
+            CreateBookmark = new global::Petajournal.CreateBookmarkRequest();
+          }
+          CreateBookmark.MergeFrom(other.CreateBookmark);
+          break;
+        case PayloadOneofCase.DeleteBookmark:
+          if (DeleteBookmark == null) {
+            DeleteBookmark = new global::Petajournal.DeleteBookmarkRequest();
+          }
+          DeleteBookmark.MergeFrom(other.DeleteBookmark);
+          break;
+        case PayloadOneofCase.DeleteBookmarkGroup:
+          if (DeleteBookmarkGroup == null) {
+            DeleteBookmarkGroup = new global::Petajournal.DeleteBookmarkGroupRequest();
+          }
+          DeleteBookmarkGroup.MergeFrom(other.DeleteBookmarkGroup);
+          break;
+        case PayloadOneofCase.MoveBookmark:
+          if (MoveBookmark == null) {
+            MoveBookmark = new global::Petajournal.MoveBookmarkRequest();
+          }
+          MoveBookmark.MergeFrom(other.MoveBookmark);
+          break;
+        case PayloadOneofCase.MoveBookmarkGroup:
+          if (MoveBookmarkGroup == null) {
+            MoveBookmarkGroup = new global::Petajournal.MoveBookmarkGroupRequest();
+          }
+          MoveBookmarkGroup.MergeFrom(other.MoveBookmarkGroup);
+          break;
+        case PayloadOneofCase.UpdateBookmarkGroup:
+          if (UpdateBookmarkGroup == null) {
+            UpdateBookmarkGroup = new global::Petajournal.UpdateBookmarkGroupRequest();
+          }
+          UpdateBookmarkGroup.MergeFrom(other.UpdateBookmarkGroup);
           break;
       }
 
@@ -1293,6 +1633,78 @@ namespace Petajournal {
             ImportTreeMarkdown = subBuilder;
             break;
           }
+          case 642: {
+            global::Petajournal.GetBookmarksRequest subBuilder = new global::Petajournal.GetBookmarksRequest();
+            if (payloadCase_ == PayloadOneofCase.GetBookmarks) {
+              subBuilder.MergeFrom(GetBookmarks);
+            }
+            input.ReadMessage(subBuilder);
+            GetBookmarks = subBuilder;
+            break;
+          }
+          case 650: {
+            global::Petajournal.CreateBookmarkGroupRequest subBuilder = new global::Petajournal.CreateBookmarkGroupRequest();
+            if (payloadCase_ == PayloadOneofCase.CreateBookmarkGroup) {
+              subBuilder.MergeFrom(CreateBookmarkGroup);
+            }
+            input.ReadMessage(subBuilder);
+            CreateBookmarkGroup = subBuilder;
+            break;
+          }
+          case 658: {
+            global::Petajournal.CreateBookmarkRequest subBuilder = new global::Petajournal.CreateBookmarkRequest();
+            if (payloadCase_ == PayloadOneofCase.CreateBookmark) {
+              subBuilder.MergeFrom(CreateBookmark);
+            }
+            input.ReadMessage(subBuilder);
+            CreateBookmark = subBuilder;
+            break;
+          }
+          case 666: {
+            global::Petajournal.DeleteBookmarkRequest subBuilder = new global::Petajournal.DeleteBookmarkRequest();
+            if (payloadCase_ == PayloadOneofCase.DeleteBookmark) {
+              subBuilder.MergeFrom(DeleteBookmark);
+            }
+            input.ReadMessage(subBuilder);
+            DeleteBookmark = subBuilder;
+            break;
+          }
+          case 674: {
+            global::Petajournal.DeleteBookmarkGroupRequest subBuilder = new global::Petajournal.DeleteBookmarkGroupRequest();
+            if (payloadCase_ == PayloadOneofCase.DeleteBookmarkGroup) {
+              subBuilder.MergeFrom(DeleteBookmarkGroup);
+            }
+            input.ReadMessage(subBuilder);
+            DeleteBookmarkGroup = subBuilder;
+            break;
+          }
+          case 682: {
+            global::Petajournal.MoveBookmarkRequest subBuilder = new global::Petajournal.MoveBookmarkRequest();
+            if (payloadCase_ == PayloadOneofCase.MoveBookmark) {
+              subBuilder.MergeFrom(MoveBookmark);
+            }
+            input.ReadMessage(subBuilder);
+            MoveBookmark = subBuilder;
+            break;
+          }
+          case 690: {
+            global::Petajournal.MoveBookmarkGroupRequest subBuilder = new global::Petajournal.MoveBookmarkGroupRequest();
+            if (payloadCase_ == PayloadOneofCase.MoveBookmarkGroup) {
+              subBuilder.MergeFrom(MoveBookmarkGroup);
+            }
+            input.ReadMessage(subBuilder);
+            MoveBookmarkGroup = subBuilder;
+            break;
+          }
+          case 698: {
+            global::Petajournal.UpdateBookmarkGroupRequest subBuilder = new global::Petajournal.UpdateBookmarkGroupRequest();
+            if (payloadCase_ == PayloadOneofCase.UpdateBookmarkGroup) {
+              subBuilder.MergeFrom(UpdateBookmarkGroup);
+            }
+            input.ReadMessage(subBuilder);
+            UpdateBookmarkGroup = subBuilder;
+            break;
+          }
         }
       }
     #endif
@@ -1496,6 +1908,78 @@ namespace Petajournal {
             ImportTreeMarkdown = subBuilder;
             break;
           }
+          case 642: {
+            global::Petajournal.GetBookmarksRequest subBuilder = new global::Petajournal.GetBookmarksRequest();
+            if (payloadCase_ == PayloadOneofCase.GetBookmarks) {
+              subBuilder.MergeFrom(GetBookmarks);
+            }
+            input.ReadMessage(subBuilder);
+            GetBookmarks = subBuilder;
+            break;
+          }
+          case 650: {
+            global::Petajournal.CreateBookmarkGroupRequest subBuilder = new global::Petajournal.CreateBookmarkGroupRequest();
+            if (payloadCase_ == PayloadOneofCase.CreateBookmarkGroup) {
+              subBuilder.MergeFrom(CreateBookmarkGroup);
+            }
+            input.ReadMessage(subBuilder);
+            CreateBookmarkGroup = subBuilder;
+            break;
+          }
+          case 658: {
+            global::Petajournal.CreateBookmarkRequest subBuilder = new global::Petajournal.CreateBookmarkRequest();
+            if (payloadCase_ == PayloadOneofCase.CreateBookmark) {
+              subBuilder.MergeFrom(CreateBookmark);
+            }
+            input.ReadMessage(subBuilder);
+            CreateBookmark = subBuilder;
+            break;
+          }
+          case 666: {
+            global::Petajournal.DeleteBookmarkRequest subBuilder = new global::Petajournal.DeleteBookmarkRequest();
+            if (payloadCase_ == PayloadOneofCase.DeleteBookmark) {
+              subBuilder.MergeFrom(DeleteBookmark);
+            }
+            input.ReadMessage(subBuilder);
+            DeleteBookmark = subBuilder;
+            break;
+          }
+          case 674: {
+            global::Petajournal.DeleteBookmarkGroupRequest subBuilder = new global::Petajournal.DeleteBookmarkGroupRequest();
+            if (payloadCase_ == PayloadOneofCase.DeleteBookmarkGroup) {
+              subBuilder.MergeFrom(DeleteBookmarkGroup);
+            }
+            input.ReadMessage(subBuilder);
+            DeleteBookmarkGroup = subBuilder;
+            break;
+          }
+          case 682: {
+            global::Petajournal.MoveBookmarkRequest subBuilder = new global::Petajournal.MoveBookmarkRequest();
+            if (payloadCase_ == PayloadOneofCase.MoveBookmark) {
+              subBuilder.MergeFrom(MoveBookmark);
+            }
+            input.ReadMessage(subBuilder);
+            MoveBookmark = subBuilder;
+            break;
+          }
+          case 690: {
+            global::Petajournal.MoveBookmarkGroupRequest subBuilder = new global::Petajournal.MoveBookmarkGroupRequest();
+            if (payloadCase_ == PayloadOneofCase.MoveBookmarkGroup) {
+              subBuilder.MergeFrom(MoveBookmarkGroup);
+            }
+            input.ReadMessage(subBuilder);
+            MoveBookmarkGroup = subBuilder;
+            break;
+          }
+          case 698: {
+            global::Petajournal.UpdateBookmarkGroupRequest subBuilder = new global::Petajournal.UpdateBookmarkGroupRequest();
+            if (payloadCase_ == PayloadOneofCase.UpdateBookmarkGroup) {
+              subBuilder.MergeFrom(UpdateBookmarkGroup);
+            }
+            input.ReadMessage(subBuilder);
+            UpdateBookmarkGroup = subBuilder;
+            break;
+          }
         }
       }
     }
@@ -1604,6 +2088,30 @@ namespace Petajournal {
           break;
         case PayloadOneofCase.ImportTreeMarkdown:
           ImportTreeMarkdown = other.ImportTreeMarkdown.Clone();
+          break;
+        case PayloadOneofCase.GetBookmarks:
+          GetBookmarks = other.GetBookmarks.Clone();
+          break;
+        case PayloadOneofCase.CreateBookmarkGroup:
+          CreateBookmarkGroup = other.CreateBookmarkGroup.Clone();
+          break;
+        case PayloadOneofCase.CreateBookmark:
+          CreateBookmark = other.CreateBookmark.Clone();
+          break;
+        case PayloadOneofCase.DeleteBookmark:
+          DeleteBookmark = other.DeleteBookmark.Clone();
+          break;
+        case PayloadOneofCase.DeleteBookmarkGroup:
+          DeleteBookmarkGroup = other.DeleteBookmarkGroup.Clone();
+          break;
+        case PayloadOneofCase.MoveBookmark:
+          MoveBookmark = other.MoveBookmark.Clone();
+          break;
+        case PayloadOneofCase.MoveBookmarkGroup:
+          MoveBookmarkGroup = other.MoveBookmarkGroup.Clone();
+          break;
+        case PayloadOneofCase.UpdateBookmarkGroup:
+          UpdateBookmarkGroup = other.UpdateBookmarkGroup.Clone();
           break;
         case PayloadOneofCase.ServerEvent:
           ServerEvent = other.ServerEvent.Clone();
@@ -1901,6 +2409,102 @@ namespace Petajournal {
       }
     }
 
+    /// <summary>Field number for the "get_bookmarks" field.</summary>
+    public const int GetBookmarksFieldNumber = 80;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Petajournal.GetBookmarksResponse GetBookmarks {
+      get { return payloadCase_ == PayloadOneofCase.GetBookmarks ? (global::Petajournal.GetBookmarksResponse) payload_ : null; }
+      set {
+        payload_ = value;
+        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.GetBookmarks;
+      }
+    }
+
+    /// <summary>Field number for the "create_bookmark_group" field.</summary>
+    public const int CreateBookmarkGroupFieldNumber = 81;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Petajournal.CreateBookmarkGroupResponse CreateBookmarkGroup {
+      get { return payloadCase_ == PayloadOneofCase.CreateBookmarkGroup ? (global::Petajournal.CreateBookmarkGroupResponse) payload_ : null; }
+      set {
+        payload_ = value;
+        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.CreateBookmarkGroup;
+      }
+    }
+
+    /// <summary>Field number for the "create_bookmark" field.</summary>
+    public const int CreateBookmarkFieldNumber = 82;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Petajournal.CreateBookmarkResponse CreateBookmark {
+      get { return payloadCase_ == PayloadOneofCase.CreateBookmark ? (global::Petajournal.CreateBookmarkResponse) payload_ : null; }
+      set {
+        payload_ = value;
+        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.CreateBookmark;
+      }
+    }
+
+    /// <summary>Field number for the "delete_bookmark" field.</summary>
+    public const int DeleteBookmarkFieldNumber = 83;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Petajournal.DeleteBookmarkResponse DeleteBookmark {
+      get { return payloadCase_ == PayloadOneofCase.DeleteBookmark ? (global::Petajournal.DeleteBookmarkResponse) payload_ : null; }
+      set {
+        payload_ = value;
+        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.DeleteBookmark;
+      }
+    }
+
+    /// <summary>Field number for the "delete_bookmark_group" field.</summary>
+    public const int DeleteBookmarkGroupFieldNumber = 84;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Petajournal.DeleteBookmarkGroupResponse DeleteBookmarkGroup {
+      get { return payloadCase_ == PayloadOneofCase.DeleteBookmarkGroup ? (global::Petajournal.DeleteBookmarkGroupResponse) payload_ : null; }
+      set {
+        payload_ = value;
+        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.DeleteBookmarkGroup;
+      }
+    }
+
+    /// <summary>Field number for the "move_bookmark" field.</summary>
+    public const int MoveBookmarkFieldNumber = 85;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Petajournal.MoveBookmarkResponse MoveBookmark {
+      get { return payloadCase_ == PayloadOneofCase.MoveBookmark ? (global::Petajournal.MoveBookmarkResponse) payload_ : null; }
+      set {
+        payload_ = value;
+        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.MoveBookmark;
+      }
+    }
+
+    /// <summary>Field number for the "move_bookmark_group" field.</summary>
+    public const int MoveBookmarkGroupFieldNumber = 86;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Petajournal.MoveBookmarkGroupResponse MoveBookmarkGroup {
+      get { return payloadCase_ == PayloadOneofCase.MoveBookmarkGroup ? (global::Petajournal.MoveBookmarkGroupResponse) payload_ : null; }
+      set {
+        payload_ = value;
+        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.MoveBookmarkGroup;
+      }
+    }
+
+    /// <summary>Field number for the "update_bookmark_group" field.</summary>
+    public const int UpdateBookmarkGroupFieldNumber = 87;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Petajournal.UpdateBookmarkGroupResponse UpdateBookmarkGroup {
+      get { return payloadCase_ == PayloadOneofCase.UpdateBookmarkGroup ? (global::Petajournal.UpdateBookmarkGroupResponse) payload_ : null; }
+      set {
+        payload_ = value;
+        payloadCase_ = value == null ? PayloadOneofCase.None : PayloadOneofCase.UpdateBookmarkGroup;
+      }
+    }
+
     /// <summary>Field number for the "server_event" field.</summary>
     public const int ServerEventFieldNumber = 100;
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -1937,6 +2541,14 @@ namespace Petajournal {
       UpdateConfig = 61,
       ExportTreeMarkdown = 70,
       ImportTreeMarkdown = 71,
+      GetBookmarks = 80,
+      CreateBookmarkGroup = 81,
+      CreateBookmark = 82,
+      DeleteBookmark = 83,
+      DeleteBookmarkGroup = 84,
+      MoveBookmark = 85,
+      MoveBookmarkGroup = 86,
+      UpdateBookmarkGroup = 87,
       ServerEvent = 100,
     }
     private PayloadOneofCase payloadCase_ = PayloadOneofCase.None;
@@ -1991,6 +2603,14 @@ namespace Petajournal {
       if (!object.Equals(UpdateConfig, other.UpdateConfig)) return false;
       if (!object.Equals(ExportTreeMarkdown, other.ExportTreeMarkdown)) return false;
       if (!object.Equals(ImportTreeMarkdown, other.ImportTreeMarkdown)) return false;
+      if (!object.Equals(GetBookmarks, other.GetBookmarks)) return false;
+      if (!object.Equals(CreateBookmarkGroup, other.CreateBookmarkGroup)) return false;
+      if (!object.Equals(CreateBookmark, other.CreateBookmark)) return false;
+      if (!object.Equals(DeleteBookmark, other.DeleteBookmark)) return false;
+      if (!object.Equals(DeleteBookmarkGroup, other.DeleteBookmarkGroup)) return false;
+      if (!object.Equals(MoveBookmark, other.MoveBookmark)) return false;
+      if (!object.Equals(MoveBookmarkGroup, other.MoveBookmarkGroup)) return false;
+      if (!object.Equals(UpdateBookmarkGroup, other.UpdateBookmarkGroup)) return false;
       if (!object.Equals(ServerEvent, other.ServerEvent)) return false;
       if (PayloadCase != other.PayloadCase) return false;
       return Equals(_unknownFields, other._unknownFields);
@@ -2023,6 +2643,14 @@ namespace Petajournal {
       if (payloadCase_ == PayloadOneofCase.UpdateConfig) hash ^= UpdateConfig.GetHashCode();
       if (payloadCase_ == PayloadOneofCase.ExportTreeMarkdown) hash ^= ExportTreeMarkdown.GetHashCode();
       if (payloadCase_ == PayloadOneofCase.ImportTreeMarkdown) hash ^= ImportTreeMarkdown.GetHashCode();
+      if (payloadCase_ == PayloadOneofCase.GetBookmarks) hash ^= GetBookmarks.GetHashCode();
+      if (payloadCase_ == PayloadOneofCase.CreateBookmarkGroup) hash ^= CreateBookmarkGroup.GetHashCode();
+      if (payloadCase_ == PayloadOneofCase.CreateBookmark) hash ^= CreateBookmark.GetHashCode();
+      if (payloadCase_ == PayloadOneofCase.DeleteBookmark) hash ^= DeleteBookmark.GetHashCode();
+      if (payloadCase_ == PayloadOneofCase.DeleteBookmarkGroup) hash ^= DeleteBookmarkGroup.GetHashCode();
+      if (payloadCase_ == PayloadOneofCase.MoveBookmark) hash ^= MoveBookmark.GetHashCode();
+      if (payloadCase_ == PayloadOneofCase.MoveBookmarkGroup) hash ^= MoveBookmarkGroup.GetHashCode();
+      if (payloadCase_ == PayloadOneofCase.UpdateBookmarkGroup) hash ^= UpdateBookmarkGroup.GetHashCode();
       if (payloadCase_ == PayloadOneofCase.ServerEvent) hash ^= ServerEvent.GetHashCode();
       hash ^= (int) payloadCase_;
       if (_unknownFields != null) {
@@ -2135,6 +2763,38 @@ namespace Petajournal {
         output.WriteRawTag(186, 4);
         output.WriteMessage(ImportTreeMarkdown);
       }
+      if (payloadCase_ == PayloadOneofCase.GetBookmarks) {
+        output.WriteRawTag(130, 5);
+        output.WriteMessage(GetBookmarks);
+      }
+      if (payloadCase_ == PayloadOneofCase.CreateBookmarkGroup) {
+        output.WriteRawTag(138, 5);
+        output.WriteMessage(CreateBookmarkGroup);
+      }
+      if (payloadCase_ == PayloadOneofCase.CreateBookmark) {
+        output.WriteRawTag(146, 5);
+        output.WriteMessage(CreateBookmark);
+      }
+      if (payloadCase_ == PayloadOneofCase.DeleteBookmark) {
+        output.WriteRawTag(154, 5);
+        output.WriteMessage(DeleteBookmark);
+      }
+      if (payloadCase_ == PayloadOneofCase.DeleteBookmarkGroup) {
+        output.WriteRawTag(162, 5);
+        output.WriteMessage(DeleteBookmarkGroup);
+      }
+      if (payloadCase_ == PayloadOneofCase.MoveBookmark) {
+        output.WriteRawTag(170, 5);
+        output.WriteMessage(MoveBookmark);
+      }
+      if (payloadCase_ == PayloadOneofCase.MoveBookmarkGroup) {
+        output.WriteRawTag(178, 5);
+        output.WriteMessage(MoveBookmarkGroup);
+      }
+      if (payloadCase_ == PayloadOneofCase.UpdateBookmarkGroup) {
+        output.WriteRawTag(186, 5);
+        output.WriteMessage(UpdateBookmarkGroup);
+      }
       if (payloadCase_ == PayloadOneofCase.ServerEvent) {
         output.WriteRawTag(162, 6);
         output.WriteMessage(ServerEvent);
@@ -2241,6 +2901,38 @@ namespace Petajournal {
         output.WriteRawTag(186, 4);
         output.WriteMessage(ImportTreeMarkdown);
       }
+      if (payloadCase_ == PayloadOneofCase.GetBookmarks) {
+        output.WriteRawTag(130, 5);
+        output.WriteMessage(GetBookmarks);
+      }
+      if (payloadCase_ == PayloadOneofCase.CreateBookmarkGroup) {
+        output.WriteRawTag(138, 5);
+        output.WriteMessage(CreateBookmarkGroup);
+      }
+      if (payloadCase_ == PayloadOneofCase.CreateBookmark) {
+        output.WriteRawTag(146, 5);
+        output.WriteMessage(CreateBookmark);
+      }
+      if (payloadCase_ == PayloadOneofCase.DeleteBookmark) {
+        output.WriteRawTag(154, 5);
+        output.WriteMessage(DeleteBookmark);
+      }
+      if (payloadCase_ == PayloadOneofCase.DeleteBookmarkGroup) {
+        output.WriteRawTag(162, 5);
+        output.WriteMessage(DeleteBookmarkGroup);
+      }
+      if (payloadCase_ == PayloadOneofCase.MoveBookmark) {
+        output.WriteRawTag(170, 5);
+        output.WriteMessage(MoveBookmark);
+      }
+      if (payloadCase_ == PayloadOneofCase.MoveBookmarkGroup) {
+        output.WriteRawTag(178, 5);
+        output.WriteMessage(MoveBookmarkGroup);
+      }
+      if (payloadCase_ == PayloadOneofCase.UpdateBookmarkGroup) {
+        output.WriteRawTag(186, 5);
+        output.WriteMessage(UpdateBookmarkGroup);
+      }
       if (payloadCase_ == PayloadOneofCase.ServerEvent) {
         output.WriteRawTag(162, 6);
         output.WriteMessage(ServerEvent);
@@ -2323,6 +3015,30 @@ namespace Petajournal {
       }
       if (payloadCase_ == PayloadOneofCase.ImportTreeMarkdown) {
         size += 2 + pb::CodedOutputStream.ComputeMessageSize(ImportTreeMarkdown);
+      }
+      if (payloadCase_ == PayloadOneofCase.GetBookmarks) {
+        size += 2 + pb::CodedOutputStream.ComputeMessageSize(GetBookmarks);
+      }
+      if (payloadCase_ == PayloadOneofCase.CreateBookmarkGroup) {
+        size += 2 + pb::CodedOutputStream.ComputeMessageSize(CreateBookmarkGroup);
+      }
+      if (payloadCase_ == PayloadOneofCase.CreateBookmark) {
+        size += 2 + pb::CodedOutputStream.ComputeMessageSize(CreateBookmark);
+      }
+      if (payloadCase_ == PayloadOneofCase.DeleteBookmark) {
+        size += 2 + pb::CodedOutputStream.ComputeMessageSize(DeleteBookmark);
+      }
+      if (payloadCase_ == PayloadOneofCase.DeleteBookmarkGroup) {
+        size += 2 + pb::CodedOutputStream.ComputeMessageSize(DeleteBookmarkGroup);
+      }
+      if (payloadCase_ == PayloadOneofCase.MoveBookmark) {
+        size += 2 + pb::CodedOutputStream.ComputeMessageSize(MoveBookmark);
+      }
+      if (payloadCase_ == PayloadOneofCase.MoveBookmarkGroup) {
+        size += 2 + pb::CodedOutputStream.ComputeMessageSize(MoveBookmarkGroup);
+      }
+      if (payloadCase_ == PayloadOneofCase.UpdateBookmarkGroup) {
+        size += 2 + pb::CodedOutputStream.ComputeMessageSize(UpdateBookmarkGroup);
       }
       if (payloadCase_ == PayloadOneofCase.ServerEvent) {
         size += 2 + pb::CodedOutputStream.ComputeMessageSize(ServerEvent);
@@ -2468,6 +3184,54 @@ namespace Petajournal {
             ImportTreeMarkdown = new global::Petajournal.ImportTreeMarkdownResponse();
           }
           ImportTreeMarkdown.MergeFrom(other.ImportTreeMarkdown);
+          break;
+        case PayloadOneofCase.GetBookmarks:
+          if (GetBookmarks == null) {
+            GetBookmarks = new global::Petajournal.GetBookmarksResponse();
+          }
+          GetBookmarks.MergeFrom(other.GetBookmarks);
+          break;
+        case PayloadOneofCase.CreateBookmarkGroup:
+          if (CreateBookmarkGroup == null) {
+            CreateBookmarkGroup = new global::Petajournal.CreateBookmarkGroupResponse();
+          }
+          CreateBookmarkGroup.MergeFrom(other.CreateBookmarkGroup);
+          break;
+        case PayloadOneofCase.CreateBookmark:
+          if (CreateBookmark == null) {
+            CreateBookmark = new global::Petajournal.CreateBookmarkResponse();
+          }
+          CreateBookmark.MergeFrom(other.CreateBookmark);
+          break;
+        case PayloadOneofCase.DeleteBookmark:
+          if (DeleteBookmark == null) {
+            DeleteBookmark = new global::Petajournal.DeleteBookmarkResponse();
+          }
+          DeleteBookmark.MergeFrom(other.DeleteBookmark);
+          break;
+        case PayloadOneofCase.DeleteBookmarkGroup:
+          if (DeleteBookmarkGroup == null) {
+            DeleteBookmarkGroup = new global::Petajournal.DeleteBookmarkGroupResponse();
+          }
+          DeleteBookmarkGroup.MergeFrom(other.DeleteBookmarkGroup);
+          break;
+        case PayloadOneofCase.MoveBookmark:
+          if (MoveBookmark == null) {
+            MoveBookmark = new global::Petajournal.MoveBookmarkResponse();
+          }
+          MoveBookmark.MergeFrom(other.MoveBookmark);
+          break;
+        case PayloadOneofCase.MoveBookmarkGroup:
+          if (MoveBookmarkGroup == null) {
+            MoveBookmarkGroup = new global::Petajournal.MoveBookmarkGroupResponse();
+          }
+          MoveBookmarkGroup.MergeFrom(other.MoveBookmarkGroup);
+          break;
+        case PayloadOneofCase.UpdateBookmarkGroup:
+          if (UpdateBookmarkGroup == null) {
+            UpdateBookmarkGroup = new global::Petajournal.UpdateBookmarkGroupResponse();
+          }
+          UpdateBookmarkGroup.MergeFrom(other.UpdateBookmarkGroup);
           break;
         case PayloadOneofCase.ServerEvent:
           if (ServerEvent == null) {
@@ -2688,6 +3452,78 @@ namespace Petajournal {
             ImportTreeMarkdown = subBuilder;
             break;
           }
+          case 642: {
+            global::Petajournal.GetBookmarksResponse subBuilder = new global::Petajournal.GetBookmarksResponse();
+            if (payloadCase_ == PayloadOneofCase.GetBookmarks) {
+              subBuilder.MergeFrom(GetBookmarks);
+            }
+            input.ReadMessage(subBuilder);
+            GetBookmarks = subBuilder;
+            break;
+          }
+          case 650: {
+            global::Petajournal.CreateBookmarkGroupResponse subBuilder = new global::Petajournal.CreateBookmarkGroupResponse();
+            if (payloadCase_ == PayloadOneofCase.CreateBookmarkGroup) {
+              subBuilder.MergeFrom(CreateBookmarkGroup);
+            }
+            input.ReadMessage(subBuilder);
+            CreateBookmarkGroup = subBuilder;
+            break;
+          }
+          case 658: {
+            global::Petajournal.CreateBookmarkResponse subBuilder = new global::Petajournal.CreateBookmarkResponse();
+            if (payloadCase_ == PayloadOneofCase.CreateBookmark) {
+              subBuilder.MergeFrom(CreateBookmark);
+            }
+            input.ReadMessage(subBuilder);
+            CreateBookmark = subBuilder;
+            break;
+          }
+          case 666: {
+            global::Petajournal.DeleteBookmarkResponse subBuilder = new global::Petajournal.DeleteBookmarkResponse();
+            if (payloadCase_ == PayloadOneofCase.DeleteBookmark) {
+              subBuilder.MergeFrom(DeleteBookmark);
+            }
+            input.ReadMessage(subBuilder);
+            DeleteBookmark = subBuilder;
+            break;
+          }
+          case 674: {
+            global::Petajournal.DeleteBookmarkGroupResponse subBuilder = new global::Petajournal.DeleteBookmarkGroupResponse();
+            if (payloadCase_ == PayloadOneofCase.DeleteBookmarkGroup) {
+              subBuilder.MergeFrom(DeleteBookmarkGroup);
+            }
+            input.ReadMessage(subBuilder);
+            DeleteBookmarkGroup = subBuilder;
+            break;
+          }
+          case 682: {
+            global::Petajournal.MoveBookmarkResponse subBuilder = new global::Petajournal.MoveBookmarkResponse();
+            if (payloadCase_ == PayloadOneofCase.MoveBookmark) {
+              subBuilder.MergeFrom(MoveBookmark);
+            }
+            input.ReadMessage(subBuilder);
+            MoveBookmark = subBuilder;
+            break;
+          }
+          case 690: {
+            global::Petajournal.MoveBookmarkGroupResponse subBuilder = new global::Petajournal.MoveBookmarkGroupResponse();
+            if (payloadCase_ == PayloadOneofCase.MoveBookmarkGroup) {
+              subBuilder.MergeFrom(MoveBookmarkGroup);
+            }
+            input.ReadMessage(subBuilder);
+            MoveBookmarkGroup = subBuilder;
+            break;
+          }
+          case 698: {
+            global::Petajournal.UpdateBookmarkGroupResponse subBuilder = new global::Petajournal.UpdateBookmarkGroupResponse();
+            if (payloadCase_ == PayloadOneofCase.UpdateBookmarkGroup) {
+              subBuilder.MergeFrom(UpdateBookmarkGroup);
+            }
+            input.ReadMessage(subBuilder);
+            UpdateBookmarkGroup = subBuilder;
+            break;
+          }
           case 802: {
             global::Petajournal.ServerEvent subBuilder = new global::Petajournal.ServerEvent();
             if (payloadCase_ == PayloadOneofCase.ServerEvent) {
@@ -2906,6 +3742,78 @@ namespace Petajournal {
             }
             input.ReadMessage(subBuilder);
             ImportTreeMarkdown = subBuilder;
+            break;
+          }
+          case 642: {
+            global::Petajournal.GetBookmarksResponse subBuilder = new global::Petajournal.GetBookmarksResponse();
+            if (payloadCase_ == PayloadOneofCase.GetBookmarks) {
+              subBuilder.MergeFrom(GetBookmarks);
+            }
+            input.ReadMessage(subBuilder);
+            GetBookmarks = subBuilder;
+            break;
+          }
+          case 650: {
+            global::Petajournal.CreateBookmarkGroupResponse subBuilder = new global::Petajournal.CreateBookmarkGroupResponse();
+            if (payloadCase_ == PayloadOneofCase.CreateBookmarkGroup) {
+              subBuilder.MergeFrom(CreateBookmarkGroup);
+            }
+            input.ReadMessage(subBuilder);
+            CreateBookmarkGroup = subBuilder;
+            break;
+          }
+          case 658: {
+            global::Petajournal.CreateBookmarkResponse subBuilder = new global::Petajournal.CreateBookmarkResponse();
+            if (payloadCase_ == PayloadOneofCase.CreateBookmark) {
+              subBuilder.MergeFrom(CreateBookmark);
+            }
+            input.ReadMessage(subBuilder);
+            CreateBookmark = subBuilder;
+            break;
+          }
+          case 666: {
+            global::Petajournal.DeleteBookmarkResponse subBuilder = new global::Petajournal.DeleteBookmarkResponse();
+            if (payloadCase_ == PayloadOneofCase.DeleteBookmark) {
+              subBuilder.MergeFrom(DeleteBookmark);
+            }
+            input.ReadMessage(subBuilder);
+            DeleteBookmark = subBuilder;
+            break;
+          }
+          case 674: {
+            global::Petajournal.DeleteBookmarkGroupResponse subBuilder = new global::Petajournal.DeleteBookmarkGroupResponse();
+            if (payloadCase_ == PayloadOneofCase.DeleteBookmarkGroup) {
+              subBuilder.MergeFrom(DeleteBookmarkGroup);
+            }
+            input.ReadMessage(subBuilder);
+            DeleteBookmarkGroup = subBuilder;
+            break;
+          }
+          case 682: {
+            global::Petajournal.MoveBookmarkResponse subBuilder = new global::Petajournal.MoveBookmarkResponse();
+            if (payloadCase_ == PayloadOneofCase.MoveBookmark) {
+              subBuilder.MergeFrom(MoveBookmark);
+            }
+            input.ReadMessage(subBuilder);
+            MoveBookmark = subBuilder;
+            break;
+          }
+          case 690: {
+            global::Petajournal.MoveBookmarkGroupResponse subBuilder = new global::Petajournal.MoveBookmarkGroupResponse();
+            if (payloadCase_ == PayloadOneofCase.MoveBookmarkGroup) {
+              subBuilder.MergeFrom(MoveBookmarkGroup);
+            }
+            input.ReadMessage(subBuilder);
+            MoveBookmarkGroup = subBuilder;
+            break;
+          }
+          case 698: {
+            global::Petajournal.UpdateBookmarkGroupResponse subBuilder = new global::Petajournal.UpdateBookmarkGroupResponse();
+            if (payloadCase_ == PayloadOneofCase.UpdateBookmarkGroup) {
+              subBuilder.MergeFrom(UpdateBookmarkGroup);
+            }
+            input.ReadMessage(subBuilder);
+            UpdateBookmarkGroup = subBuilder;
             break;
           }
           case 802: {
@@ -4286,7 +5194,6 @@ namespace Petajournal {
       pageId_ = other.pageId_;
       title_ = other.title_;
       tags_ = other.tags_.Clone();
-      propertiesJson_ = other.propertiesJson_;
       dirPath_ = other.dirPath_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
@@ -4349,18 +5256,6 @@ namespace Petajournal {
       get { return tags_; }
     }
 
-    /// <summary>Field number for the "properties_json" field.</summary>
-    public const int PropertiesJsonFieldNumber = 4;
-    private string propertiesJson_ = "";
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string PropertiesJson {
-      get { return propertiesJson_; }
-      set {
-        propertiesJson_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
-      }
-    }
-
     /// <summary>Field number for the "dir_path" field.</summary>
     public const int DirPathFieldNumber = 5;
     private readonly static string DirPathDefaultValue = "";
@@ -4405,7 +5300,6 @@ namespace Petajournal {
       if (PageId != other.PageId) return false;
       if (Title != other.Title) return false;
       if(!tags_.Equals(other.tags_)) return false;
-      if (PropertiesJson != other.PropertiesJson) return false;
       if (DirPath != other.DirPath) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
@@ -4417,7 +5311,6 @@ namespace Petajournal {
       if (PageId.Length != 0) hash ^= PageId.GetHashCode();
       if (HasTitle) hash ^= Title.GetHashCode();
       hash ^= tags_.GetHashCode();
-      if (PropertiesJson.Length != 0) hash ^= PropertiesJson.GetHashCode();
       if (HasDirPath) hash ^= DirPath.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
@@ -4446,10 +5339,6 @@ namespace Petajournal {
         output.WriteString(Title);
       }
       tags_.WriteTo(output, _repeated_tags_codec);
-      if (PropertiesJson.Length != 0) {
-        output.WriteRawTag(34);
-        output.WriteString(PropertiesJson);
-      }
       if (HasDirPath) {
         output.WriteRawTag(42);
         output.WriteString(DirPath);
@@ -4473,10 +5362,6 @@ namespace Petajournal {
         output.WriteString(Title);
       }
       tags_.WriteTo(ref output, _repeated_tags_codec);
-      if (PropertiesJson.Length != 0) {
-        output.WriteRawTag(34);
-        output.WriteString(PropertiesJson);
-      }
       if (HasDirPath) {
         output.WriteRawTag(42);
         output.WriteString(DirPath);
@@ -4498,9 +5383,6 @@ namespace Petajournal {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(Title);
       }
       size += tags_.CalculateSize(_repeated_tags_codec);
-      if (PropertiesJson.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(PropertiesJson);
-      }
       if (HasDirPath) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(DirPath);
       }
@@ -4523,9 +5405,6 @@ namespace Petajournal {
         Title = other.Title;
       }
       tags_.Add(other.tags_);
-      if (other.PropertiesJson.Length != 0) {
-        PropertiesJson = other.PropertiesJson;
-      }
       if (other.HasDirPath) {
         DirPath = other.DirPath;
       }
@@ -4558,10 +5437,6 @@ namespace Petajournal {
           }
           case 26: {
             tags_.AddEntriesFrom(input, _repeated_tags_codec);
-            break;
-          }
-          case 34: {
-            PropertiesJson = input.ReadString();
             break;
           }
           case 42: {
@@ -4597,10 +5472,6 @@ namespace Petajournal {
           }
           case 26: {
             tags_.AddEntriesFrom(ref input, _repeated_tags_codec);
-            break;
-          }
-          case 34: {
-            PropertiesJson = input.ReadString();
             break;
           }
           case 42: {
@@ -4860,6 +5731,7 @@ namespace Petajournal {
       afterBlockId_ = other.afterBlockId_;
       level_ = other.level_;
       body_ = other.body_;
+      id_ = other.id_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -4920,6 +5792,21 @@ namespace Petajournal {
       }
     }
 
+    /// <summary>Field number for the "id" field.</summary>
+    public const int IdFieldNumber = 5;
+    private string id_ = "";
+    /// <summary>
+    /// Client-generated UUID (optional; server generates if empty)
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Id {
+      get { return id_; }
+      set {
+        id_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -4939,6 +5826,7 @@ namespace Petajournal {
       if (AfterBlockId != other.AfterBlockId) return false;
       if (Level != other.Level) return false;
       if (Body != other.Body) return false;
+      if (Id != other.Id) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -4950,6 +5838,7 @@ namespace Petajournal {
       if (AfterBlockId.Length != 0) hash ^= AfterBlockId.GetHashCode();
       if (Level != 0) hash ^= Level.GetHashCode();
       if (Body.Length != 0) hash ^= Body.GetHashCode();
+      if (Id.Length != 0) hash ^= Id.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -4984,6 +5873,10 @@ namespace Petajournal {
         output.WriteRawTag(34);
         output.WriteString(Body);
       }
+      if (Id.Length != 0) {
+        output.WriteRawTag(42);
+        output.WriteString(Id);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -5010,6 +5903,10 @@ namespace Petajournal {
         output.WriteRawTag(34);
         output.WriteString(Body);
       }
+      if (Id.Length != 0) {
+        output.WriteRawTag(42);
+        output.WriteString(Id);
+      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -5031,6 +5928,9 @@ namespace Petajournal {
       }
       if (Body.Length != 0) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(Body);
+      }
+      if (Id.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Id);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -5055,6 +5955,9 @@ namespace Petajournal {
       }
       if (other.Body.Length != 0) {
         Body = other.Body;
+      }
+      if (other.Id.Length != 0) {
+        Id = other.Id;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -5091,6 +5994,10 @@ namespace Petajournal {
             Body = input.ReadString();
             break;
           }
+          case 42: {
+            Id = input.ReadString();
+            break;
+          }
         }
       }
     #endif
@@ -5124,6 +6031,10 @@ namespace Petajournal {
           }
           case 34: {
             Body = input.ReadString();
+            break;
+          }
+          case 42: {
+            Id = input.ReadString();
             break;
           }
         }
@@ -5382,7 +6293,6 @@ namespace Petajournal {
       level_ = other.level_;
       collapsed_ = other.collapsed_;
       status_ = other.status_;
-      propertiesJson_ = other.propertiesJson_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -5510,32 +6420,6 @@ namespace Petajournal {
       status_ = null;
     }
 
-    /// <summary>Field number for the "properties_json" field.</summary>
-    public const int PropertiesJsonFieldNumber = 6;
-    private readonly static string PropertiesJsonDefaultValue = "";
-
-    private string propertiesJson_;
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string PropertiesJson {
-      get { return propertiesJson_ ?? PropertiesJsonDefaultValue; }
-      set {
-        propertiesJson_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
-      }
-    }
-    /// <summary>Gets whether the "properties_json" field is set</summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public bool HasPropertiesJson {
-      get { return propertiesJson_ != null; }
-    }
-    /// <summary>Clears the value of the "properties_json" field</summary>
-    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
-    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public void ClearPropertiesJson() {
-      propertiesJson_ = null;
-    }
-
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override bool Equals(object other) {
@@ -5556,7 +6440,6 @@ namespace Petajournal {
       if (Level != other.Level) return false;
       if (Collapsed != other.Collapsed) return false;
       if (Status != other.Status) return false;
-      if (PropertiesJson != other.PropertiesJson) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -5569,7 +6452,6 @@ namespace Petajournal {
       if (HasLevel) hash ^= Level.GetHashCode();
       if (HasCollapsed) hash ^= Collapsed.GetHashCode();
       if (HasStatus) hash ^= Status.GetHashCode();
-      if (HasPropertiesJson) hash ^= PropertiesJson.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -5608,10 +6490,6 @@ namespace Petajournal {
         output.WriteRawTag(42);
         output.WriteString(Status);
       }
-      if (HasPropertiesJson) {
-        output.WriteRawTag(50);
-        output.WriteString(PropertiesJson);
-      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
       }
@@ -5642,10 +6520,6 @@ namespace Petajournal {
         output.WriteRawTag(42);
         output.WriteString(Status);
       }
-      if (HasPropertiesJson) {
-        output.WriteRawTag(50);
-        output.WriteString(PropertiesJson);
-      }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
       }
@@ -5670,9 +6544,6 @@ namespace Petajournal {
       }
       if (HasStatus) {
         size += 1 + pb::CodedOutputStream.ComputeStringSize(Status);
-      }
-      if (HasPropertiesJson) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(PropertiesJson);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -5700,9 +6571,6 @@ namespace Petajournal {
       }
       if (other.HasStatus) {
         Status = other.Status;
-      }
-      if (other.HasPropertiesJson) {
-        PropertiesJson = other.PropertiesJson;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -5743,10 +6611,6 @@ namespace Petajournal {
             Status = input.ReadString();
             break;
           }
-          case 50: {
-            PropertiesJson = input.ReadString();
-            break;
-          }
         }
       }
     #endif
@@ -5784,10 +6648,6 @@ namespace Petajournal {
           }
           case 42: {
             Status = input.ReadString();
-            break;
-          }
-          case 50: {
-            PropertiesJson = input.ReadString();
             break;
           }
         }
@@ -10155,7 +11015,7 @@ namespace Petajournal {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public GetOrCreateJournalRequest(GetOrCreateJournalRequest other) : this() {
-      fileName_ = other.fileName_;
+      name_ = other.name_;
       _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
     }
 
@@ -10165,15 +11025,15 @@ namespace Petajournal {
       return new GetOrCreateJournalRequest(this);
     }
 
-    /// <summary>Field number for the "file_name" field.</summary>
-    public const int FileNameFieldNumber = 1;
-    private string fileName_ = "";
+    /// <summary>Field number for the "name" field.</summary>
+    public const int NameFieldNumber = 1;
+    private string name_ = "";
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
-    public string FileName {
-      get { return fileName_; }
+    public string Name {
+      get { return name_; }
       set {
-        fileName_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+        name_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
       }
     }
 
@@ -10192,7 +11052,7 @@ namespace Petajournal {
       if (ReferenceEquals(other, this)) {
         return true;
       }
-      if (FileName != other.FileName) return false;
+      if (Name != other.Name) return false;
       return Equals(_unknownFields, other._unknownFields);
     }
 
@@ -10200,7 +11060,7 @@ namespace Petajournal {
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public override int GetHashCode() {
       int hash = 1;
-      if (FileName.Length != 0) hash ^= FileName.GetHashCode();
+      if (Name.Length != 0) hash ^= Name.GetHashCode();
       if (_unknownFields != null) {
         hash ^= _unknownFields.GetHashCode();
       }
@@ -10219,9 +11079,9 @@ namespace Petajournal {
     #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       output.WriteRawMessage(this);
     #else
-      if (FileName.Length != 0) {
+      if (Name.Length != 0) {
         output.WriteRawTag(10);
-        output.WriteString(FileName);
+        output.WriteString(Name);
       }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(output);
@@ -10233,9 +11093,9 @@ namespace Petajournal {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
-      if (FileName.Length != 0) {
+      if (Name.Length != 0) {
         output.WriteRawTag(10);
-        output.WriteString(FileName);
+        output.WriteString(Name);
       }
       if (_unknownFields != null) {
         _unknownFields.WriteTo(ref output);
@@ -10247,8 +11107,8 @@ namespace Petajournal {
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public int CalculateSize() {
       int size = 0;
-      if (FileName.Length != 0) {
-        size += 1 + pb::CodedOutputStream.ComputeStringSize(FileName);
+      if (Name.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Name);
       }
       if (_unknownFields != null) {
         size += _unknownFields.CalculateSize();
@@ -10262,8 +11122,8 @@ namespace Petajournal {
       if (other == null) {
         return;
       }
-      if (other.FileName.Length != 0) {
-        FileName = other.FileName;
+      if (other.Name.Length != 0) {
+        Name = other.Name;
       }
       _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
     }
@@ -10285,7 +11145,7 @@ namespace Petajournal {
             _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
             break;
           case 10: {
-            FileName = input.ReadString();
+            Name = input.ReadString();
             break;
           }
         }
@@ -10308,7 +11168,7 @@ namespace Petajournal {
             _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
             break;
           case 10: {
-            FileName = input.ReadString();
+            Name = input.ReadString();
             break;
           }
         }
@@ -12199,6 +13059,3357 @@ namespace Petajournal {
   }
 
   [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class GetBookmarksRequest : pb::IMessage<GetBookmarksRequest>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<GetBookmarksRequest> _parser = new pb::MessageParser<GetBookmarksRequest>(() => new GetBookmarksRequest());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<GetBookmarksRequest> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[43]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public GetBookmarksRequest() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public GetBookmarksRequest(GetBookmarksRequest other) : this() {
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public GetBookmarksRequest Clone() {
+      return new GetBookmarksRequest(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as GetBookmarksRequest);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(GetBookmarksRequest other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(GetBookmarksRequest other) {
+      if (other == null) {
+        return;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class GetBookmarksResponse : pb::IMessage<GetBookmarksResponse>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<GetBookmarksResponse> _parser = new pb::MessageParser<GetBookmarksResponse>(() => new GetBookmarksResponse());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<GetBookmarksResponse> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[44]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public GetBookmarksResponse() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public GetBookmarksResponse(GetBookmarksResponse other) : this() {
+      groups_ = other.groups_.Clone();
+      bookmarks_ = other.bookmarks_.Clone();
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public GetBookmarksResponse Clone() {
+      return new GetBookmarksResponse(this);
+    }
+
+    /// <summary>Field number for the "groups" field.</summary>
+    public const int GroupsFieldNumber = 1;
+    private static readonly pb::FieldCodec<global::Petajournal.BookmarkGroup> _repeated_groups_codec
+        = pb::FieldCodec.ForMessage(10, global::Petajournal.BookmarkGroup.Parser);
+    private readonly pbc::RepeatedField<global::Petajournal.BookmarkGroup> groups_ = new pbc::RepeatedField<global::Petajournal.BookmarkGroup>();
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public pbc::RepeatedField<global::Petajournal.BookmarkGroup> Groups {
+      get { return groups_; }
+    }
+
+    /// <summary>Field number for the "bookmarks" field.</summary>
+    public const int BookmarksFieldNumber = 2;
+    private static readonly pb::FieldCodec<global::Petajournal.Bookmark> _repeated_bookmarks_codec
+        = pb::FieldCodec.ForMessage(18, global::Petajournal.Bookmark.Parser);
+    private readonly pbc::RepeatedField<global::Petajournal.Bookmark> bookmarks_ = new pbc::RepeatedField<global::Petajournal.Bookmark>();
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public pbc::RepeatedField<global::Petajournal.Bookmark> Bookmarks {
+      get { return bookmarks_; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as GetBookmarksResponse);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(GetBookmarksResponse other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if(!groups_.Equals(other.groups_)) return false;
+      if(!bookmarks_.Equals(other.bookmarks_)) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      hash ^= groups_.GetHashCode();
+      hash ^= bookmarks_.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      groups_.WriteTo(output, _repeated_groups_codec);
+      bookmarks_.WriteTo(output, _repeated_bookmarks_codec);
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      groups_.WriteTo(ref output, _repeated_groups_codec);
+      bookmarks_.WriteTo(ref output, _repeated_bookmarks_codec);
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      size += groups_.CalculateSize(_repeated_groups_codec);
+      size += bookmarks_.CalculateSize(_repeated_bookmarks_codec);
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(GetBookmarksResponse other) {
+      if (other == null) {
+        return;
+      }
+      groups_.Add(other.groups_);
+      bookmarks_.Add(other.bookmarks_);
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            groups_.AddEntriesFrom(input, _repeated_groups_codec);
+            break;
+          }
+          case 18: {
+            bookmarks_.AddEntriesFrom(input, _repeated_bookmarks_codec);
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            groups_.AddEntriesFrom(ref input, _repeated_groups_codec);
+            break;
+          }
+          case 18: {
+            bookmarks_.AddEntriesFrom(ref input, _repeated_bookmarks_codec);
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class CreateBookmarkGroupRequest : pb::IMessage<CreateBookmarkGroupRequest>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<CreateBookmarkGroupRequest> _parser = new pb::MessageParser<CreateBookmarkGroupRequest>(() => new CreateBookmarkGroupRequest());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<CreateBookmarkGroupRequest> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[45]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public CreateBookmarkGroupRequest() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public CreateBookmarkGroupRequest(CreateBookmarkGroupRequest other) : this() {
+      name_ = other.name_;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public CreateBookmarkGroupRequest Clone() {
+      return new CreateBookmarkGroupRequest(this);
+    }
+
+    /// <summary>Field number for the "name" field.</summary>
+    public const int NameFieldNumber = 1;
+    private string name_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Name {
+      get { return name_; }
+      set {
+        name_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as CreateBookmarkGroupRequest);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(CreateBookmarkGroupRequest other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (Name != other.Name) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (Name.Length != 0) hash ^= Name.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (Name.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(Name);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (Name.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(Name);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (Name.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Name);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(CreateBookmarkGroupRequest other) {
+      if (other == null) {
+        return;
+      }
+      if (other.Name.Length != 0) {
+        Name = other.Name;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            Name = input.ReadString();
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            Name = input.ReadString();
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class CreateBookmarkGroupResponse : pb::IMessage<CreateBookmarkGroupResponse>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<CreateBookmarkGroupResponse> _parser = new pb::MessageParser<CreateBookmarkGroupResponse>(() => new CreateBookmarkGroupResponse());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<CreateBookmarkGroupResponse> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[46]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public CreateBookmarkGroupResponse() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public CreateBookmarkGroupResponse(CreateBookmarkGroupResponse other) : this() {
+      group_ = other.group_ != null ? other.group_.Clone() : null;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public CreateBookmarkGroupResponse Clone() {
+      return new CreateBookmarkGroupResponse(this);
+    }
+
+    /// <summary>Field number for the "group" field.</summary>
+    public const int GroupFieldNumber = 1;
+    private global::Petajournal.BookmarkGroup group_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Petajournal.BookmarkGroup Group {
+      get { return group_; }
+      set {
+        group_ = value;
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as CreateBookmarkGroupResponse);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(CreateBookmarkGroupResponse other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (!object.Equals(Group, other.Group)) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (group_ != null) hash ^= Group.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (group_ != null) {
+        output.WriteRawTag(10);
+        output.WriteMessage(Group);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (group_ != null) {
+        output.WriteRawTag(10);
+        output.WriteMessage(Group);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (group_ != null) {
+        size += 1 + pb::CodedOutputStream.ComputeMessageSize(Group);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(CreateBookmarkGroupResponse other) {
+      if (other == null) {
+        return;
+      }
+      if (other.group_ != null) {
+        if (group_ == null) {
+          Group = new global::Petajournal.BookmarkGroup();
+        }
+        Group.MergeFrom(other.Group);
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            if (group_ == null) {
+              Group = new global::Petajournal.BookmarkGroup();
+            }
+            input.ReadMessage(Group);
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            if (group_ == null) {
+              Group = new global::Petajournal.BookmarkGroup();
+            }
+            input.ReadMessage(Group);
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class CreateBookmarkRequest : pb::IMessage<CreateBookmarkRequest>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<CreateBookmarkRequest> _parser = new pb::MessageParser<CreateBookmarkRequest>(() => new CreateBookmarkRequest());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<CreateBookmarkRequest> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[47]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public CreateBookmarkRequest() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public CreateBookmarkRequest(CreateBookmarkRequest other) : this() {
+      groupId_ = other.groupId_;
+      targetType_ = other.targetType_;
+      targetId_ = other.targetId_;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public CreateBookmarkRequest Clone() {
+      return new CreateBookmarkRequest(this);
+    }
+
+    /// <summary>Field number for the "group_id" field.</summary>
+    public const int GroupIdFieldNumber = 1;
+    private string groupId_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string GroupId {
+      get { return groupId_; }
+      set {
+        groupId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "target_type" field.</summary>
+    public const int TargetTypeFieldNumber = 2;
+    private string targetType_ = "";
+    /// <summary>
+    /// "page" or "block"
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string TargetType {
+      get { return targetType_; }
+      set {
+        targetType_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "target_id" field.</summary>
+    public const int TargetIdFieldNumber = 3;
+    private string targetId_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string TargetId {
+      get { return targetId_; }
+      set {
+        targetId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as CreateBookmarkRequest);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(CreateBookmarkRequest other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (GroupId != other.GroupId) return false;
+      if (TargetType != other.TargetType) return false;
+      if (TargetId != other.TargetId) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (GroupId.Length != 0) hash ^= GroupId.GetHashCode();
+      if (TargetType.Length != 0) hash ^= TargetType.GetHashCode();
+      if (TargetId.Length != 0) hash ^= TargetId.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (GroupId.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(GroupId);
+      }
+      if (TargetType.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(TargetType);
+      }
+      if (TargetId.Length != 0) {
+        output.WriteRawTag(26);
+        output.WriteString(TargetId);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (GroupId.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(GroupId);
+      }
+      if (TargetType.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(TargetType);
+      }
+      if (TargetId.Length != 0) {
+        output.WriteRawTag(26);
+        output.WriteString(TargetId);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (GroupId.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(GroupId);
+      }
+      if (TargetType.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(TargetType);
+      }
+      if (TargetId.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(TargetId);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(CreateBookmarkRequest other) {
+      if (other == null) {
+        return;
+      }
+      if (other.GroupId.Length != 0) {
+        GroupId = other.GroupId;
+      }
+      if (other.TargetType.Length != 0) {
+        TargetType = other.TargetType;
+      }
+      if (other.TargetId.Length != 0) {
+        TargetId = other.TargetId;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            GroupId = input.ReadString();
+            break;
+          }
+          case 18: {
+            TargetType = input.ReadString();
+            break;
+          }
+          case 26: {
+            TargetId = input.ReadString();
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            GroupId = input.ReadString();
+            break;
+          }
+          case 18: {
+            TargetType = input.ReadString();
+            break;
+          }
+          case 26: {
+            TargetId = input.ReadString();
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class CreateBookmarkResponse : pb::IMessage<CreateBookmarkResponse>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<CreateBookmarkResponse> _parser = new pb::MessageParser<CreateBookmarkResponse>(() => new CreateBookmarkResponse());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<CreateBookmarkResponse> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[48]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public CreateBookmarkResponse() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public CreateBookmarkResponse(CreateBookmarkResponse other) : this() {
+      bookmark_ = other.bookmark_ != null ? other.bookmark_.Clone() : null;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public CreateBookmarkResponse Clone() {
+      return new CreateBookmarkResponse(this);
+    }
+
+    /// <summary>Field number for the "bookmark" field.</summary>
+    public const int BookmarkFieldNumber = 1;
+    private global::Petajournal.Bookmark bookmark_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Petajournal.Bookmark Bookmark {
+      get { return bookmark_; }
+      set {
+        bookmark_ = value;
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as CreateBookmarkResponse);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(CreateBookmarkResponse other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (!object.Equals(Bookmark, other.Bookmark)) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (bookmark_ != null) hash ^= Bookmark.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (bookmark_ != null) {
+        output.WriteRawTag(10);
+        output.WriteMessage(Bookmark);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (bookmark_ != null) {
+        output.WriteRawTag(10);
+        output.WriteMessage(Bookmark);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (bookmark_ != null) {
+        size += 1 + pb::CodedOutputStream.ComputeMessageSize(Bookmark);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(CreateBookmarkResponse other) {
+      if (other == null) {
+        return;
+      }
+      if (other.bookmark_ != null) {
+        if (bookmark_ == null) {
+          Bookmark = new global::Petajournal.Bookmark();
+        }
+        Bookmark.MergeFrom(other.Bookmark);
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            if (bookmark_ == null) {
+              Bookmark = new global::Petajournal.Bookmark();
+            }
+            input.ReadMessage(Bookmark);
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            if (bookmark_ == null) {
+              Bookmark = new global::Petajournal.Bookmark();
+            }
+            input.ReadMessage(Bookmark);
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class DeleteBookmarkRequest : pb::IMessage<DeleteBookmarkRequest>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<DeleteBookmarkRequest> _parser = new pb::MessageParser<DeleteBookmarkRequest>(() => new DeleteBookmarkRequest());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<DeleteBookmarkRequest> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[49]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DeleteBookmarkRequest() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DeleteBookmarkRequest(DeleteBookmarkRequest other) : this() {
+      bookmarkId_ = other.bookmarkId_;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DeleteBookmarkRequest Clone() {
+      return new DeleteBookmarkRequest(this);
+    }
+
+    /// <summary>Field number for the "bookmark_id" field.</summary>
+    public const int BookmarkIdFieldNumber = 1;
+    private string bookmarkId_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string BookmarkId {
+      get { return bookmarkId_; }
+      set {
+        bookmarkId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as DeleteBookmarkRequest);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(DeleteBookmarkRequest other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (BookmarkId != other.BookmarkId) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (BookmarkId.Length != 0) hash ^= BookmarkId.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (BookmarkId.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(BookmarkId);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (BookmarkId.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(BookmarkId);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (BookmarkId.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(BookmarkId);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(DeleteBookmarkRequest other) {
+      if (other == null) {
+        return;
+      }
+      if (other.BookmarkId.Length != 0) {
+        BookmarkId = other.BookmarkId;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            BookmarkId = input.ReadString();
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            BookmarkId = input.ReadString();
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class DeleteBookmarkResponse : pb::IMessage<DeleteBookmarkResponse>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<DeleteBookmarkResponse> _parser = new pb::MessageParser<DeleteBookmarkResponse>(() => new DeleteBookmarkResponse());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<DeleteBookmarkResponse> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[50]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DeleteBookmarkResponse() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DeleteBookmarkResponse(DeleteBookmarkResponse other) : this() {
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DeleteBookmarkResponse Clone() {
+      return new DeleteBookmarkResponse(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as DeleteBookmarkResponse);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(DeleteBookmarkResponse other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(DeleteBookmarkResponse other) {
+      if (other == null) {
+        return;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class DeleteBookmarkGroupRequest : pb::IMessage<DeleteBookmarkGroupRequest>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<DeleteBookmarkGroupRequest> _parser = new pb::MessageParser<DeleteBookmarkGroupRequest>(() => new DeleteBookmarkGroupRequest());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<DeleteBookmarkGroupRequest> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[51]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DeleteBookmarkGroupRequest() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DeleteBookmarkGroupRequest(DeleteBookmarkGroupRequest other) : this() {
+      groupId_ = other.groupId_;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DeleteBookmarkGroupRequest Clone() {
+      return new DeleteBookmarkGroupRequest(this);
+    }
+
+    /// <summary>Field number for the "group_id" field.</summary>
+    public const int GroupIdFieldNumber = 1;
+    private string groupId_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string GroupId {
+      get { return groupId_; }
+      set {
+        groupId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as DeleteBookmarkGroupRequest);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(DeleteBookmarkGroupRequest other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (GroupId != other.GroupId) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (GroupId.Length != 0) hash ^= GroupId.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (GroupId.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(GroupId);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (GroupId.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(GroupId);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (GroupId.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(GroupId);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(DeleteBookmarkGroupRequest other) {
+      if (other == null) {
+        return;
+      }
+      if (other.GroupId.Length != 0) {
+        GroupId = other.GroupId;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            GroupId = input.ReadString();
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            GroupId = input.ReadString();
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class DeleteBookmarkGroupResponse : pb::IMessage<DeleteBookmarkGroupResponse>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<DeleteBookmarkGroupResponse> _parser = new pb::MessageParser<DeleteBookmarkGroupResponse>(() => new DeleteBookmarkGroupResponse());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<DeleteBookmarkGroupResponse> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[52]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DeleteBookmarkGroupResponse() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DeleteBookmarkGroupResponse(DeleteBookmarkGroupResponse other) : this() {
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public DeleteBookmarkGroupResponse Clone() {
+      return new DeleteBookmarkGroupResponse(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as DeleteBookmarkGroupResponse);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(DeleteBookmarkGroupResponse other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(DeleteBookmarkGroupResponse other) {
+      if (other == null) {
+        return;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class MoveBookmarkRequest : pb::IMessage<MoveBookmarkRequest>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<MoveBookmarkRequest> _parser = new pb::MessageParser<MoveBookmarkRequest>(() => new MoveBookmarkRequest());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<MoveBookmarkRequest> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[53]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public MoveBookmarkRequest() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public MoveBookmarkRequest(MoveBookmarkRequest other) : this() {
+      bookmarkId_ = other.bookmarkId_;
+      targetGroupId_ = other.targetGroupId_;
+      afterBookmarkId_ = other.afterBookmarkId_;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public MoveBookmarkRequest Clone() {
+      return new MoveBookmarkRequest(this);
+    }
+
+    /// <summary>Field number for the "bookmark_id" field.</summary>
+    public const int BookmarkIdFieldNumber = 1;
+    private string bookmarkId_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string BookmarkId {
+      get { return bookmarkId_; }
+      set {
+        bookmarkId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "target_group_id" field.</summary>
+    public const int TargetGroupIdFieldNumber = 2;
+    private string targetGroupId_ = "";
+    /// <summary>
+    /// new group
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string TargetGroupId {
+      get { return targetGroupId_; }
+      set {
+        targetGroupId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "after_bookmark_id" field.</summary>
+    public const int AfterBookmarkIdFieldNumber = 3;
+    private string afterBookmarkId_ = "";
+    /// <summary>
+    /// empty = first in group
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string AfterBookmarkId {
+      get { return afterBookmarkId_; }
+      set {
+        afterBookmarkId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as MoveBookmarkRequest);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(MoveBookmarkRequest other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (BookmarkId != other.BookmarkId) return false;
+      if (TargetGroupId != other.TargetGroupId) return false;
+      if (AfterBookmarkId != other.AfterBookmarkId) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (BookmarkId.Length != 0) hash ^= BookmarkId.GetHashCode();
+      if (TargetGroupId.Length != 0) hash ^= TargetGroupId.GetHashCode();
+      if (AfterBookmarkId.Length != 0) hash ^= AfterBookmarkId.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (BookmarkId.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(BookmarkId);
+      }
+      if (TargetGroupId.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(TargetGroupId);
+      }
+      if (AfterBookmarkId.Length != 0) {
+        output.WriteRawTag(26);
+        output.WriteString(AfterBookmarkId);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (BookmarkId.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(BookmarkId);
+      }
+      if (TargetGroupId.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(TargetGroupId);
+      }
+      if (AfterBookmarkId.Length != 0) {
+        output.WriteRawTag(26);
+        output.WriteString(AfterBookmarkId);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (BookmarkId.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(BookmarkId);
+      }
+      if (TargetGroupId.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(TargetGroupId);
+      }
+      if (AfterBookmarkId.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(AfterBookmarkId);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(MoveBookmarkRequest other) {
+      if (other == null) {
+        return;
+      }
+      if (other.BookmarkId.Length != 0) {
+        BookmarkId = other.BookmarkId;
+      }
+      if (other.TargetGroupId.Length != 0) {
+        TargetGroupId = other.TargetGroupId;
+      }
+      if (other.AfterBookmarkId.Length != 0) {
+        AfterBookmarkId = other.AfterBookmarkId;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            BookmarkId = input.ReadString();
+            break;
+          }
+          case 18: {
+            TargetGroupId = input.ReadString();
+            break;
+          }
+          case 26: {
+            AfterBookmarkId = input.ReadString();
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            BookmarkId = input.ReadString();
+            break;
+          }
+          case 18: {
+            TargetGroupId = input.ReadString();
+            break;
+          }
+          case 26: {
+            AfterBookmarkId = input.ReadString();
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class MoveBookmarkResponse : pb::IMessage<MoveBookmarkResponse>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<MoveBookmarkResponse> _parser = new pb::MessageParser<MoveBookmarkResponse>(() => new MoveBookmarkResponse());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<MoveBookmarkResponse> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[54]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public MoveBookmarkResponse() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public MoveBookmarkResponse(MoveBookmarkResponse other) : this() {
+      bookmark_ = other.bookmark_ != null ? other.bookmark_.Clone() : null;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public MoveBookmarkResponse Clone() {
+      return new MoveBookmarkResponse(this);
+    }
+
+    /// <summary>Field number for the "bookmark" field.</summary>
+    public const int BookmarkFieldNumber = 1;
+    private global::Petajournal.Bookmark bookmark_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Petajournal.Bookmark Bookmark {
+      get { return bookmark_; }
+      set {
+        bookmark_ = value;
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as MoveBookmarkResponse);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(MoveBookmarkResponse other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (!object.Equals(Bookmark, other.Bookmark)) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (bookmark_ != null) hash ^= Bookmark.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (bookmark_ != null) {
+        output.WriteRawTag(10);
+        output.WriteMessage(Bookmark);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (bookmark_ != null) {
+        output.WriteRawTag(10);
+        output.WriteMessage(Bookmark);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (bookmark_ != null) {
+        size += 1 + pb::CodedOutputStream.ComputeMessageSize(Bookmark);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(MoveBookmarkResponse other) {
+      if (other == null) {
+        return;
+      }
+      if (other.bookmark_ != null) {
+        if (bookmark_ == null) {
+          Bookmark = new global::Petajournal.Bookmark();
+        }
+        Bookmark.MergeFrom(other.Bookmark);
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            if (bookmark_ == null) {
+              Bookmark = new global::Petajournal.Bookmark();
+            }
+            input.ReadMessage(Bookmark);
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            if (bookmark_ == null) {
+              Bookmark = new global::Petajournal.Bookmark();
+            }
+            input.ReadMessage(Bookmark);
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class MoveBookmarkGroupRequest : pb::IMessage<MoveBookmarkGroupRequest>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<MoveBookmarkGroupRequest> _parser = new pb::MessageParser<MoveBookmarkGroupRequest>(() => new MoveBookmarkGroupRequest());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<MoveBookmarkGroupRequest> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[55]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public MoveBookmarkGroupRequest() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public MoveBookmarkGroupRequest(MoveBookmarkGroupRequest other) : this() {
+      groupId_ = other.groupId_;
+      afterGroupId_ = other.afterGroupId_;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public MoveBookmarkGroupRequest Clone() {
+      return new MoveBookmarkGroupRequest(this);
+    }
+
+    /// <summary>Field number for the "group_id" field.</summary>
+    public const int GroupIdFieldNumber = 1;
+    private string groupId_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string GroupId {
+      get { return groupId_; }
+      set {
+        groupId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "after_group_id" field.</summary>
+    public const int AfterGroupIdFieldNumber = 2;
+    private string afterGroupId_ = "";
+    /// <summary>
+    /// empty = first
+    /// </summary>
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string AfterGroupId {
+      get { return afterGroupId_; }
+      set {
+        afterGroupId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as MoveBookmarkGroupRequest);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(MoveBookmarkGroupRequest other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (GroupId != other.GroupId) return false;
+      if (AfterGroupId != other.AfterGroupId) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (GroupId.Length != 0) hash ^= GroupId.GetHashCode();
+      if (AfterGroupId.Length != 0) hash ^= AfterGroupId.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (GroupId.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(GroupId);
+      }
+      if (AfterGroupId.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(AfterGroupId);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (GroupId.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(GroupId);
+      }
+      if (AfterGroupId.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(AfterGroupId);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (GroupId.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(GroupId);
+      }
+      if (AfterGroupId.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(AfterGroupId);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(MoveBookmarkGroupRequest other) {
+      if (other == null) {
+        return;
+      }
+      if (other.GroupId.Length != 0) {
+        GroupId = other.GroupId;
+      }
+      if (other.AfterGroupId.Length != 0) {
+        AfterGroupId = other.AfterGroupId;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            GroupId = input.ReadString();
+            break;
+          }
+          case 18: {
+            AfterGroupId = input.ReadString();
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            GroupId = input.ReadString();
+            break;
+          }
+          case 18: {
+            AfterGroupId = input.ReadString();
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class MoveBookmarkGroupResponse : pb::IMessage<MoveBookmarkGroupResponse>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<MoveBookmarkGroupResponse> _parser = new pb::MessageParser<MoveBookmarkGroupResponse>(() => new MoveBookmarkGroupResponse());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<MoveBookmarkGroupResponse> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[56]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public MoveBookmarkGroupResponse() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public MoveBookmarkGroupResponse(MoveBookmarkGroupResponse other) : this() {
+      group_ = other.group_ != null ? other.group_.Clone() : null;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public MoveBookmarkGroupResponse Clone() {
+      return new MoveBookmarkGroupResponse(this);
+    }
+
+    /// <summary>Field number for the "group" field.</summary>
+    public const int GroupFieldNumber = 1;
+    private global::Petajournal.BookmarkGroup group_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Petajournal.BookmarkGroup Group {
+      get { return group_; }
+      set {
+        group_ = value;
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as MoveBookmarkGroupResponse);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(MoveBookmarkGroupResponse other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (!object.Equals(Group, other.Group)) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (group_ != null) hash ^= Group.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (group_ != null) {
+        output.WriteRawTag(10);
+        output.WriteMessage(Group);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (group_ != null) {
+        output.WriteRawTag(10);
+        output.WriteMessage(Group);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (group_ != null) {
+        size += 1 + pb::CodedOutputStream.ComputeMessageSize(Group);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(MoveBookmarkGroupResponse other) {
+      if (other == null) {
+        return;
+      }
+      if (other.group_ != null) {
+        if (group_ == null) {
+          Group = new global::Petajournal.BookmarkGroup();
+        }
+        Group.MergeFrom(other.Group);
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            if (group_ == null) {
+              Group = new global::Petajournal.BookmarkGroup();
+            }
+            input.ReadMessage(Group);
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            if (group_ == null) {
+              Group = new global::Petajournal.BookmarkGroup();
+            }
+            input.ReadMessage(Group);
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class UpdateBookmarkGroupRequest : pb::IMessage<UpdateBookmarkGroupRequest>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<UpdateBookmarkGroupRequest> _parser = new pb::MessageParser<UpdateBookmarkGroupRequest>(() => new UpdateBookmarkGroupRequest());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<UpdateBookmarkGroupRequest> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[57]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public UpdateBookmarkGroupRequest() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public UpdateBookmarkGroupRequest(UpdateBookmarkGroupRequest other) : this() {
+      groupId_ = other.groupId_;
+      name_ = other.name_;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public UpdateBookmarkGroupRequest Clone() {
+      return new UpdateBookmarkGroupRequest(this);
+    }
+
+    /// <summary>Field number for the "group_id" field.</summary>
+    public const int GroupIdFieldNumber = 1;
+    private string groupId_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string GroupId {
+      get { return groupId_; }
+      set {
+        groupId_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    /// <summary>Field number for the "name" field.</summary>
+    public const int NameFieldNumber = 2;
+    private string name_ = "";
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public string Name {
+      get { return name_; }
+      set {
+        name_ = pb::ProtoPreconditions.CheckNotNull(value, "value");
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as UpdateBookmarkGroupRequest);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(UpdateBookmarkGroupRequest other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (GroupId != other.GroupId) return false;
+      if (Name != other.Name) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (GroupId.Length != 0) hash ^= GroupId.GetHashCode();
+      if (Name.Length != 0) hash ^= Name.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (GroupId.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(GroupId);
+      }
+      if (Name.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(Name);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (GroupId.Length != 0) {
+        output.WriteRawTag(10);
+        output.WriteString(GroupId);
+      }
+      if (Name.Length != 0) {
+        output.WriteRawTag(18);
+        output.WriteString(Name);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (GroupId.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(GroupId);
+      }
+      if (Name.Length != 0) {
+        size += 1 + pb::CodedOutputStream.ComputeStringSize(Name);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(UpdateBookmarkGroupRequest other) {
+      if (other == null) {
+        return;
+      }
+      if (other.GroupId.Length != 0) {
+        GroupId = other.GroupId;
+      }
+      if (other.Name.Length != 0) {
+        Name = other.Name;
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            GroupId = input.ReadString();
+            break;
+          }
+          case 18: {
+            Name = input.ReadString();
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            GroupId = input.ReadString();
+            break;
+          }
+          case 18: {
+            Name = input.ReadString();
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
+  public sealed partial class UpdateBookmarkGroupResponse : pb::IMessage<UpdateBookmarkGroupResponse>
+  #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      , pb::IBufferMessage
+  #endif
+  {
+    private static readonly pb::MessageParser<UpdateBookmarkGroupResponse> _parser = new pb::MessageParser<UpdateBookmarkGroupResponse>(() => new UpdateBookmarkGroupResponse());
+    private pb::UnknownFieldSet _unknownFields;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pb::MessageParser<UpdateBookmarkGroupResponse> Parser { get { return _parser; } }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public static pbr::MessageDescriptor Descriptor {
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[58]; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    pbr::MessageDescriptor pb::IMessage.Descriptor {
+      get { return Descriptor; }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public UpdateBookmarkGroupResponse() {
+      OnConstruction();
+    }
+
+    partial void OnConstruction();
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public UpdateBookmarkGroupResponse(UpdateBookmarkGroupResponse other) : this() {
+      group_ = other.group_ != null ? other.group_.Clone() : null;
+      _unknownFields = pb::UnknownFieldSet.Clone(other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public UpdateBookmarkGroupResponse Clone() {
+      return new UpdateBookmarkGroupResponse(this);
+    }
+
+    /// <summary>Field number for the "group" field.</summary>
+    public const int GroupFieldNumber = 1;
+    private global::Petajournal.BookmarkGroup group_;
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public global::Petajournal.BookmarkGroup Group {
+      get { return group_; }
+      set {
+        group_ = value;
+      }
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override bool Equals(object other) {
+      return Equals(other as UpdateBookmarkGroupResponse);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public bool Equals(UpdateBookmarkGroupResponse other) {
+      if (ReferenceEquals(other, null)) {
+        return false;
+      }
+      if (ReferenceEquals(other, this)) {
+        return true;
+      }
+      if (!object.Equals(Group, other.Group)) return false;
+      return Equals(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override int GetHashCode() {
+      int hash = 1;
+      if (group_ != null) hash ^= Group.GetHashCode();
+      if (_unknownFields != null) {
+        hash ^= _unknownFields.GetHashCode();
+      }
+      return hash;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public override string ToString() {
+      return pb::JsonFormatter.ToDiagnosticString(this);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void WriteTo(pb::CodedOutputStream output) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      output.WriteRawMessage(this);
+    #else
+      if (group_ != null) {
+        output.WriteRawTag(10);
+        output.WriteMessage(Group);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(output);
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalWriteTo(ref pb::WriteContext output) {
+      if (group_ != null) {
+        output.WriteRawTag(10);
+        output.WriteMessage(Group);
+      }
+      if (_unknownFields != null) {
+        _unknownFields.WriteTo(ref output);
+      }
+    }
+    #endif
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public int CalculateSize() {
+      int size = 0;
+      if (group_ != null) {
+        size += 1 + pb::CodedOutputStream.ComputeMessageSize(Group);
+      }
+      if (_unknownFields != null) {
+        size += _unknownFields.CalculateSize();
+      }
+      return size;
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(UpdateBookmarkGroupResponse other) {
+      if (other == null) {
+        return;
+      }
+      if (other.group_ != null) {
+        if (group_ == null) {
+          Group = new global::Petajournal.BookmarkGroup();
+        }
+        Group.MergeFrom(other.Group);
+      }
+      _unknownFields = pb::UnknownFieldSet.MergeFrom(_unknownFields, other._unknownFields);
+    }
+
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    public void MergeFrom(pb::CodedInputStream input) {
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+      input.ReadRawMessage(this);
+    #else
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, input);
+            break;
+          case 10: {
+            if (group_ == null) {
+              Group = new global::Petajournal.BookmarkGroup();
+            }
+            input.ReadMessage(Group);
+            break;
+          }
+        }
+      }
+    #endif
+    }
+
+    #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
+    [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
+    [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
+    void pb::IBufferMessage.InternalMergeFrom(ref pb::ParseContext input) {
+      uint tag;
+      while ((tag = input.ReadTag()) != 0) {
+      if ((tag & 7) == 4) {
+        // Abort on any end group tag.
+        return;
+      }
+      switch(tag) {
+          default:
+            _unknownFields = pb::UnknownFieldSet.MergeFieldFrom(_unknownFields, ref input);
+            break;
+          case 10: {
+            if (group_ == null) {
+              Group = new global::Petajournal.BookmarkGroup();
+            }
+            input.ReadMessage(Group);
+            break;
+          }
+        }
+      }
+    }
+    #endif
+
+  }
+
+  [global::System.Diagnostics.DebuggerDisplayAttribute("{ToString(),nq}")]
   public sealed partial class ServerEvent : pb::IMessage<ServerEvent>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -12213,7 +16424,7 @@ namespace Petajournal {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[43]; }
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[59]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -12547,7 +16758,7 @@ namespace Petajournal {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[44]; }
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[60]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
@@ -12745,7 +16956,7 @@ namespace Petajournal {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static pbr::MessageDescriptor Descriptor {
-      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[45]; }
+      get { return global::Petajournal.ApiReflection.Descriptor.MessageTypes[61]; }
     }
 
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]

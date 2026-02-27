@@ -173,7 +173,7 @@ export class PageComponent {
   readonly editing = signal(false);
   readonly editDirPath = signal('');
   readonly editFileName = signal('');
-  readonly isIndexPage = computed(() => this.page()?.fileName === 'index');
+  readonly isIndexPage = computed(() => this.page()?.name === 'index');
 
   readonly dirPathSegments = computed(() => {
     const p = this.page();
@@ -198,9 +198,9 @@ export class PageComponent {
     const p = this.page();
     if (!p) return '';
     if (p.type === 'journal') {
-      return formatJournalDate(p.fileName);
+      return formatJournalDate(p.name);
     }
-    return p.fileName;
+    return p.name;
   }
 
   constructor() {
@@ -235,10 +235,10 @@ export class PageComponent {
     const p = this.page();
     if (!p) return;
     this.editDirPath.set(p.dirPath.replace(/\/$/, ''));
-    this.editFileName.set(p.fileName);
+    this.editFileName.set(p.name);
 
     // Determine caret position from click coordinates
-    let caretPos = p.fileName.length;
+    let caretPos = p.name.length;
     const range = document.caretRangeFromPoint(event.clientX, event.clientY);
     if (range) {
       caretPos = range.startOffset;
@@ -246,7 +246,7 @@ export class PageComponent {
 
     this.editing.set(true);
     afterNextRender(() => {
-      if (p.fileName === 'index') {
+      if (p.name === 'index') {
         const input = this.dirPathInput()?.nativeElement;
         if (input) {
           input.focus();
@@ -286,7 +286,7 @@ export class PageComponent {
       newDirPath += '/';
     }
 
-    const titleChanged = newFileName !== p.fileName;
+    const titleChanged = newFileName !== p.name;
     const dirChanged = newDirPath !== p.dirPath;
 
     if (!titleChanged && !dirChanged) {
@@ -329,11 +329,11 @@ export class PageComponent {
 
       // Compute canonical URL path from loaded page
       const canonical = p.dirPath
-        ? p.dirPath.replace(/\/$/, '') + '/' + p.fileName
-        : p.fileName;
+        ? p.dirPath.replace(/\/$/, '') + '/' + p.name
+        : p.name;
 
       // If URL doesn't match canonical path, redirect
-      // e.g. server resolved "Quarkus" → dirPath="Quarkus/" fileName="index" → redirect to "Quarkus/index"
+      // e.g. server resolved "Quarkus" → dirPath="Quarkus/" name="index" → redirect to "Quarkus/index"
       if (canonical !== pageName) {
         this.navigation.navigateToPage(canonical, false, true);
         return;
@@ -345,7 +345,7 @@ export class PageComponent {
         this.recentPages.refresh();
         this.extensionFunctions.emitPageCreate({
           pageId: p.id,
-          fileName: p.fileName,
+          fileName: p.name,
           dirName: p.dirPath
         });
       }
