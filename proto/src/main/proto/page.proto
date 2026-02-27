@@ -13,6 +13,7 @@ message Page {
   string dir_path = 2;             // Sub-path within type dir, e.g. "" (empty = root)
   string name = 3;                 // e.g. "2025-01-15" or "my-page"
   string type = 9;                 // "journal" or "doc"
+  string parent_id = 10;           // UUID of parent page (empty if root)
   Timestamp created_date = 4;
   Timestamp modified_date = 5;
   repeated string tags = 6;

@@ -70,6 +70,9 @@ export namespace petajournal {
         /** Page type */
         type?: (string|null);
 
+        /** Page parentId */
+        parentId?: (string|null);
+
         /** Page createdDate */
         createdDate?: (petajournal.ITimestamp|null);
 
@@ -100,6 +103,9 @@ export namespace petajournal {
 
         /** Page type. */
         public type: string;
+
+        /** Page parentId. */
+        public parentId: string;
 
         /** Page createdDate. */
         public createdDate?: (petajournal.ITimestamp|null);

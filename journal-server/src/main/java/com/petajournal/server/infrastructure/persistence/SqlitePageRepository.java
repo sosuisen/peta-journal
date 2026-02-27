@@ -31,7 +31,7 @@ public class SqlitePageRepository implements PageRepository {
 
     private Optional<Page> findByIdInternal(Connection conn, UUID id) throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement(
-                "SELECT id, dir_path, name, type, created_date, modified_date FROM pages WHERE id = ?")) {
+                "SELECT id, parent_id, dir_path, name, type, created_date, modified_date FROM pages WHERE id = ?")) {
             ps.setString(1, id.toString());
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) return Optional.empty();
@@ -46,7 +46,7 @@ public class SqlitePageRepository implements PageRepository {
 
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT id, dir_path, name, type, created_date, modified_date FROM pages " +
+                     "SELECT id, parent_id, dir_path, name, type, created_date, modified_date FROM pages " +
                      "WHERE type = 'journal' AND dir_path = '' AND name = ?")) {
             ps.setString(1, fileName);
             try (ResultSet rs = ps.executeQuery()) {
@@ -64,7 +64,7 @@ public class SqlitePageRepository implements PageRepository {
 
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT id, dir_path, name, type, created_date, modified_date FROM pages " +
+                     "SELECT id, parent_id, dir_path, name, type, created_date, modified_date FROM pages " +
                      "WHERE type = 'journal' AND dir_path = '' AND name < ? AND name GLOB '????-??-??' " +
                      "ORDER BY name DESC LIMIT 1")) {
             ps.setString(1, fileName);
@@ -82,7 +82,7 @@ public class SqlitePageRepository implements PageRepository {
         LOG.debugv("findByTypeDirPathFileName: type={0}, dirPath=[{1}], fileName={2}", type, dirPath, fileName);
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT id, dir_path, name, type, created_date, modified_date FROM pages " +
+                     "SELECT id, parent_id, dir_path, name, type, created_date, modified_date FROM pages " +
                      "WHERE type = ? AND dir_path = ? AND name = ?")) {
             ps.setString(1, type);
             ps.setString(2, dirPath);
@@ -103,7 +103,7 @@ public class SqlitePageRepository implements PageRepository {
 
     @Override
     public List<Page> findRecent(int maxResults, String type) {
-        String sql = "SELECT id, dir_path, name, type, created_date, modified_date FROM pages";
+        String sql = "SELECT id, parent_id, dir_path, name, type, created_date, modified_date FROM pages";
         if (type != null) {
             sql += " WHERE type = ?";
         }
@@ -125,7 +125,7 @@ public class SqlitePageRepository implements PageRepository {
     public List<Page> findAll() {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT id, dir_path, name, type, created_date, modified_date FROM pages ORDER BY modified_date DESC")) {
+                     "SELECT id, parent_id, dir_path, name, type, created_date, modified_date FROM pages ORDER BY modified_date DESC")) {
             return mapPages(conn, ps);
         } catch (SQLException e) {
             throw new RuntimeException("Failed to find all pages", e);
@@ -136,7 +136,7 @@ public class SqlitePageRepository implements PageRepository {
     public List<Page> findByTitle(String titleQuery) {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT id, dir_path, name, type, created_date, modified_date " +
+                     "SELECT id, parent_id, dir_path, name, type, created_date, modified_date " +
                      "FROM pages WHERE name LIKE ? ORDER BY modified_date DESC LIMIT 20")) {
             ps.setString(1, "%" + titleQuery + "%");
             return mapPages(conn, ps);
@@ -152,21 +152,26 @@ public class SqlitePageRepository implements PageRepository {
         try (Connection conn = connectionProvider.getConnection()) {
             conn.setAutoCommit(false);
             try {
+                // Resolve parent_id from dir_path
+                UUID parentId = resolveParentId(conn, page.id(), page.dirPath());
+
                 // Upsert page
                 try (PreparedStatement ps = conn.prepareStatement(
-                        "INSERT INTO pages (id, dir_path, name, type, created_date, modified_date) " +
-                        "VALUES (?, ?, ?, ?, ?, ?) " +
-                        "ON CONFLICT(id) DO UPDATE SET dir_path=?, name=?, type=?, modified_date=?")) {
+                        "INSERT INTO pages (id, parent_id, dir_path, name, type, created_date, modified_date) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?) " +
+                        "ON CONFLICT(id) DO UPDATE SET parent_id=?, dir_path=?, name=?, type=?, modified_date=?")) {
                     ps.setString(1, page.id().toString());
-                    ps.setString(2, page.dirPath());
-                    ps.setString(3, page.name());
-                    ps.setString(4, page.type());
-                    ps.setLong(5, page.createdDate().toEpochMilli());
-                    ps.setLong(6, page.modifiedDate().toEpochMilli());
-                    ps.setString(7, page.dirPath());
-                    ps.setString(8, page.name());
-                    ps.setString(9, page.type());
-                    ps.setLong(10, page.modifiedDate().toEpochMilli());
+                    ps.setString(2, parentId != null ? parentId.toString() : null);
+                    ps.setString(3, page.dirPath());
+                    ps.setString(4, page.name());
+                    ps.setString(5, page.type());
+                    ps.setLong(6, page.createdDate().toEpochMilli());
+                    ps.setLong(7, page.modifiedDate().toEpochMilli());
+                    ps.setString(8, parentId != null ? parentId.toString() : null);
+                    ps.setString(9, page.dirPath());
+                    ps.setString(10, page.name());
+                    ps.setString(11, page.type());
+                    ps.setLong(12, page.modifiedDate().toEpochMilli());
                     ps.executeUpdate();
                 }
 
@@ -188,7 +193,8 @@ public class SqlitePageRepository implements PageRepository {
                 }
 
                 conn.commit();
-                return page;
+                return new Page(page.id(), parentId, page.dirPath(), page.name(), page.type(),
+                        page.createdDate(), page.modifiedDate(), page.tags());
             } catch (SQLException e) {
                 conn.rollback();
                 throw e;
@@ -214,7 +220,7 @@ public class SqlitePageRepository implements PageRepository {
         if (maxResults <= 0) maxResults = 20;
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT id, dir_path, name, type, created_date, modified_date " +
+                     "SELECT id, parent_id, dir_path, name, type, created_date, modified_date " +
                      "FROM pages WHERE (dir_path || name) LIKE ? || '%' " +
                      "ORDER BY modified_date DESC LIMIT ?")) {
             ps.setString(1, query);
@@ -230,7 +236,7 @@ public class SqlitePageRepository implements PageRepository {
         if (maxResults <= 0) maxResults = 20;
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT id, dir_path, name, type, created_date, modified_date " +
+                     "SELECT id, parent_id, dir_path, name, type, created_date, modified_date " +
                      "FROM pages WHERE (dir_path || name) LIKE '%' || ? || '%' " +
                      "ORDER BY modified_date DESC LIMIT ?")) {
             ps.setString(1, query);
@@ -248,7 +254,7 @@ public class SqlitePageRepository implements PageRepository {
         // Pattern: %query/ matches "query/" and "dir1/query/"
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT id, dir_path, name, type, created_date, modified_date " +
+                     "SELECT id, parent_id, dir_path, name, type, created_date, modified_date " +
                      "FROM pages WHERE name = 'index' AND " +
                      "(dir_path = ? || '/' OR dir_path LIKE '%/' || ? || '/') " +
                      "ORDER BY length(dir_path) ASC LIMIT ?")) {
@@ -302,10 +308,66 @@ public class SqlitePageRepository implements PageRepository {
         }
     }
 
+    /**
+     * Resolves the parent page ID from a dir_path.
+     * "" → null (root)
+     * "a/" → search name='a', dir_path=''; fallback: name='index', dir_path='a/'
+     * "a/b/" → search name='b', dir_path='a/'; fallback: name='index', dir_path='a/b/'
+     * If result is the page's own ID → null (avoid self-reference)
+     */
+    private UUID resolveParentId(Connection conn, UUID pageId, String dirPath) throws SQLException {
+        if (dirPath == null || dirPath.isEmpty()) {
+            return null;
+        }
+
+        // Remove trailing slash and split: "a/b/" → ["a", "b"]
+        String trimmed = dirPath.endsWith("/") ? dirPath.substring(0, dirPath.length() - 1) : dirPath;
+        int lastSlash = trimmed.lastIndexOf('/');
+        String parentDirPath;
+        String lastSegment;
+        if (lastSlash < 0) {
+            parentDirPath = "";
+            lastSegment = trimmed;
+        } else {
+            parentDirPath = trimmed.substring(0, lastSlash + 1);
+            lastSegment = trimmed.substring(lastSlash + 1);
+        }
+
+        // Primary lookup: page with name=lastSegment in parentDirPath
+        UUID found = findPageId(conn, parentDirPath, lastSegment);
+        if (found == null) {
+            // Fallback: index page at dirPath
+            found = findPageId(conn, dirPath, "index");
+        }
+
+        // Avoid self-reference
+        if (found != null && found.equals(pageId)) {
+            return null;
+        }
+        return found;
+    }
+
+    private UUID findPageId(Connection conn, String dirPath, String name) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "SELECT id FROM pages WHERE dir_path = ? AND name = ? LIMIT 1")) {
+            ps.setString(1, dirPath);
+            ps.setString(2, name);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return UUID.fromString(rs.getString("id"));
+                }
+            }
+        }
+        return null;
+    }
+
     private Page mapPage(Connection conn, ResultSet rs) throws SQLException {
         UUID id = UUID.fromString(rs.getString("id"));
+        String parentIdStr = rs.getString("parent_id");
+        UUID parentId = parentIdStr != null ? UUID.fromString(parentIdStr) : null;
         return new Page(
                 id,
+                parentId,
                 rs.getString("dir_path"),
                 rs.getString("name"),
                 rs.getString("type"),

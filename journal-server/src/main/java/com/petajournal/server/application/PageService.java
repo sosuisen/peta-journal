@@ -113,7 +113,7 @@ public class PageService {
         UUID id = UUID.randomUUID();
         Instant now = Instant.now();
 
-        Page page = new Page(id, dir, fileName, "doc", now, now, tags != null ? tags : List.of());
+        Page page = new Page(id, null, dir, fileName, "doc", now, now, tags != null ? tags : List.of());
         page = pageRepository.save(page);
         searchService.indexPage(page);
 
@@ -163,6 +163,7 @@ public class PageService {
 
         Page updated = new Page(
                 existing.id(),
+                null,
                 newDirPath,
                 fileName,
                 existing.type(),
@@ -249,7 +250,7 @@ public class PageService {
             if (existing.isEmpty()) {
                 UUID id = UUID.randomUUID();
                 Instant now = Instant.now();
-                Page page = new Page(id, indexDir, "index", "doc", now, now, List.of());
+                Page page = new Page(id, null, indexDir, "index", "doc", now, now, List.of());
                 pageRepository.save(page);
                 searchService.indexPage(page);
 

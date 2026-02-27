@@ -75,7 +75,7 @@ public class OutlineMarkdownParser {
             }
         }
 
-        return new Page(id, dirPath, name, type, created, modified, tags);
+        return new Page(id, null, dirPath, name, type, created, modified, tags);
     }
 
     public List<Block> toBlocks(ParseResult result, UUID pageId, String dirPath, String name, String type) {

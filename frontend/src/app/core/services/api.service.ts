@@ -19,6 +19,7 @@ interface GetBookmarksResult { groups: BookmarkGroup[]; bookmarks: Bookmark[] }
 function toPage(p: any): Page {
   return {
     id: p.id ?? '',
+    parentId: p.parentId ?? '',
     dirPath: p.dirPath ?? '',
     name: p.name ?? '',
     type: p.type ?? 'doc',

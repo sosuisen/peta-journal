@@ -67,7 +67,7 @@ public class JournalService {
         String fileName = date.format(DateTimeFormatter.ISO_LOCAL_DATE);
         List<String> tags = List.of();
 
-        Page page = new Page(id, "", fileName, "journal", now, now, tags);
+        Page page = new Page(id, null, "", fileName, "journal", now, now, tags);
         page = pageRepository.save(page);
         searchService.indexPage(page);
 
@@ -92,7 +92,7 @@ public class JournalService {
         UUID id = UUID.randomUUID();
         Instant now = Instant.now();
 
-        Page page = new Page(id, "", fileName, "journal", now, now, List.of());
+        Page page = new Page(id, null, "", fileName, "journal", now, now, List.of());
         page = pageRepository.save(page);
         searchService.indexPage(page);
 
@@ -181,7 +181,7 @@ public class JournalService {
         UUID id = UUID.randomUUID();
         Instant now = Instant.now();
 
-        Page page = new Page(id, "", fileName, "journal", now, now, List.of());
+        Page page = new Page(id, null, "", fileName, "journal", now, now, List.of());
         page = pageRepository.save(page);
         searchService.indexPage(page);
 
@@ -210,7 +210,7 @@ public class JournalService {
         UUID id = UUID.randomUUID();
         Instant now = Instant.now();
 
-        Page page = new Page(id, "", fileName, "journal", now, now, List.of());
+        Page page = new Page(id, null, "", fileName, "journal", now, now, List.of());
         page = pageRepository.save(page);
         searchService.indexPage(page);
 

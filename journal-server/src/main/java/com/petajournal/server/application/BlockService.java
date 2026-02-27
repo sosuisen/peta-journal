@@ -342,7 +342,7 @@ public class BlockService {
     private void touchPage(UUID pageId) {
         pageRepository.findById(pageId).ifPresent(page -> {
             Page updated = new Page(
-                    page.id(), page.dirPath(), page.name(), page.type(),
+                    page.id(), page.parentId(), page.dirPath(), page.name(), page.type(),
                     page.createdDate(), Instant.now(),
                     page.tags()
             );

@@ -19,6 +19,7 @@ final class ProtoConverter {
                 .setDirPath(page.dirPath())
                 .setName(page.name())
                 .setType(page.type() != null ? page.type() : "doc")
+                .setParentId(page.parentId() != null ? page.parentId().toString() : "")
                 .setCreatedDate(Timestamp.newBuilder().setMillis(page.createdDate().toEpochMilli()).build())
                 .setModifiedDate(Timestamp.newBuilder().setMillis(page.modifiedDate().toEpochMilli()).build());
         if (page.tags() != null) {

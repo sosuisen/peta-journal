@@ -245,6 +245,7 @@ export const petajournal = $root.petajournal = (() => {
          * @property {string|null} [dirPath] Page dirPath
          * @property {string|null} [name] Page name
          * @property {string|null} [type] Page type
+         * @property {string|null} [parentId] Page parentId
          * @property {petajournal.ITimestamp|null} [createdDate] Page createdDate
          * @property {petajournal.ITimestamp|null} [modifiedDate] Page modifiedDate
          * @property {Array.<string>|null} [tags] Page tags
@@ -297,6 +298,14 @@ export const petajournal = $root.petajournal = (() => {
          * @instance
          */
         Page.prototype.type = "";
+
+        /**
+         * Page parentId.
+         * @member {string} parentId
+         * @memberof petajournal.Page
+         * @instance
+         */
+        Page.prototype.parentId = "";
 
         /**
          * Page createdDate.
@@ -361,6 +370,8 @@ export const petajournal = $root.petajournal = (() => {
                     writer.uint32(/* id 6, wireType 2 =*/50).string(message.tags[i]);
             if (message.type != null && Object.hasOwnProperty.call(message, "type"))
                 writer.uint32(/* id 9, wireType 2 =*/74).string(message.type);
+            if (message.parentId != null && Object.hasOwnProperty.call(message, "parentId"))
+                writer.uint32(/* id 10, wireType 2 =*/82).string(message.parentId);
             return writer;
         };
 
@@ -411,6 +422,10 @@ export const petajournal = $root.petajournal = (() => {
                     }
                 case 9: {
                         message.type = reader.string();
+                        break;
+                    }
+                case 10: {
+                        message.parentId = reader.string();
                         break;
                     }
                 case 4: {
@@ -474,6 +489,9 @@ export const petajournal = $root.petajournal = (() => {
             if (message.type != null && message.hasOwnProperty("type"))
                 if (!$util.isString(message.type))
                     return "type: string expected";
+            if (message.parentId != null && message.hasOwnProperty("parentId"))
+                if (!$util.isString(message.parentId))
+                    return "parentId: string expected";
             if (message.createdDate != null && message.hasOwnProperty("createdDate")) {
                 let error = $root.petajournal.Timestamp.verify(message.createdDate);
                 if (error)
@@ -514,6 +532,8 @@ export const petajournal = $root.petajournal = (() => {
                 message.name = String(object.name);
             if (object.type != null)
                 message.type = String(object.type);
+            if (object.parentId != null)
+                message.parentId = String(object.parentId);
             if (object.createdDate != null) {
                 if (typeof object.createdDate !== "object")
                     throw TypeError(".petajournal.Page.createdDate: object expected");
@@ -556,6 +576,7 @@ export const petajournal = $root.petajournal = (() => {
                 object.createdDate = null;
                 object.modifiedDate = null;
                 object.type = "";
+                object.parentId = "";
             }
             if (message.id != null && message.hasOwnProperty("id"))
                 object.id = message.id;
@@ -574,6 +595,8 @@ export const petajournal = $root.petajournal = (() => {
             }
             if (message.type != null && message.hasOwnProperty("type"))
                 object.type = message.type;
+            if (message.parentId != null && message.hasOwnProperty("parentId"))
+                object.parentId = message.parentId;
             return object;
         };
 
