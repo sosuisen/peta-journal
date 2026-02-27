@@ -1078,6 +1078,9 @@ export namespace petajournal {
 
         /** ApiRequest updateBookmarkGroup */
         updateBookmarkGroup?: (petajournal.IUpdateBookmarkGroupRequest|null);
+
+        /** ApiRequest getChildPages */
+        getChildPages?: (petajournal.IGetChildPagesRequest|null);
     }
 
     /** Represents an ApiRequest. */
@@ -1176,8 +1179,11 @@ export namespace petajournal {
         /** ApiRequest updateBookmarkGroup. */
         public updateBookmarkGroup?: (petajournal.IUpdateBookmarkGroupRequest|null);
 
+        /** ApiRequest getChildPages. */
+        public getChildPages?: (petajournal.IGetChildPagesRequest|null);
+
         /** ApiRequest payload. */
-        public payload?: ("getPageById"|"getOrCreateDoc"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"getOrCreateJournal"|"exportTreeMarkdown"|"importTreeMarkdown"|"getBookmarks"|"createBookmarkGroup"|"createBookmark"|"deleteBookmark"|"deleteBookmarkGroup"|"moveBookmark"|"moveBookmarkGroup"|"updateBookmarkGroup");
+        public payload?: ("getPageById"|"getOrCreateDoc"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"getOrCreateJournal"|"exportTreeMarkdown"|"importTreeMarkdown"|"getBookmarks"|"createBookmarkGroup"|"createBookmark"|"deleteBookmark"|"deleteBookmarkGroup"|"moveBookmark"|"moveBookmarkGroup"|"updateBookmarkGroup"|"getChildPages");
 
         /**
          * Creates a new ApiRequest instance using the specified properties.
@@ -1353,6 +1359,9 @@ export namespace petajournal {
         /** ApiResponse updateBookmarkGroup */
         updateBookmarkGroup?: (petajournal.IUpdateBookmarkGroupResponse|null);
 
+        /** ApiResponse getChildPages */
+        getChildPages?: (petajournal.IGetChildPagesResponse|null);
+
         /** ApiResponse serverEvent */
         serverEvent?: (petajournal.IServerEvent|null);
     }
@@ -1459,11 +1468,14 @@ export namespace petajournal {
         /** ApiResponse updateBookmarkGroup. */
         public updateBookmarkGroup?: (petajournal.IUpdateBookmarkGroupResponse|null);
 
+        /** ApiResponse getChildPages. */
+        public getChildPages?: (petajournal.IGetChildPagesResponse|null);
+
         /** ApiResponse serverEvent. */
         public serverEvent?: (petajournal.IServerEvent|null);
 
         /** ApiResponse payload. */
-        public payload?: ("getPageById"|"getOrCreateDoc"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getOrCreateJournal"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"exportTreeMarkdown"|"importTreeMarkdown"|"getBookmarks"|"createBookmarkGroup"|"createBookmark"|"deleteBookmark"|"deleteBookmarkGroup"|"moveBookmark"|"moveBookmarkGroup"|"updateBookmarkGroup"|"serverEvent");
+        public payload?: ("getPageById"|"getOrCreateDoc"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getOrCreateJournal"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"exportTreeMarkdown"|"importTreeMarkdown"|"getBookmarks"|"createBookmarkGroup"|"createBookmark"|"deleteBookmark"|"deleteBookmarkGroup"|"moveBookmark"|"moveBookmarkGroup"|"updateBookmarkGroup"|"getChildPages"|"serverEvent");
 
         /**
          * Creates a new ApiResponse instance using the specified properties.
@@ -7258,6 +7270,200 @@ export namespace petajournal {
 
         /**
          * Gets the default type url for UpdateBookmarkGroupResponse
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a GetChildPagesRequest. */
+    interface IGetChildPagesRequest {
+
+        /** GetChildPagesRequest parentId */
+        parentId?: (string|null);
+    }
+
+    /** Represents a GetChildPagesRequest. */
+    class GetChildPagesRequest implements IGetChildPagesRequest {
+
+        /**
+         * Constructs a new GetChildPagesRequest.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: petajournal.IGetChildPagesRequest);
+
+        /** GetChildPagesRequest parentId. */
+        public parentId: string;
+
+        /**
+         * Creates a new GetChildPagesRequest instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns GetChildPagesRequest instance
+         */
+        public static create(properties?: petajournal.IGetChildPagesRequest): petajournal.GetChildPagesRequest;
+
+        /**
+         * Encodes the specified GetChildPagesRequest message. Does not implicitly {@link petajournal.GetChildPagesRequest.verify|verify} messages.
+         * @param message GetChildPagesRequest message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: petajournal.IGetChildPagesRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified GetChildPagesRequest message, length delimited. Does not implicitly {@link petajournal.GetChildPagesRequest.verify|verify} messages.
+         * @param message GetChildPagesRequest message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encodeDelimited(message: petajournal.IGetChildPagesRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a GetChildPagesRequest message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns GetChildPagesRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.GetChildPagesRequest;
+
+        /**
+         * Decodes a GetChildPagesRequest message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns GetChildPagesRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.GetChildPagesRequest;
+
+        /**
+         * Verifies a GetChildPagesRequest message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        public static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a GetChildPagesRequest message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns GetChildPagesRequest
+         */
+        public static fromObject(object: { [k: string]: any }): petajournal.GetChildPagesRequest;
+
+        /**
+         * Creates a plain object from a GetChildPagesRequest message. Also converts values to other types if specified.
+         * @param message GetChildPagesRequest
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        public static toObject(message: petajournal.GetChildPagesRequest, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this GetChildPagesRequest to JSON.
+         * @returns JSON object
+         */
+        public toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the default type url for GetChildPagesRequest
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a GetChildPagesResponse. */
+    interface IGetChildPagesResponse {
+
+        /** GetChildPagesResponse pages */
+        pages?: (petajournal.IPage[]|null);
+    }
+
+    /** Represents a GetChildPagesResponse. */
+    class GetChildPagesResponse implements IGetChildPagesResponse {
+
+        /**
+         * Constructs a new GetChildPagesResponse.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: petajournal.IGetChildPagesResponse);
+
+        /** GetChildPagesResponse pages. */
+        public pages: petajournal.IPage[];
+
+        /**
+         * Creates a new GetChildPagesResponse instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns GetChildPagesResponse instance
+         */
+        public static create(properties?: petajournal.IGetChildPagesResponse): petajournal.GetChildPagesResponse;
+
+        /**
+         * Encodes the specified GetChildPagesResponse message. Does not implicitly {@link petajournal.GetChildPagesResponse.verify|verify} messages.
+         * @param message GetChildPagesResponse message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: petajournal.IGetChildPagesResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified GetChildPagesResponse message, length delimited. Does not implicitly {@link petajournal.GetChildPagesResponse.verify|verify} messages.
+         * @param message GetChildPagesResponse message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encodeDelimited(message: petajournal.IGetChildPagesResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a GetChildPagesResponse message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns GetChildPagesResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.GetChildPagesResponse;
+
+        /**
+         * Decodes a GetChildPagesResponse message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns GetChildPagesResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.GetChildPagesResponse;
+
+        /**
+         * Verifies a GetChildPagesResponse message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        public static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a GetChildPagesResponse message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns GetChildPagesResponse
+         */
+        public static fromObject(object: { [k: string]: any }): petajournal.GetChildPagesResponse;
+
+        /**
+         * Creates a plain object from a GetChildPagesResponse message. Also converts values to other types if specified.
+         * @param message GetChildPagesResponse
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        public static toObject(message: petajournal.GetChildPagesResponse, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this GetChildPagesResponse to JSON.
+         * @returns JSON object
+         */
+        public toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the default type url for GetChildPagesResponse
          * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
          * @returns The default type url
          */

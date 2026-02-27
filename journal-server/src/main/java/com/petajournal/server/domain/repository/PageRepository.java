@@ -118,4 +118,12 @@ public interface PageRepository {
      * @return the matching index pages
      */
     List<Page> findIndexPagesByDirSegment(String query, int maxResults);
+
+    /**
+     * Finds pages whose parent_id matches the given page ID, sorted by name.
+     *
+     * @param parentId the parent page UUID
+     * @return the child pages sorted by name
+     */
+    List<Page> findByParentId(UUID parentId);
 }

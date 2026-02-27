@@ -138,6 +138,7 @@ public class JournalWebSocket {
                 case MOVE_BOOKMARK -> response.setMoveBookmark(handleMoveBookmark(request.getMoveBookmark()));
                 case MOVE_BOOKMARK_GROUP -> response.setMoveBookmarkGroup(handleMoveBookmarkGroup(request.getMoveBookmarkGroup()));
                 case UPDATE_BOOKMARK_GROUP -> response.setUpdateBookmarkGroup(handleUpdateBookmarkGroup(request.getUpdateBookmarkGroup()));
+                case GET_CHILD_PAGES -> response.setGetChildPages(handleGetChildPages(request.getGetChildPages()));
                 default -> {
                     response.setSuccess(false);
                     response.setErrorMessage("Unknown request type: " + request.getPayloadCase());
@@ -425,6 +426,13 @@ public class JournalWebSocket {
         );
         return MoveBookmarkGroupResponse.newBuilder()
                 .setGroup(ProtoConverter.toProto(group))
+                .build();
+    }
+
+    private GetChildPagesResponse handleGetChildPages(GetChildPagesRequest req) {
+        var pages = pageRepository.findByParentId(UUID.fromString(req.getParentId()));
+        return GetChildPagesResponse.newBuilder()
+                .addAllPages(pages.stream().map(ProtoConverter::toProto).toList())
                 .build();
     }
 

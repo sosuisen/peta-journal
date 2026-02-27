@@ -2607,6 +2607,7 @@ export const petajournal = $root.petajournal = (() => {
          * @property {petajournal.IMoveBookmarkRequest|null} [moveBookmark] ApiRequest moveBookmark
          * @property {petajournal.IMoveBookmarkGroupRequest|null} [moveBookmarkGroup] ApiRequest moveBookmarkGroup
          * @property {petajournal.IUpdateBookmarkGroupRequest|null} [updateBookmarkGroup] ApiRequest updateBookmarkGroup
+         * @property {petajournal.IGetChildPagesRequest|null} [getChildPages] ApiRequest getChildPages
          */
 
         /**
@@ -2856,17 +2857,25 @@ export const petajournal = $root.petajournal = (() => {
          */
         ApiRequest.prototype.updateBookmarkGroup = null;
 
+        /**
+         * ApiRequest getChildPages.
+         * @member {petajournal.IGetChildPagesRequest|null|undefined} getChildPages
+         * @memberof petajournal.ApiRequest
+         * @instance
+         */
+        ApiRequest.prototype.getChildPages = null;
+
         // OneOf field names bound to virtual getters and setters
         let $oneOfFields;
 
         /**
          * ApiRequest payload.
-         * @member {"getPageById"|"getOrCreateDoc"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"getOrCreateJournal"|"exportTreeMarkdown"|"importTreeMarkdown"|"getBookmarks"|"createBookmarkGroup"|"createBookmark"|"deleteBookmark"|"deleteBookmarkGroup"|"moveBookmark"|"moveBookmarkGroup"|"updateBookmarkGroup"|undefined} payload
+         * @member {"getPageById"|"getOrCreateDoc"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"getOrCreateJournal"|"exportTreeMarkdown"|"importTreeMarkdown"|"getBookmarks"|"createBookmarkGroup"|"createBookmark"|"deleteBookmark"|"deleteBookmarkGroup"|"moveBookmark"|"moveBookmarkGroup"|"updateBookmarkGroup"|"getChildPages"|undefined} payload
          * @memberof petajournal.ApiRequest
          * @instance
          */
         Object.defineProperty(ApiRequest.prototype, "payload", {
-            get: $util.oneOfGetter($oneOfFields = ["getPageById", "getOrCreateDoc", "deletePage", "updatePage", "createBlock", "updateBlock", "moveBlocks", "deleteBlock", "updateBlockStatus", "searchPageNames", "searchFullText", "getRecentPages", "getBacklinks", "getMostRecentJournalBefore", "getBlocksByStatus", "getConfig", "updateConfig", "getOrCreateJournal", "exportTreeMarkdown", "importTreeMarkdown", "getBookmarks", "createBookmarkGroup", "createBookmark", "deleteBookmark", "deleteBookmarkGroup", "moveBookmark", "moveBookmarkGroup", "updateBookmarkGroup"]),
+            get: $util.oneOfGetter($oneOfFields = ["getPageById", "getOrCreateDoc", "deletePage", "updatePage", "createBlock", "updateBlock", "moveBlocks", "deleteBlock", "updateBlockStatus", "searchPageNames", "searchFullText", "getRecentPages", "getBacklinks", "getMostRecentJournalBefore", "getBlocksByStatus", "getConfig", "updateConfig", "getOrCreateJournal", "exportTreeMarkdown", "importTreeMarkdown", "getBookmarks", "createBookmarkGroup", "createBookmark", "deleteBookmark", "deleteBookmarkGroup", "moveBookmark", "moveBookmarkGroup", "updateBookmarkGroup", "getChildPages"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
@@ -2952,6 +2961,8 @@ export const petajournal = $root.petajournal = (() => {
                 $root.petajournal.MoveBookmarkGroupRequest.encode(message.moveBookmarkGroup, writer.uint32(/* id 86, wireType 2 =*/690).fork()).ldelim();
             if (message.updateBookmarkGroup != null && Object.hasOwnProperty.call(message, "updateBookmarkGroup"))
                 $root.petajournal.UpdateBookmarkGroupRequest.encode(message.updateBookmarkGroup, writer.uint32(/* id 87, wireType 2 =*/698).fork()).ldelim();
+            if (message.getChildPages != null && Object.hasOwnProperty.call(message, "getChildPages"))
+                $root.petajournal.GetChildPagesRequest.encode(message.getChildPages, writer.uint32(/* id 90, wireType 2 =*/722).fork()).ldelim();
             return writer;
         };
 
@@ -3102,6 +3113,10 @@ export const petajournal = $root.petajournal = (() => {
                     }
                 case 87: {
                         message.updateBookmarkGroup = $root.petajournal.UpdateBookmarkGroupRequest.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 90: {
+                        message.getChildPages = $root.petajournal.GetChildPagesRequest.decode(reader, reader.uint32());
                         break;
                     }
                 default:
@@ -3421,6 +3436,16 @@ export const petajournal = $root.petajournal = (() => {
                         return "updateBookmarkGroup." + error;
                 }
             }
+            if (message.getChildPages != null && message.hasOwnProperty("getChildPages")) {
+                if (properties.payload === 1)
+                    return "payload: multiple values";
+                properties.payload = 1;
+                {
+                    let error = $root.petajournal.GetChildPagesRequest.verify(message.getChildPages);
+                    if (error)
+                        return "getChildPages." + error;
+                }
+            }
             return null;
         };
 
@@ -3577,6 +3602,11 @@ export const petajournal = $root.petajournal = (() => {
                 if (typeof object.updateBookmarkGroup !== "object")
                     throw TypeError(".petajournal.ApiRequest.updateBookmarkGroup: object expected");
                 message.updateBookmarkGroup = $root.petajournal.UpdateBookmarkGroupRequest.fromObject(object.updateBookmarkGroup);
+            }
+            if (object.getChildPages != null) {
+                if (typeof object.getChildPages !== "object")
+                    throw TypeError(".petajournal.ApiRequest.getChildPages: object expected");
+                message.getChildPages = $root.petajournal.GetChildPagesRequest.fromObject(object.getChildPages);
             }
             return message;
         };
@@ -3738,6 +3768,11 @@ export const petajournal = $root.petajournal = (() => {
                 if (options.oneofs)
                     object.payload = "updateBookmarkGroup";
             }
+            if (message.getChildPages != null && message.hasOwnProperty("getChildPages")) {
+                object.getChildPages = $root.petajournal.GetChildPagesRequest.toObject(message.getChildPages, options);
+                if (options.oneofs)
+                    object.payload = "getChildPages";
+            }
             return object;
         };
 
@@ -3807,6 +3842,7 @@ export const petajournal = $root.petajournal = (() => {
          * @property {petajournal.IMoveBookmarkResponse|null} [moveBookmark] ApiResponse moveBookmark
          * @property {petajournal.IMoveBookmarkGroupResponse|null} [moveBookmarkGroup] ApiResponse moveBookmarkGroup
          * @property {petajournal.IUpdateBookmarkGroupResponse|null} [updateBookmarkGroup] ApiResponse updateBookmarkGroup
+         * @property {petajournal.IGetChildPagesResponse|null} [getChildPages] ApiResponse getChildPages
          * @property {petajournal.IServerEvent|null} [serverEvent] ApiResponse serverEvent
          */
 
@@ -4074,6 +4110,14 @@ export const petajournal = $root.petajournal = (() => {
         ApiResponse.prototype.updateBookmarkGroup = null;
 
         /**
+         * ApiResponse getChildPages.
+         * @member {petajournal.IGetChildPagesResponse|null|undefined} getChildPages
+         * @memberof petajournal.ApiResponse
+         * @instance
+         */
+        ApiResponse.prototype.getChildPages = null;
+
+        /**
          * ApiResponse serverEvent.
          * @member {petajournal.IServerEvent|null|undefined} serverEvent
          * @memberof petajournal.ApiResponse
@@ -4086,12 +4130,12 @@ export const petajournal = $root.petajournal = (() => {
 
         /**
          * ApiResponse payload.
-         * @member {"getPageById"|"getOrCreateDoc"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getOrCreateJournal"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"exportTreeMarkdown"|"importTreeMarkdown"|"getBookmarks"|"createBookmarkGroup"|"createBookmark"|"deleteBookmark"|"deleteBookmarkGroup"|"moveBookmark"|"moveBookmarkGroup"|"updateBookmarkGroup"|"serverEvent"|undefined} payload
+         * @member {"getPageById"|"getOrCreateDoc"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getOrCreateJournal"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"exportTreeMarkdown"|"importTreeMarkdown"|"getBookmarks"|"createBookmarkGroup"|"createBookmark"|"deleteBookmark"|"deleteBookmarkGroup"|"moveBookmark"|"moveBookmarkGroup"|"updateBookmarkGroup"|"getChildPages"|"serverEvent"|undefined} payload
          * @memberof petajournal.ApiResponse
          * @instance
          */
         Object.defineProperty(ApiResponse.prototype, "payload", {
-            get: $util.oneOfGetter($oneOfFields = ["getPageById", "getOrCreateDoc", "deletePage", "updatePage", "createBlock", "updateBlock", "moveBlocks", "deleteBlock", "updateBlockStatus", "searchPageNames", "searchFullText", "getRecentPages", "getBacklinks", "getMostRecentJournalBefore", "getOrCreateJournal", "getBlocksByStatus", "getConfig", "updateConfig", "exportTreeMarkdown", "importTreeMarkdown", "getBookmarks", "createBookmarkGroup", "createBookmark", "deleteBookmark", "deleteBookmarkGroup", "moveBookmark", "moveBookmarkGroup", "updateBookmarkGroup", "serverEvent"]),
+            get: $util.oneOfGetter($oneOfFields = ["getPageById", "getOrCreateDoc", "deletePage", "updatePage", "createBlock", "updateBlock", "moveBlocks", "deleteBlock", "updateBlockStatus", "searchPageNames", "searchFullText", "getRecentPages", "getBacklinks", "getMostRecentJournalBefore", "getOrCreateJournal", "getBlocksByStatus", "getConfig", "updateConfig", "exportTreeMarkdown", "importTreeMarkdown", "getBookmarks", "createBookmarkGroup", "createBookmark", "deleteBookmark", "deleteBookmarkGroup", "moveBookmark", "moveBookmarkGroup", "updateBookmarkGroup", "getChildPages", "serverEvent"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
@@ -4181,6 +4225,8 @@ export const petajournal = $root.petajournal = (() => {
                 $root.petajournal.MoveBookmarkGroupResponse.encode(message.moveBookmarkGroup, writer.uint32(/* id 86, wireType 2 =*/690).fork()).ldelim();
             if (message.updateBookmarkGroup != null && Object.hasOwnProperty.call(message, "updateBookmarkGroup"))
                 $root.petajournal.UpdateBookmarkGroupResponse.encode(message.updateBookmarkGroup, writer.uint32(/* id 87, wireType 2 =*/698).fork()).ldelim();
+            if (message.getChildPages != null && Object.hasOwnProperty.call(message, "getChildPages"))
+                $root.petajournal.GetChildPagesResponse.encode(message.getChildPages, writer.uint32(/* id 90, wireType 2 =*/722).fork()).ldelim();
             if (message.serverEvent != null && Object.hasOwnProperty.call(message, "serverEvent"))
                 $root.petajournal.ServerEvent.encode(message.serverEvent, writer.uint32(/* id 100, wireType 2 =*/802).fork()).ldelim();
             return writer;
@@ -4341,6 +4387,10 @@ export const petajournal = $root.petajournal = (() => {
                     }
                 case 87: {
                         message.updateBookmarkGroup = $root.petajournal.UpdateBookmarkGroupResponse.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 90: {
+                        message.getChildPages = $root.petajournal.GetChildPagesResponse.decode(reader, reader.uint32());
                         break;
                     }
                 case 100: {
@@ -4670,6 +4720,16 @@ export const petajournal = $root.petajournal = (() => {
                         return "updateBookmarkGroup." + error;
                 }
             }
+            if (message.getChildPages != null && message.hasOwnProperty("getChildPages")) {
+                if (properties.payload === 1)
+                    return "payload: multiple values";
+                properties.payload = 1;
+                {
+                    let error = $root.petajournal.GetChildPagesResponse.verify(message.getChildPages);
+                    if (error)
+                        return "getChildPages." + error;
+                }
+            }
             if (message.serverEvent != null && message.hasOwnProperty("serverEvent")) {
                 if (properties.payload === 1)
                     return "payload: multiple values";
@@ -4840,6 +4900,11 @@ export const petajournal = $root.petajournal = (() => {
                 if (typeof object.updateBookmarkGroup !== "object")
                     throw TypeError(".petajournal.ApiResponse.updateBookmarkGroup: object expected");
                 message.updateBookmarkGroup = $root.petajournal.UpdateBookmarkGroupResponse.fromObject(object.updateBookmarkGroup);
+            }
+            if (object.getChildPages != null) {
+                if (typeof object.getChildPages !== "object")
+                    throw TypeError(".petajournal.ApiResponse.getChildPages: object expected");
+                message.getChildPages = $root.petajournal.GetChildPagesResponse.fromObject(object.getChildPages);
             }
             if (object.serverEvent != null) {
                 if (typeof object.serverEvent !== "object")
@@ -5012,6 +5077,11 @@ export const petajournal = $root.petajournal = (() => {
                 object.updateBookmarkGroup = $root.petajournal.UpdateBookmarkGroupResponse.toObject(message.updateBookmarkGroup, options);
                 if (options.oneofs)
                     object.payload = "updateBookmarkGroup";
+            }
+            if (message.getChildPages != null && message.hasOwnProperty("getChildPages")) {
+                object.getChildPages = $root.petajournal.GetChildPagesResponse.toObject(message.getChildPages, options);
+                if (options.oneofs)
+                    object.payload = "getChildPages";
             }
             if (message.serverEvent != null && message.hasOwnProperty("serverEvent")) {
                 object.serverEvent = $root.petajournal.ServerEvent.toObject(message.serverEvent, options);
@@ -17953,6 +18023,437 @@ export const petajournal = $root.petajournal = (() => {
         };
 
         return UpdateBookmarkGroupResponse;
+    })();
+
+    petajournal.GetChildPagesRequest = (function() {
+
+        /**
+         * Properties of a GetChildPagesRequest.
+         * @memberof petajournal
+         * @interface IGetChildPagesRequest
+         * @property {string|null} [parentId] GetChildPagesRequest parentId
+         */
+
+        /**
+         * Constructs a new GetChildPagesRequest.
+         * @memberof petajournal
+         * @classdesc Represents a GetChildPagesRequest.
+         * @implements IGetChildPagesRequest
+         * @constructor
+         * @param {petajournal.IGetChildPagesRequest=} [properties] Properties to set
+         */
+        function GetChildPagesRequest(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * GetChildPagesRequest parentId.
+         * @member {string} parentId
+         * @memberof petajournal.GetChildPagesRequest
+         * @instance
+         */
+        GetChildPagesRequest.prototype.parentId = "";
+
+        /**
+         * Creates a new GetChildPagesRequest instance using the specified properties.
+         * @function create
+         * @memberof petajournal.GetChildPagesRequest
+         * @static
+         * @param {petajournal.IGetChildPagesRequest=} [properties] Properties to set
+         * @returns {petajournal.GetChildPagesRequest} GetChildPagesRequest instance
+         */
+        GetChildPagesRequest.create = function create(properties) {
+            return new GetChildPagesRequest(properties);
+        };
+
+        /**
+         * Encodes the specified GetChildPagesRequest message. Does not implicitly {@link petajournal.GetChildPagesRequest.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.GetChildPagesRequest
+         * @static
+         * @param {petajournal.IGetChildPagesRequest} message GetChildPagesRequest message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        GetChildPagesRequest.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.parentId != null && Object.hasOwnProperty.call(message, "parentId"))
+                writer.uint32(/* id 1, wireType 2 =*/10).string(message.parentId);
+            return writer;
+        };
+
+        /**
+         * Encodes the specified GetChildPagesRequest message, length delimited. Does not implicitly {@link petajournal.GetChildPagesRequest.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof petajournal.GetChildPagesRequest
+         * @static
+         * @param {petajournal.IGetChildPagesRequest} message GetChildPagesRequest message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        GetChildPagesRequest.encodeDelimited = function encodeDelimited(message, writer) {
+            return this.encode(message, writer).ldelim();
+        };
+
+        /**
+         * Decodes a GetChildPagesRequest message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.GetChildPagesRequest
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.GetChildPagesRequest} GetChildPagesRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        GetChildPagesRequest.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.GetChildPagesRequest();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.parentId = reader.string();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Decodes a GetChildPagesRequest message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof petajournal.GetChildPagesRequest
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {petajournal.GetChildPagesRequest} GetChildPagesRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        GetChildPagesRequest.decodeDelimited = function decodeDelimited(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies a GetChildPagesRequest message.
+         * @function verify
+         * @memberof petajournal.GetChildPagesRequest
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        GetChildPagesRequest.verify = function verify(message) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            if (message.parentId != null && message.hasOwnProperty("parentId"))
+                if (!$util.isString(message.parentId))
+                    return "parentId: string expected";
+            return null;
+        };
+
+        /**
+         * Creates a GetChildPagesRequest message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof petajournal.GetChildPagesRequest
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {petajournal.GetChildPagesRequest} GetChildPagesRequest
+         */
+        GetChildPagesRequest.fromObject = function fromObject(object) {
+            if (object instanceof $root.petajournal.GetChildPagesRequest)
+                return object;
+            let message = new $root.petajournal.GetChildPagesRequest();
+            if (object.parentId != null)
+                message.parentId = String(object.parentId);
+            return message;
+        };
+
+        /**
+         * Creates a plain object from a GetChildPagesRequest message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof petajournal.GetChildPagesRequest
+         * @static
+         * @param {petajournal.GetChildPagesRequest} message GetChildPagesRequest
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        GetChildPagesRequest.toObject = function toObject(message, options) {
+            if (!options)
+                options = {};
+            let object = {};
+            if (options.defaults)
+                object.parentId = "";
+            if (message.parentId != null && message.hasOwnProperty("parentId"))
+                object.parentId = message.parentId;
+            return object;
+        };
+
+        /**
+         * Converts this GetChildPagesRequest to JSON.
+         * @function toJSON
+         * @memberof petajournal.GetChildPagesRequest
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        GetChildPagesRequest.prototype.toJSON = function toJSON() {
+            return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        /**
+         * Gets the default type url for GetChildPagesRequest
+         * @function getTypeUrl
+         * @memberof petajournal.GetChildPagesRequest
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        GetChildPagesRequest.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.GetChildPagesRequest";
+        };
+
+        return GetChildPagesRequest;
+    })();
+
+    petajournal.GetChildPagesResponse = (function() {
+
+        /**
+         * Properties of a GetChildPagesResponse.
+         * @memberof petajournal
+         * @interface IGetChildPagesResponse
+         * @property {Array.<petajournal.IPage>|null} [pages] GetChildPagesResponse pages
+         */
+
+        /**
+         * Constructs a new GetChildPagesResponse.
+         * @memberof petajournal
+         * @classdesc Represents a GetChildPagesResponse.
+         * @implements IGetChildPagesResponse
+         * @constructor
+         * @param {petajournal.IGetChildPagesResponse=} [properties] Properties to set
+         */
+        function GetChildPagesResponse(properties) {
+            this.pages = [];
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * GetChildPagesResponse pages.
+         * @member {Array.<petajournal.IPage>} pages
+         * @memberof petajournal.GetChildPagesResponse
+         * @instance
+         */
+        GetChildPagesResponse.prototype.pages = $util.emptyArray;
+
+        /**
+         * Creates a new GetChildPagesResponse instance using the specified properties.
+         * @function create
+         * @memberof petajournal.GetChildPagesResponse
+         * @static
+         * @param {petajournal.IGetChildPagesResponse=} [properties] Properties to set
+         * @returns {petajournal.GetChildPagesResponse} GetChildPagesResponse instance
+         */
+        GetChildPagesResponse.create = function create(properties) {
+            return new GetChildPagesResponse(properties);
+        };
+
+        /**
+         * Encodes the specified GetChildPagesResponse message. Does not implicitly {@link petajournal.GetChildPagesResponse.verify|verify} messages.
+         * @function encode
+         * @memberof petajournal.GetChildPagesResponse
+         * @static
+         * @param {petajournal.IGetChildPagesResponse} message GetChildPagesResponse message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        GetChildPagesResponse.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.pages != null && message.pages.length)
+                for (let i = 0; i < message.pages.length; ++i)
+                    $root.petajournal.Page.encode(message.pages[i], writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+            return writer;
+        };
+
+        /**
+         * Encodes the specified GetChildPagesResponse message, length delimited. Does not implicitly {@link petajournal.GetChildPagesResponse.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof petajournal.GetChildPagesResponse
+         * @static
+         * @param {petajournal.IGetChildPagesResponse} message GetChildPagesResponse message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        GetChildPagesResponse.encodeDelimited = function encodeDelimited(message, writer) {
+            return this.encode(message, writer).ldelim();
+        };
+
+        /**
+         * Decodes a GetChildPagesResponse message from the specified reader or buffer.
+         * @function decode
+         * @memberof petajournal.GetChildPagesResponse
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {petajournal.GetChildPagesResponse} GetChildPagesResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        GetChildPagesResponse.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.petajournal.GetChildPagesResponse();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        if (!(message.pages && message.pages.length))
+                            message.pages = [];
+                        message.pages.push($root.petajournal.Page.decode(reader, reader.uint32()));
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Decodes a GetChildPagesResponse message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof petajournal.GetChildPagesResponse
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {petajournal.GetChildPagesResponse} GetChildPagesResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        GetChildPagesResponse.decodeDelimited = function decodeDelimited(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Verifies a GetChildPagesResponse message.
+         * @function verify
+         * @memberof petajournal.GetChildPagesResponse
+         * @static
+         * @param {Object.<string,*>} message Plain object to verify
+         * @returns {string|null} `null` if valid, otherwise the reason why it is not
+         */
+        GetChildPagesResponse.verify = function verify(message) {
+            if (typeof message !== "object" || message === null)
+                return "object expected";
+            if (message.pages != null && message.hasOwnProperty("pages")) {
+                if (!Array.isArray(message.pages))
+                    return "pages: array expected";
+                for (let i = 0; i < message.pages.length; ++i) {
+                    let error = $root.petajournal.Page.verify(message.pages[i]);
+                    if (error)
+                        return "pages." + error;
+                }
+            }
+            return null;
+        };
+
+        /**
+         * Creates a GetChildPagesResponse message from a plain object. Also converts values to their respective internal types.
+         * @function fromObject
+         * @memberof petajournal.GetChildPagesResponse
+         * @static
+         * @param {Object.<string,*>} object Plain object
+         * @returns {petajournal.GetChildPagesResponse} GetChildPagesResponse
+         */
+        GetChildPagesResponse.fromObject = function fromObject(object) {
+            if (object instanceof $root.petajournal.GetChildPagesResponse)
+                return object;
+            let message = new $root.petajournal.GetChildPagesResponse();
+            if (object.pages) {
+                if (!Array.isArray(object.pages))
+                    throw TypeError(".petajournal.GetChildPagesResponse.pages: array expected");
+                message.pages = [];
+                for (let i = 0; i < object.pages.length; ++i) {
+                    if (typeof object.pages[i] !== "object")
+                        throw TypeError(".petajournal.GetChildPagesResponse.pages: object expected");
+                    message.pages[i] = $root.petajournal.Page.fromObject(object.pages[i]);
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Creates a plain object from a GetChildPagesResponse message. Also converts values to other types if specified.
+         * @function toObject
+         * @memberof petajournal.GetChildPagesResponse
+         * @static
+         * @param {petajournal.GetChildPagesResponse} message GetChildPagesResponse
+         * @param {$protobuf.IConversionOptions} [options] Conversion options
+         * @returns {Object.<string,*>} Plain object
+         */
+        GetChildPagesResponse.toObject = function toObject(message, options) {
+            if (!options)
+                options = {};
+            let object = {};
+            if (options.arrays || options.defaults)
+                object.pages = [];
+            if (message.pages && message.pages.length) {
+                object.pages = [];
+                for (let j = 0; j < message.pages.length; ++j)
+                    object.pages[j] = $root.petajournal.Page.toObject(message.pages[j], options);
+            }
+            return object;
+        };
+
+        /**
+         * Converts this GetChildPagesResponse to JSON.
+         * @function toJSON
+         * @memberof petajournal.GetChildPagesResponse
+         * @instance
+         * @returns {Object.<string,*>} JSON object
+         */
+        GetChildPagesResponse.prototype.toJSON = function toJSON() {
+            return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
+        };
+
+        /**
+         * Gets the default type url for GetChildPagesResponse
+         * @function getTypeUrl
+         * @memberof petajournal.GetChildPagesResponse
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        GetChildPagesResponse.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/petajournal.GetChildPagesResponse";
+        };
+
+        return GetChildPagesResponse;
     })();
 
     petajournal.ServerEvent = (function() {

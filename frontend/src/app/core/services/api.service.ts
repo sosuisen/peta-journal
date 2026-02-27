@@ -359,6 +359,11 @@ export class ApiService {
     return toBookmarkGroup(resp.updateBookmarkGroup.group);
   }
 
+  async getChildPages(parentId: string): Promise<Page[]> {
+    const resp: any = await this.proto.send({ getChildPages: { parentId } });
+    return (resp.getChildPages.pages ?? []).map(toPage);
+  }
+
   async uploadAsset(file: File): Promise<{ fileName: string }> {
     const formData = new FormData();
     formData.append('file', file);

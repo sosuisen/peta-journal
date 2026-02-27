@@ -1,5 +1,7 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, effect, signal } from '@angular/core';
 import { RecentPagesService } from '../../core/services/recent-pages.service';
+import { CurrentPageService } from '../../core/services/current-page.service';
+import { ApiService } from '../../core/services/api.service';
 import { Page } from '../../core/models/page.model';
 import { CalendarComponent } from '../../shared/calendar';
 import { BookmarksSidebarComponent } from './bookmarks-sidebar';
@@ -35,6 +37,19 @@ import { NavigationService } from '../../core/services/navigation.service';
             Journal
           </div>
         </div>
+
+        @if (indexPages().length > 0) {
+          <div class="sidebar-section">
+            <h3 class="section-title section-title-link" (click)="goToIndex($event)">{{ indexHeader() }}</h3>
+            @for (page of indexPages(); track page.id) {
+              <div class="sidebar-item recent-page-item" (click)="goToPage(page, $event)"
+                   [class.active]="page.id === currentPageService.currentPage()?.id">
+                <svg class="page-icon" width="11" height="11"><use href="#icon-page"/></svg>
+                {{ formatIndexPageName(page) }}
+              </div>
+            }
+          </div>
+        }
 
         <div class="sidebar-section">
           <h3 class="section-title">Recent Pages</h3>
@@ -84,6 +99,14 @@ import { NavigationService } from '../../core/services/navigation.service';
       background: #edeef0;
       border-radius: 4px;
     }
+    .section-title-link {
+      cursor: pointer;
+      text-transform: none;
+    }
+    .section-title-link:hover {
+      background: #e0e2e5;
+      color: #007bff;
+    }
     .sidebar-item {
       padding: 6px 12px;
       cursor: pointer;
@@ -94,6 +117,7 @@ import { NavigationService } from '../../core/services/navigation.service';
       text-overflow: ellipsis;
     }
     .sidebar-item:hover { background: #e9ecef; }
+    .sidebar-item.active { background: #e2e6ea; font-weight: 600; }
     .journal-link { display: flex; align-items: center; gap: 6px; }
     .recent-page-item { display: flex; align-items: center; gap: 6px; justify-content: flex-start; }
     .page-icon { flex-shrink: 0; color: #666; }
@@ -123,9 +147,61 @@ import { NavigationService } from '../../core/services/navigation.service';
 })
 export class SidebarComponent implements OnInit {
   readonly recentPages = inject(RecentPagesService);
+  readonly currentPageService = inject(CurrentPageService);
+  private readonly api = inject(ApiService);
   private readonly router = inject(Router);
   private readonly nav = inject(NavigationService);
   readonly today = formatDateToIso(new Date());
+
+  readonly indexHeader = signal('');
+  readonly indexPages = signal<Page[]>([]);
+
+  constructor() {
+    effect(() => {
+      const page = this.currentPageService.currentPage();
+      if (!page || !page.dirPath) {
+        this.indexHeader.set('');
+        this.indexPages.set([]);
+        return;
+      }
+      this.loadIndexPages(page);
+    });
+  }
+
+  private async loadIndexPages(page: Page): Promise<void> {
+    if (page.name === 'index') {
+      // Index page: show its dirPath, list children
+      this.indexHeader.set(page.dirPath);
+      const children = await this.api.getChildPages(page.id);
+      this.indexPages.set(children);
+    } else if (page.parentId) {
+      // Non-index page: show parent's dirPath, list siblings
+      const parent = await this.api.getPageById(page.parentId);
+      this.indexHeader.set(parent.page.dirPath);
+      const siblings = await this.api.getChildPages(page.parentId);
+      this.indexPages.set(siblings);
+    } else {
+      this.indexHeader.set('');
+      this.indexPages.set([]);
+    }
+  }
+
+  goToIndex(event: MouseEvent): void {
+    const header = this.indexHeader();
+    if (header) {
+      this.nav.navigateToPage(header + 'index', event.ctrlKey || event.metaKey);
+    }
+  }
+
+  formatIndexPageName(page: Page): string {
+    if (page.name === 'index') {
+      // Show last segment of dirPath: "a/b/c/" → "c/"
+      const trimmed = page.dirPath.endsWith('/') ? page.dirPath.slice(0, -1) : page.dirPath;
+      const lastSlash = trimmed.lastIndexOf('/');
+      return (lastSlash < 0 ? trimmed : trimmed.substring(lastSlash + 1)) + '/';
+    }
+    return page.name;
+  }
 
   /** Loads the recent pages list on component initialization. */
   ngOnInit(): void {

@@ -43,6 +43,7 @@ message ApiRequest {
     MoveBookmarkRequest move_bookmark = 85;
     MoveBookmarkGroupRequest move_bookmark_group = 86;
     UpdateBookmarkGroupRequest update_bookmark_group = 87;
+    GetChildPagesRequest get_child_pages = 90;
   }
 }
 
@@ -80,6 +81,7 @@ message ApiResponse {
     MoveBookmarkResponse move_bookmark = 85;
     MoveBookmarkGroupResponse move_bookmark_group = 86;
     UpdateBookmarkGroupResponse update_bookmark_group = 87;
+    GetChildPagesResponse get_child_pages = 90;
     ServerEvent server_event = 100;
   }
 }
@@ -356,6 +358,16 @@ message UpdateBookmarkGroupRequest {
 
 message UpdateBookmarkGroupResponse {
   BookmarkGroup group = 1;
+}
+
+// --- Child pages ---
+
+message GetChildPagesRequest {
+  string parent_id = 1;            // UUID of the parent page
+}
+
+message GetChildPagesResponse {
+  repeated Page pages = 1;         // Child pages sorted by name
 }
 
 // --- Server-pushed events ---

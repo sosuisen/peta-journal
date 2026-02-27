@@ -308,6 +308,19 @@ public class SqlitePageRepository implements PageRepository {
         }
     }
 
+    @Override
+    public List<Page> findByParentId(UUID parentId) {
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "SELECT id, parent_id, dir_path, name, type, created_date, modified_date " +
+                     "FROM pages WHERE parent_id = ? ORDER BY name")) {
+            ps.setString(1, parentId.toString());
+            return mapPages(conn, ps);
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to find pages by parent_id: " + parentId, e);
+        }
+    }
+
     /**
      * Resolves the parent page ID from a dir_path.
      * "" → null (root)
