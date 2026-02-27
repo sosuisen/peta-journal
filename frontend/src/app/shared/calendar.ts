@@ -88,7 +88,7 @@ interface CalendarWeek {
     .week-label, .week-number {
       font-size: 9px;
       color: #aaa;
-      padding: 2px 4px 2px 0;
+      padding: 0 4px 0 0;
       text-align: right;
       border-right: 1px solid #ddd;
     }
@@ -103,10 +103,10 @@ interface CalendarWeek {
     .day-label {
       font-size: 10px;
       color: #888;
-      padding: 2px;
+      padding: 0;
     }
     .day-cell {
-      padding: 3px;
+      padding: 0;
       cursor: pointer;
       border-radius: 4px;
       font-size: 11px;
@@ -181,10 +181,12 @@ export class CalendarComponent {
       result.push({ date, day: d, isCurrentMonth: true, isToday: date === today, isSelected: date === selected });
     }
 
-    const remaining = 42 - result.length;
-    for (let d = 1; d <= remaining; d++) {
-      const date = this.formatDate(year, month + 1, d);
-      result.push({ date, day: d, isCurrentMonth: false, isToday: date === today, isSelected: date === selected });
+    const remainder = result.length % 7;
+    if (remainder > 0) {
+      for (let d = 1; d <= 7 - remainder; d++) {
+        const date = this.formatDate(year, month + 1, d);
+        result.push({ date, day: d, isCurrentMonth: false, isToday: date === today, isSelected: date === selected });
+      }
     }
 
     return result;

@@ -70,9 +70,9 @@ import { NavigationService } from '../../core/services/navigation.service';
     .sidebar-content {
       flex: 1;
       overflow-y: auto;
-      padding: 12px;
+      padding: 4px 12px 12px;
     }
-    .sidebar-section { margin-bottom: 20px; }
+    .sidebar-section { margin-bottom: 8px; }
     app-calendar { display: block; }
     .section-title {
       font-size: 11px;
