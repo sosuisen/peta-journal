@@ -8,9 +8,12 @@ export type ConnectionState = 'connecting' | 'connected' | 'disconnected' | 'err
 
 let ws: WebSocket | null = null;
 let requestId = 0;
-const pending = new Map<string, { resolve: (r: petajournal.IApiResponse) => void; reject: (e: Error) => void }>();
+const pending = new Map<string, { resolve: (r: petajournal.IApiResponse) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> }>();
 let stateCallback: ((state: ConnectionState) => void) | null = null;
 let serverEventCallback: ((event: petajournal.IServerEvent) => void) | null = null;
+
+const REQUEST_TIMEOUT_MS = 30_000;
+const CONNECT_TIMEOUT_MS = 10_000;
 
 /** Registers a callback invoked whenever the WebSocket connection state changes. */
 export function onConnectionStateChange(cb: (state: ConnectionState) => void): void {
@@ -29,7 +32,7 @@ function buildWebSocketUrl(): string {
   return `ws://${host}:${port}/ws`;
 }
 
-/** Opens a WebSocket connection to the server. Resolves when connected. */
+/** Opens a WebSocket connection to the server. Resolves when connected, rejects on timeout or error. */
 export function connect(): Promise<void> {
   return new Promise((resolve, reject) => {
     if (ws && ws.readyState === WebSocket.OPEN) {
@@ -40,30 +43,42 @@ export function connect(): Promise<void> {
     ws = new WebSocket(buildWebSocketUrl());
     ws.binaryType = 'arraybuffer';
 
-    ws.onopen = () => { stateCallback?.('connected'); resolve(); };
-    ws.onerror = (e) => { stateCallback?.('error'); reject(e); };
+    const timeout = setTimeout(() => {
+      ws?.close();
+      reject(new Error('Connection timeout'));
+    }, CONNECT_TIMEOUT_MS);
+
+    ws.onopen = () => { clearTimeout(timeout); stateCallback?.('connected'); resolve(); };
+    ws.onerror = (e) => { clearTimeout(timeout); stateCallback?.('error'); reject(e); };
 
     ws.onmessage = (event) => {
-      const data = new Uint8Array(event.data as ArrayBuffer);
-      const response = ApiResponse.decode(data);
+      try {
+        const data = new Uint8Array(event.data as ArrayBuffer);
+        const response = ApiResponse.decode(data);
 
-      // Handle server-pushed events (no requestId)
-      if (!response.requestId && response.serverEvent) {
-        serverEventCallback?.(response.serverEvent);
-        return;
-      }
+        // Handle server-pushed events (no requestId)
+        if (!response.requestId && response.serverEvent) {
+          serverEventCallback?.(response.serverEvent);
+          return;
+        }
 
-      const id = response.requestId;
-      const p = pending.get(id);
-      if (p) {
-        pending.delete(id);
-        p.resolve(response);
+        const id = response.requestId;
+        const p = pending.get(id);
+        if (p) {
+          clearTimeout(p.timer);
+          pending.delete(id);
+          p.resolve(response);
+        }
+      } catch (e) {
+        console.error('Failed to decode WebSocket message', e);
       }
     };
 
     ws.onclose = () => {
+      clearTimeout(timeout);
       ws = null;
       for (const [, p] of pending) {
+        clearTimeout(p.timer);
         p.reject(new Error('WebSocket closed'));
       }
       pending.clear();
@@ -81,7 +96,11 @@ function sendRequest(payload: Partial<petajournal.IApiRequest>): Promise<petajou
     const id = String(++requestId);
     const request = ApiRequest.create({ requestId: id, ...payload });
     const bytes = ApiRequest.encode(request).finish();
-    pending.set(id, { resolve, reject });
+    const timer = setTimeout(() => {
+      pending.delete(id);
+      reject(new Error('Request timeout'));
+    }, REQUEST_TIMEOUT_MS);
+    pending.set(id, { resolve, reject, timer });
     ws.send(bytes);
   });
 }

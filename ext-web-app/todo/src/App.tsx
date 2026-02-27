@@ -91,6 +91,16 @@ export default function App() {
     }
   }, [showTodo, showRunning, showDone, fromDate]);
 
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const scheduleRetry = useCallback(() => {
+    if (retryTimer.current) return; // already scheduled
+    retryTimer.current = setTimeout(() => {
+      retryTimer.current = null;
+      connectWithRetry();
+    }, 3000);
+  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
+
   const connectWithRetry = useCallback(() => {
     setError('');
     connect()
@@ -101,7 +111,7 @@ export default function App() {
       })
       .catch(() => {
         connectedRef.current = false;
-        setTimeout(connectWithRetry, 3000);
+        scheduleRetry();
       });
   }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -110,11 +120,14 @@ export default function App() {
       setConnectionState(state);
       if (state === 'disconnected' || state === 'error') {
         connectedRef.current = false;
-        setTimeout(connectWithRetry, 3000);
+        scheduleRetry();
       }
     });
     connectWithRetry();
-  }, [connectWithRetry]);
+    return () => {
+      if (retryTimer.current) clearTimeout(retryTimer.current);
+    };
+  }, [connectWithRetry]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const connected = connectionState === 'connected';
 
