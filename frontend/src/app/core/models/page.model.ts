@@ -6,5 +6,4 @@ export interface Page {
   createdDate: number;
   modifiedDate: number;
   tags: string[];
-  propertiesJson: string;
 }

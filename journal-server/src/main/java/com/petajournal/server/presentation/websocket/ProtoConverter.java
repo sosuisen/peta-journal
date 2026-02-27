@@ -20,8 +20,7 @@ final class ProtoConverter {
                 .setFileName(page.fileName())
                 .setType(page.type() != null ? page.type() : "doc")
                 .setCreatedDate(Timestamp.newBuilder().setMillis(page.createdDate().toEpochMilli()).build())
-                .setModifiedDate(Timestamp.newBuilder().setMillis(page.modifiedDate().toEpochMilli()).build())
-                .setPropertiesJson(page.propertiesJson() != null ? page.propertiesJson() : "{}");
+                .setModifiedDate(Timestamp.newBuilder().setMillis(page.modifiedDate().toEpochMilli()).build());
         if (page.tags() != null) {
             b.addAllTags(page.tags());
         }
@@ -42,8 +41,7 @@ final class ProtoConverter {
                 .setBody(block.body())
                 .setHtml(block.html())
                 .setCollapsed(block.collapsed())
-                .setStatus(block.status() != null ? block.status() : "normal")
-                .setPropertiesJson(block.propertiesJson() != null ? block.propertiesJson() : "{}");
+                .setStatus(block.status() != null ? block.status() : "normal");
         if (block.types() != null) {
             b.addAllTypes(block.types());
         }

@@ -52,7 +52,7 @@ public class ImportService {
                     block.id(), block.pageId(), block.dirPath(), block.fileName(), block.type(),
                     block.createdDate(), block.modifiedDate(),
                     block.idx(), block.level(), block.body(), html,
-                    block.collapsed(), block.status(), block.types(), block.propertiesJson()
+                    block.collapsed(), block.status(), block.types()
             );
             blockRepository.save(withHtml);
             searchService.indexBlock(withHtml, page.fileName());

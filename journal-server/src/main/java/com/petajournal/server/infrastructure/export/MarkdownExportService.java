@@ -158,16 +158,6 @@ public class MarkdownExportService {
             sb.append("<!-- collapsed=true -->\n");
         }
 
-        String props = block.propertiesJson();
-        if (props != null && !props.isEmpty() && !"{}".equals(props)) {
-            // Parse simple JSON properties {"key":"value",...} and write each as a comment
-            java.util.regex.Matcher m = java.util.regex.Pattern
-                    .compile("\"(\\w+)\"\\s*:\\s*\"([^\"]*)\"")
-                    .matcher(props);
-            while (m.find()) {
-                sb.append("<!-- ").append(m.group(1)).append("=").append(m.group(2)).append(" -->\n");
-            }
-        }
     }
 
     private void writeWithLock(Path path, String content) throws IOException {

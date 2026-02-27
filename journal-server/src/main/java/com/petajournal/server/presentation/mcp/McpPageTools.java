@@ -52,7 +52,7 @@ public class McpPageTools {
         List<String> tagList = (tags == null || tags.isEmpty()) ? null : List.of(tags.split(","));
         String t = (title == null || title.isEmpty()) ? null : title;
         String d = (dirPath == null) ? null : dirPath;
-        var page = pageService.updatePage(UUID.fromString(pageId), t, tagList, null, d);
+        var page = pageService.updatePage(UUID.fromString(pageId), t, tagList, d);
         return jsonHelper.toJson(Map.of("page", page));
     }
 

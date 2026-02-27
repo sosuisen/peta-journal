@@ -16,5 +16,4 @@ message Page {
   Timestamp created_date = 4;
   Timestamp modified_date = 5;
   repeated string tags = 6;
-  string properties_json = 8;      // Extensible JSON properties
 }

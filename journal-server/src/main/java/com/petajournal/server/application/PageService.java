@@ -113,14 +113,14 @@ public class PageService {
         UUID id = UUID.randomUUID();
         Instant now = Instant.now();
 
-        Page page = new Page(id, dir, fileName, "doc", now, now, tags != null ? tags : List.of(), "{}");
+        Page page = new Page(id, dir, fileName, "doc", now, now, tags != null ? tags : List.of());
         page = pageRepository.save(page);
         searchService.indexPage(page);
 
         // Create initial empty block
         UUID blockId = BlockIdGenerator.generate();
         Block block = new Block(blockId, id, page.dirPath(), page.fileName(), page.type(), now, now,
-                FractionalIndexer.initial(), 1, "", "", false, "normal", List.of(), "{}");
+                FractionalIndexer.initial(), 1, "", "", false, "normal", List.of());
         blockRepository.save(block);
 
         // Queue for export
@@ -135,13 +135,12 @@ public class PageService {
      * @param pageId         the page to update
      * @param title          new title, or {@code null} to keep current
      * @param tags           new tags, or {@code null} to keep current
-     * @param propertiesJson new properties JSON, or {@code null} to keep current
      * @param dirPath        new directory path, or {@code null} to keep current
      * @return the updated page
      * @throws IllegalArgumentException if the page is not found or the title is
      *                                  invalid
      */
-    public Page updatePage(UUID pageId, String title, List<String> tags, String propertiesJson, String dirPath) {
+    public Page updatePage(UUID pageId, String title, List<String> tags, String dirPath) {
         Page existing = pageRepository.findById(pageId)
                 .orElseThrow(() -> new IllegalArgumentException("Page not found: " + pageId));
 
@@ -169,8 +168,7 @@ public class PageService {
                 existing.type(),
                 existing.createdDate(),
                 Instant.now(),
-                tags != null ? tags : existing.tags(),
-                propertiesJson != null ? propertiesJson : existing.propertiesJson());
+                tags != null ? tags : existing.tags());
 
         updated = pageRepository.save(updated);
         searchService.indexPage(updated);
@@ -251,13 +249,13 @@ public class PageService {
             if (existing.isEmpty()) {
                 UUID id = UUID.randomUUID();
                 Instant now = Instant.now();
-                Page page = new Page(id, indexDir, "index", "doc", now, now, List.of(), "{}");
+                Page page = new Page(id, indexDir, "index", "doc", now, now, List.of());
                 pageRepository.save(page);
                 searchService.indexPage(page);
 
                 UUID blockId = BlockIdGenerator.generate();
                 Block block = new Block(blockId, id, indexDir, "index", "doc", now, now,
-                        FractionalIndexer.initial(), 1, "", "", false, "normal", List.of(), "{}");
+                        FractionalIndexer.initial(), 1, "", "", false, "normal", List.of());
                 blockRepository.save(block);
             }
         }

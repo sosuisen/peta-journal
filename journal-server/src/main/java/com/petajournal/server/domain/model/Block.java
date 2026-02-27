@@ -18,6 +18,5 @@ public record Block(
     String html,         // Parsed HTML
     boolean collapsed,
     String status,       // Block status: normal, todo, running, done
-    List<String> types,  // Block types (e.g. "heading", "code")
-    String propertiesJson
+    List<String> types   // Block types (e.g. "heading", "code")
 ) {}

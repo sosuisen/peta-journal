@@ -32,8 +32,7 @@ public class OutlineMarkdownParser {
         String body,
         boolean collapsed,
         List<String> types,
-        String status,
-        String propertiesJson
+        String status
     ) {}
 
     public ParseResult parse(String markdown) {
@@ -76,7 +75,7 @@ public class OutlineMarkdownParser {
             }
         }
 
-        return new Page(id, dirPath, fileName, type, created, modified, tags, "{}");
+        return new Page(id, dirPath, fileName, type, created, modified, tags);
     }
 
     public List<Block> toBlocks(ParseResult result, UUID pageId, String dirPath, String fileName, String type) {
@@ -100,7 +99,7 @@ public class OutlineMarkdownParser {
             blocks.add(new Block(
                     blockId, pageId, dirPath, fileName, type, now, now, idx,
                     pb.level(), pb.body(), "",
-                    pb.collapsed(), pb.status(), pb.types(), pb.propertiesJson()
+                    pb.collapsed(), pb.status(), pb.types()
             ));
             prevIdx = idx;
         }
@@ -167,7 +166,6 @@ public class OutlineMarkdownParser {
         int currentLevel = 1;
         boolean currentCollapsed = false;
         List<String> currentBodyLines = new ArrayList<>();
-        Map<String, String> currentProps = new LinkedHashMap<>();
         boolean hasContent = false;
 
         for (String line : lines) {
@@ -179,12 +177,11 @@ public class OutlineMarkdownParser {
             // Blank line outside code fence → flush current block
             if (line.isEmpty() && !inCodeFence) {
                 if (hasContent) {
-                    blocks.add(buildParsedBlock(currentId, currentLevel, currentBodyLines, currentCollapsed, currentProps));
+                    blocks.add(buildParsedBlock(currentId, currentLevel, currentBodyLines, currentCollapsed));
                     currentId = null;
                     currentLevel = 1;
                     currentCollapsed = false;
                     currentBodyLines = new ArrayList<>();
-                    currentProps = new LinkedHashMap<>();
                     hasContent = false;
                 }
                 continue;
@@ -213,11 +210,9 @@ public class OutlineMarkdownParser {
                     continue;
                 }
 
+                // Silently discard any remaining property comments from old exports
                 Matcher propMatcher = PROP_COMMENT.matcher(line);
                 if (propMatcher.matches()) {
-                    String key = propMatcher.group(1);
-                    String value = propMatcher.group(2);
-                    currentProps.put(key, value);
                     hasContent = true;
                     continue;
                 }
@@ -230,13 +225,13 @@ public class OutlineMarkdownParser {
 
         // Flush last block
         if (hasContent) {
-            blocks.add(buildParsedBlock(currentId, currentLevel, currentBodyLines, currentCollapsed, currentProps));
+            blocks.add(buildParsedBlock(currentId, currentLevel, currentBodyLines, currentCollapsed));
         }
 
         return blocks;
     }
 
-    private ParsedBlock buildParsedBlock(String id, int level, List<String> bodyLines, boolean collapsed, Map<String, String> props) {
+    private ParsedBlock buildParsedBlock(String id, int level, List<String> bodyLines, boolean collapsed) {
         String body = String.join("\n", bodyLines);
 
         // Whitespace-only body → empty
@@ -261,20 +256,6 @@ public class OutlineMarkdownParser {
         if (trimmed.startsWith("```")) types.add("code");
         if (trimmed.startsWith(">")) types.add("blockquote");
 
-        // Build properties JSON
-        String propsJson = "{}";
-        if (!props.isEmpty()) {
-            StringBuilder pj = new StringBuilder("{");
-            boolean first = true;
-            for (var entry : props.entrySet()) {
-                if (!first) pj.append(",");
-                pj.append("\"").append(entry.getKey()).append("\":\"").append(entry.getValue()).append("\"");
-                first = false;
-            }
-            pj.append("}");
-            propsJson = pj.toString();
-        }
-
-        return new ParsedBlock(id, level, body, collapsed, types, status, propsJson);
+        return new ParsedBlock(id, level, body, collapsed, types, status);
     }
 }

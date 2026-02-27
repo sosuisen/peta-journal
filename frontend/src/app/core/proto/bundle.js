@@ -248,7 +248,6 @@ export const petajournal = $root.petajournal = (() => {
          * @property {petajournal.ITimestamp|null} [createdDate] Page createdDate
          * @property {petajournal.ITimestamp|null} [modifiedDate] Page modifiedDate
          * @property {Array.<string>|null} [tags] Page tags
-         * @property {string|null} [propertiesJson] Page propertiesJson
          */
 
         /**
@@ -324,14 +323,6 @@ export const petajournal = $root.petajournal = (() => {
         Page.prototype.tags = $util.emptyArray;
 
         /**
-         * Page propertiesJson.
-         * @member {string} propertiesJson
-         * @memberof petajournal.Page
-         * @instance
-         */
-        Page.prototype.propertiesJson = "";
-
-        /**
          * Creates a new Page instance using the specified properties.
          * @function create
          * @memberof petajournal.Page
@@ -368,8 +359,6 @@ export const petajournal = $root.petajournal = (() => {
             if (message.tags != null && message.tags.length)
                 for (let i = 0; i < message.tags.length; ++i)
                     writer.uint32(/* id 6, wireType 2 =*/50).string(message.tags[i]);
-            if (message.propertiesJson != null && Object.hasOwnProperty.call(message, "propertiesJson"))
-                writer.uint32(/* id 8, wireType 2 =*/66).string(message.propertiesJson);
             if (message.type != null && Object.hasOwnProperty.call(message, "type"))
                 writer.uint32(/* id 9, wireType 2 =*/74).string(message.type);
             return writer;
@@ -438,10 +427,6 @@ export const petajournal = $root.petajournal = (() => {
                         message.tags.push(reader.string());
                         break;
                     }
-                case 8: {
-                        message.propertiesJson = reader.string();
-                        break;
-                    }
                 default:
                     reader.skipType(tag & 7);
                     break;
@@ -506,9 +491,6 @@ export const petajournal = $root.petajournal = (() => {
                     if (!$util.isString(message.tags[i]))
                         return "tags: string[] expected";
             }
-            if (message.propertiesJson != null && message.hasOwnProperty("propertiesJson"))
-                if (!$util.isString(message.propertiesJson))
-                    return "propertiesJson: string expected";
             return null;
         };
 
@@ -549,8 +531,6 @@ export const petajournal = $root.petajournal = (() => {
                 for (let i = 0; i < object.tags.length; ++i)
                     message.tags[i] = String(object.tags[i]);
             }
-            if (object.propertiesJson != null)
-                message.propertiesJson = String(object.propertiesJson);
             return message;
         };
 
@@ -575,7 +555,6 @@ export const petajournal = $root.petajournal = (() => {
                 object.fileName = "";
                 object.createdDate = null;
                 object.modifiedDate = null;
-                object.propertiesJson = "";
                 object.type = "";
             }
             if (message.id != null && message.hasOwnProperty("id"))
@@ -593,8 +572,6 @@ export const petajournal = $root.petajournal = (() => {
                 for (let j = 0; j < message.tags.length; ++j)
                     object.tags[j] = message.tags[j];
             }
-            if (message.propertiesJson != null && message.hasOwnProperty("propertiesJson"))
-                object.propertiesJson = message.propertiesJson;
             if (message.type != null && message.hasOwnProperty("type"))
                 object.type = message.type;
             return object;
@@ -649,7 +626,6 @@ export const petajournal = $root.petajournal = (() => {
          * @property {boolean|null} [collapsed] Block collapsed
          * @property {string|null} [status] Block status
          * @property {Array.<string>|null} [types] Block types
-         * @property {string|null} [propertiesJson] Block propertiesJson
          */
 
         /**
@@ -781,14 +757,6 @@ export const petajournal = $root.petajournal = (() => {
         Block.prototype.types = $util.emptyArray;
 
         /**
-         * Block propertiesJson.
-         * @member {string} propertiesJson
-         * @memberof petajournal.Block
-         * @instance
-         */
-        Block.prototype.propertiesJson = "";
-
-        /**
          * Creates a new Block instance using the specified properties.
          * @function create
          * @memberof petajournal.Block
@@ -839,8 +807,6 @@ export const petajournal = $root.petajournal = (() => {
             if (message.types != null && message.types.length)
                 for (let i = 0; i < message.types.length; ++i)
                     writer.uint32(/* id 13, wireType 2 =*/106).string(message.types[i]);
-            if (message.propertiesJson != null && Object.hasOwnProperty.call(message, "propertiesJson"))
-                writer.uint32(/* id 14, wireType 2 =*/114).string(message.propertiesJson);
             if (message.type != null && Object.hasOwnProperty.call(message, "type"))
                 writer.uint32(/* id 15, wireType 2 =*/122).string(message.type);
             return writer;
@@ -937,10 +903,6 @@ export const petajournal = $root.petajournal = (() => {
                         message.types.push(reader.string());
                         break;
                     }
-                case 14: {
-                        message.propertiesJson = reader.string();
-                        break;
-                    }
                 default:
                     reader.skipType(tag & 7);
                     break;
@@ -1026,9 +988,6 @@ export const petajournal = $root.petajournal = (() => {
                     if (!$util.isString(message.types[i]))
                         return "types: string[] expected";
             }
-            if (message.propertiesJson != null && message.hasOwnProperty("propertiesJson"))
-                if (!$util.isString(message.propertiesJson))
-                    return "propertiesJson: string expected";
             return null;
         };
 
@@ -1083,8 +1042,6 @@ export const petajournal = $root.petajournal = (() => {
                 for (let i = 0; i < object.types.length; ++i)
                     message.types[i] = String(object.types[i]);
             }
-            if (object.propertiesJson != null)
-                message.propertiesJson = String(object.propertiesJson);
             return message;
         };
 
@@ -1116,7 +1073,6 @@ export const petajournal = $root.petajournal = (() => {
                 object.html = "";
                 object.collapsed = false;
                 object.status = "";
-                object.propertiesJson = "";
                 object.type = "";
             }
             if (message.id != null && message.hasOwnProperty("id"))
@@ -1148,8 +1104,6 @@ export const petajournal = $root.petajournal = (() => {
                 for (let j = 0; j < message.types.length; ++j)
                     object.types[j] = message.types[j];
             }
-            if (message.propertiesJson != null && message.hasOwnProperty("propertiesJson"))
-                object.propertiesJson = message.propertiesJson;
             if (message.type != null && message.hasOwnProperty("type"))
                 object.type = message.type;
             return object;
@@ -6472,7 +6426,6 @@ export const petajournal = $root.petajournal = (() => {
          * @property {string|null} [pageId] UpdatePageRequest pageId
          * @property {string|null} [title] UpdatePageRequest title
          * @property {Array.<string>|null} [tags] UpdatePageRequest tags
-         * @property {string|null} [propertiesJson] UpdatePageRequest propertiesJson
          * @property {string|null} [dirPath] UpdatePageRequest dirPath
          */
 
@@ -6515,14 +6468,6 @@ export const petajournal = $root.petajournal = (() => {
          * @instance
          */
         UpdatePageRequest.prototype.tags = $util.emptyArray;
-
-        /**
-         * UpdatePageRequest propertiesJson.
-         * @member {string} propertiesJson
-         * @memberof petajournal.UpdatePageRequest
-         * @instance
-         */
-        UpdatePageRequest.prototype.propertiesJson = "";
 
         /**
          * UpdatePageRequest dirPath.
@@ -6578,8 +6523,6 @@ export const petajournal = $root.petajournal = (() => {
             if (message.tags != null && message.tags.length)
                 for (let i = 0; i < message.tags.length; ++i)
                     writer.uint32(/* id 3, wireType 2 =*/26).string(message.tags[i]);
-            if (message.propertiesJson != null && Object.hasOwnProperty.call(message, "propertiesJson"))
-                writer.uint32(/* id 4, wireType 2 =*/34).string(message.propertiesJson);
             if (message.dirPath != null && Object.hasOwnProperty.call(message, "dirPath"))
                 writer.uint32(/* id 5, wireType 2 =*/42).string(message.dirPath);
             return writer;
@@ -6630,10 +6573,6 @@ export const petajournal = $root.petajournal = (() => {
                         if (!(message.tags && message.tags.length))
                             message.tags = [];
                         message.tags.push(reader.string());
-                        break;
-                    }
-                case 4: {
-                        message.propertiesJson = reader.string();
                         break;
                     }
                 case 5: {
@@ -6691,9 +6630,6 @@ export const petajournal = $root.petajournal = (() => {
                     if (!$util.isString(message.tags[i]))
                         return "tags: string[] expected";
             }
-            if (message.propertiesJson != null && message.hasOwnProperty("propertiesJson"))
-                if (!$util.isString(message.propertiesJson))
-                    return "propertiesJson: string expected";
             if (message.dirPath != null && message.hasOwnProperty("dirPath")) {
                 properties._dirPath = 1;
                 if (!$util.isString(message.dirPath))
@@ -6725,8 +6661,6 @@ export const petajournal = $root.petajournal = (() => {
                 for (let i = 0; i < object.tags.length; ++i)
                     message.tags[i] = String(object.tags[i]);
             }
-            if (object.propertiesJson != null)
-                message.propertiesJson = String(object.propertiesJson);
             if (object.dirPath != null)
                 message.dirPath = String(object.dirPath);
             return message;
@@ -6747,10 +6681,8 @@ export const petajournal = $root.petajournal = (() => {
             let object = {};
             if (options.arrays || options.defaults)
                 object.tags = [];
-            if (options.defaults) {
+            if (options.defaults)
                 object.pageId = "";
-                object.propertiesJson = "";
-            }
             if (message.pageId != null && message.hasOwnProperty("pageId"))
                 object.pageId = message.pageId;
             if (message.title != null && message.hasOwnProperty("title")) {
@@ -6763,8 +6695,6 @@ export const petajournal = $root.petajournal = (() => {
                 for (let j = 0; j < message.tags.length; ++j)
                     object.tags[j] = message.tags[j];
             }
-            if (message.propertiesJson != null && message.hasOwnProperty("propertiesJson"))
-                object.propertiesJson = message.propertiesJson;
             if (message.dirPath != null && message.hasOwnProperty("dirPath")) {
                 object.dirPath = message.dirPath;
                 if (options.oneofs)
@@ -7531,7 +7461,6 @@ export const petajournal = $root.petajournal = (() => {
          * @property {number|null} [level] UpdateBlockRequest level
          * @property {boolean|null} [collapsed] UpdateBlockRequest collapsed
          * @property {string|null} [status] UpdateBlockRequest status
-         * @property {string|null} [propertiesJson] UpdateBlockRequest propertiesJson
          */
 
         /**
@@ -7589,14 +7518,6 @@ export const petajournal = $root.petajournal = (() => {
          */
         UpdateBlockRequest.prototype.status = null;
 
-        /**
-         * UpdateBlockRequest propertiesJson.
-         * @member {string|null|undefined} propertiesJson
-         * @memberof petajournal.UpdateBlockRequest
-         * @instance
-         */
-        UpdateBlockRequest.prototype.propertiesJson = null;
-
         // OneOf field names bound to virtual getters and setters
         let $oneOfFields;
 
@@ -7621,12 +7542,6 @@ export const petajournal = $root.petajournal = (() => {
         // Virtual OneOf for proto3 optional field
         Object.defineProperty(UpdateBlockRequest.prototype, "_status", {
             get: $util.oneOfGetter($oneOfFields = ["status"]),
-            set: $util.oneOfSetter($oneOfFields)
-        });
-
-        // Virtual OneOf for proto3 optional field
-        Object.defineProperty(UpdateBlockRequest.prototype, "_propertiesJson", {
-            get: $util.oneOfGetter($oneOfFields = ["propertiesJson"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
@@ -7664,8 +7579,6 @@ export const petajournal = $root.petajournal = (() => {
                 writer.uint32(/* id 4, wireType 0 =*/32).bool(message.collapsed);
             if (message.status != null && Object.hasOwnProperty.call(message, "status"))
                 writer.uint32(/* id 5, wireType 2 =*/42).string(message.status);
-            if (message.propertiesJson != null && Object.hasOwnProperty.call(message, "propertiesJson"))
-                writer.uint32(/* id 6, wireType 2 =*/50).string(message.propertiesJson);
             return writer;
         };
 
@@ -7720,10 +7633,6 @@ export const petajournal = $root.petajournal = (() => {
                     }
                 case 5: {
                         message.status = reader.string();
-                        break;
-                    }
-                case 6: {
-                        message.propertiesJson = reader.string();
                         break;
                     }
                 default:
@@ -7785,11 +7694,6 @@ export const petajournal = $root.petajournal = (() => {
                 if (!$util.isString(message.status))
                     return "status: string expected";
             }
-            if (message.propertiesJson != null && message.hasOwnProperty("propertiesJson")) {
-                properties._propertiesJson = 1;
-                if (!$util.isString(message.propertiesJson))
-                    return "propertiesJson: string expected";
-            }
             return null;
         };
 
@@ -7815,8 +7719,6 @@ export const petajournal = $root.petajournal = (() => {
                 message.collapsed = Boolean(object.collapsed);
             if (object.status != null)
                 message.status = String(object.status);
-            if (object.propertiesJson != null)
-                message.propertiesJson = String(object.propertiesJson);
             return message;
         };
 
@@ -7856,11 +7758,6 @@ export const petajournal = $root.petajournal = (() => {
                 object.status = message.status;
                 if (options.oneofs)
                     object._status = "status";
-            }
-            if (message.propertiesJson != null && message.hasOwnProperty("propertiesJson")) {
-                object.propertiesJson = message.propertiesJson;
-                if (options.oneofs)
-                    object._propertiesJson = "propertiesJson";
             }
             return object;
         };

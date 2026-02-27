@@ -33,8 +33,7 @@ public class DatabaseInitializer {
                     file_name TEXT NOT NULL,
                     type TEXT NOT NULL DEFAULT 'doc',
                     created_date INTEGER NOT NULL,
-                    modified_date INTEGER NOT NULL,
-                    properties_json TEXT DEFAULT '{}'
+                    modified_date INTEGER NOT NULL
                 )
                 """);
 
@@ -59,7 +58,6 @@ public class DatabaseInitializer {
                     html TEXT NOT NULL DEFAULT '',
                     collapsed INTEGER NOT NULL DEFAULT 0,
                     status TEXT NOT NULL DEFAULT 'normal' CHECK(status IN ('normal', 'todo', 'running', 'done')),
-                    properties_json TEXT DEFAULT '{}',
                     FOREIGN KEY (page_id) REFERENCES pages(id) ON DELETE CASCADE
                 )
                 """);

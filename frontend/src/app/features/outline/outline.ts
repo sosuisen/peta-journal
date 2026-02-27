@@ -426,7 +426,6 @@ export class OutlineComponent implements OnDestroy {
         collapsed: false,
         status: 'normal',
         types: [],
-        propertiesJson: '',
       };
       this.api.createBlock(block.pageId, afterBlockId, newLevel, '', newId);
       this.state.addBlock(optimisticBlock, afterBlockId);

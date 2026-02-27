@@ -25,7 +25,6 @@ function toPage(p: any): Page {
     createdDate: p.createdDate?.millis?.toNumber?.() ?? Number(p.createdDate?.millis ?? 0),
     modifiedDate: p.modifiedDate?.millis?.toNumber?.() ?? Number(p.modifiedDate?.millis ?? 0),
     tags: p.tags ?? [],
-    propertiesJson: p.propertiesJson ?? '',
   };
 }
 
@@ -45,7 +44,6 @@ function toBlock(b: any): Block {
     collapsed: b.collapsed ?? false,
     status: b.status ?? 'normal',
     types: b.types ?? [],
-    propertiesJson: b.propertiesJson ?? '',
   };
 }
 
@@ -154,7 +152,7 @@ export class ApiService {
    * @param updates - An object with optional fields to update.
    * @returns The updated block.
    */
-  async updateBlock(blockId: string, updates: { body?: string; level?: number; collapsed?: boolean; propertiesJson?: string }): Promise<Block> {
+  async updateBlock(blockId: string, updates: { body?: string; level?: number; collapsed?: boolean }): Promise<Block> {
     const resp: any = await this.proto.send({ updateBlock: { blockId, ...updates } });
     return toBlock(resp.updateBlock.block);
   }

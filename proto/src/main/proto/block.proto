@@ -23,5 +23,4 @@ message Block {
   bool collapsed = 11;              // Whether children are collapsed
   string status = 12;              // Block status: normal, todo, running, done
   repeated string types = 13;      // Block types (e.g. "heading", "code")
-  string properties_json = 14;     // Extensible JSON properties
 }

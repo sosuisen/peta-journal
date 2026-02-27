@@ -13,5 +13,4 @@ export interface Block {
   collapsed: boolean;
   status: string;  // normal, todo, running, done
   types: string[];
-  propertiesJson: string;
 }

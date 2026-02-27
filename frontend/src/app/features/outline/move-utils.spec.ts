@@ -19,7 +19,6 @@ function b(id: string, level: number): Block {
     collapsed: false,
     status: 'normal',
     types: [],
-    propertiesJson: '',
   };
 }
 

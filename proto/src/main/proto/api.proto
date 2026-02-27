@@ -118,7 +118,6 @@ message UpdatePageRequest {
   string page_id = 1;
   optional string title = 2;       // Update first title
   repeated string tags = 3;
-  string properties_json = 4;
   optional string dir_path = 5;
 }
 
@@ -146,7 +145,6 @@ message UpdateBlockRequest {
   optional int32 level = 3;
   optional bool collapsed = 4;
   optional string status = 5;
-  optional string properties_json = 6;
 }
 
 message UpdateBlockResponse {

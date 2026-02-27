@@ -201,7 +201,6 @@ public class JournalWebSocket {
                 UUID.fromString(req.getPageId()),
                 req.hasTitle() ? req.getTitle() : null,
                 req.getTagsList().isEmpty() ? null : req.getTagsList(),
-                req.getPropertiesJson().isEmpty() ? null : req.getPropertiesJson(),
                 req.hasDirPath() ? req.getDirPath() : null
         );
         return UpdatePageResponse.newBuilder()
@@ -229,8 +228,7 @@ public class JournalWebSocket {
                 req.hasBody() ? req.getBody() : null,
                 req.hasLevel() ? req.getLevel() : null,
                 req.hasCollapsed() ? req.getCollapsed() : null,
-                req.hasStatus() ? req.getStatus() : null,
-                req.hasPropertiesJson() ? req.getPropertiesJson() : null
+                req.hasStatus() ? req.getStatus() : null
         );
         return UpdateBlockResponse.newBuilder()
                 .setBlock(ProtoConverter.toProto(block))

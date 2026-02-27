@@ -45,7 +45,7 @@ public class McpBlockTools {
         Integer lvl = (level < 1) ? null : level;
         Boolean col = "null".equals(collapsed) ? null : Boolean.parseBoolean(collapsed);
         String st = "null".equals(status) ? null : status;
-        var block = blockService.updateBlock(UUID.fromString(blockId), body, lvl, col, st, null);
+        var block = blockService.updateBlock(UUID.fromString(blockId), body, lvl, col, st);
         return jsonHelper.toJson(Map.of("block", block));
     }
 

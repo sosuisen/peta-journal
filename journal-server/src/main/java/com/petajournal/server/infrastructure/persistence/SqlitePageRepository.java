@@ -31,7 +31,7 @@ public class SqlitePageRepository implements PageRepository {
 
     private Optional<Page> findByIdInternal(Connection conn, UUID id) throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement(
-                "SELECT id, dir_path, file_name, type, created_date, modified_date, properties_json FROM pages WHERE id = ?")) {
+                "SELECT id, dir_path, file_name, type, created_date, modified_date FROM pages WHERE id = ?")) {
             ps.setString(1, id.toString());
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) return Optional.empty();
@@ -46,7 +46,7 @@ public class SqlitePageRepository implements PageRepository {
 
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT id, dir_path, file_name, type, created_date, modified_date, properties_json FROM pages " +
+                     "SELECT id, dir_path, file_name, type, created_date, modified_date FROM pages " +
                      "WHERE type = 'journal' AND dir_path = '' AND file_name = ?")) {
             ps.setString(1, fileName);
             try (ResultSet rs = ps.executeQuery()) {
@@ -64,7 +64,7 @@ public class SqlitePageRepository implements PageRepository {
 
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT id, dir_path, file_name, type, created_date, modified_date, properties_json FROM pages " +
+                     "SELECT id, dir_path, file_name, type, created_date, modified_date FROM pages " +
                      "WHERE type = 'journal' AND dir_path = '' AND file_name < ? AND file_name GLOB '????-??-??' " +
                      "ORDER BY file_name DESC LIMIT 1")) {
             ps.setString(1, fileName);
@@ -82,7 +82,7 @@ public class SqlitePageRepository implements PageRepository {
         LOG.debugv("findByTypeDirPathFileName: type={0}, dirPath=[{1}], fileName={2}", type, dirPath, fileName);
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT id, dir_path, file_name, type, created_date, modified_date, properties_json FROM pages " +
+                     "SELECT id, dir_path, file_name, type, created_date, modified_date FROM pages " +
                      "WHERE type = ? AND dir_path = ? AND file_name = ?")) {
             ps.setString(1, type);
             ps.setString(2, dirPath);
@@ -103,7 +103,7 @@ public class SqlitePageRepository implements PageRepository {
 
     @Override
     public List<Page> findRecent(int maxResults, String type) {
-        String sql = "SELECT id, dir_path, file_name, type, created_date, modified_date, properties_json FROM pages";
+        String sql = "SELECT id, dir_path, file_name, type, created_date, modified_date FROM pages";
         if (type != null) {
             sql += " WHERE type = ?";
         }
@@ -125,7 +125,7 @@ public class SqlitePageRepository implements PageRepository {
     public List<Page> findAll() {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT id, dir_path, file_name, type, created_date, modified_date, properties_json FROM pages ORDER BY modified_date DESC")) {
+                     "SELECT id, dir_path, file_name, type, created_date, modified_date FROM pages ORDER BY modified_date DESC")) {
             return mapPages(conn, ps);
         } catch (SQLException e) {
             throw new RuntimeException("Failed to find all pages", e);
@@ -136,7 +136,7 @@ public class SqlitePageRepository implements PageRepository {
     public List<Page> findByTitle(String titleQuery) {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT id, dir_path, file_name, type, created_date, modified_date, properties_json " +
+                     "SELECT id, dir_path, file_name, type, created_date, modified_date " +
                      "FROM pages WHERE file_name LIKE ? ORDER BY modified_date DESC LIMIT 20")) {
             ps.setString(1, "%" + titleQuery + "%");
             return mapPages(conn, ps);
@@ -154,21 +154,19 @@ public class SqlitePageRepository implements PageRepository {
             try {
                 // Upsert page
                 try (PreparedStatement ps = conn.prepareStatement(
-                        "INSERT INTO pages (id, dir_path, file_name, type, created_date, modified_date, properties_json) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?) " +
-                        "ON CONFLICT(id) DO UPDATE SET dir_path=?, file_name=?, type=?, modified_date=?, properties_json=?")) {
+                        "INSERT INTO pages (id, dir_path, file_name, type, created_date, modified_date) " +
+                        "VALUES (?, ?, ?, ?, ?, ?) " +
+                        "ON CONFLICT(id) DO UPDATE SET dir_path=?, file_name=?, type=?, modified_date=?")) {
                     ps.setString(1, page.id().toString());
                     ps.setString(2, page.dirPath());
                     ps.setString(3, page.fileName());
                     ps.setString(4, page.type());
                     ps.setLong(5, page.createdDate().toEpochMilli());
                     ps.setLong(6, page.modifiedDate().toEpochMilli());
-                    ps.setString(7, page.propertiesJson());
-                    ps.setString(8, page.dirPath());
-                    ps.setString(9, page.fileName());
-                    ps.setString(10, page.type());
-                    ps.setLong(11, page.modifiedDate().toEpochMilli());
-                    ps.setString(12, page.propertiesJson());
+                    ps.setString(7, page.dirPath());
+                    ps.setString(8, page.fileName());
+                    ps.setString(9, page.type());
+                    ps.setLong(10, page.modifiedDate().toEpochMilli());
                     ps.executeUpdate();
                 }
 
@@ -216,7 +214,7 @@ public class SqlitePageRepository implements PageRepository {
         if (maxResults <= 0) maxResults = 20;
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT id, dir_path, file_name, type, created_date, modified_date, properties_json " +
+                     "SELECT id, dir_path, file_name, type, created_date, modified_date " +
                      "FROM pages WHERE (dir_path || file_name) LIKE ? || '%' " +
                      "ORDER BY modified_date DESC LIMIT ?")) {
             ps.setString(1, query);
@@ -232,7 +230,7 @@ public class SqlitePageRepository implements PageRepository {
         if (maxResults <= 0) maxResults = 20;
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT id, dir_path, file_name, type, created_date, modified_date, properties_json " +
+                     "SELECT id, dir_path, file_name, type, created_date, modified_date " +
                      "FROM pages WHERE (dir_path || file_name) LIKE '%' || ? || '%' " +
                      "ORDER BY modified_date DESC LIMIT ?")) {
             ps.setString(1, query);
@@ -250,7 +248,7 @@ public class SqlitePageRepository implements PageRepository {
         // Pattern: %query/ matches "query/" and "dir1/query/"
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT id, dir_path, file_name, type, created_date, modified_date, properties_json " +
+                     "SELECT id, dir_path, file_name, type, created_date, modified_date " +
                      "FROM pages WHERE file_name = 'index' AND " +
                      "(dir_path = ? || '/' OR dir_path LIKE '%/' || ? || '/') " +
                      "ORDER BY length(dir_path) ASC LIMIT ?")) {
@@ -313,8 +311,7 @@ public class SqlitePageRepository implements PageRepository {
                 rs.getString("type"),
                 Instant.ofEpochMilli(rs.getLong("created_date")),
                 Instant.ofEpochMilli(rs.getLong("modified_date")),
-                loadTags(conn, id),
-                rs.getString("properties_json")
+                loadTags(conn, id)
         );
     }
 

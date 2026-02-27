@@ -75,7 +75,7 @@ public class BlockService {
         // Get page to get dir_path and file_name
         Page page = pageRepository.findById(pageId).orElseThrow(() -> new IllegalArgumentException("Page not found: " + pageId));
 
-        Block block = new Block(id, pageId, page.dirPath(), page.fileName(), page.type(), now, now, idx, level, body, html, false, status, types, "{}");
+        Block block = new Block(id, pageId, page.dirPath(), page.fileName(), page.type(), now, now, idx, level, body, html, false, status, types);
         block = blockRepository.save(block);
 
         // Update page modified date
@@ -98,11 +98,10 @@ public class BlockService {
      * @param level          new indentation level, or {@code null} to keep current
      * @param collapsed      new collapsed state, or {@code null} to keep current
      * @param status         new status, or {@code null} to keep current
-     * @param propertiesJson new properties JSON, or {@code null} to keep current
      * @return the updated block
      * @throws IllegalArgumentException if the block is not found
      */
-    public Block updateBlock(UUID blockId, String body, Integer level, Boolean collapsed, String status, String propertiesJson) {
+    public Block updateBlock(UUID blockId, String body, Integer level, Boolean collapsed, String status) {
         Block existing = blockRepository.findById(blockId)
                 .orElseThrow(() -> new IllegalArgumentException("Block not found: " + blockId));
 
@@ -111,7 +110,6 @@ public class BlockService {
         int newLevel = level != null ? level : existing.level();
         boolean newCollapsed = collapsed != null ? collapsed : existing.collapsed();
         String newStatus = status != null ? status : existing.status();
-        String newProps = propertiesJson != null ? propertiesJson : existing.propertiesJson();
         List<String> types = body != null ? detectBlockTypes(body) : existing.types();
 
         Block updated = new Block(
@@ -128,8 +126,7 @@ public class BlockService {
                 newHtml,
                 newCollapsed,
                 newStatus,
-                types,
-                newProps
+                types
         );
 
         updated = blockRepository.save(updated);
@@ -205,8 +202,7 @@ public class BlockService {
                     block.html(),
                     block.collapsed(),
                     block.status(),
-                    block.types(),
-                    block.propertiesJson()
+                    block.types()
             );
 
             moved = blockRepository.save(moved);
@@ -269,7 +265,7 @@ public class BlockService {
         if (!List.of("normal", "todo", "running", "done").contains(status)) {
             throw new IllegalArgumentException("Invalid status: " + status);
         }
-        return updateBlock(blockId, null, null, null, status, null);
+        return updateBlock(blockId, null, null, null, status);
     }
 
     /** Result of exporting blocks as tree markdown. */
@@ -348,7 +344,7 @@ public class BlockService {
             Page updated = new Page(
                     page.id(), page.dirPath(), page.fileName(), page.type(),
                     page.createdDate(), Instant.now(),
-                    page.tags(), page.propertiesJson()
+                    page.tags()
             );
             pageRepository.save(updated);
         });

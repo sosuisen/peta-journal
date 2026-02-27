@@ -123,9 +123,6 @@ export namespace petajournal {
 
         /** Page tags */
         tags?: (string[]|null);
-
-        /** Page propertiesJson */
-        propertiesJson?: (string|null);
     }
 
     /** Represents a Page. */
@@ -157,9 +154,6 @@ export namespace petajournal {
 
         /** Page tags. */
         public tags: string[];
-
-        /** Page propertiesJson. */
-        public propertiesJson: string;
 
         /**
          * Creates a new Page instance using the specified properties.
@@ -283,9 +277,6 @@ export namespace petajournal {
 
         /** Block types */
         types?: (string[]|null);
-
-        /** Block propertiesJson */
-        propertiesJson?: (string|null);
     }
 
     /** Represents a Block. */
@@ -338,9 +329,6 @@ export namespace petajournal {
 
         /** Block types. */
         public types: string[];
-
-        /** Block propertiesJson. */
-        public propertiesJson: string;
 
         /**
          * Creates a new Block instance using the specified properties.
@@ -2167,9 +2155,6 @@ export namespace petajournal {
         /** UpdatePageRequest tags */
         tags?: (string[]|null);
 
-        /** UpdatePageRequest propertiesJson */
-        propertiesJson?: (string|null);
-
         /** UpdatePageRequest dirPath */
         dirPath?: (string|null);
     }
@@ -2191,9 +2176,6 @@ export namespace petajournal {
 
         /** UpdatePageRequest tags. */
         public tags: string[];
-
-        /** UpdatePageRequest propertiesJson. */
-        public propertiesJson: string;
 
         /** UpdatePageRequest dirPath. */
         public dirPath?: (string|null);
@@ -2608,9 +2590,6 @@ export namespace petajournal {
 
         /** UpdateBlockRequest status */
         status?: (string|null);
-
-        /** UpdateBlockRequest propertiesJson */
-        propertiesJson?: (string|null);
     }
 
     /** Represents an UpdateBlockRequest. */
@@ -2636,9 +2615,6 @@ export namespace petajournal {
 
         /** UpdateBlockRequest status. */
         public status?: (string|null);
-
-        /** UpdateBlockRequest propertiesJson. */
-        public propertiesJson?: (string|null);
 
         /**
          * Creates a new UpdateBlockRequest instance using the specified properties.

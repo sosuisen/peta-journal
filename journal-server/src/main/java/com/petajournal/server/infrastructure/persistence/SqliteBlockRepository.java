@@ -22,7 +22,7 @@ public class SqliteBlockRepository implements BlockRepository {
     public Optional<Block> findById(UUID id) {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT b.id, b.page_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.html, b.collapsed, b.status, b.properties_json, " +
+                     "SELECT b.id, b.page_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.html, b.collapsed, b.status, " +
                      "p.dir_path, p.file_name, p.type " +
                      "FROM blocks b JOIN pages p ON b.page_id = p.id WHERE b.id = ?")) {
             ps.setString(1, id.toString());
@@ -40,7 +40,7 @@ public class SqliteBlockRepository implements BlockRepository {
         LOG.debugv("findByPageId: pageId={0}", pageId);
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT b.id, b.page_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.html, b.collapsed, b.status, b.properties_json, " +
+                     "SELECT b.id, b.page_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.html, b.collapsed, b.status, " +
                      "p.dir_path, p.file_name, p.type " +
                      "FROM blocks b JOIN pages p ON b.page_id = p.id WHERE b.page_id = ? ORDER BY b.idx")) {
             ps.setString(1, pageId.toString());
@@ -63,9 +63,9 @@ public class SqliteBlockRepository implements BlockRepository {
             conn.setAutoCommit(false);
             try {
                 try (PreparedStatement ps = conn.prepareStatement(
-                        "INSERT INTO blocks (id, page_id, created_date, modified_date, idx, level, body, html, collapsed, status, properties_json) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) " +
-                        "ON CONFLICT(id) DO UPDATE SET page_id=?, modified_date=?, idx=?, level=?, body=?, html=?, collapsed=?, status=?, properties_json=?")) {
+                        "INSERT INTO blocks (id, page_id, created_date, modified_date, idx, level, body, html, collapsed, status) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) " +
+                        "ON CONFLICT(id) DO UPDATE SET page_id=?, modified_date=?, idx=?, level=?, body=?, html=?, collapsed=?, status=?")) {
                     ps.setString(1, block.id().toString());
                     ps.setString(2, block.pageId().toString());
                     ps.setLong(3, block.createdDate().toEpochMilli());
@@ -76,17 +76,15 @@ public class SqliteBlockRepository implements BlockRepository {
                     ps.setString(8, block.html());
                     ps.setInt(9, block.collapsed() ? 1 : 0);
                     ps.setString(10, block.status());
-                    ps.setString(11, block.propertiesJson());
                     // ON CONFLICT UPDATE values
-                    ps.setString(12, block.pageId().toString());
-                    ps.setLong(13, block.modifiedDate().toEpochMilli());
-                    ps.setString(14, block.idx());
-                    ps.setInt(15, block.level());
-                    ps.setString(16, block.body());
-                    ps.setString(17, block.html());
-                    ps.setInt(18, block.collapsed() ? 1 : 0);
-                    ps.setString(19, block.status());
-                    ps.setString(20, block.propertiesJson());
+                    ps.setString(11, block.pageId().toString());
+                    ps.setLong(12, block.modifiedDate().toEpochMilli());
+                    ps.setString(13, block.idx());
+                    ps.setInt(14, block.level());
+                    ps.setString(15, block.body());
+                    ps.setString(16, block.html());
+                    ps.setInt(17, block.collapsed() ? 1 : 0);
+                    ps.setString(18, block.status());
                     ps.executeUpdate();
                 }
 
@@ -145,7 +143,7 @@ public class SqliteBlockRepository implements BlockRepository {
         String pattern = "%[[" + pageTitle + "]]%";
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT b.id, b.page_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.html, b.collapsed, b.status, b.properties_json, " +
+                     "SELECT b.id, b.page_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.html, b.collapsed, b.status, " +
                      "p.dir_path, p.file_name, p.type " +
                      "FROM blocks b JOIN pages p ON b.page_id = p.id WHERE b.body LIKE ?")) {
             ps.setString(1, pattern);
@@ -173,7 +171,7 @@ public class SqliteBlockRepository implements BlockRepository {
         }
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT b.id, b.page_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.html, b.collapsed, b.status, b.properties_json, " +
+                     "SELECT b.id, b.page_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.html, b.collapsed, b.status, " +
                      "p.dir_path, p.file_name, p.type " +
                      "FROM blocks b JOIN pages p ON b.page_id = p.id WHERE b.status IN (" + placeholders + ") ORDER BY b.created_date DESC")) {
             for (int i = 0; i < statuses.size(); i++) {
@@ -220,8 +218,7 @@ public class SqliteBlockRepository implements BlockRepository {
                 rs.getString("html"),
                 rs.getInt("collapsed") != 0,
                 rs.getString("status"),
-                loadTypes(conn, blockIdStr),
-                rs.getString("properties_json")
+                loadTypes(conn, blockIdStr)
         );
     }
 

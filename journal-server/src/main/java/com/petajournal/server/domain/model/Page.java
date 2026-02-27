@@ -11,7 +11,6 @@ public record Page(
     String type,        // "journal" or "doc"
     Instant createdDate,
     Instant modifiedDate,
-    List<String> tags,
-    String propertiesJson
+    List<String> tags
 ) {
 }

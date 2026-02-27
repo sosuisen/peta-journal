@@ -57,7 +57,7 @@ public class SqliteBookmarkRepository implements BookmarkRepository {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
                      "SELECT b.id, b.group_id, b.target_type, b.target_id, b.sort_order, b.created_at, " +
-                     "p.id AS p_id, p.dir_path, p.file_name, p.type, p.created_date, p.modified_date, p.properties_json " +
+                     "p.id AS p_id, p.dir_path, p.file_name, p.type, p.created_date, p.modified_date " +
                      "FROM bookmarks b LEFT JOIN pages p ON b.target_type = 'page' AND b.target_id = p.id " +
                      "ORDER BY b.sort_order")) {
             List<Bookmark> bookmarks = new ArrayList<>();
@@ -77,7 +77,7 @@ public class SqliteBookmarkRepository implements BookmarkRepository {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
                      "SELECT b.id, b.group_id, b.target_type, b.target_id, b.sort_order, b.created_at, " +
-                     "p.id AS p_id, p.dir_path, p.file_name, p.type, p.created_date, p.modified_date, p.properties_json " +
+                     "p.id AS p_id, p.dir_path, p.file_name, p.type, p.created_date, p.modified_date " +
                      "FROM bookmarks b LEFT JOIN pages p ON b.target_type = 'page' AND b.target_id = p.id " +
                      "WHERE b.group_id = ? ORDER BY b.sort_order")) {
             ps.setString(1, groupId.toString());
@@ -98,7 +98,7 @@ public class SqliteBookmarkRepository implements BookmarkRepository {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
                      "SELECT b.id, b.group_id, b.target_type, b.target_id, b.sort_order, b.created_at, " +
-                     "p.id AS p_id, p.dir_path, p.file_name, p.type, p.created_date, p.modified_date, p.properties_json " +
+                     "p.id AS p_id, p.dir_path, p.file_name, p.type, p.created_date, p.modified_date " +
                      "FROM bookmarks b LEFT JOIN pages p ON b.target_type = 'page' AND b.target_id = p.id " +
                      "WHERE b.target_type = ? AND b.target_id = ?")) {
             ps.setString(1, targetType);
@@ -117,7 +117,7 @@ public class SqliteBookmarkRepository implements BookmarkRepository {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
                      "SELECT b.id, b.group_id, b.target_type, b.target_id, b.sort_order, b.created_at, " +
-                     "p.id AS p_id, p.dir_path, p.file_name, p.type, p.created_date, p.modified_date, p.properties_json " +
+                     "p.id AS p_id, p.dir_path, p.file_name, p.type, p.created_date, p.modified_date " +
                      "FROM bookmarks b LEFT JOIN pages p ON b.target_type = 'page' AND b.target_id = p.id " +
                      "WHERE b.id = ?")) {
             ps.setString(1, id.toString());
@@ -272,8 +272,7 @@ public class SqliteBookmarkRepository implements BookmarkRepository {
                 rs.getString("type"),
                 Instant.ofEpochMilli(rs.getLong("created_date")),
                 Instant.ofEpochMilli(rs.getLong("modified_date")),
-                tags,
-                rs.getString("properties_json")
+                tags
         );
     }
 
