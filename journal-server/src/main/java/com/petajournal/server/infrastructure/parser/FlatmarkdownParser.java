@@ -1,6 +1,6 @@
 package com.petajournal.server.infrastructure.parser;
 
-import com.petajournal.flatmarkdown.FlatmarkdownJava;
+import com.sosuisha.flatmarkdown.FlatmarkdownJava;
 import com.petajournal.server.domain.repository.MarkdownParser;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
