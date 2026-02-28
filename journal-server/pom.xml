@@ -97,6 +97,13 @@
             <version>${lucene.version}</version>
         </dependency>
 
+        <!-- Flatmarkdown -->
+        <dependency>
+            <groupId>com.petajournal</groupId>
+            <artifactId>flatmarkdown</artifactId>
+            <version>1.0.0-SNAPSHOT</version>
+        </dependency>
+
         <!-- MCP Server -->
         <dependency>
             <groupId>io.quarkiverse.mcp</groupId>
@@ -119,6 +126,9 @@
                 <artifactId>quarkus-maven-plugin</artifactId>
                 <version>${quarkus.platform.version}</version>
                 <extensions>true</extensions>
+                <configuration>
+                    <jvmArgs>--enable-native-access=ALL-UNNAMED</jvmArgs>
+                </configuration>
                 <executions>
                     <execution>
                         <goals>

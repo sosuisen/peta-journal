@@ -266,12 +266,13 @@ export class BlockEditorComponent implements AfterViewInit, OnDestroy {
     }
 
     if (event.key === 'Enter' && event.shiftKey && !event.ctrlKey) {
-      // Shift+Enter: Insert GFM hard line break (two spaces + newline)
+      // Shift+Enter: Insert hard line break.
+      // Flatmarkdown parser treats \n as a hard line break.
       event.preventDefault();
       const before = value.substring(0, selectionStart);
       const after = value.substring(selectionEnd);
-      const newValue = before + '  \n' + after;
-      const newCursorPos = selectionStart + 3; // After the two spaces and newline
+      const newValue = before + '\n' + after;
+      const newCursorPos = selectionStart + 1; // After the newline
 
       el.value = newValue;
       el.setSelectionRange(newCursorPos, newCursorPos);
@@ -415,8 +416,7 @@ export class BlockEditorComponent implements AfterViewInit, OnDestroy {
 
     // Get both plain text and HTML from clipboard
     // Normalize \r\n to \n — textarea normalizes internally but clipboard may contain \r\n on Windows
-    // Add two spaces before newlines to keep hard line break in Markdown.
-    const text = clipboardData.getData('text/plain').replace(/\r\n?/g, '  \n');
+    const text = clipboardData.getData('text/plain').replace(/\r\n?/g, '\n');
     const html = clipboardData.getData('text/html');
 
     // Prevent default paste behavior - we'll handle it ourselves
