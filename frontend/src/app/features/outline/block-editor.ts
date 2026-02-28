@@ -414,7 +414,9 @@ export class BlockEditorComponent implements AfterViewInit, OnDestroy {
     }
 
     // Get both plain text and HTML from clipboard
-    const text = clipboardData.getData('text/plain');
+    // Normalize \r\n to \n — textarea normalizes internally but clipboard may contain \r\n on Windows
+    // Add two spaces before newlines to keep hard line break in Markdown.
+    const text = clipboardData.getData('text/plain').replace(/\r\n?/g, '  \n');
     const html = clipboardData.getData('text/html');
 
     // Prevent default paste behavior - we'll handle it ourselves
