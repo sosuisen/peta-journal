@@ -4,9 +4,14 @@
 
 <br>
 
-An open environment that loosely connects simple outliner, note-taking, task management, and knowledge tools around a local journal server.
+A headless, offline-first outliner on top of local Markdown files.
 
-- Local-first
+
+# Features
+
+PetaJournal is an open environment that loosely connects simple outliner, note-taking, task management, and knowledge tools around a local journal server.
+
+- Offline-first
 - Read and write as Markdown files
 - Local API server architecture
   - MCP built-in
@@ -14,6 +19,5 @@ An open environment that loosely connects simple outliner, note-taking, task man
   - Extension functions
 - Create independent apps using public APIs
 - Cross-app communication via the journal server
-- Index and reference other note-taking tools
 - No data storage on central remote servers; distributed multi-device sync
 - End-to-end encryption
