@@ -414,7 +414,6 @@ export class OutlineComponent implements OnDestroy {
       const optimisticBlock: Block = {
         id: newId,
         pageId: block.pageId,
-        parentBlockId: null,
         dirPath: block.dirPath,
         name: block.name,
         type: block.type,
@@ -429,7 +428,7 @@ export class OutlineComponent implements OnDestroy {
         types: [],
       };
       this.api.createBlock(block.pageId, afterBlockId, newLevel, '', newId).then(serverBlock => {
-        this.state.updateBlock(newId, { idx: serverBlock.idx, parentBlockId: serverBlock.parentBlockId });
+        this.state.updateBlock(newId, { idx: serverBlock.idx });
       });
       this.state.addBlock(optimisticBlock, afterBlockId);
 
@@ -628,7 +627,7 @@ export class OutlineComponent implements OnDestroy {
     this.undo.commit();
     const results = await Promise.all(group.map(b => this.api.updateBlock(b.id, { level: b.level + 1 })));
     for (const r of results) {
-      this.state.updateBlock(r.id, { idx: r.idx, level: r.level, parentBlockId: r.parentBlockId });
+      this.state.updateBlock(r.id, { idx: r.idx, level: r.level });
     }
   }
 
@@ -677,7 +676,7 @@ export class OutlineComponent implements OnDestroy {
         }
         const levelResults = await Promise.all(group.map(b => this.api.updateBlock(b.id, { level: b.level - 1 })));
         for (const r of levelResults) {
-          this.state.updateBlock(r.id, { idx: r.idx, level: r.level, parentBlockId: r.parentBlockId });
+          this.state.updateBlock(r.id, { idx: r.idx, level: r.level });
         }
 
         // Move after the last child (if it's not the parent itself)
@@ -713,7 +712,7 @@ export class OutlineComponent implements OnDestroy {
     this.undo.commit();
     const outdentResults = await Promise.all(group.map(b => this.api.updateBlock(b.id, { level: b.level - 1 })));
     for (const r of outdentResults) {
-      this.state.updateBlock(r.id, { idx: r.idx, level: r.level, parentBlockId: r.parentBlockId });
+      this.state.updateBlock(r.id, { idx: r.idx, level: r.level });
     }
   }
 
@@ -1506,7 +1505,7 @@ export class OutlineComponent implements OnDestroy {
     try {
       const results = await Promise.all(blocksToIndent.map(b => this.api.updateBlock(b.id, { level: b.level + 1 })));
       for (const r of results) {
-        this.state.updateBlock(r.id, { idx: r.idx, level: r.level, parentBlockId: r.parentBlockId });
+        this.state.updateBlock(r.id, { idx: r.idx, level: r.level });
       }
     } catch (e) {
       console.error('Failed to indent selected blocks:', e);
@@ -1530,7 +1529,7 @@ export class OutlineComponent implements OnDestroy {
     try {
       const results = await Promise.all(blocksToOutdent.map(b => this.api.updateBlock(b.id, { level: b.level - 1 })));
       for (const r of results) {
-        this.state.updateBlock(r.id, { idx: r.idx, level: r.level, parentBlockId: r.parentBlockId });
+        this.state.updateBlock(r.id, { idx: r.idx, level: r.level });
       }
     } catch (e) {
       console.error('Failed to outdent selected blocks:', e);
@@ -1704,7 +1703,7 @@ export class OutlineComponent implements OnDestroy {
             level: target.level,
             collapsed: target.collapsed,
           });
-          this.state.updateBlock(updated.id, { idx: updated.idx, level: updated.level, parentBlockId: updated.parentBlockId });
+          this.state.updateBlock(updated.id, { idx: updated.idx, level: updated.level });
           if (target.status !== source.status) {
             await this.api.updateBlockStatus(target.id, target.status);
           }
