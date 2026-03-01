@@ -4,10 +4,8 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using Stickies.Models;
 using Stickies.Services;
-using ProtoBlock = Petajournal.Block;
-using ProtoPage = Petajournal.Page;
-using Petajournal;
 using Windows.Graphics;
 using WinRT.Interop;
 
@@ -24,8 +22,8 @@ public sealed partial class MainWindow : Window
     private AppWindow? _appWindow;
     private bool _initialized;
     private bool _isDeactivated;
-    private ProtoPage? _currentPage;
-    private List<ProtoBlock> _currentBlocks = new();
+    private PageModel? _currentPage;
+    private List<BlockModel> _currentBlocks = new();
     private readonly HashSet<string> _collapsedBlockIds = new();
 
     public string WindowId => _windowSettings.Id;
@@ -231,7 +229,7 @@ public sealed partial class MainWindow : Window
 
     private void SearchResultsList_ItemClick(object sender, ItemClickEventArgs e)
     {
-        if (e.ClickedItem is SearchResult result)
+        if (e.ClickedItem is SearchResultModel result)
         {
             SearchPanel.Visibility = Visibility.Collapsed;
             _currentPageId = result.PageId;
@@ -332,7 +330,7 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private string BuildHtml(ProtoPage? page, IList<ProtoBlock> blocks)
+    private string BuildHtml(PageModel? page, IList<BlockModel> blocks)
     {
         // Build a set of block IDs that have children
         var hasChildrenSet = new HashSet<string>();
@@ -343,7 +341,7 @@ public sealed partial class MainWindow : Window
         }
 
         // Filter out children of collapsed blocks (same logic as frontend visibleBlocks)
-        var visibleBlocks = new List<ProtoBlock>();
+        var visibleBlocks = new List<BlockModel>();
         int skipLevel = -1;
         foreach (var block in blocks)
         {
@@ -357,7 +355,7 @@ public sealed partial class MainWindow : Window
         var blocksHtml = string.Join("\n", visibleBlocks.Select(block =>
         {
             var indent = (block.Level - 1) * 24;
-            var types = block.Types_;
+            var types = block.Types;
             var isHeading = types.Contains("heading");
             var isEmpty = string.IsNullOrWhiteSpace(block.Body);
             var hasChildren = hasChildrenSet.Contains(block.Id);

@@ -1,12 +1,12 @@
 import { Injectable, inject, signal, computed, effect, DestroyRef } from '@angular/core';
 import { ApiService } from './api.service';
-import { WebSocketService } from './websocket.service';
+import { SseService } from './sse.service';
 import { Bookmark, BookmarkGroup } from '../models/bookmark.model';
 
 @Injectable({ providedIn: 'root' })
 export class BookmarkStateService {
   private readonly api = inject(ApiService);
-  private readonly ws = inject(WebSocketService);
+  private readonly sse = inject(SseService);
   private readonly destroyRef = inject(DestroyRef);
 
   private readonly _groups = signal<BookmarkGroup[]>([]);
@@ -25,7 +25,7 @@ export class BookmarkStateService {
 
   constructor() {
     effect(() => {
-      if (this.ws.isConnected()) {
+      if (this.sse.isConnected()) {
         this.refresh();
       }
     });
@@ -56,7 +56,7 @@ export class BookmarkStateService {
       this._groups.set(result.groups);
       this._bookmarks.set(result.bookmarks);
     } catch {
-      // WebSocket may not be ready yet
+      // SSE may not be ready yet
     }
   }
 

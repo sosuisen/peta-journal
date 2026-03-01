@@ -1,65 +1,72 @@
-using System.Collections.Concurrent;
-using System.Net.WebSockets;
-using Google.Protobuf;
-using Petajournal;
+using System.Net.Http;
+using System.Net.Http.Json;
+using System.Text.Json;
+using Stickies.Models;
 
 namespace Stickies.Services;
 
 public class JournalApiService : IDisposable
 {
-    private ClientWebSocket? _ws;
-    private CancellationTokenSource? _cts;
+    private readonly HttpClient _http;
+    private CancellationTokenSource? _sseCts;
     private CancellationTokenSource? _reconnectCts;
-    private readonly ConcurrentDictionary<string, TaskCompletionSource<ApiResponse>> _pending = new();
-    private int _requestId;
-    private readonly string _host;
-    private readonly int _port;
+    private readonly string _baseUrl;
     private bool _intentionalDisconnect;
+    private bool _isConnected;
 
     private static readonly TimeSpan InitialDelay = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan MaxDelay = TimeSpan.FromSeconds(30);
+
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    };
 
     public event Action? Connected;
     public event Action? Disconnected;
     public event Action? Reconnecting;
     public event Action<string>? PageUpdated;
 
-    public string? SessionId { get; private set; }
-
     public JournalApiService(string host = "localhost", int port = 8080)
     {
-        _host = host;
-        _port = port;
+        _baseUrl = $"http://{host}:{port}";
+        _http = new HttpClient { BaseAddress = new Uri(_baseUrl) };
     }
 
-    public bool IsConnected => _ws?.State == WebSocketState.Open;
+    public bool IsConnected => _isConnected;
 
     public async Task ConnectAsync()
     {
         _intentionalDisconnect = false;
         _reconnectCts?.Cancel();
         _reconnectCts = new CancellationTokenSource();
-        await ConnectWithRetryAsync(_reconnectCts.Token);
+        await ConnectSseWithRetryAsync(_reconnectCts.Token);
     }
 
-    private async Task ConnectWithRetryAsync(CancellationToken ct)
+    private async Task ConnectSseWithRetryAsync(CancellationToken ct)
     {
         var delay = InitialDelay;
         while (!ct.IsCancellationRequested)
         {
             try
             {
-                _ws?.Dispose();
-                _ws = new ClientWebSocket();
-                _cts = new CancellationTokenSource();
-                var uri = new Uri($"ws://{_host}:{_port}/ws");
-                await _ws.ConnectAsync(uri, ct);
-                _ = Task.Run(() => ReceiveLoop(_cts.Token));
+                _sseCts?.Cancel();
+                _sseCts = new CancellationTokenSource();
+
+                // Test connectivity with a simple fetch before starting SSE
+                using var testResponse = await _http.GetAsync("/api/config", ct);
+                testResponse.EnsureSuccessStatusCode();
+
+                _isConnected = true;
                 Connected?.Invoke();
+
+                // Start SSE listener in background
+                _ = Task.Run(() => SseListenLoop(_sseCts.Token), _sseCts.Token);
                 return;
             }
             catch when (!ct.IsCancellationRequested)
             {
+                _isConnected = false;
                 Reconnecting?.Invoke();
                 try { await Task.Delay(delay, ct); }
                 catch (OperationCanceledException) { return; }
@@ -68,122 +75,94 @@ public class JournalApiService : IDisposable
         }
     }
 
-    public async Task DisconnectAsync()
+    private async Task SseListenLoop(CancellationToken ct)
     {
-        _intentionalDisconnect = true;
-        _reconnectCts?.Cancel();
-        if (_ws?.State == WebSocketState.Open)
-        {
-            await _ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "", CancellationToken.None);
-        }
-        _cts?.Cancel();
-        Disconnected?.Invoke();
-    }
-
-    private async Task<ApiResponse> SendAsync(ApiRequest request)
-    {
-        if (_ws?.State != WebSocketState.Open)
-            throw new InvalidOperationException("WebSocket is not connected");
-
-        var id = Interlocked.Increment(ref _requestId).ToString();
-        request.RequestId = id;
-
-        var tcs = new TaskCompletionSource<ApiResponse>();
-        _pending[id] = tcs;
-
-        var bytes = request.ToByteArray();
-        await _ws.SendAsync(bytes, WebSocketMessageType.Binary, true, _cts!.Token);
-
-        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        using var reg = timeoutCts.Token.Register(() => tcs.TrySetException(new TimeoutException("Request timed out")));
-
-        return await tcs.Task;
-    }
-
-    private async Task ReceiveLoop(CancellationToken ct)
-    {
-        var buffer = new byte[64 * 1024];
         try
         {
-            while (!ct.IsCancellationRequested && _ws?.State == WebSocketState.Open)
+            using var request = new HttpRequestMessage(HttpMethod.Get, "/api/events");
+            request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("text/event-stream"));
+
+            using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
+            response.EnsureSuccessStatusCode();
+
+            using var stream = await response.Content.ReadAsStreamAsync(ct);
+            using var reader = new StreamReader(stream);
+
+            string? eventType = null;
+            string? data = null;
+
+            while (!ct.IsCancellationRequested)
             {
-                using var ms = new MemoryStream();
-                WebSocketReceiveResult result;
-                do
-                {
-                    result = await _ws.ReceiveAsync(buffer, ct);
-                    ms.Write(buffer, 0, result.Count);
-                } while (!result.EndOfMessage);
+                var line = await reader.ReadLineAsync(ct);
+                if (line == null) break; // stream ended
 
-                if (result.MessageType == WebSocketMessageType.Close)
-                    break;
-
-                var response = ApiResponse.Parser.ParseFrom(ms.ToArray());
-                if (response.PayloadCase == ApiResponse.PayloadOneofCase.ServerEvent)
+                if (line.StartsWith("event:"))
                 {
-                    HandleServerEvent(response.ServerEvent);
+                    eventType = line["event:".Length..].Trim();
                 }
-                else if (_pending.TryRemove(response.RequestId, out var tcs))
+                else if (line.StartsWith("data:"))
                 {
-                    tcs.TrySetResult(response);
+                    data = line["data:".Length..].Trim();
+                }
+                else if (line.Length == 0 && eventType != null)
+                {
+                    // End of event
+                    HandleSseEvent(eventType, data);
+                    eventType = null;
+                    data = null;
                 }
             }
         }
         catch (OperationCanceledException) { }
-        catch (WebSocketException) { }
+        catch { }
         finally
         {
-            foreach (var kvp in _pending)
-            {
-                if (_pending.TryRemove(kvp.Key, out var tcs))
-                {
-                    tcs.TrySetException(new Exception("WebSocket disconnected"));
-                }
-            }
+            _isConnected = false;
             Disconnected?.Invoke();
 
             if (!_intentionalDisconnect && _reconnectCts is { IsCancellationRequested: false })
             {
-                _ = Task.Run(() => ConnectWithRetryAsync(_reconnectCts.Token));
+                _ = Task.Run(() => ConnectSseWithRetryAsync(_reconnectCts.Token));
             }
         }
     }
 
-    private void HandleServerEvent(ServerEvent serverEvent)
+    private void HandleSseEvent(string eventType, string? data)
     {
-        switch (serverEvent.EventCase)
+        if (eventType == "pagesUpdated" && data != null)
         {
-            case ServerEvent.EventOneofCase.Connected:
-                SessionId = serverEvent.Connected.SessionId;
-                break;
-            case ServerEvent.EventOneofCase.PagesUpdated:
-                PageUpdated?.Invoke(serverEvent.PagesUpdated.PageId);
-                break;
+            try
+            {
+                var json = JsonSerializer.Deserialize<JsonElement>(data);
+                if (json.TryGetProperty("pageId", out var pageIdEl))
+                {
+                    PageUpdated?.Invoke(pageIdEl.GetString() ?? "");
+                }
+            }
+            catch { }
         }
+    }
+
+    public async Task DisconnectAsync()
+    {
+        _intentionalDisconnect = true;
+        _reconnectCts?.Cancel();
+        _sseCts?.Cancel();
+        _isConnected = false;
+        Disconnected?.Invoke();
     }
 
     public async Task<SearchPageNamesResponse?> SearchPageNamesAsync(string query, int maxResults = 20)
     {
-        var request = new ApiRequest
-        {
-            SearchPageNames = new SearchPageNamesRequest
-            {
-                Query = query,
-                MaxResults = maxResults
-            }
-        };
-        var response = await SendAsync(request);
-        return response.Success ? response.SearchPageNames : null;
+        var url = $"/api/search/pages?q={Uri.EscapeDataString(query)}&maxResults={maxResults}";
+        var response = await _http.GetFromJsonAsync<SearchPageNamesResponse>(url, JsonOptions);
+        return response;
     }
 
     public async Task<GetPageByIdResponse?> GetPageByIdAsync(string pageId)
     {
-        var request = new ApiRequest
-        {
-            GetPageById = new GetPageByIdRequest { PageId = pageId }
-        };
-        var response = await SendAsync(request);
-        return response.Success ? response.GetPageById : null;
+        var response = await _http.GetFromJsonAsync<GetPageByIdResponse>($"/api/pages/{pageId}", JsonOptions);
+        return response;
     }
 
     public void Dispose()
@@ -191,8 +170,8 @@ public class JournalApiService : IDisposable
         _intentionalDisconnect = true;
         _reconnectCts?.Cancel();
         _reconnectCts?.Dispose();
-        _cts?.Cancel();
-        _ws?.Dispose();
-        _cts?.Dispose();
+        _sseCts?.Cancel();
+        _sseCts?.Dispose();
+        _http.Dispose();
     }
 }

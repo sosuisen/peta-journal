@@ -2,7 +2,7 @@ import { Component, HostListener, inject, signal, viewChild } from '@angular/cor
 import { Router, RouterOutlet } from '@angular/router';
 import { SearchBarComponent } from '../features/search/search-bar';
 import { SidebarComponent } from '../features/sidebar/sidebar';
-import { WebSocketService } from '../core/services/websocket.service';
+import { SseService } from '../core/services/sse.service';
 import { ApiService } from '../core/services/api.service';
 import { RecentPagesService } from '../core/services/recent-pages.service';
 import { NavigationService } from '../core/services/navigation.service';
@@ -53,8 +53,8 @@ import { validateFileName } from '../core/utils/filename-validation.utils';
         </main>
       </div>
       <footer class="footer">
-        <span class="connection-status" [class]="ws.connectionState()">
-          {{ ws.connectionState() }}
+        <span class="connection-status" [class]="sse.connectionState()">
+          {{ sse.connectionState() }}
         </span>
         @if (outlineState.focusedBlockId()) {
           <span class="block-id">Block: {{ outlineState.focusedBlockId() }}</span>
@@ -207,7 +207,7 @@ import { validateFileName } from '../core/utils/filename-validation.utils';
   `]
 })
 export class MainLayoutComponent {
-  readonly ws = inject(WebSocketService);
+  readonly sse = inject(SseService);
   readonly outlineState = inject(OutlineStateService);
   readonly config = inject(ConfigService);
   private readonly router = inject(Router);
@@ -222,7 +222,7 @@ export class MainLayoutComponent {
   private startWidth = 0;
 
   constructor() {
-    this.ws.connect();
+    this.sse.connect();
   }
 
   /**

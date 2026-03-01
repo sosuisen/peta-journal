@@ -8,20 +8,10 @@ function getTodayISODate(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-/** Extracts the creation timestamp in milliseconds from a block. Returns 0 if unavailable. */
-function getBlockCreatedMillis(block: Block): number {
-  if (block.createdDate && block.createdDate.millis) {
-    const v = block.createdDate.millis;
-    return typeof v === 'number' ? v : Number(v);
-  }
-  return 0;
-}
-
 /** Formats a block's creation date for display using the browser's locale. */
 function formatDate(block: Block): string {
-  const ms = getBlockCreatedMillis(block);
-  if (!ms) return '';
-  return new Date(ms).toLocaleDateString();
+  if (!block.createdDate) return '';
+  return new Date(block.createdDate).toLocaleDateString();
 }
 
 /** Checks if a block belongs to a journal page (filename matches YYYY-MM-DD). */
@@ -40,7 +30,7 @@ function sortBlocks(blocks: Block[], key: SortKey): Block[] {
       case 'name':
         return (a.name || '').localeCompare(b.name || '');
       case 'created_date':
-        return getBlockCreatedMillis(b) - getBlockCreatedMillis(a); // desc
+        return (b.createdDate || 0) - (a.createdDate || 0); // desc
       case 'status':
         return (STATUS_ORDER[a.status || ''] ?? 9) - (STATUS_ORDER[b.status || ''] ?? 9);
     }
@@ -81,7 +71,7 @@ export default function App() {
       const result = await getBlocksByStatus(statuses);
       // Filter by date client-side: show blocks created on or before the selected date
       const filtered = fromDate
-        ? result.filter((b) => getBlockCreatedMillis(b) <= new Date(fromDate).getTime() + 86400000 - 1)
+        ? result.filter((b) => (b.createdDate || 0) <= new Date(fromDate).getTime() + 86400000 - 1)
         : result;
       setBlocks(filtered);
     } catch (e) {
@@ -136,10 +126,8 @@ export default function App() {
   }, [showTodo, showRunning, showDone, fromDate]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    onServerEvent((event) => {
-      if (event.pagesUpdated) {
-        fetchBlocks();
-      }
+    onServerEvent(() => {
+      fetchBlocks();
     });
   }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
