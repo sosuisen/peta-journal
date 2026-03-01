@@ -18,6 +18,8 @@ public class EventsResource {
     @GET
     @Produces(MediaType.SERVER_SENT_EVENTS)
     public void stream(@Context SseEventSink sink, @Context Sse sse) {
+        // Send an initial comment to flush proxy buffers (Vite dev server buffers until first data)
+        sink.send(sse.newEventBuilder().comment("connected").build());
         sseBroadcaster.register(sink, sse);
     }
 }
