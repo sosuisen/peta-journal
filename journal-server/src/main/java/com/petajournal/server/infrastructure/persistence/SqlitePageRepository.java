@@ -78,6 +78,23 @@ public class SqlitePageRepository implements PageRepository {
     }
 
     @Override
+    public Optional<Page> findMostRecentWeeklyJournalBefore(String beforeWeek) {
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "SELECT id, parent_id, dir_path, name, type, created_date, modified_date FROM pages " +
+                     "WHERE type = 'journal' AND dir_path = '' AND name < ? AND name GLOB '????-W??' " +
+                     "ORDER BY name DESC LIMIT 1")) {
+            ps.setString(1, beforeWeek);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) return Optional.empty();
+                return Optional.of(mapPage(conn, rs));
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to find most recent weekly journal before: " + beforeWeek, e);
+        }
+    }
+
+    @Override
     public Optional<Page> findByTypeDirPathFileName(String type, String dirPath, String fileName) {
         LOG.debugv("findByTypeDirPathFileName: type={0}, dirPath=[{1}], fileName={2}", type, dirPath, fileName);
         try (Connection conn = connectionProvider.getConnection();

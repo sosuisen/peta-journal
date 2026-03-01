@@ -1081,6 +1081,9 @@ export namespace petajournal {
 
         /** ApiRequest getChildPages */
         getChildPages?: (petajournal.IGetChildPagesRequest|null);
+
+        /** ApiRequest getMostRecentWeeklyJournalBefore */
+        getMostRecentWeeklyJournalBefore?: (petajournal.IGetMostRecentWeeklyJournalBeforeRequest|null);
     }
 
     /** Represents an ApiRequest. */
@@ -1182,8 +1185,11 @@ export namespace petajournal {
         /** ApiRequest getChildPages. */
         public getChildPages?: (petajournal.IGetChildPagesRequest|null);
 
+        /** ApiRequest getMostRecentWeeklyJournalBefore. */
+        public getMostRecentWeeklyJournalBefore?: (petajournal.IGetMostRecentWeeklyJournalBeforeRequest|null);
+
         /** ApiRequest payload. */
-        public payload?: ("getPageById"|"getOrCreateDoc"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"getOrCreateJournal"|"exportTreeMarkdown"|"importTreeMarkdown"|"getBookmarks"|"createBookmarkGroup"|"createBookmark"|"deleteBookmark"|"deleteBookmarkGroup"|"moveBookmark"|"moveBookmarkGroup"|"updateBookmarkGroup"|"getChildPages");
+        public payload?: ("getPageById"|"getOrCreateDoc"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"getOrCreateJournal"|"exportTreeMarkdown"|"importTreeMarkdown"|"getBookmarks"|"createBookmarkGroup"|"createBookmark"|"deleteBookmark"|"deleteBookmarkGroup"|"moveBookmark"|"moveBookmarkGroup"|"updateBookmarkGroup"|"getChildPages"|"getMostRecentWeeklyJournalBefore");
 
         /**
          * Creates a new ApiRequest instance using the specified properties.
@@ -1362,6 +1368,9 @@ export namespace petajournal {
         /** ApiResponse getChildPages */
         getChildPages?: (petajournal.IGetChildPagesResponse|null);
 
+        /** ApiResponse getMostRecentWeeklyJournalBefore */
+        getMostRecentWeeklyJournalBefore?: (petajournal.IGetMostRecentWeeklyJournalBeforeResponse|null);
+
         /** ApiResponse serverEvent */
         serverEvent?: (petajournal.IServerEvent|null);
     }
@@ -1471,11 +1480,14 @@ export namespace petajournal {
         /** ApiResponse getChildPages. */
         public getChildPages?: (petajournal.IGetChildPagesResponse|null);
 
+        /** ApiResponse getMostRecentWeeklyJournalBefore. */
+        public getMostRecentWeeklyJournalBefore?: (petajournal.IGetMostRecentWeeklyJournalBeforeResponse|null);
+
         /** ApiResponse serverEvent. */
         public serverEvent?: (petajournal.IServerEvent|null);
 
         /** ApiResponse payload. */
-        public payload?: ("getPageById"|"getOrCreateDoc"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getOrCreateJournal"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"exportTreeMarkdown"|"importTreeMarkdown"|"getBookmarks"|"createBookmarkGroup"|"createBookmark"|"deleteBookmark"|"deleteBookmarkGroup"|"moveBookmark"|"moveBookmarkGroup"|"updateBookmarkGroup"|"getChildPages"|"serverEvent");
+        public payload?: ("getPageById"|"getOrCreateDoc"|"deletePage"|"updatePage"|"createBlock"|"updateBlock"|"moveBlocks"|"deleteBlock"|"updateBlockStatus"|"searchPageNames"|"searchFullText"|"getRecentPages"|"getBacklinks"|"getMostRecentJournalBefore"|"getOrCreateJournal"|"getBlocksByStatus"|"getConfig"|"updateConfig"|"exportTreeMarkdown"|"importTreeMarkdown"|"getBookmarks"|"createBookmarkGroup"|"createBookmark"|"deleteBookmark"|"deleteBookmarkGroup"|"moveBookmark"|"moveBookmarkGroup"|"updateBookmarkGroup"|"getChildPages"|"getMostRecentWeeklyJournalBefore"|"serverEvent");
 
         /**
          * Creates a new ApiResponse instance using the specified properties.
@@ -4512,6 +4524,212 @@ export namespace petajournal {
 
         /**
          * Gets the default type url for GetMostRecentJournalBeforeResponse
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a GetMostRecentWeeklyJournalBeforeRequest. */
+    interface IGetMostRecentWeeklyJournalBeforeRequest {
+
+        /** GetMostRecentWeeklyJournalBeforeRequest beforeWeek */
+        beforeWeek?: (string|null);
+    }
+
+    /** Represents a GetMostRecentWeeklyJournalBeforeRequest. */
+    class GetMostRecentWeeklyJournalBeforeRequest implements IGetMostRecentWeeklyJournalBeforeRequest {
+
+        /**
+         * Constructs a new GetMostRecentWeeklyJournalBeforeRequest.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: petajournal.IGetMostRecentWeeklyJournalBeforeRequest);
+
+        /** GetMostRecentWeeklyJournalBeforeRequest beforeWeek. */
+        public beforeWeek: string;
+
+        /**
+         * Creates a new GetMostRecentWeeklyJournalBeforeRequest instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns GetMostRecentWeeklyJournalBeforeRequest instance
+         */
+        public static create(properties?: petajournal.IGetMostRecentWeeklyJournalBeforeRequest): petajournal.GetMostRecentWeeklyJournalBeforeRequest;
+
+        /**
+         * Encodes the specified GetMostRecentWeeklyJournalBeforeRequest message. Does not implicitly {@link petajournal.GetMostRecentWeeklyJournalBeforeRequest.verify|verify} messages.
+         * @param message GetMostRecentWeeklyJournalBeforeRequest message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: petajournal.IGetMostRecentWeeklyJournalBeforeRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified GetMostRecentWeeklyJournalBeforeRequest message, length delimited. Does not implicitly {@link petajournal.GetMostRecentWeeklyJournalBeforeRequest.verify|verify} messages.
+         * @param message GetMostRecentWeeklyJournalBeforeRequest message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encodeDelimited(message: petajournal.IGetMostRecentWeeklyJournalBeforeRequest, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a GetMostRecentWeeklyJournalBeforeRequest message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns GetMostRecentWeeklyJournalBeforeRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.GetMostRecentWeeklyJournalBeforeRequest;
+
+        /**
+         * Decodes a GetMostRecentWeeklyJournalBeforeRequest message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns GetMostRecentWeeklyJournalBeforeRequest
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.GetMostRecentWeeklyJournalBeforeRequest;
+
+        /**
+         * Verifies a GetMostRecentWeeklyJournalBeforeRequest message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        public static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a GetMostRecentWeeklyJournalBeforeRequest message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns GetMostRecentWeeklyJournalBeforeRequest
+         */
+        public static fromObject(object: { [k: string]: any }): petajournal.GetMostRecentWeeklyJournalBeforeRequest;
+
+        /**
+         * Creates a plain object from a GetMostRecentWeeklyJournalBeforeRequest message. Also converts values to other types if specified.
+         * @param message GetMostRecentWeeklyJournalBeforeRequest
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        public static toObject(message: petajournal.GetMostRecentWeeklyJournalBeforeRequest, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this GetMostRecentWeeklyJournalBeforeRequest to JSON.
+         * @returns JSON object
+         */
+        public toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the default type url for GetMostRecentWeeklyJournalBeforeRequest
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a GetMostRecentWeeklyJournalBeforeResponse. */
+    interface IGetMostRecentWeeklyJournalBeforeResponse {
+
+        /** GetMostRecentWeeklyJournalBeforeResponse found */
+        found?: (boolean|null);
+
+        /** GetMostRecentWeeklyJournalBeforeResponse page */
+        page?: (petajournal.IPage|null);
+
+        /** GetMostRecentWeeklyJournalBeforeResponse blocks */
+        blocks?: (petajournal.IBlock[]|null);
+    }
+
+    /** Represents a GetMostRecentWeeklyJournalBeforeResponse. */
+    class GetMostRecentWeeklyJournalBeforeResponse implements IGetMostRecentWeeklyJournalBeforeResponse {
+
+        /**
+         * Constructs a new GetMostRecentWeeklyJournalBeforeResponse.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: petajournal.IGetMostRecentWeeklyJournalBeforeResponse);
+
+        /** GetMostRecentWeeklyJournalBeforeResponse found. */
+        public found: boolean;
+
+        /** GetMostRecentWeeklyJournalBeforeResponse page. */
+        public page?: (petajournal.IPage|null);
+
+        /** GetMostRecentWeeklyJournalBeforeResponse blocks. */
+        public blocks: petajournal.IBlock[];
+
+        /**
+         * Creates a new GetMostRecentWeeklyJournalBeforeResponse instance using the specified properties.
+         * @param [properties] Properties to set
+         * @returns GetMostRecentWeeklyJournalBeforeResponse instance
+         */
+        public static create(properties?: petajournal.IGetMostRecentWeeklyJournalBeforeResponse): petajournal.GetMostRecentWeeklyJournalBeforeResponse;
+
+        /**
+         * Encodes the specified GetMostRecentWeeklyJournalBeforeResponse message. Does not implicitly {@link petajournal.GetMostRecentWeeklyJournalBeforeResponse.verify|verify} messages.
+         * @param message GetMostRecentWeeklyJournalBeforeResponse message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: petajournal.IGetMostRecentWeeklyJournalBeforeResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified GetMostRecentWeeklyJournalBeforeResponse message, length delimited. Does not implicitly {@link petajournal.GetMostRecentWeeklyJournalBeforeResponse.verify|verify} messages.
+         * @param message GetMostRecentWeeklyJournalBeforeResponse message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encodeDelimited(message: petajournal.IGetMostRecentWeeklyJournalBeforeResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a GetMostRecentWeeklyJournalBeforeResponse message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns GetMostRecentWeeklyJournalBeforeResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): petajournal.GetMostRecentWeeklyJournalBeforeResponse;
+
+        /**
+         * Decodes a GetMostRecentWeeklyJournalBeforeResponse message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns GetMostRecentWeeklyJournalBeforeResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): petajournal.GetMostRecentWeeklyJournalBeforeResponse;
+
+        /**
+         * Verifies a GetMostRecentWeeklyJournalBeforeResponse message.
+         * @param message Plain object to verify
+         * @returns `null` if valid, otherwise the reason why it is not
+         */
+        public static verify(message: { [k: string]: any }): (string|null);
+
+        /**
+         * Creates a GetMostRecentWeeklyJournalBeforeResponse message from a plain object. Also converts values to their respective internal types.
+         * @param object Plain object
+         * @returns GetMostRecentWeeklyJournalBeforeResponse
+         */
+        public static fromObject(object: { [k: string]: any }): petajournal.GetMostRecentWeeklyJournalBeforeResponse;
+
+        /**
+         * Creates a plain object from a GetMostRecentWeeklyJournalBeforeResponse message. Also converts values to other types if specified.
+         * @param message GetMostRecentWeeklyJournalBeforeResponse
+         * @param [options] Conversion options
+         * @returns Plain object
+         */
+        public static toObject(message: petajournal.GetMostRecentWeeklyJournalBeforeResponse, options?: $protobuf.IConversionOptions): { [k: string]: any };
+
+        /**
+         * Converts this GetMostRecentWeeklyJournalBeforeResponse to JSON.
+         * @returns JSON object
+         */
+        public toJSON(): { [k: string]: any };
+
+        /**
+         * Gets the default type url for GetMostRecentWeeklyJournalBeforeResponse
          * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
          * @returns The default type url
          */

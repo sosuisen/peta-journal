@@ -44,6 +44,7 @@ message ApiRequest {
     MoveBookmarkGroupRequest move_bookmark_group = 86;
     UpdateBookmarkGroupRequest update_bookmark_group = 87;
     GetChildPagesRequest get_child_pages = 90;
+    GetMostRecentWeeklyJournalBeforeRequest get_most_recent_weekly_journal_before = 43;
   }
 }
 
@@ -82,6 +83,7 @@ message ApiResponse {
     MoveBookmarkGroupResponse move_bookmark_group = 86;
     UpdateBookmarkGroupResponse update_bookmark_group = 87;
     GetChildPagesResponse get_child_pages = 90;
+    GetMostRecentWeeklyJournalBeforeResponse get_most_recent_weekly_journal_before = 43;
     ServerEvent server_event = 100;
   }
 }
@@ -231,6 +233,16 @@ message GetMostRecentJournalBeforeRequest {
 
 message GetMostRecentJournalBeforeResponse {
   bool found = 1;                  // true if a journal was found
+  Page page = 2;
+  repeated Block blocks = 3;
+}
+
+message GetMostRecentWeeklyJournalBeforeRequest {
+  string before_week = 1;            // Weekly journal name: "2026-W09"
+}
+
+message GetMostRecentWeeklyJournalBeforeResponse {
+  bool found = 1;
   Page page = 2;
   repeated Block blocks = 3;
 }

@@ -23,6 +23,10 @@ import { ExtensionFunctionService } from '../../core/services/extension-function
         <button class="nav-btn" (click)="goToPrevDay()">&lt;</button>
         <button class="nav-btn" (click)="goToNextDay()">&gt;</button>
       }
+      @if (journalType() === 'weekly') {
+        <button class="nav-btn" (click)="goToPrevWeek()">&lt;</button>
+        <button class="nav-btn" (click)="goToNextWeek()">&gt;</button>
+      }
     </div>
     @if (showCalendar()) {
       <app-calendar
@@ -142,8 +146,9 @@ export class JournalComponent {
       });
     }
 
-    // Pre-load previous journals to fill the buffer (daily only)
-    if (this.journalType() === 'daily') {
+    // Pre-load previous journals to fill the buffer
+    const type = this.journalType();
+    if (type === 'daily' || type === 'weekly') {
       await this.loadInitialBuffer(date);
     }
   }
@@ -157,7 +162,7 @@ export class JournalComponent {
       const targetBufferSize = 100;
 
       while (this.outlineState.blocks().length < targetBufferSize) {
-        const result = await this.api.getMostRecentJournalBefore(dateStr);
+        const result = await this.fetchPreviousJournal(dateStr);
 
         if (!result.found) {
           break;
@@ -181,6 +186,14 @@ export class JournalComponent {
     }
   }
 
+  /** Fetches the previous journal based on current journal type. */
+  private fetchPreviousJournal(name: string) {
+    if (this.journalType() === 'weekly') {
+      return this.api.getMostRecentWeeklyJournalBefore(name);
+    }
+    return this.api.getMostRecentJournalBefore(name);
+  }
+
   /**
    * Loads additional previous journal entries when the user scrolls near the end of the outline.
    * Continues loading until a buffer of 100 blocks beyond the current index is reached.
@@ -192,25 +205,25 @@ export class JournalComponent {
     this.loading = true;
 
     try {
-      // Extract date from filepath (e.g., "journals2026-02-08" → "2026-02-08")
-      const match = event.filepath.match(/(\d{4}-\d{2}-\d{2})/);
-      if (!match) {
-        console.error('Could not extract date from filepath:', event.filepath);
+      // Extract journal name from filepath based on type
+      const journalName = this.extractJournalName(event.filepath);
+      if (!journalName) {
+        console.error('Could not extract journal name from filepath:', event.filepath);
         return;
       }
 
-      let currentDateStr = match[1];
+      let currentName = journalName;
 
       // Keep loading until we have 100 blocks of buffer
       while (this.outlineState.blocks().length < event.currentIndex + 100) {
-        const result = await this.api.getMostRecentJournalBefore(currentDateStr);
+        const result = await this.fetchPreviousJournal(currentName);
 
         if (!result.found) {
           break;
         }
 
         if (this.loadedDates.has(result.page!.name)) {
-          currentDateStr = result.page!.name;
+          currentName = result.page!.name;
           continue;
         }
 
@@ -220,13 +233,23 @@ export class JournalComponent {
         const currentBlocks = this.outlineState.blocks();
         this.outlineState.setBlocks([...currentBlocks, ...result.blocks]);
 
-        currentDateStr = result.page!.name;
+        currentName = result.page!.name;
       }
     } catch (e) {
-      console.error('Failed to load previous days:', e);
+      console.error('Failed to load previous journals:', e);
     } finally {
       this.loading = false;
     }
+  }
+
+  /** Extracts the journal name from a block's filepath based on journal type. */
+  private extractJournalName(filepath: string): string | null {
+    if (this.journalType() === 'weekly') {
+      const match = filepath.match(/(\d{4}-W\d{2})/);
+      return match ? match[1] : null;
+    }
+    const match = filepath.match(/(\d{4}-\d{2}-\d{2})/);
+    return match ? match[1] : null;
   }
 
   /** Navigates to the journal for the previous day. */
@@ -241,6 +264,36 @@ export class JournalComponent {
     const d = new Date(this.currentDate() + 'T00:00:00');
     d.setDate(d.getDate() + 1);
     this.nav.navigateToPage(formatDateToIso(d));
+  }
+
+  /** Navigates to the journal for the previous week. */
+  goToPrevWeek(): void {
+    const name = this.currentDate();
+    const match = name.match(/^(\d{4})-W(\d{2})$/);
+    if (!match) return;
+    let year = parseInt(match[1], 10);
+    let week = parseInt(match[2], 10);
+    week--;
+    if (week < 1) {
+      year--;
+      week = 52;
+    }
+    this.nav.navigateToPage(`${year}-W${String(week).padStart(2, '0')}`);
+  }
+
+  /** Navigates to the journal for the next week. */
+  goToNextWeek(): void {
+    const name = this.currentDate();
+    const match = name.match(/^(\d{4})-W(\d{2})$/);
+    if (!match) return;
+    let year = parseInt(match[1], 10);
+    let week = parseInt(match[2], 10);
+    week++;
+    if (week > 52) {
+      year++;
+      week = 1;
+    }
+    this.nav.navigateToPage(`${year}-W${String(week).padStart(2, '0')}`);
   }
 
   /**

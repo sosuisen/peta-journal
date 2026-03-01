@@ -284,4 +284,21 @@ public class JournalService {
         List<Block> blocks = blockRepository.findByPageId(page.id());
         return new MostRecentJournalResult(true, page, blocks);
     }
+
+    /**
+     * Finds the most recent weekly journal page before the specified week.
+     *
+     * @param beforeWeek the exclusive upper bound week name (e.g., "2026-W09")
+     * @return the result containing the weekly journal page if found
+     */
+    public MostRecentJournalResult getMostRecentWeeklyJournalBefore(String beforeWeek) {
+        Optional<Page> pageOpt = pageRepository.findMostRecentWeeklyJournalBefore(beforeWeek);
+        if (pageOpt.isEmpty()) {
+            return new MostRecentJournalResult(false, null, List.of());
+        }
+
+        Page page = pageOpt.get();
+        List<Block> blocks = blockRepository.findByPageId(page.id());
+        return new MostRecentJournalResult(true, page, blocks);
+    }
 }

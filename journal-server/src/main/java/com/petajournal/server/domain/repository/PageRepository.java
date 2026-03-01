@@ -35,6 +35,14 @@ public interface PageRepository {
     Optional<Page> findMostRecentJournalBefore(LocalDate beforeDate);
 
     /**
+     * Finds the most recent weekly journal page before the given week.
+     *
+     * @param beforeWeek the exclusive upper bound week name (e.g., "2026-W09")
+     * @return the most recent weekly journal page, or empty if none exist
+     */
+    Optional<Page> findMostRecentWeeklyJournalBefore(String beforeWeek);
+
+    /**
      * Returns recently modified pages, ordered by modification date descending.
      *
      * @param maxResults maximum number of results

@@ -124,6 +124,7 @@ public class JournalWebSocket {
                 case GET_RECENT_PAGES -> response.setGetRecentPages(handleGetRecentPages(request.getGetRecentPages()));
                 case GET_BACKLINKS -> response.setGetBacklinks(handleGetBacklinks(request.getGetBacklinks()));
                 case GET_MOST_RECENT_JOURNAL_BEFORE -> response.setGetMostRecentJournalBefore(handleGetMostRecentJournalBefore(request.getGetMostRecentJournalBefore()));
+                case GET_MOST_RECENT_WEEKLY_JOURNAL_BEFORE -> response.setGetMostRecentWeeklyJournalBefore(handleGetMostRecentWeeklyJournalBefore(request.getGetMostRecentWeeklyJournalBefore()));
                 case GET_OR_CREATE_JOURNAL -> response.setGetOrCreateJournal(handleGetOrCreateJournal(request.getGetOrCreateJournal()));
                 case GET_BLOCKS_BY_STATUS -> response.setGetBlocksByStatus(handleGetBlocksByStatus(request.getGetBlocksByStatus()));
                 case GET_CONFIG -> response.setGetConfig(handleGetConfig());
@@ -173,6 +174,20 @@ public class JournalWebSocket {
         var result = journalService.getMostRecentJournalBefore(beforeDate);
 
         GetMostRecentJournalBeforeResponse.Builder builder = GetMostRecentJournalBeforeResponse.newBuilder()
+                .setFound(result.found());
+
+        if (result.found()) {
+            builder.setPage(ProtoConverter.toProto(result.page()))
+                    .addAllBlocks(result.blocks().stream().map(ProtoConverter::toProto).toList());
+        }
+
+        return builder.build();
+    }
+
+    private GetMostRecentWeeklyJournalBeforeResponse handleGetMostRecentWeeklyJournalBefore(GetMostRecentWeeklyJournalBeforeRequest req) {
+        var result = journalService.getMostRecentWeeklyJournalBefore(req.getBeforeWeek());
+
+        GetMostRecentWeeklyJournalBeforeResponse.Builder builder = GetMostRecentWeeklyJournalBeforeResponse.newBuilder()
                 .setFound(result.found());
 
         if (result.found()) {

@@ -99,6 +99,20 @@ export class ApiService {
   }
 
   /**
+   * Gets the most recent weekly journal before the specified week.
+   * @param beforeWeek - Weekly journal name (e.g., '2026-W09') as exclusive upper bound.
+   * @returns The weekly journal page and blocks if found, or a not-found result.
+   */
+  async getMostRecentWeeklyJournalBefore(beforeWeek: string): Promise<GetMostRecentJournalBeforeResult> {
+    const resp: any = await this.proto.send({ getMostRecentWeeklyJournalBefore: { beforeWeek } });
+    const r = resp.getMostRecentWeeklyJournalBefore;
+    if (!r.found) {
+      return { found: false, page: null, blocks: [] };
+    }
+    return { found: true, page: toPage(r.page), blocks: (r.blocks ?? []).map(toBlock) };
+  }
+
+  /**
    * Gets or creates a journal page by file name (e.g., '2026-02-18', '2026-W08').
    * @param fileName - The journal file name in daily, weekly, monthly, or yearly format.
    * @returns The journal page, its blocks, and whether it was newly created.
