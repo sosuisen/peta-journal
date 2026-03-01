@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Generates fractional index strings for ordering blocks.
+ * Generates fractional index strings for ordering items.
  * Uses lexicographic midpoint calculation between two strings.
  * Alphabet: 0-9 A-Z a-z (62 characters, in ASCII order).
  */
@@ -20,7 +20,7 @@ public final class FractionalIndexer {
     private FractionalIndexer() {}
 
     /**
-     * Returns the initial index for the first block.
+     * Returns the initial index for the first item.
      */
     public static String initial() {
         return FIRST;

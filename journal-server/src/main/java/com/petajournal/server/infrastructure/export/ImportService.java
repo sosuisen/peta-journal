@@ -1,8 +1,8 @@
 package com.petajournal.server.infrastructure.export;
 
-import com.petajournal.server.domain.model.Block;
+import com.petajournal.server.domain.model.Item;
 import com.petajournal.server.domain.model.Page;
-import com.petajournal.server.domain.repository.BlockRepository;
+import com.petajournal.server.domain.repository.ItemRepository;
 import com.petajournal.server.domain.repository.MarkdownParser;
 import com.petajournal.server.domain.repository.PageRepository;
 import com.petajournal.server.domain.repository.SearchService;
@@ -24,7 +24,7 @@ public class ImportService {
     PageRepository pageRepository;
 
     @Inject
-    BlockRepository blockRepository;
+    ItemRepository itemRepository;
 
     @Inject
     MarkdownParser markdownParser;
@@ -45,17 +45,17 @@ public class ImportService {
         page = pageRepository.save(page);
         searchService.indexPage(page);
 
-        List<Block> blocks = parser.toBlocks(result, page.id(), page.dirPath(), page.name(), page.type());
-        for (Block block : blocks) {
-            String html = markdownParser.parseToHtml(block.body());
-            Block withHtml = new Block(
-                    block.id(), block.pageId(), block.parentBlockId(), block.dirPath(), block.name(), block.type(),
-                    block.createdDate(), block.modifiedDate(),
-                    block.idx(), block.level(), block.body(), html,
-                    block.collapsed(), block.status(), block.types()
+        List<Item> items = parser.toItems(result, page.id(), page.dirPath(), page.name(), page.type());
+        for (Item item : items) {
+            String html = markdownParser.parseToHtml(item.body());
+            Item withHtml = new Item(
+                    item.id(), item.pageId(), item.parentItemId(), item.dirPath(), item.name(), item.type(),
+                    item.createdDate(), item.modifiedDate(),
+                    item.idx(), item.level(), item.body(), html,
+                    item.collapsed(), item.status(), item.types()
             );
-            blockRepository.save(withHtml);
-            searchService.indexBlock(withHtml, page.name());
+            itemRepository.save(withHtml);
+            searchService.indexItem(withHtml, page.name());
         }
 
         LOG.infov("Imported page from {0}: {1}", filePath, page.name());

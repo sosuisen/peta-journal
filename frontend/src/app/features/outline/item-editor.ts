@@ -20,7 +20,7 @@ export function ensureCodeFenceClosed(text: string): string {
 
 
 @Component({
-  selector: 'app-block-editor',
+  selector: 'app-item-editor',
   template: `
     @if (status() !== 'normal') {
       <input
@@ -33,7 +33,7 @@ export function ensureCodeFenceClosed(text: string): string {
     }
     <textarea
       #editor
-      [id]="'block-editor-' + blockId()"
+      [id]="'item-editor-' + itemId()"
       [value]="body()"
       (input)="onTextInput($event)"
       (keydown)="onKeydown($event)"
@@ -71,10 +71,10 @@ export function ensureCodeFenceClosed(text: string): string {
     }
   `]
 })
-export class BlockEditorComponent implements AfterViewInit, OnDestroy {
+export class ItemEditorComponent implements AfterViewInit, OnDestroy {
   private readonly state = inject(OutlineStateService);
   readonly body = input.required<string>();
-  readonly blockId = input.required<string>();
+  readonly itemId = input.required<string>();
   readonly status = input.required<string>();
 
   readonly bodyChange = output<string>();
@@ -357,14 +357,14 @@ export class BlockEditorComponent implements AfterViewInit, OnDestroy {
 
     if (event.key === 'ArrowLeft' && selectionStart === 0) {
       event.preventDefault();
-      // Emit large number to position cursor at end of previous block
+      // Emit large number to position cursor at end of previous item
       this.navigateUp.emit(Number.MAX_SAFE_INTEGER);
       return;
     }
 
     if (event.key === 'ArrowRight' && selectionStart === value.length) {
       event.preventDefault();
-      // Position cursor at start of next block
+      // Position cursor at start of next item
       this.navigateDown.emit(0);
       return;
     }

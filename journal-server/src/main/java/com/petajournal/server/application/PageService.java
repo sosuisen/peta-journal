@@ -1,15 +1,15 @@
 package com.petajournal.server.application;
 
 import com.petajournal.server.domain.model.BacklinkEntry;
-import com.petajournal.server.domain.model.Block;
+import com.petajournal.server.domain.model.Item;
 import com.petajournal.server.domain.model.Page;
-import com.petajournal.server.domain.repository.BlockRepository;
+import com.petajournal.server.domain.repository.ItemRepository;
 import com.petajournal.server.domain.repository.PageRepository;
 import com.petajournal.server.domain.repository.SearchService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
-import com.petajournal.server.domain.BlockIdGenerator;
+import com.petajournal.server.domain.ItemIdGenerator;
 import com.petajournal.server.domain.FractionalIndexer;
 import com.petajournal.server.domain.JournalFileNameMatcher;
 
@@ -26,7 +26,7 @@ public class PageService {
     PageRepository pageRepository;
 
     @Inject
-    BlockRepository blockRepository;
+    ItemRepository itemRepository;
 
     @Inject
     SearchService searchService;
@@ -45,17 +45,17 @@ public class PageService {
     }
 
     /**
-     * Returns all blocks belonging to a page, ordered by index.
+     * Returns all items belonging to a page, ordered by index.
      *
      * @param pageId the page UUID
-     * @return the list of blocks
+     * @return the list of items
      */
-    public List<Block> getPageBlocks(UUID pageId) {
-        return blockRepository.findByPageId(pageId);
+    public List<Item> getPageItems(UUID pageId) {
+        return itemRepository.findByPageId(pageId);
     }
 
     /** Result of getting or creating a document page. */
-    public record DocResult(Page page, List<Block> blocks, boolean created) {
+    public record DocResult(Page page, List<Item> items, boolean created) {
     }
 
     /**
@@ -64,7 +64,7 @@ public class PageService {
      * @param title   the document title (used as file name)
      * @param dirPath the directory path (e.g. {@code "projects/"})
      * @param tags    optional tags for the page
-     * @return the page with its blocks and whether it was newly created
+     * @return the page with its items and whether it was newly created
      * @throws IllegalArgumentException if the title is invalid or uses a
      *                                  journal-type name
      */
@@ -96,8 +96,8 @@ public class PageService {
         var existing = pageRepository.findByTypeDirPathFileName("doc", dir, fileName);
         if (existing.isPresent()) {
             Page page = existing.get();
-            List<Block> blocks = blockRepository.findByPageId(page.id());
-            return new DocResult(page, blocks, false);
+            List<Item> items = itemRepository.findByPageId(page.id());
+            return new DocResult(page, items, false);
         }
 
         // If no exact match, check if an index page exists at dir+fileName/
@@ -106,8 +106,8 @@ public class PageService {
         var indexPage = pageRepository.findByTypeDirPathFileName("doc", indexDir, "index");
         if (indexPage.isPresent()) {
             Page page = indexPage.get();
-            List<Block> blocks = blockRepository.findByPageId(page.id());
-            return new DocResult(page, blocks, false);
+            List<Item> items = itemRepository.findByPageId(page.id());
+            return new DocResult(page, items, false);
         }
 
         UUID id = UUID.randomUUID();
@@ -117,16 +117,16 @@ public class PageService {
         page = pageRepository.save(page);
         searchService.indexPage(page);
 
-        // Create initial empty block
-        UUID blockId = BlockIdGenerator.generate();
-        Block block = new Block(blockId, id, null, page.dirPath(), page.name(), page.type(), now, now,
+        // Create initial empty item
+        UUID itemId = ItemIdGenerator.generate();
+        Item item = new Item(itemId, id, null, page.dirPath(), page.name(), page.type(), now, now,
                 FractionalIndexer.initial(), 1, "", "", false, "normal", List.of());
-        blockRepository.save(block);
+        itemRepository.save(item);
 
         // Queue for export
         exportService.queueExport(id);
 
-        return new DocResult(page, List.of(block), true);
+        return new DocResult(page, List.of(item), true);
     }
 
     /**
@@ -181,13 +181,13 @@ public class PageService {
     }
 
     /**
-     * Deletes a page and all its blocks.
+     * Deletes a page and all its items.
      *
      * @param pageId the page to delete
      */
     public void deletePage(UUID pageId) {
         searchService.removePage(pageId.toString());
-        blockRepository.deleteByPageId(pageId);
+        itemRepository.deleteByPageId(pageId);
         pageRepository.delete(pageId);
     }
 
@@ -204,11 +204,11 @@ public class PageService {
     }
 
     /**
-     * Finds all pages and blocks that link to the given page (backlinks).
+     * Finds all pages and items that link to the given page (backlinks).
      *
      * @param pageId the target page UUID
      * @return the list of backlink entries, each containing the source page and
-     *         linking block
+     *         linking item
      */
     public List<BacklinkEntry> getBacklinks(UUID pageId) {
         List<Page> sources = pageRepository.findBacklinkSources(pageId);
@@ -219,11 +219,11 @@ public class PageService {
             return entries;
 
         for (Page source : sources) {
-            // Find the specific blocks that link to this page (using fileName as title)
-            List<Block> linkingBlocks = blockRepository.findByPageIdContainingLink(targetPage.name());
-            for (Block block : linkingBlocks) {
-                if (block.pageId().equals(source.id())) {
-                    entries.add(new BacklinkEntry(source, block));
+            // Find the specific items that link to this page (using fileName as title)
+            List<Item> linkingItems = itemRepository.findByPageIdContainingLink(targetPage.name());
+            for (Item item : linkingItems) {
+                if (item.pageId().equals(source.id())) {
+                    entries.add(new BacklinkEntry(source, item));
                 }
             }
         }
@@ -254,10 +254,10 @@ public class PageService {
                 pageRepository.save(page);
                 searchService.indexPage(page);
 
-                UUID blockId = BlockIdGenerator.generate();
-                Block block = new Block(blockId, id, null, indexDir, "index", "doc", now, now,
+                UUID itemId = ItemIdGenerator.generate();
+                Item item = new Item(itemId, id, null, indexDir, "index", "doc", now, now,
                         FractionalIndexer.initial(), 1, "", "", false, "normal", List.of());
-                blockRepository.save(block);
+                itemRepository.save(item);
             }
         }
     }

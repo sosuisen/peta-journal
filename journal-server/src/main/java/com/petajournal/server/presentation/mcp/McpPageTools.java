@@ -17,17 +17,17 @@ public class McpPageTools {
     @Inject
     McpJsonHelper jsonHelper;
 
-    @Tool(description = "Get a page and its blocks by page ID")
+    @Tool(description = "Get a page and its items by page ID")
     String get_page_by_id(
             @ToolArg(description = "UUID of the page") String pageId
     ) {
         var page = pageService.getPage(UUID.fromString(pageId))
                 .orElseThrow(() -> new IllegalArgumentException("Page not found: " + pageId));
-        var blocks = pageService.getPageBlocks(page.id());
-        return jsonHelper.toJson(Map.of("page", page, "blocks", blocks));
+        var items = pageService.getPageItems(page.id());
+        return jsonHelper.toJson(Map.of("page", page, "items", items));
     }
 
-    @Tool(description = "Get or create a document page by title. Returns the page and its blocks. If the page does not exist, it is created with an empty block.")
+    @Tool(description = "Get or create a document page by title. Returns the page and its items. If the page does not exist, it is created with an empty item.")
     String get_or_create_doc(
             @ToolArg(description = "Title of the document (used as file name)") String title,
             @ToolArg(description = "Directory path (e.g. 'projects/'). Empty string for root.") String dirPath,
@@ -37,7 +37,7 @@ public class McpPageTools {
         var result = pageService.getOrCreateDoc(title, dirPath, tagList);
         return jsonHelper.toJson(Map.of(
                 "page", result.page(),
-                "blocks", result.blocks(),
+                "items", result.items(),
                 "created", result.created()
         ));
     }
@@ -56,7 +56,7 @@ public class McpPageTools {
         return jsonHelper.toJson(Map.of("page", page));
     }
 
-    @Tool(description = "Delete a page and all its blocks")
+    @Tool(description = "Delete a page and all its items")
     String delete_page(
             @ToolArg(description = "UUID of the page to delete") String pageId
     ) {

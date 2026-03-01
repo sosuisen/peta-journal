@@ -16,7 +16,7 @@ public class McpNavigationTools {
     @Inject
     McpJsonHelper jsonHelper;
 
-    @Tool(description = "Get pages and blocks that link to a given page (backlinks). Each entry contains the source page and the block containing the link.")
+    @Tool(description = "Get pages and items that link to a given page (backlinks). Each entry contains the source page and the item containing the link.")
     String get_backlinks(
             @ToolArg(description = "UUID of the target page") String pageId
     ) {

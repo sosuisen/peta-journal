@@ -1,13 +1,13 @@
 import { Injectable, signal } from '@angular/core';
-import { Block } from '../models/block.model';
+import { Item } from '../models/item.model';
 
 export type UndoOp =
-  | { type: 'update'; before: Block; after: Block }
-  | { type: 'create'; block: Block }
-  | { type: 'delete'; block: Block };
+  | { type: 'update'; before: Item; after: Item }
+  | { type: 'create'; item: Item }
+  | { type: 'delete'; item: Item };
 
 export interface CursorState {
-  blockId: string;
+  itemId: string;
   position: number;
 }
 
@@ -41,16 +41,16 @@ export class UndoService {
     this.pending = true;
   }
 
-  pushUpdate(before: Block, after: Block): void {
+  pushUpdate(before: Item, after: Item): void {
     this.pendingOps.push({ type: 'update', before: { ...before }, after: { ...after } });
   }
 
-  pushCreate(block: Block): void {
-    this.pendingOps.push({ type: 'create', block: { ...block } });
+  pushCreate(item: Item): void {
+    this.pendingOps.push({ type: 'create', item: { ...item } });
   }
 
-  pushDelete(block: Block): void {
-    this.pendingOps.push({ type: 'delete', block: { ...block } });
+  pushDelete(item: Item): void {
+    this.pendingOps.push({ type: 'delete', item: { ...item } });
   }
 
   commit(cursorAfter?: CursorState | null): void {
@@ -61,7 +61,7 @@ export class UndoService {
 
     const now = Date.now();
 
-    // Body-edit grouping: merge with previous entry if same label 'body' and same blockId within interval
+    // Body-edit grouping: merge with previous entry if same label 'body' and same itemId within interval
     if (this.pendingLabel === 'body' && this.undoStack.length > 0) {
       const top = this.undoStack[this.undoStack.length - 1];
       if (
@@ -71,11 +71,11 @@ export class UndoService {
         this.pendingOps.length === 1 &&
         top.ops[0].type === 'update' &&
         this.pendingOps[0].type === 'update' &&
-        top.ops[0].after.id === (this.pendingOps[0] as { type: 'update'; before: Block; after: Block }).before.id
+        top.ops[0].after.id === (this.pendingOps[0] as { type: 'update'; before: Item; after: Item }).before.id
       ) {
         // Merge: keep old before, update after and timestamp
-        const topOp = top.ops[0] as { type: 'update'; before: Block; after: Block };
-        const newOp = this.pendingOps[0] as { type: 'update'; before: Block; after: Block };
+        const topOp = top.ops[0] as { type: 'update'; before: Item; after: Item };
+        const newOp = this.pendingOps[0] as { type: 'update'; before: Item; after: Item };
         topOp.after = newOp.after;
         top.cursorAfter = cursorAfter ?? null;
         top.timestamp = now;

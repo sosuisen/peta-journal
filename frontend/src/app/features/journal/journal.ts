@@ -38,7 +38,7 @@ import { ExtensionFunctionService } from '../../core/services/extension-function
       />
     }
     @if (page()) {
-      <app-outline [pageId]="page()!.id" [disableAutoLoad]="true" [currentPageDate]="topVisibleDate()" (loadMore)="onLoadMore($event)" (topBlockChanged)="onTopBlockChanged($event)" />
+      <app-outline [pageId]="page()!.id" [disableAutoLoad]="true" [currentPageDate]="topVisibleDate()" (loadMore)="onLoadMore($event)" (topItemChanged)="onTopItemChanged($event)" />
     }
   `,
   styles: [`
@@ -100,7 +100,7 @@ export class JournalComponent {
 
   readonly currentDate = signal('');
   readonly journalType = signal<JournalType>('daily');
-  readonly topVisibleDate = signal('');  // Date of the top visible block
+  readonly topVisibleDate = signal('');  // Date of the top visible item
   readonly page = signal<Page | null>(null);
   readonly showCalendar = signal(false);
 
@@ -135,8 +135,8 @@ export class JournalComponent {
     this.loadedDates.clear();
     this.loadedDates.add(date);
 
-    // Manually load blocks first
-    this.outlineState.setBlocks(result.blocks);
+    // Manually load items first
+    this.outlineState.setItems(result.items);
 
     if (result.created) {
       this.extensionFunctions.emitPageCreate({
@@ -161,7 +161,7 @@ export class JournalComponent {
       let dateStr = currentDate;
       const targetBufferSize = 100;
 
-      while (this.outlineState.blocks().length < targetBufferSize) {
+      while (this.outlineState.items().length < targetBufferSize) {
         const result = await this.fetchPreviousJournal(dateStr);
 
         if (!result.found) {
@@ -174,8 +174,8 @@ export class JournalComponent {
         }
 
         this.loadedDates.add(result.page!.name);
-        const currentBlocks = this.outlineState.blocks();
-        this.outlineState.setBlocks([...currentBlocks, ...result.blocks]);
+        const currentItems = this.outlineState.items();
+        this.outlineState.setItems([...currentItems, ...result.items]);
 
         dateStr = result.page!.name;
       }
@@ -196,8 +196,8 @@ export class JournalComponent {
 
   /**
    * Loads additional previous journal entries when the user scrolls near the end of the outline.
-   * Continues loading until a buffer of 100 blocks beyond the current index is reached.
-   * @param event - Contains the filepath of the bottom-most block and the current scroll index.
+   * Continues loading until a buffer of 100 items beyond the current index is reached.
+   * @param event - Contains the filepath of the bottom-most item and the current scroll index.
    */
   async onLoadMore(event: { filepath: string; currentIndex: number }): Promise<void> {
     if (this.loading) return;
@@ -214,8 +214,8 @@ export class JournalComponent {
 
       let currentName = journalName;
 
-      // Keep loading until we have 100 blocks of buffer
-      while (this.outlineState.blocks().length < event.currentIndex + 100) {
+      // Keep loading until we have 100 items of buffer
+      while (this.outlineState.items().length < event.currentIndex + 100) {
         const result = await this.fetchPreviousJournal(currentName);
 
         if (!result.found) {
@@ -229,9 +229,9 @@ export class JournalComponent {
 
         this.loadedDates.add(result.page!.name);
 
-        // Append blocks from this journal
-        const currentBlocks = this.outlineState.blocks();
-        this.outlineState.setBlocks([...currentBlocks, ...result.blocks]);
+        // Append items from this journal
+        const currentItems = this.outlineState.items();
+        this.outlineState.setItems([...currentItems, ...result.items]);
 
         currentName = result.page!.name;
       }
@@ -242,7 +242,7 @@ export class JournalComponent {
     }
   }
 
-  /** Extracts the journal name from a block's filepath based on journal type. */
+  /** Extracts the journal name from a item's filepath based on journal type. */
   private extractJournalName(filepath: string): string | null {
     if (this.journalType() === 'weekly') {
       const match = filepath.match(/(\d{4}-W\d{2})/);
@@ -335,10 +335,10 @@ export class JournalComponent {
   }
 
   /**
-   * Updates the displayed date in the header when the top visible block changes during scrolling.
-   * @param fileName - The file name (date string) of the top visible block's page.
+   * Updates the displayed date in the header when the top visible item changes during scrolling.
+   * @param fileName - The file name (date string) of the top visible item's page.
    */
-  onTopBlockChanged(fileName: string): void {
+  onTopItemChanged(fileName: string): void {
     this.topVisibleDate.set(fileName);
   }
 }

@@ -1,112 +1,112 @@
 import { Injectable, signal, computed } from '@angular/core';
-import { Block } from '../models/block.model';
+import { Item } from '../models/item.model';
 
 @Injectable({ providedIn: 'root' })
 export class OutlineStateService {
-  private readonly _blocks = signal<Block[]>([]);
-  private readonly _focusedBlockId = signal<string | null>(null);
-  private readonly _editingBlockIds = signal<Set<string>>(new Set());
-  private readonly _selectedBlockIds = signal<Set<string>>(new Set());
-  private readonly _collapsedBlockIds = signal<Set<string>>(new Set());
-  private readonly _blockSelectionMode = signal<boolean>(false);
+  private readonly _items = signal<Item[]>([]);
+  private readonly _focusedItemId = signal<string | null>(null);
+  private readonly _editingItemIds = signal<Set<string>>(new Set());
+  private readonly _selectedItemIds = signal<Set<string>>(new Set());
+  private readonly _collapsedItemIds = signal<Set<string>>(new Set());
+  private readonly _itemSelectionMode = signal<boolean>(false);
   private readonly _pendingCursorPosition = signal<number | null>(null);
   private readonly _pendingMouseDrag = signal<boolean>(false);
-  readonly blocks = this._blocks.asReadonly();
-  readonly focusedBlockId = this._focusedBlockId.asReadonly();
-  readonly editingBlockIds = this._editingBlockIds.asReadonly();
+  readonly items = this._items.asReadonly();
+  readonly focusedItemId = this._focusedItemId.asReadonly();
+  readonly editingItemIds = this._editingItemIds.asReadonly();
   readonly pendingCursorPosition = this._pendingCursorPosition.asReadonly();
-  readonly selectedBlockIds = this._selectedBlockIds.asReadonly();
-  readonly blockSelectionMode = this._blockSelectionMode.asReadonly();
+  readonly selectedItemIds = this._selectedItemIds.asReadonly();
+  readonly itemSelectionMode = this._itemSelectionMode.asReadonly();
 
-  readonly visibleBlocks = computed(() => {
-    const blocks = this._blocks();
-    const collapsed = this._collapsedBlockIds();
-    const result: Block[] = [];
+  readonly visibleItems = computed(() => {
+    const items = this._items();
+    const collapsed = this._collapsedItemIds();
+    const result: Item[] = [];
     let skipLevel = -1;
 
-    for (const block of blocks) {
-      if (skipLevel >= 0 && block.level > skipLevel) {
+    for (const item of items) {
+      if (skipLevel >= 0 && item.level > skipLevel) {
         continue;
       }
       skipLevel = -1;
-      result.push(block);
-      if (collapsed.has(block.id)) {
-        skipLevel = block.level;
+      result.push(item);
+      if (collapsed.has(item.id)) {
+        skipLevel = item.level;
       }
     }
     return result;
   });
 
   /**
-   * Replaces all blocks and rebuilds the collapsed block set from their collapsed flags.
-   * @param blocks - The new complete list of blocks.
+   * Replaces all items and rebuilds the collapsed item set from their collapsed flags.
+   * @param items - The new complete list of items.
    */
-  setBlocks(blocks: Block[]): void {
-    this._blocks.set(blocks);
+  setItems(items: Item[]): void {
+    this._items.set(items);
     const collapsed = new Set<string>();
-    for (const b of blocks) {
+    for (const b of items) {
       if (b.collapsed) collapsed.add(b.id);
     }
-    this._collapsedBlockIds.set(collapsed);
+    this._collapsedItemIds.set(collapsed);
   }
 
   /**
-   * Inserts a single block after the specified block, or at the beginning if not found.
-   * @param block - The block to insert.
-   * @param afterBlockId - The ID of the block to insert after.
+   * Inserts a single item after the specified item, or at the beginning if not found.
+   * @param item - The item to insert.
+   * @param afterItemId - The ID of the item to insert after.
    */
-  addBlock(block: Block, afterBlockId: string): void {
-    this._blocks.update(blocks => {
-      const idx = afterBlockId ? blocks.findIndex(b => b.id === afterBlockId) : -1;
-      const newBlocks = [...blocks];
-      newBlocks.splice(idx + 1, 0, block);
-      return newBlocks;
+  addItem(item: Item, afterItemId: string): void {
+    this._items.update(items => {
+      const idx = afterItemId ? items.findIndex(b => b.id === afterItemId) : -1;
+      const newItems = [...items];
+      newItems.splice(idx + 1, 0, item);
+      return newItems;
     });
   }
 
   /**
-   * Partially updates a block's properties by merging the given updates.
-   * @param blockId - The ID of the block to update.
-   * @param updates - The partial block properties to merge.
+   * Partially updates a item's properties by merging the given updates.
+   * @param itemId - The ID of the item to update.
+   * @param updates - The partial item properties to merge.
    */
-  updateBlock(blockId: string, updates: Partial<Block>): void {
-    this._blocks.update(blocks =>
-      blocks.map(b => b.id === blockId ? { ...b, ...updates } : b)
+  updateItem(itemId: string, updates: Partial<Item>): void {
+    this._items.update(items =>
+      items.map(b => b.id === itemId ? { ...b, ...updates } : b)
     );
   }
 
   /**
-   * Removes a single block by its ID.
-   * @param blockId - The ID of the block to remove.
+   * Removes a single item by its ID.
+   * @param itemId - The ID of the item to remove.
    */
-  deleteBlock(blockId: string): void {
-    this._blocks.update(blocks => blocks.filter(b => b.id !== blockId));
+  deleteItem(itemId: string): void {
+    this._items.update(items => items.filter(b => b.id !== itemId));
   }
 
   /**
-   * Adds a block to the editing set (textarea visible).
+   * Adds a item to the editing set (textarea visible).
    */
-  addEditingBlock(blockId: string): void {
-    this._editingBlockIds.update(s => { const n = new Set(s); n.add(blockId); return n; });
+  addEditingItem(itemId: string): void {
+    this._editingItemIds.update(s => { const n = new Set(s); n.add(itemId); return n; });
   }
 
   /**
-   * Focuses a block and sets a pending cursor position for the next time the block is edited.
+   * Focuses a item and sets a pending cursor position for the next time the item is edited.
    */
-  setFocusedBlock(blockId: string, cursorPosition: number | null = null): void {
+  setFocusedItem(itemId: string, cursorPosition: number | null = null): void {
     this._pendingCursorPosition.set(cursorPosition);
-    this._focusedBlockId.set(blockId);
+    this._focusedItemId.set(itemId);
   }
 
   /**
-   * Removes a block from the editing set (switches it to view mode).
+   * Removes a item from the editing set (switches it to view mode).
    */
-  removeEditingBlock(blockId: string): void {
-    this._editingBlockIds.update(s => { const n = new Set(s); n.delete(blockId); return n; });
+  removeEditingItem(itemId: string): void {
+    this._editingItemIds.update(s => { const n = new Set(s); n.delete(itemId); return n; });
   }
 
-  removeAllEditingBlocks(): void {
-    this._editingBlockIds.set(new Set());
+  removeAllEditingItems(): void {
+    this._editingItemIds.set(new Set());
   }
 
   /**
@@ -130,125 +130,125 @@ export class OutlineStateService {
   }
 
   /**
-   * Toggles the collapsed state of a block, hiding or showing its children.
-   * @param blockId - The ID of the block to toggle.
+   * Toggles the collapsed state of a item, hiding or showing its children.
+   * @param itemId - The ID of the item to toggle.
    */
-  toggleCollapsed(blockId: string): void {
-    this._collapsedBlockIds.update(set => {
+  toggleCollapsed(itemId: string): void {
+    this._collapsedItemIds.update(set => {
       const next = new Set(set);
-      if (next.has(blockId)) next.delete(blockId);
-      else next.add(blockId);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
       return next;
     });
   }
 
   /**
-   * Finds a block by its ID.
-   * @param blockId - The ID of the block to find.
-   * @returns The matching block, or undefined if not found.
+   * Finds a item by its ID.
+   * @param itemId - The ID of the item to find.
+   * @returns The matching item, or undefined if not found.
    */
-  getBlockById(blockId: string): Block | undefined {
-    return this._blocks().find(b => b.id === blockId);
+  getItemById(itemId: string): Item | undefined {
+    return this._items().find(b => b.id === itemId);
   }
 
   /**
-   * Checks whether the block has any immediate children (next block at a deeper level).
-   * @param blockId - The ID of the block to check.
-   * @returns True if the block has children, false otherwise.
+   * Checks whether the item has any immediate children (next item at a deeper level).
+   * @param itemId - The ID of the item to check.
+   * @returns True if the item has children, false otherwise.
    */
-  hasChildren(blockId: string): boolean {
-    const blocks = this._blocks();
-    const idx = blocks.findIndex(b => b.id === blockId);
-    if (idx < 0 || idx === blocks.length - 1) return false;
-    return blocks[idx + 1].level > blocks[idx].level;
+  hasChildren(itemId: string): boolean {
+    const items = this._items();
+    const idx = items.findIndex(b => b.id === itemId);
+    if (idx < 0 || idx === items.length - 1) return false;
+    return items[idx + 1].level > items[idx].level;
   }
 
   /**
-   * Get all descendant blocks of the given block.
-   * Children are all subsequent blocks with a level strictly greater than the parent's level,
-   * stopping at the first block at the same or lower level.
+   * Get all descendant items of the given item.
+   * Children are all subsequent items with a level strictly greater than the parent's level,
+   * stopping at the first item at the same or lower level.
    */
-  getChildren(blockId: string): Block[] {
-    const blocks = this._blocks();
-    const idx = blocks.findIndex(b => b.id === blockId);
+  getChildren(itemId: string): Item[] {
+    const items = this._items();
+    const idx = items.findIndex(b => b.id === itemId);
     if (idx < 0) return [];
-    const parentLevel = blocks[idx].level;
-    const children: Block[] = [];
-    for (let i = idx + 1; i < blocks.length; i++) {
-      if (blocks[i].level <= parentLevel) break;
-      children.push(blocks[i]);
+    const parentLevel = items[idx].level;
+    const children: Item[] = [];
+    for (let i = idx + 1; i < items.length; i++) {
+      if (items[i].level <= parentLevel) break;
+      children.push(items[i]);
     }
     return children;
   }
 
   /**
-   * Get the block and all its descendants as a group.
+   * Get the item and all its descendants as a group.
    */
-  getBlockWithChildren(blockId: string): Block[] {
-    const block = this.getBlockById(blockId);
-    if (!block) return [];
-    return [block, ...this.getChildren(blockId)];
+  getItemWithChildren(itemId: string): Item[] {
+    const item = this.getItemById(itemId);
+    if (!item) return [];
+    return [item, ...this.getChildren(itemId)];
   }
 
   /**
-   * Inserts multiple blocks after the specified block, or at the beginning if not found.
-   * @param blocks - The blocks to insert.
-   * @param afterBlockId - The ID of the block to insert after.
+   * Inserts multiple items after the specified item, or at the beginning if not found.
+   * @param items - The items to insert.
+   * @param afterItemId - The ID of the item to insert after.
    */
-  addBlocks(blocks: Block[], afterBlockId: string): void {
-    this._blocks.update(current => {
-      const idx = afterBlockId ? current.findIndex(b => b.id === afterBlockId) : -1;
-      const newBlocks = [...current];
-      newBlocks.splice(idx + 1, 0, ...blocks);
-      return newBlocks;
+  addItems(items: Item[], afterItemId: string): void {
+    this._items.update(current => {
+      const idx = afterItemId ? current.findIndex(b => b.id === afterItemId) : -1;
+      const newItems = [...current];
+      newItems.splice(idx + 1, 0, ...items);
+      return newItems;
     });
   }
 
   /**
-   * Removes multiple blocks by their IDs.
-   * @param blockIds - The IDs of the blocks to remove.
+   * Removes multiple items by their IDs.
+   * @param itemIds - The IDs of the items to remove.
    */
-  deleteBlocks(blockIds: string[]): void {
-    const idSet = new Set(blockIds);
-    this._blocks.update(blocks => blocks.filter(b => !idSet.has(b.id)));
+  deleteItems(itemIds: string[]): void {
+    const idSet = new Set(itemIds);
+    this._items.update(items => items.filter(b => !idSet.has(b.id)));
   }
 
   /**
-   * Atomically remove old blocks and insert new blocks at the target position.
+   * Atomically remove old items and insert new items at the target position.
    * This avoids the visual duplication that happens with separate delete + add calls.
    */
-  replaceBlocks(oldBlockIds: string[], newBlocks: Block[], afterBlockId: string): void {
-    const idSet = new Set(oldBlockIds);
-    this._blocks.update(current => {
+  replaceItems(oldItemIds: string[], newItems: Item[], afterItemId: string): void {
+    const idSet = new Set(oldItemIds);
+    this._items.update(current => {
       const filtered = current.filter(b => !idSet.has(b.id));
-      const idx = afterBlockId ? filtered.findIndex(b => b.id === afterBlockId) : -1;
+      const idx = afterItemId ? filtered.findIndex(b => b.id === afterItemId) : -1;
       const result = [...filtered];
-      result.splice(idx + 1, 0, ...newBlocks);
+      result.splice(idx + 1, 0, ...newItems);
       return result;
     });
   }
 
   /**
-   * Sets the set of currently selected block IDs.
-   * @param ids - The set of block IDs to mark as selected.
+   * Sets the set of currently selected item IDs.
+   * @param ids - The set of item IDs to mark as selected.
    */
-  setSelectedBlockIds(ids: Set<string>): void {
-    this._selectedBlockIds.set(ids);
+  setSelectedItemIds(ids: Set<string>): void {
+    this._selectedItemIds.set(ids);
   }
 
   /**
-   * Enables or disables block selection mode.
-   * @param active - Whether block selection mode should be active.
+   * Enables or disables item selection mode.
+   * @param active - Whether item selection mode should be active.
    */
-  setBlockSelectionMode(active: boolean): void {
-    this._blockSelectionMode.set(active);
+  setItemSelectionMode(active: boolean): void {
+    this._itemSelectionMode.set(active);
   }
 
   /**
-   * Clears all selected blocks and exits block selection mode.
+   * Clears all selected items and exits item selection mode.
    */
   clearSelection(): void {
-    this._selectedBlockIds.set(new Set());
-    this._blockSelectionMode.set(false);
+    this._selectedItemIds.set(new Set());
+    this._itemSelectionMode.set(false);
   }
 }

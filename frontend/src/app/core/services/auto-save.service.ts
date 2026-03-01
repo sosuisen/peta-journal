@@ -1,7 +1,7 @@
 import { Injectable, inject, OnDestroy } from '@angular/core';
 import { ApiService } from './api.service';
-import { Block } from '../models/block.model';
-import { ensureCodeFenceClosed } from '../../features/outline/block-editor';
+import { Item } from '../models/item.model';
+import { ensureCodeFenceClosed } from '../../features/outline/item-editor';
 
 @Injectable({ providedIn: 'root' })
 export class AutoSaveService implements OnDestroy {
@@ -10,46 +10,46 @@ export class AutoSaveService implements OnDestroy {
   private readonly debounceMs = 300;
 
   /**
-   * Schedules a debounced update for a block's body content.
-   * Replaces any previously pending edit for the same block.
-   * @param blockId - The ID of the block to update.
-   * @param body - The new body content for the block.
+   * Schedules a debounced update for a item's body content.
+   * Replaces any previously pending edit for the same item.
+   * @param itemId - The ID of the item to update.
+   * @param body - The new body content for the item.
    */
-  scheduleBlockUpdate(blockId: string, body: string): void {
-    const existing = this.pendingEdits.get(blockId);
+  scheduleItemUpdate(itemId: string, body: string): void {
+    const existing = this.pendingEdits.get(itemId);
     if (existing) clearTimeout(existing.timer);
 
     const timer = setTimeout(async () => {
-      this.pendingEdits.delete(blockId);
-      await this.api.updateBlock(blockId, { body: ensureCodeFenceClosed(body) });
+      this.pendingEdits.delete(itemId);
+      await this.api.updateItem(itemId, { body: ensureCodeFenceClosed(body) });
     }, this.debounceMs);
 
-    this.pendingEdits.set(blockId, { body, timer });
+    this.pendingEdits.set(itemId, { body, timer });
   }
 
   /**
-   * Cancels a pending edit for a block without saving it.
-   * @param blockId - The ID of the block whose pending edit should be cancelled.
+   * Cancels a pending edit for a item without saving it.
+   * @param itemId - The ID of the item whose pending edit should be cancelled.
    */
-  cancelBlock(blockId: string): void {
-    const existing = this.pendingEdits.get(blockId);
+  cancelItem(itemId: string): void {
+    const existing = this.pendingEdits.get(itemId);
     if (existing) {
       clearTimeout(existing.timer);
-      this.pendingEdits.delete(blockId);
+      this.pendingEdits.delete(itemId);
     }
   }
 
   /**
-   * Immediately saves a pending edit for a block, bypassing the debounce timer.
-   * @param blockId - The ID of the block to flush.
-   * @returns The updated block if there was a pending edit, or `null` otherwise.
+   * Immediately saves a pending edit for a item, bypassing the debounce timer.
+   * @param itemId - The ID of the item to flush.
+   * @returns The updated item if there was a pending edit, or `null` otherwise.
    */
-  async flushBlock(blockId: string): Promise<Block | null> {
-    const existing = this.pendingEdits.get(blockId);
+  async flushItem(itemId: string): Promise<Item | null> {
+    const existing = this.pendingEdits.get(itemId);
     if (existing) {
       clearTimeout(existing.timer);
-      this.pendingEdits.delete(blockId);
-      return await this.api.updateBlock(blockId, { body: ensureCodeFenceClosed(existing.body) });
+      this.pendingEdits.delete(itemId);
+      return await this.api.updateItem(itemId, { body: ensureCodeFenceClosed(existing.body) });
     }
     return null;
   }
@@ -61,9 +61,9 @@ export class AutoSaveService implements OnDestroy {
   async flushAll(): Promise<void> {
     const entries = [...this.pendingEdits.entries()];
     this.pendingEdits.clear();
-    for (const [blockId, { body, timer }] of entries) {
+    for (const [itemId, { body, timer }] of entries) {
       clearTimeout(timer);
-      await this.api.updateBlock(blockId, { body });
+      await this.api.updateItem(itemId, { body });
     }
   }
 

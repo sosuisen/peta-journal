@@ -56,7 +56,7 @@ import { ExtensionFunctionService } from '../../core/services/extension-function
           }
         }
       </div>
-      <app-outline [pageId]="page()!.id" [focusBlockId]="focusBlockId()" />
+      <app-outline [pageId]="page()!.id" [focusItemId]="focusItemId()" />
     }
   `,
   styles: [`
@@ -157,7 +157,7 @@ import { ExtensionFunctionService } from '../../core/services/extension-function
 })
 export class PageComponent {
   readonly pageName = input.required<string>();
-  readonly focusBlockId = input<string | null | undefined>('');
+  readonly focusItemId = input<string | null | undefined>('');
   private readonly api = inject(ApiService);
   private readonly titleService = inject(Title);
   private readonly currentPageService = inject(CurrentPageService);

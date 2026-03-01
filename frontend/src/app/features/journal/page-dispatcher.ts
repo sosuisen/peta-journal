@@ -12,7 +12,7 @@ import { PageComponent } from './page';
     @if (isJournal()) {
       <app-journal [pageName]="pageName()" />
     } @else {
-      <app-page [pageName]="pageName()" [focusBlockId]="fragment()" />
+      <app-page [pageName]="pageName()" [focusItemId]="fragment()" />
     }
   `,
   styles: [`:host { display: flex; flex-direction: column; height: 100%; }`]

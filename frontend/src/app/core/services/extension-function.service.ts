@@ -53,56 +53,56 @@ export class ExtensionFunctionService {
     const data = event.data;
     if (!data || typeof data !== 'object') return;
 
-    if (data.type === 'CreateBlock') {
-      await this.handleCreateBlock(data, event.source as Window);
+    if (data.type === 'CreateItem') {
+      await this.handleCreateItem(data, event.source as Window);
     }
   }
 
-  private async handleCreateBlock(
-    data: { pageId: string; afterBlockId: string; level: number; body: string; status?: string; requestId?: string },
+  private async handleCreateItem(
+    data: { pageId: string; afterItemId: string; level: number; body: string; status?: string; requestId?: string },
     source: Window | null
   ): Promise<void> {
     try {
-      const { pageId, afterBlockId, body } = data;
+      const { pageId, afterItemId, body } = data;
       let { level } = data;
 
-      // Find the previous block to check canPlace
-      const blocks = this.outlineState.blocks();
-      let prevBlock;
-      if (afterBlockId) {
-        prevBlock = blocks.find(b => b.id === afterBlockId);
+      // Find the previous item to check canPlace
+      const items = this.outlineState.items();
+      let prevItem;
+      if (afterItemId) {
+        prevItem = items.find(b => b.id === afterItemId);
       } else {
-        // afterBlockId empty means append at end
-        prevBlock = blocks.length > 0 ? blocks[blocks.length - 1] : undefined;
+        // afterItemId empty means append at end
+        prevItem = items.length > 0 ? items[items.length - 1] : undefined;
       }
 
       // Adjust level with canPlace constraint
-      while (level > 1 && !this.canPlace(level, prevBlock)) {
+      while (level > 1 && !this.canPlace(level, prevItem)) {
         level--;
       }
 
-      const newBlock = await this.api.createBlock(pageId, afterBlockId || (prevBlock?.id ?? ''), level, body);
-      this.outlineState.addBlock(newBlock, afterBlockId || (prevBlock?.id ?? ''));
+      const newItem = await this.api.createItem(pageId, afterItemId || (prevItem?.id ?? ''), level, body);
+      this.outlineState.addItem(newItem, afterItemId || (prevItem?.id ?? ''));
 
       // Set status if provided
       if (data.status && data.status !== 'normal') {
-        const updated = await this.api.updateBlockStatus(newBlock.id, data.status);
-        this.outlineState.updateBlock(newBlock.id, { status: updated.status });
+        const updated = await this.api.updateItemStatus(newItem.id, data.status);
+        this.outlineState.updateItem(newItem.id, { status: updated.status });
       }
 
       // Send result back to iframe
       if (source) {
         source.postMessage({
-          type: 'CreateBlockResult',
-          blockId: newBlock.id,
+          type: 'CreateItemResult',
+          itemId: newItem.id,
           requestId: data.requestId
         }, '*');
       }
     } catch (e) {
-      console.error('Failed to create block from extension:', e);
+      console.error('Failed to create item from extension:', e);
       if (source) {
         source.postMessage({
-          type: 'CreateBlockError',
+          type: 'CreateItemError',
           error: String(e),
           requestId: data.requestId
         }, '*');
@@ -110,8 +110,8 @@ export class ExtensionFunctionService {
     }
   }
 
-  private canPlace(blockLevel: number, prevBlock: { level: number } | undefined): boolean {
-    if (!prevBlock) return blockLevel === 1;
-    return prevBlock.level === blockLevel || prevBlock.level === blockLevel - 1;
+  private canPlace(itemLevel: number, prevItem: { level: number } | undefined): boolean {
+    if (!prevItem) return itemLevel === 1;
+    return prevItem.level === itemLevel || prevItem.level === itemLevel - 1;
   }
 }

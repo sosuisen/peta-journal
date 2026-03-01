@@ -1,6 +1,6 @@
 package com.petajournal.server.application;
 
-import com.petajournal.server.domain.model.Block;
+import com.petajournal.server.domain.model.Item;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.util.ArrayList;
@@ -13,24 +13,24 @@ public class TreeMarkdownConverter {
     }
 
     /**
-     * Convert a list of blocks to Tree Markdown (nested list format).
+     * Convert a list of items to Tree Markdown (nested list format).
      * Normalizes levels relative to the minimum level in the list.
      */
-    public String blocksToTreeMarkdown(List<Block> blocks) {
-        if (blocks.isEmpty())
+    public String itemsToTreeMarkdown(List<Item> items) {
+        if (items.isEmpty())
             return "";
 
-        int minLevel = blocks.stream().mapToInt(Block::level).min().orElse(1);
+        int minLevel = items.stream().mapToInt(Item::level).min().orElse(1);
         StringBuilder sb = new StringBuilder();
 
-        for (int i = 0; i < blocks.size(); i++) {
-            Block block = blocks.get(i);
-            int depth = block.level() - minLevel;
+        for (int i = 0; i < items.size(); i++) {
+            Item item = items.get(i);
+            int depth = item.level() - minLevel;
             String indent = "  ".repeat(depth);
-            String[] lines = block.body().split("\n", -1);
+            String[] lines = item.body().split("\n", -1);
 
             // First line with list marker (and GFM task prefix for todo/done)
-            String status = block.status() != null ? block.status() : "normal";
+            String status = item.status() != null ? item.status() : "normal";
             String marker = "- ";
             if ("todo".equals(status))
                 marker = "- [ ] ";
@@ -43,7 +43,7 @@ public class TreeMarkdownConverter {
                 sb.append("\n").append(indent).append("  ").append(lines[j]);
             }
 
-            if (i < blocks.size() - 1) {
+            if (i < items.size() - 1) {
                 sb.append("\n");
             }
         }
@@ -52,18 +52,18 @@ public class TreeMarkdownConverter {
     }
 
     /**
-     * Convert a list of blocks to Flat Markdown (HTML comment metadata format).
+     * Convert a list of items to Flat Markdown (HTML comment metadata format).
      */
-    public String blocksToFlatMarkdown(List<Block> blocks) {
+    public String itemsToFlatMarkdown(List<Item> items) {
         StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < blocks.size(); i++) {
-            Block block = blocks.get(i);
-            String body = block.body();
-            // Empty body → single space (blank line would be a block separator)
+        for (int i = 0; i < items.size(); i++) {
+            Item item = items.get(i);
+            String body = item.body();
+            // Empty body → single space (blank line would be an item separator)
             if (body == null || body.isEmpty())
                 body = " ";
 
-            String status = block.status() != null ? block.status() : "normal";
+            String status = item.status() != null ? item.status() : "normal";
 
             // Prepend GFM task list prefix for todo/done
             if ("todo".equals(status)) {
@@ -73,17 +73,17 @@ public class TreeMarkdownConverter {
             }
 
             sb.append(body).append("\n");
-            sb.append("<!-- ").append(block.id()).append(" -->");
+            sb.append("<!-- ").append(item.id()).append(" -->");
 
-            if (block.level() > 1) {
-                sb.append("\n<!-- level=").append(block.level()).append(" -->");
+            if (item.level() > 1) {
+                sb.append("\n<!-- level=").append(item.level()).append(" -->");
             }
 
-            if (block.collapsed()) {
+            if (item.collapsed()) {
                 sb.append("\n<!-- collapsed=true -->");
             }
 
-            if (i < blocks.size() - 1) {
+            if (i < items.size() - 1) {
                 sb.append("\n\n");
             }
         }
@@ -92,7 +92,7 @@ public class TreeMarkdownConverter {
 
     /**
      * Parse Tree Markdown into Flat Markdown with HTML comment metadata.
-     * Each list item becomes a separate block with <!-- level=N --> when depth > 0.
+     * Each list item becomes a separate item with <!-- level=N --> when depth > 0.
      */
     public String treeMarkdownToFlatMarkdown(String treeMd) {
         if (treeMd == null || treeMd.isEmpty())
@@ -101,42 +101,42 @@ public class TreeMarkdownConverter {
         List<String> items = new ArrayList<>();
         String[] lines = treeMd.replace("\r", "").split("\n", -1);
         StringBuilder currentItem = null;
-        int blockPrefixLen = 0;
+        int itemPrefixLen = 0;
         int currentLevel = 0;
 
         for (String line : lines) {
             Optional<Marker> marker = findListMarkerPos(line);
 
             if (marker.isPresent()) {
-                // New block — flush previous
+                // New item — flush previous
                 if (currentItem != null) {
-                    String block = currentItem.toString();
+                    String item = currentItem.toString();
                     if (currentLevel > 1) {
-                        block += "\n<!-- level=" + currentLevel + " -->";
+                        item += "\n<!-- level=" + currentLevel + " -->";
                     }
-                    items.add(block);
+                    items.add(item);
                 }
                 currentLevel = marker.get().level();
-                blockPrefixLen = marker.get().pos() + 2; // indent + "- "
-                String firstLine = line.substring(blockPrefixLen);
+                itemPrefixLen = marker.get().pos() + 2; // indent + "- "
+                String firstLine = line.substring(itemPrefixLen);
                 // Re-add "- " for GFM task prefix so flat markdown parser can detect status
                 if (firstLine.startsWith("[ ] ") || firstLine.startsWith("[x] ")) {
                     firstLine = "- " + firstLine;
                 }
                 currentItem = new StringBuilder(firstLine);
-            } else if (currentItem != null && line.length() >= blockPrefixLen) {
-                // Continuation line — strip the block's full prefix length
-                String content = line.substring(blockPrefixLen);
+            } else if (currentItem != null && line.length() >= itemPrefixLen) {
+                // Continuation line — strip the item's full prefix length
+                String content = line.substring(itemPrefixLen);
                 currentItem.append("\n").append(content);
             }
         }
 
         if (currentItem != null) {
-            String block = currentItem.toString();
+            String item = currentItem.toString();
             if (currentLevel > 1) {
-                block += "\n<!-- level=" + currentLevel + " -->";
+                item += "\n<!-- level=" + currentLevel + " -->";
             }
-            items.add(block);
+            items.add(item);
         }
 
         return String.join("\n\n", items);

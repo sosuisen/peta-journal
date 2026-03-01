@@ -1,6 +1,6 @@
 package com.petajournal.server.infrastructure.search;
 
-import com.petajournal.server.domain.model.Block;
+import com.petajournal.server.domain.model.Item;
 import com.petajournal.server.domain.model.Page;
 import com.petajournal.server.domain.model.SearchResult;
 import com.petajournal.server.domain.repository.SearchService;
@@ -34,9 +34,9 @@ public class LuceneSearchService implements SearchService {
 
     private static final String FIELD_PAGE_ID = "pageId";
     private static final String FIELD_PAGE_TITLE = "pageTitle";
-    private static final String FIELD_BLOCK_ID = "blockId";
+    private static final String FIELD_ITEM_ID = "itemId";
     private static final String FIELD_BODY = "body";
-    private static final String FIELD_TYPE = "type"; // "page" or "block"
+    private static final String FIELD_TYPE = "type"; // "page" or "item"
 
     @ConfigProperty(name = "petajournal.index.dir")
     String indexDir;
@@ -86,7 +86,7 @@ public class LuceneSearchService implements SearchService {
             doc.add(new StringField(FIELD_PAGE_ID, page.id().toString(), Field.Store.YES));
             String title = page.dirPath() + page.name();
             doc.add(new TextField(FIELD_PAGE_TITLE, title, Field.Store.YES));
-            doc.add(new StringField(FIELD_BLOCK_ID, "", Field.Store.YES));
+            doc.add(new StringField(FIELD_ITEM_ID, "", Field.Store.YES));
             writer.addDocument(doc);
             writer.commit();
         } catch (IOException e) {
@@ -95,20 +95,20 @@ public class LuceneSearchService implements SearchService {
     }
 
     @Override
-    public void indexBlock(Block block, String pageTitle) {
+    public void indexItem(Item item, String pageTitle) {
         try {
-            writer.deleteDocuments(new Term(FIELD_BLOCK_ID, block.id().toString()));
+            writer.deleteDocuments(new Term(FIELD_ITEM_ID, item.id().toString()));
 
             Document doc = new Document();
-            doc.add(new StringField(FIELD_TYPE, "block", Field.Store.YES));
-            doc.add(new StringField(FIELD_PAGE_ID, block.pageId().toString(), Field.Store.YES));
+            doc.add(new StringField(FIELD_TYPE, "item", Field.Store.YES));
+            doc.add(new StringField(FIELD_PAGE_ID, item.pageId().toString(), Field.Store.YES));
             doc.add(new TextField(FIELD_PAGE_TITLE, pageTitle, Field.Store.YES));
-            doc.add(new StringField(FIELD_BLOCK_ID, block.id().toString(), Field.Store.YES));
-            doc.add(new TextField(FIELD_BODY, block.body(), Field.Store.YES));
+            doc.add(new StringField(FIELD_ITEM_ID, item.id().toString(), Field.Store.YES));
+            doc.add(new TextField(FIELD_BODY, item.body(), Field.Store.YES));
             writer.addDocument(doc);
             writer.commit();
         } catch (IOException e) {
-            LOG.warnv("Failed to index block: {0}", block.id(), e);
+            LOG.warnv("Failed to index item: {0}", item.id(), e);
         }
     }
 
@@ -123,12 +123,12 @@ public class LuceneSearchService implements SearchService {
     }
 
     @Override
-    public void removeBlock(String blockId) {
+    public void removeItem(String itemId) {
         try {
-            writer.deleteDocuments(new Term(FIELD_BLOCK_ID, blockId));
+            writer.deleteDocuments(new Term(FIELD_ITEM_ID, itemId));
             writer.commit();
         } catch (IOException e) {
-            LOG.warnv("Failed to remove block from index: {0}", blockId, e);
+            LOG.warnv("Failed to remove item from index: {0}", itemId, e);
         }
     }
 
@@ -212,7 +212,7 @@ public class LuceneSearchService implements SearchService {
                 results.add(new SearchResult(
                         UUID.fromString(doc.get(FIELD_PAGE_ID)),
                         doc.get(FIELD_PAGE_TITLE),
-                        doc.get(FIELD_BLOCK_ID),
+                        doc.get(FIELD_ITEM_ID),
                         snippet,
                         sd.score
                 ));

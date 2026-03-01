@@ -10,7 +10,7 @@ export interface BookmarkGroup {
 export interface Bookmark {
   id: string;
   groupId: string;
-  targetType: string;   // "page" or "block"
+  targetType: string;   // "page" or "item"
   targetId: string;
   sortOrder: string;    // fractional index within group
   createdAt: number;

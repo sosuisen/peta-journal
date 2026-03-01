@@ -1,59 +1,59 @@
 import { Component, inject, input, output, effect, Injector, afterNextRender, viewChild, viewChildren, signal, OnDestroy } from '@angular/core';
 import { ScrollingModule, CdkVirtualScrollViewport } from '@angular/cdk/scrolling';
-import { OutlineBlockComponent } from './outline-block';
+import { OutlineItemComponent } from './outline-item';
 import { OutlineStateService } from '../../core/services/outline-state.service';
 import { ApiService } from '../../core/services/api.service';
 import { AutoSaveService } from '../../core/services/auto-save.service';
-import { Block } from '../../core/models/block.model';
+import { Item } from '../../core/models/item.model';
 import { ClipboardService } from '../../core/services/clipboard.service';
 import { UndoService, UndoEntry } from '../../core/services/undo.service';
 import { formatJournalDate } from '../../core/utils/date.utils';
 import { NavigationService } from '../../core/services/navigation.service';
-import { WikiLinkContext, ensureCodeFenceClosed, hasUnclosedCodeFence } from './block-editor';
+import { WikiLinkContext, ensureCodeFenceClosed, hasUnclosedCodeFence } from './item-editor';
 import { findMoveDownTarget, findMoveUpTarget } from './move-utils';
 
 @Component({
   selector: 'app-outline',
-  imports: [ScrollingModule, OutlineBlockComponent],
+  imports: [ScrollingModule, OutlineItemComponent],
   template: `
     <cdk-virtual-scroll-viewport #viewport [itemSize]="40" [minBufferPx]="500" [maxBufferPx]="600" class="outline-viewport" (scrolledIndexChange)="onScrolledIndexChange($event)">
       <div
-        *cdkVirtualFor="let block of state.visibleBlocks(); let i = index; trackBy: trackById"
+        *cdkVirtualFor="let item of state.visibleItems(); let i = index; trackBy: trackById"
         class="outline-item"
-        (mouseenter)="onBlockMouseEnter(block)"
+        (mouseenter)="onItemMouseEnter(item)"
       >
-        @if (isFirstBlockOfDate(i) && block.name !== currentPageDate() && block.type === 'journal') {
+        @if (isFirstItemOfDate(i) && item.name !== currentPageDate() && item.type === 'journal') {
           <div class="date-header">
-            {{ formatDateHeader(block.name) }}
+            {{ formatDateHeader(item.name) }}
           </div>
         }
-        <app-outline-block
-          #outlineBlock
-          [block]="block"
-          [suggestionsVisible]="wikiSuggestionsBlockId() === block.id && wikiSuggestions().length > 0"
-          (bodyChanged)="onBodyChanged(block, $event)"
-          (editRequested)="onEditRequested(block.id, $event)"
-          (editFinished)="onEditFinished(block)"
-          (enterPressed)="onEnterPressed(block, $event)"
-          (backspaceAtStart)="onBackspaceAtStart(block)"
-          (deleteAtEnd)="onDeleteAtEnd(block)"
-          (navigateUp)="onNavigateUp(block, $event)"
-          (navigateDown)="onNavigateDown(block, $event)"
-          (indentRequested)="onIndent(block)"
-          (outdentRequested)="onOutdent(block)"
-          (moveUp)="onMoveUp(block)"
-          (moveDown)="onMoveDown(block)"
-          (taskToggled)="onTaskStatusToggled(block)"
-          (statusCycleRequested)="onStatusCycleRequested(block)"
-          (collapseToggled)="onCollapseToggled(block)"
-          (pasteDetected)="onPaste(block, $event)"
-          (imagePasteDetected)="onImagePaste(block, $event)"
-          (dragBeyondBounds)="onDragBeyondBounds(block, $event)"
-          (wikiLinkQueryChanged)="onWikiLinkQuery(block, $event)"
+        <app-outline-item
+          #outlineItem
+          [item]="item"
+          [suggestionsVisible]="wikiSuggestionsItemId() === item.id && wikiSuggestions().length > 0"
+          (bodyChanged)="onBodyChanged(item, $event)"
+          (editRequested)="onEditRequested(item.id, $event)"
+          (editFinished)="onEditFinished(item)"
+          (enterPressed)="onEnterPressed(item, $event)"
+          (backspaceAtStart)="onBackspaceAtStart(item)"
+          (deleteAtEnd)="onDeleteAtEnd(item)"
+          (navigateUp)="onNavigateUp(item, $event)"
+          (navigateDown)="onNavigateDown(item, $event)"
+          (indentRequested)="onIndent(item)"
+          (outdentRequested)="onOutdent(item)"
+          (moveUp)="onMoveUp(item)"
+          (moveDown)="onMoveDown(item)"
+          (taskToggled)="onTaskStatusToggled(item)"
+          (statusCycleRequested)="onStatusCycleRequested(item)"
+          (collapseToggled)="onCollapseToggled(item)"
+          (pasteDetected)="onPaste(item, $event)"
+          (imagePasteDetected)="onImagePaste(item, $event)"
+          (dragBeyondBounds)="onDragBeyondBounds(item, $event)"
+          (wikiLinkQueryChanged)="onWikiLinkQuery(item, $event)"
           (wikiLinkSelected)="onWikiLinkKeyNav($event)"
           (openWikiLink)="onOpenWikiLink($event)"
-          (shiftSelectUp)="onShiftSelectUp(block)"
-          (shiftSelectDown)="onShiftSelectDown(block)"
+          (shiftSelectUp)="onShiftSelectUp(item)"
+          (shiftSelectDown)="onShiftSelectDown(item)"
           (undoRequested)="performUndo()"
           (redoRequested)="performRedo()"
         />
@@ -142,27 +142,27 @@ export class OutlineComponent implements OnDestroy {
   private readonly nav = inject(NavigationService);
   private readonly undo = inject(UndoService);
   readonly pageId = input.required<string>();
-  readonly focusBlockId = input<string | null | undefined>('');
-  readonly disableAutoLoad = input<boolean>(false);  // Disable automatic block loading
+  readonly focusItemId = input<string | null | undefined>('');
+  readonly disableAutoLoad = input<boolean>(false);  // Disable automatic item loading
   readonly currentPageDate = input<string>('');  // Date shown in page header
   readonly loadMore = output<{ filepath: string; currentIndex: number }>();  // Emits when should load more
-  readonly topBlockChanged = output<string>();  // Emits name of top visible block
-  private readonly dirtyBlockIds = new Set<string>();
-  private switchingEditBlock = false;
-  private movingEditBlock = false;
+  readonly topItemChanged = output<string>();  // Emits name of top visible item
+  private readonly dirtyItemIds = new Set<string>();
+  private switchingEditItem = false;
+  private movingEditItem = false;
   private operatingEnterKey = false;  // Prevents onEditFinished from flushing
   private readonly viewport = viewChild<CdkVirtualScrollViewport>('viewport');
-  private readonly outlineBlocks = viewChildren<OutlineBlockComponent>('outlineBlock');
+  private readonly outlineItems = viewChildren<OutlineItemComponent>('outlineItem');
 
   // Wiki link suggestions state
   readonly wikiSuggestions = signal<string[]>([]);
   readonly wikiSuggestionIndex = signal(0);
-  readonly wikiSuggestionsBlockId = signal<string | null>(null);
+  readonly wikiSuggestionsItemId = signal<string | null>(null);
   readonly wikiSuggestionsPos = signal({ x: 0, y: 0 });
   private wikiSearchTimer: ReturnType<typeof setTimeout> | null = null;
 
-  private selectionAnchorBlockId: string | null = null;
-  private selectionExtentBlockId: string | null = null;
+  private selectionAnchorItemId: string | null = null;
+  private selectionExtentItemId: string | null = null;
   private isSelectionDragging = false;
   private selectionKeydownHandler = (e: KeyboardEvent) => this.handleSelectionKeydown(e);
   private selectionMouseUpHandler = () => this.onSelectionMouseUp();
@@ -174,7 +174,7 @@ export class OutlineComponent implements OnDestroy {
     effect(() => {
       if (this.disableAutoLoad()) return;  // Skip auto-loading if disabled
       const id = this.pageId();
-      if (id) this.loadBlocks(id);
+      if (id) this.loadItems(id);
     });
 
     // Clear undo/redo stacks on page change
@@ -186,23 +186,23 @@ export class OutlineComponent implements OnDestroy {
 
   /**
    * Handles the virtual scroll viewport emitting a new scrolled index.
-   * Emits the top visible block's name and triggers loading more blocks when nearing the end.
+   * Emits the top visible item's name and triggers loading more items when nearing the end.
    * @param index - The index of the first visible item in the virtual scroll viewport
    */
   onScrolledIndexChange(index: number): void {
-    const blocks = this.state.visibleBlocks();
-    const totalBlocks = blocks.length;
+    const items = this.state.visibleItems();
+    const totalItems = items.length;
 
-    // Emit the top visible block's name
-    if (index >= 0 && index < totalBlocks) {
-      const topBlock = blocks[index];
-      this.topBlockChanged.emit(topBlock.name);
+    // Emit the top visible item's name
+    if (index >= 0 && index < totalItems) {
+      const topItem = items[index];
+      this.topItemChanged.emit(topItem.name);
     }
 
-    // Check if we need more buffer (100 blocks ahead)
-    if (totalBlocks < index + 100 && totalBlocks > 0) {
-      const lastBlock = blocks[totalBlocks - 1];
-      const filepath = lastBlock.dirPath + lastBlock.name;
+    // Check if we need more buffer (100 items ahead)
+    if (totalItems < index + 100 && totalItems > 0) {
+      const lastItem = items[totalItems - 1];
+      const filepath = lastItem.dirPath + lastItem.name;
       this.loadMore.emit({ filepath, currentIndex: index });
     }
   }
@@ -210,25 +210,25 @@ export class OutlineComponent implements OnDestroy {
   /**
    * TrackBy function for the virtual scroll's cdkVirtualFor directive.
    * @param _index - The index of the item (unused)
-   * @param block - The block to track
-   * @returns The block's unique identifier
+   * @param item - The item to track
+   * @returns The item's unique identifier
    */
-  trackById(_index: number, block: Block): string {
-    return block.id;
+  trackById(_index: number, item: Item): string {
+    return item.id;
   }
 
   /**
-   * Determines whether the block at the given index is the first block of a new date group.
+   * Determines whether the item at the given index is the first item of a new date group.
    * Used in the template to render date header separators between journal entries.
-   * @param index - The index of the block in the visible blocks array
-   * @returns True if this block starts a new date group
+   * @param index - The index of the item in the visible items array
+   * @returns True if this item starts a new date group
    */
-  isFirstBlockOfDate(index: number): boolean {
-    const blocks = this.state.visibleBlocks();
+  isFirstItemOfDate(index: number): boolean {
+    const items = this.state.visibleItems();
     if (index === 0) return true;
-    const currentBlock = blocks[index];
-    const previousBlock = blocks[index - 1];
-    return currentBlock.name !== previousBlock.name;
+    const currentItem = items[index];
+    const previousItem = items[index - 1];
+    return currentItem.name !== previousItem.name;
   }
 
   /**
@@ -240,27 +240,27 @@ export class OutlineComponent implements OnDestroy {
     return formatJournalDate(fileName);
   }
 
-  private async loadBlocks(pageId: string): Promise<void> {
+  private async loadItems(pageId: string): Promise<void> {
     try {
       const result = await this.api.getPageById(pageId);
-      this.state.setBlocks(result.blocks);
-      this.scrollToFocusBlock();
+      this.state.setItems(result.items);
+      this.scrollToFocusItem();
     } catch (e) {
-      console.error('Failed to load blocks for page:', pageId, e);
+      console.error('Failed to load items for page:', pageId, e);
     }
   }
 
-  private scrollToFocusBlock(): void {
-    const blockId = this.focusBlockId();
-    if (!blockId) return;
-    const blocks = this.state.visibleBlocks();
-    const index = blocks.findIndex(b => b.id === blockId);
+  private scrollToFocusItem(): void {
+    const itemId = this.focusItemId();
+    if (!itemId) return;
+    const items = this.state.visibleItems();
+    const index = items.findIndex(b => b.id === itemId);
     if (index < 0) return;
-    const subtreeIds = this.state.getChildren(blockId).map(b => b.id);
-    this.state.setSelectedBlockIds(new Set([blockId, ...subtreeIds]));
-    this.state.setBlockSelectionMode(true);
-    this.selectionAnchorBlockId = blockId;
-    this.selectionExtentBlockId = blockId;
+    const subtreeIds = this.state.getChildren(itemId).map(b => b.id);
+    this.state.setSelectedItemIds(new Set([itemId, ...subtreeIds]));
+    this.state.setItemSelectionMode(true);
+    this.selectionAnchorItemId = itemId;
+    this.selectionExtentItemId = itemId;
     document.addEventListener('keydown', this.selectionKeydownHandler);
     document.addEventListener('click', this.selectionClickHandler);
     document.addEventListener('copy', this.selectionCopyHandler);
@@ -271,152 +271,152 @@ export class OutlineComponent implements OnDestroy {
   }
 
   /**
-   * Handles the user clicking on a block to start editing it.
-   * Ignored when block selection mode is active.
-   * @param blockId - The ID of the block to edit
+   * Handles the user clicking on a item to start editing it.
+   * Ignored when item selection mode is active.
+   * @param itemId - The ID of the item to edit
    * @param cursorPosition - The cursor position to place the caret at
    */
-  async onEditRequested(blockId: string, cursorPosition: number): Promise<void> {
-    if (this.state.blockSelectionMode()) return;
-    const currentId = this.state.focusedBlockId();
-    if (currentId && currentId !== blockId) {
-      const current = this.state.getBlockById(currentId);
+  async onEditRequested(itemId: string, cursorPosition: number): Promise<void> {
+    if (this.state.itemSelectionMode()) return;
+    const currentId = this.state.focusedItemId();
+    if (currentId && currentId !== itemId) {
+      const current = this.state.getItemById(currentId);
       if (current) {
-        this.switchingEditBlock = true;
-        await this.saveBlockIfDirty(current);
-        this.switchingEditBlock = false;
+        this.switchingEditItem = true;
+        await this.saveItemIfDirty(current);
+        this.switchingEditItem = false;
       }
     }
-    this.state.addEditingBlock(blockId);
-    this.state.setFocusedBlock(blockId, cursorPosition);
+    this.state.addEditingItem(itemId);
+    this.state.setFocusedItem(itemId, cursorPosition);
     this.state.setPendingMouseDrag(true);
   }
 
   /**
-   * Handles the user typing in a block editor, updating local state and scheduling an auto-save.
-   * @param block - The block being edited
+   * Handles the user typing in a item editor, updating local state and scheduling an auto-save.
+   * @param item - The item being edited
    * @param newBody - The updated body text
    */
-  onBodyChanged(block: Block, newBody: string): void {
-    const before = { ...block };
-    this.state.updateBlock(block.id, { body: newBody });
-    this.dirtyBlockIds.add(block.id);
-    this.autoSave.scheduleBlockUpdate(block.id, newBody);
-    const after = { ...block, body: newBody };
+  onBodyChanged(item: Item, newBody: string): void {
+    const before = { ...item };
+    this.state.updateItem(item.id, { body: newBody });
+    this.dirtyItemIds.add(item.id);
+    this.autoSave.scheduleItemUpdate(item.id, newBody);
+    const after = { ...item, body: newBody };
     this.undo.begin('body');
     this.undo.pushUpdate(before, after);
     this.undo.commit();
   }
 
   /**
-   * Handles the user leaving a block editor (blur). Flushes pending changes to the backend
-   * and switches the block back to view mode with updated HTML.
-   * @param block - The block that was being edited
+   * Handles the user leaving a item editor (blur). Flushes pending changes to the backend
+   * and switches the item back to view mode with updated HTML.
+   * @param item - The item that was being edited
    */
-  async onEditFinished(block: Block): Promise<void> {
+  async onEditFinished(item: Item): Promise<void> {
     this.closeWikiSuggestions();
-    if (this.switchingEditBlock) return;  // onEditRequested is handling save + switch
+    if (this.switchingEditItem) return;  // onEditRequested is handling save + switch
 
-    if (this.movingEditBlock) return;  // onMoveUp/onMoveDown is handling save + switch
+    if (this.movingEditItem) return;  // onMoveUp/onMoveDown is handling save + switch
 
     // If not in editing set, another handler already removed it
-    if (!this.state.editingBlockIds().has(block.id)) return;
+    if (!this.state.editingItemIds().has(item.id)) return;
 
     if (this.operatingEnterKey) return;
 
-    if (!this.dirtyBlockIds.has(block.id)) {
-      const current = this.state.getBlockById(block.id);
+    if (!this.dirtyItemIds.has(item.id)) {
+      const current = this.state.getItemById(item.id);
       if (current && hasUnclosedCodeFence(current.body)) {
-        await this.saveBlockBody(block.id, current.body);
+        await this.saveItemBody(item.id, current.body);
       }
-      this.state.removeEditingBlock(block.id);
+      this.state.removeEditingItem(item.id);
       return;
     }
-    // Save dirty block
-    this.dirtyBlockIds.delete(block.id);
-    await this.autoSave.flushBlock(block.id);
-    const current = this.state.getBlockById(block.id);
+    // Save dirty item
+    this.dirtyItemIds.delete(item.id);
+    await this.autoSave.flushItem(item.id);
+    const current = this.state.getItemById(item.id);
     if (current) {
-      await this.saveBlockBody(block.id, current.body);
+      await this.saveItemBody(item.id, current.body);
     }
-    this.state.removeEditingBlock(block.id);
+    this.state.removeEditingItem(item.id);
   }
 
   /**
-   * Handles the user pressing Enter in a block editor. Splits the block at the cursor position,
-   * creating a new block with the text after the cursor. If the block is empty and indented,
-   * outdents instead. If the cursor is at the beginning, inserts an empty block before.
-   * @param block - The block where Enter was pressed
+   * Handles the user pressing Enter in a item editor. Splits the item at the cursor position,
+   * creating a new item with the text after the cursor. If the item is empty and indented,
+   * outdents instead. If the cursor is at the beginning, inserts an empty item before.
+   * @param item - The item where Enter was pressed
    * @param event - Contains the cursor position at the time of the keypress
    */
-  async onEnterPressed(block: Block, event: { cursorPos: number }): Promise<void> {
-    this.autoSave.cancelBlock(block.id);
-    this.dirtyBlockIds.delete(block.id);
+  async onEnterPressed(item: Item, event: { cursorPos: number }): Promise<void> {
+    this.autoSave.cancelItem(item.id);
+    this.dirtyItemIds.delete(item.id);
 
     const { cursorPos } = event;
-    const beforeText = block.body.substring(0, cursorPos);
-    const afterText = block.body.substring(cursorPos);
+    const beforeText = item.body.substring(0, cursorPos);
+    const afterText = item.body.substring(cursorPos);
 
-    if (block.body.length === 0 && block.level > 1) {
+    if (item.body.length === 0 && item.level > 1) {
       // Check if there are same-level siblings below within the same parent
-      const vBlocks = this.state.visibleBlocks();
-      const vIdx = vBlocks.findIndex(b => b.id === block.id);
+      const vItems = this.state.visibleItems();
+      const vIdx = vItems.findIndex(b => b.id === item.id);
       let hasSiblingBelow = false;
-      for (let i = vIdx + 1; i < vBlocks.length; i++) {
-        if (vBlocks[i].level < block.level) break;
-        if (vBlocks[i].level === block.level) { hasSiblingBelow = true; break; }
+      for (let i = vIdx + 1; i < vItems.length; i++) {
+        if (vItems[i].level < item.level) break;
+        if (vItems[i].level === item.level) { hasSiblingBelow = true; break; }
       }
       if (!hasSiblingBelow) {
-        // No siblings below: outdent instead of creating new block
-        await this.onOutdent(block);
-        this.focusEditor(block.id);
+        // No siblings below: outdent instead of creating new item
+        await this.onOutdent(item);
+        this.focusEditor(item.id);
         return;
       }
-      // Has siblings below: fall through to create new block
+      // Has siblings below: fall through to create new item
     }
 
     this.operatingEnterKey = true;
 
-    // Determine level for new block: if the original block has a direct child
-    // (next block at level+1) immediately below and is not collapsed, inherit deeper level.
-    const allBlocks = this.state.blocks();
-    const blockIdx = allBlocks.findIndex(b => b.id === block.id);
-    const nextBlock = blockIdx >= 0 && blockIdx < allBlocks.length - 1 ? allBlocks[blockIdx + 1] : undefined;
-    const newLevel = (!block.collapsed && nextBlock && nextBlock.level === block.level + 1)
-      ? block.level + 1
-      : block.level;
+    // Determine level for new item: if the original item has a direct child
+    // (next item at level+1) immediately below and is not collapsed, inherit deeper level.
+    const allItems = this.state.items();
+    const itemIdx = allItems.findIndex(b => b.id === item.id);
+    const nextItem = itemIdx >= 0 && itemIdx < allItems.length - 1 ? allItems[itemIdx + 1] : undefined;
+    const newLevel = (!item.collapsed && nextItem && nextItem.level === item.level + 1)
+      ? item.level + 1
+      : item.level;
 
-    // For collapsed blocks, insert after the last descendant (end of subtree)
-    const descendants = block.collapsed ? this.state.getChildren(block.id) : [];
-    const afterBlockId = descendants.length > 0 ? descendants[descendants.length - 1].id : block.id;
+    // For collapsed items, insert after the last descendant (end of subtree)
+    const descendants = item.collapsed ? this.state.getChildren(item.id) : [];
+    const afterItemId = descendants.length > 0 ? descendants[descendants.length - 1].id : item.id;
 
-    if (cursorPos === 0 && block.body.length > 0) {
-      // Enter at beginning: create new empty block before current block
-      const prevBlockId = blockIdx > 0 ? allBlocks[blockIdx - 1].id : '';
+    if (cursorPos === 0 && item.body.length > 0) {
+      // Enter at beginning: create new empty item before current item
+      const prevItemId = itemIdx > 0 ? allItems[itemIdx - 1].id : '';
 
-      const [newBlock] = await Promise.all([
-        this.api.createBlock(block.pageId, prevBlockId, block.level, ''),
-        this.saveBlockBody(block.id, block.body),
+      const [newItem] = await Promise.all([
+        this.api.createItem(item.pageId, prevItemId, item.level, ''),
+        this.saveItemBody(item.id, item.body),
       ]);
-      this.state.addBlock(newBlock, prevBlockId);
+      this.state.addItem(newItem, prevItemId);
 
-      this.undo.begin('enter', { blockId: block.id, position: cursorPos });
-      this.undo.pushCreate(newBlock);
-      this.undo.commit({ blockId: newBlock.id, position: 0 });
+      this.undo.begin('enter', { itemId: item.id, position: cursorPos });
+      this.undo.pushCreate(newItem);
+      this.undo.commit({ itemId: newItem.id, position: 0 });
 
-      this.state.addEditingBlock(newBlock.id);
-      this.focusEditor(newBlock.id);
+      this.state.addEditingItem(newItem.id);
+      this.focusEditor(newItem.id);
 
-      this.state.removeEditingBlock(block.id);
-    } else if (cursorPos === block.body.length) {
-      // Enter at end: body unchanged — add optimistic block with client-generated ID
+      this.state.removeEditingItem(item.id);
+    } else if (cursorPos === item.body.length) {
+      // Enter at end: body unchanged — add optimistic item with client-generated ID
       const newId = crypto.randomUUID();
-      const optimisticBlock: Block = {
+      const optimisticItem: Item = {
         id: newId,
-        pageId: block.pageId,
-        dirPath: block.dirPath,
-        name: block.name,
-        type: block.type,
+        pageId: item.pageId,
+        dirPath: item.dirPath,
+        name: item.name,
+        type: item.type,
         createdDate: Date.now(),
         modifiedDate: Date.now(),
         idx: '',
@@ -427,190 +427,190 @@ export class OutlineComponent implements OnDestroy {
         status: 'normal',
         types: [],
       };
-      this.api.createBlock(block.pageId, afterBlockId, newLevel, '', newId).then(serverBlock => {
-        this.state.updateBlock(newId, { idx: serverBlock.idx });
+      this.api.createItem(item.pageId, afterItemId, newLevel, '', newId).then(serverItem => {
+        this.state.updateItem(newId, { idx: serverItem.idx });
       });
-      this.state.addBlock(optimisticBlock, afterBlockId);
+      this.state.addItem(optimisticItem, afterItemId);
 
-      this.undo.begin('enter', { blockId: block.id, position: cursorPos });
-      this.undo.pushUpdate({ ...block }, { ...block });
-      this.undo.pushCreate(optimisticBlock);
-      this.undo.commit({ blockId: newId, position: 0 });
+      this.undo.begin('enter', { itemId: item.id, position: cursorPos });
+      this.undo.pushUpdate({ ...item }, { ...item });
+      this.undo.pushCreate(optimisticItem);
+      this.undo.commit({ itemId: newId, position: 0 });
 
-      this.dirtyBlockIds.delete(block.id);
-      this.autoSave.cancelBlock(block.id);
-      this.state.addEditingBlock(newId);
-      this.state.setFocusedBlock(newId);
+      this.dirtyItemIds.delete(item.id);
+      this.autoSave.cancelItem(item.id);
+      this.state.addEditingItem(newId);
+      this.state.setFocusedItem(newId);
       this.focusEditor(newId);
 
-      await this.saveBlockBody(block.id, beforeText);
-      this.state.removeEditingBlock(block.id);
+      await this.saveItemBody(item.id, beforeText);
+      this.state.removeEditingItem(item.id);
 
     } else {
-      const originalBlock = { ...block };
+      const originalItem = { ...item };
 
-      const [updatedOriginal, newBlock] = await Promise.all([
-        this.saveBlockBody(block.id, beforeText),
-        this.api.createBlock(block.pageId, afterBlockId, newLevel, afterText),
+      const [updatedOriginal, newItem] = await Promise.all([
+        this.saveItemBody(item.id, beforeText),
+        this.api.createItem(item.pageId, afterItemId, newLevel, afterText),
       ]);
-      this.state.addBlock(newBlock, afterBlockId);
+      this.state.addItem(newItem, afterItemId);
 
-      this.undo.begin('enter', { blockId: block.id, position: cursorPos });
-      this.undo.pushUpdate(originalBlock, updatedOriginal);
-      this.undo.pushCreate(newBlock);
-      this.undo.commit({ blockId: newBlock.id, position: 0 });
+      this.undo.begin('enter', { itemId: item.id, position: cursorPos });
+      this.undo.pushUpdate(originalItem, updatedOriginal);
+      this.undo.pushCreate(newItem);
+      this.undo.commit({ itemId: newItem.id, position: 0 });
 
-      this.state.addEditingBlock(newBlock.id);
-      this.state.setFocusedBlock(newBlock.id);
-      this.focusEditor(newBlock.id);
+      this.state.addEditingItem(newItem.id);
+      this.state.setFocusedItem(newItem.id);
+      this.focusEditor(newItem.id);
 
-      this.state.removeEditingBlock(block.id);
+      this.state.removeEditingItem(item.id);
     }
 
     this.operatingEnterKey = false;
   }
 
   /**
-   * Handles the user pressing Backspace at the start of a block.
-   * Merges the current block's content into the previous block and deletes the current block.
-   * @param block - The block where Backspace was pressed at position 0
+   * Handles the user pressing Backspace at the start of a item.
+   * Merges the current item's content into the previous item and deletes the current item.
+   * @param item - The item where Backspace was pressed at position 0
    */
-  async onBackspaceAtStart(block: Block): Promise<void> {
-    const blocks = this.state.visibleBlocks();
-    const idx = blocks.findIndex(b => b.id === block.id);
+  async onBackspaceAtStart(item: Item): Promise<void> {
+    const items = this.state.visibleItems();
+    const idx = items.findIndex(b => b.id === item.id);
     if (idx <= 0) return;
 
-    this.autoSave.cancelBlock(block.id);
-    this.dirtyBlockIds.delete(block.id);
+    this.autoSave.cancelItem(item.id);
+    this.dirtyItemIds.delete(item.id);
 
-    const prevBlock = blocks[idx - 1];
-    const originalPrev = { ...prevBlock };
-    const originalBlock = { ...block };
-    const cursorPos = prevBlock.body.length;
-    const mergedBody = prevBlock.body + block.body;
-    this.state.updateBlock(prevBlock.id, { body: mergedBody });
-    this.state.deleteBlock(block.id);
-    this.state.addEditingBlock(prevBlock.id);
-    this.focusEditor(prevBlock.id);
+    const prevItem = items[idx - 1];
+    const originalPrev = { ...prevItem };
+    const originalItem = { ...item };
+    const cursorPos = prevItem.body.length;
+    const mergedBody = prevItem.body + item.body;
+    this.state.updateItem(prevItem.id, { body: mergedBody });
+    this.state.deleteItem(item.id);
+    this.state.addEditingItem(prevItem.id);
+    this.focusEditor(prevItem.id);
 
-    const updatedPrev = await this.saveBlockBody(prevBlock.id, mergedBody);
-    await this.api.deleteBlock(block.id);
+    const updatedPrev = await this.saveItemBody(prevItem.id, mergedBody);
+    await this.api.deleteItem(item.id);
 
-    this.undo.begin('backspace', { blockId: block.id, position: 0 });
+    this.undo.begin('backspace', { itemId: item.id, position: 0 });
     this.undo.pushUpdate(originalPrev, updatedPrev);
-    this.undo.pushDelete(originalBlock);
-    this.undo.commit({ blockId: prevBlock.id, position: cursorPos });
+    this.undo.pushDelete(originalItem);
+    this.undo.commit({ itemId: prevItem.id, position: cursorPos });
   }
 
   /**
-   * Handles the user pressing Delete at the end of a block.
-   * Merges the next block's content into the current block and deletes the next block.
-   * @param block - The block where Delete was pressed at the end
+   * Handles the user pressing Delete at the end of a item.
+   * Merges the next item's content into the current item and deletes the next item.
+   * @param item - The item where Delete was pressed at the end
    */
-  async onDeleteAtEnd(block: Block): Promise<void> {
-    const blocks = this.state.visibleBlocks();
-    const idx = blocks.findIndex(b => b.id === block.id);
-    if (idx >= blocks.length - 1) return;
+  async onDeleteAtEnd(item: Item): Promise<void> {
+    const items = this.state.visibleItems();
+    const idx = items.findIndex(b => b.id === item.id);
+    if (idx >= items.length - 1) return;
 
-    const nextBlock = blocks[idx + 1];
-    this.autoSave.cancelBlock(nextBlock.id);
-    this.dirtyBlockIds.delete(nextBlock.id);
+    const nextItem = items[idx + 1];
+    this.autoSave.cancelItem(nextItem.id);
+    this.dirtyItemIds.delete(nextItem.id);
 
-    const originalBlock = { ...block };
-    const originalNext = { ...nextBlock };
-    const cursorPos = block.body.length;
-    const mergedBody = block.body + nextBlock.body;
-    this.state.updateBlock(block.id, { body: mergedBody });
-    this.state.deleteBlock(nextBlock.id);
+    const originalItem = { ...item };
+    const originalNext = { ...nextItem };
+    const cursorPos = item.body.length;
+    const mergedBody = item.body + nextItem.body;
+    this.state.updateItem(item.id, { body: mergedBody });
+    this.state.deleteItem(nextItem.id);
 
-    const updatedBlock = await this.saveBlockBody(block.id, mergedBody);
-    await this.api.deleteBlock(nextBlock.id);
+    const updatedItem = await this.saveItemBody(item.id, mergedBody);
+    await this.api.deleteItem(nextItem.id);
 
-    this.undo.begin('delete', { blockId: block.id, position: cursorPos });
-    this.undo.pushUpdate(originalBlock, updatedBlock);
+    this.undo.begin('delete', { itemId: item.id, position: cursorPos });
+    this.undo.pushUpdate(originalItem, updatedItem);
     this.undo.pushDelete(originalNext);
-    this.undo.commit({ blockId: block.id, position: cursorPos });
+    this.undo.commit({ itemId: item.id, position: cursorPos });
   }
 
   /**
-   * Handles the user pressing the Up arrow key to navigate to the previous block.
+   * Handles the user pressing the Up arrow key to navigate to the previous item.
    * Saves any pending changes before moving focus.
-   * @param block - The block where the Up arrow was pressed
-   * @param cursorPos - The cursor position to restore in the target block
+   * @param item - The item where the Up arrow was pressed
+   * @param cursorPos - The cursor position to restore in the target item
    */
-  async onNavigateUp(block: Block, cursorPos: number): Promise<void> {
-    const blocks = this.state.visibleBlocks();
-    const idx = blocks.findIndex(b => b.id === block.id);
+  async onNavigateUp(item: Item, cursorPos: number): Promise<void> {
+    const items = this.state.visibleItems();
+    const idx = items.findIndex(b => b.id === item.id);
     if (idx > 0) {
       // Save and update HTML before navigating
-      await this.saveBlockIfDirty(block);
-      this.state.addEditingBlock(blocks[idx - 1].id);
-      this.state.setFocusedBlock(blocks[idx - 1].id, cursorPos);
-      this.state.removeEditingBlock(block.id);
+      await this.saveItemIfDirty(item);
+      this.state.addEditingItem(items[idx - 1].id);
+      this.state.setFocusedItem(items[idx - 1].id, cursorPos);
+      this.state.removeEditingItem(item.id);
     }
   }
 
   /**
-   * Handles the user pressing the Down arrow key to navigate to the next block.
+   * Handles the user pressing the Down arrow key to navigate to the next item.
    * Saves any pending changes before moving focus.
-   * @param block - The block where the Down arrow was pressed
-   * @param cursorPos - The cursor position to restore in the target block
+   * @param item - The item where the Down arrow was pressed
+   * @param cursorPos - The cursor position to restore in the target item
    */
-  async onNavigateDown(block: Block, cursorPos: number): Promise<void> {
-    const blocks = this.state.visibleBlocks();
-    const idx = blocks.findIndex(b => b.id === block.id);
-    if (idx < blocks.length - 1) {
+  async onNavigateDown(item: Item, cursorPos: number): Promise<void> {
+    const items = this.state.visibleItems();
+    const idx = items.findIndex(b => b.id === item.id);
+    if (idx < items.length - 1) {
       // Save and update HTML before navigating
-      await this.saveBlockIfDirty(block);
-      this.state.addEditingBlock(blocks[idx + 1].id);
-      this.state.setFocusedBlock(blocks[idx + 1].id, cursorPos);
-      this.state.removeEditingBlock(block.id);
+      await this.saveItemIfDirty(item);
+      this.state.addEditingItem(items[idx + 1].id);
+      this.state.setFocusedItem(items[idx + 1].id, cursorPos);
+      this.state.removeEditingItem(item.id);
     }
   }
 
-  private async saveBlockIfDirty(block: Block): Promise<void> {
-    if (!this.dirtyBlockIds.has(block.id)) return;
+  private async saveItemIfDirty(item: Item): Promise<void> {
+    if (!this.dirtyItemIds.has(item.id)) return;
 
-    this.dirtyBlockIds.delete(block.id);
-    await this.autoSave.flushBlock(block.id);
-    const current = this.state.getBlockById(block.id);
+    this.dirtyItemIds.delete(item.id);
+    await this.autoSave.flushItem(item.id);
+    const current = this.state.getItemById(item.id);
     if (current) {
-      await this.saveBlockBody(block.id, current.body);
-      this.state.removeEditingBlock(block.id);
+      await this.saveItemBody(item.id, current.body);
+      this.state.removeEditingItem(item.id);
     }
   }
 
   /**
-   * Check if a block at the given level can be placed after prevBlock.
-   * Constraint: the previous block's level must be the same as, or exactly 1 level above (parent).
-   * i.e. prevLevel === blockLevel (sibling) or prevLevel === blockLevel - 1 (parent)
-   * If no previous block, the block must be at level 0 (root).
+   * Check if a item at the given level can be placed after prevItem.
+   * Constraint: the previous item's level must be the same as, or exactly 1 level above (parent).
+   * i.e. prevLevel === itemLevel (sibling) or prevLevel === itemLevel - 1 (parent)
+   * If no previous item, the item must be at level 0 (root).
    */
-  private canPlace(blockLevel: number, prevBlock: Block | undefined): boolean {
-    if (!prevBlock) return blockLevel === 1;
-    return prevBlock.level === blockLevel || prevBlock.level === blockLevel - 1;
+  private canPlace(itemLevel: number, prevItem: Item | undefined): boolean {
+    if (!prevItem) return itemLevel === 1;
+    return prevItem.level === itemLevel || prevItem.level === itemLevel - 1;
   }
 
   /**
-   * Handles the user pressing Tab to indent a block and its children by one level.
+   * Handles the user pressing Tab to indent a item and its children by one level.
    * Validates placement constraints before allowing the indent.
-   * @param block - The block to indent
+   * @param item - The item to indent
    */
-  async onIndent(block: Block): Promise<void> {
-    const blocks = this.state.blocks();
-    const idx = blocks.findIndex(b => b.id === block.id);
+  async onIndent(item: Item): Promise<void> {
+    const items = this.state.items();
+    const idx = items.findIndex(b => b.id === item.id);
     if (idx <= 0) return;
-    const prevBlock = blocks[idx - 1];
-    const newLevel = block.level + 1;
+    const prevItem = items[idx - 1];
+    const newLevel = item.level + 1;
 
     // Check normal placement
-    if (!this.canPlace(newLevel, prevBlock)) {
+    if (!this.canPlace(newLevel, prevItem)) {
       // Exception: indenting by 1 level is allowed if there is a sibling at the same level
       // within the same parent subtree (stop scanning at shallower levels)
       let hasSameLevelBefore = false;
       for (let i = idx - 1; i >= 0; i--) {
-        if (blocks[i].level < block.level) break; // exited current subtree
-        if (blocks[i].level === block.level) {
+        if (items[i].level < item.level) break; // exited current subtree
+        if (items[i].level === item.level) {
           hasSameLevelBefore = true;
           break;
         }
@@ -618,46 +618,46 @@ export class OutlineComponent implements OnDestroy {
       if (!hasSameLevelBefore) return;
     }
 
-    const group = this.state.getBlockWithChildren(block.id);
+    const group = this.state.getItemWithChildren(item.id);
     this.undo.begin('indent');
     for (const b of group) {
       this.undo.pushUpdate({ ...b }, { ...b, level: b.level + 1 });
-      this.state.updateBlock(b.id, { level: b.level + 1 });
+      this.state.updateItem(b.id, { level: b.level + 1 });
     }
     this.undo.commit();
-    const results = await Promise.all(group.map(b => this.api.updateBlock(b.id, { level: b.level + 1 })));
+    const results = await Promise.all(group.map(b => this.api.updateItem(b.id, { level: b.level + 1 })));
     for (const r of results) {
-      this.state.updateBlock(r.id, { idx: r.idx, level: r.level });
+      this.state.updateItem(r.id, { idx: r.idx, level: r.level });
     }
   }
 
   /**
-   * Handles the user pressing Shift+Tab to outdent a block and its children by one level.
-   * May reposition the block after its parent's last child if normal placement is not possible.
-   * @param block - The block to outdent
+   * Handles the user pressing Shift+Tab to outdent a item and its children by one level.
+   * May reposition the item after its parent's last child if normal placement is not possible.
+   * @param item - The item to outdent
    */
-  async onOutdent(block: Block): Promise<void> {
-    if (block.level <= 1) return;
-    const blocks = this.state.blocks();
-    const idx = blocks.findIndex(b => b.id === block.id);
-    const prevBlock = idx > 0 ? blocks[idx - 1] : undefined;
-    const newLevel = block.level - 1;
+  async onOutdent(item: Item): Promise<void> {
+    if (item.level <= 1) return;
+    const items = this.state.items();
+    const idx = items.findIndex(b => b.id === item.id);
+    const prevItem = idx > 0 ? items[idx - 1] : undefined;
+    const newLevel = item.level - 1;
 
     // Check normal placement
-    if (!this.canPlace(newLevel, prevBlock)) {
+    if (!this.canPlace(newLevel, prevItem)) {
       // Exception: outdenting by 1 level is allowed by placing after the last child of the current parent
       let currentParentIdx = -1;
       for (let i = idx - 1; i >= 0; i--) {
-        if (blocks[i].level === block.level - 1) {
+        if (items[i].level === item.level - 1) {
           currentParentIdx = i;
           break;
         }
       }
 
       if (currentParentIdx >= 0) {
-        const currentParent = blocks[currentParentIdx];
+        const currentParent = items[currentParentIdx];
         const allChildren = this.state.getChildren(currentParent.id);
-        const group = this.state.getBlockWithChildren(block.id);
+        const group = this.state.getItemWithChildren(item.id);
         const movingIds = new Set(group.map(b => b.id));
 
         let lastChildId = currentParent.id;
@@ -672,17 +672,17 @@ export class OutlineComponent implements OnDestroy {
 
         // Update levels
         for (const b of group) {
-          this.state.updateBlock(b.id, { level: b.level - 1 });
+          this.state.updateItem(b.id, { level: b.level - 1 });
         }
-        const levelResults = await Promise.all(group.map(b => this.api.updateBlock(b.id, { level: b.level - 1 })));
+        const levelResults = await Promise.all(group.map(b => this.api.updateItem(b.id, { level: b.level - 1 })));
         for (const r of levelResults) {
-          this.state.updateBlock(r.id, { idx: r.idx, level: r.level });
+          this.state.updateItem(r.id, { idx: r.idx, level: r.level });
         }
 
         // Move after the last child (if it's not the parent itself)
         if (lastChildId !== currentParent.id) {
-          const moved = await this.api.moveBlocks(groupIds, block.pageId, lastChildId);
-          this.state.replaceBlocks(groupIds, moved, lastChildId);
+          const moved = await this.api.moveItems(groupIds, item.pageId, lastChildId);
+          this.state.replaceItems(groupIds, moved, lastChildId);
 
           this.undo.begin('outdent');
           for (let i = 0; i < beforeSnapshots.length; i++) {
@@ -703,33 +703,33 @@ export class OutlineComponent implements OnDestroy {
     }
 
     // Normal outdent
-    const group = this.state.getBlockWithChildren(block.id);
+    const group = this.state.getItemWithChildren(item.id);
     this.undo.begin('outdent');
     for (const b of group) {
       this.undo.pushUpdate({ ...b }, { ...b, level: b.level - 1 });
-      this.state.updateBlock(b.id, { level: b.level - 1 });
+      this.state.updateItem(b.id, { level: b.level - 1 });
     }
     this.undo.commit();
-    const outdentResults = await Promise.all(group.map(b => this.api.updateBlock(b.id, { level: b.level - 1 })));
+    const outdentResults = await Promise.all(group.map(b => this.api.updateItem(b.id, { level: b.level - 1 })));
     for (const r of outdentResults) {
-      this.state.updateBlock(r.id, { idx: r.idx, level: r.level });
+      this.state.updateItem(r.id, { idx: r.idx, level: r.level });
     }
   }
 
   /**
-   * Handles the user pressing Alt+Shift+Up to move a block and its children up
+   * Handles the user pressing Alt+Shift+Up to move a item and its children up
    * past the previous sibling tree.
-   * @param block - The block to move up
+   * @param item - The item to move up
    */
-  async onMoveUp(block: Block): Promise<void> {
-    const target = findMoveUpTarget(this.state.blocks(), block.id);
+  async onMoveUp(item: Item): Promise<void> {
+    const target = findMoveUpTarget(this.state.items(), item.id);
     if (!target) return;
 
-    const group = this.state.getBlockWithChildren(block.id);
+    const group = this.state.getItemWithChildren(item.id);
     const groupIds = group.map(b => b.id);
     const beforeSnapshots = group.map(b => ({ ...b }));
 
-    const moved = await this.api.moveBlocks(groupIds, block.pageId, target.afterBlockId);
+    const moved = await this.api.moveItems(groupIds, item.pageId, target.afterItemId);
 
     this.undo.begin('move');
     for (let i = 0; i < beforeSnapshots.length; i++) {
@@ -737,29 +737,29 @@ export class OutlineComponent implements OnDestroy {
     }
     this.undo.commit();
 
-    this.movingEditBlock = true;
-    this.state.replaceBlocks(groupIds, moved, target.afterBlockId);
-    this.focusEditor(block.id, () => {
-      this.movingEditBlock = false;
+    this.movingEditItem = true;
+    this.state.replaceItems(groupIds, moved, target.afterItemId);
+    this.focusEditor(item.id, () => {
+      this.movingEditItem = false;
     });
   }
 
   /**
-   * Handles the user pressing Alt+Shift+Down to move a block and its children down
+   * Handles the user pressing Alt+Shift+Down to move a item and its children down
    * past the next sibling tree.
-   * @param block - The block to move down
+   * @param item - The item to move down
    */
-  async onMoveDown(block: Block): Promise<void> {
-    const target = findMoveDownTarget(this.state.blocks(), block.id);
+  async onMoveDown(item: Item): Promise<void> {
+    const target = findMoveDownTarget(this.state.items(), item.id);
     if (!target) return;
 
-    const children = this.state.getChildren(block.id);
-    const group = [block, ...children];
+    const children = this.state.getChildren(item.id);
+    const group = [item, ...children];
     const groupIds = group.map(b => b.id);
     const beforeSnapshots = group.map(b => ({ ...b }));
 
-    const moved = await this.api.moveBlocks(groupIds, block.pageId, target.afterBlockId);
-    this.state.replaceBlocks(groupIds, moved, target.afterBlockId);
+    const moved = await this.api.moveItems(groupIds, item.pageId, target.afterItemId);
+    this.state.replaceItems(groupIds, moved, target.afterItemId);
 
     this.undo.begin('move');
     for (let i = 0; i < beforeSnapshots.length; i++) {
@@ -767,21 +767,21 @@ export class OutlineComponent implements OnDestroy {
     }
     this.undo.commit();
 
-    this.focusEditor(block.id);
+    this.focusEditor(item.id);
   }
 
   /**
-   * Handles the user typing inside a `[[wiki link]]` in the block editor.
+   * Handles the user typing inside a `[[wiki link]]` in the item editor.
    * Positions the suggestion popup and performs a debounced search for matching page names.
-   * @param block - The block being edited
+   * @param item - The item being edited
    * @param ctx - The wiki link context with query text and caret position, or null to close suggestions
    */
-  onWikiLinkQuery(block: Block, ctx: WikiLinkContext | null): void {
+  onWikiLinkQuery(item: Item, ctx: WikiLinkContext | null): void {
     if (!ctx) {
       this.closeWikiSuggestions();
       return;
     }
-    this.wikiSuggestionsBlockId.set(block.id);
+    this.wikiSuggestionsItemId.set(item.id);
     this.wikiSuggestionsPos.set({ x: ctx.rect.left, y: ctx.rect.bottom + 4 });
 
     if (!ctx.query) {
@@ -831,28 +831,28 @@ export class OutlineComponent implements OnDestroy {
   }
 
   /**
-   * Handles the user pressing Shift+Up to begin or extend a multi-block selection upward.
-   * @param block - The block where Shift+Up was pressed
+   * Handles the user pressing Shift+Up to begin or extend a multi-item selection upward.
+   * @param item - The item where Shift+Up was pressed
    */
-  onShiftSelectUp(block: Block): void {
-    this.startShiftSelection(block);
+  onShiftSelectUp(item: Item): void {
+    this.startShiftSelection(item);
   }
 
   /**
-   * Handles the user pressing Shift+Down to begin or extend a multi-block selection downward.
-   * @param block - The block where Shift+Down was pressed
+   * Handles the user pressing Shift+Down to begin or extend a multi-item selection downward.
+   * @param item - The item where Shift+Down was pressed
    */
-  onShiftSelectDown(block: Block): void {
-    this.startShiftSelection(block);
+  onShiftSelectDown(item: Item): void {
+    this.startShiftSelection(item);
   }
 
-  private startShiftSelection(block: Block): void {
-    this.state.removeAllEditingBlocks();
-    this.state.setBlockSelectionMode(true);
-    this.selectionAnchorBlockId = block.id;
-    this.selectionExtentBlockId = block.id;
-    // Initial selection: only the current block, no subtree
-    this.state.setSelectedBlockIds(new Set([block.id]));
+  private startShiftSelection(item: Item): void {
+    this.state.removeAllEditingItems();
+    this.state.setItemSelectionMode(true);
+    this.selectionAnchorItemId = item.id;
+    this.selectionExtentItemId = item.id;
+    // Initial selection: only the current item, no subtree
+    this.state.setSelectedItemIds(new Set([item.id]));
 
     document.addEventListener('keydown', this.selectionKeydownHandler);
     document.addEventListener('click', this.selectionClickHandler);
@@ -861,62 +861,62 @@ export class OutlineComponent implements OnDestroy {
   }
 
   private shiftExtendUp(): void {
-    const blocks = this.state.visibleBlocks();
-    let extentIdx = blocks.findIndex(b => b.id === this.selectionExtentBlockId);
-    const anchorIdx = blocks.findIndex(b => b.id === this.selectionAnchorBlockId);
+    const items = this.state.visibleItems();
+    let extentIdx = items.findIndex(b => b.id === this.selectionExtentItemId);
+    const anchorIdx = items.findIndex(b => b.id === this.selectionAnchorItemId);
     if (extentIdx < 0 || anchorIdx < 0 || extentIdx <= 0) return;
 
-    // When expanding upward, skip past blocks already in selection
+    // When expanding upward, skip past items already in selection
     if (extentIdx <= anchorIdx) {
-      const selected = this.state.selectedBlockIds();
-      while (extentIdx - 1 >= 0 && selected.has(blocks[extentIdx - 1].id)) {
+      const selected = this.state.selectedItemIds();
+      while (extentIdx - 1 >= 0 && selected.has(items[extentIdx - 1].id)) {
         extentIdx--;
       }
       if (extentIdx <= 0) return;
     }
 
-    this.selectionExtentBlockId = blocks[extentIdx - 1].id;
+    this.selectionExtentItemId = items[extentIdx - 1].id;
     this.updateShiftSelection();
   }
 
   private shiftExtendDown(): void {
-    const blocks = this.state.visibleBlocks();
-    let extentIdx = blocks.findIndex(b => b.id === this.selectionExtentBlockId);
-    const anchorIdx = blocks.findIndex(b => b.id === this.selectionAnchorBlockId);
-    if (extentIdx < 0 || anchorIdx < 0 || extentIdx >= blocks.length - 1) return;
+    const items = this.state.visibleItems();
+    let extentIdx = items.findIndex(b => b.id === this.selectionExtentItemId);
+    const anchorIdx = items.findIndex(b => b.id === this.selectionAnchorItemId);
+    if (extentIdx < 0 || anchorIdx < 0 || extentIdx >= items.length - 1) return;
 
-    // When expanding downward, skip past blocks already in selection
+    // When expanding downward, skip past items already in selection
     if (extentIdx >= anchorIdx) {
-      const selected = this.state.selectedBlockIds();
-      while (extentIdx + 1 < blocks.length && selected.has(blocks[extentIdx + 1].id)) {
+      const selected = this.state.selectedItemIds();
+      while (extentIdx + 1 < items.length && selected.has(items[extentIdx + 1].id)) {
         extentIdx++;
       }
-      if (extentIdx >= blocks.length - 1) return;
+      if (extentIdx >= items.length - 1) return;
     }
 
-    this.selectionExtentBlockId = blocks[extentIdx + 1].id;
+    this.selectionExtentItemId = items[extentIdx + 1].id;
     this.updateShiftSelection();
   }
 
   private updateShiftSelection(): void {
-    const blocks = this.state.visibleBlocks();
-    const anchorIdx = blocks.findIndex(b => b.id === this.selectionAnchorBlockId);
-    const extentIdx = blocks.findIndex(b => b.id === this.selectionExtentBlockId);
+    const items = this.state.visibleItems();
+    const anchorIdx = items.findIndex(b => b.id === this.selectionAnchorItemId);
+    const extentIdx = items.findIndex(b => b.id === this.selectionExtentItemId);
     if (anchorIdx < 0 || extentIdx < 0) return;
 
     const start = Math.min(anchorIdx, extentIdx);
     const end = Math.max(anchorIdx, extentIdx);
     const selectedSet = new Set<string>();
     for (let i = start; i <= end; i++) {
-      const group = this.state.getBlockWithChildren(blocks[i].id);
+      const group = this.state.getItemWithChildren(items[i].id);
       group.forEach(b => selectedSet.add(b.id));
     }
-    this.state.setSelectedBlockIds(selectedSet);
+    this.state.setSelectedItemIds(selectedSet);
   }
 
   /**
    * Handles the user selecting a wiki link suggestion by clicking on it or pressing Enter.
-   * Inserts the selected page title into the block editor and closes the suggestions popup.
+   * Inserts the selected page title into the item editor and closes the suggestions popup.
    * @param title - The page title selected from the suggestions
    * @param event - The mouse event if selected by click (used to prevent default behavior)
    */
@@ -925,18 +925,18 @@ export class OutlineComponent implements OnDestroy {
       event.preventDefault();
       event.stopPropagation();
     }
-    const blockId = this.wikiSuggestionsBlockId();
-    if (!blockId) return;
-    const blockComp = this.outlineBlocks()?.find(
-      ob => ob.block().id === blockId
+    const itemId = this.wikiSuggestionsItemId();
+    if (!itemId) return;
+    const itemComp = this.outlineItems()?.find(
+      ob => ob.item().id === itemId
     );
-    blockComp?.insertWikiLinkText(title);
+    itemComp?.insertWikiLinkText(title);
     this.closeWikiSuggestions();
   }
 
   private closeWikiSuggestions(): void {
     this.wikiSuggestions.set([]);
-    this.wikiSuggestionsBlockId.set(null);
+    this.wikiSuggestionsItemId.set(null);
     if (this.wikiSearchTimer) {
       clearTimeout(this.wikiSearchTimer);
       this.wikiSearchTimer = null;
@@ -946,20 +946,20 @@ export class OutlineComponent implements OnDestroy {
   /**
    * Handles the user clicking a task checkbox to cycle through statuses:
    * normal -> todo -> running -> done -> normal.
-   * @param block - The block whose task status was toggled
+   * @param item - The item whose task status was toggled
    */
-  async onTaskStatusToggled(block: Block): Promise<void> {
+  async onTaskStatusToggled(item: Item): Promise<void> {
     try {
-      const originalBlock = { ...block };
+      const originalItem = { ...item };
       const cycle = ['normal', 'todo', 'running', 'done'];
-      const currentIndex = cycle.indexOf(block.status);
+      const currentIndex = cycle.indexOf(item.status);
       const newStatus = cycle[(currentIndex + 1) % cycle.length];
-      if (newStatus !== block.status) {
-        const updated = await this.api.updateBlockStatus(block.id, newStatus);
-        this.state.updateBlock(block.id, { status: updated.status });
+      if (newStatus !== item.status) {
+        const updated = await this.api.updateItemStatus(item.id, newStatus);
+        this.state.updateItem(item.id, { status: updated.status });
 
         this.undo.begin('status');
-        this.undo.pushUpdate(originalBlock, { ...originalBlock, status: newStatus });
+        this.undo.pushUpdate(originalItem, { ...originalItem, status: newStatus });
         this.undo.commit();
       }
     } catch (e) {
@@ -968,21 +968,21 @@ export class OutlineComponent implements OnDestroy {
   }
 
   /**
-   * Handles the user pressing Ctrl+Enter to cycle a block's status:
+   * Handles the user pressing Ctrl+Enter to cycle a item's status:
    * normal -> todo -> running -> done -> normal.
-   * @param block - The block whose status should be cycled
+   * @param item - The item whose status should be cycled
    */
-  async onStatusCycleRequested(block: Block): Promise<void> {
+  async onStatusCycleRequested(item: Item): Promise<void> {
     try {
-      const originalBlock = { ...block };
+      const originalItem = { ...item };
       const cycle = ['normal', 'todo', 'running', 'done'];
-      const currentIndex = cycle.indexOf(block.status);
+      const currentIndex = cycle.indexOf(item.status);
       const newStatus = cycle[(currentIndex + 1) % cycle.length];
-      const updated = await this.api.updateBlockStatus(block.id, newStatus);
-      this.state.updateBlock(block.id, { status: updated.status });
+      const updated = await this.api.updateItemStatus(item.id, newStatus);
+      this.state.updateItem(item.id, { status: updated.status });
 
       this.undo.begin('status');
-      this.undo.pushUpdate(originalBlock, { ...originalBlock, status: newStatus });
+      this.undo.pushUpdate(originalItem, { ...originalItem, status: newStatus });
       this.undo.commit();
     } catch (e) {
       console.error('Failed to cycle status:', e);
@@ -993,37 +993,37 @@ export class OutlineComponent implements OnDestroy {
    * Handles the user clicking the collapse/expand bullet or pressing the collapse shortcut.
    * Toggles the collapsed state locally for immediate feedback, then persists to the backend.
    * Reverts the state on error.
-   * @param block - The block whose collapsed state was toggled
+   * @param item - The item whose collapsed state was toggled
    */
-  async onCollapseToggled(block: Block): Promise<void> {
+  async onCollapseToggled(item: Item): Promise<void> {
     try {
-      const originalBlock = { ...block };
-      const newCollapsed = !block.collapsed;
+      const originalItem = { ...item };
+      const newCollapsed = !item.collapsed;
       // Update local state immediately for responsive UI
-      this.state.toggleCollapsed(block.id);
-      this.state.updateBlock(block.id, { collapsed: newCollapsed });
+      this.state.toggleCollapsed(item.id);
+      this.state.updateItem(item.id, { collapsed: newCollapsed });
       // Persist to backend
-      await this.api.updateBlock(block.id, { collapsed: newCollapsed });
+      await this.api.updateItem(item.id, { collapsed: newCollapsed });
 
       this.undo.begin('collapse');
-      this.undo.pushUpdate(originalBlock, { ...originalBlock, collapsed: newCollapsed });
+      this.undo.pushUpdate(originalItem, { ...originalItem, collapsed: newCollapsed });
       this.undo.commit();
     } catch (e) {
       console.error('Failed to toggle collapse:', e);
       // Revert on error
-      this.state.toggleCollapsed(block.id);
-      this.state.updateBlock(block.id, { collapsed: block.collapsed });
+      this.state.toggleCollapsed(item.id);
+      this.state.updateItem(item.id, { collapsed: item.collapsed });
     }
   }
 
   /**
-   * Handles the user pasting content into a block editor. Parses the pasted text into blocks,
-   * splits the current block at the cursor, and inserts the parsed blocks.
+   * Handles the user pasting content into a item editor. Parses the pasted text into items,
+   * splits the current item at the cursor, and inserts the parsed items.
    * Supports plain text, tree markdown, and internally copied flat markdown.
-   * @param block - The block where the paste occurred
+   * @param item - The item where the paste occurred
    * @param event - Contains the pasted text, HTML, and cursor position at the time of paste
    */
-  async onPaste(block: Block, event: { text: string; html: string; cursorPos: number }): Promise<void> {
+  async onPaste(item: Item, event: { text: string; html: string; cursorPos: number }): Promise<void> {
     let textToParse = event.text;
     let isPlainText = true;
 
@@ -1044,71 +1044,71 @@ export class OutlineComponent implements OnDestroy {
       }
     }
 
-    const skipSplit = isPlainText && hasUnclosedCodeFence(block.body.substring(0, event.cursorPos));
-    const parsedBlocks = skipSplit
+    const skipSplit = isPlainText && hasUnclosedCodeFence(item.body.substring(0, event.cursorPos));
+    const parsedItems = skipSplit
       ? [{ body: textToParse, status: 'normal', level: 0 }]
-      : this.parseTextIntoBlocks(textToParse);
+      : this.parseTextIntoItems(textToParse);
 
-    if (parsedBlocks.length === 0) return;
+    if (parsedItems.length === 0) return;
 
-    const originalBlock = { ...block };
+    const originalItem = { ...item };
 
     // Split existing text at caret position
-    const before = block.body.substring(0, event.cursorPos);
-    const after = block.body.substring(event.cursorPos);
+    const before = item.body.substring(0, event.cursorPos);
+    const after = item.body.substring(event.cursorPos);
 
     // Merge existing text around pasted content
-    parsedBlocks[0].body = before + parsedBlocks[0].body;
-    parsedBlocks[parsedBlocks.length - 1].body = parsedBlocks[parsedBlocks.length - 1].body + after;
+    parsedItems[0].body = before + parsedItems[0].body;
+    parsedItems[parsedItems.length - 1].body = parsedItems[parsedItems.length - 1].body + after;
 
     try {
-      this.undo.begin('paste', { blockId: block.id, position: event.cursorPos });
+      this.undo.begin('paste', { itemId: item.id, position: event.cursorPos });
 
-      // First block replaces current editing block
-      const firstBlock = parsedBlocks[0];
-      await this.saveBlockBody(block.id, firstBlock.body);
-      this.dirtyBlockIds.add(block.id);
+      // First item replaces current editing item
+      const firstItem = parsedItems[0];
+      await this.saveItemBody(item.id, firstItem.body);
+      this.dirtyItemIds.add(item.id);
 
       // Update status if needed
-      if (firstBlock.status !== 'normal') {
-        await this.api.updateBlockStatus(block.id, firstBlock.status);
-        this.state.updateBlock(block.id, { status: firstBlock.status });
+      if (firstItem.status !== 'normal') {
+        await this.api.updateItemStatus(item.id, firstItem.status);
+        this.state.updateItem(item.id, { status: firstItem.status });
       }
 
-      const afterFirstBlock = this.state.getBlockById(block.id);
-      if (afterFirstBlock) {
-        this.undo.pushUpdate(originalBlock, { ...afterFirstBlock });
+      const afterFirstItem = this.state.getItemById(item.id);
+      if (afterFirstItem) {
+        this.undo.pushUpdate(originalItem, { ...afterFirstItem });
       }
 
-      // Add remaining blocks after the current block
-      if (parsedBlocks.length > 1) {
-        let prevBlockId = block.id;
-        for (let i = 1; i < parsedBlocks.length; i++) {
-          const parsedBlock = parsedBlocks[i];
-          const newBlock = await this.api.createBlock(
-            block.pageId,
-            prevBlockId,
-            block.level + parsedBlock.level,
-            parsedBlock.body
+      // Add remaining items after the current item
+      if (parsedItems.length > 1) {
+        let prevItemId = item.id;
+        for (let i = 1; i < parsedItems.length; i++) {
+          const parsedItem = parsedItems[i];
+          const newItem = await this.api.createItem(
+            item.pageId,
+            prevItemId,
+            item.level + parsedItem.level,
+            parsedItem.body
           );
-          this.state.addBlocks([newBlock], prevBlockId);
+          this.state.addItems([newItem], prevItemId);
 
           // Update status if needed
-          if (parsedBlock.status !== 'normal') {
-            await this.api.updateBlockStatus(newBlock.id, parsedBlock.status);
-            this.state.updateBlock(newBlock.id, { status: parsedBlock.status });
+          if (parsedItem.status !== 'normal') {
+            await this.api.updateItemStatus(newItem.id, parsedItem.status);
+            this.state.updateItem(newItem.id, { status: parsedItem.status });
           }
 
-          const finalNewBlock = this.state.getBlockById(newBlock.id);
-          this.undo.pushCreate(finalNewBlock ?? newBlock);
+          const finalNewItem = this.state.getItemById(newItem.id);
+          this.undo.pushCreate(finalNewItem ?? newItem);
 
-          prevBlockId = newBlock.id;
+          prevItemId = newItem.id;
         }
       }
 
       this.undo.commit();
 
-      // Focus the last created block or the current block
+      // Focus the last created item or the current item
       this.focusEditor();
     } catch (e) {
       console.error('Failed to process paste:', e);
@@ -1116,39 +1116,39 @@ export class OutlineComponent implements OnDestroy {
     }
   }
 
-  async onImagePaste(block: Block, event: { file: File; cursorPos: number }): Promise<void> {
+  async onImagePaste(item: Item, event: { file: File; cursorPos: number }): Promise<void> {
     try {
       const result = await this.api.uploadAsset(event.file);
       const fileName = result.fileName;
       const markdown = `![${fileName}](../assets/${fileName})`;
 
-      const before = block.body.substring(0, event.cursorPos);
-      const after = block.body.substring(event.cursorPos);
+      const before = item.body.substring(0, event.cursorPos);
+      const after = item.body.substring(event.cursorPos);
       const newBody = before + markdown + after;
 
-      await this.saveBlockBody(block.id, newBody);
-      this.dirtyBlockIds.add(block.id);
+      await this.saveItemBody(item.id, newBody);
+      this.dirtyItemIds.add(item.id);
 
       // Place cursor after the inserted markdown
       const newPos = event.cursorPos + markdown.length;
-      this.state.setFocusedBlock(block.id, newPos);
-      this.focusEditor(block.id);
+      this.state.setFocusedItem(item.id, newPos);
+      this.focusEditor(item.id);
     } catch (e) {
       console.error('Failed to paste image:', e);
     }
   }
 
-  private parseTextIntoBlocks(text: string): Array<{ body: string; status: string; level: number }> {
-    const blocks: Array<{ body: string; status: string; level: number }> = [];
+  private parseTextIntoItems(text: string): Array<{ body: string; status: string; level: number }> {
+    const items: Array<{ body: string; status: string; level: number }> = [];
     const lines = text.split('\n');
     let inCodeFence = false;
 
-    // Current block accumulation
+    // Current item accumulation
     let currentBodyLines: string[] = [];
     let currentLevel = 1;
     let hasContent = false;
 
-    const flushBlock = () => {
+    const flushItem = () => {
       if (!hasContent) return;
       let body = currentBodyLines.join('\n');
       let status = 'normal';
@@ -1164,7 +1164,7 @@ export class OutlineComponent implements OnDestroy {
 
       // Whitespace-only body → empty
       if (body.length > 0 && body.trim() === '') body = '';
-      blocks.push({ body, status, level: currentLevel });
+      items.push({ body, status, level: currentLevel });
       currentBodyLines = [];
       currentLevel = 1;
       hasContent = false;
@@ -1176,9 +1176,9 @@ export class OutlineComponent implements OnDestroy {
         inCodeFence = !inCodeFence;
       }
 
-      // Blank line outside code fence → flush current block
+      // Blank line outside code fence → flush current item
       if (line === '' && !inCodeFence) {
-        flushBlock();
+        flushItem();
         continue;
       }
 
@@ -1203,38 +1203,38 @@ export class OutlineComponent implements OnDestroy {
       hasContent = true;
     }
 
-    // Flush last block
-    flushBlock();
+    // Flush last item
+    flushItem();
 
-    // Normalize levels: subtract the top block's level to get relative offsets (0-based)
-    if (blocks.length > 0) {
-      const topLevel = blocks[0].level;
-      for (const block of blocks) {
-        block.level = Math.max(0, block.level - topLevel);
+    // Normalize levels: subtract the top item's level to get relative offsets (0-based)
+    if (items.length > 0) {
+      const topLevel = items[0].level;
+      for (const item of items) {
+        item.level = Math.max(0, item.level - topLevel);
       }
     }
 
-    return blocks;
+    return items;
   }
 
   /**
-   * Handles the user dragging the mouse beyond the bounds of a block editor.
-   * Exits edit mode and enters multi-block selection mode with drag tracking.
-   * @param block - The block where the drag started
-   * @param direction - Whether the drag went 'above' or 'below' the block
+   * Handles the user dragging the mouse beyond the bounds of a item editor.
+   * Exits edit mode and enters multi-item selection mode with drag tracking.
+   * @param item - The item where the drag started
+   * @param direction - Whether the drag went 'above' or 'below' the item
    */
-  onDragBeyondBounds(block: Block, direction: 'above' | 'below'): void {
+  onDragBeyondBounds(item: Item, direction: 'above' | 'below'): void {
     // Exit edit mode
-    this.state.removeAllEditingBlocks();
+    this.state.removeAllEditingItems();
     // Enter selection mode
-    this.state.setBlockSelectionMode(true);
-    this.selectionAnchorBlockId = block.id;
+    this.state.setItemSelectionMode(true);
+    this.selectionAnchorItemId = item.id;
     this.isSelectionDragging = true;
 
-    // Select anchor block + children
-    const group = this.state.getBlockWithChildren(block.id);
+    // Select anchor item + children
+    const group = this.state.getItemWithChildren(item.id);
     const selectedSet = new Set<string>(group.map(b => b.id));
-    this.state.setSelectedBlockIds(selectedSet);
+    this.state.setSelectedItemIds(selectedSet);
 
     // Register document-level listeners
     document.addEventListener('mouseup', this.selectionMouseUpHandler);
@@ -1244,27 +1244,27 @@ export class OutlineComponent implements OnDestroy {
   }
 
   /**
-   * Handles the user's mouse entering a block during a drag selection.
-   * Extends the selection range from the anchor block to the hovered block.
-   * @param block - The block the mouse entered
+   * Handles the user's mouse entering a item during a drag selection.
+   * Extends the selection range from the anchor item to the hovered item.
+   * @param item - The item the mouse entered
    */
-  onBlockMouseEnter(block: Block): void {
+  onItemMouseEnter(item: Item): void {
     if (!this.isSelectionDragging) return;
-    this.selectionExtentBlockId = block.id;
+    this.selectionExtentItemId = item.id;
 
-    const visibleBlocks = this.state.visibleBlocks();
-    const anchorIdx = visibleBlocks.findIndex(b => b.id === this.selectionAnchorBlockId);
-    const currentIdx = visibleBlocks.findIndex(b => b.id === block.id);
+    const visibleItems = this.state.visibleItems();
+    const anchorIdx = visibleItems.findIndex(b => b.id === this.selectionAnchorItemId);
+    const currentIdx = visibleItems.findIndex(b => b.id === item.id);
     if (anchorIdx < 0 || currentIdx < 0) return;
 
     const [start, end] = [Math.min(anchorIdx, currentIdx), Math.max(anchorIdx, currentIdx)];
     const selectedSet = new Set<string>();
     for (let i = start; i <= end; i++) {
-      // getBlockWithChildren uses _blocks() (all blocks) so collapsed children are included
-      const group = this.state.getBlockWithChildren(visibleBlocks[i].id);
+      // getItemWithChildren uses _items() (all items) so collapsed children are included
+      const group = this.state.getItemWithChildren(visibleItems[i].id);
       group.forEach(b => selectedSet.add(b.id));
     }
-    this.state.setSelectedBlockIds(selectedSet);
+    this.state.setSelectedItemIds(selectedSet);
   }
 
   private onSelectionMouseUp(): void {
@@ -1302,29 +1302,29 @@ export class OutlineComponent implements OnDestroy {
 
     if (e.key === 'Delete' || e.key === 'Backspace') {
       e.preventDefault();
-      this.deleteSelectedBlocks();
+      this.deleteSelectedItems();
       return;
     }
 
     if (e.shiftKey && e.altKey) {
       if (e.key === 'ArrowUp') {
         e.preventDefault();
-        this.moveSelectedBlocksUp();
+        this.moveSelectedItemsUp();
         return;
       }
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        this.moveSelectedBlocksDown();
+        this.moveSelectedItemsDown();
         return;
       }
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        this.outdentSelectedBlocks();
+        this.outdentSelectedItems();
         return;
       }
       if (e.key === 'ArrowRight') {
         e.preventDefault();
-        this.indentSelectedBlocks();
+        this.indentSelectedItems();
         return;
       }
     }
@@ -1345,103 +1345,103 @@ export class OutlineComponent implements OnDestroy {
     if (e.key === 'Tab') {
       e.preventDefault();
       if (e.shiftKey) {
-        this.outdentSelectedBlocks();
+        this.outdentSelectedItems();
       } else {
-        this.indentSelectedBlocks();
+        this.indentSelectedItems();
       }
       return;
     }
 
     if (e.ctrlKey && e.key === 'c') {
       e.preventDefault();
-      this.copySelectedBlocks();
+      this.copySelectedItems();
       return;
     }
 
     if (e.ctrlKey && e.key === 'x') {
       e.preventDefault();
-      this.cutSelectedBlocks();
+      this.cutSelectedItems();
       return;
     }
   }
 
-  private getSelectedRootBlocks(): Block[] {
-    const selectedIds = this.state.selectedBlockIds();
-    const allBlocks = this.state.blocks();
-    const roots: Block[] = [];
+  private getSelectedRootItems(): Item[] {
+    const selectedIds = this.state.selectedItemIds();
+    const allItems = this.state.items();
+    const roots: Item[] = [];
 
-    for (const block of allBlocks) {
-      if (!selectedIds.has(block.id)) continue;
+    for (const item of allItems) {
+      if (!selectedIds.has(item.id)) continue;
       // Check if parent is in selection
-      const idx = allBlocks.indexOf(block);
+      const idx = allItems.indexOf(item);
       let isRoot = true;
       for (let i = idx - 1; i >= 0; i--) {
-        if (allBlocks[i].level < block.level) {
-          if (selectedIds.has(allBlocks[i].id)) {
+        if (allItems[i].level < item.level) {
+          if (selectedIds.has(allItems[i].id)) {
             isRoot = false;
           }
           break;
         }
       }
-      if (isRoot) roots.push(block);
+      if (isRoot) roots.push(item);
     }
     return roots;
   }
 
-  private getOrderedSelectedBlockIds(): string[] {
-    const selectedIds = this.state.selectedBlockIds();
-    const allBlocks = this.state.blocks();
-    return allBlocks.filter(b => selectedIds.has(b.id)).map(b => b.id);
+  private getOrderedSelectedItemIds(): string[] {
+    const selectedIds = this.state.selectedItemIds();
+    const allItems = this.state.items();
+    return allItems.filter(b => selectedIds.has(b.id)).map(b => b.id);
   }
 
-  private async deleteSelectedBlocks(): Promise<void> {
-    const selectedIds = this.getOrderedSelectedBlockIds();
+  private async deleteSelectedItems(): Promise<void> {
+    const selectedIds = this.getOrderedSelectedItemIds();
     if (selectedIds.length === 0) return;
 
     // Snapshot before deletion
-    const deletedBlocks = selectedIds.map(id => this.state.getBlockById(id)).filter((b): b is Block => !!b);
+    const deletedItems = selectedIds.map(id => this.state.getItemById(id)).filter((b): b is Item => !!b);
 
     this.exitSelectionMode();
 
     this.undo.begin('delete-selection');
-    for (const b of deletedBlocks) {
+    for (const b of deletedItems) {
       this.undo.pushDelete({ ...b });
     }
     this.undo.commit();
 
     // Delete from state first for responsiveness
-    this.state.deleteBlocks(selectedIds);
+    this.state.deleteItems(selectedIds);
 
     // Delete from backend
     try {
-      await Promise.all(selectedIds.map(id => this.api.deleteBlock(id)));
+      await Promise.all(selectedIds.map(id => this.api.deleteItem(id)));
     } catch (e) {
-      console.error('Failed to delete selected blocks:', e);
+      console.error('Failed to delete selected items:', e);
     }
   }
 
-  private async moveSelectedBlocksUp(): Promise<void> {
-    const rootBlocks = this.getSelectedRootBlocks();
-    if (rootBlocks.length === 0) return;
+  private async moveSelectedItemsUp(): Promise<void> {
+    const rootItems = this.getSelectedRootItems();
+    if (rootItems.length === 0) return;
 
-    const firstRoot = rootBlocks[0];
+    const firstRoot = rootItems[0];
 
-    const target = findMoveUpTarget(this.state.blocks(), firstRoot.id);
+    const target = findMoveUpTarget(this.state.items(), firstRoot.id);
     if (!target) return;
 
     const allSelectedIds: string[] = [];
-    for (const root of rootBlocks) {
-      const group = this.state.getBlockWithChildren(root.id);
+    for (const root of rootItems) {
+      const group = this.state.getItemWithChildren(root.id);
       group.forEach(b => allSelectedIds.push(b.id));
     }
     const beforeSnapshots = allSelectedIds.map(id => {
-      const b = this.state.getBlockById(id);
+      const b = this.state.getItemById(id);
       return b ? { ...b } : null;
-    }).filter((b): b is Block => !!b);
+    }).filter((b): b is Item => !!b);
 
     try {
-      const moved = await this.api.moveBlocks(allSelectedIds, firstRoot.pageId, target.afterBlockId);
-      this.state.replaceBlocks(allSelectedIds, moved, target.afterBlockId);
+      const moved = await this.api.moveItems(allSelectedIds, firstRoot.pageId, target.afterItemId);
+      this.state.replaceItems(allSelectedIds, moved, target.afterItemId);
 
       this.undo.begin('move-selection');
       for (let i = 0; i < beforeSnapshots.length; i++) {
@@ -1449,32 +1449,32 @@ export class OutlineComponent implements OnDestroy {
       }
       this.undo.commit();
     } catch (e) {
-      console.error('Failed to move selected blocks up:', e);
+      console.error('Failed to move selected items up:', e);
     }
   }
 
-  private async moveSelectedBlocksDown(): Promise<void> {
-    const rootBlocks = this.getSelectedRootBlocks();
-    if (rootBlocks.length === 0) return;
+  private async moveSelectedItemsDown(): Promise<void> {
+    const rootItems = this.getSelectedRootItems();
+    if (rootItems.length === 0) return;
 
-    const lastRoot = rootBlocks[rootBlocks.length - 1];
+    const lastRoot = rootItems[rootItems.length - 1];
 
-    const target = findMoveDownTarget(this.state.blocks(), lastRoot.id);
+    const target = findMoveDownTarget(this.state.items(), lastRoot.id);
     if (!target) return;
 
     const allSelectedIds: string[] = [];
-    for (const root of rootBlocks) {
-      const group = this.state.getBlockWithChildren(root.id);
+    for (const root of rootItems) {
+      const group = this.state.getItemWithChildren(root.id);
       group.forEach(b => allSelectedIds.push(b.id));
     }
     const beforeSnapshots = allSelectedIds.map(id => {
-      const b = this.state.getBlockById(id);
+      const b = this.state.getItemById(id);
       return b ? { ...b } : null;
-    }).filter((b): b is Block => !!b);
+    }).filter((b): b is Item => !!b);
 
     try {
-      const moved = await this.api.moveBlocks(allSelectedIds, lastRoot.pageId, target.afterBlockId);
-      this.state.replaceBlocks(allSelectedIds, moved, target.afterBlockId);
+      const moved = await this.api.moveItems(allSelectedIds, lastRoot.pageId, target.afterItemId);
+      this.state.replaceItems(allSelectedIds, moved, target.afterItemId);
 
       this.undo.begin('move-selection');
       for (let i = 0; i < beforeSnapshots.length; i++) {
@@ -1482,62 +1482,62 @@ export class OutlineComponent implements OnDestroy {
       }
       this.undo.commit();
     } catch (e) {
-      console.error('Failed to move selected blocks down:', e);
+      console.error('Failed to move selected items down:', e);
     }
   }
 
-  private async indentSelectedBlocks(): Promise<void> {
-    const selectedIds = this.state.selectedBlockIds();
-    const allBlocks = this.state.blocks();
-    const blocksToIndent = allBlocks.filter(b => selectedIds.has(b.id));
+  private async indentSelectedItems(): Promise<void> {
+    const selectedIds = this.state.selectedItemIds();
+    const allItems = this.state.items();
+    const itemsToIndent = allItems.filter(b => selectedIds.has(b.id));
 
-    if (blocksToIndent.length === 0) return;
-    const firstIdx = allBlocks.findIndex(b => b.id === blocksToIndent[0].id);
+    if (itemsToIndent.length === 0) return;
+    const firstIdx = allItems.findIndex(b => b.id === itemsToIndent[0].id);
     if (firstIdx <= 0) return;
 
     this.undo.begin('indent-selection');
-    for (const b of blocksToIndent) {
+    for (const b of itemsToIndent) {
       this.undo.pushUpdate({ ...b }, { ...b, level: b.level + 1 });
-      this.state.updateBlock(b.id, { level: b.level + 1 });
+      this.state.updateItem(b.id, { level: b.level + 1 });
     }
     this.undo.commit();
 
     try {
-      const results = await Promise.all(blocksToIndent.map(b => this.api.updateBlock(b.id, { level: b.level + 1 })));
+      const results = await Promise.all(itemsToIndent.map(b => this.api.updateItem(b.id, { level: b.level + 1 })));
       for (const r of results) {
-        this.state.updateBlock(r.id, { idx: r.idx, level: r.level });
+        this.state.updateItem(r.id, { idx: r.idx, level: r.level });
       }
     } catch (e) {
-      console.error('Failed to indent selected blocks:', e);
+      console.error('Failed to indent selected items:', e);
     }
   }
 
-  private async outdentSelectedBlocks(): Promise<void> {
-    const selectedIds = this.state.selectedBlockIds();
-    const allBlocks = this.state.blocks();
-    const blocksToOutdent = allBlocks.filter(b => selectedIds.has(b.id));
+  private async outdentSelectedItems(): Promise<void> {
+    const selectedIds = this.state.selectedItemIds();
+    const allItems = this.state.items();
+    const itemsToOutdent = allItems.filter(b => selectedIds.has(b.id));
 
-    if (blocksToOutdent.some(b => b.level <= 1)) return;
+    if (itemsToOutdent.some(b => b.level <= 1)) return;
 
     this.undo.begin('outdent-selection');
-    for (const b of blocksToOutdent) {
+    for (const b of itemsToOutdent) {
       this.undo.pushUpdate({ ...b }, { ...b, level: b.level - 1 });
-      this.state.updateBlock(b.id, { level: b.level - 1 });
+      this.state.updateItem(b.id, { level: b.level - 1 });
     }
     this.undo.commit();
 
     try {
-      const results = await Promise.all(blocksToOutdent.map(b => this.api.updateBlock(b.id, { level: b.level - 1 })));
+      const results = await Promise.all(itemsToOutdent.map(b => this.api.updateItem(b.id, { level: b.level - 1 })));
       for (const r of results) {
-        this.state.updateBlock(r.id, { idx: r.idx, level: r.level });
+        this.state.updateItem(r.id, { idx: r.idx, level: r.level });
       }
     } catch (e) {
-      console.error('Failed to outdent selected blocks:', e);
+      console.error('Failed to outdent selected items:', e);
     }
   }
 
-  private async copySelectedBlocks(): Promise<void> {
-    const orderedIds = this.getOrderedSelectedBlockIds();
+  private async copySelectedItems(): Promise<void> {
+    const orderedIds = this.getOrderedSelectedItemIds();
     if (orderedIds.length === 0) return;
 
     try {
@@ -1553,35 +1553,35 @@ export class OutlineComponent implements OnDestroy {
       // Store flat markdown in memory
       this.clipboard.store(result.flatMarkdown, result.treeMarkdown);
     } catch (e) {
-      console.error('Failed to copy selected blocks:', e);
+      console.error('Failed to copy selected items:', e);
     }
   }
 
-  private async cutSelectedBlocks(): Promise<void> {
-    await this.copySelectedBlocks();
-    await this.deleteSelectedBlocks();
+  private async cutSelectedItems(): Promise<void> {
+    await this.copySelectedItems();
+    await this.deleteSelectedItems();
   }
 
   private onSelectionCopy(e: ClipboardEvent): void {
-    if (!this.state.blockSelectionMode()) return;
+    if (!this.state.itemSelectionMode()) return;
     e.preventDefault();
-    this.copySelectedBlocks();
+    this.copySelectedItems();
   }
 
   private onSelectionCut(e: ClipboardEvent): void {
-    if (!this.state.blockSelectionMode()) return;
+    if (!this.state.itemSelectionMode()) return;
     e.preventDefault();
-    this.cutSelectedBlocks();
+    this.cutSelectedItems();
   }
 
   async performUndo(): Promise<void> {
     if (this.undo.isPending()) return;
 
-    // Cancel pending auto-save for the editing block
-    const editingId = this.state.focusedBlockId();
-    if (editingId && this.dirtyBlockIds.has(editingId)) {
-      this.dirtyBlockIds.delete(editingId);
-      this.autoSave.cancelBlock(editingId);
+    // Cancel pending auto-save for the editing item
+    const editingId = this.state.focusedItemId();
+    if (editingId && this.dirtyItemIds.has(editingId)) {
+      this.dirtyItemIds.delete(editingId);
+      this.autoSave.cancelItem(editingId);
     }
 
     const entry = this.undo.popUndo();
@@ -1592,35 +1592,35 @@ export class OutlineComponent implements OnDestroy {
       const op = entry.ops[i];
       switch (op.type) {
         case 'update':
-          this.state.updateBlock(op.before.id, op.before);
+          this.state.updateItem(op.before.id, op.before);
           if (op.before.collapsed !== op.after.collapsed) {
             this.state.toggleCollapsed(op.before.id);
           }
           break;
         case 'create':
-          this.state.deleteBlock(op.block.id);
+          this.state.deleteItem(op.item.id);
           break;
         case 'delete':
-          this.state.addBlock(op.block, this.findInsertionPoint(op.block));
+          this.state.addItem(op.item, this.findInsertionPoint(op.item));
           break;
       }
     }
 
     // Restore cursor
     if (entry.cursorBefore) {
-      this.state.addEditingBlock(entry.cursorBefore.blockId);
-      this.state.setFocusedBlock(entry.cursorBefore.blockId, entry.cursorBefore.position);
-      this.focusEditor(entry.cursorBefore.blockId);
+      this.state.addEditingItem(entry.cursorBefore.itemId);
+      this.state.setFocusedItem(entry.cursorBefore.itemId, entry.cursorBefore.position);
+      this.focusEditor(entry.cursorBefore.itemId);
     } else {
-      // For body edits and other entries without explicit cursor, keep editing the first updated block
+      // For body edits and other entries without explicit cursor, keep editing the first updated item
       const firstUpdate = entry.ops.find(op => op.type === 'update');
       if (firstUpdate && firstUpdate.type === 'update') {
         const pos = firstUpdate.before.body.length;
-        this.state.addEditingBlock(firstUpdate.before.id);
-        this.state.setFocusedBlock(firstUpdate.before.id, pos);
+        this.state.addEditingItem(firstUpdate.before.id);
+        this.state.setFocusedItem(firstUpdate.before.id, pos);
         this.focusEditor(firstUpdate.before.id);
       } else {
-        this.state.removeAllEditingBlocks();
+        this.state.removeAllEditingItems();
       }
     }
 
@@ -1631,11 +1631,11 @@ export class OutlineComponent implements OnDestroy {
   async performRedo(): Promise<void> {
     if (this.undo.isPending()) return;
 
-    // Cancel pending auto-save for the editing block
-    const editingId = this.state.focusedBlockId();
-    if (editingId && this.dirtyBlockIds.has(editingId)) {
-      this.dirtyBlockIds.delete(editingId);
-      this.autoSave.cancelBlock(editingId);
+    // Cancel pending auto-save for the editing item
+    const editingId = this.state.focusedItemId();
+    if (editingId && this.dirtyItemIds.has(editingId)) {
+      this.dirtyItemIds.delete(editingId);
+      this.autoSave.cancelItem(editingId);
     }
 
     const entry = this.undo.popRedo();
@@ -1645,34 +1645,34 @@ export class OutlineComponent implements OnDestroy {
     for (const op of entry.ops) {
       switch (op.type) {
         case 'update':
-          this.state.updateBlock(op.after.id, op.after);
+          this.state.updateItem(op.after.id, op.after);
           if (op.before.collapsed !== op.after.collapsed) {
             this.state.toggleCollapsed(op.after.id);
           }
           break;
         case 'create':
-          this.state.addBlock(op.block, this.findInsertionPoint(op.block));
+          this.state.addItem(op.item, this.findInsertionPoint(op.item));
           break;
         case 'delete':
-          this.state.deleteBlock(op.block.id);
+          this.state.deleteItem(op.item.id);
           break;
       }
     }
 
     // Restore cursor
     if (entry.cursorAfter) {
-      this.state.addEditingBlock(entry.cursorAfter.blockId);
-      this.state.setFocusedBlock(entry.cursorAfter.blockId, entry.cursorAfter.position);
-      this.focusEditor(entry.cursorAfter.blockId);
+      this.state.addEditingItem(entry.cursorAfter.itemId);
+      this.state.setFocusedItem(entry.cursorAfter.itemId, entry.cursorAfter.position);
+      this.focusEditor(entry.cursorAfter.itemId);
     } else {
       const firstUpdate = entry.ops.find(op => op.type === 'update');
       if (firstUpdate && firstUpdate.type === 'update') {
         const pos = firstUpdate.after.body.length;
-        this.state.addEditingBlock(firstUpdate.after.id);
-        this.state.setFocusedBlock(firstUpdate.after.id, pos);
+        this.state.addEditingItem(firstUpdate.after.id);
+        this.state.setFocusedItem(firstUpdate.after.id, pos);
         this.focusEditor(firstUpdate.after.id);
       } else {
-        this.state.removeAllEditingBlocks();
+        this.state.removeAllEditingItems();
       }
     }
 
@@ -1680,11 +1680,11 @@ export class OutlineComponent implements OnDestroy {
     this.syncToServer(entry, 'redo');
   }
 
-  private findInsertionPoint(block: Block): string {
-    const blocks = this.state.blocks();
+  private findInsertionPoint(item: Item): string {
+    const items = this.state.items();
     let bestId = '';
-    for (const b of blocks) {
-      if (b.pageId === block.pageId && b.idx < block.idx) {
+    for (const b of items) {
+      if (b.pageId === item.pageId && b.idx < item.idx) {
         bestId = b.id;
       }
     }
@@ -1698,47 +1698,47 @@ export class OutlineComponent implements OnDestroy {
         if (op.type === 'update') {
           const target = dir === 'undo' ? op.before : op.after;
           const source = dir === 'undo' ? op.after : op.before;
-          const updated = await this.api.updateBlock(target.id, {
+          const updated = await this.api.updateItem(target.id, {
             body: target.body,
             level: target.level,
             collapsed: target.collapsed,
           });
-          this.state.updateBlock(updated.id, { idx: updated.idx, level: updated.level });
+          this.state.updateItem(updated.id, { idx: updated.idx, level: updated.level });
           if (target.status !== source.status) {
-            await this.api.updateBlockStatus(target.id, target.status);
+            await this.api.updateItemStatus(target.id, target.status);
           }
         } else if (op.type === 'create') {
           if (dir === 'undo') {
             // Undo a create = delete
-            await this.api.deleteBlock(op.block.id);
+            await this.api.deleteItem(op.item.id);
           } else {
             // Redo a create = recreate
-            const afterId = this.findInsertionPoint(op.block);
-            const newBlock = await this.api.createBlock(
-              op.block.pageId, afterId, op.block.level, op.block.body
+            const afterId = this.findInsertionPoint(op.item);
+            const newItem = await this.api.createItem(
+              op.item.pageId, afterId, op.item.level, op.item.body
             );
-            // Remap: update local state with real server block
-            this.state.deleteBlock(op.block.id);
-            this.state.addBlock(newBlock, afterId);
-            op.block = newBlock;
+            // Remap: update local state with real server item
+            this.state.deleteItem(op.item.id);
+            this.state.addItem(newItem, afterId);
+            op.item = newItem;
           }
         } else if (op.type === 'delete') {
           if (dir === 'undo') {
             // Undo a delete = recreate
-            const afterId = this.findInsertionPoint(op.block);
-            const newBlock = await this.api.createBlock(
-              op.block.pageId, afterId, op.block.level, op.block.body
+            const afterId = this.findInsertionPoint(op.item);
+            const newItem = await this.api.createItem(
+              op.item.pageId, afterId, op.item.level, op.item.body
             );
-            if (op.block.status !== 'normal') {
-              await this.api.updateBlockStatus(newBlock.id, op.block.status);
+            if (op.item.status !== 'normal') {
+              await this.api.updateItemStatus(newItem.id, op.item.status);
             }
             // Remap
-            this.state.deleteBlock(op.block.id);
-            this.state.addBlock(newBlock, afterId);
-            op.block = newBlock;
+            this.state.deleteItem(op.item.id);
+            this.state.addItem(newItem, afterId);
+            op.item = newItem;
           } else {
             // Redo a delete = delete
-            await this.api.deleteBlock(op.block.id);
+            await this.api.deleteItem(op.item.id);
           }
         }
       }
@@ -1749,8 +1749,8 @@ export class OutlineComponent implements OnDestroy {
 
   private exitSelectionMode(): void {
     this.state.clearSelection();
-    this.selectionAnchorBlockId = null;
-    this.selectionExtentBlockId = null;
+    this.selectionAnchorItemId = null;
+    this.selectionExtentItemId = null;
     this.isSelectionDragging = false;
     document.removeEventListener('mouseup', this.selectionMouseUpHandler);
     document.removeEventListener('keydown', this.selectionKeydownHandler);
@@ -1769,19 +1769,19 @@ export class OutlineComponent implements OnDestroy {
     this.closeWikiSuggestions();
   }
 
-  private async saveBlockBody(blockId: string, body: string): Promise<Block> {
+  private async saveItemBody(itemId: string, body: string): Promise<Item> {
     const normalized = ensureCodeFenceClosed(body);
-    this.state.updateBlock(blockId, { body: normalized });
-    const updated = await this.api.updateBlock(blockId, { body: normalized });
-    this.state.updateBlock(blockId, { html: updated.html });
+    this.state.updateItem(itemId, { body: normalized });
+    const updated = await this.api.updateItem(itemId, { body: normalized });
+    this.state.updateItem(itemId, { html: updated.html });
     return updated;
   }
 
-  private focusEditor(blockId?: string, callback?: () => void): void {
+  private focusEditor(itemId?: string, callback?: () => void): void {
     afterNextRender(() => {
-      const selector = blockId
-        ? `#block-editor-${blockId}`
-        : 'app-block-editor textarea';
+      const selector = itemId
+        ? `#item-editor-${itemId}`
+        : 'app-item-editor textarea';
       const el = document.querySelector<HTMLTextAreaElement>(selector);
       if (el) {
         el.focus();

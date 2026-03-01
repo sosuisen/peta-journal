@@ -1,17 +1,17 @@
 import { Injectable } from '@angular/core';
-import { Block } from '../models/block.model';
+import { Item } from '../models/item.model';
 import { Bookmark, BookmarkGroup } from '../models/bookmark.model';
 import { Page } from '../models/page.model';
 import { SearchResult } from '../models/search.model';
 
-interface GetPageResult { page: Page; blocks: Block[] }
-interface GetDocResult { page: Page; blocks: Block[]; created: boolean }
-interface GetJournalResult { page: Page; blocks: Block[]; created: boolean }
-interface GetMostRecentJournalBeforeResult { found: boolean; page: Page | null; blocks: Block[] }
+interface GetPageResult { page: Page; items: Item[] }
+interface GetDocResult { page: Page; items: Item[]; created: boolean }
+interface GetJournalResult { page: Page; items: Item[]; created: boolean }
+interface GetMostRecentJournalBeforeResult { found: boolean; page: Page | null; items: Item[] }
 interface SearchPageNamesResult { results: SearchResult[] }
 interface SearchFullTextResult { results: SearchResult[]; totalHits: number }
 interface GetRecentPagesResult { pages: Page[] }
-interface BacklinkEntry { sourcePage: Page; sourceBlock: Block }
+interface BacklinkEntry { sourcePage: Page; sourceItem: Item }
 interface GetBacklinksResult { entries: BacklinkEntry[] }
 interface GetBookmarksResult { groups: BookmarkGroup[]; bookmarks: Bookmark[] }
 
@@ -67,34 +67,34 @@ export class ApiService {
     return json(resp);
   }
 
-  async createBlock(pageId: string, afterBlockId: string, level: number, body: string, id?: string): Promise<Block> {
-    const resp = await fetch('/api/blocks', {
+  async createItem(pageId: string, afterItemId: string, level: number, body: string, id?: string): Promise<Item> {
+    const resp = await fetch('/api/items', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pageId, afterBlockId, level, body, id: id ?? '' }),
+      body: JSON.stringify({ pageId, afterItemId, level, body, id: id ?? '' }),
     });
-    const data = await json<{ block: Block }>(resp);
-    return data.block;
+    const data = await json<{ item: Item }>(resp);
+    return data.item;
   }
 
-  async updateBlock(blockId: string, updates: { body?: string; level?: number; collapsed?: boolean }): Promise<Block> {
-    const resp = await fetch(`/api/blocks/${blockId}`, {
+  async updateItem(itemId: string, updates: { body?: string; level?: number; collapsed?: boolean }): Promise<Item> {
+    const resp = await fetch(`/api/items/${itemId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updates),
     });
-    const data = await json<{ block: Block }>(resp);
-    return data.block;
+    const data = await json<{ item: Item }>(resp);
+    return data.item;
   }
 
-  async moveBlocks(blockIds: string[], targetPageId: string, afterBlockId: string, levelDelta?: number): Promise<Block[]> {
-    const resp = await fetch('/api/blocks/move', {
+  async moveItems(itemIds: string[], targetPageId: string, afterItemId: string, levelDelta?: number): Promise<Item[]> {
+    const resp = await fetch('/api/items/move', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ blockIds, targetPageId, afterBlockId, levelDelta }),
+      body: JSON.stringify({ itemIds, targetPageId, afterItemId, levelDelta }),
     });
-    const data = await json<{ blocks: Block[] }>(resp);
-    return data.blocks;
+    const data = await json<{ items: Item[] }>(resp);
+    return data.items;
   }
 
   async deletePage(pageId: string): Promise<void> {
@@ -102,19 +102,19 @@ export class ApiService {
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
   }
 
-  async deleteBlock(blockId: string): Promise<void> {
-    const resp = await fetch(`/api/blocks/${blockId}`, { method: 'DELETE' });
+  async deleteItem(itemId: string): Promise<void> {
+    const resp = await fetch(`/api/items/${itemId}`, { method: 'DELETE' });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
   }
 
-  async updateBlockStatus(blockId: string, status: string): Promise<Block> {
-    const resp = await fetch(`/api/blocks/${blockId}/status`, {
+  async updateItemStatus(itemId: string, status: string): Promise<Item> {
+    const resp = await fetch(`/api/items/${itemId}/status`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status }),
     });
-    const data = await json<{ block: Block }>(resp);
-    return data.block;
+    const data = await json<{ item: Item }>(resp);
+    return data.item;
   }
 
   async searchPageNames(query: string, maxResults = 20): Promise<SearchPageNamesResult> {
@@ -163,17 +163,17 @@ export class ApiService {
     return json(resp);
   }
 
-  async exportTreeMarkdown(blockIds: string[]): Promise<{ treeMarkdown: string; html: string; flatMarkdown: string }> {
-    const resp = await fetch('/api/blocks/export', {
+  async exportTreeMarkdown(itemIds: string[]): Promise<{ treeMarkdown: string; html: string; flatMarkdown: string }> {
+    const resp = await fetch('/api/items/export', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ blockIds }),
+      body: JSON.stringify({ itemIds }),
     });
     return json(resp);
   }
 
   async importTreeMarkdown(treeMarkdown: string): Promise<{ flatMarkdown: string }> {
-    const resp = await fetch('/api/blocks/import', {
+    const resp = await fetch('/api/items/import', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ treeMarkdown }),

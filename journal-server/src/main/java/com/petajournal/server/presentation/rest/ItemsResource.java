@@ -1,7 +1,7 @@
 package com.petajournal.server.presentation.rest;
 
-import com.petajournal.server.application.BlockService;
-import com.petajournal.server.presentation.rest.dto.BlockDto;
+import com.petajournal.server.application.ItemService;
+import com.petajournal.server.presentation.rest.dto.ItemDto;
 import com.petajournal.server.presentation.rest.dto.DtoMapper;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
@@ -11,66 +11,66 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
-@Path("/api/blocks")
+@Path("/api/items")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
-public class BlocksResource {
+public class ItemsResource {
 
     @Inject
-    BlockService blockService;
+    ItemService itemService;
 
     @Inject
     SseBroadcaster sseBroadcaster;
 
     // --- Request/Response records ---
 
-    record CreateBlockRequest(String pageId, String afterBlockId, int level, String body, String id) {}
-    record CreateBlockResponse(BlockDto block) {}
-    record UpdateBlockRequest(String body, Integer level, Boolean collapsed, String status) {}
-    record UpdateBlockResponse(BlockDto block) {}
-    record UpdateBlockStatusRequest(String status) {}
-    record UpdateBlockStatusResponse(BlockDto block) {}
-    record MoveBlocksRequest(List<String> blockIds, String targetPageId, String afterBlockId, Integer levelDelta) {}
-    record MoveBlocksResponse(List<BlockDto> blocks) {}
-    record GetBlocksByStatusResponse(List<BlockDto> blocks) {}
-    record ExportTreeMarkdownRequest(List<String> blockIds) {}
+    record CreateItemRequest(String pageId, String afterItemId, int level, String body, String id) {}
+    record CreateItemResponse(ItemDto item) {}
+    record UpdateItemRequest(String body, Integer level, Boolean collapsed, String status) {}
+    record UpdateItemResponse(ItemDto item) {}
+    record UpdateItemStatusRequest(String status) {}
+    record UpdateItemStatusResponse(ItemDto item) {}
+    record MoveItemsRequest(List<String> itemIds, String targetPageId, String afterItemId, Integer levelDelta) {}
+    record MoveItemsResponse(List<ItemDto> items) {}
+    record GetItemsByStatusResponse(List<ItemDto> items) {}
+    record ExportTreeMarkdownRequest(List<String> itemIds) {}
     record ExportTreeMarkdownResponse(String treeMarkdown, String html, String flatMarkdown) {}
     record ImportTreeMarkdownRequest(String treeMarkdown) {}
     record ImportTreeMarkdownResponse(String flatMarkdown) {}
 
     @POST
-    public CreateBlockResponse createBlock(CreateBlockRequest req) {
+    public CreateItemResponse createItem(CreateItemRequest req) {
         UUID clientId = (req.id() != null && !req.id().isEmpty()) ? UUID.fromString(req.id()) : null;
-        UUID afterBlockId = (req.afterBlockId() != null && !req.afterBlockId().isEmpty())
-                ? UUID.fromString(req.afterBlockId()) : null;
-        var block = blockService.createBlock(
+        UUID afterItemId = (req.afterItemId() != null && !req.afterItemId().isEmpty())
+                ? UUID.fromString(req.afterItemId()) : null;
+        var item = itemService.createItem(
                 UUID.fromString(req.pageId()),
-                afterBlockId,
+                afterItemId,
                 req.level(),
                 req.body(),
                 clientId);
         sseBroadcaster.broadcastPagesUpdated(req.pageId());
-        return new CreateBlockResponse(DtoMapper.toDto(block));
+        return new CreateItemResponse(DtoMapper.toDto(item));
     }
 
     @PUT
     @Path("/{id}")
-    public UpdateBlockResponse updateBlock(@PathParam("id") String id, UpdateBlockRequest req) {
-        var block = blockService.updateBlock(
+    public UpdateItemResponse updateItem(@PathParam("id") String id, UpdateItemRequest req) {
+        var item = itemService.updateItem(
                 UUID.fromString(id),
                 req.body(),
                 req.level(),
                 req.collapsed(),
                 req.status());
-        sseBroadcaster.broadcastPagesUpdated(block.pageId().toString());
-        return new UpdateBlockResponse(DtoMapper.toDto(block));
+        sseBroadcaster.broadcastPagesUpdated(item.pageId().toString());
+        return new UpdateItemResponse(DtoMapper.toDto(item));
     }
 
     @DELETE
     @Path("/{id}")
-    public void deleteBlock(@PathParam("id") String id) {
-        String pageId = blockService.getBlockPageId(UUID.fromString(id));
-        blockService.deleteBlock(UUID.fromString(id));
+    public void deleteItem(@PathParam("id") String id) {
+        String pageId = itemService.getItemPageId(UUID.fromString(id));
+        itemService.deleteItem(UUID.fromString(id));
         if (pageId != null) {
             sseBroadcaster.broadcastPagesUpdated(pageId);
         }
@@ -78,46 +78,46 @@ public class BlocksResource {
 
     @PUT
     @Path("/{id}/status")
-    public UpdateBlockStatusResponse updateBlockStatus(@PathParam("id") String id, UpdateBlockStatusRequest req) {
-        var block = blockService.updateBlockStatus(UUID.fromString(id), req.status());
-        sseBroadcaster.broadcastPagesUpdated(block.pageId().toString());
-        return new UpdateBlockStatusResponse(DtoMapper.toDto(block));
+    public UpdateItemStatusResponse updateItemStatus(@PathParam("id") String id, UpdateItemStatusRequest req) {
+        var item = itemService.updateItemStatus(UUID.fromString(id), req.status());
+        sseBroadcaster.broadcastPagesUpdated(item.pageId().toString());
+        return new UpdateItemStatusResponse(DtoMapper.toDto(item));
     }
 
     @POST
     @Path("/move")
-    public MoveBlocksResponse moveBlocks(MoveBlocksRequest req) {
-        UUID afterBlockId = (req.afterBlockId() != null && !req.afterBlockId().isEmpty())
-                ? UUID.fromString(req.afterBlockId()) : null;
-        var blocks = blockService.moveBlocks(
-                req.blockIds().stream().map(UUID::fromString).toList(),
+    public MoveItemsResponse moveItems(MoveItemsRequest req) {
+        UUID afterItemId = (req.afterItemId() != null && !req.afterItemId().isEmpty())
+                ? UUID.fromString(req.afterItemId()) : null;
+        var items = itemService.moveItems(
+                req.itemIds().stream().map(UUID::fromString).toList(),
                 UUID.fromString(req.targetPageId()),
-                afterBlockId,
+                afterItemId,
                 req.levelDelta());
         sseBroadcaster.broadcastPagesUpdated(req.targetPageId());
-        return new MoveBlocksResponse(blocks.stream().map(DtoMapper::toDto).toList());
+        return new MoveItemsResponse(items.stream().map(DtoMapper::toDto).toList());
     }
 
     @GET
-    public GetBlocksByStatusResponse getBlocksByStatus(@QueryParam("statuses") String statuses) {
+    public GetItemsByStatusResponse getItemsByStatus(@QueryParam("statuses") String statuses) {
         List<String> statusList = (statuses != null && !statuses.isEmpty())
                 ? Arrays.asList(statuses.split(","))
                 : List.of();
-        var blocks = blockService.getBlocksByStatuses(statusList);
-        return new GetBlocksByStatusResponse(blocks.stream().map(DtoMapper::toDto).toList());
+        var items = itemService.getItemsByStatuses(statusList);
+        return new GetItemsByStatusResponse(items.stream().map(DtoMapper::toDto).toList());
     }
 
     @POST
     @Path("/export")
     public ExportTreeMarkdownResponse exportTreeMarkdown(ExportTreeMarkdownRequest req) {
-        var result = blockService.exportTreeMarkdown(req.blockIds().stream().map(UUID::fromString).toList());
+        var result = itemService.exportTreeMarkdown(req.itemIds().stream().map(UUID::fromString).toList());
         return new ExportTreeMarkdownResponse(result.treeMarkdown(), result.html(), result.flatMarkdown());
     }
 
     @POST
     @Path("/import")
     public ImportTreeMarkdownResponse importTreeMarkdown(ImportTreeMarkdownRequest req) {
-        String flatMd = blockService.importTreeMarkdown(req.treeMarkdown());
+        String flatMd = itemService.importTreeMarkdown(req.treeMarkdown());
         return new ImportTreeMarkdownResponse(flatMd);
     }
 }

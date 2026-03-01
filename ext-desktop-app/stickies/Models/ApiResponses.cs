@@ -3,7 +3,7 @@ namespace Stickies.Models;
 public class GetPageByIdResponse
 {
     public PageModel Page { get; set; } = new();
-    public List<BlockModel> Blocks { get; set; } = [];
+    public List<ItemModel> Items { get; set; } = [];
 }
 
 public class SearchPageNamesResponse

@@ -56,8 +56,8 @@ import { validateFileName } from '../core/utils/filename-validation.utils';
         <span class="connection-status" [class]="sse.connectionState()">
           {{ sse.connectionState() }}
         </span>
-        @if (outlineState.focusedBlockId()) {
-          <span class="block-id">Block: {{ outlineState.focusedBlockId() }}</span>
+        @if (outlineState.focusedItemId()) {
+          <span class="item-id">Item: {{ outlineState.focusedItemId() }}</span>
         }
       </footer>
     </div>
@@ -203,7 +203,7 @@ import { validateFileName } from '../core/utils/filename-validation.utils';
     .connection-status.connecting { color: #ff9800; }
     .connection-status.disconnected { color: #999; }
     .connection-status.error { color: #f44336; }
-    .block-id { margin-left: 16px; color: #888; }
+    .item-id { margin-left: 16px; color: #888; }
   `]
 })
 export class MainLayoutComponent {
@@ -278,7 +278,7 @@ export class MainLayoutComponent {
       if (searchQuery) {
         this.searchBar()?.query.set('');
         this.searchBar()?.pageResults.set([]);
-        this.searchBar()?.blockResults.set([]);
+        this.searchBar()?.itemResults.set([]);
         this.searchBar()?.showDropdown.set(false);
         this.searchBar()?.showCreateButton.set(false);
       }
@@ -314,7 +314,7 @@ export class MainLayoutComponent {
    */
   @HostListener('document:keydown', ['$event'])
   onKeydown(event: KeyboardEvent): void {
-    const isEditing = !!this.outlineState.focusedBlockId();
+    const isEditing = !!this.outlineState.focusedItemId();
     if (event.key === '/' && event.ctrlKey) {
       event.preventDefault();
       this.searchBar()?.focusInput();

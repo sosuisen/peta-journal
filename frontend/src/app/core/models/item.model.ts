@@ -1,4 +1,4 @@
-export interface Block {
+export interface Item {
   id: string;
   pageId: string;
   dirPath: string;

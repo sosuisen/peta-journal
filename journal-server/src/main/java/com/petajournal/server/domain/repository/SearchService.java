@@ -1,12 +1,12 @@
 package com.petajournal.server.domain.repository;
 
-import com.petajournal.server.domain.model.Block;
+import com.petajournal.server.domain.model.Item;
 import com.petajournal.server.domain.model.Page;
 import com.petajournal.server.domain.model.SearchResult;
 
 import java.util.List;
 
-/** Full-text search service for pages and blocks. */
+/** Full-text search service for pages and items. */
 public interface SearchService {
 
     /**
@@ -17,26 +17,26 @@ public interface SearchService {
     void indexPage(Page page);
 
     /**
-     * Indexes a block for full-text search.
+     * Indexes an item for full-text search.
      *
-     * @param block     the block to index
-     * @param pageTitle the title of the page containing the block
+     * @param item     the item to index
+     * @param pageTitle the title of the page containing the item
      */
-    void indexBlock(Block block, String pageTitle);
+    void indexItem(Item item, String pageTitle);
 
     /**
-     * Removes a page and all its blocks from the search index.
+     * Removes a page and all its items from the search index.
      *
      * @param pageId the page UUID as a string
      */
     void removePage(String pageId);
 
     /**
-     * Removes a block from the search index.
+     * Removes an item from the search index.
      *
-     * @param blockId the block ID
+     * @param itemId the item ID
      */
-    void removeBlock(String blockId);
+    void removeItem(String itemId);
 
     /**
      * Searches for pages by name using fuzzy/token matching.
@@ -48,7 +48,7 @@ public interface SearchService {
     List<SearchResult> searchPageNames(String query, int maxResults);
 
     /**
-     * Performs a full-text search across all block content.
+     * Performs a full-text search across all item content.
      *
      * @param query      the search query
      * @param maxResults maximum number of results

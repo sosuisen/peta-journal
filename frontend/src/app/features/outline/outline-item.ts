@@ -1,21 +1,21 @@
 import { Component, input, output, computed, inject, viewChild } from '@angular/core';
-import { Block } from '../../core/models/block.model';
+import { Item } from '../../core/models/item.model';
 import { OutlineStateService } from '../../core/services/outline-state.service';
-import { BlockEditorComponent, WikiLinkContext } from './block-editor';
-import { BlockViewComponent } from './block-view';
+import { ItemEditorComponent, WikiLinkContext } from './item-editor';
+import { ItemViewComponent } from './item-view';
 
 @Component({
-  selector: 'app-outline-block',
-  imports: [BlockEditorComponent, BlockViewComponent],
+  selector: 'app-outline-item',
+  imports: [ItemEditorComponent, ItemViewComponent],
   template: `
     <div
-      [id]="block().id"
-      class="outline-block"
+      [id]="item().id"
+      class="outline-item"
       [style.padding-left.px]="indentPx()"
       [class.selected]="isSelected()"
       [class.heading]="isHeading()"
     >
-      <div class="block-controls">
+      <div class="item-controls">
         @if (hasChildren()) {
           <button
             class="collapse-toggle"
@@ -28,13 +28,13 @@ import { BlockViewComponent } from './block-view';
           <span class="bullet">&bull;</span>
         }
       </div>
-      <div class="block-body">
+      <div class="item-body">
         @if (isEditing()) {
-          <app-block-editor
+          <app-item-editor
             #editor
-            [body]="block().body"
-            [blockId]="block().id"
-            [status]="block().status"
+            [body]="item().body"
+            [itemId]="item().id"
+            [status]="item().status"
             [suggestionsVisible]="suggestionsVisible()"
             (bodyChange)="bodyChanged.emit($event)"
             (blurred)="onEditFinished()"
@@ -62,9 +62,9 @@ import { BlockViewComponent } from './block-view';
             (redoRequested)="redoRequested.emit()"
           />
         } @else {
-          <app-block-view
-            [html]="block().html"
-            [status]="block().status"
+          <app-item-view
+            [html]="item().html"
+            [status]="item().status"
             (clicked)="editRequested.emit($event)"
             (taskToggled)="taskToggled.emit()"
           />
@@ -73,15 +73,15 @@ import { BlockViewComponent } from './block-view';
     </div>
   `,
   styles: [`
-    .outline-block {
+    .outline-item {
       display: flex;
       align-items: flex-start;
       min-height: 28px;
     }
-    .outline-block.selected {
+    .outline-item.selected {
       background: rgba(0, 120, 215, 0.1);
     }
-    .block-controls {
+    .item-controls {
       width: 24px;
       flex-shrink: 0;
       display: flex;
@@ -111,19 +111,19 @@ import { BlockViewComponent } from './block-view';
       color: #999;
       font-size: 14px;
     }
-    .block-body {
+    .item-body {
       flex: 1;
       min-width: 0;
     }
-    .outline-block.heading .block-body {
+    .outline-item.heading .item-body {
       margin-left: -3px;
     }
   `]
 })
-export class OutlineBlockComponent {
+export class OutlineItemComponent {
   private readonly state = inject(OutlineStateService);
 
-  readonly block = input.required<Block>();
+  readonly item = input.required<Item>();
 
   readonly bodyChanged = output<string>();
   readonly editRequested = output<number>();
@@ -152,20 +152,20 @@ export class OutlineBlockComponent {
   readonly redoRequested = output<void>();
   readonly suggestionsVisible = input<boolean>(false);
 
-  private readonly editorRef = viewChild<BlockEditorComponent>('editor');
+  private readonly editorRef = viewChild<ItemEditorComponent>('editor');
 
-  readonly indentPx = computed(() => (this.block().level - 1) * 24);
-  readonly hasChildren = computed(() => this.state.hasChildren(this.block().id));
-  readonly isEditing = computed(() => this.state.editingBlockIds().has(this.block().id));
-  readonly isSelected = computed(() => this.state.selectedBlockIds().has(this.block().id));
-  readonly isCollapsed = computed(() => this.block().collapsed);
-  readonly isHeading = computed(() => this.block().body.trimStart().startsWith('#'));
+  readonly indentPx = computed(() => (this.item().level - 1) * 24);
+  readonly hasChildren = computed(() => this.state.hasChildren(this.item().id));
+  readonly isEditing = computed(() => this.state.editingItemIds().has(this.item().id));
+  readonly isSelected = computed(() => this.state.selectedItemIds().has(this.item().id));
+  readonly isCollapsed = computed(() => this.item().collapsed);
+  readonly isHeading = computed(() => this.item().body.trimStart().startsWith('#'));
   readonly shouldShowBullet = computed(() => {
-    // Don't show bullet if block has children (collapse toggle is shown instead)
+    // Don't show bullet if item has children (collapse toggle is shown instead)
     if (this.hasChildren()) return false;
     // In view mode (not editing), hide bullet for empty lines and lines starting with #
     if (!this.isEditing()) {
-      const body = this.block().body.trim();
+      const body = this.item().body.trim();
       if (body === '' || body.startsWith('#')) {
         return false;
       }
@@ -174,14 +174,14 @@ export class OutlineBlockComponent {
   });
 
   /**
-   * Inserts a wiki-link replacement text into the block editor at the current cursor position.
+   * Inserts a wiki-link replacement text into the item editor at the current cursor position.
    * @param replacement - The wiki-link text to insert.
    */
   insertWikiLinkText(replacement: string): void {
     this.editorRef()?.insertWikiLinkText(replacement);
   }
 
-  /** Emits a collapse toggle event for this block's children. */
+  /** Emits a collapse toggle event for this item's children. */
   toggleCollapse(): void {
     this.collapseToggled.emit();
   }

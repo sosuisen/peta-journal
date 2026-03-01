@@ -1,6 +1,6 @@
 namespace Stickies.Models;
 
-public class BlockModel
+public class ItemModel
 {
     public string Id { get; set; } = "";
     public string PageId { get; set; } = "";

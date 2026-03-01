@@ -40,7 +40,7 @@
     return results;
   }
 
-  function parseBlock(text) {
+  function parseItem(text) {
     let level = 1;
     let status = 'normal';
     const bodyLines = [];
@@ -75,7 +75,7 @@
   }
 
   /**
-   * Split flat markdown text into block chunks, keeping code fences as single blocks.
+   * Split flat markdown text into item chunks, keeping code fences as single items.
    */
   function splitFlatMarkdown(text) {
     const lines = text.split('\n');
@@ -180,28 +180,28 @@
       return;
     }
 
-    // Collect all blocks from all matched templates
-    const allBlocks = [];
+    // Collect all items from all matched templates
+    const allItems = [];
     for (const template of matched) {
       const chunks = splitFlatMarkdown(template.body);
       for (const chunk of chunks) {
         const trimmed = chunk.trim();
         if (!trimmed) continue;
-        const block = parseBlock(trimmed);
-        allBlocks.push(block);
+        const item = parseItem(trimmed);
+        allItems.push(item);
       }
     }
 
-    // Send CreateBlock messages sequentially, waiting for response
-    let lastBlockId = '';
-    for (const block of allBlocks) {
-      lastBlockId = await createBlock(pageId, lastBlockId, block.level, block.body, block.status);
+    // Send CreateItem messages sequentially, waiting for response
+    let lastItemId = '';
+    for (const item of allItems) {
+      lastItemId = await createItem(pageId, lastItemId, item.level, item.body, item.status);
     }
 
-    console.log('[auto-template] Created', allBlocks.length, 'blocks for:', fileName);
+    console.log('[auto-template] Created', allItems.length, 'items for:', fileName);
   });
 
-  function createBlock(pageId, afterBlockId, level, body, status) {
+  function createItem(pageId, afterItemId, level, body, status) {
     return new Promise((resolve) => {
       const requestId = 'req-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
 
@@ -209,10 +209,10 @@
         const data = event.data;
         if (!data || data.requestId !== requestId) return;
         window.removeEventListener('message', onResponse);
-        if (data.type === 'CreateBlockResult') {
-          resolve(data.blockId);
+        if (data.type === 'CreateItemResult') {
+          resolve(data.itemId);
         } else {
-          console.error('[auto-template] CreateBlock failed:', data.error);
+          console.error('[auto-template] CreateItem failed:', data.error);
           resolve(''); // Continue even on error
         }
       }
@@ -220,9 +220,9 @@
       window.addEventListener('message', onResponse);
 
       parent.postMessage({
-        type: 'CreateBlock',
+        type: 'CreateItem',
         pageId,
-        afterBlockId,
+        afterItemId,
         level,
         body,
         status,

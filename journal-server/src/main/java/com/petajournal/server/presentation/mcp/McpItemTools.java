@@ -1,6 +1,6 @@
 package com.petajournal.server.presentation.mcp;
 
-import com.petajournal.server.application.BlockService;
+import com.petajournal.server.application.ItemService;
 import io.quarkiverse.mcp.server.Tool;
 import io.quarkiverse.mcp.server.ToolArg;
 import jakarta.inject.Inject;
@@ -9,34 +9,34 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-public class McpBlockTools {
+public class McpItemTools {
 
     @Inject
-    BlockService blockService;
+    ItemService itemService;
 
     @Inject
     McpJsonHelper jsonHelper;
 
-    @Tool(description = "Create a new block in a page. The block is inserted after the specified block, or at the end if afterBlockId is empty.")
-    String create_block(
+    @Tool(description = "Create a new item in a page. The item is inserted after the specified item, or at the end if afterItemId is empty.")
+    String create_item(
             @ToolArg(description = "UUID of the page") String pageId,
-            @ToolArg(description = "Block ID to insert after (empty string to append at end)") String afterBlockId,
+            @ToolArg(description = "Item ID to insert after (empty string to append at end)") String afterItemId,
             @ToolArg(description = "Indentation level (1-based)") int level,
             @ToolArg(description = "Markdown body text") String body
     ) {
-        var block = blockService.createBlock(
+        var item = itemService.createItem(
                 UUID.fromString(pageId),
-                afterBlockId.isEmpty() ? null : UUID.fromString(afterBlockId),
+                afterItemId.isEmpty() ? null : UUID.fromString(afterItemId),
                 level,
                 body,
                 null
         );
-        return jsonHelper.toJson(Map.of("block", block));
+        return jsonHelper.toJson(Map.of("item", item));
     }
 
-    @Tool(description = "Update an existing block's body, level, collapsed state, or status. Only non-null fields are updated.")
-    String update_block(
-            @ToolArg(description = "UUID of the block") String blockId,
+    @Tool(description = "Update an existing item's body, level, collapsed state, or status. Only non-null fields are updated.")
+    String update_item(
+            @ToolArg(description = "UUID of the item") String itemId,
             @ToolArg(description = "New markdown body (null to keep current)") String body,
             @ToolArg(description = "New indentation level, or -1 to keep current") int level,
             @ToolArg(description = "New collapsed state: 'true', 'false', or 'null' to keep current") String collapsed,
@@ -45,55 +45,55 @@ public class McpBlockTools {
         Integer lvl = (level < 1) ? null : level;
         Boolean col = "null".equals(collapsed) ? null : Boolean.parseBoolean(collapsed);
         String st = "null".equals(status) ? null : status;
-        var block = blockService.updateBlock(UUID.fromString(blockId), body, lvl, col, st);
-        return jsonHelper.toJson(Map.of("block", block));
+        var item = itemService.updateItem(UUID.fromString(itemId), body, lvl, col, st);
+        return jsonHelper.toJson(Map.of("item", item));
     }
 
-    @Tool(description = "Delete a block by its ID")
-    String delete_block(
-            @ToolArg(description = "UUID of the block") String blockId
+    @Tool(description = "Delete an item by its ID")
+    String delete_item(
+            @ToolArg(description = "UUID of the item") String itemId
     ) {
-        blockService.deleteBlock(UUID.fromString(blockId));
+        itemService.deleteItem(UUID.fromString(itemId));
         return jsonHelper.toJson(Map.of("deleted", true));
     }
 
-    @Tool(description = "Move blocks to a target page and position. Returns blocks with updated indices.")
-    String move_blocks(
-            @ToolArg(description = "Comma-separated block IDs to move") String blockIds,
+    @Tool(description = "Move items to a target page and position. Returns items with updated indices.")
+    String move_items(
+            @ToolArg(description = "Comma-separated item IDs to move") String itemIds,
             @ToolArg(description = "UUID of the target page") String targetPageId,
-            @ToolArg(description = "Block ID to insert after (empty string to insert at beginning)") String afterBlockId,
+            @ToolArg(description = "Item ID to insert after (empty string to insert at beginning)") String afterItemId,
             @ToolArg(description = "Level delta adjustment, or 0 for no change") int levelDelta
     ) {
-        List<UUID> ids = List.of(blockIds.split(",")).stream().map(UUID::fromString).toList();
+        List<UUID> ids = List.of(itemIds.split(",")).stream().map(UUID::fromString).toList();
         Integer delta = (levelDelta == 0) ? null : levelDelta;
-        var blocks = blockService.moveBlocks(ids, UUID.fromString(targetPageId), afterBlockId.isEmpty() ? null : UUID.fromString(afterBlockId), delta);
-        return jsonHelper.toJson(Map.of("blocks", blocks));
+        var items = itemService.moveItems(ids, UUID.fromString(targetPageId), afterItemId.isEmpty() ? null : UUID.fromString(afterItemId), delta);
+        return jsonHelper.toJson(Map.of("items", items));
     }
 
-    @Tool(description = "Update a block's status (normal, todo, running, done)")
-    String update_block_status(
-            @ToolArg(description = "UUID of the block") String blockId,
+    @Tool(description = "Update an item's status (normal, todo, running, done)")
+    String update_item_status(
+            @ToolArg(description = "UUID of the item") String itemId,
             @ToolArg(description = "New status: 'normal', 'todo', 'running', or 'done'") String status
     ) {
-        var block = blockService.updateBlockStatus(UUID.fromString(blockId), status);
-        return jsonHelper.toJson(Map.of("block", block));
+        var item = itemService.updateItemStatus(UUID.fromString(itemId), status);
+        return jsonHelper.toJson(Map.of("item", item));
     }
 
-    @Tool(description = "Get all blocks with the specified statuses (e.g. all 'todo' and 'running' blocks)")
-    String get_blocks_by_status(
+    @Tool(description = "Get all items with the specified statuses (e.g. all 'todo' and 'running' items)")
+    String get_items_by_status(
             @ToolArg(description = "Comma-separated statuses to filter by (e.g. 'todo,running')") String statuses
     ) {
         List<String> statusList = List.of(statuses.split(","));
-        var blocks = blockService.getBlocksByStatuses(statusList);
-        return jsonHelper.toJson(Map.of("blocks", blocks));
+        var items = itemService.getItemsByStatuses(statusList);
+        return jsonHelper.toJson(Map.of("items", items));
     }
 
-    @Tool(description = "Export blocks as hierarchical tree markdown. Returns tree markdown, flat markdown, and HTML representations.")
+    @Tool(description = "Export items as hierarchical tree markdown. Returns tree markdown, flat markdown, and HTML representations.")
     String export_tree_markdown(
-            @ToolArg(description = "Comma-separated block IDs to export") String blockIds
+            @ToolArg(description = "Comma-separated item IDs to export") String itemIds
     ) {
-        List<UUID> ids = List.of(blockIds.split(",")).stream().map(UUID::fromString).toList();
-        var result = blockService.exportTreeMarkdown(ids);
+        List<UUID> ids = List.of(itemIds.split(",")).stream().map(UUID::fromString).toList();
+        var result = itemService.exportTreeMarkdown(ids);
         return jsonHelper.toJson(Map.of(
                 "treeMarkdown", result.treeMarkdown(),
                 "html", result.html(),

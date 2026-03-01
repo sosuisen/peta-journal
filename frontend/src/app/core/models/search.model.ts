@@ -1,7 +1,7 @@
 export interface SearchResult {
   pageId: string;
   pageTitle: string;
-  blockId: string;
+  itemId: string;
   snippet: string;
   score: number;
 }

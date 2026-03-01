@@ -1,7 +1,7 @@
 package com.petajournal.server.presentation.rest;
 
 import com.petajournal.server.application.JournalService;
-import com.petajournal.server.presentation.rest.dto.BlockDto;
+import com.petajournal.server.presentation.rest.dto.ItemDto;
 import com.petajournal.server.presentation.rest.dto.DtoMapper;
 import com.petajournal.server.presentation.rest.dto.PageDto;
 import jakarta.inject.Inject;
@@ -21,8 +21,8 @@ public class JournalsResource {
 
     // --- Response records ---
 
-    record GetOrCreateJournalResponse(PageDto page, List<BlockDto> blocks, boolean created) {}
-    record GetMostRecentJournalBeforeResponse(boolean found, PageDto page, List<BlockDto> blocks) {}
+    record GetOrCreateJournalResponse(PageDto page, List<ItemDto> items, boolean created) {}
+    record GetMostRecentJournalBeforeResponse(boolean found, PageDto page, List<ItemDto> items) {}
 
     @POST
     @Path("/{name}")
@@ -30,7 +30,7 @@ public class JournalsResource {
         var result = journalService.getOrCreateJournalByName(name);
         return new GetOrCreateJournalResponse(
                 DtoMapper.toDto(result.page()),
-                result.blocks().stream().map(DtoMapper::toDto).toList(),
+                result.items().stream().map(DtoMapper::toDto).toList(),
                 result.created());
     }
 
@@ -45,7 +45,7 @@ public class JournalsResource {
         return new GetMostRecentJournalBeforeResponse(
                 true,
                 DtoMapper.toDto(result.page()),
-                result.blocks().stream().map(DtoMapper::toDto).toList());
+                result.items().stream().map(DtoMapper::toDto).toList());
     }
 
     @GET
@@ -58,6 +58,6 @@ public class JournalsResource {
         return new GetMostRecentJournalBeforeResponse(
                 true,
                 DtoMapper.toDto(result.page()),
-                result.blocks().stream().map(DtoMapper::toDto).toList());
+                result.items().stream().map(DtoMapper::toDto).toList());
     }
 }

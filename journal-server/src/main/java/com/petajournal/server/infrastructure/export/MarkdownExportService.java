@@ -1,9 +1,9 @@
 package com.petajournal.server.infrastructure.export;
 
 import com.petajournal.server.application.ConfigService;
-import com.petajournal.server.domain.model.Block;
+import com.petajournal.server.domain.model.Item;
 import com.petajournal.server.domain.model.Page;
-import com.petajournal.server.domain.repository.BlockRepository;
+import com.petajournal.server.domain.repository.ItemRepository;
 import com.petajournal.server.domain.repository.PageRepository;
 import io.quarkus.scheduler.Scheduled;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -32,7 +32,7 @@ public class MarkdownExportService {
     PageRepository pageRepository;
 
     @Inject
-    BlockRepository blockRepository;
+    ItemRepository itemRepository;
 
     private volatile boolean isProcessing = false;
 
@@ -76,9 +76,9 @@ public class MarkdownExportService {
         if (pageOpt.isEmpty()) return;
 
         Page page = pageOpt.get();
-        List<Block> blocks = blockRepository.findByPageId(pageId);
+        List<Item> items = itemRepository.findByPageId(pageId);
 
-        String markdown = serializeToOutlineMarkdown(page, blocks);
+        String markdown = serializeToOutlineMarkdown(page, items);
         String typeDir = page.type() + "s";
         String subDir = page.dirPath();
         Path dir = subDir.isEmpty() ? Path.of(markdownDir, typeDir) : Path.of(markdownDir, typeDir, subDir);
@@ -97,16 +97,16 @@ public class MarkdownExportService {
         LOG.debugv("Exported page {0} to {1}", page.name(), filePath);
     }
 
-    String serializeToOutlineMarkdown(Page page, List<Block> blocks) {
+    String serializeToOutlineMarkdown(Page page, List<Item> items) {
         StringBuilder sb = new StringBuilder();
 
         appendFrontmatter(sb, page);
 
-        for (int i = 0; i < blocks.size(); i++) {
-            appendBlock(sb, blocks.get(i));
+        for (int i = 0; i < items.size(); i++) {
+            appendItem(sb, items.get(i));
 
-            // Add blank line separator between blocks (except after last block)
-            if (i < blocks.size() - 1) {
+            // Add blank line separator between items (except after last item)
+            if (i < items.size() - 1) {
                 sb.append("\n");
             }
         }
@@ -128,14 +128,14 @@ public class MarkdownExportService {
         sb.append("---\n\n");
     }
 
-    private void appendBlock(StringBuilder sb, Block block) {
-        String body = block.body();
+    private void appendItem(StringBuilder sb, Item item) {
+        String body = item.body();
         if (body == null) body = "";
 
-        // Empty body → single space (blank line would be a block separator)
+        // Empty body → single space (blank line would be an item separator)
         if (body.isEmpty()) body = " ";
 
-        String status = block.status() != null ? block.status() : "normal";
+        String status = item.status() != null ? item.status() : "normal";
 
         // Prepend GFM task list prefix for todo/done
         if ("todo".equals(status)) {
@@ -148,13 +148,13 @@ public class MarkdownExportService {
         sb.append(body).append("\n");
 
         // Write metadata comments
-        sb.append("<!-- ").append(block.id()).append(" -->\n");
+        sb.append("<!-- ").append(item.id()).append(" -->\n");
 
-        if (block.level() > 1) {
-            sb.append("<!-- level=").append(block.level()).append(" -->\n");
+        if (item.level() > 1) {
+            sb.append("<!-- level=").append(item.level()).append(" -->\n");
         }
 
-        if (block.collapsed()) {
+        if (item.collapsed()) {
             sb.append("<!-- collapsed=true -->\n");
         }
 

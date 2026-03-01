@@ -2,10 +2,10 @@ package com.petajournal.server.presentation.rest.dto;
 
 import java.util.List;
 
-public record BlockDto(
+public record ItemDto(
         String id,
         String pageId,
-        String parentBlockId,
+        String parentItemId,
         String dirPath,
         String name,
         String type,

@@ -5,7 +5,7 @@ import hljs from 'highlight.js';
 import { generateUntitledTitle } from '../../core/utils/title.utils';
 
 @Component({
-  selector: 'app-block-view',
+  selector: 'app-item-view',
   template: `
     @if (status() !== 'normal') {
       <input
@@ -18,7 +18,7 @@ import { generateUntitledTitle } from '../../core/utils/title.utils';
     }
     <div
       #content
-      class="block-content"
+      class="item-content"
       [innerHTML]="trustedHtml()"
       (mousedown)="onMouseDown($event)"
       (click)="onClick($event)"
@@ -31,7 +31,7 @@ import { generateUntitledTitle } from '../../core/utils/title.utils';
       flex: 1;
       min-width: 0;
     }
-    .block-content {
+    .item-content {
       cursor: text;
       line-height: 1.5;
       padding: 2px 0;
@@ -40,18 +40,18 @@ import { generateUntitledTitle } from '../../core/utils/title.utils';
       flex: 1;
       min-width: 0;
     }
-    .block-content:empty::after {
+    .item-content:empty::after {
       content: ' ';
       white-space: pre;
     }
-    :host ::ng-deep .block-content > p {
+    :host ::ng-deep .item-content > p {
       margin: 0;
     }
-    :host ::ng-deep .block-content h1 { font-size: 1.6em; margin: 0; }
-    :host ::ng-deep .block-content h2 { font-size: 1.4em; margin: 0; }
-    :host ::ng-deep .block-content h3 { font-size: 1.2em; margin: 0; }
-    :host ::ng-deep .block-content h4 { font-size: 1.1em; margin: 0; }
-    :host ::ng-deep .block-content h5 { font-size: 1em; margin: 0; }
+    :host ::ng-deep .item-content h1 { font-size: 1.6em; margin: 0; }
+    :host ::ng-deep .item-content h2 { font-size: 1.4em; margin: 0; }
+    :host ::ng-deep .item-content h3 { font-size: 1.2em; margin: 0; }
+    :host ::ng-deep .item-content h4 { font-size: 1.1em; margin: 0; }
+    :host ::ng-deep .item-content h5 { font-size: 1em; margin: 0; }
     :host ::ng-deep .wiki-link {
       color: #007bff;
       cursor: pointer;
@@ -66,12 +66,12 @@ import { generateUntitledTitle } from '../../core/utils/title.utils';
     :host ::ng-deep .wiki-link-new:hover {
       color: #c9302c;
     }
-    :host ::ng-deep .block-content a:not(.wiki-link) {
+    :host ::ng-deep .item-content a:not(.wiki-link) {
       color: #007bff;
       cursor: pointer;
       text-decoration: underline;
     }
-    :host ::ng-deep .block-content a:not(.wiki-link):hover {
+    :host ::ng-deep .item-content a:not(.wiki-link):hover {
       color: #0056b3;
     }
     :host ::ng-deep input[type="checkbox"] {
@@ -139,12 +139,12 @@ import { generateUntitledTitle } from '../../core/utils/title.utils';
       margin-top: 4px;
       flex-shrink: 0;
     }
-    .task-checkbox ~ .block-content {
+    .task-checkbox ~ .item-content {
       padding-left: 2px;
     }
   `]
 })
-export class BlockViewComponent {
+export class ItemViewComponent {
   private readonly router = inject(Router);
   private readonly sanitizer = inject(DomSanitizer);
   private readonly injector = inject(Injector);
@@ -176,8 +176,8 @@ export class BlockViewComponent {
         afterNextRender(() => {
           const content = this.contentRef()?.nativeElement;
           if (content) {
-            content.querySelectorAll('pre code').forEach((block) => {
-              const codeEl = block as HTMLElement;
+            content.querySelectorAll('pre code').forEach((item) => {
+              const codeEl = item as HTMLElement;
               const preEl = codeEl.parentElement as HTMLPreElement;
 
               // Apply syntax highlighting
@@ -302,7 +302,7 @@ export class BlockViewComponent {
     // If the target is an element (not a text node), return 0
     if (targetNode.nodeType !== Node.TEXT_NODE) return 0;
 
-    const container = targetNode.parentElement?.closest('.block-content');
+    const container = targetNode.parentElement?.closest('.item-content');
     if (!container) return offsetInNode;
 
     const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);

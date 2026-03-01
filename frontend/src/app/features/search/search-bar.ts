@@ -23,7 +23,7 @@ import { validateFileName } from '../../core/utils/filename-validation.utils';
         (focus)="showDropdown.set(true)"
         (blur)="onBlur()"
       />
-      @if (showDropdown() && (pageResults().length > 0 || blockResults().length > 0 || showCreateButton())) {
+      @if (showDropdown() && (pageResults().length > 0 || itemResults().length > 0 || showCreateButton())) {
         <div class="search-dropdown">
           @for (result of pageResults(); track result.pageId; let i = $index) {
             <div class="search-result" [class.selected]="i === selectedIndex()" (mousedown)="navigateToResult(result)">
@@ -38,13 +38,13 @@ import { validateFileName } from '../../core/utils/filename-validation.utils';
               + Create "{{ query() }}"
             </div>
           }
-          @for (result of blockResults(); track result.pageId + result.blockId; let i = $index) {
-            <div class="search-result" [class.selected]="blockResultOffset() + i === selectedIndex()" (mousedown)="navigateToResult(result)">
-              <div class="result-block">
-                <svg class="result-icon" width="14" height="14"><use href="#icon-block"/></svg>
-                <div class="block-content">
-                  <div class="block-page-path">{{ result.pageTitle }}</div>
-                  <div class="block-snippet" [innerHTML]="result.snippet"></div>
+          @for (result of itemResults(); track result.pageId + result.itemId; let i = $index) {
+            <div class="search-result" [class.selected]="itemResultOffset() + i === selectedIndex()" (mousedown)="navigateToResult(result)">
+              <div class="result-item">
+                <svg class="result-icon" width="14" height="14"><use href="#icon-item"/></svg>
+                <div class="item-content">
+                  <div class="item-page-path">{{ result.pageTitle }}</div>
+                  <div class="item-snippet" [innerHTML]="result.snippet"></div>
                 </div>
               </div>
             </div>
@@ -95,20 +95,20 @@ import { validateFileName } from '../../core/utils/filename-validation.utils';
       color: #888;
     }
     .page-title { font-weight: 500; }
-    .result-block {
+    .result-item {
       display: flex;
       align-items: flex-start;
       gap: 8px;
     }
-    .block-content {
+    .item-content {
       min-width: 0;
       flex: 1;
     }
-    .block-page-path {
+    .item-page-path {
       font-size: 12px;
       color: #999;
     }
-    .block-snippet {
+    .item-snippet {
       font-size: 12px;
       color: #666;
       margin-top: 2px;
@@ -116,7 +116,7 @@ import { validateFileName } from '../../core/utils/filename-validation.utils';
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    .block-snippet mark { background: #fff3b0; }
+    .item-snippet mark { background: #fff3b0; }
     .search-create {
       padding: 8px 12px;
       cursor: pointer;
@@ -134,15 +134,15 @@ export class SearchBarComponent {
   /** Exposed so parent can read the current query */
   readonly query = signal('');
   readonly pageResults = signal<SearchResult[]>([]);
-  readonly blockResults = signal<SearchResult[]>([]);
+  readonly itemResults = signal<SearchResult[]>([]);
   readonly showDropdown = signal(false);
   readonly showCreateButton = signal(false);
   readonly selectedIndex = signal(-1);
 
   /** Index of the create button in the flat navigation order */
   readonly createButtonIndex = computed(() => this.pageResults().length);
-  /** Starting index of block results in the flat navigation order */
-  readonly blockResultOffset = computed(() =>
+  /** Starting index of item results in the flat navigation order */
+  readonly itemResultOffset = computed(() =>
     this.pageResults().length + (this.showCreateButton() && this.query().trim() ? 1 : 0)
   );
 
@@ -161,7 +161,7 @@ export class SearchBarComponent {
 
     if (!value.trim()) {
       this.pageResults.set([]);
-      this.blockResults.set([]);
+      this.itemResults.set([]);
       this.showCreateButton.set(false);
       return;
     }
@@ -170,17 +170,17 @@ export class SearchBarComponent {
   }
 
   private async executeSearch(value: string): Promise<void> {
-    const [pageResp, blockResp] = await Promise.all([
+    const [pageResp, itemResp] = await Promise.all([
       this.api.searchPageNames(value),
       this.api.searchFullText(value),
     ]);
 
-    // Deduplicate: remove block results whose pageId already appears in page results
+    // Deduplicate: remove item results whose pageId already appears in page results
     const pageIds = new Set(pageResp.results.map(r => r.pageId));
-    const uniqueBlocks = blockResp.results.filter(r => !pageIds.has(r.pageId));
+    const uniqueItems = itemResp.results.filter(r => !pageIds.has(r.pageId));
 
     this.pageResults.set(pageResp.results);
-    this.blockResults.set(uniqueBlocks);
+    this.itemResults.set(uniqueItems);
     this.selectedIndex.set(-1);
 
     const exactMatch = pageResp.results.some(r => r.pageTitle.toLowerCase() === value.toLowerCase());
@@ -194,9 +194,9 @@ export class SearchBarComponent {
     this.showDropdown.set(false);
     this.query.set('');
     this.pageResults.set([]);
-    this.blockResults.set([]);
+    this.itemResults.set([]);
     this.showCreateButton.set(false);
-    this.nav.navigateToPage(result.pageTitle, false, false, result.blockId || undefined);
+    this.nav.navigateToPage(result.pageTitle, false, false, result.itemId || undefined);
   }
 
   /**
@@ -221,7 +221,7 @@ export class SearchBarComponent {
     this.showDropdown.set(false);
     this.query.set('');
     this.pageResults.set([]);
-    this.blockResults.set([]);
+    this.itemResults.set([]);
     this.showCreateButton.set(false);
     this.nav.navigateToPage(title);
   }
@@ -231,7 +231,7 @@ export class SearchBarComponent {
    */
   onKeydown(event: KeyboardEvent): void {
     const hasCreate = this.showCreateButton() && !!this.query().trim();
-    const totalItems = this.pageResults().length + (hasCreate ? 1 : 0) + this.blockResults().length;
+    const totalItems = this.pageResults().length + (hasCreate ? 1 : 0) + this.itemResults().length;
     const maxIndex = totalItems - 1;
 
     if (event.key === 'ArrowDown') {
@@ -250,9 +250,9 @@ export class SearchBarComponent {
       } else if (hasCreate && idx === pageCount) {
         this.createPage();
       } else {
-        const blockIdx = idx - pageCount - (hasCreate ? 1 : 0);
-        if (blockIdx >= 0 && blockIdx < this.blockResults().length) {
-          this.navigateToResult(this.blockResults()[blockIdx]);
+        const itemIdx = idx - pageCount - (hasCreate ? 1 : 0);
+        if (itemIdx >= 0 && itemIdx < this.itemResults().length) {
+          this.navigateToResult(this.itemResults()[itemIdx]);
         }
       }
     } else if (event.key === 'Escape') {

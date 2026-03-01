@@ -1,11 +1,11 @@
 package com.petajournal.server.application;
 
-import com.petajournal.server.domain.model.Block;
+import com.petajournal.server.domain.model.Item;
 import com.petajournal.server.domain.model.Page;
-import com.petajournal.server.domain.repository.BlockRepository;
+import com.petajournal.server.domain.repository.ItemRepository;
 import com.petajournal.server.domain.repository.PageRepository;
 import com.petajournal.server.domain.repository.SearchService;
-import com.petajournal.server.domain.BlockIdGenerator;
+import com.petajournal.server.domain.ItemIdGenerator;
 import com.petajournal.server.domain.FractionalIndexer;
 import com.petajournal.server.domain.JournalFileNameMatcher;
 import com.petajournal.server.domain.JournalFileNameMatcher.JournalType;
@@ -29,7 +29,7 @@ public class JournalService {
     PageRepository pageRepository;
 
     @Inject
-    BlockRepository blockRepository;
+    ItemRepository itemRepository;
 
     @Inject
     SearchService searchService;
@@ -38,26 +38,26 @@ public class JournalService {
     ConfigService configService;
 
     @Inject
-    BlockService blockService;
+    ItemService itemService;
 
     /** Result of getting or creating a journal page. */
-    public record JournalResult(Page page, List<Block> blocks, boolean created) {}
+    public record JournalResult(Page page, List<Item> items, boolean created) {}
 
     /** Result of finding the most recent journal before a date. */
-    public record MostRecentJournalResult(boolean found, Page page, List<Block> blocks) {}
+    public record MostRecentJournalResult(boolean found, Page page, List<Item> items) {}
 
     /**
      * Gets an existing daily journal page for the given date, or creates a new one.
      *
      * @param date the journal date
-     * @return the journal page with its blocks and whether it was newly created
+     * @return the journal page with its items and whether it was newly created
      */
     public JournalResult getOrCreateJournal(LocalDate date) {
         Optional<Page> existing = pageRepository.findJournal(date);
         if (existing.isPresent()) {
             Page page = existing.get();
-            List<Block> blocks = blockRepository.findByPageId(page.id());
-            return new JournalResult(page, blocks, false);
+            List<Item> items = itemRepository.findByPageId(page.id());
+            return new JournalResult(page, items, false);
         }
 
         // Create new journal page
@@ -71,12 +71,12 @@ public class JournalService {
         page = pageRepository.save(page);
         searchService.indexPage(page);
 
-        // Create initial empty block
-        UUID blockId = BlockIdGenerator.generate();
-        Block block = new Block(blockId, id, null, page.dirPath(), page.name(), page.type(), now, now, FractionalIndexer.initial(), 1, "", "", false, "normal", List.of());
-        block = blockRepository.save(block);
+        // Create initial empty item
+        UUID itemId = ItemIdGenerator.generate();
+        Item item = new Item(itemId, id, null, page.dirPath(), page.name(), page.type(), now, now, FractionalIndexer.initial(), 1, "", "", false, "normal", List.of());
+        item = itemRepository.save(item);
 
-        return new JournalResult(page, List.of(block), true);
+        return new JournalResult(page, List.of(item), true);
     }
 
     private JournalResult getOrCreateWeeklyJournal(int year, int week) {
@@ -84,8 +84,8 @@ public class JournalService {
         Optional<Page> existing = pageRepository.findByTypeDirPathFileName("journal", "", fileName);
         if (existing.isPresent()) {
             Page page = existing.get();
-            List<Block> blocks = blockRepository.findByPageId(page.id());
-            return new JournalResult(page, blocks, false);
+            List<Item> items = itemRepository.findByPageId(page.id());
+            return new JournalResult(page, items, false);
         }
 
         // Create new weekly journal page
@@ -96,18 +96,18 @@ public class JournalService {
         page = pageRepository.save(page);
         searchService.indexPage(page);
 
-        // Create blocks with wiki links to each day of the week
+        // Create items with wiki links to each day of the week
         List<LocalDate> weekDays = getWeekDays(year, week);
-        List<Block> blocks = new ArrayList<>();
-        UUID afterBlockId = null;
+        List<Item> items = new ArrayList<>();
+        UUID afterItemId = null;
         for (LocalDate day : weekDays) {
             String body = "[[" + day.format(DateTimeFormatter.ISO_LOCAL_DATE) + "]]";
-            Block block = blockService.createBlock(id, afterBlockId, 1, body, null);
-            blocks.add(block);
-            afterBlockId = block.id();
+            Item item = itemService.createItem(id, afterItemId, 1, body, null);
+            items.add(item);
+            afterItemId = item.id();
         }
 
-        return new JournalResult(page, blocks, true);
+        return new JournalResult(page, items, true);
     }
 
     private List<LocalDate> getWeekDays(int year, int week) {
@@ -140,7 +140,7 @@ public class JournalService {
      * monthly ({@code YYYY-MM}), and yearly ({@code YYYY}) formats.
      *
      * @param fileName the journal file name
-     * @return the journal page with its blocks and whether it was newly created
+     * @return the journal page with its items and whether it was newly created
      * @throws IllegalArgumentException if the file name is not a valid journal format
      */
     public JournalResult getOrCreateJournalByName(String fileName) {
@@ -174,8 +174,8 @@ public class JournalService {
         Optional<Page> existing = pageRepository.findByTypeDirPathFileName("journal", "", fileName);
         if (existing.isPresent()) {
             Page page = existing.get();
-            List<Block> blocks = blockRepository.findByPageId(page.id());
-            return new JournalResult(page, blocks, false);
+            List<Item> items = itemRepository.findByPageId(page.id());
+            return new JournalResult(page, items, false);
         }
 
         UUID id = UUID.randomUUID();
@@ -185,17 +185,17 @@ public class JournalService {
         page = pageRepository.save(page);
         searchService.indexPage(page);
 
-        // Create blocks with wiki links to each month
-        List<Block> blocks = new ArrayList<>();
-        UUID afterBlockId = null;
+        // Create items with wiki links to each month
+        List<Item> items = new ArrayList<>();
+        UUID afterItemId = null;
         for (int m = 1; m <= 12; m++) {
             String body = "[[" + year + "-" + String.format("%02d", m) + "]]";
-            Block block = blockService.createBlock(id, afterBlockId, 1, body, null);
-            blocks.add(block);
-            afterBlockId = block.id();
+            Item item = itemService.createItem(id, afterItemId, 1, body, null);
+            items.add(item);
+            afterItemId = item.id();
         }
 
-        return new JournalResult(page, blocks, true);
+        return new JournalResult(page, items, true);
     }
 
     private JournalResult getOrCreateMonthlyJournal(int year, int month) {
@@ -203,8 +203,8 @@ public class JournalService {
         Optional<Page> existing = pageRepository.findByTypeDirPathFileName("journal", "", fileName);
         if (existing.isPresent()) {
             Page page = existing.get();
-            List<Block> blocks = blockRepository.findByPageId(page.id());
-            return new JournalResult(page, blocks, false);
+            List<Item> items = itemRepository.findByPageId(page.id());
+            return new JournalResult(page, items, false);
         }
 
         UUID id = UUID.randomUUID();
@@ -214,18 +214,18 @@ public class JournalService {
         page = pageRepository.save(page);
         searchService.indexPage(page);
 
-        // Create blocks with wiki links to each week that overlaps this month
+        // Create items with wiki links to each week that overlaps this month
         List<Integer> weekNumbers = getWeeksInMonth(year, month);
-        List<Block> blocks = new ArrayList<>();
-        UUID afterBlockId = null;
+        List<Item> items = new ArrayList<>();
+        UUID afterItemId = null;
         for (int w : weekNumbers) {
             String body = "[[" + year + "-W" + String.format("%02d", w) + "]]";
-            Block block = blockService.createBlock(id, afterBlockId, 1, body, null);
-            blocks.add(block);
-            afterBlockId = block.id();
+            Item item = itemService.createItem(id, afterItemId, 1, body, null);
+            items.add(item);
+            afterItemId = item.id();
         }
 
-        return new JournalResult(page, blocks, true);
+        return new JournalResult(page, items, true);
     }
 
     private List<Integer> getWeeksInMonth(int year, int month) {
@@ -281,8 +281,8 @@ public class JournalService {
         }
 
         Page page = pageOpt.get();
-        List<Block> blocks = blockRepository.findByPageId(page.id());
-        return new MostRecentJournalResult(true, page, blocks);
+        List<Item> items = itemRepository.findByPageId(page.id());
+        return new MostRecentJournalResult(true, page, items);
     }
 
     /**
@@ -298,7 +298,7 @@ public class JournalService {
         }
 
         Page page = pageOpt.get();
-        List<Block> blocks = blockRepository.findByPageId(page.id());
-        return new MostRecentJournalResult(true, page, blocks);
+        List<Item> items = itemRepository.findByPageId(page.id());
+        return new MostRecentJournalResult(true, page, items);
     }
 }

@@ -48,7 +48,7 @@ public class McpSearchTools {
                 containsPages.stream().map(SearchResult::fromPage).toList()));
     }
 
-    @Tool(description = "Full-text search across all block content. Returns matching blocks with page info and text snippets.")
+    @Tool(description = "Full-text search across all item content. Returns matching items with page info and text snippets.")
     String search_full_text(
             @ToolArg(description = "Search query string") String query,
             @ToolArg(description = "Maximum number of results") int maxResults

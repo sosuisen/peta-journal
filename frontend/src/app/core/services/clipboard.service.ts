@@ -6,8 +6,8 @@ export class ClipboardService {
   private storedTreeMarkdown: string | null = null;
 
   /**
-   * Stores both flat and tree markdown representations of copied blocks.
-   * @param flatMd - The flat markdown (one block per line, no indentation hierarchy).
+   * Stores both flat and tree markdown representations of copied items.
+   * @param flatMd - The flat markdown (one item per line, no indentation hierarchy).
    * @param treeMd - The tree markdown (with indentation hierarchy).
    */
   store(flatMd: string, treeMd: string): void {

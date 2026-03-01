@@ -1,8 +1,8 @@
 package com.petajournal.server.application;
 
-import com.petajournal.server.domain.model.Block;
+import com.petajournal.server.domain.model.Item;
 import com.petajournal.server.domain.model.Page;
-import com.petajournal.server.domain.repository.BlockRepository;
+import com.petajournal.server.domain.repository.ItemRepository;
 import com.petajournal.server.domain.repository.PageRepository;
 import com.petajournal.server.domain.repository.SearchService;
 import io.quarkus.runtime.StartupEvent;
@@ -23,7 +23,7 @@ public class SearchIndexRebuilder {
     PageRepository pageRepository;
 
     @Inject
-    BlockRepository blockRepository;
+    ItemRepository itemRepository;
 
     @Inject
     SearchService searchService;
@@ -38,10 +38,10 @@ public class SearchIndexRebuilder {
         for (Page page : pages) {
             searchService.indexPage(page);
             String pageTitle = page.dirPath() + page.name();
-            List<Block> blocks = blockRepository.findByPageId(page.id());
-            for (Block block : blocks) {
-                if (block.body() != null && !block.body().isBlank()) {
-                    searchService.indexBlock(block, pageTitle);
+            List<Item> items = itemRepository.findByPageId(page.id());
+            for (Item item : items) {
+                if (item.body() != null && !item.body().isBlank()) {
+                    searchService.indexItem(item, pageTitle);
                 }
             }
         }

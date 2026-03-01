@@ -1,6 +1,6 @@
 export type ConnectionState = 'connecting' | 'connected' | 'disconnected' | 'error';
 
-export interface Block {
+export interface Item {
   id: string;
   pageId: string;
   dirPath: string;
@@ -81,20 +81,20 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   return await resp.json();
 }
 
-/** Fetches all blocks whose status matches one of the given statuses. */
-export async function getBlocksByStatus(statuses: string[]): Promise<Block[]> {
-  const data = await fetchJson<{ blocks: Block[] }>(
-    `/api/blocks?statuses=${statuses.join(',')}`
+/** Fetches all items whose status matches one of the given statuses. */
+export async function getItemsByStatus(statuses: string[]): Promise<Item[]> {
+  const data = await fetchJson<{ items: Item[] }>(
+    `/api/items?statuses=${statuses.join(',')}`
   );
-  return data.blocks;
+  return data.items;
 }
 
-/** Updates a block's status and returns the updated block. */
-export async function updateBlockStatus(blockId: string, status: string): Promise<Block> {
-  const data = await fetchJson<{ block: Block }>(`/api/blocks/${blockId}/status`, {
+/** Updates an item's status and returns the updated item. */
+export async function updateItemStatus(itemId: string, status: string): Promise<Item> {
+  const data = await fetchJson<{ item: Item }>(`/api/items/${itemId}/status`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ status }),
   });
-  return data.block;
+  return data.item;
 }

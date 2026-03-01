@@ -1,8 +1,8 @@
 package com.petajournal.server.infrastructure.export;
 
-import com.petajournal.server.domain.model.Block;
+import com.petajournal.server.domain.model.Item;
 import com.petajournal.server.domain.model.Page;
-import com.petajournal.server.domain.BlockIdGenerator;
+import com.petajournal.server.domain.ItemIdGenerator;
 import com.petajournal.server.domain.FractionalIndexer;
 
 import java.time.Instant;
@@ -11,8 +11,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Parses Outline Markdown format back into Page and Block domain objects.
- * Format: YAML frontmatter + blank-line separated blocks with HTML comment metadata.
+ * Parses Outline Markdown format back into Page and Item domain objects.
+ * Format: YAML frontmatter + blank-line separated items with HTML comment metadata.
  */
 public class OutlineMarkdownParser {
 
@@ -23,10 +23,10 @@ public class OutlineMarkdownParser {
 
     public record ParseResult(
         Map<String, String> frontmatter,
-        List<ParsedBlock> blocks
+        List<ParsedItem> items
     ) {}
 
-    public record ParsedBlock(
+    public record ParsedItem(
         String id,
         int level,
         String body,
@@ -53,9 +53,9 @@ public class OutlineMarkdownParser {
         }
 
         Map<String, String> frontmatter = parseFrontmatter(frontmatterStr);
-        List<ParsedBlock> blocks = parseBlocks(content);
+        List<ParsedItem> items = parseItems(content);
 
-        return new ParseResult(frontmatter, blocks);
+        return new ParseResult(frontmatter, items);
     }
 
     public Page toPage(ParseResult result, String dirPath, String name, String type) {
@@ -78,32 +78,32 @@ public class OutlineMarkdownParser {
         return new Page(id, null, dirPath, name, type, created, modified, tags);
     }
 
-    public List<Block> toBlocks(ParseResult result, UUID pageId, String dirPath, String name, String type) {
-        List<Block> blocks = new ArrayList<>();
+    public List<Item> toItems(ParseResult result, UUID pageId, String dirPath, String name, String type) {
+        List<Item> items = new ArrayList<>();
         Instant now = Instant.now();
         String prevIdx = null;
 
-        for (ParsedBlock pb : result.blocks()) {
+        for (ParsedItem pb : result.items()) {
             String idx = FractionalIndexer.between(prevIdx, null);
-            UUID blockId;
+            UUID itemId;
             if (pb.id() != null && !pb.id().isEmpty()) {
                 try {
-                    blockId = UUID.fromString(pb.id());
+                    itemId = UUID.fromString(pb.id());
                 } catch (IllegalArgumentException e) {
-                    blockId = BlockIdGenerator.generate();
+                    itemId = ItemIdGenerator.generate();
                 }
             } else {
-                blockId = BlockIdGenerator.generate();
+                itemId = ItemIdGenerator.generate();
             }
 
-            blocks.add(new Block(
-                    blockId, pageId, null, dirPath, name, type, now, now, idx,
+            items.add(new Item(
+                    itemId, pageId, null, dirPath, name, type, now, now, idx,
                     pb.level(), pb.body(), "",
                     pb.collapsed(), pb.status(), pb.types()
             ));
             prevIdx = idx;
         }
-        return blocks;
+        return items;
     }
 
     private Map<String, String> parseFrontmatter(String frontmatter) {
@@ -154,14 +154,14 @@ public class OutlineMarkdownParser {
         return map;
     }
 
-    private List<ParsedBlock> parseBlocks(String content) {
+    private List<ParsedItem> parseItems(String content) {
         if (content.isEmpty()) return List.of();
 
-        List<ParsedBlock> blocks = new ArrayList<>();
+        List<ParsedItem> items = new ArrayList<>();
         String[] lines = content.split("\n", -1);
         boolean inCodeFence = false;
 
-        // Current block accumulation
+        // Current item accumulation
         String currentId = null;
         int currentLevel = 1;
         boolean currentCollapsed = false;
@@ -174,10 +174,10 @@ public class OutlineMarkdownParser {
                 inCodeFence = !inCodeFence;
             }
 
-            // Blank line outside code fence → flush current block
+            // Blank line outside code fence → flush current item
             if (line.isEmpty() && !inCodeFence) {
                 if (hasContent) {
-                    blocks.add(buildParsedBlock(currentId, currentLevel, currentBodyLines, currentCollapsed));
+                    items.add(buildParsedItem(currentId, currentLevel, currentBodyLines, currentCollapsed));
                     currentId = null;
                     currentLevel = 1;
                     currentCollapsed = false;
@@ -223,15 +223,15 @@ public class OutlineMarkdownParser {
             hasContent = true;
         }
 
-        // Flush last block
+        // Flush last item
         if (hasContent) {
-            blocks.add(buildParsedBlock(currentId, currentLevel, currentBodyLines, currentCollapsed));
+            items.add(buildParsedItem(currentId, currentLevel, currentBodyLines, currentCollapsed));
         }
 
-        return blocks;
+        return items;
     }
 
-    private ParsedBlock buildParsedBlock(String id, int level, List<String> bodyLines, boolean collapsed) {
+    private ParsedItem buildParsedItem(String id, int level, List<String> bodyLines, boolean collapsed) {
         String body = String.join("\n", bodyLines);
 
         // Whitespace-only body → empty
@@ -249,13 +249,13 @@ public class OutlineMarkdownParser {
             body = body.substring(6);
         }
 
-        // Detect block types from body
+        // Detect item types from body
         List<String> types = new ArrayList<>();
         String trimmed = body.trim();
         if (trimmed.startsWith("#")) types.add("heading");
         if (trimmed.startsWith("```")) types.add("code");
         if (trimmed.startsWith(">")) types.add("blockquote");
 
-        return new ParsedBlock(id, level, body, collapsed, types, status);
+        return new ParsedItem(id, level, body, collapsed, types, status);
     }
 }

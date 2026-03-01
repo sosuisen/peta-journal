@@ -28,7 +28,7 @@ public class McpJournalTools {
         var result = journalService.getOrCreateJournalByName(fileName);
         return jsonHelper.toJson(Map.of(
                 "page", result.page(),
-                "blocks", result.blocks(),
+                "items", result.items(),
                 "created", result.created()
         ));
     }
@@ -42,7 +42,7 @@ public class McpJournalTools {
         response.put("found", result.found());
         if (result.found()) {
             response.put("page", result.page());
-            response.put("blocks", result.blocks());
+            response.put("items", result.items());
         }
         return jsonHelper.toJson(response);
     }

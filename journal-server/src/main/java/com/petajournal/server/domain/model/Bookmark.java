@@ -6,7 +6,7 @@ import java.util.UUID;
 public record Bookmark(
     UUID id,
     UUID groupId,
-    String targetType,    // "page" or "block"
+    String targetType,    // "page" or "item"
     String targetId,
     String sortOrder,     // fractional index within group
     Instant createdAt,

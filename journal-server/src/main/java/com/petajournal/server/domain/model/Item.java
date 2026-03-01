@@ -4,10 +4,10 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-public record Block(
+public record Item(
     UUID id,
     UUID pageId,
-    UUID parentBlockId,  // Parent block ID (null for top-level blocks)
+    UUID parentItemId,   // Parent item ID (null for top-level items)
     String dirPath,
     String name,
     String type,         // "journal" or "doc" (from parent page)
@@ -18,6 +18,6 @@ public record Block(
     String body,         // Markdown source text
     String html,         // Parsed HTML
     boolean collapsed,
-    String status,       // Block status: normal, todo, running, done
-    List<String> types   // Block types (e.g. "heading", "code")
+    String status,       // Item status: normal, todo, running, done
+    List<String> types   // Item types (e.g. "heading", "code")
 ) {}

@@ -286,7 +286,7 @@ public class SqlitePageRepository implements PageRepository {
 
     @Override
     public List<Page> findBacklinkSources(UUID targetPageId) {
-        // Find pages that have blocks containing [[page title]] links to the target page
+        // Find pages that have items containing [[page title]] links to the target page
         try (Connection conn = connectionProvider.getConnection()) {
             // First get the target page's name (used as title)
             String pageName = null;
@@ -301,11 +301,11 @@ public class SqlitePageRepository implements PageRepository {
 
             if (pageName == null) return List.of();
 
-            // Find pages with blocks that contain [[pageName]]
+            // Find pages with items that contain [[pageName]]
             Set<UUID> sourcePageIds = new LinkedHashSet<>();
             String pattern = "%[[" + pageName + "]]%";
             try (PreparedStatement ps = conn.prepareStatement(
-                    "SELECT DISTINCT page_id FROM blocks WHERE body LIKE ? AND page_id != ?")) {
+                    "SELECT DISTINCT page_id FROM items WHERE body LIKE ? AND page_id != ?")) {
                 ps.setString(1, pattern);
                 ps.setString(2, targetPageId.toString());
                 try (ResultSet rs = ps.executeQuery()) {

@@ -98,7 +98,7 @@ h1 {
   cursor: default;
 }
 
-.block-list {
+.item-list {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -110,7 +110,7 @@ h1 {
   padding: 32px;
 }
 
-.block-row {
+.item-row {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -121,18 +121,18 @@ h1 {
   cursor: pointer;
 }
 
-.block-row:hover {
+.item-row:hover {
   background: #f8f9fa;
 }
 
-.block-main {
+.item-main {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
 }
 
-.block-page {
+.item-page {
   font-size: 0.56rem;
   color: #999;
   overflow: hidden;
@@ -141,19 +141,19 @@ h1 {
   line-height: 1.2;
 }
 
-.block-content {
+.item-content {
   font-size: 0.72rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.block-content p {
+.item-content p {
   margin: 0;
   display: inline;
 }
 
-.block-date {
+.item-date {
   flex: 0 0 auto;
   font-size: 0.6rem;
   color: #999;

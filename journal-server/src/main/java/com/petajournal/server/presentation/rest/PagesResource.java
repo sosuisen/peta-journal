@@ -3,7 +3,7 @@ package com.petajournal.server.presentation.rest;
 import com.petajournal.server.application.PageService;
 import com.petajournal.server.domain.repository.PageRepository;
 import com.petajournal.server.presentation.rest.dto.BacklinkEntryDto;
-import com.petajournal.server.presentation.rest.dto.BlockDto;
+import com.petajournal.server.presentation.rest.dto.ItemDto;
 import com.petajournal.server.presentation.rest.dto.DtoMapper;
 import com.petajournal.server.presentation.rest.dto.PageDto;
 import jakarta.inject.Inject;
@@ -29,9 +29,9 @@ public class PagesResource {
 
     // --- Response records ---
 
-    record GetPageByIdResponse(PageDto page, List<BlockDto> blocks) {}
+    record GetPageByIdResponse(PageDto page, List<ItemDto> items) {}
     record GetOrCreateDocRequest(String title, String dirPath, List<String> tags) {}
-    record GetOrCreateDocResponse(PageDto page, List<BlockDto> blocks, boolean created) {}
+    record GetOrCreateDocResponse(PageDto page, List<ItemDto> items, boolean created) {}
     record UpdatePageRequest(String title, List<String> tags, String dirPath) {}
     record UpdatePageResponse(PageDto page) {}
     record GetRecentPagesResponse(List<PageDto> pages) {}
@@ -44,10 +44,10 @@ public class PagesResource {
         UUID pageId = UUID.fromString(id);
         var page = pageService.getPage(pageId)
                 .orElseThrow(() -> new NotFoundException("Page not found: " + id));
-        var blocks = pageService.getPageBlocks(pageId);
+        var items = pageService.getPageItems(pageId);
         return new GetPageByIdResponse(
                 DtoMapper.toDto(page),
-                blocks.stream().map(DtoMapper::toDto).toList());
+                items.stream().map(DtoMapper::toDto).toList());
     }
 
     @POST
@@ -56,7 +56,7 @@ public class PagesResource {
         var result = pageService.getOrCreateDoc(req.title(), req.dirPath(), req.tags());
         return new GetOrCreateDocResponse(
                 DtoMapper.toDto(result.page()),
-                result.blocks().stream().map(DtoMapper::toDto).toList(),
+                result.items().stream().map(DtoMapper::toDto).toList(),
                 result.created());
     }
 

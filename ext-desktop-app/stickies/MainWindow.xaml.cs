@@ -23,8 +23,8 @@ public sealed partial class MainWindow : Window
     private bool _initialized;
     private bool _isDeactivated;
     private PageModel? _currentPage;
-    private List<BlockModel> _currentBlocks = new();
-    private readonly HashSet<string> _collapsedBlockIds = new();
+    private List<ItemModel> _currentItems = new();
+    private readonly HashSet<string> _collapsedItemIds = new();
 
     public string WindowId => _windowSettings.Id;
 
@@ -250,16 +250,16 @@ public sealed partial class MainWindow : Window
             if (response == null) return;
 
             var page = response.Page;
-            var blocks = response.Blocks;
+            var items = response.Items;
 
             _currentPage = page;
-            _currentBlocks = blocks.ToList();
+            _currentItems = items.ToList();
 
             // Initialize collapsed state from server data
-            _collapsedBlockIds.Clear();
-            foreach (var b in _currentBlocks)
+            _collapsedItemIds.Clear();
+            foreach (var b in _currentItems)
             {
-                if (b.Collapsed) _collapsedBlockIds.Add(b.Id);
+                if (b.Collapsed) _collapsedItemIds.Add(b.Id);
             }
 
             if (!isRefresh)
@@ -267,7 +267,7 @@ public sealed partial class MainWindow : Window
                 PageTitleText.Text = page?.Name ?? "Untitled";
             }
 
-            var html = BuildHtml(page, _currentBlocks);
+            var html = BuildHtml(page, _currentItems);
             await EnsureWebViewInitialized();
             ContentWebView.NavigateToString(html);
         }
@@ -312,14 +312,14 @@ public sealed partial class MainWindow : Window
                         _windowSettings.ZoomFactor = zoomEl.GetDouble();
                         _settingsService.UpdateWindow(_windowSettings);
                     }
-                    else if (msg.TryGetProperty("toggleCollapse", out var blockIdEl))
+                    else if (msg.TryGetProperty("toggleCollapse", out var itemIdEl))
                     {
-                        var blockId = blockIdEl.GetString();
-                        if (blockId != null)
+                        var itemId = itemIdEl.GetString();
+                        if (itemId != null)
                         {
-                            if (!_collapsedBlockIds.Remove(blockId))
-                                _collapsedBlockIds.Add(blockId);
-                            var html = BuildHtml(_currentPage, _currentBlocks);
+                            if (!_collapsedItemIds.Remove(itemId))
+                                _collapsedItemIds.Add(itemId);
+                            var html = BuildHtml(_currentPage, _currentItems);
                             ContentWebView.NavigateToString(html);
                         }
                     }
@@ -330,41 +330,41 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private string BuildHtml(PageModel? page, IList<BlockModel> blocks)
+    private string BuildHtml(PageModel? page, IList<ItemModel> items)
     {
-        // Build a set of block IDs that have children
+        // Build a set of item IDs that have children
         var hasChildrenSet = new HashSet<string>();
-        for (int i = 0; i < blocks.Count - 1; i++)
+        for (int i = 0; i < items.Count - 1; i++)
         {
-            if (blocks[i + 1].Level > blocks[i].Level)
-                hasChildrenSet.Add(blocks[i].Id);
+            if (items[i + 1].Level > items[i].Level)
+                hasChildrenSet.Add(items[i].Id);
         }
 
-        // Filter out children of collapsed blocks (same logic as frontend visibleBlocks)
-        var visibleBlocks = new List<BlockModel>();
+        // Filter out children of collapsed items (same logic as frontend visibleItems)
+        var visibleItems = new List<ItemModel>();
         int skipLevel = -1;
-        foreach (var block in blocks)
+        foreach (var item in items)
         {
-            if (skipLevel >= 0 && block.Level > skipLevel) continue;
+            if (skipLevel >= 0 && item.Level > skipLevel) continue;
             skipLevel = -1;
-            visibleBlocks.Add(block);
-            if (_collapsedBlockIds.Contains(block.Id))
-                skipLevel = block.Level;
+            visibleItems.Add(item);
+            if (_collapsedItemIds.Contains(item.Id))
+                skipLevel = item.Level;
         }
 
-        var blocksHtml = string.Join("\n", visibleBlocks.Select(block =>
+        var itemsHtml = string.Join("\n", visibleItems.Select(item =>
         {
-            var indent = (block.Level - 1) * 24;
-            var types = block.Types;
+            var indent = (item.Level - 1) * 24;
+            var types = item.Types;
             var isHeading = types.Contains("heading");
-            var isEmpty = string.IsNullOrWhiteSpace(block.Body);
-            var hasChildren = hasChildrenSet.Contains(block.Id);
-            var isCollapsed = _collapsedBlockIds.Contains(block.Id);
+            var isEmpty = string.IsNullOrWhiteSpace(item.Body);
+            var hasChildren = hasChildrenSet.Contains(item.Id);
+            var isCollapsed = _collapsedItemIds.Contains(item.Id);
 
             var marker = "";
-            if (block.Status != "normal" && !string.IsNullOrEmpty(block.Status))
+            if (item.Status != "normal" && !string.IsNullOrEmpty(item.Status))
             {
-                var label = block.Status switch
+                var label = item.Status switch
                 {
                     "todo" => "&#x2610;",
                     "running" => "&#x25B6;",
@@ -376,7 +376,7 @@ public sealed partial class MainWindow : Window
             else if (hasChildren)
             {
                 var arrow = isCollapsed ? "&#x25B6;" : "&#x25BC;";
-                marker = $"<span class=\"collapse-toggle\" data-block-id=\"{block.Id}\" style=\"margin-right:6px;color:#666;cursor:pointer;font-size:10px;user-select:none;\">{arrow}</span>";
+                marker = $"<span class=\"collapse-toggle\" data-item-id=\"{item.Id}\" style=\"margin-right:6px;color:#666;cursor:pointer;font-size:10px;user-select:none;\">{arrow}</span>";
             }
             else if (!isHeading && !isEmpty)
             {
@@ -388,7 +388,7 @@ public sealed partial class MainWindow : Window
                 return $"<div style=\"padding-left:{indent + 8}px;height:1.6em;\"></div>";
             }
 
-            var content = !string.IsNullOrEmpty(block.Html) ? block.Html : EscapeHtml(block.Body);
+            var content = !string.IsNullOrEmpty(item.Html) ? item.Html : EscapeHtml(item.Body);
             var style = marker.Length > 0
                 ? $"padding-left:{indent}px;padding:4px 8px 4px {indent + 8}px;display:flex;align-items:baseline;"
                 : $"padding-left:{indent}px;padding:4px 8px 4px {indent + 8}px;";
@@ -443,7 +443,7 @@ public sealed partial class MainWindow : Window
 </style>
 </head>
 <body>
-{blocksHtml}
+{itemsHtml}
 <script>
 (function(){{
   var z={(_windowSettings.ZoomFactor * 100).ToString(System.Globalization.CultureInfo.InvariantCulture)};
@@ -462,7 +462,7 @@ public sealed partial class MainWindow : Window
   }});
   document.addEventListener('click',function(e){{
     var t=e.target.closest('.collapse-toggle');
-    if(t){{ window.chrome.webview.postMessage({{toggleCollapse:t.getAttribute('data-block-id')}}); }}
+    if(t){{ window.chrome.webview.postMessage({{toggleCollapse:t.getAttribute('data-item-id')}}); }}
   }});
 }})();
 </script>

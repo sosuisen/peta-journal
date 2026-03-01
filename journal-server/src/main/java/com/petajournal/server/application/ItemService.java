@@ -1,12 +1,12 @@
 package com.petajournal.server.application;
 
-import com.petajournal.server.domain.model.Block;
+import com.petajournal.server.domain.model.Item;
 import com.petajournal.server.domain.model.Page;
-import com.petajournal.server.domain.repository.BlockRepository;
+import com.petajournal.server.domain.repository.ItemRepository;
 import com.petajournal.server.domain.repository.MarkdownParser;
 import com.petajournal.server.domain.repository.PageRepository;
 import com.petajournal.server.domain.repository.SearchService;
-import com.petajournal.server.domain.BlockIdGenerator;
+import com.petajournal.server.domain.ItemIdGenerator;
 import com.petajournal.server.domain.FractionalIndexer;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -21,12 +21,12 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @ApplicationScoped
-public class BlockService {
+public class ItemService {
 
-    private static final Logger LOG = Logger.getLogger(BlockService.class);
+    private static final Logger LOG = Logger.getLogger(ItemService.class);
 
     @Inject
-    BlockRepository blockRepository;
+    ItemRepository itemRepository;
 
     @Inject
     PageRepository pageRepository;
@@ -44,82 +44,82 @@ public class BlockService {
     TreeMarkdownConverter treeMarkdownConverter;
 
     /**
-     * Creates a new block on the specified page.
+     * Creates a new item on the specified page.
      *
-     * @param pageId       the page to add the block to
-     * @param afterBlockId the block ID after which to insert, or empty/null to prepend
+     * @param pageId       the page to add the item to
+     * @param afterItemId the item ID after which to insert, or empty/null to prepend
      * @param level        the indentation level (1-based, 1=top level)
      * @param body         the markdown body text
-     * @return the newly created block
+     * @return the newly created item
      * @throws IllegalArgumentException if the page is not found
      */
-    public Block createBlock(UUID pageId, UUID afterBlockId, int level, String body, UUID clientId) {
-        UUID id = clientId != null ? clientId : BlockIdGenerator.generate();
+    public Item createItem(UUID pageId, UUID afterItemId, int level, String body, UUID clientId) {
+        UUID id = clientId != null ? clientId : ItemIdGenerator.generate();
         Instant now = Instant.now();
         String html = parseBody(body);
 
-        List<Block> existingBlocks = blockRepository.findByPageId(pageId);
+        List<Item> existingItems = itemRepository.findByPageId(pageId);
         String idx;
         try {
-            idx = calculateInsertionIndex(existingBlocks, afterBlockId);
+            idx = calculateInsertionIndex(existingItems, afterItemId);
         } catch (IllegalStateException e) {
             // Fractional index exhausted — reindex and retry
-            reindexPage(pageId, existingBlocks);
-            existingBlocks = blockRepository.findByPageId(pageId);
-            idx = calculateInsertionIndex(existingBlocks, afterBlockId);
+            reindexPage(pageId, existingItems);
+            existingItems = itemRepository.findByPageId(pageId);
+            idx = calculateInsertionIndex(existingItems, afterItemId);
         }
 
-        List<String> types = detectBlockTypes(body);
+        List<String> types = detectItemTypes(body);
         String status = "normal";  // Default status
 
         // Get page to get dir_path and name
         Page page = pageRepository.findById(pageId).orElseThrow(() -> new IllegalArgumentException("Page not found: " + pageId));
 
-        Block block = new Block(id, pageId, null, page.dirPath(), page.name(), page.type(), now, now, idx, level, body, html, false, status, types);
-        block = blockRepository.save(block);
+        Item item = new Item(id, pageId, null, page.dirPath(), page.name(), page.type(), now, now, idx, level, body, html, false, status, types);
+        item = itemRepository.save(item);
 
-        // Recalculate parent_id for all blocks on this page
-        blockRepository.recalculateParentIds(pageId);
-        block = blockRepository.findById(id).orElse(block);
+        // Recalculate parent_id for all items on this page
+        itemRepository.recalculateParentIds(pageId);
+        item = itemRepository.findById(id).orElse(item);
 
         // Update page modified date
         touchPage(pageId);
 
         // Index for search
-        searchService.indexBlock(block, page.name());
+        searchService.indexItem(item, page.name());
 
         // Queue for export
         exportService.queueExport(pageId);
 
-        return block;
+        return item;
     }
 
     /**
-     * Updates an existing block. Only non-null parameters are applied.
+     * Updates an existing item. Only non-null parameters are applied.
      *
-     * @param blockId        the block to update
+     * @param itemId        the item to update
      * @param body           new markdown body, or {@code null} to keep current
      * @param level          new indentation level, or {@code null} to keep current
      * @param collapsed      new collapsed state, or {@code null} to keep current
      * @param status         new status, or {@code null} to keep current
-     * @return the updated block
-     * @throws IllegalArgumentException if the block is not found
+     * @return the updated item
+     * @throws IllegalArgumentException if the item is not found
      */
-    public Block updateBlock(UUID blockId, String body, Integer level, Boolean collapsed, String status) {
-        Block existing = blockRepository.findById(blockId)
-                .orElseThrow(() -> new IllegalArgumentException("Block not found: " + blockId));
+    public Item updateItem(UUID itemId, String body, Integer level, Boolean collapsed, String status) {
+        Item existing = itemRepository.findById(itemId)
+                .orElseThrow(() -> new IllegalArgumentException("Item not found: " + itemId));
 
         String newBody = body != null ? body : existing.body();
         String newHtml = body != null ? parseBody(body) : existing.html();
         int newLevel = level != null ? level : existing.level();
         boolean newCollapsed = collapsed != null ? collapsed : existing.collapsed();
         String newStatus = status != null ? status : existing.status();
-        List<String> types = body != null ? detectBlockTypes(body) : existing.types();
+        List<String> types = body != null ? detectItemTypes(body) : existing.types();
 
-        Block updated = new Block(
+        Item updated = new Item(
                 existing.id(),
                 existing.pageId(),
-                existing.parentBlockId(),
+                existing.parentItemId(),
                 existing.dirPath(),
                 existing.name(),
                 existing.type(),
@@ -134,19 +134,19 @@ public class BlockService {
                 types
         );
 
-        updated = blockRepository.save(updated);
+        updated = itemRepository.save(updated);
 
         // Recalculate parent_id when level changes
         if (level != null) {
-            blockRepository.recalculateParentIds(existing.pageId());
-            updated = blockRepository.findById(existing.id()).orElse(updated);
+            itemRepository.recalculateParentIds(existing.pageId());
+            updated = itemRepository.findById(existing.id()).orElse(updated);
         }
 
         touchPage(existing.pageId());
 
         Page page = pageRepository.findById(existing.pageId()).orElse(null);
         if (page != null) {
-            searchService.indexBlock(updated, page.name());
+            searchService.indexItem(updated, page.name());
         }
 
         // Queue for export
@@ -156,34 +156,34 @@ public class BlockService {
     }
 
     /**
-     * Moves blocks to a target page at the specified position.
+     * Moves items to a target page at the specified position.
      *
-     * @param blockIds     the IDs of blocks to move (order is preserved)
+     * @param itemIds     the IDs of items to move (order is preserved)
      * @param targetPageId the destination page
-     * @param afterBlockId the block ID to insert after, or empty/null to prepend
+     * @param afterItemId the item ID to insert after, or empty/null to prepend
      * @param levelDelta   level adjustment to apply, or {@code null} for no change
-     * @return the moved blocks with updated indices
-     * @throws IllegalArgumentException if a block or the target page is not found
+     * @return the moved items with updated indices
+     * @throws IllegalArgumentException if an item or the target page is not found
      */
-    public List<Block> moveBlocks(List<UUID> blockIds, UUID targetPageId, UUID afterBlockId, Integer levelDelta) {
-        List<Block> movedBlocks = new ArrayList<>();
-        List<Block> targetBlocks = blockRepository.findByPageId(targetPageId);
+    public List<Item> moveItems(List<UUID> itemIds, UUID targetPageId, UUID afterItemId, Integer levelDelta) {
+        List<Item> movedItems = new ArrayList<>();
+        List<Item> targetItems = itemRepository.findByPageId(targetPageId);
 
         // Find insertion point
         String afterIdx = null;
         String nextIdx = null;
-        if (afterBlockId != null) {
-            for (int i = 0; i < targetBlocks.size(); i++) {
-                if (targetBlocks.get(i).id().equals(afterBlockId)) {
-                    afterIdx = targetBlocks.get(i).idx();
-                    if (i + 1 < targetBlocks.size()) {
-                        nextIdx = targetBlocks.get(i + 1).idx();
+        if (afterItemId != null) {
+            for (int i = 0; i < targetItems.size(); i++) {
+                if (targetItems.get(i).id().equals(afterItemId)) {
+                    afterIdx = targetItems.get(i).idx();
+                    if (i + 1 < targetItems.size()) {
+                        nextIdx = targetItems.get(i + 1).idx();
                     }
                     break;
                 }
             }
-        } else if (!targetBlocks.isEmpty()) {
-            nextIdx = targetBlocks.getFirst().idx();
+        } else if (!targetItems.isEmpty()) {
+            nextIdx = targetItems.getFirst().idx();
         }
 
         int delta = levelDelta != null ? levelDelta : 0;
@@ -193,44 +193,44 @@ public class BlockService {
         Page targetPage = pageRepository.findById(targetPageId)
                 .orElseThrow(() -> new IllegalArgumentException("Target page not found: " + targetPageId));
 
-        for (UUID blockId : blockIds) {
-            Block block = blockRepository.findById(blockId)
-                    .orElseThrow(() -> new IllegalArgumentException("Block not found: " + blockId));
+        for (UUID itemId : itemIds) {
+            Item item = itemRepository.findById(itemId)
+                    .orElseThrow(() -> new IllegalArgumentException("Item not found: " + itemId));
 
             String newIdx = FractionalIndexer.between(afterIdx, nextIdx);
-            int newLevel = Math.max(1, block.level() + delta);
+            int newLevel = Math.max(1, item.level() + delta);
 
-            Block moved = new Block(
-                    block.id(),
+            Item moved = new Item(
+                    item.id(),
                     targetPageId,
                     null,
                     targetPage.dirPath(),
                     targetPage.name(),
                     targetPage.type(),
-                    block.createdDate(),
+                    item.createdDate(),
                     now,
                     newIdx,
                     newLevel,
-                    block.body(),
-                    block.html(),
-                    block.collapsed(),
-                    block.status(),
-                    block.types()
+                    item.body(),
+                    item.html(),
+                    item.collapsed(),
+                    item.status(),
+                    item.types()
             );
 
-            moved = blockRepository.save(moved);
-            movedBlocks.add(moved);
+            moved = itemRepository.save(moved);
+            movedItems.add(moved);
 
             afterIdx = newIdx;
             nextIdx = null;
         }
 
-        // Recalculate parent_id for all blocks on the target page
-        blockRepository.recalculateParentIds(targetPageId);
+        // Recalculate parent_id for all items on the target page
+        itemRepository.recalculateParentIds(targetPageId);
 
-        // Re-read moved blocks to get updated parent_id
-        movedBlocks = movedBlocks.stream()
-                .map(b -> blockRepository.findById(b.id()).orElse(b))
+        // Re-read moved items to get updated parent_id
+        movedItems = movedItems.stream()
+                .map(b -> itemRepository.findById(b.id()).orElse(b))
                 .toList();
 
         touchPage(targetPageId);
@@ -238,76 +238,76 @@ public class BlockService {
         // Queue for export
         exportService.queueExport(targetPageId);
 
-        return movedBlocks;
+        return movedItems;
     }
 
     /**
-     * Deletes a block and removes it from the search index.
+     * Deletes an item and removes it from the search index.
      *
-     * @param blockId the block to delete
+     * @param itemId the item to delete
      */
-    public void deleteBlock(UUID blockId) {
-        Optional<Block> block = blockRepository.findById(blockId);
-        blockRepository.delete(blockId);
-        searchService.removeBlock(blockId.toString());
-        block.ifPresent(b -> {
-            blockRepository.recalculateParentIds(b.pageId());
+    public void deleteItem(UUID itemId) {
+        Optional<Item> item = itemRepository.findById(itemId);
+        itemRepository.delete(itemId);
+        searchService.removeItem(itemId.toString());
+        item.ifPresent(b -> {
+            itemRepository.recalculateParentIds(b.pageId());
             touchPage(b.pageId());
             // Queue for export
             exportService.queueExport(b.pageId());
         });
     }
 
-    /** Returns all blocks matching the given statuses. */
-    public List<Block> getBlocksByStatuses(List<String> statuses) {
-        return blockRepository.findByStatuses(statuses);
+    /** Returns all items matching the given statuses. */
+    public List<Item> getItemsByStatuses(List<String> statuses) {
+        return itemRepository.findByStatuses(statuses);
     }
 
     /**
-     * Returns the page ID that contains the given block.
+     * Returns the page ID that contains the given item.
      *
-     * @param blockId the block to look up
-     * @return the page UUID as a string, or {@code null} if the block is not found
+     * @param itemId the item to look up
+     * @return the page UUID as a string, or {@code null} if the item is not found
      */
-    public String getBlockPageId(UUID blockId) {
-        return blockRepository.findById(blockId)
+    public String getItemPageId(UUID itemId) {
+        return itemRepository.findById(itemId)
                 .map(b -> b.pageId().toString())
                 .orElse(null);
     }
 
     /**
-     * Updates the status of a block.
+     * Updates the status of an item.
      *
-     * @param blockId the block to update
+     * @param itemId the item to update
      * @param status  the new status ({@code normal}, {@code todo}, {@code running}, or {@code done})
-     * @return the updated block
-     * @throws IllegalArgumentException if the status is invalid or the block is not found
+     * @return the updated item
+     * @throws IllegalArgumentException if the status is invalid or the item is not found
      */
-    public Block updateBlockStatus(UUID blockId, String status) {
+    public Item updateItemStatus(UUID itemId, String status) {
         if (!List.of("normal", "todo", "running", "done").contains(status)) {
             throw new IllegalArgumentException("Invalid status: " + status);
         }
-        return updateBlock(blockId, null, null, null, status);
+        return updateItem(itemId, null, null, null, status);
     }
 
-    /** Result of exporting blocks as tree markdown. */
+    /** Result of exporting items as tree markdown. */
     public record TreeMarkdownExport(String treeMarkdown, String html, String flatMarkdown) {}
 
     /**
-     * Exports blocks as hierarchical tree markdown, flat markdown, and HTML.
+     * Exports items as hierarchical tree markdown, flat markdown, and HTML.
      *
-     * @param blockIds the block IDs to export
+     * @param itemIds the item IDs to export
      * @return the exported representations
      */
-    public TreeMarkdownExport exportTreeMarkdown(List<UUID> blockIds) {
-        List<Block> blocks = blockIds.stream()
-            .map(id -> blockRepository.findById(id))
+    public TreeMarkdownExport exportTreeMarkdown(List<UUID> itemIds) {
+        List<Item> items = itemIds.stream()
+            .map(id -> itemRepository.findById(id))
             .filter(Optional::isPresent)
             .map(Optional::get)
             .toList();
-        String treeMd = treeMarkdownConverter.blocksToTreeMarkdown(blocks);
+        String treeMd = treeMarkdownConverter.itemsToTreeMarkdown(items);
         String html = markdownParser.parseToHtml(treeMd);
-        String flatMd = treeMarkdownConverter.blocksToFlatMarkdown(blocks);
+        String flatMd = treeMarkdownConverter.itemsToFlatMarkdown(items);
         return new TreeMarkdownExport(treeMd, html, flatMd);
     }
 
@@ -322,38 +322,38 @@ public class BlockService {
     }
 
     /**
-     * Re-assign fresh fractional indices to all blocks on a page.
+     * Re-assign fresh fractional indices to all items on a page.
      * WARNING: This operation reassigns all idx values on a page. In a future CRDT-based
      * sync system, this will conflict with remote changes and may cause ordering issues.
      */
-    private void reindexPage(UUID pageId, List<Block> blocks) {
-        LOG.warnv("REINDEX: Reassigning fractional indices for page {0} ({1} blocks). " +
-                "This may cause conflicts with CRDT-based sync.", pageId, blocks.size());
-        List<String> newIndices = FractionalIndexer.generateIndices(blocks.size());
-        for (int i = 0; i < blocks.size(); i++) {
-            blockRepository.updateIndex(blocks.get(i).id(), newIndices.get(i));
+    private void reindexPage(UUID pageId, List<Item> items) {
+        LOG.warnv("REINDEX: Reassigning fractional indices for page {0} ({1} items). " +
+                "This may cause conflicts with CRDT-based sync.", pageId, items.size());
+        List<String> newIndices = FractionalIndexer.generateIndices(items.size());
+        for (int i = 0; i < items.size(); i++) {
+            itemRepository.updateIndex(items.get(i).id(), newIndices.get(i));
         }
     }
 
     /**
-     * Calculate the fractional index for inserting a block after the specified block.
-     * If afterBlockId is null/empty, returns an index for the beginning of the list.
+     * Calculate the fractional index for inserting an item after the specified item.
+     * If afterItemId is null/empty, returns an index for the beginning of the list.
      */
-    private String calculateInsertionIndex(List<Block> existingBlocks, UUID afterBlockId) {
-        if (afterBlockId == null) {
-            if (existingBlocks.isEmpty()) {
+    private String calculateInsertionIndex(List<Item> existingItems, UUID afterItemId) {
+        if (afterItemId == null) {
+            if (existingItems.isEmpty()) {
                 return FractionalIndexer.initial();
             }
-            return FractionalIndexer.between(null, existingBlocks.getFirst().idx());
+            return FractionalIndexer.between(null, existingItems.getFirst().idx());
         }
 
         String afterIdx = null;
         String nextIdx = null;
-        for (int i = 0; i < existingBlocks.size(); i++) {
-            if (existingBlocks.get(i).id().equals(afterBlockId)) {
-                afterIdx = existingBlocks.get(i).idx();
-                if (i + 1 < existingBlocks.size()) {
-                    nextIdx = existingBlocks.get(i + 1).idx();
+        for (int i = 0; i < existingItems.size(); i++) {
+            if (existingItems.get(i).id().equals(afterItemId)) {
+                afterIdx = existingItems.get(i).idx();
+                if (i + 1 < existingItems.size()) {
+                    nextIdx = existingItems.get(i + 1).idx();
                 }
                 break;
             }
@@ -405,7 +405,7 @@ public class BlockService {
         return processWikiLinks(html);
     }
 
-    private List<String> detectBlockTypes(String body) {
+    private List<String> detectItemTypes(String body) {
         List<String> types = new ArrayList<>();
         if (body == null) return types;
         String trimmed = body.trim();

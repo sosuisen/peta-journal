@@ -92,7 +92,7 @@ public interface PageRepository {
     void delete(UUID id);
 
     /**
-     * Finds pages that contain blocks linking to the target page.
+     * Finds pages that contain items linking to the target page.
      *
      * @param targetPageId the target page UUID
      * @return the source pages that link to the target
