@@ -7,6 +7,7 @@ import java.util.UUID;
 public record Block(
     UUID id,
     UUID pageId,
+    UUID parentBlockId,  // Parent block ID (null for top-level blocks)
     String dirPath,
     String name,
     String type,         // "journal" or "doc" (from parent page)

@@ -49,7 +49,7 @@ public class ImportService {
         for (Block block : blocks) {
             String html = markdownParser.parseToHtml(block.body());
             Block withHtml = new Block(
-                    block.id(), block.pageId(), block.dirPath(), block.name(), block.type(),
+                    block.id(), block.pageId(), block.parentBlockId(), block.dirPath(), block.name(), block.type(),
                     block.createdDate(), block.modifiedDate(),
                     block.idx(), block.level(), block.body(), html,
                     block.collapsed(), block.status(), block.types()

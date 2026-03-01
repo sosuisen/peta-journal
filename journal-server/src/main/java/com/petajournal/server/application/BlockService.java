@@ -75,8 +75,12 @@ public class BlockService {
         // Get page to get dir_path and name
         Page page = pageRepository.findById(pageId).orElseThrow(() -> new IllegalArgumentException("Page not found: " + pageId));
 
-        Block block = new Block(id, pageId, page.dirPath(), page.name(), page.type(), now, now, idx, level, body, html, false, status, types);
+        Block block = new Block(id, pageId, null, page.dirPath(), page.name(), page.type(), now, now, idx, level, body, html, false, status, types);
         block = blockRepository.save(block);
+
+        // Recalculate parent_id for all blocks on this page
+        blockRepository.recalculateParentIds(pageId);
+        block = blockRepository.findById(id).orElse(block);
 
         // Update page modified date
         touchPage(pageId);
@@ -115,6 +119,7 @@ public class BlockService {
         Block updated = new Block(
                 existing.id(),
                 existing.pageId(),
+                existing.parentBlockId(),
                 existing.dirPath(),
                 existing.name(),
                 existing.type(),
@@ -130,6 +135,13 @@ public class BlockService {
         );
 
         updated = blockRepository.save(updated);
+
+        // Recalculate parent_id when level changes
+        if (level != null) {
+            blockRepository.recalculateParentIds(existing.pageId());
+            updated = blockRepository.findById(existing.id()).orElse(updated);
+        }
+
         touchPage(existing.pageId());
 
         Page page = pageRepository.findById(existing.pageId()).orElse(null);
@@ -191,6 +203,7 @@ public class BlockService {
             Block moved = new Block(
                     block.id(),
                     targetPageId,
+                    null,
                     targetPage.dirPath(),
                     targetPage.name(),
                     targetPage.type(),
@@ -212,6 +225,14 @@ public class BlockService {
             nextIdx = null;
         }
 
+        // Recalculate parent_id for all blocks on the target page
+        blockRepository.recalculateParentIds(targetPageId);
+
+        // Re-read moved blocks to get updated parent_id
+        movedBlocks = movedBlocks.stream()
+                .map(b -> blockRepository.findById(b.id()).orElse(b))
+                .toList();
+
         touchPage(targetPageId);
 
         // Queue for export
@@ -230,6 +251,7 @@ public class BlockService {
         blockRepository.delete(blockId);
         searchService.removeBlock(blockId.toString());
         block.ifPresent(b -> {
+            blockRepository.recalculateParentIds(b.pageId());
             touchPage(b.pageId());
             // Queue for export
             exportService.queueExport(b.pageId());

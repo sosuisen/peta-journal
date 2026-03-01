@@ -51,6 +51,7 @@ public class DatabaseInitializer {
                 CREATE TABLE IF NOT EXISTS blocks (
                     id TEXT PRIMARY KEY,
                     page_id TEXT NOT NULL,
+                    parent_id TEXT,
                     created_date INTEGER NOT NULL,
                     modified_date INTEGER NOT NULL,
                     idx TEXT NOT NULL,
@@ -104,8 +105,9 @@ public class DatabaseInitializer {
             stmt.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_pages_type_dir_name ON pages(type, dir_path, name)");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_pages_modified ON pages(modified_date DESC)");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_pages_parent_id ON pages(parent_id)");
-            stmt.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_blocks_page_id ON blocks(page_id, idx)");
-            stmt.execute("CREATE INDEX IF NOT EXISTS idx_blocks_body_link ON blocks(body)");
+            stmt.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_blocks_page_id_idx ON blocks(page_id, idx)");
+            stmt.execute("CREATE INDEX IF NOT EXISTS idx_blocks_parent_id ON blocks(parent_id)");
+            stmt.execute("CREATE INDEX IF NOT EXISTS idx_blocks_body ON blocks(body)");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_blocks_status ON blocks(status)");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_bookmark_groups_sort ON bookmark_groups(sort_order)");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_bookmarks_group_sort ON bookmarks(group_id, sort_order)");

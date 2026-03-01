@@ -24,4 +24,7 @@ public interface BlockRepository {
     List<Block> findByStatuses(List<String> statuses);
 
     void updateIndex(UUID blockId, String newIdx);
+
+    /** Recalculates parent_id for all blocks on a page based on idx ordering and level. */
+    void recalculateParentIds(UUID pageId);
 }

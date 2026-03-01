@@ -1,6 +1,7 @@
 export interface Block {
   id: string;
   pageId: string;
+  parentBlockId: string | null;
   dirPath: string;
   name: string;
   type: string;       // "journal" or "doc" (from parent page)

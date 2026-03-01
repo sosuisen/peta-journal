@@ -73,7 +73,7 @@ public class JournalService {
 
         // Create initial empty block
         UUID blockId = BlockIdGenerator.generate();
-        Block block = new Block(blockId, id, page.dirPath(), page.name(), page.type(), now, now, FractionalIndexer.initial(), 1, "", "", false, "normal", List.of());
+        Block block = new Block(blockId, id, null, page.dirPath(), page.name(), page.type(), now, now, FractionalIndexer.initial(), 1, "", "", false, "normal", List.of());
         block = blockRepository.save(block);
 
         return new JournalResult(page, List.of(block), true);

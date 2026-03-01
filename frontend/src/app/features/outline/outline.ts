@@ -414,6 +414,7 @@ export class OutlineComponent implements OnDestroy {
       const optimisticBlock: Block = {
         id: newId,
         pageId: block.pageId,
+        parentBlockId: null,
         dirPath: block.dirPath,
         name: block.name,
         type: block.type,
@@ -427,7 +428,9 @@ export class OutlineComponent implements OnDestroy {
         status: 'normal',
         types: [],
       };
-      this.api.createBlock(block.pageId, afterBlockId, newLevel, '', newId);
+      this.api.createBlock(block.pageId, afterBlockId, newLevel, '', newId).then(serverBlock => {
+        this.state.updateBlock(newId, { idx: serverBlock.idx, parentBlockId: serverBlock.parentBlockId });
+      });
       this.state.addBlock(optimisticBlock, afterBlockId);
 
       this.undo.begin('enter', { blockId: block.id, position: cursorPos });
@@ -623,7 +626,10 @@ export class OutlineComponent implements OnDestroy {
       this.state.updateBlock(b.id, { level: b.level + 1 });
     }
     this.undo.commit();
-    await Promise.all(group.map(b => this.api.updateBlock(b.id, { level: b.level + 1 })));
+    const results = await Promise.all(group.map(b => this.api.updateBlock(b.id, { level: b.level + 1 })));
+    for (const r of results) {
+      this.state.updateBlock(r.id, { idx: r.idx, level: r.level, parentBlockId: r.parentBlockId });
+    }
   }
 
   /**
@@ -669,7 +675,10 @@ export class OutlineComponent implements OnDestroy {
         for (const b of group) {
           this.state.updateBlock(b.id, { level: b.level - 1 });
         }
-        await Promise.all(group.map(b => this.api.updateBlock(b.id, { level: b.level - 1 })));
+        const levelResults = await Promise.all(group.map(b => this.api.updateBlock(b.id, { level: b.level - 1 })));
+        for (const r of levelResults) {
+          this.state.updateBlock(r.id, { idx: r.idx, level: r.level, parentBlockId: r.parentBlockId });
+        }
 
         // Move after the last child (if it's not the parent itself)
         if (lastChildId !== currentParent.id) {
@@ -702,7 +711,10 @@ export class OutlineComponent implements OnDestroy {
       this.state.updateBlock(b.id, { level: b.level - 1 });
     }
     this.undo.commit();
-    await Promise.all(group.map(b => this.api.updateBlock(b.id, { level: b.level - 1 })));
+    const outdentResults = await Promise.all(group.map(b => this.api.updateBlock(b.id, { level: b.level - 1 })));
+    for (const r of outdentResults) {
+      this.state.updateBlock(r.id, { idx: r.idx, level: r.level, parentBlockId: r.parentBlockId });
+    }
   }
 
   /**
@@ -1492,7 +1504,10 @@ export class OutlineComponent implements OnDestroy {
     this.undo.commit();
 
     try {
-      await Promise.all(blocksToIndent.map(b => this.api.updateBlock(b.id, { level: b.level + 1 })));
+      const results = await Promise.all(blocksToIndent.map(b => this.api.updateBlock(b.id, { level: b.level + 1 })));
+      for (const r of results) {
+        this.state.updateBlock(r.id, { idx: r.idx, level: r.level, parentBlockId: r.parentBlockId });
+      }
     } catch (e) {
       console.error('Failed to indent selected blocks:', e);
     }
@@ -1513,7 +1528,10 @@ export class OutlineComponent implements OnDestroy {
     this.undo.commit();
 
     try {
-      await Promise.all(blocksToOutdent.map(b => this.api.updateBlock(b.id, { level: b.level - 1 })));
+      const results = await Promise.all(blocksToOutdent.map(b => this.api.updateBlock(b.id, { level: b.level - 1 })));
+      for (const r of results) {
+        this.state.updateBlock(r.id, { idx: r.idx, level: r.level, parentBlockId: r.parentBlockId });
+      }
     } catch (e) {
       console.error('Failed to outdent selected blocks:', e);
     }
@@ -1681,11 +1699,12 @@ export class OutlineComponent implements OnDestroy {
         if (op.type === 'update') {
           const target = dir === 'undo' ? op.before : op.after;
           const source = dir === 'undo' ? op.after : op.before;
-          await this.api.updateBlock(target.id, {
+          const updated = await this.api.updateBlock(target.id, {
             body: target.body,
             level: target.level,
             collapsed: target.collapsed,
           });
+          this.state.updateBlock(updated.id, { idx: updated.idx, level: updated.level, parentBlockId: updated.parentBlockId });
           if (target.status !== source.status) {
             await this.api.updateBlockStatus(target.id, target.status);
           }

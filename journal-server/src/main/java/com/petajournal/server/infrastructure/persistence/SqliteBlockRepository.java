@@ -22,7 +22,7 @@ public class SqliteBlockRepository implements BlockRepository {
     public Optional<Block> findById(UUID id) {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT b.id, b.page_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.html, b.collapsed, b.status, " +
+                     "SELECT b.id, b.page_id, b.parent_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.html, b.collapsed, b.status, " +
                      "p.dir_path, p.name, p.type " +
                      "FROM blocks b JOIN pages p ON b.page_id = p.id WHERE b.id = ?")) {
             ps.setString(1, id.toString());
@@ -40,7 +40,7 @@ public class SqliteBlockRepository implements BlockRepository {
         LOG.debugv("findByPageId: pageId={0}", pageId);
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT b.id, b.page_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.html, b.collapsed, b.status, " +
+                     "SELECT b.id, b.page_id, b.parent_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.html, b.collapsed, b.status, " +
                      "p.dir_path, p.name, p.type " +
                      "FROM blocks b JOIN pages p ON b.page_id = p.id WHERE b.page_id = ? ORDER BY b.idx")) {
             ps.setString(1, pageId.toString());
@@ -63,28 +63,30 @@ public class SqliteBlockRepository implements BlockRepository {
             conn.setAutoCommit(false);
             try {
                 try (PreparedStatement ps = conn.prepareStatement(
-                        "INSERT INTO blocks (id, page_id, created_date, modified_date, idx, level, body, html, collapsed, status) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) " +
-                        "ON CONFLICT(id) DO UPDATE SET page_id=?, modified_date=?, idx=?, level=?, body=?, html=?, collapsed=?, status=?")) {
+                        "INSERT INTO blocks (id, page_id, parent_id, created_date, modified_date, idx, level, body, html, collapsed, status) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) " +
+                        "ON CONFLICT(id) DO UPDATE SET page_id=?, parent_id=?, modified_date=?, idx=?, level=?, body=?, html=?, collapsed=?, status=?")) {
                     ps.setString(1, block.id().toString());
                     ps.setString(2, block.pageId().toString());
-                    ps.setLong(3, block.createdDate().toEpochMilli());
-                    ps.setLong(4, block.modifiedDate().toEpochMilli());
-                    ps.setString(5, block.idx());
-                    ps.setInt(6, block.level());
-                    ps.setString(7, block.body());
-                    ps.setString(8, block.html());
-                    ps.setInt(9, block.collapsed() ? 1 : 0);
-                    ps.setString(10, block.status());
+                    ps.setString(3, block.parentBlockId() != null ? block.parentBlockId().toString() : null);
+                    ps.setLong(4, block.createdDate().toEpochMilli());
+                    ps.setLong(5, block.modifiedDate().toEpochMilli());
+                    ps.setString(6, block.idx());
+                    ps.setInt(7, block.level());
+                    ps.setString(8, block.body());
+                    ps.setString(9, block.html());
+                    ps.setInt(10, block.collapsed() ? 1 : 0);
+                    ps.setString(11, block.status());
                     // ON CONFLICT UPDATE values
-                    ps.setString(11, block.pageId().toString());
-                    ps.setLong(12, block.modifiedDate().toEpochMilli());
-                    ps.setString(13, block.idx());
-                    ps.setInt(14, block.level());
-                    ps.setString(15, block.body());
-                    ps.setString(16, block.html());
-                    ps.setInt(17, block.collapsed() ? 1 : 0);
-                    ps.setString(18, block.status());
+                    ps.setString(12, block.pageId().toString());
+                    ps.setString(13, block.parentBlockId() != null ? block.parentBlockId().toString() : null);
+                    ps.setLong(14, block.modifiedDate().toEpochMilli());
+                    ps.setString(15, block.idx());
+                    ps.setInt(16, block.level());
+                    ps.setString(17, block.body());
+                    ps.setString(18, block.html());
+                    ps.setInt(19, block.collapsed() ? 1 : 0);
+                    ps.setString(20, block.status());
                     ps.executeUpdate();
                 }
 
@@ -143,7 +145,7 @@ public class SqliteBlockRepository implements BlockRepository {
         String pattern = "%[[" + pageTitle + "]]%";
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT b.id, b.page_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.html, b.collapsed, b.status, " +
+                     "SELECT b.id, b.page_id, b.parent_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.html, b.collapsed, b.status, " +
                      "p.dir_path, p.name, p.type " +
                      "FROM blocks b JOIN pages p ON b.page_id = p.id WHERE b.body LIKE ?")) {
             ps.setString(1, pattern);
@@ -171,7 +173,7 @@ public class SqliteBlockRepository implements BlockRepository {
         }
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT b.id, b.page_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.html, b.collapsed, b.status, " +
+                     "SELECT b.id, b.page_id, b.parent_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.html, b.collapsed, b.status, " +
                      "p.dir_path, p.name, p.type " +
                      "FROM blocks b JOIN pages p ON b.page_id = p.id WHERE b.status IN (" + placeholders + ") ORDER BY b.created_date DESC")) {
             for (int i = 0; i < statuses.size(); i++) {
@@ -204,9 +206,11 @@ public class SqliteBlockRepository implements BlockRepository {
     private Block mapBlock(Connection conn, ResultSet rs) throws SQLException {
         String blockIdStr = rs.getString("id");
         UUID blockId = UUID.fromString(blockIdStr);
+        String parentIdStr = rs.getString("parent_id");
         return new Block(
                 blockId,
                 UUID.fromString(rs.getString("page_id")),
+                parentIdStr != null ? UUID.fromString(parentIdStr) : null,
                 rs.getString("dir_path"),
                 rs.getString("name"),
                 rs.getString("type"),
@@ -233,5 +237,42 @@ public class SqliteBlockRepository implements BlockRepository {
             }
         }
         return types;
+    }
+
+    @Override
+    public void recalculateParentIds(UUID pageId) {
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement selectPs = conn.prepareStatement(
+                     "SELECT id, level FROM blocks WHERE page_id = ? ORDER BY idx");
+             PreparedStatement updatePs = conn.prepareStatement(
+                     "UPDATE blocks SET parent_id = ? WHERE id = ?")) {
+
+            selectPs.setString(1, pageId.toString());
+            List<String[]> blocks = new ArrayList<>(); // [id, level]
+            try (ResultSet rs = selectPs.executeQuery()) {
+                while (rs.next()) {
+                    blocks.add(new String[]{rs.getString("id"), String.valueOf(rs.getInt("level"))});
+                }
+            }
+
+            for (int i = 0; i < blocks.size(); i++) {
+                int level = Integer.parseInt(blocks.get(i)[1]);
+                String parentId = null;
+                if (level > 1) {
+                    for (int j = i - 1; j >= 0; j--) {
+                        if (Integer.parseInt(blocks.get(j)[1]) < level) {
+                            parentId = blocks.get(j)[0];
+                            break;
+                        }
+                    }
+                }
+                updatePs.setString(1, parentId);
+                updatePs.setString(2, blocks.get(i)[0]);
+                updatePs.addBatch();
+            }
+            updatePs.executeBatch();
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to recalculate parent IDs for page: " + pageId, e);
+        }
     }
 }

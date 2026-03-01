@@ -29,6 +29,7 @@ public final class DtoMapper {
         return new BlockDto(
                 block.id().toString(),
                 block.pageId().toString(),
+                block.parentBlockId() != null ? block.parentBlockId().toString() : null,
                 block.dirPath(),
                 block.name(),
                 block.type() != null ? block.type() : "doc",

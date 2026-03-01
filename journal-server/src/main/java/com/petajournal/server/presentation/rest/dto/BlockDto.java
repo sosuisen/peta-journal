@@ -5,6 +5,7 @@ import java.util.List;
 public record BlockDto(
         String id,
         String pageId,
+        String parentBlockId,
         String dirPath,
         String name,
         String type,
