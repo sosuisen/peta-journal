@@ -1,6 +1,8 @@
 package com.petajournal.server.presentation.rest;
 
 import com.petajournal.server.application.JournalService;
+import com.petajournal.server.domain.model.Item;
+import com.petajournal.server.infrastructure.persistence.PropertyRepository;
 import com.petajournal.server.presentation.rest.dto.ItemDto;
 import com.petajournal.server.presentation.rest.dto.DtoMapper;
 import com.petajournal.server.presentation.rest.dto.PageDto;
@@ -19,6 +21,9 @@ public class JournalsResource {
     @Inject
     JournalService journalService;
 
+    @Inject
+    PropertyRepository propertyRepository;
+
     // --- Response records ---
 
     record GetOrCreateJournalResponse(PageDto page, List<ItemDto> items, boolean created) {}
@@ -30,7 +35,7 @@ public class JournalsResource {
         var result = journalService.getOrCreateJournalByName(name);
         return new GetOrCreateJournalResponse(
                 DtoMapper.toDto(result.page()),
-                result.items().stream().map(DtoMapper::toDto).toList(),
+                loadItemDtos(result.items()),
                 result.created());
     }
 
@@ -45,7 +50,7 @@ public class JournalsResource {
         return new GetMostRecentJournalBeforeResponse(
                 true,
                 DtoMapper.toDto(result.page()),
-                result.items().stream().map(DtoMapper::toDto).toList());
+                loadItemDtos(result.items()));
     }
 
     @GET
@@ -58,6 +63,13 @@ public class JournalsResource {
         return new GetMostRecentJournalBeforeResponse(
                 true,
                 DtoMapper.toDto(result.page()),
-                result.items().stream().map(DtoMapper::toDto).toList());
+                loadItemDtos(result.items()));
+    }
+
+    private List<ItemDto> loadItemDtos(List<Item> items) {
+        List<String> ids = items.stream().map(i -> i.id().toString()).toList();
+        var scalars = propertyRepository.findScalarByTargets("item", ids);
+        var lists = propertyRepository.findListByTargets("item", ids);
+        return DtoMapper.toDtos(items, scalars, lists);
     }
 }

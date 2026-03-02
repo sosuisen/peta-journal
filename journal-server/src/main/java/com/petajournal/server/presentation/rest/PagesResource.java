@@ -1,7 +1,9 @@
 package com.petajournal.server.presentation.rest;
 
 import com.petajournal.server.application.PageService;
+import com.petajournal.server.domain.model.Item;
 import com.petajournal.server.domain.repository.PageRepository;
+import com.petajournal.server.infrastructure.persistence.PropertyRepository;
 import com.petajournal.server.presentation.rest.dto.BacklinkEntryDto;
 import com.petajournal.server.presentation.rest.dto.ItemDto;
 import com.petajournal.server.presentation.rest.dto.DtoMapper;
@@ -23,6 +25,9 @@ public class PagesResource {
 
     @Inject
     PageRepository pageRepository;
+
+    @Inject
+    PropertyRepository propertyRepository;
 
     @Inject
     SseBroadcaster sseBroadcaster;
@@ -47,7 +52,7 @@ public class PagesResource {
         var items = pageService.getPageItems(pageId);
         return new GetPageByIdResponse(
                 DtoMapper.toDto(page),
-                items.stream().map(DtoMapper::toDto).toList());
+                loadItemDtos(items));
     }
 
     @POST
@@ -56,7 +61,7 @@ public class PagesResource {
         var result = pageService.getOrCreateDoc(req.title(), req.dirPath());
         return new GetOrCreateDocResponse(
                 DtoMapper.toDto(result.page()),
-                result.items().stream().map(DtoMapper::toDto).toList(),
+                loadItemDtos(result.items()),
                 result.created());
     }
 
@@ -100,5 +105,12 @@ public class PagesResource {
     public GetChildPagesResponse getChildPages(@PathParam("id") String id) {
         var pages = pageRepository.findByParentId(UUID.fromString(id));
         return new GetChildPagesResponse(pages.stream().map(DtoMapper::toDto).toList());
+    }
+
+    private List<ItemDto> loadItemDtos(List<Item> items) {
+        List<String> ids = items.stream().map(i -> i.id().toString()).toList();
+        var scalars = propertyRepository.findScalarByTargets("item", ids);
+        var lists = propertyRepository.findListByTargets("item", ids);
+        return DtoMapper.toDtos(items, scalars, lists);
     }
 }

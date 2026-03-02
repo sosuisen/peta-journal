@@ -1,6 +1,8 @@
 package com.petajournal.server.presentation.rest;
 
 import com.petajournal.server.application.ItemService;
+import com.petajournal.server.domain.model.Item;
+import com.petajournal.server.infrastructure.persistence.PropertyRepository;
 import com.petajournal.server.presentation.rest.dto.ItemDto;
 import com.petajournal.server.presentation.rest.dto.DtoMapper;
 import jakarta.inject.Inject;
@@ -9,6 +11,7 @@ import jakarta.ws.rs.core.MediaType;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Path("/api/items")
@@ -18,6 +21,9 @@ public class ItemsResource {
 
     @Inject
     ItemService itemService;
+
+    @Inject
+    PropertyRepository propertyRepository;
 
     @Inject
     SseBroadcaster sseBroadcaster;
@@ -33,6 +39,7 @@ public class ItemsResource {
     record MoveItemsRequest(List<String> itemIds, String targetPageId, String afterItemId, Integer levelDelta) {}
     record MoveItemsResponse(List<ItemDto> items) {}
     record GetItemsByStatusResponse(List<ItemDto> items) {}
+    record CycleTaskResponse(ItemDto item) {}
     record ExportTreeMarkdownRequest(List<String> itemIds) {}
     record ExportTreeMarkdownResponse(String treeMarkdown, String html, String flatMarkdown) {}
     record ImportTreeMarkdownRequest(String treeMarkdown) {}
@@ -85,6 +92,14 @@ public class ItemsResource {
     }
 
     @POST
+    @Path("/{id}/cycle-task")
+    public CycleTaskResponse cycleTask(@PathParam("id") String id) {
+        var item = itemService.cycleTask(UUID.fromString(id));
+        sseBroadcaster.broadcastPagesUpdated(item.pageId().toString());
+        return new CycleTaskResponse(loadItemDto(item));
+    }
+
+    @POST
     @Path("/move")
     public MoveItemsResponse moveItems(MoveItemsRequest req) {
         UUID afterItemId = (req.afterItemId() != null && !req.afterItemId().isEmpty())
@@ -95,7 +110,7 @@ public class ItemsResource {
                 afterItemId,
                 req.levelDelta());
         sseBroadcaster.broadcastPagesUpdated(req.targetPageId());
-        return new MoveItemsResponse(items.stream().map(DtoMapper::toDto).toList());
+        return new MoveItemsResponse(loadItemDtos(items));
     }
 
     @GET
@@ -104,7 +119,7 @@ public class ItemsResource {
                 ? Arrays.asList(statuses.split(","))
                 : List.of();
         var items = itemService.getItemsByStatuses(statusList);
-        return new GetItemsByStatusResponse(items.stream().map(DtoMapper::toDto).toList());
+        return new GetItemsByStatusResponse(loadItemDtos(items));
     }
 
     @POST
@@ -119,5 +134,19 @@ public class ItemsResource {
     public ImportTreeMarkdownResponse importTreeMarkdown(ImportTreeMarkdownRequest req) {
         String flatMd = itemService.importTreeMarkdown(req.treeMarkdown());
         return new ImportTreeMarkdownResponse(flatMd);
+    }
+
+    private ItemDto loadItemDto(Item item) {
+        String id = item.id().toString();
+        var scalars = propertyRepository.findScalarByTargets("item", List.of(id)).getOrDefault(id, Map.of());
+        var lists = propertyRepository.findListByTargets("item", List.of(id)).getOrDefault(id, Map.of());
+        return DtoMapper.toDto(item, scalars, lists);
+    }
+
+    private List<ItemDto> loadItemDtos(List<Item> items) {
+        List<String> ids = items.stream().map(i -> i.id().toString()).toList();
+        var scalars = propertyRepository.findScalarByTargets("item", ids);
+        var lists = propertyRepository.findListByTargets("item", ids);
+        return DtoMapper.toDtos(items, scalars, lists);
     }
 }

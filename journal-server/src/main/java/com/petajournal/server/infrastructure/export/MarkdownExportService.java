@@ -5,6 +5,7 @@ import com.petajournal.server.domain.model.Item;
 import com.petajournal.server.domain.model.Page;
 import com.petajournal.server.domain.repository.ItemRepository;
 import com.petajournal.server.domain.repository.PageRepository;
+import com.petajournal.server.infrastructure.persistence.PropertyRepository;
 import io.quarkus.scheduler.Scheduled;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -14,8 +15,7 @@ import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.file.*;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @ApplicationScoped
 public class MarkdownExportService {
@@ -33,6 +33,9 @@ public class MarkdownExportService {
 
     @Inject
     ItemRepository itemRepository;
+
+    @Inject
+    PropertyRepository propertyRepository;
 
     private volatile boolean isProcessing = false;
 
@@ -102,8 +105,16 @@ public class MarkdownExportService {
 
         appendFrontmatter(sb, page);
 
+        // Batch-load all properties for items on this page (avoids N+1)
+        List<String> itemIds = items.stream().map(i -> i.id().toString()).toList();
+        Map<String, Map<String, String>> scalarProps = propertyRepository.findScalarByTargets("item", itemIds);
+        Map<String, Map<String, List<String>>> listProps = propertyRepository.findListByTargets("item", itemIds);
+
         for (int i = 0; i < items.size(); i++) {
-            appendItem(sb, items.get(i));
+            String id = items.get(i).id().toString();
+            Map<String, String> scalars = scalarProps.getOrDefault(id, Map.of());
+            Map<String, List<String>> lists = listProps.getOrDefault(id, Map.of());
+            appendItem(sb, items.get(i), scalars, lists);
 
             // Add blank line separator between items (except after last item)
             if (i < items.size() - 1) {
@@ -122,20 +133,20 @@ public class MarkdownExportService {
         sb.append("---\n\n");
     }
 
-    private void appendItem(StringBuilder sb, Item item) {
+    private void appendItem(StringBuilder sb, Item item, Map<String, String> scalars, Map<String, List<String>> lists) {
         String body = item.body();
         if (body == null) body = "";
 
         // Empty body → single space (blank line would be an item separator)
         if (body.isEmpty()) body = " ";
 
-        String status = item.status() != null ? item.status() : "normal";
-
-        // Prepend GFM task list prefix for todo/done
-        if ("todo".equals(status)) {
-            body = "- [ ] " + body;
-        } else if ("done".equals(status)) {
-            body = "- [x] " + body;
+        // Prepend GFM task list prefix for task type
+        if (item.types() != null && item.types().contains("task")) {
+            if (scalars.containsKey("end")) {
+                body = "- [x] " + body;
+            } else {
+                body = "- [ ] " + body;
+            }
         }
 
         // Write body lines as-is (no indentation, no bullets)
@@ -152,6 +163,15 @@ public class MarkdownExportService {
             sb.append("<!-- collapsed=true -->\n");
         }
 
+        // Write property comments (alphabetically sorted by key)
+        TreeMap<String, String> allProps = new TreeMap<>();
+        allProps.putAll(scalars);
+        for (var entry : lists.entrySet()) {
+            allProps.put(entry.getKey(), String.join(",", entry.getValue()));
+        }
+        for (var entry : allProps.entrySet()) {
+            sb.append("<!-- ").append(entry.getKey()).append("=").append(entry.getValue()).append(" -->\n");
+        }
     }
 
     private void writeWithLock(Path path, String content) throws IOException {

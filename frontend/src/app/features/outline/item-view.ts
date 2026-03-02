@@ -7,12 +7,12 @@ import { generateUntitledTitle } from '../../core/utils/title.utils';
 @Component({
   selector: 'app-item-view',
   template: `
-    @if (status() !== 'normal') {
+    @if (types().includes('task')) {
       <input
         #checkbox
         type="checkbox"
         class="task-checkbox"
-        [checked]="status() === 'done'"
+        [checked]="!!properties()['end']"
         (click)="onCheckboxClick($event)"
       />
     }
@@ -151,6 +151,8 @@ export class ItemViewComponent {
 
   readonly html = input.required<string>();
   readonly status = input.required<string>();
+  readonly types = input.required<string[]>();
+  readonly properties = input.required<Record<string, string | string[]>>();
   readonly clicked = output<number>();
   readonly taskToggled = output<void>();
   readonly trustedHtml = computed(() => {
@@ -165,7 +167,8 @@ export class ItemViewComponent {
     effect(() => {
       const checkbox = this.checkboxRef()?.nativeElement;
       if (checkbox) {
-        checkbox.indeterminate = this.status() === 'running';
+        const props = this.properties();
+        checkbox.indeterminate = !!props['begin'] && !props['end'];
       }
     });
 

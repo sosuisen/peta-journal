@@ -19,11 +19,13 @@ export class ConfigService {
   private config: AppConfig;
   readonly sidebarWidth = signal(DEFAULT_CONFIG.sidebarWidth);
   readonly weekNumbering = signal<WeekNumbering>('us');
+  readonly propertyDefinitions = signal<Record<string, string>>({});
 
   constructor() {
     this.config = this.loadConfig();
     this.sidebarWidth.set(this.config.sidebarWidth);
     this.loadWeekNumberingFromServer();
+    this.loadPropertyDefinitionsFromServer();
   }
 
   private loadWeekNumberingFromServer(): void {
@@ -31,6 +33,14 @@ export class ConfigService {
       this.weekNumbering.set((c.weekNumbering as WeekNumbering) || 'us');
     }).catch(e => {
       console.error('Failed to load config from server:', e);
+    });
+  }
+
+  private loadPropertyDefinitionsFromServer(): void {
+    this.api.getPropertyDefinitions().then(r => {
+      this.propertyDefinitions.set(r.propertyDefinitions);
+    }).catch(e => {
+      console.error('Failed to load property definitions:', e);
     });
   }
 

@@ -8,6 +8,8 @@ import com.petajournal.server.domain.model.Page;
 import com.petajournal.server.domain.model.SearchResult;
 
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 public final class DtoMapper {
 
@@ -40,7 +42,42 @@ public final class DtoMapper {
                 item.html(),
                 item.collapsed(),
                 item.status() != null ? item.status() : "normal",
-                item.types() != null ? item.types() : List.of());
+                item.types() != null ? item.types() : List.of(),
+                Map.of());
+    }
+
+    public static ItemDto toDto(Item item, Map<String, String> scalars, Map<String, List<String>> lists) {
+        Map<String, Object> properties = new TreeMap<>();
+        if (scalars != null) properties.putAll(scalars);
+        if (lists != null) properties.putAll(lists);
+        return new ItemDto(
+                item.id().toString(),
+                item.pageId().toString(),
+                item.parentItemId() != null ? item.parentItemId().toString() : null,
+                item.dirPath(),
+                item.name(),
+                item.type() != null ? item.type() : "doc",
+                item.createdDate().toEpochMilli(),
+                item.modifiedDate().toEpochMilli(),
+                item.idx(),
+                item.level(),
+                item.body(),
+                item.html(),
+                item.collapsed(),
+                item.status() != null ? item.status() : "normal",
+                item.types() != null ? item.types() : List.of(),
+                properties);
+    }
+
+    public static List<ItemDto> toDtos(List<Item> items,
+                                        Map<String, Map<String, String>> scalarProps,
+                                        Map<String, Map<String, List<String>>> listProps) {
+        return items.stream().map(item -> {
+            String id = item.id().toString();
+            return toDto(item,
+                    scalarProps.getOrDefault(id, Map.of()),
+                    listProps.getOrDefault(id, Map.of()));
+        }).toList();
     }
 
     public static SearchResultDto toDto(SearchResult result) {

@@ -32,7 +32,8 @@ public class OutlineMarkdownParser {
         String body,
         boolean collapsed,
         List<String> types,
-        String status
+        String status,
+        Map<String, String> properties
     ) {}
 
     public ParseResult parse(String markdown) {
@@ -156,6 +157,7 @@ public class OutlineMarkdownParser {
         String currentId = null;
         int currentLevel = 1;
         boolean currentCollapsed = false;
+        Map<String, String> currentProperties = new LinkedHashMap<>();
         List<String> currentBodyLines = new ArrayList<>();
         boolean hasContent = false;
 
@@ -168,10 +170,11 @@ public class OutlineMarkdownParser {
             // Blank line outside code fence → flush current item
             if (line.isEmpty() && !inCodeFence) {
                 if (hasContent) {
-                    items.add(buildParsedItem(currentId, currentLevel, currentBodyLines, currentCollapsed));
+                    items.add(buildParsedItem(currentId, currentLevel, currentBodyLines, currentCollapsed, currentProperties));
                     currentId = null;
                     currentLevel = 1;
                     currentCollapsed = false;
+                    currentProperties = new LinkedHashMap<>();
                     currentBodyLines = new ArrayList<>();
                     hasContent = false;
                 }
@@ -201,9 +204,10 @@ public class OutlineMarkdownParser {
                     continue;
                 }
 
-                // Silently discard any remaining property comments from old exports
+                // Accumulate property comments (excluding level/collapsed handled above)
                 Matcher propMatcher = PROP_COMMENT.matcher(line);
                 if (propMatcher.matches()) {
+                    currentProperties.put(propMatcher.group(1), propMatcher.group(2));
                     hasContent = true;
                     continue;
                 }
@@ -216,13 +220,13 @@ public class OutlineMarkdownParser {
 
         // Flush last item
         if (hasContent) {
-            items.add(buildParsedItem(currentId, currentLevel, currentBodyLines, currentCollapsed));
+            items.add(buildParsedItem(currentId, currentLevel, currentBodyLines, currentCollapsed, currentProperties));
         }
 
         return items;
     }
 
-    private ParsedItem buildParsedItem(String id, int level, List<String> bodyLines, boolean collapsed) {
+    private ParsedItem buildParsedItem(String id, int level, List<String> bodyLines, boolean collapsed, Map<String, String> properties) {
         String body = String.join("\n", bodyLines);
 
         // Whitespace-only body → empty
@@ -230,23 +234,25 @@ public class OutlineMarkdownParser {
             body = "";
         }
 
-        // Detect status from first body line
+        // Detect task type from GFM checkbox prefix
         String status = "normal";
+        boolean isTask = false;
         if (body.startsWith("- [ ] ")) {
-            status = "todo";
+            isTask = true;
             body = body.substring(6);
         } else if (body.startsWith("- [x] ")) {
-            status = "done";
+            isTask = true;
             body = body.substring(6);
         }
 
         // Detect item types from body
         List<String> types = new ArrayList<>();
+        if (isTask) types.add("task");
         String trimmed = body.trim();
         if (trimmed.startsWith("#")) types.add("heading");
         if (trimmed.startsWith("```")) types.add("code");
         if (trimmed.startsWith(">")) types.add("blockquote");
 
-        return new ParsedItem(id, level, body, collapsed, types, status);
+        return new ParsedItem(id, level, body, collapsed, types, status, properties);
     }
 }

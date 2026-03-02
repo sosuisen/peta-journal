@@ -1,6 +1,7 @@
 package com.petajournal.server.presentation.rest.dto;
 
 import java.util.List;
+import java.util.Map;
 
 public record ItemDto(
         String id,
@@ -17,5 +18,6 @@ public record ItemDto(
         String html,
         boolean collapsed,
         String status,
-        List<String> types) {
+        List<String> types,
+        Map<String, Object> properties) {
 }

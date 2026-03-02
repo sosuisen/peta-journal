@@ -15,6 +15,7 @@ import org.jboss.logging.Logger;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Matcher;
@@ -42,6 +43,9 @@ public class ItemService {
 
     @Inject
     TreeMarkdownConverter treeMarkdownConverter;
+
+    @Inject
+    com.petajournal.server.infrastructure.persistence.PropertyRepository propertyRepository;
 
     /**
      * Creates a new item on the specified page.
@@ -115,6 +119,10 @@ public class ItemService {
         boolean newCollapsed = collapsed != null ? collapsed : existing.collapsed();
         String newStatus = status != null ? status : existing.status();
         List<String> types = body != null ? detectItemTypes(body) : existing.types();
+        if (body != null && existing.types().contains("task") && !types.contains("task")) {
+            types = new ArrayList<>(types);
+            types.add("task");
+        }
 
         Item updated = new Item(
                 existing.id(),
@@ -288,6 +296,73 @@ public class ItemService {
             throw new IllegalArgumentException("Invalid status: " + status);
         }
         return updateItem(itemId, null, null, null, status);
+    }
+
+    /**
+     * Cycles the task state of an item:
+     * 1. Not a task → add "task" to types, remove begin/end
+     * 2. Task, no begin, no end → set begin = now
+     * 3. Task, has begin, no end → set end = now
+     * 4. Task, has begin AND end → remove "task" from types, remove begin/end
+     */
+    public Item cycleTask(UUID itemId) {
+        Item existing = itemRepository.findById(itemId)
+                .orElseThrow(() -> new IllegalArgumentException("Item not found: " + itemId));
+
+        String id = itemId.toString();
+        Map<String, String> scalars = propertyRepository.findScalarByTargets("item", List.of(id))
+                .getOrDefault(id, Map.of());
+        boolean isTask = existing.types().contains("task");
+        boolean hasBegin = scalars.containsKey("begin");
+        boolean hasEnd = scalars.containsKey("end");
+
+        if (!isTask) {
+            // State 1: Not a task → become a task
+            List<String> newTypes = new ArrayList<>(existing.types());
+            newTypes.add("task");
+            Item updated = new Item(
+                    existing.id(), existing.pageId(), existing.parentItemId(),
+                    existing.dirPath(), existing.name(), existing.type(),
+                    existing.createdDate(), Instant.now(), existing.idx(),
+                    existing.level(), existing.body(), existing.html(),
+                    existing.collapsed(), existing.status(), newTypes);
+            itemRepository.save(updated);
+            propertyRepository.deleteProperty("item", id, "begin");
+            propertyRepository.deleteProperty("item", id, "end");
+            touchPage(existing.pageId());
+            exportService.queueExport(existing.pageId());
+            return updated;
+        } else if (!hasBegin && !hasEnd) {
+            // State 2: Task, no begin → set begin
+            String now = Instant.now().toString();
+            propertyRepository.upsertScalar("item", id, "begin", "datetime", now);
+            touchPage(existing.pageId());
+            exportService.queueExport(existing.pageId());
+            return existing;
+        } else if (hasBegin && !hasEnd) {
+            // State 3: Task, has begin, no end → set end
+            String now = Instant.now().toString();
+            propertyRepository.upsertScalar("item", id, "end", "datetime", now);
+            touchPage(existing.pageId());
+            exportService.queueExport(existing.pageId());
+            return existing;
+        } else {
+            // State 4: Task, has begin AND end → remove task
+            List<String> newTypes = new ArrayList<>(existing.types());
+            newTypes.remove("task");
+            Item updated = new Item(
+                    existing.id(), existing.pageId(), existing.parentItemId(),
+                    existing.dirPath(), existing.name(), existing.type(),
+                    existing.createdDate(), Instant.now(), existing.idx(),
+                    existing.level(), existing.body(), existing.html(),
+                    existing.collapsed(), existing.status(), newTypes);
+            itemRepository.save(updated);
+            propertyRepository.deleteProperty("item", id, "begin");
+            propertyRepository.deleteProperty("item", id, "end");
+            touchPage(existing.pageId());
+            exportService.queueExport(existing.pageId());
+            return updated;
+        }
     }
 
     /** Result of exporting items as tree markdown. */

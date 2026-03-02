@@ -22,12 +22,12 @@ export function ensureCodeFenceClosed(text: string): string {
 @Component({
   selector: 'app-item-editor',
   template: `
-    @if (status() !== 'normal') {
+    @if (types().includes('task')) {
       <input
         #checkbox
         type="checkbox"
         class="task-checkbox"
-        [checked]="status() === 'done'"
+        [checked]="!!properties()['end']"
         (click)="onCheckboxClick($event)"
       />
     }
@@ -76,6 +76,8 @@ export class ItemEditorComponent implements AfterViewInit, OnDestroy {
   readonly body = input.required<string>();
   readonly itemId = input.required<string>();
   readonly status = input.required<string>();
+  readonly types = input.required<string[]>();
+  readonly properties = input.required<Record<string, string | string[]>>();
 
   readonly bodyChange = output<string>();
   readonly blurred = output<void>();
@@ -116,7 +118,8 @@ export class ItemEditorComponent implements AfterViewInit, OnDestroy {
     effect(() => {
       const checkbox = this.checkboxRef()?.nativeElement;
       if (checkbox) {
-        checkbox.indeterminate = this.status() === 'running';
+        const props = this.properties();
+        checkbox.indeterminate = !!props['begin'] && !props['end'];
       }
     });
   }

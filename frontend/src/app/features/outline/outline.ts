@@ -426,6 +426,7 @@ export class OutlineComponent implements OnDestroy {
         collapsed: false,
         status: 'normal',
         types: [],
+        properties: {},
       };
       this.api.createItem(item.pageId, afterItemId, newLevel, '', newId).then(serverItem => {
         this.state.updateItem(newId, { idx: serverItem.idx });
@@ -944,48 +945,28 @@ export class OutlineComponent implements OnDestroy {
   }
 
   /**
-   * Handles the user clicking a task checkbox to cycle through statuses:
-   * normal -> todo -> running -> done -> normal.
-   * @param item - The item whose task status was toggled
+   * Handles the user clicking a task checkbox or pressing Ctrl+Enter.
+   * Cycles through: normal → task → running → done → normal via cycleTask API.
    */
   async onTaskStatusToggled(item: Item): Promise<void> {
-    try {
-      const originalItem = { ...item };
-      const cycle = ['normal', 'todo', 'running', 'done'];
-      const currentIndex = cycle.indexOf(item.status);
-      const newStatus = cycle[(currentIndex + 1) % cycle.length];
-      if (newStatus !== item.status) {
-        const updated = await this.api.updateItemStatus(item.id, newStatus);
-        this.state.updateItem(item.id, { status: updated.status });
-
-        this.undo.begin('status');
-        this.undo.pushUpdate(originalItem, { ...originalItem, status: newStatus });
-        this.undo.commit();
-      }
-    } catch (e) {
-      console.error('Failed to toggle task status:', e);
-    }
+    await this.doCycleTask(item);
   }
 
-  /**
-   * Handles the user pressing Ctrl+Enter to cycle a item's status:
-   * normal -> todo -> running -> done -> normal.
-   * @param item - The item whose status should be cycled
-   */
   async onStatusCycleRequested(item: Item): Promise<void> {
+    await this.doCycleTask(item);
+  }
+
+  private async doCycleTask(item: Item): Promise<void> {
     try {
       const originalItem = { ...item };
-      const cycle = ['normal', 'todo', 'running', 'done'];
-      const currentIndex = cycle.indexOf(item.status);
-      const newStatus = cycle[(currentIndex + 1) % cycle.length];
-      const updated = await this.api.updateItemStatus(item.id, newStatus);
-      this.state.updateItem(item.id, { status: updated.status });
+      const updated = await this.api.cycleTask(item.id);
+      this.state.updateItem(item.id, { types: updated.types, properties: updated.properties });
 
       this.undo.begin('status');
-      this.undo.pushUpdate(originalItem, { ...originalItem, status: newStatus });
+      this.undo.pushUpdate(originalItem, { ...originalItem, types: updated.types, properties: updated.properties });
       this.undo.commit();
     } catch (e) {
-      console.error('Failed to cycle status:', e);
+      console.error('Failed to cycle task:', e);
     }
   }
 

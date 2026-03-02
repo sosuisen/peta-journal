@@ -35,6 +35,8 @@ import { ItemViewComponent } from './item-view';
             [body]="item().body"
             [itemId]="item().id"
             [status]="item().status"
+            [types]="item().types"
+            [properties]="item().properties"
             [suggestionsVisible]="suggestionsVisible()"
             (bodyChange)="bodyChanged.emit($event)"
             (blurred)="onEditFinished()"
@@ -65,6 +67,8 @@ import { ItemViewComponent } from './item-view';
           <app-item-view
             [html]="item().html"
             [status]="item().status"
+            [types]="item().types"
+            [properties]="item().properties"
             (clicked)="editRequested.emit($event)"
             (taskToggled)="taskToggled.emit()"
           />

@@ -107,6 +107,12 @@ export class ApiService {
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
   }
 
+  async cycleTask(itemId: string): Promise<Item> {
+    const resp = await fetch(`/api/items/${itemId}/cycle-task`, { method: 'POST' });
+    const data = await json<{ item: Item }>(resp);
+    return data.item;
+  }
+
   async updateItemStatus(itemId: string, status: string): Promise<Item> {
     const resp = await fetch(`/api/items/${itemId}/status`, {
       method: 'PUT',
@@ -151,6 +157,11 @@ export class ApiService {
 
   async getConfig(): Promise<{ weekNumbering: string }> {
     const resp = await fetch('/api/config');
+    return json(resp);
+  }
+
+  async getPropertyDefinitions(): Promise<{ propertyDefinitions: Record<string, string> }> {
+    const resp = await fetch('/api/config/property-definitions');
     return json(resp);
   }
 
