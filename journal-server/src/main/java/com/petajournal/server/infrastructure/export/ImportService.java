@@ -55,7 +55,7 @@ public class ImportService {
                     item.collapsed(), item.status(), item.types()
             );
             itemRepository.save(withHtml);
-            searchService.indexItem(withHtml, page.name());
+            searchService.indexItem(withHtml, page.dirPath() + page.name());
         }
 
         LOG.infov("Imported page from {0}: {1}", filePath, page.name());

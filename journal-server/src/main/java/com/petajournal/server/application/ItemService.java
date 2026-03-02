@@ -86,7 +86,7 @@ public class ItemService {
         touchPage(pageId);
 
         // Index for search
-        searchService.indexItem(item, page.name());
+        searchService.indexItem(item, page.dirPath() + page.name());
 
         // Queue for export
         exportService.queueExport(pageId);
@@ -146,7 +146,7 @@ public class ItemService {
 
         Page page = pageRepository.findById(existing.pageId()).orElse(null);
         if (page != null) {
-            searchService.indexItem(updated, page.name());
+            searchService.indexItem(updated, page.dirPath() + page.name());
         }
 
         // Queue for export
