@@ -41,7 +41,9 @@ public class SqliteConnectionProvider {
 
         // SQLite automatically creates the database file if it doesn't exist
         // Enable WAL mode for better concurrency and set busy timeout
-        String url = "jdbc:sqlite:" + path + "?journal_mode=WAL&busy_timeout=30000";
+        // transaction_mode=IMMEDIATE: acquire write lock at BEGIN, not at first write.
+        // This prevents SQLITE_BUSY_SNAPSHOT when concurrent threads write via separate connections.
+        String url = "jdbc:sqlite:" + path + "?journal_mode=WAL&busy_timeout=30000&transaction_mode=IMMEDIATE";
         Connection conn = DriverManager.getConnection(url);
 
         // Set additional pragmas for better concurrency
