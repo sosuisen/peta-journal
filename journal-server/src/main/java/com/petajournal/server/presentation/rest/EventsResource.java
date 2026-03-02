@@ -18,8 +18,15 @@ public class EventsResource {
     @GET
     @Produces(MediaType.SERVER_SENT_EVENTS)
     public void stream(@Context SseEventSink sink, @Context Sse sse) {
-        // Send an initial comment to flush proxy buffers (Vite dev server buffers until first data)
-        sink.send(sse.newEventBuilder().comment("connected").build());
+        // Client may have already disconnected before this method runs (e.g. rapid reconnect)
+        if (sink.isClosed()) return;
+        try {
+            // Send an initial comment to flush proxy buffers (Vite dev server buffers until first data)
+            sink.send(sse.newEventBuilder().comment("connected").build());
+        } catch (IllegalStateException e) {
+            // Client disconnected before we could send — ignore
+            return;
+        }
         sseBroadcaster.register(sink, sse);
     }
 }

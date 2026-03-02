@@ -53,15 +53,13 @@ public class JournalApiService : IDisposable
                 _sseCts?.Cancel();
                 _sseCts = new CancellationTokenSource();
 
-                // Test connectivity with a simple fetch before starting SSE
-                using var testResponse = await _http.GetAsync("/api/config", ct);
-                testResponse.EnsureSuccessStatusCode();
+                var connectedTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
-                _isConnected = true;
-                Connected?.Invoke();
+                // Start SSE listener in background — it will signal connectedTcs when stream is established
+                _ = Task.Run(() => SseListenLoop(_sseCts.Token, connectedTcs), _sseCts.Token);
 
-                // Start SSE listener in background
-                _ = Task.Run(() => SseListenLoop(_sseCts.Token), _sseCts.Token);
+                // Wait until SSE stream is actually established (like EventSource.onopen)
+                await connectedTcs.Task;
                 return;
             }
             catch when (!ct.IsCancellationRequested)
@@ -75,7 +73,7 @@ public class JournalApiService : IDisposable
         }
     }
 
-    private async Task SseListenLoop(CancellationToken ct)
+    private async Task SseListenLoop(CancellationToken ct, TaskCompletionSource? connectedTcs = null)
     {
         try
         {
@@ -84,6 +82,11 @@ public class JournalApiService : IDisposable
 
             using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
             response.EnsureSuccessStatusCode();
+
+            // SSE stream established — fire Connected (equivalent to EventSource.onopen)
+            _isConnected = true;
+            Connected?.Invoke();
+            connectedTcs?.TrySetResult();
 
             using var stream = await response.Content.ReadAsStreamAsync(ct);
             using var reader = new StreamReader(stream);
@@ -113,8 +116,14 @@ public class JournalApiService : IDisposable
                 }
             }
         }
-        catch (OperationCanceledException) { }
-        catch { }
+        catch (OperationCanceledException)
+        {
+            connectedTcs?.TrySetCanceled();
+        }
+        catch (Exception ex)
+        {
+            connectedTcs?.TrySetException(ex);
+        }
         finally
         {
             _isConnected = false;
