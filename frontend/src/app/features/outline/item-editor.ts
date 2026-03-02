@@ -282,6 +282,19 @@ export class ItemEditorComponent implements AfterViewInit, OnDestroy {
     }
 
     if (event.key === 'Enter' && !event.shiftKey && !event.ctrlKey) {
+      // Inside a code fence: insert \n like Shift+Enter instead of splitting the item
+      if (hasUnclosedCodeFence(value.substring(0, selectionStart))) {
+        event.preventDefault();
+        const before = value.substring(0, selectionStart);
+        const after = value.substring(selectionEnd);
+        const newValue = before + '\n' + after;
+        const newCursorPos = selectionStart + 1;
+        el.value = newValue;
+        el.setSelectionRange(newCursorPos, newCursorPos);
+        this.bodyChange.emit(newValue);
+        this.autoResize(el);
+        return;
+      }
       event.preventDefault();
       this.enterPressed.emit({ cursorPos: selectionStart });
       return;
