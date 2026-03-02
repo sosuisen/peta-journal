@@ -1784,7 +1784,7 @@ export class OutlineComponent implements OnDestroy {
         : 'app-item-editor textarea';
       const el = document.querySelector<HTMLTextAreaElement>(selector);
       if (el) {
-        el.focus();
+        el.focus({ preventScroll: true });
         el.style.height = 'auto';
         el.style.height = el.scrollHeight + 'px';
       }
