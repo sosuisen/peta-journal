@@ -1,7 +1,6 @@
 package com.petajournal.server.domain.model;
 
 import java.time.Instant;
-import java.util.List;
 import java.util.UUID;
 
 public record Page(
@@ -11,7 +10,6 @@ public record Page(
     String name,
     String type,        // "journal" or "doc"
     Instant createdDate,
-    Instant modifiedDate,
-    List<String> tags
+    Instant modifiedDate
 ) {
 }

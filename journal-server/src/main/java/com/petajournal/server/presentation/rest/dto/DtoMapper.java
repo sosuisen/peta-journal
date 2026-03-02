@@ -21,8 +21,7 @@ public final class DtoMapper {
                 page.name(),
                 page.type() != null ? page.type() : "doc",
                 page.createdDate().toEpochMilli(),
-                page.modifiedDate().toEpochMilli(),
-                page.tags() != null ? page.tags() : List.of());
+                page.modifiedDate().toEpochMilli());
     }
 
     public static ItemDto toDto(Item item) {

@@ -264,7 +264,6 @@ public class SqliteBookmarkRepository implements BookmarkRepository {
     }
 
     private Page mapPage(Connection conn, ResultSet rs, String pageId) throws SQLException {
-        List<String> tags = loadTags(conn, pageId);
         String parentIdStr = rs.getString("p_parent_id");
         UUID parentId = parentIdStr != null ? UUID.fromString(parentIdStr) : null;
         return new Page(
@@ -274,21 +273,7 @@ public class SqliteBookmarkRepository implements BookmarkRepository {
                 rs.getString("name"),
                 rs.getString("type"),
                 Instant.ofEpochMilli(rs.getLong("created_date")),
-                Instant.ofEpochMilli(rs.getLong("modified_date")),
-                tags
+                Instant.ofEpochMilli(rs.getLong("modified_date"))
         );
-    }
-
-    private List<String> loadTags(Connection conn, String pageId) throws SQLException {
-        try (PreparedStatement ps = conn.prepareStatement("SELECT tag FROM page_tags WHERE page_id = ?")) {
-            ps.setString(1, pageId);
-            List<String> tags = new ArrayList<>();
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    tags.add(rs.getString("tag"));
-                }
-            }
-            return tags;
-        }
     }
 }

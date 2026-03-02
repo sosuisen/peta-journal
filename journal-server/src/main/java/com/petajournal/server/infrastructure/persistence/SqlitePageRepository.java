@@ -192,26 +192,9 @@ public class SqlitePageRepository implements PageRepository {
                     ps.executeUpdate();
                 }
 
-                // Replace tags
-                try (PreparedStatement ps = conn.prepareStatement("DELETE FROM page_tags WHERE page_id = ?")) {
-                    ps.setString(1, page.id().toString());
-                    ps.executeUpdate();
-                }
-                if (page.tags() != null) {
-                    try (PreparedStatement ps = conn.prepareStatement(
-                            "INSERT INTO page_tags (page_id, tag) VALUES (?, ?)")) {
-                        for (String tag : page.tags()) {
-                            ps.setString(1, page.id().toString());
-                            ps.setString(2, tag);
-                            ps.addBatch();
-                        }
-                        ps.executeBatch();
-                    }
-                }
-
                 conn.commit();
                 return new Page(page.id(), parentId, page.dirPath(), page.name(), page.type(),
-                        page.createdDate(), page.modifiedDate(), page.tags());
+                        page.createdDate(), page.modifiedDate());
             } catch (SQLException e) {
                 conn.rollback();
                 throw e;
@@ -392,18 +375,16 @@ public class SqlitePageRepository implements PageRepository {
     }
 
     private Page mapPage(Connection conn, ResultSet rs) throws SQLException {
-        UUID id = UUID.fromString(rs.getString("id"));
         String parentIdStr = rs.getString("parent_id");
         UUID parentId = parentIdStr != null ? UUID.fromString(parentIdStr) : null;
         return new Page(
-                id,
+                UUID.fromString(rs.getString("id")),
                 parentId,
                 rs.getString("dir_path"),
                 rs.getString("name"),
                 rs.getString("type"),
                 Instant.ofEpochMilli(rs.getLong("created_date")),
-                Instant.ofEpochMilli(rs.getLong("modified_date")),
-                loadTags(conn, id)
+                Instant.ofEpochMilli(rs.getLong("modified_date"))
         );
     }
 
@@ -417,16 +398,4 @@ public class SqlitePageRepository implements PageRepository {
         return pages;
     }
 
-    private List<String> loadTags(Connection conn, UUID pageId) throws SQLException {
-        List<String> tags = new ArrayList<>();
-        try (PreparedStatement ps = conn.prepareStatement("SELECT tag FROM page_tags WHERE page_id = ?")) {
-            ps.setString(1, pageId.toString());
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    tags.add(rs.getString("tag"));
-                }
-            }
-        }
-        return tags;
-    }
 }

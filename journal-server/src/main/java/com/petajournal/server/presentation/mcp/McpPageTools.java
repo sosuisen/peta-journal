@@ -5,7 +5,6 @@ import io.quarkiverse.mcp.server.Tool;
 import io.quarkiverse.mcp.server.ToolArg;
 import jakarta.inject.Inject;
 
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -30,11 +29,9 @@ public class McpPageTools {
     @Tool(description = "Get or create a document page by title. Returns the page and its items. If the page does not exist, it is created with an empty item.")
     String get_or_create_doc(
             @ToolArg(description = "Title of the document (used as file name)") String title,
-            @ToolArg(description = "Directory path (e.g. 'projects/'). Empty string for root.") String dirPath,
-            @ToolArg(description = "Comma-separated tags (e.g. 'tag1,tag2'). Empty string for no tags.") String tags
+            @ToolArg(description = "Directory path (e.g. 'projects/'). Empty string for root.") String dirPath
     ) {
-        List<String> tagList = (tags == null || tags.isEmpty()) ? List.of() : List.of(tags.split(","));
-        var result = pageService.getOrCreateDoc(title, dirPath, tagList);
+        var result = pageService.getOrCreateDoc(title, dirPath);
         return jsonHelper.toJson(Map.of(
                 "page", result.page(),
                 "items", result.items(),
@@ -42,17 +39,15 @@ public class McpPageTools {
         ));
     }
 
-    @Tool(description = "Update a page's title, tags, or directory path")
+    @Tool(description = "Update a page's title or directory path")
     String update_page(
             @ToolArg(description = "UUID of the page") String pageId,
             @ToolArg(description = "New title (null to keep current)") String title,
-            @ToolArg(description = "Comma-separated tags (null to keep current)") String tags,
             @ToolArg(description = "New directory path (null to keep current)") String dirPath
     ) {
-        List<String> tagList = (tags == null || tags.isEmpty()) ? null : List.of(tags.split(","));
         String t = (title == null || title.isEmpty()) ? null : title;
         String d = (dirPath == null) ? null : dirPath;
-        var page = pageService.updatePage(UUID.fromString(pageId), t, tagList, d);
+        var page = pageService.updatePage(UUID.fromString(pageId), t, d);
         return jsonHelper.toJson(Map.of("page", page));
     }
 

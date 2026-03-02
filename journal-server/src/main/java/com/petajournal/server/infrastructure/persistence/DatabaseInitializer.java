@@ -26,6 +26,9 @@ public class DatabaseInitializer {
             stmt.execute("PRAGMA journal_mode=WAL");
             stmt.execute("PRAGMA foreign_keys=ON");
 
+            // Drop removed tables
+            stmt.execute("DROP TABLE IF EXISTS page_tags");
+
             stmt.execute("""
                 CREATE TABLE IF NOT EXISTS pages (
                     id TEXT PRIMARY KEY,
@@ -35,15 +38,6 @@ public class DatabaseInitializer {
                     type TEXT NOT NULL DEFAULT 'doc',
                     created_date INTEGER NOT NULL,
                     modified_date INTEGER NOT NULL
-                )
-                """);
-
-            stmt.execute("""
-                CREATE TABLE IF NOT EXISTS page_tags (
-                    page_id TEXT NOT NULL,
-                    tag TEXT NOT NULL,
-                    PRIMARY KEY (page_id, tag),
-                    FOREIGN KEY (page_id) REFERENCES pages(id) ON DELETE CASCADE
                 )
                 """);
 

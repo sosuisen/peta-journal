@@ -119,12 +119,6 @@ public class MarkdownExportService {
         sb.append("id: ").append(page.id()).append("\n");
         sb.append("created: ").append(page.createdDate()).append("\n");
         sb.append("modified: ").append(page.modifiedDate()).append("\n");
-        if (page.tags() != null && !page.tags().isEmpty()) {
-            sb.append("tags:\n");
-            for (String tag : page.tags()) {
-                sb.append("  - ").append(tag).append("\n");
-            }
-        }
         sb.append("---\n\n");
     }
 

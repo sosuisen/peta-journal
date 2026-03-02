@@ -30,9 +30,9 @@ public class PagesResource {
     // --- Response records ---
 
     record GetPageByIdResponse(PageDto page, List<ItemDto> items) {}
-    record GetOrCreateDocRequest(String title, String dirPath, List<String> tags) {}
+    record GetOrCreateDocRequest(String title, String dirPath) {}
     record GetOrCreateDocResponse(PageDto page, List<ItemDto> items, boolean created) {}
-    record UpdatePageRequest(String title, List<String> tags, String dirPath) {}
+    record UpdatePageRequest(String title, String dirPath) {}
     record UpdatePageResponse(PageDto page) {}
     record GetRecentPagesResponse(List<PageDto> pages) {}
     record GetBacklinksResponse(List<BacklinkEntryDto> entries) {}
@@ -53,7 +53,7 @@ public class PagesResource {
     @POST
     @Path("/doc")
     public GetOrCreateDocResponse getOrCreateDoc(GetOrCreateDocRequest req) {
-        var result = pageService.getOrCreateDoc(req.title(), req.dirPath(), req.tags());
+        var result = pageService.getOrCreateDoc(req.title(), req.dirPath());
         return new GetOrCreateDocResponse(
                 DtoMapper.toDto(result.page()),
                 result.items().stream().map(DtoMapper::toDto).toList(),
@@ -66,7 +66,6 @@ public class PagesResource {
         var page = pageService.updatePage(
                 UUID.fromString(id),
                 req.title(),
-                req.tags(),
                 req.dirPath());
         sseBroadcaster.broadcastPagesUpdated(id);
         return new UpdatePageResponse(DtoMapper.toDto(page));

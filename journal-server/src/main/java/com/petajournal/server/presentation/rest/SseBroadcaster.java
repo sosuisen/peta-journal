@@ -1,9 +1,8 @@
 package com.petajournal.server.presentation.rest;
 
+import io.smallrye.mutiny.Multi;
+import io.smallrye.mutiny.subscription.MultiEmitter;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.ws.rs.sse.OutboundSseEvent;
-import jakarta.ws.rs.sse.Sse;
-import jakarta.ws.rs.sse.SseEventSink;
 import org.jboss.logging.Logger;
 
 import java.util.List;
@@ -14,32 +13,32 @@ public class SseBroadcaster {
 
     private static final Logger LOG = Logger.getLogger(SseBroadcaster.class);
 
-    private final List<SseClient> clients = new CopyOnWriteArrayList<>();
+    private final List<MultiEmitter<? super String>> emitters = new CopyOnWriteArrayList<>();
 
-    record SseClient(SseEventSink sink, Sse sse) {}
-
-    public void register(SseEventSink sink, Sse sse) {
-        clients.add(new SseClient(sink, sse));
-        clients.removeIf(c -> c.sink().isClosed());
-    }
-
-    public void broadcast(String eventType, String data) {
-        clients.removeIf(c -> c.sink().isClosed());
-        for (var client : clients) {
-            try {
-                OutboundSseEvent event = client.sse().newEventBuilder()
-                        .name(eventType)
-                        .data(data)
-                        .mediaType(jakarta.ws.rs.core.MediaType.APPLICATION_JSON_TYPE)
-                        .build();
-                client.sink().send(event);
-            } catch (Exception e) {
-                LOG.debugv("Failed to send SSE event: {0}", e.getMessage());
-            }
-        }
+    /**
+     * Returns a reactive Multi for SSE subscribers.
+     * Sends an initial "connected" event, then broadcasts.
+     * Non-blocking — does not hold a worker thread.
+     */
+    public Multi<String> getEventStream() {
+        Multi<String> events = Multi.createFrom().<String>emitter(emitter -> {
+            emitters.add(emitter);
+            emitter.onTermination(() -> emitters.remove(emitter));
+        });
+        return Multi.createBy().concatenating().streams(
+                Multi.createFrom().item("{\"type\":\"connected\"}"),
+                events
+        );
     }
 
     public void broadcastPagesUpdated(String pageId) {
-        broadcast("pagesUpdated", "{\"pageId\":\"" + pageId + "\"}");
+        String json = "{\"type\":\"pagesUpdated\",\"pageId\":\"" + pageId + "\"}";
+        for (var emitter : emitters) {
+            try {
+                emitter.emit(json);
+            } catch (Exception e) {
+                LOG.debugv("Failed to broadcast SSE event: {0}", e.getMessage());
+            }
+        }
     }
 }

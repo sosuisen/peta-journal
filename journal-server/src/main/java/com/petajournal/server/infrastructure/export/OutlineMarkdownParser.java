@@ -66,16 +66,7 @@ public class OutlineMarkdownParser {
         Instant created = fm.containsKey("created") ? Instant.parse(fm.get("created")) : now;
         Instant modified = fm.containsKey("modified") ? Instant.parse(fm.get("modified")) : now;
 
-        List<String> tags = new ArrayList<>();
-        if (fm.containsKey("tags")) {
-            // Tags are stored as "tag1,tag2" in simplified frontmatter
-            for (String tag : fm.get("tags").split(",")) {
-                String t = tag.trim();
-                if (!t.isEmpty()) tags.add(t);
-            }
-        }
-
-        return new Page(id, null, dirPath, name, type, created, modified, tags);
+        return new Page(id, null, dirPath, name, type, created, modified);
     }
 
     public List<Item> toItems(ParseResult result, UUID pageId, String dirPath, String name, String type) {

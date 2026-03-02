@@ -365,8 +365,7 @@ public class ItemService {
         pageRepository.findById(pageId).ifPresent(page -> {
             Page updated = new Page(
                     page.id(), page.parentId(), page.dirPath(), page.name(), page.type(),
-                    page.createdDate(), Instant.now(),
-                    page.tags()
+                    page.createdDate(), Instant.now()
             );
             pageRepository.save(updated);
         });

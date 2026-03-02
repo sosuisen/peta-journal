@@ -91,7 +91,6 @@ public class JournalApiService : IDisposable
             using var stream = await response.Content.ReadAsStreamAsync(ct);
             using var reader = new StreamReader(stream);
 
-            string? eventType = null;
             string? data = null;
 
             while (!ct.IsCancellationRequested)
@@ -99,19 +98,14 @@ public class JournalApiService : IDisposable
                 var line = await reader.ReadLineAsync(ct);
                 if (line == null) break; // stream ended
 
-                if (line.StartsWith("event:"))
-                {
-                    eventType = line["event:".Length..].Trim();
-                }
-                else if (line.StartsWith("data:"))
+                if (line.StartsWith("data:"))
                 {
                     data = line["data:".Length..].Trim();
                 }
-                else if (line.Length == 0 && eventType != null)
+                else if (line.Length == 0 && data != null)
                 {
-                    // End of event
-                    HandleSseEvent(eventType, data);
-                    eventType = null;
+                    // End of event — extract type from JSON data
+                    HandleSseData(data);
                     data = null;
                 }
             }
@@ -136,20 +130,20 @@ public class JournalApiService : IDisposable
         }
     }
 
-    private void HandleSseEvent(string eventType, string? data)
+    private void HandleSseData(string data)
     {
-        if (eventType == "pagesUpdated" && data != null)
+        try
         {
-            try
+            var json = JsonSerializer.Deserialize<JsonElement>(data);
+            if (!json.TryGetProperty("type", out var typeEl)) return;
+            var eventType = typeEl.GetString();
+
+            if (eventType == "pagesUpdated" && json.TryGetProperty("pageId", out var pageIdEl))
             {
-                var json = JsonSerializer.Deserialize<JsonElement>(data);
-                if (json.TryGetProperty("pageId", out var pageIdEl))
-                {
-                    PageUpdated?.Invoke(pageIdEl.GetString() ?? "");
-                }
+                PageUpdated?.Invoke(pageIdEl.GetString() ?? "");
             }
-            catch { }
         }
+        catch { }
     }
 
     public async Task DisconnectAsync()

@@ -28,14 +28,16 @@ export class SseService implements OnDestroy {
       this.reconnectAttempts = 0;
     };
 
-    this.eventSource.addEventListener('pagesUpdated', (event: MessageEvent) => {
+    this.eventSource.onmessage = (event: MessageEvent) => {
       try {
         const data = JSON.parse(event.data);
-        this._pagesUpdated$.next(data);
+        if (data.type === 'pagesUpdated') {
+          this._pagesUpdated$.next(data);
+        }
       } catch {
         // ignore parse errors
       }
-    });
+    };
 
     this.eventSource.onerror = () => {
       this._connectionState.set('error');

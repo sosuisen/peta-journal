@@ -53,14 +53,16 @@ export function connect(): Promise<void> {
       resolve();
     };
 
-    eventSource.addEventListener('pagesUpdated', (event: MessageEvent) => {
+    eventSource.onmessage = (event: MessageEvent) => {
       try {
         const data = JSON.parse(event.data);
-        serverEventCallback?.(data);
+        if (data.type === 'pagesUpdated') {
+          serverEventCallback?.(data);
+        }
       } catch {
         // ignore parse errors
       }
-    });
+    };
 
     eventSource.onerror = () => {
       stateCallback?.('error');

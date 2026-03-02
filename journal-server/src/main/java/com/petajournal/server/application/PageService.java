@@ -63,12 +63,11 @@ public class PageService {
      *
      * @param title   the document title (used as file name)
      * @param dirPath the directory path (e.g. {@code "projects/"})
-     * @param tags    optional tags for the page
      * @return the page with its items and whether it was newly created
      * @throws IllegalArgumentException if the title is invalid or uses a
      *                                  journal-type name
      */
-    public DocResult getOrCreateDoc(String title, String dirPath, List<String> tags) {
+    public DocResult getOrCreateDoc(String title, String dirPath) {
         // Validate: reject empty or whitespace-only titles
         if (title == null || title.trim().isEmpty()) {
             throw new IllegalArgumentException("Page title cannot be empty or whitespace-only");
@@ -113,7 +112,7 @@ public class PageService {
         UUID id = UUID.randomUUID();
         Instant now = Instant.now();
 
-        Page page = new Page(id, null, dir, fileName, "doc", now, now, tags != null ? tags : List.of());
+        Page page = new Page(id, null, dir, fileName, "doc", now, now);
         page = pageRepository.save(page);
         searchService.indexPage(page);
 
@@ -134,13 +133,12 @@ public class PageService {
      *
      * @param pageId         the page to update
      * @param title          new title, or {@code null} to keep current
-     * @param tags           new tags, or {@code null} to keep current
      * @param dirPath        new directory path, or {@code null} to keep current
      * @return the updated page
      * @throws IllegalArgumentException if the page is not found or the title is
      *                                  invalid
      */
-    public Page updatePage(UUID pageId, String title, List<String> tags, String dirPath) {
+    public Page updatePage(UUID pageId, String title, String dirPath) {
         Page existing = pageRepository.findById(pageId)
                 .orElseThrow(() -> new IllegalArgumentException("Page not found: " + pageId));
 
@@ -168,8 +166,7 @@ public class PageService {
                 fileName,
                 existing.type(),
                 existing.createdDate(),
-                Instant.now(),
-                tags != null ? tags : existing.tags());
+                Instant.now());
 
         updated = pageRepository.save(updated);
         searchService.indexPage(updated);
@@ -250,7 +247,7 @@ public class PageService {
             if (existing.isEmpty()) {
                 UUID id = UUID.randomUUID();
                 Instant now = Instant.now();
-                Page page = new Page(id, null, indexDir, "index", "doc", now, now, List.of());
+                Page page = new Page(id, null, indexDir, "index", "doc", now, now);
                 pageRepository.save(page);
                 searchService.indexPage(page);
 
