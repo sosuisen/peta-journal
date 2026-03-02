@@ -200,6 +200,10 @@ export class PageComponent {
     if (p.type === 'journal') {
       return formatJournalDate(p.name);
     }
+    if (p.name === 'index' && p.dirPath) {
+      const segments = p.dirPath.replace(/\/$/, '').split('/');
+      return segments[segments.length - 1] + '/';
+    }
     return p.name;
   }
 
