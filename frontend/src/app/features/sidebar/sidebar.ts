@@ -4,14 +4,13 @@ import { CurrentPageService } from '../../core/services/current-page.service';
 import { ApiService } from '../../core/services/api.service';
 import { Page } from '../../core/models/page.model';
 import { CalendarComponent } from '../../shared/calendar';
-import { BookmarksSidebarComponent } from './bookmarks-sidebar';
 import { formatJournalDate, formatDateToIso } from '../../core/utils/date.utils';
 import { Router } from '@angular/router';
 import { NavigationService } from '../../core/services/navigation.service';
 
 @Component({
   selector: 'app-sidebar',
-  imports: [CalendarComponent, BookmarksSidebarComponent],
+  imports: [CalendarComponent],
   template: `
     <nav class="sidebar">
       <div class="sidebar-content">
@@ -61,9 +60,6 @@ import { NavigationService } from '../../core/services/navigation.service';
           }
         </div>
 
-        <div class="sidebar-section">
-          <app-bookmarks-sidebar />
-        </div>
       </div>
 
       <div class="sidebar-footer">

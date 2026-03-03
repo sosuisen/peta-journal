@@ -1,6 +1,5 @@
 import { Injectable } from '@angular/core';
 import { Item } from '../models/item.model';
-import { Bookmark, BookmarkGroup } from '../models/bookmark.model';
 import { Page } from '../models/page.model';
 import { SearchResult } from '../models/search.model';
 
@@ -13,8 +12,6 @@ interface SearchFullTextResult { results: SearchResult[]; totalHits: number }
 interface GetRecentPagesResult { pages: Page[] }
 interface BacklinkEntry { sourcePage: Page; sourceItem: Item }
 interface GetBacklinksResult { entries: BacklinkEntry[] }
-interface GetBookmarksResult { groups: BookmarkGroup[]; bookmarks: Bookmark[] }
-
 async function json<T>(resp: Response): Promise<T> {
   if (!resp.ok) {
     const text = await resp.text().catch(() => '');
@@ -190,71 +187,6 @@ export class ApiService {
       body: JSON.stringify({ treeMarkdown }),
     });
     return json(resp);
-  }
-
-  async getBookmarks(): Promise<GetBookmarksResult> {
-    const resp = await fetch('/api/bookmarks');
-    return json(resp);
-  }
-
-  async createBookmarkGroup(name: string): Promise<BookmarkGroup> {
-    const resp = await fetch('/api/bookmarks/groups', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name }),
-    });
-    const data = await json<{ group: BookmarkGroup }>(resp);
-    return data.group;
-  }
-
-  async createBookmark(groupId: string, targetType: string, targetId: string): Promise<Bookmark> {
-    const resp = await fetch('/api/bookmarks', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ groupId, targetType, targetId }),
-    });
-    const data = await json<{ bookmark: Bookmark }>(resp);
-    return data.bookmark;
-  }
-
-  async deleteBookmark(bookmarkId: string): Promise<void> {
-    const resp = await fetch(`/api/bookmarks/${bookmarkId}`, { method: 'DELETE' });
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-  }
-
-  async deleteBookmarkGroup(groupId: string): Promise<void> {
-    const resp = await fetch(`/api/bookmarks/groups/${groupId}`, { method: 'DELETE' });
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-  }
-
-  async moveBookmark(bookmarkId: string, targetGroupId: string, afterBookmarkId: string): Promise<Bookmark> {
-    const resp = await fetch('/api/bookmarks/move', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bookmarkId, targetGroupId, afterBookmarkId }),
-    });
-    const data = await json<{ bookmark: Bookmark }>(resp);
-    return data.bookmark;
-  }
-
-  async moveBookmarkGroup(groupId: string, afterGroupId: string): Promise<BookmarkGroup> {
-    const resp = await fetch('/api/bookmarks/groups/move', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ groupId, afterGroupId }),
-    });
-    const data = await json<{ group: BookmarkGroup }>(resp);
-    return data.group;
-  }
-
-  async updateBookmarkGroup(groupId: string, name: string): Promise<BookmarkGroup> {
-    const resp = await fetch(`/api/bookmarks/groups/${groupId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name }),
-    });
-    const data = await json<{ group: BookmarkGroup }>(resp);
-    return data.group;
   }
 
   async getChildPages(parentId: string): Promise<Page[]> {

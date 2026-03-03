@@ -2,8 +2,6 @@ package com.petajournal.server.presentation.rest.dto;
 
 import com.petajournal.server.domain.model.BacklinkEntry;
 import com.petajournal.server.domain.model.Item;
-import com.petajournal.server.domain.model.Bookmark;
-import com.petajournal.server.domain.model.BookmarkGroup;
 import com.petajournal.server.domain.model.Page;
 import com.petajournal.server.domain.model.SearchResult;
 
@@ -85,25 +83,6 @@ public final class DtoMapper {
                 result.itemId() != null ? result.itemId() : "",
                 result.snippet() != null ? result.snippet() : "",
                 result.score());
-    }
-
-    public static BookmarkGroupDto toDto(BookmarkGroup group) {
-        return new BookmarkGroupDto(
-                group.id().toString(),
-                group.name(),
-                group.sortOrder(),
-                group.createdAt().toEpochMilli());
-    }
-
-    public static BookmarkDto toDto(Bookmark bookmark) {
-        return new BookmarkDto(
-                bookmark.id().toString(),
-                bookmark.groupId().toString(),
-                bookmark.targetType(),
-                bookmark.targetId(),
-                bookmark.sortOrder(),
-                bookmark.createdAt().toEpochMilli(),
-                bookmark.targetPage() != null ? toDto(bookmark.targetPage()) : null);
     }
 
     public static BacklinkEntryDto toDto(BacklinkEntry entry) {

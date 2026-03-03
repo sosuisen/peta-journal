@@ -29,6 +29,8 @@ public class DatabaseInitializer {
 
             // Drop removed tables
             stmt.execute("DROP TABLE IF EXISTS page_tags");
+            stmt.execute("DROP TABLE IF EXISTS bookmarks");
+            stmt.execute("DROP TABLE IF EXISTS bookmark_groups");
 
             stmt.execute("""
                 CREATE TABLE IF NOT EXISTS pages (
@@ -76,27 +78,6 @@ public class DatabaseInitializer {
                 """);
 
             stmt.execute("""
-                CREATE TABLE IF NOT EXISTS bookmark_groups (
-                    id TEXT PRIMARY KEY,
-                    name TEXT NOT NULL DEFAULT '',
-                    sort_order TEXT NOT NULL,
-                    created_at INTEGER NOT NULL
-                )
-                """);
-
-            stmt.execute("""
-                CREATE TABLE IF NOT EXISTS bookmarks (
-                    id TEXT PRIMARY KEY,
-                    group_id TEXT NOT NULL REFERENCES bookmark_groups(id) ON DELETE CASCADE,
-                    target_type TEXT NOT NULL CHECK(target_type IN ('item', 'page')),
-                    target_id TEXT NOT NULL,
-                    sort_order TEXT NOT NULL,
-                    created_at INTEGER NOT NULL,
-                    UNIQUE(target_type, target_id)
-                )
-                """);
-
-            stmt.execute("""
                 CREATE TABLE IF NOT EXISTS property_definitions (
                     key TEXT PRIMARY KEY,
                     value_type TEXT NOT NULL CHECK(value_type IN (
@@ -134,8 +115,6 @@ public class DatabaseInitializer {
             stmt.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_items_page_id_idx ON items(page_id, idx)");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_items_parent_id ON items(parent_id)");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_items_body ON items(body)");
-            stmt.execute("CREATE INDEX IF NOT EXISTS idx_bookmark_groups_sort ON bookmark_groups(sort_order)");
-            stmt.execute("CREATE INDEX IF NOT EXISTS idx_bookmarks_group_sort ON bookmarks(group_id, sort_order)");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_props_key_text ON properties(key, value_text)");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_props_key_number ON properties(key, value_number)");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_pli_target ON property_list_items(target_type, target_id, key, sort_order)");
