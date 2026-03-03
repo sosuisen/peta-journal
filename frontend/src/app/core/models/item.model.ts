@@ -11,7 +11,6 @@ export interface Item {
   body: string;
   html: string;
   collapsed: boolean;
-  status: string;  // normal, todo, running, done
   types: string[];
   properties: Record<string, string | string[]>;
 }

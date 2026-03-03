@@ -52,7 +52,7 @@ public class ImportService {
                     item.id(), item.pageId(), item.parentItemId(), item.dirPath(), item.name(), item.type(),
                     item.createdDate(), item.modifiedDate(),
                     item.idx(), item.level(), item.body(), html,
-                    item.collapsed(), item.status(), item.types()
+                    item.collapsed(), item.types()
             );
             itemRepository.save(withHtml);
             searchService.indexItem(withHtml, page.dirPath() + page.name());

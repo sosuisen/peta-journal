@@ -21,7 +21,7 @@ public interface ItemRepository {
 
     List<Item> findByPageIdContainingLink(String pageTitle);
 
-    List<Item> findByStatuses(List<String> statuses);
+    List<Item> findByTypes(List<String> types);
 
     void updateIndex(UUID itemId, String newIdx);
 

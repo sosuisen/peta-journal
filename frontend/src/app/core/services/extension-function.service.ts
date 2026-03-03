@@ -59,7 +59,7 @@ export class ExtensionFunctionService {
   }
 
   private async handleCreateItem(
-    data: { pageId: string; afterItemId: string; level: number; body: string; status?: string; requestId?: string },
+    data: { pageId: string; afterItemId: string; level: number; body: string; requestId?: string },
     source: Window | null
   ): Promise<void> {
     try {
@@ -83,12 +83,6 @@ export class ExtensionFunctionService {
 
       const newItem = await this.api.createItem(pageId, afterItemId || (prevItem?.id ?? ''), level, body);
       this.outlineState.addItem(newItem, afterItemId || (prevItem?.id ?? ''));
-
-      // Set status if provided
-      if (data.status && data.status !== 'normal') {
-        const updated = await this.api.updateItemStatus(newItem.id, data.status);
-        this.outlineState.updateItem(newItem.id, { status: updated.status });
-      }
 
       // Send result back to iframe
       if (source) {

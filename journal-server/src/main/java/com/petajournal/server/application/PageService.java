@@ -119,7 +119,7 @@ public class PageService {
         // Create initial empty item
         UUID itemId = ItemIdGenerator.generate();
         Item item = new Item(itemId, id, null, page.dirPath(), page.name(), page.type(), now, now,
-                FractionalIndexer.initial(), 1, "", "", false, "normal", List.of());
+                FractionalIndexer.initial(), 1, "", "", false, List.of());
         itemRepository.save(item);
 
         // Queue for export
@@ -253,7 +253,7 @@ public class PageService {
 
                 UUID itemId = ItemIdGenerator.generate();
                 Item item = new Item(itemId, id, null, indexDir, "index", "doc", now, now,
-                        FractionalIndexer.initial(), 1, "", "", false, "normal", List.of());
+                        FractionalIndexer.initial(), 1, "", "", false, List.of());
                 itemRepository.save(item);
             }
         }

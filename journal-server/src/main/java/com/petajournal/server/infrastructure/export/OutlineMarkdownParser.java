@@ -32,7 +32,6 @@ public class OutlineMarkdownParser {
         String body,
         boolean collapsed,
         List<String> types,
-        String status,
         Map<String, String> properties
     ) {}
 
@@ -91,7 +90,7 @@ public class OutlineMarkdownParser {
             items.add(new Item(
                     itemId, pageId, null, dirPath, name, type, now, now, idx,
                     pb.level(), pb.body(), "",
-                    pb.collapsed(), pb.status(), pb.types()
+                    pb.collapsed(), pb.types()
             ));
             prevIdx = idx;
         }
@@ -235,7 +234,6 @@ public class OutlineMarkdownParser {
         }
 
         // Detect task type from GFM checkbox prefix
-        String status = "normal";
         boolean isTask = false;
         if (body.startsWith("- [ ] ")) {
             isTask = true;
@@ -253,6 +251,6 @@ public class OutlineMarkdownParser {
         if (trimmed.startsWith("```")) types.add("code");
         if (trimmed.startsWith(">")) types.add("blockquote");
 
-        return new ParsedItem(id, level, body, collapsed, types, status, properties);
+        return new ParsedItem(id, level, body, collapsed, types, properties);
     }
 }

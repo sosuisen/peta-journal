@@ -18,6 +18,5 @@ public record Item(
     String body,         // Markdown source text
     String html,         // Parsed HTML
     boolean collapsed,
-    String status,       // Item status: normal, todo, running, done
     List<String> types   // Item types (e.g. "heading", "code")
 ) {}

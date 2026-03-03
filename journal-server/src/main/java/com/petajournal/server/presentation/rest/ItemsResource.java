@@ -32,13 +32,11 @@ public class ItemsResource {
 
     record CreateItemRequest(String pageId, String afterItemId, int level, String body, String id) {}
     record CreateItemResponse(ItemDto item) {}
-    record UpdateItemRequest(String body, Integer level, Boolean collapsed, String status) {}
+    record UpdateItemRequest(String body, Integer level, Boolean collapsed) {}
     record UpdateItemResponse(ItemDto item) {}
-    record UpdateItemStatusRequest(String status) {}
-    record UpdateItemStatusResponse(ItemDto item) {}
     record MoveItemsRequest(List<String> itemIds, String targetPageId, String afterItemId, Integer levelDelta) {}
     record MoveItemsResponse(List<ItemDto> items) {}
-    record GetItemsByStatusResponse(List<ItemDto> items) {}
+    record GetItemsByTypesResponse(List<ItemDto> items) {}
     record CycleTaskResponse(ItemDto item) {}
     record ExportTreeMarkdownRequest(List<String> itemIds) {}
     record ExportTreeMarkdownResponse(String treeMarkdown, String html, String flatMarkdown) {}
@@ -67,8 +65,7 @@ public class ItemsResource {
                 UUID.fromString(id),
                 req.body(),
                 req.level(),
-                req.collapsed(),
-                req.status());
+                req.collapsed());
         sseBroadcaster.broadcastPagesUpdated(item.pageId().toString());
         return new UpdateItemResponse(DtoMapper.toDto(item));
     }
@@ -83,12 +80,13 @@ public class ItemsResource {
         }
     }
 
-    @PUT
-    @Path("/{id}/status")
-    public UpdateItemStatusResponse updateItemStatus(@PathParam("id") String id, UpdateItemStatusRequest req) {
-        var item = itemService.updateItemStatus(UUID.fromString(id), req.status());
-        sseBroadcaster.broadcastPagesUpdated(item.pageId().toString());
-        return new UpdateItemStatusResponse(DtoMapper.toDto(item));
+    @GET
+    public GetItemsByTypesResponse getItemsByTypes(@QueryParam("types") String types) {
+        List<String> typeList = (types != null && !types.isEmpty())
+                ? Arrays.asList(types.split(","))
+                : List.of();
+        var items = itemService.getItemsByTypes(typeList);
+        return new GetItemsByTypesResponse(loadItemDtos(items));
     }
 
     @POST
@@ -111,15 +109,6 @@ public class ItemsResource {
                 req.levelDelta());
         sseBroadcaster.broadcastPagesUpdated(req.targetPageId());
         return new MoveItemsResponse(loadItemDtos(items));
-    }
-
-    @GET
-    public GetItemsByStatusResponse getItemsByStatus(@QueryParam("statuses") String statuses) {
-        List<String> statusList = (statuses != null && !statuses.isEmpty())
-                ? Arrays.asList(statuses.split(","))
-                : List.of();
-        var items = itemService.getItemsByStatuses(statusList);
-        return new GetItemsByStatusResponse(loadItemDtos(items));
     }
 
     @POST

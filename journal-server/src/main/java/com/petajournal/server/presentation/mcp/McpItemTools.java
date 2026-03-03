@@ -34,18 +34,16 @@ public class McpItemTools {
         return jsonHelper.toJson(Map.of("item", item));
     }
 
-    @Tool(description = "Update an existing item's body, level, collapsed state, or status. Only non-null fields are updated.")
+    @Tool(description = "Update an existing item's body, level, or collapsed state. Only non-null fields are updated.")
     String update_item(
             @ToolArg(description = "UUID of the item") String itemId,
             @ToolArg(description = "New markdown body (null to keep current)") String body,
             @ToolArg(description = "New indentation level, or -1 to keep current") int level,
-            @ToolArg(description = "New collapsed state: 'true', 'false', or 'null' to keep current") String collapsed,
-            @ToolArg(description = "New status: 'normal', 'todo', 'running', 'done', or 'null' to keep current") String status
+            @ToolArg(description = "New collapsed state: 'true', 'false', or 'null' to keep current") String collapsed
     ) {
         Integer lvl = (level < 1) ? null : level;
         Boolean col = "null".equals(collapsed) ? null : Boolean.parseBoolean(collapsed);
-        String st = "null".equals(status) ? null : status;
-        var item = itemService.updateItem(UUID.fromString(itemId), body, lvl, col, st);
+        var item = itemService.updateItem(UUID.fromString(itemId), body, lvl, col);
         return jsonHelper.toJson(Map.of("item", item));
     }
 
@@ -70,21 +68,12 @@ public class McpItemTools {
         return jsonHelper.toJson(Map.of("items", items));
     }
 
-    @Tool(description = "Update an item's status (normal, todo, running, done)")
-    String update_item_status(
-            @ToolArg(description = "UUID of the item") String itemId,
-            @ToolArg(description = "New status: 'normal', 'todo', 'running', or 'done'") String status
+    @Tool(description = "Get all items with the specified types (e.g. all 'task' items)")
+    String get_items_by_type(
+            @ToolArg(description = "Comma-separated types to filter by (e.g. 'task')") String types
     ) {
-        var item = itemService.updateItemStatus(UUID.fromString(itemId), status);
-        return jsonHelper.toJson(Map.of("item", item));
-    }
-
-    @Tool(description = "Get all items with the specified statuses (e.g. all 'todo' and 'running' items)")
-    String get_items_by_status(
-            @ToolArg(description = "Comma-separated statuses to filter by (e.g. 'todo,running')") String statuses
-    ) {
-        List<String> statusList = List.of(statuses.split(","));
-        var items = itemService.getItemsByStatuses(statusList);
+        List<String> typeList = List.of(types.split(","));
+        var items = itemService.getItemsByTypes(typeList);
         return jsonHelper.toJson(Map.of("items", items));
     }
 

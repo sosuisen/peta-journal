@@ -74,12 +74,11 @@ public class ItemService {
         }
 
         List<String> types = detectItemTypes(body);
-        String status = "normal";  // Default status
 
         // Get page to get dir_path and name
         Page page = pageRepository.findById(pageId).orElseThrow(() -> new IllegalArgumentException("Page not found: " + pageId));
 
-        Item item = new Item(id, pageId, null, page.dirPath(), page.name(), page.type(), now, now, idx, level, body, html, false, status, types);
+        Item item = new Item(id, pageId, null, page.dirPath(), page.name(), page.type(), now, now, idx, level, body, html, false, types);
         item = itemRepository.save(item);
 
         // Recalculate parent_id for all items on this page
@@ -105,11 +104,10 @@ public class ItemService {
      * @param body           new markdown body, or {@code null} to keep current
      * @param level          new indentation level, or {@code null} to keep current
      * @param collapsed      new collapsed state, or {@code null} to keep current
-     * @param status         new status, or {@code null} to keep current
      * @return the updated item
      * @throws IllegalArgumentException if the item is not found
      */
-    public Item updateItem(UUID itemId, String body, Integer level, Boolean collapsed, String status) {
+    public Item updateItem(UUID itemId, String body, Integer level, Boolean collapsed) {
         Item existing = itemRepository.findById(itemId)
                 .orElseThrow(() -> new IllegalArgumentException("Item not found: " + itemId));
 
@@ -117,7 +115,6 @@ public class ItemService {
         String newHtml = body != null ? parseBody(body) : existing.html();
         int newLevel = level != null ? level : existing.level();
         boolean newCollapsed = collapsed != null ? collapsed : existing.collapsed();
-        String newStatus = status != null ? status : existing.status();
         List<String> types = body != null ? detectItemTypes(body) : existing.types();
         if (body != null && existing.types().contains("task") && !types.contains("task")) {
             types = new ArrayList<>(types);
@@ -138,7 +135,6 @@ public class ItemService {
                 newBody,
                 newHtml,
                 newCollapsed,
-                newStatus,
                 types
         );
 
@@ -222,7 +218,6 @@ public class ItemService {
                     item.body(),
                     item.html(),
                     item.collapsed(),
-                    item.status(),
                     item.types()
             );
 
@@ -266,9 +261,9 @@ public class ItemService {
         });
     }
 
-    /** Returns all items matching the given statuses. */
-    public List<Item> getItemsByStatuses(List<String> statuses) {
-        return itemRepository.findByStatuses(statuses);
+    /** Returns all items matching the given types. */
+    public List<Item> getItemsByTypes(List<String> types) {
+        return itemRepository.findByTypes(types);
     }
 
     /**
@@ -284,26 +279,11 @@ public class ItemService {
     }
 
     /**
-     * Updates the status of an item.
-     *
-     * @param itemId the item to update
-     * @param status  the new status ({@code normal}, {@code todo}, {@code running}, or {@code done})
-     * @return the updated item
-     * @throws IllegalArgumentException if the status is invalid or the item is not found
-     */
-    public Item updateItemStatus(UUID itemId, String status) {
-        if (!List.of("normal", "todo", "running", "done").contains(status)) {
-            throw new IllegalArgumentException("Invalid status: " + status);
-        }
-        return updateItem(itemId, null, null, null, status);
-    }
-
-    /**
      * Cycles the task state of an item:
      * 1. Not a task → add "task" to types, remove begin/end
      * 2. Task, no begin, no end → set begin = now
      * 3. Task, has begin, no end → set end = now
-     * 4. Task, has begin AND end → remove "task" from types, remove begin/end
+     * 4. Task, has begin AND end → remove begin/end (back to TODO, task stays)
      */
     public Item cycleTask(UUID itemId) {
         Item existing = itemRepository.findById(itemId)
@@ -325,7 +305,7 @@ public class ItemService {
                     existing.dirPath(), existing.name(), existing.type(),
                     existing.createdDate(), Instant.now(), existing.idx(),
                     existing.level(), existing.body(), existing.html(),
-                    existing.collapsed(), existing.status(), newTypes);
+                    existing.collapsed(), newTypes);
             itemRepository.save(updated);
             propertyRepository.deleteProperty("item", id, "begin");
             propertyRepository.deleteProperty("item", id, "end");
@@ -347,21 +327,12 @@ public class ItemService {
             exportService.queueExport(existing.pageId());
             return existing;
         } else {
-            // State 4: Task, has begin AND end → remove task
-            List<String> newTypes = new ArrayList<>(existing.types());
-            newTypes.remove("task");
-            Item updated = new Item(
-                    existing.id(), existing.pageId(), existing.parentItemId(),
-                    existing.dirPath(), existing.name(), existing.type(),
-                    existing.createdDate(), Instant.now(), existing.idx(),
-                    existing.level(), existing.body(), existing.html(),
-                    existing.collapsed(), existing.status(), newTypes);
-            itemRepository.save(updated);
+            // State 4: Task, has begin AND end → back to TODO (remove begin/end, keep task)
             propertyRepository.deleteProperty("item", id, "begin");
             propertyRepository.deleteProperty("item", id, "end");
             touchPage(existing.pageId());
             exportService.queueExport(existing.pageId());
-            return updated;
+            return existing;
         }
     }
 

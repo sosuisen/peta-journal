@@ -34,7 +34,6 @@ import { ItemViewComponent } from './item-view';
             #editor
             [body]="item().body"
             [itemId]="item().id"
-            [status]="item().status"
             [types]="item().types"
             [properties]="item().properties"
             [suggestionsVisible]="suggestionsVisible()"
@@ -66,7 +65,6 @@ import { ItemViewComponent } from './item-view';
         } @else {
           <app-item-view
             [html]="item().html"
-            [status]="item().status"
             [types]="item().types"
             [properties]="item().properties"
             (clicked)="editRequested.emit($event)"

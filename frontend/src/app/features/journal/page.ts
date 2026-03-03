@@ -207,6 +207,19 @@ export class PageComponent {
     return p.name;
   }
 
+  /** Full dir_path + name for browser <title>. Index pages show "dir_path/" only. */
+  fullPageTitle(): string {
+    const p = this.page();
+    if (!p) return '';
+    if (p.type === 'journal') {
+      return formatJournalDate(p.name);
+    }
+    if (p.name === 'index' && p.dirPath) {
+      return p.dirPath;
+    }
+    return p.dirPath + p.name;
+  }
+
   constructor() {
     effect(() => {
       const name = this.pageName();
@@ -304,7 +317,7 @@ export class PageComponent {
 
     const updated = await this.api.updatePage(p.id, updates);
     this.page.set(updated);
-    this.titleService.setTitle(this.pageTitle());
+    this.titleService.setTitle(this.fullPageTitle());
     this.recentPages.refresh();
     this.editing.set(false);
   }
@@ -353,7 +366,7 @@ export class PageComponent {
           dirName: p.dirPath
         });
       }
-      this.titleService.setTitle(this.pageTitle());
+      this.titleService.setTitle(this.fullPageTitle());
     } catch (e) {
       console.error('Failed to load page:', pageName, e);
     }

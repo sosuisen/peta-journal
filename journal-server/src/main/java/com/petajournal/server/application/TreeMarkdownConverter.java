@@ -29,14 +29,7 @@ public class TreeMarkdownConverter {
             String indent = "  ".repeat(depth);
             String[] lines = item.body().split("\n", -1);
 
-            // First line with list marker (and GFM task prefix for todo/done)
-            String status = item.status() != null ? item.status() : "normal";
-            String marker = "- ";
-            if ("todo".equals(status))
-                marker = "- [ ] ";
-            else if ("done".equals(status))
-                marker = "- [x] ";
-            sb.append(indent).append(marker).append(lines[0]);
+            sb.append(indent).append("- ").append(lines[0]);
 
             // Continuation lines
             for (int j = 1; j < lines.length; j++) {
@@ -62,15 +55,6 @@ public class TreeMarkdownConverter {
             // Empty body → single space (blank line would be an item separator)
             if (body == null || body.isEmpty())
                 body = " ";
-
-            String status = item.status() != null ? item.status() : "normal";
-
-            // Prepend GFM task list prefix for todo/done
-            if ("todo".equals(status)) {
-                body = "- [ ] " + body;
-            } else if ("done".equals(status)) {
-                body = "- [x] " + body;
-            }
 
             sb.append(body).append("\n");
             sb.append("<!-- ").append(item.id()).append(" -->");
@@ -119,7 +103,7 @@ public class TreeMarkdownConverter {
                 currentLevel = marker.get().level();
                 itemPrefixLen = marker.get().pos() + 2; // indent + "- "
                 String firstLine = line.substring(itemPrefixLen);
-                // Re-add "- " for GFM task prefix so flat markdown parser can detect status
+                // Re-add "- " for GFM task prefix so flat markdown parser can detect task type
                 if (firstLine.startsWith("[ ] ") || firstLine.startsWith("[x] ")) {
                     firstLine = "- " + firstLine;
                 }

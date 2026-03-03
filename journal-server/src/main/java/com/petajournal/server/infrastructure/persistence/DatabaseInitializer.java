@@ -54,7 +54,6 @@ public class DatabaseInitializer {
                     body TEXT NOT NULL DEFAULT '',
                     html TEXT NOT NULL DEFAULT '',
                     collapsed INTEGER NOT NULL DEFAULT 0,
-                    status TEXT NOT NULL DEFAULT 'normal' CHECK(status IN ('normal', 'todo', 'running', 'done')),
                     FOREIGN KEY (page_id) REFERENCES pages(id) ON DELETE CASCADE
                 )
                 """);
@@ -135,7 +134,6 @@ public class DatabaseInitializer {
             stmt.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_items_page_id_idx ON items(page_id, idx)");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_items_parent_id ON items(parent_id)");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_items_body ON items(body)");
-            stmt.execute("CREATE INDEX IF NOT EXISTS idx_items_status ON items(status)");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_bookmark_groups_sort ON bookmark_groups(sort_order)");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_bookmarks_group_sort ON bookmarks(group_id, sort_order)");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_props_key_text ON properties(key, value_text)");
@@ -170,10 +168,6 @@ public class DatabaseInitializer {
                     INSERT OR IGNORE INTO item_types (item_id, type)
                     SELECT id, 'blockquote' FROM items WHERE body LIKE '>%'
                     """);
-                stmt.execute("""
-                    INSERT OR IGNORE INTO item_types (item_id, type)
-                    SELECT id, 'task' FROM items WHERE status != 'normal'
-                    """);
                 try (ResultSet count = stmt.executeQuery("SELECT COUNT(*) FROM item_types")) {
                     count.next();
                     LOG.infov("Backfilled {0} item_types rows", count.getInt(1));
@@ -188,19 +182,5 @@ public class DatabaseInitializer {
         stmt.execute("INSERT OR IGNORE INTO property_definitions (key, value_type) VALUES ('end', 'datetime')");
         stmt.execute("INSERT OR IGNORE INTO property_definitions (key, value_type) VALUES ('cancelled', 'date')");
 
-        // 3. Migrate done items → end property
-        int migrated = stmt.executeUpdate("""
-            INSERT OR IGNORE INTO properties (target_type, target_id, key, value_text)
-            SELECT 'item', id, 'end', strftime('%Y-%m-%dT%H:%M:%S', modified_date / 1000, 'unixepoch')
-            FROM items
-            WHERE status = 'done'
-            AND NOT EXISTS (
-                SELECT 1 FROM properties
-                WHERE target_type = 'item' AND target_id = items.id AND key = 'end'
-            )
-            """);
-        if (migrated > 0) {
-            LOG.infov("Migrated {0} done items to end property", migrated);
-        }
     }
 }

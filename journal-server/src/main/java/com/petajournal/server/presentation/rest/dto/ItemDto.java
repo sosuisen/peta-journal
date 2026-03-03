@@ -17,7 +17,6 @@ public record ItemDto(
         String body,
         String html,
         boolean collapsed,
-        String status,
         List<String> types,
         Map<String, Object> properties) {
 }

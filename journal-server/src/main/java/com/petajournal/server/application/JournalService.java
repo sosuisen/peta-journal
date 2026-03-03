@@ -72,7 +72,7 @@ public class JournalService {
 
         // Create initial empty item
         UUID itemId = ItemIdGenerator.generate();
-        Item item = new Item(itemId, id, null, page.dirPath(), page.name(), page.type(), now, now, FractionalIndexer.initial(), 1, "", "", false, "normal", List.of());
+        Item item = new Item(itemId, id, null, page.dirPath(), page.name(), page.type(), now, now, FractionalIndexer.initial(), 1, "", "", false, List.of());
         item = itemRepository.save(item);
 
         return new JournalResult(page, List.of(item), true);

@@ -424,7 +424,6 @@ export class OutlineComponent implements OnDestroy {
         body: '',
         html: '',
         collapsed: false,
-        status: 'normal',
         types: [],
         properties: {},
       };
@@ -962,7 +961,7 @@ export class OutlineComponent implements OnDestroy {
       const updated = await this.api.cycleTask(item.id);
       this.state.updateItem(item.id, { types: updated.types, properties: updated.properties });
 
-      this.undo.begin('status');
+      this.undo.begin('cycle-task');
       this.undo.pushUpdate(originalItem, { ...originalItem, types: updated.types, properties: updated.properties });
       this.undo.commit();
     } catch (e) {
@@ -1027,7 +1026,7 @@ export class OutlineComponent implements OnDestroy {
 
     const skipSplit = isPlainText && hasUnclosedCodeFence(item.body.substring(0, event.cursorPos));
     const parsedItems = skipSplit
-      ? [{ body: textToParse, status: 'normal', level: 0 }]
+      ? [{ body: textToParse, level: 0 }]
       : this.parseTextIntoItems(textToParse);
 
     if (parsedItems.length === 0) return;
@@ -1050,12 +1049,6 @@ export class OutlineComponent implements OnDestroy {
       await this.saveItemBody(item.id, firstItem.body);
       this.dirtyItemIds.add(item.id);
 
-      // Update status if needed
-      if (firstItem.status !== 'normal') {
-        await this.api.updateItemStatus(item.id, firstItem.status);
-        this.state.updateItem(item.id, { status: firstItem.status });
-      }
-
       const afterFirstItem = this.state.getItemById(item.id);
       if (afterFirstItem) {
         this.undo.pushUpdate(originalItem, { ...afterFirstItem });
@@ -1073,12 +1066,6 @@ export class OutlineComponent implements OnDestroy {
             parsedItem.body
           );
           this.state.addItems([newItem], prevItemId);
-
-          // Update status if needed
-          if (parsedItem.status !== 'normal') {
-            await this.api.updateItemStatus(newItem.id, parsedItem.status);
-            this.state.updateItem(newItem.id, { status: parsedItem.status });
-          }
 
           const finalNewItem = this.state.getItemById(newItem.id);
           this.undo.pushCreate(finalNewItem ?? newItem);
@@ -1119,8 +1106,8 @@ export class OutlineComponent implements OnDestroy {
     }
   }
 
-  private parseTextIntoItems(text: string): Array<{ body: string; status: string; level: number }> {
-    const items: Array<{ body: string; status: string; level: number }> = [];
+  private parseTextIntoItems(text: string): Array<{ body: string; level: number }> {
+    const items: Array<{ body: string; level: number }> = [];
     const lines = text.split('\n');
     let inCodeFence = false;
 
@@ -1132,20 +1119,10 @@ export class OutlineComponent implements OnDestroy {
     const flushItem = () => {
       if (!hasContent) return;
       let body = currentBodyLines.join('\n');
-      let status = 'normal';
-
-      // Detect status from first body line
-      if (body.startsWith('- [ ] ')) {
-        status = 'todo';
-        body = body.substring(6);
-      } else if (body.startsWith('- [x] ')) {
-        status = 'done';
-        body = body.substring(6);
-      }
 
       // Whitespace-only body → empty
       if (body.length > 0 && body.trim() === '') body = '';
-      items.push({ body, status, level: currentLevel });
+      items.push({ body, level: currentLevel });
       currentBodyLines = [];
       currentLevel = 1;
       hasContent = false;
@@ -1685,9 +1662,6 @@ export class OutlineComponent implements OnDestroy {
             collapsed: target.collapsed,
           });
           this.state.updateItem(updated.id, { idx: updated.idx, level: updated.level });
-          if (target.status !== source.status) {
-            await this.api.updateItemStatus(target.id, target.status);
-          }
         } else if (op.type === 'create') {
           if (dir === 'undo') {
             // Undo a create = delete
@@ -1710,9 +1684,6 @@ export class OutlineComponent implements OnDestroy {
             const newItem = await this.api.createItem(
               op.item.pageId, afterId, op.item.level, op.item.body
             );
-            if (op.item.status !== 'normal') {
-              await this.api.updateItemStatus(newItem.id, op.item.status);
-            }
             // Remap
             this.state.deleteItem(op.item.id);
             this.state.addItem(newItem, afterId);

@@ -113,16 +113,6 @@ export class ApiService {
     return data.item;
   }
 
-  async updateItemStatus(itemId: string, status: string): Promise<Item> {
-    const resp = await fetch(`/api/items/${itemId}/status`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status }),
-    });
-    const data = await json<{ item: Item }>(resp);
-    return data.item;
-  }
-
   async searchPageNames(query: string, maxResults = 20): Promise<SearchPageNamesResult> {
     const resp = await fetch(`/api/search/pages?q=${encodeURIComponent(query)}&maxResults=${maxResults}`);
     return json(resp);

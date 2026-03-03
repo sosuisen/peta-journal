@@ -75,7 +75,6 @@ export class ItemEditorComponent implements AfterViewInit, OnDestroy {
   private readonly state = inject(OutlineStateService);
   readonly body = input.required<string>();
   readonly itemId = input.required<string>();
-  readonly status = input.required<string>();
   readonly types = input.required<string[]>();
   readonly properties = input.required<Record<string, string | string[]>>();
 

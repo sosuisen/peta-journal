@@ -41,7 +41,6 @@ public final class DtoMapper {
                 item.body(),
                 item.html(),
                 item.collapsed(),
-                item.status() != null ? item.status() : "normal",
                 item.types() != null ? item.types() : List.of(),
                 Map.of());
     }
@@ -64,7 +63,6 @@ public final class DtoMapper {
                 item.body(),
                 item.html(),
                 item.collapsed(),
-                item.status() != null ? item.status() : "normal",
                 item.types() != null ? item.types() : List.of(),
                 properties);
     }

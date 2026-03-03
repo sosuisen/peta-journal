@@ -150,7 +150,6 @@ export class ItemViewComponent {
   private readonly injector = inject(Injector);
 
   readonly html = input.required<string>();
-  readonly status = input.required<string>();
   readonly types = input.required<string[]>();
   readonly properties = input.required<Record<string, string | string[]>>();
   readonly clicked = output<number>();
