@@ -958,15 +958,29 @@ export class OutlineComponent implements OnDestroy {
   private async doCycleTask(item: Item): Promise<void> {
     try {
       const originalItem = { ...item };
+      const wasTask = item.types?.includes('task');
       const updated = await this.api.cycleTask(item.id);
-      this.state.updateItem(item.id, { types: updated.types, properties: updated.properties });
 
-      this.undo.begin('cycle-task');
-      this.undo.pushUpdate(originalItem, { ...originalItem, types: updated.types, properties: updated.properties });
-      this.undo.commit();
+      // When an item just became a task on a daily journal, set plan to the journal date
+      if (!wasTask && updated.types?.includes('task') && this.isDailyJournal(item)) {
+        const withPlan = await this.api.upsertItemProperty(item.id, 'plan', 'date', item.name);
+        this.state.updateItem(item.id, { types: withPlan.types, properties: withPlan.properties });
+        this.undo.begin('cycle-task');
+        this.undo.pushUpdate(originalItem, { ...originalItem, types: withPlan.types, properties: withPlan.properties });
+        this.undo.commit();
+      } else {
+        this.state.updateItem(item.id, { types: updated.types, properties: updated.properties });
+        this.undo.begin('cycle-task');
+        this.undo.pushUpdate(originalItem, { ...originalItem, types: updated.types, properties: updated.properties });
+        this.undo.commit();
+      }
     } catch (e) {
       console.error('Failed to cycle task:', e);
     }
+  }
+
+  private isDailyJournal(item: Item): boolean {
+    return item.type === 'journal' && /^\d{4}-\d{2}-\d{2}$/.test(item.name);
   }
 
   /**

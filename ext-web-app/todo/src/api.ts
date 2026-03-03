@@ -13,8 +13,8 @@ export interface Item {
   body: string;
   html: string;
   collapsed: boolean;
-  status: string;
   types: string[];
+  properties: Record<string, string | string[]>;
 }
 
 let eventSource: EventSource | null = null;
@@ -83,20 +83,18 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   return await resp.json();
 }
 
-/** Fetches all items whose status matches one of the given statuses. */
-export async function getItemsByStatus(statuses: string[]): Promise<Item[]> {
+/** Fetches all items whose type matches one of the given types. */
+export async function getItemsByTypes(types: string[]): Promise<Item[]> {
   const data = await fetchJson<{ items: Item[] }>(
-    `/api/items?statuses=${statuses.join(',')}`
+    `/api/items?types=${types.join(',')}`
   );
   return data.items;
 }
 
-/** Updates an item's status and returns the updated item. */
-export async function updateItemStatus(itemId: string, status: string): Promise<Item> {
-  const data = await fetchJson<{ item: Item }>(`/api/items/${itemId}/status`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status }),
+/** Cycles a task's state via the cycle-task endpoint. */
+export async function cycleTask(itemId: string): Promise<Item> {
+  const data = await fetchJson<{ item: Item }>(`/api/items/${itemId}/cycle-task`, {
+    method: 'POST',
   });
   return data.item;
 }

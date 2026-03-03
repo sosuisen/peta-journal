@@ -150,6 +150,45 @@ public class DatabaseInitializer {
         }
     }
 
+    private void backfillTaskPlanProperty(Statement stmt) throws SQLException {
+        // Add plan property to all task items on daily journal pages (YYYY-MM-DD) that don't have one yet
+        String countSql = """
+            SELECT COUNT(*) FROM item_types it
+            JOIN items i ON it.item_id = i.id
+            JOIN pages p ON i.page_id = p.id
+            WHERE it.type = 'task'
+              AND p.type = 'journal'
+              AND p.name GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
+              AND NOT EXISTS (
+                SELECT 1 FROM properties pr
+                WHERE pr.target_type = 'item' AND pr.target_id = it.item_id AND pr.key = 'plan'
+              )
+            """;
+        try (ResultSet rs = stmt.executeQuery(countSql)) {
+            rs.next();
+            int count = rs.getInt(1);
+            if (count > 0) {
+                LOG.infov("Backfilling plan property for {0} task items on daily journals...", count);
+                stmt.execute("INSERT OR IGNORE INTO property_definitions (key, value_type) VALUES ('plan', 'date')");
+                stmt.execute("""
+                    INSERT OR IGNORE INTO properties (target_type, target_id, key, value_text)
+                    SELECT 'item', it.item_id, 'plan', p.name
+                    FROM item_types it
+                    JOIN items i ON it.item_id = i.id
+                    JOIN pages p ON i.page_id = p.id
+                    WHERE it.type = 'task'
+                      AND p.type = 'journal'
+                      AND p.name GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
+                      AND NOT EXISTS (
+                        SELECT 1 FROM properties pr
+                        WHERE pr.target_type = 'item' AND pr.target_id = it.item_id AND pr.key = 'plan'
+                      )
+                    """);
+                LOG.info("Plan property backfill complete");
+            }
+        }
+    }
+
     private void migrateProperties(Statement stmt) throws SQLException {
         // 1. Backfill item_types if empty
         try (ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM item_types")) {
@@ -175,7 +214,10 @@ public class DatabaseInitializer {
             }
         }
 
-        // 2. Seed property_definitions
+        // 2. Backfill plan property for tasks on daily journals
+        backfillTaskPlanProperty(stmt);
+
+        // 3. Seed property_definitions
         stmt.execute("INSERT OR IGNORE INTO property_definitions (key, value_type) VALUES ('plan', 'date')");
         stmt.execute("INSERT OR IGNORE INTO property_definitions (key, value_type) VALUES ('due', 'date')");
         stmt.execute("INSERT OR IGNORE INTO property_definitions (key, value_type) VALUES ('begin', 'datetime')");

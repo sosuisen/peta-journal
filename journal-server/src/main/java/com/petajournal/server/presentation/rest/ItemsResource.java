@@ -42,6 +42,8 @@ public class ItemsResource {
     record ExportTreeMarkdownResponse(String treeMarkdown, String html, String flatMarkdown) {}
     record ImportTreeMarkdownRequest(String treeMarkdown) {}
     record ImportTreeMarkdownResponse(String flatMarkdown) {}
+    record UpsertPropertyRequest(String valueType, String value) {}
+    record UpsertPropertyResponse(ItemDto item) {}
 
     @POST
     public CreateItemResponse createItem(CreateItemRequest req) {
@@ -109,6 +111,19 @@ public class ItemsResource {
                 req.levelDelta());
         sseBroadcaster.broadcastPagesUpdated(req.targetPageId());
         return new MoveItemsResponse(loadItemDtos(items));
+    }
+
+    @PUT
+    @Path("/{id}/properties/{key}")
+    public UpsertPropertyResponse upsertProperty(
+            @PathParam("id") String id,
+            @PathParam("key") String key,
+            UpsertPropertyRequest req
+    ) {
+        var item = itemService.getItemById(UUID.fromString(id));
+        propertyRepository.upsertScalar("item", id, key, req.valueType(), req.value());
+        sseBroadcaster.broadcastPagesUpdated(item.pageId().toString());
+        return new UpsertPropertyResponse(loadItemDto(item));
     }
 
     @POST

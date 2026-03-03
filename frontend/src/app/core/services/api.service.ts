@@ -113,6 +113,16 @@ export class ApiService {
     return data.item;
   }
 
+  async upsertItemProperty(itemId: string, key: string, valueType: string, value: string): Promise<Item> {
+    const resp = await fetch(`/api/items/${itemId}/properties/${encodeURIComponent(key)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ valueType, value }),
+    });
+    const data = await json<{ item: Item }>(resp);
+    return data.item;
+  }
+
   async searchPageNames(query: string, maxResults = 20): Promise<SearchPageNamesResult> {
     const resp = await fetch(`/api/search/pages?q=${encodeURIComponent(query)}&maxResults=${maxResults}`);
     return json(resp);

@@ -261,6 +261,12 @@ public class ItemService {
         });
     }
 
+    /** Returns an item by its ID. */
+    public Item getItemById(UUID itemId) {
+        return itemRepository.findById(itemId)
+                .orElseThrow(() -> new IllegalArgumentException("Item not found: " + itemId));
+    }
+
     /** Returns all items matching the given types. */
     public List<Item> getItemsByTypes(List<String> types) {
         return itemRepository.findByTypes(types);

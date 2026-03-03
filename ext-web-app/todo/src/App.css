@@ -153,11 +153,19 @@ h1 {
   display: inline;
 }
 
-.item-date {
-  flex: 0 0 auto;
-  font-size: 0.6rem;
-  color: #999;
-  text-align: right;
+.item-dates {
+  display: flex;
+  gap: 12px;
+  font-size: 0.56rem;
+  color: #888;
+  line-height: 1.2;
+}
+
+.plan-heading {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #555;
+  padding: 12px 16px 4px;
 }
 
 .badge {
