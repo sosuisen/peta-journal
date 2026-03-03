@@ -121,10 +121,10 @@ export class CalendarComponent {
   private readonly configService = inject(ConfigService);
 
   readonly selectedDate = input('');
-  readonly dateSelected = output<{ date: string; ctrlKey: boolean }>();
-  readonly weekClicked = output<{ year: number; week: number; ctrlKey: boolean }>();
-  readonly monthClicked = output<{ year: number; month: number; ctrlKey: boolean }>();
-  readonly yearClicked = output<{ year: number; ctrlKey: boolean }>();
+  readonly dateSelected = output<{ date: string; ctrlKey: boolean; shiftKey: boolean }>();
+  readonly weekClicked = output<{ year: number; week: number; ctrlKey: boolean; shiftKey: boolean }>();
+  readonly monthClicked = output<{ year: number; month: number; ctrlKey: boolean; shiftKey: boolean }>();
+  readonly yearClicked = output<{ year: number; ctrlKey: boolean; shiftKey: boolean }>();
 
   private readonly US_DAY_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
   private readonly ISO_DAY_LABELS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
@@ -211,18 +211,18 @@ export class CalendarComponent {
   }
 
   onMonthClick(event: MouseEvent): void {
-    this.monthClicked.emit({ year: this.viewYear(), month: this.viewMonth() + 1, ctrlKey: event.ctrlKey || event.metaKey });
+    this.monthClicked.emit({ year: this.viewYear(), month: this.viewMonth() + 1, ctrlKey: event.ctrlKey || event.metaKey, shiftKey: event.shiftKey });
   }
 
   onYearClick(event: MouseEvent): void {
-    this.yearClicked.emit({ year: this.viewYear(), ctrlKey: event.ctrlKey || event.metaKey });
+    this.yearClicked.emit({ year: this.viewYear(), ctrlKey: event.ctrlKey || event.metaKey, shiftKey: event.shiftKey });
   }
 
   onWeekClick(week: CalendarWeek, event: MouseEvent): void {
     const firstOfWeek = new Date(week.days[0].date + 'T00:00:00');
     const iso = this.configService.weekNumbering() === 'iso';
     const year = iso ? this.getISOWeekYear(firstOfWeek) : firstOfWeek.getFullYear();
-    this.weekClicked.emit({ year, week: week.weekNumber, ctrlKey: event.ctrlKey || event.metaKey });
+    this.weekClicked.emit({ year, week: week.weekNumber, ctrlKey: event.ctrlKey || event.metaKey, shiftKey: event.shiftKey });
   }
 
   private getISOWeekYear(date: Date): number {
@@ -233,7 +233,7 @@ export class CalendarComponent {
   }
 
   selectDay(day: CalendarDay, event: MouseEvent): void {
-    this.dateSelected.emit({ date: day.date, ctrlKey: event.ctrlKey || event.metaKey });
+    this.dateSelected.emit({ date: day.date, ctrlKey: event.ctrlKey || event.metaKey, shiftKey: event.shiftKey });
   }
 
   private getISOWeekNumber(date: Date): number {

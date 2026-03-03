@@ -196,7 +196,7 @@ export class SearchBarComponent {
     this.pageResults.set([]);
     this.itemResults.set([]);
     this.showCreateButton.set(false);
-    this.nav.navigateToPage(result.pageTitle, false, false, result.itemId || undefined);
+    this.nav.navigateToPage(result.pageTitle, false, false, false, result.itemId || undefined);
   }
 
   /**

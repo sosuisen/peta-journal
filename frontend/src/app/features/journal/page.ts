@@ -339,7 +339,7 @@ export class PageComponent {
       // If URL doesn't match canonical path, redirect
       // e.g. server resolved "Quarkus" → dirPath="Quarkus/" name="index" → redirect to "Quarkus/index"
       if (canonical !== pageName) {
-        this.navigation.navigateToPage(canonical, false, true);
+        this.navigation.navigateToPage(canonical, false, false, true);
         return;
       }
 

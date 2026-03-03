@@ -231,7 +231,7 @@ export class BookmarksSidebarComponent {
   goToBookmark(bm: Bookmark, event: MouseEvent): void {
     if (!bm.targetPage) return;
     const path = bm.targetPage.dirPath + bm.targetPage.name;
-    this.nav.navigateToPage(path, event.ctrlKey || event.metaKey);
+    this.nav.navigateToPage(path, event.ctrlKey || event.metaKey, event.shiftKey);
   }
 
   // --- Context menu ---

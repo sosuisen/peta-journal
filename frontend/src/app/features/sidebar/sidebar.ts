@@ -189,7 +189,7 @@ export class SidebarComponent implements OnInit {
   goToIndex(event: MouseEvent): void {
     const header = this.indexHeader();
     if (header) {
-      this.nav.navigateToPage(header + 'index', event.ctrlKey || event.metaKey);
+      this.nav.navigateToPage(header + 'index', event.ctrlKey || event.metaKey, event.shiftKey);
     }
   }
 
@@ -216,34 +216,34 @@ export class SidebarComponent implements OnInit {
     this.router.navigateByUrl('/today');
   }
 
-  goToDate(event: { date: string; ctrlKey: boolean }): void {
-    this.nav.navigateToPage(event.date, event.ctrlKey);
+  goToDate(event: { date: string; ctrlKey: boolean; shiftKey: boolean }): void {
+    this.nav.navigateToPage(event.date, event.ctrlKey, event.shiftKey);
   }
 
   /**
    * Navigates to the weekly journal for the selected week (e.g., "2026-W08").
    * @param event - Contains the year, week number, and whether Ctrl was held.
    */
-  goToWeek(event: { year: number; week: number; ctrlKey: boolean }): void {
+  goToWeek(event: { year: number; week: number; ctrlKey: boolean; shiftKey: boolean }): void {
     const fileName = `${event.year}-W${String(event.week).padStart(2, '0')}`;
-    this.nav.navigateToPage(fileName, event.ctrlKey);
+    this.nav.navigateToPage(fileName, event.ctrlKey, event.shiftKey);
   }
 
   /**
    * Navigates to the monthly journal for the selected month (e.g., "2026-02").
    * @param event - Contains the year, month number, and whether Ctrl was held.
    */
-  goToMonth(event: { year: number; month: number; ctrlKey: boolean }): void {
+  goToMonth(event: { year: number; month: number; ctrlKey: boolean; shiftKey: boolean }): void {
     const fileName = `${event.year}-${String(event.month).padStart(2, '0')}`;
-    this.nav.navigateToPage(fileName, event.ctrlKey);
+    this.nav.navigateToPage(fileName, event.ctrlKey, event.shiftKey);
   }
 
   /**
    * Navigates to the yearly journal for the selected year (e.g., "2026").
    * @param event - Contains the year and whether Ctrl was held.
    */
-  goToYear(event: { year: number; ctrlKey: boolean }): void {
-    this.nav.navigateToPage(String(event.year), event.ctrlKey);
+  goToYear(event: { year: number; ctrlKey: boolean; shiftKey: boolean }): void {
+    this.nav.navigateToPage(String(event.year), event.ctrlKey, event.shiftKey);
   }
 
   /**
@@ -252,7 +252,7 @@ export class SidebarComponent implements OnInit {
    * @param event - The mouse event, used to detect Ctrl/Meta key modifier.
    */
   goToPage(page: Page, event: MouseEvent): void {
-    this.nav.navigateToPage(page.dirPath + page.name, event.ctrlKey || event.metaKey);
+    this.nav.navigateToPage(page.dirPath + page.name, event.ctrlKey || event.metaKey, event.shiftKey);
   }
 
   /**

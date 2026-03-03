@@ -232,7 +232,11 @@ export class ItemViewComponent {
     if (anchor?.href) {
       event.preventDefault();
       event.stopPropagation();
-      window.open(anchor.href, '_blank');
+      if (event.shiftKey) {
+        window.open(anchor.href, '_blank', 'noopener');
+      } else {
+        window.open(anchor.href, '_blank');
+      }
       return;
     }
 
@@ -240,9 +244,10 @@ export class ItemViewComponent {
     const link = target.closest('.wiki-link, .wiki-link-new') as HTMLAnchorElement | null;
     if (link) {
       const newTab = event.ctrlKey || event.metaKey;
+      const newWindow = event.shiftKey;
       const href = link.getAttribute('href');
 
-      if (newTab && href) {
+      if (newTab && !newWindow && href) {
         // Let browser handle natively — opens href in background tab
         return;
       }
@@ -251,7 +256,9 @@ export class ItemViewComponent {
       event.stopPropagation();
 
       const url = href || '/pages/' + generateUntitledTitle();
-      if (newTab) {
+      if (newWindow) {
+        window.open(url, '_blank', 'noopener');
+      } else if (newTab) {
         window.open(url, '_blank');
       } else {
         this.router.navigateByUrl(url);
