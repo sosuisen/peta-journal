@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { connect, onConnectionStateChange, onServerEvent, getItemsByTypes, cycleTask, type ConnectionState, type Item } from './api';
+import { FmRoot, type ReactRenderOptions } from 'flatmarkdown-ast2react';
+import { config } from './config';
 
 /** Returns today's date as an ISO string (YYYY-MM-DD). */
 function getTodayISODate(): string {
@@ -80,6 +82,10 @@ function ItemDates({ item }: { item: Item }) {
 }
 
 /** Main todo application component. Displays task items with filtering and sorting. */
+const fmOptions: ReactRenderOptions = {
+  wikilink: { hrefPrefix: config.wikilink_base_url },
+};
+
 export default function App() {
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const [error, setError] = useState('');
@@ -220,10 +226,9 @@ export default function App() {
             <div key={entry.item.id} className="item-row" onClick={() => openItemInPetaJournal(entry.item)}>
               <div className="item-main">
                 <span className="item-page">{entry.item.name}</span>
-                <span
-                  className="item-content"
-                  dangerouslySetInnerHTML={{ __html: entry.item.html || entry.item.body || '' }}
-                />
+                <span className="item-content">
+                  <FmRoot ast={entry.item.ast} options={fmOptions} />
+                </span>
                 <ItemDates item={entry.item} />
               </div>
               <button
