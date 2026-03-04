@@ -19,3 +19,6 @@ Generated\ Files/
 ## Windows App SDK / WinUI
 AppPackages/
 BundleArtifacts/
+
+## Downloaded JS vendor libs
+vendor/

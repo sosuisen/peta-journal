@@ -12,7 +12,7 @@ public class ItemModel
     public string Idx { get; set; } = "";
     public int Level { get; set; }
     public string Body { get; set; } = "";
-    public string Html { get; set; } = "";
+    public string Ast { get; set; } = "";
     public bool Collapsed { get; set; }
     public string Status { get; set; } = "normal";
     public List<string> Types { get; set; } = [];

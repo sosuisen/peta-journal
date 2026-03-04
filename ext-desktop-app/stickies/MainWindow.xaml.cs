@@ -388,11 +388,14 @@ public sealed partial class MainWindow : Window
                 return $"<div style=\"padding-left:{indent + 8}px;height:1.6em;\"></div>";
             }
 
-            var content = !string.IsNullOrEmpty(item.Html) ? item.Html : EscapeHtml(item.Body);
+            var astAttr = !string.IsNullOrEmpty(item.Ast)
+                ? $" data-ast=\"{EscapeHtmlAttr(item.Ast)}\""
+                : "";
+            var fallback = string.IsNullOrEmpty(item.Ast) ? EscapeHtml(item.Body) : "";
             var style = marker.Length > 0
                 ? $"padding-left:{indent}px;padding:4px 8px 4px {indent + 8}px;display:flex;align-items:baseline;"
                 : $"padding-left:{indent}px;padding:4px 8px 4px {indent + 8}px;";
-            return $"<div style=\"{style}\">{marker}<div>{content}</div></div>";
+            return $"<div style=\"{style}\">{marker}<div{astAttr}>{fallback}</div></div>";
         }));
 
         return $@"<!DOCTYPE html>
@@ -445,7 +448,13 @@ public sealed partial class MainWindow : Window
 <body>
 {itemsHtml}
 <script>
+{FmAst2HtmlBundle.Script}
+</script>
+<script>
 (function(){{
+  document.querySelectorAll('[data-ast]').forEach(function(el){{
+    try {{ el.innerHTML=FmAst2Html.renderToHtml(el.getAttribute('data-ast')); }} catch(e){{}}
+  }});
   var z={(_windowSettings.ZoomFactor * 100).ToString(System.Globalization.CultureInfo.InvariantCulture)};
   function apply(){{ document.body.style.zoom=z+'%'; window.chrome.webview.postMessage({{zoom:z/100}}); }}
   document.addEventListener('wheel',function(e){{
@@ -511,6 +520,11 @@ public sealed partial class MainWindow : Window
     private static string EscapeHtml(string text)
     {
         return text.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
+    }
+
+    private static string EscapeHtmlAttr(string text)
+    {
+        return text.Replace("&", "&amp;").Replace("\"", "&quot;").Replace("<", "&lt;").Replace(">", "&gt;");
     }
 
     // --- New Window / Close ---

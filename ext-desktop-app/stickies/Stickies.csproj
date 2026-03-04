@@ -13,7 +13,18 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <FmAst2HtmlVersion>0.1.3</FmAst2HtmlVersion>
+    <FmAst2HtmlUrl>https://unpkg.com/flatmarkdown-ast2html@$(FmAst2HtmlVersion)</FmAst2HtmlUrl>
+    <FmAst2HtmlJsPath>vendor\fm-ast2html.min.js</FmAst2HtmlJsPath>
+  </PropertyGroup>
+
+  <Target Name="DownloadFmAst2Html" BeforeTargets="BeforeCompile" Condition="!Exists('$(FmAst2HtmlJsPath)')">
+    <DownloadFile SourceUrl="$(FmAst2HtmlUrl)" DestinationFolder="vendor" DestinationFileName="fm-ast2html.min.js" />
+  </Target>
+
   <ItemGroup>
+    <EmbeddedResource Include="$(FmAst2HtmlJsPath)" LogicalName="fm-ast2html.min.js" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.7.250401001" />
   </ItemGroup>
 </Project>
