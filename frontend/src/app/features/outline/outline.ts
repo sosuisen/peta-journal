@@ -147,6 +147,7 @@ export class OutlineComponent implements OnDestroy {
   readonly currentPageDate = input<string>('');  // Date shown in page header
   readonly loadMore = output<{ filepath: string; currentIndex: number }>();  // Emits when should load more
   readonly topItemChanged = output<string>();  // Emits name of top visible item
+  readonly scrolledFromTop = output<boolean>();  // Emits true when scrolled away from top
   private readonly dirtyItemIds = new Set<string>();
   private switchingEditItem = false;
   private movingEditItem = false;
@@ -192,6 +193,8 @@ export class OutlineComponent implements OnDestroy {
   onScrolledIndexChange(index: number): void {
     const items = this.state.visibleItems();
     const totalItems = items.length;
+
+    this.scrolledFromTop.emit(index > 0);
 
     // Emit the top visible item's name
     if (index >= 0 && index < totalItems) {

@@ -16,7 +16,7 @@ import { ExtensionFunctionService } from '../../core/services/extension-function
   selector: 'app-journal',
   imports: [OutlineComponent, CalendarComponent],
   template: `
-    <div class="journal-header">
+    <div class="journal-header" [class.scrolled]="scrolled()">
       <h2 class="journal-date" (click)="showCalendar.set(!showCalendar())">{{ displayDate() }}</h2>
       <button class="calendar-btn" (click)="showCalendar.set(!showCalendar())"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></button>
       @if (journalType() === 'daily') {
@@ -38,7 +38,7 @@ import { ExtensionFunctionService } from '../../core/services/extension-function
       />
     }
     @if (page()) {
-      <app-outline [pageId]="page()!.id" [disableAutoLoad]="true" [currentPageDate]="topVisibleDate()" (loadMore)="onLoadMore($event)" (topItemChanged)="onTopItemChanged($event)" />
+      <app-outline [pageId]="page()!.id" [disableAutoLoad]="true" [currentPageDate]="topVisibleDate()" (loadMore)="onLoadMore($event)" (topItemChanged)="onTopItemChanged($event)" (scrolledFromTop)="scrolled.set($event)" />
     }
   `,
   styles: [`
@@ -84,6 +84,9 @@ import { ExtensionFunctionService } from '../../core/services/extension-function
       cursor: pointer;
       user-select: none;
     }
+    .journal-header.scrolled {
+      border-bottom: 1px dashed #909090;
+    }
   `]
 })
 export class JournalComponent {
@@ -103,6 +106,7 @@ export class JournalComponent {
   readonly topVisibleDate = signal('');  // Date of the top visible item
   readonly page = signal<Page | null>(null);
   readonly showCalendar = signal(false);
+  readonly scrolled = signal(false);
 
   readonly displayDate = computed(() => {
     const d = this.topVisibleDate() || this.currentDate();
