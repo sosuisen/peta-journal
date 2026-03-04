@@ -12,10 +12,10 @@ import jakarta.enterprise.inject.Alternative;
 public class FlatmarkdownParser implements MarkdownParser {
 
     @Override
-    public String parseToHtml(String markdown) {
+    public String parseToAst(String markdown) {
         if (markdown == null || markdown.isEmpty()) {
             return "";
         }
-        return FlatmarkdownJava.markdownToHtml(markdown);
+        return FlatmarkdownJava.markdownToAst(markdown);
     }
 }

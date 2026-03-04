@@ -1,13 +1,13 @@
 package com.petajournal.server.domain.repository;
 
-/** Converts markdown text to HTML. */
+/** Converts markdown text to AST JSON. */
 public interface MarkdownParser {
 
     /**
-     * Parses markdown text and returns the HTML representation.
+     * Parses markdown text and returns the AST JSON representation.
      *
      * @param markdown the markdown source
-     * @return the rendered HTML
+     * @return the AST JSON representation
      */
-    String parseToHtml(String markdown);
+    String parseToAst(String markdown);
 }

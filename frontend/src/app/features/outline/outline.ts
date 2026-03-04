@@ -11,6 +11,7 @@ import { formatJournalDate } from '../../core/utils/date.utils';
 import { NavigationService } from '../../core/services/navigation.service';
 import { WikiLinkContext, ensureCodeFenceClosed, hasUnclosedCodeFence } from './item-editor';
 import { findMoveDownTarget, findMoveUpTarget } from './move-utils';
+import { renderToHtml } from 'flatmarkdown-ast2html';
 
 @Component({
   selector: 'app-outline',
@@ -425,7 +426,7 @@ export class OutlineComponent implements OnDestroy {
         idx: '',
         level: newLevel,
         body: '',
-        html: '',
+        ast: '',
         collapsed: false,
         types: [],
         properties: {},
@@ -1521,7 +1522,7 @@ export class OutlineComponent implements OnDestroy {
       // Write to system clipboard
       const clipboardItem = new ClipboardItem({
         'text/plain': new Blob([result.treeMarkdown], { type: 'text/plain' }),
-        'text/html': new Blob([result.html], { type: 'text/html' }),
+        'text/html': new Blob([renderToHtml(result.ast)], { type: 'text/html' }),
       });
       await navigator.clipboard.write([clipboardItem]);
 
@@ -1742,7 +1743,7 @@ export class OutlineComponent implements OnDestroy {
     const normalized = ensureCodeFenceClosed(body);
     this.state.updateItem(itemId, { body: normalized });
     const updated = await this.api.updateItem(itemId, { body: normalized });
-    this.state.updateItem(itemId, { html: updated.html });
+    this.state.updateItem(itemId, { ast: updated.ast });
     return updated;
   }
 

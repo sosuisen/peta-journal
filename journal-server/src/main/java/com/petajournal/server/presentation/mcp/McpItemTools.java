@@ -85,7 +85,7 @@ public class McpItemTools {
         var result = itemService.exportTreeMarkdown(ids);
         return jsonHelper.toJson(Map.of(
                 "treeMarkdown", result.treeMarkdown(),
-                "html", result.html(),
+                "ast", result.ast(),
                 "flatMarkdown", result.flatMarkdown()
         ));
     }

@@ -1,11 +1,12 @@
-import { Component, input, output, inject, computed, viewChild, ElementRef, effect, afterNextRender, Injector } from '@angular/core';
-import { DomSanitizer } from '@angular/platform-browser';
+import { Component, input, output, inject, viewChild, ElementRef, effect, afterNextRender, Injector } from '@angular/core';
 import { Router } from '@angular/router';
 import hljs from 'highlight.js';
 import { generateUntitledTitle } from '../../core/utils/title.utils';
+import { FmRootComponent } from 'flatmarkdown-ast2angular';
 
 @Component({
   selector: 'app-item-view',
+  imports: [FmRootComponent],
   template: `
     @if (types().includes('task')) {
       <input
@@ -16,13 +17,9 @@ import { generateUntitledTitle } from '../../core/utils/title.utils';
         (click)="onCheckboxClick($event)"
       />
     }
-    <div
-      #content
-      class="item-content"
-      [innerHTML]="trustedHtml()"
-      (mousedown)="onMouseDown($event)"
-      (click)="onClick($event)"
-    ></div>
+    <div #content class="item-content" (mousedown)="onMouseDown($event)" (click)="onClick($event)">
+      <fm-root [ast]="ast()" [options]="wikilinkOptions" />
+    </div>
   `,
   styles: [`
     :host {
@@ -146,18 +143,16 @@ import { generateUntitledTitle } from '../../core/utils/title.utils';
 })
 export class ItemViewComponent {
   private readonly router = inject(Router);
-  private readonly sanitizer = inject(DomSanitizer);
   private readonly injector = inject(Injector);
 
-  readonly html = input.required<string>();
+  readonly ast = input.required<string>();
   readonly types = input.required<string[]>();
   readonly properties = input.required<Record<string, string | string[]>>();
   readonly clicked = output<number>();
   readonly taskToggled = output<void>();
-  readonly trustedHtml = computed(() => {
-    const html = this.addHrefsToWikiLinks(this.html());
-    return this.sanitizer.bypassSecurityTrustHtml(html);
-  });
+  readonly wikilinkOptions = {
+    wikilink: { routerLinkPrefix: '/pages/', cssClass: 'wiki-link' }
+  };
 
   private readonly checkboxRef = viewChild<ElementRef<HTMLInputElement>>('checkbox');
   private readonly contentRef = viewChild<ElementRef<HTMLDivElement>>('content');
@@ -171,9 +166,9 @@ export class ItemViewComponent {
       }
     });
 
-    // Apply syntax highlighting when HTML changes
+    // Apply syntax highlighting when AST changes
     effect(() => {
-      const html = this.html();
+      const html = this.ast();
       if (html) {
         afterNextRender(() => {
           const content = this.contentRef()?.nativeElement;
@@ -264,28 +259,6 @@ export class ItemViewComponent {
       }
       return;
     }
-  }
-
-  private addHrefsToWikiLinks(html: string): string {
-    if (!html.includes('wiki-link')) return html;
-    const template = document.createElement('template');
-    template.innerHTML = html;
-    const fragment = template.content;
-    fragment.querySelectorAll('.wiki-link, .wiki-link-new').forEach(el => {
-      const pageTitle = el.getAttribute('data-page-title');
-      const pageId = el.getAttribute('data-page-id');
-      if (pageTitle) {
-        el.setAttribute('href', '/pages/' + pageTitle);
-      } else if (pageId) {
-        const linkText = (el.textContent || '').trim();
-        if (linkText) {
-          el.setAttribute('href', '/pages/' + linkText);
-        }
-      }
-    });
-    const div = document.createElement('div');
-    div.appendChild(fragment.cloneNode(true));
-    return div.innerHTML;
   }
 
   private getTextOffsetAtPoint(x: number, y: number): number {

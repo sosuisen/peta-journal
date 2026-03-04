@@ -47,15 +47,15 @@ public class ImportService {
 
         List<Item> items = parser.toItems(result, page.id(), page.dirPath(), page.name(), page.type());
         for (Item item : items) {
-            String html = markdownParser.parseToHtml(item.body());
-            Item withHtml = new Item(
+            String ast = markdownParser.parseToAst(item.body());
+            Item withAst = new Item(
                     item.id(), item.pageId(), item.parentItemId(), item.dirPath(), item.name(), item.type(),
                     item.createdDate(), item.modifiedDate(),
-                    item.idx(), item.level(), item.body(), html,
+                    item.idx(), item.level(), item.body(), ast,
                     item.collapsed(), item.types()
             );
-            itemRepository.save(withHtml);
-            searchService.indexItem(withHtml, page.dirPath() + page.name());
+            itemRepository.save(withAst);
+            searchService.indexItem(withAst, page.dirPath() + page.name());
         }
 
         LOG.infov("Imported page from {0}: {1}", filePath, page.name());

@@ -18,8 +18,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 @ApplicationScoped
 public class ItemService {
@@ -60,7 +58,7 @@ public class ItemService {
     public Item createItem(UUID pageId, UUID afterItemId, int level, String body, UUID clientId) {
         UUID id = clientId != null ? clientId : ItemIdGenerator.generate();
         Instant now = Instant.now();
-        String html = parseBody(body);
+        String ast = parseBody(body);
 
         List<Item> existingItems = itemRepository.findByPageId(pageId);
         String idx;
@@ -78,7 +76,7 @@ public class ItemService {
         // Get page to get dir_path and name
         Page page = pageRepository.findById(pageId).orElseThrow(() -> new IllegalArgumentException("Page not found: " + pageId));
 
-        Item item = new Item(id, pageId, null, page.dirPath(), page.name(), page.type(), now, now, idx, level, body, html, false, types);
+        Item item = new Item(id, pageId, null, page.dirPath(), page.name(), page.type(), now, now, idx, level, body, ast, false, types);
         item = itemRepository.save(item);
 
         // Recalculate parent_id for all items on this page
@@ -112,7 +110,7 @@ public class ItemService {
                 .orElseThrow(() -> new IllegalArgumentException("Item not found: " + itemId));
 
         String newBody = body != null ? body : existing.body();
-        String newHtml = body != null ? parseBody(body) : existing.html();
+        String newAst = body != null ? parseBody(body) : existing.ast();
         int newLevel = level != null ? level : existing.level();
         boolean newCollapsed = collapsed != null ? collapsed : existing.collapsed();
         List<String> types = body != null ? detectItemTypes(body) : existing.types();
@@ -133,7 +131,7 @@ public class ItemService {
                 existing.idx(),
                 newLevel,
                 newBody,
-                newHtml,
+                newAst,
                 newCollapsed,
                 types
         );
@@ -216,7 +214,7 @@ public class ItemService {
                     newIdx,
                     newLevel,
                     item.body(),
-                    item.html(),
+                    item.ast(),
                     item.collapsed(),
                     item.types()
             );
@@ -310,7 +308,7 @@ public class ItemService {
                     existing.id(), existing.pageId(), existing.parentItemId(),
                     existing.dirPath(), existing.name(), existing.type(),
                     existing.createdDate(), Instant.now(), existing.idx(),
-                    existing.level(), existing.body(), existing.html(),
+                    existing.level(), existing.body(), existing.ast(),
                     existing.collapsed(), newTypes);
             itemRepository.save(updated);
             propertyRepository.deleteProperty("item", id, "begin");
@@ -343,7 +341,7 @@ public class ItemService {
     }
 
     /** Result of exporting items as tree markdown. */
-    public record TreeMarkdownExport(String treeMarkdown, String html, String flatMarkdown) {}
+    public record TreeMarkdownExport(String treeMarkdown, String ast, String flatMarkdown) {}
 
     /**
      * Exports items as hierarchical tree markdown, flat markdown, and HTML.
@@ -358,9 +356,9 @@ public class ItemService {
             .map(Optional::get)
             .toList();
         String treeMd = treeMarkdownConverter.itemsToTreeMarkdown(items);
-        String html = markdownParser.parseToHtml(treeMd);
+        String ast = markdownParser.parseToAst(treeMd);
         String flatMd = treeMarkdownConverter.itemsToFlatMarkdown(items);
-        return new TreeMarkdownExport(treeMd, html, flatMd);
+        return new TreeMarkdownExport(treeMd, ast, flatMd);
     }
 
     /**
@@ -423,37 +421,8 @@ public class ItemService {
         });
     }
 
-    private static final Pattern WIKI_LINK_PATTERN = Pattern.compile("\\[\\[([^\\]]+)\\]\\]");
-
-    /**
-     * Replace [[pagename]] in HTML with hyperlinks.
-     * If the page exists, link to /pages/{id}. Otherwise, mark as new.
-     */
-    private String processWikiLinks(String html) {
-        if (html == null || html.isEmpty()) return html;
-        Matcher matcher = WIKI_LINK_PATTERN.matcher(html);
-        StringBuilder sb = new StringBuilder();
-        while (matcher.find()) {
-            String pageName = matcher.group(1);
-            List<Page> pages = pageRepository.findByTitle(pageName);
-            Optional<Page> exactMatch = pages.stream()
-                    .filter(p -> p.name().equalsIgnoreCase(pageName))
-                    .findFirst();
-            String replacement;
-            if (exactMatch.isPresent()) {
-                replacement = "<a class=\"wiki-link\" data-page-id=\"" + exactMatch.get().id() + "\">" + pageName + "</a>";
-            } else {
-                replacement = "<a class=\"wiki-link wiki-link-new\" data-page-title=\"" + pageName + "\">" + pageName + "</a>";
-            }
-            matcher.appendReplacement(sb, Matcher.quoteReplacement(replacement));
-        }
-        matcher.appendTail(sb);
-        return sb.toString();
-    }
-
     private String parseBody(String body) {
-        String html = markdownParser.parseToHtml(body);
-        return processWikiLinks(html);
+        return markdownParser.parseToAst(body);
     }
 
     private List<String> detectItemTypes(String body) {

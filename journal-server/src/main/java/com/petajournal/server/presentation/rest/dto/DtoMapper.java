@@ -37,7 +37,7 @@ public final class DtoMapper {
                 item.idx(),
                 item.level(),
                 item.body(),
-                item.html(),
+                item.ast(),
                 item.collapsed(),
                 item.types() != null ? item.types() : List.of(),
                 Map.of());
@@ -59,7 +59,7 @@ public final class DtoMapper {
                 item.idx(),
                 item.level(),
                 item.body(),
-                item.html(),
+                item.ast(),
                 item.collapsed(),
                 item.types() != null ? item.types() : List.of(),
                 properties);

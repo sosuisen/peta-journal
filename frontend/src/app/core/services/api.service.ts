@@ -171,7 +171,7 @@ export class ApiService {
     return json(resp);
   }
 
-  async exportTreeMarkdown(itemIds: string[]): Promise<{ treeMarkdown: string; html: string; flatMarkdown: string }> {
+  async exportTreeMarkdown(itemIds: string[]): Promise<{ treeMarkdown: string; ast: string; flatMarkdown: string }> {
     const resp = await fetch('/api/items/export', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

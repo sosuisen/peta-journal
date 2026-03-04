@@ -22,7 +22,7 @@ public class SqliteItemRepository implements ItemRepository {
     public Optional<Item> findById(UUID id) {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT b.id, b.page_id, b.parent_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.html, b.collapsed, " +
+                     "SELECT b.id, b.page_id, b.parent_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.ast, b.collapsed, " +
                      "p.dir_path, p.name, p.type " +
                      "FROM items b JOIN pages p ON b.page_id = p.id WHERE b.id = ?")) {
             ps.setString(1, id.toString());
@@ -40,7 +40,7 @@ public class SqliteItemRepository implements ItemRepository {
         LOG.debugv("findByPageId: pageId={0}", pageId);
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT b.id, b.page_id, b.parent_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.html, b.collapsed, " +
+                     "SELECT b.id, b.page_id, b.parent_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.ast, b.collapsed, " +
                      "p.dir_path, p.name, p.type " +
                      "FROM items b JOIN pages p ON b.page_id = p.id WHERE b.page_id = ? ORDER BY b.idx")) {
             ps.setString(1, pageId.toString());
@@ -63,9 +63,9 @@ public class SqliteItemRepository implements ItemRepository {
             conn.setAutoCommit(false);
             try {
                 try (PreparedStatement ps = conn.prepareStatement(
-                        "INSERT INTO items (id, page_id, parent_id, created_date, modified_date, idx, level, body, html, collapsed) " +
+                        "INSERT INTO items (id, page_id, parent_id, created_date, modified_date, idx, level, body, ast, collapsed) " +
                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) " +
-                        "ON CONFLICT(id) DO UPDATE SET page_id=?, parent_id=?, modified_date=?, idx=?, level=?, body=?, html=?, collapsed=?")) {
+                        "ON CONFLICT(id) DO UPDATE SET page_id=?, parent_id=?, modified_date=?, idx=?, level=?, body=?, ast=?, collapsed=?")) {
                     ps.setString(1, item.id().toString());
                     ps.setString(2, item.pageId().toString());
                     ps.setString(3, item.parentItemId() != null ? item.parentItemId().toString() : null);
@@ -74,7 +74,7 @@ public class SqliteItemRepository implements ItemRepository {
                     ps.setString(6, item.idx());
                     ps.setInt(7, item.level());
                     ps.setString(8, item.body());
-                    ps.setString(9, item.html());
+                    ps.setString(9, item.ast());
                     ps.setInt(10, item.collapsed() ? 1 : 0);
                     // ON CONFLICT UPDATE values
                     ps.setString(11, item.pageId().toString());
@@ -83,7 +83,7 @@ public class SqliteItemRepository implements ItemRepository {
                     ps.setString(14, item.idx());
                     ps.setInt(15, item.level());
                     ps.setString(16, item.body());
-                    ps.setString(17, item.html());
+                    ps.setString(17, item.ast());
                     ps.setInt(18, item.collapsed() ? 1 : 0);
                     ps.executeUpdate();
                 }
@@ -143,7 +143,7 @@ public class SqliteItemRepository implements ItemRepository {
         String pattern = "%[[" + pageTitle + "]]%";
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT b.id, b.page_id, b.parent_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.html, b.collapsed, " +
+                     "SELECT b.id, b.page_id, b.parent_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.ast, b.collapsed, " +
                      "p.dir_path, p.name, p.type " +
                      "FROM items b JOIN pages p ON b.page_id = p.id WHERE b.body LIKE ?")) {
             ps.setString(1, pattern);
@@ -171,7 +171,7 @@ public class SqliteItemRepository implements ItemRepository {
         }
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT b.id, b.page_id, b.parent_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.html, b.collapsed, " +
+                     "SELECT b.id, b.page_id, b.parent_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.ast, b.collapsed, " +
                      "p.dir_path, p.name, p.type " +
                      "FROM items b JOIN pages p ON b.page_id = p.id " +
                      "WHERE b.id IN (SELECT item_id FROM item_types WHERE type IN (" + placeholders + ")) " +
@@ -219,7 +219,7 @@ public class SqliteItemRepository implements ItemRepository {
                 rs.getString("idx"),
                 rs.getInt("level"),
                 rs.getString("body"),
-                rs.getString("html"),
+                rs.getString("ast"),
                 rs.getInt("collapsed") != 0,
                 loadTypes(conn, itemIdStr)
         );

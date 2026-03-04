@@ -15,7 +15,7 @@ public record ItemDto(
         String idx,
         int level,
         String body,
-        String html,
+        String ast,
         boolean collapsed,
         List<String> types,
         Map<String, Object> properties) {

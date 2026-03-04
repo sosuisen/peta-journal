@@ -54,7 +54,7 @@ public class DatabaseInitializer {
                     idx TEXT NOT NULL,
                     level INTEGER NOT NULL DEFAULT 0,
                     body TEXT NOT NULL DEFAULT '',
-                    html TEXT NOT NULL DEFAULT '',
+                    ast TEXT NOT NULL DEFAULT '',
                     collapsed INTEGER NOT NULL DEFAULT 0,
                     FOREIGN KEY (page_id) REFERENCES pages(id) ON DELETE CASCADE
                 )
@@ -120,12 +120,27 @@ public class DatabaseInitializer {
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_pli_target ON property_list_items(target_type, target_id, key, sort_order)");
             stmt.execute("CREATE INDEX IF NOT EXISTS idx_pli_value ON property_list_items(key, value)");
 
+            migrateHtmlToAst(stmt);
             migrateProperties(stmt);
 
             LOG.info("Database initialized");
         } catch (SQLException e) {
             LOG.error("Failed to initialize database", e);
             throw new RuntimeException("Failed to initialize database", e);
+        }
+    }
+
+    private void migrateHtmlToAst(Statement stmt) throws SQLException {
+        // Rename html column to ast if the old column still exists
+        try (ResultSet rs = stmt.executeQuery("PRAGMA table_info(items)")) {
+            while (rs.next()) {
+                if ("html".equals(rs.getString("name"))) {
+                    LOG.info("Renaming items.html column to items.ast...");
+                    stmt.execute("ALTER TABLE items RENAME COLUMN html TO ast");
+                    LOG.info("Column renamed successfully.");
+                    return;
+                }
+            }
         }
     }
 

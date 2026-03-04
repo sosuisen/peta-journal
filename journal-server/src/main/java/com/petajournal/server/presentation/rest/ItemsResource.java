@@ -39,7 +39,7 @@ public class ItemsResource {
     record GetItemsByTypesResponse(List<ItemDto> items) {}
     record CycleTaskResponse(ItemDto item) {}
     record ExportTreeMarkdownRequest(List<String> itemIds) {}
-    record ExportTreeMarkdownResponse(String treeMarkdown, String html, String flatMarkdown) {}
+    record ExportTreeMarkdownResponse(String treeMarkdown, String ast, String flatMarkdown) {}
     record ImportTreeMarkdownRequest(String treeMarkdown) {}
     record ImportTreeMarkdownResponse(String flatMarkdown) {}
     record UpsertPropertyRequest(String valueType, String value) {}
@@ -130,7 +130,7 @@ public class ItemsResource {
     @Path("/export")
     public ExportTreeMarkdownResponse exportTreeMarkdown(ExportTreeMarkdownRequest req) {
         var result = itemService.exportTreeMarkdown(req.itemIds().stream().map(UUID::fromString).toList());
-        return new ExportTreeMarkdownResponse(result.treeMarkdown(), result.html(), result.flatMarkdown());
+        return new ExportTreeMarkdownResponse(result.treeMarkdown(), result.ast(), result.flatMarkdown());
     }
 
     @POST

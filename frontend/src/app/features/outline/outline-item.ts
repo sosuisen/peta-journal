@@ -64,7 +64,7 @@ import { ItemViewComponent } from './item-view';
           />
         } @else {
           <app-item-view
-            [html]="item().html"
+            [ast]="item().ast"
             [types]="item().types"
             [properties]="item().properties"
             (clicked)="editRequested.emit($event)"

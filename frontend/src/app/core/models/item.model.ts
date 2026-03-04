@@ -9,7 +9,7 @@ export interface Item {
   idx: string;
   level: number;
   body: string;
-  html: string;
+  ast: string;
   collapsed: boolean;
   types: string[];
   properties: Record<string, string | string[]>;
