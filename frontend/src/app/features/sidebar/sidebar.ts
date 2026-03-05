@@ -153,10 +153,7 @@ import { NavigationService } from '../../core/services/navigation.service';
     }
     .collapse-btn:hover { opacity: 1; background: #e0e2e5; }
     .index-page-list {}
-    .contents-list {
-      max-height: calc(28px * 10);
-      overflow-y: auto;
-    }
+    .contents-list {}
     .contents-item {
       padding: 3px 12px;
       cursor: pointer;
@@ -371,7 +368,7 @@ export class SidebarComponent implements OnInit {
   }
 
   scrollToItem(itemId: string): void {
-    document.getElementById(itemId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    this.outlineState.requestScrollToItem(itemId);
   }
 
   formatPageTitle(page: Page): string {

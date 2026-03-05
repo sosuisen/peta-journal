@@ -11,6 +11,7 @@ export class OutlineStateService {
   private readonly _itemSelectionMode = signal<boolean>(false);
   private readonly _pendingCursorPosition = signal<number | null>(null);
   private readonly _pendingMouseDrag = signal<boolean>(false);
+  private readonly _scrollRequestItemId = signal<string | null>(null);
   readonly items = this._items.asReadonly();
   readonly focusedItemId = this._focusedItemId.asReadonly();
   readonly editingItemIds = this._editingItemIds.asReadonly();
@@ -142,6 +143,16 @@ export class OutlineStateService {
     const value = this._pendingMouseDrag();
     this._pendingMouseDrag.set(false);
     return value;
+  }
+
+  requestScrollToItem(itemId: string): void {
+    this._scrollRequestItemId.set(itemId);
+  }
+
+  consumeScrollRequest(): string | null {
+    const id = this._scrollRequestItemId();
+    this._scrollRequestItemId.set(null);
+    return id;
   }
 
   /**

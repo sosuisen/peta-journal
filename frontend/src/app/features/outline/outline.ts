@@ -184,6 +184,21 @@ export class OutlineComponent implements OnDestroy {
       this.pageId();
       this.undo.clear();
     });
+
+    // Handle scroll-to-item requests from sidebar TOC
+    effect(() => {
+      const itemId = this.state.consumeScrollRequest();
+      if (!itemId) return;
+      const items = this.state.visibleItems();
+      const index = items.findIndex(b => b.id === itemId);
+      if (index < 0) return;
+      const vp = this.viewport();
+      if (!vp) return;
+      const itemSize = 40;
+      const vpHeight = vp.getViewportSize();
+      const offset = Math.max(0, index * itemSize - (vpHeight - itemSize) / 2);
+      vp.scrollToOffset(offset, 'smooth');
+    });
   }
 
   /**
