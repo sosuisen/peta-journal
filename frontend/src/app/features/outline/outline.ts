@@ -1,4 +1,5 @@
-import { Component, inject, input, output, effect, Injector, afterNextRender, viewChild, viewChildren, signal, OnDestroy } from '@angular/core';
+import { Component, inject, input, output, effect, Injector, afterNextRender, viewChild, viewChildren, signal, untracked, OnDestroy, OnInit } from '@angular/core';
+import { Subscription } from 'rxjs';
 import { ScrollingModule, CdkVirtualScrollViewport } from '@angular/cdk/scrolling';
 import { ScrollingModule as ExperimentalScrollingModule } from '@angular/cdk-experimental/scrolling';
 import { OutlineItemComponent } from './outline-item';
@@ -18,7 +19,7 @@ import { renderToHtml } from 'flatmarkdown-ast2html';
   selector: 'app-outline',
   imports: [ScrollingModule, ExperimentalScrollingModule, OutlineItemComponent],
   template: `
-    <cdk-virtual-scroll-viewport #viewport autosize [minBufferPx]="500" [maxBufferPx]="1000" class="outline-viewport" (scrolledIndexChange)="onScrolledIndexChange($event)">
+    <cdk-virtual-scroll-viewport #viewport autosize [minBufferPx]="500" [maxBufferPx]="1000" class="outline-viewport">
       <div
         *cdkVirtualFor="let item of state.visibleItems(); let i = index; trackBy: trackById"
         class="outline-item"
@@ -135,7 +136,7 @@ import { renderToHtml } from 'flatmarkdown-ast2html';
     }
   `]
 })
-export class OutlineComponent implements OnDestroy {
+export class OutlineComponent implements OnInit, OnDestroy {
   readonly state = inject(OutlineStateService);
   private readonly api = inject(ApiService);
   private readonly autoSave = inject(AutoSaveService);
@@ -164,6 +165,7 @@ export class OutlineComponent implements OnDestroy {
   readonly wikiSuggestionsPos = signal({ x: 0, y: 0 });
   private wikiSearchTimer: ReturnType<typeof setTimeout> | null = null;
 
+  private scrollSub?: Subscription;
   private selectionAnchorItemId: string | null = null;
   private selectionExtentItemId: string | null = null;
   private isSelectionDragging = false;
@@ -186,36 +188,48 @@ export class OutlineComponent implements OnDestroy {
       this.undo.clear();
     });
 
+    // Subscribe to viewport scroll outside Angular change detection
+    effect(() => {
+      const vp = this.viewport();
+      if (!vp) return;
+      untracked(() => {
+        this.scrollSub?.unsubscribe();
+        this.scrollSub = vp.elementScrolled().subscribe(() => this.onViewportScroll());
+      });
+    });
+
     // Handle scroll-to-item requests from sidebar TOC
     effect(() => {
-      const itemId = this.state.consumeScrollRequest();
+      const itemId = this.state.scrollRequestItemId();
       if (!itemId) return;
-      this.scrollToItemElement(itemId, 'smooth');
+      untracked(() => {
+        this.state.clearScrollRequest();
+        this.scrollToItemElement(itemId, 'smooth');
+      });
     });
   }
 
-  /**
-   * Handles the virtual scroll viewport emitting a new scrolled index.
-   * Emits the top visible item's name and triggers loading more items when nearing the end.
-   * @param index - The index of the first visible item in the virtual scroll viewport
-   */
-  onScrolledIndexChange(index: number): void {
+  onViewportScroll(): void {
+    const vp = this.viewport();
+    if (!vp) return;
+    const offset = vp.measureScrollOffset();
+    const range = vp.getRenderedRange();
     const items = this.state.visibleItems();
     const totalItems = items.length;
 
-    this.scrolledFromTop.emit(index > 0);
+    this.scrolledFromTop.emit(offset > 0);
 
     // Emit the top visible item's name
+    const index = range.start;
     if (index >= 0 && index < totalItems) {
-      const topItem = items[index];
-      this.topItemChanged.emit(topItem.name);
+      this.topItemChanged.emit(items[index].name);
     }
 
     // Check if we need more buffer (100 items ahead)
-    if (totalItems < index + 100 && totalItems > 0) {
+    if (totalItems < range.end + 100 && totalItems > 0) {
       const lastItem = items[totalItems - 1];
       const filepath = lastItem.dirPath + lastItem.name;
-      this.loadMore.emit({ filepath, currentIndex: index });
+      this.loadMore.emit({ filepath, currentIndex: range.start });
     }
   }
 
@@ -277,9 +291,7 @@ export class OutlineComponent implements OnDestroy {
     document.addEventListener('click', this.selectionClickHandler);
     document.addEventListener('copy', this.selectionCopyHandler);
     document.addEventListener('cut', this.selectionCutHandler);
-    afterNextRender(() => {
-      this.scrollToItemElement(itemId);
-    }, { injector: this.injector });
+    setTimeout(() => this.scrollToItemElement(itemId), 50);
   }
 
   private scrollToItemElement(itemId: string, behavior: ScrollBehavior = 'auto'): void {
@@ -309,8 +321,8 @@ export class OutlineComponent implements OnDestroy {
   }
 
   private scrollSearchStep(itemId: string, targetIndex: number, attempt: number): void {
-    if (attempt > 50) return; // safety limit
-    afterNextRender(() => {
+    if (attempt > 50) return;
+    setTimeout(() => {
       const el = document.getElementById(itemId);
       if (el) {
         this.scrollToElementAtFraction(el, 'smooth', 0.1);
@@ -319,19 +331,14 @@ export class OutlineComponent implements OnDestroy {
       const vp = this.viewport();
       if (!vp) return;
       const range = vp.getRenderedRange();
-      // Determine scroll direction based on rendered range vs target index
       const vpHeight = vp.getViewportSize();
       if (targetIndex >= range.end) {
-        // Target is below — scroll down one viewport
         vp.scrollToOffset(vp.measureScrollOffset() + vpHeight * 0.8);
       } else if (targetIndex < range.start) {
-        // Target is above — scroll up one viewport
         vp.scrollToOffset(Math.max(0, vp.measureScrollOffset() - vpHeight * 0.8));
-      } else {
-        // Target index is in rendered range but element not found yet — wait one more frame
       }
       this.scrollSearchStep(itemId, targetIndex, attempt + 1);
-    }, { injector: this.injector });
+    }, 50);
   }
 
   private scrollToElementAtFraction(el: HTMLElement, behavior: ScrollBehavior, fraction: number): void {
@@ -1800,7 +1807,10 @@ export class OutlineComponent implements OnDestroy {
   }
 
   /** Cleans up document-level event listeners and wiki suggestion state on component destruction. */
+  ngOnInit(): void {}
+
   ngOnDestroy(): void {
+    this.scrollSub?.unsubscribe();
     document.removeEventListener('mouseup', this.selectionMouseUpHandler);
     document.removeEventListener('keydown', this.selectionKeydownHandler);
     document.removeEventListener('click', this.selectionClickHandler);

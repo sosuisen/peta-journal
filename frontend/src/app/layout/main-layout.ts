@@ -221,7 +221,7 @@ import { validateFileName } from '../core/utils/filename-validation.utils';
     }
     .content {
       flex: 1;
-      overflow-y: auto;
+      overflow: hidden;
       padding: 0 0 0 8px;
       box-sizing: border-box;
     }

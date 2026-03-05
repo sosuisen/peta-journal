@@ -145,14 +145,14 @@ export class OutlineStateService {
     return value;
   }
 
+  readonly scrollRequestItemId = this._scrollRequestItemId.asReadonly();
+
   requestScrollToItem(itemId: string): void {
     this._scrollRequestItemId.set(itemId);
   }
 
-  consumeScrollRequest(): string | null {
-    const id = this._scrollRequestItemId();
+  clearScrollRequest(): void {
     this._scrollRequestItemId.set(null);
-    return id;
   }
 
   /**
