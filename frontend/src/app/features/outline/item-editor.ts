@@ -69,6 +69,9 @@ export function ensureCodeFenceClosed(text: string): string {
       margin-top: 4px;
       flex-shrink: 0;
     }
+    .task-checkbox:indeterminate {
+      accent-color: #22c55e;
+    }
   `]
 })
 export class ItemEditorComponent implements AfterViewInit, OnDestroy {

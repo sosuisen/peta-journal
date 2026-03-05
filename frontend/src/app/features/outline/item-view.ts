@@ -136,6 +136,9 @@ import { FmRootComponent } from 'flatmarkdown-ast2angular';
       margin-top: 4px;
       flex-shrink: 0;
     }
+    .task-checkbox:indeterminate {
+      accent-color: #22c55e;
+    }
     .task-checkbox ~ .item-content {
       padding-left: 2px;
     }
