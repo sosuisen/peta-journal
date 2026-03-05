@@ -11,6 +11,7 @@ import { ClipboardService } from '../../core/services/clipboard.service';
 import { UndoService, UndoEntry } from '../../core/services/undo.service';
 import { formatJournalDate } from '../../core/utils/date.utils';
 import { NavigationService } from '../../core/services/navigation.service';
+import { ConfigService } from '../../core/services/config.service';
 import { WikiLinkContext, ensureCodeFenceClosed, hasUnclosedCodeFence } from './item-editor';
 import { findMoveDownTarget, findMoveUpTarget } from './move-utils';
 import { renderToHtml } from 'flatmarkdown-ast2html';
@@ -145,6 +146,7 @@ export class OutlineComponent implements OnInit, OnDestroy {
   private readonly clipboard = inject(ClipboardService);
   private readonly nav = inject(NavigationService);
   private readonly undo = inject(UndoService);
+  private readonly config = inject(ConfigService);
   readonly pageId = input.required<string>();
   readonly focusItemId = input<string | null | undefined>('');
   readonly disableAutoLoad = input<boolean>(false);  // Disable automatic item loading
@@ -714,87 +716,91 @@ export class OutlineComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Handles the user pressing Shift+Tab to outdent a item and its children by one level.
-   * May reposition the item after its parent's last child if normal placement is not possible.
+   * Handles the user pressing Shift+Tab to outdent an item and its children by one level.
+   *
+   * - If the previous item is at level-1, outdent in place (both modes).
+   * - Otherwise, find the parent (an item above at level-1):
+   *   - logicalOutdent=true: move group to after parent's last child, then outdent.
+   *     Siblings below stay with the original parent.
+   *   - logicalOutdent=false: outdent in place. Siblings below don't move but
+   *     their parent effectively changes to the outdented item.
+   *
    * @param item - The item to outdent
    */
   async onOutdent(item: Item): Promise<void> {
     if (item.level <= 1) return;
     const items = this.state.items();
     const idx = items.findIndex(b => b.id === item.id);
+    if (idx < 0) return;
     const prevItem = idx > 0 ? items[idx - 1] : undefined;
-    const newLevel = item.level - 1;
 
-    // Check normal placement
-    if (!this.canPlace(newLevel, prevItem)) {
-      // Exception: outdenting by 1 level is allowed by placing after the last child of the current parent
-      let currentParentIdx = -1;
-      for (let i = idx - 1; i >= 0; i--) {
-        if (items[i].level === item.level - 1) {
-          currentParentIdx = i;
-          break;
-        }
+    // Find parent (item above at level-1)
+    let parentIdx = -1;
+    for (let i = idx - 1; i >= 0; i--) {
+      if (items[i].level === item.level - 1) {
+        parentIdx = i;
+        break;
       }
-
-      if (currentParentIdx >= 0) {
-        const currentParent = items[currentParentIdx];
-        const allChildren = this.state.getChildren(currentParent.id);
-        const group = this.state.getItemWithChildren(item.id);
-        const movingIds = new Set(group.map(b => b.id));
-
-        let lastChildId = currentParent.id;
-        for (const child of allChildren) {
-          if (!movingIds.has(child.id)) {
-            lastChildId = child.id;
-          }
-        }
-
-        const groupIds = group.map(b => b.id);
-        const beforeSnapshots = group.map(b => ({ ...b }));
-
-        // Update levels
-        for (const b of group) {
-          this.state.updateItem(b.id, { level: b.level - 1 });
-        }
-        const levelResults = await Promise.all(group.map(b => this.api.updateItem(b.id, { level: b.level - 1 })));
-        for (const r of levelResults) {
-          this.state.updateItem(r.id, { idx: r.idx, level: r.level });
-        }
-
-        // Move after the last child (if it's not the parent itself)
-        if (lastChildId !== currentParent.id) {
-          const moved = await this.api.moveItems(groupIds, item.pageId, lastChildId);
-          this.state.replaceItems(groupIds, moved, lastChildId);
-
-          this.undo.begin('outdent');
-          for (let i = 0; i < beforeSnapshots.length; i++) {
-            this.undo.pushUpdate(beforeSnapshots[i], { ...moved[i] });
-          }
-          this.undo.commit();
-        } else {
-          this.undo.begin('outdent');
-          for (const b of beforeSnapshots) {
-            this.undo.pushUpdate(b, { ...b, level: b.level - 1 });
-          }
-          this.undo.commit();
-        }
-        return;
-      }
-
-      return; // Cannot place
     }
+    if (parentIdx < 0) return; // No parent found, cannot outdent
 
-    // Normal outdent
     const group = this.state.getItemWithChildren(item.id);
-    this.undo.begin('outdent');
-    for (const b of group) {
-      this.undo.pushUpdate({ ...b }, { ...b, level: b.level - 1 });
-      this.state.updateItem(b.id, { level: b.level - 1 });
-    }
-    this.undo.commit();
-    const outdentResults = await Promise.all(group.map(b => this.api.updateItem(b.id, { level: b.level - 1 })));
-    for (const r of outdentResults) {
-      this.state.updateItem(r.id, { idx: r.idx, level: r.level });
+    const needsMove = !prevItem || prevItem.level !== item.level - 1;
+
+    if (needsMove && this.config.logicalOutdent()) {
+      // Logical outdent: move group to after parent's last child, then decrease level
+      const currentParent = items[parentIdx];
+      const allChildren = this.state.getChildren(currentParent.id);
+      const movingIds = new Set(group.map(b => b.id));
+
+      let lastChildId = currentParent.id;
+      for (const child of allChildren) {
+        if (!movingIds.has(child.id)) {
+          lastChildId = child.id;
+        }
+      }
+
+      const groupIds = group.map(b => b.id);
+      const beforeSnapshots = group.map(b => ({ ...b }));
+
+      // Update levels
+      for (const b of group) {
+        this.state.updateItem(b.id, { level: b.level - 1 });
+      }
+      const levelResults = await Promise.all(group.map(b => this.api.updateItem(b.id, { level: b.level - 1 })));
+      for (const r of levelResults) {
+        this.state.updateItem(r.id, { idx: r.idx, level: r.level });
+      }
+
+      // Move after the last child (if it's not the parent itself)
+      if (lastChildId !== currentParent.id) {
+        const moved = await this.api.moveItems(groupIds, item.pageId, lastChildId);
+        this.state.replaceItems(groupIds, moved, lastChildId);
+
+        this.undo.begin('outdent');
+        for (let i = 0; i < beforeSnapshots.length; i++) {
+          this.undo.pushUpdate(beforeSnapshots[i], { ...moved[i] });
+        }
+        this.undo.commit();
+      } else {
+        this.undo.begin('outdent');
+        for (const b of beforeSnapshots) {
+          this.undo.pushUpdate(b, { ...b, level: b.level - 1 });
+        }
+        this.undo.commit();
+      }
+    } else {
+      // In-place outdent: decrease level of group
+      this.undo.begin('outdent');
+      for (const b of group) {
+        this.undo.pushUpdate({ ...b }, { ...b, level: b.level - 1 });
+        this.state.updateItem(b.id, { level: b.level - 1 });
+      }
+      this.undo.commit();
+      const results = await Promise.all(group.map(b => this.api.updateItem(b.id, { level: b.level - 1 })));
+      for (const r of results) {
+        this.state.updateItem(r.id, { idx: r.idx, level: r.level });
+      }
     }
   }
 
