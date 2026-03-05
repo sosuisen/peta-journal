@@ -183,7 +183,7 @@ export class OutlineItemComponent {
       const d = new Date(v);
       return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     };
-    if (!end) return { label: fmt(begin), tooltip: fmt(begin) };
+    if (!end) return { label: `${fmt(begin)}-`, tooltip: `${fmt(begin)}-` };
     const diffMs = new Date(end).getTime() - new Date(begin).getTime();
     const totalSec = Math.floor(diffMs / 1000);
     const h = Math.floor(totalSec / 3600);
