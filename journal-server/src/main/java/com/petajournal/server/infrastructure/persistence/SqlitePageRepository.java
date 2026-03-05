@@ -170,7 +170,7 @@ public class SqlitePageRepository implements PageRepository {
             conn.setAutoCommit(false);
             try {
                 // Resolve parent_id from dir_path
-                UUID parentId = resolveParentId(conn, page.id(), page.dirPath());
+                UUID parentId = resolveParentId(conn, page.id(), page.dirPath(), page.name());
 
                 // Upsert page
                 try (PreparedStatement ps = conn.prepareStatement(
@@ -322,42 +322,37 @@ public class SqlitePageRepository implements PageRepository {
     }
 
     /**
-     * Resolves the parent page ID from a dir_path.
-     * "" → null (root)
-     * "a/" → search name='a', dir_path=''; fallback: name='index', dir_path='a/'
-     * "a/b/" → search name='b', dir_path='a/'; fallback: name='index', dir_path='a/b/'
-     * If result is the page's own ID → null (avoid self-reference)
+     * Resolves the parent page ID based on dir_path and name.
+     * <ul>
+     *   <li>Index pages: parent = index one level up.
+     *       "a/b/" + "index" → find ("a/", "index"); fallback to ("", "index")</li>
+     *   <li>Non-index pages: parent = index at same dirPath.
+     *       "a/b/" + "foo" → find ("a/b/", "index")</li>
+     *   <li>Root index ("" + "index") → null (no parent)</li>
+     *   <li>Root non-index ("" + "foo") → find ("", "index")</li>
+     * </ul>
      */
-    private UUID resolveParentId(Connection conn, UUID pageId, String dirPath) throws SQLException {
-        if (dirPath == null || dirPath.isEmpty()) {
-            return null;
-        }
-
-        // Remove trailing slash and split: "a/b/" → ["a", "b"]
-        String trimmed = dirPath.endsWith("/") ? dirPath.substring(0, dirPath.length() - 1) : dirPath;
-        int lastSlash = trimmed.lastIndexOf('/');
-        String parentDirPath;
-        String lastSegment;
-        if (lastSlash < 0) {
-            parentDirPath = "";
-            lastSegment = trimmed;
+    private UUID resolveParentId(Connection conn, UUID pageId, String dirPath, String name) throws SQLException {
+        if ("index".equals(name)) {
+            // Index page's parent is the index page one level up
+            if (dirPath == null || dirPath.isEmpty()) {
+                return null; // root index has no parent
+            }
+            // "a/b/c/" → trim → "a/b/c" → lastSlash → parentDirPath="a/b/"
+            String trimmed = dirPath.endsWith("/") ? dirPath.substring(0, dirPath.length() - 1) : dirPath;
+            int lastSlash = trimmed.lastIndexOf('/');
+            String parentDirPath = lastSlash < 0 ? "" : trimmed.substring(0, lastSlash + 1);
+            return findPageId(conn, parentDirPath, "index");
         } else {
-            parentDirPath = trimmed.substring(0, lastSlash + 1);
-            lastSegment = trimmed.substring(lastSlash + 1);
+            // Non-index page's parent is the index page at the same dirPath
+            String dir = (dirPath == null) ? "" : dirPath;
+            UUID found = findPageId(conn, dir, "index");
+            // Safety: avoid self-reference (shouldn't happen for non-index pages)
+            if (found != null && found.equals(pageId)) {
+                return null;
+            }
+            return found;
         }
-
-        // Primary lookup: page with name=lastSegment in parentDirPath
-        UUID found = findPageId(conn, parentDirPath, lastSegment);
-        if (found == null) {
-            // Fallback: index page at dirPath
-            found = findPageId(conn, dirPath, "index");
-        }
-
-        // Avoid self-reference
-        if (found != null && found.equals(pageId)) {
-            return null;
-        }
-        return found;
     }
 
     private UUID findPageId(Connection conn, String dirPath, String name) throws SQLException {

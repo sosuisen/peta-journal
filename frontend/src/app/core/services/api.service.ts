@@ -14,8 +14,8 @@ interface BacklinkEntry { sourcePage: Page; sourceItem: Item }
 interface GetBacklinksResult { entries: BacklinkEntry[] }
 async function json<T>(resp: Response): Promise<T> {
   if (!resp.ok) {
-    const text = await resp.text().catch(() => '');
-    throw new Error(text || `HTTP ${resp.status}`);
+    const body = await resp.json().catch(() => null);
+    throw new Error(body?.error || `HTTP ${resp.status}`);
   }
   return await resp.json();
 }
@@ -96,7 +96,10 @@ export class ApiService {
 
   async deletePage(pageId: string): Promise<void> {
     const resp = await fetch(`/api/pages/${pageId}`, { method: 'DELETE' });
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    if (!resp.ok) {
+      const body = await resp.json().catch(() => null);
+      throw new Error(body?.error || `HTTP ${resp.status}`);
+    }
   }
 
   async deleteItem(itemId: string): Promise<void> {

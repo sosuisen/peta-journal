@@ -40,13 +40,15 @@ import { NavigationService } from '../../core/services/navigation.service';
         @if (indexPages().length > 0) {
           <div class="sidebar-section">
             <h3 class="section-title section-title-link" (click)="goToIndex($event)">{{ indexHeader() }}</h3>
-            @for (page of indexPages(); track page.id) {
-              <div class="sidebar-item recent-page-item" (click)="goToPage(page, $event)"
-                   [class.active]="page.id === currentPageService.currentPage()?.id">
-                <svg class="page-icon" width="11" height="11"><use href="#icon-page"/></svg>
-                {{ formatIndexPageName(page) }}
-              </div>
-            }
+            <div class="index-page-list">
+              @for (page of indexPages(); track page.id) {
+                <div class="sidebar-item recent-page-item" (click)="goToPage(page, $event)"
+                     [class.active]="page.id === currentPageService.currentPage()?.id">
+                  <svg class="page-icon" width="11" height="11"><use href="#icon-page"/></svg>
+                  {{ formatIndexPageName(page) }}
+                </div>
+              }
+            </div>
           </div>
         }
 
@@ -84,6 +86,10 @@ import { NavigationService } from '../../core/services/navigation.service';
       padding: 4px 12px 12px;
     }
     .sidebar-section { margin-bottom: 8px; }
+    .index-page-list {
+      max-height: calc(28px * 7);
+      overflow-y: auto;
+    }
     app-calendar { display: block; }
     .section-title {
       font-size: 11px;
@@ -155,7 +161,7 @@ export class SidebarComponent implements OnInit {
   constructor() {
     effect(() => {
       const page = this.currentPageService.currentPage();
-      if (!page || !page.dirPath) {
+      if (!page || page.type !== 'doc') {
         this.indexHeader.set('');
         this.indexPages.set([]);
         return;
@@ -166,16 +172,18 @@ export class SidebarComponent implements OnInit {
 
   private async loadIndexPages(page: Page): Promise<void> {
     if (page.name === 'index') {
-      // Index page: show its dirPath, list children
-      this.indexHeader.set(page.dirPath);
+      // Index page: show its children
+      const isRoot = !page.dirPath;
+      this.indexHeader.set(page.dirPath || '(root)/');
       const children = await this.api.getChildPages(page.id);
-      this.indexPages.set(children);
+      this.indexPages.set(isRoot ? children.filter(c => c.type === 'doc') : children);
     } else if (page.parentId) {
-      // Non-index page: show parent's dirPath, list siblings
+      // Non-index page: show parent's children as siblings
       const parent = await this.api.getPageById(page.parentId);
-      this.indexHeader.set(parent.page.dirPath);
+      const isRoot = !parent.page.dirPath;
+      this.indexHeader.set(parent.page.dirPath || '(root)/');
       const siblings = await this.api.getChildPages(page.parentId);
-      this.indexPages.set(siblings);
+      this.indexPages.set(isRoot ? siblings.filter(c => c.type === 'doc') : siblings);
     } else {
       this.indexHeader.set('');
       this.indexPages.set([]);
@@ -184,7 +192,9 @@ export class SidebarComponent implements OnInit {
 
   goToIndex(event: MouseEvent): void {
     const header = this.indexHeader();
-    if (header) {
+    if (header === '(root)/') {
+      this.nav.navigateToPage('index', event.ctrlKey || event.metaKey, event.shiftKey);
+    } else if (header) {
       this.nav.navigateToPage(header + 'index', event.ctrlKey || event.metaKey, event.shiftKey);
     }
   }
@@ -261,8 +271,8 @@ export class SidebarComponent implements OnInit {
     if (page.type === 'journal') {
       return formatJournalDate(page.name);
     }
-    if (page.name === 'index' && page.dirPath) {
-      return page.dirPath;
+    if (page.name === 'index') {
+      return page.dirPath ? page.dirPath : '(root)/';
     }
     return page.dirPath ? page.dirPath + page.name : page.name;
   }

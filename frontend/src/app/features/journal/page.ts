@@ -49,8 +49,16 @@ import { ExtensionFunctionService } from '../../core/services/extension-function
               }
             </div>
           }
-          @if (isIndexPage()) {
+          @if (isRootIndex()) {
+            <h2 class="page-title root-index-title">(root)/</h2>
             <div class="index-label">index</div>
+          } @else if (isIndexPage()) {
+            <div class="index-label">
+              index
+              @if (canDemoteIndex()) {
+                <button class="demote-btn" (click)="demoteIndex()">ページ名を {{ demoteName() }} に変更する</button>
+              }
+            </div>
           } @else {
             <h2 class="page-title" (click)="startEdit($event)">{{ pageTitle() }}</h2>
           }
@@ -109,10 +117,33 @@ import { ExtensionFunctionService } from '../../core/services/extension-function
       font-weight: bold;
       color: #000;
     }
+    .root-index-title {
+      color: #999;
+      cursor: default;
+    }
+    .root-index-title:hover {
+      background: transparent;
+    }
     .index-label {
       padding: 4px 6px;
       font-size: 1em;
       color: #999;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .demote-btn {
+      font-size: 12px;
+      color: #666;
+      background: none;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      padding: 2px 8px;
+      cursor: pointer;
+    }
+    .demote-btn:hover {
+      background: #f0f0f0;
+      border-color: #999;
     }
 
     /* Edit mode */
@@ -174,6 +205,15 @@ export class PageComponent {
   readonly editDirPath = signal('');
   readonly editFileName = signal('');
   readonly isIndexPage = computed(() => this.page()?.name === 'index');
+  readonly isRootIndex = computed(() => this.page()?.name === 'index' && !this.page()?.dirPath);
+  readonly canDemoteIndex = signal(false);
+  readonly demoteName = computed(() => {
+    const p = this.page();
+    if (!p || !p.dirPath) return '';
+    const trimmed = p.dirPath.replace(/\/$/, '');
+    const lastSlash = trimmed.lastIndexOf('/');
+    return lastSlash < 0 ? trimmed : trimmed.substring(lastSlash + 1);
+  });
 
   readonly dirPathSegments = computed(() => {
     const p = this.page();
@@ -214,8 +254,8 @@ export class PageComponent {
     if (p.type === 'journal') {
       return formatJournalDate(p.name);
     }
-    if (p.name === 'index' && p.dirPath) {
-      return p.dirPath;
+    if (p.name === 'index') {
+      return p.dirPath ? p.dirPath : '(root)/';
     }
     return p.dirPath + p.name;
   }
@@ -367,8 +407,37 @@ export class PageComponent {
         });
       }
       this.titleService.setTitle(this.fullPageTitle());
+
+      // Check if non-root index page can be demoted
+      if (p.name === 'index' && p.dirPath) {
+        const children = await this.api.getChildPages(p.id);
+        this.canDemoteIndex.set(children.length === 0);
+      } else {
+        this.canDemoteIndex.set(false);
+      }
     } catch (e) {
       console.error('Failed to load page:', pageName, e);
     }
+  }
+
+  async demoteIndex(): Promise<void> {
+    const p = this.page();
+    if (!p || !p.dirPath) return;
+    const name = this.demoteName();
+    if (!name) return;
+
+    // "a/b/c/" → parentDir = "a/b/"
+    const trimmed = p.dirPath.replace(/\/$/, '');
+    const lastSlash = trimmed.lastIndexOf('/');
+    const parentDir = lastSlash < 0 ? '' : trimmed.substring(0, lastSlash + 1);
+
+    try {
+      await this.api.updatePage(p.id, { title: name, dirPath: parentDir });
+    } catch (e: any) {
+      alert(e.message || 'Failed to rename page');
+      return;
+    }
+    this.recentPages.refresh();
+    this.navigation.navigateToPage(parentDir + name);
   }
 }

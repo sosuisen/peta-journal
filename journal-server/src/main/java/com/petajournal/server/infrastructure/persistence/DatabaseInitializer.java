@@ -122,6 +122,7 @@ public class DatabaseInitializer {
 
             migrateHtmlToAst(stmt);
             migrateProperties(stmt);
+            migrateRootIndex(stmt);
 
             LOG.info("Database initialized");
         } catch (SQLException e) {
@@ -181,6 +182,40 @@ public class DatabaseInitializer {
                 LOG.info("Plan property backfill complete");
             }
         }
+    }
+
+    private void migrateRootIndex(Statement stmt) throws SQLException {
+        // Create root index page if it doesn't exist
+        try (var rs = stmt.executeQuery(
+                "SELECT id FROM pages WHERE dir_path = '' AND name = 'index' LIMIT 1")) {
+            if (rs.next()) {
+                return;
+            }
+        }
+
+        LOG.info("Creating root index page...");
+        String rootId = java.util.UUID.randomUUID().toString();
+        long now = java.time.Instant.now().toEpochMilli();
+        try (var ps = stmt.getConnection().prepareStatement(
+                "INSERT INTO pages (id, parent_id, dir_path, name, type, created_date, modified_date) "
+                + "VALUES (?, NULL, '', 'index', 'doc', ?, ?)")) {
+            ps.setString(1, rootId);
+            ps.setLong(2, now);
+            ps.setLong(3, now);
+            ps.executeUpdate();
+        }
+        // Create initial empty item for the root index page
+        String itemId = com.petajournal.server.domain.ItemIdGenerator.generate().toString();
+        try (var ps = stmt.getConnection().prepareStatement(
+                "INSERT INTO items (id, page_id, parent_id, created_date, modified_date, idx, level, body, ast, collapsed) "
+                + "VALUES (?, ?, NULL, ?, ?, 'a0', 1, '', '', 0)")) {
+            ps.setString(1, itemId);
+            ps.setString(2, rootId);
+            ps.setLong(3, now);
+            ps.setLong(4, now);
+            ps.executeUpdate();
+        }
+        LOG.info("Root index page created: " + rootId);
     }
 
     private void migrateProperties(Statement stmt) throws SQLException {

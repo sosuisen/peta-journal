@@ -154,6 +154,16 @@ public class PageService {
             fileName = title;
         }
 
+        // Prevent demoting an index page that still has children
+        if ("index".equals(existing.name()) && !"index".equals(fileName)) {
+            List<Page> children = pageRepository.findByParentId(pageId);
+            if (!children.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "Cannot rename index page with " + children.size() + " child page(s). "
+                        + "Delete or move child pages first.");
+            }
+        }
+
         String newDirPath = existing.dirPath();
         if (dirPath != null) {
             newDirPath = dirPath;
@@ -183,6 +193,24 @@ public class PageService {
      * @param pageId the page to delete
      */
     public void deletePage(UUID pageId) {
+        Page page = pageRepository.findById(pageId)
+                .orElseThrow(() -> new IllegalArgumentException("Page not found: " + pageId));
+
+        // Root index is never deletable
+        if ("index".equals(page.name()) && (page.dirPath() == null || page.dirPath().isEmpty())) {
+            throw new IllegalArgumentException("Cannot delete the root index page.");
+        }
+
+        // Prevent deleting index pages that have children
+        if ("index".equals(page.name())) {
+            List<Page> children = pageRepository.findByParentId(pageId);
+            if (!children.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "Cannot delete index page with " + children.size() + " child page(s). "
+                        + "Delete or move child pages first.");
+            }
+        }
+
         searchService.removePage(pageId.toString());
         itemRepository.deleteByPageId(pageId);
         pageRepository.delete(pageId);
@@ -241,20 +269,34 @@ public class PageService {
         for (String segment : segments) {
             if (segment.isEmpty()) continue;
 
+            String parentDir = currentDir.toString(); // "" or "a/" or "a/b/"
             currentDir.append(segment).append("/");
-            String indexDir = currentDir.toString();
+            String indexDir = currentDir.toString();   // "a/" or "a/b/" or "a/b/c/"
+
             var existing = pageRepository.findByTypeDirPathFileName("doc", indexDir, "index");
             if (existing.isEmpty()) {
-                UUID id = UUID.randomUUID();
-                Instant now = Instant.now();
-                Page page = new Page(id, null, indexDir, "index", "doc", now, now);
-                pageRepository.save(page);
-                searchService.indexPage(page);
+                // Check if a named page should be promoted to index
+                var namedPage = pageRepository.findByTypeDirPathFileName("doc", parentDir, segment);
+                if (namedPage.isPresent()) {
+                    // Rename {parentDir}{segment} → {indexDir}{index}
+                    Page page = namedPage.get();
+                    Page renamed = new Page(page.id(), null, indexDir, "index", page.type(),
+                            page.createdDate(), Instant.now());
+                    pageRepository.save(renamed);
+                    searchService.indexPage(renamed);
+                } else {
+                    // Create new index page
+                    UUID id = UUID.randomUUID();
+                    Instant now = Instant.now();
+                    Page page = new Page(id, null, indexDir, "index", "doc", now, now);
+                    pageRepository.save(page);
+                    searchService.indexPage(page);
 
-                UUID itemId = ItemIdGenerator.generate();
-                Item item = new Item(itemId, id, null, indexDir, "index", "doc", now, now,
-                        FractionalIndexer.initial(), 1, "", "", false, List.of());
-                itemRepository.save(item);
+                    UUID itemId = ItemIdGenerator.generate();
+                    Item item = new Item(itemId, id, null, indexDir, "index", "doc", now, now,
+                            FractionalIndexer.initial(), 1, "", "", false, List.of());
+                    itemRepository.save(item);
+                }
             }
         }
     }

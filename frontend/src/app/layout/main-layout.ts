@@ -303,7 +303,12 @@ export class MainLayoutComponent {
     const result = isJournal
       ? await this.api.getOrCreateJournal(fileName)
       : await this.api.getOrCreateDoc(fileName);
-    await this.api.deletePage(result.page.id);
+    try {
+      await this.api.deletePage(result.page.id);
+    } catch (e: any) {
+      alert(e.message || 'Failed to delete page');
+      return;
+    }
     this.recentPages.refresh();
     this.router.navigateByUrl('/today');
   }
