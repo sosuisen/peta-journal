@@ -142,7 +142,8 @@ export class JournalComponent {
       this.extensionFunctions.emitPageCreate({
         pageId: result.page.id,
         fileName: date,
-        dirName: result.page.dirPath
+        dirName: result.page.dirPath,
+        pageType: result.page.type
       });
     }
 

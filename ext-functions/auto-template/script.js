@@ -78,7 +78,7 @@
    * Split flat markdown text into item chunks, keeping code fences as single items.
    */
   function splitFlatMarkdown(text) {
-    const lines = text.split('\n');
+    const lines = text.replace(/\r\n/g, '\n').split('\n');
     const chunks = [];
     let currentLines = [];
     let inCodeFence = false;
@@ -109,7 +109,7 @@
     return chunks;
   }
 
-  function matchesPattern(pattern, fileName, dirName) {
+  function matchesPattern(pattern, fileName, dirName, pageType) {
     // daily: YYYY-MM-DD
     if (pattern === 'daily') {
       return /^\d{4}-\d{2}-\d{2}$/.test(fileName);
@@ -140,12 +140,12 @@
 
     // page/doc: non-journal pages
     if (pattern === 'page' || pattern === 'doc') {
-      return dirName.startsWith('docs');
+      return pageType === 'doc';
     }
 
     // journal: any journal page
     if (pattern === 'journal') {
-      return dirName.startsWith('journal');
+      return pageType === 'journal';
     }
 
     // regex: /pattern/
@@ -167,12 +167,12 @@
     const data = event.data;
     if (!data || data.type !== 'PageCreate') return;
 
-    const { pageId, fileName, dirName } = data;
-    console.log('[auto-template] PageCreate:', fileName, dirName);
+    const { pageId, fileName, dirName, pageType } = data;
+    console.log('[auto-template] PageCreate:', fileName, pageType);
 
     // Find all matching templates
     const matched = templates.filter(t =>
-      t.patterns.some(p => matchesPattern(p, fileName, dirName))
+      t.patterns.some(p => matchesPattern(p, fileName, dirName, pageType))
     );
 
     if (matched.length === 0) {

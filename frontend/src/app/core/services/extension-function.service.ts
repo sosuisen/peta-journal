@@ -42,7 +42,7 @@ export class ExtensionFunctionService {
    * Broadcasts a `PageCreate` event to all loaded extension iframes.
    * @param event - The page creation event details.
    */
-  emitPageCreate(event: { pageId: string; fileName: string; dirName: string }): void {
+  emitPageCreate(event: { pageId: string; fileName: string; dirName: string; pageType: string }): void {
     const message = { type: 'PageCreate', ...event };
     for (const iframe of this.iframes) {
       iframe.contentWindow?.postMessage(message, '*');
@@ -54,6 +54,7 @@ export class ExtensionFunctionService {
     if (!data || typeof data !== 'object') return;
 
     if (data.type === 'CreateItem') {
+      console.log('[ext-func] CreateItem received:', data.body?.substring(0, 50));
       await this.handleCreateItem(data, event.source as Window);
     }
   }
@@ -92,8 +93,9 @@ export class ExtensionFunctionService {
           requestId: data.requestId
         }, '*');
       }
+      console.log('[ext-func] Created item:', newItem.id, newItem.body?.substring(0, 50));
     } catch (e) {
-      console.error('Failed to create item from extension:', e);
+      console.error('[ext-func] Failed to create item:', e);
       if (source) {
         source.postMessage({
           type: 'CreateItemError',
