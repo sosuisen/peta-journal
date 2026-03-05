@@ -43,6 +43,24 @@ public class MarkdownExportService {
         exportQueueRepository.enqueue(pageId);
     }
 
+    public void exportAllIfEmpty(String dir) {
+        if (dir == null || dir.trim().isEmpty()) return;
+        Path path = Path.of(dir);
+        if (!Files.isDirectory(path)) return;
+        try (var stream = Files.walk(path)) {
+            boolean hasFiles = stream.anyMatch(p -> Files.isRegularFile(p) && p.toString().endsWith(".md"));
+            if (hasFiles) return;
+        } catch (IOException e) {
+            LOG.warnv("Failed to scan directory {0}: {1}", dir, e.getMessage());
+            return;
+        }
+        List<Page> allPages = pageRepository.findAll();
+        for (Page page : allPages) {
+            exportQueueRepository.enqueue(page.id());
+        }
+        LOG.infov("Directory empty, queued {0} pages for export", allPages.size());
+    }
+
     @Scheduled(every = "${petajournal.export.interval}s", delay = 5, delayUnit = java.util.concurrent.TimeUnit.SECONDS)
     void processExportQueue() {
         // Skip if already processing to prevent concurrent execution

@@ -155,7 +155,7 @@ export class ApiService {
     return json(resp);
   }
 
-  async getConfig(): Promise<{ weekNumbering: string }> {
+  async getConfig(): Promise<{ markdownDir: string; weekNumbering: string; logicalOutdent: boolean }> {
     const resp = await fetch('/api/config');
     return json(resp);
   }
@@ -165,12 +165,17 @@ export class ApiService {
     return json(resp);
   }
 
-  async updateConfig(weekNumbering: string): Promise<{ weekNumbering: string }> {
+  async updateConfig(config: { markdownDir?: string; weekNumbering?: string; logicalOutdent?: boolean }): Promise<{ markdownDir: string; weekNumbering: string; logicalOutdent: boolean }> {
     const resp = await fetch('/api/config', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ weekNumbering }),
+      body: JSON.stringify(config),
     });
+    return json(resp);
+  }
+
+  async browseFolder(): Promise<{ selected: boolean; path: string }> {
+    const resp = await fetch('/api/config/browse-folder', { method: 'POST' });
     return json(resp);
   }
 

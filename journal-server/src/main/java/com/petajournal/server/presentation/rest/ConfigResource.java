@@ -1,6 +1,8 @@
 package com.petajournal.server.presentation.rest;
 
 import com.petajournal.server.application.ConfigService;
+import com.petajournal.server.application.FolderChooserService;
+import com.petajournal.server.infrastructure.export.MarkdownExportService;
 import com.petajournal.server.infrastructure.persistence.PropertyRepository;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
@@ -19,13 +21,23 @@ public class ConfigResource {
     @Inject
     PropertyRepository propertyRepository;
 
-    record ConfigResponse(String weekNumbering) {}
-    record UpdateConfigRequest(String weekNumbering) {}
+    @Inject
+    FolderChooserService folderChooserService;
+
+    @Inject
+    MarkdownExportService markdownExportService;
+
+    record ConfigResponse(String markdownDir, String weekNumbering, boolean logicalOutdent) {}
+    record UpdateConfigRequest(String markdownDir, String weekNumbering, Boolean logicalOutdent) {}
     record PropertyDefinitionsResponse(Map<String, String> propertyDefinitions) {}
+    record BrowseFolderResponse(boolean selected, String path) {}
 
     @GET
     public ConfigResponse getConfig() {
-        return new ConfigResponse(configService.getWeekNumbering());
+        return new ConfigResponse(
+                configService.getMarkdownDir(),
+                configService.getWeekNumbering(),
+                configService.getLogicalOutdent());
     }
 
     @GET
@@ -34,9 +46,24 @@ public class ConfigResource {
         return new PropertyDefinitionsResponse(propertyRepository.findAllDefinitions());
     }
 
+    @POST
+    @Path("/browse-folder")
+    public BrowseFolderResponse browseFolder() {
+        var choice = folderChooserService.chooseFolder();
+        return new BrowseFolderResponse(choice.selected, choice.path);
+    }
+
     @PUT
     public ConfigResponse updateConfig(UpdateConfigRequest req) {
-        configService.setWeekNumbering(req.weekNumbering());
-        return new ConfigResponse(configService.getWeekNumbering());
+        if (req.markdownDir() != null) {
+            configService.setMarkdownDir(req.markdownDir());
+            markdownExportService.exportAllIfEmpty(req.markdownDir());
+        }
+        if (req.weekNumbering() != null) configService.setWeekNumbering(req.weekNumbering());
+        if (req.logicalOutdent() != null) configService.setLogicalOutdent(req.logicalOutdent());
+        return new ConfigResponse(
+                configService.getMarkdownDir(),
+                configService.getWeekNumbering(),
+                configService.getLogicalOutdent());
     }
 }

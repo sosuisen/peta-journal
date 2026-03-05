@@ -18,19 +18,23 @@ export class ConfigService {
   private readonly api = inject(ApiService);
   private config: AppConfig;
   readonly sidebarWidth = signal(DEFAULT_CONFIG.sidebarWidth);
+  readonly markdownDir = signal('');
   readonly weekNumbering = signal<WeekNumbering>('us');
+  readonly logicalOutdent = signal(false);
   readonly propertyDefinitions = signal<Record<string, string>>({});
 
   constructor() {
     this.config = this.loadConfig();
     this.sidebarWidth.set(this.config.sidebarWidth);
-    this.loadWeekNumberingFromServer();
+    this.loadServerConfig();
     this.loadPropertyDefinitionsFromServer();
   }
 
-  private loadWeekNumberingFromServer(): void {
+  loadServerConfig(): void {
     this.api.getConfig().then(c => {
+      this.markdownDir.set(c.markdownDir || '');
       this.weekNumbering.set((c.weekNumbering as WeekNumbering) || 'us');
+      this.logicalOutdent.set(c.logicalOutdent ?? false);
     }).catch(e => {
       console.error('Failed to load config from server:', e);
     });
@@ -81,8 +85,22 @@ export class ConfigService {
    */
   setWeekNumbering(value: WeekNumbering): void {
     this.weekNumbering.set(value);
-    this.api.updateConfig(value).catch(e => {
-      console.error('Failed to save weekNumbering to server:', e);
+    this.api.updateConfig({ weekNumbering: value }).catch(e => {
+      console.error('Failed to save config to server:', e);
+    });
+  }
+
+  setMarkdownDir(value: string): void {
+    this.markdownDir.set(value);
+    this.api.updateConfig({ markdownDir: value }).catch(e => {
+      console.error('Failed to save config to server:', e);
+    });
+  }
+
+  setLogicalOutdent(value: boolean): void {
+    this.logicalOutdent.set(value);
+    this.api.updateConfig({ logicalOutdent: value }).catch(e => {
+      console.error('Failed to save config to server:', e);
     });
   }
 }

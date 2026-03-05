@@ -65,6 +65,17 @@ public class ConfigService {
         saveConfig(config);
     }
 
+    public boolean getLogicalOutdent() {
+        Map<String, Object> config = loadConfig();
+        return Boolean.TRUE.equals(config.getOrDefault("logicalOutdent", false));
+    }
+
+    public void setLogicalOutdent(boolean logicalOutdent) {
+        Map<String, Object> config = loadConfig();
+        config.put("logicalOutdent", logicalOutdent);
+        saveConfig(config);
+    }
+
     private Map<String, Object> loadConfig() {
         try {
             Path configPath = getConfigPath();

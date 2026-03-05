@@ -21,6 +21,10 @@ export const routes: Routes = [
         path: 'docs/**',
         loadComponent: () => import('./features/journal/page-dispatcher').then(m => m.PageDispatcherComponent),
       },
+      {
+        path: 'settings',
+        loadComponent: () => import('./features/settings/settings').then(m => m.SettingsComponent),
+      },
     ]
   }
 ];

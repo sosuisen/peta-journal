@@ -2,6 +2,7 @@ package com.petajournal.server.infrastructure.startup;
 
 import com.petajournal.server.application.ConfigService;
 import com.petajournal.server.application.FolderChooserService;
+import com.petajournal.server.infrastructure.export.MarkdownExportService;
 import io.quarkus.runtime.Startup;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -24,6 +25,9 @@ public class ConfigurationStartup {
 
     @Inject
     FolderChooserService folderChooserService;
+
+    @Inject
+    MarkdownExportService markdownExportService;
 
     @PostConstruct
     void checkConfiguration() {
@@ -48,6 +52,7 @@ public class ConfigurationStartup {
 
         if (markdownDir != null && !markdownDir.trim().isEmpty()) {
             ensureSubDirs(Paths.get(markdownDir));
+            markdownExportService.exportAllIfEmpty(markdownDir);
         }
     }
 

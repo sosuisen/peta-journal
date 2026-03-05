@@ -15,16 +15,26 @@ public class McpConfigTools {
     @Inject
     McpJsonHelper jsonHelper;
 
-    @Tool(description = "Get server configuration (week numbering setting)")
+    @Tool(description = "Get server configuration (markdownDir, weekNumbering, logicalOutdent)")
     String get_config() {
-        return jsonHelper.toJson(Map.of("weekNumbering", configService.getWeekNumbering()));
+        return jsonHelper.toJson(Map.of(
+                "markdownDir", configService.getMarkdownDir(),
+                "weekNumbering", configService.getWeekNumbering(),
+                "logicalOutdent", configService.getLogicalOutdent()));
     }
 
     @Tool(description = "Update server configuration")
     String update_config(
-            @ToolArg(description = "Week numbering system: 'us' or 'iso'") String weekNumbering
+            @ToolArg(description = "Week numbering system: 'us' or 'iso'", required = false) String weekNumbering,
+            @ToolArg(description = "Markdown export directory path", required = false) String markdownDir,
+            @ToolArg(description = "Logical outdent: move children with parent", required = false) Boolean logicalOutdent
     ) {
-        configService.setWeekNumbering(weekNumbering);
-        return jsonHelper.toJson(Map.of("weekNumbering", configService.getWeekNumbering()));
+        if (weekNumbering != null) configService.setWeekNumbering(weekNumbering);
+        if (markdownDir != null) configService.setMarkdownDir(markdownDir);
+        if (logicalOutdent != null) configService.setLogicalOutdent(logicalOutdent);
+        return jsonHelper.toJson(Map.of(
+                "markdownDir", configService.getMarkdownDir(),
+                "weekNumbering", configService.getWeekNumbering(),
+                "logicalOutdent", configService.getLogicalOutdent()));
     }
 }
