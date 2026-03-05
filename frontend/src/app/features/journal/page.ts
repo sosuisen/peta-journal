@@ -15,7 +15,7 @@ import { ExtensionFunctionService } from '../../core/services/extension-function
   imports: [OutlineComponent],
   template: `
     @if (page()) {
-      <div class="page-header">
+      <div class="page-header" [class.scrolled]="scrolled()">
         @if (editing()) {
           <div class="edit-row" (focusout)="onEditRowFocusOut($event)">
             <input
@@ -64,12 +64,13 @@ import { ExtensionFunctionService } from '../../core/services/extension-function
           }
         }
       </div>
-      <app-outline [pageId]="page()!.id" [focusItemId]="focusItemId()" />
+      <app-outline [pageId]="page()!.id" [focusItemId]="focusItemId()" (scrolledFromTop)="scrolled.set($event)" />
     }
   `,
   styles: [`
     :host { display: flex; flex-direction: column; height: 100%; }
     .page-header { padding: 16px 0; }
+    .page-header.scrolled { border-bottom: 1px dashed #909090; }
 
     /* View mode — match edit-mode padding+border so no layout jump */
     .dir-path-breadcrumb {
@@ -201,6 +202,7 @@ export class PageComponent {
   readonly dirPathInput = viewChild<ElementRef<HTMLInputElement>>('dirPathInput');
 
   readonly page = signal<Page | null>(null);
+  readonly scrolled = signal(false);
   readonly editing = signal(false);
   readonly editDirPath = signal('');
   readonly editFileName = signal('');
@@ -403,7 +405,8 @@ export class PageComponent {
         this.extensionFunctions.emitPageCreate({
           pageId: p.id,
           fileName: p.name,
-          dirName: p.dirPath
+          dirName: p.dirPath,
+          pageType: p.type
         });
       }
       this.titleService.setTitle(this.fullPageTitle());
