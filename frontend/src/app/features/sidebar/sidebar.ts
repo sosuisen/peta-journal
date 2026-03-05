@@ -40,41 +40,86 @@ import { NavigationService } from '../../core/services/navigation.service';
 
         @if (indexPages().length > 0) {
           <div class="sidebar-section">
-            <h3 class="section-title section-title-link" (click)="goToIndex($event)">{{ indexHeader() }}</h3>
-            <div class="index-page-list">
-              @for (page of indexPages(); track page.id) {
-                <div class="sidebar-item recent-page-item" (click)="goToPage(page, $event)"
-                     [class.active]="page.id === currentPageService.currentPage()?.id">
-                  <svg class="page-icon" width="11" height="11"><use href="#icon-page"/></svg>
-                  {{ formatIndexPageName(page) }}
-                </div>
-              }
+            <div class="section-header">
+              <h3 class="section-title section-title-link" (click)="goToIndex($event)">{{ indexHeader() }}</h3>
+              <button class="collapse-btn" (click)="toggleSection('index')" [attr.aria-label]="collapsed('index') ? 'Expand' : 'Collapse'">
+                <svg width="10" height="12" viewBox="0 0 10 12">
+                  @if (collapsed('index')) {
+                    <polygon points="2,5 5,2 8,5" fill="#888"/>
+                    <polygon points="2,7 5,10 8,7" fill="#888"/>
+                  } @else {
+                    <polygon points="2,2 5,5 8,2" fill="#888"/>
+                    <polygon points="2,10 5,7 8,10" fill="#888"/>
+                  }
+                </svg>
+              </button>
             </div>
+            @if (!collapsed('index')) {
+              <div class="index-page-list">
+                @for (page of indexPages(); track page.id) {
+                  <div class="sidebar-item recent-page-item" (click)="goToPage(page, $event)"
+                       [class.active]="page.id === currentPageService.currentPage()?.id">
+                    <svg class="page-icon" width="11" height="11"><use href="#icon-page"/></svg>
+                    {{ formatIndexPageName(page) }}
+                  </div>
+                }
+              </div>
+            }
           </div>
         }
 
         @if (headings().length > 0) {
           <div class="sidebar-section">
-            <h3 class="section-title">Contents</h3>
-            <div class="contents-list">
-              @for (h of headings(); track h.id) {
-                <div class="contents-item"
-                     [class]="'contents-h' + h.level"
-                     (click)="scrollToItem(h.id)">
-                  {{ h.text }}
-                </div>
-              }
+            <div class="section-header">
+              <h3 class="section-title">Contents</h3>
+              <button class="collapse-btn" (click)="toggleSection('contents')" [attr.aria-label]="collapsed('contents') ? 'Expand' : 'Collapse'">
+                <svg width="10" height="12" viewBox="0 0 10 12">
+                  @if (collapsed('contents')) {
+                    <polygon points="2,5 5,2 8,5" fill="#888"/>
+                    <polygon points="2,7 5,10 8,7" fill="#888"/>
+                  } @else {
+                    <polygon points="2,2 5,5 8,2" fill="#888"/>
+                    <polygon points="2,10 5,7 8,10" fill="#888"/>
+                  }
+                </svg>
+              </button>
             </div>
+            @if (!collapsed('contents')) {
+              <div class="contents-list">
+                @for (h of headings(); track h.id) {
+                  <div class="contents-item"
+                       [class]="'contents-h' + h.level"
+                       (click)="scrollToItem(h.id)">
+                    {{ h.text }}
+                  </div>
+                }
+              </div>
+            }
           </div>
         }
 
         <div class="sidebar-section">
-          <h3 class="section-title">Recent Pages</h3>
-          @for (page of recentPages.recentPages(); track page.id) {
-            <div class="sidebar-item recent-page-item" (click)="goToPage(page, $event)">
-              <svg class="page-icon" width="11" height="11"><use href="#icon-page"/></svg>
-              {{ formatPageTitle(page) }}
-            </div>
+          <div class="section-header">
+            <h3 class="section-title">Recent Pages</h3>
+            <button class="collapse-btn" (click)="toggleSection('recent')" [attr.aria-label]="collapsed('recent') ? 'Expand' : 'Collapse'">
+              <svg width="10" height="12" viewBox="0 0 10 12">
+                @if (collapsed('recent')) {
+                  <polygon points="2,5 5,2 8,5" fill="#888"/>
+                  <polygon points="2,7 5,10 8,7" fill="#888"/>
+                } @else {
+                  <polygon points="2,2 5,5 8,2" fill="#888"/>
+                  <polygon points="2,10 5,7 8,10" fill="#888"/>
+                }
+              </svg>
+            </button>
+          </div>
+          @if (!collapsed('recent')) {
+            @for (page of recentPages.recentPages(); track page.id) {
+              <div class="sidebar-item recent-page-item" (click)="goToPage(page, $event)">
+                <svg class="page-icon" width="11" height="11"><use href="#icon-page"/></svg>
+                {{ formatPageTitle(page) }}
+              </div>
+            }
           }
         </div>
 
@@ -102,10 +147,26 @@ import { NavigationService } from '../../core/services/navigation.service';
       padding: 4px 12px 12px;
     }
     .sidebar-section { margin-bottom: 8px; }
-    .index-page-list {
-      max-height: calc(28px * 7);
-      overflow-y: auto;
+    .section-header {
+      display: flex;
+      align-items: center;
     }
+    .section-header .section-title {
+      flex: 1;
+      margin-bottom: 0;
+    }
+    .collapse-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px 6px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      opacity: 0.6;
+    }
+    .collapse-btn:hover { opacity: 1; background: #e0e2e5; }
+    .index-page-list {}
     .contents-list {
       max-height: calc(28px * 10);
       overflow-y: auto;
@@ -193,6 +254,7 @@ export class SidebarComponent implements OnInit {
 
   readonly indexHeader = signal('');
   readonly indexPages = signal<Page[]>([]);
+  private readonly collapsedSections = signal<Set<string>>(this.loadCollapsedSections());
 
   readonly headings = computed(() => {
     const page = this.currentPageService.currentPage();
@@ -309,6 +371,29 @@ export class SidebarComponent implements OnInit {
    * @param page - The page to format the title for.
    * @returns The formatted display title string.
    */
+  collapsed(section: string): boolean {
+    return this.collapsedSections().has(section);
+  }
+
+  toggleSection(section: string): void {
+    this.collapsedSections.update(set => {
+      const next = new Set(set);
+      if (next.has(section)) next.delete(section);
+      else next.add(section);
+      localStorage.setItem('sidebar-collapsed', JSON.stringify([...next]));
+      return next;
+    });
+  }
+
+  private loadCollapsedSections(): Set<string> {
+    try {
+      const stored = localStorage.getItem('sidebar-collapsed');
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch {
+      return new Set();
+    }
+  }
+
   scrollToItem(itemId: string): void {
     document.getElementById(itemId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
