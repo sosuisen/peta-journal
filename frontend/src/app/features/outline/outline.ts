@@ -94,6 +94,7 @@ import { renderToHtml } from 'flatmarkdown-ast2html';
     .outline-item {
       width: 100%;
       box-sizing: border-box;
+      padding-right: 20px;
     }
     @media (min-width: 1024px) {
       .outline-item {

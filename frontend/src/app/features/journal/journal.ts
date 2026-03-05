@@ -46,10 +46,6 @@ import { ExtensionFunctionService } from '../../core/services/extension-function
       display: flex;
       flex-direction: column;
       height: 100%;
-      padding-right: 8px;
-    }
-    @media (min-width: 768px) {
-      :host { padding-right: 24px; }
     }
     .journal-header {
       display: flex;
