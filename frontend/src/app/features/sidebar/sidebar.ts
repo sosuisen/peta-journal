@@ -6,7 +6,6 @@ import { OutlineStateService } from '../../core/services/outline-state.service';
 import { Page } from '../../core/models/page.model';
 import { CalendarComponent } from '../../shared/calendar';
 import { formatJournalDate, formatDateToIso } from '../../core/utils/date.utils';
-import { Router } from '@angular/router';
 import { NavigationService } from '../../core/services/navigation.service';
 
 @Component({
@@ -23,19 +22,6 @@ import { NavigationService } from '../../core/services/navigation.service';
             (monthClicked)="goToMonth($event)"
             (yearClicked)="goToYear($event)"
           />
-        </div>
-
-        <div class="sidebar-section">
-          <div class="sidebar-item journal-link" (click)="goToToday()">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="1" width="16" height="20" rx="1.5" ry="1.5"/>
-              <line x1="3" y1="13" x2="19" y2="13" stroke="#666" stroke-width="1"/>
-              <line x1="3" y1="17" x2="19" y2="17" stroke="#666" stroke-width="1"/>
-              <line x1="14" y1="2" x2="14" y2="20" stroke="#666" stroke-width="3"/>
-              <rect x="5" y="21" width="3" height="2" fill="#666" stroke="none"/>
-            </svg>
-            Journal
-          </div>
         </div>
 
         @if (indexPages().length > 0) {
@@ -216,7 +202,6 @@ import { NavigationService } from '../../core/services/navigation.service';
     }
     .sidebar-item:hover { background: #e9ecef; }
     .sidebar-item.active { background: #e2e6ea; font-weight: 600; }
-    .journal-link { display: flex; align-items: center; gap: 6px; }
     .recent-page-item { display: flex; align-items: center; gap: 6px; justify-content: flex-start; }
     .page-icon { flex-shrink: 0; color: #666; }
     .sidebar-placeholder {
@@ -248,7 +233,6 @@ export class SidebarComponent implements OnInit {
   readonly currentPageService = inject(CurrentPageService);
   private readonly api = inject(ApiService);
   private readonly outlineState = inject(OutlineStateService);
-  private readonly router = inject(Router);
   private readonly nav = inject(NavigationService);
   readonly today = formatDateToIso(new Date());
 
@@ -316,14 +300,6 @@ export class SidebarComponent implements OnInit {
   /** Loads the recent pages list on component initialization. */
   ngOnInit(): void {
     this.recentPages.refresh();
-  }
-
-  /**
-   * Navigates to the daily journal for the selected date.
-   * @param event - Contains the ISO date string and whether Ctrl was held.
-   */
-  goToToday(): void {
-    this.router.navigateByUrl('/today');
   }
 
   goToDate(event: { date: string; ctrlKey: boolean; shiftKey: boolean }): void {
