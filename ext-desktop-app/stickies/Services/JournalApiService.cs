@@ -9,6 +9,7 @@ public class JournalApiService : IDisposable
 {
     private readonly HttpClient _http;
     private CancellationTokenSource? _sseCts;
+    private Task? _sseTask;
     private CancellationTokenSource? _reconnectCts;
     private readonly string _baseUrl;
     private bool _intentionalDisconnect;
@@ -51,12 +52,17 @@ public class JournalApiService : IDisposable
             try
             {
                 _sseCts?.Cancel();
+                if (_sseTask != null)
+                {
+                    try { await _sseTask; } catch { }
+                    _sseTask = null;
+                }
                 _sseCts = new CancellationTokenSource();
 
                 var connectedTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
                 // Start SSE listener in background — it will signal connectedTcs when stream is established
-                _ = Task.Run(() => SseListenLoop(_sseCts.Token, connectedTcs), _sseCts.Token);
+                _sseTask = Task.Run(() => SseListenLoop(_sseCts.Token, connectedTcs), _sseCts.Token);
 
                 // Wait until SSE stream is actually established (like EventSource.onopen)
                 await connectedTcs.Task;
