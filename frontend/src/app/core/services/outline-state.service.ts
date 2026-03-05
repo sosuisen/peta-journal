@@ -18,6 +18,21 @@ export class OutlineStateService {
   readonly selectedItemIds = this._selectedItemIds.asReadonly();
   readonly itemSelectionMode = this._itemSelectionMode.asReadonly();
 
+  readonly headings = computed(() => {
+    return this._items()
+      .filter(item => item.types?.includes('heading'))
+      .map(item => {
+        let level = 1;
+        try {
+          const ast = JSON.parse(item.ast);
+          const headingNode = ast.children?.find((n: any) => n.type === 'heading');
+          if (headingNode) level = headingNode.level;
+        } catch {}
+        const text = item.body.replace(/^#+\s*/, '');
+        return { id: item.id, text, level };
+      });
+  });
+
   readonly visibleItems = computed(() => {
     const items = this._items();
     const collapsed = this._collapsedItemIds();

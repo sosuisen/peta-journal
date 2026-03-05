@@ -1743,7 +1743,7 @@ export class OutlineComponent implements OnDestroy {
     const normalized = ensureCodeFenceClosed(body);
     this.state.updateItem(itemId, { body: normalized });
     const updated = await this.api.updateItem(itemId, { body: normalized });
-    this.state.updateItem(itemId, { ast: updated.ast });
+    this.state.updateItem(itemId, { ast: updated.ast, types: updated.types });
     return updated;
   }
 

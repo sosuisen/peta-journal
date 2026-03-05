@@ -1,7 +1,8 @@
-import { Component, inject, OnInit, effect, signal } from '@angular/core';
+import { Component, computed, inject, OnInit, effect, signal } from '@angular/core';
 import { RecentPagesService } from '../../core/services/recent-pages.service';
 import { CurrentPageService } from '../../core/services/current-page.service';
 import { ApiService } from '../../core/services/api.service';
+import { OutlineStateService } from '../../core/services/outline-state.service';
 import { Page } from '../../core/models/page.model';
 import { CalendarComponent } from '../../shared/calendar';
 import { formatJournalDate, formatDateToIso } from '../../core/utils/date.utils';
@@ -52,6 +53,21 @@ import { NavigationService } from '../../core/services/navigation.service';
           </div>
         }
 
+        @if (headings().length > 0) {
+          <div class="sidebar-section">
+            <h3 class="section-title">Contents</h3>
+            <div class="contents-list">
+              @for (h of headings(); track h.id) {
+                <div class="contents-item"
+                     [class]="'contents-h' + h.level"
+                     (click)="scrollToItem(h.id)">
+                  {{ h.text }}
+                </div>
+              }
+            </div>
+          </div>
+        }
+
         <div class="sidebar-section">
           <h3 class="section-title">Recent Pages</h3>
           @for (page of recentPages.recentPages(); track page.id) {
@@ -90,6 +106,25 @@ import { NavigationService } from '../../core/services/navigation.service';
       max-height: calc(28px * 7);
       overflow-y: auto;
     }
+    .contents-list {
+      max-height: calc(28px * 10);
+      overflow-y: auto;
+    }
+    .contents-item {
+      padding: 3px 12px;
+      cursor: pointer;
+      border-radius: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .contents-item:hover { background: #e9ecef; }
+    .contents-h1 { font-size: 13px; font-weight: 600; }
+    .contents-h2 { font-size: 13px; padding-left: 20px; }
+    .contents-h3 { font-size: 12px; padding-left: 28px; }
+    .contents-h4 { font-size: 12px; padding-left: 36px; color: #555; }
+    .contents-h5 { font-size: 11px; padding-left: 44px; color: #555; }
+    .contents-h6 { font-size: 11px; padding-left: 52px; color: #555; }
     app-calendar { display: block; }
     .section-title {
       font-size: 11px;
@@ -151,12 +186,19 @@ export class SidebarComponent implements OnInit {
   readonly recentPages = inject(RecentPagesService);
   readonly currentPageService = inject(CurrentPageService);
   private readonly api = inject(ApiService);
+  private readonly outlineState = inject(OutlineStateService);
   private readonly router = inject(Router);
   private readonly nav = inject(NavigationService);
   readonly today = formatDateToIso(new Date());
 
   readonly indexHeader = signal('');
   readonly indexPages = signal<Page[]>([]);
+
+  readonly headings = computed(() => {
+    const page = this.currentPageService.currentPage();
+    if (!page || page.type !== 'doc') return [];
+    return this.outlineState.headings();
+  });
 
   constructor() {
     effect(() => {
@@ -267,6 +309,10 @@ export class SidebarComponent implements OnInit {
    * @param page - The page to format the title for.
    * @returns The formatted display title string.
    */
+  scrollToItem(itemId: string): void {
+    document.getElementById(itemId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   formatPageTitle(page: Page): string {
     if (page.type === 'journal') {
       return formatJournalDate(page.name);
