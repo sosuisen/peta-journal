@@ -31,11 +31,11 @@ import { NavigationService } from '../../core/services/navigation.service';
               <button class="collapse-btn" (click)="toggleSection('index')" [attr.aria-label]="collapsed('index') ? 'Expand' : 'Collapse'">
                 <svg width="10" height="12" viewBox="0 0 10 12">
                   @if (collapsed('index')) {
-                    <polygon points="2,5 5,2 8,5" fill="#888"/>
-                    <polygon points="2,7 5,10 8,7" fill="#888"/>
+                    <polygon points="2,4.5 5,1.5 8,4.5" fill="#888"/>
+                    <polygon points="2,7.5 5,10.5 8,7.5" fill="#888"/>
                   } @else {
-                    <polygon points="2,2 5,5 8,2" fill="#888"/>
-                    <polygon points="2,10 5,7 8,10" fill="#888"/>
+                    <polygon points="2,2.5 5,5.5 8,2.5" fill="#888"/>
+                    <polygon points="2,9.5 5,6.5 8,9.5" fill="#888"/>
                   }
                 </svg>
               </button>
@@ -61,11 +61,11 @@ import { NavigationService } from '../../core/services/navigation.service';
               <button class="collapse-btn" (click)="toggleSection('contents')" [attr.aria-label]="collapsed('contents') ? 'Expand' : 'Collapse'">
                 <svg width="10" height="12" viewBox="0 0 10 12">
                   @if (collapsed('contents')) {
-                    <polygon points="2,5 5,2 8,5" fill="#888"/>
-                    <polygon points="2,7 5,10 8,7" fill="#888"/>
+                    <polygon points="2,4.5 5,1.5 8,4.5" fill="#888"/>
+                    <polygon points="2,7.5 5,10.5 8,7.5" fill="#888"/>
                   } @else {
-                    <polygon points="2,2 5,5 8,2" fill="#888"/>
-                    <polygon points="2,10 5,7 8,10" fill="#888"/>
+                    <polygon points="2,2.5 5,5.5 8,2.5" fill="#888"/>
+                    <polygon points="2,9.5 5,6.5 8,9.5" fill="#888"/>
                   }
                 </svg>
               </button>
@@ -90,11 +90,11 @@ import { NavigationService } from '../../core/services/navigation.service';
             <button class="collapse-btn" (click)="toggleSection('recent')" [attr.aria-label]="collapsed('recent') ? 'Expand' : 'Collapse'">
               <svg width="10" height="12" viewBox="0 0 10 12">
                 @if (collapsed('recent')) {
-                  <polygon points="2,5 5,2 8,5" fill="#888"/>
-                  <polygon points="2,7 5,10 8,7" fill="#888"/>
+                  <polygon points="2,4.5 5,1.5 8,4.5" fill="#888"/>
+                  <polygon points="2,7.5 5,10.5 8,7.5" fill="#888"/>
                 } @else {
-                  <polygon points="2,2 5,5 8,2" fill="#888"/>
-                  <polygon points="2,10 5,7 8,10" fill="#888"/>
+                  <polygon points="2,2.5 5,5.5 8,2.5" fill="#888"/>
+                  <polygon points="2,9.5 5,6.5 8,9.5" fill="#888"/>
                 }
               </svg>
             </button>
