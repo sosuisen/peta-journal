@@ -72,6 +72,9 @@ import { ItemViewComponent } from './item-view';
           />
         }
       </div>
+      @if (taskTimeInfo(); as info) {
+        <div class="task-timestamps" [title]="info.tooltip">{{ info.label }}</div>
+      }
     </div>
   `,
   styles: [`
@@ -116,6 +119,14 @@ import { ItemViewComponent } from './item-view';
     .item-body {
       flex: 1;
       min-width: 0;
+    }
+    .task-timestamps {
+      flex-shrink: 0;
+      font-size: 12px;
+      color: #999;
+      padding-top: 4px;
+      padding-left: 8px;
+      white-space: nowrap;
     }
     .outline-item.heading .item-body {
       margin-left: -3px;
@@ -162,6 +173,28 @@ export class OutlineItemComponent {
   readonly isSelected = computed(() => this.state.selectedItemIds().has(this.item().id));
   readonly isCollapsed = computed(() => this.item().collapsed);
   readonly isHeading = computed(() => this.item().body.trimStart().startsWith('#'));
+  readonly taskTimeInfo = computed<{ label: string; tooltip: string } | null>(() => {
+    const item = this.item();
+    if (!item.types?.includes('task')) return null;
+    const begin = item.properties['begin'] as string | undefined;
+    const end = item.properties['end'] as string | undefined;
+    if (!begin) return null;
+    const fmt = (v: string) => {
+      const d = new Date(v);
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    };
+    if (!end) return { label: fmt(begin), tooltip: fmt(begin) };
+    const diffMs = new Date(end).getTime() - new Date(begin).getTime();
+    const totalSec = Math.floor(diffMs / 1000);
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    let label = '';
+    if (h > 0) label += `${h}h`;
+    if (m > 0) label += `${m}m`;
+    if (h === 0 && m === 0) label = `${s}s`;
+    return { label, tooltip: `${fmt(begin)} - ${fmt(end)}` };
+  });
   readonly shouldShowBullet = computed(() => {
     // Don't show bullet if item has children (collapse toggle is shown instead)
     if (this.hasChildren()) return false;
