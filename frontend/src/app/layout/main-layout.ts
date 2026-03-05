@@ -31,6 +31,11 @@ import { validateFileName } from '../core/utils/filename-validation.utils';
               <rect x="5" y="21" width="3" height="2" fill="#666" stroke="none"/>
             </svg>
           </button>
+          <button class="root-btn" title="Root" (click)="navigateToRoot()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z"/>
+            </svg>
+          </button>
         </div>
         <div class="header-center">
           <button class="new-page-btn" title="New page" (click)="createNewPage()">+</button>
@@ -106,6 +111,18 @@ import { validateFileName } from '../core/utils/filename-validation.utils';
       top: 2px;
     }
     .journal-btn:hover { background: #f0f0f0; }
+    .root-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      position: relative;
+      top: 2px;
+    }
+    .root-btn:hover { background: #f0f0f0; }
     .menu-btn {
       background: none;
       border: none;
@@ -278,6 +295,10 @@ export class MainLayoutComponent {
   /** Navigates to today's daily journal. */
   navigateToToday(): void {
     this.router.navigateByUrl('/today');
+  }
+
+  navigateToRoot(): void {
+    this.nav.navigateToPage('index');
   }
 
   /**
