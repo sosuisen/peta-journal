@@ -1,5 +1,6 @@
 import { Component, inject, input, output, effect, Injector, afterNextRender, viewChild, viewChildren, signal, OnDestroy } from '@angular/core';
 import { ScrollingModule, CdkVirtualScrollViewport } from '@angular/cdk/scrolling';
+import { ScrollingModule as ExperimentalScrollingModule } from '@angular/cdk-experimental/scrolling';
 import { OutlineItemComponent } from './outline-item';
 import { OutlineStateService } from '../../core/services/outline-state.service';
 import { ApiService } from '../../core/services/api.service';
@@ -15,9 +16,9 @@ import { renderToHtml } from 'flatmarkdown-ast2html';
 
 @Component({
   selector: 'app-outline',
-  imports: [ScrollingModule, OutlineItemComponent],
+  imports: [ScrollingModule, ExperimentalScrollingModule, OutlineItemComponent],
   template: `
-    <cdk-virtual-scroll-viewport #viewport [itemSize]="40" [minBufferPx]="500" [maxBufferPx]="600" class="outline-viewport" (scrolledIndexChange)="onScrolledIndexChange($event)">
+    <cdk-virtual-scroll-viewport #viewport autosize [minBufferPx]="500" [maxBufferPx]="1000" class="outline-viewport" (scrolledIndexChange)="onScrolledIndexChange($event)">
       <div
         *cdkVirtualFor="let item of state.visibleItems(); let i = index; trackBy: trackById"
         class="outline-item"
@@ -189,15 +190,7 @@ export class OutlineComponent implements OnDestroy {
     effect(() => {
       const itemId = this.state.consumeScrollRequest();
       if (!itemId) return;
-      const items = this.state.visibleItems();
-      const index = items.findIndex(b => b.id === itemId);
-      if (index < 0) return;
-      const vp = this.viewport();
-      if (!vp) return;
-      const itemSize = 40;
-      const vpHeight = vp.getViewportSize();
-      const offset = Math.max(0, index * itemSize - (vpHeight - itemSize) / 2);
-      vp.scrollToOffset(offset, 'smooth');
+      this.scrollToItemElement(itemId, 'smooth');
     });
   }
 
@@ -285,8 +278,70 @@ export class OutlineComponent implements OnDestroy {
     document.addEventListener('copy', this.selectionCopyHandler);
     document.addEventListener('cut', this.selectionCutHandler);
     afterNextRender(() => {
-      this.viewport()?.scrollToIndex(index);
+      this.scrollToItemElement(itemId);
     }, { injector: this.injector });
+  }
+
+  private scrollToItemElement(itemId: string, behavior: ScrollBehavior = 'auto'): void {
+    const el = document.getElementById(itemId);
+    if (el) {
+      this.scrollToElementAtFraction(el, behavior, 0.1);
+      return;
+    }
+    const vp = this.viewport();
+    if (!vp) return;
+    const items = this.state.visibleItems();
+    const targetIndex = items.findIndex(b => b.id === itemId);
+    if (targetIndex < 0) return;
+
+    // Estimate position and jump
+    const range = vp.getRenderedRange();
+    const renderedCount = range.end - range.start;
+    const avgItemSize = renderedCount > 0
+      ? vp.measureRenderedContentSize() / renderedCount
+      : 40;
+    const vpHeight = vp.getViewportSize();
+    const estimatedOffset = Math.max(0, targetIndex * avgItemSize - vpHeight * 0.1);
+    vp.scrollToOffset(estimatedOffset);
+
+    // After jump, iteratively scroll until item appears
+    this.scrollSearchStep(itemId, targetIndex, 0);
+  }
+
+  private scrollSearchStep(itemId: string, targetIndex: number, attempt: number): void {
+    if (attempt > 50) return; // safety limit
+    afterNextRender(() => {
+      const el = document.getElementById(itemId);
+      if (el) {
+        this.scrollToElementAtFraction(el, 'smooth', 0.1);
+        return;
+      }
+      const vp = this.viewport();
+      if (!vp) return;
+      const range = vp.getRenderedRange();
+      // Determine scroll direction based on rendered range vs target index
+      const vpHeight = vp.getViewportSize();
+      if (targetIndex >= range.end) {
+        // Target is below — scroll down one viewport
+        vp.scrollToOffset(vp.measureScrollOffset() + vpHeight * 0.8);
+      } else if (targetIndex < range.start) {
+        // Target is above — scroll up one viewport
+        vp.scrollToOffset(Math.max(0, vp.measureScrollOffset() - vpHeight * 0.8));
+      } else {
+        // Target index is in rendered range but element not found yet — wait one more frame
+      }
+      this.scrollSearchStep(itemId, targetIndex, attempt + 1);
+    }, { injector: this.injector });
+  }
+
+  private scrollToElementAtFraction(el: HTMLElement, behavior: ScrollBehavior, fraction: number): void {
+    const scrollParent = el.closest('cdk-virtual-scroll-viewport') as HTMLElement;
+    if (!scrollParent) { el.scrollIntoView({ behavior, block: 'start' }); return; }
+    const elRect = el.getBoundingClientRect();
+    const vpRect = scrollParent.getBoundingClientRect();
+    const targetY = vpRect.top + vpRect.height * fraction;
+    const delta = elRect.top - targetY;
+    scrollParent.scrollBy({ top: delta, behavior });
   }
 
   /**
