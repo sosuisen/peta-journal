@@ -81,6 +81,7 @@ public class JournalApiService : IDisposable
 
     private async Task SseListenLoop(CancellationToken ct, TaskCompletionSource? connectedTcs = null)
     {
+        var wasConnected = false;
         try
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, "/api/events");
@@ -91,6 +92,7 @@ public class JournalApiService : IDisposable
 
             // SSE stream established — fire Connected (equivalent to EventSource.onopen)
             _isConnected = true;
+            wasConnected = true;
             Connected?.Invoke();
             connectedTcs?.TrySetResult();
 
@@ -129,7 +131,9 @@ public class JournalApiService : IDisposable
             _isConnected = false;
             Disconnected?.Invoke();
 
-            if (!_intentionalDisconnect && _reconnectCts is { IsCancellationRequested: false })
+            // Only auto-reconnect if the stream was previously established then dropped.
+            // If connection was never established, ConnectSseWithRetryAsync's retry loop handles it.
+            if (wasConnected && !_intentionalDisconnect && _reconnectCts is { IsCancellationRequested: false })
             {
                 _ = Task.Run(() => ConnectSseWithRetryAsync(_reconnectCts.Token));
             }
