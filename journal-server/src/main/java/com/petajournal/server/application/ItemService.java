@@ -287,7 +287,7 @@ public class ItemService {
      * 1. Not a task → add "task" to types, remove begin/end
      * 2. Task, no begin, no end → set begin = now
      * 3. Task, has begin, no end → set end = now
-     * 4. Task, has begin AND end → remove begin/end (back to TODO, task stays)
+     * 4. Task, has begin AND end → remove task type, begin/end (back to normal)
      */
     public Item cycleTask(UUID itemId) {
         Item existing = itemRepository.findById(itemId)
@@ -331,12 +331,21 @@ public class ItemService {
             exportService.queueExport(existing.pageId());
             return existing;
         } else {
-            // State 4: Task, has begin AND end → back to TODO (remove begin/end, keep task)
+            // State 4: Task, has begin AND end → back to normal (remove task type, begin/end)
+            List<String> newTypes = new ArrayList<>(existing.types());
+            newTypes.remove("task");
+            Item updated = new Item(
+                    existing.id(), existing.pageId(), existing.parentItemId(),
+                    existing.dirPath(), existing.name(), existing.type(),
+                    existing.createdDate(), Instant.now(), existing.idx(),
+                    existing.level(), existing.body(), existing.ast(),
+                    existing.collapsed(), newTypes);
+            itemRepository.save(updated);
             propertyRepository.deleteProperty("item", id, "begin");
             propertyRepository.deleteProperty("item", id, "end");
             touchPage(existing.pageId());
             exportService.queueExport(existing.pageId());
-            return existing;
+            return updated;
         }
     }
 
