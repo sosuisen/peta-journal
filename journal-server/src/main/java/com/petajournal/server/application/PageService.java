@@ -181,6 +181,13 @@ public class PageService {
         updated = pageRepository.save(updated);
         searchService.indexPage(updated);
 
+        // Re-index all items with the new page title
+        String newTitle = updated.dirPath() + updated.name();
+        List<Item> items = itemRepository.findByPageId(pageId);
+        for (Item item : items) {
+            searchService.indexItem(item, newTitle);
+        }
+
         // Queue for export
         exportService.queueExport(pageId);
 
