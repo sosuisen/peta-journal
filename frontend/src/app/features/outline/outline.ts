@@ -530,22 +530,39 @@ export class OutlineComponent implements OnInit, OnDestroy {
     const createLevel = newLevel - levelOffset;
 
     if (cursorPos === 0 && item.body.length > 0) {
-      // Enter at beginning: create new empty item before current item on source page
-      const newItem = await this.api.createItem(sourcePageId, '', createLevel, '');
-      await this.saveItemBody(saveTargetId, item.body);
-      // Reload to reflect changes
-      await this.loadItems(this.pageId());
+      // Enter at beginning: create new empty item before current item
+      if (isTransclusionRoot || isTranscludedDescendant) {
+        // Transclusion: create on source page and reload
+        const newItem = await this.api.createItem(sourcePageId, '', createLevel, '');
+        await this.saveItemBody(saveTargetId, item.body);
+        await this.loadItems(this.pageId());
 
-      this.undo.begin('enter', { itemId: item.id, position: cursorPos });
-      this.undo.pushCreate(newItem);
-      this.undo.commit({ itemId: newItem.id, position: 0 });
+        this.undo.begin('enter', { itemId: item.id, position: cursorPos });
+        this.undo.pushCreate(newItem);
+        this.undo.commit({ itemId: newItem.id, position: 0 });
 
-      this.state.addEditingItem(newItem.id);
-      this.focusEditor(newItem.id);
+        this.state.addEditingItem(newItem.id);
+        this.focusEditor(newItem.id);
+        this.state.removeEditingItem(item.id);
+      } else {
+        // Normal item: insert before current item using previous item's ID
+        const prevItemId = itemIdx > 0 ? allItems[itemIdx - 1].id : '';
+        const [newItem] = await Promise.all([
+          this.api.createItem(item.pageId, prevItemId, item.level, ''),
+          this.saveItemBody(item.id, item.body),
+        ]);
+        this.state.addItem(newItem, prevItemId);
 
-      this.state.removeEditingItem(item.id);
+        this.undo.begin('enter', { itemId: item.id, position: cursorPos });
+        this.undo.pushCreate(newItem);
+        this.undo.commit({ itemId: newItem.id, position: 0 });
+
+        this.state.addEditingItem(newItem.id);
+        this.focusEditor(newItem.id);
+        this.state.removeEditingItem(item.id);
+      }
     } else if (cursorPos === item.body.length) {
-      // Enter at end: body unchanged — create new item on source page
+      // Enter at end: body unchanged — create new item
       const newId = crypto.randomUUID();
       const optimisticItem: Item = {
         id: newId,
@@ -563,9 +580,15 @@ export class OutlineComponent implements OnInit, OnDestroy {
         types: [],
         properties: {},
       };
-      this.api.createItem(sourcePageId, afterItemId, createLevel, '', newId).then(async () => {
-        await this.loadItems(this.pageId());
-      });
+      if (isTransclusionRoot || isTranscludedDescendant) {
+        this.api.createItem(sourcePageId, afterItemId, createLevel, '', newId).then(async () => {
+          await this.loadItems(this.pageId());
+        });
+      } else {
+        this.api.createItem(item.pageId, afterItemId, newLevel, '', newId).then(serverItem => {
+          this.state.updateItem(newId, { idx: serverItem.idx });
+        });
+      }
       this.state.addItem(optimisticItem, afterItemId);
 
       this.undo.begin('enter', { itemId: item.id, position: cursorPos });
@@ -585,23 +608,39 @@ export class OutlineComponent implements OnInit, OnDestroy {
     } else {
       const originalItem = { ...item };
 
-      const [updatedOriginal, newItem] = await Promise.all([
-        this.saveItemBody(saveTargetId, beforeText),
-        this.api.createItem(sourcePageId, afterItemId, createLevel, afterText),
-      ]);
-      // Reload to reflect changes in transcluded trees
-      await this.loadItems(this.pageId());
+      if (isTransclusionRoot || isTranscludedDescendant) {
+        const [updatedOriginal, newItem] = await Promise.all([
+          this.saveItemBody(saveTargetId, beforeText),
+          this.api.createItem(sourcePageId, afterItemId, createLevel, afterText),
+        ]);
+        await this.loadItems(this.pageId());
 
-      this.undo.begin('enter', { itemId: item.id, position: cursorPos });
-      this.undo.pushUpdate(originalItem, updatedOriginal);
-      this.undo.pushCreate(newItem);
-      this.undo.commit({ itemId: newItem.id, position: 0 });
+        this.undo.begin('enter', { itemId: item.id, position: cursorPos });
+        this.undo.pushUpdate(originalItem, updatedOriginal);
+        this.undo.pushCreate(newItem);
+        this.undo.commit({ itemId: newItem.id, position: 0 });
 
-      this.state.addEditingItem(newItem.id);
-      this.state.setFocusedItem(newItem.id);
-      this.focusEditor(newItem.id);
+        this.state.addEditingItem(newItem.id);
+        this.state.setFocusedItem(newItem.id);
+        this.focusEditor(newItem.id);
+        this.state.removeEditingItem(item.id);
+      } else {
+        const [updatedOriginal, newItem] = await Promise.all([
+          this.saveItemBody(item.id, beforeText),
+          this.api.createItem(item.pageId, afterItemId, newLevel, afterText),
+        ]);
+        this.state.addItem(newItem, afterItemId);
 
-      this.state.removeEditingItem(item.id);
+        this.undo.begin('enter', { itemId: item.id, position: cursorPos });
+        this.undo.pushUpdate(originalItem, updatedOriginal);
+        this.undo.pushCreate(newItem);
+        this.undo.commit({ itemId: newItem.id, position: 0 });
+
+        this.state.addEditingItem(newItem.id);
+        this.state.setFocusedItem(newItem.id);
+        this.focusEditor(newItem.id);
+        this.state.removeEditingItem(item.id);
+      }
     }
 
     this.operatingEnterKey = false;
