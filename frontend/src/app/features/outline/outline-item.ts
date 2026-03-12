@@ -1,4 +1,4 @@
-import { Component, input, output, computed, inject, viewChild } from '@angular/core';
+import { Component, input, output, computed, inject, viewChild, ElementRef } from '@angular/core';
 import { Item } from '../../core/models/item.model';
 import { OutlineStateService } from '../../core/services/outline-state.service';
 import { ItemEditorComponent, WikiLinkContext } from './item-editor';
@@ -14,19 +14,39 @@ import { ItemViewComponent } from './item-view';
       [style.padding-left.px]="indentPx()"
       [class.selected]="isSelected()"
       [class.heading]="isHeading()"
+      [class.hide-bullet]="!shouldShowBullet()"
     >
       <div class="item-controls">
-        @if (hasChildren()) {
-          <button
-            class="collapse-toggle"
-            (click)="toggleCollapse()"
-            [class.collapsed]="isCollapsed()"
-          >
-            <span class="triangle">&#9654;</span>
-          </button>
-        } @else if (shouldShowBullet()) {
-          <span class="bullet">&bull;</span>
-        }
+        <div class="slot-menu">
+          @if (hasChildren()) {
+            <button class="item-menu" (click)="onItemMenuClick($event)">⋯</button>
+          }
+        </div>
+        <div class="slot-toggle">
+          @if (hasChildren()) {
+            <button
+              class="collapse-toggle"
+              (click)="toggleCollapse()"
+              [class.collapsed]="isCollapsed()"
+            >
+              <svg class="triangle" viewBox="0 0 10 6" width="10" height="6">
+                <polygon points="0,0 10,0 5,6" fill="currentColor" />
+              </svg>
+            </button>
+          } @else {
+            <button class="item-menu" (click)="onItemMenuClick($event)">⋯</button>
+          }
+        </div>
+        <div class="slot-bullet">
+          <span class="bullet">
+            <svg viewBox="0 0 14 14" width="14" height="14">
+              @if (isCollapsed()) {
+                <circle cx="7" cy="7" r="6.5" fill="#ddd" stroke="none" />
+              }
+              <circle cx="7" cy="7" r="2.5" fill="#888" stroke="none" />
+            </svg>
+          </span>
+        </div>
       </div>
       <div class="item-body">
         @if (isEditing()) {
@@ -76,6 +96,12 @@ import { ItemViewComponent } from './item-view';
         <div class="task-timestamps" [title]="info.tooltip">{{ info.label }}</div>
       }
     </div>
+    @if (showItemMenu) {
+      <div class="item-popup-menu" [style.left.px]="menuX" [style.top.px]="menuY">
+        <button (click)="onMenuCopy()">Copy</button>
+        <button (click)="onMenuCut()">Cut</button>
+      </div>
+    }
   `,
   styles: [`
     .outline-item {
@@ -87,34 +113,78 @@ import { ItemViewComponent } from './item-view';
       background: rgba(0, 120, 215, 0.1);
     }
     .item-controls {
-      width: 24px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      padding-top: 4px;
+    }
+    .slot-menu {
+      width: 18px;
       flex-shrink: 0;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding-top: 2px;
+    }
+    .slot-toggle {
+      width: 14px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .slot-bullet {
+      width: 16px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 4px;
+    }
+    .item-menu {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0 1px;
+      font-size: 16px;
+      color: #999;
+      line-height: 1;
+      opacity: 0;
+      transition: opacity 0.15s;
+      letter-spacing: -1px;
+    }
+    .outline-item:hover .item-menu {
+      opacity: 1;
+    }
+    .outline-item:hover .item-menu {
+      color: #333;
     }
     .collapse-toggle {
       background: none;
       border: none;
       cursor: pointer;
-      padding: 0;
+      padding: 0 1px;
       font-size: 10px;
-      color: #666;
-      transition: transform 0.15s;
+      color: #ddd;
+      opacity: 0;
+      transition: color 0.15s, opacity 0.15s;
       line-height: 1;
-      margin-top: 3px;
+    }
+    .outline-item:hover .collapse-toggle {
+      opacity: 1;
+      color: #333;
     }
     .collapse-toggle .triangle {
-      display: inline-block;
+      display: block;
       transition: transform 0.15s;
     }
-    .collapse-toggle:not(.collapsed) .triangle {
-      transform: rotate(90deg);
+    .collapse-toggle.collapsed .triangle {
+      transform: rotate(-90deg);
     }
     .bullet {
-      color: #999;
-      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
     }
     .item-body {
       flex: 1;
@@ -128,13 +198,50 @@ import { ItemViewComponent } from './item-view';
       padding-left: 8px;
       white-space: nowrap;
     }
+    .outline-item.hide-bullet .bullet {
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    .outline-item.hide-bullet:hover .bullet {
+      opacity: 1;
+    }
+    .outline-item.heading .item-controls {
+      padding-top: 0;
+      align-self: center;
+    }
     .outline-item.heading .item-body {
       margin-left: -3px;
+    }
+    :host {
+      position: relative;
+    }
+    .item-popup-menu {
+      position: absolute;
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      min-width: 100px;
+    }
+    .item-popup-menu button {
+      background: none;
+      border: none;
+      padding: 6px 12px;
+      text-align: left;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .item-popup-menu button:hover {
+      background: #f0f0f0;
     }
   `]
 })
 export class OutlineItemComponent {
   private readonly state = inject(OutlineStateService);
+  private readonly elRef = inject(ElementRef);
 
   readonly item = input.required<Item>();
 
@@ -196,8 +303,6 @@ export class OutlineItemComponent {
     return { label, tooltip: `${fmt(begin)} - ${fmt(end)}` };
   });
   readonly shouldShowBullet = computed(() => {
-    // Don't show bullet if item has children (collapse toggle is shown instead)
-    if (this.hasChildren()) return false;
     // In view mode (not editing), hide bullet for empty lines and lines starting with #
     if (!this.isEditing()) {
       const body = this.item().body.trim();
@@ -214,6 +319,50 @@ export class OutlineItemComponent {
    */
   insertWikiLinkText(replacement: string): void {
     this.editorRef()?.insertWikiLinkText(replacement);
+  }
+
+  showItemMenu = false;
+  menuX = 0;
+  menuY = 0;
+
+  private closeMenuHandler: (() => void) | null = null;
+
+  onItemMenuClick(event: MouseEvent): void {
+    event.stopPropagation();
+    const btn = event.currentTarget as HTMLElement;
+    const btnRect = btn.getBoundingClientRect();
+    const hostRect = this.elRef.nativeElement.getBoundingClientRect();
+    this.menuX = btnRect.left - hostRect.left;
+    this.menuY = btnRect.bottom - hostRect.top;
+    this.showItemMenu = true;
+
+    const closeMenu = (e?: Event) => {
+      if (e && (e.target as HTMLElement).closest('.item-popup-menu')) return;
+      this.showItemMenu = false;
+      document.removeEventListener('mousedown', closeMenu, true);
+      document.removeEventListener('keydown', onKey, true);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeMenu();
+      }
+    };
+    setTimeout(() => {
+      document.addEventListener('mousedown', closeMenu, true);
+      document.addEventListener('keydown', onKey, true);
+    });
+  }
+
+  onMenuCopy(): void {
+    navigator.clipboard.writeText(this.item().body);
+    this.showItemMenu = false;
+  }
+
+  onMenuCut(): void {
+    navigator.clipboard.writeText(this.item().body);
+    this.bodyChanged.emit('');
+    this.showItemMenu = false;
   }
 
   /** Emits a collapse toggle event for this item's children. */
