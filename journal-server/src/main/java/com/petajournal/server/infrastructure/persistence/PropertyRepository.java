@@ -5,6 +5,8 @@ import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 
 import java.sql.*;
+import java.time.*;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @ApplicationScoped
@@ -170,6 +172,214 @@ public class PropertyRepository {
             ps.executeUpdate();
         } catch (SQLException e) {
             throw new RuntimeException("Failed to delete property", e);
+        }
+    }
+
+    /**
+     * Replace all tag entries for a target with the given list of tags.
+     */
+    public void syncTags(String targetType, String targetId, List<String> newTags) {
+        String deleteSql = "DELETE FROM property_list_items WHERE target_type = ? AND target_id = ? AND key = 'tag'";
+        String insertSql = "INSERT INTO property_list_items (target_type, target_id, key, sort_order, value) VALUES (?, ?, 'tag', ?, ?)";
+
+        try (Connection conn = connectionProvider.getConnection()) {
+            try (PreparedStatement ps = conn.prepareStatement(deleteSql)) {
+                ps.setString(1, targetType);
+                ps.setString(2, targetId);
+                ps.executeUpdate();
+            }
+            if (!newTags.isEmpty()) {
+                try (PreparedStatement ps = conn.prepareStatement(insertSql)) {
+                    for (int i = 0; i < newTags.size(); i++) {
+                        ps.setString(1, targetType);
+                        ps.setString(2, targetId);
+                        ps.setInt(3, i);
+                        ps.setString(4, newTags.get(i));
+                        ps.addBatch();
+                    }
+                    ps.executeBatch();
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to sync tags", e);
+        }
+    }
+
+    /**
+     * Find item IDs that have a specific tag value.
+     */
+    public List<String> findItemIdsByTagValue(String tagValue, int maxResults) {
+        String sql = "SELECT target_id FROM property_list_items WHERE key = 'tag' AND value = ? AND target_type = 'item' LIMIT ?";
+        List<String> ids = new ArrayList<>();
+
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, tagValue);
+            ps.setInt(2, maxResults);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    ids.add(rs.getString("target_id"));
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to find items by tag", e);
+        }
+
+        return ids;
+    }
+
+    /**
+     * Check if any tag entries exist in property_list_items.
+     */
+    public boolean findAnyTagExists() {
+        String sql = "SELECT COUNT(*) FROM property_list_items WHERE key = 'tag' LIMIT 1";
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            return rs.next() && rs.getInt(1) > 0;
+        } catch (SQLException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Find item IDs whose page path (dir_path || name) starts with the given prefix.
+     */
+    public List<String> findItemIdsByPagePrefix(String pathPrefix, int maxResults) {
+        String sql = "SELECT i.id AS item_id FROM items i " +
+                "JOIN pages p ON i.page_id = p.id " +
+                "WHERE (p.dir_path || p.name) LIKE ? || '%' " +
+                "LIMIT ?";
+        List<String> ids = new ArrayList<>();
+
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, pathPrefix);
+            ps.setInt(2, maxResults);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    ids.add(rs.getString("item_id"));
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to find items by page prefix", e);
+        }
+
+        return ids;
+    }
+
+    /**
+     * Find item IDs that have a specific scalar property key=value.
+     */
+    public List<String> findItemIdsByScalarProperty(String key, String value, int maxResults) {
+        String sql = "SELECT target_id FROM properties " +
+                "WHERE target_type = 'item' AND key = ? AND value_text = ? " +
+                "LIMIT ?";
+        List<String> ids = new ArrayList<>();
+
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, key);
+            ps.setString(2, value);
+            ps.setInt(3, maxResults);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    ids.add(rs.getString("target_id"));
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to find items by scalar property", e);
+        }
+
+        return ids;
+    }
+
+    /**
+     * Find item IDs by date range on created_date or modified_date.
+     * Supported expr formats:
+     *   "2026-03"          → month prefix (month start to next month start)
+     *   "2026-03-12"       → single day (day start to next day start)
+     *   ">2026-03-01"      → after date
+     *   "<2026-03-01"      → before date
+     *   "2026-03-01..2026-03-12" → range [start, end+1day)
+     */
+    public List<String> findItemIdsByDateRange(String column, String expr, int maxResults) {
+        // Whitelist columns to prevent SQL injection
+        if (!"created_date".equals(column) && !"modified_date".equals(column)) {
+            throw new IllegalArgumentException("Invalid column: " + column);
+        }
+
+        long startMillis = -1;
+        long endMillis = -1;
+        String operator = null; // null means range [start, end)
+
+        if (expr.contains("..")) {
+            // Range: val1..val2
+            String[] parts = expr.split("\\.\\.", 2);
+            startMillis = parseDateToEpochMillis(parts[0], false);
+            endMillis = parseDateToEpochMillis(parts[1], true);
+        } else if (expr.startsWith(">")) {
+            operator = ">";
+            startMillis = parseDateToEpochMillis(expr.substring(1), true);
+        } else if (expr.startsWith("<")) {
+            operator = "<";
+            endMillis = parseDateToEpochMillis(expr.substring(1), false);
+        } else {
+            // Prefix match: month or day
+            startMillis = parseDateToEpochMillis(expr, false);
+            endMillis = parseDateToEpochMillis(expr, true);
+        }
+
+        String sql;
+        if (operator != null) {
+            if (">".equals(operator)) {
+                sql = "SELECT id FROM items WHERE " + column + " >= ? LIMIT ?";
+            } else {
+                sql = "SELECT id FROM items WHERE " + column + " < ? LIMIT ?";
+            }
+        } else {
+            sql = "SELECT id FROM items WHERE " + column + " >= ? AND " + column + " < ? LIMIT ?";
+        }
+
+        List<String> ids = new ArrayList<>();
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            int idx = 1;
+            if (operator != null) {
+                ps.setLong(idx++, ">".equals(operator) ? startMillis : endMillis);
+            } else {
+                ps.setLong(idx++, startMillis);
+                ps.setLong(idx++, endMillis);
+            }
+            ps.setInt(idx, maxResults);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    ids.add(rs.getString("id"));
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to find items by date range", e);
+        }
+
+        return ids;
+    }
+
+    /**
+     * Parse a date string to epoch millis.
+     * If {@code toEnd} is true, returns the exclusive upper bound (next day/month start).
+     */
+    private long parseDateToEpochMillis(String dateStr, boolean toEnd) {
+        ZoneId zone = ZoneId.of("Asia/Tokyo");
+        if (dateStr.length() == 7) {
+            // "2026-03" → year-month
+            YearMonth ym = YearMonth.parse(dateStr);
+            LocalDate date = toEnd ? ym.plusMonths(1).atDay(1) : ym.atDay(1);
+            return date.atStartOfDay(zone).toInstant().toEpochMilli();
+        } else {
+            // "2026-03-12" → full date
+            LocalDate date = LocalDate.parse(dateStr);
+            if (toEnd) date = date.plusDays(1);
+            return date.atStartOfDay(zone).toInstant().toEpochMilli();
         }
     }
 

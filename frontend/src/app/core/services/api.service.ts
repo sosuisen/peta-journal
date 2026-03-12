@@ -8,7 +8,6 @@ interface GetDocResult { page: Page; items: Item[]; created: boolean }
 interface GetJournalResult { page: Page; items: Item[]; created: boolean }
 interface GetMostRecentJournalBeforeResult { found: boolean; page: Page | null; items: Item[] }
 interface SearchPageNamesResult { results: SearchResult[] }
-interface SearchFullTextResult { results: SearchResult[]; totalHits: number }
 interface GetRecentPagesResult { pages: Page[] }
 interface BacklinkEntry { sourcePage: Page; sourceItem: Item }
 interface GetBacklinksResult { entries: BacklinkEntry[] }
@@ -123,13 +122,18 @@ export class ApiService {
     return data.item;
   }
 
+  async searchCombined(query: string, maxResults = 20): Promise<SearchPageNamesResult> {
+    const resp = await fetch(`/api/search/combined?q=${encodeURIComponent(query)}&maxResults=${maxResults}`);
+    return json(resp);
+  }
+
   async searchPageNames(query: string, maxResults = 20): Promise<SearchPageNamesResult> {
     const resp = await fetch(`/api/search/pages?q=${encodeURIComponent(query)}&maxResults=${maxResults}`);
     return json(resp);
   }
 
-  async searchFullText(query: string, maxResults = 20): Promise<SearchFullTextResult> {
-    const resp = await fetch(`/api/search/fulltext?q=${encodeURIComponent(query)}&maxResults=${maxResults}`);
+  async searchByTag(tag: string, maxResults = 20): Promise<SearchPageNamesResult> {
+    const resp = await fetch(`/api/search/tags?q=${encodeURIComponent(tag)}&maxResults=${maxResults}`);
     return json(resp);
   }
 

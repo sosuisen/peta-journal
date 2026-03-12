@@ -1,5 +1,6 @@
 package com.petajournal.server.presentation.mcp;
 
+import com.petajournal.server.application.CombinedSearchService;
 import com.petajournal.server.domain.model.Page;
 import com.petajournal.server.domain.model.SearchResult;
 import com.petajournal.server.domain.repository.PageRepository;
@@ -21,6 +22,9 @@ public class McpSearchTools {
 
     @Inject
     McpJsonHelper jsonHelper;
+
+    @Inject
+    CombinedSearchService combinedSearchService;
 
     @Tool(description = "Search pages by name. Uses prefix matching first, then fuzzy/token search, then substring matching as fallback.")
     String search_page_names(
@@ -48,13 +52,14 @@ public class McpSearchTools {
                 containsPages.stream().map(SearchResult::fromPage).toList()));
     }
 
-    @Tool(description = "Full-text search across all item content. Returns matching items with page info and text snippets.")
-    String search_full_text(
+    @Tool(description = "Combined search supporting #tag, key=value properties, in:path page prefix, created:/modified: date filters, plain text, and OR/AND operators. Examples: '#report in:DailyReport/2026-03', 'status=done', 'created:2026-03', '#urgent OR #important'")
+    String search_combined(
             @ToolArg(description = "Search query string") String query,
             @ToolArg(description = "Maximum number of results") int maxResults
     ) {
-        var results = searchService.searchFullText(query, maxResults);
-        return jsonHelper.toJson(Map.of("results", results, "totalHits", results.size()));
+        int max = maxResults > 0 ? maxResults : 20;
+        var results = combinedSearchService.search(query, max);
+        return jsonHelper.toJson(Map.of("results", results));
     }
 
 }

@@ -1,19 +1,20 @@
 package com.petajournal.server.presentation.rest;
 
+import com.petajournal.server.application.CombinedSearchService;
+import com.petajournal.server.domain.model.Item;
 import com.petajournal.server.domain.model.Page;
 import com.petajournal.server.domain.model.SearchResult;
+import com.petajournal.server.domain.repository.ItemRepository;
 import com.petajournal.server.domain.repository.PageRepository;
 import com.petajournal.server.domain.repository.SearchService;
+import com.petajournal.server.infrastructure.persistence.PropertyRepository;
 import com.petajournal.server.presentation.rest.dto.DtoMapper;
 import com.petajournal.server.presentation.rest.dto.SearchResultDto;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 @Path("/api/search")
 @Produces(MediaType.APPLICATION_JSON)
@@ -25,10 +26,18 @@ public class SearchResource {
     @Inject
     SearchService searchService;
 
+    @Inject
+    PropertyRepository propertyRepository;
+
+    @Inject
+    ItemRepository itemRepository;
+
+    @Inject
+    CombinedSearchService combinedSearchService;
+
     // --- Response records ---
 
     record SearchPageNamesResponse(List<SearchResultDto> results) {}
-    record SearchFullTextResponse(List<SearchResultDto> results, int totalHits) {}
 
     @GET
     @Path("/pages")
@@ -73,13 +82,39 @@ public class SearchResource {
     }
 
     @GET
-    @Path("/fulltext")
-    public SearchFullTextResponse searchFullText(
+    @Path("/combined")
+    public SearchPageNamesResponse searchCombined(
             @QueryParam("q") String query,
             @QueryParam("maxResults") @DefaultValue("20") int maxResults) {
-        var results = searchService.searchFullText(query, maxResults);
-        return new SearchFullTextResponse(
-                results.stream().map(DtoMapper::toDto).toList(),
-                results.size());
+
+        var results = combinedSearchService.search(query, maxResults);
+        return new SearchPageNamesResponse(results.stream().map(DtoMapper::toDto).toList());
     }
+
+    @GET
+    @Path("/tags")
+    public SearchPageNamesResponse searchByTag(
+            @QueryParam("q") String tagValue,
+            @QueryParam("maxResults") @DefaultValue("20") int maxResults) {
+
+        List<String> itemIds = propertyRepository.findItemIdsByTagValue(tagValue, maxResults);
+        List<SearchResultDto> results = new ArrayList<>();
+
+        for (String itemId : itemIds) {
+            Optional<Item> itemOpt = itemRepository.findById(UUID.fromString(itemId));
+            if (itemOpt.isEmpty()) continue;
+            Item item = itemOpt.get();
+            Optional<Page> pageOpt = pageRepository.findById(item.pageId());
+            if (pageOpt.isEmpty()) continue;
+            Page page = pageOpt.get();
+            String pageTitle = page.dirPath() + page.name();
+            String snippet = item.body() != null ? item.body() : "";
+            if (snippet.length() > 200) snippet = snippet.substring(0, 200);
+            SearchResult sr = new SearchResult(page.id(), pageTitle, itemId, snippet, 1.0f);
+            results.add(DtoMapper.toDto(sr));
+        }
+
+        return new SearchPageNamesResponse(results);
+    }
+
 }

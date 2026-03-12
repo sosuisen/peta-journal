@@ -12,6 +12,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 
+import com.petajournal.server.domain.HashtagExtractor;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -86,6 +87,12 @@ public class ItemService {
         // Update page modified date
         touchPage(pageId);
 
+        // Sync hashtags as tag properties
+        List<String> hashtags = HashtagExtractor.extractHashtags(ast);
+        if (!hashtags.isEmpty()) {
+            propertyRepository.syncTags("item", id.toString(), hashtags);
+        }
+
         // Index for search
         searchService.indexItem(item, page.dirPath() + page.name());
 
@@ -137,6 +144,12 @@ public class ItemService {
         );
 
         updated = itemRepository.save(updated);
+
+        // Sync hashtags when body changes
+        if (body != null) {
+            List<String> hashtags = HashtagExtractor.extractHashtags(newAst);
+            propertyRepository.syncTags("item", existing.id().toString(), hashtags);
+        }
 
         // Recalculate parent_id when level changes
         if (level != null) {
@@ -251,6 +264,7 @@ public class ItemService {
         Optional<Item> item = itemRepository.findById(itemId);
         itemRepository.delete(itemId);
         searchService.removeItem(itemId.toString());
+        propertyRepository.syncTags("item", itemId.toString(), List.of());
         item.ifPresent(b -> {
             itemRepository.recalculateParentIds(b.pageId());
             touchPage(b.pageId());

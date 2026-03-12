@@ -170,21 +170,25 @@ export class SearchBarComponent {
   }
 
   private async executeSearch(value: string): Promise<void> {
-    const [pageResp, itemResp] = await Promise.all([
-      this.api.searchPageNames(value),
-      this.api.searchFullText(value),
-    ]);
+    const resp = await this.api.searchCombined(value);
 
-    // Deduplicate: remove item results whose pageId already appears in page results
-    const pageIds = new Set(pageResp.results.map(r => r.pageId));
-    const uniqueItems = itemResp.results.filter(r => !pageIds.has(r.pageId));
+    const pageResults: SearchResult[] = [];
+    const itemResults: SearchResult[] = [];
+    for (const r of resp.results) {
+      if (r.itemId) {
+        itemResults.push(r);
+      } else {
+        pageResults.push(r);
+      }
+    }
 
-    this.pageResults.set(pageResp.results);
-    this.itemResults.set(uniqueItems);
+    this.pageResults.set(pageResults);
+    this.itemResults.set(itemResults);
     this.selectedIndex.set(-1);
 
-    const exactMatch = pageResp.results.some(r => r.pageTitle.toLowerCase() === value.toLowerCase());
-    this.showCreateButton.set(!exactMatch && value.trim().length > 0);
+    const hasTagTerms = value.trim().split(/\s+/).some(t => t.startsWith('#') && t.length > 1);
+    const exactMatch = pageResults.some(r => r.pageTitle.toLowerCase() === value.toLowerCase());
+    this.showCreateButton.set(!hasTagTerms && !exactMatch && value.trim().length > 0);
   }
 
   /**
