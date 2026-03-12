@@ -1,16 +1,16 @@
 {
-  "/assets": {
-    "target": "http://localhost:8080",
-    "secure": false
-  },
-  "/api/events": {
-    "target": "http://localhost:8080",
-    "secure": false,
-    "timeout": 0,
-    "proxyTimeout": 0
-  },
-  "/api": {
-    "target": "http://localhost:8080",
-    "secure": false
-  }
+    "/assets": {
+        "target": "http://localhost:8087",
+        "secure": false
+    },
+    "/api/events": {
+        "target": "http://localhost:8087",
+        "secure": false,
+        "timeout": 0,
+        "proxyTimeout": 0
+    },
+    "/api": {
+        "target": "http://localhost:8087",
+        "secure": false
+    }
 }

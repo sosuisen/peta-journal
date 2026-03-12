@@ -28,7 +28,7 @@ public class JournalApiService : IDisposable
     public event Action? Reconnecting;
     public event Action<string>? PageUpdated;
 
-    public JournalApiService(string host = "localhost", int port = 8080)
+    public JournalApiService(string host = "localhost", int port = 8087)
     {
         _baseUrl = $"http://{host}:{port}";
         _http = new HttpClient { BaseAddress = new Uri(_baseUrl) };

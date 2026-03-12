@@ -32,7 +32,7 @@ Output: `bin\x64\Debug\net10.0-windows10.0.22621.0\Stickies.exe`
 
 ## Run
 
-1. Start `journal-server` first (default WebSocket at `ws://localhost:8080/ws`)
+1. Start `journal-server` first (default WebSocket at `ws://localhost:8087/ws`)
 2. Run `bin\x64\Debug\net10.0-windows10.0.22621.0\Stickies.exe`
 
 ## Settings
