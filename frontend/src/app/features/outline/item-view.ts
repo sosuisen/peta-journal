@@ -63,7 +63,20 @@ import { FmRootComponent } from 'flatmarkdown-ast2angular';
     :host ::ng-deep .wiki-link-new:hover {
       color: #c9302c;
     }
-    :host ::ng-deep .item-content a:not(.wiki-link) {
+    :host ::ng-deep .hashtag-link {
+      color: #007bff;
+      cursor: pointer;
+      text-decoration: none;
+      background: #e8f0fe;
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-size: 0.9em;
+    }
+    :host ::ng-deep .hashtag-link:hover {
+      background: #d0e3fc;
+      color: #0056b3;
+    }
+    :host ::ng-deep .item-content a:not(.wiki-link):not(.hashtag-link) {
       color: #007bff;
       cursor: pointer;
       text-decoration: underline;
@@ -154,7 +167,8 @@ export class ItemViewComponent {
   readonly clicked = output<number>();
   readonly taskToggled = output<void>();
   readonly wikilinkOptions = {
-    wikilink: { routerLinkPrefix: '/pages/', cssClass: 'wiki-link' }
+    wikilink: { routerLinkPrefix: '/pages/', cssClass: 'wiki-link' },
+    hashtag: { routerLinkPrefix: '/pages/', cssClass: 'hashtag-link' },
   };
 
   private readonly checkboxRef = viewChild<ElementRef<HTMLInputElement>>('checkbox');
@@ -225,7 +239,7 @@ export class ItemViewComponent {
     const target = event.target as HTMLElement;
 
     // External link [name](url)
-    const anchor = target.closest('a:not(.wiki-link):not(.wiki-link-new)') as HTMLAnchorElement | null;
+    const anchor = target.closest('a:not(.wiki-link):not(.wiki-link-new):not(.hashtag-link)') as HTMLAnchorElement | null;
     if (anchor?.href) {
       event.preventDefault();
       event.stopPropagation();
@@ -237,8 +251,8 @@ export class ItemViewComponent {
       return;
     }
 
-    // Wiki link
-    const link = target.closest('.wiki-link, .wiki-link-new') as HTMLAnchorElement | null;
+    // Wiki link or hashtag link
+    const link = target.closest('.wiki-link, .wiki-link-new, .hashtag-link') as HTMLAnchorElement | null;
     if (link) {
       const newTab = event.ctrlKey || event.metaKey;
       const newWindow = event.shiftKey;
