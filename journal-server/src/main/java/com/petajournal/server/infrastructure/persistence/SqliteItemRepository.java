@@ -22,7 +22,7 @@ public class SqliteItemRepository implements ItemRepository {
     public Optional<Item> findById(UUID id) {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT b.id, b.page_id, b.parent_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.ast, b.collapsed, " +
+                     "SELECT b.id, b.page_id, b.parent_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.ast, b.collapsed, b.transclude_item_id, " +
                      "p.dir_path, p.name, p.type " +
                      "FROM items b JOIN pages p ON b.page_id = p.id WHERE b.id = ?")) {
             ps.setString(1, id.toString());
@@ -40,7 +40,7 @@ public class SqliteItemRepository implements ItemRepository {
         LOG.debugv("findByPageId: pageId={0}", pageId);
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT b.id, b.page_id, b.parent_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.ast, b.collapsed, " +
+                     "SELECT b.id, b.page_id, b.parent_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.ast, b.collapsed, b.transclude_item_id, " +
                      "p.dir_path, p.name, p.type " +
                      "FROM items b JOIN pages p ON b.page_id = p.id WHERE b.page_id = ? ORDER BY b.idx")) {
             ps.setString(1, pageId.toString());
@@ -63,9 +63,9 @@ public class SqliteItemRepository implements ItemRepository {
             conn.setAutoCommit(false);
             try {
                 try (PreparedStatement ps = conn.prepareStatement(
-                        "INSERT INTO items (id, page_id, parent_id, created_date, modified_date, idx, level, body, ast, collapsed) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) " +
-                        "ON CONFLICT(id) DO UPDATE SET page_id=?, parent_id=?, modified_date=?, idx=?, level=?, body=?, ast=?, collapsed=?")) {
+                        "INSERT INTO items (id, page_id, parent_id, created_date, modified_date, idx, level, body, ast, collapsed, transclude_item_id) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) " +
+                        "ON CONFLICT(id) DO UPDATE SET page_id=?, parent_id=?, modified_date=?, idx=?, level=?, body=?, ast=?, collapsed=?, transclude_item_id=?")) {
                     ps.setString(1, item.id().toString());
                     ps.setString(2, item.pageId().toString());
                     ps.setString(3, item.parentItemId() != null ? item.parentItemId().toString() : null);
@@ -76,15 +76,17 @@ public class SqliteItemRepository implements ItemRepository {
                     ps.setString(8, item.body());
                     ps.setString(9, item.ast());
                     ps.setInt(10, item.collapsed() ? 1 : 0);
+                    ps.setString(11, item.transcludeItemId() != null ? item.transcludeItemId().toString() : null);
                     // ON CONFLICT UPDATE values
-                    ps.setString(11, item.pageId().toString());
-                    ps.setString(12, item.parentItemId() != null ? item.parentItemId().toString() : null);
-                    ps.setLong(13, item.modifiedDate().toEpochMilli());
-                    ps.setString(14, item.idx());
-                    ps.setInt(15, item.level());
-                    ps.setString(16, item.body());
-                    ps.setString(17, item.ast());
-                    ps.setInt(18, item.collapsed() ? 1 : 0);
+                    ps.setString(12, item.pageId().toString());
+                    ps.setString(13, item.parentItemId() != null ? item.parentItemId().toString() : null);
+                    ps.setLong(14, item.modifiedDate().toEpochMilli());
+                    ps.setString(15, item.idx());
+                    ps.setInt(16, item.level());
+                    ps.setString(17, item.body());
+                    ps.setString(18, item.ast());
+                    ps.setInt(19, item.collapsed() ? 1 : 0);
+                    ps.setString(20, item.transcludeItemId() != null ? item.transcludeItemId().toString() : null);
                     ps.executeUpdate();
                 }
 
@@ -143,7 +145,7 @@ public class SqliteItemRepository implements ItemRepository {
         String pattern = "%[[" + pageTitle + "]]%";
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT b.id, b.page_id, b.parent_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.ast, b.collapsed, " +
+                     "SELECT b.id, b.page_id, b.parent_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.ast, b.collapsed, b.transclude_item_id, " +
                      "p.dir_path, p.name, p.type " +
                      "FROM items b JOIN pages p ON b.page_id = p.id WHERE b.body LIKE ?")) {
             ps.setString(1, pattern);
@@ -171,7 +173,7 @@ public class SqliteItemRepository implements ItemRepository {
         }
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT b.id, b.page_id, b.parent_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.ast, b.collapsed, " +
+                     "SELECT b.id, b.page_id, b.parent_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.ast, b.collapsed, b.transclude_item_id, " +
                      "p.dir_path, p.name, p.type " +
                      "FROM items b JOIN pages p ON b.page_id = p.id " +
                      "WHERE b.id IN (SELECT item_id FROM item_types WHERE type IN (" + placeholders + ")) " +
@@ -207,6 +209,7 @@ public class SqliteItemRepository implements ItemRepository {
         String itemIdStr = rs.getString("id");
         UUID itemId = UUID.fromString(itemIdStr);
         String parentIdStr = rs.getString("parent_id");
+        String transcludeIdStr = rs.getString("transclude_item_id");
         return new Item(
                 itemId,
                 UUID.fromString(rs.getString("page_id")),
@@ -221,7 +224,8 @@ public class SqliteItemRepository implements ItemRepository {
                 rs.getString("body"),
                 rs.getString("ast"),
                 rs.getInt("collapsed") != 0,
-                loadTypes(conn, itemIdStr)
+                loadTypes(conn, itemIdStr),
+                transcludeIdStr != null ? UUID.fromString(transcludeIdStr) : null
         );
     }
 
@@ -236,6 +240,51 @@ public class SqliteItemRepository implements ItemRepository {
             }
         }
         return types;
+    }
+
+    @Override
+    public List<Item> findTranscluders(UUID sourceItemId) {
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "SELECT b.id, b.page_id, b.parent_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.ast, b.collapsed, b.transclude_item_id, " +
+                     "p.dir_path, p.name, p.type " +
+                     "FROM items b JOIN pages p ON b.page_id = p.id WHERE b.transclude_item_id = ?")) {
+            ps.setString(1, sourceItemId.toString());
+            List<Item> items = new ArrayList<>();
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    items.add(mapItem(conn, rs));
+                }
+            }
+            return items;
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to find transcluders for: " + sourceItemId, e);
+        }
+    }
+
+    @Override
+    public List<Item> findItemWithDescendants(UUID itemId) {
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     "WITH RECURSIVE descendants AS (" +
+                     "  SELECT i.* FROM items i WHERE i.id = ? " +
+                     "  UNION ALL " +
+                     "  SELECT i.* FROM items i JOIN descendants d ON i.parent_id = d.id" +
+                     ") " +
+                     "SELECT d.id, d.page_id, d.parent_id, d.created_date, d.modified_date, d.idx, d.level, d.body, d.ast, d.collapsed, d.transclude_item_id, " +
+                     "p.dir_path, p.name, p.type " +
+                     "FROM descendants d JOIN pages p ON d.page_id = p.id ORDER BY d.idx")) {
+            ps.setString(1, itemId.toString());
+            List<Item> items = new ArrayList<>();
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    items.add(mapItem(conn, rs));
+                }
+            }
+            return items;
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to find item with descendants: " + itemId, e);
+        }
     }
 
     @Override

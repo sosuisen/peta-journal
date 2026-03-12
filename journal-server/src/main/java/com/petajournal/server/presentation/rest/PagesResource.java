@@ -2,6 +2,7 @@ package com.petajournal.server.presentation.rest;
 
 import com.petajournal.server.application.PageService;
 import com.petajournal.server.domain.model.Item;
+import com.petajournal.server.domain.repository.ItemRepository;
 import com.petajournal.server.domain.repository.PageRepository;
 import com.petajournal.server.infrastructure.persistence.PropertyRepository;
 import com.petajournal.server.presentation.rest.dto.BacklinkEntryDto;
@@ -12,8 +13,7 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @Path("/api/pages")
 @Produces(MediaType.APPLICATION_JSON)
@@ -27,6 +27,9 @@ public class PagesResource {
     PageRepository pageRepository;
 
     @Inject
+    ItemRepository itemRepository;
+
+    @Inject
     PropertyRepository propertyRepository;
 
     @Inject
@@ -34,7 +37,7 @@ public class PagesResource {
 
     // --- Response records ---
 
-    record GetPageByIdResponse(PageDto page, List<ItemDto> items) {}
+    record GetPageByIdResponse(PageDto page, List<ItemDto> items, Map<String, List<ItemDto>> transcludedTrees) {}
     record GetOrCreateDocRequest(String title, String dirPath) {}
     record GetOrCreateDocResponse(PageDto page, List<ItemDto> items, boolean created) {}
     record UpdatePageRequest(String title, String dirPath) {}
@@ -43,6 +46,8 @@ public class PagesResource {
     record GetBacklinksResponse(List<BacklinkEntryDto> entries) {}
     record GetChildPagesResponse(List<PageDto> pages) {}
 
+    private static final int MAX_TRANSCLUSION_DEPTH = 5;
+
     @GET
     @Path("/{id}")
     public GetPageByIdResponse getPageById(@PathParam("id") String id) {
@@ -50,9 +55,46 @@ public class PagesResource {
         var page = pageService.getPage(pageId)
                 .orElseThrow(() -> new NotFoundException("Page not found: " + id));
         var items = pageService.getPageItems(pageId);
+
+        // Build transcluded trees for items that have transclude_item_id
+        Map<String, List<ItemDto>> transcludedTrees = new LinkedHashMap<>();
+        Set<String> visited = new HashSet<>();
+        for (Item item : items) {
+            if (item.transcludeItemId() != null) {
+                String sourceId = item.transcludeItemId().toString();
+                if (!transcludedTrees.containsKey(sourceId)) {
+                    loadTranscludedTree(sourceId, transcludedTrees, visited, 0);
+                }
+            }
+        }
+
         return new GetPageByIdResponse(
                 DtoMapper.toDto(page),
-                loadItemDtos(items));
+                loadItemDtos(items),
+                transcludedTrees);
+    }
+
+    private void loadTranscludedTree(String sourceId, Map<String, List<ItemDto>> trees, Set<String> visited, int depth) {
+        if (depth >= MAX_TRANSCLUSION_DEPTH || visited.contains(sourceId)) return;
+        visited.add(sourceId);
+
+        List<Item> descendants = itemRepository.findItemWithDescendants(UUID.fromString(sourceId));
+        if (descendants.isEmpty()) {
+            trees.put(sourceId, List.of());
+            return;
+        }
+
+        trees.put(sourceId, loadItemDtos(descendants));
+
+        // Recursively load transcluded trees for nested transclusions
+        for (Item desc : descendants) {
+            if (desc.transcludeItemId() != null) {
+                String nestedSourceId = desc.transcludeItemId().toString();
+                if (!trees.containsKey(nestedSourceId)) {
+                    loadTranscludedTree(nestedSourceId, trees, visited, depth + 1);
+                }
+            }
+        }
     }
 
     @POST

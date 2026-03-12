@@ -40,7 +40,13 @@ import { ItemViewComponent } from './item-view';
         <div class="slot-bullet">
           <span class="bullet">
             <svg viewBox="0 0 14 14" width="14" height="14">
-              @if (isCollapsed()) {
+              @if (isTransclusion()) {
+                @if (isCollapsed()) {
+                  <rect x="1" y="1" width="12" height="12" rx="1" fill="#ddd" stroke="none" />
+                } @else {
+                  <rect x="1" y="1" width="12" height="12" rx="1" fill="none" stroke="#ccc" stroke-width="1" />
+                }
+              } @else if (isCollapsed()) {
                 <circle cx="7" cy="7" r="6.5" fill="#ddd" stroke="none" />
               }
               <circle cx="7" cy="7" r="2.5" fill="#888" stroke="none" />
@@ -49,7 +55,9 @@ import { ItemViewComponent } from './item-view';
         </div>
       </div>
       <div class="item-body">
-        @if (isEditing()) {
+        @if (isBrokenTransclusion()) {
+          <div class="broken-transclusion">source not found: {{ item().body }}</div>
+        } @else if (isEditing()) {
           <app-item-editor
             #editor
             [body]="item().body"
@@ -100,6 +108,13 @@ import { ItemViewComponent } from './item-view';
       <div class="item-popup-menu" [style.left.px]="menuX" [style.top.px]="menuY">
         <button (click)="onMenuCopy()">Copy</button>
         <button (click)="onMenuCut()">Cut</button>
+        <button (click)="onMenuCopyReference()">Copy Reference</button>
+        @if (state.transclusionClipboard()) {
+          <button (click)="onMenuPasteAsTransclusion()">Paste as Transclusion</button>
+        }
+        @if (isTransclusion()) {
+          <button (click)="onMenuRemoveTransclusion()">Remove Transclusion</button>
+        }
       </div>
     }
   `,
@@ -212,6 +227,12 @@ import { ItemViewComponent } from './item-view';
     .outline-item.heading .item-body {
       margin-left: -3px;
     }
+    .broken-transclusion {
+      color: #c00;
+      font-style: italic;
+      padding: 4px 0;
+      font-size: 13px;
+    }
     :host {
       position: relative;
     }
@@ -240,7 +261,7 @@ import { ItemViewComponent } from './item-view';
   `]
 })
 export class OutlineItemComponent {
-  private readonly state = inject(OutlineStateService);
+  readonly state = inject(OutlineStateService);
   private readonly elRef = inject(ElementRef);
 
   readonly item = input.required<Item>();
@@ -270,6 +291,9 @@ export class OutlineItemComponent {
   readonly shiftSelectDown = output<void>();
   readonly undoRequested = output<void>();
   readonly redoRequested = output<void>();
+  readonly copyReference = output<void>();
+  readonly pasteAsTransclusion = output<void>();
+  readonly removeTransclusion = output<void>();
   readonly suggestionsVisible = input<boolean>(false);
 
   private readonly editorRef = viewChild<ItemEditorComponent>('editor');
@@ -278,7 +302,7 @@ export class OutlineItemComponent {
   readonly hasChildren = computed(() => this.state.hasChildren(this.item().id));
   readonly isEditing = computed(() => this.state.editingItemIds().has(this.item().id));
   readonly isSelected = computed(() => this.state.selectedItemIds().has(this.item().id));
-  readonly isCollapsed = computed(() => this.item().collapsed);
+  readonly isCollapsed = computed(() => this.item().collapsed || this.state.isCollapsed(this.item().id));
   readonly isHeading = computed(() => this.item().body.trimStart().startsWith('#'));
   readonly taskTimeInfo = computed<{ label: string; tooltip: string } | null>(() => {
     const item = this.item();
@@ -301,6 +325,14 @@ export class OutlineItemComponent {
     if (m > 0) label += `${m}m`;
     if (h === 0 && m === 0) label = `${s}s`;
     return { label, tooltip: `${fmt(begin)} - ${fmt(end)}` };
+  });
+  readonly isTransclusion = computed(() => !!this.item().transcludeItemId);
+  readonly isBrokenTransclusion = computed(() => {
+    const item = this.item();
+    if (!item.transcludeItemId) return false;
+    const trees = this.state.transcludedTrees();
+    const tree = trees.get(item.transcludeItemId);
+    return !tree || tree.length === 0;
   });
   readonly shouldShowBullet = computed(() => {
     // In view mode (not editing), hide bullet for empty lines and lines starting with #
@@ -362,6 +394,21 @@ export class OutlineItemComponent {
   onMenuCut(): void {
     navigator.clipboard.writeText(this.item().body);
     this.bodyChanged.emit('');
+    this.showItemMenu = false;
+  }
+
+  onMenuCopyReference(): void {
+    this.state.setTransclusionClipboard(this.item().id);
+    this.showItemMenu = false;
+  }
+
+  onMenuPasteAsTransclusion(): void {
+    this.pasteAsTransclusion.emit();
+    this.showItemMenu = false;
+  }
+
+  onMenuRemoveTransclusion(): void {
+    this.removeTransclusion.emit();
     this.showItemMenu = false;
   }
 

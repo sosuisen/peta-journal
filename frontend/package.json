@@ -5,6 +5,7 @@
         "ng": "ng",
         "clean": "rm -rf .angular dist",
         "start": "ng serve",
+        "noreload": "ng serve --no-live-reload",
         "build": "ng build",
         "watch": "ng build --watch --configuration development",
         "test": "ng test"

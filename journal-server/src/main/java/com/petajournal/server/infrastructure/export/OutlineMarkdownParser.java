@@ -90,7 +90,7 @@ public class OutlineMarkdownParser {
             items.add(new Item(
                     itemId, pageId, null, dirPath, name, type, now, now, idx,
                     pb.level(), pb.body(), "",
-                    pb.collapsed(), pb.types()
+                    pb.collapsed(), pb.types(), null
             ));
             prevIdx = idx;
         }

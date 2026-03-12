@@ -60,6 +60,8 @@ import { renderToHtml } from 'flatmarkdown-ast2html';
           (shiftSelectDown)="onShiftSelectDown(item)"
           (undoRequested)="performUndo()"
           (redoRequested)="performRedo()"
+          (pasteAsTransclusion)="onPasteAsTransclusion(item)"
+          (removeTransclusion)="onRemoveTransclusion(item)"
         />
       </div>
     </cdk-virtual-scroll-viewport>
@@ -273,6 +275,9 @@ export class OutlineComponent implements OnInit, OnDestroy {
     try {
       const result = await this.api.getPageById(pageId);
       this.state.setItems(result.items);
+      if (result.transcludedTrees) {
+        this.state.setTranscludedTrees(result.transcludedTrees);
+      }
       this.scrollToFocusItem();
     } catch (e) {
       console.error('Failed to load items for page:', pageId, e);
@@ -382,10 +387,12 @@ export class OutlineComponent implements OnInit, OnDestroy {
    * @param newBody - The updated body text
    */
   onBodyChanged(item: Item, newBody: string): void {
+    // For transclusion items, redirect body edit to the source item
+    const targetId = item.transcludeItemId ?? item.id;
     const before = { ...item };
     this.state.updateItem(item.id, { body: newBody });
-    this.dirtyItemIds.add(item.id);
-    this.autoSave.scheduleItemUpdate(item.id, newBody);
+    this.dirtyItemIds.add(targetId);
+    this.autoSave.scheduleItemUpdate(targetId, newBody);
     const after = { ...item, body: newBody };
     this.undo.begin('body');
     this.undo.pushUpdate(before, after);
@@ -560,6 +567,9 @@ export class OutlineComponent implements OnInit, OnDestroy {
    * @param item - The item where Backspace was pressed at position 0
    */
   async onBackspaceAtStart(item: Item): Promise<void> {
+    // Prevent merge on transclusion items
+    if (item.transcludeItemId) return;
+
     const items = this.state.visibleItems();
     const idx = items.findIndex(b => b.id === item.id);
     if (idx <= 0) return;
@@ -1095,6 +1105,36 @@ export class OutlineComponent implements OnInit, OnDestroy {
       // Revert on error
       this.state.toggleCollapsed(item.id);
       this.state.updateItem(item.id, { collapsed: item.collapsed });
+    }
+  }
+
+  async onPasteAsTransclusion(item: Item): Promise<void> {
+    const sourceId = this.state.transclusionClipboard();
+    if (!sourceId) return;
+    // Prevent transclusion of a transclusion
+    const sourceItem = this.state.getItemById(sourceId);
+    if (sourceItem?.transcludeItemId) {
+      console.error('Cannot transclude a transclusion item.');
+      return;
+    }
+    try {
+      const updated = await this.api.setTransclusion(item.id, sourceId);
+      this.state.updateItem(item.id, updated);
+      // Reload page to get transcluded trees
+      await this.loadItems(this.pageId());
+    } catch (e: any) {
+      console.error('Failed to set transclusion:', e?.message || e);
+    }
+  }
+
+  async onRemoveTransclusion(item: Item): Promise<void> {
+    try {
+      const updated = await this.api.removeTransclusion(item.id);
+      this.state.updateItem(item.id, updated);
+      // Reload page to refresh transcluded trees
+      await this.loadItems(this.pageId());
+    } catch (e) {
+      console.error('Failed to remove transclusion:', e);
     }
   }
 

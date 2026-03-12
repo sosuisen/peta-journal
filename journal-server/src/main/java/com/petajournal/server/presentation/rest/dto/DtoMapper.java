@@ -40,7 +40,8 @@ public final class DtoMapper {
                 item.ast(),
                 item.collapsed(),
                 item.types() != null ? item.types() : List.of(),
-                Map.of());
+                Map.of(),
+                item.transcludeItemId() != null ? item.transcludeItemId().toString() : null);
     }
 
     public static ItemDto toDto(Item item, Map<String, String> scalars, Map<String, List<String>> lists) {
@@ -62,7 +63,8 @@ public final class DtoMapper {
                 item.ast(),
                 item.collapsed(),
                 item.types() != null ? item.types() : List.of(),
-                properties);
+                properties,
+                item.transcludeItemId() != null ? item.transcludeItemId().toString() : null);
     }
 
     public static List<ItemDto> toDtos(List<Item> items,

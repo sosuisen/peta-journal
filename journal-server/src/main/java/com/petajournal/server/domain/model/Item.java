@@ -18,5 +18,6 @@ public record Item(
     String body,         // Markdown source text
     String ast,          // Parsed AST JSON
     boolean collapsed,
-    List<String> types   // Item types (e.g. "heading", "code")
+    List<String> types,  // Item types (e.g. "heading", "code")
+    UUID transcludeItemId // Source item ID for transclusion (null if not a transclusion)
 ) {}

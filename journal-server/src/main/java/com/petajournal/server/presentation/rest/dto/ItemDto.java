@@ -18,5 +18,6 @@ public record ItemDto(
         String ast,
         boolean collapsed,
         List<String> types,
-        Map<String, Object> properties) {
+        Map<String, Object> properties,
+        String transcludeItemId) {
 }

@@ -123,6 +123,7 @@ public class DatabaseInitializer {
             migrateHtmlToAst(stmt);
             migrateProperties(stmt);
             migrateRootIndex(stmt);
+            migrateTransclusion(stmt);
 
             LOG.info("Database initialized");
         } catch (SQLException e) {
@@ -216,6 +217,21 @@ public class DatabaseInitializer {
             ps.executeUpdate();
         }
         LOG.info("Root index page created: " + rootId);
+    }
+
+    private void migrateTransclusion(Statement stmt) throws SQLException {
+        // Add transclude_item_id column if it doesn't exist
+        try (ResultSet rs = stmt.executeQuery("PRAGMA table_info(items)")) {
+            while (rs.next()) {
+                if ("transclude_item_id".equals(rs.getString("name"))) {
+                    return; // Already migrated
+                }
+            }
+        }
+        LOG.info("Adding transclude_item_id column to items...");
+        stmt.execute("ALTER TABLE items ADD COLUMN transclude_item_id TEXT REFERENCES items(id) ON DELETE SET NULL");
+        stmt.execute("CREATE INDEX IF NOT EXISTS idx_items_transclude ON items(transclude_item_id) WHERE transclude_item_id IS NOT NULL");
+        LOG.info("Transclusion migration complete");
     }
 
     private void migrateProperties(Statement stmt) throws SQLException {

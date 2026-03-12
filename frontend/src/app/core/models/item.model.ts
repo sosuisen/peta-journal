@@ -13,4 +13,5 @@ export interface Item {
   collapsed: boolean;
   types: string[];
   properties: Record<string, string | string[]>;
+  transcludeItemId?: string | null;
 }

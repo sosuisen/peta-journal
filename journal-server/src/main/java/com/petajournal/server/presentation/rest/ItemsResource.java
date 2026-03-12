@@ -9,6 +9,9 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 
+import com.petajournal.server.domain.repository.ItemRepository;
+import jakarta.ws.rs.core.Response;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -21,6 +24,9 @@ public class ItemsResource {
 
     @Inject
     ItemService itemService;
+
+    @Inject
+    ItemRepository itemRepository;
 
     @Inject
     PropertyRepository propertyRepository;
@@ -44,6 +50,8 @@ public class ItemsResource {
     record ImportTreeMarkdownResponse(String flatMarkdown) {}
     record UpsertPropertyRequest(String valueType, String value) {}
     record UpsertPropertyResponse(ItemDto item) {}
+    record SetTransclusionRequest(String sourceItemId) {}
+    record SetTransclusionResponse(ItemDto item) {}
 
     @POST
     public CreateItemResponse createItem(CreateItemRequest req) {
@@ -69,17 +77,46 @@ public class ItemsResource {
                 req.level(),
                 req.collapsed());
         sseBroadcaster.broadcastPagesUpdated(item.pageId().toString());
+        // Notify pages that transclude this item
+        broadcastToTranscluders(UUID.fromString(id), item.pageId().toString());
         return new UpdateItemResponse(DtoMapper.toDto(item));
     }
 
     @DELETE
     @Path("/{id}")
     public void deleteItem(@PathParam("id") String id) {
+        // Find transcluders before deletion so we can notify their pages
+        var transcluders = itemRepository.findTranscluders(UUID.fromString(id));
         String pageId = itemService.getItemPageId(UUID.fromString(id));
         itemService.deleteItem(UUID.fromString(id));
         if (pageId != null) {
             sseBroadcaster.broadcastPagesUpdated(pageId);
         }
+        for (var t : transcluders) {
+            sseBroadcaster.broadcastPagesUpdated(t.pageId().toString());
+        }
+    }
+
+    @POST
+    @Path("/{id}/transclude")
+    public Response setTransclusion(@PathParam("id") String id, SetTransclusionRequest req) {
+        try {
+            var item = itemService.setTransclusion(UUID.fromString(id), UUID.fromString(req.sourceItemId()));
+            sseBroadcaster.broadcastPagesUpdated(item.pageId().toString());
+            return Response.ok(new SetTransclusionResponse(loadItemDto(item))).build();
+        } catch (IllegalArgumentException e) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Map.of("error", e.getMessage()))
+                    .build();
+        }
+    }
+
+    @DELETE
+    @Path("/{id}/transclude")
+    public Response removeTransclusion(@PathParam("id") String id) {
+        var item = itemService.removeTransclusion(UUID.fromString(id));
+        sseBroadcaster.broadcastPagesUpdated(item.pageId().toString());
+        return Response.ok(new SetTransclusionResponse(loadItemDto(item))).build();
     }
 
     @GET
@@ -145,6 +182,15 @@ public class ItemsResource {
         var scalars = propertyRepository.findScalarByTargets("item", List.of(id)).getOrDefault(id, Map.of());
         var lists = propertyRepository.findListByTargets("item", List.of(id)).getOrDefault(id, Map.of());
         return DtoMapper.toDto(item, scalars, lists);
+    }
+
+    private void broadcastToTranscluders(UUID sourceItemId, String excludePageId) {
+        for (var t : itemRepository.findTranscluders(sourceItemId)) {
+            String tPageId = t.pageId().toString();
+            if (!tPageId.equals(excludePageId)) {
+                sseBroadcaster.broadcastPagesUpdated(tPageId);
+            }
+        }
     }
 
     private List<ItemDto> loadItemDtos(List<Item> items) {

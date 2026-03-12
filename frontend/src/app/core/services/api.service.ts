@@ -3,7 +3,7 @@ import { Item } from '../models/item.model';
 import { Page } from '../models/page.model';
 import { SearchResult } from '../models/search.model';
 
-interface GetPageResult { page: Page; items: Item[] }
+interface GetPageResult { page: Page; items: Item[]; transcludedTrees?: Record<string, Item[]> }
 interface GetDocResult { page: Page; items: Item[]; created: boolean }
 interface GetJournalResult { page: Page; items: Item[]; created: boolean }
 interface GetMostRecentJournalBeforeResult { found: boolean; page: Page | null; items: Item[] }
@@ -199,6 +199,22 @@ export class ApiService {
       body: JSON.stringify({ treeMarkdown }),
     });
     return json(resp);
+  }
+
+  async setTransclusion(itemId: string, sourceItemId: string): Promise<Item> {
+    const resp = await fetch(`/api/items/${itemId}/transclude`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sourceItemId }),
+    });
+    const data = await json<{ item: Item }>(resp);
+    return data.item;
+  }
+
+  async removeTransclusion(itemId: string): Promise<Item> {
+    const resp = await fetch(`/api/items/${itemId}/transclude`, { method: 'DELETE' });
+    const data = await json<{ item: Item }>(resp);
+    return data.item;
   }
 
   async getChildPages(parentId: string): Promise<Page[]> {

@@ -77,7 +77,7 @@ public class ItemService {
         // Get page to get dir_path and name
         Page page = pageRepository.findById(pageId).orElseThrow(() -> new IllegalArgumentException("Page not found: " + pageId));
 
-        Item item = new Item(id, pageId, null, page.dirPath(), page.name(), page.type(), now, now, idx, level, body, ast, false, types);
+        Item item = new Item(id, pageId, null, page.dirPath(), page.name(), page.type(), now, now, idx, level, body, ast, false, types, null);
         item = itemRepository.save(item);
 
         // Recalculate parent_id for all items on this page
@@ -140,7 +140,8 @@ public class ItemService {
                 newBody,
                 newAst,
                 newCollapsed,
-                types
+                types,
+                existing.transcludeItemId()
         );
 
         updated = itemRepository.save(updated);
@@ -229,7 +230,8 @@ public class ItemService {
                     item.body(),
                     item.ast(),
                     item.collapsed(),
-                    item.types()
+                    item.types(),
+                    item.transcludeItemId()
             );
 
             moved = itemRepository.save(moved);
@@ -271,6 +273,61 @@ public class ItemService {
             // Queue for export
             exportService.queueExport(b.pageId());
         });
+    }
+
+    /**
+     * Sets a transclusion on an item, making it mirror a source item.
+     *
+     * @param itemId       the item to set as a transclusion
+     * @param sourceItemId the source item to transclude
+     * @return the updated item
+     * @throws IllegalArgumentException if the item or source is not found, or source is itself a transclusion
+     */
+    public Item setTransclusion(UUID itemId, UUID sourceItemId) {
+        Item item = itemRepository.findById(itemId)
+                .orElseThrow(() -> new IllegalArgumentException("Item not found: " + itemId));
+        Item source = itemRepository.findById(sourceItemId)
+                .orElseThrow(() -> new IllegalArgumentException("Source item not found: " + sourceItemId));
+
+        // Prevent transclusion of a transclusion
+        if (source.transcludeItemId() != null) {
+            throw new IllegalArgumentException("Cannot transclude a transclusion item. Please select the original source item.");
+        }
+
+        // Copy source body as fallback label and set transclude_item_id
+        Item updated = new Item(
+                item.id(), item.pageId(), item.parentItemId(),
+                item.dirPath(), item.name(), item.type(),
+                item.createdDate(), Instant.now(), item.idx(),
+                item.level(), source.body(), parseBody(source.body()),
+                item.collapsed(), item.types(), sourceItemId);
+        updated = itemRepository.save(updated);
+        touchPage(item.pageId());
+        exportService.queueExport(item.pageId());
+        return updated;
+    }
+
+    /**
+     * Removes a transclusion from an item, clearing its body.
+     *
+     * @param itemId the transclusion item to revert
+     * @return the updated item
+     * @throws IllegalArgumentException if the item is not found
+     */
+    public Item removeTransclusion(UUID itemId) {
+        Item item = itemRepository.findById(itemId)
+                .orElseThrow(() -> new IllegalArgumentException("Item not found: " + itemId));
+
+        Item updated = new Item(
+                item.id(), item.pageId(), item.parentItemId(),
+                item.dirPath(), item.name(), item.type(),
+                item.createdDate(), Instant.now(), item.idx(),
+                item.level(), "", parseBody(""),
+                item.collapsed(), item.types(), null);
+        updated = itemRepository.save(updated);
+        touchPage(item.pageId());
+        exportService.queueExport(item.pageId());
+        return updated;
     }
 
     /** Returns an item by its ID. */
@@ -323,7 +380,7 @@ public class ItemService {
                     existing.dirPath(), existing.name(), existing.type(),
                     existing.createdDate(), Instant.now(), existing.idx(),
                     existing.level(), existing.body(), existing.ast(),
-                    existing.collapsed(), newTypes);
+                    existing.collapsed(), newTypes, existing.transcludeItemId());
             itemRepository.save(updated);
             propertyRepository.deleteProperty("item", id, "begin");
             propertyRepository.deleteProperty("item", id, "end");
@@ -353,7 +410,7 @@ public class ItemService {
                     existing.dirPath(), existing.name(), existing.type(),
                     existing.createdDate(), Instant.now(), existing.idx(),
                     existing.level(), existing.body(), existing.ast(),
-                    existing.collapsed(), newTypes);
+                    existing.collapsed(), newTypes, existing.transcludeItemId());
             itemRepository.save(updated);
             propertyRepository.deleteProperty("item", id, "begin");
             propertyRepository.deleteProperty("item", id, "end");

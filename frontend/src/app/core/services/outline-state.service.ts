@@ -12,12 +12,17 @@ export class OutlineStateService {
   private readonly _pendingCursorPosition = signal<number | null>(null);
   private readonly _pendingMouseDrag = signal<boolean>(false);
   private readonly _scrollRequestItemId = signal<string | null>(null);
+  private readonly _transcludedTrees = signal<Map<string, Item[]>>(new Map());
+  /** Item ID copied for transclusion reference */
+  private readonly _transclusionClipboard = signal<string | null>(null);
   readonly items = this._items.asReadonly();
   readonly focusedItemId = this._focusedItemId.asReadonly();
   readonly editingItemIds = this._editingItemIds.asReadonly();
   readonly pendingCursorPosition = this._pendingCursorPosition.asReadonly();
   readonly selectedItemIds = this._selectedItemIds.asReadonly();
   readonly itemSelectionMode = this._itemSelectionMode.asReadonly();
+  readonly transcludedTrees = this._transcludedTrees.asReadonly();
+  readonly transclusionClipboard = this._transclusionClipboard.asReadonly();
 
   readonly headings = computed(() => {
     return this._items()
@@ -37,6 +42,7 @@ export class OutlineStateService {
   readonly visibleItems = computed(() => {
     const items = this._items();
     const collapsed = this._collapsedItemIds();
+    const trees = this._transcludedTrees();
     const result: Item[] = [];
     let skipLevel = -1;
 
@@ -46,12 +52,42 @@ export class OutlineStateService {
       }
       skipLevel = -1;
       result.push(item);
+
+      // Insert transcluded descendants after a transclusion item (unless collapsed)
+      if (item.transcludeItemId && !collapsed.has(item.id) && trees.has(item.transcludeItemId)) {
+        const sourceTree = trees.get(item.transcludeItemId)!;
+        if (sourceTree.length > 0) {
+          const sourceRootLevel = sourceTree[0].level;
+          let tSkipLevel = -1;
+          for (let i = 1; i < sourceTree.length; i++) {
+            const desc = sourceTree[i];
+            const mappedLevel = item.level + (desc.level - sourceRootLevel);
+            if (tSkipLevel >= 0 && mappedLevel > tSkipLevel) {
+              continue;
+            }
+            tSkipLevel = -1;
+            result.push({ ...desc, level: mappedLevel });
+            if (collapsed.has(desc.id)) {
+              tSkipLevel = mappedLevel;
+            }
+          }
+        }
+      }
+
       if (collapsed.has(item.id)) {
         skipLevel = item.level;
       }
     }
     return result;
   });
+
+  setTranscludedTrees(trees: Record<string, Item[]>): void {
+    this._transcludedTrees.set(new Map(Object.entries(trees)));
+  }
+
+  setTransclusionClipboard(itemId: string | null): void {
+    this._transclusionClipboard.set(itemId);
+  }
 
   /**
    * Replaces all items and rebuilds the collapsed item set from their collapsed flags.
@@ -155,6 +191,10 @@ export class OutlineStateService {
     this._scrollRequestItemId.set(null);
   }
 
+  isCollapsed(itemId: string): boolean {
+    return this._collapsedItemIds().has(itemId);
+  }
+
   /**
    * Toggles the collapsed state of a item, hiding or showing its children.
    * @param itemId - The ID of the item to toggle.
@@ -185,8 +225,26 @@ export class OutlineStateService {
   hasChildren(itemId: string): boolean {
     const items = this._items();
     const idx = items.findIndex(b => b.id === itemId);
-    if (idx < 0 || idx === items.length - 1) return false;
-    return items[idx + 1].level > items[idx].level;
+    if (idx >= 0) {
+      const item = items[idx];
+      // Transclusion root: has children if source tree has descendants
+      if (item.transcludeItemId) {
+        const trees = this._transcludedTrees();
+        const tree = trees.get(item.transcludeItemId);
+        if (tree && tree.length > 1) return true;
+      }
+      if (idx < items.length - 1 && items[idx + 1].level > items[idx].level) return true;
+      return false;
+    }
+    // Item not in _items — check transcluded trees (source descendant)
+    const trees = this._transcludedTrees();
+    for (const tree of trees.values()) {
+      const tIdx = tree.findIndex(t => t.id === itemId);
+      if (tIdx >= 0 && tIdx < tree.length - 1) {
+        return tree[tIdx + 1].level > tree[tIdx].level;
+      }
+    }
+    return false;
   }
 
   /**

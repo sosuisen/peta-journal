@@ -25,6 +25,12 @@ public interface ItemRepository {
 
     void updateIndex(UUID itemId, String newIdx);
 
+    /** Finds all items that transclude the given source item. */
+    List<Item> findTranscluders(UUID sourceItemId);
+
+    /** Finds an item and all its descendants using a recursive query on parent_id. */
+    List<Item> findItemWithDescendants(UUID itemId);
+
     /** Recalculates parent_id for all items on a page based on idx ordering and level. */
     void recalculateParentIds(UUID pageId);
 }
