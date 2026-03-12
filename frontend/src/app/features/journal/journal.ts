@@ -137,6 +137,9 @@ export class JournalComponent {
 
     // Manually load items first
     this.outlineState.setItems(result.items);
+    if (result.transcludedTrees) {
+      this.outlineState.setTranscludedTrees(result.transcludedTrees);
+    }
 
     if (result.created) {
       this.extensionFunctions.emitPageCreate({
@@ -177,6 +180,12 @@ export class JournalComponent {
         this.loadedDates.add(result.page!.name);
         const currentItems = this.outlineState.items();
         this.outlineState.setItems([...currentItems, ...result.items]);
+        if (result.transcludedTrees) {
+          this.outlineState.setTranscludedTrees({
+            ...Object.fromEntries(this.outlineState.transcludedTrees()),
+            ...result.transcludedTrees,
+          });
+        }
 
         dateStr = result.page!.name;
       }
@@ -233,6 +242,12 @@ export class JournalComponent {
         // Append items from this journal
         const currentItems = this.outlineState.items();
         this.outlineState.setItems([...currentItems, ...result.items]);
+        if (result.transcludedTrees) {
+          this.outlineState.setTranscludedTrees({
+            ...Object.fromEntries(this.outlineState.transcludedTrees()),
+            ...result.transcludedTrees,
+          });
+        }
 
         currentName = result.page!.name;
       }

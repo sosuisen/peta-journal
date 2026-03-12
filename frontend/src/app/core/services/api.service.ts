@@ -5,8 +5,8 @@ import { SearchResult } from '../models/search.model';
 
 interface GetPageResult { page: Page; items: Item[]; transcludedTrees?: Record<string, Item[]> }
 interface GetDocResult { page: Page; items: Item[]; created: boolean }
-interface GetJournalResult { page: Page; items: Item[]; created: boolean }
-interface GetMostRecentJournalBeforeResult { found: boolean; page: Page | null; items: Item[] }
+interface GetJournalResult { page: Page; items: Item[]; created: boolean; transcludedTrees?: Record<string, Item[]> }
+interface GetMostRecentJournalBeforeResult { found: boolean; page: Page | null; items: Item[]; transcludedTrees?: Record<string, Item[]> }
 interface SearchPageNamesResult { results: SearchResult[] }
 interface GetRecentPagesResult { pages: Page[] }
 interface BacklinkEntry { sourcePage: Page; sourceItem: Item }

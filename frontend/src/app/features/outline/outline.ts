@@ -258,8 +258,17 @@ export class OutlineComponent implements OnInit, OnDestroy {
     const items = this.state.visibleItems();
     if (index === 0) return true;
     const currentItem = items[index];
-    const previousItem = items[index - 1];
-    return currentItem.name !== previousItem.name;
+    const ownItems = this.state.items();
+    // Skip transcluded descendants — they belong to a different page but are
+    // displayed inline, so they should never trigger a date header.
+    if (!ownItems.some(b => b.id === currentItem.id)) return false;
+    // Find the previous item that is actually on our page (skip transcluded descendants)
+    for (let i = index - 1; i >= 0; i--) {
+      if (ownItems.some(b => b.id === items[i].id)) {
+        return currentItem.name !== items[i].name;
+      }
+    }
+    return true;
   }
 
   /**
