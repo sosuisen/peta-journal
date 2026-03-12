@@ -51,7 +51,19 @@ export class OutlineStateService {
         continue;
       }
       skipLevel = -1;
-      result.push(item);
+
+      // For transclusion items, overlay source root's types/properties/ast
+      if (item.transcludeItemId && trees.has(item.transcludeItemId)) {
+        const sourceTree = trees.get(item.transcludeItemId)!;
+        if (sourceTree.length > 0) {
+          const sourceRoot = sourceTree[0];
+          result.push({ ...item, types: sourceRoot.types, properties: sourceRoot.properties, ast: sourceRoot.ast });
+        } else {
+          result.push(item);
+        }
+      } else {
+        result.push(item);
+      }
 
       // Insert transcluded descendants after a transclusion item (unless collapsed)
       if (item.transcludeItemId && !collapsed.has(item.id) && trees.has(item.transcludeItemId)) {
@@ -66,7 +78,7 @@ export class OutlineStateService {
               continue;
             }
             tSkipLevel = -1;
-            result.push({ ...desc, level: mappedLevel });
+            result.push({ ...desc, level: mappedLevel, collapsed: collapsed.has(desc.id) });
             if (collapsed.has(desc.id)) {
               tSkipLevel = mappedLevel;
             }
@@ -83,6 +95,17 @@ export class OutlineStateService {
 
   setTranscludedTrees(trees: Record<string, Item[]>): void {
     this._transcludedTrees.set(new Map(Object.entries(trees)));
+    // Add collapsed state from transcluded tree items
+    this._collapsedItemIds.update(set => {
+      const next = new Set(set);
+      for (const items of Object.values(trees)) {
+        for (const item of items) {
+          if (item.collapsed) next.add(item.id);
+          else next.delete(item.id);
+        }
+      }
+      return next;
+    });
   }
 
   setTransclusionClipboard(itemId: string | null): void {
@@ -122,9 +145,27 @@ export class OutlineStateService {
    * @param updates - The partial item properties to merge.
    */
   updateItem(itemId: string, updates: Partial<Item>): void {
-    this._items.update(items =>
-      items.map(b => b.id === itemId ? { ...b, ...updates } : b)
-    );
+    const found = this._items().some(b => b.id === itemId);
+    if (found) {
+      this._items.update(items =>
+        items.map(b => b.id === itemId ? { ...b, ...updates } : b)
+      );
+    } else {
+      // Update within transcluded trees
+      this._transcludedTrees.update(trees => {
+        const next = new Map(trees);
+        for (const [key, items] of next) {
+          const idx = items.findIndex(b => b.id === itemId);
+          if (idx >= 0) {
+            const updated = [...items];
+            updated[idx] = { ...updated[idx], ...updates };
+            next.set(key, updated);
+            break;
+          }
+        }
+        return next;
+      });
+    }
   }
 
   /**
@@ -132,7 +173,22 @@ export class OutlineStateService {
    * @param itemId - The ID of the item to remove.
    */
   deleteItem(itemId: string): void {
-    this._items.update(items => items.filter(b => b.id !== itemId));
+    if (this._items().some(b => b.id === itemId)) {
+      this._items.update(items => items.filter(b => b.id !== itemId));
+    } else {
+      // Remove from transcluded trees
+      this._transcludedTrees.update(trees => {
+        const next = new Map(trees);
+        for (const [key, items] of next) {
+          const idx = items.findIndex(b => b.id === itemId);
+          if (idx >= 0) {
+            next.set(key, items.filter(b => b.id !== itemId));
+            break;
+          }
+        }
+        return next;
+      });
+    }
   }
 
   /**
@@ -214,7 +270,14 @@ export class OutlineStateService {
    * @returns The matching item, or undefined if not found.
    */
   getItemById(itemId: string): Item | undefined {
-    return this._items().find(b => b.id === itemId);
+    const found = this._items().find(b => b.id === itemId);
+    if (found) return found;
+    // Search in transcluded trees
+    for (const tree of this._transcludedTrees().values()) {
+      const t = tree.find(b => b.id === itemId);
+      if (t) return t;
+    }
+    return undefined;
   }
 
   /**

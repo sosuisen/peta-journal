@@ -391,7 +391,7 @@ export class OutlineComponent implements OnInit, OnDestroy {
     const targetId = item.transcludeItemId ?? item.id;
     const before = { ...item };
     this.state.updateItem(item.id, { body: newBody });
-    this.dirtyItemIds.add(targetId);
+    this.dirtyItemIds.add(item.id);
     this.autoSave.scheduleItemUpdate(targetId, newBody);
     const after = { ...item, body: newBody };
     this.undo.begin('body');
@@ -415,20 +415,30 @@ export class OutlineComponent implements OnInit, OnDestroy {
 
     if (this.operatingEnterKey) return;
 
+    const saveTargetId = item.transcludeItemId ?? item.id;
+
     if (!this.dirtyItemIds.has(item.id)) {
       const current = this.state.getItemById(item.id);
       if (current && hasUnclosedCodeFence(current.body)) {
-        await this.saveItemBody(item.id, current.body);
+        const updated = await this.saveItemBody(saveTargetId, current.body);
+        // Sync ast back to the transclusion item if redirected
+        if (saveTargetId !== item.id) {
+          this.state.updateItem(item.id, { ast: updated.ast, types: updated.types });
+        }
       }
       this.state.removeEditingItem(item.id);
       return;
     }
     // Save dirty item
     this.dirtyItemIds.delete(item.id);
-    await this.autoSave.flushItem(item.id);
+    await this.autoSave.flushItem(saveTargetId);
     const current = this.state.getItemById(item.id);
     if (current) {
-      await this.saveItemBody(item.id, current.body);
+      const updated = await this.saveItemBody(saveTargetId, current.body);
+      // Sync ast back to the transclusion item if redirected
+      if (saveTargetId !== item.id) {
+        this.state.updateItem(item.id, { ast: updated.ast, types: updated.types });
+      }
     }
     this.state.removeEditingItem(item.id);
   }
@@ -441,8 +451,40 @@ export class OutlineComponent implements OnInit, OnDestroy {
    * @param event - Contains the cursor position at the time of the keypress
    */
   async onEnterPressed(item: Item, event: { cursorPos: number }): Promise<void> {
-    this.autoSave.cancelItem(item.id);
-    this.dirtyItemIds.delete(item.id);
+    // Detect transclusion context
+    const isTransclusionRoot = !!item.transcludeItemId && this.state.items().some(b => b.id === item.id);
+    const isInItems = this.state.items().some(b => b.id === item.id);
+    const isTranscludedDescendant = !isInItems; // Item from source page shown via transclusion
+
+    // Resolve source page/id for transclusion items
+    let sourcePageId = item.pageId;
+    let saveTargetId = item.id;
+    let sourceAfterItemId = item.id;
+    // Level offset: difference between displayed level and source-side level
+    let levelOffset = 0;
+    if (isTransclusionRoot) {
+      const trees = this.state.transcludedTrees();
+      const tree = trees.get(item.transcludeItemId!);
+      if (tree && tree.length > 0) {
+        sourcePageId = tree[0].pageId;
+        levelOffset = item.level - tree[0].level;
+      }
+      saveTargetId = item.transcludeItemId!;
+      sourceAfterItemId = item.transcludeItemId!;
+    } else if (isTranscludedDescendant) {
+      // Find the original level from the transcluded trees
+      const trees = this.state.transcludedTrees();
+      for (const tree of trees.values()) {
+        const found = tree.find(t => t.id === item.id);
+        if (found) {
+          levelOffset = item.level - found.level;
+          break;
+        }
+      }
+    }
+
+    this.autoSave.cancelItem(saveTargetId);
+    this.dirtyItemIds.delete(saveTargetId);
 
     const { cursorPos } = event;
     const beforeText = item.body.substring(0, cursorPos);
@@ -468,28 +510,31 @@ export class OutlineComponent implements OnInit, OnDestroy {
 
     this.operatingEnterKey = true;
 
-    // Determine level for new item: if the original item has a direct child
-    // (next item at level+1) immediately below and is not collapsed, inherit deeper level.
+    // Determine displayed level for new item
+    const vItems = this.state.visibleItems();
+    const vIdx = vItems.findIndex(b => b.id === item.id);
+    const nextVisible = vIdx >= 0 && vIdx < vItems.length - 1 ? vItems[vIdx + 1] : undefined;
     const allItems = this.state.items();
     const itemIdx = allItems.findIndex(b => b.id === item.id);
     const nextItem = itemIdx >= 0 && itemIdx < allItems.length - 1 ? allItems[itemIdx + 1] : undefined;
-    const newLevel = (!item.collapsed && nextItem && nextItem.level === item.level + 1)
+    const checkNext = (isTransclusionRoot || isTranscludedDescendant) ? nextVisible : nextItem;
+    const newLevel = (!item.collapsed && checkNext && checkNext.level === item.level + 1)
       ? item.level + 1
       : item.level;
 
     // For collapsed items, insert after the last descendant (end of subtree)
     const descendants = item.collapsed ? this.state.getChildren(item.id) : [];
-    const afterItemId = descendants.length > 0 ? descendants[descendants.length - 1].id : item.id;
+    const afterItemId = descendants.length > 0 ? descendants[descendants.length - 1].id : sourceAfterItemId;
+
+    // Convert displayed level back to source-side level
+    const createLevel = newLevel - levelOffset;
 
     if (cursorPos === 0 && item.body.length > 0) {
-      // Enter at beginning: create new empty item before current item
-      const prevItemId = itemIdx > 0 ? allItems[itemIdx - 1].id : '';
-
-      const [newItem] = await Promise.all([
-        this.api.createItem(item.pageId, prevItemId, item.level, ''),
-        this.saveItemBody(item.id, item.body),
-      ]);
-      this.state.addItem(newItem, prevItemId);
+      // Enter at beginning: create new empty item before current item on source page
+      const newItem = await this.api.createItem(sourcePageId, '', createLevel, '');
+      await this.saveItemBody(saveTargetId, item.body);
+      // Reload to reflect changes
+      await this.loadItems(this.pageId());
 
       this.undo.begin('enter', { itemId: item.id, position: cursorPos });
       this.undo.pushCreate(newItem);
@@ -500,11 +545,11 @@ export class OutlineComponent implements OnInit, OnDestroy {
 
       this.state.removeEditingItem(item.id);
     } else if (cursorPos === item.body.length) {
-      // Enter at end: body unchanged — add optimistic item with client-generated ID
+      // Enter at end: body unchanged — create new item on source page
       const newId = crypto.randomUUID();
       const optimisticItem: Item = {
         id: newId,
-        pageId: item.pageId,
+        pageId: sourcePageId,
         dirPath: item.dirPath,
         name: item.name,
         type: item.type,
@@ -518,8 +563,8 @@ export class OutlineComponent implements OnInit, OnDestroy {
         types: [],
         properties: {},
       };
-      this.api.createItem(item.pageId, afterItemId, newLevel, '', newId).then(serverItem => {
-        this.state.updateItem(newId, { idx: serverItem.idx });
+      this.api.createItem(sourcePageId, afterItemId, createLevel, '', newId).then(async () => {
+        await this.loadItems(this.pageId());
       });
       this.state.addItem(optimisticItem, afterItemId);
 
@@ -528,23 +573,24 @@ export class OutlineComponent implements OnInit, OnDestroy {
       this.undo.pushCreate(optimisticItem);
       this.undo.commit({ itemId: newId, position: 0 });
 
-      this.dirtyItemIds.delete(item.id);
-      this.autoSave.cancelItem(item.id);
+      this.dirtyItemIds.delete(saveTargetId);
+      this.autoSave.cancelItem(saveTargetId);
       this.state.addEditingItem(newId);
       this.state.setFocusedItem(newId);
       this.focusEditor(newId);
 
-      await this.saveItemBody(item.id, beforeText);
+      await this.saveItemBody(saveTargetId, beforeText);
       this.state.removeEditingItem(item.id);
 
     } else {
       const originalItem = { ...item };
 
       const [updatedOriginal, newItem] = await Promise.all([
-        this.saveItemBody(item.id, beforeText),
-        this.api.createItem(item.pageId, afterItemId, newLevel, afterText),
+        this.saveItemBody(saveTargetId, beforeText),
+        this.api.createItem(sourcePageId, afterItemId, createLevel, afterText),
       ]);
-      this.state.addItem(newItem, afterItemId);
+      // Reload to reflect changes in transcluded trees
+      await this.loadItems(this.pageId());
 
       this.undo.begin('enter', { itemId: item.id, position: cursorPos });
       this.undo.pushUpdate(originalItem, updatedOriginal);
@@ -665,11 +711,15 @@ export class OutlineComponent implements OnInit, OnDestroy {
   private async saveItemIfDirty(item: Item): Promise<void> {
     if (!this.dirtyItemIds.has(item.id)) return;
 
+    const saveTargetId = item.transcludeItemId ?? item.id;
     this.dirtyItemIds.delete(item.id);
-    await this.autoSave.flushItem(item.id);
+    await this.autoSave.flushItem(saveTargetId);
     const current = this.state.getItemById(item.id);
     if (current) {
-      await this.saveItemBody(item.id, current.body);
+      const updated = await this.saveItemBody(saveTargetId, current.body);
+      if (saveTargetId !== item.id) {
+        this.state.updateItem(item.id, { ast: updated.ast, types: updated.types });
+      }
       this.state.removeEditingItem(item.id);
     }
   }
@@ -691,7 +741,8 @@ export class OutlineComponent implements OnInit, OnDestroy {
    * @param item - The item to indent
    */
   async onIndent(item: Item): Promise<void> {
-    const items = this.state.items();
+    const isInItems = this.state.items().some(b => b.id === item.id);
+    const items = isInItems ? this.state.items() : this.state.visibleItems();
     const idx = items.findIndex(b => b.id === item.id);
     if (idx <= 0) return;
     const prevItem = items[idx - 1];
@@ -710,6 +761,28 @@ export class OutlineComponent implements OnInit, OnDestroy {
         }
       }
       if (!hasSameLevelBefore) return;
+    }
+
+    // For transcluded descendants, compute level offset and boundary check
+    const tCtx = this.getTransclusionContext(item);
+    if (tCtx) {
+      // Get the group within visible items
+      const group = this.getVisibleSubtree(item.id);
+      // Store source-side levels in the tree (subtract levelOffset to convert display → source)
+      this.undo.begin('indent');
+      for (const b of group) {
+        const newSourceLevel = b.level - tCtx.levelOffset + 1;
+        this.undo.pushUpdate({ ...b }, { ...b, level: b.level + 1 });
+        this.state.updateItem(b.id, { level: newSourceLevel });
+      }
+      this.undo.commit();
+      const results = await Promise.all(group.map(b =>
+        this.api.updateItem(b.id, { level: b.level - tCtx.levelOffset + 1 })
+      ));
+      for (const r of results) {
+        this.state.updateItem(r.id, { level: r.level });
+      }
+      return;
     }
 
     const group = this.state.getItemWithChildren(item.id);
@@ -739,6 +812,33 @@ export class OutlineComponent implements OnInit, OnDestroy {
    */
   async onOutdent(item: Item): Promise<void> {
     if (item.level <= 1) return;
+
+    // For transcluded descendants, prevent outdenting beyond transclusion root level
+    const tCtx = this.getTransclusionContext(item);
+    if (tCtx && item.level <= tCtx.rootDisplayLevel + 1) return; // Can't go to same level or above root
+
+    const isInItems = this.state.items().some(b => b.id === item.id);
+
+    if (tCtx && !isInItems) {
+      // Transcluded descendant: simple in-place outdent on source page
+      const group = this.getVisibleSubtree(item.id);
+      // Store source-side levels in the tree (subtract levelOffset to convert display → source)
+      this.undo.begin('outdent');
+      for (const b of group) {
+        const newSourceLevel = b.level - tCtx.levelOffset - 1;
+        this.undo.pushUpdate({ ...b }, { ...b, level: b.level - 1 });
+        this.state.updateItem(b.id, { level: newSourceLevel });
+      }
+      this.undo.commit();
+      const results = await Promise.all(group.map(b =>
+        this.api.updateItem(b.id, { level: b.level - tCtx.levelOffset - 1 })
+      ));
+      for (const r of results) {
+        this.state.updateItem(r.id, { level: r.level });
+      }
+      return;
+    }
+
     const items = this.state.items();
     const idx = items.findIndex(b => b.id === item.id);
     if (idx < 0) return;
@@ -820,6 +920,29 @@ export class OutlineComponent implements OnInit, OnDestroy {
    * @param item - The item to move up
    */
   async onMoveUp(item: Item): Promise<void> {
+    const tCtx = this.getTransclusionContext(item);
+    const isInItems = this.state.items().some(b => b.id === item.id);
+
+    if (tCtx && !isInItems) {
+      // Transcluded descendant: move within visible items scoped to transclusion
+      const vItems = this.state.visibleItems();
+      const scopedItems = this.getTransclusionScopedItems(vItems, tCtx);
+      const target = findMoveUpTarget(scopedItems, item.id);
+      if (!target) return;
+
+      const group = this.getVisibleSubtree(item.id);
+      const groupIds = group.map(b => b.id);
+
+      // Convert afterItemId: empty means before first scoped item
+      const sourceAfterItemId = target.afterItemId;
+      const moved = await this.api.moveItems(groupIds, item.pageId, sourceAfterItemId);
+      // Reload to reflect reordering
+      await this.loadItems(this.pageId());
+      this.movingEditItem = true;
+      this.focusEditor(item.id, () => { this.movingEditItem = false; });
+      return;
+    }
+
     const target = findMoveUpTarget(this.state.items(), item.id);
     if (!target) return;
 
@@ -848,6 +971,25 @@ export class OutlineComponent implements OnInit, OnDestroy {
    * @param item - The item to move down
    */
   async onMoveDown(item: Item): Promise<void> {
+    const tCtx = this.getTransclusionContext(item);
+    const isInItems = this.state.items().some(b => b.id === item.id);
+
+    if (tCtx && !isInItems) {
+      // Transcluded descendant: move within visible items scoped to transclusion
+      const vItems = this.state.visibleItems();
+      const scopedItems = this.getTransclusionScopedItems(vItems, tCtx);
+      const target = findMoveDownTarget(scopedItems, item.id);
+      if (!target) return;
+
+      const group = this.getVisibleSubtree(item.id);
+      const groupIds = group.map(b => b.id);
+
+      await this.api.moveItems(groupIds, item.pageId, target.afterItemId);
+      await this.loadItems(this.pageId());
+      this.focusEditor(item.id);
+      return;
+    }
+
     const target = findMoveDownTarget(this.state.items(), item.id);
     if (!target) return;
 
@@ -1055,19 +1197,21 @@ export class OutlineComponent implements OnInit, OnDestroy {
 
   private async doCycleTask(item: Item): Promise<void> {
     try {
+      // For transclusion items, target the source item
+      const targetId = item.transcludeItemId || item.id;
       const originalItem = { ...item };
       const wasTask = item.types?.includes('task');
-      const updated = await this.api.cycleTask(item.id);
+      const updated = await this.api.cycleTask(targetId);
 
       // When an item just became a task on a daily journal, set plan to the journal date
       if (!wasTask && updated.types?.includes('task') && this.isDailyJournal(item)) {
-        const withPlan = await this.api.upsertItemProperty(item.id, 'plan', 'date', item.name);
-        this.state.updateItem(item.id, { types: withPlan.types, properties: withPlan.properties });
+        const withPlan = await this.api.upsertItemProperty(targetId, 'plan', 'date', item.name);
+        this.state.updateItem(targetId, { types: withPlan.types, properties: withPlan.properties });
         this.undo.begin('cycle-task');
         this.undo.pushUpdate(originalItem, { ...originalItem, types: withPlan.types, properties: withPlan.properties });
         this.undo.commit();
       } else {
-        this.state.updateItem(item.id, { types: updated.types, properties: updated.properties });
+        this.state.updateItem(targetId, { types: updated.types, properties: updated.properties });
         this.undo.begin('cycle-task');
         this.undo.pushUpdate(originalItem, { ...originalItem, types: updated.types, properties: updated.properties });
         this.undo.commit();
@@ -1864,6 +2008,69 @@ export class OutlineComponent implements OnInit, OnDestroy {
     document.removeEventListener('copy', this.selectionCopyHandler);
     document.removeEventListener('cut', this.selectionCutHandler);
     this.closeWikiSuggestions();
+  }
+
+  /**
+   * Returns transclusion context for an item, or null if not in a transclusion.
+   * For transclusion root: returns context based on the root itself.
+   * For transcluded descendants: returns context based on the transclusion root that owns them.
+   */
+  private getTransclusionContext(item: Item): { rootDisplayLevel: number; levelOffset: number; rootItemId: string } | null {
+    const isInItems = this.state.items().some(b => b.id === item.id);
+
+    // Transclusion root
+    if (isInItems && item.transcludeItemId) {
+      const trees = this.state.transcludedTrees();
+      const tree = trees.get(item.transcludeItemId);
+      if (tree && tree.length > 0) {
+        return { rootDisplayLevel: item.level, levelOffset: item.level - tree[0].level, rootItemId: item.id };
+      }
+    }
+
+    // Transcluded descendant (not in _items)
+    if (!isInItems) {
+      const trees = this.state.transcludedTrees();
+      for (const [sourceId, tree] of trees) {
+        if (tree.some(t => t.id === item.id) && tree.length > 0) {
+          // Find the transclusion root in _items that references this sourceId
+          const root = this.state.items().find(b => b.transcludeItemId === sourceId);
+          if (root) {
+            return { rootDisplayLevel: root.level, levelOffset: root.level - tree[0].level, rootItemId: root.id };
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /** Gets an item and its subtree from visibleItems. */
+  private getVisibleSubtree(itemId: string): Item[] {
+    const items = this.state.visibleItems();
+    const idx = items.findIndex(b => b.id === itemId);
+    if (idx < 0) return [];
+    const item = items[idx];
+    const result = [item];
+    for (let i = idx + 1; i < items.length; i++) {
+      if (items[i].level <= item.level) break;
+      result.push(items[i]);
+    }
+    return result;
+  }
+
+  /**
+   * Extracts the scoped item list for a transclusion context from visible items.
+   * Only includes descendants of the transclusion root (excluding the root itself).
+   */
+  private getTransclusionScopedItems(vItems: Item[], tCtx: { rootDisplayLevel: number; rootItemId: string }): Item[] {
+    const rootIdx = vItems.findIndex(b => b.id === tCtx.rootItemId);
+    if (rootIdx < 0) return [];
+    const scoped: Item[] = [];
+    for (let i = rootIdx + 1; i < vItems.length; i++) {
+      if (vItems[i].level <= tCtx.rootDisplayLevel) break;
+      scoped.push(vItems[i]);
+    }
+    return scoped;
   }
 
   private async saveItemBody(itemId: string, body: string): Promise<Item> {
