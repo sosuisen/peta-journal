@@ -109,9 +109,7 @@ import { ItemViewComponent } from './item-view';
         <button (click)="onMenuCopy()">Copy</button>
         <button (click)="onMenuCut()">Cut</button>
         <button (click)="onMenuCopyReference()">Copy Reference</button>
-        @if (state.transclusionClipboard()) {
-          <button (click)="onMenuPasteAsTransclusion()">Paste as Transclusion</button>
-        }
+        <button (click)="onMenuPasteAsTransclusion()">Paste as Transclusion</button>
         @if (isTransclusion()) {
           <button (click)="onMenuRemoveTransclusion()">Remove Transclusion</button>
         }
@@ -400,7 +398,7 @@ export class OutlineItemComponent {
   }
 
   onMenuCopyReference(): void {
-    this.state.setTransclusionClipboard(this.item().id);
+    navigator.clipboard.writeText(this.item().id);
     this.showItemMenu = false;
   }
 

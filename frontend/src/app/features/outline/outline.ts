@@ -1311,14 +1311,8 @@ export class OutlineComponent implements OnInit, OnDestroy {
   }
 
   async onPasteAsTransclusion(item: Item): Promise<void> {
-    const sourceId = this.state.transclusionClipboard();
-    if (!sourceId) return;
-    // Prevent transclusion of a transclusion
-    const sourceItem = this.state.getItemById(sourceId);
-    if (sourceItem?.transcludeItemId) {
-      console.error('Cannot transclude a transclusion item.');
-      return;
-    }
+    const sourceId = (await navigator.clipboard.readText().catch(() => '')).trim();
+    if (!sourceId || !/^[0-9a-f-]{36}$/i.test(sourceId)) return;
     try {
       const updated = await this.api.setTransclusion(item.id, sourceId);
       this.state.updateItem(item.id, updated);

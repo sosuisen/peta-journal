@@ -13,8 +13,6 @@ export class OutlineStateService {
   private readonly _pendingMouseDrag = signal<boolean>(false);
   private readonly _scrollRequestItemId = signal<string | null>(null);
   private readonly _transcludedTrees = signal<Map<string, Item[]>>(new Map());
-  /** Item ID copied for transclusion reference */
-  private readonly _transclusionClipboard = signal<string | null>(null);
   readonly items = this._items.asReadonly();
   readonly focusedItemId = this._focusedItemId.asReadonly();
   readonly editingItemIds = this._editingItemIds.asReadonly();
@@ -22,7 +20,6 @@ export class OutlineStateService {
   readonly selectedItemIds = this._selectedItemIds.asReadonly();
   readonly itemSelectionMode = this._itemSelectionMode.asReadonly();
   readonly transcludedTrees = this._transcludedTrees.asReadonly();
-  readonly transclusionClipboard = this._transclusionClipboard.asReadonly();
 
   readonly headings = computed(() => {
     return this._items()
@@ -108,9 +105,6 @@ export class OutlineStateService {
     });
   }
 
-  setTransclusionClipboard(itemId: string | null): void {
-    this._transclusionClipboard.set(itemId);
-  }
 
   /**
    * Replaces all items and rebuilds the collapsed item set from their collapsed flags.
