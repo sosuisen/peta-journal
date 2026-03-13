@@ -57,7 +57,7 @@ export class OutlineStateService {
         const sourceTree = trees.get(item.transcludeItemId)!;
         if (sourceTree.length > 0) {
           const sourceRoot = sourceTree[0];
-          result.push({ ...item, types: sourceRoot.types, properties: sourceRoot.properties, ast: sourceRoot.ast });
+          result.push({ ...item, body: sourceRoot.body, types: sourceRoot.types, properties: sourceRoot.properties, ast: sourceRoot.ast });
         } else {
           result.push(item);
         }
