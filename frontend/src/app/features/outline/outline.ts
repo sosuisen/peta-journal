@@ -1201,8 +1201,21 @@ export class OutlineComponent implements OnInit, OnDestroy {
     const extentIdx = items.findIndex(b => b.id === this.selectionExtentItemId);
     if (anchorIdx < 0 || extentIdx < 0) return;
 
-    const start = Math.min(anchorIdx, extentIdx);
+    let start = Math.min(anchorIdx, extentIdx);
     const end = Math.max(anchorIdx, extentIdx);
+
+    // When selecting upward into a subtree, if the topmost item is nested
+    // deeper than the anchor, walk backward to include all ancestors up to
+    // the anchor's level. Update the extent so subsequent Shift+Up continues
+    // from the correct position.
+    const anchorLevel = items[anchorIdx].level;
+    while (start > 0 && items[start].level > anchorLevel) {
+      start--;
+    }
+    if (extentIdx < anchorIdx && start < extentIdx) {
+      this.selectionExtentItemId = items[start].id;
+    }
+
     const selectedSet = new Set<string>();
     for (let i = start; i <= end; i++) {
       const group = this.state.getItemWithChildren(items[i].id);
@@ -1603,7 +1616,15 @@ export class OutlineComponent implements OnInit, OnDestroy {
     const currentIdx = visibleItems.findIndex(b => b.id === item.id);
     if (anchorIdx < 0 || currentIdx < 0) return;
 
-    const [start, end] = [Math.min(anchorIdx, currentIdx), Math.max(anchorIdx, currentIdx)];
+    let start = Math.min(anchorIdx, currentIdx);
+    const end = Math.max(anchorIdx, currentIdx);
+
+    // When dragging into a subtree, include all ancestors up to the anchor's level
+    const anchorLevel = visibleItems[anchorIdx].level;
+    while (start > 0 && visibleItems[start].level > anchorLevel) {
+      start--;
+    }
+
     const selectedSet = new Set<string>();
     for (let i = start; i <= end; i++) {
       // getItemWithChildren uses _items() (all items) so collapsed children are included
