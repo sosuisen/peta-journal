@@ -115,6 +115,7 @@ import { ItemViewComponent } from './item-view';
         @if (isTransclusion()) {
           <button (click)="onMenuRemoveTransclusion()">Remove Transclusion</button>
         }
+        <button (click)="onMenuSendToArchive()">Send to Archive</button>
       </div>
     }
   `,
@@ -294,6 +295,7 @@ export class OutlineItemComponent {
   readonly copyReference = output<void>();
   readonly pasteAsTransclusion = output<void>();
   readonly removeTransclusion = output<void>();
+  readonly sendToArchive = output<void>();
   readonly suggestionsVisible = input<boolean>(false);
 
   private readonly editorRef = viewChild<ItemEditorComponent>('editor');
@@ -409,6 +411,11 @@ export class OutlineItemComponent {
 
   onMenuRemoveTransclusion(): void {
     this.removeTransclusion.emit();
+    this.showItemMenu = false;
+  }
+
+  onMenuSendToArchive(): void {
+    this.sendToArchive.emit();
     this.showItemMenu = false;
   }
 

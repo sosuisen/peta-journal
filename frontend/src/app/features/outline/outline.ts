@@ -62,6 +62,7 @@ import { renderToHtml } from 'flatmarkdown-ast2html';
           (redoRequested)="performRedo()"
           (pasteAsTransclusion)="onPasteAsTransclusion(item)"
           (removeTransclusion)="onRemoveTransclusion(item)"
+          (sendToArchive)="onSendToArchive(item)"
         />
       </div>
     </cdk-virtual-scroll-viewport>
@@ -1329,6 +1330,56 @@ export class OutlineComponent implements OnInit, OnDestroy {
       await this.loadItems(this.pageId());
     } catch (e) {
       console.error('Failed to remove transclusion:', e);
+    }
+  }
+
+  /**
+   * Sends an item (and its children) to the page's archive (#item-archive).
+   * Appends #archived tag to the item body and moves it under the #item-archive item.
+   * If no #item-archive item exists, creates one at the end of the page.
+   */
+  async onSendToArchive(item: Item): Promise<void> {
+    try {
+      const items = this.state.items();
+      const group = this.state.getItemWithChildren(item.id);
+      if (group.length === 0) return;
+      const groupIds = group.map(g => g.id);
+
+      // Append #archived tag to the item body (skip if already present)
+      const tags = item.properties['tag'];
+      const hasTags = Array.isArray(tags) ? tags as string[] : [];
+      if (!hasTags.includes('archived')) {
+        const newBody = item.body.trimEnd() + ' #archived';
+        await this.saveItemBody(item.id, newBody);
+      }
+
+      // Find or create #item-archive item (check by tag in properties)
+      // Re-read items from state to pick up any updates from saveItemBody above
+      let closetItem = this.state.items().find(it => {
+        const t = it.properties['tag'];
+        return Array.isArray(t) && (t as string[]).includes('item-archive');
+      });
+      if (!closetItem) {
+        // Create #item-archive at end of page
+        const currentItems = this.state.items();
+        const lastItem = currentItems[currentItems.length - 1];
+        const created = await this.api.createItem(
+          item.pageId,
+          lastItem.id,
+          1,
+          '#item-archive',
+        );
+        // createItem API returns empty properties; patch tag so subsequent lookups work
+        closetItem = { ...created, properties: { ...created.properties, tag: ['item-archive'] } };
+        this.state.addItem(closetItem, lastItem.id);
+      }
+
+      // Move the archived items as the first child of #item-archive
+      const levelDelta = (closetItem.level + 1) - item.level;
+      const moved = await this.api.moveItems(groupIds, item.pageId, closetItem.id, levelDelta);
+      this.state.replaceItems(groupIds, moved, closetItem.id);
+    } catch (e: any) {
+      console.error('Failed to archive item:', e?.message || e);
     }
   }
 
