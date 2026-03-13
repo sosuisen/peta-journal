@@ -294,6 +294,14 @@ export class OutlineComponent implements OnInit, OnDestroy {
     }
   }
 
+  private async ensureAtLeastOneItem(): Promise<void> {
+    if (this.state.items().length > 0) return;
+    const newItem = await this.api.createItem(this.pageId(), '', 1, '');
+    this.state.addItem(newItem, '');
+    this.state.setFocusedItem(newItem.id);
+    this.focusEditor(newItem.id);
+  }
+
   private scrollToFocusItem(): void {
     const itemId = this.focusItemId();
     if (!itemId) return;
@@ -1764,6 +1772,8 @@ export class OutlineComponent implements OnInit, OnDestroy {
     } catch (e) {
       console.error('Failed to delete selected items:', e);
     }
+
+    await this.ensureAtLeastOneItem();
   }
 
   private async moveSelectedItemsUp(): Promise<void> {
@@ -1972,6 +1982,7 @@ export class OutlineComponent implements OnInit, OnDestroy {
 
     this.undo.pushRedo(entry);
     this.syncToServer(entry, 'undo');
+    await this.ensureAtLeastOneItem();
   }
 
   async performRedo(): Promise<void> {
@@ -2024,6 +2035,7 @@ export class OutlineComponent implements OnInit, OnDestroy {
 
     this.undo.pushUndo(entry);
     this.syncToServer(entry, 'redo');
+    await this.ensureAtLeastOneItem();
   }
 
   private findInsertionPoint(item: Item): string {
