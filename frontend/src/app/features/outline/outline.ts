@@ -1280,6 +1280,8 @@ export class OutlineComponent implements OnInit, OnDestroy {
    * @param item - The item whose collapsed state was toggled
    */
   async onCollapseToggled(item: Item): Promise<void> {
+    const children = this.state.getChildren(item.id);
+    if (children.length === 0) return;
     try {
       const originalItem = { ...item };
       const newCollapsed = !item.collapsed;
