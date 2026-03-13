@@ -269,6 +269,7 @@ public class DatabaseInitializer {
         stmt.execute("INSERT OR IGNORE INTO property_definitions (key, value_type) VALUES ('end', 'datetime')");
         stmt.execute("INSERT OR IGNORE INTO property_definitions (key, value_type) VALUES ('cancelled', 'date')");
         stmt.execute("INSERT OR IGNORE INTO property_definitions (key, value_type) VALUES ('tag', 'tags')");
+        stmt.execute("INSERT OR IGNORE INTO property_definitions (key, value_type) VALUES ('zoom', 'number')");
 
     }
 }

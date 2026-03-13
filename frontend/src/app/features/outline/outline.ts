@@ -1,4 +1,4 @@
-import { Component, inject, input, output, effect, Injector, afterNextRender, viewChild, viewChildren, signal, untracked, OnDestroy, OnInit } from '@angular/core';
+import { Component, inject, input, output, effect, Injector, afterNextRender, viewChild, viewChildren, signal, computed, untracked, OnDestroy, OnInit } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { ScrollingModule, CdkVirtualScrollViewport } from '@angular/cdk/scrolling';
 import { ScrollingModule as ExperimentalScrollingModule } from '@angular/cdk-experimental/scrolling';
@@ -25,6 +25,7 @@ import { renderToHtml } from 'flatmarkdown-ast2html';
         *cdkVirtualFor="let item of state.visibleItems(); let i = index; trackBy: trackById"
         class="outline-item"
         (mouseenter)="onItemMouseEnter(item)"
+        (wheel)="onItemWheel(item, $event)"
       >
         @if (isFirstItemOfDate(i) && item.name !== currentPageDate() && item.type === 'journal') {
           <div class="date-header">
@@ -34,6 +35,7 @@ import { renderToHtml } from 'flatmarkdown-ast2html';
         <app-outline-item
           #outlineItem
           [item]="item"
+          [effectiveZoom]="effectiveZoomMap().get(item.id) ?? 1"
           [suggestionsVisible]="wikiSuggestionsItemId() === item.id && wikiSuggestions().length > 0"
           (bodyChanged)="onBodyChanged(item, $event)"
           (editRequested)="onEditRequested(item.id, $event)"
@@ -63,6 +65,7 @@ import { renderToHtml } from 'flatmarkdown-ast2html';
           (pasteAsTransclusion)="onPasteAsTransclusion(item)"
           (removeTransclusion)="onRemoveTransclusion(item)"
           (sendToArchive)="onSendToArchive(item)"
+          (resetZoom)="onResetZoom(item)"
         />
       </div>
     </cdk-virtual-scroll-viewport>
@@ -163,6 +166,26 @@ export class OutlineComponent implements OnInit, OnDestroy {
   private operatingEnterKey = false;  // Prevents onEditFinished from flushing
   private readonly viewport = viewChild<CdkVirtualScrollViewport>('viewport');
   private readonly outlineItems = viewChildren<OutlineItemComponent>('outlineItem');
+
+  // Effective zoom map: item ID → cumulative zoom (product of own + ancestor zooms)
+  readonly effectiveZoomMap = computed(() => {
+    const items = this.state.visibleItems();
+    const map = new Map<string, number>();
+    // Stack of [level, cumulativeZoom] for ancestor tracking
+    const stack: { level: number; zoom: number }[] = [];
+    for (const item of items) {
+      // Pop stack entries that are not ancestors of this item
+      while (stack.length > 0 && stack[stack.length - 1].level >= item.level) {
+        stack.pop();
+      }
+      const parentZoom = stack.length > 0 ? stack[stack.length - 1].zoom : 1;
+      const ownZoom = parseFloat(item.properties['zoom'] as string) || 1;
+      const effective = parentZoom * ownZoom;
+      map.set(item.id, effective);
+      stack.push({ level: item.level, zoom: effective });
+    }
+    return map;
+  });
 
   // Wiki link suggestions state
   readonly wikiSuggestions = signal<string[]>([]);
@@ -1293,6 +1316,36 @@ export class OutlineComponent implements OnInit, OnDestroy {
 
   private isDailyJournal(item: Item): boolean {
     return item.type === 'journal' && /^\d{4}-\d{2}-\d{2}$/.test(item.name);
+  }
+
+  /**
+   * Handles Shift+Wheel on an item to change its zoom level.
+   */
+  onItemWheel(item: Item, event: WheelEvent): void {
+    if (!event.shiftKey) return;
+    event.preventDefault();
+    const current = parseFloat(item.properties['zoom'] as string) || 1;
+    const delta = event.deltaY < 0 ? 0.1 : -0.1;
+    const newZoom = Math.round(Math.min(3.0, Math.max(0.1, current + delta)) * 10) / 10;
+    if (newZoom === current) return;
+    this.applyZoom(item, newZoom);
+  }
+
+  /**
+   * Resets zoom to 1.0 for the given item.
+   */
+  async onResetZoom(item: Item): Promise<void> {
+    await this.applyZoom(item, 1.0);
+  }
+
+  private async applyZoom(item: Item, zoom: number): Promise<void> {
+    const props = { ...item.properties, zoom: String(zoom) };
+    this.state.updateItem(item.id, { properties: props });
+    try {
+      await this.api.upsertItemProperty(item.id, 'zoom', 'number', String(zoom));
+    } catch (e: any) {
+      console.error('Failed to update zoom:', e?.message || e);
+    }
   }
 
   /**

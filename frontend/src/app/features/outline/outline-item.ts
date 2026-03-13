@@ -37,6 +37,8 @@ import { ItemViewComponent } from './item-view';
             <button class="item-menu" (click)="onItemMenuClick($event)">⋯</button>
           }
         </div>
+      </div>
+      <div class="item-content" [style.zoom]="effectiveZoom()">
         <div class="slot-bullet">
           <span class="bullet">
             <svg viewBox="0 0 14 14" width="14" height="14">
@@ -53,8 +55,7 @@ import { ItemViewComponent } from './item-view';
             </svg>
           </span>
         </div>
-      </div>
-      <div class="item-body">
+        <div class="item-body">
         @if (isBrokenTransclusion()) {
           <div class="broken-transclusion">source not found: {{ item().body }}</div>
         } @else if (isEditing()) {
@@ -103,6 +104,7 @@ import { ItemViewComponent } from './item-view';
       @if (taskTimeInfo(); as info) {
         <div class="task-timestamps" [title]="info.tooltip">{{ info.label }}</div>
       }
+      </div>
     </div>
     @if (showItemMenu) {
       <div class="item-popup-menu" [style.left.px]="menuX" [style.top.px]="menuY">
@@ -114,6 +116,9 @@ import { ItemViewComponent } from './item-view';
           <button (click)="onMenuRemoveTransclusion()">Remove Transclusion</button>
         }
         <button (click)="onMenuSendToArchive()">Send to Archive</button>
+        @if (hasZoom()) {
+          <button (click)="onMenuResetZoom()">Reset Zoom</button>
+        }
       </div>
     }
   `,
@@ -122,6 +127,13 @@ import { ItemViewComponent } from './item-view';
       display: flex;
       align-items: flex-start;
       min-height: 28px;
+    }
+    .item-content {
+      display: flex;
+      align-items: flex-start;
+      flex: 1;
+      min-width: 0;
+      transform-origin: left top;
     }
     .outline-item.selected {
       background: rgba(0, 120, 215, 0.1);
@@ -153,6 +165,7 @@ import { ItemViewComponent } from './item-view';
       align-items: center;
       justify-content: center;
       margin-right: 4px;
+      padding-top: 7px;
     }
     .item-menu {
       background: none;
@@ -294,7 +307,9 @@ export class OutlineItemComponent {
   readonly pasteAsTransclusion = output<void>();
   readonly removeTransclusion = output<void>();
   readonly sendToArchive = output<void>();
+  readonly resetZoom = output<void>();
   readonly suggestionsVisible = input<boolean>(false);
+  readonly effectiveZoom = input<number>(1);
 
   private readonly editorRef = viewChild<ItemEditorComponent>('editor');
 
@@ -327,6 +342,10 @@ export class OutlineItemComponent {
     return { label, tooltip: `${fmt(begin)} - ${fmt(end)}` };
   });
   readonly isTransclusion = computed(() => !!this.item().transcludeItemId);
+  readonly hasZoom = computed(() => {
+    const z = parseFloat(this.item().properties['zoom'] as string);
+    return !isNaN(z) && z !== 1;
+  });
   readonly isBrokenTransclusion = computed(() => {
     const item = this.item();
     if (!item.transcludeItemId) return false;
@@ -414,6 +433,11 @@ export class OutlineItemComponent {
 
   onMenuSendToArchive(): void {
     this.sendToArchive.emit();
+    this.showItemMenu = false;
+  }
+
+  onMenuResetZoom(): void {
+    this.resetZoom.emit();
     this.showItemMenu = false;
   }
 
