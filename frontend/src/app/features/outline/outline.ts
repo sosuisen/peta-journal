@@ -1734,8 +1734,10 @@ export class OutlineComponent implements OnInit, OnDestroy {
 
   private getOrderedSelectedItemIds(): string[] {
     const selectedIds = this.state.selectedItemIds();
-    const allItems = this.state.items();
-    return allItems.filter(b => selectedIds.has(b.id)).map(b => b.id);
+    const visibleItems = this.state.visibleItems();
+    return visibleItems
+      .filter(b => selectedIds.has(b.id))
+      .map(b => b.transcludeItemId ?? b.id);
   }
 
   private async deleteSelectedItems(): Promise<void> {
