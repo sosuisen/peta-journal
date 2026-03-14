@@ -1,4 +1,4 @@
-const FORBIDDEN_CHARS = /[<>:"/\\|?*\x00-\x1F\x7F]/;
+const FORBIDDEN_CHARS = /[<>:"\\|?*\x00-\x1F\x7F]/;
 const RESERVED_NAMES = /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i;
 
 /**
@@ -13,6 +13,9 @@ export function validateFileName(title: string): string | null {
       return 'Title contains a control character (not allowed in filenames)';
     }
     return `Title contains '${ch}' (not allowed in filenames)`;
+  }
+  if (title.startsWith('/') || title.endsWith('/')) {
+    return "Title cannot start or end with '/'";
   }
   if (title.endsWith('.') || title.endsWith(' ')) {
     return 'Title cannot end with a dot or space';

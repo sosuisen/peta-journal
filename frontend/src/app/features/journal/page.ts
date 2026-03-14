@@ -18,15 +18,17 @@ import { ExtensionFunctionService } from '../../core/services/extension-function
       <div class="page-header" [class.scrolled]="scrolled()">
         @if (editing()) {
           <div class="edit-row" (focusout)="onEditRowFocusOut($event)">
-            <input
-              #dirPathInput
-              class="edit-dir-path"
-              [value]="editDirPath()"
-              (input)="editDirPath.set(asInputValue($event))"
-              (keydown.enter)="save()"
-              (keydown.escape)="cancelEdit()"
-            />
-            <span class="edit-slash">/</span>
+            @if (page()!.dirPath) {
+              <input
+                #dirPathInput
+                class="edit-dir-path"
+                [value]="editDirPath()"
+                (input)="editDirPath.set(asInputValue($event))"
+                (keydown.enter)="save()"
+                (keydown.escape)="cancelEdit()"
+              />
+              <span class="edit-slash">/</span>
+            }
             <input
               #fileNameInput
               class="edit-file-name"
@@ -327,22 +329,32 @@ export class PageComponent {
    */
   async save(): Promise<void> {
     const p = this.page();
-    if (!p) return;
+    if (!p || !this.editing()) return;
 
-    const newFileName = this.editFileName().trim();
-    if (!newFileName) {
-      alert('Page name cannot be empty');
+    let rawFileName = this.editFileName().trim();
+    if (!rawFileName) {
+      this.editing.set(false);
+      setTimeout(() => alert('Page name cannot be empty'));
       return;
     }
-    const error = validateFileName(newFileName);
+    const error = validateFileName(rawFileName);
     if (error) {
-      alert(error);
+      this.editing.set(false);
+      setTimeout(() => alert(error));
       return;
     }
 
     let newDirPath = this.editDirPath().trim();
     if (newDirPath && !newDirPath.endsWith('/')) {
       newDirPath += '/';
+    }
+
+    // Split title by '/' — last segment becomes the name, rest appended to dirPath
+    let newFileName = rawFileName;
+    if (rawFileName.includes('/')) {
+      const segments = rawFileName.split('/');
+      newFileName = segments.pop()!;
+      newDirPath = (newDirPath || '') + segments.join('/') + '/';
     }
 
     const titleChanged = newFileName !== p.name;
