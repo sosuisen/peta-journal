@@ -1,6 +1,11 @@
 package com.petajournal.server.presentation.mcp;
 
 import com.petajournal.server.application.ItemService;
+import com.petajournal.server.domain.model.Item;
+import com.petajournal.server.infrastructure.persistence.PropertyRepository;
+import com.petajournal.server.presentation.rest.dto.DtoMapper;
+import com.petajournal.server.presentation.rest.dto.FieldSelector;
+import com.petajournal.server.presentation.rest.dto.ItemDto;
 import io.quarkiverse.mcp.server.Tool;
 import io.quarkiverse.mcp.server.ToolArg;
 import jakarta.inject.Inject;
@@ -15,7 +20,23 @@ public class McpItemTools {
     ItemService itemService;
 
     @Inject
+    PropertyRepository propertyRepository;
+
+    @Inject
     McpJsonHelper jsonHelper;
+
+    @Tool(description = "Get a single item by its ID. Returns the item with its properties. Use 'fields' to return only specific fields (comma-separated, e.g. 'body,level,types').")
+    String get_item(
+            @ToolArg(description = "UUID of the item") String itemId,
+            @ToolArg(description = "Comma-separated field names to return (e.g. 'body,level'). Empty string for all fields.") String fields
+    ) {
+        var item = itemService.getItemById(UUID.fromString(itemId));
+        var dto = toItemDto(item);
+        if (fields != null && !fields.isEmpty()) {
+            return jsonHelper.toJson(FieldSelector.selectFields(dto, fields));
+        }
+        return jsonHelper.toJson(Map.of("item", dto));
+    }
 
     @Tool(description = "Create a new item in a page. The item is inserted after the specified item, or at the end if afterItemId is empty.")
     String create_item(
@@ -88,5 +109,12 @@ public class McpItemTools {
                 "ast", result.ast(),
                 "flatMarkdown", result.flatMarkdown()
         ));
+    }
+
+    private ItemDto toItemDto(Item item) {
+        String id = item.id().toString();
+        var scalars = propertyRepository.findScalarByTargets("item", List.of(id)).getOrDefault(id, Map.of());
+        var lists = propertyRepository.findListByTargets("item", List.of(id)).getOrDefault(id, Map.of());
+        return DtoMapper.toDto(item, scalars, lists);
     }
 }

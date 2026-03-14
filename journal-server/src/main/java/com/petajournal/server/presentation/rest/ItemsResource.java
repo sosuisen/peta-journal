@@ -5,6 +5,7 @@ import com.petajournal.server.domain.model.Item;
 import com.petajournal.server.infrastructure.persistence.PropertyRepository;
 import com.petajournal.server.presentation.rest.dto.ItemDto;
 import com.petajournal.server.presentation.rest.dto.DtoMapper;
+import com.petajournal.server.presentation.rest.dto.FieldSelector;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
@@ -42,6 +43,7 @@ public class ItemsResource {
     record UpdateItemResponse(ItemDto item) {}
     record MoveItemsRequest(List<String> itemIds, String targetPageId, String afterItemId, Integer levelDelta) {}
     record MoveItemsResponse(List<ItemDto> items) {}
+    record GetItemResponse(ItemDto item) {}
     record GetItemsByTypesResponse(List<ItemDto> items) {}
     record CycleTaskResponse(ItemDto item) {}
     record ExportTreeMarkdownRequest(List<String> itemIds) {}
@@ -66,6 +68,17 @@ public class ItemsResource {
                 clientId);
         sseBroadcaster.broadcastPagesUpdated(req.pageId());
         return new CreateItemResponse(DtoMapper.toDto(item));
+    }
+
+    @GET
+    @Path("/{id}")
+    public Response getItem(@PathParam("id") String id, @QueryParam("fields") String fields) {
+        var item = itemService.getItemById(UUID.fromString(id));
+        if (fields != null && !fields.isEmpty()) {
+            var dto = loadItemDto(item);
+            return Response.ok(FieldSelector.selectFields(dto, fields)).build();
+        }
+        return Response.ok(new GetItemResponse(loadItemDto(item))).build();
     }
 
     @PUT
