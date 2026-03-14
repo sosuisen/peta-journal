@@ -50,7 +50,7 @@ public class ItemService {
      * Creates a new item on the specified page.
      *
      * @param pageId       the page to add the item to
-     * @param afterItemId the item ID after which to insert, or empty/null to prepend
+     * @param afterItemId the item ID after which to insert, or empty/null to append
      * @param level        the indentation level (1-based, 1=top level)
      * @param body         the markdown body text
      * @return the newly created item
@@ -176,7 +176,7 @@ public class ItemService {
      *
      * @param itemIds     the IDs of items to move (order is preserved)
      * @param targetPageId the destination page
-     * @param afterItemId the item ID to insert after, or empty/null to prepend
+     * @param afterItemId the item ID to insert after, or empty/null to append
      * @param levelDelta   level adjustment to apply, or {@code null} for no change
      * @return the moved items with updated indices
      * @throws IllegalArgumentException if an item or the target page is not found
@@ -199,7 +199,7 @@ public class ItemService {
                 }
             }
         } else if (!targetItems.isEmpty()) {
-            nextIdx = targetItems.getFirst().idx();
+            afterIdx = targetItems.getLast().idx();
         }
 
         int delta = levelDelta != null ? levelDelta : 0;
@@ -467,14 +467,14 @@ public class ItemService {
 
     /**
      * Calculate the fractional index for inserting an item after the specified item.
-     * If afterItemId is null/empty, returns an index for the beginning of the list.
+     * If afterItemId is null/empty, returns an index for the end of the list.
      */
     private String calculateInsertionIndex(List<Item> existingItems, UUID afterItemId) {
         if (afterItemId == null) {
             if (existingItems.isEmpty()) {
                 return FractionalIndexer.initial();
             }
-            return FractionalIndexer.between(null, existingItems.getFirst().idx());
+            return FractionalIndexer.between(existingItems.getLast().idx(), null);
         }
 
         String afterIdx = null;
