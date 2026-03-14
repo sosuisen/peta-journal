@@ -167,7 +167,15 @@ public class PageService {
         String newDirPath = existing.dirPath();
         if (dirPath != null) {
             newDirPath = dirPath;
+            // Ensure ancestor index pages exist for the new dir_path
+            if (!"index".equals(fileName)) {
+                ensureAncestorPages(newDirPath);
+            }
         }
+
+        // Detect dir_path change for index pages to propagate to descendants
+        String oldDirPath = existing.dirPath();
+        boolean dirPathChanged = "index".equals(existing.name()) && !newDirPath.equals(oldDirPath);
 
         Page updated = new Page(
                 existing.id(),
@@ -186,6 +194,11 @@ public class PageService {
         List<Item> items = itemRepository.findByPageId(pageId);
         for (Item item : items) {
             searchService.indexItem(item, newTitle);
+        }
+
+        // Propagate dir_path change to all descendant pages
+        if (dirPathChanged) {
+            propagateDirPathChange(pageId, oldDirPath, newDirPath);
         }
 
         // Queue for export
@@ -304,6 +317,36 @@ public class PageService {
                             FractionalIndexer.initial(), 1, "", "", false, List.of(), null);
                     itemRepository.save(item);
                 }
+            }
+        }
+    }
+
+    /**
+     * Recursively propagates a dir_path change to all child pages.
+     * For non-index children: replaces their dir_path from oldPrefix to newPrefix.
+     * For index children: replaces their dir_path prefix and recurses into their children.
+     */
+    private void propagateDirPathChange(UUID parentPageId, String oldPrefix, String newPrefix) {
+        List<Page> children = pageRepository.findByParentId(parentPageId);
+        for (Page child : children) {
+            String childNewDirPath = newPrefix + child.dirPath().substring(oldPrefix.length());
+            Page updatedChild = new Page(
+                    child.id(), null, childNewDirPath, child.name(), child.type(),
+                    child.createdDate(), child.modifiedDate());
+            updatedChild = pageRepository.save(updatedChild);
+            searchService.indexPage(updatedChild);
+
+            // Re-index items
+            String childTitle = updatedChild.dirPath() + updatedChild.name();
+            for (Item item : itemRepository.findByPageId(child.id())) {
+                searchService.indexItem(item, childTitle);
+            }
+
+            exportService.queueExport(child.id());
+
+            // Recurse into index children
+            if ("index".equals(child.name())) {
+                propagateDirPathChange(child.id(), child.dirPath(), childNewDirPath);
             }
         }
     }

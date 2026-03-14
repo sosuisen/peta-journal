@@ -1,9 +1,11 @@
-import { Component, computed, inject, OnInit, effect, signal } from '@angular/core';
+import { Component, computed, DestroyRef, inject, OnInit, effect, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
 import { RecentPagesService } from '../../core/services/recent-pages.service';
 import { CurrentPageService } from '../../core/services/current-page.service';
 import { ApiService } from '../../core/services/api.service';
 import { OutlineStateService } from '../../core/services/outline-state.service';
+import { SseService } from '../../core/services/sse.service';
 import { Page } from '../../core/models/page.model';
 import { CalendarComponent } from '../../shared/calendar';
 import { formatJournalDate, formatDateToIso } from '../../core/utils/date.utils';
@@ -253,6 +255,9 @@ export class SidebarComponent implements OnInit {
   private readonly nav = inject(NavigationService);
   readonly today = formatDateToIso(new Date());
 
+  private readonly sse = inject(SseService);
+  private readonly destroyRef = inject(DestroyRef);
+
   readonly indexHeader = signal('');
   readonly indexPages = signal<Page[]>([]);
   private readonly collapsedSections = signal<Set<string>>(this.loadCollapsedSections());
@@ -272,6 +277,15 @@ export class SidebarComponent implements OnInit {
         return;
       }
       this.loadIndexPages(page);
+    });
+
+    this.sse.pagesUpdated$.pipe(
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(() => {
+      const page = this.currentPageService.currentPage();
+      if (page && page.type === 'doc') {
+        this.loadIndexPages(page);
+      }
     });
   }
 

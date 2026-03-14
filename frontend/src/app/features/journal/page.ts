@@ -362,6 +362,12 @@ export class PageComponent {
     this.titleService.setTitle(this.fullPageTitle());
     this.recentPages.refresh();
     this.editing.set(false);
+
+    // Navigate to the updated URL
+    const canonical = updated.dirPath
+      ? updated.dirPath.replace(/\/$/, '') + '/' + updated.name
+      : updated.name;
+    this.navigation.navigateToPage(canonical, false, false, true);
   }
 
   /** Cancels edit mode and discards unsaved title changes. */
