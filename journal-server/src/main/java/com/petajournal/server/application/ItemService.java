@@ -62,6 +62,20 @@ public class ItemService {
         String ast = parseBody(body);
 
         List<Item> existingItems = itemRepository.findByPageId(pageId);
+
+        // Validate level constraint
+        Item aboveItem = findItemAbove(existingItems, afterItemId);
+        if (aboveItem == null) {
+            if (level != 1) {
+                throw new IllegalArgumentException("Level must be 1 when there is no item above the insertion position");
+            }
+        } else {
+            if (level > aboveItem.level() + 1) {
+                throw new IllegalArgumentException("Level must be at most " + (aboveItem.level() + 1)
+                        + " (one more than the item above), but was " + level);
+            }
+        }
+
         String idx;
         try {
             idx = calculateInsertionIndex(existingItems, afterItemId);
@@ -204,6 +218,31 @@ public class ItemService {
 
         int delta = levelDelta != null ? levelDelta : 0;
         Instant now = Instant.now();
+
+        // Validate level constraints for all items before making changes
+        Item aboveItem = findItemAbove(targetItems, afterItemId);
+        for (UUID itemId : itemIds) {
+            Item item = itemRepository.findById(itemId)
+                    .orElseThrow(() -> new IllegalArgumentException("Item not found: " + itemId));
+            int newLevel = Math.max(1, item.level() + delta);
+            if (aboveItem == null) {
+                if (newLevel != 1) {
+                    throw new IllegalArgumentException("Level must be 1 when there is no item above the insertion position");
+                }
+            } else {
+                if (newLevel > aboveItem.level() + 1) {
+                    throw new IllegalArgumentException("Level must be at most " + (aboveItem.level() + 1)
+                            + " (one more than the item above), but was " + newLevel);
+                }
+            }
+            // For subsequent items, use the moved level as the "above" level
+            int aboveLevel = newLevel;
+            aboveItem = new Item(item.id(), item.pageId(), item.parentItemId(),
+                    item.dirPath(), item.name(), item.type(),
+                    item.createdDate(), item.modifiedDate(), item.idx(),
+                    aboveLevel, item.body(), item.ast(),
+                    item.collapsed(), item.types(), item.transcludeItemId());
+        }
 
         // Get target page to get dir_path and name
         Page targetPage = pageRepository.findById(targetPageId)
@@ -489,6 +528,27 @@ public class ItemService {
             }
         }
         return FractionalIndexer.between(afterIdx, nextIdx);
+    }
+
+    /**
+     * Finds the item directly above the insertion position.
+     * If afterItemId is specified, that item is the one above.
+     * If afterItemId is null (append), the last item in the list is above.
+     * Returns null if the list is empty.
+     */
+    private Item findItemAbove(List<Item> existingItems, UUID afterItemId) {
+        if (existingItems.isEmpty()) {
+            return null;
+        }
+        if (afterItemId == null) {
+            return existingItems.getLast();
+        }
+        for (Item item : existingItems) {
+            if (item.id().equals(afterItemId)) {
+                return item;
+            }
+        }
+        return null;
     }
 
     private void touchPage(UUID pageId) {
