@@ -1,4 +1,4 @@
-import { Component, input, output, ElementRef, viewChild, AfterViewInit, inject, effect, OnDestroy } from '@angular/core';
+import { Component, input, output, ElementRef, viewChild, AfterViewInit, inject, effect, OnDestroy, computed } from '@angular/core';
 import { OutlineStateService } from '../../core/services/outline-state.service';
 
 export interface WikiLinkContext {
@@ -35,6 +35,8 @@ export function ensureCodeFenceClosed(text: string): string {
       #editor
       [id]="'item-editor-' + itemId()"
       [value]="body()"
+      [style.font-size]="headingFontSize()"
+      [style.font-weight]="isHeadingOnly() ? 'bold' : null"
       (input)="onTextInput($event)"
       (keydown)="onKeydown($event)"
       (paste)="onPaste($event)"
@@ -106,6 +108,21 @@ export class ItemEditorComponent implements AfterViewInit, OnDestroy {
   readonly undoRequested = output<void>();
   readonly redoRequested = output<void>();
   readonly suggestionsVisible = input<boolean>(false);
+
+  readonly headingFontSize = computed(() => {
+    const body = this.body();
+    if (body.includes('\n')) return null;
+    const match = body.trimStart().match(/^(#{1,5})\s/);
+    if (!match) return null;
+    const sizes: Record<number, string> = { 1: '1.6em', 2: '1.4em', 3: '1.2em', 4: '1.1em', 5: '1em' };
+    return sizes[match[1].length] ?? null;
+  });
+
+  readonly isHeadingOnly = computed(() => {
+    const body = this.body();
+    if (body.includes('\n')) return false;
+    return body.trimStart().match(/^#{1,5}\s/) !== null;
+  });
 
   private readonly editorRef = viewChild.required<ElementRef<HTMLTextAreaElement>>('editor');
   private readonly checkboxRef = viewChild<ElementRef<HTMLInputElement>>('checkbox');
