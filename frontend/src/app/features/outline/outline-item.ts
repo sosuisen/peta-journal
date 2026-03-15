@@ -368,7 +368,7 @@ export class OutlineItemComponent {
     // In view mode (not editing), hide bullet for empty lines and lines starting with #
     if (!this.isEditing()) {
       const body = this.item().body.trim();
-      if (body === '' || body.startsWith('#')) {
+      if (body === '') {
         return false;
       }
     }
