@@ -14,6 +14,7 @@ import { ItemViewComponent } from './item-view';
       [style.padding-left.px]="indentPx()"
       [class.selected]="isSelected()"
       [class.heading]="isHeading()"
+      [attr.data-heading-level]="headingLevel() || null"
       [class.hide-bullet]="!shouldShowBullet()"
     >
       <div class="item-controls">
@@ -165,7 +166,7 @@ import { ItemViewComponent } from './item-view';
       align-items: center;
       justify-content: center;
       margin-right: 4px;
-      padding-top: 7px;
+      padding-top: 5px;
     }
     .item-menu {
       background: none;
@@ -232,10 +233,16 @@ import { ItemViewComponent } from './item-view';
     .outline-item.hide-bullet:hover .bullet {
       opacity: 1;
     }
-    .outline-item.heading .item-controls {
-      padding-top: 0;
-      align-self: center;
-    }
+    .outline-item[data-heading-level="1"] .item-controls { padding-top: 12px; }
+    .outline-item[data-heading-level="2"] .item-controls { padding-top: 10px; }
+    .outline-item[data-heading-level="3"] .item-controls { padding-top: 8px; }
+    .outline-item[data-heading-level="4"] .item-controls { padding-top: 4px; }
+    .outline-item[data-heading-level="5"] .item-controls { padding-top: 3px; }
+    .outline-item[data-heading-level="1"] .slot-bullet { padding-top: 13px; }
+    .outline-item[data-heading-level="2"] .slot-bullet { padding-top: 11px; }
+    .outline-item[data-heading-level="3"] .slot-bullet { padding-top: 9px; }
+    .outline-item[data-heading-level="4"] .slot-bullet { padding-top: 5px; }
+    .outline-item[data-heading-level="5"] .slot-bullet { padding-top: 4px; }
     .outline-item.heading .item-body {
       margin-left: -3px;
     }
@@ -319,6 +326,10 @@ export class OutlineItemComponent {
   readonly isSelected = computed(() => this.state.selectedItemIds().has(this.item().id));
   readonly isCollapsed = computed(() => this.item().collapsed || this.state.isCollapsed(this.item().id));
   readonly isHeading = computed(() => this.item().body.trimStart().startsWith('#'));
+  readonly headingLevel = computed(() => {
+    const match = this.item().body.trimStart().match(/^(#{1,5})\s/);
+    return match ? match[1].length : 0;
+  });
   readonly taskTimeInfo = computed<{ label: string; tooltip: string } | null>(() => {
     const item = this.item();
     if (!item.types?.includes('task')) return null;
