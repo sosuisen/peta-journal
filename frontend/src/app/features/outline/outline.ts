@@ -248,10 +248,28 @@ export class OutlineComponent implements OnInit, OnDestroy {
 
     this.scrolledFromTop.emit(offset > 0);
 
-    // Emit the top visible item's name
-    const index = range.start;
-    if (index >= 0 && index < totalItems) {
-      this.topItemChanged.emit(items[index].name);
+    // Find the actual first visible item using DOM positions.
+    // range.start includes buffer items above the viewport, so we inspect
+    // rendered elements to find the one truly at the viewport top.
+    const vpEl = vp.elementRef.nativeElement;
+    const vpTop = vpEl.getBoundingClientRect().top;
+    const wrapper = vpEl.querySelector('.cdk-virtual-scroll-content-wrapper');
+    if (wrapper) {
+      const ownItems = this.state.items();
+      for (let ci = 0; ci < wrapper.children.length; ci++) {
+        const el = wrapper.children[ci] as HTMLElement;
+        if (el.getBoundingClientRect().bottom > vpTop) {
+          const idx = range.start + ci;
+          // Walk backward to find the owning journal page item
+          for (let j = Math.min(idx, totalItems - 1); j >= 0; j--) {
+            if (ownItems.some(b => b.id === items[j].id)) {
+              this.topItemChanged.emit(items[j].name);
+              break;
+            }
+          }
+          break;
+        }
+      }
     }
 
     // Check if we need more buffer (100 items ahead)
