@@ -11,6 +11,7 @@ public sealed interface ItemPosition {
     }
 
     static ItemPosition parse(String s) {
+        if (s == null || s.isEmpty()) throw new IllegalArgumentException("position must not be null or empty");
         if ("first".equals(s)) return FIRST;
         if ("last".equals(s)) return LAST;
         if (s.startsWith("after:")) return after(UUID.fromString(s.substring(6)));
