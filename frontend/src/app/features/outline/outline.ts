@@ -9,7 +9,7 @@ import { AutoSaveService } from '../../core/services/auto-save.service';
 import { Item } from '../../core/models/item.model';
 import { ClipboardService } from '../../core/services/clipboard.service';
 import { UndoService, UndoEntry } from '../../core/services/undo.service';
-import { formatJournalDate } from '../../core/utils/date.utils';
+import { formatJournalDate, formatDateToIso } from '../../core/utils/date.utils';
 import { NavigationService } from '../../core/services/navigation.service';
 import { ConfigService } from '../../core/services/config.service';
 import { WikiLinkContext, ensureCodeFenceClosed, hasUnclosedCodeFence } from './item-editor';
@@ -158,6 +158,7 @@ export class OutlineComponent implements OnInit, OnDestroy {
   readonly disableAutoLoad = input<boolean>(false);  // Disable automatic item loading
   readonly currentPageDate = input<string>('');  // Date shown in page header
   readonly loadMore = output<{ filepath: string; currentIndex: number }>();  // Emits when should load more
+  readonly crossDayMoved = output<{ targetDate: string; navigate: boolean; itemId: string }>();  // Emits after cross-day move
   readonly topItemChanged = output<string>();  // Emits name of top visible item
   readonly scrolledFromTop = output<boolean>();  // Emits true when scrolled away from top
   private readonly dirtyItemIds = new Set<string>();
@@ -234,6 +235,18 @@ export class OutlineComponent implements OnInit, OnDestroy {
       untracked(() => {
         this.state.clearScrollRequest();
         this.scrollToItemElement(itemId, 'smooth');
+      });
+    });
+
+    // Handle pending edit requests (e.g. after cross-day move)
+    effect(() => {
+      const itemId = this.state.pendingEditItemId();
+      if (!itemId) return;
+      untracked(() => {
+        this.state.clearPendingEditItem();
+        this.state.addEditingItem(itemId);
+        this.state.setFocusedItem(itemId);
+        this.focusEditor(itemId);
       });
     });
   }
@@ -1040,6 +1053,15 @@ export class OutlineComponent implements OnInit, OnDestroy {
       return;
     }
 
+    // Journal cross-day move: topmost root item moves to next day's page end
+    if (item.type === 'journal' && item.level === 1 && /^\d{4}-\d{2}-\d{2}$/.test(item.name)) {
+      const pageRootItems = this.state.items().filter(b => b.pageId === item.pageId && b.level === 1);
+      if (pageRootItems.length > 0 && pageRootItems[0].id === item.id) {
+        await this.moveItemToAdjacentDay(item, 'next');
+        return;
+      }
+    }
+
     const target = findMoveUpTarget(this.state.items(), item.id);
     if (!target) return;
 
@@ -1087,6 +1109,15 @@ export class OutlineComponent implements OnInit, OnDestroy {
       return;
     }
 
+    // Journal cross-day move: bottommost root item moves to previous day's page start
+    if (item.type === 'journal' && item.level === 1 && /^\d{4}-\d{2}-\d{2}$/.test(item.name)) {
+      const pageRootItems = this.state.items().filter(b => b.pageId === item.pageId && b.level === 1);
+      if (pageRootItems.length > 0 && pageRootItems[pageRootItems.length - 1].id === item.id) {
+        await this.moveItemToAdjacentDay(item, 'prev');
+        return;
+      }
+    }
+
     const target = findMoveDownTarget(this.state.items(), item.id);
     if (!target) return;
 
@@ -1105,6 +1136,47 @@ export class OutlineComponent implements OnInit, OnDestroy {
     this.undo.commit();
 
     this.focusEditor(item.id);
+  }
+
+  /**
+   * Moves a journal item (and its children) to an adjacent day's page.
+   * For 'next': moves to the next day's page at 'last' position.
+   * For 'prev': moves to the previous day's page at 'first' position.
+   * If the target page has only one item with empty body, that item is deleted after the move.
+   */
+  private async moveItemToAdjacentDay(item: Item, direction: 'next' | 'prev'): Promise<void> {
+    const d = new Date(item.name + 'T00:00:00');
+    d.setDate(d.getDate() + (direction === 'next' ? 1 : -1));
+    const targetDate = formatDateToIso(d);
+
+    // Get or create the target day's journal
+    const result = await this.api.getOrCreateJournal(targetDate);
+    const targetPageId = result.page.id;
+    const targetItems = result.items;
+
+    // Collect item and its children
+    const group = this.state.getItemWithChildren(item.id);
+    const groupIds = group.map(b => b.id);
+
+    // Move to target page
+    const position: ItemPosition = direction === 'next' ? 'last' : 'first';
+    await this.api.moveItems(groupIds, targetPageId, position);
+
+    // If target page had only one item with empty body, delete it
+    if (targetItems.length === 1 && targetItems[0].body === '') {
+      await this.api.deleteItem(targetItems[0].id);
+    }
+
+    // If source page has no items left, create a new empty item
+    const sourcePageId = item.pageId;
+    const remainingOnSource = this.state.items().filter(b => b.pageId === sourcePageId && !groupIds.includes(b.id));
+    if (remainingOnSource.length === 0) {
+      await this.api.createItem(sourcePageId, 'first', 1, '');
+    }
+
+    // Notify journal to reload, with navigation for move-up when URL matches
+    const shouldNavigate = direction === 'next' && item.pageId === this.pageId();
+    this.crossDayMoved.emit({ targetDate, navigate: shouldNavigate, itemId: item.id });
   }
 
   /**

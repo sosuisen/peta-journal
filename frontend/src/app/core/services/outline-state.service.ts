@@ -242,6 +242,17 @@ export class OutlineStateService {
     this._scrollRequestItemId.set(null);
   }
 
+  private readonly _pendingEditItemId = signal<string | null>(null);
+  readonly pendingEditItemId = this._pendingEditItemId.asReadonly();
+
+  requestEditItem(itemId: string): void {
+    this._pendingEditItemId.set(itemId);
+  }
+
+  clearPendingEditItem(): void {
+    this._pendingEditItemId.set(null);
+  }
+
   isCollapsed(itemId: string): boolean {
     return this._collapsedItemIds().has(itemId);
   }

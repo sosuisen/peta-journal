@@ -38,7 +38,7 @@ import { ExtensionFunctionService } from '../../core/services/extension-function
       />
     }
     @if (page()) {
-      <app-outline [pageId]="page()!.id" [disableAutoLoad]="true" [currentPageDate]="topVisibleDate()" (loadMore)="onLoadMore($event)" (topItemChanged)="onTopItemChanged($event)" (scrolledFromTop)="scrolled.set($event)" />
+      <app-outline [pageId]="page()!.id" [disableAutoLoad]="true" [currentPageDate]="topVisibleDate()" (loadMore)="onLoadMore($event)" (topItemChanged)="onTopItemChanged($event)" (scrolledFromTop)="scrolled.set($event)" (crossDayMoved)="onCrossDayMoved($event)" />
     }
   `,
   styles: [`
@@ -356,5 +356,16 @@ export class JournalComponent {
    */
   onTopItemChanged(fileName: string): void {
     this.topVisibleDate.set(fileName);
+  }
+
+  /** Handles cross-day move: navigates to target date or reloads current journal. */
+  async onCrossDayMoved(event: { targetDate: string; navigate: boolean; itemId: string }): Promise<void> {
+    if (event.navigate) {
+      this.nav.navigateToPage(event.targetDate);
+      setTimeout(() => this.outlineState.requestEditItem(event.itemId), 300);
+    } else {
+      await this.loadJournal(this.currentDate());
+      this.outlineState.requestEditItem(event.itemId);
+    }
   }
 }
