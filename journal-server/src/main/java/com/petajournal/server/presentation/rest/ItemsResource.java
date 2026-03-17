@@ -2,6 +2,7 @@ package com.petajournal.server.presentation.rest;
 
 import com.petajournal.server.application.ItemService;
 import com.petajournal.server.domain.model.Item;
+import com.petajournal.server.domain.model.ItemPosition;
 import com.petajournal.server.infrastructure.persistence.PropertyRepository;
 import com.petajournal.server.presentation.rest.dto.ItemDto;
 import com.petajournal.server.presentation.rest.dto.DtoMapper;
@@ -37,11 +38,11 @@ public class ItemsResource {
 
     // --- Request/Response records ---
 
-    record CreateItemRequest(String pageId, String afterItemId, int level, String body, String id) {}
+    record CreateItemRequest(String pageId, String position, int level, String body, String id) {}
     record CreateItemResponse(ItemDto item) {}
     record UpdateItemRequest(String body, Integer level, Boolean collapsed) {}
     record UpdateItemResponse(ItemDto item) {}
-    record MoveItemsRequest(List<String> itemIds, String targetPageId, String afterItemId, Integer levelDelta) {}
+    record MoveItemsRequest(List<String> itemIds, String targetPageId, String position, Integer levelDelta) {}
     record MoveItemsResponse(List<ItemDto> items) {}
     record GetItemResponse(ItemDto item) {}
     record GetItemsByTypesResponse(List<ItemDto> items) {}
@@ -58,11 +59,10 @@ public class ItemsResource {
     @POST
     public CreateItemResponse createItem(CreateItemRequest req) {
         UUID clientId = (req.id() != null && !req.id().isEmpty()) ? UUID.fromString(req.id()) : null;
-        UUID afterItemId = (req.afterItemId() != null && !req.afterItemId().isEmpty())
-                ? UUID.fromString(req.afterItemId()) : null;
+        ItemPosition position = ItemPosition.parse(req.position());
         var item = itemService.createItem(
                 UUID.fromString(req.pageId()),
-                afterItemId,
+                position,
                 req.level(),
                 req.body(),
                 clientId);
@@ -152,12 +152,11 @@ public class ItemsResource {
     @POST
     @Path("/move")
     public MoveItemsResponse moveItems(MoveItemsRequest req) {
-        UUID afterItemId = (req.afterItemId() != null && !req.afterItemId().isEmpty())
-                ? UUID.fromString(req.afterItemId()) : null;
+        ItemPosition position = ItemPosition.parse(req.position());
         var items = itemService.moveItems(
                 req.itemIds().stream().map(UUID::fromString).toList(),
                 UUID.fromString(req.targetPageId()),
-                afterItemId,
+                position,
                 req.levelDelta());
         sseBroadcaster.broadcastPagesUpdated(req.targetPageId());
         return new MoveItemsResponse(loadItemDtos(items));

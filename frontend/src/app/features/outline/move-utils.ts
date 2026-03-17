@@ -1,7 +1,8 @@
 import { Item } from '../../core/models/item.model';
+import { ItemPosition } from '../../core/services/api.service';
 
 export interface MoveTarget {
-  afterItemId: string;
+  position: ItemPosition;
 }
 
 /**
@@ -20,7 +21,7 @@ export function getSubtree(items: Item[], itemId: string): Item[] {
 }
 
 /**
- * Determines the target position (afterItemId) for moving a item down.
+ * Determines the target position for moving a item down.
  *
  * Scans items below the moving item and finds the first item matching:
  * - 2+ levels shallower (< itemLevel - 1): movement not allowed.
@@ -49,12 +50,12 @@ export function findMoveDownTarget(
       // Same level: move after candidate's subtree
       const subtree = getSubtree(items, candidate.id);
       if (subtree.length === 0) return null;
-      return { afterItemId: subtree[subtree.length - 1].id };
+      return { position: `after:${subtree[subtree.length - 1].id}` };
     }
 
     if (candidate.level === itemLevel - 1) {
       // One level shallower: move to just under candidate
-      return { afterItemId: candidate.id };
+      return { position: `after:${candidate.id}` };
     }
 
     if (candidate.level < itemLevel - 1) {
@@ -67,7 +68,7 @@ export function findMoveDownTarget(
 }
 
 /**
- * Determines the target position (afterItemId) for moving a item up.
+ * Determines the target position for moving a item up.
  *
  * Two conditions checked in order:
  * 1. If the item directly above is one-level-shallower, check one more above.
@@ -97,7 +98,7 @@ export function findMoveUpTarget(
     if (idx >= 2) {
       const twoAbove = items[idx - 2];
       if (twoAbove.level >= itemLevel - 1) {
-        return { afterItemId: twoAbove.id };
+        return { position: `after:${twoAbove.id}` };
       }
     }
     return null;
@@ -106,8 +107,8 @@ export function findMoveUpTarget(
   // Condition 2: Scan upward for a same-level item. Move above it.
   for (let i = idx - 1; i >= 0; i--) {
     if (items[i].level === itemLevel) {
-      if (i <= 0) return { afterItemId: '' };
-      return { afterItemId: items[i - 1].id };
+      if (i <= 0) return { position: 'first' };
+      return { position: `after:${items[i - 1].id}` };
     }
   }
 

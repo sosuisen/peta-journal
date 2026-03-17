@@ -1,6 +1,7 @@
 package com.petajournal.server.application;
 
 import com.petajournal.server.domain.model.Item;
+import com.petajournal.server.domain.model.ItemPosition;
 import com.petajournal.server.domain.model.Page;
 import com.petajournal.server.domain.repository.ItemRepository;
 import com.petajournal.server.domain.repository.MarkdownParser;
@@ -50,13 +51,13 @@ public class ItemService {
      * Creates a new item on the specified page.
      *
      * @param pageId       the page to add the item to
-     * @param afterItemId the item ID after which to insert, or empty/null to append
+     * @param position     the position to insert at (FIRST, LAST, or after a specific item)
      * @param level        the indentation level (1-based, 1=top level)
      * @param body         the markdown body text
      * @return the newly created item
      * @throws IllegalArgumentException if the page is not found
      */
-    public Item createItem(UUID pageId, UUID afterItemId, int level, String body, UUID clientId) {
+    public Item createItem(UUID pageId, ItemPosition position, int level, String body, UUID clientId) {
         UUID id = clientId != null ? clientId : ItemIdGenerator.generate();
         Instant now = Instant.now();
         String ast = parseBody(body);
@@ -64,7 +65,7 @@ public class ItemService {
         List<Item> existingItems = itemRepository.findByPageId(pageId);
 
         // Validate level constraint
-        Item aboveItem = findItemAbove(existingItems, afterItemId);
+        Item aboveItem = findItemAbove(existingItems, position);
         if (aboveItem == null) {
             if (level != 1) {
                 throw new IllegalArgumentException("Level must be 1 when there is no item above the insertion position");
@@ -78,12 +79,12 @@ public class ItemService {
 
         String idx;
         try {
-            idx = calculateInsertionIndex(existingItems, afterItemId);
+            idx = calculateInsertionIndex(existingItems, position);
         } catch (IllegalStateException e) {
             // Fractional index exhausted — reindex and retry
             reindexPage(pageId, existingItems);
             existingItems = itemRepository.findByPageId(pageId);
-            idx = calculateInsertionIndex(existingItems, afterItemId);
+            idx = calculateInsertionIndex(existingItems, position);
         }
 
         List<String> types = detectItemTypes(body);
@@ -190,37 +191,47 @@ public class ItemService {
      *
      * @param itemIds     the IDs of items to move (order is preserved)
      * @param targetPageId the destination page
-     * @param afterItemId the item ID to insert after, or empty/null to append
+     * @param position     the position to insert at (FIRST, LAST, or after a specific item)
      * @param levelDelta   level adjustment to apply, or {@code null} for no change
      * @return the moved items with updated indices
      * @throws IllegalArgumentException if an item or the target page is not found
      */
-    public List<Item> moveItems(List<UUID> itemIds, UUID targetPageId, UUID afterItemId, Integer levelDelta) {
+    public List<Item> moveItems(List<UUID> itemIds, UUID targetPageId, ItemPosition position, Integer levelDelta) {
         List<Item> movedItems = new ArrayList<>();
         List<Item> targetItems = itemRepository.findByPageId(targetPageId);
 
         // Find insertion point
         String afterIdx = null;
         String nextIdx = null;
-        if (afterItemId != null) {
-            for (int i = 0; i < targetItems.size(); i++) {
-                if (targetItems.get(i).id().equals(afterItemId)) {
-                    afterIdx = targetItems.get(i).idx();
-                    if (i + 1 < targetItems.size()) {
-                        nextIdx = targetItems.get(i + 1).idx();
-                    }
-                    break;
+        switch (position) {
+            case ItemPosition.First() -> {
+                if (!targetItems.isEmpty()) {
+                    nextIdx = targetItems.getFirst().idx();
                 }
             }
-        } else if (!targetItems.isEmpty()) {
-            afterIdx = targetItems.getLast().idx();
+            case ItemPosition.Last() -> {
+                if (!targetItems.isEmpty()) {
+                    afterIdx = targetItems.getLast().idx();
+                }
+            }
+            case ItemPosition.After(UUID afterItemId) -> {
+                for (int i = 0; i < targetItems.size(); i++) {
+                    if (targetItems.get(i).id().equals(afterItemId)) {
+                        afterIdx = targetItems.get(i).idx();
+                        if (i + 1 < targetItems.size()) {
+                            nextIdx = targetItems.get(i + 1).idx();
+                        }
+                        break;
+                    }
+                }
+            }
         }
 
         int delta = levelDelta != null ? levelDelta : 0;
         Instant now = Instant.now();
 
         // Validate level constraints for all items before making changes
-        Item aboveItem = findItemAbove(targetItems, afterItemId);
+        Item aboveItem = findItemAbove(targetItems, position);
         for (UUID itemId : itemIds) {
             Item item = itemRepository.findById(itemId)
                     .orElseThrow(() -> new IllegalArgumentException("Item not found: " + itemId));
@@ -505,50 +516,46 @@ public class ItemService {
     }
 
     /**
-     * Calculate the fractional index for inserting an item after the specified item.
-     * If afterItemId is null/empty, returns an index for the end of the list.
+     * Calculate the fractional index for inserting an item at the specified position.
      */
-    private String calculateInsertionIndex(List<Item> existingItems, UUID afterItemId) {
-        if (afterItemId == null) {
-            if (existingItems.isEmpty()) {
-                return FractionalIndexer.initial();
-            }
-            return FractionalIndexer.between(existingItems.getLast().idx(), null);
+    private String calculateInsertionIndex(List<Item> existingItems, ItemPosition position) {
+        if (existingItems.isEmpty()) {
+            return FractionalIndexer.initial();
         }
-
-        String afterIdx = null;
-        String nextIdx = null;
-        for (int i = 0; i < existingItems.size(); i++) {
-            if (existingItems.get(i).id().equals(afterItemId)) {
-                afterIdx = existingItems.get(i).idx();
-                if (i + 1 < existingItems.size()) {
-                    nextIdx = existingItems.get(i + 1).idx();
+        return switch (position) {
+            case ItemPosition.First() -> FractionalIndexer.between(null, existingItems.getFirst().idx());
+            case ItemPosition.Last() -> FractionalIndexer.between(existingItems.getLast().idx(), null);
+            case ItemPosition.After(UUID itemId) -> {
+                String afterIdx = null;
+                String nextIdx = null;
+                for (int i = 0; i < existingItems.size(); i++) {
+                    if (existingItems.get(i).id().equals(itemId)) {
+                        afterIdx = existingItems.get(i).idx();
+                        if (i + 1 < existingItems.size()) {
+                            nextIdx = existingItems.get(i + 1).idx();
+                        }
+                        break;
+                    }
                 }
-                break;
+                yield FractionalIndexer.between(afterIdx, nextIdx);
             }
-        }
-        return FractionalIndexer.between(afterIdx, nextIdx);
+        };
     }
 
     /**
      * Finds the item directly above the insertion position.
-     * If afterItemId is specified, that item is the one above.
-     * If afterItemId is null (append), the last item in the list is above.
-     * Returns null if the list is empty.
+     * Returns null if the list is empty or position is FIRST.
      */
-    private Item findItemAbove(List<Item> existingItems, UUID afterItemId) {
+    private Item findItemAbove(List<Item> existingItems, ItemPosition position) {
         if (existingItems.isEmpty()) {
             return null;
         }
-        if (afterItemId == null) {
-            return existingItems.getLast();
-        }
-        for (Item item : existingItems) {
-            if (item.id().equals(afterItemId)) {
-                return item;
-            }
-        }
-        return null;
+        return switch (position) {
+            case ItemPosition.First() -> null;
+            case ItemPosition.Last() -> existingItems.getLast();
+            case ItemPosition.After(UUID itemId) -> existingItems.stream()
+                .filter(i -> i.id().equals(itemId)).findFirst().orElse(null);
+        };
     }
 
     private void touchPage(UUID pageId) {

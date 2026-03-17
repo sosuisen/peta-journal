@@ -54,7 +54,7 @@ describe('findMoveDownTarget', () => {
       // * b (1)
       const items = [b('a', 1), b('b', 1)];
       expect(findMoveDownTarget(items, 'a'))
-        .toEqual({ afterItemId: 'b' });
+        .toEqual({ position: 'after:b' });
     });
 
     it('moves after same-level item with deep subtree', () => {
@@ -64,7 +64,7 @@ describe('findMoveDownTarget', () => {
       //         * d (3)
       const items = [b('a', 1), b('b', 1), b('c', 2), b('d', 3)];
       expect(findMoveDownTarget(items, 'a'))
-        .toEqual({ afterItemId: 'd' });
+        .toEqual({ position: 'after:d' });
     });
 
     it('moves child after its sibling under same parent', () => {
@@ -73,7 +73,7 @@ describe('findMoveDownTarget', () => {
       //     * c (2)
       const items = [b('a', 1), b('b', 2), b('c', 2)];
       expect(findMoveDownTarget(items, 'b'))
-        .toEqual({ afterItemId: 'c' });
+        .toEqual({ position: 'after:c' });
     });
 
     it('moves child after sibling with children', () => {
@@ -84,7 +84,7 @@ describe('findMoveDownTarget', () => {
       //     * e (2)
       const items = [b('a', 1), b('b', 2), b('c', 2), b('d', 3), b('e', 2)];
       expect(findMoveDownTarget(items, 'b'))
-        .toEqual({ afterItemId: 'd' });
+        .toEqual({ position: 'after:d' });
     });
 
     it('first of three siblings moves after second', () => {
@@ -93,7 +93,7 @@ describe('findMoveDownTarget', () => {
       // * c (1)
       const items = [b('a', 1), b('b', 1), b('c', 1)];
       expect(findMoveDownTarget(items, 'a'))
-        .toEqual({ afterItemId: 'b' });
+        .toEqual({ position: 'after:b' });
     });
   });
 
@@ -109,7 +109,7 @@ describe('findMoveDownTarget', () => {
       //         * e (3)
       const items = [b('a', 1), b('b', 2), b('c', 3), b('d', 2), b('e', 3)];
       expect(findMoveDownTarget(items, 'c'))
-        .toEqual({ afterItemId: 'd' });
+        .toEqual({ position: 'after:d' });
     });
 
     it('level-2 item crosses level-1 boundary', () => {
@@ -118,7 +118,7 @@ describe('findMoveDownTarget', () => {
       // * c (1)
       const items = [b('a', 1), b('b', 2), b('c', 1)];
       expect(findMoveDownTarget(items, 'b'))
-        .toEqual({ afterItemId: 'c' });
+        .toEqual({ position: 'after:c' });
     });
 
   });
@@ -189,12 +189,12 @@ describe('findMoveDownTarget', () => {
       //         * e (3)
       //             * f (4)
       //
-      // Scan: e(3) = 4-1 → afterItemId='e'
+      // Scan: e(3) = 4-1 → position='after:e'
       const items = [
         b('a', 1), b('b', 2), b('c', 3), b('d', 4), b('e', 3), b('f', 4),
       ];
       expect(findMoveDownTarget(items, 'd'))
-        .toEqual({ afterItemId: 'e' });
+        .toEqual({ position: 'after:e' });
     });
 
     it('level-4 sibling swap', () => {
@@ -205,7 +205,7 @@ describe('findMoveDownTarget', () => {
       //             * e (4)
       const items = [b('a', 1), b('b', 2), b('c', 3), b('d', 4), b('e', 4)];
       expect(findMoveDownTarget(items, 'd'))
-        .toEqual({ afterItemId: 'e' });
+        .toEqual({ position: 'after:e' });
     });
   });
 
@@ -219,10 +219,10 @@ describe('findMoveDownTarget', () => {
       //     * c (2)
       // * d (1)
       //
-      // Scan: c(2) same level (first!) → afterItemId='c'
+      // Scan: c(2) same level (first!) → position='after:c'
       const items = [b('a', 1), b('b', 2), b('c', 2), b('d', 1)];
       expect(findMoveDownTarget(items, 'b'))
-        .toEqual({ afterItemId: 'c' });
+        .toEqual({ position: 'after:c' });
     });
 
     it('shallower found before same-level → shallower wins', () => {
@@ -231,10 +231,10 @@ describe('findMoveDownTarget', () => {
       // * c (1)
       //     * d (2)
       //
-      // Scan: c(1) = itemLevel-1 (first!) → afterItemId='c'
+      // Scan: c(1) = itemLevel-1 (first!) → position='after:c'
       const items = [b('a', 1), b('b', 2), b('c', 1), b('d', 2)];
       expect(findMoveDownTarget(items, 'b'))
-        .toEqual({ afterItemId: 'c' });
+        .toEqual({ position: 'after:c' });
     });
 
     it('deeper children are skipped until match is found', () => {
@@ -244,10 +244,10 @@ describe('findMoveDownTarget', () => {
       //         * d (3)
       //     * e (2)
       //
-      // Scan: c(3) skip, d(3) skip, e(2) same level → afterItemId='e'
+      // Scan: c(3) skip, d(3) skip, e(2) same level → position='after:e'
       const items = [b('a', 1), b('b', 2), b('c', 3), b('d', 3), b('e', 2)];
       expect(findMoveDownTarget(items, 'b'))
-        .toEqual({ afterItemId: 'e' });
+        .toEqual({ position: 'after:e' });
     });
   });
 });
@@ -268,10 +268,10 @@ describe('findMoveUpTarget', () => {
       //         * e (3)    ← move
       //
       // Directly above e: d(2) = itemLevel-1. Two above: c(3) is the same level as e(3).
-      // → move under c → afterItemId = 'c'
+      // → move under c → position = 'after:c'
       const items = [b('a', 1), b('b', 2), b('c', 3), b('d', 2), b('e', 3)];
       expect(findMoveUpTarget(items, 'e'))
-        .toEqual({ afterItemId: 'c' });
+        .toEqual({ position: 'after:c' });
     });
 
     it('two-above is one-level-shallower → move under it', () => {
@@ -281,10 +281,10 @@ describe('findMoveUpTarget', () => {
       //     * d (2)    ← move
       //
       // Directly above d: c(1) = itemLevel-1. Two above: b(1) = itemLevel-1.
-      // → move under b → afterItemId = 'b'
+      // → move under b → position = 'after:b'
       const items = [b('a', 1), b('b', 1), b('c', 1), b('d', 2)];
       expect(findMoveUpTarget(items, 'd'))
-        .toEqual({ afterItemId: 'b' });
+        .toEqual({ position: 'after:b' });
     });
 
     it('two-above is deeper → move under it', () => {
@@ -295,10 +295,10 @@ describe('findMoveUpTarget', () => {
       //     * e (2)    ← move
       //
       // Directly above e: d(1) = itemLevel-1. Two above: c(3), level 3 >= 1.
-      // → move under c → afterItemId = 'c'
+      // → move under c → position = 'after:c'
       const items = [b('a', 1), b('b', 2), b('c', 3), b('d', 1), b('e', 2)];
       expect(findMoveUpTarget(items, 'e'))
-        .toEqual({ afterItemId: 'c' });
+        .toEqual({ position: 'after:c' });
     });
 
     it('two-above is too shallow → cannot move', () => {
@@ -323,7 +323,7 @@ describe('findMoveUpTarget', () => {
       // * b (1)    ← move
       const items = [b('a', 1), b('b', 1)];
       expect(findMoveUpTarget(items, 'b'))
-        .toEqual({ afterItemId: '' });
+        .toEqual({ position: 'first' });
     });
 
     it('moves above same-level item that has children', () => {
@@ -333,10 +333,10 @@ describe('findMoveUpTarget', () => {
       // * d (1)    ← move
       //
       // Directly above d: c(3) ≠ itemLevel-1(0). Scan: c≠1, b≠1, a(1)=1.
-      // → above a → afterItemId = ''
+      // → above a → position = 'first'
       const items = [b('a', 1), b('b', 2), b('c', 3), b('d', 1)];
       expect(findMoveUpTarget(items, 'd'))
-        .toEqual({ afterItemId: '' });
+        .toEqual({ position: 'first' });
     });
 
     it('moves child above its sibling under same parent', () => {
@@ -345,10 +345,10 @@ describe('findMoveUpTarget', () => {
       //     * c (2)    ← move
       //
       // Directly above c: b(2) ≠ itemLevel-1(1). b(2) = itemLevel → condition 2.
-      // → above b → afterItemId = 'a'
+      // → above b → position = 'after:a'
       const items = [b('a', 1), b('b', 2), b('c', 2)];
       expect(findMoveUpTarget(items, 'c'))
-        .toEqual({ afterItemId: 'a' });
+        .toEqual({ position: 'after:a' });
     });
 
     it('skips deeper items to find same-level', () => {
@@ -358,10 +358,10 @@ describe('findMoveUpTarget', () => {
       //     * d (2)    ← move
       //
       // Directly above d: c(3) ≠ itemLevel-1(1). Scan: c(3)≠2, b(2)=2.
-      // → above b → afterItemId = 'a'
+      // → above b → position = 'after:a'
       const items = [b('a', 1), b('b', 2), b('c', 3), b('d', 2)];
       expect(findMoveUpTarget(items, 'd'))
-        .toEqual({ afterItemId: 'a' });
+        .toEqual({ position: 'after:a' });
     });
 
     it('last of three siblings moves above second', () => {
@@ -370,10 +370,10 @@ describe('findMoveUpTarget', () => {
       // * c (1)    ← move
       //
       // Directly above c: b(1) = itemLevel(1) → condition 2 (not condition 1).
-      // → above b → afterItemId = 'a'
+      // → above b → position = 'after:a'
       const items = [b('a', 1), b('b', 1), b('c', 1)];
       expect(findMoveUpTarget(items, 'c'))
-        .toEqual({ afterItemId: 'a' });
+        .toEqual({ position: 'after:a' });
     });
   });
 
@@ -422,12 +422,12 @@ describe('findMoveUpTarget', () => {
       //             * f (4)    ← move
       //
       // Directly above f: e(3) = itemLevel-1. Two above: d(4), level 4 >= 3.
-      // → under d → afterItemId = 'd'
+      // → under d → position = 'after:d'
       const items = [
         b('a', 1), b('b', 2), b('c', 3), b('d', 4), b('e', 3), b('f', 4),
       ];
       expect(findMoveUpTarget(items, 'f'))
-        .toEqual({ afterItemId: 'd' });
+        .toEqual({ position: 'after:d' });
     });
 
     it('level-4 sibling swap via condition 2', () => {
@@ -438,10 +438,10 @@ describe('findMoveUpTarget', () => {
       //             * e (4)    ← move
       //
       // Directly above e: d(4) ≠ itemLevel-1(3). d(4)=itemLevel → cond2.
-      // → above d → afterItemId = 'c'
+      // → above d → position = 'after:c'
       const items = [b('a', 1), b('b', 2), b('c', 3), b('d', 4), b('e', 4)];
       expect(findMoveUpTarget(items, 'e'))
-        .toEqual({ afterItemId: 'c' });
+        .toEqual({ position: 'after:c' });
     });
   });
 
@@ -449,15 +449,15 @@ describe('findMoveUpTarget', () => {
   // Move to beginning
   // -------------------------------------------------------------------------
   describe('move to beginning', () => {
-    it('returns empty afterItemId when same-level is first item', () => {
+    it('returns first position when same-level is first item', () => {
       // * a (1)
       // * b (1)    ← move
       //
       // Directly above b: a(1) = itemLevel → cond2.
-      // → above a → afterItemId = ''
+      // → above a → position = 'first'
       const items = [b('a', 1), b('b', 1)];
       expect(findMoveUpTarget(items, 'b'))
-        .toEqual({ afterItemId: '' });
+        .toEqual({ position: 'first' });
     });
   });
 });

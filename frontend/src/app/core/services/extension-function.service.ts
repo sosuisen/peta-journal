@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import { ApiService } from './api.service';
+import { ApiService, ItemPosition } from './api.service';
 import { OutlineStateService } from './outline-state.service';
 
 interface FunctionInfo {
@@ -60,30 +60,41 @@ export class ExtensionFunctionService {
     }
 
     private async handleCreateItem(
-        data: { pageId: string; afterItemId: string; level: number; body: string; requestId?: string },
+        data: { pageId: string; position?: string; afterItemId?: string; level: number; body: string; requestId?: string },
         source: Window | null
     ): Promise<void> {
         try {
-            const { pageId, afterItemId, body } = data;
+            const { pageId, body } = data;
             let { level } = data;
+
+            // Determine position: support new `position` field, fall back to legacy `afterItemId`
+            let position: ItemPosition;
+            if (data.position) {
+                position = data.position as ItemPosition;
+            } else if (data.afterItemId) {
+                position = `after:${data.afterItemId}`;
+            } else {
+                position = 'last';
+            }
 
             // Find the previous item to check canPlace
             const items = this.outlineState.items();
             let prevItem;
-            if (afterItemId) {
-                prevItem = items.find(b => b.id === afterItemId);
-            } else {
-                // afterItemId empty means append at end
+            if (position.startsWith('after:')) {
+                const afterId = position.substring(6);
+                prevItem = items.find(b => b.id === afterId);
+            } else if (position === 'last') {
                 prevItem = items.length > 0 ? items[items.length - 1] : undefined;
             }
+            // position === 'first' → prevItem stays undefined
 
             // Adjust level with canPlace constraint
             while (level > 1 && !this.canPlace(level, prevItem)) {
                 level--;
             }
 
-            const newItem = await this.api.createItem(pageId, afterItemId || (prevItem?.id ?? ''), level, body);
-            this.outlineState.addItem(newItem, afterItemId || (prevItem?.id ?? ''));
+            const newItem = await this.api.createItem(pageId, position, level, body);
+            this.outlineState.addItem(newItem, position);
 
             // Send result back to iframe
             if (source) {

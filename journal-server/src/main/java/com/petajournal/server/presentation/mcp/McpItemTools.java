@@ -2,6 +2,7 @@ package com.petajournal.server.presentation.mcp;
 
 import com.petajournal.server.application.ItemService;
 import com.petajournal.server.domain.model.Item;
+import com.petajournal.server.domain.model.ItemPosition;
 import com.petajournal.server.infrastructure.persistence.PropertyRepository;
 import com.petajournal.server.presentation.rest.dto.DtoMapper;
 import com.petajournal.server.presentation.rest.dto.FieldSelector;
@@ -38,16 +39,16 @@ public class McpItemTools {
         return jsonHelper.toJson(Map.of("item", dto));
     }
 
-    @Tool(description = "Create a new item in a page. The item is inserted after the specified item, or at the end if afterItemId is empty.")
+    @Tool(description = "Create a new item in a page. Use position to specify where: 'first' for page start, 'last' for page end, 'after:<uuid>' to insert after a specific item.")
     String create_item(
             @ToolArg(description = "UUID of the page") String pageId,
-            @ToolArg(description = "Item ID to insert after (empty string to append at end)") String afterItemId,
+            @ToolArg(description = "Position: 'first', 'last', or 'after:<uuid>'") String position,
             @ToolArg(description = "Indentation level (1-based)") int level,
             @ToolArg(description = "Markdown body text") String body
     ) {
         var item = itemService.createItem(
                 UUID.fromString(pageId),
-                afterItemId.isEmpty() ? null : UUID.fromString(afterItemId),
+                ItemPosition.parse(position),
                 level,
                 body,
                 null
@@ -80,12 +81,12 @@ public class McpItemTools {
     String move_items(
             @ToolArg(description = "Comma-separated item IDs to move") String itemIds,
             @ToolArg(description = "UUID of the target page") String targetPageId,
-            @ToolArg(description = "Item ID to insert after (empty string to insert at beginning)") String afterItemId,
+            @ToolArg(description = "Position: 'first', 'last', or 'after:<uuid>'") String position,
             @ToolArg(description = "Level delta adjustment, or 0 for no change") int levelDelta
     ) {
         List<UUID> ids = List.of(itemIds.split(",")).stream().map(UUID::fromString).toList();
         Integer delta = (levelDelta == 0) ? null : levelDelta;
-        var items = itemService.moveItems(ids, UUID.fromString(targetPageId), afterItemId.isEmpty() ? null : UUID.fromString(afterItemId), delta);
+        var items = itemService.moveItems(ids, UUID.fromString(targetPageId), ItemPosition.parse(position), delta);
         return jsonHelper.toJson(Map.of("items", items));
     }
 

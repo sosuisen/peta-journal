@@ -1,5 +1,6 @@
 import { Injectable, signal, computed } from '@angular/core';
 import { Item } from '../models/item.model';
+import { ItemPosition } from './api.service';
 
 @Injectable({ providedIn: 'root' })
 export class OutlineStateService {
@@ -120,15 +121,15 @@ export class OutlineStateService {
   }
 
   /**
-   * Inserts a single item after the specified item, or at the beginning if not found.
+   * Inserts a single item at the specified position.
    * @param item - The item to insert.
-   * @param afterItemId - The ID of the item to insert after.
+   * @param position - The position to insert at.
    */
-  addItem(item: Item, afterItemId: string): void {
+  addItem(item: Item, position: ItemPosition): void {
     this._items.update(items => {
-      const idx = afterItemId ? items.findIndex(b => b.id === afterItemId) : -1;
+      const idx = this.resolveInsertionIndex(items, position);
       const newItems = [...items];
-      newItems.splice(idx + 1, 0, item);
+      newItems.splice(idx, 0, item);
       return newItems;
     });
   }
@@ -332,15 +333,15 @@ export class OutlineStateService {
   }
 
   /**
-   * Inserts multiple items after the specified item, or at the beginning if not found.
+   * Inserts multiple items at the specified position.
    * @param items - The items to insert.
-   * @param afterItemId - The ID of the item to insert after.
+   * @param position - The position to insert at.
    */
-  addItems(items: Item[], afterItemId: string): void {
+  addItems(items: Item[], position: ItemPosition): void {
     this._items.update(current => {
-      const idx = afterItemId ? current.findIndex(b => b.id === afterItemId) : -1;
+      const idx = this.resolveInsertionIndex(current, position);
       const newItems = [...current];
-      newItems.splice(idx + 1, 0, ...items);
+      newItems.splice(idx, 0, ...items);
       return newItems;
     });
   }
@@ -358,13 +359,13 @@ export class OutlineStateService {
    * Atomically remove old items and insert new items at the target position.
    * This avoids the visual duplication that happens with separate delete + add calls.
    */
-  replaceItems(oldItemIds: string[], newItems: Item[], afterItemId: string): void {
+  replaceItems(oldItemIds: string[], newItems: Item[], position: ItemPosition): void {
     const idSet = new Set(oldItemIds);
     this._items.update(current => {
       const filtered = current.filter(b => !idSet.has(b.id));
-      const idx = afterItemId ? filtered.findIndex(b => b.id === afterItemId) : -1;
+      const idx = this.resolveInsertionIndex(filtered, position);
       const result = [...filtered];
-      result.splice(idx + 1, 0, ...newItems);
+      result.splice(idx, 0, ...newItems);
       return result;
     });
   }
@@ -391,5 +392,17 @@ export class OutlineStateService {
   clearSelection(): void {
     this._selectedItemIds.set(new Set());
     this._itemSelectionMode.set(false);
+  }
+
+  /**
+   * Resolves an ItemPosition to a splice index within the items array.
+   */
+  private resolveInsertionIndex(items: Item[], position: ItemPosition): number {
+    if (position === 'first') return 0;
+    if (position === 'last') return items.length;
+    // after:<id>
+    const afterId = position.substring(6);
+    const idx = items.findIndex(b => b.id === afterId);
+    return idx >= 0 ? idx + 1 : items.length;
   }
 }

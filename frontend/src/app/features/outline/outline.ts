@@ -4,7 +4,7 @@ import { ScrollingModule, CdkVirtualScrollViewport } from '@angular/cdk/scrollin
 import { ScrollingModule as ExperimentalScrollingModule } from '@angular/cdk-experimental/scrolling';
 import { OutlineItemComponent } from './outline-item';
 import { OutlineStateService } from '../../core/services/outline-state.service';
-import { ApiService } from '../../core/services/api.service';
+import { ApiService, ItemPosition } from '../../core/services/api.service';
 import { AutoSaveService } from '../../core/services/auto-save.service';
 import { Item } from '../../core/models/item.model';
 import { ClipboardService } from '../../core/services/clipboard.service';
@@ -337,8 +337,8 @@ export class OutlineComponent implements OnInit, OnDestroy {
 
   private async ensureAtLeastOneItem(): Promise<void> {
     if (this.state.items().length > 0) return;
-    const newItem = await this.api.createItem(this.pageId(), '', 1, '');
-    this.state.addItem(newItem, '');
+    const newItem = await this.api.createItem(this.pageId(), 'first', 1, '');
+    this.state.addItem(newItem, 'first');
     this.state.setFocusedItem(newItem.id);
     this.focusEditor(newItem.id);
   }
@@ -583,7 +583,8 @@ export class OutlineComponent implements OnInit, OnDestroy {
 
     // For collapsed items, insert after the last descendant (end of subtree)
     const descendants = item.collapsed ? this.state.getChildren(item.id) : [];
-    const afterItemId = descendants.length > 0 ? descendants[descendants.length - 1].id : sourceAfterItemId;
+    const insertAfterId = descendants.length > 0 ? descendants[descendants.length - 1].id : sourceAfterItemId;
+    const afterPosition: ItemPosition = `after:${insertAfterId}`;
 
     // Convert displayed level back to source-side level
     const createLevel = newLevel - levelOffset;
@@ -592,7 +593,7 @@ export class OutlineComponent implements OnInit, OnDestroy {
       // Enter at beginning: create new empty item before current item
       if (isTransclusionRoot || isTranscludedDescendant) {
         // Transclusion: create on source page and reload
-        const newItem = await this.api.createItem(sourcePageId, '', createLevel, '');
+        const newItem = await this.api.createItem(sourcePageId, 'first', createLevel, '');
         await this.saveItemBody(saveTargetId, item.body);
         await this.loadItems(this.pageId());
 
@@ -605,12 +606,12 @@ export class OutlineComponent implements OnInit, OnDestroy {
         this.state.removeEditingItem(item.id);
       } else {
         // Normal item: insert before current item using previous item's ID
-        const prevItemId = itemIdx > 0 ? allItems[itemIdx - 1].id : '';
+        const prevPosition: ItemPosition = itemIdx > 0 ? `after:${allItems[itemIdx - 1].id}` : 'first';
         const [newItem] = await Promise.all([
-          this.api.createItem(item.pageId, prevItemId, item.level, ''),
+          this.api.createItem(item.pageId, prevPosition, item.level, ''),
           this.saveItemBody(item.id, item.body),
         ]);
-        this.state.addItem(newItem, prevItemId);
+        this.state.addItem(newItem, prevPosition);
 
         this.undo.begin('enter', { itemId: item.id, position: cursorPos });
         this.undo.pushCreate(newItem);
@@ -640,15 +641,15 @@ export class OutlineComponent implements OnInit, OnDestroy {
         properties: {},
       };
       if (isTransclusionRoot || isTranscludedDescendant) {
-        this.api.createItem(sourcePageId, afterItemId, createLevel, '', newId).then(async () => {
+        this.api.createItem(sourcePageId, afterPosition, createLevel, '', newId).then(async () => {
           await this.loadItems(this.pageId());
         });
       } else {
-        this.api.createItem(item.pageId, afterItemId, newLevel, '', newId).then(serverItem => {
+        this.api.createItem(item.pageId, afterPosition, newLevel, '', newId).then(serverItem => {
           this.state.updateItem(newId, { idx: serverItem.idx });
         });
       }
-      this.state.addItem(optimisticItem, afterItemId);
+      this.state.addItem(optimisticItem, afterPosition);
 
       this.undo.begin('enter', { itemId: item.id, position: cursorPos });
       this.undo.pushUpdate({ ...item }, { ...item });
@@ -670,7 +671,7 @@ export class OutlineComponent implements OnInit, OnDestroy {
       if (isTransclusionRoot || isTranscludedDescendant) {
         const [updatedOriginal, newItem] = await Promise.all([
           this.saveItemBody(saveTargetId, beforeText),
-          this.api.createItem(sourcePageId, afterItemId, createLevel, afterText),
+          this.api.createItem(sourcePageId, afterPosition, createLevel, afterText),
         ]);
         await this.loadItems(this.pageId());
 
@@ -686,9 +687,9 @@ export class OutlineComponent implements OnInit, OnDestroy {
       } else {
         const [updatedOriginal, newItem] = await Promise.all([
           this.saveItemBody(item.id, beforeText),
-          this.api.createItem(item.pageId, afterItemId, newLevel, afterText),
+          this.api.createItem(item.pageId, afterPosition, newLevel, afterText),
         ]);
-        this.state.addItem(newItem, afterItemId);
+        this.state.addItem(newItem, afterPosition);
 
         this.undo.begin('enter', { itemId: item.id, position: cursorPos });
         this.undo.pushUpdate(originalItem, updatedOriginal);
@@ -982,8 +983,8 @@ export class OutlineComponent implements OnInit, OnDestroy {
 
       // Move after the last child (if it's not the parent itself)
       if (lastChildId !== currentParent.id) {
-        const moved = await this.api.moveItems(groupIds, item.pageId, lastChildId);
-        this.state.replaceItems(groupIds, moved, lastChildId);
+        const moved = await this.api.moveItems(groupIds, item.pageId, `after:${lastChildId}`);
+        this.state.replaceItems(groupIds, moved, `after:${lastChildId}`);
 
         this.undo.begin('outdent');
         for (let i = 0; i < beforeSnapshots.length; i++) {
@@ -1031,9 +1032,7 @@ export class OutlineComponent implements OnInit, OnDestroy {
       const group = this.getVisibleSubtree(item.id);
       const groupIds = group.map(b => b.id);
 
-      // Convert afterItemId: empty means before first scoped item
-      const sourceAfterItemId = target.afterItemId;
-      const moved = await this.api.moveItems(groupIds, item.pageId, sourceAfterItemId);
+      const moved = await this.api.moveItems(groupIds, item.pageId, target.position);
       // Reload to reflect reordering
       await this.loadItems(this.pageId());
       this.movingEditItem = true;
@@ -1048,7 +1047,7 @@ export class OutlineComponent implements OnInit, OnDestroy {
     const groupIds = group.map(b => b.id);
     const beforeSnapshots = group.map(b => ({ ...b }));
 
-    const moved = await this.api.moveItems(groupIds, item.pageId, target.afterItemId);
+    const moved = await this.api.moveItems(groupIds, item.pageId, target.position);
 
     this.undo.begin('move');
     for (let i = 0; i < beforeSnapshots.length; i++) {
@@ -1057,7 +1056,7 @@ export class OutlineComponent implements OnInit, OnDestroy {
     this.undo.commit();
 
     this.movingEditItem = true;
-    this.state.replaceItems(groupIds, moved, target.afterItemId);
+    this.state.replaceItems(groupIds, moved, target.position);
     this.focusEditor(item.id, () => {
       this.movingEditItem = false;
     });
@@ -1082,7 +1081,7 @@ export class OutlineComponent implements OnInit, OnDestroy {
       const group = this.getVisibleSubtree(item.id);
       const groupIds = group.map(b => b.id);
 
-      await this.api.moveItems(groupIds, item.pageId, target.afterItemId);
+      await this.api.moveItems(groupIds, item.pageId, target.position);
       await this.loadItems(this.pageId());
       this.focusEditor(item.id);
       return;
@@ -1096,8 +1095,8 @@ export class OutlineComponent implements OnInit, OnDestroy {
     const groupIds = group.map(b => b.id);
     const beforeSnapshots = group.map(b => ({ ...b }));
 
-    const moved = await this.api.moveItems(groupIds, item.pageId, target.afterItemId);
-    this.state.replaceItems(groupIds, moved, target.afterItemId);
+    const moved = await this.api.moveItems(groupIds, item.pageId, target.position);
+    this.state.replaceItems(groupIds, moved, target.position);
 
     this.undo.begin('move');
     for (let i = 0; i < beforeSnapshots.length; i++) {
@@ -1450,19 +1449,19 @@ export class OutlineComponent implements OnInit, OnDestroy {
         const lastItem = currentItems[currentItems.length - 1];
         const created = await this.api.createItem(
           item.pageId,
-          lastItem.id,
+          `after:${lastItem.id}`,
           1,
           '#item-archive',
         );
         // createItem API returns empty properties; patch tag so subsequent lookups work
         closetItem = { ...created, properties: { ...created.properties, tag: ['item-archive'] } };
-        this.state.addItem(closetItem, lastItem.id);
+        this.state.addItem(closetItem, `after:${lastItem.id}`);
       }
 
       // Move the archived items as the first child of #item-archive
       const levelDelta = (closetItem.level + 1) - item.level;
-      const moved = await this.api.moveItems(groupIds, item.pageId, closetItem.id, levelDelta);
-      this.state.replaceItems(groupIds, moved, closetItem.id);
+      const moved = await this.api.moveItems(groupIds, item.pageId, `after:${closetItem.id}`, levelDelta);
+      this.state.replaceItems(groupIds, moved, `after:${closetItem.id}`);
     } catch (e: any) {
       console.error('Failed to archive item:', e?.message || e);
     }
@@ -1531,13 +1530,14 @@ export class OutlineComponent implements OnInit, OnDestroy {
         let prevItemId = item.id;
         for (let i = 1; i < parsedItems.length; i++) {
           const parsedItem = parsedItems[i];
+          const afterPos: ItemPosition = `after:${prevItemId}`;
           const newItem = await this.api.createItem(
             item.pageId,
-            prevItemId,
+            afterPos,
             item.level + parsedItem.level,
             parsedItem.body
           );
-          this.state.addItems([newItem], prevItemId);
+          this.state.addItems([newItem], afterPos);
 
           const finalNewItem = this.state.getItemById(newItem.id);
           this.undo.pushCreate(finalNewItem ?? newItem);
@@ -1882,8 +1882,8 @@ export class OutlineComponent implements OnInit, OnDestroy {
     }).filter((b): b is Item => !!b);
 
     try {
-      const moved = await this.api.moveItems(allSelectedIds, firstRoot.pageId, target.afterItemId);
-      this.state.replaceItems(allSelectedIds, moved, target.afterItemId);
+      const moved = await this.api.moveItems(allSelectedIds, firstRoot.pageId, target.position);
+      this.state.replaceItems(allSelectedIds, moved, target.position);
 
       this.undo.begin('move-selection');
       for (let i = 0; i < beforeSnapshots.length; i++) {
@@ -1915,8 +1915,8 @@ export class OutlineComponent implements OnInit, OnDestroy {
     }).filter((b): b is Item => !!b);
 
     try {
-      const moved = await this.api.moveItems(allSelectedIds, lastRoot.pageId, target.afterItemId);
-      this.state.replaceItems(allSelectedIds, moved, target.afterItemId);
+      const moved = await this.api.moveItems(allSelectedIds, lastRoot.pageId, target.position);
+      this.state.replaceItems(allSelectedIds, moved, target.position);
 
       this.undo.begin('move-selection');
       for (let i = 0; i < beforeSnapshots.length; i++) {
@@ -2043,7 +2043,7 @@ export class OutlineComponent implements OnInit, OnDestroy {
           this.state.deleteItem(op.item.id);
           break;
         case 'delete':
-          this.state.addItem(op.item, this.findInsertionPoint(op.item));
+          this.state.addItem(op.item, this.findInsertionPosition(op.item));
           break;
       }
     }
@@ -2094,7 +2094,7 @@ export class OutlineComponent implements OnInit, OnDestroy {
           }
           break;
         case 'create':
-          this.state.addItem(op.item, this.findInsertionPoint(op.item));
+          this.state.addItem(op.item, this.findInsertionPosition(op.item));
           break;
         case 'delete':
           this.state.deleteItem(op.item.id);
@@ -2124,7 +2124,7 @@ export class OutlineComponent implements OnInit, OnDestroy {
     await this.ensureAtLeastOneItem();
   }
 
-  private findInsertionPoint(item: Item): string {
+  private findInsertionPosition(item: Item): ItemPosition {
     const items = this.state.items();
     let bestId = '';
     for (const b of items) {
@@ -2132,7 +2132,7 @@ export class OutlineComponent implements OnInit, OnDestroy {
         bestId = b.id;
       }
     }
-    return bestId;
+    return bestId ? `after:${bestId}` : 'first';
   }
 
   private async syncToServer(entry: UndoEntry, dir: 'undo' | 'redo'): Promise<void> {
@@ -2154,25 +2154,25 @@ export class OutlineComponent implements OnInit, OnDestroy {
             await this.api.deleteItem(op.item.id);
           } else {
             // Redo a create = recreate
-            const afterId = this.findInsertionPoint(op.item);
+            const pos = this.findInsertionPosition(op.item);
             const newItem = await this.api.createItem(
-              op.item.pageId, afterId, op.item.level, op.item.body
+              op.item.pageId, pos, op.item.level, op.item.body
             );
             // Remap: update local state with real server item
             this.state.deleteItem(op.item.id);
-            this.state.addItem(newItem, afterId);
+            this.state.addItem(newItem, pos);
             op.item = newItem;
           }
         } else if (op.type === 'delete') {
           if (dir === 'undo') {
             // Undo a delete = recreate
-            const afterId = this.findInsertionPoint(op.item);
+            const pos = this.findInsertionPosition(op.item);
             const newItem = await this.api.createItem(
-              op.item.pageId, afterId, op.item.level, op.item.body
+              op.item.pageId, pos, op.item.level, op.item.body
             );
             // Remap
             this.state.deleteItem(op.item.id);
-            this.state.addItem(newItem, afterId);
+            this.state.addItem(newItem, pos);
             op.item = newItem;
           } else {
             // Redo a delete = delete

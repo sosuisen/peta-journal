@@ -3,6 +3,8 @@ import { Item } from '../models/item.model';
 import { Page } from '../models/page.model';
 import { SearchResult } from '../models/search.model';
 
+export type ItemPosition = 'first' | 'last' | `after:${string}`;
+
 interface GetPageResult { page: Page; items: Item[]; transcludedTrees?: Record<string, Item[]> }
 interface GetDocResult { page: Page; items: Item[]; created: boolean }
 interface GetJournalResult { page: Page; items: Item[]; created: boolean; transcludedTrees?: Record<string, Item[]> }
@@ -63,11 +65,11 @@ export class ApiService {
     return json(resp);
   }
 
-  async createItem(pageId: string, afterItemId: string, level: number, body: string, id?: string): Promise<Item> {
+  async createItem(pageId: string, position: ItemPosition, level: number, body: string, id?: string): Promise<Item> {
     const resp = await fetch('/api/items', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pageId, afterItemId, level, body, id: id ?? '' }),
+      body: JSON.stringify({ pageId, position, level, body, id: id ?? '' }),
     });
     const data = await json<{ item: Item }>(resp);
     return data.item;
@@ -83,11 +85,11 @@ export class ApiService {
     return data.item;
   }
 
-  async moveItems(itemIds: string[], targetPageId: string, afterItemId: string, levelDelta?: number): Promise<Item[]> {
+  async moveItems(itemIds: string[], targetPageId: string, position: ItemPosition, levelDelta?: number): Promise<Item[]> {
     const resp = await fetch('/api/items/move', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ itemIds, targetPageId, afterItemId, levelDelta }),
+      body: JSON.stringify({ itemIds, targetPageId, position, levelDelta }),
     });
     const data = await json<{ items: Item[] }>(resp);
     return data.items;

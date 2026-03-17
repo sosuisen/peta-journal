@@ -1,6 +1,7 @@
 package com.petajournal.server.application;
 
 import com.petajournal.server.domain.model.Item;
+import com.petajournal.server.domain.model.ItemPosition;
 import com.petajournal.server.domain.model.Page;
 import com.petajournal.server.domain.repository.ItemRepository;
 import com.petajournal.server.domain.repository.PageRepository;
@@ -98,12 +99,12 @@ public class JournalService {
         // Create items with wiki links to each day of the week
         List<LocalDate> weekDays = getWeekDays(year, week);
         List<Item> items = new ArrayList<>();
-        UUID afterItemId = null;
+        ItemPosition position = ItemPosition.FIRST;
         for (LocalDate day : weekDays) {
             String body = "[[" + day.format(DateTimeFormatter.ISO_LOCAL_DATE) + "]]";
-            Item item = itemService.createItem(id, afterItemId, 1, body, null);
+            Item item = itemService.createItem(id, position, 1, body, null);
             items.add(item);
-            afterItemId = item.id();
+            position = ItemPosition.after(item.id());
         }
 
         return new JournalResult(page, items, true);
@@ -186,12 +187,12 @@ public class JournalService {
 
         // Create items with wiki links to each month
         List<Item> items = new ArrayList<>();
-        UUID afterItemId = null;
+        ItemPosition position = ItemPosition.FIRST;
         for (int m = 1; m <= 12; m++) {
             String body = "[[" + year + "-" + String.format("%02d", m) + "]]";
-            Item item = itemService.createItem(id, afterItemId, 1, body, null);
+            Item item = itemService.createItem(id, position, 1, body, null);
             items.add(item);
-            afterItemId = item.id();
+            position = ItemPosition.after(item.id());
         }
 
         return new JournalResult(page, items, true);
@@ -216,12 +217,12 @@ public class JournalService {
         // Create items with wiki links to each week that overlaps this month
         List<Integer> weekNumbers = getWeeksInMonth(year, month);
         List<Item> items = new ArrayList<>();
-        UUID afterItemId = null;
+        ItemPosition position = ItemPosition.FIRST;
         for (int w : weekNumbers) {
             String body = "[[" + year + "-W" + String.format("%02d", w) + "]]";
-            Item item = itemService.createItem(id, afterItemId, 1, body, null);
+            Item item = itemService.createItem(id, position, 1, body, null);
             items.add(item);
-            afterItemId = item.id();
+            position = ItemPosition.after(item.id());
         }
 
         return new JournalResult(page, items, true);
