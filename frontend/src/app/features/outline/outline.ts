@@ -732,10 +732,13 @@ export class OutlineComponent implements OnInit, OnDestroy {
     const idx = items.findIndex(b => b.id === item.id);
     if (idx <= 0) return;
 
+    const prevItem = items[idx - 1];
+
+    // In journal daily pages, prevent merging across page boundaries
+    if (this.isJournalItem(item) && prevItem.pageId !== item.pageId) return;
+
     this.autoSave.cancelItem(item.id);
     this.dirtyItemIds.delete(item.id);
-
-    const prevItem = items[idx - 1];
     const originalPrev = { ...prevItem };
     const originalItem = { ...item };
     const cursorPos = prevItem.body.length;
@@ -1062,8 +1065,14 @@ export class OutlineComponent implements OnInit, OnDestroy {
       }
     }
 
-    const target = findMoveUpTarget(this.state.items(), item.id);
+    // In journal mode, scope move target search to same-page items to avoid
+    // cross-page position references that the backend cannot resolve.
+    const moveItems = this.isJournalItem(item)
+      ? this.state.items().filter(b => b.pageId === item.pageId)
+      : this.state.items();
+    const target = findMoveUpTarget(moveItems, item.id);
     if (!target) return;
+    const statePosition = this.toFullListPosition(target.position, item.pageId);
 
     const group = this.state.getItemWithChildren(item.id);
     const groupIds = group.map(b => b.id);
@@ -1078,7 +1087,7 @@ export class OutlineComponent implements OnInit, OnDestroy {
     this.undo.commit();
 
     this.movingEditItem = true;
-    this.state.replaceItems(groupIds, moved, target.position);
+    this.state.replaceItems(groupIds, moved, statePosition);
     this.focusEditor(item.id, () => {
       this.movingEditItem = false;
     });
@@ -1118,8 +1127,12 @@ export class OutlineComponent implements OnInit, OnDestroy {
       }
     }
 
-    const target = findMoveDownTarget(this.state.items(), item.id);
+    const moveItems = this.isJournalItem(item)
+      ? this.state.items().filter(b => b.pageId === item.pageId)
+      : this.state.items();
+    const target = findMoveDownTarget(moveItems, item.id);
     if (!target) return;
+    const statePosition = this.toFullListPosition(target.position, item.pageId);
 
     const children = this.state.getChildren(item.id);
     const group = [item, ...children];
@@ -1127,7 +1140,7 @@ export class OutlineComponent implements OnInit, OnDestroy {
     const beforeSnapshots = group.map(b => ({ ...b }));
 
     const moved = await this.api.moveItems(groupIds, item.pageId, target.position);
-    this.state.replaceItems(groupIds, moved, target.position);
+    this.state.replaceItems(groupIds, moved, statePosition);
 
     this.undo.begin('move');
     for (let i = 0; i < beforeSnapshots.length; i++) {
@@ -1136,6 +1149,23 @@ export class OutlineComponent implements OnInit, OnDestroy {
     this.undo.commit();
 
     this.focusEditor(item.id);
+  }
+
+  private isJournalItem(item: Item): boolean {
+    return item.type === 'journal' && /^\d{4}-\d{2}-\d{2}$/.test(item.name);
+  }
+
+  /**
+   * Translates a page-scoped position to a full-list position for state updates.
+   * 'first' becomes the position before the first item of the page in the full list.
+   * 'after:X' positions are already valid in the full list.
+   */
+  private toFullListPosition(position: ItemPosition, pageId: string): ItemPosition {
+    if (position !== 'first') return position;
+    const allItems = this.state.items();
+    const firstPageIdx = allItems.findIndex(b => b.pageId === pageId);
+    if (firstPageIdx <= 0) return 'first';
+    return `after:${allItems[firstPageIdx - 1].id}`;
   }
 
   /**
