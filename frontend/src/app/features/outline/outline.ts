@@ -13,7 +13,7 @@ import { formatJournalDate, formatDateToIso } from '../../core/utils/date.utils'
 import { NavigationService } from '../../core/services/navigation.service';
 import { ConfigService } from '../../core/services/config.service';
 import { WikiLinkContext, ensureCodeFenceClosed, hasUnclosedCodeFence } from './item-editor';
-import { findMoveDownTarget, findMoveUpTarget } from './move-utils';
+import { findCrossPagePlacement, findMoveDownTarget, findMoveUpTarget } from './move-utils';
 import { renderToHtml } from 'flatmarkdown-ast2html';
 
 @Component({
@@ -1065,6 +1065,15 @@ export class OutlineComponent implements OnInit, OnDestroy {
       }
     }
 
+    // Journal cross-day move: level 2 item at 2nd position moves to next day's page
+    if (this.isJournalItem(item) && item.level === 2) {
+      const pageItems = this.state.items().filter(b => b.pageId === item.pageId);
+      if (pageItems.length >= 2 && pageItems[1].id === item.id) {
+        const moved = await this.moveLevel2ToAdjacentDay(item, 'next');
+        if (moved) return;
+      }
+    }
+
     // In journal mode, scope move target search to same-page items to avoid
     // cross-page position references that the backend cannot resolve.
     const moveItems = this.isJournalItem(item)
@@ -1118,12 +1127,17 @@ export class OutlineComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Journal cross-day move: bottommost root item moves to previous day's page start
-    if (item.type === 'journal' && item.level === 1 && /^\d{4}-\d{2}-\d{2}$/.test(item.name)) {
-      const pageRootItems = this.state.items().filter(b => b.pageId === item.pageId && b.level === 1);
-      if (pageRootItems.length > 0 && pageRootItems[pageRootItems.length - 1].id === item.id) {
-        await this.moveItemToAdjacentDay(item, 'prev');
-        return;
+    // Journal cross-day move: bottommost item moves to previous day's page
+    if (this.isJournalItem(item)) {
+      const pageItems = this.state.items().filter(b => b.pageId === item.pageId);
+      if (pageItems.length > 0 && pageItems[pageItems.length - 1].id === item.id) {
+        if (item.level === 1) {
+          await this.moveItemToAdjacentDay(item, 'prev');
+          return;
+        } else if (item.level === 2) {
+          const moved = await this.moveLevel2ToAdjacentDay(item, 'prev');
+          if (moved) return;
+        }
       }
     }
 
@@ -1207,6 +1221,45 @@ export class OutlineComponent implements OnInit, OnDestroy {
     // Notify journal to reload, with navigation for move-up when URL matches
     const shouldNavigate = direction === 'next' && item.pageId === this.pageId();
     this.crossDayMoved.emit({ targetDate, navigate: shouldNavigate, itemId: item.id });
+  }
+
+  /**
+   * Moves a level 2 journal item to an adjacent day's page, if the target page
+   * exists and has a valid placement position.
+   * For 'next': scans from the end of the next day's page.
+   * For 'prev': scans from the start of the previous day's page.
+   * @returns true if the item was moved, false otherwise
+   */
+  private async moveLevel2ToAdjacentDay(item: Item, direction: 'next' | 'prev'): Promise<boolean> {
+    const d = new Date(item.name + 'T00:00:00');
+    d.setDate(d.getDate() + (direction === 'next' ? 1 : -1));
+    const targetDate = formatDateToIso(d);
+
+    // Only proceed if target day's page is already loaded
+    const targetPageItems = this.state.items().filter(b =>
+      b.type === 'journal' && b.name === targetDate
+    );
+    if (targetPageItems.length === 0) return false;
+
+    const scanDirection = direction === 'next' ? 'from-end' : 'from-start';
+    const placement = findCrossPagePlacement(targetPageItems, item.level, scanDirection);
+    if (!placement) return false;
+
+    const group = this.state.getItemWithChildren(item.id);
+    const groupIds = group.map(b => b.id);
+    const targetPageId = targetPageItems[0].pageId;
+
+    await this.api.moveItems(groupIds, targetPageId, placement);
+
+    // If source page has no items left, create a new empty item
+    const sourcePageId = item.pageId;
+    const remainingOnSource = this.state.items().filter(b => b.pageId === sourcePageId && !groupIds.includes(b.id));
+    if (remainingOnSource.length === 0) {
+      await this.api.createItem(sourcePageId, 'first', 1, '');
+    }
+
+    this.crossDayMoved.emit({ targetDate, navigate: false, itemId: item.id });
+    return true;
   }
 
   /**

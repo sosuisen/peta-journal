@@ -114,3 +114,40 @@ export function findMoveUpTarget(
 
   return null;
 }
+
+/**
+ * Finds a valid placement position for an item with the given level
+ * in a target page's item list.
+ *
+ * For 'from-end': scans from the last item backwards.
+ * For 'from-start': scans from the first position forwards.
+ *
+ * The placement rule is: level <= aboveItem.level + 1.
+ *
+ * @param targetItems - Items on the target page in order
+ * @param level - The level of the item to place
+ * @param direction - Scan direction
+ * @returns The position where the item can be placed, or null if not possible
+ */
+export function findCrossPagePlacement(
+  targetItems: Item[],
+  level: number,
+  direction: 'from-end' | 'from-start',
+): ItemPosition | null {
+  if (direction === 'from-end') {
+    for (let i = targetItems.length - 1; i >= 0; i--) {
+      if (level <= targetItems[i].level + 1) {
+        return `after:${targetItems[i].id}`;
+      }
+    }
+    return level === 1 ? 'first' : null;
+  } else {
+    if (level === 1) return 'first';
+    for (let i = 0; i < targetItems.length; i++) {
+      if (level <= targetItems[i].level + 1) {
+        return `after:${targetItems[i].id}`;
+      }
+    }
+    return null;
+  }
+}

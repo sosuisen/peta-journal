@@ -74,7 +74,7 @@ export class ExtensionFunctionService {
             } else if (data.afterItemId) {
                 position = `after:${data.afterItemId}`;
             } else {
-                position = 'last';
+                position = 'first';
             }
 
             // Find the previous item to check canPlace
