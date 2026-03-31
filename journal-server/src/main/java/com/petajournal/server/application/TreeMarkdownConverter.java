@@ -5,7 +5,9 @@ import jakarta.enterprise.context.ApplicationScoped;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 
 @ApplicationScoped
 public class TreeMarkdownConverter {
@@ -45,16 +47,32 @@ public class TreeMarkdownConverter {
     }
 
     /**
-     * Convert a list of items to Flat Markdown (HTML comment metadata format).
+     * Convert a list of items to Flat Markdown (HTML comment metadata format),
+     * including properties as HTML comments.
      */
-    public String itemsToFlatMarkdown(List<Item> items) {
+    public String itemsToFlatMarkdown(List<Item> items,
+                                       Map<String, Map<String, String>> scalarProps,
+                                       Map<String, Map<String, List<String>>> listProps) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < items.size(); i++) {
             Item item = items.get(i);
+            String id = item.id().toString();
             String body = item.body();
             // Empty body → single space (blank line would be an item separator)
             if (body == null || body.isEmpty())
                 body = " ";
+
+            Map<String, String> scalars = scalarProps.getOrDefault(id, Map.of());
+            Map<String, List<String>> lists = listProps.getOrDefault(id, Map.of());
+
+            // Prepend GFM task list prefix for task type
+            if (item.types() != null && item.types().contains("task")) {
+                if (scalars.containsKey("end")) {
+                    body = "- [x] " + body;
+                } else {
+                    body = "- [ ] " + body;
+                }
+            }
 
             sb.append(body).append("\n");
             sb.append("<!-- ").append(item.id()).append(" -->");
@@ -65,6 +83,16 @@ public class TreeMarkdownConverter {
 
             if (item.collapsed()) {
                 sb.append("\n<!-- collapsed=true -->");
+            }
+
+            // Write property comments (alphabetically sorted by key)
+            TreeMap<String, String> allProps = new TreeMap<>();
+            allProps.putAll(scalars);
+            for (var entry : lists.entrySet()) {
+                allProps.put(entry.getKey(), String.join(",", entry.getValue()));
+            }
+            for (var entry : allProps.entrySet()) {
+                sb.append("\n<!-- ").append(entry.getKey()).append("=").append(entry.getValue()).append(" -->");
             }
 
             if (i < items.size() - 1) {

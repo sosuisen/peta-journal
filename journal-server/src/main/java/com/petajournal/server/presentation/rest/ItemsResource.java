@@ -183,6 +183,20 @@ public class ItemsResource {
     }
 
     @POST
+    @Path("/export-page")
+    public ExportTreeMarkdownResponse exportPageMarkdown(@QueryParam("pageId") String pageId) {
+        var result = itemService.exportPageMarkdown(UUID.fromString(pageId));
+        return new ExportTreeMarkdownResponse(result.treeMarkdown(), result.ast(), result.flatMarkdown());
+    }
+
+    @POST
+    @Path("/export-subtree")
+    public ExportTreeMarkdownResponse exportSubtreeMarkdown(@QueryParam("itemId") String itemId) {
+        var result = itemService.exportSubtreeMarkdown(UUID.fromString(itemId));
+        return new ExportTreeMarkdownResponse(result.treeMarkdown(), result.ast(), result.flatMarkdown());
+    }
+
+    @POST
     @Path("/import")
     public ImportTreeMarkdownResponse importTreeMarkdown(ImportTreeMarkdownRequest req) {
         String flatMd = itemService.importTreeMarkdown(req.treeMarkdown());

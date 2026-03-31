@@ -1,5 +1,6 @@
 package com.petajournal.server.presentation.mcp;
 
+import com.petajournal.server.application.ItemService;
 import com.petajournal.server.application.PageService;
 import io.quarkiverse.mcp.server.Tool;
 import io.quarkiverse.mcp.server.ToolArg;
@@ -12,6 +13,9 @@ public class McpPageTools {
 
     @Inject
     PageService pageService;
+
+    @Inject
+    ItemService itemService;
 
     @Inject
     McpJsonHelper jsonHelper;
@@ -36,6 +40,18 @@ public class McpPageTools {
                 "page", result.page(),
                 "items", result.items(),
                 "created", result.created()
+        ));
+    }
+
+    @Tool(description = "Export a page's items as flat markdown, tree markdown, and AST. Includes item properties (begin, end, tags, etc.) in HTML comments.")
+    String export_page_markdown(
+            @ToolArg(description = "UUID of the page") String pageId
+    ) {
+        var result = itemService.exportPageMarkdown(UUID.fromString(pageId));
+        return jsonHelper.toJson(Map.of(
+                "treeMarkdown", result.treeMarkdown(),
+                "ast", result.ast(),
+                "flatMarkdown", result.flatMarkdown()
         ));
     }
 

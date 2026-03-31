@@ -474,6 +474,40 @@ public class ItemService {
     public record TreeMarkdownExport(String treeMarkdown, String ast, String flatMarkdown) {}
 
     /**
+     * Exports all items on a page as tree markdown, flat markdown, and AST.
+     *
+     * @param pageId the page ID
+     * @return the exported representations
+     */
+    public TreeMarkdownExport exportPageMarkdown(UUID pageId) {
+        List<Item> items = itemRepository.findByPageId(pageId);
+        List<String> itemIds = items.stream().map(i -> i.id().toString()).toList();
+        var scalarProps = propertyRepository.findScalarByTargets("item", itemIds);
+        var listProps = propertyRepository.findListByTargets("item", itemIds);
+        String treeMd = treeMarkdownConverter.itemsToTreeMarkdown(items);
+        String ast = markdownParser.parseToAst(treeMd);
+        String flatMd = treeMarkdownConverter.itemsToFlatMarkdown(items, scalarProps, listProps);
+        return new TreeMarkdownExport(treeMd, ast, flatMd);
+    }
+
+    /**
+     * Exports an item and all its descendants (subtree) as tree markdown, flat markdown, and AST.
+     *
+     * @param itemId the root item ID
+     * @return the exported representations of the subtree
+     */
+    public TreeMarkdownExport exportSubtreeMarkdown(UUID itemId) {
+        List<Item> items = itemRepository.findItemWithDescendants(itemId);
+        List<String> itemIds = items.stream().map(i -> i.id().toString()).toList();
+        var scalarProps = propertyRepository.findScalarByTargets("item", itemIds);
+        var listProps = propertyRepository.findListByTargets("item", itemIds);
+        String treeMd = treeMarkdownConverter.itemsToTreeMarkdown(items);
+        String ast = markdownParser.parseToAst(treeMd);
+        String flatMd = treeMarkdownConverter.itemsToFlatMarkdown(items, scalarProps, listProps);
+        return new TreeMarkdownExport(treeMd, ast, flatMd);
+    }
+
+    /**
      * Exports items as hierarchical tree markdown, flat markdown, and HTML.
      *
      * @param itemIds the item IDs to export
@@ -485,9 +519,12 @@ public class ItemService {
             .filter(Optional::isPresent)
             .map(Optional::get)
             .toList();
+        List<String> idStrings = items.stream().map(i -> i.id().toString()).toList();
+        var scalarProps = propertyRepository.findScalarByTargets("item", idStrings);
+        var listProps = propertyRepository.findListByTargets("item", idStrings);
         String treeMd = treeMarkdownConverter.itemsToTreeMarkdown(items);
         String ast = markdownParser.parseToAst(treeMd);
-        String flatMd = treeMarkdownConverter.itemsToFlatMarkdown(items);
+        String flatMd = treeMarkdownConverter.itemsToFlatMarkdown(items, scalarProps, listProps);
         return new TreeMarkdownExport(treeMd, ast, flatMd);
     }
 

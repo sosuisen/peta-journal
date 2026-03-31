@@ -112,6 +112,63 @@ public class McpItemTools {
         ));
     }
 
+    @Tool(description = "Export an item and all its descendants (subtree) as tree markdown, flat markdown, and AST. Use this to get a complete subtree rooted at a specific item.")
+    String export_subtree_markdown(
+            @ToolArg(description = "UUID of the root item") String itemId
+    ) {
+        var result = itemService.exportSubtreeMarkdown(UUID.fromString(itemId));
+        return jsonHelper.toJson(Map.of(
+                "treeMarkdown", result.treeMarkdown(),
+                "ast", result.ast(),
+                "flatMarkdown", result.flatMarkdown()
+        ));
+    }
+
+    @Tool(description = "Cycle the task state of an item: non-task → task, task → started (begin), started → completed (end), completed → non-task.")
+    String cycle_task(
+            @ToolArg(description = "UUID of the item") String itemId
+    ) {
+        var item = itemService.cycleTask(UUID.fromString(itemId));
+        return jsonHelper.toJson(Map.of("item", toItemDto(item)));
+    }
+
+    @Tool(description = "Set a transclusion on an item, making it mirror a source item's content.")
+    String set_transclusion(
+            @ToolArg(description = "UUID of the item to set as a transclusion") String itemId,
+            @ToolArg(description = "UUID of the source item to transclude") String sourceItemId
+    ) {
+        var item = itemService.setTransclusion(UUID.fromString(itemId), UUID.fromString(sourceItemId));
+        return jsonHelper.toJson(Map.of("item", toItemDto(item)));
+    }
+
+    @Tool(description = "Remove a transclusion from an item, clearing its body.")
+    String remove_transclusion(
+            @ToolArg(description = "UUID of the transclusion item") String itemId
+    ) {
+        var item = itemService.removeTransclusion(UUID.fromString(itemId));
+        return jsonHelper.toJson(Map.of("item", toItemDto(item)));
+    }
+
+    @Tool(description = "Upsert a scalar property on an item (e.g. begin, end, due, plan, cancelled).")
+    String upsert_property(
+            @ToolArg(description = "UUID of the item") String itemId,
+            @ToolArg(description = "Property key (e.g. 'begin', 'end', 'due', 'plan')") String key,
+            @ToolArg(description = "Value type: 'text', 'number', 'checkbox', 'date', or 'datetime'") String valueType,
+            @ToolArg(description = "Property value as string") String value
+    ) {
+        var item = itemService.getItemById(UUID.fromString(itemId));
+        propertyRepository.upsertScalar("item", itemId, key, valueType, value);
+        return jsonHelper.toJson(Map.of("item", toItemDto(item)));
+    }
+
+    @Tool(description = "Convert tree markdown (indented list format) to flat markdown.")
+    String import_tree_markdown(
+            @ToolArg(description = "Tree markdown string to convert") String treeMarkdown
+    ) {
+        String flatMd = itemService.importTreeMarkdown(treeMarkdown);
+        return jsonHelper.toJson(Map.of("flatMarkdown", flatMd));
+    }
+
     private ItemDto toItemDto(Item item) {
         String id = item.id().toString();
         var scalars = propertyRepository.findScalarByTargets("item", List.of(id)).getOrDefault(id, Map.of());
