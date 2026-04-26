@@ -15,6 +15,7 @@ import { ConfigService } from '../../core/services/config.service';
 import { WikiLinkContext, ensureCodeFenceClosed, hasUnclosedCodeFence } from './item-editor';
 import { findCrossPagePlacement, findMoveDownTarget, findMoveUpTarget } from './move-utils';
 import { renderToHtml } from 'flatmarkdown-ast2html';
+import { HmtidService } from '../../core/services/hmtid.service';
 
 @Component({
   selector: 'app-outline',
@@ -153,6 +154,7 @@ export class OutlineComponent implements OnInit, OnDestroy {
   private readonly nav = inject(NavigationService);
   private readonly undo = inject(UndoService);
   private readonly config = inject(ConfigService);
+  private readonly hmtid = inject(HmtidService);
   readonly pageId = input.required<string>();
   readonly focusItemId = input<string | null | undefined>('');
   readonly disableAutoLoad = input<boolean>(false);  // Disable automatic item loading
@@ -636,7 +638,7 @@ export class OutlineComponent implements OnInit, OnDestroy {
       }
     } else if (cursorPos === item.body.length) {
       // Enter at end: body unchanged — create new item
-      const newId = crypto.randomUUID();
+      const newId = this.hmtid.nextId();
       const optimisticItem: Item = {
         id: newId,
         pageId: sourcePageId,

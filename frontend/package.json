@@ -38,6 +38,7 @@
         "flatmarkdown-ast2angular": "^0.3.2",
         "flatmarkdown-ast2html": "^0.1.1",
         "highlight.js": "^11.11.1",
+        "hmtid": "^1.0.0",
         "rxjs": "~7.8.0",
         "tslib": "^2.3.0"
     },
