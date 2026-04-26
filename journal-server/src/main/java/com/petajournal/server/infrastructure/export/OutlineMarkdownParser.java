@@ -1,9 +1,12 @@
 package com.petajournal.server.infrastructure.export;
 
+import com.petajournal.server.domain.IdGenerator;
 import com.petajournal.server.domain.model.Item;
 import com.petajournal.server.domain.model.Page;
-import com.petajournal.server.domain.ItemIdGenerator;
 import com.petajournal.server.domain.FractionalIndexer;
+import com.sosuisha.hmtid.HMTID;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 
 import java.time.Instant;
 import java.util.*;
@@ -14,12 +17,16 @@ import java.util.regex.Pattern;
  * Parses Outline Markdown format back into Page and Item domain objects.
  * Format: YAML frontmatter + blank-line separated items with HTML comment metadata.
  */
+@ApplicationScoped
 public class OutlineMarkdownParser {
 
-    private static final Pattern ID_COMMENT = Pattern.compile("^<!--\\s*([0-9a-f]{7,8}(-[0-9a-f-]+)?)\\s*-->$");
+    private static final Pattern ID_COMMENT = Pattern.compile("^<!--\\s*([0-9a-zA-Z-]{7,})\\s*-->$");
     private static final Pattern LEVEL_COMMENT = Pattern.compile("^<!--\\s*level=(\\d+)\\s*-->$");
     private static final Pattern COLLAPSED_COMMENT = Pattern.compile("^<!--\\s*collapsed=true\\s*-->$");
     private static final Pattern PROP_COMMENT = Pattern.compile("^<!--\\s*(\\w+)=(.*?)\\s*-->$");
+
+    @Inject
+    IdGenerator idGenerator;
 
     public record ParseResult(
         Map<String, String> frontmatter,
@@ -61,7 +68,7 @@ public class OutlineMarkdownParser {
     public Page toPage(ParseResult result, String dirPath, String name, String type) {
         Map<String, String> fm = result.frontmatter();
 
-        UUID id = fm.containsKey("id") ? UUID.fromString(fm.get("id")) : UUID.randomUUID();
+        HMTID id = fm.containsKey("id") ? HMTID.of(fm.get("id")) : idGenerator.generatePageId();
         Instant now = Instant.now();
         Instant created = fm.containsKey("created") ? Instant.parse(fm.get("created")) : now;
         Instant modified = fm.containsKey("modified") ? Instant.parse(fm.get("modified")) : now;
@@ -69,22 +76,22 @@ public class OutlineMarkdownParser {
         return new Page(id, null, dirPath, name, type, created, modified);
     }
 
-    public List<Item> toItems(ParseResult result, UUID pageId, String dirPath, String name, String type) {
+    public List<Item> toItems(ParseResult result, HMTID pageId, String dirPath, String name, String type) {
         List<Item> items = new ArrayList<>();
         Instant now = Instant.now();
         String prevIdx = null;
 
         for (ParsedItem pb : result.items()) {
             String idx = FractionalIndexer.between(prevIdx, null);
-            UUID itemId;
+            HMTID itemId;
             if (pb.id() != null && !pb.id().isEmpty()) {
                 try {
-                    itemId = UUID.fromString(pb.id());
+                    itemId = HMTID.of(pb.id());
                 } catch (IllegalArgumentException e) {
-                    itemId = ItemIdGenerator.generate();
+                    itemId = idGenerator.generateItemId();
                 }
             } else {
-                itemId = ItemIdGenerator.generate();
+                itemId = idGenerator.generateItemId();
             }
 
             items.add(new Item(

@@ -11,11 +11,14 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 
+import com.sosuisha.hmtid.HMTID;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.file.*;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 @ApplicationScoped
 public class MarkdownExportService {
@@ -39,7 +42,7 @@ public class MarkdownExportService {
 
     private volatile boolean isProcessing = false;
 
-    public void queueExport(UUID pageId) {
+    public void queueExport(HMTID pageId) {
         exportQueueRepository.enqueue(pageId);
     }
 
@@ -71,8 +74,8 @@ public class MarkdownExportService {
 
         isProcessing = true;
         try {
-            List<UUID> pageIds = exportQueueRepository.dequeueAll();
-            for (UUID pageId : pageIds) {
+            List<HMTID> pageIds = exportQueueRepository.dequeueAll();
+            for (HMTID pageId : pageIds) {
                 try {
                     exportPage(pageId);
                 } catch (Exception e) {
@@ -86,7 +89,7 @@ public class MarkdownExportService {
         }
     }
 
-    void exportPage(UUID pageId) throws IOException {
+    void exportPage(HMTID pageId) throws IOException {
         String markdownDir = configService.getMarkdownDir();
         if (markdownDir == null || markdownDir.trim().isEmpty()) {
             LOG.warn("Markdown directory not configured, skipping export");

@@ -6,8 +6,8 @@ import io.quarkiverse.mcp.server.Tool;
 import io.quarkiverse.mcp.server.ToolArg;
 import jakarta.inject.Inject;
 
+import com.sosuisha.hmtid.HMTID;
 import java.util.Map;
-import java.util.UUID;
 
 public class McpPageTools {
 
@@ -24,7 +24,7 @@ public class McpPageTools {
     String get_page_by_id(
             @ToolArg(description = "UUID of the page") String pageId
     ) {
-        var page = pageService.getPage(UUID.fromString(pageId))
+        var page = pageService.getPage(HMTID.of(pageId))
                 .orElseThrow(() -> new IllegalArgumentException("Page not found: " + pageId));
         var items = pageService.getPageItems(page.id());
         return jsonHelper.toJson(Map.of("page", page, "items", items));
@@ -47,7 +47,7 @@ public class McpPageTools {
     String export_page_markdown(
             @ToolArg(description = "UUID of the page") String pageId
     ) {
-        var result = itemService.exportPageMarkdown(UUID.fromString(pageId));
+        var result = itemService.exportPageMarkdown(HMTID.of(pageId));
         return jsonHelper.toJson(Map.of(
                 "treeMarkdown", result.treeMarkdown(),
                 "ast", result.ast(),
@@ -63,7 +63,7 @@ public class McpPageTools {
     ) {
         String t = (title == null || title.isEmpty()) ? null : title;
         String d = (dirPath == null) ? null : dirPath;
-        var page = pageService.updatePage(UUID.fromString(pageId), t, d);
+        var page = pageService.updatePage(HMTID.of(pageId), t, d);
         return jsonHelper.toJson(Map.of("page", page));
     }
 
@@ -71,7 +71,7 @@ public class McpPageTools {
     String delete_page(
             @ToolArg(description = "UUID of the page to delete") String pageId
     ) {
-        pageService.deletePage(UUID.fromString(pageId));
+        pageService.deletePage(HMTID.of(pageId));
         return jsonHelper.toJson(Map.of("deleted", true));
     }
 }

@@ -9,15 +9,15 @@ import com.petajournal.server.domain.repository.SearchService;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
-import com.petajournal.server.domain.ItemIdGenerator;
+import com.petajournal.server.domain.IdGenerator;
 import com.petajournal.server.domain.FractionalIndexer;
 import com.petajournal.server.domain.JournalFileNameMatcher;
+import com.sosuisha.hmtid.HMTID;
 
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 @ApplicationScoped
 public class PageService {
@@ -34,23 +34,26 @@ public class PageService {
     @Inject
     com.petajournal.server.infrastructure.export.MarkdownExportService exportService;
 
+    @Inject
+    IdGenerator idGenerator;
+
     /**
      * Retrieves a page by its ID.
      *
-     * @param pageId the page UUID
+     * @param pageId the page HMTID
      * @return the page, or empty if not found
      */
-    public Optional<Page> getPage(UUID pageId) {
+    public Optional<Page> getPage(HMTID pageId) {
         return pageRepository.findById(pageId);
     }
 
     /**
      * Returns all items belonging to a page, ordered by index.
      *
-     * @param pageId the page UUID
+     * @param pageId the page HMTID
      * @return the list of items
      */
-    public List<Item> getPageItems(UUID pageId) {
+    public List<Item> getPageItems(HMTID pageId) {
         return itemRepository.findByPageId(pageId);
     }
 
@@ -109,7 +112,7 @@ public class PageService {
             return new DocResult(page, items, false);
         }
 
-        UUID id = UUID.randomUUID();
+        HMTID id = idGenerator.generatePageId();
         Instant now = Instant.now();
 
         Page page = new Page(id, null, dir, fileName, "doc", now, now);
@@ -117,7 +120,7 @@ public class PageService {
         searchService.indexPage(page);
 
         // Create initial empty item
-        UUID itemId = ItemIdGenerator.generate();
+        HMTID itemId = idGenerator.generateItemId();
         Item item = new Item(itemId, id, null, page.dirPath(), page.name(), page.type(), now, now,
                 FractionalIndexer.initial(), 1, "", "", false, List.of(), null);
         itemRepository.save(item);
@@ -138,7 +141,7 @@ public class PageService {
      * @throws IllegalArgumentException if the page is not found or the title is
      *                                  invalid
      */
-    public Page updatePage(UUID pageId, String title, String dirPath) {
+    public Page updatePage(HMTID pageId, String title, String dirPath) {
         Page existing = pageRepository.findById(pageId)
                 .orElseThrow(() -> new IllegalArgumentException("Page not found: " + pageId));
 
@@ -212,7 +215,7 @@ public class PageService {
      *
      * @param pageId the page to delete
      */
-    public void deletePage(UUID pageId) {
+    public void deletePage(HMTID pageId) {
         Page page = pageRepository.findById(pageId)
                 .orElseThrow(() -> new IllegalArgumentException("Page not found: " + pageId));
 
@@ -251,11 +254,11 @@ public class PageService {
     /**
      * Finds all pages and items that link to the given page (backlinks).
      *
-     * @param pageId the target page UUID
+     * @param pageId the target page HMTID
      * @return the list of backlink entries, each containing the source page and
      *         linking item
      */
-    public List<BacklinkEntry> getBacklinks(UUID pageId) {
+    public List<BacklinkEntry> getBacklinks(HMTID pageId) {
         List<Page> sources = pageRepository.findBacklinkSources(pageId);
         List<BacklinkEntry> entries = new ArrayList<>();
 
@@ -306,13 +309,13 @@ public class PageService {
                     searchService.indexPage(renamed);
                 } else {
                     // Create new index page
-                    UUID id = UUID.randomUUID();
+                    HMTID id = idGenerator.generatePageId();
                     Instant now = Instant.now();
                     Page page = new Page(id, null, indexDir, "index", "doc", now, now);
                     pageRepository.save(page);
                     searchService.indexPage(page);
 
-                    UUID itemId = ItemIdGenerator.generate();
+                    HMTID itemId = idGenerator.generateItemId();
                     Item item = new Item(itemId, id, null, indexDir, "index", "doc", now, now,
                             FractionalIndexer.initial(), 1, "", "", false, List.of(), null);
                     itemRepository.save(item);
@@ -326,7 +329,7 @@ public class PageService {
      * For non-index children: replaces their dir_path from oldPrefix to newPrefix.
      * For index children: replaces their dir_path prefix and recurses into their children.
      */
-    private void propagateDirPathChange(UUID parentPageId, String oldPrefix, String newPrefix) {
+    private void propagateDirPathChange(HMTID parentPageId, String oldPrefix, String newPrefix) {
         List<Page> children = pageRepository.findByParentId(parentPageId);
         for (Page child : children) {
             String childNewDirPath = newPrefix + child.dirPath().substring(oldPrefix.length());

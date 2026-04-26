@@ -7,8 +7,9 @@ import com.petajournal.server.domain.repository.ItemRepository;
 import com.petajournal.server.domain.repository.MarkdownParser;
 import com.petajournal.server.domain.repository.PageRepository;
 import com.petajournal.server.domain.repository.SearchService;
-import com.petajournal.server.domain.ItemIdGenerator;
+import com.petajournal.server.domain.IdGenerator;
 import com.petajournal.server.domain.FractionalIndexer;
+import com.sosuisha.hmtid.HMTID;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
@@ -19,7 +20,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 
 @ApplicationScoped
 public class ItemService {
@@ -47,6 +47,9 @@ public class ItemService {
     @Inject
     com.petajournal.server.infrastructure.persistence.PropertyRepository propertyRepository;
 
+    @Inject
+    IdGenerator idGenerator;
+
     /**
      * Creates a new item on the specified page.
      *
@@ -57,8 +60,8 @@ public class ItemService {
      * @return the newly created item
      * @throws IllegalArgumentException if the page is not found
      */
-    public Item createItem(UUID pageId, ItemPosition position, int level, String body, UUID clientId) {
-        UUID id = clientId != null ? clientId : ItemIdGenerator.generate();
+    public Item createItem(HMTID pageId, ItemPosition position, int level, String body, HMTID clientId) {
+        HMTID id = clientId != null ? clientId : idGenerator.generateItemId();
         Instant now = Instant.now();
         String ast = parseBody(body);
 
@@ -127,7 +130,7 @@ public class ItemService {
      * @return the updated item
      * @throws IllegalArgumentException if the item is not found
      */
-    public Item updateItem(UUID itemId, String body, Integer level, Boolean collapsed) {
+    public Item updateItem(HMTID itemId, String body, Integer level, Boolean collapsed) {
         Item existing = itemRepository.findById(itemId)
                 .orElseThrow(() -> new IllegalArgumentException("Item not found: " + itemId));
 
@@ -196,7 +199,7 @@ public class ItemService {
      * @return the moved items with updated indices
      * @throws IllegalArgumentException if an item or the target page is not found
      */
-    public List<Item> moveItems(List<UUID> itemIds, UUID targetPageId, ItemPosition position, Integer levelDelta) {
+    public List<Item> moveItems(List<HMTID> itemIds, HMTID targetPageId, ItemPosition position, Integer levelDelta) {
         List<Item> movedItems = new ArrayList<>();
         List<Item> targetItems = itemRepository.findByPageId(targetPageId);
 
@@ -214,7 +217,7 @@ public class ItemService {
                     afterIdx = targetItems.getLast().idx();
                 }
             }
-            case ItemPosition.After(UUID afterItemId) -> {
+            case ItemPosition.After(HMTID afterItemId) -> {
                 for (int i = 0; i < targetItems.size(); i++) {
                     if (targetItems.get(i).id().equals(afterItemId)) {
                         afterIdx = targetItems.get(i).idx();
@@ -232,7 +235,7 @@ public class ItemService {
 
         // Validate level constraints for all items before making changes
         Item aboveItem = findItemAbove(targetItems, position);
-        for (UUID itemId : itemIds) {
+        for (HMTID itemId : itemIds) {
             Item item = itemRepository.findById(itemId)
                     .orElseThrow(() -> new IllegalArgumentException("Item not found: " + itemId));
             int newLevel = Math.max(1, item.level() + delta);
@@ -259,7 +262,7 @@ public class ItemService {
         Page targetPage = pageRepository.findById(targetPageId)
                 .orElseThrow(() -> new IllegalArgumentException("Target page not found: " + targetPageId));
 
-        for (UUID itemId : itemIds) {
+        for (HMTID itemId : itemIds) {
             Item item = itemRepository.findById(itemId)
                     .orElseThrow(() -> new IllegalArgumentException("Item not found: " + itemId));
 
@@ -312,7 +315,7 @@ public class ItemService {
      *
      * @param itemId the item to delete
      */
-    public void deleteItem(UUID itemId) {
+    public void deleteItem(HMTID itemId) {
         Optional<Item> item = itemRepository.findById(itemId);
         itemRepository.delete(itemId);
         searchService.removeItem(itemId.toString());
@@ -333,7 +336,7 @@ public class ItemService {
      * @return the updated item
      * @throws IllegalArgumentException if the item or source is not found, or source is itself a transclusion
      */
-    public Item setTransclusion(UUID itemId, UUID sourceItemId) {
+    public Item setTransclusion(HMTID itemId, HMTID sourceItemId) {
         Item item = itemRepository.findById(itemId)
                 .orElseThrow(() -> new IllegalArgumentException("Item not found: " + itemId));
         Item source = itemRepository.findById(sourceItemId)
@@ -364,7 +367,7 @@ public class ItemService {
      * @return the updated item
      * @throws IllegalArgumentException if the item is not found
      */
-    public Item removeTransclusion(UUID itemId) {
+    public Item removeTransclusion(HMTID itemId) {
         Item item = itemRepository.findById(itemId)
                 .orElseThrow(() -> new IllegalArgumentException("Item not found: " + itemId));
 
@@ -381,7 +384,7 @@ public class ItemService {
     }
 
     /** Returns an item by its ID. */
-    public Item getItemById(UUID itemId) {
+    public Item getItemById(HMTID itemId) {
         return itemRepository.findById(itemId)
                 .orElseThrow(() -> new IllegalArgumentException("Item not found: " + itemId));
     }
@@ -395,9 +398,9 @@ public class ItemService {
      * Returns the page ID that contains the given item.
      *
      * @param itemId the item to look up
-     * @return the page UUID as a string, or {@code null} if the item is not found
+     * @return the page HMTID as a string, or {@code null} if the item is not found
      */
-    public String getItemPageId(UUID itemId) {
+    public String getItemPageId(HMTID itemId) {
         return itemRepository.findById(itemId)
                 .map(b -> b.pageId().toString())
                 .orElse(null);
@@ -410,7 +413,7 @@ public class ItemService {
      * 3. Task, has begin, no end → set end = now
      * 4. Task, has begin AND end → remove task type, begin/end (back to normal)
      */
-    public Item cycleTask(UUID itemId) {
+    public Item cycleTask(HMTID itemId) {
         Item existing = itemRepository.findById(itemId)
                 .orElseThrow(() -> new IllegalArgumentException("Item not found: " + itemId));
 
@@ -479,7 +482,7 @@ public class ItemService {
      * @param pageId the page ID
      * @return the exported representations
      */
-    public TreeMarkdownExport exportPageMarkdown(UUID pageId) {
+    public TreeMarkdownExport exportPageMarkdown(HMTID pageId) {
         List<Item> items = itemRepository.findByPageId(pageId);
         List<String> itemIds = items.stream().map(i -> i.id().toString()).toList();
         var scalarProps = propertyRepository.findScalarByTargets("item", itemIds);
@@ -496,7 +499,7 @@ public class ItemService {
      * @param itemId the root item ID
      * @return the exported representations of the subtree
      */
-    public TreeMarkdownExport exportSubtreeMarkdown(UUID itemId) {
+    public TreeMarkdownExport exportSubtreeMarkdown(HMTID itemId) {
         List<Item> items = itemRepository.findItemWithDescendants(itemId);
         List<String> itemIds = items.stream().map(i -> i.id().toString()).toList();
         var scalarProps = propertyRepository.findScalarByTargets("item", itemIds);
@@ -513,7 +516,7 @@ public class ItemService {
      * @param itemIds the item IDs to export
      * @return the exported representations
      */
-    public TreeMarkdownExport exportTreeMarkdown(List<UUID> itemIds) {
+    public TreeMarkdownExport exportTreeMarkdown(List<HMTID> itemIds) {
         List<Item> items = itemIds.stream()
             .map(id -> itemRepository.findById(id))
             .filter(Optional::isPresent)
@@ -543,7 +546,7 @@ public class ItemService {
      * WARNING: This operation reassigns all idx values on a page. In a future CRDT-based
      * sync system, this will conflict with remote changes and may cause ordering issues.
      */
-    private void reindexPage(UUID pageId, List<Item> items) {
+    private void reindexPage(HMTID pageId, List<Item> items) {
         LOG.warnv("REINDEX: Reassigning fractional indices for page {0} ({1} items). " +
                 "This may cause conflicts with CRDT-based sync.", pageId, items.size());
         List<String> newIndices = FractionalIndexer.generateIndices(items.size());
@@ -562,7 +565,7 @@ public class ItemService {
         return switch (position) {
             case ItemPosition.First() -> FractionalIndexer.between(null, existingItems.getFirst().idx());
             case ItemPosition.Last() -> FractionalIndexer.between(existingItems.getLast().idx(), null);
-            case ItemPosition.After(UUID itemId) -> {
+            case ItemPosition.After(HMTID itemId) -> {
                 String afterIdx = null;
                 String nextIdx = null;
                 for (int i = 0; i < existingItems.size(); i++) {
@@ -590,12 +593,12 @@ public class ItemService {
         return switch (position) {
             case ItemPosition.First() -> null;
             case ItemPosition.Last() -> existingItems.getLast();
-            case ItemPosition.After(UUID itemId) -> existingItems.stream()
+            case ItemPosition.After(HMTID itemId) -> existingItems.stream()
                 .filter(i -> i.id().equals(itemId)).findFirst().orElse(null);
         };
     }
 
-    private void touchPage(UUID pageId) {
+    private void touchPage(HMTID pageId) {
         pageRepository.findById(pageId).ifPresent(page -> {
             Page updated = new Page(
                     page.id(), page.parentId(), page.dirPath(), page.name(), page.type(),

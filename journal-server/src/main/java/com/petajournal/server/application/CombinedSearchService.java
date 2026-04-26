@@ -11,7 +11,16 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 
-import java.util.*;
+import com.sosuisha.hmtid.HMTID;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 
 @ApplicationScoped
 public class CombinedSearchService {
@@ -163,7 +172,7 @@ public class CombinedSearchService {
                     results.add(snippetMap.get(itemId));
                     continue;
                 }
-                Optional<Item> itemOpt = itemRepository.findById(UUID.fromString(itemId));
+                Optional<Item> itemOpt = itemRepository.findById(HMTID.of(itemId));
                 if (itemOpt.isEmpty()) continue;
                 Item item = itemOpt.get();
                 Optional<Page> pageOpt = pageRepository.findById(item.pageId());

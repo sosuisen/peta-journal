@@ -1,11 +1,11 @@
 package com.petajournal.server.domain.model;
 
+import com.sosuisha.hmtid.HMTID;
 import java.time.Instant;
-import java.util.UUID;
 
 public record Page(
-    UUID id,
-    UUID parentId,
+    HMTID id,
+    HMTID parentId,
     String dirPath,
     String name,
     String type,        // "journal" or "doc"

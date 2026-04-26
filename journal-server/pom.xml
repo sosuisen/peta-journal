@@ -68,6 +68,12 @@
       <artifactId>sqlite-jdbc</artifactId>
       <version>${sqlite-jdbc.version}</version>
     </dependency>
+    <!-- hmtid -->
+    <dependency>
+      <groupId>com.sosuisha</groupId>
+      <artifactId>hmtid</artifactId>
+      <version>2.0.0</version>
+    </dependency>
     <!-- Lucene + Kuromoji -->
     <dependency>
       <groupId>org.apache.lucene</groupId>

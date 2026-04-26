@@ -6,10 +6,11 @@ import com.petajournal.server.domain.model.Page;
 import com.petajournal.server.domain.repository.ItemRepository;
 import com.petajournal.server.domain.repository.PageRepository;
 import com.petajournal.server.domain.repository.SearchService;
-import com.petajournal.server.domain.ItemIdGenerator;
+import com.petajournal.server.domain.IdGenerator;
 import com.petajournal.server.domain.FractionalIndexer;
 import com.petajournal.server.domain.JournalFileNameMatcher;
 import com.petajournal.server.domain.JournalFileNameMatcher.JournalType;
+import com.sosuisha.hmtid.HMTID;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -21,7 +22,6 @@ import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 @ApplicationScoped
 public class JournalService {
@@ -40,6 +40,9 @@ public class JournalService {
 
     @Inject
     ItemService itemService;
+
+    @Inject
+    IdGenerator idGenerator;
 
     /** Result of getting or creating a journal page. */
     public record JournalResult(Page page, List<Item> items, boolean created) {}
@@ -62,7 +65,7 @@ public class JournalService {
         }
 
         // Create new journal page
-        UUID id = UUID.randomUUID();
+        HMTID id = idGenerator.generatePageId();
         Instant now = Instant.now();
 
         String fileName = date.format(DateTimeFormatter.ISO_LOCAL_DATE);
@@ -72,7 +75,7 @@ public class JournalService {
         searchService.indexPage(page);
 
         // Create initial empty item
-        UUID itemId = ItemIdGenerator.generate();
+        HMTID itemId = idGenerator.generateItemId();
         Item item = new Item(itemId, id, null, page.dirPath(), page.name(), page.type(), now, now, FractionalIndexer.initial(), 1, "", "", false, List.of(), null);
         item = itemRepository.save(item);
 
@@ -89,7 +92,7 @@ public class JournalService {
         }
 
         // Create new weekly journal page
-        UUID id = UUID.randomUUID();
+        HMTID id = idGenerator.generatePageId();
         Instant now = Instant.now();
 
         Page page = new Page(id, null, "", fileName, "journal", now, now);
@@ -178,7 +181,7 @@ public class JournalService {
             return new JournalResult(page, items, false);
         }
 
-        UUID id = UUID.randomUUID();
+        HMTID id = idGenerator.generatePageId();
         Instant now = Instant.now();
 
         Page page = new Page(id, null, "", fileName, "journal", now, now);
@@ -207,7 +210,7 @@ public class JournalService {
             return new JournalResult(page, items, false);
         }
 
-        UUID id = UUID.randomUUID();
+        HMTID id = idGenerator.generatePageId();
         Instant now = Instant.now();
 
         Page page = new Page(id, null, "", fileName, "journal", now, now);

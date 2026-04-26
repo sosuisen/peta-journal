@@ -7,6 +7,7 @@ import com.petajournal.server.infrastructure.persistence.PropertyRepository;
 import com.petajournal.server.presentation.rest.dto.ItemDto;
 import com.petajournal.server.presentation.rest.dto.DtoMapper;
 import com.petajournal.server.presentation.rest.dto.FieldSelector;
+import com.sosuisha.hmtid.HMTID;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
@@ -17,7 +18,6 @@ import jakarta.ws.rs.core.Response;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @Path("/api/items")
 @Produces(MediaType.APPLICATION_JSON)
@@ -58,10 +58,10 @@ public class ItemsResource {
 
     @POST
     public CreateItemResponse createItem(CreateItemRequest req) {
-        UUID clientId = (req.id() != null && !req.id().isEmpty()) ? UUID.fromString(req.id()) : null;
+        HMTID clientId = (req.id() != null && !req.id().isEmpty()) ? HMTID.of(req.id()) : null;
         ItemPosition position = ItemPosition.parse(req.position());
         var item = itemService.createItem(
-                UUID.fromString(req.pageId()),
+                HMTID.of(req.pageId()),
                 position,
                 req.level(),
                 req.body(),
@@ -73,7 +73,7 @@ public class ItemsResource {
     @GET
     @Path("/{id}")
     public Response getItem(@PathParam("id") String id, @QueryParam("fields") String fields) {
-        var item = itemService.getItemById(UUID.fromString(id));
+        var item = itemService.getItemById(HMTID.of(id));
         if (fields != null && !fields.isEmpty()) {
             var dto = loadItemDto(item);
             return Response.ok(FieldSelector.selectFields(dto, fields)).build();
@@ -85,13 +85,13 @@ public class ItemsResource {
     @Path("/{id}")
     public UpdateItemResponse updateItem(@PathParam("id") String id, UpdateItemRequest req) {
         var item = itemService.updateItem(
-                UUID.fromString(id),
+                HMTID.of(id),
                 req.body(),
                 req.level(),
                 req.collapsed());
         sseBroadcaster.broadcastPagesUpdated(item.pageId().toString());
         // Notify pages that transclude this item
-        broadcastToTranscluders(UUID.fromString(id), item.pageId().toString());
+        broadcastToTranscluders(HMTID.of(id), item.pageId().toString());
         return new UpdateItemResponse(DtoMapper.toDto(item));
     }
 
@@ -99,9 +99,9 @@ public class ItemsResource {
     @Path("/{id}")
     public void deleteItem(@PathParam("id") String id) {
         // Find transcluders before deletion so we can notify their pages
-        var transcluders = itemRepository.findTranscluders(UUID.fromString(id));
-        String pageId = itemService.getItemPageId(UUID.fromString(id));
-        itemService.deleteItem(UUID.fromString(id));
+        var transcluders = itemRepository.findTranscluders(HMTID.of(id));
+        String pageId = itemService.getItemPageId(HMTID.of(id));
+        itemService.deleteItem(HMTID.of(id));
         if (pageId != null) {
             sseBroadcaster.broadcastPagesUpdated(pageId);
         }
@@ -114,7 +114,7 @@ public class ItemsResource {
     @Path("/{id}/transclude")
     public Response setTransclusion(@PathParam("id") String id, SetTransclusionRequest req) {
         try {
-            var item = itemService.setTransclusion(UUID.fromString(id), UUID.fromString(req.sourceItemId()));
+            var item = itemService.setTransclusion(HMTID.of(id), HMTID.of(req.sourceItemId()));
             sseBroadcaster.broadcastPagesUpdated(item.pageId().toString());
             return Response.ok(new SetTransclusionResponse(loadItemDto(item))).build();
         } catch (IllegalArgumentException e) {
@@ -127,7 +127,7 @@ public class ItemsResource {
     @DELETE
     @Path("/{id}/transclude")
     public Response removeTransclusion(@PathParam("id") String id) {
-        var item = itemService.removeTransclusion(UUID.fromString(id));
+        var item = itemService.removeTransclusion(HMTID.of(id));
         sseBroadcaster.broadcastPagesUpdated(item.pageId().toString());
         return Response.ok(new SetTransclusionResponse(loadItemDto(item))).build();
     }
@@ -144,7 +144,7 @@ public class ItemsResource {
     @POST
     @Path("/{id}/cycle-task")
     public CycleTaskResponse cycleTask(@PathParam("id") String id) {
-        var item = itemService.cycleTask(UUID.fromString(id));
+        var item = itemService.cycleTask(HMTID.of(id));
         sseBroadcaster.broadcastPagesUpdated(item.pageId().toString());
         return new CycleTaskResponse(loadItemDto(item));
     }
@@ -154,8 +154,8 @@ public class ItemsResource {
     public MoveItemsResponse moveItems(MoveItemsRequest req) {
         ItemPosition position = ItemPosition.parse(req.position());
         var items = itemService.moveItems(
-                req.itemIds().stream().map(UUID::fromString).toList(),
-                UUID.fromString(req.targetPageId()),
+                req.itemIds().stream().map(HMTID::of).toList(),
+                HMTID.of(req.targetPageId()),
                 position,
                 req.levelDelta());
         sseBroadcaster.broadcastPagesUpdated(req.targetPageId());
@@ -169,7 +169,7 @@ public class ItemsResource {
             @PathParam("key") String key,
             UpsertPropertyRequest req
     ) {
-        var item = itemService.getItemById(UUID.fromString(id));
+        var item = itemService.getItemById(HMTID.of(id));
         propertyRepository.upsertScalar("item", id, key, req.valueType(), req.value());
         sseBroadcaster.broadcastPagesUpdated(item.pageId().toString());
         return new UpsertPropertyResponse(loadItemDto(item));
@@ -178,21 +178,21 @@ public class ItemsResource {
     @POST
     @Path("/export")
     public ExportTreeMarkdownResponse exportTreeMarkdown(ExportTreeMarkdownRequest req) {
-        var result = itemService.exportTreeMarkdown(req.itemIds().stream().map(UUID::fromString).toList());
+        var result = itemService.exportTreeMarkdown(req.itemIds().stream().map(HMTID::of).toList());
         return new ExportTreeMarkdownResponse(result.treeMarkdown(), result.ast(), result.flatMarkdown());
     }
 
     @POST
     @Path("/export-page")
     public ExportTreeMarkdownResponse exportPageMarkdown(@QueryParam("pageId") String pageId) {
-        var result = itemService.exportPageMarkdown(UUID.fromString(pageId));
+        var result = itemService.exportPageMarkdown(HMTID.of(pageId));
         return new ExportTreeMarkdownResponse(result.treeMarkdown(), result.ast(), result.flatMarkdown());
     }
 
     @POST
     @Path("/export-subtree")
     public ExportTreeMarkdownResponse exportSubtreeMarkdown(@QueryParam("itemId") String itemId) {
-        var result = itemService.exportSubtreeMarkdown(UUID.fromString(itemId));
+        var result = itemService.exportSubtreeMarkdown(HMTID.of(itemId));
         return new ExportTreeMarkdownResponse(result.treeMarkdown(), result.ast(), result.flatMarkdown());
     }
 
@@ -210,7 +210,7 @@ public class ItemsResource {
         return DtoMapper.toDto(item, scalars, lists);
     }
 
-    private void broadcastToTranscluders(UUID sourceItemId, String excludePageId) {
+    private void broadcastToTranscluders(HMTID sourceItemId, String excludePageId) {
         for (var t : itemRepository.findTranscluders(sourceItemId)) {
             String tPageId = t.pageId().toString();
             if (!tPageId.equals(excludePageId)) {

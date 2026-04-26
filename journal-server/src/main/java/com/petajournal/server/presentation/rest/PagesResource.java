@@ -13,7 +13,12 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 
-import java.util.*;
+import com.sosuisha.hmtid.HMTID;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 @Path("/api/pages")
 @Produces(MediaType.APPLICATION_JSON)
@@ -51,7 +56,7 @@ public class PagesResource {
     @GET
     @Path("/{id}")
     public GetPageByIdResponse getPageById(@PathParam("id") String id) {
-        UUID pageId = UUID.fromString(id);
+        HMTID pageId = HMTID.of(id);
         var page = pageService.getPage(pageId)
                 .orElseThrow(() -> new NotFoundException("Page not found: " + id));
         var items = pageService.getPageItems(pageId);
@@ -78,7 +83,7 @@ public class PagesResource {
         if (depth >= MAX_TRANSCLUSION_DEPTH || visited.contains(sourceId)) return;
         visited.add(sourceId);
 
-        List<Item> descendants = itemRepository.findItemWithDescendants(UUID.fromString(sourceId));
+        List<Item> descendants = itemRepository.findItemWithDescendants(HMTID.of(sourceId));
         if (descendants.isEmpty()) {
             trees.put(sourceId, List.of());
             return;
@@ -111,7 +116,7 @@ public class PagesResource {
     @Path("/{id}")
     public UpdatePageResponse updatePage(@PathParam("id") String id, UpdatePageRequest req) {
         var page = pageService.updatePage(
-                UUID.fromString(id),
+                HMTID.of(id),
                 req.title(),
                 req.dirPath());
         sseBroadcaster.broadcastPagesUpdated(id);
@@ -121,7 +126,7 @@ public class PagesResource {
     @DELETE
     @Path("/{id}")
     public void deletePage(@PathParam("id") String id) {
-        pageService.deletePage(UUID.fromString(id));
+        pageService.deletePage(HMTID.of(id));
         sseBroadcaster.broadcastPagesUpdated(id);
     }
 
@@ -138,14 +143,14 @@ public class PagesResource {
     @GET
     @Path("/{id}/backlinks")
     public GetBacklinksResponse getBacklinks(@PathParam("id") String id) {
-        var entries = pageService.getBacklinks(UUID.fromString(id));
+        var entries = pageService.getBacklinks(HMTID.of(id));
         return new GetBacklinksResponse(entries.stream().map(DtoMapper::toDto).toList());
     }
 
     @GET
     @Path("/{id}/children")
     public GetChildPagesResponse getChildPages(@PathParam("id") String id) {
-        var pages = pageRepository.findByParentId(UUID.fromString(id));
+        var pages = pageRepository.findByParentId(HMTID.of(id));
         return new GetChildPagesResponse(pages.stream().map(DtoMapper::toDto).toList());
     }
 

@@ -1,9 +1,9 @@
 package com.petajournal.server.domain.model;
 
-import java.util.UUID;
+import com.sosuisha.hmtid.HMTID;
 
 public record SearchResult(
-    UUID pageId,
+    HMTID pageId,
     String pageTitle,
     String itemId,
     String snippet,

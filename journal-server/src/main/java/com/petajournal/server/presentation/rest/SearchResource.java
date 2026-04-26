@@ -14,7 +14,12 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 
-import java.util.*;
+import com.sosuisha.hmtid.HMTID;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 @Path("/api/search")
 @Produces(MediaType.APPLICATION_JSON)
@@ -101,7 +106,7 @@ public class SearchResource {
         List<SearchResultDto> results = new ArrayList<>();
 
         for (String itemId : itemIds) {
-            Optional<Item> itemOpt = itemRepository.findById(UUID.fromString(itemId));
+            Optional<Item> itemOpt = itemRepository.findById(HMTID.of(itemId));
             if (itemOpt.isEmpty()) continue;
             Item item = itemOpt.get();
             Optional<Page> pageOpt = pageRepository.findById(item.pageId());

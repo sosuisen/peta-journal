@@ -5,8 +5,8 @@ import io.quarkiverse.mcp.server.Tool;
 import io.quarkiverse.mcp.server.ToolArg;
 import jakarta.inject.Inject;
 
+import com.sosuisha.hmtid.HMTID;
 import java.util.Map;
-import java.util.UUID;
 
 public class McpNavigationTools {
 
@@ -20,7 +20,7 @@ public class McpNavigationTools {
     String get_backlinks(
             @ToolArg(description = "UUID of the target page") String pageId
     ) {
-        var entries = pageService.getBacklinks(UUID.fromString(pageId));
+        var entries = pageService.getBacklinks(HMTID.of(pageId));
         return jsonHelper.toJson(Map.of("entries", entries));
     }
 }

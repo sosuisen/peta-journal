@@ -1,22 +1,22 @@
 package com.petajournal.server.domain.repository;
 
 import com.petajournal.server.domain.model.Page;
+import com.sosuisha.hmtid.HMTID;
 
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 /** Repository for page persistence. */
 public interface PageRepository {
 
     /**
-     * Finds a page by its UUID.
+     * Finds a page by its HMTID.
      *
-     * @param id the page UUID
+     * @param id the page HMTID
      * @return the page, or empty if not found
      */
-    Optional<Page> findById(UUID id);
+    Optional<Page> findById(HMTID id);
 
     /**
      * Finds a daily journal page for the given date.
@@ -85,19 +85,19 @@ public interface PageRepository {
     Page save(Page page);
 
     /**
-     * Deletes a page by its UUID.
+     * Deletes a page by its HMTID.
      *
-     * @param id the page UUID
+     * @param id the page HMTID
      */
-    void delete(UUID id);
+    void delete(HMTID id);
 
     /**
      * Finds pages that contain items linking to the target page.
      *
-     * @param targetPageId the target page UUID
+     * @param targetPageId the target page HMTID
      * @return the source pages that link to the target
      */
-    List<Page> findBacklinkSources(UUID targetPageId);
+    List<Page> findBacklinkSources(HMTID targetPageId);
 
     /**
      * Finds pages whose full path (dir_path + name) starts with the query.
@@ -130,8 +130,8 @@ public interface PageRepository {
     /**
      * Finds pages whose parent_id matches the given page ID, sorted by name.
      *
-     * @param parentId the parent page UUID
+     * @param parentId the parent page HMTID
      * @return the child pages sorted by name
      */
-    List<Page> findByParentId(UUID parentId);
+    List<Page> findByParentId(HMTID parentId);
 }

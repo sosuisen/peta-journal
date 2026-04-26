@@ -2,6 +2,7 @@ package com.petajournal.server.infrastructure.persistence;
 
 import com.petajournal.server.domain.model.Page;
 import com.petajournal.server.domain.repository.PageRepository;
+import com.sosuisha.hmtid.HMTID;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
@@ -21,7 +22,7 @@ public class SqlitePageRepository implements PageRepository {
     SqliteConnectionProvider connectionProvider;
 
     @Override
-    public Optional<Page> findById(UUID id) {
+    public Optional<Page> findById(HMTID id) {
         try (Connection conn = connectionProvider.getConnection()) {
             return findByIdInternal(conn, id);
         } catch (SQLException e) {
@@ -29,7 +30,7 @@ public class SqlitePageRepository implements PageRepository {
         }
     }
 
-    private Optional<Page> findByIdInternal(Connection conn, UUID id) throws SQLException {
+    private Optional<Page> findByIdInternal(Connection conn, HMTID id) throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement(
                 "SELECT id, parent_id, dir_path, name, type, created_date, modified_date FROM pages WHERE id = ?")) {
             ps.setString(1, id.toString());
@@ -170,7 +171,7 @@ public class SqlitePageRepository implements PageRepository {
             conn.setAutoCommit(false);
             try {
                 // Resolve parent_id from dir_path
-                UUID parentId = resolveParentId(conn, page.id(), page.dirPath(), page.name());
+                HMTID parentId = resolveParentId(conn, page.id(), page.dirPath(), page.name());
 
                 // Upsert page
                 try (PreparedStatement ps = conn.prepareStatement(
@@ -205,7 +206,7 @@ public class SqlitePageRepository implements PageRepository {
     }
 
     @Override
-    public void delete(UUID id) {
+    public void delete(HMTID id) {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement("DELETE FROM pages WHERE id = ?")) {
             ps.setString(1, id.toString());
@@ -268,7 +269,7 @@ public class SqlitePageRepository implements PageRepository {
     }
 
     @Override
-    public List<Page> findBacklinkSources(UUID targetPageId) {
+    public List<Page> findBacklinkSources(HMTID targetPageId) {
         // Find pages that have items containing [[page title]] links to the target page
         try (Connection conn = connectionProvider.getConnection()) {
             // First get the target page's name (used as title)
@@ -285,7 +286,7 @@ public class SqlitePageRepository implements PageRepository {
             if (pageName == null) return List.of();
 
             // Find pages with items that contain [[pageName]]
-            Set<UUID> sourcePageIds = new LinkedHashSet<>();
+            Set<HMTID> sourcePageIds = new LinkedHashSet<>();
             String pattern = "%[[" + pageName + "]]%";
             try (PreparedStatement ps = conn.prepareStatement(
                     "SELECT DISTINCT page_id FROM items WHERE body LIKE ? AND page_id != ?")) {
@@ -293,13 +294,13 @@ public class SqlitePageRepository implements PageRepository {
                 ps.setString(2, targetPageId.toString());
                 try (ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
-                        sourcePageIds.add(UUID.fromString(rs.getString("page_id")));
+                        sourcePageIds.add(HMTID.of(rs.getString("page_id")));
                     }
                 }
             }
 
             List<Page> result = new ArrayList<>();
-            for (UUID pageId : sourcePageIds) {
+            for (HMTID pageId : sourcePageIds) {
                 findByIdInternal(conn, pageId).ifPresent(result::add);
             }
             return result;
@@ -309,7 +310,7 @@ public class SqlitePageRepository implements PageRepository {
     }
 
     @Override
-    public List<Page> findByParentId(UUID parentId) {
+    public List<Page> findByParentId(HMTID parentId) {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
                      "SELECT id, parent_id, dir_path, name, type, created_date, modified_date " +
@@ -323,16 +324,8 @@ public class SqlitePageRepository implements PageRepository {
 
     /**
      * Resolves the parent page ID based on dir_path and name.
-     * <ul>
-     *   <li>Index pages: parent = index one level up.
-     *       "a/b/" + "index" → find ("a/", "index"); fallback to ("", "index")</li>
-     *   <li>Non-index pages: parent = index at same dirPath.
-     *       "a/b/" + "foo" → find ("a/b/", "index")</li>
-     *   <li>Root index ("" + "index") → null (no parent)</li>
-     *   <li>Root non-index ("" + "foo") → find ("", "index")</li>
-     * </ul>
      */
-    private UUID resolveParentId(Connection conn, UUID pageId, String dirPath, String name) throws SQLException {
+    private HMTID resolveParentId(Connection conn, HMTID pageId, String dirPath, String name) throws SQLException {
         if ("index".equals(name)) {
             // Index page's parent is the index page one level up
             if (dirPath == null || dirPath.isEmpty()) {
@@ -346,7 +339,7 @@ public class SqlitePageRepository implements PageRepository {
         } else {
             // Non-index page's parent is the index page at the same dirPath
             String dir = (dirPath == null) ? "" : dirPath;
-            UUID found = findPageId(conn, dir, "index");
+            HMTID found = findPageId(conn, dir, "index");
             // Safety: avoid self-reference (shouldn't happen for non-index pages)
             if (found != null && found.equals(pageId)) {
                 return null;
@@ -355,14 +348,14 @@ public class SqlitePageRepository implements PageRepository {
         }
     }
 
-    private UUID findPageId(Connection conn, String dirPath, String name) throws SQLException {
+    private HMTID findPageId(Connection conn, String dirPath, String name) throws SQLException {
         try (PreparedStatement ps = conn.prepareStatement(
                 "SELECT id FROM pages WHERE dir_path = ? AND name = ? LIMIT 1")) {
             ps.setString(1, dirPath);
             ps.setString(2, name);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    return UUID.fromString(rs.getString("id"));
+                    return HMTID.of(rs.getString("id"));
                 }
             }
         }
@@ -371,9 +364,9 @@ public class SqlitePageRepository implements PageRepository {
 
     private Page mapPage(Connection conn, ResultSet rs) throws SQLException {
         String parentIdStr = rs.getString("parent_id");
-        UUID parentId = parentIdStr != null ? UUID.fromString(parentIdStr) : null;
+        HMTID parentId = parentIdStr != null ? HMTID.of(parentIdStr) : null;
         return new Page(
-                UUID.fromString(rs.getString("id")),
+                HMTID.of(rs.getString("id")),
                 parentId,
                 rs.getString("dir_path"),
                 rs.getString("name"),

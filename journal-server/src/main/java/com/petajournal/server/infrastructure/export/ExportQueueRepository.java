@@ -1,6 +1,7 @@
 package com.petajournal.server.infrastructure.export;
 
 import com.petajournal.server.infrastructure.persistence.SqliteConnectionProvider;
+import com.sosuisha.hmtid.HMTID;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -8,7 +9,6 @@ import java.sql.*;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 @ApplicationScoped
 public class ExportQueueRepository {
@@ -16,7 +16,7 @@ public class ExportQueueRepository {
     @Inject
     SqliteConnectionProvider connectionProvider;
 
-    public void enqueue(UUID pageId) {
+    public void enqueue(HMTID pageId) {
         int maxRetries = 3;
         int retryDelay = 50; // milliseconds
 
@@ -46,23 +46,23 @@ public class ExportQueueRepository {
         }
     }
 
-    public List<UUID> dequeueAll() {
+    public List<HMTID> dequeueAll() {
         int maxRetries = 3;
         int retryDelay = 100; // milliseconds
 
         for (int attempt = 0; attempt < maxRetries; attempt++) {
-            List<UUID> pageIds = new ArrayList<>();
+            List<HMTID> pageIds = new ArrayList<>();
             try (Connection conn = connectionProvider.getConnection()) {
                 conn.setAutoCommit(false);
                 try (Statement stmt = conn.createStatement();
                      ResultSet rs = stmt.executeQuery("SELECT page_id FROM export_queue ORDER BY queued_at LIMIT 10")) {
                     while (rs.next()) {
-                        pageIds.add(UUID.fromString(rs.getString("page_id")));
+                        pageIds.add(HMTID.of(rs.getString("page_id")));
                     }
                 }
                 if (!pageIds.isEmpty()) {
                     try (PreparedStatement ps = conn.prepareStatement("DELETE FROM export_queue WHERE page_id = ?")) {
-                        for (UUID id : pageIds) {
+                        for (HMTID id : pageIds) {
                             ps.setString(1, id.toString());
                             ps.addBatch();
                         }

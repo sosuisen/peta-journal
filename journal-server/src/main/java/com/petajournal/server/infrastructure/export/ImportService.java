@@ -32,13 +32,15 @@ public class ImportService {
     @Inject
     SearchService searchService;
 
+    @Inject
+    OutlineMarkdownParser parser;
+
     public Page importFile(Path filePath) throws IOException {
         String content = Files.readString(filePath);
         String fileName = filePath.getFileName().toString().replaceAll("\\.md$", "");
         String parentDir = filePath.getParent() != null ? filePath.getParent().toString().replace('\\', '/') : "";
         String type = parentDir.contains("journal") ? "journal" : "doc";
 
-        OutlineMarkdownParser parser = new OutlineMarkdownParser();
         OutlineMarkdownParser.ParseResult result = parser.parse(content);
 
         Page page = parser.toPage(result, "", fileName, type);

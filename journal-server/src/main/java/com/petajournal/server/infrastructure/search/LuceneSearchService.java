@@ -19,12 +19,12 @@ import org.apache.lucene.store.FSDirectory;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
+import com.sosuisha.hmtid.HMTID;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 @ApplicationScoped
 @Startup
@@ -168,7 +168,7 @@ public class LuceneSearchService implements SearchService {
             for (ScoreDoc sd : topDocs.scoreDocs) {
                 Document doc = searcher.storedFields().document(sd.doc);
                 results.add(new SearchResult(
-                        UUID.fromString(doc.get(FIELD_PAGE_ID)),
+                        HMTID.of(doc.get(FIELD_PAGE_ID)),
                         doc.get(FIELD_PAGE_TITLE),
                         "",
                         doc.get(FIELD_PAGE_TITLE),
@@ -210,7 +210,7 @@ public class LuceneSearchService implements SearchService {
                     } catch (Exception ignored) {}
                 }
                 results.add(new SearchResult(
-                        UUID.fromString(doc.get(FIELD_PAGE_ID)),
+                        HMTID.of(doc.get(FIELD_PAGE_ID)),
                         doc.get(FIELD_PAGE_TITLE),
                         doc.get(FIELD_ITEM_ID),
                         snippet,

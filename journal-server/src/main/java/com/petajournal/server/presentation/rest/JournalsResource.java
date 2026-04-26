@@ -12,8 +12,14 @@ import jakarta.ws.rs.core.MediaType;
 
 import com.petajournal.server.domain.repository.ItemRepository;
 
+import com.sosuisha.hmtid.HMTID;
 import java.time.LocalDate;
-import java.util.*;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 @Path("/api/journals")
 @Produces(MediaType.APPLICATION_JSON)
@@ -100,7 +106,7 @@ public class JournalsResource {
         if (depth >= MAX_TRANSCLUSION_DEPTH || visited.contains(sourceId)) return;
         visited.add(sourceId);
 
-        List<Item> descendants = itemRepository.findItemWithDescendants(UUID.fromString(sourceId));
+        List<Item> descendants = itemRepository.findItemWithDescendants(HMTID.of(sourceId));
         if (descendants.isEmpty()) {
             trees.put(sourceId, List.of());
             return;

@@ -2,6 +2,7 @@ package com.petajournal.server.infrastructure.persistence;
 
 import com.petajournal.server.domain.model.Item;
 import com.petajournal.server.domain.repository.ItemRepository;
+import com.sosuisha.hmtid.HMTID;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
@@ -19,7 +20,7 @@ public class SqliteItemRepository implements ItemRepository {
     SqliteConnectionProvider connectionProvider;
 
     @Override
-    public Optional<Item> findById(UUID id) {
+    public Optional<Item> findById(HMTID id) {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
                      "SELECT b.id, b.page_id, b.parent_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.ast, b.collapsed, b.transclude_item_id, " +
@@ -36,7 +37,7 @@ public class SqliteItemRepository implements ItemRepository {
     }
 
     @Override
-    public List<Item> findByPageId(UUID pageId) {
+    public List<Item> findByPageId(HMTID pageId) {
         LOG.debugv("findByPageId: pageId={0}", pageId);
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
@@ -119,7 +120,7 @@ public class SqliteItemRepository implements ItemRepository {
     }
 
     @Override
-    public void delete(UUID id) {
+    public void delete(HMTID id) {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement("DELETE FROM items WHERE id = ?")) {
             ps.setString(1, id.toString());
@@ -130,7 +131,7 @@ public class SqliteItemRepository implements ItemRepository {
     }
 
     @Override
-    public void deleteByPageId(UUID pageId) {
+    public void deleteByPageId(HMTID pageId) {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement("DELETE FROM items WHERE page_id = ?")) {
             ps.setString(1, pageId.toString());
@@ -194,7 +195,7 @@ public class SqliteItemRepository implements ItemRepository {
     }
 
     @Override
-    public void updateIndex(UUID itemId, String newIdx) {
+    public void updateIndex(HMTID itemId, String newIdx) {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement("UPDATE items SET idx = ? WHERE id = ?")) {
             ps.setString(1, newIdx);
@@ -207,13 +208,12 @@ public class SqliteItemRepository implements ItemRepository {
 
     private Item mapItem(Connection conn, ResultSet rs) throws SQLException {
         String itemIdStr = rs.getString("id");
-        UUID itemId = UUID.fromString(itemIdStr);
         String parentIdStr = rs.getString("parent_id");
         String transcludeIdStr = rs.getString("transclude_item_id");
         return new Item(
-                itemId,
-                UUID.fromString(rs.getString("page_id")),
-                parentIdStr != null ? UUID.fromString(parentIdStr) : null,
+                HMTID.of(itemIdStr),
+                HMTID.of(rs.getString("page_id")),
+                parentIdStr != null ? HMTID.of(parentIdStr) : null,
                 rs.getString("dir_path"),
                 rs.getString("name"),
                 rs.getString("type"),
@@ -225,7 +225,7 @@ public class SqliteItemRepository implements ItemRepository {
                 rs.getString("ast"),
                 rs.getInt("collapsed") != 0,
                 loadTypes(conn, itemIdStr),
-                transcludeIdStr != null ? UUID.fromString(transcludeIdStr) : null
+                transcludeIdStr != null ? HMTID.of(transcludeIdStr) : null
         );
     }
 
@@ -243,7 +243,7 @@ public class SqliteItemRepository implements ItemRepository {
     }
 
     @Override
-    public List<Item> findTranscluders(UUID sourceItemId) {
+    public List<Item> findTranscluders(HMTID sourceItemId) {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
                      "SELECT b.id, b.page_id, b.parent_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.ast, b.collapsed, b.transclude_item_id, " +
@@ -263,7 +263,7 @@ public class SqliteItemRepository implements ItemRepository {
     }
 
     @Override
-    public List<Item> findItemWithDescendants(UUID itemId) {
+    public List<Item> findItemWithDescendants(HMTID itemId) {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
                      "WITH RECURSIVE descendants AS (" +
@@ -288,7 +288,7 @@ public class SqliteItemRepository implements ItemRepository {
     }
 
     @Override
-    public void recalculateParentIds(UUID pageId) {
+    public void recalculateParentIds(HMTID pageId) {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement selectPs = conn.prepareStatement(
                      "SELECT id, level FROM items WHERE page_id = ? ORDER BY idx");

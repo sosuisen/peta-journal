@@ -1,13 +1,13 @@
 package com.petajournal.server.domain.model;
 
+import com.sosuisha.hmtid.HMTID;
 import java.time.Instant;
 import java.util.List;
-import java.util.UUID;
 
 public record Item(
-    UUID id,
-    UUID pageId,
-    UUID parentItemId,   // Parent item ID (null for top-level items)
+    HMTID id,
+    HMTID pageId,
+    HMTID parentItemId,   // Parent item ID (null for top-level items)
     String dirPath,
     String name,
     String type,         // "journal" or "doc" (from parent page)
@@ -19,5 +19,5 @@ public record Item(
     String ast,          // Parsed AST JSON
     boolean collapsed,
     List<String> types,  // Item types (e.g. "heading", "code")
-    UUID transcludeItemId // Source item ID for transclusion (null if not a transclusion)
+    HMTID transcludeItemId // Source item ID for transclusion (null if not a transclusion)
 ) {}

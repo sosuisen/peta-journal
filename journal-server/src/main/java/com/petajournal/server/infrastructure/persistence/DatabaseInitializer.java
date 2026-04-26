@@ -1,5 +1,6 @@
 package com.petajournal.server.infrastructure.persistence;
 
+import com.petajournal.server.domain.IdGenerator;
 import io.quarkus.runtime.StartupEvent;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -19,6 +20,9 @@ public class DatabaseInitializer {
 
     @Inject
     SqliteConnectionProvider connectionProvider;
+
+    @Inject
+    IdGenerator idGenerator;
 
     void init(@Observes @Priority(1) StartupEvent event) {
         try (Connection conn = connectionProvider.getConnection();
@@ -195,7 +199,7 @@ public class DatabaseInitializer {
         }
 
         LOG.info("Creating root index page...");
-        String rootId = java.util.UUID.randomUUID().toString();
+        String rootId = idGenerator.generatePageId().toString();
         long now = java.time.Instant.now().toEpochMilli();
         try (var ps = stmt.getConnection().prepareStatement(
                 "INSERT INTO pages (id, parent_id, dir_path, name, type, created_date, modified_date) "
@@ -206,7 +210,7 @@ public class DatabaseInitializer {
             ps.executeUpdate();
         }
         // Create initial empty item for the root index page
-        String itemId = com.petajournal.server.domain.ItemIdGenerator.generate().toString();
+        String itemId = idGenerator.generateItemId().toString();
         try (var ps = stmt.getConnection().prepareStatement(
                 "INSERT INTO items (id, page_id, parent_id, created_date, modified_date, idx, level, body, ast, collapsed) "
                 + "VALUES (?, ?, NULL, ?, ?, 'a0', 1, '', '', 0)")) {
