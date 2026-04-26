@@ -39,8 +39,9 @@ public final class HashtagExtractor {
 
     private static void collectHashtags(JsonNode node, Set<String> tags) {
         if (node.isArray()) {
-            for (JsonNode child : node) {
-                collectHashtags(child, tags);
+            var it = node.elements();
+            while (it.hasNext()) {
+                collectHashtags(it.next(), tags);
             }
         } else if (node.isObject()) {
             if ("hashtag".equals(nodeText(node, "type"))) {
@@ -54,9 +55,7 @@ public final class HashtagExtractor {
                 collectHashtags(children, tags);
             }
             // Also recurse into all object fields in case AST nests differently
-            var fields = node.fields();
-            while (fields.hasNext()) {
-                var entry = fields.next();
+            for (var entry : node.properties()) {
                 JsonNode val = entry.getValue();
                 if (val.isArray() || val.isObject()) {
                     collectHashtags(val, tags);
