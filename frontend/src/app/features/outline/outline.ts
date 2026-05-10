@@ -1779,10 +1779,15 @@ export class OutlineComponent implements OnInit, OnDestroy {
         }
 
         // Skip other metadata comments
-        if (/^<!-- [0-9a-f]{7,8}(-[0-9a-f-]+)? -->$/.test(line) || /^<!-- \w+=.*? -->$/.test(line)) {
+        if (/^<!-- [0-9A-Za-z_-]{10,} -->$/.test(line) || /^<!-- \w+=.*? -->$/.test(line)) {
           hasContent = true;
           continue;
         }
+      }
+
+      // Task list lines start a new item
+      if (!inCodeFence && (line.startsWith('- [x] ') || line.startsWith('- [ ] '))) {
+        if (currentBodyLines.length > 0) flushItem();
       }
 
       // Regular body line

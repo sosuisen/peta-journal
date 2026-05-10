@@ -3,7 +3,7 @@ import { monotonicFactory } from 'hmtid';
 
 @Injectable({ providedIn: 'root' })
 export class HmtidService {
-  private readonly generate = monotonicFactory();
+  private readonly generate = monotonicFactory(undefined, '-', true);
 
   nextId(): string {
     return this.generate();
