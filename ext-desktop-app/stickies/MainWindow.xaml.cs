@@ -271,7 +271,7 @@ public sealed partial class MainWindow : Window
             await EnsureWebViewInitialized();
             ContentWebView.NavigateToString(html);
         }
-        catch
+        catch(Exception e)
         {
             if (!isRefresh) ShowErrorContent("Failed to load page");
         }
