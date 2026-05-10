@@ -32,7 +32,7 @@ export class AppLauncherService {
 
     /**
      * Open a specific page in the desktop app
-     * @param pageId Page UUID
+     * @param pageId Page HMTID
      */
     async openPage(pageId: string): Promise<boolean> {
         return this.launch(`peta-journal://page/${pageId}`);

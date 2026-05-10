@@ -18,8 +18,7 @@ public class McpNavigationTools {
 
     @Tool(description = "Get pages and items that link to a given page (backlinks). Each entry contains the source page and the item containing the link.")
     String get_backlinks(
-            @ToolArg(description = "UUID of the target page") String pageId
-    ) {
+            @ToolArg(description = "HMTID of the target page") String pageId) {
         var entries = pageService.getBacklinks(HMTID.of(pageId));
         return jsonHelper.toJson(Map.of("entries", entries));
     }

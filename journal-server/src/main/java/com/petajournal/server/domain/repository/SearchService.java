@@ -19,7 +19,7 @@ public interface SearchService {
     /**
      * Indexes an item for full-text search.
      *
-     * @param item     the item to index
+     * @param item      the item to index
      * @param pageTitle the title of the page containing the item
      */
     void indexItem(Item item, String pageTitle);
@@ -27,7 +27,7 @@ public interface SearchService {
     /**
      * Removes a page and all its items from the search index.
      *
-     * @param pageId the page UUID as a string
+     * @param pageId the page HMTID as a string
      */
     void removePage(String pageId);
 
