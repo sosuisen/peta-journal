@@ -63,6 +63,8 @@ public class ItemService {
     public Item createItem(HMTID pageId, ItemPosition position, int level, String body, HMTID clientId) {
         HMTID id = clientId != null ? clientId : idGenerator.generateItemId();
         Instant now = Instant.now();
+        boolean isTask = body != null && (body.startsWith("- [ ] ") || body.startsWith("- [x] "));
+        if (isTask) body = body.substring(6);
         String ast = parseBody(body);
 
         List<Item> existingItems = itemRepository.findByPageId(pageId);
@@ -90,7 +92,8 @@ public class ItemService {
             idx = calculateInsertionIndex(existingItems, position);
         }
 
-        List<String> types = detectItemTypes(body);
+        List<String> types = new ArrayList<>(detectItemTypes(body));
+        if (isTask) types.add("task");
 
         // Get page to get dir_path and name
         Page page = pageRepository.findById(pageId).orElseThrow(() -> new IllegalArgumentException("Page not found: " + pageId));
@@ -134,13 +137,15 @@ public class ItemService {
         Item existing = itemRepository.findById(itemId)
                 .orElseThrow(() -> new IllegalArgumentException("Item not found: " + itemId));
 
-        String newBody = body != null ? body : existing.body();
-        String newAst = body != null ? parseBody(body) : existing.ast();
+        boolean isTask = body != null && (body.startsWith("- [ ] ") || body.startsWith("- [x] "));
+        String newBody = body != null ? (isTask ? body.substring(6) : body) : existing.body();
+        String newAst = body != null ? parseBody(newBody) : existing.ast();
         int newLevel = level != null ? level : existing.level();
         boolean newCollapsed = collapsed != null ? collapsed : existing.collapsed();
-        List<String> types = body != null ? detectItemTypes(body) : existing.types();
-        if (body != null && existing.types().contains("task") && !types.contains("task")) {
-            types = new ArrayList<>(types);
+        List<String> types = body != null ? new ArrayList<>(detectItemTypes(newBody)) : new ArrayList<>(existing.types());
+        if (isTask && !types.contains("task")) {
+            types.add("task");
+        } else if (body != null && existing.types().contains("task") && !types.contains("task")) {
             types.add("task");
         }
 
