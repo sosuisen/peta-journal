@@ -40,7 +40,7 @@ export class AppLauncherService {
 
     /**
      * Open a journal entry in the desktop app
-     * @param date ISO date string (e.g., "2026-02-09")
+     * @param date ISO date string (e.g., "2026-02-09")ｃ
      */
     async openJournal(date: string): Promise<boolean> {
         return this.launch(`peta-journal://journal/${date}`);
