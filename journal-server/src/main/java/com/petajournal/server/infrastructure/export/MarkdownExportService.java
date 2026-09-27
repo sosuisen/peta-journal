@@ -237,6 +237,7 @@ public class MarkdownExportService {
 
         // Write metadata comments
         sb.append("<!-- ").append(item.id()).append(" -->\n");
+        sb.append("<!-- idx=").append(item.idx()).append(" -->\n");
 
         if (item.level() > 1) {
             sb.append("<!-- level=").append(item.level()).append(" -->\n");

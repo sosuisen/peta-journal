@@ -17,8 +17,10 @@ public final class ItemOrderPlanner {
     private ItemOrderPlanner() {}
 
     /**
-     * @param existingIdx per file position: the item's current index, or {@code null} for a new item
-     * @return an index for every position, strictly increasing
+     * @param existingIdx per file position: the index the item should have if possible
+     *                    (from the file, else the local DB), or {@code null} for a new item
+     * @return an index for every position, strictly increasing; positions whose input was kept
+     *         return that same string, so callers can tell which ones were recomputed
      * @throws IllegalStateException when the fractional index space between two kept items is exhausted
      */
     public static List<String> plan(List<String> existingIdx) {

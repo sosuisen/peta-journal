@@ -50,7 +50,7 @@ public class MarkdownImportService {
 
     private static final Logger LOG = Logger.getLogger(MarkdownImportService.class);
     private static final DateTimeFormatter CONFLICT_TS = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
-    private static final Set<String> RESERVED_KEYS = Set.of("level", "collapsed", "transclude", "tag");
+    private static final Set<String> RESERVED_KEYS = Set.of("level", "collapsed", "transclude", "tag", "idx");
 
     public enum Outcome { IGNORED, MISSING, UNCHANGED, IMPORTED, CONFLICT, ERROR }
 
@@ -206,10 +206,10 @@ public class MarkdownImportService {
 
         // 4. Merge items
         List<ParsedItem> items = parsed.items().isEmpty()
-                ? List.of(new ParsedItem(null, 1, "", false, List.of(), Map.of(), null))
+                ? List.of(new ParsedItem(null, 1, "", false, List.of(), Map.of(), null, null))
                 : parsed.items();
         MergeResult merge = mergeItems(page, items, now);
-        if (merge.anyMissingId()) writeBack = true;
+        if (merge.needsWriteBack()) writeBack = true;
 
         // 5. Page metadata
         if (renamed || merge.changed() || isNew) {
@@ -241,7 +241,8 @@ public class MarkdownImportService {
         return Outcome.IMPORTED;
     }
 
-    private record MergeResult(boolean changed, boolean anyMissingId) {}
+    /** @param needsWriteBack the file lacks an id or idx, or its idx comments disagree with the line order */
+    private record MergeResult(boolean changed, boolean needsWriteBack) {}
 
     private MergeResult mergeItems(Page page, List<ParsedItem> parsedItems, Instant now) {
         HMTID pageId = page.id();
@@ -269,25 +270,61 @@ public class MarkdownImportService {
             ids.add(id);
         }
 
-        // Decide ordering, keeping existing indices where possible
-        List<String> existingIdx = new ArrayList<>(n);
-        for (HMTID id : ids) {
-            Item old = byId.get(id);
-            existingIdx.add(old != null ? old.idx() : null);
+        // Decide ordering. The idx written in the file is the writer's DB value and is taken as-is,
+        // so every device ends up with the same idx (needed for direct DB sync later). The line
+        // order in the file still wins: idx comments that disagree with it are recomputed.
+        List<String> wantedIdx = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) {
+            String fileIdx = parsedItems.get(i).idx();
+            Item old = byId.get(ids.get(i));
+            wantedIdx.add(fileIdx != null ? fileIdx : old != null ? old.idx() : null);
         }
         List<String> idxs;
         try {
-            idxs = ItemOrderPlanner.plan(existingIdx);
+            idxs = ItemOrderPlanner.plan(wantedIdx);
         } catch (IllegalStateException e) {
             LOG.warnv("Fractional index exhausted on page {0}, reindexing all items", pageId);
             idxs = ItemOrderPlanner.reindexAll(n);
         }
+        boolean needsWriteBack = anyMissingId;
+        for (int i = 0; i < n; i++) {
+            if (!idxs.get(i).equals(parsedItems.get(i).idx())) needsWriteBack = true;
+        }
 
+        // Items no longer in the file go first, so their idx values are free for the survivors
         List<String> existingIds = existing.stream().map(i -> i.id().toString()).toList();
         Map<String, Map<String, String>> scalars = propertyRepository.findScalarByTargets("item", existingIds);
+        boolean changed = false;
+        for (Item old : existing) {
+            if (seen.contains(old.id())) continue;
+            itemRepository.delete(old.id());
+            searchService.removeItem(old.id().toString());
+            propertyRepository.syncTags("item", old.id().toString(), List.of());
+            for (String key : scalars.getOrDefault(old.id().toString(), Map.of()).keySet()) {
+                propertyRepository.deleteProperty("item", old.id().toString(), key);
+            }
+            changed = true;
+        }
+
+        // (page_id, idx) is unique: if a surviving item is about to take another survivor's current idx,
+        // park every survivor on a temporary idx first. Rare (two devices inserted at the same spot).
+        Map<String, HMTID> idxOwner = new HashMap<>();
+        for (Item old : existing) {
+            if (seen.contains(old.id())) idxOwner.put(old.idx(), old.id());
+        }
+        boolean collision = false;
+        for (int i = 0; i < n; i++) {
+            HMTID owner = idxOwner.get(idxs.get(i));
+            if (owner != null && !owner.equals(ids.get(i))) collision = true;
+        }
+        if (collision) {
+            for (Item old : existing) {
+                if (seen.contains(old.id())) itemRepository.updateIndex(old.id(), "\u007f" + old.idx());
+            }
+        }
+
         Map<String, String> defs = propertyRepository.findAllDefinitions();
 
-        boolean changed = false;
         for (int i = 0; i < n; i++) {
             ParsedItem pi = parsedItems.get(i);
             HMTID id = ids.get(i);
@@ -307,7 +344,8 @@ public class MarkdownImportService {
                     && old.collapsed() == pi.collapsed()
                     && sameTypes(old.types(), types)
                     && Objects.equals(old.transcludeItemId(), transclude)
-                    && old.idx().equals(idx);
+                    && old.idx().equals(idx)
+                    && !collision;
 
             if (!same) {
                 boolean bodyChanged = old == null || !old.body().equals(body);
@@ -352,22 +390,10 @@ public class MarkdownImportService {
             }
         }
 
-        // Items no longer in the file
-        for (Item old : existing) {
-            if (seen.contains(old.id())) continue;
-            itemRepository.delete(old.id());
-            searchService.removeItem(old.id().toString());
-            propertyRepository.syncTags("item", old.id().toString(), List.of());
-            for (String key : scalars.getOrDefault(old.id().toString(), Map.of()).keySet()) {
-                propertyRepository.deleteProperty("item", old.id().toString(), key);
-            }
-            changed = true;
-        }
-
         if (changed) {
             itemRepository.recalculateParentIds(pageId);
         }
-        return new MergeResult(changed, anyMissingId);
+        return new MergeResult(changed, needsWriteBack);
     }
 
     private void backupConflict(Path root, String relPath, MarkdownPathMapper.PageLocation loc, String content,

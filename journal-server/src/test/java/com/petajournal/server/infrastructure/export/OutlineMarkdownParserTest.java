@@ -21,6 +21,7 @@ class OutlineMarkdownParserTest {
 
             # Heading
             <!-- 01ABCDEFGH-item1 -->
+            <!-- idx=z0 -->
 
             - [x] done task
             <!-- 01ABCDEFGH-item2 -->
@@ -53,6 +54,9 @@ class OutlineMarkdownParserTest {
         assertEquals("# Heading", heading.body());
         assertTrue(heading.types().contains("heading"));
         assertNull(heading.transcludeItemId());
+        assertEquals("z0", heading.idx());
+        assertFalse(heading.properties().containsKey("idx"));
+        assertNull(items.get(1).idx());
 
         var task = items.get(1);
         assertEquals("done task", task.body());

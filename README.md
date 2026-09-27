@@ -28,7 +28,8 @@ The journal server keeps the database and the markdown folder in sync in both di
 
 - **DB → folder**: every change is written to `{markdownDir}/docs/...` or `journals/...` a few seconds later.
 - **Folder → DB**: the server watches the folder and merges edited files back into the database.
-  Items are matched by the `<!-- id -->` comments, so unchanged items are left alone.
+  Items are matched by the `<!-- id -->` comments and keep the `<!-- idx=... -->` written by the
+  other device, so unchanged items are left alone and every device holds the same ids and order values.
   When both sides changed, the newer `modified` wins and the older version is kept as
   `name.conflict-<timestamp>.md`.
 - **Deleted files are never deleted from the database automatically.** When files disappear,
