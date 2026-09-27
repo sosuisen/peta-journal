@@ -206,6 +206,41 @@ public class SqlitePageRepository implements PageRepository {
     }
 
     @Override
+    public void rekey(HMTID oldId, HMTID newId) {
+        String[] updates = {
+                "UPDATE pages SET id = ? WHERE id = ?",
+                "UPDATE pages SET parent_id = ? WHERE parent_id = ?",
+                "UPDATE items SET page_id = ? WHERE page_id = ?",
+                "UPDATE export_queue SET page_id = ? WHERE page_id = ?",
+                "UPDATE file_sync_state SET page_id = ? WHERE page_id = ?",
+                "UPDATE properties SET target_id = ? WHERE target_type = 'page' AND target_id = ?",
+                "UPDATE property_list_items SET target_id = ? WHERE target_type = 'page' AND target_id = ?",
+        };
+        try (Connection conn = connectionProvider.getConnection()) {
+            conn.setAutoCommit(false);
+            try {
+                // Rows reference each other by page id; check constraints at commit, not per statement
+                try (var stmt = conn.createStatement()) {
+                    stmt.execute("PRAGMA defer_foreign_keys = ON");
+                }
+                for (String sql : updates) {
+                    try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                        ps.setString(1, newId.toString());
+                        ps.setString(2, oldId.toString());
+                        ps.executeUpdate();
+                    }
+                }
+                conn.commit();
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to rekey page " + oldId + " -> " + newId, e);
+        }
+    }
+
+    @Override
     public void delete(HMTID id) {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement("DELETE FROM pages WHERE id = ?")) {

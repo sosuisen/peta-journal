@@ -85,6 +85,16 @@ public interface PageRepository {
     Page save(Page page);
 
     /**
+     * Changes a page's id, moving its items and related rows along.
+     * Used when a markdown file for the same path carries a different (older) id
+     * from another device, so both devices end up with the same page id.
+     *
+     * @param oldId the current page HMTID
+     * @param newId the HMTID to use from now on
+     */
+    void rekey(HMTID oldId, HMTID newId);
+
+    /**
      * Deletes a page by its HMTID.
      *
      * @param id the page HMTID

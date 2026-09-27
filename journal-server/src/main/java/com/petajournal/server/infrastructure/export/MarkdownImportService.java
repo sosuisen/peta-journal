@@ -112,10 +112,9 @@ public class MarkdownImportService {
 
     private Outcome importContent(Path root, String relPath, MarkdownPathMapper.PageLocation loc,
                                   String content, String hash, BasicFileAttributes attrs) {
-        if (content.isBlank()
-                && pageRepository.findByTypeDirPathFileName(loc.type(), loc.dirPath(), loc.name()).isPresent()) {
-            // Dropbox and some editors create an empty file first and fill it in later.
-            // Don't wipe an existing page for that; the next scan will pick up the real content.
+        if (content.isBlank()) {
+            // Sync tools and some editors create an empty file first and fill it in later.
+            // Don't create or wipe a page for that; the watcher retries and the scan picks it up later.
             LOG.debugv("{0} is empty, waiting for content", relPath);
             return Outcome.ERROR;
         }
@@ -159,7 +158,25 @@ public class MarkdownImportService {
             Optional<Page> byPath = pageRepository.findByTypeDirPathFileName(loc.type(), loc.dirPath(), loc.name());
             if (byPath.isPresent()) {
                 page = byPath.get();
-                if (fileId == null || !page.id().equals(fileId)) writeBack = true;
+                if (fileId == null) {
+                    writeBack = true; // hand-made file: give it our id
+                } else if (!page.id().equals(fileId)) {
+                    // Two devices created the same page independently (typical for today's journal).
+                    // Both must end up with one id, so the older id wins on every device.
+                    if (fileId.compareTo(page.id()) < 0) {
+                        LOG.infov("Adopting page id {0} from {1} (was {2})", fileId, relPath, page.id());
+                        searchService.removePage(page.id().toString());
+                        pageRepository.rekey(page.id(), fileId);
+                        page = pageRepository.findById(fileId).orElseThrow();
+                        searchService.indexPage(page);
+                        String title = page.dirPath() + page.name();
+                        for (Item item : itemRepository.findByPageId(page.id())) {
+                            searchService.indexItem(item, title);
+                        }
+                    } else {
+                        writeBack = true; // our id is older: rewrite the file with it
+                    }
+                }
             }
         }
 
