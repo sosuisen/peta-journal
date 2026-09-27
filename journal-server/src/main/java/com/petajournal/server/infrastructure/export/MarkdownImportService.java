@@ -104,7 +104,8 @@ public class MarkdownImportService {
 
         try {
             return importContent(root, relPath, locOpt.get(), content, hash, attrs);
-        } catch (RuntimeException e) {
+        } catch (RuntimeException | Error e) {
+            // Error too: a native library that fails to load (UnsatisfiedLinkError) must not kill the scan silently
             LOG.errorv(e, "Failed to import {0}", relPath);
             return Outcome.ERROR;
         }

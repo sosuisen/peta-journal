@@ -83,7 +83,8 @@ public class MarkdownReconcileService {
         scanExecutor.submit(() -> {
             try {
                 doScan();
-            } catch (RuntimeException e) {
+            } catch (Throwable e) {
+                // submit() would otherwise swallow this into the Future; Errors included
                 LOG.error("Folder scan failed", e);
             } finally {
                 scanning.set(false);
@@ -99,7 +100,7 @@ public class MarkdownReconcileService {
         if (!scanning.compareAndSet(false, true)) return new ScanSummary(0, 0, 0, 0);
         try {
             return doScan();
-        } catch (RuntimeException e) {
+        } catch (Throwable e) {
             LOG.error("Folder scan failed", e);
             return new ScanSummary(0, 0, 0, 0);
         } finally {
@@ -108,6 +109,7 @@ public class MarkdownReconcileService {
     }
 
     private ScanSummary doScan() {
+        long startedAt = System.currentTimeMillis();
         Optional<Path> rootOpt = exportService.markdownRoot();
         if (rootOpt.isEmpty()) return new ScanSummary(0, 0, 0, 0);
         Path root = rootOpt.get();
@@ -178,9 +180,8 @@ public class MarkdownReconcileService {
             LOG.infov("{0} markdown file(s) missing ({1} new); asking the user what to do", pendingMissing, newMissing);
             pendingDeletePrompt.notifyNewMissing();
         }
-        if (imported + conflicts + exported > 0) {
-            LOG.infov("Folder scan: {0} imported, {1} conflicts, {2} queued for export", imported, conflicts, exported);
-        }
+        LOG.infov("Folder scan finished in {0} ms: {1} imported, {2} conflicts, {3} missing, {4} queued for export",
+                System.currentTimeMillis() - startedAt, imported, conflicts, newMissing, exported);
         return new ScanSummary(imported, conflicts, newMissing, exported);
     }
 
