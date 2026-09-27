@@ -23,6 +23,7 @@ public class OutlineMarkdownParser {
     private static final Pattern ID_COMMENT = Pattern.compile("^<!--\\s*([0-9a-zA-Z-]{7,})\\s*-->$");
     private static final Pattern LEVEL_COMMENT = Pattern.compile("^<!--\\s*level=(\\d+)\\s*-->$");
     private static final Pattern COLLAPSED_COMMENT = Pattern.compile("^<!--\\s*collapsed=true\\s*-->$");
+    private static final Pattern TRANSCLUDE_COMMENT = Pattern.compile("^<!--\\s*transclude=([0-9a-zA-Z-]{7,})\\s*-->$");
     private static final Pattern PROP_COMMENT = Pattern.compile("^<!--\\s*(\\w+)=(.*?)\\s*-->$");
 
     @Inject
@@ -39,7 +40,8 @@ public class OutlineMarkdownParser {
         String body,
         boolean collapsed,
         List<String> types,
-        Map<String, String> properties
+        Map<String, String> properties,
+        String transcludeItemId
     ) {}
 
     public ParseResult parse(String markdown) {
@@ -94,10 +96,19 @@ public class OutlineMarkdownParser {
                 itemId = idGenerator.generateItemId();
             }
 
+            HMTID transclude = null;
+            if (pb.transcludeItemId() != null) {
+                try {
+                    transclude = HMTID.of(pb.transcludeItemId());
+                } catch (IllegalArgumentException ignored) {
+                    // malformed id in file: treat as a plain item
+                }
+            }
+
             items.add(new Item(
                     itemId, pageId, null, dirPath, name, type, now, now, idx,
                     pb.level(), pb.body(), "",
-                    pb.collapsed(), pb.types(), null
+                    pb.collapsed(), pb.types(), transclude
             ));
             prevIdx = idx;
         }
@@ -163,6 +174,7 @@ public class OutlineMarkdownParser {
         String currentId = null;
         int currentLevel = 1;
         boolean currentCollapsed = false;
+        String currentTransclude = null;
         Map<String, String> currentProperties = new LinkedHashMap<>();
         List<String> currentBodyLines = new ArrayList<>();
         boolean hasContent = false;
@@ -176,10 +188,11 @@ public class OutlineMarkdownParser {
             // Blank line outside code fence → flush current item
             if (line.isEmpty() && !inCodeFence) {
                 if (hasContent) {
-                    items.add(buildParsedItem(currentId, currentLevel, currentBodyLines, currentCollapsed, currentProperties));
+                    items.add(buildParsedItem(currentId, currentLevel, currentBodyLines, currentCollapsed, currentProperties, currentTransclude));
                     currentId = null;
                     currentLevel = 1;
                     currentCollapsed = false;
+                    currentTransclude = null;
                     currentProperties = new LinkedHashMap<>();
                     currentBodyLines = new ArrayList<>();
                     hasContent = false;
@@ -210,6 +223,13 @@ public class OutlineMarkdownParser {
                     continue;
                 }
 
+                Matcher transcludeMatcher = TRANSCLUDE_COMMENT.matcher(line);
+                if (transcludeMatcher.matches()) {
+                    currentTransclude = transcludeMatcher.group(1);
+                    hasContent = true;
+                    continue;
+                }
+
                 // Accumulate property comments (excluding level/collapsed handled above)
                 Matcher propMatcher = PROP_COMMENT.matcher(line);
                 if (propMatcher.matches()) {
@@ -226,13 +246,14 @@ public class OutlineMarkdownParser {
 
         // Flush last item
         if (hasContent) {
-            items.add(buildParsedItem(currentId, currentLevel, currentBodyLines, currentCollapsed, currentProperties));
+            items.add(buildParsedItem(currentId, currentLevel, currentBodyLines, currentCollapsed, currentProperties, currentTransclude));
         }
 
         return items;
     }
 
-    private ParsedItem buildParsedItem(String id, int level, List<String> bodyLines, boolean collapsed, Map<String, String> properties) {
+    private ParsedItem buildParsedItem(String id, int level, List<String> bodyLines, boolean collapsed,
+                                       Map<String, String> properties, String transcludeItemId) {
         String body = String.join("\n", bodyLines);
 
         // Whitespace-only body → empty
@@ -258,6 +279,6 @@ public class OutlineMarkdownParser {
         if (trimmed.startsWith("```")) types.add("code");
         if (trimmed.startsWith(">")) types.add("blockquote");
 
-        return new ParsedItem(id, level, body, collapsed, types, properties);
+        return new ParsedItem(id, level, body, collapsed, types, properties, transcludeItemId);
     }
 }

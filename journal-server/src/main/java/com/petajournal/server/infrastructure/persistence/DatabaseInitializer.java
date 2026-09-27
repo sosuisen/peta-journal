@@ -81,6 +81,22 @@ public class DatabaseInitializer {
                 )
                 """);
 
+            // Tracks what was last read from / written to each markdown file,
+            // so that folder → DB sync can tell our own writes from external edits.
+            stmt.execute("""
+                CREATE TABLE IF NOT EXISTS file_sync_state (
+                    rel_path TEXT PRIMARY KEY,
+                    page_id TEXT NOT NULL,
+                    content_hash TEXT NOT NULL,
+                    file_size INTEGER NOT NULL,
+                    file_mtime INTEGER NOT NULL,
+                    synced_at INTEGER NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'synced' CHECK(status IN ('synced', 'missing')),
+                    missing_since INTEGER
+                )
+                """);
+            stmt.execute("CREATE INDEX IF NOT EXISTS idx_fss_page_id ON file_sync_state(page_id)");
+
             stmt.execute("""
                 CREATE TABLE IF NOT EXISTS property_definitions (
                     key TEXT PRIMARY KEY,

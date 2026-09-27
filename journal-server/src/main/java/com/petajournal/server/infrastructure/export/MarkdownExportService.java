@@ -13,11 +13,12 @@ import org.jboss.logging.Logger;
 
 import com.sosuisha.hmtid.HMTID;
 import java.io.IOException;
-import java.nio.channels.FileChannel;
-import java.nio.channels.FileLock;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
 
 @ApplicationScoped
@@ -32,6 +33,9 @@ public class MarkdownExportService {
     ExportQueueRepository exportQueueRepository;
 
     @Inject
+    FileSyncStateRepository fileSyncStateRepository;
+
+    @Inject
     PageRepository pageRepository;
 
     @Inject
@@ -41,6 +45,7 @@ public class MarkdownExportService {
     PropertyRepository propertyRepository;
 
     private volatile boolean isProcessing = false;
+    private volatile boolean warnedDirUnavailable = false;
 
     public void queueExport(HMTID pageId) {
         exportQueueRepository.enqueue(pageId);
@@ -62,6 +67,28 @@ public class MarkdownExportService {
             exportQueueRepository.enqueue(page.id());
         }
         LOG.infov("Directory empty, queued {0} pages for export", allPages.size());
+    }
+
+    /**
+     * Returns the markdown root if it is configured and currently reachable.
+     * Empty when Dropbox (or the drive) is not mounted — callers must not create it.
+     */
+    public Optional<Path> markdownRoot() {
+        String markdownDir = configService.getMarkdownDir();
+        if (markdownDir == null || markdownDir.trim().isEmpty()) return Optional.empty();
+        Path root = Path.of(markdownDir);
+        if (!Files.isDirectory(root)) {
+            if (!warnedDirUnavailable) {
+                LOG.warnv("Markdown directory is not available: {0}", root);
+                warnedDirUnavailable = true;
+            }
+            return Optional.empty();
+        }
+        if (warnedDirUnavailable) {
+            LOG.infov("Markdown directory is available again: {0}", root);
+            warnedDirUnavailable = false;
+        }
+        return Optional.of(root);
     }
 
     @Scheduled(every = "${petajournal.export.interval}s", delay = 5, delayUnit = java.util.concurrent.TimeUnit.SECONDS)
@@ -90,35 +117,70 @@ public class MarkdownExportService {
     }
 
     void exportPage(HMTID pageId) throws IOException {
-        String markdownDir = configService.getMarkdownDir();
-        if (markdownDir == null || markdownDir.trim().isEmpty()) {
-            LOG.warn("Markdown directory not configured, skipping export");
-            return;
+        Optional<Path> rootOpt = markdownRoot();
+        if (rootOpt.isEmpty()) {
+            throw new IOException("Markdown directory not available");
         }
+        Path root = rootOpt.get();
 
         var pageOpt = pageRepository.findById(pageId);
-        if (pageOpt.isEmpty()) return;
+        if (pageOpt.isEmpty()) {
+            fileSyncStateRepository.deleteByPageId(pageId);
+            return;
+        }
 
         Page page = pageOpt.get();
         List<Item> items = itemRepository.findByPageId(pageId);
 
         String markdown = serializeToOutlineMarkdown(page, items);
-        String typeDir = page.type() + "s";
-        String subDir = page.dirPath();
-        Path dir = subDir.isEmpty() ? Path.of(markdownDir, typeDir) : Path.of(markdownDir, typeDir, subDir);
-        Files.createDirectories(dir);
-        Path filePath = dir.resolve(page.name() + ".md");
+        String relPath = MarkdownPathMapper.toRelPath(page);
+        String hash = MarkdownPathMapper.sha256(markdown);
 
-        try {
-            writeWithLock(filePath, markdown);
-        } catch (IOException e) {
-            // File locked, write to alternate name
-            Path altPath = dir.resolve(page.name() + ".conflict.md");
-            LOG.warnv("File locked, writing to alternate: {0}", altPath);
-            Files.writeString(altPath, markdown, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        // The page was renamed or moved: remove the file at its old location
+        for (FileSyncState stale : fileSyncStateRepository.findByPageId(pageId)) {
+            if (!stale.relPath().equals(relPath)) {
+                deleteQuietly(root.resolve(stale.relPath()));
+                fileSyncStateRepository.deleteByPath(stale.relPath());
+            }
         }
 
+        Path filePath = root.resolve(relPath);
+        Optional<FileSyncState> state = fileSyncStateRepository.findByPath(relPath);
+        if (state.isPresent() && !state.get().isMissing()
+                && hash.equals(state.get().contentHash()) && Files.exists(filePath)) {
+            LOG.debugv("Page {0} unchanged on disk, skipping export", page.name());
+            return;
+        }
+
+        Files.createDirectories(filePath.getParent());
+        try {
+            writeAtomic(filePath, markdown);
+        } catch (IOException e) {
+            // File locked by another process, write to alternate name
+            Path altPath = filePath.resolveSibling(page.name() + ".conflict.md");
+            LOG.warnv("Cannot write {0} ({1}), writing to alternate: {2}", filePath, e.getMessage(), altPath);
+            Files.writeString(altPath, markdown, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            return;
+        }
+
+        BasicFileAttributes attrs = Files.readAttributes(filePath, BasicFileAttributes.class);
+        fileSyncStateRepository.upsertSynced(relPath, pageId, hash, attrs.size(), attrs.lastModifiedTime().toMillis());
         LOG.debugv("Exported page {0} to {1}", page.name(), filePath);
+    }
+
+    /**
+     * Removes the markdown file of a page that was deleted from the DB.
+     * Safe to call when the file is already gone.
+     */
+    public void deletePageFile(Page page) {
+        Optional<Path> root = markdownRoot();
+        if (root.isPresent()) {
+            deleteQuietly(root.get().resolve(MarkdownPathMapper.toRelPath(page)));
+            for (FileSyncState state : fileSyncStateRepository.findByPageId(page.id())) {
+                deleteQuietly(root.get().resolve(state.relPath()));
+            }
+        }
+        fileSyncStateRepository.deleteByPageId(page.id());
     }
 
     String serializeToOutlineMarkdown(Page page, List<Item> items) {
@@ -184,6 +246,10 @@ public class MarkdownExportService {
             sb.append("<!-- collapsed=true -->\n");
         }
 
+        if (item.transcludeItemId() != null) {
+            sb.append("<!-- transclude=").append(item.transcludeItemId()).append(" -->\n");
+        }
+
         // Write property comments (alphabetically sorted by key)
         TreeMap<String, String> allProps = new TreeMap<>();
         allProps.putAll(scalars);
@@ -195,18 +261,29 @@ public class MarkdownExportService {
         }
     }
 
-    private void writeWithLock(Path path, String content) throws IOException {
-        try (FileChannel channel = FileChannel.open(path,
-                StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
-            FileLock lock = channel.tryLock();
-            if (lock == null) {
-                throw new IOException("Cannot acquire file lock: " + path);
-            }
-            try {
-                channel.write(java.nio.ByteBuffer.wrap(content.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
-            } finally {
-                lock.release();
-            }
+    /**
+     * Writes to a temp file in the same directory and renames it over the target,
+     * so Dropbox and the folder watcher never see a half-written file.
+     */
+    private void writeAtomic(Path path, String content) throws IOException {
+        Path tmp = path.resolveSibling("." + path.getFileName() + ".tmp");
+        Files.writeString(tmp, content, StandardCharsets.UTF_8,
+                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
+        try {
+            Files.move(tmp, path, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        } catch (AtomicMoveNotSupportedException e) {
+            Files.move(tmp, path, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            deleteQuietly(tmp);
+            throw e;
+        }
+    }
+
+    private void deleteQuietly(Path path) {
+        try {
+            Files.deleteIfExists(path);
+        } catch (IOException e) {
+            LOG.debugv("Could not delete {0}: {1}", path, e.getMessage());
         }
     }
 }

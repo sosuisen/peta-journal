@@ -14,7 +14,7 @@ export class SseService implements OnDestroy {
   readonly connectionState = this._connectionState.asReadonly();
   readonly isConnected = computed(() => this._connectionState() === 'connected');
 
-  private readonly _pagesUpdated$ = new Subject<{ pageId: string }>();
+  private readonly _pagesUpdated$ = new Subject<{ pageId: string; source?: 'app' | 'file' }>();
   readonly pagesUpdated$ = this._pagesUpdated$.asObservable();
 
   connect(): void {

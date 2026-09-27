@@ -35,6 +35,9 @@ public class PageService {
     com.petajournal.server.infrastructure.export.MarkdownExportService exportService;
 
     @Inject
+    com.petajournal.server.infrastructure.export.ExportQueueRepository exportQueueRepository;
+
+    @Inject
     IdGenerator idGenerator;
 
     /**
@@ -237,6 +240,9 @@ public class PageService {
         searchService.removePage(pageId.toString());
         itemRepository.deleteByPageId(pageId);
         pageRepository.delete(pageId);
+        exportQueueRepository.remove(pageId);
+        // Remove the markdown file too, otherwise the folder scan would bring the page back
+        exportService.deletePageFile(page);
     }
 
     /**
@@ -282,7 +288,7 @@ public class PageService {
      * Ensures that all ancestor directory pages exist for the given dirPath.
      * For example, dirPath "dir1/dir2/" creates pages ("dir1/", "index") and ("dir1/dir2/", "index").
      */
-    private void ensureAncestorPages(String dirPath) {
+    public void ensureAncestorPages(String dirPath) {
         if (dirPath == null || dirPath.isEmpty()) return;
 
         // Split "dir1/dir2/" into ["dir1", "dir2"]

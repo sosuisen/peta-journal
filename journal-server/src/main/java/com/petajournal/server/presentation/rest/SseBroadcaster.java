@@ -32,7 +32,15 @@ public class SseBroadcaster {
     }
 
     public void broadcastPagesUpdated(String pageId) {
-        String json = "{\"type\":\"pagesUpdated\",\"pageId\":\"" + pageId + "\"}";
+        broadcastPagesUpdated(pageId, "app");
+    }
+
+    /**
+     * @param source {@code "app"} for changes made through the API,
+     *               {@code "file"} for changes picked up from the markdown folder
+     */
+    public void broadcastPagesUpdated(String pageId, String source) {
+        String json = "{\"type\":\"pagesUpdated\",\"pageId\":\"" + pageId + "\",\"source\":\"" + source + "\"}";
         for (var emitter : emitters) {
             try {
                 emitter.emit(json);

@@ -16,6 +16,7 @@ import { WikiLinkContext, ensureCodeFenceClosed, hasUnclosedCodeFence } from './
 import { findCrossPagePlacement, findMoveDownTarget, findMoveUpTarget } from './move-utils';
 import { renderToHtml } from 'flatmarkdown-ast2html';
 import { HmtidService } from '../../core/services/hmtid.service';
+import { SseService } from '../../core/services/sse.service';
 
 @Component({
   selector: 'app-outline',
@@ -155,6 +156,10 @@ export class OutlineComponent implements OnInit, OnDestroy {
   private readonly undo = inject(UndoService);
   private readonly config = inject(ConfigService);
   private readonly hmtid = inject(HmtidService);
+  private readonly sse = inject(SseService);
+  private sseSub?: Subscription;
+  /** Pages changed on disk while the user was editing; reloaded once editing stops. */
+  private readonly pendingFileReloads = new Set<string>();
   readonly pageId = input.required<string>();
   readonly focusItemId = input<string | null | undefined>('');
   readonly disableAutoLoad = input<boolean>(false);  // Disable automatic item loading
@@ -218,6 +223,17 @@ export class OutlineComponent implements OnInit, OnDestroy {
     effect(() => {
       this.pageId();
       this.undo.clear();
+    });
+
+    // Changes picked up from the markdown folder: refresh the affected page's items
+    this.sseSub = this.sse.pagesUpdated$.subscribe(ev => {
+      if (ev.source === 'file') this.reloadPageFromFile(ev.pageId);
+    });
+    effect(() => {
+      if (this.state.editingItemIds().size === 0 && this.pendingFileReloads.size > 0) {
+        // Give the auto-save a moment to flush before replacing items
+        setTimeout(() => this.flushPendingFileReloads(), 1500);
+      }
     });
 
     // Subscribe to viewport scroll outside Angular change detection
@@ -335,6 +351,44 @@ export class OutlineComponent implements OnInit, OnDestroy {
    */
   formatDateHeader(fileName: string): string {
     return formatJournalDate(fileName);
+  }
+
+  /**
+   * Replaces the items of one page with the server's current version after the
+   * markdown file changed on disk. Waits while the user is editing so their typing
+   * is not overwritten.
+   */
+  private async reloadPageFromFile(pageId: string): Promise<void> {
+    const current = this.state.items();
+    if (!current.some(i => i.pageId === pageId)) return;  // not shown in this outline
+    if (this.state.editingItemIds().size > 0 || this.dirtyItemIds.size > 0) {
+      this.pendingFileReloads.add(pageId);
+      return;
+    }
+    try {
+      const result = await this.api.getPageById(pageId);
+      const items = this.state.items();
+      const first = items.findIndex(i => i.pageId === pageId);
+      if (first < 0) return;
+      const before = items.slice(0, first);
+      const after = items.slice(first).filter(i => i.pageId !== pageId);
+      this.state.setItems([...before, ...result.items, ...after]);
+      if (result.transcludedTrees) {
+        this.state.setTranscludedTrees({
+          ...Object.fromEntries(this.state.transcludedTrees()),
+          ...result.transcludedTrees,
+        });
+      }
+    } catch (e) {
+      console.error('Failed to reload page from file:', pageId, e);
+    }
+  }
+
+  private flushPendingFileReloads(): void {
+    if (this.state.editingItemIds().size > 0 || this.dirtyItemIds.size > 0) return;
+    const ids = [...this.pendingFileReloads];
+    this.pendingFileReloads.clear();
+    for (const id of ids) this.reloadPageFromFile(id);
   }
 
   private async loadItems(pageId: string): Promise<void> {
@@ -2364,6 +2418,7 @@ export class OutlineComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.scrollSub?.unsubscribe();
+    this.sseSub?.unsubscribe();
     document.removeEventListener('mouseup', this.selectionMouseUpHandler);
     document.removeEventListener('keydown', this.selectionKeydownHandler);
     document.removeEventListener('click', this.selectionClickHandler);

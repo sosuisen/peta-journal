@@ -46,6 +46,17 @@ public class ExportQueueRepository {
         }
     }
 
+    /** Drops a pending export, e.g. when the page was deleted. */
+    public void remove(HMTID pageId) {
+        try (Connection conn = connectionProvider.getConnection();
+             PreparedStatement ps = conn.prepareStatement("DELETE FROM export_queue WHERE page_id = ?")) {
+            ps.setString(1, pageId.toString());
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to remove export for page: " + pageId, e);
+        }
+    }
+
     public List<HMTID> dequeueAll() {
         int maxRetries = 3;
         int retryDelay = 100; // milliseconds

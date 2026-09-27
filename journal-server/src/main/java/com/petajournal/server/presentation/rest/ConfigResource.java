@@ -27,6 +27,9 @@ public class ConfigResource {
     @Inject
     MarkdownExportService markdownExportService;
 
+    @Inject
+    com.petajournal.server.infrastructure.watch.MarkdownFolderWatcher folderWatcher;
+
     record ConfigResponse(String markdownDir, String weekNumbering, boolean logicalOutdent) {}
     record UpdateConfigRequest(String markdownDir, String weekNumbering, Boolean logicalOutdent) {}
     record PropertyDefinitionsResponse(Map<String, String> propertyDefinitions) {}
@@ -58,6 +61,7 @@ public class ConfigResource {
         if (req.markdownDir() != null) {
             configService.setMarkdownDir(req.markdownDir());
             markdownExportService.exportAllIfEmpty(req.markdownDir());
+            folderWatcher.restart();
         }
         if (req.weekNumbering() != null) configService.setWeekNumbering(req.weekNumbering());
         if (req.logicalOutdent() != null) configService.setLogicalOutdent(req.logicalOutdent());
