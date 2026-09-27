@@ -44,5 +44,7 @@ Notes for Dropbox users:
 - Folders hidden by selective sync show up on the confirmation page as missing files.
   Just leave them unticked.
 
+Step-by-step journeys (in Japanese): [docs/folder-sync-journeys.md](docs/folder-sync-journeys.md).
+
 Settings live in `journal-server/src/main/resources/application.properties`
 (`petajournal.import.*`).
