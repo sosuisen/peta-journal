@@ -135,8 +135,10 @@ public class MarkdownReconcileService {
             exported++;
         }
 
-        if (newMissing > 0) {
-            LOG.infov("{0} markdown file(s) disappeared; asking the user what to do", newMissing);
+        // Keep asking while anything is left undecided; the prompt's cooldown limits how often
+        int pendingMissing = fileSyncStateRepository.findMissing().size();
+        if (pendingMissing > 0) {
+            LOG.infov("{0} markdown file(s) missing ({1} new); asking the user what to do", pendingMissing, newMissing);
             pendingDeletePrompt.notifyNewMissing();
         }
         if (imported + conflicts + exported > 0) {

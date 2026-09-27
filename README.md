@@ -35,6 +35,7 @@ The journal server keeps the database and the markdown folder in sync in both di
 - **Deleted files are never deleted from the database automatically.** When files disappear,
   a confirmation page opens in your browser (`http://localhost:8087/api/sync/pending-deletes`).
   Only the pages you tick and submit are deleted; you can also write them back to the folder.
+  The page keeps reopening (every 5 minutes by default) until nothing is left undecided.
 
 Notes for Dropbox users:
 

@@ -30,7 +30,10 @@ public class PendingDeletePrompt {
         return "http://localhost:" + httpPort + "/api/sync/pending-deletes";
     }
 
-    /** Called when new missing files were found. Opens the browser unless it was opened recently. */
+    /**
+     * Called whenever missing files are pending (new ones from the watcher, or any left undecided
+     * on each periodic scan). Opens the browser unless it was opened within the cooldown.
+     */
     public synchronized void notifyNewMissing() {
         long now = System.currentTimeMillis();
         if (now - lastOpenedAt < cooldownSeconds * 1000) {
