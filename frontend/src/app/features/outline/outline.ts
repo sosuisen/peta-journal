@@ -1552,7 +1552,7 @@ export class OutlineComponent implements OnInit, OnDestroy {
 
   async onPasteAsTransclusion(item: Item): Promise<void> {
     const sourceId = (await navigator.clipboard.readText().catch(() => '')).trim();
-    if (!sourceId || !/^[0-9a-f-]{36}$/i.test(sourceId)) return;
+    if (!sourceId || !/^[0-9A-Za-z_-]{10,}$/.test(sourceId)) return;
     try {
       const updated = await this.api.setTransclusion(item.id, sourceId);
       this.state.updateItem(item.id, updated);
