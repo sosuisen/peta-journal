@@ -189,9 +189,13 @@ public class MarkdownImportService {
             page = pageRepository.save(new Page(id, null, loc.dirPath(), loc.name(), loc.type(), created, fileModified));
             searchService.indexPage(page);
             LOG.infov("Created page {0} from {1}", page.id(), relPath);
-        } else if (fileModified.isBefore(page.modifiedDate())) {
+        } else if (fileModified.isBefore(page.modifiedDate())
+                && !fileSyncStateRepository.findByPageId(page.id()).isEmpty()) {
             // DB is newer: keep the DB, keep the file's content as a backup, then overwrite the file.
             // A moved file still moves the page, so the export lands at the new path.
+            // A page that never had a file on this device (e.g. the root index a fresh install creates)
+            // is not "newer" in any meaningful way: its modified date is just its creation time,
+            // so the file wins and the check above is skipped.
             if (renamed) {
                 ensureAncestors(loc);
                 page = pageRepository.save(new Page(page.id(), null, loc.dirPath(), loc.name(), loc.type(),
