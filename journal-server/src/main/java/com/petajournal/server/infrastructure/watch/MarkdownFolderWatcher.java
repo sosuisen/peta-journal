@@ -47,6 +47,7 @@ public class MarkdownFolderWatcher {
     @Inject MarkdownReconcileService reconcileService;
     @Inject FileSyncStateRepository fileSyncStateRepository;
     @Inject PendingDeletePrompt pendingDeletePrompt;
+    @Inject com.petajournal.server.domain.repository.SearchService searchService;
 
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
         Thread t = new Thread(r, "markdown-watcher-debounce");
@@ -210,12 +211,16 @@ public class MarkdownFolderWatcher {
         if (currentRoot == null || pending.isEmpty()) return;
         long cutoff = System.currentTimeMillis() - debounceMs;
         int newMissing = 0;
+        boolean indexChanged = false;
         for (var entry : pending.entrySet()) {
             if (entry.getValue() > cutoff) continue;
             String rel = entry.getKey();
             pending.remove(rel, entry.getValue());
             try {
                 MarkdownImportService.Outcome outcome = importService.syncFile(currentRoot, rel);
+                if (outcome == MarkdownImportService.Outcome.IMPORTED || outcome == MarkdownImportService.Outcome.CONFLICT) {
+                    indexChanged = true;
+                }
                 if (outcome == MarkdownImportService.Outcome.MISSING) {
                     var state = fileSyncStateRepository.findByPath(rel);
                     if (state.isPresent() && !state.get().isMissing()) {
@@ -237,6 +242,7 @@ public class MarkdownFolderWatcher {
                 LOG.warnv("Failed to sync {0}: {1}", rel, e.getMessage());
             }
         }
+        if (indexChanged) searchService.flush();
         if (newMissing > 0) {
             LOG.infov("{0} markdown file(s) deleted; asking the user what to do", newMissing);
             pendingDeletePrompt.notifyNewMissing();

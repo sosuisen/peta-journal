@@ -42,6 +42,7 @@ public class MarkdownReconcileService {
     @Inject FileSyncStateRepository fileSyncStateRepository;
     @Inject PageRepository pageRepository;
     @Inject PendingDeletePrompt pendingDeletePrompt;
+    @Inject com.petajournal.server.domain.repository.SearchService searchService;
 
     private final AtomicBoolean scanning = new AtomicBoolean(false);
     private volatile boolean scanRequested = false;
@@ -142,13 +143,18 @@ public class MarkdownReconcileService {
                 if (MarkdownPathMapper.isIgnored(rel)) continue;
                 FileSyncState state = states.remove(rel);
                 if (state != null && !state.isMissing() && unchangedOnDisk(file, state)) continue;
-                switch (importService.syncFile(root, rel)) {
+                long t0 = System.currentTimeMillis();
+                MarkdownImportService.Outcome outcome = importService.syncFile(root, rel);
+                long ms = System.currentTimeMillis() - t0;
+                if (ms > 5000) LOG.warnv("Syncing {0} took {1} ms", rel, ms);
+                switch (outcome) {
                     case IMPORTED -> imported++;
                     case CONFLICT -> conflicts++;
                     default -> { }
                 }
             }
         }
+        if (imported + conflicts > 0) searchService.flush();
 
         // Files we knew about that are no longer there
         for (FileSyncState state : states.values()) {

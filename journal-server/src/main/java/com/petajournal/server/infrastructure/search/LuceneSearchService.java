@@ -126,7 +126,6 @@ public class LuceneSearchService implements SearchService {
                 doc.add(new TextField(FIELD_BODY, item.body(), Field.Store.YES));
                 writer.addDocument(doc);
             }
-            writer.commit();
         } catch (IOException e) {
             LOG.warnv("Failed to index {0} items", items.size(), e);
         }
@@ -139,9 +138,23 @@ public class LuceneSearchService implements SearchService {
             for (String id : itemIds) {
                 writer.deleteDocuments(new Term(FIELD_ITEM_ID, id));
             }
-            writer.commit();
         } catch (IOException e) {
             LOG.warnv("Failed to remove {0} items from index", itemIds.size(), e);
+        }
+    }
+
+    @Override
+    public void flush() {
+        try {
+            long t0 = System.currentTimeMillis();
+            writer.commit();
+            long ms = System.currentTimeMillis() - t0;
+            if (ms > 2000) {
+                LOG.warnv("Lucene commit took {0} ms (index dir: {1}); check antivirus or sync tools on that folder",
+                        ms, indexDir);
+            }
+        } catch (IOException e) {
+            LOG.warn("Failed to commit search index", e);
         }
     }
 

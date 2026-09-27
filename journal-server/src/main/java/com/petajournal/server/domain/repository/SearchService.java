@@ -45,6 +45,13 @@ public interface SearchService {
     void removeItems(java.util.List<String> itemIds);
 
     /**
+     * Makes pending index changes durable. Batch importers call {@link #indexItems} /
+     * {@link #removeItems} many times and flush once at the end; searches already see
+     * uncommitted changes through the near-real-time reader.
+     */
+    void flush();
+
+    /**
      * Searches for pages by name using fuzzy/token matching.
      *
      * @param query      the search query

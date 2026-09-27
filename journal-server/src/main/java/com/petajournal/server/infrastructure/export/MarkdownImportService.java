@@ -112,6 +112,7 @@ public class MarkdownImportService {
 
     private Outcome importContent(Path root, String relPath, MarkdownPathMapper.PageLocation loc,
                                   String content, String hash, BasicFileAttributes attrs) {
+        long startedAt = System.currentTimeMillis();
         if (content.isBlank()) {
             // Sync tools and some editors create an empty file first and fill it in later.
             // Don't create or wipe a page for that; the watcher retries and the scan picks it up later.
@@ -229,8 +230,8 @@ public class MarkdownImportService {
         }
         if (merge.changed() || renamed || isNew) {
             sseBroadcaster.broadcastPagesUpdated(page.id().toString(), "file");
-            LOG.infov("Imported {0} ({1} items, {2})", relPath, items.size(),
-                    isNew ? "new page" : renamed ? "renamed" : "updated");
+            LOG.infov("Imported {0} ({1} items, {2}, {3} ms)", relPath, items.size(),
+                    isNew ? "new page" : renamed ? "renamed" : "updated", System.currentTimeMillis() - startedAt);
         }
         return Outcome.IMPORTED;
     }
