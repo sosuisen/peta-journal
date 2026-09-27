@@ -38,6 +38,12 @@ public interface SearchService {
      */
     void removeItem(String itemId);
 
+    /** Indexes many items of one page with a single commit. */
+    void indexItems(java.util.List<Item> items, String pageTitle);
+
+    /** Removes many items from the index with a single commit. */
+    void removeItems(java.util.List<String> itemIds);
+
     /**
      * Searches for pages by name using fuzzy/token matching.
      *

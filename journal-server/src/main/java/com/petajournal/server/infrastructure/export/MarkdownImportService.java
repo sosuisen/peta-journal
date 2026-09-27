@@ -169,10 +169,7 @@ public class MarkdownImportService {
                         pageRepository.rekey(page.id(), fileId);
                         page = pageRepository.findById(fileId).orElseThrow();
                         searchService.indexPage(page);
-                        String title = page.dirPath() + page.name();
-                        for (Item item : itemRepository.findByPageId(page.id())) {
-                            searchService.indexItem(item, title);
-                        }
+                        searchService.indexItems(itemRepository.findByPageId(page.id()), page.dirPath() + page.name());
                     } else {
                         writeBack = true; // our id is older: rewrite the file with it
                     }
@@ -220,10 +217,7 @@ public class MarkdownImportService {
                     page.createdDate(), newModified));
             searchService.indexPage(page);
             if (renamed) {
-                String title = page.dirPath() + page.name();
-                for (Item item : itemRepository.findByPageId(page.id())) {
-                    searchService.indexItem(item, title);
-                }
+                searchService.indexItems(itemRepository.findByPageId(page.id()), page.dirPath() + page.name());
             }
         }
 
@@ -295,16 +289,18 @@ public class MarkdownImportService {
         List<String> existingIds = existing.stream().map(i -> i.id().toString()).toList();
         Map<String, Map<String, String>> scalars = propertyRepository.findScalarByTargets("item", existingIds);
         boolean changed = false;
+        List<String> removedIds = new ArrayList<>();
         for (Item old : existing) {
             if (seen.contains(old.id())) continue;
             itemRepository.delete(old.id());
-            searchService.removeItem(old.id().toString());
+            removedIds.add(old.id().toString());
             propertyRepository.syncTags("item", old.id().toString(), List.of());
             for (String key : scalars.getOrDefault(old.id().toString(), Map.of()).keySet()) {
                 propertyRepository.deleteProperty("item", old.id().toString(), key);
             }
             changed = true;
         }
+        searchService.removeItems(removedIds); // one Lucene commit for all of them
 
         // (page_id, idx) is unique: if a surviving item is about to take another survivor's current idx,
         // park every survivor on a temporary idx first. Rare (two devices inserted at the same spot).
@@ -324,6 +320,7 @@ public class MarkdownImportService {
         }
 
         Map<String, String> defs = propertyRepository.findAllDefinitions();
+        List<Item> toIndex = new ArrayList<>(); // indexed in one commit at the end
 
         for (int i = 0; i < n; i++) {
             ParsedItem pi = parsedItems.get(i);
@@ -358,7 +355,7 @@ public class MarkdownImportService {
                 if (bodyChanged) {
                     propertyRepository.syncTags("item", id.toString(), HashtagExtractor.extractHashtags(ast));
                 }
-                searchService.indexItem(item, title);
+                toIndex.add(item);
                 changed = true;
             }
 
@@ -390,6 +387,7 @@ public class MarkdownImportService {
             }
         }
 
+        searchService.indexItems(toIndex, title);
         if (changed) {
             itemRepository.recalculateParentIds(pageId);
         }

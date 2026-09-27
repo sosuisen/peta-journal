@@ -3,8 +3,10 @@ package com.petajournal.server.infrastructure.export;
 import com.petajournal.server.domain.model.Page;
 import com.petajournal.server.domain.repository.PageRepository;
 import com.sosuisha.hmtid.HMTID;
+import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.scheduler.Scheduled;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
@@ -14,6 +16,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
@@ -42,6 +46,17 @@ public class MarkdownReconcileService {
     private final AtomicBoolean scanning = new AtomicBoolean(false);
     private volatile boolean scanRequested = false;
 
+    // A full scan can take minutes on a big folder; it must never run on a Vert.x worker thread
+    private final ExecutorService scanExecutor = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "markdown-scan");
+        t.setDaemon(true);
+        return t;
+    });
+
+    void onStop(@Observes ShutdownEvent event) {
+        scanExecutor.shutdownNow();
+    }
+
     /** Ask for a scan on the next scheduler tick (used by the watcher for directory-level events). */
     public void requestScan() {
         scanRequested = true;
@@ -49,19 +64,35 @@ public class MarkdownReconcileService {
 
     @Scheduled(every = "${petajournal.import.scan-interval}s", delay = 10, delayUnit = TimeUnit.SECONDS)
     void scheduledScan() {
-        scan();
+        scanAsync();
     }
 
     @Scheduled(every = "2s")
     void requestedScan() {
         if (scanRequested) {
             scanRequested = false;
-            scan();
+            scanAsync();
         }
+    }
+
+    /** Runs a scan on the scan thread unless one is already running or queued. */
+    public void scanAsync() {
+        if (!importEnabled) return;
+        if (!scanning.compareAndSet(false, true)) return;
+        scanExecutor.submit(() -> {
+            try {
+                doScan();
+            } catch (RuntimeException e) {
+                LOG.error("Folder scan failed", e);
+            } finally {
+                scanning.set(false);
+            }
+        });
     }
 
     public record ScanSummary(int imported, int conflicts, int newMissing, int exported) {}
 
+    /** Runs a scan on the calling thread. Prefer {@link #scanAsync()} from scheduled or request threads. */
     public ScanSummary scan() {
         if (!importEnabled) return new ScanSummary(0, 0, 0, 0);
         if (!scanning.compareAndSet(false, true)) return new ScanSummary(0, 0, 0, 0);

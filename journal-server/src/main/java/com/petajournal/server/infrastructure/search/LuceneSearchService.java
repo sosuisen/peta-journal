@@ -113,6 +113,39 @@ public class LuceneSearchService implements SearchService {
     }
 
     @Override
+    public void indexItems(List<Item> items, String pageTitle) {
+        if (items.isEmpty()) return;
+        try {
+            for (Item item : items) {
+                writer.deleteDocuments(new Term(FIELD_ITEM_ID, item.id().toString()));
+                Document doc = new Document();
+                doc.add(new StringField(FIELD_TYPE, "item", Field.Store.YES));
+                doc.add(new StringField(FIELD_PAGE_ID, item.pageId().toString(), Field.Store.YES));
+                doc.add(new TextField(FIELD_PAGE_TITLE, pageTitle, Field.Store.YES));
+                doc.add(new StringField(FIELD_ITEM_ID, item.id().toString(), Field.Store.YES));
+                doc.add(new TextField(FIELD_BODY, item.body(), Field.Store.YES));
+                writer.addDocument(doc);
+            }
+            writer.commit();
+        } catch (IOException e) {
+            LOG.warnv("Failed to index {0} items", items.size(), e);
+        }
+    }
+
+    @Override
+    public void removeItems(List<String> itemIds) {
+        if (itemIds.isEmpty()) return;
+        try {
+            for (String id : itemIds) {
+                writer.deleteDocuments(new Term(FIELD_ITEM_ID, id));
+            }
+            writer.commit();
+        } catch (IOException e) {
+            LOG.warnv("Failed to remove {0} items from index", itemIds.size(), e);
+        }
+    }
+
+    @Override
     public void removePage(String pageId) {
         try {
             writer.deleteDocuments(new Term(FIELD_PAGE_ID, pageId));
