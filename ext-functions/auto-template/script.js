@@ -40,9 +40,13 @@
     return results;
   }
 
+  /**
+   * Parse one item chunk into level and body.
+   * A GFM task prefix (`- [ ] ` / `- [x] `) stays in the body.
+   * The server detects the task from that prefix.
+   */
   function parseItem(text) {
     let level = 1;
-    let status = 'normal';
     const bodyLines = [];
 
     for (const line of text.split('\n')) {
@@ -57,21 +61,9 @@
       bodyLines.push(line);
     }
 
-    let body = bodyLines.join('\n').trim();
+    const body = bodyLines.join('\n').trim();
 
-    // Detect GFM task prefix
-    if (body.startsWith('- [ ] ')) {
-      status = 'todo';
-      body = body.substring(6);
-    } else if (body.startsWith('- [x] ')) {
-      status = 'done';
-      body = body.substring(6);
-    }
-
-    // Whitespace-only body → empty
-    if (body.length > 0 && body.trim() === '') body = '';
-
-    return { level, body, status };
+    return { level, body };
   }
 
   /**
@@ -195,13 +187,13 @@
     // Send CreateItem messages sequentially, waiting for response
     let lastItemId = '';
     for (const item of allItems) {
-      lastItemId = await createItem(pageId, lastItemId, item.level, item.body, item.status);
+      lastItemId = await createItem(pageId, lastItemId, item.level, item.body);
     }
 
     console.log('[auto-template] Created', allItems.length, 'items for:', fileName);
   });
 
-  function createItem(pageId, afterItemId, level, body, status) {
+  function createItem(pageId, afterItemId, level, body) {
     return new Promise((resolve) => {
       const requestId = 'req-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
 
@@ -225,7 +217,6 @@
         afterItemId,
         level,
         body,
-        status,
         requestId
       }, '*');
 
