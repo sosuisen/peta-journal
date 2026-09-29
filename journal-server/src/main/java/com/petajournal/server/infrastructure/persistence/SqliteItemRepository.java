@@ -289,8 +289,24 @@ public class SqliteItemRepository implements ItemRepository {
 
     @Override
     public void recalculateParentIds(HMTID pageId) {
-        try (Connection conn = connectionProvider.getConnection();
-             PreparedStatement selectPs = conn.prepareStatement(
+        try (Connection conn = connectionProvider.getConnection()) {
+            // One transaction: the levels are read and the parents are written against the same state,
+            // and the page costs one commit instead of one per item
+            conn.setAutoCommit(false);
+            try {
+                recalculateParentIds(conn, pageId);
+                conn.commit();
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to recalculate parent IDs for page: " + pageId, e);
+        }
+    }
+
+    private void recalculateParentIds(Connection conn, HMTID pageId) throws SQLException {
+        try (PreparedStatement selectPs = conn.prepareStatement(
                      "SELECT id, level FROM items WHERE page_id = ? ORDER BY idx");
              PreparedStatement updatePs = conn.prepareStatement(
                      "UPDATE items SET parent_id = ? WHERE id = ?")) {
@@ -319,8 +335,6 @@ public class SqliteItemRepository implements ItemRepository {
                 updatePs.addBatch();
             }
             updatePs.executeBatch();
-        } catch (SQLException e) {
-            throw new RuntimeException("Failed to recalculate parent IDs for page: " + pageId, e);
         }
     }
 
