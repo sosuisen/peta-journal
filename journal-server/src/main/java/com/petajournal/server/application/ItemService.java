@@ -2,6 +2,7 @@ package com.petajournal.server.application;
 
 import com.petajournal.server.domain.model.Item;
 import com.petajournal.server.domain.model.ItemPatch;
+import com.petajournal.server.domain.model.ItemPlacement;
 import com.petajournal.server.domain.model.ItemPosition;
 import com.petajournal.server.domain.model.Page;
 import com.petajournal.server.domain.repository.ItemRepository;
@@ -53,6 +54,8 @@ public class ItemService {
 
     @Inject
     IdGenerator idGenerator;
+
+    private final Object moveLock = new Object();
 
     /**
      * Creates a new item on the specified page.
@@ -217,123 +220,118 @@ public class ItemService {
 
     /**
      * Moves items to a target page at the specified position.
+     * The move is all or nothing: if it fails, no item has moved.
+     * Only the place and the level of the items change; their body is not written.
      *
      * @param itemIds     the IDs of items to move (order is preserved)
      * @param targetPageId the destination page
      * @param position     the position to insert at (FIRST, LAST, or after a specific item)
      * @param levelDelta   level adjustment to apply, or {@code null} for no change
      * @return the moved items with updated indices
-     * @throws IllegalArgumentException if an item or the target page is not found
+     * @throws NullPointerException     if itemIds, targetPageId or position is null
+     * @throws IllegalArgumentException if an item or the target page is not found, if the position
+     *                                  names an item that is not on the target page or is being moved,
+     *                                  or if a level does not fit the item above
      */
     public List<Item> moveItems(List<HMTID> itemIds, HMTID targetPageId, ItemPosition position, Integer levelDelta) {
-        List<Item> movedItems = new ArrayList<>();
-        List<Item> targetItems = itemRepository.findByPageId(targetPageId);
+        Objects.requireNonNull(itemIds, "itemIds must not be null");
+        Objects.requireNonNull(targetPageId, "targetPageId must not be null");
+        Objects.requireNonNull(position, "position must not be null");
+        int delta = levelDelta != null ? levelDelta : 0;
 
-        // Find insertion point
-        String afterIdx = null;
-        String nextIdx = null;
-        switch (position) {
-            case ItemPosition.First() -> {
-                if (!targetItems.isEmpty()) {
-                    nextIdx = targetItems.getFirst().idx();
-                }
+        Set<HMTID> touchedPageIds = new LinkedHashSet<>();
+        touchedPageIds.add(targetPageId);
+
+        // Two moves must not plan their indices from the same snapshot of the page
+        synchronized (moveLock) {
+            pageRepository.findById(targetPageId)
+                    .orElseThrow(() -> new IllegalArgumentException("Target page not found: " + targetPageId));
+            List<Item> moving = itemIds.stream()
+                    .map(id -> itemRepository.findById(id)
+                            .orElseThrow(() -> new IllegalArgumentException("Item not found: " + id)))
+                    .toList();
+            moving.forEach(item -> touchedPageIds.add(item.pageId()));
+
+            List<Item> staying = itemsStayingOn(targetPageId, itemIds);
+            validateLevels(moving, delta, findAnchor(staying, position));
+
+            List<String> newIdxs;
+            try {
+                newIdxs = planIndices(staying, position, moving.size());
+            } catch (IllegalStateException e) {
+                // No room left in the gap: reindex the page and plan again
+                reindexPage(targetPageId, itemRepository.findByPageId(targetPageId));
+                staying = itemsStayingOn(targetPageId, itemIds);
+                newIdxs = planIndices(staying, position, moving.size());
             }
-            case ItemPosition.Last() -> {
-                if (!targetItems.isEmpty()) {
-                    afterIdx = targetItems.getLast().idx();
-                }
+
+            List<ItemPlacement> placements = new ArrayList<>(moving.size());
+            for (int i = 0; i < moving.size(); i++) {
+                placements.add(new ItemPlacement(moving.get(i).id(), newIdxs.get(i)));
             }
-            case ItemPosition.After(HMTID afterItemId) -> {
-                for (int i = 0; i < targetItems.size(); i++) {
-                    if (targetItems.get(i).id().equals(afterItemId)) {
-                        afterIdx = targetItems.get(i).idx();
-                        if (i + 1 < targetItems.size()) {
-                            nextIdx = targetItems.get(i + 1).idx();
-                        }
-                        break;
-                    }
-                }
-            }
+            itemRepository.moveItems(targetPageId, placements, delta, Instant.now());
         }
 
-        int delta = levelDelta != null ? levelDelta : 0;
-        Instant now = Instant.now();
+        // The pages the items left need new parents and a new export too
+        for (HMTID pageId : touchedPageIds) {
+            itemRepository.recalculateParentIds(pageId);
+            touchPage(pageId);
+            exportService.queueExport(pageId);
+        }
 
-        // Validate level constraints for all items before making changes
-        Item aboveItem = findItemAbove(targetItems, position);
-        for (HMTID itemId : itemIds) {
-            Item item = itemRepository.findById(itemId)
-                    .orElseThrow(() -> new IllegalArgumentException("Item not found: " + itemId));
+        return itemIds.stream()
+                .map(id -> itemRepository.findById(id)
+                        .orElseThrow(() -> new IllegalArgumentException("Item not found: " + id)))
+                .toList();
+    }
+
+    private List<Item> itemsStayingOn(HMTID pageId, List<HMTID> movingIds) {
+        Set<HMTID> moving = Set.copyOf(movingIds);
+        return itemRepository.findByPageId(pageId).stream()
+                .filter(item -> !moving.contains(item.id()))
+                .toList();
+    }
+
+    /** Returns the item the group is placed under, or null when the group goes to the top of the page. */
+    private Item findAnchor(List<Item> staying, ItemPosition position) {
+        return switch (position) {
+            case ItemPosition.First() -> null;
+            case ItemPosition.Last() -> staying.isEmpty() ? null : staying.getLast();
+            case ItemPosition.After(HMTID anchorId) -> staying.stream()
+                    .filter(item -> item.id().equals(anchorId))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Position item is not on the target page or is being moved: " + anchorId));
+        };
+    }
+
+    private void validateLevels(List<Item> moving, int delta, Item anchor) {
+        Integer aboveLevel = anchor != null ? anchor.level() : null;
+        for (Item item : moving) {
             int newLevel = Math.max(1, item.level() + delta);
-            if (aboveItem == null) {
+            if (aboveLevel == null) {
                 if (newLevel != 1) {
                     throw new IllegalArgumentException("Level must be 1 when there is no item above the insertion position");
                 }
-            } else {
-                if (newLevel > aboveItem.level() + 1) {
-                    throw new IllegalArgumentException("Level must be at most " + (aboveItem.level() + 1)
-                            + " (one more than the item above), but was " + newLevel);
-                }
+            } else if (newLevel > aboveLevel + 1) {
+                throw new IllegalArgumentException("Level must be at most " + (aboveLevel + 1)
+                        + " (one more than the item above), but was " + newLevel);
             }
-            // For subsequent items, use the moved level as the "above" level
-            int aboveLevel = newLevel;
-            aboveItem = new Item(item.id(), item.pageId(), item.parentItemId(),
-                    item.dirPath(), item.name(), item.type(),
-                    item.createdDate(), item.modifiedDate(), item.idx(),
-                    aboveLevel, item.body(), item.ast(),
-                    item.collapsed(), item.types(), item.transcludeItemId());
+            // For subsequent items, the item just placed is the one above
+            aboveLevel = newLevel;
         }
+    }
 
-        // Get target page to get dir_path and name
-        Page targetPage = pageRepository.findById(targetPageId)
-                .orElseThrow(() -> new IllegalArgumentException("Target page not found: " + targetPageId));
-
-        for (HMTID itemId : itemIds) {
-            Item item = itemRepository.findById(itemId)
-                    .orElseThrow(() -> new IllegalArgumentException("Item not found: " + itemId));
-
-            String newIdx = FractionalIndexer.between(afterIdx, nextIdx);
-            int newLevel = Math.max(1, item.level() + delta);
-
-            Item moved = new Item(
-                    item.id(),
-                    targetPageId,
-                    null,
-                    targetPage.dirPath(),
-                    targetPage.name(),
-                    targetPage.type(),
-                    item.createdDate(),
-                    now,
-                    newIdx,
-                    newLevel,
-                    item.body(),
-                    item.ast(),
-                    item.collapsed(),
-                    item.types(),
-                    item.transcludeItemId()
-            );
-
-            moved = itemRepository.save(moved);
-            movedItems.add(moved);
-
-            afterIdx = newIdx;
-            nextIdx = null;
+    /** Plans indices for the whole group inside the gap at the position, so none reaches the next item. */
+    private List<String> planIndices(List<Item> staying, ItemPosition position, int count) {
+        Item anchor = findAnchor(staying, position);
+        int nextPos = anchor == null ? 0 : staying.indexOf(anchor) + 1;
+        String afterIdx = anchor != null ? anchor.idx() : null;
+        String nextIdx = nextPos < staying.size() ? staying.get(nextPos).idx() : null;
+        if (afterIdx == null && nextIdx == null) {
+            return FractionalIndexer.generateIndices(count);
         }
-
-        // Recalculate parent_id for all items on the target page
-        itemRepository.recalculateParentIds(targetPageId);
-
-        // Re-read moved items to get updated parent_id
-        movedItems = movedItems.stream()
-                .map(b -> itemRepository.findById(b.id()).orElse(b))
-                .toList();
-
-        touchPage(targetPageId);
-
-        // Queue for export
-        exportService.queueExport(targetPageId);
-
-        return movedItems;
+        return FractionalIndexer.between(afterIdx, nextIdx, count);
     }
 
     /**

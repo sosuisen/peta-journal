@@ -2,6 +2,7 @@ package com.petajournal.server.domain.repository;
 
 import com.petajournal.server.domain.model.Item;
 import com.petajournal.server.domain.model.ItemPatch;
+import com.petajournal.server.domain.model.ItemPlacement;
 import com.sosuisha.hmtid.HMTID;
 
 import java.time.Instant;
@@ -40,6 +41,21 @@ public interface ItemRepository {
      * @throws NullPointerException if ids or modifiedDate is null
      */
     void shiftLevels(List<HMTID> ids, int delta, Instant modifiedDate);
+
+    /**
+     * Moves items to their new places on a page, in one transaction.
+     * Either every item moves or none does. Only the page, the index, the level
+     * and the modified date are written; the body and the other fields are not touched.
+     * The parent of each moved item is cleared; call {@link #recalculateParentIds} afterwards.
+     *
+     * @param targetPageId the page the items move to
+     * @param placements   the items and their new indices
+     * @param levelDelta   the amount to add to each level; a level never goes below 1
+     * @param modifiedDate new modified date of the items
+     * @throws NullPointerException     if targetPageId, placements or modifiedDate is null
+     * @throws IllegalArgumentException if an item does not exist
+     */
+    void moveItems(HMTID targetPageId, List<ItemPlacement> placements, int levelDelta, Instant modifiedDate);
 
     void delete(HMTID id);
 

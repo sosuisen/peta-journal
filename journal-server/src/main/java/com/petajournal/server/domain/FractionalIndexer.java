@@ -44,6 +44,56 @@ public final class FractionalIndexer {
         return midpoint(before, after);
     }
 
+    /**
+     * Returns new indices in ascending order that all sort between the two given indices.
+     * Use this to place a group of items into one gap: every index stays inside the gap,
+     * however narrow it is.
+     *
+     * @param before the index the new indices must sort after, or null if there is none
+     * @param after  the index the new indices must sort before, or null if there is none
+     * @param count  the number of indices to create
+     * @return count indices in ascending order
+     * @throws IllegalArgumentException if count is negative
+     * @throws IllegalStateException    if the gap cannot hold the indices; the caller must reindex the page
+     */
+    public static List<String> between(String before, String after, int count) {
+        if (count < 0) {
+            throw new IllegalArgumentException("count must not be negative: " + count);
+        }
+        List<String> indices = new ArrayList<>(count);
+        if (before != null && after != null) {
+            if (before.compareTo(after) >= 0) {
+                throw new IllegalStateException("No gap between " + before + " and " + after);
+            }
+            fillBetween(before, after, count, indices);
+            return indices;
+        }
+        String current = after == null ? before : after;
+        for (int i = 0; i < count; i++) {
+            current = after == null ? between(current, null) : between(null, current);
+            indices.add(current);
+        }
+        if (after != null) {
+            indices = indices.reversed();
+        }
+        return indices;
+    }
+
+    /** Splits the gap in the middle first, so the indices grow in length as slowly as possible. */
+    private static void fillBetween(String before, String after, int count, List<String> out) {
+        if (count == 0) {
+            return;
+        }
+        String mid = midpoint(before, after);
+        if (mid.compareTo(before) <= 0 || mid.compareTo(after) >= 0) {
+            throw new IllegalStateException("No index between " + before + " and " + after);
+        }
+        int left = (count - 1) / 2;
+        fillBetween(before, mid, left, out);
+        out.add(mid);
+        fillBetween(mid, after, count - 1 - left, out);
+    }
+
     private static int indexOf(char c) {
         int idx = ALPHABET.indexOf(c);
         if (idx < 0) {

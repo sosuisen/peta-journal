@@ -2,6 +2,7 @@ package com.petajournal.server.infrastructure.persistence;
 
 import com.petajournal.server.domain.model.Item;
 import com.petajournal.server.domain.model.ItemPatch;
+import com.petajournal.server.domain.model.ItemPlacement;
 import com.sosuisha.hmtid.HMTID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,6 +23,8 @@ class SqliteItemRepositoryTest {
     private static final HMTID PAGE_ID = HMTID.of("2026-09-29-00-00-00-AAAAAAA");
     private static final HMTID ITEM_A = HMTID.of("2026-09-29-00-00-01-AAAAAAA");
     private static final HMTID ITEM_B = HMTID.of("2026-09-29-00-00-02-AAAAAAA");
+    private static final HMTID OTHER_PAGE_ID = HMTID.of("2026-09-29-00-00-00-BBBBBBB");
+    private static final HMTID ITEM_C = HMTID.of("2026-09-29-00-00-03-AAAAAAA");
     private static final HMTID UNKNOWN_ITEM = HMTID.of("2026-09-29-00-00-09-AAAAAAA");
     private static final Instant CREATED = Instant.ofEpochMilli(1_000);
     private static final Instant LATER = Instant.ofEpochMilli(2_000);
@@ -73,8 +76,11 @@ class SqliteItemRepositoryTest {
                     PRIMARY KEY (item_id, type)
                 )
                 """);
+            stmt.execute("CREATE UNIQUE INDEX idx_items_page_id_idx ON items(page_id, idx)");
             stmt.execute("INSERT INTO pages (id, dir_path, name, type, created_date, modified_date) "
                     + "VALUES ('" + PAGE_ID + "', '', 'test', 'doc', 1000, 1000)");
+            stmt.execute("INSERT INTO pages (id, dir_path, name, type, created_date, modified_date) "
+                    + "VALUES ('" + OTHER_PAGE_ID + "', '', 'other', 'doc', 1000, 1000)");
         }
         repository.save(item(ITEM_A, "a0", 1, "parent", List.of()));
         repository.save(item(ITEM_B, "a1", 2, "child", List.of("task", "heading")));
@@ -151,6 +157,61 @@ class SqliteItemRepositoryTest {
 
         assertEquals(1, find(ITEM_A).level());
         assertEquals(1, find(ITEM_B).level());
+    }
+
+    @Test
+    void movingItemCanTakeTheIndexOfAnotherMovingItem() {
+        repository.moveItems(PAGE_ID,
+                List.of(new ItemPlacement(ITEM_A, "a1"), new ItemPlacement(ITEM_B, "a2")), 0, LATER);
+
+        assertEquals("a1", find(ITEM_A).idx());
+        assertEquals("a2", find(ITEM_B).idx());
+    }
+
+    @Test
+    void moveChangesOnlyThePlaceAndTheLevel() {
+        repository.moveItems(OTHER_PAGE_ID, List.of(new ItemPlacement(ITEM_B, "b0")), -1, LATER);
+
+        Item item = find(ITEM_B);
+        assertEquals(OTHER_PAGE_ID, item.pageId());
+        assertEquals("other", item.name());
+        assertEquals("b0", item.idx());
+        assertEquals(1, item.level());
+        assertEquals(LATER, item.modifiedDate());
+        assertEquals("child", item.body());
+        assertEquals("ast:child", item.ast());
+        assertEquals(Set.of("task", "heading"), Set.copyOf(item.types()));
+    }
+
+    @Test
+    void moveKeepsABodySavedJustBefore() {
+        repository.patch(ITEM_B, new ItemPatch("typed meanwhile", "ast", List.of(), null, null, null, LATER));
+
+        repository.moveItems(PAGE_ID, List.of(new ItemPlacement(ITEM_B, "a5")), 0, LATER);
+
+        assertEquals("typed meanwhile", find(ITEM_B).body());
+    }
+
+    @Test
+    void failedMoveLeavesEveryItemInPlace() {
+        repository.save(item(ITEM_C, "a5", 1, "stays", List.of()));
+
+        // The second placement hits the index of an item that does not move
+        assertThrows(RuntimeException.class, () -> repository.moveItems(PAGE_ID,
+                List.of(new ItemPlacement(ITEM_A, "a3"), new ItemPlacement(ITEM_B, "a5")), 1, LATER));
+
+        assertEquals("a0", find(ITEM_A).idx());
+        assertEquals(1, find(ITEM_A).level());
+        assertEquals("a1", find(ITEM_B).idx());
+        assertEquals("a5", find(ITEM_C).idx());
+    }
+
+    @Test
+    void moveOfUnknownItemLeavesEveryItemInPlace() {
+        assertThrows(IllegalArgumentException.class, () -> repository.moveItems(PAGE_ID,
+                List.of(new ItemPlacement(ITEM_A, "a3"), new ItemPlacement(UNKNOWN_ITEM, "a4")), 0, LATER));
+
+        assertEquals("a0", find(ITEM_A).idx());
     }
 
     @Test

@@ -2,6 +2,7 @@ package com.petajournal.server.infrastructure.persistence;
 
 import com.petajournal.server.domain.model.Item;
 import com.petajournal.server.domain.model.ItemPatch;
+import com.petajournal.server.domain.model.ItemPlacement;
 import com.petajournal.server.domain.repository.ItemRepository;
 import com.sosuisha.hmtid.HMTID;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -16,6 +17,8 @@ import java.util.*;
 public class SqliteItemRepository implements ItemRepository {
 
     private static final Logger LOG = Logger.getLogger(SqliteItemRepository.class);
+    /** Not in the index alphabet, so a parked index never equals a real one. */
+    private static final String PARKED_IDX_PREFIX = "~";
 
     @Inject
     SqliteConnectionProvider connectionProvider;
@@ -228,6 +231,59 @@ public class SqliteItemRepository implements ItemRepository {
             }
         } catch (SQLException e) {
             throw new RuntimeException("Failed to shift levels of " + ids.size() + " items", e);
+        }
+    }
+
+    @Override
+    public void moveItems(HMTID targetPageId, List<ItemPlacement> placements, int levelDelta, Instant modifiedDate) {
+        Objects.requireNonNull(targetPageId, "targetPageId must not be null");
+        Objects.requireNonNull(placements, "placements must not be null");
+        Objects.requireNonNull(modifiedDate, "modifiedDate must not be null");
+        try (Connection conn = connectionProvider.getConnection()) {
+            conn.setAutoCommit(false);
+            try {
+                parkIndices(conn, placements);
+                placeItems(conn, targetPageId, placements, levelDelta, modifiedDate);
+                conn.commit();
+            } catch (SQLException | RuntimeException e) {
+                conn.rollback();
+                throw e;
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to move " + placements.size() + " items to page: " + targetPageId, e);
+        }
+    }
+
+    /**
+     * (page_id, idx) is unique and checked per statement. A moving item may take the index
+     * that another moving item still holds, so all of them leave their index first.
+     */
+    private void parkIndices(Connection conn, List<ItemPlacement> placements) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement("UPDATE items SET idx = ? WHERE id = ?")) {
+            for (ItemPlacement placement : placements) {
+                String id = placement.itemId().toString();
+                ps.setString(1, PARKED_IDX_PREFIX + id);
+                ps.setString(2, id);
+                if (ps.executeUpdate() == 0) {
+                    throw new IllegalArgumentException("Item not found: " + id);
+                }
+            }
+        }
+    }
+
+    private void placeItems(Connection conn, HMTID targetPageId, List<ItemPlacement> placements,
+                            int levelDelta, Instant modifiedDate) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "UPDATE items SET page_id = ?, parent_id = NULL, idx = ?, level = MAX(1, level + ?), "
+                        + "modified_date = ? WHERE id = ?")) {
+            for (ItemPlacement placement : placements) {
+                ps.setString(1, targetPageId.toString());
+                ps.setString(2, placement.idx());
+                ps.setInt(3, levelDelta);
+                ps.setLong(4, modifiedDate.toEpochMilli());
+                ps.setString(5, placement.itemId().toString());
+                ps.executeUpdate();
+            }
         }
     }
 
