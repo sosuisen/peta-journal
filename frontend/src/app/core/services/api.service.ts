@@ -85,6 +85,23 @@ export class ApiService {
     return data.item;
   }
 
+  /**
+   * Adds delta to the level of every given item in one request.
+   * The change is relative, so two requests sent close together add up in any order.
+   * @param itemIds - The items to indent or outdent
+   * @param delta - The amount to add to each level; negative to outdent
+   * @returns The items after the change
+   */
+  async shiftItemLevels(itemIds: string[], delta: number): Promise<Item[]> {
+    const resp = await fetch('/api/items/shift-level', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ itemIds, delta }),
+    });
+    const data = await json<{ items: Item[] }>(resp);
+    return data.items;
+  }
+
   async moveItems(itemIds: string[], targetPageId: string, position: ItemPosition, levelDelta?: number): Promise<Item[]> {
     const resp = await fetch('/api/items/move', {
       method: 'POST',

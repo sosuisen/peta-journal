@@ -947,12 +947,7 @@ export class OutlineComponent implements OnInit, OnDestroy {
         this.state.updateItem(b.id, { level: newSourceLevel });
       }
       this.undo.commit();
-      const results = await Promise.all(group.map(b =>
-        this.api.updateItem(b.id, { level: b.level - tCtx.levelOffset + 1 })
-      ));
-      for (const r of results) {
-        this.state.updateItem(r.id, { level: r.level });
-      }
+      await this.saveLevelShift(group, 1);
       return;
     }
 
@@ -963,9 +958,26 @@ export class OutlineComponent implements OnInit, OnDestroy {
       this.state.updateItem(b.id, { level: b.level + 1 });
     }
     this.undo.commit();
-    const results = await Promise.all(group.map(b => this.api.updateItem(b.id, { level: b.level + 1 })));
-    for (const r of results) {
-      this.state.updateItem(r.id, { idx: r.idx, level: r.level });
+    await this.saveLevelShift(group, 1);
+  }
+
+  /**
+   * Saves an indent or outdent that is already shown on screen.
+   * The whole group goes in one relative request, and the response is not written back
+   * to the state: a response to an older key press would undo a newer one.
+   * If the save fails, the affected pages are reloaded so the screen matches the server again.
+   * @param group - The items whose level changed
+   * @param delta - The amount added to each level; negative for outdent
+   */
+  private async saveLevelShift(group: Item[], delta: number): Promise<void> {
+    if (group.length === 0) return;
+    try {
+      await this.api.shiftItemLevels(group.map(b => b.id), delta);
+    } catch (e) {
+      console.error('Failed to change item levels:', e);
+      for (const pageId of new Set(group.map(b => b.pageId))) {
+        this.reloadPageFromFile(pageId);
+      }
     }
   }
 
@@ -1001,12 +1013,7 @@ export class OutlineComponent implements OnInit, OnDestroy {
         this.state.updateItem(b.id, { level: newSourceLevel });
       }
       this.undo.commit();
-      const results = await Promise.all(group.map(b =>
-        this.api.updateItem(b.id, { level: b.level - tCtx.levelOffset - 1 })
-      ));
-      for (const r of results) {
-        this.state.updateItem(r.id, { level: r.level });
-      }
+      await this.saveLevelShift(group, -1);
       return;
     }
 
@@ -1048,10 +1055,7 @@ export class OutlineComponent implements OnInit, OnDestroy {
       for (const b of group) {
         this.state.updateItem(b.id, { level: b.level - 1 });
       }
-      const levelResults = await Promise.all(group.map(b => this.api.updateItem(b.id, { level: b.level - 1 })));
-      for (const r of levelResults) {
-        this.state.updateItem(r.id, { idx: r.idx, level: r.level });
-      }
+      await this.api.shiftItemLevels(groupIds, -1);
 
       // Move after the last child (if it's not the parent itself)
       if (lastChildId !== currentParent.id) {
@@ -1078,10 +1082,7 @@ export class OutlineComponent implements OnInit, OnDestroy {
         this.state.updateItem(b.id, { level: b.level - 1 });
       }
       this.undo.commit();
-      const results = await Promise.all(group.map(b => this.api.updateItem(b.id, { level: b.level - 1 })));
-      for (const r of results) {
-        this.state.updateItem(r.id, { idx: r.idx, level: r.level });
-      }
+      await this.saveLevelShift(group, -1);
     }
   }
 
@@ -2160,14 +2161,7 @@ export class OutlineComponent implements OnInit, OnDestroy {
     }
     this.undo.commit();
 
-    try {
-      const results = await Promise.all(itemsToIndent.map(b => this.api.updateItem(b.id, { level: b.level + 1 })));
-      for (const r of results) {
-        this.state.updateItem(r.id, { idx: r.idx, level: r.level });
-      }
-    } catch (e) {
-      console.error('Failed to indent selected items:', e);
-    }
+    await this.saveLevelShift(itemsToIndent, 1);
   }
 
   private async outdentSelectedItems(): Promise<void> {
@@ -2184,14 +2178,7 @@ export class OutlineComponent implements OnInit, OnDestroy {
     }
     this.undo.commit();
 
-    try {
-      const results = await Promise.all(itemsToOutdent.map(b => this.api.updateItem(b.id, { level: b.level - 1 })));
-      for (const r of results) {
-        this.state.updateItem(r.id, { idx: r.idx, level: r.level });
-      }
-    } catch (e) {
-      console.error('Failed to outdent selected items:', e);
-    }
+    await this.saveLevelShift(itemsToOutdent, -1);
   }
 
   private async copySelectedItems(): Promise<void> {
