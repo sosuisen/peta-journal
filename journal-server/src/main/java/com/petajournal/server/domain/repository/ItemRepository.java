@@ -1,6 +1,7 @@
 package com.petajournal.server.domain.repository;
 
 import com.petajournal.server.domain.model.Item;
+import com.petajournal.server.domain.model.ItemPatch;
 import com.sosuisha.hmtid.HMTID;
 
 import java.util.List;
@@ -14,6 +15,17 @@ public interface ItemRepository {
     List<Item> findByPageId(HMTID pageId);
 
     Item save(Item item);
+
+    /**
+     * Writes only the fields set in the patch, in one transaction.
+     * Columns that the patch leaves out are not read and not written.
+     *
+     * @param id    the item to update
+     * @param patch the fields to write
+     * @return true if the item exists
+     * @throws NullPointerException if id or patch is null
+     */
+    boolean patch(HMTID id, ItemPatch patch);
 
     void delete(HMTID id);
 

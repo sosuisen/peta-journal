@@ -1,6 +1,7 @@
 package com.petajournal.server.application;
 
 import com.petajournal.server.domain.model.Item;
+import com.petajournal.server.domain.model.ItemPatch;
 import com.petajournal.server.domain.model.ItemPosition;
 import com.petajournal.server.domain.model.Page;
 import com.petajournal.server.domain.repository.ItemRepository;
@@ -124,50 +125,29 @@ public class ItemService {
     }
 
     /**
-     * Updates an existing item. Only non-null parameters are applied.
+     * Updates an existing item. Only non-null parameters are written.
+     * The other fields keep their current database value, so a body save and
+     * a level change that run at the same time do not overwrite each other.
      *
      * @param itemId        the item to update
      * @param body           new markdown body, or {@code null} to keep current
      * @param level          new indentation level, or {@code null} to keep current
      * @param collapsed      new collapsed state, or {@code null} to keep current
      * @return the updated item
-     * @throws IllegalArgumentException if the item is not found
+     * @throws IllegalArgumentException if the item is not found, or if level is less than 1
      */
     public Item updateItem(HMTID itemId, String body, Integer level, Boolean collapsed) {
         Item existing = itemRepository.findById(itemId)
                 .orElseThrow(() -> new IllegalArgumentException("Item not found: " + itemId));
 
         boolean isTask = body != null && (body.startsWith("- [ ] ") || body.startsWith("- [x] "));
-        String newBody = body != null ? (isTask ? body.substring(6) : body) : existing.body();
-        String newAst = body != null ? parseBody(newBody) : existing.ast();
-        int newLevel = level != null ? level : existing.level();
-        boolean newCollapsed = collapsed != null ? collapsed : existing.collapsed();
-        List<String> types = body != null ? new ArrayList<>(detectItemTypes(newBody)) : new ArrayList<>(existing.types());
-        if (isTask && !types.contains("task")) {
-            types.add("task");
-        } else if (body != null && existing.types().contains("task") && !types.contains("task")) {
-            types.add("task");
-        }
+        String newBody = isTask ? body.substring(6) : body;
+        String newAst = body != null ? parseBody(newBody) : null;
+        List<String> bodyTypes = body != null ? detectItemTypes(newBody) : null;
 
-        Item updated = new Item(
-                existing.id(),
-                existing.pageId(),
-                existing.parentItemId(),
-                existing.dirPath(),
-                existing.name(),
-                existing.type(),
-                existing.createdDate(),
-                Instant.now(),
-                existing.idx(),
-                newLevel,
-                newBody,
-                newAst,
-                newCollapsed,
-                types,
-                existing.transcludeItemId()
-        );
-
-        updated = itemRepository.save(updated);
+        // A task stays a task when its body changes; only the prefix can add the type here
+        itemRepository.patch(itemId, new ItemPatch(
+                newBody, newAst, bodyTypes, isTask ? Boolean.TRUE : null, level, collapsed, Instant.now()));
 
         // Sync hashtags when body changes
         if (body != null) {
@@ -178,14 +158,16 @@ public class ItemService {
         // Recalculate parent_id when level changes
         if (level != null) {
             itemRepository.recalculateParentIds(existing.pageId());
-            updated = itemRepository.findById(existing.id()).orElse(updated);
         }
+        Item updated = itemRepository.findById(itemId)
+                .orElseThrow(() -> new IllegalArgumentException("Item not found: " + itemId));
 
         touchPage(existing.pageId());
 
-        Page page = pageRepository.findById(existing.pageId()).orElse(null);
-        if (page != null) {
-            searchService.indexItem(updated, page.dirPath() + page.name());
+        // The search index holds the body only; level and collapsed do not change it
+        if (body != null) {
+            pageRepository.findById(existing.pageId())
+                    .ifPresent(page -> searchService.indexItem(updated, page.dirPath() + page.name()));
         }
 
         // Queue for export
@@ -431,15 +413,7 @@ public class ItemService {
 
         if (!isTask) {
             // State 1: Not a task → become a task
-            List<String> newTypes = new ArrayList<>(existing.types());
-            newTypes.add("task");
-            Item updated = new Item(
-                    existing.id(), existing.pageId(), existing.parentItemId(),
-                    existing.dirPath(), existing.name(), existing.type(),
-                    existing.createdDate(), Instant.now(), existing.idx(),
-                    existing.level(), existing.body(), existing.ast(),
-                    existing.collapsed(), newTypes, existing.transcludeItemId());
-            itemRepository.save(updated);
+            Item updated = patchTask(existing, true);
             propertyRepository.deleteProperty("item", id, "begin");
             propertyRepository.deleteProperty("item", id, "end");
             touchPage(existing.pageId());
@@ -461,21 +435,19 @@ public class ItemService {
             return existing;
         } else {
             // State 4: Task, has begin AND end → back to normal (remove task type, begin/end)
-            List<String> newTypes = new ArrayList<>(existing.types());
-            newTypes.remove("task");
-            Item updated = new Item(
-                    existing.id(), existing.pageId(), existing.parentItemId(),
-                    existing.dirPath(), existing.name(), existing.type(),
-                    existing.createdDate(), Instant.now(), existing.idx(),
-                    existing.level(), existing.body(), existing.ast(),
-                    existing.collapsed(), newTypes, existing.transcludeItemId());
-            itemRepository.save(updated);
+            Item updated = patchTask(existing, false);
             propertyRepository.deleteProperty("item", id, "begin");
             propertyRepository.deleteProperty("item", id, "end");
             touchPage(existing.pageId());
             exportService.queueExport(existing.pageId());
             return updated;
         }
+    }
+
+    /** Adds or removes the task type without writing any other field of the item. */
+    private Item patchTask(Item existing, boolean task) {
+        itemRepository.patch(existing.id(), new ItemPatch(null, null, null, task, null, null, Instant.now()));
+        return itemRepository.findById(existing.id()).orElse(existing);
     }
 
     /** Result of exporting items as tree markdown. */

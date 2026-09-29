@@ -1,6 +1,7 @@
 package com.petajournal.server.infrastructure.persistence;
 
 import com.petajournal.server.domain.model.Item;
+import com.petajournal.server.domain.model.ItemPatch;
 import com.petajournal.server.domain.repository.ItemRepository;
 import com.sosuisha.hmtid.HMTID;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -116,6 +117,92 @@ public class SqliteItemRepository implements ItemRepository {
             }
         } catch (SQLException e) {
             throw new RuntimeException("Failed to save item: " + item.id(), e);
+        }
+    }
+
+    @Override
+    public boolean patch(HMTID id, ItemPatch patch) {
+        Objects.requireNonNull(id, "id must not be null");
+        Objects.requireNonNull(patch, "patch must not be null");
+        try (Connection conn = connectionProvider.getConnection()) {
+            conn.setAutoCommit(false);
+            try {
+                boolean found = patchColumns(conn, id, patch);
+                if (found) {
+                    patchTypes(conn, id, patch);
+                }
+                conn.commit();
+                return found;
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to patch item: " + id, e);
+        }
+    }
+
+    private boolean patchColumns(Connection conn, HMTID id, ItemPatch patch) throws SQLException {
+        StringBuilder sql = new StringBuilder("UPDATE items SET modified_date = ?");
+        if (patch.changesBody()) {
+            sql.append(", body = ?, ast = ?");
+        }
+        if (patch.level() != null) {
+            sql.append(", level = ?");
+        }
+        if (patch.collapsed() != null) {
+            sql.append(", collapsed = ?");
+        }
+        sql.append(" WHERE id = ?");
+
+        try (PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+            int n = 1;
+            ps.setLong(n++, patch.modifiedDate().toEpochMilli());
+            if (patch.changesBody()) {
+                ps.setString(n++, patch.body());
+                ps.setString(n++, patch.ast());
+            }
+            if (patch.level() != null) {
+                ps.setInt(n++, patch.level());
+            }
+            if (patch.collapsed() != null) {
+                ps.setInt(n++, patch.collapsed() ? 1 : 0);
+            }
+            ps.setString(n, id.toString());
+            return ps.executeUpdate() > 0;
+        }
+    }
+
+    private void patchTypes(Connection conn, HMTID id, ItemPatch patch) throws SQLException {
+        if (patch.changesBody()) {
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "DELETE FROM item_types WHERE item_id = ? AND type <> ?")) {
+                ps.setString(1, id.toString());
+                ps.setString(2, ItemPatch.TASK_TYPE);
+                ps.executeUpdate();
+            }
+            for (String type : patch.bodyTypes()) {
+                insertType(conn, id, type);
+            }
+        }
+        if (Boolean.TRUE.equals(patch.task())) {
+            insertType(conn, id, ItemPatch.TASK_TYPE);
+        } else if (Boolean.FALSE.equals(patch.task())) {
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "DELETE FROM item_types WHERE item_id = ? AND type = ?")) {
+                ps.setString(1, id.toString());
+                ps.setString(2, ItemPatch.TASK_TYPE);
+                ps.executeUpdate();
+            }
+        }
+    }
+
+    private void insertType(Connection conn, HMTID id, String type) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "INSERT OR IGNORE INTO item_types (item_id, type) VALUES (?, ?)")) {
+            ps.setString(1, id.toString());
+            ps.setString(2, type);
+            ps.executeUpdate();
         }
     }
 
