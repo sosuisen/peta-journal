@@ -171,6 +171,8 @@ export class OutlineComponent implements OnInit, OnDestroy {
   private readonly dirtyItemIds = new Set<string>();
   private switchingEditItem = false;
   private movingEditItem = false;
+  /** Tail of the move queue; see enqueueMove. */
+  private moveQueue: Promise<void> = Promise.resolve();
   private operatingEnterKey = false;  // Prevents onEditFinished from flushing
   private readonly viewport = viewChild<CdkVirtualScrollViewport>('viewport');
   private readonly outlineItems = viewChildren<OutlineItemComponent>('outlineItem');
@@ -1091,7 +1093,29 @@ export class OutlineComponent implements OnInit, OnDestroy {
    * past the previous sibling tree.
    * @param item - The item to move up
    */
-  async onMoveUp(item: Item): Promise<void> {
+  onMoveUp(item: Item): Promise<void> {
+    return this.enqueueMove(() => this.moveUp(this.currentItem(item)));
+  }
+
+  /**
+   * Runs moves one after another. A move computes its target from the item list,
+   * and the list changes only when the server has answered. A second key press that
+   * did not wait would compute the same target again and the press would be lost.
+   * @param move - The move to run when the moves before it are done
+   * @returns A promise that settles when this move is done
+   */
+  private enqueueMove(move: () => Promise<void>): Promise<void> {
+    const run = this.moveQueue.then(move);
+    this.moveQueue = run.catch(() => undefined);
+    return run;
+  }
+
+  /** The item as it is shown now; the one passed by the template may be from before an earlier move. */
+  private currentItem(item: Item): Item {
+    return this.state.visibleItems().find(b => b.id === item.id) ?? item;
+  }
+
+  private async moveUp(item: Item): Promise<void> {
     const tCtx = this.getTransclusionContext(item);
     const isInItems = this.state.items().some(b => b.id === item.id);
 
@@ -1164,7 +1188,11 @@ export class OutlineComponent implements OnInit, OnDestroy {
    * past the next sibling tree.
    * @param item - The item to move down
    */
-  async onMoveDown(item: Item): Promise<void> {
+  onMoveDown(item: Item): Promise<void> {
+    return this.enqueueMove(() => this.moveDown(this.currentItem(item)));
+  }
+
+  private async moveDown(item: Item): Promise<void> {
     const tCtx = this.getTransclusionContext(item);
     const isInItems = this.state.items().some(b => b.id === item.id);
 
@@ -2079,7 +2107,11 @@ export class OutlineComponent implements OnInit, OnDestroy {
     await this.ensureAtLeastOneItem();
   }
 
-  private async moveSelectedItemsUp(): Promise<void> {
+  private moveSelectedItemsUp(): Promise<void> {
+    return this.enqueueMove(() => this.moveSelectionUp());
+  }
+
+  private async moveSelectionUp(): Promise<void> {
     const rootItems = this.getSelectedRootItems();
     if (rootItems.length === 0) return;
 
@@ -2112,7 +2144,11 @@ export class OutlineComponent implements OnInit, OnDestroy {
     }
   }
 
-  private async moveSelectedItemsDown(): Promise<void> {
+  private moveSelectedItemsDown(): Promise<void> {
+    return this.enqueueMove(() => this.moveSelectionDown());
+  }
+
+  private async moveSelectionDown(): Promise<void> {
     const rootItems = this.getSelectedRootItems();
     if (rootItems.length === 0) return;
 
