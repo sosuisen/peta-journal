@@ -44,6 +44,8 @@ public class ItemsResource {
     record UpdateItemResponse(ItemDto item) {}
     record MoveItemsRequest(List<String> itemIds, String targetPageId, String position, Integer levelDelta) {}
     record MoveItemsResponse(List<ItemDto> items) {}
+    record ShiftLevelsRequest(List<String> itemIds, int delta) {}
+    record ShiftLevelsResponse(List<ItemDto> items) {}
     record GetItemResponse(ItemDto item) {}
     record GetItemsByTypesResponse(List<ItemDto> items) {}
     record CycleTaskResponse(ItemDto item) {}
@@ -160,6 +162,30 @@ public class ItemsResource {
                 req.levelDelta());
         sseBroadcaster.broadcastPagesUpdated(req.targetPageId());
         return new MoveItemsResponse(loadItemDtos(items));
+    }
+
+    /**
+     * Indents or outdents a group of items in one request.
+     * The change is relative, so requests that arrive out of order still add up correctly.
+     *
+     * @param req the items and the amount to add to their levels
+     * @return the items after the change
+     * @throws IllegalArgumentException if itemIds is missing or empty, or an item is not found
+     */
+    @POST
+    @Path("/shift-level")
+    public ShiftLevelsResponse shiftLevels(ShiftLevelsRequest req) {
+        if (req.itemIds() == null) {
+            throw new IllegalArgumentException("itemIds is required");
+        }
+        List<HMTID> ids = req.itemIds().stream().map(HMTID::of).toList();
+        var items = itemService.shiftLevels(ids, req.delta());
+        items.stream().map(i -> i.pageId().toString()).distinct()
+                .forEach(sseBroadcaster::broadcastPagesUpdated);
+        for (var item : items) {
+            broadcastToTranscluders(item.id(), item.pageId().toString());
+        }
+        return new ShiftLevelsResponse(loadItemDtos(items));
     }
 
     @PUT

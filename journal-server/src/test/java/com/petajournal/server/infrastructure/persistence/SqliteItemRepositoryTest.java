@@ -135,4 +135,32 @@ class SqliteItemRepositoryTest {
         assertFalse(repository.patch(UNKNOWN_ITEM, new ItemPatch(null, null, null, null, 2, null, LATER)));
         assertTrue(repository.patch(ITEM_A, new ItemPatch(null, null, null, null, 2, null, LATER)));
     }
+
+    @Test
+    void shiftLevelsAddsDeltaToTheCurrentLevel() {
+        repository.shiftLevels(List.of(ITEM_A, ITEM_B), 1, LATER);
+        repository.shiftLevels(List.of(ITEM_A, ITEM_B), 1, LATER);
+
+        assertEquals(3, find(ITEM_A).level());
+        assertEquals(4, find(ITEM_B).level());
+    }
+
+    @Test
+    void shiftLevelsNeverGoesBelowOne() {
+        repository.shiftLevels(List.of(ITEM_A, ITEM_B), -1, LATER);
+
+        assertEquals(1, find(ITEM_A).level());
+        assertEquals(1, find(ITEM_B).level());
+    }
+
+    @Test
+    void recalculateParentIdsFollowsTheLevels() {
+        repository.recalculateParentIds(PAGE_ID);
+        assertNull(find(ITEM_A).parentItemId());
+        assertEquals(ITEM_A, find(ITEM_B).parentItemId());
+
+        repository.shiftLevels(List.of(ITEM_B), -1, LATER);
+        repository.recalculateParentIds(PAGE_ID);
+        assertNull(find(ITEM_B).parentItemId());
+    }
 }

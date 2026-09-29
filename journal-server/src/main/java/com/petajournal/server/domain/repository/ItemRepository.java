@@ -4,6 +4,7 @@ import com.petajournal.server.domain.model.Item;
 import com.petajournal.server.domain.model.ItemPatch;
 import com.sosuisha.hmtid.HMTID;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -26,6 +27,19 @@ public interface ItemRepository {
      * @throws NullPointerException if id or patch is null
      */
     boolean patch(HMTID id, ItemPatch patch);
+
+    /**
+     * Adds delta to the level of every given item, in one transaction.
+     * The new level is computed in the database from the current level,
+     * so the result does not depend on the order in which requests arrive.
+     * A level never goes below 1.
+     *
+     * @param ids          the items to shift
+     * @param delta        the amount to add to each level; may be negative
+     * @param modifiedDate new modified date of the items
+     * @throws NullPointerException if ids or modifiedDate is null
+     */
+    void shiftLevels(List<HMTID> ids, int delta, Instant modifiedDate);
 
     void delete(HMTID id);
 

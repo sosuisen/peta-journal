@@ -207,6 +207,31 @@ public class SqliteItemRepository implements ItemRepository {
     }
 
     @Override
+    public void shiftLevels(List<HMTID> ids, int delta, Instant modifiedDate) {
+        Objects.requireNonNull(ids, "ids must not be null");
+        Objects.requireNonNull(modifiedDate, "modifiedDate must not be null");
+        try (Connection conn = connectionProvider.getConnection()) {
+            conn.setAutoCommit(false);
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "UPDATE items SET level = MAX(1, level + ?), modified_date = ? WHERE id = ?")) {
+                for (HMTID id : ids) {
+                    ps.setInt(1, delta);
+                    ps.setLong(2, modifiedDate.toEpochMilli());
+                    ps.setString(3, id.toString());
+                    ps.addBatch();
+                }
+                ps.executeBatch();
+                conn.commit();
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to shift levels of " + ids.size() + " items", e);
+        }
+    }
+
+    @Override
     public void delete(HMTID id) {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement("DELETE FROM items WHERE id = ?")) {

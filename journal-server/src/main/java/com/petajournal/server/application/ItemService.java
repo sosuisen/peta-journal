@@ -18,9 +18,12 @@ import org.jboss.logging.Logger;
 import com.petajournal.server.domain.HashtagExtractor;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 @ApplicationScoped
 public class ItemService {
@@ -174,6 +177,42 @@ public class ItemService {
         exportService.queueExport(existing.pageId());
 
         return updated;
+    }
+
+    /**
+     * Adds delta to the level of every given item in one step.
+     * The items keep their order; only their depth changes.
+     *
+     * @param itemIds the items to shift, usually an item and its descendants
+     * @param delta   the amount to add to each level; may be negative. A level never goes below 1
+     * @return the items after the change, in the order of itemIds
+     * @throws NullPointerException     if itemIds is null
+     * @throws IllegalArgumentException if itemIds is empty or an item is not found
+     */
+    public List<Item> shiftLevels(List<HMTID> itemIds, int delta) {
+        Objects.requireNonNull(itemIds, "itemIds must not be null");
+        if (itemIds.isEmpty()) {
+            throw new IllegalArgumentException("itemIds must not be empty");
+        }
+        Set<HMTID> pageIds = new LinkedHashSet<>();
+        for (HMTID itemId : itemIds) {
+            Item item = itemRepository.findById(itemId)
+                    .orElseThrow(() -> new IllegalArgumentException("Item not found: " + itemId));
+            pageIds.add(item.pageId());
+        }
+
+        itemRepository.shiftLevels(itemIds, delta, Instant.now());
+
+        for (HMTID pageId : pageIds) {
+            itemRepository.recalculateParentIds(pageId);
+            touchPage(pageId);
+            exportService.queueExport(pageId);
+        }
+
+        return itemIds.stream()
+                .map(id -> itemRepository.findById(id)
+                        .orElseThrow(() -> new IllegalArgumentException("Item not found: " + id)))
+                .toList();
     }
 
     /**
