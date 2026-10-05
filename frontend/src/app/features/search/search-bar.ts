@@ -6,6 +6,7 @@ import { SearchResult } from '../../core/models/search.model';
 import { generateUntitledTitle } from '../../core/utils/title.utils';
 import { classifyJournalFileName } from '../../core/utils/journal-filename.utils';
 import { validateFileName } from '../../core/utils/filename-validation.utils';
+import { isImeComposingKeydown } from '../../core/utils/keyboard.utils';
 
 @Component({
   selector: 'app-search-bar',
@@ -234,6 +235,8 @@ export class SearchBarComponent {
    * Handles keyboard navigation within the search dropdown.
    */
   onKeydown(event: KeyboardEvent): void {
+    if (isImeComposingKeydown(event)) return;
+
     const hasCreate = this.showCreateButton() && !!this.query().trim();
     const totalItems = this.pageResults().length + (hasCreate ? 1 : 0) + this.itemResults().length;
     const maxIndex = totalItems - 1;

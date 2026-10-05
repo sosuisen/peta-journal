@@ -15,10 +15,10 @@ function b(id: string, level: number): Item {
     idx: '',
     level,
     body: '',
-    html: '',
+    ast: '',
     collapsed: false,
-    status: 'normal',
     types: [],
+    properties: {},
   };
 }
 

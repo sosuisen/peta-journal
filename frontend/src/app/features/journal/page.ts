@@ -8,6 +8,7 @@ import { RecentPagesService } from '../../core/services/recent-pages.service';
 import { NavigationService } from '../../core/services/navigation.service';
 import { formatJournalDate } from '../../core/utils/date.utils';
 import { validateFileName } from '../../core/utils/filename-validation.utils';
+import { isImeComposingKeydown } from '../../core/utils/keyboard.utils';
 import { ExtensionFunctionService } from '../../core/services/extension-function.service';
 
 @Component({
@@ -24,7 +25,7 @@ import { ExtensionFunctionService } from '../../core/services/extension-function
                 class="edit-dir-path"
                 [value]="editDirPath()"
                 (input)="editDirPath.set(asInputValue($event))"
-                (keydown.enter)="save()"
+                (keydown.enter)="onTitleEnter($event)"
                 (keydown.escape)="cancelEdit()"
               />
               <span class="edit-slash">/</span>
@@ -35,7 +36,7 @@ import { ExtensionFunctionService } from '../../core/services/extension-function
               [value]="editFileName()"
               [disabled]="isIndexPage()"
               (input)="editFileName.set(asInputValue($event))"
-              (keydown.enter)="save()"
+              (keydown.enter)="onTitleEnter($event)"
               (keydown.escape)="cancelEdit()"
             />
           </div>
@@ -321,6 +322,15 @@ export class PageComponent {
         }
       }
     }, { injector: this.injector });
+  }
+
+  /**
+   * Saves on Enter, except when the Enter only confirms an IME conversion candidate.
+   * @param event - The keydown event from a title input.
+   */
+  onTitleEnter(event: Event): void {
+    if (isImeComposingKeydown(event as KeyboardEvent)) return;
+    this.save();
   }
 
   /**

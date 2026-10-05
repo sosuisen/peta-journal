@@ -1,5 +1,6 @@
 import { Component, input, output, ElementRef, viewChild, AfterViewInit, inject, effect, OnDestroy, computed } from '@angular/core';
 import { OutlineStateService } from '../../core/services/outline-state.service';
+import { isImeComposingKeydown } from '../../core/utils/keyboard.utils';
 
 export interface WikiLinkContext {
   query: string;
@@ -233,6 +234,10 @@ export class ItemEditorComponent implements AfterViewInit, OnDestroy {
    * @param event - The keyboard event from the textarea.
    */
   onKeydown(event: KeyboardEvent): void {
+    // Let the IME handle its own keys (e.g. the Enter that confirms a conversion
+    // candidate); otherwise that Enter would split the item or insert a newline.
+    if (isImeComposingKeydown(event)) return;
+
     const el = event.target as HTMLTextAreaElement;
     const { selectionStart, selectionEnd, value } = el;
 
