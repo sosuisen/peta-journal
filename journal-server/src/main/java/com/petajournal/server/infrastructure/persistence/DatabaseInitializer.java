@@ -144,6 +144,7 @@ public class DatabaseInitializer {
             migrateProperties(stmt);
             migrateRootIndex(stmt);
             migrateTransclusion(stmt);
+            migrateDatetimeToSeconds(stmt);
 
             LOG.info("Database initialized");
         } catch (SQLException e) {
@@ -252,6 +253,29 @@ public class DatabaseInitializer {
         stmt.execute("ALTER TABLE items ADD COLUMN transclude_item_id TEXT REFERENCES items(id) ON DELETE SET NULL");
         stmt.execute("CREATE INDEX IF NOT EXISTS idx_items_transclude ON items(transclude_item_id) WHERE transclude_item_id IS NOT NULL");
         LOG.info("Transclusion migration complete");
+    }
+
+    private void migrateDatetimeToSeconds(Statement stmt) throws SQLException {
+        // Older versions stored datetime properties with nanoseconds ("...:47.387871400Z").
+        // New values stop at whole seconds, so cut the fraction off the stored ones too.
+        // The pages that change are queued so their markdown files get the same values.
+        stmt.execute("""
+            INSERT OR IGNORE INTO export_queue (page_id, queued_at)
+            SELECT DISTINCT i.page_id, strftime('%s', 'now') * 1000
+            FROM properties p
+            JOIN property_definitions d ON d.key = p.key AND d.value_type = 'datetime'
+            JOIN items i ON p.target_type = 'item' AND i.id = p.target_id
+            WHERE p.value_text LIKE '____-__-__T__:__:__.%Z'
+            """);
+        int updated = stmt.executeUpdate("""
+            UPDATE properties
+            SET value_text = substr(value_text, 1, 19) || 'Z'
+            WHERE key IN (SELECT key FROM property_definitions WHERE value_type = 'datetime')
+              AND value_text LIKE '____-__-__T__:__:__.%Z'
+            """);
+        if (updated > 0) {
+            LOG.infov("Truncated {0} datetime property values to whole seconds", updated);
+        }
     }
 
     private void migrateProperties(Statement stmt) throws SQLException {

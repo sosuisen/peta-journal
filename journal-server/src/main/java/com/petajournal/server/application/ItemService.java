@@ -18,6 +18,7 @@ import org.jboss.logging.Logger;
 
 import com.petajournal.server.domain.HashtagExtractor;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -458,14 +459,14 @@ public class ItemService {
             return updated;
         } else if (!hasBegin && !hasEnd) {
             // State 2: Task, no begin → set begin
-            String now = Instant.now().toString();
+            String now = Instant.now().truncatedTo(ChronoUnit.SECONDS).toString();
             propertyRepository.upsertScalar("item", id, "begin", "datetime", now);
             touchPage(existing.pageId());
             exportService.queueExport(existing.pageId());
             return existing;
         } else if (hasBegin && !hasEnd) {
             // State 3: Task, has begin, no end → set end
-            String now = Instant.now().toString();
+            String now = Instant.now().truncatedTo(ChronoUnit.SECONDS).toString();
             propertyRepository.upsertScalar("item", id, "end", "datetime", now);
             touchPage(existing.pageId());
             exportService.queueExport(existing.pageId());
