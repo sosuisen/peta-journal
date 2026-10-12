@@ -14,6 +14,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.jboss.logging.Logger;
 
+import java.io.IOException;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -72,7 +73,8 @@ public class SyncPendingDeletesResource {
             String label = page.map(p -> p.type() + "s/" + p.dirPath() + p.name() + ".md").orElse(idStr);
             try {
                 if (restore) {
-                    exportService.queueExport(id);
+                    // Write now, so the message below is true when the page is shown
+                    exportService.exportPage(id);
                     messages.add("Restored file: " + label);
                 } else {
                     pageService.deletePage(id);
@@ -80,6 +82,9 @@ public class SyncPendingDeletesResource {
                 }
             } catch (IllegalArgumentException e) {
                 messages.add("Skipped " + label + ": " + e.getMessage());
+            } catch (IOException e) {
+                LOG.warnv("Failed to restore page {0}: {1}", id, e.getMessage());
+                messages.add("Failed " + label + ": " + e.getMessage());
             } catch (RuntimeException e) {
                 LOG.warnv("Failed to {0} page {1}: {2}", restore ? "restore" : "delete", id, e.getMessage());
                 messages.add("Failed " + label + ": " + e.getMessage());

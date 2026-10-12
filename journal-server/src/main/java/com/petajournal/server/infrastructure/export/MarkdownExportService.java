@@ -119,7 +119,14 @@ public class MarkdownExportService {
         }
     }
 
-    void exportPage(HMTID pageId) throws IOException {
+    /**
+     * Writes the markdown file of one page right now, without going through the queue.
+     * Unchanged files are left alone. A page that no longer exists only loses its sync state.
+     *
+     * @param pageId the page ID
+     * @throws IOException if the markdown directory is not available or the file cannot be written
+     */
+    public void exportPage(HMTID pageId) throws IOException {
         Optional<Path> rootOpt = markdownRoot();
         if (rootOpt.isEmpty()) {
             throw new IOException("Markdown directory not available");
