@@ -2,15 +2,18 @@ package com.petajournal.server.application;
 
 import com.petajournal.server.domain.model.Item;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.TreeMap;
 
 @ApplicationScoped
 public class TreeMarkdownConverter {
+    @Inject
+    FlatMarkdownSerializer serializer;
+
     record Marker(int pos, int level) {
     }
 
@@ -47,64 +50,24 @@ public class TreeMarkdownConverter {
     }
 
     /**
-     * Convert a list of items to Flat Markdown (HTML comment metadata format),
-     * including properties as HTML comments.
+     * Converts a list of items to Flat Markdown, including properties in the metadata line.
+     *
+     * @param items the items in outline order
+     * @param scalarProps scalar properties keyed by item ID
+     * @param listProps list properties keyed by item ID
+     * @return the Flat Markdown text
      */
     public String itemsToFlatMarkdown(List<Item> items,
                                        Map<String, Map<String, String>> scalarProps,
                                        Map<String, Map<String, List<String>>> listProps) {
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < items.size(); i++) {
-            Item item = items.get(i);
-            String id = item.id().toString();
-            String body = item.body();
-            // Empty body → single space (blank line would be an item separator)
-            if (body == null || body.isEmpty())
-                body = " ";
-
-            Map<String, String> scalars = scalarProps.getOrDefault(id, Map.of());
-            Map<String, List<String>> lists = listProps.getOrDefault(id, Map.of());
-
-            // Prepend GFM task list prefix for task type
-            if (item.types() != null && item.types().contains("task")) {
-                if (scalars.containsKey("end")) {
-                    body = "- [x] " + body;
-                } else {
-                    body = "- [ ] " + body;
-                }
-            }
-
-            sb.append(body).append("\n");
-            sb.append("<!-- ").append(item.id()).append(" -->");
-
-            if (item.level() > 1) {
-                sb.append("\n<!-- level=").append(item.level()).append(" -->");
-            }
-
-            if (item.collapsed()) {
-                sb.append("\n<!-- collapsed=true -->");
-            }
-
-            // Write property comments (alphabetically sorted by key)
-            TreeMap<String, String> allProps = new TreeMap<>();
-            allProps.putAll(scalars);
-            for (var entry : lists.entrySet()) {
-                allProps.put(entry.getKey(), String.join(",", entry.getValue()));
-            }
-            for (var entry : allProps.entrySet()) {
-                sb.append("\n<!-- ").append(entry.getKey()).append("=").append(entry.getValue()).append(" -->");
-            }
-
-            if (i < items.size() - 1) {
-                sb.append("\n\n");
-            }
-        }
-        return sb.toString();
+        return serializer.serialize(items, scalarProps, listProps);
     }
 
     /**
-     * Parse Tree Markdown into Flat Markdown with HTML comment metadata.
-     * Each list item becomes a separate item with <!-- level=N --> when depth > 0.
+     * Parses Tree Markdown into Flat Markdown.
+     * Each list item becomes a separate item. Items deeper than the top level get a
+     * metadata line whose number of {@code @} characters is the level; top-level items
+     * omit the metadata line, which the spec treats as level 1.
      */
     public String treeMarkdownToFlatMarkdown(String treeMd) {
         if (treeMd == null || treeMd.isEmpty())
@@ -124,7 +87,7 @@ public class TreeMarkdownConverter {
                 if (currentItem != null) {
                     String item = currentItem.toString();
                     if (currentLevel > 1) {
-                        item += "\n<!-- level=" + currentLevel + " -->";
+                        item = levelLine(currentLevel) + "\n" + item;
                     }
                     items.add(item);
                 }
@@ -146,12 +109,16 @@ public class TreeMarkdownConverter {
         if (currentItem != null) {
             String item = currentItem.toString();
             if (currentLevel > 1) {
-                item += "\n<!-- level=" + currentLevel + " -->";
+                item = levelLine(currentLevel) + "\n" + item;
             }
             items.add(item);
         }
 
         return String.join("\n\n", items);
+    }
+
+    private static String levelLine(int level) {
+        return "<!-- " + "@".repeat(level) + " -->";
     }
 
     /**

@@ -1,5 +1,9 @@
 package com.petajournal.server.infrastructure.export;
 
+import com.petajournal.server.application.FlatMarkdownSerializer;
+import com.petajournal.server.application.FlatMarkdownSplitter;
+import com.petajournal.server.application.FlatMarkdownSplitter.SplitItem;
+import com.petajournal.server.application.FlatMarkdownSplitter.SplitPage;
 import com.petajournal.server.domain.IdGenerator;
 import com.petajournal.server.domain.model.Item;
 import com.petajournal.server.domain.model.Page;
@@ -10,31 +14,39 @@ import jakarta.inject.Inject;
 
 import java.time.Instant;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
- * Parses Outline Markdown format back into Page and Item domain objects.
- * Format: YAML frontmatter + blank-line separated items with HTML comment metadata.
+ * Parses a Flat Markdown page (spec v0.2) back into Page and Item domain objects.
+ * The item split is done by {@link FlatMarkdownSplitter}. This class maps the result:
+ * YAML front matter to page fields, and the metadata line
+ * ({@code <!-- @@ ID idx="z0" collapsed="true" transclude="ID" key="value" -->}) to item fields.
  */
 @ApplicationScoped
 public class OutlineMarkdownParser {
 
-    private static final Pattern ID_COMMENT = Pattern.compile("^<!--\\s*([0-9a-zA-Z-]{7,})\\s*-->$");
-    private static final Pattern LEVEL_COMMENT = Pattern.compile("^<!--\\s*level=(\\d+)\\s*-->$");
-    private static final Pattern COLLAPSED_COMMENT = Pattern.compile("^<!--\\s*collapsed=true\\s*-->$");
-    private static final Pattern IDX_COMMENT = Pattern.compile("^<!--\\s*idx=([0-9A-Za-z]+)\\s*-->$");
-    private static final Pattern TRANSCLUDE_COMMENT = Pattern.compile("^<!--\\s*transclude=([0-9a-zA-Z-]{7,})\\s*-->$");
-    private static final Pattern PROP_COMMENT = Pattern.compile("^<!--\\s*(\\w+)=(.*?)\\s*-->$");
+    private final IdGenerator idGenerator;
+    private final FlatMarkdownSplitter splitter;
 
+    /**
+     * Creates the parser.
+     *
+     * @param idGenerator generates IDs for items and pages that have none in the file
+     * @param splitter splits a page into items
+     * @throws NullPointerException if any argument is null
+     */
     @Inject
-    IdGenerator idGenerator;
+    public OutlineMarkdownParser(IdGenerator idGenerator, FlatMarkdownSplitter splitter) {
+        this.idGenerator = Objects.requireNonNull(idGenerator, "idGenerator must not be null");
+        this.splitter = Objects.requireNonNull(splitter, "splitter must not be null");
+    }
 
+    /** Front matter and items of one parsed page. */
     public record ParseResult(
         Map<String, String> frontmatter,
         List<ParsedItem> items
     ) {}
 
+    /** One item as written in the file. {@code id}, {@code transcludeItemId} and {@code idx} are null when absent. */
     public record ParsedItem(
         String id,
         int level,
@@ -46,29 +58,35 @@ public class OutlineMarkdownParser {
         String idx
     ) {}
 
+    /**
+     * Parses a whole page.
+     *
+     * @param markdown the file content; null or empty gives an empty result
+     * @return the front matter and the items in file order
+     */
     public ParseResult parse(String markdown) {
-        if (markdown == null || markdown.isEmpty()) {
-            return new ParseResult(Map.of(), List.of());
+        SplitPage page = splitter.split(markdown);
+
+        Map<String, String> frontmatter = page.frontMatter() == null
+                ? Map.of()
+                : parseFrontmatter(stripFrontmatterDelimiters(page.frontMatter()));
+
+        List<ParsedItem> items = new ArrayList<>();
+        for (SplitItem item : page.items()) {
+            items.add(toParsedItem(item));
         }
-
-        String frontmatterStr = "";
-        String content = markdown;
-
-        // Extract frontmatter
-        if (markdown.startsWith("---\n")) {
-            int endIdx = markdown.indexOf("\n---\n", 4);
-            if (endIdx > 0) {
-                frontmatterStr = markdown.substring(4, endIdx);
-                content = markdown.substring(endIdx + 5).trim();
-            }
-        }
-
-        Map<String, String> frontmatter = parseFrontmatter(frontmatterStr);
-        List<ParsedItem> items = parseItems(content);
-
         return new ParseResult(frontmatter, items);
     }
 
+    /**
+     * Builds the page from the front matter. Missing fields fall back to a new ID and the current time.
+     *
+     * @param result the parsed page
+     * @param dirPath the directory path of the page
+     * @param name the page name
+     * @param type the page type
+     * @return the page
+     */
     public Page toPage(ParseResult result, String dirPath, String name, String type) {
         Map<String, String> fm = result.frontmatter();
 
@@ -80,6 +98,16 @@ public class OutlineMarkdownParser {
         return new Page(id, null, dirPath, name, type, created, modified);
     }
 
+    /**
+     * Builds the items of the page. Items without an ID or with a malformed one get a new ID.
+     *
+     * @param result the parsed page
+     * @param pageId the page ID
+     * @param dirPath the directory path of the page
+     * @param name the page name
+     * @param type the page type
+     * @return the items in file order
+     */
     public List<Item> toItems(ParseResult result, HMTID pageId, String dirPath, String name, String type) {
         List<Item> items = new ArrayList<>();
         Instant now = Instant.now();
@@ -118,16 +146,32 @@ public class OutlineMarkdownParser {
         return items;
     }
 
+    /** Removes the {@code ---} lines around the front matter body. */
+    private static String stripFrontmatterDelimiters(String raw) {
+        String s = raw.strip();
+        if (s.startsWith("---")) {
+            s = s.substring(3);
+        }
+        if (s.endsWith("---")) {
+            s = s.substring(0, s.length() - 3);
+        }
+        return s.strip();
+    }
+
     private Map<String, String> parseFrontmatter(String frontmatter) {
         Map<String, String> map = new LinkedHashMap<>();
-        if (frontmatter.isEmpty()) return map;
+        if (frontmatter.isEmpty()) {
+            return map;
+        }
 
         StringBuilder currentListKey = null;
         StringBuilder currentListValues = null;
 
         for (String line : frontmatter.split("\n")) {
             if (line.startsWith("  - ") && currentListKey != null) {
-                if (currentListValues.length() > 0) currentListValues.append(",");
+                if (currentListValues.length() > 0) {
+                    currentListValues.append(",");
+                }
                 currentListValues.append(line.substring(4).trim());
                 continue;
             }
@@ -166,131 +210,37 @@ public class OutlineMarkdownParser {
         return map;
     }
 
-    private List<ParsedItem> parseItems(String content) {
-        if (content.isEmpty()) return List.of();
+    private static ParsedItem toParsedItem(SplitItem item) {
+        String body = item.body();
 
-        List<ParsedItem> items = new ArrayList<>();
-        String[] lines = content.split("\n", -1);
-        boolean inCodeFence = false;
-
-        // Current item accumulation
-        String currentId = null;
-        int currentLevel = 1;
-        boolean currentCollapsed = false;
-        String currentTransclude = null;
-        String currentIdx = null;
-        Map<String, String> currentProperties = new LinkedHashMap<>();
-        List<String> currentBodyLines = new ArrayList<>();
-        boolean hasContent = false;
-
-        for (String line : lines) {
-            // Track code fences
-            if (line.trim().startsWith("```")) {
-                inCodeFence = !inCodeFence;
-            }
-
-            // Blank line outside code fence → flush current item
-            if (line.isEmpty() && !inCodeFence) {
-                if (hasContent) {
-                    items.add(buildParsedItem(currentId, currentLevel, currentBodyLines, currentCollapsed, currentProperties, currentTransclude, currentIdx));
-                    currentId = null;
-                    currentLevel = 1;
-                    currentCollapsed = false;
-                    currentTransclude = null;
-                    currentIdx = null;
-                    currentProperties = new LinkedHashMap<>();
-                    currentBodyLines = new ArrayList<>();
-                    hasContent = false;
-                }
-                continue;
-            }
-
-            // Try to match metadata comments (only outside code fences)
-            if (!inCodeFence) {
-                Matcher idMatcher = ID_COMMENT.matcher(line);
-                if (idMatcher.matches()) {
-                    currentId = idMatcher.group(1);
-                    hasContent = true;
-                    continue;
-                }
-
-                Matcher levelMatcher = LEVEL_COMMENT.matcher(line);
-                if (levelMatcher.matches()) {
-                    currentLevel = Integer.parseInt(levelMatcher.group(1));
-                    hasContent = true;
-                    continue;
-                }
-
-                Matcher collapsedMatcher = COLLAPSED_COMMENT.matcher(line);
-                if (collapsedMatcher.matches()) {
-                    currentCollapsed = true;
-                    hasContent = true;
-                    continue;
-                }
-
-                Matcher idxMatcher = IDX_COMMENT.matcher(line);
-                if (idxMatcher.matches()) {
-                    currentIdx = idxMatcher.group(1);
-                    hasContent = true;
-                    continue;
-                }
-
-                Matcher transcludeMatcher = TRANSCLUDE_COMMENT.matcher(line);
-                if (transcludeMatcher.matches()) {
-                    currentTransclude = transcludeMatcher.group(1);
-                    hasContent = true;
-                    continue;
-                }
-
-                // Accumulate property comments (excluding level/collapsed handled above)
-                Matcher propMatcher = PROP_COMMENT.matcher(line);
-                if (propMatcher.matches()) {
-                    currentProperties.put(propMatcher.group(1), propMatcher.group(2));
-                    hasContent = true;
-                    continue;
-                }
-            }
-
-            // Regular body line
-            currentBodyLines.add(line);
-            hasContent = true;
-        }
-
-        // Flush last item
-        if (hasContent) {
-            items.add(buildParsedItem(currentId, currentLevel, currentBodyLines, currentCollapsed, currentProperties, currentTransclude, currentIdx));
-        }
-
-        return items;
-    }
-
-    private ParsedItem buildParsedItem(String id, int level, List<String> bodyLines, boolean collapsed,
-                                       Map<String, String> properties, String transcludeItemId, String idx) {
-        String body = String.join("\n", bodyLines);
-
-        // Whitespace-only body → empty
-        if (!body.isEmpty() && body.trim().isEmpty()) {
-            body = "";
-        }
+        // The reserved keys are item fields, not user properties
+        Map<String, String> properties = new LinkedHashMap<>(item.properties());
+        String idx = properties.remove(FlatMarkdownSerializer.IDX_KEY);
+        boolean collapsed = "true".equals(properties.remove(FlatMarkdownSerializer.COLLAPSED_KEY));
+        String transclude = properties.remove(FlatMarkdownSerializer.TRANSCLUDE_KEY);
 
         // Detect task type from GFM checkbox prefix
         boolean isTask = false;
-        if (body.startsWith("- [ ] ")) {
-            isTask = true;
-            body = body.substring(6);
-        } else if (body.startsWith("- [x] ")) {
+        if (body.startsWith("- [ ] ") || body.startsWith("- [x] ")) {
             isTask = true;
             body = body.substring(6);
         }
 
-        // Detect item types from body
         List<String> types = new ArrayList<>();
-        if (isTask) types.add("task");
+        if (isTask) {
+            types.add("task");
+        }
         String trimmed = body.trim();
-        if (trimmed.startsWith("#")) types.add("heading");
-        if (trimmed.startsWith("```")) types.add("code");
-        if (trimmed.startsWith(">")) types.add("blockquote");
+        if (trimmed.startsWith("#")) {
+            types.add("heading");
+        }
+        if (trimmed.startsWith("```")) {
+            types.add("code");
+        }
+        if (trimmed.startsWith(">")) {
+            types.add("blockquote");
+        }
 
-        return new ParsedItem(id, level, body, collapsed, types, properties, transcludeItemId, idx);
+        return new ParsedItem(item.id(), item.level(), body, collapsed, types, properties, transclude, idx);
     }
 }

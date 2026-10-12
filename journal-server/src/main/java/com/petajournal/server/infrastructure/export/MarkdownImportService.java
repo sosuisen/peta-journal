@@ -365,7 +365,7 @@ public class MarkdownImportService {
                 changed = true;
             }
 
-            // Scalar properties from <!-- key=value --> comments
+            // Scalar properties from the key="value" pairs of the metadata line
             Map<String, String> want = new LinkedHashMap<>();
             for (var e : pi.properties().entrySet()) {
                 if (RESERVED_KEYS.contains(e.getKey())) continue;

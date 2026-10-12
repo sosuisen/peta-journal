@@ -1,6 +1,7 @@
 package com.petajournal.server.infrastructure.export;
 
 import com.petajournal.server.application.ConfigService;
+import com.petajournal.server.application.FlatMarkdownSerializer;
 import com.petajournal.server.domain.model.Item;
 import com.petajournal.server.domain.model.Page;
 import com.petajournal.server.domain.repository.ItemRepository;
@@ -19,7 +20,6 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.TreeMap;
 
 @ApplicationScoped
 public class MarkdownExportService {
@@ -43,6 +43,9 @@ public class MarkdownExportService {
 
     @Inject
     PropertyRepository propertyRepository;
+
+    @Inject
+    FlatMarkdownSerializer serializer;
 
     private volatile boolean isProcessing = false;
     private volatile boolean warnedDirUnavailable = false;
@@ -193,18 +196,7 @@ public class MarkdownExportService {
         Map<String, Map<String, String>> scalarProps = propertyRepository.findScalarByTargets("item", itemIds);
         Map<String, Map<String, List<String>>> listProps = propertyRepository.findListByTargets("item", itemIds);
 
-        for (int i = 0; i < items.size(); i++) {
-            String id = items.get(i).id().toString();
-            Map<String, String> scalars = scalarProps.getOrDefault(id, Map.of());
-            Map<String, List<String>> lists = listProps.getOrDefault(id, Map.of());
-            appendItem(sb, items.get(i), scalars, lists);
-
-            // Add blank line separator between items (except after last item)
-            if (i < items.size() - 1) {
-                sb.append("\n");
-            }
-        }
-
+        sb.append(serializer.serialize(items, scalarProps, listProps));
         return sb.toString();
     }
 
@@ -214,52 +206,6 @@ public class MarkdownExportService {
         sb.append("created: ").append(page.createdDate()).append("\n");
         sb.append("modified: ").append(page.modifiedDate()).append("\n");
         sb.append("---\n\n");
-    }
-
-    private void appendItem(StringBuilder sb, Item item, Map<String, String> scalars, Map<String, List<String>> lists) {
-        String body = item.body();
-        if (body == null) body = "";
-
-        // Empty body → single space (blank line would be an item separator)
-        if (body.isEmpty()) body = " ";
-
-        // Prepend GFM task list prefix for task type
-        if (item.types() != null && item.types().contains("task")) {
-            if (scalars.containsKey("end")) {
-                body = "- [x] " + body;
-            } else {
-                body = "- [ ] " + body;
-            }
-        }
-
-        // Write body lines as-is (no indentation, no bullets)
-        sb.append(body).append("\n");
-
-        // Write metadata comments
-        sb.append("<!-- ").append(item.id()).append(" -->\n");
-        sb.append("<!-- idx=").append(item.idx()).append(" -->\n");
-
-        if (item.level() > 1) {
-            sb.append("<!-- level=").append(item.level()).append(" -->\n");
-        }
-
-        if (item.collapsed()) {
-            sb.append("<!-- collapsed=true -->\n");
-        }
-
-        if (item.transcludeItemId() != null) {
-            sb.append("<!-- transclude=").append(item.transcludeItemId()).append(" -->\n");
-        }
-
-        // Write property comments (alphabetically sorted by key)
-        TreeMap<String, String> allProps = new TreeMap<>();
-        allProps.putAll(scalars);
-        for (var entry : lists.entrySet()) {
-            allProps.put(entry.getKey(), String.join(",", entry.getValue()));
-        }
-        for (var entry : allProps.entrySet()) {
-            sb.append("<!-- ").append(entry.getKey()).append("=").append(entry.getValue()).append(" -->\n");
-        }
     }
 
     /**

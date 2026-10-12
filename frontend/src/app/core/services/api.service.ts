@@ -5,6 +5,14 @@ import { SearchResult } from '../models/search.model';
 
 export type ItemPosition = 'first' | 'last' | `after:${string}`;
 
+/** One item of Flat Markdown as split by the server. `id` is null when the metadata line has none. */
+export interface ParsedFlatItem {
+  level: number;
+  id: string | null;
+  properties: Record<string, string>;
+  body: string;
+}
+
 interface GetPageResult { page: Page; items: Item[]; transcludedTrees?: Record<string, Item[]> }
 interface GetDocResult { page: Page; items: Item[]; created: boolean }
 interface GetJournalResult { page: Page; items: Item[]; created: boolean; transcludedTrees?: Record<string, Item[]> }
@@ -216,6 +224,16 @@ export class ApiService {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ treeMarkdown }),
+    });
+    return json(resp);
+  }
+
+  /** Splits Flat Markdown into items by the spec rules. Nothing is stored. */
+  async parseFlatMarkdown(markdown: string): Promise<{ items: ParsedFlatItem[] }> {
+    const resp = await fetch('/api/items/parse', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ markdown }),
     });
     return json(resp);
   }

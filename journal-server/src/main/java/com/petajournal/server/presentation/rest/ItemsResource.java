@@ -1,5 +1,6 @@
 package com.petajournal.server.presentation.rest;
 
+import com.petajournal.server.application.FlatMarkdownSplitter;
 import com.petajournal.server.application.ItemService;
 import com.petajournal.server.domain.model.Item;
 import com.petajournal.server.domain.model.ItemPosition;
@@ -28,6 +29,9 @@ public class ItemsResource {
     ItemService itemService;
 
     @Inject
+    FlatMarkdownSplitter flatMarkdownSplitter;
+
+    @Inject
     ItemRepository itemRepository;
 
     @Inject
@@ -53,6 +57,9 @@ public class ItemsResource {
     record ExportTreeMarkdownResponse(String treeMarkdown, String ast, String flatMarkdown) {}
     record ImportTreeMarkdownRequest(String treeMarkdown) {}
     record ImportTreeMarkdownResponse(String flatMarkdown) {}
+    record ParseFlatMarkdownRequest(String markdown) {}
+    record ParsedFlatItem(int level, String id, Map<String, String> properties, String body) {}
+    record ParseFlatMarkdownResponse(List<ParsedFlatItem> items) {}
     record UpsertPropertyRequest(String valueType, String value) {}
     record UpsertPropertyResponse(ItemDto item) {}
     record SetTransclusionRequest(String sourceItemId) {}
@@ -227,6 +234,19 @@ public class ItemsResource {
     public ImportTreeMarkdownResponse importTreeMarkdown(ImportTreeMarkdownRequest req) {
         String flatMd = itemService.importTreeMarkdown(req.treeMarkdown());
         return new ImportTreeMarkdownResponse(flatMd);
+    }
+
+    /**
+     * Splits Flat Markdown into items by the rules of the spec. Nothing is stored.
+     * Bodies keep their GFM task prefix, so they can be passed to the create endpoint as-is.
+     */
+    @POST
+    @Path("/parse")
+    public ParseFlatMarkdownResponse parseFlatMarkdown(ParseFlatMarkdownRequest req) {
+        List<ParsedFlatItem> items = flatMarkdownSplitter.split(req.markdown()).items().stream()
+            .map(i -> new ParsedFlatItem(i.level(), i.id(), i.properties(), i.body()))
+            .toList();
+        return new ParseFlatMarkdownResponse(items);
     }
 
     private ItemDto loadItemDto(Item item) {

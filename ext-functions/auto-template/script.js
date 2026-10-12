@@ -41,64 +41,23 @@
   }
 
   /**
-   * Parse one item chunk into level and body.
-   * A GFM task prefix (`- [ ] ` / `- [x] `) stays in the body.
-   * The server detects the task from that prefix.
+   * Split flat markdown text into items with the server-side parser, so the template
+   * is cut at the same block boundaries as a markdown file. The iframe is served by the
+   * journal server, so the API is same-origin.
+   * A GFM task prefix (`- [ ] ` / `- [x] `) stays in the body; the server detects the task from it.
+   * Returns [{ level, body }].
    */
-  function parseItem(text) {
-    let level = 1;
-    const bodyLines = [];
-
-    for (const line of text.split('\n')) {
-      const levelMatch = line.match(/^<!-- level=(\d+) -->\s*$/);
-      if (levelMatch) {
-        level = parseInt(levelMatch[1], 10);
-        continue;
-      }
-      // Skip other metadata comments
-      if (/^<!-- \w+=.*? -->\s*$/.test(line)) continue;
-
-      bodyLines.push(line);
+  async function splitFlatMarkdown(text) {
+    const resp = await fetch('/api/items/parse', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ markdown: text.replace(/\r\n/g, '\n') })
+    });
+    if (!resp.ok) {
+      throw new Error('HTTP ' + resp.status);
     }
-
-    const body = bodyLines.join('\n').trim();
-
-    return { level, body };
-  }
-
-  /**
-   * Split flat markdown text into item chunks, keeping code fences as single items.
-   */
-  function splitFlatMarkdown(text) {
-    const lines = text.replace(/\r\n/g, '\n').split('\n');
-    const chunks = [];
-    let currentLines = [];
-    let inCodeFence = false;
-    let hasContent = false;
-
-    for (const line of lines) {
-      if (line.trim().startsWith('```')) {
-        inCodeFence = !inCodeFence;
-      }
-
-      if (line === '' && !inCodeFence) {
-        if (hasContent) {
-          chunks.push(currentLines.join('\n'));
-          currentLines = [];
-          hasContent = false;
-        }
-        continue;
-      }
-
-      currentLines.push(line);
-      hasContent = true;
-    }
-
-    if (hasContent) {
-      chunks.push(currentLines.join('\n'));
-    }
-
-    return chunks;
+    const result = await resp.json();
+    return result.items.map(item => ({ level: item.level, body: item.body }));
   }
 
   function matchesPattern(pattern, fileName, dirName, pageType) {
@@ -175,12 +134,10 @@
     // Collect all items from all matched templates
     const allItems = [];
     for (const template of matched) {
-      const chunks = splitFlatMarkdown(template.body);
-      for (const chunk of chunks) {
-        const trimmed = chunk.trim();
-        if (!trimmed) continue;
-        const item = parseItem(trimmed);
-        allItems.push(item);
+      try {
+        allItems.push(...await splitFlatMarkdown(template.body));
+      } catch (e) {
+        console.error('[auto-template] Failed to parse template:', e);
       }
     }
 

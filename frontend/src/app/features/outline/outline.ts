@@ -1738,7 +1738,7 @@ export class OutlineComponent implements OnInit, OnDestroy {
     const skipSplit = isPlainText && hasUnclosedCodeFence(item.body.substring(0, event.cursorPos));
     const parsedItems = skipSplit
       ? [{ body: textToParse, level: 0 }]
-      : this.parseTextIntoItems(textToParse);
+      : await this.splitTextIntoItems(textToParse);
 
     if (parsedItems.length === 0) return;
 
@@ -1818,78 +1818,16 @@ export class OutlineComponent implements OnInit, OnDestroy {
     }
   }
 
-  private parseTextIntoItems(text: string): Array<{ body: string; level: number }> {
-    const items: Array<{ body: string; level: number }> = [];
-    const lines = text.split('\n');
-    let inCodeFence = false;
-
-    // Current item accumulation
-    let currentBodyLines: string[] = [];
-    let currentLevel = 1;
-    let hasContent = false;
-
-    const flushItem = () => {
-      if (!hasContent) return;
-      let body = currentBodyLines.join('\n');
-
-      // Whitespace-only body → empty
-      if (body.length > 0 && body.trim() === '') body = '';
-      items.push({ body, level: currentLevel });
-      currentBodyLines = [];
-      currentLevel = 1;
-      hasContent = false;
-    };
-
-    for (const line of lines) {
-      // Track code fences
-      if (line.trim().startsWith('```')) {
-        inCodeFence = !inCodeFence;
-      }
-
-      // Blank line outside code fence → flush current item
-      if (line === '' && !inCodeFence) {
-        flushItem();
-        continue;
-      }
-
-      // Try to match metadata comments (only outside code fences)
-      if (!inCodeFence) {
-        const levelMatch = line.match(/^<!-- level=(\d+) -->$/);
-        if (levelMatch) {
-          currentLevel = parseInt(levelMatch[1], 10);
-          hasContent = true;
-          continue;
-        }
-
-        // Skip other metadata comments
-        if (/^<!-- [0-9A-Za-z_-]{10,} -->$/.test(line) || /^<!-- \w+=.*? -->$/.test(line)) {
-          hasContent = true;
-          continue;
-        }
-      }
-
-      // Task list lines start a new item
-      if (!inCodeFence && (line.startsWith('- [x] ') || line.startsWith('- [ ] '))) {
-        if (currentBodyLines.length > 0) flushItem();
-      }
-
-      // Regular body line
-      currentBodyLines.push(line);
-      hasContent = true;
-    }
-
-    // Flush last item
-    flushItem();
-
-    // Normalize levels: subtract the top item's level to get relative offsets (0-based)
-    if (items.length > 0) {
-      const topLevel = items[0].level;
-      for (const item of items) {
-        item.level = Math.max(0, item.level - topLevel);
-      }
-    }
-
-    return items;
+  /**
+   * Splits text into items with the server-side Flat Markdown parser, so that pasted text
+   * is cut at the same block boundaries as a markdown file. Levels are made relative to the
+   * first item (0-based), because the caller places them under the current item.
+   */
+  private async splitTextIntoItems(text: string): Promise<Array<{ body: string; level: number }>> {
+    const parsed = (await this.api.parseFlatMarkdown(text)).items;
+    if (parsed.length === 0) return [];
+    const topLevel = parsed[0].level;
+    return parsed.map(p => ({ body: p.body, level: Math.max(0, p.level - topLevel) }));
   }
 
   /**
