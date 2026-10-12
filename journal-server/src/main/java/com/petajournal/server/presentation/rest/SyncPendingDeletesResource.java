@@ -149,7 +149,11 @@ public class SyncPendingDeletesResource {
         sb.append("""
             <form method="post">
             <table>
-            <thead><tr><th></th><th>File</th><th>Items</th><th>Missing since</th></tr></thead>
+            <thead><tr>
+              <th><input type="checkbox" id="selectAll" title="Select all"
+                         onchange="document.querySelectorAll('input[name=pageId]').forEach(function(c){c.checked=this.checked}, this)"></th>
+              <th>File</th><th>Items</th><th>Missing since</th>
+            </tr></thead>
             <tbody>
             """);
         for (Row row : rows) {
@@ -171,6 +175,18 @@ public class SyncPendingDeletesResource {
             </p>
             <p class="muted">Pages you leave unticked stay in the database and will be listed again next time.</p>
             </form>
+            <script>
+              // Keep the header checkbox in sync when rows are ticked one by one
+              document.querySelectorAll('input[name=pageId]').forEach(function (c) {
+                c.addEventListener('change', function () {
+                  var all = document.querySelectorAll('input[name=pageId]');
+                  var checked = document.querySelectorAll('input[name=pageId]:checked');
+                  var head = document.getElementById('selectAll');
+                  head.checked = checked.length === all.length;
+                  head.indeterminate = checked.length > 0 && checked.length < all.length;
+                });
+              });
+            </script>
             </body></html>
             """);
         return sb.toString();
