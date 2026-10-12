@@ -203,7 +203,10 @@ public class MarkdownExportService {
         Map<String, Map<String, String>> scalarProps = propertyRepository.findScalarByTargets("item", itemIds);
         Map<String, Map<String, List<String>>> listProps = propertyRepository.findListByTargets("item", itemIds);
 
-        sb.append(serializer.serialize(items, scalarProps, listProps));
+        // Links are written relative to this file so the exported Markdown works on its own
+        String relPath = MarkdownPathMapper.toRelPath(page);
+        sb.append(serializer.serialize(items, scalarProps, listProps,
+                body -> PageLinkConverter.toMarkdownLinks(body, relPath)));
         return sb.toString();
     }
 

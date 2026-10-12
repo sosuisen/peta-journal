@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
+import java.util.function.UnaryOperator;
 
 /**
  * Serializes items to Flat Markdown (spec v0.2).
@@ -37,9 +38,28 @@ public class FlatMarkdownSerializer {
     public String serialize(List<Item> items,
                             Map<String, Map<String, String>> scalarProps,
                             Map<String, Map<String, List<String>>> listProps) {
+        return serialize(items, scalarProps, listProps, UnaryOperator.identity());
+    }
+
+    /**
+     * Serializes items in order, passing each body through {@code bodyMapper} before it is written.
+     * The file export uses this to rewrite page links for the location of the file.
+     *
+     * @param items the items in outline order
+     * @param scalarProps scalar properties keyed by item ID
+     * @param listProps list properties keyed by item ID
+     * @param bodyMapper the transformation applied to every body
+     * @return the Flat Markdown text
+     * @throws NullPointerException if any argument is null
+     */
+    public String serialize(List<Item> items,
+                            Map<String, Map<String, String>> scalarProps,
+                            Map<String, Map<String, List<String>>> listProps,
+                            UnaryOperator<String> bodyMapper) {
         Objects.requireNonNull(items, "items must not be null");
         Objects.requireNonNull(scalarProps, "scalarProps must not be null");
         Objects.requireNonNull(listProps, "listProps must not be null");
+        Objects.requireNonNull(bodyMapper, "bodyMapper must not be null");
         var sb = new StringBuilder();
         for (int i = 0; i < items.size(); i++) {
             Item item = items.get(i);
@@ -47,7 +67,8 @@ public class FlatMarkdownSerializer {
             if (i > 0) {
                 sb.append("\n");
             }
-            appendItem(sb, item, scalarProps.getOrDefault(id, Map.of()), listProps.getOrDefault(id, Map.of()));
+            appendItem(sb, item, scalarProps.getOrDefault(id, Map.of()), listProps.getOrDefault(id, Map.of()),
+                    bodyMapper);
         }
         return sb.toString();
     }
@@ -62,12 +83,28 @@ public class FlatMarkdownSerializer {
      * @throws NullPointerException if any argument is null
      */
     public void appendItem(StringBuilder sb, Item item, Map<String, String> scalars, Map<String, List<String>> lists) {
+        appendItem(sb, item, scalars, lists, UnaryOperator.identity());
+    }
+
+    /**
+     * Appends one item as a metadata line and its body, passing the body through {@code bodyMapper}.
+     *
+     * @param sb the output
+     * @param item the item
+     * @param scalars scalar properties of the item
+     * @param lists list properties of the item
+     * @param bodyMapper the transformation applied to the body
+     * @throws NullPointerException if any argument is null
+     */
+    public void appendItem(StringBuilder sb, Item item, Map<String, String> scalars, Map<String, List<String>> lists,
+                           UnaryOperator<String> bodyMapper) {
         Objects.requireNonNull(sb, "sb must not be null");
         Objects.requireNonNull(item, "item must not be null");
         Objects.requireNonNull(scalars, "scalars must not be null");
         Objects.requireNonNull(lists, "lists must not be null");
+        Objects.requireNonNull(bodyMapper, "bodyMapper must not be null");
         sb.append(metadataLine(item, scalars, lists)).append("\n");
-        String body = bodyWithTaskPrefix(item, scalars);
+        String body = bodyMapper.apply(bodyWithTaskPrefix(item, scalars));
         // An empty body is expressed by the metadata line alone
         if (!body.isEmpty()) {
             sb.append(body).append("\n");

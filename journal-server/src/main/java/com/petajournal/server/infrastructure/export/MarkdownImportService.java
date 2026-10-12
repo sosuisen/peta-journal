@@ -246,6 +246,7 @@ public class MarkdownImportService {
 
     private MergeResult mergeItems(Page page, List<ParsedItem> parsedItems, Instant now) {
         HMTID pageId = page.id();
+        String pageRelPath = MarkdownPathMapper.toRelPath(page);
         String title = page.dirPath() + page.name();
         List<Item> existing = itemRepository.findByPageId(pageId);
         Map<HMTID, Item> byId = new HashMap<>();
@@ -334,7 +335,8 @@ public class MarkdownImportService {
             String idx = idxs.get(i);
             Item old = byId.get(id);
 
-            String body = pi.body() == null ? "" : pi.body();
+            // The file holds relative Markdown links; the app stores wikilinks and hashtags
+            String body = PageLinkConverter.toWikilinks(pi.body() == null ? "" : pi.body(), pageRelPath);
             HMTID transclude = parseId(pi.transcludeItemId());
             if (transclude == null && old != null && old.transcludeItemId() != null && body.equals(old.body())) {
                 transclude = old.transcludeItemId(); // file written before transclude comments existed
