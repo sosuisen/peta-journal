@@ -92,8 +92,7 @@ import { FmRootComponent } from 'flatmarkdown-ast2angular';
       font-size: 0.9em;
       color: #555;
     }
-    :host ::ng-deep .footnote > p {
-      display: inline;
+    :host ::ng-deep .footnote p {
       margin: 0;
     }
     :host ::ng-deep .footnote-label {
