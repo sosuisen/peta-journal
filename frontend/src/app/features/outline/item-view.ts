@@ -88,6 +88,24 @@ import { FmRootComponent } from 'flatmarkdown-ast2angular';
       cursor: pointer;
       margin-right: 4px;
     }
+    :host ::ng-deep .footnote {
+      font-size: 0.9em;
+      color: #555;
+    }
+    :host ::ng-deep .footnote > p {
+      display: inline;
+      margin: 0;
+    }
+    :host ::ng-deep .footnote-label {
+      margin-right: 4px;
+    }
+    :host ::ng-deep .footnote-backref,
+    :host ::ng-deep .footnote-ref a {
+      text-decoration: none;
+    }
+    :host ::ng-deep .footnote-backref {
+      margin-left: 4px;
+    }
     :host ::ng-deep code {
       background: #f5f5f5;
       padding: 2px 6px;
@@ -237,6 +255,19 @@ export class ItemViewComponent {
   /** Handle link clicks (enables native Ctrl+click for background tabs). */
   onClick(event: MouseEvent): void {
     const target = event.target as HTMLElement;
+
+    // Footnote link: the target is an element on this page, possibly in another item,
+    // so it is scrolled to instead of being opened like an external link.
+    const footnoteLink = target.closest('.footnote-ref a, .footnote-backref') as HTMLAnchorElement | null;
+    if (footnoteLink) {
+      event.preventDefault();
+      event.stopPropagation();
+      const id = footnoteLink.getAttribute('href')?.slice(1);
+      if (id) {
+        document.getElementById(id)?.scrollIntoView({ block: 'center' });
+      }
+      return;
+    }
 
     // External link [name](url)
     const anchor = target.closest('a:not(.wiki-link):not(.wiki-link-new):not(.hashtag-link)') as HTMLAnchorElement | null;
