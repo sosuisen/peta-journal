@@ -99,12 +99,9 @@ import { FmRootComponent } from 'flatmarkdown-ast2angular';
     :host ::ng-deep .footnote-label {
       margin-right: 4px;
     }
-    :host ::ng-deep .footnote-backref,
+    :host ::ng-deep .footnote-label,
     :host ::ng-deep .footnote-ref a {
       text-decoration: none;
-    }
-    :host ::ng-deep .footnote-backref {
-      margin-left: 4px;
     }
     :host ::ng-deep code {
       background: #f5f5f5;
@@ -258,7 +255,7 @@ export class ItemViewComponent {
 
     // Footnote link: the target is an element on this page, possibly in another item,
     // so it is scrolled to instead of being opened like an external link.
-    const footnoteLink = target.closest('.footnote-ref a, .footnote-backref') as HTMLAnchorElement | null;
+    const footnoteLink = target.closest('.footnote-ref a, .footnote-label') as HTMLAnchorElement | null;
     if (footnoteLink) {
       event.preventDefault();
       event.stopPropagation();
