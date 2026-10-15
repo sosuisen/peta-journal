@@ -152,10 +152,8 @@ public class CombinedSearchService {
 
         // Text condition
         String textQuery = terms.text();
-        List<SearchResult> textPageResults = List.of();
         List<SearchResult> textItemResults = List.of();
         if (!textQuery.isEmpty()) {
-            textPageResults = searchPageNamesInternal(textQuery, maxResults);
             textItemResults = searchService.searchFullText(textQuery, hasFilterConditions ? FILTER_LIMIT : maxResults);
             if (hasFilterConditions) {
                 Set<String> textItemIds = new LinkedHashSet<>();
@@ -173,7 +171,7 @@ public class CombinedSearchService {
             if (textQuery.isEmpty()) return List.of();
             List<SearchResult> combined = new ArrayList<>();
             Set<String> seenPageIds = new HashSet<>();
-            for (SearchResult r : textPageResults) {
+            for (SearchResult r : searchPageNamesInternal(textQuery, maxResults)) {
                 combined.add(r);
                 seenPageIds.add(r.pageId().toString());
             }

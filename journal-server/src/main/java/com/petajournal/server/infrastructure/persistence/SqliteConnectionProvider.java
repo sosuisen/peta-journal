@@ -52,6 +52,9 @@ public class SqliteConnectionProvider {
         // out drivers registered by the caller's class loader, which is not the case after the
         // application restarted inside one JVM (as the integration tests do)
         Connection conn = new org.sqlite.JDBC().connect(url, new java.util.Properties());
+        if (conn == null) {
+            throw new SQLException("The SQLite driver does not accept the URL: " + url);
+        }
 
         // Set additional pragmas for better concurrency
         try (var stmt = conn.createStatement()) {
