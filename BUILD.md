@@ -9,8 +9,8 @@
 ### 3. Node.js 20+
 
 The flatmarkdown library (`com.sosuisha:flatmarkdown`) comes from Maven Central and
-bundles its native binaries for Windows x86-64 and macOS arm64, so there is nothing to
-build by hand.
+bundles its native binaries for Linux x86-64, Windows x86-64 and macOS arm64, so there
+is nothing to build by hand.
 
 ## Build
 
