@@ -57,12 +57,10 @@ class MarkdownImportServiceMatchPageTest {
         // Only ensureAncestorPages is used here; export and properties are not involved
         var pageService = new PageService(pageRepository, itemRepository, searchService, null, null, null, idGenerator);
 
-        service = new MarkdownImportService();
-        service.pageRepository = pageRepository;
-        service.itemRepository = itemRepository;
-        service.searchService = searchService;
-        service.idGenerator = idGenerator;
-        service.pageService = pageService;
+        // Matching needs the page and item repositories, the search index, the id generator and the page
+        // service; the parser, properties, sync state, export and SSE belong to the item merge and stay null
+        service = new MarkdownImportService(pageRepository, itemRepository, null, null, searchService,
+                null, idGenerator, pageService, null, null, null);
     }
 
     // ---- 1. match by frontmatter id ----

@@ -1,5 +1,6 @@
 package com.petajournal.server.infrastructure.search;
 
+import jakarta.inject.Inject;
 import com.petajournal.server.domain.model.Item;
 import com.petajournal.server.domain.model.Page;
 import com.petajournal.server.domain.model.SearchResult;
@@ -40,12 +41,16 @@ public class LuceneSearchService implements SearchService {
     private static final String TYPE_PAGE = "page";
     private static final String TYPE_ITEM = "item";
 
-    @ConfigProperty(name = "petajournal.index.dir")
-    String indexDir;
+    private final String indexDir;
 
     private FSDirectory directory;
     private Analyzer analyzer;
     private IndexWriter writer;
+
+    @Inject
+    public LuceneSearchService(@ConfigProperty(name = "petajournal.index.dir") String indexDir) {
+        this.indexDir = indexDir;
+    }
 
     @PostConstruct
     void init() {

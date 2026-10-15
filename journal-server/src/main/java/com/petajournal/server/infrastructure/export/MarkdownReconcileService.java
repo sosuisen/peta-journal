@@ -35,15 +35,13 @@ public class MarkdownReconcileService {
     private static final Logger LOG = Logger.getLogger(MarkdownReconcileService.class);
     private static final List<String> TOP_DIRS = List.of("docs", "journals");
 
-    @ConfigProperty(name = "petajournal.import.enabled", defaultValue = "true")
-    boolean importEnabled;
-
-    @Inject MarkdownExportService exportService;
-    @Inject MarkdownImportService importService;
-    @Inject FileSyncStateRepository fileSyncStateRepository;
-    @Inject PageRepository pageRepository;
-    @Inject PendingDeletePrompt pendingDeletePrompt;
-    @Inject SearchService searchService;
+    private final boolean importEnabled;
+    private final MarkdownExportService exportService;
+    private final MarkdownImportService importService;
+    private final FileSyncStateRepository fileSyncStateRepository;
+    private final PageRepository pageRepository;
+    private final PendingDeletePrompt pendingDeletePrompt;
+    private final SearchService searchService;
 
     private final AtomicBoolean scanning = new AtomicBoolean(false);
     private volatile boolean scanRequested = false;
@@ -54,6 +52,24 @@ public class MarkdownReconcileService {
         t.setDaemon(true);
         return t;
     });
+
+    @Inject
+    public MarkdownReconcileService(
+            @ConfigProperty(name = "petajournal.import.enabled", defaultValue = "true") boolean importEnabled,
+            MarkdownExportService exportService,
+            MarkdownImportService importService,
+            FileSyncStateRepository fileSyncStateRepository,
+            PageRepository pageRepository,
+            PendingDeletePrompt pendingDeletePrompt,
+            SearchService searchService) {
+        this.importEnabled = importEnabled;
+        this.exportService = exportService;
+        this.importService = importService;
+        this.fileSyncStateRepository = fileSyncStateRepository;
+        this.pageRepository = pageRepository;
+        this.pendingDeletePrompt = pendingDeletePrompt;
+        this.searchService = searchService;
+    }
 
     void onStop(@Observes ShutdownEvent event) {
         scanExecutor.shutdownNow();

@@ -1,5 +1,6 @@
 package com.petajournal.server.infrastructure.startup;
 
+import jakarta.inject.Inject;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.runtime.StartupEvent;
 import jakarta.annotation.Priority;
@@ -24,8 +25,12 @@ public class SchemaVersionCheck {
     private static final String VERSION_FILE = "versions.json";
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    @ConfigProperty(name = "petajournal.config.dir")
-    String configDir;
+    private final String configDir;
+
+    @Inject
+    public SchemaVersionCheck(@ConfigProperty(name = "petajournal.config.dir") String configDir) {
+        this.configDir = configDir;
+    }
 
     /**
      * Runs after DatabaseInitializer (priority 1) but early in startup.

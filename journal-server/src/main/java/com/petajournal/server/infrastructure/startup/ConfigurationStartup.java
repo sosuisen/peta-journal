@@ -20,14 +20,19 @@ public class ConfigurationStartup {
 
     private static final Logger LOG = Logger.getLogger(ConfigurationStartup.class);
 
-    @Inject
-    ConfigService configService;
+    private final ConfigService configService;
+    private final FolderChooserService folderChooserService;
+    private final MarkdownExportService markdownExportService;
 
     @Inject
-    FolderChooserService folderChooserService;
-
-    @Inject
-    MarkdownExportService markdownExportService;
+    public ConfigurationStartup(
+            ConfigService configService,
+            FolderChooserService folderChooserService,
+            MarkdownExportService markdownExportService) {
+        this.configService = configService;
+        this.folderChooserService = folderChooserService;
+        this.markdownExportService = markdownExportService;
+    }
 
     @PostConstruct
     void checkConfiguration() {

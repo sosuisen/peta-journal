@@ -28,30 +28,35 @@ public class MarkdownExportService {
 
     private static final Logger LOG = Logger.getLogger(MarkdownExportService.class);
 
-    @Inject
-    ConfigService configService;
-
-    @Inject
-    ExportQueueRepository exportQueueRepository;
-
-    @Inject
-    FileSyncStateRepository fileSyncStateRepository;
-
-    @Inject
-    PageRepository pageRepository;
-
-    @Inject
-    ItemRepository itemRepository;
-
-    @Inject
-    PropertyRepository propertyRepository;
-
-    @Inject
-    FlatMarkdownSerializer serializer;
+    private final ConfigService configService;
+    private final ExportQueueRepository exportQueueRepository;
+    private final FileSyncStateRepository fileSyncStateRepository;
+    private final PageRepository pageRepository;
+    private final ItemRepository itemRepository;
+    private final PropertyRepository propertyRepository;
+    private final FlatMarkdownSerializer serializer;
 
     /** True while a scheduler run is writing files; a run that overlaps is skipped. */
     private final AtomicBoolean processing = new AtomicBoolean(false);
     private volatile boolean warnedDirUnavailable = false;
+
+    @Inject
+    public MarkdownExportService(
+            ConfigService configService,
+            ExportQueueRepository exportQueueRepository,
+            FileSyncStateRepository fileSyncStateRepository,
+            PageRepository pageRepository,
+            ItemRepository itemRepository,
+            PropertyRepository propertyRepository,
+            FlatMarkdownSerializer serializer) {
+        this.configService = configService;
+        this.exportQueueRepository = exportQueueRepository;
+        this.fileSyncStateRepository = fileSyncStateRepository;
+        this.pageRepository = pageRepository;
+        this.itemRepository = itemRepository;
+        this.propertyRepository = propertyRepository;
+        this.serializer = serializer;
+    }
 
     public void queueExport(HMTID pageId) {
         exportQueueRepository.enqueue(pageId);

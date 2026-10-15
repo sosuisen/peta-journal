@@ -56,17 +56,43 @@ public class MarkdownImportService {
 
     public enum Outcome { IGNORED, MISSING, UNCHANGED, IMPORTED, CONFLICT, ERROR }
 
-    @Inject PageRepository pageRepository;
-    @Inject ItemRepository itemRepository;
-    @Inject PropertyRepository propertyRepository;
-    @Inject MarkdownParser markdownParser;
-    @Inject SearchService searchService;
-    @Inject OutlineMarkdownParser parser;
-    @Inject IdGenerator idGenerator;
-    @Inject PageService pageService;
-    @Inject FileSyncStateRepository fileSyncStateRepository;
-    @Inject MarkdownExportService exportService;
-    @Inject SseBroadcaster sseBroadcaster;
+    private final PageRepository pageRepository;
+    private final ItemRepository itemRepository;
+    private final PropertyRepository propertyRepository;
+    private final MarkdownParser markdownParser;
+    private final SearchService searchService;
+    private final OutlineMarkdownParser parser;
+    private final IdGenerator idGenerator;
+    private final PageService pageService;
+    private final FileSyncStateRepository fileSyncStateRepository;
+    private final MarkdownExportService exportService;
+    private final SseBroadcaster sseBroadcaster;
+
+    @Inject
+    public MarkdownImportService(
+            PageRepository pageRepository,
+            ItemRepository itemRepository,
+            PropertyRepository propertyRepository,
+            MarkdownParser markdownParser,
+            SearchService searchService,
+            OutlineMarkdownParser parser,
+            IdGenerator idGenerator,
+            PageService pageService,
+            FileSyncStateRepository fileSyncStateRepository,
+            MarkdownExportService exportService,
+            SseBroadcaster sseBroadcaster) {
+        this.pageRepository = pageRepository;
+        this.itemRepository = itemRepository;
+        this.propertyRepository = propertyRepository;
+        this.markdownParser = markdownParser;
+        this.searchService = searchService;
+        this.parser = parser;
+        this.idGenerator = idGenerator;
+        this.pageService = pageService;
+        this.fileSyncStateRepository = fileSyncStateRepository;
+        this.exportService = exportService;
+        this.sseBroadcaster = sseBroadcaster;
+    }
 
     /**
      * Syncs one file from the folder into the DB. Safe to call repeatedly.
