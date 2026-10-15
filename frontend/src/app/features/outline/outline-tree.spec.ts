@@ -13,6 +13,7 @@ import {
   positionByIndex,
   selectedRootItems,
   selectionStartIndex,
+  startsDateGroup,
   transclusionContextOf,
   transclusionScopedItems,
 } from './outline-tree';
@@ -274,5 +275,27 @@ describe('transclusion', () => {
   it('transclusionScopedItems: the visible descendants of the root, without the root', () => {
     const ctx = transclusionContextOf(own[1], own, trees)!;
     expect(ids(transclusionScopedItems(visible, ctx))).toEqual(['s1']);
+  });
+
+  describe('startsDateGroup', () => {
+    // 03-02: n1, n2 (transcludes s) > s1 (transcluded)   03-01: t1
+    const visible = [
+      b('n1', 1, { name: '2026-03-02' }),
+      b('n2', 1, { name: '2026-03-02', transcludeItemId: 's' }),
+      b('s1', 2, { name: 'other' }),
+      b('t1', 1, { name: '2026-03-01' }),
+    ];
+    const own = new Set(['n1', 'n2', 't1']);
+
+    it('the first item and the first item of each day start a group', () => {
+      expect(startsDateGroup(visible, own, 0)).toBe(true);
+      expect(startsDateGroup(visible, own, 1)).toBe(false);
+      expect(startsDateGroup(visible, own, 3)).toBe(true);
+    });
+
+    it('a transcluded descendant never starts a group and is skipped when looking back', () => {
+      expect(startsDateGroup(visible, own, 2)).toBe(false);
+      expect(startsDateGroup([visible[2], visible[3]], own, 1)).toBe(true);
+    });
   });
 });

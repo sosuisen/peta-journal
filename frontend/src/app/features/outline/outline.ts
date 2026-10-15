@@ -12,12 +12,14 @@ import { formatJournalDate } from '../../core/utils/date.utils';
 import { NavigationService } from '../../core/services/navigation.service';
 import { WikiLinkContext } from './item-editor';
 import { ItemEditService } from './item-edit.service';
+import { FileReloadService } from './file-reload.service';
 import { ItemActionService, zoomOf } from './item-action.service';
 import { ItemMergeService } from './item-merge.service';
 import { ItemMoveService, MoveDirection } from './item-move.service';
 import { ItemSplitService } from './item-split.service';
 import { CrossDayMove } from './journal-day-move.service';
 import { OutlineSelection } from './outline-selection';
+import { startsDateGroup } from './outline-tree';
 import { ImagePaste, PasteService, TextPaste } from './paste.service';
 import { WikiSuggestionPick, WikiSuggestionsComponent } from './wiki-suggestions';
 import { LevelShiftService } from './level-shift.service';
@@ -142,8 +144,8 @@ export class OutlineComponent implements OnDestroy {
 
   // ---- Editing state ----
 
-  /** Pages changed on disk while the user was editing; reloaded once editing stops. */
-  private readonly pendingFileReloads = new Set<string>();
+  /** Reloads pages whose markdown file changed on disk; see {@link FileReloadService}. */
+  private readonly fileReloads = new FileReloadService(this.state, this.api, this.edits);
   /** Tail of the move queue; see enqueueMove. */
   private moveQueue: Promise<void> = Promise.resolve();
 
@@ -200,12 +202,12 @@ export class OutlineComponent implements OnDestroy {
 
     // Changes picked up from the markdown folder: refresh the affected page's items
     this.sseSub = this.sse.pagesUpdated$.subscribe(ev => {
-      if (ev.source === 'file') this.reloadPageFromFile(ev.pageId);
+      if (ev.source === 'file') this.fileReloads.reloadPage(ev.pageId);
     });
     effect(() => {
-      if (this.state.editingItemIds().size === 0 && this.pendingFileReloads.size > 0) {
+      if (this.state.editingItemIds().size === 0 && this.fileReloads.hasPending()) {
         // Give the auto-save a moment to flush before replacing items
-        setTimeout(() => this.flushPendingFileReloads(), 1500);
+        setTimeout(() => this.fileReloads.flushPending(), 1500);
       }
     });
 
@@ -306,19 +308,7 @@ export class OutlineComponent implements OnDestroy {
    * @returns True if this item starts a new date group
    */
   isFirstItemOfDate(index: number): boolean {
-    const items = this.state.visibleItems();
-    if (index === 0) return true;
-    const currentItem = items[index];
-    // Skip transcluded descendants — they belong to a different page but are
-    // displayed inline, so they should never trigger a date header.
-    if (!this.state.isOwnItem(currentItem.id)) return false;
-    // Find the previous item that is actually on our page (skip transcluded descendants)
-    for (let i = index - 1; i >= 0; i--) {
-      if (this.state.isOwnItem(items[i].id)) {
-        return currentItem.name !== items[i].name;
-      }
-    }
-    return true;
+    return startsDateGroup(this.state.visibleItems(), this.state.ownItemIds(), index);
   }
 
   /**
@@ -331,41 +321,6 @@ export class OutlineComponent implements OnDestroy {
   }
 
   // ---- Loading ----
-
-  /**
-   * Replaces the items of one page with the server's current version after the
-   * markdown file changed on disk. Waits while the user is editing so their typing
-   * is not overwritten.
-   */
-  private async reloadPageFromFile(pageId: string): Promise<void> {
-    const current = this.state.items();
-    if (!current.some(i => i.pageId === pageId)) return;  // not shown in this outline
-    if (this.edits.isEditInProgress()) {
-      this.pendingFileReloads.add(pageId);
-      return;
-    }
-    try {
-      const result = await this.api.getPageById(pageId);
-      const items = this.state.items();
-      const first = items.findIndex(i => i.pageId === pageId);
-      if (first < 0) return;
-      const before = items.slice(0, first);
-      const after = items.slice(first).filter(i => i.pageId !== pageId);
-      this.state.setItems([...before, ...result.items, ...after]);
-      if (result.transcludedTrees) {
-        this.state.mergeTranscludedTrees(result.transcludedTrees);
-      }
-    } catch (e) {
-      console.error('Failed to reload page from file:', pageId, e);
-    }
-  }
-
-  private flushPendingFileReloads(): void {
-    if (this.edits.isEditInProgress()) return;
-    const ids = [...this.pendingFileReloads];
-    this.pendingFileReloads.clear();
-    for (const id of ids) this.reloadPageFromFile(id);
-  }
 
   private async loadItems(pageId: string): Promise<void> {
     try {
@@ -507,7 +462,7 @@ export class OutlineComponent implements OnDestroy {
   private readonly view: OutlineView = {
     pageId: () => this.pageId(),
     reloadPage: () => this.loadItems(this.pageId()),
-    reloadPageFromFile: pageId => { this.reloadPageFromFile(pageId); },
+    reloadPageFromFile: pageId => { this.fileReloads.reloadPage(pageId); },
     focusEditor: itemId => this.focusEditor(itemId),
   };
 

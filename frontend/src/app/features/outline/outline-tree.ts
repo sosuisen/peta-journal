@@ -270,3 +270,22 @@ export function transclusionScopedItems(visibleItems: Item[], ctx: TransclusionC
   }
   return scoped;
 }
+
+// ---- Journal date groups ----
+
+/**
+ * True when the visible item at the index is the first item of a journal day, so a date
+ * header goes above it. Transcluded descendants belong to another page and never start
+ * a group, and are skipped when looking for the item above.
+ */
+export function startsDateGroup(visibleItems: Item[], ownIds: Set<string>, index: number): boolean {
+  if (index === 0) return true;
+  const current = visibleItems[index];
+  if (!ownIds.has(current.id)) return false;
+  for (let i = index - 1; i >= 0; i--) {
+    if (ownIds.has(visibleItems[i].id)) {
+      return current.name !== visibleItems[i].name;
+    }
+  }
+  return true;
+}
