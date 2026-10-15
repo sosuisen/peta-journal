@@ -9,7 +9,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.SQLException;
 
 @ApplicationScoped
@@ -49,7 +48,10 @@ public class SqliteConnectionProvider {
         // transaction_mode=IMMEDIATE: acquire write lock at BEGIN, not at first write.
         // This prevents SQLITE_BUSY_SNAPSHOT when concurrent threads write via separate connections.
         String url = "jdbc:sqlite:" + path + "?journal_mode=WAL&busy_timeout=30000&transaction_mode=IMMEDIATE";
-        Connection conn = DriverManager.getConnection(url);
+        // Connect through the driver itself rather than DriverManager: DriverManager only hands
+        // out drivers registered by the caller's class loader, which is not the case after the
+        // application restarted inside one JVM (as the integration tests do)
+        Connection conn = new org.sqlite.JDBC().connect(url, new java.util.Properties());
 
         // Set additional pragmas for better concurrency
         try (var stmt = conn.createStatement()) {
