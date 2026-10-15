@@ -9,37 +9,20 @@ import { AutoSaveService } from '../../core/services/auto-save.service';
 import { Item } from '../../core/models/item.model';
 import { ClipboardService } from '../../core/services/clipboard.service';
 import { UndoService, UndoEntry, UndoOp, CursorState } from '../../core/services/undo.service';
-import { formatJournalDate, formatDateToIso } from '../../core/utils/date.utils';
+import { formatJournalDate, shiftIsoDate } from '../../core/utils/date.utils';
 import { classifyJournalFileName } from '../../core/utils/journal-filename.utils';
 import { NavigationService } from '../../core/services/navigation.service';
 import { ConfigService } from '../../core/services/config.service';
 import { WikiLinkContext, ensureCodeFenceClosed, hasUnclosedCodeFence } from './item-editor';
 import { findCrossPagePlacement, findMoveDownTarget, findMoveUpTarget, getSubtree } from './move-utils';
+import {
+  EditContext, TransclusionContext, canIndent, editContextOf, hasSiblingBelow, idsOfRangeWithSubtrees,
+  lastDescendantOutside, levelForNewItemAfter, parentIndexOf, positionAfterSubtree, positionBefore,
+  positionByIndex, selectedRootItems, selectionStartIndex, transclusionContextOf, transclusionScopedItems,
+} from './outline-tree';
 import { renderToHtml } from 'flatmarkdown-ast2html';
 import { HmtidService } from '../../core/services/hmtid.service';
 import { SseService } from '../../core/services/sse.service';
-
-/**
- * Where an edit of an item shown in the outline is really stored.
- * A transclusion root shows the body of its source item, and a transcluded
- * descendant belongs to the source page, so both are saved there and the
- * levels they show are offset from the levels stored.
- */
-interface EditContext {
-  /** The page new items are created on. */
-  pageId: string;
-  /** Shown level minus stored level; 0 outside a transclusion. */
-  levelOffset: number;
-  /** True for a transclusion root or a transcluded descendant. */
-  inTransclusion: boolean;
-}
-
-/** The transclusion root an item is shown under, with the level offset of that tree. */
-interface TransclusionContext {
-  rootItemId: string;
-  rootDisplayLevel: number;
-  levelOffset: number;
-}
 
 type SelectionEventName = 'keydown' | 'click' | 'copy' | 'cut' | 'mouseup';
 
@@ -702,7 +685,7 @@ export class OutlineComponent implements OnDestroy {
   async onEnterPressed(item: Item, event: { cursorPos: number }): Promise<void> {
     this.discardPendingEdit(item);
 
-    if (item.body.length === 0 && item.level > 1 && !this.hasSiblingBelow(item)) {
+    if (item.body.length === 0 && item.level > 1 && !hasSiblingBelow(this.state.visibleItems(), item.id)) {
       // Empty last child: outdent instead of creating a new item
       await this.onOutdent(item);
       this.focusEditor(item.id);
@@ -721,22 +704,11 @@ export class OutlineComponent implements OnDestroy {
     });
   }
 
-  /** True when a sibling at the same level follows the item within the same parent. */
-  private hasSiblingBelow(item: Item): boolean {
-    const vItems = this.state.visibleItems();
-    const vIdx = vItems.findIndex(b => b.id === item.id);
-    for (let i = vIdx + 1; i < vItems.length; i++) {
-      if (vItems[i].level < item.level) break;
-      if (vItems[i].level === item.level) return true;
-    }
-    return false;
-  }
-
   /** Enter at the beginning: a new empty item goes before the current one, which keeps its text. */
   private async insertEmptyItemBefore(item: Item, cursorPos: number): Promise<void> {
     const ctx = this.editContextOf(item);
     // Inside a transclusion the new item goes to the top of the source page
-    const position: ItemPosition = ctx.inTransclusion ? 'first' : this.positionBefore(item);
+    const position: ItemPosition = ctx.inTransclusion ? 'first' : positionBefore(this.state.items(), item.id);
     const [newItem] = await Promise.all([
       this.api.createItem(ctx.pageId, position, item.level - ctx.levelOffset, ''),
       this.saveItemBody(this.saveTargetId(item), item.body),
@@ -759,7 +731,7 @@ export class OutlineComponent implements OnDestroy {
   private async appendEmptyItemAfter(item: Item, cursorPos: number): Promise<void> {
     const ctx = this.editContextOf(item);
     const newLevel = this.levelForNewItemAfter(item, ctx);
-    const position = this.positionAfterSubtree(item);
+    const position = positionAfterSubtree(this.state.items(), item, this.saveTargetId(item));
     const newId = this.hmtid.nextId();
     const optimisticItem: Item = {
       id: newId,
@@ -804,7 +776,7 @@ export class OutlineComponent implements OnDestroy {
   private async splitItemAt(item: Item, cursorPos: number): Promise<void> {
     const ctx = this.editContextOf(item);
     const newLevel = this.levelForNewItemAfter(item, ctx);
-    const position = this.positionAfterSubtree(item);
+    const position = positionAfterSubtree(this.state.items(), item, this.saveTargetId(item));
     const beforeText = item.body.substring(0, cursorPos);
     const afterText = item.body.substring(cursorPos);
     const originalItem = { ...item };
@@ -835,62 +807,13 @@ export class OutlineComponent implements OnDestroy {
     }
   }
 
-  /** The position right before an item of this outline's own pages. */
-  private positionBefore(item: Item): ItemPosition {
-    const allItems = this.state.items();
-    const itemIdx = allItems.findIndex(b => b.id === item.id);
-    return itemIdx > 0 ? `after:${allItems[itemIdx - 1].id}` : 'first';
-  }
-
-  /** The position after the item, or after its last descendant when it is collapsed. */
-  private positionAfterSubtree(item: Item): ItemPosition {
-    const descendants = item.collapsed ? this.state.getChildren(item.id) : [];
-    const afterId = descendants.length > 0 ? descendants[descendants.length - 1].id : this.saveTargetId(item);
-    return `after:${afterId}`;
-  }
-
-  /**
-   * The shown level of an item created right after the given one: one deeper when the
-   * item is expanded and already has children, otherwise the same level.
-   */
+  /** The shown level of a new item after this one; a transclusion reads the neighbour from the visible list. */
   private levelForNewItemAfter(item: Item, ctx: EditContext): number {
-    let next: Item | undefined;
-    if (ctx.inTransclusion) {
-      const vItems = this.state.visibleItems();
-      const vIdx = vItems.findIndex(b => b.id === item.id);
-      next = vIdx >= 0 ? vItems[vIdx + 1] : undefined;
-    } else {
-      const allItems = this.state.items();
-      const idx = allItems.findIndex(b => b.id === item.id);
-      next = idx >= 0 ? allItems[idx + 1] : undefined;
-    }
-    return !item.collapsed && next && next.level === item.level + 1 ? item.level + 1 : item.level;
+    return levelForNewItemAfter(ctx.inTransclusion ? this.state.visibleItems() : this.state.items(), item);
   }
 
-  /** Resolves the page, the level offset and the transclusion state for editing an item. */
   private editContextOf(item: Item): EditContext {
-    const isOwn = this.state.isOwnItem(item.id);
-    if (isOwn && item.transcludeItemId) {
-      // Transclusion root: edits go to the source page
-      const tree = this.state.transcludedTrees().get(item.transcludeItemId);
-      if (tree && tree.length > 0) {
-        return { pageId: tree[0].pageId, levelOffset: item.level - tree[0].level, inTransclusion: true };
-      }
-      return { pageId: item.pageId, levelOffset: 0, inTransclusion: true };
-    }
-    if (!isOwn) {
-      // Transcluded descendant: it already belongs to the source page
-      let levelOffset = 0;
-      for (const tree of this.state.transcludedTrees().values()) {
-        const found = tree.find(t => t.id === item.id);
-        if (found) {
-          levelOffset = item.level - found.level;
-          break;
-        }
-      }
-      return { pageId: item.pageId, levelOffset, inTransclusion: true };
-    }
-    return { pageId: item.pageId, levelOffset: 0, inTransclusion: false };
+    return editContextOf(item, this.state.ownItemIds(), this.state.transcludedTrees());
   }
 
   /**
@@ -1004,43 +927,13 @@ export class OutlineComponent implements OnDestroy {
   // ---- Indent and outdent ----
 
   /**
-   * Check if a item at the given level can be placed after prevItem.
-   * Constraint: the previous item's level must be the same as, or exactly 1 level above (parent).
-   * i.e. prevLevel === itemLevel (sibling) or prevLevel === itemLevel - 1 (parent)
-   * If no previous item, the item must be at level 0 (root).
-   */
-  private canPlace(itemLevel: number, prevItem: Item | undefined): boolean {
-    if (!prevItem) return itemLevel === 1;
-    return prevItem.level === itemLevel || prevItem.level === itemLevel - 1;
-  }
-
-  /**
    * Handles the user pressing Tab to indent a item and its children by one level.
    * Validates placement constraints before allowing the indent.
    * @param item - The item to indent
    */
   async onIndent(item: Item): Promise<void> {
-    const isOwn = this.state.isOwnItem(item.id);
-    const items = isOwn ? this.state.items() : this.state.visibleItems();
-    const idx = items.findIndex(b => b.id === item.id);
-    if (idx <= 0) return;
-    const prevItem = items[idx - 1];
-    const newLevel = item.level + 1;
-
-    // Check normal placement
-    if (!this.canPlace(newLevel, prevItem)) {
-      // Exception: indenting by 1 level is allowed if there is a sibling at the same level
-      // within the same parent subtree (stop scanning at shallower levels)
-      let hasSameLevelBefore = false;
-      for (let i = idx - 1; i >= 0; i--) {
-        if (items[i].level < item.level) break; // exited current subtree
-        if (items[i].level === item.level) {
-          hasSameLevelBefore = true;
-          break;
-        }
-      }
-      if (!hasSameLevelBefore) return;
-    }
+    const items = this.state.isOwnItem(item.id) ? this.state.items() : this.state.visibleItems();
+    if (!canIndent(items, item.id)) return;
 
     const tCtx = this.getTransclusionContext(item);
     if (tCtx) {
@@ -1079,15 +972,7 @@ export class OutlineComponent implements OnDestroy {
     const idx = items.findIndex(b => b.id === item.id);
     if (idx < 0) return;
     const prevItem = idx > 0 ? items[idx - 1] : undefined;
-
-    // Find parent (item above at level-1)
-    let parentIdx = -1;
-    for (let i = idx - 1; i >= 0; i--) {
-      if (items[i].level === item.level - 1) {
-        parentIdx = i;
-        break;
-      }
-    }
+    const parentIdx = parentIndexOf(items, idx);
     if (parentIdx < 0) return; // No parent found, cannot outdent
 
     const group = this.state.getItemWithChildren(item.id);
@@ -1106,15 +991,8 @@ export class OutlineComponent implements OnDestroy {
    * so the siblings below it stay with the original parent.
    */
   private async outdentBelowParent(item: Item, group: Item[], parent: Item): Promise<void> {
-    const movingIds = new Set(group.map(b => b.id));
-    let lastChildId = parent.id;
-    for (const child of this.state.getChildren(parent.id)) {
-      if (!movingIds.has(child.id)) {
-        lastChildId = child.id;
-      }
-    }
-
     const groupIds = group.map(b => b.id);
+    const lastChildId = lastDescendantOutside(this.state.items(), parent.id, new Set(groupIds));
     const beforeSnapshots = group.map(b => ({ ...b }));
 
     for (const b of group) {
@@ -1305,7 +1183,7 @@ export class OutlineComponent implements OnDestroy {
 
   /** Moves a transcluded descendant within the tree of its transclusion root. */
   private async moveWithinTransclusion(item: Item, tCtx: TransclusionContext, direction: 'up' | 'down'): Promise<void> {
-    const scopedItems = this.getTransclusionScopedItems(this.state.visibleItems(), tCtx);
+    const scopedItems = transclusionScopedItems(this.state.visibleItems(), tCtx);
     const target = direction === 'up'
       ? findMoveUpTarget(scopedItems, item.id)
       : findMoveDownTarget(scopedItems, item.id);
@@ -1340,9 +1218,7 @@ export class OutlineComponent implements OnDestroy {
 
   /** The date of the day before or after a daily journal item. */
   private adjacentDate(item: Item, direction: 'next' | 'prev'): string {
-    const d = new Date(item.name + 'T00:00:00');
-    d.setDate(d.getDate() + (direction === 'next' ? 1 : -1));
-    return formatDateToIso(d);
+    return shiftIsoDate(item.name, direction === 'next' ? 1 : -1);
   }
 
   /** A page must keep at least one item: creates an empty one when the moved items were the last ones. */
@@ -1911,7 +1787,7 @@ export class OutlineComponent implements OnDestroy {
     const extentIdx = items.findIndex(b => b.id === this.selectionExtentItemId);
     if (anchorIdx < 0 || extentIdx < 0) return;
 
-    const start = this.selectionStartIndex(items, anchorIdx, extentIdx);
+    const start = selectionStartIndex(items, anchorIdx, extentIdx);
     // When selecting upward into a subtree, the extent moves to the ancestor that was
     // pulled in, so the next Shift+Up continues from the correct position
     if (extentIdx < anchorIdx && start < extentIdx) {
@@ -1934,33 +1810,12 @@ export class OutlineComponent implements OnDestroy {
     const currentIdx = items.findIndex(b => b.id === item.id);
     if (anchorIdx < 0 || currentIdx < 0) return;
 
-    this.selectRange(items, this.selectionStartIndex(items, anchorIdx, currentIdx), Math.max(anchorIdx, currentIdx));
-  }
-
-  /**
-   * The first index of a selection between the anchor and another item. When the
-   * selection reaches into a subtree nested deeper than the anchor, it starts at the
-   * ancestor on the anchor's level so that whole subtrees are selected.
-   */
-  private selectionStartIndex(items: Item[], anchorIdx: number, otherIdx: number): number {
-    let start = Math.min(anchorIdx, otherIdx);
-    const anchorLevel = items[anchorIdx].level;
-    while (start > 0 && items[start].level > anchorLevel) {
-      start--;
-    }
-    return start;
+    this.selectRange(items, selectionStartIndex(items, anchorIdx, currentIdx), Math.max(anchorIdx, currentIdx));
   }
 
   /** Selects the items from start to end (inclusive) together with their subtrees. */
   private selectRange(items: Item[], start: number, end: number): void {
-    const selectedSet = new Set<string>();
-    for (let i = start; i <= end; i++) {
-      // getItemWithChildren uses _items() (all items) so collapsed children are included
-      for (const b of this.state.getItemWithChildren(items[i].id)) {
-        selectedSet.add(b.id);
-      }
-    }
-    this.state.setSelectedItemIds(selectedSet);
+    this.state.setSelectedItemIds(idsOfRangeWithSubtrees(items, this.state.items(), start, end));
   }
 
   private onSelectionMouseUp(): void {
@@ -2055,30 +1910,6 @@ export class OutlineComponent implements OnDestroy {
     }
   }
 
-  /** The selected items whose parent is not selected, in outline order. */
-  private getSelectedRootItems(): Item[] {
-    const selectedIds = this.state.selectedItemIds();
-    const allItems = this.state.items();
-    const roots: Item[] = [];
-
-    for (let idx = 0; idx < allItems.length; idx++) {
-      const item = allItems[idx];
-      if (!selectedIds.has(item.id)) continue;
-      // Check if parent is in selection
-      let isRoot = true;
-      for (let i = idx - 1; i >= 0; i--) {
-        if (allItems[i].level < item.level) {
-          if (selectedIds.has(allItems[i].id)) {
-            isRoot = false;
-          }
-          break;
-        }
-      }
-      if (isRoot) roots.push(item);
-    }
-    return roots;
-  }
-
   private getOrderedSelectedItemIds(): string[] {
     const selectedIds = this.state.selectedItemIds();
     return this.state.visibleItems()
@@ -2120,7 +1951,7 @@ export class OutlineComponent implements OnDestroy {
 
   /** Moves every selected subtree past the sibling tree above or below the selection. */
   private async moveSelection(direction: 'up' | 'down'): Promise<void> {
-    const rootItems = this.getSelectedRootItems();
+    const rootItems = selectedRootItems(this.state.items(), this.state.selectedItemIds());
     if (rootItems.length === 0) return;
 
     const edgeRoot = direction === 'up' ? rootItems[0] : rootItems[rootItems.length - 1];
@@ -2305,14 +2136,7 @@ export class OutlineComponent implements OnDestroy {
   }
 
   private findInsertionPosition(item: Item): ItemPosition {
-    const items = this.state.items();
-    let bestId = '';
-    for (const b of items) {
-      if (b.pageId === item.pageId && b.idx < item.idx) {
-        bestId = b.id;
-      }
-    }
-    return bestId ? `after:${bestId}` : 'first';
+    return positionByIndex(this.state.items(), item);
   }
 
   private async syncToServer(entry: UndoEntry, dir: 'undo' | 'redo'): Promise<void> {
@@ -2354,56 +2178,12 @@ export class OutlineComponent implements OnDestroy {
 
   // ---- Transclusion helpers ----
 
-  /**
-   * Returns transclusion context for an item, or null if not in a transclusion.
-   * For transclusion root: returns context based on the root itself.
-   * For transcluded descendants: returns context based on the transclusion root that owns them.
-   */
   private getTransclusionContext(item: Item): TransclusionContext | null {
-    const isOwn = this.state.isOwnItem(item.id);
-    const trees = this.state.transcludedTrees();
-
-    // Transclusion root
-    if (isOwn && item.transcludeItemId) {
-      const tree = trees.get(item.transcludeItemId);
-      if (tree && tree.length > 0) {
-        return { rootDisplayLevel: item.level, levelOffset: item.level - tree[0].level, rootItemId: item.id };
-      }
-    }
-
-    // Transcluded descendant (not in _items)
-    if (!isOwn) {
-      for (const [sourceId, tree] of trees) {
-        if (tree.some(t => t.id === item.id) && tree.length > 0) {
-          // Find the transclusion root in _items that references this sourceId
-          const root = this.state.items().find(b => b.transcludeItemId === sourceId);
-          if (root) {
-            return { rootDisplayLevel: root.level, levelOffset: root.level - tree[0].level, rootItemId: root.id };
-          }
-        }
-      }
-    }
-
-    return null;
+    return transclusionContextOf(item, this.state.items(), this.state.transcludedTrees());
   }
 
   /** Gets an item and its subtree as shown, including transcluded descendants. */
   private getVisibleSubtree(itemId: string): Item[] {
     return getSubtree(this.state.visibleItems(), itemId);
-  }
-
-  /**
-   * Extracts the scoped item list for a transclusion context from visible items.
-   * Only includes descendants of the transclusion root (excluding the root itself).
-   */
-  private getTransclusionScopedItems(vItems: Item[], tCtx: TransclusionContext): Item[] {
-    const rootIdx = vItems.findIndex(b => b.id === tCtx.rootItemId);
-    if (rootIdx < 0) return [];
-    const scoped: Item[] = [];
-    for (let i = rootIdx + 1; i < vItems.length; i++) {
-      if (vItems[i].level <= tCtx.rootDisplayLevel) break;
-      scoped.push(vItems[i]);
-    }
-    return scoped;
   }
 }

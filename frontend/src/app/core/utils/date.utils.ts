@@ -46,3 +46,14 @@ export function formatDateToIso(date: Date): string {
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
+
+/**
+ * Moves an ISO date (YYYY-MM-DD) by a number of days.
+ * @param isoDate - The date to start from
+ * @param days - Positive for later dates, negative for earlier ones
+ */
+export function shiftIsoDate(isoDate: string, days: number): string {
+  const d = new Date(isoDate + 'T00:00:00');
+  d.setDate(d.getDate() + days);
+  return formatDateToIso(d);
+}
