@@ -53,6 +53,19 @@ npm run build
 
 The built files will be in `frontend\dist\`.
 
+### 3. End-to-end tests
+
+The end-to-end tests drive the real app with Playwright: the journal server on port 8187
+with a throw-away data directory, and the Angular dev server on port 4300 in front of it.
+
+```powershell
+cd peta-journal/journal-server
+mvn package -DskipTests
+cd ../frontend
+npx playwright install chromium   # once
+npm run e2e
+```
+
 ## Development Workflow
 
 1. Start journal server: `cd journal-server && mvn quarkus:dev`

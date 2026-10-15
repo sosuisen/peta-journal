@@ -7,6 +7,7 @@ import { OutlineStateService } from '../../core/services/outline-state.service';
 import { UndoService } from '../../core/services/undo.service';
 import { ItemEditService } from './item-edit.service';
 import { ItemSplitService } from './item-split.service';
+import { KeyRelayService } from './key-relay.service';
 import { LevelShiftService } from './level-shift.service';
 import { fakeApi, fakeView, item, settled } from './outline-test-support';
 
@@ -15,6 +16,7 @@ describe('ItemSplitService', () => {
   let api: ReturnType<typeof fakeApi>;
   let view: ReturnType<typeof fakeView>;
   let service: ItemSplitService;
+  let keyRelay: KeyRelayService;
 
   const bodies = () => state.items().map(i => `${i.id}=${i.body}`);
 
@@ -27,7 +29,8 @@ describe('ItemSplitService', () => {
     const levels = new LevelShiftService(state, api as unknown as ApiService, undo,
       { logicalOutdent: () => false } as unknown as ConfigService);
     const hmtid = { nextId: () => 'client-id' } as HmtidService;
-    service = new ItemSplitService(state, api as unknown as ApiService, undo, edits, levels, hmtid);
+    keyRelay = new KeyRelayService();
+    service = new ItemSplitService(state, api as unknown as ApiService, undo, edits, levels, hmtid, keyRelay);
     view = fakeView();
     state.setItems([item('a', 1, { body: 'hello world' }), item('b', 1)]);
     state.addEditingItem('a');
@@ -41,6 +44,7 @@ describe('ItemSplitService', () => {
     expect(state.editingItemIds().has('new1')).toBe(true);
     expect(state.editingItemIds().has('a')).toBe(false);
     expect(view.focusEditor).toHaveBeenCalledWith('new1');
+    expect(state.consumePendingCursorPosition()).toBe(0);
   });
 
   it('Enter at the end shows an empty item at once and creates it in the background', async () => {
@@ -81,6 +85,25 @@ describe('ItemSplitService', () => {
     expect(api.createItem).not.toHaveBeenCalled();
     expect(api.shiftItemLevels).toHaveBeenCalledWith(['e'], -1);
     expect(view.focusEditor).toHaveBeenCalledWith('e');
+  });
+
+  it('holds the keys pressed until the outline focuses the next editor', async () => {
+    view.focusEditor.mockImplementation(async () => { keyRelay.release(); });
+
+    const enter = service.handleEnter(state.getItemById('a')!, 5, view);
+    expect(keyRelay.isHolding()).toBe(true);
+    await enter;
+
+    expect(view.focusEditor).toHaveBeenCalled();
+    expect(keyRelay.isHolding()).toBe(false);
+  });
+
+  it('stops holding keys when the split fails', async () => {
+    api.createItem.mockRejectedValueOnce(new Error('offline'));
+
+    await expect(service.handleEnter(state.getItemById('a')!, 5, view)).rejects.toThrow('offline');
+
+    expect(keyRelay.isHolding()).toBe(false);
   });
 
   it('inside a transclusion the new item is created on the source page and the page reloads', async () => {

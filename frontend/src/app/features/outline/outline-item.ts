@@ -1,6 +1,7 @@
 import { Component, input, output, computed, inject, viewChild, ElementRef } from '@angular/core';
 import { Item } from '../../core/models/item.model';
 import { OutlineStateService } from '../../core/services/outline-state.service';
+import { DeferredKey } from './key-relay.service';
 import { ItemEditorComponent, WikiLinkContext } from './item-editor';
 import { ItemViewComponent } from './item-view';
 
@@ -380,6 +381,11 @@ export class OutlineItemComponent {
    */
   insertWikiLinkText(replacement: string): void {
     this.editorRef()?.insertWikiLinkText(replacement);
+  }
+
+  /** Plays keys that were pressed before this item's editor was on screen. */
+  replayKeys(keys: DeferredKey[]): void {
+    this.editorRef()?.replayKeys(keys);
   }
 
   showItemMenu = false;

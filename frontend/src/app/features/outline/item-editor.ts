@@ -1,6 +1,7 @@
 import { Component, input, output, ElementRef, viewChild, AfterViewInit, inject, effect, OnDestroy, computed } from '@angular/core';
 import { OutlineStateService } from '../../core/services/outline-state.service';
 import { isImeComposingKeydown } from '../../core/utils/keyboard.utils';
+import { DeferredKey, KeyRelayService, isTypedCharacter } from './key-relay.service';
 
 export interface WikiLinkContext {
   query: string;
@@ -79,6 +80,7 @@ export function ensureCodeFenceClosed(text: string): string {
 })
 export class ItemEditorComponent implements AfterViewInit, OnDestroy {
   private readonly state = inject(OutlineStateService);
+  private readonly keyRelay = inject(KeyRelayService);
   readonly body = input.required<string>();
   readonly itemId = input.required<string>();
   readonly types = input.required<string[]>();
@@ -217,6 +219,13 @@ export class ItemEditorComponent implements AfterViewInit, OnDestroy {
     // Let the IME handle its own keys (e.g. the Enter that confirms a conversion
     // candidate); otherwise that Enter would split the item or insert a newline.
     if (isImeComposingKeydown(event)) return;
+
+    // Keys pressed between Enter and the focus of the next editor belong to that editor
+    if (this.keyRelay.isHolding()) {
+      event.preventDefault();
+      this.keyRelay.hold(event);
+      return;
+    }
 
     const el = event.target as HTMLTextAreaElement;
     const { selectionStart, selectionEnd, value } = el;
@@ -566,6 +575,24 @@ export class ItemEditorComponent implements AfterViewInit, OnDestroy {
       0,
       lineHeight
     );
+  }
+
+  /**
+   * Plays keys that were pressed before this editor was on screen, see {@link KeyRelayService}.
+   * Typed characters go into the text; other keys go through the keydown handler.
+   */
+  replayKeys(keys: DeferredKey[]): void {
+    const el = this.editorRef().nativeElement;
+    for (const key of keys) {
+      if (isTypedCharacter(key)) {
+        el.setRangeText(key.key, el.selectionStart, el.selectionEnd, 'end');
+        this.bodyChange.emit(el.value);
+        this.autoResize(el);
+        this.checkWikiLinkContext(el);
+      } else {
+        el.dispatchEvent(new KeyboardEvent('keydown', { ...key, bubbles: true, cancelable: true }));
+      }
+    }
   }
 
   /**

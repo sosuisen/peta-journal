@@ -5,6 +5,7 @@ import { OutlineStateService } from '../../core/services/outline-state.service';
 import { UndoService } from '../../core/services/undo.service';
 import { Item } from '../../core/models/item.model';
 import { ItemEditService } from './item-edit.service';
+import { KeyRelayService } from './key-relay.service';
 import { LevelShiftService } from './level-shift.service';
 import {
   EditContext, editContextOf, hasSiblingBelow, levelForNewItemAfter, positionAfterSubtree, positionBefore,
@@ -24,6 +25,7 @@ export class ItemSplitService {
     private readonly edits: ItemEditService,
     private readonly levels: LevelShiftService,
     private readonly hmtid: HmtidService,
+    private readonly keyRelay: KeyRelayService,
   ) {}
 
   /**
@@ -33,6 +35,17 @@ export class ItemSplitService {
    * @param view - The outline, for focusing editors and reloading transclusions
    */
   async handleEnter(item: Item, cursorPos: number, view: OutlineView): Promise<void> {
+    // The next editor is focused after the next render; keys pressed before that are kept for it
+    this.keyRelay.holdUntilFocus();
+    try {
+      await this.handleEnterIn(item, cursorPos, view);
+    } catch (e) {
+      this.keyRelay.release();  // no editor was focused, so the keys have nowhere to go
+      throw e;
+    }
+  }
+
+  private async handleEnterIn(item: Item, cursorPos: number, view: OutlineView): Promise<void> {
     this.edits.discardPendingEdit(item);
 
     if (item.body.length === 0 && item.level > 1 && !hasSiblingBelow(this.state.visibleItems(), item.id)) {
@@ -142,7 +155,7 @@ export class ItemSplitService {
     this.undo.commit({ itemId: newItem.id, position: 0 });
 
     this.state.addEditingItem(newItem.id);
-    this.state.setFocusedItem(newItem.id);
+    this.state.setFocusedItem(newItem.id, 0);  // the caret stays where the text was cut
     view.focusEditor(newItem.id);
     this.state.removeEditingItem(item.id);
   }

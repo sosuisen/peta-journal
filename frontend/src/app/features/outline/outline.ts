@@ -15,6 +15,7 @@ import { ItemEditService } from './item-edit.service';
 import { FileReloadService } from './file-reload.service';
 import { ItemActionService, zoomOf } from './item-action.service';
 import { ItemMergeService } from './item-merge.service';
+import { KeyRelayService } from './key-relay.service';
 import { ItemMoveService, MoveDirection } from './item-move.service';
 import { ItemSplitService } from './item-split.service';
 import { CrossDayMove } from './journal-day-move.service';
@@ -124,6 +125,7 @@ export class OutlineComponent implements OnDestroy {
   private readonly moves = inject(ItemMoveService);
   private readonly pastes = inject(PasteService);
   private readonly actions = inject(ItemActionService);
+  private readonly keyRelay = inject(KeyRelayService);
   private readonly levels = inject(LevelShiftService);
   private readonly sse = inject(SseService);
   private sseSub?: Subscription;
@@ -415,6 +417,15 @@ export class OutlineComponent implements OnDestroy {
   // ---- Editing ----
 
   /**
+   * The item as the state has it now. The template hands handlers the item it rendered
+   * last, which lags behind fast typing or an earlier move: an Enter right after typing
+   * would save the old text. Handlers that read the body or level start from this.
+   */
+  private currentItem(item: Item): Item {
+    return this.state.visibleItems().find(b => b.id === item.id) ?? item;
+  }
+
+  /**
    * Handles the user clicking on a item to start editing it.
    * Ignored when item selection mode is active.
    * @param itemId - The ID of the item to edit
@@ -483,6 +494,10 @@ export class OutlineComponent implements OnDestroy {
           el.style.height = 'auto';
           el.style.height = el.scrollHeight + 'px';
         }
+        const heldKeys = this.keyRelay.release();
+        if (heldKeys.length > 0 && itemId) {
+          this.outlineItems().find(ob => ob.item().id === itemId)?.replayKeys(heldKeys);
+        }
         resolve();
       }, { injector: this.injector });
     });
@@ -498,7 +513,7 @@ export class OutlineComponent implements OnDestroy {
    * @param event - Contains the cursor position at the time of the keypress
    */
   async onEnterPressed(item: Item, event: { cursorPos: number }): Promise<void> {
-    await this.splitter.handleEnter(item, event.cursorPos, this.view);
+    await this.splitter.handleEnter(this.currentItem(item), event.cursorPos, this.view);
   }
 
   /**
@@ -507,7 +522,7 @@ export class OutlineComponent implements OnDestroy {
    * @param item - The item where Backspace was pressed at position 0
    */
   async onBackspaceAtStart(item: Item): Promise<void> {
-    await this.merges.mergeIntoPrevious(item, this.view);
+    await this.merges.mergeIntoPrevious(this.currentItem(item), this.view);
   }
 
   /**
@@ -516,7 +531,7 @@ export class OutlineComponent implements OnDestroy {
    * @param item - The item where Delete was pressed at the end
    */
   async onDeleteAtEnd(item: Item): Promise<void> {
-    await this.merges.mergeNextInto(item);
+    await this.merges.mergeNextInto(this.currentItem(item));
   }
 
   // ---- Navigation between items ----
@@ -561,12 +576,12 @@ export class OutlineComponent implements OnDestroy {
 
   /** Handles the user pressing Tab to indent a item and its children by one level. */
   async onIndent(item: Item): Promise<void> {
-    await this.levels.indent(item, this.view);
+    await this.levels.indent(this.currentItem(item), this.view);
   }
 
   /** Handles the user pressing Shift+Tab to outdent an item and its children by one level. */
   async onOutdent(item: Item): Promise<void> {
-    await this.levels.outdent(item, this.view);
+    await this.levels.outdent(this.currentItem(item), this.view);
   }
 
   // ---- Moving items ----
@@ -608,11 +623,6 @@ export class OutlineComponent implements OnDestroy {
     return run;
   }
 
-  /** The item as it is shown now; the one passed by the template may be from before an earlier move. */
-  private currentItem(item: Item): Item {
-    return this.state.visibleItems().find(b => b.id === item.id) ?? item;
-  }
-
   // ---- Wiki links ----
 
   /**
@@ -650,7 +660,7 @@ export class OutlineComponent implements OnDestroy {
 
   /** Handles the user clicking a task checkbox or pressing Ctrl+Enter. */
   async onTaskCycleRequested(item: Item): Promise<void> {
-    await this.actions.cycleTask(item);
+    await this.actions.cycleTask(this.currentItem(item));
   }
 
   /** Handles Shift+Wheel on an item to change its zoom level by a tenth. */
@@ -671,7 +681,7 @@ export class OutlineComponent implements OnDestroy {
 
   /** Handles the user clicking the collapse/expand bullet or pressing the collapse shortcut. */
   async onCollapseToggled(item: Item): Promise<void> {
-    await this.actions.toggleCollapsed(item);
+    await this.actions.toggleCollapsed(this.currentItem(item));
   }
 
   /** Makes the item a transclusion of the item whose id is on the clipboard. */
@@ -686,7 +696,7 @@ export class OutlineComponent implements OnDestroy {
 
   /** Sends an item (and its children) to the page's archive (#item-archive). */
   async onSendToArchive(item: Item): Promise<void> {
-    await this.actions.archive(item);
+    await this.actions.archive(this.currentItem(item));
   }
 
   // ---- Paste ----
@@ -697,12 +707,12 @@ export class OutlineComponent implements OnDestroy {
    * @param paste - The pasted text, HTML, and cursor position at the time of paste
    */
   async onPaste(item: Item, paste: TextPaste): Promise<void> {
-    await this.pastes.pasteText(item, paste, this.view);
+    await this.pastes.pasteText(this.currentItem(item), paste, this.view);
   }
 
   /** Handles the user pasting an image into a item editor. */
   async onImagePaste(item: Item, paste: ImagePaste): Promise<void> {
-    await this.pastes.pasteImage(item, paste, this.view);
+    await this.pastes.pasteImage(this.currentItem(item), paste, this.view);
   }
 
   // ---- Multi-item selection ----
