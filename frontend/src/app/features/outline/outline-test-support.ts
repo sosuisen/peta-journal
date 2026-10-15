@@ -1,27 +1,9 @@
 import { vi } from 'vitest';
 import { Item } from '../../core/models/item.model';
+import { item } from '../../core/testing/item-fixture';
 import { OutlineView } from './outline-view';
 
-/** A minimal item on page1; `extra` sets the fields a test cares about. */
-export function item(id: string, level: number, extra: Partial<Item> = {}): Item {
-  return {
-    id,
-    pageId: 'page1',
-    dirPath: '',
-    name: '',
-    type: 'doc',
-    createdDate: 0,
-    modifiedDate: 0,
-    idx: id,
-    level,
-    body: 'body of ' + id,
-    ast: '',
-    collapsed: false,
-    types: [],
-    properties: {},
-    ...extra,
-  };
-}
+export { item };
 
 /**
  * Records API calls and answers like the server would: an update echoes the fields it got,
