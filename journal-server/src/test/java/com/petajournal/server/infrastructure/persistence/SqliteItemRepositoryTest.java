@@ -32,14 +32,13 @@ class SqliteItemRepositoryTest {
     @TempDir
     Path tempDir;
 
+    private SqliteConnectionProvider provider;
     private SqliteItemRepository repository;
 
     @BeforeEach
     void setUp() throws SQLException {
-        var provider = new SqliteConnectionProvider();
-        provider.dbPath = tempDir.resolve("journal.db").toString();
-        repository = new SqliteItemRepository();
-        repository.connectionProvider = provider;
+        provider = new SqliteConnectionProvider(tempDir.resolve("journal.db").toString());
+        repository = new SqliteItemRepository(provider);
 
         try (Connection conn = provider.getConnection();
              Statement stmt = conn.createStatement()) {
@@ -259,7 +258,7 @@ class SqliteItemRepositoryTest {
     }
 
     private int countTypes(HMTID itemId) throws SQLException {
-        try (Connection conn = repository.connectionProvider.getConnection();
+        try (Connection conn = provider.getConnection();
              var ps = conn.prepareStatement("SELECT COUNT(*) FROM item_types WHERE item_id = ?")) {
             ps.setString(1, itemId.toString());
             try (var rs = ps.executeQuery()) {

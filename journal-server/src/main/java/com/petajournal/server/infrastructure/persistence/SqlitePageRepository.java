@@ -22,8 +22,12 @@ public class SqlitePageRepository implements PageRepository {
     private static final String SELECT_PAGES =
             "SELECT id, parent_id, dir_path, name, type, created_date, modified_date FROM pages ";
 
+    private final SqliteConnectionProvider connectionProvider;
+
     @Inject
-    SqliteConnectionProvider connectionProvider;
+    public SqlitePageRepository(SqliteConnectionProvider connectionProvider) {
+        this.connectionProvider = connectionProvider;
+    }
 
     @Override
     public Optional<Page> findById(HMTID id) {

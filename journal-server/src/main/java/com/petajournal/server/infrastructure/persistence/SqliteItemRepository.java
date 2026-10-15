@@ -26,8 +26,12 @@ public class SqliteItemRepository implements ItemRepository {
             "p.dir_path, p.name, p.type " +
             "FROM items b JOIN pages p ON b.page_id = p.id ";
 
+    private final SqliteConnectionProvider connectionProvider;
+
     @Inject
-    SqliteConnectionProvider connectionProvider;
+    public SqliteItemRepository(SqliteConnectionProvider connectionProvider) {
+        this.connectionProvider = connectionProvider;
+    }
 
     @Override
     public Optional<Item> findById(HMTID id) {

@@ -18,11 +18,14 @@ public class DatabaseInitializer {
 
     private static final Logger LOG = Logger.getLogger(DatabaseInitializer.class);
 
-    @Inject
-    SqliteConnectionProvider connectionProvider;
+    private final SqliteConnectionProvider connectionProvider;
+    private final IdGenerator idGenerator;
 
     @Inject
-    IdGenerator idGenerator;
+    public DatabaseInitializer(SqliteConnectionProvider connectionProvider, IdGenerator idGenerator) {
+        this.connectionProvider = connectionProvider;
+        this.idGenerator = idGenerator;
+    }
 
     public void init(@Observes @Priority(1) StartupEvent event) {
         try (Connection conn = connectionProvider.getConnection();

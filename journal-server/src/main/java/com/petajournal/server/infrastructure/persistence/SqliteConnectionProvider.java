@@ -1,5 +1,6 @@
 package com.petajournal.server.infrastructure.persistence;
 
+import jakarta.inject.Inject;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
@@ -16,8 +17,12 @@ public class SqliteConnectionProvider {
 
     private static final Logger LOG = Logger.getLogger(SqliteConnectionProvider.class);
 
-    @ConfigProperty(name = "petajournal.data.db")
-    String dbPath;
+    private final String dbPath;
+
+    @Inject
+    public SqliteConnectionProvider(@ConfigProperty(name = "petajournal.data.db") String dbPath) {
+        this.dbPath = dbPath;
+    }
 
     public Connection getConnection() throws SQLException {
         Path path = Path.of(resolveHome(dbPath));

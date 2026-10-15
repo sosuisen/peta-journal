@@ -26,10 +26,8 @@ class PropertyRepositoryTest {
 
     @BeforeEach
     void setUp() throws SQLException {
-        var provider = new SqliteConnectionProvider();
-        provider.dbPath = tempDir.resolve("journal.db").toString();
-        repository = new PropertyRepository();
-        repository.connectionProvider = provider;
+        var provider = new SqliteConnectionProvider(tempDir.resolve("journal.db").toString());
+        repository = new PropertyRepository(provider);
 
         try (Connection conn = provider.getConnection();
              Statement stmt = conn.createStatement()) {

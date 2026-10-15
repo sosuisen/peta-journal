@@ -14,8 +14,12 @@ public class PropertyRepository {
 
     private static final Logger LOG = Logger.getLogger(PropertyRepository.class);
 
+    private final SqliteConnectionProvider connectionProvider;
+
     @Inject
-    SqliteConnectionProvider connectionProvider;
+    public PropertyRepository(SqliteConnectionProvider connectionProvider) {
+        this.connectionProvider = connectionProvider;
+    }
 
     /**
      * Load scalar properties (text, number, checkbox, date, datetime) for given targets.

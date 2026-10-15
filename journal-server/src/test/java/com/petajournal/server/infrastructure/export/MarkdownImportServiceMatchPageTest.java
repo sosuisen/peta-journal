@@ -46,19 +46,12 @@ class MarkdownImportServiceMatchPageTest {
 
     @BeforeEach
     void setUp() {
-        var provider = new SqliteConnectionProvider();
-        inject(provider, "dbPath", dataDir.resolve("journal.db").toString());
+        var provider = new SqliteConnectionProvider(dataDir.resolve("journal.db").toString());
         var idGenerator = new IdGenerator();
+        new DatabaseInitializer(provider, idGenerator).init(null);
 
-        var initializer = new DatabaseInitializer();
-        inject(initializer, "connectionProvider", provider);
-        inject(initializer, "idGenerator", idGenerator);
-        initializer.init(null);
-
-        pageRepository = new SqlitePageRepository();
-        inject(pageRepository, "connectionProvider", provider);
-        var itemRepository = new SqliteItemRepository();
-        inject(itemRepository, "connectionProvider", provider);
+        pageRepository = new SqlitePageRepository(provider);
+        var itemRepository = new SqliteItemRepository(provider);
         var searchService = new NoopSearchService();
 
         var pageService = new PageService();

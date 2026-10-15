@@ -20,8 +20,12 @@ public class FileSyncStateRepository {
     private static final String COLUMNS =
             "rel_path, page_id, content_hash, file_size, file_mtime, synced_at, status, missing_since";
 
+    private final SqliteConnectionProvider connectionProvider;
+
     @Inject
-    SqliteConnectionProvider connectionProvider;
+    public FileSyncStateRepository(SqliteConnectionProvider connectionProvider) {
+        this.connectionProvider = connectionProvider;
+    }
 
     /** Records that the file at relPath now matches the given content (read or written by us). */
     public void upsertSynced(String relPath, HMTID pageId, String contentHash, long fileSize, long fileMtime) {
