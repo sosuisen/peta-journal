@@ -8,13 +8,9 @@
 
 ### 3. Node.js 20+
 
-### 4. flatmarkdown-java
-
-```
-git clone https://github.com/petajournal/flatmarkdown-java
-cd flatmarkdown-java
-mvn install
-```
+The flatmarkdown library (`com.sosuisha:flatmarkdown`) comes from Maven Central and
+bundles its native binaries for Windows x86-64 and macOS arm64, so there is nothing to
+build by hand.
 
 ## Build
 
