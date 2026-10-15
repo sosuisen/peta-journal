@@ -66,6 +66,13 @@ npx playwright install chromium   # once
 npm run e2e
 ```
 
+### 4. Server integration tests
+
+`mvn test` in `journal-server` runs the unit tests and the integration tests (`*ApiTest`,
+`FolderSyncTest`) together. The integration tests start the server once with its database,
+search index, markdown folder and config file under a temporary directory, so they never
+touch `~/.peta-journal`.
+
 ## Development Workflow
 
 1. Start journal server: `cd journal-server && mvn quarkus:dev`
