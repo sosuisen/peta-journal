@@ -16,6 +16,7 @@ describe('PasteService', () => {
     uploadAsset: ReturnType<typeof vi.fn>;
   };
   let undo: UndoService;
+  let autoSave: { scheduleItemUpdate: ReturnType<typeof vi.fn>; cancelItem: ReturnType<typeof vi.fn>; flushItem: ReturnType<typeof vi.fn> };
   let clipboard: ClipboardService;
   let view: ReturnType<typeof fakeView>;
   let service: PasteService;
@@ -35,7 +36,7 @@ describe('PasteService', () => {
       uploadAsset: vi.fn(async () => ({ fileName: 'pic.png' })),
     };
     undo = new UndoService();
-    const autoSave = { scheduleItemUpdate: vi.fn(), cancelItem: vi.fn(), flushItem: vi.fn(async () => null) };
+    autoSave = { scheduleItemUpdate: vi.fn(), cancelItem: vi.fn(), flushItem: vi.fn(async () => null) };
     const edits = new ItemEditService(state, api as unknown as ApiService, autoSave as unknown as AutoSaveService);
     clipboard = new ClipboardService();
     service = new PasteService(state, api as unknown as ApiService, undo, edits, clipboard);
@@ -50,6 +51,12 @@ describe('PasteService', () => {
       expect(items()).toEqual(['a:1=abX|cd', 'z:1=body of z']);
       expect(api.createItem).not.toHaveBeenCalled();
       expect(view.focusEditor).toHaveBeenCalledWith();
+    });
+
+    it('drops the auto-save of the text typed before the paste, which would overwrite it', async () => {
+      await service.pasteText(state.getItemById('a')!, { text: 'X', html: '', cursorPos: 2 }, view);
+
+      expect(autoSave.cancelItem).toHaveBeenCalledWith('a');
     });
 
     it('several pieces become items below, the last one taking the text after the cursor', async () => {
@@ -126,6 +133,7 @@ describe('PasteService', () => {
       await service.pasteImage(state.getItemById('a')!, { file, cursorPos: 2 }, view);
 
       expect(api.uploadAsset).toHaveBeenCalledWith(file);
+      expect(autoSave.cancelItem).toHaveBeenCalledWith('a');
       expect(state.getItemById('a')?.body).toBe('ab![pic.png](../assets/pic.png)|cd');
       expect(state.consumePendingCursorPosition()).toBe(2 + '![pic.png](../assets/pic.png)'.length);
       expect(view.focusEditor).toHaveBeenCalledWith('a');

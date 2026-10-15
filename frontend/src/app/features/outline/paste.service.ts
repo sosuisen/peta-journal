@@ -92,7 +92,9 @@ export class PasteService {
     try {
       this.undo.begin('paste', { itemId: item.id, position: paste.cursorPos });
 
-      // First item replaces current editing item
+      // First item replaces current editing item. The auto-save of what was typed before
+      // the paste is dropped, or it would overwrite the pasted text a moment later.
+      this.edits.discardPendingEdit(item);
       const firstItem = parsedItems[0];
       await this.edits.saveBody(item.id, firstItem.body);
       this.edits.markDirty(item.id);
@@ -147,6 +149,7 @@ export class PasteService {
       const after = item.body.substring(paste.cursorPos);
       const newBody = before + markdown + after;
 
+      this.edits.discardPendingEdit(item);
       await this.edits.saveBody(item.id, newBody);
       this.edits.markDirty(item.id);
 
