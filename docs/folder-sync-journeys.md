@@ -12,7 +12,9 @@ PC A と PC B にそれぞれジャーナルサーバーと SQLite があり、`
 | `file_sync_state` テーブル | ファイルごとに「最後に読み書きした内容のハッシュ」「size / mtime」「`synced` か `missing` か」を持つ。自分が書いたファイルと外から変わったファイルを見分ける根拠 |
 | `MarkdownFolderWatcher` | `docs/` と `journals/` を `WatchService` で監視。イベントはファイルごとに 2 秒デバウンスしてから `MarkdownImportService.syncFile()` に渡す |
 | `MarkdownReconcileService` | 起動 10 秒後と 60 秒ごとのフルスキャン。Watcher の取りこぼしと、サーバー停止中の変化を拾う保険 |
-| `MarkdownImportService` | ファイルを DB にマージする本体 |
+| `MarkdownImportService` | ファイルを DB にマージする入口。ハッシュで自分の書き込みを見分け、競合のバックアップを作る |
+| `PageMatcher` | ファイルがどのページのものかを決める(frontmatter の id → パス → 新規)。リネームやコピーもここ |
+| `ItemMerger` | ファイルのアイテムを DB のアイテムに id でマージする |
 | `PendingDeletePrompt` + `SyncPendingDeletesResource` | 消えたファイルの確認ページ(`/api/sync/pending-deletes`)をブラウザで開く |
 
 ファイルの中身(Flat Markdown v0.2):

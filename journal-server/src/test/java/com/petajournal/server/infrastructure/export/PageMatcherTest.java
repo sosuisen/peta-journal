@@ -6,7 +6,7 @@ import com.petajournal.server.domain.model.Item;
 import com.petajournal.server.domain.model.Page;
 import com.petajournal.server.domain.model.SearchResult;
 import com.petajournal.server.domain.repository.SearchService;
-import com.petajournal.server.infrastructure.export.MarkdownImportService.PageMatch;
+import com.petajournal.server.infrastructure.export.PageMatcher.PageMatch;
 import com.petajournal.server.infrastructure.persistence.DatabaseInitializer;
 import com.petajournal.server.infrastructure.persistence.SqliteConnectionProvider;
 import com.petajournal.server.infrastructure.persistence.SqliteItemRepository;
@@ -29,7 +29,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * How a markdown file is matched to a page: by frontmatter id, then by path, else a new page.
  * Runs against a real SQLite database in a temp directory; only the search index is a no-op.
  */
-class MarkdownImportServiceMatchPageTest {
+class PageMatcherTest {
 
     private static final HMTID OLDER_ID = HMTID.of("2026-09-01-00-00-00-AAAAAAA");
     private static final HMTID NEWER_ID = HMTID.of("2026-09-02-00-00-00-AAAAAAA");
@@ -42,7 +42,7 @@ class MarkdownImportServiceMatchPageTest {
     Path dataDir;
 
     private SqlitePageRepository pageRepository;
-    private MarkdownImportService service;
+    private PageMatcher matcher;
 
     @BeforeEach
     void setUp() {
@@ -57,10 +57,7 @@ class MarkdownImportServiceMatchPageTest {
         // Only ensureAncestorPages is used here; export and properties are not involved
         var pageService = new PageService(pageRepository, itemRepository, searchService, null, null, null, idGenerator);
 
-        // Matching needs the page and item repositories, the search index, the id generator and the page
-        // service; the parser, properties, sync state, export and SSE belong to the item merge and stay null
-        service = new MarkdownImportService(pageRepository, itemRepository, null, null, searchService,
-                null, idGenerator, pageService, null, null, null);
+        matcher = new PageMatcher(pageRepository, itemRepository, searchService, idGenerator, pageService);
     }
 
     // ---- 1. match by frontmatter id ----
@@ -178,7 +175,7 @@ class MarkdownImportServiceMatchPageTest {
 
     private PageMatch match(String relPath, Map<String, String> frontmatter) {
         var loc = MarkdownPathMapper.fromRelPath(relPath).orElseThrow();
-        return service.matchPage(markdownRoot, relPath, loc, frontmatter, MODIFIED);
+        return matcher.match(markdownRoot, relPath, loc, frontmatter, MODIFIED);
     }
 
     private Page savedDoc(HMTID id, String dirPath, String name) {
