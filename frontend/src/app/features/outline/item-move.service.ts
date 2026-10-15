@@ -132,8 +132,15 @@ export class ItemMoveService {
       : findMoveDownTarget(scopedItems, item.id);
     if (!target) return;
 
+    // The scoped list starts below the source root, so "first" means right after that root
+    // on the source page, not the start of the page
+    const sourceRootId = this.state.getItemById(tCtx.rootItemId)?.transcludeItemId;
+    const position: ItemPosition = target.position === 'first' && sourceRootId
+      ? `after:${sourceRootId}`
+      : target.position;
+
     const groupIds = getSubtree(this.state.visibleItems(), item.id).map(b => b.id);
-    await this.api.moveItems(groupIds, item.pageId, target.position);
+    await this.api.moveItems(groupIds, item.pageId, position);
     // Reload to reflect reordering
     await this.edits.handOverEdit(async () => {
       await view.reloadPage();

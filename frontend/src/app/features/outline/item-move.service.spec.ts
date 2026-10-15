@@ -104,6 +104,14 @@ describe('ItemMoveService', () => {
       expect(view.reloadPage).toHaveBeenCalled();
       expect(view.focusEditor).toHaveBeenCalledWith('s3');
     });
+
+    it('moving the second child above the first keeps it under the source root', async () => {
+      const s2 = state.visibleItems().find(i => i.id === 's2')!;
+
+      await service.move(s2, 'up', view);
+
+      expect(api.moveItems).toHaveBeenCalledWith(['s2'], 'src', 'after:s');
+    });
   });
 
   describe('moveSelection', () => {
