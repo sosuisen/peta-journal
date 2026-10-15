@@ -15,16 +15,21 @@ public class PendingDeletePrompt {
 
     private static final Logger LOG = Logger.getLogger(PendingDeletePrompt.class);
 
-    @ConfigProperty(name = "quarkus.http.port")
-    int httpPort;
-
-    @ConfigProperty(name = "petajournal.import.delete-prompt-cooldown", defaultValue = "300")
-    long cooldownSeconds;
-
-    @Inject
-    AppLauncher appLauncher;
+    private final int httpPort;
+    private final long cooldownSeconds;
+    private final AppLauncher appLauncher;
 
     private volatile long lastOpenedAt = 0;
+
+    @Inject
+    public PendingDeletePrompt(
+            @ConfigProperty(name = "quarkus.http.port") int httpPort,
+            @ConfigProperty(name = "petajournal.import.delete-prompt-cooldown", defaultValue = "300") long cooldownSeconds,
+            AppLauncher appLauncher) {
+        this.httpPort = httpPort;
+        this.cooldownSeconds = cooldownSeconds;
+        this.appLauncher = appLauncher;
+    }
 
     public String url() {
         return "http://localhost:" + httpPort + "/api/sync/pending-deletes";

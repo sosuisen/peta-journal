@@ -1,5 +1,6 @@
 package com.petajournal.server.application;
 
+import jakarta.inject.Inject;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -18,8 +19,12 @@ public class ConfigService {
     private static final Logger LOG = Logger.getLogger(ConfigService.class);
     private static final String CONFIG_FILE_NAME = "config.json";
 
-    @ConfigProperty(name = "petajournal.config.dir")
-    String configDir;
+    private final String configDir;
+
+    @Inject
+    public ConfigService(@ConfigProperty(name = "petajournal.config.dir") String configDir) {
+        this.configDir = configDir;
+    }
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 

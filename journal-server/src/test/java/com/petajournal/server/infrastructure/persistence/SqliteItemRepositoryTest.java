@@ -32,14 +32,13 @@ class SqliteItemRepositoryTest {
     @TempDir
     Path tempDir;
 
+    private SqliteConnectionProvider provider;
     private SqliteItemRepository repository;
 
     @BeforeEach
     void setUp() throws SQLException {
-        var provider = new SqliteConnectionProvider();
-        provider.dbPath = tempDir.resolve("journal.db").toString();
-        repository = new SqliteItemRepository();
-        repository.connectionProvider = provider;
+        provider = new SqliteConnectionProvider(tempDir.resolve("journal.db").toString());
+        repository = new SqliteItemRepository(provider);
 
         try (Connection conn = provider.getConnection();
              Statement stmt = conn.createStatement()) {
@@ -86,14 +85,7 @@ class SqliteItemRepositoryTest {
         repository.save(item(ITEM_B, "a1", 2, "child", List.of("task", "heading")));
     }
 
-    private static Item item(HMTID id, String idx, int level, String body, List<String> types) {
-        return new Item(id, PAGE_ID, null, "", "test", "doc", CREATED, CREATED, idx, level, body, "ast:" + body,
-                false, types, null);
-    }
-
-    private Item find(HMTID id) {
-        return repository.findById(id).orElseThrow();
-    }
+    // ---- patch ----
 
     @Test
     void bodyPatchKeepsLevelAndCollapsed() {
@@ -142,6 +134,8 @@ class SqliteItemRepositoryTest {
         assertTrue(repository.patch(ITEM_A, new ItemPatch(null, null, null, null, 2, null, LATER)));
     }
 
+    // ---- shiftLevels ----
+
     @Test
     void shiftLevelsAddsDeltaToTheCurrentLevel() {
         repository.shiftLevels(List.of(ITEM_A, ITEM_B), 1, LATER);
@@ -158,6 +152,8 @@ class SqliteItemRepositoryTest {
         assertEquals(1, find(ITEM_A).level());
         assertEquals(1, find(ITEM_B).level());
     }
+
+    // ---- moveItems ----
 
     @Test
     void movingItemCanTakeTheIndexOfAnotherMovingItem() {
@@ -214,6 +210,31 @@ class SqliteItemRepositoryTest {
         assertEquals("a0", find(ITEM_A).idx());
     }
 
+    // ---- delete ----
+
+    @Test
+    void deleteRemovesTheTypesOfTheItem() throws SQLException {
+        repository.delete(ITEM_B);
+
+        assertTrue(repository.findById(ITEM_B).isEmpty());
+        assertEquals(0, countTypes(ITEM_B));
+        assertEquals(List.of(), find(ITEM_A).types());
+    }
+
+    @Test
+    void deleteByPageIdRemovesTheTypesOfEveryItemOnThePage() throws SQLException {
+        repository.save(new Item(ITEM_C, OTHER_PAGE_ID, null, "", "other", "doc", CREATED, CREATED, "a0", 1,
+                "elsewhere", "", false, List.of("heading"), null));
+
+        repository.deleteByPageId(PAGE_ID);
+
+        assertTrue(repository.findByPageId(PAGE_ID).isEmpty());
+        assertEquals(0, countTypes(ITEM_B));
+        assertEquals(1, countTypes(ITEM_C));
+    }
+
+    // ---- recalculateParentIds ----
+
     @Test
     void recalculateParentIdsFollowsTheLevels() {
         repository.recalculateParentIds(PAGE_ID);
@@ -223,5 +244,27 @@ class SqliteItemRepositoryTest {
         repository.shiftLevels(List.of(ITEM_B), -1, LATER);
         repository.recalculateParentIds(PAGE_ID);
         assertNull(find(ITEM_B).parentItemId());
+    }
+
+    // ---- helpers ----
+
+    private static Item item(HMTID id, String idx, int level, String body, List<String> types) {
+        return new Item(id, PAGE_ID, null, "", "test", "doc", CREATED, CREATED, idx, level, body, "ast:" + body,
+                false, types, null);
+    }
+
+    private Item find(HMTID id) {
+        return repository.findById(id).orElseThrow();
+    }
+
+    private int countTypes(HMTID itemId) throws SQLException {
+        try (Connection conn = provider.getConnection();
+             var ps = conn.prepareStatement("SELECT COUNT(*) FROM item_types WHERE item_id = ?")) {
+            ps.setString(1, itemId.toString());
+            try (var rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getInt(1);
+            }
+        }
     }
 }

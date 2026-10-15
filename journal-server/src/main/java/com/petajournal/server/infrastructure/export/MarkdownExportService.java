@@ -20,35 +20,43 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @ApplicationScoped
 public class MarkdownExportService {
 
     private static final Logger LOG = Logger.getLogger(MarkdownExportService.class);
 
-    @Inject
-    ConfigService configService;
+    private final ConfigService configService;
+    private final ExportQueueRepository exportQueueRepository;
+    private final FileSyncStateRepository fileSyncStateRepository;
+    private final PageRepository pageRepository;
+    private final ItemRepository itemRepository;
+    private final PropertyRepository propertyRepository;
+    private final FlatMarkdownSerializer serializer;
 
-    @Inject
-    ExportQueueRepository exportQueueRepository;
-
-    @Inject
-    FileSyncStateRepository fileSyncStateRepository;
-
-    @Inject
-    PageRepository pageRepository;
-
-    @Inject
-    ItemRepository itemRepository;
-
-    @Inject
-    PropertyRepository propertyRepository;
-
-    @Inject
-    FlatMarkdownSerializer serializer;
-
-    private volatile boolean isProcessing = false;
+    /** True while a scheduler run is writing files; a run that overlaps is skipped. */
+    private final AtomicBoolean processing = new AtomicBoolean(false);
     private volatile boolean warnedDirUnavailable = false;
+
+    @Inject
+    public MarkdownExportService(
+            ConfigService configService,
+            ExportQueueRepository exportQueueRepository,
+            FileSyncStateRepository fileSyncStateRepository,
+            PageRepository pageRepository,
+            ItemRepository itemRepository,
+            PropertyRepository propertyRepository,
+            FlatMarkdownSerializer serializer) {
+        this.configService = configService;
+        this.exportQueueRepository = exportQueueRepository;
+        this.fileSyncStateRepository = fileSyncStateRepository;
+        this.pageRepository = pageRepository;
+        this.itemRepository = itemRepository;
+        this.propertyRepository = propertyRepository;
+        this.serializer = serializer;
+    }
 
     public void queueExport(HMTID pageId) {
         exportQueueRepository.enqueue(pageId);
@@ -94,15 +102,13 @@ public class MarkdownExportService {
         return Optional.of(root);
     }
 
-    @Scheduled(every = "${petajournal.export.interval}s", delay = 5, delayUnit = java.util.concurrent.TimeUnit.SECONDS)
+    @Scheduled(every = "${petajournal.export.interval}s", delay = 5, delayUnit = TimeUnit.SECONDS)
     void processExportQueue() {
         // Skip if already processing to prevent concurrent execution
-        if (isProcessing) {
+        if (!processing.compareAndSet(false, true)) {
             LOG.debug("Export queue processing already in progress, skipping this run");
             return;
         }
-
-        isProcessing = true;
         try {
             List<HMTID> pageIds = exportQueueRepository.dequeueAll();
             for (HMTID pageId : pageIds) {
@@ -115,7 +121,7 @@ public class MarkdownExportService {
                 }
             }
         } finally {
-            isProcessing = false;
+            processing.set(false);
         }
     }
 

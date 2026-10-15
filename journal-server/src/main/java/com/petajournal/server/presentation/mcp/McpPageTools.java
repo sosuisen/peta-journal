@@ -11,14 +11,19 @@ import java.util.Map;
 
 public class McpPageTools {
 
-    @Inject
-    PageService pageService;
+    private final PageService pageService;
+    private final ItemService itemService;
+    private final McpJsonHelper jsonHelper;
 
     @Inject
-    ItemService itemService;
-
-    @Inject
-    McpJsonHelper jsonHelper;
+    public McpPageTools(
+            PageService pageService,
+            ItemService itemService,
+            McpJsonHelper jsonHelper) {
+        this.pageService = pageService;
+        this.itemService = itemService;
+        this.jsonHelper = jsonHelper;
+    }
 
     @Tool(description = "Get a page and its items by page ID")
     String get_page_by_id(
@@ -56,8 +61,7 @@ public class McpPageTools {
             @ToolArg(description = "New title (null to keep current)") String title,
             @ToolArg(description = "New directory path (null to keep current)") String dirPath) {
         String t = (title == null || title.isEmpty()) ? null : title;
-        String d = (dirPath == null) ? null : dirPath;
-        var page = pageService.updatePage(HMTID.of(pageId), t, d);
+        var page = pageService.updatePage(HMTID.of(pageId), t, dirPath);
         return jsonHelper.toJson(Map.of("page", page));
     }
 

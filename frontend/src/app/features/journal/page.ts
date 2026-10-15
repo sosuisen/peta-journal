@@ -9,6 +9,7 @@ import { NavigationService } from '../../core/services/navigation.service';
 import { formatJournalDate } from '../../core/utils/date.utils';
 import { validateFileName } from '../../core/utils/filename-validation.utils';
 import { isImeComposingKeydown } from '../../core/utils/keyboard.utils';
+import { caretPointFromPoint } from '../../core/utils/caret.utils';
 import { ExtensionFunctionService } from '../../core/services/extension-function.service';
 
 @Component({
@@ -300,11 +301,8 @@ export class PageComponent {
     this.editFileName.set(p.name);
 
     // Determine caret position from click coordinates
-    let caretPos = p.name.length;
-    const range = document.caretRangeFromPoint(event.clientX, event.clientY);
-    if (range) {
-      caretPos = range.startOffset;
-    }
+    const caret = caretPointFromPoint(event.clientX, event.clientY);
+    const caretPos = caret ? caret.offset : p.name.length;
 
     this.editing.set(true);
     afterNextRender(() => {
@@ -341,7 +339,7 @@ export class PageComponent {
     const p = this.page();
     if (!p || !this.editing()) return;
 
-    let rawFileName = this.editFileName().trim();
+    const rawFileName = this.editFileName().trim();
     if (!rawFileName) {
       this.editing.set(false);
       setTimeout(() => alert('Page name cannot be empty'));

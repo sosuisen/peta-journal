@@ -11,8 +11,12 @@ import java.util.Optional;
 
 @ApplicationScoped
 public class TreeMarkdownConverter {
+    private final FlatMarkdownSerializer serializer;
+
     @Inject
-    FlatMarkdownSerializer serializer;
+    public TreeMarkdownConverter(FlatMarkdownSerializer serializer) {
+        this.serializer = serializer;
+    }
 
     record Marker(int pos, int level) {
     }
@@ -85,11 +89,7 @@ public class TreeMarkdownConverter {
             if (marker.isPresent()) {
                 // New item — flush previous
                 if (currentItem != null) {
-                    String item = currentItem.toString();
-                    if (currentLevel > 1) {
-                        item = levelLine(currentLevel) + "\n" + item;
-                    }
-                    items.add(item);
+                    items.add(flatItem(currentItem, currentLevel));
                 }
                 currentLevel = marker.get().level();
                 itemPrefixLen = marker.get().pos() + 2; // indent + "- "
@@ -107,14 +107,15 @@ public class TreeMarkdownConverter {
         }
 
         if (currentItem != null) {
-            String item = currentItem.toString();
-            if (currentLevel > 1) {
-                item = levelLine(currentLevel) + "\n" + item;
-            }
-            items.add(item);
+            items.add(flatItem(currentItem, currentLevel));
         }
 
         return String.join("\n\n", items);
+    }
+
+    /** One Flat Markdown item: the body, preceded by a metadata line when it is nested. */
+    private static String flatItem(StringBuilder body, int level) {
+        return level > 1 ? levelLine(level) + "\n" + body : body.toString();
     }
 
     private static String levelLine(int level) {
@@ -122,8 +123,9 @@ public class TreeMarkdownConverter {
     }
 
     /**
-     * Find the position of "- " list marker after optional indent (" " or "\t").
-     * Returns the index of '-' or -1 if not a list item line.
+     * Finds the "- " list marker after optional indent (two spaces or a tab per level).
+     *
+     * @return the position of the marker and the level it stands for, or empty if the line is not a list item
      */
     private Optional<Marker> findListMarkerPos(String line) {
         int pos = 0;

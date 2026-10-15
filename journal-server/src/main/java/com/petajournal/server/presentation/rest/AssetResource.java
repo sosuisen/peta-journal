@@ -22,8 +22,12 @@ public class AssetResource {
 
     private static final Logger LOG = Logger.getLogger(AssetResource.class);
 
+    private final ConfigService configService;
+
     @Inject
-    ConfigService configService;
+    public AssetResource(ConfigService configService) {
+        this.configService = configService;
+    }
 
     @POST
     @Path("/upload")

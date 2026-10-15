@@ -6,6 +6,9 @@ import com.petajournal.server.domain.model.Page;
 import com.petajournal.server.domain.repository.ItemRepository;
 import com.petajournal.server.domain.repository.PageRepository;
 import com.petajournal.server.domain.repository.SearchService;
+import com.petajournal.server.infrastructure.export.ExportQueueRepository;
+import com.petajournal.server.infrastructure.export.MarkdownExportService;
+import com.petajournal.server.infrastructure.persistence.PropertyRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -22,23 +25,31 @@ import java.util.Optional;
 @ApplicationScoped
 public class PageService {
 
-    @Inject
-    PageRepository pageRepository;
+    private final PageRepository pageRepository;
+    private final ItemRepository itemRepository;
+    private final SearchService searchService;
+    private final MarkdownExportService exportService;
+    private final ExportQueueRepository exportQueueRepository;
+    private final PropertyRepository propertyRepository;
+    private final IdGenerator idGenerator;
 
     @Inject
-    ItemRepository itemRepository;
-
-    @Inject
-    SearchService searchService;
-
-    @Inject
-    com.petajournal.server.infrastructure.export.MarkdownExportService exportService;
-
-    @Inject
-    com.petajournal.server.infrastructure.export.ExportQueueRepository exportQueueRepository;
-
-    @Inject
-    IdGenerator idGenerator;
+    public PageService(
+            PageRepository pageRepository,
+            ItemRepository itemRepository,
+            SearchService searchService,
+            MarkdownExportService exportService,
+            ExportQueueRepository exportQueueRepository,
+            PropertyRepository propertyRepository,
+            IdGenerator idGenerator) {
+        this.pageRepository = pageRepository;
+        this.itemRepository = itemRepository;
+        this.searchService = searchService;
+        this.exportService = exportService;
+        this.exportQueueRepository = exportQueueRepository;
+        this.propertyRepository = propertyRepository;
+        this.idGenerator = idGenerator;
+    }
 
     /**
      * Retrieves a page by its ID.
@@ -214,7 +225,7 @@ public class PageService {
     }
 
     /**
-     * Deletes a page and all its items.
+     * Deletes a page with all its items and their properties.
      *
      * @param pageId the page to delete
      */
@@ -238,6 +249,8 @@ public class PageService {
         }
 
         searchService.removePage(pageId.toString());
+        List<String> itemIds = itemRepository.findByPageId(pageId).stream().map(i -> i.id().toString()).toList();
+        propertyRepository.deleteAllForTargets("item", itemIds);
         itemRepository.deleteByPageId(pageId);
         pageRepository.delete(pageId);
         exportQueueRepository.remove(pageId);
@@ -265,16 +278,15 @@ public class PageService {
      *         linking item
      */
     public List<BacklinkEntry> getBacklinks(HMTID pageId) {
-        List<Page> sources = pageRepository.findBacklinkSources(pageId);
         List<BacklinkEntry> entries = new ArrayList<>();
 
         Page targetPage = pageRepository.findById(pageId).orElse(null);
         if (targetPage == null)
             return entries;
 
-        for (Page source : sources) {
-            // Find the specific items that link to this page (using fileName as title)
-            List<Item> linkingItems = itemRepository.findByPageIdContainingLink(targetPage.name());
+        // The items that link to this page (using fileName as title), grouped by source page
+        List<Item> linkingItems = itemRepository.findByPageIdContainingLink(targetPage.name());
+        for (Page source : pageRepository.findBacklinkSources(pageId)) {
             for (Item item : linkingItems) {
                 if (item.pageId().equals(source.id())) {
                     entries.add(new BacklinkEntry(source, item));

@@ -20,14 +20,19 @@ public class HashtagBackfiller {
 
     private static final Logger LOG = Logger.getLogger(HashtagBackfiller.class);
 
-    @Inject
-    PageRepository pageRepository;
+    private final PageRepository pageRepository;
+    private final ItemRepository itemRepository;
+    private final PropertyRepository propertyRepository;
 
     @Inject
-    ItemRepository itemRepository;
-
-    @Inject
-    PropertyRepository propertyRepository;
+    public HashtagBackfiller(
+            PageRepository pageRepository,
+            ItemRepository itemRepository,
+            PropertyRepository propertyRepository) {
+        this.pageRepository = pageRepository;
+        this.itemRepository = itemRepository;
+        this.propertyRepository = propertyRepository;
+    }
 
     void onStartup(@Observes @Priority(50) StartupEvent event) {
         if (propertyRepository.findAnyTagExists()) {

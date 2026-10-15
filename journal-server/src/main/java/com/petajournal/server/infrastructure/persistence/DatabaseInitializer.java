@@ -18,13 +18,24 @@ public class DatabaseInitializer {
 
     private static final Logger LOG = Logger.getLogger(DatabaseInitializer.class);
 
-    @Inject
-    SqliteConnectionProvider connectionProvider;
+    private final SqliteConnectionProvider connectionProvider;
+    private final IdGenerator idGenerator;
 
     @Inject
-    IdGenerator idGenerator;
+    public DatabaseInitializer(SqliteConnectionProvider connectionProvider, IdGenerator idGenerator) {
+        this.connectionProvider = connectionProvider;
+        this.idGenerator = idGenerator;
+    }
 
     void init(@Observes @Priority(1) StartupEvent event) {
+        initialize();
+    }
+
+    /**
+     * Creates the tables and indexes, then runs the migrations.
+     * Safe to run on an existing database: everything is "if not exists" or checks first.
+     */
+    public void initialize() {
         try (Connection conn = connectionProvider.getConnection();
              Statement stmt = conn.createStatement()) {
 

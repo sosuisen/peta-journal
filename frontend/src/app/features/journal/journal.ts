@@ -11,6 +11,11 @@ import { CurrentPageService } from '../../core/services/current-page.service';
 import { RecentPagesService } from '../../core/services/recent-pages.service';
 import { NavigationService } from '../../core/services/navigation.service';
 import { ExtensionFunctionService } from '../../core/services/extension-function.service';
+import { ConfigService } from '../../core/services/config.service';
+import { weeksInYear } from '../../core/utils/week.utils';
+
+/** How many items the outline keeps loaded ahead of the scroll position. */
+const BUFFER_ITEMS = 100;
 
 @Component({
   selector: 'app-journal',
@@ -38,7 +43,10 @@ import { ExtensionFunctionService } from '../../core/services/extension-function
       />
     }
     @if (page()) {
-      <app-outline [pageId]="page()!.id" [disableAutoLoad]="true" [currentPageDate]="topVisibleDate()" (loadMore)="onLoadMore($event)" (topItemChanged)="onTopItemChanged($event)" (scrolledFromTop)="scrolled.set($event)" (crossDayMoved)="onCrossDayMoved($event)" />
+      <!-- currentPageDate is the page's own date, not topVisibleDate: following the scroll
+           position toggled date headers at the top edge and made the viewport shake, see
+           OutlineComponent.currentPageDate. -->
+      <app-outline [pageId]="page()!.id" [disableAutoLoad]="true" [currentPageDate]="currentDate()" (loadMore)="onLoadMore($event)" (topItemChanged)="onTopItemChanged($event)" (scrolledFromTop)="scrolled.set($event)" (crossDayMoved)="onCrossDayMoved($event)" />
     }
   `,
   styles: [`
@@ -94,12 +102,16 @@ export class JournalComponent {
   private readonly recentPages = inject(RecentPagesService);
   private readonly nav = inject(NavigationService);
   private readonly extensionFunctions = inject(ExtensionFunctionService);
-  private loadedDates = new Set<string>();
+  private readonly config = inject(ConfigService);
+  /** Names of the journals already appended to the outline. */
+  private readonly loadedDates = new Set<string>();
+  /** True while older journals are being fetched; a second request is dropped. */
   private loading = false;
 
   readonly currentDate = signal('');
   readonly journalType = signal<JournalType>('daily');
-  readonly topVisibleDate = signal('');  // Date of the top visible item
+  /** Date of the top visible item; shown in the journal header only, never fed back into the outline. */
+  readonly topVisibleDate = signal('');
   readonly page = signal<Page | null>(null);
   readonly showCalendar = signal(false);
   readonly scrolled = signal(false);
@@ -153,44 +165,37 @@ export class JournalComponent {
     // Pre-load previous journals to fill the buffer
     const type = this.journalType();
     if (type === 'daily' || type === 'weekly') {
-      await this.loadInitialBuffer(date);
+      await this.loadPreviousJournals(date, BUFFER_ITEMS);
     }
   }
 
-  private async loadInitialBuffer(currentDate: string): Promise<void> {
+  /**
+   * Appends older journals, one page at a time, until the outline holds at least
+   * targetItemCount items or there is no older journal. Only one load runs at a time.
+   * @param fromName - The journal to start searching backwards from
+   * @param targetItemCount - The number of items the outline should hold afterwards
+   */
+  private async loadPreviousJournals(fromName: string, targetItemCount: number): Promise<void> {
     if (this.loading) return;
     this.loading = true;
 
     try {
-      let dateStr = currentDate;
-      const targetBufferSize = 100;
+      let name = fromName;
+      while (this.outlineState.items().length < targetItemCount) {
+        const result = await this.fetchPreviousJournal(name);
+        if (!result.found) break;
 
-      while (this.outlineState.items().length < targetBufferSize) {
-        const result = await this.fetchPreviousJournal(dateStr);
+        name = result.page!.name;
+        if (this.loadedDates.has(name)) continue;
+        this.loadedDates.add(name);
 
-        if (!result.found) {
-          break;
-        }
-
-        if (this.loadedDates.has(result.page!.name)) {
-          dateStr = result.page!.name;
-          continue;
-        }
-
-        this.loadedDates.add(result.page!.name);
-        const currentItems = this.outlineState.items();
-        this.outlineState.setItems([...currentItems, ...result.items]);
+        this.outlineState.setItems([...this.outlineState.items(), ...result.items]);
         if (result.transcludedTrees) {
-          this.outlineState.setTranscludedTrees({
-            ...Object.fromEntries(this.outlineState.transcludedTrees()),
-            ...result.transcludedTrees,
-          });
+          this.outlineState.mergeTranscludedTrees(result.transcludedTrees);
         }
-
-        dateStr = result.page!.name;
       }
     } catch (e) {
-      console.error('Failed to load initial buffer:', e);
+      console.error('Failed to load previous journals:', e);
     } finally {
       this.loading = false;
     }
@@ -212,50 +217,14 @@ export class JournalComponent {
   async onLoadMore(event: { filepath: string; currentIndex: number }): Promise<void> {
     if (this.loading) return;
 
-    this.loading = true;
-
-    try {
-      // Extract journal name from filepath based on type
-      const journalName = this.extractJournalName(event.filepath);
-      if (!journalName) {
-        console.error('Could not extract journal name from filepath:', event.filepath);
-        return;
-      }
-
-      let currentName = journalName;
-
-      // Keep loading until we have 100 items of buffer
-      while (this.outlineState.items().length < event.currentIndex + 100) {
-        const result = await this.fetchPreviousJournal(currentName);
-
-        if (!result.found) {
-          break;
-        }
-
-        if (this.loadedDates.has(result.page!.name)) {
-          currentName = result.page!.name;
-          continue;
-        }
-
-        this.loadedDates.add(result.page!.name);
-
-        // Append items from this journal
-        const currentItems = this.outlineState.items();
-        this.outlineState.setItems([...currentItems, ...result.items]);
-        if (result.transcludedTrees) {
-          this.outlineState.setTranscludedTrees({
-            ...Object.fromEntries(this.outlineState.transcludedTrees()),
-            ...result.transcludedTrees,
-          });
-        }
-
-        currentName = result.page!.name;
-      }
-    } catch (e) {
-      console.error('Failed to load previous journals:', e);
-    } finally {
-      this.loading = false;
+    // Extract journal name from filepath based on type
+    const journalName = this.extractJournalName(event.filepath);
+    if (!journalName) {
+      console.error('Could not extract journal name from filepath:', event.filepath);
+      return;
     }
+
+    await this.loadPreviousJournals(journalName, event.currentIndex + BUFFER_ITEMS);
   }
 
   /** Extracts the journal name from a item's filepath based on journal type. */
@@ -284,28 +253,29 @@ export class JournalComponent {
 
   /** Navigates to the journal for the previous week. */
   goToPrevWeek(): void {
-    const name = this.currentDate();
-    const match = name.match(/^(\d{4})-W(\d{2})$/);
-    if (!match) return;
-    let year = parseInt(match[1], 10);
-    let week = parseInt(match[2], 10);
-    week--;
-    if (week < 1) {
-      year--;
-      week = 52;
-    }
-    this.nav.navigateToPage(`${year}-W${String(week).padStart(2, '0')}`);
+    this.goToWeekOffset(-1);
   }
 
   /** Navigates to the journal for the next week. */
   goToNextWeek(): void {
-    const name = this.currentDate();
-    const match = name.match(/^(\d{4})-W(\d{2})$/);
+    this.goToWeekOffset(1);
+  }
+
+  /**
+   * Navigates one week back or forward from the current weekly journal.
+   * The year boundary follows the number of weeks the year really has
+   * under the configured week numbering (52 to 54), not a fixed 52.
+   */
+  private goToWeekOffset(delta: 1 | -1): void {
+    const match = this.currentDate().match(/^(\d{4})-W(\d{2})$/);
     if (!match) return;
     let year = parseInt(match[1], 10);
-    let week = parseInt(match[2], 10);
-    week++;
-    if (week > 52) {
+    let week = parseInt(match[2], 10) + delta;
+    const numbering = this.config.weekNumbering();
+    if (week < 1) {
+      year--;
+      week = weeksInYear(year, numbering);
+    } else if (week > weeksInYear(year, numbering)) {
       year++;
       week = 1;
     }

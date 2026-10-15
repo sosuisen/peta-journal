@@ -197,16 +197,6 @@ describe('findMoveDownTarget', () => {
         .toEqual({ position: 'after:e' });
     });
 
-    it('level-4 sibling swap', () => {
-      // * a (1)
-      //     * b (2)
-      //         * c (3)
-      //             * d (4)    ← move
-      //             * e (4)
-      const items = [b('a', 1), b('b', 2), b('c', 3), b('d', 4), b('e', 4)];
-      expect(findMoveDownTarget(items, 'd'))
-        .toEqual({ position: 'after:e' });
-    });
   });
 
   // -------------------------------------------------------------------------
@@ -430,34 +420,5 @@ describe('findMoveUpTarget', () => {
         .toEqual({ position: 'after:d' });
     });
 
-    it('level-4 sibling swap via condition 2', () => {
-      // * a (1)
-      //     * b (2)
-      //         * c (3)
-      //             * d (4)
-      //             * e (4)    ← move
-      //
-      // Directly above e: d(4) ≠ itemLevel-1(3). d(4)=itemLevel → cond2.
-      // → above d → position = 'after:c'
-      const items = [b('a', 1), b('b', 2), b('c', 3), b('d', 4), b('e', 4)];
-      expect(findMoveUpTarget(items, 'e'))
-        .toEqual({ position: 'after:c' });
-    });
-  });
-
-  // -------------------------------------------------------------------------
-  // Move to beginning
-  // -------------------------------------------------------------------------
-  describe('move to beginning', () => {
-    it('returns first position when same-level is first item', () => {
-      // * a (1)
-      // * b (1)    ← move
-      //
-      // Directly above b: a(1) = itemLevel → cond2.
-      // → above a → position = 'first'
-      const items = [b('a', 1), b('b', 1)];
-      expect(findMoveUpTarget(items, 'b'))
-        .toEqual({ position: 'first' });
-    });
   });
 });

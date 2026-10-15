@@ -2,12 +2,12 @@ package com.petajournal.server.presentation.rest;
 
 import com.petajournal.server.application.FlatMarkdownSplitter;
 import com.petajournal.server.application.ItemService;
-import com.petajournal.server.domain.model.Item;
 import com.petajournal.server.domain.model.ItemPosition;
 import com.petajournal.server.infrastructure.persistence.PropertyRepository;
 import com.petajournal.server.presentation.rest.dto.ItemDto;
 import com.petajournal.server.presentation.rest.dto.DtoMapper;
 import com.petajournal.server.presentation.rest.dto.FieldSelector;
+import com.petajournal.server.presentation.rest.dto.ItemDtoAssembler;
 import com.sosuisha.hmtid.HMTID;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
@@ -25,20 +25,28 @@ import java.util.Map;
 @Consumes(MediaType.APPLICATION_JSON)
 public class ItemsResource {
 
-    @Inject
-    ItemService itemService;
+    private final ItemService itemService;
+    private final FlatMarkdownSplitter flatMarkdownSplitter;
+    private final ItemRepository itemRepository;
+    private final PropertyRepository propertyRepository;
+    private final ItemDtoAssembler dtos;
+    private final SseBroadcaster sseBroadcaster;
 
     @Inject
-    FlatMarkdownSplitter flatMarkdownSplitter;
-
-    @Inject
-    ItemRepository itemRepository;
-
-    @Inject
-    PropertyRepository propertyRepository;
-
-    @Inject
-    SseBroadcaster sseBroadcaster;
+    public ItemsResource(
+            ItemService itemService,
+            FlatMarkdownSplitter flatMarkdownSplitter,
+            ItemRepository itemRepository,
+            PropertyRepository propertyRepository,
+            ItemDtoAssembler dtos,
+            SseBroadcaster sseBroadcaster) {
+        this.itemService = itemService;
+        this.flatMarkdownSplitter = flatMarkdownSplitter;
+        this.itemRepository = itemRepository;
+        this.propertyRepository = propertyRepository;
+        this.dtos = dtos;
+        this.sseBroadcaster = sseBroadcaster;
+    }
 
     // --- Request/Response records ---
 
@@ -76,18 +84,17 @@ public class ItemsResource {
                 req.body(),
                 clientId);
         sseBroadcaster.broadcastPagesUpdated(req.pageId());
-        return new CreateItemResponse(DtoMapper.toDto(item));
+        return new CreateItemResponse(dtos.toDto(item));
     }
 
     @GET
     @Path("/{id}")
     public Response getItem(@PathParam("id") String id, @QueryParam("fields") String fields) {
-        var item = itemService.getItemById(HMTID.of(id));
+        var dto = dtos.toDto(itemService.getItemById(HMTID.of(id)));
         if (fields != null && !fields.isEmpty()) {
-            var dto = loadItemDto(item);
             return Response.ok(FieldSelector.selectFields(dto, fields)).build();
         }
-        return Response.ok(new GetItemResponse(loadItemDto(item))).build();
+        return Response.ok(new GetItemResponse(dto)).build();
     }
 
     @PUT
@@ -101,7 +108,7 @@ public class ItemsResource {
         sseBroadcaster.broadcastPagesUpdated(item.pageId().toString());
         // Notify pages that transclude this item
         broadcastToTranscluders(HMTID.of(id), item.pageId().toString());
-        return new UpdateItemResponse(DtoMapper.toDto(item));
+        return new UpdateItemResponse(dtos.toDto(item));
     }
 
     @DELETE
@@ -125,7 +132,7 @@ public class ItemsResource {
         try {
             var item = itemService.setTransclusion(HMTID.of(id), HMTID.of(req.sourceItemId()));
             sseBroadcaster.broadcastPagesUpdated(item.pageId().toString());
-            return Response.ok(new SetTransclusionResponse(loadItemDto(item))).build();
+            return Response.ok(new SetTransclusionResponse(dtos.toDto(item))).build();
         } catch (IllegalArgumentException e) {
             return Response.status(Response.Status.BAD_REQUEST)
                     .entity(Map.of("error", e.getMessage()))
@@ -138,7 +145,7 @@ public class ItemsResource {
     public Response removeTransclusion(@PathParam("id") String id) {
         var item = itemService.removeTransclusion(HMTID.of(id));
         sseBroadcaster.broadcastPagesUpdated(item.pageId().toString());
-        return Response.ok(new SetTransclusionResponse(loadItemDto(item))).build();
+        return Response.ok(new SetTransclusionResponse(dtos.toDto(item))).build();
     }
 
     @GET
@@ -147,7 +154,7 @@ public class ItemsResource {
                 ? Arrays.asList(types.split(","))
                 : List.of();
         var items = itemService.getItemsByTypes(typeList);
-        return new GetItemsByTypesResponse(loadItemDtos(items));
+        return new GetItemsByTypesResponse(dtos.toDtos(items));
     }
 
     @POST
@@ -155,7 +162,7 @@ public class ItemsResource {
     public CycleTaskResponse cycleTask(@PathParam("id") String id) {
         var item = itemService.cycleTask(HMTID.of(id));
         sseBroadcaster.broadcastPagesUpdated(item.pageId().toString());
-        return new CycleTaskResponse(loadItemDto(item));
+        return new CycleTaskResponse(dtos.toDto(item));
     }
 
     @POST
@@ -168,7 +175,7 @@ public class ItemsResource {
                 position,
                 req.levelDelta());
         sseBroadcaster.broadcastPagesUpdated(req.targetPageId());
-        return new MoveItemsResponse(loadItemDtos(items));
+        return new MoveItemsResponse(dtos.toDtos(items));
     }
 
     /**
@@ -192,7 +199,7 @@ public class ItemsResource {
         for (var item : items) {
             broadcastToTranscluders(item.id(), item.pageId().toString());
         }
-        return new ShiftLevelsResponse(loadItemDtos(items));
+        return new ShiftLevelsResponse(dtos.toDtos(items));
     }
 
     @PUT
@@ -205,27 +212,29 @@ public class ItemsResource {
         var item = itemService.getItemById(HMTID.of(id));
         propertyRepository.upsertScalar("item", id, key, req.valueType(), req.value());
         sseBroadcaster.broadcastPagesUpdated(item.pageId().toString());
-        return new UpsertPropertyResponse(loadItemDto(item));
+        // The DTO is built after the upsert, so it carries the new property
+        return new UpsertPropertyResponse(dtos.toDto(item));
     }
 
     @POST
     @Path("/export")
     public ExportTreeMarkdownResponse exportTreeMarkdown(ExportTreeMarkdownRequest req) {
-        var result = itemService.exportTreeMarkdown(req.itemIds().stream().map(HMTID::of).toList());
-        return new ExportTreeMarkdownResponse(result.treeMarkdown(), result.ast(), result.flatMarkdown());
+        return toResponse(itemService.exportTreeMarkdown(req.itemIds().stream().map(HMTID::of).toList()));
     }
 
     @POST
     @Path("/export-page")
     public ExportTreeMarkdownResponse exportPageMarkdown(@QueryParam("pageId") String pageId) {
-        var result = itemService.exportPageMarkdown(HMTID.of(pageId));
-        return new ExportTreeMarkdownResponse(result.treeMarkdown(), result.ast(), result.flatMarkdown());
+        return toResponse(itemService.exportPageMarkdown(HMTID.of(pageId)));
     }
 
     @POST
     @Path("/export-subtree")
     public ExportTreeMarkdownResponse exportSubtreeMarkdown(@QueryParam("itemId") String itemId) {
-        var result = itemService.exportSubtreeMarkdown(HMTID.of(itemId));
+        return toResponse(itemService.exportSubtreeMarkdown(HMTID.of(itemId)));
+    }
+
+    private static ExportTreeMarkdownResponse toResponse(ItemService.TreeMarkdownExport result) {
         return new ExportTreeMarkdownResponse(result.treeMarkdown(), result.ast(), result.flatMarkdown());
     }
 
@@ -249,13 +258,6 @@ public class ItemsResource {
         return new ParseFlatMarkdownResponse(items);
     }
 
-    private ItemDto loadItemDto(Item item) {
-        String id = item.id().toString();
-        var scalars = propertyRepository.findScalarByTargets("item", List.of(id)).getOrDefault(id, Map.of());
-        var lists = propertyRepository.findListByTargets("item", List.of(id)).getOrDefault(id, Map.of());
-        return DtoMapper.toDto(item, scalars, lists);
-    }
-
     private void broadcastToTranscluders(HMTID sourceItemId, String excludePageId) {
         for (var t : itemRepository.findTranscluders(sourceItemId)) {
             String tPageId = t.pageId().toString();
@@ -263,12 +265,5 @@ public class ItemsResource {
                 sseBroadcaster.broadcastPagesUpdated(tPageId);
             }
         }
-    }
-
-    private List<ItemDto> loadItemDtos(List<Item> items) {
-        List<String> ids = items.stream().map(i -> i.id().toString()).toList();
-        var scalars = propertyRepository.findScalarByTargets("item", ids);
-        var lists = propertyRepository.findListByTargets("item", ids);
-        return DtoMapper.toDtos(items, scalars, lists);
     }
 }

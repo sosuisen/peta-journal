@@ -1,5 +1,6 @@
 package com.petajournal.server.infrastructure.watch;
 
+import com.petajournal.server.domain.repository.SearchService;
 import com.petajournal.server.infrastructure.export.FileSyncStateRepository;
 import com.petajournal.server.infrastructure.export.MarkdownExportService;
 import com.petajournal.server.infrastructure.export.MarkdownImportService;
@@ -36,18 +37,14 @@ public class MarkdownFolderWatcher {
 
     private static final Logger LOG = Logger.getLogger(MarkdownFolderWatcher.class);
 
-    @ConfigProperty(name = "petajournal.import.enabled", defaultValue = "true")
-    boolean importEnabled;
-
-    @ConfigProperty(name = "petajournal.import.debounce-ms", defaultValue = "2000")
-    long debounceMs;
-
-    @Inject MarkdownExportService exportService;
-    @Inject MarkdownImportService importService;
-    @Inject MarkdownReconcileService reconcileService;
-    @Inject FileSyncStateRepository fileSyncStateRepository;
-    @Inject PendingDeletePrompt pendingDeletePrompt;
-    @Inject com.petajournal.server.domain.repository.SearchService searchService;
+    private final boolean importEnabled;
+    private final long debounceMs;
+    private final MarkdownExportService exportService;
+    private final MarkdownImportService importService;
+    private final MarkdownReconcileService reconcileService;
+    private final FileSyncStateRepository fileSyncStateRepository;
+    private final PendingDeletePrompt pendingDeletePrompt;
+    private final SearchService searchService;
 
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
         Thread t = new Thread(r, "markdown-watcher-debounce");
@@ -65,6 +62,26 @@ public class MarkdownFolderWatcher {
     private volatile Path root;
     private volatile Thread watchThread;
     private final Map<WatchKey, Path> keys = new HashMap<>();
+
+    @Inject
+    public MarkdownFolderWatcher(
+            @ConfigProperty(name = "petajournal.import.enabled", defaultValue = "true") boolean importEnabled,
+            @ConfigProperty(name = "petajournal.import.debounce-ms", defaultValue = "2000") long debounceMs,
+            MarkdownExportService exportService,
+            MarkdownImportService importService,
+            MarkdownReconcileService reconcileService,
+            FileSyncStateRepository fileSyncStateRepository,
+            PendingDeletePrompt pendingDeletePrompt,
+            SearchService searchService) {
+        this.importEnabled = importEnabled;
+        this.debounceMs = debounceMs;
+        this.exportService = exportService;
+        this.importService = importService;
+        this.reconcileService = reconcileService;
+        this.fileSyncStateRepository = fileSyncStateRepository;
+        this.pendingDeletePrompt = pendingDeletePrompt;
+        this.searchService = searchService;
+    }
 
     void onStart(@Observes StartupEvent event) {
         if (!importEnabled) {

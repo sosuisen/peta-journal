@@ -11,8 +11,12 @@ import org.jboss.resteasy.reactive.RestStreamElementType;
 @Path("/api/events")
 public class EventsResource {
 
+    private final SseBroadcaster sseBroadcaster;
+
     @Inject
-    SseBroadcaster sseBroadcaster;
+    public EventsResource(SseBroadcaster sseBroadcaster) {
+        this.sseBroadcaster = sseBroadcaster;
+    }
 
     @GET
     @Produces(MediaType.SERVER_SENT_EVENTS)

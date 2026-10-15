@@ -1,5 +1,6 @@
 package com.petajournal.server.infrastructure.persistence;
 
+import jakarta.inject.Inject;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
@@ -8,7 +9,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.SQLException;
 
 @ApplicationScoped
@@ -16,8 +16,12 @@ public class SqliteConnectionProvider {
 
     private static final Logger LOG = Logger.getLogger(SqliteConnectionProvider.class);
 
-    @ConfigProperty(name = "petajournal.data.db")
-    String dbPath;
+    private final String dbPath;
+
+    @Inject
+    public SqliteConnectionProvider(@ConfigProperty(name = "petajournal.data.db") String dbPath) {
+        this.dbPath = dbPath;
+    }
 
     public Connection getConnection() throws SQLException {
         Path path = Path.of(resolveHome(dbPath));
@@ -44,7 +48,13 @@ public class SqliteConnectionProvider {
         // transaction_mode=IMMEDIATE: acquire write lock at BEGIN, not at first write.
         // This prevents SQLITE_BUSY_SNAPSHOT when concurrent threads write via separate connections.
         String url = "jdbc:sqlite:" + path + "?journal_mode=WAL&busy_timeout=30000&transaction_mode=IMMEDIATE";
-        Connection conn = DriverManager.getConnection(url);
+        // Connect through the driver itself rather than DriverManager: DriverManager only hands
+        // out drivers registered by the caller's class loader, which is not the case after the
+        // application restarted inside one JVM (as the integration tests do)
+        Connection conn = new org.sqlite.JDBC().connect(url, new java.util.Properties());
+        if (conn == null) {
+            throw new SQLException("The SQLite driver does not accept the URL: " + url);
+        }
 
         // Set additional pragmas for better concurrency
         try (var stmt = conn.createStatement()) {

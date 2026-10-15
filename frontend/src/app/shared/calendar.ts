@@ -1,6 +1,7 @@
 import { Component, inject, input, output, signal, computed } from '@angular/core';
 import { ConfigService } from '../core/services/config.service';
 import { formatDateToIso } from '../core/utils/date.utils';
+import { isoWeekNumber, isoWeekYear, usWeekNumber } from '../core/utils/week.utils';
 
 interface CalendarDay {
   date: string;
@@ -147,9 +148,7 @@ export class CalendarComponent {
     for (let i = 0; i < allDays.length; i += 7) {
       const weekDays = allDays.slice(i, i + 7);
       const firstOfWeek = new Date(weekDays[0].date + 'T00:00:00');
-      const weekNumber = iso
-        ? this.getISOWeekNumber(firstOfWeek)
-        : this.getUSWeekNumber(firstOfWeek);
+      const weekNumber = iso ? isoWeekNumber(firstOfWeek) : usWeekNumber(firstOfWeek);
       result.push({ weekNumber, days: weekDays });
     }
     return result;
@@ -221,39 +220,12 @@ export class CalendarComponent {
   onWeekClick(week: CalendarWeek, event: MouseEvent): void {
     const firstOfWeek = new Date(week.days[0].date + 'T00:00:00');
     const iso = this.configService.weekNumbering() === 'iso';
-    const year = iso ? this.getISOWeekYear(firstOfWeek) : firstOfWeek.getFullYear();
+    const year = iso ? isoWeekYear(firstOfWeek) : firstOfWeek.getFullYear();
     this.weekClicked.emit({ year, week: week.weekNumber, ctrlKey: event.ctrlKey || event.metaKey, shiftKey: event.shiftKey });
-  }
-
-  private getISOWeekYear(date: Date): number {
-    const d = new Date(date.getTime());
-    d.setHours(0, 0, 0, 0);
-    d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
-    return d.getFullYear();
   }
 
   selectDay(day: CalendarDay, event: MouseEvent): void {
     this.dateSelected.emit({ date: day.date, ctrlKey: event.ctrlKey || event.metaKey, shiftKey: event.shiftKey });
-  }
-
-  private getISOWeekNumber(date: Date): number {
-    const d = new Date(date.getTime());
-    d.setHours(0, 0, 0, 0);
-    d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
-    const yearStart = new Date(d.getFullYear(), 0, 4);
-    return 1 + Math.round(((d.getTime() - yearStart.getTime()) / 86400000 - 3 + ((yearStart.getDay() + 6) % 7)) / 7);
-  }
-
-  private getUSWeekNumber(date: Date): number {
-    // US: week containing Jan 1 = week 1, weeks start Sunday
-    const d = new Date(date.getTime());
-    d.setHours(0, 0, 0, 0);
-    const yearStart = new Date(d.getFullYear(), 0, 1);
-    // Move yearStart back to its containing Sunday
-    const yearStartSunday = new Date(yearStart.getTime());
-    yearStartSunday.setDate(yearStartSunday.getDate() - yearStartSunday.getDay());
-    const diff = d.getTime() - yearStartSunday.getTime();
-    return 1 + Math.floor(diff / (7 * 86400000));
   }
 
   private formatDate(year: number, month: number, day: number): string {

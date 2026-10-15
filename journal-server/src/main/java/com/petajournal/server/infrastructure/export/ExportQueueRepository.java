@@ -13,8 +13,12 @@ import java.util.List;
 @ApplicationScoped
 public class ExportQueueRepository {
 
+    private final SqliteConnectionProvider connectionProvider;
+
     @Inject
-    SqliteConnectionProvider connectionProvider;
+    public ExportQueueRepository(SqliteConnectionProvider connectionProvider) {
+        this.connectionProvider = connectionProvider;
+    }
 
     public void enqueue(HMTID pageId) {
         int maxRetries = 3;

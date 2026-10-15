@@ -13,6 +13,7 @@ export class OutlineStateService {
   private readonly _pendingCursorPosition = signal<number | null>(null);
   private readonly _pendingMouseDrag = signal<boolean>(false);
   private readonly _scrollRequestItemId = signal<string | null>(null);
+  private readonly _pendingEditItemId = signal<string | null>(null);
   private readonly _transcludedTrees = signal<Map<string, Item[]>>(new Map());
   readonly items = this._items.asReadonly();
   readonly focusedItemId = this._focusedItemId.asReadonly();
@@ -20,7 +21,16 @@ export class OutlineStateService {
   readonly pendingCursorPosition = this._pendingCursorPosition.asReadonly();
   readonly selectedItemIds = this._selectedItemIds.asReadonly();
   readonly itemSelectionMode = this._itemSelectionMode.asReadonly();
+  readonly scrollRequestItemId = this._scrollRequestItemId.asReadonly();
+  readonly pendingEditItemId = this._pendingEditItemId.asReadonly();
   readonly transcludedTrees = this._transcludedTrees.asReadonly();
+
+  /**
+   * IDs of the items that belong to the pages shown in this outline.
+   * Transcluded descendants are shown too, but they belong to their source page
+   * and are not in this set.
+   */
+  readonly ownItemIds = computed(() => new Set(this._items().map(item => item.id)));
 
   readonly headings = computed(() => {
     return this._items()
@@ -91,9 +101,27 @@ export class OutlineStateService {
     return result;
   });
 
+  /**
+   * Replaces the transcluded trees with the given ones.
+   * @param trees - Source item ID to the source item and its descendants.
+   */
   setTranscludedTrees(trees: Record<string, Item[]>): void {
     this._transcludedTrees.set(new Map(Object.entries(trees)));
-    // Add collapsed state from transcluded tree items
+    this.applyCollapsedFlags(trees);
+  }
+
+  /**
+   * Adds trees to the ones already held, e.g. when another page is appended to a journal.
+   * A tree that is already known is replaced by the new one.
+   * @param trees - Source item ID to the source item and its descendants.
+   */
+  mergeTranscludedTrees(trees: Record<string, Item[]>): void {
+    this._transcludedTrees.update(current => new Map([...current, ...Object.entries(trees)]));
+    this.applyCollapsedFlags(trees);
+  }
+
+  /** Copies the collapsed flag of every transcluded item into the collapsed set. */
+  private applyCollapsedFlags(trees: Record<string, Item[]>): void {
     this._collapsedItemIds.update(set => {
       const next = new Set(set);
       for (const items of Object.values(trees)) {
@@ -232,8 +260,6 @@ export class OutlineStateService {
     return value;
   }
 
-  readonly scrollRequestItemId = this._scrollRequestItemId.asReadonly();
-
   requestScrollToItem(itemId: string): void {
     this._scrollRequestItemId.set(itemId);
   }
@@ -241,9 +267,6 @@ export class OutlineStateService {
   clearScrollRequest(): void {
     this._scrollRequestItemId.set(null);
   }
-
-  private readonly _pendingEditItemId = signal<string | null>(null);
-  readonly pendingEditItemId = this._pendingEditItemId.asReadonly();
 
   requestEditItem(itemId: string): void {
     this._pendingEditItemId.set(itemId);
@@ -268,6 +291,14 @@ export class OutlineStateService {
       else next.add(itemId);
       return next;
     });
+  }
+
+  /**
+   * Checks whether an item belongs to a page shown in this outline (see {@link ownItemIds}).
+   * @param itemId - The ID of the item to check.
+   */
+  isOwnItem(itemId: string): boolean {
+    return this.ownItemIds().has(itemId);
   }
 
   /**

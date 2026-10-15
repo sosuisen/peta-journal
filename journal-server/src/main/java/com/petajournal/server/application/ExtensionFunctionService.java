@@ -24,8 +24,12 @@ public class ExtensionFunctionService {
     private static final String FUNCTIONS_DIR = "functions";
     private static final String CONFIG_FILE = "config.json";
 
+    private final ConfigService configService;
+
     @Inject
-    ConfigService configService;
+    public ExtensionFunctionService(ConfigService configService) {
+        this.configService = configService;
+    }
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private List<ExtensionFunction> functions = Collections.emptyList();

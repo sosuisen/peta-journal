@@ -8,13 +8,9 @@
 
 ### 3. Node.js 20+
 
-### 4. flatmarkdown-java
-
-```
-git clone https://github.com/petajournal/flatmarkdown-java
-cd flatmarkdown-java
-mvn install
-```
+The flatmarkdown library (`com.sosuisha:flatmarkdown`) comes from Maven Central and
+bundles its native binaries for Linux x86-64, Windows x86-64 and macOS arm64, so there
+is nothing to build by hand.
 
 ## Build
 
@@ -56,6 +52,26 @@ npm run build
 ```
 
 The built files will be in `frontend\dist\`.
+
+### 3. End-to-end tests
+
+The end-to-end tests drive the real app with Playwright: the journal server on port 8187
+with a throw-away data directory, and the Angular dev server on port 4300 in front of it.
+
+```powershell
+cd peta-journal/journal-server
+mvn package -DskipTests
+cd ../frontend
+npx playwright install chromium   # once
+npm run e2e
+```
+
+### 4. Server integration tests
+
+`mvn test` in `journal-server` runs the unit tests and the integration tests (`*ApiTest`,
+`FolderSyncTest`) together. The integration tests start the server once with its database,
+search index, markdown folder and config file under a temporary directory, so they never
+touch `~/.peta-journal`.
 
 ## Development Workflow
 

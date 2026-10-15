@@ -196,12 +196,17 @@ export class SearchBarComponent {
    * Navigates to the page associated with the selected search result and resets the search state.
    */
   navigateToResult(result: SearchResult): void {
+    this.clearSearch();
+    this.nav.navigateToPage(result.pageTitle, false, false, false, result.itemId || undefined);
+  }
+
+  /** Empties the query, drops the results and closes the dropdown. */
+  clearSearch(): void {
     this.showDropdown.set(false);
     this.query.set('');
     this.pageResults.set([]);
     this.itemResults.set([]);
     this.showCreateButton.set(false);
-    this.nav.navigateToPage(result.pageTitle, false, false, false, result.itemId || undefined);
   }
 
   /**
@@ -223,11 +228,7 @@ export class SearchBarComponent {
       if (error) { alert(error); return; }
     }
 
-    this.showDropdown.set(false);
-    this.query.set('');
-    this.pageResults.set([]);
-    this.itemResults.set([]);
-    this.showCreateButton.set(false);
+    this.clearSearch();
     this.nav.navigateToPage(title);
   }
 

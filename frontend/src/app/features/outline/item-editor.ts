@@ -1,6 +1,7 @@
 import { Component, input, output, ElementRef, viewChild, AfterViewInit, inject, effect, OnDestroy, computed } from '@angular/core';
 import { OutlineStateService } from '../../core/services/outline-state.service';
 import { isImeComposingKeydown } from '../../core/utils/keyboard.utils';
+import { DeferredKey, KeyRelayService, isTypedCharacter } from './key-relay.service';
 
 export interface WikiLinkContext {
   query: string;
@@ -79,6 +80,7 @@ export function ensureCodeFenceClosed(text: string): string {
 })
 export class ItemEditorComponent implements AfterViewInit, OnDestroy {
   private readonly state = inject(OutlineStateService);
+  private readonly keyRelay = inject(KeyRelayService);
   readonly body = input.required<string>();
   readonly itemId = input.required<string>();
   readonly types = input.required<string[]>();
@@ -169,26 +171,6 @@ export class ItemEditorComponent implements AfterViewInit, OnDestroy {
   }
 
   /**
-   * Sets the cursor to a specific position within the textarea and focuses it.
-   * @param pos - The character index to place the cursor at.
-   */
-  setCursorPosition(pos: number): void {
-    const el = this.editorRef().nativeElement;
-    el.setSelectionRange(pos, pos);
-    el.focus();
-  }
-
-  /**
-   * Moves the cursor to the end of the textarea content and focuses it.
-   */
-  setCursorToEnd(): void {
-    const el = this.editorRef().nativeElement;
-    const len = el.value.length;
-    el.setSelectionRange(len, len);
-    el.focus();
-  }
-
-  /**
    * Handles checkbox click by preventing the default toggle and emitting a status toggle event.
    * @param event - The mouse event from the checkbox click.
    */
@@ -237,6 +219,15 @@ export class ItemEditorComponent implements AfterViewInit, OnDestroy {
     // Let the IME handle its own keys (e.g. the Enter that confirms a conversion
     // candidate); otherwise that Enter would split the item or insert a newline.
     if (isImeComposingKeydown(event)) return;
+
+    // Keys pressed between Enter and the focus of the next editor belong to that editor.
+    // Shortcuts with Ctrl or Meta (paste, select all, ...) cannot be replayed, so they are
+    // left to the browser here rather than being dropped.
+    if (this.keyRelay.isHolding() && !event.ctrlKey && !event.metaKey) {
+      event.preventDefault();
+      this.keyRelay.hold(event);
+      return;
+    }
 
     const el = event.target as HTMLTextAreaElement;
     const { selectionStart, selectionEnd, value } = el;
@@ -586,6 +577,70 @@ export class ItemEditorComponent implements AfterViewInit, OnDestroy {
       0,
       lineHeight
     );
+  }
+
+  /**
+   * Plays keys that were pressed before this editor was on screen, see {@link KeyRelayService}.
+   * Typed characters go into the text; other keys go through the keydown handler.
+   */
+  replayKeys(keys: DeferredKey[]): void {
+    const el = this.editorRef().nativeElement;
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i];
+      // A replayed Enter starts a new hold; the keys after it belong to the item it creates
+      if (this.keyRelay.isHolding()) {
+        this.keyRelay.holdKey(key);
+        continue;
+      }
+      if (isTypedCharacter(key)) {
+        this.replaceSelection(el, key.key);
+      } else if (!this.replayEditingKey(el, key)) {
+        el.dispatchEvent(new KeyboardEvent('keydown', { ...key, bubbles: true, cancelable: true }));
+      }
+    }
+  }
+
+  /**
+   * Does what the browser would have done for a key that edits or moves inside the text.
+   * A synthetic keydown has no default action, so these are done by hand.
+   * @returns False when the key is not one of those, or when its keydown handler should run instead
+   */
+  private replayEditingKey(el: HTMLTextAreaElement, key: DeferredKey): boolean {
+    const { selectionStart, selectionEnd, value } = el;
+    const hasSelection = selectionStart !== selectionEnd;
+    if (key.shiftKey || key.altKey) return false;
+    switch (key.key) {
+      case 'Backspace':
+        if (!hasSelection && selectionStart === 0) return false;  // the handler merges with the item above
+        this.replaceSelection(el, '', hasSelection ? selectionStart : selectionStart - 1, selectionEnd);
+        return true;
+      case 'Delete':
+        if (!hasSelection && selectionEnd === value.length) return false;  // the handler merges the item below
+        this.replaceSelection(el, '', selectionStart, hasSelection ? selectionEnd : selectionEnd + 1);
+        return true;
+      case 'ArrowLeft':
+        el.setSelectionRange(Math.max(0, selectionStart - 1), Math.max(0, selectionStart - 1));
+        return true;
+      case 'ArrowRight':
+        el.setSelectionRange(Math.min(value.length, selectionEnd + 1), Math.min(value.length, selectionEnd + 1));
+        return true;
+      case 'Home':
+        el.setSelectionRange(0, 0);
+        return true;
+      case 'End':
+        el.setSelectionRange(value.length, value.length);
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  /** Replaces a range of the text (the selection by default) and reports the new body. */
+  private replaceSelection(el: HTMLTextAreaElement, text: string, start = el.selectionStart, end = el.selectionEnd): void {
+    el.setRangeText(text, start, end, 'end');
+    this.bodyChange.emit(el.value);
+    this.autoResize(el);
+    this.checkWikiLinkContext(el);
   }
 
   /**

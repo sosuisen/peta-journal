@@ -1,12 +1,10 @@
 package com.petajournal.server.presentation.mcp;
 
 import com.petajournal.server.application.ItemService;
-import com.petajournal.server.domain.model.Item;
 import com.petajournal.server.domain.model.ItemPosition;
 import com.petajournal.server.infrastructure.persistence.PropertyRepository;
-import com.petajournal.server.presentation.rest.dto.DtoMapper;
 import com.petajournal.server.presentation.rest.dto.FieldSelector;
-import com.petajournal.server.presentation.rest.dto.ItemDto;
+import com.petajournal.server.presentation.rest.dto.ItemDtoAssembler;
 import com.sosuisha.hmtid.HMTID;
 import io.quarkiverse.mcp.server.Tool;
 import io.quarkiverse.mcp.server.ToolArg;
@@ -17,14 +15,22 @@ import java.util.Map;
 
 public class McpItemTools {
 
-    @Inject
-    ItemService itemService;
+    private final ItemService itemService;
+    private final PropertyRepository propertyRepository;
+    private final McpJsonHelper jsonHelper;
+    private final ItemDtoAssembler dtos;
 
     @Inject
-    PropertyRepository propertyRepository;
-
-    @Inject
-    McpJsonHelper jsonHelper;
+    public McpItemTools(
+            ItemService itemService,
+            PropertyRepository propertyRepository,
+            McpJsonHelper jsonHelper,
+            ItemDtoAssembler dtos) {
+        this.itemService = itemService;
+        this.propertyRepository = propertyRepository;
+        this.jsonHelper = jsonHelper;
+        this.dtos = dtos;
+    }
 
     @Tool(description = "Get a single item by its ID. Returns the item with its properties. Use 'fields' to return only specific fields (comma-separated, e.g. 'body,level,types').")
     String get_item(
@@ -32,7 +38,7 @@ public class McpItemTools {
             @ToolArg(description = "Comma-separated field names to return (e.g. 'body,level'). Empty string for all fields.") String fields
     ) {
         var item = itemService.getItemById(HMTID.of(itemId));
-        var dto = toItemDto(item);
+        var dto = dtos.toDto(item);
         if (fields != null && !fields.isEmpty()) {
             return jsonHelper.toJson(FieldSelector.selectFields(dto, fields));
         }
@@ -64,7 +70,7 @@ public class McpItemTools {
             @ToolArg(description = "New collapsed state: 'true', 'false', or 'null' to keep current") String collapsed
     ) {
         Integer lvl = (level < 1) ? null : level;
-        Boolean col = "null".equals(collapsed) ? null : Boolean.parseBoolean(collapsed);
+        Boolean col = (collapsed == null || "null".equals(collapsed)) ? null : Boolean.parseBoolean(collapsed);
         var item = itemService.updateItem(HMTID.of(itemId), body, lvl, col);
         return jsonHelper.toJson(Map.of("item", item));
     }
@@ -129,7 +135,7 @@ public class McpItemTools {
             @ToolArg(description = "ID of the item") String itemId
     ) {
         var item = itemService.cycleTask(HMTID.of(itemId));
-        return jsonHelper.toJson(Map.of("item", toItemDto(item)));
+        return jsonHelper.toJson(Map.of("item", dtos.toDto(item)));
     }
 
     @Tool(description = "Set a transclusion on an item, making it mirror a source item's content.")
@@ -138,7 +144,7 @@ public class McpItemTools {
             @ToolArg(description = "ID of the source item to transclude") String sourceItemId
     ) {
         var item = itemService.setTransclusion(HMTID.of(itemId), HMTID.of(sourceItemId));
-        return jsonHelper.toJson(Map.of("item", toItemDto(item)));
+        return jsonHelper.toJson(Map.of("item", dtos.toDto(item)));
     }
 
     @Tool(description = "Remove a transclusion from an item, clearing its body.")
@@ -146,7 +152,7 @@ public class McpItemTools {
             @ToolArg(description = "ID of the transclusion item") String itemId
     ) {
         var item = itemService.removeTransclusion(HMTID.of(itemId));
-        return jsonHelper.toJson(Map.of("item", toItemDto(item)));
+        return jsonHelper.toJson(Map.of("item", dtos.toDto(item)));
     }
 
     @Tool(description = "Upsert a scalar property on an item (e.g. begin, end, due, plan, cancelled).")
@@ -158,7 +164,7 @@ public class McpItemTools {
     ) {
         var item = itemService.getItemById(HMTID.of(itemId));
         propertyRepository.upsertScalar("item", itemId, key, valueType, value);
-        return jsonHelper.toJson(Map.of("item", toItemDto(item)));
+        return jsonHelper.toJson(Map.of("item", dtos.toDto(item)));
     }
 
     @Tool(description = "Convert tree markdown (indented list format) to flat markdown.")
@@ -167,12 +173,5 @@ public class McpItemTools {
     ) {
         String flatMd = itemService.importTreeMarkdown(treeMarkdown);
         return jsonHelper.toJson(Map.of("flatMarkdown", flatMd));
-    }
-
-    private ItemDto toItemDto(Item item) {
-        String id = item.id().toString();
-        var scalars = propertyRepository.findScalarByTargets("item", List.of(id)).getOrDefault(id, Map.of());
-        var lists = propertyRepository.findListByTargets("item", List.of(id)).getOrDefault(id, Map.of());
-        return DtoMapper.toDto(item, scalars, lists);
     }
 }

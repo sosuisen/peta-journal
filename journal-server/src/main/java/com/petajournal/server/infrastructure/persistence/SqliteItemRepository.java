@@ -20,45 +20,95 @@ public class SqliteItemRepository implements ItemRepository {
     /** Not in the index alphabet, so a parked index never equals a real one. */
     private static final String PARKED_IDX_PREFIX = "~";
 
+    /** The item columns {@link #mapItem} reads, joined with the page columns an item carries. */
+    private static final String SELECT_ITEMS =
+            "SELECT b.id, b.page_id, b.parent_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.ast, b.collapsed, b.transclude_item_id, " +
+            "p.dir_path, p.name, p.type " +
+            "FROM items b JOIN pages p ON b.page_id = p.id ";
+
+    private final SqliteConnectionProvider connectionProvider;
+
     @Inject
-    SqliteConnectionProvider connectionProvider;
+    public SqliteItemRepository(SqliteConnectionProvider connectionProvider) {
+        this.connectionProvider = connectionProvider;
+    }
 
     @Override
     public Optional<Item> findById(HMTID id) {
-        try (Connection conn = connectionProvider.getConnection();
-             PreparedStatement ps = conn.prepareStatement(
-                     "SELECT b.id, b.page_id, b.parent_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.ast, b.collapsed, b.transclude_item_id, " +
-                     "p.dir_path, p.name, p.type " +
-                     "FROM items b JOIN pages p ON b.page_id = p.id WHERE b.id = ?")) {
-            ps.setString(1, id.toString());
-            try (ResultSet rs = ps.executeQuery()) {
-                if (!rs.next()) return Optional.empty();
-                return Optional.of(mapItem(conn, rs));
-            }
-        } catch (SQLException e) {
-            throw new RuntimeException("Failed to find item by id: " + id, e);
-        }
+        List<Item> items = queryItems(SELECT_ITEMS + "WHERE b.id = ?", "Failed to find item by id: " + id, id.toString());
+        return items.isEmpty() ? Optional.empty() : Optional.of(items.getFirst());
     }
 
     @Override
     public List<Item> findByPageId(HMTID pageId) {
         LOG.debugv("findByPageId: pageId={0}", pageId);
+        List<Item> items = queryItems(SELECT_ITEMS + "WHERE b.page_id = ? ORDER BY b.idx",
+                "Failed to find items by page: " + pageId, pageId.toString());
+        LOG.debugv("findByPageId: found {0} items", items.size());
+        return items;
+    }
+
+    @Override
+    public List<Item> findByPageIdContainingLink(String pageTitle) {
+        String pattern = "%[[" + pageTitle + "]]%";
+        return queryItems(SELECT_ITEMS + "WHERE b.body LIKE ?",
+                "Failed to find items containing link to: " + pageTitle, pattern);
+    }
+
+    @Override
+    public List<Item> findByTypes(List<String> types) {
+        if (types == null || types.isEmpty()) {
+            return List.of();
+        }
+        String placeholders = String.join(",", Collections.nCopies(types.size(), "?"));
+        return queryItems(SELECT_ITEMS +
+                        "WHERE b.id IN (SELECT item_id FROM item_types WHERE type IN (" + placeholders + ")) " +
+                        "ORDER BY b.created_date DESC",
+                "Failed to find items by types", types.toArray(new String[0]));
+    }
+
+    @Override
+    public List<Item> findTranscluders(HMTID sourceItemId) {
+        return queryItems(SELECT_ITEMS + "WHERE b.transclude_item_id = ?",
+                "Failed to find transcluders for: " + sourceItemId, sourceItemId.toString());
+    }
+
+    @Override
+    public List<Item> findItemWithDescendants(HMTID itemId) {
+        return queryItems(
+                "WITH RECURSIVE descendants AS (" +
+                "  SELECT i.* FROM items i WHERE i.id = ? " +
+                "  UNION ALL " +
+                "  SELECT i.* FROM items i JOIN descendants d ON i.parent_id = d.id" +
+                ") " +
+                "SELECT b.id, b.page_id, b.parent_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.ast, b.collapsed, b.transclude_item_id, " +
+                "p.dir_path, p.name, p.type " +
+                "FROM descendants b JOIN pages p ON b.page_id = p.id ORDER BY b.idx",
+                "Failed to find item with descendants: " + itemId, itemId.toString());
+    }
+
+    /**
+     * Runs a query whose result rows are items in the shape of {@link #SELECT_ITEMS}.
+     *
+     * @param sql          the query
+     * @param errorMessage the message of the exception thrown when the query fails
+     * @param params       the string parameters of the query, in order
+     */
+    private List<Item> queryItems(String sql, String errorMessage, String... params) {
         try (Connection conn = connectionProvider.getConnection();
-             PreparedStatement ps = conn.prepareStatement(
-                     "SELECT b.id, b.page_id, b.parent_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.ast, b.collapsed, b.transclude_item_id, " +
-                     "p.dir_path, p.name, p.type " +
-                     "FROM items b JOIN pages p ON b.page_id = p.id WHERE b.page_id = ? ORDER BY b.idx")) {
-            ps.setString(1, pageId.toString());
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            for (int i = 0; i < params.length; i++) {
+                ps.setString(i + 1, params[i]);
+            }
             List<Item> items = new ArrayList<>();
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     items.add(mapItem(conn, rs));
                 }
             }
-            LOG.debugv("findByPageId: found {0} items", items.size());
             return items;
         } catch (SQLException e) {
-            throw new RuntimeException("Failed to find items by page: " + pageId, e);
+            throw new RuntimeException(errorMessage, e);
         }
     }
 
@@ -96,10 +146,7 @@ public class SqliteItemRepository implements ItemRepository {
                 }
 
                 // Replace types
-                try (PreparedStatement ps = conn.prepareStatement("DELETE FROM item_types WHERE item_id = ?")) {
-                    ps.setString(1, item.id().toString());
-                    ps.executeUpdate();
-                }
+                deleteTypes(conn, item.id().toString());
                 if (item.types() != null && !item.types().isEmpty()) {
                     try (PreparedStatement ps = conn.prepareStatement(
                             "INSERT INTO item_types (item_id, type) VALUES (?, ?)")) {
@@ -209,6 +256,13 @@ public class SqliteItemRepository implements ItemRepository {
         }
     }
 
+    private void deleteTypes(Connection conn, String itemId) throws SQLException {
+        try (PreparedStatement ps = conn.prepareStatement("DELETE FROM item_types WHERE item_id = ?")) {
+            ps.setString(1, itemId);
+            ps.executeUpdate();
+        }
+    }
+
     @Override
     public void shiftLevels(List<HMTID> ids, int delta, Instant modifiedDate) {
         Objects.requireNonNull(ids, "ids must not be null");
@@ -289,10 +343,20 @@ public class SqliteItemRepository implements ItemRepository {
 
     @Override
     public void delete(HMTID id) {
-        try (Connection conn = connectionProvider.getConnection();
-             PreparedStatement ps = conn.prepareStatement("DELETE FROM items WHERE id = ?")) {
-            ps.setString(1, id.toString());
-            ps.executeUpdate();
+        // Foreign keys are not enforced on these connections, so the types are removed by hand
+        try (Connection conn = connectionProvider.getConnection()) {
+            conn.setAutoCommit(false);
+            try {
+                deleteTypes(conn, id.toString());
+                try (PreparedStatement ps = conn.prepareStatement("DELETE FROM items WHERE id = ?")) {
+                    ps.setString(1, id.toString());
+                    ps.executeUpdate();
+                }
+                conn.commit();
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
+            }
         } catch (SQLException e) {
             throw new RuntimeException("Failed to delete item: " + id, e);
         }
@@ -300,65 +364,25 @@ public class SqliteItemRepository implements ItemRepository {
 
     @Override
     public void deleteByPageId(HMTID pageId) {
-        try (Connection conn = connectionProvider.getConnection();
-             PreparedStatement ps = conn.prepareStatement("DELETE FROM items WHERE page_id = ?")) {
-            ps.setString(1, pageId.toString());
-            ps.executeUpdate();
+        try (Connection conn = connectionProvider.getConnection()) {
+            conn.setAutoCommit(false);
+            try {
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "DELETE FROM item_types WHERE item_id IN (SELECT id FROM items WHERE page_id = ?)")) {
+                    ps.setString(1, pageId.toString());
+                    ps.executeUpdate();
+                }
+                try (PreparedStatement ps = conn.prepareStatement("DELETE FROM items WHERE page_id = ?")) {
+                    ps.setString(1, pageId.toString());
+                    ps.executeUpdate();
+                }
+                conn.commit();
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
+            }
         } catch (SQLException e) {
             throw new RuntimeException("Failed to delete items by page: " + pageId, e);
-        }
-    }
-
-    @Override
-    public List<Item> findByPageIdContainingLink(String pageTitle) {
-        String pattern = "%[[" + pageTitle + "]]%";
-        try (Connection conn = connectionProvider.getConnection();
-             PreparedStatement ps = conn.prepareStatement(
-                     "SELECT b.id, b.page_id, b.parent_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.ast, b.collapsed, b.transclude_item_id, " +
-                     "p.dir_path, p.name, p.type " +
-                     "FROM items b JOIN pages p ON b.page_id = p.id WHERE b.body LIKE ?")) {
-            ps.setString(1, pattern);
-            List<Item> items = new ArrayList<>();
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    items.add(mapItem(conn, rs));
-                }
-            }
-            return items;
-        } catch (SQLException e) {
-            throw new RuntimeException("Failed to find items containing link to: " + pageTitle, e);
-        }
-    }
-
-    @Override
-    public List<Item> findByTypes(List<String> types) {
-        if (types == null || types.isEmpty()) {
-            return List.of();
-        }
-        StringBuilder placeholders = new StringBuilder();
-        for (int i = 0; i < types.size(); i++) {
-            if (i > 0) placeholders.append(",");
-            placeholders.append("?");
-        }
-        try (Connection conn = connectionProvider.getConnection();
-             PreparedStatement ps = conn.prepareStatement(
-                     "SELECT b.id, b.page_id, b.parent_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.ast, b.collapsed, b.transclude_item_id, " +
-                     "p.dir_path, p.name, p.type " +
-                     "FROM items b JOIN pages p ON b.page_id = p.id " +
-                     "WHERE b.id IN (SELECT item_id FROM item_types WHERE type IN (" + placeholders + ")) " +
-                     "ORDER BY b.created_date DESC")) {
-            for (int i = 0; i < types.size(); i++) {
-                ps.setString(i + 1, types.get(i));
-            }
-            List<Item> items = new ArrayList<>();
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    items.add(mapItem(conn, rs));
-                }
-            }
-            return items;
-        } catch (SQLException e) {
-            throw new RuntimeException("Failed to find items by types", e);
         }
     }
 
@@ -411,51 +435,6 @@ public class SqliteItemRepository implements ItemRepository {
     }
 
     @Override
-    public List<Item> findTranscluders(HMTID sourceItemId) {
-        try (Connection conn = connectionProvider.getConnection();
-             PreparedStatement ps = conn.prepareStatement(
-                     "SELECT b.id, b.page_id, b.parent_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.ast, b.collapsed, b.transclude_item_id, " +
-                     "p.dir_path, p.name, p.type " +
-                     "FROM items b JOIN pages p ON b.page_id = p.id WHERE b.transclude_item_id = ?")) {
-            ps.setString(1, sourceItemId.toString());
-            List<Item> items = new ArrayList<>();
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    items.add(mapItem(conn, rs));
-                }
-            }
-            return items;
-        } catch (SQLException e) {
-            throw new RuntimeException("Failed to find transcluders for: " + sourceItemId, e);
-        }
-    }
-
-    @Override
-    public List<Item> findItemWithDescendants(HMTID itemId) {
-        try (Connection conn = connectionProvider.getConnection();
-             PreparedStatement ps = conn.prepareStatement(
-                     "WITH RECURSIVE descendants AS (" +
-                     "  SELECT i.* FROM items i WHERE i.id = ? " +
-                     "  UNION ALL " +
-                     "  SELECT i.* FROM items i JOIN descendants d ON i.parent_id = d.id" +
-                     ") " +
-                     "SELECT d.id, d.page_id, d.parent_id, d.created_date, d.modified_date, d.idx, d.level, d.body, d.ast, d.collapsed, d.transclude_item_id, " +
-                     "p.dir_path, p.name, p.type " +
-                     "FROM descendants d JOIN pages p ON d.page_id = p.id ORDER BY d.idx")) {
-            ps.setString(1, itemId.toString());
-            List<Item> items = new ArrayList<>();
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    items.add(mapItem(conn, rs));
-                }
-            }
-            return items;
-        } catch (SQLException e) {
-            throw new RuntimeException("Failed to find item with descendants: " + itemId, e);
-        }
-    }
-
-    @Override
     public void recalculateParentIds(HMTID pageId) {
         try (Connection conn = connectionProvider.getConnection()) {
             // One transaction: the levels are read and the parents are written against the same state,
@@ -473,6 +452,9 @@ public class SqliteItemRepository implements ItemRepository {
         }
     }
 
+    /** The id and level of an item, all that the parent calculation needs. */
+    private record ItemLevel(String id, int level) {}
+
     private void recalculateParentIds(Connection conn, HMTID pageId) throws SQLException {
         try (PreparedStatement selectPs = conn.prepareStatement(
                      "SELECT id, level FROM items WHERE page_id = ? ORDER BY idx");
@@ -480,26 +462,25 @@ public class SqliteItemRepository implements ItemRepository {
                      "UPDATE items SET parent_id = ? WHERE id = ?")) {
 
             selectPs.setString(1, pageId.toString());
-            List<String[]> items = new ArrayList<>(); // [id, level]
+            List<ItemLevel> items = new ArrayList<>();
             try (ResultSet rs = selectPs.executeQuery()) {
                 while (rs.next()) {
-                    items.add(new String[]{rs.getString("id"), String.valueOf(rs.getInt("level"))});
+                    items.add(new ItemLevel(rs.getString("id"), rs.getInt("level")));
                 }
             }
 
+            // The parent of an item is the nearest item above it with a smaller level
             for (int i = 0; i < items.size(); i++) {
-                int level = Integer.parseInt(items.get(i)[1]);
+                int level = items.get(i).level();
                 String parentId = null;
-                if (level > 1) {
-                    for (int j = i - 1; j >= 0; j--) {
-                        if (Integer.parseInt(items.get(j)[1]) < level) {
-                            parentId = items.get(j)[0];
-                            break;
-                        }
+                for (int j = i - 1; j >= 0 && level > 1; j--) {
+                    if (items.get(j).level() < level) {
+                        parentId = items.get(j).id();
+                        break;
                     }
                 }
                 updatePs.setString(1, parentId);
-                updatePs.setString(2, items.get(i)[0]);
+                updatePs.setString(2, items.get(i).id());
                 updatePs.addBatch();
             }
             updatePs.executeBatch();

@@ -22,22 +22,35 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+/**
+ * Search over items and pages with filter terms: {@code #tag}, {@code key=value},
+ * {@code in:path}, {@code created:}/{@code modified:} date filters and plain text,
+ * combined with spaces (AND) and {@code OR}.
+ */
 @ApplicationScoped
 public class CombinedSearchService {
 
     private static final Logger LOG = Logger.getLogger(CombinedSearchService.class);
+    /** Filter conditions are read in full, then intersected; this caps each of them. */
+    private static final int FILTER_LIMIT = 10000;
+    private static final int SNIPPET_LENGTH = 200;
+
+    private final PageRepository pageRepository;
+    private final SearchService searchService;
+    private final PropertyRepository propertyRepository;
+    private final ItemRepository itemRepository;
 
     @Inject
-    PageRepository pageRepository;
-
-    @Inject
-    SearchService searchService;
-
-    @Inject
-    PropertyRepository propertyRepository;
-
-    @Inject
-    ItemRepository itemRepository;
+    public CombinedSearchService(
+            PageRepository pageRepository,
+            SearchService searchService,
+            PropertyRepository propertyRepository,
+            ItemRepository itemRepository) {
+        this.pageRepository = pageRepository;
+        this.searchService = searchService;
+        this.propertyRepository = propertyRepository;
+        this.itemRepository = itemRepository;
+    }
 
     public List<SearchResult> search(String query, int maxResults) {
         if (query == null || query.isBlank()) {
@@ -60,136 +73,105 @@ public class CombinedSearchService {
         return merged.values().stream().limit(maxResults).toList();
     }
 
+    /** The terms of one AND group, sorted by kind. Package-private for tests. */
+    record QueryTerms(
+            List<String> tags,
+            List<String[]> propertyFilters,
+            List<String> pagePrefixes,
+            List<String[]> dateFilters,
+            String text) {
+
+        boolean hasFilters() {
+            return !tags.isEmpty() || !propertyFilters.isEmpty() || !pagePrefixes.isEmpty() || !dateFilters.isEmpty();
+        }
+
+        static QueryTerms parse(String group) {
+            List<String> tags = new ArrayList<>();
+            List<String[]> propertyFilters = new ArrayList<>();
+            List<String> pagePrefixes = new ArrayList<>();
+            List<String[]> dateFilters = new ArrayList<>();
+            List<String> textTokens = new ArrayList<>();
+
+            for (String token : group.split("\\s+")) {
+                if (token.startsWith("#") && token.length() > 1) {
+                    tags.add(token.substring(1));
+                } else if (token.startsWith("in:") && token.length() > 3) {
+                    pagePrefixes.add(token.substring(3));
+                } else if (token.startsWith("created:") && token.length() > 8) {
+                    dateFilters.add(new String[]{"created_date", token.substring(8)});
+                } else if (token.startsWith("modified:") && token.length() > 9) {
+                    dateFilters.add(new String[]{"modified_date", token.substring(9)});
+                } else if (token.contains("=") && !token.contains("==") && !token.startsWith("=")) {
+                    int eqIdx = token.indexOf('=');
+                    propertyFilters.add(new String[]{token.substring(0, eqIdx), token.substring(eqIdx + 1)});
+                } else {
+                    textTokens.add(token);
+                }
+            }
+            return new QueryTerms(tags, propertyFilters, pagePrefixes, dateFilters,
+                    String.join(" ", textTokens).trim());
+        }
+    }
+
     private List<SearchResult> executeAndGroup(String group, int maxResults) {
         if (group.isBlank()) return List.of();
 
-        String[] tokens = group.split("\\s+");
-        List<String> tagTerms = new ArrayList<>();
-        List<String> textTokens = new ArrayList<>();
-        List<String[]> propFilters = new ArrayList<>();
-        List<String> pagePrefixes = new ArrayList<>();
-        List<String[]> dateFilters = new ArrayList<>();
+        QueryTerms terms = QueryTerms.parse(group);
+        boolean hasFilterConditions = terms.hasFilters();
 
-        for (String token : tokens) {
-            if (token.startsWith("#") && token.length() > 1) {
-                tagTerms.add(token.substring(1));
-            } else if (token.startsWith("in:") && token.length() > 3) {
-                pagePrefixes.add(token.substring(3));
-            } else if (token.startsWith("created:") && token.length() > 8) {
-                dateFilters.add(new String[]{"created_date", token.substring(8)});
-            } else if (token.startsWith("modified:") && token.length() > 9) {
-                dateFilters.add(new String[]{"modified_date", token.substring(9)});
-            } else if (token.contains("=") && !token.contains("==") && !token.startsWith("=")) {
-                int eqIdx = token.indexOf('=');
-                propFilters.add(new String[]{token.substring(0, eqIdx), token.substring(eqIdx + 1)});
-            } else {
-                textTokens.add(token);
-            }
-        }
-        String textQuery = String.join(" ", textTokens).trim();
-        boolean hasFilterConditions = !tagTerms.isEmpty() || !propFilters.isEmpty()
-                || !pagePrefixes.isEmpty() || !dateFilters.isEmpty();
+        LOG.infof("Combined search: tags=%s, props=%d, prefixes=%s, dates=%d, text='%s'",
+                terms.tags(), terms.propertyFilters().size(), terms.pagePrefixes(), terms.dateFilters().size(), terms.text());
 
         // Collect item ID sets for each condition (for AND intersection)
         List<Set<String>> conditions = new ArrayList<>();
 
-        LOG.infof("Combined search: tags=%s, props=%d, prefixes=%s, dates=%d, text='%s'",
-                tagTerms, propFilters.size(), pagePrefixes, dateFilters.size(), textQuery);
-
-        int filterLimit = 10000;
-
-        for (String tag : tagTerms) {
-            Set<String> ids = new LinkedHashSet<>(
-                    propertyRepository.findItemIdsByTagValue(tag, filterLimit));
+        for (String tag : terms.tags()) {
+            Set<String> ids = new LinkedHashSet<>(propertyRepository.findItemIdsByTagValue(tag, FILTER_LIMIT));
             LOG.infof("  tag '#%s' → %d items", tag, ids.size());
             conditions.add(ids);
         }
 
-        for (String[] prop : propFilters) {
+        for (String[] prop : terms.propertyFilters()) {
             Set<String> ids = new LinkedHashSet<>(
-                    propertyRepository.findItemIdsByScalarProperty(prop[0], prop[1], filterLimit));
+                    propertyRepository.findItemIdsByScalarProperty(prop[0], prop[1], FILTER_LIMIT));
             LOG.infof("  prop '%s=%s' → %d items", prop[0], prop[1], ids.size());
             conditions.add(ids);
         }
 
-        for (String prefix : pagePrefixes) {
-            Set<String> ids = new LinkedHashSet<>(
-                    propertyRepository.findItemIdsByPagePrefix(prefix, filterLimit));
+        for (String prefix : terms.pagePrefixes()) {
+            Set<String> ids = new LinkedHashSet<>(propertyRepository.findItemIdsByPagePrefix(prefix, FILTER_LIMIT));
             LOG.infof("  prefix 'in:%s' → %d items", prefix, ids.size());
             conditions.add(ids);
         }
 
-        for (String[] df : dateFilters) {
-            Set<String> ids = new LinkedHashSet<>(
-                    propertyRepository.findItemIdsByDateRange(df[0], df[1], filterLimit));
+        for (String[] df : terms.dateFilters()) {
+            Set<String> ids = new LinkedHashSet<>(propertyRepository.findItemIdsByDateRange(df[0], df[1], FILTER_LIMIT));
             LOG.infof("  date '%s:%s' → %d items", df[0], df[1], ids.size());
             conditions.add(ids);
         }
 
         // Text condition
-        Set<String> textItemIds = null;
-        List<SearchResult> textPageResults = List.of();
+        String textQuery = terms.text();
         List<SearchResult> textItemResults = List.of();
         if (!textQuery.isEmpty()) {
-            textPageResults = searchPageNamesInternal(textQuery, maxResults);
-            textItemResults = searchService.searchFullText(textQuery, hasFilterConditions ? filterLimit : maxResults);
-            textItemIds = new LinkedHashSet<>();
-            for (SearchResult r : textItemResults) {
-                if (r.itemId() != null && !r.itemId().isEmpty()) {
-                    textItemIds.add(r.itemId());
-                }
-            }
+            textItemResults = searchService.searchFullText(textQuery, hasFilterConditions ? FILTER_LIMIT : maxResults);
             if (hasFilterConditions) {
+                Set<String> textItemIds = new LinkedHashSet<>();
+                for (SearchResult r : textItemResults) {
+                    if (r.itemId() != null && !r.itemId().isEmpty()) {
+                        textItemIds.add(r.itemId());
+                    }
+                }
                 conditions.add(textItemIds);
             }
         }
 
-        // Intersect all conditions
-        Set<String> matchedItemIds = null;
-        if (!conditions.isEmpty()) {
-            matchedItemIds = new LinkedHashSet<>(conditions.getFirst());
-            for (int i = 1; i < conditions.size(); i++) {
-                matchedItemIds.retainAll(conditions.get(i));
-            }
-            LOG.infof("  intersection → %d items (sets: %s)", matchedItemIds.size(),
-                    conditions.stream().map(s -> s.stream().limit(3).toList().toString()).toList());
-        }
-
-        // Build results
-        List<SearchResult> results = new ArrayList<>();
-
-        if (matchedItemIds != null) {
-            Map<String, SearchResult> snippetMap = new HashMap<>();
-            if (textItemResults != null) {
-                for (SearchResult r : textItemResults) {
-                    if (r.itemId() != null) snippetMap.put(r.itemId(), r);
-                }
-            }
-
-            for (String itemId : matchedItemIds) {
-                if (results.size() >= maxResults) break;
-                if (snippetMap.containsKey(itemId)) {
-                    results.add(snippetMap.get(itemId));
-                    continue;
-                }
-                Optional<Item> itemOpt = itemRepository.findById(HMTID.of(itemId));
-                if (itemOpt.isEmpty()) continue;
-                Item item = itemOpt.get();
-                Optional<Page> pageOpt = pageRepository.findById(item.pageId());
-                if (pageOpt.isEmpty()) continue;
-                Page page = pageOpt.get();
-                String pageTitle = page.dirPath() + page.name();
-                String snippet = item.body() != null ? item.body() : "";
-                if (snippet.length() > 200) snippet = snippet.substring(0, 200);
-                results.add(new SearchResult(page.id(), pageTitle, itemId, snippet, 1.0f));
-            }
-        }
-
-        // Pure text search: include page results
-        if (!hasFilterConditions && !textQuery.isEmpty()) {
+        // Pure text search: page results first, then the items of other pages
+        if (!hasFilterConditions) {
+            if (textQuery.isEmpty()) return List.of();
             List<SearchResult> combined = new ArrayList<>();
             Set<String> seenPageIds = new HashSet<>();
-            for (SearchResult r : textPageResults) {
+            for (SearchResult r : searchPageNamesInternal(textQuery, maxResults)) {
                 combined.add(r);
                 seenPageIds.add(r.pageId().toString());
             }
@@ -201,7 +183,57 @@ public class CombinedSearchService {
             return combined.stream().limit(maxResults).toList();
         }
 
+        // Intersect all conditions
+        Set<String> matchedItemIds = new LinkedHashSet<>(conditions.getFirst());
+        for (int i = 1; i < conditions.size(); i++) {
+            matchedItemIds.retainAll(conditions.get(i));
+        }
+        LOG.infof("  intersection → %d items (sets: %s)", matchedItemIds.size(),
+                conditions.stream().map(s -> s.stream().limit(3).toList().toString()).toList());
+
+        // Build results: items found by the text search keep their highlighted snippet
+        Map<String, SearchResult> snippetMap = new HashMap<>();
+        for (SearchResult r : textItemResults) {
+            if (r.itemId() != null) snippetMap.put(r.itemId(), r);
+        }
+        List<SearchResult> results = new ArrayList<>();
+        for (String itemId : matchedItemIds) {
+            if (results.size() >= maxResults) break;
+            SearchResult withSnippet = snippetMap.get(itemId);
+            if (withSnippet != null) {
+                results.add(withSnippet);
+                continue;
+            }
+            resultForItem(itemId).ifPresent(results::add);
+        }
         return results;
+    }
+
+    /**
+     * Builds search results for the given items, with the start of the body as snippet.
+     * Items or pages that no longer exist are skipped.
+     *
+     * @param itemIds the item IDs, in result order
+     */
+    public List<SearchResult> resultsForItems(List<String> itemIds) {
+        List<SearchResult> results = new ArrayList<>();
+        for (String itemId : itemIds) {
+            resultForItem(itemId).ifPresent(results::add);
+        }
+        return results;
+    }
+
+    private Optional<SearchResult> resultForItem(String itemId) {
+        Optional<Item> itemOpt = itemRepository.findById(HMTID.of(itemId));
+        if (itemOpt.isEmpty()) return Optional.empty();
+        Item item = itemOpt.get();
+        Optional<Page> pageOpt = pageRepository.findById(item.pageId());
+        if (pageOpt.isEmpty()) return Optional.empty();
+        Page page = pageOpt.get();
+        String pageTitle = page.dirPath() + page.name();
+        String snippet = item.body() != null ? item.body() : "";
+        if (snippet.length() > SNIPPET_LENGTH) snippet = snippet.substring(0, SNIPPET_LENGTH);
+        return Optional.of(new SearchResult(page.id(), pageTitle, itemId, snippet, 1.0f));
     }
 
     private List<SearchResult> searchPageNamesInternal(String query, int maxResults) {

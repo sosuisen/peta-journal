@@ -34,11 +34,25 @@ public class SyncPendingDeletesResource {
     private static final Logger LOG = Logger.getLogger(SyncPendingDeletesResource.class);
     private static final DateTimeFormatter TS = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
-    @Inject FileSyncStateRepository fileSyncStateRepository;
-    @Inject PageRepository pageRepository;
-    @Inject ItemRepository itemRepository;
-    @Inject PageService pageService;
-    @Inject MarkdownExportService exportService;
+    private final FileSyncStateRepository fileSyncStateRepository;
+    private final PageRepository pageRepository;
+    private final ItemRepository itemRepository;
+    private final PageService pageService;
+    private final MarkdownExportService exportService;
+
+    @Inject
+    public SyncPendingDeletesResource(
+            FileSyncStateRepository fileSyncStateRepository,
+            PageRepository pageRepository,
+            ItemRepository itemRepository,
+            PageService pageService,
+            MarkdownExportService exportService) {
+        this.fileSyncStateRepository = fileSyncStateRepository;
+        this.pageRepository = pageRepository;
+        this.itemRepository = itemRepository;
+        this.pageService = pageService;
+        this.exportService = exportService;
+    }
 
     record Row(FileSyncState state, Page page, int itemCount) {}
 
