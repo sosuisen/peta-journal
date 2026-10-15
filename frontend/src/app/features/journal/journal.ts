@@ -43,7 +43,7 @@ const BUFFER_ITEMS = 100;
       />
     }
     @if (page()) {
-      <app-outline [pageId]="page()!.id" [disableAutoLoad]="true" [currentPageDate]="topVisibleDate()" (loadMore)="onLoadMore($event)" (topItemChanged)="onTopItemChanged($event)" (scrolledFromTop)="scrolled.set($event)" (crossDayMoved)="onCrossDayMoved($event)" />
+      <app-outline [pageId]="page()!.id" [disableAutoLoad]="true" [currentPageDate]="currentDate()" (loadMore)="onLoadMore($event)" (topItemChanged)="onTopItemChanged($event)" (scrolledFromTop)="scrolled.set($event)" (crossDayMoved)="onCrossDayMoved($event)" />
     }
   `,
   styles: [`

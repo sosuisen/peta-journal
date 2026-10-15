@@ -58,6 +58,14 @@ export class Server {
     return this.items(pageId);
   }
 
+  /** Gets or creates the journal page of a day (YYYY-MM-DD) and returns its id. */
+  async journal(date: string): Promise<{ id: string; name: string }> {
+    const resp = await this.request.post(`${this.base}/api/journals/${date}`);
+    expect(resp.ok()).toBe(true);
+    const { page } = await resp.json();
+    return { id: page.id, name: page.name };
+  }
+
   /** The most recently touched journal pages, newest first. */
   async recentJournals(): Promise<Array<{ id: string; name: string }>> {
     const resp = await this.request.get(`${this.base}/api/pages/recent?maxResults=10&type=journal`);

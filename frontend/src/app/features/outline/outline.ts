@@ -88,6 +88,9 @@ import { SseService } from '../../core/services/sse.service';
     .outline-viewport {
       height: 100%;
       width: 100% !important;
+      /* The virtual scroll places its content itself; the browser's scroll anchoring
+         would fight it whenever rendered items change height */
+      overflow-anchor: none;
     }
     .outline-viewport ::ng-deep .cdk-virtual-scroll-content-wrapper {
       width: 100%;
@@ -134,7 +137,13 @@ export class OutlineComponent implements OnDestroy {
   readonly pageId = input.required<string>();
   readonly focusItemId = input<string | null | undefined>('');
   readonly disableAutoLoad = input<boolean>(false);  // Disable automatic item loading
-  readonly currentPageDate = input<string>('');  // Date shown in page header
+  /**
+   * The date of the journal page itself. Its inline date header is left out because the
+   * journal header already shows it. This must not follow the scroll position: showing and
+   * hiding headers while scrolling changes the content height at the top of the viewport,
+   * and the browser's scroll anchoring then moves the scroll position back and forth.
+   */
+  readonly currentPageDate = input<string>('');
   readonly loadMore = output<{ filepath: string; currentIndex: number }>();  // Emits when should load more
   /** Emits after an item moved to another day's page. */
   readonly crossDayMoved = output<CrossDayMove>();
