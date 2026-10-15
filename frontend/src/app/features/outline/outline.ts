@@ -14,7 +14,7 @@ import { classifyJournalFileName } from '../../core/utils/journal-filename.utils
 import { NavigationService } from '../../core/services/navigation.service';
 import { ConfigService } from '../../core/services/config.service';
 import { WikiLinkContext, ensureCodeFenceClosed, hasUnclosedCodeFence } from './item-editor';
-import { findCrossPagePlacement, findMoveDownTarget, findMoveUpTarget } from './move-utils';
+import { findCrossPagePlacement, findMoveDownTarget, findMoveUpTarget, getSubtree } from './move-utils';
 import { renderToHtml } from 'flatmarkdown-ast2html';
 import { HmtidService } from '../../core/services/hmtid.service';
 import { SseService } from '../../core/services/sse.service';
@@ -2387,18 +2387,9 @@ export class OutlineComponent implements OnDestroy {
     return null;
   }
 
-  /** Gets an item and its subtree from visibleItems. */
+  /** Gets an item and its subtree as shown, including transcluded descendants. */
   private getVisibleSubtree(itemId: string): Item[] {
-    const items = this.state.visibleItems();
-    const idx = items.findIndex(b => b.id === itemId);
-    if (idx < 0) return [];
-    const item = items[idx];
-    const result = [item];
-    for (let i = idx + 1; i < items.length; i++) {
-      if (items[i].level <= item.level) break;
-      result.push(items[i]);
-    }
-    return result;
+    return getSubtree(this.state.visibleItems(), itemId);
   }
 
   /**

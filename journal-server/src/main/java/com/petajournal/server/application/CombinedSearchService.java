@@ -68,8 +68,8 @@ public class CombinedSearchService {
         return merged.values().stream().limit(maxResults).toList();
     }
 
-    /** The terms of one AND group, sorted by kind. */
-    private record QueryTerms(
+    /** The terms of one AND group, sorted by kind. Package-private for tests. */
+    record QueryTerms(
             List<String> tags,
             List<String[]> propertyFilters,
             List<String> pagePrefixes,
