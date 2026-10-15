@@ -6,23 +6,22 @@ import { OutlineItemComponent } from './outline-item';
 import { OutlineStateService } from '../../core/services/outline-state.service';
 import { ApiService } from '../../core/services/api.service';
 import { Item } from '../../core/models/item.model';
-import { ClipboardService } from '../../core/services/clipboard.service';
 import { UndoService } from '../../core/services/undo.service';
 import { UndoReplayService } from './undo-replay.service';
 import { formatJournalDate } from '../../core/utils/date.utils';
 import { NavigationService } from '../../core/services/navigation.service';
 import { WikiLinkContext } from './item-editor';
 import { ItemEditService } from './item-edit.service';
+import { ItemActionService, zoomOf } from './item-action.service';
 import { ItemMergeService } from './item-merge.service';
 import { ItemMoveService, MoveDirection } from './item-move.service';
 import { ItemSplitService } from './item-split.service';
-import { CrossDayMove, isDailyJournalItem } from './journal-day-move.service';
+import { CrossDayMove } from './journal-day-move.service';
 import { OutlineSelection } from './outline-selection';
 import { ImagePaste, PasteService, TextPaste } from './paste.service';
 import { WikiSuggestionPick, WikiSuggestionsComponent } from './wiki-suggestions';
 import { LevelShiftService } from './level-shift.service';
 import { OutlineView } from './outline-view';
-import { renderToHtml } from 'flatmarkdown-ast2html';
 import { SseService } from '../../core/services/sse.service';
 
 
@@ -114,7 +113,6 @@ export class OutlineComponent implements OnDestroy {
   readonly state = inject(OutlineStateService);
   private readonly api = inject(ApiService);
   private readonly injector = inject(Injector);
-  private readonly clipboard = inject(ClipboardService);
   private readonly nav = inject(NavigationService);
   private readonly undo = inject(UndoService);
   private readonly undoReplay = inject(UndoReplayService);
@@ -123,6 +121,7 @@ export class OutlineComponent implements OnDestroy {
   private readonly merges = inject(ItemMergeService);
   private readonly moves = inject(ItemMoveService);
   private readonly pastes = inject(PasteService);
+  private readonly actions = inject(ItemActionService);
   private readonly levels = inject(LevelShiftService);
   private readonly sse = inject(SseService);
   private sseSub?: Subscription;
@@ -694,163 +693,45 @@ export class OutlineComponent implements OnDestroy {
 
   // ---- Tasks, zoom, collapse, transclusion, archive ----
 
-  /**
-   * Handles the user clicking a task checkbox or pressing Ctrl+Enter.
-   * Cycles through: normal → task → running → done → normal via cycleTask API.
-   */
+  /** Handles the user clicking a task checkbox or pressing Ctrl+Enter. */
   async onTaskCycleRequested(item: Item): Promise<void> {
-    try {
-      // For transclusion items, target the source item
-      const targetId = this.edits.saveTargetId(item);
-      const originalItem = { ...item };
-      const wasTask = item.types?.includes('task');
-      let updated = await this.api.cycleTask(targetId);
-
-      // When an item just became a task on a daily journal, set plan to the journal date
-      if (!wasTask && updated.types?.includes('task') && isDailyJournalItem(item)) {
-        updated = await this.api.upsertItemProperty(targetId, 'plan', 'date', item.name);
-      }
-
-      const change = { types: updated.types, properties: updated.properties };
-      this.state.updateItem(targetId, change);
-      this.undo.begin('cycle-task');
-      this.undo.pushUpdate(originalItem, { ...originalItem, ...change });
-      this.undo.commit();
-    } catch (e) {
-      console.error('Failed to cycle task:', e);
-    }
+    await this.actions.cycleTask(item);
   }
 
-  /**
-   * Handles Shift+Wheel on an item to change its zoom level.
-   */
+  /** Handles Shift+Wheel on an item to change its zoom level by a tenth. */
   onItemWheel(item: Item, event: WheelEvent): void {
     if (!event.shiftKey) return;
     event.preventDefault();
-    const current = parseFloat(item.properties['zoom'] as string) || 1;
+    const current = zoomOf(item);
     const delta = event.deltaY < 0 ? 0.1 : -0.1;
     const newZoom = Math.round(Math.min(3.0, Math.max(0.1, current + delta)) * 10) / 10;
     if (newZoom === current) return;
-    this.applyZoom(item, newZoom);
+    this.actions.setZoom(item, newZoom);
   }
 
-  /**
-   * Resets zoom to 1.0 for the given item.
-   */
+  /** Resets zoom to 1.0 for the given item. */
   async onResetZoom(item: Item): Promise<void> {
-    await this.applyZoom(item, 1.0);
+    await this.actions.setZoom(item, 1.0);
   }
 
-  private async applyZoom(item: Item, zoom: number): Promise<void> {
-    const props = { ...item.properties, zoom: String(zoom) };
-    this.state.updateItem(item.id, { properties: props });
-    try {
-      await this.api.upsertItemProperty(item.id, 'zoom', 'number', String(zoom));
-    } catch (e: any) {
-      console.error('Failed to update zoom:', e?.message || e);
-    }
-  }
-
-  /**
-   * Handles the user clicking the collapse/expand bullet or pressing the collapse shortcut.
-   * Toggles the collapsed state locally for immediate feedback, then persists to the backend.
-   * Reverts the state on error.
-   * @param item - The item whose collapsed state was toggled
-   */
+  /** Handles the user clicking the collapse/expand bullet or pressing the collapse shortcut. */
   async onCollapseToggled(item: Item): Promise<void> {
-    if (!this.state.hasChildren(item.id)) return;
-    try {
-      const originalItem = { ...item };
-      const newCollapsed = !item.collapsed;
-      // Update local state immediately for responsive UI
-      this.state.toggleCollapsed(item.id);
-      this.state.updateItem(item.id, { collapsed: newCollapsed });
-      // Persist to backend
-      await this.api.updateItem(item.id, { collapsed: newCollapsed });
-
-      this.undo.begin('collapse');
-      this.undo.pushUpdate(originalItem, { ...originalItem, collapsed: newCollapsed });
-      this.undo.commit();
-    } catch (e) {
-      console.error('Failed to toggle collapse:', e);
-      // Revert on error
-      this.state.toggleCollapsed(item.id);
-      this.state.updateItem(item.id, { collapsed: item.collapsed });
-    }
+    await this.actions.toggleCollapsed(item);
   }
 
+  /** Makes the item a transclusion of the item whose id is on the clipboard. */
   async onPasteAsTransclusion(item: Item): Promise<void> {
-    const sourceId = (await navigator.clipboard.readText().catch(() => '')).trim();
-    if (!sourceId || !/^[0-9A-Za-z_-]{10,}$/.test(sourceId)) return;
-    try {
-      const updated = await this.api.setTransclusion(item.id, sourceId);
-      this.state.updateItem(item.id, updated);
-      // Reload page to get transcluded trees
-      await this.loadItems(this.pageId());
-    } catch (e: any) {
-      console.error('Failed to set transclusion:', e?.message || e);
-    }
+    const pastedText = await navigator.clipboard.readText().catch(() => '');
+    await this.actions.transclude(item, pastedText, this.view);
   }
 
   async onRemoveTransclusion(item: Item): Promise<void> {
-    try {
-      const updated = await this.api.removeTransclusion(item.id);
-      this.state.updateItem(item.id, updated);
-      // Reload page to refresh transcluded trees
-      await this.loadItems(this.pageId());
-    } catch (e) {
-      console.error('Failed to remove transclusion:', e);
-    }
+    await this.actions.removeTransclusion(item, this.view);
   }
 
-  /**
-   * Sends an item (and its children) to the page's archive (#item-archive).
-   * Appends #archived tag to the item body and moves it under the #item-archive item.
-   * If no #item-archive item exists, creates one at the end of the page.
-   */
+  /** Sends an item (and its children) to the page's archive (#item-archive). */
   async onSendToArchive(item: Item): Promise<void> {
-    try {
-      const group = this.state.getItemWithChildren(item.id);
-      if (group.length === 0) return;
-      const groupIds = group.map(g => g.id);
-
-      // Append #archived tag to the item body (skip if already present)
-      if (!this.tagsOf(item).includes('archived')) {
-        const newBody = item.body.trimEnd() + ' #archived';
-        await this.edits.saveBody(item.id, newBody);
-      }
-
-      // Find or create the #item-archive item (identified by its tag).
-      // Re-read items from state to pick up any updates from saveItemBody above
-      let archiveItem = this.state.items().find(it => this.tagsOf(it).includes('item-archive'));
-      if (!archiveItem) {
-        // Create #item-archive at end of page
-        const currentItems = this.state.items();
-        const lastItem = currentItems[currentItems.length - 1];
-        const created = await this.api.createItem(
-          item.pageId,
-          `after:${lastItem.id}`,
-          1,
-          '#item-archive',
-        );
-        // createItem API returns empty properties; patch tag so subsequent lookups work
-        archiveItem = { ...created, properties: { ...created.properties, tag: ['item-archive'] } };
-        this.state.addItem(archiveItem, `after:${lastItem.id}`);
-      }
-
-      // Move the archived items as the first child of #item-archive
-      const levelDelta = (archiveItem.level + 1) - item.level;
-      const moved = await this.api.moveItems(groupIds, item.pageId, `after:${archiveItem.id}`, levelDelta);
-      this.state.replaceItems(groupIds, moved, `after:${archiveItem.id}`);
-    } catch (e: any) {
-      console.error('Failed to archive item:', e?.message || e);
-    }
-  }
-
-  /** The hashtags of an item, as kept in its tag property. */
-  private tagsOf(item: Item): string[] {
-    const tags = item.properties['tag'];
-    return Array.isArray(tags) ? tags : [];
+    await this.actions.archive(item);
   }
 
   // ---- Paste ----
@@ -915,27 +796,8 @@ export class OutlineComponent implements OnDestroy {
     const selectedIds = this.getOrderedSelectedItemIds();
     if (selectedIds.length === 0) return;
 
-    // Snapshot before deletion
-    const deletedItems = selectedIds.map(id => this.state.getItemById(id)).filter((b): b is Item => !!b);
-
     this.selection.exit();
-
-    this.undo.begin('delete-selection');
-    for (const b of deletedItems) {
-      this.undo.pushDelete({ ...b });
-    }
-    this.undo.commit();
-
-    // Delete from state first for responsiveness
-    this.state.deleteItems(selectedIds);
-
-    // Delete from backend
-    try {
-      await Promise.all(selectedIds.map(id => this.api.deleteItem(id)));
-    } catch (e) {
-      console.error('Failed to delete selected items:', e);
-    }
-
+    await this.actions.deleteItems(selectedIds);
     await this.ensureAtLeastOneItem();
   }
 
@@ -965,24 +827,7 @@ export class OutlineComponent implements OnDestroy {
   }
 
   private async copySelectedItems(): Promise<void> {
-    const orderedIds = this.getOrderedSelectedItemIds();
-    if (orderedIds.length === 0) return;
-
-    try {
-      const result = await this.api.exportTreeMarkdown(orderedIds);
-
-      // Write to system clipboard
-      const clipboardItem = new ClipboardItem({
-        'text/plain': new Blob([result.treeMarkdown], { type: 'text/plain' }),
-        'text/html': new Blob([renderToHtml(result.ast)], { type: 'text/html' }),
-      });
-      await navigator.clipboard.write([clipboardItem]);
-
-      // Store flat markdown in memory
-      this.clipboard.store(result.flatMarkdown, result.treeMarkdown);
-    } catch (e) {
-      console.error('Failed to copy selected items:', e);
-    }
+    await this.actions.copyItems(this.getOrderedSelectedItemIds());
   }
 
   private async cutSelectedItems(): Promise<void> {
