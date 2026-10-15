@@ -5,7 +5,6 @@ import { ScrollingModule as ExperimentalScrollingModule } from '@angular/cdk-exp
 import { OutlineItemComponent } from './outline-item';
 import { OutlineStateService } from '../../core/services/outline-state.service';
 import { ApiService, ItemPosition } from '../../core/services/api.service';
-import { AutoSaveService } from '../../core/services/auto-save.service';
 import { Item } from '../../core/models/item.model';
 import { ClipboardService } from '../../core/services/clipboard.service';
 import { UndoService } from '../../core/services/undo.service';
@@ -14,7 +13,8 @@ import { formatJournalDate, shiftIsoDate } from '../../core/utils/date.utils';
 import { classifyJournalFileName } from '../../core/utils/journal-filename.utils';
 import { NavigationService } from '../../core/services/navigation.service';
 import { ConfigService } from '../../core/services/config.service';
-import { WikiLinkContext, ensureCodeFenceClosed, hasUnclosedCodeFence } from './item-editor';
+import { WikiLinkContext, hasUnclosedCodeFence } from './item-editor';
+import { ItemEditService } from './item-edit.service';
 import { findCrossPagePlacement, findMoveDownTarget, findMoveUpTarget, getSubtree } from './move-utils';
 import {
   EditContext, TransclusionContext, canIndent, editContextOf, hasSiblingBelow, idsOfRangeWithSubtrees,
@@ -158,12 +158,12 @@ type SelectionEventName = 'keydown' | 'click' | 'copy' | 'cut' | 'mouseup';
 export class OutlineComponent implements OnDestroy {
   readonly state = inject(OutlineStateService);
   private readonly api = inject(ApiService);
-  private readonly autoSave = inject(AutoSaveService);
   private readonly injector = inject(Injector);
   private readonly clipboard = inject(ClipboardService);
   private readonly nav = inject(NavigationService);
   private readonly undo = inject(UndoService);
   private readonly undoReplay = inject(UndoReplayService);
+  private readonly edits = inject(ItemEditService);
   private readonly config = inject(ConfigService);
   private readonly hmtid = inject(HmtidService);
   private readonly sse = inject(SseService);
@@ -184,14 +184,6 @@ export class OutlineComponent implements OnDestroy {
 
   // ---- Editing state ----
 
-  /** Shown item IDs whose body was typed into and not yet saved by {@link saveShownItem}. */
-  private readonly dirtyItemIds = new Set<string>();
-  /**
-   * Number of handlers that are saving the edited item and choosing the next edited
-   * item themselves (clicking another item, moving an item, splitting it with Enter).
-   * While it is above zero the blur of the editor is ignored, see {@link onEditFinished}.
-   */
-  private editHandovers = 0;
   /** Pages changed on disk while the user was editing; reloaded once editing stops. */
   private readonly pendingFileReloads = new Set<string>();
   /** Tail of the move queue; see enqueueMove. */
@@ -398,7 +390,7 @@ export class OutlineComponent implements OnDestroy {
   private async reloadPageFromFile(pageId: string): Promise<void> {
     const current = this.state.items();
     if (!current.some(i => i.pageId === pageId)) return;  // not shown in this outline
-    if (this.isEditInProgress()) {
+    if (this.edits.isEditInProgress()) {
       this.pendingFileReloads.add(pageId);
       return;
     }
@@ -419,15 +411,10 @@ export class OutlineComponent implements OnDestroy {
   }
 
   private flushPendingFileReloads(): void {
-    if (this.isEditInProgress()) return;
+    if (this.edits.isEditInProgress()) return;
     const ids = [...this.pendingFileReloads];
     this.pendingFileReloads.clear();
     for (const id of ids) this.reloadPageFromFile(id);
-  }
-
-  /** True while an editor is open or typed text has not been saved yet. */
-  private isEditInProgress(): boolean {
-    return this.state.editingItemIds().size > 0 || this.dirtyItemIds.size > 0;
   }
 
   private async loadItems(pageId: string): Promise<void> {
@@ -535,7 +522,7 @@ export class OutlineComponent implements OnDestroy {
     if (currentId && currentId !== itemId) {
       const current = this.state.getItemById(currentId);
       if (current) {
-        await this.handOverEdit(() => this.saveItemIfDirty(current));
+        await this.edits.handOverEdit(() => this.edits.saveItemIfDirty(current));
       }
     }
     this.state.addEditingItem(itemId);
@@ -550,9 +537,7 @@ export class OutlineComponent implements OnDestroy {
    */
   onBodyChanged(item: Item, newBody: string): void {
     const before = { ...item };
-    this.state.updateItem(item.id, { body: newBody });
-    this.dirtyItemIds.add(item.id);
-    this.autoSave.scheduleItemUpdate(this.saveTargetId(item), newBody);
+    this.edits.recordTyping(item, newBody);
     const after = { ...item, body: newBody };
     this.undo.begin('body');
     this.undo.pushUpdate(before, after);
@@ -566,91 +551,7 @@ export class OutlineComponent implements OnDestroy {
    */
   async onEditFinished(item: Item): Promise<void> {
     this.closeWikiSuggestions();
-    // The handler that started the handover saves the item and picks the next edited item
-    if (this.editHandovers > 0) return;
-    // Another handler already ended this edit
-    if (!this.state.editingItemIds().has(item.id)) return;
-
-    if (this.dirtyItemIds.has(item.id)) {
-      this.dirtyItemIds.delete(item.id);
-      this.autoSave.cancelItem(this.saveTargetId(item));
-      await this.saveShownItem(item);
-    } else {
-      const current = this.state.getItemById(item.id);
-      if (current && hasUnclosedCodeFence(current.body)) {
-        await this.saveShownItem(item);
-      }
-    }
-    this.state.removeEditingItem(item.id);
-  }
-
-  /**
-   * Runs a handler that saves the edited item and decides which item is edited next.
-   * The blur the handler causes must not end the edit a second time, so
-   * {@link onEditFinished} ignores it while the handler runs.
-   */
-  private async handOverEdit<T>(handler: () => Promise<T>): Promise<T> {
-    this.editHandovers++;
-    try {
-      return await handler();
-    } finally {
-      this.editHandovers--;
-    }
-  }
-
-  /** The item an edit of the shown item is saved to: a transclusion root edits its source item. */
-  private saveTargetId(item: Item): string {
-    return item.transcludeItemId ?? item.id;
-  }
-
-  /**
-   * Saves the body the shown item has in the state. When the item is a transclusion root,
-   * the AST and types returned for the source are copied back to the shown item.
-   * @returns The saved item, or undefined when the item is no longer in the state
-   */
-  private async saveShownItem(item: Item): Promise<Item | undefined> {
-    const current = this.state.getItemById(item.id);
-    if (!current) return undefined;
-    const targetId = this.saveTargetId(item);
-    const updated = await this.saveItemBody(targetId, current.body);
-    if (targetId !== item.id) {
-      this.state.updateItem(item.id, { ast: updated.ast, types: updated.types });
-    }
-    return updated;
-  }
-
-  private async saveItemIfDirty(item: Item): Promise<void> {
-    if (!this.dirtyItemIds.has(item.id)) return;
-    this.dirtyItemIds.delete(item.id);
-    this.autoSave.cancelItem(this.saveTargetId(item));
-    if (await this.saveShownItem(item)) {
-      this.state.removeEditingItem(item.id);
-    }
-  }
-
-  /**
-   * Sends typed text that is still waiting for the auto-save to the server right now.
-   * Used before an operation whose server response replaces the item in the state,
-   * so the response carries the typed text instead of an older body.
-   */
-  private async flushPendingEdit(item: Item): Promise<void> {
-    if (!this.dirtyItemIds.has(item.id)) return;
-    this.dirtyItemIds.delete(item.id);
-    await this.autoSave.flushItem(this.saveTargetId(item));
-  }
-
-  /** Drops typed text that is still waiting for the auto-save, because it is saved another way. */
-  private discardPendingEdit(item: Item): void {
-    this.dirtyItemIds.delete(item.id);
-    this.autoSave.cancelItem(this.saveTargetId(item));
-  }
-
-  private async saveItemBody(itemId: string, body: string): Promise<Item> {
-    const normalized = ensureCodeFenceClosed(body);
-    this.state.updateItem(itemId, { body: normalized });
-    const updated = await this.api.updateItem(itemId, { body: normalized });
-    this.state.updateItem(itemId, { body: updated.body, ast: updated.ast, types: updated.types });
-    return updated;
+    await this.edits.finishEdit(item);
   }
 
   /**
@@ -685,7 +586,7 @@ export class OutlineComponent implements OnDestroy {
    * @param event - Contains the cursor position at the time of the keypress
    */
   async onEnterPressed(item: Item, event: { cursorPos: number }): Promise<void> {
-    this.discardPendingEdit(item);
+    this.edits.discardPendingEdit(item);
 
     if (item.body.length === 0 && item.level > 1 && !hasSiblingBelow(this.state.visibleItems(), item.id)) {
       // Empty last child: outdent instead of creating a new item
@@ -695,7 +596,7 @@ export class OutlineComponent implements OnDestroy {
     }
 
     const { cursorPos } = event;
-    await this.handOverEdit(async () => {
+    await this.edits.handOverEdit(async () => {
       if (cursorPos === 0 && item.body.length > 0) {
         await this.insertEmptyItemBefore(item, cursorPos);
       } else if (cursorPos === item.body.length) {
@@ -713,7 +614,7 @@ export class OutlineComponent implements OnDestroy {
     const position: ItemPosition = ctx.inTransclusion ? 'first' : positionBefore(this.state.items(), item.id);
     const [newItem] = await Promise.all([
       this.api.createItem(ctx.pageId, position, item.level - ctx.levelOffset, ''),
-      this.saveItemBody(this.saveTargetId(item), item.body),
+      this.edits.saveBody(this.edits.saveTargetId(item), item.body),
     ]);
     await this.showCreatedItem(newItem, position, ctx);
 
@@ -733,7 +634,7 @@ export class OutlineComponent implements OnDestroy {
   private async appendEmptyItemAfter(item: Item, cursorPos: number): Promise<void> {
     const ctx = this.editContextOf(item);
     const newLevel = this.levelForNewItemAfter(item, ctx);
-    const position = positionAfterSubtree(this.state.items(), item, this.saveTargetId(item));
+    const position = positionAfterSubtree(this.state.items(), item, this.edits.saveTargetId(item));
     const newId = this.hmtid.nextId();
     const optimisticItem: Item = {
       id: newId,
@@ -765,12 +666,12 @@ export class OutlineComponent implements OnDestroy {
     this.undo.pushCreate(optimisticItem);
     this.undo.commit({ itemId: newId, position: 0 });
 
-    this.discardPendingEdit(item);
+    this.edits.discardPendingEdit(item);
     this.state.addEditingItem(newId);
     this.state.setFocusedItem(newId);
     this.focusEditor(newId);
 
-    await this.saveItemBody(this.saveTargetId(item), item.body.substring(0, cursorPos));
+    await this.edits.saveBody(this.edits.saveTargetId(item), item.body.substring(0, cursorPos));
     this.state.removeEditingItem(item.id);
   }
 
@@ -778,13 +679,13 @@ export class OutlineComponent implements OnDestroy {
   private async splitItemAt(item: Item, cursorPos: number): Promise<void> {
     const ctx = this.editContextOf(item);
     const newLevel = this.levelForNewItemAfter(item, ctx);
-    const position = positionAfterSubtree(this.state.items(), item, this.saveTargetId(item));
+    const position = positionAfterSubtree(this.state.items(), item, this.edits.saveTargetId(item));
     const beforeText = item.body.substring(0, cursorPos);
     const afterText = item.body.substring(cursorPos);
     const originalItem = { ...item };
 
     const [updatedOriginal, newItem] = await Promise.all([
-      this.saveItemBody(this.saveTargetId(item), beforeText),
+      this.edits.saveBody(this.edits.saveTargetId(item), beforeText),
       this.api.createItem(ctx.pageId, position, newLevel - ctx.levelOffset, afterText),
     ]);
     await this.showCreatedItem(newItem, position, ctx);
@@ -836,7 +737,7 @@ export class OutlineComponent implements OnDestroy {
     // In journal daily pages, prevent merging across page boundaries
     if (this.isDailyJournalItem(item) && prevItem.pageId !== item.pageId) return;
 
-    this.discardPendingEdit(item);
+    this.edits.discardPendingEdit(item);
     const originalPrev = { ...prevItem };
     const originalItem = { ...item };
     const cursorPos = prevItem.body.length;
@@ -846,7 +747,7 @@ export class OutlineComponent implements OnDestroy {
     this.state.addEditingItem(prevItem.id);
     this.focusEditor(prevItem.id);
 
-    const updatedPrev = await this.saveItemBody(prevItem.id, mergedBody);
+    const updatedPrev = await this.edits.saveBody(prevItem.id, mergedBody);
     await this.api.deleteItem(item.id);
 
     this.undo.begin('backspace', { itemId: item.id, position: 0 });
@@ -870,7 +771,7 @@ export class OutlineComponent implements OnDestroy {
     if (nextItem.transcludeItemId) return;
     if (this.isDailyJournalItem(item) && nextItem.pageId !== item.pageId) return;
 
-    this.discardPendingEdit(nextItem);
+    this.edits.discardPendingEdit(nextItem);
 
     const originalItem = { ...item };
     const originalNext = { ...nextItem };
@@ -879,7 +780,7 @@ export class OutlineComponent implements OnDestroy {
     this.state.updateItem(item.id, { body: mergedBody });
     this.state.deleteItem(nextItem.id);
 
-    const updatedItem = await this.saveItemBody(item.id, mergedBody);
+    const updatedItem = await this.edits.saveBody(item.id, mergedBody);
     await this.api.deleteItem(nextItem.id);
 
     this.undo.begin('delete', { itemId: item.id, position: cursorPos });
@@ -920,7 +821,7 @@ export class OutlineComponent implements OnDestroy {
 
   /** Saves the item being edited and opens the editor of another item. */
   private async navigateTo(from: Item, to: Item, cursorPos: number): Promise<void> {
-    await this.saveItemIfDirty(from);
+    await this.edits.saveItemIfDirty(from);
     this.state.addEditingItem(to.id);
     this.state.setFocusedItem(to.id, cursorPos);
     this.state.removeEditingItem(from.id);
@@ -1096,7 +997,7 @@ export class OutlineComponent implements OnDestroy {
   }
 
   private async moveUp(item: Item): Promise<void> {
-    await this.flushPendingEdit(item);
+    await this.edits.flushPendingEdit(item);
 
     const tCtx = this.getTransclusionContext(item);
     if (tCtx && !this.state.isOwnItem(item.id)) {
@@ -1124,7 +1025,7 @@ export class OutlineComponent implements OnDestroy {
   }
 
   private async moveDown(item: Item): Promise<void> {
-    await this.flushPendingEdit(item);
+    await this.edits.flushPendingEdit(item);
 
     const tCtx = this.getTransclusionContext(item);
     if (tCtx && !this.state.isOwnItem(item.id)) {
@@ -1177,7 +1078,7 @@ export class OutlineComponent implements OnDestroy {
     this.undo.commit();
 
     // Reordering the list blurs the editor; the edit goes on in the moved item
-    await this.handOverEdit(async () => {
+    await this.edits.handOverEdit(async () => {
       this.state.replaceItems(groupIds, moved, statePosition);
       await this.focusEditor(item.id);
     });
@@ -1194,7 +1095,7 @@ export class OutlineComponent implements OnDestroy {
     const groupIds = this.getVisibleSubtree(item.id).map(b => b.id);
     await this.api.moveItems(groupIds, item.pageId, target.position);
     // Reload to reflect reordering
-    await this.handOverEdit(async () => {
+    await this.edits.handOverEdit(async () => {
       await this.loadItems(this.pageId());
       await this.focusEditor(item.id);
     });
@@ -1392,7 +1293,7 @@ export class OutlineComponent implements OnDestroy {
   async onTaskCycleRequested(item: Item): Promise<void> {
     try {
       // For transclusion items, target the source item
-      const targetId = this.saveTargetId(item);
+      const targetId = this.edits.saveTargetId(item);
       const originalItem = { ...item };
       const wasTask = item.types?.includes('task');
       let updated = await this.api.cycleTask(targetId);
@@ -1508,7 +1409,7 @@ export class OutlineComponent implements OnDestroy {
       // Append #archived tag to the item body (skip if already present)
       if (!this.tagsOf(item).includes('archived')) {
         const newBody = item.body.trimEnd() + ' #archived';
-        await this.saveItemBody(item.id, newBody);
+        await this.edits.saveBody(item.id, newBody);
       }
 
       // Find or create the #item-archive item (identified by its tag).
@@ -1597,8 +1498,8 @@ export class OutlineComponent implements OnDestroy {
 
       // First item replaces current editing item
       const firstItem = parsedItems[0];
-      await this.saveItemBody(item.id, firstItem.body);
-      this.dirtyItemIds.add(item.id);
+      await this.edits.saveBody(item.id, firstItem.body);
+      this.edits.markDirty(item.id);
 
       const afterFirstItem = this.state.getItemById(item.id);
       if (afterFirstItem) {
@@ -1644,8 +1545,8 @@ export class OutlineComponent implements OnDestroy {
       const after = item.body.substring(event.cursorPos);
       const newBody = before + markdown + after;
 
-      await this.saveItemBody(item.id, newBody);
-      this.dirtyItemIds.add(item.id);
+      await this.edits.saveBody(item.id, newBody);
+      this.edits.markDirty(item.id);
 
       // Place cursor after the inserted markdown
       const newPos = event.cursorPos + markdown.length;
@@ -1916,7 +1817,7 @@ export class OutlineComponent implements OnDestroy {
     const selectedIds = this.state.selectedItemIds();
     return this.state.visibleItems()
       .filter(b => selectedIds.has(b.id))
-      .map(b => this.saveTargetId(b));
+      .map(b => this.edits.saveTargetId(b));
   }
 
   private async deleteSelectedItems(): Promise<void> {
@@ -2062,18 +1963,9 @@ export class OutlineComponent implements OnDestroy {
 
   /** What a replay needs from the component: the edit in progress and the editor focus. */
   private readonly undoEditor = {
-    discardPendingEdit: () => this.discardPendingEditOfFocusedItem(),
+    discardPendingEdit: () => this.edits.discardPendingEditOfFocusedItem(),
     focusEditor: (itemId: string) => { this.focusEditor(itemId); },
   };
-
-  /** The undo or redo replaces the item; text waiting for the auto-save would be stale. */
-  private discardPendingEditOfFocusedItem(): void {
-    const focusedId = this.state.focusedItemId();
-    if (!focusedId || !this.dirtyItemIds.has(focusedId)) return;
-    const focused = this.state.getItemById(focusedId);
-    this.dirtyItemIds.delete(focusedId);
-    this.autoSave.cancelItem(focused ? this.saveTargetId(focused) : focusedId);
-  }
 
   // ---- Transclusion helpers ----
 
