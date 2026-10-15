@@ -27,7 +27,15 @@ public class DatabaseInitializer {
         this.idGenerator = idGenerator;
     }
 
-    public void init(@Observes @Priority(1) StartupEvent event) {
+    void init(@Observes @Priority(1) StartupEvent event) {
+        initialize();
+    }
+
+    /**
+     * Creates the tables and indexes, then runs the migrations.
+     * Safe to run on an existing database: everything is "if not exists" or checks first.
+     */
+    public void initialize() {
         try (Connection conn = connectionProvider.getConnection();
              Statement stmt = conn.createStatement()) {
 

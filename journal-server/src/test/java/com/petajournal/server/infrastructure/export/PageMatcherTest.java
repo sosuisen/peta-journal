@@ -48,7 +48,7 @@ class PageMatcherTest {
     void setUp() {
         var provider = new SqliteConnectionProvider(dataDir.resolve("journal.db").toString());
         var idGenerator = new IdGenerator();
-        new DatabaseInitializer(provider, idGenerator).init(null);
+        new DatabaseInitializer(provider, idGenerator).initialize();
 
         pageRepository = new SqlitePageRepository(provider);
         var itemRepository = new SqliteItemRepository(provider);
