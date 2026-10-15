@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class TreeMarkdownConverterTest {
 
-    private final TreeMarkdownConverter converter = new TreeMarkdownConverter();
+    private final TreeMarkdownConverter converter = new TreeMarkdownConverter(new FlatMarkdownSerializer());
 
     @Test
     void treeToFlatWritesLevelInMetadataLine() {

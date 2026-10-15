@@ -54,11 +54,8 @@ class MarkdownImportServiceMatchPageTest {
         var itemRepository = new SqliteItemRepository(provider);
         var searchService = new NoopSearchService();
 
-        var pageService = new PageService();
-        inject(pageService, "pageRepository", pageRepository);
-        inject(pageService, "itemRepository", itemRepository);
-        inject(pageService, "searchService", searchService);
-        inject(pageService, "idGenerator", idGenerator);
+        // Only ensureAncestorPages is used here; export and properties are not involved
+        var pageService = new PageService(pageRepository, itemRepository, searchService, null, null, null, idGenerator);
 
         service = new MarkdownImportService();
         service.pageRepository = pageRepository;
@@ -188,17 +185,6 @@ class MarkdownImportServiceMatchPageTest {
 
     private Page savedDoc(HMTID id, String dirPath, String name) {
         return pageRepository.save(new Page(id, null, dirPath, name, "doc", CREATED, CREATED));
-    }
-
-    /** Sets a CDI-injected field of a bean from another package, as the container would. */
-    private static void inject(Object bean, String field, Object value) {
-        try {
-            var f = bean.getClass().getDeclaredField(field);
-            f.setAccessible(true);
-            f.set(bean, value);
-        } catch (ReflectiveOperationException e) {
-            throw new IllegalStateException("Cannot set " + field + " on " + bean.getClass().getSimpleName(), e);
-        }
     }
 
     private void touch(String relPath) throws IOException {

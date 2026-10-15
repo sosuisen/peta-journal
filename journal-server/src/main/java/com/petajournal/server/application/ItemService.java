@@ -36,31 +36,36 @@ public class ItemService {
     private static final Logger LOG = Logger.getLogger(ItemService.class);
     private static final String ITEM_TARGET = "item";
 
-    @Inject
-    ItemRepository itemRepository;
-
-    @Inject
-    PageRepository pageRepository;
-
-    @Inject
-    MarkdownParser markdownParser;
-
-    @Inject
-    SearchService searchService;
-
-    @Inject
-    MarkdownExportService exportService;
-
-    @Inject
-    TreeMarkdownConverter treeMarkdownConverter;
-
-    @Inject
-    PropertyRepository propertyRepository;
-
-    @Inject
-    IdGenerator idGenerator;
-
+    private final ItemRepository itemRepository;
+    private final PageRepository pageRepository;
+    private final MarkdownParser markdownParser;
+    private final SearchService searchService;
+    private final MarkdownExportService exportService;
+    private final TreeMarkdownConverter treeMarkdownConverter;
+    private final PropertyRepository propertyRepository;
+    private final IdGenerator idGenerator;
+    /** Two moves must not plan their indices from the same snapshot of a page. */
     private final Object moveLock = new Object();
+
+    @Inject
+    public ItemService(
+            ItemRepository itemRepository,
+            PageRepository pageRepository,
+            MarkdownParser markdownParser,
+            SearchService searchService,
+            MarkdownExportService exportService,
+            TreeMarkdownConverter treeMarkdownConverter,
+            PropertyRepository propertyRepository,
+            IdGenerator idGenerator) {
+        this.itemRepository = itemRepository;
+        this.pageRepository = pageRepository;
+        this.markdownParser = markdownParser;
+        this.searchService = searchService;
+        this.exportService = exportService;
+        this.treeMarkdownConverter = treeMarkdownConverter;
+        this.propertyRepository = propertyRepository;
+        this.idGenerator = idGenerator;
+    }
 
     /**
      * Creates a new item on the specified page.

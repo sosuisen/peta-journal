@@ -11,8 +11,12 @@ import java.util.Optional;
 
 @ApplicationScoped
 public class TreeMarkdownConverter {
+    private final FlatMarkdownSerializer serializer;
+
     @Inject
-    FlatMarkdownSerializer serializer;
+    public TreeMarkdownConverter(FlatMarkdownSerializer serializer) {
+        this.serializer = serializer;
+    }
 
     record Marker(int pos, int level) {
     }

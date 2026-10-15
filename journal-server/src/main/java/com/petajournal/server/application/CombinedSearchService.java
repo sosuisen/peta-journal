@@ -35,17 +35,22 @@ public class CombinedSearchService {
     private static final int FILTER_LIMIT = 10000;
     private static final int SNIPPET_LENGTH = 200;
 
-    @Inject
-    PageRepository pageRepository;
+    private final PageRepository pageRepository;
+    private final SearchService searchService;
+    private final PropertyRepository propertyRepository;
+    private final ItemRepository itemRepository;
 
     @Inject
-    SearchService searchService;
-
-    @Inject
-    PropertyRepository propertyRepository;
-
-    @Inject
-    ItemRepository itemRepository;
+    public CombinedSearchService(
+            PageRepository pageRepository,
+            SearchService searchService,
+            PropertyRepository propertyRepository,
+            ItemRepository itemRepository) {
+        this.pageRepository = pageRepository;
+        this.searchService = searchService;
+        this.propertyRepository = propertyRepository;
+        this.itemRepository = itemRepository;
+    }
 
     public List<SearchResult> search(String query, int maxResults) {
         if (query == null || query.isBlank()) {

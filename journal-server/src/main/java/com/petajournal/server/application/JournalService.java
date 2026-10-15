@@ -29,26 +29,31 @@ public class JournalService {
 
     private static final String JOURNAL_TYPE = "journal";
 
-    @Inject
-    PageRepository pageRepository;
+    private final PageRepository pageRepository;
+    private final ItemRepository itemRepository;
+    private final SearchService searchService;
+    private final ConfigService configService;
+    private final ItemService itemService;
+    private final IdGenerator idGenerator;
+    private final MarkdownExportService exportService;
 
     @Inject
-    ItemRepository itemRepository;
-
-    @Inject
-    SearchService searchService;
-
-    @Inject
-    ConfigService configService;
-
-    @Inject
-    ItemService itemService;
-
-    @Inject
-    IdGenerator idGenerator;
-
-    @Inject
-    MarkdownExportService exportService;
+    public JournalService(
+            PageRepository pageRepository,
+            ItemRepository itemRepository,
+            SearchService searchService,
+            ConfigService configService,
+            ItemService itemService,
+            IdGenerator idGenerator,
+            MarkdownExportService exportService) {
+        this.pageRepository = pageRepository;
+        this.itemRepository = itemRepository;
+        this.searchService = searchService;
+        this.configService = configService;
+        this.itemService = itemService;
+        this.idGenerator = idGenerator;
+        this.exportService = exportService;
+    }
 
     /** Result of getting or creating a journal page. */
     public record JournalResult(Page page, List<Item> items, boolean created) {}

@@ -19,14 +19,19 @@ public class SearchIndexRebuilder {
 
     private static final Logger LOG = Logger.getLogger(SearchIndexRebuilder.class);
 
-    @Inject
-    PageRepository pageRepository;
+    private final PageRepository pageRepository;
+    private final ItemRepository itemRepository;
+    private final SearchService searchService;
 
     @Inject
-    ItemRepository itemRepository;
-
-    @Inject
-    SearchService searchService;
+    public SearchIndexRebuilder(
+            PageRepository pageRepository,
+            ItemRepository itemRepository,
+            SearchService searchService) {
+        this.pageRepository = pageRepository;
+        this.itemRepository = itemRepository;
+        this.searchService = searchService;
+    }
 
     void onStartup(@Observes @Priority(100) StartupEvent event) {
         if (!searchService.isEmpty()) {

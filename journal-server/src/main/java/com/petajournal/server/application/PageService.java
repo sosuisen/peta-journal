@@ -25,26 +25,31 @@ import java.util.Optional;
 @ApplicationScoped
 public class PageService {
 
-    @Inject
-    PageRepository pageRepository;
+    private final PageRepository pageRepository;
+    private final ItemRepository itemRepository;
+    private final SearchService searchService;
+    private final MarkdownExportService exportService;
+    private final ExportQueueRepository exportQueueRepository;
+    private final PropertyRepository propertyRepository;
+    private final IdGenerator idGenerator;
 
     @Inject
-    ItemRepository itemRepository;
-
-    @Inject
-    SearchService searchService;
-
-    @Inject
-    MarkdownExportService exportService;
-
-    @Inject
-    ExportQueueRepository exportQueueRepository;
-
-    @Inject
-    PropertyRepository propertyRepository;
-
-    @Inject
-    IdGenerator idGenerator;
+    public PageService(
+            PageRepository pageRepository,
+            ItemRepository itemRepository,
+            SearchService searchService,
+            MarkdownExportService exportService,
+            ExportQueueRepository exportQueueRepository,
+            PropertyRepository propertyRepository,
+            IdGenerator idGenerator) {
+        this.pageRepository = pageRepository;
+        this.itemRepository = itemRepository;
+        this.searchService = searchService;
+        this.exportService = exportService;
+        this.exportQueueRepository = exportQueueRepository;
+        this.propertyRepository = propertyRepository;
+        this.idGenerator = idGenerator;
+    }
 
     /**
      * Retrieves a page by its ID.
