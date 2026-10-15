@@ -143,7 +143,7 @@ export class ItemEditService {
     const normalized = ensureCodeFenceClosed(body);
     this.state.updateItem(itemId, { body: normalized });
     const updated = await this.api.updateItem(itemId, { body: normalized });
-    this.state.updateItem(itemId, { body: updated.body, ast: updated.ast, types: updated.types });
+    this.state.updateItem(itemId, { body: updated.body, ast: updated.ast, types: updated.types, properties: updated.properties });
     return updated;
   }
 }

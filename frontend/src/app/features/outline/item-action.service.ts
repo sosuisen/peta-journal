@@ -154,8 +154,7 @@ export class ItemActionService {
           1,
           '#item-archive',
         );
-        // createItem API returns empty properties; patch tag so subsequent lookups work
-        archiveItem = { ...created, properties: { ...created.properties, tag: ['item-archive'] } };
+        archiveItem = created;
         this.state.addItem(archiveItem, `after:${lastItem.id}`);
       }
 
