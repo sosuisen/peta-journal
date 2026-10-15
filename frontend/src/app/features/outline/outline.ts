@@ -15,17 +15,14 @@ import { NavigationService } from '../../core/services/navigation.service';
 import { WikiLinkContext, hasUnclosedCodeFence } from './item-editor';
 import { ItemEditService } from './item-edit.service';
 import { ItemSplitService } from './item-split.service';
+import { OutlineSelection } from './outline-selection';
 import { LevelShiftService } from './level-shift.service';
 import { OutlineView } from './outline-view';
 import { findCrossPagePlacement, findMoveDownTarget, findMoveUpTarget, getSubtree } from './move-utils';
-import {
-  TransclusionContext, idsOfRangeWithSubtrees, selectedRootItems, selectionStartIndex,
-  transclusionContextOf, transclusionScopedItems,
-} from './outline-tree';
+import { TransclusionContext, selectedRootItems, transclusionContextOf, transclusionScopedItems } from './outline-tree';
 import { renderToHtml } from 'flatmarkdown-ast2html';
 import { SseService } from '../../core/services/sse.service';
 
-type SelectionEventName = 'keydown' | 'click' | 'copy' | 'cut' | 'mouseup';
 
 @Component({
   selector: 'app-outline',
@@ -65,7 +62,7 @@ type SelectionEventName = 'keydown' | 'click' | 'copy' | 'cut' | 'mouseup';
           (collapseToggled)="onCollapseToggled(item)"
           (pasteDetected)="onPaste(item, $event)"
           (imagePasteDetected)="onImagePaste(item, $event)"
-          (dragBeyondBounds)="onDragBeyondBounds(item, $event)"
+          (dragBeyondBounds)="onDragBeyondBounds(item)"
           (wikiLinkQueryChanged)="onWikiLinkQuery(item, $event)"
           (wikiLinkSelected)="onWikiLinkKeyNav($event)"
           (openWikiLink)="onOpenWikiLink($event)"
@@ -199,20 +196,17 @@ export class OutlineComponent implements OnDestroy {
 
   // ---- Multi-item selection ----
 
-  /** The item the selection started from. */
-  private selectionAnchorItemId: string | null = null;
-  /** The item the selection was last extended to. */
-  private selectionExtentItemId: string | null = null;
-  /** True while the mouse button is held after dragging out of an editor. */
-  private isSelectionDragging = false;
-  /** Document-level listeners that are active only in selection mode. */
-  private readonly selectionListeners: { [K in SelectionEventName]: (e: DocumentEventMap[K]) => void } = {
-    keydown: e => this.handleSelectionKeydown(e),
-    click: () => this.exitSelectionMode(),
-    copy: e => this.onSelectionCopy(e),
-    cut: e => this.onSelectionCut(e),
-    mouseup: () => this.onSelectionMouseUp(),
-  };
+  /** The selected items and the keys that act on them; see {@link OutlineSelection}. */
+  private readonly selection = new OutlineSelection(this.state, {
+    undo: () => { this.performUndo(); },
+    redo: () => { this.performRedo(); },
+    deleteSelected: () => { this.deleteSelectedItems(); },
+    moveSelected: direction => { this.moveSelectedItems(direction); },
+    indentSelected: () => { this.indentSelectedItems(); },
+    outdentSelected: () => { this.outdentSelectedItems(); },
+    copySelected: () => { this.copySelectedItems(); },
+    cutSelected: () => { this.cutSelectedItems(); },
+  });
 
   // Effective zoom map: item ID → cumulative zoom (product of own + ancestor zooms)
   readonly effectiveZoomMap = computed(() => {
@@ -294,7 +288,7 @@ export class OutlineComponent implements OnDestroy {
   ngOnDestroy(): void {
     this.scrollSub?.unsubscribe();
     this.sseSub?.unsubscribe();
-    this.stopListeningForSelectionEvents();
+    this.selection.dispose();
     this.closeWikiSuggestions();
   }
 
@@ -446,8 +440,7 @@ export class OutlineComponent implements OnDestroy {
     const items = this.state.visibleItems();
     const index = items.findIndex(b => b.id === itemId);
     if (index < 0) return;
-    const subtreeIds = this.state.getChildren(itemId).map(b => b.id);
-    this.enterSelectionMode(itemId, new Set([itemId, ...subtreeIds]));
+    this.selection.selectSubtree(itemId);
     setTimeout(() => this.scrollToItemElement(itemId), 50);
   }
 
@@ -1331,245 +1324,36 @@ export class OutlineComponent implements OnDestroy {
   // ---- Multi-item selection ----
 
   /**
-   * Handles the user pressing Shift+Up to begin or extend a multi-item selection upward.
+   * Handles the user pressing Shift+Up to begin a multi-item selection.
    * @param item - The item where Shift+Up was pressed
    */
   onShiftSelectUp(item: Item): void {
-    this.startShiftSelection(item);
+    this.selection.startFromEditor(item);
   }
 
   /**
-   * Handles the user pressing Shift+Down to begin or extend a multi-item selection downward.
+   * Handles the user pressing Shift+Down to begin a multi-item selection.
    * @param item - The item where Shift+Down was pressed
    */
   onShiftSelectDown(item: Item): void {
-    this.startShiftSelection(item);
-  }
-
-  private startShiftSelection(item: Item): void {
-    this.state.removeAllEditingItems();
-    // Initial selection: only the current item, no subtree
-    this.enterSelectionMode(item.id, new Set([item.id]));
+    this.selection.startFromEditor(item);
   }
 
   /**
    * Handles the user dragging the mouse beyond the bounds of a item editor.
    * Exits edit mode and enters multi-item selection mode with drag tracking.
    * @param item - The item where the drag started
-   * @param direction - Whether the drag went 'above' or 'below' the item
    */
-  onDragBeyondBounds(item: Item, direction: 'above' | 'below'): void {
-    this.state.removeAllEditingItems();
-    this.state.setItemSelectionMode(true);
-    this.selectionAnchorItemId = item.id;
-    this.isSelectionDragging = true;
-
-    // Select anchor item + children
-    const group = this.state.getItemWithChildren(item.id);
-    this.state.setSelectedItemIds(new Set(group.map(b => b.id)));
-
-    // The click listener is added on mouse up, so the release does not end the selection
-    this.listenForSelectionEvents('mouseup', 'keydown', 'copy', 'cut');
-  }
-
-  /**
-   * Selects the given items with the keyboard listeners of selection mode active.
-   * @param anchorItemId - The item the selection extends from
-   * @param selectedIds - The items selected to start with
-   */
-  private enterSelectionMode(anchorItemId: string, selectedIds: Set<string>): void {
-    this.state.setSelectedItemIds(selectedIds);
-    this.state.setItemSelectionMode(true);
-    this.selectionAnchorItemId = anchorItemId;
-    this.selectionExtentItemId = anchorItemId;
-    this.listenForSelectionEvents('keydown', 'click', 'copy', 'cut');
-  }
-
-  private exitSelectionMode(): void {
-    this.state.clearSelection();
-    this.selectionAnchorItemId = null;
-    this.selectionExtentItemId = null;
-    this.isSelectionDragging = false;
-    this.stopListeningForSelectionEvents();
-  }
-
-  private listenForSelectionEvents(...names: SelectionEventName[]): void {
-    for (const name of names) {
-      document.addEventListener(name, this.selectionListeners[name] as EventListener);
-    }
-  }
-
-  private stopListeningForSelectionEvents(): void {
-    for (const name of Object.keys(this.selectionListeners) as SelectionEventName[]) {
-      document.removeEventListener(name, this.selectionListeners[name] as EventListener);
-    }
-  }
-
-  private shiftExtendUp(): void {
-    const items = this.state.visibleItems();
-    let extentIdx = items.findIndex(b => b.id === this.selectionExtentItemId);
-    const anchorIdx = items.findIndex(b => b.id === this.selectionAnchorItemId);
-    if (extentIdx < 0 || anchorIdx < 0 || extentIdx <= 0) return;
-
-    // When expanding upward, skip past items already in selection
-    if (extentIdx <= anchorIdx) {
-      const selected = this.state.selectedItemIds();
-      while (extentIdx - 1 >= 0 && selected.has(items[extentIdx - 1].id)) {
-        extentIdx--;
-      }
-      if (extentIdx <= 0) return;
-    }
-
-    this.selectionExtentItemId = items[extentIdx - 1].id;
-    this.updateShiftSelection();
-  }
-
-  private shiftExtendDown(): void {
-    const items = this.state.visibleItems();
-    let extentIdx = items.findIndex(b => b.id === this.selectionExtentItemId);
-    const anchorIdx = items.findIndex(b => b.id === this.selectionAnchorItemId);
-    if (extentIdx < 0 || anchorIdx < 0 || extentIdx >= items.length - 1) return;
-
-    // When expanding downward, skip past items already in selection
-    if (extentIdx >= anchorIdx) {
-      const selected = this.state.selectedItemIds();
-      while (extentIdx + 1 < items.length && selected.has(items[extentIdx + 1].id)) {
-        extentIdx++;
-      }
-      if (extentIdx >= items.length - 1) return;
-    }
-
-    this.selectionExtentItemId = items[extentIdx + 1].id;
-    this.updateShiftSelection();
-  }
-
-  private updateShiftSelection(): void {
-    const items = this.state.visibleItems();
-    const anchorIdx = items.findIndex(b => b.id === this.selectionAnchorItemId);
-    const extentIdx = items.findIndex(b => b.id === this.selectionExtentItemId);
-    if (anchorIdx < 0 || extentIdx < 0) return;
-
-    const start = selectionStartIndex(items, anchorIdx, extentIdx);
-    // When selecting upward into a subtree, the extent moves to the ancestor that was
-    // pulled in, so the next Shift+Up continues from the correct position
-    if (extentIdx < anchorIdx && start < extentIdx) {
-      this.selectionExtentItemId = items[start].id;
-    }
-    this.selectRange(items, start, Math.max(anchorIdx, extentIdx));
+  onDragBeyondBounds(item: Item): void {
+    this.selection.startDrag(item);
   }
 
   /**
    * Handles the user's mouse entering a item during a drag selection.
-   * Extends the selection range from the anchor item to the hovered item.
    * @param item - The item the mouse entered
    */
   onItemMouseEnter(item: Item): void {
-    if (!this.isSelectionDragging) return;
-    this.selectionExtentItemId = item.id;
-
-    const items = this.state.visibleItems();
-    const anchorIdx = items.findIndex(b => b.id === this.selectionAnchorItemId);
-    const currentIdx = items.findIndex(b => b.id === item.id);
-    if (anchorIdx < 0 || currentIdx < 0) return;
-
-    this.selectRange(items, selectionStartIndex(items, anchorIdx, currentIdx), Math.max(anchorIdx, currentIdx));
-  }
-
-  /** Selects the items from start to end (inclusive) together with their subtrees. */
-  private selectRange(items: Item[], start: number, end: number): void {
-    this.state.setSelectedItemIds(idsOfRangeWithSubtrees(items, this.state.items(), start, end));
-  }
-
-  private onSelectionMouseUp(): void {
-    this.isSelectionDragging = false;
-    document.removeEventListener('mouseup', this.selectionListeners.mouseup);
-
-    // Add click listener to detect clicks outside selection
-    // Use setTimeout to avoid the current mouseup from triggering it
-    setTimeout(() => this.listenForSelectionEvents('click'), 0);
-  }
-
-  private handleSelectionKeydown(e: KeyboardEvent): void {
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      this.exitSelectionMode();
-      return;
-    }
-
-    // Ctrl+Z / Ctrl+Shift+Z in selection mode
-    if ((e.key === 'z' || e.key === 'Z') && e.ctrlKey && !e.altKey) {
-      e.preventDefault();
-      if (e.shiftKey) {
-        this.performRedo();
-      } else {
-        this.performUndo();
-      }
-      return;
-    }
-
-    if (e.key === 'Delete' || e.key === 'Backspace') {
-      e.preventDefault();
-      this.deleteSelectedItems();
-      return;
-    }
-
-    if (e.shiftKey && e.altKey) {
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        this.moveSelectedItems('up');
-        return;
-      }
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        this.moveSelectedItems('down');
-        return;
-      }
-      if (e.key === 'ArrowLeft') {
-        e.preventDefault();
-        this.outdentSelectedItems();
-        return;
-      }
-      if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        this.indentSelectedItems();
-        return;
-      }
-    }
-
-    if (e.shiftKey && !e.altKey && !e.ctrlKey) {
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        this.shiftExtendUp();
-        return;
-      }
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        this.shiftExtendDown();
-        return;
-      }
-    }
-
-    if (e.key === 'Tab') {
-      e.preventDefault();
-      if (e.shiftKey) {
-        this.outdentSelectedItems();
-      } else {
-        this.indentSelectedItems();
-      }
-      return;
-    }
-
-    if (e.ctrlKey && e.key === 'c') {
-      e.preventDefault();
-      this.copySelectedItems();
-      return;
-    }
-
-    if (e.ctrlKey && e.key === 'x') {
-      e.preventDefault();
-      this.cutSelectedItems();
-      return;
-    }
+    this.selection.extendDragTo(item);
   }
 
   private getOrderedSelectedItemIds(): string[] {
@@ -1586,7 +1370,7 @@ export class OutlineComponent implements OnDestroy {
     // Snapshot before deletion
     const deletedItems = selectedIds.map(id => this.state.getItemById(id)).filter((b): b is Item => !!b);
 
-    this.exitSelectionMode();
+    this.selection.exit();
 
     this.undo.begin('delete-selection');
     for (const b of deletedItems) {
@@ -1692,18 +1476,6 @@ export class OutlineComponent implements OnDestroy {
   private async cutSelectedItems(): Promise<void> {
     await this.copySelectedItems();
     await this.deleteSelectedItems();
-  }
-
-  private onSelectionCopy(e: ClipboardEvent): void {
-    if (!this.state.itemSelectionMode()) return;
-    e.preventDefault();
-    this.copySelectedItems();
-  }
-
-  private onSelectionCut(e: ClipboardEvent): void {
-    if (!this.state.itemSelectionMode()) return;
-    e.preventDefault();
-    this.cutSelectedItems();
   }
 
   // ---- Undo and redo ----
