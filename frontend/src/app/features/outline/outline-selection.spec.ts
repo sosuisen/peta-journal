@@ -66,6 +66,38 @@ describe('OutlineSelection', () => {
       expect(selected()).toEqual(['a', 'a1', 'a2', 'b']);
     });
 
+    it('Shift+Down after Shift+Up drops the whole subtree that was pulled in', () => {
+      selection.startFromEditor(state.getItemById('b')!);
+      press('ArrowUp', { shiftKey: true });
+
+      press('ArrowDown', { shiftKey: true });
+
+      expect(selected()).toEqual(['b']);
+    });
+
+    it('Shift+Down undoes one Shift+Up at a time', () => {
+      selection.startFromEditor(state.getItemById('c')!);
+      press('ArrowUp', { shiftKey: true });
+      press('ArrowUp', { shiftKey: true });
+      expect(selected()).toEqual(['a', 'a1', 'a2', 'b', 'c']);
+
+      press('ArrowDown', { shiftKey: true });
+      expect(selected()).toEqual(['b', 'c']);
+
+      press('ArrowDown', { shiftKey: true });
+      expect(selected()).toEqual(['c']);
+    });
+
+    it('Shift+Down from a child anchor shrinks back to the anchor', () => {
+      selection.startFromEditor(state.getItemById('a1')!);
+      press('ArrowUp', { shiftKey: true });
+      expect(selected()).toEqual(['a', 'a1', 'a2']);
+
+      press('ArrowDown', { shiftKey: true });
+
+      expect(selected()).toEqual(['a1']);
+    });
+
     it('stops at the ends of the page', () => {
       selection.startFromEditor(state.getItemById('c')!);
 

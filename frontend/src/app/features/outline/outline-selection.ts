@@ -1,5 +1,6 @@
 import { OutlineStateService } from '../../core/services/outline-state.service';
 import { Item } from '../../core/models/item.model';
+import { getSubtree } from './move-utils';
 import { idsOfRangeWithSubtrees, selectionStartIndex } from './outline-tree';
 
 /** What the keys pressed in selection mode do to the selected items. */
@@ -145,13 +146,18 @@ export class OutlineSelection {
     const anchorIdx = items.findIndex(b => b.id === this.anchorItemId);
     if (extentIdx < 0 || anchorIdx < 0 || extentIdx >= items.length - 1) return;
 
-    // When expanding downward, skip past items already in selection
     if (extentIdx >= anchorIdx) {
+      // When expanding downward, skip past items already in selection
       const selected = this.state.selectedItemIds();
       while (extentIdx + 1 < items.length && selected.has(items[extentIdx + 1].id)) {
         extentIdx++;
       }
       if (extentIdx >= items.length - 1) return;
+    } else {
+      // When shrinking from above, the extent is an ancestor that was pulled in with its
+      // subtree; step past the subtree, or the next selection would pull it in again
+      const subtreeEnd = extentIdx + getSubtree(items, items[extentIdx].id).length - 1;
+      extentIdx = Math.min(subtreeEnd, anchorIdx - 1);
     }
 
     this.extentItemId = items[extentIdx + 1].id;
