@@ -8,7 +8,8 @@ import { ApiService, ItemPosition } from '../../core/services/api.service';
 import { AutoSaveService } from '../../core/services/auto-save.service';
 import { Item } from '../../core/models/item.model';
 import { ClipboardService } from '../../core/services/clipboard.service';
-import { UndoService, UndoEntry, UndoOp, CursorState } from '../../core/services/undo.service';
+import { UndoService } from '../../core/services/undo.service';
+import { UndoReplayService } from './undo-replay.service';
 import { formatJournalDate, shiftIsoDate } from '../../core/utils/date.utils';
 import { classifyJournalFileName } from '../../core/utils/journal-filename.utils';
 import { NavigationService } from '../../core/services/navigation.service';
@@ -18,7 +19,7 @@ import { findCrossPagePlacement, findMoveDownTarget, findMoveUpTarget, getSubtre
 import {
   EditContext, TransclusionContext, canIndent, editContextOf, hasSiblingBelow, idsOfRangeWithSubtrees,
   lastDescendantOutside, levelForNewItemAfter, parentIndexOf, positionAfterSubtree, positionBefore,
-  positionByIndex, selectedRootItems, selectionStartIndex, transclusionContextOf, transclusionScopedItems,
+  selectedRootItems, selectionStartIndex, transclusionContextOf, transclusionScopedItems,
 } from './outline-tree';
 import { renderToHtml } from 'flatmarkdown-ast2html';
 import { HmtidService } from '../../core/services/hmtid.service';
@@ -162,6 +163,7 @@ export class OutlineComponent implements OnDestroy {
   private readonly clipboard = inject(ClipboardService);
   private readonly nav = inject(NavigationService);
   private readonly undo = inject(UndoService);
+  private readonly undoReplay = inject(UndoReplayService);
   private readonly config = inject(ConfigService);
   private readonly hmtid = inject(HmtidService);
   private readonly sse = inject(SseService);
@@ -2047,40 +2049,22 @@ export class OutlineComponent implements OnDestroy {
   // ---- Undo and redo ----
 
   async performUndo(): Promise<void> {
-    if (this.undo.isPending()) return;
-    this.discardPendingEditOfFocusedItem();
-
-    const entry = this.undo.popUndo();
-    if (!entry) return;
-
-    // Apply inverse ops in reverse order
-    for (let i = entry.ops.length - 1; i >= 0; i--) {
-      this.applyUndoOp(entry.ops[i], 'undo');
+    if (await this.undoReplay.replay('undo', this.undoEditor)) {
+      await this.ensureAtLeastOneItem();
     }
-    this.restoreCursor(entry, 'undo');
-
-    this.undo.pushRedo(entry);
-    this.syncToServer(entry, 'undo');
-    await this.ensureAtLeastOneItem();
   }
 
   async performRedo(): Promise<void> {
-    if (this.undo.isPending()) return;
-    this.discardPendingEditOfFocusedItem();
-
-    const entry = this.undo.popRedo();
-    if (!entry) return;
-
-    // Apply forward ops in order
-    for (const op of entry.ops) {
-      this.applyUndoOp(op, 'redo');
+    if (await this.undoReplay.replay('redo', this.undoEditor)) {
+      await this.ensureAtLeastOneItem();
     }
-    this.restoreCursor(entry, 'redo');
-
-    this.undo.pushUndo(entry);
-    this.syncToServer(entry, 'redo');
-    await this.ensureAtLeastOneItem();
   }
+
+  /** What a replay needs from the component: the edit in progress and the editor focus. */
+  private readonly undoEditor = {
+    discardPendingEdit: () => this.discardPendingEditOfFocusedItem(),
+    focusEditor: (itemId: string) => { this.focusEditor(itemId); },
+  };
 
   /** The undo or redo replaces the item; text waiting for the auto-save would be stale. */
   private discardPendingEditOfFocusedItem(): void {
@@ -2089,91 +2073,6 @@ export class OutlineComponent implements OnDestroy {
     const focused = this.state.getItemById(focusedId);
     this.dirtyItemIds.delete(focusedId);
     this.autoSave.cancelItem(focused ? this.saveTargetId(focused) : focusedId);
-  }
-
-  /** Applies one recorded operation to the state, in the undo or the redo direction. */
-  private applyUndoOp(op: UndoOp, dir: 'undo' | 'redo'): void {
-    switch (op.type) {
-      case 'update': {
-        const target = dir === 'undo' ? op.before : op.after;
-        this.state.updateItem(target.id, target);
-        if (op.before.collapsed !== op.after.collapsed) {
-          this.state.toggleCollapsed(target.id);
-        }
-        break;
-      }
-      case 'create':
-        if (dir === 'undo') this.state.deleteItem(op.item.id);
-        else this.state.addItem(op.item, this.findInsertionPosition(op.item));
-        break;
-      case 'delete':
-        if (dir === 'undo') this.state.addItem(op.item, this.findInsertionPosition(op.item));
-        else this.state.deleteItem(op.item.id);
-        break;
-    }
-  }
-
-  /**
-   * Opens the editor where the cursor was before (undo) or after (redo) the entry.
-   * Entries without a recorded cursor, such as body edits, keep editing the first updated item.
-   */
-  private restoreCursor(entry: UndoEntry, dir: 'undo' | 'redo'): void {
-    let cursor: CursorState | null = dir === 'undo' ? entry.cursorBefore : entry.cursorAfter;
-    if (!cursor) {
-      const firstUpdate = entry.ops.find(op => op.type === 'update');
-      if (firstUpdate && firstUpdate.type === 'update') {
-        const target = dir === 'undo' ? firstUpdate.before : firstUpdate.after;
-        cursor = { itemId: target.id, position: target.body.length };
-      }
-    }
-    if (!cursor) {
-      this.state.removeAllEditingItems();
-      return;
-    }
-    this.state.addEditingItem(cursor.itemId);
-    this.state.setFocusedItem(cursor.itemId, cursor.position);
-    this.focusEditor(cursor.itemId);
-  }
-
-  private findInsertionPosition(item: Item): ItemPosition {
-    return positionByIndex(this.state.items(), item);
-  }
-
-  private async syncToServer(entry: UndoEntry, dir: 'undo' | 'redo'): Promise<void> {
-    try {
-      const ops = dir === 'undo' ? [...entry.ops].reverse() : entry.ops;
-      for (const op of ops) {
-        if (op.type === 'update') {
-          const target = dir === 'undo' ? op.before : op.after;
-          const updated = await this.api.updateItem(target.id, {
-            body: target.body,
-            level: target.level,
-            collapsed: target.collapsed,
-          });
-          this.state.updateItem(updated.id, { idx: updated.idx, level: updated.level });
-        } else if ((op.type === 'create') === (dir === 'redo')) {
-          // Redo a create, or undo a delete: the item exists again
-          await this.recreateOnServer(op);
-        } else {
-          // Undo a create, or redo a delete: the item is gone
-          await this.api.deleteItem(op.item.id);
-        }
-      }
-    } catch (e) {
-      console.error('Failed to sync undo/redo to server:', e);
-    }
-  }
-
-  /** Creates the item of a create/delete op again on the server and records the new server item in the op. */
-  private async recreateOnServer(op: Extract<UndoOp, { type: 'create' | 'delete' }>): Promise<void> {
-    const pos = this.findInsertionPosition(op.item);
-    const newItem = await this.api.createItem(
-      op.item.pageId, pos, op.item.level, op.item.body
-    );
-    // Remap: update local state with real server item
-    this.state.deleteItem(op.item.id);
-    this.state.addItem(newItem, pos);
-    op.item = newItem;
   }
 
   // ---- Transclusion helpers ----
