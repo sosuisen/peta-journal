@@ -1,4 +1,4 @@
-import { Component, inject, input, output, effect, Injector, afterNextRender, viewChild, viewChildren, signal, computed, untracked, OnDestroy, OnInit } from '@angular/core';
+import { Component, inject, input, output, effect, Injector, afterNextRender, viewChild, viewChildren, signal, computed, untracked, OnDestroy } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { ScrollingModule, CdkVirtualScrollViewport } from '@angular/cdk/scrolling';
 import { ScrollingModule as ExperimentalScrollingModule } from '@angular/cdk-experimental/scrolling';
@@ -8,8 +8,9 @@ import { ApiService, ItemPosition } from '../../core/services/api.service';
 import { AutoSaveService } from '../../core/services/auto-save.service';
 import { Item } from '../../core/models/item.model';
 import { ClipboardService } from '../../core/services/clipboard.service';
-import { UndoService, UndoEntry } from '../../core/services/undo.service';
+import { UndoService, UndoEntry, UndoOp, CursorState } from '../../core/services/undo.service';
 import { formatJournalDate, formatDateToIso } from '../../core/utils/date.utils';
+import { classifyJournalFileName } from '../../core/utils/journal-filename.utils';
 import { NavigationService } from '../../core/services/navigation.service';
 import { ConfigService } from '../../core/services/config.service';
 import { WikiLinkContext, ensureCodeFenceClosed, hasUnclosedCodeFence } from './item-editor';
@@ -17,6 +18,30 @@ import { findCrossPagePlacement, findMoveDownTarget, findMoveUpTarget } from './
 import { renderToHtml } from 'flatmarkdown-ast2html';
 import { HmtidService } from '../../core/services/hmtid.service';
 import { SseService } from '../../core/services/sse.service';
+
+/**
+ * Where an edit of an item shown in the outline is really stored.
+ * A transclusion root shows the body of its source item, and a transcluded
+ * descendant belongs to the source page, so both are saved there and the
+ * levels they show are offset from the levels stored.
+ */
+interface EditContext {
+  /** The page new items are created on. */
+  pageId: string;
+  /** Shown level minus stored level; 0 outside a transclusion. */
+  levelOffset: number;
+  /** True for a transclusion root or a transcluded descendant. */
+  inTransclusion: boolean;
+}
+
+/** The transclusion root an item is shown under, with the level offset of that tree. */
+interface TransclusionContext {
+  rootItemId: string;
+  rootDisplayLevel: number;
+  levelOffset: number;
+}
+
+type SelectionEventName = 'keydown' | 'click' | 'copy' | 'cut' | 'mouseup';
 
 @Component({
   selector: 'app-outline',
@@ -51,8 +76,8 @@ import { SseService } from '../../core/services/sse.service';
           (outdentRequested)="onOutdent(item)"
           (moveUp)="onMoveUp(item)"
           (moveDown)="onMoveDown(item)"
-          (taskToggled)="onTaskStatusToggled(item)"
-          (statusCycleRequested)="onStatusCycleRequested(item)"
+          (taskToggled)="onTaskCycleRequested(item)"
+          (statusCycleRequested)="onTaskCycleRequested(item)"
           (collapseToggled)="onCollapseToggled(item)"
           (pasteDetected)="onPaste(item, $event)"
           (imagePasteDetected)="onImagePaste(item, $event)"
@@ -146,7 +171,7 @@ import { SseService } from '../../core/services/sse.service';
     }
   `]
 })
-export class OutlineComponent implements OnInit, OnDestroy {
+export class OutlineComponent implements OnDestroy {
   readonly state = inject(OutlineStateService);
   private readonly api = inject(ApiService);
   private readonly autoSave = inject(AutoSaveService);
@@ -158,8 +183,8 @@ export class OutlineComponent implements OnInit, OnDestroy {
   private readonly hmtid = inject(HmtidService);
   private readonly sse = inject(SseService);
   private sseSub?: Subscription;
-  /** Pages changed on disk while the user was editing; reloaded once editing stops. */
-  private readonly pendingFileReloads = new Set<string>();
+  private scrollSub?: Subscription;
+
   readonly pageId = input.required<string>();
   readonly focusItemId = input<string | null | undefined>('');
   readonly disableAutoLoad = input<boolean>(false);  // Disable automatic item loading
@@ -168,14 +193,49 @@ export class OutlineComponent implements OnInit, OnDestroy {
   readonly crossDayMoved = output<{ targetDate: string; navigate: boolean; itemId: string }>();  // Emits after cross-day move
   readonly topItemChanged = output<string>();  // Emits name of top visible item
   readonly scrolledFromTop = output<boolean>();  // Emits true when scrolled away from top
-  private readonly dirtyItemIds = new Set<string>();
-  private switchingEditItem = false;
-  private movingEditItem = false;
-  /** Tail of the move queue; see enqueueMove. */
-  private moveQueue: Promise<void> = Promise.resolve();
-  private operatingEnterKey = false;  // Prevents onEditFinished from flushing
+
   private readonly viewport = viewChild<CdkVirtualScrollViewport>('viewport');
   private readonly outlineItems = viewChildren<OutlineItemComponent>('outlineItem');
+
+  // ---- Editing state ----
+
+  /** Shown item IDs whose body was typed into and not yet saved by {@link saveShownItem}. */
+  private readonly dirtyItemIds = new Set<string>();
+  /**
+   * Number of handlers that are saving the edited item and choosing the next edited
+   * item themselves (clicking another item, moving an item, splitting it with Enter).
+   * While it is above zero the blur of the editor is ignored, see {@link onEditFinished}.
+   */
+  private editHandovers = 0;
+  /** Pages changed on disk while the user was editing; reloaded once editing stops. */
+  private readonly pendingFileReloads = new Set<string>();
+  /** Tail of the move queue; see enqueueMove. */
+  private moveQueue: Promise<void> = Promise.resolve();
+
+  // ---- Wiki link suggestions ----
+
+  readonly wikiSuggestions = signal<string[]>([]);
+  readonly wikiSuggestionIndex = signal(0);
+  readonly wikiSuggestionsItemId = signal<string | null>(null);
+  readonly wikiSuggestionsPos = signal({ x: 0, y: 0 });
+  private wikiSearchTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // ---- Multi-item selection ----
+
+  /** The item the selection started from. */
+  private selectionAnchorItemId: string | null = null;
+  /** The item the selection was last extended to. */
+  private selectionExtentItemId: string | null = null;
+  /** True while the mouse button is held after dragging out of an editor. */
+  private isSelectionDragging = false;
+  /** Document-level listeners that are active only in selection mode. */
+  private readonly selectionListeners: { [K in SelectionEventName]: (e: DocumentEventMap[K]) => void } = {
+    keydown: e => this.handleSelectionKeydown(e),
+    click: () => this.exitSelectionMode(),
+    copy: e => this.onSelectionCopy(e),
+    cut: e => this.onSelectionCut(e),
+    mouseup: () => this.onSelectionMouseUp(),
+  };
 
   // Effective zoom map: item ID → cumulative zoom (product of own + ancestor zooms)
   readonly effectiveZoomMap = computed(() => {
@@ -196,23 +256,6 @@ export class OutlineComponent implements OnInit, OnDestroy {
     }
     return map;
   });
-
-  // Wiki link suggestions state
-  readonly wikiSuggestions = signal<string[]>([]);
-  readonly wikiSuggestionIndex = signal(0);
-  readonly wikiSuggestionsItemId = signal<string | null>(null);
-  readonly wikiSuggestionsPos = signal({ x: 0, y: 0 });
-  private wikiSearchTimer: ReturnType<typeof setTimeout> | null = null;
-
-  private scrollSub?: Subscription;
-  private selectionAnchorItemId: string | null = null;
-  private selectionExtentItemId: string | null = null;
-  private isSelectionDragging = false;
-  private selectionKeydownHandler = (e: KeyboardEvent) => this.handleSelectionKeydown(e);
-  private selectionMouseUpHandler = () => this.onSelectionMouseUp();
-  private selectionClickHandler = (e: MouseEvent) => this.onSelectionClick(e);
-  private selectionCopyHandler = (e: ClipboardEvent) => this.onSelectionCopy(e);
-  private selectionCutHandler = (e: ClipboardEvent) => this.onSelectionCut(e);
 
   constructor() {
     effect(() => {
@@ -271,6 +314,13 @@ export class OutlineComponent implements OnInit, OnDestroy {
     });
   }
 
+  ngOnDestroy(): void {
+    this.scrollSub?.unsubscribe();
+    this.sseSub?.unsubscribe();
+    this.stopListeningForSelectionEvents();
+    this.closeWikiSuggestions();
+  }
+
   onViewportScroll(): void {
     const vp = this.viewport();
     if (!vp) return;
@@ -288,14 +338,13 @@ export class OutlineComponent implements OnInit, OnDestroy {
     const vpTop = vpEl.getBoundingClientRect().top;
     const wrapper = vpEl.querySelector('.cdk-virtual-scroll-content-wrapper');
     if (wrapper) {
-      const ownItems = this.state.items();
       for (let ci = 0; ci < wrapper.children.length; ci++) {
         const el = wrapper.children[ci] as HTMLElement;
         if (el.getBoundingClientRect().bottom > vpTop) {
           const idx = range.start + ci;
           // Walk backward to find the owning journal page item
           for (let j = Math.min(idx, totalItems - 1); j >= 0; j--) {
-            if (ownItems.some(b => b.id === items[j].id)) {
+            if (this.state.isOwnItem(items[j].id)) {
               this.topItemChanged.emit(items[j].name);
               break;
             }
@@ -333,13 +382,12 @@ export class OutlineComponent implements OnInit, OnDestroy {
     const items = this.state.visibleItems();
     if (index === 0) return true;
     const currentItem = items[index];
-    const ownItems = this.state.items();
     // Skip transcluded descendants — they belong to a different page but are
     // displayed inline, so they should never trigger a date header.
-    if (!ownItems.some(b => b.id === currentItem.id)) return false;
+    if (!this.state.isOwnItem(currentItem.id)) return false;
     // Find the previous item that is actually on our page (skip transcluded descendants)
     for (let i = index - 1; i >= 0; i--) {
-      if (ownItems.some(b => b.id === items[i].id)) {
+      if (this.state.isOwnItem(items[i].id)) {
         return currentItem.name !== items[i].name;
       }
     }
@@ -355,6 +403,8 @@ export class OutlineComponent implements OnInit, OnDestroy {
     return formatJournalDate(fileName);
   }
 
+  // ---- Loading ----
+
   /**
    * Replaces the items of one page with the server's current version after the
    * markdown file changed on disk. Waits while the user is editing so their typing
@@ -363,7 +413,7 @@ export class OutlineComponent implements OnInit, OnDestroy {
   private async reloadPageFromFile(pageId: string): Promise<void> {
     const current = this.state.items();
     if (!current.some(i => i.pageId === pageId)) return;  // not shown in this outline
-    if (this.state.editingItemIds().size > 0 || this.dirtyItemIds.size > 0) {
+    if (this.isEditInProgress()) {
       this.pendingFileReloads.add(pageId);
       return;
     }
@@ -376,10 +426,7 @@ export class OutlineComponent implements OnInit, OnDestroy {
       const after = items.slice(first).filter(i => i.pageId !== pageId);
       this.state.setItems([...before, ...result.items, ...after]);
       if (result.transcludedTrees) {
-        this.state.setTranscludedTrees({
-          ...Object.fromEntries(this.state.transcludedTrees()),
-          ...result.transcludedTrees,
-        });
+        this.state.mergeTranscludedTrees(result.transcludedTrees);
       }
     } catch (e) {
       console.error('Failed to reload page from file:', pageId, e);
@@ -387,10 +434,15 @@ export class OutlineComponent implements OnInit, OnDestroy {
   }
 
   private flushPendingFileReloads(): void {
-    if (this.state.editingItemIds().size > 0 || this.dirtyItemIds.size > 0) return;
+    if (this.isEditInProgress()) return;
     const ids = [...this.pendingFileReloads];
     this.pendingFileReloads.clear();
     for (const id of ids) this.reloadPageFromFile(id);
+  }
+
+  /** True while an editor is open or typed text has not been saved yet. */
+  private isEditInProgress(): boolean {
+    return this.state.editingItemIds().size > 0 || this.dirtyItemIds.size > 0;
   }
 
   private async loadItems(pageId: string): Promise<void> {
@@ -414,6 +466,8 @@ export class OutlineComponent implements OnInit, OnDestroy {
     this.focusEditor(newItem.id);
   }
 
+  // ---- Scrolling ----
+
   private scrollToFocusItem(): void {
     const itemId = this.focusItemId();
     if (!itemId) return;
@@ -421,14 +475,7 @@ export class OutlineComponent implements OnInit, OnDestroy {
     const index = items.findIndex(b => b.id === itemId);
     if (index < 0) return;
     const subtreeIds = this.state.getChildren(itemId).map(b => b.id);
-    this.state.setSelectedItemIds(new Set([itemId, ...subtreeIds]));
-    this.state.setItemSelectionMode(true);
-    this.selectionAnchorItemId = itemId;
-    this.selectionExtentItemId = itemId;
-    document.addEventListener('keydown', this.selectionKeydownHandler);
-    document.addEventListener('click', this.selectionClickHandler);
-    document.addEventListener('copy', this.selectionCopyHandler);
-    document.addEventListener('cut', this.selectionCutHandler);
+    this.enterSelectionMode(itemId, new Set([itemId, ...subtreeIds]));
     setTimeout(() => this.scrollToItemElement(itemId), 50);
   }
 
@@ -489,6 +536,8 @@ export class OutlineComponent implements OnInit, OnDestroy {
     scrollParent.scrollBy({ top: delta, behavior });
   }
 
+  // ---- Editing ----
+
   /**
    * Handles the user clicking on a item to start editing it.
    * Ignored when item selection mode is active.
@@ -501,9 +550,7 @@ export class OutlineComponent implements OnInit, OnDestroy {
     if (currentId && currentId !== itemId) {
       const current = this.state.getItemById(currentId);
       if (current) {
-        this.switchingEditItem = true;
-        await this.saveItemIfDirty(current);
-        this.switchingEditItem = false;
+        await this.handOverEdit(() => this.saveItemIfDirty(current));
       }
     }
     this.state.addEditingItem(itemId);
@@ -517,12 +564,10 @@ export class OutlineComponent implements OnInit, OnDestroy {
    * @param newBody - The updated body text
    */
   onBodyChanged(item: Item, newBody: string): void {
-    // For transclusion items, redirect body edit to the source item
-    const targetId = item.transcludeItemId ?? item.id;
     const before = { ...item };
     this.state.updateItem(item.id, { body: newBody });
     this.dirtyItemIds.add(item.id);
-    this.autoSave.scheduleItemUpdate(targetId, newBody);
+    this.autoSave.scheduleItemUpdate(this.saveTargetId(item), newBody);
     const after = { ...item, body: newBody };
     this.undo.begin('body');
     this.undo.pushUpdate(before, after);
@@ -536,42 +581,116 @@ export class OutlineComponent implements OnInit, OnDestroy {
    */
   async onEditFinished(item: Item): Promise<void> {
     this.closeWikiSuggestions();
-    if (this.switchingEditItem) return;  // onEditRequested is handling save + switch
-
-    if (this.movingEditItem) return;  // onMoveUp/onMoveDown is handling save + switch
-
-    // If not in editing set, another handler already removed it
+    // The handler that started the handover saves the item and picks the next edited item
+    if (this.editHandovers > 0) return;
+    // Another handler already ended this edit
     if (!this.state.editingItemIds().has(item.id)) return;
 
-    if (this.operatingEnterKey) return;
-
-    const saveTargetId = item.transcludeItemId ?? item.id;
-
-    if (!this.dirtyItemIds.has(item.id)) {
+    if (this.dirtyItemIds.has(item.id)) {
+      this.dirtyItemIds.delete(item.id);
+      this.autoSave.cancelItem(this.saveTargetId(item));
+      await this.saveShownItem(item);
+    } else {
       const current = this.state.getItemById(item.id);
       if (current && hasUnclosedCodeFence(current.body)) {
-        const updated = await this.saveItemBody(saveTargetId, current.body);
-        // Sync ast back to the transclusion item if redirected
-        if (saveTargetId !== item.id) {
-          this.state.updateItem(item.id, { ast: updated.ast, types: updated.types });
-        }
-      }
-      this.state.removeEditingItem(item.id);
-      return;
-    }
-    // Save dirty item
-    this.dirtyItemIds.delete(item.id);
-    await this.autoSave.flushItem(saveTargetId);
-    const current = this.state.getItemById(item.id);
-    if (current) {
-      const updated = await this.saveItemBody(saveTargetId, current.body);
-      // Sync ast back to the transclusion item if redirected
-      if (saveTargetId !== item.id) {
-        this.state.updateItem(item.id, { ast: updated.ast, types: updated.types });
+        await this.saveShownItem(item);
       }
     }
     this.state.removeEditingItem(item.id);
   }
+
+  /**
+   * Runs a handler that saves the edited item and decides which item is edited next.
+   * The blur the handler causes must not end the edit a second time, so
+   * {@link onEditFinished} ignores it while the handler runs.
+   */
+  private async handOverEdit<T>(handler: () => Promise<T>): Promise<T> {
+    this.editHandovers++;
+    try {
+      return await handler();
+    } finally {
+      this.editHandovers--;
+    }
+  }
+
+  /** The item an edit of the shown item is saved to: a transclusion root edits its source item. */
+  private saveTargetId(item: Item): string {
+    return item.transcludeItemId ?? item.id;
+  }
+
+  /**
+   * Saves the body the shown item has in the state. When the item is a transclusion root,
+   * the AST and types returned for the source are copied back to the shown item.
+   * @returns The saved item, or undefined when the item is no longer in the state
+   */
+  private async saveShownItem(item: Item): Promise<Item | undefined> {
+    const current = this.state.getItemById(item.id);
+    if (!current) return undefined;
+    const targetId = this.saveTargetId(item);
+    const updated = await this.saveItemBody(targetId, current.body);
+    if (targetId !== item.id) {
+      this.state.updateItem(item.id, { ast: updated.ast, types: updated.types });
+    }
+    return updated;
+  }
+
+  private async saveItemIfDirty(item: Item): Promise<void> {
+    if (!this.dirtyItemIds.has(item.id)) return;
+    this.dirtyItemIds.delete(item.id);
+    this.autoSave.cancelItem(this.saveTargetId(item));
+    if (await this.saveShownItem(item)) {
+      this.state.removeEditingItem(item.id);
+    }
+  }
+
+  /**
+   * Sends typed text that is still waiting for the auto-save to the server right now.
+   * Used before an operation whose server response replaces the item in the state,
+   * so the response carries the typed text instead of an older body.
+   */
+  private async flushPendingEdit(item: Item): Promise<void> {
+    if (!this.dirtyItemIds.has(item.id)) return;
+    this.dirtyItemIds.delete(item.id);
+    await this.autoSave.flushItem(this.saveTargetId(item));
+  }
+
+  /** Drops typed text that is still waiting for the auto-save, because it is saved another way. */
+  private discardPendingEdit(item: Item): void {
+    this.dirtyItemIds.delete(item.id);
+    this.autoSave.cancelItem(this.saveTargetId(item));
+  }
+
+  private async saveItemBody(itemId: string, body: string): Promise<Item> {
+    const normalized = ensureCodeFenceClosed(body);
+    this.state.updateItem(itemId, { body: normalized });
+    const updated = await this.api.updateItem(itemId, { body: normalized });
+    this.state.updateItem(itemId, { body: updated.body, ast: updated.ast, types: updated.types });
+    return updated;
+  }
+
+  /**
+   * Focuses the editor of an item once the next render is done.
+   * @param itemId - The item whose editor is focused; the first editor on the page when omitted
+   * @returns A promise that settles after the editor was focused
+   */
+  private focusEditor(itemId?: string): Promise<void> {
+    return new Promise(resolve => {
+      afterNextRender(() => {
+        const selector = itemId
+          ? `#item-editor-${itemId}`
+          : 'app-item-editor textarea';
+        const el = document.querySelector<HTMLTextAreaElement>(selector);
+        if (el) {
+          el.focus({ preventScroll: true });
+          el.style.height = 'auto';
+          el.style.height = el.scrollHeight + 'px';
+        }
+        resolve();
+      }, { injector: this.injector });
+    });
+  }
+
+  // ---- Enter, Backspace, Delete ----
 
   /**
    * Handles the user pressing Enter in a item editor. Splits the item at the cursor position,
@@ -581,200 +700,197 @@ export class OutlineComponent implements OnInit, OnDestroy {
    * @param event - Contains the cursor position at the time of the keypress
    */
   async onEnterPressed(item: Item, event: { cursorPos: number }): Promise<void> {
-    // Detect transclusion context
-    const isTransclusionRoot = !!item.transcludeItemId && this.state.items().some(b => b.id === item.id);
-    const isInItems = this.state.items().some(b => b.id === item.id);
-    const isTranscludedDescendant = !isInItems; // Item from source page shown via transclusion
+    this.discardPendingEdit(item);
 
-    // Resolve source page/id for transclusion items
-    let sourcePageId = item.pageId;
-    let saveTargetId = item.id;
-    let sourceAfterItemId = item.id;
-    // Level offset: difference between displayed level and source-side level
-    let levelOffset = 0;
-    if (isTransclusionRoot) {
-      const trees = this.state.transcludedTrees();
-      const tree = trees.get(item.transcludeItemId!);
-      if (tree && tree.length > 0) {
-        sourcePageId = tree[0].pageId;
-        levelOffset = item.level - tree[0].level;
+    if (item.body.length === 0 && item.level > 1 && !this.hasSiblingBelow(item)) {
+      // Empty last child: outdent instead of creating a new item
+      await this.onOutdent(item);
+      this.focusEditor(item.id);
+      return;
+    }
+
+    const { cursorPos } = event;
+    await this.handOverEdit(async () => {
+      if (cursorPos === 0 && item.body.length > 0) {
+        await this.insertEmptyItemBefore(item, cursorPos);
+      } else if (cursorPos === item.body.length) {
+        await this.appendEmptyItemAfter(item, cursorPos);
+      } else {
+        await this.splitItemAt(item, cursorPos);
       }
-      saveTargetId = item.transcludeItemId!;
-      sourceAfterItemId = item.transcludeItemId!;
-    } else if (isTranscludedDescendant) {
-      // Find the original level from the transcluded trees
-      const trees = this.state.transcludedTrees();
-      for (const tree of trees.values()) {
+    });
+  }
+
+  /** True when a sibling at the same level follows the item within the same parent. */
+  private hasSiblingBelow(item: Item): boolean {
+    const vItems = this.state.visibleItems();
+    const vIdx = vItems.findIndex(b => b.id === item.id);
+    for (let i = vIdx + 1; i < vItems.length; i++) {
+      if (vItems[i].level < item.level) break;
+      if (vItems[i].level === item.level) return true;
+    }
+    return false;
+  }
+
+  /** Enter at the beginning: a new empty item goes before the current one, which keeps its text. */
+  private async insertEmptyItemBefore(item: Item, cursorPos: number): Promise<void> {
+    const ctx = this.editContextOf(item);
+    // Inside a transclusion the new item goes to the top of the source page
+    const position: ItemPosition = ctx.inTransclusion ? 'first' : this.positionBefore(item);
+    const [newItem] = await Promise.all([
+      this.api.createItem(ctx.pageId, position, item.level - ctx.levelOffset, ''),
+      this.saveItemBody(this.saveTargetId(item), item.body),
+    ]);
+    await this.showCreatedItem(newItem, position, ctx);
+
+    this.undo.begin('enter', { itemId: item.id, position: cursorPos });
+    this.undo.pushCreate(newItem);
+    this.undo.commit({ itemId: newItem.id, position: 0 });
+
+    this.state.addEditingItem(newItem.id);
+    this.focusEditor(newItem.id);
+    this.state.removeEditingItem(item.id);
+  }
+
+  /**
+   * Enter at the end: the new item is shown at once with a client-side ID and
+   * created on the server in the background.
+   */
+  private async appendEmptyItemAfter(item: Item, cursorPos: number): Promise<void> {
+    const ctx = this.editContextOf(item);
+    const newLevel = this.levelForNewItemAfter(item, ctx);
+    const position = this.positionAfterSubtree(item);
+    const newId = this.hmtid.nextId();
+    const optimisticItem: Item = {
+      id: newId,
+      pageId: ctx.pageId,
+      dirPath: item.dirPath,
+      name: item.name,
+      type: item.type,
+      createdDate: Date.now(),
+      modifiedDate: Date.now(),
+      idx: '',
+      level: newLevel,
+      body: '',
+      ast: '',
+      collapsed: false,
+      types: [],
+      properties: {},
+    };
+    this.api.createItem(ctx.pageId, position, newLevel - ctx.levelOffset, '', newId).then(async serverItem => {
+      if (ctx.inTransclusion) {
+        await this.loadItems(this.pageId());
+      } else {
+        this.state.updateItem(newId, { idx: serverItem.idx });
+      }
+    });
+    this.state.addItem(optimisticItem, position);
+
+    this.undo.begin('enter', { itemId: item.id, position: cursorPos });
+    this.undo.pushUpdate({ ...item }, { ...item });
+    this.undo.pushCreate(optimisticItem);
+    this.undo.commit({ itemId: newId, position: 0 });
+
+    this.discardPendingEdit(item);
+    this.state.addEditingItem(newId);
+    this.state.setFocusedItem(newId);
+    this.focusEditor(newId);
+
+    await this.saveItemBody(this.saveTargetId(item), item.body.substring(0, cursorPos));
+    this.state.removeEditingItem(item.id);
+  }
+
+  /** Enter in the middle: the text after the cursor moves to a new item below. */
+  private async splitItemAt(item: Item, cursorPos: number): Promise<void> {
+    const ctx = this.editContextOf(item);
+    const newLevel = this.levelForNewItemAfter(item, ctx);
+    const position = this.positionAfterSubtree(item);
+    const beforeText = item.body.substring(0, cursorPos);
+    const afterText = item.body.substring(cursorPos);
+    const originalItem = { ...item };
+
+    const [updatedOriginal, newItem] = await Promise.all([
+      this.saveItemBody(this.saveTargetId(item), beforeText),
+      this.api.createItem(ctx.pageId, position, newLevel - ctx.levelOffset, afterText),
+    ]);
+    await this.showCreatedItem(newItem, position, ctx);
+
+    this.undo.begin('enter', { itemId: item.id, position: cursorPos });
+    this.undo.pushUpdate(originalItem, updatedOriginal);
+    this.undo.pushCreate(newItem);
+    this.undo.commit({ itemId: newItem.id, position: 0 });
+
+    this.state.addEditingItem(newItem.id);
+    this.state.setFocusedItem(newItem.id);
+    this.focusEditor(newItem.id);
+    this.state.removeEditingItem(item.id);
+  }
+
+  /** Puts a newly created item into the state. Inside a transclusion the page is reloaded so the trees are fresh. */
+  private async showCreatedItem(newItem: Item, position: ItemPosition, ctx: EditContext): Promise<void> {
+    if (ctx.inTransclusion) {
+      await this.loadItems(this.pageId());
+    } else {
+      this.state.addItem(newItem, position);
+    }
+  }
+
+  /** The position right before an item of this outline's own pages. */
+  private positionBefore(item: Item): ItemPosition {
+    const allItems = this.state.items();
+    const itemIdx = allItems.findIndex(b => b.id === item.id);
+    return itemIdx > 0 ? `after:${allItems[itemIdx - 1].id}` : 'first';
+  }
+
+  /** The position after the item, or after its last descendant when it is collapsed. */
+  private positionAfterSubtree(item: Item): ItemPosition {
+    const descendants = item.collapsed ? this.state.getChildren(item.id) : [];
+    const afterId = descendants.length > 0 ? descendants[descendants.length - 1].id : this.saveTargetId(item);
+    return `after:${afterId}`;
+  }
+
+  /**
+   * The shown level of an item created right after the given one: one deeper when the
+   * item is expanded and already has children, otherwise the same level.
+   */
+  private levelForNewItemAfter(item: Item, ctx: EditContext): number {
+    let next: Item | undefined;
+    if (ctx.inTransclusion) {
+      const vItems = this.state.visibleItems();
+      const vIdx = vItems.findIndex(b => b.id === item.id);
+      next = vIdx >= 0 ? vItems[vIdx + 1] : undefined;
+    } else {
+      const allItems = this.state.items();
+      const idx = allItems.findIndex(b => b.id === item.id);
+      next = idx >= 0 ? allItems[idx + 1] : undefined;
+    }
+    return !item.collapsed && next && next.level === item.level + 1 ? item.level + 1 : item.level;
+  }
+
+  /** Resolves the page, the level offset and the transclusion state for editing an item. */
+  private editContextOf(item: Item): EditContext {
+    const isOwn = this.state.isOwnItem(item.id);
+    if (isOwn && item.transcludeItemId) {
+      // Transclusion root: edits go to the source page
+      const tree = this.state.transcludedTrees().get(item.transcludeItemId);
+      if (tree && tree.length > 0) {
+        return { pageId: tree[0].pageId, levelOffset: item.level - tree[0].level, inTransclusion: true };
+      }
+      return { pageId: item.pageId, levelOffset: 0, inTransclusion: true };
+    }
+    if (!isOwn) {
+      // Transcluded descendant: it already belongs to the source page
+      let levelOffset = 0;
+      for (const tree of this.state.transcludedTrees().values()) {
         const found = tree.find(t => t.id === item.id);
         if (found) {
           levelOffset = item.level - found.level;
           break;
         }
       }
+      return { pageId: item.pageId, levelOffset, inTransclusion: true };
     }
-
-    this.autoSave.cancelItem(saveTargetId);
-    this.dirtyItemIds.delete(saveTargetId);
-
-    const { cursorPos } = event;
-    const beforeText = item.body.substring(0, cursorPos);
-    const afterText = item.body.substring(cursorPos);
-
-    if (item.body.length === 0 && item.level > 1) {
-      // Check if there are same-level siblings below within the same parent
-      const vItems = this.state.visibleItems();
-      const vIdx = vItems.findIndex(b => b.id === item.id);
-      let hasSiblingBelow = false;
-      for (let i = vIdx + 1; i < vItems.length; i++) {
-        if (vItems[i].level < item.level) break;
-        if (vItems[i].level === item.level) { hasSiblingBelow = true; break; }
-      }
-      if (!hasSiblingBelow) {
-        // No siblings below: outdent instead of creating new item
-        await this.onOutdent(item);
-        this.focusEditor(item.id);
-        return;
-      }
-      // Has siblings below: fall through to create new item
-    }
-
-    this.operatingEnterKey = true;
-
-    // Determine displayed level for new item
-    const vItems = this.state.visibleItems();
-    const vIdx = vItems.findIndex(b => b.id === item.id);
-    const nextVisible = vIdx >= 0 && vIdx < vItems.length - 1 ? vItems[vIdx + 1] : undefined;
-    const allItems = this.state.items();
-    const itemIdx = allItems.findIndex(b => b.id === item.id);
-    const nextItem = itemIdx >= 0 && itemIdx < allItems.length - 1 ? allItems[itemIdx + 1] : undefined;
-    const checkNext = (isTransclusionRoot || isTranscludedDescendant) ? nextVisible : nextItem;
-    const newLevel = (!item.collapsed && checkNext && checkNext.level === item.level + 1)
-      ? item.level + 1
-      : item.level;
-
-    // For collapsed items, insert after the last descendant (end of subtree)
-    const descendants = item.collapsed ? this.state.getChildren(item.id) : [];
-    const insertAfterId = descendants.length > 0 ? descendants[descendants.length - 1].id : sourceAfterItemId;
-    const afterPosition: ItemPosition = `after:${insertAfterId}`;
-
-    // Convert displayed level back to source-side level
-    const createLevel = newLevel - levelOffset;
-
-    if (cursorPos === 0 && item.body.length > 0) {
-      // Enter at beginning: create new empty item before current item
-      if (isTransclusionRoot || isTranscludedDescendant) {
-        // Transclusion: create on source page and reload
-        const newItem = await this.api.createItem(sourcePageId, 'first', createLevel, '');
-        await this.saveItemBody(saveTargetId, item.body);
-        await this.loadItems(this.pageId());
-
-        this.undo.begin('enter', { itemId: item.id, position: cursorPos });
-        this.undo.pushCreate(newItem);
-        this.undo.commit({ itemId: newItem.id, position: 0 });
-
-        this.state.addEditingItem(newItem.id);
-        this.focusEditor(newItem.id);
-        this.state.removeEditingItem(item.id);
-      } else {
-        // Normal item: insert before current item using previous item's ID
-        const prevPosition: ItemPosition = itemIdx > 0 ? `after:${allItems[itemIdx - 1].id}` : 'first';
-        const [newItem] = await Promise.all([
-          this.api.createItem(item.pageId, prevPosition, item.level, ''),
-          this.saveItemBody(item.id, item.body),
-        ]);
-        this.state.addItem(newItem, prevPosition);
-
-        this.undo.begin('enter', { itemId: item.id, position: cursorPos });
-        this.undo.pushCreate(newItem);
-        this.undo.commit({ itemId: newItem.id, position: 0 });
-
-        this.state.addEditingItem(newItem.id);
-        this.focusEditor(newItem.id);
-        this.state.removeEditingItem(item.id);
-      }
-    } else if (cursorPos === item.body.length) {
-      // Enter at end: body unchanged — create new item
-      const newId = this.hmtid.nextId();
-      const optimisticItem: Item = {
-        id: newId,
-        pageId: sourcePageId,
-        dirPath: item.dirPath,
-        name: item.name,
-        type: item.type,
-        createdDate: Date.now(),
-        modifiedDate: Date.now(),
-        idx: '',
-        level: newLevel,
-        body: '',
-        ast: '',
-        collapsed: false,
-        types: [],
-        properties: {},
-      };
-      if (isTransclusionRoot || isTranscludedDescendant) {
-        this.api.createItem(sourcePageId, afterPosition, createLevel, '', newId).then(async () => {
-          await this.loadItems(this.pageId());
-        });
-      } else {
-        this.api.createItem(item.pageId, afterPosition, newLevel, '', newId).then(serverItem => {
-          this.state.updateItem(newId, { idx: serverItem.idx });
-        });
-      }
-      this.state.addItem(optimisticItem, afterPosition);
-
-      this.undo.begin('enter', { itemId: item.id, position: cursorPos });
-      this.undo.pushUpdate({ ...item }, { ...item });
-      this.undo.pushCreate(optimisticItem);
-      this.undo.commit({ itemId: newId, position: 0 });
-
-      this.dirtyItemIds.delete(saveTargetId);
-      this.autoSave.cancelItem(saveTargetId);
-      this.state.addEditingItem(newId);
-      this.state.setFocusedItem(newId);
-      this.focusEditor(newId);
-
-      await this.saveItemBody(saveTargetId, beforeText);
-      this.state.removeEditingItem(item.id);
-
-    } else {
-      const originalItem = { ...item };
-
-      if (isTransclusionRoot || isTranscludedDescendant) {
-        const [updatedOriginal, newItem] = await Promise.all([
-          this.saveItemBody(saveTargetId, beforeText),
-          this.api.createItem(sourcePageId, afterPosition, createLevel, afterText),
-        ]);
-        await this.loadItems(this.pageId());
-
-        this.undo.begin('enter', { itemId: item.id, position: cursorPos });
-        this.undo.pushUpdate(originalItem, updatedOriginal);
-        this.undo.pushCreate(newItem);
-        this.undo.commit({ itemId: newItem.id, position: 0 });
-
-        this.state.addEditingItem(newItem.id);
-        this.state.setFocusedItem(newItem.id);
-        this.focusEditor(newItem.id);
-        this.state.removeEditingItem(item.id);
-      } else {
-        const [updatedOriginal, newItem] = await Promise.all([
-          this.saveItemBody(item.id, beforeText),
-          this.api.createItem(item.pageId, afterPosition, newLevel, afterText),
-        ]);
-        this.state.addItem(newItem, afterPosition);
-
-        this.undo.begin('enter', { itemId: item.id, position: cursorPos });
-        this.undo.pushUpdate(originalItem, updatedOriginal);
-        this.undo.pushCreate(newItem);
-        this.undo.commit({ itemId: newItem.id, position: 0 });
-
-        this.state.addEditingItem(newItem.id);
-        this.state.setFocusedItem(newItem.id);
-        this.focusEditor(newItem.id);
-        this.state.removeEditingItem(item.id);
-      }
-    }
-
-    this.operatingEnterKey = false;
+    return { pageId: item.pageId, levelOffset: 0, inTransclusion: false };
   }
 
   /**
@@ -793,10 +909,9 @@ export class OutlineComponent implements OnInit, OnDestroy {
     const prevItem = items[idx - 1];
 
     // In journal daily pages, prevent merging across page boundaries
-    if (this.isJournalItem(item) && prevItem.pageId !== item.pageId) return;
+    if (this.isDailyJournalItem(item) && prevItem.pageId !== item.pageId) return;
 
-    this.autoSave.cancelItem(item.id);
-    this.dirtyItemIds.delete(item.id);
+    this.discardPendingEdit(item);
     const originalPrev = { ...prevItem };
     const originalItem = { ...item };
     const cursorPos = prevItem.body.length;
@@ -826,8 +941,11 @@ export class OutlineComponent implements OnInit, OnDestroy {
     if (idx >= items.length - 1) return;
 
     const nextItem = items[idx + 1];
-    this.autoSave.cancelItem(nextItem.id);
-    this.dirtyItemIds.delete(nextItem.id);
+    // Same limits as Backspace: a transclusion is not merged away, and journal days are not merged
+    if (nextItem.transcludeItemId) return;
+    if (this.isDailyJournalItem(item) && nextItem.pageId !== item.pageId) return;
+
+    this.discardPendingEdit(nextItem);
 
     const originalItem = { ...item };
     const originalNext = { ...nextItem };
@@ -845,6 +963,8 @@ export class OutlineComponent implements OnInit, OnDestroy {
     this.undo.commit({ itemId: item.id, position: cursorPos });
   }
 
+  // ---- Navigation between items ----
+
   /**
    * Handles the user pressing the Up arrow key to navigate to the previous item.
    * Saves any pending changes before moving focus.
@@ -855,11 +975,7 @@ export class OutlineComponent implements OnInit, OnDestroy {
     const items = this.state.visibleItems();
     const idx = items.findIndex(b => b.id === item.id);
     if (idx > 0) {
-      // Save and update HTML before navigating
-      await this.saveItemIfDirty(item);
-      this.state.addEditingItem(items[idx - 1].id);
-      this.state.setFocusedItem(items[idx - 1].id, cursorPos);
-      this.state.removeEditingItem(item.id);
+      await this.navigateTo(item, items[idx - 1], cursorPos);
     }
   }
 
@@ -873,29 +989,19 @@ export class OutlineComponent implements OnInit, OnDestroy {
     const items = this.state.visibleItems();
     const idx = items.findIndex(b => b.id === item.id);
     if (idx < items.length - 1) {
-      // Save and update HTML before navigating
-      await this.saveItemIfDirty(item);
-      this.state.addEditingItem(items[idx + 1].id);
-      this.state.setFocusedItem(items[idx + 1].id, cursorPos);
-      this.state.removeEditingItem(item.id);
+      await this.navigateTo(item, items[idx + 1], cursorPos);
     }
   }
 
-  private async saveItemIfDirty(item: Item): Promise<void> {
-    if (!this.dirtyItemIds.has(item.id)) return;
-
-    const saveTargetId = item.transcludeItemId ?? item.id;
-    this.dirtyItemIds.delete(item.id);
-    await this.autoSave.flushItem(saveTargetId);
-    const current = this.state.getItemById(item.id);
-    if (current) {
-      const updated = await this.saveItemBody(saveTargetId, current.body);
-      if (saveTargetId !== item.id) {
-        this.state.updateItem(item.id, { ast: updated.ast, types: updated.types });
-      }
-      this.state.removeEditingItem(item.id);
-    }
+  /** Saves the item being edited and opens the editor of another item. */
+  private async navigateTo(from: Item, to: Item, cursorPos: number): Promise<void> {
+    await this.saveItemIfDirty(from);
+    this.state.addEditingItem(to.id);
+    this.state.setFocusedItem(to.id, cursorPos);
+    this.state.removeEditingItem(from.id);
   }
+
+  // ---- Indent and outdent ----
 
   /**
    * Check if a item at the given level can be placed after prevItem.
@@ -914,8 +1020,8 @@ export class OutlineComponent implements OnInit, OnDestroy {
    * @param item - The item to indent
    */
   async onIndent(item: Item): Promise<void> {
-    const isInItems = this.state.items().some(b => b.id === item.id);
-    const items = isInItems ? this.state.items() : this.state.visibleItems();
+    const isOwn = this.state.isOwnItem(item.id);
+    const items = isOwn ? this.state.items() : this.state.visibleItems();
     const idx = items.findIndex(b => b.id === item.id);
     if (idx <= 0) return;
     const prevItem = items[idx - 1];
@@ -936,51 +1042,12 @@ export class OutlineComponent implements OnInit, OnDestroy {
       if (!hasSameLevelBefore) return;
     }
 
-    // For transcluded descendants, compute level offset and boundary check
     const tCtx = this.getTransclusionContext(item);
     if (tCtx) {
-      // Get the group within visible items
-      const group = this.getVisibleSubtree(item.id);
-      // Store source-side levels in the tree (subtract levelOffset to convert display → source)
-      this.undo.begin('indent');
-      for (const b of group) {
-        const newSourceLevel = b.level - tCtx.levelOffset + 1;
-        this.undo.pushUpdate({ ...b }, { ...b, level: b.level + 1 });
-        this.state.updateItem(b.id, { level: newSourceLevel });
-      }
-      this.undo.commit();
-      await this.saveLevelShift(group, 1);
+      await this.shiftLevels(this.getVisibleSubtree(item.id), 1, 'indent', tCtx.levelOffset);
       return;
     }
-
-    const group = this.state.getItemWithChildren(item.id);
-    this.undo.begin('indent');
-    for (const b of group) {
-      this.undo.pushUpdate({ ...b }, { ...b, level: b.level + 1 });
-      this.state.updateItem(b.id, { level: b.level + 1 });
-    }
-    this.undo.commit();
-    await this.saveLevelShift(group, 1);
-  }
-
-  /**
-   * Saves an indent or outdent that is already shown on screen.
-   * The whole group goes in one relative request, and the response is not written back
-   * to the state: a response to an older key press would undo a newer one.
-   * If the save fails, the affected pages are reloaded so the screen matches the server again.
-   * @param group - The items whose level changed
-   * @param delta - The amount added to each level; negative for outdent
-   */
-  private async saveLevelShift(group: Item[], delta: number): Promise<void> {
-    if (group.length === 0) return;
-    try {
-      await this.api.shiftItemLevels(group.map(b => b.id), delta);
-    } catch (e) {
-      console.error('Failed to change item levels:', e);
-      for (const pageId of new Set(group.map(b => b.pageId))) {
-        this.reloadPageFromFile(pageId);
-      }
-    }
+    await this.shiftLevels(this.state.getItemWithChildren(item.id), 1, 'indent');
   }
 
   /**
@@ -1002,20 +1069,9 @@ export class OutlineComponent implements OnInit, OnDestroy {
     const tCtx = this.getTransclusionContext(item);
     if (tCtx && item.level <= tCtx.rootDisplayLevel + 1) return; // Can't go to same level or above root
 
-    const isInItems = this.state.items().some(b => b.id === item.id);
-
-    if (tCtx && !isInItems) {
+    if (tCtx && !this.state.isOwnItem(item.id)) {
       // Transcluded descendant: simple in-place outdent on source page
-      const group = this.getVisibleSubtree(item.id);
-      // Store source-side levels in the tree (subtract levelOffset to convert display → source)
-      this.undo.begin('outdent');
-      for (const b of group) {
-        const newSourceLevel = b.level - tCtx.levelOffset - 1;
-        this.undo.pushUpdate({ ...b }, { ...b, level: b.level - 1 });
-        this.state.updateItem(b.id, { level: newSourceLevel });
-      }
-      this.undo.commit();
-      await this.saveLevelShift(group, -1);
+      await this.shiftLevels(this.getVisibleSubtree(item.id), -1, 'outdent', tCtx.levelOffset);
       return;
     }
 
@@ -1038,55 +1094,90 @@ export class OutlineComponent implements OnInit, OnDestroy {
     const needsMove = !prevItem || prevItem.level !== item.level - 1;
 
     if (needsMove && this.config.logicalOutdent()) {
-      // Logical outdent: move group to after parent's last child, then decrease level
-      const currentParent = items[parentIdx];
-      const allChildren = this.state.getChildren(currentParent.id);
-      const movingIds = new Set(group.map(b => b.id));
-
-      let lastChildId = currentParent.id;
-      for (const child of allChildren) {
-        if (!movingIds.has(child.id)) {
-          lastChildId = child.id;
-        }
-      }
-
-      const groupIds = group.map(b => b.id);
-      const beforeSnapshots = group.map(b => ({ ...b }));
-
-      // Update levels
-      for (const b of group) {
-        this.state.updateItem(b.id, { level: b.level - 1 });
-      }
-      await this.api.shiftItemLevels(groupIds, -1);
-
-      // Move after the last child (if it's not the parent itself)
-      if (lastChildId !== currentParent.id) {
-        const moved = await this.api.moveItems(groupIds, item.pageId, `after:${lastChildId}`);
-        this.state.replaceItems(groupIds, moved, `after:${lastChildId}`);
-
-        this.undo.begin('outdent');
-        for (let i = 0; i < beforeSnapshots.length; i++) {
-          this.undo.pushUpdate(beforeSnapshots[i], { ...moved[i] });
-        }
-        this.undo.commit();
-      } else {
-        this.undo.begin('outdent');
-        for (const b of beforeSnapshots) {
-          this.undo.pushUpdate(b, { ...b, level: b.level - 1 });
-        }
-        this.undo.commit();
-      }
+      await this.outdentBelowParent(item, group, items[parentIdx]);
     } else {
       // In-place outdent: decrease level of group
-      this.undo.begin('outdent');
-      for (const b of group) {
-        this.undo.pushUpdate({ ...b }, { ...b, level: b.level - 1 });
-        this.state.updateItem(b.id, { level: b.level - 1 });
-      }
-      this.undo.commit();
-      await this.saveLevelShift(group, -1);
+      await this.shiftLevels(group, -1, 'outdent');
     }
   }
+
+  /**
+   * Logical outdent: the group is placed after the parent's last child and then outdented,
+   * so the siblings below it stay with the original parent.
+   */
+  private async outdentBelowParent(item: Item, group: Item[], parent: Item): Promise<void> {
+    const movingIds = new Set(group.map(b => b.id));
+    let lastChildId = parent.id;
+    for (const child of this.state.getChildren(parent.id)) {
+      if (!movingIds.has(child.id)) {
+        lastChildId = child.id;
+      }
+    }
+
+    const groupIds = group.map(b => b.id);
+    const beforeSnapshots = group.map(b => ({ ...b }));
+
+    for (const b of group) {
+      this.state.updateItem(b.id, { level: b.level - 1 });
+    }
+    await this.api.shiftItemLevels(groupIds, -1);
+
+    if (lastChildId !== parent.id) {
+      // Move after the last child
+      const moved = await this.api.moveItems(groupIds, item.pageId, `after:${lastChildId}`);
+      this.state.replaceItems(groupIds, moved, `after:${lastChildId}`);
+      this.undo.begin('outdent');
+      for (let i = 0; i < beforeSnapshots.length; i++) {
+        this.undo.pushUpdate(beforeSnapshots[i], { ...moved[i] });
+      }
+    } else {
+      // The parent has no other child: the group only changes its level
+      this.undo.begin('outdent');
+      for (const b of beforeSnapshots) {
+        this.undo.pushUpdate(b, { ...b, level: b.level - 1 });
+      }
+    }
+    this.undo.commit();
+  }
+
+  /**
+   * Changes the level of a group of items on screen, records the change for undo and saves it.
+   * @param group - The items whose level changes
+   * @param delta - The amount added to each level; negative for outdent
+   * @param label - The undo label
+   * @param levelOffset - Shown level minus stored level, for items inside a transclusion
+   */
+  private async shiftLevels(group: Item[], delta: number, label: string, levelOffset = 0): Promise<void> {
+    this.undo.begin(label);
+    for (const b of group) {
+      this.undo.pushUpdate({ ...b }, { ...b, level: b.level + delta });
+      this.state.updateItem(b.id, { level: b.level - levelOffset + delta });
+    }
+    this.undo.commit();
+    await this.saveLevelShift(group, delta);
+  }
+
+  /**
+   * Saves an indent or outdent that is already shown on screen.
+   * The whole group goes in one relative request, and the response is not written back
+   * to the state: a response to an older key press would undo a newer one.
+   * If the save fails, the affected pages are reloaded so the screen matches the server again.
+   * @param group - The items whose level changed
+   * @param delta - The amount added to each level; negative for outdent
+   */
+  private async saveLevelShift(group: Item[], delta: number): Promise<void> {
+    if (group.length === 0) return;
+    try {
+      await this.api.shiftItemLevels(group.map(b => b.id), delta);
+    } catch (e) {
+      console.error('Failed to change item levels:', e);
+      for (const pageId of new Set(group.map(b => b.pageId))) {
+        this.reloadPageFromFile(pageId);
+      }
+    }
+  }
+
+  // ---- Moving items ----
 
   /**
    * Handles the user pressing Alt+Shift+Up to move a item and its children up
@@ -1095,6 +1186,15 @@ export class OutlineComponent implements OnInit, OnDestroy {
    */
   onMoveUp(item: Item): Promise<void> {
     return this.enqueueMove(() => this.moveUp(this.currentItem(item)));
+  }
+
+  /**
+   * Handles the user pressing Alt+Shift+Down to move a item and its children down
+   * past the next sibling tree.
+   * @param item - The item to move down
+   */
+  onMoveDown(item: Item): Promise<void> {
+    return this.enqueueMove(() => this.moveDown(this.currentItem(item)));
   }
 
   /**
@@ -1116,104 +1216,44 @@ export class OutlineComponent implements OnInit, OnDestroy {
   }
 
   private async moveUp(item: Item): Promise<void> {
+    await this.flushPendingEdit(item);
+
     const tCtx = this.getTransclusionContext(item);
-    const isInItems = this.state.items().some(b => b.id === item.id);
-
-    if (tCtx && !isInItems) {
-      // Transcluded descendant: move within visible items scoped to transclusion
-      const vItems = this.state.visibleItems();
-      const scopedItems = this.getTransclusionScopedItems(vItems, tCtx);
-      const target = findMoveUpTarget(scopedItems, item.id);
-      if (!target) return;
-
-      const group = this.getVisibleSubtree(item.id);
-      const groupIds = group.map(b => b.id);
-
-      const moved = await this.api.moveItems(groupIds, item.pageId, target.position);
-      // Reload to reflect reordering
-      await this.loadItems(this.pageId());
-      this.movingEditItem = true;
-      this.focusEditor(item.id, () => { this.movingEditItem = false; });
+    if (tCtx && !this.state.isOwnItem(item.id)) {
+      await this.moveWithinTransclusion(item, tCtx, 'up');
       return;
     }
 
-    // Journal cross-day move: topmost root item moves to next day's page end
-    if (item.type === 'journal' && item.level === 1 && /^\d{4}-\d{2}-\d{2}$/.test(item.name)) {
-      const pageRootItems = this.state.items().filter(b => b.pageId === item.pageId && b.level === 1);
-      if (pageRootItems.length > 0 && pageRootItems[0].id === item.id) {
+    if (this.isDailyJournalItem(item)) {
+      const pageItems = this.state.items().filter(b => b.pageId === item.pageId);
+      // The topmost root item moves to the end of the next day's page
+      if (item.level === 1 && pageItems.find(b => b.level === 1)?.id === item.id) {
         await this.moveItemToAdjacentDay(item, 'next');
         return;
       }
-    }
-
-    // Journal cross-day move: level 2 item at 2nd position moves to next day's page
-    if (this.isJournalItem(item) && item.level === 2) {
-      const pageItems = this.state.items().filter(b => b.pageId === item.pageId);
-      if (pageItems.length >= 2 && pageItems[1].id === item.id) {
+      // A level 2 item at the second position moves to the next day's page
+      if (item.level === 2 && pageItems.length >= 2 && pageItems[1].id === item.id) {
         const moved = await this.moveLevel2ToAdjacentDay(item, 'next');
         if (moved) return;
       }
     }
 
-    // In journal mode, scope move target search to same-page items to avoid
-    // cross-page position references that the backend cannot resolve.
-    const moveItems = this.isJournalItem(item)
-      ? this.state.items().filter(b => b.pageId === item.pageId)
-      : this.state.items();
-    const target = findMoveUpTarget(moveItems, item.id);
+    const target = findMoveUpTarget(this.moveCandidates(item), item.id);
     if (!target) return;
-    const statePosition = this.toFullListPosition(target.position, item.pageId);
-
-    const group = this.state.getItemWithChildren(item.id);
-    const groupIds = group.map(b => b.id);
-    const beforeSnapshots = group.map(b => ({ ...b }));
-
-    const moved = await this.api.moveItems(groupIds, item.pageId, target.position);
-
-    this.undo.begin('move');
-    for (let i = 0; i < beforeSnapshots.length; i++) {
-      this.undo.pushUpdate(beforeSnapshots[i], { ...moved[i] });
-    }
-    this.undo.commit();
-
-    this.movingEditItem = true;
-    this.state.replaceItems(groupIds, moved, statePosition);
-    this.focusEditor(item.id, () => {
-      this.movingEditItem = false;
-    });
-  }
-
-  /**
-   * Handles the user pressing Alt+Shift+Down to move a item and its children down
-   * past the next sibling tree.
-   * @param item - The item to move down
-   */
-  onMoveDown(item: Item): Promise<void> {
-    return this.enqueueMove(() => this.moveDown(this.currentItem(item)));
+    await this.moveGroupTo(item, target.position);
   }
 
   private async moveDown(item: Item): Promise<void> {
+    await this.flushPendingEdit(item);
+
     const tCtx = this.getTransclusionContext(item);
-    const isInItems = this.state.items().some(b => b.id === item.id);
-
-    if (tCtx && !isInItems) {
-      // Transcluded descendant: move within visible items scoped to transclusion
-      const vItems = this.state.visibleItems();
-      const scopedItems = this.getTransclusionScopedItems(vItems, tCtx);
-      const target = findMoveDownTarget(scopedItems, item.id);
-      if (!target) return;
-
-      const group = this.getVisibleSubtree(item.id);
-      const groupIds = group.map(b => b.id);
-
-      await this.api.moveItems(groupIds, item.pageId, target.position);
-      await this.loadItems(this.pageId());
-      this.focusEditor(item.id);
+    if (tCtx && !this.state.isOwnItem(item.id)) {
+      await this.moveWithinTransclusion(item, tCtx, 'down');
       return;
     }
 
-    // Journal cross-day move: bottommost item moves to previous day's page
-    if (this.isJournalItem(item)) {
+    if (this.isDailyJournalItem(item)) {
+      // The bottommost item moves to the previous day's page
       const pageItems = this.state.items().filter(b => b.pageId === item.pageId);
       if (pageItems.length > 0 && pageItems[pageItems.length - 1].id === item.id) {
         if (item.level === 1) {
@@ -1226,20 +1266,29 @@ export class OutlineComponent implements OnInit, OnDestroy {
       }
     }
 
-    const moveItems = this.isJournalItem(item)
+    const target = findMoveDownTarget(this.moveCandidates(item), item.id);
+    if (!target) return;
+    await this.moveGroupTo(item, target.position);
+  }
+
+  /**
+   * The items a move target is searched in. In journal mode this is the item's own page,
+   * so no position refers to another page, which the backend cannot resolve.
+   */
+  private moveCandidates(item: Item): Item[] {
+    return this.isDailyJournalItem(item)
       ? this.state.items().filter(b => b.pageId === item.pageId)
       : this.state.items();
-    const target = findMoveDownTarget(moveItems, item.id);
-    if (!target) return;
-    const statePosition = this.toFullListPosition(target.position, item.pageId);
+  }
 
-    const children = this.state.getChildren(item.id);
-    const group = [item, ...children];
+  /** Moves an item with its children to a position on its own page, keeping its editor open. */
+  private async moveGroupTo(item: Item, position: ItemPosition): Promise<void> {
+    const statePosition = this.toFullListPosition(position, item.pageId);
+    const group = this.state.getItemWithChildren(item.id);
     const groupIds = group.map(b => b.id);
     const beforeSnapshots = group.map(b => ({ ...b }));
 
-    const moved = await this.api.moveItems(groupIds, item.pageId, target.position);
-    this.state.replaceItems(groupIds, moved, statePosition);
+    const moved = await this.api.moveItems(groupIds, item.pageId, position);
 
     this.undo.begin('move');
     for (let i = 0; i < beforeSnapshots.length; i++) {
@@ -1247,11 +1296,33 @@ export class OutlineComponent implements OnInit, OnDestroy {
     }
     this.undo.commit();
 
-    this.focusEditor(item.id);
+    // Reordering the list blurs the editor; the edit goes on in the moved item
+    await this.handOverEdit(async () => {
+      this.state.replaceItems(groupIds, moved, statePosition);
+      await this.focusEditor(item.id);
+    });
   }
 
-  private isJournalItem(item: Item): boolean {
-    return item.type === 'journal' && /^\d{4}-\d{2}-\d{2}$/.test(item.name);
+  /** Moves a transcluded descendant within the tree of its transclusion root. */
+  private async moveWithinTransclusion(item: Item, tCtx: TransclusionContext, direction: 'up' | 'down'): Promise<void> {
+    const scopedItems = this.getTransclusionScopedItems(this.state.visibleItems(), tCtx);
+    const target = direction === 'up'
+      ? findMoveUpTarget(scopedItems, item.id)
+      : findMoveDownTarget(scopedItems, item.id);
+    if (!target) return;
+
+    const groupIds = this.getVisibleSubtree(item.id).map(b => b.id);
+    await this.api.moveItems(groupIds, item.pageId, target.position);
+    // Reload to reflect reordering
+    await this.handOverEdit(async () => {
+      await this.loadItems(this.pageId());
+      await this.focusEditor(item.id);
+    });
+  }
+
+  /** True for an item of a daily journal page (named YYYY-MM-DD). */
+  private isDailyJournalItem(item: Item): boolean {
+    return item.type === 'journal' && classifyJournalFileName(item.name) === 'daily';
   }
 
   /**
@@ -1267,6 +1338,21 @@ export class OutlineComponent implements OnInit, OnDestroy {
     return `after:${allItems[firstPageIdx - 1].id}`;
   }
 
+  /** The date of the day before or after a daily journal item. */
+  private adjacentDate(item: Item, direction: 'next' | 'prev'): string {
+    const d = new Date(item.name + 'T00:00:00');
+    d.setDate(d.getDate() + (direction === 'next' ? 1 : -1));
+    return formatDateToIso(d);
+  }
+
+  /** A page must keep at least one item: creates an empty one when the moved items were the last ones. */
+  private async keepSourcePageNonEmpty(sourcePageId: string, movedIds: string[]): Promise<void> {
+    const remaining = this.state.items().filter(b => b.pageId === sourcePageId && !movedIds.includes(b.id));
+    if (remaining.length === 0) {
+      await this.api.createItem(sourcePageId, 'first', 1, '');
+    }
+  }
+
   /**
    * Moves a journal item (and its children) to an adjacent day's page.
    * For 'next': moves to the next day's page at 'last' position.
@@ -1274,20 +1360,15 @@ export class OutlineComponent implements OnInit, OnDestroy {
    * If the target page has only one item with empty body, that item is deleted after the move.
    */
   private async moveItemToAdjacentDay(item: Item, direction: 'next' | 'prev'): Promise<void> {
-    const d = new Date(item.name + 'T00:00:00');
-    d.setDate(d.getDate() + (direction === 'next' ? 1 : -1));
-    const targetDate = formatDateToIso(d);
+    const targetDate = this.adjacentDate(item, direction);
 
     // Get or create the target day's journal
     const result = await this.api.getOrCreateJournal(targetDate);
     const targetPageId = result.page.id;
     const targetItems = result.items;
 
-    // Collect item and its children
-    const group = this.state.getItemWithChildren(item.id);
-    const groupIds = group.map(b => b.id);
+    const groupIds = this.state.getItemWithChildren(item.id).map(b => b.id);
 
-    // Move to target page
     const position: ItemPosition = direction === 'next' ? 'last' : 'first';
     await this.api.moveItems(groupIds, targetPageId, position);
 
@@ -1296,12 +1377,7 @@ export class OutlineComponent implements OnInit, OnDestroy {
       await this.api.deleteItem(targetItems[0].id);
     }
 
-    // If source page has no items left, create a new empty item
-    const sourcePageId = item.pageId;
-    const remainingOnSource = this.state.items().filter(b => b.pageId === sourcePageId && !groupIds.includes(b.id));
-    if (remainingOnSource.length === 0) {
-      await this.api.createItem(sourcePageId, 'first', 1, '');
-    }
+    await this.keepSourcePageNonEmpty(item.pageId, groupIds);
 
     // Notify journal to reload, with navigation for move-up when URL matches
     const shouldNavigate = direction === 'next' && item.pageId === this.pageId();
@@ -1316,9 +1392,7 @@ export class OutlineComponent implements OnInit, OnDestroy {
    * @returns true if the item was moved, false otherwise
    */
   private async moveLevel2ToAdjacentDay(item: Item, direction: 'next' | 'prev'): Promise<boolean> {
-    const d = new Date(item.name + 'T00:00:00');
-    d.setDate(d.getDate() + (direction === 'next' ? 1 : -1));
-    const targetDate = formatDateToIso(d);
+    const targetDate = this.adjacentDate(item, direction);
 
     // Only proceed if target day's page is already loaded
     const targetPageItems = this.state.items().filter(b =>
@@ -1330,22 +1404,17 @@ export class OutlineComponent implements OnInit, OnDestroy {
     const placement = findCrossPagePlacement(targetPageItems, item.level, scanDirection);
     if (!placement) return false;
 
-    const group = this.state.getItemWithChildren(item.id);
-    const groupIds = group.map(b => b.id);
+    const groupIds = this.state.getItemWithChildren(item.id).map(b => b.id);
     const targetPageId = targetPageItems[0].pageId;
 
     await this.api.moveItems(groupIds, targetPageId, placement);
-
-    // If source page has no items left, create a new empty item
-    const sourcePageId = item.pageId;
-    const remainingOnSource = this.state.items().filter(b => b.pageId === sourcePageId && !groupIds.includes(b.id));
-    if (remainingOnSource.length === 0) {
-      await this.api.createItem(sourcePageId, 'first', 1, '');
-    }
+    await this.keepSourcePageNonEmpty(item.pageId, groupIds);
 
     this.crossDayMoved.emit({ targetDate, navigate: false, itemId: item.id });
     return true;
   }
+
+  // ---- Wiki links ----
 
   /**
    * Handles the user typing inside a `[[wiki link]]` in the item editor.
@@ -1408,103 +1477,6 @@ export class OutlineComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Handles the user pressing Shift+Up to begin or extend a multi-item selection upward.
-   * @param item - The item where Shift+Up was pressed
-   */
-  onShiftSelectUp(item: Item): void {
-    this.startShiftSelection(item);
-  }
-
-  /**
-   * Handles the user pressing Shift+Down to begin or extend a multi-item selection downward.
-   * @param item - The item where Shift+Down was pressed
-   */
-  onShiftSelectDown(item: Item): void {
-    this.startShiftSelection(item);
-  }
-
-  private startShiftSelection(item: Item): void {
-    this.state.removeAllEditingItems();
-    this.state.setItemSelectionMode(true);
-    this.selectionAnchorItemId = item.id;
-    this.selectionExtentItemId = item.id;
-    // Initial selection: only the current item, no subtree
-    this.state.setSelectedItemIds(new Set([item.id]));
-
-    document.addEventListener('keydown', this.selectionKeydownHandler);
-    document.addEventListener('click', this.selectionClickHandler);
-    document.addEventListener('copy', this.selectionCopyHandler);
-    document.addEventListener('cut', this.selectionCutHandler);
-  }
-
-  private shiftExtendUp(): void {
-    const items = this.state.visibleItems();
-    let extentIdx = items.findIndex(b => b.id === this.selectionExtentItemId);
-    const anchorIdx = items.findIndex(b => b.id === this.selectionAnchorItemId);
-    if (extentIdx < 0 || anchorIdx < 0 || extentIdx <= 0) return;
-
-    // When expanding upward, skip past items already in selection
-    if (extentIdx <= anchorIdx) {
-      const selected = this.state.selectedItemIds();
-      while (extentIdx - 1 >= 0 && selected.has(items[extentIdx - 1].id)) {
-        extentIdx--;
-      }
-      if (extentIdx <= 0) return;
-    }
-
-    this.selectionExtentItemId = items[extentIdx - 1].id;
-    this.updateShiftSelection();
-  }
-
-  private shiftExtendDown(): void {
-    const items = this.state.visibleItems();
-    let extentIdx = items.findIndex(b => b.id === this.selectionExtentItemId);
-    const anchorIdx = items.findIndex(b => b.id === this.selectionAnchorItemId);
-    if (extentIdx < 0 || anchorIdx < 0 || extentIdx >= items.length - 1) return;
-
-    // When expanding downward, skip past items already in selection
-    if (extentIdx >= anchorIdx) {
-      const selected = this.state.selectedItemIds();
-      while (extentIdx + 1 < items.length && selected.has(items[extentIdx + 1].id)) {
-        extentIdx++;
-      }
-      if (extentIdx >= items.length - 1) return;
-    }
-
-    this.selectionExtentItemId = items[extentIdx + 1].id;
-    this.updateShiftSelection();
-  }
-
-  private updateShiftSelection(): void {
-    const items = this.state.visibleItems();
-    const anchorIdx = items.findIndex(b => b.id === this.selectionAnchorItemId);
-    const extentIdx = items.findIndex(b => b.id === this.selectionExtentItemId);
-    if (anchorIdx < 0 || extentIdx < 0) return;
-
-    let start = Math.min(anchorIdx, extentIdx);
-    const end = Math.max(anchorIdx, extentIdx);
-
-    // When selecting upward into a subtree, if the topmost item is nested
-    // deeper than the anchor, walk backward to include all ancestors up to
-    // the anchor's level. Update the extent so subsequent Shift+Up continues
-    // from the correct position.
-    const anchorLevel = items[anchorIdx].level;
-    while (start > 0 && items[start].level > anchorLevel) {
-      start--;
-    }
-    if (extentIdx < anchorIdx && start < extentIdx) {
-      this.selectionExtentItemId = items[start].id;
-    }
-
-    const selectedSet = new Set<string>();
-    for (let i = start; i <= end; i++) {
-      const group = this.state.getItemWithChildren(items[i].id);
-      group.forEach(b => selectedSet.add(b.id));
-    }
-    this.state.setSelectedItemIds(selectedSet);
-  }
-
-  /**
    * Handles the user selecting a wiki link suggestion by clicking on it or pressing Enter.
    * Inserts the selected page title into the item editor and closes the suggestions popup.
    * @param title - The page title selected from the suggestions
@@ -1533,46 +1505,33 @@ export class OutlineComponent implements OnInit, OnDestroy {
     }
   }
 
+  // ---- Tasks, zoom, collapse, transclusion, archive ----
+
   /**
    * Handles the user clicking a task checkbox or pressing Ctrl+Enter.
    * Cycles through: normal → task → running → done → normal via cycleTask API.
    */
-  async onTaskStatusToggled(item: Item): Promise<void> {
-    await this.doCycleTask(item);
-  }
-
-  async onStatusCycleRequested(item: Item): Promise<void> {
-    await this.doCycleTask(item);
-  }
-
-  private async doCycleTask(item: Item): Promise<void> {
+  async onTaskCycleRequested(item: Item): Promise<void> {
     try {
       // For transclusion items, target the source item
-      const targetId = item.transcludeItemId || item.id;
+      const targetId = this.saveTargetId(item);
       const originalItem = { ...item };
       const wasTask = item.types?.includes('task');
-      const updated = await this.api.cycleTask(targetId);
+      let updated = await this.api.cycleTask(targetId);
 
       // When an item just became a task on a daily journal, set plan to the journal date
-      if (!wasTask && updated.types?.includes('task') && this.isDailyJournal(item)) {
-        const withPlan = await this.api.upsertItemProperty(targetId, 'plan', 'date', item.name);
-        this.state.updateItem(targetId, { types: withPlan.types, properties: withPlan.properties });
-        this.undo.begin('cycle-task');
-        this.undo.pushUpdate(originalItem, { ...originalItem, types: withPlan.types, properties: withPlan.properties });
-        this.undo.commit();
-      } else {
-        this.state.updateItem(targetId, { types: updated.types, properties: updated.properties });
-        this.undo.begin('cycle-task');
-        this.undo.pushUpdate(originalItem, { ...originalItem, types: updated.types, properties: updated.properties });
-        this.undo.commit();
+      if (!wasTask && updated.types?.includes('task') && this.isDailyJournalItem(item)) {
+        updated = await this.api.upsertItemProperty(targetId, 'plan', 'date', item.name);
       }
+
+      const change = { types: updated.types, properties: updated.properties };
+      this.state.updateItem(targetId, change);
+      this.undo.begin('cycle-task');
+      this.undo.pushUpdate(originalItem, { ...originalItem, ...change });
+      this.undo.commit();
     } catch (e) {
       console.error('Failed to cycle task:', e);
     }
-  }
-
-  private isDailyJournal(item: Item): boolean {
-    return item.type === 'journal' && /^\d{4}-\d{2}-\d{2}$/.test(item.name);
   }
 
   /**
@@ -1664,26 +1623,20 @@ export class OutlineComponent implements OnInit, OnDestroy {
    */
   async onSendToArchive(item: Item): Promise<void> {
     try {
-      const items = this.state.items();
       const group = this.state.getItemWithChildren(item.id);
       if (group.length === 0) return;
       const groupIds = group.map(g => g.id);
 
       // Append #archived tag to the item body (skip if already present)
-      const tags = item.properties['tag'];
-      const hasTags = Array.isArray(tags) ? tags as string[] : [];
-      if (!hasTags.includes('archived')) {
+      if (!this.tagsOf(item).includes('archived')) {
         const newBody = item.body.trimEnd() + ' #archived';
         await this.saveItemBody(item.id, newBody);
       }
 
-      // Find or create #item-archive item (check by tag in properties)
+      // Find or create the #item-archive item (identified by its tag).
       // Re-read items from state to pick up any updates from saveItemBody above
-      let closetItem = this.state.items().find(it => {
-        const t = it.properties['tag'];
-        return Array.isArray(t) && (t as string[]).includes('item-archive');
-      });
-      if (!closetItem) {
+      let archiveItem = this.state.items().find(it => this.tagsOf(it).includes('item-archive'));
+      if (!archiveItem) {
         // Create #item-archive at end of page
         const currentItems = this.state.items();
         const lastItem = currentItems[currentItems.length - 1];
@@ -1694,18 +1647,26 @@ export class OutlineComponent implements OnInit, OnDestroy {
           '#item-archive',
         );
         // createItem API returns empty properties; patch tag so subsequent lookups work
-        closetItem = { ...created, properties: { ...created.properties, tag: ['item-archive'] } };
-        this.state.addItem(closetItem, `after:${lastItem.id}`);
+        archiveItem = { ...created, properties: { ...created.properties, tag: ['item-archive'] } };
+        this.state.addItem(archiveItem, `after:${lastItem.id}`);
       }
 
       // Move the archived items as the first child of #item-archive
-      const levelDelta = (closetItem.level + 1) - item.level;
-      const moved = await this.api.moveItems(groupIds, item.pageId, `after:${closetItem.id}`, levelDelta);
-      this.state.replaceItems(groupIds, moved, `after:${closetItem.id}`);
+      const levelDelta = (archiveItem.level + 1) - item.level;
+      const moved = await this.api.moveItems(groupIds, item.pageId, `after:${archiveItem.id}`, levelDelta);
+      this.state.replaceItems(groupIds, moved, `after:${archiveItem.id}`);
     } catch (e: any) {
       console.error('Failed to archive item:', e?.message || e);
     }
   }
+
+  /** The hashtags of an item, as kept in its tag property. */
+  private tagsOf(item: Item): string[] {
+    const tags = item.properties['tag'];
+    return Array.isArray(tags) ? tags : [];
+  }
+
+  // ---- Paste ----
 
   /**
    * Handles the user pasting content into a item editor. Parses the pasted text into items,
@@ -1735,6 +1696,7 @@ export class OutlineComponent implements OnInit, OnDestroy {
       }
     }
 
+    // Plain text pasted inside an open code fence stays in this item as it is
     const skipSplit = isPlainText && hasUnclosedCodeFence(item.body.substring(0, event.cursorPos));
     const parsedItems = skipSplit
       ? [{ body: textToParse, level: 0 }]
@@ -1766,24 +1728,22 @@ export class OutlineComponent implements OnInit, OnDestroy {
       }
 
       // Add remaining items after the current item
-      if (parsedItems.length > 1) {
-        let prevItemId = item.id;
-        for (let i = 1; i < parsedItems.length; i++) {
-          const parsedItem = parsedItems[i];
-          const afterPos: ItemPosition = `after:${prevItemId}`;
-          const newItem = await this.api.createItem(
-            item.pageId,
-            afterPos,
-            item.level + parsedItem.level,
-            parsedItem.body
-          );
-          this.state.addItems([newItem], afterPos);
+      let prevItemId = item.id;
+      for (let i = 1; i < parsedItems.length; i++) {
+        const parsedItem = parsedItems[i];
+        const afterPos: ItemPosition = `after:${prevItemId}`;
+        const newItem = await this.api.createItem(
+          item.pageId,
+          afterPos,
+          item.level + parsedItem.level,
+          parsedItem.body
+        );
+        this.state.addItems([newItem], afterPos);
 
-          const finalNewItem = this.state.getItemById(newItem.id);
-          this.undo.pushCreate(finalNewItem ?? newItem);
+        const finalNewItem = this.state.getItemById(newItem.id);
+        this.undo.pushCreate(finalNewItem ?? newItem);
 
-          prevItemId = newItem.id;
-        }
+        prevItemId = newItem.id;
       }
 
       this.undo.commit();
@@ -1830,6 +1790,30 @@ export class OutlineComponent implements OnInit, OnDestroy {
     return parsed.map(p => ({ body: p.body, level: Math.max(0, p.level - topLevel) }));
   }
 
+  // ---- Multi-item selection ----
+
+  /**
+   * Handles the user pressing Shift+Up to begin or extend a multi-item selection upward.
+   * @param item - The item where Shift+Up was pressed
+   */
+  onShiftSelectUp(item: Item): void {
+    this.startShiftSelection(item);
+  }
+
+  /**
+   * Handles the user pressing Shift+Down to begin or extend a multi-item selection downward.
+   * @param item - The item where Shift+Down was pressed
+   */
+  onShiftSelectDown(item: Item): void {
+    this.startShiftSelection(item);
+  }
+
+  private startShiftSelection(item: Item): void {
+    this.state.removeAllEditingItems();
+    // Initial selection: only the current item, no subtree
+    this.enterSelectionMode(item.id, new Set([item.id]));
+  }
+
   /**
    * Handles the user dragging the mouse beyond the bounds of a item editor.
    * Exits edit mode and enters multi-item selection mode with drag tracking.
@@ -1837,23 +1821,103 @@ export class OutlineComponent implements OnInit, OnDestroy {
    * @param direction - Whether the drag went 'above' or 'below' the item
    */
   onDragBeyondBounds(item: Item, direction: 'above' | 'below'): void {
-    // Exit edit mode
     this.state.removeAllEditingItems();
-    // Enter selection mode
     this.state.setItemSelectionMode(true);
     this.selectionAnchorItemId = item.id;
     this.isSelectionDragging = true;
 
     // Select anchor item + children
     const group = this.state.getItemWithChildren(item.id);
-    const selectedSet = new Set<string>(group.map(b => b.id));
-    this.state.setSelectedItemIds(selectedSet);
+    this.state.setSelectedItemIds(new Set(group.map(b => b.id)));
 
-    // Register document-level listeners
-    document.addEventListener('mouseup', this.selectionMouseUpHandler);
-    document.addEventListener('keydown', this.selectionKeydownHandler);
-    document.addEventListener('copy', this.selectionCopyHandler);
-    document.addEventListener('cut', this.selectionCutHandler);
+    // The click listener is added on mouse up, so the release does not end the selection
+    this.listenForSelectionEvents('mouseup', 'keydown', 'copy', 'cut');
+  }
+
+  /**
+   * Selects the given items with the keyboard listeners of selection mode active.
+   * @param anchorItemId - The item the selection extends from
+   * @param selectedIds - The items selected to start with
+   */
+  private enterSelectionMode(anchorItemId: string, selectedIds: Set<string>): void {
+    this.state.setSelectedItemIds(selectedIds);
+    this.state.setItemSelectionMode(true);
+    this.selectionAnchorItemId = anchorItemId;
+    this.selectionExtentItemId = anchorItemId;
+    this.listenForSelectionEvents('keydown', 'click', 'copy', 'cut');
+  }
+
+  private exitSelectionMode(): void {
+    this.state.clearSelection();
+    this.selectionAnchorItemId = null;
+    this.selectionExtentItemId = null;
+    this.isSelectionDragging = false;
+    this.stopListeningForSelectionEvents();
+  }
+
+  private listenForSelectionEvents(...names: SelectionEventName[]): void {
+    for (const name of names) {
+      document.addEventListener(name, this.selectionListeners[name] as EventListener);
+    }
+  }
+
+  private stopListeningForSelectionEvents(): void {
+    for (const name of Object.keys(this.selectionListeners) as SelectionEventName[]) {
+      document.removeEventListener(name, this.selectionListeners[name] as EventListener);
+    }
+  }
+
+  private shiftExtendUp(): void {
+    const items = this.state.visibleItems();
+    let extentIdx = items.findIndex(b => b.id === this.selectionExtentItemId);
+    const anchorIdx = items.findIndex(b => b.id === this.selectionAnchorItemId);
+    if (extentIdx < 0 || anchorIdx < 0 || extentIdx <= 0) return;
+
+    // When expanding upward, skip past items already in selection
+    if (extentIdx <= anchorIdx) {
+      const selected = this.state.selectedItemIds();
+      while (extentIdx - 1 >= 0 && selected.has(items[extentIdx - 1].id)) {
+        extentIdx--;
+      }
+      if (extentIdx <= 0) return;
+    }
+
+    this.selectionExtentItemId = items[extentIdx - 1].id;
+    this.updateShiftSelection();
+  }
+
+  private shiftExtendDown(): void {
+    const items = this.state.visibleItems();
+    let extentIdx = items.findIndex(b => b.id === this.selectionExtentItemId);
+    const anchorIdx = items.findIndex(b => b.id === this.selectionAnchorItemId);
+    if (extentIdx < 0 || anchorIdx < 0 || extentIdx >= items.length - 1) return;
+
+    // When expanding downward, skip past items already in selection
+    if (extentIdx >= anchorIdx) {
+      const selected = this.state.selectedItemIds();
+      while (extentIdx + 1 < items.length && selected.has(items[extentIdx + 1].id)) {
+        extentIdx++;
+      }
+      if (extentIdx >= items.length - 1) return;
+    }
+
+    this.selectionExtentItemId = items[extentIdx + 1].id;
+    this.updateShiftSelection();
+  }
+
+  private updateShiftSelection(): void {
+    const items = this.state.visibleItems();
+    const anchorIdx = items.findIndex(b => b.id === this.selectionAnchorItemId);
+    const extentIdx = items.findIndex(b => b.id === this.selectionExtentItemId);
+    if (anchorIdx < 0 || extentIdx < 0) return;
+
+    const start = this.selectionStartIndex(items, anchorIdx, extentIdx);
+    // When selecting upward into a subtree, the extent moves to the ancestor that was
+    // pulled in, so the next Shift+Up continues from the correct position
+    if (extentIdx < anchorIdx && start < extentIdx) {
+      this.selectionExtentItemId = items[start].id;
+    }
+    this.selectRange(items, start, Math.max(anchorIdx, extentIdx));
   }
 
   /**
@@ -1865,42 +1929,47 @@ export class OutlineComponent implements OnInit, OnDestroy {
     if (!this.isSelectionDragging) return;
     this.selectionExtentItemId = item.id;
 
-    const visibleItems = this.state.visibleItems();
-    const anchorIdx = visibleItems.findIndex(b => b.id === this.selectionAnchorItemId);
-    const currentIdx = visibleItems.findIndex(b => b.id === item.id);
+    const items = this.state.visibleItems();
+    const anchorIdx = items.findIndex(b => b.id === this.selectionAnchorItemId);
+    const currentIdx = items.findIndex(b => b.id === item.id);
     if (anchorIdx < 0 || currentIdx < 0) return;
 
-    let start = Math.min(anchorIdx, currentIdx);
-    const end = Math.max(anchorIdx, currentIdx);
+    this.selectRange(items, this.selectionStartIndex(items, anchorIdx, currentIdx), Math.max(anchorIdx, currentIdx));
+  }
 
-    // When dragging into a subtree, include all ancestors up to the anchor's level
-    const anchorLevel = visibleItems[anchorIdx].level;
-    while (start > 0 && visibleItems[start].level > anchorLevel) {
+  /**
+   * The first index of a selection between the anchor and another item. When the
+   * selection reaches into a subtree nested deeper than the anchor, it starts at the
+   * ancestor on the anchor's level so that whole subtrees are selected.
+   */
+  private selectionStartIndex(items: Item[], anchorIdx: number, otherIdx: number): number {
+    let start = Math.min(anchorIdx, otherIdx);
+    const anchorLevel = items[anchorIdx].level;
+    while (start > 0 && items[start].level > anchorLevel) {
       start--;
     }
+    return start;
+  }
 
+  /** Selects the items from start to end (inclusive) together with their subtrees. */
+  private selectRange(items: Item[], start: number, end: number): void {
     const selectedSet = new Set<string>();
     for (let i = start; i <= end; i++) {
       // getItemWithChildren uses _items() (all items) so collapsed children are included
-      const group = this.state.getItemWithChildren(visibleItems[i].id);
-      group.forEach(b => selectedSet.add(b.id));
+      for (const b of this.state.getItemWithChildren(items[i].id)) {
+        selectedSet.add(b.id);
+      }
     }
     this.state.setSelectedItemIds(selectedSet);
   }
 
   private onSelectionMouseUp(): void {
     this.isSelectionDragging = false;
-    document.removeEventListener('mouseup', this.selectionMouseUpHandler);
+    document.removeEventListener('mouseup', this.selectionListeners.mouseup);
 
     // Add click listener to detect clicks outside selection
     // Use setTimeout to avoid the current mouseup from triggering it
-    setTimeout(() => {
-      document.addEventListener('click', this.selectionClickHandler);
-    }, 0);
-  }
-
-  private onSelectionClick(e: MouseEvent): void {
-    this.exitSelectionMode();
+    setTimeout(() => this.listenForSelectionEvents('click'), 0);
   }
 
   private handleSelectionKeydown(e: KeyboardEvent): void {
@@ -1930,12 +1999,12 @@ export class OutlineComponent implements OnInit, OnDestroy {
     if (e.shiftKey && e.altKey) {
       if (e.key === 'ArrowUp') {
         e.preventDefault();
-        this.moveSelectedItemsUp();
+        this.moveSelectedItems('up');
         return;
       }
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        this.moveSelectedItemsDown();
+        this.moveSelectedItems('down');
         return;
       }
       if (e.key === 'ArrowLeft') {
@@ -1986,15 +2055,16 @@ export class OutlineComponent implements OnInit, OnDestroy {
     }
   }
 
+  /** The selected items whose parent is not selected, in outline order. */
   private getSelectedRootItems(): Item[] {
     const selectedIds = this.state.selectedItemIds();
     const allItems = this.state.items();
     const roots: Item[] = [];
 
-    for (const item of allItems) {
+    for (let idx = 0; idx < allItems.length; idx++) {
+      const item = allItems[idx];
       if (!selectedIds.has(item.id)) continue;
       // Check if parent is in selection
-      const idx = allItems.indexOf(item);
       let isRoot = true;
       for (let i = idx - 1; i >= 0; i--) {
         if (allItems[i].level < item.level) {
@@ -2011,10 +2081,9 @@ export class OutlineComponent implements OnInit, OnDestroy {
 
   private getOrderedSelectedItemIds(): string[] {
     const selectedIds = this.state.selectedItemIds();
-    const visibleItems = this.state.visibleItems();
-    return visibleItems
+    return this.state.visibleItems()
       .filter(b => selectedIds.has(b.id))
-      .map(b => b.transcludeItemId ?? b.id);
+      .map(b => this.saveTargetId(b));
   }
 
   private async deleteSelectedItems(): Promise<void> {
@@ -2045,31 +2114,34 @@ export class OutlineComponent implements OnInit, OnDestroy {
     await this.ensureAtLeastOneItem();
   }
 
-  private moveSelectedItemsUp(): Promise<void> {
-    return this.enqueueMove(() => this.moveSelectionUp());
+  private moveSelectedItems(direction: 'up' | 'down'): Promise<void> {
+    return this.enqueueMove(() => this.moveSelection(direction));
   }
 
-  private async moveSelectionUp(): Promise<void> {
+  /** Moves every selected subtree past the sibling tree above or below the selection. */
+  private async moveSelection(direction: 'up' | 'down'): Promise<void> {
     const rootItems = this.getSelectedRootItems();
     if (rootItems.length === 0) return;
 
-    const firstRoot = rootItems[0];
-
-    const target = findMoveUpTarget(this.state.items(), firstRoot.id);
+    const edgeRoot = direction === 'up' ? rootItems[0] : rootItems[rootItems.length - 1];
+    const target = direction === 'up'
+      ? findMoveUpTarget(this.state.items(), edgeRoot.id)
+      : findMoveDownTarget(this.state.items(), edgeRoot.id);
     if (!target) return;
 
     const allSelectedIds: string[] = [];
     for (const root of rootItems) {
-      const group = this.state.getItemWithChildren(root.id);
-      group.forEach(b => allSelectedIds.push(b.id));
+      for (const b of this.state.getItemWithChildren(root.id)) {
+        allSelectedIds.push(b.id);
+      }
     }
-    const beforeSnapshots = allSelectedIds.map(id => {
-      const b = this.state.getItemById(id);
-      return b ? { ...b } : null;
-    }).filter((b): b is Item => !!b);
+    const beforeSnapshots = allSelectedIds
+      .map(id => this.state.getItemById(id))
+      .filter((b): b is Item => !!b)
+      .map(b => ({ ...b }));
 
     try {
-      const moved = await this.api.moveItems(allSelectedIds, firstRoot.pageId, target.position);
+      const moved = await this.api.moveItems(allSelectedIds, edgeRoot.pageId, target.position);
       this.state.replaceItems(allSelectedIds, moved, target.position);
 
       this.undo.begin('move-selection');
@@ -2078,44 +2150,7 @@ export class OutlineComponent implements OnInit, OnDestroy {
       }
       this.undo.commit();
     } catch (e) {
-      console.error('Failed to move selected items up:', e);
-    }
-  }
-
-  private moveSelectedItemsDown(): Promise<void> {
-    return this.enqueueMove(() => this.moveSelectionDown());
-  }
-
-  private async moveSelectionDown(): Promise<void> {
-    const rootItems = this.getSelectedRootItems();
-    if (rootItems.length === 0) return;
-
-    const lastRoot = rootItems[rootItems.length - 1];
-
-    const target = findMoveDownTarget(this.state.items(), lastRoot.id);
-    if (!target) return;
-
-    const allSelectedIds: string[] = [];
-    for (const root of rootItems) {
-      const group = this.state.getItemWithChildren(root.id);
-      group.forEach(b => allSelectedIds.push(b.id));
-    }
-    const beforeSnapshots = allSelectedIds.map(id => {
-      const b = this.state.getItemById(id);
-      return b ? { ...b } : null;
-    }).filter((b): b is Item => !!b);
-
-    try {
-      const moved = await this.api.moveItems(allSelectedIds, lastRoot.pageId, target.position);
-      this.state.replaceItems(allSelectedIds, moved, target.position);
-
-      this.undo.begin('move-selection');
-      for (let i = 0; i < beforeSnapshots.length; i++) {
-        this.undo.pushUpdate(beforeSnapshots[i], { ...moved[i] });
-      }
-      this.undo.commit();
-    } catch (e) {
-      console.error('Failed to move selected items down:', e);
+      console.error(`Failed to move selected items ${direction}:`, e);
     }
   }
 
@@ -2128,31 +2163,16 @@ export class OutlineComponent implements OnInit, OnDestroy {
     const firstIdx = allItems.findIndex(b => b.id === itemsToIndent[0].id);
     if (firstIdx <= 0) return;
 
-    this.undo.begin('indent-selection');
-    for (const b of itemsToIndent) {
-      this.undo.pushUpdate({ ...b }, { ...b, level: b.level + 1 });
-      this.state.updateItem(b.id, { level: b.level + 1 });
-    }
-    this.undo.commit();
-
-    await this.saveLevelShift(itemsToIndent, 1);
+    await this.shiftLevels(itemsToIndent, 1, 'indent-selection');
   }
 
   private async outdentSelectedItems(): Promise<void> {
     const selectedIds = this.state.selectedItemIds();
-    const allItems = this.state.items();
-    const itemsToOutdent = allItems.filter(b => selectedIds.has(b.id));
+    const itemsToOutdent = this.state.items().filter(b => selectedIds.has(b.id));
 
     if (itemsToOutdent.some(b => b.level <= 1)) return;
 
-    this.undo.begin('outdent-selection');
-    for (const b of itemsToOutdent) {
-      this.undo.pushUpdate({ ...b }, { ...b, level: b.level - 1 });
-      this.state.updateItem(b.id, { level: b.level - 1 });
-    }
-    this.undo.commit();
-
-    await this.saveLevelShift(itemsToOutdent, -1);
+    await this.shiftLevels(itemsToOutdent, -1, 'outdent-selection');
   }
 
   private async copySelectedItems(): Promise<void> {
@@ -2193,55 +2213,20 @@ export class OutlineComponent implements OnInit, OnDestroy {
     this.cutSelectedItems();
   }
 
+  // ---- Undo and redo ----
+
   async performUndo(): Promise<void> {
     if (this.undo.isPending()) return;
-
-    // Cancel pending auto-save for the editing item
-    const editingId = this.state.focusedItemId();
-    if (editingId && this.dirtyItemIds.has(editingId)) {
-      this.dirtyItemIds.delete(editingId);
-      this.autoSave.cancelItem(editingId);
-    }
+    this.discardPendingEditOfFocusedItem();
 
     const entry = this.undo.popUndo();
     if (!entry) return;
 
     // Apply inverse ops in reverse order
     for (let i = entry.ops.length - 1; i >= 0; i--) {
-      const op = entry.ops[i];
-      switch (op.type) {
-        case 'update':
-          this.state.updateItem(op.before.id, op.before);
-          if (op.before.collapsed !== op.after.collapsed) {
-            this.state.toggleCollapsed(op.before.id);
-          }
-          break;
-        case 'create':
-          this.state.deleteItem(op.item.id);
-          break;
-        case 'delete':
-          this.state.addItem(op.item, this.findInsertionPosition(op.item));
-          break;
-      }
+      this.applyUndoOp(entry.ops[i], 'undo');
     }
-
-    // Restore cursor
-    if (entry.cursorBefore) {
-      this.state.addEditingItem(entry.cursorBefore.itemId);
-      this.state.setFocusedItem(entry.cursorBefore.itemId, entry.cursorBefore.position);
-      this.focusEditor(entry.cursorBefore.itemId);
-    } else {
-      // For body edits and other entries without explicit cursor, keep editing the first updated item
-      const firstUpdate = entry.ops.find(op => op.type === 'update');
-      if (firstUpdate && firstUpdate.type === 'update') {
-        const pos = firstUpdate.before.body.length;
-        this.state.addEditingItem(firstUpdate.before.id);
-        this.state.setFocusedItem(firstUpdate.before.id, pos);
-        this.focusEditor(firstUpdate.before.id);
-      } else {
-        this.state.removeAllEditingItems();
-      }
-    }
+    this.restoreCursor(entry, 'undo');
 
     this.undo.pushRedo(entry);
     this.syncToServer(entry, 'undo');
@@ -2250,55 +2235,73 @@ export class OutlineComponent implements OnInit, OnDestroy {
 
   async performRedo(): Promise<void> {
     if (this.undo.isPending()) return;
-
-    // Cancel pending auto-save for the editing item
-    const editingId = this.state.focusedItemId();
-    if (editingId && this.dirtyItemIds.has(editingId)) {
-      this.dirtyItemIds.delete(editingId);
-      this.autoSave.cancelItem(editingId);
-    }
+    this.discardPendingEditOfFocusedItem();
 
     const entry = this.undo.popRedo();
     if (!entry) return;
 
     // Apply forward ops in order
     for (const op of entry.ops) {
-      switch (op.type) {
-        case 'update':
-          this.state.updateItem(op.after.id, op.after);
-          if (op.before.collapsed !== op.after.collapsed) {
-            this.state.toggleCollapsed(op.after.id);
-          }
-          break;
-        case 'create':
-          this.state.addItem(op.item, this.findInsertionPosition(op.item));
-          break;
-        case 'delete':
-          this.state.deleteItem(op.item.id);
-          break;
-      }
+      this.applyUndoOp(op, 'redo');
     }
-
-    // Restore cursor
-    if (entry.cursorAfter) {
-      this.state.addEditingItem(entry.cursorAfter.itemId);
-      this.state.setFocusedItem(entry.cursorAfter.itemId, entry.cursorAfter.position);
-      this.focusEditor(entry.cursorAfter.itemId);
-    } else {
-      const firstUpdate = entry.ops.find(op => op.type === 'update');
-      if (firstUpdate && firstUpdate.type === 'update') {
-        const pos = firstUpdate.after.body.length;
-        this.state.addEditingItem(firstUpdate.after.id);
-        this.state.setFocusedItem(firstUpdate.after.id, pos);
-        this.focusEditor(firstUpdate.after.id);
-      } else {
-        this.state.removeAllEditingItems();
-      }
-    }
+    this.restoreCursor(entry, 'redo');
 
     this.undo.pushUndo(entry);
     this.syncToServer(entry, 'redo');
     await this.ensureAtLeastOneItem();
+  }
+
+  /** The undo or redo replaces the item; text waiting for the auto-save would be stale. */
+  private discardPendingEditOfFocusedItem(): void {
+    const focusedId = this.state.focusedItemId();
+    if (!focusedId || !this.dirtyItemIds.has(focusedId)) return;
+    const focused = this.state.getItemById(focusedId);
+    this.dirtyItemIds.delete(focusedId);
+    this.autoSave.cancelItem(focused ? this.saveTargetId(focused) : focusedId);
+  }
+
+  /** Applies one recorded operation to the state, in the undo or the redo direction. */
+  private applyUndoOp(op: UndoOp, dir: 'undo' | 'redo'): void {
+    switch (op.type) {
+      case 'update': {
+        const target = dir === 'undo' ? op.before : op.after;
+        this.state.updateItem(target.id, target);
+        if (op.before.collapsed !== op.after.collapsed) {
+          this.state.toggleCollapsed(target.id);
+        }
+        break;
+      }
+      case 'create':
+        if (dir === 'undo') this.state.deleteItem(op.item.id);
+        else this.state.addItem(op.item, this.findInsertionPosition(op.item));
+        break;
+      case 'delete':
+        if (dir === 'undo') this.state.addItem(op.item, this.findInsertionPosition(op.item));
+        else this.state.deleteItem(op.item.id);
+        break;
+    }
+  }
+
+  /**
+   * Opens the editor where the cursor was before (undo) or after (redo) the entry.
+   * Entries without a recorded cursor, such as body edits, keep editing the first updated item.
+   */
+  private restoreCursor(entry: UndoEntry, dir: 'undo' | 'redo'): void {
+    let cursor: CursorState | null = dir === 'undo' ? entry.cursorBefore : entry.cursorAfter;
+    if (!cursor) {
+      const firstUpdate = entry.ops.find(op => op.type === 'update');
+      if (firstUpdate && firstUpdate.type === 'update') {
+        const target = dir === 'undo' ? firstUpdate.before : firstUpdate.after;
+        cursor = { itemId: target.id, position: target.body.length };
+      }
+    }
+    if (!cursor) {
+      this.state.removeAllEditingItems();
+      return;
+    }
+    this.state.addEditingItem(cursor.itemId);
+    this.state.setFocusedItem(cursor.itemId, cursor.position);
+    this.focusEditor(cursor.itemId);
   }
 
   private findInsertionPosition(item: Item): ItemPosition {
@@ -2318,43 +2321,18 @@ export class OutlineComponent implements OnInit, OnDestroy {
       for (const op of ops) {
         if (op.type === 'update') {
           const target = dir === 'undo' ? op.before : op.after;
-          const source = dir === 'undo' ? op.after : op.before;
           const updated = await this.api.updateItem(target.id, {
             body: target.body,
             level: target.level,
             collapsed: target.collapsed,
           });
           this.state.updateItem(updated.id, { idx: updated.idx, level: updated.level });
-        } else if (op.type === 'create') {
-          if (dir === 'undo') {
-            // Undo a create = delete
-            await this.api.deleteItem(op.item.id);
-          } else {
-            // Redo a create = recreate
-            const pos = this.findInsertionPosition(op.item);
-            const newItem = await this.api.createItem(
-              op.item.pageId, pos, op.item.level, op.item.body
-            );
-            // Remap: update local state with real server item
-            this.state.deleteItem(op.item.id);
-            this.state.addItem(newItem, pos);
-            op.item = newItem;
-          }
-        } else if (op.type === 'delete') {
-          if (dir === 'undo') {
-            // Undo a delete = recreate
-            const pos = this.findInsertionPosition(op.item);
-            const newItem = await this.api.createItem(
-              op.item.pageId, pos, op.item.level, op.item.body
-            );
-            // Remap
-            this.state.deleteItem(op.item.id);
-            this.state.addItem(newItem, pos);
-            op.item = newItem;
-          } else {
-            // Redo a delete = delete
-            await this.api.deleteItem(op.item.id);
-          }
+        } else if ((op.type === 'create') === (dir === 'redo')) {
+          // Redo a create, or undo a delete: the item exists again
+          await this.recreateOnServer(op);
+        } else {
+          // Undo a create, or redo a delete: the item is gone
+          await this.api.deleteItem(op.item.id);
         }
       }
     } catch (e) {
@@ -2362,43 +2340,31 @@ export class OutlineComponent implements OnInit, OnDestroy {
     }
   }
 
-  private exitSelectionMode(): void {
-    this.state.clearSelection();
-    this.selectionAnchorItemId = null;
-    this.selectionExtentItemId = null;
-    this.isSelectionDragging = false;
-    document.removeEventListener('mouseup', this.selectionMouseUpHandler);
-    document.removeEventListener('keydown', this.selectionKeydownHandler);
-    document.removeEventListener('click', this.selectionClickHandler);
-    document.removeEventListener('copy', this.selectionCopyHandler);
-    document.removeEventListener('cut', this.selectionCutHandler);
+  /** Creates the item of a create/delete op again on the server and records the new server item in the op. */
+  private async recreateOnServer(op: Extract<UndoOp, { type: 'create' | 'delete' }>): Promise<void> {
+    const pos = this.findInsertionPosition(op.item);
+    const newItem = await this.api.createItem(
+      op.item.pageId, pos, op.item.level, op.item.body
+    );
+    // Remap: update local state with real server item
+    this.state.deleteItem(op.item.id);
+    this.state.addItem(newItem, pos);
+    op.item = newItem;
   }
 
-  /** Cleans up document-level event listeners and wiki suggestion state on component destruction. */
-  ngOnInit(): void {}
-
-  ngOnDestroy(): void {
-    this.scrollSub?.unsubscribe();
-    this.sseSub?.unsubscribe();
-    document.removeEventListener('mouseup', this.selectionMouseUpHandler);
-    document.removeEventListener('keydown', this.selectionKeydownHandler);
-    document.removeEventListener('click', this.selectionClickHandler);
-    document.removeEventListener('copy', this.selectionCopyHandler);
-    document.removeEventListener('cut', this.selectionCutHandler);
-    this.closeWikiSuggestions();
-  }
+  // ---- Transclusion helpers ----
 
   /**
    * Returns transclusion context for an item, or null if not in a transclusion.
    * For transclusion root: returns context based on the root itself.
    * For transcluded descendants: returns context based on the transclusion root that owns them.
    */
-  private getTransclusionContext(item: Item): { rootDisplayLevel: number; levelOffset: number; rootItemId: string } | null {
-    const isInItems = this.state.items().some(b => b.id === item.id);
+  private getTransclusionContext(item: Item): TransclusionContext | null {
+    const isOwn = this.state.isOwnItem(item.id);
+    const trees = this.state.transcludedTrees();
 
     // Transclusion root
-    if (isInItems && item.transcludeItemId) {
-      const trees = this.state.transcludedTrees();
+    if (isOwn && item.transcludeItemId) {
       const tree = trees.get(item.transcludeItemId);
       if (tree && tree.length > 0) {
         return { rootDisplayLevel: item.level, levelOffset: item.level - tree[0].level, rootItemId: item.id };
@@ -2406,8 +2372,7 @@ export class OutlineComponent implements OnInit, OnDestroy {
     }
 
     // Transcluded descendant (not in _items)
-    if (!isInItems) {
-      const trees = this.state.transcludedTrees();
+    if (!isOwn) {
       for (const [sourceId, tree] of trees) {
         if (tree.some(t => t.id === item.id) && tree.length > 0) {
           // Find the transclusion root in _items that references this sourceId
@@ -2440,7 +2405,7 @@ export class OutlineComponent implements OnInit, OnDestroy {
    * Extracts the scoped item list for a transclusion context from visible items.
    * Only includes descendants of the transclusion root (excluding the root itself).
    */
-  private getTransclusionScopedItems(vItems: Item[], tCtx: { rootDisplayLevel: number; rootItemId: string }): Item[] {
+  private getTransclusionScopedItems(vItems: Item[], tCtx: TransclusionContext): Item[] {
     const rootIdx = vItems.findIndex(b => b.id === tCtx.rootItemId);
     if (rootIdx < 0) return [];
     const scoped: Item[] = [];
@@ -2449,28 +2414,5 @@ export class OutlineComponent implements OnInit, OnDestroy {
       scoped.push(vItems[i]);
     }
     return scoped;
-  }
-
-  private async saveItemBody(itemId: string, body: string): Promise<Item> {
-    const normalized = ensureCodeFenceClosed(body);
-    this.state.updateItem(itemId, { body: normalized });
-    const updated = await this.api.updateItem(itemId, { body: normalized });
-    this.state.updateItem(itemId, { body: updated.body, ast: updated.ast, types: updated.types });
-    return updated;
-  }
-
-  private focusEditor(itemId?: string, callback?: () => void): void {
-    afterNextRender(() => {
-      const selector = itemId
-        ? `#item-editor-${itemId}`
-        : 'app-item-editor textarea';
-      const el = document.querySelector<HTMLTextAreaElement>(selector);
-      if (el) {
-        el.focus({ preventScroll: true });
-        el.style.height = 'auto';
-        el.style.height = el.scrollHeight + 'px';
-      }
-      callback?.();
-    }, { injector: this.injector });
   }
 }

@@ -2,6 +2,7 @@ import { Component, input, output, inject, viewChild, ElementRef, effect, afterN
 import { Router } from '@angular/router';
 import hljs from 'highlight.js';
 import { generateUntitledTitle } from '../../core/utils/title.utils';
+import { caretPointFromPoint } from '../../core/utils/caret.utils';
 import { FmRootComponent } from 'flatmarkdown-ast2angular';
 
 @Component({
@@ -199,8 +200,8 @@ export class ItemViewComponent {
 
     // Apply syntax highlighting when AST changes
     effect(() => {
-      const html = this.ast();
-      if (html) {
+      const ast = this.ast();
+      if (ast) {
         afterNextRender(() => {
           const content = this.contentRef()?.nativeElement;
           if (content) {
@@ -305,25 +306,11 @@ export class ItemViewComponent {
     }
   }
 
+  /** The offset in the item's text under a point, counted across all its text nodes. */
   private getTextOffsetAtPoint(x: number, y: number): number {
-    let targetNode: Node;
-    let offsetInNode: number;
-
-    // Firefox uses caretPositionFromPoint, Chrome/Safari use caretRangeFromPoint
-    const doc = document as any;
-    if (doc.caretPositionFromPoint) {
-      const pos = doc.caretPositionFromPoint(x, y);
-      if (!pos) return 0;
-      targetNode = pos.offsetNode;
-      offsetInNode = pos.offset;
-    } else if (doc.caretRangeFromPoint) {
-      const range = doc.caretRangeFromPoint(x, y);
-      if (!range) return 0;
-      targetNode = range.startContainer;
-      offsetInNode = range.startOffset;
-    } else {
-      return 0;
-    }
+    const caret = caretPointFromPoint(x, y);
+    if (!caret) return 0;
+    const { node: targetNode, offset: offsetInNode } = caret;
 
     // If the target is an element (not a text node), return 0
     if (targetNode.nodeType !== Node.TEXT_NODE) return 0;

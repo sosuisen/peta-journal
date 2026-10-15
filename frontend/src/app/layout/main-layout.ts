@@ -319,11 +319,7 @@ export class MainLayoutComponent {
       }
 
       if (searchQuery) {
-        this.searchBar()?.query.set('');
-        this.searchBar()?.pageResults.set([]);
-        this.searchBar()?.itemResults.set([]);
-        this.searchBar()?.showDropdown.set(false);
-        this.searchBar()?.showCreateButton.set(false);
+        this.searchBar()?.clearSearch();
       }
       if (classifyJournalFileName(title) === 'none') {
         const error = validateFileName(title);

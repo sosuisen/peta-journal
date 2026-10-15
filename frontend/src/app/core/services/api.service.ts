@@ -21,11 +21,16 @@ interface SearchPageNamesResult { results: SearchResult[] }
 interface GetRecentPagesResult { pages: Page[] }
 interface BacklinkEntry { sourcePage: Page; sourceItem: Item }
 interface GetBacklinksResult { entries: BacklinkEntry[] }
-async function json<T>(resp: Response): Promise<T> {
+/** Throws with the server's error message when the response is not 2xx. */
+async function ensureOk(resp: Response): Promise<void> {
   if (!resp.ok) {
     const body = await resp.json().catch(() => null);
     throw new Error(body?.error || `HTTP ${resp.status}`);
   }
+}
+
+async function json<T>(resp: Response): Promise<T> {
+  await ensureOk(resp);
   return await resp.json();
 }
 
@@ -52,7 +57,7 @@ export class ApiService {
     return json(resp);
   }
 
-  async getOrCreateDoc(title: string, dirPath?: string, tags?: string[]): Promise<GetDocResult> {
+  async getOrCreateDoc(title: string, dirPath?: string): Promise<GetDocResult> {
     // Parse path: "cat/01.md" -> dirPath="cat/", title="01"
     if (!dirPath) {
       const stripped = title.replace(/\.md$/, '');
@@ -68,7 +73,7 @@ export class ApiService {
     const resp = await fetch('/api/pages/doc', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, dirPath, tags }),
+      body: JSON.stringify({ title, dirPath }),
     });
     return json(resp);
   }
@@ -122,10 +127,7 @@ export class ApiService {
 
   async deletePage(pageId: string): Promise<void> {
     const resp = await fetch(`/api/pages/${pageId}`, { method: 'DELETE' });
-    if (!resp.ok) {
-      const body = await resp.json().catch(() => null);
-      throw new Error(body?.error || `HTTP ${resp.status}`);
-    }
+    await ensureOk(resp);
   }
 
   async deleteItem(itemId: string): Promise<void> {

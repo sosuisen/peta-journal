@@ -310,7 +310,6 @@ export class OutlineItemComponent {
   readonly shiftSelectDown = output<void>();
   readonly undoRequested = output<void>();
   readonly redoRequested = output<void>();
-  readonly copyReference = output<void>();
   readonly pasteAsTransclusion = output<void>();
   readonly removeTransclusion = output<void>();
   readonly sendToArchive = output<void>();

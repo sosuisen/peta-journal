@@ -12,6 +12,9 @@ import { RecentPagesService } from '../../core/services/recent-pages.service';
 import { NavigationService } from '../../core/services/navigation.service';
 import { ExtensionFunctionService } from '../../core/services/extension-function.service';
 
+/** How many items the outline keeps loaded ahead of the scroll position. */
+const BUFFER_ITEMS = 100;
+
 @Component({
   selector: 'app-journal',
   imports: [OutlineComponent, CalendarComponent],
@@ -94,7 +97,9 @@ export class JournalComponent {
   private readonly recentPages = inject(RecentPagesService);
   private readonly nav = inject(NavigationService);
   private readonly extensionFunctions = inject(ExtensionFunctionService);
-  private loadedDates = new Set<string>();
+  /** Names of the journals already appended to the outline. */
+  private readonly loadedDates = new Set<string>();
+  /** True while older journals are being fetched; a second request is dropped. */
   private loading = false;
 
   readonly currentDate = signal('');
@@ -153,44 +158,37 @@ export class JournalComponent {
     // Pre-load previous journals to fill the buffer
     const type = this.journalType();
     if (type === 'daily' || type === 'weekly') {
-      await this.loadInitialBuffer(date);
+      await this.loadPreviousJournals(date, BUFFER_ITEMS);
     }
   }
 
-  private async loadInitialBuffer(currentDate: string): Promise<void> {
+  /**
+   * Appends older journals, one page at a time, until the outline holds at least
+   * targetItemCount items or there is no older journal. Only one load runs at a time.
+   * @param fromName - The journal to start searching backwards from
+   * @param targetItemCount - The number of items the outline should hold afterwards
+   */
+  private async loadPreviousJournals(fromName: string, targetItemCount: number): Promise<void> {
     if (this.loading) return;
     this.loading = true;
 
     try {
-      let dateStr = currentDate;
-      const targetBufferSize = 100;
+      let name = fromName;
+      while (this.outlineState.items().length < targetItemCount) {
+        const result = await this.fetchPreviousJournal(name);
+        if (!result.found) break;
 
-      while (this.outlineState.items().length < targetBufferSize) {
-        const result = await this.fetchPreviousJournal(dateStr);
+        name = result.page!.name;
+        if (this.loadedDates.has(name)) continue;
+        this.loadedDates.add(name);
 
-        if (!result.found) {
-          break;
-        }
-
-        if (this.loadedDates.has(result.page!.name)) {
-          dateStr = result.page!.name;
-          continue;
-        }
-
-        this.loadedDates.add(result.page!.name);
-        const currentItems = this.outlineState.items();
-        this.outlineState.setItems([...currentItems, ...result.items]);
+        this.outlineState.setItems([...this.outlineState.items(), ...result.items]);
         if (result.transcludedTrees) {
-          this.outlineState.setTranscludedTrees({
-            ...Object.fromEntries(this.outlineState.transcludedTrees()),
-            ...result.transcludedTrees,
-          });
+          this.outlineState.mergeTranscludedTrees(result.transcludedTrees);
         }
-
-        dateStr = result.page!.name;
       }
     } catch (e) {
-      console.error('Failed to load initial buffer:', e);
+      console.error('Failed to load previous journals:', e);
     } finally {
       this.loading = false;
     }
@@ -212,50 +210,14 @@ export class JournalComponent {
   async onLoadMore(event: { filepath: string; currentIndex: number }): Promise<void> {
     if (this.loading) return;
 
-    this.loading = true;
-
-    try {
-      // Extract journal name from filepath based on type
-      const journalName = this.extractJournalName(event.filepath);
-      if (!journalName) {
-        console.error('Could not extract journal name from filepath:', event.filepath);
-        return;
-      }
-
-      let currentName = journalName;
-
-      // Keep loading until we have 100 items of buffer
-      while (this.outlineState.items().length < event.currentIndex + 100) {
-        const result = await this.fetchPreviousJournal(currentName);
-
-        if (!result.found) {
-          break;
-        }
-
-        if (this.loadedDates.has(result.page!.name)) {
-          currentName = result.page!.name;
-          continue;
-        }
-
-        this.loadedDates.add(result.page!.name);
-
-        // Append items from this journal
-        const currentItems = this.outlineState.items();
-        this.outlineState.setItems([...currentItems, ...result.items]);
-        if (result.transcludedTrees) {
-          this.outlineState.setTranscludedTrees({
-            ...Object.fromEntries(this.outlineState.transcludedTrees()),
-            ...result.transcludedTrees,
-          });
-        }
-
-        currentName = result.page!.name;
-      }
-    } catch (e) {
-      console.error('Failed to load previous journals:', e);
-    } finally {
-      this.loading = false;
+    // Extract journal name from filepath based on type
+    const journalName = this.extractJournalName(event.filepath);
+    if (!journalName) {
+      console.error('Could not extract journal name from filepath:', event.filepath);
+      return;
     }
+
+    await this.loadPreviousJournals(journalName, event.currentIndex + BUFFER_ITEMS);
   }
 
   /** Extracts the journal name from a item's filepath based on journal type. */

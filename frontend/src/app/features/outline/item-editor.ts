@@ -169,26 +169,6 @@ export class ItemEditorComponent implements AfterViewInit, OnDestroy {
   }
 
   /**
-   * Sets the cursor to a specific position within the textarea and focuses it.
-   * @param pos - The character index to place the cursor at.
-   */
-  setCursorPosition(pos: number): void {
-    const el = this.editorRef().nativeElement;
-    el.setSelectionRange(pos, pos);
-    el.focus();
-  }
-
-  /**
-   * Moves the cursor to the end of the textarea content and focuses it.
-   */
-  setCursorToEnd(): void {
-    const el = this.editorRef().nativeElement;
-    const len = el.value.length;
-    el.setSelectionRange(len, len);
-    el.focus();
-  }
-
-  /**
    * Handles checkbox click by preventing the default toggle and emitting a status toggle event.
    * @param event - The mouse event from the checkbox click.
    */
