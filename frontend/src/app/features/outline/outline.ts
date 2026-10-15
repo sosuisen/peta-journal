@@ -13,6 +13,7 @@ import { formatJournalDate } from '../../core/utils/date.utils';
 import { NavigationService } from '../../core/services/navigation.service';
 import { WikiLinkContext, hasUnclosedCodeFence } from './item-editor';
 import { ItemEditService } from './item-edit.service';
+import { ItemMergeService } from './item-merge.service';
 import { ItemSplitService } from './item-split.service';
 import { CrossDayMove, JournalDayMoveService, isDailyJournalItem } from './journal-day-move.service';
 import { OutlineSelection } from './outline-selection';
@@ -119,6 +120,7 @@ export class OutlineComponent implements OnDestroy {
   private readonly undoReplay = inject(UndoReplayService);
   private readonly edits = inject(ItemEditService);
   private readonly splitter = inject(ItemSplitService);
+  private readonly merges = inject(ItemMergeService);
   private readonly levels = inject(LevelShiftService);
   private readonly journalMoves = inject(JournalDayMoveService);
   private readonly sse = inject(SseService);
@@ -550,35 +552,7 @@ export class OutlineComponent implements OnDestroy {
    * @param item - The item where Backspace was pressed at position 0
    */
   async onBackspaceAtStart(item: Item): Promise<void> {
-    // Prevent merge on transclusion items
-    if (item.transcludeItemId) return;
-
-    const items = this.state.visibleItems();
-    const idx = items.findIndex(b => b.id === item.id);
-    if (idx <= 0) return;
-
-    const prevItem = items[idx - 1];
-
-    // In journal daily pages, prevent merging across page boundaries
-    if (isDailyJournalItem(item) && prevItem.pageId !== item.pageId) return;
-
-    this.edits.discardPendingEdit(item);
-    const originalPrev = { ...prevItem };
-    const originalItem = { ...item };
-    const cursorPos = prevItem.body.length;
-    const mergedBody = prevItem.body + item.body;
-    this.state.updateItem(prevItem.id, { body: mergedBody });
-    this.state.deleteItem(item.id);
-    this.state.addEditingItem(prevItem.id);
-    this.focusEditor(prevItem.id);
-
-    const updatedPrev = await this.edits.saveBody(prevItem.id, mergedBody);
-    await this.api.deleteItem(item.id);
-
-    this.undo.begin('backspace', { itemId: item.id, position: 0 });
-    this.undo.pushUpdate(originalPrev, updatedPrev);
-    this.undo.pushDelete(originalItem);
-    this.undo.commit({ itemId: prevItem.id, position: cursorPos });
+    await this.merges.mergeIntoPrevious(item, this.view);
   }
 
   /**
@@ -587,31 +561,7 @@ export class OutlineComponent implements OnDestroy {
    * @param item - The item where Delete was pressed at the end
    */
   async onDeleteAtEnd(item: Item): Promise<void> {
-    const items = this.state.visibleItems();
-    const idx = items.findIndex(b => b.id === item.id);
-    if (idx >= items.length - 1) return;
-
-    const nextItem = items[idx + 1];
-    // Same limits as Backspace: a transclusion is not merged away, and journal days are not merged
-    if (nextItem.transcludeItemId) return;
-    if (isDailyJournalItem(item) && nextItem.pageId !== item.pageId) return;
-
-    this.edits.discardPendingEdit(nextItem);
-
-    const originalItem = { ...item };
-    const originalNext = { ...nextItem };
-    const cursorPos = item.body.length;
-    const mergedBody = item.body + nextItem.body;
-    this.state.updateItem(item.id, { body: mergedBody });
-    this.state.deleteItem(nextItem.id);
-
-    const updatedItem = await this.edits.saveBody(item.id, mergedBody);
-    await this.api.deleteItem(nextItem.id);
-
-    this.undo.begin('delete', { itemId: item.id, position: cursorPos });
-    this.undo.pushUpdate(originalItem, updatedItem);
-    this.undo.pushDelete(originalNext);
-    this.undo.commit({ itemId: item.id, position: cursorPos });
+    await this.merges.mergeNextInto(item);
   }
 
   // ---- Navigation between items ----
