@@ -145,10 +145,13 @@ class ItemsApiTest extends ApiTestSupport {
         assertTrue(task.types().contains("task"));
         assertFalse(task.properties().containsKey("begin"));
 
-        json().post(cycle).then().statusCode(200);
+        // The response carries the times it just set, so the frontend can show them at once
+        ItemRow running = ItemRow.of(json().post(cycle).then().statusCode(200).extract().jsonPath().getMap("item"));
+        assertTrue(running.properties().containsKey("begin"), "response: " + running.properties());
         assertTrue(items(page.id()).get(0).properties().containsKey("begin"));
 
-        json().post(cycle).then().statusCode(200);
+        ItemRow done = ItemRow.of(json().post(cycle).then().statusCode(200).extract().jsonPath().getMap("item"));
+        assertTrue(done.properties().containsKey("end"), "response: " + done.properties());
         assertTrue(items(page.id()).get(0).properties().containsKey("end"));
 
         json().post(cycle).then().statusCode(200);
