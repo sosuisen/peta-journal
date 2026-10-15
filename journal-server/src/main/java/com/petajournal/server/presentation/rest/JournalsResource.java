@@ -19,11 +19,14 @@ import java.util.Map;
 @Consumes(MediaType.APPLICATION_JSON)
 public class JournalsResource {
 
-    @Inject
-    JournalService journalService;
+    private final JournalService journalService;
+    private final ItemDtoAssembler dtos;
 
     @Inject
-    ItemDtoAssembler dtos;
+    public JournalsResource(JournalService journalService, ItemDtoAssembler dtos) {
+        this.journalService = journalService;
+        this.dtos = dtos;
+    }
 
     // --- Response records ---
 

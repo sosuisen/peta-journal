@@ -10,11 +10,14 @@ import java.util.Map;
 
 public class McpNavigationTools {
 
-    @Inject
-    PageService pageService;
+    private final PageService pageService;
+    private final McpJsonHelper jsonHelper;
 
     @Inject
-    McpJsonHelper jsonHelper;
+    public McpNavigationTools(PageService pageService, McpJsonHelper jsonHelper) {
+        this.pageService = pageService;
+        this.jsonHelper = jsonHelper;
+    }
 
     @Tool(description = "Get pages and items that link to a given page (backlinks). Each entry contains the source page and the item containing the link.")
     String get_backlinks(

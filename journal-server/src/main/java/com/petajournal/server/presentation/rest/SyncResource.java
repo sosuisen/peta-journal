@@ -16,12 +16,22 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 @Produces(MediaType.APPLICATION_JSON)
 public class SyncResource {
 
-    @ConfigProperty(name = "petajournal.import.enabled", defaultValue = "true")
-    boolean importEnabled;
+    private final boolean importEnabled;
+    private final MarkdownExportService exportService;
+    private final MarkdownReconcileService reconcileService;
+    private final FileSyncStateRepository fileSyncStateRepository;
 
-    @Inject MarkdownExportService exportService;
-    @Inject MarkdownReconcileService reconcileService;
-    @Inject FileSyncStateRepository fileSyncStateRepository;
+    @Inject
+    public SyncResource(
+            @ConfigProperty(name = "petajournal.import.enabled", defaultValue = "true") boolean importEnabled,
+            MarkdownExportService exportService,
+            MarkdownReconcileService reconcileService,
+            FileSyncStateRepository fileSyncStateRepository) {
+        this.importEnabled = importEnabled;
+        this.exportService = exportService;
+        this.reconcileService = reconcileService;
+        this.fileSyncStateRepository = fileSyncStateRepository;
+    }
 
     record StatusResponse(boolean importEnabled, String markdownRoot, boolean rootAvailable,
                           int trackedFiles, int missingFiles) {}

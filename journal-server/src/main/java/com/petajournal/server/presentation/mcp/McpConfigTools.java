@@ -9,11 +9,14 @@ import java.util.Map;
 
 public class McpConfigTools {
 
-    @Inject
-    ConfigService configService;
+    private final ConfigService configService;
+    private final McpJsonHelper jsonHelper;
 
     @Inject
-    McpJsonHelper jsonHelper;
+    public McpConfigTools(ConfigService configService, McpJsonHelper jsonHelper) {
+        this.configService = configService;
+        this.jsonHelper = jsonHelper;
+    }
 
     @Tool(description = "Get server configuration (markdownDir, weekNumbering, logicalOutdent)")
     String get_config() {

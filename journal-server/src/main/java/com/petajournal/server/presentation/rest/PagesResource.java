@@ -20,17 +20,22 @@ import java.util.Map;
 @Consumes(MediaType.APPLICATION_JSON)
 public class PagesResource {
 
-    @Inject
-    PageService pageService;
+    private final PageService pageService;
+    private final PageRepository pageRepository;
+    private final ItemDtoAssembler dtos;
+    private final SseBroadcaster sseBroadcaster;
 
     @Inject
-    PageRepository pageRepository;
-
-    @Inject
-    ItemDtoAssembler dtos;
-
-    @Inject
-    SseBroadcaster sseBroadcaster;
+    public PagesResource(
+            PageService pageService,
+            PageRepository pageRepository,
+            ItemDtoAssembler dtos,
+            SseBroadcaster sseBroadcaster) {
+        this.pageService = pageService;
+        this.pageRepository = pageRepository;
+        this.dtos = dtos;
+        this.sseBroadcaster = sseBroadcaster;
+    }
 
     // --- Response records ---
 

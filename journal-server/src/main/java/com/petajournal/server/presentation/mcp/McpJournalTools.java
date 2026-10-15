@@ -12,14 +12,19 @@ import java.util.Map;
 
 public class McpJournalTools {
 
-    @Inject
-    JournalService journalService;
+    private final JournalService journalService;
+    private final PageService pageService;
+    private final McpJsonHelper jsonHelper;
 
     @Inject
-    PageService pageService;
-
-    @Inject
-    McpJsonHelper jsonHelper;
+    public McpJournalTools(
+            JournalService journalService,
+            PageService pageService,
+            McpJsonHelper jsonHelper) {
+        this.journalService = journalService;
+        this.pageService = pageService;
+        this.jsonHelper = jsonHelper;
+    }
 
     @Tool(description = "Get or create a journal page by file name. Supports daily (YYYY-MM-DD), weekly (YYYY-WNN), monthly (YYYY-MM), and yearly (YYYY) formats.")
     String get_or_create_journal(

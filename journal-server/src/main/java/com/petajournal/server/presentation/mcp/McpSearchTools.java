@@ -14,17 +14,22 @@ import java.util.Map;
 
 public class McpSearchTools {
 
-    @Inject
-    SearchService searchService;
+    private final SearchService searchService;
+    private final PageRepository pageRepository;
+    private final McpJsonHelper jsonHelper;
+    private final CombinedSearchService combinedSearchService;
 
     @Inject
-    PageRepository pageRepository;
-
-    @Inject
-    McpJsonHelper jsonHelper;
-
-    @Inject
-    CombinedSearchService combinedSearchService;
+    public McpSearchTools(
+            SearchService searchService,
+            PageRepository pageRepository,
+            McpJsonHelper jsonHelper,
+            CombinedSearchService combinedSearchService) {
+        this.searchService = searchService;
+        this.pageRepository = pageRepository;
+        this.jsonHelper = jsonHelper;
+        this.combinedSearchService = combinedSearchService;
+    }
 
     @Tool(description = "Search pages by name. Uses prefix matching first, then fuzzy/token search, then substring matching as fallback.")
     String search_page_names(

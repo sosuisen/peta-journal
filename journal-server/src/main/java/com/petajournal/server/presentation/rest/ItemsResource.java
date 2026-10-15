@@ -25,23 +25,28 @@ import java.util.Map;
 @Consumes(MediaType.APPLICATION_JSON)
 public class ItemsResource {
 
-    @Inject
-    ItemService itemService;
+    private final ItemService itemService;
+    private final FlatMarkdownSplitter flatMarkdownSplitter;
+    private final ItemRepository itemRepository;
+    private final PropertyRepository propertyRepository;
+    private final ItemDtoAssembler dtos;
+    private final SseBroadcaster sseBroadcaster;
 
     @Inject
-    FlatMarkdownSplitter flatMarkdownSplitter;
-
-    @Inject
-    ItemRepository itemRepository;
-
-    @Inject
-    PropertyRepository propertyRepository;
-
-    @Inject
-    ItemDtoAssembler dtos;
-
-    @Inject
-    SseBroadcaster sseBroadcaster;
+    public ItemsResource(
+            ItemService itemService,
+            FlatMarkdownSplitter flatMarkdownSplitter,
+            ItemRepository itemRepository,
+            PropertyRepository propertyRepository,
+            ItemDtoAssembler dtos,
+            SseBroadcaster sseBroadcaster) {
+        this.itemService = itemService;
+        this.flatMarkdownSplitter = flatMarkdownSplitter;
+        this.itemRepository = itemRepository;
+        this.propertyRepository = propertyRepository;
+        this.dtos = dtos;
+        this.sseBroadcaster = sseBroadcaster;
+    }
 
     // --- Request/Response records ---
 

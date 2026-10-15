@@ -14,8 +14,12 @@ import java.nio.file.Paths;
 @Path("/assets")
 public class AssetFileResource {
 
+    private final ConfigService configService;
+
     @Inject
-    ConfigService configService;
+    public AssetFileResource(ConfigService configService) {
+        this.configService = configService;
+    }
 
     @GET
     @Path("/{fileName}")

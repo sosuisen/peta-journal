@@ -14,8 +14,12 @@ public class LauncherResource {
 
     private static final Logger LOG = Logger.getLogger(LauncherResource.class);
 
+    private final AppLauncher appLauncher;
+
     @Inject
-    AppLauncher appLauncher;
+    public LauncherResource(AppLauncher appLauncher) {
+        this.appLauncher = appLauncher;
+    }
 
     public record LaunchRequest(String url) {}
     public record LaunchResponse(boolean success, String message) {}

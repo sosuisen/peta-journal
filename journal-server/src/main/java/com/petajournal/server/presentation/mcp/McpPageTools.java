@@ -11,14 +11,19 @@ import java.util.Map;
 
 public class McpPageTools {
 
-    @Inject
-    PageService pageService;
+    private final PageService pageService;
+    private final ItemService itemService;
+    private final McpJsonHelper jsonHelper;
 
     @Inject
-    ItemService itemService;
-
-    @Inject
-    McpJsonHelper jsonHelper;
+    public McpPageTools(
+            PageService pageService,
+            ItemService itemService,
+            McpJsonHelper jsonHelper) {
+        this.pageService = pageService;
+        this.itemService = itemService;
+        this.jsonHelper = jsonHelper;
+    }
 
     @Tool(description = "Get a page and its items by page ID")
     String get_page_by_id(

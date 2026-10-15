@@ -15,17 +15,22 @@ import java.util.Map;
 
 public class McpItemTools {
 
-    @Inject
-    ItemService itemService;
+    private final ItemService itemService;
+    private final PropertyRepository propertyRepository;
+    private final McpJsonHelper jsonHelper;
+    private final ItemDtoAssembler dtos;
 
     @Inject
-    PropertyRepository propertyRepository;
-
-    @Inject
-    McpJsonHelper jsonHelper;
-
-    @Inject
-    ItemDtoAssembler dtos;
+    public McpItemTools(
+            ItemService itemService,
+            PropertyRepository propertyRepository,
+            McpJsonHelper jsonHelper,
+            ItemDtoAssembler dtos) {
+        this.itemService = itemService;
+        this.propertyRepository = propertyRepository;
+        this.jsonHelper = jsonHelper;
+        this.dtos = dtos;
+    }
 
     @Tool(description = "Get a single item by its ID. Returns the item with its properties. Use 'fields' to return only specific fields (comma-separated, e.g. 'body,level,types').")
     String get_item(

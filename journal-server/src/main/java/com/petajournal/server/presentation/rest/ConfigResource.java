@@ -16,20 +16,25 @@ import java.util.Map;
 @Consumes(MediaType.APPLICATION_JSON)
 public class ConfigResource {
 
-    @Inject
-    ConfigService configService;
+    private final ConfigService configService;
+    private final PropertyRepository propertyRepository;
+    private final FolderChooserService folderChooserService;
+    private final MarkdownExportService markdownExportService;
+    private final MarkdownFolderWatcher folderWatcher;
 
     @Inject
-    PropertyRepository propertyRepository;
-
-    @Inject
-    FolderChooserService folderChooserService;
-
-    @Inject
-    MarkdownExportService markdownExportService;
-
-    @Inject
-    MarkdownFolderWatcher folderWatcher;
+    public ConfigResource(
+            ConfigService configService,
+            PropertyRepository propertyRepository,
+            FolderChooserService folderChooserService,
+            MarkdownExportService markdownExportService,
+            MarkdownFolderWatcher folderWatcher) {
+        this.configService = configService;
+        this.propertyRepository = propertyRepository;
+        this.folderChooserService = folderChooserService;
+        this.markdownExportService = markdownExportService;
+        this.folderWatcher = folderWatcher;
+    }
 
     record ConfigResponse(String markdownDir, String weekNumbering, boolean logicalOutdent) {}
     record UpdateConfigRequest(String markdownDir, String weekNumbering, Boolean logicalOutdent) {}

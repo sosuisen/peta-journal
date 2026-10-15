@@ -22,17 +22,22 @@ import java.util.Set;
 @Produces(MediaType.APPLICATION_JSON)
 public class SearchResource {
 
-    @Inject
-    PageRepository pageRepository;
+    private final PageRepository pageRepository;
+    private final SearchService searchService;
+    private final PropertyRepository propertyRepository;
+    private final CombinedSearchService combinedSearchService;
 
     @Inject
-    SearchService searchService;
-
-    @Inject
-    PropertyRepository propertyRepository;
-
-    @Inject
-    CombinedSearchService combinedSearchService;
+    public SearchResource(
+            PageRepository pageRepository,
+            SearchService searchService,
+            PropertyRepository propertyRepository,
+            CombinedSearchService combinedSearchService) {
+        this.pageRepository = pageRepository;
+        this.searchService = searchService;
+        this.propertyRepository = propertyRepository;
+        this.combinedSearchService = combinedSearchService;
+    }
 
     // --- Response records ---
 

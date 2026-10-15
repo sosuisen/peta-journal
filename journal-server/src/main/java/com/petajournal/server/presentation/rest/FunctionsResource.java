@@ -20,8 +20,12 @@ public class FunctionsResource {
 
     private static final Logger LOG = Logger.getLogger(FunctionsResource.class);
 
+    private final ExtensionFunctionService extensionFunctionService;
+
     @Inject
-    ExtensionFunctionService extensionFunctionService;
+    public FunctionsResource(ExtensionFunctionService extensionFunctionService) {
+        this.extensionFunctionService = extensionFunctionService;
+    }
 
     public record FunctionInfo(String name, String url) {}
 

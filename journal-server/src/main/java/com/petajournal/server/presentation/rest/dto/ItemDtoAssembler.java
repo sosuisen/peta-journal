@@ -24,11 +24,14 @@ public class ItemDtoAssembler {
     /** How deep a transclusion inside a transclusion is followed. */
     private static final int MAX_TRANSCLUSION_DEPTH = 5;
 
-    @Inject
-    PropertyRepository propertyRepository;
+    private final PropertyRepository propertyRepository;
+    private final ItemRepository itemRepository;
 
     @Inject
-    ItemRepository itemRepository;
+    public ItemDtoAssembler(PropertyRepository propertyRepository, ItemRepository itemRepository) {
+        this.propertyRepository = propertyRepository;
+        this.itemRepository = itemRepository;
+    }
 
     /** Converts one item, loading its properties. */
     public ItemDto toDto(Item item) {
