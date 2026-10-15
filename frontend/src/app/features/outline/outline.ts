@@ -9,16 +9,16 @@ import { Item } from '../../core/models/item.model';
 import { ClipboardService } from '../../core/services/clipboard.service';
 import { UndoService } from '../../core/services/undo.service';
 import { UndoReplayService } from './undo-replay.service';
-import { formatJournalDate, shiftIsoDate } from '../../core/utils/date.utils';
-import { classifyJournalFileName } from '../../core/utils/journal-filename.utils';
+import { formatJournalDate } from '../../core/utils/date.utils';
 import { NavigationService } from '../../core/services/navigation.service';
 import { WikiLinkContext, hasUnclosedCodeFence } from './item-editor';
 import { ItemEditService } from './item-edit.service';
 import { ItemSplitService } from './item-split.service';
+import { CrossDayMove, JournalDayMoveService, isDailyJournalItem } from './journal-day-move.service';
 import { OutlineSelection } from './outline-selection';
 import { LevelShiftService } from './level-shift.service';
 import { OutlineView } from './outline-view';
-import { findCrossPagePlacement, findMoveDownTarget, findMoveUpTarget, getSubtree } from './move-utils';
+import { findMoveDownTarget, findMoveUpTarget, getSubtree } from './move-utils';
 import { TransclusionContext, selectedRootItems, transclusionContextOf, transclusionScopedItems } from './outline-tree';
 import { renderToHtml } from 'flatmarkdown-ast2html';
 import { SseService } from '../../core/services/sse.service';
@@ -163,6 +163,7 @@ export class OutlineComponent implements OnDestroy {
   private readonly edits = inject(ItemEditService);
   private readonly splitter = inject(ItemSplitService);
   private readonly levels = inject(LevelShiftService);
+  private readonly journalMoves = inject(JournalDayMoveService);
   private readonly sse = inject(SseService);
   private sseSub?: Subscription;
   private scrollSub?: Subscription;
@@ -172,7 +173,8 @@ export class OutlineComponent implements OnDestroy {
   readonly disableAutoLoad = input<boolean>(false);  // Disable automatic item loading
   readonly currentPageDate = input<string>('');  // Date shown in page header
   readonly loadMore = output<{ filepath: string; currentIndex: number }>();  // Emits when should load more
-  readonly crossDayMoved = output<{ targetDate: string; navigate: boolean; itemId: string }>();  // Emits after cross-day move
+  /** Emits after an item moved to another day's page. */
+  readonly crossDayMoved = output<CrossDayMove>();
   readonly topItemChanged = output<string>();  // Emits name of top visible item
   readonly scrolledFromTop = output<boolean>();  // Emits true when scrolled away from top
 
@@ -606,7 +608,7 @@ export class OutlineComponent implements OnDestroy {
     const prevItem = items[idx - 1];
 
     // In journal daily pages, prevent merging across page boundaries
-    if (this.isDailyJournalItem(item) && prevItem.pageId !== item.pageId) return;
+    if (isDailyJournalItem(item) && prevItem.pageId !== item.pageId) return;
 
     this.edits.discardPendingEdit(item);
     const originalPrev = { ...prevItem };
@@ -640,7 +642,7 @@ export class OutlineComponent implements OnDestroy {
     const nextItem = items[idx + 1];
     // Same limits as Backspace: a transclusion is not merged away, and journal days are not merged
     if (nextItem.transcludeItemId) return;
-    if (this.isDailyJournalItem(item) && nextItem.pageId !== item.pageId) return;
+    if (isDailyJournalItem(item) && nextItem.pageId !== item.pageId) return;
 
     this.edits.discardPendingEdit(nextItem);
 
@@ -757,19 +759,7 @@ export class OutlineComponent implements OnDestroy {
       return;
     }
 
-    if (this.isDailyJournalItem(item)) {
-      const pageItems = this.state.items().filter(b => b.pageId === item.pageId);
-      // The topmost root item moves to the end of the next day's page
-      if (item.level === 1 && pageItems.find(b => b.level === 1)?.id === item.id) {
-        await this.moveItemToAdjacentDay(item, 'next');
-        return;
-      }
-      // A level 2 item at the second position moves to the next day's page
-      if (item.level === 2 && pageItems.length >= 2 && pageItems[1].id === item.id) {
-        const moved = await this.moveLevel2ToAdjacentDay(item, 'next');
-        if (moved) return;
-      }
-    }
+    if (isDailyJournalItem(item) && await this.moveAcrossDays(item, 'up')) return;
 
     const target = findMoveUpTarget(this.moveCandidates(item), item.id);
     if (!target) return;
@@ -785,19 +775,7 @@ export class OutlineComponent implements OnDestroy {
       return;
     }
 
-    if (this.isDailyJournalItem(item)) {
-      // The bottommost item moves to the previous day's page
-      const pageItems = this.state.items().filter(b => b.pageId === item.pageId);
-      if (pageItems.length > 0 && pageItems[pageItems.length - 1].id === item.id) {
-        if (item.level === 1) {
-          await this.moveItemToAdjacentDay(item, 'prev');
-          return;
-        } else if (item.level === 2) {
-          const moved = await this.moveLevel2ToAdjacentDay(item, 'prev');
-          if (moved) return;
-        }
-      }
-    }
+    if (isDailyJournalItem(item) && await this.moveAcrossDays(item, 'down')) return;
 
     const target = findMoveDownTarget(this.moveCandidates(item), item.id);
     if (!target) return;
@@ -809,7 +787,7 @@ export class OutlineComponent implements OnDestroy {
    * so no position refers to another page, which the backend cannot resolve.
    */
   private moveCandidates(item: Item): Item[] {
-    return this.isDailyJournalItem(item)
+    return isDailyJournalItem(item)
       ? this.state.items().filter(b => b.pageId === item.pageId)
       : this.state.items();
   }
@@ -853,11 +831,6 @@ export class OutlineComponent implements OnDestroy {
     });
   }
 
-  /** True for an item of a daily journal page (named YYYY-MM-DD). */
-  private isDailyJournalItem(item: Item): boolean {
-    return item.type === 'journal' && classifyJournalFileName(item.name) === 'daily';
-  }
-
   /**
    * Translates a page-scoped position to a full-list position for state updates.
    * 'first' becomes the position before the first item of the page in the full list.
@@ -871,78 +844,15 @@ export class OutlineComponent implements OnDestroy {
     return `after:${allItems[firstPageIdx - 1].id}`;
   }
 
-  /** The date of the day before or after a daily journal item. */
-  private adjacentDate(item: Item, direction: 'next' | 'prev'): string {
-    return shiftIsoDate(item.name, direction === 'next' ? 1 : -1);
-  }
-
-  /** A page must keep at least one item: creates an empty one when the moved items were the last ones. */
-  private async keepSourcePageNonEmpty(sourcePageId: string, movedIds: string[]): Promise<void> {
-    const remaining = this.state.items().filter(b => b.pageId === sourcePageId && !movedIds.includes(b.id));
-    if (remaining.length === 0) {
-      await this.api.createItem(sourcePageId, 'first', 1, '');
-    }
-  }
-
   /**
-   * Moves a journal item (and its children) to an adjacent day's page.
-   * For 'next': moves to the next day's page at 'last' position.
-   * For 'prev': moves to the previous day's page at 'first' position.
-   * If the target page has only one item with empty body, that item is deleted after the move.
+   * Moves an item at the edge of a daily journal page to the neighbouring day and tells the
+   * journal about it.
+   * @returns True when the item left its page
    */
-  private async moveItemToAdjacentDay(item: Item, direction: 'next' | 'prev'): Promise<void> {
-    const targetDate = this.adjacentDate(item, direction);
-
-    // Get or create the target day's journal
-    const result = await this.api.getOrCreateJournal(targetDate);
-    const targetPageId = result.page.id;
-    const targetItems = result.items;
-
-    const groupIds = this.state.getItemWithChildren(item.id).map(b => b.id);
-
-    const position: ItemPosition = direction === 'next' ? 'last' : 'first';
-    await this.api.moveItems(groupIds, targetPageId, position);
-
-    // If target page had only one item with empty body, delete it
-    if (targetItems.length === 1 && targetItems[0].body === '') {
-      await this.api.deleteItem(targetItems[0].id);
-    }
-
-    await this.keepSourcePageNonEmpty(item.pageId, groupIds);
-
-    // Notify journal to reload, with navigation for move-up when URL matches
-    const shouldNavigate = direction === 'next' && item.pageId === this.pageId();
-    this.crossDayMoved.emit({ targetDate, navigate: shouldNavigate, itemId: item.id });
-  }
-
-  /**
-   * Moves a level 2 journal item to an adjacent day's page, if the target page
-   * exists and has a valid placement position.
-   * For 'next': scans from the end of the next day's page.
-   * For 'prev': scans from the start of the previous day's page.
-   * @returns true if the item was moved, false otherwise
-   */
-  private async moveLevel2ToAdjacentDay(item: Item, direction: 'next' | 'prev'): Promise<boolean> {
-    const targetDate = this.adjacentDate(item, direction);
-
-    // Only proceed if target day's page is already loaded
-    const targetPageItems = this.state.items().filter(b =>
-      b.type === 'journal' && b.name === targetDate
-    );
-    if (targetPageItems.length === 0) return false;
-
-    const scanDirection = direction === 'next' ? 'from-end' : 'from-start';
-    const placement = findCrossPagePlacement(targetPageItems, item.level, scanDirection);
-    if (!placement) return false;
-
-    const groupIds = this.state.getItemWithChildren(item.id).map(b => b.id);
-    const targetPageId = targetPageItems[0].pageId;
-
-    await this.api.moveItems(groupIds, targetPageId, placement);
-    await this.keepSourcePageNonEmpty(item.pageId, groupIds);
-
-    this.crossDayMoved.emit({ targetDate, navigate: false, itemId: item.id });
-    return true;
+  private async moveAcrossDays(item: Item, direction: 'up' | 'down'): Promise<boolean> {
+    const crossed = await this.journalMoves.moveAcrossDays(item, direction, this.pageId());
+    if (crossed) this.crossDayMoved.emit(crossed);
+    return crossed !== null;
   }
 
   // ---- Wiki links ----
@@ -1051,7 +961,7 @@ export class OutlineComponent implements OnDestroy {
       let updated = await this.api.cycleTask(targetId);
 
       // When an item just became a task on a daily journal, set plan to the journal date
-      if (!wasTask && updated.types?.includes('task') && this.isDailyJournalItem(item)) {
+      if (!wasTask && updated.types?.includes('task') && isDailyJournalItem(item)) {
         updated = await this.api.upsertItemProperty(targetId, 'plan', 'date', item.name);
       }
 
