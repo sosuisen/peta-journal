@@ -1,43 +1,5 @@
-import { APIRequestContext, Page, expect, test } from '@playwright/test';
-import { serverPort } from '../playwright.config';
-
-/** An item as the server stores it; only the fields the tests look at. */
-interface StoredItem { id: string; level: number; body: string }
-
-/** Talks to the journal server directly, past the dev server. */
-class Server {
-  constructor(private readonly request: APIRequestContext) {}
-
-  /** Creates an empty doc page with a unique title and returns its id and title. */
-  async newDocPage(prefix: string): Promise<{ id: string; title: string }> {
-    const title = `${prefix}-${Date.now()}`;
-    const resp = await this.request.post(`http://localhost:${serverPort}/api/pages/doc`, { data: { title, dirPath: '' } });
-    expect(resp.ok()).toBe(true);
-    const { page } = await resp.json();
-    return { id: page.id, title };
-  }
-
-  async items(pageId: string): Promise<StoredItem[]> {
-    const resp = await this.request.get(`http://localhost:${serverPort}/api/pages/${pageId}`);
-    expect(resp.ok()).toBe(true);
-    const { items } = await resp.json();
-    return items.map((i: StoredItem) => ({ id: i.id, level: i.level, body: i.body }));
-  }
-
-  /** Waits until the stored items of the page satisfy the check; the auto-save needs a moment. */
-  async itemsSettled(pageId: string, check: (items: StoredItem[]) => boolean): Promise<StoredItem[]> {
-    await expect.poll(async () => check(await this.items(pageId)), { timeout: 5_000 }).toBe(true);
-    return this.items(pageId);
-  }
-}
-
-/** What the outline shows: one entry per item, with its stored level read from the server id. */
-async function shownBodies(page: Page): Promise<string[]> {
-  return page.locator('app-outline-item').evaluateAll(els =>
-    els.map(e => (e.querySelector('textarea')?.value ?? e.querySelector('.item-body, app-item-view')?.textContent ?? '').trim()));
-}
-
-const editorOf = (page: Page, itemId: string) => page.locator(`#item-editor-${itemId}`);
+import { Page, expect, test } from '@playwright/test';
+import { Server, editorOf, openEditor, openPage, shownBodies } from './support';
 
 test.describe('outline editing', () => {
   let server: Server;
@@ -47,16 +9,13 @@ test.describe('outline editing', () => {
     server = new Server(request);
     const doc = await server.newDocPage('e2e');
     pageId = doc.id;
-    await page.goto(`/pages/${doc.title}`);
-    await page.locator('app-outline-item').first().waitFor();
+    await openPage(page, doc.title);
   });
 
   /** Opens the editor of the only item on the page and returns its id. */
   async function openFirstEditor(page: Page): Promise<string> {
     const [first] = await server.items(pageId);
-    await page.locator(`[id="${first.id}"]`).click();
-    await editorOf(page, first.id).waitFor();
-    await expect(editorOf(page, first.id)).toBeFocused();
+    await openEditor(page, first.id);
     return first.id;
   }
 
