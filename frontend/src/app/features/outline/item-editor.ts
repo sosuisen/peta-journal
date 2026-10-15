@@ -220,8 +220,10 @@ export class ItemEditorComponent implements AfterViewInit, OnDestroy {
     // candidate); otherwise that Enter would split the item or insert a newline.
     if (isImeComposingKeydown(event)) return;
 
-    // Keys pressed between Enter and the focus of the next editor belong to that editor
-    if (this.keyRelay.isHolding()) {
+    // Keys pressed between Enter and the focus of the next editor belong to that editor.
+    // Shortcuts with Ctrl or Meta (paste, select all, ...) cannot be replayed, so they are
+    // left to the browser here rather than being dropped.
+    if (this.keyRelay.isHolding() && !event.ctrlKey && !event.metaKey) {
       event.preventDefault();
       this.keyRelay.hold(event);
       return;
@@ -583,16 +585,62 @@ export class ItemEditorComponent implements AfterViewInit, OnDestroy {
    */
   replayKeys(keys: DeferredKey[]): void {
     const el = this.editorRef().nativeElement;
-    for (const key of keys) {
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i];
+      // A replayed Enter starts a new hold; the keys after it belong to the item it creates
+      if (this.keyRelay.isHolding()) {
+        this.keyRelay.holdKey(key);
+        continue;
+      }
       if (isTypedCharacter(key)) {
-        el.setRangeText(key.key, el.selectionStart, el.selectionEnd, 'end');
-        this.bodyChange.emit(el.value);
-        this.autoResize(el);
-        this.checkWikiLinkContext(el);
-      } else {
+        this.replaceSelection(el, key.key);
+      } else if (!this.replayEditingKey(el, key)) {
         el.dispatchEvent(new KeyboardEvent('keydown', { ...key, bubbles: true, cancelable: true }));
       }
     }
+  }
+
+  /**
+   * Does what the browser would have done for a key that edits or moves inside the text.
+   * A synthetic keydown has no default action, so these are done by hand.
+   * @returns False when the key is not one of those, or when its keydown handler should run instead
+   */
+  private replayEditingKey(el: HTMLTextAreaElement, key: DeferredKey): boolean {
+    const { selectionStart, selectionEnd, value } = el;
+    const hasSelection = selectionStart !== selectionEnd;
+    if (key.shiftKey || key.altKey) return false;
+    switch (key.key) {
+      case 'Backspace':
+        if (!hasSelection && selectionStart === 0) return false;  // the handler merges with the item above
+        this.replaceSelection(el, '', hasSelection ? selectionStart : selectionStart - 1, selectionEnd);
+        return true;
+      case 'Delete':
+        if (!hasSelection && selectionEnd === value.length) return false;  // the handler merges the item below
+        this.replaceSelection(el, '', selectionStart, hasSelection ? selectionEnd : selectionEnd + 1);
+        return true;
+      case 'ArrowLeft':
+        el.setSelectionRange(Math.max(0, selectionStart - 1), Math.max(0, selectionStart - 1));
+        return true;
+      case 'ArrowRight':
+        el.setSelectionRange(Math.min(value.length, selectionEnd + 1), Math.min(value.length, selectionEnd + 1));
+        return true;
+      case 'Home':
+        el.setSelectionRange(0, 0);
+        return true;
+      case 'End':
+        el.setSelectionRange(value.length, value.length);
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  /** Replaces a range of the text (the selection by default) and reports the new body. */
+  private replaceSelection(el: HTMLTextAreaElement, text: string, start = el.selectionStart, end = el.selectionEnd): void {
+    el.setRangeText(text, start, end, 'end');
+    this.bodyChange.emit(el.value);
+    this.autoResize(el);
+    this.checkWikiLinkContext(el);
   }
 
   /**

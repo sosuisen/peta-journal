@@ -57,6 +57,32 @@ test.describe('outline editing', () => {
     expect(await shownBodies(page)).toEqual(['alpha', 'beta']);
   });
 
+  test('two quick Enters in a row make two items, each with its own text', async ({ page }) => {
+    await openFirstEditor(page);
+
+    await page.keyboard.type('a');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('b');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('c');
+
+    const items = await server.itemsSettled(pageId, items => items.length === 3 && items[2].body === 'c');
+    expect(items.map(i => i.body)).toEqual(['a', 'b', 'c']);
+    expect(await shownBodies(page)).toEqual(['a', 'b', 'c']);
+  });
+
+  test('Backspace right after Enter deletes a typed character instead of being lost', async ({ page }) => {
+    await openFirstEditor(page);
+    await page.keyboard.type('one');
+
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('ab');
+    await page.keyboard.press('Backspace');
+
+    const items = await server.itemsSettled(pageId, items => items.length === 2 && items[1].body === 'a');
+    expect(items.map(i => i.body)).toEqual(['one', 'a']);
+  });
+
   test('Enter in the middle of the text moves the rest to the new item', async ({ page }) => {
     await openFirstEditor(page);
     await page.keyboard.type('headtail');

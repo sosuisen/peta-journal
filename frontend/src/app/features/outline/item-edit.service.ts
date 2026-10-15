@@ -37,7 +37,9 @@ export class ItemEditService {
 
   /** True while an editor is open or typed text has not been saved yet. */
   isEditInProgress(): boolean {
-    return this.state.editingItemIds().size > 0 || this.dirtyItemIds.size > 0;
+    // Dirty ids alone do not count: an editor that was closed without a blur (selection
+    // mode, a delete) leaves its id behind while the auto-save finishes the save
+    return this.state.editingItemIds().size > 0;
   }
 
   /** Records typed text: the state shows it at once and the auto-save sends it later. */

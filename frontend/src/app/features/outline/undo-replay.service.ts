@@ -34,10 +34,11 @@ export class UndoReplayService {
    */
   async replay(dir: UndoDirection, editor: UndoEditor): Promise<boolean> {
     if (this.undo.isPending()) return false;
-    editor.discardPendingEdit();
 
     const entry = dir === 'undo' ? this.undo.popUndo() : this.undo.popRedo();
     if (!entry) return false;
+    // Only now: with nothing to replay, the typed text must keep its pending save
+    editor.discardPendingEdit();
 
     // Undo applies the inverse ops in reverse order; redo applies the ops as recorded
     const ops = dir === 'undo' ? [...entry.ops].reverse() : entry.ops;

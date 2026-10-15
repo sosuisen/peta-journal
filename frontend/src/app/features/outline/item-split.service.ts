@@ -117,15 +117,17 @@ export class ItemSplitService {
       } else {
         this.state.updateItem(newId, { idx: serverItem.idx });
       }
+    }).catch(async e => {
+      // The item shown is not on the server; show the page as the server has it
+      console.error('Failed to create item:', e);
+      await view.reloadPage();
     });
     this.state.addItem(optimisticItem, position);
 
     this.undo.begin('enter', { itemId: item.id, position: cursorPos });
-    this.undo.pushUpdate({ ...item }, { ...item });
     this.undo.pushCreate(optimisticItem);
     this.undo.commit({ itemId: newId, position: 0 });
 
-    this.edits.discardPendingEdit(item);
     this.state.addEditingItem(newId);
     this.state.setFocusedItem(newId);
     view.focusEditor(newId);

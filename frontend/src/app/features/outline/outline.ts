@@ -1,4 +1,4 @@
-import { Component, inject, input, output, effect, Injector, afterNextRender, viewChild, viewChildren, computed, untracked, OnDestroy } from '@angular/core';
+import { Component, DestroyRef, inject, input, output, effect, Injector, afterNextRender, viewChild, viewChildren, computed, untracked, OnDestroy } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { ScrollingModule, CdkVirtualScrollViewport } from '@angular/cdk/scrolling';
 import { ScrollingModule as ExperimentalScrollingModule } from '@angular/cdk-experimental/scrolling';
@@ -125,6 +125,7 @@ export class OutlineComponent implements OnDestroy {
   readonly state = inject(OutlineStateService);
   private readonly api = inject(ApiService);
   private readonly injector = inject(Injector);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly nav = inject(NavigationService);
   private readonly undo = inject(UndoService);
   private readonly undoReplay = inject(UndoReplayService);
@@ -201,7 +202,7 @@ export class OutlineComponent implements OnDestroy {
         stack.pop();
       }
       const parentZoom = stack.length > 0 ? stack[stack.length - 1].zoom : 1;
-      const ownZoom = parseFloat(item.properties['zoom'] as string) || 1;
+      const ownZoom = zoomOf(item);
       const effective = parentZoom * ownZoom;
       map.set(item.id, effective);
       stack.push({ level: item.level, zoom: effective });
@@ -492,7 +493,7 @@ export class OutlineComponent implements OnDestroy {
   /** What the item services need from this component; see {@link OutlineView}. */
   private readonly view: OutlineView = {
     pageId: () => this.pageId(),
-    reloadPage: () => this.loadItems(this.pageId()),
+    reloadPage: () => this.fileReloads.replacePage(this.pageId()),
     reloadPageFromFile: pageId => { this.fileReloads.reloadPage(pageId); },
     focusEditor: itemId => this.focusEditor(itemId),
   };
@@ -504,7 +505,11 @@ export class OutlineComponent implements OnDestroy {
    */
   private focusEditor(itemId?: string): Promise<void> {
     return new Promise(resolve => {
+      // A render that never comes (the outline is destroyed first) must not leave a
+      // caller waiting: a hand-over that never ends would ignore every later blur
+      const stopWaiting = this.destroyRef.onDestroy(resolve);
       afterNextRender(() => {
+        stopWaiting();
         const selector = itemId
           ? `#item-editor-${itemId}`
           : 'app-item-editor textarea';

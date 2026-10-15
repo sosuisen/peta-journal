@@ -28,25 +28,32 @@ export class FileReloadService {
    * Pages that the outline does not show are ignored.
    */
   async reloadPage(pageId: string): Promise<void> {
-    const current = this.state.items();
-    if (!current.some(i => i.pageId === pageId)) return;  // not shown in this outline
+    if (!this.state.items().some(i => i.pageId === pageId)) return;  // not shown in this outline
     if (this.edits.isEditInProgress()) {
       this.pending.add(pageId);
       return;
     }
+    await this.replacePage(pageId);
+  }
+
+  /**
+   * Replaces the items of one page with the server's version right now, in place, so the
+   * other pages of a journal stay where they are. The transcluded trees are merged for the
+   * same reason.
+   */
+  async replacePage(pageId: string): Promise<void> {
     try {
       const result = await this.api.getPageById(pageId);
       const items = this.state.items();
       const first = items.findIndex(i => i.pageId === pageId);
-      if (first < 0) return;
-      const before = items.slice(0, first);
-      const after = items.slice(first).filter(i => i.pageId !== pageId);
+      const before = first < 0 ? items : items.slice(0, first);
+      const after = first < 0 ? [] : items.slice(first).filter(i => i.pageId !== pageId);
       this.state.setItems([...before, ...result.items, ...after]);
       if (result.transcludedTrees) {
         this.state.mergeTranscludedTrees(result.transcludedTrees);
       }
     } catch (e) {
-      console.error('Failed to reload page from file:', pageId, e);
+      console.error('Failed to reload page:', pageId, e);
     }
   }
 

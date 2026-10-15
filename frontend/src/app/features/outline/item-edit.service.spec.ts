@@ -51,6 +51,13 @@ describe('ItemEditService', () => {
       expect(service.isEditInProgress()).toBe(true);
     });
 
+    it('no edit is in progress once every editor is closed, even with a save still pending', () => {
+      service.recordTyping(item, 'typed');
+      state.removeAllEditingItems();
+
+      expect(service.isEditInProgress()).toBe(false);
+    });
+
     it('a transclusion root schedules the save for its source item', () => {
       const root = b('r', { transcludeItemId: 'src' });
       state.setItems([root]);

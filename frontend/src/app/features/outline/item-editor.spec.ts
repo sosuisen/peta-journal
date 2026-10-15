@@ -42,6 +42,16 @@ describe('ItemEditorComponent', () => {
       expect(keyRelay.release().map(k => k.key)).toEqual(['Tab']);
     });
 
+    it('shortcuts with Ctrl are left to the browser, because they cannot be replayed', () => {
+      keyRelay.holdUntilFocus();
+      const paste = new KeyboardEvent('keydown', { key: 'v', ctrlKey: true, bubbles: true, cancelable: true });
+
+      textarea.dispatchEvent(paste);
+
+      expect(paste.defaultPrevented).toBe(false);
+      expect(keyRelay.release()).toEqual([]);
+    });
+
     it('are handled as usual once the relay released them', () => {
       keyRelay.holdUntilFocus();
       keyRelay.release();
@@ -66,6 +76,35 @@ describe('ItemEditorComponent', () => {
       editor.replayKeys([key('Tab')]);
 
       expect(indents).toBe(1);
+    });
+
+    it('does what the browser would do for Backspace, Delete and the arrows', () => {
+      textarea.setSelectionRange(2, 2);
+
+      editor.replayKeys([key('Backspace'), key('X'), key('ArrowLeft'), key('ArrowLeft'), key('Delete'), key('End'), key('Y')]);
+
+      expect(textarea.value).toBe('XY');
+    });
+
+    it('Backspace at the start still goes to the keydown handler, which merges items', () => {
+      let merges = 0;
+      editor.backspaceAtStart.subscribe(() => merges++);
+      textarea.setSelectionRange(0, 0);
+
+      editor.replayKeys([key('Backspace')]);
+
+      expect(merges).toBe(1);
+      expect(textarea.value).toBe('ab');
+    });
+
+    it('keys after a replayed Enter are held for the item that Enter creates', () => {
+      editor.enterPressed.subscribe(() => keyRelay.holdUntilFocus());
+      textarea.setSelectionRange(2, 2);
+
+      editor.replayKeys([key('Enter'), key('c'), key('Tab')]);
+
+      expect(textarea.value).toBe('ab');
+      expect(keyRelay.release().map(k => k.key)).toEqual(['c', 'Tab']);
     });
   });
 });

@@ -36,7 +36,7 @@ export class KeyRelayService {
 
   /** Keeps a key press for the next focused editor; does nothing when not holding. */
   hold(event: KeyboardEvent): void {
-    this.held?.push({
+    this.holdKey({
       key: event.key,
       code: event.code,
       shiftKey: event.shiftKey,
@@ -44,6 +44,11 @@ export class KeyRelayService {
       altKey: event.altKey,
       metaKey: event.metaKey,
     });
+  }
+
+  /** Keeps a key that was already taken off an event, e.g. one left over from a replay. */
+  holdKey(key: DeferredKey): void {
+    this.held?.push(key);
   }
 
   /** Stops holding and returns the keys in the order they were pressed. */

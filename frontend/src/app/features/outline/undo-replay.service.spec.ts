@@ -169,9 +169,10 @@ describe('UndoReplayService', () => {
   });
 
   describe('nothing to do', () => {
-    it('returns false on an empty stack and moves no cursor', async () => {
+    it('returns false on an empty stack and leaves the pending edit alone', async () => {
       expect(await service.replay('undo', editor)).toBe(false);
       expect(editor.focusEditor).not.toHaveBeenCalled();
+      expect(editor.discardPendingEdit).not.toHaveBeenCalled();
     });
 
     it('does nothing while an entry is still being recorded', async () => {

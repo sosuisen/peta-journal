@@ -47,6 +47,17 @@ describe('ItemSplitService', () => {
     expect(state.consumePendingCursorPosition()).toBe(0);
   });
 
+  it('when the background creation fails, the page is reloaded from the server', async () => {
+    api.createItem.mockRejectedValueOnce(new Error('offline'));
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    await service.handleEnter(state.getItemById('a')!, 'hello world'.length, view);
+    await settled();
+
+    expect(view.reloadPage).toHaveBeenCalled();
+    error.mockRestore();
+  });
+
   it('Enter at the end shows an empty item at once and creates it in the background', async () => {
     await service.handleEnter(state.getItemById('a')!, 'hello world'.length, view);
     await settled();

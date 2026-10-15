@@ -56,6 +56,16 @@ describe('FileReloadService', () => {
     expect(service.hasPending()).toBe(false);
   });
 
+  it('replacePage reloads at once, even while editing, and adds a page that was not shown', async () => {
+    editing = true;
+
+    await service.replacePage('page1');
+    await service.replacePage('page3');
+
+    expect(getPageById).toHaveBeenCalledWith('page1');
+    expect(ids()).toEqual(['a', 'n', 'c', 'a', 'n']);
+  });
+
   it('keeps the items when the server fails', async () => {
     getPageById.mockRejectedValueOnce(new Error('offline'));
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});
