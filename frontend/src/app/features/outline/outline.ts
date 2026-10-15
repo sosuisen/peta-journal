@@ -14,14 +14,13 @@ import { NavigationService } from '../../core/services/navigation.service';
 import { WikiLinkContext, hasUnclosedCodeFence } from './item-editor';
 import { ItemEditService } from './item-edit.service';
 import { ItemMergeService } from './item-merge.service';
+import { ItemMoveService, MoveDirection } from './item-move.service';
 import { ItemSplitService } from './item-split.service';
-import { CrossDayMove, JournalDayMoveService, isDailyJournalItem } from './journal-day-move.service';
+import { CrossDayMove, isDailyJournalItem } from './journal-day-move.service';
 import { OutlineSelection } from './outline-selection';
 import { WikiSuggestionPick, WikiSuggestionsComponent } from './wiki-suggestions';
 import { LevelShiftService } from './level-shift.service';
 import { OutlineView } from './outline-view';
-import { findMoveDownTarget, findMoveUpTarget, getSubtree } from './move-utils';
-import { TransclusionContext, selectedRootItems, transclusionContextOf, transclusionScopedItems } from './outline-tree';
 import { renderToHtml } from 'flatmarkdown-ast2html';
 import { SseService } from '../../core/services/sse.service';
 
@@ -121,8 +120,8 @@ export class OutlineComponent implements OnDestroy {
   private readonly edits = inject(ItemEditService);
   private readonly splitter = inject(ItemSplitService);
   private readonly merges = inject(ItemMergeService);
+  private readonly moves = inject(ItemMoveService);
   private readonly levels = inject(LevelShiftService);
-  private readonly journalMoves = inject(JournalDayMoveService);
   private readonly sse = inject(SseService);
   private sseSub?: Subscription;
   private scrollSub?: Subscription;
@@ -622,7 +621,7 @@ export class OutlineComponent implements OnDestroy {
    * @param item - The item to move up
    */
   onMoveUp(item: Item): Promise<void> {
-    return this.enqueueMove(() => this.moveUp(this.currentItem(item)));
+    return this.enqueueMove(() => this.moveItem(item, 'up'));
   }
 
   /**
@@ -631,7 +630,13 @@ export class OutlineComponent implements OnDestroy {
    * @param item - The item to move down
    */
   onMoveDown(item: Item): Promise<void> {
-    return this.enqueueMove(() => this.moveDown(this.currentItem(item)));
+    return this.enqueueMove(() => this.moveItem(item, 'down'));
+  }
+
+  /** Moves the item as it is shown now and tells the journal when it changed day. */
+  private async moveItem(item: Item, direction: MoveDirection): Promise<void> {
+    const crossed = await this.moves.move(this.currentItem(item), direction, this.view);
+    if (crossed) this.crossDayMoved.emit(crossed);
   }
 
   /**
@@ -650,111 +655,6 @@ export class OutlineComponent implements OnDestroy {
   /** The item as it is shown now; the one passed by the template may be from before an earlier move. */
   private currentItem(item: Item): Item {
     return this.state.visibleItems().find(b => b.id === item.id) ?? item;
-  }
-
-  private async moveUp(item: Item): Promise<void> {
-    await this.edits.flushPendingEdit(item);
-
-    const tCtx = this.getTransclusionContext(item);
-    if (tCtx && !this.state.isOwnItem(item.id)) {
-      await this.moveWithinTransclusion(item, tCtx, 'up');
-      return;
-    }
-
-    if (isDailyJournalItem(item) && await this.moveAcrossDays(item, 'up')) return;
-
-    const target = findMoveUpTarget(this.moveCandidates(item), item.id);
-    if (!target) return;
-    await this.moveGroupTo(item, target.position);
-  }
-
-  private async moveDown(item: Item): Promise<void> {
-    await this.edits.flushPendingEdit(item);
-
-    const tCtx = this.getTransclusionContext(item);
-    if (tCtx && !this.state.isOwnItem(item.id)) {
-      await this.moveWithinTransclusion(item, tCtx, 'down');
-      return;
-    }
-
-    if (isDailyJournalItem(item) && await this.moveAcrossDays(item, 'down')) return;
-
-    const target = findMoveDownTarget(this.moveCandidates(item), item.id);
-    if (!target) return;
-    await this.moveGroupTo(item, target.position);
-  }
-
-  /**
-   * The items a move target is searched in. In journal mode this is the item's own page,
-   * so no position refers to another page, which the backend cannot resolve.
-   */
-  private moveCandidates(item: Item): Item[] {
-    return isDailyJournalItem(item)
-      ? this.state.items().filter(b => b.pageId === item.pageId)
-      : this.state.items();
-  }
-
-  /** Moves an item with its children to a position on its own page, keeping its editor open. */
-  private async moveGroupTo(item: Item, position: ItemPosition): Promise<void> {
-    const statePosition = this.toFullListPosition(position, item.pageId);
-    const group = this.state.getItemWithChildren(item.id);
-    const groupIds = group.map(b => b.id);
-    const beforeSnapshots = group.map(b => ({ ...b }));
-
-    const moved = await this.api.moveItems(groupIds, item.pageId, position);
-
-    this.undo.begin('move');
-    for (let i = 0; i < beforeSnapshots.length; i++) {
-      this.undo.pushUpdate(beforeSnapshots[i], { ...moved[i] });
-    }
-    this.undo.commit();
-
-    // Reordering the list blurs the editor; the edit goes on in the moved item
-    await this.edits.handOverEdit(async () => {
-      this.state.replaceItems(groupIds, moved, statePosition);
-      await this.focusEditor(item.id);
-    });
-  }
-
-  /** Moves a transcluded descendant within the tree of its transclusion root. */
-  private async moveWithinTransclusion(item: Item, tCtx: TransclusionContext, direction: 'up' | 'down'): Promise<void> {
-    const scopedItems = transclusionScopedItems(this.state.visibleItems(), tCtx);
-    const target = direction === 'up'
-      ? findMoveUpTarget(scopedItems, item.id)
-      : findMoveDownTarget(scopedItems, item.id);
-    if (!target) return;
-
-    const groupIds = this.getVisibleSubtree(item.id).map(b => b.id);
-    await this.api.moveItems(groupIds, item.pageId, target.position);
-    // Reload to reflect reordering
-    await this.edits.handOverEdit(async () => {
-      await this.loadItems(this.pageId());
-      await this.focusEditor(item.id);
-    });
-  }
-
-  /**
-   * Translates a page-scoped position to a full-list position for state updates.
-   * 'first' becomes the position before the first item of the page in the full list.
-   * 'after:X' positions are already valid in the full list.
-   */
-  private toFullListPosition(position: ItemPosition, pageId: string): ItemPosition {
-    if (position !== 'first') return position;
-    const allItems = this.state.items();
-    const firstPageIdx = allItems.findIndex(b => b.pageId === pageId);
-    if (firstPageIdx <= 0) return 'first';
-    return `after:${allItems[firstPageIdx - 1].id}`;
-  }
-
-  /**
-   * Moves an item at the edge of a daily journal page to the neighbouring day and tells the
-   * journal about it.
-   * @returns True when the item left its page
-   */
-  private async moveAcrossDays(item: Item, direction: 'up' | 'down'): Promise<boolean> {
-    const crossed = await this.journalMoves.moveAcrossDays(item, direction, this.pageId());
-    if (crossed) this.crossDayMoved.emit(crossed);
-    return crossed !== null;
   }
 
   // ---- Wiki links ----
@@ -1145,44 +1045,8 @@ export class OutlineComponent implements OnDestroy {
     await this.ensureAtLeastOneItem();
   }
 
-  private moveSelectedItems(direction: 'up' | 'down'): Promise<void> {
-    return this.enqueueMove(() => this.moveSelection(direction));
-  }
-
-  /** Moves every selected subtree past the sibling tree above or below the selection. */
-  private async moveSelection(direction: 'up' | 'down'): Promise<void> {
-    const rootItems = selectedRootItems(this.state.items(), this.state.selectedItemIds());
-    if (rootItems.length === 0) return;
-
-    const edgeRoot = direction === 'up' ? rootItems[0] : rootItems[rootItems.length - 1];
-    const target = direction === 'up'
-      ? findMoveUpTarget(this.state.items(), edgeRoot.id)
-      : findMoveDownTarget(this.state.items(), edgeRoot.id);
-    if (!target) return;
-
-    const allSelectedIds: string[] = [];
-    for (const root of rootItems) {
-      for (const b of this.state.getItemWithChildren(root.id)) {
-        allSelectedIds.push(b.id);
-      }
-    }
-    const beforeSnapshots = allSelectedIds
-      .map(id => this.state.getItemById(id))
-      .filter((b): b is Item => !!b)
-      .map(b => ({ ...b }));
-
-    try {
-      const moved = await this.api.moveItems(allSelectedIds, edgeRoot.pageId, target.position);
-      this.state.replaceItems(allSelectedIds, moved, target.position);
-
-      this.undo.begin('move-selection');
-      for (let i = 0; i < beforeSnapshots.length; i++) {
-        this.undo.pushUpdate(beforeSnapshots[i], { ...moved[i] });
-      }
-      this.undo.commit();
-    } catch (e) {
-      console.error(`Failed to move selected items ${direction}:`, e);
-    }
+  private moveSelectedItems(direction: MoveDirection): Promise<void> {
+    return this.enqueueMove(() => this.moves.moveSelection(direction));
   }
 
   private async indentSelectedItems(): Promise<void> {
@@ -1251,15 +1115,4 @@ export class OutlineComponent implements OnDestroy {
     discardPendingEdit: () => this.edits.discardPendingEditOfFocusedItem(),
     focusEditor: (itemId: string) => { this.focusEditor(itemId); },
   };
-
-  // ---- Transclusion helpers ----
-
-  private getTransclusionContext(item: Item): TransclusionContext | null {
-    return transclusionContextOf(item, this.state.items(), this.state.transcludedTrees());
-  }
-
-  /** Gets an item and its subtree as shown, including transcluded descendants. */
-  private getVisibleSubtree(itemId: string): Item[] {
-    return getSubtree(this.state.visibleItems(), itemId);
-  }
 }
