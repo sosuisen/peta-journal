@@ -39,6 +39,10 @@ import { SseService } from '../../core/services/sse.service';
         (mouseenter)="onItemMouseEnter(item)"
         (wheel)="onItemWheel(item, $event)"
       >
+        <!-- The header of the page's own day is left out. Which header is left out must not
+             depend on the scroll position: toggling a header at the top edge while scrolling
+             made the browser's scroll anchoring move the viewport back and forth (see
+             currentPageDate). -->
         @if (isFirstItemOfDate(i) && item.name !== currentPageDate() && item.type === 'journal') {
           <div class="date-header">
             {{ formatDateHeader(item.name) }}
@@ -88,8 +92,10 @@ import { SseService } from '../../core/services/sse.service';
     .outline-viewport {
       height: 100%;
       width: 100% !important;
-      /* The virtual scroll places its content itself; the browser's scroll anchoring
-         would fight it whenever rendered items change height */
+      /* The virtual scroll places its content itself. The browser's scroll anchoring
+         reacts to every height change of the rendered items by moving the scroll
+         position, which fought the virtual scroll: in the journal, slow scrolling across a
+         day boundary shook the viewport and did not advance. */
       overflow-anchor: none;
     }
     .outline-viewport ::ng-deep .cdk-virtual-scroll-content-wrapper {
@@ -139,9 +145,14 @@ export class OutlineComponent implements OnDestroy {
   readonly disableAutoLoad = input<boolean>(false);  // Disable automatic item loading
   /**
    * The date of the journal page itself. Its inline date header is left out because the
-   * journal header already shows it. This must not follow the scroll position: showing and
-   * hiding headers while scrolling changes the content height at the top of the viewport,
-   * and the browser's scroll anchoring then moves the scroll position back and forth.
+   * journal header already shows it.
+   *
+   * This used to be the date of the top visible item, so that the header of the day shown
+   * in the journal header disappeared. That toggled a 53px header right at the top edge
+   * every time a day boundary scrolled past, the browser's scroll anchoring answered each
+   * change by moving the scroll position, which changed the top item and toggled the header
+   * again: with slow scrolling the viewport shook and did not advance. The value must not
+   * follow the scroll position.
    */
   readonly currentPageDate = input<string>('');
   readonly loadMore = output<{ filepath: string; currentIndex: number }>();  // Emits when should load more

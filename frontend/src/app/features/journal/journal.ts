@@ -43,6 +43,9 @@ const BUFFER_ITEMS = 100;
       />
     }
     @if (page()) {
+      <!-- currentPageDate is the page's own date, not topVisibleDate: following the scroll
+           position toggled date headers at the top edge and made the viewport shake, see
+           OutlineComponent.currentPageDate. -->
       <app-outline [pageId]="page()!.id" [disableAutoLoad]="true" [currentPageDate]="currentDate()" (loadMore)="onLoadMore($event)" (topItemChanged)="onTopItemChanged($event)" (scrolledFromTop)="scrolled.set($event)" (crossDayMoved)="onCrossDayMoved($event)" />
     }
   `,
@@ -107,7 +110,8 @@ export class JournalComponent {
 
   readonly currentDate = signal('');
   readonly journalType = signal<JournalType>('daily');
-  readonly topVisibleDate = signal('');  // Date of the top visible item
+  /** Date of the top visible item; shown in the journal header only, never fed back into the outline. */
+  readonly topVisibleDate = signal('');
   readonly page = signal<Page | null>(null);
   readonly showCalendar = signal(false);
   readonly scrolled = signal(false);
