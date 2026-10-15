@@ -24,7 +24,7 @@ public class DatabaseInitializer {
     @Inject
     IdGenerator idGenerator;
 
-    void init(@Observes @Priority(1) StartupEvent event) {
+    public void init(@Observes @Priority(1) StartupEvent event) {
         try (Connection conn = connectionProvider.getConnection();
              Statement stmt = conn.createStatement()) {
 

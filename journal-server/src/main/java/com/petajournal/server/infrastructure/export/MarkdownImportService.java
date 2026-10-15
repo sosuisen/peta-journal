@@ -121,7 +121,7 @@ public class MarkdownImportService {
      * @param renamed   the page exists but its file moved to this path
      * @param writeBack the file lacks our id or carries a foreign one and must be rewritten after the import
      */
-    private record PageMatch(Page page, boolean isNew, boolean renamed, boolean writeBack) {}
+    record PageMatch(Page page, boolean isNew, boolean renamed, boolean writeBack) {}
 
     private Outcome importContent(Path root, String relPath, PageLocation loc,
                                   String content, String hash, BasicFileAttributes attrs) {
@@ -199,9 +199,15 @@ public class MarkdownImportService {
      *       created the same page independently; the older id wins on every device.</li>
      *   <li>Otherwise a new page is created, keeping the file's id when it has one.</li>
      * </ol>
+     * Package-private for tests.
+     *
+     * @param root         the markdown directory
+     * @param relPath      the file's path under root
+     * @param loc          the page location decoded from relPath
+     * @param fm           the file's front matter
+     * @param fileModified the file's modified time, used for a new page
      */
-    private PageMatch matchPage(Path root, String relPath, PageLocation loc, Map<String, String> fm,
-                                Instant fileModified) {
+    PageMatch matchPage(Path root, String relPath, PageLocation loc, Map<String, String> fm, Instant fileModified) {
         HMTID fileId = parseId(fm.get("id"));
         boolean writeBack = false;
 
