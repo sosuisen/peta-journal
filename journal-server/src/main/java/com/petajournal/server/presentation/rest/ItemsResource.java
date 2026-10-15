@@ -84,7 +84,7 @@ public class ItemsResource {
                 req.body(),
                 clientId);
         sseBroadcaster.broadcastPagesUpdated(req.pageId());
-        return new CreateItemResponse(DtoMapper.toDto(item));
+        return new CreateItemResponse(dtos.toDto(item));
     }
 
     @GET
@@ -108,7 +108,7 @@ public class ItemsResource {
         sseBroadcaster.broadcastPagesUpdated(item.pageId().toString());
         // Notify pages that transclude this item
         broadcastToTranscluders(HMTID.of(id), item.pageId().toString());
-        return new UpdateItemResponse(DtoMapper.toDto(item));
+        return new UpdateItemResponse(dtos.toDto(item));
     }
 
     @DELETE

@@ -43,6 +43,17 @@ class ItemsApiTest extends ApiTestSupport {
         assertEquals(id, item.id());
     }
 
+    @Test
+    void aHashtagInTheBodyComesBackAsATagProperty() {
+        PageRef page = newDocPage("items-hashtag");
+
+        ItemRow created = createItem(page.id(), "last", 1, "remember #urgent");
+        ItemRow updated = updateItem(created.id(), Map.of("body", "remember #urgent #later"));
+
+        assertEquals(List.of("urgent"), created.properties().get("tag"));
+        assertEquals(List.of("urgent", "later"), updated.properties().get("tag"));
+    }
+
     // ---- Updating ----
 
     @Test
