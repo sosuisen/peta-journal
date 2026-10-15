@@ -1,5 +1,9 @@
 package com.petajournal.server.application;
 
+import com.petajournal.server.domain.FractionalIndexer;
+import com.petajournal.server.domain.HashtagExtractor;
+import com.petajournal.server.domain.IdGenerator;
+import com.petajournal.server.domain.ItemBody;
 import com.petajournal.server.domain.model.Item;
 import com.petajournal.server.domain.model.ItemPatch;
 import com.petajournal.server.domain.model.ItemPlacement;
@@ -9,14 +13,13 @@ import com.petajournal.server.domain.repository.ItemRepository;
 import com.petajournal.server.domain.repository.MarkdownParser;
 import com.petajournal.server.domain.repository.PageRepository;
 import com.petajournal.server.domain.repository.SearchService;
-import com.petajournal.server.domain.IdGenerator;
-import com.petajournal.server.domain.FractionalIndexer;
+import com.petajournal.server.infrastructure.export.MarkdownExportService;
+import com.petajournal.server.infrastructure.persistence.PropertyRepository;
 import com.sosuisha.hmtid.HMTID;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 
-import com.petajournal.server.domain.HashtagExtractor;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -31,6 +34,7 @@ import java.util.Set;
 public class ItemService {
 
     private static final Logger LOG = Logger.getLogger(ItemService.class);
+    private static final String ITEM_TARGET = "item";
 
     @Inject
     ItemRepository itemRepository;
@@ -45,13 +49,13 @@ public class ItemService {
     SearchService searchService;
 
     @Inject
-    com.petajournal.server.infrastructure.export.MarkdownExportService exportService;
+    MarkdownExportService exportService;
 
     @Inject
     TreeMarkdownConverter treeMarkdownConverter;
 
     @Inject
-    com.petajournal.server.infrastructure.persistence.PropertyRepository propertyRepository;
+    PropertyRepository propertyRepository;
 
     @Inject
     IdGenerator idGenerator;
@@ -64,16 +68,16 @@ public class ItemService {
      * @param pageId       the page to add the item to
      * @param position     the position to insert at (FIRST, LAST, or after a specific item)
      * @param level        the indentation level (1-based, 1=top level)
-     * @param body         the markdown body text
+     * @param body         the markdown body text; a GFM task prefix makes the item a task
+     * @param clientId     the ID chosen by the client, or {@code null} to generate one
      * @return the newly created item
      * @throws IllegalArgumentException if the page is not found
      */
     public Item createItem(HMTID pageId, ItemPosition position, int level, String body, HMTID clientId) {
         HMTID id = clientId != null ? clientId : idGenerator.generateItemId();
         Instant now = Instant.now();
-        boolean isTask = body != null && (body.startsWith("- [ ] ") || body.startsWith("- [x] "));
-        if (isTask) body = body.substring(6);
-        String ast = parseBody(body);
+        ItemBody parsed = ItemBody.parse(body);
+        String ast = parseBody(parsed.text());
 
         List<Item> existingItems = itemRepository.findByPageId(pageId);
 
@@ -100,13 +104,14 @@ public class ItemService {
             idx = calculateInsertionIndex(existingItems, position);
         }
 
-        List<String> types = new ArrayList<>(detectItemTypes(body));
-        if (isTask) types.add("task");
+        List<String> types = new ArrayList<>(parsed.textTypes());
+        if (parsed.task()) types.add(ItemBody.TASK_TYPE);
 
         // Get page to get dir_path and name
         Page page = pageRepository.findById(pageId).orElseThrow(() -> new IllegalArgumentException("Page not found: " + pageId));
 
-        Item item = new Item(id, pageId, null, page.dirPath(), page.name(), page.type(), now, now, idx, level, body, ast, false, types, null);
+        Item item = new Item(id, pageId, null, page.dirPath(), page.name(), page.type(), now, now, idx, level,
+                parsed.text(), ast, false, types, null);
         item = itemRepository.save(item);
 
         // Recalculate parent_id for all items on this page
@@ -119,7 +124,7 @@ public class ItemService {
         // Sync hashtags as tag properties
         List<String> hashtags = HashtagExtractor.extractHashtags(ast);
         if (!hashtags.isEmpty()) {
-            propertyRepository.syncTags("item", id.toString(), hashtags);
+            propertyRepository.syncTags(ITEM_TARGET, id.toString(), hashtags);
         }
 
         // Index for search
@@ -147,19 +152,18 @@ public class ItemService {
         Item existing = itemRepository.findById(itemId)
                 .orElseThrow(() -> new IllegalArgumentException("Item not found: " + itemId));
 
-        boolean isTask = body != null && (body.startsWith("- [ ] ") || body.startsWith("- [x] "));
-        String newBody = isTask ? body.substring(6) : body;
-        String newAst = body != null ? parseBody(newBody) : null;
-        List<String> bodyTypes = body != null ? detectItemTypes(newBody) : null;
-
+        ItemBody parsed = body != null ? ItemBody.parse(body) : null;
+        String newBody = parsed != null ? parsed.text() : null;
+        String newAst = parsed != null ? parseBody(newBody) : null;
+        List<String> bodyTypes = parsed != null ? parsed.textTypes() : null;
         // A task stays a task when its body changes; only the prefix can add the type here
-        itemRepository.patch(itemId, new ItemPatch(
-                newBody, newAst, bodyTypes, isTask ? Boolean.TRUE : null, level, collapsed, Instant.now()));
+        Boolean task = parsed != null && parsed.task() ? Boolean.TRUE : null;
+
+        itemRepository.patch(itemId, new ItemPatch(newBody, newAst, bodyTypes, task, level, collapsed, Instant.now()));
 
         // Sync hashtags when body changes
-        if (body != null) {
-            List<String> hashtags = HashtagExtractor.extractHashtags(newAst);
-            propertyRepository.syncTags("item", existing.id().toString(), hashtags);
+        if (newAst != null) {
+            propertyRepository.syncTags(ITEM_TARGET, itemId.toString(), HashtagExtractor.extractHashtags(newAst));
         }
 
         // Recalculate parent_id when level changes
@@ -172,7 +176,7 @@ public class ItemService {
         touchPage(existing.pageId());
 
         // The search index holds the body only; level and collapsed do not change it
-        if (body != null) {
+        if (newBody != null) {
             pageRepository.findById(existing.pageId())
                     .ifPresent(page -> searchService.indexItem(updated, page.dirPath() + page.name()));
         }
@@ -200,9 +204,7 @@ public class ItemService {
         }
         Set<HMTID> pageIds = new LinkedHashSet<>();
         for (HMTID itemId : itemIds) {
-            Item item = itemRepository.findById(itemId)
-                    .orElseThrow(() -> new IllegalArgumentException("Item not found: " + itemId));
-            pageIds.add(item.pageId());
+            pageIds.add(getItemById(itemId).pageId());
         }
 
         itemRepository.shiftLevels(itemIds, delta, Instant.now());
@@ -213,10 +215,7 @@ public class ItemService {
             exportService.queueExport(pageId);
         }
 
-        return itemIds.stream()
-                .map(id -> itemRepository.findById(id)
-                        .orElseThrow(() -> new IllegalArgumentException("Item not found: " + id)))
-                .toList();
+        return findAll(itemIds);
     }
 
     /**
@@ -247,10 +246,7 @@ public class ItemService {
         synchronized (moveLock) {
             pageRepository.findById(targetPageId)
                     .orElseThrow(() -> new IllegalArgumentException("Target page not found: " + targetPageId));
-            List<Item> moving = itemIds.stream()
-                    .map(id -> itemRepository.findById(id)
-                            .orElseThrow(() -> new IllegalArgumentException("Item not found: " + id)))
-                    .toList();
+            List<Item> moving = findAll(itemIds);
             moving.forEach(item -> touchedPageIds.add(item.pageId()));
 
             List<Item> staying = itemsStayingOn(targetPageId, itemIds);
@@ -280,10 +276,7 @@ public class ItemService {
             exportService.queueExport(pageId);
         }
 
-        return itemIds.stream()
-                .map(id -> itemRepository.findById(id)
-                        .orElseThrow(() -> new IllegalArgumentException("Item not found: " + id)))
-                .toList();
+        return findAll(itemIds);
     }
 
     private List<Item> itemsStayingOn(HMTID pageId, List<HMTID> movingIds) {
@@ -336,7 +329,7 @@ public class ItemService {
     }
 
     /**
-     * Deletes an item and removes it from the search index.
+     * Deletes an item together with its properties and removes it from the search index.
      *
      * @param itemId the item to delete
      */
@@ -344,7 +337,7 @@ public class ItemService {
         Optional<Item> item = itemRepository.findById(itemId);
         itemRepository.delete(itemId);
         searchService.removeItem(itemId.toString());
-        propertyRepository.syncTags("item", itemId.toString(), List.of());
+        propertyRepository.deleteAllForTargets(ITEM_TARGET, List.of(itemId.toString()));
         item.ifPresent(b -> {
             itemRepository.recalculateParentIds(b.pageId());
             touchPage(b.pageId());
@@ -362,8 +355,7 @@ public class ItemService {
      * @throws IllegalArgumentException if the item or source is not found, or source is itself a transclusion
      */
     public Item setTransclusion(HMTID itemId, HMTID sourceItemId) {
-        Item item = itemRepository.findById(itemId)
-                .orElseThrow(() -> new IllegalArgumentException("Item not found: " + itemId));
+        Item item = getItemById(itemId);
         Item source = itemRepository.findById(sourceItemId)
                 .orElseThrow(() -> new IllegalArgumentException("Source item not found: " + sourceItemId));
 
@@ -373,16 +365,7 @@ public class ItemService {
         }
 
         // Copy source body as fallback label and set transclude_item_id
-        Item updated = new Item(
-                item.id(), item.pageId(), item.parentItemId(),
-                item.dirPath(), item.name(), item.type(),
-                item.createdDate(), Instant.now(), item.idx(),
-                item.level(), source.body(), parseBody(source.body()),
-                item.collapsed(), item.types(), sourceItemId);
-        updated = itemRepository.save(updated);
-        touchPage(item.pageId());
-        exportService.queueExport(item.pageId());
-        return updated;
+        return saveBodyAndTransclusion(item, source.body(), sourceItemId);
     }
 
     /**
@@ -393,15 +376,16 @@ public class ItemService {
      * @throws IllegalArgumentException if the item is not found
      */
     public Item removeTransclusion(HMTID itemId) {
-        Item item = itemRepository.findById(itemId)
-                .orElseThrow(() -> new IllegalArgumentException("Item not found: " + itemId));
+        return saveBodyAndTransclusion(getItemById(itemId), "", null);
+    }
 
+    private Item saveBodyAndTransclusion(Item item, String body, HMTID transcludeItemId) {
         Item updated = new Item(
                 item.id(), item.pageId(), item.parentItemId(),
                 item.dirPath(), item.name(), item.type(),
                 item.createdDate(), Instant.now(), item.idx(),
-                item.level(), "", parseBody(""),
-                item.collapsed(), item.types(), null);
+                item.level(), body, parseBody(body),
+                item.collapsed(), item.types(), transcludeItemId);
         updated = itemRepository.save(updated);
         touchPage(item.pageId());
         exportService.queueExport(item.pageId());
@@ -412,6 +396,11 @@ public class ItemService {
     public Item getItemById(HMTID itemId) {
         return itemRepository.findById(itemId)
                 .orElseThrow(() -> new IllegalArgumentException("Item not found: " + itemId));
+    }
+
+    /** Returns the items with the given IDs, in that order. */
+    private List<Item> findAll(List<HMTID> itemIds) {
+        return itemIds.stream().map(this::getItemById).toList();
     }
 
     /** Returns all items matching the given types. */
@@ -439,47 +428,45 @@ public class ItemService {
      * 4. Task, has begin AND end → remove task type, begin/end (back to normal)
      */
     public Item cycleTask(HMTID itemId) {
-        Item existing = itemRepository.findById(itemId)
-                .orElseThrow(() -> new IllegalArgumentException("Item not found: " + itemId));
+        Item existing = getItemById(itemId);
 
         String id = itemId.toString();
-        Map<String, String> scalars = propertyRepository.findScalarByTargets("item", List.of(id))
+        Map<String, String> scalars = propertyRepository.findScalarByTargets(ITEM_TARGET, List.of(id))
                 .getOrDefault(id, Map.of());
-        boolean isTask = existing.types().contains("task");
+        boolean isTask = existing.types().contains(ItemBody.TASK_TYPE);
         boolean hasBegin = scalars.containsKey("begin");
         boolean hasEnd = scalars.containsKey("end");
 
+        Item result;
         if (!isTask) {
             // State 1: Not a task → become a task
-            Item updated = patchTask(existing, true);
-            propertyRepository.deleteProperty("item", id, "begin");
-            propertyRepository.deleteProperty("item", id, "end");
-            touchPage(existing.pageId());
-            exportService.queueExport(existing.pageId());
-            return updated;
+            result = patchTask(existing, true);
+            clearTaskTimes(id);
         } else if (!hasBegin && !hasEnd) {
             // State 2: Task, no begin → set begin
-            String now = Instant.now().truncatedTo(ChronoUnit.SECONDS).toString();
-            propertyRepository.upsertScalar("item", id, "begin", "datetime", now);
-            touchPage(existing.pageId());
-            exportService.queueExport(existing.pageId());
-            return existing;
+            propertyRepository.upsertScalar(ITEM_TARGET, id, "begin", "datetime", nowInSeconds());
+            result = existing;
         } else if (hasBegin && !hasEnd) {
             // State 3: Task, has begin, no end → set end
-            String now = Instant.now().truncatedTo(ChronoUnit.SECONDS).toString();
-            propertyRepository.upsertScalar("item", id, "end", "datetime", now);
-            touchPage(existing.pageId());
-            exportService.queueExport(existing.pageId());
-            return existing;
+            propertyRepository.upsertScalar(ITEM_TARGET, id, "end", "datetime", nowInSeconds());
+            result = existing;
         } else {
             // State 4: Task, has begin AND end → back to normal (remove task type, begin/end)
-            Item updated = patchTask(existing, false);
-            propertyRepository.deleteProperty("item", id, "begin");
-            propertyRepository.deleteProperty("item", id, "end");
-            touchPage(existing.pageId());
-            exportService.queueExport(existing.pageId());
-            return updated;
+            result = patchTask(existing, false);
+            clearTaskTimes(id);
         }
+        touchPage(existing.pageId());
+        exportService.queueExport(existing.pageId());
+        return result;
+    }
+
+    private static String nowInSeconds() {
+        return Instant.now().truncatedTo(ChronoUnit.SECONDS).toString();
+    }
+
+    private void clearTaskTimes(String itemId) {
+        propertyRepository.deleteProperty(ITEM_TARGET, itemId, "begin");
+        propertyRepository.deleteProperty(ITEM_TARGET, itemId, "end");
     }
 
     /** Adds or removes the task type without writing any other field of the item. */
@@ -498,14 +485,7 @@ public class ItemService {
      * @return the exported representations
      */
     public TreeMarkdownExport exportPageMarkdown(HMTID pageId) {
-        List<Item> items = itemRepository.findByPageId(pageId);
-        List<String> itemIds = items.stream().map(i -> i.id().toString()).toList();
-        var scalarProps = propertyRepository.findScalarByTargets("item", itemIds);
-        var listProps = propertyRepository.findListByTargets("item", itemIds);
-        String treeMd = treeMarkdownConverter.itemsToTreeMarkdown(items);
-        String ast = markdownParser.parseToAst(treeMd);
-        String flatMd = treeMarkdownConverter.itemsToFlatMarkdown(items, scalarProps, listProps);
-        return new TreeMarkdownExport(treeMd, ast, flatMd);
+        return export(itemRepository.findByPageId(pageId));
     }
 
     /**
@@ -515,18 +495,12 @@ public class ItemService {
      * @return the exported representations of the subtree
      */
     public TreeMarkdownExport exportSubtreeMarkdown(HMTID itemId) {
-        List<Item> items = itemRepository.findItemWithDescendants(itemId);
-        List<String> itemIds = items.stream().map(i -> i.id().toString()).toList();
-        var scalarProps = propertyRepository.findScalarByTargets("item", itemIds);
-        var listProps = propertyRepository.findListByTargets("item", itemIds);
-        String treeMd = treeMarkdownConverter.itemsToTreeMarkdown(items);
-        String ast = markdownParser.parseToAst(treeMd);
-        String flatMd = treeMarkdownConverter.itemsToFlatMarkdown(items, scalarProps, listProps);
-        return new TreeMarkdownExport(treeMd, ast, flatMd);
+        return export(itemRepository.findItemWithDescendants(itemId));
     }
 
     /**
      * Exports items as hierarchical tree markdown, flat markdown, and HTML.
+     * IDs that do not exist are skipped.
      *
      * @param itemIds the item IDs to export
      * @return the exported representations
@@ -537,9 +511,13 @@ public class ItemService {
             .filter(Optional::isPresent)
             .map(Optional::get)
             .toList();
-        List<String> idStrings = items.stream().map(i -> i.id().toString()).toList();
-        var scalarProps = propertyRepository.findScalarByTargets("item", idStrings);
-        var listProps = propertyRepository.findListByTargets("item", idStrings);
+        return export(items);
+    }
+
+    private TreeMarkdownExport export(List<Item> items) {
+        List<String> itemIds = items.stream().map(i -> i.id().toString()).toList();
+        var scalarProps = propertyRepository.findScalarByTargets(ITEM_TARGET, itemIds);
+        var listProps = propertyRepository.findListByTargets(ITEM_TARGET, itemIds);
         String treeMd = treeMarkdownConverter.itemsToTreeMarkdown(items);
         String ast = markdownParser.parseToAst(treeMd);
         String flatMd = treeMarkdownConverter.itemsToFlatMarkdown(items, scalarProps, listProps);
@@ -625,21 +603,5 @@ public class ItemService {
 
     private String parseBody(String body) {
         return markdownParser.parseToAst(body);
-    }
-
-    private List<String> detectItemTypes(String body) {
-        List<String> types = new ArrayList<>();
-        if (body == null) return types;
-        String trimmed = body.trim();
-        if (trimmed.startsWith("#")) {
-            types.add("heading");
-        }
-        if (trimmed.startsWith("```")) {
-            types.add("code");
-        }
-        if (trimmed.startsWith(">")) {
-            types.add("blockquote");
-        }
-        return types;
     }
 }

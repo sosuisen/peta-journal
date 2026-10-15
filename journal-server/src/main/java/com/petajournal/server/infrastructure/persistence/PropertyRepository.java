@@ -176,6 +176,35 @@ public class PropertyRepository {
     }
 
     /**
+     * Deletes every scalar and list property of the given targets, e.g. when items are deleted.
+     *
+     * @param targetType {@code "item"} or {@code "page"}
+     * @param targetIds  the targets whose properties go away; nothing happens for an empty list
+     */
+    public void deleteAllForTargets(String targetType, Collection<String> targetIds) {
+        if (targetIds.isEmpty()) return;
+        String placeholders = String.join(",", Collections.nCopies(targetIds.size(), "?"));
+        String[] statements = {
+                "DELETE FROM properties WHERE target_type = ? AND target_id IN (" + placeholders + ")",
+                "DELETE FROM property_list_items WHERE target_type = ? AND target_id IN (" + placeholders + ")",
+        };
+        try (Connection conn = connectionProvider.getConnection()) {
+            for (String sql : statements) {
+                try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                    int idx = 1;
+                    ps.setString(idx++, targetType);
+                    for (String id : targetIds) {
+                        ps.setString(idx++, id);
+                    }
+                    ps.executeUpdate();
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to delete properties of " + targetIds.size() + " targets", e);
+        }
+    }
+
+    /**
      * Replace all tag entries for a target with the given list of tags.
      */
     public void syncTags(String targetType, String targetId, List<String> newTags) {

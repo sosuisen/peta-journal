@@ -122,7 +122,7 @@ public final class FractionalIndexer {
                 return idx.substring(0, i) + ALPHABET.charAt(pos - 1);
             }
         }
-        // All characters are '0' (minimum). This shouldn't happen with initial "a0".
+        // All characters are '0' (minimum). This shouldn't happen with initial "z0".
         throw new IllegalStateException("Cannot prepend before index: " + idx);
     }
 

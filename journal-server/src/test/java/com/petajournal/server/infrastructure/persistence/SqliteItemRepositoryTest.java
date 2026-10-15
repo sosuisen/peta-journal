@@ -215,6 +215,38 @@ class SqliteItemRepositoryTest {
     }
 
     @Test
+    void deleteRemovesTheTypesOfTheItem() throws SQLException {
+        repository.delete(ITEM_B);
+
+        assertTrue(repository.findById(ITEM_B).isEmpty());
+        assertEquals(0, countTypes(ITEM_B));
+        assertEquals(List.of(), find(ITEM_A).types());
+    }
+
+    @Test
+    void deleteByPageIdRemovesTheTypesOfEveryItemOnThePage() throws SQLException {
+        repository.save(new Item(ITEM_C, OTHER_PAGE_ID, null, "", "other", "doc", CREATED, CREATED, "a0", 1,
+                "elsewhere", "", false, List.of("heading"), null));
+
+        repository.deleteByPageId(PAGE_ID);
+
+        assertTrue(repository.findByPageId(PAGE_ID).isEmpty());
+        assertEquals(0, countTypes(ITEM_B));
+        assertEquals(1, countTypes(ITEM_C));
+    }
+
+    private int countTypes(HMTID itemId) throws SQLException {
+        try (Connection conn = repository.connectionProvider.getConnection();
+             var ps = conn.prepareStatement("SELECT COUNT(*) FROM item_types WHERE item_id = ?")) {
+            ps.setString(1, itemId.toString());
+            try (var rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getInt(1);
+            }
+        }
+    }
+
+    @Test
     void recalculateParentIdsFollowsTheLevels() {
         repository.recalculateParentIds(PAGE_ID);
         assertNull(find(ITEM_A).parentItemId());

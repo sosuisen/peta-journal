@@ -18,6 +18,10 @@ public class SqlitePageRepository implements PageRepository {
 
     private static final Logger LOG = Logger.getLogger(SqlitePageRepository.class);
 
+    /** The columns {@link #mapPage} reads, in the order of the pages table. */
+    private static final String SELECT_PAGES =
+            "SELECT id, parent_id, dir_path, name, type, created_date, modified_date FROM pages ";
+
     @Inject
     SqliteConnectionProvider connectionProvider;
 
@@ -31,13 +35,9 @@ public class SqlitePageRepository implements PageRepository {
     }
 
     private Optional<Page> findByIdInternal(Connection conn, HMTID id) throws SQLException {
-        try (PreparedStatement ps = conn.prepareStatement(
-                "SELECT id, parent_id, dir_path, name, type, created_date, modified_date FROM pages WHERE id = ?")) {
+        try (PreparedStatement ps = conn.prepareStatement(SELECT_PAGES + "WHERE id = ?")) {
             ps.setString(1, id.toString());
-            try (ResultSet rs = ps.executeQuery()) {
-                if (!rs.next()) return Optional.empty();
-                return Optional.of(mapPage(conn, rs));
-            }
+            return firstPage(ps);
         }
     }
 
@@ -47,13 +47,9 @@ public class SqlitePageRepository implements PageRepository {
 
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT id, parent_id, dir_path, name, type, created_date, modified_date FROM pages " +
-                     "WHERE type = 'journal' AND dir_path = '' AND name = ?")) {
+                     SELECT_PAGES + "WHERE type = 'journal' AND dir_path = '' AND name = ?")) {
             ps.setString(1, fileName);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (!rs.next()) return Optional.empty();
-                return Optional.of(mapPage(conn, rs));
-            }
+            return firstPage(ps);
         } catch (SQLException e) {
             throw new RuntimeException("Failed to find journal for date: " + date, e);
         }
@@ -65,14 +61,10 @@ public class SqlitePageRepository implements PageRepository {
 
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT id, parent_id, dir_path, name, type, created_date, modified_date FROM pages " +
-                     "WHERE type = 'journal' AND dir_path = '' AND name < ? AND name GLOB '????-??-??' " +
+                     SELECT_PAGES + "WHERE type = 'journal' AND dir_path = '' AND name < ? AND name GLOB '????-??-??' " +
                      "ORDER BY name DESC LIMIT 1")) {
             ps.setString(1, fileName);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (!rs.next()) return Optional.empty();
-                return Optional.of(mapPage(conn, rs));
-            }
+            return firstPage(ps);
         } catch (SQLException e) {
             throw new RuntimeException("Failed to find most recent journal before: " + beforeDate, e);
         }
@@ -82,14 +74,10 @@ public class SqlitePageRepository implements PageRepository {
     public Optional<Page> findMostRecentWeeklyJournalBefore(String beforeWeek) {
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT id, parent_id, dir_path, name, type, created_date, modified_date FROM pages " +
-                     "WHERE type = 'journal' AND dir_path = '' AND name < ? AND name GLOB '????-W??' " +
+                     SELECT_PAGES + "WHERE type = 'journal' AND dir_path = '' AND name < ? AND name GLOB '????-W??' " +
                      "ORDER BY name DESC LIMIT 1")) {
             ps.setString(1, beforeWeek);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (!rs.next()) return Optional.empty();
-                return Optional.of(mapPage(conn, rs));
-            }
+            return firstPage(ps);
         } catch (SQLException e) {
             throw new RuntimeException("Failed to find most recent weekly journal before: " + beforeWeek, e);
         }
@@ -100,20 +88,13 @@ public class SqlitePageRepository implements PageRepository {
         LOG.debugv("findByTypeDirPathFileName: type={0}, dirPath=[{1}], fileName={2}", type, dirPath, fileName);
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT id, parent_id, dir_path, name, type, created_date, modified_date FROM pages " +
-                     "WHERE type = ? AND dir_path = ? AND name = ?")) {
+                     SELECT_PAGES + "WHERE type = ? AND dir_path = ? AND name = ?")) {
             ps.setString(1, type);
             ps.setString(2, dirPath);
             ps.setString(3, fileName);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (!rs.next()) {
-                    LOG.debugv("findByTypeDirPathFileName: NOT FOUND");
-                    return Optional.empty();
-                }
-                Page page = mapPage(conn, rs);
-                LOG.debugv("findByTypeDirPathFileName: FOUND id={0}", page.id());
-                return Optional.of(page);
-            }
+            Optional<Page> page = firstPage(ps);
+            LOG.debugv("findByTypeDirPathFileName: {0}", page.map(p -> "FOUND id=" + p.id()).orElse("NOT FOUND"));
+            return page;
         } catch (SQLException e) {
             throw new RuntimeException("Failed to find page by type/dirPath/fileName: " + type + ":" + dirPath + "/" + fileName, e);
         }
@@ -121,11 +102,11 @@ public class SqlitePageRepository implements PageRepository {
 
     @Override
     public List<Page> findRecent(int maxResults, String type) {
-        String sql = "SELECT id, parent_id, dir_path, name, type, created_date, modified_date FROM pages";
+        String sql = SELECT_PAGES;
         if (type != null) {
-            sql += " WHERE type = ?";
+            sql += "WHERE type = ? ";
         }
-        sql += " ORDER BY modified_date DESC LIMIT ?";
+        sql += "ORDER BY modified_date DESC LIMIT ?";
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             int paramIndex = 1;
@@ -133,7 +114,7 @@ public class SqlitePageRepository implements PageRepository {
                 ps.setString(paramIndex++, type);
             }
             ps.setInt(paramIndex, maxResults > 0 ? maxResults : 10);
-            return mapPages(conn, ps);
+            return mapPages(ps);
         } catch (SQLException e) {
             throw new RuntimeException("Failed to find recent pages", e);
         }
@@ -142,28 +123,12 @@ public class SqlitePageRepository implements PageRepository {
     @Override
     public List<Page> findAll() {
         try (Connection conn = connectionProvider.getConnection();
-             PreparedStatement ps = conn.prepareStatement(
-                     "SELECT id, parent_id, dir_path, name, type, created_date, modified_date FROM pages ORDER BY modified_date DESC")) {
-            return mapPages(conn, ps);
+             PreparedStatement ps = conn.prepareStatement(SELECT_PAGES + "ORDER BY modified_date DESC")) {
+            return mapPages(ps);
         } catch (SQLException e) {
             throw new RuntimeException("Failed to find all pages", e);
         }
     }
-
-    @Override
-    public List<Page> findByTitle(String titleQuery) {
-        try (Connection conn = connectionProvider.getConnection();
-             PreparedStatement ps = conn.prepareStatement(
-                     "SELECT id, parent_id, dir_path, name, type, created_date, modified_date " +
-                     "FROM pages WHERE name LIKE ? ORDER BY modified_date DESC LIMIT 20")) {
-            ps.setString(1, "%" + titleQuery + "%");
-            return mapPages(conn, ps);
-        } catch (SQLException e) {
-            throw new RuntimeException("Failed to find pages by title: " + titleQuery, e);
-        }
-    }
-
-
 
     @Override
     public Page save(Page page) {
@@ -256,12 +221,11 @@ public class SqlitePageRepository implements PageRepository {
         if (maxResults <= 0) maxResults = 20;
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT id, parent_id, dir_path, name, type, created_date, modified_date " +
-                     "FROM pages WHERE (dir_path || name) LIKE ? || '%' " +
+                     SELECT_PAGES + "WHERE (dir_path || name) LIKE ? || '%' " +
                      "ORDER BY modified_date DESC LIMIT ?")) {
             ps.setString(1, query);
             ps.setInt(2, maxResults);
-            return mapPages(conn, ps);
+            return mapPages(ps);
         } catch (SQLException e) {
             throw new RuntimeException("Failed to find pages by path prefix: " + query, e);
         }
@@ -272,12 +236,11 @@ public class SqlitePageRepository implements PageRepository {
         if (maxResults <= 0) maxResults = 20;
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT id, parent_id, dir_path, name, type, created_date, modified_date " +
-                     "FROM pages WHERE (dir_path || name) LIKE '%' || ? || '%' " +
+                     SELECT_PAGES + "WHERE (dir_path || name) LIKE '%' || ? || '%' " +
                      "ORDER BY modified_date DESC LIMIT ?")) {
             ps.setString(1, query);
             ps.setInt(2, maxResults);
-            return mapPages(conn, ps);
+            return mapPages(ps);
         } catch (SQLException e) {
             throw new RuntimeException("Failed to find pages by path contains: " + query, e);
         }
@@ -290,14 +253,13 @@ public class SqlitePageRepository implements PageRepository {
         // Pattern: %query/ matches "query/" and "dir1/query/"
         try (Connection conn = connectionProvider.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                     "SELECT id, parent_id, dir_path, name, type, created_date, modified_date " +
-                     "FROM pages WHERE name = 'index' AND " +
+                     SELECT_PAGES + "WHERE name = 'index' AND " +
                      "(dir_path = ? || '/' OR dir_path LIKE '%/' || ? || '/') " +
                      "ORDER BY length(dir_path) ASC LIMIT ?")) {
             ps.setString(1, query);
             ps.setString(2, query);
             ps.setInt(3, maxResults);
-            return mapPages(conn, ps);
+            return mapPages(ps);
         } catch (SQLException e) {
             throw new RuntimeException("Failed to find index pages by dir segment: " + query, e);
         }
@@ -347,11 +309,9 @@ public class SqlitePageRepository implements PageRepository {
     @Override
     public List<Page> findByParentId(HMTID parentId) {
         try (Connection conn = connectionProvider.getConnection();
-             PreparedStatement ps = conn.prepareStatement(
-                     "SELECT id, parent_id, dir_path, name, type, created_date, modified_date " +
-                     "FROM pages WHERE parent_id = ? ORDER BY name")) {
+             PreparedStatement ps = conn.prepareStatement(SELECT_PAGES + "WHERE parent_id = ? ORDER BY name")) {
             ps.setString(1, parentId.toString());
-            return mapPages(conn, ps);
+            return mapPages(ps);
         } catch (SQLException e) {
             throw new RuntimeException("Failed to find pages by parent_id: " + parentId, e);
         }
@@ -397,7 +357,7 @@ public class SqlitePageRepository implements PageRepository {
         return null;
     }
 
-    private Page mapPage(Connection conn, ResultSet rs) throws SQLException {
+    private Page mapPage(ResultSet rs) throws SQLException {
         String parentIdStr = rs.getString("parent_id");
         HMTID parentId = parentIdStr != null ? HMTID.of(parentIdStr) : null;
         return new Page(
@@ -411,11 +371,20 @@ public class SqlitePageRepository implements PageRepository {
         );
     }
 
-    private List<Page> mapPages(Connection conn, PreparedStatement ps) throws SQLException {
+    /** Runs a prepared {@link #SELECT_PAGES} query and maps its first row, if any. */
+    private Optional<Page> firstPage(PreparedStatement ps) throws SQLException {
+        try (ResultSet rs = ps.executeQuery()) {
+            if (!rs.next()) return Optional.empty();
+            return Optional.of(mapPage(rs));
+        }
+    }
+
+    /** Runs a prepared {@link #SELECT_PAGES} query and maps every row. */
+    private List<Page> mapPages(PreparedStatement ps) throws SQLException {
         List<Page> pages = new ArrayList<>();
         try (ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
-                pages.add(mapPage(conn, rs));
+                pages.add(mapPage(rs));
             }
         }
         return pages;

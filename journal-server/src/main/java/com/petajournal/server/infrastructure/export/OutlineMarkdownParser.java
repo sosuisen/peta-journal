@@ -4,39 +4,35 @@ import com.petajournal.server.application.FlatMarkdownSerializer;
 import com.petajournal.server.application.FlatMarkdownSplitter;
 import com.petajournal.server.application.FlatMarkdownSplitter.SplitItem;
 import com.petajournal.server.application.FlatMarkdownSplitter.SplitPage;
-import com.petajournal.server.domain.IdGenerator;
-import com.petajournal.server.domain.model.Item;
-import com.petajournal.server.domain.model.Page;
-import com.petajournal.server.domain.FractionalIndexer;
-import com.sosuisha.hmtid.HMTID;
+import com.petajournal.server.domain.ItemBody;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
-import java.time.Instant;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 /**
- * Parses a Flat Markdown page (spec v0.2) back into Page and Item domain objects.
+ * Parses a Flat Markdown page (spec v0.2) into its front matter and its items.
  * The item split is done by {@link FlatMarkdownSplitter}. This class maps the result:
- * YAML front matter to page fields, and the metadata line
+ * YAML front matter to key-value pairs, and the metadata line
  * ({@code <!-- @@ ID idx="z0" collapsed="true" transclude="ID" key="value" -->}) to item fields.
  */
 @ApplicationScoped
 public class OutlineMarkdownParser {
 
-    private final IdGenerator idGenerator;
     private final FlatMarkdownSplitter splitter;
 
     /**
      * Creates the parser.
      *
-     * @param idGenerator generates IDs for items and pages that have none in the file
      * @param splitter splits a page into items
-     * @throws NullPointerException if any argument is null
+     * @throws NullPointerException if splitter is null
      */
     @Inject
-    public OutlineMarkdownParser(IdGenerator idGenerator, FlatMarkdownSplitter splitter) {
-        this.idGenerator = Objects.requireNonNull(idGenerator, "idGenerator must not be null");
+    public OutlineMarkdownParser(FlatMarkdownSplitter splitter) {
         this.splitter = Objects.requireNonNull(splitter, "splitter must not be null");
     }
 
@@ -76,74 +72,6 @@ public class OutlineMarkdownParser {
             items.add(toParsedItem(item));
         }
         return new ParseResult(frontmatter, items);
-    }
-
-    /**
-     * Builds the page from the front matter. Missing fields fall back to a new ID and the current time.
-     *
-     * @param result the parsed page
-     * @param dirPath the directory path of the page
-     * @param name the page name
-     * @param type the page type
-     * @return the page
-     */
-    public Page toPage(ParseResult result, String dirPath, String name, String type) {
-        Map<String, String> fm = result.frontmatter();
-
-        HMTID id = fm.containsKey("id") ? HMTID.of(fm.get("id")) : idGenerator.generatePageId();
-        Instant now = Instant.now();
-        Instant created = fm.containsKey("created") ? Instant.parse(fm.get("created")) : now;
-        Instant modified = fm.containsKey("modified") ? Instant.parse(fm.get("modified")) : now;
-
-        return new Page(id, null, dirPath, name, type, created, modified);
-    }
-
-    /**
-     * Builds the items of the page. Items without an ID or with a malformed one get a new ID.
-     *
-     * @param result the parsed page
-     * @param pageId the page ID
-     * @param dirPath the directory path of the page
-     * @param name the page name
-     * @param type the page type
-     * @return the items in file order
-     */
-    public List<Item> toItems(ParseResult result, HMTID pageId, String dirPath, String name, String type) {
-        List<Item> items = new ArrayList<>();
-        Instant now = Instant.now();
-        String prevIdx = null;
-
-        for (ParsedItem pb : result.items()) {
-            String idx = pb.idx() != null && (prevIdx == null || prevIdx.compareTo(pb.idx()) < 0)
-                    ? pb.idx() : FractionalIndexer.between(prevIdx, null);
-            HMTID itemId;
-            if (pb.id() != null && !pb.id().isEmpty()) {
-                try {
-                    itemId = HMTID.of(pb.id());
-                } catch (IllegalArgumentException e) {
-                    itemId = idGenerator.generateItemId();
-                }
-            } else {
-                itemId = idGenerator.generateItemId();
-            }
-
-            HMTID transclude = null;
-            if (pb.transcludeItemId() != null) {
-                try {
-                    transclude = HMTID.of(pb.transcludeItemId());
-                } catch (IllegalArgumentException ignored) {
-                    // malformed id in file: treat as a plain item
-                }
-            }
-
-            items.add(new Item(
-                    itemId, pageId, null, dirPath, name, type, now, now, idx,
-                    pb.level(), pb.body(), "",
-                    pb.collapsed(), pb.types(), transclude
-            ));
-            prevIdx = idx;
-        }
-        return items;
     }
 
     /** Removes the {@code ---} lines around the front matter body. */
@@ -211,36 +139,19 @@ public class OutlineMarkdownParser {
     }
 
     private static ParsedItem toParsedItem(SplitItem item) {
-        String body = item.body();
-
         // The reserved keys are item fields, not user properties
         Map<String, String> properties = new LinkedHashMap<>(item.properties());
         String idx = properties.remove(FlatMarkdownSerializer.IDX_KEY);
         boolean collapsed = "true".equals(properties.remove(FlatMarkdownSerializer.COLLAPSED_KEY));
         String transclude = properties.remove(FlatMarkdownSerializer.TRANSCLUDE_KEY);
 
-        // Detect task type from GFM checkbox prefix
-        boolean isTask = false;
-        if (body.startsWith("- [ ] ") || body.startsWith("- [x] ")) {
-            isTask = true;
-            body = body.substring(6);
-        }
-
+        ItemBody body = ItemBody.parse(item.body());
         List<String> types = new ArrayList<>();
-        if (isTask) {
-            types.add("task");
+        if (body.task()) {
+            types.add(ItemBody.TASK_TYPE);
         }
-        String trimmed = body.trim();
-        if (trimmed.startsWith("#")) {
-            types.add("heading");
-        }
-        if (trimmed.startsWith("```")) {
-            types.add("code");
-        }
-        if (trimmed.startsWith(">")) {
-            types.add("blockquote");
-        }
+        types.addAll(body.textTypes());
 
-        return new ParsedItem(item.id(), item.level(), body, collapsed, types, properties, transclude, idx);
+        return new ParsedItem(item.id(), item.level(), body.text(), collapsed, types, properties, transclude, idx);
     }
 }

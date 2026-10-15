@@ -9,6 +9,7 @@ import com.petajournal.server.domain.repository.ItemRepository;
 import com.petajournal.server.domain.repository.MarkdownParser;
 import com.petajournal.server.domain.repository.PageRepository;
 import com.petajournal.server.domain.repository.SearchService;
+import com.petajournal.server.infrastructure.export.MarkdownPathMapper.PageLocation;
 import com.petajournal.server.infrastructure.export.OutlineMarkdownParser.ParseResult;
 import com.petajournal.server.infrastructure.export.OutlineMarkdownParser.ParsedItem;
 import com.petajournal.server.infrastructure.persistence.PropertyRepository;
@@ -51,6 +52,7 @@ public class MarkdownImportService {
     private static final Logger LOG = Logger.getLogger(MarkdownImportService.class);
     private static final DateTimeFormatter CONFLICT_TS = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
     private static final Set<String> RESERVED_KEYS = Set.of("level", "collapsed", "transclude", "tag", "idx");
+    private static final String ITEM_TARGET = "item";
 
     public enum Outcome { IGNORED, MISSING, UNCHANGED, IMPORTED, CONFLICT, ERROR }
 
@@ -111,7 +113,17 @@ public class MarkdownImportService {
         }
     }
 
-    private Outcome importContent(Path root, String relPath, MarkdownPathMapper.PageLocation loc,
+    /**
+     * The page a file belongs to, as decided from its frontmatter id and its path.
+     *
+     * @param page      the page, already saved when it is new
+     * @param isNew     the page was created for this file
+     * @param renamed   the page exists but its file moved to this path
+     * @param writeBack the file lacks our id or carries a foreign one and must be rewritten after the import
+     */
+    private record PageMatch(Page page, boolean isNew, boolean renamed, boolean writeBack) {}
+
+    private Outcome importContent(Path root, String relPath, PageLocation loc,
                                   String content, String hash, BasicFileAttributes attrs) {
         long startedAt = System.currentTimeMillis();
         if (content.isBlank()) {
@@ -126,13 +138,72 @@ public class MarkdownImportService {
         ParseResult parsed = parser.parse(content);
         Map<String, String> fm = parsed.frontmatter();
 
-        HMTID fileId = parseId(fm.get("id"));
         Instant fileModified = parseInstant(fm.get("modified")).orElse(attrs.lastModifiedTime().toInstant());
         Instant now = Instant.now();
 
-        boolean writeBack = false; // file lacks ids or has a foreign id: rewrite it after import
-        boolean renamed = false;
-        Page page = null;
+        PageMatch match = matchPage(root, relPath, loc, fm, fileModified);
+        Page page = match.page();
+
+        if (!match.isNew() && fileModified.isBefore(page.modifiedDate())
+                && !fileSyncStateRepository.findByPageId(page.id()).isEmpty()) {
+            // DB is newer: keep the DB, keep the file's content as a backup, then overwrite the file.
+            // A moved file still moves the page, so the export lands at the new path.
+            // A page that never had a file on this device (e.g. the root index a fresh install creates)
+            // is not "newer" in any meaningful way: its modified date is just its creation time,
+            // so the file wins and the check above is skipped.
+            if (match.renamed()) {
+                page = savePageAt(page, loc, page.modifiedDate());
+            }
+            backupConflict(root, relPath, loc, content, hash, page, attrs);
+            exportService.queueExport(page.id());
+            return Outcome.CONFLICT;
+        }
+
+        // Merge items
+        List<ParsedItem> items = parsed.items().isEmpty()
+                ? List.of(new ParsedItem(null, 1, "", false, List.of(), Map.of(), null, null))
+                : parsed.items();
+        MergeResult merge = mergeItems(page, items, now);
+
+        // Page metadata
+        boolean pageChanged = match.renamed() || merge.changed() || match.isNew();
+        if (pageChanged) {
+            Instant newModified = match.isNew() ? page.modifiedDate()
+                    : fileModified.isAfter(page.modifiedDate()) ? fileModified : now;
+            page = match.renamed() ? savePageAt(page, loc, newModified) : savePage(page, loc, newModified);
+            if (match.renamed()) {
+                searchService.indexItems(itemRepository.findByPageId(page.id()), page.dirPath() + page.name());
+            }
+        }
+
+        fileSyncStateRepository.upsertSynced(relPath, page.id(), hash, attrs.size(), attrs.lastModifiedTime().toMillis());
+
+        if (match.writeBack() || merge.needsWriteBack()) {
+            // Give the file its ids / frontmatter. The export records the new hash, so it won't echo back.
+            exportService.queueExport(page.id());
+        }
+        if (pageChanged) {
+            sseBroadcaster.broadcastPagesUpdated(page.id().toString(), "file");
+            LOG.infov("Imported {0} ({1} items, {2}, {3} ms)", relPath, items.size(),
+                    match.isNew() ? "new page" : match.renamed() ? "renamed" : "updated", System.currentTimeMillis() - startedAt);
+        }
+        return Outcome.IMPORTED;
+    }
+
+    /**
+     * Finds the page a file belongs to, or creates one.
+     * <ol>
+     *   <li>By frontmatter id: same path is the page itself; a new path is a rename, unless the old
+     *       file still exists, in which case this file is a copy and gets a page of its own.</li>
+     *   <li>By path: a file without an id gets ours. A file with another id comes from a device that
+     *       created the same page independently; the older id wins on every device.</li>
+     *   <li>Otherwise a new page is created, keeping the file's id when it has one.</li>
+     * </ol>
+     */
+    private PageMatch matchPage(Path root, String relPath, PageLocation loc, Map<String, String> fm,
+                                Instant fileModified) {
+        HMTID fileId = parseId(fm.get("id"));
+        boolean writeBack = false;
 
         // 1. Match by frontmatter id
         if (fileId != null) {
@@ -141,104 +212,69 @@ public class MarkdownImportService {
                 Page p = byId.get();
                 String currentRel = MarkdownPathMapper.toRelPath(p);
                 if (currentRel.equals(relPath)) {
-                    page = p;
-                } else if (Files.exists(root.resolve(currentRel))) {
-                    // Same id in two files: this one is a copy, give it a new identity
-                    LOG.infov("{0} is a copy of {1}, creating a new page", relPath, currentRel);
-                    fileId = null;
-                    writeBack = true;
-                } else {
-                    page = p;
-                    renamed = true;
-                    LOG.infov("Page {0} moved: {1} -> {2}", p.id(), currentRel, relPath);
+                    return new PageMatch(p, false, false, false);
                 }
+                if (!Files.exists(root.resolve(currentRel))) {
+                    LOG.infov("Page {0} moved: {1} -> {2}", p.id(), currentRel, relPath);
+                    return new PageMatch(p, false, true, false);
+                }
+                // Same id in two files: this one is a copy, give it a new identity
+                LOG.infov("{0} is a copy of {1}, creating a new page", relPath, currentRel);
+                fileId = null;
+                writeBack = true;
             }
         }
 
         // 2. Match by path
-        if (page == null) {
-            Optional<Page> byPath = pageRepository.findByTypeDirPathFileName(loc.type(), loc.dirPath(), loc.name());
-            if (byPath.isPresent()) {
-                page = byPath.get();
-                if (fileId == null) {
-                    writeBack = true; // hand-made file: give it our id
-                } else if (!page.id().equals(fileId)) {
-                    // Two devices created the same page independently (typical for today's journal).
-                    // Both must end up with one id, so the older id wins on every device.
-                    if (fileId.compareTo(page.id()) < 0) {
-                        LOG.infov("Adopting page id {0} from {1} (was {2})", fileId, relPath, page.id());
-                        searchService.removePage(page.id().toString());
-                        pageRepository.rekey(page.id(), fileId);
-                        page = pageRepository.findById(fileId).orElseThrow();
-                        searchService.indexPage(page);
-                        searchService.indexItems(itemRepository.findByPageId(page.id()), page.dirPath() + page.name());
-                    } else {
-                        writeBack = true; // our id is older: rewrite the file with it
-                    }
+        Optional<Page> byPath = pageRepository.findByTypeDirPathFileName(loc.type(), loc.dirPath(), loc.name());
+        if (byPath.isPresent()) {
+            Page page = byPath.get();
+            if (fileId == null) {
+                writeBack = true; // hand-made file: give it our id
+            } else if (!page.id().equals(fileId)) {
+                // Two devices created the same page independently (typical for today's journal).
+                // Both must end up with one id, so the older id wins on every device.
+                if (fileId.compareTo(page.id()) < 0) {
+                    page = adoptPageId(page, fileId, relPath);
+                } else {
+                    writeBack = true; // our id is older: rewrite the file with it
                 }
             }
+            return new PageMatch(page, false, false, writeBack);
         }
 
         // 3. New page
-        boolean isNew = page == null;
-        if (isNew) {
-            HMTID id = fileId != null ? fileId : idGenerator.generatePageId();
-            if (fileId == null) writeBack = true;
-            Instant created = parseInstant(fm.get("created")).orElse(fileModified);
-            ensureAncestors(loc);
-            page = pageRepository.save(new Page(id, null, loc.dirPath(), loc.name(), loc.type(), created, fileModified));
-            searchService.indexPage(page);
-            LOG.infov("Created page {0} from {1}", page.id(), relPath);
-        } else if (fileModified.isBefore(page.modifiedDate())
-                && !fileSyncStateRepository.findByPageId(page.id()).isEmpty()) {
-            // DB is newer: keep the DB, keep the file's content as a backup, then overwrite the file.
-            // A moved file still moves the page, so the export lands at the new path.
-            // A page that never had a file on this device (e.g. the root index a fresh install creates)
-            // is not "newer" in any meaningful way: its modified date is just its creation time,
-            // so the file wins and the check above is skipped.
-            if (renamed) {
-                ensureAncestors(loc);
-                page = pageRepository.save(new Page(page.id(), null, loc.dirPath(), loc.name(), loc.type(),
-                        page.createdDate(), page.modifiedDate()));
-                searchService.indexPage(page);
-            }
-            backupConflict(root, relPath, loc, content, hash, page, attrs);
-            exportService.queueExport(page.id());
-            return Outcome.CONFLICT;
-        }
+        HMTID id = fileId != null ? fileId : idGenerator.generatePageId();
+        if (fileId == null) writeBack = true;
+        Instant created = parseInstant(fm.get("created")).orElse(fileModified);
+        Page page = savePageAt(new Page(id, null, loc.dirPath(), loc.name(), loc.type(), created, fileModified),
+                loc, fileModified);
+        LOG.infov("Created page {0} from {1}", page.id(), relPath);
+        return new PageMatch(page, true, false, writeBack);
+    }
 
-        // 4. Merge items
-        List<ParsedItem> items = parsed.items().isEmpty()
-                ? List.of(new ParsedItem(null, 1, "", false, List.of(), Map.of(), null, null))
-                : parsed.items();
-        MergeResult merge = mergeItems(page, items, now);
-        if (merge.needsWriteBack()) writeBack = true;
+    /** Gives a page the id another device chose for it and reindexes it under that id. */
+    private Page adoptPageId(Page page, HMTID newId, String relPath) {
+        LOG.infov("Adopting page id {0} from {1} (was {2})", newId, relPath, page.id());
+        searchService.removePage(page.id().toString());
+        pageRepository.rekey(page.id(), newId);
+        Page rekeyed = pageRepository.findById(newId).orElseThrow();
+        searchService.indexPage(rekeyed);
+        searchService.indexItems(itemRepository.findByPageId(rekeyed.id()), rekeyed.dirPath() + rekeyed.name());
+        return rekeyed;
+    }
 
-        // 5. Page metadata
-        if (renamed || merge.changed() || isNew) {
-            Instant newModified = isNew ? page.modifiedDate()
-                    : fileModified.isAfter(page.modifiedDate()) ? fileModified : now;
-            if (renamed) ensureAncestors(loc);
-            page = pageRepository.save(new Page(page.id(), null, loc.dirPath(), loc.name(), loc.type(),
-                    page.createdDate(), newModified));
-            searchService.indexPage(page);
-            if (renamed) {
-                searchService.indexItems(itemRepository.findByPageId(page.id()), page.dirPath() + page.name());
-            }
-        }
+    /** Saves the page at a (possibly new) location, creating the index pages above it first. */
+    private Page savePageAt(Page page, PageLocation loc, Instant modified) {
+        ensureAncestors(loc);
+        return savePage(page, loc, modified);
+    }
 
-        fileSyncStateRepository.upsertSynced(relPath, page.id(), hash, attrs.size(), attrs.lastModifiedTime().toMillis());
-
-        if (writeBack) {
-            // Give the file its ids / frontmatter. The export records the new hash, so it won't echo back.
-            exportService.queueExport(page.id());
-        }
-        if (merge.changed() || renamed || isNew) {
-            sseBroadcaster.broadcastPagesUpdated(page.id().toString(), "file");
-            LOG.infov("Imported {0} ({1} items, {2}, {3} ms)", relPath, items.size(),
-                    isNew ? "new page" : renamed ? "renamed" : "updated", System.currentTimeMillis() - startedAt);
-        }
-        return Outcome.IMPORTED;
+    private Page savePage(Page page, PageLocation loc, Instant modified) {
+        Page saved = pageRepository.save(new Page(page.id(), null, loc.dirPath(), loc.name(), loc.type(),
+                page.createdDate(), modified));
+        searchService.indexPage(saved);
+        return saved;
     }
 
     /** @param needsWriteBack the file lacks an id or idx, or its idx comments disagree with the line order */
@@ -294,19 +330,16 @@ public class MarkdownImportService {
 
         // Items no longer in the file go first, so their idx values are free for the survivors
         List<String> existingIds = existing.stream().map(i -> i.id().toString()).toList();
-        Map<String, Map<String, String>> scalars = propertyRepository.findScalarByTargets("item", existingIds);
+        Map<String, Map<String, String>> scalars = propertyRepository.findScalarByTargets(ITEM_TARGET, existingIds);
         boolean changed = false;
         List<String> removedIds = new ArrayList<>();
         for (Item old : existing) {
             if (seen.contains(old.id())) continue;
             itemRepository.delete(old.id());
             removedIds.add(old.id().toString());
-            propertyRepository.syncTags("item", old.id().toString(), List.of());
-            for (String key : scalars.getOrDefault(old.id().toString(), Map.of()).keySet()) {
-                propertyRepository.deleteProperty("item", old.id().toString(), key);
-            }
             changed = true;
         }
+        propertyRepository.deleteAllForTargets(ITEM_TARGET, removedIds);
         searchService.removeItems(removedIds); // one Lucene commit for all of them
 
         // (page_id, idx) is unique: if a surviving item is about to take another survivor's current idx,
@@ -361,37 +394,14 @@ public class MarkdownImportService {
                         idx, pi.level(), body, ast, pi.collapsed(), types, transclude);
                 itemRepository.save(item);
                 if (bodyChanged) {
-                    propertyRepository.syncTags("item", id.toString(), HashtagExtractor.extractHashtags(ast));
+                    propertyRepository.syncTags(ITEM_TARGET, id.toString(), HashtagExtractor.extractHashtags(ast));
                 }
                 toIndex.add(item);
                 changed = true;
             }
 
-            // Scalar properties from the key="value" pairs of the metadata line
-            Map<String, String> want = new LinkedHashMap<>();
-            for (var e : pi.properties().entrySet()) {
-                if (RESERVED_KEYS.contains(e.getKey())) continue;
-                String type = defs.getOrDefault(e.getKey(), "text");
-                if ("list".equals(type) || "tags".equals(type)) continue;
-                want.put(e.getKey(), e.getValue());
-            }
-            Map<String, String> have = scalars.getOrDefault(id.toString(), Map.of());
-            for (var e : want.entrySet()) {
-                if (!e.getValue().equals(have.get(e.getKey()))) {
-                    String type = defs.getOrDefault(e.getKey(), "text");
-                    try {
-                        propertyRepository.upsertScalar("item", id.toString(), e.getKey(), type, e.getValue());
-                        changed = true;
-                    } catch (RuntimeException ex) {
-                        LOG.warnv("Skipping property {0}={1} on item {2}: {3}", e.getKey(), e.getValue(), id, ex.getMessage());
-                    }
-                }
-            }
-            for (String key : have.keySet()) {
-                if (!want.containsKey(key)) {
-                    propertyRepository.deleteProperty("item", id.toString(), key);
-                    changed = true;
-                }
+            if (syncScalarProperties(id.toString(), pi.properties(), scalars.getOrDefault(id.toString(), Map.of()), defs)) {
+                changed = true;
             }
         }
 
@@ -402,7 +412,43 @@ public class MarkdownImportService {
         return new MergeResult(changed, needsWriteBack);
     }
 
-    private void backupConflict(Path root, String relPath, MarkdownPathMapper.PageLocation loc, String content,
+    /**
+     * Makes the scalar properties of an item match the key="value" pairs of its metadata line.
+     * Reserved keys and list-typed keys are not properties here.
+     *
+     * @return true if any property was written or removed
+     */
+    private boolean syncScalarProperties(String itemId, Map<String, String> fileProperties,
+                                         Map<String, String> have, Map<String, String> defs) {
+        Map<String, String> want = new LinkedHashMap<>();
+        for (var e : fileProperties.entrySet()) {
+            if (RESERVED_KEYS.contains(e.getKey())) continue;
+            String type = defs.getOrDefault(e.getKey(), "text");
+            if ("list".equals(type) || "tags".equals(type)) continue;
+            want.put(e.getKey(), e.getValue());
+        }
+        boolean changed = false;
+        for (var e : want.entrySet()) {
+            if (!e.getValue().equals(have.get(e.getKey()))) {
+                String type = defs.getOrDefault(e.getKey(), "text");
+                try {
+                    propertyRepository.upsertScalar(ITEM_TARGET, itemId, e.getKey(), type, e.getValue());
+                    changed = true;
+                } catch (RuntimeException ex) {
+                    LOG.warnv("Skipping property {0}={1} on item {2}: {3}", e.getKey(), e.getValue(), itemId, ex.getMessage());
+                }
+            }
+        }
+        for (String key : have.keySet()) {
+            if (!want.containsKey(key)) {
+                propertyRepository.deleteProperty(ITEM_TARGET, itemId, key);
+                changed = true;
+            }
+        }
+        return changed;
+    }
+
+    private void backupConflict(Path root, String relPath, PageLocation loc, String content,
                                 String hash, Page page, BasicFileAttributes attrs) {
         Path file = root.resolve(relPath);
         String ts = CONFLICT_TS.format(Instant.now().atZone(ZoneId.systemDefault()));
@@ -419,7 +465,7 @@ public class MarkdownImportService {
         fileSyncStateRepository.upsertSynced(relPath, page.id(), hash, attrs.size(), attrs.lastModifiedTime().toMillis());
     }
 
-    private void ensureAncestors(MarkdownPathMapper.PageLocation loc) {
+    private void ensureAncestors(PageLocation loc) {
         if ("doc".equals(loc.type()) && !loc.dirPath().isEmpty() && !"index".equals(loc.name())) {
             pageService.ensureAncestorPages(loc.dirPath());
         }

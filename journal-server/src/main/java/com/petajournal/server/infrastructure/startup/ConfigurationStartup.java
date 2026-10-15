@@ -39,11 +39,11 @@ public class ConfigurationStartup {
             LOG.warn("Markdown directory not configured. Opening folder chooser...");
 
             FolderChooserService.FolderChoice choice = folderChooserService.chooseFolder();
-            LOG.infov("Folder chooser returned: selected={0}, path=[{1}]", choice.selected, choice.path);
+            LOG.infov("Folder chooser returned: selected={0}, path=[{1}]", choice.selected(), choice.path());
 
-            if (choice.selected && !choice.path.isEmpty()) {
-                configService.setMarkdownDir(choice.path);
-                markdownDir = choice.path;
+            if (choice.selected() && !choice.path().isEmpty()) {
+                configService.setMarkdownDir(choice.path());
+                markdownDir = choice.path();
                 LOG.infov("Markdown directory configured: {0}", markdownDir);
             } else {
                 LOG.error("No markdown directory selected. Application may not function correctly.");

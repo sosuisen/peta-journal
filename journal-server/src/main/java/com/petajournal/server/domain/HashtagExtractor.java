@@ -50,14 +50,15 @@ public final class HashtagExtractor {
                     tags.add(value);
                 }
             }
+            // Children first, so tags keep their order in the text; then every other
+            // nested field in case the AST nests differently
             JsonNode children = node.get("children");
             if (children != null) {
                 collectHashtags(children, tags);
             }
-            // Also recurse into all object fields in case AST nests differently
             for (var entry : node.properties()) {
                 JsonNode val = entry.getValue();
-                if (val.isArray() || val.isObject()) {
+                if (val != children && (val.isArray() || val.isObject())) {
                     collectHashtags(val, tags);
                 }
             }

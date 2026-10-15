@@ -59,14 +59,6 @@ public interface PageRepository {
     List<Page> findAll();
 
     /**
-     * Finds pages whose file name matches the given query.
-     *
-     * @param titleQuery the title query string
-     * @return the matching pages
-     */
-    List<Page> findByTitle(String titleQuery);
-
-    /**
      * Finds a page by its type, directory path, and file name.
      *
      * @param type     the page type ({@code "journal"} or {@code "doc"})

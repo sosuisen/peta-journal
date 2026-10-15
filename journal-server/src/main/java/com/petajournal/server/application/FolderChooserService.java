@@ -12,16 +12,13 @@ public class FolderChooserService {
 
     private static final Logger LOG = Logger.getLogger(FolderChooserService.class);
 
-    /** Result of a folder selection dialog. */
-    public static class FolderChoice {
-        public final boolean selected;
-        public final String path;
-
-        public FolderChoice(boolean selected, String path) {
-            this.selected = selected;
-            this.path = path;
-        }
-    }
+    /**
+     * Result of a folder selection dialog.
+     *
+     * @param selected true when the user chose a folder
+     * @param path     the chosen folder, or an empty string
+     */
+    public record FolderChoice(boolean selected, String path) {}
 
     /**
      * Opens a native folder selection dialog appropriate for the current OS.
@@ -87,7 +84,7 @@ public class FolderChooserService {
                 "--title=Select Markdown Directory"
             );
             FolderChoice choice = executeProcess(pb);
-            if (choice.selected) {
+            if (choice.selected()) {
                 return choice;
             }
 

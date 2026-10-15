@@ -2,6 +2,7 @@ package com.petajournal.server.infrastructure.export;
 
 import com.petajournal.server.domain.model.Page;
 import com.petajournal.server.domain.repository.PageRepository;
+import com.petajournal.server.domain.repository.SearchService;
 import com.sosuisha.hmtid.HMTID;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.scheduler.Scheduled;
@@ -42,7 +43,7 @@ public class MarkdownReconcileService {
     @Inject FileSyncStateRepository fileSyncStateRepository;
     @Inject PageRepository pageRepository;
     @Inject PendingDeletePrompt pendingDeletePrompt;
-    @Inject com.petajournal.server.domain.repository.SearchService searchService;
+    @Inject SearchService searchService;
 
     private final AtomicBoolean scanning = new AtomicBoolean(false);
     private volatile boolean scanRequested = false;

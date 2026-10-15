@@ -1,5 +1,6 @@
 package com.petajournal.server.infrastructure.watch;
 
+import com.petajournal.server.domain.repository.SearchService;
 import com.petajournal.server.infrastructure.export.FileSyncStateRepository;
 import com.petajournal.server.infrastructure.export.MarkdownExportService;
 import com.petajournal.server.infrastructure.export.MarkdownImportService;
@@ -47,7 +48,7 @@ public class MarkdownFolderWatcher {
     @Inject MarkdownReconcileService reconcileService;
     @Inject FileSyncStateRepository fileSyncStateRepository;
     @Inject PendingDeletePrompt pendingDeletePrompt;
-    @Inject com.petajournal.server.domain.repository.SearchService searchService;
+    @Inject SearchService searchService;
 
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
         Thread t = new Thread(r, "markdown-watcher-debounce");

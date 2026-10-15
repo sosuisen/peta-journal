@@ -56,8 +56,7 @@ public class McpPageTools {
             @ToolArg(description = "New title (null to keep current)") String title,
             @ToolArg(description = "New directory path (null to keep current)") String dirPath) {
         String t = (title == null || title.isEmpty()) ? null : title;
-        String d = (dirPath == null) ? null : dirPath;
-        var page = pageService.updatePage(HMTID.of(pageId), t, d);
+        var page = pageService.updatePage(HMTID.of(pageId), t, dirPath);
         return jsonHelper.toJson(Map.of("page", page));
     }
 

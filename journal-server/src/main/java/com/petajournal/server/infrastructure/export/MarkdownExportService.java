@@ -20,6 +20,8 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @ApplicationScoped
 public class MarkdownExportService {
@@ -47,7 +49,8 @@ public class MarkdownExportService {
     @Inject
     FlatMarkdownSerializer serializer;
 
-    private volatile boolean isProcessing = false;
+    /** True while a scheduler run is writing files; a run that overlaps is skipped. */
+    private final AtomicBoolean processing = new AtomicBoolean(false);
     private volatile boolean warnedDirUnavailable = false;
 
     public void queueExport(HMTID pageId) {
@@ -94,15 +97,13 @@ public class MarkdownExportService {
         return Optional.of(root);
     }
 
-    @Scheduled(every = "${petajournal.export.interval}s", delay = 5, delayUnit = java.util.concurrent.TimeUnit.SECONDS)
+    @Scheduled(every = "${petajournal.export.interval}s", delay = 5, delayUnit = TimeUnit.SECONDS)
     void processExportQueue() {
         // Skip if already processing to prevent concurrent execution
-        if (isProcessing) {
+        if (!processing.compareAndSet(false, true)) {
             LOG.debug("Export queue processing already in progress, skipping this run");
             return;
         }
-
-        isProcessing = true;
         try {
             List<HMTID> pageIds = exportQueueRepository.dequeueAll();
             for (HMTID pageId : pageIds) {
@@ -115,7 +116,7 @@ public class MarkdownExportService {
                 }
             }
         } finally {
-            isProcessing = false;
+            processing.set(false);
         }
     }
 

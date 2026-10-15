@@ -1,6 +1,5 @@
 package com.petajournal.server.application;
 
-import com.petajournal.server.domain.IdGenerator;
 import com.petajournal.server.domain.model.Item;
 import com.petajournal.server.infrastructure.export.OutlineMarkdownParser;
 import com.petajournal.server.infrastructure.parser.FlatmarkdownParser;
@@ -69,7 +68,7 @@ class FlatMarkdownSerializerTest {
         var scalars = Map.of(ITEM2.toString(), Map.of("title", "a \"quoted\" value"));
 
         String md = serializer.serialize(items, scalars, Map.of());
-        var parser = new OutlineMarkdownParser(new IdGenerator(), new FlatMarkdownSplitter(new FlatmarkdownParser()));
+        var parser = new OutlineMarkdownParser(new FlatMarkdownSplitter(new FlatmarkdownParser()));
         var parsed = parser.parse(md).items();
 
         assertEquals(3, parsed.size());

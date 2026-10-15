@@ -1,7 +1,6 @@
 package com.petajournal.server.infrastructure.export;
 
 import com.petajournal.server.application.FlatMarkdownSplitter;
-import com.petajournal.server.domain.IdGenerator;
 import com.petajournal.server.infrastructure.parser.FlatmarkdownParser;
 import org.junit.jupiter.api.Test;
 
@@ -16,7 +15,7 @@ class OutlineMarkdownParserTest {
     private static final String ITEM3 = "2026-09-27-01-02-05-AAAAAA3";
     private static final String ITEM4 = "2026-09-27-01-02-06-AAAAAA4";
 
-    private final OutlineMarkdownParser parser = new OutlineMarkdownParser(new IdGenerator(), new FlatMarkdownSplitter(new FlatmarkdownParser()));
+    private final OutlineMarkdownParser parser = new OutlineMarkdownParser(new FlatMarkdownSplitter(new FlatmarkdownParser()));
 
     @Test
     void parsesFrontmatterItemsAndMetadata() {

@@ -1,10 +1,8 @@
 package com.petajournal.server.presentation.rest;
 
 import com.petajournal.server.application.CombinedSearchService;
-import com.petajournal.server.domain.model.Item;
 import com.petajournal.server.domain.model.Page;
 import com.petajournal.server.domain.model.SearchResult;
-import com.petajournal.server.domain.repository.ItemRepository;
 import com.petajournal.server.domain.repository.PageRepository;
 import com.petajournal.server.domain.repository.SearchService;
 import com.petajournal.server.infrastructure.persistence.PropertyRepository;
@@ -18,7 +16,6 @@ import com.sosuisha.hmtid.HMTID;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 @Path("/api/search")
@@ -33,9 +30,6 @@ public class SearchResource {
 
     @Inject
     PropertyRepository propertyRepository;
-
-    @Inject
-    ItemRepository itemRepository;
 
     @Inject
     CombinedSearchService combinedSearchService;
@@ -103,23 +97,8 @@ public class SearchResource {
             @QueryParam("maxResults") @DefaultValue("20") int maxResults) {
 
         List<String> itemIds = propertyRepository.findItemIdsByTagValue(tagValue, maxResults);
-        List<SearchResultDto> results = new ArrayList<>();
-
-        for (String itemId : itemIds) {
-            Optional<Item> itemOpt = itemRepository.findById(HMTID.of(itemId));
-            if (itemOpt.isEmpty()) continue;
-            Item item = itemOpt.get();
-            Optional<Page> pageOpt = pageRepository.findById(item.pageId());
-            if (pageOpt.isEmpty()) continue;
-            Page page = pageOpt.get();
-            String pageTitle = page.dirPath() + page.name();
-            String snippet = item.body() != null ? item.body() : "";
-            if (snippet.length() > 200) snippet = snippet.substring(0, 200);
-            SearchResult sr = new SearchResult(page.id(), pageTitle, itemId, snippet, 1.0f);
-            results.add(DtoMapper.toDto(sr));
-        }
-
-        return new SearchPageNamesResponse(results);
+        return new SearchPageNamesResponse(
+                combinedSearchService.resultsForItems(itemIds).stream().map(DtoMapper::toDto).toList());
     }
 
 }

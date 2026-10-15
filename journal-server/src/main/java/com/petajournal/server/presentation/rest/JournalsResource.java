@@ -1,25 +1,18 @@
 package com.petajournal.server.presentation.rest;
 
 import com.petajournal.server.application.JournalService;
-import com.petajournal.server.domain.model.Item;
-import com.petajournal.server.infrastructure.persistence.PropertyRepository;
+import com.petajournal.server.application.JournalService.MostRecentJournalResult;
 import com.petajournal.server.presentation.rest.dto.ItemDto;
 import com.petajournal.server.presentation.rest.dto.DtoMapper;
+import com.petajournal.server.presentation.rest.dto.ItemDtoAssembler;
 import com.petajournal.server.presentation.rest.dto.PageDto;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 
-import com.petajournal.server.domain.repository.ItemRepository;
-
-import com.sosuisha.hmtid.HMTID;
 import java.time.LocalDate;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 @Path("/api/journals")
 @Produces(MediaType.APPLICATION_JSON)
@@ -30,12 +23,7 @@ public class JournalsResource {
     JournalService journalService;
 
     @Inject
-    PropertyRepository propertyRepository;
-
-    @Inject
-    ItemRepository itemRepository;
-
-    private static final int MAX_TRANSCLUSION_DEPTH = 5;
+    ItemDtoAssembler dtos;
 
     // --- Response records ---
 
@@ -47,87 +35,35 @@ public class JournalsResource {
     public GetOrCreateJournalResponse getOrCreateJournal(@PathParam("name") String name) {
         var result = journalService.getOrCreateJournalByName(name);
         var items = result.items();
-        Map<String, List<ItemDto>> transcludedTrees = buildTranscludedTrees(items);
         return new GetOrCreateJournalResponse(
                 DtoMapper.toDto(result.page()),
-                loadItemDtos(items),
+                dtos.toDtos(items),
                 result.created(),
-                transcludedTrees);
+                dtos.transcludedTrees(items));
     }
 
     @GET
     @Path("/before")
     public GetMostRecentJournalBeforeResponse getMostRecentJournalBefore(@QueryParam("date") String date) {
         LocalDate beforeDate = LocalDate.parse(date);
-        var result = journalService.getMostRecentJournalBefore(beforeDate);
-        if (!result.found()) {
-            return new GetMostRecentJournalBeforeResponse(false, null, List.of(), Map.of());
-        }
-        var items = result.items();
-        Map<String, List<ItemDto>> transcludedTrees = buildTranscludedTrees(items);
-        return new GetMostRecentJournalBeforeResponse(
-                true,
-                DtoMapper.toDto(result.page()),
-                loadItemDtos(items),
-                transcludedTrees);
+        return toResponse(journalService.getMostRecentJournalBefore(beforeDate));
     }
 
     @GET
     @Path("/weekly/before")
     public GetMostRecentJournalBeforeResponse getMostRecentWeeklyJournalBefore(@QueryParam("week") String week) {
-        var result = journalService.getMostRecentWeeklyJournalBefore(week);
+        return toResponse(journalService.getMostRecentWeeklyJournalBefore(week));
+    }
+
+    private GetMostRecentJournalBeforeResponse toResponse(MostRecentJournalResult result) {
         if (!result.found()) {
             return new GetMostRecentJournalBeforeResponse(false, null, List.of(), Map.of());
         }
         var items = result.items();
-        Map<String, List<ItemDto>> transcludedTrees = buildTranscludedTrees(items);
         return new GetMostRecentJournalBeforeResponse(
                 true,
                 DtoMapper.toDto(result.page()),
-                loadItemDtos(items),
-                transcludedTrees);
-    }
-
-    private Map<String, List<ItemDto>> buildTranscludedTrees(List<Item> items) {
-        Map<String, List<ItemDto>> trees = new LinkedHashMap<>();
-        Set<String> visited = new HashSet<>();
-        for (Item item : items) {
-            if (item.transcludeItemId() != null) {
-                String sourceId = item.transcludeItemId().toString();
-                if (!trees.containsKey(sourceId)) {
-                    loadTranscludedTree(sourceId, trees, visited, 0);
-                }
-            }
-        }
-        return trees;
-    }
-
-    private void loadTranscludedTree(String sourceId, Map<String, List<ItemDto>> trees, Set<String> visited, int depth) {
-        if (depth >= MAX_TRANSCLUSION_DEPTH || visited.contains(sourceId)) return;
-        visited.add(sourceId);
-
-        List<Item> descendants = itemRepository.findItemWithDescendants(HMTID.of(sourceId));
-        if (descendants.isEmpty()) {
-            trees.put(sourceId, List.of());
-            return;
-        }
-
-        trees.put(sourceId, loadItemDtos(descendants));
-
-        for (Item desc : descendants) {
-            if (desc.transcludeItemId() != null) {
-                String nestedSourceId = desc.transcludeItemId().toString();
-                if (!trees.containsKey(nestedSourceId)) {
-                    loadTranscludedTree(nestedSourceId, trees, visited, depth + 1);
-                }
-            }
-        }
-    }
-
-    private List<ItemDto> loadItemDtos(List<Item> items) {
-        List<String> ids = items.stream().map(i -> i.id().toString()).toList();
-        var scalars = propertyRepository.findScalarByTargets("item", ids);
-        var lists = propertyRepository.findListByTargets("item", ids);
-        return DtoMapper.toDtos(items, scalars, lists);
+                dtos.toDtos(items),
+                dtos.transcludedTrees(items));
     }
 }

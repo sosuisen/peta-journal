@@ -37,6 +37,8 @@ public class LuceneSearchService implements SearchService {
     private static final String FIELD_ITEM_ID = "itemId";
     private static final String FIELD_BODY = "body";
     private static final String FIELD_TYPE = "type"; // "page" or "item"
+    private static final String TYPE_PAGE = "page";
+    private static final String TYPE_ITEM = "item";
 
     @ConfigProperty(name = "petajournal.index.dir")
     String indexDir;
@@ -77,12 +79,12 @@ public class LuceneSearchService implements SearchService {
             // Delete existing page document (must use BooleanQuery for AND semantics)
             BooleanQuery deleteQuery = new BooleanQuery.Builder()
                     .add(new TermQuery(new Term(FIELD_PAGE_ID, page.id().toString())), BooleanClause.Occur.MUST)
-                    .add(new TermQuery(new Term(FIELD_TYPE, "page")), BooleanClause.Occur.MUST)
+                    .add(new TermQuery(new Term(FIELD_TYPE, TYPE_PAGE)), BooleanClause.Occur.MUST)
                     .build();
             writer.deleteDocuments(deleteQuery);
 
             Document doc = new Document();
-            doc.add(new StringField(FIELD_TYPE, "page", Field.Store.YES));
+            doc.add(new StringField(FIELD_TYPE, TYPE_PAGE, Field.Store.YES));
             doc.add(new StringField(FIELD_PAGE_ID, page.id().toString(), Field.Store.YES));
             String title = page.dirPath() + page.name();
             doc.add(new TextField(FIELD_PAGE_TITLE, title, Field.Store.YES));
@@ -97,15 +99,7 @@ public class LuceneSearchService implements SearchService {
     @Override
     public void indexItem(Item item, String pageTitle) {
         try {
-            writer.deleteDocuments(new Term(FIELD_ITEM_ID, item.id().toString()));
-
-            Document doc = new Document();
-            doc.add(new StringField(FIELD_TYPE, "item", Field.Store.YES));
-            doc.add(new StringField(FIELD_PAGE_ID, item.pageId().toString(), Field.Store.YES));
-            doc.add(new TextField(FIELD_PAGE_TITLE, pageTitle, Field.Store.YES));
-            doc.add(new StringField(FIELD_ITEM_ID, item.id().toString(), Field.Store.YES));
-            doc.add(new TextField(FIELD_BODY, item.body(), Field.Store.YES));
-            writer.addDocument(doc);
+            replaceItemDocument(item, pageTitle);
             writer.commit();
         } catch (IOException e) {
             LOG.warnv("Failed to index item: {0}", item.id(), e);
@@ -117,18 +111,23 @@ public class LuceneSearchService implements SearchService {
         if (items.isEmpty()) return;
         try {
             for (Item item : items) {
-                writer.deleteDocuments(new Term(FIELD_ITEM_ID, item.id().toString()));
-                Document doc = new Document();
-                doc.add(new StringField(FIELD_TYPE, "item", Field.Store.YES));
-                doc.add(new StringField(FIELD_PAGE_ID, item.pageId().toString(), Field.Store.YES));
-                doc.add(new TextField(FIELD_PAGE_TITLE, pageTitle, Field.Store.YES));
-                doc.add(new StringField(FIELD_ITEM_ID, item.id().toString(), Field.Store.YES));
-                doc.add(new TextField(FIELD_BODY, item.body(), Field.Store.YES));
-                writer.addDocument(doc);
+                replaceItemDocument(item, pageTitle);
             }
         } catch (IOException e) {
             LOG.warnv("Failed to index {0} items", items.size(), e);
         }
+    }
+
+    /** Removes the item's current document and adds a fresh one; the caller commits. */
+    private void replaceItemDocument(Item item, String pageTitle) throws IOException {
+        writer.deleteDocuments(new Term(FIELD_ITEM_ID, item.id().toString()));
+        Document doc = new Document();
+        doc.add(new StringField(FIELD_TYPE, TYPE_ITEM, Field.Store.YES));
+        doc.add(new StringField(FIELD_PAGE_ID, item.pageId().toString(), Field.Store.YES));
+        doc.add(new TextField(FIELD_PAGE_TITLE, pageTitle, Field.Store.YES));
+        doc.add(new StringField(FIELD_ITEM_ID, item.id().toString(), Field.Store.YES));
+        doc.add(new TextField(FIELD_BODY, item.body(), Field.Store.YES));
+        writer.addDocument(doc);
     }
 
     @Override
@@ -208,7 +207,7 @@ public class LuceneSearchService implements SearchService {
 
             BooleanQuery.Builder bq = new BooleanQuery.Builder();
             bq.add(parser.parse(pattern), BooleanClause.Occur.MUST);
-            bq.add(new TermQuery(new Term(FIELD_TYPE, "page")), BooleanClause.Occur.MUST);
+            bq.add(new TermQuery(new Term(FIELD_TYPE, TYPE_PAGE)), BooleanClause.Occur.MUST);
 
             TopDocs topDocs = searcher.search(bq.build(), maxResults);
             for (ScoreDoc sd : topDocs.scoreDocs) {

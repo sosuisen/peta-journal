@@ -10,6 +10,7 @@ import com.petajournal.server.domain.IdGenerator;
 import com.petajournal.server.domain.FractionalIndexer;
 import com.petajournal.server.domain.JournalFileNameMatcher;
 import com.petajournal.server.domain.JournalFileNameMatcher.JournalType;
+import com.petajournal.server.infrastructure.export.MarkdownExportService;
 import com.sosuisha.hmtid.HMTID;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -25,6 +26,8 @@ import java.util.Optional;
 
 @ApplicationScoped
 public class JournalService {
+
+    private static final String JOURNAL_TYPE = "journal";
 
     @Inject
     PageRepository pageRepository;
@@ -44,6 +47,9 @@ public class JournalService {
     @Inject
     IdGenerator idGenerator;
 
+    @Inject
+    MarkdownExportService exportService;
+
     /** Result of getting or creating a journal page. */
     public record JournalResult(Page page, List<Item> items, boolean created) {}
 
@@ -51,7 +57,8 @@ public class JournalService {
     public record MostRecentJournalResult(boolean found, Page page, List<Item> items) {}
 
     /**
-     * Gets an existing daily journal page for the given date, or creates a new one.
+     * Gets an existing daily journal page for the given date, or creates a new one
+     * with a single empty item.
      *
      * @param date the journal date
      * @return the journal page with its items and whether it was newly created
@@ -59,53 +66,77 @@ public class JournalService {
     public JournalResult getOrCreateJournal(LocalDate date) {
         Optional<Page> existing = pageRepository.findJournal(date);
         if (existing.isPresent()) {
-            Page page = existing.get();
-            List<Item> items = itemRepository.findByPageId(page.id());
-            return new JournalResult(page, items, false);
+            return existingJournal(existing.get());
         }
 
-        // Create new journal page
-        HMTID id = idGenerator.generatePageId();
-        Instant now = Instant.now();
-
-        String fileName = date.format(DateTimeFormatter.ISO_LOCAL_DATE);
-
-        Page page = new Page(id, null, "", fileName, "journal", now, now);
-        page = pageRepository.save(page);
-        searchService.indexPage(page);
+        Page page = createJournalPage(date.format(DateTimeFormatter.ISO_LOCAL_DATE));
+        Instant now = page.createdDate();
 
         // Create initial empty item
         HMTID itemId = idGenerator.generateItemId();
-        Item item = new Item(itemId, id, null, page.dirPath(), page.name(), page.type(), now, now, FractionalIndexer.initial(), 1, "", "", false, List.of(), null);
+        Item item = new Item(itemId, page.id(), null, page.dirPath(), page.name(), page.type(), now, now,
+                FractionalIndexer.initial(), 1, "", "", false, List.of(), null);
         item = itemRepository.save(item);
+        exportService.queueExport(page.id());
 
         return new JournalResult(page, List.of(item), true);
     }
 
-    private JournalResult getOrCreateWeeklyJournal(int year, int week) {
-        String fileName = year + "-W" + String.format("%02d", week);
-        Optional<Page> existing = pageRepository.findByTypeDirPathFileName("journal", "", fileName);
+    /**
+     * Gets or creates a journal page by file name.
+     * Supports daily ({@code YYYY-MM-DD}), weekly ({@code YYYY-WNN}),
+     * monthly ({@code YYYY-MM}), and yearly ({@code YYYY}) formats.
+     * A new weekly, monthly or yearly journal is filled with one wiki link per
+     * day, week or month it covers.
+     *
+     * @param fileName the journal file name
+     * @return the journal page with its items and whether it was newly created
+     * @throws IllegalArgumentException if the file name is not a valid journal format
+     */
+    public JournalResult getOrCreateJournalByName(String fileName) {
+        JournalType type = JournalFileNameMatcher.classify(fileName);
+        return switch (type) {
+            case NONE -> throw new IllegalArgumentException("Not a journal filename: " + fileName);
+            case DAILY -> getOrCreateJournal(LocalDate.parse(fileName));
+            case WEEKLY -> {
+                // Parse "YYYY-WN"
+                String[] parts = fileName.split("-W");
+                int year = Integer.parseInt(parts[0]);
+                int week = Integer.parseInt(parts[1]);
+                yield getOrCreateLinkJournal(year + "-W" + twoDigits(week), weekDayNames(year, week));
+            }
+            case MONTHLY -> {
+                // Parse "YYYY-MM"
+                String[] parts = fileName.split("-");
+                int year = Integer.parseInt(parts[0]);
+                int month = Integer.parseInt(parts[1]);
+                yield getOrCreateLinkJournal(year + "-" + twoDigits(month), weekNamesInMonth(year, month));
+            }
+            case YEARLY -> {
+                int year = Integer.parseInt(fileName);
+                yield getOrCreateLinkJournal(String.valueOf(year), monthNames(year));
+            }
+        };
+    }
+
+    /**
+     * Gets a journal page that, when created, holds one wiki link per period it covers.
+     *
+     * @param fileName    the journal file name
+     * @param linkTargets the journal names to link to, one item each
+     */
+    private JournalResult getOrCreateLinkJournal(String fileName, List<String> linkTargets) {
+        Optional<Page> existing = pageRepository.findByTypeDirPathFileName(JOURNAL_TYPE, "", fileName);
         if (existing.isPresent()) {
-            Page page = existing.get();
-            List<Item> items = itemRepository.findByPageId(page.id());
-            return new JournalResult(page, items, false);
+            return existingJournal(existing.get());
         }
 
-        // Create new weekly journal page
-        HMTID id = idGenerator.generatePageId();
-        Instant now = Instant.now();
+        Page page = createJournalPage(fileName);
 
-        Page page = new Page(id, null, "", fileName, "journal", now, now);
-        page = pageRepository.save(page);
-        searchService.indexPage(page);
-
-        // Create items with wiki links to each day of the week
-        List<LocalDate> weekDays = getWeekDays(year, week);
         List<Item> items = new ArrayList<>();
         ItemPosition position = ItemPosition.FIRST;
-        for (LocalDate day : weekDays) {
-            String body = "[[" + day.format(DateTimeFormatter.ISO_LOCAL_DATE) + "]]";
-            Item item = itemService.createItem(id, position, 1, body, null);
+        for (String target : linkTargets) {
+            Item item = itemService.createItem(page.id(), position, 1, "[[" + target + "]]", null);
             items.add(item);
             position = ItemPosition.after(item.id());
         }
@@ -113,12 +144,31 @@ public class JournalService {
         return new JournalResult(page, items, true);
     }
 
-    private List<LocalDate> getWeekDays(int year, int week) {
-        String weekNumbering = configService.getWeekNumbering();
-        boolean iso = "iso".equals(weekNumbering);
+    private JournalResult existingJournal(Page page) {
+        return new JournalResult(page, itemRepository.findByPageId(page.id()), false);
+    }
 
+    /** Saves and indexes a new journal page without items. */
+    private Page createJournalPage(String fileName) {
+        HMTID id = idGenerator.generatePageId();
+        Instant now = Instant.now();
+        Page page = pageRepository.save(new Page(id, null, "", fileName, JOURNAL_TYPE, now, now));
+        searchService.indexPage(page);
+        return page;
+    }
+
+    private static String twoDigits(int n) {
+        return String.format("%02d", n);
+    }
+
+    private boolean isIsoWeekNumbering() {
+        return "iso".equals(configService.getWeekNumbering());
+    }
+
+    /** The names of the seven daily journals of a week, e.g. {@code 2026-02-16}. */
+    private List<String> weekDayNames(int year, int week) {
         LocalDate startOfWeek;
-        if (iso) {
+        if (isIsoWeekNumbering()) {
             // ISO: weeks start Monday, Jan 4 is always in week 1
             LocalDate jan4 = LocalDate.of(year, 1, 4);
             LocalDate monday1 = jan4.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
@@ -130,110 +180,25 @@ public class JournalService {
             startOfWeek = sunday1.plusWeeks(week - 1);
         }
 
-        List<LocalDate> days = new ArrayList<>();
+        List<String> days = new ArrayList<>();
         for (int i = 0; i < 7; i++) {
-            days.add(startOfWeek.plusDays(i));
+            days.add(startOfWeek.plusDays(i).format(DateTimeFormatter.ISO_LOCAL_DATE));
         }
         return days;
     }
 
-    /**
-     * Gets or creates a journal page by file name.
-     * Supports daily ({@code YYYY-MM-DD}), weekly ({@code YYYY-WNN}),
-     * monthly ({@code YYYY-MM}), and yearly ({@code YYYY}) formats.
-     *
-     * @param fileName the journal file name
-     * @return the journal page with its items and whether it was newly created
-     * @throws IllegalArgumentException if the file name is not a valid journal format
-     */
-    public JournalResult getOrCreateJournalByName(String fileName) {
-        JournalType type = JournalFileNameMatcher.classify(fileName);
-        if (type == JournalType.NONE) {
-            throw new IllegalArgumentException("Not a journal filename: " + fileName);
-        }
-        if (type == JournalType.DAILY) {
-            return getOrCreateJournal(LocalDate.parse(fileName));
-        }
-        if (type == JournalType.WEEKLY) {
-            // Parse "YYYY-WN"
-            String[] parts = fileName.split("-W");
-            int year = Integer.parseInt(parts[0]);
-            int week = Integer.parseInt(parts[1]);
-            return getOrCreateWeeklyJournal(year, week);
-        }
-        if (type == JournalType.MONTHLY) {
-            // Parse "YYYY-MM"
-            String[] parts = fileName.split("-");
-            int year = Integer.parseInt(parts[0]);
-            int month = Integer.parseInt(parts[1]);
-            return getOrCreateMonthlyJournal(year, month);
-        }
-        // YEARLY: parse "YYYY"
-        return getOrCreateYearlyJournal(Integer.parseInt(fileName));
-    }
-
-    private JournalResult getOrCreateYearlyJournal(int year) {
-        String fileName = String.valueOf(year);
-        Optional<Page> existing = pageRepository.findByTypeDirPathFileName("journal", "", fileName);
-        if (existing.isPresent()) {
-            Page page = existing.get();
-            List<Item> items = itemRepository.findByPageId(page.id());
-            return new JournalResult(page, items, false);
-        }
-
-        HMTID id = idGenerator.generatePageId();
-        Instant now = Instant.now();
-
-        Page page = new Page(id, null, "", fileName, "journal", now, now);
-        page = pageRepository.save(page);
-        searchService.indexPage(page);
-
-        // Create items with wiki links to each month
-        List<Item> items = new ArrayList<>();
-        ItemPosition position = ItemPosition.FIRST;
+    /** The names of the twelve monthly journals of a year, e.g. {@code 2026-02}. */
+    private static List<String> monthNames(int year) {
+        List<String> months = new ArrayList<>();
         for (int m = 1; m <= 12; m++) {
-            String body = "[[" + year + "-" + String.format("%02d", m) + "]]";
-            Item item = itemService.createItem(id, position, 1, body, null);
-            items.add(item);
-            position = ItemPosition.after(item.id());
+            months.add(year + "-" + twoDigits(m));
         }
-
-        return new JournalResult(page, items, true);
+        return months;
     }
 
-    private JournalResult getOrCreateMonthlyJournal(int year, int month) {
-        String fileName = year + "-" + String.format("%02d", month);
-        Optional<Page> existing = pageRepository.findByTypeDirPathFileName("journal", "", fileName);
-        if (existing.isPresent()) {
-            Page page = existing.get();
-            List<Item> items = itemRepository.findByPageId(page.id());
-            return new JournalResult(page, items, false);
-        }
-
-        HMTID id = idGenerator.generatePageId();
-        Instant now = Instant.now();
-
-        Page page = new Page(id, null, "", fileName, "journal", now, now);
-        page = pageRepository.save(page);
-        searchService.indexPage(page);
-
-        // Create items with wiki links to each week that overlaps this month
-        List<Integer> weekNumbers = getWeeksInMonth(year, month);
-        List<Item> items = new ArrayList<>();
-        ItemPosition position = ItemPosition.FIRST;
-        for (int w : weekNumbers) {
-            String body = "[[" + year + "-W" + String.format("%02d", w) + "]]";
-            Item item = itemService.createItem(id, position, 1, body, null);
-            items.add(item);
-            position = ItemPosition.after(item.id());
-        }
-
-        return new JournalResult(page, items, true);
-    }
-
-    private List<Integer> getWeeksInMonth(int year, int month) {
-        String weekNumbering = configService.getWeekNumbering();
-        boolean iso = "iso".equals(weekNumbering);
+    /** The names of the weekly journals that overlap a month, e.g. {@code 2026-W07}. */
+    private List<String> weekNamesInMonth(int year, int month) {
+        boolean iso = isIsoWeekNumbering();
 
         LocalDate firstOfMonth = LocalDate.of(year, month, 1);
         LocalDate lastOfMonth = firstOfMonth.withDayOfMonth(firstOfMonth.lengthOfMonth());
@@ -247,7 +212,7 @@ public class JournalService {
             }
             date = date.plusDays(1);
         }
-        return weeks;
+        return weeks.stream().map(w -> year + "-W" + twoDigits(w)).toList();
     }
 
     private int getISOWeekNumber(LocalDate date) {
@@ -278,14 +243,7 @@ public class JournalService {
      * @return the result containing the journal page if found
      */
     public MostRecentJournalResult getMostRecentJournalBefore(LocalDate beforeDate) {
-        Optional<Page> pageOpt = pageRepository.findMostRecentJournalBefore(beforeDate);
-        if (pageOpt.isEmpty()) {
-            return new MostRecentJournalResult(false, null, List.of());
-        }
-
-        Page page = pageOpt.get();
-        List<Item> items = itemRepository.findByPageId(page.id());
-        return new MostRecentJournalResult(true, page, items);
+        return toMostRecentResult(pageRepository.findMostRecentJournalBefore(beforeDate));
     }
 
     /**
@@ -295,13 +253,12 @@ public class JournalService {
      * @return the result containing the weekly journal page if found
      */
     public MostRecentJournalResult getMostRecentWeeklyJournalBefore(String beforeWeek) {
-        Optional<Page> pageOpt = pageRepository.findMostRecentWeeklyJournalBefore(beforeWeek);
-        if (pageOpt.isEmpty()) {
-            return new MostRecentJournalResult(false, null, List.of());
-        }
+        return toMostRecentResult(pageRepository.findMostRecentWeeklyJournalBefore(beforeWeek));
+    }
 
-        Page page = pageOpt.get();
-        List<Item> items = itemRepository.findByPageId(page.id());
-        return new MostRecentJournalResult(true, page, items);
+    private MostRecentJournalResult toMostRecentResult(Optional<Page> page) {
+        return page
+                .map(p -> new MostRecentJournalResult(true, p, itemRepository.findByPageId(p.id())))
+                .orElseGet(() -> new MostRecentJournalResult(false, null, List.of()));
     }
 }
