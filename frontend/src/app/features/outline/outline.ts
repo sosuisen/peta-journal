@@ -1,4 +1,4 @@
-import { Component, inject, input, output, effect, Injector, afterNextRender, viewChild, viewChildren, signal, computed, untracked, OnDestroy } from '@angular/core';
+import { Component, inject, input, output, effect, Injector, afterNextRender, viewChild, viewChildren, computed, untracked, OnDestroy } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { ScrollingModule, CdkVirtualScrollViewport } from '@angular/cdk/scrolling';
 import { ScrollingModule as ExperimentalScrollingModule } from '@angular/cdk-experimental/scrolling';
@@ -16,6 +16,7 @@ import { ItemEditService } from './item-edit.service';
 import { ItemSplitService } from './item-split.service';
 import { CrossDayMove, JournalDayMoveService, isDailyJournalItem } from './journal-day-move.service';
 import { OutlineSelection } from './outline-selection';
+import { WikiSuggestionPick, WikiSuggestionsComponent } from './wiki-suggestions';
 import { LevelShiftService } from './level-shift.service';
 import { OutlineView } from './outline-view';
 import { findMoveDownTarget, findMoveUpTarget, getSubtree } from './move-utils';
@@ -26,7 +27,7 @@ import { SseService } from '../../core/services/sse.service';
 
 @Component({
   selector: 'app-outline',
-  imports: [ScrollingModule, ExperimentalScrollingModule, OutlineItemComponent],
+  imports: [ScrollingModule, ExperimentalScrollingModule, OutlineItemComponent, WikiSuggestionsComponent],
   template: `
     <cdk-virtual-scroll-viewport #viewport autosize [minBufferPx]="500" [maxBufferPx]="1000" class="outline-viewport">
       <div
@@ -44,7 +45,7 @@ import { SseService } from '../../core/services/sse.service';
           #outlineItem
           [item]="item"
           [effectiveZoom]="effectiveZoomMap().get(item.id) ?? 1"
-          [suggestionsVisible]="wikiSuggestionsItemId() === item.id && wikiSuggestions().length > 0"
+          [suggestionsVisible]="wiki.isShownFor(item.id)"
           (bodyChanged)="onBodyChanged(item, $event)"
           (editRequested)="onEditRequested(item.id, $event)"
           (editFinished)="onEditFinished(item)"
@@ -77,24 +78,7 @@ import { SseService } from '../../core/services/sse.service';
         />
       </div>
     </cdk-virtual-scroll-viewport>
-    @if (wikiSuggestions().length > 0) {
-      <div
-        class="wiki-suggestions"
-        [style.left.px]="wikiSuggestionsPos().x"
-        [style.top.px]="wikiSuggestionsPos().y"
-      >
-        @for (suggestion of wikiSuggestions(); track suggestion; let i = $index) {
-          <div
-            class="wiki-suggestion-item"
-            [class.selected]="i === wikiSuggestionIndex()"
-            (mousedown)="onWikiSuggestionSelected(suggestion, $event)"
-            (mouseenter)="wikiSuggestionIndex.set(i)"
-          >
-            {{ suggestion }}
-          </div>
-        }
-      </div>
-    }
+    <app-wiki-suggestions #wiki (picked)="onWikiSuggestionPicked($event)" />
   `,
   styles: [`
     :host { display: block; height: 100%; width: 100%; }
@@ -122,33 +106,6 @@ import { SseService } from '../../core/services/sse.service';
       font-size: 1.5em;
       font-weight: bold;
       border-top: 1px solid #ddd;
-    }
-    .wiki-suggestions {
-      position: fixed;
-      background: #fff;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      max-height: 200px;
-      overflow-y: auto;
-      z-index: 1000;
-      min-width: 200px;
-      max-width: 400px;
-      padding: 4px 0;
-    }
-    .wiki-suggestion-item {
-      padding: 6px 12px;
-      cursor: pointer;
-      font-size: 13px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .wiki-suggestion-item.selected {
-      background: #e8f0fe;
-    }
-    .wiki-suggestion-item:hover {
-      background: #f0f0f0;
     }
   `]
 })
@@ -190,11 +147,7 @@ export class OutlineComponent implements OnDestroy {
 
   // ---- Wiki link suggestions ----
 
-  readonly wikiSuggestions = signal<string[]>([]);
-  readonly wikiSuggestionIndex = signal(0);
-  readonly wikiSuggestionsItemId = signal<string | null>(null);
-  readonly wikiSuggestionsPos = signal({ x: 0, y: 0 });
-  private wikiSearchTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly wiki = viewChild.required(WikiSuggestionsComponent);
 
   // ---- Multi-item selection ----
 
@@ -291,7 +244,6 @@ export class OutlineComponent implements OnDestroy {
     this.scrollSub?.unsubscribe();
     this.sseSub?.unsubscribe();
     this.selection.dispose();
-    this.closeWikiSuggestions();
   }
 
   onViewportScroll(): void {
@@ -545,7 +497,7 @@ export class OutlineComponent implements OnDestroy {
    * @param item - The item that was being edited
    */
   async onEditFinished(item: Item): Promise<void> {
-    this.closeWikiSuggestions();
+    this.wiki().close();
     await this.edits.finishEdit(item);
   }
 
@@ -859,54 +811,19 @@ export class OutlineComponent implements OnDestroy {
 
   /**
    * Handles the user typing inside a `[[wiki link]]` in the item editor.
-   * Positions the suggestion popup and performs a debounced search for matching page names.
    * @param item - The item being edited
-   * @param ctx - The wiki link context with query text and caret position, or null to close suggestions
+   * @param ctx - The wiki link context with query text and caret position, or null to close the popup
    */
   onWikiLinkQuery(item: Item, ctx: WikiLinkContext | null): void {
-    if (!ctx) {
-      this.closeWikiSuggestions();
-      return;
-    }
-    this.wikiSuggestionsItemId.set(item.id);
-    this.wikiSuggestionsPos.set({ x: ctx.rect.left, y: ctx.rect.bottom + 4 });
-
-    if (!ctx.query) {
-      this.wikiSuggestions.set([]);
-      return;
-    }
-
-    // Debounce search
-    if (this.wikiSearchTimer) clearTimeout(this.wikiSearchTimer);
-    this.wikiSearchTimer = setTimeout(async () => {
-      try {
-        const result = await this.api.searchPageNames(ctx.query, 10);
-        const titles = result.results.map(r => r.pageTitle);
-        this.wikiSuggestions.set(titles);
-        this.wikiSuggestionIndex.set(0);
-      } catch (e) {
-        this.wikiSuggestions.set([]);
-      }
-    }, 150);
+    this.wiki().query(item, ctx);
   }
 
   /**
    * Handles the user pressing arrow keys or Enter while the wiki link suggestion popup is open.
-   * Navigates the suggestion list or selects the highlighted suggestion.
    * @param key - The key pressed ('ArrowUp', 'ArrowDown', or 'Enter')
    */
   onWikiLinkKeyNav(key: string): void {
-    const suggestions = this.wikiSuggestions();
-    if (suggestions.length === 0) return;
-    const idx = this.wikiSuggestionIndex();
-
-    if (key === 'ArrowDown') {
-      this.wikiSuggestionIndex.set((idx + 1) % suggestions.length);
-    } else if (key === 'ArrowUp') {
-      this.wikiSuggestionIndex.set((idx - 1 + suggestions.length) % suggestions.length);
-    } else if (key === 'Enter') {
-      this.onWikiSuggestionSelected(suggestions[idx]);
-    }
+    this.wiki().keyNav(key);
   }
 
   /**
@@ -917,33 +834,10 @@ export class OutlineComponent implements OnDestroy {
     this.nav.navigateToPage(linkText);
   }
 
-  /**
-   * Handles the user selecting a wiki link suggestion by clicking on it or pressing Enter.
-   * Inserts the selected page title into the item editor and closes the suggestions popup.
-   * @param title - The page title selected from the suggestions
-   * @param event - The mouse event if selected by click (used to prevent default behavior)
-   */
-  onWikiSuggestionSelected(title: string, event?: MouseEvent): void {
-    if (event) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
-    const itemId = this.wikiSuggestionsItemId();
-    if (!itemId) return;
-    const itemComp = this.outlineItems()?.find(
-      ob => ob.item().id === itemId
-    );
-    itemComp?.insertWikiLinkText(title);
-    this.closeWikiSuggestions();
-  }
-
-  private closeWikiSuggestions(): void {
-    this.wikiSuggestions.set([]);
-    this.wikiSuggestionsItemId.set(null);
-    if (this.wikiSearchTimer) {
-      clearTimeout(this.wikiSearchTimer);
-      this.wikiSearchTimer = null;
-    }
+  /** Inserts the page title the user picked from the popup into the editor of the item. */
+  onWikiSuggestionPicked(pick: WikiSuggestionPick): void {
+    const itemComp = this.outlineItems()?.find(ob => ob.item().id === pick.itemId);
+    itemComp?.insertWikiLinkText(pick.title);
   }
 
   // ---- Tasks, zoom, collapse, transclusion, archive ----
