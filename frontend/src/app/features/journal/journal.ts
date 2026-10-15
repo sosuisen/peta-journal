@@ -11,6 +11,8 @@ import { CurrentPageService } from '../../core/services/current-page.service';
 import { RecentPagesService } from '../../core/services/recent-pages.service';
 import { NavigationService } from '../../core/services/navigation.service';
 import { ExtensionFunctionService } from '../../core/services/extension-function.service';
+import { ConfigService } from '../../core/services/config.service';
+import { weeksInYear } from '../../core/utils/week.utils';
 
 /** How many items the outline keeps loaded ahead of the scroll position. */
 const BUFFER_ITEMS = 100;
@@ -97,6 +99,7 @@ export class JournalComponent {
   private readonly recentPages = inject(RecentPagesService);
   private readonly nav = inject(NavigationService);
   private readonly extensionFunctions = inject(ExtensionFunctionService);
+  private readonly config = inject(ConfigService);
   /** Names of the journals already appended to the outline. */
   private readonly loadedDates = new Set<string>();
   /** True while older journals are being fetched; a second request is dropped. */
@@ -246,28 +249,29 @@ export class JournalComponent {
 
   /** Navigates to the journal for the previous week. */
   goToPrevWeek(): void {
-    const name = this.currentDate();
-    const match = name.match(/^(\d{4})-W(\d{2})$/);
-    if (!match) return;
-    let year = parseInt(match[1], 10);
-    let week = parseInt(match[2], 10);
-    week--;
-    if (week < 1) {
-      year--;
-      week = 52;
-    }
-    this.nav.navigateToPage(`${year}-W${String(week).padStart(2, '0')}`);
+    this.goToWeekOffset(-1);
   }
 
   /** Navigates to the journal for the next week. */
   goToNextWeek(): void {
-    const name = this.currentDate();
-    const match = name.match(/^(\d{4})-W(\d{2})$/);
+    this.goToWeekOffset(1);
+  }
+
+  /**
+   * Navigates one week back or forward from the current weekly journal.
+   * The year boundary follows the number of weeks the year really has
+   * under the configured week numbering (52 to 54), not a fixed 52.
+   */
+  private goToWeekOffset(delta: 1 | -1): void {
+    const match = this.currentDate().match(/^(\d{4})-W(\d{2})$/);
     if (!match) return;
     let year = parseInt(match[1], 10);
-    let week = parseInt(match[2], 10);
-    week++;
-    if (week > 52) {
+    let week = parseInt(match[2], 10) + delta;
+    const numbering = this.config.weekNumbering();
+    if (week < 1) {
+      year--;
+      week = weeksInYear(year, numbering);
+    } else if (week > weeksInYear(year, numbering)) {
       year++;
       week = 1;
     }
