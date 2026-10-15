@@ -12,17 +12,17 @@ import { UndoReplayService } from './undo-replay.service';
 import { formatJournalDate, shiftIsoDate } from '../../core/utils/date.utils';
 import { classifyJournalFileName } from '../../core/utils/journal-filename.utils';
 import { NavigationService } from '../../core/services/navigation.service';
-import { ConfigService } from '../../core/services/config.service';
 import { WikiLinkContext, hasUnclosedCodeFence } from './item-editor';
 import { ItemEditService } from './item-edit.service';
+import { ItemSplitService } from './item-split.service';
+import { LevelShiftService } from './level-shift.service';
+import { OutlineView } from './outline-view';
 import { findCrossPagePlacement, findMoveDownTarget, findMoveUpTarget, getSubtree } from './move-utils';
 import {
-  EditContext, TransclusionContext, canIndent, editContextOf, hasSiblingBelow, idsOfRangeWithSubtrees,
-  lastDescendantOutside, levelForNewItemAfter, parentIndexOf, positionAfterSubtree, positionBefore,
-  selectedRootItems, selectionStartIndex, transclusionContextOf, transclusionScopedItems,
+  TransclusionContext, idsOfRangeWithSubtrees, selectedRootItems, selectionStartIndex,
+  transclusionContextOf, transclusionScopedItems,
 } from './outline-tree';
 import { renderToHtml } from 'flatmarkdown-ast2html';
-import { HmtidService } from '../../core/services/hmtid.service';
 import { SseService } from '../../core/services/sse.service';
 
 type SelectionEventName = 'keydown' | 'click' | 'copy' | 'cut' | 'mouseup';
@@ -164,8 +164,8 @@ export class OutlineComponent implements OnDestroy {
   private readonly undo = inject(UndoService);
   private readonly undoReplay = inject(UndoReplayService);
   private readonly edits = inject(ItemEditService);
-  private readonly config = inject(ConfigService);
-  private readonly hmtid = inject(HmtidService);
+  private readonly splitter = inject(ItemSplitService);
+  private readonly levels = inject(LevelShiftService);
   private readonly sse = inject(SseService);
   private sseSub?: Subscription;
   private scrollSub?: Subscription;
@@ -554,6 +554,14 @@ export class OutlineComponent implements OnDestroy {
     await this.edits.finishEdit(item);
   }
 
+  /** What the item services need from this component; see {@link OutlineView}. */
+  private readonly view: OutlineView = {
+    pageId: () => this.pageId(),
+    reloadPage: () => this.loadItems(this.pageId()),
+    reloadPageFromFile: pageId => { this.reloadPageFromFile(pageId); },
+    focusEditor: itemId => this.focusEditor(itemId),
+  };
+
   /**
    * Focuses the editor of an item once the next render is done.
    * @param itemId - The item whose editor is focused; the first editor on the page when omitted
@@ -586,137 +594,7 @@ export class OutlineComponent implements OnDestroy {
    * @param event - Contains the cursor position at the time of the keypress
    */
   async onEnterPressed(item: Item, event: { cursorPos: number }): Promise<void> {
-    this.edits.discardPendingEdit(item);
-
-    if (item.body.length === 0 && item.level > 1 && !hasSiblingBelow(this.state.visibleItems(), item.id)) {
-      // Empty last child: outdent instead of creating a new item
-      await this.onOutdent(item);
-      this.focusEditor(item.id);
-      return;
-    }
-
-    const { cursorPos } = event;
-    await this.edits.handOverEdit(async () => {
-      if (cursorPos === 0 && item.body.length > 0) {
-        await this.insertEmptyItemBefore(item, cursorPos);
-      } else if (cursorPos === item.body.length) {
-        await this.appendEmptyItemAfter(item, cursorPos);
-      } else {
-        await this.splitItemAt(item, cursorPos);
-      }
-    });
-  }
-
-  /** Enter at the beginning: a new empty item goes before the current one, which keeps its text. */
-  private async insertEmptyItemBefore(item: Item, cursorPos: number): Promise<void> {
-    const ctx = this.editContextOf(item);
-    // Inside a transclusion the new item goes to the top of the source page
-    const position: ItemPosition = ctx.inTransclusion ? 'first' : positionBefore(this.state.items(), item.id);
-    const [newItem] = await Promise.all([
-      this.api.createItem(ctx.pageId, position, item.level - ctx.levelOffset, ''),
-      this.edits.saveBody(this.edits.saveTargetId(item), item.body),
-    ]);
-    await this.showCreatedItem(newItem, position, ctx);
-
-    this.undo.begin('enter', { itemId: item.id, position: cursorPos });
-    this.undo.pushCreate(newItem);
-    this.undo.commit({ itemId: newItem.id, position: 0 });
-
-    this.state.addEditingItem(newItem.id);
-    this.focusEditor(newItem.id);
-    this.state.removeEditingItem(item.id);
-  }
-
-  /**
-   * Enter at the end: the new item is shown at once with a client-side ID and
-   * created on the server in the background.
-   */
-  private async appendEmptyItemAfter(item: Item, cursorPos: number): Promise<void> {
-    const ctx = this.editContextOf(item);
-    const newLevel = this.levelForNewItemAfter(item, ctx);
-    const position = positionAfterSubtree(this.state.items(), item, this.edits.saveTargetId(item));
-    const newId = this.hmtid.nextId();
-    const optimisticItem: Item = {
-      id: newId,
-      pageId: ctx.pageId,
-      dirPath: item.dirPath,
-      name: item.name,
-      type: item.type,
-      createdDate: Date.now(),
-      modifiedDate: Date.now(),
-      idx: '',
-      level: newLevel,
-      body: '',
-      ast: '',
-      collapsed: false,
-      types: [],
-      properties: {},
-    };
-    this.api.createItem(ctx.pageId, position, newLevel - ctx.levelOffset, '', newId).then(async serverItem => {
-      if (ctx.inTransclusion) {
-        await this.loadItems(this.pageId());
-      } else {
-        this.state.updateItem(newId, { idx: serverItem.idx });
-      }
-    });
-    this.state.addItem(optimisticItem, position);
-
-    this.undo.begin('enter', { itemId: item.id, position: cursorPos });
-    this.undo.pushUpdate({ ...item }, { ...item });
-    this.undo.pushCreate(optimisticItem);
-    this.undo.commit({ itemId: newId, position: 0 });
-
-    this.edits.discardPendingEdit(item);
-    this.state.addEditingItem(newId);
-    this.state.setFocusedItem(newId);
-    this.focusEditor(newId);
-
-    await this.edits.saveBody(this.edits.saveTargetId(item), item.body.substring(0, cursorPos));
-    this.state.removeEditingItem(item.id);
-  }
-
-  /** Enter in the middle: the text after the cursor moves to a new item below. */
-  private async splitItemAt(item: Item, cursorPos: number): Promise<void> {
-    const ctx = this.editContextOf(item);
-    const newLevel = this.levelForNewItemAfter(item, ctx);
-    const position = positionAfterSubtree(this.state.items(), item, this.edits.saveTargetId(item));
-    const beforeText = item.body.substring(0, cursorPos);
-    const afterText = item.body.substring(cursorPos);
-    const originalItem = { ...item };
-
-    const [updatedOriginal, newItem] = await Promise.all([
-      this.edits.saveBody(this.edits.saveTargetId(item), beforeText),
-      this.api.createItem(ctx.pageId, position, newLevel - ctx.levelOffset, afterText),
-    ]);
-    await this.showCreatedItem(newItem, position, ctx);
-
-    this.undo.begin('enter', { itemId: item.id, position: cursorPos });
-    this.undo.pushUpdate(originalItem, updatedOriginal);
-    this.undo.pushCreate(newItem);
-    this.undo.commit({ itemId: newItem.id, position: 0 });
-
-    this.state.addEditingItem(newItem.id);
-    this.state.setFocusedItem(newItem.id);
-    this.focusEditor(newItem.id);
-    this.state.removeEditingItem(item.id);
-  }
-
-  /** Puts a newly created item into the state. Inside a transclusion the page is reloaded so the trees are fresh. */
-  private async showCreatedItem(newItem: Item, position: ItemPosition, ctx: EditContext): Promise<void> {
-    if (ctx.inTransclusion) {
-      await this.loadItems(this.pageId());
-    } else {
-      this.state.addItem(newItem, position);
-    }
-  }
-
-  /** The shown level of a new item after this one; a transclusion reads the neighbour from the visible list. */
-  private levelForNewItemAfter(item: Item, ctx: EditContext): number {
-    return levelForNewItemAfter(ctx.inTransclusion ? this.state.visibleItems() : this.state.items(), item);
-  }
-
-  private editContextOf(item: Item): EditContext {
-    return editContextOf(item, this.state.ownItemIds(), this.state.transcludedTrees());
+    await this.splitter.handleEnter(item, event.cursorPos, this.view);
   }
 
   /**
@@ -829,133 +707,14 @@ export class OutlineComponent implements OnDestroy {
 
   // ---- Indent and outdent ----
 
-  /**
-   * Handles the user pressing Tab to indent a item and its children by one level.
-   * Validates placement constraints before allowing the indent.
-   * @param item - The item to indent
-   */
+  /** Handles the user pressing Tab to indent a item and its children by one level. */
   async onIndent(item: Item): Promise<void> {
-    const items = this.state.isOwnItem(item.id) ? this.state.items() : this.state.visibleItems();
-    if (!canIndent(items, item.id)) return;
-
-    const tCtx = this.getTransclusionContext(item);
-    if (tCtx) {
-      await this.shiftLevels(this.getVisibleSubtree(item.id), 1, 'indent', tCtx.levelOffset);
-      return;
-    }
-    await this.shiftLevels(this.state.getItemWithChildren(item.id), 1, 'indent');
+    await this.levels.indent(item, this.view);
   }
 
-  /**
-   * Handles the user pressing Shift+Tab to outdent an item and its children by one level.
-   *
-   * - If the previous item is at level-1, outdent in place (both modes).
-   * - Otherwise, find the parent (an item above at level-1):
-   *   - logicalOutdent=true: move group to after parent's last child, then outdent.
-   *     Siblings below stay with the original parent.
-   *   - logicalOutdent=false: outdent in place. Siblings below don't move but
-   *     their parent effectively changes to the outdented item.
-   *
-   * @param item - The item to outdent
-   */
+  /** Handles the user pressing Shift+Tab to outdent an item and its children by one level. */
   async onOutdent(item: Item): Promise<void> {
-    if (item.level <= 1) return;
-
-    // For transcluded descendants, prevent outdenting beyond transclusion root level
-    const tCtx = this.getTransclusionContext(item);
-    if (tCtx && item.level <= tCtx.rootDisplayLevel + 1) return; // Can't go to same level or above root
-
-    if (tCtx && !this.state.isOwnItem(item.id)) {
-      // Transcluded descendant: simple in-place outdent on source page
-      await this.shiftLevels(this.getVisibleSubtree(item.id), -1, 'outdent', tCtx.levelOffset);
-      return;
-    }
-
-    const items = this.state.items();
-    const idx = items.findIndex(b => b.id === item.id);
-    if (idx < 0) return;
-    const prevItem = idx > 0 ? items[idx - 1] : undefined;
-    const parentIdx = parentIndexOf(items, idx);
-    if (parentIdx < 0) return; // No parent found, cannot outdent
-
-    const group = this.state.getItemWithChildren(item.id);
-    const needsMove = !prevItem || prevItem.level !== item.level - 1;
-
-    if (needsMove && this.config.logicalOutdent()) {
-      await this.outdentBelowParent(item, group, items[parentIdx]);
-    } else {
-      // In-place outdent: decrease level of group
-      await this.shiftLevels(group, -1, 'outdent');
-    }
-  }
-
-  /**
-   * Logical outdent: the group is placed after the parent's last child and then outdented,
-   * so the siblings below it stay with the original parent.
-   */
-  private async outdentBelowParent(item: Item, group: Item[], parent: Item): Promise<void> {
-    const groupIds = group.map(b => b.id);
-    const lastChildId = lastDescendantOutside(this.state.items(), parent.id, new Set(groupIds));
-    const beforeSnapshots = group.map(b => ({ ...b }));
-
-    for (const b of group) {
-      this.state.updateItem(b.id, { level: b.level - 1 });
-    }
-    await this.api.shiftItemLevels(groupIds, -1);
-
-    if (lastChildId !== parent.id) {
-      // Move after the last child
-      const moved = await this.api.moveItems(groupIds, item.pageId, `after:${lastChildId}`);
-      this.state.replaceItems(groupIds, moved, `after:${lastChildId}`);
-      this.undo.begin('outdent');
-      for (let i = 0; i < beforeSnapshots.length; i++) {
-        this.undo.pushUpdate(beforeSnapshots[i], { ...moved[i] });
-      }
-    } else {
-      // The parent has no other child: the group only changes its level
-      this.undo.begin('outdent');
-      for (const b of beforeSnapshots) {
-        this.undo.pushUpdate(b, { ...b, level: b.level - 1 });
-      }
-    }
-    this.undo.commit();
-  }
-
-  /**
-   * Changes the level of a group of items on screen, records the change for undo and saves it.
-   * @param group - The items whose level changes
-   * @param delta - The amount added to each level; negative for outdent
-   * @param label - The undo label
-   * @param levelOffset - Shown level minus stored level, for items inside a transclusion
-   */
-  private async shiftLevels(group: Item[], delta: number, label: string, levelOffset = 0): Promise<void> {
-    this.undo.begin(label);
-    for (const b of group) {
-      this.undo.pushUpdate({ ...b }, { ...b, level: b.level + delta });
-      this.state.updateItem(b.id, { level: b.level - levelOffset + delta });
-    }
-    this.undo.commit();
-    await this.saveLevelShift(group, delta);
-  }
-
-  /**
-   * Saves an indent or outdent that is already shown on screen.
-   * The whole group goes in one relative request, and the response is not written back
-   * to the state: a response to an older key press would undo a newer one.
-   * If the save fails, the affected pages are reloaded so the screen matches the server again.
-   * @param group - The items whose level changed
-   * @param delta - The amount added to each level; negative for outdent
-   */
-  private async saveLevelShift(group: Item[], delta: number): Promise<void> {
-    if (group.length === 0) return;
-    try {
-      await this.api.shiftItemLevels(group.map(b => b.id), delta);
-    } catch (e) {
-      console.error('Failed to change item levels:', e);
-      for (const pageId of new Set(group.map(b => b.pageId))) {
-        this.reloadPageFromFile(pageId);
-      }
-    }
+    await this.levels.outdent(item, this.view);
   }
 
   // ---- Moving items ----
@@ -1897,7 +1656,7 @@ export class OutlineComponent implements OnDestroy {
     const firstIdx = allItems.findIndex(b => b.id === itemsToIndent[0].id);
     if (firstIdx <= 0) return;
 
-    await this.shiftLevels(itemsToIndent, 1, 'indent-selection');
+    await this.levels.shiftLevels(itemsToIndent, 1, 'indent-selection', this.view);
   }
 
   private async outdentSelectedItems(): Promise<void> {
@@ -1906,7 +1665,7 @@ export class OutlineComponent implements OnDestroy {
 
     if (itemsToOutdent.some(b => b.level <= 1)) return;
 
-    await this.shiftLevels(itemsToOutdent, -1, 'outdent-selection');
+    await this.levels.shiftLevels(itemsToOutdent, -1, 'outdent-selection', this.view);
   }
 
   private async copySelectedItems(): Promise<void> {
