@@ -15,6 +15,18 @@ const webPort = 4300;
 const dataDir = mkdtempSync(join(tmpdir(), 'peta-journal-e2e-'));
 
 /**
+ * Which frontend to drive: the Angular dev server (default) or the Rust (Leptos) frontend
+ * served by trunk (`PETA_JOURNAL_FRONTEND=rust`, needs `cargo install trunk`).
+ */
+function frontendCommand(): string {
+  if (process.env['PETA_JOURNAL_FRONTEND'] === 'rust') {
+    const shell = resolve(__dirname, '../frontend-rust/crates/shell-leptos');
+    return `trunk serve --config ${JSON.stringify(resolve(shell, 'Trunk.e2e.toml'))}`;
+  }
+  return `npx ng serve --port ${webPort} --proxy-config e2e/proxy.conf.json`;
+}
+
+/**
  * Which server to drive: the Java server (default) or the Rust server
  * (`PETA_JOURNAL_SERVER=rust`, built with `cargo build --release` in journal-server-rust).
  */
@@ -59,7 +71,8 @@ export default defineConfig({
       reuseExistingServer: false,
     },
     {
-      command: `npx ng serve --port ${webPort} --proxy-config e2e/proxy.conf.json`,
+      command: frontendCommand(),
+      cwd: process.env['PETA_JOURNAL_FRONTEND'] === 'rust' ? resolve(__dirname, '../frontend-rust/crates/shell-leptos') : __dirname,
       url: `http://localhost:${webPort}/`,
       timeout: 180_000,
       reuseExistingServer: false,
