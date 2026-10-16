@@ -39,6 +39,7 @@ pub struct AppState {
     pub properties: PropertyRepository,
     pub file_sync_state: FileSyncStateRepository,
     pub search: Arc<dyn SearchIndex>,
+    pub tantivy: Arc<TantivySearchService>,
     pub parser: MarkdownParser,
     pub splitter: FlatMarkdownSplitter,
     pub export: Arc<MarkdownExportService>,
@@ -77,7 +78,8 @@ impl AppState {
         let export_queue = ExportQueueRepository::new(Arc::clone(&db));
         let file_sync_state = FileSyncStateRepository::new(Arc::clone(&db));
 
-        let search: Arc<dyn SearchIndex> = Arc::new(TantivySearchService::open(&settings.index_dir)?);
+        let tantivy = Arc::new(TantivySearchService::open(&settings.index_dir)?);
+        let search: Arc<dyn SearchIndex> = tantivy.clone();
         let config = Arc::new(ConfigService::new(settings.config_dir.clone()));
         let parser = MarkdownParser;
         let splitter = FlatMarkdownSplitter::new(parser.clone());
@@ -194,6 +196,7 @@ impl AppState {
             properties,
             file_sync_state,
             search,
+            tantivy,
             parser,
             splitter,
             export,
@@ -210,8 +213,11 @@ impl AppState {
         }))
     }
 
-    /// Starts the periodic tasks: the export queue, the folder scans and the folder watcher.
+    /// Starts the periodic tasks: the search index commits, the export queue, the folder scans
+    /// and the folder watcher.
     pub fn start_background_tasks(self: &Arc<Self>) {
+        self.tantivy.start_background_commits();
+
         let export = Arc::clone(&self.export);
         let every = std::time::Duration::from_secs(self.settings.export_interval_secs);
         tokio::spawn(async move {
@@ -245,6 +251,11 @@ impl AppState {
         });
 
         self.watcher.start();
+    }
+
+    /// Writes what is still pending before the process ends.
+    pub fn shutdown(&self) {
+        self.search.flush();
     }
 }
 

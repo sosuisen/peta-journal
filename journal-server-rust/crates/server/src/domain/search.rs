@@ -15,7 +15,8 @@ pub trait SearchIndex: Send + Sync {
     fn index_items(&self, items: &[Item], page_title: &str);
     /// Removes many items from the index with a single commit.
     fn remove_items(&self, item_ids: &[String]);
-    /// Makes pending index changes durable.
+    /// Makes pending index changes durable and searchable. Writes are otherwise committed in the
+    /// background and before the next search.
     fn flush(&self);
     /// Searches for pages by name using token matching.
     fn search_page_names(&self, query: &str, max_results: usize) -> Vec<SearchResult>;

@@ -1,10 +1,17 @@
 //! Full-text search with tantivy and a Japanese tokenizer (lindera + IPADIC), the counterpart of
 //! Lucene's `JapaneseAnalyzer`: decompose mode, base forms, part-of-speech stop tags, NFKC
 //! normalization, katakana stemming and lower casing.
+//!
+//! Writes only queue documents on the index writer, which is cheap; the commit that makes them
+//! durable and searchable runs in the background (see `start_background_commits`), before any
+//! search that would otherwise miss pending writes, and on `flush()`. An item save therefore
+//! does not pay the commit (about 25 ms) on the request path.
 
 use std::collections::HashSet;
 use std::num::NonZeroUsize;
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 use hmtid::Hmtid;
 use lindera::dictionary::load_dictionary;
@@ -47,7 +54,12 @@ pub struct TantivySearchService {
     writer: Mutex<IndexWriter<TantivyDocument>>,
     fields: Fields,
     index_dir: String,
+    /// Writes queued on the writer since the last commit.
+    dirty: AtomicBool,
 }
+
+/// How often pending writes are committed in the background.
+pub const COMMIT_INTERVAL: std::time::Duration = std::time::Duration::from_secs(1);
 
 /// Part-of-speech tags Lucene's `JapaneseAnalyzer` drops by default.
 fn stop_tags() -> HashSet<String> {
@@ -148,9 +160,37 @@ impl TantivySearchService {
             writer: Mutex::new(writer),
             fields,
             index_dir: index_dir.display().to_string(),
+            dirty: AtomicBool::new(false),
         })
     }
 
+    /// Commits the pending writes, if any, and reloads the reader. Cheap when nothing is pending.
+    fn commit_pending(&self) {
+        if !self.dirty.load(Ordering::SeqCst) {
+            return;
+        }
+        let mut writer = self.writer.lock();
+        if self.dirty.load(Ordering::SeqCst) {
+            self.commit(&mut writer);
+        }
+    }
+
+    /// Commits pending writes every `COMMIT_INTERVAL` on the async runtime.
+    pub fn start_background_commits(self: &Arc<Self>) {
+        let me = Arc::clone(self);
+        tokio::spawn(async move {
+            let mut tick = tokio::time::interval(COMMIT_INTERVAL);
+            loop {
+                tick.tick().await;
+                let s = Arc::clone(&me);
+                let _ = tokio::task::spawn_blocking(move || s.commit_pending()).await;
+            }
+        });
+    }
+
+    /// Commits and reloads the reader. The caller holds the writer lock, so no write can land in
+    /// between; `dirty` is cleared only at the end, so a searcher that finds it set waits for the
+    /// lock and therefore for this commit and reload.
     fn commit(&self, writer: &mut IndexWriter<TantivyDocument>) {
         let t0 = std::time::Instant::now();
         if let Err(e) = writer.commit() {
@@ -167,6 +207,7 @@ impl TantivySearchService {
         if let Err(e) = self.reader.reload() {
             tracing::warn!("Failed to reload search index: {e}");
         }
+        self.dirty.store(false, Ordering::SeqCst);
     }
 
     fn replace_item_document(&self, writer: &IndexWriter<TantivyDocument>, item: &Item, page_title: &str) {
@@ -253,7 +294,7 @@ fn get_str(doc: &TantivyDocument, field: Field) -> String {
 
 impl SearchIndex for TantivySearchService {
     fn index_page(&self, page: &Page) {
-        let mut writer = self.writer.lock();
+        let writer = self.writer.lock();
         // Delete the existing page document (pageId AND type)
         let delete = BooleanQuery::new(vec![
             (
@@ -283,24 +324,24 @@ impl SearchIndex for TantivySearchService {
         if let Err(e) = result {
             tracing::warn!("Failed to index page {}: {e}", page.id);
         }
-        self.commit(&mut writer);
+        self.dirty.store(true, Ordering::SeqCst);
     }
 
     fn index_item(&self, item: &Item, page_title: &str) {
-        let mut writer = self.writer.lock();
+        let writer = self.writer.lock();
         self.replace_item_document(&writer, item, page_title);
-        self.commit(&mut writer);
+        self.dirty.store(true, Ordering::SeqCst);
     }
 
     fn index_items(&self, items: &[Item], page_title: &str) {
         if items.is_empty() {
             return;
         }
-        let mut writer = self.writer.lock();
+        let writer = self.writer.lock();
         for item in items {
             self.replace_item_document(&writer, item, page_title);
         }
-        self.commit(&mut writer);
+        self.dirty.store(true, Ordering::SeqCst);
     }
 
     fn remove_items(&self, item_ids: &[String]) {
@@ -311,26 +352,28 @@ impl SearchIndex for TantivySearchService {
         for id in item_ids {
             writer.delete_term(Term::from_field_text(self.fields.item_id, id));
         }
+        self.dirty.store(true, Ordering::SeqCst);
     }
 
     fn flush(&self) {
-        let mut writer = self.writer.lock();
-        self.commit(&mut writer);
+        self.commit_pending();
     }
 
     fn remove_page(&self, page_id: &str) {
-        let mut writer = self.writer.lock();
+        let writer = self.writer.lock();
         writer.delete_term(Term::from_field_text(self.fields.page_id, page_id));
-        self.commit(&mut writer);
+        self.dirty.store(true, Ordering::SeqCst);
     }
 
     fn remove_item(&self, item_id: &str) {
-        let mut writer = self.writer.lock();
+        let writer = self.writer.lock();
         writer.delete_term(Term::from_field_text(self.fields.item_id, item_id));
-        self.commit(&mut writer);
+        self.dirty.store(true, Ordering::SeqCst);
     }
 
     fn search_page_names(&self, query: &str, max_results: usize) -> Vec<SearchResult> {
+        // A search must see everything saved before it, so pending writes are committed first
+        self.commit_pending();
         let max = if max_results == 0 { 20 } else { max_results };
         // Try prefix search first (query*), then contains (*query*)
         let results = self.search_page_names_by(query, max, false);
@@ -341,6 +384,7 @@ impl SearchIndex for TantivySearchService {
     }
 
     fn search_full_text(&self, query: &str, max_results: usize) -> Vec<SearchResult> {
+        self.commit_pending();
         let max = if max_results == 0 { 20 } else { max_results };
         let searcher = self.reader.searcher();
         let mut parser = QueryParser::for_index(&self.index, vec![self.fields.body]);
@@ -382,6 +426,7 @@ impl SearchIndex for TantivySearchService {
     }
 
     fn is_empty(&self) -> bool {
+        self.commit_pending();
         self.reader.searcher().num_docs() == 0
     }
 

@@ -20,12 +20,14 @@ fn main() {
         ast: String::new(), collapsed: false, types: vec![], transclude_item_id: None,
     };
     let parser = MarkdownParser;
-    let mut parse = vec![]; let mut index = vec![];
+    let mut parse = vec![]; let mut index = vec![]; let mut commit = vec![];
     for _ in 0..60 {
         let t = Instant::now(); let _ = parser.parse_to_ast(&item.body); parse.push(t.elapsed().as_secs_f64() * 1000.0);
         let t = Instant::now(); search.index_item(&item, "p"); index.push(t.elapsed().as_secs_f64() * 1000.0);
+        let t = Instant::now(); search.flush(); commit.push(t.elapsed().as_secs_f64() * 1000.0);
     }
     let p50 = |v: &mut Vec<f64>| { v.sort_by(|a, b| a.partial_cmp(b).unwrap()); v[v.len() / 2] };
     println!("parse_to_ast p50 {:.2} ms", p50(&mut parse));
-    println!("index_item (delete+add+commit+reload) p50 {:.2} ms", p50(&mut index));
+    println!("index_item (delete+add, queued) p50 {:.2} ms", p50(&mut index));
+    println!("flush (commit+reload) p50 {:.2} ms", p50(&mut commit));
 }
