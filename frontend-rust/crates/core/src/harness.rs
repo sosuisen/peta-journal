@@ -308,6 +308,11 @@ impl Harness {
         h
     }
 
+    /// The view model as the shell would get it now.
+    pub fn view(&self) -> crate::ViewModel {
+        self.app.view(&self.model)
+    }
+
     /// Sends an event and runs everything it causes, answering the server at once.
     pub fn send(&mut self, event: Event) {
         self.model.clock_ms = self.now_ms;

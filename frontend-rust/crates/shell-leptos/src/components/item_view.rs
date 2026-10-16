@@ -1,6 +1,7 @@
 //! The rendered item, ported from `item-view.ts`: the AST as HTML, syntax highlighting, and
 //! clicks that open links or start editing at the clicked character.
 
+use crate::components::task_checkbox::TaskCheckbox;
 use crate::core::CoreHandle;
 use crate::dom;
 use fm_leptos::{FmRoot, RenderOptions};
@@ -22,11 +23,6 @@ pub fn ItemView(row: RwSignal<Row>) -> impl IntoView {
     let item_id = row.with_untracked(|r| r.item.id.clone());
     let content = NodeRef::<leptos::html::Div>::new();
     let ast = Memo::new(move |_| row.with(|r| r.item.ast.clone()));
-    let is_task = move || row.with(|r| r.item.is_task());
-    let has_end = move || row.with(|r| r.item.prop_str("end").is_some());
-    let indeterminate = move || {
-        row.with(|r| r.item.prop_str("begin").is_some() && r.item.prop_str("end").is_none())
-    };
 
     // Syntax highlighting and the language label, once the AST is rendered. The view may be
     // gone by then (replaced by the editor, scrolled out of the window), so the node ref is
@@ -39,17 +35,6 @@ pub fn ItemView(row: RwSignal<Row>) -> impl IntoView {
             }
         });
     });
-
-    let on_checkbox = {
-        let id = item_id.clone();
-        move |ev: web_sys::MouseEvent| {
-            ev.prevent_default();
-            ev.stop_propagation();
-            core.send(Event::TaskCycle {
-                item_id: id.clone(),
-            });
-        }
-    };
 
     // Start editing on mousedown; links are left alone
     let on_mousedown = {
@@ -163,15 +148,7 @@ pub fn ItemView(row: RwSignal<Row>) -> impl IntoView {
 
     view! {
         <app-item-view>
-            <Show when=is_task>
-                <input
-                    type="checkbox"
-                    class="task-checkbox"
-                    prop:checked=has_end
-                    prop:indeterminate=indeterminate
-                    on:click=on_checkbox.clone()
-                />
-            </Show>
+            <TaskCheckbox row=row />
             <div node_ref=content class="item-content" on:mousedown=on_mousedown on:click=on_click>
                 {move || {
                     let options = options.clone();

@@ -1,6 +1,7 @@
 //! The textarea an item is edited in, ported from `item-editor.ts`: keyboard shortcuts,
 //! paste, the `[[` completion context, and the drag out of the editor that starts a selection.
 
+use crate::components::task_checkbox::TaskCheckbox;
 use crate::core::CoreHandle;
 use crate::dom;
 use crate::listeners::DocumentListeners;
@@ -72,6 +73,9 @@ impl Drag {
     }
 }
 
+/// The font size of a heading line being edited, by heading level.
+const HEADING_FONT_SIZES: [&str; 5] = ["1.6em", "1.4em", "1.2em", "1.1em", "1em"];
+
 #[component]
 pub fn ItemEditor(row: RwSignal<Row>) -> impl IntoView {
     let core: CoreHandle = expect_context();
@@ -81,28 +85,14 @@ pub fn ItemEditor(row: RwSignal<Row>) -> impl IntoView {
     let drag = Drag::new();
 
     let id = item_id.clone();
-    let is_task = move || row.with(|r| r.item.is_task());
-    let has_end = move || row.with(|r| r.item.prop_str("end").is_some());
-    let indeterminate = move || {
-        row.with(|r| r.item.prop_str("begin").is_some() && r.item.prop_str("end").is_none())
-    };
-    let heading_font_size = move || {
-        row.with(|r| {
-            if r.item.body.contains('\n') {
-                return None;
-            }
-            match r.item.heading_level_of_body() {
-                1 => Some("1.6em"),
-                2 => Some("1.4em"),
-                3 => Some("1.2em"),
-                4 => Some("1.1em"),
-                5 => Some("1em"),
-                _ => None,
-            }
+    // A one-line heading is edited at its heading size, in bold
+    let heading_line = move || row.with(|r| r.heading_line);
+    let font_size = move || {
+        row.with(|r| match (r.heading_line, r.heading_level) {
+            (true, level @ 1..=5) => HEADING_FONT_SIZES[level as usize - 1],
+            _ => "",
         })
     };
-    let is_heading_only =
-        move || row.with(|r| !r.item.body.contains('\n') && r.item.heading_level_of_body() > 0);
 
     // The body as the core has it: paste, undo and the wiki completion change it from outside
     {
@@ -164,17 +154,6 @@ pub fn ItemEditor(row: RwSignal<Row>) -> impl IntoView {
             core.unregister_replayer(&id);
         });
     }
-
-    let on_checkbox = {
-        let id = item_id.clone();
-        move |ev: web_sys::MouseEvent| {
-            ev.prevent_default();
-            ev.stop_propagation();
-            core.send(Event::TaskCycle {
-                item_id: id.clone(),
-            });
-        }
-    };
 
     let on_input = {
         let id = item_id.clone();
@@ -256,20 +235,12 @@ pub fn ItemEditor(row: RwSignal<Row>) -> impl IntoView {
 
     view! {
         <app-item-editor>
-            <Show when=is_task>
-                <input
-                    type="checkbox"
-                    class="task-checkbox"
-                    prop:checked=has_end
-                    prop:indeterminate=indeterminate
-                    on:click=on_checkbox.clone()
-                />
-            </Show>
+            <TaskCheckbox row=row />
             <textarea
                 node_ref=textarea
                 id=format!("item-editor-{id}")
-                style:font-size=move || heading_font_size().unwrap_or("")
-                style:font-weight=move || if is_heading_only() { "bold" } else { "" }
+                style:font-size=font_size
+                style:font-weight=move || if heading_line() { "bold" } else { "" }
                 rows="1"
                 on:input=on_input
                 on:keydown=on_keydown

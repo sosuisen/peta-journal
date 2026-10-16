@@ -9,3 +9,4 @@ mod moves;
 mod paste;
 mod split;
 mod undo_replay;
+mod view;

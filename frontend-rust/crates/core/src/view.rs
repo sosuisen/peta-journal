@@ -1,13 +1,38 @@
 //! The view model: what the shell shows, computed from the model after every event.
 
 use crate::app::{ConnectionState, Model, Screen};
-use crate::model::{ItemRef, Page, SearchResult, WeekNumbering};
+use crate::model::{Item, ItemRef, Page, SearchResult, WeekNumbering};
 use crate::ops::wiki;
 use crate::outline::tree::starts_date_group;
 use crate::outline::{FocusRequest, Heading};
 use crate::screens::{journal, page, sidebar};
 use crate::util::date::format_journal_date;
 use crate::util::filename::JournalType;
+
+/// Where a task stands, by its `begin` and `end` properties.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TaskState {
+    NotStarted,
+    /// Begun and not ended: the checkbox shows the in-between state.
+    Running,
+    Done,
+}
+
+impl TaskState {
+    /// The state of a task item; `None` for an item that is not a task.
+    pub fn of(item: &Item) -> Option<TaskState> {
+        if !item.is_task() {
+            return None;
+        }
+        let begun = item.prop_str("begin").is_some();
+        let ended = item.prop_str("end").is_some();
+        Some(match (begun, ended) {
+            (_, true) => TaskState::Done,
+            (true, false) => TaskState::Running,
+            (false, false) => TaskState::NotStarted,
+        })
+    }
+}
 
 /// One row of the outline: the item as shown plus what the row needs to draw itself.
 #[derive(Debug, Clone, PartialEq)]
@@ -22,6 +47,12 @@ pub struct Row {
     /// 1..=5 for a body that is a heading line; 0 otherwise.
     pub heading_level: u8,
     pub is_heading: bool,
+    /// True when the whole body is one heading line, which the editor shows large and bold.
+    pub heading_line: bool,
+    /// The task's state, for the checkbox; `None` when the item is not a task.
+    pub task: Option<TaskState>,
+    /// True when the item has a zoom of its own, which the menu offers to reset.
+    pub has_own_zoom: bool,
     pub is_transclusion: bool,
     pub is_broken_transclusion: bool,
     pub show_bullet: bool,
@@ -216,6 +247,9 @@ fn outline(model: &Model) -> OutlineView {
             has_children: state.has_children(&item.id),
             heading_level,
             is_heading: item.body.trim_start().starts_with('#'),
+            heading_line: heading_level > 0 && !item.body.contains('\n'),
+            task: TaskState::of(item),
+            has_own_zoom: (item.zoom() - 1.0).abs() > f64::EPSILON,
             is_transclusion: item.transclude_item_id.is_some(),
             is_broken_transclusion: is_broken,
             show_bullet: is_editing || !item.body.trim().is_empty(),

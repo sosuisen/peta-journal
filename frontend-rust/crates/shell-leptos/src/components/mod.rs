@@ -8,4 +8,5 @@ pub mod page;
 pub mod search_bar;
 pub mod settings;
 pub mod sidebar;
+pub mod task_checkbox;
 pub mod wiki_suggestions;

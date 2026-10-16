@@ -86,7 +86,7 @@ pub fn OutlineItem(row: RwSignal<Row>) -> impl IntoView {
             }
         })
     };
-    let has_zoom = move || row.with(|r| (r.item.zoom() - 1.0).abs() > f64::EPSILON);
+    let has_zoom = move || row.with(|r| r.has_own_zoom);
     let task_time = move || row.with(|r| task_time_info(&r.item));
 
     let id_for_view = item_id.clone();
