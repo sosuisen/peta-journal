@@ -6,10 +6,13 @@ use flatmarkdown::{BodyOptions, LinkResolution};
 pub struct MarkdownParser;
 
 fn options() -> BodyOptions {
-    // Link resolution turns `#tag` text into hashtag nodes; bodies in the app hold
-    // wikilinks and hashtags, never relative Markdown links, so no prefixes are needed.
+    // The same options as the Java wrapper (com.sosuisha:flatmarkdown): link resolution turns
+    // `#tag` text into hashtag nodes, and relative Markdown links to `./x.md` or `../x.md`
+    // into wikilink nodes (`[#x](../x.md)` becomes a hashtag).
     BodyOptions {
-        link_resolution: LinkResolution::On { prefixes: Vec::new() },
+        link_resolution: LinkResolution::On {
+            prefixes: vec!["./".to_string(), "../".to_string()],
+        },
     }
 }
 
@@ -37,6 +40,14 @@ mod tests {
         let ast = MarkdownParser.parse_to_ast("remember #urgent");
         assert!(ast.contains("\"hashtag\""), "{ast}");
         assert_eq!(MarkdownParser.parse_to_ast(""), "");
+    }
+
+    #[test]
+    fn relative_links_become_wikilinks_like_the_java_wrapper() {
+        let ast = MarkdownParser.parse_to_ast("[Page](../docs/Page.md) [#f](../f.md) [x](docs/x.md)");
+        assert!(ast.contains(r#""type":"wikilink","url":"docs/Page""#), "{ast}");
+        assert!(ast.contains(r#"{"type":"hashtag","value":"f"}"#), "{ast}");
+        assert!(ast.contains(r#""type":"link","url":"docs/x.md""#), "{ast}");
     }
 
     #[test]

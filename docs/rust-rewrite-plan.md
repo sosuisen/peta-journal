@@ -125,7 +125,7 @@ MCP(`presentation/mcp/`、Streamable HTTP):`create_item`、`cycle_task`、`delet
 | `parseToAst(markdown)` → `FlatmarkdownJava.bodyToAst` | `flatmarkdown::body_to_ast` |
 | `parsePage(markdown)` → `FlatmarkdownJava.pageToAst` | `flatmarkdown::page_to_ast` |
 
-`BodyOptions`(`link_resolution`)を Java 版がどう指定しているかは Maven 版のラッパー側を確認して合わせる。
+Maven 版のラッパー(`com.sosuisha:flatmarkdown:1.0.1`)の中身は flatmarkdown 0.4.3 そのもの(同梱の `libflatmarkdown_java.so` に crate 名とバージョンが残っている)に、C ABI の薄い関数 4 つ(`body_to_ast`、`body_to_html`、`page_to_ast`、`free_string`)を足したものだった。独自機能の追加はない。Java 側の `markdownToAst` / `markdownToHtml` は `bodyToAst` / `bodyToHtml` の別名。`BodyOptions` は `link_resolution = On { prefixes: ["./", "../"] }` 相当で、Rust 版サーバーも同じ値にしてある(12 種類の本文で AST の JSON がバイト単位で一致することを確認した)。
 
 ### 3.2 HMTID
 
@@ -136,7 +136,7 @@ MCP(`presentation/mcp/`、Streamable HTTP):`create_item`、`cycle_task`、`delet
 - `compareTo` が時刻順になる(同期時に「古い方の ID が勝つ」判定に使う)
 - フロントエンドの npm 版 `hmtid` と同じ文字列を生成する(クライアント側でも ID を作る)
 
-Rust 版の公開 crate は無いので、Java 版 / npm 版の実装を仕様として Rust で書き直す。生成器の単調性は `Mutex` で守る。移行の最初の作業として独立した crate(`hmtid-rs` など)にし、npm 版と同じテストベクタで突き合わせる。
+Rust 版の公開 crate は無いので、npm 版の実装を仕様として `crates/hmtid` に書き直した。Java 版(`com.sosuisha:hmtid:2.1.0`)の `HMTID.of` を実際に呼んで突き合わせた結果、受け付ける形式(22 文字 / 27 文字、`_` と `-`、区切りの混在は不可)、ランダム部の文字集合、日付の妥当性検査(13 月や 2 月 30 日は拒否)、表記違いの同値性(`2026-09-29-...` と `20260929..._...` は等しい)、`compareTo` の順序がすべて同じになるようにしてある。
 
 ### 3.3 検索(Lucene → tantivy + lindera)
 

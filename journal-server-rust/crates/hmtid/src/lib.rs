@@ -115,12 +115,31 @@ fn validate(s: &str) -> Result<(), HmtidError> {
     if time_part.len() != TIME_DIGITS || !time_part.bytes().all(|b| b.is_ascii_digit()) {
         return Err(HmtidError::InvalidTimestamp(time_part));
     }
+    if !is_valid_date_time(&time_part) {
+        return Err(HmtidError::InvalidTimestamp(time_part));
+    }
     if random_part.len() != RANDOM_LEN || !random_part.iter().all(|b| ENCODING.contains(b)) {
         return Err(HmtidError::InvalidRandom(
             String::from_utf8_lossy(random_part).into_owned(),
         ));
     }
     Ok(())
+}
+
+/// Checks `YYYYMMDDHHMMSS` for a real calendar date and time of day, like the Java `HMTID.of`.
+fn is_valid_date_time(digits: &str) -> bool {
+    let n = |a: usize, b: usize| digits[a..b].parse::<u32>().unwrap_or(99);
+    let (y, m, d, hh, mm, ss) = (n(0, 4), n(4, 6), n(6, 8), n(8, 10), n(10, 12), n(12, 14));
+    if !(1..=12).contains(&m) || hh > 23 || mm > 59 || ss > 59 || d == 0 {
+        return false;
+    }
+    let leap = (y % 4 == 0 && y % 100 != 0) || y % 400 == 0;
+    let days = match m {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        _ => if leap { 29 } else { 28 },
+    };
+    d <= days
 }
 
 impl fmt::Display for Hmtid {
@@ -365,6 +384,11 @@ mod tests {
         assert!(Hmtid::parse("2026-04-26-03-57-00_QZ998PX").is_err()); // mixed separators
         assert!(Hmtid::parse("2026x04-26-03-57-00-QZ998PX").is_err());
         assert!(Hmtid::parse("not an id").is_err());
+        assert!(Hmtid::parse("2026-13-29-00-00-01-AAAAAAA").is_err()); // month 13
+        assert!(Hmtid::parse("2026-02-30-00-00-01-AAAAAAA").is_err()); // Feb 30
+        assert!(Hmtid::parse("2026-09-29-24-00-01-AAAAAAA").is_err()); // hour 24
+        assert!(Hmtid::parse("2024-02-29-23-59-59-AAAAAAA").is_ok()); // leap day
+        assert!(Hmtid::parse("20260929000001-AAAAAAA").is_ok()); // compact with hyphen
     }
 
     #[test]
