@@ -123,7 +123,7 @@ Every setting of `application.properties` has a flag and an environment variable
 | `petajournal.import.delete-prompt-cooldown` | `--import-delete-prompt-cooldown` | `PETAJOURNAL_IMPORT_DELETE_PROMPT_COOLDOWN` |
 | `quarkus.http.cors.origins` | `--cors-origins` | `PETAJOURNAL_CORS_ORIGINS` |
 
-`RUST_LOG` controls logging (default `info`), e.g. `RUST_LOG=journal_server=debug`.
+`RUST_LOG` controls logging (default `info,tantivy=warn`), e.g. `RUST_LOG=journal_server=debug`.
 
 The search index format is not the same as Lucene's. On the first start the Rust server
 replaces a Lucene index in `~/.peta-journal/index` with a tantivy index and rebuilds it from
