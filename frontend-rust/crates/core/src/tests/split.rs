@@ -11,7 +11,11 @@ fn harness() -> Harness {
 
 fn enter(h: &mut Harness, item_id: &str, cursor: usize) {
     let now = h.now_ms;
-    h.send(Event::EnterPressed { item_id: item_id.into(), cursor, now_ms: now });
+    h.send(Event::EnterPressed {
+        item_id: item_id.into(),
+        cursor,
+        now_ms: now,
+    });
 }
 
 #[test]
@@ -19,7 +23,10 @@ fn enter_in_the_middle_keeps_the_text_before_the_cursor_and_moves_the_rest_below
     let mut h = harness();
     enter(&mut h, "a", 5);
     assert_eq!(h.bodies(), ["a=hello", "new1= world", "b=body of b"]);
-    assert_eq!(create_calls(&h.api), [("page1".into(), "after:a".into(), 1, " world".into(), None)]);
+    assert_eq!(
+        create_calls(&h.api),
+        [("page1".into(), "after:a".into(), 1, " world".into(), None)]
+    );
     assert!(h.model.state.is_editing("new1"));
     assert!(!h.model.state.is_editing("a"));
     assert_eq!(h.focused_editor_requests(), [Some("new1".to_string())]);
@@ -37,10 +44,25 @@ fn enter_at_the_end_shows_an_empty_item_at_once_and_creates_it_in_the_background
     let new_id = ids[1].clone();
     assert_ne!(new_id, "new1", "the client made the id");
     let calls = create_calls(&h.api);
-    assert_eq!(calls, [("page1".into(), "after:a".into(), 1, "".into(), Some(new_id.clone()))]);
-    assert_eq!(h.model.state.get_item_by_id(&new_id).unwrap().idx, "created1");
+    assert_eq!(
+        calls,
+        [(
+            "page1".into(),
+            "after:a".into(),
+            1,
+            "".into(),
+            Some(new_id.clone())
+        )]
+    );
+    assert_eq!(
+        h.model.state.get_item_by_id(&new_id).unwrap().idx,
+        "created1"
+    );
     assert_eq!(h.model.state.focused_item_id(), Some(new_id.as_str()));
-    assert_eq!(update_calls(&h.api), [("a".into(), Some("hello world".into()))]);
+    assert_eq!(
+        update_calls(&h.api),
+        [("a".into(), Some("hello world".into()))]
+    );
 }
 
 #[test]
@@ -57,7 +79,10 @@ fn enter_at_the_start_puts_an_empty_item_above_and_keeps_editing_the_new_one() {
     let mut h = harness();
     enter(&mut h, "a", 0);
     assert_eq!(h.bodies(), ["new1=", "a=hello world", "b=body of b"]);
-    assert_eq!(create_calls(&h.api), [("page1".into(), "first".into(), 1, "".into(), None)]);
+    assert_eq!(
+        create_calls(&h.api),
+        [("page1".into(), "first".into(), 1, "".into(), None)]
+    );
     assert_eq!(h.focused_editor_requests(), [Some("new1".to_string())]);
 }
 
@@ -95,7 +120,10 @@ fn stops_holding_keys_when_the_split_fails() {
     h.api.fail_next("CreateItem", "offline");
     enter(&mut h, "a", 5);
     assert!(!h.model.key_relay.is_holding());
-    assert_eq!(h.model.edits.edit_handovers, 0, "the handover ended despite the failure");
+    assert_eq!(
+        h.model.edits.edit_handovers, 0,
+        "the handover ended despite the failure"
+    );
 }
 
 #[test]
@@ -106,21 +134,30 @@ fn inside_a_transclusion_the_new_item_is_created_on_the_source_page_and_the_page
     });
     let mut h = Harness::with_items(vec![item("a", 1, ""), root]);
     let mut trees = TranscludedTrees::new();
-    trees.insert("s".into(), vec![item_with("s", 1, |i| {
-        i.page_id = "src".into();
-        i.body = "shown".into();
-    })]);
+    trees.insert(
+        "s".into(),
+        vec![item_with("s", 1, |i| {
+            i.page_id = "src".into();
+            i.body = "shown".into();
+        })],
+    );
     h.model.state.set_transcluded_trees(trees);
     h.api.answer_next(
         "GetPageById",
         Ok(crate::effects::ApiOutput::Page(PageWithItems {
-            page: Page { id: "page1".into(), ..Default::default() },
+            page: Page {
+                id: "page1".into(),
+                ..Default::default()
+            },
             items: vec![item("a", 1, ""), item("root", 2, "")],
             ..Default::default()
         })),
     );
     enter(&mut h, "root", "sho".len());
     assert!(update_calls(&h.api).contains(&("s".to_string(), Some("sho".to_string()))));
-    assert_eq!(create_calls(&h.api), [("src".into(), "after:s".into(), 1, "wn".into(), None)]);
+    assert_eq!(
+        create_calls(&h.api),
+        [("src".into(), "after:s".into(), 1, "wn".into(), None)]
+    );
     assert!(h.api.called("GetPageById"));
 }

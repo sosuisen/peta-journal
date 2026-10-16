@@ -36,7 +36,11 @@ impl Date {
 
     /// Days since 1970-01-01 (negative before it). Howard Hinnant's days_from_civil.
     pub fn to_days(self) -> i64 {
-        let y = if self.month <= 2 { self.year - 1 } else { self.year } as i64;
+        let y = if self.month <= 2 {
+            self.year - 1
+        } else {
+            self.year
+        } as i64;
         let era = if y >= 0 { y } else { y - 399 } / 400;
         let yoe = y - era * 400;
         let m = self.month as i64;
@@ -56,7 +60,11 @@ impl Date {
         let mp = (5 * doy + 2) / 153;
         let d = (doy - (153 * mp + 2) / 5 + 1) as u32;
         let m = if mp < 10 { mp + 3 } else { mp - 9 } as u32;
-        Date { year: (if m <= 2 { y + 1 } else { y }) as i32, month: m, day: d }
+        Date {
+            year: (if m <= 2 { y + 1 } else { y }) as i32,
+            month: m,
+            day: d,
+        }
     }
 
     /// Moves the date by a number of days; negative for earlier dates.
@@ -170,7 +178,10 @@ mod tests {
         assert_eq!(d.shift(1).iso(), "2026-02-11");
         assert_eq!(d.shift(-41).iso(), "2025-12-31");
         assert_eq!(Date::from_days(0).iso(), "1970-01-01");
-        assert_eq!(Date::parse("2024-02-29").unwrap().shift(366).iso(), "2025-03-01");
+        assert_eq!(
+            Date::parse("2024-02-29").unwrap().shift(366).iso(),
+            "2025-03-01"
+        );
         assert!(Date::parse("2026-02-30").is_none());
     }
 

@@ -28,12 +28,15 @@ pub fn ItemEditor(row: RwSignal<Row>) -> impl IntoView {
     let vm = core.view();
     let item_id = row.with_untracked(|r| r.item.id.clone());
     let textarea = NodeRef::<leptos::html::Textarea>::new();
-    let drag: SendWrapper<Rc<RefCell<Drag>>> = SendWrapper::new(Rc::new(RefCell::new(Drag::default())));
+    let drag: SendWrapper<Rc<RefCell<Drag>>> =
+        SendWrapper::new(Rc::new(RefCell::new(Drag::default())));
 
     let id = item_id.clone();
     let is_task = move || row.with(|r| r.item.is_task());
     let has_end = move || row.with(|r| r.item.prop_str("end").is_some());
-    let indeterminate = move || row.with(|r| r.item.prop_str("begin").is_some() && r.item.prop_str("end").is_none());
+    let indeterminate = move || {
+        row.with(|r| r.item.prop_str("begin").is_some() && r.item.prop_str("end").is_none())
+    };
     let heading_font_size = move || {
         row.with(|r| {
             if r.item.body.contains('\n') {
@@ -49,7 +52,8 @@ pub fn ItemEditor(row: RwSignal<Row>) -> impl IntoView {
             }
         })
     };
-    let is_heading_only = move || row.with(|r| !r.item.body.contains('\n') && r.item.heading_level_of_body() > 0);
+    let is_heading_only =
+        move || row.with(|r| !r.item.body.contains('\n') && r.item.heading_level_of_body() > 0);
 
     // The body as the core has it: paste, undo and the wiki completion change it from outside
     {
@@ -68,7 +72,7 @@ pub fn ItemEditor(row: RwSignal<Row>) -> impl IntoView {
     {
         let consumed = StoredValue::new(0u64);
         let item_id = item_id.clone();
-                let drag = drag.clone();
+        let drag = drag.clone();
         Effect::new(move |_| {
             let request = vm.with(|v| v.outline.focus_request.clone());
             let Some(el) = textarea.get() else { return };
@@ -99,7 +103,7 @@ pub fn ItemEditor(row: RwSignal<Row>) -> impl IntoView {
 
     // Keys held while this editor was not on screen yet are played here
     {
-                let id = item_id.clone();
+        let id = item_id.clone();
         core.register_replayer(
             &item_id,
             Box::new(move |keys: Vec<DeferredKey>| {
@@ -108,7 +112,7 @@ pub fn ItemEditor(row: RwSignal<Row>) -> impl IntoView {
                 }
             }),
         );
-                on_cleanup(move || {
+        on_cleanup(move || {
             core.unregister_replayer(&id);
         });
     }
@@ -118,16 +122,18 @@ pub fn ItemEditor(row: RwSignal<Row>) -> impl IntoView {
     }
 
     let on_checkbox = {
-                let id = item_id.clone();
+        let id = item_id.clone();
         move |ev: web_sys::MouseEvent| {
             ev.prevent_default();
             ev.stop_propagation();
-            core.send(Event::TaskCycle { item_id: id.clone() });
+            core.send(Event::TaskCycle {
+                item_id: id.clone(),
+            });
         }
     };
 
     let on_input = {
-                let id = item_id.clone();
+        let id = item_id.clone();
         move |ev: web_sys::Event| {
             let Some(el) = textarea.get() else { return };
             if let Some(input) = ev.dyn_ref::<web_sys::InputEvent>() {
@@ -136,14 +142,18 @@ pub fn ItemEditor(row: RwSignal<Row>) -> impl IntoView {
                 }
             }
             let body = el.value();
-            core.send(Event::BodyChanged { item_id: id.clone(), body, now_ms: core.now_ms() });
+            core.send(Event::BodyChanged {
+                item_id: id.clone(),
+                body,
+                now_ms: core.now_ms(),
+            });
             dom::auto_resize(&el);
             check_wiki_link_context(&core, &id, &el);
         }
     };
 
     let on_keydown = {
-                let id = item_id.clone();
+        let id = item_id.clone();
         move |ev: web_sys::KeyboardEvent| {
             let Some(el) = textarea.get() else { return };
             handle_keydown(&core, &id, &el, &ev, row);
@@ -151,32 +161,51 @@ pub fn ItemEditor(row: RwSignal<Row>) -> impl IntoView {
     };
 
     let on_paste = {
-                let id = item_id.clone();
+        let id = item_id.clone();
         move |ev: web_sys::ClipboardEvent| {
             let Some(el) = textarea.get() else { return };
-            let Some(data) = ev.clipboard_data() else { return };
+            let Some(data) = ev.clipboard_data() else {
+                return;
+            };
             let cursor = dom::selection_start_chars(&el);
             if let Some(file) = image_file(&data) {
                 ev.prevent_default();
                 let handle = core.keep_file(file);
-                core.send(Event::PasteImage { item_id: id.clone(), file: handle, cursor });
+                core.send(Event::PasteImage {
+                    item_id: id.clone(),
+                    file: handle,
+                    cursor,
+                });
                 return;
             }
             // Windows puts \r\n on the clipboard; the textarea would normalize it anyway
-            let text = data.get_data("text/plain").unwrap_or_default().replace("\r\n", "\n").replace('\r', "\n");
+            let text = data
+                .get_data("text/plain")
+                .unwrap_or_default()
+                .replace("\r\n", "\n")
+                .replace('\r', "\n");
             let html = data.get_data("text/html").unwrap_or_default();
             ev.prevent_default();
-            core.send(Event::PasteText { item_id: id.clone(), text, html, cursor });
+            core.send(Event::PasteText {
+                item_id: id.clone(),
+                text,
+                html,
+                cursor,
+            });
         }
     };
 
     let on_blur = {
-                let id = item_id.clone();
-        move |_| core.send(Event::EditFinished { item_id: id.clone() })
+        let id = item_id.clone();
+        move |_| {
+            core.send(Event::EditFinished {
+                item_id: id.clone(),
+            })
+        }
     };
 
     let on_mousedown = {
-                let drag = drag.clone();
+        let drag = drag.clone();
         move |_: web_sys::MouseEvent| {
             if let Some(el) = textarea.get() {
                 start_drag(core, &drag, &el, &textarea, false);
@@ -250,24 +279,47 @@ impl Utf16Pipe for Vec<u16> {
 }
 
 /// Replaces the selection (or a range) and reports the new body.
-fn replace_range(core: &CoreHandle, item_id: &str, el: &web_sys::HtmlTextAreaElement, text: &str, start: u32, end: u32) {
+fn replace_range(
+    core: &CoreHandle,
+    item_id: &str,
+    el: &web_sys::HtmlTextAreaElement,
+    text: &str,
+    start: u32,
+    end: u32,
+) {
     let _ = el.set_range_text_with_start_and_end_and_mode(text, start, end, "end");
-    core.send(Event::BodyChanged { item_id: item_id.to_string(), body: el.value(), now_ms: core.now_ms() });
+    core.send(Event::BodyChanged {
+        item_id: item_id.to_string(),
+        body: el.value(),
+        now_ms: core.now_ms(),
+    });
     dom::auto_resize(el);
     check_wiki_link_context(core, item_id, el);
 }
 
-fn insert_at_cursor(core: &CoreHandle, item_id: &str, el: &web_sys::HtmlTextAreaElement, text: &str, cursor_offset: u32) {
+fn insert_at_cursor(
+    core: &CoreHandle,
+    item_id: &str,
+    el: &web_sys::HtmlTextAreaElement,
+    text: &str,
+    cursor_offset: u32,
+) {
     let value = el.value();
-    let (start, end) =
-        (el.selection_start().ok().flatten().unwrap_or(0), el.selection_end().ok().flatten().unwrap_or(0));
+    let (start, end) = (
+        el.selection_start().ok().flatten().unwrap_or(0),
+        el.selection_end().ok().flatten().unwrap_or(0),
+    );
     let units: Vec<u16> = value.encode_utf16().collect();
     let before = String::from_utf16_lossy(&units[..start as usize]);
     let after = String::from_utf16_lossy(&units[end as usize..]);
     el.set_value(&format!("{before}{text}{after}"));
     let pos = start + cursor_offset;
     let _ = el.set_selection_range(pos, pos);
-    core.send(Event::BodyChanged { item_id: item_id.to_string(), body: el.value(), now_ms: core.now_ms() });
+    core.send(Event::BodyChanged {
+        item_id: item_id.to_string(),
+        body: el.value(),
+        now_ms: core.now_ms(),
+    });
     dom::auto_resize(el);
 }
 
@@ -299,21 +351,28 @@ fn handle_keydown(
     let id = item_id.to_string();
     let send = |event: Event| core.send(event);
 
-    if row.with_untracked(|r| r.suggestions_visible) {
-        if matches!(key.as_str(), "ArrowUp" | "ArrowDown" | "Enter" | "Escape") {
-            ev.prevent_default();
-            if key == "Escape" {
-                send(Event::WikiQuery { item_id: id, context: None });
-            } else {
-                send(Event::WikiKey { key });
-            }
-            return;
+    if row.with_untracked(|r| r.suggestions_visible)
+        && matches!(key.as_str(), "ArrowUp" | "ArrowDown" | "Enter" | "Escape")
+    {
+        ev.prevent_default();
+        if key == "Escape" {
+            send(Event::WikiQuery {
+                item_id: id,
+                context: None,
+            });
+        } else {
+            send(Event::WikiKey { key });
         }
+        return;
     }
 
     if (key == "z" || key == "Z") && ev.ctrl_key() && !ev.alt_key() {
         ev.prevent_default();
-        send(if ev.shift_key() { Event::Redo } else { Event::Undo });
+        send(if ev.shift_key() {
+            Event::Redo
+        } else {
+            Event::Undo
+        });
         return;
     }
 
@@ -339,7 +398,11 @@ fn handle_keydown(
     }
 
     if key == "Enter" && !ev.shift_key() && !ev.ctrl_key() {
-        let before: String = value.encode_utf16().take(start as usize).collect::<Vec<_>>().pipe();
+        let before: String = value
+            .encode_utf16()
+            .take(start as usize)
+            .collect::<Vec<_>>()
+            .pipe();
         if peta_core::util::has_unclosed_code_fence(&before) {
             // Inside a code fence: a newline instead of a split
             ev.prevent_default();
@@ -347,7 +410,11 @@ fn handle_keydown(
             return;
         }
         ev.prevent_default();
-        send(Event::EnterPressed { item_id: id, cursor: dom::utf16_to_chars(&value, start), now_ms: core.now_ms() });
+        send(Event::EnterPressed {
+            item_id: id,
+            cursor: dom::utf16_to_chars(&value, start),
+            now_ms: core.now_ms(),
+        });
         return;
     }
 
@@ -371,10 +438,18 @@ fn handle_keydown(
 
     if ev.shift_key() && ev.alt_key() {
         let event = match key.as_str() {
-            "ArrowUp" => Some(Event::MoveUp { item_id: id.clone() }),
-            "ArrowDown" => Some(Event::MoveDown { item_id: id.clone() }),
-            "ArrowLeft" => Some(Event::Outdent { item_id: id.clone() }),
-            "ArrowRight" => Some(Event::Indent { item_id: id.clone() }),
+            "ArrowUp" => Some(Event::MoveUp {
+                item_id: id.clone(),
+            }),
+            "ArrowDown" => Some(Event::MoveDown {
+                item_id: id.clone(),
+            }),
+            "ArrowLeft" => Some(Event::Outdent {
+                item_id: id.clone(),
+            }),
+            "ArrowRight" => Some(Event::Indent {
+                item_id: id.clone(),
+            }),
             _ => None,
         };
         if let Some(event) = event {
@@ -384,35 +459,50 @@ fn handle_keydown(
         }
     }
 
-    if ev.shift_key() && !ev.alt_key() && !ev.ctrl_key() {
-        if (key == "ArrowUp" && dom::is_on_first_line(el)) || (key == "ArrowDown" && dom::is_on_last_line(el)) {
-            ev.prevent_default();
-            ev.stop_propagation();
-            send(Event::ShiftSelect { item_id: id });
-            return;
-        }
+    if ev.shift_key()
+        && !ev.alt_key()
+        && !ev.ctrl_key()
+        && ((key == "ArrowUp" && dom::is_on_first_line(el))
+            || (key == "ArrowDown" && dom::is_on_last_line(el)))
+    {
+        ev.prevent_default();
+        ev.stop_propagation();
+        send(Event::ShiftSelect { item_id: id });
+        return;
     }
 
     let cursor_chars = dom::utf16_to_chars(&value, start);
     if key == "ArrowUp" && dom::is_on_first_line(el) {
         ev.prevent_default();
-        send(Event::NavigateUp { item_id: id, cursor: cursor_chars });
+        send(Event::NavigateUp {
+            item_id: id,
+            cursor: cursor_chars,
+        });
         return;
     }
     if key == "ArrowDown" && dom::is_on_last_line(el) {
         ev.prevent_default();
-        send(Event::NavigateDown { item_id: id, cursor: cursor_chars });
+        send(Event::NavigateDown {
+            item_id: id,
+            cursor: cursor_chars,
+        });
         return;
     }
     if key == "ArrowLeft" && start == 0 {
         ev.prevent_default();
         // A large number puts the cursor at the end of the previous item
-        send(Event::NavigateUp { item_id: id, cursor: usize::MAX / 2 });
+        send(Event::NavigateUp {
+            item_id: id,
+            cursor: usize::MAX / 2,
+        });
         return;
     }
     if key == "ArrowRight" && start == len {
         ev.prevent_default();
-        send(Event::NavigateDown { item_id: id, cursor: 0 });
+        send(Event::NavigateDown {
+            item_id: id,
+            cursor: 0,
+        });
         return;
     }
 
@@ -420,7 +510,8 @@ fn handle_keydown(
     if key == "[" && start > 0 {
         let units: Vec<u16> = value.encode_utf16().collect();
         let prev_is_bracket = units[start as usize - 1] == '[' as u16;
-        let next_two: String = String::from_utf16_lossy(&units[start as usize..(start as usize + 2).min(units.len())]);
+        let next_two: String =
+            String::from_utf16_lossy(&units[start as usize..(start as usize + 2).min(units.len())]);
         if prev_is_bracket && next_two != "]]" {
             ev.prevent_default();
             insert_at_cursor(core, item_id, el, "[]]", 1);
@@ -430,7 +521,11 @@ fn handle_keydown(
 
     if key == "Tab" {
         ev.prevent_default();
-        send(if ev.shift_key() { Event::Outdent { item_id: id } } else { Event::Indent { item_id: id } });
+        send(if ev.shift_key() {
+            Event::Outdent { item_id: id }
+        } else {
+            Event::Indent { item_id: id }
+        });
     }
 }
 
@@ -457,16 +552,29 @@ fn check_wiki_link_context(core: &CoreHandle, item_id: &str, el: &web_sys::HtmlT
     let units: Vec<u16> = value.encode_utf16().collect();
     let before = String::from_utf16_lossy(&units[..(start as usize).min(units.len())]);
     let after = String::from_utf16_lossy(&units[(start as usize).min(units.len())..]);
-    let close = |core: &CoreHandle| core.send(Event::WikiQuery { item_id: item_id.to_string(), context: None });
-    let Some(open) = before.rfind("[[") else { return close(core) };
+    let close = |core: &CoreHandle| {
+        core.send(Event::WikiQuery {
+            item_id: item_id.to_string(),
+            context: None,
+        })
+    };
+    let Some(open) = before.rfind("[[") else {
+        return close(core);
+    };
     let between = &before[open + 2..];
     if between.contains("]]") || !after.contains("]]") {
         return close(core);
     }
-    let Some((x, _top, bottom)) = dom::caret_rect(el, start) else { return close(core) };
+    let Some((x, _top, bottom)) = dom::caret_rect(el, start) else {
+        return close(core);
+    };
     core.send(Event::WikiQuery {
         item_id: item_id.to_string(),
-        context: Some(WikiLinkContext { query: between.to_string(), x, y: bottom }),
+        context: Some(WikiLinkContext {
+            query: between.to_string(),
+            x,
+            y: bottom,
+        }),
     });
 }
 
@@ -494,7 +602,9 @@ fn replay_keys(core: &CoreHandle, el: &web_sys::HtmlTextAreaElement, keys: Vec<D
             init.set_meta_key(key.meta_key);
             init.set_bubbles(true);
             init.set_cancelable(true);
-            if let Ok(ev) = web_sys::KeyboardEvent::new_with_keyboard_event_init_dict("keydown", &init) {
+            if let Ok(ev) =
+                web_sys::KeyboardEvent::new_with_keyboard_event_init_dict("keydown", &init)
+            {
                 let _ = el.dispatch_event(&ev);
             }
         }
@@ -503,7 +613,12 @@ fn replay_keys(core: &CoreHandle, el: &web_sys::HtmlTextAreaElement, keys: Vec<D
 
 /// Does what the browser would have done for a key that edits or moves inside the text.
 /// A synthetic keydown has no default action, so these are done by hand.
-fn replay_editing_key(core: &CoreHandle, item_id: &str, el: &web_sys::HtmlTextAreaElement, key: &DeferredKey) -> bool {
+fn replay_editing_key(
+    core: &CoreHandle,
+    item_id: &str,
+    el: &web_sys::HtmlTextAreaElement,
+    key: &DeferredKey,
+) -> bool {
     if key.shift_key || key.alt_key {
         return false;
     }
@@ -516,14 +631,28 @@ fn replay_editing_key(core: &CoreHandle, item_id: &str, el: &web_sys::HtmlTextAr
             if !has_selection && start == 0 {
                 return false; // the handler merges with the item above
             }
-            replace_range(core, item_id, el, "", if has_selection { start } else { start - 1 }, end);
+            replace_range(
+                core,
+                item_id,
+                el,
+                "",
+                if has_selection { start } else { start - 1 },
+                end,
+            );
             true
         }
         "Delete" => {
             if !has_selection && end == len {
                 return false; // the handler merges the item below
             }
-            replace_range(core, item_id, el, "", start, if has_selection { end } else { end + 1 });
+            replace_range(
+                core,
+                item_id,
+                el,
+                "",
+                start,
+                if has_selection { end } else { end + 1 },
+            );
             true
         }
         "ArrowLeft" => {
@@ -581,7 +710,9 @@ fn start_drag(
             }
             let y = ev.client_y() as f64;
             if y < rect.top() - 10.0 || y > rect.bottom() + 10.0 {
-                core.send(Event::DragBeyondBounds { item_id: item_id.clone() });
+                core.send(Event::DragBeyondBounds {
+                    item_id: item_id.clone(),
+                });
                 end_drag(&drag);
             }
         })

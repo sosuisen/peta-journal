@@ -35,7 +35,10 @@ pub fn create_item(
     body: String,
 ) -> Cmd {
     // Support the `position` field, fall back to the legacy `afterItemId`
-    let position = match (position.and_then(|p| ItemPosition::parse(&p)), after_item_id) {
+    let position = match (
+        position.and_then(|p| ItemPosition::parse(&p)),
+        after_item_id,
+    ) {
         (Some(p), _) => p,
         (None, Some(after)) => ItemPosition::after(after),
         (None, None) => ItemPosition::First,
@@ -50,19 +53,29 @@ pub fn create_item(
         level -= 1;
     }
     run(move |api| async move {
-        match api.create_item(&page_id, position.clone(), level, &body, None).await {
+        match api
+            .create_item(&page_id, position.clone(), level, &body, None)
+            .await
+        {
             Ok(new_item) => {
                 let reply = json!({ "type": "CreateItemResult", "itemId": new_item.id, "requestId": request_id });
                 apply(&api, "extension item", move |m| {
                     m.state.add_item(new_item, &position);
                     done()
                 });
-                api.notify(UiOp::ExtensionReply { source, message: reply });
+                api.notify(UiOp::ExtensionReply {
+                    source,
+                    message: reply,
+                });
             }
             Err(e) => {
                 log_error(format!("Failed to create item for extension: {e}"));
-                let reply = json!({ "type": "CreateItemError", "error": e.0, "requestId": request_id });
-                api.notify(UiOp::ExtensionReply { source, message: reply });
+                let reply =
+                    json!({ "type": "CreateItemError", "error": e.0, "requestId": request_id });
+                api.notify(UiOp::ExtensionReply {
+                    source,
+                    message: reply,
+                });
             }
         }
     })

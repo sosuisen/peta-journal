@@ -25,11 +25,12 @@ pub fn SearchBar() -> impl IntoView {
     });
 
     let has_results = move || {
-        search.with(|s| !s.page_results.is_empty() || !s.item_results.is_empty() || s.show_create) && search.with(|s| s.show_dropdown)
+        search.with(|s| !s.page_results.is_empty() || !s.item_results.is_empty() || s.show_create)
+            && search.with(|s| s.show_dropdown)
     };
 
     let on_keydown = {
-                move |ev: web_sys::KeyboardEvent| {
+        move |ev: web_sys::KeyboardEvent| {
             if dom::is_ime_composing(&ev) {
                 return;
             }
@@ -58,10 +59,10 @@ pub fn SearchBar() -> impl IntoView {
                     type="text"
                     class="search-input"
                     placeholder="Type Ctrl+/ to search"
-                    on:input={ let core = core; move |ev| core.send(Event::SearchQueryChanged(event_target_value(&ev))) }
+                    on:input=move |ev| core.send(Event::SearchQueryChanged(event_target_value(&ev)))
                     on:keydown=on_keydown
-                    on:focus={ let core = core; move |_| core.send(Event::SearchDropdown(true)) }
-                    on:blur={ let core = core; move |_| { let c = core; dom::set_timeout(200, move || c.send(Event::SearchDropdown(false))); } }
+                    on:focus=move |_| core.send(Event::SearchDropdown(true))
+                    on:blur=move |_| { let c = core; dom::set_timeout(200, move || c.send(Event::SearchDropdown(false))); }
                 />
                 <Show when=has_results>
                     <div class="search-dropdown">

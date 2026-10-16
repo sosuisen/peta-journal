@@ -54,7 +54,11 @@ pub fn perform(model: &mut Model, dir: Direction) -> Cmd {
 fn apply_to_state(model: &mut Model, op: &UndoOp, dir: Direction) {
     match op {
         UndoOp::Update { before, after } => {
-            let target = if dir == Direction::Undo { before } else { after };
+            let target = if dir == Direction::Undo {
+                before
+            } else {
+                after
+            };
             model.state.replace_item(target);
             if before.collapsed != after.collapsed {
                 model.state.toggle_collapsed(&target.id);
@@ -87,20 +91,33 @@ fn restore_cursor(model: &mut Model, entry: &UndoEntry, dir: Direction) -> Cmd {
         return done();
     };
     model.state.add_editing_item(&cursor.item_id);
-    model.state.set_focused_item(&cursor.item_id, Some(cursor.position));
+    model
+        .state
+        .set_focused_item(&cursor.item_id, Some(cursor.position));
     let id = cursor.item_id.clone();
     run(move |api| async move { focus_editor(&api, Some(id)).await })
 }
 
 fn cursor_of(entry: &UndoEntry, dir: Direction) -> Option<CursorState> {
-    let recorded = if dir == Direction::Undo { &entry.cursor_before } else { &entry.cursor_after };
+    let recorded = if dir == Direction::Undo {
+        &entry.cursor_before
+    } else {
+        &entry.cursor_after
+    };
     if let Some(c) = recorded {
         return Some(c.clone());
     }
     entry.ops.iter().find_map(|op| match op {
         UndoOp::Update { before, after } => {
-            let target = if dir == Direction::Undo { before } else { after };
-            Some(CursorState::new(&target.id, crate::util::char_len(&target.body)))
+            let target = if dir == Direction::Undo {
+                before
+            } else {
+                after
+            };
+            Some(CursorState::new(
+                &target.id,
+                crate::util::char_len(&target.body),
+            ))
         }
         _ => None,
     })
@@ -112,9 +129,18 @@ fn sync_to_server(ops: Vec<UndoOp>, dir: Direction) -> Cmd {
         for op in ops {
             let result = match &op {
                 UndoOp::Update { before, after } => {
-                    let target = if dir == Direction::Undo { before } else { after };
+                    let target = if dir == Direction::Undo {
+                        before
+                    } else {
+                        after
+                    };
                     match api
-                        .update_item(&target.id, Some(target.body.clone()), Some(target.level), Some(target.collapsed))
+                        .update_item(
+                            &target.id,
+                            Some(target.body.clone()),
+                            Some(target.level),
+                            Some(target.collapsed),
+                        )
                         .await
                     {
                         Ok(updated) => {
@@ -131,7 +157,8 @@ fn sync_to_server(ops: Vec<UndoOp>, dir: Direction) -> Cmd {
                     }
                 }
                 UndoOp::Create { item } | UndoOp::Delete { item } => {
-                    let exists_again = matches!(op, UndoOp::Create { .. }) == (dir == Direction::Redo);
+                    let exists_again =
+                        matches!(op, UndoOp::Create { .. }) == (dir == Direction::Redo);
                     if exists_again {
                         recreate_on_server(&api, item).await
                     } else {
@@ -148,10 +175,22 @@ fn sync_to_server(ops: Vec<UndoOp>, dir: Direction) -> Cmd {
 }
 
 /// Creates the item of a create/delete op again on the server and shows the server's item.
-async fn recreate_on_server(api: &crate::effects::Api<crate::app::Event>, item: &Item) -> Result<(), crate::effects::ApiError> {
+async fn recreate_on_server(
+    api: &crate::effects::Api<crate::app::Event>,
+    item: &Item,
+) -> Result<(), crate::effects::ApiError> {
     let it = item.clone();
-    let position: ItemPosition = crate::ops::edit::read(api, move |m| position_by_index(m.state.items(), &it)).await;
-    let new_item = api.create_item(&item.page_id, position.clone(), item.level, &item.body, None).await?;
+    let position: ItemPosition =
+        crate::ops::edit::read(api, move |m| position_by_index(m.state.items(), &it)).await;
+    let new_item = api
+        .create_item(
+            &item.page_id,
+            position.clone(),
+            item.level,
+            &item.body,
+            None,
+        )
+        .await?;
     let old_id = item.id.clone();
     apply(api, "undo sync: recreated", move |m| {
         m.state.delete_item(&old_id);

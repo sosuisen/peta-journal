@@ -50,10 +50,23 @@ fn Journal() -> impl IntoView {
     });
     let show_calendar = RwSignal::new(false);
     let scrolled = move || vm.with(|v| v.outline.scrolled_from_top);
-    let display_date = move || journal.with(|j| j.as_ref().map(|j| j.display_date.clone()).unwrap_or_default());
-    let current_date = Signal::derive(move || journal.with(|j| j.as_ref().map(|j| j.current_date.clone()).unwrap_or_default()));
+    let display_date = move || {
+        journal.with(|j| {
+            j.as_ref()
+                .map(|j| j.display_date.clone())
+                .unwrap_or_default()
+        })
+    };
+    let current_date = Signal::derive(move || {
+        journal.with(|j| {
+            j.as_ref()
+                .map(|j| j.current_date.clone())
+                .unwrap_or_default()
+        })
+    });
     let journal_type = move || journal.with(|j| j.as_ref().and_then(|j| j.journal_type));
-    let has_page = move || journal.with(|j| j.as_ref().map(|j| j.page_id.is_some()).unwrap_or(false));
+    let has_page =
+        move || journal.with(|j| j.as_ref().map(|j| j.page_id.is_some()).unwrap_or(false));
     let toggle = move |_| show_calendar.update(|s| *s = !*s);
     let nav = move |n: JournalNav| move |_| core.send(Event::JournalNav(n));
     let on_navigate = Callback::new(move |keep_open: bool| {
@@ -130,16 +143,18 @@ fn DocPage() -> impl IntoView {
         }
     };
     let save = {
-                move || {
+        move || {
             if !editing.get_untracked() {
                 return;
             }
             editing.set(false);
-            core.send(Event::PageTitleSave { dir_path: edit_dir.get_untracked(), file_name: edit_name.get_untracked() });
+            core.send(Event::PageTitleSave {
+                dir_path: edit_dir.get_untracked(),
+                file_name: edit_name.get_untracked(),
+            });
         }
     };
     let on_title_key = {
-        let save = save.clone();
         move |ev: web_sys::KeyboardEvent| {
             if dom::is_ime_composing(&ev) {
                 return;
@@ -152,10 +167,13 @@ fn DocPage() -> impl IntoView {
         }
     };
     let on_focus_out = {
-        let save = save.clone();
         move |ev: web_sys::FocusEvent| {
-            let row = ev.current_target().and_then(|t| t.dyn_into::<web_sys::Node>().ok());
-            let next = ev.related_target().and_then(|t| t.dyn_into::<web_sys::Node>().ok());
+            let row = ev
+                .current_target()
+                .and_then(|t| t.dyn_into::<web_sys::Node>().ok());
+            let next = ev
+                .related_target()
+                .and_then(|t| t.dyn_into::<web_sys::Node>().ok());
             let stays = match (&row, &next) {
                 (Some(row), Some(next)) => row.contains(Some(next)),
                 _ => false,
@@ -171,9 +189,7 @@ fn DocPage() -> impl IntoView {
             {move || page.get().map(|p| {
                 let p2 = p.clone();
                 let start = start_edit;
-                                let on_title_key = on_title_key.clone();
-                let on_title_key2 = on_title_key.clone();
-                let on_focus_out = on_focus_out.clone();
+                let on_title_key2 = on_title_key;
                 view! {
                     <div class="page-header" class:scrolled=scrolled>
                         <Show when=move || editing.get() fallback={
@@ -204,7 +220,7 @@ fn DocPage() -> impl IntoView {
                                         <div class="index-label">
                                             "index "
                                             <Show when={ let can = p.can_demote; move || can }>
-                                                <button class="demote-btn" on:click={ let core = core; move |_| core.send(Event::DemoteIndex) }>
+                                                <button class="demote-btn" on:click=move |_| core.send(Event::DemoteIndex)>
                                                     {format!("ページ名を {demote} に変更する")}
                                                 </button>
                                             </Show>
@@ -220,14 +236,14 @@ fn DocPage() -> impl IntoView {
                                 view! { {breadcrumb} {title} }
                             }
                         }>
-                            <div class="edit-row" on:focusout=on_focus_out.clone()>
+                            <div class="edit-row" on:focusout=on_focus_out>
                                 <Show when={ let has = !p.page.dir_path.is_empty(); move || has }>
                                     <input node_ref=dir_input class="edit-dir-path" prop:value=move || edit_dir.get()
-                                        on:input=move |ev| edit_dir.set(event_target_value(&ev)) on:keydown=on_title_key.clone() />
+                                        on:input=move |ev| edit_dir.set(event_target_value(&ev)) on:keydown=on_title_key />
                                     <span class="edit-slash">"/"</span>
                                 </Show>
                                 <input node_ref=name_input class="edit-file-name" prop:value=move || edit_name.get() prop:disabled=p.is_index
-                                    on:input=move |ev| edit_name.set(event_target_value(&ev)) on:keydown=on_title_key2.clone() />
+                                    on:input=move |ev| edit_name.set(event_target_value(&ev)) on:keydown=on_title_key2 />
                             </div>
                         </Show>
                     </div>

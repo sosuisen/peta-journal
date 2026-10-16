@@ -6,18 +6,26 @@ use crate::app::{apply, done, log_error, run, Cmd, Model};
 use crate::model::{Item, ItemPosition, ItemRef};
 use crate::ops::file_reload;
 use crate::outline::tree::{
-    can_indent, get_subtree, index_of, last_descendant_outside, parent_index_of, transclusion_context_of,
+    can_indent, get_subtree, index_of, last_descendant_outside, parent_index_of,
+    transclusion_context_of,
 };
 use std::collections::HashSet;
 
 /// Indents an item and its children by one level, when the item above allows it.
 pub fn indent(model: &mut Model, item_id: &str) -> Cmd {
-    let Some(item) = model.current_item(item_id) else { return done() };
-    let items = if model.state.is_own_item(&item.id) { model.state.items() } else { model.state.visible_items() };
+    let Some(item) = model.current_item(item_id) else {
+        return done();
+    };
+    let items = if model.state.is_own_item(&item.id) {
+        model.state.items()
+    } else {
+        model.state.visible_items()
+    };
     if !can_indent(items, &item.id) {
         return done();
     }
-    let t_ctx = transclusion_context_of(&item, model.state.items(), model.state.transcluded_trees());
+    let t_ctx =
+        transclusion_context_of(&item, model.state.items(), model.state.transcluded_trees());
     if let Some(t_ctx) = t_ctx {
         let group = get_subtree(model.state.visible_items(), &item.id);
         return shift_levels(model, &group, 1, "indent", t_ctx.level_offset);
@@ -35,11 +43,14 @@ pub fn indent(model: &mut Model, item_id: &str) -> Cmd {
 ///   - logical outdent off: outdent in place. Siblings below do not move but their
 ///     parent effectively changes to the outdented item.
 pub fn outdent(model: &mut Model, item_id: &str) -> Cmd {
-    let Some(item) = model.current_item(item_id) else { return done() };
+    let Some(item) = model.current_item(item_id) else {
+        return done();
+    };
     if item.level <= 1 {
         return done();
     }
-    let t_ctx = transclusion_context_of(&item, model.state.items(), model.state.transcluded_trees());
+    let t_ctx =
+        transclusion_context_of(&item, model.state.items(), model.state.transcluded_trees());
     if let Some(t_ctx) = &t_ctx {
         // Can't go to the same level as the transclusion root or above it
         if item.level <= t_ctx.root_display_level + 1 {
@@ -52,9 +63,17 @@ pub fn outdent(model: &mut Model, item_id: &str) -> Cmd {
     }
 
     let items = model.state.items();
-    let Some(idx) = index_of(items, &item.id) else { return done() };
-    let prev_level = if idx > 0 { Some(items[idx - 1].level) } else { None };
-    let Some(parent_idx) = parent_index_of(items, idx) else { return done() };
+    let Some(idx) = index_of(items, &item.id) else {
+        return done();
+    };
+    let prev_level = if idx > 0 {
+        Some(items[idx - 1].level)
+    } else {
+        None
+    };
+    let Some(parent_idx) = parent_index_of(items, idx) else {
+        return done();
+    };
     let parent: Item = (*items[parent_idx]).clone();
     let group = model.state.get_item_with_children(&item.id);
     let needs_move = prev_level != Some(item.level - 1);
@@ -83,7 +102,10 @@ fn outdent_below_parent(model: &mut Model, item: &Item, group: Vec<ItemRef>, par
         }
         if last_child_id != parent.id {
             let position = ItemPosition::after(last_child_id.clone());
-            match api.move_items(group_ids.clone(), &page_id, position.clone(), None).await {
+            match api
+                .move_items(group_ids.clone(), &page_id, position.clone(), None)
+                .await
+            {
                 Ok(moved) => apply(&api, "logical outdent: moved", move |m| {
                     m.state.replace_items(&group_ids, moved.clone(), &position);
                     m.undo.begin("outdent", None);
@@ -112,13 +134,21 @@ fn outdent_below_parent(model: &mut Model, item: &Item, group: Vec<ItemRef>, par
 
 /// Changes the level of a group of items on screen, records the change for undo and saves it.
 /// `level_offset` is shown level minus stored level, for items inside a transclusion.
-pub fn shift_levels(model: &mut Model, group: &[ItemRef], delta: i32, label: &str, level_offset: i32) -> Cmd {
+pub fn shift_levels(
+    model: &mut Model,
+    group: &[ItemRef],
+    delta: i32,
+    label: &str,
+    level_offset: i32,
+) -> Cmd {
     model.undo.begin(label, None);
     for b in group {
         let mut after = (**b).clone();
         after.level += delta;
         model.undo.push_update(b, &after);
-        model.state.update_item(&b.id, |i| i.level = b.level - level_offset + delta);
+        model
+            .state
+            .update_item(&b.id, |i| i.level = b.level - level_offset + delta);
     }
     model.undo.commit(None, model.clock_ms);
     save_level_shift(group, delta)
@@ -138,7 +168,10 @@ fn save_level_shift(group: &[ItemRef], delta: i32) -> Cmd {
         if let Err(e) = api.shift_item_levels(ids, delta).await {
             log_error(format!("Failed to change item levels: {e}"));
             apply(&api, "level shift failed: reload", move |m| {
-                let cmds: Vec<Cmd> = page_ids.iter().map(|p| file_reload::reload_page(m, p)).collect();
+                let cmds: Vec<Cmd> = page_ids
+                    .iter()
+                    .map(|p| file_reload::reload_page(m, p))
+                    .collect();
                 crux_core::Command::all(cmds)
             });
         }

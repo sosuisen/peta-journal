@@ -54,6 +54,10 @@ pub fn connect(handle: CoreHandle, request: Request<SseOp>) {
     source.set_onopen(Some(on_open.as_ref().unchecked_ref()));
     source.set_onmessage(Some(on_message.as_ref().unchecked_ref()));
     source.set_onerror(Some(on_error.as_ref().unchecked_ref()));
-    *handle.inner().sse.borrow_mut() =
-        Some(Connection { source, _on_open: on_open, _on_message: on_message, _on_error: on_error });
+    *handle.inner().sse.borrow_mut() = Some(Connection {
+        source,
+        _on_open: on_open,
+        _on_message: on_message,
+        _on_error: on_error,
+    });
 }

@@ -40,7 +40,12 @@ pub async fn replace_page(api: &Api<Event>, page_id: &str) {
                 }
                 next.extend(result.items.into_iter().map(std::sync::Arc::new));
                 if let Some(first) = first {
-                    next.extend(items[first..].iter().filter(|i| i.page_id != page_id).cloned());
+                    next.extend(
+                        items[first..]
+                            .iter()
+                            .filter(|i| i.page_id != page_id)
+                            .cloned(),
+                    );
                 }
                 m.state.set_item_refs(next);
                 if let Some(trees) = result.transcluded_trees {
@@ -64,7 +69,10 @@ pub async fn reload_shown_page(api: &Api<Event>) {
 /// Once editing stops with pages waiting, gives the auto-save a moment and then reloads them.
 /// Called after every event.
 pub fn schedule_pending_flush(model: &mut Model) -> Cmd {
-    if model.file_reload_pending.is_empty() || model.file_reload_scheduled || is_edit_in_progress(model) {
+    if model.file_reload_pending.is_empty()
+        || model.file_reload_scheduled
+        || is_edit_in_progress(model)
+    {
         return done();
     }
     model.file_reload_scheduled = true;

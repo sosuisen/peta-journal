@@ -78,7 +78,10 @@ pub enum JournalNav {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Route {
     /// `/pages/<name>`, `/docs/<name>`, `/journals/<name>` or `/today` (name `today`).
-    Page { name: String, fragment: Option<String> },
+    Page {
+        name: String,
+        fragment: Option<String>,
+    },
     Settings,
 }
 
@@ -87,69 +90,159 @@ pub enum Event {
     /// The shell is up: connect, load the settings and the sidebar.
     Start,
     /// The URL changed; `today` is the local date as `YYYY-MM-DD`.
-    Route { route: Route, today: String },
+    Route {
+        route: Route,
+        today: String,
+    },
     Continue(Thunk),
 
     // ---- the outline ----
-    EditRequested { item_id: String, cursor: usize },
-    BodyChanged { item_id: String, body: String, now_ms: u64 },
-    EditFinished { item_id: String },
-    EnterPressed { item_id: String, cursor: usize, now_ms: u64 },
-    BackspaceAtStart { item_id: String },
-    DeleteAtEnd { item_id: String },
-    NavigateUp { item_id: String, cursor: usize },
-    NavigateDown { item_id: String, cursor: usize },
-    Indent { item_id: String },
-    Outdent { item_id: String },
-    MoveUp { item_id: String },
-    MoveDown { item_id: String },
-    TaskCycle { item_id: String },
-    CollapseToggle { item_id: String },
+    EditRequested {
+        item_id: String,
+        cursor: usize,
+    },
+    BodyChanged {
+        item_id: String,
+        body: String,
+        now_ms: u64,
+    },
+    EditFinished {
+        item_id: String,
+    },
+    EnterPressed {
+        item_id: String,
+        cursor: usize,
+        now_ms: u64,
+    },
+    BackspaceAtStart {
+        item_id: String,
+    },
+    DeleteAtEnd {
+        item_id: String,
+    },
+    NavigateUp {
+        item_id: String,
+        cursor: usize,
+    },
+    NavigateDown {
+        item_id: String,
+        cursor: usize,
+    },
+    Indent {
+        item_id: String,
+    },
+    Outdent {
+        item_id: String,
+    },
+    MoveUp {
+        item_id: String,
+    },
+    MoveDown {
+        item_id: String,
+    },
+    TaskCycle {
+        item_id: String,
+    },
+    CollapseToggle {
+        item_id: String,
+    },
     /// Shift+Wheel: a tenth more or less zoom.
-    ZoomStep { item_id: String, up: bool },
-    ResetZoom { item_id: String },
-    PasteText { item_id: String, text: String, html: String, cursor: usize },
-    PasteImage { item_id: String, file: u64, cursor: usize },
-    DragBeyondBounds { item_id: String },
-    ItemMouseEnter { item_id: String },
+    ZoomStep {
+        item_id: String,
+        up: bool,
+    },
+    ResetZoom {
+        item_id: String,
+    },
+    PasteText {
+        item_id: String,
+        text: String,
+        html: String,
+        cursor: usize,
+    },
+    PasteImage {
+        item_id: String,
+        file: u64,
+        cursor: usize,
+    },
+    DragBeyondBounds {
+        item_id: String,
+    },
+    ItemMouseEnter {
+        item_id: String,
+    },
     /// The mouse button was released during a drag selection.
     SelectionMouseUp,
     /// Typing inside `[[ ]]`; None closes the popup.
-    WikiQuery { item_id: String, context: Option<WikiLinkContext> },
+    WikiQuery {
+        item_id: String,
+        context: Option<WikiLinkContext>,
+    },
     /// ArrowUp, ArrowDown or Enter while the popup is open.
-    WikiKey { key: String },
-    WikiPick { title: String },
-    OpenWikiLink { text: String },
-    ShiftSelect { item_id: String },
+    WikiKey {
+        key: String,
+    },
+    WikiPick {
+        title: String,
+    },
+    OpenWikiLink {
+        text: String,
+    },
+    ShiftSelect {
+        item_id: String,
+    },
     Undo,
     Redo,
-    PasteAsTransclusion { item_id: String },
-    RemoveTransclusion { item_id: String },
-    SendToArchive { item_id: String },
+    PasteAsTransclusion {
+        item_id: String,
+    },
+    RemoveTransclusion {
+        item_id: String,
+    },
+    SendToArchive {
+        item_id: String,
+    },
     /// A key pressed while the relay holds keys for the next editor.
     KeyHeld(DeferredKey),
     SelectionKey(SelectionKey),
     SelectionClickOutside,
-    OutlineScrolled { scrolled_from_top: bool, top_visible_index: usize, rendered_start: usize, rendered_end: usize },
-    ScrollToItemRequested { item_id: String },
+    OutlineScrolled {
+        scrolled_from_top: bool,
+        top_visible_index: usize,
+        rendered_start: usize,
+        rendered_end: usize,
+    },
+    ScrollToItemRequested {
+        item_id: String,
+    },
 
     // ---- pages and layout ----
-    PageTitleSave { dir_path: String, file_name: String },
+    PageTitleSave {
+        dir_path: String,
+        file_name: String,
+    },
     DemoteIndex,
     /// The "+" button; the search box text is used as the title when present.
-    CreateNewPage { search_query: String },
+    CreateNewPage {
+        search_query: String,
+    },
     DeleteCurrentPage,
     NavigateToToday,
     NavigateToRoot,
     /// Opens a page by its path, from the sidebar, the calendar or a link.
-    GoToPage { path: String, new_tab: bool, new_window: bool },
+    GoToPage {
+        path: String,
+        new_tab: bool,
+        new_window: bool,
+    },
     JournalNav(JournalNav),
-    ToggleSidebarSection { section: String },
 
     // ---- search ----
     SearchQueryChanged(String),
     SearchKey(SearchKey),
-    SearchResultClicked { index: usize },
+    SearchResultClicked {
+        index: usize,
+    },
     SearchCreateClicked,
     SearchDropdown(bool),
 
@@ -168,7 +261,9 @@ pub enum Event {
         level: i32,
         body: String,
     },
-    LaunchUrl { url: String },
+    LaunchUrl {
+        url: String,
+    },
 
     // ---- from the shell's streams ----
     Sse(SseEvent),
@@ -176,11 +271,18 @@ pub enum Event {
 
 /// Builds a continuation event.
 pub fn cont(label: &'static str, run: impl FnOnce(&mut Model) -> Cmd + Send + 'static) -> Event {
-    Event::Continue(Thunk { label, run: Box::new(run) })
+    Event::Continue(Thunk {
+        label,
+        run: Box::new(run),
+    })
 }
 
 /// Sends a continuation from inside an async command.
-pub fn apply(api: &Api<Event>, label: &'static str, run: impl FnOnce(&mut Model) -> Cmd + Send + 'static) {
+pub fn apply(
+    api: &Api<Event>,
+    label: &'static str,
+    run: impl FnOnce(&mut Model) -> Cmd + Send + 'static,
+) {
     api.send_event(cont(label, run));
 }
 
@@ -317,7 +419,6 @@ pub struct ConfigState {
 pub struct SidebarState {
     pub index_header: String,
     pub index_pages: Vec<Page>,
-    pub collapsed_sections: HashSet<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -411,7 +512,9 @@ impl Model {
     /// The item as the state has it now, as shown. Handlers that read the body or level
     /// start from this, because what the shell rendered lags behind fast typing.
     pub fn current_item(&self, item_id: &str) -> Option<ItemRef> {
-        self.state.get_visible_item(item_id).or_else(|| self.state.get_item_by_id(item_id))
+        self.state
+            .get_visible_item(item_id)
+            .or_else(|| self.state.get_item_by_id(item_id))
     }
 
     /// A fresh HMTID for an item created on the client.
@@ -449,20 +552,34 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         Route { route, today } => screens::route::route(model, route, today),
         Continue(thunk) => (thunk.run)(model),
 
-        EditRequested { item_id, cursor } => ops::outline_events::edit_requested(model, &item_id, cursor),
-        BodyChanged { item_id, body, now_ms } => {
+        EditRequested { item_id, cursor } => {
+            ops::outline_events::edit_requested(model, &item_id, cursor)
+        }
+        BodyChanged {
+            item_id,
+            body,
+            now_ms,
+        } => {
             model.clock_ms = now_ms;
             ops::outline_events::body_changed(model, &item_id, body)
         }
         EditFinished { item_id } => ops::edit::finish_edit(model, &item_id),
-        EnterPressed { item_id, cursor, now_ms } => {
+        EnterPressed {
+            item_id,
+            cursor,
+            now_ms,
+        } => {
             model.clock_ms = now_ms;
             ops::split::handle_enter(model, &item_id, cursor)
         }
         BackspaceAtStart { item_id } => ops::merge::merge_into_previous(model, &item_id),
         DeleteAtEnd { item_id } => ops::merge::merge_next_into(model, &item_id),
-        NavigateUp { item_id, cursor } => ops::outline_events::navigate(model, &item_id, cursor, -1),
-        NavigateDown { item_id, cursor } => ops::outline_events::navigate(model, &item_id, cursor, 1),
+        NavigateUp { item_id, cursor } => {
+            ops::outline_events::navigate(model, &item_id, cursor, -1)
+        }
+        NavigateDown { item_id, cursor } => {
+            ops::outline_events::navigate(model, &item_id, cursor, 1)
+        }
         Indent { item_id } => ops::level::indent(model, &item_id),
         Outdent { item_id } => ops::level::outdent(model, &item_id),
         MoveUp { item_id } => ops::moves::enqueue_move(model, &item_id, MoveDirection::Up),
@@ -471,8 +588,17 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         CollapseToggle { item_id } => ops::action::toggle_collapsed(model, &item_id),
         ZoomStep { item_id, up } => ops::action::zoom_step(model, &item_id, up),
         ResetZoom { item_id } => ops::action::set_zoom(model, &item_id, 1.0),
-        PasteText { item_id, text, html, cursor } => ops::paste::paste_text(model, &item_id, text, html, cursor),
-        PasteImage { item_id, file, cursor } => ops::paste::paste_image(model, &item_id, file, cursor),
+        PasteText {
+            item_id,
+            text,
+            html,
+            cursor,
+        } => ops::paste::paste_text(model, &item_id, text, html, cursor),
+        PasteImage {
+            item_id,
+            file,
+            cursor,
+        } => ops::paste::paste_image(model, &item_id, file, cursor),
         DragBeyondBounds { item_id } => {
             model.selection.start_drag(&mut model.state, &item_id);
             done()
@@ -490,7 +616,9 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         WikiPick { title } => ops::wiki::pick(model, &title),
         OpenWikiLink { text } => screens::navigate::to_page(&text, false, false, false, None),
         ShiftSelect { item_id } => {
-            model.selection.start_from_editor(&mut model.state, &item_id);
+            model
+                .selection
+                .start_from_editor(&mut model.state, &item_id);
             done()
         }
         Undo => ops::undo_replay::perform(model, ops::undo_replay::Direction::Undo),
@@ -509,27 +637,45 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             }
             done()
         }
-        OutlineScrolled { scrolled_from_top, top_visible_index, rendered_start, rendered_end } => {
-            screens::journal::outline_scrolled(model, scrolled_from_top, top_visible_index, rendered_start, rendered_end)
-        }
+        OutlineScrolled {
+            scrolled_from_top,
+            top_visible_index,
+            rendered_start,
+            rendered_end,
+        } => screens::journal::outline_scrolled(
+            model,
+            scrolled_from_top,
+            top_visible_index,
+            rendered_start,
+            rendered_end,
+        ),
         ScrollToItemRequested { item_id } => {
-            Command::notify_shell(crate::effects::UiOp::ScrollToItem { item_id, smooth: true }).into()
+            Command::notify_shell(crate::effects::UiOp::ScrollToItem {
+                item_id,
+                smooth: true,
+            })
+            .into()
         }
 
-        PageTitleSave { dir_path, file_name } => screens::page::save_title(model, dir_path, file_name),
+        PageTitleSave {
+            dir_path,
+            file_name,
+        } => screens::page::save_title(model, dir_path, file_name),
         DemoteIndex => screens::page::demote_index(model),
         CreateNewPage { search_query } => screens::layout::create_new_page(model, search_query),
         DeleteCurrentPage => screens::layout::delete_current_page(model),
-        NavigateToToday => Command::notify_shell(crate::effects::NavigateOp { url: "/today".into(), replace: false }).into(),
+        NavigateToToday => Command::notify_shell(crate::effects::NavigateOp {
+            url: "/today".into(),
+            replace: false,
+        })
+        .into(),
         NavigateToRoot => screens::navigate::to_page("index", false, false, false, None),
-        GoToPage { path, new_tab, new_window } => screens::navigate::to_page(&path, new_tab, new_window, false, None),
+        GoToPage {
+            path,
+            new_tab,
+            new_window,
+        } => screens::navigate::to_page(&path, new_tab, new_window, false, None),
         JournalNav(nav) => screens::journal::nav(model, nav),
-        ToggleSidebarSection { section } => {
-            if !model.sidebar.collapsed_sections.remove(&section) {
-                model.sidebar.collapsed_sections.insert(section);
-            }
-            done()
-        }
 
         SearchQueryChanged(q) => screens::search::query_changed(model, q),
         SearchKey(key) => screens::search::key(model, key),
@@ -544,9 +690,24 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         SetLogicalOutdent(value) => screens::settings::set_logical_outdent(model, value),
         BrowseFolder => screens::settings::browse_folder(model),
 
-        ExtensionCreateItem { source, request_id, page_id, position, after_item_id, level, body } => {
-            screens::extensions::create_item(model, source, request_id, page_id, position, after_item_id, level, body)
-        }
+        ExtensionCreateItem {
+            source,
+            request_id,
+            page_id,
+            position,
+            after_item_id,
+            level,
+            body,
+        } => screens::extensions::create_item(
+            model,
+            source,
+            request_id,
+            page_id,
+            position,
+            after_item_id,
+            level,
+            body,
+        ),
         LaunchUrl { url } => run(move |api| async move {
             if !api.launch_url(&url).await.unwrap_or(false) {
                 log_error(format!("Failed to launch app with URL: {url}"));

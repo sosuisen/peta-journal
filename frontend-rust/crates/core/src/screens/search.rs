@@ -33,8 +33,12 @@ pub fn query_changed(model: &mut Model, value: String) -> Cmd {
                 }
                 let (items, pages): (Vec<SearchResult>, Vec<SearchResult>) =
                     results.into_iter().partition(|r| !r.item_id.is_empty());
-                let has_tag_terms = value.split_whitespace().any(|t| t.starts_with('#') && t.len() > 1);
-                let exact = pages.iter().any(|r| r.page_title.to_lowercase() == value.to_lowercase());
+                let has_tag_terms = value
+                    .split_whitespace()
+                    .any(|t| t.starts_with('#') && t.len() > 1);
+                let exact = pages
+                    .iter()
+                    .any(|r| r.page_title.to_lowercase() == value.to_lowercase());
                 m.search.page_results = pages;
                 m.search.item_results = items;
                 m.search.selected_index = None;
@@ -62,7 +66,8 @@ pub fn has_create(model: &Model) -> bool {
 
 pub fn key(model: &mut Model, key: SearchKey) -> Cmd {
     let has_create = has_create(model);
-    let total = model.search.page_results.len() + usize::from(has_create) + model.search.item_results.len();
+    let total =
+        model.search.page_results.len() + usize::from(has_create) + model.search.item_results.len();
     match key {
         SearchKey::Down => {
             if total > 0 {
@@ -115,7 +120,10 @@ pub fn result_clicked(model: &mut Model, index: usize) -> Cmd {
 fn navigate_to_result(model: &mut Model, result: &SearchResult) -> Cmd {
     let clear = clear(model);
     let fragment = (!result.item_id.is_empty()).then_some(result.item_id.as_str());
-    Command::all([clear, navigate::to_page(&result.page_title, false, false, false, fragment)])
+    Command::all([
+        clear,
+        navigate::to_page(&result.page_title, false, false, false, fragment),
+    ])
 }
 
 /// Empties the query, drops the results and closes the dropdown.
@@ -134,7 +142,11 @@ pub fn create_page(model: &mut Model) -> Cmd {
     let title = model.search.query.trim().to_string();
     let clear = clear(model);
     let go = run(move |api| async move {
-        let title = if title.is_empty() { generate_untitled_title(api.local_now().await.0) } else { title };
+        let title = if title.is_empty() {
+            generate_untitled_title(api.local_now().await.0)
+        } else {
+            title
+        };
         if classify_journal_file_name(&title) == JournalType::None {
             let stripped = title.strip_suffix(".md").unwrap_or(&title);
             let file_name = stripped.rsplit('/').next().unwrap_or(stripped);
@@ -143,7 +155,9 @@ pub fn create_page(model: &mut Model) -> Cmd {
                 return;
             }
         }
-        apply(&api, "search: create page", move |_| navigate::to_page(&title, false, false, false, None));
+        apply(&api, "search: create page", move |_| {
+            navigate::to_page(&title, false, false, false, None)
+        });
     });
     Command::all([clear, go])
 }

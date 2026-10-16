@@ -15,8 +15,17 @@ use std::rc::Rc;
 use wasm_bindgen::JsCast;
 
 const CONFIG_KEY: &str = "peta-journal-config";
-const STANDARD_PROTOCOLS: [&str; 9] =
-    ["http://", "https://", "mailto:", "tel:", "sms:", "file:", "data:", "javascript:", "about:"];
+const STANDARD_PROTOCOLS: [&str; 9] = [
+    "http://",
+    "https://",
+    "mailto:",
+    "tel:",
+    "sms:",
+    "file:",
+    "data:",
+    "javascript:",
+    "about:",
+];
 
 fn load_sidebar_width() -> f64 {
     dom::local_storage_get(CONFIG_KEY)
@@ -35,7 +44,11 @@ fn save_sidebar_width(width: f64) {
 
 /// True for a link with a custom URL scheme (`peta-journal://...`), which the server opens.
 fn has_custom_protocol(href: &str) -> bool {
-    if href.starts_with('/') || href.starts_with("./") || href.starts_with("../") || href.starts_with('#') {
+    if href.starts_with('/')
+        || href.starts_with("./")
+        || href.starts_with("../")
+        || href.starts_with('#')
+    {
         return false;
     }
     let lower = href.to_lowercase();
@@ -52,7 +65,8 @@ pub fn MainLayout() -> impl IntoView {
     let sidebar_collapsed = RwSignal::new(false);
     let page_menu_open = RwSignal::new(false);
     let sidebar_width = RwSignal::new(load_sidebar_width());
-    let resize_listeners: SendWrapper<Rc<RefCell<Vec<EventListener>>>> = SendWrapper::new(Rc::new(RefCell::new(Vec::new())));
+    let resize_listeners: SendWrapper<Rc<RefCell<Vec<EventListener>>>> =
+        SendWrapper::new(Rc::new(RefCell::new(Vec::new())));
 
     let connection = move || vm.with(|v| v.connection.as_str());
     let focused_item = move || vm.with(|v| v.outline.focused_item_id.clone());
@@ -60,7 +74,7 @@ pub fn MainLayout() -> impl IntoView {
 
     // Ctrl+/ or a bare / focuses the search box; custom URL schemes go to the launcher
     {
-                let document = dom::document();
+        let document = dom::document();
         let key_listener = EventListener::new_with_options(
             &document,
             "keydown",
@@ -70,7 +84,9 @@ pub fn MainLayout() -> impl IntoView {
                 if ev.key() != "/" {
                     return;
                 }
-                let is_editing = core.view().with_untracked(|v| v.outline.focused_item_id.is_some());
+                let is_editing = core
+                    .view()
+                    .with_untracked(|v| v.outline.focused_item_id.is_some());
                 let focus = || {
                     if let Some(SearchInput(input)) = use_context::<SearchInput>() {
                         if let Some(el) = input.get_untracked() {
@@ -95,14 +111,26 @@ pub fn MainLayout() -> impl IntoView {
                 }
             },
         );
-                let click_listener = EventListener::new_with_options(
+        let click_listener = EventListener::new_with_options(
             &document,
             "click",
-            gloo_events::EventListenerOptions { phase: gloo_events::EventListenerPhase::Capture, passive: false },
+            gloo_events::EventListenerOptions {
+                phase: gloo_events::EventListenerPhase::Capture,
+                passive: false,
+            },
             move |ev| {
-                let Some(target) = ev.target().and_then(|t| t.dyn_into::<web_sys::Element>().ok()) else { return };
-                let Some(anchor) = target.closest("a").ok().flatten() else { return };
-                let Some(href) = anchor.get_attribute("href") else { return };
+                let Some(target) = ev
+                    .target()
+                    .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
+                else {
+                    return;
+                };
+                let Some(anchor) = target.closest("a").ok().flatten() else {
+                    return;
+                };
+                let Some(href) = anchor.get_attribute("href") else {
+                    return;
+                };
                 if !has_custom_protocol(&href) {
                     return;
                 }
@@ -155,7 +183,7 @@ pub fn MainLayout() -> impl IntoView {
             <header class="header">
                 <div class="header-left">
                     <button class="menu-btn" on:click=move |_| sidebar_collapsed.update(|c| *c = !*c)>"☰"</button>
-                    <button class="journal-btn" title="Today" on:click={ let core = core; move |_| core.send(Event::NavigateToToday) }>
+                    <button class="journal-btn" title="Today" on:click=move |_| core.send(Event::NavigateToToday)>
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <rect x="3" y="1" width="16" height="20" rx="1.5" ry="1.5"/>
                             <line x1="3" y1="13" x2="19" y2="13" stroke="#666" stroke-width="1"/>
@@ -164,25 +192,25 @@ pub fn MainLayout() -> impl IntoView {
                             <rect x="5" y="21" width="3" height="2" fill="#666" stroke="none"/>
                         </svg>
                     </button>
-                    <button class="root-btn" title="Root" on:click={ let core = core; move |_| core.send(Event::NavigateToRoot) }>
+                    <button class="root-btn" title="Root" on:click=move |_| core.send(Event::NavigateToRoot)>
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z"/>
                         </svg>
                     </button>
                 </div>
                 <div class="header-center">
-                    <button class="new-page-btn" title="New page" on:click={ let core = core; move |_| core.send(Event::CreateNewPage { search_query: search_query() }) }>"+"</button>
+                    <button class="new-page-btn" title="New page" on:click=move |_| core.send(Event::CreateNewPage { search_query: search_query() })>"+"</button>
                     <SearchBar />
                 </div>
                 <div class="header-right">
-                    <button class="menu-btn home-btn" title="Home" on:click={ let core = core; move |_| core.send(Event::NavigateToToday) }>
+                    <button class="menu-btn home-btn" title="Home" on:click=move |_| core.send(Event::NavigateToToday)>
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
                     </button>
                     <div class="page-menu">
                         <button class="page-menu-btn" on:click=move |_| page_menu_open.update(|o| *o = !*o)>"⋮"</button>
                         <Show when=move || page_menu_open.get()>
                             <div class="page-menu-dropdown" on:click=move |_| page_menu_open.set(false)>
-                                <button class="page-menu-item" on:click={ let core = core; move |_| core.send(Event::DeleteCurrentPage) }>"Delete page"</button>
+                                <button class="page-menu-item" on:click=move |_| core.send(Event::DeleteCurrentPage)>"Delete page"</button>
                             </div>
                         </Show>
                     </div>

@@ -11,7 +11,11 @@ use crux_core::Command;
 /// otherwise asks for a title; an empty title becomes a timestamp-based one.
 pub fn create_new_page(model: &mut Model, search_query: String) -> Cmd {
     let query = search_query.trim().to_string();
-    let clear = if query.is_empty() { done() } else { search::clear(model) };
+    let clear = if query.is_empty() {
+        done()
+    } else {
+        search::clear(model)
+    };
     let open = run(move |api| async move {
         let title = if query.is_empty() {
             match api.prompt("Page title:").await {
@@ -31,7 +35,9 @@ pub fn create_new_page(model: &mut Model, search_query: String) -> Cmd {
                 return;
             }
         }
-        apply(&api, "new page", move |_| navigate::to_page(&title, false, false, false, None));
+        apply(&api, "new page", move |_| {
+            navigate::to_page(&title, false, false, false, None)
+        });
     });
     Command::all([clear, open])
 }
@@ -39,7 +45,9 @@ pub fn create_new_page(model: &mut Model, search_query: String) -> Cmd {
 /// The name in the URL of the shown page; None on the settings screen or `today`.
 fn shown_file_name(model: &Model) -> Option<String> {
     match &model.screen {
-        Screen::Journal(j) if j.page_name != "today" && !j.page_name.is_empty() => Some(j.page_name.clone()),
+        Screen::Journal(j) if j.page_name != "today" && !j.page_name.is_empty() => {
+            Some(j.page_name.clone())
+        }
         Screen::Page(p) => Some(p.page_name.clone()),
         _ => None,
     }
@@ -47,7 +55,9 @@ fn shown_file_name(model: &Model) -> Option<String> {
 
 /// Deletes the shown page after confirmation, then goes to today's journal.
 pub fn delete_current_page(model: &mut Model) -> Cmd {
-    let Some(file_name) = shown_file_name(model) else { return done() };
+    let Some(file_name) = shown_file_name(model) else {
+        return done();
+    };
     run(move |api| async move {
         if !api.confirm(&format!("Delete \"{file_name}\"?")).await {
             return;
@@ -63,11 +73,18 @@ pub fn delete_current_page(model: &mut Model) -> Cmd {
             Err(e) => return api.notify(UiOp::Alert(e.0)),
         };
         if let Err(e) = api.delete_page(&page.id).await {
-            api.notify(UiOp::Alert(if e.0.is_empty() { "Failed to delete page".into() } else { e.0 }));
+            api.notify(UiOp::Alert(if e.0.is_empty() {
+                "Failed to delete page".into()
+            } else {
+                e.0
+            }));
             return;
         }
         apply(&api, "page deleted", |_| {
-            Command::all([sidebar::refresh_recent_pages(), navigate::to_url("/today", false)])
+            Command::all([
+                sidebar::refresh_recent_pages(),
+                navigate::to_url("/today", false),
+            ])
         });
     })
 }

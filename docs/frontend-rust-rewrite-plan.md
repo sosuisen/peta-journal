@@ -4,9 +4,44 @@
 
 結論から言うと、書き換えは可能である。Angular 側はサービス層が DOM に触らず、`ApiService` と `OutlineView` インターフェースを引数で受け取る設計になっているため、Crux の「副作用のないコア + 薄いシェル」にほぼ 1 対 1 で移せる。ただし、Rust 側に代替がなく自作になるものが 2 つある。Angular CDK の可変高さ仮想スクロールと、Flat Markdown AST のレンダラー(`flatmarkdown-ast2angular`)である。
 
-## 0. 進捗
+## 0. 進捗(2026-10-16 時点)
 
-(実装の進み具合はこの章に追記する。)
+移植は `frontend-rust/` に完了している。フェーズ 0〜5 はすべて実装済みで、次を確認した。
+
+| 確認したこと | 結果 |
+|---|---|
+| `cargo test`(コア 97 件 = vitest の spec を移植したもの、fm-ast 17 件、fm-leptos 13 件) | すべて通過 |
+| Playwright の E2E(`PETA_JOURNAL_FRONTEND=rust PETA_JOURNAL_SERVER=rust npm run e2e`、27 件。spec は無変更) | すべて通過 |
+| 同じ E2E を Angular 版に向けて実行(`PETA_JOURNAL_SERVER=rust npm run e2e`) | 26 件通過。「a selection that grows over a parent」は Angular 版でも 3 回に 1 回落ちる(元からのフレーク。Rust 版では通過) |
+| `cargo clippy --all-targets`(全 crate) | 警告なし |
+| `trunk build --release` の wasm | 1.9 MB(gzip 後 0.7 MB) |
+
+構成は 3 章のとおりで、crate 名は `fm-ast`、`fm-leptos`(レンダラーは `shell-leptos` から分けた)、`peta-core`、`peta-frontend`(shell-leptos)。ビルドと起動の手順は [BUILD.md](../BUILD.md) の「Rust frontend」を参照。
+
+### 実装で決めたこと
+
+- **API を待つ処理の書き方**: Angular のサービスは `await api...` の前後で状態を書き換える。Crux の `update` は同期なので、非同期コマンドの中からモデルに触るために `Event::Continue(Thunk)`(`FnOnce(&mut Model) -> Command` を運ぶイベント)を用意し、`apply(&api, "ラベル", |m| ...)` で送る。コアは次の `update` でそれを実行してから、続く effect をシェルに渡す。これで `item-split.service.ts` などの流れをほぼそのままの順序で移せた(`crates/core/src/app.rs` の冒頭に説明がある)。
+- **シェルからの読み取り**: 同じ仕組みで `read(&api, |m| ...)` が oneshot チャネルで値を返す。
+- **通知と要求の区別**: `Ui` の操作のうち `FocusEditor`、`ReadClipboardText`、`Confirm`、`Prompt`、`LocalNow` だけが答えを待つ要求で、残り(タイトル、スクロール、クリップボード書き込み、ダイアログ、拡張機能)と `Navigate` は `notify_shell` による通知。シェルは通知を resolve してはいけない(debug ビルドでは Crux が panic する)。
+- **フォーカスの扱い**: Angular の `pendingCursorPosition` は、ViewModel の `focus_request { seq, item_id, cursor, mouse_drag }` に置き換えた。エディタは自分宛ての未処理の seq を見てカーソルを置く。「次の描画後にフォーカスして保留キーを再生する」`focusEditor()` は `UiOp::FocusEditor` の要求で、シェルは `setTimeout(0)` 後に実行して resolve する。
+- **Leptos 側の描画**: ViewModel の行は id ごとの `RwSignal<Row>` に差分で流し込み(`RowStore`)、ウィンドウ内の行だけを `<For>` で描く。本文の編集/表示の切り替えは `Memo<(broken, editing)>` で判定する。行全体の変化で切り替えると、1 キーごとにエディタが作り直されてフォーカスが外れる。
+- **mousedown の既定動作**: 表示中の項目を押すと同じハンドラの中でエディタが現れてフォーカスを取るため、ブラウザ側の mousedown 既定動作(フォーカス移動)で外れてしまう。`preventDefault()` で止めている(Angular は描画が非同期だったので不要だった)。
+- **Send 境界**: Leptos 0.8 はクロージャに `Send + Sync` を要求する。コアは thread local に置き、`CoreHandle` は `Copy` の空の型にした。DOM のリスナーなど `Rc` を持つものは `send_wrapper::SendWrapper` で包む。
+- **カレンダーと localStorage**: サイドバー幅、折りたたみ状態、カレンダーの表示月はシェルだけの状態で、コアには入れていない。
+- **highlight.js**: npm の `highlight.js/lib/common` を esbuild で 1 本にまとめて `vendor/` に置いた(再生成手順は BUILD.md)。
+- **時刻**: コアは時計を持たない。`today` は `Route` イベントに、`now_ms` は `BodyChanged` / `EnterPressed` に乗せ、タイトル生成などは `UiOp::LocalNow` で聞く。
+
+### Angular 版との差
+
+- 画像(`![alt](url)`)は `<img>` として描く。Angular 版のレンダラーは Rust の flatmarkdown が出す `embed` ノードを扱わないため、何も表示していなかった。
+- `GET /api/functions` と `POST /api/launcher/open` は Angular 版と同じく `http://localhost:8087` 固定。E2E(8187)では接続拒否のログが出るが動作には影響しない。
+- 仮想スクロールは自作(`components/outline.rs`)。計測済みの高さと既定値 28px で上下の padding を決め、CDK と同じ 500px / 1000px のバッファで描く。E2E の「slow scrolling keeps a steady pace」は通過する。
+- `window.PETA_DEBUG = true` にすると、コアへ送るイベントがコンソールに出る。
+
+### 残っていること
+
+- wasm のサイズを小さくする余地がある(`wasm-opt` は trunk が `data-wasm-opt="z"` で実行済み。comrak が大きい)。
+- 拡張機能の iframe、画像の貼り付け、クリップボードへのリッチコピー、トランスクルージョンのメニューはコアのテストでは確認したが、ブラウザでは手で確かめていない。
 
 ## 1. ゴールと守ること
 

@@ -36,7 +36,9 @@ pub fn index_of(items: &[ItemRef], item_id: &str) -> Option<usize> {
 
 /// Gets an item and all its descendants from a flat ordered item list.
 pub fn get_subtree(items: &[ItemRef], item_id: &str) -> Vec<ItemRef> {
-    let Some(idx) = index_of(items, item_id) else { return Vec::new() };
+    let Some(idx) = index_of(items, item_id) else {
+        return Vec::new();
+    };
     let level = items[idx].level;
     let mut result = vec![items[idx].clone()];
     for b in &items[idx + 1..] {
@@ -52,7 +54,9 @@ pub fn get_subtree(items: &[ItemRef], item_id: &str) -> Vec<ItemRef> {
 
 /// True when a sibling at the same level follows the item within the same parent.
 pub fn has_sibling_below(items: &[ItemRef], item_id: &str) -> bool {
-    let Some(idx) = index_of(items, item_id) else { return false };
+    let Some(idx) = index_of(items, item_id) else {
+        return false;
+    };
     let level = items[idx].level;
     for b in &items[idx + 1..] {
         if b.level < level {
@@ -125,7 +129,9 @@ pub fn can_place(item_level: i32, prev_item: Option<&Item>) -> bool {
 /// Whether an item can be indented by one level: the item above must accept the new level,
 /// or a sibling at the item's current level must exist above it within the same parent.
 pub fn can_indent(items: &[ItemRef], item_id: &str) -> bool {
-    let Some(idx) = index_of(items, item_id) else { return false };
+    let Some(idx) = index_of(items, item_id) else {
+        return false;
+    };
     if idx == 0 {
         return false;
     }
@@ -154,7 +160,11 @@ pub fn parent_index_of(items: &[ItemRef], idx: usize) -> Option<usize> {
 /// The id of the last descendant of a parent that is not among the excluded ids,
 /// or the parent's own id when there is none. Used to place an outdented group
 /// after the parent's remaining children.
-pub fn last_descendant_outside(items: &[ItemRef], parent_id: &str, excluded: &HashSet<String>) -> String {
+pub fn last_descendant_outside(
+    items: &[ItemRef],
+    parent_id: &str,
+    excluded: &HashSet<String>,
+) -> String {
     let mut last_id = parent_id.to_string();
     for child in get_subtree(items, parent_id).iter().skip(1) {
         if !excluded.contains(&child.id) {
@@ -235,9 +245,17 @@ pub fn edit_context_of(
                     in_transclusion: true,
                 };
             }
-            return EditContext { page_id: item.page_id.clone(), level_offset: 0, in_transclusion: true };
+            return EditContext {
+                page_id: item.page_id.clone(),
+                level_offset: 0,
+                in_transclusion: true,
+            };
         }
-        return EditContext { page_id: item.page_id.clone(), level_offset: 0, in_transclusion: false };
+        return EditContext {
+            page_id: item.page_id.clone(),
+            level_offset: 0,
+            in_transclusion: false,
+        };
     }
     // Transcluded descendant: it already belongs to the source page
     let level_offset = trees
@@ -245,7 +263,11 @@ pub fn edit_context_of(
         .find_map(|tree| tree.iter().find(|t| t.id == item.id))
         .map(|found| item.level - found.level)
         .unwrap_or(0);
-    EditContext { page_id: item.page_id.clone(), level_offset, in_transclusion: true }
+    EditContext {
+        page_id: item.page_id.clone(),
+        level_offset,
+        in_transclusion: true,
+    }
 }
 
 /// The transclusion root an item belongs to, or None outside a transclusion.
@@ -272,7 +294,9 @@ pub fn transclusion_context_of(
         if tree.iter().any(|t| t.id == item.id) {
             if let (Some(source_root), Some(root)) = (
                 tree.first(),
-                own_items.iter().find(|b| b.transclude_item_id.as_deref() == Some(source_id)),
+                own_items
+                    .iter()
+                    .find(|b| b.transclude_item_id.as_deref() == Some(source_id)),
             ) {
                 return Some(TransclusionContext {
                     root_display_level: root.level,
@@ -287,7 +311,9 @@ pub fn transclusion_context_of(
 
 /// The visible descendants of a transclusion root, without the root itself.
 pub fn transclusion_scoped_items(visible: &[ItemRef], ctx: &TransclusionContext) -> Vec<ItemRef> {
-    let Some(root_idx) = index_of(visible, &ctx.root_item_id) else { return Vec::new() };
+    let Some(root_idx) = index_of(visible, &ctx.root_item_id) else {
+        return Vec::new();
+    };
     visible[root_idx + 1..]
         .iter()
         .take_while(|b| b.level > ctx.root_display_level)
@@ -330,7 +356,9 @@ pub fn find_move_down_target(items: &[ItemRef], item_id: &str) -> Option<ItemPos
     for candidate in &items[idx + 1..] {
         if candidate.level == level {
             let subtree = get_subtree(items, &candidate.id);
-            return subtree.last().map(|last| ItemPosition::after(last.id.clone()));
+            return subtree
+                .last()
+                .map(|last| ItemPosition::after(last.id.clone()));
         }
         if candidate.level == level - 1 {
             return Some(ItemPosition::after(candidate.id.clone()));
@@ -444,17 +472,32 @@ mod tests {
     #[test]
     fn move_targets() {
         let items = list(&[("a", 1), ("b", 2), ("c", 2), ("d", 1), ("e", 2)]);
-        assert_eq!(find_move_down_target(&items, "a"), Some(ItemPosition::after("e")));
-        assert_eq!(find_move_down_target(&items, "c"), Some(ItemPosition::after("d")));
+        assert_eq!(
+            find_move_down_target(&items, "a"),
+            Some(ItemPosition::after("e"))
+        );
+        assert_eq!(
+            find_move_down_target(&items, "c"),
+            Some(ItemPosition::after("d"))
+        );
         assert_eq!(find_move_up_target(&items, "d"), Some(ItemPosition::First));
-        assert_eq!(find_move_up_target(&items, "c"), Some(ItemPosition::after("a")));
+        assert_eq!(
+            find_move_up_target(&items, "c"),
+            Some(ItemPosition::after("a"))
+        );
         assert_eq!(find_move_up_target(&items, "b"), None);
-        assert_eq!(find_move_up_target(&items, "e"), Some(ItemPosition::after("c")));
+        assert_eq!(
+            find_move_up_target(&items, "e"),
+            Some(ItemPosition::after("c"))
+        );
         assert_eq!(
             find_cross_page_placement(&items, 2, ScanDirection::FromStart),
             Some(ItemPosition::after("a"))
         );
-        assert_eq!(find_cross_page_placement(&[], 2, ScanDirection::FromEnd), None);
+        assert_eq!(
+            find_cross_page_placement(&[], 2, ScanDirection::FromEnd),
+            None
+        );
     }
 
     #[test]

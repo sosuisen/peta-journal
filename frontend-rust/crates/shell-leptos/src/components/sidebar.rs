@@ -21,7 +21,7 @@ fn load_collapsed() -> HashSet<String> {
 #[component]
 fn SectionToggle(collapsed: Signal<bool>, on_toggle: Callback<()>) -> impl IntoView {
     view! {
-        <button class="collapse-btn" on:click=move |_| on_toggle.run(()) attr:aria-label=move || if collapsed.get() { "Expand" } else { "Collapse" }>
+        <button class="collapse-btn" on:click=move |_| on_toggle.run(()) aria-label=move || if collapsed.get() { "Expand" } else { "Collapse" }>
             <svg width="10" height="12" viewBox="0 0 10 12">
                 {move || if collapsed.get() {
                     view! {
@@ -45,7 +45,9 @@ pub fn Sidebar() -> impl IntoView {
     let vm = core.view();
     let today = dom::today_iso();
     let collapsed = RwSignal::new(load_collapsed());
-    let is_collapsed = move |section: &'static str| Signal::derive(move || collapsed.with(|c| c.contains(section)));
+    let is_collapsed = move |section: &'static str| {
+        Signal::derive(move || collapsed.with(|c| c.contains(section)))
+    };
     let toggle = move |section: &'static str| {
         Callback::new(move |_| {
             collapsed.update(|c| {
@@ -53,7 +55,10 @@ pub fn Sidebar() -> impl IntoView {
                     c.insert(section.to_string());
                 }
                 let list: Vec<&String> = c.iter().collect();
-                dom::local_storage_set(COLLAPSED_KEY, &serde_json::to_string(&list).unwrap_or_default());
+                dom::local_storage_set(
+                    COLLAPSED_KEY,
+                    &serde_json::to_string(&list).unwrap_or_default(),
+                );
             });
         })
     };
@@ -65,7 +70,7 @@ pub fn Sidebar() -> impl IntoView {
     let current_page_id = Memo::new(move |_| vm.with(|v| v.sidebar.current_page_id.clone()));
 
     let go_to_page = {
-                move |page: &SidebarPage, ev: &web_sys::MouseEvent| {
+        move |page: &SidebarPage, ev: &web_sys::MouseEvent| {
             core.send(Event::GoToPage {
                 path: page.path.clone(),
                 new_tab: ev.ctrl_key() || ev.meta_key(),
@@ -75,11 +80,11 @@ pub fn Sidebar() -> impl IntoView {
     };
 
     let page_list = move |pages: Vec<SidebarPage>, active: bool| {
-        let go_to_page = go_to_page.clone();
+        let go_to_page = go_to_page;
         pages
             .into_iter()
             .map(|p| {
-                let go = go_to_page.clone();
+                let go = go_to_page;
                 let is_active = active && current_page_id.with(|c| c.as_deref() == Some(p.page.id.as_str()));
                 let label = p.label.clone();
                 view! {
@@ -154,7 +159,7 @@ pub fn Sidebar() -> impl IntoView {
                 <div class="sidebar-footer">
                     <img src="/peta-journal-gray.png" alt="PetaJournal" class="footer-logo" />
                     <span class="footer-text">"PetaJournal"</span>
-                    <button class="settings-btn" title="Settings" on:click={ let core = core; move |_| core.navigate("/settings", false) }>
+                    <button class="settings-btn" title="Settings" on:click=move |_| core.navigate("/settings", false)>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <circle cx="12" cy="12" r="3"/>
                             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>

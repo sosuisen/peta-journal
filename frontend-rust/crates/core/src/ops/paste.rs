@@ -19,8 +19,16 @@ struct PastedItem {
 
 /// Pastes text into an item. Supports plain text, tree markdown, and flat markdown that
 /// was copied from this app.
-pub fn paste_text(model: &mut Model, item_id: &str, text: String, _html: String, cursor: usize) -> Cmd {
-    let Some(item) = model.current_item(item_id) else { return done() };
+pub fn paste_text(
+    model: &mut Model,
+    item_id: &str,
+    text: String,
+    _html: String,
+    cursor: usize,
+) -> Cmd {
+    let Some(item) = model.current_item(item_id) else {
+        return done();
+    };
     let item: Item = (*item).clone();
     // If we have stored flat markdown for this clipboard content, use it
     let stored_flat = match &model.clipboard {
@@ -57,7 +65,9 @@ async fn paste_text_now(
                 text_to_parse = flat;
                 is_plain_text = false;
             }
-            Err(e) => log_error(format!("Failed to import tree markdown, using raw text: {e}")),
+            Err(e) => log_error(format!(
+                "Failed to import tree markdown, using raw text: {e}"
+            )),
         }
     }
 
@@ -65,7 +75,10 @@ async fn paste_text_now(
     // Plain text pasted inside an open code fence stays in this item as it is
     let skip_split = is_plain_text && has_unclosed_code_fence(before);
     let mut parsed: Vec<PastedItem> = if skip_split {
-        vec![PastedItem { body: text_to_parse, level: 0 }]
+        vec![PastedItem {
+            body: text_to_parse,
+            level: 0,
+        }]
     } else {
         split_text_into_items(api, &text_to_parse).await?
     };
@@ -78,10 +91,12 @@ async fn paste_text_now(
     parsed[last].body = format!("{}{after}", parsed[last].body);
 
     let original = item.clone();
-    let (first_body, rest): (String, Vec<PastedItem>) = (parsed[0].body.clone(), parsed[1..].to_vec());
+    let (first_body, rest): (String, Vec<PastedItem>) =
+        (parsed[0].body.clone(), parsed[1..].to_vec());
     let it = item.clone();
     apply(api, "paste: begin", move |m| {
-        m.undo.begin("paste", Some(CursorState::new(&it.id, cursor)));
+        m.undo
+            .begin("paste", Some(CursorState::new(&it.id, cursor)));
         // The auto-save of what was typed before the paste is dropped, or it would
         // overwrite the pasted text a moment later
         discard_pending_edit(m, &it)
@@ -99,11 +114,23 @@ async fn paste_text_now(
     let mut prev_id = item.id.clone();
     for pasted in rest {
         let position = ItemPosition::after(prev_id.clone());
-        let new_item = api.create_item(&item.page_id, position.clone(), item.level + pasted.level, &pasted.body, None).await?;
+        let new_item = api
+            .create_item(
+                &item.page_id,
+                position.clone(),
+                item.level + pasted.level,
+                &pasted.body,
+                None,
+            )
+            .await?;
         prev_id = new_item.id.clone();
         apply(api, "paste: new item", move |m| {
             m.state.add_items(vec![new_item.clone()], &position);
-            let final_item = m.state.get_item_by_id(&new_item.id).map(|b| (*b).clone()).unwrap_or(new_item);
+            let final_item = m
+                .state
+                .get_item_by_id(&new_item.id)
+                .map(|b| (*b).clone())
+                .unwrap_or(new_item);
             m.undo.push_create(&final_item);
             done()
         });
@@ -122,14 +149,24 @@ async fn paste_text_now(
 /// first item (0-based), because the caller places them under the current item.
 async fn split_text_into_items(api: &Api<Event>, text: &str) -> Result<Vec<PastedItem>, ApiError> {
     let parsed = api.parse_flat_markdown(text).await?;
-    let Some(first) = parsed.first() else { return Ok(Vec::new()) };
+    let Some(first) = parsed.first() else {
+        return Ok(Vec::new());
+    };
     let top_level = first.level;
-    Ok(parsed.iter().map(|p| PastedItem { body: p.body.clone(), level: (p.level - top_level).max(0) }).collect())
+    Ok(parsed
+        .iter()
+        .map(|p| PastedItem {
+            body: p.body.clone(),
+            level: (p.level - top_level).max(0),
+        })
+        .collect())
 }
 
 /// Uploads a pasted image and puts a link to it at the cursor.
 pub fn paste_image(model: &mut Model, item_id: &str, file: u64, cursor: usize) -> Cmd {
-    let Some(item) = model.current_item(item_id) else { return done() };
+    let Some(item) = model.current_item(item_id) else {
+        return done();
+    };
     let item: Item = (*item).clone();
     run(move |api| async move {
         let file_name = match api.upload_asset(file).await {
@@ -140,7 +177,9 @@ pub fn paste_image(model: &mut Model, item_id: &str, file: u64, cursor: usize) -
         let (before, after) = split_at_char(&item.body, cursor);
         let new_body = format!("{before}{markdown}{after}");
         let it = item.clone();
-        apply(&api, "paste image: discard pending", move |m| discard_pending_edit(m, &it));
+        apply(&api, "paste image: discard pending", move |m| {
+            discard_pending_edit(m, &it)
+        });
         if let Err(e) = save_body(&api, &item.id, &new_body).await {
             return log_error(format!("Failed to paste image: {e}"));
         }
@@ -154,4 +193,3 @@ pub fn paste_image(model: &mut Model, item_id: &str, file: u64, cursor: usize) -
         focus_editor(&api, Some(item.id.clone())).await;
     })
 }
-

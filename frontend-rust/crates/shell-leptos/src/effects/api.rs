@@ -12,7 +12,9 @@ use wasm_bindgen_futures::spawn_local;
 
 /// `encodeURIComponent`.
 fn enc(s: &str) -> String {
-    js_sys::encode_uri_component(s).as_string().unwrap_or_default()
+    js_sys::encode_uri_component(s)
+        .as_string()
+        .unwrap_or_default()
 }
 
 /// Throws with the server's error message when the response is not 2xx.
@@ -25,7 +27,9 @@ async fn ensure_ok(resp: &Response) -> ApiResult<()> {
         Ok(v) => v.get("error").and_then(|e| e.as_str()).map(str::to_string),
         Err(_) => None,
     };
-    Err(ApiError(message.unwrap_or_else(|| format!("HTTP {status}"))))
+    Err(ApiError(
+        message.unwrap_or_else(|| format!("HTTP {status}")),
+    ))
 }
 
 async fn json<T: DeserializeOwned>(resp: Response) -> ApiResult<T> {
@@ -34,11 +38,18 @@ async fn json<T: DeserializeOwned>(resp: Response) -> ApiResult<T> {
 }
 
 async fn get<T: DeserializeOwned>(url: &str) -> ApiResult<T> {
-    let resp = Http::get(url).send().await.map_err(|e| ApiError(e.to_string()))?;
+    let resp = Http::get(url)
+        .send()
+        .await
+        .map_err(|e| ApiError(e.to_string()))?;
     json(resp).await
 }
 
-async fn send_json<T: DeserializeOwned>(method: &str, url: &str, body: Option<Value>) -> ApiResult<T> {
+async fn send_json<T: DeserializeOwned>(
+    method: &str,
+    url: &str,
+    body: Option<Value>,
+) -> ApiResult<T> {
     let builder = match method {
         "POST" => Http::post(url),
         "PUT" => Http::put(url),
@@ -120,20 +131,37 @@ pub fn perform(handle: CoreHandle, mut request: Request<ApiOp>) {
 
 async fn call(handle: &CoreHandle, op: ApiOp) -> ApiResult<ApiOutput> {
     Ok(match op {
-        ApiOp::GetPageById { page_id } => ApiOutput::Page(get(&format!("/api/pages/{page_id}")).await?),
-        ApiOp::GetMostRecentJournalBefore { before } => {
-            ApiOutput::JournalBefore(get(&format!("/api/journals/before?date={}", enc(&before))).await?)
+        ApiOp::GetPageById { page_id } => {
+            ApiOutput::Page(get(&format!("/api/pages/{page_id}")).await?)
         }
-        ApiOp::GetMostRecentWeeklyJournalBefore { before } => {
-            ApiOutput::JournalBefore(get(&format!("/api/journals/weekly/before?week={}", enc(&before))).await?)
-        }
-        ApiOp::GetOrCreateJournal { file_name } => {
-            ApiOutput::Page(send_json("POST", &format!("/api/journals/{}", enc(&file_name)), None).await?)
-        }
-        ApiOp::GetOrCreateDoc { title, dir_path } => ApiOutput::Page(
-            send_json("POST", "/api/pages/doc", Some(json!({ "title": title, "dirPath": dir_path }))).await?,
+        ApiOp::GetMostRecentJournalBefore { before } => ApiOutput::JournalBefore(
+            get(&format!("/api/journals/before?date={}", enc(&before))).await?,
         ),
-        ApiOp::CreateItem { page_id, position, level, body, id } => {
+        ApiOp::GetMostRecentWeeklyJournalBefore { before } => ApiOutput::JournalBefore(
+            get(&format!(
+                "/api/journals/weekly/before?week={}",
+                enc(&before)
+            ))
+            .await?,
+        ),
+        ApiOp::GetOrCreateJournal { file_name } => ApiOutput::Page(
+            send_json("POST", &format!("/api/journals/{}", enc(&file_name)), None).await?,
+        ),
+        ApiOp::GetOrCreateDoc { title, dir_path } => ApiOutput::Page(
+            send_json(
+                "POST",
+                "/api/pages/doc",
+                Some(json!({ "title": title, "dirPath": dir_path })),
+            )
+            .await?,
+        ),
+        ApiOp::CreateItem {
+            page_id,
+            position,
+            level,
+            body,
+            id,
+        } => {
             let payload = json!({
                 "pageId": page_id, "position": position.to_api(), "level": level, "body": body,
                 "id": id.unwrap_or_default(),
@@ -141,7 +169,12 @@ async fn call(handle: &CoreHandle, op: ApiOp) -> ApiResult<ApiOutput> {
             let env: ItemEnvelope = send_json("POST", "/api/items", Some(payload)).await?;
             ApiOutput::Item(env.item)
         }
-        ApiOp::UpdateItem { item_id, body, level, collapsed } => {
+        ApiOp::UpdateItem {
+            item_id,
+            body,
+            level,
+            collapsed,
+        } => {
             let mut payload = serde_json::Map::new();
             if let Some(b) = body {
                 payload.insert("body".into(), Value::String(b));
@@ -152,16 +185,29 @@ async fn call(handle: &CoreHandle, op: ApiOp) -> ApiResult<ApiOutput> {
             if let Some(c) = collapsed {
                 payload.insert("collapsed".into(), json!(c));
             }
-            let env: ItemEnvelope =
-                send_json("PUT", &format!("/api/items/{item_id}"), Some(Value::Object(payload))).await?;
+            let env: ItemEnvelope = send_json(
+                "PUT",
+                &format!("/api/items/{item_id}"),
+                Some(Value::Object(payload)),
+            )
+            .await?;
             ApiOutput::Item(env.item)
         }
         ApiOp::ShiftItemLevels { item_ids, delta } => {
-            let env: ItemsEnvelope =
-                send_json("POST", "/api/items/shift-level", Some(json!({ "itemIds": item_ids, "delta": delta }))).await?;
+            let env: ItemsEnvelope = send_json(
+                "POST",
+                "/api/items/shift-level",
+                Some(json!({ "itemIds": item_ids, "delta": delta })),
+            )
+            .await?;
             ApiOutput::Items(env.items)
         }
-        ApiOp::MoveItems { item_ids, target_page_id, position, level_delta } => {
+        ApiOp::MoveItems {
+            item_ids,
+            target_page_id,
+            position,
+            level_delta,
+        } => {
             let env: ItemsEnvelope = send_json(
                 "POST",
                 "/api/items/move",
@@ -182,10 +228,16 @@ async fn call(handle: &CoreHandle, op: ApiOp) -> ApiResult<ApiOutput> {
             ApiOutput::Done
         }
         ApiOp::CycleTask { item_id } => {
-            let env: ItemEnvelope = send_json("POST", &format!("/api/items/{item_id}/cycle-task"), None).await?;
+            let env: ItemEnvelope =
+                send_json("POST", &format!("/api/items/{item_id}/cycle-task"), None).await?;
             ApiOutput::Item(env.item)
         }
-        ApiOp::UpsertItemProperty { item_id, key, value_type, value } => {
+        ApiOp::UpsertItemProperty {
+            item_id,
+            key,
+            value_type,
+            value,
+        } => {
             let env: ItemEnvelope = send_json(
                 "PUT",
                 &format!("/api/items/{item_id}/properties/{}", enc(&key)),
@@ -195,16 +247,25 @@ async fn call(handle: &CoreHandle, op: ApiOp) -> ApiResult<ApiOutput> {
             ApiOutput::Item(env.item)
         }
         ApiOp::SearchCombined { query, max_results } => {
-            let env: ResultsEnvelope =
-                get(&format!("/api/search/combined?q={}&maxResults={max_results}", enc(&query))).await?;
+            let env: ResultsEnvelope = get(&format!(
+                "/api/search/combined?q={}&maxResults={max_results}",
+                enc(&query)
+            ))
+            .await?;
             ApiOutput::SearchResults(env.results)
         }
         ApiOp::SearchPageNames { query, max_results } => {
-            let env: ResultsEnvelope =
-                get(&format!("/api/search/pages?q={}&maxResults={max_results}", enc(&query))).await?;
+            let env: ResultsEnvelope = get(&format!(
+                "/api/search/pages?q={}&maxResults={max_results}",
+                enc(&query)
+            ))
+            .await?;
             ApiOutput::SearchResults(env.results)
         }
-        ApiOp::GetRecentPages { max_results, page_type } => {
+        ApiOp::GetRecentPages {
+            max_results,
+            page_type,
+        } => {
             let mut url = format!("/api/pages/recent?maxResults={max_results}");
             if let Some(t) = page_type {
                 url.push_str(&format!("&type={}", enc(&t)));
@@ -212,7 +273,11 @@ async fn call(handle: &CoreHandle, op: ApiOp) -> ApiResult<ApiOutput> {
             let env: PagesEnvelope = get(&url).await?;
             ApiOutput::Pages(env.pages)
         }
-        ApiOp::UpdatePage { page_id, title, dir_path } => {
+        ApiOp::UpdatePage {
+            page_id,
+            title,
+            dir_path,
+        } => {
             let mut payload = serde_json::Map::new();
             if let Some(t) = title {
                 payload.insert("title".into(), Value::String(t));
@@ -220,8 +285,12 @@ async fn call(handle: &CoreHandle, op: ApiOp) -> ApiResult<ApiOutput> {
             if let Some(d) = dir_path {
                 payload.insert("dirPath".into(), Value::String(d));
             }
-            let env: PageEnvelope =
-                send_json("PUT", &format!("/api/pages/{page_id}"), Some(Value::Object(payload))).await?;
+            let env: PageEnvelope = send_json(
+                "PUT",
+                &format!("/api/pages/{page_id}"),
+                Some(Value::Object(payload)),
+            )
+            .await?;
             ApiOutput::PageInfo(env.page)
         }
         ApiOp::GetConfig => ApiOutput::Config(get("/api/config").await?),
@@ -229,7 +298,11 @@ async fn call(handle: &CoreHandle, op: ApiOp) -> ApiResult<ApiOutput> {
             let env: PropertyDefinitions = get("/api/config/property-definitions").await?;
             ApiOutput::PropertyDefinitions(env.property_definitions)
         }
-        ApiOp::UpdateConfig { markdown_dir, week_numbering, logical_outdent } => {
+        ApiOp::UpdateConfig {
+            markdown_dir,
+            week_numbering,
+            logical_outdent,
+        } => {
             let mut payload = serde_json::Map::new();
             if let Some(v) = markdown_dir {
                 payload.insert("markdownDir".into(), Value::String(v));
@@ -246,20 +319,36 @@ async fn call(handle: &CoreHandle, op: ApiOp) -> ApiResult<ApiOutput> {
             let choice: FolderChoice = send_json("POST", "/api/config/browse-folder", None).await?;
             ApiOutput::Folder(choice)
         }
-        ApiOp::ExportTreeMarkdown { item_ids } => {
-            ApiOutput::TreeExport(send_json("POST", "/api/items/export", Some(json!({ "itemIds": item_ids }))).await?)
-        }
+        ApiOp::ExportTreeMarkdown { item_ids } => ApiOutput::TreeExport(
+            send_json(
+                "POST",
+                "/api/items/export",
+                Some(json!({ "itemIds": item_ids })),
+            )
+            .await?,
+        ),
         ApiOp::ImportTreeMarkdown { tree_markdown } => {
-            let env: FlatEnvelope =
-                send_json("POST", "/api/items/import", Some(json!({ "treeMarkdown": tree_markdown }))).await?;
+            let env: FlatEnvelope = send_json(
+                "POST",
+                "/api/items/import",
+                Some(json!({ "treeMarkdown": tree_markdown })),
+            )
+            .await?;
             ApiOutput::FlatMarkdown(env.flat_markdown)
         }
         ApiOp::ParseFlatMarkdown { markdown } => {
-            let env: ParsedEnvelope =
-                send_json("POST", "/api/items/parse", Some(json!({ "markdown": markdown }))).await?;
+            let env: ParsedEnvelope = send_json(
+                "POST",
+                "/api/items/parse",
+                Some(json!({ "markdown": markdown })),
+            )
+            .await?;
             ApiOutput::ParsedItems(env.items)
         }
-        ApiOp::SetTransclusion { item_id, source_item_id } => {
+        ApiOp::SetTransclusion {
+            item_id,
+            source_item_id,
+        } => {
             let env: ItemEnvelope = send_json(
                 "POST",
                 &format!("/api/items/{item_id}/transclude"),
@@ -269,7 +358,8 @@ async fn call(handle: &CoreHandle, op: ApiOp) -> ApiResult<ApiOutput> {
             ApiOutput::Item(env.item)
         }
         ApiOp::RemoveTransclusion { item_id } => {
-            let env: ItemEnvelope = send_json("DELETE", &format!("/api/items/{item_id}/transclude"), None).await?;
+            let env: ItemEnvelope =
+                send_json("DELETE", &format!("/api/items/{item_id}/transclude"), None).await?;
             ApiOutput::Item(env.item)
         }
         ApiOp::GetChildPages { parent_id } => {
@@ -277,9 +367,12 @@ async fn call(handle: &CoreHandle, op: ApiOp) -> ApiResult<ApiOutput> {
             ApiOutput::Pages(env.pages)
         }
         ApiOp::UploadAsset { file } => {
-            let file = handle.take_file(file).ok_or_else(|| ApiError("file is gone".into()))?;
+            let file = handle
+                .take_file(file)
+                .ok_or_else(|| ApiError("file is gone".into()))?;
             let form = web_sys::FormData::new().map_err(|_| ApiError("FormData".into()))?;
-            form.append_with_blob("file", &file).map_err(|_| ApiError("FormData".into()))?;
+            form.append_with_blob("file", &file)
+                .map_err(|_| ApiError("FormData".into()))?;
             let resp = Http::post("/api/assets/upload")
                 .body(form)
                 .map_err(|e| ApiError(e.to_string()))?
@@ -297,8 +390,12 @@ async fn call(handle: &CoreHandle, op: ApiOp) -> ApiResult<ApiOutput> {
             ApiOutput::Functions(functions)
         }
         ApiOp::LaunchUrl { url } => {
-            let env: LaunchEnvelope =
-                send_json("POST", "http://localhost:8087/api/launcher/open", Some(json!({ "url": url }))).await?;
+            let env: LaunchEnvelope = send_json(
+                "POST",
+                "http://localhost:8087/api/launcher/open",
+                Some(json!({ "url": url })),
+            )
+            .await?;
             ApiOutput::Launched(env.success)
         }
     })

@@ -178,7 +178,9 @@ impl ItemPosition {
         match s {
             "first" => Some(ItemPosition::First),
             "last" => Some(ItemPosition::Last),
-            _ => s.strip_prefix("after:").map(|id| ItemPosition::After(id.to_string())),
+            _ => s
+                .strip_prefix("after:")
+                .map(|id| ItemPosition::After(id.to_string())),
         }
     }
 }
@@ -341,6 +343,9 @@ mod tests {
         for s in ["first", "last", "after:2026-01-01-00-00-00-AAAAAAA"] {
             assert_eq!(ItemPosition::parse(s).unwrap().to_api(), s);
         }
-        assert_eq!(serde_json::to_string(&ItemPosition::after("x")).unwrap(), "\"after:x\"");
+        assert_eq!(
+            serde_json::to_string(&ItemPosition::after("x")).unwrap(),
+            "\"after:x\""
+        );
     }
 }

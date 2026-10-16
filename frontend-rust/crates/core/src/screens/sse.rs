@@ -31,14 +31,28 @@ pub fn on_event(model: &mut Model, event: SseEvent) -> Cmd {
 }
 
 fn on_message(model: &mut Model, data: &str) -> Cmd {
-    let Ok(json) = serde_json::from_str::<serde_json::Value>(data) else { return done() };
+    let Ok(json) = serde_json::from_str::<serde_json::Value>(data) else {
+        return done();
+    };
     if json.get("type").and_then(|t| t.as_str()) != Some("pagesUpdated") {
         return done();
     }
-    let page_id = json.get("pageId").and_then(|p| p.as_str()).unwrap_or_default().to_string();
+    let page_id = json
+        .get("pageId")
+        .and_then(|p| p.as_str())
+        .unwrap_or_default()
+        .to_string();
     let from_file = json.get("source").and_then(|s| s.as_str()) == Some("file");
-    let reload = if from_file { file_reload::reload_page(model, &page_id) } else { done() };
-    Command::all([reload, sidebar::refresh_recent_pages(), sidebar::load_index_pages(model)])
+    let reload = if from_file {
+        file_reload::reload_page(model, &page_id)
+    } else {
+        done()
+    };
+    Command::all([
+        reload,
+        sidebar::refresh_recent_pages(),
+        sidebar::load_index_pages(model),
+    ])
 }
 
 fn schedule_reconnect(model: &mut Model) -> Cmd {

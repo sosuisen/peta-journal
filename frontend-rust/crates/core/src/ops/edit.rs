@@ -17,7 +17,9 @@ pub const AUTO_SAVE_MS: u32 = 300;
 
 /// The item an edit of the shown item is saved to: a transclusion root edits its source item.
 pub fn save_target_id(item: &Item) -> String {
-    item.transclude_item_id.clone().unwrap_or_else(|| item.id.clone())
+    item.transclude_item_id
+        .clone()
+        .unwrap_or_else(|| item.id.clone())
 }
 
 /// True while an editor is open. Dirty ids alone do not count: an editor that was closed
@@ -42,10 +44,13 @@ pub fn mark_dirty(model: &mut Model, item_id: &str) {
 /// Schedules a debounced save of a body; replaces any pending save of the same item.
 fn schedule_save(model: &mut Model, target_id: &str, body: &str) -> Cmd {
     let timer_id = model.next_timer_id();
-    let previous = model
-        .edits
-        .pending_saves
-        .insert(target_id.to_string(), PendingSave { body: body.to_string(), timer_id });
+    let previous = model.edits.pending_saves.insert(
+        target_id.to_string(),
+        PendingSave {
+            body: body.to_string(),
+            timer_id,
+        },
+    );
     let mut cmds = Vec::new();
     if let Some(prev) = previous {
         cmds.push(Command::notify_shell(TimerOp::Cancel { id: prev.timer_id }).into());
@@ -61,7 +66,10 @@ fn schedule_save(model: &mut Model, target_id: &str, body: &str) -> Cmd {
                 _ => return done(),
             };
             run(move |api| async move {
-                if let Err(e) = api.update_body(&target, &ensure_code_fence_closed(&pending.body)).await {
+                if let Err(e) = api
+                    .update_body(&target, &ensure_code_fence_closed(&pending.body))
+                    .await
+                {
                     log_error(format!("Auto-save failed: {e}"));
                 }
             })
@@ -86,11 +94,17 @@ pub fn discard_pending_edit(model: &mut Model, item: &Item) -> Cmd {
 
 /// Drops the pending edit of the focused item, e.g. before an undo replaces that item.
 pub fn discard_pending_edit_of_focused_item(model: &mut Model) -> Cmd {
-    let Some(focused_id) = model.state.focused_item_id().map(str::to_string) else { return done() };
+    let Some(focused_id) = model.state.focused_item_id().map(str::to_string) else {
+        return done();
+    };
     if !model.edits.dirty_item_ids.contains(&focused_id) {
         return done();
     }
-    let target = model.state.get_item_by_id(&focused_id).map(|i| save_target_id(&i)).unwrap_or(focused_id.clone());
+    let target = model
+        .state
+        .get_item_by_id(&focused_id)
+        .map(|i| save_target_id(&i))
+        .unwrap_or(focused_id.clone());
     model.edits.dirty_item_ids.remove(&focused_id);
     cancel_save(model, &target)
 }
@@ -114,7 +128,8 @@ pub async fn flush_pending_edit(api: &Api<Event>, item: &Item) -> ApiResult<()> 
         }
     });
     if let Ok(Some(body)) = rx.await {
-        api.update_body(&save_target_id(item), &ensure_code_fence_closed(&body)).await?;
+        api.update_body(&save_target_id(item), &ensure_code_fence_closed(&body))
+            .await?;
     }
     Ok(())
 }
@@ -151,7 +166,9 @@ pub async fn save_shown_item(api: &Api<Event>, item: &Item) -> ApiResult<Option<
         let _ = tx.send(m.state.get_item_by_id(&id).map(|i| i.body.clone()));
         done()
     });
-    let Ok(Some(body)) = rx.await else { return Ok(None) };
+    let Ok(Some(body)) = rx.await else {
+        return Ok(None);
+    };
     let target_id = save_target_id(item);
     let updated = save_body(api, &target_id, &body).await?;
     if target_id != item.id {
@@ -199,7 +216,9 @@ pub fn finish_edit(model: &mut Model, item_id: &str) -> Cmd {
     if model.edits.edit_handovers > 0 || !model.state.is_editing(item_id) {
         return done();
     }
-    let Some(item) = model.current_item(item_id) else { return done() };
+    let Some(item) = model.current_item(item_id) else {
+        return done();
+    };
     let item: Item = (*item).clone();
     let close_wiki = if model.wiki.item_id.as_deref() == Some(item_id) {
         crate::ops::wiki::close(model)
@@ -222,7 +241,11 @@ pub fn finish_edit(model: &mut Model, item_id: &str) -> Cmd {
         return Command::all([close_wiki, discard, save]);
     }
 
-    let unclosed = model.state.get_item_by_id(item_id).map(|c| has_unclosed_code_fence(&c.body)).unwrap_or(false);
+    let unclosed = model
+        .state
+        .get_item_by_id(item_id)
+        .map(|c| has_unclosed_code_fence(&c.body))
+        .unwrap_or(false);
     if unclosed {
         let save = run(move |api| async move {
             if let Err(e) = save_shown_item(&api, &item).await {
@@ -253,7 +276,9 @@ impl Handover {
             m.edits.edit_handovers += 1;
             done()
         });
-        Handover { api: Api::new(api.ctx().clone()) }
+        Handover {
+            api: Api::new(api.ctx().clone()),
+        }
     }
 }
 
@@ -267,7 +292,10 @@ impl Drop for Handover {
 }
 
 /// Reads something from the model from inside an async command.
-pub async fn read<T: Send + 'static>(api: &Api<Event>, f: impl FnOnce(&mut Model) -> T + Send + 'static) -> T {
+pub async fn read<T: Send + 'static>(
+    api: &Api<Event>,
+    f: impl FnOnce(&mut Model) -> T + Send + 'static,
+) -> T {
     let (tx, rx) = futures::channel::oneshot::channel::<T>();
     apply(api, "read", move |m| {
         let _ = tx.send(f(m));

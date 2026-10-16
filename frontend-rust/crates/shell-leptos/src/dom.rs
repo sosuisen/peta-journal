@@ -15,11 +15,17 @@ pub fn document() -> web_sys::Document {
 }
 
 pub fn query<T: JsCast>(selector: &str) -> Option<T> {
-    document().query_selector(selector).ok().flatten().and_then(|el| el.dyn_into::<T>().ok())
+    document()
+        .query_selector(selector)
+        .ok()
+        .flatten()
+        .and_then(|el| el.dyn_into::<T>().ok())
 }
 
 pub fn element_by_id(id: &str) -> Option<web_sys::HtmlElement> {
-    document().get_element_by_id(id).and_then(|el| el.dyn_into::<web_sys::HtmlElement>().ok())
+    document()
+        .get_element_by_id(id)
+        .and_then(|el| el.dyn_into::<web_sys::HtmlElement>().ok())
 }
 
 /// Runs a closure after the browser has rendered the current changes.
@@ -32,11 +38,16 @@ pub fn set_timeout(ms: u32, f: impl FnOnce() + 'static) {
 }
 
 pub fn encode_uri(s: &str) -> String {
-    js_sys::encode_uri(s).as_string().unwrap_or_else(|| s.to_string())
+    js_sys::encode_uri(s)
+        .as_string()
+        .unwrap_or_else(|| s.to_string())
 }
 
 pub fn decode_uri(s: &str) -> String {
-    js_sys::decode_uri_component(s).ok().and_then(|v| v.as_string()).unwrap_or_else(|| s.to_string())
+    js_sys::decode_uri_component(s)
+        .ok()
+        .and_then(|v| v.as_string())
+        .unwrap_or_else(|| s.to_string())
 }
 
 pub fn to_js(value: &serde_json::Value) -> JsValue {
@@ -52,7 +63,9 @@ pub fn focus_without_scroll(el: &web_sys::HtmlElement) {
 /// Grows the textarea to its content.
 pub fn auto_resize(el: &web_sys::HtmlTextAreaElement) {
     let _ = el.style().set_property("height", "auto");
-    let _ = el.style().set_property("height", &format!("{}px", el.scroll_height()));
+    let _ = el
+        .style()
+        .set_property("height", &format!("{}px", el.scroll_height()));
 }
 
 /// Returns true when a keydown event belongs to an IME composition session, e.g. the Enter
@@ -105,7 +118,11 @@ pub fn set_cursor_chars(el: &web_sys::HtmlTextAreaElement, chars: usize) {
 
 /// Builds a hidden copy of the textarea's text up to a position and measures where the
 /// position ends up. Used for the caret rectangle and the first/last line checks.
-fn measure_marker(el: &web_sys::HtmlTextAreaElement, utf16_position: u32, marker_text: &str) -> Option<(f64, f64)> {
+fn measure_marker(
+    el: &web_sys::HtmlTextAreaElement,
+    utf16_position: u32,
+    marker_text: &str,
+) -> Option<(f64, f64)> {
     let document = document();
     let div: web_sys::HtmlElement = document.create_element("div").ok()?.unchecked_into();
     let style = window().get_computed_style(el).ok()??;
@@ -120,7 +137,11 @@ fn measure_marker(el: &web_sys::HtmlTextAreaElement, utf16_position: u32, marker
     }
     document.body()?.append_child(&div).ok()?;
     let value = el.value();
-    let before: String = value.encode_utf16().take(utf16_position as usize).collect::<Vec<u16>>().pipe_to_string();
+    let before: String = value
+        .encode_utf16()
+        .take(utf16_position as usize)
+        .collect::<Vec<u16>>()
+        .pipe_to_string();
     let text = document.create_text_node(&before);
     let marker: web_sys::HtmlElement = document.create_element("span").ok()?.unchecked_into();
     marker.set_text_content(Some(marker_text));
@@ -152,7 +173,10 @@ fn line_height_of(el: &web_sys::HtmlTextAreaElement) -> f64 {
 }
 
 /// The rectangle of the caret at a position, in viewport coordinates: (left, top, bottom).
-pub fn caret_rect(el: &web_sys::HtmlTextAreaElement, utf16_position: u32) -> Option<(f64, f64, f64)> {
+pub fn caret_rect(
+    el: &web_sys::HtmlTextAreaElement,
+    utf16_position: u32,
+) -> Option<(f64, f64, f64)> {
     let (left, top) = measure_marker(el, utf16_position, "\u{200B}")?;
     let rect = el.get_bounding_client_rect();
     let line_height = line_height_of(el);
@@ -162,7 +186,9 @@ pub fn caret_rect(el: &web_sys::HtmlTextAreaElement, utf16_position: u32) -> Opt
 }
 
 fn y_at(el: &web_sys::HtmlTextAreaElement, utf16_position: u32) -> f64 {
-    measure_marker(el, utf16_position, "|").map(|(_, y)| y).unwrap_or(0.0)
+    measure_marker(el, utf16_position, "|")
+        .map(|(_, y)| y)
+        .unwrap_or(0.0)
 }
 
 pub fn is_on_first_line(el: &web_sys::HtmlTextAreaElement) -> bool {
@@ -200,11 +226,15 @@ pub fn caret_point_from_point(x: f64, y: f64) -> Option<(web_sys::Node, u32)> {
 
 /// The offset in an element's text under a point, counted across all its text nodes.
 pub fn text_offset_at_point(container: &web_sys::Element, x: f64, y: f64) -> usize {
-    let Some((node, offset)) = caret_point_from_point(x, y) else { return 0 };
+    let Some((node, offset)) = caret_point_from_point(x, y) else {
+        return 0;
+    };
     if node.node_type() != web_sys::Node::TEXT_NODE {
         return 0;
     }
-    let Ok(walker) = document().create_tree_walker_with_what_to_show(container, 4 /* SHOW_TEXT */) else {
+    let Ok(walker) =
+        document().create_tree_walker_with_what_to_show(container, 4 /* SHOW_TEXT */)
+    else {
         return offset as usize;
     };
     let mut cumulative = 0usize;
@@ -228,9 +258,18 @@ pub async fn write_clipboard_rich(text: &str, html: &str) -> Result<(), JsValue>
         web_sys::Blob::new_with_str_sequence_and_options(&parts, &options)
     };
     let record = js_sys::Object::new();
-    js_sys::Reflect::set(&record, &"text/plain".into(), &make_blob(text, "text/plain")?.into())?;
-    js_sys::Reflect::set(&record, &"text/html".into(), &make_blob(html, "text/html")?.into())?;
-    let item = web_sys::ClipboardItem::new_with_record_from_str_to_blob_promise(&record.unchecked_into())?;
+    js_sys::Reflect::set(
+        &record,
+        &"text/plain".into(),
+        &make_blob(text, "text/plain")?.into(),
+    )?;
+    js_sys::Reflect::set(
+        &record,
+        &"text/html".into(),
+        &make_blob(html, "text/html")?.into(),
+    )?;
+    let item =
+        web_sys::ClipboardItem::new_with_record_from_str_to_blob_promise(&record.unchecked_into())?;
     let items = js_sys::Array::new();
     items.push(&item);
     JsFuture::from(window().navigator().clipboard().write(&items)).await?;
@@ -253,11 +292,20 @@ pub fn epoch_ms(iso: &str) -> f64 {
 /// Today's local date as `YYYY-MM-DD`.
 pub fn today_iso() -> String {
     let d = js_sys::Date::new_0();
-    format!("{:04}-{:02}-{:02}", d.get_full_year(), d.get_month() + 1, d.get_date())
+    format!(
+        "{:04}-{:02}-{:02}",
+        d.get_full_year(),
+        d.get_month() + 1,
+        d.get_date()
+    )
 }
 
 pub fn local_storage_get(key: &str) -> Option<String> {
-    window().local_storage().ok().flatten().and_then(|s| s.get_item(key).ok().flatten())
+    window()
+        .local_storage()
+        .ok()
+        .flatten()
+        .and_then(|s| s.get_item(key).ok().flatten())
 }
 
 pub fn local_storage_set(key: &str, value: &str) {

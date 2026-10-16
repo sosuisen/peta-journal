@@ -71,12 +71,19 @@ impl CoreHandle {
 
     /// Sends an event to the core and performs the effects it asks for.
     pub fn send(&self, event: Event) {
+        if debug_enabled() {
+            web_sys::console::log_1(&format!("event: {event:?}").into());
+        }
         let effects = self.inner().core.process_event(event);
         self.process(effects);
     }
 
     /// Answers a request and performs what follows.
-    pub fn resolve<Op: crux_core::capability::Operation>(&self, request: &mut crux_core::Request<Op>, output: Op::Output) {
+    pub fn resolve<Op: crux_core::capability::Operation>(
+        &self,
+        request: &mut crux_core::Request<Op>,
+        output: Op::Output,
+    ) {
         match self.inner().core.resolve(request, output) {
             Ok(effects) => self.process(effects),
             Err(e) => web_sys::console::warn_1(&format!("resolve failed: {e}").into()),
@@ -95,12 +102,12 @@ impl CoreHandle {
                 },
                 Effect::Sse(request) => effects::sse::connect(*self, request),
                 Effect::Ui(request) => effects::ui::perform(*self, request),
-                Effect::Navigate(mut request) => {
-                    let op = request.operation.clone();
+                // A notification: the core does not wait for it
+                Effect::Navigate(request) => {
+                    let op = &request.operation;
                     if let Some(nav) = self.inner().navigate.borrow().as_ref() {
                         nav(&op.url, op.replace);
                     }
-                    self.resolve(&mut request, ());
                 }
             }
         }
@@ -129,7 +136,10 @@ impl CoreHandle {
     }
 
     pub fn register_replayer(&self, item_id: &str, replay: ReplayKeys) {
-        self.inner().replayers.borrow_mut().insert(item_id.to_string(), replay);
+        self.inner()
+            .replayers
+            .borrow_mut()
+            .insert(item_id.to_string(), replay);
     }
 
     pub fn unregister_replayer(&self, item_id: &str) {
@@ -144,5 +154,11 @@ impl CoreHandle {
     pub fn now_ms(&self) -> u64 {
         js_sys::Date::now() as u64
     }
+}
 
+/// True when `window.PETA_DEBUG` is set: events are logged to the console.
+pub fn debug_enabled() -> bool {
+    js_sys::Reflect::get(&web_sys::window().unwrap(), &"PETA_DEBUG".into())
+        .map(|v| v.is_truthy())
+        .unwrap_or(false)
 }

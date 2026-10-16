@@ -18,6 +18,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 type Heights = SendWrapper<Rc<RefCell<HashMap<String, f64>>>>;
+type RowSignals = SendWrapper<Rc<RefCell<HashMap<String, RwSignal<Row>>>>>;
 use wasm_bindgen::JsCast;
 
 /// Pixels rendered above and below the viewport, like the CDK's min/max buffer.
@@ -38,13 +39,19 @@ struct Window {
 #[derive(Clone)]
 struct RowStore {
     ids: RwSignal<Vec<String>>,
-    rows: SendWrapper<Rc<RefCell<HashMap<String, RwSignal<Row>>>>>,
+    rows: RowSignals,
 }
 
 impl RowStore {
     fn new(vm: RwSignal<peta_core::ViewModel>) -> RowStore {
-        let store = RowStore { ids: RwSignal::new(Vec::new()), rows: SendWrapper::new(Rc::new(RefCell::new(HashMap::new()))) };
+        let store = RowStore {
+            ids: RwSignal::new(Vec::new()),
+            rows: SendWrapper::new(Rc::new(RefCell::new(HashMap::new()))),
+        };
         let s = store.clone();
+        // Row signals are made under the outline's owner, not the effect's: an effect disposes
+        // what was created in its previous run
+        let owner = Owner::current().expect("an owner");
         Effect::new(move |_| {
             vm.with(|v| {
                 let mut map = s.rows.borrow_mut();
@@ -58,7 +65,8 @@ impl RowStore {
                             }
                         }
                         None => {
-                            map.insert(row.item.id.clone(), RwSignal::new(row.clone()));
+                            let sig = owner.with(|| RwSignal::new(row.clone()));
+                            map.insert(row.item.id.clone(), sig);
                         }
                     }
                 }
@@ -94,7 +102,9 @@ pub fn Outline() -> impl IntoView {
         let heights = heights.clone();
         let ids = store.ids;
         SendWrapper::new(Rc::new(move || {
-            let Some(vp) = viewport.get_untracked() else { return };
+            let Some(vp) = viewport.get_untracked() else {
+                return;
+            };
             let scroll_top = vp.scroll_top() as f64;
             let vp_height = vp.client_height() as f64;
             let heights = heights.borrow();
@@ -127,7 +137,12 @@ pub fn Outline() -> impl IntoView {
                     end = ids.len();
                     pad_bottom = 0.0;
                 }
-                Window { start, end, pad_top, pad_bottom }
+                Window {
+                    start,
+                    end,
+                    pad_top,
+                    pad_bottom,
+                }
             });
             if window.get_untracked() != w {
                 window.set(w);
@@ -150,15 +165,29 @@ pub fn Outline() -> impl IntoView {
             let scheduled = scheduled.clone();
             request_animation_frame(move || {
                 *scheduled.borrow_mut() = false;
-                let Some(wrap) = wrapper.get_untracked() else { return };
+                let Some(wrap) = wrapper.get_untracked() else {
+                    return;
+                };
                 let children = wrap.children();
                 let mut changed = false;
                 let mut map = heights.borrow_mut();
                 for i in 0..children.length() {
-                    let Some(el) = children.item(i).and_then(|e| e.dyn_into::<web_sys::HtmlElement>().ok()) else { continue };
-                    let Some(id) = el.get_attribute("data-row-id") else { continue };
+                    let Some(el) = children
+                        .item(i)
+                        .and_then(|e| e.dyn_into::<web_sys::HtmlElement>().ok())
+                    else {
+                        continue;
+                    };
+                    let Some(id) = el.get_attribute("data-row-id") else {
+                        continue;
+                    };
                     let h = el.offset_height() as f64;
-                    if h > 0.0 && map.get(&id).map(|old| (old - h).abs() > 0.5).unwrap_or(true) {
+                    if h > 0.0
+                        && map
+                            .get(&id)
+                            .map(|old| (old - h).abs() > 0.5)
+                            .unwrap_or(true)
+                    {
                         map.insert(id, h);
                         changed = true;
                     }
@@ -190,12 +219,14 @@ pub fn Outline() -> impl IntoView {
 
     // Scroll: the top item and the buffer the journal keeps ahead
     let on_scroll = {
-                let recompute = recompute.clone();
+        let recompute = recompute.clone();
         let heights = heights.clone();
         let ids = store.ids;
         move |_| {
             recompute();
-            let Some(vp) = viewport.get_untracked() else { return };
+            let Some(vp) = viewport.get_untracked() else {
+                return;
+            };
             let scroll_top = vp.scroll_top() as f64;
             let w = window.get_untracked();
             // The first rendered row whose bottom is below the viewport top
@@ -204,7 +235,12 @@ pub fn Outline() -> impl IntoView {
                 let mut y = w.pad_top;
                 let mut found = w.start;
                 ids.with_untracked(|ids| {
-                    for (i, id) in ids.iter().enumerate().skip(w.start).take(w.end.saturating_sub(w.start)) {
+                    for (i, id) in ids
+                        .iter()
+                        .enumerate()
+                        .skip(w.start)
+                        .take(w.end.saturating_sub(w.start))
+                    {
                         y += heights.get(id).copied().unwrap_or(ESTIMATED_ROW_PX);
                         if y > scroll_top {
                             found = i;
@@ -231,12 +267,13 @@ pub fn Outline() -> impl IntoView {
             scroll_to_item(viewport, &heights, ids, window, item_id, smooth, 0);
         });
         core.set_scroller(Some(scroller));
-                on_cleanup(move || core.set_scroller(None));
+        on_cleanup(move || core.set_scroller(None));
     }
 
     // Selection mode: the keys and clicks of the whole document act on the selection
     {
-                let listeners: SendWrapper<Rc<RefCell<Vec<EventListener>>>> = SendWrapper::new(Rc::new(RefCell::new(Vec::new())));
+        let listeners: SendWrapper<Rc<RefCell<Vec<EventListener>>>> =
+            SendWrapper::new(Rc::new(RefCell::new(Vec::new())));
         let l2 = listeners.clone();
         Effect::new(move |_| {
             let active = vm.with(|v| v.outline.selection_mode);
@@ -260,9 +297,13 @@ pub fn Outline() -> impl IntoView {
                 },
             ));
             let c = core;
-            ls.push(EventListener::new(&document, "click", move |_| c.send(Event::SelectionClickOutside)));
+            ls.push(EventListener::new(&document, "click", move |_| {
+                c.send(Event::SelectionClickOutside)
+            }));
             let c = core;
-            ls.push(EventListener::new(&document, "mouseup", move |_| c.send(Event::SelectionMouseUp)));
+            ls.push(EventListener::new(&document, "mouseup", move |_| {
+                c.send(Event::SelectionMouseUp)
+            }));
             for name in ["copy", "cut"] {
                 let c = core;
                 ls.push(EventListener::new_with_options(
@@ -271,7 +312,11 @@ pub fn Outline() -> impl IntoView {
                     gloo_events::EventListenerOptions::enable_prevent_default(),
                     move |ev| {
                         ev.prevent_default();
-                        c.send(Event::SelectionKey(if name == "copy" { SelectionKey::Copy } else { SelectionKey::Cut }));
+                        c.send(Event::SelectionKey(if name == "copy" {
+                            SelectionKey::Copy
+                        } else {
+                            SelectionKey::Cut
+                        }));
                     },
                 ));
             }
@@ -283,7 +328,13 @@ pub fn Outline() -> impl IntoView {
         let ids = store.ids;
         move || {
             let w = window.get();
-            ids.with(|ids| ids.iter().skip(w.start).take(w.end.saturating_sub(w.start)).cloned().collect::<Vec<_>>())
+            ids.with(|ids| {
+                ids.iter()
+                    .skip(w.start)
+                    .take(w.end.saturating_sub(w.start))
+                    .cloned()
+                    .collect::<Vec<_>>()
+            })
         }
     };
 
@@ -308,7 +359,7 @@ pub fn Outline() -> impl IntoView {
                                 view! {
                                     <div
                                         class="outline-row"
-                                        attr:data-row-id=id.clone()
+                                        data-row-id=id.clone()
                                         on:mouseenter=move |_| core.send(Event::ItemMouseEnter { item_id: id2.clone() })
                                         on:wheel={
                                                                                         move |ev: web_sys::WheelEvent| {
@@ -339,7 +390,11 @@ fn selection_key(ev: &web_sys::KeyboardEvent) -> Option<SelectionKey> {
         return Some(SelectionKey::Escape);
     }
     if (key == "z" || key == "Z") && ev.ctrl_key() && !ev.alt_key() {
-        return Some(if ev.shift_key() { SelectionKey::Redo } else { SelectionKey::Undo });
+        return Some(if ev.shift_key() {
+            SelectionKey::Redo
+        } else {
+            SelectionKey::Undo
+        });
     }
     if key == "Delete" || key == "Backspace" {
         return Some(SelectionKey::Delete);
@@ -361,7 +416,11 @@ fn selection_key(ev: &web_sys::KeyboardEvent) -> Option<SelectionKey> {
         };
     }
     if key == "Tab" {
-        return Some(if ev.shift_key() { SelectionKey::Outdent } else { SelectionKey::Indent });
+        return Some(if ev.shift_key() {
+            SelectionKey::Outdent
+        } else {
+            SelectionKey::Indent
+        });
     }
     if ev.ctrl_key() && key == "c" {
         return Some(SelectionKey::Copy);
@@ -384,28 +443,39 @@ fn scroll_to_item(
     smooth: bool,
     attempt: u32,
 ) {
-    let Some(vp) = viewport.get_untracked() else { return };
+    let Some(vp) = viewport.get_untracked() else {
+        return;
+    };
     if let Some(el) = dom::element_by_id(&item_id) {
         let el_rect = el.get_bounding_client_rect();
         let vp_rect = vp.get_bounding_client_rect();
         let target_y = vp_rect.top() + vp_rect.height() * 0.1;
         let options = web_sys::ScrollToOptions::new();
         options.set_top(el_rect.top() - target_y);
-        options.set_behavior(if smooth || attempt > 0 { web_sys::ScrollBehavior::Smooth } else { web_sys::ScrollBehavior::Auto });
+        options.set_behavior(if smooth || attempt > 0 {
+            web_sys::ScrollBehavior::Smooth
+        } else {
+            web_sys::ScrollBehavior::Auto
+        });
         vp.scroll_by_with_scroll_to_options(&options);
         return;
     }
     if attempt > 50 {
         return;
     }
-    let Some(index) = ids.with_untracked(|ids| ids.iter().position(|id| *id == item_id)) else { return };
+    let Some(index) = ids.with_untracked(|ids| ids.iter().position(|id| *id == item_id)) else {
+        return;
+    };
     let vp_height = vp.client_height() as f64;
     if attempt == 0 {
         // Estimate the position and jump
         let estimated = {
             let heights = heights.borrow();
             ids.with_untracked(|ids| {
-                ids.iter().take(index).map(|id| heights.get(id).copied().unwrap_or(ESTIMATED_ROW_PX)).sum::<f64>()
+                ids.iter()
+                    .take(index)
+                    .map(|id| heights.get(id).copied().unwrap_or(ESTIMATED_ROW_PX))
+                    .sum::<f64>()
             })
         };
         vp.set_scroll_top((estimated - vp_height * 0.1).max(0.0) as i32);
@@ -418,5 +488,15 @@ fn scroll_to_item(
         }
     }
     let heights = heights.clone();
-    dom::set_timeout(50, move || scroll_to_item(viewport, &heights, ids, window, item_id, smooth, attempt + 1));
+    dom::set_timeout(50, move || {
+        scroll_to_item(
+            viewport,
+            &heights,
+            ids,
+            window,
+            item_id,
+            smooth,
+            attempt + 1,
+        )
+    });
 }

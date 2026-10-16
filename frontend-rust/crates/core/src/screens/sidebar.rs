@@ -36,14 +36,26 @@ pub fn load_index_pages(model: &mut Model) -> Cmd {
     run(move |api| async move {
         let loaded = if page.name == "index" {
             let is_root = page.dir_path.is_empty();
-            let header = if is_root { "(root)/".to_string() } else { page.dir_path.clone() };
-            api.get_child_pages(&page.id).await.map(|children| (header, is_root, children))
+            let header = if is_root {
+                "(root)/".to_string()
+            } else {
+                page.dir_path.clone()
+            };
+            api.get_child_pages(&page.id)
+                .await
+                .map(|children| (header, is_root, children))
         } else if !page.parent_id.is_empty() {
             match api.get_page_by_id(&page.parent_id).await {
                 Ok(parent) => {
                     let is_root = parent.page.dir_path.is_empty();
-                    let header = if is_root { "(root)/".to_string() } else { parent.page.dir_path.clone() };
-                    api.get_child_pages(&page.parent_id).await.map(|siblings| (header, is_root, siblings))
+                    let header = if is_root {
+                        "(root)/".to_string()
+                    } else {
+                        parent.page.dir_path.clone()
+                    };
+                    api.get_child_pages(&page.parent_id)
+                        .await
+                        .map(|siblings| (header, is_root, siblings))
                 }
                 Err(e) => Err(e),
             }
@@ -53,8 +65,11 @@ pub fn load_index_pages(model: &mut Model) -> Cmd {
         match loaded {
             Ok((header, is_root, pages)) => apply(&api, "index pages", move |m| {
                 m.sidebar.index_header = header;
-                m.sidebar.index_pages =
-                    if is_root { pages.into_iter().filter(|c| c.page_type == "doc").collect() } else { pages };
+                m.sidebar.index_pages = if is_root {
+                    pages.into_iter().filter(|c| c.page_type == "doc").collect()
+                } else {
+                    pages
+                };
                 done()
             }),
             Err(e) => log_error(format!("Failed to load index pages: {e}")),
@@ -80,7 +95,11 @@ pub fn page_title(page: &Page) -> String {
         return crate::util::date::format_journal_date(&page.name);
     }
     if page.name == "index" {
-        return if page.dir_path.is_empty() { "(root)/".to_string() } else { page.dir_path.clone() };
+        return if page.dir_path.is_empty() {
+            "(root)/".to_string()
+        } else {
+            page.dir_path.clone()
+        };
     }
     format!("{}{}", page.dir_path, page.name)
 }

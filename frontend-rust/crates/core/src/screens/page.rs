@@ -12,7 +12,10 @@ use crux_core::Command;
 pub fn split_doc_path(title: &str) -> (String, String) {
     let stripped = title.strip_suffix(".md").unwrap_or(title);
     match stripped.rfind('/') {
-        Some(slash) => (stripped[..=slash].to_string(), stripped[slash + 1..].to_string()),
+        Some(slash) => (
+            stripped[..=slash].to_string(),
+            stripped[slash + 1..].to_string(),
+        ),
         None => (String::new(), stripped.to_string()),
     }
 }
@@ -51,14 +54,18 @@ pub fn open(model: &mut Model, name: &str, fragment: Option<String>) -> Cmd {
         // "Quarkus" to dirPath "Quarkus/" and name "index"
         let canonical = p.canonical_path();
         if canonical != page_name {
-            apply(&api, "page: redirect", move |_| navigate::to_page(&canonical, false, false, true, None));
+            apply(&api, "page: redirect", move |_| {
+                navigate::to_page(&canonical, false, false, true, None)
+            });
             return;
         }
         let created = result.created;
         let page_for_state = p.clone();
         apply(&api, "page loaded", move |m| {
             let Some(ps) = page_mut(m) else { return done() };
-            if ps.page_name != page_for_state.canonical_path() && ps.page_name != page_for_state.name {
+            if ps.page_name != page_for_state.canonical_path()
+                && ps.page_name != page_for_state.name
+            {
                 return done();
             }
             ps.page = Some(page_for_state.clone());
@@ -82,7 +89,11 @@ pub fn open(model: &mut Model, name: &str, fragment: Option<String>) -> Cmd {
         });
         // A non-root index page can be demoted when it has no children
         if p.name == "index" && !p.dir_path.is_empty() {
-            let can_demote = api.get_child_pages(&p.id).await.map(|c| c.is_empty()).unwrap_or(false);
+            let can_demote = api
+                .get_child_pages(&p.id)
+                .await
+                .map(|c| c.is_empty())
+                .unwrap_or(false);
             apply(&api, "page: can demote", move |m| {
                 if let Some(ps) = page_mut(m) {
                     ps.can_demote_index = can_demote;
@@ -93,7 +104,11 @@ pub fn open(model: &mut Model, name: &str, fragment: Option<String>) -> Cmd {
         // The outline loads the items of the page
         match api.get_page_by_id(&p.id).await {
             Ok(loaded) => apply(&api, "page items", move |m| {
-                if page_state(m).and_then(|ps| ps.page.as_ref()).map(|pg| pg.id.as_str()) != Some(&p.id) {
+                if page_state(m)
+                    .and_then(|ps| ps.page.as_ref())
+                    .map(|pg| pg.id.as_str())
+                    != Some(&p.id)
+                {
                     return done();
                 }
                 m.state.set_items(loaded.items);
@@ -109,12 +124,18 @@ pub fn open(model: &mut Model, name: &str, fragment: Option<String>) -> Cmd {
 
 /// Selects and scrolls to the item the URL fragment names, when the page has it.
 fn scroll_to_focus_item(model: &mut Model) -> Cmd {
-    let Some(item_id) = page_state(model).and_then(|p| p.focus_item_id.clone()) else { return done() };
+    let Some(item_id) = page_state(model).and_then(|p| p.focus_item_id.clone()) else {
+        return done();
+    };
     if model.state.get_visible_item(&item_id).is_none() {
         return done();
     }
     model.selection.select_subtree(&mut model.state, &item_id);
-    Command::notify_shell(UiOp::ScrollToItem { item_id, smooth: false }).into()
+    Command::notify_shell(UiOp::ScrollToItem {
+        item_id,
+        smooth: false,
+    })
+    .into()
 }
 
 /// The display title: journals as dates, index pages as their directory, docs as their name.
@@ -123,7 +144,12 @@ pub fn page_title(p: &Page) -> String {
         return crate::util::date::format_journal_date(&p.name);
     }
     if p.name == "index" && !p.dir_path.is_empty() {
-        let last = p.dir_path.trim_end_matches('/').rsplit('/').next().unwrap_or("");
+        let last = p
+            .dir_path
+            .trim_end_matches('/')
+            .rsplit('/')
+            .next()
+            .unwrap_or("");
         return format!("{last}/");
     }
     p.name.clone()
@@ -135,7 +161,11 @@ pub fn full_page_title(p: &Page) -> String {
         return crate::util::date::format_journal_date(&p.name);
     }
     if p.name == "index" {
-        return if p.dir_path.is_empty() { "(root)/".to_string() } else { p.dir_path.clone() };
+        return if p.dir_path.is_empty() {
+            "(root)/".to_string()
+        } else {
+            p.dir_path.clone()
+        };
     }
     format!("{}{}", p.dir_path, p.name)
 }
@@ -167,7 +197,9 @@ pub fn demote_name(p: &Page) -> String {
 
 /// Saves the edited page title and/or directory path to the server.
 pub fn save_title(model: &mut Model, dir_path: String, file_name: String) -> Cmd {
-    let Some(p) = page_state(model).and_then(|ps| ps.page.clone()) else { return done() };
+    let Some(p) = page_state(model).and_then(|ps| ps.page.clone()) else {
+        return done();
+    };
     let raw = file_name.trim().to_string();
     if raw.is_empty() {
         return Command::notify_shell(UiOp::Alert("Page name cannot be empty".into())).into();
@@ -193,7 +225,11 @@ pub fn save_title(model: &mut Model, dir_path: String, file_name: String) -> Cmd
     }
     run(move |api| async move {
         let updated = match api
-            .update_page(&p.id, title_changed.then(|| new_name.clone()), dir_changed.then(|| new_dir.clone()))
+            .update_page(
+                &p.id,
+                title_changed.then(|| new_name.clone()),
+                dir_changed.then(|| new_dir.clone()),
+            )
             .await
         {
             Ok(u) => u,
@@ -219,7 +255,9 @@ pub fn save_title(model: &mut Model, dir_path: String, file_name: String) -> Cmd
 
 /// Renames a childless index page `a/b/index` to the page `a/b`.
 pub fn demote_index(model: &mut Model) -> Cmd {
-    let Some(p) = page_state(model).and_then(|ps| ps.page.clone()) else { return done() };
+    let Some(p) = page_state(model).and_then(|ps| ps.page.clone()) else {
+        return done();
+    };
     if p.dir_path.is_empty() {
         return done();
     }
@@ -233,8 +271,15 @@ pub fn demote_index(model: &mut Model) -> Cmd {
         None => String::new(),
     };
     run(move |api| async move {
-        if let Err(e) = api.update_page(&p.id, Some(name.clone()), Some(parent_dir.clone())).await {
-            api.notify(UiOp::Alert(if e.0.is_empty() { "Failed to rename page".into() } else { e.0 }));
+        if let Err(e) = api
+            .update_page(&p.id, Some(name.clone()), Some(parent_dir.clone()))
+            .await
+        {
+            api.notify(UiOp::Alert(if e.0.is_empty() {
+                "Failed to rename page".into()
+            } else {
+                e.0
+            }));
             return;
         }
         apply(&api, "demoted", move |_| {

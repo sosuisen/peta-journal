@@ -33,7 +33,10 @@ pub fn load_property_definitions() -> Cmd {
 pub fn set_week_numbering(model: &mut Model, value: WeekNumbering) -> Cmd {
     model.config.week_numbering = value;
     run(move |api| async move {
-        if let Err(e) = api.update_config(None, Some(value.as_str().to_string()), None).await {
+        if let Err(e) = api
+            .update_config(None, Some(value.as_str().to_string()), None)
+            .await
+        {
             log_error(format!("Failed to save config to server: {e}"));
         }
     })

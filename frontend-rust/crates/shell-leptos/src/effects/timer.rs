@@ -11,18 +11,21 @@ pub struct Running {
 }
 
 pub fn start(handle: CoreHandle, id: u64, ms: u32, request: Request<TimerOp>) {
-    let fire = {
-        let handle = handle;
-        move || {
-            let running = handle.inner().timers.borrow_mut().remove(&id);
-            if let Some(mut running) = running {
-                running.timeout.take().map(Timeout::forget);
-                handle.resolve(&mut running.request, TimerOutput::Fired);
-            }
+    let fire = move || {
+        let running = handle.inner().timers.borrow_mut().remove(&id);
+        if let Some(mut running) = running {
+            running.timeout.take().map(Timeout::forget);
+            handle.resolve(&mut running.request, TimerOutput::Fired);
         }
     };
     let timeout = Timeout::new(ms, fire);
-    handle.inner().timers.borrow_mut().insert(id, Running { request, timeout: Some(timeout) });
+    handle.inner().timers.borrow_mut().insert(
+        id,
+        Running {
+            request,
+            timeout: Some(timeout),
+        },
+    );
 }
 
 pub fn cancel(handle: &CoreHandle, id: u64) {

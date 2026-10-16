@@ -19,7 +19,7 @@ pub fn Settings() -> impl IntoView {
                     <label class="setting-label">"Markdown working directory"</label>
                     <div class="input-with-button">
                         <input type="text" class="setting-input" prop:value=move || config.with(|c| c.markdown_dir.clone()) readonly />
-                        <button class="browse-btn" on:click={ let core = core; move |_| core.send(Event::BrowseFolder) }>"Browse..."</button>
+                        <button class="browse-btn" on:click=move |_| core.send(Event::BrowseFolder)>"Browse..."</button>
                     </div>
                     <p class="setting-description">"Changes require a server restart to take effect."</p>
                 </div>
@@ -28,7 +28,7 @@ pub fn Settings() -> impl IntoView {
                     <select
                         class="setting-select"
                         prop:value=move || config.with(|c| c.week_numbering.as_str().to_string())
-                        on:change={ let core = core; move |ev| core.send(Event::SetWeekNumbering(WeekNumbering::parse(&event_target_value(&ev)))) }
+                        on:change=move |ev| core.send(Event::SetWeekNumbering(WeekNumbering::parse(&event_target_value(&ev))))
                     >
                         <option value="us">"US (Sunday start)"</option>
                         <option value="iso">"ISO (Monday start)"</option>
@@ -39,7 +39,7 @@ pub fn Settings() -> impl IntoView {
                         <input
                             type="checkbox"
                             prop:checked=move || config.with(|c| c.logical_outdent)
-                            on:change={ let core = core; move |ev| core.send(Event::SetLogicalOutdent(event_target_checked(&ev))) }
+                            on:change=move |ev| core.send(Event::SetLogicalOutdent(event_target_checked(&ev)))
                         />
                         " Logical outdent"
                     </label>

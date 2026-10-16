@@ -35,7 +35,9 @@ pub fn edit_requested(model: &mut Model, item_id: &str, cursor: usize) -> Cmd {
 /// The user typed in an editor: the state shows it, the auto-save is scheduled and the
 /// edit is recorded for undo.
 pub fn body_changed(model: &mut Model, item_id: &str, new_body: String) -> Cmd {
-    let Some(item) = model.current_item(item_id) else { return done() };
+    let Some(item) = model.current_item(item_id) else {
+        return done();
+    };
     let before: Item = (*item).clone();
     let cmd = record_typing(model, &before, &new_body);
     let mut after = before.clone();
@@ -50,7 +52,9 @@ pub fn body_changed(model: &mut Model, item_id: &str, new_body: String) -> Cmd {
 /// the neighbour, with the cursor at the same column.
 pub fn navigate(model: &mut Model, item_id: &str, cursor: usize, delta: i32) -> Cmd {
     let items = model.state.visible_items();
-    let Some(idx) = index_of(items, item_id) else { return done() };
+    let Some(idx) = index_of(items, item_id) else {
+        return done();
+    };
     let target = idx as i64 + delta as i64;
     if target < 0 || target >= items.len() as i64 {
         return done();
@@ -73,9 +77,14 @@ pub fn ensure_at_least_one_item(model: &mut Model) -> Cmd {
     if !model.state.items().is_empty() {
         return done();
     }
-    let Some(page_id) = model.shown_page_id() else { return done() };
+    let Some(page_id) = model.shown_page_id() else {
+        return done();
+    };
     run(move |api| async move {
-        if let Ok(new_item) = api.create_item(&page_id, ItemPosition::First, 1, "", None).await {
+        if let Ok(new_item) = api
+            .create_item(&page_id, ItemPosition::First, 1, "", None)
+            .await
+        {
             let id = new_item.id.clone();
             let focus_id = id.clone();
             apply(&api, "ensure one item", move |m| {
@@ -91,7 +100,13 @@ pub fn ensure_at_least_one_item(model: &mut Model) -> Cmd {
 /// The ids of the selected items in outline order, each resolved to the item its edits are saved to.
 fn ordered_selected_ids(model: &Model) -> Vec<String> {
     let selected = model.state.selected_item_ids();
-    model.state.visible_items().iter().filter(|b| selected.contains(&b.id)).map(|b| save_target_id(b)).collect()
+    model
+        .state
+        .visible_items()
+        .iter()
+        .filter(|b| selected.contains(&b.id))
+        .map(|b| save_target_id(b))
+        .collect()
 }
 
 pub fn selection_key(model: &mut Model, key: SelectionKey) -> Cmd {
@@ -141,8 +156,14 @@ fn delete_selected(model: &mut Model) -> Cmd {
 fn indent_selected(model: &mut Model) -> Cmd {
     let selected = model.state.selected_item_ids().clone();
     let all = model.state.items();
-    let to_indent: Vec<_> = all.iter().filter(|b| selected.contains(&b.id)).cloned().collect();
-    let Some(first) = to_indent.first() else { return done() };
+    let to_indent: Vec<_> = all
+        .iter()
+        .filter(|b| selected.contains(&b.id))
+        .cloned()
+        .collect();
+    let Some(first) = to_indent.first() else {
+        return done();
+    };
     if index_of(all, &first.id).unwrap_or(0) == 0 {
         return done();
     }
@@ -151,7 +172,13 @@ fn indent_selected(model: &mut Model) -> Cmd {
 
 fn outdent_selected(model: &mut Model) -> Cmd {
     let selected = model.state.selected_item_ids().clone();
-    let to_outdent: Vec<_> = model.state.items().iter().filter(|b| selected.contains(&b.id)).cloned().collect();
+    let to_outdent: Vec<_> = model
+        .state
+        .items()
+        .iter()
+        .filter(|b| selected.contains(&b.id))
+        .cloned()
+        .collect();
     if to_outdent.is_empty() || to_outdent.iter().any(|b| b.level <= 1) {
         return done();
     }

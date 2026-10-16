@@ -11,7 +11,17 @@ use peta_core::Event;
 const US_DAY_LABELS: [&str; 7] = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 const ISO_DAY_LABELS: [&str; 7] = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 const MONTH_NAMES: [&str; 12] = [
-    "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November",
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
     "December",
 ];
 
@@ -28,22 +38,35 @@ fn weeks_of(year: i32, month: u32, iso: bool) -> Vec<(u32, Vec<Day>)> {
     let first_day = if iso { (raw + 6) % 7 } else { raw } as i64;
     let mut days: Vec<Day> = Vec::new();
     for i in (1..=first_day).rev() {
-        days.push(Day { date: first.shift(-i), current_month: false });
+        days.push(Day {
+            date: first.shift(-i),
+            current_month: false,
+        });
     }
     for d in 1..=days_in_month(year, month) {
-        days.push(Day { date: Date::new(year, month, d), current_month: true });
+        days.push(Day {
+            date: Date::new(year, month, d),
+            current_month: true,
+        });
     }
     let remainder = days.len() % 7;
     if remainder > 0 {
         let last = days.last().unwrap().date;
         for i in 1..=(7 - remainder) as i64 {
-            days.push(Day { date: last.shift(i), current_month: false });
+            days.push(Day {
+                date: last.shift(i),
+                current_month: false,
+            });
         }
     }
     days.chunks(7)
         .map(|week| {
             let first_of_week = week[0].date;
-            let number = if iso { iso_week_number(first_of_week) } else { us_week_number(first_of_week) };
+            let number = if iso {
+                iso_week_number(first_of_week)
+            } else {
+                us_week_number(first_of_week)
+            };
             (number, week.to_vec())
         })
         .collect()
@@ -51,7 +74,11 @@ fn weeks_of(year: i32, month: u32, iso: bool) -> Vec<(u32, Vec<Day>)> {
 
 /// Sends the shown page a page navigation; Ctrl opens a tab, Shift a window.
 fn go(core: &CoreHandle, path: String, ev: &web_sys::MouseEvent) {
-    core.send(Event::GoToPage { path, new_tab: ev.ctrl_key() || ev.meta_key(), new_window: ev.shift_key() });
+    core.send(Event::GoToPage {
+        path,
+        new_tab: ev.ctrl_key() || ev.meta_key(),
+        new_window: ev.shift_key(),
+    });
 }
 
 #[component]
@@ -69,8 +96,20 @@ pub fn Calendar(
     let view_year = RwSignal::new(now.get_full_year() as i32);
     let view_month = RwSignal::new(now.get_month() + 1);
 
-    let weeks = Memo::new(move |_| weeks_of(view_year.get(), view_month.get(), numbering.get() == WeekNumbering::Iso));
-    let day_labels = move || if numbering.get() == WeekNumbering::Iso { ISO_DAY_LABELS } else { US_DAY_LABELS };
+    let weeks = Memo::new(move |_| {
+        weeks_of(
+            view_year.get(),
+            view_month.get(),
+            numbering.get() == WeekNumbering::Iso,
+        )
+    });
+    let day_labels = move || {
+        if numbering.get() == WeekNumbering::Iso {
+            ISO_DAY_LABELS
+        } else {
+            US_DAY_LABELS
+        }
+    };
     let notify = move |ev: &web_sys::MouseEvent| {
         if let Some(cb) = on_navigate {
             cb.run(ev.ctrl_key() || ev.meta_key() || ev.shift_key());
@@ -100,11 +139,11 @@ pub fn Calendar(
                 <div class="calendar-header">
                     <button on:click=prev_month>"<"</button>
                     <span>
-                        <span class="month-label" on:click={ let core = core; move |ev| { go(&core, format!("{}-{:02}", view_year.get(), view_month.get()), &ev); notify(&ev); } }>
+                        <span class="month-label" on:click=move |ev| { go(&core, format!("{}-{:02}", view_year.get(), view_month.get()), &ev); notify(&ev); }>
                             {move || MONTH_NAMES[(view_month.get() - 1) as usize]}
                         </span>
                         " "
-                        <span class="year-label" on:click={ let core = core; move |ev| { go(&core, view_year.get().to_string(), &ev); notify(&ev); } }>
+                        <span class="year-label" on:click=move |ev| { go(&core, view_year.get().to_string(), &ev); notify(&ev); }>
                             {move || view_year.get()}
                         </span>
                     </span>

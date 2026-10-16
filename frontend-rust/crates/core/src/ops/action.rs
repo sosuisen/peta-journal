@@ -10,7 +10,9 @@ use crate::ops::file_reload::reload_shown_page;
 /// Cycles the task state: normal → task → running → done → normal.
 /// An item that just became a task on a daily journal gets the journal date as its plan.
 pub fn cycle_task(model: &mut Model, item_id: &str) -> Cmd {
-    let Some(item) = model.current_item(item_id) else { return done() };
+    let Some(item) = model.current_item(item_id) else {
+        return done();
+    };
     let item: Item = (*item).clone();
     run(move |api| async move {
         let target_id = save_target_id(&item);
@@ -20,7 +22,10 @@ pub fn cycle_task(model: &mut Model, item_id: &str) -> Cmd {
             Err(e) => return log_error(format!("Failed to cycle task: {e}")),
         };
         if !was_task && updated.is_task() && item.is_daily_journal_item() {
-            match api.upsert_item_property(&target_id, "plan", "date", &item.name).await {
+            match api
+                .upsert_item_property(&target_id, "plan", "date", &item.name)
+                .await
+            {
                 Ok(u) => updated = u,
                 Err(e) => return log_error(format!("Failed to set plan: {e}")),
             }
@@ -44,7 +49,9 @@ pub fn cycle_task(model: &mut Model, item_id: &str) -> Cmd {
 
 /// Shift+Wheel: a tenth more or less zoom, between 0.1 and 3.0.
 pub fn zoom_step(model: &mut Model, item_id: &str, up: bool) -> Cmd {
-    let Some(item) = model.current_item(item_id) else { return done() };
+    let Some(item) = model.current_item(item_id) else {
+        return done();
+    };
     let current = item.zoom();
     let delta = if up { 0.1 } else { -0.1 };
     let new_zoom = ((current + delta).clamp(0.1, 3.0) * 10.0).round() / 10.0;
@@ -59,11 +66,15 @@ pub fn set_zoom(model: &mut Model, item_id: &str, zoom: f64) -> Cmd {
     let zoom_text = format_zoom(zoom);
     let z = zoom_text.clone();
     model.state.update_item(item_id, |i| {
-        i.properties.insert("zoom".into(), serde_json::Value::String(z));
+        i.properties
+            .insert("zoom".into(), serde_json::Value::String(z));
     });
     let id = item_id.to_string();
     run(move |api| async move {
-        if let Err(e) = api.upsert_item_property(&id, "zoom", "number", &zoom_text).await {
+        if let Err(e) = api
+            .upsert_item_property(&id, "zoom", "number", &zoom_text)
+            .await
+        {
             log_error(format!("Failed to update zoom: {e}"));
         }
     })
@@ -84,13 +95,20 @@ pub fn toggle_collapsed(model: &mut Model, item_id: &str) -> Cmd {
     if !model.state.has_children(item_id) {
         return done();
     }
-    let Some(item) = model.current_item(item_id) else { return done() };
+    let Some(item) = model.current_item(item_id) else {
+        return done();
+    };
     let item: Item = (*item).clone();
     let new_collapsed = !item.collapsed;
     model.state.toggle_collapsed(&item.id);
-    model.state.update_item(&item.id, |i| i.collapsed = new_collapsed);
+    model
+        .state
+        .update_item(&item.id, |i| i.collapsed = new_collapsed);
     run(move |api| async move {
-        match api.update_item(&item.id, None, None, Some(new_collapsed)).await {
+        match api
+            .update_item(&item.id, None, None, Some(new_collapsed))
+            .await
+        {
             Ok(_) => apply(&api, "collapse: record", move |m| {
                 let mut after = item.clone();
                 after.collapsed = new_collapsed;
@@ -114,7 +132,9 @@ pub fn toggle_collapsed(model: &mut Model, item_id: &str) -> Cmd {
 
 /// Makes the item a transclusion of the item whose id is on the clipboard.
 pub fn paste_as_transclusion(model: &mut Model, item_id: &str) -> Cmd {
-    let Some(item) = model.current_item(item_id) else { return done() };
+    let Some(item) = model.current_item(item_id) else {
+        return done();
+    };
     let item: Item = (*item).clone();
     run(move |api| async move {
         let pasted = api.read_clipboard_text().await;
@@ -123,7 +143,9 @@ pub fn paste_as_transclusion(model: &mut Model, item_id: &str) -> Cmd {
 }
 
 fn looks_like_item_id(s: &str) -> bool {
-    s.len() >= 10 && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+    s.len() >= 10
+        && s.chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
 }
 
 /// Makes the item a transclusion of another item, when the pasted text is an item id.
@@ -146,7 +168,9 @@ async fn transclude(api: &Api<Event>, item: &Item, pasted_text: &str) {
 
 /// Turns a transclusion back into a plain item.
 pub fn remove_transclusion(model: &mut Model, item_id: &str) -> Cmd {
-    let Some(item) = model.state.get_item_by_id(item_id) else { return done() };
+    let Some(item) = model.state.get_item_by_id(item_id) else {
+        return done();
+    };
     let id = item.id.clone();
     run(move |api| async move {
         match api.remove_transclusion(&id).await {
@@ -166,9 +190,16 @@ pub fn remove_transclusion(model: &mut Model, item_id: &str) -> Cmd {
 /// `#archived` tag to the body and moves the group under the `#item-archive` item, which is
 /// created at the end of the page when missing.
 pub fn archive(model: &mut Model, item_id: &str) -> Cmd {
-    let Some(item) = model.current_item(item_id) else { return done() };
+    let Some(item) = model.current_item(item_id) else {
+        return done();
+    };
     let item: Item = (*item).clone();
-    let group_ids: Vec<String> = model.state.get_item_with_children(&item.id).iter().map(|b| b.id.clone()).collect();
+    let group_ids: Vec<String> = model
+        .state
+        .get_item_with_children(&item.id)
+        .iter()
+        .map(|b| b.id.clone())
+        .collect();
     if group_ids.is_empty() {
         return done();
     }
@@ -179,7 +210,11 @@ pub fn archive(model: &mut Model, item_id: &str) -> Cmd {
     })
 }
 
-async fn archive_now(api: &Api<Event>, item: Item, group_ids: Vec<String>) -> Result<(), crate::effects::ApiError> {
+async fn archive_now(
+    api: &Api<Event>,
+    item: Item,
+    group_ids: Vec<String>,
+) -> Result<(), crate::effects::ApiError> {
     if !item.tags().iter().any(|t| t == "archived") {
         let new_body = format!("{} #archived", item.body.trim_end());
         save_body(api, &item.id, &new_body).await?;
@@ -188,7 +223,10 @@ async fn archive_now(api: &Api<Event>, item: Item, group_ids: Vec<String>) -> Re
     // pick up the save above.
     let found = read(api, |m| {
         let items = m.state.items();
-        let archive = items.iter().find(|it| it.tags().iter().any(|t| t == "item-archive")).map(|a| (**a).clone());
+        let archive = items
+            .iter()
+            .find(|it| it.tags().iter().any(|t| t == "item-archive"))
+            .map(|a| (**a).clone());
         (archive, items.last().map(|l| l.id.clone()))
     })
     .await;
@@ -196,7 +234,9 @@ async fn archive_now(api: &Api<Event>, item: Item, group_ids: Vec<String>) -> Re
         (Some(archive), _) => archive,
         (None, Some(last_id)) => {
             let position = ItemPosition::after(last_id);
-            let created = api.create_item(&item.page_id, position.clone(), 1, "#item-archive", None).await?;
+            let created = api
+                .create_item(&item.page_id, position.clone(), 1, "#item-archive", None)
+                .await?;
             let c = created.clone();
             apply(api, "archive: created", move |m| {
                 m.state.add_item(c, &position);
@@ -209,7 +249,14 @@ async fn archive_now(api: &Api<Event>, item: Item, group_ids: Vec<String>) -> Re
     // Move the archived items as the first child of #item-archive
     let level_delta = (archive_item.level + 1) - item.level;
     let position = ItemPosition::after(archive_item.id.clone());
-    let moved = api.move_items(group_ids.clone(), &item.page_id, position.clone(), Some(level_delta)).await?;
+    let moved = api
+        .move_items(
+            group_ids.clone(),
+            &item.page_id,
+            position.clone(),
+            Some(level_delta),
+        )
+        .await?;
     apply(api, "archive: moved", move |m| {
         m.state.replace_items(&group_ids, moved, &position);
         done()
@@ -222,7 +269,11 @@ pub fn delete_items(model: &mut Model, item_ids: &[String]) -> Cmd {
     if item_ids.is_empty() {
         return done();
     }
-    let deleted: Vec<Item> = item_ids.iter().filter_map(|id| model.state.get_item_by_id(id)).map(|b| (*b).clone()).collect();
+    let deleted: Vec<Item> = item_ids
+        .iter()
+        .filter_map(|id| model.state.get_item_by_id(id))
+        .map(|b| (*b).clone())
+        .collect();
     model.undo.begin("delete-selection", None);
     for b in &deleted {
         model.undo.push_delete(b);
@@ -247,7 +298,9 @@ pub fn copy_items(item_ids: Vec<String>) -> Cmd {
     run(move |api| async move {
         match api.export_tree_markdown(item_ids).await {
             Ok(result) => {
-                api.notify(UiOp::CopyMarkdown { markdown: result.tree_markdown.clone() });
+                api.notify(UiOp::CopyMarkdown {
+                    markdown: result.tree_markdown.clone(),
+                });
                 apply(&api, "copy: remember", move |m| {
                     m.clipboard = Some((result.flat_markdown, result.tree_markdown));
                     done()
@@ -257,4 +310,3 @@ pub fn copy_items(item_ids: Vec<String>) -> Cmd {
         }
     })
 }
-

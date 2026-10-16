@@ -31,7 +31,11 @@ impl Selection {
 
     /// Selects an item together with its subtree, e.g. the item the page was opened on.
     pub fn select_subtree(&mut self, state: &mut OutlineState, item_id: &str) {
-        let mut ids: HashSet<String> = state.get_children(item_id).iter().map(|b| b.id.clone()).collect();
+        let mut ids: HashSet<String> = state
+            .get_children(item_id)
+            .iter()
+            .map(|b| b.id.clone())
+            .collect();
         ids.insert(item_id.to_string());
         self.enter(state, item_id, ids);
     }
@@ -43,7 +47,11 @@ impl Selection {
         state.set_item_selection_mode(true);
         self.anchor_item_id = Some(item_id.to_string());
         self.dragging = true;
-        let group: HashSet<String> = state.get_item_with_children(item_id).iter().map(|b| b.id.clone()).collect();
+        let group: HashSet<String> = state
+            .get_item_with_children(item_id)
+            .iter()
+            .map(|b| b.id.clone())
+            .collect();
         state.set_selected_item_ids(group);
     }
 
@@ -55,7 +63,9 @@ impl Selection {
         self.extent_item_id = Some(item_id.to_string());
         let items = state.visible_items();
         let (Some(anchor_idx), Some(current_idx)) = (
-            self.anchor_item_id.as_deref().and_then(|id| index_of(items, id)),
+            self.anchor_item_id
+                .as_deref()
+                .and_then(|id| index_of(items, id)),
             index_of(items, item_id),
         ) else {
             return;
@@ -81,8 +91,12 @@ impl Selection {
     pub fn extend_up(&mut self, state: &mut OutlineState) {
         let items = state.visible_items();
         let (Some(mut extent_idx), Some(anchor_idx)) = (
-            self.extent_item_id.as_deref().and_then(|id| index_of(items, id)),
-            self.anchor_item_id.as_deref().and_then(|id| index_of(items, id)),
+            self.extent_item_id
+                .as_deref()
+                .and_then(|id| index_of(items, id)),
+            self.anchor_item_id
+                .as_deref()
+                .and_then(|id| index_of(items, id)),
         ) else {
             return;
         };
@@ -106,8 +120,12 @@ impl Selection {
     pub fn extend_down(&mut self, state: &mut OutlineState) {
         let items = state.visible_items();
         let (Some(mut extent_idx), Some(anchor_idx)) = (
-            self.extent_item_id.as_deref().and_then(|id| index_of(items, id)),
-            self.anchor_item_id.as_deref().and_then(|id| index_of(items, id)),
+            self.extent_item_id
+                .as_deref()
+                .and_then(|id| index_of(items, id)),
+            self.anchor_item_id
+                .as_deref()
+                .and_then(|id| index_of(items, id)),
         ) else {
             return;
         };
@@ -143,8 +161,12 @@ impl Selection {
     fn select_from_anchor_to_extent(&mut self, state: &mut OutlineState) {
         let items = state.visible_items();
         let (Some(anchor_idx), Some(extent_idx)) = (
-            self.anchor_item_id.as_deref().and_then(|id| index_of(items, id)),
-            self.extent_item_id.as_deref().and_then(|id| index_of(items, id)),
+            self.anchor_item_id
+                .as_deref()
+                .and_then(|id| index_of(items, id)),
+            self.extent_item_id
+                .as_deref()
+                .and_then(|id| index_of(items, id)),
         ) else {
             return;
         };

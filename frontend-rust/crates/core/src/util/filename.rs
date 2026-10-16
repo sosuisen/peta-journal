@@ -32,7 +32,12 @@ pub fn classify_journal_file_name(file_name: &str) -> JournalType {
             }
         }
         [y, m, d]
-            if y.len() == 4 && m.len() == 2 && d.len() == 2 && all_digits(y) && all_digits(m) && all_digits(d) =>
+            if y.len() == 4
+                && m.len() == 2
+                && d.len() == 2
+                && all_digits(y)
+                && all_digits(m)
+                && all_digits(d) =>
         {
             JournalType::Daily
         }
@@ -45,8 +50,8 @@ pub fn is_journal_file_name(file_name: &str) -> bool {
 }
 
 const RESERVED_NAMES: [&str; 22] = [
-    "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
-    "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+    "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8",
+    "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
 ];
 
 /// Validates a page title for use as a file name on Windows, macOS and Linux.
@@ -54,7 +59,9 @@ const RESERVED_NAMES: [&str; 22] = [
 pub fn validate_file_name(title: &str) -> Option<String> {
     for ch in title.chars() {
         if ch.is_control() {
-            return Some("Title contains a control character (not allowed in filenames)".to_string());
+            return Some(
+                "Title contains a control character (not allowed in filenames)".to_string(),
+            );
         }
         if matches!(ch, '<' | '>' | ':' | '"' | '\\' | '|' | '?' | '*') {
             return Some(format!("Title contains '{ch}' (not allowed in filenames)"));

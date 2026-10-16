@@ -18,7 +18,9 @@ pub fn is_shown_for(model: &Model, item_id: &str) -> bool {
 
 /// Typing inside `[[ ]]`: positions the popup and searches after a pause. None closes it.
 pub fn query(model: &mut Model, item_id: &str, context: Option<WikiLinkContext>) -> Cmd {
-    let Some(ctx) = context else { return close(model) };
+    let Some(ctx) = context else {
+        return close(model);
+    };
     model.wiki.item_id = Some(item_id.to_string());
     model.wiki.x = ctx.x;
     model.wiki.y = ctx.y + 4.0;
@@ -87,13 +89,19 @@ pub fn key_nav(model: &mut Model, key: &str) -> Cmd {
 /// Replaces the wiki link query text (between `[[` and `]]`) with the picked title and
 /// puts the caret after it.
 pub fn pick(model: &mut Model, title: &str) -> Cmd {
-    let Some(item_id) = model.wiki.item_id.clone() else { return done() };
-    let Some(item) = model.current_item(&item_id) else { return close(model) };
+    let Some(item_id) = model.wiki.item_id.clone() else {
+        return done();
+    };
+    let Some(item) = model.current_item(&item_id) else {
+        return close(model);
+    };
     let body = item.body.clone();
     let query_len = char_len(&model.wiki.query);
     let close_cmd = close(model);
     // The query sits right before `]]`: find the `[[` that opens it
-    let Some(close_idx) = find_close_after_query(&body, &model_query_hint(query_len)) else { return close_cmd };
+    let Some(close_idx) = find_close_after_query(&body, &model_query_hint(query_len)) else {
+        return close_cmd;
+    };
     let open_idx = match body[..close_idx].rfind("[[") {
         Some(i) => i,
         None => return close_cmd,
@@ -133,4 +141,3 @@ pub fn close(model: &mut Model) -> Cmd {
     model.wiki.query.clear();
     cancel_timer(model)
 }
-

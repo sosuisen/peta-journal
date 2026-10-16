@@ -14,7 +14,11 @@ fn tags_in(body: &str) -> BTreeMap<String, serde_json::Value> {
     let tags: Vec<serde_json::Value> = body
         .split(|c: char| c.is_whitespace())
         .filter_map(|w| w.strip_prefix('#'))
-        .filter(|t| !t.is_empty() && t.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-'))
+        .filter(|t| {
+            !t.is_empty()
+                && t.chars()
+                    .all(|c| c.is_alphanumeric() || c == '_' || c == '-')
+        })
         .map(|t| serde_json::Value::String(t.to_string()))
         .collect();
     let mut props = BTreeMap::new();
@@ -88,20 +92,39 @@ impl FakeApi {
     }
 
     fn answer(&mut self, op: &ApiOp) -> ApiResult<ApiOutput> {
-        if let Some(queued) = self.answers.get_mut(op_name(op)).and_then(|q| q.pop_front()) {
+        if let Some(queued) = self
+            .answers
+            .get_mut(op_name(op))
+            .and_then(|q| q.pop_front())
+        {
             return queued;
         }
         Ok(match op {
-            ApiOp::UpdateItem { item_id, body, level, collapsed } => {
-                let mut item = plain_item(item_id, level.unwrap_or(1), body.as_deref().unwrap_or(""));
+            ApiOp::UpdateItem {
+                item_id,
+                body,
+                level,
+                collapsed,
+            } => {
+                let mut item =
+                    plain_item(item_id, level.unwrap_or(1), body.as_deref().unwrap_or(""));
                 item.ast = format!("ast:{}", item.body);
                 item.properties = tags_in(&item.body);
                 item.collapsed = collapsed.unwrap_or(false);
                 ApiOutput::Item(item)
             }
-            ApiOp::CreateItem { page_id, level, body, id, .. } => {
+            ApiOp::CreateItem {
+                page_id,
+                level,
+                body,
+                id,
+                ..
+            } => {
                 self.created += 1;
-                let new_id = id.clone().filter(|i| !i.is_empty()).unwrap_or_else(|| format!("new{}", self.created));
+                let new_id = id
+                    .clone()
+                    .filter(|i| !i.is_empty())
+                    .unwrap_or_else(|| format!("new{}", self.created));
                 let mut item = plain_item(&new_id, *level, body);
                 item.page_id = page_id.clone();
                 item.idx = format!("created{}", self.created);
@@ -109,23 +132,37 @@ impl FakeApi {
                 ApiOutput::Item(item)
             }
             ApiOp::ShiftItemLevels { .. } => ApiOutput::Items(Vec::new()),
-            ApiOp::MoveItems { item_ids, .. } => {
-                ApiOutput::Items(item_ids.iter().map(|id| plain_item(id, 1, &format!("body of {id}"))).collect())
-            }
+            ApiOp::MoveItems { item_ids, .. } => ApiOutput::Items(
+                item_ids
+                    .iter()
+                    .map(|id| plain_item(id, 1, &format!("body of {id}")))
+                    .collect(),
+            ),
             ApiOp::DeleteItem { .. } | ApiOp::DeletePage { .. } => ApiOutput::Done,
             ApiOp::CycleTask { item_id } => {
                 let mut item = plain_item(item_id, 1, "");
                 item.types = vec!["task".into()];
                 ApiOutput::Item(item)
             }
-            ApiOp::UpsertItemProperty { item_id, key, value, .. } => {
+            ApiOp::UpsertItemProperty {
+                item_id,
+                key,
+                value,
+                ..
+            } => {
                 let mut item = plain_item(item_id, 1, "");
                 item.types = vec!["task".into()];
-                item.properties.insert(key.clone(), serde_json::Value::String(value.clone()));
+                item.properties
+                    .insert(key.clone(), serde_json::Value::String(value.clone()));
                 ApiOutput::Item(item)
             }
             ApiOp::GetPageById { page_id } => ApiOutput::Page(PageWithItems {
-                page: Page { id: page_id.clone(), name: "reloaded".into(), page_type: "doc".into(), ..Default::default() },
+                page: Page {
+                    id: page_id.clone(),
+                    name: "reloaded".into(),
+                    page_type: "doc".into(),
+                    ..Default::default()
+                },
                 items: vec![plain_item("reloaded", 1, "reloaded")],
                 ..Default::default()
             }),
@@ -170,18 +207,31 @@ impl FakeApi {
                 ast: String::new(),
                 flat_markdown: "flat".into(),
             }),
-            ApiOp::SetTransclusion { item_id, source_item_id } => {
+            ApiOp::SetTransclusion {
+                item_id,
+                source_item_id,
+            } => {
                 let mut item = plain_item(item_id, 1, "");
                 item.transclude_item_id = Some(source_item_id.clone());
                 ApiOutput::Item(item)
             }
             ApiOp::RemoveTransclusion { item_id } => ApiOutput::Item(plain_item(item_id, 1, "")),
-            ApiOp::SearchCombined { .. } | ApiOp::SearchPageNames { .. } => ApiOutput::SearchResults(Vec::new()),
-            ApiOp::GetRecentPages { .. } | ApiOp::GetChildPages { .. } => ApiOutput::Pages(Vec::new()),
-            ApiOp::GetConfig | ApiOp::UpdateConfig { .. } => ApiOutput::Config(ServerConfig::default()),
+            ApiOp::SearchCombined { .. } | ApiOp::SearchPageNames { .. } => {
+                ApiOutput::SearchResults(Vec::new())
+            }
+            ApiOp::GetRecentPages { .. } | ApiOp::GetChildPages { .. } => {
+                ApiOutput::Pages(Vec::new())
+            }
+            ApiOp::GetConfig | ApiOp::UpdateConfig { .. } => {
+                ApiOutput::Config(ServerConfig::default())
+            }
             ApiOp::GetPropertyDefinitions => ApiOutput::PropertyDefinitions(BTreeMap::new()),
             ApiOp::GetFunctions => ApiOutput::Functions(Vec::new()),
-            ApiOp::UpdatePage { page_id, title, dir_path } => ApiOutput::PageInfo(Page {
+            ApiOp::UpdatePage {
+                page_id,
+                title,
+                dir_path,
+            } => ApiOutput::PageInfo(Page {
                 id: page_id.clone(),
                 name: title.clone().unwrap_or_default(),
                 dir_path: dir_path.clone().unwrap_or_default(),
@@ -190,7 +240,8 @@ impl FakeApi {
             }),
             ApiOp::BrowseFolder => ApiOutput::Folder(FolderChoice::default()),
             ApiOp::LaunchUrl { .. } => ApiOutput::Launched(true),
-            ApiOp::GetMostRecentJournalBefore { .. } | ApiOp::GetMostRecentWeeklyJournalBefore { .. } => {
+            ApiOp::GetMostRecentJournalBefore { .. }
+            | ApiOp::GetMostRecentWeeklyJournalBefore { .. } => {
                 ApiOutput::JournalBefore(JournalBefore::default())
             }
         })
@@ -246,7 +297,12 @@ impl Harness {
         h.model.state.set_items(items);
         h.model.screen = crate::app::Screen::Page(crate::app::PageState {
             page_name: "test-page".into(),
-            page: Some(Page { id: "page1".into(), name: "test-page".into(), page_type: "doc".into(), ..Default::default() }),
+            page: Some(Page {
+                id: "page1".into(),
+                name: "test-page".into(),
+                page_type: "doc".into(),
+                ..Default::default()
+            }),
             ..Default::default()
         });
         h
@@ -295,7 +351,9 @@ impl Harness {
             Effect::Timer(mut request) => match request.operation {
                 TimerOp::Start { .. } => self.timers.push(request),
                 TimerOp::Cancel { id } => {
-                    if let Some(pos) = self.timers.iter().position(|t| matches!(t.operation, TimerOp::Start { id: i, .. } if i == id)) {
+                    if let Some(pos) = self.timers.iter().position(
+                        |t| matches!(t.operation, TimerOp::Start { id: i, .. } if i == id),
+                    ) {
                         let mut t = self.timers.remove(pos);
                         let _ = t.resolve(TimerOutput::Cancelled);
                     }
@@ -310,7 +368,13 @@ impl Harness {
                     UiOp::Confirm(_) => UiOutput::Bool(self.confirm),
                     UiOp::Prompt(_) => UiOutput::Text(self.prompt.clone()),
                     UiOp::LocalNow => UiOutput::Now {
-                        local: LocalDateTimeDto { year: 2026, month: 2, day: 10, hour: 9, minute: 5 },
+                        local: LocalDateTimeDto {
+                            year: 2026,
+                            month: 2,
+                            day: 10,
+                            hour: 9,
+                            minute: 5,
+                        },
                         now_ms: self.now_ms,
                     },
                     _ => UiOutput::Done,
@@ -335,21 +399,42 @@ impl Harness {
     }
 
     pub fn pending_timer_ids(&self) -> Vec<u64> {
-        self.timers.iter().filter_map(|t| match t.operation { TimerOp::Start { id, .. } => Some(id), _ => None }).collect()
+        self.timers
+            .iter()
+            .filter_map(|t| match t.operation {
+                TimerOp::Start { id, .. } => Some(id),
+                _ => None,
+            })
+            .collect()
     }
 
     pub fn items_ids(&self) -> Vec<String> {
-        self.model.state.items().iter().map(|i| i.id.clone()).collect()
+        self.model
+            .state
+            .items()
+            .iter()
+            .map(|i| i.id.clone())
+            .collect()
     }
 
     /// `id=body` of every own item.
     pub fn bodies(&self) -> Vec<String> {
-        self.model.state.items().iter().map(|i| format!("{}={}", i.id, i.body)).collect()
+        self.model
+            .state
+            .items()
+            .iter()
+            .map(|i| format!("{}={}", i.id, i.body))
+            .collect()
     }
 
     /// `id:level=body` of every own item.
     pub fn outline(&self) -> Vec<String> {
-        self.model.state.items().iter().map(|i| format!("{}:{}={}", i.id, i.level, i.body)).collect()
+        self.model
+            .state
+            .items()
+            .iter()
+            .map(|i| format!("{}:{}={}", i.id, i.level, i.body))
+            .collect()
     }
 
     pub fn focused_editor_requests(&self) -> Vec<Option<String>> {
@@ -377,9 +462,19 @@ pub fn create_calls(api: &FakeApi) -> Vec<(String, String, i32, String, Option<S
     api.calls
         .iter()
         .filter_map(|op| match op {
-            ApiOp::CreateItem { page_id, position, level, body, id } => {
-                Some((page_id.clone(), position.to_api(), *level, body.clone(), id.clone()))
-            }
+            ApiOp::CreateItem {
+                page_id,
+                position,
+                level,
+                body,
+                id,
+            } => Some((
+                page_id.clone(),
+                position.to_api(),
+                *level,
+                body.clone(),
+                id.clone(),
+            )),
             _ => None,
         })
         .collect()
@@ -401,9 +496,12 @@ pub fn move_calls(api: &FakeApi) -> Vec<(Vec<String>, String, String)> {
     api.calls
         .iter()
         .filter_map(|op| match op {
-            ApiOp::MoveItems { item_ids, target_page_id, position, .. } => {
-                Some((item_ids.clone(), target_page_id.clone(), position.to_api()))
-            }
+            ApiOp::MoveItems {
+                item_ids,
+                target_page_id,
+                position,
+                ..
+            } => Some((item_ids.clone(), target_page_id.clone(), position.to_api())),
             _ => None,
         })
         .collect()

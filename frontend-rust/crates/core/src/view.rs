@@ -8,7 +8,6 @@ use crate::outline::{FocusRequest, Heading};
 use crate::screens::{journal, page, sidebar};
 use crate::util::date::format_journal_date;
 use crate::util::filename::JournalType;
-use std::collections::HashSet;
 
 /// One row of the outline: the item as shown plus what the row needs to draw itself.
 #[derive(Debug, Clone, PartialEq)]
@@ -96,7 +95,6 @@ pub struct SidebarView {
     pub headings: Vec<Heading>,
     pub recent_pages: Vec<SidebarPage>,
     pub current_page_id: Option<String>,
-    pub collapsed_sections: HashSet<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -174,7 +172,9 @@ fn outline(model: &Model) -> OutlineView {
     let state = &model.state;
     let visible = state.visible_items();
     let own_ids = state.own_item_ids();
-    let journal_date = journal::journal(model).map(|j| j.current_date.clone()).unwrap_or_default();
+    let journal_date = journal::journal(model)
+        .map(|j| j.current_date.clone())
+        .unwrap_or_default();
     let selected = state.selected_item_ids();
     let editing = state.editing_item_ids();
 
@@ -182,7 +182,11 @@ fn outline(model: &Model) -> OutlineView {
     let mut stack: Vec<(i32, f64)> = Vec::new();
     let mut rows = Vec::with_capacity(visible.len());
     for (index, item) in visible.iter().enumerate() {
-        while stack.last().map(|(level, _)| *level >= item.level).unwrap_or(false) {
+        while stack
+            .last()
+            .map(|(level, _)| *level >= item.level)
+            .unwrap_or(false)
+        {
             stack.pop();
         }
         let parent_zoom = stack.last().map(|(_, z)| *z).unwrap_or(1.0);
@@ -192,7 +196,11 @@ fn outline(model: &Model) -> OutlineView {
         let is_editing = editing.contains(&item.id);
         let heading_level = item.heading_level_of_body();
         let is_broken = match &item.transclude_item_id {
-            Some(source) => state.transcluded_trees().get(source).map(|t| t.is_empty()).unwrap_or(true),
+            Some(source) => state
+                .transcluded_trees()
+                .get(source)
+                .map(|t| t.is_empty())
+                .unwrap_or(true),
             None => false,
         };
         let date_header = (item.item_type == "journal"
@@ -263,7 +271,6 @@ fn sidebar(model: &Model) -> SidebarView {
             })
             .collect(),
         current_page_id: model.current_page.as_ref().map(|p| p.id.clone()),
-        collapsed_sections: model.sidebar.collapsed_sections.clone(),
     }
 }
 

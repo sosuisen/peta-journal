@@ -1,7 +1,9 @@
 //! The journal screen, ported from `journal.ts`: the page of a day (or week, month, year)
 //! followed by the older ones as the user scrolls, and moving between days.
 
-use crate::app::{apply, done, log_error, run, Cmd, Event, JournalNav, JournalState, Model, Screen};
+use crate::app::{
+    apply, done, log_error, run, Cmd, Event, JournalNav, JournalState, Model, Screen,
+};
 use crate::effects::{Api, UiOp};
 use crate::ops::edit::focus_editor;
 use crate::ops::moves::CrossDayMove;
@@ -16,7 +18,11 @@ const BUFFER_ITEMS: usize = 100;
 
 /// Shows the journal of a date (or `today`).
 pub fn open(model: &mut Model, name: &str) -> Cmd {
-    let date = if name.is_empty() || name == "today" { model.today.clone() } else { name.to_string() };
+    let date = if name.is_empty() || name == "today" {
+        model.today.clone()
+    } else {
+        name.to_string()
+    };
     model.screen = Screen::Journal(JournalState {
         page_name: name.to_string(),
         current_date: date.clone(),
@@ -55,7 +61,9 @@ pub fn load_journal(model: &mut Model, date: String) -> Cmd {
         let page = result.page.clone();
         let d = date.clone();
         apply(&api, "journal loaded", move |m| {
-            let Some(j) = journal_mut(m) else { return done() };
+            let Some(j) = journal_mut(m) else {
+                return done();
+            };
             if j.current_date != d {
                 return done(); // the user moved on
             }
@@ -67,8 +75,15 @@ pub fn load_journal(model: &mut Model, date: String) -> Cmd {
             if let Some(trees) = result.transcluded_trees {
                 m.state.set_transcluded_trees(trees);
             }
-            let title = if d == today { "Today".to_string() } else { format_journal_date(&d) };
-            let mut cmds = vec![navigate::set_title(title), sidebar::set_current_page(m, Some(result.page.clone()))];
+            let title = if d == today {
+                "Today".to_string()
+            } else {
+                format_journal_date(&d)
+            };
+            let mut cmds = vec![
+                navigate::set_title(title),
+                sidebar::set_current_page(m, Some(result.page.clone())),
+            ];
             if created {
                 cmds.push(sidebar::refresh_recent_pages());
                 cmds.push(
@@ -85,7 +100,9 @@ pub fn load_journal(model: &mut Model, date: String) -> Cmd {
         });
         let _ = page;
         match classify_journal_file_name(&date) {
-            JournalType::Daily | JournalType::Weekly => load_previous_journals(&api, date, BUFFER_ITEMS).await,
+            JournalType::Daily | JournalType::Weekly => {
+                load_previous_journals(&api, date, BUFFER_ITEMS).await
+            }
             _ => {}
         }
     })
@@ -116,13 +133,17 @@ async fn load_previous_journals(api: &Api<Event>, from_name: String, target_item
                 break;
             }
         };
-        let Some(page) = result.page.filter(|_| result.found) else { break };
+        let Some(page) = result.page.filter(|_| result.found) else {
+            break;
+        };
         name = page.name.clone();
         let items = result.items;
         let trees = result.transcluded_trees;
         let n = name.clone();
         let appended = crate::ops::edit::read(api, move |m| {
-            let Some(j) = journal_mut(m) else { return false };
+            let Some(j) = journal_mut(m) else {
+                return false;
+            };
             if !j.loaded_dates.insert(n) {
                 return false;
             }
@@ -179,7 +200,9 @@ pub fn outline_scrolled(
         let journal_name = extract_journal_name(&last_name, weekly);
         if let Some(journal_name) = journal_name {
             let target = rendered_start + BUFFER_ITEMS;
-            return run(move |api| async move { load_previous_journals(&api, journal_name, target).await });
+            return run(move |api| async move {
+                load_previous_journals(&api, journal_name, target).await
+            });
         }
     }
     done()
@@ -191,7 +214,8 @@ fn extract_journal_name(name: &str, weekly: bool) -> Option<String> {
         let idx = name.find("-W")?;
         let start = idx.checked_sub(4)?;
         let candidate = &name[start..(idx + 5).min(name.len())];
-        return (classify_journal_file_name(candidate) == JournalType::Weekly).then(|| candidate.to_string());
+        return (classify_journal_file_name(candidate) == JournalType::Weekly)
+            .then(|| candidate.to_string());
     }
     name.as_bytes()
         .windows(10)
@@ -201,7 +225,9 @@ fn extract_journal_name(name: &str, weekly: bool) -> Option<String> {
 }
 
 pub fn nav(model: &mut Model, nav: JournalNav) -> Cmd {
-    let Some(j) = journal(model) else { return done() };
+    let Some(j) = journal(model) else {
+        return done();
+    };
     let current = j.current_date.clone();
     match nav {
         JournalNav::PrevDay | JournalNav::NextDay => {
@@ -213,8 +239,12 @@ pub fn nav(model: &mut Model, nav: JournalNav) -> Cmd {
         }
         JournalNav::PrevWeek | JournalNav::NextWeek => {
             let delta: i32 = if nav == JournalNav::PrevWeek { -1 } else { 1 };
-            let Some((y, w)) = current.split_once("-W") else { return done() };
-            let (Ok(mut year), Ok(week)) = (y.parse::<i32>(), w.parse::<i32>()) else { return done() };
+            let Some((y, w)) = current.split_once("-W") else {
+                return done();
+            };
+            let (Ok(mut year), Ok(week)) = (y.parse::<i32>(), w.parse::<i32>()) else {
+                return done();
+            };
             let mut week = week + delta;
             let numbering = model.config.week_numbering;
             if week < 1 {
@@ -249,12 +279,18 @@ pub fn on_cross_day_moved(model: &mut Model, moved: CrossDayMove) -> Cmd {
         });
         return Command::all([go, edit]);
     }
-    let Some(date) = journal(model).map(|j| j.current_date.clone()) else { return done() };
+    let Some(date) = journal(model).map(|j| j.current_date.clone()) else {
+        return done();
+    };
     load_journal(model, date)
 }
 
 /// The header text: the date of the top visible item, or the journal's own date.
 pub fn display_date(j: &JournalState) -> String {
-    let d = if j.top_visible_date.is_empty() { &j.current_date } else { &j.top_visible_date };
+    let d = if j.top_visible_date.is_empty() {
+        &j.current_date
+    } else {
+        &j.top_visible_date
+    };
     format_journal_date(d)
 }

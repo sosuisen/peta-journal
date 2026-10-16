@@ -140,10 +140,56 @@ cargo test
 cases as the Java `*ApiTest` and `FolderSyncTest`). The API tests start the server once on a
 free port with everything under a temporary directory.
 
+## Rust frontend (frontend-rust)
+
+`frontend-rust` is a port of the frontend to Rust: a [Crux](https://github.com/redbadger/crux) core
+(`crates/core`, the outline logic, tested without a browser) and a [Leptos](https://leptos.dev/) shell
+(`crates/shell-leptos`) built to WebAssembly with trunk. It talks to the same REST API and SSE
+stream as the Angular frontend. See `docs/frontend-rust-rewrite-plan.md`.
+
+### Prerequisites
+
+- Rust 1.85 or newer with the `wasm32-unknown-unknown` target: `rustup target add wasm32-unknown-unknown`
+- trunk: `cargo install trunk --locked`
+
+### Build and run
+
+```powershell
+cd peta-journal/frontend-rust/crates/shell-leptos
+trunk serve                 # http://localhost:4200, proxies /api and /assets to the server on 8087
+trunk build --release       # production files in dist/
+```
+
+`vendor/highlight.min.js` is highlight.js bundled for the browser. To regenerate it after
+changing the `highlight.js` version in `frontend/package.json`:
+
+```powershell
+cd peta-journal/frontend
+npx esbuild node_modules/highlight.js/lib/common.js --bundle --format=iife --global-name=hljs --minify --outfile=../frontend-rust/crates/shell-leptos/vendor/highlight.min.js
+cp node_modules/highlight.js/styles/github.css ../frontend-rust/crates/shell-leptos/vendor/highlight-github.css
+```
+
+### Tests
+
+```powershell
+cd peta-journal/frontend-rust
+cargo test                  # core (the ported service specs), fm-ast and fm-leptos
+```
+
+The Playwright suite drives the Rust frontend with `PETA_JOURNAL_FRONTEND=rust` (trunk serves
+it on port 4300 with `Trunk.e2e.toml`); combine with `PETA_JOURNAL_SERVER=rust` for the Rust server:
+
+```powershell
+cd peta-journal/frontend
+$env:PETA_JOURNAL_FRONTEND = "rust"; $env:PETA_JOURNAL_SERVER = "rust"; npm run e2e      # PowerShell
+PETA_JOURNAL_FRONTEND=rust PETA_JOURNAL_SERVER=rust npm run e2e                          # bash
+```
+
 ## Development Workflow
 
 1. Start journal server: `cd journal-server && mvn quarkus:dev`
    (or the Rust server: `cd journal-server-rust && cargo run`)
 2. Start frontend: `cd frontend && npm start`
+   (or the Rust frontend: `cd frontend-rust/crates/shell-leptos && trunk serve`)
 3. Access application at `http://localhost:4200`
 

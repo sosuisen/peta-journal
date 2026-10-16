@@ -40,7 +40,10 @@ pub mod route {
         match route {
             Route::Settings => {
                 model.screen = Screen::Settings;
-                Command::all([navigate::set_title("Settings"), settings::load_server_config()])
+                Command::all([
+                    navigate::set_title("Settings"),
+                    settings::load_server_config(),
+                ])
             }
             Route::Page { name, fragment } => {
                 let same_page = match &model.screen {

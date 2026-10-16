@@ -22,7 +22,8 @@ pub fn OutlineItem(row: RwSignal<Row>) -> impl IntoView {
 
     let menu_open = RwSignal::new(false);
     let menu_pos = RwSignal::new((0.0, 0.0));
-    let menu_listeners: SendWrapper<Rc<RefCell<Vec<EventListener>>>> = SendWrapper::new(Rc::new(RefCell::new(Vec::new())));
+    let menu_listeners: SendWrapper<Rc<RefCell<Vec<EventListener>>>> =
+        SendWrapper::new(Rc::new(RefCell::new(Vec::new())));
 
     let send = move |event: Event| core.send(event);
 
@@ -30,7 +31,12 @@ pub fn OutlineItem(row: RwSignal<Row>) -> impl IntoView {
         let listeners = menu_listeners.clone();
         move |ev: web_sys::MouseEvent| {
             ev.stop_propagation();
-            let Some(btn) = ev.current_target().and_then(|t| t.dyn_into::<web_sys::Element>().ok()) else { return };
+            let Some(btn) = ev
+                .current_target()
+                .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
+            else {
+                return;
+            };
             let btn_rect = btn.get_bounding_client_rect();
             let host_rect = host.get().map(|h| h.get_bounding_client_rect());
             let (hl, ht) = host_rect.map(|r| (r.left(), r.top())).unwrap_or((0.0, 0.0));
@@ -46,7 +52,10 @@ pub fn OutlineItem(row: RwSignal<Row>) -> impl IntoView {
                         "mousedown",
                         gloo_events::EventListenerOptions::enable_prevent_default(),
                         move |ev| {
-                            if let Some(t) = ev.target().and_then(|t| t.dyn_into::<web_sys::Element>().ok()) {
+                            if let Some(t) = ev
+                                .target()
+                                .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
+                            {
                                 if t.closest(".item-popup-menu").ok().flatten().is_some() {
                                     return;
                                 }
@@ -91,14 +100,23 @@ pub fn OutlineItem(row: RwSignal<Row>) -> impl IntoView {
     let indent_px = move || row.with(|r| format!("{}px", r.indent_px));
     let is_selected = move || row.with(|r| r.is_selected);
     let is_heading = move || row.with(|r| r.is_heading);
-    let heading_level = move || row.with(|r| (r.heading_level > 0).then(|| r.heading_level.to_string()));
+    let heading_level =
+        move || row.with(|r| (r.heading_level > 0).then(|| r.heading_level.to_string()));
     let hide_bullet = move || row.with(|r| !r.show_bullet);
     let has_children = move || row.with(|r| r.has_children);
     let is_collapsed = move || row.with(|r| r.is_collapsed);
     let is_transclusion = move || row.with(|r| r.is_transclusion);
-    let is_broken = move || row.with(|r| r.is_broken_transclusion);
-    let is_editing = move || row.with(|r| r.is_editing);
-    let zoom = move || row.with(|r| if (r.effective_zoom - 1.0).abs() < f64::EPSILON { String::new() } else { format!("{}", r.effective_zoom) });
+    // Which body to show. A memo, so typing (which changes the row) does not rebuild the editor
+    let body_mode = Memo::new(move |_| row.with(|r| (r.is_broken_transclusion, r.is_editing)));
+    let zoom = move || {
+        row.with(|r| {
+            if (r.effective_zoom - 1.0).abs() < f64::EPSILON {
+                String::new()
+            } else {
+                format!("{}", r.effective_zoom)
+            }
+        })
+    };
     let has_zoom = move || row.with(|r| (r.item.zoom() - 1.0).abs() > f64::EPSILON);
     let task_time = move || row.with(|r| task_time_info(&r.item));
 
@@ -112,7 +130,7 @@ pub fn OutlineItem(row: RwSignal<Row>) -> impl IntoView {
                 class:selected=is_selected
                 class:heading=is_heading
                 class:hide-bullet=hide_bullet
-                attr:data-heading-level=heading_level
+                data-heading-level=heading_level
                 style:padding-left=indent_px
             >
                 <div class="item-controls">
@@ -127,7 +145,7 @@ pub fn OutlineItem(row: RwSignal<Row>) -> impl IntoView {
                                 class="collapse-toggle"
                                 class:collapsed=is_collapsed
                                 on:click={
-                                    let send = send.clone();
+                                    let send = send;
                                     let id = id_for_view.clone();
                                     move |_| send(Event::CollapseToggle { item_id: id.clone() })
                                 }
@@ -162,13 +180,13 @@ pub fn OutlineItem(row: RwSignal<Row>) -> impl IntoView {
                     </div>
                     <div class="item-body">
                         {move || {
-                            if is_broken() {
-                                let body = row.with(|r| r.item.body.clone());
-                                view! { <div class="broken-transclusion">"source not found: " {body}</div> }.into_any()
-                            } else if is_editing() {
-                                view! { <ItemEditor row=row /> }.into_any()
-                            } else {
-                                view! { <ItemView row=row /> }.into_any()
+                            match body_mode.get() {
+                                (true, _) => {
+                                    let body = move || row.with(|r| r.item.body.clone());
+                                    view! { <div class="broken-transclusion">"source not found: " {body}</div> }.into_any()
+                                }
+                                (false, true) => view! { <ItemEditor row=row /> }.into_any(),
+                                (false, false) => view! { <ItemView row=row /> }.into_any(),
                             }
                         }}
                     </div>
@@ -179,13 +197,13 @@ pub fn OutlineItem(row: RwSignal<Row>) -> impl IntoView {
             </div>
             <Show when=move || menu_open.get()>
                 {
-                    let send = send.clone();
+                    let send = send;
                     let id = item_id.clone();
                     let close_menu = close_menu.clone();
                     move || {
                         let (x, y) = menu_pos.get();
                         let body = row.with_untracked(|r| r.item.body.clone());
-                        let send = send.clone();
+                        let send = send;
                         let id = id.clone();
                         let close = close_menu.clone();
                         view! {
@@ -220,7 +238,9 @@ fn task_time_info(item: &peta_core::model::Item) -> Option<(String, String)> {
     let Some(end) = item.prop_str("end") else {
         return Some((format!("{begin_label}-"), format!("{begin_label}-")));
     };
-    let total_sec = ((dom::epoch_ms(end) - dom::epoch_ms(begin)) / 1000.0).floor().max(0.0) as i64;
+    let total_sec = ((dom::epoch_ms(end) - dom::epoch_ms(begin)) / 1000.0)
+        .floor()
+        .max(0.0) as i64;
     let (h, m, s) = (total_sec / 3600, (total_sec % 3600) / 60, total_sec % 60);
     let mut label = String::new();
     if h > 0 {

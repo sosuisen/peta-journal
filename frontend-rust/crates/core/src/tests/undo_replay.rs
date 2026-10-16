@@ -26,7 +26,9 @@ fn undo_puts_the_old_body_back_saves_it_and_moves_the_entry_to_the_redo_stack() 
 fn keeps_editing_the_updated_item_with_the_cursor_at_the_end_of_its_body() {
     let mut h = Harness::with_items(vec![item("a", 1, "new")]);
     h.model.undo.begin("body", None);
-    h.model.undo.push_update(&item("a", 1, "old"), &item("a", 1, "new"));
+    h.model
+        .undo
+        .push_update(&item("a", 1, "old"), &item("a", 1, "new"));
     h.model.undo.commit(None, 0);
     h.send(Event::Undo);
     assert!(h.model.state.is_editing("a"));
@@ -81,7 +83,10 @@ fn does_nothing_on_an_empty_stack() {
     h.model.edits.dirty_item_ids.insert("a".into());
     h.send(Event::Undo);
     assert!(h.api.calls.is_empty());
-    assert!(h.model.edits.dirty_item_ids.contains("a"), "the pending edit is left alone");
+    assert!(
+        h.model.edits.dirty_item_ids.contains("a"),
+        "the pending edit is left alone"
+    );
 }
 
 #[test]

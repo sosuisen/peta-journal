@@ -22,7 +22,10 @@ pub struct Extensions {
 pub fn perform(handle: CoreHandle, mut request: Request<UiOp>) {
     let op = request.operation.clone();
     match op {
-        UiOp::FocusEditor { item_id, replay_keys } => {
+        UiOp::FocusEditor {
+            item_id,
+            replay_keys,
+        } => {
             // After the next render: the editor may have been added in this very update
             let h = handle;
             dom::after_render(move || {
@@ -44,19 +47,15 @@ pub fn perform(handle: CoreHandle, mut request: Request<UiOp>) {
                 h.resolve(&mut request, UiOutput::Done);
             });
         }
+        // The operations below are notifications: the core does not wait for an answer
         UiOp::ScrollToItem { item_id, smooth } => {
             if let Some(scroller) = handle.inner().scroller.borrow().as_ref() {
                 scroller(item_id, smooth);
             }
-            handle.resolve(&mut request, UiOutput::Done);
         }
-        UiOp::SetTitle(title) => {
-            dom::document().set_title(&title);
-            handle.resolve(&mut request, UiOutput::Done);
-        }
+        UiOp::SetTitle(title) => dom::document().set_title(&title),
         UiOp::CopyText(text) => {
             let _ = dom::window().navigator().clipboard().write_text(&text);
-            handle.resolve(&mut request, UiOutput::Done);
         }
         UiOp::CopyMarkdown { markdown } => {
             let html = flatmarkdown::body_to_html(&markdown);
@@ -64,7 +63,6 @@ pub fn perform(handle: CoreHandle, mut request: Request<UiOp>) {
                 if let Err(e) = dom::write_clipboard_rich(&markdown, &html).await {
                     web_sys::console::error_1(&e);
                 }
-                handle.resolve(&mut request, UiOutput::Done);
             });
         }
         UiOp::ReadClipboardText => spawn_local(async move {
@@ -78,11 +76,12 @@ pub fn perform(handle: CoreHandle, mut request: Request<UiOp>) {
             // Shown after the current update, like the Angular `setTimeout(() => alert())`
             dom::after_render(move || {
                 let _ = dom::window().alert_with_message(&message);
-                handle.resolve(&mut request, UiOutput::Done);
             });
         }
         UiOp::Confirm(message) => {
-            let ok = dom::window().confirm_with_message(&message).unwrap_or(false);
+            let ok = dom::window()
+                .confirm_with_message(&message)
+                .unwrap_or(false);
             handle.resolve(&mut request, UiOutput::Bool(ok));
         }
         UiOp::Prompt(message) => {
@@ -96,9 +95,13 @@ pub fn perform(handle: CoreHandle, mut request: Request<UiOp>) {
             } else {
                 dom::window().open_with_url_and_target(&url, "_blank")
             };
-            handle.resolve(&mut request, UiOutput::Done);
         }
-        UiOp::ExtensionPageCreate { page_id, file_name, dir_name, page_type } => {
+        UiOp::ExtensionPageCreate {
+            page_id,
+            file_name,
+            dir_name,
+            page_type,
+        } => {
             let message = serde_json::json!({
                 "type": "PageCreate", "pageId": page_id, "fileName": file_name,
                 "dirName": dir_name, "pageType": page_type,
@@ -109,17 +112,20 @@ pub fn perform(handle: CoreHandle, mut request: Request<UiOp>) {
                     let _ = win.post_message(&js, "*");
                 }
             }
-            handle.resolve(&mut request, UiOutput::Done);
         }
         UiOp::ExtensionReply { source, message } => {
-            if let Some(win) = handle.inner().extensions.borrow_mut().sources.remove(&source) {
+            if let Some(win) = handle
+                .inner()
+                .extensions
+                .borrow_mut()
+                .sources
+                .remove(&source)
+            {
                 let _ = win.post_message(&dom::to_js(&message), "*");
             }
-            handle.resolve(&mut request, UiOutput::Done);
         }
         UiOp::LoadExtensions { functions } => {
             load_extensions(&handle, &functions);
-            handle.resolve(&mut request, UiOutput::Done);
         }
         UiOp::LocalNow => {
             let d = js_sys::Date::new_0();
@@ -130,7 +136,13 @@ pub fn perform(handle: CoreHandle, mut request: Request<UiOp>) {
                 hour: d.get_hours(),
                 minute: d.get_minutes(),
             };
-            handle.resolve(&mut request, UiOutput::Now { local, now_ms: js_sys::Date::now() as u64 });
+            handle.resolve(
+                &mut request,
+                UiOutput::Now {
+                    local,
+                    now_ms: js_sys::Date::now() as u64,
+                },
+            );
         }
     }
 }
@@ -142,7 +154,9 @@ fn load_extensions(handle: &CoreHandle, functions: &[FunctionInfo]) {
     let inner = handle.inner();
     let mut ext = inner.extensions.borrow_mut();
     for f in functions {
-        let Ok(el) = document.create_element("iframe") else { continue };
+        let Ok(el) = document.create_element("iframe") else {
+            continue;
+        };
         let iframe: web_sys::HtmlIFrameElement = el.unchecked_into();
         iframe.set_src(&format!("http://localhost:8087{}", f.url));
         let _ = iframe.style().set_property("display", "none");
@@ -151,16 +165,20 @@ fn load_extensions(handle: &CoreHandle, functions: &[FunctionInfo]) {
     }
     if ext._listener.is_none() {
         let h = *handle;
-        let listener = Closure::<dyn FnMut(web_sys::MessageEvent)>::new(move |ev: web_sys::MessageEvent| {
-            on_message(&h, ev);
-        });
-        let _ = dom::window().add_event_listener_with_callback("message", listener.as_ref().unchecked_ref());
+        let listener =
+            Closure::<dyn FnMut(web_sys::MessageEvent)>::new(move |ev: web_sys::MessageEvent| {
+                on_message(&h, ev);
+            });
+        let _ = dom::window()
+            .add_event_listener_with_callback("message", listener.as_ref().unchecked_ref());
         ext._listener = Some(listener);
     }
 }
 
 fn on_message(handle: &CoreHandle, ev: web_sys::MessageEvent) {
-    let Ok(data) = serde_wasm_bindgen::from_value::<serde_json::Value>(ev.data()) else { return };
+    let Ok(data) = serde_wasm_bindgen::from_value::<serde_json::Value>(ev.data()) else {
+        return;
+    };
     if data.get("type").and_then(|t| t.as_str()) != Some("CreateItem") {
         return;
     }
@@ -169,7 +187,10 @@ fn on_message(handle: &CoreHandle, ev: web_sys::MessageEvent) {
         let mut ext = inner.extensions.borrow_mut();
         ext.next_source += 1;
         let id = ext.next_source;
-        if let Some(win) = ev.source().and_then(|s| s.dyn_into::<web_sys::Window>().ok()) {
+        if let Some(win) = ev
+            .source()
+            .and_then(|s| s.dyn_into::<web_sys::Window>().ok())
+        {
             ext.sources.insert(id, win);
         }
         id

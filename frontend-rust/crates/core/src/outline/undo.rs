@@ -18,7 +18,10 @@ pub struct CursorState {
 
 impl CursorState {
     pub fn new(item_id: impl Into<String>, position: usize) -> CursorState {
-        CursorState { item_id: item_id.into(), position }
+        CursorState {
+            item_id: item_id.into(),
+            position,
+        }
     }
 }
 
@@ -53,7 +56,10 @@ impl UndoStacks {
     }
 
     pub fn push_update(&mut self, before: &Item, after: &Item) {
-        self.pending_ops.push(UndoOp::Update { before: before.clone(), after: after.clone() });
+        self.pending_ops.push(UndoOp::Update {
+            before: before.clone(),
+            after: after.clone(),
+        });
     }
 
     pub fn push_create(&mut self, item: &Item) {
@@ -75,12 +81,23 @@ impl UndoStacks {
         if self.pending_label == "body" {
             if let Some(top) = self.undo_stack.last_mut() {
                 let same_item = match (top.ops.as_slice(), self.pending_ops.as_slice()) {
-                    ([UndoOp::Update { after, .. }], [UndoOp::Update { before, .. }]) => after.id == before.id,
+                    ([UndoOp::Update { after, .. }], [UndoOp::Update { before, .. }]) => {
+                        after.id == before.id
+                    }
                     _ => false,
                 };
-                if top.label == "body" && now_ms.saturating_sub(top.timestamp_ms) < BODY_GROUP_INTERVAL_MS && same_item {
-                    if let (Some(UndoOp::Update { after: top_after, .. }), Some(UndoOp::Update { after: new_after, .. })) =
-                        (top.ops.first_mut(), self.pending_ops.pop())
+                if top.label == "body"
+                    && now_ms.saturating_sub(top.timestamp_ms) < BODY_GROUP_INTERVAL_MS
+                    && same_item
+                {
+                    if let (
+                        Some(UndoOp::Update {
+                            after: top_after, ..
+                        }),
+                        Some(UndoOp::Update {
+                            after: new_after, ..
+                        }),
+                    ) = (top.ops.first_mut(), self.pending_ops.pop())
                     {
                         *top_after = new_after;
                     }
@@ -147,7 +164,11 @@ impl UndoStacks {
     }
 
     fn push_capped(&mut self, entry: UndoEntry, undo: bool) {
-        let stack = if undo { &mut self.undo_stack } else { &mut self.redo_stack };
+        let stack = if undo {
+            &mut self.undo_stack
+        } else {
+            &mut self.redo_stack
+        };
         stack.push(entry);
         if stack.len() > MAX_STACK_SIZE {
             stack.remove(0);

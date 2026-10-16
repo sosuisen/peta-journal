@@ -116,15 +116,27 @@ impl OutlineState {
         if let Some(idx) = self.items.iter().position(|b| b.id == item_id) {
             let item = &self.items[idx];
             if let Some(source_id) = &item.transclude_item_id {
-                if self.transcluded_trees.get(source_id).map(|t| t.len() > 1).unwrap_or(false) {
+                if self
+                    .transcluded_trees
+                    .get(source_id)
+                    .map(|t| t.len() > 1)
+                    .unwrap_or(false)
+                {
                     return true;
                 }
             }
-            return self.items.get(idx + 1).map(|next| next.level > item.level).unwrap_or(false);
+            return self
+                .items
+                .get(idx + 1)
+                .map(|next| next.level > item.level)
+                .unwrap_or(false);
         }
         for tree in self.transcluded_trees.values() {
             if let Some(idx) = tree.iter().position(|t| t.id == item_id) {
-                return tree.get(idx + 1).map(|next| next.level > tree[idx].level).unwrap_or(false);
+                return tree
+                    .get(idx + 1)
+                    .map(|next| next.level > tree[idx].level)
+                    .unwrap_or(false);
             }
         }
         false
@@ -132,7 +144,9 @@ impl OutlineState {
 
     /// All descendant items of the given own item.
     pub fn get_children(&self, item_id: &str) -> Vec<ItemRef> {
-        let Some(idx) = self.items.iter().position(|b| b.id == item_id) else { return Vec::new() };
+        let Some(idx) = self.items.iter().position(|b| b.id == item_id) else {
+            return Vec::new();
+        };
         let parent_level = self.items[idx].level;
         self.items[idx + 1..]
             .iter()
@@ -143,7 +157,9 @@ impl OutlineState {
 
     /// The item and all its descendants as a group.
     pub fn get_item_with_children(&self, item_id: &str) -> Vec<ItemRef> {
-        let Some(item) = self.get_item_by_id(item_id) else { return Vec::new() };
+        let Some(item) = self.get_item_by_id(item_id) else {
+            return Vec::new();
+        };
         let mut group = vec![item];
         group.extend(self.get_children(item_id));
         group
@@ -155,9 +171,16 @@ impl OutlineState {
             .iter()
             .filter(|item| item.has_type("heading"))
             .map(|item| {
-                let level = fm_ast::parse(&item.ast).ok().and_then(|ast| fm_ast::heading_level(&ast)).unwrap_or(1);
+                let level = fm_ast::parse(&item.ast)
+                    .ok()
+                    .and_then(|ast| fm_ast::heading_level(&ast))
+                    .unwrap_or(1);
                 let text = item.body.trim_start_matches('#').trim_start().to_string();
-                Heading { id: item.id.clone(), text, level }
+                Heading {
+                    id: item.id.clone(),
+                    text,
+                    level,
+                }
             })
             .collect()
     }
@@ -167,7 +190,12 @@ impl OutlineState {
     /// Replaces all items and rebuilds the collapsed set from their collapsed flags.
     pub fn set_items(&mut self, items: Vec<Item>) {
         self.items = items.into_iter().map(Arc::new).collect();
-        self.collapsed_item_ids = self.items.iter().filter(|b| b.collapsed).map(|b| b.id.clone()).collect();
+        self.collapsed_item_ids = self
+            .items
+            .iter()
+            .filter(|b| b.collapsed)
+            .map(|b| b.id.clone())
+            .collect();
         self.refresh();
     }
 
@@ -237,9 +265,19 @@ impl OutlineState {
     }
 
     /// Atomically removes old items and inserts new items at the target position.
-    pub fn replace_items(&mut self, old_ids: &[String], new_items: Vec<Item>, position: &ItemPosition) {
+    pub fn replace_items(
+        &mut self,
+        old_ids: &[String],
+        new_items: Vec<Item>,
+        position: &ItemPosition,
+    ) {
         let ids: HashSet<&String> = old_ids.iter().collect();
-        let mut filtered: Vec<ItemRef> = self.items.iter().filter(|b| !ids.contains(&b.id)).cloned().collect();
+        let mut filtered: Vec<ItemRef> = self
+            .items
+            .iter()
+            .filter(|b| !ids.contains(&b.id))
+            .cloned()
+            .collect();
         let idx = self.resolve_insertion_index(&filtered, position);
         filtered.splice(idx..idx, new_items.into_iter().map(Arc::new));
         self.items = filtered;
@@ -264,7 +302,8 @@ impl OutlineState {
                     self.collapsed_item_ids.remove(&item.id);
                 }
             }
-            self.transcluded_trees.insert(source_id, items.into_iter().map(Arc::new).collect());
+            self.transcluded_trees
+                .insert(source_id, items.into_iter().map(Arc::new).collect());
         }
         self.refresh();
     }
@@ -339,7 +378,11 @@ impl OutlineState {
     /// Recomputes the own-id set and the visible list.
     fn refresh(&mut self) {
         self.own_item_ids = self.items.iter().map(|b| b.id.clone()).collect();
-        self.visible = compute_visible(&self.items, &self.collapsed_item_ids, &self.transcluded_trees);
+        self.visible = compute_visible(
+            &self.items,
+            &self.collapsed_item_ids,
+            &self.transcluded_trees,
+        );
     }
 }
 
@@ -362,7 +405,10 @@ fn compute_visible(
         }
         skip_level = None;
 
-        let tree = item.transclude_item_id.as_ref().and_then(|id| trees.get(id));
+        let tree = item
+            .transclude_item_id
+            .as_ref()
+            .and_then(|id| trees.get(id));
         match tree.and_then(|t| t.first()) {
             Some(source_root) => {
                 let mut shown = (**item).clone();
@@ -421,7 +467,11 @@ mod tests {
             plain_item("c", 3, ""),
             plain_item("d", 1, ""),
         ]);
-        let shown: Vec<&str> = state.visible_items().iter().map(|b| b.id.as_str()).collect();
+        let shown: Vec<&str> = state
+            .visible_items()
+            .iter()
+            .map(|b| b.id.as_str())
+            .collect();
         assert_eq!(shown, ["a", "d"]);
         assert!(state.has_children("a"));
         assert!(!state.has_children("d"));
@@ -439,11 +489,18 @@ mod tests {
         let mut trees = TranscludedTrees::new();
         trees.insert(
             "src".into(),
-            vec![plain_item("src", 1, "source body"), plain_item("child", 2, "child"), plain_item("grand", 3, "")],
+            vec![
+                plain_item("src", 1, "source body"),
+                plain_item("child", 2, "child"),
+                plain_item("grand", 3, ""),
+            ],
         );
         state.set_transcluded_trees(trees);
-        let shown: Vec<(String, i32, String)> =
-            state.visible_items().iter().map(|b| (b.id.clone(), b.level, b.body.clone())).collect();
+        let shown: Vec<(String, i32, String)> = state
+            .visible_items()
+            .iter()
+            .map(|b| (b.id.clone(), b.level, b.body.clone()))
+            .collect();
         assert_eq!(shown[0], ("root".to_string(), 2, "source body".to_string()));
         assert_eq!(shown[1], ("child".to_string(), 3, "child".to_string()));
         assert_eq!(shown[2].1, 4);
@@ -467,7 +524,11 @@ mod tests {
         state.add_item(plain_item("z", 1, ""), &ItemPosition::Last);
         let ids: Vec<&str> = state.items().iter().map(|b| b.id.as_str()).collect();
         assert_eq!(ids, ["y", "a", "x", "b", "z"]);
-        state.replace_items(&["a".into(), "x".into()], vec![plain_item("a", 1, ""), plain_item("x", 2, "")], &ItemPosition::after("z"));
+        state.replace_items(
+            &["a".into(), "x".into()],
+            vec![plain_item("a", 1, ""), plain_item("x", 2, "")],
+            &ItemPosition::after("z"),
+        );
         let ids: Vec<&str> = state.items().iter().map(|b| b.id.as_str()).collect();
         assert_eq!(ids, ["y", "b", "z", "a", "x"]);
         assert_eq!(state.get_item_with_children("a").len(), 2);

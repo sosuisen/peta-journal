@@ -4,7 +4,11 @@ pub mod week;
 
 /// True when the text has an odd number of lines that open a code fence.
 pub fn has_unclosed_code_fence(text: &str) -> bool {
-    text.split('\n').filter(|line| line.trim_start().starts_with("```")).count() % 2 != 0
+    text.split('\n')
+        .filter(|line| line.trim_start().starts_with("```"))
+        .count()
+        % 2
+        != 0
 }
 
 /// Closes an open code fence, so the saved body never ends inside one.
@@ -19,7 +23,10 @@ pub fn ensure_code_fence_closed(text: &str) -> String {
 /// The byte offset of a character index, clamped to the text. Cursor positions arrive from
 /// the shell as UTF-16 code units, which the shell converts to character counts first.
 pub fn byte_offset(text: &str, char_index: usize) -> usize {
-    text.char_indices().nth(char_index).map(|(i, _)| i).unwrap_or(text.len())
+    text.char_indices()
+        .nth(char_index)
+        .map(|(i, _)| i)
+        .unwrap_or(text.len())
 }
 
 /// Splits a text at a character index.

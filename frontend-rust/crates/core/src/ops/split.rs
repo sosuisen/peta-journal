@@ -9,7 +9,8 @@ use crate::ops::edit::{discard_pending_edit, focus_editor, save_body, save_targe
 use crate::ops::file_reload::reload_shown_page;
 use crate::ops::level;
 use crate::outline::tree::{
-    edit_context_of, has_sibling_below, level_for_new_item_after, position_after_subtree, position_before, EditContext,
+    edit_context_of, has_sibling_below, level_for_new_item_after, position_after_subtree,
+    position_before, EditContext,
 };
 use crate::outline::CursorState;
 use crate::util::split_at_char;
@@ -18,13 +19,18 @@ use futures::future::join;
 
 /// Handles Enter at a cursor position in an item.
 pub fn handle_enter(model: &mut Model, item_id: &str, cursor: usize) -> Cmd {
-    let Some(item) = model.current_item(item_id) else { return done() };
+    let Some(item) = model.current_item(item_id) else {
+        return done();
+    };
     let item: Item = (*item).clone();
     // The next editor is focused after the next render; keys pressed before that are kept for it
     model.key_relay.hold_until_focus();
     let discard = discard_pending_edit(model, &item);
 
-    if item.body.is_empty() && item.level > 1 && !has_sibling_below(model.state.visible_items(), &item.id) {
+    if item.body.is_empty()
+        && item.level > 1
+        && !has_sibling_below(model.state.visible_items(), &item.id)
+    {
         // Empty last child: outdent instead of creating a new item
         let outdent = level::outdent(model, &item.id);
         let id = item.id.clone();
@@ -32,7 +38,11 @@ pub fn handle_enter(model: &mut Model, item_id: &str, cursor: usize) -> Cmd {
         return Command::all([discard, outdent, focus]);
     }
 
-    let ctx = edit_context_of(&item, model.state.own_item_ids(), model.state.transcluded_trees());
+    let ctx = edit_context_of(
+        &item,
+        model.state.own_item_ids(),
+        model.state.transcluded_trees(),
+    );
     let body_len = crate::util::char_len(&item.body);
     let cursor = cursor.min(body_len);
 
@@ -81,7 +91,13 @@ async fn insert_empty_item_before(
     position: ItemPosition,
 ) -> Result<(), crate::effects::ApiError> {
     let (new_item, saved) = join(
-        api.create_item(&ctx.page_id, position.clone(), item.level - ctx.level_offset, "", None),
+        api.create_item(
+            &ctx.page_id,
+            position.clone(),
+            item.level - ctx.level_offset,
+            "",
+            None,
+        ),
         save_body(api, &save_target_id(&item), &item.body),
     )
     .await;
@@ -91,9 +107,11 @@ async fn insert_empty_item_before(
 
     let (old_id, new_clone) = (item.id.clone(), new_item.clone());
     apply(api, "enter before: record", move |m| {
-        m.undo.begin("enter", Some(CursorState::new(&old_id, cursor)));
+        m.undo
+            .begin("enter", Some(CursorState::new(&old_id, cursor)));
         m.undo.push_create(&new_clone);
-        m.undo.commit(Some(CursorState::new(&new_clone.id, 0)), m.clock_ms);
+        m.undo
+            .commit(Some(CursorState::new(&new_clone.id, 0)), m.clock_ms);
         m.state.add_editing_item(&new_clone.id);
         done()
     });
@@ -131,9 +149,13 @@ fn append_empty_item_after(model: &mut Model, item: Item, cursor: usize, ctx: Ed
         transclude_item_id: None,
     };
     model.state.add_item(optimistic.clone(), &position);
-    model.undo.begin("enter", Some(CursorState::new(&item.id, cursor)));
+    model
+        .undo
+        .begin("enter", Some(CursorState::new(&item.id, cursor)));
     model.undo.push_create(&optimistic);
-    model.undo.commit(Some(CursorState::new(&new_id, 0)), model.clock_ms);
+    model
+        .undo
+        .commit(Some(CursorState::new(&new_id, 0)), model.clock_ms);
     model.state.add_editing_item(&new_id);
     model.state.set_focused_item(&new_id, None);
 
@@ -141,7 +163,16 @@ fn append_empty_item_after(model: &mut Model, item: Item, cursor: usize, ctx: Ed
     let create = {
         let (page_id, position, new_id) = (ctx.page_id.clone(), position.clone(), new_id.clone());
         run(move |api| async move {
-            match api.create_item(&page_id, position, new_level - ctx.level_offset, "", Some(new_id.clone())).await {
+            match api
+                .create_item(
+                    &page_id,
+                    position,
+                    new_level - ctx.level_offset,
+                    "",
+                    Some(new_id.clone()),
+                )
+                .await
+            {
                 Ok(server_item) => {
                     if in_transclusion {
                         reload_shown_page(&api).await;
@@ -188,7 +219,13 @@ async fn split_item_at(
     let (before_text, after_text) = split_at_char(&item.body, cursor);
     let (updated_original, new_item) = join(
         save_body(api, &save_target_id(&item), before_text),
-        api.create_item(&ctx.page_id, position.clone(), new_level - ctx.level_offset, after_text, None),
+        api.create_item(
+            &ctx.page_id,
+            position.clone(),
+            new_level - ctx.level_offset,
+            after_text,
+            None,
+        ),
     )
     .await;
     let updated_original = updated_original?;
@@ -197,10 +234,12 @@ async fn split_item_at(
 
     let (original, new_clone) = (item.clone(), new_item.clone());
     apply(api, "enter split: record", move |m| {
-        m.undo.begin("enter", Some(CursorState::new(&original.id, cursor)));
+        m.undo
+            .begin("enter", Some(CursorState::new(&original.id, cursor)));
         m.undo.push_update(&original, &updated_original);
         m.undo.push_create(&new_clone);
-        m.undo.commit(Some(CursorState::new(&new_clone.id, 0)), m.clock_ms);
+        m.undo
+            .commit(Some(CursorState::new(&new_clone.id, 0)), m.clock_ms);
         m.state.add_editing_item(&new_clone.id);
         m.state.set_focused_item(&new_clone.id, Some(0)); // the caret stays where the text was cut
         done()
@@ -215,7 +254,12 @@ async fn split_item_at(
 }
 
 /// Puts a newly created item into the state. Inside a transclusion the page is reloaded so the trees are fresh.
-async fn show_created_item(api: &Api<Event>, new_item: &Item, position: &ItemPosition, ctx: &EditContext) {
+async fn show_created_item(
+    api: &Api<Event>,
+    new_item: &Item,
+    position: &ItemPosition,
+    ctx: &EditContext,
+) {
     if ctx.in_transclusion {
         reload_shown_page(api).await;
     } else {
@@ -229,7 +273,10 @@ async fn show_created_item(api: &Api<Event>, new_item: &Item, position: &ItemPos
 
 /// The shown level of a new item after this one; a transclusion reads the neighbour from the visible list.
 fn level_for_new(model: &Model, item: &Item, ctx: &EditContext) -> i32 {
-    let items = if ctx.in_transclusion { model.state.visible_items() } else { model.state.items() };
+    let items = if ctx.in_transclusion {
+        model.state.visible_items()
+    } else {
+        model.state.items()
+    };
     level_for_new_item_after(items, item)
 }
-
