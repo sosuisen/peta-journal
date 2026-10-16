@@ -9,9 +9,6 @@ use crate::dom;
 use gloo_events::EventListener;
 use leptos::prelude::*;
 use peta_core::Event;
-use send_wrapper::SendWrapper;
-use std::cell::RefCell;
-use std::rc::Rc;
 use wasm_bindgen::JsCast;
 
 const CONFIG_KEY: &str = "peta-journal-config";
@@ -65,8 +62,9 @@ pub fn MainLayout() -> impl IntoView {
     let sidebar_collapsed = RwSignal::new(false);
     let page_menu_open = RwSignal::new(false);
     let sidebar_width = RwSignal::new(load_sidebar_width());
-    let resize_listeners: SendWrapper<Rc<RefCell<Vec<EventListener>>>> =
-        SendWrapper::new(Rc::new(RefCell::new(Vec::new())));
+    // The document listeners of a sidebar resize in progress
+    let resize_listeners: StoredValue<Vec<EventListener>, LocalStorage> =
+        StoredValue::new_local(Vec::new());
 
     let connection = move || vm.with(|v| v.connection.as_str());
     let focused_item = move || vm.with(|v| v.outline.focused_item_id.clone());
@@ -139,34 +137,30 @@ pub fn MainLayout() -> impl IntoView {
                 core.send(Event::LaunchUrl { url: href });
             },
         );
-        let listeners = SendWrapper::new((key_listener, click_listener));
-        on_cleanup(move || drop(listeners));
+        // Kept until the layout goes away
+        let _listeners: StoredValue<_, LocalStorage> =
+            StoredValue::new_local((key_listener, click_listener));
     }
 
-    let start_resize = {
-        let listeners = resize_listeners.clone();
-        move |ev: web_sys::MouseEvent| {
-            ev.prevent_default();
-            let start_x = ev.client_x() as f64;
-            let start_width = sidebar_width.get_untracked();
-            let document = dom::document();
-            let on_move = EventListener::new(&document, "mousemove", move |ev| {
-                let ev: &web_sys::MouseEvent = ev.unchecked_ref();
-                let delta = ev.client_x() as f64 - start_x;
-                let width = (start_width + delta).clamp(200.0, 600.0);
-                sidebar_width.set(width);
-                save_sidebar_width(width);
+    let start_resize = move |ev: web_sys::MouseEvent| {
+        ev.prevent_default();
+        let start_x = ev.client_x() as f64;
+        let start_width = sidebar_width.get_untracked();
+        let document = dom::document();
+        let on_move = EventListener::new(&document, "mousemove", move |ev| {
+            let ev: &web_sys::MouseEvent = ev.unchecked_ref();
+            let delta = ev.client_x() as f64 - start_x;
+            let width = (start_width + delta).clamp(200.0, 600.0);
+            sidebar_width.set(width);
+            save_sidebar_width(width);
+        });
+        let on_up = EventListener::new(&document, "mouseup", move |_| {
+            // Dropped after the event, not inside its own listener
+            dom::after_render(move || {
+                resize_listeners.try_update_value(|l| l.clear());
             });
-            let l2 = listeners.clone();
-            let on_up = EventListener::new(&document, "mouseup", move |_| {
-                let l = l2.clone();
-                dom::after_render(move || l.borrow_mut().clear());
-            });
-            let mut l = listeners.borrow_mut();
-            l.clear();
-            l.push(on_move);
-            l.push(on_up);
-        }
+        });
+        resize_listeners.set_value(vec![on_move, on_up]);
     };
 
     view! {
@@ -222,7 +216,7 @@ pub fn MainLayout() -> impl IntoView {
                     <Sidebar />
                 </aside>
                 <Show when=move || !sidebar_collapsed.get()>
-                    <div class="resize-handle" on:mousedown=start_resize.clone()></div>
+                    <div class="resize-handle" on:mousedown=start_resize></div>
                 </Show>
                 <main class="content">
                     <PageDispatcher />

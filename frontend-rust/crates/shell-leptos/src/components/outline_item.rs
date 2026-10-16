@@ -9,9 +9,6 @@ use gloo_events::EventListener;
 use leptos::prelude::*;
 use peta_core::view::Row;
 use peta_core::Event;
-use send_wrapper::SendWrapper;
-use std::cell::RefCell;
-use std::rc::Rc;
 use wasm_bindgen::JsCast;
 
 #[component]
@@ -22,75 +19,63 @@ pub fn OutlineItem(row: RwSignal<Row>) -> impl IntoView {
 
     let menu_open = RwSignal::new(false);
     let menu_pos = RwSignal::new((0.0, 0.0));
-    let menu_listeners: SendWrapper<Rc<RefCell<Vec<EventListener>>>> =
-        SendWrapper::new(Rc::new(RefCell::new(Vec::new())));
+    // The document listeners of the open menu; they go away with the row
+    let menu_listeners: StoredValue<Vec<EventListener>, LocalStorage> =
+        StoredValue::new_local(Vec::new());
 
     let send = move |event: Event| core.send(event);
 
-    let on_menu_click = Callback::new({
-        let listeners = menu_listeners.clone();
-        move |ev: web_sys::MouseEvent| {
-            ev.stop_propagation();
-            let Some(btn) = ev
-                .current_target()
-                .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
-            else {
-                return;
-            };
-            let btn_rect = btn.get_bounding_client_rect();
-            let host_rect = host.get().map(|h| h.get_bounding_client_rect());
-            let (hl, ht) = host_rect.map(|r| (r.left(), r.top())).unwrap_or((0.0, 0.0));
-            menu_pos.set((btn_rect.left() - hl, btn_rect.bottom() - ht));
-            menu_open.set(true);
-            let document = dom::document();
-            let listeners2 = listeners.clone();
-            dom::after_render(move || {
-                let close = {
-                    let listeners = listeners2.clone();
-                    EventListener::new_with_options(
-                        &document,
-                        "mousedown",
-                        gloo_events::EventListenerOptions::enable_prevent_default(),
-                        move |ev| {
-                            if let Some(t) = ev
-                                .target()
-                                .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
-                            {
-                                if t.closest(".item-popup-menu").ok().flatten().is_some() {
-                                    return;
-                                }
-                            }
-                            menu_open.set(false);
-                            let l = listeners.clone();
-                            dom::after_render(move || l.borrow_mut().clear());
-                        },
-                    )
-                };
-                let on_key = {
-                    let listeners = listeners2.clone();
-                    EventListener::new(&dom::document(), "keydown", move |ev| {
-                        let ev: &web_sys::KeyboardEvent = ev.unchecked_ref();
-                        if ev.key() == "Escape" {
-                            ev.prevent_default();
-                            menu_open.set(false);
-                            let l = listeners.clone();
-                            dom::after_render(move || l.borrow_mut().clear());
+    let close_menu = move || {
+        menu_open.set(false);
+        // The listeners are dropped after the event that closes the menu, not inside it
+        dom::after_render(move || {
+            menu_listeners.try_update_value(|l| l.clear());
+        });
+    };
+
+    let on_menu_click = move |ev: web_sys::MouseEvent| {
+        ev.stop_propagation();
+        let Some(btn) = ev
+            .current_target()
+            .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
+        else {
+            return;
+        };
+        let btn_rect = btn.get_bounding_client_rect();
+        let host_rect = host.get().map(|h| h.get_bounding_client_rect());
+        let (hl, ht) = host_rect.map(|r| (r.left(), r.top())).unwrap_or((0.0, 0.0));
+        menu_pos.set((btn_rect.left() - hl, btn_rect.bottom() - ht));
+        menu_open.set(true);
+        let document = dom::document();
+        dom::after_render(move || {
+            let close = EventListener::new_with_options(
+                &document,
+                "mousedown",
+                gloo_events::EventListenerOptions::enable_prevent_default(),
+                move |ev| {
+                    if let Some(t) = ev
+                        .target()
+                        .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
+                    {
+                        if t.closest(".item-popup-menu").ok().flatten().is_some() {
+                            return;
                         }
-                    })
-                };
-                let mut l = listeners2.borrow_mut();
+                    }
+                    close_menu();
+                },
+            );
+            let on_key = EventListener::new(&dom::document(), "keydown", move |ev| {
+                let ev: &web_sys::KeyboardEvent = ev.unchecked_ref();
+                if ev.key() == "Escape" {
+                    ev.prevent_default();
+                    close_menu();
+                }
+            });
+            menu_listeners.try_update_value(|l| {
                 l.push(close);
                 l.push(on_key);
             });
-        }
-    });
-    let close_menu = {
-        let listeners = menu_listeners.clone();
-        move || {
-            menu_open.set(false);
-            let l = listeners.clone();
-            dom::after_render(move || l.borrow_mut().clear());
-        }
+        });
     };
 
     let copy_text = |text: String| {
@@ -136,11 +121,11 @@ pub fn OutlineItem(row: RwSignal<Row>) -> impl IntoView {
                 <div class="item-controls">
                     <div class="slot-menu">
                         <Show when=has_children>
-                            <button class="item-menu" on:click=move |ev| on_menu_click.run(ev)>"⋯"</button>
+                            <button class="item-menu" on:click=on_menu_click>"⋯"</button>
                         </Show>
                     </div>
                     <div class="slot-toggle">
-                        <Show when=has_children fallback=move || view! { <button class="item-menu" on:click=move |ev| on_menu_click.run(ev)>"⋯"</button> }>
+                        <Show when=has_children fallback=move || view! { <button class="item-menu" on:click=on_menu_click>"⋯"</button> }>
                             <button
                                 class="collapse-toggle"
                                 class:collapsed=is_collapsed
@@ -197,26 +182,23 @@ pub fn OutlineItem(row: RwSignal<Row>) -> impl IntoView {
             </div>
             <Show when=move || menu_open.get()>
                 {
-                    let send = send;
                     let id = item_id.clone();
-                    let close_menu = close_menu.clone();
                     move || {
                         let (x, y) = menu_pos.get();
                         let body = row.with_untracked(|r| r.item.body.clone());
-                        let send = send;
                         let id = id.clone();
-                        let close = close_menu.clone();
+                        let close = close_menu;
                         view! {
                             <div class="item-popup-menu" style:left=format!("{x}px") style:top=format!("{y}px")>
-                                <button on:click={ let b = body.clone(); let close = close.clone(); move |_| { copy_text(b.clone()); close(); } }>"Copy"</button>
-                                <button on:click={ let b = body.clone(); let id = id.clone(); let close = close.clone();                                     move |_| { copy_text(b.clone()); send(Event::BodyChanged { item_id: id.clone(), body: String::new(), now_ms: core.now_ms() }); close(); } }>"Cut"</button>
-                                <button on:click={ let id = id.clone(); let close = close.clone(); move |_| { copy_text(id.clone()); close(); } }>"Copy Reference"</button>
-                                <button on:click={ let id = id.clone(); let close = close.clone(); move |_| { send(Event::PasteAsTransclusion { item_id: id.clone() }); close(); } }>"Paste as Transclusion"</button>
-                                {is_transclusion().then(|| { let id = id.clone(); let close = close.clone(); view! {
+                                <button on:click={ let b = body.clone(); move |_| { copy_text(b.clone()); close(); } }>"Copy"</button>
+                                <button on:click={ let b = body.clone(); let id = id.clone(); move |_| { copy_text(b.clone()); send(Event::BodyChanged { item_id: id.clone(), body: String::new(), now_ms: core.now_ms() }); close(); } }>"Cut"</button>
+                                <button on:click={ let id = id.clone(); move |_| { copy_text(id.clone()); close(); } }>"Copy Reference"</button>
+                                <button on:click={ let id = id.clone(); move |_| { send(Event::PasteAsTransclusion { item_id: id.clone() }); close(); } }>"Paste as Transclusion"</button>
+                                {is_transclusion().then(|| { let id = id.clone(); view! {
                                     <button on:click=move |_| { send(Event::RemoveTransclusion { item_id: id.clone() }); close(); }>"Remove Transclusion"</button>
                                 }})}
-                                <button on:click={ let id = id.clone(); let close = close.clone(); move |_| { send(Event::SendToArchive { item_id: id.clone() }); close(); } }>"Send to Archive"</button>
-                                {has_zoom().then(|| { let id = id.clone(); let close = close.clone(); view! {
+                                <button on:click={ let id = id.clone(); move |_| { send(Event::SendToArchive { item_id: id.clone() }); close(); } }>"Send to Archive"</button>
+                                {has_zoom().then(|| { let id = id.clone(); view! {
                                     <button on:click=move |_| { send(Event::ResetZoom { item_id: id.clone() }); close(); }>"Reset Zoom"</button>
                                 }})}
                             </div>

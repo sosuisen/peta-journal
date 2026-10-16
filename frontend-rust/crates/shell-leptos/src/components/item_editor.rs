@@ -9,9 +9,6 @@ use peta_core::app::WikiLinkContext;
 use peta_core::model::DeferredKey;
 use peta_core::view::Row;
 use peta_core::Event;
-use send_wrapper::SendWrapper;
-use std::cell::RefCell;
-use std::rc::Rc;
 use wasm_bindgen::JsCast;
 
 /// Tracks a mouse drag that started in the editor; leaving the editor starts a selection.
@@ -19,7 +16,8 @@ use wasm_bindgen::JsCast;
 struct Drag {
     rect: Option<web_sys::DomRect>,
     skip_selection_check: bool,
-    listeners: Vec<EventListener>,
+    /// Kept for their drop: they are removed from the document with the drag
+    _listeners: Vec<EventListener>,
 }
 
 #[component]
@@ -28,8 +26,8 @@ pub fn ItemEditor(row: RwSignal<Row>) -> impl IntoView {
     let vm = core.view();
     let item_id = row.with_untracked(|r| r.item.id.clone());
     let textarea = NodeRef::<leptos::html::Textarea>::new();
-    let drag: SendWrapper<Rc<RefCell<Drag>>> =
-        SendWrapper::new(Rc::new(RefCell::new(Drag::default())));
+    // The drag in progress, with its document listeners; it goes away with the editor
+    let drag: StoredValue<Drag, LocalStorage> = StoredValue::new_local(Drag::default());
 
     let id = item_id.clone();
     let is_task = move || row.with(|r| r.item.is_task());
@@ -72,7 +70,6 @@ pub fn ItemEditor(row: RwSignal<Row>) -> impl IntoView {
     {
         let consumed = StoredValue::new(0u64);
         let item_id = item_id.clone();
-        let drag = drag.clone();
         Effect::new(move |_| {
             let request = vm.with(|v| v.outline.focus_request.clone());
             let Some(el) = textarea.get() else { return };
@@ -86,7 +83,7 @@ pub fn ItemEditor(row: RwSignal<Row>) -> impl IntoView {
                     dom::focus_without_scroll(&el);
                     dom::auto_resize(&el);
                     if req.mouse_drag {
-                        start_drag(core, &drag, &el, &textarea, true);
+                        start_drag(core, drag, &el, textarea, true);
                     }
                 }
                 None => {
@@ -115,10 +112,6 @@ pub fn ItemEditor(row: RwSignal<Row>) -> impl IntoView {
         on_cleanup(move || {
             core.unregister_replayer(&id);
         });
-    }
-    {
-        let drag = drag.clone();
-        on_cleanup(move || drag.borrow_mut().listeners.clear());
     }
 
     let on_checkbox = {
@@ -204,12 +197,9 @@ pub fn ItemEditor(row: RwSignal<Row>) -> impl IntoView {
         }
     };
 
-    let on_mousedown = {
-        let drag = drag.clone();
-        move |_: web_sys::MouseEvent| {
-            if let Some(el) = textarea.get() {
-                start_drag(core, &drag, &el, &textarea, false);
-            }
+    let on_mousedown = move |_: web_sys::MouseEvent| {
+        if let Some(el) = textarea.get() {
+            start_drag(core, drag, &el, textarea, false);
         }
     };
 
@@ -680,58 +670,47 @@ fn replay_editing_key(
 /// Starts following the mouse; leaving the editor by more than 10px starts a selection.
 fn start_drag(
     core: CoreHandle,
-    drag: &Rc<RefCell<Drag>>,
+    drag: StoredValue<Drag, LocalStorage>,
     el: &web_sys::HtmlTextAreaElement,
-    textarea: &NodeRef<leptos::html::Textarea>,
+    textarea: NodeRef<leptos::html::Textarea>,
     skip_selection_check: bool,
 ) {
-    let item_id = el.id().trim_start_matches("item-editor-").to_string();
-    let mut d = drag.borrow_mut();
-    d.rect = Some(el.get_bounding_client_rect());
-    d.skip_selection_check = skip_selection_check;
-    d.listeners.clear();
+    let item_id = StoredValue::new(el.id().trim_start_matches("item-editor-").to_string());
     let document = dom::document();
-    let textarea = *textarea;
-    let on_move = {
-        let (drag, item_id) = (drag.clone(), item_id.clone());
-        EventListener::new(&document, "mousemove", move |ev| {
-            let ev: &web_sys::MouseEvent = ev.unchecked_ref();
-            let (rect, skip) = {
-                let d = drag.borrow();
-                (d.rect.clone(), d.skip_selection_check)
-            };
-            let Some(rect) = rect else { return };
-            if !skip {
-                if let Some(el) = textarea.get() {
-                    if el.selection_start().ok().flatten() == el.selection_end().ok().flatten() {
-                        return;
-                    }
+    let on_move = EventListener::new(&document, "mousemove", move |ev| {
+        let ev: &web_sys::MouseEvent = ev.unchecked_ref();
+        let Some((rect, skip)) = drag
+            .try_with_value(|d| d.rect.clone().map(|r| (r, d.skip_selection_check)))
+            .flatten()
+        else {
+            return;
+        };
+        if !skip {
+            if let Some(el) = textarea.get() {
+                if el.selection_start().ok().flatten() == el.selection_end().ok().flatten() {
+                    return;
                 }
             }
-            let y = ev.client_y() as f64;
-            if y < rect.top() - 10.0 || y > rect.bottom() + 10.0 {
-                core.send(Event::DragBeyondBounds {
-                    item_id: item_id.clone(),
-                });
-                end_drag(&drag);
-            }
-        })
-    };
-    let on_up = {
-        let drag = drag.clone();
-        EventListener::new(&document, "mouseup", move |_| end_drag(&drag))
-    };
-    d.listeners.push(on_move);
-    d.listeners.push(on_up);
+        }
+        let y = ev.client_y() as f64;
+        if y < rect.top() - 10.0 || y > rect.bottom() + 10.0 {
+            core.send(Event::DragBeyondBounds {
+                item_id: item_id.get_value(),
+            });
+            end_drag(drag);
+        }
+    });
+    let on_up = EventListener::new(&document, "mouseup", move |_| end_drag(drag));
+    drag.set_value(Drag {
+        rect: Some(el.get_bounding_client_rect()),
+        skip_selection_check,
+        _listeners: vec![on_move, on_up],
+    });
 }
 
-fn end_drag(drag: &Rc<RefCell<Drag>>) {
+fn end_drag(drag: StoredValue<Drag, LocalStorage>) {
     // Dropping the listeners inside their own callback is not allowed; defer it
-    let drag = drag.clone();
     dom::after_render(move || {
-        let mut d = drag.borrow_mut();
-        d.rect = None;
-        d.skip_selection_check = false;
-        d.listeners.clear();
+        drag.try_set_value(Drag::default());
     });
 }

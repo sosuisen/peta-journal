@@ -1638,7 +1638,6 @@ dependencies = [
  "leptos",
  "leptos_router",
  "peta-core",
- "send_wrapper",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
