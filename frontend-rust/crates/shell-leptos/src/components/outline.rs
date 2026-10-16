@@ -7,7 +7,7 @@ use crate::components::outline_item::OutlineItem;
 use crate::components::wiki_suggestions::WikiSuggestions;
 use crate::core::CoreHandle;
 use crate::dom;
-use gloo_events::EventListener;
+use crate::listeners::DocumentListeners;
 use leptos::prelude::*;
 use peta_core::app::SelectionKey;
 use peta_core::view::Row;
@@ -326,48 +326,31 @@ pub fn Outline() -> impl IntoView {
     })));
     on_cleanup(move || core.set_scroller(None));
 
-    // Selection mode: the keys and clicks of the whole document act on the selection.
-    // The listeners live in a stored value, so they go away with the outline.
-    let listeners: StoredValue<Vec<EventListener>, LocalStorage> =
-        StoredValue::new_local(Vec::new());
+    // Selection mode: the keys and clicks of the whole document act on the selection
+    let selection_listeners = DocumentListeners::new();
     Effect::new(move |_| {
-        let active = vm.with(|v| v.outline.selection_mode);
-        listeners.update_value(|ls| {
-            ls.clear();
-            if !active {
-                return;
-            }
-            let document = dom::document();
-            ls.push(EventListener::new_with_options(
-                &document,
-                "keydown",
-                gloo_events::EventListenerOptions::enable_prevent_default(),
-                move |ev| {
-                    let ev: &web_sys::KeyboardEvent = ev.unchecked_ref();
-                    if let Some(key) = selection_key(ev) {
-                        ev.prevent_default();
-                        core.send(Event::SelectionKey(key));
-                    }
-                },
-            ));
-            ls.push(EventListener::new(&document, "click", move |_| {
-                core.send(Event::SelectionClickOutside)
-            }));
-            ls.push(EventListener::new(&document, "mouseup", move |_| {
-                core.send(Event::SelectionMouseUp)
-            }));
-            for (name, key) in [("copy", SelectionKey::Copy), ("cut", SelectionKey::Cut)] {
-                ls.push(EventListener::new_with_options(
-                    &document,
-                    name,
-                    gloo_events::EventListenerOptions::enable_prevent_default(),
-                    move |ev| {
-                        ev.prevent_default();
-                        core.send(Event::SelectionKey(key));
-                    },
-                ));
+        selection_listeners.clear();
+        if !vm.with(|v| v.outline.selection_mode) {
+            return;
+        }
+        selection_listeners.on_cancelable("keydown", move |ev: &web_sys::KeyboardEvent| {
+            if let Some(key) = selection_key(ev) {
+                ev.prevent_default();
+                core.send(Event::SelectionKey(key));
             }
         });
+        selection_listeners.on("click", move |_: &web_sys::Event| {
+            core.send(Event::SelectionClickOutside)
+        });
+        selection_listeners.on("mouseup", move |_: &web_sys::Event| {
+            core.send(Event::SelectionMouseUp)
+        });
+        for (name, key) in [("copy", SelectionKey::Copy), ("cut", SelectionKey::Cut)] {
+            selection_listeners.on_cancelable(name, move |ev: &web_sys::Event| {
+                ev.prevent_default();
+                core.send(Event::SelectionKey(key));
+            });
+        }
     });
 
     let rendered_ids = move || {

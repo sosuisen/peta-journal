@@ -5,7 +5,7 @@ use crate::components::item_editor::ItemEditor;
 use crate::components::item_view::ItemView;
 use crate::core::CoreHandle;
 use crate::dom;
-use gloo_events::EventListener;
+use crate::listeners::DocumentListeners;
 use leptos::prelude::*;
 use peta_core::view::Row;
 use peta_core::Event;
@@ -19,18 +19,14 @@ pub fn OutlineItem(row: RwSignal<Row>) -> impl IntoView {
 
     let menu_open = RwSignal::new(false);
     let menu_pos = RwSignal::new((0.0, 0.0));
-    // The document listeners of the open menu; they go away with the row
-    let menu_listeners: StoredValue<Vec<EventListener>, LocalStorage> =
-        StoredValue::new_local(Vec::new());
+    // The click outside and the Escape that close the open menu
+    let menu_listeners = DocumentListeners::new();
 
     let send = move |event: Event| core.send(event);
 
     let close_menu = move || {
         menu_open.set(false);
-        // The listeners are dropped after the event that closes the menu, not inside it
-        dom::after_render(move || {
-            menu_listeners.try_update_value(|l| l.clear());
-        });
+        menu_listeners.clear_later();
     };
 
     let on_menu_click = move |ev: web_sys::MouseEvent| {
@@ -46,34 +42,22 @@ pub fn OutlineItem(row: RwSignal<Row>) -> impl IntoView {
         let (hl, ht) = host_rect.map(|r| (r.left(), r.top())).unwrap_or((0.0, 0.0));
         menu_pos.set((btn_rect.left() - hl, btn_rect.bottom() - ht));
         menu_open.set(true);
-        let document = dom::document();
+        // Listening starts after this click, so the click itself does not close the menu
         dom::after_render(move || {
-            let close = EventListener::new_with_options(
-                &document,
-                "mousedown",
-                gloo_events::EventListenerOptions::enable_prevent_default(),
-                move |ev| {
-                    if let Some(t) = ev
-                        .target()
-                        .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
-                    {
-                        if t.closest(".item-popup-menu").ok().flatten().is_some() {
-                            return;
-                        }
-                    }
+            menu_listeners.on_cancelable("mousedown", move |ev: &web_sys::MouseEvent| {
+                let inside_menu = ev
+                    .target()
+                    .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
+                    .is_some_and(|t| t.closest(".item-popup-menu").ok().flatten().is_some());
+                if !inside_menu {
                     close_menu();
-                },
-            );
-            let on_key = EventListener::new(&dom::document(), "keydown", move |ev| {
-                let ev: &web_sys::KeyboardEvent = ev.unchecked_ref();
+                }
+            });
+            menu_listeners.on("keydown", move |ev: &web_sys::KeyboardEvent| {
                 if ev.key() == "Escape" {
                     ev.prevent_default();
                     close_menu();
                 }
-            });
-            menu_listeners.try_update_value(|l| {
-                l.push(close);
-                l.push(on_key);
             });
         });
     };

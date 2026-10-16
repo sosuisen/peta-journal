@@ -3,7 +3,7 @@
 
 use crate::core::CoreHandle;
 use crate::dom;
-use gloo_events::EventListener;
+use crate::listeners::DocumentListeners;
 use leptos::prelude::*;
 use peta_core::app::WikiLinkContext;
 use peta_core::model::DeferredKey;
@@ -11,13 +11,65 @@ use peta_core::view::Row;
 use peta_core::Event;
 use wasm_bindgen::JsCast;
 
-/// Tracks a mouse drag that started in the editor; leaving the editor starts a selection.
-#[derive(Default)]
+/// A mouse drag that started in the editor; leaving the editor starts a selection.
+#[derive(Clone, Copy)]
 struct Drag {
-    rect: Option<web_sys::DomRect>,
-    skip_selection_check: bool,
-    /// Kept for their drop: they are removed from the document with the drag
-    _listeners: Vec<EventListener>,
+    /// The editor's box while a drag is on, by which "leaving" is judged.
+    rect: StoredValue<Option<web_sys::DomRect>, LocalStorage>,
+    skip_selection_check: StoredValue<bool>,
+    listeners: DocumentListeners,
+}
+
+impl Drag {
+    fn new() -> Drag {
+        Drag {
+            rect: StoredValue::new_local(None),
+            skip_selection_check: StoredValue::new(false),
+            listeners: DocumentListeners::new(),
+        }
+    }
+
+    /// Starts following the mouse; leaving the editor by more than 10px starts a selection.
+    fn start(
+        self,
+        core: CoreHandle,
+        el: &web_sys::HtmlTextAreaElement,
+        textarea: NodeRef<leptos::html::Textarea>,
+        skip_selection_check: bool,
+    ) {
+        let item_id = StoredValue::new(el.id().trim_start_matches("item-editor-").to_string());
+        self.rect.set_value(Some(el.get_bounding_client_rect()));
+        self.skip_selection_check.set_value(skip_selection_check);
+        self.listeners.clear();
+        self.listeners
+            .on("mousemove", move |ev: &web_sys::MouseEvent| {
+                let Some(rect) = self.rect.try_get_value().flatten() else {
+                    return;
+                };
+                if !self.skip_selection_check.get_value() {
+                    if let Some(el) = textarea.get() {
+                        if el.selection_start().ok().flatten() == el.selection_end().ok().flatten()
+                        {
+                            return;
+                        }
+                    }
+                }
+                let y = ev.client_y() as f64;
+                if y < rect.top() - 10.0 || y > rect.bottom() + 10.0 {
+                    core.send(Event::DragBeyondBounds {
+                        item_id: item_id.get_value(),
+                    });
+                    self.end();
+                }
+            });
+        self.listeners
+            .on("mouseup", move |_: &web_sys::Event| self.end());
+    }
+
+    fn end(self) {
+        self.rect.try_set_value(None);
+        self.listeners.clear_later();
+    }
 }
 
 #[component]
@@ -26,8 +78,7 @@ pub fn ItemEditor(row: RwSignal<Row>) -> impl IntoView {
     let vm = core.view();
     let item_id = row.with_untracked(|r| r.item.id.clone());
     let textarea = NodeRef::<leptos::html::Textarea>::new();
-    // The drag in progress, with its document listeners; it goes away with the editor
-    let drag: StoredValue<Drag, LocalStorage> = StoredValue::new_local(Drag::default());
+    let drag = Drag::new();
 
     let id = item_id.clone();
     let is_task = move || row.with(|r| r.item.is_task());
@@ -83,7 +134,7 @@ pub fn ItemEditor(row: RwSignal<Row>) -> impl IntoView {
                     dom::focus_without_scroll(&el);
                     dom::auto_resize(&el);
                     if req.mouse_drag {
-                        start_drag(core, drag, &el, textarea, true);
+                        drag.start(core, &el, textarea, true);
                     }
                 }
                 None => {
@@ -199,7 +250,7 @@ pub fn ItemEditor(row: RwSignal<Row>) -> impl IntoView {
 
     let on_mousedown = move |_: web_sys::MouseEvent| {
         if let Some(el) = textarea.get() {
-            start_drag(core, drag, &el, textarea, false);
+            drag.start(core, &el, textarea, false);
         }
     };
 
@@ -665,52 +716,4 @@ fn replay_editing_key(
         }
         _ => false,
     }
-}
-
-/// Starts following the mouse; leaving the editor by more than 10px starts a selection.
-fn start_drag(
-    core: CoreHandle,
-    drag: StoredValue<Drag, LocalStorage>,
-    el: &web_sys::HtmlTextAreaElement,
-    textarea: NodeRef<leptos::html::Textarea>,
-    skip_selection_check: bool,
-) {
-    let item_id = StoredValue::new(el.id().trim_start_matches("item-editor-").to_string());
-    let document = dom::document();
-    let on_move = EventListener::new(&document, "mousemove", move |ev| {
-        let ev: &web_sys::MouseEvent = ev.unchecked_ref();
-        let Some((rect, skip)) = drag
-            .try_with_value(|d| d.rect.clone().map(|r| (r, d.skip_selection_check)))
-            .flatten()
-        else {
-            return;
-        };
-        if !skip {
-            if let Some(el) = textarea.get() {
-                if el.selection_start().ok().flatten() == el.selection_end().ok().flatten() {
-                    return;
-                }
-            }
-        }
-        let y = ev.client_y() as f64;
-        if y < rect.top() - 10.0 || y > rect.bottom() + 10.0 {
-            core.send(Event::DragBeyondBounds {
-                item_id: item_id.get_value(),
-            });
-            end_drag(drag);
-        }
-    });
-    let on_up = EventListener::new(&document, "mouseup", move |_| end_drag(drag));
-    drag.set_value(Drag {
-        rect: Some(el.get_bounding_client_rect()),
-        skip_selection_check,
-        _listeners: vec![on_move, on_up],
-    });
-}
-
-fn end_drag(drag: StoredValue<Drag, LocalStorage>) {
-    // Dropping the listeners inside their own callback is not allowed; defer it
-    dom::after_render(move || {
-        drag.try_set_value(Drag::default());
-    });
 }

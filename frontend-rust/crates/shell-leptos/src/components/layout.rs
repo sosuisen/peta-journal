@@ -6,7 +6,7 @@ use crate::components::search_bar::{SearchBar, SearchInput};
 use crate::components::sidebar::Sidebar;
 use crate::core::CoreHandle;
 use crate::dom;
-use gloo_events::EventListener;
+use crate::listeners::DocumentListeners;
 use leptos::prelude::*;
 use peta_core::Event;
 use wasm_bindgen::JsCast;
@@ -62,9 +62,8 @@ pub fn MainLayout() -> impl IntoView {
     let sidebar_collapsed = RwSignal::new(false);
     let page_menu_open = RwSignal::new(false);
     let sidebar_width = RwSignal::new(load_sidebar_width());
-    // The document listeners of a sidebar resize in progress
-    let resize_listeners: StoredValue<Vec<EventListener>, LocalStorage> =
-        StoredValue::new_local(Vec::new());
+    // The mouse listeners of a sidebar resize in progress
+    let resize_listeners = DocumentListeners::new();
 
     let connection = move || vm.with(|v| v.connection.as_str());
     let focused_item = move || vm.with(|v| v.outline.focused_item_id.clone());
@@ -72,95 +71,73 @@ pub fn MainLayout() -> impl IntoView {
 
     // Ctrl+/ or a bare / focuses the search box; custom URL schemes go to the launcher
     {
-        let document = dom::document();
-        let key_listener = EventListener::new_with_options(
-            &document,
-            "keydown",
-            gloo_events::EventListenerOptions::enable_prevent_default(),
-            move |ev| {
-                let ev: &web_sys::KeyboardEvent = ev.unchecked_ref();
-                if ev.key() != "/" {
-                    return;
-                }
-                let is_editing = core
-                    .view()
-                    .with_untracked(|v| v.outline.focused_item_id.is_some());
-                let focus = || {
-                    if let Some(SearchInput(input)) = use_context::<SearchInput>() {
-                        if let Some(el) = input.get_untracked() {
-                            let _ = el.focus();
-                        }
+        let global = DocumentListeners::new();
+        global.on_cancelable("keydown", move |ev: &web_sys::KeyboardEvent| {
+            if ev.key() != "/" {
+                return;
+            }
+            let is_editing = core
+                .view()
+                .with_untracked(|v| v.outline.focused_item_id.is_some());
+            let focus = || {
+                if let Some(SearchInput(input)) = use_context::<SearchInput>() {
+                    if let Some(el) = input.get_untracked() {
+                        let _ = el.focus();
                     }
-                };
-                if ev.ctrl_key() {
-                    ev.prevent_default();
-                    focus();
-                } else if !is_editing && !ev.alt_key() && !ev.meta_key() {
-                    let tag = ev
-                        .target()
-                        .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
-                        .map(|e| e.tag_name())
-                        .unwrap_or_default();
-                    if tag == "INPUT" || tag == "TEXTAREA" {
-                        return;
-                    }
-                    ev.prevent_default();
-                    focus();
                 }
-            },
-        );
-        let click_listener = EventListener::new_with_options(
-            &document,
-            "click",
-            gloo_events::EventListenerOptions {
-                phase: gloo_events::EventListenerPhase::Capture,
-                passive: false,
-            },
-            move |ev| {
-                let Some(target) = ev
+            };
+            if ev.ctrl_key() {
+                ev.prevent_default();
+                focus();
+            } else if !is_editing && !ev.alt_key() && !ev.meta_key() {
+                let tag = ev
                     .target()
                     .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
-                else {
-                    return;
-                };
-                let Some(anchor) = target.closest("a").ok().flatten() else {
-                    return;
-                };
-                let Some(href) = anchor.get_attribute("href") else {
-                    return;
-                };
-                if !has_custom_protocol(&href) {
+                    .map(|e| e.tag_name())
+                    .unwrap_or_default();
+                if tag == "INPUT" || tag == "TEXTAREA" {
                     return;
                 }
                 ev.prevent_default();
-                ev.stop_propagation();
-                core.send(Event::LaunchUrl { url: href });
-            },
-        );
-        // Kept until the layout goes away
-        let _listeners: StoredValue<_, LocalStorage> =
-            StoredValue::new_local((key_listener, click_listener));
+                focus();
+            }
+        });
+        global.on_capture("click", move |ev: &web_sys::Event| {
+            let Some(target) = ev
+                .target()
+                .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
+            else {
+                return;
+            };
+            let Some(anchor) = target.closest("a").ok().flatten() else {
+                return;
+            };
+            let Some(href) = anchor.get_attribute("href") else {
+                return;
+            };
+            if !has_custom_protocol(&href) {
+                return;
+            }
+            ev.prevent_default();
+            ev.stop_propagation();
+            core.send(Event::LaunchUrl { url: href });
+        });
     }
 
     let start_resize = move |ev: web_sys::MouseEvent| {
         ev.prevent_default();
         let start_x = ev.client_x() as f64;
         let start_width = sidebar_width.get_untracked();
-        let document = dom::document();
-        let on_move = EventListener::new(&document, "mousemove", move |ev| {
-            let ev: &web_sys::MouseEvent = ev.unchecked_ref();
+        resize_listeners.clear();
+        resize_listeners.on("mousemove", move |ev: &web_sys::MouseEvent| {
             let delta = ev.client_x() as f64 - start_x;
             let width = (start_width + delta).clamp(200.0, 600.0);
             sidebar_width.set(width);
             save_sidebar_width(width);
         });
-        let on_up = EventListener::new(&document, "mouseup", move |_| {
-            // Dropped after the event, not inside its own listener
-            dom::after_render(move || {
-                resize_listeners.try_update_value(|l| l.clear());
-            });
+        resize_listeners.on("mouseup", move |_: &web_sys::Event| {
+            resize_listeners.clear_later()
         });
-        resize_listeners.set_value(vec![on_move, on_up]);
     };
 
     view! {
