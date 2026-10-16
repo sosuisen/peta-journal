@@ -10,7 +10,7 @@
 
 | 確認したこと | 結果 |
 |---|---|
-| `cargo test`(コア 97 件 = vitest の spec を移植したもの、fm-ast 17 件、fm-leptos 13 件) | すべて通過 |
+| `cargo test`(コア 100 件 = vitest の spec を移植したもの + view のテスト、fm-ast 17 件、fm-leptos 13 件) | すべて通過 |
 | Playwright の E2E(`PETA_JOURNAL_FRONTEND=rust PETA_JOURNAL_SERVER=rust npm run e2e`、27 件。spec は無変更) | すべて通過 |
 | 同じ E2E を Angular 版に向けて実行(`PETA_JOURNAL_SERVER=rust npm run e2e`) | 26 件通過。「a selection that grows over a parent」は Angular 版でも 3 回に 1 回落ちる(元からのフレーク。Rust 版では通過) |
 | `cargo clippy --all-targets`(全 crate) | 警告なし |
@@ -26,7 +26,10 @@
 - **フォーカスの扱い**: Angular の `pendingCursorPosition` は、ViewModel の `focus_request { seq, item_id, cursor, mouse_drag }` に置き換えた。エディタは自分宛ての未処理の seq を見てカーソルを置く。「次の描画後にフォーカスして保留キーを再生する」`focusEditor()` は `UiOp::FocusEditor` の要求で、シェルは `setTimeout(0)` 後に実行して resolve する。
 - **Leptos 側の描画**: ViewModel の行は id ごとの `RwSignal<Row>` に差分で流し込み(`RowStore`)、ウィンドウ内の行だけを `<For>` で描く。本文の編集/表示の切り替えは `Memo<(broken, editing)>` で判定する。行全体の変化で切り替えると、1 キーごとにエディタが作り直されてフォーカスが外れる。
 - **mousedown の既定動作**: 表示中の項目を押すと同じハンドラの中でエディタが現れてフォーカスを取るため、ブラウザ側の mousedown 既定動作(フォーカス移動)で外れてしまう。`preventDefault()` で止めている(Angular は描画が非同期だったので不要だった)。
-- **Send 境界**: Leptos 0.8 はクロージャに `Send + Sync` を要求する。コアは thread local に置き、`CoreHandle` は `Copy` の空の型にした。DOM のリスナーなど `Rc` を持つものは `send_wrapper::SendWrapper` で包む。
+- **Send 境界**: Leptos 0.8 はクロージャに `Send + Sync` を要求する。コアは thread local に置き、`CoreHandle` は `Copy` の空の型にした。コンポーネントの状態は `StoredValue`(ブラウザの型は `StoredValue::new_local`)に置く。`Copy` なので各クロージャへそのまま渡せ、コンポーネントと一緒に破棄される。`SendWrapper<Rc<RefCell<T>>>` は使わない。
+- **遅延コールバックの規律**: `after_render` やタイマー、`requestAnimationFrame` の中で signal や `NodeRef` を読むときは必ず `try_` 系(`try_get_untracked`、`try_update_value`)を使う。コンポーネントが先に消えていると、通常の読み取りは「disposed」のパニックで wasm 全体を止める。
+- **document のリスナー**: 選択モードのキー、メニューを閉じるクリック、サイドバーのリサイズ、エディタからのドラッグは `listeners::DocumentListeners`(`on` / `on_cancelable` / `on_capture` / `clear` / `clear_later`)で登録する。リスナーは自分自身の中からは外せないので、閉じる処理は `clear_later` を使う。
+- **行の派生値はコアで**: タスクの状態(`Row.task: Option<TaskState>`)、1 行見出しかどうか(`heading_line`)、独自ズームの有無(`has_own_zoom`)はコアの `Row` が持ち、シェルは読むだけ(`tests/view.rs` で検証)。シェルのコンポーネントは `core.select(|v| ...)` で ViewModel の一部を `Memo` として受け取る。
 - **カレンダーと localStorage**: サイドバー幅、折りたたみ状態、カレンダーの表示月はシェルだけの状態で、コアには入れていない。
 - **highlight.js**: npm の `highlight.js/lib/common` を esbuild で 1 本にまとめて `vendor/` に置いた(再生成手順は BUILD.md)。
 - **時刻**: コアは時計を持たない。`today` は `Route` イベントに、`now_ms` は `BodyChanged` / `EnterPressed` に乗せ、タイトル生成などは `UiOp::LocalNow` で聞く。
