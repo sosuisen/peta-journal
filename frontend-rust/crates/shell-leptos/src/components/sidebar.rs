@@ -42,7 +42,6 @@ fn SectionToggle(collapsed: Signal<bool>, on_toggle: Callback<()>) -> impl IntoV
 #[component]
 pub fn Sidebar() -> impl IntoView {
     let core: CoreHandle = expect_context();
-    let vm = core.view();
     let today = dom::today_iso();
     let collapsed = RwSignal::new(load_collapsed());
     let is_collapsed = move |section: &'static str| {
@@ -63,11 +62,11 @@ pub fn Sidebar() -> impl IntoView {
         })
     };
 
-    let index_header = Memo::new(move |_| vm.with(|v| v.sidebar.index_header.clone()));
-    let index_pages = Memo::new(move |_| vm.with(|v| v.sidebar.index_pages.clone()));
-    let headings = Memo::new(move |_| vm.with(|v| v.sidebar.headings.clone()));
-    let recent = Memo::new(move |_| vm.with(|v| v.sidebar.recent_pages.clone()));
-    let current_page_id = Memo::new(move |_| vm.with(|v| v.sidebar.current_page_id.clone()));
+    let index_header = core.select(|v| v.sidebar.index_header.clone());
+    let index_pages = core.select(|v| v.sidebar.index_pages.clone());
+    let headings = core.select(|v| v.sidebar.headings.clone());
+    let recent = core.select(|v| v.sidebar.recent_pages.clone());
+    let current_page_id = core.select(|v| v.sidebar.current_page_id.clone());
 
     let go_to_page = {
         move |page: &SidebarPage, ev: &web_sys::MouseEvent| {

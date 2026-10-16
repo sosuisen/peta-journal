@@ -9,9 +9,8 @@ use peta_core::Event;
 #[component]
 pub fn SearchBar() -> impl IntoView {
     let core: CoreHandle = expect_context();
-    let vm = core.view();
     let input = NodeRef::<leptos::html::Input>::new();
-    let search = Memo::new(move |_| vm.with(|v| v.search.clone()));
+    let search = core.select(|v| v.search.clone());
     provide_context(SearchInput(input));
 
     // The query as the core has it (cleared after a navigation)

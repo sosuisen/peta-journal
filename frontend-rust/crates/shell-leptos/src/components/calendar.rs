@@ -89,9 +89,7 @@ pub fn Calendar(
     on_navigate: Option<Callback<bool>>,
 ) -> impl IntoView {
     let core: CoreHandle = expect_context();
-    let vm = core.view();
-    let numbering = Memo::new(move |_| vm.with(|v| v.config.week_numbering));
-    let today = dom::today_iso();
+    let numbering = core.select(|v| v.config.week_numbering);
     let now = js_sys::Date::new_0();
     let view_year = RwSignal::new(now.get_full_year() as i32);
     let view_month = RwSignal::new(now.get_month() + 1);
@@ -155,45 +153,52 @@ pub fn Calendar(
                     <For
                         each=move || weeks.get()
                         key=|(n, days)| (*n, days[0].date)
-                        children={
-                                                        let today = today.clone();
-                            move |(number, days)| {
-                                let first = days[0].date;
-                                let core_week = core;
-                                let week_click = move |ev: web_sys::MouseEvent| {
-                                    let iso = numbering.get() == WeekNumbering::Iso;
-                                    let year = if iso { iso_week_year(first) } else { first.year };
-                                    go(&core_week, format!("{year}-W{number:02}"), &ev);
-                                    notify(&ev);
-                                };
-                                let cells = days.iter().map(|day| {
-                                    let date = day.date;
-                                    let iso = date.iso();
-                                    let is_today = iso == today;
-                                    let iso2 = iso.clone();
-                                    let is_selected = move || selected_date.get() == iso2;
-                                    let core_day = core;
-                                    view! {
-                                        <div
-                                            class="day-cell"
-                                            class:other-month=!day.current_month
-                                            class:today=is_today
-                                            class:selected=is_selected
-                                            on:click=move |ev| { go(&core_day, iso.clone(), &ev); notify(&ev); }
-                                        >
-                                            {date.day}
-                                        </div>
-                                    }
-                                }).collect::<Vec<_>>();
-                                view! {
-                                    <div class="week-number" on:click=week_click>{format!("{number:02}")}</div>
-                                    {cells}
-                                }
+                        children=move |(number, days)| {
+                            let first = days[0].date;
+                            let week_click = move |ev: web_sys::MouseEvent| {
+                                let iso = numbering.get() == WeekNumbering::Iso;
+                                let year = if iso { iso_week_year(first) } else { first.year };
+                                go(&core, format!("{year}-W{number:02}"), &ev);
+                                notify(&ev);
+                            };
+                            view! {
+                                <div class="week-number" on:click=week_click>{format!("{number:02}")}</div>
+                                {days.into_iter().map(|day| view! { <DayCell day=day selected_date=selected_date on_navigate=on_navigate /> }).collect::<Vec<_>>()}
                             }
                         }
                     />
                 </div>
             </div>
         </app-calendar>
+    }
+}
+
+/// One day of the month grid; a click opens that day's journal.
+#[component]
+fn DayCell(
+    day: Day,
+    selected_date: Signal<String>,
+    on_navigate: Option<Callback<bool>>,
+) -> impl IntoView {
+    let core: CoreHandle = expect_context();
+    let iso = StoredValue::new(day.date.iso());
+    let is_today = iso.with_value(|iso| *iso == dom::today_iso());
+    let is_selected = move || iso.with_value(|iso| selected_date.get() == *iso);
+    let on_click = move |ev: web_sys::MouseEvent| {
+        go(&core, iso.get_value(), &ev);
+        if let Some(cb) = on_navigate {
+            cb.run(ev.ctrl_key() || ev.meta_key() || ev.shift_key());
+        }
+    };
+    view! {
+        <div
+            class="day-cell"
+            class:other-month=!day.current_month
+            class:today=is_today
+            class:selected=is_selected
+            on:click=on_click
+        >
+            {day.date.day}
+        </div>
     }
 }

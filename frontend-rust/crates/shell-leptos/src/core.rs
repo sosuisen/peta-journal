@@ -69,6 +69,16 @@ impl CoreHandle {
         self.inner().view
     }
 
+    /// One part of the view model as a memo: what reads it re-renders when that part
+    /// changes, not on every event.
+    pub fn select<T>(&self, pick: impl Fn(&ViewModel) -> T + Send + Sync + 'static) -> Memo<T>
+    where
+        T: PartialEq + Send + Sync + 'static,
+    {
+        let view = self.view();
+        Memo::new(move |_| view.with(|v| pick(v)))
+    }
+
     /// Sends an event to the core and performs the effects it asks for.
     pub fn send(&self, event: Event) {
         if debug_enabled() {

@@ -7,8 +7,7 @@ use peta_core::Event;
 #[component]
 pub fn WikiSuggestions() -> impl IntoView {
     let core: CoreHandle = expect_context();
-    let vm = core.view();
-    let wiki = Memo::new(move |_| vm.with(|v| v.outline.wiki.clone()));
+    let wiki = core.select(|v| v.outline.wiki.clone());
     let shown = move || wiki.with(|w| !w.suggestions.is_empty());
 
     view! {

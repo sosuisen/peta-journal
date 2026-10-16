@@ -8,8 +8,7 @@ use peta_core::Event;
 #[component]
 pub fn Settings() -> impl IntoView {
     let core: CoreHandle = expect_context();
-    let vm = core.view();
-    let config = Memo::new(move |_| vm.with(|v| v.config.clone()));
+    let config = core.select(|v| v.config.clone());
 
     view! {
         <app-settings>
