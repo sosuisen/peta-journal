@@ -1,0 +1,161 @@
+//! What we last knew about each markdown file in the export directory, so that the folder -> DB
+//! sync can tell our own writes from external edits.
+
+use std::sync::Arc;
+
+use anyhow::Context;
+use hmtid::Hmtid;
+use rusqlite::{params, OptionalExtension, Row};
+
+use crate::error::AppResult;
+use crate::infrastructure::persistence::db::{now_millis, Db};
+use crate::infrastructure::persistence::page_repository::parse;
+
+pub const SYNCED: &str = "synced";
+pub const MISSING: &str = "missing";
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FileSyncState {
+    /// Path relative to the markdown directory, using '/' as separator.
+    pub rel_path: String,
+    pub page_id: Hmtid,
+    /// SHA-256 of the file content as last read or written by us.
+    pub content_hash: String,
+    pub file_size: i64,
+    /// File mtime (epoch millis) at that time.
+    pub file_mtime: i64,
+    pub synced_at: i64,
+    /// `synced` or `missing`.
+    pub status: String,
+    /// When the file was first seen missing (epoch millis).
+    pub missing_since: Option<i64>,
+}
+
+impl FileSyncState {
+    pub fn is_missing(&self) -> bool {
+        self.status == MISSING
+    }
+}
+
+const COLUMNS: &str =
+    "rel_path, page_id, content_hash, file_size, file_mtime, synced_at, status, missing_since";
+
+fn map(row: &Row<'_>) -> rusqlite::Result<FileSyncState> {
+    let page_id: String = row.get(1)?;
+    Ok(FileSyncState {
+        rel_path: row.get(0)?,
+        page_id: parse(&page_id)?,
+        content_hash: row.get(2)?,
+        file_size: row.get(3)?,
+        file_mtime: row.get(4)?,
+        synced_at: row.get(5)?,
+        status: row.get(6)?,
+        missing_since: row.get(7)?,
+    })
+}
+
+#[derive(Debug, Clone)]
+pub struct FileSyncStateRepository {
+    db: Arc<Db>,
+}
+
+impl FileSyncStateRepository {
+    pub fn new(db: Arc<Db>) -> FileSyncStateRepository {
+        FileSyncStateRepository { db }
+    }
+
+    /// Records that the file at rel_path now matches the given content (read or written by us).
+    pub fn upsert_synced(
+        &self,
+        rel_path: &str,
+        page_id: &Hmtid,
+        content_hash: &str,
+        file_size: i64,
+        file_mtime: i64,
+    ) -> AppResult<()> {
+        let now = now_millis();
+        let conn = self.db.conn()?;
+        conn.execute(
+            &format!(
+                "INSERT INTO file_sync_state ({COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, 'synced', NULL) \
+                 ON CONFLICT(rel_path) DO UPDATE SET page_id=?, content_hash=?, file_size=?, file_mtime=?, \
+                 synced_at=?, status='synced', missing_since=NULL"
+            ),
+            params![
+                rel_path,
+                page_id.as_str(),
+                content_hash,
+                file_size,
+                file_mtime,
+                now,
+                page_id.as_str(),
+                content_hash,
+                file_size,
+                file_mtime,
+                now
+            ],
+        )
+        .with_context(|| format!("Failed to upsert file sync state: {rel_path}"))?;
+        Ok(())
+    }
+
+    /// Marks the file as missing. Keeps the original missing_since if already missing.
+    pub fn mark_missing(&self, rel_path: &str) -> AppResult<()> {
+        let now = now_millis();
+        let conn = self.db.conn()?;
+        conn.execute(
+            "UPDATE file_sync_state SET status='missing', synced_at=?, \
+             missing_since=COALESCE(missing_since, ?) WHERE rel_path = ?",
+            params![now, now, rel_path],
+        )?;
+        Ok(())
+    }
+
+    pub fn find_by_path(&self, rel_path: &str) -> AppResult<Option<FileSyncState>> {
+        let conn = self.db.conn()?;
+        Ok(conn
+            .query_row(
+                &format!("SELECT {COLUMNS} FROM file_sync_state WHERE rel_path = ?"),
+                [rel_path],
+                map,
+            )
+            .optional()?)
+    }
+
+    fn query(&self, sql: &str, params: &[&dyn rusqlite::ToSql]) -> AppResult<Vec<FileSyncState>> {
+        let conn = self.db.conn()?;
+        let mut stmt = conn.prepare(sql)?;
+        let rows = stmt.query_map(params, map)?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
+    pub fn find_by_page_id(&self, page_id: &Hmtid) -> AppResult<Vec<FileSyncState>> {
+        self.query(
+            &format!("SELECT {COLUMNS} FROM file_sync_state WHERE page_id = ?"),
+            &[&page_id.as_str()],
+        )
+    }
+
+    pub fn find_all(&self) -> AppResult<Vec<FileSyncState>> {
+        self.query(&format!("SELECT {COLUMNS} FROM file_sync_state"), &[])
+    }
+
+    pub fn find_missing(&self) -> AppResult<Vec<FileSyncState>> {
+        self.query(
+            &format!("SELECT {COLUMNS} FROM file_sync_state WHERE status = 'missing' ORDER BY missing_since"),
+            &[],
+        )
+    }
+
+    pub fn delete_by_path(&self, rel_path: &str) -> AppResult<()> {
+        let conn = self.db.conn()?;
+        conn.execute("DELETE FROM file_sync_state WHERE rel_path = ?", [rel_path])?;
+        Ok(())
+    }
+
+    pub fn delete_by_page_id(&self, page_id: &Hmtid) -> AppResult<()> {
+        let conn = self.db.conn()?;
+        conn.execute("DELETE FROM file_sync_state WHERE page_id = ?", [page_id.as_str()])?;
+        Ok(())
+    }
+}

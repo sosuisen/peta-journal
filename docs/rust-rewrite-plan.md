@@ -4,6 +4,28 @@
 
 結論から言うと、書き換えは現実的である。層の分かれ方(domain / application / infrastructure / presentation)はそのまま Rust のモジュールに移せる。依存ライブラリも、すべてに Rust 側の対応物がある。本体の markdown パーサー(flatmarkdown)はもともと Rust 製なので、むしろ Java 版より単純になる。
 
+## 0. 進捗(2026-10-16 時点)
+
+移植は `journal-server-rust/` に完了している。フェーズ 0〜4 はすべて実装済みで、次を確認した。
+
+| 確認したこと | 結果 |
+|---|---|
+| `cargo test`(単体テスト 54 件 + API テスト 40 件。Java の `*ApiTest` と `FolderSyncTest` を移植したもの) | すべて通過 |
+| Playwright の E2E(`PETA_JOURNAL_SERVER=rust npm run e2e`、27 件。フロントエンドは無変更) | すべて通過 |
+| REST / SSE / MCP(26 ツール)/ `/api/sync/pending-deletes` / assets / functions / CORS を実バイナリに対して curl で確認 | 同じ URL と JSON で動作 |
+| 日本語検索(`空港` → 「東京国際空港」、`行く` → 「行きました」、`コンピュータ` → 「コンピューター」、`#旅行` のタグ検索) | Kuromoji と同じ構成(分割モード、原形化、品詞ストップ、NFKC、カタカナ語幹、小文字化)で一致 |
+| `cargo clippy --all-targets` | 警告なし |
+
+残っている判断(本文 8 章)のうち決めたもの:
+
+- ディレクトリ名は `journal-server-rust`。Java 版はそのまま残してある。
+- hmtid は `journal-server-rust/crates/hmtid` に置いた(npm 版と同じ仕様、同じテストベクタ)。
+- MCP のパスは `/mcp`(quarkus-mcp-server-http の既定と同じ)。
+- 検索インデックスは起動時に Lucene 形式を検出すると消して再構築する。ログに出す。
+- `frontend/playwright.config.ts` は `PETA_JOURNAL_SERVER=rust` で Rust バイナリを起動する。
+
+ビルドと起動の手順は [BUILD.md](../BUILD.md) の「Rust server」を参照。
+
 ## 1. ゴールと守ること
 
 書き換えの目的は「JVM を無くして配布と起動を軽くすること」であり、機能の追加や仕様の変更ではない。次のものは **一切変えない**。
@@ -265,6 +287,7 @@ journal-server-rust/
 | tantivy の commit が Lucene より遅い / 速い | 同じ「2 秒超で警告」を残して観測する |
 | rmcp の Streamable HTTP の細部(セッション、再接続)が quarkus 版と違う | フェーズ 4 で実クライアントで確認。SSE 版が必要なら rmcp の `SseServer` も足せる |
 | Windows / macOS のビルドと配布 | lindera の `embed-ipadic` は辞書をバイナリに埋め込むのでランタイムのファイル配置は不要。各 OS で `cargo build --release` を CI に載せる |
+| 初回ビルド時に IPADIC(約 50 MB)を Lindera.dev からダウンロードする | ネットワークのない環境では `LINDERA_BUILD_DICTIONARY_CACHE_DIR` にビルド済み辞書を置いておく。辞書のソースは mecab-ipadic 2.7.0 なので、npm の `mecab-ipadic-seed` などからも作れる |
 | axum の multipart、SSE、CORS の設定ミス | フロントエンドの画像アップロードと SSE 再接続を E2E に含める |
 
 ## 8. 着手前に決めること

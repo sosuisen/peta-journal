@@ -1,0 +1,168 @@
+//! Serializes items to Flat Markdown (spec v0.2).
+//! Every item is written as one metadata line followed by its body:
+//! `<!-- @@ ID idx="z0" collapsed="true" transclude="ID" key="value" -->`.
+//! The number of `@` characters is the item level. Items are separated by a blank line.
+
+use std::collections::BTreeMap;
+
+use crate::domain::model::Item;
+use crate::infrastructure::persistence::property_repository::{ListProps, ScalarProps};
+
+/// Metadata key that holds the fractional index of the item.
+pub const IDX_KEY: &str = "idx";
+/// Metadata key that marks a collapsed item.
+pub const COLLAPSED_KEY: &str = "collapsed";
+/// Metadata key that holds the source item ID of a transclusion.
+pub const TRANSCLUDE_KEY: &str = "transclude";
+
+static EMPTY_SCALARS: BTreeMap<String, String> = BTreeMap::new();
+static EMPTY_LISTS: BTreeMap<String, Vec<String>> = BTreeMap::new();
+
+/// Serializes items in order, including their properties.
+pub fn serialize(items: &[Item], scalar_props: &ScalarProps, list_props: &ListProps) -> String {
+    serialize_with(items, scalar_props, list_props, &|s| s.to_string())
+}
+
+/// Serializes items in order, passing each body through `body_mapper` before it is written.
+pub fn serialize_with(
+    items: &[Item],
+    scalar_props: &ScalarProps,
+    list_props: &ListProps,
+    body_mapper: &dyn Fn(&str) -> String,
+) -> String {
+    let mut out = String::new();
+    for (i, item) in items.iter().enumerate() {
+        let id = item.id.to_string();
+        if i > 0 {
+            out.push('\n');
+        }
+        append_item(
+            &mut out,
+            item,
+            scalar_props.get(&id).unwrap_or(&EMPTY_SCALARS),
+            list_props.get(&id).unwrap_or(&EMPTY_LISTS),
+            body_mapper,
+        );
+    }
+    out
+}
+
+/// Appends one item as a metadata line and its body, each ending with a newline.
+pub fn append_item(
+    out: &mut String,
+    item: &Item,
+    scalars: &BTreeMap<String, String>,
+    lists: &BTreeMap<String, Vec<String>>,
+    body_mapper: &dyn Fn(&str) -> String,
+) {
+    out.push_str(&metadata_line(item, scalars, lists));
+    out.push('\n');
+    let body = body_mapper(&body_with_task_prefix(item, scalars));
+    // An empty body is expressed by the metadata line alone
+    if !body.is_empty() {
+        out.push_str(&body);
+        out.push('\n');
+    }
+}
+
+/// Builds the metadata line of an item. Properties are written in a fixed order: idx, collapsed,
+/// transclude, then the remaining keys sorted alphabetically.
+pub fn metadata_line(item: &Item, scalars: &BTreeMap<String, String>, lists: &BTreeMap<String, Vec<String>>) -> String {
+    let mut sb = String::from("<!-- ");
+    sb.push_str(&"@".repeat(item.level.max(1) as usize));
+    sb.push(' ');
+    sb.push_str(item.id.as_str());
+    append_property(&mut sb, IDX_KEY, &item.idx);
+    if item.collapsed {
+        append_property(&mut sb, COLLAPSED_KEY, "true");
+    }
+    if let Some(t) = &item.transclude_item_id {
+        append_property(&mut sb, TRANSCLUDE_KEY, t.as_str());
+    }
+    let mut others: BTreeMap<String, String> = scalars.clone();
+    for (key, values) in lists {
+        others.insert(key.clone(), values.join(","));
+    }
+    for (key, value) in &others {
+        append_property(&mut sb, key, value);
+    }
+    sb.push_str(" -->");
+    sb
+}
+
+/// The body with the GFM task prefix when the item is a task:
+/// `- [x] ` when the task has an `end` property, otherwise `- [ ] `.
+pub fn body_with_task_prefix(item: &Item, scalars: &BTreeMap<String, String>) -> String {
+    if item.types.iter().any(|t| t == "task") {
+        let prefix = if scalars.contains_key("end") { "- [x] " } else { "- [ ] " };
+        return format!("{prefix}{}", item.body);
+    }
+    item.body.clone()
+}
+
+fn append_property(sb: &mut String, key: &str, value: &str) {
+    sb.push(' ');
+    sb.push_str(key);
+    sb.push_str("=\"");
+    sb.push_str(&escape(value));
+    sb.push('"');
+}
+
+/// Escapes a property value: `\` becomes `\\` and `"` becomes `\"`.
+pub fn escape(value: &str) -> String {
+    value.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use hmtid::Hmtid;
+
+    fn item(level: i32, body: &str, types: &[&str]) -> Item {
+        Item {
+            id: Hmtid::parse("2026-09-29-00-00-01-AAAAAAA").unwrap(),
+            page_id: Hmtid::parse("2026-09-29-00-00-00-AAAAAAA").unwrap(),
+            parent_item_id: None,
+            dir_path: String::new(),
+            name: "p".into(),
+            item_type: "doc".into(),
+            created_date: 0,
+            modified_date: 0,
+            idx: "z0".into(),
+            level,
+            body: body.into(),
+            ast: String::new(),
+            collapsed: false,
+            types: types.iter().map(|s| s.to_string()).collect(),
+            transclude_item_id: None,
+        }
+    }
+
+    #[test]
+    fn writes_metadata_and_body() {
+        let items = vec![item(2, "hello", &[])];
+        let s = serialize(&items, &ScalarProps::new(), &ListProps::new());
+        assert_eq!(s, "<!-- @@ 2026-09-29-00-00-01-AAAAAAA idx=\"z0\" -->\nhello\n");
+    }
+
+    #[test]
+    fn task_prefix_and_properties() {
+        let it = item(1, "do it", &["task"]);
+        let mut scalars = BTreeMap::new();
+        scalars.insert("plan".to_string(), "2026-09-27".to_string());
+        let mut lists = BTreeMap::new();
+        lists.insert("tag".to_string(), vec!["a".to_string(), "b".to_string()]);
+        assert_eq!(
+            metadata_line(&it, &scalars, &lists),
+            "<!-- @ 2026-09-29-00-00-01-AAAAAAA idx=\"z0\" plan=\"2026-09-27\" tag=\"a,b\" -->"
+        );
+        assert_eq!(body_with_task_prefix(&it, &scalars), "- [ ] do it");
+        scalars.insert("end".to_string(), "x".to_string());
+        assert_eq!(body_with_task_prefix(&it, &scalars), "- [x] do it");
+    }
+
+    #[test]
+    fn escapes_values() {
+        assert_eq!(escape("a\"b\\c"), "a\\\"b\\\\c");
+    }
+}

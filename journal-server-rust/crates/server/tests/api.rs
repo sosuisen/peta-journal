@@ -1,0 +1,651 @@
+//! The API tests of the Java server, run against the Rust server.
+
+mod common;
+
+use common::*;
+use serde_json::{json, Value};
+
+fn vs(items: &[&str]) -> Vec<String> {
+    items.iter().map(|s| s.to_string()).collect()
+}
+
+// ---- Items: creating ----
+
+#[tokio::test]
+async fn items_go_first_last_or_after_another_item() {
+    let page = new_doc_page("items-create").await;
+    let rows = fill(&page.id, &["a", "b"]).await;
+
+    create_item(&page.id, "first", 1, "x").await;
+    create_item(&page.id, "last", 1, "y").await;
+    create_item(&page.id, &format!("after:{}", rows[0].id), 2, "z").await;
+
+    assert_eq!(outline_of(&page.id).await, vs(&["1:x", "1:a", "2:z", "1:b", "1:y"]));
+}
+
+#[tokio::test]
+async fn a_client_id_is_kept() {
+    let page = new_doc_page("items-client-id").await;
+    // What the frontend makes up for an optimistic item (npm hmtid default layout)
+    let id = hmtid::Generator::new('_', false).generate().to_string();
+
+    let (status, resp) = post(
+        "/api/items",
+        json!({ "pageId": page.id, "position": "last", "level": 1, "body": "mine", "id": id }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+    assert_eq!(resp["item"]["id"].as_str(), Some(id.as_str()));
+}
+
+#[tokio::test]
+async fn a_hashtag_in_the_body_comes_back_as_a_tag_property() {
+    let page = new_doc_page("items-hashtag").await;
+
+    let created = create_item(&page.id, "last", 1, "remember #urgent").await;
+    let updated = update_item(&created.id, json!({ "body": "remember #urgent #later" })).await;
+
+    assert_eq!(created.properties["tag"], json!(["urgent"]));
+    assert_eq!(updated.properties["tag"], json!(["urgent", "later"]));
+}
+
+// ---- Items: updating ----
+
+#[tokio::test]
+async fn the_body_is_parsed_into_an_ast_and_types() {
+    let page = new_doc_page("items-parse").await;
+    let plain = fill(&page.id, &["plain"]).await.remove(0);
+
+    let heading = update_item(&plain.id, json!({ "body": "## Title" })).await;
+
+    assert!(heading.types.contains(&"heading".to_string()), "types: {:?}", heading.types);
+    let (_, item) = get(&format!("/api/items/{}", plain.id)).await;
+    assert!(item["item"]["ast"].as_str().unwrap().contains("\"heading\""));
+}
+
+#[tokio::test]
+async fn level_and_collapsed_state_are_saved() {
+    let page = new_doc_page("items-flags").await;
+    let rows = fill(&page.id, &["p", "  c"]).await;
+
+    update_item(&rows[0].id, json!({ "collapsed": true })).await;
+    update_item(&rows[1].id, json!({ "level": 3 })).await;
+
+    let after = items(&page.id).await;
+    assert!(after[0].collapsed);
+    assert_eq!(after[1].level, 3);
+}
+
+#[tokio::test]
+async fn a_property_can_be_set_on_an_item() {
+    let page = new_doc_page("items-property").await;
+    let item = fill(&page.id, &["task-like"]).await.remove(0);
+
+    let (status, _) = put(
+        &format!("/api/items/{}/properties/plan", item.id),
+        json!({ "valueType": "date", "value": "2026-03-01" }),
+    )
+    .await;
+    assert_eq!(status, 200);
+
+    assert_eq!(items(&page.id).await[0].properties["plan"], json!("2026-03-01"));
+}
+
+#[tokio::test]
+async fn a_deleted_item_is_gone_from_its_page() {
+    let page = new_doc_page("items-delete").await;
+    let rows = fill(&page.id, &["keep", "drop"]).await;
+
+    assert_eq!(delete(&format!("/api/items/{}", rows[1].id)).await, 204);
+
+    assert_eq!(outline_of(&page.id).await, vs(&["1:keep"]));
+}
+
+// ---- Items: levels ----
+
+#[tokio::test]
+async fn shift_level_moves_a_group_by_a_relative_amount() {
+    let page = new_doc_page("items-shift").await;
+    let rows = fill(&page.id, &["a", "b", "  b1", "c"]).await;
+
+    let (status, _) = post(
+        "/api/items/shift-level",
+        json!({ "itemIds": [rows[1].id, rows[2].id], "delta": 1 }),
+    )
+    .await;
+    assert_eq!(status, 200);
+
+    assert_eq!(outline_of(&page.id).await, vs(&["1:a", "2:b", "3:b1", "1:c"]));
+}
+
+// ---- Items: moving ----
+
+#[tokio::test]
+async fn a_subtree_moves_past_its_sibling_on_the_same_page() {
+    let page = new_doc_page("items-move").await;
+    let rows = fill(&page.id, &["a", "b", "  b1", "c"]).await;
+
+    move_items(&[&rows[1].id, &rows[2].id], &page.id, &format!("after:{}", rows[3].id), None).await;
+    assert_eq!(outline_of(&page.id).await, vs(&["1:a", "1:c", "1:b", "2:b1"]));
+
+    move_items(&[&rows[1].id, &rows[2].id], &page.id, "first", None).await;
+    assert_eq!(outline_of(&page.id).await, vs(&["1:b", "2:b1", "1:a", "1:c"]));
+}
+
+#[tokio::test]
+async fn items_move_to_another_page_with_their_levels_shifted() {
+    let from = new_doc_page("items-move-from").await;
+    let to = new_doc_page("items-move-to").await;
+    let rows = fill(&from.id, &["stay", "go", "  go-child"]).await;
+    let target = fill(&to.id, &["parent"]).await.remove(0);
+
+    let moved = move_items(&[&rows[1].id, &rows[2].id], &to.id, &format!("after:{}", target.id), Some(1)).await;
+
+    assert_eq!(moved.iter().map(ItemRow::outline).collect::<Vec<_>>(), vs(&["2:go", "3:go-child"]));
+    assert_eq!(outline_of(&from.id).await, vs(&["1:stay"]));
+    assert_eq!(outline_of(&to.id).await, vs(&["1:parent", "2:go", "3:go-child"]));
+}
+
+// ---- Items: tasks ----
+
+#[tokio::test]
+async fn cycle_task_goes_through_task_running_done_and_back_to_normal() {
+    let page = new_doc_page("items-task").await;
+    let item = fill(&page.id, &["buy milk"]).await.remove(0);
+    let cycle = format!("/api/items/{}/cycle-task", item.id);
+
+    assert_eq!(post_empty(&cycle).await.0, 200);
+    let task = items(&page.id).await.remove(0);
+    assert!(task.types.contains(&"task".to_string()));
+    assert!(!task.properties.contains_key("begin"));
+
+    // The response carries the times it just set, so the frontend can show them at once
+    let (status, resp) = post_empty(&cycle).await;
+    assert_eq!(status, 200);
+    let running = ItemRow::of(&resp["item"]);
+    assert!(running.properties.contains_key("begin"), "response: {:?}", running.properties);
+    assert!(items(&page.id).await[0].properties.contains_key("begin"));
+
+    let (_, resp) = post_empty(&cycle).await;
+    let done = ItemRow::of(&resp["item"]);
+    assert!(done.properties.contains_key("end"), "response: {:?}", done.properties);
+    assert!(items(&page.id).await[0].properties.contains_key("end"));
+
+    assert_eq!(post_empty(&cycle).await.0, 200);
+    let normal = items(&page.id).await.remove(0);
+    assert!(!normal.types.contains(&"task".to_string()));
+    assert!(!normal.properties.contains_key("begin"));
+    assert!(!normal.properties.contains_key("end"));
+}
+
+#[tokio::test]
+async fn tasks_can_be_listed_by_type() {
+    let page = new_doc_page("items-task-list").await;
+    let item = fill(&page.id, &["listed task"]).await.remove(0);
+    assert_eq!(post_empty(&format!("/api/items/{}/cycle-task", item.id)).await.0, 200);
+
+    let (status, resp) = get("/api/items?types=task").await;
+    assert_eq!(status, 200);
+    let ids: Vec<Value> = field_of_each(&resp, "items", "id");
+    assert!(ids.contains(&json!(item.id)));
+}
+
+// ---- Items: transclusion ----
+
+#[tokio::test]
+async fn a_transclusion_shows_the_source_tree_with_the_page() {
+    let source_page = new_doc_page("items-transclusion-source").await;
+    let source = fill(&source_page.id, &["root", "  child"]).await;
+    let page = new_doc_page("items-transclusion").await;
+    let host = fill(&page.id, &["placeholder"]).await.remove(0);
+
+    let (status, resp) = post(
+        &format!("/api/items/{}/transclude", host.id),
+        json!({ "sourceItemId": source[0].id }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+    let linked = ItemRow::of(&resp["item"]);
+    assert_eq!(linked.transclude_item_id.as_deref(), Some(source[0].id.as_str()));
+
+    let (_, resp) = get(&format!("/api/pages/{}", page.id)).await;
+    let tree = &resp["transcludedTrees"][&source[0].id];
+    assert_eq!(field_of_each(&json!({ "t": tree }), "t", "body"), vec![json!("root"), json!("child")]);
+
+    assert_eq!(delete(&format!("/api/items/{}/transclude", host.id)).await, 200);
+    assert!(items(&page.id).await[0].transclude_item_id.is_none());
+}
+
+// ---- Pages ----
+
+#[tokio::test]
+async fn a_new_doc_page_starts_with_one_empty_item_and_is_found_again_by_its_title() {
+    let title = format!("pages-new-{}", chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0));
+
+    let (_, first) = post("/api/pages/doc", json!({ "title": title, "dirPath": "" })).await;
+    let (_, again) = post("/api/pages/doc", json!({ "title": title, "dirPath": "" })).await;
+
+    assert_eq!(first["created"], json!(true));
+    assert_eq!(field_of_each(&first, "items", "body"), vec![json!("")]);
+    assert_eq!(first["page"]["type"], json!("doc"));
+    assert_eq!(again["created"], json!(false));
+    assert_eq!(first["page"]["id"], again["page"]["id"]);
+}
+
+#[tokio::test]
+async fn get_page_returns_the_page_with_its_items_in_order() {
+    let page = new_doc_page("pages-get").await;
+    fill(&page.id, &["one", "  two", "three"]).await;
+
+    let (status, resp) = get(&format!("/api/pages/{}", page.id)).await;
+    assert_eq!(status, 200);
+
+    assert_eq!(resp["page"]["name"], json!(page.title));
+    assert_eq!(field_of_each(&resp, "items", "body"), vec![json!("one"), json!("two"), json!("three")]);
+    assert_eq!(field_of_each(&resp, "items", "level"), vec![json!(1), json!(2), json!(1)]);
+}
+
+#[tokio::test]
+async fn renaming_a_page_changes_its_title_and_path() {
+    let page = new_doc_page("pages-rename").await;
+
+    let (status, resp) = put(
+        &format!("/api/pages/{}", page.id),
+        json!({ "title": format!("{}-renamed", page.title), "dirPath": "notes/" }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(resp["page"]["name"], json!(format!("{}-renamed", page.title)));
+    assert_eq!(resp["page"]["dirPath"], json!("notes/"));
+    let (_, again) = get(&format!("/api/pages/{}", page.id)).await;
+    assert_eq!(again["page"]["name"], json!(format!("{}-renamed", page.title)));
+}
+
+#[tokio::test]
+async fn the_most_recently_touched_page_comes_first_in_recent_pages() {
+    let older = new_doc_page("pages-recent-older").await;
+    tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+    let newer = new_doc_page("pages-recent-newer").await;
+
+    // Other tests create pages at the same time, so only the relative order is checked
+    let (status, resp) = get("/api/pages/recent?maxResults=200&type=doc").await;
+    assert_eq!(status, 200);
+    let ids: Vec<Value> = field_of_each(&resp, "pages", "id");
+
+    let pos = |id: &str| ids.iter().position(|v| v == &json!(id));
+    assert!(pos(&newer.id).unwrap() < pos(&older.id).unwrap(), "{ids:?}");
+}
+
+#[tokio::test]
+async fn a_deleted_page_is_gone() {
+    let page = new_doc_page("pages-delete").await;
+
+    assert_eq!(delete(&format!("/api/pages/{}", page.id)).await, 204);
+
+    assert_eq!(get(&format!("/api/pages/{}", page.id)).await.0, 404);
+}
+
+#[tokio::test]
+async fn a_wiki_link_to_a_page_shows_up_in_its_backlinks() {
+    let target = new_doc_page("pages-target").await;
+    let source = new_doc_page("pages-source").await;
+    fill(&source.id, &[&format!("see [[{}]]", target.title)]).await;
+
+    let (status, resp) = get(&format!("/api/pages/{}/backlinks", target.id)).await;
+    assert_eq!(status, 200);
+
+    assert_eq!(
+        resp["entries"].as_array().unwrap().iter().map(|e| e["sourcePage"]["id"].clone()).collect::<Vec<_>>(),
+        vec![json!(source.id)]
+    );
+    assert_eq!(resp["entries"][0]["sourceItem"]["body"], json!(format!("see [[{}]]", target.title)));
+}
+
+// ---- Journals (1999 so that nothing else is near) ----
+
+async fn journal(name: &str) -> Value {
+    let (status, resp) = post_empty(&format!("/api/journals/{name}")).await;
+    assert_eq!(status, 200, "{resp}");
+    resp
+}
+
+#[tokio::test]
+async fn a_day_is_created_with_one_empty_item_and_found_again_by_its_date() {
+    let first = journal("1999-06-15").await;
+    let again = journal("1999-06-15").await;
+
+    assert_eq!(first["created"], json!(true));
+    assert_eq!(first["page"]["type"], json!("journal"));
+    assert_eq!(first["page"]["name"], json!("1999-06-15"));
+    assert_eq!(field_of_each(&first, "items", "body"), vec![json!("")]);
+    assert_eq!(again["created"], json!(false));
+    assert_eq!(first["page"]["id"], again["page"]["id"]);
+}
+
+#[tokio::test]
+async fn the_most_recent_day_before_a_date_is_found() {
+    journal("1999-03-05").await;
+    journal("1999-03-10").await;
+
+    let (_, before) = get("/api/journals/before?date=1999-03-10").await;
+    let (_, nothing) = get("/api/journals/before?date=1999-01-01").await;
+
+    assert_eq!(before["found"], json!(true));
+    assert_eq!(before["page"]["name"], json!("1999-03-05"));
+    assert_eq!(before["items"].as_array().unwrap().len(), 1);
+    assert_eq!(nothing["found"], json!(false));
+}
+
+#[tokio::test]
+async fn a_week_is_created_with_one_link_per_day() {
+    let week = journal("1999-W10").await;
+
+    assert_eq!(week["created"], json!(true));
+    let bodies = field_of_each(&week, "items", "body");
+    assert_eq!(bodies.len(), 7);
+    assert_eq!(bodies[0], json!("[[1999-03-08]]")); // ISO week 10 of 1999 starts on Monday the 8th
+    assert_eq!(bodies[6], json!("[[1999-03-14]]"));
+}
+
+#[tokio::test]
+async fn the_most_recent_week_before_a_week_is_found() {
+    journal("1999-W20").await;
+    journal("1999-W22").await;
+
+    let (_, before) = get("/api/journals/weekly/before?week=1999-W22").await;
+
+    assert_eq!(before["found"], json!(true));
+    assert_eq!(before["page"]["name"], json!("1999-W20"));
+}
+
+#[tokio::test]
+async fn a_name_that_is_not_a_journal_is_refused() {
+    assert_eq!(post_empty("/api/journals/not-a-date").await.0, 400);
+}
+
+#[tokio::test]
+async fn an_item_moves_to_another_day() {
+    let from = journal("1999-09-01").await["page"]["id"].as_str().unwrap().to_string();
+    let to = journal("1999-09-02").await["page"]["id"].as_str().unwrap().to_string();
+    let moved = fill(&from, &["carry over"]).await.remove(0);
+
+    move_items(&[&moved.id], &to, "last", None).await;
+
+    assert_eq!(outline_of(&from).await, Vec::<String>::new());
+    assert_eq!(outline_of(&to).await, vs(&["1:", "1:carry over"]));
+}
+
+// ---- Search ----
+
+async fn search(path: &str, query: &str) -> Value {
+    let (status, resp) = client()
+        .get(url(path))
+        .query(&[("q", query), ("maxResults", "10")])
+        .send()
+        .await
+        .map(|r| (r.status().as_u16(), r))
+        .unwrap()
+        .1
+        .json::<Value>()
+        .await
+        .map(|v| (200u16, v))
+        .unwrap();
+    assert_eq!(status, 200);
+    resp
+}
+
+fn nanos() -> i64 {
+    chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0)
+}
+
+#[tokio::test]
+async fn page_names_are_found_by_prefix() {
+    let page = new_doc_page("Searchable").await;
+
+    let resp = search("/api/search/pages", &page.title[..12]).await;
+    let titles = field_of_each(&resp, "results", "pageTitle");
+
+    assert!(titles.contains(&json!(page.title)), "titles: {titles:?}");
+}
+
+#[tokio::test]
+async fn item_text_is_found_with_a_snippet() {
+    let page = new_doc_page("search-text").await;
+    let word = format!("zebra{}", nanos());
+    let item = fill(&page.id, &[&format!("the {word} crossing"), "nothing here"]).await.remove(0);
+
+    let resp = search("/api/search/combined", &word).await;
+
+    assert_eq!(field_of_each(&resp, "results", "itemId"), vec![json!(item.id)]);
+    assert_eq!(resp["results"][0]["pageId"], json!(page.id));
+    // The analyzer cuts letters from digits, so the match is marked word by word
+    let snippet = resp["results"][0]["snippet"].as_str().unwrap_or("");
+    assert!(snippet.contains("<mark>zebra"), "{snippet}");
+}
+
+#[tokio::test]
+async fn two_words_must_both_be_in_the_item() {
+    let page = new_doc_page("search-and").await;
+    let a = format!("apple{}", nanos());
+    let b = format!("banana{}", nanos());
+    let rows = fill(&page.id, &[&format!("{a} and {b}"), &format!("{a} alone")]).await;
+
+    let resp = search("/api/search/combined", &format!("{a} {b}")).await;
+
+    assert_eq!(field_of_each(&resp, "results", "itemId"), vec![json!(rows[0].id)]);
+}
+
+#[tokio::test]
+async fn a_hashtag_in_the_body_is_found_as_a_tag() {
+    let page = new_doc_page("search-tag").await;
+    let tag = format!("tag{}", nanos());
+    let item = fill(&page.id, &[&format!("remember #{tag}")]).await.remove(0);
+
+    assert_eq!(items(&page.id).await[0].properties["tag"], json!([tag]));
+    let resp = search("/api/search/tags", &tag).await;
+    assert_eq!(field_of_each(&resp, "results", "itemId"), vec![json!(item.id)]);
+}
+
+#[tokio::test]
+async fn a_deleted_item_is_no_longer_found() {
+    let page = new_doc_page("search-deleted").await;
+    let word = format!("ghost{}", nanos());
+    let item = fill(&page.id, &[&word, "stays"]).await.remove(0);
+
+    assert_eq!(delete(&format!("/api/items/{}", item.id)).await, 204);
+
+    let resp = search("/api/search/combined", &word).await;
+    assert_eq!(field_of_each(&resp, "results", "itemId"), Vec::<Value>::new());
+}
+
+// ---- Markdown conversions ----
+
+async fn parse(markdown: &str) -> Value {
+    let (status, resp) = post("/api/items/parse", json!({ "markdown": markdown })).await;
+    assert_eq!(status, 200, "{resp}");
+    resp
+}
+
+#[tokio::test]
+async fn flat_markdown_is_split_into_items_at_block_boundaries() {
+    let resp = parse("# Night\n\n- [ ] Hanon\n\n- [ ] Upload\n").await;
+
+    assert_eq!(
+        field_of_each(&resp, "items", "body"),
+        vec![json!("# Night"), json!("- [ ] Hanon\n\n- [ ] Upload")]
+    );
+    assert_eq!(field_of_each(&resp, "items", "level"), vec![json!(1), json!(1)]);
+}
+
+#[tokio::test]
+async fn metadata_lines_carry_the_level_of_each_item() {
+    let resp = parse("# Night\n\n<!-- @@ -->\n- [ ] Hanon\n\n<!-- @@ -->\n- [ ] Upload\n").await;
+
+    assert_eq!(
+        field_of_each(&resp, "items", "body"),
+        vec![json!("# Night"), json!("- [ ] Hanon"), json!("- [ ] Upload")]
+    );
+    assert_eq!(field_of_each(&resp, "items", "level"), vec![json!(1), json!(2), json!(2)]);
+}
+
+#[tokio::test]
+async fn exported_items_come_back_through_import_and_parse_unchanged() {
+    let page = new_doc_page("markdown-roundtrip").await;
+    let rows = fill(&page.id, &["parent", "  child one", "    grandchild", "  child two", "sibling"]).await;
+    let ids: Vec<&str> = rows.iter().map(|r| r.id.as_str()).collect();
+
+    let (status, exported) = post("/api/items/export", json!({ "itemIds": ids })).await;
+    assert_eq!(status, 200, "{exported}");
+    let tree = exported["treeMarkdown"].as_str().unwrap();
+    assert!(tree.contains("- parent"), "{tree}");
+    assert!(tree.contains("    - grandchild"), "{tree}");
+    assert!(exported["ast"].as_str().unwrap().contains("\"type\""));
+    assert!(exported["flatMarkdown"].as_str().unwrap().contains("<!-- @"), "flat markdown keeps the item metadata");
+
+    let (_, imported) = post("/api/items/import", json!({ "treeMarkdown": tree })).await;
+    let parsed = parse(imported["flatMarkdown"].as_str().unwrap()).await;
+
+    assert_eq!(
+        field_of_each(&parsed, "items", "body"),
+        rows.iter().map(|r| json!(r.body)).collect::<Vec<_>>()
+    );
+    assert_eq!(
+        field_of_each(&parsed, "items", "level"),
+        rows.iter().map(|r| json!(r.level)).collect::<Vec<_>>()
+    );
+}
+
+#[tokio::test]
+async fn a_whole_page_exports_like_its_items() {
+    let page = new_doc_page("markdown-page").await;
+    let rows = fill(&page.id, &["one", "  two"]).await;
+    let ids: Vec<&str> = rows.iter().map(|r| r.id.as_str()).collect();
+
+    let by_page: Value = client()
+        .post(url("/api/items/export-page"))
+        .query(&[("pageId", page.id.as_str())])
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let (_, by_items) = post("/api/items/export", json!({ "itemIds": ids })).await;
+
+    assert_eq!(by_items["treeMarkdown"], by_page["treeMarkdown"]);
+}
+
+// ---- Folder sync ----
+
+fn file_of(page: &PageRef) -> std::path::PathBuf {
+    server().markdown_dir.join("docs").join(format!("{}.md", page.title))
+}
+
+fn read(file: &std::path::Path) -> String {
+    std::fs::read_to_string(file).unwrap_or_default()
+}
+
+/// The export scheduler starts a few seconds after the server and then runs every second.
+async fn wait_until(what: &str, mut condition: impl FnMut() -> bool) {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+    while !condition() {
+        assert!(std::time::Instant::now() < deadline, "timed out waiting until {what}");
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+    }
+}
+
+async fn scan() -> Value {
+    let (status, resp) = post_empty("/api/sync/scan").await;
+    assert_eq!(status, 200, "{resp}");
+    resp
+}
+
+#[tokio::test]
+async fn the_status_names_the_folder_and_says_it_is_there() {
+    let (status, resp) = get("/api/sync/status").await;
+    assert_eq!(status, 200);
+
+    assert_eq!(resp["importEnabled"], json!(true));
+    assert_eq!(resp["markdownRoot"], json!(server().markdown_dir.to_string_lossy()));
+    assert_eq!(resp["rootAvailable"], json!(true));
+}
+
+#[tokio::test]
+async fn a_page_is_written_to_its_markdown_file() {
+    let page = new_doc_page("sync-export").await;
+    fill(&page.id, &["first line", "  second line"]).await;
+
+    wait_until("the page is exported", || read(&file_of(&page)).contains("second line")).await;
+
+    let markdown = read(&file_of(&page));
+    assert!(markdown.starts_with(&format!("---\nid: {}\n", page.id)), "{markdown}");
+    assert!(markdown.contains("first line"), "{markdown}");
+}
+
+#[tokio::test]
+async fn a_change_made_to_the_file_is_merged_into_the_page() {
+    let page = new_doc_page("sync-import").await;
+    fill(&page.id, &["before the edit"]).await;
+    wait_until("the page is exported", || read(&file_of(&page)).contains("before the edit")).await;
+
+    std::fs::write(
+        file_of(&page),
+        read(&file_of(&page)).replace("before the edit", "edited on disk, a bit longer"),
+    )
+    .unwrap();
+    let result = scan().await;
+
+    assert!(result["imported"].as_i64().unwrap() >= 1, "{result}");
+    assert_eq!(outline_of(&page.id).await, vs(&["1:edited on disk, a bit longer"]));
+}
+
+#[tokio::test]
+async fn a_new_file_in_the_folder_becomes_a_page() {
+    let name = format!("sync-new-{}", nanos());
+    let docs = server().markdown_dir.join("docs");
+    std::fs::create_dir_all(&docs).unwrap();
+    std::fs::write(docs.join(format!("{name}.md")), "hello from disk\n\nsecond block\n").unwrap();
+
+    let result = scan().await;
+
+    assert!(result["imported"].as_i64().unwrap() >= 1, "{result}");
+    let resp = search("/api/search/pages", &name).await;
+    let ids = field_of_each(&resp, "results", "pageId");
+    assert_eq!(ids.len(), 1, "the new page is found by its file name: {resp}");
+    assert_eq!(
+        outline_of(ids[0].as_str().unwrap()).await,
+        vs(&["1:hello from disk", "1:second block"])
+    );
+}
+
+#[tokio::test]
+async fn an_unchanged_file_is_left_alone() {
+    let page = new_doc_page("sync-unchanged").await;
+    fill(&page.id, &["stable"]).await;
+    wait_until("the page is exported", || read(&file_of(&page)).contains("stable")).await;
+    scan().await;
+
+    // Other tests may be exporting their own pages at the same time; this page itself must stay as it is
+    scan().await;
+
+    assert_eq!(outline_of(&page.id).await, vs(&["1:stable"]));
+}
+
+// ---- Health and config ----
+
+#[tokio::test]
+async fn health_and_config() {
+    let (status, resp) = get("/api/health").await;
+    assert_eq!(status, 200);
+    assert_eq!(resp["status"], json!("ok"));
+
+    let (status, resp) = get("/api/config").await;
+    assert_eq!(status, 200);
+    assert_eq!(resp["weekNumbering"], json!("iso"));
+    assert_eq!(resp["logicalOutdent"], json!(false));
+
+    let (status, resp) = get("/api/config/property-definitions").await;
+    assert_eq!(status, 200);
+    assert_eq!(resp["propertyDefinitions"]["plan"], json!("date"));
+}
