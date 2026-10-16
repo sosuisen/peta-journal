@@ -130,12 +130,12 @@ fn DocPage() -> impl IntoView {
             let is_index = p.page.name == "index";
             dom::after_render(move || {
                 if is_index {
-                    if let Some(input) = dir_input.get_untracked() {
+                    if let Some(input) = dir_input.try_get_untracked().flatten() {
                         let _ = input.focus();
                         let len = input.value().encode_utf16().count() as u32;
                         let _ = input.set_selection_range(len, len);
                     }
-                } else if let Some(input) = name_input.get_untracked() {
+                } else if let Some(input) = name_input.try_get_untracked().flatten() {
                     let _ = input.focus();
                     let _ = input.set_selection_range(caret, caret);
                 }

@@ -28,11 +28,13 @@ pub fn ItemView(row: RwSignal<Row>) -> impl IntoView {
         row.with(|r| r.item.prop_str("begin").is_some() && r.item.prop_str("end").is_none())
     };
 
-    // Syntax highlighting and the language label, once the AST is rendered
+    // Syntax highlighting and the language label, once the AST is rendered. The view may be
+    // gone by then (replaced by the editor, scrolled out of the window), so the node ref is
+    // read with `try_`: a disposed ref is not an error, just nothing to highlight.
     Effect::new(move |_| {
         ast.track();
         dom::after_render(move || {
-            if let Some(el) = content.get_untracked() {
+            if let Some(el) = content.try_get_untracked().flatten() {
                 highlight_code_blocks(&el);
             }
         });
