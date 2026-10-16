@@ -9,6 +9,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::OnceLock;
 
+use axum::serve::ListenerExt;
 use journal_server::config::Settings;
 use journal_server::state::{AppState, BuildOptions};
 use serde_json::{json, Value};
@@ -56,6 +57,7 @@ pub fn server() -> &'static TestServer {
                     let app = journal_server::build_router(state);
                     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
                     tx.send(listener.local_addr().unwrap()).unwrap();
+                    let listener = listener.tap_io(|tcp| { let _ = tcp.set_nodelay(true); });
                     axum::serve(listener, app).await.unwrap();
                 });
             })

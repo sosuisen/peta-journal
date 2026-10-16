@@ -20,29 +20,40 @@ Same machine (4 vCPU, Linux container), one server at a time, second run of each
 
 | Operation (frontend action) | Java p50 | Java p95 | Rust p50 | Rust p95 | SSE Java p50 | SSE Rust p50 |
 |---|---|---|---|---|---|---|
-| `PUT /api/items/{id}` body (auto-save while typing) | 28.4 | 41.1 | 29.2 | 42.7 | 27.0 | 28.9 |
-| `POST /api/items` + `DELETE` (Enter, then remove) | 45.2 | 51.7 | 32.5 | 38.8 | - | - |
-| `POST /api/items/shift-level` (Tab) | 16.6 | 23.5 | 1.2 | 3.0 | 15.0 | 0.9 |
-| `POST /api/items/move` (Alt+Shift+Down) | 16.1 | 22.3 | 1.0 | 1.7 | 15.1 | 0.8 |
-| `POST /api/items/{id}/cycle-task` (Ctrl+Enter) | 11.6 | 18.0 | 0.6 | 1.0 | 10.7 | 0.5 |
-| `GET /api/pages/{id}` (reload, 30 items) | 2.8 | 4.6 | 1.0 | 1.9 | - | - |
-| `GET /api/search/combined` | 3.1 | 6.6 | 2.6 | 3.8 | - | - |
-| `GET /api/search/pages` (`[[` popup) | 1.4 | 2.5 | 0.5 | 0.7 | - | - |
+| `PUT /api/items/{id}` body (auto-save while typing) | 28.4 | 41.1 | 1.0 | 1.6 | 27.0 | 0.8 |
+| `POST /api/items` + `DELETE` (Enter, then remove) | 45.2 | 51.7 | 2.0 | 4.0 | - | - |
+| `POST /api/items/shift-level` (Tab) | 16.6 | 23.5 | 0.8 | 1.4 | 15.0 | 0.7 |
+| `POST /api/items/move` (Alt+Shift+Down) | 16.1 | 22.3 | 1.1 | 1.4 | 15.1 | 0.9 |
+| `POST /api/items/{id}/cycle-task` (Ctrl+Enter) | 11.6 | 18.0 | 0.7 | 1.0 | 10.7 | 0.6 |
+| `GET /api/pages/{id}` (reload, 30 items) | 2.8 | 4.6 | 1.0 | 1.3 | - | - |
+| `GET /api/search/combined` | 3.1 | 6.6 | 2.7 | 3.4 | - | - |
+| `GET /api/search/pages` (`[[` popup) | 1.4 | 2.5 | 0.5 | 0.8 | - | - |
 
-Reading: the two operations that write the search index (body update, item creation) cost
-about 30 ms on both servers, because both commit the search index on every write. On the Rust
-server that commit is the whole cost: `examples/commit_bench.rs` measures one `index_item`
-(delete, add, commit, reader reload) at about 26 ms, against 0.03 ms for parsing the body;
-the SQLite work of an item save is around 1 ms, as the other operations show. Every other
-edit is 10 to 15 ms faster on the Rust server, which comes down to about 1 ms. The SSE event
-arrives about 1 ms before the HTTP response on both servers, so the frontend's state
-confirmation is bounded by the request itself.
+The Rust numbers are with the search index committed in the background and `TCP_NODELAY`
+on the server socket. Before those two changes the body auto-save took 29 ms on the Rust
+server too. Each of the two costs that on its own, as measured by switching them one at a time:
 
-To make the body auto-save faster, the index commit would have to leave the request path
-(for example one commit per second in the background, as the Java server already does for
-`flush()` after folder imports). That changes when a just-typed word becomes searchable, so
-it is left as a decision rather than done here.
+| Rust server variant | `PUT` body p50 |
+|---|---|
+| index commit on every save, Nagle's algorithm on | 29.4 |
+| index commit in the background, Nagle's algorithm on | 29.4 |
+| index commit on every save, `TCP_NODELAY` | 29.9 |
+| index commit in the background, `TCP_NODELAY` | 1.0 |
+
+- The commit of the tantivy index costs about 26 ms (`examples/commit_bench.rs`: 0.01 ms to
+  queue the document, 27 ms to commit and reload). A save now only queues its document; a
+  background task commits every second, a search commits first when anything is pending (so a
+  word typed a moment ago is still found), `flush()` commits on demand, and the server commits
+  at shutdown.
+- Without `TCP_NODELAY`, a response written in two pieces waits for the client's delayed ACK
+  on a keep-alive connection; Node's `fetch` (and the browser) hit that, `curl` with a fresh
+  connection did not.
+
+The SSE event arrives about 0.2 ms before the HTTP response, so the frontend's state
+confirmation is bounded by the request itself. The SQLite work of an item save is around
+0.1 ms (`examples/save_bench.rs`).
 
 ```
-cargo run --release --example commit_bench     # the breakdown of one item save
+cargo run --release --example commit_bench     # queue vs commit of one item
+cargo run --release --example save_bench       # the steps of an item body save
 ```

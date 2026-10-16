@@ -159,7 +159,7 @@ tantivy 側の対応:
 | `Highlighter` + `SimpleHTMLFormatter("<mark>")` | `SnippetGenerator`(`set_max_num_chars(100)`、タグ差し替え) |
 | `query*` / `*query*` | `RegexQuery`(件数が少ないので SQLite の `LIKE` に逃がす選択肢もある) |
 | `StringField` の Term 削除 | `delete_term` |
-| `writer.commit()` | `IndexWriter::commit()`。読み側は `IndexReader::reload()` |
+| `writer.commit()`(保存のたび) | `IndexWriter::commit()` はバックグラウンド(1 秒ごと)。検索の直前に未コミット分があればその場でコミットするので、検索結果は保存直後でも揃う。`flush()` と終了時にもコミットする。読み側は `IndexReader::reload()` |
 
 注意点:
 
