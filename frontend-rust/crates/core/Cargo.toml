@@ -1,0 +1,18 @@
+[package]
+name = "peta-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "PetaJournal frontend core (Crux): outline state, item operations, undo, effects"
+
+[lib]
+name = "peta_core"
+
+[dependencies]
+crux_core = "=0.20.0"
+serde = { workspace = true }
+serde_json = { workspace = true }
+fm-ast = { path = "../fm-ast" }
+hmtid = { path = "../../../journal-server-rust/crates/hmtid" }
+getrandom = { version = "0.3", features = ["wasm_js"] }
+futures = "0.3"

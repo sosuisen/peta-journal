@@ -1,0 +1,363 @@
+//! Leptos renderer for the Flat Markdown AST.
+//!
+//! Produces the same HTML as the Angular renderer `flatmarkdown-ast2angular` (`FmNodeComponent`):
+//! one element per node, with the same class names and ids, so the existing stylesheet applies.
+//! Wikilinks and hashtags are plain `<a href>` elements; the host intercepts their clicks.
+
+use fm_ast::{extract_text, Node};
+use leptos::prelude::*;
+
+/// Link targets and classes for wikilinks and hashtags.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct RenderOptions {
+    /// Prepended to the wikilink URL, e.g. `"/pages/"`.
+    pub wikilink_prefix: String,
+    /// `class` of the wikilink anchor, e.g. `"wiki-link"`; empty for none.
+    pub wikilink_class: String,
+    /// Prepended to the hashtag value, e.g. `"/pages/"`.
+    pub hashtag_prefix: String,
+    /// `class` of the hashtag anchor, e.g. `"hashtag-link"`; empty for none.
+    pub hashtag_class: String,
+}
+
+/// What a parent node tells its descendants; mirrors the Angular `RenderContext`.
+#[derive(Clone, Copy)]
+struct Context<'a> {
+    options: &'a RenderOptions,
+    /// Inside a header row: cells render as `<th>`.
+    in_header_row: bool,
+    /// Column alignments of the enclosing table.
+    table_alignments: &'a [String],
+    /// Index of the current cell in its row.
+    cell_index: usize,
+    /// Inside a tight list item: paragraphs render without `<p>`.
+    tight_list: bool,
+}
+
+/// Renders an AST node (and its descendants) to a view.
+pub fn render_node(node: &Node, options: &RenderOptions) -> AnyView {
+    let ctx = Context {
+        options,
+        in_header_row: false,
+        table_alignments: &[],
+        cell_index: 0,
+        tight_list: false,
+    };
+    render(node, ctx)
+}
+
+/// Parses an AST JSON string and renders it. Renders nothing when the JSON does not parse.
+#[component]
+pub fn FmRoot(
+    /// The AST JSON (as returned by `flatmarkdown::body_to_ast`).
+    ast: String,
+    /// Link options; defaults to no prefixes and no classes.
+    #[prop(optional)]
+    options: RenderOptions,
+) -> impl IntoView {
+    fm_ast::parse(&ast)
+        .ok()
+        .map(|root| render_node(&root, &options))
+}
+
+/// Renders every child with the given context.
+fn children(nodes: &[Node], ctx: Context<'_>) -> Vec<AnyView> {
+    nodes.iter().map(|child| render(child, ctx)).collect()
+}
+
+/// `Some(value)` for a non-empty string, used for attributes Angular binds to `x || null`.
+fn non_empty(value: &str) -> Option<String> {
+    (!value.is_empty()).then(|| value.to_owned())
+}
+
+fn render(node: &Node, ctx: Context<'_>) -> AnyView {
+    match node {
+        // ── Block nodes ──
+        Node::Document { children: kids }
+        | Node::DescriptionItem { children: kids }
+        | Node::HeexBlock { children: kids }
+        | Node::Subtext { children: kids } => children(kids, ctx).into_any(),
+
+        Node::Paragraph { children: kids } => {
+            if ctx.tight_list {
+                children(kids, ctx).into_any()
+            } else {
+                view! { <p>{children(kids, ctx)}</p> }.into_any()
+            }
+        }
+
+        Node::Heading {
+            level,
+            children: kids,
+            ..
+        } => {
+            let inner = children(kids, ctx);
+            match level {
+                1 => view! { <h1>{inner}</h1> }.into_any(),
+                2 => view! { <h2>{inner}</h2> }.into_any(),
+                3 => view! { <h3>{inner}</h3> }.into_any(),
+                4 => view! { <h4>{inner}</h4> }.into_any(),
+                5 => view! { <h5>{inner}</h5> }.into_any(),
+                6 => view! { <h6>{inner}</h6> }.into_any(),
+                _ => ().into_any(),
+            }
+        }
+
+        Node::CodeBlock { info, literal, .. } => {
+            // Set through `.attr` so that an absent class yields no attribute at all
+            // (Leptos' typed `class=None` still writes `class=""`).
+            let class = non_empty(info).map(|info| format!("language-{info}"));
+            let code = view! { <code>{literal.clone()}</code> }.attr("class", class);
+            view! { <pre>{code}</pre> }.into_any()
+        }
+
+        Node::BlockQuote { children: kids } | Node::MultilineBlockQuote { children: kids } => {
+            view! { <blockquote>{children(kids, ctx)}</blockquote> }.into_any()
+        }
+
+        Node::List {
+            list_type,
+            start,
+            children: kids,
+            ..
+        } => {
+            if list_type == "ordered" {
+                let start = start.filter(|s| *s != 1).map(|s| s.to_string());
+                view! { <ol start=start>{children(kids, ctx)}</ol> }.into_any()
+            } else {
+                view! { <ul>{children(kids, ctx)}</ul> }.into_any()
+            }
+        }
+
+        Node::Item {
+            tight,
+            children: kids,
+            ..
+        } => {
+            let ctx = Context {
+                tight_list: *tight,
+                ..ctx
+            };
+            view! { <li>{children(kids, ctx)}</li> }.into_any()
+        }
+
+        Node::TaskItem {
+            symbol,
+            children: kids,
+        } => {
+            let ctx = Context {
+                tight_list: true,
+                ..ctx
+            };
+            let checked = symbol.is_some();
+            view! {
+                <li>
+                    <input type="checkbox" checked=checked disabled=true />
+                    {children(kids, ctx)}
+                </li>
+            }
+            .into_any()
+        }
+
+        Node::Table {
+            alignments,
+            children: kids,
+            ..
+        } => {
+            let ctx = Context {
+                table_alignments: alignments,
+                ..ctx
+            };
+            view! { <table>{children(kids, ctx)}</table> }.into_any()
+        }
+
+        Node::TableRow {
+            header,
+            children: kids,
+        } => {
+            let cells: Vec<AnyView> = kids
+                .iter()
+                .enumerate()
+                .map(|(index, cell)| {
+                    render(
+                        cell,
+                        Context {
+                            in_header_row: *header,
+                            cell_index: index,
+                            ..ctx
+                        },
+                    )
+                })
+                .collect();
+            view! { <tr>{cells}</tr> }.into_any()
+        }
+
+        Node::TableCell { children: kids } => {
+            let align = ctx
+                .table_alignments
+                .get(ctx.cell_index)
+                .filter(|a| !a.is_empty() && a.as_str() != "none")
+                .cloned();
+            // `align` is a legacy attribute without a typed Leptos method.
+            if ctx.in_header_row {
+                view! { <th>{children(kids, ctx)}</th> }
+                    .attr("align", align)
+                    .into_any()
+            } else {
+                view! { <td>{children(kids, ctx)}</td> }
+                    .attr("align", align)
+                    .into_any()
+            }
+        }
+
+        Node::ThematicBreak => view! { <hr /> }.into_any(),
+
+        Node::HtmlBlock { literal, .. } => {
+            view! { <span inner_html=literal.clone()></span> }.into_any()
+        }
+
+        Node::FootnoteDefinition {
+            name,
+            children: kids,
+        } => {
+            let id = format!("fn-{name}");
+            let href = format!("#fnref-{name}");
+            let text = format!("[{name}]:");
+            // The label goes inside the first paragraph so that the body continues on the
+            // same line without any CSS.
+            match kids.split_first() {
+                Some((Node::Paragraph { children: lead }, rest)) => view! {
+                    <div class="footnote" id=id>
+                        <p>
+                            <a class="footnote-label" href=href>{text}</a>
+                            " "
+                            {children(lead, ctx)}
+                        </p>
+                        {children(rest, ctx)}
+                    </div>
+                }
+                .into_any(),
+                _ => view! {
+                    <div class="footnote" id=id>
+                        <a class="footnote-label" href=href>{text}</a>
+                        {children(kids, ctx)}
+                    </div>
+                }
+                .into_any(),
+            }
+        }
+
+        Node::DescriptionList { children: kids } => {
+            view! { <dl>{children(kids, ctx)}</dl> }.into_any()
+        }
+        Node::DescriptionTerm { children: kids } => {
+            view! { <dt>{children(kids, ctx)}</dt> }.into_any()
+        }
+        Node::DescriptionDetails { children: kids } => {
+            view! { <dd>{children(kids, ctx)}</dd> }.into_any()
+        }
+
+        Node::Alert {
+            alert_type,
+            children: kids,
+            ..
+        } => {
+            let class = format!("alert alert-{alert_type}");
+            view! { <div class=class>{children(kids, ctx)}</div> }.into_any()
+        }
+
+        // ── Inline nodes ──
+        Node::Text { value } => value.clone().into_any(),
+        Node::Softbreak => "\n".into_any(),
+        Node::Linebreak => view! { <br /> }.into_any(),
+
+        Node::Emph { children: kids } => view! { <em>{children(kids, ctx)}</em> }.into_any(),
+        Node::Strong { children: kids } => {
+            view! { <strong>{children(kids, ctx)}</strong> }.into_any()
+        }
+        Node::Strikethrough { children: kids } => {
+            view! { <del>{children(kids, ctx)}</del> }.into_any()
+        }
+        Node::Underline { children: kids } => view! { <u>{children(kids, ctx)}</u> }.into_any(),
+        Node::Highlight { children: kids } => {
+            view! { <mark>{children(kids, ctx)}</mark> }.into_any()
+        }
+        Node::Superscript { children: kids } => {
+            view! { <sup>{children(kids, ctx)}</sup> }.into_any()
+        }
+        Node::Subscript { children: kids } => view! { <sub>{children(kids, ctx)}</sub> }.into_any(),
+        Node::SpoileredText { children: kids } => {
+            view! { <span class="spoiler">{children(kids, ctx)}</span> }.into_any()
+        }
+
+        Node::Code { literal } => view! { <code>{literal.clone()}</code> }.into_any(),
+
+        Node::Link {
+            url,
+            title,
+            children: kids,
+        } => {
+            let title = non_empty(title);
+            view! { <a href=url.clone() title=title>{children(kids, ctx)}</a> }.into_any()
+        }
+
+        Node::Image { url, title, .. } | Node::Embed { url, title, .. } => {
+            let alt = extract_text(node);
+            let title = non_empty(title);
+            view! { <img src=url.clone() alt=alt title=title /> }.into_any()
+        }
+
+        Node::Wikilink {
+            url,
+            children: kids,
+        } => {
+            let href = format!("{}{url}", ctx.options.wikilink_prefix);
+            let class = non_empty(&ctx.options.wikilink_class);
+            view! { <a href=href data-wikilink="true">{children(kids, ctx)}</a> }
+                .attr("class", class)
+                .into_any()
+        }
+
+        Node::Hashtag { value } => {
+            let href = format!("{}{value}", ctx.options.hashtag_prefix);
+            let class = non_empty(&ctx.options.hashtag_class);
+            let text = format!("#{value}");
+            view! { <a href=href data-hashtag="true">{text}</a> }
+                .attr("class", class)
+                .into_any()
+        }
+
+        Node::FootnoteReference { name, .. } => {
+            // The label is shown instead of `ix`: an item body is parsed alone, so `ix`
+            // restarts at 1 in every item.
+            let id = format!("fnref-{name}");
+            let href = format!("#fn-{name}");
+            let text = format!("[{name}]");
+            view! { <sup class="footnote-ref" id=id><a href=href>{text}</a></sup> }.into_any()
+        }
+
+        Node::Shortcode { emoji, .. } => emoji.clone().into_any(),
+
+        Node::Math {
+            display_math,
+            literal,
+            ..
+        } => {
+            if *display_math {
+                view! { <pre><code class="math math-display">{literal.clone()}</code></pre> }
+                    .into_any()
+            } else {
+                view! { <code class="math math-inline">{literal.clone()}</code> }.into_any()
+            }
+        }
+
+        Node::HtmlInline { value } | Node::HeexInline { value } | Node::Raw { value } => {
+            view! { <span inner_html=value.clone()></span> }.into_any()
+        }
+
+        Node::EscapedTag { value } => value.clone().into_any(),
+
+        // Not rendered, as in the Angular template (which has no case for unknown types).
+        Node::FrontMatter { .. } | Node::Escaped | Node::Unknown { .. } => ().into_any(),
+    }
+}
