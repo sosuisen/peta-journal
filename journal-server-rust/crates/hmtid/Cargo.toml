@@ -1,0 +1,11 @@
+[package]
+name = "hmtid"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Human-readable Monotonic Timestamp Identifier (HMTID)"
+
+[dependencies]
+rand = "0.9"
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
