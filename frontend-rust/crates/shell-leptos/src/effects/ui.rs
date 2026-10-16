@@ -1,0 +1,208 @@
+//! What only the shell can do with the page: focus, scroll, clipboard, dialogs, the title,
+//! the extension iframes.
+
+use crate::core::CoreHandle;
+use crate::dom;
+use crux_core::Request;
+use peta_core::effects::{FunctionInfo, LocalDateTimeDto, UiOp, UiOutput};
+use peta_core::Event;
+use wasm_bindgen::prelude::*;
+use wasm_bindgen::JsCast;
+use wasm_bindgen_futures::{spawn_local, JsFuture};
+
+#[derive(Default)]
+pub struct Extensions {
+    pub iframes: Vec<web_sys::HtmlIFrameElement>,
+    /// Windows that sent a message, by the handle the core answers to.
+    pub sources: std::collections::HashMap<u64, web_sys::Window>,
+    pub next_source: u64,
+    _listener: Option<Closure<dyn FnMut(web_sys::MessageEvent)>>,
+}
+
+pub fn perform(handle: CoreHandle, mut request: Request<UiOp>) {
+    let op = request.operation.clone();
+    match op {
+        UiOp::FocusEditor {
+            item_id,
+            replay_keys,
+        } => {
+            // After the next render: the editor may have been added in this very update
+            let h = handle;
+            dom::after_render(move || {
+                let selector = match &item_id {
+                    Some(id) => format!("#item-editor-{id}"),
+                    None => "app-item-editor textarea".to_string(),
+                };
+                if let Some(el) = dom::query::<web_sys::HtmlTextAreaElement>(&selector) {
+                    dom::focus_without_scroll(&el);
+                    dom::auto_resize(&el);
+                }
+                if !replay_keys.is_empty() {
+                    if let Some(id) = &item_id {
+                        if let Some(replay) = h.inner().replayers.borrow().get(id) {
+                            replay(replay_keys.clone());
+                        }
+                    }
+                }
+                h.resolve(&mut request, UiOutput::Done);
+            });
+        }
+        // The operations below are notifications: the core does not wait for an answer
+        UiOp::ScrollToItem { item_id, smooth } => {
+            if let Some(scroller) = handle.inner().scroller.borrow().as_ref() {
+                scroller(item_id, smooth);
+            }
+        }
+        UiOp::SetTitle(title) => dom::document().set_title(&title),
+        UiOp::CopyText(text) => {
+            let _ = dom::window().navigator().clipboard().write_text(&text);
+        }
+        UiOp::CopyMarkdown { markdown } => {
+            let html = flatmarkdown::body_to_html(&markdown);
+            spawn_local(async move {
+                if let Err(e) = dom::write_clipboard_rich(&markdown, &html).await {
+                    web_sys::console::error_1(&e);
+                }
+            });
+        }
+        UiOp::ReadClipboardText => spawn_local(async move {
+            let text = JsFuture::from(dom::window().navigator().clipboard().read_text())
+                .await
+                .ok()
+                .and_then(|v| v.as_string());
+            handle.resolve(&mut request, UiOutput::Text(text));
+        }),
+        UiOp::Alert(message) => {
+            // Shown after the current update, like the Angular `setTimeout(() => alert())`
+            dom::after_render(move || {
+                let _ = dom::window().alert_with_message(&message);
+            });
+        }
+        UiOp::Confirm(message) => {
+            let ok = dom::window()
+                .confirm_with_message(&message)
+                .unwrap_or(false);
+            handle.resolve(&mut request, UiOutput::Bool(ok));
+        }
+        UiOp::Prompt(message) => {
+            let answer = dom::window().prompt_with_message(&message).ok().flatten();
+            handle.resolve(&mut request, UiOutput::Text(answer));
+        }
+        UiOp::OpenWindow { url, new_window } => {
+            let url = dom::encode_uri(&url);
+            let _ = if new_window {
+                dom::window().open_with_url_and_target_and_features(&url, "_blank", "noopener")
+            } else {
+                dom::window().open_with_url_and_target(&url, "_blank")
+            };
+        }
+        UiOp::ExtensionPageCreate {
+            page_id,
+            file_name,
+            dir_name,
+            page_type,
+        } => {
+            let message = serde_json::json!({
+                "type": "PageCreate", "pageId": page_id, "fileName": file_name,
+                "dirName": dir_name, "pageType": page_type,
+            });
+            let js = dom::to_js(&message);
+            for iframe in &handle.inner().extensions.borrow().iframes {
+                if let Some(win) = iframe.content_window() {
+                    let _ = win.post_message(&js, "*");
+                }
+            }
+        }
+        UiOp::ExtensionReply { source, message } => {
+            if let Some(win) = handle
+                .inner()
+                .extensions
+                .borrow_mut()
+                .sources
+                .remove(&source)
+            {
+                let _ = win.post_message(&dom::to_js(&message), "*");
+            }
+        }
+        UiOp::LoadExtensions { functions } => {
+            load_extensions(&handle, &functions);
+        }
+        UiOp::LocalNow => {
+            let d = js_sys::Date::new_0();
+            let local = LocalDateTimeDto {
+                year: d.get_full_year() as i32,
+                month: d.get_month() + 1,
+                day: d.get_date(),
+                hour: d.get_hours(),
+                minute: d.get_minutes(),
+            };
+            handle.resolve(
+                &mut request,
+                UiOutput::Now {
+                    local,
+                    now_ms: js_sys::Date::now() as u64,
+                },
+            );
+        }
+    }
+}
+
+/// Creates a hidden iframe per extension function and listens for their messages.
+fn load_extensions(handle: &CoreHandle, functions: &[FunctionInfo]) {
+    let document = dom::document();
+    let Some(body) = document.body() else { return };
+    let inner = handle.inner();
+    let mut ext = inner.extensions.borrow_mut();
+    for f in functions {
+        let Ok(el) = document.create_element("iframe") else {
+            continue;
+        };
+        let iframe: web_sys::HtmlIFrameElement = el.unchecked_into();
+        iframe.set_src(&format!("http://localhost:8087{}", f.url));
+        let _ = iframe.style().set_property("display", "none");
+        let _ = body.append_child(&iframe);
+        ext.iframes.push(iframe);
+    }
+    if ext._listener.is_none() {
+        let h = *handle;
+        let listener =
+            Closure::<dyn FnMut(web_sys::MessageEvent)>::new(move |ev: web_sys::MessageEvent| {
+                on_message(&h, ev);
+            });
+        let _ = dom::window()
+            .add_event_listener_with_callback("message", listener.as_ref().unchecked_ref());
+        ext._listener = Some(listener);
+    }
+}
+
+fn on_message(handle: &CoreHandle, ev: web_sys::MessageEvent) {
+    let Ok(data) = serde_wasm_bindgen::from_value::<serde_json::Value>(ev.data()) else {
+        return;
+    };
+    if data.get("type").and_then(|t| t.as_str()) != Some("CreateItem") {
+        return;
+    }
+    let source = {
+        let inner = handle.inner();
+        let mut ext = inner.extensions.borrow_mut();
+        ext.next_source += 1;
+        let id = ext.next_source;
+        if let Some(win) = ev
+            .source()
+            .and_then(|s| s.dyn_into::<web_sys::Window>().ok())
+        {
+            ext.sources.insert(id, win);
+        }
+        id
+    };
+    let str_field = |k: &str| data.get(k).and_then(|v| v.as_str()).map(str::to_string);
+    handle.send(Event::ExtensionCreateItem {
+        source,
+        request_id: str_field("requestId"),
+        page_id: str_field("pageId").unwrap_or_default(),
+        position: str_field("position"),
+        after_item_id: str_field("afterItemId"),
+        level: data.get("level").and_then(|l| l.as_i64()).unwrap_or(1) as i32,
+        body: str_field("body").unwrap_or_default(),
+    });
+}

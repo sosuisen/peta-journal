@@ -1,0 +1,13 @@
+[build]
+target = "index.html"
+dist = "dist"
+
+[serve]
+port = 4200
+
+# The journal server. For the end-to-end tests see Trunk.e2e.toml.
+[[proxy]]
+backend = "http://localhost:8087/api/"
+
+[[proxy]]
+backend = "http://localhost:8087/assets/"
