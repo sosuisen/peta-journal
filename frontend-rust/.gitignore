@@ -1,3 +1,4 @@
 target/
 crates/shell-leptos/dist/
 crates/shell-leptos/dist-e2e/
+crates/shell-leptos/dist-check/

@@ -1,0 +1,16 @@
+[build]
+target = "index.html"
+dist = "dist-check"
+
+[serve]
+port = 4301
+open = false
+
+[[proxy]]
+backend = "http://localhost:8197/api/"
+
+[[proxy]]
+backend = "http://localhost:8197/assets/"
+
+[watch]
+ignore = ["dist-check", "dist"]
