@@ -1,8 +1,8 @@
 (function() {
   let templates = [];
 
-  // Fetch and parse template.md
-  fetch('template.md')
+  // Fetch and parse template.md. A PageCreate that arrives first waits for this.
+  const templatesLoaded = fetch('template.md')
     .then(r => r.text())
     .then(text => {
       templates = parseTemplates(text);
@@ -120,6 +120,7 @@
 
     const { pageId, fileName, dirName, pageType } = data;
     console.log('[auto-template] PageCreate:', fileName, pageType);
+    await templatesLoaded;
 
     // Find all matching templates
     const matched = templates.filter(t =>

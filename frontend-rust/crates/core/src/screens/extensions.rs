@@ -34,10 +34,13 @@ pub fn create_item(
     mut level: i32,
     body: String,
 ) -> Cmd {
-    // Support the `position` field, fall back to the legacy `afterItemId`
+    // Support the `position` field, fall back to the legacy `afterItemId`. An empty string
+    // counts as absent: auto-template sends `afterItemId: ''` for its first item, and the
+    // Angular service treated that as `first` (an empty string is falsy in JavaScript).
+    let non_empty = |s: Option<String>| s.filter(|s| !s.is_empty());
     let position = match (
-        position.and_then(|p| ItemPosition::parse(&p)),
-        after_item_id,
+        non_empty(position).and_then(|p| ItemPosition::parse(&p)),
+        non_empty(after_item_id),
     ) {
         (Some(p), _) => p,
         (None, Some(after)) => ItemPosition::after(after),

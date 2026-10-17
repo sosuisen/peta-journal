@@ -2,6 +2,7 @@
 
 mod actions;
 mod edit;
+mod extensions;
 mod journal_moves;
 mod level;
 mod merge;

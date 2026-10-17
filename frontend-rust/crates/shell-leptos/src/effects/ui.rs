@@ -10,9 +10,18 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::{spawn_local, JsFuture};
 
+/// One hosted extension. Messages sent before its document has loaded would reach the
+/// initial blank document and be lost, so they wait in `pending` until `load` fires.
+pub struct ExtensionFrame {
+    pub iframe: web_sys::HtmlIFrameElement,
+    pub loaded: bool,
+    pub pending: Vec<JsValue>,
+    _on_load: Closure<dyn FnMut()>,
+}
+
 #[derive(Default)]
 pub struct Extensions {
-    pub iframes: Vec<web_sys::HtmlIFrameElement>,
+    pub frames: Vec<ExtensionFrame>,
     /// Windows that sent a message, by the handle the core answers to.
     pub sources: std::collections::HashMap<u64, web_sys::Window>,
     pub next_source: u64,
@@ -107,9 +116,11 @@ pub fn perform(handle: CoreHandle, mut request: Request<UiOp>) {
                 "dirName": dir_name, "pageType": page_type,
             });
             let js = dom::to_js(&message);
-            for iframe in &handle.inner().extensions.borrow().iframes {
-                if let Some(win) = iframe.content_window() {
-                    let _ = win.post_message(&js, "*");
+            for frame in &mut handle.inner().extensions.borrow_mut().frames {
+                if frame.loaded {
+                    post_to_frame(&frame.iframe, &js);
+                } else {
+                    frame.pending.push(js.clone());
                 }
             }
         }
@@ -153,15 +164,33 @@ fn load_extensions(handle: &CoreHandle, functions: &[FunctionInfo]) {
     let Some(body) = document.body() else { return };
     let inner = handle.inner();
     let mut ext = inner.extensions.borrow_mut();
-    for f in functions {
+    for (index, f) in functions.iter().enumerate() {
         let Ok(el) = document.create_element("iframe") else {
             continue;
         };
         let iframe: web_sys::HtmlIFrameElement = el.unchecked_into();
+        let h = *handle;
+        let on_load = Closure::<dyn FnMut()>::new(move || {
+            let inner = h.inner();
+            let mut ext = inner.extensions.borrow_mut();
+            if let Some(frame) = ext.frames.get_mut(index) {
+                frame.loaded = true;
+                for js in frame.pending.drain(..) {
+                    post_to_frame(&frame.iframe, &js);
+                }
+            }
+        });
+        let _ = iframe.add_event_listener_with_callback("load", on_load.as_ref().unchecked_ref());
+        // The src is set after the listener: a cached document could load at once
         iframe.set_src(&format!("http://localhost:8087{}", f.url));
         let _ = iframe.style().set_property("display", "none");
         let _ = body.append_child(&iframe);
-        ext.iframes.push(iframe);
+        ext.frames.push(ExtensionFrame {
+            iframe,
+            loaded: false,
+            pending: Vec::new(),
+            _on_load: on_load,
+        });
     }
     if ext._listener.is_none() {
         let h = *handle;
@@ -172,6 +201,12 @@ fn load_extensions(handle: &CoreHandle, functions: &[FunctionInfo]) {
         let _ = dom::window()
             .add_event_listener_with_callback("message", listener.as_ref().unchecked_ref());
         ext._listener = Some(listener);
+    }
+}
+
+fn post_to_frame(iframe: &web_sys::HtmlIFrameElement, message: &JsValue) {
+    if let Some(win) = iframe.content_window() {
+        let _ = win.post_message(message, "*");
     }
 }
 
@@ -187,11 +222,10 @@ fn on_message(handle: &CoreHandle, ev: web_sys::MessageEvent) {
         let mut ext = inner.extensions.borrow_mut();
         ext.next_source += 1;
         let id = ext.next_source;
-        if let Some(win) = ev
-            .source()
-            .and_then(|s| s.dyn_into::<web_sys::Window>().ok())
-        {
-            ext.sources.insert(id, win);
+        // The extension runs on another origin, so its window fails `instanceof Window`
+        // and `dyn_into` would drop it. `postMessage` is allowed across origins all the same.
+        if let Some(win) = ev.source() {
+            ext.sources.insert(id, win.unchecked_into::<web_sys::Window>());
         }
         id
     };
