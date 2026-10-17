@@ -96,6 +96,9 @@ app-calendar { display: block; }
 .sidebar-item.active { background: #e2e6ea; font-weight: 600; }
 .recent-page-item { display: flex; align-items: center; gap: 6px; justify-content: flex-start; }
 .page-icon { flex-shrink: 0; color: #666; }
+.page-label { display: flex; flex-direction: column; min-width: 0; }
+.page-dir, .page-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.page-dir { font-size: 10px; color: #777; font-weight: normal; }
 .sidebar-footer { padding: 12px; border-top: 1px solid #e0e0e0; display: flex; align-items: center; gap: 8px; }
 .footer-logo { width: 24px; height: 24px; object-fit: contain; }
 .footer-text { font-size: 13px; color: #666; font-weight: 500; flex: 1; }

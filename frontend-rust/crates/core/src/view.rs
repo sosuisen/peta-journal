@@ -116,6 +116,8 @@ pub enum ScreenView {
 pub struct SidebarPage {
     pub page: Page,
     pub label: String,
+    /// The directory shown small above `label`, when the page has one.
+    pub dir_label: Option<String>,
     pub path: String,
 }
 
@@ -290,6 +292,7 @@ fn sidebar(model: &Model) -> SidebarView {
             .iter()
             .map(|p| SidebarPage {
                 label: sidebar::index_page_name(p),
+                dir_label: None,
                 path: format!("{}{}", p.dir_path, p.name),
                 page: p.clone(),
             })
@@ -298,10 +301,14 @@ fn sidebar(model: &Model) -> SidebarView {
         recent_pages: model
             .recent_pages
             .iter()
-            .map(|p| SidebarPage {
-                label: sidebar::page_title(p),
-                path: format!("{}{}", p.dir_path, p.name),
-                page: p.clone(),
+            .map(|p| {
+                let (dir_label, label) = sidebar::recent_page_label(p);
+                SidebarPage {
+                    label,
+                    dir_label,
+                    path: format!("{}{}", p.dir_path, p.name),
+                    page: p.clone(),
+                }
             })
             .collect(),
         current_page_id: model.current_page.as_ref().map(|p| p.id.clone()),

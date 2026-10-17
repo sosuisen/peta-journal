@@ -90,6 +90,17 @@ pub fn index_page_name(page: &Page) -> String {
 }
 
 /// The display title of a page: journals as dates, index pages as their directory.
+/// The label of a recent page as `(directory, name)`. A long path like
+/// `sosuisen.net/article/Picturesque Tags` is split so the name stays readable: the
+/// directory goes on its own line. Journals and index pages have no directory part.
+pub fn recent_page_label(page: &Page) -> (Option<String>, String) {
+    if page.page_type != "journal" && page.name != "index" && !page.dir_path.is_empty() {
+        (Some(page.dir_path.clone()), page.name.clone())
+    } else {
+        (None, page_title(page))
+    }
+}
+
 pub fn page_title(page: &Page) -> String {
     if page.page_type == "journal" {
         return crate::util::date::format_journal_date(&page.name);

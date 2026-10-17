@@ -86,10 +86,14 @@ pub fn Sidebar() -> impl IntoView {
                 let go = go_to_page;
                 let is_active = active && current_page_id.with(|c| c.as_deref() == Some(p.page.id.as_str()));
                 let label = p.label.clone();
+                let dir_label = p.dir_label.clone();
                 view! {
                     <div class="sidebar-item recent-page-item" class:active=is_active on:click=move |ev| go(&p, &ev)>
                         <svg class="page-icon" width="11" height="11"><use href="#icon-page"/></svg>
-                        {label}
+                        <span class="page-label">
+                            {dir_label.map(|d| view! { <span class="page-dir">{d}</span> })}
+                            <span class="page-name">{label}</span>
+                        </span>
                     </div>
                 }
             })
