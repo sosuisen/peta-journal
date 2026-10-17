@@ -1,4 +1,5 @@
 pub mod calendar;
+pub mod edge_scroll;
 pub mod item_drag;
 pub mod item_editor;
 pub mod item_view;

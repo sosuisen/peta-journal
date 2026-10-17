@@ -3,6 +3,7 @@
 //! scroll reports the journal needs, scrolling to an item, and the document listeners of
 //! selection mode.
 
+use crate::components::edge_scroll::EdgeScroll;
 use crate::components::outline_item::OutlineItem;
 use crate::components::wiki_suggestions::WikiSuggestions;
 use crate::core::CoreHandle;
@@ -326,13 +327,26 @@ pub fn Outline() -> impl IntoView {
     })));
     on_cleanup(move || core.set_scroller(None));
 
-    // Selection mode: the keys and clicks of the whole document act on the selection
+    // Selection mode: the keys and clicks of the whole document act on the selection, and a
+    // drag held at an edge of the viewport scrolls it
     let selection_listeners = DocumentListeners::new();
+    let edge_scroll = EdgeScroll::new(core, list.viewport);
+    // A memo: the view model changes on every scroll, and an effect on it would stop the edge
+    // scroll on its own first frame
+    let selection_mode = Memo::new(move |_| vm.with(|v| v.outline.selection_mode));
     Effect::new(move |_| {
         selection_listeners.clear();
-        if !vm.with(|v| v.outline.selection_mode) {
+        edge_scroll.stop();
+        if !selection_mode.get() {
             return;
         }
+        selection_listeners.on("mousemove", move |ev: &web_sys::MouseEvent| {
+            if ev.buttons() & 1 == 1 {
+                edge_scroll.follow(ev.client_x() as f64, ev.client_y() as f64);
+            } else {
+                edge_scroll.stop();
+            }
+        });
         selection_listeners.on_cancelable("keydown", move |ev: &web_sys::KeyboardEvent| {
             if let Some(key) = selection_key(ev) {
                 ev.prevent_default();
@@ -343,6 +357,7 @@ pub fn Outline() -> impl IntoView {
             core.send(Event::SelectionClickOutside)
         });
         selection_listeners.on("mouseup", move |_: &web_sys::Event| {
+            edge_scroll.stop();
             core.send(Event::SelectionMouseUp)
         });
         for (name, key) in [("copy", SelectionKey::Copy), ("cut", SelectionKey::Cut)] {
