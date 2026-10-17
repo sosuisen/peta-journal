@@ -1,6 +1,7 @@
 //! One row of the outline, ported from `outline-item.ts`: the controls, the bullet, the
 //! editor or the rendered body, the task times and the item menu.
 
+use crate::components::item_drag::Drag;
 use crate::components::item_editor::ItemEditor;
 use crate::components::item_view::ItemView;
 use crate::core::CoreHandle;
@@ -16,6 +17,8 @@ pub fn OutlineItem(row: RwSignal<Row>) -> impl IntoView {
     let core: CoreHandle = expect_context();
     let item_id = row.with_untracked(|r| r.item.id.clone());
     let host = NodeRef::<leptos::html::Div>::new();
+    // The drag out of the body outlives the view that starts it and the editor that replaces it
+    provide_context(Drag::new());
 
     let menu_open = RwSignal::new(false);
     let menu_pos = RwSignal::new((0.0, 0.0));

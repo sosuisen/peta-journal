@@ -1,6 +1,7 @@
 //! The rendered item, ported from `item-view.ts`: the AST as HTML, syntax highlighting, and
 //! clicks that open links or start editing at the clicked character.
 
+use crate::components::item_drag::Drag;
 use crate::components::task_checkbox::TaskCheckbox;
 use crate::core::CoreHandle;
 use crate::dom;
@@ -20,6 +21,7 @@ extern "C" {
 #[component]
 pub fn ItemView(row: RwSignal<Row>) -> impl IntoView {
     let core: CoreHandle = expect_context();
+    let drag: Drag = expect_context();
     let item_id = row.with_untracked(|r| r.item.id.clone());
     let content = NodeRef::<leptos::html::Div>::new();
     let ast = Memo::new(move |_| row.with(|r| r.item.ast.clone()));
@@ -54,6 +56,7 @@ pub fn ItemView(row: RwSignal<Row>) -> impl IntoView {
             ev.prevent_default();
             let cursor = match content.get() {
                 Some(el) => {
+                    drag.start(core, &id, &el);
                     dom::text_offset_at_point(&el, ev.client_x() as f64, ev.client_y() as f64)
                 }
                 None => 0,

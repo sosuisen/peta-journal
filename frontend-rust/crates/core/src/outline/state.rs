@@ -21,8 +21,6 @@ pub struct FocusRequest {
     pub seq: u64,
     pub item_id: String,
     pub cursor: Option<usize>,
-    /// True when the edit started with a mouse press, so a drag may grow into a selection.
-    pub mouse_drag: bool,
 }
 
 #[derive(Debug, Default)]
@@ -330,15 +328,7 @@ impl OutlineState {
             seq: self.focus_seq,
             item_id: item_id.to_string(),
             cursor,
-            mouse_drag: false,
         });
-    }
-
-    /// Marks the pending focus as started by a mouse press.
-    pub fn set_pending_mouse_drag(&mut self, value: bool) {
-        if let Some(req) = &mut self.focus_request {
-            req.mouse_drag = value;
-        }
     }
 
     pub fn toggle_collapsed(&mut self, item_id: &str) {

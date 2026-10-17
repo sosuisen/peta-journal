@@ -1,8 +1,7 @@
 //! The textarea an item is edited in, ported from `item-editor.ts`. This file is the
 //! component; the keyboard shortcuts, the text helpers, the `[[` completion, the replay of
-//! held keys and the drag out of the editor each have a file of their own.
+//! held keys each have a file of their own.
 
-mod drag;
 mod keys;
 mod replay;
 mod text;
@@ -11,7 +10,7 @@ mod wiki;
 use crate::components::task_checkbox::TaskCheckbox;
 use crate::core::CoreHandle;
 use crate::dom;
-use drag::Drag;
+use crate::components::item_drag::Drag;
 use keys::handle_keydown;
 use leptos::prelude::*;
 use peta_core::model::DeferredKey;
@@ -31,7 +30,7 @@ pub fn ItemEditor(row: RwSignal<Row>) -> impl IntoView {
     let vm = core.view();
     let item_id = row.with_untracked(|r| r.item.id.clone());
     let textarea = NodeRef::<leptos::html::Textarea>::new();
-    let drag = Drag::new();
+    let drag: Drag = expect_context();
 
     let id = item_id.clone();
     // A one-line heading is edited at its heading size, in bold
@@ -72,9 +71,6 @@ pub fn ItemEditor(row: RwSignal<Row>) -> impl IntoView {
                     }
                     dom::focus_without_scroll(&el);
                     dom::auto_resize(&el);
-                    if req.mouse_drag {
-                        drag.start(core, &el, textarea, true);
-                    }
                 }
                 None => {
                     // First render without a request of our own: the editor still takes the focus
@@ -176,9 +172,12 @@ pub fn ItemEditor(row: RwSignal<Row>) -> impl IntoView {
         }
     };
 
-    let on_mousedown = move |_: web_sys::MouseEvent| {
-        if let Some(el) = textarea.get() {
-            drag.start(core, &el, textarea, false);
+    let on_mousedown = {
+        let id = item_id.clone();
+        move |_: web_sys::MouseEvent| {
+            if let Some(el) = textarea.get() {
+                drag.start(core, &id, &el);
+            }
         }
     };
 

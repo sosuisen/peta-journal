@@ -28,7 +28,6 @@ pub fn edit_requested(model: &mut Model, item_id: &str, cursor: usize) -> Cmd {
     };
     model.state.add_editing_item(item_id);
     model.state.set_focused_item(item_id, Some(cursor));
-    model.state.set_pending_mouse_drag(true);
     save
 }
 
