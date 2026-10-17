@@ -1,10 +1,12 @@
-//! The mouse drag that starts on an item's body and, once it leaves that body up or down,
-//! turns into a selection of items.
+//! The mouse drag that starts on an item's body: inside the body it selects text, and once it
+//! leaves that body up or down it turns into a selection of items.
 
 use crate::core::CoreHandle;
+use crate::dom;
 use crate::listeners::DocumentListeners;
 use leptos::prelude::*;
 use peta_core::Event;
+use wasm_bindgen::JsCast;
 
 /// A mouse drag that started on an item's body; leaving the body starts a selection.
 ///
@@ -29,7 +31,19 @@ impl Drag {
     /// Starts following the mouse; leaving `body` by more than 10px up or down starts a
     /// selection of `item_id`. Whether the editor's text is selected does not matter: a drag
     /// from a bare caret that leaves the body is as clear a request as one from a selection.
-    pub fn start(self, core: CoreHandle, item_id: &str, body: &web_sys::Element) {
+    ///
+    /// `select_from` is the character the mouse went down on when the drag starts on the
+    /// rendered view. The editor that replaces the view never saw that mousedown, so the
+    /// browser will not select its text by itself; the drag selects from that character to the
+    /// one under the mouse instead. A drag that starts on the editor passes `None` and leaves
+    /// the text selection to the browser.
+    pub fn start(
+        self,
+        core: CoreHandle,
+        item_id: &str,
+        body: &web_sys::Element,
+        select_from: Option<usize>,
+    ) {
         // A plain String, not a StoredValue: a value stored here would belong to the view that
         // called us, and the view is gone (replaced by the editor) by the time the mouse moves
         let item_id = item_id.to_string();
@@ -46,6 +60,10 @@ impl Drag {
                         item_id: item_id.clone(),
                     });
                     self.end();
+                    return;
+                }
+                if let Some(anchor) = select_from {
+                    select_text(&item_id, anchor, ev.client_x() as f64, y);
                 }
             });
         self.listeners
@@ -62,4 +80,26 @@ impl Default for Drag {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// Selects the editor's text between `anchor` and the character under the mouse. The caret
+/// end of the selection follows the mouse, as in a browser's own drag.
+fn select_text(item_id: &str, anchor: usize, x: f64, y: f64) {
+    let Some(el) = dom::element_by_id(&format!("item-editor-{item_id}"))
+        .and_then(|el| el.dyn_into::<web_sys::HtmlTextAreaElement>().ok())
+    else {
+        return;
+    };
+    let focus = dom::textarea_offset_at_point(&el, x, y);
+    let value = el.value();
+    let (start, end, direction) = if focus < anchor {
+        (focus, anchor, "backward")
+    } else {
+        (anchor, focus, "forward")
+    };
+    let _ = el.set_selection_range_with_direction(
+        dom::chars_to_utf16(&value, start),
+        dom::chars_to_utf16(&value, end),
+        direction,
+    );
 }

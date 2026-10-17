@@ -7,10 +7,10 @@ mod replay;
 mod text;
 mod wiki;
 
+use crate::components::item_drag::Drag;
 use crate::components::task_checkbox::TaskCheckbox;
 use crate::core::CoreHandle;
 use crate::dom;
-use crate::components::item_drag::Drag;
 use keys::handle_keydown;
 use leptos::prelude::*;
 use peta_core::model::DeferredKey;
@@ -176,7 +176,7 @@ pub fn ItemEditor(row: RwSignal<Row>) -> impl IntoView {
         let id = item_id.clone();
         move |_: web_sys::MouseEvent| {
             if let Some(el) = textarea.get() {
-                drag.start(core, &id, &el);
+                drag.start(core, &id, &el, None);
             }
         }
     };

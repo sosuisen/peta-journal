@@ -228,6 +228,66 @@ pub fn caret_point_from_point(x: f64, y: f64) -> Option<(web_sys::Node, u32)> {
     Some((range.start_container().ok()?, range.start_offset().ok()?))
 }
 
+/// The character offset in a textarea's value under a point on the screen. A point outside
+/// the textarea is clamped to its nearest edge, so a drag that strays sideways still selects.
+pub fn textarea_offset_at_point(el: &web_sys::HtmlTextAreaElement, x: f64, y: f64) -> usize {
+    let rect = el.get_bounding_client_rect();
+    let x = x.clamp(rect.left() + 1.0, rect.right() - 1.0);
+    let y = y.clamp(rect.top() + 1.0, rect.bottom() - 1.0);
+    let value = el.value();
+    // Firefox and Chrome 128+ answer for a text control with the control itself and an offset
+    // into its value
+    if let Some(pos) = document().caret_position_from_point(x as f32, y as f32) {
+        if pos.offset_node().is_some_and(|n| n.is_same_node(Some(el))) {
+            return utf16_to_chars(&value, pos.offset());
+        }
+    }
+    // Elsewhere a mirror of the text is laid over the textarea and asked instead: a textarea's
+    // own text is out of reach of caretRangeFromPoint
+    mirror_offset_at_point(el, &value, &rect, x, y).unwrap_or(0)
+}
+
+fn mirror_offset_at_point(
+    el: &web_sys::HtmlTextAreaElement,
+    value: &str,
+    rect: &web_sys::DomRect,
+    x: f64,
+    y: f64,
+) -> Option<usize> {
+    let document = document();
+    let div: web_sys::HtmlElement = document.create_element("div").ok()?.unchecked_into();
+    let style = window().get_computed_style(el).ok()??;
+    let dstyle = div.style();
+    let _ = dstyle.set_property("position", "fixed");
+    let _ = dstyle.set_property("left", &format!("{}px", rect.left()));
+    let _ = dstyle.set_property("top", &format!("{}px", rect.top() - el.scroll_top() as f64));
+    let _ = dstyle.set_property("width", &format!("{}px", el.client_width()));
+    // Invisible but still hit-tested, unlike `visibility: hidden`
+    let _ = dstyle.set_property("opacity", "0");
+    let _ = dstyle.set_property("z-index", "2147483647");
+    let _ = dstyle.set_property("white-space", "pre-wrap");
+    let _ = dstyle.set_property("word-wrap", "break-word");
+    for prop in [
+        "font",
+        "letter-spacing",
+        "line-height",
+        "padding",
+        "box-sizing",
+    ] {
+        let _ = dstyle.set_property(prop, &style.get_property_value(prop).unwrap_or_default());
+    }
+    let text = document.create_text_node(value);
+    let _ = div.append_child(&text);
+    document.body()?.append_child(&div).ok()?;
+    let hit = caret_point_from_point(x, y);
+    let _ = document.body()?.remove_child(&div);
+    let (node, offset) = hit?;
+    if !node.is_same_node(Some(&text)) {
+        return None;
+    }
+    Some(utf16_to_chars(value, offset))
+}
+
 /// The offset in an element's text under a point, counted across all its text nodes.
 pub fn text_offset_at_point(container: &web_sys::Element, x: f64, y: f64) -> usize {
     let Some((node, offset)) = caret_point_from_point(x, y) else {

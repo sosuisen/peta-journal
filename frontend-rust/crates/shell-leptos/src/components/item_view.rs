@@ -56,8 +56,10 @@ pub fn ItemView(row: RwSignal<Row>) -> impl IntoView {
             ev.prevent_default();
             let cursor = match content.get() {
                 Some(el) => {
-                    drag.start(core, &id, &el);
-                    dom::text_offset_at_point(&el, ev.client_x() as f64, ev.client_y() as f64)
+                    let cursor =
+                        dom::text_offset_at_point(&el, ev.client_x() as f64, ev.client_y() as f64);
+                    drag.start(core, &id, &el, Some(cursor));
+                    cursor
                 }
                 None => 0,
             };
