@@ -4,6 +4,7 @@
 
 use crate::components::calendar::Calendar;
 use crate::components::outline::Outline;
+use crate::components::page_properties::{Draft, PageProperties};
 use crate::components::settings::Settings;
 use crate::core::CoreHandle;
 use crate::dom;
@@ -113,6 +114,8 @@ fn DocPage() -> impl IntoView {
     });
     let scrolled = move || vm.with(|v| v.outline.scrolled_from_top);
     let editing = RwSignal::new(false);
+    // Property rows added with "+" and not saved yet; they outlive a re-render of the header
+    let drafts = RwSignal::new(Vec::<Draft>::new());
     let edit_dir = RwSignal::new(String::new());
     let edit_name = RwSignal::new(String::new());
     let dir_input = NodeRef::<leptos::html::Input>::new();
@@ -187,6 +190,7 @@ fn DocPage() -> impl IntoView {
     view! {
         <app-page>
             {move || page.get().map(|p| {
+                let p: PageView = *p;
                 let p2 = p.clone();
                 let start = start_edit;
                 let on_title_key2 = on_title_key;
@@ -247,6 +251,7 @@ fn DocPage() -> impl IntoView {
                             </div>
                         </Show>
                     </div>
+                    {(p.show_properties || !drafts.get_untracked().is_empty()).then(|| view! { <PageProperties drafts=drafts /> })}
                     <Outline />
                 }
             })}

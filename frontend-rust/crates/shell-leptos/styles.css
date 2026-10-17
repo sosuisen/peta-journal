@@ -157,6 +157,15 @@ app-search-bar { display: block; flex: 1; max-width: 350px; }
 .setting-input:focus, .setting-select:focus { outline: none; border-color: #007bff; }
 .setting-checkbox { display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
 .setting-description { margin: 4px 0 0; font-size: 12px; color: #888; }
+.setting-error { margin: 4px 0 0; font-size: 12px; color: #c00; }
+.property-definitions { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 8px; }
+.property-definitions th { text-align: left; font-weight: 500; color: #666; padding: 4px 8px; border-bottom: 1px solid #ddd; }
+.property-definitions td { padding: 4px 8px; border-bottom: 1px solid #eee; }
+.property-definitions tr.system-key td { color: #888; }
+.property-definitions .definition-note { font-size: 11px; text-align: right; }
+.property-definition-form { display: flex; gap: 6px; }
+.property-definition-form .setting-input { flex: 1; }
+.property-definition-form .setting-select { width: 120px; }
 
 /* ---- page and journal headers (page.ts, journal.ts) ---- */
 app-page-dispatcher, app-page, app-journal { display: flex; flex-direction: column; height: 100%; }
@@ -185,6 +194,22 @@ app-page-dispatcher, app-page, app-journal { display: flex; flex-direction: colu
 .edit-file-name { font-size: 2em; font-weight: bold; width: 100%; box-sizing: border-box; }
 .edit-file-name:disabled { background: #f0f0f0; color: #999; border-color: #ddd; cursor: default; }
 .edit-slash { font-size: 1.0em; color: #666; margin: 0 2px; }
+.page-properties { padding: 0 6px 8px; border-bottom: 1px solid #eee; margin-bottom: 8px; font-size: 13px; }
+.property-row { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
+.property-key { min-width: 120px; color: #666; }
+.property-key-select { min-width: 120px; font: inherit; padding: 2px 4px; border: 1px solid #ddd; border-radius: 4px; background: #fff; }
+.property-value { flex: 1; min-width: 0; font: inherit; padding: 2px 6px; border: 1px solid transparent; border-radius: 4px; background: transparent; }
+.property-value:hover { border-color: #ddd; }
+.property-value:focus { outline: none; border-color: #007bff; background: #fff; }
+.property-row.draft .property-value { border-color: #e8ddc3; background: #fffde7; }
+.property-readonly { color: #888; }
+.property-checkbox { margin: 0; }
+.property-remove, .property-add {
+  background: none; border: none; cursor: pointer; color: #999; font-size: 14px; line-height: 1; padding: 2px 6px; border-radius: 4px;
+}
+.property-remove:hover, .property-add:hover { background: #f0f0f0; color: #333; }
+.property-remove { opacity: 0; }
+.property-row:hover .property-remove { opacity: 1; }
 .journal-header { display: flex; align-items: center; gap: 4px; padding: 16px 0; }
 .journal-header.scrolled { border-bottom: 1px dashed #909090; }
 .calendar-btn { background: none; border: 1px solid #ddd; border-radius: 4px; padding: 4px 12px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; }

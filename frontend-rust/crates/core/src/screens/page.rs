@@ -7,6 +7,8 @@ use crate::model::Page;
 use crate::screens::{navigate, sidebar};
 use crate::util::filename::validate_file_name;
 use crux_core::Command;
+use serde_json::Value;
+use std::collections::BTreeMap;
 
 /// Splits a path like `cat/01.md` into `("cat/", "01")`, as `ApiService.getOrCreateDoc` did.
 pub fn split_doc_path(title: &str) -> (String, String) {
@@ -41,6 +43,7 @@ pub fn open(model: &mut Model, name: &str, fragment: Option<String>) -> Cmd {
         focus_item_id: fragment.filter(|f| !f.is_empty()),
         page: None,
         can_demote_index: false,
+        properties_open: false,
     });
     let page_name = name.to_string();
     run(move |api| async move {
@@ -251,6 +254,99 @@ pub fn save_title(model: &mut Model, dir_path: String, file_name: String) -> Cmd
             ])
         });
     })
+}
+
+/// Shows the property rows of the doc page, so a first property can be added.
+pub fn edit_properties(model: &mut Model) -> Cmd {
+    if let Some(ps) = page_mut(model) {
+        ps.properties_open = true;
+    }
+    done()
+}
+
+/// The shown value of a property as the server would store it: `tag` is a list.
+fn property_value(value_type: &str, value: &str) -> Value {
+    if value_type == "tags" || value_type == "list" {
+        Value::Array(
+            value
+                .split(',')
+                .map(str::trim)
+                .filter(|t| !t.is_empty())
+                .map(|t| Value::String(t.to_string()))
+                .collect(),
+        )
+    } else {
+        Value::String(value.to_string())
+    }
+}
+
+/// Sets a property of the doc page. The screen changes at once; the server's answer (which
+/// formats numbers) replaces it, and a refusal puts the old properties back. The page's
+/// dates (`created`, `modified`) only change when the server has accepted them.
+pub fn set_property(model: &mut Model, key: String, value_type: String, value: String) -> Cmd {
+    let Some(page) = page_mut(model).and_then(|ps| ps.page.as_mut()) else {
+        return done();
+    };
+    let before = page.properties.clone();
+    if key != "created" && key != "modified" {
+        page.properties
+            .insert(key.clone(), property_value(&value_type, &value));
+    }
+    let page_id = page.id.clone();
+    run(move |api| async move {
+        let result = api
+            .upsert_page_property(&page_id, &key, &value_type, &value)
+            .await;
+        settle_property_change(&api, page_id, before, result).await;
+    })
+}
+
+/// Removes a property of the doc page, the same way `set_property` sets one.
+pub fn delete_property(model: &mut Model, key: String) -> Cmd {
+    let Some(page) = page_mut(model).and_then(|ps| ps.page.as_mut()) else {
+        return done();
+    };
+    let before = page.properties.clone();
+    page.properties.remove(&key);
+    let page_id = page.id.clone();
+    run(move |api| async move {
+        let result = api.delete_page_property(&page_id, &key).await;
+        settle_property_change(&api, page_id, before, result).await;
+    })
+}
+
+async fn settle_property_change(
+    api: &crate::effects::Api<crate::app::Event>,
+    page_id: String,
+    before: BTreeMap<String, Value>,
+    result: Result<Page, crate::effects::ApiError>,
+) {
+    match result {
+        Ok(updated) => apply(api, "page property saved", move |m| {
+            if let Some(page) = shown_page_mut(m, &updated.id) {
+                page.properties = updated.properties;
+                page.created_date = updated.created_date;
+                page.modified_date = updated.modified_date;
+            }
+            done()
+        }),
+        Err(e) => {
+            api.notify(UiOp::Alert(e.0));
+            apply(api, "page property reverted", move |m| {
+                if let Some(page) = shown_page_mut(m, &page_id) {
+                    page.properties = before;
+                }
+                done()
+            });
+        }
+    }
+}
+
+/// The doc page on screen when it is still the given one.
+fn shown_page_mut<'a>(model: &'a mut Model, page_id: &str) -> Option<&'a mut Page> {
+    page_mut(model)
+        .and_then(|ps| ps.page.as_mut())
+        .filter(|p| p.id == page_id)
 }
 
 /// Renames a childless index page `a/b/index` to the page `a/b`.

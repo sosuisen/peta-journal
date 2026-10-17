@@ -5,6 +5,7 @@ pub mod layout;
 pub mod outline;
 pub mod outline_item;
 pub mod page;
+pub mod page_properties;
 pub mod search_bar;
 pub mod settings;
 pub mod sidebar;

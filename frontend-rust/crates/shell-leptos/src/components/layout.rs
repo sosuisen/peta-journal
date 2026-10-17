@@ -8,6 +8,7 @@ use crate::core::CoreHandle;
 use crate::dom;
 use crate::listeners::DocumentListeners;
 use leptos::prelude::*;
+use peta_core::view::ScreenView;
 use peta_core::Event;
 use wasm_bindgen::JsCast;
 
@@ -68,6 +69,7 @@ pub fn MainLayout() -> impl IntoView {
     let connection = move || vm.with(|v| v.connection.as_str());
     let focused_item = move || vm.with(|v| v.outline.focused_item_id.clone());
     let search_query = move || vm.with_untracked(|v| v.search.query.clone());
+    let on_doc_page = move || vm.with(|v| matches!(v.screen, ScreenView::Page(Some(_))));
 
     // Ctrl+/ or a bare / focuses the search box; custom URL schemes go to the launcher
     {
@@ -181,6 +183,9 @@ pub fn MainLayout() -> impl IntoView {
                         <button class="page-menu-btn" on:click=move |_| page_menu_open.update(|o| *o = !*o)>"⋮"</button>
                         <Show when=move || page_menu_open.get()>
                             <div class="page-menu-dropdown" on:click=move |_| page_menu_open.set(false)>
+                                <Show when=on_doc_page>
+                                    <button class="page-menu-item" on:click=move |_| core.send(Event::EditPageProperties)>"Edit properties"</button>
+                                </Show>
                                 <button class="page-menu-item" on:click=move |_| core.send(Event::DeleteCurrentPage)>"Delete page"</button>
                             </div>
                         </Show>

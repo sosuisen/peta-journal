@@ -13,7 +13,7 @@ use crate::screens;
 use crate::util::filename::JournalType;
 use crux_core::command::CommandContext;
 use crux_core::{render, App, Command};
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt;
 use std::future::Future;
 
@@ -222,6 +222,16 @@ pub enum Event {
         file_name: String,
     },
     DemoteIndex,
+    /// The page menu: show the property rows of the doc page even while it has none.
+    EditPageProperties,
+    SetPageProperty {
+        key: String,
+        value_type: String,
+        value: String,
+    },
+    DeletePageProperty {
+        key: String,
+    },
     /// The "+" button; the search box text is used as the title when present.
     CreateNewPage {
         search_query: String,
@@ -250,6 +260,11 @@ pub enum Event {
     SetWeekNumbering(WeekNumbering),
     SetLogicalOutdent(bool),
     BrowseFolder,
+    /// The settings form: define a user key of the given type.
+    AddPropertyDefinition {
+        key: String,
+        value_type: String,
+    },
 
     // ---- extensions and links ----
     ExtensionCreateItem {
@@ -374,6 +389,8 @@ pub struct PageState {
     pub focus_item_id: Option<String>,
     pub page: Option<Page>,
     pub can_demote_index: bool,
+    /// True once the menu opened the property rows; a page with properties shows them anyway.
+    pub properties_open: bool,
 }
 
 #[derive(Debug, Default)]
@@ -412,7 +429,9 @@ pub struct ConfigState {
     pub markdown_dir: String,
     pub week_numbering: WeekNumbering,
     pub logical_outdent: bool,
-    pub property_definitions: BTreeMap<String, String>,
+    pub property_definitions: Vec<PropertyDefinition>,
+    /// Why the last definition was refused, shown under the settings form until the next try.
+    pub definition_error: Option<String>,
 }
 
 #[derive(Debug, Default)]
@@ -662,6 +681,13 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             file_name,
         } => screens::page::save_title(model, dir_path, file_name),
         DemoteIndex => screens::page::demote_index(model),
+        EditPageProperties => screens::page::edit_properties(model),
+        SetPageProperty {
+            key,
+            value_type,
+            value,
+        } => screens::page::set_property(model, key, value_type, value),
+        DeletePageProperty { key } => screens::page::delete_property(model, key),
         CreateNewPage { search_query } => screens::layout::create_new_page(model, search_query),
         DeleteCurrentPage => screens::layout::delete_current_page(model),
         NavigateToToday => Command::notify_shell(crate::effects::NavigateOp {
@@ -689,6 +715,9 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         SetWeekNumbering(value) => screens::settings::set_week_numbering(model, value),
         SetLogicalOutdent(value) => screens::settings::set_logical_outdent(model, value),
         BrowseFolder => screens::settings::browse_folder(model),
+        AddPropertyDefinition { key, value_type } => {
+            screens::settings::add_property_definition(model, key, value_type)
+        }
 
         ExtensionCreateItem {
             source,

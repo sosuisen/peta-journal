@@ -57,8 +57,11 @@ pub fn op_name(op: &ApiOp) -> &'static str {
         ApiOp::SearchPageNames { .. } => "SearchPageNames",
         ApiOp::GetRecentPages { .. } => "GetRecentPages",
         ApiOp::UpdatePage { .. } => "UpdatePage",
+        ApiOp::UpsertPageProperty { .. } => "UpsertPageProperty",
+        ApiOp::DeletePageProperty { .. } => "DeletePageProperty",
         ApiOp::GetConfig => "GetConfig",
         ApiOp::GetPropertyDefinitions => "GetPropertyDefinitions",
+        ApiOp::AddPropertyDefinition { .. } => "AddPropertyDefinition",
         ApiOp::UpdateConfig { .. } => "UpdateConfig",
         ApiOp::BrowseFolder => "BrowseFolder",
         ApiOp::ExportTreeMarkdown { .. } => "ExportTreeMarkdown",
@@ -225,7 +228,15 @@ impl FakeApi {
             ApiOp::GetConfig | ApiOp::UpdateConfig { .. } => {
                 ApiOutput::Config(ServerConfig::default())
             }
-            ApiOp::GetPropertyDefinitions => ApiOutput::PropertyDefinitions(BTreeMap::new()),
+            ApiOp::GetPropertyDefinitions => ApiOutput::PropertyDefinitions(Vec::new()),
+            ApiOp::AddPropertyDefinition { key, value_type } => {
+                ApiOutput::PropertyDefinitions(vec![PropertyDefinition {
+                    key: key.clone(),
+                    value_type: value_type.clone(),
+                    system: false,
+                    page: true,
+                }])
+            }
             ApiOp::GetFunctions => ApiOutput::Functions(Vec::new()),
             ApiOp::UpdatePage {
                 page_id,
@@ -236,6 +247,32 @@ impl FakeApi {
                 name: title.clone().unwrap_or_default(),
                 dir_path: dir_path.clone().unwrap_or_default(),
                 page_type: "doc".into(),
+                ..Default::default()
+            }),
+            ApiOp::UpsertPageProperty {
+                page_id,
+                key,
+                value,
+                ..
+            } => {
+                let mut page = Page {
+                    id: page_id.clone(),
+                    modified_date: 42,
+                    ..Default::default()
+                };
+                // The page's own dates are not stored properties: the server moves the date
+                match key.as_str() {
+                    "created" => page.created_date = 42,
+                    "modified" => {}
+                    _ => {
+                        page.properties
+                            .insert(key.clone(), serde_json::Value::String(value.clone()));
+                    }
+                }
+                ApiOutput::PageInfo(page)
+            }
+            ApiOp::DeletePageProperty { page_id, .. } => ApiOutput::PageInfo(Page {
+                id: page_id.clone(),
                 ..Default::default()
             }),
             ApiOp::BrowseFolder => ApiOutput::Folder(FolderChoice::default()),

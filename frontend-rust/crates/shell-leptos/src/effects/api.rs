@@ -7,7 +7,6 @@ use peta_core::effects::{ApiError, ApiOp, ApiOutput, ApiResult, FolderChoice, Fu
 use peta_core::model::*;
 use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
-use std::collections::BTreeMap;
 use wasm_bindgen_futures::spawn_local;
 
 /// `encodeURIComponent`.
@@ -100,7 +99,7 @@ struct ResultsEnvelope {
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct PropertyDefinitions {
-    property_definitions: BTreeMap<String, String>,
+    definitions: Vec<peta_core::model::PropertyDefinition>,
 }
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -293,10 +292,42 @@ async fn call(handle: &CoreHandle, op: ApiOp) -> ApiResult<ApiOutput> {
             .await?;
             ApiOutput::PageInfo(env.page)
         }
+        ApiOp::UpsertPageProperty {
+            page_id,
+            key,
+            value_type,
+            value,
+        } => {
+            let env: PageEnvelope = send_json(
+                "PUT",
+                &format!("/api/pages/{page_id}/properties/{}", enc(&key)),
+                Some(json!({ "valueType": value_type, "value": value })),
+            )
+            .await?;
+            ApiOutput::PageInfo(env.page)
+        }
+        ApiOp::DeletePageProperty { page_id, key } => {
+            let env: PageEnvelope = send_json(
+                "DELETE",
+                &format!("/api/pages/{page_id}/properties/{}", enc(&key)),
+                None,
+            )
+            .await?;
+            ApiOutput::PageInfo(env.page)
+        }
         ApiOp::GetConfig => ApiOutput::Config(get("/api/config").await?),
         ApiOp::GetPropertyDefinitions => {
             let env: PropertyDefinitions = get("/api/config/property-definitions").await?;
-            ApiOutput::PropertyDefinitions(env.property_definitions)
+            ApiOutput::PropertyDefinitions(env.definitions)
+        }
+        ApiOp::AddPropertyDefinition { key, value_type } => {
+            let env: PropertyDefinitions = send_json(
+                "POST",
+                "/api/config/property-definitions",
+                Some(json!({ "key": key, "valueType": value_type })),
+            )
+            .await?;
+            ApiOutput::PropertyDefinitions(env.definitions)
         }
         ApiOp::UpdateConfig {
             markdown_dir,

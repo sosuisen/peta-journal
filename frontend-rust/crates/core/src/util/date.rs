@@ -89,6 +89,22 @@ impl fmt::Display for Date {
     }
 }
 
+/// Epoch millis as the server writes an instant: ISO 8601 UTC, with the milliseconds only
+/// when they are not zero (`2026-01-02T03:04:05Z`, `2026-01-02T03:04:05.123Z`).
+pub fn format_instant(millis: i64) -> String {
+    let days = millis.div_euclid(86_400_000);
+    let rest = millis.rem_euclid(86_400_000);
+    let date = Date::from_days(days);
+    let (h, m, s, ms) = (
+        rest / 3_600_000,
+        rest % 3_600_000 / 60_000,
+        rest % 60_000 / 1000,
+        rest % 1000,
+    );
+    let fraction = if ms == 0 { String::new() } else { format!(".{ms:03}") };
+    format!("{}T{h:02}:{m:02}:{s:02}{fraction}Z", date.iso())
+}
+
 pub fn is_leap_year(year: i32) -> bool {
     (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
 }
@@ -170,6 +186,13 @@ pub fn generate_untitled_title(now: LocalDateTime) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn instants_are_formatted_like_the_server_writes_them() {
+        assert_eq!(format_instant(0), "1970-01-01T00:00:00Z");
+        assert_eq!(format_instant(1_577_934_245_000), "2020-01-02T03:04:05Z");
+        assert_eq!(format_instant(1_577_934_245_123), "2020-01-02T03:04:05.123Z");
+    }
 
     #[test]
     fn day_arithmetic_round_trips() {

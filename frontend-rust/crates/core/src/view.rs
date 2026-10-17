@@ -1,12 +1,12 @@
 //! The view model: what the shell shows, computed from the model after every event.
 
 use crate::app::{ConnectionState, Model, Screen};
-use crate::model::{Item, ItemRef, Page, SearchResult, WeekNumbering};
+use crate::model::{Item, ItemRef, Page, PropertyDefinition, SearchResult, WeekNumbering};
 use crate::ops::wiki;
 use crate::outline::tree::starts_date_group;
 use crate::outline::{FocusRequest, Heading};
 use crate::screens::{journal, page, sidebar};
-use crate::util::date::format_journal_date;
+use crate::util::date::{format_instant, format_journal_date};
 use crate::util::filename::JournalType;
 
 /// Where a task stands, by its `begin` and `end` properties.
@@ -91,6 +91,53 @@ pub struct JournalView {
     pub page_id: Option<String>,
 }
 
+/// One property row of a page: the value is text, a list joined by `, `.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PageProperty {
+    pub key: String,
+    pub value: String,
+    pub is_list: bool,
+    /// False for the page's own dates, which every page has.
+    pub removable: bool,
+    /// False for `modified`: the server moves it on every save.
+    pub editable: bool,
+}
+
+impl PageProperty {
+    fn of(key: &str, value: &serde_json::Value) -> PageProperty {
+        match value {
+            serde_json::Value::Array(values) => PageProperty {
+                key: key.to_string(),
+                value: values
+                    .iter()
+                    .filter_map(|v| v.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                is_list: true,
+                removable: true,
+                editable: true,
+            },
+            other => PageProperty {
+                key: key.to_string(),
+                value: other.as_str().map(str::to_string).unwrap_or_else(|| other.to_string()),
+                is_list: false,
+                removable: true,
+                editable: true,
+            },
+        }
+    }
+
+    fn date(key: &str, millis: i64) -> PageProperty {
+        PageProperty {
+            key: key.to_string(),
+            value: format_instant(millis),
+            is_list: false,
+            removable: false,
+            editable: key != "modified",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct PageView {
     pub page: Page,
@@ -101,14 +148,17 @@ pub struct PageView {
     pub can_demote: bool,
     pub demote_name: String,
     pub focus_item_id: Option<String>,
+    pub properties: Vec<PageProperty>,
+    /// True when the property rows are shown: the page has some, or the menu opened them.
+    pub show_properties: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ScreenView {
     None,
     Journal(JournalView),
-    /// None while the page is loading.
-    Page(Option<PageView>),
+    /// None while the page is loading. Boxed: a page view is far larger than the others.
+    Page(Option<Box<PageView>>),
     Settings,
 }
 
@@ -149,6 +199,8 @@ pub struct ConfigView {
     pub markdown_dir: String,
     pub week_numbering: WeekNumbering,
     pub logical_outdent: bool,
+    pub property_definitions: Vec<PropertyDefinition>,
+    pub definition_error: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -172,6 +224,8 @@ pub fn build(model: &Model) -> ViewModel {
             markdown_dir: model.config.markdown_dir.clone(),
             week_numbering: model.config.week_numbering,
             logical_outdent: model.config.logical_outdent,
+            property_definitions: model.config.property_definitions.clone(),
+            definition_error: model.config.definition_error.clone(),
         },
         connection: model.connection,
         today: model.today.clone(),
@@ -188,7 +242,7 @@ fn screen(model: &Model) -> ScreenView {
             display_date: journal::display_date(j),
             page_id: j.page.as_ref().map(|p| p.id.clone()),
         }),
-        Screen::Page(p) => ScreenView::Page(p.page.as_ref().map(|pg| PageView {
+        Screen::Page(p) => ScreenView::Page(p.page.as_ref().map(|pg| Box::new(PageView {
             page: pg.clone(),
             title: page::page_title(pg),
             dir_segments: page::dir_path_segments(&pg.dir_path),
@@ -197,7 +251,16 @@ fn screen(model: &Model) -> ScreenView {
             can_demote: p.can_demote_index,
             demote_name: page::demote_name(pg),
             focus_item_id: p.focus_item_id.clone(),
-        })),
+            properties: [
+                PageProperty::date("created", pg.created_date),
+                PageProperty::date("modified", pg.modified_date),
+            ]
+            .into_iter()
+            .chain(pg.properties.iter().map(|(k, v)| PageProperty::of(k, v)))
+            .collect(),
+            // The dates do not count: every page has them
+            show_properties: p.properties_open || !pg.properties.is_empty(),
+        }))),
     }
 }
 

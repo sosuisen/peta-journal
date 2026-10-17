@@ -293,6 +293,51 @@ pub fn epoch_ms(iso: &str) -> f64 {
     js_sys::Date::new(&JsValue::from_str(iso)).get_time()
 }
 
+/// A date-time as a `datetime-local` input shows it: local time to the minute,
+/// `YYYY-MM-DDTHH:MM`. Empty when the text is not a date-time.
+pub fn local_minutes(iso: &str) -> String {
+    let d = js_sys::Date::new(&JsValue::from_str(iso));
+    if d.get_time().is_nan() {
+        return String::new();
+    }
+    local_minutes_of(&d)
+}
+
+/// The current local time to the minute, `YYYY-MM-DDTHH:MM`.
+pub fn now_local_minutes() -> String {
+    local_minutes_of(&js_sys::Date::new_0())
+}
+
+fn local_minutes_of(d: &js_sys::Date) -> String {
+    format!(
+        "{:04}-{:02}-{:02}T{:02}:{:02}",
+        d.get_full_year(),
+        d.get_month() + 1,
+        d.get_date(),
+        d.get_hours(),
+        d.get_minutes()
+    )
+}
+
+/// A `datetime-local` value (local time, `YYYY-MM-DDTHH:MM`) as the server stores a
+/// date-time: UTC to the second, `YYYY-MM-DDTHH:MM:SSZ`. Empty when the text is not a
+/// date-time. A date-time without an offset is read as local time, as the HTML form does.
+pub fn local_minutes_to_utc(local: &str) -> String {
+    let d = js_sys::Date::new(&JsValue::from_str(local));
+    if d.get_time().is_nan() {
+        return String::new();
+    }
+    format!(
+        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
+        d.get_utc_full_year(),
+        d.get_utc_month() + 1,
+        d.get_utc_date(),
+        d.get_utc_hours(),
+        d.get_utc_minutes(),
+        d.get_utc_seconds()
+    )
+}
+
 /// Today's local date as `YYYY-MM-DD`.
 pub fn today_iso() -> String {
     let d = js_sys::Date::new_0();

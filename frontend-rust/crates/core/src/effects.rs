@@ -3,7 +3,7 @@
 
 use crate::model::{
     DeferredKey, Item, ItemPosition, JournalBefore, Page, PageWithItems, ParsedFlatItem,
-    SearchResult, ServerConfig, TreeExport,
+    PropertyDefinition, SearchResult, ServerConfig, TreeExport,
 };
 use crate::util::date::LocalDateTime;
 use crux_core::capability::Operation;
@@ -11,7 +11,6 @@ use crux_core::command::CommandContext;
 use crux_core::render::RenderOperation;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::BTreeMap;
 
 // ---- API ----
 
@@ -89,8 +88,24 @@ pub enum ApiOp {
         title: Option<String>,
         dir_path: Option<String>,
     },
+    /// Sets a property of a page; `tag` takes a comma separated list. Answers with the page.
+    UpsertPageProperty {
+        page_id: String,
+        key: String,
+        value_type: String,
+        value: String,
+    },
+    DeletePageProperty {
+        page_id: String,
+        key: String,
+    },
     GetConfig,
     GetPropertyDefinitions,
+    /// Defines a user key; answers with the whole definition list.
+    AddPropertyDefinition {
+        key: String,
+        value_type: String,
+    },
     UpdateConfig {
         markdown_dir: Option<String>,
         week_numbering: Option<String>,
@@ -152,7 +167,7 @@ pub enum ApiOutput {
     Pages(Vec<Page>),
     SearchResults(Vec<SearchResult>),
     Config(ServerConfig),
-    PropertyDefinitions(BTreeMap<String, String>),
+    PropertyDefinitions(Vec<PropertyDefinition>),
     Folder(FolderChoice),
     TreeExport(TreeExport),
     FlatMarkdown(String),
@@ -592,13 +607,58 @@ impl<Event: Send + 'static> Api<Event> {
         )
     }
 
+    pub async fn upsert_page_property(
+        &self,
+        page_id: &str,
+        key: &str,
+        value_type: &str,
+        value: &str,
+    ) -> ApiResult<Page> {
+        expect_output!(
+            self.call(ApiOp::UpsertPageProperty {
+                page_id: page_id.into(),
+                key: key.into(),
+                value_type: value_type.into(),
+                value: value.into(),
+            })
+            .await,
+            PageInfo
+        )
+    }
+
+    pub async fn delete_page_property(&self, page_id: &str, key: &str) -> ApiResult<Page> {
+        expect_output!(
+            self.call(ApiOp::DeletePageProperty {
+                page_id: page_id.into(),
+                key: key.into(),
+            })
+            .await,
+            PageInfo
+        )
+    }
+
     pub async fn get_config(&self) -> ApiResult<ServerConfig> {
         expect_output!(self.call(ApiOp::GetConfig).await, Config)
     }
 
-    pub async fn get_property_definitions(&self) -> ApiResult<BTreeMap<String, String>> {
+    pub async fn get_property_definitions(&self) -> ApiResult<Vec<PropertyDefinition>> {
         expect_output!(
             self.call(ApiOp::GetPropertyDefinitions).await,
+            PropertyDefinitions
+        )
+    }
+
+    pub async fn add_property_definition(
+        &self,
+        key: &str,
+        value_type: &str,
+    ) -> ApiResult<Vec<PropertyDefinition>> {
+        expect_output!(
+            self.call(ApiOp::AddPropertyDefinition {
+                key: key.into(),
+                value_type: value_type.into(),
+            })
+            .await,
             PropertyDefinitions
         )
     }

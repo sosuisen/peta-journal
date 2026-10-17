@@ -121,6 +121,9 @@ pub struct Page {
     pub modified_date: i64,
     #[serde(default)]
     pub tags: Vec<String>,
+    /// Property values are strings or lists of strings; empty in page lists.
+    #[serde(default)]
+    pub properties: BTreeMap<String, Value>,
 }
 
 impl Page {
@@ -215,6 +218,24 @@ pub struct ParsedFlatItem {
     #[serde(default)]
     pub body: String,
 }
+
+/// A property definition (`GET /api/config/property-definitions`, the `definitions` list).
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PropertyDefinition {
+    pub key: String,
+    #[serde(default)]
+    pub value_type: String,
+    /// Written by the server itself; shown read-only, cannot be defined again.
+    #[serde(default)]
+    pub system: bool,
+    /// May be set on a page.
+    #[serde(default)]
+    pub page: bool,
+}
+
+/// The types a user may give a new key, in the order the settings offer them.
+pub const USER_VALUE_TYPES: [&str; 5] = ["text", "number", "checkbox", "date", "datetime"];
 
 /// The server's settings (`GET /api/config`).
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]

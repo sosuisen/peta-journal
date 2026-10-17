@@ -30,6 +30,29 @@ pub fn load_property_definitions() -> Cmd {
     })
 }
 
+/// Defines a user key. The server checks the key (not a system key, not defined yet, a
+/// valid word) and answers with the whole list, or with the reason it was refused.
+pub fn add_property_definition(model: &mut Model, key: String, value_type: String) -> Cmd {
+    model.config.definition_error = None;
+    let key = key.trim().to_string();
+    if key.is_empty() {
+        model.config.definition_error = Some("Property key is required".into());
+        return done();
+    }
+    run(move |api| async move {
+        match api.add_property_definition(&key, &value_type).await {
+            Ok(defs) => apply(&api, "property definition added", move |m| {
+                m.config.property_definitions = defs;
+                done()
+            }),
+            Err(e) => apply(&api, "property definition refused", move |m| {
+                m.config.definition_error = Some(e.0);
+                done()
+            }),
+        }
+    })
+}
+
 pub fn set_week_numbering(model: &mut Model, value: WeekNumbering) -> Cmd {
     model.config.week_numbering = value;
     run(move |api| async move {
