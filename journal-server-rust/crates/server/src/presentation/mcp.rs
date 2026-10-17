@@ -446,10 +446,9 @@ impl JournalMcp {
         let state = Arc::clone(&self.state);
         let item_id = id(&a.item_id)?;
         let dto = run(move || {
-            let item = state.item_service.get_item_by_id(&item_id)?;
-            state
-                .properties
-                .upsert_scalar("item", item_id.as_str(), &a.key, &a.value_type, &a.value)?;
+            let item = state
+                .item_service
+                .set_property(&item_id, &a.key, &a.value_type, &a.value)?;
             state.dtos.to_dto(&item)
         })
         .await?;

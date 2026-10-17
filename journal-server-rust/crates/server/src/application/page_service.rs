@@ -14,7 +14,10 @@ use crate::error::{AppError, AppResult};
 use crate::infrastructure::export::export_queue_repository::ExportQueueRepository;
 use crate::infrastructure::export::export_service::MarkdownExportService;
 use crate::infrastructure::persistence::db::now_millis;
+use crate::infrastructure::persistence::property_repository::{ListProps, ScalarProps};
 use crate::infrastructure::persistence::{ItemRepository, PageRepository, PropertyRepository};
+
+const PAGE_TARGET: &str = "page";
 
 /// Result of getting or creating a document page.
 #[derive(Debug, Clone)]
@@ -237,6 +240,78 @@ impl PageService {
         Ok(updated)
     }
 
+    /// The scalar and list properties of one page.
+    pub fn page_properties(&self, page_id: &Hmtid) -> AppResult<(ScalarProps, ListProps)> {
+        let id = page_id.to_string();
+        let scalars = self.properties.find_scalar_by_targets(PAGE_TARGET, std::slice::from_ref(&id))?;
+        let lists = self.properties.find_list_by_targets(PAGE_TARGET, std::slice::from_ref(&id))?;
+        Ok((scalars, lists))
+    }
+
+    /// Sets a property of a page. `created` and `modified` are the page's own dates, as an
+    /// RFC 3339 date-time; `tag` takes a comma separated list; every other key must be
+    /// defined for pages, and an unknown key is defined as a user key of the given type.
+    /// The page file is rewritten.
+    pub fn set_property(&self, page_id: &Hmtid, key: &str, value_type: &str, value: &str) -> AppResult<Page> {
+        let page = self
+            .pages
+            .find_by_id(page_id)?
+            .ok_or_else(|| AppError::bad_request(format!("Page not found: {page_id}")))?;
+        if key == "created" || key == "modified" {
+            let millis = chrono::DateTime::parse_from_rfc3339(value.trim())
+                .map(|dt| dt.timestamp_millis())
+                .map_err(|_| {
+                    AppError::bad_request(format!("Not a date-time: {value} (expected e.g. 2026-01-02T03:04:05Z)"))
+                })?;
+            let updated = self.pages.save(&Page {
+                created_date: if key == "created" { millis } else { page.created_date },
+                modified_date: if key == "modified" { millis } else { now_millis() },
+                ..page.clone()
+            })?;
+            self.export.queue_export(&page.id);
+            return Ok(updated);
+        }
+        match self.properties.find_definition(key)? {
+            Some(def) if !def.page => {
+                return Err(AppError::bad_request(format!("Property '{key}' cannot be set on a page")));
+            }
+            Some(def) if def.value_type == "tags" || def.value_type == "list" => {
+                let tags: Vec<String> = value
+                    .split(',')
+                    .map(|t| t.trim().to_string())
+                    .filter(|t| !t.is_empty())
+                    .collect();
+                self.properties.sync_tags(PAGE_TARGET, page_id.as_str(), &tags)?;
+            }
+            _ => self
+                .properties
+                .upsert_scalar(PAGE_TARGET, page_id.as_str(), key, value_type, value)?,
+        }
+        self.touch_and_export(&page)
+    }
+
+    /// Removes a property of a page. The page file is rewritten. The page's own dates stay.
+    pub fn delete_property(&self, page_id: &Hmtid, key: &str) -> AppResult<Page> {
+        if key == "created" || key == "modified" {
+            return Err(AppError::bad_request(format!("Property '{key}' cannot be removed from a page")));
+        }
+        let page = self
+            .pages
+            .find_by_id(page_id)?
+            .ok_or_else(|| AppError::bad_request(format!("Page not found: {page_id}")))?;
+        self.properties.delete_property(PAGE_TARGET, page_id.as_str(), key)?;
+        self.touch_and_export(&page)
+    }
+
+    fn touch_and_export(&self, page: &Page) -> AppResult<Page> {
+        let updated = self.pages.save(&Page {
+            modified_date: now_millis(),
+            ..page.clone()
+        })?;
+        self.export.queue_export(&page.id);
+        Ok(updated)
+    }
+
     /// Deletes a page with all its items and their properties.
     pub fn delete_page(&self, page_id: &Hmtid) -> AppResult<()> {
         let page = self
@@ -265,6 +340,8 @@ impl PageService {
             .map(|i| i.id.to_string())
             .collect();
         self.properties.delete_all_for_targets("item", &item_ids)?;
+        self.properties
+            .delete_all_for_targets(PAGE_TARGET, std::slice::from_ref(&page_id.to_string()))?;
         self.items.delete_by_page_id(page_id)?;
         self.pages.delete(page_id)?;
         self.export_queue.remove(page_id)?;

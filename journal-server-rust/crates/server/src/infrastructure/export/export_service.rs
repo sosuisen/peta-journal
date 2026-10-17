@@ -1,5 +1,6 @@
 //! Writes pages to the markdown folder.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -198,7 +199,19 @@ impl MarkdownExportService {
 
     pub fn serialize_to_outline_markdown(&self, page: &Page, items: &[Item]) -> AppResult<String> {
         let mut sb = String::new();
-        append_frontmatter(&mut sb, page);
+        let page_id = page.id.to_string();
+        let page_scalars = self
+            .properties
+            .find_scalar_by_targets("page", std::slice::from_ref(&page_id))?;
+        let page_lists = self
+            .properties
+            .find_list_by_targets("page", std::slice::from_ref(&page_id))?;
+        append_frontmatter(
+            &mut sb,
+            page,
+            page_scalars.get(&page_id),
+            page_lists.get(&page_id),
+        );
         let item_ids: Vec<String> = items.iter().map(|i| i.id.to_string()).collect();
         let scalar_props = self.properties.find_scalar_by_targets("item", &item_ids)?;
         let list_props = self.properties.find_list_by_targets("item", &item_ids)?;
@@ -214,12 +227,47 @@ impl MarkdownExportService {
     }
 }
 
-fn append_frontmatter(sb: &mut String, page: &Page) {
+/// The front matter: the page's id and dates, then its properties. A list property is
+/// written as a YAML list, which is what `outline_parser` reads back.
+pub fn append_frontmatter(
+    sb: &mut String,
+    page: &Page,
+    scalars: Option<&BTreeMap<String, String>>,
+    lists: Option<&BTreeMap<String, Vec<String>>>,
+) {
     sb.push_str("---\n");
     sb.push_str(&format!("id: {}\n", page.id));
     sb.push_str(&format!("created: {}\n", format_instant(page.created_date)));
     sb.push_str(&format!("modified: {}\n", format_instant(page.modified_date)));
+    for (key, value) in scalars.into_iter().flatten() {
+        sb.push_str(&format!("{key}: {}\n", yaml_scalar(value)));
+    }
+    for (key, values) in lists.into_iter().flatten() {
+        sb.push_str(&format!("{key}:\n"));
+        for value in values {
+            sb.push_str(&format!("  - {}\n", yaml_scalar(value)));
+        }
+    }
     sb.push_str("---\n\n");
+}
+
+/// Quotes a value that YAML would otherwise misread: an empty value, a `#` comment, a `: `
+/// mapping, quotes, or spaces at either end. A date-time like `2026-01-02T03:04:05Z` stays
+/// plain. `outline_parser` strips the quotes again.
+fn yaml_scalar(value: &str) -> String {
+    let plain = !value.is_empty()
+        && !value.contains(['"', '\\'])
+        && !value.contains(": ")
+        && !value.contains(" #")
+        && !value.starts_with('#')
+        && !value.ends_with(':')
+        && value.trim() == value
+        && !value.starts_with(['-', '[', '{', '&', '*', '!', '|', '>', '%', '@', '`', '\'']);
+    if plain {
+        value.to_string()
+    } else {
+        format!("\"{}\"", value.replace('"', "\\\""))
+    }
 }
 
 /// Formats epoch millis like Java's `Instant.toString()`: ISO-8601 UTC with the fraction only

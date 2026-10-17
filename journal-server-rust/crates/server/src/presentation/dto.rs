@@ -21,6 +21,8 @@ pub struct PageDto {
     pub page_type: String,
     pub created_date: i64,
     pub modified_date: i64,
+    /// Property values are strings or lists of strings; empty in page lists.
+    pub properties: BTreeMap<String, Value>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -62,8 +64,18 @@ pub struct BacklinkEntryDto {
     pub source_item: Option<ItemDto>,
 }
 
+/// A page without its properties, for lists of pages.
 pub fn page_dto(page: &Page) -> PageDto {
+    page_dto_with(page, None, None)
+}
+
+pub fn page_dto_with(
+    page: &Page,
+    scalars: Option<&BTreeMap<String, String>>,
+    lists: Option<&BTreeMap<String, Vec<String>>>,
+) -> PageDto {
     PageDto {
+        properties: properties_json(scalars, lists),
         id: page.id.to_string(),
         parent_id: page.parent_id.as_ref().map(|p| p.to_string()).unwrap_or_default(),
         dir_path: page.dir_path.clone(),
@@ -74,7 +86,10 @@ pub fn page_dto(page: &Page) -> PageDto {
     }
 }
 
-pub fn item_dto(item: &Item, scalars: Option<&BTreeMap<String, String>>, lists: Option<&BTreeMap<String, Vec<String>>>) -> ItemDto {
+fn properties_json(
+    scalars: Option<&BTreeMap<String, String>>,
+    lists: Option<&BTreeMap<String, Vec<String>>>,
+) -> BTreeMap<String, Value> {
     let mut properties: BTreeMap<String, Value> = BTreeMap::new();
     if let Some(s) = scalars {
         for (k, v) in s {
@@ -89,6 +104,11 @@ pub fn item_dto(item: &Item, scalars: Option<&BTreeMap<String, String>>, lists: 
             );
         }
     }
+    properties
+}
+
+pub fn item_dto(item: &Item, scalars: Option<&BTreeMap<String, String>>, lists: Option<&BTreeMap<String, Vec<String>>>) -> ItemDto {
+    let properties = properties_json(scalars, lists);
     ItemDto {
         id: item.id.to_string(),
         page_id: item.page_id.to_string(),
@@ -149,12 +169,21 @@ pub struct ItemDtoAssembler {
 }
 
 const ITEM_TARGET: &str = "item";
+const PAGE_TARGET: &str = "page";
 /// How deep a transclusion inside a transclusion is followed.
 const MAX_TRANSCLUSION_DEPTH: usize = 5;
 
 impl ItemDtoAssembler {
     pub fn new(properties: PropertyRepository, items: ItemRepository) -> ItemDtoAssembler {
         ItemDtoAssembler { properties, items }
+    }
+
+    /// Converts one page, loading its properties.
+    pub fn page_to_dto(&self, page: &Page) -> AppResult<PageDto> {
+        let id = page.id.to_string();
+        let scalars = self.properties.find_scalar_by_targets(PAGE_TARGET, std::slice::from_ref(&id))?;
+        let lists = self.properties.find_list_by_targets(PAGE_TARGET, std::slice::from_ref(&id))?;
+        Ok(page_dto_with(page, scalars.get(&id), lists.get(&id)))
     }
 
     /// Converts one item, loading its properties.

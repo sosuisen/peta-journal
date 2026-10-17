@@ -136,7 +136,7 @@ impl PageRepository {
         tx.execute(
             "INSERT INTO pages (id, parent_id, dir_path, name, type, created_date, modified_date) \
              VALUES (?, ?, ?, ?, ?, ?, ?) \
-             ON CONFLICT(id) DO UPDATE SET parent_id=?, dir_path=?, name=?, type=?, modified_date=?",
+             ON CONFLICT(id) DO UPDATE SET parent_id=?, dir_path=?, name=?, type=?, created_date=?, modified_date=?",
             params![
                 page.id.as_str(),
                 parent_str,
@@ -149,6 +149,7 @@ impl PageRepository {
                 page.dir_path,
                 page.name,
                 page.page_type,
+                page.created_date,
                 page.modified_date,
             ],
         )

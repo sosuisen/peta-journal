@@ -15,6 +15,35 @@ pub type ScalarProps = BTreeMap<String, BTreeMap<String, String>>;
 /// List properties per target: target id -> (key -> values).
 pub type ListProps = BTreeMap<String, BTreeMap<String, Vec<String>>>;
 
+/// The types a user may give a new key. `list` and `tags` stay internal: the only list
+/// property is `tag`, which the server derives from the body of an item.
+pub const USER_VALUE_TYPES: [&str; 5] = ["text", "number", "checkbox", "date", "datetime"];
+
+/// A property definition: the key, its value type and who may use it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PropertyDefinition {
+    pub key: String,
+    pub value_type: String,
+    /// Written by the server itself; cannot be defined, changed or removed by the user.
+    pub system: bool,
+    /// May be set on a page (every user key, and `tag` among the system keys).
+    pub page: bool,
+}
+
+/// A key is a word of letters, digits, `_` and `-`: it is written unquoted in the metadata
+/// line of an item and as a YAML key in the front matter of a page.
+pub fn validate_key(key: &str) -> AppResult<()> {
+    if key.is_empty() {
+        return Err(AppError::bad_request("Property key is required"));
+    }
+    if !key.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') {
+        return Err(AppError::bad_request(format!(
+            "Property key '{key}' may only contain letters, digits, '_' and '-'"
+        )));
+    }
+    Ok(())
+}
+
 #[derive(Debug, Clone)]
 pub struct PropertyRepository {
     db: Arc<Db>,
@@ -89,10 +118,53 @@ impl PropertyRepository {
 
     /// All property definitions, ordered by key: key -> value type.
     pub fn find_all_definitions(&self) -> AppResult<BTreeMap<String, String>> {
+        Ok(self
+            .find_definitions()?
+            .into_iter()
+            .map(|d| (d.key, d.value_type))
+            .collect())
+    }
+
+    /// All property definitions with their flags, ordered by key.
+    pub fn find_definitions(&self) -> AppResult<Vec<PropertyDefinition>> {
         let conn = self.db.conn()?;
-        let mut stmt = conn.prepare("SELECT key, value_type FROM property_definitions ORDER BY key")?;
-        let rows = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?;
+        let mut stmt =
+            conn.prepare("SELECT key, value_type, is_system, for_page FROM property_definitions ORDER BY key")?;
+        let rows = stmt.query_map([], |r| {
+            Ok(PropertyDefinition {
+                key: r.get(0)?,
+                value_type: r.get(1)?,
+                system: r.get::<_, i64>(2)? != 0,
+                page: r.get::<_, i64>(3)? != 0,
+            })
+        })?;
         Ok(rows.collect::<Result<_, _>>()?)
+    }
+
+    pub fn find_definition(&self, key: &str) -> AppResult<Option<PropertyDefinition>> {
+        Ok(self.find_definitions()?.into_iter().find(|d| d.key == key))
+    }
+
+    /// Defines a user key. A system key, an existing key and a type the user may not choose
+    /// are refused.
+    pub fn insert_definition(&self, key: &str, value_type: &str, page: bool) -> AppResult<()> {
+        validate_key(key)?;
+        if !USER_VALUE_TYPES.contains(&value_type) {
+            return Err(AppError::bad_request(format!(
+                "Value type must be one of {}",
+                USER_VALUE_TYPES.join(", ")
+            )));
+        }
+        if let Some(existing) = self.find_definition(key)? {
+            let what = if existing.system { "a system key" } else { "already defined" };
+            return Err(AppError::bad_request(format!("Property key '{key}' is {what}")));
+        }
+        let conn = self.db.conn()?;
+        conn.execute(
+            "INSERT INTO property_definitions (key, value_type, is_system, for_page) VALUES (?, ?, 0, ?)",
+            params![key, value_type, page as i64],
+        )?;
+        Ok(())
     }
 
     /// Inserts or replaces a scalar property, creating its definition if needed.
@@ -104,6 +176,7 @@ impl PropertyRepository {
         value_type: &str,
         value: &str,
     ) -> AppResult<()> {
+        validate_key(key)?;
         let conn = self.db.conn()?;
         conn.execute(
             "INSERT OR IGNORE INTO property_definitions (key, value_type) VALUES (?, ?)",
@@ -129,10 +202,15 @@ impl PropertyRepository {
         Ok(())
     }
 
+    /// Removes a property, scalar or list, of one target.
     pub fn delete_property(&self, target_type: &str, target_id: &str, key: &str) -> AppResult<()> {
         let conn = self.db.conn()?;
         conn.execute(
             "DELETE FROM properties WHERE target_type = ? AND target_id = ? AND key = ?",
+            params![target_type, target_id, key],
+        )?;
+        conn.execute(
+            "DELETE FROM property_list_items WHERE target_type = ? AND target_id = ? AND key = ?",
             params![target_type, target_id, key],
         )?;
         Ok(())

@@ -395,6 +395,26 @@ impl ItemService {
         Ok(result)
     }
 
+    /// Sets a scalar property of an item. The page file is rewritten, as for any other
+    /// change of the item.
+    pub fn set_property(&self, item_id: &Hmtid, key: &str, value_type: &str, value: &str) -> AppResult<Item> {
+        let existing = self.get_item_by_id(item_id)?;
+        self.properties
+            .upsert_scalar(ITEM_TARGET, item_id.as_str(), key, value_type, value)?;
+        self.touch_page(&existing.page_id)?;
+        self.export.queue_export(&existing.page_id);
+        Ok(existing)
+    }
+
+    /// Removes a property of an item. The page file is rewritten.
+    pub fn delete_property(&self, item_id: &Hmtid, key: &str) -> AppResult<Item> {
+        let existing = self.get_item_by_id(item_id)?;
+        self.properties.delete_property(ITEM_TARGET, item_id.as_str(), key)?;
+        self.touch_page(&existing.page_id)?;
+        self.export.queue_export(&existing.page_id);
+        Ok(existing)
+    }
+
     fn clear_task_times(&self, item_id: &str) -> AppResult<()> {
         self.properties.delete_property(ITEM_TARGET, item_id, "begin")?;
         self.properties.delete_property(ITEM_TARGET, item_id, "end")?;

@@ -17,6 +17,17 @@ pub fn routes() -> Router<SharedState> {
         .route("/api/pages/{id}", get(get_page).put(update_page).delete(delete_page))
         .route("/api/pages/{id}/backlinks", get(get_backlinks))
         .route("/api/pages/{id}/children", get(get_children))
+        .route(
+            "/api/pages/{id}/properties/{key}",
+            axum::routing::put(upsert_property).delete(delete_property),
+        )
+}
+
+#[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+struct UpsertPropertyRequest {
+    value_type: Option<String>,
+    value: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -80,7 +91,7 @@ async fn get_page(State(state): State<SharedState>, Path(id): Path<String>) -> A
             .ok_or_else(|| AppError::not_found(format!("Page not found: {id}")))?;
         let items = state.page_service.get_page_items(&page_id)?;
         Ok(Json(GetPageByIdResponse {
-            page: page_dto(&page),
+            page: state.dtos.page_to_dto(&page)?,
             items: state.dtos.to_dtos(&items)?,
             transcluded_trees: state.dtos.transcluded_trees(&items)?,
         }))
@@ -97,7 +108,7 @@ async fn get_or_create_doc(
             .page_service
             .get_or_create_doc(req.title.as_deref(), req.dir_path.as_deref())?;
         Ok(Json(GetOrCreateDocResponse {
-            page: page_dto(&result.page),
+            page: state.dtos.page_to_dto(&result.page)?,
             items: state.dtos.to_dtos(&result.items)?,
             created: result.created,
         }))
@@ -116,7 +127,45 @@ async fn update_page(
             .page_service
             .update_page(&page_id, req.title.as_deref(), req.dir_path.as_deref())?;
         state.sse.broadcast_pages_updated(&id);
-        Ok(Json(UpdatePageResponse { page: page_dto(&page) }))
+        Ok(Json(UpdatePageResponse {
+            page: state.dtos.page_to_dto(&page)?,
+        }))
+    })
+    .await
+}
+
+async fn upsert_property(
+    State(state): State<SharedState>,
+    Path((id, key)): Path<(String, String)>,
+    Json(req): Json<UpsertPropertyRequest>,
+) -> AppResult<Json<UpdatePageResponse>> {
+    let page_id = parse_id(&id)?;
+    blocking(move || {
+        let page = state.page_service.set_property(
+            &page_id,
+            &key,
+            req.value_type.as_deref().unwrap_or("text"),
+            req.value.as_deref().unwrap_or(""),
+        )?;
+        state.sse.broadcast_pages_updated(&id);
+        Ok(Json(UpdatePageResponse {
+            page: state.dtos.page_to_dto(&page)?,
+        }))
+    })
+    .await
+}
+
+async fn delete_property(
+    State(state): State<SharedState>,
+    Path((id, key)): Path<(String, String)>,
+) -> AppResult<Json<UpdatePageResponse>> {
+    let page_id = parse_id(&id)?;
+    blocking(move || {
+        let page = state.page_service.delete_property(&page_id, &key)?;
+        state.sse.broadcast_pages_updated(&id);
+        Ok(Json(UpdatePageResponse {
+            page: state.dtos.page_to_dto(&page)?,
+        }))
     })
     .await
 }

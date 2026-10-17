@@ -84,7 +84,9 @@ fn run(conn: &Connection, ids: &IdGenerator) -> rusqlite::Result<()> {
             key TEXT PRIMARY KEY,
             value_type TEXT NOT NULL CHECK(value_type IN (
                 'text', 'number', 'checkbox', 'date', 'datetime', 'list', 'tags'
-            ))
+            )),
+            is_system INTEGER NOT NULL DEFAULT 0,
+            for_page INTEGER NOT NULL DEFAULT 1
         );
 
         CREATE TABLE IF NOT EXISTS properties (
@@ -124,6 +126,46 @@ fn run(conn: &Connection, ids: &IdGenerator) -> rusqlite::Result<()> {
     migrate_root_index(conn, ids)?;
     migrate_transclusion(conn)?;
     migrate_datetime_to_seconds(conn)?;
+    migrate_definition_flags(conn)?;
+    Ok(())
+}
+
+/// The keys the app reserves, with their types, and whether they can be set on a page. The
+/// task dates and times and the zoom are item-only; `created` and `modified` are the page's
+/// own dates, which a page property write changes in place.
+pub const SYSTEM_KEYS: [(&str, &str, bool); 10] = [
+    ("tag", "tags", true),
+    ("begin", "datetime", false),
+    ("end", "datetime", false),
+    ("plan", "date", false),
+    ("due", "date", false),
+    ("cancelled", "date", false),
+    ("zoom", "number", false),
+    ("id", "text", false),
+    ("created", "datetime", true),
+    ("modified", "datetime", true),
+];
+
+/// Adds the `is_system` and `for_page` flags to the property definitions and marks the
+/// system keys. Runs on every start, so a key that became a system key is flagged too.
+fn migrate_definition_flags(conn: &Connection) -> rusqlite::Result<()> {
+    if !has_column(conn, "property_definitions", "is_system")? {
+        tracing::info!("Adding is_system and for_page flags to property_definitions...");
+        conn.execute_batch(
+            "ALTER TABLE property_definitions ADD COLUMN is_system INTEGER NOT NULL DEFAULT 0;
+             ALTER TABLE property_definitions ADD COLUMN for_page INTEGER NOT NULL DEFAULT 1;",
+        )?;
+    }
+    for (key, value_type, for_page) in SYSTEM_KEYS {
+        conn.execute(
+            "INSERT OR IGNORE INTO property_definitions (key, value_type, is_system, for_page) VALUES (?, ?, 1, ?)",
+            rusqlite::params![key, value_type, for_page as i64],
+        )?;
+        conn.execute(
+            "UPDATE property_definitions SET is_system = 1, for_page = ? WHERE key = ?",
+            rusqlite::params![for_page as i64, key],
+        )?;
+    }
     Ok(())
 }
 

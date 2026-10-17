@@ -26,7 +26,10 @@ pub fn routes() -> Router<SharedState> {
         .route("/api/items/{id}", get(get_item).put(update_item).delete(delete_item))
         .route("/api/items/{id}/transclude", post(set_transclusion).delete(remove_transclusion))
         .route("/api/items/{id}/cycle-task", post(cycle_task))
-        .route("/api/items/{id}/properties/{key}", axum::routing::put(upsert_property))
+        .route(
+            "/api/items/{id}/properties/{key}",
+            axum::routing::put(upsert_property).delete(delete_property),
+        )
 }
 
 #[derive(Deserialize, Default)]
@@ -347,16 +350,30 @@ async fn upsert_property(
 ) -> AppResult<Json<ItemResponse>> {
     let item_id = parse_id(&id)?;
     blocking(move || {
-        let item = state.item_service.get_item_by_id(&item_id)?;
-        state.properties.upsert_scalar(
-            "item",
-            &id,
+        let item = state.item_service.set_property(
+            &item_id,
             &key,
             req.value_type.as_deref().unwrap_or("text"),
             req.value.as_deref().unwrap_or(""),
         )?;
         state.sse.broadcast_pages_updated(item.page_id.as_str());
         // The DTO is built after the upsert, so it carries the new property
+        Ok(Json(ItemResponse {
+            item: state.dtos.to_dto(&item)?,
+        }))
+    })
+    .await
+}
+
+async fn delete_property(
+    State(state): State<SharedState>,
+    Path((id, key)): Path<(String, String)>,
+) -> AppResult<Json<ItemResponse>> {
+    let item_id = parse_id(&id)?;
+    blocking(move || {
+        let item = state.item_service.delete_property(&item_id, &key)?;
+        state.sse.broadcast_pages_updated(item.page_id.as_str());
+        // The DTO is built after the delete, so the property is already gone from it
         Ok(Json(ItemResponse {
             item: state.dtos.to_dto(&item)?,
         }))

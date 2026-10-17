@@ -12,7 +12,10 @@ use crate::state::{blocking, SharedState};
 pub fn routes() -> Router<SharedState> {
     Router::new()
         .route("/api/config", get(get_config).put(update_config))
-        .route("/api/config/property-definitions", get(property_definitions))
+        .route(
+            "/api/config/property-definitions",
+            get(property_definitions).post(add_property_definition),
+        )
         .route("/api/config/browse-folder", post(browse_folder))
 }
 
@@ -32,10 +35,30 @@ struct UpdateConfigRequest {
     logical_outdent: Option<bool>,
 }
 
+/// `propertyDefinitions` is the key -> type map older clients read; `definitions` adds the flags.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct PropertyDefinitionsResponse {
     property_definitions: BTreeMap<String, String>,
+    definitions: Vec<PropertyDefinitionDto>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PropertyDefinitionDto {
+    key: String,
+    value_type: String,
+    system: bool,
+    page: bool,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+struct AddPropertyDefinitionRequest {
+    key: Option<String>,
+    value_type: Option<String>,
+    /// Whether the key may be set on a page; true unless given.
+    page: Option<bool>,
 }
 
 #[derive(Serialize)]
@@ -56,11 +79,40 @@ async fn get_config(State(state): State<SharedState>) -> Json<ConfigResponse> {
     Json(current(&state))
 }
 
+fn definitions_response(state: &SharedState) -> AppResult<PropertyDefinitionsResponse> {
+    let definitions = state.properties.find_definitions()?;
+    Ok(PropertyDefinitionsResponse {
+        property_definitions: definitions
+            .iter()
+            .map(|d| (d.key.clone(), d.value_type.clone()))
+            .collect(),
+        definitions: definitions
+            .into_iter()
+            .map(|d| PropertyDefinitionDto {
+                key: d.key,
+                value_type: d.value_type,
+                system: d.system,
+                page: d.page,
+            })
+            .collect(),
+    })
+}
+
 async fn property_definitions(State(state): State<SharedState>) -> AppResult<Json<PropertyDefinitionsResponse>> {
+    blocking(move || Ok(Json(definitions_response(&state)?))).await
+}
+
+async fn add_property_definition(
+    State(state): State<SharedState>,
+    Json(req): Json<AddPropertyDefinitionRequest>,
+) -> AppResult<Json<PropertyDefinitionsResponse>> {
     blocking(move || {
-        Ok(Json(PropertyDefinitionsResponse {
-            property_definitions: state.properties.find_all_definitions()?,
-        }))
+        state.properties.insert_definition(
+            req.key.as_deref().unwrap_or("").trim(),
+            req.value_type.as_deref().unwrap_or("text"),
+            req.page.unwrap_or(true),
+        )?;
+        Ok(Json(definitions_response(&state)?))
     })
     .await
 }

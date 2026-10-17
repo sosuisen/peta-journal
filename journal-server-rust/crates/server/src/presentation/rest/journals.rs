@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::application::journal_service::MostRecentJournalResult;
 use crate::error::{AppError, AppResult};
-use crate::presentation::dto::{page_dto, ItemDto, PageDto};
+use crate::presentation::dto::{ItemDto, PageDto};
 use crate::state::{blocking, SharedState};
 
 pub fn routes() -> Router<SharedState> {
@@ -52,7 +52,7 @@ async fn get_or_create(State(state): State<SharedState>, Path(name): Path<String
     blocking(move || {
         let result = state.journal_service.get_or_create_journal_by_name(&name)?;
         Ok(Json(GetOrCreateJournalResponse {
-            page: page_dto(&result.page),
+            page: state.dtos.page_to_dto(&result.page)?,
             items: state.dtos.to_dtos(&result.items)?,
             created: result.created,
             transcluded_trees: state.dtos.transcluded_trees(&result.items)?,
@@ -71,7 +71,7 @@ fn to_response(state: &SharedState, result: MostRecentJournalResult) -> AppResul
         })),
         Some(page) => Ok(Json(MostRecentResponse {
             found: true,
-            page: Some(page_dto(&page)),
+            page: Some(state.dtos.page_to_dto(&page)?),
             items: state.dtos.to_dtos(&result.items)?,
             transcluded_trees: state.dtos.transcluded_trees(&result.items)?,
         })),

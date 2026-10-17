@@ -649,3 +649,159 @@ async fn health_and_config() {
     assert_eq!(status, 200);
     assert_eq!(resp["propertyDefinitions"]["plan"], json!("date"));
 }
+
+// ---- Properties ----
+
+fn definition<'a>(resp: &'a Value, key: &str) -> Option<&'a Value> {
+    resp["definitions"].as_array().unwrap().iter().find(|d| d["key"] == key)
+}
+
+#[tokio::test]
+async fn property_definitions_list_the_system_keys_and_accept_user_keys() {
+    let (status, resp) = get("/api/config/property-definitions").await;
+    assert_eq!(status, 200, "{resp}");
+    assert_eq!(resp["propertyDefinitions"]["zoom"], json!("number"));
+    assert_eq!(definition(&resp, "tag").unwrap()["system"], json!(true));
+    assert_eq!(definition(&resp, "tag").unwrap()["page"], json!(true));
+    assert_eq!(definition(&resp, "zoom").unwrap()["page"], json!(false));
+    assert_eq!(definition(&resp, "modified").unwrap()["system"], json!(true));
+    assert_eq!(definition(&resp, "due").unwrap()["system"], json!(true));
+    assert_eq!(definition(&resp, "cancelled").unwrap()["page"], json!(false));
+    assert_eq!(definition(&resp, "created").unwrap()["page"], json!(true));
+
+    let (status, resp) = post(
+        "/api/config/property-definitions",
+        json!({ "key": "status", "valueType": "text" }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+    let added = definition(&resp, "status").unwrap();
+    assert_eq!(added["valueType"], json!("text"));
+    assert_eq!(added["system"], json!(false));
+    assert_eq!(added["page"], json!(true));
+
+    for body in [
+        json!({ "key": "zoom", "valueType": "text" }),
+        json!({ "key": "status", "valueType": "text" }),
+        json!({ "key": "has space", "valueType": "text" }),
+        json!({ "key": "", "valueType": "text" }),
+        json!({ "key": "kind", "valueType": "tags" }),
+    ] {
+        let (status, resp) = post("/api/config/property-definitions", body.clone()).await;
+        assert_eq!(status, 400, "{body} -> {resp}");
+    }
+}
+
+#[tokio::test]
+async fn a_property_can_be_removed_from_an_item() {
+    let page = new_doc_page("items-property-delete").await;
+    let item = fill(&page.id, &["task-like"]).await.remove(0);
+    put(
+        &format!("/api/items/{}/properties/plan", item.id),
+        json!({ "valueType": "date", "value": "2026-03-01" }),
+    )
+    .await;
+
+    let (status, resp) = send(reqwest::Method::DELETE, &format!("/api/items/{}/properties/plan", item.id), None).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert!(resp["item"]["properties"].get("plan").is_none());
+    assert!(items(&page.id).await[0].properties.get("plan").is_none());
+}
+
+#[tokio::test]
+async fn an_item_property_change_alone_rewrites_the_page_file() {
+    let page = new_doc_page("items-property-export").await;
+    let item = fill(&page.id, &["planned"]).await.remove(0);
+    wait_until("the page file exists", || read(&file_of(&page)).contains("planned")).await;
+
+    put(
+        &format!("/api/items/{}/properties/plan", item.id),
+        json!({ "valueType": "date", "value": "2026-03-01" }),
+    )
+    .await;
+
+    wait_until("the plan is in the file", || read(&file_of(&page)).contains("plan=\"2026-03-01\"")).await;
+}
+
+#[tokio::test]
+async fn page_properties_are_set_removed_and_written_to_the_front_matter() {
+    let page = new_doc_page("page-properties").await;
+    post("/api/config/property-definitions", json!({ "key": "owner", "valueType": "text" })).await;
+
+    let (status, resp) = put(
+        &format!("/api/pages/{}/properties/owner", page.id),
+        json!({ "valueType": "text", "value": "me: now" }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+    assert_eq!(resp["page"]["properties"]["owner"], json!("me: now"));
+
+    let (status, resp) = put(
+        &format!("/api/pages/{}/properties/tag", page.id),
+        json!({ "valueType": "tags", "value": "a, b" }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+    assert_eq!(resp["page"]["properties"]["tag"], json!(["a", "b"]));
+
+    // An item-only system key stays off the page
+    let (status, _) = put(
+        &format!("/api/pages/{}/properties/zoom", page.id),
+        json!({ "valueType": "number", "value": "2" }),
+    )
+    .await;
+    assert_eq!(status, 400);
+
+    let (_, resp) = get(&format!("/api/pages/{}", page.id)).await;
+    assert_eq!(resp["page"]["properties"]["owner"], json!("me: now"));
+    assert_eq!(resp["page"]["properties"]["tag"], json!(["a", "b"]));
+
+    wait_until("the front matter has the properties", || {
+        let text = read(&file_of(&page));
+        text.contains("owner: \"me: now\"\n") && text.contains("tag:\n  - a\n  - b\n---\n")
+    })
+    .await;
+
+    let (status, resp) = send(reqwest::Method::DELETE, &format!("/api/pages/{}/properties/owner", page.id), None).await;
+    assert_eq!(status, 200, "{resp}");
+    assert!(resp["page"]["properties"].get("owner").is_none());
+    assert_eq!(resp["page"]["properties"]["tag"], json!(["a", "b"]));
+
+    wait_until("the owner left the front matter", || !read(&file_of(&page)).contains("owner:")).await;
+}
+
+#[tokio::test]
+async fn the_dates_of_a_page_are_set_as_properties_and_cannot_be_removed() {
+    let page = new_doc_page("page-dates").await;
+
+    let (status, resp) = put(
+        &format!("/api/pages/{}/properties/created", page.id),
+        json!({ "valueType": "datetime", "value": "2020-01-02T03:04:05Z" }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+    assert_eq!(resp["page"]["createdDate"], json!(1_577_934_245_000i64));
+
+    let (status, resp) = put(
+        &format!("/api/pages/{}/properties/modified", page.id),
+        json!({ "valueType": "datetime", "value": "2021-02-03T04:05:06Z" }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+    assert_eq!(resp["page"]["modifiedDate"], json!(1_612_325_106_000i64));
+
+    let (status, _) = put(
+        &format!("/api/pages/{}/properties/created", page.id),
+        json!({ "valueType": "datetime", "value": "yesterday" }),
+    )
+    .await;
+    assert_eq!(status, 400);
+    let (status, _) = send(reqwest::Method::DELETE, &format!("/api/pages/{}/properties/created", page.id), None).await;
+    assert_eq!(status, 400);
+
+    wait_until("the front matter has the new created date", || {
+        read(&file_of(&page)).contains("created: 2020-01-02T03:04:05Z\n")
+    })
+    .await;
+}
