@@ -175,11 +175,11 @@ app-page-dispatcher, app-page, app-journal { display: flex; flex-direction: colu
 .dir-segment { color: #666; cursor: pointer; text-decoration: none; font-size: 1.0em; }
 .dir-segment:hover { text-decoration: underline; }
 .breadcrumb-slash { color: #666; font-size: 1.0em; margin: 0 1px; }
-.page-title {
+app-page .page-title {
   margin: 0; font-size: 2em; font-weight: bold; padding: 4px 6px; border: 1px solid transparent; cursor: pointer;
   border-radius: 4px; line-height: 1.2; width: 100%; box-sizing: border-box;
 }
-.page-title:hover { background: rgba(0,0,0,0.04); }
+app-page .page-title:hover { background: rgba(0,0,0,0.04); }
 .dir-segment-title { font-size: 2em; font-weight: bold; color: #000; cursor: pointer; }
 .dir-segment-title:hover { text-decoration: underline; }
 .index-breadcrumb .dir-segment, .index-breadcrumb .breadcrumb-slash { font-size: 2em; font-weight: bold; color: #000; }
