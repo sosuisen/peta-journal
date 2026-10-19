@@ -226,9 +226,10 @@ cdk-virtual-scroll-viewport.outline-viewport {
   overflow-anchor: none;
   contain: strict;
 }
+.outline-header { width: 100%; box-sizing: border-box; padding-right: 20px; }
 .cdk-virtual-scroll-content-wrapper { width: 100%; user-select: none; }
 .outline-row { width: 100%; box-sizing: border-box; padding-right: 20px; }
-@media (min-width: 1024px) { .outline-row { max-width: 900px; } }
+@media (min-width: 1024px) { .outline-row, .outline-header { max-width: 900px; } }
 .date-header { margin: 0; padding: 16px 0 8px 0; font-size: 1.5em; font-weight: bold; border-top: 1px solid #ddd; }
 
 /* ---- outline item (outline-item.ts) ---- */

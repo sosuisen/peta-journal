@@ -88,6 +88,8 @@ impl RowStore {
 struct Windowing {
     viewport: ViewportRef,
     wrapper: NodeRef<leptos::html::Div>,
+    /// The block above the rows (the page properties); it scrolls with them.
+    header: NodeRef<leptos::html::Div>,
     ids: RwSignal<Vec<String>>,
     /// The measured height of each row, by item id.
     heights: StoredValue<HashMap<String, f64>>,
@@ -99,6 +101,14 @@ impl Windowing {
     /// False once the outline left the screen; its timers and frames then do nothing.
     fn alive(self) -> bool {
         !self.window.is_disposed()
+    }
+
+    /// The height of the block above the rows; zero without one.
+    fn header_height(self) -> f64 {
+        self.header
+            .get_untracked()
+            .map(|el| el.offset_height() as f64)
+            .unwrap_or(0.0)
     }
 
     fn height_of(heights: &HashMap<String, f64>, id: &str) -> f64 {
@@ -113,7 +123,8 @@ impl Windowing {
         let Some(vp) = self.viewport.get_untracked() else {
             return;
         };
-        let scroll_top = vp.scroll_top() as f64;
+        // Row offsets start below the header
+        let scroll_top = vp.scroll_top() as f64 - self.header_height();
         let vp_height = vp.client_height() as f64;
         let w = self.heights.with_value(|heights| {
             self.ids.with_untracked(|ids| {
@@ -206,6 +217,7 @@ impl Windowing {
 
     /// The first rendered row whose bottom is below the viewport top.
     fn top_visible_index(self, scroll_top: f64) -> usize {
+        let scroll_top = scroll_top - self.header_height();
         let w = self.window.get_untracked();
         self.heights.with_value(|heights| {
             self.ids.with_untracked(|ids| {
@@ -264,6 +276,7 @@ impl Windowing {
                         .sum::<f64>()
                 })
             });
+            let estimated = estimated + self.header_height();
             vp.set_scroll_top((estimated - vp_height * 0.1).max(0.0) as i32);
         } else {
             let w = self.window.get_untracked();
@@ -279,14 +292,17 @@ impl Windowing {
     }
 }
 
+/// `header` is rendered above the rows inside the scrolling viewport, so it scrolls out
+/// with them.
 #[component]
-pub fn Outline() -> impl IntoView {
+pub fn Outline(#[prop(optional)] header: Option<ViewFn>) -> impl IntoView {
     let core: CoreHandle = expect_context();
     let vm = core.view();
     let store = RowStore::new(vm);
     let list = Windowing {
         viewport: NodeRef::new(),
         wrapper: NodeRef::new(),
+        header: NodeRef::new(),
         ids: store.ids,
         heights: StoredValue::new(HashMap::new()),
         window: RwSignal::new(Window::default()),
@@ -382,6 +398,7 @@ pub fn Outline() -> impl IntoView {
     view! {
         <app-outline>
             <cdk-virtual-scroll-viewport node_ref=list.viewport class="outline-viewport" on:scroll=on_scroll>
+                {header.map(|h| view! { <div node_ref=list.header class="outline-header">{h.run()}</div> })}
                 <div
                     node_ref=list.wrapper
                     class="cdk-virtual-scroll-content-wrapper"

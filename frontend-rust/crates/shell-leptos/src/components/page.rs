@@ -251,8 +251,11 @@ fn DocPage() -> impl IntoView {
                             </div>
                         </Show>
                     </div>
-                    {(p.show_properties || !drafts.get_untracked().is_empty()).then(|| view! { <PageProperties drafts=drafts /> })}
-                    <Outline />
+                    {if p.show_properties || !drafts.get_untracked().is_empty() {
+                        view! { <Outline header=ViewFn::from(move || view! { <PageProperties drafts=drafts /> }) /> }.into_any()
+                    } else {
+                        view! { <Outline /> }.into_any()
+                    }}
                 }
             })}
         </app-page>
