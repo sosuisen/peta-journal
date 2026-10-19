@@ -86,8 +86,14 @@ async fn paste_text_now(
         return Ok(());
     }
 
-    parsed[0].body = format!("{before}{}", parsed[0].body);
     let last = parsed.len() - 1;
+    // The cursor ends right after the pasted text, in the last item it went into
+    let cursor_after = if last == 0 {
+        crate::util::char_len(before) + crate::util::char_len(&parsed[0].body)
+    } else {
+        crate::util::char_len(&parsed[last].body)
+    };
+    parsed[0].body = format!("{before}{}", parsed[0].body);
     parsed[last].body = format!("{}{after}", parsed[last].body);
 
     let original = item.clone();
@@ -135,12 +141,15 @@ async fn paste_text_now(
             done()
         });
     }
-    apply(api, "paste: commit", |m| {
+    let target_id = prev_id;
+    let id = target_id.clone();
+    apply(api, "paste: commit", move |m| {
         m.undo.commit(None, m.clock_ms);
+        m.state.set_focused_item(&id, Some(cursor_after));
         done()
     });
-    // Focus the last created item or the current item
-    focus_editor(api, None).await;
+    // Focus the last created item or the current item, after the pasted text
+    focus_editor(api, Some(target_id)).await;
     Ok(())
 }
 

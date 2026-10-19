@@ -33,7 +33,8 @@ fn one_piece_goes_into_the_item_at_the_cursor() {
     paste(&mut h, "a", "XY", 2);
     assert_eq!(h.bodies(), ["a=abXY|cd", "z=body of z"]);
     assert!(h.model.edits.dirty_item_ids.contains("a"));
-    assert_eq!(h.focused_editor_requests(), [None]);
+    assert_eq!(h.focused_editor_requests(), [Some("a".into())]);
+    assert_eq!(h.focus_cursor(), Some(4));
 }
 
 #[test]
@@ -64,6 +65,9 @@ fn several_pieces_become_items_below_the_last_one_taking_the_text_after_the_curs
             None
         )
     );
+    // The cursor goes to the last item, right after the pasted text
+    assert_eq!(h.focused_editor_requests(), [Some("new2".into())]);
+    assert_eq!(h.focus_cursor(), Some(5));
 }
 
 #[test]
