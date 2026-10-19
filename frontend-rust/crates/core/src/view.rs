@@ -186,9 +186,10 @@ pub struct SearchView {
     pub page_results: Vec<SearchResult>,
     pub item_results: Vec<SearchResult>,
     pub show_dropdown: bool,
-    pub show_create: bool,
+    /// The titles of the create entries, in display order.
+    pub create_titles: Vec<String>,
     pub selected_index: Option<usize>,
-    /// Index of the create entry in the flat navigation order.
+    /// Index of the first create entry in the flat navigation order.
     pub create_index: usize,
     /// Index of the first item result in the flat navigation order.
     pub item_offset: usize,
@@ -379,16 +380,16 @@ fn sidebar(model: &Model) -> SidebarView {
 }
 
 fn search(model: &Model) -> SearchView {
-    let has_create = crate::screens::search::has_create(model);
+    let create_titles = crate::screens::search::create_titles(model);
     let page_count = model.search.page_results.len();
     SearchView {
         query: model.search.query.clone(),
         page_results: model.search.page_results.clone(),
         item_results: model.search.item_results.clone(),
         show_dropdown: model.search.show_dropdown,
-        show_create: has_create,
         selected_index: model.search.selected_index,
         create_index: page_count,
-        item_offset: page_count + usize::from(has_create),
+        item_offset: page_count + create_titles.len(),
+        create_titles,
     }
 }

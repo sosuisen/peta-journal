@@ -253,7 +253,6 @@ pub enum Event {
     SearchResultClicked {
         index: usize,
     },
-    SearchCreateClicked,
     SearchDropdown(bool),
 
     // ---- settings ----
@@ -706,7 +705,6 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         SearchQueryChanged(q) => screens::search::query_changed(model, q),
         SearchKey(key) => screens::search::key(model, key),
         SearchResultClicked { index } => screens::search::result_clicked(model, index),
-        SearchCreateClicked => screens::search::create_page(model),
         SearchDropdown(show) => {
             model.search.show_dropdown = show;
             done()

@@ -5,7 +5,6 @@ use crate::app::{apply, done, log_error, run, Cmd, Model, SearchKey};
 use crate::effects::{TimerOp, TimerOutput, UiOp};
 use crate::model::SearchResult;
 use crate::screens::navigate;
-use crate::util::date::generate_untitled_title;
 use crate::util::filename::{classify_journal_file_name, validate_file_name, JournalType};
 use crux_core::Command;
 
@@ -59,15 +58,50 @@ fn cancel_timer(model: &mut Model) -> Cmd {
     Command::notify_shell(TimerOp::Cancel { id }).into()
 }
 
-/// True when the "create" entry is shown between the page and item results.
-pub fn has_create(model: &Model) -> bool {
-    model.search.show_create_button && !model.search.query.trim().is_empty()
+/// The titles offered by the "create" entries between the page and item results, in display
+/// order. The second entry puts the page in the directory of the open doc page, and is left
+/// out when that page already exists. Journals and root pages have no directory, so they
+/// offer only the bare title.
+pub fn create_titles(model: &Model) -> Vec<String> {
+    let title = model.search.query.trim();
+    if !model.search.show_create_button || title.is_empty() {
+        return Vec::new();
+    }
+    let mut titles = vec![title.to_string()];
+    let dir = model
+        .current_page
+        .as_ref()
+        .filter(|p| !p.is_journal() && !p.dir_path.is_empty())
+        .map(|p| p.dir_path.trim_end_matches('/'));
+    if let Some(dir) = dir {
+        let path = format!("{dir}/{title}");
+        if !page_exists(model, &path) {
+            titles.push(path);
+        }
+    }
+    titles
+}
+
+/// Whether a page with this full path is known to the model: the search hits carry the full
+/// path as their title, and the sidebar lists the pages of the current directory.
+fn page_exists(model: &Model, path: &str) -> bool {
+    let path = path.to_lowercase();
+    model
+        .search
+        .page_results
+        .iter()
+        .any(|r| r.page_title.to_lowercase() == path)
+        || model
+            .sidebar
+            .index_pages
+            .iter()
+            .any(|p| format!("{}{}", p.dir_path, p.name).to_lowercase() == path)
 }
 
 pub fn key(model: &mut Model, key: SearchKey) -> Cmd {
-    let has_create = has_create(model);
-    let total =
-        model.search.page_results.len() + usize::from(has_create) + model.search.item_results.len();
+    let total = model.search.page_results.len()
+        + create_titles(model).len()
+        + model.search.item_results.len();
     match key {
         SearchKey::Down => {
             if total > 0 {
@@ -101,16 +135,16 @@ pub fn key(model: &mut Model, key: SearchKey) -> Cmd {
 
 /// An entry of the flat list was chosen: a page, the create entry, or an item.
 pub fn result_clicked(model: &mut Model, index: usize) -> Cmd {
-    let has_create = has_create(model);
+    let titles = create_titles(model);
     let page_count = model.search.page_results.len();
     if index < page_count {
         let result = model.search.page_results[index].clone();
         return navigate_to_result(model, &result);
     }
-    if has_create && index == page_count {
-        return create_page(model);
+    if let Some(title) = titles.get(index - page_count) {
+        return create_page(model, title.clone());
     }
-    let item_idx = index - page_count - usize::from(has_create);
+    let item_idx = index - page_count - titles.len();
     match model.search.item_results.get(item_idx).cloned() {
         Some(result) => navigate_to_result(model, &result),
         None => done(),
@@ -137,16 +171,10 @@ pub fn clear(model: &mut Model) -> Cmd {
     cancel_timer(model)
 }
 
-/// Creates a new page using the query as the title.
-pub fn create_page(model: &mut Model) -> Cmd {
-    let title = model.search.query.trim().to_string();
+/// Creates a new page with the given title (one of `create_titles`).
+fn create_page(model: &mut Model, title: String) -> Cmd {
     let clear = clear(model);
     let go = run(move |api| async move {
-        let title = if title.is_empty() {
-            generate_untitled_title(api.local_now().await.0)
-        } else {
-            title
-        };
         if classify_journal_file_name(&title) == JournalType::None {
             let stripped = title.strip_suffix(".md").unwrap_or(&title);
             let file_name = stripped.rsplit('/').next().unwrap_or(stripped);

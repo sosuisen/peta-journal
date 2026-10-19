@@ -24,8 +24,9 @@ pub fn SearchBar() -> impl IntoView {
     });
 
     let has_results = move || {
-        search.with(|s| !s.page_results.is_empty() || !s.item_results.is_empty() || s.show_create)
-            && search.with(|s| s.show_dropdown)
+        search.with(|s| {
+            !s.page_results.is_empty() || !s.item_results.is_empty() || !s.create_titles.is_empty()
+        }) && search.with(|s| s.show_dropdown)
     };
 
     let on_keydown = {
@@ -78,13 +79,14 @@ pub fn SearchBar() -> impl IntoView {
                                     </div>
                                 }
                             }).collect::<Vec<_>>();
-                            let create = s.show_create.then(|| {
-                                                                view! {
-                                    <div class="search-create" class:selected=selected == Some(s.create_index) on:mousedown=move |_| core.send(Event::SearchCreateClicked)>
-                                        {format!("+ Create \"{}\"", s.query)}
+                            let create = s.create_titles.iter().enumerate().map(|(i, title)| {
+                                let index = s.create_index + i;
+                                view! {
+                                    <div class="search-create" class:selected=selected == Some(index) on:mousedown=move |_| core.send(Event::SearchResultClicked { index })>
+                                        {format!("+ Create \"{title}\"")}
                                     </div>
                                 }
-                            });
+                            }).collect::<Vec<_>>();
                             let items = s.item_results.iter().enumerate().map(|(i, r)| {
                                                                 let index = s.item_offset + i;
                                 view! {
