@@ -21,6 +21,8 @@ const MIN_BUFFER_PX: f64 = 500.0;
 const MAX_BUFFER_PX: f64 = 1000.0;
 /// The height of a row that was never measured.
 const ESTIMATED_ROW_PX: f64 = 28.0;
+/// The share of the viewport height left empty below the last row.
+const BOTTOM_ROOM_RATIO: f64 = 0.5;
 
 type ViewportRef = NodeRef<leptos::html::Custom<&'static str>>;
 
@@ -156,11 +158,14 @@ impl Windowing {
                     end = ids.len();
                     pad_bottom = 0.0;
                 }
+                // Half a viewport of room below the last row, so the bottommost item can
+                // be scrolled up to the middle of the screen instead of sitting at its
+                // bottom edge while being typed in
                 Window {
                     start,
                     end,
                     pad_top,
-                    pad_bottom,
+                    pad_bottom: pad_bottom + vp_height * BOTTOM_ROOM_RATIO,
                 }
             })
         });
