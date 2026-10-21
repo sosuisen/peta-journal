@@ -81,6 +81,14 @@ pub fn home_dir() -> PathBuf {
 impl Settings {
     pub fn from_cli(cli: Cli) -> Settings {
         let home = home_dir().join(".peta-journal");
+        if cli.data_dir.is_some() && cli.config_dir.is_none() {
+            // A throw-away data dir with the user's config.json still exports into the user's
+            // markdown folder, so a test or a second instance can overwrite real pages there.
+            tracing::warn!(
+                "--data-dir is set but --config-dir is not: the markdown directory from {} will be used",
+                home.join("config.json").display()
+            );
+        }
         let data_dir = cli.data_dir.unwrap_or_else(|| home.join("data"));
         let db_path = cli.db.unwrap_or_else(|| data_dir.join("journal.db"));
         Settings {
