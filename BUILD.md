@@ -107,6 +107,12 @@ npx playwright install chromium   # once
 npm run e2e
 ```
 
+The test server runs with its own `--data-dir`, `--index-dir` and `--config-dir` under a temporary
+directory, so its markdown export lands there and never in the markdown folder of
+`~/.peta-journal/config.json`. A global setup checks this before the first test and refuses to
+run otherwise. When starting a second server by hand for an experiment, always pass
+`--config-dir` as well, or it will export into your real markdown folder.
+
 ## Development Workflow
 
 1. Start the journal server: `cd journal-server-rust && cargo run`
