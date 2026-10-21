@@ -41,3 +41,15 @@ fn a_refused_definition_shows_the_reason_and_an_empty_key_is_not_sent() {
         Some("Property key is required")
     );
 }
+
+#[test]
+fn setting_the_tags_dir_sends_it_and_keeps_the_servers_normalized_form() {
+    let mut h = Harness::with_items(vec![]);
+    h.send(Event::SetTagsDir("tags/".into()));
+    assert!(h
+        .api
+        .calls
+        .iter()
+        .any(|c| matches!(c, ApiOp::UpdateConfig { tags_dir: Some(t), .. } if t == "tags/")));
+    assert_eq!(h.model.config.tags_dir, "tags/");
+}

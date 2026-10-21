@@ -247,6 +247,9 @@ pub struct ServerConfig {
     pub week_numbering: String,
     #[serde(default)]
     pub logical_outdent: bool,
+    /// Directory of the tag pages relative to the pages root, `tags/` style; empty for the root.
+    #[serde(default)]
+    pub tags_dir: String,
 }
 
 /// How weeks are numbered: US (Sunday start) or ISO (Monday start).

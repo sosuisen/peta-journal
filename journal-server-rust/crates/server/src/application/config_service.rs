@@ -67,6 +67,22 @@ impl ConfigService {
         self.save(&config);
     }
 
+    /// The directory of the tag pages, relative to the pages root and ending with `/`
+    /// (e.g. `tags/`), or an empty string when tag pages live at the root.
+    pub fn tags_dir(&self) -> String {
+        self.load()
+            .get("tagsDir")
+            .and_then(|v| v.as_str())
+            .map(normalize_tags_dir)
+            .unwrap_or_default()
+    }
+
+    pub fn set_tags_dir(&self, tags_dir: &str) {
+        let mut config = self.load();
+        config.insert("tagsDir".into(), Value::String(normalize_tags_dir(tags_dir)));
+        self.save(&config);
+    }
+
     fn load(&self) -> Map<String, Value> {
         let path = self.config_path();
         if path.exists() {
@@ -92,5 +108,30 @@ impl ConfigService {
             Ok(_) => tracing::info!("Config saved to {}", path.display()),
             Err(e) => tracing::error!("Failed to save config file: {e}"),
         }
+    }
+}
+
+/// A directory path in the `dirPath` form: no leading `/`, a trailing `/` unless empty.
+/// Spaces and slashes around the value are user noise, not part of a directory name.
+fn normalize_tags_dir(value: &str) -> String {
+    let trimmed = value.trim().trim_matches('/');
+    if trimmed.is_empty() {
+        String::new()
+    } else {
+        format!("{trimmed}/")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_tags_dir;
+
+    #[test]
+    fn tags_dir_is_normalized_to_the_dir_path_form() {
+        assert_eq!(normalize_tags_dir(""), "");
+        assert_eq!(normalize_tags_dir("  /  "), "");
+        assert_eq!(normalize_tags_dir("tags"), "tags/");
+        assert_eq!(normalize_tags_dir("/tags/"), "tags/");
+        assert_eq!(normalize_tags_dir(" meta/tags "), "meta/tags/");
     }
 }

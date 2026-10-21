@@ -200,6 +200,7 @@ pub struct ConfigView {
     pub markdown_dir: String,
     pub week_numbering: WeekNumbering,
     pub logical_outdent: bool,
+    pub tags_dir: String,
     pub property_definitions: Vec<PropertyDefinition>,
     pub definition_error: Option<String>,
 }
@@ -225,6 +226,7 @@ pub fn build(model: &Model) -> ViewModel {
             markdown_dir: model.config.markdown_dir.clone(),
             week_numbering: model.config.week_numbering,
             logical_outdent: model.config.logical_outdent,
+            tags_dir: model.config.tags_dir.clone(),
             property_definitions: model.config.property_definitions.clone(),
             definition_error: model.config.definition_error.clone(),
         },

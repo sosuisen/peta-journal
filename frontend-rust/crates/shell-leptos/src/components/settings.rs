@@ -67,6 +67,17 @@ pub fn Settings() -> impl IntoView {
                     <p class="setting-description">"When outdenting, do not break parent-child relationships."</p>
                 </div>
                 <div class="setting-group">
+                    <label class="setting-label">"Tag pages directory"</label>
+                    <input
+                        type="text"
+                        class="setting-input"
+                        placeholder="tags/"
+                        prop:value=move || config.with(|c| c.tags_dir.clone())
+                        on:change=move |ev| core.send(Event::SetTagsDir(event_target_value(&ev)))
+                    />
+                    <p class="setting-description">"A hashtag such as #topic links to the page topic under this directory. Leave it empty to link to the pages root."</p>
+                </div>
+                <div class="setting-group">
                     <label class="setting-label">"Properties"</label>
                     <table class="property-definitions">
                         <thead>

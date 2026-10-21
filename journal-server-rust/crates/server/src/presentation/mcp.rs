@@ -269,6 +269,9 @@ pub struct UpdateConfigArgs {
     /// Logical outdent: move children with parent
     #[serde(rename = "logicalOutdent", default)]
     pub logical_outdent: Option<bool>,
+    /// Directory of the tag pages relative to the pages root, e.g. 'tags/' (empty for the root)
+    #[serde(rename = "tagsDir", default)]
+    pub tags_dir: Option<String>,
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -317,6 +320,7 @@ impl JournalMcp {
             "markdownDir": self.state.config.markdown_dir(),
             "weekNumbering": self.state.config.week_numbering(),
             "logicalOutdent": self.state.config.logical_outdent(),
+            "tagsDir": self.state.config.tags_dir(),
         })
     }
 
@@ -552,7 +556,7 @@ impl JournalMcp {
 
     // ---- config ----
 
-    #[tool(description = "Get server configuration (markdownDir, weekNumbering, logicalOutdent)")]
+    #[tool(description = "Get server configuration (markdownDir, weekNumbering, logicalOutdent, tagsDir)")]
     async fn get_config(&self) -> Result<CallToolResult, McpError> {
         ok(self.config_json())
     }
@@ -567,6 +571,9 @@ impl JournalMcp {
         }
         if let Some(l) = a.logical_outdent {
             self.state.config.set_logical_outdent(l);
+        }
+        if let Some(t) = &a.tags_dir {
+            self.state.config.set_tags_dir(t);
         }
         ok(self.config_json())
     }

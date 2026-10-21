@@ -144,20 +144,22 @@ pub fn ItemView(row: RwSignal<Row>) -> impl IntoView {
         }
     };
 
-    let options = RenderOptions {
+    // A hashtag links under the configured tag directory, so a tag page can live in its own
+    // folder (e.g. `tags/topic`) and a published site can keep the same relative paths.
+    let tags_dir = core.select(|v| v.config.tags_dir.clone());
+    let options = Memo::new(move |_| RenderOptions {
         wikilink_prefix: "/pages/".into(),
         wikilink_class: "wiki-link".into(),
-        hashtag_prefix: "/pages/".into(),
+        hashtag_prefix: format!("/pages/{}", tags_dir.get()),
         hashtag_class: "hashtag-link".into(),
-    };
+    });
 
     view! {
         <app-item-view>
             <TaskCheckbox row=row />
             <div node_ref=content class="item-content" on:mousedown=on_mousedown on:click=on_click>
                 {move || {
-                    let options = options.clone();
-                    view! { <FmRoot ast=ast.get() options=options /> }
+                    view! { <FmRoot ast=ast.get() options=options.get() /> }
                 }}
             </div>
         </app-item-view>

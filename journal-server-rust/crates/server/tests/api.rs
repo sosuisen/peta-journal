@@ -644,6 +644,14 @@ async fn health_and_config() {
     assert_eq!(status, 200);
     assert_eq!(resp["weekNumbering"], json!("iso"));
     assert_eq!(resp["logicalOutdent"], json!(false));
+    assert_eq!(resp["tagsDir"], json!(""));
+
+    // The tags directory is stored in the dirPath form, whatever the client typed
+    let (status, resp) = put("/api/config", json!({ "tagsDir": "/tags" })).await;
+    assert_eq!(status, 200);
+    assert_eq!(resp["tagsDir"], json!("tags/"));
+    let (_, resp) = put("/api/config", json!({ "tagsDir": "" })).await;
+    assert_eq!(resp["tagsDir"], json!(""));
 
     let (status, resp) = get("/api/config/property-definitions").await;
     assert_eq!(status, 200);

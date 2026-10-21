@@ -225,9 +225,11 @@ impl FakeApi {
             ApiOp::GetRecentPages { .. } | ApiOp::GetChildPages { .. } => {
                 ApiOutput::Pages(Vec::new())
             }
-            ApiOp::GetConfig | ApiOp::UpdateConfig { .. } => {
-                ApiOutput::Config(ServerConfig::default())
-            }
+            ApiOp::GetConfig => ApiOutput::Config(ServerConfig::default()),
+            ApiOp::UpdateConfig { tags_dir, .. } => ApiOutput::Config(ServerConfig {
+                tags_dir: tags_dir.clone().unwrap_or_default(),
+                ..ServerConfig::default()
+            }),
             ApiOp::GetPropertyDefinitions => ApiOutput::PropertyDefinitions(Vec::new()),
             ApiOp::AddPropertyDefinition { key, value_type } => {
                 ApiOutput::PropertyDefinitions(vec![PropertyDefinition {

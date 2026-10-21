@@ -25,6 +25,7 @@ struct ConfigResponse {
     markdown_dir: String,
     week_numbering: String,
     logical_outdent: bool,
+    tags_dir: String,
 }
 
 #[derive(Deserialize, Default)]
@@ -33,6 +34,7 @@ struct UpdateConfigRequest {
     markdown_dir: Option<String>,
     week_numbering: Option<String>,
     logical_outdent: Option<bool>,
+    tags_dir: Option<String>,
 }
 
 /// `propertyDefinitions` is the key -> type map older clients read; `definitions` adds the flags.
@@ -72,6 +74,7 @@ fn current(state: &SharedState) -> ConfigResponse {
         markdown_dir: state.config.markdown_dir(),
         week_numbering: state.config.week_numbering(),
         logical_outdent: state.config.logical_outdent(),
+        tags_dir: state.config.tags_dir(),
     }
 }
 
@@ -140,6 +143,9 @@ async fn update_config(State(state): State<SharedState>, Json(req): Json<UpdateC
         }
         if let Some(l) = req.logical_outdent {
             state.config.set_logical_outdent(l);
+        }
+        if let Some(t) = &req.tags_dir {
+            state.config.set_tags_dir(t);
         }
         Ok(Json(current(&state)))
     })
