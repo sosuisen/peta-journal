@@ -65,6 +65,10 @@ pub fn MainLayout() -> impl IntoView {
     let sidebar_width = RwSignal::new(load_sidebar_width());
     // The mouse listeners of a sidebar resize in progress
     let resize_listeners = DocumentListeners::new();
+    // The search input lives in a child, which cannot provide context to this layout, and a
+    // document listener runs with no reactive owner, so the ref is made and provided here
+    let search_input = SearchInput(NodeRef::<leptos::html::Input>::new());
+    provide_context(search_input);
 
     let connection = move || vm.with(|v| v.connection.as_str());
     let focused_item = move || vm.with(|v| v.outline.focused_item_id.clone());
@@ -82,10 +86,8 @@ pub fn MainLayout() -> impl IntoView {
                 .view()
                 .with_untracked(|v| v.outline.focused_item_id.is_some());
             let focus = || {
-                if let Some(SearchInput(input)) = use_context::<SearchInput>() {
-                    if let Some(el) = input.get_untracked() {
-                        let _ = el.focus();
-                    }
+                if let Some(el) = search_input.0.get_untracked() {
+                    let _ = el.focus();
                 }
             };
             if ev.ctrl_key() {

@@ -9,9 +9,8 @@ use peta_core::Event;
 #[component]
 pub fn SearchBar() -> impl IntoView {
     let core: CoreHandle = expect_context();
-    let input = NodeRef::<leptos::html::Input>::new();
+    let SearchInput(input) = expect_context();
     let search = core.select(|v| v.search.clone());
-    provide_context(SearchInput(input));
 
     // The query as the core has it (cleared after a navigation)
     Effect::new(move |_| {
@@ -110,6 +109,6 @@ pub fn SearchBar() -> impl IntoView {
     }
 }
 
-/// The search input, so the layout can focus it on Ctrl+/.
+/// The search input, made and provided by the layout so it can focus it on Ctrl+/.
 #[derive(Clone, Copy)]
 pub struct SearchInput(pub NodeRef<leptos::html::Input>);
