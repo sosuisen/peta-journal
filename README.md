@@ -46,8 +46,8 @@ Notes for Dropbox users:
 
 Step-by-step journeys (in Japanese): [docs/folder-sync-journeys.md](docs/folder-sync-journeys.md).
 
-Settings live in `journal-server/src/main/resources/application.properties`
-(`petajournal.import.*`).
+The import settings are flags of the journal server (`--import-enabled`, `--import-debounce-ms`,
+`--import-scan-interval`, `--import-delete-prompt-cooldown`); see [BUILD.md](BUILD.md).
 
 ## Build
 
