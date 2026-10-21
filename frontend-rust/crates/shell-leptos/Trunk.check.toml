@@ -14,3 +14,14 @@ backend = "http://localhost:8197/assets/"
 
 [watch]
 ignore = ["dist-check", "dist"]
+
+# Windows ARM64 only: install wasm-bindgen-cli matching Cargo.lock, since Trunk has no
+# prebuilt wasm-bindgen for that platform. No-op elsewhere (see scripts/sync-wasm-bindgen.ps1).
+[[hooks]]
+stage = "pre_build"
+command = "true"
+command_arguments = []
+
+[hooks.windows]
+command = "pwsh"
+command_arguments = ["-NoProfile", "-File", "scripts/sync-wasm-bindgen.ps1"]
