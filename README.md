@@ -7,7 +7,7 @@
 A headless, offline-first outliner on top of local Markdown files.
 
 
-# Features
+## Features
 
 PetaJournal is an open environment that loosely connects simple outliner, note-taking, task management, and knowledge tools around a local journal server.
 
@@ -22,7 +22,7 @@ PetaJournal is an open environment that loosely connects simple outliner, note-t
 - No data storage on central remote servers; distributed multi-device sync
 - End-to-end encryption
 
-# Markdown folder sync
+## Markdown folder sync
 
 The journal server keeps the database and the markdown folder in sync in both directions.
 
@@ -48,3 +48,11 @@ Step-by-step journeys (in Japanese): [docs/folder-sync-journeys.md](docs/folder-
 
 Settings live in `journal-server/src/main/resources/application.properties`
 (`petajournal.import.*`).
+
+## Build
+
+### Windows ARM64
+
+Install "C++ Clang Compiler for Windows" and "MSBuild support for LLVM(clang-cl) toolset" by Visual Studio Installer.
+
+Execute `cargo` command on Developer PowerShell for VS.
