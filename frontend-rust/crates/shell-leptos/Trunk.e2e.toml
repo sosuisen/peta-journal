@@ -1,5 +1,5 @@
 # `trunk serve --config Trunk.e2e.toml`: the dev server in front of the journal server the
-# end-to-end tests start on port 8187 (see frontend/playwright.config.ts).
+# end-to-end tests start on port 8187 (see e2e/playwright.config.ts).
 [build]
 target = "index.html"
 dist = "dist-e2e"

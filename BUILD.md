@@ -176,13 +176,14 @@ cd peta-journal/frontend-rust
 cargo test                  # core (the ported service specs), fm-ast and fm-leptos
 ```
 
-The Playwright suite drives the Rust frontend with `PETA_JOURNAL_FRONTEND=rust` (trunk serves
-it on port 4300 with `Trunk.e2e.toml`); combine with `PETA_JOURNAL_SERVER=rust` for the Rust server:
+The Playwright suite in `e2e/` drives the Rust server and the Rust frontend (trunk serves it on
+port 4300 with `Trunk.e2e.toml`). Build the server first with `cargo build --release` in
+`journal-server-rust`, and install trunk with `cargo install trunk`:
 
-```powershell
-cd peta-journal/frontend
-$env:PETA_JOURNAL_FRONTEND = "rust"; $env:PETA_JOURNAL_SERVER = "rust"; npm run e2e      # PowerShell
-PETA_JOURNAL_FRONTEND=rust PETA_JOURNAL_SERVER=rust npm run e2e                          # bash
+```bash
+cd peta-journal/e2e
+npm install
+npm run e2e
 ```
 
 ## Development Workflow
