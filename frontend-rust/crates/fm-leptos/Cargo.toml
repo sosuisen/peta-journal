@@ -8,6 +8,7 @@ description = "Leptos renderer for the Flat Markdown AST, matching flatmarkdown-
 [dependencies]
 fm-ast = { path = "../fm-ast" }
 leptos = { version = "0.8", features = ["csr"] }
+serde_json = { workspace = true }
 
 [dev-dependencies]
 # `ssr` adds `to_html()` so the host tests can compare rendered HTML strings.

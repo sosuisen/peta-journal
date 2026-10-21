@@ -148,6 +148,30 @@ fn link_and_image() {
 }
 
 #[test]
+fn embed_width_and_height() {
+    // Both sizes.
+    assert_eq!(
+        render_plain("![alt](img.png#w=300&h=240)"),
+        "<p><img src=\"img.png\" alt=\"alt\" width=\"300\" height=\"240\"></p>"
+    );
+    // Width only: the height follows the aspect ratio.
+    assert_eq!(
+        render_plain("![alt](img.png#w=300)"),
+        "<p><img src=\"img.png\" alt=\"alt\" width=\"300\"></p>"
+    );
+    // Height only.
+    assert_eq!(
+        render_plain("![alt](img.png#h=240)"),
+        "<p><img src=\"img.png\" alt=\"alt\" height=\"240\"></p>"
+    );
+    // A bare flag or a non-numeric value is not a size.
+    assert_eq!(
+        render_plain("![alt](img.png#w&h=big)"),
+        "<p><img src=\"img.png\" alt=\"alt\"></p>"
+    );
+}
+
+#[test]
 fn wikilink_and_hashtag() {
     assert_eq!(
         render_md("see [[Other Page]] and #topic", &page_options()),

@@ -813,6 +813,7 @@ dependencies = [
  "flatmarkdown",
  "fm-ast",
  "leptos",
+ "serde_json",
 ]
 
 [[package]]

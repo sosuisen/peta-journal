@@ -4,8 +4,11 @@
 //! one element per node, with the same class names and ids, so the existing stylesheet applies.
 //! Wikilinks and hashtags are plain `<a href>` elements; the host intercepts their clicks.
 
+use std::collections::BTreeMap;
+
 use fm_ast::{extract_text, Node};
 use leptos::prelude::*;
+use serde_json::Value;
 
 /// Link targets and classes for wikilinks and hashtags.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -68,6 +71,21 @@ fn children(nodes: &[Node], ctx: Context<'_>) -> Vec<AnyView> {
 /// `Some(value)` for a non-empty string, used for attributes Angular binds to `x || null`.
 fn non_empty(value: &str) -> Option<String> {
     (!value.is_empty()).then(|| value.to_owned())
+}
+
+/// Pixel size from an embed prop (`w` / `h` of `![alt](img.png#w=300&h=240)`).
+///
+/// `None` unless the value is a positive integer: a bare flag (`#w`) arrives as `true`,
+/// and a non-numeric value would make the browser ignore the attribute anyway, so the
+/// `<img>` keeps its natural size on that axis.
+fn dimension(props: &BTreeMap<String, Value>, key: &str) -> Option<String> {
+    let value = props.get(key)?;
+    let px = match value {
+        Value::Number(n) => n.as_u64()?,
+        Value::String(s) => s.trim().parse::<u64>().ok()?,
+        _ => return None,
+    };
+    (px > 0).then(|| px.to_string())
 }
 
 fn render(node: &Node, ctx: Context<'_>) -> AnyView {
@@ -301,10 +319,21 @@ fn render(node: &Node, ctx: Context<'_>) -> AnyView {
             view! { <a href=url.clone() title=title>{children(kids, ctx)}</a> }.into_any()
         }
 
-        Node::Image { url, title, .. } | Node::Embed { url, title, .. } => {
+        Node::Image { url, title, .. } => {
             let alt = extract_text(node);
             let title = non_empty(title);
             view! { <img src=url.clone() alt=alt title=title /> }.into_any()
+        }
+
+        Node::Embed {
+            url, title, props, ..
+        } => {
+            let alt = extract_text(node);
+            let title = non_empty(title);
+            let width = dimension(props, "w");
+            let height = dimension(props, "h");
+            view! { <img src=url.clone() alt=alt title=title width=width height=height /> }
+                .into_any()
         }
 
         Node::Wikilink {
