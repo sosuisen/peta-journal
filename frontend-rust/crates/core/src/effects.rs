@@ -106,6 +106,10 @@ pub enum ApiOp {
         key: String,
         value_type: String,
     },
+    /// Removes a user key with all its values; answers with the whole definition list.
+    DeletePropertyDefinition {
+        key: String,
+    },
     UpdateConfig {
         markdown_dir: Option<String>,
         week_numbering: Option<String>,
@@ -645,6 +649,13 @@ impl<Event: Send + 'static> Api<Event> {
     pub async fn get_property_definitions(&self) -> ApiResult<Vec<PropertyDefinition>> {
         expect_output!(
             self.call(ApiOp::GetPropertyDefinitions).await,
+            PropertyDefinitions
+        )
+    }
+
+    pub async fn delete_property_definition(&self, key: &str) -> ApiResult<Vec<PropertyDefinition>> {
+        expect_output!(
+            self.call(ApiOp::DeletePropertyDefinition { key: key.into() }).await,
             PropertyDefinitions
         )
     }

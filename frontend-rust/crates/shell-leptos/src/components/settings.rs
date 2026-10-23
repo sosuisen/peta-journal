@@ -105,21 +105,47 @@ pub fn Settings() -> impl IntoView {
                         <button type="submit" class="browse-btn">"Add"</button>
                     </form>
                     {move || definition_error.get().map(|e| view! { <p class="setting-error">{e}</p> })}
-                    <p class="setting-description">"System keys are managed by the app and cannot be defined again. A key can be used on items and, when marked, on pages."</p>
+                    <p class="setting-description">"System keys are managed by the app and cannot be defined again. A key can be used on items and, when marked, on pages. Deleting a key removes its values from every page and item."</p>
                 </div>
             </div>
         </app-settings>
     }
 }
 
-/// One definition: a system key is marked as such instead of offering any control.
+/// One definition: a system key is marked as such instead of offering any control. A user
+/// key has a Delete button that asks once more in place, since the values go with the key.
 fn definition_row(d: PropertyDefinition) -> impl IntoView {
+    let core: CoreHandle = expect_context();
+    let confirming = RwSignal::new(false);
+    let key = d.key.clone();
+    let control = if d.system {
+        view! { <span>"system"</span> }.into_any()
+    } else {
+        view! {
+            <Show when=move || confirming.get() fallback=move || view! {
+                <button class="definition-delete" on:click=move |_| confirming.set(true)>"Delete"</button>
+            }>
+                <span class="definition-confirm">
+                    "Delete with all values?"
+                    <button class="definition-delete confirm" on:click={
+                        let key = key.clone();
+                        move |_| {
+                            confirming.set(false);
+                            core.send(Event::DeletePropertyDefinition { key: key.clone() });
+                        }
+                    }>"Yes"</button>
+                    <button class="definition-delete" on:click=move |_| confirming.set(false)>"No"</button>
+                </span>
+            </Show>
+        }
+        .into_any()
+    };
     view! {
         <tr class:system-key=d.system>
             <td>{d.key.clone()}</td>
             <td>{d.value_type.clone()}</td>
             <td>{if d.page { "yes" } else { "" }}</td>
-            <td class="definition-note">{if d.system { "system" } else { "" }}</td>
+            <td class="definition-note">{control}</td>
         </tr>
     }
 }

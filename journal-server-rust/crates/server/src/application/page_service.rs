@@ -303,6 +303,21 @@ impl PageService {
         self.touch_and_export(&page)
     }
 
+    /// Removes a user property key everywhere. Every page that lost a value, on itself or
+    /// on one of its items, gets a new modified date and its file rewritten; their ids come
+    /// back so the caller can tell the clients.
+    pub fn delete_property_definition(&self, key: &str) -> AppResult<Vec<Hmtid>> {
+        let mut touched = Vec::new();
+        for id in self.properties.delete_definition(key)? {
+            let Ok(page_id) = Hmtid::parse(&id) else { continue };
+            if let Some(page) = self.pages.find_by_id(&page_id)? {
+                self.touch_and_export(&page)?;
+                touched.push(page_id);
+            }
+        }
+        Ok(touched)
+    }
+
     fn touch_and_export(&self, page: &Page) -> AppResult<Page> {
         let updated = self.pages.save(&Page {
             modified_date: now_millis(),

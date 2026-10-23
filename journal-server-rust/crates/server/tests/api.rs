@@ -875,3 +875,38 @@ async fn the_children_of_an_index_page_carry_their_scalar_properties() {
     let recent = resp["pages"].as_array().unwrap().iter().find(|p| p["id"] == page_id).unwrap();
     assert_eq!(recent["properties"]["published"], json!("2026-10-20T09:00:00Z"));
 }
+
+#[tokio::test]
+async fn deleting_a_property_definition_removes_its_values_from_pages_and_items() {
+    let page = new_doc_page("definition-delete").await;
+    let item = fill(&page.id, &["rated"]).await.remove(0);
+    let (status, resp) = put(
+        &format!("/api/items/{}/properties/rating", item.id),
+        json!({ "valueType": "number", "value": "5" }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+    let (status, resp) = put(
+        &format!("/api/pages/{}/properties/rating", page.id),
+        json!({ "valueType": "number", "value": "3" }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+    assert_eq!(resp["page"]["properties"]["rating"], json!("3"));
+    let modified_before = resp["page"]["modifiedDate"].as_i64().unwrap();
+
+    let (status, resp) = send(reqwest::Method::DELETE, "/api/config/property-definitions/rating", None).await;
+    assert_eq!(status, 200, "{resp}");
+    assert!(definition(&resp, "rating").is_none(), "{resp}");
+
+    assert!(items(&page.id).await[0].properties.get("rating").is_none());
+    let (_, resp) = get(&format!("/api/pages/{}", page.id)).await;
+    assert!(resp["page"]["properties"].get("rating").is_none(), "{resp}");
+    assert!(resp["page"]["modifiedDate"].as_i64().unwrap() >= modified_before);
+
+    // System keys and unknown keys are refused
+    let (status, _) = send(reqwest::Method::DELETE, "/api/config/property-definitions/tag", None).await;
+    assert_eq!(status, 400);
+    let (status, _) = send(reqwest::Method::DELETE, "/api/config/property-definitions/rating", None).await;
+    assert_eq!(status, 400);
+}

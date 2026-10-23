@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
-use axum::extract::State;
-use axum::routing::{get, post};
+use axum::extract::{Path, State};
+use axum::routing::{delete, get, post};
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 
@@ -16,6 +16,7 @@ pub fn routes() -> Router<SharedState> {
             "/api/config/property-definitions",
             get(property_definitions).post(add_property_definition),
         )
+        .route("/api/config/property-definitions/{key}", delete(delete_property_definition))
         .route("/api/config/browse-folder", post(browse_folder))
 }
 
@@ -115,6 +116,21 @@ async fn add_property_definition(
             req.value_type.as_deref().unwrap_or("text"),
             req.page.unwrap_or(true),
         )?;
+        Ok(Json(definitions_response(&state)?))
+    })
+    .await
+}
+
+/// Removes a user key with all its values. The pages that lost a value are announced over
+/// SSE, so an open page drops the property without a reload.
+async fn delete_property_definition(
+    State(state): State<SharedState>,
+    Path(key): Path<String>,
+) -> AppResult<Json<PropertyDefinitionsResponse>> {
+    blocking(move || {
+        for page_id in state.page_service.delete_property_definition(&key)? {
+            state.sse.broadcast_pages_updated(page_id.as_str());
+        }
         Ok(Json(definitions_response(&state)?))
     })
     .await

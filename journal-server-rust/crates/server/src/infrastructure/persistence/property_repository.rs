@@ -167,6 +167,38 @@ impl PropertyRepository {
         Ok(())
     }
 
+    /// Removes a user key with every value set under it, on items and pages alike, and
+    /// answers with the ids of the pages that lost a value: their own, or one of their
+    /// items' values. A system key and an unknown key are refused.
+    pub fn delete_definition(&self, key: &str) -> AppResult<Vec<String>> {
+        match self.find_definition(key)? {
+            None => return Err(AppError::bad_request(format!("Property key '{key}' is not defined"))),
+            Some(def) if def.system => {
+                return Err(AppError::bad_request(format!("Property key '{key}' is a system key")))
+            }
+            Some(_) => {}
+        }
+        let mut conn = self.db.conn()?;
+        let tx = conn.immediate()?;
+        let page_ids: Vec<String> = {
+            let mut stmt = tx.prepare(
+                "SELECT target_id FROM properties WHERE key = ?1 AND target_type = 'page'
+                 UNION SELECT target_id FROM property_list_items WHERE key = ?1 AND target_type = 'page'
+                 UNION SELECT i.page_id FROM properties p JOIN items i ON p.target_id = i.id
+                       WHERE p.key = ?1 AND p.target_type = 'item'
+                 UNION SELECT i.page_id FROM property_list_items p JOIN items i ON p.target_id = i.id
+                       WHERE p.key = ?1 AND p.target_type = 'item'",
+            )?;
+            let rows = stmt.query_map(params![key], |r| r.get::<_, String>(0))?;
+            rows.collect::<Result<_, _>>()?
+        };
+        tx.execute("DELETE FROM properties WHERE key = ?", params![key])?;
+        tx.execute("DELETE FROM property_list_items WHERE key = ?", params![key])?;
+        tx.execute("DELETE FROM property_definitions WHERE key = ?", params![key])?;
+        tx.commit()?;
+        Ok(page_ids)
+    }
+
     /// Inserts or replaces a scalar property, creating its definition if needed.
     pub fn upsert_scalar(
         &self,

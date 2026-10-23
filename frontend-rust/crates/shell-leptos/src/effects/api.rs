@@ -329,6 +329,15 @@ async fn call(handle: &CoreHandle, op: ApiOp) -> ApiResult<ApiOutput> {
             .await?;
             ApiOutput::PropertyDefinitions(env.definitions)
         }
+        ApiOp::DeletePropertyDefinition { key } => {
+            let env: PropertyDefinitions = send_json(
+                "DELETE",
+                &format!("/api/config/property-definitions/{}", enc(&key)),
+                None,
+            )
+            .await?;
+            ApiOutput::PropertyDefinitions(env.definitions)
+        }
         ApiOp::UpdateConfig {
             markdown_dir,
             week_numbering,

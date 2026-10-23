@@ -271,6 +271,9 @@ pub enum Event {
         key: String,
         value_type: String,
     },
+    DeletePropertyDefinition {
+        key: String,
+    },
 
     // ---- extensions and links ----
     ExtensionCreateItem {
@@ -737,6 +740,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         AddPropertyDefinition { key, value_type } => {
             screens::settings::add_property_definition(model, key, value_type)
         }
+        DeletePropertyDefinition { key } => screens::settings::delete_property_definition(model, key),
 
         ExtensionCreateItem {
             source,

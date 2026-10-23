@@ -171,7 +171,11 @@ app-search-bar { display: block; flex: 1; max-width: 350px; }
 .property-definitions th { text-align: left; font-weight: 500; color: #666; padding: 4px 8px; border-bottom: 1px solid #ddd; }
 .property-definitions td { padding: 4px 8px; border-bottom: 1px solid #eee; }
 .property-definitions tr.system-key td { color: #888; }
-.property-definitions .definition-note { font-size: 11px; text-align: right; }
+.property-definitions .definition-note { font-size: 11px; text-align: right; white-space: nowrap; }
+.definition-delete { background: none; border: 1px solid #ccc; border-radius: 3px; padding: 1px 6px; font-size: 11px; cursor: pointer; color: #666; margin-left: 4px; }
+.definition-delete:hover { background: #f0f0f0; }
+.definition-delete.confirm { color: #c00; border-color: #c00; }
+.definition-confirm { color: #c00; }
 .property-definition-form { display: flex; gap: 6px; }
 .property-definition-form .setting-input { flex: 1; }
 .property-definition-form .setting-select { width: 120px; }

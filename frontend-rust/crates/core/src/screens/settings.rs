@@ -54,6 +54,24 @@ pub fn add_property_definition(model: &mut Model, key: String, value_type: Strin
     })
 }
 
+/// Removes a user key with all its values. The server answers with the remaining list, or
+/// with the reason it was refused (a system key, an unknown key).
+pub fn delete_property_definition(model: &mut Model, key: String) -> Cmd {
+    model.config.definition_error = None;
+    run(move |api| async move {
+        match api.delete_property_definition(&key).await {
+            Ok(defs) => apply(&api, "property definition deleted", move |m| {
+                m.config.property_definitions = defs;
+                done()
+            }),
+            Err(e) => apply(&api, "property definition delete refused", move |m| {
+                m.config.definition_error = Some(e.0);
+                done()
+            }),
+        }
+    })
+}
+
 pub fn set_week_numbering(model: &mut Model, value: WeekNumbering) -> Cmd {
     model.config.week_numbering = value;
     run(move |api| async move {

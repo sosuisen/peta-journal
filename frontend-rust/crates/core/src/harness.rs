@@ -61,6 +61,7 @@ pub fn op_name(op: &ApiOp) -> &'static str {
         ApiOp::DeletePageProperty { .. } => "DeletePageProperty",
         ApiOp::GetConfig => "GetConfig",
         ApiOp::GetPropertyDefinitions => "GetPropertyDefinitions",
+        ApiOp::DeletePropertyDefinition { .. } => "DeletePropertyDefinition",
         ApiOp::AddPropertyDefinition { .. } => "AddPropertyDefinition",
         ApiOp::UpdateConfig { .. } => "UpdateConfig",
         ApiOp::BrowseFolder => "BrowseFolder",
@@ -230,7 +231,9 @@ impl FakeApi {
                 tags_dir: tags_dir.clone().unwrap_or_default(),
                 ..ServerConfig::default()
             }),
-            ApiOp::GetPropertyDefinitions => ApiOutput::PropertyDefinitions(Vec::new()),
+            ApiOp::GetPropertyDefinitions | ApiOp::DeletePropertyDefinition { .. } => {
+                ApiOutput::PropertyDefinitions(Vec::new())
+            }
             ApiOp::AddPropertyDefinition { key, value_type } => {
                 ApiOutput::PropertyDefinitions(vec![PropertyDefinition {
                     key: key.clone(),
