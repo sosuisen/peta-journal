@@ -216,6 +216,39 @@ async fn a_transclusion_shows_the_source_tree_with_the_page() {
     assert!(items(&page.id).await[0].transclude_item_id.is_none());
 }
 
+#[tokio::test]
+async fn editing_a_source_item_updates_the_stored_copy_in_its_transcluders() {
+    let source_page = new_doc_page("items-transclusion-edit-source").await;
+    let source = fill(&source_page.id, &["before"]).await.remove(0);
+    let page = new_doc_page("items-transclusion-edit").await;
+    let host = fill(&page.id, &["placeholder"]).await.remove(0);
+    let (status, resp) = post(
+        &format!("/api/items/{}/transclude", host.id),
+        json!({ "sourceItemId": source.id }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    update_item(&source.id, json!({ "body": "after" })).await;
+
+    // The exported file of the host page is built from the stored copy, not from the source
+    assert_eq!(items(&page.id).await[0].body, "after");
+    let exported: Value = client()
+        .post(url("/api/items/export-page"))
+        .query(&[("pageId", page.id.as_str())])
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert!(
+        exported["flatMarkdown"].as_str().unwrap().contains("after"),
+        "{}",
+        exported["flatMarkdown"]
+    );
+}
+
 // ---- Pages ----
 
 #[tokio::test]

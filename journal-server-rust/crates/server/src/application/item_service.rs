@@ -200,7 +200,29 @@ impl ItemService {
             }
         }
         self.export.queue_export(&existing.page_id);
+        if new_body.is_some() {
+            self.sync_transcluders(&updated)?;
+        }
         Ok(updated)
+    }
+
+    /// Copies the body of a changed source item into every item that transcludes it, and
+    /// queues their pages for export. The UI resolves the source at read time, but the
+    /// exported Markdown is built from the stored copy, so the copy must follow the source.
+    fn sync_transcluders(&self, source: &Item) -> AppResult<()> {
+        for transcluder in self.items.find_transcluders(&source.id)? {
+            if transcluder.body != source.body {
+                self.items.save(&Item {
+                    modified_date: now_millis(),
+                    body: source.body.clone(),
+                    ast: source.ast.clone(),
+                    ..transcluder.clone()
+                })?;
+            }
+            self.touch_page(&transcluder.page_id)?;
+            self.export.queue_export(&transcluder.page_id);
+        }
+        Ok(())
     }
 
     /// Adds delta to the level of every given item in one step.
@@ -294,6 +316,9 @@ impl ItemService {
     /// Deletes an item together with its properties and removes it from the search index.
     pub fn delete_item(&self, item_id: &Hmtid) -> AppResult<()> {
         let item = self.items.find_by_id(item_id)?;
+        // Deleting the source clears `transclude_item_id` on these items (FK ON DELETE SET
+        // NULL), so their files must be rewritten without the transclude attribute
+        let transcluders = self.items.find_transcluders(item_id)?;
         self.items.delete(item_id)?;
         self.search.remove_item(item_id.as_str());
         self.properties
@@ -302,6 +327,10 @@ impl ItemService {
             self.items.recalculate_parent_ids(&b.page_id)?;
             self.touch_page(&b.page_id)?;
             self.export.queue_export(&b.page_id);
+        }
+        for t in transcluders {
+            self.touch_page(&t.page_id)?;
+            self.export.queue_export(&t.page_id);
         }
         Ok(())
     }
