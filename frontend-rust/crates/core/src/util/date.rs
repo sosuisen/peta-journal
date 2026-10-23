@@ -105,6 +105,46 @@ pub fn format_instant(millis: i64) -> String {
     format!("{}T{h:02}:{m:02}:{s:02}{fraction}Z", date.iso())
 }
 
+/// Epoch millis of an RFC 3339 instant such as `2026-01-02T03:04:05Z`,
+/// `2026-01-02T03:04:05.123+09:00` or `2026-01-02T03:04+09:00`. A bare date counts as its
+/// midnight UTC. None for anything else.
+pub fn parse_rfc3339_millis(s: &str) -> Option<i64> {
+    let s = s.trim();
+    let date = Date::parse(s.get(0..10)?)?;
+    let day_millis = date.to_days() * 86_400_000;
+    let rest = &s[10..];
+    if rest.is_empty() {
+        return Some(day_millis);
+    }
+    let rest = rest.strip_prefix(['T', 't', ' '])?;
+    let pos = rest.rfind(['Z', 'z', '+', '-'])?;
+    let offset = &rest[pos..];
+    let offset_millis = if offset.eq_ignore_ascii_case("Z") {
+        0
+    } else {
+        let sign = if offset.starts_with('-') { -1 } else { 1 };
+        let (h, m) = offset[1..].split_once(':')?;
+        sign * (h.parse::<i64>().ok()? * 60 + m.parse::<i64>().ok()?) * 60_000
+    };
+    let clock = &rest[..pos];
+    let (clock, fraction) = clock.split_once('.').unwrap_or((clock, ""));
+    let mut parts = clock.split(':');
+    let h: i64 = parts.next()?.parse().ok()?;
+    let m: i64 = parts.next()?.parse().ok()?;
+    let sec: i64 = parts.next().map(|p| p.parse().ok()).unwrap_or(Some(0))?;
+    if parts.next().is_some() || h > 23 || m > 59 || sec > 60 {
+        return None;
+    }
+    let millis = if fraction.is_empty() {
+        0
+    } else {
+        // Keep three digits: `.1` is 100 ms and `.123456` is 123 ms
+        let digits: String = fraction.chars().chain("00".chars()).take(3).collect();
+        digits.parse::<i64>().ok()?
+    };
+    Some(day_millis + ((h * 60 + m) * 60 + sec) * 1000 + millis - offset_millis)
+}
+
 pub fn is_leap_year(year: i32) -> bool {
     (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
 }
@@ -186,6 +226,17 @@ pub fn generate_untitled_title(now: LocalDateTime) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn rfc3339_instants_parse_to_the_millis_the_server_formats() {
+        assert_eq!(parse_rfc3339_millis("2020-01-02T03:04:05Z"), Some(1_577_934_245_000));
+        assert_eq!(parse_rfc3339_millis("2020-01-02T03:04:05.123Z"), Some(1_577_934_245_123));
+        assert_eq!(parse_rfc3339_millis("2020-01-02T12:04:05+09:00"), Some(1_577_934_245_000));
+        assert_eq!(parse_rfc3339_millis("2020-01-02T03:04Z"), Some(1_577_934_240_000));
+        assert_eq!(parse_rfc3339_millis("2020-01-02"), Some(1_577_923_200_000));
+        assert_eq!(parse_rfc3339_millis("2020-01-02T03:04:05"), None);
+        assert_eq!(parse_rfc3339_millis("yesterday"), None);
+    }
 
     #[test]
     fn instants_are_formatted_like_the_server_writes_them() {

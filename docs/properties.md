@@ -31,8 +31,9 @@
 | `id` | text | 使えない | ページファイルのfrontmatter |
 | `created` | datetime | 使える | ページの作成日時。`pages.created_date` そのもので、ページのプロパティとして編集できる |
 | `modified` | datetime | 使える | ページの更新日時。`pages.modified_date` そのもので、ページのプロパティとして編集できる |
+| `published` | datetime | 使える | ユーザー。ページを公開した日時。左カラムのページ一覧はこの値で並び替えられる。無いページは `modified` で代用する |
 
-システム管理キーはサーバー起動時に `migrate_definition_flags` が必ずフラグを立てる。
+システム管理キーはサーバー起動時に `migrate_definition_flags` が必ずフラグを立てる。ユーザーが別の型で定義していたキーが後からシステム管理キーになったときは、型も予約された型に書き換える。
 
 ユーザー定義キーは `for_page` が既定で1になる。
 
@@ -76,7 +77,7 @@
   - 未定義のキーは、その型でユーザー定義キーとして作られる。
 - `DELETE /api/pages/{id}/properties/{key}`: `created` と `modified` は消せない（400）。
 
-どちらも更新後のページを `{ page }` で返す。`page.properties` にスカラー値とリスト値が入る。ページ一覧を返すAPI（recent、children、backlinks）では `properties` は空である。
+どちらも更新後のページを `{ page }` で返す。`page.properties` にスカラー値とリスト値が入る。ページ一覧を返すAPIのうち backlinks では `properties` は空である。recent と children はスカラー値だけを入れて返す。左カラムのページ一覧が `published` で並び替え、`published` のあるページのアイコンを塗りつぶすためである。
 
 ### ファイルへの書き出し
 

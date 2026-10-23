@@ -1,7 +1,7 @@
 //! The view model: what the shell shows, computed from the model after every event.
 
 use crate::app::{ConnectionState, Model, Screen};
-use crate::model::{Item, ItemRef, Page, PropertyDefinition, SearchResult, WeekNumbering};
+use crate::model::{IndexSort, Item, ItemRef, Page, PropertyDefinition, SearchResult, WeekNumbering};
 use crate::ops::wiki;
 use crate::outline::tree::starts_date_group;
 use crate::outline::{FocusRequest, Heading};
@@ -166,6 +166,8 @@ pub enum ScreenView {
 pub struct SidebarPage {
     pub page: Page,
     pub label: String,
+    /// True when the page has a `published` property; its icon is filled.
+    pub published: bool,
     /// The directory shown small above `label`, when the page has one.
     pub dir_label: Option<String>,
     pub path: String,
@@ -174,6 +176,7 @@ pub struct SidebarPage {
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct SidebarView {
     pub index_header: String,
+    pub index_sort: IndexSort,
     pub index_pages: Vec<SidebarPage>,
     pub headings: Vec<Heading>,
     pub recent_pages: Vec<SidebarPage>,
@@ -350,17 +353,18 @@ fn sidebar(model: &Model) -> SidebarView {
         Some(p) if p.page_type == "doc" => model.state.headings(),
         _ => Vec::new(),
     };
+    let index_sort = sidebar::index_sort(model);
     SidebarView {
         index_header: model.sidebar.index_header.clone(),
-        index_pages: model
-            .sidebar
-            .index_pages
-            .iter()
+        index_sort,
+        index_pages: sidebar::sorted_index_pages(&model.sidebar.index_pages, index_sort)
+            .into_iter()
             .map(|p| SidebarPage {
-                label: sidebar::index_page_name(p),
+                label: sidebar::index_page_name(&p),
+                published: sidebar::is_published(&p),
                 dir_label: None,
                 path: format!("{}{}", p.dir_path, p.name),
-                page: p.clone(),
+                page: p,
             })
             .collect(),
         headings,
@@ -371,6 +375,7 @@ fn sidebar(model: &Model) -> SidebarView {
                 let (dir_label, label) = sidebar::recent_page_label(p);
                 SidebarPage {
                     label,
+                    published: sidebar::is_published(p),
                     dir_label,
                     path: format!("{}{}", p.dir_path, p.name),
                     page: p.clone(),

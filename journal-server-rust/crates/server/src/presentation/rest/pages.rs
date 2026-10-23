@@ -7,7 +7,8 @@ use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 
 use crate::error::{parse_id, AppError, AppResult};
-use crate::presentation::dto::{backlink_dto, page_dto, BacklinkEntryDto, ItemDto, PageDto};
+use crate::domain::model::Page;
+use crate::presentation::dto::{backlink_dto, page_dto_with, BacklinkEntryDto, ItemDto, PageDto};
 use crate::state::{blocking, SharedState};
 
 pub fn routes() -> Router<SharedState> {
@@ -186,9 +187,7 @@ async fn get_recent(State(state): State<SharedState>, Query(q): Query<RecentQuer
         let pages = state
             .page_service
             .get_recent_pages(q.max_results.unwrap_or(10), page_type.as_deref())?;
-        Ok(Json(PagesResponse {
-            pages: pages.iter().map(page_dto).collect(),
-        }))
+        Ok(Json(pages_with_scalars(&state, &pages)?))
     })
     .await
 }
@@ -208,9 +207,20 @@ async fn get_children(State(state): State<SharedState>, Path(id): Path<String>) 
     let page_id = parse_id(&id)?;
     blocking(move || {
         let pages = state.pages.find_by_parent_id(&page_id)?;
-        Ok(Json(PagesResponse {
-            pages: pages.iter().map(page_dto).collect(),
-        }))
+        Ok(Json(pages_with_scalars(&state, &pages)?))
     })
     .await
+}
+
+/// The sidebar sorts pages by `published` and marks the published ones, so the page lists
+/// carry the scalar properties. The list properties stay out: nothing reads them there.
+fn pages_with_scalars(state: &SharedState, pages: &[Page]) -> AppResult<PagesResponse> {
+    let ids: Vec<String> = pages.iter().map(|p| p.id.to_string()).collect();
+    let scalars = state.properties.find_scalar_by_targets("page", &ids)?;
+    Ok(PagesResponse {
+        pages: pages
+            .iter()
+            .map(|p| page_dto_with(p, scalars.get(&p.id.to_string()), None))
+            .collect(),
+    })
 }

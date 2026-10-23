@@ -132,8 +132,9 @@ fn run(conn: &Connection, ids: &IdGenerator) -> rusqlite::Result<()> {
 
 /// The keys the app reserves, with their types, and whether they can be set on a page. The
 /// task dates and times and the zoom are item-only; `created` and `modified` are the page's
-/// own dates, which a page property write changes in place.
-pub const SYSTEM_KEYS: [(&str, &str, bool); 10] = [
+/// own dates, which a page property write changes in place; `published` is the date-time
+/// the user publishes a page at, which the sidebar can sort pages by.
+pub const SYSTEM_KEYS: [(&str, &str, bool); 11] = [
     ("tag", "tags", true),
     ("begin", "datetime", false),
     ("end", "datetime", false),
@@ -144,10 +145,12 @@ pub const SYSTEM_KEYS: [(&str, &str, bool); 10] = [
     ("id", "text", false),
     ("created", "datetime", true),
     ("modified", "datetime", true),
+    ("published", "datetime", true),
 ];
 
 /// Adds the `is_system` and `for_page` flags to the property definitions and marks the
-/// system keys. Runs on every start, so a key that became a system key is flagged too.
+/// system keys. Runs on every start, so a key that became a system key is flagged too, and
+/// gets the reserved type even when a user had defined it with another one.
 fn migrate_definition_flags(conn: &Connection) -> rusqlite::Result<()> {
     if !has_column(conn, "property_definitions", "is_system")? {
         tracing::info!("Adding is_system and for_page flags to property_definitions...");
@@ -162,8 +165,8 @@ fn migrate_definition_flags(conn: &Connection) -> rusqlite::Result<()> {
             rusqlite::params![key, value_type, for_page as i64],
         )?;
         conn.execute(
-            "UPDATE property_definitions SET is_system = 1, for_page = ? WHERE key = ?",
-            rusqlite::params![for_page as i64, key],
+            "UPDATE property_definitions SET is_system = 1, for_page = ?, value_type = ? WHERE key = ?",
+            rusqlite::params![for_page as i64, value_type, key],
         )?;
     }
     Ok(())

@@ -76,6 +76,15 @@ app-sidebar nav.sidebar {
 .section-header .section-title { flex: 1; margin-bottom: 0; }
 .collapse-btn { background: none; border: none; cursor: pointer; padding: 4px 6px; border-radius: 4px; display: flex; align-items: center; opacity: 0.6; }
 .collapse-btn:hover { opacity: 1; background: #e0e2e5; }
+.index-sort { position: relative; display: flex; }
+.index-sort-menu {
+  position: absolute; right: 0; top: 100%; background: white; border: 1px solid #ddd; border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 1000; display: flex; flex-direction: column; min-width: 130px; padding: 4px 0;
+}
+.index-sort-item { display: flex; align-items: center; gap: 6px; background: none; border: none; padding: 5px 12px 5px 8px; text-align: left; cursor: pointer; font-size: 13px; white-space: nowrap; }
+.index-sort-item:hover { background: #f0f0f0; }
+.index-sort-item.current { font-weight: 600; }
+.index-sort-check { width: 12px; color: #007bff; font-size: 11px; }
 .contents-item { padding: 3px 12px; cursor: pointer; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .contents-item:hover { background: #e9ecef; }
 .contents-h1 { font-size: 13px; font-weight: 600; }

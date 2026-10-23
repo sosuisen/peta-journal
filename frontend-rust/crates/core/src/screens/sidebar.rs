@@ -2,7 +2,7 @@
 //! pages and the index (sibling) pages of the current doc page.
 
 use crate::app::{apply, done, log_error, run, Cmd, Model};
-use crate::model::Page;
+use crate::model::{IndexSort, IndexSortKey, Page, SortOrder};
 
 /// Reloads the ten most recent doc pages.
 pub fn refresh_recent_pages() -> Cmd {
@@ -75,6 +75,56 @@ pub fn load_index_pages(model: &mut Model) -> Cmd {
             Err(e) => log_error(format!("Failed to load index pages: {e}")),
         }
     })
+}
+
+/// The sort of the directory the index list shows; by name until the user picks one.
+pub fn index_sort(model: &Model) -> IndexSort {
+    model
+        .sidebar
+        .index_sorts
+        .get(&model.sidebar.index_header)
+        .copied()
+        .unwrap_or_default()
+}
+
+/// The index pages in the chosen order. Names compare as the list shows them, so a
+/// subdirectory sorts by its own name and not by `index`. Pages with the same date keep
+/// the name order, so the list is stable while the user edits.
+pub fn sorted_index_pages(pages: &[Page], sort: IndexSort) -> Vec<Page> {
+    let mut sorted: Vec<Page> = pages.to_vec();
+    sorted.sort_by(|a, b| {
+        let by_name = index_page_name(a).cmp(&index_page_name(b));
+        let by_key = match sort.key {
+            IndexSortKey::Name => by_name,
+            IndexSortKey::Modified => a.modified_date.cmp(&b.modified_date).then(by_name),
+            IndexSortKey::Published => published_or_modified_millis(a)
+                .cmp(&published_or_modified_millis(b))
+                .then(by_name),
+        };
+        match sort.order {
+            SortOrder::Asc => by_key,
+            SortOrder::Desc => by_key.reverse(),
+        }
+    });
+    sorted
+}
+
+/// True when the page has a non-empty `published` property.
+pub fn is_published(page: &Page) -> bool {
+    page.properties
+        .get("published")
+        .and_then(|v| v.as_str())
+        .is_some_and(|s| !s.trim().is_empty())
+}
+
+/// The `published` property as epoch milliseconds, or the modified date when the page has
+/// none or it does not parse.
+fn published_or_modified_millis(page: &Page) -> i64 {
+    page.properties
+        .get("published")
+        .and_then(|v| v.as_str())
+        .and_then(crate::util::date::parse_rfc3339_millis)
+        .unwrap_or(page.modified_date)
 }
 
 /// The display name of a page in the index list: an index page shows the last segment of

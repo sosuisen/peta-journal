@@ -10,6 +10,7 @@ mod moves;
 mod page_properties;
 mod paste;
 mod settings;
+mod sidebar_sort;
 mod split;
 mod undo_replay;
 mod view;

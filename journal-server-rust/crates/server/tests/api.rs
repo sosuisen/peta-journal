@@ -709,6 +709,9 @@ async fn property_definitions_list_the_system_keys_and_accept_user_keys() {
     assert_eq!(definition(&resp, "due").unwrap()["system"], json!(true));
     assert_eq!(definition(&resp, "cancelled").unwrap()["page"], json!(false));
     assert_eq!(definition(&resp, "created").unwrap()["page"], json!(true));
+    assert_eq!(definition(&resp, "published").unwrap()["system"], json!(true));
+    assert_eq!(definition(&resp, "published").unwrap()["page"], json!(true));
+    assert_eq!(resp["propertyDefinitions"]["published"], json!("datetime"));
 
     let (status, resp) = post(
         "/api/config/property-definitions",
@@ -845,4 +848,30 @@ async fn the_dates_of_a_page_are_set_as_properties_and_cannot_be_removed() {
         read(&file_of(&page)).contains("created: 2020-01-02T03:04:05Z\n")
     })
     .await;
+}
+
+#[tokio::test]
+async fn the_children_of_an_index_page_carry_their_scalar_properties() {
+    // A unique directory so other tests' pages stay out of the listing
+    let dir = format!("{}/", new_doc_page("children-props").await.title);
+    let (status, resp) = post("/api/pages/doc", json!({ "title": "a-page", "dirPath": dir })).await;
+    assert_eq!(status, 200, "{resp}");
+    let page_id = resp["page"]["id"].as_str().unwrap().to_string();
+    let parent_id = resp["page"]["parentId"].as_str().unwrap().to_string();
+    let (status, resp) = put(
+        &format!("/api/pages/{page_id}/properties/published"),
+        json!({ "valueType": "datetime", "value": "2026-10-20T09:00:00Z" }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    let (status, resp) = get(&format!("/api/pages/{parent_id}/children")).await;
+    assert_eq!(status, 200, "{resp}");
+    let child = resp["pages"].as_array().unwrap().iter().find(|p| p["id"] == page_id).unwrap();
+    assert_eq!(child["properties"]["published"], json!("2026-10-20T09:00:00Z"));
+
+    let (status, resp) = get("/api/pages/recent?maxResults=50").await;
+    assert_eq!(status, 200, "{resp}");
+    let recent = resp["pages"].as_array().unwrap().iter().find(|p| p["id"] == page_id).unwrap();
+    assert_eq!(recent["properties"]["published"], json!("2026-10-20T09:00:00Z"));
 }

@@ -4,12 +4,112 @@
 use crate::components::calendar::Calendar;
 use crate::core::CoreHandle;
 use crate::dom;
+use crate::listeners::DocumentListeners;
 use leptos::prelude::*;
+use peta_core::model::{IndexSort, IndexSortKey, SortOrder};
 use peta_core::view::SidebarPage;
 use peta_core::Event;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+use wasm_bindgen::JsCast;
 
 const COLLAPSED_KEY: &str = "sidebar-collapsed";
+const INDEX_SORT_KEY: &str = "sidebar-index-sort";
+
+/// The sort of each directory's index list, as the browser stored it.
+pub fn load_index_sorts() -> HashMap<String, IndexSort> {
+    dom::local_storage_get(INDEX_SORT_KEY)
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_default()
+}
+
+fn save_index_sort(dir: &str, sort: IndexSort) {
+    let mut sorts = load_index_sorts();
+    sorts.insert(dir.to_string(), sort);
+    dom::local_storage_set(INDEX_SORT_KEY, &serde_json::to_string(&sorts).unwrap_or_default());
+}
+
+fn sort_key_label(key: IndexSortKey) -> &'static str {
+    match key {
+        IndexSortKey::Name => "Name",
+        IndexSortKey::Modified => "Modified",
+        IndexSortKey::Published => "Published",
+    }
+}
+
+/// The sort control of the index list: one small button that opens a popup menu with the
+/// six sorts, the current one marked.
+#[component]
+fn IndexSortControl(dir: Memo<String>, sort: Memo<IndexSort>) -> impl IntoView {
+    let core: CoreHandle = expect_context();
+    let menu_open = RwSignal::new(false);
+    // The click outside and the Escape that close the open menu
+    let menu_listeners = DocumentListeners::new();
+    let close_menu = move || {
+        menu_open.set(false);
+        menu_listeners.clear_later();
+    };
+    let open_menu = move |ev: web_sys::MouseEvent| {
+        ev.stop_propagation();
+        if menu_open.get() {
+            close_menu();
+            return;
+        }
+        menu_open.set(true);
+        // Listening starts after this click, so the click itself does not close the menu
+        dom::after_render(move || {
+            menu_listeners.on_cancelable("mousedown", move |ev: &web_sys::MouseEvent| {
+                let inside_menu = ev
+                    .target()
+                    .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
+                    .is_some_and(|t| t.closest(".index-sort-menu").ok().flatten().is_some());
+                if !inside_menu {
+                    close_menu();
+                }
+            });
+            menu_listeners.on("keydown", move |ev: &web_sys::KeyboardEvent| {
+                if ev.key() == "Escape" {
+                    ev.prevent_default();
+                    close_menu();
+                }
+            });
+        });
+    };
+    let choose = move |chosen: IndexSort| {
+        let dir = dir.get();
+        save_index_sort(&dir, chosen);
+        core.send(Event::SetIndexSort { dir, sort: chosen });
+        close_menu();
+    };
+    let sorts = [IndexSortKey::Name, IndexSortKey::Modified, IndexSortKey::Published]
+        .into_iter()
+        .flat_map(|key| [SortOrder::Asc, SortOrder::Desc].map(|order| IndexSort { key, order }));
+    view! {
+        <div class="index-sort">
+            <button class="collapse-btn index-sort-btn" title="Sort" on:click=open_menu>
+                // Three bars of falling length: the usual sort glyph, unlike the collapse chevrons
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="#888">
+                    <rect x="1" y="2" width="10" height="1.6"/>
+                    <rect x="1" y="5.2" width="7" height="1.6"/>
+                    <rect x="1" y="8.4" width="4" height="1.6"/>
+                </svg>
+            </button>
+            <Show when=move || menu_open.get()>
+                <div class="index-sort-menu">
+                    {sorts.clone().map(|item| {
+                        let arrow = match item.order { SortOrder::Asc => "↑", SortOrder::Desc => "↓" };
+                        view! {
+                            <button class="index-sort-item" class:current=move || sort.get() == item
+                                on:click=move |_| choose(item)>
+                                <span class="index-sort-check">{move || if sort.get() == item { "✓" } else { "" }}</span>
+                                {format!("{} {arrow}", sort_key_label(item.key))}
+                            </button>
+                        }
+                    }).collect::<Vec<_>>()}
+                </div>
+            </Show>
+        </div>
+    }
+}
 
 fn load_collapsed() -> HashSet<String> {
     dom::local_storage_get(COLLAPSED_KEY)
@@ -64,6 +164,7 @@ pub fn Sidebar() -> impl IntoView {
 
     let index_header = core.select(|v| v.sidebar.index_header.clone());
     let index_pages = core.select(|v| v.sidebar.index_pages.clone());
+    let index_sort = core.select(|v| v.sidebar.index_sort);
     let headings = core.select(|v| v.sidebar.headings.clone());
     let recent = core.select(|v| v.sidebar.recent_pages.clone());
     let current_page_id = core.select(|v| v.sidebar.current_page_id.clone());
@@ -87,9 +188,10 @@ pub fn Sidebar() -> impl IntoView {
                 let is_active = active && current_page_id.with(|c| c.as_deref() == Some(p.page.id.as_str()));
                 let label = p.label.clone();
                 let dir_label = p.dir_label.clone();
+                let icon = if p.published { "#icon-page-filled" } else { "#icon-page" };
                 view! {
                     <div class="sidebar-item recent-page-item" class:active=is_active on:click=move |ev| go(&p, &ev)>
-                        <svg class="page-icon" width="11" height="11"><use href="#icon-page"/></svg>
+                        <svg class="page-icon" width="11" height="11"><use href=icon/></svg>
                         <span class="page-label">
                             {dir_label.map(|d| view! { <span class="page-dir">{d}</span> })}
                             <span class="page-name">{label}</span>
@@ -118,6 +220,7 @@ pub fn Sidebar() -> impl IntoView {
                                         core.send(Event::GoToPage { path, new_tab: ev.ctrl_key() || ev.meta_key(), new_window: ev.shift_key() });
                                     }
                                 }>{move || index_header.get()}</h3>
+                                <IndexSortControl dir=index_header sort=index_sort />
                                 <SectionToggle collapsed=is_collapsed("index") on_toggle=toggle("index") />
                             </div>
                             <Show when=move || !is_collapsed("index").get()>

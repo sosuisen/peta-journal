@@ -255,6 +255,12 @@ pub enum Event {
     },
     SearchDropdown(bool),
 
+    // ---- sidebar ----
+    /// The shell restored the per-directory sorts it had stored.
+    IndexSortsRestored(HashMap<String, IndexSort>),
+    /// The user chose a sort for the directory the index list shows.
+    SetIndexSort { dir: String, sort: IndexSort },
+
     // ---- settings ----
     SetWeekNumbering(WeekNumbering),
     SetLogicalOutdent(bool),
@@ -440,6 +446,8 @@ pub struct ConfigState {
 pub struct SidebarState {
     pub index_header: String,
     pub index_pages: Vec<Page>,
+    /// The sort of each directory's index list, by its header (`dir/` or `(root)/`).
+    pub index_sorts: HashMap<String, IndexSort>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -710,6 +718,15 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         SearchResultClicked { index } => screens::search::result_clicked(model, index),
         SearchDropdown(show) => {
             model.search.show_dropdown = show;
+            done()
+        }
+
+        IndexSortsRestored(sorts) => {
+            model.sidebar.index_sorts = sorts;
+            done()
+        }
+        SetIndexSort { dir, sort } => {
+            model.sidebar.index_sorts.insert(dir, sort);
             done()
         }
 

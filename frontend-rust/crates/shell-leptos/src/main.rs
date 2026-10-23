@@ -76,6 +76,7 @@ fn App() -> impl IntoView {
         );
     }));
 
+    core.send(Event::IndexSortsRestored(components::sidebar::load_index_sorts()));
     core.send(Event::Start);
 
     let location = use_location();

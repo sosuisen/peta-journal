@@ -141,6 +141,32 @@ impl Page {
     }
 }
 
+/// What the sidebar's index list is sorted by.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum IndexSortKey {
+    #[default]
+    Name,
+    Modified,
+    /// The `published` property; a page without one falls back to `modified`.
+    Published,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SortOrder {
+    #[default]
+    Asc,
+    Desc,
+}
+
+/// The sort of one directory's index list. The shell keeps one per directory.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct IndexSort {
+    pub key: IndexSortKey,
+    pub order: SortOrder,
+}
+
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchResult {
