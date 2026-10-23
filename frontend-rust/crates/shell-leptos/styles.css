@@ -327,6 +327,19 @@ app-item-view .code-lang-label {
 }
 app-item-view blockquote { margin: 8px 0; padding: 8px 16px; border-left: 4px solid #d0d7de; background: #f6f8fa; color: #000; }
 app-item-view blockquote p { margin: 0; }
+app-item-view .alert { margin: 8px 0; padding: 8px 16px; border-left: 4px solid #d0d7de; background: #f6f8fa; color: #000; }
+app-item-view .alert p { margin: 0; }
+app-item-view .alert .alert-title { font-weight: 600; margin-bottom: 4px; }
+app-item-view .alert-note { border-left-color: #0969da; }
+app-item-view .alert-note .alert-title { color: #0969da; }
+app-item-view .alert-tip { border-left-color: #1a7f37; }
+app-item-view .alert-tip .alert-title { color: #1a7f37; }
+app-item-view .alert-important { border-left-color: #8250df; }
+app-item-view .alert-important .alert-title { color: #8250df; }
+app-item-view .alert-warning { border-left-color: #9a6700; }
+app-item-view .alert-warning .alert-title { color: #9a6700; }
+app-item-view .alert-caution { border-left-color: #cf222e; }
+app-item-view .alert-caution .alert-title { color: #cf222e; }
 app-item-view .task-checkbox ~ .item-content { padding-left: 2px; }
 
 /* ---- wiki suggestions (wiki-suggestions.ts) ---- */

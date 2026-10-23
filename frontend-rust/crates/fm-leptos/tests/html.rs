@@ -132,6 +132,26 @@ fn blockquote_and_rule() {
 }
 
 #[test]
+fn alert_with_default_and_custom_title() {
+    assert_eq!(
+        render_plain("> [!NOTE]
+> body"),
+        "<div class=\"alert alert-note\"><p class=\"alert-title\">Note</p><p>body</p></div>"
+    );
+    assert_eq!(
+        render_plain("> [!WARNING] Mind the gap
+> body"),
+        "<div class=\"alert alert-warning\"><p class=\"alert-title\">Mind the gap</p><p>body</p></div>"
+    );
+    assert_eq!(
+        render_plain(">>> [!TIP]
+body
+>>>"),
+        "<div class=\"alert alert-tip\"><p class=\"alert-title\">Tip</p><p>body</p></div>"
+    );
+}
+
+#[test]
 fn link_and_image() {
     assert_eq!(
         render_plain("[site](https://example.com \"Title\")"),
@@ -243,7 +263,7 @@ fn other_nodes_from_json() {
         render_json(
             r#"{"type":"alert","alert_type":"note","title":null,"children":[{"type":"paragraph","children":[{"type":"text","value":"n"}]}]}"#
         ),
-        "<div class=\"alert alert-note\"><p>n</p></div>"
+        "<div class=\"alert alert-note\"><p class=\"alert-title\">Note</p><p>n</p></div>"
     );
     assert_eq!(
         render_json(r#"{"type":"spoilered_text","children":[{"type":"text","value":"s"}]}"#),

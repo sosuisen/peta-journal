@@ -37,6 +37,18 @@ struct Context<'a> {
     tight_list: bool,
 }
 
+/// The heading shown for an alert whose `[!TYPE]` line carries no custom title.
+/// Same words as the `flatmarkdown` crate's HTML output.
+fn default_alert_title(alert_type: &str) -> &'static str {
+    match alert_type {
+        "tip" => "Tip",
+        "important" => "Important",
+        "warning" => "Warning",
+        "caution" => "Caution",
+        _ => "Note",
+    }
+}
+
 /// Renders an AST node (and its descendants) to a view.
 pub fn render_node(node: &Node, options: &RenderOptions) -> AnyView {
     let ctx = Context {
@@ -277,11 +289,22 @@ fn render(node: &Node, ctx: Context<'_>) -> AnyView {
 
         Node::Alert {
             alert_type,
+            title,
             children: kids,
-            ..
         } => {
             let class = format!("alert alert-{alert_type}");
-            view! { <div class=class>{children(kids, ctx)}</div> }.into_any()
+            // The Angular renderer drops the title. We follow the `flatmarkdown` crate's
+            // HTML instead, so a reader can tell the alert kind without colour.
+            let title = title
+                .clone()
+                .unwrap_or_else(|| default_alert_title(alert_type).to_string());
+            view! {
+                <div class=class>
+                    <p class="alert-title">{title}</p>
+                    {children(kids, ctx)}
+                </div>
+            }
+            .into_any()
         }
 
         // ── Inline nodes ──
