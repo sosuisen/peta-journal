@@ -120,8 +120,15 @@ pub fn set_cursor_chars(el: &web_sys::HtmlTextAreaElement, chars: usize) {
     let _ = el.set_selection_range(pos, pos);
 }
 
-/// Builds a hidden copy of the textarea's text up to a position and measures where the
-/// position ends up. Used for the caret rectangle and the first/last line checks.
+/// Builds a hidden copy of the textarea's text and measures where a position ends up.
+/// Used for the caret rectangle and the first/last line checks.
+///
+/// The whole text is copied, not only the part before the position. Wrapping depends on the
+/// words that follow: a word that did not fit on a line in the textarea would fit in a copy
+/// that stops in the middle of it, so a copy of the prefix alone lands on the wrong line.
+/// Likewise the position is measured at the character that follows it rather than at a marker
+/// appended to the prefix. At a wrap point the browser draws the caret before the first
+/// character of the next line, while a narrow marker may still squeeze onto the line above.
 fn measure_marker(
     el: &web_sys::HtmlTextAreaElement,
     utf16_position: u32,
@@ -135,22 +142,34 @@ fn measure_marker(
     let _ = dstyle.set_property("visibility", "hidden");
     let _ = dstyle.set_property("white-space", "pre-wrap");
     let _ = dstyle.set_property("word-wrap", "break-word");
+    let _ = dstyle.set_property("box-sizing", "border-box");
     let _ = dstyle.set_property("width", &format!("{}px", el.client_width()));
-    for prop in ["font", "letter-spacing", "line-height", "padding"] {
+    for prop in [
+        "font",
+        "letter-spacing",
+        "line-height",
+        "padding",
+        "word-break",
+        "overflow-wrap",
+    ] {
         let _ = dstyle.set_property(prop, &style.get_property_value(prop).unwrap_or_default());
     }
     document.body()?.append_child(&div).ok()?;
-    let value = el.value();
-    let before: String = value
-        .encode_utf16()
-        .take(utf16_position as usize)
-        .collect::<Vec<u16>>()
-        .pipe_to_string();
-    let text = document.create_text_node(&before);
+    let units: Vec<u16> = el.value().encode_utf16().collect();
+    let position = (utf16_position as usize).min(units.len());
+    let before = units[..position].to_vec().pipe_to_string();
+    let after = units[position..].to_vec().pipe_to_string();
+    // A newline is not a drawn character: the caret before it sits at the end of the current
+    // line, where a marker lands too
+    let (marked, rest) = match after.chars().next() {
+        Some(c) if c != '\n' => (c.to_string(), after[c.len_utf8()..].to_string()),
+        _ => (marker_text.to_string(), after),
+    };
     let marker: web_sys::HtmlElement = document.create_element("span").ok()?.unchecked_into();
-    marker.set_text_content(Some(marker_text));
-    let _ = div.append_child(&text);
+    marker.set_text_content(Some(&marked));
+    let _ = div.append_child(&document.create_text_node(&before));
     let _ = div.append_child(&marker);
+    let _ = div.append_child(&document.create_text_node(&rest));
     let result = (marker.offset_left() as f64, marker.offset_top() as f64);
     let _ = document.body()?.remove_child(&div);
     Some(result)
