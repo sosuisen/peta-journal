@@ -309,6 +309,8 @@ app-item-view .item-content h2 { font-size: 1.4em; margin: 0; }
 app-item-view .item-content h3 { font-size: 1.2em; margin: 0; }
 app-item-view .item-content h4 { font-size: 1.1em; margin: 0; }
 app-item-view .item-content h5 { font-size: 1em; margin: 0; }
+app-item-view .item-content ul, app-item-view .item-content ol { padding-left: 1.5em; margin: 0; }
+app-item-view .item-content li > p { margin: 0; }
 app-item-view .wiki-link { color: #007bff; cursor: pointer; text-decoration: underline; }
 app-item-view .wiki-link:hover { color: #0056b3; }
 app-item-view .wiki-link-new { color: #d9534f; }
