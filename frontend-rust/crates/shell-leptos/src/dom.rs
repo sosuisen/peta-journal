@@ -441,3 +441,18 @@ pub fn local_storage_set(key: &str, value: &str) {
         let _ = s.set_item(key, value);
     }
 }
+
+/// The first image file in a paste or a drop, if there is one.
+pub fn image_file(data: &web_sys::DataTransfer) -> Option<web_sys::File> {
+    let items = data.items();
+    for i in 0..items.length() {
+        if let Some(item) = items.get(i) {
+            if item.type_().starts_with("image/") {
+                if let Ok(Some(file)) = item.get_as_file() {
+                    return Some(file);
+                }
+            }
+        }
+    }
+    None
+}

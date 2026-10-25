@@ -70,6 +70,25 @@ pub fn ItemView(row: RwSignal<Row>) -> impl IntoView {
         }
     };
 
+    // An image dropped on a rendered item is appended to its body. The drop point is not
+    // mapped to a character: the rendered HTML and the markdown do not line up.
+    let on_drop = {
+        let id = item_id.clone();
+        move |ev: web_sys::DragEvent| {
+            let Some(file) = ev.data_transfer().and_then(|d| dom::image_file(&d)) else {
+                return;
+            };
+            ev.prevent_default();
+            let cursor = row.with_untracked(|r| r.item.body.chars().count());
+            let handle = core.keep_file(file);
+            core.send(Event::PasteImage {
+                item_id: id.clone(),
+                file: handle,
+                cursor,
+            });
+        }
+    };
+
     // Link clicks (Ctrl+click on a wiki link stays native, so it opens a background tab)
     let on_click = {
         move |ev: web_sys::MouseEvent| {
@@ -157,7 +176,7 @@ pub fn ItemView(row: RwSignal<Row>) -> impl IntoView {
     view! {
         <app-item-view>
             <TaskCheckbox row=row />
-            <div node_ref=content class="item-content" on:mousedown=on_mousedown on:click=on_click>
+            <div node_ref=content class="item-content" on:mousedown=on_mousedown on:click=on_click on:drop=on_drop>
                 {move || {
                     view! { <FmRoot ast=ast.get() options=options.get() /> }
                 }}

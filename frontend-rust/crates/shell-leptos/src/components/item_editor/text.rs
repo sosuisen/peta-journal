@@ -1,24 +1,10 @@
 //! Helpers over the textarea's text: insertions that report the new body, the code fence
-//! that closes itself, and the image on the clipboard.
+//! that closes itself.
 
 use super::wiki::check_wiki_link_context;
 use crate::core::CoreHandle;
 use crate::dom;
 use peta_core::Event;
-
-pub(super) fn image_file(data: &web_sys::DataTransfer) -> Option<web_sys::File> {
-    let items = data.items();
-    for i in 0..items.length() {
-        if let Some(item) = items.get(i) {
-            if item.type_().starts_with("image/") {
-                if let Ok(Some(file)) = item.get_as_file() {
-                    return Some(file);
-                }
-            }
-        }
-    }
-    None
-}
 
 /// Typing the third backtick of an opening fence adds the closing fence below.
 pub(super) fn auto_close_code_fence(el: &web_sys::HtmlTextAreaElement) {

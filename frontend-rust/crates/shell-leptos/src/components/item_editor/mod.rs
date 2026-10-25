@@ -17,7 +17,7 @@ use peta_core::model::DeferredKey;
 use peta_core::view::Row;
 use peta_core::Event;
 use replay::replay_keys;
-use text::{auto_close_code_fence, image_file};
+use text::auto_close_code_fence;
 use wasm_bindgen::JsCast;
 use wiki::check_wiki_link_context;
 
@@ -136,7 +136,7 @@ pub fn ItemEditor(row: RwSignal<Row>) -> impl IntoView {
                 return;
             };
             let cursor = dom::selection_start_chars(&el);
-            if let Some(file) = image_file(&data) {
+            if let Some(file) = dom::image_file(&data) {
                 ev.prevent_default();
                 let handle = core.keep_file(file);
                 core.send(Event::PasteImage {
@@ -158,6 +158,27 @@ pub fn ItemEditor(row: RwSignal<Row>) -> impl IntoView {
                 item_id: id.clone(),
                 text,
                 html,
+                cursor,
+            });
+        }
+    };
+
+    // An image dropped on the textarea goes in at the drop point, like a pasted one at the
+    // cursor. Anything else keeps the browser's own drop behaviour, e.g. dropped text.
+    let on_drop = {
+        let id = item_id.clone();
+        move |ev: web_sys::DragEvent| {
+            let Some(el) = textarea.get() else { return };
+            let Some(file) = ev.data_transfer().and_then(|d| dom::image_file(&d)) else {
+                return;
+            };
+            ev.prevent_default();
+            let cursor =
+                dom::textarea_offset_at_point(&el, ev.client_x() as f64, ev.client_y() as f64);
+            let handle = core.keep_file(file);
+            core.send(Event::PasteImage {
+                item_id: id.clone(),
+                file: handle,
                 cursor,
             });
         }
@@ -193,6 +214,7 @@ pub fn ItemEditor(row: RwSignal<Row>) -> impl IntoView {
                 on:input=on_input
                 on:keydown=on_keydown
                 on:paste=on_paste
+                on:drop=on_drop
                 on:blur=on_blur
                 on:mousedown=on_mousedown
             ></textarea>

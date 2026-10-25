@@ -106,6 +106,10 @@ pub fn MainLayout() -> impl IntoView {
                 focus();
             }
         });
+        // Without these the browser opens a file dropped outside an item, replacing the app.
+        // `dragover` must be cancelled too, or the browser refuses the drop everywhere.
+        global.on_cancelable("dragover", |ev: &web_sys::Event| ev.prevent_default());
+        global.on_cancelable("drop", |ev: &web_sys::Event| ev.prevent_default());
         global.on_capture("click", move |ev: &web_sys::Event| {
             let Some(target) = ev
                 .target()
