@@ -264,17 +264,30 @@ pub fn edit_properties(model: &mut Model) -> Cmd {
     done()
 }
 
+fn is_list_type(value_type: &str) -> bool {
+    value_type == "tags" || value_type == "list"
+}
+
+/// The items of a comma separated list, each once. A `#` typed out of habit from hashtags
+/// is not part of a tag, so `#abc` is kept as `abc`.
+fn list_items(value: &str) -> Vec<String> {
+    let mut items: Vec<String> = Vec::new();
+    for t in value
+        .split(',')
+        .map(|t| t.trim().trim_start_matches('#').trim())
+        .filter(|t| !t.is_empty())
+    {
+        if !items.iter().any(|x| x == t) {
+            items.push(t.to_string());
+        }
+    }
+    items
+}
+
 /// The shown value of a property as the server would store it: `tag` is a list.
 fn property_value(value_type: &str, value: &str) -> Value {
-    if value_type == "tags" || value_type == "list" {
-        Value::Array(
-            value
-                .split(',')
-                .map(str::trim)
-                .filter(|t| !t.is_empty())
-                .map(|t| Value::String(t.to_string()))
-                .collect(),
-        )
+    if is_list_type(value_type) {
+        Value::Array(list_items(value).into_iter().map(Value::String).collect())
     } else {
         Value::String(value.to_string())
     }
@@ -286,6 +299,12 @@ fn property_value(value_type: &str, value: &str) -> Value {
 pub fn set_property(model: &mut Model, key: String, value_type: String, value: String) -> Cmd {
     let Some(page) = page_mut(model).and_then(|ps| ps.page.as_mut()) else {
         return done();
+    };
+    // The server gets the same list as the screen shows
+    let value = if is_list_type(&value_type) {
+        list_items(&value).join(", ")
+    } else {
+        value
     };
     let before = page.properties.clone();
     if key != "created" && key != "modified" {

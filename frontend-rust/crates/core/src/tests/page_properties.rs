@@ -109,3 +109,14 @@ fn deleting_a_page_property_removes_it() {
     h.send(Event::EditPageProperties);
     assert!(shows_properties(&h));
 }
+
+#[test]
+fn a_hash_typed_before_a_tag_is_dropped_and_a_tag_is_kept_once() {
+    let mut h = Harness::with_items(vec![]);
+    h.send(Event::SetPageProperty {
+        key: "tag".into(),
+        value_type: "tags".into(),
+        value: "#abc, ##def, abc,".into(),
+    });
+    assert!(h.api.calls.iter().any(|c| matches!(c, ApiOp::UpsertPageProperty { value, .. } if value == "abc, def")));
+}
