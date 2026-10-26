@@ -316,6 +316,17 @@ impl PropertyRepository {
         )?)
     }
 
+    /// The pages that carry the tag in their `tags` property, in any case of its letters.
+    pub fn find_page_ids_by_tag_value_ignoring_case(&self, tag_value: &str) -> AppResult<Vec<String>> {
+        let conn = self.db.conn()?;
+        let mut stmt = conn.prepare(
+            "SELECT DISTINCT target_id FROM property_list_items \
+             WHERE key = 'tags' AND value = ? COLLATE NOCASE AND target_type = 'page'",
+        )?;
+        let rows = stmt.query_map(params![tag_value], |r| r.get::<_, String>(0))?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
     /// The items that carry the tag in any case of its letters, as tags that differ only in
     /// case share one tag page.
     pub fn find_item_ids_by_tag_value_ignoring_case(&self, tag_value: &str, max_results: i64) -> AppResult<Vec<String>> {

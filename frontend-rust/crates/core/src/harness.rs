@@ -71,6 +71,7 @@ pub fn op_name(op: &ApiOp) -> &'static str {
         ApiOp::SetTransclusion { .. } => "SetTransclusion",
         ApiOp::RemoveTransclusion { .. } => "RemoveTransclusion",
         ApiOp::GetChildPages { .. } => "GetChildPages",
+        ApiOp::GetBacklinks { .. } => "GetBacklinks",
         ApiOp::UploadAsset { .. } => "UploadAsset",
         ApiOp::GetFunctions => "GetFunctions",
         ApiOp::LaunchUrl { .. } => "LaunchUrl",
@@ -226,6 +227,7 @@ impl FakeApi {
             ApiOp::GetRecentPages { .. } | ApiOp::GetChildPages { .. } => {
                 ApiOutput::Pages(Vec::new())
             }
+            ApiOp::GetBacklinks { .. } => ApiOutput::Backlinks(Vec::new()),
             ApiOp::GetConfig => ApiOutput::Config(ServerConfig::default()),
             ApiOp::UpdateConfig { tags_dir, .. } => ApiOutput::Config(ServerConfig {
                 tags_dir: tags_dir.clone().unwrap_or_default(),

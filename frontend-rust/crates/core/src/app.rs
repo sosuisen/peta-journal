@@ -400,6 +400,7 @@ pub struct PageState {
     pub can_demote_index: bool,
     /// True once the menu opened the property rows; a page with properties shows them anyway.
     pub properties_open: bool,
+    pub backlinks: Vec<BacklinkEntry>,
 }
 
 #[derive(Debug, Default)]

@@ -93,6 +93,10 @@ struct PagesEnvelope {
     pages: Vec<Page>,
 }
 #[derive(serde::Deserialize)]
+struct BacklinksEnvelope {
+    entries: Vec<BacklinkEntry>,
+}
+#[derive(serde::Deserialize)]
 struct ResultsEnvelope {
     results: Vec<SearchResult>,
 }
@@ -409,6 +413,10 @@ async fn call(handle: &CoreHandle, op: ApiOp) -> ApiResult<ApiOutput> {
         ApiOp::GetChildPages { parent_id } => {
             let env: PagesEnvelope = get(&format!("/api/pages/{parent_id}/children")).await?;
             ApiOutput::Pages(env.pages)
+        }
+        ApiOp::GetBacklinks { page_id } => {
+            let env: BacklinksEnvelope = get(&format!("/api/pages/{page_id}/backlinks")).await?;
+            ApiOutput::Backlinks(env.entries)
         }
         ApiOp::UploadAsset { file } => {
             let file = handle

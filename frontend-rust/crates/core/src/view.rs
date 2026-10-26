@@ -151,6 +151,44 @@ pub struct PageView {
     pub properties: Vec<PageProperty>,
     /// True when the property rows are shown: the page has some, or the menu opened them.
     pub show_properties: bool,
+    pub backlinks: Vec<BacklinkGroup>,
+}
+
+/// A page that links to the shown page, with its items that link. The items are empty
+/// when the page links by the tag in its tags property only.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BacklinkGroup {
+    /// The path of the page as the sidebar shows it; a journal as its date.
+    pub title: String,
+    pub url: String,
+    pub items: Vec<BacklinkItem>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BacklinkItem {
+    pub id: String,
+    /// The first line of the body.
+    pub text: String,
+    /// The page URL with the item as its fragment.
+    pub url: String,
+}
+
+impl BacklinkGroup {
+    fn of(page: &Page, items: &[Item]) -> BacklinkGroup {
+        let url = format!("/pages/{}", page.canonical_path());
+        BacklinkGroup {
+            title: sidebar::page_title(page),
+            items: items
+                .iter()
+                .map(|i| BacklinkItem {
+                    id: i.id.clone(),
+                    text: i.body.lines().find(|l| !l.trim().is_empty()).unwrap_or("").trim().to_string(),
+                    url: format!("{url}#{}", i.id),
+                })
+                .collect(),
+            url,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -270,6 +308,10 @@ fn screen(model: &Model) -> ScreenView {
             .collect(),
             // The dates do not count: every page has them
             show_properties: p.properties_open || !pg.properties.is_empty(),
+            backlinks: page::backlink_groups(&p.backlinks)
+                .iter()
+                .map(|(page, items)| BacklinkGroup::of(page, items))
+                .collect(),
         }))),
     }
 }

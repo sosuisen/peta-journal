@@ -254,7 +254,17 @@ cdk-virtual-scroll-viewport.outline-viewport {
 .outline-header { width: 100%; box-sizing: border-box; padding-right: 20px; }
 .cdk-virtual-scroll-content-wrapper { width: 100%; user-select: none; }
 .outline-row { width: 100%; box-sizing: border-box; padding-right: 20px; }
-@media (min-width: 1024px) { .outline-row, .outline-header { max-width: 900px; } }
+@media (min-width: 1024px) { .outline-row, .outline-header, .outline-footer { max-width: 900px; } }
+.outline-footer { width: 100%; box-sizing: border-box; padding-right: 20px; }
+.backlinks { margin-top: 32px; padding: 12px 0 24px; border-top: 1px solid #ddd; font-size: 14px; }
+.backlinks-title { margin: 0 0 8px; font-size: 13px; font-weight: 500; color: #666; }
+.backlink-pages { list-style: none; margin: 0; padding: 0; }
+.backlink-page { margin: 6px 0; }
+.backlink-page-link { color: #007bff; text-decoration: none; font-weight: 500; }
+.backlink-items { list-style: disc; margin: 2px 0 0; padding-left: 20px; color: #999; }
+.backlink-items:empty { display: none; }
+.backlink-item { color: #333; text-decoration: none; overflow-wrap: anywhere; }
+.backlink-page-link:hover, .backlink-item:hover { text-decoration: underline; }
 .date-header { margin: 0; padding: 16px 0 8px 0; font-size: 1.5em; font-weight: bold; border-top: 1px solid #ddd; }
 
 /* ---- outline item (outline-item.ts) ---- */

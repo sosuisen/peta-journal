@@ -11,7 +11,7 @@ use crate::dom;
 use leptos::prelude::*;
 use peta_core::app::JournalNav;
 use peta_core::util::filename::JournalType;
-use peta_core::view::{PageView, ScreenView};
+use peta_core::view::{BacklinkGroup, PageView, ScreenView};
 use peta_core::Event;
 use wasm_bindgen::JsCast;
 
@@ -99,6 +99,54 @@ fn Journal() -> impl IntoView {
                 <Outline />
             </Show>
         </app-journal>
+    }
+}
+
+/// The pages and items that link to the shown page, read-only, below its items. A page
+/// that links by its tags is a link alone; a page with linking items has them under it.
+#[component]
+fn Backlinks() -> impl IntoView {
+    let core: CoreHandle = expect_context();
+    let groups = core.select(|v| match &v.screen {
+        ScreenView::Page(Some(p)) => p.backlinks.clone(),
+        _ => Vec::new(),
+    });
+    // A plain click stays in the app; a modified one is left to the browser, so it opens a
+    // new tab or window
+    let follow = move |url: String| {
+        move |ev: web_sys::MouseEvent| {
+            if ev.ctrl_key() || ev.meta_key() || ev.shift_key() {
+                return;
+            }
+            ev.prevent_default();
+            core.navigate(&url, false);
+        }
+    };
+    let group_view = move |g: BacklinkGroup| {
+        let items = g
+            .items
+            .into_iter()
+            .map(|i| {
+                view! {
+                    <li><a class="backlink-item" href=i.url.clone() on:click=follow(i.url)>{i.text}</a></li>
+                }
+            })
+            .collect_view();
+        view! {
+            <li class="backlink-page">
+                <a class="backlink-page-link" href=g.url.clone() on:click=follow(g.url)>{g.title}</a>
+                <ul class="backlink-items">{items}</ul>
+            </li>
+        }
+    };
+
+    view! {
+        <Show when=move || groups.with(|g| !g.is_empty())>
+            <section class="backlinks">
+                <h3 class="backlinks-title">"Backlinks"</h3>
+                <ul class="backlink-pages">{move || groups.get().into_iter().map(group_view).collect_view()}</ul>
+            </section>
+        </Show>
     }
 }
 
@@ -251,11 +299,14 @@ fn DocPage() -> impl IntoView {
                             </div>
                         </Show>
                     </div>
-                    {if p.show_properties || !drafts.get_untracked().is_empty() {
-                        view! { <Outline header=ViewFn::from(move || view! { <PageProperties drafts=drafts /> }) /> }.into_any()
-                    } else {
-                        view! { <Outline /> }.into_any()
-                    }}
+                    {
+                        let footer = ViewFn::from(move || view! { <Backlinks /> });
+                        if p.show_properties || !drafts.get_untracked().is_empty() {
+                            view! { <Outline header=ViewFn::from(move || view! { <PageProperties drafts=drafts /> }) footer=footer /> }.into_any()
+                        } else {
+                            view! { <Outline footer=footer /> }.into_any()
+                        }
+                    }
                 }
             })}
         </app-page>

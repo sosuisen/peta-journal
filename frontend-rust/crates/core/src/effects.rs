@@ -2,7 +2,7 @@
 //! shell performs and resolves; the core never touches the network, timers or the DOM.
 
 use crate::model::{
-    DeferredKey, Item, ItemPosition, JournalBefore, Page, PageWithItems, ParsedFlatItem,
+    BacklinkEntry, DeferredKey, Item, ItemPosition, JournalBefore, Page, PageWithItems, ParsedFlatItem,
     PropertyDefinition, SearchResult, ServerConfig, TreeExport,
 };
 use crate::util::date::LocalDateTime;
@@ -136,6 +136,9 @@ pub enum ApiOp {
     GetChildPages {
         parent_id: String,
     },
+    GetBacklinks {
+        page_id: String,
+    },
     /// Uploads a file the shell holds under a handle (a `File` cannot cross into the core).
     UploadAsset {
         file: u64,
@@ -170,6 +173,7 @@ pub enum ApiOutput {
     Items(Vec<Item>),
     PageInfo(Page),
     Pages(Vec<Page>),
+    Backlinks(Vec<BacklinkEntry>),
     SearchResults(Vec<SearchResult>),
     Config(ServerConfig),
     PropertyDefinitions(Vec<PropertyDefinition>),
@@ -756,6 +760,16 @@ impl<Event: Send + 'static> Api<Event> {
             })
             .await,
             Pages
+        )
+    }
+
+    pub async fn get_backlinks(&self, page_id: &str) -> ApiResult<Vec<BacklinkEntry>> {
+        expect_output!(
+            self.call(ApiOp::GetBacklinks {
+                page_id: page_id.into()
+            })
+            .await,
+            Backlinks
         )
     }
 

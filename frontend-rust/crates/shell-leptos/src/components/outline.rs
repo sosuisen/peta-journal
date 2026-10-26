@@ -297,10 +297,10 @@ impl Windowing {
     }
 }
 
-/// `header` is rendered above the rows inside the scrolling viewport, so it scrolls out
-/// with them.
+/// `header` is rendered above the rows and `footer` below them, inside the scrolling
+/// viewport, so they scroll with the rows.
 #[component]
-pub fn Outline(#[prop(optional)] header: Option<ViewFn>) -> impl IntoView {
+pub fn Outline(#[prop(optional)] header: Option<ViewFn>, #[prop(optional)] footer: Option<ViewFn>) -> impl IntoView {
     let core: CoreHandle = expect_context();
     let vm = core.view();
     let store = RowStore::new(vm);
@@ -419,6 +419,7 @@ pub fn Outline(#[prop(optional)] header: Option<ViewFn>) -> impl IntoView {
                         }
                     />
                 </div>
+                {footer.map(|f| view! { <div class="outline-footer">{f.run()}</div> })}
             </cdk-virtual-scroll-viewport>
             <WikiSuggestions />
         </app-outline>

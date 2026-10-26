@@ -580,7 +580,7 @@ impl JournalMcp {
 
     // ---- navigation ----
 
-    #[tool(description = "Get pages and items that link to a given page (backlinks). Each entry contains the source page and the item containing the link.")]
+    #[tool(description = "Get pages and items that link to a given page (backlinks): by a wikilink, or by the tag of a tag page as a hashtag or in a page's tags. Each entry contains the source page and the item containing the link; the item is null when the source page links by its tags.")]
     async fn get_backlinks(&self, Parameters(a): Parameters<PageIdArgs>) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let page_id = id(&a.page_id)?;

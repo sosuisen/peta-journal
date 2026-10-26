@@ -336,7 +336,9 @@ pub struct JournalBefore {
 #[serde(rename_all = "camelCase")]
 pub struct BacklinkEntry {
     pub source_page: Page,
-    pub source_item: Item,
+    /// None when the source page links by the tag in its tags property.
+    #[serde(default)]
+    pub source_item: Option<Item>,
 }
 
 /// `POST /api/items/export`.

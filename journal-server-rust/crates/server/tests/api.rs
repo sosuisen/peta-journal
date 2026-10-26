@@ -335,6 +335,46 @@ async fn a_wiki_link_to_a_page_shows_up_in_its_backlinks() {
     assert_eq!(resp["entries"][0]["sourceItem"]["body"], json!(format!("see [[{}]]", target.title)));
 }
 
+#[tokio::test]
+async fn a_tag_page_lists_the_pages_and_items_that_use_its_tag() {
+    let _tags_dir = TAGS_DIR.lock().await;
+    let tag = "backlink-tag";
+    let (_, config) = get("/api/config").await;
+    let tag_path = format!("{}{tag}", config["tagsDir"].as_str().unwrap());
+    let by_page_tag = new_doc_page("backlinks-by-page-tag").await;
+    set_page_tags(&by_page_tag.id, tag).await;
+    let target = doc_page_named(tag).await.unwrap();
+    let by_items = new_doc_page("backlinks-by-items").await;
+    let rows = fill(
+        &by_items.id,
+        &[
+            &format!("a hashtag #{}", tag.to_uppercase()),
+            "no link here",
+            &format!("a wikilink [[{tag_path}#x|label]]"),
+            &format!("a longer path [[{tag_path}/more]]"),
+        ],
+    )
+    .await;
+
+    let (status, resp) = get(&format!("/api/pages/{target}/backlinks")).await;
+    assert_eq!(status, 200, "{resp}");
+    let entries: Vec<(Value, Value)> = resp["entries"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| (e["sourcePage"]["id"].clone(), e["sourceItem"]["id"].clone()))
+        .collect();
+    // The newest source page first; its items in page order
+    assert_eq!(
+        entries,
+        vec![
+            (json!(by_items.id), json!(rows[0].id)),
+            (json!(by_items.id), json!(rows[2].id)),
+            (json!(by_page_tag.id), Value::Null),
+        ]
+    );
+}
+
 // ---- Journals (1999 so that nothing else is near) ----
 
 async fn journal(name: &str) -> Value {

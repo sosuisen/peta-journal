@@ -1,6 +1,7 @@
 //! The Angular specs of the outline services, ported to the core.
 
 mod actions;
+mod backlinks;
 mod edit;
 mod extensions;
 mod journal_moves;

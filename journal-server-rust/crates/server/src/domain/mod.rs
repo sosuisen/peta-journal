@@ -5,3 +5,4 @@ pub mod item_body;
 pub mod journal_name;
 pub mod model;
 pub mod search;
+pub mod wikilink;

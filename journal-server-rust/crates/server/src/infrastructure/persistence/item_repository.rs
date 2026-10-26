@@ -101,9 +101,13 @@ impl ItemRepository {
         )
     }
 
-    pub fn find_by_page_id_containing_link(&self, page_title: &str) -> AppResult<Vec<Item>> {
-        let pattern = format!("%[[{page_title}]]%");
-        self.query_items(&format!("{SELECT_ITEMS}WHERE b.body LIKE ?"), &[&pattern])
+    /// The items whose body may hold a wikilink to the path: `[[path]]`, `[[path#id]]` or
+    /// `[[path|label]]`. LIKE ignores the case of ASCII letters, as page paths are matched.
+    /// The caller checks the parsed links, since `[[path/more]]` matches too.
+    pub fn find_by_body_containing_link_to(&self, path: &str) -> AppResult<Vec<Item>> {
+        let escaped = path.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_");
+        let pattern = format!("%[[{escaped}%");
+        self.query_items(&format!("{SELECT_ITEMS}WHERE b.body LIKE ? ESCAPE '\\'"), &[&pattern])
     }
 
     pub fn find_by_types(&self, types: &[String]) -> AppResult<Vec<Item>> {

@@ -4,7 +4,7 @@
 use crate::app::{apply, done, run, Cmd, ConnectionState, Event, Model};
 use crate::effects::{SseEvent, SseOp, TimerOutput};
 use crate::ops::file_reload;
-use crate::screens::sidebar;
+use crate::screens::{page, sidebar};
 use crux_core::Command;
 
 const MAX_RECONNECT_ATTEMPTS: u32 = 10;
@@ -52,6 +52,7 @@ fn on_message(model: &mut Model, data: &str) -> Cmd {
         reload,
         sidebar::refresh_recent_pages(),
         sidebar::load_index_pages(model),
+        page::reload_backlinks(model),
     ])
 }
 

@@ -1,5 +1,6 @@
 //! Page use cases.
 
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, LazyLock};
 
 use hmtid::Hmtid;
@@ -11,6 +12,7 @@ use crate::domain::id_generator::IdGenerator;
 use crate::domain::journal_name;
 use crate::domain::model::{BacklinkEntry, Item, Page};
 use crate::domain::search::SearchIndex;
+use crate::domain::wikilink;
 use crate::error::{AppError, AppResult};
 use crate::infrastructure::export::export_queue_repository::ExportQueueRepository;
 use crate::infrastructure::export::export_service::MarkdownExportService;
@@ -64,6 +66,22 @@ pub fn validate_file_name(title: &str) -> AppResult<()> {
         )));
     }
     Ok(())
+}
+
+/// The paths a wikilink may name the page by. An index page is named by its folder too, as
+/// opening `[[a]]` shows `a/index`; a journal by its name alone.
+fn link_paths_of(page: &Page) -> Vec<String> {
+    if page.page_type != "doc" {
+        return vec![page.name.clone()];
+    }
+    if page.name == "index" {
+        let dir = page.dir_path.trim_end_matches('/');
+        if dir.is_empty() {
+            return vec!["index".to_string()];
+        }
+        return vec![dir.to_string(), format!("{dir}/index")];
+    }
+    vec![format!("{}{}", page.dir_path, page.name)]
 }
 
 /// The folder and name of a tag's page. A tag like `a/b` is `b` in the folder `a/`, as the
@@ -527,24 +545,87 @@ impl PageService {
         self.pages.find_recent(max_results, page_type)
     }
 
-    /// All pages and items that link to the given page (backlinks).
+    /// The pages and items that link to the given page (backlinks). A page links by having
+    /// the tag of a tag page in its tags (an entry without an item); an item links by a
+    /// hashtag of that tag or by a wikilink to the page. Paths and tags are matched ignoring
+    /// case, as pages are found. The page's own items are left out. Pages come newest first,
+    /// each with its tag entry before its items, and the items in page order.
     pub fn get_backlinks(&self, page_id: &Hmtid) -> AppResult<Vec<BacklinkEntry>> {
-        let mut entries = Vec::new();
         let Some(target) = self.pages.find_by_id(page_id)? else {
-            return Ok(entries);
+            return Ok(Vec::new());
         };
-        let linking_items = self.items.find_by_page_id_containing_link(&target.name)?;
-        for source in self.pages.find_backlink_sources(page_id)? {
-            for item in &linking_items {
-                if item.page_id == source.id {
-                    entries.push(BacklinkEntry {
-                        source_page: source.clone(),
-                        source_item: Some(item.clone()),
-                    });
+        let mut tagging_pages: BTreeSet<String> = BTreeSet::new();
+        let mut linking_items: BTreeSet<String> = BTreeSet::new();
+        if let Some(tag) = self.tag_of_page(&target) {
+            tagging_pages.extend(self.properties.find_page_ids_by_tag_value_ignoring_case(&tag)?);
+            linking_items.extend(self.properties.find_item_ids_by_tag_value_ignoring_case(&tag, i64::MAX)?);
+        }
+        let paths = link_paths_of(&target);
+        for path in &paths {
+            for item in self.items.find_by_body_containing_link_to(path)? {
+                let links = wikilink::extract_wikilink_paths(&item.ast);
+                if links.iter().any(|l| paths.iter().any(|p| l.eq_ignore_ascii_case(p))) {
+                    linking_items.insert(item.id.to_string());
                 }
             }
         }
+
+        // Source page id -> (does its tags property link, its linking items)
+        let mut by_page: BTreeMap<String, (bool, Vec<Item>)> = BTreeMap::new();
+        for id in tagging_pages {
+            by_page.entry(id).or_default().0 = true;
+        }
+        for id in linking_items {
+            let Ok(item_id) = Hmtid::parse(&id) else { continue };
+            if let Some(item) = self.items.find_by_id(&item_id)? {
+                by_page.entry(item.page_id.to_string()).or_default().1.push(item);
+            }
+        }
+        by_page.remove(page_id.as_str());
+
+        let mut sources: Vec<(Page, bool, Vec<Item>)> = Vec::new();
+        for (id, (tagged, items)) in by_page {
+            let Ok(source_id) = Hmtid::parse(&id) else { continue };
+            if let Some(page) = self.pages.find_by_id(&source_id)? {
+                sources.push((page, tagged, items));
+            }
+        }
+        sources.sort_by_key(|s| std::cmp::Reverse(s.0.modified_date));
+
+        let mut entries = Vec::new();
+        for (page, tagged, mut items) in sources {
+            if tagged {
+                entries.push(BacklinkEntry {
+                    source_page: page.clone(),
+                    source_item: None,
+                });
+            }
+            items.sort_by(|a, b| a.idx.cmp(&b.idx));
+            for item in items {
+                entries.push(BacklinkEntry {
+                    source_page: page.clone(),
+                    source_item: Some(item),
+                });
+            }
+        }
         Ok(entries)
+    }
+
+    /// The tag whose tag page this is, when the page lies under the tag directory. A tag with
+    /// pages under it is an index page: `tags/a/index` is the page of the tag `a`.
+    fn tag_of_page(&self, page: &Page) -> Option<String> {
+        if page.page_type != "doc" {
+            return None;
+        }
+        let path = if page.name == "index" {
+            page.dir_path.trim_end_matches('/').to_string()
+        } else {
+            format!("{}{}", page.dir_path, page.name)
+        };
+        let tags_dir = self.config.tags_dir();
+        let head = path.get(..tags_dir.len())?;
+        let tag = path.get(tags_dir.len()..)?;
+        (head.eq_ignore_ascii_case(&tags_dir) && !tag.is_empty()).then(|| tag.to_string())
     }
 
     /// Ensures that all ancestor directory pages exist for the given dirPath.

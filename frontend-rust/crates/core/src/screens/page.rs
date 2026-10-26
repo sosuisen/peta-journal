@@ -3,7 +3,7 @@
 
 use crate::app::{apply, done, log_error, run, Cmd, Model, PageState, Screen};
 use crate::effects::UiOp;
-use crate::model::Page;
+use crate::model::{BacklinkEntry, Page};
 use crate::screens::{navigate, sidebar};
 use crate::util::filename::validate_file_name;
 use crux_core::Command;
@@ -44,6 +44,7 @@ pub fn open(model: &mut Model, name: &str, fragment: Option<String>) -> Cmd {
         page: None,
         can_demote_index: false,
         properties_open: false,
+        backlinks: Vec::new(),
     });
     let page_name = name.to_string();
     run(move |api| async move {
@@ -75,6 +76,7 @@ pub fn open(model: &mut Model, name: &str, fragment: Option<String>) -> Cmd {
             let mut cmds = vec![
                 navigate::set_title(full_page_title(&page_for_state)),
                 sidebar::set_current_page(m, Some(page_for_state.clone())),
+                load_backlinks(page_for_state.id.clone()),
             ];
             if created {
                 cmds.push(sidebar::refresh_recent_pages());
@@ -123,6 +125,45 @@ pub fn open(model: &mut Model, name: &str, fragment: Option<String>) -> Cmd {
             Err(e) => log_error(format!("Failed to load items for page {}: {e}", p.id)),
         }
     })
+}
+
+/// Loads the backlinks of the shown doc page again: any page may have changed its links.
+pub fn reload_backlinks(model: &Model) -> Cmd {
+    match page_state(model).and_then(|p| p.page.as_ref()) {
+        Some(p) => load_backlinks(p.id.clone()),
+        None => done(),
+    }
+}
+
+fn load_backlinks(page_id: String) -> Cmd {
+    run(move |api| async move {
+        match api.get_backlinks(&page_id).await {
+            Ok(entries) => apply(&api, "page backlinks", move |m| {
+                if let Some(ps) = page_mut(m) {
+                    if ps.page.as_ref().map(|p| p.id.as_str()) == Some(page_id.as_str()) {
+                        ps.backlinks = entries;
+                    }
+                }
+                done()
+            }),
+            Err(e) => log_error(format!("Failed to load backlinks of page {page_id}: {e}")),
+        }
+    })
+}
+
+/// The backlinks grouped by source page, in the server's order: the page, then the items
+/// in it that link. A page that links by its tags only has no items.
+pub fn backlink_groups(entries: &[BacklinkEntry]) -> Vec<(Page, Vec<crate::model::Item>)> {
+    let mut groups: Vec<(Page, Vec<crate::model::Item>)> = Vec::new();
+    for e in entries {
+        if groups.last().map(|(p, _)| p.id != e.source_page.id).unwrap_or(true) {
+            groups.push((e.source_page.clone(), Vec::new()));
+        }
+        if let (Some(item), Some(group)) = (&e.source_item, groups.last_mut()) {
+            group.1.push(item.clone());
+        }
+    }
+    groups
 }
 
 /// Selects and scrolls to the item the URL fragment names, when the page has it.

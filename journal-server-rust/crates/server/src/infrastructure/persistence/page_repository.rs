@@ -62,11 +62,6 @@ impl PageRepository {
         self.first_page(&format!("{SELECT_PAGES}WHERE id = ?"), &[&id.as_str()])
     }
 
-    fn find_by_id_in(conn: &Connection, id: &Hmtid) -> rusqlite::Result<Option<Page>> {
-        conn.query_row(&format!("{SELECT_PAGES}WHERE id = ?"), [id.as_str()], map_page)
-            .optional()
-    }
-
     pub fn find_journal(&self, date: NaiveDate) -> AppResult<Option<Page>> {
         let file_name = date.format("%Y-%m-%d").to_string();
         self.first_page(
@@ -238,33 +233,6 @@ impl PageRepository {
             ),
             &[&query, &query, &limit],
         )
-    }
-
-    /// Pages that have items containing `[[page name]]` links to the target page.
-    pub fn find_backlink_sources(&self, target_page_id: &Hmtid) -> AppResult<Vec<Page>> {
-        let conn = self.db.conn()?;
-        let page_name: Option<String> = conn
-            .query_row(
-                "SELECT name FROM pages WHERE id = ?",
-                [target_page_id.as_str()],
-                |r| r.get(0),
-            )
-            .optional()?;
-        let Some(page_name) = page_name else {
-            return Ok(Vec::new());
-        };
-        let pattern = format!("%[[{page_name}]]%");
-        let mut stmt = conn.prepare("SELECT DISTINCT page_id FROM items WHERE body LIKE ? AND page_id != ?")?;
-        let ids: Vec<String> = stmt
-            .query_map(params![pattern, target_page_id.as_str()], |r| r.get(0))?
-            .collect::<Result<_, _>>()?;
-        let mut result = Vec::new();
-        for id in ids {
-            if let Some(page) = Self::find_by_id_in(&conn, &parse(&id)?)? {
-                result.push(page);
-            }
-        }
-        Ok(result)
     }
 
     pub fn find_by_parent_id(&self, parent_id: &Hmtid) -> AppResult<Vec<Page>> {
