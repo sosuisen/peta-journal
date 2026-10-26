@@ -188,10 +188,17 @@ pub fn Sidebar() -> impl IntoView {
                 let is_active = active && current_page_id.with(|c| c.as_deref() == Some(p.page.id.as_str()));
                 let label = p.label.clone();
                 let dir_label = p.dir_label.clone();
-                let icon = if p.published { "#icon-page-filled" } else { "#icon-page" };
+                let is_dir = p.is_dir;
+                let icon = if p.is_dir {
+                    "#icon-folder"
+                } else if p.published {
+                    "#icon-page-filled"
+                } else {
+                    "#icon-page"
+                };
                 view! {
-                    <div class="sidebar-item recent-page-item" class:active=is_active on:click=move |ev| go(&p, &ev)>
-                        <svg class="page-icon" width="11" height="11"><use href=icon/></svg>
+                    <div class="sidebar-item recent-page-item" class:folder-item=is_dir class:active=is_active on:click=move |ev| go(&p, &ev)>
+                        <svg class="page-icon" width=if is_dir { "14" } else { "11" } height=if is_dir { "12" } else { "11" }><use href=icon/></svg>
                         <span class="page-label">
                             {dir_label.map(|d| view! { <span class="page-dir">{d}</span> })}
                             <span class="page-name">{label}</span>

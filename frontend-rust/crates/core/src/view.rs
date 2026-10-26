@@ -168,6 +168,8 @@ pub struct SidebarPage {
     pub label: String,
     /// True when the page has a `published` property; its icon is filled.
     pub published: bool,
+    /// True when the entry is a subdirectory of the index list; its icon is a folder.
+    pub is_dir: bool,
     /// The directory shown small above `label`, when the page has one.
     pub dir_label: Option<String>,
     pub path: String,
@@ -362,6 +364,7 @@ fn sidebar(model: &Model) -> SidebarView {
             .map(|p| SidebarPage {
                 label: sidebar::index_page_name(&p),
                 published: sidebar::is_published(&p),
+                is_dir: sidebar::is_directory(&p),
                 dir_label: None,
                 path: format!("{}{}", p.dir_path, p.name),
                 page: p,
@@ -376,6 +379,7 @@ fn sidebar(model: &Model) -> SidebarView {
                 SidebarPage {
                     label,
                     published: sidebar::is_published(p),
+                    is_dir: false,
                     dir_label,
                     path: format!("{}{}", p.dir_path, p.name),
                     page: p.clone(),

@@ -35,11 +35,22 @@ fn sort(key: IndexSortKey, order: SortOrder) -> IndexSort {
 
 #[test]
 fn by_name_a_subdirectory_sorts_by_its_own_name_not_by_index() {
+    let pages = vec![page("gamma/", 1, None), page("beta/", 2, None), page("alpha/", 3, None)];
+    let sorted = sorted_index_pages(&pages, sort(IndexSortKey::Name, SortOrder::Asc));
+    assert_eq!(names(&sorted), vec!["alpha/", "beta/", "gamma/"]);
+    let sorted = sorted_index_pages(&pages, sort(IndexSortKey::Name, SortOrder::Desc));
+    assert_eq!(names(&sorted), vec!["gamma/", "beta/", "alpha/"]);
+}
+
+#[test]
+fn subdirectories_come_before_files_in_either_order() {
     let pages = vec![page("zeta", 1, None), page("beta/", 2, None), page("alpha", 3, None)];
     let sorted = sorted_index_pages(&pages, sort(IndexSortKey::Name, SortOrder::Asc));
-    assert_eq!(names(&sorted), vec!["alpha", "beta/", "zeta"]);
+    assert_eq!(names(&sorted), vec!["beta/", "alpha", "zeta"]);
     let sorted = sorted_index_pages(&pages, sort(IndexSortKey::Name, SortOrder::Desc));
-    assert_eq!(names(&sorted), vec!["zeta", "beta/", "alpha"]);
+    assert_eq!(names(&sorted), vec!["beta/", "zeta", "alpha"]);
+    let sorted = sorted_index_pages(&pages, sort(IndexSortKey::Modified, SortOrder::Desc));
+    assert_eq!(names(&sorted), vec!["beta/", "alpha", "zeta"]);
 }
 
 #[test]

@@ -87,9 +87,10 @@ pub fn index_sort(model: &Model) -> IndexSort {
         .unwrap_or_default()
 }
 
-/// The index pages in the chosen order. Names compare as the list shows them, so a
-/// subdirectory sorts by its own name and not by `index`. Pages with the same date keep
-/// the name order, so the list is stable while the user edits.
+/// The index pages in the chosen order. Subdirectories come before files in either order.
+/// Names compare as the list shows them, so a subdirectory sorts by its own name and not
+/// by `index`. Pages with the same date keep the name order, so the list is stable while
+/// the user edits.
 pub fn sorted_index_pages(pages: &[Page], sort: IndexSort) -> Vec<Page> {
     let mut sorted: Vec<Page> = pages.to_vec();
     sorted.sort_by(|a, b| {
@@ -101,12 +102,18 @@ pub fn sorted_index_pages(pages: &[Page], sort: IndexSort) -> Vec<Page> {
                 .cmp(&published_or_modified_millis(b))
                 .then(by_name),
         };
-        match sort.order {
+        let by_key = match sort.order {
             SortOrder::Asc => by_key,
             SortOrder::Desc => by_key.reverse(),
-        }
+        };
+        is_directory(b).cmp(&is_directory(a)).then(by_key)
     });
     sorted
+}
+
+/// True when the page is the index page of a subdirectory; the list shows it as a folder.
+pub fn is_directory(page: &Page) -> bool {
+    page.name == "index"
 }
 
 /// True when the page has a non-empty `published` property.
