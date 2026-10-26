@@ -179,6 +179,8 @@ pub struct SidebarPage {
 pub struct SidebarView {
     pub index_header: String,
     pub index_sort: IndexSort,
+    /// The path the `../` entry opens; None in the root directory.
+    pub index_parent_path: Option<String>,
     pub index_pages: Vec<SidebarPage>,
     pub headings: Vec<Heading>,
     pub recent_pages: Vec<SidebarPage>,
@@ -359,6 +361,7 @@ fn sidebar(model: &Model) -> SidebarView {
     SidebarView {
         index_header: model.sidebar.index_header.clone(),
         index_sort,
+        index_parent_path: sidebar::parent_index_path(&model.sidebar.index_header),
         index_pages: sidebar::sorted_index_pages(&model.sidebar.index_pages, index_sort)
             .into_iter()
             .map(|p| SidebarPage {

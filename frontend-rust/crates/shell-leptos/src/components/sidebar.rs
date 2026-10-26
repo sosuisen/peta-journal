@@ -165,6 +165,7 @@ pub fn Sidebar() -> impl IntoView {
     let index_header = core.select(|v| v.sidebar.index_header.clone());
     let index_pages = core.select(|v| v.sidebar.index_pages.clone());
     let index_sort = core.select(|v| v.sidebar.index_sort);
+    let index_parent_path = core.select(|v| v.sidebar.index_parent_path.clone());
     let headings = core.select(|v| v.sidebar.headings.clone());
     let recent = core.select(|v| v.sidebar.recent_pages.clone());
     let current_page_id = core.select(|v| v.sidebar.current_page_id.clone());
@@ -217,7 +218,7 @@ pub fn Sidebar() -> impl IntoView {
                         <Calendar selected_date=today.clone() />
                     </div>
 
-                    <Show when=move || !index_pages.with(|p| p.is_empty())>
+                    <Show when=move || !index_pages.with(|p| p.is_empty()) || index_parent_path.with(|p| p.is_some())>
                         <div class="sidebar-section">
                             <div class="section-header">
                                 <h3 class="section-title section-title-link" on:click={
@@ -231,7 +232,17 @@ pub fn Sidebar() -> impl IntoView {
                                 <SectionToggle collapsed=is_collapsed("index") on_toggle=toggle("index") />
                             </div>
                             <Show when=move || !is_collapsed("index").get()>
-                                <div class="index-page-list">{move || page_list(index_pages.get(), true)}</div>
+                                <div class="index-page-list">
+                                    {move || index_parent_path.get().map(|path| view! {
+                                        <div class="sidebar-item recent-page-item folder-item" on:click=move |ev: web_sys::MouseEvent| {
+                                            core.send(Event::GoToPage { path: path.clone(), new_tab: ev.ctrl_key() || ev.meta_key(), new_window: ev.shift_key() });
+                                        }>
+                                            <svg class="page-icon" width="14" height="12"><use href="#icon-folder"/></svg>
+                                            <span class="page-label"><span class="page-name">"../"</span></span>
+                                        </div>
+                                    })}
+                                    {move || page_list(index_pages.get(), true)}
+                                </div>
                             </Show>
                         </div>
                     </Show>

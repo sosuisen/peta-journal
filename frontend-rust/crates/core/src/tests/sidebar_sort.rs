@@ -80,6 +80,15 @@ fn pages_with_the_same_date_keep_the_name_order() {
 }
 
 #[test]
+fn the_parent_entry_opens_the_index_page_of_the_parent_directory() {
+    use crate::screens::sidebar::parent_index_path;
+    assert_eq!(parent_index_path("notes/sub/"), Some("notes/index".to_string()));
+    assert_eq!(parent_index_path("notes/"), Some("index".to_string()));
+    assert_eq!(parent_index_path("(root)/"), None);
+    assert_eq!(parent_index_path(""), None);
+}
+
+#[test]
 fn the_view_sorts_the_index_list_by_the_sort_of_its_directory() {
     let mut h = Harness::with_items(vec![]);
     h.model.sidebar.index_header = "notes/".into();

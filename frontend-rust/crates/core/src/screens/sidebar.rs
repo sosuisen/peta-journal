@@ -111,6 +111,19 @@ pub fn sorted_index_pages(pages: &[Page], sort: IndexSort) -> Vec<Page> {
     sorted
 }
 
+/// The path of the parent directory's index page, opened by the `../` entry of the index
+/// list. The root directory has no parent.
+pub fn parent_index_path(index_header: &str) -> Option<String> {
+    let dir = index_header.trim_end_matches('/');
+    if dir.is_empty() || index_header == "(root)/" {
+        return None;
+    }
+    Some(match dir.rsplit_once('/') {
+        Some((parent, _)) => format!("{parent}/index"),
+        None => "index".to_string(),
+    })
+}
+
 /// True when the page is the index page of a subdirectory; the list shows it as a folder.
 pub fn is_directory(page: &Page) -> bool {
     page.name == "index"
