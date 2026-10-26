@@ -240,6 +240,21 @@ impl Windowing {
 
     /// Scrolls the item to a tenth from the top of the viewport. An item that is not rendered
     /// yet is approached by its estimated offset and then step by step until it appears.
+    /// Scrolls to the item once its row is in the list. The rows of a page that just loaded
+    /// may come a moment after the request.
+    fn scroll_to_item_when_listed(self, item_id: String, smooth: bool, wait: u32) {
+        if !self.alive() {
+            return;
+        }
+        if self.ids.with_untracked(|ids| ids.contains(&item_id)) {
+            self.scroll_to_item(item_id, smooth, 0);
+        } else if wait < 20 {
+            dom::set_timeout(50, move || {
+                self.scroll_to_item_when_listed(item_id, smooth, wait + 1)
+            });
+        }
+    }
+
     fn scroll_to_item(self, item_id: String, smooth: bool, attempt: u32) {
         if !self.alive() {
             return;
@@ -344,7 +359,7 @@ pub fn Outline(#[prop(optional)] header: Option<ViewFn>, #[prop(optional)] foote
 
     // Scrolling to an item the sidebar or a search result asked for
     core.set_scroller(Some(Box::new(move |item_id: String, smooth: bool| {
-        list.scroll_to_item(item_id, smooth, 0);
+        list.scroll_to_item_when_listed(item_id, smooth, 0);
     })));
     on_cleanup(move || core.set_scroller(None));
 

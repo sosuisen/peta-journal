@@ -154,9 +154,14 @@ fn Backlinks() -> impl IntoView {
 fn DocPage() -> impl IntoView {
     let core: CoreHandle = expect_context();
     let vm = core.view();
+    // Without the backlinks: they arrive after the items, and a change here builds the
+    // outline again, which loses the scroll to the item the URL names
     let page = Memo::new(move |_| {
         vm.with(|v| match &v.screen {
-            ScreenView::Page(p) => p.clone(),
+            ScreenView::Page(p) => p.clone().map(|mut p| {
+                p.backlinks = Vec::new();
+                p
+            }),
             _ => None,
         })
     });
