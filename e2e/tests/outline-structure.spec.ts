@@ -86,6 +86,36 @@ test.describe('outline structure', () => {
       .toEqual(['1:a', '1:b', '2:b1']);
   });
 
+  test.describe('copying the selection', () => {
+    // The clipboard is written through the asynchronous clipboard API, which asks for both
+    test.use({ permissions: ['clipboard-read', 'clipboard-write'] });
+
+    test('Ctrl+C puts the selection on the clipboard and a paste brings it back with its levels', async ({ page }) => {
+      await openEditor(page, byBody('a1').id);
+      await page.keyboard.press('Shift+ArrowDown');  // a1
+      await page.keyboard.press('Shift+ArrowDown');  // a2
+      await expect(page.locator('app-outline-item .outline-item.selected')).toHaveCount(2);
+
+      await page.keyboard.press('Control+c');
+
+      // The write finishes only once the server has made the tree markdown
+      await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe('- a1\n- a2');
+
+      await page.keyboard.press('Escape');
+      await openEditor(page, byBody('b1').id);
+      await page.keyboard.press('End');
+      await page.keyboard.press('Enter');  // an empty item below b1
+      await page.evaluate(async () => {
+        const data = new DataTransfer();
+        data.setData('text/plain', await navigator.clipboard.readText());
+        document.activeElement!.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+      });
+
+      expect(outlineOf(await server.itemsSettled(pageId, i => i.length === 7)))
+        .toEqual(['1:a', '2:a1', '2:a2', '1:b', '2:b1', '2:a1', '2:a2']);
+    });
+  });
+
   test('a selection that grows over a parent takes its whole subtree', async ({ page }) => {
     await openEditor(page, byBody('a').id);
 

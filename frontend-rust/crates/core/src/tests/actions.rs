@@ -191,3 +191,17 @@ fn copying_the_selection_exports_tree_markdown_and_remembers_the_flat_form() {
         .any(|u| matches!(u, UiOp::CopyMarkdown { markdown } if markdown == "- tree")));
     assert_eq!(h.model.clipboard, Some(("flat".into(), "- tree".into())));
 }
+
+#[test]
+fn a_copy_whose_export_fails_tells_the_shell_so_it_can_give_up_the_clipboard_write() {
+    let mut h = Harness::with_items(vec![item("a", 1, "")]);
+    h.model
+        .state
+        .set_selected_item_ids(HashSet::from(["a".to_string()]));
+    h.model.state.set_item_selection_mode(true);
+    h.api.fail_next("ExportTreeMarkdown", "boom");
+    h.send(Event::SelectionKey(crate::app::SelectionKey::Copy));
+    assert!(h.ui.iter().any(|u| matches!(u, UiOp::CopyFailed)));
+    assert!(!h.ui.iter().any(|u| matches!(u, UiOp::CopyMarkdown { .. })));
+    assert_eq!(h.model.clipboard, None);
+}

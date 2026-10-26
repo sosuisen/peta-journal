@@ -29,6 +29,8 @@ pub struct Inner {
     /// The outline's scroller, when an outline is on screen.
     pub scroller: RefCell<Option<ScrollToItem>>,
     pub extensions: RefCell<effects::ui::Extensions>,
+    /// A clipboard write begun on the user's copy key, waiting for the markdown from the core.
+    pub pending_copy: RefCell<Option<effects::ui::PendingCopy>>,
 }
 
 thread_local! {
@@ -56,6 +58,7 @@ impl CoreHandle {
             replayers: RefCell::new(HashMap::new()),
             scroller: RefCell::new(None),
             extensions: RefCell::new(effects::ui::Extensions::default()),
+            pending_copy: RefCell::new(None),
         });
         INNER.with(|i| *i.borrow_mut() = Some(inner));
         CoreHandle

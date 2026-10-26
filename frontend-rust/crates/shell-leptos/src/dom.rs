@@ -331,31 +331,35 @@ pub fn text_offset_at_point(container: &web_sys::Element, x: f64, y: f64) -> usi
     cumulative + offset as usize
 }
 
-/// Writes text and HTML to the clipboard with `ClipboardItem`.
-pub async fn write_clipboard_rich(text: &str, html: &str) -> Result<(), JsValue> {
-    let make_blob = |content: &str, mime: &str| -> Result<web_sys::Blob, JsValue> {
-        let parts = js_sys::Array::new();
-        parts.push(&JsValue::from_str(content));
-        let options = web_sys::BlobPropertyBag::new();
-        options.set_type(mime);
-        web_sys::Blob::new_with_str_sequence_and_options(&parts, &options)
-    };
+/// A blob of `content` with the MIME type `mime`.
+pub fn text_blob(content: &str, mime: &str) -> Result<web_sys::Blob, JsValue> {
+    let parts = js_sys::Array::new();
+    parts.push(&JsValue::from_str(content));
+    let options = web_sys::BlobPropertyBag::new();
+    options.set_type(mime);
+    web_sys::Blob::new_with_str_sequence_and_options(&parts, &options)
+}
+
+/// Starts a clipboard write of a `text/plain` and a `text/html` part, each given as a blob
+/// or as a promise of one, and returns the promise of the write.
+pub fn write_clipboard_parts(text: &JsValue, html: &JsValue) -> Result<js_sys::Promise, JsValue> {
     let record = js_sys::Object::new();
-    js_sys::Reflect::set(
-        &record,
-        &"text/plain".into(),
-        &make_blob(text, "text/plain")?.into(),
-    )?;
-    js_sys::Reflect::set(
-        &record,
-        &"text/html".into(),
-        &make_blob(html, "text/html")?.into(),
-    )?;
+    js_sys::Reflect::set(&record, &"text/plain".into(), text)?;
+    js_sys::Reflect::set(&record, &"text/html".into(), html)?;
     let item =
         web_sys::ClipboardItem::new_with_record_from_str_to_blob_promise(&record.unchecked_into())?;
     let items = js_sys::Array::new();
     items.push(&item);
-    JsFuture::from(window().navigator().clipboard().write(&items)).await?;
+    Ok(window().navigator().clipboard().write(&items))
+}
+
+/// Writes text and HTML to the clipboard with `ClipboardItem`.
+pub async fn write_clipboard_rich(text: &str, html: &str) -> Result<(), JsValue> {
+    let written = write_clipboard_parts(
+        &text_blob(text, "text/plain")?.into(),
+        &text_blob(html, "text/html")?.into(),
+    )?;
+    JsFuture::from(written).await?;
     Ok(())
 }
 

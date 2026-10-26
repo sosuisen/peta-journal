@@ -28,6 +28,82 @@ pub struct Extensions {
     _listener: Option<Closure<dyn FnMut(web_sys::MessageEvent)>>,
 }
 
+/// One part of a clipboard write whose content is not known yet: the promise handed to
+/// `ClipboardItem` and the functions that settle it.
+struct DeferredPart {
+    promise: js_sys::Promise,
+    resolve: js_sys::Function,
+    reject: js_sys::Function,
+}
+
+impl DeferredPart {
+    fn new() -> Self {
+        let mut settle = None;
+        let promise = js_sys::Promise::new(&mut |resolve, reject| settle = Some((resolve, reject)));
+        let (resolve, reject) = settle.expect("the promise executor runs at once");
+        Self {
+            promise,
+            resolve,
+            reject,
+        }
+    }
+}
+
+/// A clipboard write begun while the user's key or copy event is still being handled, whose
+/// text and HTML the core delivers later with `CopyMarkdown`.
+///
+/// Safari lets a page write the clipboard only during a user gesture, and the gesture is over
+/// by the time the core has fetched the tree markdown from the server. `ClipboardItem` takes
+/// promises for exactly this: the write is requested at once, the content follows.
+pub struct PendingCopy {
+    text: DeferredPart,
+    html: DeferredPart,
+}
+
+impl PendingCopy {
+    fn start() -> Result<Self, JsValue> {
+        let text = DeferredPart::new();
+        let html = DeferredPart::new();
+        let written = dom::write_clipboard_parts(&text.promise, &html.promise)?;
+        spawn_local(async move {
+            if let Err(e) = JsFuture::from(written).await {
+                web_sys::console::error_1(&e);
+            }
+        });
+        Ok(Self { text, html })
+    }
+
+    fn fill(self, markdown: &str, html: &str) -> Result<(), JsValue> {
+        let text_blob = dom::text_blob(markdown, "text/plain")?;
+        let html_blob = dom::text_blob(html, "text/html")?;
+        self.text.resolve.call1(&JsValue::NULL, &text_blob)?;
+        self.html.resolve.call1(&JsValue::NULL, &html_blob)?;
+        Ok(())
+    }
+
+    fn give_up(self) {
+        let reason = JsValue::from_str("copy abandoned");
+        let _ = self.text.reject.call1(&JsValue::NULL, &reason);
+        let _ = self.html.reject.call1(&JsValue::NULL, &reason);
+    }
+}
+
+/// Begins the clipboard write of a copy or cut of the selection. Called from the handler of
+/// the user's key or copy event, before the event goes to the core; see [`PendingCopy`].
+/// Without `ClipboardItem` (older Firefox) nothing is begun and `CopyMarkdown` writes on its own.
+pub fn begin_copy(handle: CoreHandle) {
+    let pending = match PendingCopy::start() {
+        Ok(pending) => pending,
+        Err(e) => {
+            web_sys::console::warn_1(&e);
+            return;
+        }
+    };
+    if let Some(earlier) = handle.inner().pending_copy.replace(Some(pending)) {
+        earlier.give_up();
+    }
+}
+
 pub fn perform(handle: CoreHandle, mut request: Request<UiOp>) {
     let op = request.operation.clone();
     match op {
@@ -68,11 +144,24 @@ pub fn perform(handle: CoreHandle, mut request: Request<UiOp>) {
         }
         UiOp::CopyMarkdown { markdown } => {
             let html = flatmarkdown::body_to_html(&markdown);
-            spawn_local(async move {
-                if let Err(e) = dom::write_clipboard_rich(&markdown, &html).await {
-                    web_sys::console::error_1(&e);
+            let pending = handle.inner().pending_copy.take();
+            match pending {
+                Some(pending) => {
+                    if let Err(e) = pending.fill(&markdown, &html) {
+                        web_sys::console::error_1(&e);
+                    }
                 }
-            });
+                None => spawn_local(async move {
+                    if let Err(e) = dom::write_clipboard_rich(&markdown, &html).await {
+                        web_sys::console::error_1(&e);
+                    }
+                }),
+            }
+        }
+        UiOp::CopyFailed => {
+            if let Some(pending) = handle.inner().pending_copy.take() {
+                pending.give_up();
+            }
         }
         UiOp::ReadClipboardText => spawn_local(async move {
             let text = JsFuture::from(dom::window().navigator().clipboard().read_text())

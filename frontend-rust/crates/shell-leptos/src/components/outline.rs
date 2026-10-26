@@ -371,7 +371,7 @@ pub fn Outline(#[prop(optional)] header: Option<ViewFn>) -> impl IntoView {
         selection_listeners.on_cancelable("keydown", move |ev: &web_sys::KeyboardEvent| {
             if let Some(key) = selection_key(ev) {
                 ev.prevent_default();
-                core.send(Event::SelectionKey(key));
+                send_selection_key(core, key);
             }
         });
         selection_listeners.on("click", move |_: &web_sys::Event| {
@@ -384,7 +384,7 @@ pub fn Outline(#[prop(optional)] header: Option<ViewFn>) -> impl IntoView {
         for (name, key) in [("copy", SelectionKey::Copy), ("cut", SelectionKey::Cut)] {
             selection_listeners.on_cancelable(name, move |ev: &web_sys::Event| {
                 ev.prevent_default();
-                core.send(Event::SelectionKey(key));
+                send_selection_key(core, key);
             });
         }
     });
@@ -457,6 +457,15 @@ fn OutlineRow(id: String, row: RwSignal<Row>) -> impl IntoView {
     }
 }
 
+/// Sends a selection key to the core. A copy or cut starts its clipboard write here, while
+/// the browser still counts the key or copy event as the user's gesture.
+fn send_selection_key(core: CoreHandle, key: SelectionKey) {
+    if matches!(key, SelectionKey::Copy | SelectionKey::Cut) {
+        crate::effects::ui::begin_copy(core);
+    }
+    core.send(Event::SelectionKey(key));
+}
+
 fn selection_key(ev: &web_sys::KeyboardEvent) -> Option<SelectionKey> {
     let key = ev.key();
     if key == "Escape" {
@@ -495,10 +504,13 @@ fn selection_key(ev: &web_sys::KeyboardEvent) -> Option<SelectionKey> {
             SelectionKey::Indent
         });
     }
-    if ev.ctrl_key() && key == "c" {
+    // Cmd+C/X on macOS: handled here and not left to the copy event, which Safari does not
+    // dispatch unless some text is selected
+    let copy_modifier = ev.ctrl_key() || ev.meta_key();
+    if copy_modifier && key == "c" {
         return Some(SelectionKey::Copy);
     }
-    if ev.ctrl_key() && key == "x" {
+    if copy_modifier && key == "x" {
         return Some(SelectionKey::Cut);
     }
     None

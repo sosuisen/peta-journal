@@ -306,7 +306,10 @@ pub fn copy_items(item_ids: Vec<String>) -> Cmd {
                     done()
                 });
             }
-            Err(e) => log_error(format!("Failed to copy selected items: {e}")),
+            Err(e) => {
+                api.notify(UiOp::CopyFailed);
+                log_error(format!("Failed to copy selected items: {e}"));
+            }
         }
     })
 }
