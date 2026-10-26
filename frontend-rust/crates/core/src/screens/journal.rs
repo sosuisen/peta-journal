@@ -7,7 +7,7 @@ use crate::app::{
 use crate::effects::{Api, UiOp};
 use crate::ops::edit::focus_editor;
 use crate::ops::moves::CrossDayMove;
-use crate::screens::{navigate, sidebar};
+use crate::screens::{navigate, page, sidebar};
 use crate::util::date::{format_journal_date, Date};
 use crate::util::filename::{classify_journal_file_name, JournalType};
 use crate::util::week::weeks_in_year;
@@ -17,7 +17,8 @@ use crux_core::Command;
 const BUFFER_ITEMS: usize = 100;
 
 /// Shows the journal of a date (or `today`).
-pub fn open(model: &mut Model, name: &str) -> Cmd {
+/// Shows the journal of a date; the fragment is the item to scroll to.
+pub fn open(model: &mut Model, name: &str, fragment: Option<String>) -> Cmd {
     let date = if name.is_empty() || name == "today" {
         model.today.clone()
     } else {
@@ -31,6 +32,7 @@ pub fn open(model: &mut Model, name: &str) -> Cmd {
         page: None,
         loaded_dates: Default::default(),
         loading: false,
+        focus_item_id: fragment.filter(|f| !f.is_empty()),
     });
     load_journal(model, date)
 }
@@ -71,6 +73,7 @@ pub fn load_journal(model: &mut Model, date: String) -> Cmd {
             j.top_visible_date = d.clone();
             j.loaded_dates.clear();
             j.loaded_dates.insert(d.clone());
+            let focus_item_id = j.focus_item_id.clone();
             m.state.set_items(result.items);
             if let Some(trees) = result.transcluded_trees {
                 m.state.set_transcluded_trees(trees);
@@ -83,6 +86,7 @@ pub fn load_journal(model: &mut Model, date: String) -> Cmd {
             let mut cmds = vec![
                 navigate::set_title(title),
                 sidebar::set_current_page(m, Some(result.page.clone())),
+                page::scroll_to_item(m, focus_item_id),
             ];
             if created {
                 cmds.push(sidebar::refresh_recent_pages());

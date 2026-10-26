@@ -4,6 +4,7 @@ mod actions;
 mod backlinks;
 mod edit;
 mod extensions;
+mod journal_fragment;
 mod journal_moves;
 mod level;
 mod merge;

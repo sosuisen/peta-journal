@@ -390,6 +390,8 @@ pub struct JournalState {
     pub loaded_dates: HashSet<String>,
     /// True while older journals are being fetched; a second request is dropped.
     pub loading: bool,
+    /// The item the URL fragment names, scrolled to once the journal loads.
+    pub focus_item_id: Option<String>,
 }
 
 #[derive(Debug, Default)]

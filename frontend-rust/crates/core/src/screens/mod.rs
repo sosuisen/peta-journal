@@ -60,7 +60,7 @@ pub mod route {
                 model.selection.exit(&mut model.state);
                 let _ = crate::ops::wiki::close(model);
                 if name == "today" || is_journal_file_name(&name) {
-                    journal::open(model, &name)
+                    journal::open(model, &name, fragment)
                 } else {
                     page::open(model, &name, fragment)
                 }

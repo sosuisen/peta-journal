@@ -120,7 +120,8 @@ pub fn open(model: &mut Model, name: &str, fragment: Option<String>) -> Cmd {
                 if let Some(trees) = loaded.transcluded_trees {
                     m.state.set_transcluded_trees(trees);
                 }
-                scroll_to_focus_item(m)
+                let focus_item_id = page_state(m).and_then(|p| p.focus_item_id.clone());
+                scroll_to_item(m, focus_item_id)
             }),
             Err(e) => log_error(format!("Failed to load items for page {}: {e}", p.id)),
         }
@@ -166,9 +167,9 @@ pub fn backlink_groups(entries: &[BacklinkEntry]) -> Vec<(Page, Vec<crate::model
     groups
 }
 
-/// Selects and scrolls to the item the URL fragment names, when the page has it.
-fn scroll_to_focus_item(model: &mut Model) -> Cmd {
-    let Some(item_id) = page_state(model).and_then(|p| p.focus_item_id.clone()) else {
+/// Selects and scrolls to the item the URL fragment names, when the outline has it.
+pub fn scroll_to_item(model: &mut Model, item_id: Option<String>) -> Cmd {
+    let Some(item_id) = item_id else {
         return done();
     };
     if model.state.get_visible_item(&item_id).is_none() {
