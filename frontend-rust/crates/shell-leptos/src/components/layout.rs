@@ -173,6 +173,12 @@ pub fn MainLayout() -> impl IntoView {
                             <path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z"/>
                         </svg>
                     </button>
+                    <button class="tags-btn" title="Tags" on:click=move |_| core.send(Event::NavigateToTags)>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+                            <line x1="7" y1="7" x2="7.01" y2="7"/>
+                        </svg>
+                    </button>
                     <button class="journal-btn" title="Today" on:click=move |_| core.send(Event::NavigateToToday)>
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <rect x="3" y="1" width="16" height="20" rx="1.5" ry="1.5"/>

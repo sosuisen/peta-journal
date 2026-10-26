@@ -14,5 +14,6 @@ mod paste;
 mod settings;
 mod sidebar_sort;
 mod split;
+mod tags_button;
 mod undo_replay;
 mod view;

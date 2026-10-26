@@ -239,6 +239,8 @@ pub enum Event {
     DeleteCurrentPage,
     NavigateToToday,
     NavigateToRoot,
+    /// Opens the index page of the folder of the tag pages.
+    NavigateToTags,
     /// Opens a page by its path, from the sidebar, the calendar or a link.
     GoToPage {
         path: String,
@@ -712,6 +714,13 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         })
         .into(),
         NavigateToRoot => screens::navigate::to_page("index", false, false, false, None),
+        NavigateToTags => screens::navigate::to_page(
+            &format!("{}index", model.config.tags_dir),
+            false,
+            false,
+            false,
+            None,
+        ),
         GoToPage {
             path,
             new_tab,
