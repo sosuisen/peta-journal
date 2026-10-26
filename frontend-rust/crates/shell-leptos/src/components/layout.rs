@@ -168,6 +168,11 @@ pub fn MainLayout() -> impl IntoView {
             <header class="header">
                 <div class="header-left">
                     <button class="menu-btn" on:click=move |_| sidebar_collapsed.update(|c| *c = !*c)>"☰"</button>
+                    <button class="root-btn" title="Root" on:click=move |_| core.send(Event::NavigateToRoot)>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z"/>
+                        </svg>
+                    </button>
                     <button class="journal-btn" title="Today" on:click=move |_| core.send(Event::NavigateToToday)>
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <rect x="3" y="1" width="16" height="20" rx="1.5" ry="1.5"/>
@@ -175,11 +180,6 @@ pub fn MainLayout() -> impl IntoView {
                             <line x1="3" y1="17" x2="19" y2="17" stroke="#666" stroke-width="1"/>
                             <line x1="14" y1="2" x2="14" y2="20" stroke="#666" stroke-width="3"/>
                             <rect x="5" y="21" width="3" height="2" fill="#666" stroke="none"/>
-                        </svg>
-                    </button>
-                    <button class="root-btn" title="Root" on:click=move |_| core.send(Event::NavigateToRoot)>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z"/>
                         </svg>
                     </button>
                 </div>
