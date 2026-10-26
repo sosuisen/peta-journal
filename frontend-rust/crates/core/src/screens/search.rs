@@ -35,13 +35,10 @@ pub fn query_changed(model: &mut Model, value: String) -> Cmd {
                 let has_tag_terms = value
                     .split_whitespace()
                     .any(|t| t.starts_with('#') && t.len() > 1);
-                let exact = pages
-                    .iter()
-                    .any(|r| r.page_title.to_lowercase() == value.to_lowercase());
                 m.search.page_results = pages;
                 m.search.item_results = items;
                 m.search.selected_index = None;
-                m.search.show_create_button = !has_tag_terms && !exact && !value.trim().is_empty();
+                m.search.show_create_button = !has_tag_terms && !value.trim().is_empty();
                 done()
             }),
             Err(e) => log_error(format!("Search failed: {e}")),
@@ -59,15 +56,18 @@ fn cancel_timer(model: &mut Model) -> Cmd {
 }
 
 /// The titles offered by the "create" entries between the page and item results, in display
-/// order. The second entry puts the page in the directory of the open doc page, and is left
-/// out when that page already exists. Journals and root pages have no directory, so they
+/// order. The second entry puts the page in the directory of the open doc page. Each entry is
+/// left out when its page already exists. Journals and root pages have no directory, so they
 /// offer only the bare title.
 pub fn create_titles(model: &Model) -> Vec<String> {
     let title = model.search.query.trim();
     if !model.search.show_create_button || title.is_empty() {
         return Vec::new();
     }
-    let mut titles = vec![title.to_string()];
+    let mut titles = Vec::new();
+    if !page_exists(model, title) {
+        titles.push(title.to_string());
+    }
     let dir = model
         .current_page
         .as_ref()
