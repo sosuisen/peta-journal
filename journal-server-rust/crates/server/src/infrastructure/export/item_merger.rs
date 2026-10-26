@@ -21,16 +21,20 @@ use super::page_link_converter;
 use super::page_matcher::parse_id;
 use super::path_mapper;
 
-const RESERVED_KEYS: [&str; 5] = ["level", "collapsed", "transclude", "tag", "idx"];
+const RESERVED_KEYS: [&str; 5] = ["level", "collapsed", "transclude", "tags", "idx"];
 const ITEM_TARGET: &str = "item";
 
 /// Outcome of a merge.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MergeResult {
     /// Any item was added, changed or removed.
     pub changed: bool,
     /// The file lacks an id or idx, or its idx comments disagree with the line order.
     pub needs_write_back: bool,
+    /// The hashtags of the page's items before and after the merge, so the caller can keep
+    /// the tag pages in step once the file is fully imported.
+    pub tags_before: Vec<String>,
+    pub tags_after: Vec<String>,
 }
 
 pub struct ItemMerger {
@@ -65,6 +69,7 @@ impl ItemMerger {
         let title = page.title();
         let existing = self.items.find_by_page_id(page_id)?;
         let by_id: BTreeMap<&Hmtid, &Item> = existing.iter().map(|i| (&i.id, i)).collect();
+        let tags_before = self.tags_of(existing.iter().map(|i| i.id.to_string()).collect())?;
 
         // Resolve an id for every parsed item
         let n = parsed_items.len();
@@ -231,7 +236,24 @@ impl ItemMerger {
         if changed {
             self.items.recalculate_parent_ids(page_id)?;
         }
-        Ok(MergeResult { changed, needs_write_back })
+        let tags_after = self.tags_of(ids.iter().map(|id| id.to_string()).collect())?;
+        Ok(MergeResult {
+            changed,
+            needs_write_back,
+            tags_before,
+            tags_after,
+        })
+    }
+
+    /// The hashtags of the given items, each once.
+    fn tags_of(&self, item_ids: Vec<String>) -> AppResult<Vec<String>> {
+        let lists = self.properties.find_list_by_targets(ITEM_TARGET, &item_ids)?;
+        let tags: BTreeSet<String> = lists
+            .into_values()
+            .filter_map(|mut l| l.remove("tags"))
+            .flatten()
+            .collect();
+        Ok(tags.into_iter().collect())
     }
 
     /// Makes the scalar properties of an item match the key="value" pairs of its metadata line.

@@ -45,8 +45,8 @@ async fn a_hashtag_in_the_body_comes_back_as_a_tag_property() {
     let created = create_item(&page.id, "last", 1, "remember #urgent").await;
     let updated = update_item(&created.id, json!({ "body": "remember #urgent #later" })).await;
 
-    assert_eq!(created.properties["tag"], json!(["urgent"]));
-    assert_eq!(updated.properties["tag"], json!(["urgent", "later"]));
+    assert_eq!(created.properties["tags"], json!(["urgent"]));
+    assert_eq!(updated.properties["tags"], json!(["urgent", "later"]));
 }
 
 // ---- Items: updating ----
@@ -475,8 +475,20 @@ async fn a_hashtag_in_the_body_is_found_as_a_tag() {
     let tag = format!("tag{}", nanos());
     let item = fill(&page.id, &[&format!("remember #{tag}")]).await.remove(0);
 
-    assert_eq!(items(&page.id).await[0].properties["tag"], json!([tag]));
+    assert_eq!(items(&page.id).await[0].properties["tags"], json!([tag]));
     let resp = search("/api/search/tags", &tag).await;
+    assert_eq!(field_of_each(&resp, "results", "itemId"), vec![json!(item.id)]);
+}
+
+#[tokio::test]
+async fn a_tag_is_found_in_any_case_of_its_letters() {
+    let page = new_doc_page("search-tag-case").await;
+    let tag = format!("CaseTag{}", nanos());
+    let item = fill(&page.id, &[&format!("remember #{tag}")]).await.remove(0);
+
+    let resp = search("/api/search/tags", &tag.to_lowercase()).await;
+    assert_eq!(field_of_each(&resp, "results", "itemId"), vec![json!(item.id)]);
+    let resp = search("/api/search/combined", &format!("#{}", tag.to_uppercase())).await;
     assert_eq!(field_of_each(&resp, "results", "itemId"), vec![json!(item.id)]);
 }
 
@@ -588,6 +600,10 @@ async fn wait_until(what: &str, mut condition: impl FnMut() -> bool) {
     }
 }
 
+/// Held by the tests that edit files and scan the folder. A scan imports every changed file,
+/// so it would take the change another test is about to look for in its own scan.
+static FOLDER_SCAN: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 async fn scan() -> Value {
     let (status, resp) = post_empty("/api/sync/scan").await;
     assert_eq!(status, 200, "{resp}");
@@ -618,6 +634,7 @@ async fn a_page_is_written_to_its_markdown_file() {
 
 #[tokio::test]
 async fn a_change_made_to_the_file_is_merged_into_the_page() {
+    let _folder = FOLDER_SCAN.lock().await;
     let page = new_doc_page("sync-import").await;
     fill(&page.id, &["before the edit"]).await;
     wait_until("the page is exported", || read(&file_of(&page)).contains("before the edit")).await;
@@ -635,6 +652,7 @@ async fn a_change_made_to_the_file_is_merged_into_the_page() {
 
 #[tokio::test]
 async fn a_new_file_in_the_folder_becomes_a_page() {
+    let _folder = FOLDER_SCAN.lock().await;
     let name = format!("sync-new-{}", nanos());
     let docs = server().markdown_dir.join("docs");
     std::fs::create_dir_all(&docs).unwrap();
@@ -654,6 +672,7 @@ async fn a_new_file_in_the_folder_becomes_a_page() {
 
 #[tokio::test]
 async fn an_unchanged_file_is_left_alone() {
+    let _folder = FOLDER_SCAN.lock().await;
     let page = new_doc_page("sync-unchanged").await;
     fill(&page.id, &["stable"]).await;
     wait_until("the page is exported", || read(&file_of(&page)).contains("stable")).await;
@@ -673,6 +692,7 @@ async fn health_and_config() {
     assert_eq!(status, 200);
     assert_eq!(resp["status"], json!("ok"));
 
+    let _tags_dir = TAGS_DIR.lock().await;
     let (status, resp) = get("/api/config").await;
     assert_eq!(status, 200);
     assert_eq!(resp["weekNumbering"], json!("iso"));
@@ -702,8 +722,8 @@ async fn property_definitions_list_the_system_keys_and_accept_user_keys() {
     let (status, resp) = get("/api/config/property-definitions").await;
     assert_eq!(status, 200, "{resp}");
     assert_eq!(resp["propertyDefinitions"]["zoom"], json!("number"));
-    assert_eq!(definition(&resp, "tag").unwrap()["system"], json!(true));
-    assert_eq!(definition(&resp, "tag").unwrap()["page"], json!(true));
+    assert_eq!(definition(&resp, "tags").unwrap()["system"], json!(true));
+    assert_eq!(definition(&resp, "tags").unwrap()["page"], json!(true));
     assert_eq!(definition(&resp, "zoom").unwrap()["page"], json!(false));
     assert_eq!(definition(&resp, "modified").unwrap()["system"], json!(true));
     assert_eq!(definition(&resp, "due").unwrap()["system"], json!(true));
@@ -782,12 +802,12 @@ async fn page_properties_are_set_removed_and_written_to_the_front_matter() {
     assert_eq!(resp["page"]["properties"]["owner"], json!("me: now"));
 
     let (status, resp) = put(
-        &format!("/api/pages/{}/properties/tag", page.id),
+        &format!("/api/pages/{}/properties/tags", page.id),
         json!({ "valueType": "tags", "value": "a, b" }),
     )
     .await;
     assert_eq!(status, 200, "{resp}");
-    assert_eq!(resp["page"]["properties"]["tag"], json!(["a", "b"]));
+    assert_eq!(resp["page"]["properties"]["tags"], json!(["a", "b"]));
 
     // An item-only system key stays off the page
     let (status, _) = put(
@@ -799,20 +819,205 @@ async fn page_properties_are_set_removed_and_written_to_the_front_matter() {
 
     let (_, resp) = get(&format!("/api/pages/{}", page.id)).await;
     assert_eq!(resp["page"]["properties"]["owner"], json!("me: now"));
-    assert_eq!(resp["page"]["properties"]["tag"], json!(["a", "b"]));
+    assert_eq!(resp["page"]["properties"]["tags"], json!(["a", "b"]));
 
     wait_until("the front matter has the properties", || {
         let text = read(&file_of(&page));
-        text.contains("owner: \"me: now\"\n") && text.contains("tag:\n  - a\n  - b\n---\n")
+        text.contains("owner: \"me: now\"\n") && text.contains("tags:\n  - a\n  - b\n---\n")
     })
     .await;
 
     let (status, resp) = send(reqwest::Method::DELETE, &format!("/api/pages/{}/properties/owner", page.id), None).await;
     assert_eq!(status, 200, "{resp}");
     assert!(resp["page"]["properties"].get("owner").is_none());
-    assert_eq!(resp["page"]["properties"]["tag"], json!(["a", "b"]));
+    assert_eq!(resp["page"]["properties"]["tags"], json!(["a", "b"]));
 
     wait_until("the owner left the front matter", || !read(&file_of(&page)).contains("owner:")).await;
+}
+
+/// Held by a test that changes the tag directory, and by the tests of tag pages. A tag page
+/// made while the directory is changed would be looked for in the wrong folder later.
+static TAGS_DIR: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
+/// The id of a doc page by its name.
+async fn doc_page_named(name: &str) -> Option<String> {
+    let (_, resp) = get("/api/pages/recent?maxResults=200&type=doc").await;
+    resp["pages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["name"] == json!(name))
+        .map(|p| p["id"].as_str().unwrap().to_string())
+}
+
+async fn set_page_tags(page_id: &str, tags: &str) {
+    let (status, resp) = put(
+        &format!("/api/pages/{page_id}/properties/tags"),
+        json!({ "valueType": "tags", "value": tags }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+}
+
+#[tokio::test]
+async fn a_new_page_tag_gets_its_tag_page_and_the_last_use_takes_it_away() {
+    let _tags_dir = TAGS_DIR.lock().await;
+    let tag = "page-tag-pages-new";
+    let first = new_doc_page("page-tag-pages-first").await;
+    let second = new_doc_page("page-tag-pages-second").await;
+
+    set_page_tags(&first.id, tag).await;
+    set_page_tags(&second.id, tag).await;
+    assert!(doc_page_named(tag).await.is_some());
+
+    // The second page still uses the tag
+    set_page_tags(&first.id, "page-tag-pages-other").await;
+    assert!(doc_page_named(tag).await.is_some());
+
+    let (status, resp) = send(reqwest::Method::DELETE, &format!("/api/pages/{}/properties/tags", second.id), None).await;
+    assert_eq!(status, 200, "{resp}");
+    assert!(doc_page_named(tag).await.is_none());
+}
+
+/// The ids of the doc pages with this name in any case of its letters.
+async fn doc_pages_named_ignoring_case(name: &str) -> Vec<String> {
+    let (_, resp) = get("/api/pages/recent?maxResults=200&type=doc").await;
+    resp["pages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|p| p["name"].as_str().unwrap().eq_ignore_ascii_case(name))
+        .map(|p| p["id"].as_str().unwrap().to_string())
+        .collect()
+}
+
+#[tokio::test]
+async fn tags_that_differ_only_in_case_share_one_tag_page() {
+    let _tags_dir = TAGS_DIR.lock().await;
+    let first = new_doc_page("case-tag-pages-first").await;
+    let second = new_doc_page("case-tag-pages-second").await;
+
+    set_page_tags(&first.id, "Case-Tag-Pages").await;
+    set_page_tags(&second.id, "case-tag-pages").await;
+    assert_eq!(doc_pages_named_ignoring_case("case-tag-pages").await.len(), 1);
+
+    // The other case still uses the page
+    set_page_tags(&first.id, "case-tag-pages-other").await;
+    assert_eq!(doc_pages_named_ignoring_case("case-tag-pages").await.len(), 1);
+
+    set_page_tags(&second.id, "case-tag-pages-other").await;
+    assert!(doc_pages_named_ignoring_case("case-tag-pages").await.is_empty());
+}
+
+#[tokio::test]
+async fn an_unused_tag_page_with_content_stays() {
+    let _tags_dir = TAGS_DIR.lock().await;
+    let tag = "page-tag-pages-written";
+    let page = new_doc_page("page-tag-pages-written").await;
+    set_page_tags(&page.id, tag).await;
+    let tag_page = doc_page_named(tag).await.unwrap();
+    let first = items(&tag_page).await.into_iter().next().unwrap();
+    update_item(&first.id, json!({ "body": "a note" })).await;
+
+    set_page_tags(&page.id, "page-tag-pages-written-other").await;
+    assert_eq!(doc_page_named(tag).await, Some(tag_page));
+}
+
+#[tokio::test]
+async fn a_hashtag_in_a_body_keeps_its_tag_page_as_a_page_tag_does() {
+    let _tags_dir = TAGS_DIR.lock().await;
+    let tag = "body-tag-pages-new";
+    let page = new_doc_page("body-tag-pages").await;
+    let item = items(&page.id).await.into_iter().next().unwrap();
+
+    update_item(&item.id, json!({ "body": format!("see #{tag}") })).await;
+    assert!(doc_page_named(tag).await.is_some());
+
+    update_item(&item.id, json!({ "body": "no tag now" })).await;
+    assert!(doc_page_named(tag).await.is_none());
+
+    let added = create_item(&page.id, &format!("after:{}", item.id), 1, &format!("#{tag}")).await;
+    assert!(doc_page_named(tag).await.is_some());
+    assert_eq!(delete(&format!("/api/items/{}", added.id)).await, 204);
+    assert!(doc_page_named(tag).await.is_none());
+}
+
+#[tokio::test]
+async fn a_deleted_page_takes_the_tag_pages_of_its_tags_with_it() {
+    let _tags_dir = TAGS_DIR.lock().await;
+    let page_tag = "deleted-page-tag-pages-page";
+    let body_tag = "deleted-page-tag-pages-body";
+    let page = new_doc_page("deleted-page-tag-pages").await;
+    set_page_tags(&page.id, page_tag).await;
+    let item = items(&page.id).await.into_iter().next().unwrap();
+    update_item(&item.id, json!({ "body": format!("#{body_tag}") })).await;
+    assert!(doc_page_named(page_tag).await.is_some());
+    assert!(doc_page_named(body_tag).await.is_some());
+
+    assert_eq!(delete(&format!("/api/pages/{}", page.id)).await, 204);
+    assert!(doc_page_named(page_tag).await.is_none());
+    assert!(doc_page_named(body_tag).await.is_none());
+}
+
+/// Edits a page file as an outside editor would. The `modified` line goes, so the file's
+/// own time makes it newer than the page.
+fn edit_file(page: &PageRef, edit: impl Fn(&str) -> String) {
+    let text: String = read(&file_of(page))
+        .lines()
+        .filter(|l| !l.starts_with("modified: "))
+        .map(|l| format!("{l}\n"))
+        .collect();
+    std::fs::write(file_of(page), edit(&text)).unwrap();
+}
+
+#[tokio::test]
+async fn the_tags_of_a_file_edited_outside_keep_their_tag_pages() {
+    let _tags_dir = TAGS_DIR.lock().await;
+    let _folder = FOLDER_SCAN.lock().await;
+    let page_tag = "file-tag-pages-page";
+    let body_tag = "file-tag-pages-body";
+    let page = new_doc_page("file-tag-pages").await;
+    fill(&page.id, &["before the edit"]).await;
+    wait_until("the page is exported", || read(&file_of(&page)).contains("before the edit")).await;
+
+    edit_file(&page, |text| {
+        text.replacen("---\n\n", &format!("tags:\n  - \"#{page_tag}\"\n---\n\n"), 1)
+            .replace("before the edit", &format!("see #{body_tag}"))
+    });
+    scan().await;
+    let (_, resp) = get(&format!("/api/pages/{}", page.id)).await;
+    assert_eq!(resp["page"]["properties"]["tags"], json!([page_tag]));
+    assert!(doc_page_named(page_tag).await.is_some());
+    assert!(doc_page_named(body_tag).await.is_some());
+
+    edit_file(&page, |text| {
+        text.lines()
+            .filter(|l| !l.contains(page_tag) && *l != "tags:")
+            .map(|l| if l.contains(body_tag) { "no tag now\n".to_string() } else { format!("{l}\n") })
+            .collect()
+    });
+    scan().await;
+    let (_, resp) = get(&format!("/api/pages/{}", page.id)).await;
+    assert!(resp["page"]["properties"].get("tags").is_none(), "{resp}");
+    assert!(doc_page_named(page_tag).await.is_none());
+    assert!(doc_page_named(body_tag).await.is_none());
+}
+
+#[tokio::test]
+async fn a_file_written_with_the_old_tag_key_keeps_its_tags() {
+    let _folder = FOLDER_SCAN.lock().await;
+    let page = new_doc_page("file-old-tag-key").await;
+    fill(&page.id, &["before the edit"]).await;
+    wait_until("the page is exported", || read(&file_of(&page)).contains("before the edit")).await;
+
+    edit_file(&page, |text| {
+        text.replacen("---\n\n", "tag:\n  - old-key\n---\n\n", 1)
+            .replace("before the edit", "after the edit")
+    });
+    scan().await;
+    let (_, resp) = get(&format!("/api/pages/{}", page.id)).await;
+    assert_eq!(resp["page"]["properties"]["tags"], json!(["old-key"]));
+    wait_until("the file has the new key", || read(&file_of(&page)).contains("tags:\n  - old-key\n")).await;
 }
 
 #[tokio::test]
@@ -905,7 +1110,7 @@ async fn deleting_a_property_definition_removes_its_values_from_pages_and_items(
     assert!(resp["page"]["modifiedDate"].as_i64().unwrap() >= modified_before);
 
     // System keys and unknown keys are refused
-    let (status, _) = send(reqwest::Method::DELETE, "/api/config/property-definitions/tag", None).await;
+    let (status, _) = send(reqwest::Method::DELETE, "/api/config/property-definitions/tags", None).await;
     assert_eq!(status, 400);
     let (status, _) = send(reqwest::Method::DELETE, "/api/config/property-definitions/rating", None).await;
     assert_eq!(status, 400);

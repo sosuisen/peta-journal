@@ -142,12 +142,12 @@ fn archive_reuses_an_existing_item_archive_and_does_not_tag_twice() {
         item_with("a", 1, |i| {
             i.body = "todo #archived".into();
             i.properties
-                .insert("tag".into(), serde_json::json!(["archived"]));
+                .insert("tags".into(), serde_json::json!(["archived"]));
         }),
         item_with("arch", 1, |i| {
             i.body = "#item-archive".into();
             i.properties
-                .insert("tag".into(), serde_json::json!(["item-archive"]));
+                .insert("tags".into(), serde_json::json!(["item-archive"]));
         }),
     ]);
     h.send(Event::SendToArchive {

@@ -5,6 +5,7 @@ use std::sync::{Arc, LazyLock};
 use hmtid::Hmtid;
 use regex::Regex;
 
+use super::config_service::ConfigService;
 use crate::domain::fractional_index;
 use crate::domain::id_generator::IdGenerator;
 use crate::domain::journal_name;
@@ -35,6 +36,7 @@ pub struct PageService {
     export_queue: ExportQueueRepository,
     properties: PropertyRepository,
     ids: Arc<IdGenerator>,
+    config: Arc<ConfigService>,
 }
 
 static FORBIDDEN_CHARS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"[<>:"/\\|?*\x00-\x1F\x7F]"#).unwrap());
@@ -64,7 +66,18 @@ pub fn validate_file_name(title: &str) -> AppResult<()> {
     Ok(())
 }
 
+/// The folder and name of a tag's page. A tag like `a/b` is `b` in the folder `a/`, as the
+/// link of a hashtag is.
+fn tag_page_path(tags_dir: &str, tag: &str) -> (String, String) {
+    let path = format!("{tags_dir}{tag}");
+    match path.rfind('/') {
+        Some(slash) => (path[..=slash].to_string(), path[slash + 1..].to_string()),
+        None => (String::new(), path),
+    }
+}
+
 impl PageService {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         pages: PageRepository,
         items: ItemRepository,
@@ -73,6 +86,7 @@ impl PageService {
         export_queue: ExportQueueRepository,
         properties: PropertyRepository,
         ids: Arc<IdGenerator>,
+        config: Arc<ConfigService>,
     ) -> PageService {
         PageService {
             pages,
@@ -82,6 +96,7 @@ impl PageService {
             export_queue,
             properties,
             ids,
+            config,
         }
     }
 
@@ -123,6 +138,19 @@ impl PageService {
         // If no exact match, check if an index page exists at dir+fileName/
         let index_dir = format!("{dir}{file_name}/");
         if let Some(page) = self.pages.find_by_type_dir_path_file_name("doc", &index_dir, "index")? {
+            let items = self.items.find_by_page_id(&page.id)?;
+            return Ok(DocResult { page, items, created: false });
+        }
+
+        // A page whose path differs only in case has the same file on Windows and macOS: a
+        // second page there would overwrite its file again and again
+        let same_file = self
+            .pages
+            .find_by_type_dir_path_file_name_ignoring_case("doc", dir, file_name)?
+            .into_iter()
+            .chain(self.pages.find_by_type_dir_path_file_name_ignoring_case("doc", &index_dir, "index")?)
+            .next();
+        if let Some(page) = same_file {
             let items = self.items.find_by_page_id(&page.id)?;
             return Ok(DocResult { page, items, created: false });
         }
@@ -249,9 +277,10 @@ impl PageService {
     }
 
     /// Sets a property of a page. `created` and `modified` are the page's own dates, as an
-    /// RFC 3339 date-time; `tag` takes a comma separated list; every other key must be
+    /// RFC 3339 date-time; `tags` takes a comma separated list; every other key must be
     /// defined for pages, and an unknown key is defined as a user key of the given type.
     /// The page file is rewritten.
+    /// The tags keep their tag pages, as `update_tag_pages` says.
     pub fn set_property(&self, page_id: &Hmtid, key: &str, value_type: &str, value: &str) -> AppResult<Page> {
         let page = self
             .pages
@@ -281,7 +310,9 @@ impl PageService {
                     .map(|t| t.trim().to_string())
                     .filter(|t| !t.is_empty())
                     .collect();
+                let before = self.properties.find_tags(PAGE_TARGET, page_id.as_str())?;
                 self.properties.sync_tags(PAGE_TARGET, page_id.as_str(), &tags)?;
+                self.update_tag_pages(&before, &tags);
             }
             _ => self
                 .properties
@@ -290,7 +321,120 @@ impl PageService {
         self.touch_and_export(&page)
     }
 
+    /// Sets the tags of a page as an imported file has them, and returns the tags it had.
+    /// The tag pages are left to the caller, which knows when the import is complete.
+    pub fn replace_page_tags(&self, page_id: &Hmtid, tags: &[String]) -> AppResult<Vec<String>> {
+        let before = self.properties.find_tags(PAGE_TARGET, page_id.as_str())?;
+        if before != tags {
+            self.properties.sync_tags(PAGE_TARGET, page_id.as_str(), tags)?;
+        }
+        Ok(before)
+    }
+
+    /// Keeps the tag pages in step with a change of tags on one page or item: the added
+    /// tags get their pages, and the removed ones lose theirs when nothing else uses them.
+    pub fn update_tag_pages(&self, before: &[String], after: &[String]) {
+        let added: Vec<String> = after.iter().filter(|t| !before.contains(t)).cloned().collect();
+        let removed: Vec<String> = before.iter().filter(|t| !after.contains(t)).cloned().collect();
+        self.ensure_tag_pages(&added);
+        self.delete_unused_tag_pages(&removed);
+    }
+
+    /// Creates the tag pages under the tag directory that do not exist yet, so a tag link
+    /// never leads to a missing page. A tag that cannot be a page name is skipped: the tag
+    /// itself is already saved and should not be refused for it.
+    /// Returns how many pages were created.
+    fn ensure_tag_pages(&self, tags: &[String]) -> usize {
+        let tags_dir = self.config.tags_dir();
+        let mut created = 0;
+        for tag in tags {
+            let (dir, name) = tag_page_path(&tags_dir, tag);
+            match self.get_or_create_doc(Some(&name), Some(&dir)) {
+                Ok(result) if result.created => created += 1,
+                Ok(_) => {}
+                Err(e) => tracing::warn!("Tag page '{dir}{name}' was not created: {}", e),
+            }
+        }
+        created
+    }
+
+    /// Creates the missing tag pages of every tag in use, for tags that were added before
+    /// tag pages were made. Returns how many pages were created.
+    pub fn ensure_all_tag_pages(&self) -> AppResult<usize> {
+        Ok(self.ensure_tag_pages(&self.properties.find_all_tag_values()?))
+    }
+
+    /// Deletes the tag pages of tags that no page or item uses any more. A page with more
+    /// than one empty item was written by the user, so it stays. A failure is only logged:
+    /// the change of the tags itself is already saved.
+    pub fn delete_unused_tag_pages(&self, tags: &[String]) {
+        let tags_dir = self.config.tags_dir();
+        for tag in tags {
+            let (dir, name) = tag_page_path(&tags_dir, tag);
+            if let Err(e) = self.delete_tag_page_if_unused(tag, &dir, &name) {
+                tracing::warn!("Tag page '{dir}{name}' was not deleted: {}", e);
+            }
+        }
+    }
+
+    /// Tags that differ only in case share their tag page, as they share its file.
+    fn delete_tag_page_if_unused(&self, tag: &str, dir: &str, name: &str) -> AppResult<()> {
+        if self.properties.count_tag_uses_ignoring_case(tag)? > 0 {
+            return Ok(());
+        }
+        for page in self.pages.find_by_type_dir_path_file_name_ignoring_case("doc", dir, name)? {
+            if self.is_empty_page(&page)? {
+                self.delete_page(&page.id)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// A page with one empty item, as a new page has.
+    fn is_empty_page(&self, page: &Page) -> AppResult<bool> {
+        let items = self.items.find_by_page_id(&page.id)?;
+        Ok(matches!(items.as_slice(), [only] if only.body.trim().is_empty() && only.transclude_item_id.is_none()))
+    }
+
+    /// Deletes the tag pages that only repeat an older one in another case, like
+    /// `NextJS` beside `Nextjs`. Such pages were made before tag pages were matched ignoring
+    /// case, and they overwrite the file of the older page. Only empty ones go; the older page
+    /// is written again at once, since its file was the one deleted. Returns how many went.
+    pub fn delete_case_duplicate_tag_pages(&self) -> AppResult<usize> {
+        let tags_dir = self.config.tags_dir();
+        let mut deleted = 0;
+        let mut done: Vec<String> = Vec::new();
+        for tag in self.properties.find_all_tag_values()? {
+            let (dir, name) = tag_page_path(&tags_dir, &tag);
+            let key = format!("{dir}{name}").to_lowercase();
+            if done.contains(&key) {
+                continue;
+            }
+            done.push(key);
+            let pages = self.pages.find_by_type_dir_path_file_name_ignoring_case("doc", &dir, &name)?;
+            let Some((kept, others)) = pages.split_first() else { continue };
+            let mut any = false;
+            for page in others {
+                if self.is_empty_page(page)? {
+                    self.delete_page(&page.id)?;
+                    deleted += 1;
+                    any = true;
+                } else {
+                    tracing::warn!("{}{} repeats {}{} in another case but is not empty", page.dir_path, page.name, kept.dir_path, kept.name);
+                }
+            }
+            if any {
+                if let Err(e) = self.export.export_page(&kept.id) {
+                    tracing::warn!("{}{} was not written again: {e}", kept.dir_path, kept.name);
+                    self.export.queue_export(&kept.id);
+                }
+            }
+        }
+        Ok(deleted)
+    }
+
     /// Removes a property of a page. The page file is rewritten. The page's own dates stay.
+    /// Removing the tags deletes the tag pages that became unused, as `set_property` does.
     pub fn delete_property(&self, page_id: &Hmtid, key: &str) -> AppResult<Page> {
         if key == "created" || key == "modified" {
             return Err(AppError::bad_request(format!("Property '{key}' cannot be removed from a page")));
@@ -299,7 +443,13 @@ impl PageService {
             .pages
             .find_by_id(page_id)?
             .ok_or_else(|| AppError::bad_request(format!("Page not found: {page_id}")))?;
+        let before = if key == "tags" {
+            self.properties.find_tags(PAGE_TARGET, page_id.as_str())?
+        } else {
+            Vec::new()
+        };
         self.properties.delete_property(PAGE_TARGET, page_id.as_str(), key)?;
+        self.delete_unused_tag_pages(&before);
         self.touch_and_export(&page)
     }
 
@@ -327,7 +477,8 @@ impl PageService {
         Ok(updated)
     }
 
-    /// Deletes a page with all its items and their properties.
+    /// Deletes a page with all its items and their properties. The tags of the page and of
+    /// its items go with them, so their tag pages are deleted when nothing else uses them.
     pub fn delete_page(&self, page_id: &Hmtid) -> AppResult<()> {
         let page = self
             .pages
@@ -354,6 +505,12 @@ impl PageService {
             .iter()
             .map(|i| i.id.to_string())
             .collect();
+        let mut tags = self.properties.find_tags(PAGE_TARGET, page_id.as_str())?;
+        for id in &item_ids {
+            tags.extend(self.properties.find_tags("item", id)?);
+        }
+        tags.sort();
+        tags.dedup();
         self.properties.delete_all_for_targets("item", &item_ids)?;
         self.properties
             .delete_all_for_targets(PAGE_TARGET, std::slice::from_ref(&page_id.to_string()))?;
@@ -362,6 +519,7 @@ impl PageService {
         self.export_queue.remove(page_id)?;
         // Remove the markdown file too, otherwise the folder scan would bring the page back
         self.export.delete_page_file(&page);
+        self.delete_unused_tag_pages(&tags);
         Ok(())
     }
 

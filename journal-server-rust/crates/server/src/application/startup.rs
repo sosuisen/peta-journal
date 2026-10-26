@@ -1,4 +1,5 @@
-//! Startup checks: the markdown directory, the hashtag backfill and the search index rebuild.
+//! Startup checks: the markdown directory, the hashtag backfill, the search index rebuild and
+//! the missing tag pages.
 
 use std::path::Path;
 use std::sync::Arc;
@@ -10,6 +11,23 @@ use crate::infrastructure::persistence::{ItemRepository, PageRepository, Propert
 
 use super::config_service::ConfigService;
 use super::folder_chooser;
+use super::page_service::PageService;
+
+/// Creates the tag pages that are missing. Tags added before tag pages were made have none.
+/// Tag pages that repeat another in a different case go first, so their files stop
+/// overwriting each other.
+pub fn ensure_tag_pages(page_service: &PageService) {
+    match page_service.delete_case_duplicate_tag_pages() {
+        Ok(0) => {}
+        Ok(n) => tracing::info!("Deleted {n} tag pages that repeated another in a different case"),
+        Err(e) => tracing::warn!("Tag pages repeated in a different case were not deleted: {e}"),
+    }
+    match page_service.ensure_all_tag_pages() {
+        Ok(0) => {}
+        Ok(n) => tracing::info!("Created {n} missing tag pages"),
+        Err(e) => tracing::warn!("Missing tag pages were not created: {e}"),
+    }
+}
 
 /// Makes sure a markdown directory is configured (asking with the native folder chooser if not),
 /// creates its sub directories and queues a first export when it is empty.

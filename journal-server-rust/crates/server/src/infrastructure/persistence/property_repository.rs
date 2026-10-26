@@ -16,7 +16,7 @@ pub type ScalarProps = BTreeMap<String, BTreeMap<String, String>>;
 pub type ListProps = BTreeMap<String, BTreeMap<String, Vec<String>>>;
 
 /// The types a user may give a new key. `list` and `tags` stay internal: the only list
-/// property is `tag`, which the server derives from the body of an item.
+/// property is `tags`, which the server derives from the body of an item.
 pub const USER_VALUE_TYPES: [&str; 5] = ["text", "number", "checkbox", "date", "datetime"];
 
 /// A property definition: the key, its value type and who may use it.
@@ -26,7 +26,7 @@ pub struct PropertyDefinition {
     pub value_type: String,
     /// Written by the server itself; cannot be defined, changed or removed by the user.
     pub system: bool,
-    /// May be set on a page (every user key, and `tag` among the system keys).
+    /// May be set on a page (every user key, and `tags` among the system keys).
     pub page: bool,
 }
 
@@ -272,12 +272,12 @@ impl PropertyRepository {
     pub fn sync_tags(&self, target_type: &str, target_id: &str, new_tags: &[String]) -> AppResult<()> {
         let conn = self.db.conn()?;
         conn.execute(
-            "DELETE FROM property_list_items WHERE target_type = ? AND target_id = ? AND key = 'tag'",
+            "DELETE FROM property_list_items WHERE target_type = ? AND target_id = ? AND key = 'tags'",
             params![target_type, target_id],
         )?;
         if !new_tags.is_empty() {
             let mut stmt = conn.prepare(
-                "INSERT INTO property_list_items (target_type, target_id, key, sort_order, value) VALUES (?, ?, 'tag', ?, ?)",
+                "INSERT INTO property_list_items (target_type, target_id, key, sort_order, value) VALUES (?, ?, 'tags', ?, ?)",
             )?;
             for (i, tag) in new_tags.iter().enumerate() {
                 stmt.execute(params![target_type, target_id, i as i64, tag])?;
@@ -286,10 +286,42 @@ impl PropertyRepository {
         Ok(())
     }
 
-    pub fn find_item_ids_by_tag_value(&self, tag_value: &str, max_results: i64) -> AppResult<Vec<String>> {
+    /// The tags of one target, in sort order.
+    pub fn find_tags(&self, target_type: &str, target_id: &str) -> AppResult<Vec<String>> {
         let conn = self.db.conn()?;
         let mut stmt = conn.prepare(
-            "SELECT target_id FROM property_list_items WHERE key = 'tag' AND value = ? AND target_type = 'item' LIMIT ?",
+            "SELECT value FROM property_list_items \
+             WHERE target_type = ? AND target_id = ? AND key = 'tags' ORDER BY sort_order",
+        )?;
+        let rows = stmt.query_map(params![target_type, target_id], |r| r.get::<_, String>(0))?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
+    /// Every tag that a page or an item carries, each once.
+    pub fn find_all_tag_values(&self) -> AppResult<Vec<String>> {
+        let conn = self.db.conn()?;
+        let mut stmt =
+            conn.prepare("SELECT DISTINCT value FROM property_list_items WHERE key = 'tags' ORDER BY value")?;
+        let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
+    /// How many pages and items carry the tag in any case of its letters.
+    pub fn count_tag_uses_ignoring_case(&self, tag_value: &str) -> AppResult<i64> {
+        let conn = self.db.conn()?;
+        Ok(conn.query_row(
+            "SELECT COUNT(*) FROM property_list_items WHERE key = 'tags' AND value = ? COLLATE NOCASE",
+            params![tag_value],
+            |r| r.get(0),
+        )?)
+    }
+
+    /// The items that carry the tag in any case of its letters, as tags that differ only in
+    /// case share one tag page.
+    pub fn find_item_ids_by_tag_value_ignoring_case(&self, tag_value: &str, max_results: i64) -> AppResult<Vec<String>> {
+        let conn = self.db.conn()?;
+        let mut stmt = conn.prepare(
+            "SELECT target_id FROM property_list_items              WHERE key = 'tags' AND value = ? COLLATE NOCASE AND target_type = 'item' LIMIT ?",
         )?;
         let rows = stmt.query_map(params![tag_value, max_results], |r| r.get::<_, String>(0))?;
         Ok(rows.collect::<Result<_, _>>()?)
@@ -298,7 +330,7 @@ impl PropertyRepository {
     pub fn find_any_tag_exists(&self) -> bool {
         let Ok(conn) = self.db.conn() else { return false };
         conn.query_row(
-            "SELECT COUNT(*) FROM property_list_items WHERE key = 'tag' LIMIT 1",
+            "SELECT COUNT(*) FROM property_list_items WHERE key = 'tags' LIMIT 1",
             [],
             |r| r.get::<_, i64>(0),
         )

@@ -126,6 +126,7 @@ fn run(conn: &Connection, ids: &IdGenerator) -> rusqlite::Result<()> {
     migrate_root_index(conn, ids)?;
     migrate_transclusion(conn)?;
     migrate_datetime_to_seconds(conn)?;
+    migrate_tag_key_to_tags(conn)?;
     migrate_definition_flags(conn)?;
     Ok(())
 }
@@ -135,7 +136,7 @@ fn run(conn: &Connection, ids: &IdGenerator) -> rusqlite::Result<()> {
 /// own dates, which a page property write changes in place; `published` is the date-time
 /// the user publishes a page at, which the sidebar can sort pages by.
 pub const SYSTEM_KEYS: [(&str, &str, bool); 11] = [
-    ("tag", "tags", true),
+    ("tags", "tags", true),
     ("begin", "datetime", false),
     ("end", "datetime", false),
     ("plan", "date", false),
@@ -147,6 +148,30 @@ pub const SYSTEM_KEYS: [(&str, &str, bool); 11] = [
     ("modified", "datetime", true),
     ("published", "datetime", true),
 ];
+
+/// Renames the system key `tag` to `tags`, the key other Markdown tools use in the front
+/// matter. The rows are renamed in place, so no tag is lost. The old definition goes only
+/// when nothing refers to it any more.
+fn migrate_tag_key_to_tags(conn: &Connection) -> rusqlite::Result<()> {
+    let old: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM property_definitions WHERE key = 'tag'",
+        [],
+        |r| r.get(0),
+    )?;
+    if old == 0 {
+        return Ok(());
+    }
+    tracing::info!("Renaming the property key 'tag' to 'tags'...");
+    conn.execute_batch(
+        "BEGIN;
+         INSERT OR IGNORE INTO property_definitions (key, value_type) VALUES ('tags', 'tags');
+         UPDATE property_list_items SET key = 'tags' WHERE key = 'tag';
+         DELETE FROM property_definitions WHERE key = 'tag'
+             AND NOT EXISTS (SELECT 1 FROM properties WHERE key = 'tag');
+         COMMIT;",
+    )?;
+    Ok(())
+}
 
 /// Adds the `is_system` and `for_page` flags to the property definitions and marks the
 /// system keys. Runs on every start, so a key that became a system key is flagged too, and
@@ -329,7 +354,7 @@ fn migrate_properties(conn: &Connection) -> rusqlite::Result<()> {
          INSERT OR IGNORE INTO property_definitions (key, value_type) VALUES ('begin', 'datetime');
          INSERT OR IGNORE INTO property_definitions (key, value_type) VALUES ('end', 'datetime');
          INSERT OR IGNORE INTO property_definitions (key, value_type) VALUES ('cancelled', 'date');
-         INSERT OR IGNORE INTO property_definitions (key, value_type) VALUES ('tag', 'tags');
+         INSERT OR IGNORE INTO property_definitions (key, value_type) VALUES ('tags', 'tags');
          INSERT OR IGNORE INTO property_definitions (key, value_type) VALUES ('zoom', 'number');",
     )?;
     Ok(())
@@ -370,5 +395,37 @@ pub fn check_schema_version(config_dir: &std::path::Path) {
             Ok(_) => tracing::info!("Wrote {}", version_file.display()),
             Err(e) => tracing::error!("Failed to write versions.json: {e}"),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn count(conn: &Connection, sql: &str) -> i64 {
+        conn.query_row(sql, [], |r| r.get(0)).unwrap()
+    }
+
+    #[test]
+    fn the_tag_key_is_renamed_to_tags_without_losing_a_tag() {
+        let conn = Connection::open_in_memory().unwrap();
+        run(&conn, &IdGenerator::new()).unwrap();
+        // A database from before the rename
+        conn.execute_batch(
+            "INSERT INTO property_definitions (key, value_type, is_system) VALUES ('tag', 'tags', 1);
+             INSERT INTO property_list_items (target_type, target_id, key, sort_order, value)
+                 VALUES ('page', 'p1', 'tag', 0, 'a'), ('item', 'i1', 'tag', 0, 'b');",
+        )
+        .unwrap();
+
+        run(&conn, &IdGenerator::new()).unwrap();
+
+        assert_eq!(count(&conn, "SELECT COUNT(*) FROM property_list_items WHERE key = 'tags'"), 2);
+        assert_eq!(count(&conn, "SELECT COUNT(*) FROM property_list_items WHERE key = 'tag'"), 0);
+        assert_eq!(count(&conn, "SELECT COUNT(*) FROM property_definitions WHERE key = 'tag'"), 0);
+        assert_eq!(
+            count(&conn, "SELECT COUNT(*) FROM property_definitions WHERE key = 'tags' AND is_system = 1 AND for_page = 1"),
+            1
+        );
     }
 }

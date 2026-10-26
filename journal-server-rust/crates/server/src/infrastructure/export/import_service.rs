@@ -10,11 +10,13 @@
 //! - Nothing is deleted from the DB because a file disappeared; that goes through the
 //!   pending-deletes page.
 
+use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
 
 use parking_lot::Mutex;
 
+use crate::application::page_service::PageService;
 use crate::domain::model::Page;
 use crate::error::AppResult;
 use crate::infrastructure::persistence::db::now_millis;
@@ -44,6 +46,9 @@ pub struct MarkdownImportService {
     file_sync_state: FileSyncStateRepository,
     export: Arc<MarkdownExportService>,
     sse: SseBroadcaster,
+    /// Takes the tags of the front matter, and keeps the tag pages in step with them and
+    /// with the hashtags of the imported bodies.
+    page_service: Arc<PageService>,
     /// One file at a time, like the Java `synchronized` method.
     lock: Mutex<()>,
 }
@@ -61,6 +66,7 @@ impl MarkdownImportService {
         file_sync_state: FileSyncStateRepository,
         export: Arc<MarkdownExportService>,
         sse: SseBroadcaster,
+        page_service: Arc<PageService>,
     ) -> MarkdownImportService {
         MarkdownImportService {
             parser,
@@ -69,6 +75,7 @@ impl MarkdownImportService {
             file_sync_state,
             export,
             sse,
+            page_service,
             lock: Mutex::new(()),
         }
     }
@@ -185,8 +192,11 @@ impl MarkdownImportService {
         let empty = [ParsedItem::empty()];
         let items: &[ParsedItem] = if parsed.items.is_empty() { &empty } else { &parsed.items };
         let merge = self.item_merger.merge(&page, items, now)?;
+        // The file is the newer version of the page, so a file without tags has none
+        let page_tags = frontmatter_tags(fm);
+        let page_tags_before = self.page_service.replace_page_tags(&page.id, &page_tags)?;
 
-        let page_changed = renamed || merge.changed || is_new;
+        let page_changed = renamed || merge.changed || is_new || page_tags_before != page_tags;
         if page_changed {
             let new_modified = if is_new {
                 page.modified_date
@@ -205,10 +215,16 @@ impl MarkdownImportService {
         self.file_sync_state
             .upsert_synced(rel_path, &page.id, hash, attrs.size, attrs.mtime)?;
 
-        if write_back || merge.needs_write_back {
+        if write_back || merge.needs_write_back || !tags_written_as_exported(fm, &page_tags) {
             // Give the file its ids / frontmatter. The export records the new hash, so it won't echo back.
             self.export.queue_export(&page.id);
         }
+        // Last, when the page and its file are recorded: a tag page deleted here may be
+        // this very page, and nothing may save it again afterwards
+        self.page_service.update_tag_pages(
+            &union(&merge.tags_before, &page_tags_before),
+            &union(&merge.tags_after, &page_tags),
+        );
         if page_changed {
             self.sse.broadcast_pages_updated_from(page.id.as_str(), "file");
             tracing::info!(
@@ -251,6 +267,39 @@ impl MarkdownImportService {
 
 /// Reads the file, retrying briefly if it is still being written (Dropbox and editors may create
 /// the file first and fill it in afterwards).
+/// The `tags` list of the front matter. The parser joins a block list with commas; a flow
+/// list `[a, b]` and a single value are taken too. A `#` typed out of habit is dropped.
+/// Files written before the key was renamed have `tag`, which is read when `tags` is absent.
+fn frontmatter_tags(fm: &BTreeMap<String, String>) -> Vec<String> {
+    let Some(raw) = fm.get("tags").or_else(|| fm.get("tag")) else {
+        return Vec::new();
+    };
+    let raw = raw.trim();
+    let raw = raw.strip_prefix('[').and_then(|r| r.strip_suffix(']')).unwrap_or(raw);
+    let mut tags: Vec<String> = Vec::new();
+    for t in raw.split(',') {
+        let t = t.trim().trim_matches(|c| c == '"' || c == '\'').trim_start_matches('#').trim();
+        if !t.is_empty() && !tags.iter().any(|x| x == t) {
+            tags.push(t.to_string());
+        }
+    }
+    tags
+}
+
+/// True when the front matter holds the tags as the export writes them: a `tags` block list
+/// of the plain values, or no key at all for no tags. An old `tag` key, a `#`, a flow list or
+/// a duplicate is rewritten, so the file and the page agree.
+fn tags_written_as_exported(fm: &BTreeMap<String, String>, tags: &[String]) -> bool {
+    let expected = (!tags.is_empty()).then(|| tags.join(","));
+    !fm.contains_key("tag") && fm.get("tags") == expected.as_ref()
+}
+
+fn union(a: &[String], b: &[String]) -> Vec<String> {
+    let mut all = a.to_vec();
+    all.extend(b.iter().filter(|t| !a.contains(t)).cloned());
+    all
+}
+
 fn read_stable(file: &Path) -> std::io::Result<String> {
     let mut last: Option<std::io::Error> = None;
     for attempt in 0..3u64 {

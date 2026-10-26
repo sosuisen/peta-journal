@@ -108,6 +108,23 @@ impl PageRepository {
         )
     }
 
+    /// The pages at a path, ignoring the case of the letters, oldest first. Windows and
+    /// macOS store `Foo.md` and `foo.md` as one file, so two such pages would overwrite
+    /// each other's file.
+    pub fn find_by_type_dir_path_file_name_ignoring_case(
+        &self,
+        page_type: &str,
+        dir_path: &str,
+        file_name: &str,
+    ) -> AppResult<Vec<Page>> {
+        self.query_pages(
+            &format!(
+                "{SELECT_PAGES}WHERE type = ? AND dir_path = ? COLLATE NOCASE AND name = ? COLLATE NOCASE ORDER BY id"
+            ),
+            &[&page_type, &dir_path, &file_name],
+        )
+    }
+
     /// Recently modified pages, newest first. `page_type` None means all types.
     pub fn find_recent(&self, max_results: i64, page_type: Option<&str>) -> AppResult<Vec<Page>> {
         let limit = if max_results > 0 { max_results } else { 10 };

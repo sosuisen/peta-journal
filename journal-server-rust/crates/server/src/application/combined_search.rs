@@ -133,7 +133,7 @@ impl CombinedSearchService {
         // Collect item ID sets for each condition (for AND intersection)
         let mut conditions: Vec<Vec<String>> = Vec::new();
         for tag in &terms.tags {
-            let ids = self.properties.find_item_ids_by_tag_value(tag, FILTER_LIMIT)?;
+            let ids = self.properties.find_item_ids_by_tag_value_ignoring_case(tag, FILTER_LIMIT)?;
             tracing::info!("  tag '#{tag}' -> {} items", ids.len());
             conditions.push(ids);
         }

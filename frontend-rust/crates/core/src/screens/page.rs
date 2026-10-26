@@ -284,7 +284,7 @@ fn list_items(value: &str) -> Vec<String> {
     items
 }
 
-/// The shown value of a property as the server would store it: `tag` is a list.
+/// The shown value of a property as the server would store it: `tags` is a list.
 fn property_value(value_type: &str, value: &str) -> Value {
     if is_list_type(value_type) {
         Value::Array(list_items(value).into_iter().map(Value::String).collect())

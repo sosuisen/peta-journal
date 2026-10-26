@@ -151,10 +151,10 @@ mod tests {
         let mut scalars = BTreeMap::new();
         scalars.insert("plan".to_string(), "2026-09-27".to_string());
         let mut lists = BTreeMap::new();
-        lists.insert("tag".to_string(), vec!["a".to_string(), "b".to_string()]);
+        lists.insert("tags".to_string(), vec!["a".to_string(), "b".to_string()]);
         assert_eq!(
             metadata_line(&it, &scalars, &lists),
-            "<!-- @ 2026-09-29-00-00-01-AAAAAAA idx=\"z0\" plan=\"2026-09-27\" tag=\"a,b\" -->"
+            "<!-- @ 2026-09-29-00-00-01-AAAAAAA idx=\"z0\" plan=\"2026-09-27\" tags=\"a,b\" -->"
         );
         assert_eq!(body_with_task_prefix(&it, &scalars), "- [ ] do it");
         scalars.insert("end".to_string(), "x".to_string());

@@ -71,9 +71,9 @@ impl Item {
         }
     }
 
-    /// The hashtags of the item, as kept in its tag property.
+    /// The hashtags of the item, as kept in its tags property.
     pub fn tags(&self) -> Vec<String> {
-        self.prop_list("tag")
+        self.prop_list("tags")
     }
 
     /// The zoom of the item as stored in its properties; 1 when unset.
@@ -375,7 +375,7 @@ mod tests {
     fn item_json_matches_server_shape() {
         let json = r##"{"id":"a","pageId":"p","dirPath":"","name":"2026-02-10","type":"journal",
             "createdDate":1,"modifiedDate":2,"idx":"a0","level":1,"body":"# Hi","ast":"{}",
-            "collapsed":false,"types":["heading","task"],"properties":{"tag":["x","y"],"zoom":"1.5","end":"2026-01-01T00:00:00Z"},
+            "collapsed":false,"types":["heading","task"],"properties":{"tags":["x","y"],"zoom":"1.5","end":"2026-01-01T00:00:00Z"},
             "transcludeItemId":null}"##;
         let item: Item = serde_json::from_str(json).unwrap();
         assert_eq!(item.page_id, "p");

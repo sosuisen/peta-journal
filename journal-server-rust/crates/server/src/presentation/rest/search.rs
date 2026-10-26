@@ -88,7 +88,7 @@ async fn search_by_tag(State(state): State<SharedState>, Query(q): Query<SearchQ
     let tag = q.q.unwrap_or_default();
     let max_results = q.max_results.unwrap_or(20);
     blocking(move || {
-        let ids = state.properties.find_item_ids_by_tag_value(&tag, max_results as i64)?;
+        let ids = state.properties.find_item_ids_by_tag_value_ignoring_case(&tag, max_results as i64)?;
         let results = state.combined_search.results_for_items(&ids)?;
         Ok(Json(SearchResponse {
             results: results.iter().map(search_result_dto).collect(),

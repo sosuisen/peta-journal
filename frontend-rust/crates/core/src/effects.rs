@@ -88,7 +88,7 @@ pub enum ApiOp {
         title: Option<String>,
         dir_path: Option<String>,
     },
-    /// Sets a property of a page; `tag` takes a comma separated list. Answers with the page.
+    /// Sets a property of a page; `tags` takes a comma separated list. Answers with the page.
     UpsertPageProperty {
         page_id: String,
         key: String,

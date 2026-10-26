@@ -9,7 +9,7 @@ use crate::testing::plain_item;
 use crux_core::{App, Command, Request};
 use std::collections::{BTreeMap, HashMap, VecDeque};
 
-/// The hashtags of a body as the server stores them in the tag property.
+/// The hashtags of a body as the server stores them in the tags property.
 fn tags_in(body: &str) -> BTreeMap<String, serde_json::Value> {
     let tags: Vec<serde_json::Value> = body
         .split(|c: char| c.is_whitespace())
@@ -23,7 +23,7 @@ fn tags_in(body: &str) -> BTreeMap<String, serde_json::Value> {
         .collect();
     let mut props = BTreeMap::new();
     if !tags.is_empty() {
-        props.insert("tag".to_string(), serde_json::Value::Array(tags));
+        props.insert("tags".to_string(), serde_json::Value::Array(tags));
     }
     props
 }

@@ -93,15 +93,6 @@ impl AppState {
             items.clone(),
             properties.clone(),
         ));
-        let item_service = Arc::new(ItemService::new(
-            items.clone(),
-            pages.clone(),
-            parser.clone(),
-            Arc::clone(&search),
-            Arc::clone(&export),
-            properties.clone(),
-            Arc::clone(&ids),
-        ));
         let page_service = Arc::new(PageService::new(
             pages.clone(),
             items.clone(),
@@ -110,6 +101,17 @@ impl AppState {
             export_queue.clone(),
             properties.clone(),
             Arc::clone(&ids),
+            Arc::clone(&config),
+        ));
+        let item_service = Arc::new(ItemService::new(
+            items.clone(),
+            pages.clone(),
+            parser.clone(),
+            Arc::clone(&search),
+            Arc::clone(&export),
+            properties.clone(),
+            Arc::clone(&ids),
+            Arc::clone(&page_service),
         ));
         let journal_service = Arc::new(JournalService::new(
             pages.clone(),
@@ -148,6 +150,7 @@ impl AppState {
             file_sync_state.clone(),
             Arc::clone(&export),
             sse.clone(),
+            Arc::clone(&page_service),
         ));
         let prompt = Arc::new(PendingDeletePrompt::new(
             settings.port,
@@ -186,6 +189,9 @@ impl AppState {
         }
         startup::backfill_hashtags(&pages, &items, &properties);
         startup::rebuild_search_index(&pages, &items, &search);
+        // After the rebuild, which skips an index that is not empty: the new pages are indexed
+        // one by one as they are created
+        startup::ensure_tag_pages(&page_service);
 
         Ok(Arc::new(AppState {
             settings,

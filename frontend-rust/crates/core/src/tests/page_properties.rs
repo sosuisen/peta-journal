@@ -82,7 +82,7 @@ fn a_tag_value_is_shown_as_a_list_until_the_server_answers() {
     let mut h = Harness::with_items(vec![]);
     h.api.fail_next("UpsertPageProperty", "offline");
     h.send(Event::SetPageProperty {
-        key: "tag".into(),
+        key: "tags".into(),
         value_type: "tags".into(),
         value: "a, b,".into(),
     });
@@ -114,7 +114,7 @@ fn deleting_a_page_property_removes_it() {
 fn a_hash_typed_before_a_tag_is_dropped_and_a_tag_is_kept_once() {
     let mut h = Harness::with_items(vec![]);
     h.send(Event::SetPageProperty {
-        key: "tag".into(),
+        key: "tags".into(),
         value_type: "tags".into(),
         value: "#abc, ##def, abc,".into(),
     });

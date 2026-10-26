@@ -56,11 +56,11 @@ fn deleting_a_property_definition_sends_it_and_shows_the_server_list() {
     assert!(h.model.config.property_definitions.is_empty());
     assert!(h.model.config.definition_error.is_none());
 
-    h.api.fail_next("DeletePropertyDefinition", "Property key 'tag' is a system key");
-    h.send(Event::DeletePropertyDefinition { key: "tag".into() });
+    h.api.fail_next("DeletePropertyDefinition", "Property key 'tags' is a system key");
+    h.send(Event::DeletePropertyDefinition { key: "tags".into() });
     assert_eq!(
         h.model.config.definition_error.as_deref(),
-        Some("Property key 'tag' is a system key")
+        Some("Property key 'tags' is a system key")
     );
 }
 

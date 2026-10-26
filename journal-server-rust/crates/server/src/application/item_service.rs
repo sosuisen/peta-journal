@@ -18,6 +18,7 @@ use crate::infrastructure::persistence::db::now_millis;
 use crate::infrastructure::persistence::{ItemRepository, PageRepository, PropertyRepository};
 
 use super::markdown_parser::MarkdownParser;
+use super::page_service::PageService;
 use super::tree_markdown;
 
 const ITEM_TARGET: &str = "item";
@@ -38,6 +39,8 @@ pub struct ItemService {
     export: Arc<MarkdownExportService>,
     properties: PropertyRepository,
     ids: Arc<IdGenerator>,
+    /// Keeps the tag pages in step with the hashtags of the bodies.
+    page_service: Arc<PageService>,
     /// Two moves must not plan their indices from the same snapshot of a page.
     move_lock: Mutex<()>,
 }
@@ -48,6 +51,7 @@ fn now_in_seconds() -> String {
 }
 
 impl ItemService {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         items: ItemRepository,
         pages: PageRepository,
@@ -56,6 +60,7 @@ impl ItemService {
         export: Arc<MarkdownExportService>,
         properties: PropertyRepository,
         ids: Arc<IdGenerator>,
+        page_service: Arc<PageService>,
     ) -> ItemService {
         ItemService {
             items,
@@ -65,6 +70,7 @@ impl ItemService {
             export,
             properties,
             ids,
+            page_service,
             move_lock: Mutex::new(()),
         }
     }
@@ -151,6 +157,7 @@ impl ItemService {
         let hashtags = hashtag::extract_hashtags(&ast);
         if !hashtags.is_empty() {
             self.properties.sync_tags(ITEM_TARGET, id.as_str(), &hashtags)?;
+            self.page_service.update_tag_pages(&[], &hashtags);
         }
 
         self.search.index_item(&item, &page.title());
@@ -183,8 +190,10 @@ impl ItemService {
         self.items.patch(item_id, &patch)?;
 
         if let Some(ast) = &new_ast {
-            self.properties
-                .sync_tags(ITEM_TARGET, item_id.as_str(), &hashtag::extract_hashtags(ast))?;
+            let before = self.properties.find_tags(ITEM_TARGET, item_id.as_str())?;
+            let hashtags = hashtag::extract_hashtags(ast);
+            self.properties.sync_tags(ITEM_TARGET, item_id.as_str(), &hashtags)?;
+            self.page_service.update_tag_pages(&before, &hashtags);
         }
         if level.is_some() {
             self.items.recalculate_parent_ids(&existing.page_id)?;
@@ -319,10 +328,12 @@ impl ItemService {
         // Deleting the source clears `transclude_item_id` on these items (FK ON DELETE SET
         // NULL), so their files must be rewritten without the transclude attribute
         let transcluders = self.items.find_transcluders(item_id)?;
+        let tags = self.properties.find_tags(ITEM_TARGET, item_id.as_str())?;
         self.items.delete(item_id)?;
         self.search.remove_item(item_id.as_str());
         self.properties
             .delete_all_for_targets(ITEM_TARGET, &[item_id.to_string()])?;
+        self.page_service.delete_unused_tag_pages(&tags);
         if let Some(b) = item {
             self.items.recalculate_parent_ids(&b.page_id)?;
             self.touch_page(&b.page_id)?;
