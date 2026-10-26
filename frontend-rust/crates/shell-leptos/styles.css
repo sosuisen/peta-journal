@@ -223,6 +223,17 @@ app-page .page-title:hover { background: rgba(0,0,0,0.04); }
 }
 .property-remove:hover, .property-add:hover { background: #f0f0f0; color: #333; }
 .property-remove { opacity: 0; }
+.property-tags { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.property-tag { display: inline-flex; align-items: center; background: #e8f0fe; border-radius: 4px; font-size: 0.9em; }
+.property-tag:hover { background: #d0e3fc; }
+.property-tag-link { color: #007bff; text-decoration: none; padding: 1px 2px 1px 5px; }
+.property-tag-link:hover { color: #0056b3; }
+.property-tag-remove, .property-tag-add {
+  background: none; border: none; cursor: pointer; color: #999; font-size: 13px; line-height: 1; padding: 2px 4px; border-radius: 4px;
+}
+.property-tag-remove:hover, .property-tag-add:hover { color: #333; }
+.property-tag-add:hover { background: #f0f0f0; }
+.property-tag-input { width: 120px; font: inherit; padding: 1px 6px; border: 1px solid #007bff; border-radius: 4px; outline: none; }
 .property-row:hover .property-remove { opacity: 1; }
 .journal-header { display: flex; align-items: center; gap: 4px; padding: 16px 0; }
 .journal-header.scrolled { border-bottom: 1px dashed #909090; }

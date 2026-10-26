@@ -70,7 +70,10 @@ pub fn PageProperties(drafts: RwSignal<Vec<Draft>>) -> impl IntoView {
                     move |value: String| core.send(Event::SetPageProperty { key: key.clone(), value_type: value_type.clone(), value })
                 };
                 let remove = { let key = key.clone(); move |_| core.send(Event::DeletePageProperty { key: key.clone() }) };
-                let shown: AnyView = if p.editable {
+                let shown: AnyView = if p.is_list {
+                    let remove_last = { let key = key.clone(); move || core.send(Event::DeletePageProperty { key: key.clone() }) };
+                    view! { <TagList value=value.into() save=send remove_last=remove_last /> }.into_any()
+                } else if p.editable {
                     value_input(&value_type, value.into(), send, false, NodeRef::new())
                 } else {
                     view! { <span class="property-value property-readonly">{move || dom::local_minutes(&value.get())}</span> }.into_any()
@@ -121,6 +124,11 @@ pub fn PageProperties(drafts: RwSignal<Vec<Draft>>) -> impl IntoView {
                                     let _ = input.focus();
                                 }
                             });
+                            if t == "tags" || t == "list" {
+                                // The row goes with its last tag, as a saved list does
+                                let discard = move || drafts.update(|ds| ds.retain(|x| x.id != id));
+                                return Some(view! { <TagList value=Signal::derive(String::new) save=commit remove_last=discard open=true /> }.into_any());
+                            }
                             (!t.is_empty()).then(|| value_input(&t, Signal::derive(move || initial.clone()), commit, true, input_ref))
                         }}
                         // mousedown is stopped, so the input keeps the focus and its blur does
@@ -130,6 +138,122 @@ pub fn PageProperties(drafts: RwSignal<Vec<Draft>>) -> impl IntoView {
                 }
             } />
             <button class="property-add" title="Add property" on:click=add_draft>"+"</button>
+        </div>
+    }
+}
+
+/// A list value as tag chips: a chip opens its tag page, its `×` removes the tag, and `+`
+/// opens an input that adds the typed tags on Enter or when the focus leaves. A new row
+/// (`open`) starts with that input open.
+#[component]
+fn TagList(
+    value: Signal<String>,
+    save: impl Fn(String) + Clone + Send + Sync + 'static,
+    remove_last: impl Fn() + Clone + Send + Sync + 'static,
+    #[prop(optional)] open: bool,
+) -> impl IntoView {
+    let core: CoreHandle = expect_context();
+    // Tag pages live where hashtags link to, so both reach the same page
+    let tags_dir = core.select(|v| v.config.tags_dir.clone());
+    let tags = Memo::new(move |_| {
+        value.with(|v| {
+            v.split(',')
+                .map(str::trim)
+                .filter(|t| !t.is_empty())
+                .map(str::to_string)
+                .collect::<Vec<String>>()
+        })
+    });
+    let adding = RwSignal::new(false);
+    let input_ref = NodeRef::<leptos::html::Input>::new();
+    let open_input = move || {
+        adding.set(true);
+        dom::after_render(move || {
+            if let Some(input) = input_ref.try_get_untracked().flatten() {
+                let _ = input.focus();
+            }
+        });
+    };
+    if open {
+        open_input();
+    }
+
+    let remove = {
+        let save = save.clone();
+        move |tag: String| {
+            let rest: Vec<String> = tags.get_untracked().into_iter().filter(|t| *t != tag).collect();
+            // An empty list would stay as a row with no tags, so the property goes instead
+            if rest.is_empty() {
+                remove_last();
+            } else {
+                save(rest.join(", "));
+            }
+        }
+    };
+    let add = move |typed: String| {
+        // Enter and Escape take the input away, and its blur then comes too late to add again
+        if !adding.get_untracked() {
+            return;
+        }
+        adding.set(false);
+        // The core drops a leading `#` and a tag that is already there
+        if !typed.trim().is_empty() {
+            save(format!("{}, {typed}", value.get_untracked()));
+        }
+    };
+
+    view! {
+        <div class="property-tags">
+            <For each=move || tags.get() key=|t| t.clone() children=move |tag| {
+                let href = format!("/pages/{}{}", tags_dir.get_untracked(), tag);
+                let open = {
+                    let href = href.clone();
+                    move |ev: web_sys::MouseEvent| {
+                        // A modified click is left to the browser, so it opens a new tab or window
+                        if ev.ctrl_key() || ev.meta_key() || ev.shift_key() {
+                            return;
+                        }
+                        ev.prevent_default();
+                        core.navigate(&href, false);
+                    }
+                };
+                let remove = remove.clone();
+                let removed = tag.clone();
+                view! {
+                    <span class="property-tag">
+                        <a class="property-tag-link" href=href on:click=open>{format!("#{tag}")}</a>
+                        <button class="property-tag-remove" title="Remove tag" on:click=move |_| remove(removed.clone())>"×"</button>
+                    </span>
+                }
+            } />
+            {move || if adding.get() {
+                let add_on_enter = add.clone();
+                let add_on_blur = add.clone();
+                view! {
+                    <input
+                        node_ref=input_ref
+                        type="text"
+                        class="property-tag-input"
+                        placeholder="tag"
+                        on:keydown=move |ev: web_sys::KeyboardEvent| {
+                            if dom::is_ime_composing(&ev) {
+                                return;
+                            }
+                            match ev.key().as_str() {
+                                "Enter" => {
+                                    ev.prevent_default();
+                                    add_on_enter(event_target_value(&ev));
+                                }
+                                "Escape" => adding.set(false),
+                                _ => {}
+                            }
+                        }
+                        on:blur=move |ev| add_on_blur(event_target_value(&ev))
+                    />
+                }.into_any()
+            } else {
+                view! { <button class="property-tag-add" title="Add tag" on:click=move |_| open_input()>"+"</button> }.into_any()
+            }}
         </div>
     }
 }
