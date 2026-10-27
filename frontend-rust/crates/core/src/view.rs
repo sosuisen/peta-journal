@@ -5,6 +5,7 @@ use crate::model::{IndexSort, Item, ItemRef, Page, PropertyDefinition, SearchRes
 use crate::ops::wiki;
 use crate::outline::tree::starts_date_group;
 use crate::outline::{FocusRequest, Heading};
+use crate::screens::atlas::{self, Bounds};
 use crate::screens::{journal, page, sidebar};
 use crate::util::date::{format_instant, format_journal_date};
 use crate::util::filename::JournalType;
@@ -214,6 +215,18 @@ pub struct SidebarPage {
     pub path: String,
 }
 
+/// A page or folder of the directory of an atlas page. A card without bounds waits in the
+/// list of unplaced cards.
+#[derive(Debug, Clone, PartialEq)]
+pub struct AtlasCard {
+    pub page_id: String,
+    pub label: String,
+    /// The path that opens the page, as the sidebar's index list opens it.
+    pub path: String,
+    pub is_dir: bool,
+    pub bounds: Option<Bounds>,
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct SidebarView {
     pub index_header: String,
@@ -254,6 +267,8 @@ pub struct ConfigView {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ViewModel {
     pub screen: ScreenView,
+    /// The cards of the atlas page on screen; empty on any other screen.
+    pub atlas_cards: Vec<AtlasCard>,
     pub outline: OutlineView,
     pub sidebar: SidebarView,
     pub search: SearchView,
@@ -265,6 +280,16 @@ pub struct ViewModel {
 pub fn build(model: &Model) -> ViewModel {
     ViewModel {
         screen: screen(model),
+        atlas_cards: atlas::cards(model)
+            .into_iter()
+            .map(|(p, bounds)| AtlasCard {
+                page_id: p.id.clone(),
+                label: sidebar::index_page_name(&p),
+                path: p.canonical_path(),
+                is_dir: sidebar::is_directory(&p),
+                bounds,
+            })
+            .collect(),
         outline: outline(model),
         sidebar: sidebar(model),
         search: search(model),

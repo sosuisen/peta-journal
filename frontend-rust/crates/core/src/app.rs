@@ -224,6 +224,13 @@ pub enum Event {
     DemoteIndex,
     /// The map button: switches between the index page and the atlas page of a directory.
     ToggleAtlas,
+    /// A card dropped on the atlas canvas: the page's card is placed with its top left
+    /// corner there.
+    PlaceAtlasCard {
+        page_id: String,
+        x: f64,
+        y: f64,
+    },
     /// The page menu: show the property rows of the doc page even while it has none.
     EditPageProperties,
     SetPageProperty {
@@ -702,6 +709,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         } => screens::page::save_title(model, dir_path, file_name),
         DemoteIndex => screens::page::demote_index(model),
         ToggleAtlas => screens::page::toggle_atlas(model),
+        PlaceAtlasCard { page_id, x, y } => screens::atlas::place_card(model, page_id, x, y),
         EditPageProperties => screens::page::edit_properties(model),
         SetPageProperty {
             key,

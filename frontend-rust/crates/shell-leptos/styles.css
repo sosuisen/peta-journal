@@ -209,9 +209,24 @@ app-page .page-title:hover { background: rgba(0,0,0,0.04); }
 .atlas-btn.active { background: #e8f0fe; border-color: #c6d8fb; color: #1a73e8; }
 .atlas-title { cursor: default; }
 .atlas-title:hover { background: transparent; }
-/* The canvas fills the content area under the title, up to the footer */
-.atlas-canvas { flex: 1; min-height: 0; position: relative; overflow: hidden; margin-left: -8px; }
-@media (min-width: 768px) { .atlas-canvas { margin-left: -24px; } }
+/* The atlas fills the content area under the title, up to the footer */
+.atlas { flex: 1; min-height: 0; display: flex; margin-left: -8px; }
+@media (min-width: 768px) { .atlas { margin-left: -24px; } }
+.atlas-unplaced {
+  /* As wide as a card and the scrollbar: a fixed width would scroll sideways under it */
+  width: max-content; flex-shrink: 0; overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; padding: 12px;
+  display: flex; flex-direction: column; gap: 8px; border-right: 1px solid #e0e0e0; background: #fafafa;
+}
+/* The same look as a card on the canvas */
+.atlas-card {
+  width: 120px; min-height: 40px; flex-shrink: 0; padding: 4px 8px; box-sizing: border-box;
+  display: flex; align-items: center; justify-content: center; text-align: center; overflow-wrap: anywhere;
+  background: #fff; border: 1px solid #d0d4da; border-radius: 8px; font-size: 13px; color: #222; cursor: grab;
+}
+.atlas-card-label { cursor: pointer; }
+.atlas-card-label:hover { text-decoration: underline; }
+.atlas-card.folder { background: #fff8e1; border-color: #e0c068; }
+.atlas-canvas { flex: 1; min-width: 0; position: relative; overflow: hidden; }
 .atlas-canvas canvas { position: absolute; inset: 0; display: block; }
 .root-index-title:hover { background: transparent; }
 .index-label { padding: 4px 6px; font-size: 1em; color: #999; display: flex; align-items: center; gap: 8px; }

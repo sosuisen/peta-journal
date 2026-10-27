@@ -1,6 +1,7 @@
 //! The screens around the outline: routing, the journal and page headers, the sidebar,
 //! search, settings, extensions and the server connection.
 
+pub mod atlas;
 pub mod extensions;
 pub mod journal;
 pub mod layout;
