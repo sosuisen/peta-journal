@@ -231,7 +231,15 @@ impl PageService {
     }
 
     /// Updates a page's metadata. Only the given parameters are applied.
-    pub fn update_page(&self, page_id: &Hmtid, title: Option<&str>, dir_path: Option<&str>) -> AppResult<Page> {
+    /// When another page has the new name, the update is refused as a conflict unless
+    /// `overwrite` is set; then that page is deleted and this one takes its place.
+    pub fn update_page(
+        &self,
+        page_id: &Hmtid,
+        title: Option<&str>,
+        dir_path: Option<&str>,
+        overwrite: bool,
+    ) -> AppResult<Page> {
         let existing = self
             .pages
             .find_by_id(page_id)?
@@ -270,13 +278,27 @@ impl PageService {
             }
         }
 
-        let mut new_dir_path = existing.dir_path.clone();
-        if let Some(dir_path) = dir_path {
-            new_dir_path = dir_path.to_string();
-            // Ensure ancestor index pages exist for the new dir_path
-            if file_name != "index" {
-                self.ensure_ancestor_pages(&new_dir_path)?;
-            }
+        let new_dir_path = dir_path.map_or_else(|| existing.dir_path.clone(), str::to_string);
+
+        // Names are matched ignoring case, as the files of both would be one file on Windows
+        let taken: Vec<Page> = self
+            .pages
+            .find_by_type_dir_path_file_name_ignoring_case(&existing.page_type, &new_dir_path, &file_name)?
+            .into_iter()
+            .filter(|p| p.id != existing.id)
+            .collect();
+        if !taken.is_empty() && !overwrite {
+            return Err(AppError::conflict(format!(
+                "A page named '{new_dir_path}{file_name}' already exists"
+            )));
+        }
+        for page in &taken {
+            self.delete_page(&page.id)?;
+        }
+
+        // Ensure ancestor index pages exist for the new dir_path
+        if dir_path.is_some() && file_name != "index" {
+            self.ensure_ancestor_pages(&new_dir_path)?;
         }
 
         // Detect dir_path change for index pages to propagate to descendants

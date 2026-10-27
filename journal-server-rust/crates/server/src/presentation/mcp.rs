@@ -83,7 +83,9 @@ fn ok(value: Value) -> Result<CallToolResult, McpError> {
 
 fn mcp_error(e: AppError) -> McpError {
     match e {
-        AppError::BadRequest(m) | AppError::NotFound(m) => McpError::invalid_params(m, None),
+        AppError::BadRequest(m) | AppError::NotFound(m) | AppError::Conflict(m) => {
+            McpError::invalid_params(m, None)
+        }
         AppError::Internal(err) => McpError::internal_error(err.to_string(), None),
     }
 }
@@ -247,6 +249,10 @@ pub struct UpdatePageArgs {
     /// New directory path (null to keep current)
     #[serde(rename = "dirPath", default)]
     pub dir_path: Option<String>,
+    /// Delete another page that already has the new name and take its place (default false:
+    /// the update fails instead)
+    #[serde(default)]
+    pub overwrite: bool,
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -506,7 +512,7 @@ impl JournalMcp {
         let (page, _) = run(move || {
             state
                 .item_service
-                .update_page(&page_id, title.as_deref(), a.dir_path.as_deref())
+                .update_page(&page_id, title.as_deref(), a.dir_path.as_deref(), a.overwrite)
         })
         .await?;
         ok(json!({ "page": page_json(&page) }))

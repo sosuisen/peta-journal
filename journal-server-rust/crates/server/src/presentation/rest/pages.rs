@@ -59,6 +59,8 @@ struct GetOrCreateDocResponse {
 struct UpdatePageRequest {
     title: Option<String>,
     dir_path: Option<String>,
+    /// Deletes another page that has the new name, instead of refusing the update.
+    overwrite: bool,
 }
 
 #[derive(Serialize)]
@@ -127,7 +129,7 @@ async fn update_page(
     blocking(move || {
         let (page, changed) = state
             .item_service
-            .update_page(&page_id, req.title.as_deref(), req.dir_path.as_deref())?;
+            .update_page(&page_id, req.title.as_deref(), req.dir_path.as_deref(), req.overwrite)?;
         state.sse.broadcast_pages_updated(&id);
         for page_id in changed {
             state.sse.broadcast_pages_updated(page_id.as_str());

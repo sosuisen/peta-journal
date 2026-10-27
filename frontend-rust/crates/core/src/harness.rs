@@ -249,6 +249,7 @@ impl FakeApi {
                 page_id,
                 title,
                 dir_path,
+                ..
             } => ApiOutput::PageInfo(Page {
                 id: page_id.clone(),
                 name: title.clone().unwrap_or_default(),

@@ -523,7 +523,8 @@ impl ItemService {
         Ok(())
     }
 
-    /// Updates a page's title or folder, as `PageService::update_page` does. A tag page
+    /// Updates a page's title or folder, as `PageService::update_page` does, which also says
+    /// what `overwrite` does. A tag page
     /// names its tag, so renaming one renames the tag on every page and item that has it,
     /// and the tags under it too. Returns the page and the other pages that changed.
     pub fn update_page(
@@ -531,6 +532,7 @@ impl ItemService {
         page_id: &Hmtid,
         title: Option<&str>,
         dir_path: Option<&str>,
+        overwrite: bool,
     ) -> AppResult<(Page, Vec<Hmtid>)> {
         let existing = self
             .pages
@@ -553,7 +555,7 @@ impl ItemService {
             }
             _ => None,
         };
-        let page = self.page_service.update_page(page_id, title, dir_path)?;
+        let page = self.page_service.update_page(page_id, title, dir_path, overwrite)?;
         let changed = match rename {
             Some((old, new)) => self.rename_tag(&old, &new)?,
             None => Vec::new(),

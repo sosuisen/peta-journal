@@ -13,6 +13,9 @@ pub enum AppError {
     /// Nothing at that address: HTTP 404.
     #[error("{0}")]
     NotFound(String),
+    /// The request clashes with what is there, like a name another page has: HTTP 409.
+    #[error("{0}")]
+    Conflict(String),
     /// Anything else: HTTP 500.
     #[error(transparent)]
     Internal(#[from] anyhow::Error),
@@ -27,6 +30,10 @@ impl AppError {
 
     pub fn not_found(msg: impl Into<String>) -> AppError {
         AppError::NotFound(msg.into())
+    }
+
+    pub fn conflict(msg: impl Into<String>) -> AppError {
+        AppError::Conflict(msg.into())
     }
 
     pub fn internal(msg: impl Into<String>) -> AppError {
@@ -66,6 +73,9 @@ impl IntoResponse for AppError {
             }
             AppError::NotFound(msg) => {
                 (StatusCode::NOT_FOUND, Json(json!({ "error": msg }))).into_response()
+            }
+            AppError::Conflict(msg) => {
+                (StatusCode::CONFLICT, Json(json!({ "error": msg }))).into_response()
             }
             AppError::Internal(e) => {
                 tracing::error!("Internal error: {e:#}");

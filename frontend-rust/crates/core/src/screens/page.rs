@@ -1,8 +1,8 @@
 //! The doc page screen, ported from `page.ts`: loading a page by its path, the title and
 //! directory editing, and demoting an index page.
 
-use crate::app::{apply, done, log_error, run, Cmd, Model, PageState, Screen};
-use crate::effects::UiOp;
+use crate::app::{apply, done, log_error, run, Cmd, Event, Model, PageState, Screen};
+use crate::effects::{Api, ApiError, PageUpdate, UiOp};
 use crate::model::{BacklinkEntry, Page};
 use crate::screens::{navigate, sidebar};
 use crate::util::filename::validate_file_name;
@@ -325,19 +325,16 @@ pub fn save_title(model: &mut Model, dir_path: String, file_name: String) -> Cmd
         return done();
     }
     run(move |api| async move {
-        let updated = match api
-            .update_page(
-                &p.id,
-                title_changed.then(|| new_name.clone()),
-                dir_changed.then(|| new_dir.clone()),
-            )
-            .await
-        {
-            Ok(u) => u,
-            Err(e) => {
-                api.notify(UiOp::Alert(e.0));
-                return;
-            }
+        let Some(updated) = update_page(
+            &api,
+            &p.id,
+            title_changed.then(|| new_name.clone()),
+            dir_changed.then(|| new_dir.clone()),
+            &format!("{new_dir}{new_name}"),
+        )
+        .await
+        else {
+            return;
         };
         let canonical = updated.canonical_path();
         apply(&api, "title saved", move |m| {
@@ -466,6 +463,41 @@ fn shown_page_mut<'a>(model: &'a mut Model, page_id: &str) -> Option<&'a mut Pag
         .filter(|p| p.id == page_id)
 }
 
+/// Updates the title or folder of a page. When another page has the new name, asks first
+/// whether that page may be overwritten with this one. None when the user said no or the
+/// update failed, which has been told.
+async fn update_page(
+    api: &Api<Event>,
+    page_id: &str,
+    title: Option<String>,
+    dir_path: Option<String>,
+    new_path: &str,
+) -> Option<Page> {
+    let mut overwrite = false;
+    loop {
+        match api.update_page(page_id, title.clone(), dir_path.clone(), overwrite).await {
+            Ok(PageUpdate::Updated(page)) => return Some(page),
+            Ok(PageUpdate::NameTaken(_)) if !overwrite => {
+                let question = format!(
+                    "A page named \"{new_path}\" already exists. Overwrite it with the content of this page?"
+                );
+                if !api.confirm(&question).await {
+                    return None;
+                }
+                overwrite = true;
+            }
+            Ok(PageUpdate::NameTaken(message)) | Err(ApiError(message)) => {
+                api.notify(UiOp::Alert(if message.is_empty() {
+                    "Failed to rename page".into()
+                } else {
+                    message
+                }));
+                return None;
+            }
+        }
+    }
+}
+
 /// Renames a childless index page `a/b/index` to the page `a/b`.
 pub fn demote_index(model: &mut Model) -> Cmd {
     let Some(p) = page_state(model).and_then(|ps| ps.page.clone()) else {
@@ -505,15 +537,16 @@ pub fn demote_index(model: &mut Model) -> Cmd {
                 return;
             }
         }
-        if let Err(e) = api
-            .update_page(&p.id, Some(name.clone()), Some(parent_dir.clone()))
+        if update_page(
+            &api,
+            &p.id,
+            Some(name.clone()),
+            Some(parent_dir.clone()),
+            &format!("{parent_dir}{name}"),
+        )
             .await
+            .is_none()
         {
-            api.notify(UiOp::Alert(if e.0.is_empty() {
-                "Failed to rename page".into()
-            } else {
-                e.0
-            }));
             return;
         }
         apply(&api, "demoted", move |_| {

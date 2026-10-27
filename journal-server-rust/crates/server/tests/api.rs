@@ -296,6 +296,28 @@ async fn renaming_a_page_changes_its_title_and_path() {
 }
 
 #[tokio::test]
+async fn renaming_to_the_name_of_another_page_is_refused_unless_it_is_overwritten() {
+    let page = new_doc_page("pages-overwrite").await;
+    let other = new_doc_page("pages-overwritten").await;
+    fill(&page.id, &["mine"]).await;
+    fill(&other.id, &["theirs"]).await;
+
+    let (status, resp) = put(&format!("/api/pages/{}", page.id), json!({ "title": other.title })).await;
+    assert_eq!(status, 409, "{resp}");
+    assert_eq!(get(&format!("/api/pages/{}", other.id)).await.0, 200);
+
+    let (status, resp) = put(
+        &format!("/api/pages/{}", page.id),
+        json!({ "title": other.title.to_uppercase(), "overwrite": true }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+    assert_eq!(resp["page"]["name"], json!(other.title.to_uppercase()));
+    assert_eq!(get(&format!("/api/pages/{}", other.id)).await.0, 404);
+    assert!(outline_of(&page.id).await.iter().any(|line| line.ends_with(":mine")));
+}
+
+#[tokio::test]
 async fn the_most_recently_touched_page_comes_first_in_recent_pages() {
     let older = new_doc_page("pages-recent-older").await;
     tokio::time::sleep(std::time::Duration::from_millis(5)).await;

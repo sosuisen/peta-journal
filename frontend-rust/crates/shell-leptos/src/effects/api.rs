@@ -280,6 +280,7 @@ async fn call(handle: &CoreHandle, op: ApiOp) -> ApiResult<ApiOutput> {
             page_id,
             title,
             dir_path,
+            overwrite,
         } => {
             let mut payload = serde_json::Map::new();
             if let Some(t) = title {
@@ -288,12 +289,22 @@ async fn call(handle: &CoreHandle, op: ApiOp) -> ApiResult<ApiOutput> {
             if let Some(d) = dir_path {
                 payload.insert("dirPath".into(), Value::String(d));
             }
-            let env: PageEnvelope = send_json(
-                "PUT",
-                &format!("/api/pages/{page_id}"),
-                Some(Value::Object(payload)),
-            )
-            .await?;
+            if overwrite {
+                payload.insert("overwrite".into(), Value::Bool(true));
+            }
+            let resp = Http::put(&format!("/api/pages/{page_id}"))
+                .header("Content-Type", "application/json")
+                .body(Value::Object(payload).to_string())
+                .map_err(|e| ApiError(e.to_string()))?
+                .send()
+                .await
+                .map_err(|e| ApiError(e.to_string()))?;
+            // 409: another page has the name, which the core asks the user about
+            if resp.status() == 409 {
+                let ApiError(message) = ensure_ok(&resp).await.err().unwrap_or(ApiError(String::new()));
+                return Ok(ApiOutput::PageNameTaken(message));
+            }
+            let env: PageEnvelope = json(resp).await?;
             ApiOutput::PageInfo(env.page)
         }
         ApiOp::UpsertPageProperty {

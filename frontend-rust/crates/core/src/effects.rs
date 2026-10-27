@@ -83,10 +83,13 @@ pub enum ApiOp {
         max_results: u32,
         page_type: Option<String>,
     },
+    /// Answers `PageNameTaken` when another page has the new name and `overwrite` is not set.
     UpdatePage {
         page_id: String,
         title: Option<String>,
         dir_path: Option<String>,
+        /// Deletes the other page that has the new name, so this page takes its place.
+        overwrite: bool,
     },
     /// Sets a property of a page; `tags` takes a comma separated list. Answers with the page.
     UpsertPageProperty {
@@ -184,7 +187,17 @@ pub enum ApiOutput {
     FileName(String),
     Functions(Vec<FunctionInfo>),
     Launched(bool),
+    /// Another page has the name a page was to take; the server's message says which.
+    PageNameTaken(String),
     Done,
+}
+
+/// What updating the title or folder of a page came to.
+#[derive(Debug, Clone, PartialEq)]
+pub enum PageUpdate {
+    Updated(Page),
+    /// Another page has the new name; the server's message says which.
+    NameTaken(String),
 }
 
 /// The server's error message, or a transport error.
@@ -609,16 +622,21 @@ impl<Event: Send + 'static> Api<Event> {
         page_id: &str,
         title: Option<String>,
         dir_path: Option<String>,
-    ) -> ApiResult<Page> {
-        expect_output!(
-            self.call(ApiOp::UpdatePage {
+        overwrite: bool,
+    ) -> ApiResult<PageUpdate> {
+        match self
+            .call(ApiOp::UpdatePage {
                 page_id: page_id.into(),
                 title,
-                dir_path
+                dir_path,
+                overwrite,
             })
-            .await,
-            PageInfo
-        )
+            .await?
+        {
+            ApiOutput::PageInfo(page) => Ok(PageUpdate::Updated(page)),
+            ApiOutput::PageNameTaken(message) => Ok(PageUpdate::NameTaken(message)),
+            other => Err(ApiError(format!("unexpected API answer: {other:?}"))),
+        }
     }
 
     pub async fn upsert_page_property(
