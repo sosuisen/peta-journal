@@ -348,6 +348,14 @@ pub enum Event {
         after_item_id: Option<String>,
         level: i32,
         body: String,
+        /// The id of the item the new item transcludes; None or empty for none.
+        transclude: Option<String>,
+    },
+    /// A `Confirm` message from an extension: asks the user and answers with `ConfirmResult`.
+    ExtensionConfirm {
+        source: u64,
+        request_id: Option<String>,
+        message: String,
     },
     LaunchUrl {
         url: String,
@@ -855,6 +863,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             after_item_id,
             level,
             body,
+            transclude,
         } => screens::extensions::create_item(
             model,
             source,
@@ -864,7 +873,13 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             after_item_id,
             level,
             body,
+            transclude,
         ),
+        ExtensionConfirm {
+            source,
+            request_id,
+            message,
+        } => screens::extensions::confirm(source, request_id, message),
         LaunchUrl { url } => run(move |api| async move {
             if !api.launch_url(&url).await.unwrap_or(false) {
                 log_error(format!("Failed to launch app with URL: {url}"));

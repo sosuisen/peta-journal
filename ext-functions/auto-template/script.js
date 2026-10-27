@@ -39,21 +39,31 @@
 
       if (!frontmatter) continue;
 
-      // Parse pattern from frontmatter
+      // Parse pattern and tag from frontmatter
       let patterns = [];
+      let tags = [];
       for (const line of frontmatter.split('\n')) {
         const trimmed = line.trim();
         if (trimmed.startsWith('pattern:')) {
-          const patternStr = trimmed.substring('pattern:'.length).trim();
-          patterns = patternStr.split(',').map(p => p.trim()).filter(p => p);
+          patterns = splitList(trimmed.substring('pattern:'.length));
+        }
+        if (trimmed.startsWith('tag:')) {
+          // A '#' typed out of habit is not part of the tag, as in the tags property
+          tags = splitList(trimmed.substring('tag:'.length))
+            .map(t => t.replace(/^#+/, '').trim())
+            .filter(t => t);
         }
       }
 
-      if (patterns.length > 0 && markdown) {
-        results.push({ patterns, body: markdown });
+      if ((patterns.length > 0 || tags.length > 0) && markdown) {
+        results.push({ patterns, tags, body: markdown });
       }
     }
     return results;
+  }
+
+  function splitList(text) {
+    return text.split(',').map(p => p.trim()).filter(p => p);
   }
 
   /**
@@ -61,7 +71,7 @@
    * is cut at the same block boundaries as a markdown file. The iframe is served by the
    * journal server, so the API is same-origin.
    * A GFM task prefix (`- [ ] ` / `- [x] `) stays in the body; the server detects the task from it.
-   * Returns [{ level, body }].
+   * Returns [{ level, body, transclude }]; transclude is the id of the item to transclude, or null.
    */
   async function splitFlatMarkdown(text) {
     const resp = await fetch('/api/items/parse', {
@@ -73,7 +83,11 @@
       throw new Error('HTTP ' + resp.status);
     }
     const result = await resp.json();
-    return result.items.map(item => ({ level: item.level, body: item.body }));
+    return result.items.map(item => ({
+      level: item.level,
+      body: item.body,
+      transclude: (item.properties && item.properties.transclude) || null
+    }));
   }
 
   function matchesPattern(pattern, fileName, dirName, pageType) {
@@ -132,8 +146,15 @@
   // Listen for messages from parent
   window.addEventListener('message', async function(event) {
     const data = event.data;
-    if (!data || data.type !== 'PageCreate') return;
+    if (!data) return;
+    if (data.type === 'PageCreate') {
+      await onPageCreate(data);
+    } else if (data.type === 'PageTagAdd') {
+      await onPageTagAdd(data);
+    }
+  });
 
+  async function onPageCreate(data) {
     const { pageId, fileName, dirName, pageType } = data;
     console.log('[auto-template] PageCreate:', fileName, pageType);
     await templatesLoaded;
@@ -148,6 +169,32 @@
       return;
     }
 
+    const count = await insertTemplates(pageId, matched, 'first');
+    console.log('[auto-template] Created', count, 'items for:', fileName);
+  }
+
+  // The templates of each added tag go to the end of the page, once the user agrees
+  async function onPageTagAdd(data) {
+    const { pageId, fileName, tags } = data;
+    console.log('[auto-template] PageTagAdd:', fileName, tags);
+    await templatesLoaded;
+
+    for (const tag of tags) {
+      const matched = templates.filter(t => t.tags.includes(tag));
+      if (matched.length === 0) continue;
+      const ok = await confirm(`Insert the template of the tag "#${tag}" at the end of this page?`);
+      if (!ok) continue;
+      const count = await insertTemplates(pageId, matched, 'last');
+      console.log('[auto-template] Created', count, 'items for tag:', tag);
+    }
+  }
+
+  /**
+   * Insert the items of the templates in order. The first item goes to `position`
+   * ('first' or 'last'); each next one goes after the previous one.
+   * Returns the number of items.
+   */
+  async function insertTemplates(pageId, matched, position) {
     // Collect all items from all matched templates
     const allItems = [];
     for (const template of matched) {
@@ -161,15 +208,38 @@
     // Send CreateItem messages sequentially, waiting for response
     let lastItemId = '';
     for (const item of allItems) {
-      lastItemId = await createItem(pageId, lastItemId, item.level, item.body);
+      // A failed item gives no id, so the next one falls back to `position`
+      const where = lastItemId ? 'after:' + lastItemId : position;
+      lastItemId = await createItem(pageId, where, item.level, item.body, item.transclude);
     }
+    return allItems.length;
+  }
 
-    console.log('[auto-template] Created', allItems.length, 'items for:', fileName);
-  });
+  function newRequestId() {
+    return 'req-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
+  }
 
-  function createItem(pageId, afterItemId, level, body) {
+  // window.confirm is blocked in a hidden cross-origin iframe, so the app asks instead
+  function confirm(message) {
     return new Promise((resolve) => {
-      const requestId = 'req-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
+      const requestId = newRequestId();
+
+      function onResponse(event) {
+        const data = event.data;
+        if (!data || data.requestId !== requestId || data.type !== 'ConfirmResult') return;
+        window.removeEventListener('message', onResponse);
+        resolve(data.ok === true);
+      }
+
+      window.addEventListener('message', onResponse);
+      // No timeout: the user may take any time to answer the dialog
+      parent.postMessage({ type: 'Confirm', message, requestId }, '*');
+    });
+  }
+
+  function createItem(pageId, position, level, body, transclude) {
+    return new Promise((resolve) => {
+      const requestId = newRequestId();
 
       function onResponse(event) {
         const data = event.data;
@@ -188,9 +258,10 @@
       parent.postMessage({
         type: 'CreateItem',
         pageId,
-        afterItemId,
+        position,
         level,
         body,
+        transclude,
         requestId
       }, '*');
 

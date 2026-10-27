@@ -201,18 +201,28 @@ pub fn perform(handle: CoreHandle, mut request: Request<UiOp>) {
             dir_name,
             page_type,
         } => {
-            let message = serde_json::json!({
-                "type": "PageCreate", "pageId": page_id, "fileName": file_name,
-                "dirName": dir_name, "pageType": page_type,
-            });
-            let js = dom::to_js(&message);
-            for frame in &mut handle.inner().extensions.borrow_mut().frames {
-                if frame.loaded {
-                    post_to_frame(&frame.iframe, &js);
-                } else {
-                    frame.pending.push(js.clone());
-                }
-            }
+            post_to_frames(
+                &handle,
+                serde_json::json!({
+                    "type": "PageCreate", "pageId": page_id, "fileName": file_name,
+                    "dirName": dir_name, "pageType": page_type,
+                }),
+            );
+        }
+        UiOp::ExtensionPageTagAdd {
+            page_id,
+            file_name,
+            dir_name,
+            page_type,
+            tags,
+        } => {
+            post_to_frames(
+                &handle,
+                serde_json::json!({
+                    "type": "PageTagAdd", "pageId": page_id, "fileName": file_name,
+                    "dirName": dir_name, "pageType": page_type, "tags": tags,
+                }),
+            );
         }
         UiOp::ExtensionReply { source, message } => {
             if let Some(win) = handle
@@ -294,6 +304,18 @@ fn load_extensions(handle: &CoreHandle, functions: &[FunctionInfo]) {
     }
 }
 
+/// Posts a message to every extension; one still loading gets it once loaded.
+fn post_to_frames(handle: &CoreHandle, message: serde_json::Value) {
+    let js = dom::to_js(&message);
+    for frame in &mut handle.inner().extensions.borrow_mut().frames {
+        if frame.loaded {
+            post_to_frame(&frame.iframe, &js);
+        } else {
+            frame.pending.push(js.clone());
+        }
+    }
+}
+
 fn post_to_frame(iframe: &web_sys::HtmlIFrameElement, message: &JsValue) {
     if let Some(win) = iframe.content_window() {
         let _ = win.post_message(message, "*");
@@ -304,7 +326,8 @@ fn on_message(handle: &CoreHandle, ev: web_sys::MessageEvent) {
     let Ok(data) = serde_wasm_bindgen::from_value::<serde_json::Value>(ev.data()) else {
         return;
     };
-    if data.get("type").and_then(|t| t.as_str()) != Some("CreateItem") {
+    let kind = data.get("type").and_then(|t| t.as_str());
+    if kind != Some("CreateItem") && kind != Some("Confirm") {
         return;
     }
     let source = {
@@ -320,6 +343,14 @@ fn on_message(handle: &CoreHandle, ev: web_sys::MessageEvent) {
         id
     };
     let str_field = |k: &str| data.get(k).and_then(|v| v.as_str()).map(str::to_string);
+    if kind == Some("Confirm") {
+        handle.send(Event::ExtensionConfirm {
+            source,
+            request_id: str_field("requestId"),
+            message: str_field("message").unwrap_or_default(),
+        });
+        return;
+    }
     handle.send(Event::ExtensionCreateItem {
         source,
         request_id: str_field("requestId"),
@@ -328,5 +359,6 @@ fn on_message(handle: &CoreHandle, ev: web_sys::MessageEvent) {
         after_item_id: str_field("afterItemId"),
         level: data.get("level").and_then(|l| l.as_i64()).unwrap_or(1) as i32,
         body: str_field("body").unwrap_or_default(),
+        transclude: str_field("transclude"),
     });
 }

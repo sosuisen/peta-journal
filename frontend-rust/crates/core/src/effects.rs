@@ -305,7 +305,16 @@ pub enum UiOp {
         dir_name: String,
         page_type: String,
     },
-    /// Answers an extension's `CreateItem` message. `source` is the shell's handle of the window.
+    /// Tells the extension iframes that tags were added to the tags property of a page.
+    /// `tags` holds the added ones only.
+    ExtensionPageTagAdd {
+        page_id: String,
+        file_name: String,
+        dir_name: String,
+        page_type: String,
+        tags: Vec<String>,
+    },
+    /// Answers an extension's message. `source` is the shell's handle of the window.
     ExtensionReply {
         source: u64,
         message: Value,
