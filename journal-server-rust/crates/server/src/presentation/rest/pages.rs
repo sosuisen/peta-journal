@@ -5,6 +5,7 @@ use axum::http::StatusCode;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 
 use crate::error::{parse_id, AppError, AppResult};
 use crate::domain::model::Page;
@@ -207,13 +208,22 @@ async fn get_children(State(state): State<SharedState>, Path(id): Path<String>) 
     let page_id = parse_id(&id)?;
     blocking(move || {
         let pages = state.pages.find_by_parent_id(&page_id)?;
-        Ok(Json(pages_with_scalars(&state, &pages)?))
+        let mut response = pages_with_scalars(&state, &pages)?;
+        // The atlas draws an icon from the tags of each card
+        let ids: Vec<String> = pages.iter().map(|p| p.id.to_string()).collect();
+        let lists = state.properties.find_list_by_targets("page", &ids)?;
+        for dto in &mut response.pages {
+            if let Some(tags) = lists.get(&dto.id).and_then(|l| l.get("tags")) {
+                dto.properties.insert("tags".into(), json!(tags));
+            }
+        }
+        Ok(Json(response))
     })
     .await
 }
 
 /// The sidebar sorts pages by `published` and marks the published ones, so the page lists
-/// carry the scalar properties. The list properties stay out: nothing reads them there.
+/// carry the scalar properties. The list properties stay out, but for the tags of children.
 fn pages_with_scalars(state: &SharedState, pages: &[Page]) -> AppResult<PagesResponse> {
     let ids: Vec<String> = pages.iter().map(|p| p.id.to_string()).collect();
     let scalars = state.properties.find_scalar_by_targets("page", &ids)?;

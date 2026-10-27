@@ -1129,6 +1129,28 @@ async fn the_children_of_an_index_page_carry_their_scalar_properties() {
 }
 
 #[tokio::test]
+async fn the_children_of_an_index_page_carry_their_tags_but_no_other_list() {
+    let _tags_dir = TAGS_DIR.lock().await;
+    let dir = format!("{}/", new_doc_page("children-tags").await.title);
+    let (status, resp) = post("/api/pages/doc", json!({ "title": "a-page", "dirPath": dir })).await;
+    assert_eq!(status, 200, "{resp}");
+    let page_id = resp["page"]["id"].as_str().unwrap().to_string();
+    let parent_id = resp["page"]["parentId"].as_str().unwrap().to_string();
+    set_page_tags(&page_id, "children-tag-b, children-tag-a").await;
+    let group = format!("atlas_group_{}", nanos());
+    put(
+        &format!("/api/pages/{page_id}/properties/{group}"),
+        json!({ "valueType": "list", "value": "x,y" }),
+    )
+    .await;
+
+    let (_, resp) = get(&format!("/api/pages/{parent_id}/children")).await;
+    let child = resp["pages"].as_array().unwrap().iter().find(|p| p["id"] == page_id).unwrap();
+    assert_eq!(child["properties"]["tags"], json!(["children-tag-b", "children-tag-a"]));
+    assert!(child["properties"].get(&group).is_none(), "{child}");
+}
+
+#[tokio::test]
 async fn deleting_a_property_definition_removes_its_values_from_pages_and_items() {
     let page = new_doc_page("definition-delete").await;
     let item = fill(&page.id, &["rated"]).await.remove(0);
