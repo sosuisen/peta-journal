@@ -9,8 +9,8 @@ use crate::ops::edit::{discard_pending_edit, focus_editor, save_body, save_targe
 use crate::ops::file_reload::reload_shown_page;
 use crate::ops::level;
 use crate::outline::tree::{
-    edit_context_of, has_sibling_below, level_for_new_item_after, position_after_subtree,
-    position_before, EditContext,
+    edit_context_of, get_subtree, has_sibling_below, level_for_new_item_after,
+    position_after_subtree, position_before, transclusion_root_ending_at, EditContext,
 };
 use crate::outline::CursorState;
 use crate::util::split_at_char;
@@ -60,7 +60,20 @@ pub fn handle_enter(model: &mut Model, item_id: &str, cursor: usize) -> Cmd {
             }
         })
     } else if cursor == body_len {
-        append_empty_item_after(model, item, cursor, ctx)
+        match transclusion_root_ending_at(
+            &item,
+            model.state.items(),
+            model.state.visible_items(),
+            model.state.transcluded_trees(),
+        ) {
+            Some(root) => append_empty_item_after_transclusion(model, item, cursor, &root),
+            None => {
+                let new_level = level_for_new(model, &item, &ctx);
+                let position =
+                    position_after_subtree(model.state.items(), &item, &save_target_id(&item));
+                append_empty_item_after(model, item, cursor, ctx, position, new_level, None)
+            }
+        }
     } else {
         let new_level = level_for_new(model, &item, &ctx);
         let position = position_after_subtree(model.state.items(), &item, &save_target_id(&item));
@@ -124,19 +137,51 @@ async fn insert_empty_item_before(
     Ok(())
 }
 
+/// Enter at the end of the last item a transclusion shows. The new item goes on the page
+/// that shows the transclusion, right below it. Creating it on the source page would put
+/// it outside the transcluded tree, where this page does not show it.
+fn append_empty_item_after_transclusion(
+    model: &mut Model,
+    item: Item,
+    cursor: usize,
+    root: &Item,
+) -> Cmd {
+    let ctx = EditContext {
+        page_id: root.page_id.clone(),
+        level_offset: 0,
+        in_transclusion: false,
+    };
+    let subtree = get_subtree(model.state.items(), &root.id);
+    let (position, new_level) = if model.state.is_collapsed(&root.id) || subtree.len() == 1 {
+        let last = &subtree[subtree.len() - 1];
+        (ItemPosition::after(last.id.clone()), root.level)
+    } else {
+        // Own children of the root follow the transcluded items, so the new item joins them
+        (ItemPosition::after(root.id.clone()), root.level + 1)
+    };
+    append_empty_item_after(model, item, cursor, ctx, position, new_level, Some(root))
+}
+
 /// Enter at the end: the new item is shown at once with a client-side ID and created on
-/// the server in the background.
-fn append_empty_item_after(model: &mut Model, item: Item, cursor: usize, ctx: EditContext) -> Cmd {
-    let new_level = level_for_new(model, &item, &ctx);
-    let position = position_after_subtree(model.state.items(), &item, &save_target_id(&item));
+/// the server in the background. It takes its page fields from `page_item`, or from the item.
+fn append_empty_item_after(
+    model: &mut Model,
+    item: Item,
+    cursor: usize,
+    ctx: EditContext,
+    position: ItemPosition,
+    new_level: i32,
+    page_item: Option<&Item>,
+) -> Cmd {
+    let page_item = page_item.unwrap_or(&item);
     let new_id = model.new_item_id(model.clock_ms);
     let now = model.clock_ms as i64;
     let optimistic = Item {
         id: new_id.clone(),
         page_id: ctx.page_id.clone(),
-        dir_path: item.dir_path.clone(),
-        name: item.name.clone(),
-        item_type: item.item_type.clone(),
+        dir_path: page_item.dir_path.clone(),
+        name: page_item.name.clone(),
+        item_type: page_item.item_type.clone(),
         created_date: now,
         modified_date: now,
         idx: String::new(),

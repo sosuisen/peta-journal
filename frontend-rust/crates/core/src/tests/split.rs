@@ -161,3 +161,62 @@ fn inside_a_transclusion_the_new_item_is_created_on_the_source_page_and_the_page
     );
     assert!(h.api.called("GetPageById"));
 }
+
+/// A host page with "a", then the transclusion root "root" of source item "s", whose child
+/// "c" is the last transcluded item.
+fn transclusion_harness(own_after_root: Vec<crate::model::Item>) -> Harness {
+    let root = item_with("root", 1, |i| i.transclude_item_id = Some("s".into()));
+    let mut own = vec![item("a", 1, ""), root];
+    own.extend(own_after_root);
+    let mut h = Harness::with_items(own);
+    let mut trees = TranscludedTrees::new();
+    trees.insert(
+        "s".into(),
+        vec![
+            item_with("s", 1, |i| {
+                i.page_id = "src".into();
+                i.body = "shown".into();
+            }),
+            item_with("c", 2, |i| {
+                i.page_id = "src".into();
+                i.body = "child".into();
+            }),
+        ],
+    );
+    h.model.state.set_transcluded_trees(trees);
+    h
+}
+
+#[test]
+fn enter_at_the_end_of_the_last_transcluded_item_creates_the_new_item_on_the_host_page() {
+    let mut h = transclusion_harness(vec![item("b", 1, "")]);
+    enter(&mut h, "c", "child".len());
+    let calls = create_calls(&h.api);
+    assert_eq!(calls.len(), 1);
+    let (page_id, position, level, _, new_id) = &calls[0];
+    assert_eq!(
+        (page_id.as_str(), position.as_str(), *level),
+        ("page1", "after:root", 1)
+    );
+    assert_eq!(h.items_ids(), ["a", "root", new_id.as_ref().unwrap(), "b"]);
+}
+
+#[test]
+fn enter_at_the_end_of_the_last_transcluded_item_joins_the_own_children_of_the_root() {
+    let mut h = transclusion_harness(vec![item("own", 2, "")]);
+    enter(&mut h, "c", "child".len());
+    let calls = create_calls(&h.api);
+    let (page_id, position, level, _, _) = &calls[0];
+    assert_eq!(
+        (page_id.as_str(), position.as_str(), *level),
+        ("page1", "after:root", 2)
+    );
+}
+
+#[test]
+fn enter_at_the_end_of_a_transcluded_item_with_one_below_still_creates_on_the_source_page() {
+    let mut h = transclusion_harness(Vec::new());
+    enter(&mut h, "root", "shown".len());
+    let calls = create_calls(&h.api);
+    assert_eq!(calls[0].0, "src");
+}

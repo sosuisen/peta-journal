@@ -321,6 +321,28 @@ pub fn transclusion_scoped_items(visible: &[ItemRef], ctx: &TransclusionContext)
         .collect()
 }
 
+/// The transclusion root an item is the last shown item of, or None. The root itself is
+/// the last shown item when it shows no descendants.
+pub fn transclusion_root_ending_at(
+    item: &Item,
+    own_items: &[ItemRef],
+    visible: &[ItemRef],
+    trees: &HashMap<String, Vec<ItemRef>>,
+) -> Option<ItemRef> {
+    let ctx = transclusion_context_of(item, own_items, trees)?;
+    // Own children of the root are shown after the transcluded items; they are not part of the source tree
+    let last_id = transclusion_scoped_items(visible, &ctx)
+        .iter()
+        .rev()
+        .find(|b| !own_items.iter().any(|o| o.id == b.id))
+        .map(|b| b.id.clone())
+        .unwrap_or_else(|| ctx.root_item_id.clone());
+    if last_id != item.id {
+        return None;
+    }
+    own_items.iter().find(|b| b.id == ctx.root_item_id).cloned()
+}
+
 // ---- Journal date groups ----
 
 /// True when the visible item at the index is the first item of a journal day, so a date
