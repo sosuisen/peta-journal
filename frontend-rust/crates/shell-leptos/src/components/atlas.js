@@ -44,6 +44,8 @@ window.AtlasCanvas = class AtlasCanvas {
     };
     this.zoom = Number.isFinite(zoom) ? Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom)) : 1;
     this.panning = null;
+    // The ids of the selected cards. Kept by id, as a new list of cards makes new views.
+    this.selected = new Set();
     this.data = [];
     this.destroyed = false;
     this.app = new PIXI.Application();
@@ -182,6 +184,20 @@ window.AtlasCanvas = class AtlasCanvas {
       this.keepView();
     } else if (panning.button === 2 && panning.card) {
       this.onMenu(panning.card.cardData.id, e.clientX, e.clientY);
+    } else if (panning.button === 0 && !panning.card) {
+      // A click between the cards lets go of the selection
+      this.select([]);
+    }
+  }
+
+  select(ids) {
+    this.selected = new Set(ids);
+    this.showSelection();
+  }
+
+  showSelection() {
+    for (const view of this.cards.children) {
+      view.cardSelection.visible = this.selected.has(view.cardData.id);
     }
   }
 
@@ -231,10 +247,14 @@ window.AtlasCanvas = class AtlasCanvas {
       this.makeDraggable(view, data);
       this.cards.addChild(view);
     }
+    // A card taken off the canvas is no longer selected
+    this.selected = new Set(this.data.map(d => d.id).filter(id => this.selected.has(id)));
+    this.showSelection();
   }
 
-  // A drag moves the card and places it where it is let go. A press on the label that
-  // does not move opens the page instead.
+  // A drag moves the selected cards and places them where they are let go. A click on the
+  // label opens the page, in a new tab with Ctrl. A click with Ctrl elsewhere on the card
+  // adds the card to the selection or takes it out.
   makeDraggable(view, data) {
     view.cardData = data;
     view.eventMode = 'static';
@@ -244,16 +264,30 @@ window.AtlasCanvas = class AtlasCanvas {
       if (e.button !== 0) {
         return;
       }
+      const ctrl = e.ctrlKey || e.metaKey;
+      const wasSelected = this.selected.has(data.id);
+      if (ctrl) {
+        // Taken out only on release: a drag that starts here moves it with the others
+        this.selected.add(data.id);
+      } else if (!wasSelected) {
+        this.selected = new Set([data.id]);
+      }
+      this.showSelection();
+      const views = this.cards.children.filter(v => this.selected.has(v.cardData.id));
       this.drag = {
         view,
         // Plain copies: `global` is reused for the next event
         start: { x: e.global.x, y: e.global.y },
-        origin: { x: view.x, y: view.y },
+        origins: views.map(v => ({ view: v, x: v.x, y: v.y })),
         moved: false,
+        ctrl,
+        wasSelected,
         onLabel: e.target === view.cardLabel,
       };
-      // On top of the others while it moves
-      this.cards.addChild(view);
+      // On top of the others while they move
+      for (const v of views) {
+        this.cards.addChild(v);
+      }
     });
     view.on('globalpointermove', e => {
       const drag = this.drag;
@@ -267,8 +301,10 @@ window.AtlasCanvas = class AtlasCanvas {
       }
       drag.moved = true;
       view.cursor = 'grabbing';
-      // The pointer moves in pixels of the screen, the card in units of the scaled view
-      view.position.set(drag.origin.x + dx / this.zoom, drag.origin.y + dy / this.zoom);
+      // The pointer moves in pixels of the screen, the cards in units of the scaled view
+      for (const o of drag.origins) {
+        o.view.position.set(o.x + dx / this.zoom, o.y + dy / this.zoom);
+      }
     });
     const end = e => {
       const drag = this.drag;
@@ -278,11 +314,24 @@ window.AtlasCanvas = class AtlasCanvas {
       this.drag = null;
       view.cursor = 'grab';
       if (drag.moved) {
-        // The card has moved with the pointer from where it was grabbed: it lies where it shows.
-        // Its position is its center, as the pivot is there.
-        this.onPlace(data.id, view.x, view.y);
+        // The cards have moved with the pointer: they lie where they show. A position is the
+        // center of a card, as the pivot is there. Read before placing any: placing one
+        // gives a new list of cards, which destroys these views.
+        const places = drag.origins.map(o => [o.view.cardData.id, o.view.x, o.view.y]);
+        for (const [id, x, y] of places) {
+          this.onPlace(id, x, y);
+        }
       } else if (drag.onLabel) {
-        this.onOpen(data.path, e.ctrlKey || e.metaKey, e.shiftKey);
+        // A link, as it always was: Ctrl opens it in a new tab and leaves the selection
+        // as it was before the press
+        if (drag.ctrl && !drag.wasSelected) {
+          this.selected.delete(data.id);
+          this.showSelection();
+        }
+        this.onOpen(data.path, drag.ctrl, e.shiftKey);
+      } else if (drag.ctrl && drag.wasSelected) {
+        this.selected.delete(data.id);
+        this.showSelection();
       }
     };
     view.on('pointerup', end);
@@ -331,6 +380,12 @@ function card({ label, isDir, width, height }, resolution) {
   const c = new PIXI.Container();
   // The position of a card is its center, as stored in atlas_bounds
   c.pivot.set(width / 2, height / 2);
+  // A ring outside the frame, so it does not cover the frame's own color
+  c.cardSelection = new PIXI.Graphics()
+    .roundRect(-3, -3, width + 6, height + 6, 10)
+    .stroke({ color: 0x3b82f6, width: 2 });
+  c.cardSelection.visible = false;
+  c.addChild(c.cardSelection);
   c.addChild(
     new PIXI.Graphics()
       .roundRect(0, 0, width, height, 8)
