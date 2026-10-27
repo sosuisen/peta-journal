@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::application::folder_chooser;
 use crate::error::AppResult;
-use crate::infrastructure::persistence::property_repository::is_atlas_group_key;
+use crate::infrastructure::persistence::property_repository::is_atlas_key;
 use crate::state::{blocking, SharedState};
 
 pub fn routes() -> Router<SharedState> {
@@ -85,12 +85,12 @@ async fn get_config(State(state): State<SharedState>) -> Json<ConfigResponse> {
 }
 
 fn definitions_response(state: &SharedState) -> AppResult<PropertyDefinitionsResponse> {
-    // A card group of an atlas is not a key the user chooses; there may be many of them
+    // A card group of an atlas and its title are not keys the user chooses; there may be many
     let definitions: Vec<_> = state
         .properties
         .find_definitions()?
         .into_iter()
-        .filter(|d| !is_atlas_group_key(&d.key))
+        .filter(|d| !is_atlas_key(&d.key))
         .collect();
     Ok(PropertyDefinitionsResponse {
         property_definitions: definitions

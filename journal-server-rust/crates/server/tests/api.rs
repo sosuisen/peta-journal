@@ -1345,6 +1345,36 @@ async fn the_atlas_of_a_file_edited_outside_is_taken_into_the_page() {
 }
 
 #[tokio::test]
+async fn a_group_title_stays_out_of_the_settings_and_follows_its_file() {
+    let _folder = FOLDER_SCAN.lock().await;
+    let page = new_doc_page("atlas-title").await;
+    let key = format!("atlas_title_{}", nanos());
+    let (status, resp) = put(
+        &format!("/api/pages/{}/properties/{key}", page.id),
+        json!({ "valueType": "text", "value": "top:Before" }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+    wait_until("the title is exported", || read(&file_of(&page)).contains(&format!("{key}: top:Before
+"))).await;
+    let (_, resp) = get("/api/config/property-definitions").await;
+    assert!(definition(&resp, &key).is_none(), "{resp}");
+
+    edit_file(&page, |text| text.replace("top:Before", "left:After"));
+    scan().await;
+    let (_, resp) = get(&format!("/api/pages/{}", page.id)).await;
+    assert_eq!(resp["page"]["properties"][&key], json!("left:After"));
+
+    edit_file(&page, |text| {
+        text.lines().filter(|l| !l.starts_with(&key)).map(|l| format!("{l}
+")).collect()
+    });
+    scan().await;
+    let (_, resp) = get(&format!("/api/pages/{}", page.id)).await;
+    assert!(resp["page"]["properties"].get(&key).is_none(), "{resp}");
+}
+
+#[tokio::test]
 async fn bounds_in_a_file_that_are_not_bounds_are_written_over_by_the_page() {
     let _folder = FOLDER_SCAN.lock().await;
     let page = new_doc_page("file-bad-bounds").await;

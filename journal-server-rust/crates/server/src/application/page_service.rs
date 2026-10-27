@@ -18,7 +18,7 @@ use crate::infrastructure::export::export_queue_repository::ExportQueueRepositor
 use crate::infrastructure::export::export_service::MarkdownExportService;
 use crate::infrastructure::persistence::db::now_millis;
 use crate::infrastructure::persistence::property_repository::{
-    is_atlas_group_key, normalize_bounds, validate_key, ListProps, ScalarProps,
+    is_atlas_group_key, is_atlas_title_key, normalize_bounds, validate_key, ListProps, ScalarProps,
 };
 use crate::infrastructure::persistence::{ItemRepository, PageRepository, PropertyRepository};
 
@@ -382,7 +382,7 @@ impl PageService {
     }
 
     /// Sets the atlas properties of a page as an imported file has them: the bounds of its
-    /// card and, on an atlas page, its card groups. A key the file lacks goes from the page.
+    /// card and, on an atlas page, its card groups and their titles. A key the file lacks goes from the page.
     /// A value that cannot be taken keeps the page's value, and the file is to be written
     /// again; so is a value written otherwise than the export writes it.
     pub fn replace_atlas_properties(
@@ -438,6 +438,29 @@ impl PageService {
         for key in groups_before.keys().filter(|key| !groups_after.contains(*key)) {
             self.properties.delete_property(PAGE_TARGET, &id, key)?;
             self.properties.delete_unused_atlas_group(key)?;
+            result.changed = true;
+        }
+
+        let titles_before: BTreeMap<&String, &String> = scalars
+            .get(&id)
+            .map(|s| s.iter().filter(|(key, _)| is_atlas_title_key(key)).collect())
+            .unwrap_or_default();
+        let mut titles_after = BTreeSet::new();
+        for (key, title) in frontmatter.iter().filter(|(key, _)| is_atlas_title_key(key)) {
+            // A key that cannot be stored, or an empty title, is dropped from the file
+            if title.trim().is_empty() || validate_key(key).is_err() {
+                result.needs_write_back = true;
+                continue;
+            }
+            if titles_before.get(key) != Some(&title) {
+                self.properties.upsert_scalar(PAGE_TARGET, &id, key, "text", title)?;
+                result.changed = true;
+            }
+            titles_after.insert(key);
+        }
+        for key in titles_before.keys().filter(|key| !titles_after.contains(*key)) {
+            self.properties.delete_property(PAGE_TARGET, &id, key)?;
+            self.properties.delete_unused_atlas_title(key)?;
             result.changed = true;
         }
         Ok(result)
@@ -563,6 +586,9 @@ impl PageService {
         self.properties.delete_property(PAGE_TARGET, page_id.as_str(), key)?;
         if is_atlas_group_key(key) {
             self.properties.delete_unused_atlas_group(key)?;
+        }
+        if is_atlas_title_key(key) {
+            self.properties.delete_unused_atlas_title(key)?;
         }
         self.delete_unused_tag_pages(&before);
         self.touch_and_export(&page)

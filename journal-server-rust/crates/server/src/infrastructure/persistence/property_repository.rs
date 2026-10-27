@@ -27,6 +27,19 @@ pub fn is_atlas_group_key(key: &str) -> bool {
     key.len() > ATLAS_GROUP_PREFIX.len() && key.starts_with(ATLAS_GROUP_PREFIX)
 }
 
+/// The start of the keys of the titles of the card groups on an atlas page. A title is text
+/// under the key of its group with this prefix instead.
+pub const ATLAS_TITLE_PREFIX: &str = "atlas_title_";
+
+pub fn is_atlas_title_key(key: &str) -> bool {
+    key.len() > ATLAS_TITLE_PREFIX.len() && key.starts_with(ATLAS_TITLE_PREFIX)
+}
+
+/// A key the frontend makes for the card groups of an atlas, not one the user chooses
+pub fn is_atlas_key(key: &str) -> bool {
+    is_atlas_group_key(key) || is_atlas_title_key(key)
+}
+
 /// A property definition: the key, its value type and who may use it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PropertyDefinition {
@@ -310,6 +323,16 @@ impl PropertyRepository {
         self.db.conn()?.execute(
             "DELETE FROM property_definitions WHERE key = ?1 \
              AND NOT EXISTS (SELECT 1 FROM property_list_items WHERE key = ?1)",
+            params![key],
+        )?;
+        Ok(())
+    }
+
+    /// Removes the definition of a group title once no page has it. Each group has its own
+    /// key, so the definitions would pile up as groups come and go.
+    pub fn delete_unused_atlas_title(&self, key: &str) -> AppResult<()> {
+        self.db.conn()?.execute(
+            "DELETE FROM property_definitions WHERE key = ?1              AND NOT EXISTS (SELECT 1 FROM properties WHERE key = ?1)",
             params![key],
         )?;
         Ok(())
