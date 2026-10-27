@@ -1,7 +1,9 @@
 //! The view model: what the shell shows, computed from the model after every event.
 
 use crate::app::{ConnectionState, Model, Screen};
-use crate::model::{IndexSort, Item, ItemRef, Page, PropertyDefinition, SearchResult, WeekNumbering};
+use crate::model::{
+    IndexSort, Item, ItemRef, Page, PropertyDefinition, SearchResult, WeekNumbering,
+};
 use crate::ops::wiki;
 use crate::outline::tree::starts_date_group;
 use crate::outline::{FocusRequest, Heading};
@@ -120,7 +122,10 @@ impl PageProperty {
             },
             other => PageProperty {
                 key: key.to_string(),
-                value: other.as_str().map(str::to_string).unwrap_or_else(|| other.to_string()),
+                value: other
+                    .as_str()
+                    .map(str::to_string)
+                    .unwrap_or_else(|| other.to_string()),
                 is_list: false,
                 removable: true,
                 editable: true,
@@ -184,7 +189,13 @@ impl BacklinkGroup {
                 .iter()
                 .map(|i| BacklinkItem {
                     id: i.id.clone(),
-                    text: i.body.lines().find(|l| !l.trim().is_empty()).unwrap_or("").trim().to_string(),
+                    text: i
+                        .body
+                        .lines()
+                        .find(|l| !l.trim().is_empty())
+                        .unwrap_or("")
+                        .trim()
+                        .to_string(),
                     url: format!("{url}#{}", i.id),
                 })
                 .collect(),
@@ -347,30 +358,32 @@ fn screen(model: &Model) -> ScreenView {
             display_date: journal::display_date(j),
             page_id: j.page.as_ref().map(|p| p.id.clone()),
         }),
-        Screen::Page(p) => ScreenView::Page(p.page.as_ref().map(|pg| Box::new(PageView {
-            page: pg.clone(),
-            title: page::page_title(pg),
-            dir_segments: page::dir_path_segments(&pg.dir_path),
-            is_index: pg.name == "index",
-            is_root_index: pg.name == "index" && pg.dir_path.is_empty(),
-            is_atlas: page::is_atlas(pg),
-            can_demote: p.can_demote_index,
-            demote_name: page::demote_name(pg),
-            focus_item_id: p.focus_item_id.clone(),
-            properties: [
-                PageProperty::date("created", pg.created_date),
-                PageProperty::date("modified", pg.modified_date),
-            ]
-            .into_iter()
-            .chain(pg.properties.iter().map(|(k, v)| PageProperty::of(k, v)))
-            .collect(),
-            // The dates do not count: every page has them
-            show_properties: p.properties_open || !pg.properties.is_empty(),
-            backlinks: page::backlink_groups(&p.backlinks)
-                .iter()
-                .map(|(page, items)| BacklinkGroup::of(page, items))
+        Screen::Page(p) => ScreenView::Page(p.page.as_ref().map(|pg| {
+            Box::new(PageView {
+                page: pg.clone(),
+                title: page::page_title(pg),
+                dir_segments: page::dir_path_segments(&pg.dir_path),
+                is_index: pg.name == "index",
+                is_root_index: pg.name == "index" && pg.dir_path.is_empty(),
+                is_atlas: page::is_atlas(pg),
+                can_demote: p.can_demote_index,
+                demote_name: page::demote_name(pg),
+                focus_item_id: p.focus_item_id.clone(),
+                properties: [
+                    PageProperty::date("created", pg.created_date),
+                    PageProperty::date("modified", pg.modified_date),
+                ]
+                .into_iter()
+                .chain(pg.properties.iter().map(|(k, v)| PageProperty::of(k, v)))
                 .collect(),
-        }))),
+                // The dates do not count: every page has them
+                show_properties: p.properties_open || !pg.properties.is_empty(),
+                backlinks: page::backlink_groups(&p.backlinks)
+                    .iter()
+                    .map(|(page, items)| BacklinkGroup::of(page, items))
+                    .collect(),
+            })
+        })),
     }
 }
 

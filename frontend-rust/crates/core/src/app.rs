@@ -356,7 +356,10 @@ pub enum Event {
     /// The folders last seen as their atlas, as the browser stored them.
     AtlasDirsRestored(Vec<String>),
     /// The user chose a sort for the directory the index list shows.
-    SetIndexSort { dir: String, sort: IndexSort },
+    SetIndexSort {
+        dir: String,
+        sort: IndexSort,
+    },
 
     // ---- settings ----
     SetWeekNumbering(WeekNumbering),
@@ -822,10 +825,14 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         AtlasUp => screens::page::atlas_up(model),
         PlaceAtlasCard { page_id, x, y } => screens::atlas::place_card(model, page_id, x, y),
         ScaleAtlasCard { page_id, scale } => screens::atlas::scale_card(model, page_id, scale),
-        SetAtlasGroupTitle { group_key, side, title } => {
-            screens::atlas::set_group_title(model, group_key, side, title)
+        SetAtlasGroupTitle {
+            group_key,
+            side,
+            title,
+        } => screens::atlas::set_group_title(model, group_key, side, title),
+        AddAtlasCallout { x, y, side, text } => {
+            screens::atlas::add_callout(model, x, y, side, text)
         }
-        AddAtlasCallout { x, y, side, text } => screens::atlas::add_callout(model, x, y, side, text),
         MoveAtlasCallout { key, x, y } => screens::atlas::move_callout(model, key, x, y),
         ScaleAtlasCallout { key, scale } => screens::atlas::scale_callout(model, key, scale),
         AddAtlasLink { x, y, target } => screens::atlas::add_link(model, x, y, target),
@@ -836,9 +843,10 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         SearchAtlasLinks { query } => screens::atlas::search_links(model, query),
         SetAtlasCallout { key, side, text } => screens::atlas::set_callout(model, key, side, text),
         RemoveAtlasCard { page_id } => screens::atlas::remove_card(model, page_id),
-        GroupAtlasCards { page_ids, target_id } => {
-            screens::atlas::group_cards(model, page_ids, target_id)
-        }
+        GroupAtlasCards {
+            page_ids,
+            target_id,
+        } => screens::atlas::group_cards(model, page_ids, target_id),
         UngroupAtlasCards { page_ids } => screens::atlas::ungroup_cards(model, page_ids),
         EditPageProperties => screens::page::edit_properties(model),
         SetPageProperty {
@@ -911,7 +919,9 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         AddPropertyDefinition { key, value_type } => {
             screens::settings::add_property_definition(model, key, value_type)
         }
-        DeletePropertyDefinition { key } => screens::settings::delete_property_definition(model, key),
+        DeletePropertyDefinition { key } => {
+            screens::settings::delete_property_definition(model, key)
+        }
 
         ExtensionCreateItem {
             source,

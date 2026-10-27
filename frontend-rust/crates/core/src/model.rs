@@ -261,7 +261,8 @@ pub struct PropertyDefinition {
 }
 
 /// The types a user may give a new key, in the order the settings offer them.
-pub const USER_VALUE_TYPES: [&str; 6] = ["text", "number", "checkbox", "date", "datetime", "bounds"];
+pub const USER_VALUE_TYPES: [&str; 6] =
+    ["text", "number", "checkbox", "date", "datetime", "bounds"];
 
 /// The server's settings (`GET /api/config`).
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]

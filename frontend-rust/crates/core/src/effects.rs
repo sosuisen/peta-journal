@@ -2,8 +2,8 @@
 //! shell performs and resolves; the core never touches the network, timers or the DOM.
 
 use crate::model::{
-    BacklinkEntry, DeferredKey, Item, ItemPosition, JournalBefore, Page, PageWithItems, ParsedFlatItem,
-    PropertyDefinition, SearchResult, ServerConfig, TreeExport,
+    BacklinkEntry, DeferredKey, Item, ItemPosition, JournalBefore, Page, PageWithItems,
+    ParsedFlatItem, PropertyDefinition, SearchResult, ServerConfig, TreeExport,
 };
 use crate::util::date::LocalDateTime;
 use crux_core::capability::Operation;
@@ -690,9 +690,13 @@ impl<Event: Send + 'static> Api<Event> {
         )
     }
 
-    pub async fn delete_property_definition(&self, key: &str) -> ApiResult<Vec<PropertyDefinition>> {
+    pub async fn delete_property_definition(
+        &self,
+        key: &str,
+    ) -> ApiResult<Vec<PropertyDefinition>> {
         expect_output!(
-            self.call(ApiOp::DeletePropertyDefinition { key: key.into() }).await,
+            self.call(ApiOp::DeletePropertyDefinition { key: key.into() })
+                .await,
             PropertyDefinitions
         )
     }

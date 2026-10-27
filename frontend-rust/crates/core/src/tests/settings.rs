@@ -20,8 +20,10 @@ fn adding_a_property_definition_sends_it_and_shows_the_server_list() {
 #[test]
 fn a_refused_definition_shows_the_reason_and_an_empty_key_is_not_sent() {
     let mut h = Harness::with_items(vec![]);
-    h.api
-        .fail_next("AddPropertyDefinition", "Property key 'zoom' is a system key");
+    h.api.fail_next(
+        "AddPropertyDefinition",
+        "Property key 'zoom' is a system key",
+    );
     h.send(Event::AddPropertyDefinition {
         key: "zoom".into(),
         value_type: "number".into(),
@@ -51,12 +53,21 @@ fn deleting_a_property_definition_sends_it_and_shows_the_server_list() {
     });
     assert_eq!(h.model.config.property_definitions.len(), 1);
 
-    h.send(Event::DeletePropertyDefinition { key: "status".into() });
-    assert!(h.api.calls.iter().any(|c| matches!(c, ApiOp::DeletePropertyDefinition { key } if key == "status")));
+    h.send(Event::DeletePropertyDefinition {
+        key: "status".into(),
+    });
+    assert!(h
+        .api
+        .calls
+        .iter()
+        .any(|c| matches!(c, ApiOp::DeletePropertyDefinition { key } if key == "status")));
     assert!(h.model.config.property_definitions.is_empty());
     assert!(h.model.config.definition_error.is_none());
 
-    h.api.fail_next("DeletePropertyDefinition", "Property key 'tags' is a system key");
+    h.api.fail_next(
+        "DeletePropertyDefinition",
+        "Property key 'tags' is a system key",
+    );
     h.send(Event::DeletePropertyDefinition { key: "tags".into() });
     assert_eq!(
         h.model.config.definition_error.as_deref(),
