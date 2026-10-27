@@ -10,6 +10,7 @@ pub struct ConfigService {
 }
 
 const CONFIG_FILE_NAME: &str = "config.json";
+const DEFAULT_TAGS_DIR: &str = "tags/";
 
 impl ConfigService {
     pub fn new(config_dir: PathBuf) -> ConfigService {
@@ -68,13 +69,15 @@ impl ConfigService {
     }
 
     /// The directory of the tag pages, relative to the pages root and ending with `/`
-    /// (e.g. `tags/`), or an empty string when tag pages live at the root.
+    /// (e.g. `tags/`), or an empty string when tag pages live at the root. Without a value
+    /// it is `tags/`: the config file stays on each machine, and a machine that never set it
+    /// would put the tag pages at the root of the shared folder.
     pub fn tags_dir(&self) -> String {
         self.load()
             .get("tagsDir")
             .and_then(|v| v.as_str())
             .map(normalize_tags_dir)
-            .unwrap_or_default()
+            .unwrap_or_else(|| DEFAULT_TAGS_DIR.to_string())
     }
 
     pub fn set_tags_dir(&self, tags_dir: &str) {

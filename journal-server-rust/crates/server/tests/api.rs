@@ -737,14 +737,18 @@ async fn health_and_config() {
     assert_eq!(status, 200);
     assert_eq!(resp["weekNumbering"], json!("iso"));
     assert_eq!(resp["logicalOutdent"], json!(false));
-    assert_eq!(resp["tagsDir"], json!(""));
+    assert_eq!(resp["tagsDir"], json!("tags/"));
 
     // The tags directory is stored in the dirPath form, whatever the client typed
-    let (status, resp) = put("/api/config", json!({ "tagsDir": "/tags" })).await;
+    let (status, resp) = put("/api/config", json!({ "tagsDir": "/meta/tags" })).await;
     assert_eq!(status, 200);
-    assert_eq!(resp["tagsDir"], json!("tags/"));
+    assert_eq!(resp["tagsDir"], json!("meta/tags/"));
+    // The root is a value of its own, not the default
     let (_, resp) = put("/api/config", json!({ "tagsDir": "" })).await;
     assert_eq!(resp["tagsDir"], json!(""));
+    let (_, resp) = get("/api/config").await;
+    assert_eq!(resp["tagsDir"], json!(""));
+    put("/api/config", json!({ "tagsDir": "tags" })).await;
 
     let (status, resp) = get("/api/config/property-definitions").await;
     assert_eq!(status, 200);
