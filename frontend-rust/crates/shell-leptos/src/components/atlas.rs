@@ -10,7 +10,7 @@ use crate::dom;
 use crate::listeners::DocumentListeners;
 use leptos::prelude::*;
 use peta_core::app::Event;
-use peta_core::screens::atlas::{tag_icon_svg, CARD_HEIGHT, CARD_WIDTH};
+use peta_core::screens::atlas::{tag_blob_svg, tag_icon_svg, CARD_HEIGHT, CARD_WIDTH};
 use peta_core::view::{AtlasCard, ScreenView};
 use std::collections::HashMap;
 use wasm_bindgen::prelude::*;
@@ -134,6 +134,8 @@ fn placed_json(cards: &[AtlasCard]) -> String {
                     "groupColor": c.group_color,
                     "icon": (!c.icon_tags.is_empty())
                         .then(|| tag_icon_svg(&c.icon_tags, ICON_DRAW_SIZE)),
+                    // The blob is drawn from the main tag, which comes first
+                    "blob": c.icon_tags.first().map(|tag| tag_blob_svg(tag, ICON_DRAW_SIZE)),
                     "iconSize": ICON_SIZE,
                     "iconDrawSize": ICON_DRAW_SIZE,
                 })

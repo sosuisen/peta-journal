@@ -583,3 +583,23 @@ fn an_icon_is_an_svg_of_the_size_asked() {
     // The same tags draw the same icon
     assert_eq!(svg, tag_icon_svg(&tags, 24));
 }
+
+#[test]
+fn a_blob_is_a_light_blue_svg_drawn_from_the_tag() {
+    use crate::screens::atlas::tag_blob_svg;
+    let svg = tag_blob_svg("DailyReport", 100);
+    assert!(svg.starts_with("<svg"), "{svg}");
+    assert!(svg.contains(r##"fill="#CFE3FF""##), "{svg}");
+    // The same tag draws the same blob, and another tag another one
+    assert_eq!(svg, tag_blob_svg("DailyReport", 100));
+    assert_ne!(svg, tag_blob_svg("JavaFX", 100));
+}
+
+#[test]
+fn a_blob_fills_its_svg_to_the_edges() {
+    use crate::screens::atlas::tag_blob_svg;
+    let svg = tag_blob_svg("DailyReport", 100);
+    // The view box is cut to the blob and stretched to the size of the SVG
+    assert!(svg.contains(r#"preserveAspectRatio="none""#), "{svg}");
+    assert!(!svg.contains(r#"viewBox="-50 -50 100 100""#), "{svg}");
+}

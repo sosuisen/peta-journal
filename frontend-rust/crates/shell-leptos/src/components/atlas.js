@@ -262,8 +262,8 @@ window.AtlasCanvas = class AtlasCanvas {
   }
 
   // The placed cards as JSON: [{ id, label, path, isDir, x, y, width, height, group,
-  // groupColor, icon, iconSize, iconDrawSize }], where x and y are the center of the card,
-  // icon is an SVG or null, and iconDrawSize is the size of the SVG, which is shown at iconSize. The core gives the color of
+  // groupColor, icon, blob, iconSize, iconDrawSize }], where x and y are the center of the card,
+  // icon and blob are SVGs or null, and iconDrawSize is the size of the SVG, which is shown at iconSize. The core gives the color of
   // each group, so it is the same as on the tag icons.
   setCards(json) {
     this.data = JSON.parse(json);
@@ -629,12 +629,11 @@ function smoothClosedCurve(g, points) {
 
 // The icon of a card, from its SVG. The browser draws the SVG, as its hatching is a <pattern>,
 // which a Graphics cannot read. The texture comes later; the card shows without it until then.
-function iconSprite(svg, size, resolution, x, y) {
+function iconSprite(svg, width, height, resolution, x, y, alpha) {
   const sprite = new PIXI.Sprite();
   sprite.anchor.set(0.5);
   sprite.position.set(x, y);
-  // Faint, so it stays behind the label
-  sprite.alpha = ICON_ALPHA;
+  sprite.alpha = alpha;
   // The card handles the press
   sprite.eventMode = 'none';
   PIXI.Assets.load({
@@ -645,7 +644,7 @@ function iconSprite(svg, size, resolution, x, y) {
     .then(texture => {
       if (!sprite.destroyed) {
         sprite.texture = texture;
-        sprite.setSize(size, size);
+        sprite.setSize(width, height);
       }
     })
     .catch(e => console.warn('atlas: cannot draw a tag icon', e));
@@ -665,7 +664,7 @@ function cross() {
 // name wraps. The width it takes is written back into the data, which the outlines of the
 // groups read. The stored width of the card is not used.
 function card(data, resolution, iconResolution) {
-  const { label, isDir, height, icon, iconSize, iconDrawSize } = data;
+  const { label, isDir, height, icon, blob, iconSize, iconDrawSize } = data;
   const text = new PIXI.Text({
     text: label,
     resolution,
@@ -707,11 +706,19 @@ function card(data, resolution, iconResolution) {
   const inside = new PIXI.Container();
   inside.mask = new PIXI.Graphics().roundRect(0, 0, width, height, 8).fill(0xffffff);
   c.addChild(inside.mask, inside);
+  if (blob) {
+    // Stretched over the whole card, behind the icon. It is a plain fill, so the resolution of
+    // the wider side is enough.
+    const blobResolution = (iconResolution * Math.max(width, height)) / iconDrawSize;
+    inside.addChild(iconSprite(blob, width, height, blobResolution, width / 2, height / 2, 1));
+  }
   if (icon) {
     // Rasterized in as many pixels as the icon covers at its largest, not at the size of the SVG
     const rasterResolution = (iconResolution * iconSize) / iconDrawSize;
-    // Behind the label, in the middle of the card
-    inside.addChild(iconSprite(icon, iconSize, rasterResolution, width / 2, height / 2));
+    // Behind the label, in the middle of the card. Faint, so it stays behind the label.
+    inside.addChild(
+      iconSprite(icon, iconSize, iconSize, rasterResolution, width / 2, height / 2, ICON_ALPHA),
+    );
   }
   text.anchor.set(0.5);
   text.position.set(width / 2, height / 2);

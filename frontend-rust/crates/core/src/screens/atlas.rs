@@ -8,7 +8,10 @@ use crate::model::Page;
 use crate::screens::page::{split_doc_path, ATLAS_NAME};
 use crate::screens::sidebar;
 use crux_core::Command;
-use picturesque_marks::{background_svg, BackgroundStyle, ColorName, ComposeLayout, MAX_COMPOSED_TAGS};
+use picturesque_marks::{
+    background_svg, signature_svg, BackgroundStyle, Color, ColorName, ComposeLayout, SignatureStyle,
+    MAX_COMPOSED_TAGS,
+};
 use serde_json::Value;
 use std::collections::BTreeMap;
 
@@ -316,6 +319,51 @@ pub fn icon_tags(page: &Page, tags_dir: &str) -> Vec<String> {
 pub fn tag_icon_svg(tags: &[String], size: i32) -> String {
     let tags = &tags[..tags.len().min(MAX_COMPOSED_TAGS)];
     background_svg(tags, ComposeLayout::default(), BackgroundStyle::default(), size, size)
+}
+
+/// The light blue of the blob behind the icon of a card.
+const BLOB_COLOR: Color = Color::rgb(0xCF, 0xE3, 0xFF);
+
+/// The blob of a tag as an SVG of `size` pixels square: the outline picturesque-marks draws
+/// for the tag name, filled in light blue. The blob fills the whole SVG, which the card
+/// stretches to its own size.
+pub fn tag_blob_svg(tag: &str, size: i32) -> String {
+    let svg = signature_svg(tag, SignatureStyle::Blob, BLOB_COLOR, size, size);
+    // picturesque-marks leaves a margin around the blob, which would keep it off the edges of
+    // the card. The view box is cut to the points of its path instead. The control points of a
+    // curve lie a little outside it, so a thin margin stays.
+    let Some((min_x, min_y, max_x, max_y)) = path_bounds(&svg) else {
+        return svg;
+    };
+    let Some(start) = svg.find("viewBox=\"") else {
+        return svg;
+    };
+    let Some(end) = svg[start + 9..].find('"').map(|i| start + 9 + i) else {
+        return svg;
+    };
+    format!(
+        r#"{}viewBox="{} {} {} {}" preserveAspectRatio="none"{}"#,
+        &svg[..start],
+        min_x,
+        min_y,
+        max_x - min_x,
+        max_y - min_y,
+        &svg[end + 1..]
+    )
+}
+
+/// The smallest box around the points of the first path in the SVG.
+fn path_bounds(svg: &str) -> Option<(f64, f64, f64, f64)> {
+    let start = svg.find(" d=\"")? + 4;
+    let end = start + svg[start..].find('"')?;
+    let numbers: Vec<f64> = svg[start..end]
+        .split(|c: char| c.is_ascii_whitespace() || c == ',' || c.is_ascii_alphabetic())
+        .filter_map(|n| n.parse().ok())
+        .collect();
+    let (xs, ys): (Vec<f64>, Vec<f64>) = numbers.chunks_exact(2).map(|p| (p[0], p[1])).unzip();
+    let min = |v: &[f64]| v.iter().copied().fold(f64::INFINITY, f64::min);
+    let max = |v: &[f64]| v.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+    (!xs.is_empty()).then(|| (min(&xs), min(&ys), max(&xs), max(&ys)))
 }
 
 fn fnv1a(text: &str) -> u64 {
