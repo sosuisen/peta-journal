@@ -522,7 +522,7 @@ impl JournalMcp {
 
     // ---- search ----
 
-    #[tool(description = "Search pages by name. Index pages whose folder name matches come first with path prefix matches, then fuzzy/token search, then substring matching as fallback.")]
+    #[tool(description = "Search pages by name. Index pages whose folder name matches come first with path prefix matches, then fuzzy/token search, then substring matching as fallback. The atlas pages (index_atlas) are not found by name.")]
     async fn search_page_names(&self, Parameters(a): Parameters<SearchArgs>) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let max = if a.max_results > 0 { a.max_results } else { 20 };

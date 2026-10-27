@@ -198,6 +198,15 @@ app-page .page-title:hover { background: rgba(0,0,0,0.04); }
 .dir-segment-title:hover { text-decoration: underline; }
 .index-breadcrumb .dir-segment, .index-breadcrumb .breadcrumb-slash { font-size: 2em; font-weight: bold; color: #000; }
 .root-index-title { color: #999; cursor: default; }
+.title-row { display: flex; align-items: center; gap: 4px; }
+.atlas-btn {
+  background: none; border: 1px solid transparent; cursor: pointer; padding: 4px; border-radius: 4px;
+  display: flex; align-items: center; color: #999; flex-shrink: 0;
+}
+.atlas-btn:hover { background: #f0f0f0; color: #666; }
+.atlas-btn.active { background: #e8f0fe; border-color: #c6d8fb; color: #1a73e8; }
+.atlas-title { cursor: default; }
+.atlas-title:hover { background: transparent; }
 .root-index-title:hover { background: transparent; }
 .index-label { padding: 4px 6px; font-size: 1em; color: #999; display: flex; align-items: center; gap: 8px; }
 .demote-btn { font-size: 12px; color: #666; background: none; border: 1px solid #ccc; border-radius: 4px; padding: 2px 8px; cursor: pointer; }

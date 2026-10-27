@@ -1,0 +1,103 @@
+//! The atlas page of a directory and the map button that switches to it.
+
+use crate::app::{Event, PageState, Screen};
+use crate::effects::{ApiOp, ApiOutput, UiOp};
+use crate::harness::Harness;
+use crate::model::Page;
+use crate::screens::page::{page_title, ATLAS_NAME};
+
+fn doc(dir_path: &str, name: &str) -> Page {
+    Page {
+        id: format!("{dir_path}{name}"),
+        dir_path: dir_path.into(),
+        name: name.into(),
+        page_type: "doc".into(),
+        ..Page::default()
+    }
+}
+
+fn showing(page: Page) -> Harness {
+    let mut h = Harness::new();
+    h.model.screen = Screen::Page(PageState {
+        page_name: page.canonical_path(),
+        page: Some(page),
+        ..PageState::default()
+    });
+    h
+}
+
+#[test]
+fn the_map_button_of_an_index_page_opens_the_atlas_of_its_directory() {
+    let mut h = showing(doc("a/b/", "index"));
+    h.send(Event::ToggleAtlas);
+
+    assert_eq!(h.navigations.last().unwrap().url, "/pages/a/b/index_atlas");
+}
+
+#[test]
+fn the_map_button_of_the_root_index_opens_the_root_atlas() {
+    let mut h = showing(doc("", "index"));
+    h.send(Event::ToggleAtlas);
+
+    assert_eq!(h.navigations.last().unwrap().url, "/pages/index_atlas");
+}
+
+#[test]
+fn the_map_button_of_an_atlas_page_goes_back_to_the_index_page() {
+    let mut h = showing(doc("a/b/", ATLAS_NAME));
+    h.send(Event::ToggleAtlas);
+
+    assert_eq!(h.navigations.last().unwrap().url, "/pages/a/b/index");
+}
+
+#[test]
+fn an_atlas_page_is_titled_by_its_directory() {
+    assert_eq!(page_title(&doc("a/b/", ATLAS_NAME)), "Atlas of a/b/");
+    assert_eq!(page_title(&doc("", ATLAS_NAME)), "Atlas of (root)/");
+}
+
+fn index_with_atlas() -> Harness {
+    let mut h = showing(doc("a/b/", "index"));
+    h.api.answer_next("GetChildPages", Ok(ApiOutput::Pages(vec![doc("a/b/", ATLAS_NAME)])));
+    h
+}
+
+#[test]
+fn demoting_an_index_page_with_an_atlas_asks_first_then_deletes_the_atlas_and_renames() {
+    let mut h = index_with_atlas();
+    h.confirm = true;
+    h.send(Event::DemoteIndex);
+
+    assert!(h.ui.iter().any(|op| matches!(op, UiOp::Confirm(_))));
+    let deleted: Vec<_> = h
+        .api
+        .calls_named("DeletePage")
+        .into_iter()
+        .map(|op| match op {
+            ApiOp::DeletePage { page_id } => page_id.clone(),
+            _ => unreachable!(),
+        })
+        .collect();
+    assert_eq!(deleted, vec!["a/b/index_atlas"]);
+    assert!(h.api.called("UpdatePage"));
+}
+
+#[test]
+fn a_no_to_the_question_keeps_the_atlas_and_the_index_page() {
+    let mut h = index_with_atlas();
+    h.confirm = false;
+    h.send(Event::DemoteIndex);
+
+    assert!(!h.api.called("DeletePage"));
+    assert!(!h.api.called("UpdatePage"));
+}
+
+#[test]
+fn an_index_page_without_an_atlas_is_renamed_without_a_question() {
+    let mut h = showing(doc("a/b/", "index"));
+    h.send(Event::DemoteIndex);
+
+    assert!(!h.ui.iter().any(|op| matches!(op, UiOp::Confirm(_))));
+    assert!(!h.api.called("DeletePage"));
+    assert!(h.api.called("UpdatePage"));
+}

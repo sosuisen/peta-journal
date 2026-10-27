@@ -269,10 +269,51 @@ fn DocPage() -> impl IntoView {
                                         }.into_any()
                                     }
                                 }).collect::<Vec<_>>();
-                                let title = if p.is_root_index {
-                                    view! { <h2 class="page-title root-index-title">"(root)/"</h2><div class="index-label">"index"</div> }.into_any()
-                                } else if p.is_index {
-                                                                        let demote = p.demote_name.clone();
+                                // The icon names the page the button opens: the map on the index page,
+                                // a bulleted outline on the atlas page
+                                let atlas_btn = (p.is_index || p.is_atlas).then(|| view! {
+                                    <button class="atlas-btn" class:active=p.is_atlas title=if p.is_atlas { "Index" } else { "Atlas" }
+                                        aria-pressed=p.is_atlas.to_string() on:click=move |_| core.send(Event::ToggleAtlas)>
+                                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            {if p.is_atlas {
+                                                view! {
+                                                    <line x1="9" y1="6" x2="20" y2="6"/>
+                                                    <line x1="9" y1="12" x2="20" y2="12"/>
+                                                    <line x1="9" y1="18" x2="20" y2="18"/>
+                                                    <circle cx="4" cy="6" r="1" fill="currentColor"/>
+                                                    <circle cx="4" cy="12" r="1" fill="currentColor"/>
+                                                    <circle cx="4" cy="18" r="1" fill="currentColor"/>
+                                                }.into_any()
+                                            } else {
+                                                view! {
+                                                    <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>
+                                                    <line x1="8" y1="2" x2="8" y2="18"/>
+                                                    <line x1="16" y1="6" x2="16" y2="22"/>
+                                                }.into_any()
+                                            }}
+                                        </svg>
+                                    </button>
+                                });
+                                if p.is_atlas {
+                                    // The title of an atlas page follows its directory and cannot be edited
+                                    return view! {
+                                        <div class="title-row">
+                                            {atlas_btn}
+                                            <h2 class="page-title atlas-title">{p.title.clone()}</h2>
+                                        </div>
+                                    }.into_any();
+                                }
+                                if p.is_root_index {
+                                    return view! {
+                                        <div class="title-row">
+                                            {atlas_btn}
+                                            <h2 class="page-title root-index-title">"(root)/"</h2>
+                                        </div>
+                                        <div class="index-label">"index"</div>
+                                    }.into_any();
+                                }
+                                let title = if p.is_index {
+                                    let demote = p.demote_name.clone();
                                     view! {
                                         <div class="index-label">
                                             "index "
@@ -288,9 +329,12 @@ fn DocPage() -> impl IntoView {
                                     view! { <h2 class="page-title" on:click=move |ev| start(ev, pp.clone())>{p.title.clone()}</h2> }.into_any()
                                 };
                                 let breadcrumb = (!p.page.dir_path.is_empty()).then(|| view! {
-                                    <div class="dir-path-breadcrumb" class:index-breadcrumb=p.is_index>{crumbs}</div>
+                                    <div class="title-row">
+                                        {atlas_btn}
+                                        <div class="dir-path-breadcrumb" class:index-breadcrumb=p.is_index>{crumbs}</div>
+                                    </div>
                                 });
-                                view! { {breadcrumb} {title} }
+                                view! { {breadcrumb} {title} }.into_any()
                             }
                         }>
                             <div class="edit-row" on:focusout=on_focus_out>

@@ -1155,3 +1155,46 @@ async fn deleting_a_property_definition_removes_its_values_from_pages_and_items(
     let (status, _) = send(reqwest::Method::DELETE, "/api/config/property-definitions/rating", None).await;
     assert_eq!(status, 400);
 }
+
+// ---- the atlas page of a directory ----
+
+async fn atlas_of(dir: &str) -> String {
+    let (status, resp) = post("/api/pages/doc", json!({ "title": "index_atlas", "dirPath": dir })).await;
+    assert_eq!(status, 200, "{resp}");
+    resp["page"]["id"].as_str().unwrap().to_string()
+}
+
+#[tokio::test]
+async fn an_atlas_page_is_not_found_by_its_name_but_its_items_are() {
+    let dir = format!("{}/", new_doc_page("atlas-search").await.title);
+    let atlas_id = atlas_of(&dir).await;
+    let word = format!("compass{}", nanos());
+    fill(&atlas_id, &[&format!("the {word} rose")]).await;
+
+    for query in [format!("{dir}index_atlas"), "index_atlas".to_string()] {
+        let resp = search("/api/search/pages", &query).await;
+        let ids = field_of_each(&resp, "results", "pageId");
+        assert!(!ids.contains(&json!(atlas_id)), "{query}: {ids:?}");
+    }
+    let resp = search("/api/search/combined", &word).await;
+    assert_eq!(resp["results"][0]["pageId"], json!(atlas_id));
+}
+
+#[tokio::test]
+async fn the_atlas_page_cannot_be_renamed_or_moved() {
+    let dir = format!("{}/", new_doc_page("atlas-rename").await.title);
+    let atlas_id = atlas_of(&dir).await;
+
+    let (status, resp) = put(&format!("/api/pages/{atlas_id}"), json!({ "title": "map" })).await;
+    assert_eq!(status, 400, "{resp}");
+    let (status, resp) = put(&format!("/api/pages/{atlas_id}"), json!({ "dirPath": "elsewhere/" })).await;
+    assert_eq!(status, 400, "{resp}");
+}
+
+#[tokio::test]
+async fn no_other_page_can_take_the_atlas_name() {
+    let page = new_doc_page("atlas-reserved").await;
+
+    let (status, resp) = put(&format!("/api/pages/{}", page.id), json!({ "title": "index_atlas" })).await;
+    assert_eq!(status, 400, "{resp}");
+}

@@ -23,6 +23,19 @@ impl Page {
     pub fn is_index(&self) -> bool {
         self.name == "index"
     }
+
+    pub fn is_atlas(&self) -> bool {
+        self.page_type == "doc" && self.name == ATLAS_NAME
+    }
+}
+
+/// The reserved file name of the atlas page of a directory. The atlas page is opened from
+/// its index page, so it is left out of the page-name search.
+pub const ATLAS_NAME: &str = "index_atlas";
+
+/// True when a page title, `dir_path + name`, is the title of an atlas page.
+pub fn is_atlas_title(title: &str) -> bool {
+    title == ATLAS_NAME || title.ends_with(&format!("/{ATLAS_NAME}"))
 }
 
 /// One outline item of a page.

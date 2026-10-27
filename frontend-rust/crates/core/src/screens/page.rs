@@ -10,6 +10,9 @@ use crux_core::Command;
 use serde_json::Value;
 use std::collections::BTreeMap;
 
+/// The reserved file name of the atlas page of a directory.
+pub const ATLAS_NAME: &str = "index_atlas";
+
 /// Splits a path like `cat/01.md` into `("cat/", "01")`, as `ApiService.getOrCreateDoc` did.
 pub fn split_doc_path(title: &str) -> (String, String) {
     let stripped = title.strip_suffix(".md").unwrap_or(title);
@@ -94,10 +97,11 @@ pub fn open(model: &mut Model, name: &str, fragment: Option<String>) -> Cmd {
         });
         // A non-root index page can be demoted when it has no children
         if p.name == "index" && !p.dir_path.is_empty() {
+            // The atlas page does not stop the demotion: it is deleted on demoting
             let can_demote = api
                 .get_child_pages(&p.id)
                 .await
-                .map(|c| c.is_empty())
+                .map(|c| c.iter().all(is_atlas))
                 .unwrap_or(false);
             apply(&api, "page: can demote", move |m| {
                 if let Some(ps) = page_mut(m) {
@@ -183,10 +187,40 @@ pub fn scroll_to_item(model: &mut Model, item_id: Option<String>) -> Cmd {
     .into()
 }
 
+/// True when the page is the atlas page of its directory.
+pub fn is_atlas(p: &Page) -> bool {
+    p.page_type == "doc" && p.name == ATLAS_NAME
+}
+
+/// The fixed title of an atlas page: `Atlas of a/b/`.
+pub fn atlas_title(p: &Page) -> String {
+    let dir = if p.dir_path.is_empty() { "(root)/" } else { p.dir_path.as_str() };
+    format!("Atlas of {dir}")
+}
+
+/// Opens the atlas page of the directory of the shown index page, or the index page of the
+/// shown atlas page. The atlas page is created when it is opened for the first time.
+pub fn toggle_atlas(model: &mut Model) -> Cmd {
+    let Some(p) = page_state(model).and_then(|ps| ps.page.as_ref()) else {
+        return done();
+    };
+    let target = if p.name == "index" {
+        ATLAS_NAME
+    } else if is_atlas(p) {
+        "index"
+    } else {
+        return done();
+    };
+    navigate::to_page(&format!("{}{target}", p.dir_path), false, false, false, None)
+}
+
 /// The display title: journals as dates, index pages as their directory, docs as their name.
 pub fn page_title(p: &Page) -> String {
     if p.page_type == "journal" {
         return crate::util::date::format_journal_date(&p.name);
+    }
+    if is_atlas(p) {
+        return atlas_title(p);
     }
     if p.name == "index" && !p.dir_path.is_empty() {
         let last = p
@@ -204,6 +238,9 @@ pub fn page_title(p: &Page) -> String {
 pub fn full_page_title(p: &Page) -> String {
     if p.page_type == "journal" {
         return crate::util::date::format_journal_date(&p.name);
+    }
+    if is_atlas(p) {
+        return atlas_title(p);
     }
     if p.name == "index" {
         return if p.dir_path.is_empty() {
@@ -428,6 +465,27 @@ pub fn demote_index(model: &mut Model) -> Cmd {
         None => String::new(),
     };
     run(move |api| async move {
+        // Asked again here: an atlas page may have been made since the button was shown
+        let atlas = match api.get_child_pages(&p.id).await {
+            Ok(children) => children.into_iter().find(is_atlas),
+            Err(e) => return api.notify(UiOp::Alert(e.0)),
+        };
+        if let Some(atlas) = atlas {
+            if !api
+                .confirm(&format!("Rename to \"{name}\" and delete the atlas page of {}?", p.dir_path))
+                .await
+            {
+                return;
+            }
+            if let Err(e) = api.delete_page(&atlas.id).await {
+                api.notify(UiOp::Alert(if e.0.is_empty() {
+                    "Failed to delete the atlas page".into()
+                } else {
+                    e.0
+                }));
+                return;
+            }
+        }
         if let Err(e) = api
             .update_page(&p.id, Some(name.clone()), Some(parent_dir.clone()))
             .await

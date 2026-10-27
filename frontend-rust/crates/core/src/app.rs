@@ -222,6 +222,8 @@ pub enum Event {
         file_name: String,
     },
     DemoteIndex,
+    /// The map button: switches between the index page and the atlas page of a directory.
+    ToggleAtlas,
     /// The page menu: show the property rows of the doc page even while it has none.
     EditPageProperties,
     SetPageProperty {
@@ -699,6 +701,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             file_name,
         } => screens::page::save_title(model, dir_path, file_name),
         DemoteIndex => screens::page::demote_index(model),
+        ToggleAtlas => screens::page::toggle_atlas(model),
         EditPageProperties => screens::page::edit_properties(model),
         SetPageProperty {
             key,

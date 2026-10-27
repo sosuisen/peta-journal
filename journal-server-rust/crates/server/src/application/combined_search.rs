@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use hmtid::Hmtid;
 
-use crate::domain::model::{Page, SearchResult};
+use crate::domain::model::{is_atlas_title, Page, SearchResult};
 use crate::domain::search::SearchIndex;
 use crate::error::AppResult;
 use crate::infrastructure::persistence::{ItemRepository, PageRepository, PropertyRepository};
@@ -261,7 +261,7 @@ impl CombinedSearchService {
         let mut seen: BTreeSet<String> = BTreeSet::new();
         let mut all: Vec<SearchResult> = Vec::new();
         let mut add = |p: &Page, all: &mut Vec<SearchResult>| {
-            if seen.insert(p.id.to_string()) {
+            if !p.is_atlas() && seen.insert(p.id.to_string()) {
                 all.push(SearchResult::from_page(p));
             }
         };
@@ -275,7 +275,12 @@ impl CombinedSearchService {
             all.truncate(max_results);
             return Ok(all);
         }
-        let indexed = self.search.search_page_names(query, max_results);
+        let indexed: Vec<SearchResult> = self
+            .search
+            .search_page_names(query, max_results)
+            .into_iter()
+            .filter(|r| !is_atlas_title(&r.page_title))
+            .collect();
         if !indexed.is_empty() {
             return Ok(indexed);
         }
@@ -283,6 +288,7 @@ impl CombinedSearchService {
             .pages
             .find_by_path_contains(query, max)?
             .iter()
+            .filter(|p| !p.is_atlas())
             .map(SearchResult::from_page)
             .collect())
     }

@@ -3,6 +3,7 @@
 
 use crate::app::{apply, done, log_error, run, Cmd, Model};
 use crate::model::{IndexSort, IndexSortKey, Page, SortOrder};
+use crate::screens::page;
 
 /// Reloads the ten most recent doc pages.
 pub fn refresh_recent_pages() -> Cmd {
@@ -65,10 +66,12 @@ pub fn load_index_pages(model: &mut Model) -> Cmd {
         match loaded {
             Ok((header, is_root, pages)) => apply(&api, "index pages", move |m| {
                 m.sidebar.index_header = header;
+                // The atlas page is opened by the map button of the index page, not by name
+                let pages = pages.into_iter().filter(|c| !page::is_atlas(c));
                 m.sidebar.index_pages = if is_root {
-                    pages.into_iter().filter(|c| c.page_type == "doc").collect()
+                    pages.filter(|c| c.page_type == "doc").collect()
                 } else {
-                    pages
+                    pages.collect()
                 };
                 done()
             }),

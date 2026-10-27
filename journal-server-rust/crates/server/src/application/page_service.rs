@@ -10,7 +10,7 @@ use super::config_service::ConfigService;
 use crate::domain::fractional_index;
 use crate::domain::id_generator::IdGenerator;
 use crate::domain::journal_name;
-use crate::domain::model::{BacklinkEntry, Item, Page};
+use crate::domain::model::{BacklinkEntry, Item, Page, ATLAS_NAME};
 use crate::domain::search::SearchIndex;
 use crate::domain::wikilink;
 use crate::error::{AppError, AppResult};
@@ -234,6 +234,16 @@ impl PageService {
             }
             validate_file_name(title)?;
             file_name = title.to_string();
+        }
+
+        // The atlas page belongs to its directory: it moves only with the directory, and no
+        // other page may take its name
+        let dir_changes = dir_path.is_some_and(|d| d != existing.dir_path);
+        if existing.is_atlas() && (file_name != existing.name || dir_changes) {
+            return Err(AppError::bad_request("The atlas page cannot be renamed or moved"));
+        }
+        if !existing.is_atlas() && file_name == ATLAS_NAME && existing.page_type == "doc" {
+            return Err(AppError::bad_request(format!("'{ATLAS_NAME}' is a reserved page name")));
         }
 
         // Prevent demoting an index page that still has children
