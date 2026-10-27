@@ -28,7 +28,7 @@ const SHARPEN_DELAY = 150;
 const GROUP_TARGET_TINT = 0xbfdbfe;
 // How far the outline of a group keeps away from the cards in it
 const GROUP_PADDING = 14;
-// How much the background of a card hides what lies behind it
+// How much the background of a card hides what lies behind it, while it is a drop target
 const CARD_ALPHA = 0.4;
 // How strong the icon behind the label of a card is
 const ICON_ALPHA = 0.5;
@@ -540,7 +540,8 @@ window.AtlasCanvas = class AtlasCanvas {
     const cards = this.cards.children;
     for (let i = cards.length - 1; i >= 0; i--) {
       const v = cards[i];
-      if (!dragged.has(v) && v.cardFrame.getBounds().containsPoint(e.global.x, e.global.y)) {
+      const p = v.toLocal(e.global);
+      if (!dragged.has(v) && v.hitArea.contains(p.x, p.y)) {
         return v;
       }
     }
@@ -552,10 +553,10 @@ window.AtlasCanvas = class AtlasCanvas {
       return;
     }
     if (drag.target && !drag.target.destroyed) {
-      drag.target.cardFrame.tint = 0xffffff;
+      drag.target.cardFrame.visible = false;
     }
     if (target) {
-      target.cardFrame.tint = GROUP_TARGET_TINT;
+      target.cardFrame.visible = true;
     }
     drag.target = target;
   }
@@ -664,7 +665,7 @@ function cross() {
 // name wraps. The width it takes is written back into the data, which the outlines of the
 // groups read. The stored width of the card is not used.
 function card(data, resolution, iconResolution) {
-  const { label, isDir, height, icon, blob, iconSize, iconDrawSize } = data;
+  const { label, height, icon, blob, iconSize, iconDrawSize } = data;
   const text = new PIXI.Text({
     text: label,
     resolution,
@@ -696,10 +697,13 @@ function card(data, resolution, iconResolution) {
     .stroke({ color: 0x3b82f6, width: 2 });
   c.cardSelection.visible = false;
   c.addChild(c.cardSelection);
-  // No line around the card, and a background the canvas and the group outlines show through
+  // A card has no line and no background; only the target of a Ctrl drop shows one. The whole
+  // card still takes a press, though it draws nothing between its blob and its edges.
+  c.hitArea = new PIXI.Rectangle(0, 0, width, height);
   c.cardFrame = new PIXI.Graphics()
     .roundRect(0, 0, width, height, 8)
-    .fill({ color: isDir ? 0xfff8e1 : 0xffffff, alpha: CARD_ALPHA });
+    .fill({ color: GROUP_TARGET_TINT, alpha: CARD_ALPHA });
+  c.cardFrame.visible = false;
   c.addChild(c.cardFrame);
   // The icon and the label share the inside of the card, which neither may spill out of: an
   // icon may be taller than the card, and a wrapped name taller too
