@@ -128,15 +128,15 @@ fn run(conn: &Connection, ids: &IdGenerator) -> rusqlite::Result<()> {
     migrate_datetime_to_seconds(conn)?;
     migrate_tag_key_to_tags(conn)?;
     migrate_definition_flags(conn)?;
-    migrate_bounds_value_type(conn)?;
     Ok(())
 }
 
 /// The keys the app reserves, with their types, and whether they can be set on a page. The
 /// task dates and times and the zoom are item-only; `created` and `modified` are the page's
 /// own dates, which a page property write changes in place; `published` is the date-time
-/// the user publishes a page at, which the sidebar can sort pages by.
-pub const SYSTEM_KEYS: [(&str, &str, bool); 11] = [
+/// the user publishes a page at, which the sidebar can sort pages by; `atlas_bounds` is
+/// where a page lies on the atlas of its directory.
+pub const SYSTEM_KEYS: [(&str, &str, bool); 12] = [
     ("tags", "tags", true),
     ("begin", "datetime", false),
     ("end", "datetime", false),
@@ -148,6 +148,7 @@ pub const SYSTEM_KEYS: [(&str, &str, bool); 11] = [
     ("created", "datetime", true),
     ("modified", "datetime", true),
     ("published", "datetime", true),
+    ("atlas_bounds", "bounds", true),
 ];
 
 /// Renames the system key `tag` to `tags`, the key other Markdown tools use in the front
@@ -185,6 +186,9 @@ fn migrate_definition_flags(conn: &Connection) -> rusqlite::Result<()> {
              ALTER TABLE property_definitions ADD COLUMN for_page INTEGER NOT NULL DEFAULT 1;",
         )?;
     }
+    // Before the keys: an old table refuses a system key of the bounds type. After the
+    // flags: the table is copied with them.
+    migrate_bounds_value_type(conn)?;
     for (key, value_type, for_page) in SYSTEM_KEYS {
         conn.execute(
             "INSERT OR IGNORE INTO property_definitions (key, value_type, is_system, for_page) VALUES (?, ?, 1, ?)",
@@ -514,6 +518,14 @@ mod tests {
         assert_eq!(count(&conn, "SELECT COUNT(*) FROM property_list_items WHERE key = 'tags'"), 1);
         assert_eq!(
             count(&conn, "SELECT COUNT(*) FROM property_definitions WHERE key = 'tags' AND is_system = 1"),
+            1
+        );
+        assert_eq!(
+            count(
+                &conn,
+                "SELECT COUNT(*) FROM property_definitions
+                 WHERE key = 'atlas_bounds' AND value_type = 'bounds' AND is_system = 1 AND for_page = 1"
+            ),
             1
         );
         let mut check = conn.prepare("PRAGMA foreign_key_check").unwrap();

@@ -772,6 +772,9 @@ async fn property_definitions_list_the_system_keys_and_accept_user_keys() {
     assert_eq!(definition(&resp, "published").unwrap()["system"], json!(true));
     assert_eq!(definition(&resp, "published").unwrap()["page"], json!(true));
     assert_eq!(resp["propertyDefinitions"]["published"], json!("datetime"));
+    assert_eq!(definition(&resp, "atlas_bounds").unwrap()["system"], json!(true));
+    assert_eq!(definition(&resp, "atlas_bounds").unwrap()["page"], json!(true));
+    assert_eq!(resp["propertyDefinitions"]["atlas_bounds"], json!("bounds"));
 
     let (status, resp) = post(
         "/api/config/property-definitions",
@@ -1226,4 +1229,23 @@ async fn a_bounds_property_holds_four_numbers() {
         .await;
         assert_eq!(status, 400, "{value} -> {resp}");
     }
+}
+
+#[tokio::test]
+async fn a_page_takes_its_bounds_on_the_atlas() {
+    let page = new_doc_page("atlas-bounds").await;
+    let (status, resp) = put(
+        &format!("/api/pages/{}/properties/atlas_bounds", page.id),
+        json!({ "valueType": "bounds", "value": "24, 24, 160, 56" }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+    assert_eq!(resp["page"]["properties"]["atlas_bounds"], json!("24,24,160,56"));
+
+    let (status, resp) = post(
+        "/api/config/property-definitions",
+        json!({ "key": "atlas_bounds", "valueType": "bounds" }),
+    )
+    .await;
+    assert_eq!(status, 400, "{resp}");
 }
