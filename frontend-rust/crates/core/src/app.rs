@@ -232,6 +232,11 @@ pub enum Event {
         x: f64,
         y: f64,
     },
+    /// The selected cards scaled with Ctrl and the wheel: the page's card takes the scale.
+    ScaleAtlasCard {
+        page_id: String,
+        scale: f64,
+    },
     /// The card menu's "Remove from Atlas": the page's card goes back to the unplaced list.
     RemoveAtlasCard {
         page_id: String,
@@ -730,6 +735,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         ToggleAtlas => screens::page::toggle_atlas(model),
         AtlasUp => screens::page::atlas_up(model),
         PlaceAtlasCard { page_id, x, y } => screens::atlas::place_card(model, page_id, x, y),
+        ScaleAtlasCard { page_id, scale } => screens::atlas::scale_card(model, page_id, scale),
         RemoveAtlasCard { page_id } => screens::atlas::remove_card(model, page_id),
         GroupAtlasCards { page_ids, target_id } => {
             screens::atlas::group_cards(model, page_ids, target_id)

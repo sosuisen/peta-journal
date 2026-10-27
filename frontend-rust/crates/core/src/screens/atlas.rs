@@ -18,9 +18,15 @@ use std::collections::BTreeMap;
 /// The page property that holds where a card lies: `x,y,width,height`.
 pub const BOUNDS_KEY: &str = "atlas_bounds";
 
-/// The size a card takes when it is first placed.
+/// The width of a card in the list of unplaced cards, which a drop from the list reads.
 pub const CARD_WIDTH: f64 = 120.0;
+/// The height of a card at scale 1, which it takes when it is first placed.
 pub const CARD_HEIGHT: f64 = 40.0;
+/// The stored width that lets the label set the width of a card. Any other width is the
+/// width of the card. A card first placed takes this one.
+pub const AUTO_WIDTH: f64 = 0.0;
+/// The smallest a card can be scaled to. A larger card has no limit.
+pub const MIN_CARD_SCALE: f64 = 0.5;
 
 /// The place and size of a card. `x` and `y` are its center; `y` grows downward,
 /// as on the screen.
@@ -56,6 +62,11 @@ impl Bounds {
     fn to_value(self) -> String {
         format!("{},{},{},{}", self.x, self.y, self.width, self.height)
     }
+
+    /// How much the card is scaled, read from the height: the width may be left to the label.
+    pub fn scale(&self) -> f64 {
+        self.height / CARD_HEIGHT
+    }
 }
 
 /// Places the card of a page with its center at the given point of the canvas. The shell
@@ -73,13 +84,42 @@ pub fn place_card(model: &mut Model, page_id: String, x: f64, y: f64) -> Cmd {
     // A card keeps its size when it moves; whole pixels keep the stored value short
     let (width, height) = Bounds::of(page)
         .map(|b| (b.width, b.height))
-        .unwrap_or((CARD_WIDTH, CARD_HEIGHT));
+        .unwrap_or((AUTO_WIDTH, CARD_HEIGHT));
     let bounds = Bounds {
         x: x.round(),
         y: y.round(),
         width,
         height,
     };
+    save_bounds(page, bounds)
+}
+
+/// Scales the card of a page, no smaller than [`MIN_CARD_SCALE`]. The card keeps its place.
+/// Its height is stored in whole pixels, so the scale moves in small steps. The width goes
+/// back to the label: a set width would not fit the label at the new scale.
+pub fn scale_card(model: &mut Model, page_id: String, scale: f64) -> Cmd {
+    let Some(page) = index_page_mut(model, &page_id) else {
+        return done();
+    };
+    let Some(before) = Bounds::of(page).filter(|_| scale.is_finite()) else {
+        return done();
+    };
+    let scale = scale.max(MIN_CARD_SCALE);
+    let bounds = Bounds {
+        width: AUTO_WIDTH,
+        height: (CARD_HEIGHT * scale).round(),
+        ..before
+    };
+    if bounds == before {
+        return done();
+    }
+    save_bounds(page, bounds)
+}
+
+/// Gives the page the bounds at once and saves them; a refusal of the server puts the old
+/// ones back.
+fn save_bounds(page: &mut Page, bounds: Bounds) -> Cmd {
+    let page_id = page.id.clone();
     let before = page.properties.clone();
     page.properties
         .insert(BOUNDS_KEY.to_string(), bounds.to_value().into());

@@ -174,15 +174,15 @@ fn bounds_that_are_not_four_numbers_leave_the_card_unplaced() {
 }
 
 #[test]
-fn a_dropped_card_takes_the_default_size_with_its_center_at_the_given_point() {
+fn a_dropped_card_takes_the_label_width_and_scale_1_with_its_center_at_the_given_point() {
     let mut h = atlas_with(vec![child("one", None)]);
     h.send(Event::PlaceAtlasCard { page_id: "a/b/one".into(), x: 10.4, y: -20.0 });
 
-    let expected = Bounds { x: 10.0, y: -20.0, width: 120.0, height: 40.0 };
+    let expected = Bounds { x: 10.0, y: -20.0, width: 0.0, height: 40.0 };
     assert_eq!(bounds_of(&h, "a/b/one"), Some(expected));
     assert_eq!(
         upserts(&h),
-        vec![("a/b/one".into(), "atlas_bounds".into(), "10,-20,120,40".into())]
+        vec![("a/b/one".into(), "atlas_bounds".into(), "10,-20,0,40".into())]
     );
 }
 
@@ -192,6 +192,43 @@ fn a_placed_card_keeps_its_size_when_it_moves() {
     h.send(Event::PlaceAtlasCard { page_id: "a/b/one".into(), x: 0.0, y: 0.0 });
 
     assert_eq!(upserts(&h)[0].2, "0,0,200,100");
+}
+
+#[test]
+fn a_scaled_card_keeps_its_place_and_stores_its_scale_as_its_height() {
+    let mut h = atlas_with(vec![child("one", Some("10,-20,0,40"))]);
+    h.send(Event::ScaleAtlasCard { page_id: "a/b/one".into(), scale: 1.5 });
+
+    // A width of 0 stays 0: the label still sets it
+    assert_eq!(upserts(&h)[0].2, "10,-20,0,60");
+    assert_eq!(Bounds::parse("10,-20,0,60").unwrap().scale(), 1.5);
+}
+
+#[test]
+fn a_scaled_card_leaves_its_width_to_the_label() {
+    let mut h = atlas_with(vec![child("one", Some("0,0,200,80"))]);
+    h.send(Event::ScaleAtlasCard { page_id: "a/b/one".into(), scale: 1.0 });
+
+    assert_eq!(upserts(&h)[0].2, "0,0,0,40");
+}
+
+#[test]
+fn a_card_shrinks_no_smaller_than_half_and_grows_without_limit() {
+    let mut h = atlas_with(vec![child("one", Some("0,0,0,40")), child("two", Some("0,0,0,40"))]);
+    h.send(Event::ScaleAtlasCard { page_id: "a/b/one".into(), scale: 0.1 });
+    h.send(Event::ScaleAtlasCard { page_id: "a/b/two".into(), scale: 10.0 });
+
+    let saved: Vec<String> = upserts(&h).into_iter().map(|u| u.2).collect();
+    assert_eq!(saved, ["0,0,0,20", "0,0,0,400"]);
+}
+
+#[test]
+fn an_unplaced_or_unchanged_card_is_not_scaled() {
+    let mut h = atlas_with(vec![child("one", None), child("two", Some("0,0,0,40"))]);
+    h.send(Event::ScaleAtlasCard { page_id: "a/b/one".into(), scale: 2.0 });
+    h.send(Event::ScaleAtlasCard { page_id: "a/b/two".into(), scale: 1.0 });
+
+    assert!(upserts(&h).is_empty());
 }
 
 #[test]

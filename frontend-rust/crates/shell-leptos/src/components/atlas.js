@@ -5,7 +5,8 @@
 //
 // The hand tool moves the view: a drag with the right button, or with the left one
 // between the cards. It moves the container of the cards and the cross, not the cards.
-// The wheel scales that container around the point under the pointer.
+// The wheel scales that container around the point under the pointer. With Ctrl, it scales
+// the selected cards instead, each around its own center.
 //
 // A plain script that sets the global `AtlasCanvas`, loaded by index.html. Not a module
 // of wasm-bindgen: Trunk puts a hash of the content in the name of a script it loads, so a
@@ -39,6 +40,8 @@ const CARD_PADDING = 12;
 // The narrowest and the widest a card grows to fit its label
 const CARD_MIN_WIDTH = 40;
 const CARD_MAX_WIDTH = 320;
+// The smallest a card can be scaled to, as the core keeps it. A larger card has no limit.
+const MIN_CARD_SCALE = 0.5;
 
 window.AtlasCanvas = class AtlasCanvas {
   // onOpen(path, newTab, newWindow) opens the page of a card whose label is clicked.
@@ -113,10 +116,14 @@ window.AtlasCanvas = class AtlasCanvas {
   // The point under the pointer stays where it is while the view is scaled
   zoomAt(e) {
     e.preventDefault();
+    const delta = e.deltaMode === WheelEvent.DOM_DELTA_PIXEL ? e.deltaY : e.deltaY * LINE_HEIGHT;
+    if ((e.ctrlKey || e.metaKey) && this.selected.size > 0) {
+      this.scaleSelected(Math.exp(-delta * ZOOM_PER_PIXEL));
+      return;
+    }
     const rect = this.app.canvas.getBoundingClientRect();
     const px = e.clientX - rect.left;
     const py = e.clientY - rect.top;
-    const delta = e.deltaMode === WheelEvent.DOM_DELTA_PIXEL ? e.deltaY : e.deltaY * LINE_HEIGHT;
     const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, this.zoom * Math.exp(-delta * ZOOM_PER_PIXEL)));
     const ratio = zoom / this.zoom;
     const cx = this.app.screen.width / 2;
@@ -137,11 +144,35 @@ window.AtlasCanvas = class AtlasCanvas {
     }, SHARPEN_DELAY);
   }
 
+  // The selected cards grow or shrink by the factor, each around its center, as the pivot is
+  // there. Only the outlines of their groups are drawn again. The scales are saved once the
+  // wheel rests, as each save gives a new list of cards.
+  scaleSelected(factor) {
+    const views = this.cards.children.filter(v => this.selected.has(v.cardData.id));
+    for (const view of views) {
+      const scale = Math.max(MIN_CARD_SCALE, view.scale.x * factor);
+      view.scale.set(scale);
+      view.cardData.width = view.cardWidth * scale;
+      view.cardData.height = view.cardHeight * scale;
+    }
+    // Not a drag: the outlines of the groups of these cards only, with no frame shown
+    this.drawGroups({ origins: views.map(v => ({ view: v, x: v.x, y: v.y })), moved: false });
+    clearTimeout(this.scaleTimer);
+    this.scaleTimer = setTimeout(() => {
+      this.sharpenText();
+      if (this.onScale) {
+        for (const view of views) {
+          this.onScale(view.cardData.id, view.scale.x);
+        }
+      }
+    }, SHARPEN_DELAY);
+  }
+
   // The labels are drawn in as many pixels as they cover on the screen, so they stay sharp
-  // when the view is scaled up. Not ahead of time for the largest zoom: every label would
-  // then hold a texture many times its size.
-  textResolution() {
-    const zoom = Math.min(MAX_TEXT_ZOOM, Math.max(1, this.zoom));
+  // when the view or the card is scaled up. Not ahead of time for the largest zoom: every
+  // label would then hold a texture many times its size.
+  textResolution(scale = 1) {
+    const zoom = Math.min(MAX_TEXT_ZOOM, Math.max(1, this.zoom * scale));
     return (window.devicePixelRatio || 1) * zoom;
   }
 
@@ -152,8 +183,8 @@ window.AtlasCanvas = class AtlasCanvas {
   }
 
   sharpenText() {
-    const resolution = this.textResolution();
     for (const view of this.cards.children) {
+      const resolution = this.textResolution(view.scale.x);
       if (view.cardLabel.resolution !== resolution) {
         view.cardLabel.resolution = resolution;
       }
@@ -261,9 +292,14 @@ window.AtlasCanvas = class AtlasCanvas {
     this.onUngroup = onUngroup;
   }
 
-  // The placed cards as JSON: [{ id, label, path, isDir, x, y, width, height, group,
+  // onScale(pageId, scale) scales the card of a page
+  setOnScale(onScale) {
+    this.onScale = onScale;
+  }
+
+  // The placed cards as JSON: [{ id, label, path, isDir, x, y, width, height, scale, group,
   // groupColor, icon, blob, iconSize, iconDrawSize }], where x and y are the center of the card,
-  // icon and blob are SVGs or null, and iconDrawSize is the size of the SVG, which is shown at iconSize. The core gives the color of
+  // width and height are its size as scaled, a width of 0 leaves it to the label, icon and blob are SVGs or null, and iconDrawSize is the size of the SVG, which is shown at iconSize. The core gives the color of
   // each group, so it is the same as on the tag icons.
   setCards(json) {
     this.data = JSON.parse(json);
@@ -277,7 +313,8 @@ window.AtlasCanvas = class AtlasCanvas {
     this.drag = null;
     this.cards.removeChildren().forEach(c => c.destroy({ children: true }));
     for (const data of this.data) {
-      const view = card(data, this.textResolution(), this.iconResolution());
+      // The icons of a card scaled up are drawn in more pixels too
+      const view = card(data, this.textResolution(data.scale), this.iconResolution() * Math.max(1, data.scale));
       view.position.set(data.x, data.y);
       this.makeDraggable(view, data);
       this.cards.addChild(view);
@@ -573,6 +610,7 @@ window.AtlasCanvas = class AtlasCanvas {
   destroy() {
     this.destroyed = true;
     clearTimeout(this.sharpenTimer);
+    clearTimeout(this.scaleTimer);
     this.resizeObserver?.disconnect();
     if (this.cards) {
       this.app.destroy({ removeView: true }, { children: true });
@@ -661,11 +699,16 @@ function cross() {
     .stroke({ color: 0x999999, width: 1.5 });
 }
 
-// A card is as wide as its label, between the width of its icon and CARD_MAX_WIDTH; a longer
-// name wraps. The width it takes is written back into the data, which the outlines of the
-// groups read. The stored width of the card is not used.
+// A card with a stored width of 0 is as wide as its label, between the width of its icon and
+// CARD_MAX_WIDTH; a longer name wraps. Any other stored width is the width of the card, and the
+// name wraps to fit it. The card is drawn at its unscaled size and then scaled as a whole. The
+// width it takes on the canvas is written back into the data, which the outlines of the
+// groups read.
 function card(data, resolution, iconResolution) {
-  const { label, height, icon, blob, iconSize, iconDrawSize } = data;
+  const { label, icon, blob, iconSize, iconDrawSize } = data;
+  const scale = data.scale > 0 ? data.scale : 1;
+  const height = data.height / scale;
+  const setWidth = data.width > 0 ? data.width / scale : null;
   const text = new PIXI.Text({
     text: label,
     resolution,
@@ -678,17 +721,21 @@ function card(data, resolution, iconResolution) {
       stroke: { color: 0xffffff, width: 3, join: 'round' },
       padding: 2,
       wordWrap: true,
-      wordWrapWidth: CARD_MAX_WIDTH - 2 * CARD_PADDING,
+      wordWrapWidth: Math.max(1, (setWidth ?? CARD_MAX_WIDTH) - 2 * CARD_PADDING),
       breakWords: true,
       align: 'center',
     },
   });
   // A canvas Text knows its size as soon as it is made
-  const width = Math.ceil(
-    Math.max(icon ? iconSize : 0, text.width + 2 * CARD_PADDING, CARD_MIN_WIDTH),
-  );
-  data.width = width;
+  const width =
+    setWidth ??
+    Math.ceil(Math.max(icon ? iconSize : 0, text.width + 2 * CARD_PADDING, CARD_MIN_WIDTH));
+  data.width = width * scale;
   const c = new PIXI.Container();
+  c.scale.set(scale);
+  // The unscaled size, which a new scale multiplies
+  c.cardWidth = width;
+  c.cardHeight = height;
   // The position of a card is its center, as stored in atlas_bounds
   c.pivot.set(width / 2, height / 2);
   // A ring outside the frame, so it does not cover the frame's own color

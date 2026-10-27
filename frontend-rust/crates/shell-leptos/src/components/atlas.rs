@@ -94,6 +94,9 @@ extern "C" {
     #[wasm_bindgen(method, js_name = setOnUngroup)]
     fn set_on_ungroup(this: &AtlasCanvas, on_ungroup: &js_sys::Function);
 
+    #[wasm_bindgen(method, js_name = setOnScale)]
+    fn set_on_scale(this: &AtlasCanvas, on_scale: &js_sys::Function);
+
     #[wasm_bindgen(method, js_name = setCards)]
     fn set_cards(this: &AtlasCanvas, json: String);
 
@@ -130,6 +133,7 @@ fn placed_json(cards: &[AtlasCard]) -> String {
                     "y": b.y,
                     "width": b.width,
                     "height": b.height,
+                    "scale": b.scale(),
                     "group": c.group,
                     "groupColor": c.group_color,
                     "icon": (!c.icon_tags.is_empty())
@@ -225,6 +229,12 @@ pub fn Atlas() -> impl IntoView {
             core.send(Event::UngroupAtlasCards { page_ids });
         }
     }));
+    // A card scaled with Ctrl and the wheel
+    let on_scale = StoredValue::new_local(Closure::<dyn Fn(String, f64)>::new(
+        move |page_id: String, scale: f64| {
+            core.send(Event::ScaleAtlasCard { page_id, scale });
+        },
+    ));
     let remove_from_atlas = move |_| {
         if let Some((page_id, _, _)) = menu.get_untracked() {
             core.send(Event::RemoveAtlasCard { page_id });
@@ -262,6 +272,7 @@ pub fn Atlas() -> impl IntoView {
                 });
                 on_group.with_value(|group| made.set_on_group(group.as_ref().unchecked_ref()));
                 on_ungroup.with_value(|ungroup| made.set_on_ungroup(ungroup.as_ref().unchecked_ref()));
+                on_scale.with_value(|scale| made.set_on_scale(scale.as_ref().unchecked_ref()));
                 made
             })
             .set_cards(json);
