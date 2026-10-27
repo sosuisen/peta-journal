@@ -234,6 +234,8 @@ pub struct AtlasCard {
     pub icon_tags: Vec<String>,
     /// The title of the card's group, the same on every card of it.
     pub group_title: Option<atlas::GroupTitle>,
+    /// True when the page has a `published` date; the blob of its card has a line around it.
+    pub published: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -307,6 +309,7 @@ pub fn build(model: &Model) -> ViewModel {
                 icon_tags: atlas::icon_tags(&p, &model.config.tags_dir),
                 group,
                 group_title,
+                published: sidebar::is_published(&p),
             })
             .collect(),
         atlas_callouts: atlas::shown_callouts(model),

@@ -588,18 +588,32 @@ pub fn tag_icon_svg(tags: &[String], size: i32) -> String {
 
 /// The light blue of the blob behind the icon of a card.
 const BLOB_COLOR: Color = Color::rgb(0xCF, 0xE3, 0xFF);
+/// The line around the blob of a published page: red, so it stands out, in pixels of the
+/// card whatever the SVG is stretched to.
+const BLOB_LINE: &str = r##" stroke="#E53935" stroke-width="5" vector-effect="non-scaling-stroke""##;
+/// The space kept around an outlined blob, as a share of its size, so its line is not cut off
+/// at the edges of the SVG
+const BLOB_LINE_MARGIN: f64 = 0.09;
 
 /// The blob of a tag as an SVG of `size` pixels square: the outline picturesque-marks draws
 /// for the tag name, filled in light blue. The blob fills the whole SVG, which the card
-/// stretches to its own size.
-pub fn tag_blob_svg(tag: &str, size: i32) -> String {
+/// stretches to its own size. An outlined blob has a line around it and keeps a thin margin
+/// for that line.
+pub fn tag_blob_svg(tag: &str, size: i32, outlined: bool) -> String {
     let svg = signature_svg(tag, SignatureStyle::Blob, BLOB_COLOR, size, size);
+    // The fill of the path is the first in the SVG
+    let svg = if outlined { svg.replacen(" fill=\"", &format!("{BLOB_LINE} fill=\""), 1) } else { svg };
     // picturesque-marks leaves a margin around the blob, which would keep it off the edges of
     // the card. The view box is cut to the points of its path instead. The control points of a
     // curve lie a little outside it, so a thin margin stays.
-    let Some((min_x, min_y, max_x, max_y)) = path_bounds(&svg) else {
+    let Some((mut min_x, mut min_y, mut max_x, mut max_y)) = path_bounds(&svg) else {
         return svg;
     };
+    if outlined {
+        let margin_x = (max_x - min_x) * BLOB_LINE_MARGIN;
+        let margin_y = (max_y - min_y) * BLOB_LINE_MARGIN;
+        (min_x, max_x, min_y, max_y) = (min_x - margin_x, max_x + margin_x, min_y - margin_y, max_y + margin_y);
+    }
     let Some(start) = svg.find("viewBox=\"") else {
         return svg;
     };
@@ -705,6 +719,15 @@ pub fn cards(model: &Model) -> Vec<(Page, Option<Bounds>, Option<String>, Option
         .collect()
 }
 
+/// The name of the directory above a directory, as the button that goes up shows it: its path
+/// with a slash at the end, or `(root)/` for the root, as in the title of an atlas.
+pub fn parent_dir_label(dir_path: &str) -> String {
+    match dir_path.trim_end_matches('/').rsplit_once('/') {
+        Some((parent, _)) => format!("{parent}/"),
+        None => "(root)/".to_string(),
+    }
+}
+
 /// The path a folder opens at: its atlas page when the folder was last seen as a map, so
 /// it opens as it was left. Any other path stays as it is. The map button and the URL open
 /// the index page itself.
@@ -719,15 +742,6 @@ pub fn folder_path(model: &Model, path: &str) -> String {
 
 /// Notes how a folder is seen when its index page or its atlas page is opened. The shell
 /// keeps the list only when it changes.
-/// The name of the directory above a directory, as the button that goes up shows it: its path
-/// with a slash at the end, or `(root)/` for the root, as in the title of an atlas.
-pub fn parent_dir_label(dir_path: &str) -> String {
-    match dir_path.trim_end_matches('/').rsplit_once('/') {
-        Some((parent, _)) => format!("{parent}/"),
-        None => "(root)/".to_string(),
-    }
-}
-
 pub fn remember_folder_view(model: &mut Model, path: &str) -> Cmd {
     let (dir, name) = split_doc_path(path);
     let changed = match name.as_str() {

@@ -1516,6 +1516,11 @@ function seededRandom(seed) {
   };
 }
 
+// The SVG with its own size set to the given one; its view box is stretched to fit
+function sizedSvg(svg, width, height) {
+  return svg.replace(/width="[^"]*" height="[^"]*"/, `width="${width}" height="${height}"`);
+}
+
 function cross() {
   return new PIXI.Graphics()
     .moveTo(-CROSS_SIZE, -CROSS_SIZE)
@@ -1584,10 +1589,9 @@ function card(data, resolution, iconResolution) {
   inside.mask = new PIXI.Graphics().roundRect(0, 0, width, height, 8).fill(0xffffff);
   c.addChild(inside.mask, inside);
   if (blob) {
-    // Stretched over the whole card, behind the icon. It is a plain fill, so the resolution of
-    // the wider side is enough.
-    const blobResolution = (iconResolution * Math.max(width, height)) / iconDrawSize;
-    inside.addChild(iconSprite(blob, width, height, blobResolution, width / 2, height / 2, 1));
+    // Over the whole card, behind the icon. The SVG is drawn at the size of the card rather than
+    // drawn square and stretched: a stretched line around the blob would be thicker on two sides.
+    inside.addChild(iconSprite(sizedSvg(blob, width, height), width, height, iconResolution, width / 2, height / 2, 1));
   }
   if (icon) {
     // Rasterized in as many pixels as the icon covers at its largest, not at the size of the SVG

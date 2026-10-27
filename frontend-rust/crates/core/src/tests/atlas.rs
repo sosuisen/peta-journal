@@ -624,18 +624,18 @@ fn an_icon_is_an_svg_of_the_size_asked() {
 #[test]
 fn a_blob_is_a_light_blue_svg_drawn_from_the_tag() {
     use crate::screens::atlas::tag_blob_svg;
-    let svg = tag_blob_svg("DailyReport", 100);
+    let svg = tag_blob_svg("DailyReport", 100, false);
     assert!(svg.starts_with("<svg"), "{svg}");
     assert!(svg.contains(r##"fill="#CFE3FF""##), "{svg}");
     // The same tag draws the same blob, and another tag another one
-    assert_eq!(svg, tag_blob_svg("DailyReport", 100));
-    assert_ne!(svg, tag_blob_svg("JavaFX", 100));
+    assert_eq!(svg, tag_blob_svg("DailyReport", 100, false));
+    assert_ne!(svg, tag_blob_svg("JavaFX", 100, false));
 }
 
 #[test]
 fn a_blob_fills_its_svg_to_the_edges() {
     use crate::screens::atlas::tag_blob_svg;
-    let svg = tag_blob_svg("DailyReport", 100);
+    let svg = tag_blob_svg("DailyReport", 100, false);
     // The view box is cut to the blob and stretched to the size of the SVG
     assert!(svg.contains(r#"preserveAspectRatio="none""#), "{svg}");
     assert!(!svg.contains(r#"viewBox="-50 -50 100 100""#), "{svg}");
@@ -850,4 +850,26 @@ fn the_up_button_names_the_directory_above() {
     assert_eq!(parent_dir_label("a/b/"), "a/");
     assert_eq!(parent_dir_label("a/b/c/"), "a/b/");
     assert_eq!(parent_dir_label("a/"), "(root)/");
+}
+
+#[test]
+fn the_blob_of_a_published_page_has_a_line_around_it() {
+    use crate::screens::atlas::tag_blob_svg;
+    let plain = tag_blob_svg("DailyReport", 100, false);
+    let outlined = tag_blob_svg("DailyReport", 100, true);
+
+    assert!(!plain.contains("stroke="), "{plain}");
+    assert!(outlined.contains(r##"<path d="##), "{outlined}");
+    assert!(outlined.contains(r#"vector-effect="non-scaling-stroke""#), "{outlined}");
+    assert!(outlined.contains(r#"preserveAspectRatio="none""#), "{outlined}");
+}
+
+#[test]
+fn an_atlas_card_knows_whether_its_page_is_published() {
+    let mut published = child("one", Some("0,0,0,40"));
+    published.properties.insert("published".into(), serde_json::json!("2026-10-01T00:00:00Z"));
+    let h = atlas_with(vec![published, child("two", Some("0,0,0,40"))]);
+
+    let cards: Vec<_> = h.view().atlas_cards.into_iter().map(|c| (c.page_id, c.published)).collect();
+    assert_eq!(cards, [("a/b/one".to_string(), true), ("a/b/two".to_string(), false)]);
 }

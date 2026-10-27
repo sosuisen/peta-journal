@@ -161,8 +161,10 @@ fn placed_json(cards: &[AtlasCard]) -> String {
                     "groupTitleSide": c.group_title.as_ref().map(|t| &t.side),
                     "icon": (!c.icon_tags.is_empty())
                         .then(|| tag_icon_svg(&c.icon_tags, ICON_DRAW_SIZE)),
-                    // The blob is drawn from the main tag, which comes first
-                    "blob": c.icon_tags.first().map(|tag| tag_blob_svg(tag, ICON_DRAW_SIZE)),
+                    // The blob is drawn from the main tag, which comes first. A page without tags
+                    // takes its own name, so its card has a blob too. A published page has a line
+                    // around it.
+                    "blob": tag_blob_svg(c.icon_tags.first().unwrap_or(&c.label), ICON_DRAW_SIZE, c.published),
                     "iconSize": ICON_SIZE,
                     "iconDrawSize": ICON_DRAW_SIZE,
                 })
@@ -405,9 +407,9 @@ pub fn Atlas() -> impl IntoView {
     view! {
         <div class="atlas">
             <div class="atlas-unplaced">
+                <div class="atlas-unplaced-title">"Unplaced"</div>
                 <For
                     each=move || unplaced.get()
-                <div class="atlas-unplaced-title">"Unplaced"</div>
                     key=|c| (c.page_id.clone(), c.label.clone(), c.is_dir)
                     let:card
                 >
