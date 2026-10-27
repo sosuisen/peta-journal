@@ -6,6 +6,8 @@ use crate::app::{apply, done, run, Cmd, Model};
 use crate::effects::UiOp;
 use crate::model::Page;
 use crate::screens::sidebar;
+use serde_json::Value;
+use std::collections::BTreeMap;
 
 /// The page property that holds where a card lies: `x,y,width,height`.
 pub const BOUNDS_KEY: &str = "atlas_bounds";
@@ -76,27 +78,53 @@ pub fn place_card(model: &mut Model, page_id: String, x: f64, y: f64) -> Cmd {
     page.properties
         .insert(BOUNDS_KEY.to_string(), bounds.to_value().into());
     run(move |api| async move {
-        match api
+        let result = api
             .upsert_page_property(&page_id, BOUNDS_KEY, "bounds", &bounds.to_value())
-            .await
-        {
-            Ok(updated) => apply(&api, "atlas card placed", move |m| {
-                if let Some(page) = index_page_mut(m, &updated.id) {
-                    page.properties = updated.properties;
+            .await;
+        settle(&api, page_id, before, result);
+    })
+}
+
+/// Takes the card of a page off the canvas: its bounds are removed, so it waits in the list
+/// of unplaced cards again. The card leaves at once; a refusal of the server puts it back.
+pub fn remove_card(model: &mut Model, page_id: String) -> Cmd {
+    let Some(page) = index_page_mut(model, &page_id) else {
+        return done();
+    };
+    let before = page.properties.clone();
+    if page.properties.remove(BOUNDS_KEY).is_none() {
+        return done();
+    }
+    run(move |api| async move {
+        let result = api.delete_page_property(&page_id, BOUNDS_KEY).await;
+        settle(&api, page_id, before, result);
+    })
+}
+
+/// Takes the server's properties of the page, or puts the old ones back when it refused.
+fn settle(
+    api: &crate::effects::Api<crate::app::Event>,
+    page_id: String,
+    before: BTreeMap<String, Value>,
+    result: Result<Page, crate::effects::ApiError>,
+) {
+    match result {
+        Ok(updated) => apply(api, "atlas card saved", move |m| {
+            if let Some(page) = index_page_mut(m, &updated.id) {
+                page.properties = updated.properties;
+            }
+            done()
+        }),
+        Err(e) => {
+            api.notify(UiOp::Alert(e.0));
+            apply(api, "atlas card put back", move |m| {
+                if let Some(page) = index_page_mut(m, &page_id) {
+                    page.properties = before;
                 }
                 done()
-            }),
-            Err(e) => {
-                api.notify(UiOp::Alert(e.0));
-                apply(&api, "atlas card put back", move |m| {
-                    if let Some(page) = index_page_mut(m, &page_id) {
-                        page.properties = before;
-                    }
-                    done()
-                });
-            }
+            });
         }
-    })
+    }
 }
 
 fn index_page_mut<'a>(model: &'a mut Model, page_id: &str) -> Option<&'a mut Page> {

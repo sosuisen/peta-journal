@@ -1,9 +1,11 @@
 //! The canvas of an atlas page: the pages and folders of its directory as cards, drawn by
 //! PixiJS in `atlas.js`. A card without a place waits in the list of unplaced cards beside
 //! the canvas, and is placed by dragging it onto the canvas. A card on the canvas moves by
-//! dragging it there.
+//! dragging it there, and its menu on a right click takes it off the canvas.
 
 use crate::core::CoreHandle;
+use crate::dom;
+use crate::listeners::DocumentListeners;
 use leptos::prelude::*;
 use peta_core::app::Event;
 use peta_core::screens::atlas::{CARD_HEIGHT, CARD_WIDTH};
@@ -34,6 +36,7 @@ extern "C" {
         host: &web_sys::HtmlElement,
         on_open: &js_sys::Function,
         on_place: &js_sys::Function,
+        on_menu: &js_sys::Function,
     ) -> AtlasCanvas;
 
     #[wasm_bindgen(method, js_name = setCards)]
@@ -87,6 +90,45 @@ pub fn Atlas() -> impl IntoView {
         },
     ));
 
+    // The menu of a right-clicked card: its page and where it opens on the screen
+    let menu = RwSignal::new(None::<(String, f64, f64)>);
+    // The click outside and the Escape that close the open menu
+    let menu_listeners = DocumentListeners::new();
+    let close_menu = move || {
+        menu.set(None);
+        menu_listeners.clear_later();
+    };
+    let on_menu = StoredValue::new_local(Closure::<dyn Fn(String, f64, f64)>::new(
+        move |page_id: String, x: f64, y: f64| {
+            menu_listeners.clear_later();
+            menu.set(Some((page_id, x, y)));
+            // Listening starts after this click, so the click itself does not close the menu
+            dom::after_render(move || {
+                menu_listeners.on_cancelable("mousedown", move |ev: &web_sys::MouseEvent| {
+                    let inside_menu = ev
+                        .target()
+                        .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
+                        .is_some_and(|t| t.closest(".atlas-menu").ok().flatten().is_some());
+                    if !inside_menu {
+                        close_menu();
+                    }
+                });
+                menu_listeners.on("keydown", move |ev: &web_sys::KeyboardEvent| {
+                    if ev.key() == "Escape" {
+                        ev.prevent_default();
+                        close_menu();
+                    }
+                });
+            });
+        },
+    ));
+    let remove_from_atlas = move |_| {
+        if let Some((page_id, _, _)) = menu.get_untracked() {
+            core.send(Event::RemoveAtlasCard { page_id });
+        }
+        close_menu();
+    };
+
     Effect::new(move |_| {
         let json = cards.with(|cs| placed_json(cs));
         let Some(el) = host.get() else {
@@ -96,7 +138,14 @@ pub fn Atlas() -> impl IntoView {
             c.get_or_insert_with(|| {
                 on_open.with_value(|open| {
                     on_place.with_value(|place| {
-                        AtlasCanvas::new(&el, open.as_ref().unchecked_ref(), place.as_ref().unchecked_ref())
+                        on_menu.with_value(|menu| {
+                            AtlasCanvas::new(
+                                &el,
+                                open.as_ref().unchecked_ref(),
+                                place.as_ref().unchecked_ref(),
+                                menu.as_ref().unchecked_ref(),
+                            )
+                        })
                     })
                 })
             })
@@ -183,9 +232,16 @@ pub fn Atlas() -> impl IntoView {
                     }
                 </For>
             </div>
+            // The browser's own menu would cover the menu of a card
             <div class="atlas-canvas" node_ref=host
                 on:dragover=move |ev: web_sys::DragEvent| ev.prevent_default()
-                on:drop=on_drop></div>
+                on:drop=on_drop
+                on:contextmenu=move |ev: web_sys::MouseEvent| ev.prevent_default()></div>
+            {move || menu.get().map(|(_, x, y)| view! {
+                <div class="atlas-menu" style=format!("left: {x}px; top: {y}px;")>
+                    <button class="atlas-menu-item" on:click=remove_from_atlas>"Remove from Atlas"</button>
+                </div>
+            })}
         </div>
     }
 }

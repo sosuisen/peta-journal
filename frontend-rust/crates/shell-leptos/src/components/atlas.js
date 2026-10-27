@@ -14,9 +14,11 @@ const DRAG_THRESHOLD = 3;
 window.AtlasCanvas = class AtlasCanvas {
   // onOpen(path, newTab, newWindow) opens the page of a card whose label is clicked.
   // onPlace(pageId, x, y) places the card of a page with its center at a point.
-  constructor(host, onOpen, onPlace) {
+  // onMenu(pageId, clientX, clientY) opens the menu of a card that is right-clicked.
+  constructor(host, onOpen, onPlace, onMenu) {
     this.onOpen = onOpen;
     this.onPlace = onPlace;
+    this.onMenu = onMenu;
     this.drag = null;
     this.data = [];
     this.destroyed = false;
@@ -73,6 +75,10 @@ window.AtlasCanvas = class AtlasCanvas {
     view.eventMode = 'static';
     view.cursor = 'grab';
     view.on('pointerdown', e => {
+      // The right button opens the menu; only the left one drags
+      if (e.button !== 0) {
+        return;
+      }
       this.drag = {
         view,
         // Plain copies: `global` is reused for the next event
@@ -115,6 +121,7 @@ window.AtlasCanvas = class AtlasCanvas {
     };
     view.on('pointerup', end);
     view.on('pointerupoutside', end);
+    view.on('rightclick', e => this.onMenu(data.id, e.clientX, e.clientY));
   }
 
   // Whole pixels: the drop point is measured the same way, and the lines stay sharp

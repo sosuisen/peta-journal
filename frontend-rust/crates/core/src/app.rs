@@ -230,6 +230,10 @@ pub enum Event {
         x: f64,
         y: f64,
     },
+    /// The card menu's "Remove from Atlas": the page's card goes back to the unplaced list.
+    RemoveAtlasCard {
+        page_id: String,
+    },
     /// The page menu: show the property rows of the doc page even while it has none.
     EditPageProperties,
     SetPageProperty {
@@ -709,6 +713,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         DemoteIndex => screens::page::demote_index(model),
         ToggleAtlas => screens::page::toggle_atlas(model),
         PlaceAtlasCard { page_id, x, y } => screens::atlas::place_card(model, page_id, x, y),
+        RemoveAtlasCard { page_id } => screens::atlas::remove_card(model, page_id),
         EditPageProperties => screens::page::edit_properties(model),
         SetPageProperty {
             key,

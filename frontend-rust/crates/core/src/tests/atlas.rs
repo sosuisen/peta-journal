@@ -195,3 +195,31 @@ fn a_refused_place_puts_the_card_back() {
     assert_eq!(bounds_of(&h, "a/b/one"), None);
     assert!(h.ui.iter().any(|op| matches!(op, UiOp::Alert(_))));
 }
+
+#[test]
+fn a_removed_card_loses_its_bounds_and_waits_unplaced_again() {
+    let mut h = atlas_with(vec![child("one", Some("0,0,120,40"))]);
+    h.send(Event::RemoveAtlasCard { page_id: "a/b/one".into() });
+
+    assert_eq!(bounds_of(&h, "a/b/one"), None);
+    let deleted: Vec<_> = h
+        .api
+        .calls_named("DeletePageProperty")
+        .into_iter()
+        .map(|op| match op {
+            ApiOp::DeletePageProperty { page_id, key } => (page_id.clone(), key.clone()),
+            _ => unreachable!(),
+        })
+        .collect();
+    assert_eq!(deleted, vec![("a/b/one".to_string(), "atlas_bounds".to_string())]);
+}
+
+#[test]
+fn a_refused_remove_puts_the_card_back_on_the_canvas() {
+    let mut h = atlas_with(vec![child("one", Some("0,0,120,40"))]);
+    h.api.fail_next("DeletePageProperty", "refused");
+    h.send(Event::RemoveAtlasCard { page_id: "a/b/one".into() });
+
+    assert_eq!(bounds_of(&h, "a/b/one"), Some(Bounds { x: 0.0, y: 0.0, width: 120.0, height: 40.0 }));
+    assert!(h.ui.iter().any(|op| matches!(op, UiOp::Alert(_))));
+}
