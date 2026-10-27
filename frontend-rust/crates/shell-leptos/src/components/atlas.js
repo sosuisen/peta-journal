@@ -36,8 +36,9 @@ const LINE_HEIGHT = 16;
 const MAX_TEXT_ZOOM = 3;
 // How long the wheel must rest before the labels are drawn again for the new zoom, in ms
 const SHARPEN_DELAY = 150;
-// The color a card takes while cards held with Ctrl are over it, to join its group
-const GROUP_TARGET_TINT = 0xbfdbfe;
+// The color a card takes while cards held with Ctrl are over it, to join its group. Red, as a
+// light blue was hard to see on the blue of the selection and the blobs.
+const GROUP_TARGET_TINT = 0xef4444;
 // How far the outline of a group keeps away from the cards in it
 const GROUP_PADDING = 14;
 // How much the background of a card hides what lies behind it, while it is a drop target
