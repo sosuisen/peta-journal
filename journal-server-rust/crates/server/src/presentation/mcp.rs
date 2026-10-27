@@ -522,26 +522,11 @@ impl JournalMcp {
 
     // ---- search ----
 
-    #[tool(description = "Search pages by name. Uses prefix matching first, then fuzzy/token search, then substring matching as fallback.")]
+    #[tool(description = "Search pages by name. Index pages whose folder name matches come first with path prefix matches, then fuzzy/token search, then substring matching as fallback.")]
     async fn search_page_names(&self, Parameters(a): Parameters<SearchArgs>) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let max = if a.max_results > 0 { a.max_results } else { 20 };
-        let results = run(move || {
-            let prefix = state.pages.find_by_path_prefix(&a.query, max)?;
-            if !prefix.is_empty() {
-                return Ok(prefix.iter().map(SearchResult::from_page).collect::<Vec<_>>());
-            }
-            let indexed = state.search.search_page_names(&a.query, max as usize);
-            if !indexed.is_empty() {
-                return Ok(indexed);
-            }
-            Ok(state
-                .pages
-                .find_by_path_contains(&a.query, max)?
-                .iter()
-                .map(SearchResult::from_page)
-                .collect())
-        })
+        let results = run(move || state.combined_search.search_page_names_internal(&a.query, max as usize))
         .await?;
         ok(json!({ "results": results.iter().map(search_result_json).collect::<Vec<_>>() }))
     }
