@@ -1,3 +1,4 @@
+pub mod atlas;
 pub mod calendar;
 pub mod edge_scroll;
 pub mod item_drag;

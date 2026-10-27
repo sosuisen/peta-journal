@@ -2,6 +2,7 @@
 //! editable title, or the settings. Ported from `page-dispatcher.ts`, `journal.ts` and
 //! `page.ts`.
 
+use crate::components::atlas::Atlas;
 use crate::components::calendar::Calendar;
 use crate::components::outline::Outline;
 use crate::components::page_properties::{Draft, PageProperties};
@@ -350,7 +351,10 @@ fn DocPage() -> impl IntoView {
                     </div>
                     {
                         let footer = ViewFn::from(move || view! { <Backlinks /> });
-                        if p.show_properties || !drafts.get_untracked().is_empty() {
+                        if p.is_atlas {
+                            // The canvas takes the place of the items: an atlas page shows its directory
+                            view! { <Atlas /> }.into_any()
+                        } else if p.show_properties || !drafts.get_untracked().is_empty() {
                             view! { <Outline header=ViewFn::from(move || view! { <PageProperties drafts=drafts /> }) footer=footer /> }.into_any()
                         } else {
                             view! { <Outline footer=footer /> }.into_any()
