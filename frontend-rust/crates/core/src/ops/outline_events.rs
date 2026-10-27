@@ -2,6 +2,7 @@
 //! edits, moving between items, and what the keys of selection mode do.
 
 use crate::app::{apply, done, run, Cmd, Model, MoveDirection, SelectionKey};
+use crate::effects::UiOp;
 use crate::model::{Item, ItemPosition};
 use crate::ops::edit::{focus_editor, record_typing, save_item_if_dirty, save_target_id, Handover};
 use crate::ops::{action, level, moves, undo_replay};
@@ -134,6 +135,9 @@ pub fn selection_key(model: &mut Model, key: SelectionKey) -> Cmd {
         }
         SelectionKey::Copy => action::copy_items(ordered_selected_ids(model)),
         SelectionKey::Cut => {
+            if selection_has_transclusion(model) {
+                return refuse_transclusion_delete();
+            }
             let copy = action::copy_items(ordered_selected_ids(model));
             let delete = delete_selected(model);
             Command::all([copy, delete])
@@ -142,6 +146,9 @@ pub fn selection_key(model: &mut Model, key: SelectionKey) -> Cmd {
 }
 
 fn delete_selected(model: &mut Model) -> Cmd {
+    if selection_has_transclusion(model) {
+        return refuse_transclusion_delete();
+    }
     let ids = ordered_selected_ids(model);
     if ids.is_empty() {
         return done();
@@ -150,6 +157,26 @@ fn delete_selected(model: &mut Model) -> Cmd {
     let delete = action::delete_items(model, &ids);
     let ensure = ensure_at_least_one_item(model);
     Command::all([delete, ensure])
+}
+
+/// Whether a selected item is a transclusion. The selected ids stand for the source items,
+/// so deleting the selection would delete the sources on their own pages.
+fn selection_has_transclusion(model: &Model) -> bool {
+    let selected = model.state.selected_item_ids();
+    model
+        .state
+        .visible_items()
+        .iter()
+        .any(|b| selected.contains(&b.id) && b.transclude_item_id.is_some())
+}
+
+/// Keeps the selection, so the user can change it and try again.
+fn refuse_transclusion_delete() -> Cmd {
+    Command::notify_shell(UiOp::Alert(
+        "The selection includes a transclusion, so nothing was deleted. Deleting it here would delete its source item."
+            .into(),
+    ))
+    .into()
 }
 
 fn indent_selected(model: &mut Model) -> Cmd {

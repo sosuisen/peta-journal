@@ -196,3 +196,31 @@ fn a_copy_whose_export_fails_tells_the_shell_so_it_can_give_up_the_clipboard_wri
     assert!(!h.ui.iter().any(|u| matches!(u, UiOp::CopyMarkdown { .. })));
     assert_eq!(h.model.clipboard, None);
 }
+
+fn select_with_transclusion(key: crate::app::SelectionKey) -> Harness {
+    let transclusion = item_with("t", 1, |i| i.transclude_item_id = Some("src".into()));
+    let mut h = Harness::with_items(vec![item("a", 1, "x"), transclusion]);
+    h.model
+        .state
+        .set_selected_item_ids(HashSet::from(["a".to_string(), "t".to_string()]));
+    h.model.state.set_item_selection_mode(true);
+    h.send(Event::SelectionKey(key));
+    h
+}
+
+#[test]
+fn deleting_a_selection_with_a_transclusion_is_refused_so_the_source_stays() {
+    let h = select_with_transclusion(crate::app::SelectionKey::Delete);
+    assert!(!h.api.called("DeleteItem"));
+    assert!(h.ui.iter().any(|op| matches!(op, UiOp::Alert(m) if m.contains("transclusion"))));
+    assert!(h.model.state.item_selection_mode(), "the selection stays");
+    assert_eq!(h.items_ids(), ["a", "t"]);
+}
+
+#[test]
+fn cutting_a_selection_with_a_transclusion_is_refused_too() {
+    let h = select_with_transclusion(crate::app::SelectionKey::Cut);
+    assert!(!h.api.called("DeleteItem"));
+    assert!(!h.api.called("ExportTreeMarkdown"));
+    assert!(h.ui.iter().any(|op| matches!(op, UiOp::Alert(_))));
+}
