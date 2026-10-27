@@ -232,7 +232,7 @@ app-page .page-title:hover { background: rgba(0,0,0,0.04); }
 .atlas-card-label { cursor: pointer; }
 .atlas-card-label:hover { text-decoration: underline; }
 .atlas-card.folder { background: #fff8e1; border-color: #e0c068; }
-.atlas-canvas { flex: 1; min-width: 0; position: relative; overflow: hidden; }
+.atlas-canvas { flex: 1; min-width: 0; position: relative; overflow: hidden; background: #f8f2e4; }
 /* At the pointer, as the browser's own menu would be */
 .atlas-menu {
   position: fixed; background: white; border: 1px solid #ddd; border-radius: 4px;

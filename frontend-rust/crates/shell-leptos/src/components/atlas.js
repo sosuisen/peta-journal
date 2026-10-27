@@ -120,7 +120,8 @@ window.AtlasCanvas = class AtlasCanvas {
     this.ready = this.app
       .init({
         resizeTo: host,
-        background: '#f5f6f8',
+        // A pale ochre, as of old paper
+        background: '#f8f2e4',
         antialias: true,
         resolution: window.devicePixelRatio || 1,
         autoDensity: true,
