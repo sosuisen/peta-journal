@@ -1,4 +1,4 @@
-//! Extension functions: lists them and serves their files.
+//! Extension functions: lists them, lists their files and serves them.
 
 use axum::extract::{Path, State};
 use axum::http::{header, StatusCode};
@@ -12,6 +12,7 @@ use crate::state::SharedState;
 pub fn routes() -> Router<SharedState> {
     Router::new()
         .route("/api/functions", get(list_functions))
+        .route("/api/functions/{dir_name}", get(list_files))
         .route("/api/functions/{dir_name}/{*path}", get(serve_file))
 }
 
@@ -33,6 +34,27 @@ async fn list_functions(State(state): State<SharedState>) -> Json<Vec<FunctionIn
             })
             .collect(),
     )
+}
+
+/// The names of the files directly in a function's directory, sorted. A browser cannot list
+/// a directory by itself, so a function that reads a set of its own files asks here.
+async fn list_files(State(state): State<SharedState>, Path(dir_name): Path<String>) -> Response {
+    if dir_name.contains("..") {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+    let dir = state.functions.functions_dir().join(&dir_name);
+    let mut entries = match tokio::fs::read_dir(&dir).await {
+        Ok(entries) => entries,
+        Err(_) => return StatusCode::NOT_FOUND.into_response(),
+    };
+    let mut names = Vec::new();
+    while let Ok(Some(entry)) = entries.next_entry().await {
+        if entry.file_type().await.is_ok_and(|t| t.is_file()) {
+            names.push(entry.file_name().to_string_lossy().into_owned());
+        }
+    }
+    names.sort();
+    Json(names).into_response()
 }
 
 fn guess_content_type(path: &str) -> &'static str {

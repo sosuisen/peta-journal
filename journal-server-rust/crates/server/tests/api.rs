@@ -1502,3 +1502,24 @@ async fn a_value_is_checked_by_the_type_of_its_definition_not_the_type_sent() {
     .await;
     assert_eq!(status, 400, "{resp}");
 }
+
+// ---- Extension functions ----
+
+#[tokio::test]
+async fn the_files_of_a_function_are_listed_by_name_without_its_folders() {
+    let dir = server().root.join("config").join("functions").join("fn-list");
+    std::fs::create_dir_all(dir.join("sub")).unwrap();
+    for name in ["b.md", "a.md", "index.html"] {
+        std::fs::write(dir.join(name), "x").unwrap();
+    }
+
+    let (status, resp) = get("/api/functions/fn-list").await;
+    assert_eq!(status, 200, "{resp}");
+    assert_eq!(strings(&resp), vs(&["a.md", "b.md", "index.html"]));
+}
+
+#[tokio::test]
+async fn a_missing_function_has_no_file_list() {
+    let (status, _) = get("/api/functions/fn-missing").await;
+    assert_eq!(status, 404);
+}
