@@ -3,14 +3,17 @@
 //! the canvas, and is placed by dragging it onto the canvas. A card on the canvas moves by
 //! dragging it there, and its menu on a right click takes it off the canvas. A drag with
 //! the right button, or with the left one between the cards, moves the view. The wheel
-//! scales it.
+//! scales it. A right click between the cards adds a callout there, which moves and scales
+//! as a card does.
 
 use crate::core::CoreHandle;
 use crate::dom;
 use crate::listeners::DocumentListeners;
 use leptos::prelude::*;
 use peta_core::app::Event;
-use peta_core::screens::atlas::{tag_blob_svg, tag_icon_svg, CARD_HEIGHT, CARD_WIDTH};
+use peta_core::screens::atlas::{
+    callout_face_svg, tag_blob_svg, tag_icon_svg, Callout, CARD_HEIGHT, CARD_WIDTH,
+};
 use peta_core::view::{AtlasCard, ScreenView};
 use std::collections::HashMap;
 use wasm_bindgen::prelude::*;
@@ -100,8 +103,23 @@ extern "C" {
     #[wasm_bindgen(method, js_name = setOnGroupTitle)]
     fn set_on_group_title(this: &AtlasCanvas, on_group_title: &js_sys::Function);
 
+    #[wasm_bindgen(method, js_name = setOnAddCallout)]
+    fn set_on_add_callout(this: &AtlasCanvas, on_add_callout: &js_sys::Function);
+
+    #[wasm_bindgen(method, js_name = setOnCallout)]
+    fn set_on_callout(this: &AtlasCanvas, on_callout: &js_sys::Function);
+
+    #[wasm_bindgen(method, js_name = setOnMoveCallout)]
+    fn set_on_move_callout(this: &AtlasCanvas, on_move_callout: &js_sys::Function);
+
+    #[wasm_bindgen(method, js_name = setOnScaleCallout)]
+    fn set_on_scale_callout(this: &AtlasCanvas, on_scale_callout: &js_sys::Function);
+
     #[wasm_bindgen(method, js_name = setCards)]
     fn set_cards(this: &AtlasCanvas, json: String);
+
+    #[wasm_bindgen(method, js_name = setCallouts)]
+    fn set_callouts(this: &AtlasCanvas, json: String);
 
     #[wasm_bindgen(method, js_name = toWorldX)]
     fn to_world_x(this: &AtlasCanvas, client_x: f64) -> Option<f64>;
@@ -154,10 +172,34 @@ fn placed_json(cards: &[AtlasCard]) -> String {
     serde_json::Value::Array(placed).to_string()
 }
 
+/// The size the character of a callout is drawn at, as the icons are
+const CALLOUT_DRAW_SIZE: i32 = 100;
+
+/// The callouts as `atlas.js` reads them, each with its character drawn from its text.
+fn callouts_json(callouts: &[Callout]) -> String {
+    let all: Vec<_> = callouts
+        .iter()
+        .map(|c| {
+            serde_json::json!({
+                "key": c.key,
+                "x": c.x,
+                "y": c.y,
+                "scale": c.scale,
+                "side": c.side,
+                "text": c.text,
+                "character": callout_face_svg(&c.text, CALLOUT_DRAW_SIZE),
+                "drawSize": CALLOUT_DRAW_SIZE,
+            })
+        })
+        .collect();
+    serde_json::Value::Array(all).to_string()
+}
+
 #[component]
 pub fn Atlas() -> impl IntoView {
     let core: CoreHandle = expect_context();
     let cards = core.select(|v| v.atlas_cards.clone());
+    let callouts = core.select(|v| v.atlas_callouts.clone());
     let dir_path = core.select(|v| match &v.screen {
         ScreenView::Page(Some(p)) => p.page.dir_path.clone(),
         _ => String::new(),
@@ -246,6 +288,30 @@ pub fn Atlas() -> impl IntoView {
             core.send(Event::SetAtlasGroupTitle { group_key, side, title });
         },
     ));
+    // A callout added in its dialog, its character centered at a point of the canvas
+    let on_add_callout = StoredValue::new_local(Closure::<dyn Fn(f64, f64, String, String)>::new(
+        move |x: f64, y: f64, side: String, text: String| {
+            core.send(Event::AddAtlasCallout { x, y, side, text });
+        },
+    ));
+    // A callout changed in its dialog
+    let on_callout = StoredValue::new_local(Closure::<dyn Fn(String, String, String)>::new(
+        move |key: String, side: String, text: String| {
+            core.send(Event::SetAtlasCallout { key, side, text });
+        },
+    ));
+    // A callout dragged to a new place
+    let on_move_callout = StoredValue::new_local(Closure::<dyn Fn(String, f64, f64)>::new(
+        move |key: String, x: f64, y: f64| {
+            core.send(Event::MoveAtlasCallout { key, x, y });
+        },
+    ));
+    // A callout scaled with Ctrl and the wheel
+    let on_scale_callout = StoredValue::new_local(Closure::<dyn Fn(String, f64)>::new(
+        move |key: String, scale: f64| {
+            core.send(Event::ScaleAtlasCallout { key, scale });
+        },
+    ));
     let remove_from_atlas = move |_| {
         if let Some((page_id, _, _)) = menu.get_untracked() {
             core.send(Event::RemoveAtlasCard { page_id });
@@ -253,13 +319,13 @@ pub fn Atlas() -> impl IntoView {
         close_menu();
     };
 
-    Effect::new(move |_| {
-        let json = cards.with(|cs| placed_json(cs));
+    // The canvas, made by whichever of the cards and the callouts comes first
+    let with_canvas = move |f: &dyn Fn(&AtlasCanvas)| {
         let Some(el) = host.get() else {
             return;
         };
         canvas.update_value(|c| {
-            c.get_or_insert_with(|| {
+            f(c.get_or_insert_with(|| {
                 let dir = dir_path.get_untracked();
                 let start = load_views().get(&dir).copied().unwrap_or_default();
                 view_dir.set_value(dir);
@@ -285,10 +351,22 @@ pub fn Atlas() -> impl IntoView {
                 on_ungroup.with_value(|ungroup| made.set_on_ungroup(ungroup.as_ref().unchecked_ref()));
                 on_scale.with_value(|scale| made.set_on_scale(scale.as_ref().unchecked_ref()));
                 on_group_title.with_value(|title| made.set_on_group_title(title.as_ref().unchecked_ref()));
+                on_add_callout.with_value(|add| made.set_on_add_callout(add.as_ref().unchecked_ref()));
+                on_callout.with_value(|change| made.set_on_callout(change.as_ref().unchecked_ref()));
+                on_move_callout.with_value(|mv| made.set_on_move_callout(mv.as_ref().unchecked_ref()));
+                on_scale_callout.with_value(|sc| made.set_on_scale_callout(sc.as_ref().unchecked_ref()));
                 made
-            })
-            .set_cards(json);
+            }))
         });
+    };
+    // Apart, so a change of a callout does not draw every card again
+    Effect::new(move |_| {
+        let json = cards.with(|cs| placed_json(cs));
+        with_canvas(&|c| c.set_cards(json.clone()));
+    });
+    Effect::new(move |_| {
+        let json = callouts.with(|cs| callouts_json(cs));
+        with_canvas(&|c| c.set_callouts(json.clone()));
     });
     on_cleanup(move || {
         canvas.try_update_value(|c| {

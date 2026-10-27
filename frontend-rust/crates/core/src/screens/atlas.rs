@@ -329,8 +329,6 @@ fn change_atlas(atlas: &mut Page, changes: BTreeMap<String, Option<Value>>) -> C
     })
 }
 
-/// A key for a new group: a hash of the cards that make it, so no counter has to be kept.
-/// A key already in use is hashed again.
 /// The start of the keys of the group titles: the key of a group with this prefix instead.
 pub const TITLE_PREFIX: &str = "atlas_title_";
 /// The sides of the outline of a group that its title can lie along, the first by default.
@@ -383,6 +381,158 @@ pub fn set_group_title(model: &mut Model, group_key: String, side: String, title
     change_atlas(atlas, BTreeMap::from([(key, value)]))
 }
 
+/// The start of the keys of the callouts of an atlas page.
+pub const CALLOUT_PREFIX: &str = "atlas_callout_";
+
+/// A callout on the canvas of an atlas page: a character at a point, with a speech bubble on
+/// one side of it. Stored under a key of its own as `x,y,scale,side:text`. A value without the
+/// scale, as the first callouts were stored, has a scale of 1.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Callout {
+    pub key: String,
+    /// The center of the character, in the coordinates of the canvas
+    pub x: f64,
+    pub y: f64,
+    /// How large the whole callout is drawn, no smaller than `MIN_CARD_SCALE` as a card
+    pub scale: f64,
+    /// The side of the character the bubble is on, one of `TITLE_SIDES`
+    pub side: String,
+    pub text: String,
+}
+
+/// The callouts of the atlas page, in the order of their keys. A value that is not
+/// `x,y,scale,side:text` or `x,y,side:text` is left out.
+pub fn callouts(atlas: &Page) -> Vec<Callout> {
+    atlas
+        .properties
+        .iter()
+        .filter(|(key, _)| key.len() > CALLOUT_PREFIX.len() && key.starts_with(CALLOUT_PREFIX))
+        .filter_map(|(key, value)| {
+            let (head, text) = value.as_str()?.split_once(':')?;
+            let parts: Vec<&str> = head.split(',').map(str::trim).collect();
+            let (x, y, scale, side) = match parts[..] {
+                [x, y, side] => (x, y, "1", side),
+                [x, y, scale, side] => (x, y, scale, side),
+                _ => return None,
+            };
+            let x: f64 = x.parse().ok()?;
+            let y: f64 = y.parse().ok()?;
+            let scale: f64 = scale.parse().ok().filter(|s: &f64| s.is_finite() && *s > 0.0)?;
+            (TITLE_SIDES.contains(&side) && !text.trim().is_empty()).then(|| Callout {
+                key: key.clone(),
+                x,
+                y,
+                scale: scale.max(MIN_CARD_SCALE),
+                side: side.to_string(),
+                text: text.to_string(),
+            })
+        })
+        .collect()
+}
+
+/// The stored value of a callout. The place in whole units and the scale to a hundredth, so a
+/// small move of the pointer does not show as a change.
+fn callout_value(x: f64, y: f64, scale: f64, side: &str, text: &str) -> Value {
+    let side = if TITLE_SIDES.contains(&side) { side } else { TITLE_SIDES[0] };
+    let scale = (scale.max(MIN_CARD_SCALE) * 100.0).round() / 100.0;
+    Value::from(format!("{},{},{scale},{side}:{text}", x.round(), y.round()))
+}
+
+/// Saves a callout of the shown atlas page as changed by `change`, unless its value stays
+/// the same. It changes at once; a refusal of the server puts it back.
+fn change_callout(model: &mut Model, key: &str, change: impl FnOnce(&mut Callout)) -> Cmd {
+    let Some(atlas) = shown_atlas(model) else {
+        return done();
+    };
+    let Some(mut callout) = callouts(atlas).into_iter().find(|c| c.key == key) else {
+        return done();
+    };
+    change(&mut callout);
+    let value = callout_value(callout.x, callout.y, callout.scale, &callout.side, &callout.text);
+    if atlas.properties.get(key) == Some(&value) {
+        return done();
+    }
+    change_atlas(atlas, BTreeMap::from([(key.to_string(), Some(value))]))
+}
+
+/// Moves a callout of the shown atlas page so the center of its character is at the point.
+pub fn move_callout(model: &mut Model, key: String, x: f64, y: f64) -> Cmd {
+    if !x.is_finite() || !y.is_finite() {
+        return done();
+    }
+    change_callout(model, &key, |c| {
+        c.x = x;
+        c.y = y;
+    })
+}
+
+/// Scales a callout of the shown atlas page around the center of its character, no smaller
+/// than a card can be.
+pub fn scale_callout(model: &mut Model, key: String, scale: f64) -> Cmd {
+    if !scale.is_finite() {
+        return done();
+    }
+    change_callout(model, &key, |c| c.scale = scale)
+}
+
+fn shown_atlas(model: &mut Model) -> Option<&mut Page> {
+    super::page::page_mut(model)
+        .and_then(|ps| ps.page.as_mut())
+        .filter(|p| super::page::is_atlas(p))
+}
+
+/// Puts a new callout on the shown atlas page with the center of its character at the
+/// point. An empty text puts nothing.
+pub fn add_callout(model: &mut Model, x: f64, y: f64, side: String, text: String) -> Cmd {
+    let text = text.trim();
+    let Some(atlas) = shown_atlas(model).filter(|_| !text.is_empty()) else {
+        return done();
+    };
+    // A hash of what the callout is, so no counter has to be kept. A key already in use is
+    // hashed again.
+    let mut seed = format!("{x},{y},{text}");
+    let key = loop {
+        let key = format!("{CALLOUT_PREFIX}{:08x}", fnv1a(&seed) as u32);
+        if !atlas.properties.contains_key(&key) {
+            break key;
+        }
+        seed.push('+');
+    };
+    change_atlas(atlas, BTreeMap::from([(key, Some(callout_value(x, y, 1.0, &side, text)))]))
+}
+
+/// Changes the text and the side of a callout of the shown atlas page. It keeps its place and
+/// its scale. An empty text takes the callout away.
+pub fn set_callout(model: &mut Model, key: String, side: String, text: String) -> Cmd {
+    let text = text.trim();
+    if !text.is_empty() {
+        return change_callout(model, &key, |c| {
+            c.side = side;
+            c.text = text.to_string();
+        });
+    }
+    let Some(atlas) = shown_atlas(model).filter(|a| callouts(a).iter().any(|c| c.key == key)) else {
+        return done();
+    };
+    change_atlas(atlas, BTreeMap::from([(key, None)]))
+}
+
+/// The color of the character of a callout
+const CALLOUT_COLOR: Color = Color::rgb(0x00, 0x00, 0x00);
+
+/// The width of the lines of the character of a callout, in pixels of the SVG as drawn
+const CALLOUT_STROKE_WIDTH: &str = "3.5";
+
+/// The character of a callout as an SVG of `size` pixels square: the face picturesque-marks
+/// draws for the text as its signature, in black, its lines thinner.
+pub fn callout_face_svg(text: &str, size: i32) -> String {
+    // picturesque-marks has no option for the width of the lines of a face; it writes 5
+    signature_svg(text, SignatureStyle::Face, CALLOUT_COLOR, size, size)
+        .replace(r#"stroke-width="5""#, &format!(r#"stroke-width="{CALLOUT_STROKE_WIDTH}""#))
+}
+
+/// A key for a new group: a hash of the cards that make it, so no counter has to be kept.
+/// A key already in use is hashed again.
 fn new_group_key(groups: &[(String, Vec<String>)], target_id: &str, moving: &[String]) -> String {
     let mut seed = format!("{target_id},{}", moving.join(","));
     loop {
@@ -519,6 +669,15 @@ fn shown_atlas_mut<'a>(model: &'a mut Model, page_id: &str) -> Option<&'a mut Pa
 
 fn index_page_mut<'a>(model: &'a mut Model, page_id: &str) -> Option<&'a mut Page> {
     model.sidebar.index_pages.iter_mut().find(|p| p.id == page_id)
+}
+
+/// The callouts of the shown atlas page; none on any other page.
+pub fn shown_callouts(model: &Model) -> Vec<Callout> {
+    super::page::page_state(model)
+        .and_then(|ps| ps.page.as_ref())
+        .filter(|p| super::page::is_atlas(p))
+        .map(callouts)
+        .unwrap_or_default()
 }
 
 /// The cards of the shown atlas page, in the order of the sidebar's index list, each with

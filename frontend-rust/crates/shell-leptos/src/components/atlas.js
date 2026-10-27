@@ -6,8 +6,12 @@
 // The hand tool moves the view: a drag with the right button, or with the left one
 // between the cards and the groups. It moves the container of the cards and the cross, not
 // the cards. A drag with the left button on the area of a group moves all its cards. A right
-// click on a group opens its menu, whose dialog gives the group a title. The menu and the
-// dialog are made with @pixi/ui, the global `PIXI.ui` of vendor/pixi-ui.js.
+// click on a group opens its menu, whose dialog gives the group a title. A double click on
+// the group opens that dialog too. A right click between the cards and the groups adds a
+// callout there: a character with a speech bubble beside it.
+// A callout is selected, dragged and scaled as a card is, but joins no group. A double click
+// on it, or its menu, opens its dialog.
+// The menus and the dialog are made with @pixi/ui, the global `PIXI.ui` of vendor/pixi-ui.js.
 // The wheel scales that container around the point under the pointer. With Ctrl, it scales
 // the selected cards instead, each around its own center.
 //
@@ -18,6 +22,10 @@
 const CROSS_SIZE = 8;
 // A press that moves less than this is a click, not a drag
 const DRAG_THRESHOLD = 3;
+// The longest time between the two clicks of a double click, in ms, as Windows has it by default.
+// Not the click count of PixiJS: it allows only 200ms, and only on the same child, so a click
+// on the face and one on the bubble would not count.
+const DOUBLE_CLICK_TIME = 500;
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 5;
 // How much one pixel of wheel scrolling scales the view
@@ -61,6 +69,24 @@ const TITLE_SIDES = [
   ['right', 'Right'],
 ];
 const UI_FONT_SIZE = 13;
+// The size of the character of a callout on the canvas
+const CALLOUT_SIZE = 45;
+// How far from its center the character of a callout reaches. The face leaves a margin in its
+// SVG, so the tail of the bubble points at the face, not at the edge of the SVG.
+const CALLOUT_REACH = CALLOUT_SIZE * 0.4;
+// The text of a callout, the space around it in its bubble, and the widest the text grows
+const CALLOUT_FONT_SIZE = 11;
+const BUBBLE_PADDING = 6;
+const BUBBLE_TEXT_WIDTH = 144;
+// How long the tail of a bubble is, and how wide where it leaves the bubble
+const BUBBLE_TAIL = 9;
+const BUBBLE_TAIL_BASE = 9;
+// The space between the face and the tip of the tail of its bubble
+const BUBBLE_GAP = 6;
+// How far the line of a bubble wanders in and out, as if drawn by hand, and how far apart the
+// points of that line are
+const BUBBLE_WOBBLE = 1.2;
+const BUBBLE_STEP = 8;
 // The handwritten font of the group titles, copied to the root of the site by index.html.
 // From the root: a relative path would be read from the folder of the page.
 const TITLE_FONT = '851 Tegaki Zatsu';
@@ -88,6 +114,7 @@ window.AtlasCanvas = class AtlasCanvas {
     // The ids of the selected cards. Kept by id, as a new list of cards makes new views.
     this.selected = new Set();
     this.data = [];
+    this.calloutList = [];
     this.destroyed = false;
     this.app = new PIXI.Application();
     this.ready = this.app
@@ -107,9 +134,10 @@ window.AtlasCanvas = class AtlasCanvas {
         host.appendChild(this.app.canvas);
         this.world = new PIXI.Container();
         this.cards = new PIXI.Container();
-        // The outlines of the groups lie behind the cards
+        // The outlines of the groups lie behind the cards, the callouts above them
         this.groups = new PIXI.Container();
-        this.world.addChild(cross(), this.groups, this.cards);
+        this.callouts = new PIXI.Container();
+        this.world.addChild(cross(), this.groups, this.cards, this.callouts);
         // The menu and the dialog, in pixels of the screen above the scaled view
         this.overlay = new PIXI.Container();
         this.app.stage.addChild(this.world, this.overlay);
@@ -121,6 +149,7 @@ window.AtlasCanvas = class AtlasCanvas {
         this.listenForHand();
         this.center();
         this.build();
+        this.buildCallouts();
         this.loadTitleFont();
       });
   }
@@ -186,6 +215,10 @@ window.AtlasCanvas = class AtlasCanvas {
       view.cardData.width = view.cardWidth * scale;
       view.cardData.height = view.cardHeight * scale;
     }
+    const callouts = this.callouts.children.filter(v => this.selected.has(v.calloutData.key));
+    for (const view of callouts) {
+      view.scale.set(Math.max(MIN_CARD_SCALE, view.scale.x * factor));
+    }
     // Not a drag: the outlines of the groups of these cards only, with no frame shown
     this.drawGroups({ origins: views.map(v => ({ view: v, x: v.x, y: v.y })), moved: false });
     clearTimeout(this.scaleTimer);
@@ -194,6 +227,11 @@ window.AtlasCanvas = class AtlasCanvas {
       if (this.onScale) {
         for (const view of views) {
           this.onScale(view.cardData.id, view.scale.x);
+        }
+      }
+      if (this.onScaleCallout) {
+        for (const view of callouts) {
+          this.onScaleCallout(view.calloutData.key, view.scale.x);
         }
       }
     }, SHARPEN_DELAY);
@@ -220,6 +258,12 @@ window.AtlasCanvas = class AtlasCanvas {
         view.cardLabel.resolution = resolution;
       }
     }
+    for (const view of this.callouts.children) {
+      const resolution = this.textResolution(view.scale.x);
+      if (view.calloutText.resolution !== resolution) {
+        view.calloutText.resolution = resolution;
+      }
+    }
     const resolution = this.textResolution();
     for (const area of this.groups.children) {
       for (const char of area.titleChars?.children ?? []) {
@@ -239,6 +283,9 @@ window.AtlasCanvas = class AtlasCanvas {
     // The left button on a card drags the card, on a group its cards; elsewhere it moves the
     // view
     const card = cardOf(e.target);
+    if (e.button === 0 && calloutOf(e.target)) {
+      return;
+    }
     if (e.button === 0 && !card && e.target?.groupArea && !this.panning && !this.groupDrag) {
       this.startGroupDrag(e, e.target);
       return;
@@ -252,9 +299,12 @@ window.AtlasCanvas = class AtlasCanvas {
       start: { x: e.global.x, y: e.global.y },
       origin: { x: this.pan.x, y: this.pan.y },
       moved: false,
-      // A right click that does not move opens the menu of this card, or of this group
+      // A right click that does not move opens the menu of this card, of this group, of this
+      // callout, or else of the canvas at this point
       card,
       area: e.target?.groupArea ? e.target : null,
+      callout: calloutOf(e.target),
+      point: this.world.toLocal(e.global),
     };
     this.showHand();
   }
@@ -283,7 +333,7 @@ window.AtlasCanvas = class AtlasCanvas {
 
   endPan(e) {
     if (this.groupDrag && e.button === 0) {
-      this.endGroupDrag();
+      this.endGroupDrag(e);
       return;
     }
     const panning = this.panning;
@@ -296,40 +346,48 @@ window.AtlasCanvas = class AtlasCanvas {
       this.keepView();
     } else if (panning.button === 2 && panning.card) {
       this.onMenu(panning.card.cardData.id, e.clientX, e.clientY);
+    } else if (panning.button === 2 && panning.callout && !panning.callout.destroyed) {
+      const data = panning.callout.calloutData;
+      this.openMenu('Edit Callout', e.global.x, e.global.y, () => this.openCalloutDialog(data));
     } else if (panning.button === 2 && panning.area && !panning.area.destroyed) {
-      this.openGroupMenu(panning.area.label, e.global.x, e.global.y);
+      const group = panning.area.label;
+      this.openMenu('Edit Title', e.global.x, e.global.y, () => this.openTitleDialog(group));
+    } else if (panning.button === 2) {
+      const { x, y } = panning.point;
+      this.openMenu('Add Callout', e.global.x, e.global.y, () => this.openCalloutDialog({ x, y }));
     } else if (panning.button === 0 && !panning.card) {
       // A click between the cards lets go of the selection
       this.select([]);
     }
   }
 
-  // The font file is large, so the titles show in the font of the app until it has come; then
-  // they are drawn again in it. PixiJS draws a Text once and would keep the first font.
+  // The font file is large, so the titles and the callouts show in the font of the app until it
+  // has come; then they are drawn again in it. PixiJS draws a Text once and would keep the first font.
   loadTitleFont() {
     PIXI.Assets.load({ src: TITLE_FONT_URL, data: { family: TITLE_FONT } })
       .then(() => {
         if (!this.destroyed && !this.drag && !this.groupDrag) {
           this.drawGroups();
+          this.buildCallouts();
         }
       })
       .catch(e => console.warn('atlas: cannot load the font of the group titles', e));
   }
 
-  // The menu of a group, at a point of the screen. Its one item opens the dialog of the title.
-  openGroupMenu(group, x, y) {
+  // A menu of one item at a point of the screen, for a group, a callout or the canvas
+  openMenu(name, x, y, action) {
     this.closeMenu();
     const item = new PIXI.ui.FancyButton({
       defaultView: new PIXI.Graphics().rect(0, 0, 140, 30).fill(0xffffff),
       hoverView: new PIXI.Graphics().rect(0, 0, 140, 30).fill(0xf0f0f0),
-      text: uiText('Edit Title'),
+      text: uiText(name),
       // The text at the left, as in the other menus of the app
       defaultTextAnchor: { x: 0, y: 0.5 },
       textOffset: { x: -70 + 12, y: 0 },
     });
     item.onPress.connect(() => {
       this.closeMenu();
-      this.openTitleDialog(group);
+      action();
     });
     const menu = new PIXI.Container();
     menu.addChild(
@@ -365,14 +423,33 @@ window.AtlasCanvas = class AtlasCanvas {
     this.menu = null;
   }
 
-  // The dialog of the title of a group: the title and the side of the outline it lies along.
-  // OK or Enter gives them to the core, which takes an empty title as none. Cancel, Escape and
-  // a press beside the dialog leave the title as it was.
+  // The dialog of the title of a group: the title and the side of the outline it lies along
   openTitleDialog(group) {
     const data = this.data.find(d => d.group === group);
+    this.openTextDialog('Edit Title', 'Title', data?.groupTitle, data?.groupTitleSide, (side, text) =>
+      this.onGroupTitle?.(group, side, text),
+    );
+  }
+
+  // The dialog of a callout: its text and the side of the character its bubble is on. A
+  // callout without a key is a new one at its point.
+  openCalloutDialog(callout) {
+    const name = callout.key ? 'Edit Callout' : 'Add Callout';
+    this.openTextDialog(name, 'Text', callout.text, callout.side, (side, text) => {
+      if (callout.key) {
+        this.onCallout?.(callout.key, side, text);
+      } else {
+        this.onAddCallout?.(callout.x, callout.y, side, text);
+      }
+    });
+  }
+
+  // A dialog of a text and a side. OK or Enter gives them to `done`; the core takes an empty
+  // text as none. Cancel, Escape and a press beside the dialog leave things as they were.
+  openTextDialog(name, placeholder, text, side, done) {
     const sideIndex = Math.max(
       0,
-      TITLE_SIDES.findIndex(([side]) => side === data?.groupTitleSide),
+      TITLE_SIDES.findIndex(([s]) => s === side),
     );
     const width = 340;
     const input = new PIXI.ui.Input({
@@ -380,9 +457,12 @@ window.AtlasCanvas = class AtlasCanvas {
         .roundRect(0, 0, width - 60, 32, 4)
         .fill(0xffffff)
         .stroke({ color: 0xc0c4cc, width: 1 }),
-      placeholder: 'Title',
-      value: data?.groupTitle ?? '',
+      placeholder,
+      value: text ?? '',
       padding: { left: 8, right: 8 },
+      // A long text is cut off inside the padding, and scrolls with the cursor while edited.
+      // Without the mask, it runs past the edge of the input.
+      addMask: true,
       textStyle: { fontFamily: uiFont(), fontSize: UI_FONT_SIZE, fill: 0x222222 },
     });
     const sides = new PIXI.ui.RadioGroup({
@@ -411,7 +491,7 @@ window.AtlasCanvas = class AtlasCanvas {
         .stroke({ color: 0xdddddd, width: 1 }),
       backdropColor: 0x000000,
       backdropAlpha: 0.15,
-      title: uiText('Edit Title', 15),
+      title: uiText(name, 15),
       content,
       width,
       height: 200,
@@ -420,14 +500,21 @@ window.AtlasCanvas = class AtlasCanvas {
       closeOnBackdropClick: true,
     });
     dialog.position.set(this.app.screen.width / 2, this.app.screen.height / 2);
+    // The Dialog puts its content in a ScrollBox. That box takes a drag once its content is even
+    // a little larger than it, as the edge of the input is, and the drag shifts the content
+    // around. The content fits, so the box is kept from taking a press; its items still take
+    // theirs. @pixi/ui has no option for this, and the box turns itself on again when it lays
+    // out its items, so that switch is turned off too.
+    dialog.scrollBox.setInteractive = () => {};
+    dialog.scrollBox.eventMode = 'passive';
     const finish = ok => {
       if (this.dialog !== dialog) {
         return;
       }
       this.dialog = null;
       window.removeEventListener('keydown', keys, true);
-      if (ok && this.onGroupTitle) {
-        this.onGroupTitle(group, TITLE_SIDES[sides.selected][0], input.value);
+      if (ok) {
+        done(TITLE_SIDES[sides.selected][0], input.value);
       }
       dialog.close();
       // After the close has hidden it, which the next frame does
@@ -466,6 +553,7 @@ window.AtlasCanvas = class AtlasCanvas {
   startGroupDrag(e, area) {
     const views = this.cards.children.filter(v => v.cardData.group === area.label);
     this.groupDrag = {
+      group: area.label,
       start: { x: e.global.x, y: e.global.y },
       origins: views.map(v => ({ view: v, x: v.x, y: v.y })),
       moved: false,
@@ -493,15 +581,23 @@ window.AtlasCanvas = class AtlasCanvas {
     this.drawGroups(drag);
   }
 
-  endGroupDrag() {
+  endGroupDrag(e) {
     const drag = this.groupDrag;
     this.groupDrag = null;
     this.cards.interactiveChildren = true;
     this.groups.interactiveChildren = true;
     this.app.stage.cursor = 'default';
     if (!drag.moved) {
-      // A click on a group, as between the cards, lets go of the selection
+      // A click on a group, as between the cards, lets go of the selection. A double click
+      // opens the dialog of its title.
       this.select([]);
+      const last = this.lastGroupClick;
+      if (last && last.group === drag.group && e.timeStamp - last.time < DOUBLE_CLICK_TIME) {
+        this.lastGroupClick = null;
+        this.openTitleDialog(drag.group);
+      } else {
+        this.lastGroupClick = { group: drag.group, time: e.timeStamp };
+      }
       return;
     }
     this.showFrames(null);
@@ -521,6 +617,16 @@ window.AtlasCanvas = class AtlasCanvas {
     for (const view of this.cards.children) {
       view.cardSelection.visible = this.selected.has(view.cardData.id);
     }
+    for (const view of this.callouts.children) {
+      view.calloutSelection.visible = this.selected.has(view.calloutData.key);
+    }
+  }
+
+  // A card or a callout taken off the canvas is no longer selected
+  keepSelection() {
+    const ids = new Set([...this.data.map(d => d.id), ...this.calloutList.map(d => d.key)]);
+    this.selected = new Set([...this.selected].filter(id => ids.has(id)));
+    this.showSelection();
   }
 
   keepView() {
@@ -531,6 +637,7 @@ window.AtlasCanvas = class AtlasCanvas {
   showHand() {
     this.cards.interactiveChildren = this.panning === null;
     this.groups.interactiveChildren = this.panning === null;
+    this.callouts.interactiveChildren = this.panning === null;
     // A press that has not moved yet may still be a click, so it keeps the plain cursor.
     // Not grab: that is the cursor of a card, which moves the card and not the view.
     const moving = this.panning !== null && this.panning.moved;
@@ -571,6 +678,51 @@ window.AtlasCanvas = class AtlasCanvas {
     this.onGroupTitle = onGroupTitle;
   }
 
+  // onAddCallout(x, y, side, text) adds a callout with its character centered at a point
+  setOnAddCallout(onAddCallout) {
+    this.onAddCallout = onAddCallout;
+  }
+
+  // onCallout(key, side, text) changes a callout; an empty text takes it away
+  setOnCallout(onCallout) {
+    this.onCallout = onCallout;
+  }
+
+  // onMoveCallout(key, x, y) moves a callout so the center of its character is at a point
+  setOnMoveCallout(onMoveCallout) {
+    this.onMoveCallout = onMoveCallout;
+  }
+
+  // onScaleCallout(key, scale) scales a callout around the center of its character
+  setOnScaleCallout(onScaleCallout) {
+    this.onScaleCallout = onScaleCallout;
+  }
+
+  // The callouts as JSON: [{ key, x, y, scale, side, text, character, drawSize }], where x and y
+  // are the center of the character, side is the side of it the bubble is on, and character is an SVG
+  // of drawSize pixels square
+  setCallouts(json) {
+    this.calloutList = JSON.parse(json);
+    if (this.callouts) {
+      this.buildCallouts();
+    }
+  }
+
+  buildCallouts() {
+    // A dragged callout is destroyed with the others: a new list wins over the drag
+    if (this.drag?.view.calloutData) {
+      this.drag = null;
+    }
+    this.callouts.removeChildren().forEach(c => c.destroy({ children: true }));
+    for (const data of this.calloutList) {
+      const scale = data.scale > 0 ? data.scale : 1;
+      const view = callout(data, this.textResolution(scale), this.iconResolution() * Math.max(1, scale));
+      this.makeDraggable(view, data);
+      this.callouts.addChild(view);
+    }
+    this.keepSelection();
+  }
+
   // The placed cards as JSON: [{ id, label, path, isDir, x, y, width, height, scale, group,
   // groupColor, groupTitle, groupTitleSide, icon, blob, iconSize, iconDrawSize }], where x and
   // y are the center of the card,
@@ -594,9 +746,7 @@ window.AtlasCanvas = class AtlasCanvas {
       this.makeDraggable(view, data);
       this.cards.addChild(view);
     }
-    // A card taken off the canvas is no longer selected
-    this.selected = new Set(this.data.map(d => d.id).filter(id => this.selected.has(id)));
-    this.showSelection();
+    this.keepSelection();
     this.drawGroups();
   }
 
@@ -768,41 +918,49 @@ window.AtlasCanvas = class AtlasCanvas {
     drag.join = join;
   }
 
-  // A drag moves the selected cards and places them where they are let go. A click on the
-  // label opens the page, in a new tab with Ctrl. A click with Ctrl elsewhere on the card
-  // adds the card to the selection or takes it out.
+  // A drag moves the selected cards and callouts and places them where they are let go. A click
+  // on the label of a card opens the page, in a new tab with Ctrl. A click with Ctrl elsewhere
+  // adds the card or the callout to the selection or takes it out. Only the cards take part in
+  // the groups: a callout joins none.
   makeDraggable(view, data) {
-    view.cardData = data;
+    // A callout is selected by its key, a card by its page
+    const id = view.calloutData ? data.key : data.id;
+    if (!view.calloutData) {
+      view.cardData = data;
+    }
     view.eventMode = 'static';
     view.cursor = 'grab';
     view.on('pointerdown', e => {
-      // The right button is the hand tool; only the left button drags a card
+      // The right button is the hand tool; only the left button drags
       if (e.button !== 0) {
         return;
       }
       const ctrl = e.ctrlKey || e.metaKey;
-      const wasSelected = this.selected.has(data.id);
+      const wasSelected = this.selected.has(id);
       if (ctrl) {
         // Taken out only on release: a drag that starts here moves it with the others
-        this.selected.add(data.id);
+        this.selected.add(id);
       } else if (!wasSelected) {
-        this.selected = new Set([data.id]);
+        this.selected = new Set([id]);
       }
       this.showSelection();
       const views = this.cards.children.filter(v => this.selected.has(v.cardData.id));
+      const callouts = this.callouts.children.filter(v => this.selected.has(v.calloutData.key));
       this.drag = {
         view,
         // Plain copies: `global` is reused for the next event
         start: { x: e.global.x, y: e.global.y },
+        // The cards, which the groups follow, apart from the callouts
         origins: views.map(v => ({ view: v, x: v.x, y: v.y })),
+        callouts: callouts.map(v => ({ view: v, x: v.x, y: v.y })),
         moved: false,
         ctrl,
         wasSelected,
-        onLabel: e.target === view.cardLabel,
+        onLabel: Boolean(view.cardLabel) && e.target === view.cardLabel,
       };
       // On top of the others while they move
-      for (const v of views) {
-        this.cards.addChild(v);
+      for (const v of [...views, ...callouts]) {
+        v.parent.addChild(v);
       }
     });
     view.on('globalpointermove', e => {
@@ -821,10 +979,11 @@ window.AtlasCanvas = class AtlasCanvas {
       drag.moved = true;
       view.cursor = 'grabbing';
       // The pointer moves in pixels of the screen, the cards in units of the scaled view
-      for (const o of drag.origins) {
+      for (const o of [...drag.origins, ...drag.callouts]) {
         o.view.position.set(o.x + dx / this.zoom, o.y + dy / this.zoom);
       }
-      const ctrl = e.ctrlKey || e.metaKey;
+      // Callouts alone touch no group
+      const ctrl = (e.ctrlKey || e.metaKey) && drag.origins.length > 0;
       this.drawGroups(drag, ctrl);
       drag.ctrlShape = ctrl;
       if (ctrl) {
@@ -834,7 +993,7 @@ window.AtlasCanvas = class AtlasCanvas {
         this.showJoinGroup(drag, null);
         drag.outside = null;
       }
-      this.showGroupTarget(drag, this.groupTargetAt(drag, e));
+      this.showGroupTarget(drag, ctrl ? this.groupTargetAt(drag, e) : null);
     });
     const end = e => {
       const drag = this.drag;
@@ -845,13 +1004,15 @@ window.AtlasCanvas = class AtlasCanvas {
       view.cursor = 'grab';
       if (drag.moved) {
         this.showFrames(null);
-        const target = this.groupTargetAt(drag, e);
+        const ctrl = (e.ctrlKey || e.metaKey) && drag.origins.length > 0;
+        const target = ctrl ? this.groupTargetAt(drag, e) : null;
         this.showGroupTarget(drag, null);
         // The cards have moved with the pointer: they lie where they show. A position is the
-        // center of a card, as the pivot is there. Read before placing any: placing one
-        // gives a new list of cards, which destroys these views.
+        // center of a card, as the pivot is there, and the center of the character of a
+        // callout. Read before placing any: placing one gives a new list, which destroys these
+        // views.
         const places = drag.origins.map(o => [o.view.cardData.id, o.view.x, o.view.y]);
-        const ctrl = e.ctrlKey || e.metaKey;
+        const moves = drag.callouts.map(o => [o.view.calloutData.key, o.view.x, o.view.y]);
         // A card let go on a card joins the group of that card; let go in the area of another
         // group, it joins that group, which any card of it stands for
         const joined = ctrl && drag.join && this.cards.children.find(v => v.cardData.group === drag.join.label);
@@ -865,6 +1026,9 @@ window.AtlasCanvas = class AtlasCanvas {
         for (const [id, x, y] of places) {
           this.onPlace(id, x, y);
         }
+        for (const [key, x, y] of moves) {
+          this.onMoveCallout?.(key, x, y);
+        }
         if (targetId && this.onGroup) {
           this.onGroup(JSON.stringify(places.map(([id]) => id)), targetId);
         }
@@ -875,13 +1039,22 @@ window.AtlasCanvas = class AtlasCanvas {
         // A link, as it always was: Ctrl opens it in a new tab and leaves the selection
         // as it was before the press
         if (drag.ctrl && !drag.wasSelected) {
-          this.selected.delete(data.id);
+          this.selected.delete(id);
           this.showSelection();
         }
         this.onOpen(data.path, drag.ctrl, e.shiftKey);
       } else if (drag.ctrl && drag.wasSelected) {
-        this.selected.delete(data.id);
+        this.selected.delete(id);
         this.showSelection();
+      } else if (view.calloutData && !drag.ctrl) {
+        // A double click on a callout opens its dialog
+        const last = this.lastCalloutClick;
+        if (last && last.key === id && e.timeStamp - last.time < DOUBLE_CLICK_TIME) {
+          this.lastCalloutClick = null;
+          this.openCalloutDialog(data);
+        } else {
+          this.lastCalloutClick = { key: id, time: e.timeStamp };
+        }
       }
     };
     view.on('pointerup', end);
@@ -946,6 +1119,16 @@ window.AtlasCanvas = class AtlasCanvas {
 function cardOf(target) {
   for (let node = target; node; node = node.parent) {
     if (node.cardData) {
+      return node;
+    }
+  }
+  return null;
+}
+
+// The callout a press landed on, from its character or its bubble
+function calloutOf(target) {
+  for (let node = target; node; node = node.parent) {
+    if (node.calloutData) {
       return node;
     }
   }
@@ -1151,6 +1334,184 @@ function iconSprite(svg, width, height, resolution, x, y, alpha) {
     })
     .catch(e => console.warn('atlas: cannot draw a tag icon', e));
   return sprite;
+}
+
+// A callout: its character centered at its point, and a speech bubble on one side of it with
+// the tail toward the character. The character faces the other way when its bubble is on the
+// left or below it.
+function callout(data, resolution, iconResolution) {
+  const { x, y, side, text, character, drawSize } = data;
+  const view = new PIXI.Container();
+  view.position.set(x, y);
+  view.calloutData = data;
+  view.scale.set(data.scale > 0 ? data.scale : 1);
+  // A holder is flipped, not the sprite: the sprite sets its own scale once its texture comes
+  const holder = new PIXI.Container();
+  holder.scale.x = side === 'left' || side === 'bottom' ? -1 : 1;
+  holder.addChild(
+    iconSprite(character, CALLOUT_SIZE, CALLOUT_SIZE, (iconResolution * CALLOUT_SIZE) / drawSize, 0, 0, 1),
+  );
+  // The face takes the press, not the margin of its SVG. On the holder, not the callout: a
+  // hit area on the callout would keep the bubble from taking a press.
+  holder.eventMode = 'static';
+  holder.hitArea = new PIXI.Circle(0, 0, CALLOUT_REACH);
+  const label = new PIXI.Text({
+    text,
+    resolution,
+    style: {
+      fontFamily: `"${TITLE_FONT}", ${uiFont()}`,
+      fontSize: CALLOUT_FONT_SIZE,
+      fill: 0x333333,
+      wordWrap: true,
+      wordWrapWidth: BUBBLE_TEXT_WIDTH,
+      breakWords: true,
+    },
+  });
+  label.anchor.set(0.5);
+  const w = label.width + 2 * BUBBLE_PADDING;
+  const h = label.height + 2 * BUBBLE_PADDING;
+  // The center of the bubble, from the center of the character
+  const away = CALLOUT_REACH + BUBBLE_GAP + BUBBLE_TAIL;
+  const [bx, by] = {
+    top: [0, -(away + h / 2)],
+    bottom: [0, away + h / 2],
+    left: [-(away + w / 2), 0],
+    right: [away + w / 2, 0],
+  }[side] ?? [0, -(away + h / 2)];
+  const bubble = new PIXI.Graphics();
+  sharpCornerCurve(bubble, wobble(bubbleOutline(w, h, side), hashText(data.key)));
+  bubble.fill(0xffffff).stroke({ color: 0x333333, width: 1.5 });
+  bubble.position.set(bx, by);
+  label.position.set(bx, by);
+  // The bubble takes the press too
+  bubble.eventMode = 'static';
+  // A ring around the face and the bubble, as around a selected card
+  const left = Math.min(-CALLOUT_SIZE / 2, bx - w / 2) - 4;
+  const top = Math.min(-CALLOUT_SIZE / 2, by - h / 2) - 4;
+  const right = Math.max(CALLOUT_SIZE / 2, bx + w / 2) + 4;
+  const bottom = Math.max(CALLOUT_SIZE / 2, by + h / 2) + 4;
+  view.calloutSelection = new PIXI.Graphics()
+    .roundRect(left, top, right - left, bottom - top, 10)
+    .stroke({ color: 0x3b82f6, width: 2 });
+  view.calloutSelection.visible = false;
+  view.calloutText = label;
+  view.addChild(view.calloutSelection, holder, bubble, label);
+  return view;
+}
+
+// The outline of a bubble of the size, centered at the origin, as points running clockwise: a
+// rounded box with a tail out of the side that faces the character. That is the bottom of a
+// bubble above the character, the right of one on its left, and so on. One closed line, so it
+// runs around the tail and not across it. The tip of the tail is marked, so it stays sharp.
+function bubbleOutline(w, h, side) {
+  const r = Math.min(8, w / 2, h / 2);
+  const hw = w / 2;
+  const hh = h / 2;
+  const base = Math.min(BUBBLE_TAIL_BASE, w - 2 * r, h - 2 * r) / 2;
+  const t = BUBBLE_TAIL;
+  // The edge the tail leaves from, as the line runs clockwise
+  const edge = { bottom: 'top', left: 'right', top: 'bottom', right: 'left' }[side] ?? 'bottom';
+  const tails = {
+    top: [[-base, -hh], [0, -hh - t, true], [base, -hh]],
+    right: [[hw, -base], [hw + t, 0, true], [hw, base]],
+    bottom: [[base, hh], [0, hh + t, true], [-base, hh]],
+    left: [[-hw, base], [-hw - t, 0, true], [-hw, -base]],
+  };
+  // A quarter circle from the angle, in degrees; y grows downward, so it turns clockwise
+  const corner = (cx, cy, from) =>
+    [0, 30, 60, 90].map(d => {
+      const a = ((from + d) * Math.PI) / 180;
+      return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+    });
+  const vertices = [
+    ...(edge === 'top' ? tails.top : []),
+    ...corner(hw - r, -hh + r, -90),
+    ...(edge === 'right' ? tails.right : []),
+    ...corner(hw - r, hh - r, 0),
+    ...(edge === 'bottom' ? tails.bottom : []),
+    ...corner(-hw + r, hh - r, 90),
+    ...(edge === 'left' ? tails.left : []),
+    ...corner(-hw + r, -hh + r, 180),
+  ];
+  // Points every BUBBLE_STEP or so along the straight runs, so the line has room to wander
+  const points = [];
+  vertices.forEach((v, i) => {
+    const [nx, ny] = vertices[(i + 1) % vertices.length];
+    const n = Math.max(1, Math.round(Math.hypot(nx - v[0], ny - v[1]) / BUBBLE_STEP));
+    points.push(v);
+    for (let k = 1; k < n; k++) {
+      points.push([v[0] + ((nx - v[0]) * k) / n, v[1] + ((ny - v[1]) * k) / n]);
+    }
+  });
+  return points;
+}
+
+// The points of a clockwise outline, each moved out or in along the outline's normal by a slow
+// wave, so the line looks drawn by hand. The wave is random, from the seed: a callout keeps its
+// shape each time it is drawn. It goes round a whole number of times, so it meets itself where
+// the outline closes. A marked point stays where it is, and stays marked.
+function wobble(points, seed) {
+  const random = seededRandom(seed);
+  const lengths = [0];
+  for (let i = 1; i < points.length; i++) {
+    const [ax, ay] = points[i - 1];
+    const [bx, by] = points[i];
+    lengths.push(lengths[i - 1] + Math.hypot(bx - ax, by - ay));
+  }
+  const [lx, ly] = points[points.length - 1];
+  const total = lengths[points.length - 1] + Math.hypot(points[0][0] - lx, points[0][1] - ly);
+  const waves = [
+    [3 + Math.floor(random() * 3), random() * 2 * Math.PI, 0.6],
+    [8 + Math.floor(random() * 5), random() * 2 * Math.PI, 0.4],
+  ];
+  return points.map((p, i) => {
+    if (p[2]) {
+      return p;
+    }
+    const [px, py] = points[(i - 1 + points.length) % points.length];
+    const [nx, ny] = points[(i + 1) % points.length];
+    const length = Math.hypot(nx - px, ny - py) || 1;
+    const along = (lengths[i] / total) * 2 * Math.PI;
+    const offset = BUBBLE_WOBBLE * waves.reduce((sum, [k, phase, share]) => sum + share * Math.sin(k * along + phase), 0);
+    // Outward from a clockwise line on the screen is to its left
+    return [p[0] + ((ny - py) / length) * offset, p[1] - ((nx - px) / length) * offset];
+  });
+}
+
+// A closed curve through every point, as smoothClosedCurve draws it, but with a corner at each
+// marked point: the curves on both sides of it leave it straight toward their neighbors.
+function sharpCornerCurve(g, points) {
+  const n = points.length;
+  const at = i => points[(i + n) % n];
+  g.moveTo(points[0][0], points[0][1]);
+  for (let i = 0; i < n; i++) {
+    const [p0, p1, p2, p3] = [at(i - 1), at(i), at(i + 1), at(i + 2)];
+    const c1 = p1[2] ? p1 : [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+    const c2 = p2[2] ? p2 : [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+    g.bezierCurveTo(c1[0], c1[1], c2[0], c2[1], p2[0], p2[1]);
+  }
+  g.closePath();
+}
+
+// A hash of a text, as a seed
+function hashText(text) {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    hash = Math.imul(hash ^ text.charCodeAt(i), 0x01000193);
+  }
+  return hash >>> 0;
+}
+
+// Numbers from 0 to 1 that are the same for the same seed (mulberry32)
+function seededRandom(seed) {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }
 
 function cross() {

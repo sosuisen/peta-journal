@@ -244,6 +244,31 @@ pub enum Event {
         side: String,
         title: String,
     },
+    /// The canvas menu's "Add Callout": a callout with its character centered at the point
+    /// and its bubble on a side of it. An empty text adds nothing.
+    AddAtlasCallout {
+        x: f64,
+        y: f64,
+        side: String,
+        text: String,
+    },
+    /// A callout dragged to a new place: the center of its character
+    MoveAtlasCallout {
+        key: String,
+        x: f64,
+        y: f64,
+    },
+    /// The selected callouts scaled with Ctrl and the wheel
+    ScaleAtlasCallout {
+        key: String,
+        scale: f64,
+    },
+    /// The callout menu's "Edit Callout". An empty text takes the callout away.
+    SetAtlasCallout {
+        key: String,
+        side: String,
+        text: String,
+    },
     /// The card menu's "Remove from Atlas": the page's card goes back to the unplaced list.
     RemoveAtlasCard {
         page_id: String,
@@ -746,6 +771,10 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         SetAtlasGroupTitle { group_key, side, title } => {
             screens::atlas::set_group_title(model, group_key, side, title)
         }
+        AddAtlasCallout { x, y, side, text } => screens::atlas::add_callout(model, x, y, side, text),
+        MoveAtlasCallout { key, x, y } => screens::atlas::move_callout(model, key, x, y),
+        ScaleAtlasCallout { key, scale } => screens::atlas::scale_callout(model, key, scale),
+        SetAtlasCallout { key, side, text } => screens::atlas::set_callout(model, key, side, text),
         RemoveAtlasCard { page_id } => screens::atlas::remove_card(model, page_id),
         GroupAtlasCards { page_ids, target_id } => {
             screens::atlas::group_cards(model, page_ids, target_id)

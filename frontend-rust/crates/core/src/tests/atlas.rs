@@ -4,7 +4,7 @@ use crate::app::{Event, PageState, Screen};
 use crate::effects::{ApiOp, ApiOutput, ApiResult, UiOp};
 use crate::harness::Harness;
 use crate::model::Page;
-use crate::screens::atlas::{Bounds, GroupTitle};
+use crate::screens::atlas::{Bounds, Callout, GroupTitle};
 use crate::screens::page::{page_title, ATLAS_NAME};
 
 fn doc(dir_path: &str, name: &str) -> Page {
@@ -713,4 +713,133 @@ fn the_title_of_a_group_goes_with_the_group() {
 
     assert_eq!(deletes(&h), ["atlas_group_g", "atlas_title_g"]);
     assert!(atlas_page(&h).properties.get("atlas_title_g").is_none());
+}
+
+fn callout(key: &str, x: f64, y: f64, side: &str, text: &str) -> Callout {
+    Callout { key: key.into(), x, y, scale: 1.0, side: side.into(), text: text.into() }
+}
+
+/// An atlas with the callout `c` of the text Hello at (10, 20) and scale 1.5, its bubble above
+fn atlas_with_callout() -> Harness {
+    let mut h = atlas_with(vec![]);
+    if let Some(atlas) = crate::screens::page::page_mut(&mut h.model).and_then(|ps| ps.page.as_mut()) {
+        atlas.properties.insert("atlas_callout_c".into(), serde_json::json!("10,20,1.5,top:Hello"));
+    }
+    h
+}
+
+#[test]
+fn a_callout_is_added_at_the_point_with_its_side_and_text() {
+    let mut h = atlas_with(vec![]);
+    h.send(Event::AddAtlasCallout { x: 10.4, y: -20.6, side: "left".into(), text: " Hi: there ".into() });
+
+    let calls = upserts(&h);
+    assert_eq!(calls.len(), 1);
+    let (page_id, key, value) = &calls[0];
+    assert_eq!(page_id, "a/b/index_atlas");
+    assert!(key.starts_with("atlas_callout_"), "{key}");
+    assert_eq!(value, "10,-21,1,left:Hi: there");
+    assert_eq!(h.view().atlas_callouts, [callout(key, 10.0, -21.0, "left", "Hi: there")]);
+}
+
+#[test]
+fn two_callouts_of_the_same_text_at_the_same_point_take_two_keys() {
+    let mut h = atlas_with(vec![]);
+    for _ in 0..2 {
+        h.send(Event::AddAtlasCallout { x: 0.0, y: 0.0, side: "top".into(), text: "Hi".into() });
+    }
+
+    // The fake server answers with the saved property alone, so the keys sent are compared
+    let keys: Vec<String> = upserts(&h).into_iter().map(|(_, key, _)| key).collect();
+    assert_eq!(keys.len(), 2);
+    assert_ne!(keys[0], keys[1]);
+}
+
+#[test]
+fn an_empty_callout_is_not_added() {
+    let mut h = atlas_with(vec![]);
+    h.send(Event::AddAtlasCallout { x: 0.0, y: 0.0, side: "top".into(), text: "  ".into() });
+
+    assert!(upserts(&h).is_empty());
+}
+
+#[test]
+fn an_edited_callout_keeps_its_place_and_scale() {
+    let mut h = atlas_with_callout();
+    h.send(Event::SetAtlasCallout { key: "atlas_callout_c".into(), side: "bottom".into(), text: "Bye".into() });
+
+    assert_eq!(upserts(&h), [("a/b/index_atlas".into(), "atlas_callout_c".into(), "10,20,1.5,bottom:Bye".into())]);
+    let edited = Callout { scale: 1.5, ..callout("atlas_callout_c", 10.0, 20.0, "bottom", "Bye") };
+    assert_eq!(h.view().atlas_callouts, [edited]);
+}
+
+#[test]
+fn a_moved_callout_keeps_its_scale_side_and_text() {
+    let mut h = atlas_with_callout();
+    h.send(Event::MoveAtlasCallout { key: "atlas_callout_c".into(), x: -30.4, y: 40.6 });
+
+    assert_eq!(upserts(&h), [("a/b/index_atlas".into(), "atlas_callout_c".into(), "-30,41,1.5,top:Hello".into())]);
+}
+
+#[test]
+fn a_callout_shrinks_no_smaller_than_half_and_grows_without_limit() {
+    let mut h = atlas_with_callout();
+    h.send(Event::ScaleAtlasCallout { key: "atlas_callout_c".into(), scale: 0.2 });
+    h.send(Event::ScaleAtlasCallout { key: "atlas_callout_c".into(), scale: 7.256 });
+
+    let values: Vec<String> = upserts(&h).into_iter().map(|(_, _, value)| value).collect();
+    assert_eq!(values, ["10,20,0.5,top:Hello", "10,20,7.26,top:Hello"]);
+}
+
+#[test]
+fn a_callout_that_does_not_change_is_not_saved() {
+    let mut h = atlas_with_callout();
+    h.send(Event::MoveAtlasCallout { key: "atlas_callout_c".into(), x: 10.2, y: 19.8 });
+    h.send(Event::ScaleAtlasCallout { key: "atlas_callout_c".into(), scale: 1.501 });
+    h.send(Event::MoveAtlasCallout { key: "atlas_callout_none".into(), x: 0.0, y: 0.0 });
+
+    assert!(upserts(&h).is_empty());
+}
+
+#[test]
+fn a_callout_stored_without_a_scale_has_a_scale_of_1() {
+    let mut atlas = doc("a/b/", ATLAS_NAME);
+    atlas.properties.insert("atlas_callout_c".into(), serde_json::json!("10,20,top:Hello"));
+
+    assert_eq!(crate::screens::atlas::callouts(&atlas), [callout("atlas_callout_c", 10.0, 20.0, "top", "Hello")]);
+}
+
+#[test]
+fn an_empty_text_takes_the_callout_away() {
+    let mut h = atlas_with_callout();
+    h.send(Event::SetAtlasCallout { key: "atlas_callout_c".into(), side: "top".into(), text: "".into() });
+
+    assert_eq!(deletes(&h), ["atlas_callout_c"]);
+    assert!(h.view().atlas_callouts.is_empty());
+}
+
+#[test]
+fn a_callout_value_that_is_not_a_place_a_side_and_text_is_left_out() {
+    let mut atlas = doc("a/b/", ATLAS_NAME);
+    for (key, value) in [
+        ("atlas_callout_a", "x,1,top:Hi"),
+        ("atlas_callout_b", "1,2,middle:Hi"),
+        ("atlas_callout_c", "Hi"),
+        ("atlas_callout_d", "1,2,0,top:Hi"),
+        ("atlas_callout_e", "1,2,3,4,top:Hi"),
+    ] {
+        atlas.properties.insert(key.into(), serde_json::json!(value));
+    }
+
+    assert!(crate::screens::atlas::callouts(&atlas).is_empty());
+}
+
+#[test]
+fn the_character_of_a_callout_is_a_face_of_its_text() {
+    let svg = crate::screens::atlas::callout_face_svg("Hello", 64);
+
+    assert!(svg.starts_with("<svg"), "{svg}");
+    assert!(svg.contains("<path"), "{svg}");
+    assert!(svg.contains(r#"stroke-width="3.5""#), "{svg}");
+    assert!(!svg.contains(r#"stroke-width="5""#), "{svg}");
 }

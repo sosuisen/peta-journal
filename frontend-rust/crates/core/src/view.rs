@@ -278,6 +278,8 @@ pub struct ViewModel {
     pub screen: ScreenView,
     /// The cards of the atlas page on screen; empty on any other screen.
     pub atlas_cards: Vec<AtlasCard>,
+    /// The callouts of the atlas page on screen; empty on any other screen.
+    pub atlas_callouts: Vec<atlas::Callout>,
     pub outline: OutlineView,
     pub sidebar: SidebarView,
     pub search: SearchView,
@@ -307,6 +309,7 @@ pub fn build(model: &Model) -> ViewModel {
                 group_title,
             })
             .collect(),
+        atlas_callouts: atlas::shown_callouts(model),
         outline: outline(model),
         sidebar: sidebar(model),
         search: search(model),
