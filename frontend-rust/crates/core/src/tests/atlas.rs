@@ -416,3 +416,19 @@ fn a_refused_group_puts_the_groups_back() {
     assert_eq!(atlas.properties["atlas_group_g"], serde_json::json!(["a/b/two", "a/b/three"]));
     assert!(h.ui.iter().any(|op| matches!(op, UiOp::Alert(_))));
 }
+
+#[test]
+fn a_card_knows_the_group_it_belongs_to() {
+    let mut h = atlas_with_groups(&[("atlas_group_g", &["a/b/one", "a/b/two"])]);
+    h.model.sidebar.index_pages = vec![child("one", None), child("two", None), child("three", None)];
+
+    let groups: Vec<_> = h.view().atlas_cards.into_iter().map(|c| (c.page_id, c.group)).collect();
+    assert_eq!(
+        groups,
+        [
+            ("a/b/one".to_string(), Some("atlas_group_g".to_string())),
+            ("a/b/three".to_string(), None),
+            ("a/b/two".to_string(), Some("atlas_group_g".to_string())),
+        ]
+    );
+}

@@ -26,6 +26,10 @@ const MAX_TEXT_ZOOM = 3;
 const SHARPEN_DELAY = 150;
 // The color a card takes while cards held with Ctrl are over it, to join its group
 const GROUP_TARGET_TINT = 0xbfdbfe;
+// How far the outline of a group keeps away from the cards in it
+const GROUP_PADDING = 14;
+// The colors of the groups, picked by the key of each group
+const GROUP_COLORS = [0x60a5fa, 0x34d399, 0xf59e0b, 0xf472b6, 0xa78bfa, 0x2dd4bf, 0xfb7185, 0xa3e635];
 
 window.AtlasCanvas = class AtlasCanvas {
   // onOpen(path, newTab, newWindow) opens the page of a card whose label is clicked.
@@ -68,7 +72,9 @@ window.AtlasCanvas = class AtlasCanvas {
         host.appendChild(this.app.canvas);
         this.world = new PIXI.Container();
         this.cards = new PIXI.Container();
-        this.world.addChild(cross(), this.cards);
+        // The outlines of the groups lie behind the cards
+        this.groups = new PIXI.Graphics();
+        this.world.addChild(cross(), this.groups, this.cards);
         this.app.stage.addChild(this.world);
         this.app.renderer.on('resize', () => this.center());
         // resizeTo follows the window only. The host also changes size when the list of
@@ -257,6 +263,32 @@ window.AtlasCanvas = class AtlasCanvas {
     // A card taken off the canvas is no longer selected
     this.selected = new Set(this.data.map(d => d.id).filter(id => this.selected.has(id)));
     this.showSelection();
+    this.drawGroups();
+  }
+
+  // Each group is a smooth closed curve around all its cards, drawn again as they move
+  drawGroups() {
+    this.groups.clear();
+    const corners = new Map();
+    for (const view of this.cards.children) {
+      const { group, width, height } = view.cardData;
+      if (!group) {
+        continue;
+      }
+      const left = view.x - width / 2 - GROUP_PADDING;
+      const right = view.x + width / 2 + GROUP_PADDING;
+      const top = view.y - height / 2 - GROUP_PADDING;
+      const bottom = view.y + height / 2 + GROUP_PADDING;
+      if (!corners.has(group)) {
+        corners.set(group, []);
+      }
+      corners.get(group).push([left, top], [right, top], [right, bottom], [left, bottom]);
+    }
+    for (const [group, points] of corners) {
+      const color = GROUP_COLORS[hashOf(group) % GROUP_COLORS.length];
+      smoothClosedCurve(this.groups, convexHull(points));
+      this.groups.fill({ color, alpha: 0.12 }).stroke({ color, alpha: 0.7, width: 2 });
+    }
   }
 
   // A drag moves the selected cards and places them where they are let go. A click on the
@@ -312,6 +344,7 @@ window.AtlasCanvas = class AtlasCanvas {
       for (const o of drag.origins) {
         o.view.position.set(o.x + dx / this.zoom, o.y + dy / this.zoom);
       }
+      this.drawGroups();
       this.showGroupTarget(drag, this.groupTargetAt(drag, e));
     });
     const end = e => {
@@ -409,6 +442,53 @@ function cardOf(target) {
     }
   }
   return null;
+}
+
+// The smallest convex polygon around the points, in order around it (Andrew's monotone chain)
+function convexHull(points) {
+  const sorted = [...points].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const turn = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const half = list => {
+    const out = [];
+    for (const p of list) {
+      while (out.length >= 2 && turn(out[out.length - 2], out[out.length - 1], p) <= 0) {
+        out.pop();
+      }
+      out.push(p);
+    }
+    out.pop();
+    return out;
+  };
+  return [...half(sorted), ...half([...sorted].reverse())];
+}
+
+// A closed curve through every point, as Bézier curves of a Catmull-Rom spline. It passes
+// through the corners of the hull, so it never cuts into a card as a curve between them could.
+function smoothClosedCurve(g, points) {
+  const n = points.length;
+  const at = i => points[(i + n) % n];
+  g.moveTo(points[0][0], points[0][1]);
+  for (let i = 0; i < n; i++) {
+    const [p0, p1, p2, p3] = [at(i - 1), at(i), at(i + 1), at(i + 2)];
+    g.bezierCurveTo(
+      p1[0] + (p2[0] - p0[0]) / 6,
+      p1[1] + (p2[1] - p0[1]) / 6,
+      p2[0] - (p3[0] - p1[0]) / 6,
+      p2[1] - (p3[1] - p1[1]) / 6,
+      p2[0],
+      p2[1],
+    );
+  }
+  g.closePath();
+}
+
+// A stable small number from the key of a group, to pick its color
+function hashOf(text) {
+  let hash = 0;
+  for (const ch of text) {
+    hash = (hash * 31 + ch.codePointAt(0)) >>> 0;
+  }
+  return hash;
 }
 
 function cross() {

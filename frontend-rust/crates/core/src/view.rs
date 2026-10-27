@@ -226,6 +226,8 @@ pub struct AtlasCard {
     pub path: String,
     pub is_dir: bool,
     pub bounds: Option<Bounds>,
+    /// The key of the group the card belongs to, if any.
+    pub group: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -283,7 +285,7 @@ pub fn build(model: &Model) -> ViewModel {
         screen: screen(model),
         atlas_cards: atlas::cards(model)
             .into_iter()
-            .map(|(p, bounds)| AtlasCard {
+            .map(|(p, bounds, group)| AtlasCard {
                 page_id: p.id.clone(),
                 label: sidebar::index_page_name(&p),
                 path: if sidebar::is_directory(&p) {
@@ -293,6 +295,7 @@ pub fn build(model: &Model) -> ViewModel {
                 },
                 is_dir: sidebar::is_directory(&p),
                 bounds,
+                group,
             })
             .collect(),
         outline: outline(model),

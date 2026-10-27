@@ -263,19 +263,25 @@ fn index_page_mut<'a>(model: &'a mut Model, page_id: &str) -> Option<&'a mut Pag
     model.sidebar.index_pages.iter_mut().find(|p| p.id == page_id)
 }
 
-/// The cards of the shown atlas page, in the order of the sidebar's index list.
-pub fn cards(model: &Model) -> Vec<(Page, Option<Bounds>)> {
-    let shows_atlas = super::page::page_state(model)
+/// The cards of the shown atlas page, in the order of the sidebar's index list, each with
+/// its place and the key of its group.
+pub fn cards(model: &Model) -> Vec<(Page, Option<Bounds>, Option<String>)> {
+    let Some(atlas) = super::page::page_state(model)
         .and_then(|ps| ps.page.as_ref())
-        .is_some_and(super::page::is_atlas);
-    if !shows_atlas {
+        .filter(|p| super::page::is_atlas(p))
+    else {
         return Vec::new();
-    }
+    };
+    let groups = groups(atlas);
     sidebar::sorted_index_pages(&model.sidebar.index_pages, sidebar::index_sort(model))
         .into_iter()
         .map(|p| {
             let bounds = Bounds::of(&p);
-            (p, bounds)
+            let group = groups
+                .iter()
+                .find(|(_, ids)| ids.contains(&p.id))
+                .map(|(key, _)| key.clone());
+            (p, bounds, group)
         })
         .collect()
 }

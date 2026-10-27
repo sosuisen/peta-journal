@@ -119,6 +119,7 @@ fn placed_json(cards: &[AtlasCard]) -> String {
                     "y": b.y,
                     "width": b.width,
                     "height": b.height,
+                    "group": c.group,
                 })
             })
         })
