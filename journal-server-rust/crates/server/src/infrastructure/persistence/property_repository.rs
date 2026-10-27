@@ -19,6 +19,14 @@ pub type ListProps = BTreeMap<String, BTreeMap<String, Vec<String>>>;
 /// property is `tags`, which the server derives from the body of an item.
 pub const USER_VALUE_TYPES: [&str; 6] = ["text", "number", "checkbox", "date", "datetime", "bounds"];
 
+/// The start of the keys of the card groups on an atlas page. Each group is a list of the
+/// ids of its pages under a key of its own, which the frontend names.
+pub const ATLAS_GROUP_PREFIX: &str = "atlas_group_";
+
+pub fn is_atlas_group_key(key: &str) -> bool {
+    key.len() > ATLAS_GROUP_PREFIX.len() && key.starts_with(ATLAS_GROUP_PREFIX)
+}
+
 /// A property definition: the key, its value type and who may use it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PropertyDefinition {
@@ -281,17 +289,44 @@ impl PropertyRepository {
 
     /// Replaces all tag entries of a target with the given tags.
     pub fn sync_tags(&self, target_type: &str, target_id: &str, new_tags: &[String]) -> AppResult<()> {
+        self.replace_list(target_type, target_id, "tags", new_tags)
+    }
+
+    /// Replaces the ids of a card group on an atlas page. The key gets a system definition
+    /// of its own, as every value must have one. A system key stays out of the user's
+    /// hands, and the settings leave group keys out of their list.
+    pub fn sync_atlas_group(&self, page_id: &str, key: &str, ids: &[String]) -> AppResult<()> {
+        validate_key(key)?;
+        self.db.conn()?.execute(
+            "INSERT OR IGNORE INTO property_definitions (key, value_type, is_system, for_page) VALUES (?, 'list', 1, 1)",
+            params![key],
+        )?;
+        self.replace_list("page", page_id, key, ids)
+    }
+
+    /// Drops the definition of a card group that no page holds any more, so the definitions
+    /// do not pile up as groups come and go.
+    pub fn delete_unused_atlas_group(&self, key: &str) -> AppResult<()> {
+        self.db.conn()?.execute(
+            "DELETE FROM property_definitions WHERE key = ?1 \
+             AND NOT EXISTS (SELECT 1 FROM property_list_items WHERE key = ?1)",
+            params![key],
+        )?;
+        Ok(())
+    }
+
+    fn replace_list(&self, target_type: &str, target_id: &str, key: &str, values: &[String]) -> AppResult<()> {
         let conn = self.db.conn()?;
         conn.execute(
-            "DELETE FROM property_list_items WHERE target_type = ? AND target_id = ? AND key = 'tags'",
-            params![target_type, target_id],
+            "DELETE FROM property_list_items WHERE target_type = ? AND target_id = ? AND key = ?",
+            params![target_type, target_id, key],
         )?;
-        if !new_tags.is_empty() {
+        if !values.is_empty() {
             let mut stmt = conn.prepare(
-                "INSERT INTO property_list_items (target_type, target_id, key, sort_order, value) VALUES (?, ?, 'tags', ?, ?)",
+                "INSERT INTO property_list_items (target_type, target_id, key, sort_order, value) VALUES (?, ?, ?, ?, ?)",
             )?;
-            for (i, tag) in new_tags.iter().enumerate() {
-                stmt.execute(params![target_type, target_id, i as i64, tag])?;
+            for (i, value) in values.iter().enumerate() {
+                stmt.execute(params![target_type, target_id, key, i as i64, value])?;
             }
         }
         Ok(())

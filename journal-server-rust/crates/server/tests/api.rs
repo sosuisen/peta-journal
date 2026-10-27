@@ -1251,6 +1251,38 @@ async fn a_page_takes_its_bounds_on_the_atlas() {
 }
 
 #[tokio::test]
+async fn an_atlas_keeps_a_card_group_as_a_list_of_ids_out_of_the_settings() {
+    let page = new_doc_page("atlas-group").await;
+    let key = format!("atlas_group_{}", nanos());
+    let (status, resp) = put(
+        &format!("/api/pages/{}/properties/{key}", page.id),
+        json!({ "valueType": "list", "value": "id-b, id-a" }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+    // The order is kept, and no tag is made of an id
+    assert_eq!(resp["page"]["properties"][&key], json!(["id-b", "id-a"]));
+    assert!(resp["page"]["properties"].get("tags").is_none(), "{resp}");
+    wait_until("the group is written as a list", || {
+        read(&file_of(&page)).contains(&format!("{key}:\n  - id-b\n  - id-a\n"))
+    })
+    .await;
+
+    let (_, resp) = get("/api/config/property-definitions").await;
+    assert!(definition(&resp, &key).is_none(), "{resp}");
+    assert!(resp["propertyDefinitions"].get(&key).is_none(), "{resp}");
+
+    let (status, resp) = send(
+        reqwest::Method::DELETE,
+        &format!("/api/pages/{}/properties/{key}", page.id),
+        None,
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+    assert!(resp["page"]["properties"].get(&key).is_none(), "{resp}");
+}
+
+#[tokio::test]
 async fn a_value_is_checked_by_the_type_of_its_definition_not_the_type_sent() {
     let page = new_doc_page("defined-type").await;
     let (status, resp) = put(

@@ -17,7 +17,7 @@ use crate::error::{AppError, AppResult};
 use crate::infrastructure::export::export_queue_repository::ExportQueueRepository;
 use crate::infrastructure::export::export_service::MarkdownExportService;
 use crate::infrastructure::persistence::db::now_millis;
-use crate::infrastructure::persistence::property_repository::{ListProps, ScalarProps};
+use crate::infrastructure::persistence::property_repository::{is_atlas_group_key, ListProps, ScalarProps};
 use crate::infrastructure::persistence::{ItemRepository, PageRepository, PropertyRepository};
 
 const PAGE_TARGET: &str = "page";
@@ -328,6 +328,15 @@ impl PageService {
             self.export.queue_export(&page.id);
             return Ok(updated);
         }
+        if is_atlas_group_key(key) {
+            let ids: Vec<String> = value
+                .split(',')
+                .map(|id| id.trim().to_string())
+                .filter(|id| !id.is_empty())
+                .collect();
+            self.properties.sync_atlas_group(page_id.as_str(), key, &ids)?;
+            return self.touch_and_export(&page);
+        }
         match self.properties.find_definition(key)? {
             Some(def) if !def.page => {
                 return Err(AppError::bad_request(format!("Property '{key}' cannot be set on a page")));
@@ -477,6 +486,9 @@ impl PageService {
             Vec::new()
         };
         self.properties.delete_property(PAGE_TARGET, page_id.as_str(), key)?;
+        if is_atlas_group_key(key) {
+            self.properties.delete_unused_atlas_group(key)?;
+        }
         self.delete_unused_tag_pages(&before);
         self.touch_and_export(&page)
     }
