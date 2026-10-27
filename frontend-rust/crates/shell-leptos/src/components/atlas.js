@@ -8,9 +8,10 @@
 // the cards. A drag with the left button on the area of a group moves all its cards. A right
 // click on a group opens its menu, whose dialog gives the group a title. A double click on
 // the group opens that dialog too. A right click between the cards and the groups adds a
-// callout there: a character with a speech bubble beside it.
-// A callout is selected, dragged and scaled as a card is, but joins no group. A double click
-// on it, or its menu, opens its dialog.
+// callout there: a character with a speech bubble beside it. The same menu adds a link card,
+// a card for any page, which the core keeps as a wiki link in the atlas page.
+// A callout or a link card is selected, dragged and scaled as a card is, but joins no group.
+// A double click on a callout or a link card, or its menu, opens its dialog.
 // The menus and the dialog are made with @pixi/ui, the global `PIXI.ui` of vendor/pixi-ui.js.
 // The wheel scales that container around the point under the pointer. With Ctrl, it scales
 // the selected cards instead, each around its own center.
@@ -88,6 +89,11 @@ const BUBBLE_GAP = 6;
 // points of that line are
 const BUBBLE_WOBBLE = 1.2;
 const BUBBLE_STEP = 8;
+// The label of a link card, in the color of a link
+const LINK_LABEL_COLOR = 0x1d4ed8;
+// The page names offered under the input of the dialog of a link, and the height of each row
+const LINK_ROWS = 8;
+const LINK_ROW_HEIGHT = 26;
 // The handwritten font of the group titles, copied to the root of the site by index.html.
 // From the root: a relative path would be read from the folder of the page.
 const TITLE_FONT = '851 Tegaki Zatsu';
@@ -116,6 +122,7 @@ window.AtlasCanvas = class AtlasCanvas {
     this.selected = new Set();
     this.data = [];
     this.calloutList = [];
+    this.linkList = [];
     this.destroyed = false;
     this.app = new PIXI.Application();
     this.ready = this.app
@@ -136,10 +143,12 @@ window.AtlasCanvas = class AtlasCanvas {
         host.appendChild(this.app.canvas);
         this.world = new PIXI.Container();
         this.cards = new PIXI.Container();
-        // The outlines of the groups lie behind the cards, the callouts above them
+        // The outlines of the groups lie behind the cards, the link cards and the callouts above
+        // them
         this.groups = new PIXI.Container();
+        this.links = new PIXI.Container();
         this.callouts = new PIXI.Container();
-        this.world.addChild(cross(), this.groups, this.cards, this.callouts);
+        this.world.addChild(cross(), this.groups, this.cards, this.links, this.callouts);
         // The menu and the dialog, in pixels of the screen above the scaled view
         this.overlay = new PIXI.Container();
         this.app.stage.addChild(this.world, this.overlay);
@@ -151,6 +160,7 @@ window.AtlasCanvas = class AtlasCanvas {
         this.listenForHand();
         this.center();
         this.build();
+        this.buildLinks();
         this.buildCallouts();
         this.loadTitleFont();
       });
@@ -217,8 +227,8 @@ window.AtlasCanvas = class AtlasCanvas {
       view.cardData.width = view.cardWidth * scale;
       view.cardData.height = view.cardHeight * scale;
     }
-    const callouts = this.callouts.children.filter(v => this.selected.has(v.calloutData.key));
-    for (const view of callouts) {
+    const extras = this.extras().filter(v => this.selected.has(v.extraId));
+    for (const view of extras) {
       view.scale.set(Math.max(MIN_CARD_SCALE, view.scale.x * factor));
     }
     // Not a drag: the outlines of the groups of these cards only, with no frame shown
@@ -231,10 +241,8 @@ window.AtlasCanvas = class AtlasCanvas {
           this.onScale(view.cardData.id, view.scale.x);
         }
       }
-      if (this.onScaleCallout) {
-        for (const view of callouts) {
-          this.onScaleCallout(view.calloutData.key, view.scale.x);
-        }
+      for (const view of extras) {
+        view.saveScale(view.scale.x);
       }
     }, SHARPEN_DELAY);
   }
@@ -260,10 +268,10 @@ window.AtlasCanvas = class AtlasCanvas {
         view.cardLabel.resolution = resolution;
       }
     }
-    for (const view of this.callouts.children) {
+    for (const view of this.extras()) {
       const resolution = this.textResolution(view.scale.x);
-      if (view.calloutText.resolution !== resolution) {
-        view.calloutText.resolution = resolution;
+      if (view.extraLabel.resolution !== resolution) {
+        view.extraLabel.resolution = resolution;
       }
     }
     const resolution = this.textResolution();
@@ -285,7 +293,7 @@ window.AtlasCanvas = class AtlasCanvas {
     // The left button on a card drags the card, on a group its cards; elsewhere it moves the
     // view
     const card = cardOf(e.target);
-    if (e.button === 0 && calloutOf(e.target)) {
+    if (e.button === 0 && extraOf(e.target)) {
       return;
     }
     if (e.button === 0 && !card && e.target?.groupArea && !this.panning && !this.groupDrag) {
@@ -302,10 +310,10 @@ window.AtlasCanvas = class AtlasCanvas {
       origin: { x: this.pan.x, y: this.pan.y },
       moved: false,
       // A right click that does not move opens the menu of this card, of this group, of this
-      // callout, or else of the canvas at this point
+      // callout or link card, or else of the canvas at this point
       card,
       area: e.target?.groupArea ? e.target : null,
-      callout: calloutOf(e.target),
+      extra: extraOf(e.target),
       point: this.world.toLocal(e.global),
     };
     this.showHand();
@@ -348,15 +356,32 @@ window.AtlasCanvas = class AtlasCanvas {
       this.keepView();
     } else if (panning.button === 2 && panning.card) {
       this.onMenu(panning.card.cardData.id, e.clientX, e.clientY);
-    } else if (panning.button === 2 && panning.callout && !panning.callout.destroyed) {
-      const data = panning.callout.calloutData;
-      this.openMenu('Edit Callout', e.global.x, e.global.y, () => this.openCalloutDialog(data));
+    } else if (panning.button === 2 && panning.extra?.calloutData && !panning.extra.destroyed) {
+      const data = panning.extra.calloutData;
+      this.openMenu([['Edit Callout', () => this.openCalloutDialog(data)]], e.global.x, e.global.y);
+    } else if (panning.button === 2 && panning.extra?.linkData && !panning.extra.destroyed) {
+      const data = panning.extra.linkData;
+      this.openMenu(
+        [
+          ['Edit Link', () => this.openLinkDialog(data)],
+          ['Remove Link', () => this.onRemoveLink?.(data.id)],
+        ],
+        e.global.x,
+        e.global.y,
+      );
     } else if (panning.button === 2 && panning.area && !panning.area.destroyed) {
       const group = panning.area.label;
-      this.openMenu('Edit Title', e.global.x, e.global.y, () => this.openTitleDialog(group));
+      this.openMenu([['Edit Title', () => this.openTitleDialog(group)]], e.global.x, e.global.y);
     } else if (panning.button === 2) {
       const { x, y } = panning.point;
-      this.openMenu('Add Callout', e.global.x, e.global.y, () => this.openCalloutDialog({ x, y }));
+      this.openMenu(
+        [
+          ['Add Link', () => this.openLinkDialog({ x, y })],
+          ['Add Callout', () => this.openCalloutDialog({ x, y })],
+        ],
+        e.global.x,
+        e.global.y,
+      );
     } else if (panning.button === 0 && !panning.card) {
       // A click between the cards lets go of the selection
       this.select([]);
@@ -376,35 +401,39 @@ window.AtlasCanvas = class AtlasCanvas {
       .catch(e => console.warn('atlas: cannot load the font of the group titles', e));
   }
 
-  // A menu of one item at a point of the screen, for a group, a callout or the canvas
-  openMenu(name, x, y, action) {
+  // A menu at a point of the screen, for a group, a callout, a link card or the canvas. Its items
+  // are [name, action] pairs.
+  openMenu(items, x, y) {
     this.closeMenu();
-    const item = new PIXI.ui.FancyButton({
-      defaultView: new PIXI.Graphics().rect(0, 0, 140, 30).fill(0xffffff),
-      hoverView: new PIXI.Graphics().rect(0, 0, 140, 30).fill(0xf0f0f0),
-      text: uiText(name),
-      // The text at the left, as in the other menus of the app
-      defaultTextAnchor: { x: 0, y: 0.5 },
-      textOffset: { x: -70 + 12, y: 0 },
-    });
-    item.onPress.connect(() => {
-      this.closeMenu();
-      action();
-    });
+    const height = 8 + items.length * 30;
     const menu = new PIXI.Container();
     menu.addChild(
       new PIXI.Graphics()
-        .roundRect(0, 0, 140, 38, 6)
+        .roundRect(0, 0, 140, height, 6)
         .fill(0xffffff)
         .stroke({ color: 0xdddddd, width: 1 }),
-      item,
     );
-    // A button lies with its top left at its position
-    item.position.set(0, 4);
+    items.forEach(([name, action], i) => {
+      const item = new PIXI.ui.FancyButton({
+        defaultView: new PIXI.Graphics().rect(0, 0, 140, 30).fill(0xffffff),
+        hoverView: new PIXI.Graphics().rect(0, 0, 140, 30).fill(0xf0f0f0),
+        text: uiText(name),
+        // The text at the left, as in the other menus of the app
+        defaultTextAnchor: { x: 0, y: 0.5 },
+        textOffset: { x: -70 + 12, y: 0 },
+      });
+      item.onPress.connect(() => {
+        this.closeMenu();
+        action();
+      });
+      // A button lies with its top left at its position
+      item.position.set(0, 4 + i * 30);
+      menu.addChild(item);
+    });
     // Kept on the screen near its right and bottom edges
     menu.position.set(
       Math.min(x, this.app.screen.width - 144),
-      Math.min(y, this.app.screen.height - 42),
+      Math.min(y, this.app.screen.height - height - 4),
     );
     this.menu = menu;
     this.overlay.addChild(menu);
@@ -428,32 +457,61 @@ window.AtlasCanvas = class AtlasCanvas {
   // The dialog of the title of a group: the title and the side of the outline it lies along
   openTitleDialog(group) {
     const data = this.data.find(d => d.group === group);
-    this.openTextDialog('Edit Title', 'Title', data?.groupTitle, data?.groupTitleSide, (side, text) =>
-      this.onGroupTitle?.(group, side, text),
-    );
+    this.openTextDialog({
+      name: 'Edit Title',
+      placeholder: 'Title',
+      text: data?.groupTitle,
+      side: data?.groupTitleSide,
+      done: (side, text) => this.onGroupTitle?.(group, side, text),
+    });
   }
 
   // The dialog of a callout: its text and the side of the character its bubble is on. A
   // callout without a key is a new one at its point.
   openCalloutDialog(callout) {
-    const name = callout.key ? 'Edit Callout' : 'Add Callout';
-    this.openTextDialog(name, 'Text', callout.text, callout.side, (side, text) => {
-      if (callout.key) {
-        this.onCallout?.(callout.key, side, text);
-      } else {
-        this.onAddCallout?.(callout.x, callout.y, side, text);
-      }
+    this.openTextDialog({
+      name: callout.key ? 'Edit Callout' : 'Add Callout',
+      placeholder: 'Text',
+      text: callout.text,
+      side: callout.side,
+      done: (side, text) => {
+        if (callout.key) {
+          this.onCallout?.(callout.key, side, text);
+        } else {
+          this.onAddCallout?.(callout.x, callout.y, side, text);
+        }
+      },
     });
   }
 
-  // A dialog of a text and a side. OK or Enter gives them to `done`; the core takes an empty
-  // text as none. Cancel, Escape and a press beside the dialog leave things as they were.
-  openTextDialog(name, placeholder, text, side, done) {
+  // The dialog of a link card, or of a new one at a point: the page it links to, with the page
+  // names that match what is typed offered under it. A click on a name takes it at once.
+  openLinkDialog(link) {
+    this.openTextDialog({
+      name: link.id ? 'Edit Link' : 'Add Link',
+      placeholder: 'Page',
+      text: link.path,
+      suggest: true,
+      done: (side, target) => {
+        if (link.id) {
+          this.onSetLink?.(link.id, target);
+        } else {
+          this.onAddLink?.(link.x, link.y, target);
+        }
+      },
+    });
+  }
+
+  // A dialog of a text, with a side to pick or with page names to pick from. OK or Enter gives
+  // them to `done(side, text)`; the core takes an empty text as none. Cancel, Escape and a press
+  // beside the dialog leave things as they were.
+  openTextDialog({ name, placeholder, text, side, suggest = false, done }) {
     const sideIndex = Math.max(
       0,
       TITLE_SIDES.findIndex(([s]) => s === side),
     );
     const width = 340;
+    const height = suggest ? 200 + LINK_ROWS * LINK_ROW_HEIGHT - 40 : 200;
     const input = new PIXI.ui.Input({
       bg: new PIXI.Graphics()
         .roundRect(0, 0, width - 60, 32, 4)
@@ -485,10 +543,19 @@ window.AtlasCanvas = class AtlasCanvas {
     });
     sides.y = 48;
     const content = new PIXI.Container();
-    content.addChild(input, sides);
+    content.addChild(input);
+    // The page names, shown by the core through setLinkSuggestions as they are found
+    const rows = new PIXI.Container();
+    rows.y = 40;
+    if (suggest) {
+      content.addChild(rows);
+      input.onChange.connect(value => this.onLinkQuery?.(value));
+    } else {
+      content.addChild(sides);
+    }
     const dialog = new PIXI.ui.Dialog({
       background: new PIXI.Graphics()
-        .roundRect(0, 0, width, 200, 10)
+        .roundRect(0, 0, width, height, 10)
         .fill(0xffffff)
         .stroke({ color: 0xdddddd, width: 1 }),
       backdropColor: 0x000000,
@@ -496,7 +563,7 @@ window.AtlasCanvas = class AtlasCanvas {
       title: uiText(name, 15),
       content,
       width,
-      height: 200,
+      height,
       padding: 20,
       buttons: [dialogButton('Cancel', false), dialogButton('OK', true)],
       closeOnBackdropClick: true,
@@ -515,6 +582,10 @@ window.AtlasCanvas = class AtlasCanvas {
       }
       this.dialog = null;
       window.removeEventListener('keydown', keys, true);
+      if (suggest) {
+        this.showSuggestions = null;
+        this.onLinkQuery?.('');
+      }
       if (ok) {
         done(TITLE_SIDES[sides.selected][0], input.value);
       }
@@ -527,6 +598,20 @@ window.AtlasCanvas = class AtlasCanvas {
       }, 0);
     };
     this.closeDialog = () => finish(false);
+    if (suggest) {
+      this.showSuggestions = titles => {
+        rows.removeChildren().forEach(r => r.destroy({ children: true }));
+        titles.slice(0, LINK_ROWS).forEach((title, i) => {
+          const row = suggestionRow(title, width - 60);
+          row.onPress.connect(() => {
+            input.value = title;
+            finish(true);
+          });
+          row.y = i * LINK_ROW_HEIGHT;
+          rows.addChild(row);
+        });
+      };
+    }
     // Enter is taken only once the text is no longer being composed by an IME
     const keys = e => {
       if (e.key === 'Escape') {
@@ -619,14 +704,25 @@ window.AtlasCanvas = class AtlasCanvas {
     for (const view of this.cards.children) {
       view.cardSelection.visible = this.selected.has(view.cardData.id);
     }
-    for (const view of this.callouts.children) {
-      view.calloutSelection.visible = this.selected.has(view.calloutData.key);
+    for (const view of this.extras()) {
+      view.extraSelection.visible = this.selected.has(view.extraId);
     }
   }
 
-  // A card or a callout taken off the canvas is no longer selected
+  // The views that are no cards of pages: the link cards and the callouts. They are selected,
+  // dragged and scaled as the cards are, but join no group. Each knows its id, its label, its
+  // selection ring, and how a move or a scale of it is saved.
+  extras() {
+    return [...this.links.children, ...this.callouts.children];
+  }
+
+  // A card, a link card or a callout taken off the canvas is no longer selected
   keepSelection() {
-    const ids = new Set([...this.data.map(d => d.id), ...this.calloutList.map(d => d.key)]);
+    const ids = new Set([
+      ...this.data.map(d => d.id),
+      ...this.linkList.map(d => d.id),
+      ...this.calloutList.map(d => d.key),
+    ]);
     this.selected = new Set([...this.selected].filter(id => ids.has(id)));
     this.showSelection();
   }
@@ -639,6 +735,7 @@ window.AtlasCanvas = class AtlasCanvas {
   showHand() {
     this.cards.interactiveChildren = this.panning === null;
     this.groups.interactiveChildren = this.panning === null;
+    this.links.interactiveChildren = this.panning === null;
     this.callouts.interactiveChildren = this.panning === null;
     // A press that has not moved yet may still be a click, so it keeps the plain cursor.
     // Not grab: that is the cursor of a card, which moves the card and not the view.
@@ -719,8 +816,62 @@ window.AtlasCanvas = class AtlasCanvas {
     for (const data of this.calloutList) {
       const scale = data.scale > 0 ? data.scale : 1;
       const view = callout(data, this.textResolution(scale), this.iconResolution() * Math.max(1, scale));
+      view.extraId = data.key;
+      view.extraLabel = view.calloutText;
+      view.extraSelection = view.calloutSelection;
+      view.saveMove = (x, y) => this.onMoveCallout?.(data.key, x, y);
+      view.saveScale = scale => this.onScaleCallout?.(data.key, scale);
       this.makeDraggable(view, data);
       this.callouts.addChild(view);
+    }
+    this.keepSelection();
+  }
+
+  // onAddLink(x, y, target) adds a link card with its center at a point; onSetLink(id, target)
+  // links one to another page; onMoveLink(id, x, y)
+  // moves one; onScaleLink(id, scale) scales one; onRemoveLink(id) takes one away, deleting its
+  // link. onLinkQuery(text) asks for the page names that match what is typed in the dialog of a
+  // link, which come back through setLinkSuggestions; an empty text clears them.
+  setOnLink(onAddLink, onSetLink, onMoveLink, onScaleLink, onRemoveLink, onLinkQuery) {
+    this.onAddLink = onAddLink;
+    this.onSetLink = onSetLink;
+    this.onMoveLink = onMoveLink;
+    this.onScaleLink = onScaleLink;
+    this.onRemoveLink = onRemoveLink;
+    this.onLinkQuery = onLinkQuery;
+  }
+
+  // The page names for the open dialog of a link, as a JSON list of strings
+  setLinkSuggestions(json) {
+    this.showSuggestions?.(JSON.parse(json));
+  }
+
+  // The link cards as JSON, as the cards are, with id the id of the item of the link and path
+  // the page it links to
+  setLinks(json) {
+    this.linkList = JSON.parse(json);
+    if (this.links) {
+      this.buildLinks();
+    }
+  }
+
+  buildLinks() {
+    // A dragged link card is destroyed with the others: a new list wins over the drag
+    if (this.drag?.view.linkData) {
+      this.drag = null;
+    }
+    this.links.removeChildren().forEach(c => c.destroy({ children: true }));
+    for (const data of this.linkList) {
+      const view = card(data, this.textResolution(data.scale), this.iconResolution() * Math.max(1, data.scale));
+      view.position.set(data.x, data.y);
+      view.linkData = data;
+      view.extraId = data.id;
+      view.extraLabel = view.cardLabel;
+      view.extraSelection = view.cardSelection;
+      view.saveMove = (x, y) => this.onMoveLink?.(data.id, x, y);
+      view.saveScale = scale => this.onScaleLink?.(data.id, scale);
+      this.makeDraggable(view, data);
+      this.links.addChild(view);
     }
     this.keepSelection();
   }
@@ -920,14 +1071,14 @@ window.AtlasCanvas = class AtlasCanvas {
     drag.join = join;
   }
 
-  // A drag moves the selected cards and callouts and places them where they are let go. A click
-  // on the label of a card opens the page, in a new tab with Ctrl. A click with Ctrl elsewhere
-  // adds the card or the callout to the selection or takes it out. Only the cards take part in
-  // the groups: a callout joins none.
+  // A drag moves the selected cards, link cards and callouts and places them where they are let
+  // go. A click on the label of a card or a link card opens its page, in a new tab with Ctrl. A
+  // click with Ctrl elsewhere adds it to the selection or takes it out. Only the cards of pages
+  // take part in the groups.
   makeDraggable(view, data) {
-    // A callout is selected by its key, a card by its page
-    const id = view.calloutData ? data.key : data.id;
-    if (!view.calloutData) {
+    // A link card or a callout has an id of its own; a card is selected by its page
+    const id = view.extraId ?? data.id;
+    if (view.extraId === undefined) {
       view.cardData = data;
     }
     view.eventMode = 'static';
@@ -947,21 +1098,21 @@ window.AtlasCanvas = class AtlasCanvas {
       }
       this.showSelection();
       const views = this.cards.children.filter(v => this.selected.has(v.cardData.id));
-      const callouts = this.callouts.children.filter(v => this.selected.has(v.calloutData.key));
+      const extras = this.extras().filter(v => this.selected.has(v.extraId));
       this.drag = {
         view,
         // Plain copies: `global` is reused for the next event
         start: { x: e.global.x, y: e.global.y },
-        // The cards, which the groups follow, apart from the callouts
+        // The cards, which the groups follow, apart from the link cards and the callouts
         origins: views.map(v => ({ view: v, x: v.x, y: v.y })),
-        callouts: callouts.map(v => ({ view: v, x: v.x, y: v.y })),
+        extras: extras.map(v => ({ view: v, x: v.x, y: v.y })),
         moved: false,
         ctrl,
         wasSelected,
         onLabel: Boolean(view.cardLabel) && e.target === view.cardLabel,
       };
       // On top of the others while they move
-      for (const v of [...views, ...callouts]) {
+      for (const v of [...views, ...extras]) {
         v.parent.addChild(v);
       }
     });
@@ -981,10 +1132,10 @@ window.AtlasCanvas = class AtlasCanvas {
       drag.moved = true;
       view.cursor = 'grabbing';
       // The pointer moves in pixels of the screen, the cards in units of the scaled view
-      for (const o of [...drag.origins, ...drag.callouts]) {
+      for (const o of [...drag.origins, ...drag.extras]) {
         o.view.position.set(o.x + dx / this.zoom, o.y + dy / this.zoom);
       }
-      // Callouts alone touch no group
+      // Link cards and callouts alone touch no group
       const ctrl = (e.ctrlKey || e.metaKey) && drag.origins.length > 0;
       this.drawGroups(drag, ctrl);
       drag.ctrlShape = ctrl;
@@ -1014,7 +1165,7 @@ window.AtlasCanvas = class AtlasCanvas {
         // callout. Read before placing any: placing one gives a new list, which destroys these
         // views.
         const places = drag.origins.map(o => [o.view.cardData.id, o.view.x, o.view.y]);
-        const moves = drag.callouts.map(o => [o.view.calloutData.key, o.view.x, o.view.y]);
+        const moves = drag.extras.map(o => [o.view.saveMove, o.view.x, o.view.y]);
         // A card let go on a card joins the group of that card; let go in the area of another
         // group, it joins that group, which any card of it stands for
         const joined = ctrl && drag.join && this.cards.children.find(v => v.cardData.group === drag.join.label);
@@ -1028,8 +1179,8 @@ window.AtlasCanvas = class AtlasCanvas {
         for (const [id, x, y] of places) {
           this.onPlace(id, x, y);
         }
-        for (const [key, x, y] of moves) {
-          this.onMoveCallout?.(key, x, y);
+        for (const [save, x, y] of moves) {
+          save(x, y);
         }
         if (targetId && this.onGroup) {
           this.onGroup(JSON.stringify(places.map(([id]) => id)), targetId);
@@ -1048,14 +1199,19 @@ window.AtlasCanvas = class AtlasCanvas {
       } else if (drag.ctrl && drag.wasSelected) {
         this.selected.delete(id);
         this.showSelection();
-      } else if (view.calloutData && !drag.ctrl) {
-        // A double click on a callout opens its dialog
-        const last = this.lastCalloutClick;
-        if (last && last.key === id && e.timeStamp - last.time < DOUBLE_CLICK_TIME) {
-          this.lastCalloutClick = null;
-          this.openCalloutDialog(data);
+      } else if ((view.calloutData || view.linkData) && !drag.ctrl) {
+        // A double click on a callout or a link card opens its dialog. The label of a link card
+        // opens its page instead, as the label of a card does.
+        const last = this.lastExtraClick;
+        if (last && last.id === id && e.timeStamp - last.time < DOUBLE_CLICK_TIME) {
+          this.lastExtraClick = null;
+          if (view.linkData) {
+            this.openLinkDialog(data);
+          } else {
+            this.openCalloutDialog(data);
+          }
         } else {
-          this.lastCalloutClick = { key: id, time: e.timeStamp };
+          this.lastExtraClick = { id, time: e.timeStamp };
         }
       }
     };
@@ -1127,14 +1283,27 @@ function cardOf(target) {
   return null;
 }
 
-// The callout a press landed on, from its character or its bubble
-function calloutOf(target) {
+// The link card or the callout a press landed on, from any part of it
+function extraOf(target) {
   for (let node = target; node; node = node.parent) {
-    if (node.calloutData) {
+    if (node.extraId !== undefined) {
       return node;
     }
   }
   return null;
+}
+
+// A page name offered in the dialog of a link: a row the width of the input
+function suggestionRow(title, width) {
+  // Cut short, as a row does not wrap
+  const text = Array.from(title).length > 44 ? `${Array.from(title).slice(0, 43).join('')}…` : title;
+  return new PIXI.ui.FancyButton({
+    defaultView: new PIXI.Graphics().roundRect(0, 0, width, LINK_ROW_HEIGHT - 2, 4).fill(0xffffff),
+    hoverView: new PIXI.Graphics().roundRect(0, 0, width, LINK_ROW_HEIGHT - 2, 4).fill(0xe8f0fe),
+    text: uiText(text),
+    defaultTextAnchor: { x: 0, y: 0.5 },
+    textOffset: { x: -width / 2 + 8, y: 0 },
+  });
 }
 
 // Whether a display object lies inside a container
@@ -1536,7 +1705,7 @@ function cross() {
 // width it takes on the canvas is written back into the data, which the outlines of the
 // groups read.
 function card(data, resolution, iconResolution) {
-  const { label, icon, blob, iconSize, iconDrawSize } = data;
+  const { label, icon, blob, iconSize, iconDrawSize, isLink } = data;
   const scale = data.scale > 0 ? data.scale : 1;
   const height = data.height / scale;
   const setWidth = data.width > 0 ? data.width / scale : null;
@@ -1546,7 +1715,7 @@ function card(data, resolution, iconResolution) {
     style: {
       fontFamily: getComputedStyle(document.body).fontFamily,
       fontSize: 13,
-      fill: 0x222222,
+      fill: isLink ? LINK_LABEL_COLOR : 0x222222,
       // A white edge keeps the label readable over the icon and the groups behind it. The
       // padding keeps the edge from being cut off at the sides of the text.
       stroke: { color: 0xffffff, width: 3, join: 'round' },

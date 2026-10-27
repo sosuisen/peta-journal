@@ -59,7 +59,10 @@ fn an_atlas_page_is_titled_by_its_directory() {
 
 fn index_with_atlas() -> Harness {
     let mut h = showing(doc("a/b/", "index"));
-    h.api.answer_next("GetChildPages", Ok(ApiOutput::Pages(vec![doc("a/b/", ATLAS_NAME)])));
+    h.api.answer_next(
+        "GetChildPages",
+        Ok(ApiOutput::Pages(vec![doc("a/b/", ATLAS_NAME)])),
+    );
     h
 }
 
@@ -124,9 +127,12 @@ fn upserts(h: &Harness) -> Vec<(String, String, String)> {
         .calls_named("UpsertPageProperty")
         .into_iter()
         .map(|op| match op {
-            ApiOp::UpsertPageProperty { page_id, key, value, .. } => {
-                (page_id.clone(), key.clone(), value.clone())
-            }
+            ApiOp::UpsertPageProperty {
+                page_id,
+                key,
+                value,
+                ..
+            } => (page_id.clone(), key.clone(), value.clone()),
             _ => unreachable!(),
         })
         .collect()
@@ -142,12 +148,26 @@ fn bounds_of(h: &Harness, page_id: &str) -> Option<Bounds> {
 
 #[test]
 fn a_page_without_bounds_waits_unplaced_and_a_page_with_them_lies_on_the_canvas() {
-    let h = atlas_with(vec![child("one", None), child("two", Some("-80,-28,160,56"))]);
+    let h = atlas_with(vec![
+        child("one", None),
+        child("two", Some("-80,-28,160,56")),
+    ]);
 
     let cards = h.view().atlas_cards;
-    assert_eq!(cards.iter().map(|c| c.label.as_str()).collect::<Vec<_>>(), vec!["one", "two"]);
+    assert_eq!(
+        cards.iter().map(|c| c.label.as_str()).collect::<Vec<_>>(),
+        vec!["one", "two"]
+    );
     assert_eq!(cards[0].bounds, None);
-    assert_eq!(cards[1].bounds, Some(Bounds { x: -80.0, y: -28.0, width: 160.0, height: 56.0 }));
+    assert_eq!(
+        cards[1].bounds,
+        Some(Bounds {
+            x: -80.0,
+            y: -28.0,
+            width: 160.0,
+            height: 56.0
+        })
+    );
 }
 
 #[test]
@@ -155,7 +175,10 @@ fn a_folder_card_opens_the_atlas_of_the_folder_and_a_page_card_the_page() {
     let h = atlas_with(vec![doc("a/b/c/", "index"), child("one", None)]);
 
     let cards = h.view().atlas_cards;
-    assert_eq!(cards.iter().map(|c| c.path.as_str()).collect::<Vec<_>>(), vec!["a/b/c/index_atlas", "a/b/one"]);
+    assert_eq!(
+        cards.iter().map(|c| c.path.as_str()).collect::<Vec<_>>(),
+        vec!["a/b/c/index_atlas", "a/b/one"]
+    );
 }
 
 #[test]
@@ -170,26 +193,51 @@ fn only_an_atlas_page_has_cards() {
 fn bounds_that_are_not_four_numbers_leave_the_card_unplaced() {
     assert_eq!(Bounds::parse("1,2,3"), None);
     assert_eq!(Bounds::parse("1,2,x,4"), None);
-    assert_eq!(Bounds::parse(" 1, 2.5,3 ,4 "), Some(Bounds { x: 1.0, y: 2.5, width: 3.0, height: 4.0 }));
+    assert_eq!(
+        Bounds::parse(" 1, 2.5,3 ,4 "),
+        Some(Bounds {
+            x: 1.0,
+            y: 2.5,
+            width: 3.0,
+            height: 4.0
+        })
+    );
 }
 
 #[test]
 fn a_dropped_card_takes_the_label_width_and_scale_1_with_its_center_at_the_given_point() {
     let mut h = atlas_with(vec![child("one", None)]);
-    h.send(Event::PlaceAtlasCard { page_id: "a/b/one".into(), x: 10.4, y: -20.0 });
+    h.send(Event::PlaceAtlasCard {
+        page_id: "a/b/one".into(),
+        x: 10.4,
+        y: -20.0,
+    });
 
-    let expected = Bounds { x: 10.0, y: -20.0, width: 0.0, height: 40.0 };
+    let expected = Bounds {
+        x: 10.0,
+        y: -20.0,
+        width: 0.0,
+        height: 40.0,
+    };
     assert_eq!(bounds_of(&h, "a/b/one"), Some(expected));
     assert_eq!(
         upserts(&h),
-        vec![("a/b/one".into(), "atlas_bounds".into(), "10,-20,0,40".into())]
+        vec![(
+            "a/b/one".into(),
+            "atlas_bounds".into(),
+            "10,-20,0,40".into()
+        )]
     );
 }
 
 #[test]
 fn a_placed_card_keeps_its_size_when_it_moves() {
     let mut h = atlas_with(vec![child("one", Some("0,0,200,100"))]);
-    h.send(Event::PlaceAtlasCard { page_id: "a/b/one".into(), x: 0.0, y: 0.0 });
+    h.send(Event::PlaceAtlasCard {
+        page_id: "a/b/one".into(),
+        x: 0.0,
+        y: 0.0,
+    });
 
     assert_eq!(upserts(&h)[0].2, "0,0,200,100");
 }
@@ -197,7 +245,10 @@ fn a_placed_card_keeps_its_size_when_it_moves() {
 #[test]
 fn a_scaled_card_keeps_its_place_and_stores_its_scale_as_its_height() {
     let mut h = atlas_with(vec![child("one", Some("10,-20,0,40"))]);
-    h.send(Event::ScaleAtlasCard { page_id: "a/b/one".into(), scale: 1.5 });
+    h.send(Event::ScaleAtlasCard {
+        page_id: "a/b/one".into(),
+        scale: 1.5,
+    });
 
     // A width of 0 stays 0: the label still sets it
     assert_eq!(upserts(&h)[0].2, "10,-20,0,60");
@@ -207,16 +258,28 @@ fn a_scaled_card_keeps_its_place_and_stores_its_scale_as_its_height() {
 #[test]
 fn a_scaled_card_leaves_its_width_to_the_label() {
     let mut h = atlas_with(vec![child("one", Some("0,0,200,80"))]);
-    h.send(Event::ScaleAtlasCard { page_id: "a/b/one".into(), scale: 1.0 });
+    h.send(Event::ScaleAtlasCard {
+        page_id: "a/b/one".into(),
+        scale: 1.0,
+    });
 
     assert_eq!(upserts(&h)[0].2, "0,0,0,40");
 }
 
 #[test]
 fn a_card_shrinks_no_smaller_than_half_and_grows_without_limit() {
-    let mut h = atlas_with(vec![child("one", Some("0,0,0,40")), child("two", Some("0,0,0,40"))]);
-    h.send(Event::ScaleAtlasCard { page_id: "a/b/one".into(), scale: 0.1 });
-    h.send(Event::ScaleAtlasCard { page_id: "a/b/two".into(), scale: 10.0 });
+    let mut h = atlas_with(vec![
+        child("one", Some("0,0,0,40")),
+        child("two", Some("0,0,0,40")),
+    ]);
+    h.send(Event::ScaleAtlasCard {
+        page_id: "a/b/one".into(),
+        scale: 0.1,
+    });
+    h.send(Event::ScaleAtlasCard {
+        page_id: "a/b/two".into(),
+        scale: 10.0,
+    });
 
     let saved: Vec<String> = upserts(&h).into_iter().map(|u| u.2).collect();
     assert_eq!(saved, ["0,0,0,20", "0,0,0,400"]);
@@ -225,8 +288,14 @@ fn a_card_shrinks_no_smaller_than_half_and_grows_without_limit() {
 #[test]
 fn an_unplaced_or_unchanged_card_is_not_scaled() {
     let mut h = atlas_with(vec![child("one", None), child("two", Some("0,0,0,40"))]);
-    h.send(Event::ScaleAtlasCard { page_id: "a/b/one".into(), scale: 2.0 });
-    h.send(Event::ScaleAtlasCard { page_id: "a/b/two".into(), scale: 1.0 });
+    h.send(Event::ScaleAtlasCard {
+        page_id: "a/b/one".into(),
+        scale: 2.0,
+    });
+    h.send(Event::ScaleAtlasCard {
+        page_id: "a/b/two".into(),
+        scale: 1.0,
+    });
 
     assert!(upserts(&h).is_empty());
 }
@@ -235,7 +304,11 @@ fn an_unplaced_or_unchanged_card_is_not_scaled() {
 fn a_refused_place_puts_the_card_back() {
     let mut h = atlas_with(vec![child("one", None)]);
     h.api.fail_next("UpsertPageProperty", "refused");
-    h.send(Event::PlaceAtlasCard { page_id: "a/b/one".into(), x: 0.0, y: 0.0 });
+    h.send(Event::PlaceAtlasCard {
+        page_id: "a/b/one".into(),
+        x: 0.0,
+        y: 0.0,
+    });
 
     assert_eq!(bounds_of(&h, "a/b/one"), None);
     assert!(h.ui.iter().any(|op| matches!(op, UiOp::Alert(_))));
@@ -244,7 +317,9 @@ fn a_refused_place_puts_the_card_back() {
 #[test]
 fn a_removed_card_loses_its_bounds_and_waits_unplaced_again() {
     let mut h = atlas_with(vec![child("one", Some("0,0,120,40"))]);
-    h.send(Event::RemoveAtlasCard { page_id: "a/b/one".into() });
+    h.send(Event::RemoveAtlasCard {
+        page_id: "a/b/one".into(),
+    });
 
     assert_eq!(bounds_of(&h, "a/b/one"), None);
     let deleted: Vec<_> = h
@@ -256,16 +331,29 @@ fn a_removed_card_loses_its_bounds_and_waits_unplaced_again() {
             _ => unreachable!(),
         })
         .collect();
-    assert_eq!(deleted, vec![("a/b/one".to_string(), "atlas_bounds".to_string())]);
+    assert_eq!(
+        deleted,
+        vec![("a/b/one".to_string(), "atlas_bounds".to_string())]
+    );
 }
 
 #[test]
 fn a_refused_remove_puts_the_card_back_on_the_canvas() {
     let mut h = atlas_with(vec![child("one", Some("0,0,120,40"))]);
     h.api.fail_next("DeletePageProperty", "refused");
-    h.send(Event::RemoveAtlasCard { page_id: "a/b/one".into() });
+    h.send(Event::RemoveAtlasCard {
+        page_id: "a/b/one".into(),
+    });
 
-    assert_eq!(bounds_of(&h, "a/b/one"), Some(Bounds { x: 0.0, y: 0.0, width: 120.0, height: 40.0 }));
+    assert_eq!(
+        bounds_of(&h, "a/b/one"),
+        Some(Bounds {
+            x: 0.0,
+            y: 0.0,
+            width: 120.0,
+            height: 40.0
+        })
+    );
     assert!(h.ui.iter().any(|op| matches!(op, UiOp::Alert(_))));
 }
 
@@ -297,13 +385,20 @@ fn the_root_atlas_has_no_directory_above() {
 
 fn visit(h: &mut Harness, name: &str) {
     h.send(Event::Route {
-        route: crate::app::Route::Page { name: name.into(), fragment: None },
+        route: crate::app::Route::Page {
+            name: name.into(),
+            fragment: None,
+        },
         today: "2031-01-05".into(),
     });
 }
 
 fn go_to(h: &mut Harness, path: &str) -> String {
-    h.send(Event::GoToPage { path: path.into(), new_tab: false, new_window: false });
+    h.send(Event::GoToPage {
+        path: path.into(),
+        new_tab: false,
+        new_window: false,
+    });
     h.navigations.last().unwrap().url.clone()
 }
 
@@ -357,9 +452,15 @@ fn the_map_button_still_goes_back_to_the_index_page() {
 fn the_folders_seen_as_maps_are_kept_by_the_shell_and_restored() {
     let mut h = Harness::new();
     visit(&mut h, "a/b/index_atlas");
-    assert!(h.ui.iter().any(|op| matches!(op, UiOp::SaveAtlasDirs(dirs) if dirs == &vec!["a/b/".to_string()])));
+    assert!(h
+        .ui
+        .iter()
+        .any(|op| matches!(op, UiOp::SaveAtlasDirs(dirs) if dirs == &vec!["a/b/".to_string()])));
     visit(&mut h, "a/b/index");
-    assert!(h.ui.iter().any(|op| matches!(op, UiOp::SaveAtlasDirs(dirs) if dirs.is_empty())));
+    assert!(h
+        .ui
+        .iter()
+        .any(|op| matches!(op, UiOp::SaveAtlasDirs(dirs) if dirs.is_empty())));
 
     let mut h = Harness::new();
     h.send(Event::AtlasDirsRestored(vec!["a/b/".into()]));
@@ -369,7 +470,9 @@ fn the_folders_seen_as_maps_are_kept_by_the_shell_and_restored() {
 fn atlas_with_groups(groups: &[(&str, &[&str])]) -> Harness {
     let mut atlas = doc("a/b/", ATLAS_NAME);
     for (key, ids) in groups {
-        atlas.properties.insert((*key).into(), serde_json::json!(ids));
+        atlas
+            .properties
+            .insert((*key).into(), serde_json::json!(ids));
     }
     showing(atlas)
 }
@@ -401,7 +504,10 @@ fn a_card_dropped_on_a_card_without_a_group_makes_a_new_group_of_the_two() {
     assert_eq!(saved.len(), 1, "{saved:?}");
     let (page_id, key, value) = &saved[0];
     assert_eq!(page_id, "a/b/index_atlas");
-    assert!(key.starts_with("atlas_group_") && key.len() == "atlas_group_".len() + 8, "{key}");
+    assert!(
+        key.starts_with("atlas_group_") && key.len() == "atlas_group_".len() + 8,
+        "{key}"
+    );
     assert_eq!(value, "a/b/two,a/b/one");
 }
 
@@ -412,7 +518,11 @@ fn a_card_dropped_on_a_grouped_card_joins_its_group() {
 
     assert_eq!(
         upserts(&h),
-        [("a/b/index_atlas".into(), "atlas_group_g".into(), "a/b/two,a/b/three,a/b/one".into())]
+        [(
+            "a/b/index_atlas".into(),
+            "atlas_group_g".into(),
+            "a/b/two,a/b/three,a/b/one".into()
+        )]
     );
 }
 
@@ -428,9 +538,20 @@ fn a_card_leaves_its_old_group_which_goes_when_one_card_is_left() {
 
     assert_eq!(deletes(&h), ["atlas_group_old"]);
     let saved = upserts(&h);
-    assert!(saved.contains(&("a/b/index_atlas".into(), "atlas_group_big".into(), "a/b/y,a/b/z".into())), "{saved:?}");
     assert!(
-        saved.contains(&("a/b/index_atlas".into(), "atlas_group_new".into(), "a/b/two,a/b/three,a/b/one".into())),
+        saved.contains(&(
+            "a/b/index_atlas".into(),
+            "atlas_group_big".into(),
+            "a/b/y,a/b/z".into()
+        )),
+        "{saved:?}"
+    );
+    assert!(
+        saved.contains(&(
+            "a/b/index_atlas".into(),
+            "atlas_group_new".into(),
+            "a/b/two,a/b/three,a/b/one".into()
+        )),
         "{saved:?}"
     );
 }
@@ -449,17 +570,28 @@ fn a_refused_group_puts_the_groups_back() {
     h.api.fail_next("UpsertPageProperty", "refused");
     group(&mut h, &["a/b/one"], "a/b/two");
 
-    let atlas = crate::screens::page::page_state(&h.model).and_then(|ps| ps.page.clone()).unwrap();
-    assert_eq!(atlas.properties["atlas_group_g"], serde_json::json!(["a/b/two", "a/b/three"]));
+    let atlas = crate::screens::page::page_state(&h.model)
+        .and_then(|ps| ps.page.clone())
+        .unwrap();
+    assert_eq!(
+        atlas.properties["atlas_group_g"],
+        serde_json::json!(["a/b/two", "a/b/three"])
+    );
     assert!(h.ui.iter().any(|op| matches!(op, UiOp::Alert(_))));
 }
 
 #[test]
 fn a_card_knows_the_group_it_belongs_to() {
     let mut h = atlas_with_groups(&[("atlas_group_g", &["a/b/one", "a/b/two"])]);
-    h.model.sidebar.index_pages = vec![child("one", None), child("two", None), child("three", None)];
+    h.model.sidebar.index_pages =
+        vec![child("one", None), child("two", None), child("three", None)];
 
-    let groups: Vec<_> = h.view().atlas_cards.into_iter().map(|c| (c.page_id, c.group)).collect();
+    let groups: Vec<_> = h
+        .view()
+        .atlas_cards
+        .into_iter()
+        .map(|c| (c.page_id, c.group))
+        .collect();
     assert_eq!(
         groups,
         [
@@ -479,7 +611,9 @@ fn file_changed(h: &mut Harness, page_id: &str, source: &str) {
 fn served_atlas(groups: &[(&str, &[&str])]) -> ApiResult<ApiOutput> {
     let mut atlas = doc("a/b/", ATLAS_NAME);
     for (key, ids) in groups {
-        atlas.properties.insert((*key).into(), serde_json::json!(ids));
+        atlas
+            .properties
+            .insert((*key).into(), serde_json::json!(ids));
     }
     Ok(ApiOutput::Page(crate::model::PageWithItems {
         page: atlas,
@@ -490,12 +624,24 @@ fn served_atlas(groups: &[(&str, &[&str])]) -> ApiResult<ApiOutput> {
 #[test]
 fn the_shown_atlas_takes_the_groups_of_its_file_changed_on_disk() {
     let mut h = atlas_with_groups(&[("atlas_group_g", &["a/b/one", "a/b/two"])]);
-    h.api.answer_next("GetPageById", served_atlas(&[("atlas_group_h", &["a/b/two", "a/b/three"])]));
+    h.api.answer_next(
+        "GetPageById",
+        served_atlas(&[("atlas_group_h", &["a/b/two", "a/b/three"])]),
+    );
     file_changed(&mut h, "a/b/index_atlas", "file");
 
-    let atlas = crate::screens::page::page_state(&h.model).and_then(|ps| ps.page.clone()).unwrap();
-    assert!(atlas.properties.get("atlas_group_g").is_none(), "{:?}", atlas.properties);
-    assert_eq!(atlas.properties["atlas_group_h"], serde_json::json!(["a/b/two", "a/b/three"]));
+    let atlas = crate::screens::page::page_state(&h.model)
+        .and_then(|ps| ps.page.clone())
+        .unwrap();
+    assert!(
+        atlas.properties.get("atlas_group_g").is_none(),
+        "{:?}",
+        atlas.properties
+    );
+    assert_eq!(
+        atlas.properties["atlas_group_h"],
+        serde_json::json!(["a/b/two", "a/b/three"])
+    );
 }
 
 #[test]
@@ -520,7 +666,11 @@ fn a_card_dragged_out_of_its_group_leaves_it() {
 
     assert_eq!(
         upserts(&h),
-        [("a/b/index_atlas".to_string(), "atlas_group_g".to_string(), "a/b/one,a/b/three".to_string())]
+        [(
+            "a/b/index_atlas".to_string(),
+            "atlas_group_g".to_string(),
+            "a/b/one,a/b/three".to_string()
+        )]
     );
     assert!(deletes(&h).is_empty());
 }
@@ -531,7 +681,9 @@ fn a_group_left_with_one_card_goes() {
     ungroup(&mut h, &["a/b/one"]);
 
     assert_eq!(deletes(&h), ["atlas_group_g"]);
-    let atlas = crate::screens::page::page_state(&h.model).and_then(|ps| ps.page.clone()).unwrap();
+    let atlas = crate::screens::page::page_state(&h.model)
+        .and_then(|ps| ps.page.clone())
+        .unwrap();
     assert!(atlas.properties.get("atlas_group_g").is_none());
 }
 
@@ -550,8 +702,13 @@ fn a_refused_ungroup_puts_the_group_back() {
     h.api.fail_next("DeletePageProperty", "refused");
     ungroup(&mut h, &["a/b/one"]);
 
-    let atlas = crate::screens::page::page_state(&h.model).and_then(|ps| ps.page.clone()).unwrap();
-    assert_eq!(atlas.properties["atlas_group_g"], serde_json::json!(["a/b/one", "a/b/two"]));
+    let atlas = crate::screens::page::page_state(&h.model)
+        .and_then(|ps| ps.page.clone())
+        .unwrap();
+    assert_eq!(
+        atlas.properties["atlas_group_g"],
+        serde_json::json!(["a/b/one", "a/b/two"])
+    );
 }
 
 #[test]
@@ -563,7 +720,9 @@ fn the_hash_at_the_end_of_a_group_key_picks_one_of_the_six_colors() {
     // Wraps around the six
     assert_eq!(group_color("atlas_group_00000006"), "#F9A2A2");
     // A key without a hash is hashed, and still gets a color of the six
-    let six = ["#F9A2A2", "#B5B5FF", "#94D094", "#E1A6E1", "#5FD3D3", "#C3C372"];
+    let six = [
+        "#F9A2A2", "#B5B5FF", "#94D094", "#E1A6E1", "#5FD3D3", "#C3C372",
+    ];
     assert!(six.contains(&group_color("atlas_group_by-hand").as_str()));
 }
 
@@ -572,10 +731,18 @@ fn a_card_in_a_group_has_the_color_of_its_group() {
     let mut h = atlas_with_groups(&[("atlas_group_00000001", &["a/b/one", "a/b/two"])]);
     h.model.sidebar.index_pages = vec![child("one", None), child("three", None)];
 
-    let colors: Vec<_> = h.view().atlas_cards.into_iter().map(|c| (c.page_id, c.group_color)).collect();
+    let colors: Vec<_> = h
+        .view()
+        .atlas_cards
+        .into_iter()
+        .map(|c| (c.page_id, c.group_color))
+        .collect();
     assert_eq!(
         colors,
-        [("a/b/one".to_string(), Some("#B5B5FF".to_string())), ("a/b/three".to_string(), None)]
+        [
+            ("a/b/one".to_string(), Some("#B5B5FF".to_string())),
+            ("a/b/three".to_string(), None)
+        ]
     );
 }
 
@@ -584,7 +751,8 @@ fn a_card_draws_its_icon_from_the_tags_of_its_page() {
     use crate::screens::atlas::icon_tags;
     let mut page = doc("notes/", "post");
     assert!(icon_tags(&page, "tags/").is_empty());
-    page.properties.insert("tags".into(), serde_json::json!(["cardbox", "card"]));
+    page.properties
+        .insert("tags".into(), serde_json::json!(["cardbox", "card"]));
     assert_eq!(icon_tags(&page, "tags/"), ["cardbox", "card"]);
 }
 
@@ -592,19 +760,27 @@ fn a_card_draws_its_icon_from_the_tags_of_its_page() {
 fn a_tag_page_draws_its_icon_from_its_own_tag() {
     use crate::screens::atlas::icon_tags;
     assert_eq!(icon_tags(&doc("tags/", "CG"), "tags/"), ["CG"]);
-    assert_eq!(icon_tags(&doc("tags/DailyReport/", "WPF"), "tags/"), ["DailyReport/WPF"]);
+    assert_eq!(
+        icon_tags(&doc("tags/DailyReport/", "WPF"), "tags/"),
+        ["DailyReport/WPF"]
+    );
 }
 
 #[test]
 fn a_folder_draws_its_icon_from_its_tag_its_tags_or_its_name() {
     use crate::screens::atlas::icon_tags;
     // A folder of tag pages is a tag too
-    assert_eq!(icon_tags(&doc("tags/DailyReport/", "index"), "tags/"), ["DailyReport"]);
+    assert_eq!(
+        icon_tags(&doc("tags/DailyReport/", "index"), "tags/"),
+        ["DailyReport"]
+    );
     assert_eq!(icon_tags(&doc("tags/a/b/", "index"), "tags/"), ["a/b"]);
     // Any other folder: the tags of its index page, or else its name
     assert_eq!(icon_tags(&doc("notes/rust/", "index"), "tags/"), ["rust"]);
     let mut tagged = doc("notes/rust/", "index");
-    tagged.properties.insert("tags".into(), serde_json::json!(["lang"]));
+    tagged
+        .properties
+        .insert("tags".into(), serde_json::json!(["lang"]));
     assert_eq!(icon_tags(&tagged, "tags/"), ["lang"]);
     // The folder of the tags itself is no tag
     assert_eq!(icon_tags(&doc("tags/", "index"), "tags/"), ["tags"]);
@@ -613,7 +789,10 @@ fn a_folder_draws_its_icon_from_its_tag_its_tags_or_its_name() {
 #[test]
 fn an_icon_is_an_svg_of_the_size_asked() {
     use crate::screens::atlas::tag_icon_svg;
-    let tags: Vec<String> = ["a", "b", "c", "d", "e"].iter().map(|t| t.to_string()).collect();
+    let tags: Vec<String> = ["a", "b", "c", "d", "e"]
+        .iter()
+        .map(|t| t.to_string())
+        .collect();
     let svg = tag_icon_svg(&tags, 24);
     assert!(svg.starts_with("<svg"), "{svg}");
     assert!(svg.contains(r#"width="24""#), "{svg}");
@@ -633,6 +812,19 @@ fn a_blob_is_a_light_blue_svg_drawn_from_the_tag() {
 }
 
 #[test]
+fn the_blob_of_a_link_card_is_light_orange() {
+    use crate::screens::atlas::{link_blob_svg, tag_blob_svg};
+    let svg = link_blob_svg("x/Target", 100);
+    assert!(svg.contains(r##"fill="#FFD8A8""##), "{svg}");
+    assert!(!svg.contains(r##"fill="#CFE3FF""##), "{svg}");
+    // The same shape as the blob of a card of that name
+    assert_eq!(
+        svg.replace("#FFD8A8", "#CFE3FF"),
+        tag_blob_svg("x/Target", 100, false)
+    );
+}
+
+#[test]
 fn a_blob_fills_its_svg_to_the_edges() {
     use crate::screens::atlas::tag_blob_svg;
     let svg = tag_blob_svg("DailyReport", 100, false);
@@ -642,20 +834,31 @@ fn a_blob_fills_its_svg_to_the_edges() {
 }
 
 fn titled(h: &mut Harness, group_key: &str, side: &str, title: &str) {
-    h.send(Event::SetAtlasGroupTitle { group_key: group_key.into(), side: side.into(), title: title.into() });
+    h.send(Event::SetAtlasGroupTitle {
+        group_key: group_key.into(),
+        side: side.into(),
+        title: title.into(),
+    });
 }
 
 fn atlas_page(h: &Harness) -> Page {
-    crate::screens::page::page_state(&h.model).and_then(|ps| ps.page.clone()).unwrap()
+    crate::screens::page::page_state(&h.model)
+        .and_then(|ps| ps.page.clone())
+        .unwrap()
 }
 
 /// An atlas whose group `g` of the cards one and two has the title `top:Tools`
 fn atlas_with_title() -> Harness {
     let mut h = atlas_with_groups(&[("atlas_group_g", &["a/b/one", "a/b/two"])]);
-    if let Some(atlas) = crate::screens::page::page_mut(&mut h.model).and_then(|ps| ps.page.as_mut()) {
-        atlas.properties.insert("atlas_title_g".into(), serde_json::json!("top:Tools"));
+    if let Some(atlas) =
+        crate::screens::page::page_mut(&mut h.model).and_then(|ps| ps.page.as_mut())
+    {
+        atlas
+            .properties
+            .insert("atlas_title_g".into(), serde_json::json!("top:Tools"));
     }
-    h.model.sidebar.index_pages = vec![child("one", None), child("two", None), child("three", None)];
+    h.model.sidebar.index_pages =
+        vec![child("one", None), child("two", None), child("three", None)];
     h
 }
 
@@ -664,18 +867,37 @@ fn a_group_takes_a_title_along_a_side_of_its_outline() {
     let mut h = atlas_with_groups(&[("atlas_group_g", &["a/b/one", "a/b/two"])]);
     titled(&mut h, "atlas_group_g", "left", "  Tools  ");
 
-    assert_eq!(upserts(&h), [("a/b/index_atlas".into(), "atlas_title_g".into(), "left:Tools".into())]);
+    assert_eq!(
+        upserts(&h),
+        [(
+            "a/b/index_atlas".into(),
+            "atlas_title_g".into(),
+            "left:Tools".into()
+        )]
+    );
 }
 
 #[test]
 fn every_card_of_a_group_carries_its_title() {
     let h = atlas_with_title();
-    let title = Some(GroupTitle { side: "top".into(), text: "Tools".into() });
+    let title = Some(GroupTitle {
+        side: "top".into(),
+        text: "Tools".into(),
+    });
 
-    let titles: Vec<_> = h.view().atlas_cards.into_iter().map(|c| (c.page_id, c.group_title)).collect();
+    let titles: Vec<_> = h
+        .view()
+        .atlas_cards
+        .into_iter()
+        .map(|c| (c.page_id, c.group_title))
+        .collect();
     assert_eq!(
         titles,
-        [("a/b/one".to_string(), title.clone()), ("a/b/three".to_string(), None), ("a/b/two".to_string(), title)]
+        [
+            ("a/b/one".to_string(), title.clone()),
+            ("a/b/three".to_string(), None),
+            ("a/b/two".to_string(), title)
+        ]
     );
 }
 
@@ -694,16 +916,31 @@ fn a_title_of_no_group_or_an_unknown_side_is_not_kept_as_sent() {
     titled(&mut h, "atlas_group_none", "top", "Tools");
     titled(&mut h, "atlas_group_g", "middle", "Tools");
 
-    assert_eq!(upserts(&h), [("a/b/index_atlas".into(), "atlas_title_g".into(), "top:Tools".into())]);
+    assert_eq!(
+        upserts(&h),
+        [(
+            "a/b/index_atlas".into(),
+            "atlas_title_g".into(),
+            "top:Tools".into()
+        )]
+    );
 }
 
 #[test]
 fn a_title_written_without_a_side_lies_along_the_top() {
     let mut atlas = doc("a/b/", ATLAS_NAME);
-    atlas.properties.insert("atlas_title_g".into(), serde_json::json!("note: by hand"));
+    atlas
+        .properties
+        .insert("atlas_title_g".into(), serde_json::json!("note: by hand"));
     let title = crate::screens::atlas::group_title(&atlas, "atlas_group_g");
 
-    assert_eq!(title, Some(GroupTitle { side: "top".into(), text: "note: by hand".into() }));
+    assert_eq!(
+        title,
+        Some(GroupTitle {
+            side: "top".into(),
+            text: "note: by hand".into()
+        })
+    );
 }
 
 #[test]
@@ -716,14 +953,26 @@ fn the_title_of_a_group_goes_with_the_group() {
 }
 
 fn callout(key: &str, x: f64, y: f64, side: &str, text: &str) -> Callout {
-    Callout { key: key.into(), x, y, scale: 1.0, side: side.into(), text: text.into() }
+    Callout {
+        key: key.into(),
+        x,
+        y,
+        scale: 1.0,
+        side: side.into(),
+        text: text.into(),
+    }
 }
 
 /// An atlas with the callout `c` of the text Hello at (10, 20) and scale 1.5, its bubble above
 fn atlas_with_callout() -> Harness {
     let mut h = atlas_with(vec![]);
-    if let Some(atlas) = crate::screens::page::page_mut(&mut h.model).and_then(|ps| ps.page.as_mut()) {
-        atlas.properties.insert("atlas_callout_c".into(), serde_json::json!("10,20,1.5,top:Hello"));
+    if let Some(atlas) =
+        crate::screens::page::page_mut(&mut h.model).and_then(|ps| ps.page.as_mut())
+    {
+        atlas.properties.insert(
+            "atlas_callout_c".into(),
+            serde_json::json!("10,20,1.5,top:Hello"),
+        );
     }
     h
 }
@@ -731,7 +980,12 @@ fn atlas_with_callout() -> Harness {
 #[test]
 fn a_callout_is_added_at_the_point_with_its_side_and_text() {
     let mut h = atlas_with(vec![]);
-    h.send(Event::AddAtlasCallout { x: 10.4, y: -20.6, side: "left".into(), text: " Hi: there ".into() });
+    h.send(Event::AddAtlasCallout {
+        x: 10.4,
+        y: -20.6,
+        side: "left".into(),
+        text: " Hi: there ".into(),
+    });
 
     let calls = upserts(&h);
     assert_eq!(calls.len(), 1);
@@ -739,14 +993,22 @@ fn a_callout_is_added_at_the_point_with_its_side_and_text() {
     assert_eq!(page_id, "a/b/index_atlas");
     assert!(key.starts_with("atlas_callout_"), "{key}");
     assert_eq!(value, "10,-21,1,left:Hi: there");
-    assert_eq!(h.view().atlas_callouts, [callout(key, 10.0, -21.0, "left", "Hi: there")]);
+    assert_eq!(
+        h.view().atlas_callouts,
+        [callout(key, 10.0, -21.0, "left", "Hi: there")]
+    );
 }
 
 #[test]
 fn two_callouts_of_the_same_text_at_the_same_point_take_two_keys() {
     let mut h = atlas_with(vec![]);
     for _ in 0..2 {
-        h.send(Event::AddAtlasCallout { x: 0.0, y: 0.0, side: "top".into(), text: "Hi".into() });
+        h.send(Event::AddAtlasCallout {
+            x: 0.0,
+            y: 0.0,
+            side: "top".into(),
+            text: "Hi".into(),
+        });
     }
 
     // The fake server answers with the saved property alone, so the keys sent are compared
@@ -758,7 +1020,12 @@ fn two_callouts_of_the_same_text_at_the_same_point_take_two_keys() {
 #[test]
 fn an_empty_callout_is_not_added() {
     let mut h = atlas_with(vec![]);
-    h.send(Event::AddAtlasCallout { x: 0.0, y: 0.0, side: "top".into(), text: "  ".into() });
+    h.send(Event::AddAtlasCallout {
+        x: 0.0,
+        y: 0.0,
+        side: "top".into(),
+        text: "  ".into(),
+    });
 
     assert!(upserts(&h).is_empty());
 }
@@ -766,26 +1033,57 @@ fn an_empty_callout_is_not_added() {
 #[test]
 fn an_edited_callout_keeps_its_place_and_scale() {
     let mut h = atlas_with_callout();
-    h.send(Event::SetAtlasCallout { key: "atlas_callout_c".into(), side: "bottom".into(), text: "Bye".into() });
+    h.send(Event::SetAtlasCallout {
+        key: "atlas_callout_c".into(),
+        side: "bottom".into(),
+        text: "Bye".into(),
+    });
 
-    assert_eq!(upserts(&h), [("a/b/index_atlas".into(), "atlas_callout_c".into(), "10,20,1.5,bottom:Bye".into())]);
-    let edited = Callout { scale: 1.5, ..callout("atlas_callout_c", 10.0, 20.0, "bottom", "Bye") };
+    assert_eq!(
+        upserts(&h),
+        [(
+            "a/b/index_atlas".into(),
+            "atlas_callout_c".into(),
+            "10,20,1.5,bottom:Bye".into()
+        )]
+    );
+    let edited = Callout {
+        scale: 1.5,
+        ..callout("atlas_callout_c", 10.0, 20.0, "bottom", "Bye")
+    };
     assert_eq!(h.view().atlas_callouts, [edited]);
 }
 
 #[test]
 fn a_moved_callout_keeps_its_scale_side_and_text() {
     let mut h = atlas_with_callout();
-    h.send(Event::MoveAtlasCallout { key: "atlas_callout_c".into(), x: -30.4, y: 40.6 });
+    h.send(Event::MoveAtlasCallout {
+        key: "atlas_callout_c".into(),
+        x: -30.4,
+        y: 40.6,
+    });
 
-    assert_eq!(upserts(&h), [("a/b/index_atlas".into(), "atlas_callout_c".into(), "-30,41,1.5,top:Hello".into())]);
+    assert_eq!(
+        upserts(&h),
+        [(
+            "a/b/index_atlas".into(),
+            "atlas_callout_c".into(),
+            "-30,41,1.5,top:Hello".into()
+        )]
+    );
 }
 
 #[test]
 fn a_callout_shrinks_no_smaller_than_half_and_grows_without_limit() {
     let mut h = atlas_with_callout();
-    h.send(Event::ScaleAtlasCallout { key: "atlas_callout_c".into(), scale: 0.2 });
-    h.send(Event::ScaleAtlasCallout { key: "atlas_callout_c".into(), scale: 7.256 });
+    h.send(Event::ScaleAtlasCallout {
+        key: "atlas_callout_c".into(),
+        scale: 0.2,
+    });
+    h.send(Event::ScaleAtlasCallout {
+        key: "atlas_callout_c".into(),
+        scale: 7.256,
+    });
 
     let values: Vec<String> = upserts(&h).into_iter().map(|(_, _, value)| value).collect();
     assert_eq!(values, ["10,20,0.5,top:Hello", "10,20,7.26,top:Hello"]);
@@ -794,9 +1092,20 @@ fn a_callout_shrinks_no_smaller_than_half_and_grows_without_limit() {
 #[test]
 fn a_callout_that_does_not_change_is_not_saved() {
     let mut h = atlas_with_callout();
-    h.send(Event::MoveAtlasCallout { key: "atlas_callout_c".into(), x: 10.2, y: 19.8 });
-    h.send(Event::ScaleAtlasCallout { key: "atlas_callout_c".into(), scale: 1.501 });
-    h.send(Event::MoveAtlasCallout { key: "atlas_callout_none".into(), x: 0.0, y: 0.0 });
+    h.send(Event::MoveAtlasCallout {
+        key: "atlas_callout_c".into(),
+        x: 10.2,
+        y: 19.8,
+    });
+    h.send(Event::ScaleAtlasCallout {
+        key: "atlas_callout_c".into(),
+        scale: 1.501,
+    });
+    h.send(Event::MoveAtlasCallout {
+        key: "atlas_callout_none".into(),
+        x: 0.0,
+        y: 0.0,
+    });
 
     assert!(upserts(&h).is_empty());
 }
@@ -804,15 +1113,25 @@ fn a_callout_that_does_not_change_is_not_saved() {
 #[test]
 fn a_callout_stored_without_a_scale_has_a_scale_of_1() {
     let mut atlas = doc("a/b/", ATLAS_NAME);
-    atlas.properties.insert("atlas_callout_c".into(), serde_json::json!("10,20,top:Hello"));
+    atlas.properties.insert(
+        "atlas_callout_c".into(),
+        serde_json::json!("10,20,top:Hello"),
+    );
 
-    assert_eq!(crate::screens::atlas::callouts(&atlas), [callout("atlas_callout_c", 10.0, 20.0, "top", "Hello")]);
+    assert_eq!(
+        crate::screens::atlas::callouts(&atlas),
+        [callout("atlas_callout_c", 10.0, 20.0, "top", "Hello")]
+    );
 }
 
 #[test]
 fn an_empty_text_takes_the_callout_away() {
     let mut h = atlas_with_callout();
-    h.send(Event::SetAtlasCallout { key: "atlas_callout_c".into(), side: "top".into(), text: "".into() });
+    h.send(Event::SetAtlasCallout {
+        key: "atlas_callout_c".into(),
+        side: "top".into(),
+        text: "".into(),
+    });
 
     assert_eq!(deletes(&h), ["atlas_callout_c"]);
     assert!(h.view().atlas_callouts.is_empty());
@@ -828,7 +1147,9 @@ fn a_callout_value_that_is_not_a_place_a_side_and_text_is_left_out() {
         ("atlas_callout_d", "1,2,0,top:Hi"),
         ("atlas_callout_e", "1,2,3,4,top:Hi"),
     ] {
-        atlas.properties.insert(key.into(), serde_json::json!(value));
+        atlas
+            .properties
+            .insert(key.into(), serde_json::json!(value));
     }
 
     assert!(crate::screens::atlas::callouts(&atlas).is_empty());
@@ -860,16 +1181,302 @@ fn the_blob_of_a_published_page_has_a_line_around_it() {
 
     assert!(!plain.contains("stroke="), "{plain}");
     assert!(outlined.contains(r##"<path d="##), "{outlined}");
-    assert!(outlined.contains(r#"vector-effect="non-scaling-stroke""#), "{outlined}");
-    assert!(outlined.contains(r#"preserveAspectRatio="none""#), "{outlined}");
+    assert!(
+        outlined.contains(r#"vector-effect="non-scaling-stroke""#),
+        "{outlined}"
+    );
+    assert!(
+        outlined.contains(r#"preserveAspectRatio="none""#),
+        "{outlined}"
+    );
 }
 
 #[test]
 fn an_atlas_card_knows_whether_its_page_is_published() {
     let mut published = child("one", Some("0,0,0,40"));
-    published.properties.insert("published".into(), serde_json::json!("2026-10-01T00:00:00Z"));
+    published.properties.insert(
+        "published".into(),
+        serde_json::json!("2026-10-01T00:00:00Z"),
+    );
     let h = atlas_with(vec![published, child("two", Some("0,0,0,40"))]);
 
-    let cards: Vec<_> = h.view().atlas_cards.into_iter().map(|c| (c.page_id, c.published)).collect();
-    assert_eq!(cards, [("a/b/one".to_string(), true), ("a/b/two".to_string(), false)]);
+    let cards: Vec<_> = h
+        .view()
+        .atlas_cards
+        .into_iter()
+        .map(|c| (c.page_id, c.published))
+        .collect();
+    assert_eq!(
+        cards,
+        [
+            ("a/b/one".to_string(), true),
+            ("a/b/two".to_string(), false)
+        ]
+    );
+}
+
+fn link_item(id: &str, body: &str, bounds: Option<&str>) -> crate::model::Item {
+    let mut item = crate::testing::plain_item(id, 1, body);
+    item.page_id = "a/b/index_atlas".into();
+    if let Some(b) = bounds {
+        item.properties.insert("atlas_bounds".into(), b.into());
+    }
+    item
+}
+
+/// An atlas whose items are an empty line and the link `l` to `x/Target` at (10, 20)
+fn atlas_with_link() -> Harness {
+    let mut h = atlas_with(vec![]);
+    h.model.state.set_items(vec![
+        link_item("empty", "", None),
+        link_item("l", "[[x/Target]]", Some("10,20,0,40")),
+    ]);
+    h
+}
+
+fn item_property_upserts(h: &Harness) -> Vec<(String, String, String)> {
+    h.api
+        .calls_named("UpsertItemProperty")
+        .into_iter()
+        .map(|op| match op {
+            ApiOp::UpsertItemProperty {
+                item_id,
+                key,
+                value,
+                ..
+            } => (item_id.clone(), key.clone(), value.clone()),
+            _ => unreachable!(),
+        })
+        .collect()
+}
+
+#[test]
+fn an_item_of_the_atlas_that_is_one_placed_link_is_a_link_card() {
+    let mut h = atlas_with(vec![]);
+    h.model.state.set_items(vec![
+        link_item("a", "[[x/Target]]", Some("10,20,0,40")),
+        link_item("b", "[[x/Unplaced]]", None),
+        link_item("c", "see [[x/Target]]", Some("0,0,0,40")),
+        link_item("d", "[[x/One]] [[x/Two]]", Some("0,0,0,40")),
+    ]);
+
+    let links = h.view().atlas_links;
+    assert_eq!(links.len(), 1);
+    assert_eq!(
+        (links[0].item_id.as_str(), links[0].target.as_str()),
+        ("a", "x/Target")
+    );
+    assert_eq!(
+        links[0].bounds,
+        Bounds {
+            x: 10.0,
+            y: 20.0,
+            width: 0.0,
+            height: 40.0
+        }
+    );
+}
+
+#[test]
+fn a_link_card_is_named_by_the_last_part_of_its_target() {
+    use crate::screens::atlas::link_label;
+    assert_eq!(
+        link_label("sosuisen.net/article/Picturesque Tags"),
+        "Picturesque Tags"
+    );
+    assert_eq!(link_label("Top"), "Top");
+    assert_eq!(link_label("a/b/index"), "b/");
+    assert_eq!(link_label("index"), "(root)/");
+}
+
+#[test]
+fn an_added_link_is_an_item_at_the_end_of_the_atlas_with_its_place() {
+    let mut h = atlas_with(vec![]);
+    h.send(Event::AddAtlasLink {
+        x: 10.4,
+        y: -20.6,
+        target: " [[x/Target]] ".into(),
+    });
+
+    let created: Vec<_> = h
+        .api
+        .calls_named("CreateItem")
+        .into_iter()
+        .map(|op| match op {
+            ApiOp::CreateItem { page_id, body, .. } => (page_id.clone(), body.clone()),
+            _ => unreachable!(),
+        })
+        .collect();
+    assert_eq!(
+        created,
+        [("a/b/index_atlas".to_string(), "[[x/Target]]".to_string())]
+    );
+    assert_eq!(
+        item_property_upserts(&h),
+        [("new1".into(), "atlas_bounds".into(), "10,-21,0,40".into())]
+    );
+    let links = h.view().atlas_links;
+    assert_eq!(links.len(), 1);
+    assert_eq!(links[0].target, "x/Target");
+}
+
+#[test]
+fn an_empty_link_is_not_added() {
+    let mut h = atlas_with(vec![]);
+    h.send(Event::AddAtlasLink {
+        x: 0.0,
+        y: 0.0,
+        target: " [[ ]] ".into(),
+    });
+
+    assert!(h.api.calls_named("CreateItem").is_empty());
+}
+
+#[test]
+fn a_link_card_moves_and_scales_as_a_card() {
+    let mut h = atlas_with_link();
+    h.send(Event::MoveAtlasLink {
+        item_id: "l".into(),
+        x: 30.4,
+        y: -5.6,
+    });
+    h.send(Event::ScaleAtlasLink {
+        item_id: "l".into(),
+        scale: 0.2,
+    });
+
+    assert_eq!(
+        item_property_upserts(&h),
+        [
+            ("l".into(), "atlas_bounds".into(), "30,-6,0,40".into()),
+            ("l".into(), "atlas_bounds".into(), "30,-6,0,20".into()),
+        ]
+    );
+    assert_eq!(
+        h.view().atlas_links[0].bounds,
+        Bounds {
+            x: 30.0,
+            y: -6.0,
+            width: 0.0,
+            height: 20.0
+        }
+    );
+}
+
+#[test]
+fn a_refused_move_of_a_link_puts_it_back() {
+    let mut h = atlas_with_link();
+    h.api.fail_next("UpsertItemProperty", "nope");
+    h.send(Event::MoveAtlasLink {
+        item_id: "l".into(),
+        x: 30.0,
+        y: 0.0,
+    });
+
+    assert_eq!(
+        h.view().atlas_links[0].bounds,
+        Bounds {
+            x: 10.0,
+            y: 20.0,
+            width: 0.0,
+            height: 40.0
+        }
+    );
+}
+
+#[test]
+fn a_removed_link_card_deletes_its_item() {
+    let mut h = atlas_with_link();
+    h.send(Event::RemoveAtlasLink {
+        item_id: "l".into(),
+    });
+
+    assert_eq!(h.api.calls_named("DeleteItem").len(), 1);
+    assert!(h.view().atlas_links.is_empty());
+    assert!(h.model.state.get_item_by_id("empty").is_some());
+}
+
+#[test]
+fn editing_a_link_card_links_its_item_to_the_new_page() {
+    let mut h = atlas_with_link();
+    h.send(Event::SetAtlasLink {
+        item_id: "l".into(),
+        target: " [[y/Other]] ".into(),
+    });
+
+    assert_eq!(
+        crate::harness::update_calls(&h.api),
+        vec![("l".to_string(), Some("[[y/Other]]".to_string()))]
+    );
+    assert_eq!(h.view().atlas_links[0].target, "y/Other");
+    assert_eq!(h.view().atlas_links[0].bounds.x, 10.0);
+}
+
+#[test]
+fn an_edit_of_a_link_to_nothing_or_to_the_same_page_changes_nothing() {
+    let mut h = atlas_with_link();
+    h.send(Event::SetAtlasLink {
+        item_id: "l".into(),
+        target: "  ".into(),
+    });
+    h.send(Event::SetAtlasLink {
+        item_id: "l".into(),
+        target: "x/Target".into(),
+    });
+    h.send(Event::SetAtlasLink {
+        item_id: "empty".into(),
+        target: "y/Other".into(),
+    });
+
+    assert!(h.api.calls_named("UpdateItem").is_empty());
+    assert_eq!(h.view().atlas_links[0].target, "x/Target");
+}
+
+#[test]
+fn a_refused_edit_of_a_link_puts_the_old_link_back() {
+    let mut h = atlas_with_link();
+    h.api
+        .answer_next("UpdateItem", Err(crate::effects::ApiError("no".into())));
+    h.send(Event::SetAtlasLink {
+        item_id: "l".into(),
+        target: "y/Other".into(),
+    });
+
+    assert_eq!(h.view().atlas_links[0].target, "x/Target");
+}
+
+#[test]
+fn only_a_link_card_is_removed_as_a_link() {
+    let mut h = atlas_with_link();
+    h.send(Event::RemoveAtlasLink {
+        item_id: "empty".into(),
+    });
+
+    assert!(h.api.calls_named("DeleteItem").is_empty());
+}
+
+#[test]
+fn the_dialog_of_a_link_offers_page_names_after_a_pause() {
+    let mut h = atlas_with(vec![]);
+    let found = |title: &str| crate::model::SearchResult {
+        page_title: title.into(),
+        ..Default::default()
+    };
+    h.api.answer_next(
+        "SearchPageNames",
+        Ok(ApiOutput::SearchResults(vec![
+            found("x/Target"),
+            found("x/Tea"),
+        ])),
+    );
+    h.send(Event::SearchAtlasLinks {
+        query: "x/T".into(),
+    });
+    assert!(h.view().atlas_link_suggestions.is_empty());
+
+    h.fire_timers();
+    assert_eq!(h.view().atlas_link_suggestions, ["x/Target", "x/Tea"]);
+
+    h.send(Event::SearchAtlasLinks { query: "".into() });
+    assert!(h.view().atlas_link_suggestions.is_empty());
 }

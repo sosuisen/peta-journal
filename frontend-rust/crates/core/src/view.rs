@@ -283,6 +283,10 @@ pub struct ViewModel {
     pub atlas_cards: Vec<AtlasCard>,
     /// The callouts of the atlas page on screen; empty on any other screen.
     pub atlas_callouts: Vec<atlas::Callout>,
+    /// The link cards of the atlas page on screen; empty on any other screen.
+    pub atlas_links: Vec<atlas::LinkCard>,
+    /// The page names offered in the dialog of a link.
+    pub atlas_link_suggestions: Vec<String>,
     pub outline: OutlineView,
     pub sidebar: SidebarView,
     pub search: SearchView,
@@ -314,6 +318,8 @@ pub fn build(model: &Model) -> ViewModel {
             })
             .collect(),
         atlas_callouts: atlas::shown_callouts(model),
+        atlas_links: atlas::link_cards(model),
+        atlas_link_suggestions: model.atlas_link_search.suggestions.clone(),
         outline: outline(model),
         sidebar: sidebar(model),
         search: search(model),

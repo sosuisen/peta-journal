@@ -263,6 +263,37 @@ pub enum Event {
         key: String,
         scale: f64,
     },
+    /// The canvas menu's "Add Link": a link card with its center at the point, linking to the
+    /// target page
+    AddAtlasLink {
+        x: f64,
+        y: f64,
+        target: String,
+    },
+    /// A link card dragged to a new place: its center
+    MoveAtlasLink {
+        item_id: String,
+        x: f64,
+        y: f64,
+    },
+    /// The selected link cards scaled with Ctrl and the wheel
+    ScaleAtlasLink {
+        item_id: String,
+        scale: f64,
+    },
+    /// The link card menu's "Edit Link": the card links to another page
+    SetAtlasLink {
+        item_id: String,
+        target: String,
+    },
+    /// The link card menu's "Remove Link": the item of the link is deleted
+    RemoveAtlasLink {
+        item_id: String,
+    },
+    /// The text typed in the dialog of a link, to find page names for it
+    SearchAtlasLinks {
+        query: String,
+    },
     /// The callout menu's "Edit Callout". An empty text takes the callout away.
     SetAtlasCallout {
         key: String,
@@ -500,6 +531,14 @@ pub struct SearchState {
     pub timer_id: u64,
 }
 
+/// The page names offered in the dialog of an atlas link, and the timer of the pause before
+/// they are searched.
+#[derive(Debug, Default)]
+pub struct AtlasLinkSearch {
+    pub suggestions: Vec<String>,
+    pub timer_id: u64,
+}
+
 #[derive(Debug, Default)]
 pub struct WikiState {
     pub item_id: Option<String>,
@@ -561,6 +600,7 @@ pub struct Model {
     pub sidebar: SidebarState,
     pub search: SearchState,
     pub wiki: WikiState,
+    pub atlas_link_search: AtlasLinkSearch,
     pub config: ConfigState,
     pub connection: ConnectionState,
     pub sse_reconnect_attempts: u32,
@@ -594,6 +634,7 @@ impl Default for Model {
             sidebar: SidebarState::default(),
             search: SearchState::default(),
             wiki: WikiState::default(),
+            atlas_link_search: AtlasLinkSearch::default(),
             config: ConfigState::default(),
             connection: ConnectionState::Disconnected,
             sse_reconnect_attempts: 0,
@@ -787,6 +828,12 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         AddAtlasCallout { x, y, side, text } => screens::atlas::add_callout(model, x, y, side, text),
         MoveAtlasCallout { key, x, y } => screens::atlas::move_callout(model, key, x, y),
         ScaleAtlasCallout { key, scale } => screens::atlas::scale_callout(model, key, scale),
+        AddAtlasLink { x, y, target } => screens::atlas::add_link(model, x, y, target),
+        MoveAtlasLink { item_id, x, y } => screens::atlas::move_link(model, item_id, x, y),
+        ScaleAtlasLink { item_id, scale } => screens::atlas::scale_link(model, item_id, scale),
+        SetAtlasLink { item_id, target } => screens::atlas::set_link(model, item_id, target),
+        RemoveAtlasLink { item_id } => screens::atlas::remove_link(model, item_id),
+        SearchAtlasLinks { query } => screens::atlas::search_links(model, query),
         SetAtlasCallout { key, side, text } => screens::atlas::set_callout(model, key, side, text),
         RemoveAtlasCard { page_id } => screens::atlas::remove_card(model, page_id),
         GroupAtlasCards { page_ids, target_id } => {

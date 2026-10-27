@@ -3,8 +3,8 @@
 //! the canvas, and is placed by dragging it onto the canvas. A card on the canvas moves by
 //! dragging it there, and its menu on a right click takes it off the canvas. A drag with
 //! the right button, or with the left one between the cards, moves the view. The wheel
-//! scales it. A right click between the cards adds a callout there, which moves and scales
-//! as a card does.
+//! scales it. A right click between the cards adds a callout or a link card there. Both move
+//! and scale as a card does. A link card is a wiki link in the atlas page to any page.
 
 use crate::core::CoreHandle;
 use crate::dom;
@@ -12,7 +12,8 @@ use crate::listeners::DocumentListeners;
 use leptos::prelude::*;
 use peta_core::app::Event;
 use peta_core::screens::atlas::{
-    callout_face_svg, parent_dir_label, tag_blob_svg, tag_icon_svg, Callout, CARD_HEIGHT, CARD_WIDTH,
+    callout_face_svg, link_blob_svg, link_label, parent_dir_label, tag_blob_svg, tag_icon_svg, Callout, LinkCard,
+    CARD_HEIGHT, CARD_WIDTH,
 };
 use peta_core::view::{AtlasCard, ScreenView};
 use std::collections::HashMap;
@@ -115,6 +116,23 @@ extern "C" {
     #[wasm_bindgen(method, js_name = setOnScaleCallout)]
     fn set_on_scale_callout(this: &AtlasCanvas, on_scale_callout: &js_sys::Function);
 
+    #[wasm_bindgen(method, js_name = setOnLink)]
+    fn set_on_link(
+        this: &AtlasCanvas,
+        on_add: &js_sys::Function,
+        on_set: &js_sys::Function,
+        on_move: &js_sys::Function,
+        on_scale: &js_sys::Function,
+        on_remove: &js_sys::Function,
+        on_query: &js_sys::Function,
+    );
+
+    #[wasm_bindgen(method, js_name = setLinks)]
+    fn set_links(this: &AtlasCanvas, json: String);
+
+    #[wasm_bindgen(method, js_name = setLinkSuggestions)]
+    fn set_link_suggestions(this: &AtlasCanvas, json: String);
+
     #[wasm_bindgen(method, js_name = setCards)]
     fn set_cards(this: &AtlasCanvas, json: String);
 
@@ -197,11 +215,38 @@ fn callouts_json(callouts: &[Callout]) -> String {
     serde_json::Value::Array(all).to_string()
 }
 
+/// The link cards as `atlas.js` reads them: as the cards are, with the item of the link as the
+/// id. The blob is drawn from the page it links to, in a color of its own.
+fn links_json(links: &[LinkCard]) -> String {
+    let all: Vec<_> = links
+        .iter()
+        .map(|l| {
+            serde_json::json!({
+                "id": l.item_id,
+                "label": link_label(&l.target),
+                "path": l.target,
+                "isLink": true,
+                "x": l.bounds.x,
+                "y": l.bounds.y,
+                "width": l.bounds.width,
+                "height": l.bounds.height,
+                "scale": l.bounds.scale(),
+                "blob": link_blob_svg(&l.target, ICON_DRAW_SIZE),
+                "iconSize": ICON_SIZE,
+                "iconDrawSize": ICON_DRAW_SIZE,
+            })
+        })
+        .collect();
+    serde_json::Value::Array(all).to_string()
+}
+
 #[component]
 pub fn Atlas() -> impl IntoView {
     let core: CoreHandle = expect_context();
     let cards = core.select(|v| v.atlas_cards.clone());
     let callouts = core.select(|v| v.atlas_callouts.clone());
+    let links = core.select(|v| v.atlas_links.clone());
+    let link_suggestions = core.select(|v| v.atlas_link_suggestions.clone());
     let dir_path = core.select(|v| match &v.screen {
         ScreenView::Page(Some(p)) => p.page.dir_path.clone(),
         _ => String::new(),
@@ -314,6 +359,35 @@ pub fn Atlas() -> impl IntoView {
             core.send(Event::ScaleAtlasCallout { key, scale });
         },
     ));
+    // A link card added in its dialog, its center at a point of the canvas
+    let on_add_link = StoredValue::new_local(Closure::<dyn Fn(f64, f64, String)>::new(
+        move |x: f64, y: f64, target: String| {
+            core.send(Event::AddAtlasLink { x, y, target });
+        },
+    ));
+    // A link card linked to another page in its dialog
+    let on_set_link = StoredValue::new_local(Closure::<dyn Fn(String, String)>::new(
+        move |item_id: String, target: String| {
+            core.send(Event::SetAtlasLink { item_id, target });
+        },
+    ));
+    let on_move_link = StoredValue::new_local(Closure::<dyn Fn(String, f64, f64)>::new(
+        move |item_id: String, x: f64, y: f64| {
+            core.send(Event::MoveAtlasLink { item_id, x, y });
+        },
+    ));
+    let on_scale_link = StoredValue::new_local(Closure::<dyn Fn(String, f64)>::new(
+        move |item_id: String, scale: f64| {
+            core.send(Event::ScaleAtlasLink { item_id, scale });
+        },
+    ));
+    let on_remove_link = StoredValue::new_local(Closure::<dyn Fn(String)>::new(move |item_id: String| {
+        core.send(Event::RemoveAtlasLink { item_id });
+    }));
+    // The text typed in the dialog of a link
+    let on_link_query = StoredValue::new_local(Closure::<dyn Fn(String)>::new(move |query: String| {
+        core.send(Event::SearchAtlasLinks { query });
+    }));
     let remove_from_atlas = move |_| {
         if let Some((page_id, _, _)) = menu.get_untracked() {
             core.send(Event::RemoveAtlasCard { page_id });
@@ -357,6 +431,26 @@ pub fn Atlas() -> impl IntoView {
                 on_callout.with_value(|change| made.set_on_callout(change.as_ref().unchecked_ref()));
                 on_move_callout.with_value(|mv| made.set_on_move_callout(mv.as_ref().unchecked_ref()));
                 on_scale_callout.with_value(|sc| made.set_on_scale_callout(sc.as_ref().unchecked_ref()));
+                on_add_link.with_value(|add| {
+                    on_set_link.with_value(|set| {
+                        on_move_link.with_value(|mv| {
+                            on_scale_link.with_value(|sc| {
+                                on_remove_link.with_value(|rm| {
+                                    on_link_query.with_value(|query| {
+                                        made.set_on_link(
+                                            add.as_ref().unchecked_ref(),
+                                            set.as_ref().unchecked_ref(),
+                                            mv.as_ref().unchecked_ref(),
+                                            sc.as_ref().unchecked_ref(),
+                                            rm.as_ref().unchecked_ref(),
+                                            query.as_ref().unchecked_ref(),
+                                        )
+                                    })
+                                })
+                            })
+                        })
+                    })
+                });
                 made
             }))
         });
@@ -369,6 +463,14 @@ pub fn Atlas() -> impl IntoView {
     Effect::new(move |_| {
         let json = callouts.with(|cs| callouts_json(cs));
         with_canvas(&|c| c.set_callouts(json.clone()));
+    });
+    Effect::new(move |_| {
+        let json = links.with(|ls| links_json(ls));
+        with_canvas(&|c| c.set_links(json.clone()));
+    });
+    Effect::new(move |_| {
+        let json = link_suggestions.with(|ts| serde_json::to_string(ts).unwrap_or_default());
+        with_canvas(&|c| c.set_link_suggestions(json.clone()));
     });
     on_cleanup(move || {
         canvas.try_update_value(|c| {
