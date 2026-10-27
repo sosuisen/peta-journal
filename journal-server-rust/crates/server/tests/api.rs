@@ -1249,3 +1249,29 @@ async fn a_page_takes_its_bounds_on_the_atlas() {
     .await;
     assert_eq!(status, 400, "{resp}");
 }
+
+#[tokio::test]
+async fn a_value_is_checked_by_the_type_of_its_definition_not_the_type_sent() {
+    let page = new_doc_page("defined-type").await;
+    let (status, resp) = put(
+        &format!("/api/pages/{}/properties/atlas_bounds", page.id),
+        json!({ "valueType": "text", "value": "not bounds" }),
+    )
+    .await;
+    assert_eq!(status, 400, "{resp}");
+    let (status, resp) = put(
+        &format!("/api/pages/{}/properties/atlas_bounds", page.id),
+        json!({ "valueType": "text", "value": "1, 2, 3, 4" }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+    assert_eq!(resp["page"]["properties"]["atlas_bounds"], json!("1,2,3,4"));
+
+    let item = fill(&page.id, &["zoomed"]).await.remove(0);
+    let (status, resp) = put(
+        &format!("/api/items/{}/properties/zoom", item.id),
+        json!({ "valueType": "text", "value": "large" }),
+    )
+    .await;
+    assert_eq!(status, 400, "{resp}");
+}

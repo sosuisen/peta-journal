@@ -199,7 +199,9 @@ impl PropertyRepository {
         Ok(page_ids)
     }
 
-    /// Inserts or replaces a scalar property, creating its definition if needed.
+    /// Inserts or replaces a scalar property, creating its definition if needed. The value
+    /// is checked and stored by the type of the definition: `value_type` only names the type
+    /// of a new key.
     pub fn upsert_scalar(
         &self,
         target_type: &str,
@@ -214,8 +216,13 @@ impl PropertyRepository {
             "INSERT OR IGNORE INTO property_definitions (key, value_type) VALUES (?, ?)",
             params![key, value_type],
         )?;
+        let value_type: String = conn.query_row(
+            "SELECT value_type FROM property_definitions WHERE key = ?",
+            params![key],
+            |r| r.get(0),
+        )?;
         let sql = "INSERT OR REPLACE INTO properties (target_type, target_id, key, value_text, value_number, value_checkbox) VALUES (?, ?, ?, ?, ?, ?)";
-        match value_type {
+        match value_type.as_str() {
             "number" => {
                 let n: f64 = value
                     .trim()
