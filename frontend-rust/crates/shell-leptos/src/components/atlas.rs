@@ -407,6 +407,7 @@ pub fn Atlas() -> impl IntoView {
             <div class="atlas-unplaced">
                 <For
                     each=move || unplaced.get()
+                <div class="atlas-unplaced-title">"Unplaced"</div>
                     key=|c| (c.page_id.clone(), c.label.clone(), c.is_dir)
                     let:card
                 >

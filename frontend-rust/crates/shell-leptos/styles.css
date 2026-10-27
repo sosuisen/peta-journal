@@ -223,6 +223,7 @@ app-page .page-title:hover { background: rgba(0,0,0,0.04); }
   /* At the right edge, after the canvas */
   order: 1;
 }
+.atlas-unplaced-title { font-size: 12px; font-weight: 600; color: #888; }
 /* The same look as a card on the canvas */
 .atlas-card {
   width: 120px; min-height: 40px; flex-shrink: 0; padding: 4px 8px; box-sizing: border-box;
