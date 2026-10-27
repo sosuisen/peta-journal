@@ -214,6 +214,23 @@ pub fn toggle_atlas(model: &mut Model) -> Cmd {
     navigate::to_page(&format!("{}{target}", p.dir_path), false, false, false, None)
 }
 
+/// Opens the atlas page of the directory above the shown atlas page. The map stays a map
+/// on the way up. The root atlas has no directory above.
+pub fn atlas_up(model: &mut Model) -> Cmd {
+    let Some(p) = page_state(model).and_then(|ps| ps.page.as_ref()) else {
+        return done();
+    };
+    let dir = p.dir_path.trim_end_matches('/');
+    if !is_atlas(p) || dir.is_empty() {
+        return done();
+    }
+    let parent = match dir.rsplit_once('/') {
+        Some((parent, _)) => format!("{parent}/"),
+        None => String::new(),
+    };
+    navigate::to_page(&format!("{parent}{ATLAS_NAME}"), false, false, false, None)
+}
+
 /// The display title: journals as dates, index pages as their directory, docs as their name.
 pub fn page_title(p: &Page) -> String {
     if p.page_type == "journal" {

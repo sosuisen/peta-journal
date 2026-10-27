@@ -223,3 +223,27 @@ fn a_refused_remove_puts_the_card_back_on_the_canvas() {
     assert_eq!(bounds_of(&h, "a/b/one"), Some(Bounds { x: 0.0, y: 0.0, width: 120.0, height: 40.0 }));
     assert!(h.ui.iter().any(|op| matches!(op, UiOp::Alert(_))));
 }
+
+#[test]
+fn the_up_button_of_an_atlas_opens_the_atlas_of_the_directory_above() {
+    let mut h = showing(doc("a/b/", ATLAS_NAME));
+    h.send(Event::AtlasUp);
+
+    assert_eq!(h.navigations.last().unwrap().url, "/pages/a/index_atlas");
+}
+
+#[test]
+fn the_up_button_of_a_top_directory_opens_the_root_atlas() {
+    let mut h = showing(doc("a/", ATLAS_NAME));
+    h.send(Event::AtlasUp);
+
+    assert_eq!(h.navigations.last().unwrap().url, "/pages/index_atlas");
+}
+
+#[test]
+fn the_root_atlas_has_no_directory_above() {
+    let mut h = showing(doc("", ATLAS_NAME));
+    h.send(Event::AtlasUp);
+
+    assert!(h.navigations.is_empty());
+}

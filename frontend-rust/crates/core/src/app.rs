@@ -224,6 +224,8 @@ pub enum Event {
     DemoteIndex,
     /// The map button: switches between the index page and the atlas page of a directory.
     ToggleAtlas,
+    /// The up button of an atlas page: opens the atlas of the directory above.
+    AtlasUp,
     /// A card dropped on the atlas canvas: the page's card is placed with its center there.
     PlaceAtlasCard {
         page_id: String,
@@ -712,6 +714,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         } => screens::page::save_title(model, dir_path, file_name),
         DemoteIndex => screens::page::demote_index(model),
         ToggleAtlas => screens::page::toggle_atlas(model),
+        AtlasUp => screens::page::atlas_up(model),
         PlaceAtlasCard { page_id, x, y } => screens::atlas::place_card(model, page_id, x, y),
         RemoveAtlasCard { page_id } => screens::atlas::remove_card(model, page_id),
         EditPageProperties => screens::page::edit_properties(model),

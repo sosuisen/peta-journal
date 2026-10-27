@@ -9,7 +9,7 @@ use crate::listeners::DocumentListeners;
 use leptos::prelude::*;
 use peta_core::app::Event;
 use peta_core::screens::atlas::{CARD_HEIGHT, CARD_WIDTH};
-use peta_core::view::AtlasCard;
+use peta_core::view::{AtlasCard, ScreenView};
 use wasm_bindgen::prelude::*;
 
 /// The drag data of an unplaced card. A type of its own keeps text dragged from elsewhere
@@ -72,6 +72,10 @@ fn placed_json(cards: &[AtlasCard]) -> String {
 pub fn Atlas() -> impl IntoView {
     let core: CoreHandle = expect_context();
     let cards = core.select(|v| v.atlas_cards.clone());
+    let dir_path = core.select(|v| match &v.screen {
+        ScreenView::Page(Some(p)) => p.page.dir_path.clone(),
+        _ => String::new(),
+    });
     let unplaced = Memo::new(move |_| {
         cards.with(|cs| cs.iter().filter(|c| c.bounds.is_none()).cloned().collect::<Vec<_>>())
     });
@@ -236,7 +240,19 @@ pub fn Atlas() -> impl IntoView {
             <div class="atlas-canvas" node_ref=host
                 on:dragover=move |ev: web_sys::DragEvent| ev.prevent_default()
                 on:drop=on_drop
-                on:contextmenu=move |ev: web_sys::MouseEvent| ev.prevent_default()></div>
+                on:contextmenu=move |ev: web_sys::MouseEvent| ev.prevent_default()>
+                // HTML over the canvas, not drawn by PixiJS: it keeps its corner whatever the
+                // canvas shows. The root has no directory above.
+                <Show when=move || dir_path.with(|d| !d.is_empty())>
+                    <button class="atlas-up-btn" title="Up" on:click=move |_| core.send(Event::AtlasUp)>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="14 9 9 4 4 9"/>
+                            <path d="M20 20h-7a4 4 0 0 1-4-4V4"/>
+                        </svg>
+                        <span>{move || dir_path.get()}</span>
+                    </button>
+                </Show>
+            </div>
             {move || menu.get().map(|(_, x, y)| view! {
                 <div class="atlas-menu" style=format!("left: {x}px; top: {y}px;")>
                     <button class="atlas-menu-item" on:click=remove_from_atlas>"Remove from Atlas"</button>

@@ -235,6 +235,13 @@ app-page .page-title:hover { background: rgba(0,0,0,0.04); }
 .atlas-menu-item { background: none; border: none; padding: 6px 12px; text-align: left; cursor: pointer; font-size: 13px; white-space: nowrap; }
 .atlas-menu-item:hover { background: #f0f0f0; }
 .atlas-canvas canvas { position: absolute; inset: 0; display: block; }
+/* Above the canvas, which PixiJS appends after it */
+.atlas-up-btn {
+  position: absolute; top: 8px; left: 8px; z-index: 1; display: flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border: 1px solid #d0d4da; border-radius: 6px; background: rgba(255,255,255,0.92);
+  color: #444; font-size: 13px; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+.atlas-up-btn:hover { background: #fff; border-color: #b0b6c0; color: #000; }
 .root-index-title:hover { background: transparent; }
 .index-label { padding: 4px 6px; font-size: 1em; color: #999; display: flex; align-items: center; gap: 8px; }
 .demote-btn { font-size: 12px; color: #666; background: none; border: 1px solid #ccc; border-radius: 4px; padding: 2px 8px; cursor: pointer; }
