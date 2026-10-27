@@ -1,14 +1,30 @@
 (function() {
   let templates = [];
 
-  // Fetch and parse template.md. A PageCreate that arrives first waits for this.
-  const templatesLoaded = fetch('template.md')
-    .then(r => r.text())
-    .then(text => {
-      templates = parseTemplates(text);
-      console.log('[auto-template] Loaded', templates.length, 'templates');
-    })
-    .catch(e => console.error('[auto-template] Failed to load template.md:', e));
+  // Fetch and parse every .md file of this function, in file name order.
+  // A PageCreate that arrives first waits for this.
+  const templatesLoaded = loadTemplates()
+    .then(() => console.log('[auto-template] Loaded', templates.length, 'templates'))
+    .catch(e => console.error('[auto-template] Failed to load templates:', e));
+
+  async function loadTemplates() {
+    // The server lists the files of this function at its directory URL without the trailing '/'
+    const dirUrl = new URL('.', location.href).pathname.replace(/\/$/, '');
+    const resp = await fetch(dirUrl);
+    if (!resp.ok) {
+      throw new Error('HTTP ' + resp.status);
+    }
+    const names = (await resp.json()).filter(name => name.toLowerCase().endsWith('.md'));
+    for (const name of names) {
+      // A broken file should not take the templates of the other files with it
+      try {
+        const text = await fetch(encodeURIComponent(name)).then(r => r.text());
+        templates.push(...parseTemplates(text));
+      } catch (e) {
+        console.error('[auto-template] Failed to load ' + name + ':', e);
+      }
+    }
+  }
 
   function parseTemplates(text) {
     const results = [];
