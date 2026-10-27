@@ -237,6 +237,13 @@ pub enum Event {
         page_id: String,
         scale: f64,
     },
+    /// The group menu's "Edit Title": the group's title lies along a side of its outline.
+    /// An empty title takes it away.
+    SetAtlasGroupTitle {
+        group_key: String,
+        side: String,
+        title: String,
+    },
     /// The card menu's "Remove from Atlas": the page's card goes back to the unplaced list.
     RemoveAtlasCard {
         page_id: String,
@@ -736,6 +743,9 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         AtlasUp => screens::page::atlas_up(model),
         PlaceAtlasCard { page_id, x, y } => screens::atlas::place_card(model, page_id, x, y),
         ScaleAtlasCard { page_id, scale } => screens::atlas::scale_card(model, page_id, scale),
+        SetAtlasGroupTitle { group_key, side, title } => {
+            screens::atlas::set_group_title(model, group_key, side, title)
+        }
         RemoveAtlasCard { page_id } => screens::atlas::remove_card(model, page_id),
         GroupAtlasCards { page_ids, target_id } => {
             screens::atlas::group_cards(model, page_ids, target_id)

@@ -5,7 +5,9 @@
 //
 // The hand tool moves the view: a drag with the right button, or with the left one
 // between the cards and the groups. It moves the container of the cards and the cross, not
-// the cards. A drag with the left button on the area of a group moves all its cards.
+// the cards. A drag with the left button on the area of a group moves all its cards. A right
+// click on a group opens its menu, whose dialog gives the group a title. The menu and the
+// dialog are made with @pixi/ui, the global `PIXI.ui` of vendor/pixi-ui.js.
 // The wheel scales that container around the point under the pointer. With Ctrl, it scales
 // the selected cards instead, each around its own center.
 //
@@ -43,6 +45,26 @@ const CARD_MIN_WIDTH = 40;
 const CARD_MAX_WIDTH = 320;
 // The smallest a card can be scaled to, as the core keeps it. A larger card has no limit.
 const MIN_CARD_SCALE = 0.5;
+// The width of the white edge around the characters of a group title
+const TITLE_STROKE = 3;
+// How much of the height of its characters a group title reaches into the area of the group
+const TITLE_INSET = 1 / 3;
+// How much a group title hides what lies behind it
+const TITLE_ALPHA = 0.7;
+// How many points of each curve of an outline the title is laid along
+const CURVE_SAMPLES = 16;
+// The sides a group title can lie along, as the core stores them, with their names in the dialog
+const TITLE_SIDES = [
+  ['top', 'Top'],
+  ['bottom', 'Bottom'],
+  ['left', 'Left'],
+  ['right', 'Right'],
+];
+const UI_FONT_SIZE = 13;
+// The handwritten font of the group titles, copied to the root of the site by index.html.
+// From the root: a relative path would be read from the folder of the page.
+const TITLE_FONT = '851 Tegaki Zatsu';
+const TITLE_FONT_URL = '/851tegaki_zatsu_normal_0883.ttf';
 
 window.AtlasCanvas = class AtlasCanvas {
   // onOpen(path, newTab, newWindow) opens the page of a card whose label is clicked.
@@ -88,7 +110,9 @@ window.AtlasCanvas = class AtlasCanvas {
         // The outlines of the groups lie behind the cards
         this.groups = new PIXI.Container();
         this.world.addChild(cross(), this.groups, this.cards);
-        this.app.stage.addChild(this.world);
+        // The menu and the dialog, in pixels of the screen above the scaled view
+        this.overlay = new PIXI.Container();
+        this.app.stage.addChild(this.world, this.overlay);
         this.app.renderer.on('resize', () => this.center());
         // resizeTo follows the window only. The host also changes size when the list of
         // unplaced cards beside it fills or empties, which would leave the center off.
@@ -97,6 +121,7 @@ window.AtlasCanvas = class AtlasCanvas {
         this.listenForHand();
         this.center();
         this.build();
+        this.loadTitleFont();
       });
   }
 
@@ -117,6 +142,11 @@ window.AtlasCanvas = class AtlasCanvas {
   // The point under the pointer stays where it is while the view is scaled
   zoomAt(e) {
     e.preventDefault();
+    // The view stays as it is under the dialog; the menu would be left behind
+    if (this.dialog) {
+      return;
+    }
+    this.closeMenu();
     const delta = e.deltaMode === WheelEvent.DOM_DELTA_PIXEL ? e.deltaY : e.deltaY * LINE_HEIGHT;
     if ((e.ctrlKey || e.metaKey) && this.selected.size > 0) {
       this.scaleSelected(Math.exp(-delta * ZOOM_PER_PIXEL));
@@ -190,9 +220,22 @@ window.AtlasCanvas = class AtlasCanvas {
         view.cardLabel.resolution = resolution;
       }
     }
+    const resolution = this.textResolution();
+    for (const area of this.groups.children) {
+      for (const char of area.titleChars?.children ?? []) {
+        if (char.resolution !== resolution) {
+          char.resolution = resolution;
+        }
+      }
+    }
   }
 
   startPan(e) {
+    // The menu and the dialog take their own presses. A press anywhere else closes the menu.
+    if (this.overlay.children.length > 0 && within(e.target, this.overlay)) {
+      return;
+    }
+    this.closeMenu();
     // The left button on a card drags the card, on a group its cards; elsewhere it moves the
     // view
     const card = cardOf(e.target);
@@ -209,8 +252,9 @@ window.AtlasCanvas = class AtlasCanvas {
       start: { x: e.global.x, y: e.global.y },
       origin: { x: this.pan.x, y: this.pan.y },
       moved: false,
-      // A right click that does not move opens the menu of this card
+      // A right click that does not move opens the menu of this card, or of this group
       card,
+      area: e.target?.groupArea ? e.target : null,
     };
     this.showHand();
   }
@@ -252,10 +296,170 @@ window.AtlasCanvas = class AtlasCanvas {
       this.keepView();
     } else if (panning.button === 2 && panning.card) {
       this.onMenu(panning.card.cardData.id, e.clientX, e.clientY);
+    } else if (panning.button === 2 && panning.area && !panning.area.destroyed) {
+      this.openGroupMenu(panning.area.label, e.global.x, e.global.y);
     } else if (panning.button === 0 && !panning.card) {
       // A click between the cards lets go of the selection
       this.select([]);
     }
+  }
+
+  // The font file is large, so the titles show in the font of the app until it has come; then
+  // they are drawn again in it. PixiJS draws a Text once and would keep the first font.
+  loadTitleFont() {
+    PIXI.Assets.load({ src: TITLE_FONT_URL, data: { family: TITLE_FONT } })
+      .then(() => {
+        if (!this.destroyed && !this.drag && !this.groupDrag) {
+          this.drawGroups();
+        }
+      })
+      .catch(e => console.warn('atlas: cannot load the font of the group titles', e));
+  }
+
+  // The menu of a group, at a point of the screen. Its one item opens the dialog of the title.
+  openGroupMenu(group, x, y) {
+    this.closeMenu();
+    const item = new PIXI.ui.FancyButton({
+      defaultView: new PIXI.Graphics().rect(0, 0, 140, 30).fill(0xffffff),
+      hoverView: new PIXI.Graphics().rect(0, 0, 140, 30).fill(0xf0f0f0),
+      text: uiText('Edit Title'),
+      // The text at the left, as in the other menus of the app
+      defaultTextAnchor: { x: 0, y: 0.5 },
+      textOffset: { x: -70 + 12, y: 0 },
+    });
+    item.onPress.connect(() => {
+      this.closeMenu();
+      this.openTitleDialog(group);
+    });
+    const menu = new PIXI.Container();
+    menu.addChild(
+      new PIXI.Graphics()
+        .roundRect(0, 0, 140, 38, 6)
+        .fill(0xffffff)
+        .stroke({ color: 0xdddddd, width: 1 }),
+      item,
+    );
+    // A button lies with its top left at its position
+    item.position.set(0, 4);
+    // Kept on the screen near its right and bottom edges
+    menu.position.set(
+      Math.min(x, this.app.screen.width - 144),
+      Math.min(y, this.app.screen.height - 42),
+    );
+    this.menu = menu;
+    this.overlay.addChild(menu);
+    this.menuKeys = e => {
+      if (e.key === 'Escape') {
+        this.closeMenu();
+      }
+    };
+    window.addEventListener('keydown', this.menuKeys);
+  }
+
+  closeMenu() {
+    if (!this.menu) {
+      return;
+    }
+    window.removeEventListener('keydown', this.menuKeys);
+    this.menu.destroy({ children: true });
+    this.menu = null;
+  }
+
+  // The dialog of the title of a group: the title and the side of the outline it lies along.
+  // OK or Enter gives them to the core, which takes an empty title as none. Cancel, Escape and
+  // a press beside the dialog leave the title as it was.
+  openTitleDialog(group) {
+    const data = this.data.find(d => d.group === group);
+    const sideIndex = Math.max(
+      0,
+      TITLE_SIDES.findIndex(([side]) => side === data?.groupTitleSide),
+    );
+    const width = 340;
+    const input = new PIXI.ui.Input({
+      bg: new PIXI.Graphics()
+        .roundRect(0, 0, width - 60, 32, 4)
+        .fill(0xffffff)
+        .stroke({ color: 0xc0c4cc, width: 1 }),
+      placeholder: 'Title',
+      value: data?.groupTitle ?? '',
+      padding: { left: 8, right: 8 },
+      textStyle: { fontFamily: uiFont(), fontSize: UI_FONT_SIZE, fill: 0x222222 },
+    });
+    const sides = new PIXI.ui.RadioGroup({
+      items: TITLE_SIDES.map(([, name]) => new PIXI.ui.CheckBox({
+        text: name,
+        style: {
+          unchecked: new PIXI.Graphics().circle(8, 8, 7).fill(0xffffff).stroke({ color: 0x9aa0a6, width: 1.5 }),
+          checked: new PIXI.Graphics()
+            .circle(8, 8, 7).fill(0xffffff).stroke({ color: 0x1a73e8, width: 1.5 })
+            .circle(8, 8, 4).fill(0x1a73e8),
+          text: { fontFamily: uiFont(), fontSize: UI_FONT_SIZE, fill: 0x222222 },
+          textOffset: { x: 4 },
+        },
+      })),
+      type: 'horizontal',
+      elementsMargin: 16,
+      selectedItem: sideIndex,
+    });
+    sides.y = 48;
+    const content = new PIXI.Container();
+    content.addChild(input, sides);
+    const dialog = new PIXI.ui.Dialog({
+      background: new PIXI.Graphics()
+        .roundRect(0, 0, width, 200, 10)
+        .fill(0xffffff)
+        .stroke({ color: 0xdddddd, width: 1 }),
+      backdropColor: 0x000000,
+      backdropAlpha: 0.15,
+      title: uiText('Edit Title', 15),
+      content,
+      width,
+      height: 200,
+      padding: 20,
+      buttons: [dialogButton('Cancel', false), dialogButton('OK', true)],
+      closeOnBackdropClick: true,
+    });
+    dialog.position.set(this.app.screen.width / 2, this.app.screen.height / 2);
+    const finish = ok => {
+      if (this.dialog !== dialog) {
+        return;
+      }
+      this.dialog = null;
+      window.removeEventListener('keydown', keys, true);
+      if (ok && this.onGroupTitle) {
+        this.onGroupTitle(group, TITLE_SIDES[sides.selected][0], input.value);
+      }
+      dialog.close();
+      // After the close has hidden it, which the next frame does
+      setTimeout(() => {
+        if (!dialog.destroyed) {
+          dialog.destroy({ children: true });
+        }
+      }, 0);
+    };
+    this.closeDialog = () => finish(false);
+    // Enter is taken only once the text is no longer being composed by an IME
+    const keys = e => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        finish(false);
+      } else if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) {
+        e.preventDefault();
+        finish(true);
+      }
+    };
+    dialog.onSelect.connect(index => finish(index === 1));
+    dialog.onClose.connect(() => finish(false));
+    window.addEventListener('keydown', keys, true);
+    this.dialog = dialog;
+    this.overlay.addChild(dialog);
+    dialog.open();
+    // After the click that opened the dialog: the input stops editing on a press elsewhere
+    setTimeout(() => {
+      if (this.dialog === dialog) {
+        input._startEditing();
+      }
+    }, 0);
   }
 
   // A group is dragged as its cards are, without Ctrl: it keeps its cards and joins no other
@@ -362,8 +566,14 @@ window.AtlasCanvas = class AtlasCanvas {
     this.onScale = onScale;
   }
 
+  // onGroupTitle(groupKey, side, title) gives a group a title along a side of its outline
+  setOnGroupTitle(onGroupTitle) {
+    this.onGroupTitle = onGroupTitle;
+  }
+
   // The placed cards as JSON: [{ id, label, path, isDir, x, y, width, height, scale, group,
-  // groupColor, icon, blob, iconSize, iconDrawSize }], where x and y are the center of the card,
+  // groupColor, groupTitle, groupTitleSide, icon, blob, iconSize, iconDrawSize }], where x and
+  // y are the center of the card,
   // width and height are its size as scaled, a width of 0 leaves it to the label, icon and blob are SVGs or null, and iconDrawSize is the size of the SVG, which is shown at iconSize. The core gives the color of
   // each group, so it is the same as on the tag icons.
   setCards(json) {
@@ -408,6 +618,7 @@ window.AtlasCanvas = class AtlasCanvas {
     }
     const corners = new Map();
     const colors = new Map();
+    const titles = new Map();
     for (const view of this.cards.children) {
       const { group, width, height } = view.cardData;
       if (!group || (drag && !touched.has(group))) {
@@ -425,6 +636,7 @@ window.AtlasCanvas = class AtlasCanvas {
       if (!corners.has(group)) {
         corners.set(group, []);
         colors.set(group, view.cardData.groupColor);
+        titles.set(group, view.cardData);
       }
       corners.get(group).push([left, top], [right, top], [right, bottom], [left, bottom]);
     }
@@ -447,7 +659,8 @@ window.AtlasCanvas = class AtlasCanvas {
       const color = colors.get(group);
       // One path for the area and its frame
       const curve = new PIXI.GraphicsPath();
-      smoothClosedCurve(curve, convexHull(points));
+      const hull = convexHull(points);
+      smoothClosedCurve(curve, hull);
       area.clear().path(curve).fill({ color, alpha: 0.3 });
       area.frame.clear().path(curve).stroke({ color: 0xffffff, width: 2 });
       area.frame.tint = color;
@@ -456,6 +669,45 @@ window.AtlasCanvas = class AtlasCanvas {
       area.outlineColor = color;
       // A group dragged as a whole has nothing to leave: it moves with its cards
       area.leavable = ctrl && staying.has(group);
+      const { groupTitle, groupTitleSide } = titles.get(group);
+      // One Text a character, made once; a drag only lays them again along the new outline
+      if (groupTitle && !area.titleChars) {
+        area.titleChars = new PIXI.Container();
+        area.titleChars.eventMode = 'none';
+        area.titleChars.alpha = TITLE_ALPHA;
+        const style = new PIXI.TextStyle({
+          fontFamily: `"${TITLE_FONT}", ${uiFont()}`,
+          fontSize: 20,
+          fontWeight: 'bold',
+          fill: 0x333333,
+          // The same white edge as the labels of the cards
+          stroke: { color: 0xffffff, width: TITLE_STROKE, join: 'round' },
+          padding: 2,
+        });
+        // Where the outline crosses the characters in the box of a Text, as a share of its
+        // height: TITLE_INSET of their height from the side toward the area. The canvas draws
+        // them half the white edge down from the top of the box.
+        const metrics = PIXI.CanvasTextMetrics.measureText(groupTitle, style);
+        const { ascent, descent } = metrics.fontProperties;
+        const line = share => (TITLE_STROKE / 2 + (ascent + descent) * share) / metrics.height;
+        area.titleChars.standing = line(1 - TITLE_INSET);
+        area.titleChars.hanging = line(TITLE_INSET);
+        // How far each character moves the next one on, from the widths of the title up to it.
+        // Not the width of the character alone: that holds the white edge at both its sides.
+        const chars = Array.from(groupTitle);
+        let before = 0;
+        chars.forEach((char, i) => {
+          const upTo = PIXI.CanvasTextMetrics.measureText(chars.slice(0, i + 1).join(''), style).width;
+          const text = new PIXI.Text({ text: char, resolution: this.textResolution(), style });
+          text.advance = upTo - before;
+          before = upTo;
+          area.titleChars.addChild(text);
+        });
+        this.groups.addChild(area.titleChars);
+      }
+      if (area.titleChars) {
+        layTitle(area.titleChars, closedCurvePoints(hull), groupTitleSide);
+      }
     }
   }
 
@@ -678,6 +930,9 @@ window.AtlasCanvas = class AtlasCanvas {
 
   destroy() {
     this.destroyed = true;
+    this.closeMenu();
+    // The dialog listens on the window for its keys; a page left with it open would keep them
+    this.closeDialog?.();
     clearTimeout(this.sharpenTimer);
     clearTimeout(this.scaleTimer);
     this.resizeObserver?.disconnect();
@@ -695,6 +950,137 @@ function cardOf(target) {
     }
   }
   return null;
+}
+
+// Whether a display object lies inside a container
+function within(target, container) {
+  for (let node = target; node; node = node.parent) {
+    if (node === container) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function uiFont() {
+  return getComputedStyle(document.body).fontFamily;
+}
+
+function uiText(text, fontSize = UI_FONT_SIZE) {
+  return new PIXI.Text({ text, style: { fontFamily: uiFont(), fontSize, fill: 0x222222 } });
+}
+
+// A button of a dialog; the main one is filled with the color of the app
+function dialogButton(text, main) {
+  const view = (fill, line) =>
+    new PIXI.Graphics()
+      .roundRect(0, 0, 88, 32, 6)
+      .fill(fill)
+      .stroke({ color: line, width: 1 });
+  return new PIXI.ui.FancyButton({
+    defaultView: main ? view(0x1a73e8, 0x1a73e8) : view(0xffffff, 0xc0c4cc),
+    hoverView: main ? view(0x1765cc, 0x1765cc) : view(0xf0f0f0, 0xc0c4cc),
+    pressedView: main ? view(0x1558b0, 0x1558b0) : view(0xe4e4e4, 0xc0c4cc),
+    text: new PIXI.Text({
+      text,
+      style: { fontFamily: uiFont(), fontSize: UI_FONT_SIZE, fill: main ? 0xffffff : 0x222222 },
+    }),
+  });
+}
+
+// A group title stands on the outline, one character after another, each turned with the
+// curve where it stands: the line crosses its characters a third of the way up, so they reach
+// a little into the area. It is centered on the middle of the side it names. It runs clockwise on the screen, so it reads left to right along the
+// top, downward on the right and upward on the left, its foot toward the outline. Along the
+// bottom it runs the other way, so it is not upside down; there it hangs from the line by its
+// head, as standing on it would put it inside the group.
+function layTitle(title, outline, side) {
+  const chars = title.children;
+  if (outline.length < 2) {
+    return;
+  }
+  // Clockwise on the screen, where y grows downward, has a positive signed area
+  let area = 0;
+  outline.forEach(([x, y], i) => {
+    const [nx, ny] = outline[(i + 1) % outline.length];
+    area += x * ny - nx * y;
+  });
+  const bottom = side === 'bottom';
+  const path = (area > 0) !== bottom ? outline : [...outline].reverse();
+  const lengths = [0];
+  for (let i = 1; i <= path.length; i++) {
+    const [ax, ay] = path[i - 1];
+    const [bx, by] = path[i % path.length];
+    lengths.push(lengths[i - 1] + Math.hypot(bx - ax, by - ay));
+  }
+  const total = lengths[path.length];
+  // The point of the outline at a distance along it, from its first point
+  const at = distance => {
+    const d = ((distance % total) + total) % total;
+    let i = 1;
+    while (lengths[i] < d) {
+      i++;
+    }
+    const t = (d - lengths[i - 1]) / (lengths[i] - lengths[i - 1] || 1);
+    const [ax, ay] = path[i - 1];
+    const [bx, by] = path[i % path.length];
+    return [ax + (bx - ax) * t, ay + (by - ay) * t];
+  };
+  // The middle of the side: where a line from the middle of the outline toward that side
+  // crosses it. Not the farthest point, which on a flat side may lie at one of its ends.
+  const xs = path.map(([x]) => x);
+  const ys = path.map(([, y]) => y);
+  const midX = (Math.min(...xs) + Math.max(...xs)) / 2;
+  const midY = (Math.min(...ys) + Math.max(...ys)) / 2;
+  const across = side === 'left' || side === 'right' ? ([, y]) => Math.abs(y - midY) : ([x]) => Math.abs(x - midX);
+  const outward = {
+    top: ([, y]) => y < midY,
+    bottom: ([, y]) => y > midY,
+    left: ([x]) => x < midX,
+    right: ([x]) => x > midX,
+  }[side] ?? (([, y]) => y < midY);
+  let middle = -1;
+  path.forEach((p, i) => {
+    if (outward(p) && (middle < 0 || across(p) < across(path[middle]))) {
+      middle = i;
+    }
+  });
+  if (middle < 0) {
+    middle = 0;
+  }
+  const width = chars.reduce((sum, c) => sum + c.advance, 0);
+  let distance = lengths[middle] - width / 2;
+  for (const char of chars) {
+    const step = char.advance;
+    // The direction over the width of the character, so it does not follow every small bend
+    const [ax, ay] = at(distance);
+    const [bx, by] = at(distance + step);
+    const [cx, cy] = at(distance + step / 2);
+    char.anchor.set(0.5, bottom ? title.hanging : title.standing);
+    char.rotation = Math.atan2(by - ay, bx - ax);
+    char.position.set(cx, cy);
+    distance += step;
+  }
+}
+
+// Points along the closed curve of smoothClosedCurve, close enough to stand for it
+function closedCurvePoints(points) {
+  const out = [];
+  for (const [p1, c1, c2, p2] of curveSegments(points)) {
+    for (let k = 0; k < CURVE_SAMPLES; k++) {
+      const t = k / CURVE_SAMPLES;
+      const u = 1 - t;
+      const a = u * u * u;
+      const b = 3 * u * u * t;
+      const c = 3 * u * t * t;
+      const d = t * t * t;
+      out.push([
+        a * p1[0] + b * c1[0] + c * c2[0] + d * p2[0],
+        a * p1[1] + b * c1[1] + c * c2[1] + d * p2[1],
+      ]);
+    }
+  }
+  return out;
 }
 
 // The smallest convex polygon around the points, in order around it (Andrew's monotone chain)
@@ -718,21 +1104,29 @@ function convexHull(points) {
 // A closed curve through every point, drawn on a Graphics or a GraphicsPath, as Bézier curves of a Catmull-Rom spline. It passes
 // through the corners of the hull, so it never cuts into a card as a curve between them could.
 function smoothClosedCurve(g, points) {
-  const n = points.length;
-  const at = i => points[(i + n) % n];
   g.moveTo(points[0][0], points[0][1]);
-  for (let i = 0; i < n; i++) {
-    const [p0, p1, p2, p3] = [at(i - 1), at(i), at(i + 1), at(i + 2)];
-    g.bezierCurveTo(
-      p1[0] + (p2[0] - p0[0]) / 6,
-      p1[1] + (p2[1] - p0[1]) / 6,
-      p2[0] - (p3[0] - p1[0]) / 6,
-      p2[1] - (p3[1] - p1[1]) / 6,
-      p2[0],
-      p2[1],
-    );
+  for (const [, c1, c2, p2] of curveSegments(points)) {
+    g.bezierCurveTo(c1[0], c1[1], c2[0], c2[1], p2[0], p2[1]);
   }
   g.closePath();
+}
+
+// The Bézier curves of the closed Catmull-Rom spline through the points: [start, control,
+// control, end] each
+function curveSegments(points) {
+  const n = points.length;
+  const at = i => points[(i + n) % n];
+  const segments = [];
+  for (let i = 0; i < n; i++) {
+    const [p0, p1, p2, p3] = [at(i - 1), at(i), at(i + 1), at(i + 2)];
+    segments.push([
+      p1,
+      [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6],
+      [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6],
+      p2,
+    ]);
+  }
+  return segments;
 }
 
 // The icon of a card, from its SVG. The browser draws the SVG, as its hatching is a <pattern>,

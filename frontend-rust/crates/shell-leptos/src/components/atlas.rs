@@ -97,6 +97,9 @@ extern "C" {
     #[wasm_bindgen(method, js_name = setOnScale)]
     fn set_on_scale(this: &AtlasCanvas, on_scale: &js_sys::Function);
 
+    #[wasm_bindgen(method, js_name = setOnGroupTitle)]
+    fn set_on_group_title(this: &AtlasCanvas, on_group_title: &js_sys::Function);
+
     #[wasm_bindgen(method, js_name = setCards)]
     fn set_cards(this: &AtlasCanvas, json: String);
 
@@ -136,6 +139,8 @@ fn placed_json(cards: &[AtlasCard]) -> String {
                     "scale": b.scale(),
                     "group": c.group,
                     "groupColor": c.group_color,
+                    "groupTitle": c.group_title.as_ref().map(|t| &t.text),
+                    "groupTitleSide": c.group_title.as_ref().map(|t| &t.side),
                     "icon": (!c.icon_tags.is_empty())
                         .then(|| tag_icon_svg(&c.icon_tags, ICON_DRAW_SIZE)),
                     // The blob is drawn from the main tag, which comes first
@@ -235,6 +240,12 @@ pub fn Atlas() -> impl IntoView {
             core.send(Event::ScaleAtlasCard { page_id, scale });
         },
     ));
+    // The title of a group given in its dialog, along a side of its outline
+    let on_group_title = StoredValue::new_local(Closure::<dyn Fn(String, String, String)>::new(
+        move |group_key: String, side: String, title: String| {
+            core.send(Event::SetAtlasGroupTitle { group_key, side, title });
+        },
+    ));
     let remove_from_atlas = move |_| {
         if let Some((page_id, _, _)) = menu.get_untracked() {
             core.send(Event::RemoveAtlasCard { page_id });
@@ -273,6 +284,7 @@ pub fn Atlas() -> impl IntoView {
                 on_group.with_value(|group| made.set_on_group(group.as_ref().unchecked_ref()));
                 on_ungroup.with_value(|ungroup| made.set_on_ungroup(ungroup.as_ref().unchecked_ref()));
                 on_scale.with_value(|scale| made.set_on_scale(scale.as_ref().unchecked_ref()));
+                on_group_title.with_value(|title| made.set_on_group_title(title.as_ref().unchecked_ref()));
                 made
             })
             .set_cards(json);

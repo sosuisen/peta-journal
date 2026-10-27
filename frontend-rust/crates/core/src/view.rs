@@ -232,6 +232,8 @@ pub struct AtlasCard {
     pub group_color: Option<String>,
     /// The tags the icon of the card is drawn from; none for no icon.
     pub icon_tags: Vec<String>,
+    /// The title of the card's group, the same on every card of it.
+    pub group_title: Option<atlas::GroupTitle>,
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -289,7 +291,7 @@ pub fn build(model: &Model) -> ViewModel {
         screen: screen(model),
         atlas_cards: atlas::cards(model)
             .into_iter()
-            .map(|(p, bounds, group)| AtlasCard {
+            .map(|(p, bounds, group, group_title)| AtlasCard {
                 page_id: p.id.clone(),
                 label: sidebar::index_page_name(&p),
                 path: if sidebar::is_directory(&p) {
@@ -302,6 +304,7 @@ pub fn build(model: &Model) -> ViewModel {
                 group_color: group.as_deref().map(atlas::group_color),
                 icon_tags: atlas::icon_tags(&p, &model.config.tags_dir),
                 group,
+                group_title,
             })
             .collect(),
         outline: outline(model),

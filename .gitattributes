@@ -19,3 +19,4 @@
 *.dylib binary
 *.jar binary
 *.class binary
+*.ttf binary

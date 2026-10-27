@@ -4,7 +4,7 @@ use crate::app::{Event, PageState, Screen};
 use crate::effects::{ApiOp, ApiOutput, ApiResult, UiOp};
 use crate::harness::Harness;
 use crate::model::Page;
-use crate::screens::atlas::Bounds;
+use crate::screens::atlas::{Bounds, GroupTitle};
 use crate::screens::page::{page_title, ATLAS_NAME};
 
 fn doc(dir_path: &str, name: &str) -> Page {
@@ -639,4 +639,78 @@ fn a_blob_fills_its_svg_to_the_edges() {
     // The view box is cut to the blob and stretched to the size of the SVG
     assert!(svg.contains(r#"preserveAspectRatio="none""#), "{svg}");
     assert!(!svg.contains(r#"viewBox="-50 -50 100 100""#), "{svg}");
+}
+
+fn titled(h: &mut Harness, group_key: &str, side: &str, title: &str) {
+    h.send(Event::SetAtlasGroupTitle { group_key: group_key.into(), side: side.into(), title: title.into() });
+}
+
+fn atlas_page(h: &Harness) -> Page {
+    crate::screens::page::page_state(&h.model).and_then(|ps| ps.page.clone()).unwrap()
+}
+
+/// An atlas whose group `g` of the cards one and two has the title `top:Tools`
+fn atlas_with_title() -> Harness {
+    let mut h = atlas_with_groups(&[("atlas_group_g", &["a/b/one", "a/b/two"])]);
+    if let Some(atlas) = crate::screens::page::page_mut(&mut h.model).and_then(|ps| ps.page.as_mut()) {
+        atlas.properties.insert("atlas_title_g".into(), serde_json::json!("top:Tools"));
+    }
+    h.model.sidebar.index_pages = vec![child("one", None), child("two", None), child("three", None)];
+    h
+}
+
+#[test]
+fn a_group_takes_a_title_along_a_side_of_its_outline() {
+    let mut h = atlas_with_groups(&[("atlas_group_g", &["a/b/one", "a/b/two"])]);
+    titled(&mut h, "atlas_group_g", "left", "  Tools  ");
+
+    assert_eq!(upserts(&h), [("a/b/index_atlas".into(), "atlas_title_g".into(), "left:Tools".into())]);
+}
+
+#[test]
+fn every_card_of_a_group_carries_its_title() {
+    let h = atlas_with_title();
+    let title = Some(GroupTitle { side: "top".into(), text: "Tools".into() });
+
+    let titles: Vec<_> = h.view().atlas_cards.into_iter().map(|c| (c.page_id, c.group_title)).collect();
+    assert_eq!(
+        titles,
+        [("a/b/one".to_string(), title.clone()), ("a/b/three".to_string(), None), ("a/b/two".to_string(), title)]
+    );
+}
+
+#[test]
+fn an_empty_title_takes_the_title_away() {
+    let mut h = atlas_with_title();
+    titled(&mut h, "atlas_group_g", "top", " ");
+
+    assert_eq!(deletes(&h), ["atlas_title_g"]);
+    assert!(atlas_page(&h).properties.get("atlas_title_g").is_none());
+}
+
+#[test]
+fn a_title_of_no_group_or_an_unknown_side_is_not_kept_as_sent() {
+    let mut h = atlas_with_groups(&[("atlas_group_g", &["a/b/one", "a/b/two"])]);
+    titled(&mut h, "atlas_group_none", "top", "Tools");
+    titled(&mut h, "atlas_group_g", "middle", "Tools");
+
+    assert_eq!(upserts(&h), [("a/b/index_atlas".into(), "atlas_title_g".into(), "top:Tools".into())]);
+}
+
+#[test]
+fn a_title_written_without_a_side_lies_along_the_top() {
+    let mut atlas = doc("a/b/", ATLAS_NAME);
+    atlas.properties.insert("atlas_title_g".into(), serde_json::json!("note: by hand"));
+    let title = crate::screens::atlas::group_title(&atlas, "atlas_group_g");
+
+    assert_eq!(title, Some(GroupTitle { side: "top".into(), text: "note: by hand".into() }));
+}
+
+#[test]
+fn the_title_of_a_group_goes_with_the_group() {
+    let mut h = atlas_with_title();
+    ungroup(&mut h, &["a/b/one"]);
+
+    assert_eq!(deletes(&h), ["atlas_group_g", "atlas_title_g"]);
+    assert!(atlas_page(&h).properties.get("atlas_title_g").is_none());
 }

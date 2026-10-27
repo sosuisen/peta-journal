@@ -261,25 +261,48 @@ pub fn ungroup_cards(model: &mut Model, page_ids: Vec<String>) -> Cmd {
     change_groups(atlas, changed)
 }
 
-/// Gives the atlas page the changed groups at once and saves them one by one. An empty
-/// list stands for a group that goes.
+/// Gives the atlas page the changed groups at once and saves them. An empty list stands for
+/// a group that goes, and its title goes with it.
 fn change_groups(atlas: &mut Page, changed: BTreeMap<String, Vec<String>>) -> Cmd {
-    let before = atlas.properties.clone();
-    for (key, ids) in &changed {
+    let mut changes = BTreeMap::new();
+    for (key, ids) in changed {
         if ids.is_empty() {
-            atlas.properties.remove(key);
+            if let Some(title) = title_key(&key).filter(|t| atlas.properties.contains_key(t)) {
+                changes.insert(title, None);
+            }
+            changes.insert(key, None);
         } else {
-            atlas.properties.insert(key.clone(), Value::from(ids.clone()));
+            changes.insert(key, Some(Value::from(ids)));
         }
+    }
+    change_atlas(atlas, changes)
+}
+
+/// Gives the atlas page the changed properties at once and saves them one by one: a list as
+/// a list, text as text, and none as a property that goes. A refusal of the server puts them
+/// all back.
+fn change_atlas(atlas: &mut Page, changes: BTreeMap<String, Option<Value>>) -> Cmd {
+    let before = atlas.properties.clone();
+    for (key, value) in &changes {
+        match value {
+            Some(value) => atlas.properties.insert(key.clone(), value.clone()),
+            None => atlas.properties.remove(key),
+        };
     }
     let atlas_id = atlas.id.clone();
     run(move |api| async move {
         let mut last = None;
-        for (key, ids) in changed {
-            let result = if ids.is_empty() {
-                api.delete_page_property(&atlas_id, &key).await
-            } else {
-                api.upsert_page_property(&atlas_id, &key, "list", &ids.join(",")).await
+        for (key, value) in changes {
+            let result = match value {
+                None => api.delete_page_property(&atlas_id, &key).await,
+                Some(Value::Array(ids)) => {
+                    let ids: Vec<&str> = ids.iter().filter_map(Value::as_str).collect();
+                    api.upsert_page_property(&atlas_id, &key, "list", &ids.join(",")).await
+                }
+                Some(value) => {
+                    let text = value.as_str().map(str::to_string).unwrap_or_else(|| value.to_string());
+                    api.upsert_page_property(&atlas_id, &key, "text", &text).await
+                }
             };
             match result {
                 Ok(page) => last = Some(page),
@@ -308,6 +331,58 @@ fn change_groups(atlas: &mut Page, changed: BTreeMap<String, Vec<String>>) -> Cm
 
 /// A key for a new group: a hash of the cards that make it, so no counter has to be kept.
 /// A key already in use is hashed again.
+/// The start of the keys of the group titles: the key of a group with this prefix instead.
+pub const TITLE_PREFIX: &str = "atlas_title_";
+/// The sides of the outline of a group that its title can lie along, the first by default.
+pub const TITLE_SIDES: [&str; 4] = ["top", "bottom", "left", "right"];
+
+/// The title of a group and the side of its outline it lies along. Stored as `side:text`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct GroupTitle {
+    pub side: String,
+    pub text: String,
+}
+
+fn title_key(group_key: &str) -> Option<String> {
+    group_key
+        .strip_prefix(GROUP_PREFIX)
+        .map(|key| format!("{TITLE_PREFIX}{key}"))
+}
+
+/// The title of a group of the atlas page. A value without a known side lies along the top,
+/// all of it as the text, so a title written by hand is not lost.
+pub fn group_title(atlas: &Page, group_key: &str) -> Option<GroupTitle> {
+    let value = atlas.properties.get(&title_key(group_key)?)?.as_str()?;
+    let (side, text) = match value.split_once(':') {
+        Some((side, text)) if TITLE_SIDES.contains(&side) => (side, text),
+        _ => (TITLE_SIDES[0], value),
+    };
+    Some(GroupTitle { side: side.to_string(), text: text.to_string() })
+        .filter(|t| !t.text.trim().is_empty())
+}
+
+/// Gives a group of the shown atlas page a title along a side of its outline. An empty title
+/// takes the title away. The title changes at once; a refusal of the server puts it back.
+pub fn set_group_title(model: &mut Model, group_key: String, side: String, title: String) -> Cmd {
+    let Some(atlas) = super::page::page_mut(model)
+        .and_then(|ps| ps.page.as_mut())
+        .filter(|p| super::page::is_atlas(p))
+    else {
+        return done();
+    };
+    let is_group = groups(atlas).iter().any(|(key, _)| *key == group_key);
+    let Some(key) = title_key(&group_key).filter(|_| is_group) else {
+        return done();
+    };
+    let side = if TITLE_SIDES.contains(&side.as_str()) { side } else { TITLE_SIDES[0].to_string() };
+    let title = title.trim();
+    let value = (!title.is_empty()).then(|| Value::from(format!("{side}:{title}")));
+    if atlas.properties.get(&key) == value.as_ref() {
+        return done();
+    }
+    change_atlas(atlas, BTreeMap::from([(key, value)]))
+}
+
 fn new_group_key(groups: &[(String, Vec<String>)], target_id: &str, moving: &[String]) -> String {
     let mut seed = format!("{target_id},{}", moving.join(","));
     loop {
@@ -447,8 +522,9 @@ fn index_page_mut<'a>(model: &'a mut Model, page_id: &str) -> Option<&'a mut Pag
 }
 
 /// The cards of the shown atlas page, in the order of the sidebar's index list, each with
-/// its place and the key of its group.
-pub fn cards(model: &Model) -> Vec<(Page, Option<Bounds>, Option<String>)> {
+/// its place, the key of its group and the title of that group.
+#[allow(clippy::type_complexity)]
+pub fn cards(model: &Model) -> Vec<(Page, Option<Bounds>, Option<String>, Option<GroupTitle>)> {
     let Some(atlas) = super::page::page_state(model)
         .and_then(|ps| ps.page.as_ref())
         .filter(|p| super::page::is_atlas(p))
@@ -464,7 +540,8 @@ pub fn cards(model: &Model) -> Vec<(Page, Option<Bounds>, Option<String>)> {
                 .iter()
                 .find(|(_, ids)| ids.contains(&p.id))
                 .map(|(key, _)| key.clone());
-            (p, bounds, group)
+            let title = group.as_deref().and_then(|key| group_title(atlas, key));
+            (p, bounds, group, title)
         })
         .collect()
 }
