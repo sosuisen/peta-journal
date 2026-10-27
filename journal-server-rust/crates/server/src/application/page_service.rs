@@ -737,7 +737,7 @@ impl PageService {
 
     /// The tag whose tag page this is, when the page lies under the tag directory. A tag with
     /// pages under it is an index page: `tags/a/index` is the page of the tag `a`.
-    fn tag_of_page(&self, page: &Page) -> Option<String> {
+    pub fn tag_of_page(&self, page: &Page) -> Option<String> {
         if page.page_type != "doc" {
             return None;
         }

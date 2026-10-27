@@ -990,6 +990,43 @@ async fn a_hashtag_in_a_body_keeps_its_tag_page_as_a_page_tag_does() {
 }
 
 #[tokio::test]
+async fn renaming_a_tag_page_renames_its_tag_in_page_tags_and_bodies() {
+    let _tags_dir = TAGS_DIR.lock().await;
+    let old = format!("renamed-tag-old-{}", nanos());
+    let new = format!("renamed-tag-new-{}", nanos());
+    let tagged = new_doc_page("renamed-tag-page").await;
+    set_page_tags(&tagged.id, &format!("{old},other")).await;
+    let page = new_doc_page("renamed-tag-body").await;
+    let item = items(&page.id).await.into_iter().next().unwrap();
+    update_item(&item.id, json!({ "body": format!("see #{old} and `#{old}`") })).await;
+    let tag_page = doc_page_named(&old).await.unwrap();
+
+    let (status, resp) = put(&format!("/api/pages/{tag_page}"), json!({ "title": new })).await;
+    assert_eq!(status, 200, "{resp}");
+
+    let (_, resp) = get(&format!("/api/pages/{}", tagged.id)).await;
+    assert_eq!(resp["page"]["properties"]["tags"], json!([new, "other"]));
+    let item = items(&page.id).await.into_iter().next().unwrap();
+    assert_eq!(item.body, format!("see #{new} and `#{old}`"));
+    assert_eq!(item.properties["tags"], json!([new]));
+    assert_eq!(doc_page_named(&new).await, Some(tag_page.clone()));
+    assert!(doc_page_named(&old).await.is_none());
+}
+
+#[tokio::test]
+async fn a_tag_page_cannot_take_a_title_that_is_not_a_tag() {
+    let _tags_dir = TAGS_DIR.lock().await;
+    let tag = format!("untitled-tag-{}", nanos());
+    let page = new_doc_page("untitled-tag").await;
+    set_page_tags(&page.id, &tag).await;
+    let tag_page = doc_page_named(&tag).await.unwrap();
+
+    let (status, resp) = put(&format!("/api/pages/{tag_page}"), json!({ "title": "two words" })).await;
+    assert_eq!(status, 400, "{resp}");
+    assert_eq!(doc_page_named(&tag).await, Some(tag_page));
+}
+
+#[tokio::test]
 async fn a_deleted_page_takes_the_tag_pages_of_its_tags_with_it() {
     let _tags_dir = TAGS_DIR.lock().await;
     let page_tag = "deleted-page-tag-pages-page";

@@ -503,9 +503,9 @@ impl JournalMcp {
         let state = Arc::clone(&self.state);
         let page_id = id(&a.page_id)?;
         let title = a.title.filter(|t| !t.is_empty());
-        let page = run(move || {
+        let (page, _) = run(move || {
             state
-                .page_service
+                .item_service
                 .update_page(&page_id, title.as_deref(), a.dir_path.as_deref())
         })
         .await?;

@@ -14,6 +14,7 @@ use crate::domain::model::{Item, ItemPatch, ItemPlacement, ItemPosition, Page};
 use crate::domain::search::SearchIndex;
 use crate::error::{AppError, AppResult};
 use crate::infrastructure::export::export_service::MarkdownExportService;
+use crate::infrastructure::export::page_link_converter;
 use crate::infrastructure::persistence::db::now_millis;
 use crate::infrastructure::persistence::{ItemRepository, PageRepository, PropertyRepository};
 
@@ -22,6 +23,7 @@ use super::page_service::PageService;
 use super::tree_markdown;
 
 const ITEM_TARGET: &str = "item";
+const PAGE_TARGET: &str = "page";
 
 /// Result of exporting items as tree markdown.
 #[derive(Debug, Clone)]
@@ -519,6 +521,84 @@ impl ItemService {
             self.items.update_index(&item.id, &idx)?;
         }
         Ok(())
+    }
+
+    /// Updates a page's title or folder, as `PageService::update_page` does. A tag page
+    /// names its tag, so renaming one renames the tag on every page and item that has it,
+    /// and the tags under it too. Returns the page and the other pages that changed.
+    pub fn update_page(
+        &self,
+        page_id: &Hmtid,
+        title: Option<&str>,
+        dir_path: Option<&str>,
+    ) -> AppResult<(Page, Vec<Hmtid>)> {
+        let existing = self
+            .pages
+            .find_by_id(page_id)?
+            .ok_or_else(|| AppError::bad_request(format!("Page not found: {page_id}")))?;
+        let moved = Page {
+            name: title.map_or_else(|| existing.name.clone(), str::to_string),
+            dir_path: dir_path.map_or_else(|| existing.dir_path.clone(), str::to_string),
+            ..existing.clone()
+        };
+        let rename = match (self.page_service.tag_of_page(&existing), self.page_service.tag_of_page(&moved)) {
+            (Some(old), Some(new)) if old != new => {
+                // A title the bodies cannot write as a hashtag would break the tag
+                if !hashtag::is_valid(&new) {
+                    return Err(AppError::bad_request(format!(
+                        "'{new}' cannot be a tag: use only letters, digits, '_' and '-'"
+                    )));
+                }
+                Some((old, new))
+            }
+            _ => None,
+        };
+        let page = self.page_service.update_page(page_id, title, dir_path)?;
+        let changed = match rename {
+            Some((old, new)) => self.rename_tag(&old, &new)?,
+            None => Vec::new(),
+        };
+        Ok((page, changed))
+    }
+
+    /// Renames the tag `old`, and the tags under it, in the tags of the pages and in the
+    /// hashtags of the bodies. Returns the pages that changed.
+    fn rename_tag(&self, old: &str, new: &str) -> AppResult<Vec<Hmtid>> {
+        let mut page_ids = BTreeSet::new();
+        let mut item_ids = BTreeSet::new();
+        for value in self.properties.find_all_tag_values()? {
+            if hashtag::renamed(&value, old, new).is_none() {
+                continue;
+            }
+            page_ids.extend(self.properties.find_page_ids_by_tag_value_ignoring_case(&value)?);
+            item_ids.extend(self.properties.find_item_ids_by_tag_value_ignoring_case(&value, i64::MAX)?);
+        }
+
+        let mut changed = BTreeSet::new();
+        for id in page_ids {
+            let Ok(page_id) = Hmtid::parse(&id) else { continue };
+            let mut tags: Vec<String> = Vec::new();
+            for tag in self.properties.find_tags(PAGE_TARGET, &id)? {
+                let tag = hashtag::renamed(&tag, old, new).unwrap_or(tag);
+                if !tags.contains(&tag) {
+                    tags.push(tag);
+                }
+            }
+            self.page_service.set_property(&page_id, "tags", "tags", &tags.join(","))?;
+            changed.insert(page_id);
+        }
+        for id in item_ids {
+            let Ok(item_id) = Hmtid::parse(&id) else { continue };
+            let item = self.get_item_by_id(&item_id)?;
+            let body = page_link_converter::rename_hashtags(&item.body, old, new);
+            if body == item.body {
+                tracing::warn!("The tag '{old}' of item {item_id} was not found in its body");
+                continue;
+            }
+            self.update_item(&item_id, Some(&body), None, None)?;
+            changed.insert(item.page_id);
+        }
+        Ok(changed.into_iter().collect())
     }
 
     fn touch_page(&self, page_id: &Hmtid) -> AppResult<()> {

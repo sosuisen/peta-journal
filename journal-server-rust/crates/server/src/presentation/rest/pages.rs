@@ -125,10 +125,13 @@ async fn update_page(
 ) -> AppResult<Json<UpdatePageResponse>> {
     let page_id = parse_id(&id)?;
     blocking(move || {
-        let page = state
-            .page_service
+        let (page, changed) = state
+            .item_service
             .update_page(&page_id, req.title.as_deref(), req.dir_path.as_deref())?;
         state.sse.broadcast_pages_updated(&id);
+        for page_id in changed {
+            state.sse.broadcast_pages_updated(page_id.as_str());
+        }
         Ok(Json(UpdatePageResponse {
             page: state.dtos.page_to_dto(&page)?,
         }))

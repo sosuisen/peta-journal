@@ -7,7 +7,7 @@ use std::sync::LazyLock;
 
 use regex::{Captures, Regex};
 
-use crate::domain::journal_name;
+use crate::domain::{hashtag, journal_name};
 
 use super::path_mapper;
 
@@ -19,6 +19,10 @@ static HASHTAG: LazyLock<Regex> =
 /// `(?<!!)[label](dest)`: the preceding character is captured and checked for `!`.
 static MARKDOWN_LINK: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(^|[^!])\[([^\[\]]*)\]\((<[^<>]*>|[^()\s]+)\)").unwrap());
+/// A hashtag where the parser may see one: at the start of a text node, which is also right
+/// after emphasis, or after a space.
+static BODY_HASHTAG: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?m)(^|[ *_~])#([\p{L}\p{N}_/-]+)").unwrap());
 static INLINE_CODE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"`+").unwrap());
 static FENCE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\s{0,3}(```|~~~)").unwrap());
 
@@ -32,6 +36,25 @@ pub fn to_markdown_links(body: &str, source_rel_path: &str) -> String {
 pub fn to_wikilinks(body: &str, source_rel_path: &str) -> String {
     let source_dir = dir_of(source_rel_path);
     map_outside_code(body, &|text| links_to_wikilinks(text, source_dir))
+}
+
+/// Renames the tag `old`, and the tags under it, in the hashtags of a body, as
+/// `hashtag::renamed` says. Code stays as it is.
+pub fn rename_hashtags(body: &str, old: &str, new: &str) -> String {
+    map_outside_code(body, &|text| {
+        BODY_HASHTAG
+            .replace_all(text, |m: &Captures| {
+                let whole = m.get(0).map(|g| g.as_str()).unwrap_or("");
+                let lead = m.get(1).map(|g| g.as_str()).unwrap_or("");
+                let raw = m.get(2).map(|g| g.as_str()).unwrap_or("");
+                let tag = trim_trailing_slashes(raw);
+                match hashtag::renamed(tag, old, new) {
+                    Some(renamed) => format!("{lead}#{renamed}{}", &raw[tag.len()..]),
+                    None => whole.to_string(),
+                }
+            })
+            .into_owned()
+    })
 }
 
 // ---- export direction ----
@@ -275,6 +298,13 @@ mod tests {
         let body = "foo#bar \\#esc https://x/#frag";
         assert_eq!(to_markdown_links(body, JOURNAL), body);
         assert_eq!(to_wikilinks("[#test](../docs/test.md)", JOURNAL), "#test");
+    }
+
+    #[test]
+    fn renames_hashtags() {
+        assert_eq!(rename_hashtags("#old and #Old/x, #older", "old", "new"), "#new and #new/x, #older");
+        assert_eq!(rename_hashtags("**#old** foo#old \\#old", "old", "new"), "**#new** foo#old \\#old");
+        assert_eq!(rename_hashtags("#old/\n```\n#old\n```\n`#old`", "old", "new"), "#new/\n```\n#old\n```\n`#old`");
     }
 
     #[test]
