@@ -32,7 +32,7 @@ pub fn page_state(model: &Model) -> Option<&PageState> {
     }
 }
 
-fn page_mut(model: &mut Model) -> Option<&mut PageState> {
+pub(crate) fn page_mut(model: &mut Model) -> Option<&mut PageState> {
     match &mut model.screen {
         Screen::Page(p) => Some(p),
         _ => None,

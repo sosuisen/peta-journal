@@ -129,6 +129,136 @@ fn settle(
     }
 }
 
+/// The start of the keys of the card groups, each a page property of the atlas page.
+pub const GROUP_PREFIX: &str = "atlas_group_";
+
+/// The card groups of an atlas page: the key of each group and the page ids in it.
+pub fn groups(atlas: &Page) -> Vec<(String, Vec<String>)> {
+    atlas
+        .properties
+        .iter()
+        .filter(|(key, _)| key.starts_with(GROUP_PREFIX))
+        .filter_map(|(key, value)| {
+            let ids = value
+                .as_array()?
+                .iter()
+                .filter_map(|id| id.as_str().map(str::to_string))
+                .collect();
+            Some((key.clone(), ids))
+        })
+        .collect()
+}
+
+/// Cards dropped on another card join its group. The target's group takes them, or a new
+/// group is made for them and the target. A card belongs to one group only, so the cards
+/// leave the groups they were in. A group left with one card is no group, and goes.
+/// The groups change at once; a refusal of the server puts them back.
+pub fn group_cards(model: &mut Model, page_ids: Vec<String>, target_id: String) -> Cmd {
+    let Some(atlas) = super::page::page_mut(model)
+        .and_then(|ps| ps.page.as_mut())
+        .filter(|p| super::page::is_atlas(p))
+    else {
+        return done();
+    };
+    let moving: Vec<String> = page_ids.into_iter().filter(|id| *id != target_id).collect();
+    if moving.is_empty() {
+        return done();
+    }
+    let before = atlas.properties.clone();
+    let groups = groups(atlas);
+    let target_key = groups
+        .iter()
+        .find(|(_, ids)| ids.contains(&target_id))
+        .map(|(key, _)| key.clone())
+        .unwrap_or_else(|| new_group_key(&groups, &target_id, &moving));
+    let mut changed: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    for (key, ids) in &groups {
+        if *key == target_key {
+            continue;
+        }
+        let kept: Vec<String> = ids.iter().filter(|id| !moving.contains(id)).cloned().collect();
+        if kept.len() != ids.len() {
+            changed.insert(key.clone(), if kept.len() < 2 { Vec::new() } else { kept });
+        }
+    }
+    let mut joined = groups
+        .iter()
+        .find(|(key, _)| *key == target_key)
+        .map(|(_, ids)| ids.clone())
+        .unwrap_or_else(|| vec![target_id.clone()]);
+    for id in moving {
+        if !joined.contains(&id) {
+            joined.push(id);
+        }
+    }
+    changed.insert(target_key, joined);
+    // An empty list stands for a group that goes
+    for (key, ids) in &changed {
+        if ids.is_empty() {
+            atlas.properties.remove(key);
+        } else {
+            atlas.properties.insert(key.clone(), Value::from(ids.clone()));
+        }
+    }
+    let atlas_id = atlas.id.clone();
+    run(move |api| async move {
+        let mut last = None;
+        for (key, ids) in changed {
+            let result = if ids.is_empty() {
+                api.delete_page_property(&atlas_id, &key).await
+            } else {
+                api.upsert_page_property(&atlas_id, &key, "list", &ids.join(",")).await
+            };
+            match result {
+                Ok(page) => last = Some(page),
+                Err(e) => {
+                    api.notify(UiOp::Alert(e.0));
+                    apply(&api, "atlas groups put back", move |m| {
+                        if let Some(atlas) = shown_atlas_mut(m, &atlas_id) {
+                            atlas.properties = before;
+                        }
+                        done()
+                    });
+                    return;
+                }
+            }
+        }
+        if let Some(updated) = last {
+            apply(&api, "atlas groups saved", move |m| {
+                if let Some(atlas) = shown_atlas_mut(m, &updated.id) {
+                    atlas.properties = updated.properties;
+                }
+                done()
+            });
+        }
+    })
+}
+
+/// A key for a new group: a hash of the cards that make it, so no counter has to be kept.
+/// A key already in use is hashed again.
+fn new_group_key(groups: &[(String, Vec<String>)], target_id: &str, moving: &[String]) -> String {
+    let mut seed = format!("{target_id},{}", moving.join(","));
+    loop {
+        let key = format!("{GROUP_PREFIX}{:08x}", fnv1a(&seed) as u32);
+        if groups.iter().all(|(k, _)| *k != key) {
+            return key;
+        }
+        seed.push('+');
+    }
+}
+
+fn fnv1a(text: &str) -> u64 {
+    text.bytes().fold(0xcbf2_9ce4_8422_2325, |hash, byte| {
+        (hash ^ byte as u64).wrapping_mul(0x0000_0100_0000_01b3)
+    })
+}
+
+fn shown_atlas_mut<'a>(model: &'a mut Model, page_id: &str) -> Option<&'a mut Page> {
+    super::page::page_mut(model)
+        .and_then(|ps| ps.page.as_mut())
+        .filter(|p| p.id == page_id)
+}
+
 fn index_page_mut<'a>(model: &'a mut Model, page_id: &str) -> Option<&'a mut Page> {
     model.sidebar.index_pages.iter_mut().find(|p| p.id == page_id)
 }

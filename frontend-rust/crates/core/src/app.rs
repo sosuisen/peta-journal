@@ -236,6 +236,11 @@ pub enum Event {
     RemoveAtlasCard {
         page_id: String,
     },
+    /// Cards dropped on another card with Ctrl held: they join the group of that card.
+    GroupAtlasCards {
+        page_ids: Vec<String>,
+        target_id: String,
+    },
     /// The page menu: show the property rows of the doc page even while it has none.
     EditPageProperties,
     SetPageProperty {
@@ -722,6 +727,9 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         AtlasUp => screens::page::atlas_up(model),
         PlaceAtlasCard { page_id, x, y } => screens::atlas::place_card(model, page_id, x, y),
         RemoveAtlasCard { page_id } => screens::atlas::remove_card(model, page_id),
+        GroupAtlasCards { page_ids, target_id } => {
+            screens::atlas::group_cards(model, page_ids, target_id)
+        }
         EditPageProperties => screens::page::edit_properties(model),
         SetPageProperty {
             key,

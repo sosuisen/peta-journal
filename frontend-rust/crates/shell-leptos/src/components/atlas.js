@@ -24,6 +24,8 @@ const LINE_HEIGHT = 16;
 const MAX_TEXT_ZOOM = 3;
 // How long the wheel must rest before the labels are drawn again for the new zoom, in ms
 const SHARPEN_DELAY = 150;
+// The color a card takes while cards held with Ctrl are over it, to join its group
+const GROUP_TARGET_TINT = 0xbfdbfe;
 
 window.AtlasCanvas = class AtlasCanvas {
   // onOpen(path, newTab, newWindow) opens the page of a card whose label is clicked.
@@ -228,6 +230,11 @@ window.AtlasCanvas = class AtlasCanvas {
       : null;
   }
 
+  // onGroup(pageIdsJson, targetId) puts the cards dropped with Ctrl on a card into its group
+  setOnGroup(onGroup) {
+    this.onGroup = onGroup;
+  }
+
   // The placed cards as JSON: [{ id, label, path, isDir, x, y, width, height }], where x
   // and y are the center of the card
   setCards(json) {
@@ -305,6 +312,7 @@ window.AtlasCanvas = class AtlasCanvas {
       for (const o of drag.origins) {
         o.view.position.set(o.x + dx / this.zoom, o.y + dy / this.zoom);
       }
+      this.showGroupTarget(drag, this.groupTargetAt(drag, e));
     });
     const end = e => {
       const drag = this.drag;
@@ -314,12 +322,18 @@ window.AtlasCanvas = class AtlasCanvas {
       this.drag = null;
       view.cursor = 'grab';
       if (drag.moved) {
+        const target = this.groupTargetAt(drag, e);
+        this.showGroupTarget(drag, null);
         // The cards have moved with the pointer: they lie where they show. A position is the
         // center of a card, as the pivot is there. Read before placing any: placing one
         // gives a new list of cards, which destroys these views.
         const places = drag.origins.map(o => [o.view.cardData.id, o.view.x, o.view.y]);
+        const targetId = target && target.cardData.id;
         for (const [id, x, y] of places) {
           this.onPlace(id, x, y);
+        }
+        if (targetId && this.onGroup) {
+          this.onGroup(JSON.stringify(places.map(([id]) => id)), targetId);
         }
       } else if (drag.onLabel) {
         // A link, as it always was: Ctrl opens it in a new tab and leaves the selection
@@ -336,6 +350,36 @@ window.AtlasCanvas = class AtlasCanvas {
     };
     view.on('pointerup', end);
     view.on('pointerupoutside', end);
+  }
+
+  // The card under the pointer that the dragged cards would join, only while Ctrl is held.
+  // The topmost one, as it is drawn over the others.
+  groupTargetAt(drag, e) {
+    if (!(e.ctrlKey || e.metaKey)) {
+      return null;
+    }
+    const dragged = new Set(drag.origins.map(o => o.view));
+    const cards = this.cards.children;
+    for (let i = cards.length - 1; i >= 0; i--) {
+      const v = cards[i];
+      if (!dragged.has(v) && v.cardFrame.getBounds().containsPoint(e.global.x, e.global.y)) {
+        return v;
+      }
+    }
+    return null;
+  }
+
+  showGroupTarget(drag, target) {
+    if (drag.target === target) {
+      return;
+    }
+    if (drag.target && !drag.target.destroyed) {
+      drag.target.cardFrame.tint = 0xffffff;
+    }
+    if (target) {
+      target.cardFrame.tint = GROUP_TARGET_TINT;
+    }
+    drag.target = target;
   }
 
   // Whole pixels keep the lines sharp
@@ -386,12 +430,11 @@ function card({ label, isDir, width, height }, resolution) {
     .stroke({ color: 0x3b82f6, width: 2 });
   c.cardSelection.visible = false;
   c.addChild(c.cardSelection);
-  c.addChild(
-    new PIXI.Graphics()
-      .roundRect(0, 0, width, height, 8)
-      .fill(isDir ? 0xfff8e1 : 0xffffff)
-      .stroke({ color: isDir ? 0xe0c068 : 0xd0d4da, width: 1 }),
-  );
+  c.cardFrame = new PIXI.Graphics()
+    .roundRect(0, 0, width, height, 8)
+    .fill(isDir ? 0xfff8e1 : 0xffffff)
+    .stroke({ color: isDir ? 0xe0c068 : 0xd0d4da, width: 1 });
+  c.addChild(c.cardFrame);
   const text = new PIXI.Text({
     text: label,
     resolution,

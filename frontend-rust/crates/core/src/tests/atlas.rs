@@ -328,3 +328,91 @@ fn the_folders_seen_as_maps_are_kept_by_the_shell_and_restored() {
     h.send(Event::AtlasDirsRestored(vec!["a/b/".into()]));
     assert_eq!(go_to(&mut h, "a/b/index"), "/pages/a/b/index_atlas");
 }
+
+fn atlas_with_groups(groups: &[(&str, &[&str])]) -> Harness {
+    let mut atlas = doc("a/b/", ATLAS_NAME);
+    for (key, ids) in groups {
+        atlas.properties.insert((*key).into(), serde_json::json!(ids));
+    }
+    showing(atlas)
+}
+
+fn deletes(h: &Harness) -> Vec<String> {
+    h.api
+        .calls_named("DeletePageProperty")
+        .into_iter()
+        .map(|op| match op {
+            ApiOp::DeletePageProperty { key, .. } => key.clone(),
+            _ => unreachable!(),
+        })
+        .collect()
+}
+
+fn group(h: &mut Harness, page_ids: &[&str], target_id: &str) {
+    h.send(Event::GroupAtlasCards {
+        page_ids: page_ids.iter().map(|id| id.to_string()).collect(),
+        target_id: target_id.into(),
+    });
+}
+
+#[test]
+fn a_card_dropped_on_a_card_without_a_group_makes_a_new_group_of_the_two() {
+    let mut h = atlas_with_groups(&[]);
+    group(&mut h, &["a/b/one"], "a/b/two");
+
+    let saved = upserts(&h);
+    assert_eq!(saved.len(), 1, "{saved:?}");
+    let (page_id, key, value) = &saved[0];
+    assert_eq!(page_id, "a/b/index_atlas");
+    assert!(key.starts_with("atlas_group_") && key.len() == "atlas_group_".len() + 8, "{key}");
+    assert_eq!(value, "a/b/two,a/b/one");
+}
+
+#[test]
+fn a_card_dropped_on_a_grouped_card_joins_its_group() {
+    let mut h = atlas_with_groups(&[("atlas_group_g", &["a/b/two", "a/b/three"])]);
+    group(&mut h, &["a/b/one"], "a/b/three");
+
+    assert_eq!(
+        upserts(&h),
+        [("a/b/index_atlas".into(), "atlas_group_g".into(), "a/b/two,a/b/three,a/b/one".into())]
+    );
+}
+
+#[test]
+fn a_card_leaves_its_old_group_which_goes_when_one_card_is_left() {
+    let mut h = atlas_with_groups(&[
+        ("atlas_group_old", &["a/b/one", "a/b/x"]),
+        ("atlas_group_big", &["a/b/one", "a/b/y", "a/b/z"]),
+        ("atlas_group_new", &["a/b/two", "a/b/three"]),
+    ]);
+    // Never in two groups at once in practice; both are left here to see each case
+    group(&mut h, &["a/b/one"], "a/b/two");
+
+    assert_eq!(deletes(&h), ["atlas_group_old"]);
+    let saved = upserts(&h);
+    assert!(saved.contains(&("a/b/index_atlas".into(), "atlas_group_big".into(), "a/b/y,a/b/z".into())), "{saved:?}");
+    assert!(
+        saved.contains(&("a/b/index_atlas".into(), "atlas_group_new".into(), "a/b/two,a/b/three,a/b/one".into())),
+        "{saved:?}"
+    );
+}
+
+#[test]
+fn a_card_dropped_on_itself_makes_no_group() {
+    let mut h = atlas_with_groups(&[]);
+    group(&mut h, &["a/b/one"], "a/b/one");
+
+    assert!(upserts(&h).is_empty());
+}
+
+#[test]
+fn a_refused_group_puts_the_groups_back() {
+    let mut h = atlas_with_groups(&[("atlas_group_g", &["a/b/two", "a/b/three"])]);
+    h.api.fail_next("UpsertPageProperty", "refused");
+    group(&mut h, &["a/b/one"], "a/b/two");
+
+    let atlas = crate::screens::page::page_state(&h.model).and_then(|ps| ps.page.clone()).unwrap();
+    assert_eq!(atlas.properties["atlas_group_g"], serde_json::json!(["a/b/two", "a/b/three"]));
+    assert!(h.ui.iter().any(|op| matches!(op, UiOp::Alert(_))));
+}

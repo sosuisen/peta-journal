@@ -88,6 +88,9 @@ extern "C" {
         zoom: f64,
     ) -> AtlasCanvas;
 
+    #[wasm_bindgen(method, js_name = setOnGroup)]
+    fn set_on_group(this: &AtlasCanvas, on_group: &js_sys::Function);
+
     #[wasm_bindgen(method, js_name = setCards)]
     fn set_cards(this: &AtlasCanvas, json: String);
 
@@ -189,6 +192,14 @@ pub fn Atlas() -> impl IntoView {
             save_view(&view_dir.get_value(), View { x, y, zoom });
         },
     ));
+    // Cards dropped on a card with Ctrl held: the ids of the dropped cards come as JSON
+    let on_group = StoredValue::new_local(Closure::<dyn Fn(String, String)>::new(
+        move |ids_json: String, target_id: String| {
+            if let Ok(page_ids) = serde_json::from_str::<Vec<String>>(&ids_json) {
+                core.send(Event::GroupAtlasCards { page_ids, target_id });
+            }
+        },
+    ));
     let remove_from_atlas = move |_| {
         if let Some((page_id, _, _)) = menu.get_untracked() {
             core.send(Event::RemoveAtlasCard { page_id });
@@ -206,7 +217,7 @@ pub fn Atlas() -> impl IntoView {
                 let dir = dir_path.get_untracked();
                 let start = load_views().get(&dir).copied().unwrap_or_default();
                 view_dir.set_value(dir);
-                on_open.with_value(|open| {
+                let made = on_open.with_value(|open| {
                     on_place.with_value(|place| {
                         on_menu.with_value(|menu| {
                             on_view.with_value(|keep| {
@@ -223,7 +234,9 @@ pub fn Atlas() -> impl IntoView {
                             })
                         })
                     })
-                })
+                });
+                on_group.with_value(|group| made.set_on_group(group.as_ref().unchecked_ref()));
+                made
             })
             .set_cards(json);
         });
