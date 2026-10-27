@@ -31,13 +31,20 @@ pub fn is_atlas_group_key(key: &str) -> bool {
 /// under the key of its group with this prefix instead.
 pub const ATLAS_TITLE_PREFIX: &str = "atlas_title_";
 
-pub fn is_atlas_title_key(key: &str) -> bool {
-    key.len() > ATLAS_TITLE_PREFIX.len() && key.starts_with(ATLAS_TITLE_PREFIX)
+/// The start of the keys of the callouts on an atlas page: text under a key of its own, which
+/// the frontend names.
+pub const ATLAS_CALLOUT_PREFIX: &str = "atlas_callout_";
+
+/// A key of text the frontend makes on an atlas page: a group title or a callout
+pub fn is_atlas_text_key(key: &str) -> bool {
+    [ATLAS_TITLE_PREFIX, ATLAS_CALLOUT_PREFIX]
+        .iter()
+        .any(|prefix| key.len() > prefix.len() && key.starts_with(prefix))
 }
 
-/// A key the frontend makes for the card groups of an atlas, not one the user chooses
+/// A key the frontend makes for an atlas, not one the user chooses
 pub fn is_atlas_key(key: &str) -> bool {
-    is_atlas_group_key(key) || is_atlas_title_key(key)
+    is_atlas_group_key(key) || is_atlas_text_key(key)
 }
 
 /// A property definition: the key, its value type and who may use it.
@@ -328,11 +335,12 @@ impl PropertyRepository {
         Ok(())
     }
 
-    /// Removes the definition of a group title once no page has it. Each group has its own
-    /// key, so the definitions would pile up as groups come and go.
-    pub fn delete_unused_atlas_title(&self, key: &str) -> AppResult<()> {
+    /// Removes the definition of a group title or a callout once no page has it. Each has its
+    /// own key, so the definitions would pile up as they come and go.
+    pub fn delete_unused_atlas_text(&self, key: &str) -> AppResult<()> {
         self.db.conn()?.execute(
-            "DELETE FROM property_definitions WHERE key = ?1              AND NOT EXISTS (SELECT 1 FROM properties WHERE key = ?1)",
+            "DELETE FROM property_definitions WHERE key = ?1 \
+             AND NOT EXISTS (SELECT 1 FROM properties WHERE key = ?1)",
             params![key],
         )?;
         Ok(())

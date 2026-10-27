@@ -1355,8 +1355,7 @@ async fn a_group_title_stays_out_of_the_settings_and_follows_its_file() {
     )
     .await;
     assert_eq!(status, 200, "{resp}");
-    wait_until("the title is exported", || read(&file_of(&page)).contains(&format!("{key}: top:Before
-"))).await;
+    wait_until("the title is exported", || read(&file_of(&page)).contains(&format!("{key}: top:Before\n"))).await;
     let (_, resp) = get("/api/config/property-definitions").await;
     assert!(definition(&resp, &key).is_none(), "{resp}");
 
@@ -1366,12 +1365,39 @@ async fn a_group_title_stays_out_of_the_settings_and_follows_its_file() {
     assert_eq!(resp["page"]["properties"][&key], json!("left:After"));
 
     edit_file(&page, |text| {
-        text.lines().filter(|l| !l.starts_with(&key)).map(|l| format!("{l}
-")).collect()
+        text.lines().filter(|l| !l.starts_with(&key)).map(|l| format!("{l}\n")).collect()
     });
     scan().await;
     let (_, resp) = get(&format!("/api/pages/{}", page.id)).await;
     assert!(resp["page"]["properties"].get(&key).is_none(), "{resp}");
+}
+
+#[tokio::test]
+async fn a_callout_stays_out_of_the_settings_and_follows_its_file() {
+    let _folder = FOLDER_SCAN.lock().await;
+    let page = new_doc_page("atlas-callout").await;
+    let key = format!("atlas_callout_{}", nanos());
+    let (status, resp) = put(
+        &format!("/api/pages/{}/properties/{key}", page.id),
+        json!({ "valueType": "text", "value": "10,20,top:Hello" }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+    wait_until("the callout is exported", || {
+        read(&file_of(&page)).contains(&format!("{key}: 10,20,top:Hello\n"))
+    })
+    .await;
+    let (_, resp) = get("/api/config/property-definitions").await;
+    assert!(definition(&resp, &key).is_none(), "{resp}");
+
+    edit_file(&page, |text| text.replace("10,20,top:Hello", "10,20,left:Bye"));
+    scan().await;
+    let (_, resp) = get(&format!("/api/pages/{}", page.id)).await;
+    assert_eq!(resp["page"]["properties"][&key], json!("10,20,left:Bye"));
+
+    let status = delete(&format!("/api/pages/{}/properties/{key}", page.id)).await;
+    assert!((200..300).contains(&status), "{status}");
+    wait_until("the callout leaves the file", || !read(&file_of(&page)).contains(&key)).await;
 }
 
 #[tokio::test]
