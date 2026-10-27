@@ -4,7 +4,8 @@
 // when the host is resized, so the cards keep their places around it.
 //
 // The hand tool moves the view: a drag with the right button, or with the left one
-// between the cards. It moves the container of the cards and the cross, not the cards.
+// between the cards and the groups. It moves the container of the cards and the cross, not
+// the cards. A drag with the left button on the area of a group moves all its cards.
 // The wheel scales that container around the point under the pointer. With Ctrl, it scales
 // the selected cards instead, each around its own center.
 //
@@ -192,8 +193,13 @@ window.AtlasCanvas = class AtlasCanvas {
   }
 
   startPan(e) {
-    // The left button on a card drags the card; between the cards it moves the view
+    // The left button on a card drags the card, on a group its cards; elsewhere it moves the
+    // view
     const card = cardOf(e.target);
+    if (e.button === 0 && !card && e.target?.groupArea && !this.panning && !this.groupDrag) {
+      this.startGroupDrag(e, e.target);
+      return;
+    }
     const hand = e.button === 2 || (e.button === 0 && !card);
     if (!hand || this.panning) {
       return;
@@ -210,6 +216,10 @@ window.AtlasCanvas = class AtlasCanvas {
   }
 
   movePan(e) {
+    if (this.groupDrag) {
+      this.moveGroupDrag(e);
+      return;
+    }
     const panning = this.panning;
     if (!panning) {
       return;
@@ -228,6 +238,10 @@ window.AtlasCanvas = class AtlasCanvas {
   }
 
   endPan(e) {
+    if (this.groupDrag && e.button === 0) {
+      this.endGroupDrag();
+      return;
+    }
     const panning = this.panning;
     if (!panning || e.button !== panning.button) {
       return;
@@ -241,6 +255,56 @@ window.AtlasCanvas = class AtlasCanvas {
     } else if (panning.button === 0 && !panning.card) {
       // A click between the cards lets go of the selection
       this.select([]);
+    }
+  }
+
+  // A group is dragged as its cards are, without Ctrl: it keeps its cards and joins no other
+  startGroupDrag(e, area) {
+    const views = this.cards.children.filter(v => v.cardData.group === area.label);
+    this.groupDrag = {
+      start: { x: e.global.x, y: e.global.y },
+      origins: views.map(v => ({ view: v, x: v.x, y: v.y })),
+      moved: false,
+    };
+    // Nothing else takes the press or shows its cursor while the group moves
+    this.cards.interactiveChildren = false;
+    this.groups.interactiveChildren = false;
+  }
+
+  moveGroupDrag(e) {
+    const drag = this.groupDrag;
+    const dx = e.global.x - drag.start.x;
+    const dy = e.global.y - drag.start.y;
+    if (!drag.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD) {
+      return;
+    }
+    if (!drag.moved) {
+      drag.moved = true;
+      this.showFrames(drag);
+      this.app.stage.cursor = 'grabbing';
+    }
+    for (const o of drag.origins) {
+      o.view.position.set(o.x + dx / this.zoom, o.y + dy / this.zoom);
+    }
+    this.drawGroups(drag);
+  }
+
+  endGroupDrag() {
+    const drag = this.groupDrag;
+    this.groupDrag = null;
+    this.cards.interactiveChildren = true;
+    this.groups.interactiveChildren = true;
+    this.app.stage.cursor = 'default';
+    if (!drag.moved) {
+      // A click on a group, as between the cards, lets go of the selection
+      this.select([]);
+      return;
+    }
+    this.showFrames(null);
+    // Read before placing any: placing one gives a new list of cards
+    const places = drag.origins.map(o => [o.view.cardData.id, o.view.x, o.view.y]);
+    for (const [id, x, y] of places) {
+      this.onPlace(id, x, y);
     }
   }
 
@@ -262,6 +326,7 @@ window.AtlasCanvas = class AtlasCanvas {
   // While the hand tool is on, the cards neither take a press nor show their own cursors
   showHand() {
     this.cards.interactiveChildren = this.panning === null;
+    this.groups.interactiveChildren = this.panning === null;
     // A press that has not moved yet may still be a click, so it keeps the plain cursor.
     // Not grab: that is the cursor of a card, which moves the card and not the view.
     const moving = this.panning !== null && this.panning.moved;
@@ -370,6 +435,10 @@ window.AtlasCanvas = class AtlasCanvas {
       let area = this.groups.children.find(c => c.label === group);
       if (!area) {
         area = new PIXI.Graphics({ label: group });
+        // A press on the area drags the group. Not on its frame, which only shows the edge.
+        area.eventMode = 'static';
+        area.cursor = 'grab';
+        area.groupArea = true;
         area.frame = new PIXI.Graphics();
         // The frame shows only while a card of the group is dragged
         area.frame.visible = Boolean(drag && drag.moved);
