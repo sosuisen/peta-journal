@@ -17,7 +17,7 @@ pub type ListProps = BTreeMap<String, BTreeMap<String, Vec<String>>>;
 
 /// The types a user may give a new key. `list` and `tags` stay internal: the only list
 /// property is `tags`, which the server derives from the body of an item.
-pub const USER_VALUE_TYPES: [&str; 5] = ["text", "number", "checkbox", "date", "datetime"];
+pub const USER_VALUE_TYPES: [&str; 6] = ["text", "number", "checkbox", "date", "datetime", "bounds"];
 
 /// A property definition: the key, its value type and who may use it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -54,7 +54,7 @@ impl PropertyRepository {
         PropertyRepository { db }
     }
 
-    /// Scalar properties (text, number, checkbox, date, datetime) of the given targets.
+    /// Scalar properties (text, number, checkbox, date, datetime, bounds) of the given targets.
     pub fn find_scalar_by_targets(&self, target_type: &str, target_ids: &[String]) -> AppResult<ScalarProps> {
         let mut result = ScalarProps::new();
         if target_ids.is_empty() {
@@ -226,6 +226,10 @@ impl PropertyRepository {
             "checkbox" => {
                 let b: i64 = if value == "true" { 1 } else { 0 };
                 conn.execute(sql, params![target_type, target_id, key, Option::<String>::None, Option::<f64>::None, b])?;
+            }
+            "bounds" => {
+                let bounds = normalize_bounds(value)?;
+                conn.execute(sql, params![target_type, target_id, key, bounds, Option::<f64>::None, Option::<i64>::None])?;
             }
             _ => {
                 conn.execute(sql, params![target_type, target_id, key, value, Option::<f64>::None, Option::<i64>::None])?;
@@ -441,17 +445,35 @@ fn parse_date_to_millis(date_str: &str, to_end: bool) -> AppResult<i64> {
     Ok(dt.timestamp_millis())
 }
 
+/// Reads a bounds value `x,y,width,height` and writes it back without spaces, each number as
+/// a number property shows it. It stays text rather than four columns, so the front matter
+/// and the metadata line of an item hold it as one plain value.
+pub fn normalize_bounds(value: &str) -> AppResult<String> {
+    let invalid = || AppError::bad_request(format!("Bounds must be four numbers x,y,width,height: {value}"));
+    let numbers = value
+        .split(',')
+        .map(|n| n.trim().parse::<f64>().ok().filter(|n| n.is_finite()))
+        .collect::<Option<Vec<f64>>>()
+        .ok_or_else(invalid)?;
+    if numbers.len() != 4 {
+        return Err(invalid());
+    }
+    Ok(numbers.into_iter().map(format_number).collect::<Vec<_>>().join(","))
+}
+
+fn format_number(n: f64) -> String {
+    if n == n.floor() && n.abs() < 1e15 {
+        format!("{}", n as i64)
+    } else {
+        format_double(n)
+    }
+}
+
 fn extract_value(row: &Row<'_>, value_type: &str) -> rusqlite::Result<Option<String>> {
     Ok(match value_type {
         "number" => {
             let num: Option<f64> = row.get(3)?;
-            num.map(|n| {
-                if n == n.floor() && n.abs() < 1e15 {
-                    format!("{}", n as i64)
-                } else {
-                    format_double(n)
-                }
-            })
+            num.map(format_number)
         }
         "checkbox" => {
             let cb: Option<i64> = row.get(4)?;

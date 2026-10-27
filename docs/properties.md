@@ -9,11 +9,11 @@
 | 列 | 意味 |
 |---|---|
 | `key` | キー。英数字と `_` と `-` だけを使える |
-| `value_type` | 型。`text` / `number` / `checkbox` / `date` / `datetime` / `list` / `tags` |
+| `value_type` | 型。`text` / `number` / `checkbox` / `date` / `datetime` / `bounds` / `list` / `tags` |
 | `is_system` | システム管理キーなら1。ユーザーは定義を追加・変更・削除できない |
 | `for_page` | ページに付けられるキーなら1 |
 
-ユーザーが新しいキーを定義するときに選べる型は `text` / `number` / `checkbox` / `date` / `datetime` の5つである。`list` と `tags` は内部用で、`tags` キーだけが使う。
+ユーザーが新しいキーを定義するときに選べる型は `text` / `number` / `checkbox` / `date` / `datetime` / `bounds` の6つである。`list` と `tags` は内部用で、`tags` キーだけが使う。
 
 キーの型は最初に定義されたときに固定される。既存キーに別の型で値を送っても定義は変わらない。
 
@@ -33,6 +33,8 @@
 | `modified` | datetime | 使える | ページの更新日時。`pages.modified_date` そのもので、ページのプロパティとして編集できる |
 | `published` | datetime | 使える | ユーザー。ページを公開した日時。左カラムのページ一覧はこの値で並び替えられる。無いページは `modified` で代用する |
 
+`bounds` を受け付けない古いデータベースは、起動時の `migrate_bounds_value_type` が `property_definitions` を作り直す。SQLiteはCHECK制約をその場で変えられないためである。行はINSERTで写し、外部キーで参照する値は消さない。
+
 システム管理キーはサーバー起動時に `migrate_definition_flags` が必ずフラグを立てる。ユーザーが別の型で定義していたキーが後からシステム管理キーになったときは、型も予約された型に書き換える。
 
 ユーザー定義キーは `for_page` が既定で1になる。
@@ -46,6 +48,7 @@
 | `number` | `value_number` | 整数なら `"2"`、小数なら `"1.5"`。数値でない入力は400エラー |
 | `checkbox` | `value_checkbox` | `"true"` のときだけ1。読み出しは `"true"` / `"false"` |
 | `text` / `date` / `datetime` | `value_text` | そのまま。日付の形式チェックはない |
+| `bounds` | `value_text` | `x,y,width,height` の4つの数値をカンマでつなぐ。空白は除き、各数値は `number` と同じ形で書き直す。例: `" 10, 20.5,160 ,56"` は `"10,20.5,160,56"` になる。4つの有限な数値でない入力は400エラー |
 
 リスト値は `property_list_items` テーブルに1値1行で入る。`sort_order` で順序を保つ。
 

@@ -1198,3 +1198,32 @@ async fn no_other_page_can_take_the_atlas_name() {
     let (status, resp) = put(&format!("/api/pages/{}", page.id), json!({ "title": "index_atlas" })).await;
     assert_eq!(status, 400, "{resp}");
 }
+
+#[tokio::test]
+async fn a_bounds_property_holds_four_numbers() {
+    let (status, resp) = post(
+        "/api/config/property-definitions",
+        json!({ "key": "area", "valueType": "bounds" }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+    assert_eq!(definition(&resp, "area").unwrap()["valueType"], json!("bounds"));
+
+    let page = new_doc_page("bounds").await;
+    let (status, resp) = put(
+        &format!("/api/pages/{}/properties/area", page.id),
+        json!({ "valueType": "bounds", "value": " 10, 20.5,160 ,-56 " }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+    assert_eq!(resp["page"]["properties"]["area"], json!("10,20.5,160,-56"));
+
+    for value in ["1,2,3", "1,2,3,4,5", "1,2,x,4", "", "1,2,3,inf"] {
+        let (status, resp) = put(
+            &format!("/api/pages/{}/properties/area", page.id),
+            json!({ "valueType": "bounds", "value": value }),
+        )
+        .await;
+        assert_eq!(status, 400, "{value} -> {resp}");
+    }
+}

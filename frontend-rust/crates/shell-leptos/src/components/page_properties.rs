@@ -352,6 +352,7 @@ fn value_input(
                 "number" => ("number", ""),
                 "date" => ("date", ""),
                 "tags" | "list" => ("text", "a, b"),
+                "bounds" => ("text", "x, y, width, height"),
                 _ => ("text", ""),
             };
             view! {

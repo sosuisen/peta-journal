@@ -83,7 +83,7 @@ fn run(conn: &Connection, ids: &IdGenerator) -> rusqlite::Result<()> {
         CREATE TABLE IF NOT EXISTS property_definitions (
             key TEXT PRIMARY KEY,
             value_type TEXT NOT NULL CHECK(value_type IN (
-                'text', 'number', 'checkbox', 'date', 'datetime', 'list', 'tags'
+                'text', 'number', 'checkbox', 'date', 'datetime', 'bounds', 'list', 'tags'
             )),
             is_system INTEGER NOT NULL DEFAULT 0,
             for_page INTEGER NOT NULL DEFAULT 1
@@ -128,6 +128,7 @@ fn run(conn: &Connection, ids: &IdGenerator) -> rusqlite::Result<()> {
     migrate_datetime_to_seconds(conn)?;
     migrate_tag_key_to_tags(conn)?;
     migrate_definition_flags(conn)?;
+    migrate_bounds_value_type(conn)?;
     Ok(())
 }
 
@@ -195,6 +196,45 @@ fn migrate_definition_flags(conn: &Connection) -> rusqlite::Result<()> {
         )?;
     }
     Ok(())
+}
+
+/// Lets a property definition take the `bounds` type. SQLite cannot change the CHECK of a
+/// column in place, so the table is built again under the same name. Its rows are copied
+/// with an INSERT, not deleted: the properties refer to their keys.
+fn migrate_bounds_value_type(conn: &Connection) -> rusqlite::Result<()> {
+    let sql: String = conn.query_row(
+        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'property_definitions'",
+        [],
+        |r| r.get(0),
+    )?;
+    if sql.contains("'bounds'") {
+        return Ok(());
+    }
+    tracing::info!("Adding the bounds value type to property_definitions...");
+    // Off while the tables are swapped: dropping the old table would check the properties
+    // that refer to it. The pragma cannot change inside a transaction.
+    conn.pragma_update(None, "foreign_keys", "OFF")?;
+    let result = conn.execute_batch(
+        "BEGIN;
+         CREATE TABLE property_definitions_new (
+             key TEXT PRIMARY KEY,
+             value_type TEXT NOT NULL CHECK(value_type IN (
+                 'text', 'number', 'checkbox', 'date', 'datetime', 'bounds', 'list', 'tags'
+             )),
+             is_system INTEGER NOT NULL DEFAULT 0,
+             for_page INTEGER NOT NULL DEFAULT 1
+         );
+         INSERT INTO property_definitions_new (key, value_type, is_system, for_page)
+             SELECT key, value_type, is_system, for_page FROM property_definitions;
+         DROP TABLE property_definitions;
+         ALTER TABLE property_definitions_new RENAME TO property_definitions;
+         COMMIT;",
+    );
+    if result.is_err() {
+        let _ = conn.execute_batch("ROLLBACK");
+    }
+    conn.pragma_update(None, "foreign_keys", "ON")?;
+    result
 }
 
 fn has_column(conn: &Connection, table: &str, column: &str) -> rusqlite::Result<bool> {
@@ -427,5 +467,60 @@ mod tests {
             count(&conn, "SELECT COUNT(*) FROM property_definitions WHERE key = 'tags' AND is_system = 1 AND for_page = 1"),
             1
         );
+    }
+
+    #[test]
+    fn an_old_database_takes_the_bounds_type_and_keeps_its_properties() {
+        let conn = Connection::open_in_memory().unwrap();
+        // The tables as they were before the bounds type, with values set under the keys
+        conn.execute_batch(
+            "CREATE TABLE property_definitions (
+                 key TEXT PRIMARY KEY,
+                 value_type TEXT NOT NULL CHECK(value_type IN (
+                     'text', 'number', 'checkbox', 'date', 'datetime', 'list', 'tags'
+                 )),
+                 is_system INTEGER NOT NULL DEFAULT 0,
+                 for_page INTEGER NOT NULL DEFAULT 1
+             );
+             CREATE TABLE properties (
+                 target_type TEXT NOT NULL CHECK(target_type IN ('item', 'page')),
+                 target_id TEXT NOT NULL,
+                 key TEXT NOT NULL REFERENCES property_definitions(key),
+                 value_text TEXT,
+                 value_number REAL,
+                 value_checkbox INTEGER,
+                 PRIMARY KEY (target_type, target_id, key)
+             );
+             CREATE TABLE property_list_items (
+                 id INTEGER PRIMARY KEY,
+                 target_type TEXT NOT NULL CHECK(target_type IN ('item', 'page')),
+                 target_id TEXT NOT NULL,
+                 key TEXT NOT NULL REFERENCES property_definitions(key),
+                 sort_order REAL NOT NULL,
+                 value TEXT NOT NULL
+             );
+             INSERT INTO property_definitions (key, value_type) VALUES ('owner', 'text'), ('tags', 'tags');
+             INSERT INTO properties (target_type, target_id, key, value_text) VALUES ('page', 'p1', 'owner', 'me');
+             INSERT INTO property_list_items (target_type, target_id, key, sort_order, value)
+                 VALUES ('page', 'p1', 'tags', 0, 'a');",
+        )
+        .unwrap();
+
+        run(&conn, &IdGenerator::new()).unwrap();
+
+        conn.execute("INSERT INTO property_definitions (key, value_type) VALUES ('area', 'bounds')", [])
+            .unwrap();
+        assert_eq!(count(&conn, "SELECT COUNT(*) FROM properties WHERE key = 'owner'"), 1);
+        assert_eq!(count(&conn, "SELECT COUNT(*) FROM property_list_items WHERE key = 'tags'"), 1);
+        assert_eq!(
+            count(&conn, "SELECT COUNT(*) FROM property_definitions WHERE key = 'tags' AND is_system = 1"),
+            1
+        );
+        let mut check = conn.prepare("PRAGMA foreign_key_check").unwrap();
+        assert!(check.query([]).unwrap().next().unwrap().is_none());
+        // The foreign keys are checked again after the swap
+        assert!(conn
+            .execute("INSERT INTO properties (target_type, target_id, key) VALUES ('page', 'p1', 'nokey')", [])
+            .is_err());
     }
 }

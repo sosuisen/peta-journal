@@ -206,7 +206,7 @@ pub struct UpsertPropertyArgs {
     pub item_id: String,
     /// Property key (e.g. 'begin', 'end', 'due', 'plan')
     pub key: String,
-    /// Value type: 'text', 'number', 'checkbox', 'date', or 'datetime'
+    /// Value type: 'text', 'number', 'checkbox', 'date', 'datetime', or 'bounds' (four numbers 'x,y,width,height')
     #[serde(rename = "valueType")]
     pub value_type: String,
     /// Property value as string
