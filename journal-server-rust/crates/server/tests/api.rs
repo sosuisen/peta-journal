@@ -1283,6 +1283,60 @@ async fn an_atlas_keeps_a_card_group_as_a_list_of_ids_out_of_the_settings() {
 }
 
 #[tokio::test]
+async fn the_atlas_of_a_file_edited_outside_is_taken_into_the_page() {
+    let _folder = FOLDER_SCAN.lock().await;
+    let page = new_doc_page("file-atlas").await;
+    let key = format!("atlas_group_{}", nanos());
+    fill(&page.id, &["before the edit"]).await;
+    wait_until("the page is exported", || read(&file_of(&page)).contains("before the edit")).await;
+
+    edit_file(&page, |text| {
+        text.replacen(
+            "---\n\n",
+            &format!("atlas_bounds: \"-10, 20.5,120,40\"\n{key}:\n  - id-b\n  - id-a\n---\n\n"),
+            1,
+        )
+    });
+    scan().await;
+    let (_, resp) = get(&format!("/api/pages/{}", page.id)).await;
+    assert_eq!(resp["page"]["properties"]["atlas_bounds"], json!("-10,20.5,120,40"));
+    assert_eq!(resp["page"]["properties"][&key], json!(["id-b", "id-a"]));
+    wait_until("the file has the bounds as exported", || {
+        read(&file_of(&page)).contains("atlas_bounds: \"-10,20.5,120,40\"\n")
+    })
+    .await;
+
+    edit_file(&page, |text| {
+        text.lines()
+            .filter(|l| !l.starts_with("atlas_bounds") && !l.starts_with(&key) && !l.starts_with("  - id-"))
+            .map(|l| format!("{l}\n"))
+            .collect()
+    });
+    scan().await;
+    let (_, resp) = get(&format!("/api/pages/{}", page.id)).await;
+    assert!(resp["page"]["properties"].get("atlas_bounds").is_none(), "{resp}");
+    assert!(resp["page"]["properties"].get(&key).is_none(), "{resp}");
+}
+
+#[tokio::test]
+async fn bounds_in_a_file_that_are_not_bounds_are_written_over_by_the_page() {
+    let _folder = FOLDER_SCAN.lock().await;
+    let page = new_doc_page("file-bad-bounds").await;
+    put(
+        &format!("/api/pages/{}/properties/atlas_bounds", page.id),
+        json!({ "valueType": "bounds", "value": "1,2,3,4" }),
+    )
+    .await;
+    wait_until("the bounds are exported", || read(&file_of(&page)).contains("atlas_bounds: 1,2,3,4\n")).await;
+
+    edit_file(&page, |text| text.replace("atlas_bounds: 1,2,3,4", "atlas_bounds: here"));
+    scan().await;
+    let (_, resp) = get(&format!("/api/pages/{}", page.id)).await;
+    assert_eq!(resp["page"]["properties"]["atlas_bounds"], json!("1,2,3,4"));
+    wait_until("the file has the bounds again", || read(&file_of(&page)).contains("atlas_bounds: 1,2,3,4\n")).await;
+}
+
+#[tokio::test]
 async fn a_value_is_checked_by_the_type_of_its_definition_not_the_type_sent() {
     let page = new_doc_page("defined-type").await;
     let (status, resp) = put(

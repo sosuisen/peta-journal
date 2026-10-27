@@ -195,8 +195,10 @@ impl MarkdownImportService {
         // The file is the newer version of the page, so a file without tags has none
         let page_tags = frontmatter_tags(fm);
         let page_tags_before = self.page_service.replace_page_tags(&page.id, &page_tags)?;
+        let atlas = self.page_service.replace_atlas_properties(&page.id, fm)?;
 
-        let page_changed = renamed || merge.changed || is_new || page_tags_before != page_tags;
+        let page_changed =
+            renamed || merge.changed || is_new || page_tags_before != page_tags || atlas.changed;
         if page_changed {
             let new_modified = if is_new {
                 page.modified_date
@@ -215,7 +217,11 @@ impl MarkdownImportService {
         self.file_sync_state
             .upsert_synced(rel_path, &page.id, hash, attrs.size, attrs.mtime)?;
 
-        if write_back || merge.needs_write_back || !tags_written_as_exported(fm, &page_tags) {
+        if write_back
+            || merge.needs_write_back
+            || atlas.needs_write_back
+            || !tags_written_as_exported(fm, &page_tags)
+        {
             // Give the file its ids / frontmatter. The export records the new hash, so it won't echo back.
             self.export.queue_export(&page.id);
         }

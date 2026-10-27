@@ -162,7 +162,14 @@ tags:
 
 ### ページプロパティのファイルからの取り込み
 
-今はDBからファイルへの一方向だけである。ユーザーがMarkdownファイルのfrontmatterを手で編集しても、`id` / `created` / `modified` 以外のキーはDBに取り込まれない。
+今は、`id` / `created` / `modified` / `tags` とatlasのキー（`atlas_bounds`、`atlas_group_` で始まるキー）だけを取り込む。ユーザーがMarkdownファイルのfrontmatterで他のキーを手で編集しても、DBには取り込まれない。
+
+atlasのキーは `PageService::replace_atlas_properties` が取り込む。
+
+- ファイルにないキーは、ページからも消す。ファイルが新しい版だからである。
+- `atlas_bounds` が4つの数値でなければ、ページの値を残し、ファイルを書き直す。
+- 値の書き方がエクスポートと違えば（空白入りの `atlas_bounds` など）、取り込んだうえでファイルを書き直す。
+- 空のグループと、キーに使えない文字を含むグループは取り込まず、ファイルから消す。
 
 取り込みを作るときの注意点を残しておく。
 
