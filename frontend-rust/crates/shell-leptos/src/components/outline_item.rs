@@ -184,7 +184,7 @@ pub fn OutlineItem(row: RwSignal<Row>) -> impl IntoView {
                                 {is_transclusion().then(|| { let id = id.clone(); view! {
                                     <button on:click=move |_| { send(Event::RemoveTransclusion { item_id: id.clone() }); close(); }>"Remove Transclusion"</button>
                                 }})}
-                                <button on:click={ let id = id.clone(); move |_| { send(Event::SendToArchive { item_id: id.clone() }); close(); } }>"Send to Archive"</button>
+                                <button on:click={ let id = id.clone(); move |_| { send(Event::SendToStash { item_id: id.clone() }); close(); } }>"Send to Stash"</button>
                                 {has_zoom().then(|| { let id = id.clone(); view! {
                                     <button on:click=move |_| { send(Event::ResetZoom { item_id: id.clone() }); close(); }>"Reset Zoom"</button>
                                 }})}

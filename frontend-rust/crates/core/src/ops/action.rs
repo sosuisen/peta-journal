@@ -4,7 +4,7 @@
 use crate::app::{apply, done, log_error, run, Cmd, Event, Model};
 use crate::effects::{Api, UiOp};
 use crate::model::{Item, ItemPosition};
-use crate::ops::edit::{read, save_body, save_target_id};
+use crate::ops::edit::{read, save_target_id};
 use crate::ops::file_reload::reload_shown_page;
 
 /// Cycles the task state: normal → task → running → done → normal.
@@ -186,10 +186,12 @@ pub fn remove_transclusion(model: &mut Model, item_id: &str) -> Cmd {
     })
 }
 
-/// Sends an item (and its children) to the page's archive (`#item-archive`): appends the
-/// `#archived` tag to the body and moves the group under the `#item-archive` item, which is
-/// created at the end of the page when missing.
-pub fn archive(model: &mut Model, item_id: &str) -> Cmd {
+/// The heading the items sent to the stash are moved under.
+const STASH_HEADING: &str = "# Stash";
+
+/// Sends an item (and its children) to the page's stash: moves the group under the
+/// `# Stash` heading, which is created at the end of the page when missing.
+pub fn send_to_stash(model: &mut Model, item_id: &str) -> Cmd {
     let Some(item) = model.current_item(item_id) else {
         return done();
     };
@@ -204,41 +206,35 @@ pub fn archive(model: &mut Model, item_id: &str) -> Cmd {
         return done();
     }
     run(move |api| async move {
-        if let Err(e) = archive_now(&api, item, group_ids).await {
-            log_error(format!("Failed to archive item: {e}"));
+        if let Err(e) = send_to_stash_now(&api, item, group_ids).await {
+            log_error(format!("Failed to send item to the stash: {e}"));
         }
     })
 }
 
-async fn archive_now(
+async fn send_to_stash_now(
     api: &Api<Event>,
     item: Item,
     group_ids: Vec<String>,
 ) -> Result<(), crate::effects::ApiError> {
-    if !item.tags().iter().any(|t| t == "archived") {
-        let new_body = format!("{} #archived", item.body.trim_end());
-        save_body(api, &item.id, &new_body).await?;
-    }
-    // Find or create the #item-archive item (identified by its tag). Re-read the items to
-    // pick up the save above.
     let found = read(api, |m| {
         let items = m.state.items();
-        let archive = items
+        let stash = items
             .iter()
-            .find(|it| it.tags().iter().any(|t| t == "item-archive"))
+            .find(|it| it.body.trim() == STASH_HEADING)
             .map(|a| (**a).clone());
-        (archive, items.last().map(|l| l.id.clone()))
+        (stash, items.last().map(|l| l.id.clone()))
     })
     .await;
-    let archive_item = match found {
-        (Some(archive), _) => archive,
+    let stash = match found {
+        (Some(stash), _) => stash,
         (None, Some(last_id)) => {
             let position = ItemPosition::after(last_id);
             let created = api
-                .create_item(&item.page_id, position.clone(), 1, "#item-archive", None)
+                .create_item(&item.page_id, position.clone(), 1, STASH_HEADING, None)
                 .await?;
             let c = created.clone();
-            apply(api, "archive: created", move |m| {
+            apply(api, "stash: created", move |m| {
                 m.state.add_item(c, &position);
                 done()
             });
@@ -246,9 +242,9 @@ async fn archive_now(
         }
         (None, None) => return Ok(()),
     };
-    // Move the archived items as the first child of #item-archive
-    let level_delta = (archive_item.level + 1) - item.level;
-    let position = ItemPosition::after(archive_item.id.clone());
+    // The newest comes first, right under the heading
+    let level_delta = (stash.level + 1) - item.level;
+    let position = ItemPosition::after(stash.id.clone());
     let moved = api
         .move_items(
             group_ids.clone(),
@@ -257,7 +253,7 @@ async fn archive_now(
             Some(level_delta),
         )
         .await?;
-    apply(api, "archive: moved", move |m| {
+    apply(api, "stash: moved", move |m| {
         m.state.replace_items(&group_ids, moved, &position);
         done()
     });

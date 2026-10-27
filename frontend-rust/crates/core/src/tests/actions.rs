@@ -1,6 +1,6 @@
 use crate::app::Event;
 use crate::effects::{ApiOp, UiOp};
-use crate::harness::{create_calls, item, move_calls, update_calls, Harness};
+use crate::harness::{create_calls, item, move_calls, Harness};
 use crate::testing::item_with;
 use std::collections::HashSet;
 
@@ -106,23 +106,23 @@ fn paste_as_transclusion_ignores_text_that_is_not_an_item_id() {
 }
 
 #[test]
-fn archive_tags_the_item_creates_item_archive_at_the_end_and_moves_the_subtree_under_it() {
+fn sending_to_the_stash_creates_its_heading_at_the_end_and_moves_the_subtree_under_it() {
     let mut h = Harness::with_items(vec![
         item("a", 1, "todo"),
         item("a1", 2, ""),
         item("z", 1, ""),
     ]);
-    h.send(Event::SendToArchive {
+    h.send(Event::SendToStash {
         item_id: "a".into(),
     });
-    assert!(update_calls(&h.api).contains(&("a".to_string(), Some("todo #archived".to_string()))));
+    assert!(!h.api.called("UpdateItem"), "the item is moved as it is, with no tag");
     assert_eq!(
         create_calls(&h.api),
         [(
             "page1".into(),
             "after:z".into(),
             1,
-            "#item-archive".into(),
+            "# Stash".into(),
             None
         )]
     );
@@ -137,25 +137,16 @@ fn archive_tags_the_item_creates_item_archive_at_the_end_and_moves_the_subtree_u
 }
 
 #[test]
-fn archive_reuses_an_existing_item_archive_and_does_not_tag_twice() {
+fn sending_to_the_stash_reuses_an_existing_stash_heading() {
     let mut h = Harness::with_items(vec![
-        item_with("a", 1, |i| {
-            i.body = "todo #archived".into();
-            i.properties
-                .insert("tags".into(), serde_json::json!(["archived"]));
-        }),
-        item_with("arch", 1, |i| {
-            i.body = "#item-archive".into();
-            i.properties
-                .insert("tags".into(), serde_json::json!(["item-archive"]));
-        }),
+        item("a", 1, "todo"),
+        item("stash", 1, "# Stash"),
     ]);
-    h.send(Event::SendToArchive {
+    h.send(Event::SendToStash {
         item_id: "a".into(),
     });
-    assert!(!h.api.called("UpdateItem"));
     assert!(!h.api.called("CreateItem"));
-    assert_eq!(move_calls(&h.api)[0].2, "after:arch");
+    assert_eq!(move_calls(&h.api)[0].2, "after:stash");
 }
 
 #[test]

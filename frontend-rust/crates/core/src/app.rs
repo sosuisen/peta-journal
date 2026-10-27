@@ -199,7 +199,7 @@ pub enum Event {
     RemoveTransclusion {
         item_id: String,
     },
-    SendToArchive {
+    SendToStash {
         item_id: String,
     },
     /// A key pressed while the relay holds keys for the next editor.
@@ -676,7 +676,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         Redo => ops::undo_replay::perform(model, ops::undo_replay::Direction::Redo),
         PasteAsTransclusion { item_id } => ops::action::paste_as_transclusion(model, &item_id),
         RemoveTransclusion { item_id } => ops::action::remove_transclusion(model, &item_id),
-        SendToArchive { item_id } => ops::action::archive(model, &item_id),
+        SendToStash { item_id } => ops::action::send_to_stash(model, &item_id),
         KeyHeld(key) => {
             model.key_relay.hold(key);
             done()
