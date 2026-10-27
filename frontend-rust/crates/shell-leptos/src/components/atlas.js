@@ -29,14 +29,20 @@ window.AtlasCanvas = class AtlasCanvas {
   // onOpen(path, newTab, newWindow) opens the page of a card whose label is clicked.
   // onPlace(pageId, x, y) places the card of a page with its center at a point.
   // onMenu(pageId, clientX, clientY) opens the menu of a card that is right-clicked.
-  constructor(host, onOpen, onPlace, onMenu) {
+  // onView(panX, panY, zoom) keeps the view once the hand tool or the wheel has stopped.
+  // panX, panY and zoom are the view to start with, as onView last gave them.
+  constructor(host, onOpen, onPlace, onMenu, onView, panX, panY, zoom) {
     this.onOpen = onOpen;
     this.onPlace = onPlace;
     this.onMenu = onMenu;
+    this.onView = onView;
     this.drag = null;
     // How far the hand tool has moved the view from the center of the canvas
-    this.pan = { x: 0, y: 0 };
-    this.zoom = 1;
+    this.pan = {
+      x: Number.isFinite(panX) ? panX : 0,
+      y: Number.isFinite(panY) ? panY : 0,
+    };
+    this.zoom = Number.isFinite(zoom) ? Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom)) : 1;
     this.panning = null;
     this.data = [];
     this.destroyed = false;
@@ -61,6 +67,10 @@ window.AtlasCanvas = class AtlasCanvas {
         this.world.addChild(cross(), this.cards);
         this.app.stage.addChild(this.world);
         this.app.renderer.on('resize', () => this.center());
+        // resizeTo follows the window only. The host also changes size when the list of
+        // unplaced cards beside it fills or empties, which would leave the center off.
+        this.resizeObserver = new ResizeObserver(() => this.app.resize());
+        this.resizeObserver.observe(host);
         this.listenForHand();
         this.center();
         this.build();
@@ -99,9 +109,13 @@ window.AtlasCanvas = class AtlasCanvas {
     };
     this.zoom = zoom;
     this.center();
-    // Drawing every label again on each step of the wheel would make the zoom stutter
+    // Drawing every label again on each step of the wheel would make the zoom stutter.
+    // The view is kept then too, not on each step.
     clearTimeout(this.sharpenTimer);
-    this.sharpenTimer = setTimeout(() => this.sharpenText(), SHARPEN_DELAY);
+    this.sharpenTimer = setTimeout(() => {
+      this.sharpenText();
+      this.keepView();
+    }, SHARPEN_DELAY);
   }
 
   // The labels are drawn in as many pixels as they cover on the screen, so they stay sharp
@@ -164,9 +178,15 @@ window.AtlasCanvas = class AtlasCanvas {
     }
     this.panning = null;
     this.showHand();
-    if (!panning.moved && panning.button === 2 && panning.card) {
+    if (panning.moved) {
+      this.keepView();
+    } else if (panning.button === 2 && panning.card) {
       this.onMenu(panning.card.cardData.id, e.clientX, e.clientY);
     }
+  }
+
+  keepView() {
+    this.onView(this.pan.x, this.pan.y, this.zoom);
   }
 
   // While the hand tool is on, the cards neither take a press nor show their own cursors
@@ -281,6 +301,7 @@ window.AtlasCanvas = class AtlasCanvas {
   destroy() {
     this.destroyed = true;
     clearTimeout(this.sharpenTimer);
+    this.resizeObserver?.disconnect();
     if (this.cards) {
       this.app.destroy({ removeView: true }, { children: true });
     }

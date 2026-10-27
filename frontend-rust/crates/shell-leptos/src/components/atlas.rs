@@ -12,9 +12,11 @@ use leptos::prelude::*;
 use peta_core::app::Event;
 use peta_core::screens::atlas::{CARD_HEIGHT, CARD_WIDTH};
 use peta_core::view::{AtlasCard, ScreenView};
+use std::collections::HashMap;
 use wasm_bindgen::prelude::*;
 
 const ATLAS_DIRS_KEY: &str = "atlas-dirs";
+const ATLAS_VIEWS_KEY: &str = "atlas-views";
 
 /// The folders last seen as their atlas, as the browser stored them.
 pub fn load_atlas_dirs() -> Vec<String> {
@@ -25,6 +27,34 @@ pub fn load_atlas_dirs() -> Vec<String> {
 
 pub fn save_atlas_dirs(dirs: &[String]) {
     dom::local_storage_set(ATLAS_DIRS_KEY, &serde_json::to_string(dirs).unwrap_or_default());
+}
+
+/// Where the hand tool and the wheel left the view of an atlas: how far it is moved from
+/// the center of the canvas, and how much it is scaled.
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
+struct View {
+    x: f64,
+    y: f64,
+    zoom: f64,
+}
+
+impl Default for View {
+    fn default() -> View {
+        View { x: 0.0, y: 0.0, zoom: 1.0 }
+    }
+}
+
+/// The view of each atlas as the browser stored it, by the dir path of the atlas.
+fn load_views() -> HashMap<String, View> {
+    dom::local_storage_get(ATLAS_VIEWS_KEY)
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_default()
+}
+
+fn save_view(dir: &str, view: View) {
+    let mut views = load_views();
+    views.insert(dir.to_string(), view);
+    dom::local_storage_set(ATLAS_VIEWS_KEY, &serde_json::to_string(&views).unwrap_or_default());
 }
 
 /// The drag data of an unplaced card. A type of its own keeps text dragged from elsewhere
@@ -52,6 +82,10 @@ extern "C" {
         on_open: &js_sys::Function,
         on_place: &js_sys::Function,
         on_menu: &js_sys::Function,
+        on_view: &js_sys::Function,
+        pan_x: f64,
+        pan_y: f64,
+        zoom: f64,
     ) -> AtlasCanvas;
 
     #[wasm_bindgen(method, js_name = setCards)]
@@ -147,6 +181,14 @@ pub fn Atlas() -> impl IntoView {
             });
         },
     ));
+    // The directory whose view the canvas shows, fixed when the canvas is made: the view
+    // is kept for it even if the page changes before the canvas is gone
+    let view_dir = StoredValue::new(String::new());
+    let on_view = StoredValue::new_local(Closure::<dyn Fn(f64, f64, f64)>::new(
+        move |x: f64, y: f64, zoom: f64| {
+            save_view(&view_dir.get_value(), View { x, y, zoom });
+        },
+    ));
     let remove_from_atlas = move |_| {
         if let Some((page_id, _, _)) = menu.get_untracked() {
             core.send(Event::RemoveAtlasCard { page_id });
@@ -161,15 +203,24 @@ pub fn Atlas() -> impl IntoView {
         };
         canvas.update_value(|c| {
             c.get_or_insert_with(|| {
+                let dir = dir_path.get_untracked();
+                let start = load_views().get(&dir).copied().unwrap_or_default();
+                view_dir.set_value(dir);
                 on_open.with_value(|open| {
                     on_place.with_value(|place| {
                         on_menu.with_value(|menu| {
-                            AtlasCanvas::new(
-                                &el,
-                                open.as_ref().unchecked_ref(),
-                                place.as_ref().unchecked_ref(),
-                                menu.as_ref().unchecked_ref(),
-                            )
+                            on_view.with_value(|keep| {
+                                AtlasCanvas::new(
+                                    &el,
+                                    open.as_ref().unchecked_ref(),
+                                    place.as_ref().unchecked_ref(),
+                                    menu.as_ref().unchecked_ref(),
+                                    keep.as_ref().unchecked_ref(),
+                                    start.x,
+                                    start.y,
+                                    start.zoom,
+                                )
+                            })
                         })
                     })
                 })
