@@ -253,6 +253,30 @@ fn fnv1a(text: &str) -> u64 {
     })
 }
 
+/// Takes the card groups of the shown atlas page from the server again, after its file
+/// changed on disk. The groups are properties of the page itself, which a reload of its
+/// items leaves as they were.
+pub fn reload_groups(model: &Model, page_id: &str) -> Cmd {
+    let shown = super::page::page_state(model)
+        .and_then(|ps| ps.page.as_ref())
+        .is_some_and(|p| p.id == page_id && super::page::is_atlas(p));
+    if !shown {
+        return done();
+    }
+    let page_id = page_id.to_string();
+    run(move |api| async move {
+        match api.get_page_by_id(&page_id).await {
+            Ok(result) => apply(&api, "atlas groups reloaded", move |m| {
+                if let Some(atlas) = shown_atlas_mut(m, &result.page.id) {
+                    atlas.properties = result.page.properties;
+                }
+                done()
+            }),
+            Err(e) => crate::app::log_error(format!("Failed to reload atlas {page_id}: {e}")),
+        }
+    })
+}
+
 fn shown_atlas_mut<'a>(model: &'a mut Model, page_id: &str) -> Option<&'a mut Page> {
     super::page::page_mut(model)
         .and_then(|ps| ps.page.as_mut())

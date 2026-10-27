@@ -1,7 +1,7 @@
 //! The atlas page of a directory and the map button that switches to it.
 
 use crate::app::{Event, PageState, Screen};
-use crate::effects::{ApiOp, ApiOutput, UiOp};
+use crate::effects::{ApiOp, ApiOutput, ApiResult, UiOp};
 use crate::harness::Harness;
 use crate::model::Page;
 use crate::screens::atlas::Bounds;
@@ -431,4 +431,41 @@ fn a_card_knows_the_group_it_belongs_to() {
             ("a/b/two".to_string(), Some("atlas_group_g".to_string())),
         ]
     );
+}
+
+fn file_changed(h: &mut Harness, page_id: &str, source: &str) {
+    h.send(Event::Sse(crate::effects::SseEvent::Message(format!(
+        r#"{{"type":"pagesUpdated","pageId":"{page_id}","source":"{source}"}}"#
+    ))));
+}
+
+fn served_atlas(groups: &[(&str, &[&str])]) -> ApiResult<ApiOutput> {
+    let mut atlas = doc("a/b/", ATLAS_NAME);
+    for (key, ids) in groups {
+        atlas.properties.insert((*key).into(), serde_json::json!(ids));
+    }
+    Ok(ApiOutput::Page(crate::model::PageWithItems {
+        page: atlas,
+        ..Default::default()
+    }))
+}
+
+#[test]
+fn the_shown_atlas_takes_the_groups_of_its_file_changed_on_disk() {
+    let mut h = atlas_with_groups(&[("atlas_group_g", &["a/b/one", "a/b/two"])]);
+    h.api.answer_next("GetPageById", served_atlas(&[("atlas_group_h", &["a/b/two", "a/b/three"])]));
+    file_changed(&mut h, "a/b/index_atlas", "file");
+
+    let atlas = crate::screens::page::page_state(&h.model).and_then(|ps| ps.page.clone()).unwrap();
+    assert!(atlas.properties.get("atlas_group_g").is_none(), "{:?}", atlas.properties);
+    assert_eq!(atlas.properties["atlas_group_h"], serde_json::json!(["a/b/two", "a/b/three"]));
+}
+
+#[test]
+fn the_groups_are_not_fetched_for_a_change_made_in_the_app_or_on_another_page() {
+    let mut h = atlas_with_groups(&[("atlas_group_g", &["a/b/one", "a/b/two"])]);
+    file_changed(&mut h, "a/b/index_atlas", "app");
+    file_changed(&mut h, "a/b/one", "file");
+
+    assert!(!h.api.called("GetPageById"));
 }

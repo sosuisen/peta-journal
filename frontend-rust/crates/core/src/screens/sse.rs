@@ -4,7 +4,7 @@
 use crate::app::{apply, done, run, Cmd, ConnectionState, Event, Model};
 use crate::effects::{SseEvent, SseOp, TimerOutput};
 use crate::ops::file_reload;
-use crate::screens::{page, sidebar};
+use crate::screens::{atlas, page, sidebar};
 use crux_core::Command;
 
 const MAX_RECONNECT_ATTEMPTS: u32 = 10;
@@ -43,13 +43,17 @@ fn on_message(model: &mut Model, data: &str) -> Cmd {
         .unwrap_or_default()
         .to_string();
     let from_file = json.get("source").and_then(|s| s.as_str()) == Some("file");
-    let reload = if from_file {
-        file_reload::reload_page(model, &page_id)
+    let (reload, groups) = if from_file {
+        (
+            file_reload::reload_page(model, &page_id),
+            atlas::reload_groups(model, &page_id),
+        )
     } else {
-        done()
+        (done(), done())
     };
     Command::all([
         reload,
+        groups,
         sidebar::refresh_recent_pages(),
         sidebar::load_index_pages(model),
         page::reload_backlinks(model),
