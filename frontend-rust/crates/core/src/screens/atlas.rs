@@ -8,6 +8,7 @@ use crate::model::Page;
 use crate::screens::page::{split_doc_path, ATLAS_NAME};
 use crate::screens::sidebar;
 use crux_core::Command;
+use picturesque_marks::{background_svg, BackgroundStyle, ColorName, ComposeLayout, MAX_COMPOSED_TAGS};
 use serde_json::Value;
 use std::collections::BTreeMap;
 
@@ -164,7 +165,6 @@ pub fn group_cards(model: &mut Model, page_ids: Vec<String>, target_id: String) 
     if moving.is_empty() {
         return done();
     }
-    let before = atlas.properties.clone();
     let groups = groups(atlas);
     let target_key = groups
         .iter()
@@ -192,7 +192,36 @@ pub fn group_cards(model: &mut Model, page_ids: Vec<String>, target_id: String) 
         }
     }
     changed.insert(target_key, joined);
-    // An empty list stands for a group that goes
+    change_groups(atlas, changed)
+}
+
+/// Cards taken out of their groups, as when they are dragged out of the outline of their
+/// group with Ctrl held. A group left with one card is no group, and goes. The groups
+/// change at once; a refusal of the server puts them back.
+pub fn ungroup_cards(model: &mut Model, page_ids: Vec<String>) -> Cmd {
+    let Some(atlas) = super::page::page_mut(model)
+        .and_then(|ps| ps.page.as_mut())
+        .filter(|p| super::page::is_atlas(p))
+    else {
+        return done();
+    };
+    let mut changed: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    for (key, ids) in groups(atlas) {
+        let kept: Vec<String> = ids.iter().filter(|id| !page_ids.contains(id)).cloned().collect();
+        if kept.len() != ids.len() {
+            changed.insert(key, if kept.len() < 2 { Vec::new() } else { kept });
+        }
+    }
+    if changed.is_empty() {
+        return done();
+    }
+    change_groups(atlas, changed)
+}
+
+/// Gives the atlas page the changed groups at once and saves them one by one. An empty
+/// list stands for a group that goes.
+fn change_groups(atlas: &mut Page, changed: BTreeMap<String, Vec<String>>) -> Cmd {
+    let before = atlas.properties.clone();
     for (key, ids) in &changed {
         if ids.is_empty() {
             atlas.properties.remove(key);
@@ -245,6 +274,48 @@ fn new_group_key(groups: &[(String, Vec<String>)], target_id: &str, moving: &[St
         }
         seed.push('+');
     }
+}
+
+/// The color of a group as `#RRGGBB`, one of the six of picturesque-marks, the colors of the
+/// tag icons. The key ends in the hash it was made from, which picks the color, so a group
+/// keeps its color on every machine. A key that does not end in one is hashed here.
+pub fn group_color(key: &str) -> String {
+    let hash = key
+        .strip_prefix(GROUP_PREFIX)
+        .and_then(|hash| u32::from_str_radix(hash, 16).ok())
+        .unwrap_or_else(|| fnv1a(key) as u32);
+    ColorName::from_index(hash).color().to_hex()
+}
+
+/// The tags the icon of a card is drawn from. A tag page stands for its tag, and so does a
+/// folder of tag pages, so its card takes the tag itself. Any other page takes its own tags.
+/// A folder, whose card is its index page, takes the tags of that page, or else its name, so
+/// every folder has an icon.
+pub fn icon_tags(page: &Page, tags_dir: &str) -> Vec<String> {
+    let is_dir = sidebar::is_directory(page);
+    let path = if is_dir {
+        page.dir_path.trim_end_matches('/').to_string()
+    } else {
+        format!("{}{}", page.dir_path, page.name)
+    };
+    if let Some(tag) = path.strip_prefix(tags_dir).filter(|tag| !tag.is_empty()) {
+        return vec![tag.to_string()];
+    }
+    let tags: Vec<String> = match page.properties.get("tags") {
+        Some(Value::Array(tags)) => tags.iter().filter_map(|t| t.as_str().map(str::to_string)).collect(),
+        _ => Vec::new(),
+    };
+    match path.rsplit('/').next() {
+        Some(name) if is_dir && tags.is_empty() && !name.is_empty() => vec![name.to_string()],
+        _ => tags,
+    }
+}
+
+/// The icon of the tags as an SVG of `size` pixels square, as picturesque-marks draws it for
+/// a tag. Only the first tags fit in one icon.
+pub fn tag_icon_svg(tags: &[String], size: i32) -> String {
+    let tags = &tags[..tags.len().min(MAX_COMPOSED_TAGS)];
+    background_svg(tags, ComposeLayout::default(), BackgroundStyle::default(), size, size)
 }
 
 fn fnv1a(text: &str) -> u64 {

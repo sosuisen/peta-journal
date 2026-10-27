@@ -228,6 +228,10 @@ pub struct AtlasCard {
     pub bounds: Option<Bounds>,
     /// The key of the group the card belongs to, if any.
     pub group: Option<String>,
+    /// The color of that group as `#RRGGBB`.
+    pub group_color: Option<String>,
+    /// The tags the icon of the card is drawn from; none for no icon.
+    pub icon_tags: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -295,6 +299,8 @@ pub fn build(model: &Model) -> ViewModel {
                 },
                 is_dir: sidebar::is_directory(&p),
                 bounds,
+                group_color: group.as_deref().map(atlas::group_color),
+                icon_tags: atlas::icon_tags(&p, &model.config.tags_dir),
                 group,
             })
             .collect(),

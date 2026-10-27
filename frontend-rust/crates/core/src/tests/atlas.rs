@@ -469,3 +469,117 @@ fn the_groups_are_not_fetched_for_a_change_made_in_the_app_or_on_another_page() 
 
     assert!(!h.api.called("GetPageById"));
 }
+
+fn ungroup(h: &mut Harness, page_ids: &[&str]) {
+    h.send(Event::UngroupAtlasCards {
+        page_ids: page_ids.iter().map(|id| id.to_string()).collect(),
+    });
+}
+
+#[test]
+fn a_card_dragged_out_of_its_group_leaves_it() {
+    let mut h = atlas_with_groups(&[("atlas_group_g", &["a/b/one", "a/b/two", "a/b/three"])]);
+    ungroup(&mut h, &["a/b/two"]);
+
+    assert_eq!(
+        upserts(&h),
+        [("a/b/index_atlas".to_string(), "atlas_group_g".to_string(), "a/b/one,a/b/three".to_string())]
+    );
+    assert!(deletes(&h).is_empty());
+}
+
+#[test]
+fn a_group_left_with_one_card_goes() {
+    let mut h = atlas_with_groups(&[("atlas_group_g", &["a/b/one", "a/b/two"])]);
+    ungroup(&mut h, &["a/b/one"]);
+
+    assert_eq!(deletes(&h), ["atlas_group_g"]);
+    let atlas = crate::screens::page::page_state(&h.model).and_then(|ps| ps.page.clone()).unwrap();
+    assert!(atlas.properties.get("atlas_group_g").is_none());
+}
+
+#[test]
+fn a_card_in_no_group_leaves_nothing() {
+    let mut h = atlas_with_groups(&[("atlas_group_g", &["a/b/one", "a/b/two"])]);
+    ungroup(&mut h, &["a/b/three"]);
+
+    assert!(upserts(&h).is_empty());
+    assert!(deletes(&h).is_empty());
+}
+
+#[test]
+fn a_refused_ungroup_puts_the_group_back() {
+    let mut h = atlas_with_groups(&[("atlas_group_g", &["a/b/one", "a/b/two"])]);
+    h.api.fail_next("DeletePageProperty", "refused");
+    ungroup(&mut h, &["a/b/one"]);
+
+    let atlas = crate::screens::page::page_state(&h.model).and_then(|ps| ps.page.clone()).unwrap();
+    assert_eq!(atlas.properties["atlas_group_g"], serde_json::json!(["a/b/one", "a/b/two"]));
+}
+
+#[test]
+fn the_hash_at_the_end_of_a_group_key_picks_one_of_the_six_colors() {
+    use crate::screens::atlas::group_color;
+    assert_eq!(group_color("atlas_group_00000000"), "#F9A2A2");
+    assert_eq!(group_color("atlas_group_00000001"), "#B5B5FF");
+    assert_eq!(group_color("atlas_group_0000000b"), "#C3C372");
+    // Wraps around the six
+    assert_eq!(group_color("atlas_group_00000006"), "#F9A2A2");
+    // A key without a hash is hashed, and still gets a color of the six
+    let six = ["#F9A2A2", "#B5B5FF", "#94D094", "#E1A6E1", "#5FD3D3", "#C3C372"];
+    assert!(six.contains(&group_color("atlas_group_by-hand").as_str()));
+}
+
+#[test]
+fn a_card_in_a_group_has_the_color_of_its_group() {
+    let mut h = atlas_with_groups(&[("atlas_group_00000001", &["a/b/one", "a/b/two"])]);
+    h.model.sidebar.index_pages = vec![child("one", None), child("three", None)];
+
+    let colors: Vec<_> = h.view().atlas_cards.into_iter().map(|c| (c.page_id, c.group_color)).collect();
+    assert_eq!(
+        colors,
+        [("a/b/one".to_string(), Some("#B5B5FF".to_string())), ("a/b/three".to_string(), None)]
+    );
+}
+
+#[test]
+fn a_card_draws_its_icon_from_the_tags_of_its_page() {
+    use crate::screens::atlas::icon_tags;
+    let mut page = doc("notes/", "post");
+    assert!(icon_tags(&page, "tags/").is_empty());
+    page.properties.insert("tags".into(), serde_json::json!(["cardbox", "card"]));
+    assert_eq!(icon_tags(&page, "tags/"), ["cardbox", "card"]);
+}
+
+#[test]
+fn a_tag_page_draws_its_icon_from_its_own_tag() {
+    use crate::screens::atlas::icon_tags;
+    assert_eq!(icon_tags(&doc("tags/", "CG"), "tags/"), ["CG"]);
+    assert_eq!(icon_tags(&doc("tags/DailyReport/", "WPF"), "tags/"), ["DailyReport/WPF"]);
+}
+
+#[test]
+fn a_folder_draws_its_icon_from_its_tag_its_tags_or_its_name() {
+    use crate::screens::atlas::icon_tags;
+    // A folder of tag pages is a tag too
+    assert_eq!(icon_tags(&doc("tags/DailyReport/", "index"), "tags/"), ["DailyReport"]);
+    assert_eq!(icon_tags(&doc("tags/a/b/", "index"), "tags/"), ["a/b"]);
+    // Any other folder: the tags of its index page, or else its name
+    assert_eq!(icon_tags(&doc("notes/rust/", "index"), "tags/"), ["rust"]);
+    let mut tagged = doc("notes/rust/", "index");
+    tagged.properties.insert("tags".into(), serde_json::json!(["lang"]));
+    assert_eq!(icon_tags(&tagged, "tags/"), ["lang"]);
+    // The folder of the tags itself is no tag
+    assert_eq!(icon_tags(&doc("tags/", "index"), "tags/"), ["tags"]);
+}
+
+#[test]
+fn an_icon_is_an_svg_of_the_size_asked() {
+    use crate::screens::atlas::tag_icon_svg;
+    let tags: Vec<String> = ["a", "b", "c", "d", "e"].iter().map(|t| t.to_string()).collect();
+    let svg = tag_icon_svg(&tags, 24);
+    assert!(svg.starts_with("<svg"), "{svg}");
+    assert!(svg.contains(r#"width="24""#), "{svg}");
+    // The same tags draw the same icon
+    assert_eq!(svg, tag_icon_svg(&tags, 24));
+}

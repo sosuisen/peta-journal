@@ -10,7 +10,7 @@ use crate::dom;
 use crate::listeners::DocumentListeners;
 use leptos::prelude::*;
 use peta_core::app::Event;
-use peta_core::screens::atlas::{CARD_HEIGHT, CARD_WIDTH};
+use peta_core::screens::atlas::{tag_icon_svg, CARD_HEIGHT, CARD_WIDTH};
 use peta_core::view::{AtlasCard, ScreenView};
 use std::collections::HashMap;
 use wasm_bindgen::prelude::*;
@@ -91,6 +91,9 @@ extern "C" {
     #[wasm_bindgen(method, js_name = setOnGroup)]
     fn set_on_group(this: &AtlasCanvas, on_group: &js_sys::Function);
 
+    #[wasm_bindgen(method, js_name = setOnUngroup)]
+    fn set_on_ungroup(this: &AtlasCanvas, on_ungroup: &js_sys::Function);
+
     #[wasm_bindgen(method, js_name = setCards)]
     fn set_cards(this: &AtlasCanvas, json: String);
 
@@ -104,7 +107,15 @@ extern "C" {
     fn destroy(this: &AtlasCanvas);
 }
 
-/// The placed cards as `atlas.js` reads them.
+/// The size of the icon of a card, in pixels of the canvas.
+const ICON_SIZE: i32 = 48;
+/// The size the icon is drawn at before it is scaled down to the card. The hatching of
+/// picturesque-marks has a fixed size made for an icon of about 100px; drawn small, a shape
+/// would hold only a few of its dots or lines.
+const ICON_DRAW_SIZE: i32 = 100;
+
+/// The placed cards as `atlas.js` reads them. The icons are drawn here rather than in the
+/// view, so they are drawn only when the cards change.
 fn placed_json(cards: &[AtlasCard]) -> String {
     let placed: Vec<_> = cards
         .iter()
@@ -120,6 +131,11 @@ fn placed_json(cards: &[AtlasCard]) -> String {
                     "width": b.width,
                     "height": b.height,
                     "group": c.group,
+                    "groupColor": c.group_color,
+                    "icon": (!c.icon_tags.is_empty())
+                        .then(|| tag_icon_svg(&c.icon_tags, ICON_DRAW_SIZE)),
+                    "iconSize": ICON_SIZE,
+                    "iconDrawSize": ICON_DRAW_SIZE,
                 })
             })
         })
@@ -201,6 +217,12 @@ pub fn Atlas() -> impl IntoView {
             }
         },
     ));
+    // Cards dragged out of the outline of their group with Ctrl held, as JSON
+    let on_ungroup = StoredValue::new_local(Closure::<dyn Fn(String)>::new(move |ids_json: String| {
+        if let Ok(page_ids) = serde_json::from_str::<Vec<String>>(&ids_json) {
+            core.send(Event::UngroupAtlasCards { page_ids });
+        }
+    }));
     let remove_from_atlas = move |_| {
         if let Some((page_id, _, _)) = menu.get_untracked() {
             core.send(Event::RemoveAtlasCard { page_id });
@@ -237,6 +259,7 @@ pub fn Atlas() -> impl IntoView {
                     })
                 });
                 on_group.with_value(|group| made.set_on_group(group.as_ref().unchecked_ref()));
+                on_ungroup.with_value(|ungroup| made.set_on_ungroup(ungroup.as_ref().unchecked_ref()));
                 made
             })
             .set_cards(json);

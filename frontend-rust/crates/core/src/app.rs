@@ -241,6 +241,10 @@ pub enum Event {
         page_ids: Vec<String>,
         target_id: String,
     },
+    /// Cards dragged out of the outline of their group with Ctrl held: they leave it.
+    UngroupAtlasCards {
+        page_ids: Vec<String>,
+    },
     /// The page menu: show the property rows of the doc page even while it has none.
     EditPageProperties,
     SetPageProperty {
@@ -730,6 +734,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         GroupAtlasCards { page_ids, target_id } => {
             screens::atlas::group_cards(model, page_ids, target_id)
         }
+        UngroupAtlasCards { page_ids } => screens::atlas::ungroup_cards(model, page_ids),
         EditPageProperties => screens::page::edit_properties(model),
         SetPageProperty {
             key,

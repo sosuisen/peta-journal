@@ -28,8 +28,17 @@ const SHARPEN_DELAY = 150;
 const GROUP_TARGET_TINT = 0xbfdbfe;
 // How far the outline of a group keeps away from the cards in it
 const GROUP_PADDING = 14;
-// The colors of the groups, picked by the key of each group
-const GROUP_COLORS = [0x60a5fa, 0x34d399, 0xf59e0b, 0xf472b6, 0xa78bfa, 0x2dd4bf, 0xfb7185, 0xa3e635];
+// How much the background of a card hides what lies behind it
+const CARD_ALPHA = 0.4;
+// How strong the icon behind the label of a card is
+const ICON_ALPHA = 0.5;
+// The frame of a group while the cards dragged out of it with Ctrl are still in it
+const GROUP_HOLD_COLOR = 0x1d4ed8;
+// The space between the label of a card and its sides
+const CARD_PADDING = 12;
+// The narrowest and the widest a card grows to fit its label
+const CARD_MIN_WIDTH = 40;
+const CARD_MAX_WIDTH = 320;
 
 window.AtlasCanvas = class AtlasCanvas {
   // onOpen(path, newTab, newWindow) opens the page of a card whose label is clicked.
@@ -73,7 +82,7 @@ window.AtlasCanvas = class AtlasCanvas {
         this.world = new PIXI.Container();
         this.cards = new PIXI.Container();
         // The outlines of the groups lie behind the cards
-        this.groups = new PIXI.Graphics();
+        this.groups = new PIXI.Container();
         this.world.addChild(cross(), this.groups, this.cards);
         this.app.stage.addChild(this.world);
         this.app.renderer.on('resize', () => this.center());
@@ -134,6 +143,12 @@ window.AtlasCanvas = class AtlasCanvas {
   textResolution() {
     const zoom = Math.min(MAX_TEXT_ZOOM, Math.max(1, this.zoom));
     return (window.devicePixelRatio || 1) * zoom;
+  }
+
+  // The icons are drawn once for the largest zoom of the labels: they are small, and a texture
+  // is shared by every card of the same tags
+  iconResolution() {
+    return (window.devicePixelRatio || 1) * MAX_TEXT_ZOOM;
   }
 
   sharpenText() {
@@ -241,8 +256,15 @@ window.AtlasCanvas = class AtlasCanvas {
     this.onGroup = onGroup;
   }
 
-  // The placed cards as JSON: [{ id, label, path, isDir, x, y, width, height }], where x
-  // and y are the center of the card
+  // onUngroup(pageIdsJson) takes the cards let go outside their group with Ctrl out of it
+  setOnUngroup(onUngroup) {
+    this.onUngroup = onUngroup;
+  }
+
+  // The placed cards as JSON: [{ id, label, path, isDir, x, y, width, height, group,
+  // groupColor, icon, iconSize, iconDrawSize }], where x and y are the center of the card,
+  // icon is an SVG or null, and iconDrawSize is the size of the SVG, which is shown at iconSize. The core gives the color of
+  // each group, so it is the same as on the tag icons.
   setCards(json) {
     this.data = JSON.parse(json);
     if (this.cards) {
@@ -255,7 +277,7 @@ window.AtlasCanvas = class AtlasCanvas {
     this.drag = null;
     this.cards.removeChildren().forEach(c => c.destroy({ children: true }));
     for (const data of this.data) {
-      const view = card(data, this.textResolution());
+      const view = card(data, this.textResolution(), this.iconResolution());
       view.position.set(data.x, data.y);
       this.makeDraggable(view, data);
       this.cards.addChild(view);
@@ -266,29 +288,126 @@ window.AtlasCanvas = class AtlasCanvas {
     this.drawGroups();
   }
 
-  // Each group is a smooth closed curve around all its cards, drawn again as they move
-  drawGroups() {
-    this.groups.clear();
+  // Each group is a smooth closed curve around all its cards, one Graphics for its area and one
+  // for its frame. The frame is drawn in white and colored by its tint, so a change of its
+  // color needs no new geometry. Given a drag, only the groups of the dragged cards are drawn again. With `ctrl`, the
+  // outline of such a group stays as it was before the drag, with the dragged cards where
+  // they were, so it shows whether they are let go in it. That shape does not change, so it
+  // is drawn once while Ctrl is held; only a group dragged as a whole moves with its cards.
+  drawGroups(drag = null, ctrl = false) {
+    const origins = new Map(drag ? drag.origins.map(o => [o.view, o]) : []);
+    const dragged = new Set(origins.keys());
+    const touched = new Set([...dragged].map(v => v.cardData.group).filter(Boolean));
+    const staying = new Set();
+    for (const view of this.cards.children) {
+      if (view.cardData.group && !dragged.has(view)) {
+        staying.add(view.cardData.group);
+      }
+    }
     const corners = new Map();
+    const colors = new Map();
     for (const view of this.cards.children) {
       const { group, width, height } = view.cardData;
-      if (!group) {
+      if (!group || (drag && !touched.has(group))) {
         continue;
       }
-      const left = view.x - width / 2 - GROUP_PADDING;
-      const right = view.x + width / 2 + GROUP_PADDING;
-      const top = view.y - height / 2 - GROUP_PADDING;
-      const bottom = view.y + height / 2 + GROUP_PADDING;
+      const kept = ctrl && staying.has(group);
+      if (kept && drag.ctrlShape) {
+        continue;
+      }
+      const { x, y } = kept && dragged.has(view) ? origins.get(view) : view;
+      const left = x - width / 2 - GROUP_PADDING;
+      const right = x + width / 2 + GROUP_PADDING;
+      const top = y - height / 2 - GROUP_PADDING;
+      const bottom = y + height / 2 + GROUP_PADDING;
       if (!corners.has(group)) {
         corners.set(group, []);
+        colors.set(group, view.cardData.groupColor);
       }
       corners.get(group).push([left, top], [right, top], [right, bottom], [left, bottom]);
     }
-    for (const [group, points] of corners) {
-      const color = GROUP_COLORS[hashOf(group) % GROUP_COLORS.length];
-      smoothClosedCurve(this.groups, convexHull(points));
-      this.groups.fill({ color, alpha: 0.12 }).stroke({ color, alpha: 0.7, width: 2 });
+    if (!drag) {
+      this.groups.removeChildren().forEach(g => g.destroy());
     }
+    for (const [group, points] of corners) {
+      let area = this.groups.children.find(c => c.label === group);
+      if (!area) {
+        area = new PIXI.Graphics({ label: group });
+        area.frame = new PIXI.Graphics();
+        // The frame shows only while a card of the group is dragged
+        area.frame.visible = Boolean(drag && drag.moved);
+        this.groups.addChild(area, area.frame);
+      }
+      const color = colors.get(group);
+      // One path for the area and its frame
+      const curve = new PIXI.GraphicsPath();
+      smoothClosedCurve(curve, convexHull(points));
+      area.clear().path(curve).fill({ color, alpha: 0.3 });
+      area.frame.clear().path(curve).stroke({ color: 0xffffff, width: 2 });
+      area.frame.tint = color;
+      // Not `groupColor`: a Container uses that name for the tint it passes to its children,
+      // and a color written there turns the area black while it is drawn again
+      area.outlineColor = color;
+      // A group dragged as a whole has nothing to leave: it moves with its cards
+      area.leavable = ctrl && staying.has(group);
+    }
+  }
+
+  // The frame of a group shows while a card of it is dragged, so it is clear where the group
+  // ends; at rest, and for the other groups, only the areas show. No drag hides every frame.
+  showFrames(drag) {
+    const dragged = new Set(drag ? drag.origins.map(o => o.view.cardData.group).filter(Boolean) : []);
+    for (const area of this.groups.children) {
+      if (area.frame) {
+        area.frame.visible = dragged.has(area.label);
+      }
+    }
+  }
+
+  // While cards are dragged with Ctrl, the frame of a group they can leave takes the color of
+  // a held group as long as the pointer is in its area, and its own color once they would
+  // leave it. The area keeps its color. The groups they would leave are kept in the drag for
+  // the drop. A pointer in the area of another group takes the cards out of their own, as
+  // they join that group.
+  showHeldGroups(drag, e) {
+    drag.outside = new Set();
+    for (const area of this.groups.children) {
+      if (!area.leavable) {
+        continue;
+      }
+      // The drawn curve itself, not the hull it is made from: the curve swells out past the
+      // edges of the hull
+      const holding = !drag.join && area.containsPoint(area.toLocal(e.global));
+      area.frame.tint = holding ? GROUP_HOLD_COLOR : area.outlineColor;
+      if (!holding) {
+        drag.outside.add(area.label);
+      }
+    }
+  }
+
+  // While cards are dragged with Ctrl, the area of another group under the pointer is the
+  // group they would join: its frame shows, in the color of a held group. Without `e`, no
+  // group is to be joined. The topmost area wins, as it is drawn over the others.
+  showJoinGroup(drag, e) {
+    const own = new Set(drag.origins.map(o => o.view.cardData.group).filter(Boolean));
+    let join = null;
+    if (e) {
+      const areas = this.groups.children.filter(c => c.frame && !own.has(c.label));
+      for (let i = areas.length - 1; i >= 0 && !join; i--) {
+        if (areas[i].containsPoint(areas[i].toLocal(e.global))) {
+          join = areas[i];
+        }
+      }
+    }
+    if (drag.join && drag.join !== join && !drag.join.destroyed) {
+      drag.join.frame.visible = false;
+      drag.join.frame.tint = drag.join.outlineColor;
+    }
+    if (join) {
+      join.frame.visible = true;
+      join.frame.tint = GROUP_HOLD_COLOR;
+    }
+    drag.join = join;
   }
 
   // A drag moves the selected cards and places them where they are let go. A click on the
@@ -338,13 +457,25 @@ window.AtlasCanvas = class AtlasCanvas {
       if (!drag.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD) {
         return;
       }
+      if (!drag.moved) {
+        this.showFrames(drag);
+      }
       drag.moved = true;
       view.cursor = 'grabbing';
       // The pointer moves in pixels of the screen, the cards in units of the scaled view
       for (const o of drag.origins) {
         o.view.position.set(o.x + dx / this.zoom, o.y + dy / this.zoom);
       }
-      this.drawGroups();
+      const ctrl = e.ctrlKey || e.metaKey;
+      this.drawGroups(drag, ctrl);
+      drag.ctrlShape = ctrl;
+      if (ctrl) {
+        this.showJoinGroup(drag, e);
+        this.showHeldGroups(drag, e);
+      } else {
+        this.showJoinGroup(drag, null);
+        drag.outside = null;
+      }
       this.showGroupTarget(drag, this.groupTargetAt(drag, e));
     });
     const end = e => {
@@ -355,18 +486,32 @@ window.AtlasCanvas = class AtlasCanvas {
       this.drag = null;
       view.cursor = 'grab';
       if (drag.moved) {
+        this.showFrames(null);
         const target = this.groupTargetAt(drag, e);
         this.showGroupTarget(drag, null);
         // The cards have moved with the pointer: they lie where they show. A position is the
         // center of a card, as the pivot is there. Read before placing any: placing one
         // gives a new list of cards, which destroys these views.
         const places = drag.origins.map(o => [o.view.cardData.id, o.view.x, o.view.y]);
-        const targetId = target && target.cardData.id;
+        const ctrl = e.ctrlKey || e.metaKey;
+        // A card let go on a card joins the group of that card; let go in the area of another
+        // group, it joins that group, which any card of it stands for
+        const joined = ctrl && drag.join && this.cards.children.find(v => v.cardData.group === drag.join.label);
+        const targetId = target ? target.cardData.id : joined ? joined.cardData.id : null;
+        // Joining a group takes the cards out of their own; only the cards let go outside their
+        // group without joining another leave it
+        const leavers =
+          !targetId && ctrl && drag.outside
+            ? drag.origins.map(o => o.view.cardData).filter(d => drag.outside.has(d.group)).map(d => d.id)
+            : [];
         for (const [id, x, y] of places) {
           this.onPlace(id, x, y);
         }
         if (targetId && this.onGroup) {
           this.onGroup(JSON.stringify(places.map(([id]) => id)), targetId);
+        }
+        if (leavers.length > 0 && this.onUngroup) {
+          this.onUngroup(JSON.stringify(leavers));
         }
       } else if (drag.onLabel) {
         // A link, as it always was: Ctrl opens it in a new tab and leaves the selection
@@ -462,7 +607,7 @@ function convexHull(points) {
   return [...half(sorted), ...half([...sorted].reverse())];
 }
 
-// A closed curve through every point, as Bézier curves of a Catmull-Rom spline. It passes
+// A closed curve through every point, drawn on a Graphics or a GraphicsPath, as Bézier curves of a Catmull-Rom spline. It passes
 // through the corners of the hull, so it never cuts into a card as a curve between them could.
 function smoothClosedCurve(g, points) {
   const n = points.length;
@@ -482,13 +627,29 @@ function smoothClosedCurve(g, points) {
   g.closePath();
 }
 
-// A stable small number from the key of a group, to pick its color
-function hashOf(text) {
-  let hash = 0;
-  for (const ch of text) {
-    hash = (hash * 31 + ch.codePointAt(0)) >>> 0;
-  }
-  return hash;
+// The icon of a card, from its SVG. The browser draws the SVG, as its hatching is a <pattern>,
+// which a Graphics cannot read. The texture comes later; the card shows without it until then.
+function iconSprite(svg, size, resolution, x, y) {
+  const sprite = new PIXI.Sprite();
+  sprite.anchor.set(0.5);
+  sprite.position.set(x, y);
+  // Faint, so it stays behind the label
+  sprite.alpha = ICON_ALPHA;
+  // The card handles the press
+  sprite.eventMode = 'none';
+  PIXI.Assets.load({
+    src: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`,
+    parser: 'svg',
+    data: { resolution },
+  })
+    .then(texture => {
+      if (!sprite.destroyed) {
+        sprite.texture = texture;
+        sprite.setSize(size, size);
+      }
+    })
+    .catch(e => console.warn('atlas: cannot draw a tag icon', e));
+  return sprite;
 }
 
 function cross() {
@@ -500,7 +661,33 @@ function cross() {
     .stroke({ color: 0x999999, width: 1.5 });
 }
 
-function card({ label, isDir, width, height }, resolution) {
+// A card is as wide as its label, between the width of its icon and CARD_MAX_WIDTH; a longer
+// name wraps. The width it takes is written back into the data, which the outlines of the
+// groups read. The stored width of the card is not used.
+function card(data, resolution, iconResolution) {
+  const { label, isDir, height, icon, iconSize, iconDrawSize } = data;
+  const text = new PIXI.Text({
+    text: label,
+    resolution,
+    style: {
+      fontFamily: getComputedStyle(document.body).fontFamily,
+      fontSize: 13,
+      fill: 0x222222,
+      // A white edge keeps the label readable over the icon and the groups behind it. The
+      // padding keeps the edge from being cut off at the sides of the text.
+      stroke: { color: 0xffffff, width: 3, join: 'round' },
+      padding: 2,
+      wordWrap: true,
+      wordWrapWidth: CARD_MAX_WIDTH - 2 * CARD_PADDING,
+      breakWords: true,
+      align: 'center',
+    },
+  });
+  // A canvas Text knows its size as soon as it is made
+  const width = Math.ceil(
+    Math.max(icon ? iconSize : 0, text.width + 2 * CARD_PADDING, CARD_MIN_WIDTH),
+  );
+  data.width = width;
   const c = new PIXI.Container();
   // The position of a card is its center, as stored in atlas_bounds
   c.pivot.set(width / 2, height / 2);
@@ -510,33 +697,28 @@ function card({ label, isDir, width, height }, resolution) {
     .stroke({ color: 0x3b82f6, width: 2 });
   c.cardSelection.visible = false;
   c.addChild(c.cardSelection);
+  // No line around the card, and a background the canvas and the group outlines show through
   c.cardFrame = new PIXI.Graphics()
     .roundRect(0, 0, width, height, 8)
-    .fill(isDir ? 0xfff8e1 : 0xffffff)
-    .stroke({ color: isDir ? 0xe0c068 : 0xd0d4da, width: 1 });
+    .fill({ color: isDir ? 0xfff8e1 : 0xffffff, alpha: CARD_ALPHA });
   c.addChild(c.cardFrame);
-  const text = new PIXI.Text({
-    text: label,
-    resolution,
-    style: {
-      fontFamily: getComputedStyle(document.body).fontFamily,
-      fontSize: 13,
-      fill: 0x222222,
-      wordWrap: true,
-      wordWrapWidth: Math.max(1, width - 16),
-      breakWords: true,
-      align: 'center',
-    },
-  });
+  // The icon and the label share the inside of the card, which neither may spill out of: an
+  // icon may be taller than the card, and a wrapped name taller too
+  const inside = new PIXI.Container();
+  inside.mask = new PIXI.Graphics().roundRect(0, 0, width, height, 8).fill(0xffffff);
+  c.addChild(inside.mask, inside);
+  if (icon) {
+    // Rasterized in as many pixels as the icon covers at its largest, not at the size of the SVG
+    const rasterResolution = (iconResolution * iconSize) / iconDrawSize;
+    // Behind the label, in the middle of the card
+    inside.addChild(iconSprite(icon, iconSize, rasterResolution, width / 2, height / 2));
+  }
   text.anchor.set(0.5);
   text.position.set(width / 2, height / 2);
   // The card handles the press; the label only shows that it opens the page
   text.eventMode = 'static';
   text.cursor = 'pointer';
   c.cardLabel = text;
-  // A long name must not spill out of its card
-  const mask = new PIXI.Graphics().rect(0, 0, width, height).fill(0xffffff);
-  text.mask = mask;
-  c.addChild(mask, text);
+  inside.addChild(text);
   return c;
 }
