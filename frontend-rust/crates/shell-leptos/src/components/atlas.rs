@@ -12,7 +12,7 @@ use crate::listeners::DocumentListeners;
 use leptos::prelude::*;
 use peta_core::app::Event;
 use peta_core::screens::atlas::{
-    callout_face_svg, tag_blob_svg, tag_icon_svg, Callout, CARD_HEIGHT, CARD_WIDTH,
+    callout_face_svg, parent_dir_label, tag_blob_svg, tag_icon_svg, Callout, CARD_HEIGHT, CARD_WIDTH,
 };
 use peta_core::view::{AtlasCard, ScreenView};
 use std::collections::HashMap;
@@ -455,14 +455,14 @@ pub fn Atlas() -> impl IntoView {
                 on:drop=on_drop
                 on:contextmenu=move |ev: web_sys::MouseEvent| ev.prevent_default()>
                 // HTML over the canvas, not drawn by PixiJS: it keeps its corner whatever the
-                // canvas shows. The root has no directory above.
+                // canvas shows. It names the directory it goes to. The root has no directory above.
                 <Show when=move || dir_path.with(|d| !d.is_empty())>
                     <button class="atlas-up-btn" title="Up" on:click=move |_| core.send(Event::AtlasUp)>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <polyline points="14 9 9 4 4 9"/>
                             <path d="M20 20h-7a4 4 0 0 1-4-4V4"/>
                         </svg>
-                        <span>{move || dir_path.get()}</span>
+                        <span>{move || dir_path.with(|d| parent_dir_label(d))}</span>
                     </button>
                 </Show>
             </div>

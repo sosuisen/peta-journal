@@ -843,3 +843,11 @@ fn the_character_of_a_callout_is_a_face_of_its_text() {
     assert!(svg.contains(r#"stroke-width="3.5""#), "{svg}");
     assert!(!svg.contains(r#"stroke-width="5""#), "{svg}");
 }
+
+#[test]
+fn the_up_button_names_the_directory_above() {
+    use crate::screens::atlas::parent_dir_label;
+    assert_eq!(parent_dir_label("a/b/"), "a/");
+    assert_eq!(parent_dir_label("a/b/c/"), "a/b/");
+    assert_eq!(parent_dir_label("a/"), "(root)/");
+}

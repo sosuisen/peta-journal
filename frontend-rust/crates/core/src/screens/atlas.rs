@@ -719,6 +719,15 @@ pub fn folder_path(model: &Model, path: &str) -> String {
 
 /// Notes how a folder is seen when its index page or its atlas page is opened. The shell
 /// keeps the list only when it changes.
+/// The name of the directory above a directory, as the button that goes up shows it: its path
+/// with a slash at the end, or `(root)/` for the root, as in the title of an atlas.
+pub fn parent_dir_label(dir_path: &str) -> String {
+    match dir_path.trim_end_matches('/').rsplit_once('/') {
+        Some((parent, _)) => format!("{parent}/"),
+        None => "(root)/".to_string(),
+    }
+}
+
 pub fn remember_folder_view(model: &mut Model, path: &str) -> Cmd {
     let (dir, name) = split_doc_path(path);
     let changed = match name.as_str() {
