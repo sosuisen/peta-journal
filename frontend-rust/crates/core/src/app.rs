@@ -224,8 +224,7 @@ pub enum Event {
     DemoteIndex,
     /// The map button: switches between the index page and the atlas page of a directory.
     ToggleAtlas,
-    /// A card dropped on the atlas canvas: the page's card is placed with its top left
-    /// corner there.
+    /// A card dropped on the atlas canvas: the page's card is placed with its center there.
     PlaceAtlasCard {
         page_id: String,
         x: f64,

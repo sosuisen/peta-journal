@@ -127,11 +127,12 @@ pub fn Atlas() -> impl IntoView {
         let rect = el.get_bounding_client_rect();
         let center_x = (el.client_width() as f64 / 2.0).round();
         let center_y = (el.client_height() as f64 / 2.0).round();
-        // The grabbed spot of the card stays under the pointer, as the dragged image shows it
+        // The grabbed spot of the card stays under the pointer, as the dragged image shows it.
+        // The card is placed by its center, which lies this far from the grabbed spot.
         core.send(Event::PlaceAtlasCard {
             page_id: grab.page_id,
-            x: ev.client_x() as f64 - rect.left() - center_x - grab.x * CARD_WIDTH,
-            y: ev.client_y() as f64 - rect.top() - center_y - grab.y * CARD_HEIGHT,
+            x: ev.client_x() as f64 - rect.left() - center_x + (0.5 - grab.x) * CARD_WIDTH,
+            y: ev.client_y() as f64 - rect.top() - center_y + (0.5 - grab.y) * CARD_HEIGHT,
         });
     };
 

@@ -14,7 +14,7 @@ pub const BOUNDS_KEY: &str = "atlas_bounds";
 pub const CARD_WIDTH: f64 = 120.0;
 pub const CARD_HEIGHT: f64 = 40.0;
 
-/// The place and size of a card. `x` and `y` are its top left corner; `y` grows downward,
+/// The place and size of a card. `x` and `y` are its center; `y` grows downward,
 /// as on the screen.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Bounds {
@@ -50,9 +50,9 @@ impl Bounds {
     }
 }
 
-/// Places the card of a page with its top left corner at the given point of the canvas.
-/// The shell knows where the card was grabbed, so it gives the corner rather than the drop
-/// point. The card moves at once; a refusal of the server puts it back.
+/// Places the card of a page with its center at the given point of the canvas. The shell
+/// knows where the card was grabbed, so it gives the center rather than the drop point.
+/// The card moves at once; a refusal of the server puts it back.
 pub fn place_card(model: &mut Model, page_id: String, x: f64, y: f64) -> Cmd {
     let Some(page) = model
         .sidebar

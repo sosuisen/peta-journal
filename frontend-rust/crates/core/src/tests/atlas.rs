@@ -166,7 +166,7 @@ fn bounds_that_are_not_four_numbers_leave_the_card_unplaced() {
 }
 
 #[test]
-fn a_dropped_card_takes_the_default_size_with_its_corner_at_the_given_point() {
+fn a_dropped_card_takes_the_default_size_with_its_center_at_the_given_point() {
     let mut h = atlas_with(vec![child("one", None)]);
     h.send(Event::PlaceAtlasCard { page_id: "a/b/one".into(), x: 10.4, y: -20.0 });
 

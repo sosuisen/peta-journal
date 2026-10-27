@@ -32,7 +32,7 @@
 | `created` | datetime | 使える | ページの作成日時。`pages.created_date` そのもので、ページのプロパティとして編集できる |
 | `modified` | datetime | 使える | ページの更新日時。`pages.modified_date` そのもので、ページのプロパティとして編集できる |
 | `published` | datetime | 使える | ユーザー。ページを公開した日時。左カラムのページ一覧はこの値で並び替えられる。無いページは `modified` で代用する |
-| `atlas_bounds` | bounds | 使える | フロントエンド。ディレクトリのatlasページで、そのページのカードが置かれる位置と大きさ |
+| `atlas_bounds` | bounds | 使える | フロントエンド。ディレクトリのatlasページで、そのページのカードが置かれる位置と大きさ。`x,y` はカードの中央の座標で、原点はキャンバスの中央。yは下向きが正 |
 
 `bounds` を受け付けない古いデータベースは、起動時の `migrate_bounds_value_type` が `property_definitions` を作り直す。SQLiteはCHECK制約をその場で変えられないためである。行はINSERTで写し、外部キーで参照する値は消さない。作り直しは `migrate_definition_flags` の中で、システム管理キーを登録する前に行う。古いテーブルは `atlas_bounds` の型を拒むためである。
 

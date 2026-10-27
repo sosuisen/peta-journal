@@ -13,7 +13,7 @@ const DRAG_THRESHOLD = 3;
 
 window.AtlasCanvas = class AtlasCanvas {
   // onOpen(path, newTab, newWindow) opens the page of a card whose label is clicked.
-  // onPlace(pageId, x, y) places the card of a page with its top left corner at a point.
+  // onPlace(pageId, x, y) places the card of a page with its center at a point.
   constructor(host, onOpen, onPlace) {
     this.onOpen = onOpen;
     this.onPlace = onPlace;
@@ -46,7 +46,8 @@ window.AtlasCanvas = class AtlasCanvas {
       });
   }
 
-  // The placed cards as JSON: [{ id, label, path, isDir, x, y, width, height }]
+  // The placed cards as JSON: [{ id, label, path, isDir, x, y, width, height }], where x
+  // and y are the center of the card
   setCards(json) {
     this.data = JSON.parse(json);
     if (this.cards) {
@@ -105,7 +106,8 @@ window.AtlasCanvas = class AtlasCanvas {
       this.drag = null;
       view.cursor = 'grab';
       if (drag.moved) {
-        // The card has moved with the pointer from where it was grabbed: it lies where it shows
+        // The card has moved with the pointer from where it was grabbed: it lies where it shows.
+        // Its position is its center, as the pivot is there.
         this.onPlace(data.id, view.x, view.y);
       } else if (drag.onLabel) {
         this.onOpen(data.path, e.ctrlKey || e.metaKey, e.shiftKey);
@@ -142,6 +144,8 @@ function cross() {
 
 function card({ label, isDir, width, height }) {
   const c = new PIXI.Container();
+  // The position of a card is its center, as stored in atlas_bounds
+  c.pivot.set(width / 2, height / 2);
   c.addChild(
     new PIXI.Graphics()
       .roundRect(0, 0, width, height, 8)
