@@ -151,6 +151,14 @@ fn a_page_without_bounds_waits_unplaced_and_a_page_with_them_lies_on_the_canvas(
 }
 
 #[test]
+fn a_folder_card_opens_the_atlas_of_the_folder_and_a_page_card_the_page() {
+    let h = atlas_with(vec![doc("a/b/c/", "index"), child("one", None)]);
+
+    let cards = h.view().atlas_cards;
+    assert_eq!(cards.iter().map(|c| c.path.as_str()).collect::<Vec<_>>(), vec!["a/b/c/index_atlas", "a/b/one"]);
+}
+
+#[test]
 fn only_an_atlas_page_has_cards() {
     let mut h = showing(doc("a/b/", "index"));
     h.model.sidebar.index_pages = vec![child("one", None)];

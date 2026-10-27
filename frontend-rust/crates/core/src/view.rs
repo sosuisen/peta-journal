@@ -221,7 +221,8 @@ pub struct SidebarPage {
 pub struct AtlasCard {
     pub page_id: String,
     pub label: String,
-    /// The path that opens the page, as the sidebar's index list opens it.
+    /// The path that opens the page. A folder opens as its atlas, so the map stays a map
+    /// on the way down.
     pub path: String,
     pub is_dir: bool,
     pub bounds: Option<Bounds>,
@@ -285,7 +286,11 @@ pub fn build(model: &Model) -> ViewModel {
             .map(|(p, bounds)| AtlasCard {
                 page_id: p.id.clone(),
                 label: sidebar::index_page_name(&p),
-                path: p.canonical_path(),
+                path: if sidebar::is_directory(&p) {
+                    format!("{}{}", p.dir_path, page::ATLAS_NAME)
+                } else {
+                    p.canonical_path()
+                },
                 is_dir: sidebar::is_directory(&p),
                 bounds,
             })
