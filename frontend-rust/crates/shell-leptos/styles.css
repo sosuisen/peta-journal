@@ -219,7 +219,9 @@ app-page .page-title:hover { background: rgba(0,0,0,0.04); }
 .atlas-unplaced {
   /* As wide as a card and the scrollbar: a fixed width would scroll sideways under it */
   width: max-content; flex-shrink: 0; overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; padding: 12px;
-  display: flex; flex-direction: column; gap: 8px; border-right: 1px solid #e0e0e0; background: #fafafa;
+  display: flex; flex-direction: column; gap: 8px; border-left: 1px solid #e0e0e0; background: #fafafa;
+  /* At the right edge, after the canvas */
+  order: 1;
 }
 /* The same look as a card on the canvas */
 .atlas-card {
