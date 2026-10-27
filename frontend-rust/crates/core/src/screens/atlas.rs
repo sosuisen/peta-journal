@@ -5,7 +5,9 @@
 use crate::app::{apply, done, run, Cmd, Model};
 use crate::effects::UiOp;
 use crate::model::Page;
+use crate::screens::page::{split_doc_path, ATLAS_NAME};
 use crate::screens::sidebar;
+use crux_core::Command;
 use serde_json::Value;
 use std::collections::BTreeMap;
 
@@ -146,4 +148,32 @@ pub fn cards(model: &Model) -> Vec<(Page, Option<Bounds>)> {
             (p, bounds)
         })
         .collect()
+}
+
+/// The path a folder opens at: its atlas page when the folder was last seen as a map, so
+/// it opens as it was left. Any other path stays as it is. The map button and the URL open
+/// the index page itself.
+pub fn folder_path(model: &Model, path: &str) -> String {
+    let (dir, name) = split_doc_path(path);
+    if name == "index" && model.sidebar.atlas_dirs.contains(&dir) {
+        format!("{dir}{ATLAS_NAME}")
+    } else {
+        path.to_string()
+    }
+}
+
+/// Notes how a folder is seen when its index page or its atlas page is opened. The shell
+/// keeps the list only when it changes.
+pub fn remember_folder_view(model: &mut Model, path: &str) -> Cmd {
+    let (dir, name) = split_doc_path(path);
+    let changed = match name.as_str() {
+        ATLAS_NAME => model.sidebar.atlas_dirs.insert(dir),
+        "index" => model.sidebar.atlas_dirs.remove(&dir),
+        _ => false,
+    };
+    if !changed {
+        return done();
+    }
+    let dirs = model.sidebar.atlas_dirs.iter().cloned().collect();
+    Command::notify_shell(UiOp::SaveAtlasDirs(dirs)).into()
 }

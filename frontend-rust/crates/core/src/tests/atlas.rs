@@ -255,3 +255,76 @@ fn the_root_atlas_has_no_directory_above() {
 
     assert!(h.navigations.is_empty());
 }
+
+// ---- the view a folder opens at ----
+
+fn visit(h: &mut Harness, name: &str) {
+    h.send(Event::Route {
+        route: crate::app::Route::Page { name: name.into(), fragment: None },
+        today: "2031-01-05".into(),
+    });
+}
+
+fn go_to(h: &mut Harness, path: &str) -> String {
+    h.send(Event::GoToPage { path: path.into(), new_tab: false, new_window: false });
+    h.navigations.last().unwrap().url.clone()
+}
+
+#[test]
+fn a_folder_last_seen_as_a_map_opens_as_its_atlas() {
+    let mut h = Harness::new();
+    visit(&mut h, "a/b/index_atlas");
+
+    assert_eq!(go_to(&mut h, "a/b/index"), "/pages/a/b/index_atlas");
+    // Another folder keeps its index page
+    assert_eq!(go_to(&mut h, "a/c/index"), "/pages/a/c/index");
+}
+
+#[test]
+fn a_folder_last_seen_as_its_index_opens_as_its_index_again() {
+    let mut h = Harness::new();
+    visit(&mut h, "a/b/index_atlas");
+    visit(&mut h, "a/b/index");
+
+    assert_eq!(go_to(&mut h, "a/b/index"), "/pages/a/b/index");
+}
+
+#[test]
+fn the_root_and_the_tags_folder_open_as_they_were_last_seen() {
+    let mut h = Harness::new();
+    h.model.config.tags_dir = "tags/".into();
+    visit(&mut h, "index_atlas");
+    visit(&mut h, "tags/index_atlas");
+
+    h.send(Event::NavigateToRoot);
+    assert_eq!(h.navigations.last().unwrap().url, "/pages/index_atlas");
+    h.send(Event::NavigateToTags);
+    assert_eq!(h.navigations.last().unwrap().url, "/pages/tags/index_atlas");
+}
+
+#[test]
+fn the_map_button_still_goes_back_to_the_index_page() {
+    let mut h = Harness::new();
+    visit(&mut h, "a/b/index_atlas");
+    h.model.screen = Screen::Page(PageState {
+        page_name: "a/b/index_atlas".into(),
+        page: Some(doc("a/b/", ATLAS_NAME)),
+        ..PageState::default()
+    });
+    h.send(Event::ToggleAtlas);
+
+    assert_eq!(h.navigations.last().unwrap().url, "/pages/a/b/index");
+}
+
+#[test]
+fn the_folders_seen_as_maps_are_kept_by_the_shell_and_restored() {
+    let mut h = Harness::new();
+    visit(&mut h, "a/b/index_atlas");
+    assert!(h.ui.iter().any(|op| matches!(op, UiOp::SaveAtlasDirs(dirs) if dirs == &vec!["a/b/".to_string()])));
+    visit(&mut h, "a/b/index");
+    assert!(h.ui.iter().any(|op| matches!(op, UiOp::SaveAtlasDirs(dirs) if dirs.is_empty())));
+
+    let mut h = Harness::new();
+    h.send(Event::AtlasDirsRestored(vec!["a/b/".into()]));
+    assert_eq!(go_to(&mut h, "a/b/index"), "/pages/a/b/index_atlas");
+}

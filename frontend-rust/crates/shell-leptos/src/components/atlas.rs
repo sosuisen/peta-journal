@@ -14,6 +14,19 @@ use peta_core::screens::atlas::{CARD_HEIGHT, CARD_WIDTH};
 use peta_core::view::{AtlasCard, ScreenView};
 use wasm_bindgen::prelude::*;
 
+const ATLAS_DIRS_KEY: &str = "atlas-dirs";
+
+/// The folders last seen as their atlas, as the browser stored them.
+pub fn load_atlas_dirs() -> Vec<String> {
+    dom::local_storage_get(ATLAS_DIRS_KEY)
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_default()
+}
+
+pub fn save_atlas_dirs(dirs: &[String]) {
+    dom::local_storage_set(ATLAS_DIRS_KEY, &serde_json::to_string(dirs).unwrap_or_default());
+}
+
 /// The drag data of an unplaced card. A type of its own keeps text dragged from elsewhere
 /// from being taken as a card.
 const CARD_MIME: &str = "application/x-peta-atlas-card";

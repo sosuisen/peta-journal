@@ -13,7 +13,7 @@ use crate::screens;
 use crate::util::filename::JournalType;
 use crux_core::command::CommandContext;
 use crux_core::{render, App, Command};
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
 use std::fmt;
 use std::future::Future;
 
@@ -274,6 +274,8 @@ pub enum Event {
     // ---- sidebar ----
     /// The shell restored the per-directory sorts it had stored.
     IndexSortsRestored(HashMap<String, IndexSort>),
+    /// The folders last seen as their atlas, as the browser stored them.
+    AtlasDirsRestored(Vec<String>),
     /// The user chose a sort for the directory the index list shows.
     SetIndexSort { dir: String, sort: IndexSort },
 
@@ -470,6 +472,9 @@ pub struct SidebarState {
     pub index_pages: Vec<Page>,
     /// The sort of each directory's index list, by its header (`dir/` or `(root)/`).
     pub index_sorts: HashMap<String, IndexSort>,
+    /// The folders last seen as their atlas page, by dir path (empty for the root). A
+    /// folder opens as it was last seen.
+    pub atlas_dirs: BTreeSet<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -731,9 +736,11 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             replace: false,
         })
         .into(),
-        NavigateToRoot => screens::navigate::to_page("index", false, false, false, None),
+        NavigateToRoot => {
+            screens::navigate::to_page(&screens::atlas::folder_path(model, "index"), false, false, false, None)
+        }
         NavigateToTags => screens::navigate::to_page(
-            &format!("{}index", model.config.tags_dir),
+            &screens::atlas::folder_path(model, &format!("{}index", model.config.tags_dir)),
             false,
             false,
             false,
@@ -743,7 +750,13 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             path,
             new_tab,
             new_window,
-        } => screens::navigate::to_page(&path, new_tab, new_window, false, None),
+        } => screens::navigate::to_page(
+            &screens::atlas::folder_path(model, &path),
+            new_tab,
+            new_window,
+            false,
+            None,
+        ),
         JournalNav(nav) => screens::journal::nav(model, nav),
 
         SearchQueryChanged(q) => screens::search::query_changed(model, q),
@@ -756,6 +769,10 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
 
         IndexSortsRestored(sorts) => {
             model.sidebar.index_sorts = sorts;
+            done()
+        }
+        AtlasDirsRestored(dirs) => {
+            model.sidebar.atlas_dirs = dirs.into_iter().collect();
             done()
         }
         SetIndexSort { dir, sort } => {

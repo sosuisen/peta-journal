@@ -41,6 +41,7 @@ fn page_mut(model: &mut Model) -> Option<&mut PageState> {
 
 /// Shows a doc page by its path; the fragment is the item to scroll to.
 pub fn open(model: &mut Model, name: &str, fragment: Option<String>) -> Cmd {
+    let remember = crate::screens::atlas::remember_folder_view(model, name);
     model.screen = Screen::Page(PageState {
         page_name: name.to_string(),
         focus_item_id: fragment.filter(|f| !f.is_empty()),
@@ -50,7 +51,7 @@ pub fn open(model: &mut Model, name: &str, fragment: Option<String>) -> Cmd {
         backlinks: Vec::new(),
     });
     let page_name = name.to_string();
-    run(move |api| async move {
+    let load = run(move |api| async move {
         let (dir_path, title) = split_doc_path(&page_name);
         let result = match api.get_or_create_doc(&title, &dir_path).await {
             Ok(r) => r,
@@ -129,7 +130,8 @@ pub fn open(model: &mut Model, name: &str, fragment: Option<String>) -> Cmd {
             }),
             Err(e) => log_error(format!("Failed to load items for page {}: {e}", p.id)),
         }
-    })
+    });
+    Command::all([remember, load])
 }
 
 /// Loads the backlinks of the shown doc page again: any page may have changed its links.
