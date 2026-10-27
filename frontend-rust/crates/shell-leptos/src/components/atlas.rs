@@ -1,7 +1,9 @@
 //! The canvas of an atlas page: the pages and folders of its directory as cards, drawn by
 //! PixiJS in `atlas.js`. A card without a place waits in the list of unplaced cards beside
 //! the canvas, and is placed by dragging it onto the canvas. A card on the canvas moves by
-//! dragging it there, and its menu on a right click takes it off the canvas.
+//! dragging it there, and its menu on a right click takes it off the canvas. A drag with
+//! the right button, or with the left one between the cards, moves the view. The wheel
+//! scales it.
 
 use crate::core::CoreHandle;
 use crate::dom;
@@ -41,6 +43,12 @@ extern "C" {
 
     #[wasm_bindgen(method, js_name = setCards)]
     fn set_cards(this: &AtlasCanvas, json: String);
+
+    #[wasm_bindgen(method, js_name = toWorldX)]
+    fn to_world_x(this: &AtlasCanvas, client_x: f64) -> Option<f64>;
+
+    #[wasm_bindgen(method, js_name = toWorldY)]
+    fn to_world_y(this: &AtlasCanvas, client_y: f64) -> Option<f64>;
 
     #[wasm_bindgen(method)]
     fn destroy(this: &AtlasCanvas);
@@ -173,19 +181,20 @@ pub fn Atlas() -> impl IntoView {
         else {
             return;
         };
-        let Some(el) = host.get_untracked() else {
+        // Only the canvas knows how far the hand tool has moved the view
+        let point = canvas.with_value(|c| {
+            let c = c.as_ref()?;
+            Some((c.to_world_x(ev.client_x() as f64)?, c.to_world_y(ev.client_y() as f64)?))
+        });
+        let Some((x, y)) = point else {
             return;
         };
-        // The canvas measures its center in whole pixels from its own size, as here
-        let rect = el.get_bounding_client_rect();
-        let center_x = (el.client_width() as f64 / 2.0).round();
-        let center_y = (el.client_height() as f64 / 2.0).round();
         // The grabbed spot of the card stays under the pointer, as the dragged image shows it.
         // The card is placed by its center, which lies this far from the grabbed spot.
         core.send(Event::PlaceAtlasCard {
             page_id: grab.page_id,
-            x: ev.client_x() as f64 - rect.left() - center_x + (0.5 - grab.x) * CARD_WIDTH,
-            y: ev.client_y() as f64 - rect.top() - center_y + (0.5 - grab.y) * CARD_HEIGHT,
+            x: x + (0.5 - grab.x) * CARD_WIDTH,
+            y: y + (0.5 - grab.y) * CARD_HEIGHT,
         });
     };
 
