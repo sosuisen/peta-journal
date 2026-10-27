@@ -78,6 +78,17 @@ pub fn Settings() -> impl IntoView {
                     <p class="setting-description">"A hashtag such as #topic links to the page topic under this directory. Leave it empty to link to the pages root."</p>
                 </div>
                 <div class="setting-group">
+                    <label class="setting-label">"Home"</label>
+                    <input
+                        type="text"
+                        class="setting-input"
+                        placeholder="today"
+                        prop:value=move || config.with(|c| c.home_link.clone())
+                        on:change=move |ev| core.send(Event::SetHomeLink(event_target_value(&ev)))
+                    />
+                    <p class="setting-description">"The page the Home button opens, written as the target of a wiki link, such as a/Foo for [[a/Foo]]. Leave it empty to open today's journal."</p>
+                </div>
+                <div class="setting-group">
                     <label class="setting-label">"Properties"</label>
                     <table class="property-definitions">
                         <thead>

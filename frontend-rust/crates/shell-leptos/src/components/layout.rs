@@ -106,6 +106,18 @@ pub fn MainLayout() -> impl IntoView {
                 focus();
             }
         });
+        // Ctrl+Alt+Enter opens Home. In the capture phase and stopped there, as an item editor
+        // would take it as its own Ctrl+Enter.
+        global.on_capture("keydown", move |ev: &web_sys::KeyboardEvent| {
+            if ev.key() == "Enter" && ev.ctrl_key() && ev.alt_key() && !ev.shift_key() && !ev.meta_key() {
+                if dom::is_ime_composing(ev) {
+                    return;
+                }
+                ev.prevent_default();
+                ev.stop_propagation();
+                core.send(Event::NavigateHome);
+            }
+        });
         // Without these the browser opens a file dropped outside an item, replacing the app.
         // `dragover` must be cancelled too, or the browser refuses the drop everywhere.
         global.on_cancelable("dragover", |ev: &web_sys::Event| ev.prevent_default());
@@ -194,7 +206,7 @@ pub fn MainLayout() -> impl IntoView {
                     <SearchBar />
                 </div>
                 <div class="header-right">
-                    <button class="menu-btn home-btn" title="Home" on:click=move |_| core.send(Event::NavigateToToday)>
+                    <button class="menu-btn home-btn" title="Home (Ctrl+Alt+Enter)" on:click=move |_| core.send(Event::NavigateHome)>
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#666" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
                     </button>
                     <div class="page-menu">

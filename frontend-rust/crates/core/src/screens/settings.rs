@@ -12,6 +12,7 @@ pub fn load_server_config() -> Cmd {
                 m.config.week_numbering = WeekNumbering::parse(&c.week_numbering);
                 m.config.logical_outdent = c.logical_outdent;
                 m.config.tags_dir = c.tags_dir;
+                m.config.home_link = c.home_link;
                 done()
             }),
             Err(e) => log_error(format!("Failed to load config from server: {e}")),
@@ -76,7 +77,7 @@ pub fn set_week_numbering(model: &mut Model, value: WeekNumbering) -> Cmd {
     model.config.week_numbering = value;
     run(move |api| async move {
         if let Err(e) = api
-            .update_config(None, Some(value.as_str().to_string()), None, None)
+            .update_config(None, Some(value.as_str().to_string()), None, None, None)
             .await
         {
             log_error(format!("Failed to save config to server: {e}"));
@@ -87,7 +88,7 @@ pub fn set_week_numbering(model: &mut Model, value: WeekNumbering) -> Cmd {
 pub fn set_logical_outdent(model: &mut Model, value: bool) -> Cmd {
     model.config.logical_outdent = value;
     run(move |api| async move {
-        if let Err(e) = api.update_config(None, None, Some(value), None).await {
+        if let Err(e) = api.update_config(None, None, Some(value), None, None).await {
             log_error(format!("Failed to save config to server: {e}"));
         }
     })
@@ -98,7 +99,7 @@ pub fn set_logical_outdent(model: &mut Model, value: bool) -> Cmd {
 pub fn set_tags_dir(model: &mut Model, value: String) -> Cmd {
     model.config.tags_dir = value.clone();
     run(move |api| async move {
-        match api.update_config(None, None, None, Some(value)).await {
+        match api.update_config(None, None, None, Some(value), None).await {
             Ok(c) => apply(&api, "tags dir", move |m| {
                 m.config.tags_dir = c.tags_dir;
                 done()
@@ -106,6 +107,37 @@ pub fn set_tags_dir(model: &mut Model, value: String) -> Cmd {
             Err(e) => log_error(format!("Failed to save config to server: {e}")),
         }
     })
+}
+
+/// Saves the page the Home button opens. The server keeps the target of a link typed with
+/// its brackets, so the model takes the server's answer rather than the typed text.
+pub fn set_home_link(model: &mut Model, value: String) -> Cmd {
+    model.config.home_link = value.trim().to_string();
+    run(move |api| async move {
+        match api.update_config(None, None, None, None, Some(value)).await {
+            Ok(c) => apply(&api, "home link", move |m| {
+                m.config.home_link = c.home_link;
+                done()
+            }),
+            Err(e) => log_error(format!("Failed to save config to server: {e}")),
+        }
+    })
+}
+
+/// Opens the page of the Home button: the page of its link, or today's journal without one.
+/// A link to a folder's index opens the folder as it was last seen, as the root button does.
+pub fn navigate_home(model: &mut Model) -> Cmd {
+    let link = model.config.home_link.trim();
+    if link.is_empty() {
+        return super::navigate::to_url("/today", false);
+    }
+    super::navigate::to_page(
+        &super::atlas::folder_path(model, link),
+        false,
+        false,
+        false,
+        None,
+    )
 }
 
 /// Opens the server's folder chooser and saves the chosen markdown directory.
@@ -118,7 +150,10 @@ pub fn browse_folder(_model: &mut Model) -> Cmd {
                     m.config.markdown_dir = path;
                     done()
                 });
-                if let Err(e) = api.update_config(Some(choice.path), None, None, None).await {
+                if let Err(e) = api
+                    .update_config(Some(choice.path), None, None, None, None)
+                    .await
+                {
                     log_error(format!("Failed to save config to server: {e}"));
                 }
             }

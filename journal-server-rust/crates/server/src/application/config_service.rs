@@ -86,6 +86,22 @@ impl ConfigService {
         self.save(&config);
     }
 
+    /// The page the Home button opens, as the target of a wiki link (e.g. `today` or
+    /// `a/index`), or an empty string for today's journal.
+    pub fn home_link(&self) -> String {
+        self.load()
+            .get("homeLink")
+            .and_then(|v| v.as_str())
+            .map(normalize_home_link)
+            .unwrap_or_default()
+    }
+
+    pub fn set_home_link(&self, home_link: &str) {
+        let mut config = self.load();
+        config.insert("homeLink".into(), Value::String(normalize_home_link(home_link)));
+        self.save(&config);
+    }
+
     fn load(&self) -> Map<String, Value> {
         let path = self.config_path();
         if path.exists() {
@@ -125,9 +141,29 @@ fn normalize_tags_dir(value: &str) -> String {
     }
 }
 
+/// The target of a wiki link: a value typed as the link itself, `[[a/Foo]]`, is taken as its
+/// target, as the link brackets are not part of a page name.
+fn normalize_home_link(value: &str) -> String {
+    let trimmed = value.trim();
+    trimmed
+        .strip_prefix("[[")
+        .and_then(|v| v.strip_suffix("]]"))
+        .unwrap_or(trimmed)
+        .trim()
+        .to_string()
+}
+
 #[cfg(test)]
 mod tests {
-    use super::normalize_tags_dir;
+    use super::{normalize_home_link, normalize_tags_dir};
+
+    #[test]
+    fn home_link_is_kept_as_the_target_of_a_link() {
+        assert_eq!(normalize_home_link(""), "");
+        assert_eq!(normalize_home_link(" today "), "today");
+        assert_eq!(normalize_home_link("[[a/Foo]]"), "a/Foo");
+        assert_eq!(normalize_home_link(" [[ a/Foo ]] "), "a/Foo");
+    }
 
     #[test]
     fn tags_dir_is_normalized_to_the_dir_path_form() {

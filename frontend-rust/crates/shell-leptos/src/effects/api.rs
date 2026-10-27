@@ -358,6 +358,7 @@ async fn call(handle: &CoreHandle, op: ApiOp) -> ApiResult<ApiOutput> {
             week_numbering,
             logical_outdent,
             tags_dir,
+            home_link,
         } => {
             let mut payload = serde_json::Map::new();
             if let Some(v) = markdown_dir {
@@ -371,6 +372,9 @@ async fn call(handle: &CoreHandle, op: ApiOp) -> ApiResult<ApiOutput> {
             }
             if let Some(v) = tags_dir {
                 payload.insert("tagsDir".into(), Value::String(v));
+            }
+            if let Some(v) = home_link {
+                payload.insert("homeLink".into(), Value::String(v));
             }
             ApiOutput::Config(send_json("PUT", "/api/config", Some(Value::Object(payload))).await?)
         }

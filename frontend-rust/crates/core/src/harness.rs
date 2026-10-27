@@ -229,8 +229,13 @@ impl FakeApi {
             }
             ApiOp::GetBacklinks { .. } => ApiOutput::Backlinks(Vec::new()),
             ApiOp::GetConfig => ApiOutput::Config(ServerConfig::default()),
-            ApiOp::UpdateConfig { tags_dir, .. } => ApiOutput::Config(ServerConfig {
+            ApiOp::UpdateConfig {
+                tags_dir,
+                home_link,
+                ..
+            } => ApiOutput::Config(ServerConfig {
                 tags_dir: tags_dir.clone().unwrap_or_default(),
+                home_link: home_link.clone().unwrap_or_default(),
                 ..ServerConfig::default()
             }),
             ApiOp::GetPropertyDefinitions | ApiOp::DeletePropertyDefinition { .. } => {

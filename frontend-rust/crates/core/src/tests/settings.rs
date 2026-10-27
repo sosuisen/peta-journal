@@ -65,6 +65,46 @@ fn deleting_a_property_definition_sends_it_and_shows_the_server_list() {
 }
 
 #[test]
+fn setting_the_home_link_sends_it_and_keeps_the_servers_answer() {
+    let mut h = Harness::with_items(vec![]);
+    h.send(Event::SetHomeLink("a/Foo".into()));
+    assert!(h
+        .api
+        .calls
+        .iter()
+        .any(|c| matches!(c, ApiOp::UpdateConfig { home_link: Some(l), .. } if l == "a/Foo")));
+    assert_eq!(h.model.config.home_link, "a/Foo");
+    assert_eq!(h.view().config.home_link, "a/Foo");
+}
+
+#[test]
+fn home_opens_today_without_a_link() {
+    let mut h = Harness::new();
+    h.send(Event::NavigateHome);
+    assert_eq!(h.navigations.last().unwrap().url, "/today");
+}
+
+#[test]
+fn home_opens_the_page_of_its_link() {
+    let mut h = Harness::new();
+    h.model.config.home_link = "sosuisen.net/article/Foo".into();
+    h.send(Event::NavigateHome);
+    assert_eq!(
+        h.navigations.last().unwrap().url,
+        "/pages/sosuisen.net/article/Foo"
+    );
+}
+
+#[test]
+fn home_opens_a_folder_as_it_was_last_seen() {
+    let mut h = Harness::new();
+    h.model.sidebar.atlas_dirs.insert("a/".into());
+    h.model.config.home_link = "a/index".into();
+    h.send(Event::NavigateHome);
+    assert_eq!(h.navigations.last().unwrap().url, "/pages/a/index_atlas");
+}
+
+#[test]
 fn setting_the_tags_dir_sends_it_and_keeps_the_servers_normalized_form() {
     let mut h = Harness::with_items(vec![]);
     h.send(Event::SetTagsDir("tags/".into()));

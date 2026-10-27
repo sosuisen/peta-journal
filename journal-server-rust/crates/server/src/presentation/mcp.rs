@@ -278,6 +278,9 @@ pub struct UpdateConfigArgs {
     /// Directory of the tag pages relative to the pages root, e.g. 'tags/' (empty for the root)
     #[serde(rename = "tagsDir", default)]
     pub tags_dir: Option<String>,
+    /// The page the Home button opens, as the target of a wiki link, e.g. 'today' (empty for today's journal)
+    #[serde(rename = "homeLink", default)]
+    pub home_link: Option<String>,
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -327,6 +330,7 @@ impl JournalMcp {
             "weekNumbering": self.state.config.week_numbering(),
             "logicalOutdent": self.state.config.logical_outdent(),
             "tagsDir": self.state.config.tags_dir(),
+            "homeLink": self.state.config.home_link(),
         })
     }
 
@@ -565,6 +569,9 @@ impl JournalMcp {
         }
         if let Some(t) = &a.tags_dir {
             self.state.config.set_tags_dir(t);
+        }
+        if let Some(h) = &a.home_link {
+            self.state.config.set_home_link(h);
         }
         ok(self.config_json())
     }

@@ -777,6 +777,20 @@ async fn health_and_config() {
     assert_eq!(resp["propertyDefinitions"]["plan"], json!("date"));
 }
 
+#[tokio::test]
+async fn the_home_link_is_kept_as_the_target_of_a_link() {
+    let (status, resp) = put("/api/config", json!({ "homeLink": " [[a/Foo]] " })).await;
+    assert_eq!(status, 200);
+    assert_eq!(resp["homeLink"], json!("a/Foo"));
+    let (_, resp) = get("/api/config").await;
+    assert_eq!(resp["homeLink"], json!("a/Foo"));
+    // Other settings leave it as it is
+    let (_, resp) = put("/api/config", json!({ "logicalOutdent": false })).await;
+    assert_eq!(resp["homeLink"], json!("a/Foo"));
+    let (_, resp) = put("/api/config", json!({ "homeLink": "" })).await;
+    assert_eq!(resp["homeLink"], json!(""));
+}
+
 // ---- Properties ----
 
 fn definition<'a>(resp: &'a Value, key: &str) -> Option<&'a Value> {

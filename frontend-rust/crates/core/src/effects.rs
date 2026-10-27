@@ -118,6 +118,7 @@ pub enum ApiOp {
         week_numbering: Option<String>,
         logical_outdent: Option<bool>,
         tags_dir: Option<String>,
+        home_link: Option<String>,
     },
     BrowseFolder,
     ExportTreeMarkdown {
@@ -717,13 +718,15 @@ impl<Event: Send + 'static> Api<Event> {
         week_numbering: Option<String>,
         logical_outdent: Option<bool>,
         tags_dir: Option<String>,
+        home_link: Option<String>,
     ) -> ApiResult<ServerConfig> {
         expect_output!(
             self.call(ApiOp::UpdateConfig {
                 markdown_dir,
                 week_numbering,
                 logical_outdent,
-                tags_dir
+                tags_dir,
+                home_link
             })
             .await,
             Config

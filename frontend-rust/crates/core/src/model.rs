@@ -276,6 +276,9 @@ pub struct ServerConfig {
     /// Directory of the tag pages relative to the pages root, `tags/` style; empty for the root.
     #[serde(default)]
     pub tags_dir: String,
+    /// The page the Home button opens, as the target of a wiki link; empty for today.
+    #[serde(default)]
+    pub home_link: String,
 }
 
 /// How weeks are numbered: US (Sunday start) or ISO (Monday start).

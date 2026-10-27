@@ -298,6 +298,8 @@ pub enum Event {
     },
     DeleteCurrentPage,
     NavigateToToday,
+    /// The Home button: the page set in the settings, or today
+    NavigateHome,
     NavigateToRoot,
     /// Opens the index page of the folder of the tag pages.
     NavigateToTags,
@@ -329,6 +331,7 @@ pub enum Event {
     SetWeekNumbering(WeekNumbering),
     SetLogicalOutdent(bool),
     SetTagsDir(String),
+    SetHomeLink(String),
     BrowseFolder,
     /// The settings form: define a user key of the given type.
     AddPropertyDefinition {
@@ -515,6 +518,8 @@ pub struct ConfigState {
     pub logical_outdent: bool,
     /// Directory of the tag pages relative to the pages root, `tags/` style; empty for the root.
     pub tags_dir: String,
+    /// The page the Home button opens, as the target of a wiki link; empty for today.
+    pub home_link: String,
     pub property_definitions: Vec<PropertyDefinition>,
     /// Why the last definition was refused, shown under the settings form until the next try.
     pub definition_error: Option<String>,
@@ -802,9 +807,14 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             replace: false,
         })
         .into(),
-        NavigateToRoot => {
-            screens::navigate::to_page(&screens::atlas::folder_path(model, "index"), false, false, false, None)
-        }
+        NavigateHome => screens::settings::navigate_home(model),
+        NavigateToRoot => screens::navigate::to_page(
+            &screens::atlas::folder_path(model, "index"),
+            false,
+            false,
+            false,
+            None,
+        ),
         NavigateToTags => screens::navigate::to_page(
             &screens::atlas::folder_path(model, &format!("{}index", model.config.tags_dir)),
             false,
@@ -849,6 +859,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         SetWeekNumbering(value) => screens::settings::set_week_numbering(model, value),
         SetLogicalOutdent(value) => screens::settings::set_logical_outdent(model, value),
         SetTagsDir(value) => screens::settings::set_tags_dir(model, value),
+        SetHomeLink(value) => screens::settings::set_home_link(model, value),
         BrowseFolder => screens::settings::browse_folder(model),
         AddPropertyDefinition { key, value_type } => {
             screens::settings::add_property_definition(model, key, value_type)
