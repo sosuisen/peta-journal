@@ -221,13 +221,16 @@ pub fn Sidebar() -> impl IntoView {
                     <Show when=move || !index_pages.with(|p| p.is_empty()) || index_parent_path.with(|p| p.is_some())>
                         <div class="sidebar-section">
                             <div class="section-header">
-                                <h3 class="section-title section-title-link" on:click={
+                                <h3 class="section-title section-title-link index-header-title" on:click={
                                                                         move |ev: web_sys::MouseEvent| {
                                         let header = index_header.get();
                                         let path = if header == "(root)/" { "index".to_string() } else { format!("{header}index") };
                                         core.send(Event::GoToPage { path, new_tab: ev.ctrl_key() || ev.meta_key(), new_window: ev.shift_key() });
                                     }
-                                }>{move || index_header.get()}</h3>
+                                }>
+                                    <svg class="page-icon" width="14" height="12"><use href="#icon-folder"/></svg>
+                                    <span class="index-header-name">{move || index_header.get()}</span>
+                                </h3>
                                 <IndexSortControl dir=index_header sort=index_sort />
                                 <SectionToggle collapsed=is_collapsed("index") on_toggle=toggle("index") />
                             </div>

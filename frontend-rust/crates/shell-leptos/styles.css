@@ -100,6 +100,10 @@ app-calendar { display: block; }
 }
 .section-title-link { cursor: pointer; text-transform: none; }
 .section-title-link:hover { background: #e0e2e5; color: #007bff; }
+.index-header-title { display: flex; align-items: center; gap: 6px; min-width: 0; padding-left: 9px; }
+.index-header-name { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Half the width of the folder icon of the header: the list reads as inside that folder */
+.index-page-list { padding-left: 7px; }
 .sidebar-item { padding: 6px 12px; cursor: pointer; border-radius: 4px; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sidebar-item:hover { background: #e9ecef; }
 .sidebar-item.active { background: #e2e6ea; font-weight: 600; }
