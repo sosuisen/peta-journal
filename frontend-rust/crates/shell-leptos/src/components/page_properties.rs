@@ -307,7 +307,9 @@ fn value_input(
             />
         }
         .into_any(),
-        // Shown in local time to the minute; sent as UTC
+        // Shown in local time to the minute; sent as UTC. It is saved only when the focus
+        // leaves or on Enter, not on change. A save builds the page again, and that would
+        // cut off the picker after its first click.
         "datetime" => {
             let to_utc = {
                 let save = save.clone();
@@ -321,7 +323,8 @@ fn value_input(
             let on_leave_utc = {
                 let to_utc = to_utc.clone();
                 move |local: String| {
-                    if is_draft && !local.is_empty() {
+                    let changed = local != dom::local_minutes(&value.get_untracked());
+                    if !local.is_empty() && (is_draft || changed) {
                         to_utc(local);
                     }
                 }
@@ -329,7 +332,7 @@ fn value_input(
             let on_enter_utc = {
                 let on_leave_utc = on_leave_utc.clone();
                 move |ev: web_sys::KeyboardEvent| {
-                    if is_draft && ev.key() == "Enter" && !dom::is_ime_composing(&ev) {
+                    if ev.key() == "Enter" && !dom::is_ime_composing(&ev) {
                         ev.prevent_default();
                         on_leave_utc(event_target_value(&ev));
                     }
@@ -345,7 +348,6 @@ fn value_input(
                     type="datetime-local"
                     class="property-value"
                     prop:value=move || dom::local_minutes(&value.get())
-                    on:change=move |ev| to_utc(event_target_value(&ev))
                     on:keydown=on_enter_utc
                     on:blur=on_blur_utc
                 />
