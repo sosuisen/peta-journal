@@ -1,6 +1,7 @@
 //! The canvas of an atlas page: the pages and folders of its directory as cards, drawn by
 //! PixiJS in `atlas.js`. A card without a place waits in the list of unplaced cards beside
-//! the canvas, and is placed by dragging it onto the canvas. A card on the canvas moves by
+//! the canvas, and is placed by dragging it onto the canvas. With Ctrl held, it also joins
+//! the group of the card or the group area it is dropped on. A card on the canvas moves by
 //! dragging it there, and its menu on a right click takes it off the canvas. A drag with
 //! the right button, or with the left one between the cards, moves the view. The wheel
 //! scales it. A right click between the cards adds a callout or a link card there. Both move
@@ -154,6 +155,20 @@ extern "C" {
 
     #[wasm_bindgen(method, js_name = toWorldY)]
     fn to_world_y(this: &AtlasCanvas, client_y: f64) -> Option<f64>;
+
+    #[wasm_bindgen(method, js_name = dragOverFromList)]
+    fn drag_over_from_list(this: &AtlasCanvas, client_x: f64, client_y: f64, ctrl: bool);
+
+    #[wasm_bindgen(method, js_name = endDragFromList)]
+    fn end_drag_from_list(this: &AtlasCanvas);
+
+    #[wasm_bindgen(method, js_name = groupTargetFromList)]
+    fn group_target_from_list(
+        this: &AtlasCanvas,
+        client_x: f64,
+        client_y: f64,
+        ctrl: bool,
+    ) -> Option<String>;
 
     #[wasm_bindgen(method)]
     fn destroy(this: &AtlasCanvas);
@@ -535,12 +550,52 @@ pub fn Atlas() -> impl IntoView {
         let Some((x, y)) = point else {
             return;
         };
+        // With Ctrl, a card let go on a card or in the area of a group joins that group
+        let ctrl = ev.ctrl_key() || ev.meta_key();
+        let target_id = canvas.with_value(|c| {
+            let c = c.as_ref()?;
+            c.end_drag_from_list();
+            c.group_target_from_list(ev.client_x() as f64, ev.client_y() as f64, ctrl)
+        });
         // The grabbed spot of the card stays under the pointer, as the dragged image shows it.
         // The card is placed by its center, which lies this far from the grabbed spot.
         core.send(Event::PlaceAtlasCard {
-            page_id: grab.page_id,
+            page_id: grab.page_id.clone(),
             x: x + (0.5 - grab.x) * CARD_WIDTH,
             y: y + (0.5 - grab.y) * CARD_HEIGHT,
+        });
+        if let Some(target_id) = target_id {
+            core.send(Event::GroupAtlasCards {
+                page_ids: vec![grab.page_id],
+                target_id,
+            });
+        }
+    };
+    let on_drag_over = move |ev: web_sys::DragEvent| {
+        ev.prevent_default();
+        let Some(dt) = ev.data_transfer() else {
+            return;
+        };
+        // Ctrl would make the drop a copy, which the card does not allow
+        dt.set_drop_effect("move");
+        // Text dragged from elsewhere joins no group
+        if !dt.types().includes(&CARD_MIME.into(), 0) {
+            return;
+        }
+        let ctrl = ev.ctrl_key() || ev.meta_key();
+        canvas.with_value(|c| {
+            if let Some(c) = c.as_ref() {
+                c.drag_over_from_list(ev.client_x() as f64, ev.client_y() as f64, ctrl);
+            }
+        });
+    };
+    // Also when the pointer only passes onto a button over the canvas; the next dragover
+    // shows the group again
+    let on_drag_leave = move |_| {
+        canvas.with_value(|c| {
+            if let Some(c) = c.as_ref() {
+                c.end_drag_from_list();
+            }
         });
     };
 
@@ -594,7 +649,8 @@ pub fn Atlas() -> impl IntoView {
             </div>
             // The browser's own menu would cover the menu of a card
             <div class="atlas-canvas" node_ref=host
-                on:dragover=move |ev: web_sys::DragEvent| ev.prevent_default()
+                on:dragover=on_drag_over
+                on:dragleave=on_drag_leave
                 on:drop=on_drop
                 on:contextmenu=move |ev: web_sys::MouseEvent| ev.prevent_default()>
                 // HTML over the canvas, not drawn by PixiJS: it keeps its corner whatever the

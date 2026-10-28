@@ -757,6 +757,49 @@ window.AtlasCanvas = class AtlasCanvas {
       : null;
   }
 
+  // An unplaced card dragged over the canvas from the list beside it. With Ctrl, the card or
+  // the area of a group under the pointer shows that the card would join its group, as for
+  // cards dragged on the canvas.
+  dragOverFromList(clientX, clientY, ctrl) {
+    if (!this.world) {
+      return;
+    }
+    this.listDrag ??= { origins: [], target: null, join: null };
+    const e = this.listDragPointer(clientX, clientY, ctrl);
+    this.showJoinGroup(this.listDrag, ctrl ? e : null);
+    this.showGroupTarget(this.listDrag, this.groupTargetAt(this.listDrag, e));
+  }
+
+  // The unplaced card has left the canvas or been let go: nothing is shown as its group
+  endDragFromList() {
+    if (!this.listDrag) {
+      return;
+    }
+    this.showJoinGroup(this.listDrag, null);
+    this.showGroupTarget(this.listDrag, null);
+    this.listDrag = null;
+  }
+
+  // The card whose group an unplaced card let go here with Ctrl joins: the card under the
+  // pointer, or any card of the group whose area is under it. Null without Ctrl.
+  groupTargetFromList(clientX, clientY, ctrl) {
+    if (!this.world || !ctrl) {
+      return null;
+    }
+    const drag = { origins: [] };
+    const e = this.listDragPointer(clientX, clientY, ctrl);
+    const target = this.groupTargetAt(drag, e);
+    const join = this.joinAreaAt(drag, e);
+    const joined = join && this.cards.children.find(v => v.cardData.group === join.label);
+    return target ? target.cardData.id : joined ? joined.cardData.id : null;
+  }
+
+  // A point of the page as the pointer events of the canvas give it
+  listDragPointer(clientX, clientY, ctrl) {
+    const rect = this.app.canvas.getBoundingClientRect();
+    return { global: new PIXI.Point(clientX - rect.left, clientY - rect.top), ctrlKey: ctrl };
+  }
+
   // onGroup(pageIdsJson, targetId) puts the cards dropped with Ctrl on a card into its group
   setOnGroup(onGroup) {
     this.onGroup = onGroup;
@@ -1050,16 +1093,7 @@ window.AtlasCanvas = class AtlasCanvas {
   // group they would join: its frame shows, in the color of a held group. Without `e`, no
   // group is to be joined. The topmost area wins, as it is drawn over the others.
   showJoinGroup(drag, e) {
-    const own = new Set(drag.origins.map(o => o.view.cardData.group).filter(Boolean));
-    let join = null;
-    if (e) {
-      const areas = this.groups.children.filter(c => c.frame && !own.has(c.label));
-      for (let i = areas.length - 1; i >= 0 && !join; i--) {
-        if (areas[i].containsPoint(areas[i].toLocal(e.global))) {
-          join = areas[i];
-        }
-      }
-    }
+    const join = e ? this.joinAreaAt(drag, e) : null;
     if (drag.join && drag.join !== join && !drag.join.destroyed) {
       drag.join.frame.visible = false;
       drag.join.frame.tint = drag.join.outlineColor;
@@ -1069,6 +1103,18 @@ window.AtlasCanvas = class AtlasCanvas {
       join.frame.tint = GROUP_HOLD_COLOR;
     }
     drag.join = join;
+  }
+
+  // The area of a group other than the dragged cards' own under the pointer, or null
+  joinAreaAt(drag, e) {
+    const own = new Set(drag.origins.map(o => o.view.cardData.group).filter(Boolean));
+    const areas = this.groups.children.filter(c => c.frame && !own.has(c.label));
+    for (let i = areas.length - 1; i >= 0; i--) {
+      if (areas[i].containsPoint(areas[i].toLocal(e.global))) {
+        return areas[i];
+      }
+    }
+    return null;
   }
 
   // A drag moves the selected cards, link cards and callouts and places them where they are let
