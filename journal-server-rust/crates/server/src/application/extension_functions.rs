@@ -45,8 +45,10 @@ impl ExtensionFunctionService {
                         }
                         match std::fs::read(&config_path)
                             .map_err(|e| e.to_string())
-                            .and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).map_err(|e| e.to_string()))
-                        {
+                            .and_then(|b| {
+                                serde_json::from_slice::<serde_json::Value>(&b)
+                                    .map_err(|e| e.to_string())
+                            }) {
                             Ok(json) => {
                                 let name = json
                                     .get("name")
@@ -55,7 +57,9 @@ impl ExtensionFunctionService {
                                     .to_string();
                                 found.push(ExtensionFunction { dir_name, name });
                             }
-                            Err(e) => tracing::warn!("Failed to read config.json in {dir_name}: {e}"),
+                            Err(e) => {
+                                tracing::warn!("Failed to read config.json in {dir_name}: {e}")
+                            }
                         }
                     }
                 }
@@ -65,7 +69,10 @@ impl ExtensionFunctionService {
         for f in &found {
             tracing::info!("Loaded extension function: {}", f.name);
         }
-        ExtensionFunctionService { config, functions: found }
+        ExtensionFunctionService {
+            config,
+            functions: found,
+        }
     }
 
     pub fn list_functions(&self) -> &[ExtensionFunction] {

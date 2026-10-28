@@ -181,7 +181,11 @@ fn TagList(
     let remove = {
         let save = save.clone();
         move |tag: String| {
-            let rest: Vec<String> = tags.get_untracked().into_iter().filter(|t| *t != tag).collect();
+            let rest: Vec<String> = tags
+                .get_untracked()
+                .into_iter()
+                .filter(|t| *t != tag)
+                .collect();
             // An empty list would stay as a row with no tags, so the property goes instead
             if rest.is_empty() {
                 remove_last();

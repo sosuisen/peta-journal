@@ -23,7 +23,10 @@ impl PendingDeletePrompt {
     }
 
     pub fn url(&self) -> String {
-        format!("http://localhost:{}/api/sync/pending-deletes", self.http_port)
+        format!(
+            "http://localhost:{}/api/sync/pending-deletes",
+            self.http_port
+        )
     }
 
     /// Called whenever missing files are pending. Opens the browser unless it was opened within

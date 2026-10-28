@@ -49,9 +49,13 @@ impl QueryTerms {
             } else if let Some(p) = token.strip_prefix("in:").filter(|t| !t.is_empty()) {
                 terms.page_prefixes.push(p.to_string());
             } else if let Some(d) = token.strip_prefix("created:").filter(|t| !t.is_empty()) {
-                terms.date_filters.push(("created_date".to_string(), d.to_string()));
+                terms
+                    .date_filters
+                    .push(("created_date".to_string(), d.to_string()));
             } else if let Some(d) = token.strip_prefix("modified:").filter(|t| !t.is_empty()) {
-                terms.date_filters.push(("modified_date".to_string(), d.to_string()));
+                terms
+                    .date_filters
+                    .push(("modified_date".to_string(), d.to_string()));
             } else if token.contains('=') && !token.contains("==") && !token.starts_with('=') {
                 let (k, v) = token.split_once('=').unwrap_or((token, ""));
                 terms.property_filters.push((k.to_string(), v.to_string()));
@@ -112,7 +116,11 @@ impl CombinedSearchService {
                 }
             }
         }
-        Ok(merged.into_iter().map(|(_, r)| r).take(max_results).collect())
+        Ok(merged
+            .into_iter()
+            .map(|(_, r)| r)
+            .take(max_results)
+            .collect())
     }
 
     fn execute_and_group(&self, group: &str, max_results: usize) -> AppResult<Vec<SearchResult>> {
@@ -133,22 +141,30 @@ impl CombinedSearchService {
         // Collect item ID sets for each condition (for AND intersection)
         let mut conditions: Vec<Vec<String>> = Vec::new();
         for tag in &terms.tags {
-            let ids = self.properties.find_item_ids_by_tag_value_ignoring_case(tag, FILTER_LIMIT)?;
+            let ids = self
+                .properties
+                .find_item_ids_by_tag_value_ignoring_case(tag, FILTER_LIMIT)?;
             tracing::info!("  tag '#{tag}' -> {} items", ids.len());
             conditions.push(ids);
         }
         for (k, v) in &terms.property_filters {
-            let ids = self.properties.find_item_ids_by_scalar_property(k, v, FILTER_LIMIT)?;
+            let ids = self
+                .properties
+                .find_item_ids_by_scalar_property(k, v, FILTER_LIMIT)?;
             tracing::info!("  prop '{k}={v}' -> {} items", ids.len());
             conditions.push(ids);
         }
         for prefix in &terms.page_prefixes {
-            let ids = self.properties.find_item_ids_by_page_prefix(prefix, FILTER_LIMIT)?;
+            let ids = self
+                .properties
+                .find_item_ids_by_page_prefix(prefix, FILTER_LIMIT)?;
             tracing::info!("  prefix 'in:{prefix}' -> {} items", ids.len());
             conditions.push(ids);
         }
         for (column, expr) in &terms.date_filters {
-            let ids = self.properties.find_item_ids_by_date_range(column, expr, FILTER_LIMIT)?;
+            let ids = self
+                .properties
+                .find_item_ids_by_date_range(column, expr, FILTER_LIMIT)?;
             tracing::info!("  date '{column}:{expr}' -> {} items", ids.len());
             conditions.push(ids);
         }
@@ -159,7 +175,11 @@ impl CombinedSearchService {
         if !text_query.is_empty() {
             text_item_results = self.search.search_full_text(
                 text_query,
-                if has_filters { FILTER_LIMIT as usize } else { max_results },
+                if has_filters {
+                    FILTER_LIMIT as usize
+                } else {
+                    max_results
+                },
             );
             if has_filters {
                 let mut ids: Vec<String> = Vec::new();
@@ -241,9 +261,15 @@ impl CombinedSearchService {
     }
 
     fn result_for_item(&self, item_id: &str) -> AppResult<Option<SearchResult>> {
-        let Ok(id) = Hmtid::parse(item_id) else { return Ok(None) };
-        let Some(item) = self.items.find_by_id(&id)? else { return Ok(None) };
-        let Some(page) = self.pages.find_by_id(&item.page_id)? else { return Ok(None) };
+        let Ok(id) = Hmtid::parse(item_id) else {
+            return Ok(None);
+        };
+        let Some(item) = self.items.find_by_id(&id)? else {
+            return Ok(None);
+        };
+        let Some(page) = self.pages.find_by_id(&item.page_id)? else {
+            return Ok(None);
+        };
         let snippet: String = item.body.chars().take(SNIPPET_LENGTH).collect();
         Ok(Some(SearchResult {
             page_id: page.id.clone(),
@@ -256,7 +282,11 @@ impl CombinedSearchService {
 
     /// Page-name search: index pages by directory segment and path prefixes first, then the
     /// search index, then a substring match.
-    pub fn search_page_names_internal(&self, query: &str, max_results: usize) -> AppResult<Vec<SearchResult>> {
+    pub fn search_page_names_internal(
+        &self,
+        query: &str,
+        max_results: usize,
+    ) -> AppResult<Vec<SearchResult>> {
         let max = max_results as i64;
         let mut seen: BTreeSet<String> = BTreeSet::new();
         let mut all: Vec<SearchResult> = Vec::new();
@@ -300,11 +330,19 @@ mod tests {
 
     #[test]
     fn parses_terms() {
-        let t = QueryTerms::parse("#report in:DailyReport/2026-03 status=done created:2026-03 hello world");
+        let t = QueryTerms::parse(
+            "#report in:DailyReport/2026-03 status=done created:2026-03 hello world",
+        );
         assert_eq!(t.tags, vec!["report"]);
         assert_eq!(t.page_prefixes, vec!["DailyReport/2026-03"]);
-        assert_eq!(t.property_filters, vec![("status".to_string(), "done".to_string())]);
-        assert_eq!(t.date_filters, vec![("created_date".to_string(), "2026-03".to_string())]);
+        assert_eq!(
+            t.property_filters,
+            vec![("status".to_string(), "done".to_string())]
+        );
+        assert_eq!(
+            t.date_filters,
+            vec![("created_date".to_string(), "2026-03".to_string())]
+        );
         assert_eq!(t.text, "hello world");
         assert!(t.has_filters());
     }

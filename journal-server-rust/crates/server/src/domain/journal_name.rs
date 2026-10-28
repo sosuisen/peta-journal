@@ -21,11 +21,29 @@ pub fn classify(file_name: &str) -> JournalType {
     }
     let parts: Vec<&str> = file_name.split('-').collect();
     match parts.as_slice() {
-        [y, m, d] if y.len() == 4 && m.len() == 2 && d.len() == 2
-            && all_digits(y) && all_digits(m) && all_digits(d) => JournalType::Daily,
-        [y, w] if y.len() == 4 && all_digits(y) && w.len() >= 2 && w.len() <= 3
-            && w.starts_with('W') && all_digits(&w[1..]) => JournalType::Weekly,
-        [y, m] if y.len() == 4 && m.len() == 2 && all_digits(y) && all_digits(m) => JournalType::Monthly,
+        [y, m, d]
+            if y.len() == 4
+                && m.len() == 2
+                && d.len() == 2
+                && all_digits(y)
+                && all_digits(m)
+                && all_digits(d) =>
+        {
+            JournalType::Daily
+        }
+        [y, w]
+            if y.len() == 4
+                && all_digits(y)
+                && w.len() >= 2
+                && w.len() <= 3
+                && w.starts_with('W')
+                && all_digits(&w[1..]) =>
+        {
+            JournalType::Weekly
+        }
+        [y, m] if y.len() == 4 && m.len() == 2 && all_digits(y) && all_digits(m) => {
+            JournalType::Monthly
+        }
         [y] if y.len() == 4 && all_digits(y) => JournalType::Yearly,
         _ => JournalType::None,
     }

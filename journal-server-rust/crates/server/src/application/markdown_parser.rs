@@ -44,15 +44,21 @@ mod tests {
 
     #[test]
     fn relative_links_become_wikilinks_like_the_java_wrapper() {
-        let ast = MarkdownParser.parse_to_ast("[Page](../docs/Page.md) [#f](../f.md) [x](docs/x.md)");
-        assert!(ast.contains(r#""type":"wikilink","url":"docs/Page""#), "{ast}");
+        let ast =
+            MarkdownParser.parse_to_ast("[Page](../docs/Page.md) [#f](../f.md) [x](docs/x.md)");
+        assert!(
+            ast.contains(r#""type":"wikilink","url":"docs/Page""#),
+            "{ast}"
+        );
         assert!(ast.contains(r#"{"type":"hashtag","value":"f"}"#), "{ast}");
         assert!(ast.contains(r#""type":"link","url":"docs/x.md""#), "{ast}");
     }
 
     #[test]
     fn page_json_has_items() {
-        let json = MarkdownParser.parse_page("---\nid: x\n---\n\n<!-- @ 2026-09-29-00-00-00-AAAAAAA idx=\"z0\" -->\nhello\n");
+        let json = MarkdownParser.parse_page(
+            "---\nid: x\n---\n\n<!-- @ 2026-09-29-00-00-00-AAAAAAA idx=\"z0\" -->\nhello\n",
+        );
         assert!(json.contains("\"items\""));
         assert!(json.contains("front_matter"));
     }

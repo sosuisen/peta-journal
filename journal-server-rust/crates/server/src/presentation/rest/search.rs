@@ -26,11 +26,16 @@ struct SearchResponse {
     results: Vec<SearchResultDto>,
 }
 
-async fn search_page_names(State(state): State<SharedState>, Query(q): Query<SearchQuery>) -> AppResult<Json<SearchResponse>> {
+async fn search_page_names(
+    State(state): State<SharedState>,
+    Query(q): Query<SearchQuery>,
+) -> AppResult<Json<SearchResponse>> {
     let query = q.q.unwrap_or_default();
     let max_results = q.max_results.unwrap_or(20);
     blocking(move || {
-        let results = state.combined_search.search_page_names_internal(&query, max_results)?;
+        let results = state
+            .combined_search
+            .search_page_names_internal(&query, max_results)?;
         Ok(Json(SearchResponse {
             results: results.iter().map(search_result_dto).collect(),
         }))
@@ -38,7 +43,10 @@ async fn search_page_names(State(state): State<SharedState>, Query(q): Query<Sea
     .await
 }
 
-async fn search_combined(State(state): State<SharedState>, Query(q): Query<SearchQuery>) -> AppResult<Json<SearchResponse>> {
+async fn search_combined(
+    State(state): State<SharedState>,
+    Query(q): Query<SearchQuery>,
+) -> AppResult<Json<SearchResponse>> {
     let query = q.q.unwrap_or_default();
     let max_results = q.max_results.unwrap_or(20);
     blocking(move || {
@@ -50,11 +58,16 @@ async fn search_combined(State(state): State<SharedState>, Query(q): Query<Searc
     .await
 }
 
-async fn search_by_tag(State(state): State<SharedState>, Query(q): Query<SearchQuery>) -> AppResult<Json<SearchResponse>> {
+async fn search_by_tag(
+    State(state): State<SharedState>,
+    Query(q): Query<SearchQuery>,
+) -> AppResult<Json<SearchResponse>> {
     let tag = q.q.unwrap_or_default();
     let max_results = q.max_results.unwrap_or(20);
     blocking(move || {
-        let ids = state.properties.find_item_ids_by_tag_value_ignoring_case(&tag, max_results as i64)?;
+        let ids = state
+            .properties
+            .find_item_ids_by_tag_value_ignoring_case(&tag, max_results as i64)?;
         let results = state.combined_search.results_for_items(&ids)?;
         Ok(Json(SearchResponse {
             results: results.iter().map(search_result_dto).collect(),

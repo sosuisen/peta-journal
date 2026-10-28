@@ -81,7 +81,10 @@ impl PageRepository {
         )
     }
 
-    pub fn find_most_recent_weekly_journal_before(&self, before_week: &str) -> AppResult<Option<Page>> {
+    pub fn find_most_recent_weekly_journal_before(
+        &self,
+        before_week: &str,
+    ) -> AppResult<Option<Page>> {
         self.first_page(
             &format!(
                 "{SELECT_PAGES}WHERE type = 'journal' AND dir_path = '' AND name < ? AND name GLOB '????-W??' \
@@ -223,7 +226,11 @@ impl PageRepository {
     }
 
     /// Index pages whose last dir_path segment matches the query.
-    pub fn find_index_pages_by_dir_segment(&self, query: &str, max_results: i64) -> AppResult<Vec<Page>> {
+    pub fn find_index_pages_by_dir_segment(
+        &self,
+        query: &str,
+        max_results: i64,
+    ) -> AppResult<Vec<Page>> {
         let limit = if max_results > 0 { max_results } else { 20 };
         self.query_pages(
             &format!(

@@ -123,13 +123,14 @@ impl MarkdownFolderWatcher {
 
         let me = Arc::clone(self);
         let root_for_events = new_root.clone();
-        let watcher = notify::recommended_watcher(move |res: Result<Event, notify::Error>| match res {
-            Ok(event) => me.handle(&root_for_events, event),
-            Err(e) => {
-                tracing::debug!("Watch error, requesting full scan: {e}");
-                me.reconcile.request_scan();
-            }
-        });
+        let watcher =
+            notify::recommended_watcher(move |res: Result<Event, notify::Error>| match res {
+                Ok(event) => me.handle(&root_for_events, event),
+                Err(e) => {
+                    tracing::debug!("Watch error, requesting full scan: {e}");
+                    me.reconcile.request_scan();
+                }
+            });
         let mut watcher = match watcher {
             Ok(w) => w,
             Err(e) => {
@@ -148,7 +149,10 @@ impl MarkdownFolderWatcher {
             }
         }
         if !any {
-            tracing::warn!("Cannot watch {}: no docs/ or journals/ folder", new_root.display());
+            tracing::warn!(
+                "Cannot watch {}: no docs/ or journals/ folder",
+                new_root.display()
+            );
         }
         {
             let mut st = self.state.lock();
@@ -243,7 +247,8 @@ impl MarkdownFolderWatcher {
                         *n
                     };
                     if n <= MAX_RETRIES {
-                        self.pending.lock().entry(rel).or_insert_with(now_millis); // try again after the next quiet period
+                        self.pending.lock().entry(rel).or_insert_with(now_millis);
+                    // try again after the next quiet period
                     } else {
                         self.retries.lock().remove(&rel);
                         tracing::warn!("Giving up on {rel} for now; the periodic scan will retry");

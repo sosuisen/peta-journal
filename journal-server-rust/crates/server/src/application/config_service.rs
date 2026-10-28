@@ -36,7 +36,10 @@ impl ConfigService {
 
     pub fn set_markdown_dir(&self, markdown_dir: &str) {
         let mut config = self.load();
-        config.insert("markdownDir".into(), Value::String(markdown_dir.to_string()));
+        config.insert(
+            "markdownDir".into(),
+            Value::String(markdown_dir.to_string()),
+        );
         self.save(&config);
     }
 
@@ -51,7 +54,10 @@ impl ConfigService {
 
     pub fn set_week_numbering(&self, week_numbering: &str) {
         let mut config = self.load();
-        config.insert("weekNumbering".into(), Value::String(week_numbering.to_string()));
+        config.insert(
+            "weekNumbering".into(),
+            Value::String(week_numbering.to_string()),
+        );
         self.save(&config);
     }
 
@@ -82,7 +88,10 @@ impl ConfigService {
 
     pub fn set_tags_dir(&self, tags_dir: &str) {
         let mut config = self.load();
-        config.insert("tagsDir".into(), Value::String(normalize_tags_dir(tags_dir)));
+        config.insert(
+            "tagsDir".into(),
+            Value::String(normalize_tags_dir(tags_dir)),
+        );
         self.save(&config);
     }
 
@@ -98,7 +107,10 @@ impl ConfigService {
 
     pub fn set_home_link(&self, home_link: &str) {
         let mut config = self.load();
-        config.insert("homeLink".into(), Value::String(normalize_home_link(home_link)));
+        config.insert(
+            "homeLink".into(),
+            Value::String(normalize_home_link(home_link)),
+        );
         self.save(&config);
     }
 
@@ -120,7 +132,8 @@ impl ConfigService {
     fn save(&self, config: &Map<String, Value>) {
         let path = self.config_path();
         let result = std::fs::create_dir_all(&self.config_dir).and_then(|_| {
-            let text = serde_json::to_string_pretty(&Value::Object(config.clone())).unwrap_or_default();
+            let text =
+                serde_json::to_string_pretty(&Value::Object(config.clone())).unwrap_or_default();
             std::fs::write(&path, text)
         });
         match result {

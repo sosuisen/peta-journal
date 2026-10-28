@@ -75,11 +75,21 @@ impl PageMatcher {
             if let Some(p) = self.pages.find_by_id(fid)? {
                 let current_rel = path_mapper::to_rel_path_of(&p);
                 if current_rel == rel_path {
-                    return Ok(PageMatch { page: p, is_new: false, renamed: false, write_back: false });
+                    return Ok(PageMatch {
+                        page: p,
+                        is_new: false,
+                        renamed: false,
+                        write_back: false,
+                    });
                 }
                 if !root.join(&current_rel).exists() {
                     tracing::info!("Page {} moved: {current_rel} -> {rel_path}", p.id);
-                    return Ok(PageMatch { page: p, is_new: false, renamed: true, write_back: false });
+                    return Ok(PageMatch {
+                        page: p,
+                        is_new: false,
+                        renamed: true,
+                        write_back: false,
+                    });
                 }
                 // Same id in two files: this one is a copy, give it a new identity
                 tracing::info!("{rel_path} is a copy of {current_rel}, creating a new page");
@@ -89,9 +99,9 @@ impl PageMatcher {
         }
 
         // 2. Match by path
-        if let Some(mut page) = self
-            .pages
-            .find_by_type_dir_path_file_name(&loc.page_type, &loc.dir_path, &loc.name)?
+        if let Some(mut page) =
+            self.pages
+                .find_by_type_dir_path_file_name(&loc.page_type, &loc.dir_path, &loc.name)?
         {
             match &file_id {
                 None => write_back = true, // hand-made file: give it our id
@@ -106,7 +116,12 @@ impl PageMatcher {
                 }
                 Some(_) => {}
             }
-            return Ok(PageMatch { page, is_new: false, renamed: false, write_back });
+            return Ok(PageMatch {
+                page,
+                is_new: false,
+                renamed: false,
+                write_back,
+            });
         }
 
         // 3. New page
@@ -117,7 +132,8 @@ impl PageMatcher {
                 self.ids.generate_page_id()
             }
         };
-        let created = parse_instant(frontmatter.get("created").map(String::as_str)).unwrap_or(file_modified);
+        let created =
+            parse_instant(frontmatter.get("created").map(String::as_str)).unwrap_or(file_modified);
         let page = Page {
             id,
             parent_id: None,
@@ -129,7 +145,12 @@ impl PageMatcher {
         };
         let page = self.save(&page, loc, file_modified)?;
         tracing::info!("Created page {} from {rel_path}", page.id);
-        Ok(PageMatch { page, is_new: true, renamed: false, write_back })
+        Ok(PageMatch {
+            page,
+            is_new: true,
+            renamed: false,
+            write_back,
+        })
     }
 
     /// Saves a page at the location of its file, creating the index pages above it first,
@@ -165,7 +186,10 @@ impl PageMatcher {
 
     /// Gives a page the id another device chose for it and reindexes it under that id.
     fn adopt_page_id(&self, page: &Page, new_id: &Hmtid, rel_path: &str) -> AppResult<Page> {
-        tracing::info!("Adopting page id {new_id} from {rel_path} (was {})", page.id);
+        tracing::info!(
+            "Adopting page id {new_id} from {rel_path} (was {})",
+            page.id
+        );
         self.search.remove_page(page.id.as_str());
         self.pages.rekey(&page.id, new_id)?;
         let rekeyed = self
@@ -180,7 +204,8 @@ impl PageMatcher {
 }
 
 pub fn parse_id(s: Option<&str>) -> Option<Hmtid> {
-    s.filter(|s| !s.is_empty()).and_then(|s| Hmtid::parse(s).ok())
+    s.filter(|s| !s.is_empty())
+        .and_then(|s| Hmtid::parse(s).ok())
 }
 
 /// Parses an ISO-8601 instant like `2026-09-27T10:15:00Z` to epoch millis.

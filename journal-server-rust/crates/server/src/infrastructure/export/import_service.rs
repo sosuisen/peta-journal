@@ -121,7 +121,10 @@ impl MarkdownImportService {
         if let Some(state) = state {
             if hash == state.content_hash {
                 // Our own write (or an already imported version): just refresh the bookkeeping
-                if state.is_missing() || state.file_size != attrs.size || state.file_mtime != attrs.mtime {
+                if state.is_missing()
+                    || state.file_size != attrs.size
+                    || state.file_mtime != attrs.mtime
+                {
                     if let Err(e) = self.file_sync_state.upsert_synced(
                         rel_path,
                         &state.page_id,
@@ -167,11 +170,18 @@ impl MarkdownImportService {
         let parsed = self.parser.parse(&content)?;
         let fm = &parsed.frontmatter;
 
-        let file_modified = parse_instant(fm.get("modified").map(String::as_str)).unwrap_or(attrs.mtime);
+        let file_modified =
+            parse_instant(fm.get("modified").map(String::as_str)).unwrap_or(attrs.mtime);
         let now = now_millis();
 
-        let PageMatch { mut page, is_new, renamed, write_back } =
-            self.page_matcher.match_file(root, rel_path, loc, fm, file_modified)?;
+        let PageMatch {
+            mut page,
+            is_new,
+            renamed,
+            write_back,
+        } = self
+            .page_matcher
+            .match_file(root, rel_path, loc, fm, file_modified)?;
 
         if !is_new
             && file_modified < page.modified_date
@@ -182,7 +192,9 @@ impl MarkdownImportService {
             // A page that never had a file on this device (e.g. the root index a fresh install creates)
             // is not "newer" in any meaningful way, so the file wins and this branch is skipped.
             if renamed {
-                page = self.page_matcher.move_page(&page, loc, page.modified_date)?;
+                page = self
+                    .page_matcher
+                    .move_page(&page, loc, page.modified_date)?;
             }
             self.backup_conflict(root, rel_path, loc, &content, hash, &page, attrs)?;
             self.export.queue_export(&page.id);
@@ -190,7 +202,11 @@ impl MarkdownImportService {
         }
 
         let empty = [ParsedItem::empty()];
-        let items: &[ParsedItem] = if parsed.items.is_empty() { &empty } else { &parsed.items };
+        let items: &[ParsedItem] = if parsed.items.is_empty() {
+            &empty
+        } else {
+            &parsed.items
+        };
         let merge = self.item_merger.merge(&page, items, now)?;
         // The file is the newer version of the page, so a file without tags has none
         let page_tags = frontmatter_tags(fm);
@@ -232,11 +248,18 @@ impl MarkdownImportService {
             &union(&merge.tags_after, &page_tags),
         );
         if page_changed {
-            self.sse.broadcast_pages_updated_from(page.id.as_str(), "file");
+            self.sse
+                .broadcast_pages_updated_from(page.id.as_str(), "file");
             tracing::info!(
                 "Imported {rel_path} ({} items, {}, {} ms)",
                 items.len(),
-                if is_new { "new page" } else if renamed { "renamed" } else { "updated" },
+                if is_new {
+                    "new page"
+                } else if renamed {
+                    "renamed"
+                } else {
+                    "updated"
+                },
                 started.elapsed().as_millis()
             );
         }
@@ -258,10 +281,12 @@ impl MarkdownImportService {
         let ts = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
         let backup = file.with_file_name(path_mapper::conflict_file_name(&loc.name, &ts));
         match std::fs::write(&backup, content) {
-            Ok(_) => tracing::warn!(
+            Ok(_) => {
+                tracing::warn!(
                 "{rel_path} is older than the database version; kept it as {} and restored from DB",
                 backup.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()
-            ),
+            )
+            }
             Err(e) => tracing::error!("Could not write conflict backup {}: {e}", backup.display()),
         }
         // Remember this content so we don't back it up again before the export overwrites it
@@ -281,10 +306,17 @@ fn frontmatter_tags(fm: &BTreeMap<String, String>) -> Vec<String> {
         return Vec::new();
     };
     let raw = raw.trim();
-    let raw = raw.strip_prefix('[').and_then(|r| r.strip_suffix(']')).unwrap_or(raw);
+    let raw = raw
+        .strip_prefix('[')
+        .and_then(|r| r.strip_suffix(']'))
+        .unwrap_or(raw);
     let mut tags: Vec<String> = Vec::new();
     for t in raw.split(',') {
-        let t = t.trim().trim_matches(|c| c == '"' || c == '\'').trim_start_matches('#').trim();
+        let t = t
+            .trim()
+            .trim_matches(|c| c == '"' || c == '\'')
+            .trim_start_matches('#')
+            .trim();
         if !t.is_empty() && !tags.iter().any(|x| x == t) {
             tags.push(t.to_string());
         }
@@ -309,7 +341,9 @@ fn union(a: &[String], b: &[String]) -> Vec<String> {
 fn read_stable(file: &Path) -> std::io::Result<String> {
     let mut last: Option<std::io::Error> = None;
     for attempt in 0..3u64 {
-        match std::fs::metadata(file).and_then(|m| std::fs::read_to_string(file).map(|c| (m.len(), c))) {
+        match std::fs::metadata(file)
+            .and_then(|m| std::fs::read_to_string(file).map(|c| (m.len(), c)))
+        {
             Ok((size1, content)) => {
                 if std::fs::metadata(file).map(|m| m.len()).unwrap_or(u64::MAX) == size1 {
                     return Ok(content);

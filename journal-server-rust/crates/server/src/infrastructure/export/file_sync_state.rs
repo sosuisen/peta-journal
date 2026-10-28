@@ -155,7 +155,10 @@ impl FileSyncStateRepository {
 
     pub fn delete_by_page_id(&self, page_id: &Hmtid) -> AppResult<()> {
         let conn = self.db.conn()?;
-        conn.execute("DELETE FROM file_sync_state WHERE page_id = ?", [page_id.as_str()])?;
+        conn.execute(
+            "DELETE FROM file_sync_state WHERE page_id = ?",
+            [page_id.as_str()],
+        )?;
         Ok(())
     }
 }

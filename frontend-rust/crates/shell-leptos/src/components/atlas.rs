@@ -12,8 +12,8 @@ use crate::listeners::DocumentListeners;
 use leptos::prelude::*;
 use peta_core::app::Event;
 use peta_core::screens::atlas::{
-    callout_face_svg, link_blob_svg, link_label, parent_dir_label, tag_blob_svg, tag_icon_svg, Callout, LinkCard,
-    CARD_HEIGHT, CARD_WIDTH,
+    callout_face_svg, link_blob_svg, link_label, parent_dir_label, tag_blob_svg, tag_icon_svg,
+    Callout, LinkCard, CARD_HEIGHT, CARD_WIDTH,
 };
 use peta_core::view::{AtlasCard, ScreenView};
 use std::collections::HashMap;
@@ -30,7 +30,10 @@ pub fn load_atlas_dirs() -> Vec<String> {
 }
 
 pub fn save_atlas_dirs(dirs: &[String]) {
-    dom::local_storage_set(ATLAS_DIRS_KEY, &serde_json::to_string(dirs).unwrap_or_default());
+    dom::local_storage_set(
+        ATLAS_DIRS_KEY,
+        &serde_json::to_string(dirs).unwrap_or_default(),
+    );
 }
 
 /// Where the hand tool and the wheel left the view of an atlas: how far it is moved from
@@ -44,7 +47,11 @@ struct View {
 
 impl Default for View {
     fn default() -> View {
-        View { x: 0.0, y: 0.0, zoom: 1.0 }
+        View {
+            x: 0.0,
+            y: 0.0,
+            zoom: 1.0,
+        }
     }
 }
 
@@ -58,7 +65,10 @@ fn load_views() -> HashMap<String, View> {
 fn save_view(dir: &str, view: View) {
     let mut views = load_views();
     views.insert(dir.to_string(), view);
-    dom::local_storage_set(ATLAS_VIEWS_KEY, &serde_json::to_string(&views).unwrap_or_default());
+    dom::local_storage_set(
+        ATLAS_VIEWS_KEY,
+        &serde_json::to_string(&views).unwrap_or_default(),
+    );
 }
 
 /// The drag data of an unplaced card. A type of its own keeps text dragged from elsewhere
@@ -252,14 +262,23 @@ pub fn Atlas() -> impl IntoView {
         _ => String::new(),
     });
     let unplaced = Memo::new(move |_| {
-        cards.with(|cs| cs.iter().filter(|c| c.bounds.is_none()).cloned().collect::<Vec<_>>())
+        cards.with(|cs| {
+            cs.iter()
+                .filter(|c| c.bounds.is_none())
+                .cloned()
+                .collect::<Vec<_>>()
+        })
     });
     let host = NodeRef::<leptos::html::Div>::new();
     let canvas = StoredValue::new_local(None::<AtlasCanvas>);
     // A click on the label of a card on the canvas; kept as long as the canvas lives
     let on_open = StoredValue::new_local(Closure::<dyn Fn(String, bool, bool)>::new(
         move |path: String, new_tab: bool, new_window: bool| {
-            core.send(Event::GoToPage { path, new_tab, new_window });
+            core.send(Event::GoToPage {
+                path,
+                new_tab,
+                new_window,
+            });
         },
     ));
     // A card dragged to a new place on the canvas
@@ -313,16 +332,20 @@ pub fn Atlas() -> impl IntoView {
     let on_group = StoredValue::new_local(Closure::<dyn Fn(String, String)>::new(
         move |ids_json: String, target_id: String| {
             if let Ok(page_ids) = serde_json::from_str::<Vec<String>>(&ids_json) {
-                core.send(Event::GroupAtlasCards { page_ids, target_id });
+                core.send(Event::GroupAtlasCards {
+                    page_ids,
+                    target_id,
+                });
             }
         },
     ));
     // Cards dragged out of the outline of their group with Ctrl held, as JSON
-    let on_ungroup = StoredValue::new_local(Closure::<dyn Fn(String)>::new(move |ids_json: String| {
-        if let Ok(page_ids) = serde_json::from_str::<Vec<String>>(&ids_json) {
-            core.send(Event::UngroupAtlasCards { page_ids });
-        }
-    }));
+    let on_ungroup =
+        StoredValue::new_local(Closure::<dyn Fn(String)>::new(move |ids_json: String| {
+            if let Ok(page_ids) = serde_json::from_str::<Vec<String>>(&ids_json) {
+                core.send(Event::UngroupAtlasCards { page_ids });
+            }
+        }));
     // A card scaled with Ctrl and the wheel
     let on_scale = StoredValue::new_local(Closure::<dyn Fn(String, f64)>::new(
         move |page_id: String, scale: f64| {
@@ -332,7 +355,11 @@ pub fn Atlas() -> impl IntoView {
     // The title of a group given in its dialog, along a side of its outline
     let on_group_title = StoredValue::new_local(Closure::<dyn Fn(String, String, String)>::new(
         move |group_key: String, side: String, title: String| {
-            core.send(Event::SetAtlasGroupTitle { group_key, side, title });
+            core.send(Event::SetAtlasGroupTitle {
+                group_key,
+                side,
+                title,
+            });
         },
     ));
     // A callout added in its dialog, its character centered at a point of the canvas
@@ -381,13 +408,15 @@ pub fn Atlas() -> impl IntoView {
             core.send(Event::ScaleAtlasLink { item_id, scale });
         },
     ));
-    let on_remove_link = StoredValue::new_local(Closure::<dyn Fn(String)>::new(move |item_id: String| {
-        core.send(Event::RemoveAtlasLink { item_id });
-    }));
+    let on_remove_link =
+        StoredValue::new_local(Closure::<dyn Fn(String)>::new(move |item_id: String| {
+            core.send(Event::RemoveAtlasLink { item_id });
+        }));
     // The text typed in the dialog of a link
-    let on_link_query = StoredValue::new_local(Closure::<dyn Fn(String)>::new(move |query: String| {
-        core.send(Event::SearchAtlasLinks { query });
-    }));
+    let on_link_query =
+        StoredValue::new_local(Closure::<dyn Fn(String)>::new(move |query: String| {
+            core.send(Event::SearchAtlasLinks { query });
+        }));
     let remove_from_atlas = move |_| {
         if let Some((page_id, _, _)) = menu.get_untracked() {
             core.send(Event::RemoveAtlasCard { page_id });
@@ -424,13 +453,19 @@ pub fn Atlas() -> impl IntoView {
                     })
                 });
                 on_group.with_value(|group| made.set_on_group(group.as_ref().unchecked_ref()));
-                on_ungroup.with_value(|ungroup| made.set_on_ungroup(ungroup.as_ref().unchecked_ref()));
+                on_ungroup
+                    .with_value(|ungroup| made.set_on_ungroup(ungroup.as_ref().unchecked_ref()));
                 on_scale.with_value(|scale| made.set_on_scale(scale.as_ref().unchecked_ref()));
-                on_group_title.with_value(|title| made.set_on_group_title(title.as_ref().unchecked_ref()));
-                on_add_callout.with_value(|add| made.set_on_add_callout(add.as_ref().unchecked_ref()));
-                on_callout.with_value(|change| made.set_on_callout(change.as_ref().unchecked_ref()));
-                on_move_callout.with_value(|mv| made.set_on_move_callout(mv.as_ref().unchecked_ref()));
-                on_scale_callout.with_value(|sc| made.set_on_scale_callout(sc.as_ref().unchecked_ref()));
+                on_group_title
+                    .with_value(|title| made.set_on_group_title(title.as_ref().unchecked_ref()));
+                on_add_callout
+                    .with_value(|add| made.set_on_add_callout(add.as_ref().unchecked_ref()));
+                on_callout
+                    .with_value(|change| made.set_on_callout(change.as_ref().unchecked_ref()));
+                on_move_callout
+                    .with_value(|mv| made.set_on_move_callout(mv.as_ref().unchecked_ref()));
+                on_scale_callout
+                    .with_value(|sc| made.set_on_scale_callout(sc.as_ref().unchecked_ref()));
                 on_add_link.with_value(|add| {
                     on_set_link.with_value(|set| {
                         on_move_link.with_value(|mv| {
@@ -492,7 +527,10 @@ pub fn Atlas() -> impl IntoView {
         // Only the canvas knows how far the hand tool has moved the view
         let point = canvas.with_value(|c| {
             let c = c.as_ref()?;
-            Some((c.to_world_x(ev.client_x() as f64)?, c.to_world_y(ev.client_y() as f64)?))
+            Some((
+                c.to_world_x(ev.client_x() as f64)?,
+                c.to_world_y(ev.client_y() as f64)?,
+            ))
         });
         let Some((x, y)) = point else {
             return;

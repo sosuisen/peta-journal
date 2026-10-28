@@ -76,8 +76,12 @@ fn App() -> impl IntoView {
         );
     }));
 
-    core.send(Event::IndexSortsRestored(components::sidebar::load_index_sorts()));
-    core.send(Event::AtlasDirsRestored(components::atlas::load_atlas_dirs()));
+    core.send(Event::IndexSortsRestored(
+        components::sidebar::load_index_sorts(),
+    ));
+    core.send(Event::AtlasDirsRestored(
+        components::atlas::load_atlas_dirs(),
+    ));
     core.send(Event::Start);
 
     let location = use_location();

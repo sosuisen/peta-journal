@@ -42,9 +42,14 @@ async fn launch(Json(req): Json<LaunchRequest>) -> Response {
     };
     // Security: reject dangerous protocols
     let lower = url.to_lowercase();
-    if lower.starts_with("javascript:") || lower.starts_with("data:") || lower.starts_with("file:") {
+    if lower.starts_with("javascript:") || lower.starts_with("data:") || lower.starts_with("file:")
+    {
         tracing::warn!("Rejected dangerous URL: {url}");
-        return reply(StatusCode::FORBIDDEN, false, "Dangerous protocols are not allowed");
+        return reply(
+            StatusCode::FORBIDDEN,
+            false,
+            "Dangerous protocols are not allowed",
+        );
     }
     // Security: only allow protocol URLs (must contain ://)
     if !url.contains("://") {
@@ -61,6 +66,10 @@ async fn launch(Json(req): Json<LaunchRequest>) -> Response {
     if ok {
         reply(StatusCode::OK, true, "App launched successfully")
     } else {
-        reply(StatusCode::INTERNAL_SERVER_ERROR, false, "Failed to launch app")
+        reply(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            false,
+            "Failed to launch app",
+        )
     }
 }

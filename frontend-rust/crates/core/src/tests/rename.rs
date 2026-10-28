@@ -19,7 +19,8 @@ fn showing_a_page() -> Harness {
         page: Some(page),
         ..PageState::default()
     });
-    h.api.answer_next("UpdatePage", Ok(ApiOutput::PageNameTaken("taken".into())));
+    h.api
+        .answer_next("UpdatePage", Ok(ApiOutput::PageNameTaken("taken".into())));
     h
 }
 
@@ -46,7 +47,10 @@ fn a_yes_overwrites_the_page_that_has_the_name() {
     let mut h = showing_a_page();
     rename_to_theirs(&mut h);
 
-    assert!(h.ui.iter().any(|op| matches!(op, UiOp::Confirm(q) if q.contains("a/theirs"))));
+    assert!(h
+        .ui
+        .iter()
+        .any(|op| matches!(op, UiOp::Confirm(q) if q.contains("a/theirs"))));
     assert_eq!(overwrites(&h), vec![false, true]);
     // The fake server echoes only the fields it got, so the folder is not in the answer
     assert!(h.navigations.last().unwrap().url.ends_with("/theirs"));

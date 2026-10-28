@@ -115,16 +115,13 @@ fn sending_to_the_stash_creates_its_heading_at_the_end_and_moves_the_subtree_und
     h.send(Event::SendToStash {
         item_id: "a".into(),
     });
-    assert!(!h.api.called("UpdateItem"), "the item is moved as it is, with no tag");
+    assert!(
+        !h.api.called("UpdateItem"),
+        "the item is moved as it is, with no tag"
+    );
     assert_eq!(
         create_calls(&h.api),
-        [(
-            "page1".into(),
-            "after:z".into(),
-            1,
-            "# Stash".into(),
-            None
-        )]
+        [("page1".into(), "after:z".into(), 1, "# Stash".into(), None)]
     );
     assert_eq!(
         move_calls(&h.api),
@@ -138,10 +135,7 @@ fn sending_to_the_stash_creates_its_heading_at_the_end_and_moves_the_subtree_und
 
 #[test]
 fn sending_to_the_stash_reuses_an_existing_stash_heading() {
-    let mut h = Harness::with_items(vec![
-        item("a", 1, "todo"),
-        item("stash", 1, "# Stash"),
-    ]);
+    let mut h = Harness::with_items(vec![item("a", 1, "todo"), item("stash", 1, "# Stash")]);
     h.send(Event::SendToStash {
         item_id: "a".into(),
     });
@@ -212,7 +206,10 @@ fn select_with_transclusion(key: crate::app::SelectionKey) -> Harness {
 fn deleting_a_selection_with_a_transclusion_is_refused_so_the_source_stays() {
     let h = select_with_transclusion(crate::app::SelectionKey::Delete);
     assert!(!h.api.called("DeleteItem"));
-    assert!(h.ui.iter().any(|op| matches!(op, UiOp::Alert(m) if m.contains("transclusion"))));
+    assert!(h
+        .ui
+        .iter()
+        .any(|op| matches!(op, UiOp::Alert(m) if m.contains("transclusion"))));
     assert!(h.model.state.item_selection_mode(), "the selection stays");
     assert_eq!(h.items_ids(), ["a", "t"]);
 }

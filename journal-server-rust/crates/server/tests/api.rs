@@ -20,7 +20,10 @@ async fn items_go_first_last_or_after_another_item() {
     create_item(&page.id, "last", 1, "y").await;
     create_item(&page.id, &format!("after:{}", rows[0].id), 2, "z").await;
 
-    assert_eq!(outline_of(&page.id).await, vs(&["1:x", "1:a", "2:z", "1:b", "1:y"]));
+    assert_eq!(
+        outline_of(&page.id).await,
+        vs(&["1:x", "1:a", "2:z", "1:b", "1:y"])
+    );
 }
 
 #[tokio::test]
@@ -58,9 +61,16 @@ async fn the_body_is_parsed_into_an_ast_and_types() {
 
     let heading = update_item(&plain.id, json!({ "body": "## Title" })).await;
 
-    assert!(heading.types.contains(&"heading".to_string()), "types: {:?}", heading.types);
+    assert!(
+        heading.types.contains(&"heading".to_string()),
+        "types: {:?}",
+        heading.types
+    );
     let (_, item) = get(&format!("/api/items/{}", plain.id)).await;
-    assert!(item["item"]["ast"].as_str().unwrap().contains("\"heading\""));
+    assert!(item["item"]["ast"]
+        .as_str()
+        .unwrap()
+        .contains("\"heading\""));
 }
 
 #[tokio::test]
@@ -88,7 +98,10 @@ async fn a_property_can_be_set_on_an_item() {
     .await;
     assert_eq!(status, 200);
 
-    assert_eq!(items(&page.id).await[0].properties["plan"], json!("2026-03-01"));
+    assert_eq!(
+        items(&page.id).await[0].properties["plan"],
+        json!("2026-03-01")
+    );
 }
 
 #[tokio::test]
@@ -115,7 +128,10 @@ async fn shift_level_moves_a_group_by_a_relative_amount() {
     .await;
     assert_eq!(status, 200);
 
-    assert_eq!(outline_of(&page.id).await, vs(&["1:a", "2:b", "3:b1", "1:c"]));
+    assert_eq!(
+        outline_of(&page.id).await,
+        vs(&["1:a", "2:b", "3:b1", "1:c"])
+    );
 }
 
 // ---- Items: moving ----
@@ -125,11 +141,23 @@ async fn a_subtree_moves_past_its_sibling_on_the_same_page() {
     let page = new_doc_page("items-move").await;
     let rows = fill(&page.id, &["a", "b", "  b1", "c"]).await;
 
-    move_items(&[&rows[1].id, &rows[2].id], &page.id, &format!("after:{}", rows[3].id), None).await;
-    assert_eq!(outline_of(&page.id).await, vs(&["1:a", "1:c", "1:b", "2:b1"]));
+    move_items(
+        &[&rows[1].id, &rows[2].id],
+        &page.id,
+        &format!("after:{}", rows[3].id),
+        None,
+    )
+    .await;
+    assert_eq!(
+        outline_of(&page.id).await,
+        vs(&["1:a", "1:c", "1:b", "2:b1"])
+    );
 
     move_items(&[&rows[1].id, &rows[2].id], &page.id, "first", None).await;
-    assert_eq!(outline_of(&page.id).await, vs(&["1:b", "2:b1", "1:a", "1:c"]));
+    assert_eq!(
+        outline_of(&page.id).await,
+        vs(&["1:b", "2:b1", "1:a", "1:c"])
+    );
 }
 
 #[tokio::test]
@@ -139,11 +167,23 @@ async fn items_move_to_another_page_with_their_levels_shifted() {
     let rows = fill(&from.id, &["stay", "go", "  go-child"]).await;
     let target = fill(&to.id, &["parent"]).await.remove(0);
 
-    let moved = move_items(&[&rows[1].id, &rows[2].id], &to.id, &format!("after:{}", target.id), Some(1)).await;
+    let moved = move_items(
+        &[&rows[1].id, &rows[2].id],
+        &to.id,
+        &format!("after:{}", target.id),
+        Some(1),
+    )
+    .await;
 
-    assert_eq!(moved.iter().map(ItemRow::outline).collect::<Vec<_>>(), vs(&["2:go", "3:go-child"]));
+    assert_eq!(
+        moved.iter().map(ItemRow::outline).collect::<Vec<_>>(),
+        vs(&["2:go", "3:go-child"])
+    );
     assert_eq!(outline_of(&from.id).await, vs(&["1:stay"]));
-    assert_eq!(outline_of(&to.id).await, vs(&["1:parent", "2:go", "3:go-child"]));
+    assert_eq!(
+        outline_of(&to.id).await,
+        vs(&["1:parent", "2:go", "3:go-child"])
+    );
 }
 
 // ---- Items: tasks ----
@@ -163,12 +203,20 @@ async fn cycle_task_goes_through_task_running_done_and_back_to_normal() {
     let (status, resp) = post_empty(&cycle).await;
     assert_eq!(status, 200);
     let running = ItemRow::of(&resp["item"]);
-    assert!(running.properties.contains_key("begin"), "response: {:?}", running.properties);
+    assert!(
+        running.properties.contains_key("begin"),
+        "response: {:?}",
+        running.properties
+    );
     assert!(items(&page.id).await[0].properties.contains_key("begin"));
 
     let (_, resp) = post_empty(&cycle).await;
     let done = ItemRow::of(&resp["item"]);
-    assert!(done.properties.contains_key("end"), "response: {:?}", done.properties);
+    assert!(
+        done.properties.contains_key("end"),
+        "response: {:?}",
+        done.properties
+    );
     assert!(items(&page.id).await[0].properties.contains_key("end"));
 
     assert_eq!(post_empty(&cycle).await.0, 200);
@@ -182,7 +230,12 @@ async fn cycle_task_goes_through_task_running_done_and_back_to_normal() {
 async fn tasks_can_be_listed_by_type() {
     let page = new_doc_page("items-task-list").await;
     let item = fill(&page.id, &["listed task"]).await.remove(0);
-    assert_eq!(post_empty(&format!("/api/items/{}/cycle-task", item.id)).await.0, 200);
+    assert_eq!(
+        post_empty(&format!("/api/items/{}/cycle-task", item.id))
+            .await
+            .0,
+        200
+    );
 
     let (status, resp) = get("/api/items?types=task").await;
     assert_eq!(status, 200);
@@ -206,13 +259,22 @@ async fn a_transclusion_shows_the_source_tree_with_the_page() {
     .await;
     assert_eq!(status, 200, "{resp}");
     let linked = ItemRow::of(&resp["item"]);
-    assert_eq!(linked.transclude_item_id.as_deref(), Some(source[0].id.as_str()));
+    assert_eq!(
+        linked.transclude_item_id.as_deref(),
+        Some(source[0].id.as_str())
+    );
 
     let (_, resp) = get(&format!("/api/pages/{}", page.id)).await;
     let tree = &resp["transcludedTrees"][&source[0].id];
-    assert_eq!(field_of_each(&json!({ "t": tree }), "t", "body"), vec![json!("root"), json!("child")]);
+    assert_eq!(
+        field_of_each(&json!({ "t": tree }), "t", "body"),
+        vec![json!("root"), json!("child")]
+    );
 
-    assert_eq!(delete(&format!("/api/items/{}/transclude", host.id)).await, 200);
+    assert_eq!(
+        delete(&format!("/api/items/{}/transclude", host.id)).await,
+        200
+    );
     assert!(items(&page.id).await[0].transclude_item_id.is_none());
 }
 
@@ -253,7 +315,10 @@ async fn editing_a_source_item_updates_the_stored_copy_in_its_transcluders() {
 
 #[tokio::test]
 async fn a_new_doc_page_starts_with_one_empty_item_and_is_found_again_by_its_title() {
-    let title = format!("pages-new-{}", chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0));
+    let title = format!(
+        "pages-new-{}",
+        chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0)
+    );
 
     let (_, first) = post("/api/pages/doc", json!({ "title": title, "dirPath": "" })).await;
     let (_, again) = post("/api/pages/doc", json!({ "title": title, "dirPath": "" })).await;
@@ -274,8 +339,14 @@ async fn get_page_returns_the_page_with_its_items_in_order() {
     assert_eq!(status, 200);
 
     assert_eq!(resp["page"]["name"], json!(page.title));
-    assert_eq!(field_of_each(&resp, "items", "body"), vec![json!("one"), json!("two"), json!("three")]);
-    assert_eq!(field_of_each(&resp, "items", "level"), vec![json!(1), json!(2), json!(1)]);
+    assert_eq!(
+        field_of_each(&resp, "items", "body"),
+        vec![json!("one"), json!("two"), json!("three")]
+    );
+    assert_eq!(
+        field_of_each(&resp, "items", "level"),
+        vec![json!(1), json!(2), json!(1)]
+    );
 }
 
 #[tokio::test]
@@ -289,10 +360,16 @@ async fn renaming_a_page_changes_its_title_and_path() {
     .await;
     assert_eq!(status, 200, "{resp}");
 
-    assert_eq!(resp["page"]["name"], json!(format!("{}-renamed", page.title)));
+    assert_eq!(
+        resp["page"]["name"],
+        json!(format!("{}-renamed", page.title))
+    );
     assert_eq!(resp["page"]["dirPath"], json!("notes/"));
     let (_, again) = get(&format!("/api/pages/{}", page.id)).await;
-    assert_eq!(again["page"]["name"], json!(format!("{}-renamed", page.title)));
+    assert_eq!(
+        again["page"]["name"],
+        json!(format!("{}-renamed", page.title))
+    );
 }
 
 #[tokio::test]
@@ -302,7 +379,11 @@ async fn renaming_to_the_name_of_another_page_is_refused_unless_it_is_overwritte
     fill(&page.id, &["mine"]).await;
     fill(&other.id, &["theirs"]).await;
 
-    let (status, resp) = put(&format!("/api/pages/{}", page.id), json!({ "title": other.title })).await;
+    let (status, resp) = put(
+        &format!("/api/pages/{}", page.id),
+        json!({ "title": other.title }),
+    )
+    .await;
     assert_eq!(status, 409, "{resp}");
     assert_eq!(get(&format!("/api/pages/{}", other.id)).await.0, 200);
 
@@ -314,7 +395,10 @@ async fn renaming_to_the_name_of_another_page_is_refused_unless_it_is_overwritte
     assert_eq!(status, 200, "{resp}");
     assert_eq!(resp["page"]["name"], json!(other.title.to_uppercase()));
     assert_eq!(get(&format!("/api/pages/{}", other.id)).await.0, 404);
-    assert!(outline_of(&page.id).await.iter().any(|line| line.ends_with(":mine")));
+    assert!(outline_of(&page.id)
+        .await
+        .iter()
+        .any(|line| line.ends_with(":mine")));
 }
 
 #[tokio::test]
@@ -351,10 +435,18 @@ async fn a_wiki_link_to_a_page_shows_up_in_its_backlinks() {
     assert_eq!(status, 200);
 
     assert_eq!(
-        resp["entries"].as_array().unwrap().iter().map(|e| e["sourcePage"]["id"].clone()).collect::<Vec<_>>(),
+        resp["entries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|e| e["sourcePage"]["id"].clone())
+            .collect::<Vec<_>>(),
         vec![json!(source.id)]
     );
-    assert_eq!(resp["entries"][0]["sourceItem"]["body"], json!(format!("see [[{}]]", target.title)));
+    assert_eq!(
+        resp["entries"][0]["sourceItem"]["body"],
+        json!(format!("see [[{}]]", target.title))
+    );
 }
 
 #[tokio::test]
@@ -461,8 +553,14 @@ async fn a_name_that_is_not_a_journal_is_refused() {
 
 #[tokio::test]
 async fn an_item_moves_to_another_day() {
-    let from = journal("1999-09-01").await["page"]["id"].as_str().unwrap().to_string();
-    let to = journal("1999-09-02").await["page"]["id"].as_str().unwrap().to_string();
+    let from = journal("1999-09-01").await["page"]["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let to = journal("1999-09-02").await["page"]["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
     let moved = fill(&from, &["carry over"]).await.remove(0);
 
     move_items(&[&moved.id], &to, "last", None).await;
@@ -508,11 +606,16 @@ async fn page_names_are_found_by_prefix() {
 async fn item_text_is_found_with_a_snippet() {
     let page = new_doc_page("search-text").await;
     let word = format!("zebra{}", nanos());
-    let item = fill(&page.id, &[&format!("the {word} crossing"), "nothing here"]).await.remove(0);
+    let item = fill(&page.id, &[&format!("the {word} crossing"), "nothing here"])
+        .await
+        .remove(0);
 
     let resp = search("/api/search/combined", &word).await;
 
-    assert_eq!(field_of_each(&resp, "results", "itemId"), vec![json!(item.id)]);
+    assert_eq!(
+        field_of_each(&resp, "results", "itemId"),
+        vec![json!(item.id)]
+    );
     assert_eq!(resp["results"][0]["pageId"], json!(page.id));
     // The analyzer cuts letters from digits, so the match is marked word by word
     let snippet = resp["results"][0]["snippet"].as_str().unwrap_or("");
@@ -528,30 +631,46 @@ async fn two_words_must_both_be_in_the_item() {
 
     let resp = search("/api/search/combined", &format!("{a} {b}")).await;
 
-    assert_eq!(field_of_each(&resp, "results", "itemId"), vec![json!(rows[0].id)]);
+    assert_eq!(
+        field_of_each(&resp, "results", "itemId"),
+        vec![json!(rows[0].id)]
+    );
 }
 
 #[tokio::test]
 async fn a_hashtag_in_the_body_is_found_as_a_tag() {
     let page = new_doc_page("search-tag").await;
     let tag = format!("tag{}", nanos());
-    let item = fill(&page.id, &[&format!("remember #{tag}")]).await.remove(0);
+    let item = fill(&page.id, &[&format!("remember #{tag}")])
+        .await
+        .remove(0);
 
     assert_eq!(items(&page.id).await[0].properties["tags"], json!([tag]));
     let resp = search("/api/search/tags", &tag).await;
-    assert_eq!(field_of_each(&resp, "results", "itemId"), vec![json!(item.id)]);
+    assert_eq!(
+        field_of_each(&resp, "results", "itemId"),
+        vec![json!(item.id)]
+    );
 }
 
 #[tokio::test]
 async fn a_tag_is_found_in_any_case_of_its_letters() {
     let page = new_doc_page("search-tag-case").await;
     let tag = format!("CaseTag{}", nanos());
-    let item = fill(&page.id, &[&format!("remember #{tag}")]).await.remove(0);
+    let item = fill(&page.id, &[&format!("remember #{tag}")])
+        .await
+        .remove(0);
 
     let resp = search("/api/search/tags", &tag.to_lowercase()).await;
-    assert_eq!(field_of_each(&resp, "results", "itemId"), vec![json!(item.id)]);
+    assert_eq!(
+        field_of_each(&resp, "results", "itemId"),
+        vec![json!(item.id)]
+    );
     let resp = search("/api/search/combined", &format!("#{}", tag.to_uppercase())).await;
-    assert_eq!(field_of_each(&resp, "results", "itemId"), vec![json!(item.id)]);
+    assert_eq!(
+        field_of_each(&resp, "results", "itemId"),
+        vec![json!(item.id)]
+    );
 }
 
 #[tokio::test]
@@ -563,7 +682,10 @@ async fn a_deleted_item_is_no_longer_found() {
     assert_eq!(delete(&format!("/api/items/{}", item.id)).await, 204);
 
     let resp = search("/api/search/combined", &word).await;
-    assert_eq!(field_of_each(&resp, "results", "itemId"), Vec::<Value>::new());
+    assert_eq!(
+        field_of_each(&resp, "results", "itemId"),
+        Vec::<Value>::new()
+    );
 }
 
 // ---- Markdown conversions ----
@@ -582,7 +704,10 @@ async fn flat_markdown_is_split_into_items_at_block_boundaries() {
         field_of_each(&resp, "items", "body"),
         vec![json!("# Night"), json!("- [ ] Hanon\n\n- [ ] Upload")]
     );
-    assert_eq!(field_of_each(&resp, "items", "level"), vec![json!(1), json!(1)]);
+    assert_eq!(
+        field_of_each(&resp, "items", "level"),
+        vec![json!(1), json!(1)]
+    );
 }
 
 #[tokio::test]
@@ -591,15 +716,32 @@ async fn metadata_lines_carry_the_level_of_each_item() {
 
     assert_eq!(
         field_of_each(&resp, "items", "body"),
-        vec![json!("# Night"), json!("- [ ] Hanon"), json!("- [ ] Upload")]
+        vec![
+            json!("# Night"),
+            json!("- [ ] Hanon"),
+            json!("- [ ] Upload")
+        ]
     );
-    assert_eq!(field_of_each(&resp, "items", "level"), vec![json!(1), json!(2), json!(2)]);
+    assert_eq!(
+        field_of_each(&resp, "items", "level"),
+        vec![json!(1), json!(2), json!(2)]
+    );
 }
 
 #[tokio::test]
 async fn exported_items_come_back_through_import_and_parse_unchanged() {
     let page = new_doc_page("markdown-roundtrip").await;
-    let rows = fill(&page.id, &["parent", "  child one", "    grandchild", "  child two", "sibling"]).await;
+    let rows = fill(
+        &page.id,
+        &[
+            "parent",
+            "  child one",
+            "    grandchild",
+            "  child two",
+            "sibling",
+        ],
+    )
+    .await;
     let ids: Vec<&str> = rows.iter().map(|r| r.id.as_str()).collect();
 
     let (status, exported) = post("/api/items/export", json!({ "itemIds": ids })).await;
@@ -608,7 +750,13 @@ async fn exported_items_come_back_through_import_and_parse_unchanged() {
     assert!(tree.contains("- parent"), "{tree}");
     assert!(tree.contains("    - grandchild"), "{tree}");
     assert!(exported["ast"].as_str().unwrap().contains("\"type\""));
-    assert!(exported["flatMarkdown"].as_str().unwrap().contains("<!-- @"), "flat markdown keeps the item metadata");
+    assert!(
+        exported["flatMarkdown"]
+            .as_str()
+            .unwrap()
+            .contains("<!-- @"),
+        "flat markdown keeps the item metadata"
+    );
 
     let (_, imported) = post("/api/items/import", json!({ "treeMarkdown": tree })).await;
     let parsed = parse(imported["flatMarkdown"].as_str().unwrap()).await;
@@ -646,7 +794,10 @@ async fn a_whole_page_exports_like_its_items() {
 // ---- Folder sync ----
 
 fn file_of(page: &PageRef) -> std::path::PathBuf {
-    server().markdown_dir.join("docs").join(format!("{}.md", page.title))
+    server()
+        .markdown_dir
+        .join("docs")
+        .join(format!("{}.md", page.title))
 }
 
 fn read(file: &std::path::Path) -> String {
@@ -657,7 +808,10 @@ fn read(file: &std::path::Path) -> String {
 async fn wait_until(what: &str, mut condition: impl FnMut() -> bool) {
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
     while !condition() {
-        assert!(std::time::Instant::now() < deadline, "timed out waiting until {what}");
+        assert!(
+            std::time::Instant::now() < deadline,
+            "timed out waiting until {what}"
+        );
         tokio::time::sleep(std::time::Duration::from_millis(200)).await;
     }
 }
@@ -678,7 +832,10 @@ async fn the_status_names_the_folder_and_says_it_is_there() {
     assert_eq!(status, 200);
 
     assert_eq!(resp["importEnabled"], json!(true));
-    assert_eq!(resp["markdownRoot"], json!(server().markdown_dir.to_string_lossy()));
+    assert_eq!(
+        resp["markdownRoot"],
+        json!(server().markdown_dir.to_string_lossy())
+    );
     assert_eq!(resp["rootAvailable"], json!(true));
 }
 
@@ -687,10 +844,16 @@ async fn a_page_is_written_to_its_markdown_file() {
     let page = new_doc_page("sync-export").await;
     fill(&page.id, &["first line", "  second line"]).await;
 
-    wait_until("the page is exported", || read(&file_of(&page)).contains("second line")).await;
+    wait_until("the page is exported", || {
+        read(&file_of(&page)).contains("second line")
+    })
+    .await;
 
     let markdown = read(&file_of(&page));
-    assert!(markdown.starts_with(&format!("---\nid: {}\n", page.id)), "{markdown}");
+    assert!(
+        markdown.starts_with(&format!("---\nid: {}\n", page.id)),
+        "{markdown}"
+    );
     assert!(markdown.contains("first line"), "{markdown}");
 }
 
@@ -699,7 +862,10 @@ async fn a_change_made_to_the_file_is_merged_into_the_page() {
     let _folder = FOLDER_SCAN.lock().await;
     let page = new_doc_page("sync-import").await;
     fill(&page.id, &["before the edit"]).await;
-    wait_until("the page is exported", || read(&file_of(&page)).contains("before the edit")).await;
+    wait_until("the page is exported", || {
+        read(&file_of(&page)).contains("before the edit")
+    })
+    .await;
 
     std::fs::write(
         file_of(&page),
@@ -709,7 +875,10 @@ async fn a_change_made_to_the_file_is_merged_into_the_page() {
     let result = scan().await;
 
     assert!(result["imported"].as_i64().unwrap() >= 1, "{result}");
-    assert_eq!(outline_of(&page.id).await, vs(&["1:edited on disk, a bit longer"]));
+    assert_eq!(
+        outline_of(&page.id).await,
+        vs(&["1:edited on disk, a bit longer"])
+    );
 }
 
 #[tokio::test]
@@ -718,14 +887,22 @@ async fn a_new_file_in_the_folder_becomes_a_page() {
     let name = format!("sync-new-{}", nanos());
     let docs = server().markdown_dir.join("docs");
     std::fs::create_dir_all(&docs).unwrap();
-    std::fs::write(docs.join(format!("{name}.md")), "hello from disk\n\nsecond block\n").unwrap();
+    std::fs::write(
+        docs.join(format!("{name}.md")),
+        "hello from disk\n\nsecond block\n",
+    )
+    .unwrap();
 
     let result = scan().await;
 
     assert!(result["imported"].as_i64().unwrap() >= 1, "{result}");
     let resp = search("/api/search/pages", &name).await;
     let ids = field_of_each(&resp, "results", "pageId");
-    assert_eq!(ids.len(), 1, "the new page is found by its file name: {resp}");
+    assert_eq!(
+        ids.len(),
+        1,
+        "the new page is found by its file name: {resp}"
+    );
     assert_eq!(
         outline_of(ids[0].as_str().unwrap()).await,
         vs(&["1:hello from disk", "1:second block"])
@@ -737,7 +914,10 @@ async fn an_unchanged_file_is_left_alone() {
     let _folder = FOLDER_SCAN.lock().await;
     let page = new_doc_page("sync-unchanged").await;
     fill(&page.id, &["stable"]).await;
-    wait_until("the page is exported", || read(&file_of(&page)).contains("stable")).await;
+    wait_until("the page is exported", || {
+        read(&file_of(&page)).contains("stable")
+    })
+    .await;
     scan().await;
 
     // Other tests may be exporting their own pages at the same time; this page itself must stay as it is
@@ -794,7 +974,11 @@ async fn the_home_link_is_kept_as_the_target_of_a_link() {
 // ---- Properties ----
 
 fn definition<'a>(resp: &'a Value, key: &str) -> Option<&'a Value> {
-    resp["definitions"].as_array().unwrap().iter().find(|d| d["key"] == key)
+    resp["definitions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|d| d["key"] == key)
 }
 
 #[tokio::test]
@@ -805,15 +989,30 @@ async fn property_definitions_list_the_system_keys_and_accept_user_keys() {
     assert_eq!(definition(&resp, "tags").unwrap()["system"], json!(true));
     assert_eq!(definition(&resp, "tags").unwrap()["page"], json!(true));
     assert_eq!(definition(&resp, "zoom").unwrap()["page"], json!(false));
-    assert_eq!(definition(&resp, "modified").unwrap()["system"], json!(true));
+    assert_eq!(
+        definition(&resp, "modified").unwrap()["system"],
+        json!(true)
+    );
     assert_eq!(definition(&resp, "due").unwrap()["system"], json!(true));
-    assert_eq!(definition(&resp, "cancelled").unwrap()["page"], json!(false));
+    assert_eq!(
+        definition(&resp, "cancelled").unwrap()["page"],
+        json!(false)
+    );
     assert_eq!(definition(&resp, "created").unwrap()["page"], json!(true));
-    assert_eq!(definition(&resp, "published").unwrap()["system"], json!(true));
+    assert_eq!(
+        definition(&resp, "published").unwrap()["system"],
+        json!(true)
+    );
     assert_eq!(definition(&resp, "published").unwrap()["page"], json!(true));
     assert_eq!(resp["propertyDefinitions"]["published"], json!("datetime"));
-    assert_eq!(definition(&resp, "atlas_bounds").unwrap()["system"], json!(true));
-    assert_eq!(definition(&resp, "atlas_bounds").unwrap()["page"], json!(true));
+    assert_eq!(
+        definition(&resp, "atlas_bounds").unwrap()["system"],
+        json!(true)
+    );
+    assert_eq!(
+        definition(&resp, "atlas_bounds").unwrap()["page"],
+        json!(true)
+    );
     assert_eq!(resp["propertyDefinitions"]["atlas_bounds"], json!("bounds"));
 
     let (status, resp) = post(
@@ -849,7 +1048,12 @@ async fn a_property_can_be_removed_from_an_item() {
     )
     .await;
 
-    let (status, resp) = send(reqwest::Method::DELETE, &format!("/api/items/{}/properties/plan", item.id), None).await;
+    let (status, resp) = send(
+        reqwest::Method::DELETE,
+        &format!("/api/items/{}/properties/plan", item.id),
+        None,
+    )
+    .await;
     assert_eq!(status, 200, "{resp}");
 
     assert!(resp["item"]["properties"].get("plan").is_none());
@@ -860,7 +1064,10 @@ async fn a_property_can_be_removed_from_an_item() {
 async fn an_item_property_change_alone_rewrites_the_page_file() {
     let page = new_doc_page("items-property-export").await;
     let item = fill(&page.id, &["planned"]).await.remove(0);
-    wait_until("the page file exists", || read(&file_of(&page)).contains("planned")).await;
+    wait_until("the page file exists", || {
+        read(&file_of(&page)).contains("planned")
+    })
+    .await;
 
     put(
         &format!("/api/items/{}/properties/plan", item.id),
@@ -868,13 +1075,20 @@ async fn an_item_property_change_alone_rewrites_the_page_file() {
     )
     .await;
 
-    wait_until("the plan is in the file", || read(&file_of(&page)).contains("plan=\"2026-03-01\"")).await;
+    wait_until("the plan is in the file", || {
+        read(&file_of(&page)).contains("plan=\"2026-03-01\"")
+    })
+    .await;
 }
 
 #[tokio::test]
 async fn page_properties_are_set_removed_and_written_to_the_front_matter() {
     let page = new_doc_page("page-properties").await;
-    post("/api/config/property-definitions", json!({ "key": "owner", "valueType": "text" })).await;
+    post(
+        "/api/config/property-definitions",
+        json!({ "key": "owner", "valueType": "text" }),
+    )
+    .await;
 
     let (status, resp) = put(
         &format!("/api/pages/{}/properties/owner", page.id),
@@ -910,12 +1124,20 @@ async fn page_properties_are_set_removed_and_written_to_the_front_matter() {
     })
     .await;
 
-    let (status, resp) = send(reqwest::Method::DELETE, &format!("/api/pages/{}/properties/owner", page.id), None).await;
+    let (status, resp) = send(
+        reqwest::Method::DELETE,
+        &format!("/api/pages/{}/properties/owner", page.id),
+        None,
+    )
+    .await;
     assert_eq!(status, 200, "{resp}");
     assert!(resp["page"]["properties"].get("owner").is_none());
     assert_eq!(resp["page"]["properties"]["tags"], json!(["a", "b"]));
 
-    wait_until("the owner left the front matter", || !read(&file_of(&page)).contains("owner:")).await;
+    wait_until("the owner left the front matter", || {
+        !read(&file_of(&page)).contains("owner:")
+    })
+    .await;
 }
 
 /// Held by a test that changes the tag directory, and by the tests of tag pages. A tag page
@@ -957,7 +1179,12 @@ async fn a_new_page_tag_gets_its_tag_page_and_the_last_use_takes_it_away() {
     set_page_tags(&first.id, "page-tag-pages-other").await;
     assert!(doc_page_named(tag).await.is_some());
 
-    let (status, resp) = send(reqwest::Method::DELETE, &format!("/api/pages/{}/properties/tags", second.id), None).await;
+    let (status, resp) = send(
+        reqwest::Method::DELETE,
+        &format!("/api/pages/{}/properties/tags", second.id),
+        None,
+    )
+    .await;
     assert_eq!(status, 200, "{resp}");
     assert!(doc_page_named(tag).await.is_none());
 }
@@ -982,14 +1209,22 @@ async fn tags_that_differ_only_in_case_share_one_tag_page() {
 
     set_page_tags(&first.id, "Case-Tag-Pages").await;
     set_page_tags(&second.id, "case-tag-pages").await;
-    assert_eq!(doc_pages_named_ignoring_case("case-tag-pages").await.len(), 1);
+    assert_eq!(
+        doc_pages_named_ignoring_case("case-tag-pages").await.len(),
+        1
+    );
 
     // The other case still uses the page
     set_page_tags(&first.id, "case-tag-pages-other").await;
-    assert_eq!(doc_pages_named_ignoring_case("case-tag-pages").await.len(), 1);
+    assert_eq!(
+        doc_pages_named_ignoring_case("case-tag-pages").await.len(),
+        1
+    );
 
     set_page_tags(&second.id, "case-tag-pages-other").await;
-    assert!(doc_pages_named_ignoring_case("case-tag-pages").await.is_empty());
+    assert!(doc_pages_named_ignoring_case("case-tag-pages")
+        .await
+        .is_empty());
 }
 
 #[tokio::test]
@@ -1019,7 +1254,13 @@ async fn a_hashtag_in_a_body_keeps_its_tag_page_as_a_page_tag_does() {
     update_item(&item.id, json!({ "body": "no tag now" })).await;
     assert!(doc_page_named(tag).await.is_none());
 
-    let added = create_item(&page.id, &format!("after:{}", item.id), 1, &format!("#{tag}")).await;
+    let added = create_item(
+        &page.id,
+        &format!("after:{}", item.id),
+        1,
+        &format!("#{tag}"),
+    )
+    .await;
     assert!(doc_page_named(tag).await.is_some());
     assert_eq!(delete(&format!("/api/items/{}", added.id)).await, 204);
     assert!(doc_page_named(tag).await.is_none());
@@ -1034,7 +1275,11 @@ async fn renaming_a_tag_page_renames_its_tag_in_page_tags_and_bodies() {
     set_page_tags(&tagged.id, &format!("{old},other")).await;
     let page = new_doc_page("renamed-tag-body").await;
     let item = items(&page.id).await.into_iter().next().unwrap();
-    update_item(&item.id, json!({ "body": format!("see #{old} and `#{old}`") })).await;
+    update_item(
+        &item.id,
+        json!({ "body": format!("see #{old} and `#{old}`") }),
+    )
+    .await;
     let tag_page = doc_page_named(&old).await.unwrap();
 
     let (status, resp) = put(&format!("/api/pages/{tag_page}"), json!({ "title": new })).await;
@@ -1057,7 +1302,11 @@ async fn a_tag_page_cannot_take_a_title_that_is_not_a_tag() {
     set_page_tags(&page.id, &tag).await;
     let tag_page = doc_page_named(&tag).await.unwrap();
 
-    let (status, resp) = put(&format!("/api/pages/{tag_page}"), json!({ "title": "two words" })).await;
+    let (status, resp) = put(
+        &format!("/api/pages/{tag_page}"),
+        json!({ "title": "two words" }),
+    )
+    .await;
     assert_eq!(status, 400, "{resp}");
     assert_eq!(doc_page_named(&tag).await, Some(tag_page));
 }
@@ -1098,11 +1347,18 @@ async fn the_tags_of_a_file_edited_outside_keep_their_tag_pages() {
     let body_tag = "file-tag-pages-body";
     let page = new_doc_page("file-tag-pages").await;
     fill(&page.id, &["before the edit"]).await;
-    wait_until("the page is exported", || read(&file_of(&page)).contains("before the edit")).await;
+    wait_until("the page is exported", || {
+        read(&file_of(&page)).contains("before the edit")
+    })
+    .await;
 
     edit_file(&page, |text| {
-        text.replacen("---\n\n", &format!("tags:\n  - \"#{page_tag}\"\n---\n\n"), 1)
-            .replace("before the edit", &format!("see #{body_tag}"))
+        text.replacen(
+            "---\n\n",
+            &format!("tags:\n  - \"#{page_tag}\"\n---\n\n"),
+            1,
+        )
+        .replace("before the edit", &format!("see #{body_tag}"))
     });
     scan().await;
     let (_, resp) = get(&format!("/api/pages/{}", page.id)).await;
@@ -1113,7 +1369,13 @@ async fn the_tags_of_a_file_edited_outside_keep_their_tag_pages() {
     edit_file(&page, |text| {
         text.lines()
             .filter(|l| !l.contains(page_tag) && *l != "tags:")
-            .map(|l| if l.contains(body_tag) { "no tag now\n".to_string() } else { format!("{l}\n") })
+            .map(|l| {
+                if l.contains(body_tag) {
+                    "no tag now\n".to_string()
+                } else {
+                    format!("{l}\n")
+                }
+            })
             .collect()
     });
     scan().await;
@@ -1128,7 +1390,10 @@ async fn a_file_written_with_the_old_tag_key_keeps_its_tags() {
     let _folder = FOLDER_SCAN.lock().await;
     let page = new_doc_page("file-old-tag-key").await;
     fill(&page.id, &["before the edit"]).await;
-    wait_until("the page is exported", || read(&file_of(&page)).contains("before the edit")).await;
+    wait_until("the page is exported", || {
+        read(&file_of(&page)).contains("before the edit")
+    })
+    .await;
 
     edit_file(&page, |text| {
         text.replacen("---\n\n", "tag:\n  - old-key\n---\n\n", 1)
@@ -1137,7 +1402,10 @@ async fn a_file_written_with_the_old_tag_key_keeps_its_tags() {
     scan().await;
     let (_, resp) = get(&format!("/api/pages/{}", page.id)).await;
     assert_eq!(resp["page"]["properties"]["tags"], json!(["old-key"]));
-    wait_until("the file has the new key", || read(&file_of(&page)).contains("tags:\n  - old-key\n")).await;
+    wait_until("the file has the new key", || {
+        read(&file_of(&page)).contains("tags:\n  - old-key\n")
+    })
+    .await;
 }
 
 #[tokio::test]
@@ -1166,7 +1434,12 @@ async fn the_dates_of_a_page_are_set_as_properties_and_cannot_be_removed() {
     )
     .await;
     assert_eq!(status, 400);
-    let (status, _) = send(reqwest::Method::DELETE, &format!("/api/pages/{}/properties/created", page.id), None).await;
+    let (status, _) = send(
+        reqwest::Method::DELETE,
+        &format!("/api/pages/{}/properties/created", page.id),
+        None,
+    )
+    .await;
     assert_eq!(status, 400);
 
     wait_until("the front matter has the new created date", || {
@@ -1179,7 +1452,11 @@ async fn the_dates_of_a_page_are_set_as_properties_and_cannot_be_removed() {
 async fn the_children_of_an_index_page_carry_their_scalar_properties() {
     // A unique directory so other tests' pages stay out of the listing
     let dir = format!("{}/", new_doc_page("children-props").await.title);
-    let (status, resp) = post("/api/pages/doc", json!({ "title": "a-page", "dirPath": dir })).await;
+    let (status, resp) = post(
+        "/api/pages/doc",
+        json!({ "title": "a-page", "dirPath": dir }),
+    )
+    .await;
     assert_eq!(status, 200, "{resp}");
     let page_id = resp["page"]["id"].as_str().unwrap().to_string();
     let parent_id = resp["page"]["parentId"].as_str().unwrap().to_string();
@@ -1192,20 +1469,40 @@ async fn the_children_of_an_index_page_carry_their_scalar_properties() {
 
     let (status, resp) = get(&format!("/api/pages/{parent_id}/children")).await;
     assert_eq!(status, 200, "{resp}");
-    let child = resp["pages"].as_array().unwrap().iter().find(|p| p["id"] == page_id).unwrap();
-    assert_eq!(child["properties"]["published"], json!("2026-10-20T09:00:00Z"));
+    let child = resp["pages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["id"] == page_id)
+        .unwrap();
+    assert_eq!(
+        child["properties"]["published"],
+        json!("2026-10-20T09:00:00Z")
+    );
 
     let (status, resp) = get("/api/pages/recent?maxResults=50").await;
     assert_eq!(status, 200, "{resp}");
-    let recent = resp["pages"].as_array().unwrap().iter().find(|p| p["id"] == page_id).unwrap();
-    assert_eq!(recent["properties"]["published"], json!("2026-10-20T09:00:00Z"));
+    let recent = resp["pages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["id"] == page_id)
+        .unwrap();
+    assert_eq!(
+        recent["properties"]["published"],
+        json!("2026-10-20T09:00:00Z")
+    );
 }
 
 #[tokio::test]
 async fn the_children_of_an_index_page_carry_their_tags_but_no_other_list() {
     let _tags_dir = TAGS_DIR.lock().await;
     let dir = format!("{}/", new_doc_page("children-tags").await.title);
-    let (status, resp) = post("/api/pages/doc", json!({ "title": "a-page", "dirPath": dir })).await;
+    let (status, resp) = post(
+        "/api/pages/doc",
+        json!({ "title": "a-page", "dirPath": dir }),
+    )
+    .await;
     assert_eq!(status, 200, "{resp}");
     let page_id = resp["page"]["id"].as_str().unwrap().to_string();
     let parent_id = resp["page"]["parentId"].as_str().unwrap().to_string();
@@ -1218,8 +1515,16 @@ async fn the_children_of_an_index_page_carry_their_tags_but_no_other_list() {
     .await;
 
     let (_, resp) = get(&format!("/api/pages/{parent_id}/children")).await;
-    let child = resp["pages"].as_array().unwrap().iter().find(|p| p["id"] == page_id).unwrap();
-    assert_eq!(child["properties"]["tags"], json!(["children-tag-b", "children-tag-a"]));
+    let child = resp["pages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["id"] == page_id)
+        .unwrap();
+    assert_eq!(
+        child["properties"]["tags"],
+        json!(["children-tag-b", "children-tag-a"])
+    );
     assert!(child["properties"].get(&group).is_none(), "{child}");
 }
 
@@ -1242,7 +1547,12 @@ async fn deleting_a_property_definition_removes_its_values_from_pages_and_items(
     assert_eq!(resp["page"]["properties"]["rating"], json!("3"));
     let modified_before = resp["page"]["modifiedDate"].as_i64().unwrap();
 
-    let (status, resp) = send(reqwest::Method::DELETE, "/api/config/property-definitions/rating", None).await;
+    let (status, resp) = send(
+        reqwest::Method::DELETE,
+        "/api/config/property-definitions/rating",
+        None,
+    )
+    .await;
     assert_eq!(status, 200, "{resp}");
     assert!(definition(&resp, "rating").is_none(), "{resp}");
 
@@ -1252,16 +1562,30 @@ async fn deleting_a_property_definition_removes_its_values_from_pages_and_items(
     assert!(resp["page"]["modifiedDate"].as_i64().unwrap() >= modified_before);
 
     // System keys and unknown keys are refused
-    let (status, _) = send(reqwest::Method::DELETE, "/api/config/property-definitions/tags", None).await;
+    let (status, _) = send(
+        reqwest::Method::DELETE,
+        "/api/config/property-definitions/tags",
+        None,
+    )
+    .await;
     assert_eq!(status, 400);
-    let (status, _) = send(reqwest::Method::DELETE, "/api/config/property-definitions/rating", None).await;
+    let (status, _) = send(
+        reqwest::Method::DELETE,
+        "/api/config/property-definitions/rating",
+        None,
+    )
+    .await;
     assert_eq!(status, 400);
 }
 
 // ---- the atlas page of a directory ----
 
 async fn atlas_of(dir: &str) -> String {
-    let (status, resp) = post("/api/pages/doc", json!({ "title": "index_atlas", "dirPath": dir })).await;
+    let (status, resp) = post(
+        "/api/pages/doc",
+        json!({ "title": "index_atlas", "dirPath": dir }),
+    )
+    .await;
     assert_eq!(status, 200, "{resp}");
     resp["page"]["id"].as_str().unwrap().to_string()
 }
@@ -1289,7 +1613,11 @@ async fn the_atlas_page_cannot_be_renamed_or_moved() {
 
     let (status, resp) = put(&format!("/api/pages/{atlas_id}"), json!({ "title": "map" })).await;
     assert_eq!(status, 400, "{resp}");
-    let (status, resp) = put(&format!("/api/pages/{atlas_id}"), json!({ "dirPath": "elsewhere/" })).await;
+    let (status, resp) = put(
+        &format!("/api/pages/{atlas_id}"),
+        json!({ "dirPath": "elsewhere/" }),
+    )
+    .await;
     assert_eq!(status, 400, "{resp}");
 }
 
@@ -1297,7 +1625,11 @@ async fn the_atlas_page_cannot_be_renamed_or_moved() {
 async fn no_other_page_can_take_the_atlas_name() {
     let page = new_doc_page("atlas-reserved").await;
 
-    let (status, resp) = put(&format!("/api/pages/{}", page.id), json!({ "title": "index_atlas" })).await;
+    let (status, resp) = put(
+        &format!("/api/pages/{}", page.id),
+        json!({ "title": "index_atlas" }),
+    )
+    .await;
     assert_eq!(status, 400, "{resp}");
 }
 
@@ -1309,7 +1641,10 @@ async fn a_bounds_property_holds_four_numbers() {
     )
     .await;
     assert_eq!(status, 200, "{resp}");
-    assert_eq!(definition(&resp, "area").unwrap()["valueType"], json!("bounds"));
+    assert_eq!(
+        definition(&resp, "area").unwrap()["valueType"],
+        json!("bounds")
+    );
 
     let page = new_doc_page("bounds").await;
     let (status, resp) = put(
@@ -1339,7 +1674,10 @@ async fn a_page_takes_its_bounds_on_the_atlas() {
     )
     .await;
     assert_eq!(status, 200, "{resp}");
-    assert_eq!(resp["page"]["properties"]["atlas_bounds"], json!("24,24,160,56"));
+    assert_eq!(
+        resp["page"]["properties"]["atlas_bounds"],
+        json!("24,24,160,56")
+    );
 
     let (status, resp) = post(
         "/api/config/property-definitions",
@@ -1387,7 +1725,10 @@ async fn the_atlas_of_a_file_edited_outside_is_taken_into_the_page() {
     let page = new_doc_page("file-atlas").await;
     let key = format!("atlas_group_{}", nanos());
     fill(&page.id, &["before the edit"]).await;
-    wait_until("the page is exported", || read(&file_of(&page)).contains("before the edit")).await;
+    wait_until("the page is exported", || {
+        read(&file_of(&page)).contains("before the edit")
+    })
+    .await;
 
     edit_file(&page, |text| {
         text.replacen(
@@ -1398,7 +1739,10 @@ async fn the_atlas_of_a_file_edited_outside_is_taken_into_the_page() {
     });
     scan().await;
     let (_, resp) = get(&format!("/api/pages/{}", page.id)).await;
-    assert_eq!(resp["page"]["properties"]["atlas_bounds"], json!("-10,20.5,120,40"));
+    assert_eq!(
+        resp["page"]["properties"]["atlas_bounds"],
+        json!("-10,20.5,120,40")
+    );
     assert_eq!(resp["page"]["properties"][&key], json!(["id-b", "id-a"]));
     wait_until("the file has the bounds as exported", || {
         read(&file_of(&page)).contains("atlas_bounds: \"-10,20.5,120,40\"\n")
@@ -1407,13 +1751,18 @@ async fn the_atlas_of_a_file_edited_outside_is_taken_into_the_page() {
 
     edit_file(&page, |text| {
         text.lines()
-            .filter(|l| !l.starts_with("atlas_bounds") && !l.starts_with(&key) && !l.starts_with("  - id-"))
+            .filter(|l| {
+                !l.starts_with("atlas_bounds") && !l.starts_with(&key) && !l.starts_with("  - id-")
+            })
             .map(|l| format!("{l}\n"))
             .collect()
     });
     scan().await;
     let (_, resp) = get(&format!("/api/pages/{}", page.id)).await;
-    assert!(resp["page"]["properties"].get("atlas_bounds").is_none(), "{resp}");
+    assert!(
+        resp["page"]["properties"].get("atlas_bounds").is_none(),
+        "{resp}"
+    );
     assert!(resp["page"]["properties"].get(&key).is_none(), "{resp}");
 }
 
@@ -1428,7 +1777,10 @@ async fn a_group_title_stays_out_of_the_settings_and_follows_its_file() {
     )
     .await;
     assert_eq!(status, 200, "{resp}");
-    wait_until("the title is exported", || read(&file_of(&page)).contains(&format!("{key}: top:Before\n"))).await;
+    wait_until("the title is exported", || {
+        read(&file_of(&page)).contains(&format!("{key}: top:Before\n"))
+    })
+    .await;
     let (_, resp) = get("/api/config/property-definitions").await;
     assert!(definition(&resp, &key).is_none(), "{resp}");
 
@@ -1438,7 +1790,10 @@ async fn a_group_title_stays_out_of_the_settings_and_follows_its_file() {
     assert_eq!(resp["page"]["properties"][&key], json!("left:After"));
 
     edit_file(&page, |text| {
-        text.lines().filter(|l| !l.starts_with(&key)).map(|l| format!("{l}\n")).collect()
+        text.lines()
+            .filter(|l| !l.starts_with(&key))
+            .map(|l| format!("{l}\n"))
+            .collect()
     });
     scan().await;
     let (_, resp) = get(&format!("/api/pages/{}", page.id)).await;
@@ -1463,14 +1818,19 @@ async fn a_callout_stays_out_of_the_settings_and_follows_its_file() {
     let (_, resp) = get("/api/config/property-definitions").await;
     assert!(definition(&resp, &key).is_none(), "{resp}");
 
-    edit_file(&page, |text| text.replace("10,20,top:Hello", "10,20,left:Bye"));
+    edit_file(&page, |text| {
+        text.replace("10,20,top:Hello", "10,20,left:Bye")
+    });
     scan().await;
     let (_, resp) = get(&format!("/api/pages/{}", page.id)).await;
     assert_eq!(resp["page"]["properties"][&key], json!("10,20,left:Bye"));
 
     let status = delete(&format!("/api/pages/{}/properties/{key}", page.id)).await;
     assert!((200..300).contains(&status), "{status}");
-    wait_until("the callout leaves the file", || !read(&file_of(&page)).contains(&key)).await;
+    wait_until("the callout leaves the file", || {
+        !read(&file_of(&page)).contains(&key)
+    })
+    .await;
 }
 
 #[tokio::test]
@@ -1482,13 +1842,21 @@ async fn bounds_in_a_file_that_are_not_bounds_are_written_over_by_the_page() {
         json!({ "valueType": "bounds", "value": "1,2,3,4" }),
     )
     .await;
-    wait_until("the bounds are exported", || read(&file_of(&page)).contains("atlas_bounds: 1,2,3,4\n")).await;
+    wait_until("the bounds are exported", || {
+        read(&file_of(&page)).contains("atlas_bounds: 1,2,3,4\n")
+    })
+    .await;
 
-    edit_file(&page, |text| text.replace("atlas_bounds: 1,2,3,4", "atlas_bounds: here"));
+    edit_file(&page, |text| {
+        text.replace("atlas_bounds: 1,2,3,4", "atlas_bounds: here")
+    });
     scan().await;
     let (_, resp) = get(&format!("/api/pages/{}", page.id)).await;
     assert_eq!(resp["page"]["properties"]["atlas_bounds"], json!("1,2,3,4"));
-    wait_until("the file has the bounds again", || read(&file_of(&page)).contains("atlas_bounds: 1,2,3,4\n")).await;
+    wait_until("the file has the bounds again", || {
+        read(&file_of(&page)).contains("atlas_bounds: 1,2,3,4\n")
+    })
+    .await;
 }
 
 #[tokio::test]
@@ -1521,7 +1889,11 @@ async fn a_value_is_checked_by_the_type_of_its_definition_not_the_type_sent() {
 
 #[tokio::test]
 async fn the_files_of_a_function_are_listed_by_name_without_its_folders() {
-    let dir = server().root.join("config").join("functions").join("fn-list");
+    let dir = server()
+        .root
+        .join("config")
+        .join("functions")
+        .join("fn-list");
     std::fs::create_dir_all(dir.join("sub")).unwrap();
     for name in ["b.md", "a.md", "index.html"] {
         std::fs::write(dir.join(name), "x").unwrap();

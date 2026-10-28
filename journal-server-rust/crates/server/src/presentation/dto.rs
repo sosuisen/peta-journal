@@ -77,10 +77,18 @@ pub fn page_dto_with(
     PageDto {
         properties: properties_json(scalars, lists),
         id: page.id.to_string(),
-        parent_id: page.parent_id.as_ref().map(|p| p.to_string()).unwrap_or_default(),
+        parent_id: page
+            .parent_id
+            .as_ref()
+            .map(|p| p.to_string())
+            .unwrap_or_default(),
         dir_path: page.dir_path.clone(),
         name: page.name.clone(),
-        page_type: if page.page_type.is_empty() { "doc".into() } else { page.page_type.clone() },
+        page_type: if page.page_type.is_empty() {
+            "doc".into()
+        } else {
+            page.page_type.clone()
+        },
         created_date: page.created_date,
         modified_date: page.modified_date,
     }
@@ -107,7 +115,11 @@ fn properties_json(
     properties
 }
 
-pub fn item_dto(item: &Item, scalars: Option<&BTreeMap<String, String>>, lists: Option<&BTreeMap<String, Vec<String>>>) -> ItemDto {
+pub fn item_dto(
+    item: &Item,
+    scalars: Option<&BTreeMap<String, String>>,
+    lists: Option<&BTreeMap<String, Vec<String>>>,
+) -> ItemDto {
     let properties = properties_json(scalars, lists);
     ItemDto {
         id: item.id.to_string(),
@@ -115,7 +127,11 @@ pub fn item_dto(item: &Item, scalars: Option<&BTreeMap<String, String>>, lists: 
         parent_item_id: item.parent_item_id.as_ref().map(|p| p.to_string()),
         dir_path: item.dir_path.clone(),
         name: item.name.clone(),
-        item_type: if item.item_type.is_empty() { "doc".into() } else { item.item_type.clone() },
+        item_type: if item.item_type.is_empty() {
+            "doc".into()
+        } else {
+            item.item_type.clone()
+        },
         created_date: item.created_date,
         modified_date: item.modified_date,
         idx: item.idx.clone(),
@@ -181,16 +197,24 @@ impl ItemDtoAssembler {
     /// Converts one page, loading its properties.
     pub fn page_to_dto(&self, page: &Page) -> AppResult<PageDto> {
         let id = page.id.to_string();
-        let scalars = self.properties.find_scalar_by_targets(PAGE_TARGET, std::slice::from_ref(&id))?;
-        let lists = self.properties.find_list_by_targets(PAGE_TARGET, std::slice::from_ref(&id))?;
+        let scalars = self
+            .properties
+            .find_scalar_by_targets(PAGE_TARGET, std::slice::from_ref(&id))?;
+        let lists = self
+            .properties
+            .find_list_by_targets(PAGE_TARGET, std::slice::from_ref(&id))?;
         Ok(page_dto_with(page, scalars.get(&id), lists.get(&id)))
     }
 
     /// Converts one item, loading its properties.
     pub fn to_dto(&self, item: &Item) -> AppResult<ItemDto> {
         let id = item.id.to_string();
-        let scalars = self.properties.find_scalar_by_targets(ITEM_TARGET, std::slice::from_ref(&id))?;
-        let lists = self.properties.find_list_by_targets(ITEM_TARGET, std::slice::from_ref(&id))?;
+        let scalars = self
+            .properties
+            .find_scalar_by_targets(ITEM_TARGET, std::slice::from_ref(&id))?;
+        let lists = self
+            .properties
+            .find_list_by_targets(ITEM_TARGET, std::slice::from_ref(&id))?;
         Ok(item_dto(item, scalars.get(&id), lists.get(&id)))
     }
 
@@ -226,7 +250,9 @@ impl ItemDtoAssembler {
         depth: usize,
     ) -> AppResult<()> {
         for item in items {
-            let Some(source) = &item.transclude_item_id else { continue };
+            let Some(source) = &item.transclude_item_id else {
+                continue;
+            };
             let source_id = source.to_string();
             if !trees.contains_key(&source_id) {
                 self.load_tree(source, trees, visited, depth)?;

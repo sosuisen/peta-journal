@@ -8,7 +8,10 @@ use tracing_subscriber::EnvFilter;
 async fn main() -> anyhow::Result<()> {
     // tantivy logs every segment file it deletes at INFO; that is noise for a journal server
     tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info,tantivy=warn")))
+        .with_env_filter(
+            EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| EnvFilter::new("info,tantivy=warn")),
+        )
         .init();
 
     let settings = Settings::from_cli(Cli::parse());
@@ -17,8 +20,10 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!("Config: {}", settings.config_dir.display());
 
     let port = settings.port;
-    let state = tokio::task::spawn_blocking(move || AppState::build(settings, BuildOptions { interactive: true }))
-        .await??;
+    let state = tokio::task::spawn_blocking(move || {
+        AppState::build(settings, BuildOptions { interactive: true })
+    })
+    .await??;
     state.start_background_tasks();
 
     let app = journal_server::build_router(state.clone());

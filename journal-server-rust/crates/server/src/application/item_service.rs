@@ -158,7 +158,8 @@ impl ItemService {
         // Sync hashtags as tag properties
         let hashtags = hashtag::extract_hashtags(&ast);
         if !hashtags.is_empty() {
-            self.properties.sync_tags(ITEM_TARGET, id.as_str(), &hashtags)?;
+            self.properties
+                .sync_tags(ITEM_TARGET, id.as_str(), &hashtags)?;
             self.page_service.update_tag_pages(&[], &hashtags);
         }
 
@@ -187,14 +188,23 @@ impl ItemService {
             _ => None,
         };
 
-        let patch = ItemPatch::new(new_body.clone(), new_ast.clone(), body_types, task, level, collapsed, now_millis())
-            .map_err(AppError::bad_request)?;
+        let patch = ItemPatch::new(
+            new_body.clone(),
+            new_ast.clone(),
+            body_types,
+            task,
+            level,
+            collapsed,
+            now_millis(),
+        )
+        .map_err(AppError::bad_request)?;
         self.items.patch(item_id, &patch)?;
 
         if let Some(ast) = &new_ast {
             let before = self.properties.find_tags(ITEM_TARGET, item_id.as_str())?;
             let hashtags = hashtag::extract_hashtags(ast);
-            self.properties.sync_tags(ITEM_TARGET, item_id.as_str(), &hashtags)?;
+            self.properties
+                .sync_tags(ITEM_TARGET, item_id.as_str(), &hashtags)?;
             self.page_service.update_tag_pages(&before, &hashtags);
         }
         if level.is_some() {
@@ -269,9 +279,9 @@ impl ItemService {
         let mut touched: Vec<Hmtid> = vec![target_page_id.clone()];
         {
             let _guard = self.move_lock.lock();
-            self.pages
-                .find_by_id(target_page_id)?
-                .ok_or_else(|| AppError::bad_request(format!("Target page not found: {target_page_id}")))?;
+            self.pages.find_by_id(target_page_id)?.ok_or_else(|| {
+                AppError::bad_request(format!("Target page not found: {target_page_id}"))
+            })?;
             let moving = self.find_all(item_ids)?;
             for item in &moving {
                 if !touched.contains(&item.page_id) {
@@ -303,7 +313,8 @@ impl ItemService {
                     idx,
                 })
                 .collect();
-            self.items.move_items(target_page_id, &placements, delta, now_millis())?;
+            self.items
+                .move_items(target_page_id, &placements, delta, now_millis())?;
         }
         // The pages the items left need new parents and a new export too
         for page_id in &touched {
@@ -351,10 +362,9 @@ impl ItemService {
     /// Sets a transclusion on an item, making it mirror a source item.
     pub fn set_transclusion(&self, item_id: &Hmtid, source_item_id: &Hmtid) -> AppResult<Item> {
         let item = self.get_item_by_id(item_id)?;
-        let source = self
-            .items
-            .find_by_id(source_item_id)?
-            .ok_or_else(|| AppError::bad_request(format!("Source item not found: {source_item_id}")))?;
+        let source = self.items.find_by_id(source_item_id)?.ok_or_else(|| {
+            AppError::bad_request(format!("Source item not found: {source_item_id}"))
+        })?;
         if source.transclude_item_id.is_some() {
             return Err(AppError::bad_request(
                 "Cannot transclude a transclusion item. Please select the original source item.",
@@ -369,7 +379,12 @@ impl ItemService {
         self.save_body_and_transclusion(&item, "", None)
     }
 
-    fn save_body_and_transclusion(&self, item: &Item, body: &str, transclude: Option<Hmtid>) -> AppResult<Item> {
+    fn save_body_and_transclusion(
+        &self,
+        item: &Item,
+        body: &str,
+        transclude: Option<Hmtid>,
+    ) -> AppResult<Item> {
         let updated = Item {
             modified_date: now_millis(),
             body: body.to_string(),
@@ -400,7 +415,10 @@ impl ItemService {
 
     /// The page ID that contains the given item, or None if the item is not found.
     pub fn get_item_page_id(&self, item_id: &Hmtid) -> AppResult<Option<String>> {
-        Ok(self.items.find_by_id(item_id)?.map(|b| b.page_id.to_string()))
+        Ok(self
+            .items
+            .find_by_id(item_id)?
+            .map(|b| b.page_id.to_string()))
     }
 
     /// Cycles the task state of an item:
@@ -409,7 +427,9 @@ impl ItemService {
     pub fn cycle_task(&self, item_id: &Hmtid) -> AppResult<Item> {
         let existing = self.get_item_by_id(item_id)?;
         let id = item_id.to_string();
-        let scalars = self.properties.find_scalar_by_targets(ITEM_TARGET, std::slice::from_ref(&id))?;
+        let scalars = self
+            .properties
+            .find_scalar_by_targets(ITEM_TARGET, std::slice::from_ref(&id))?;
         let scalars = scalars.get(&id).cloned().unwrap_or_default();
         let is_task = existing.is_task();
         let has_begin = scalars.contains_key("begin");
@@ -420,12 +440,22 @@ impl ItemService {
             self.clear_task_times(&id)?;
             r
         } else if !has_begin && !has_end {
-            self.properties
-                .upsert_scalar(ITEM_TARGET, &id, "begin", "datetime", &now_in_seconds())?;
+            self.properties.upsert_scalar(
+                ITEM_TARGET,
+                &id,
+                "begin",
+                "datetime",
+                &now_in_seconds(),
+            )?;
             existing.clone()
         } else if has_begin && !has_end {
-            self.properties
-                .upsert_scalar(ITEM_TARGET, &id, "end", "datetime", &now_in_seconds())?;
+            self.properties.upsert_scalar(
+                ITEM_TARGET,
+                &id,
+                "end",
+                "datetime",
+                &now_in_seconds(),
+            )?;
             existing.clone()
         } else {
             let r = self.patch_task(&existing, false)?;
@@ -439,7 +469,13 @@ impl ItemService {
 
     /// Sets a scalar property of an item. The page file is rewritten, as for any other
     /// change of the item.
-    pub fn set_property(&self, item_id: &Hmtid, key: &str, value_type: &str, value: &str) -> AppResult<Item> {
+    pub fn set_property(
+        &self,
+        item_id: &Hmtid,
+        key: &str,
+        value_type: &str,
+        value: &str,
+    ) -> AppResult<Item> {
         let existing = self.get_item_by_id(item_id)?;
         self.properties
             .upsert_scalar(ITEM_TARGET, item_id.as_str(), key, value_type, value)?;
@@ -451,15 +487,18 @@ impl ItemService {
     /// Removes a property of an item. The page file is rewritten.
     pub fn delete_property(&self, item_id: &Hmtid, key: &str) -> AppResult<Item> {
         let existing = self.get_item_by_id(item_id)?;
-        self.properties.delete_property(ITEM_TARGET, item_id.as_str(), key)?;
+        self.properties
+            .delete_property(ITEM_TARGET, item_id.as_str(), key)?;
         self.touch_page(&existing.page_id)?;
         self.export.queue_export(&existing.page_id);
         Ok(existing)
     }
 
     fn clear_task_times(&self, item_id: &str) -> AppResult<()> {
-        self.properties.delete_property(ITEM_TARGET, item_id, "begin")?;
-        self.properties.delete_property(ITEM_TARGET, item_id, "end")?;
+        self.properties
+            .delete_property(ITEM_TARGET, item_id, "begin")?;
+        self.properties
+            .delete_property(ITEM_TARGET, item_id, "end")?;
         Ok(())
     }
 
@@ -468,7 +507,10 @@ impl ItemService {
         let patch = ItemPatch::new(None, None, None, Some(task), None, None, now_millis())
             .map_err(AppError::internal)?;
         self.items.patch(&existing.id, &patch)?;
-        Ok(self.items.find_by_id(&existing.id)?.unwrap_or_else(|| existing.clone()))
+        Ok(self
+            .items
+            .find_by_id(&existing.id)?
+            .unwrap_or_else(|| existing.clone()))
     }
 
     pub fn export_page_markdown(&self, page_id: &Hmtid) -> AppResult<TreeMarkdownExport> {
@@ -543,7 +585,10 @@ impl ItemService {
             dir_path: dir_path.map_or_else(|| existing.dir_path.clone(), str::to_string),
             ..existing.clone()
         };
-        let rename = match (self.page_service.tag_of_page(&existing), self.page_service.tag_of_page(&moved)) {
+        let rename = match (
+            self.page_service.tag_of_page(&existing),
+            self.page_service.tag_of_page(&moved),
+        ) {
             (Some(old), Some(new)) if old != new => {
                 // A title the bodies cannot write as a hashtag would break the tag
                 if !hashtag::is_valid(&new) {
@@ -555,7 +600,9 @@ impl ItemService {
             }
             _ => None,
         };
-        let page = self.page_service.update_page(page_id, title, dir_path, overwrite)?;
+        let page = self
+            .page_service
+            .update_page(page_id, title, dir_path, overwrite)?;
         let changed = match rename {
             Some((old, new)) => self.rename_tag(&old, &new)?,
             None => Vec::new(),
@@ -572,13 +619,21 @@ impl ItemService {
             if hashtag::renamed(&value, old, new).is_none() {
                 continue;
             }
-            page_ids.extend(self.properties.find_page_ids_by_tag_value_ignoring_case(&value)?);
-            item_ids.extend(self.properties.find_item_ids_by_tag_value_ignoring_case(&value, i64::MAX)?);
+            page_ids.extend(
+                self.properties
+                    .find_page_ids_by_tag_value_ignoring_case(&value)?,
+            );
+            item_ids.extend(
+                self.properties
+                    .find_item_ids_by_tag_value_ignoring_case(&value, i64::MAX)?,
+            );
         }
 
         let mut changed = BTreeSet::new();
         for id in page_ids {
-            let Ok(page_id) = Hmtid::parse(&id) else { continue };
+            let Ok(page_id) = Hmtid::parse(&id) else {
+                continue;
+            };
             let mut tags: Vec<String> = Vec::new();
             for tag in self.properties.find_tags(PAGE_TARGET, &id)? {
                 let tag = hashtag::renamed(&tag, old, new).unwrap_or(tag);
@@ -586,11 +641,14 @@ impl ItemService {
                     tags.push(tag);
                 }
             }
-            self.page_service.set_property(&page_id, "tags", "tags", &tags.join(","))?;
+            self.page_service
+                .set_property(&page_id, "tags", "tags", &tags.join(","))?;
             changed.insert(page_id);
         }
         for id in item_ids {
-            let Ok(item_id) = Hmtid::parse(&id) else { continue };
+            let Ok(item_id) = Hmtid::parse(&id) else {
+                continue;
+            };
             let item = self.get_item_by_id(&item_id)?;
             let body = page_link_converter::rename_hashtags(&item.body, old, new);
             if body == item.body {
@@ -666,14 +724,22 @@ fn validate_levels(moving: &[Item], delta: i32, anchor: Option<&Item>) -> AppRes
 }
 
 /// Plans indices for the whole group inside the gap at the position, so none reaches the next item.
-fn plan_indices(staying: &[Item], position: &ItemPosition, count: usize) -> Result<Vec<String>, PlanError> {
+fn plan_indices(
+    staying: &[Item],
+    position: &ItemPosition,
+    count: usize,
+) -> Result<Vec<String>, PlanError> {
     let anchor = match find_anchor(staying, position) {
         Ok(a) => a,
         Err(e) => return Err(PlanError::Invalid(e.to_string())),
     };
     let next_pos = match anchor {
         None => 0,
-        Some(a) => staying.iter().position(|i| i.id == a.id).map(|p| p + 1).unwrap_or(0),
+        Some(a) => staying
+            .iter()
+            .position(|i| i.id == a.id)
+            .map(|p| p + 1)
+            .unwrap_or(0),
     };
     let after_idx = anchor.map(|a| a.idx.as_str());
     let next_idx = staying.get(next_pos).map(|i| i.idx.as_str());
@@ -689,8 +755,12 @@ fn calculate_insertion_index(existing: &[Item], position: &ItemPosition) -> Resu
         return Ok(fractional_index::initial());
     }
     Ok(match position {
-        ItemPosition::First => fractional_index::between(None, existing.first().map(|i| i.idx.as_str())),
-        ItemPosition::Last => fractional_index::between(existing.last().map(|i| i.idx.as_str()), None),
+        ItemPosition::First => {
+            fractional_index::between(None, existing.first().map(|i| i.idx.as_str()))
+        }
+        ItemPosition::Last => {
+            fractional_index::between(existing.last().map(|i| i.idx.as_str()), None)
+        }
         ItemPosition::After(item_id) => {
             let mut after_idx = None;
             let mut next_idx = None;

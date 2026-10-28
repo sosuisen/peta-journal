@@ -7,8 +7,8 @@ use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::error::{parse_id, AppError, AppResult};
 use crate::domain::model::Page;
+use crate::error::{parse_id, AppError, AppResult};
 use crate::presentation::dto::{backlink_dto, page_dto_with, BacklinkEntryDto, ItemDto, PageDto};
 use crate::state::{blocking, SharedState};
 
@@ -16,7 +16,10 @@ pub fn routes() -> Router<SharedState> {
     Router::new()
         .route("/api/pages/doc", post(get_or_create_doc))
         .route("/api/pages/recent", get(get_recent))
-        .route("/api/pages/{id}", get(get_page).put(update_page).delete(delete_page))
+        .route(
+            "/api/pages/{id}",
+            get(get_page).put(update_page).delete(delete_page),
+        )
         .route("/api/pages/{id}/backlinks", get(get_backlinks))
         .route("/api/pages/{id}/children", get(get_children))
         .route(
@@ -86,7 +89,10 @@ struct RecentQuery {
     page_type: Option<String>,
 }
 
-async fn get_page(State(state): State<SharedState>, Path(id): Path<String>) -> AppResult<Json<GetPageByIdResponse>> {
+async fn get_page(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+) -> AppResult<Json<GetPageByIdResponse>> {
     let page_id = parse_id(&id)?;
     blocking(move || {
         let page = state
@@ -127,9 +133,12 @@ async fn update_page(
 ) -> AppResult<Json<UpdatePageResponse>> {
     let page_id = parse_id(&id)?;
     blocking(move || {
-        let (page, changed) = state
-            .item_service
-            .update_page(&page_id, req.title.as_deref(), req.dir_path.as_deref(), req.overwrite)?;
+        let (page, changed) = state.item_service.update_page(
+            &page_id,
+            req.title.as_deref(),
+            req.dir_path.as_deref(),
+            req.overwrite,
+        )?;
         state.sse.broadcast_pages_updated(&id);
         for page_id in changed {
             state.sse.broadcast_pages_updated(page_id.as_str());
@@ -177,7 +186,10 @@ async fn delete_property(
     .await
 }
 
-async fn delete_page(State(state): State<SharedState>, Path(id): Path<String>) -> AppResult<StatusCode> {
+async fn delete_page(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+) -> AppResult<StatusCode> {
     let page_id = parse_id(&id)?;
     blocking(move || {
         state.page_service.delete_page(&page_id)?;
@@ -187,7 +199,10 @@ async fn delete_page(State(state): State<SharedState>, Path(id): Path<String>) -
     .await
 }
 
-async fn get_recent(State(state): State<SharedState>, Query(q): Query<RecentQuery>) -> AppResult<Json<PagesResponse>> {
+async fn get_recent(
+    State(state): State<SharedState>,
+    Query(q): Query<RecentQuery>,
+) -> AppResult<Json<PagesResponse>> {
     blocking(move || {
         let page_type = q.page_type.filter(|t| !t.is_empty());
         let pages = state
@@ -198,7 +213,10 @@ async fn get_recent(State(state): State<SharedState>, Query(q): Query<RecentQuer
     .await
 }
 
-async fn get_backlinks(State(state): State<SharedState>, Path(id): Path<String>) -> AppResult<Json<GetBacklinksResponse>> {
+async fn get_backlinks(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+) -> AppResult<Json<GetBacklinksResponse>> {
     let page_id = parse_id(&id)?;
     blocking(move || {
         let entries = state.page_service.get_backlinks(&page_id)?;
@@ -209,7 +227,10 @@ async fn get_backlinks(State(state): State<SharedState>, Path(id): Path<String>)
     .await
 }
 
-async fn get_children(State(state): State<SharedState>, Path(id): Path<String>) -> AppResult<Json<PagesResponse>> {
+async fn get_children(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+) -> AppResult<Json<PagesResponse>> {
     let page_id = parse_id(&id)?;
     blocking(move || {
         let pages = state.pages.find_by_parent_id(&page_id)?;

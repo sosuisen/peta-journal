@@ -163,7 +163,11 @@ fn load_backlinks(page_id: String) -> Cmd {
 pub fn backlink_groups(entries: &[BacklinkEntry]) -> Vec<(Page, Vec<crate::model::Item>)> {
     let mut groups: Vec<(Page, Vec<crate::model::Item>)> = Vec::new();
     for e in entries {
-        if groups.last().map(|(p, _)| p.id != e.source_page.id).unwrap_or(true) {
+        if groups
+            .last()
+            .map(|(p, _)| p.id != e.source_page.id)
+            .unwrap_or(true)
+        {
             groups.push((e.source_page.clone(), Vec::new()));
         }
         if let (Some(item), Some(group)) = (&e.source_item, groups.last_mut()) {
@@ -196,7 +200,11 @@ pub fn is_atlas(p: &Page) -> bool {
 
 /// The fixed title of an atlas page: `Atlas of a/b/`.
 pub fn atlas_title(p: &Page) -> String {
-    let dir = if p.dir_path.is_empty() { "(root)/" } else { p.dir_path.as_str() };
+    let dir = if p.dir_path.is_empty() {
+        "(root)/"
+    } else {
+        p.dir_path.as_str()
+    };
     format!("Atlas of {dir}")
 }
 
@@ -213,7 +221,13 @@ pub fn toggle_atlas(model: &mut Model) -> Cmd {
     } else {
         return done();
     };
-    navigate::to_page(&format!("{}{target}", p.dir_path), false, false, false, None)
+    navigate::to_page(
+        &format!("{}{target}", p.dir_path),
+        false,
+        false,
+        false,
+        None,
+    )
 }
 
 /// Opens the atlas page of the directory above the shown atlas page. The map stays a map
@@ -500,7 +514,10 @@ async fn update_page(
 ) -> Option<Page> {
     let mut overwrite = false;
     loop {
-        match api.update_page(page_id, title.clone(), dir_path.clone(), overwrite).await {
+        match api
+            .update_page(page_id, title.clone(), dir_path.clone(), overwrite)
+            .await
+        {
             Ok(PageUpdate::Updated(page)) => return Some(page),
             Ok(PageUpdate::NameTaken(_)) if !overwrite => {
                 let question = format!(
@@ -548,7 +565,10 @@ pub fn demote_index(model: &mut Model) -> Cmd {
         };
         if let Some(atlas) = atlas {
             if !api
-                .confirm(&format!("Rename to \"{name}\" and delete the atlas page of {}?", p.dir_path))
+                .confirm(&format!(
+                    "Rename to \"{name}\" and delete the atlas page of {}?",
+                    p.dir_path
+                ))
                 .await
             {
                 return;
@@ -569,8 +589,8 @@ pub fn demote_index(model: &mut Model) -> Cmd {
             Some(parent_dir.clone()),
             &format!("{parent_dir}{name}"),
         )
-            .await
-            .is_none()
+        .await
+        .is_none()
         {
             return;
         }

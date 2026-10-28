@@ -51,8 +51,11 @@ impl ExportQueueRepository {
     /// Drops a pending export, e.g. when the page was deleted.
     pub fn remove(&self, page_id: &Hmtid) -> AppResult<()> {
         let conn = self.db.conn()?;
-        conn.execute("DELETE FROM export_queue WHERE page_id = ?", [page_id.as_str()])
-            .with_context(|| format!("Failed to remove export for page: {page_id}"))?;
+        conn.execute(
+            "DELETE FROM export_queue WHERE page_id = ?",
+            [page_id.as_str()],
+        )
+        .with_context(|| format!("Failed to remove export for page: {page_id}"))?;
         Ok(())
     }
 
@@ -63,9 +66,15 @@ impl ExportQueueRepository {
             match self.try_dequeue() {
                 Ok(ids) => return Ok(ids),
                 Err(e) if is_locked(&e) && attempt < max_retries - 1 => {
-                    std::thread::sleep(std::time::Duration::from_millis(100 * (attempt as u64 + 1)));
+                    std::thread::sleep(std::time::Duration::from_millis(
+                        100 * (attempt as u64 + 1),
+                    ));
                 }
-                Err(e) => return Err(anyhow::Error::new(e).context("Failed to dequeue exports").into()),
+                Err(e) => {
+                    return Err(anyhow::Error::new(e)
+                        .context("Failed to dequeue exports")
+                        .into())
+                }
             }
         }
         Ok(Vec::new())
@@ -78,7 +87,8 @@ impl ExportQueueRepository {
             .map_err(|e| rusqlite::Error::ToSqlConversionFailure(e.into()))?;
         let tx = conn.immediate()?;
         let ids: Vec<String> = {
-            let mut stmt = tx.prepare("SELECT page_id FROM export_queue ORDER BY queued_at LIMIT 10")?;
+            let mut stmt =
+                tx.prepare("SELECT page_id FROM export_queue ORDER BY queued_at LIMIT 10")?;
             let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
             rows.collect::<Result<_, _>>()?
         };

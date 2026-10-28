@@ -80,7 +80,10 @@ fn guess_content_type(path: &str) -> &'static str {
     }
 }
 
-async fn serve_file(State(state): State<SharedState>, Path((dir_name, path)): Path<(String, String)>) -> Response {
+async fn serve_file(
+    State(state): State<SharedState>,
+    Path((dir_name, path)): Path<(String, String)>,
+) -> Response {
     // Security: reject path traversal
     if dir_name.contains("..") || path.contains("..") {
         return StatusCode::FORBIDDEN.into_response();
@@ -90,7 +93,9 @@ async fn serve_file(State(state): State<SharedState>, Path((dir_name, path)): Pa
         return StatusCode::NOT_FOUND.into_response();
     }
     match tokio::fs::read(&file).await {
-        Ok(content) => ([(header::CONTENT_TYPE, guess_content_type(&path))], content).into_response(),
+        Ok(content) => {
+            ([(header::CONTENT_TYPE, guess_content_type(&path))], content).into_response()
+        }
         Err(_) => {
             tracing::error!("Failed to serve file: {dir_name}/{path}");
             StatusCode::INTERNAL_SERVER_ERROR.into_response()

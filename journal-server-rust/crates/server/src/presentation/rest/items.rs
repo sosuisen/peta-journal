@@ -23,8 +23,14 @@ pub fn routes() -> Router<SharedState> {
         .route("/api/items/export-subtree", post(export_subtree_markdown))
         .route("/api/items/import", post(import_tree_markdown))
         .route("/api/items/parse", post(parse_flat_markdown))
-        .route("/api/items/{id}", get(get_item).put(update_item).delete(delete_item))
-        .route("/api/items/{id}/transclude", post(set_transclusion).delete(remove_transclusion))
+        .route(
+            "/api/items/{id}",
+            get(get_item).put(update_item).delete(delete_item),
+        )
+        .route(
+            "/api/items/{id}/transclude",
+            post(set_transclusion).delete(remove_transclusion),
+        )
         .route("/api/items/{id}/cycle-task", post(cycle_task))
         .route(
             "/api/items/{id}/properties/{key}",
@@ -171,7 +177,11 @@ fn parse_position(position: Option<&str>) -> AppResult<ItemPosition> {
     ItemPosition::parse(position.unwrap_or("")).map_err(AppError::bad_request)
 }
 
-fn broadcast_to_transcluders(state: &SharedState, source_item_id: &Hmtid, exclude_page_id: &str) -> AppResult<()> {
+fn broadcast_to_transcluders(
+    state: &SharedState,
+    source_item_id: &Hmtid,
+    exclude_page_id: &str,
+) -> AppResult<()> {
     for t in state.items.find_transcluders(source_item_id)? {
         let page_id = t.page_id.to_string();
         if page_id != exclude_page_id {
@@ -181,7 +191,10 @@ fn broadcast_to_transcluders(state: &SharedState, source_item_id: &Hmtid, exclud
     Ok(())
 }
 
-async fn create_item(State(state): State<SharedState>, Json(req): Json<CreateItemRequest>) -> AppResult<Json<ItemResponse>> {
+async fn create_item(
+    State(state): State<SharedState>,
+    Json(req): Json<CreateItemRequest>,
+) -> AppResult<Json<ItemResponse>> {
     let page_id = parse_id(required(req.page_id.as_deref(), "pageId")?)?;
     let client_id = match req.id.as_deref() {
         Some(s) if !s.is_empty() => Some(parse_id(s)?),
@@ -189,9 +202,13 @@ async fn create_item(State(state): State<SharedState>, Json(req): Json<CreateIte
     };
     let position = parse_position(req.position.as_deref())?;
     blocking(move || {
-        let item = state
-            .item_service
-            .create_item(&page_id, &position, req.level, req.body.as_deref(), client_id)?;
+        let item = state.item_service.create_item(
+            &page_id,
+            &position,
+            req.level,
+            req.body.as_deref(),
+            client_id,
+        )?;
         state.sse.broadcast_pages_updated(page_id.as_str());
         Ok(Json(ItemResponse {
             item: state.dtos.to_dto(&item)?,
@@ -200,10 +217,16 @@ async fn create_item(State(state): State<SharedState>, Json(req): Json<CreateIte
     .await
 }
 
-async fn get_item(State(state): State<SharedState>, Path(id): Path<String>, Query(q): Query<FieldsQuery>) -> AppResult<Response> {
+async fn get_item(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    Query(q): Query<FieldsQuery>,
+) -> AppResult<Response> {
     let item_id = parse_id(&id)?;
     blocking(move || {
-        let dto = state.dtos.to_dto(&state.item_service.get_item_by_id(&item_id)?)?;
+        let dto = state
+            .dtos
+            .to_dto(&state.item_service.get_item_by_id(&item_id)?)?;
         match q.fields.as_deref().filter(|f| !f.is_empty()) {
             Some(fields) => Ok(Json(select_fields(&dto, fields)).into_response()),
             None => Ok(Json(ItemResponse { item: dto }).into_response()),
@@ -219,9 +242,12 @@ async fn update_item(
 ) -> AppResult<Json<ItemResponse>> {
     let item_id = parse_id(&id)?;
     blocking(move || {
-        let item = state
-            .item_service
-            .update_item(&item_id, req.body.as_deref(), req.level, req.collapsed)?;
+        let item = state.item_service.update_item(
+            &item_id,
+            req.body.as_deref(),
+            req.level,
+            req.collapsed,
+        )?;
         let page_id = item.page_id.to_string();
         state.sse.broadcast_pages_updated(&page_id);
         broadcast_to_transcluders(&state, &item_id, &page_id)?;
@@ -232,7 +258,10 @@ async fn update_item(
     .await
 }
 
-async fn delete_item(State(state): State<SharedState>, Path(id): Path<String>) -> AppResult<StatusCode> {
+async fn delete_item(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+) -> AppResult<StatusCode> {
     let item_id = parse_id(&id)?;
     blocking(move || {
         // Find transcluders before deletion so we can notify their pages
@@ -267,7 +296,10 @@ async fn set_transclusion(
     .await
 }
 
-async fn remove_transclusion(State(state): State<SharedState>, Path(id): Path<String>) -> AppResult<Json<ItemResponse>> {
+async fn remove_transclusion(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+) -> AppResult<Json<ItemResponse>> {
     let item_id = parse_id(&id)?;
     blocking(move || {
         let item = state.item_service.remove_transclusion(&item_id)?;
@@ -279,7 +311,10 @@ async fn remove_transclusion(State(state): State<SharedState>, Path(id): Path<St
     .await
 }
 
-async fn get_items_by_types(State(state): State<SharedState>, Query(q): Query<TypesQuery>) -> AppResult<Json<ItemsResponse>> {
+async fn get_items_by_types(
+    State(state): State<SharedState>,
+    Query(q): Query<TypesQuery>,
+) -> AppResult<Json<ItemsResponse>> {
     blocking(move || {
         let types: Vec<String> = match q.types.as_deref().filter(|t| !t.is_empty()) {
             Some(t) => t.split(',').map(|s| s.to_string()).collect(),
@@ -293,7 +328,10 @@ async fn get_items_by_types(State(state): State<SharedState>, Query(q): Query<Ty
     .await
 }
 
-async fn cycle_task(State(state): State<SharedState>, Path(id): Path<String>) -> AppResult<Json<ItemResponse>> {
+async fn cycle_task(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+) -> AppResult<Json<ItemResponse>> {
     let item_id = parse_id(&id)?;
     blocking(move || {
         let item = state.item_service.cycle_task(&item_id)?;
@@ -305,12 +343,17 @@ async fn cycle_task(State(state): State<SharedState>, Path(id): Path<String>) ->
     .await
 }
 
-async fn move_items(State(state): State<SharedState>, Json(req): Json<MoveItemsRequest>) -> AppResult<Json<ItemsResponse>> {
+async fn move_items(
+    State(state): State<SharedState>,
+    Json(req): Json<MoveItemsRequest>,
+) -> AppResult<Json<ItemsResponse>> {
     let position = parse_position(req.position.as_deref())?;
     let ids = parse_ids(req.item_ids, "itemIds")?;
     let target = parse_id(required(req.target_page_id.as_deref(), "targetPageId")?)?;
     blocking(move || {
-        let items = state.item_service.move_items(&ids, &target, &position, req.level_delta)?;
+        let items = state
+            .item_service
+            .move_items(&ids, &target, &position, req.level_delta)?;
         state.sse.broadcast_pages_updated(target.as_str());
         Ok(Json(ItemsResponse {
             items: state.dtos.to_dtos(&items)?,
@@ -321,7 +364,10 @@ async fn move_items(State(state): State<SharedState>, Json(req): Json<MoveItemsR
 
 /// Indents or outdents a group of items in one request. The change is relative, so requests that
 /// arrive out of order still add up correctly.
-async fn shift_levels(State(state): State<SharedState>, Json(req): Json<ShiftLevelsRequest>) -> AppResult<Json<ItemsResponse>> {
+async fn shift_levels(
+    State(state): State<SharedState>,
+    Json(req): Json<ShiftLevelsRequest>,
+) -> AppResult<Json<ItemsResponse>> {
     let ids = parse_ids(req.item_ids, "itemIds")?;
     blocking(move || {
         let items = state.item_service.shift_levels(&ids, req.delta)?;
@@ -381,7 +427,9 @@ async fn delete_property(
     .await
 }
 
-fn export_response(r: crate::application::item_service::TreeMarkdownExport) -> Json<ExportTreeMarkdownResponse> {
+fn export_response(
+    r: crate::application::item_service::TreeMarkdownExport,
+) -> Json<ExportTreeMarkdownResponse> {
     Json(ExportTreeMarkdownResponse {
         tree_markdown: r.tree_markdown,
         ast: r.ast,
@@ -394,7 +442,12 @@ async fn export_tree_markdown(
     Json(req): Json<ExportTreeMarkdownRequest>,
 ) -> AppResult<Json<ExportTreeMarkdownResponse>> {
     let ids = parse_ids(req.item_ids, "itemIds")?;
-    blocking(move || Ok(export_response(state.item_service.export_tree_markdown(&ids)?))).await
+    blocking(move || {
+        Ok(export_response(
+            state.item_service.export_tree_markdown(&ids)?,
+        ))
+    })
+    .await
 }
 
 async fn export_page_markdown(
@@ -402,7 +455,12 @@ async fn export_page_markdown(
     Query(q): Query<PageIdQuery>,
 ) -> AppResult<Json<ExportTreeMarkdownResponse>> {
     let page_id = parse_id(required(q.page_id.as_deref(), "pageId")?)?;
-    blocking(move || Ok(export_response(state.item_service.export_page_markdown(&page_id)?))).await
+    blocking(move || {
+        Ok(export_response(
+            state.item_service.export_page_markdown(&page_id)?,
+        ))
+    })
+    .await
 }
 
 async fn export_subtree_markdown(
@@ -410,7 +468,12 @@ async fn export_subtree_markdown(
     Query(q): Query<ItemIdQuery>,
 ) -> AppResult<Json<ExportTreeMarkdownResponse>> {
     let item_id = parse_id(required(q.item_id.as_deref(), "itemId")?)?;
-    blocking(move || Ok(export_response(state.item_service.export_subtree_markdown(&item_id)?))).await
+    blocking(move || {
+        Ok(export_response(
+            state.item_service.export_subtree_markdown(&item_id)?,
+        ))
+    })
+    .await
 }
 
 async fn import_tree_markdown(
@@ -431,7 +494,9 @@ async fn parse_flat_markdown(
     Json(req): Json<ParseFlatMarkdownRequest>,
 ) -> AppResult<Json<ParseFlatMarkdownResponse>> {
     blocking(move || {
-        let page = state.splitter.split(req.markdown.as_deref().unwrap_or(""))?;
+        let page = state
+            .splitter
+            .split(req.markdown.as_deref().unwrap_or(""))?;
         Ok(Json(ParseFlatMarkdownResponse {
             items: page
                 .items

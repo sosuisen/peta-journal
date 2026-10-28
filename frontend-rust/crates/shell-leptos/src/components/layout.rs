@@ -109,7 +109,12 @@ pub fn MainLayout() -> impl IntoView {
         // Ctrl+Alt+Enter opens Home. In the capture phase and stopped there, as an item editor
         // would take it as its own Ctrl+Enter.
         global.on_capture("keydown", move |ev: &web_sys::KeyboardEvent| {
-            if ev.key() == "Enter" && ev.ctrl_key() && ev.alt_key() && !ev.shift_key() && !ev.meta_key() {
+            if ev.key() == "Enter"
+                && ev.ctrl_key()
+                && ev.alt_key()
+                && !ev.shift_key()
+                && !ev.meta_key()
+            {
                 if dom::is_ime_composing(ev) {
                     return;
                 }

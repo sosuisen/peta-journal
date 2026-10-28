@@ -64,12 +64,18 @@ impl FlatMarkdownSplitter {
             .and_then(|v| v.as_array())
             .map(|arr| arr.iter().map(to_split_item).collect())
             .unwrap_or_default();
-        Ok(SplitPage { front_matter, items })
+        Ok(SplitPage {
+            front_matter,
+            items,
+        })
     }
 }
 
 fn to_split_item(node: &Value) -> SplitItem {
-    let id = node.get("id").and_then(|v| v.as_str()).map(|s| s.to_string());
+    let id = node
+        .get("id")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
     let properties = node
         .get("properties")
         .and_then(|v| v.as_object())
@@ -110,12 +116,20 @@ mod tests {
         assert_eq!(page.items[0].level, 1);
         assert_eq!(page.items[0].body, "first");
         assert_eq!(page.items[1].level, 2);
-        assert_eq!(page.items[1].properties_map().get("collapsed").map(String::as_str), Some("true"));
+        assert_eq!(
+            page.items[1]
+                .properties_map()
+                .get("collapsed")
+                .map(String::as_str),
+            Some("true")
+        );
     }
 
     #[test]
     fn plain_text_is_level_one() {
-        let page = FlatMarkdownSplitter::default().split("hello\n\nworld\n").unwrap();
+        let page = FlatMarkdownSplitter::default()
+            .split("hello\n\nworld\n")
+            .unwrap();
         assert_eq!(page.items.len(), 2);
         assert!(page.items[0].id.is_none());
     }

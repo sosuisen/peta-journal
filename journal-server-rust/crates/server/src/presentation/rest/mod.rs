@@ -37,6 +37,8 @@ async fn health() -> ([(axum::http::HeaderName, &'static str); 1], &'static str)
     )
 }
 
-async fn events(axum::extract::State(state): axum::extract::State<SharedState>) -> impl axum::response::IntoResponse {
+async fn events(
+    axum::extract::State(state): axum::extract::State<SharedState>,
+) -> impl axum::response::IntoResponse {
     state.sse.event_stream()
 }

@@ -19,7 +19,12 @@ fn a_journal_url_with_an_item_scrolls_to_the_item_and_selects_it() {
         op,
         UiOp::ScrollToItem { item_id, .. } if item_id == "item-2031-01-02"
     )));
-    assert!(h.view().outline.rows.iter().any(|r| r.item.id == "item-2031-01-02" && r.is_selected));
+    assert!(h
+        .view()
+        .outline
+        .rows
+        .iter()
+        .any(|r| r.item.id == "item-2031-01-02" && r.is_selected));
 }
 
 #[test]
@@ -33,5 +38,8 @@ fn a_journal_url_without_an_item_does_not_scroll() {
         today: "2031-01-05".into(),
     });
 
-    assert!(!h.ui.iter().any(|op| matches!(op, UiOp::ScrollToItem { .. })));
+    assert!(!h
+        .ui
+        .iter()
+        .any(|op| matches!(op, UiOp::ScrollToItem { .. })));
 }

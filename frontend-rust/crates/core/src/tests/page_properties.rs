@@ -45,8 +45,18 @@ fn the_dates_of_the_page_are_rows_that_cannot_be_removed_and_do_not_open_the_row
     assert_eq!(
         rows(&h),
         vec![
-            ("created".to_string(), "1970-01-01T00:00:00Z".to_string(), false, true),
-            ("modified".to_string(), "1970-01-01T00:00:00Z".to_string(), false, false),
+            (
+                "created".to_string(),
+                "1970-01-01T00:00:00Z".to_string(),
+                false,
+                true
+            ),
+            (
+                "modified".to_string(),
+                "1970-01-01T00:00:00Z".to_string(),
+                false,
+                false
+            ),
         ]
     );
     h.send(Event::SetPageProperty {
@@ -69,7 +79,10 @@ fn setting_a_page_property_shows_it_and_takes_the_server_value() {
         value: "me".into(),
     });
     assert!(h.api.calls.iter().any(|c| matches!(c, ApiOp::UpsertPageProperty { page_id, key, value_type, value } if page_id == "page1" && key == "owner" && value_type == "text" && value == "me")));
-    assert_eq!(page_properties(&h), vec![("owner".to_string(), "\"me\"".to_string())]);
+    assert_eq!(
+        page_properties(&h),
+        vec![("owner".to_string(), "\"me\"".to_string())]
+    );
     assert!(shows_properties(&h));
     // The server's page replaced the shown one
     if let Screen::Page(p) = &h.model.screen {
@@ -88,7 +101,10 @@ fn a_tag_value_is_shown_as_a_list_until_the_server_answers() {
     });
     // The refusal put the old (empty) properties back and told the user
     assert!(page_properties(&h).is_empty());
-    assert!(h.ui.iter().any(|u| matches!(u, UiOp::Alert(m) if m == "offline")));
+    assert!(h
+        .ui
+        .iter()
+        .any(|u| matches!(u, UiOp::Alert(m) if m == "offline")));
 }
 
 #[test]
@@ -102,7 +118,11 @@ fn deleting_a_page_property_removes_it() {
     h.send(Event::DeletePageProperty {
         key: "owner".into(),
     });
-    assert!(h.api.calls.iter().any(|c| matches!(c, ApiOp::DeletePageProperty { key, .. } if key == "owner")));
+    assert!(h
+        .api
+        .calls
+        .iter()
+        .any(|c| matches!(c, ApiOp::DeletePageProperty { key, .. } if key == "owner")));
     assert!(page_properties(&h).is_empty());
     // The rows stay off once the last property is gone, unless the menu opens them
     assert!(!shows_properties(&h));
@@ -118,5 +138,9 @@ fn a_hash_typed_before_a_tag_is_dropped_and_a_tag_is_kept_once() {
         value_type: "tags".into(),
         value: "#abc, ##def, abc,".into(),
     });
-    assert!(h.api.calls.iter().any(|c| matches!(c, ApiOp::UpsertPageProperty { value, .. } if value == "abc, def")));
+    assert!(h
+        .api
+        .calls
+        .iter()
+        .any(|c| matches!(c, ApiOp::UpsertPageProperty { value, .. } if value == "abc, def")));
 }

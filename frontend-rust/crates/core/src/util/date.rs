@@ -101,7 +101,11 @@ pub fn format_instant(millis: i64) -> String {
         rest % 60_000 / 1000,
         rest % 1000,
     );
-    let fraction = if ms == 0 { String::new() } else { format!(".{ms:03}") };
+    let fraction = if ms == 0 {
+        String::new()
+    } else {
+        format!(".{ms:03}")
+    };
     format!("{}T{h:02}:{m:02}:{s:02}{fraction}Z", date.iso())
 }
 
@@ -229,10 +233,22 @@ mod tests {
 
     #[test]
     fn rfc3339_instants_parse_to_the_millis_the_server_formats() {
-        assert_eq!(parse_rfc3339_millis("2020-01-02T03:04:05Z"), Some(1_577_934_245_000));
-        assert_eq!(parse_rfc3339_millis("2020-01-02T03:04:05.123Z"), Some(1_577_934_245_123));
-        assert_eq!(parse_rfc3339_millis("2020-01-02T12:04:05+09:00"), Some(1_577_934_245_000));
-        assert_eq!(parse_rfc3339_millis("2020-01-02T03:04Z"), Some(1_577_934_240_000));
+        assert_eq!(
+            parse_rfc3339_millis("2020-01-02T03:04:05Z"),
+            Some(1_577_934_245_000)
+        );
+        assert_eq!(
+            parse_rfc3339_millis("2020-01-02T03:04:05.123Z"),
+            Some(1_577_934_245_123)
+        );
+        assert_eq!(
+            parse_rfc3339_millis("2020-01-02T12:04:05+09:00"),
+            Some(1_577_934_245_000)
+        );
+        assert_eq!(
+            parse_rfc3339_millis("2020-01-02T03:04Z"),
+            Some(1_577_934_240_000)
+        );
         assert_eq!(parse_rfc3339_millis("2020-01-02"), Some(1_577_923_200_000));
         assert_eq!(parse_rfc3339_millis("2020-01-02T03:04:05"), None);
         assert_eq!(parse_rfc3339_millis("yesterday"), None);
@@ -242,7 +258,10 @@ mod tests {
     fn instants_are_formatted_like_the_server_writes_them() {
         assert_eq!(format_instant(0), "1970-01-01T00:00:00Z");
         assert_eq!(format_instant(1_577_934_245_000), "2020-01-02T03:04:05Z");
-        assert_eq!(format_instant(1_577_934_245_123), "2020-01-02T03:04:05.123Z");
+        assert_eq!(
+            format_instant(1_577_934_245_123),
+            "2020-01-02T03:04:05.123Z"
+        );
     }
 
     #[test]

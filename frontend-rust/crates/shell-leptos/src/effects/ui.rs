@@ -338,7 +338,8 @@ fn on_message(handle: &CoreHandle, ev: web_sys::MessageEvent) {
         // The extension runs on another origin, so its window fails `instanceof Window`
         // and `dyn_into` would drop it. `postMessage` is allowed across origins all the same.
         if let Some(win) = ev.source() {
-            ext.sources.insert(id, win.unchecked_into::<web_sys::Window>());
+            ext.sources
+                .insert(id, win.unchecked_into::<web_sys::Window>());
         }
         id
     };

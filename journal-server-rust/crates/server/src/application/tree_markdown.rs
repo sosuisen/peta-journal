@@ -33,7 +33,11 @@ pub fn items_to_tree_markdown(items: &[Item]) -> String {
 }
 
 /// Converts a list of items to Flat Markdown, including properties in the metadata line.
-pub fn items_to_flat_markdown(items: &[Item], scalar_props: &ScalarProps, list_props: &ListProps) -> String {
+pub fn items_to_flat_markdown(
+    items: &[Item],
+    scalar_props: &ScalarProps,
+    list_props: &ListProps,
+) -> String {
     flat_markdown_serializer::serialize(items, scalar_props, list_props)
 }
 

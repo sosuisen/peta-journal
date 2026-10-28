@@ -54,7 +54,8 @@ pub struct PageService {
     config: Arc<ConfigService>,
 }
 
-static FORBIDDEN_CHARS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"[<>:"/\\|?*\x00-\x1F\x7F]"#).unwrap());
+static FORBIDDEN_CHARS: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r#"[<>:"/\\|?*\x00-\x1F\x7F]"#).unwrap());
 static RESERVED_NAMES: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?i)^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$").unwrap());
 
@@ -71,7 +72,9 @@ pub fn validate_file_name(title: &str) -> AppResult<()> {
         )));
     }
     if title.ends_with('.') || title.ends_with(' ') {
-        return Err(AppError::bad_request("Title cannot end with a dot or space"));
+        return Err(AppError::bad_request(
+            "Title cannot end with a dot or space",
+        ));
     }
     if RESERVED_NAMES.is_match(title) {
         return Err(AppError::bad_request(format!(
@@ -140,13 +143,21 @@ impl PageService {
     }
 
     /// Gets an existing document page by title and directory, or creates a new one.
-    pub fn get_or_create_doc(&self, title: Option<&str>, dir_path: Option<&str>) -> AppResult<DocResult> {
+    pub fn get_or_create_doc(
+        &self,
+        title: Option<&str>,
+        dir_path: Option<&str>,
+    ) -> AppResult<DocResult> {
         let title = title.unwrap_or("");
         if title.trim().is_empty() {
-            return Err(AppError::bad_request("Page title cannot be empty or whitespace-only"));
+            return Err(AppError::bad_request(
+                "Page title cannot be empty or whitespace-only",
+            ));
         }
         if title != title.trim() {
-            return Err(AppError::bad_request("Page title cannot have leading or trailing whitespace"));
+            return Err(AppError::bad_request(
+                "Page title cannot have leading or trailing whitespace",
+            ));
         }
         let dir = dir_path.unwrap_or("");
         let file_name = title;
@@ -161,16 +172,30 @@ impl PageService {
 
         self.ensure_ancestor_pages(dir)?;
 
-        if let Some(page) = self.pages.find_by_type_dir_path_file_name("doc", dir, file_name)? {
+        if let Some(page) = self
+            .pages
+            .find_by_type_dir_path_file_name("doc", dir, file_name)?
+        {
             let items = self.items.find_by_page_id(&page.id)?;
-            return Ok(DocResult { page, items, created: false });
+            return Ok(DocResult {
+                page,
+                items,
+                created: false,
+            });
         }
 
         // If no exact match, check if an index page exists at dir+fileName/
         let index_dir = format!("{dir}{file_name}/");
-        if let Some(page) = self.pages.find_by_type_dir_path_file_name("doc", &index_dir, "index")? {
+        if let Some(page) = self
+            .pages
+            .find_by_type_dir_path_file_name("doc", &index_dir, "index")?
+        {
             let items = self.items.find_by_page_id(&page.id)?;
-            return Ok(DocResult { page, items, created: false });
+            return Ok(DocResult {
+                page,
+                items,
+                created: false,
+            });
         }
 
         // A page whose path differs only in case has the same file on Windows and macOS: a
@@ -179,11 +204,18 @@ impl PageService {
             .pages
             .find_by_type_dir_path_file_name_ignoring_case("doc", dir, file_name)?
             .into_iter()
-            .chain(self.pages.find_by_type_dir_path_file_name_ignoring_case("doc", &index_dir, "index")?)
+            .chain(
+                self.pages
+                    .find_by_type_dir_path_file_name_ignoring_case("doc", &index_dir, "index")?,
+            )
             .next();
         if let Some(page) = same_file {
             let items = self.items.find_by_page_id(&page.id)?;
-            return Ok(DocResult { page, items, created: false });
+            return Ok(DocResult {
+                page,
+                items,
+                created: false,
+            });
         }
 
         let id = self.ids.generate_page_id();
@@ -248,10 +280,14 @@ impl PageService {
         let mut file_name = existing.name.clone();
         if let Some(title) = title {
             if title.trim().is_empty() {
-                return Err(AppError::bad_request("Page title cannot be empty or whitespace-only"));
+                return Err(AppError::bad_request(
+                    "Page title cannot be empty or whitespace-only",
+                ));
             }
             if title != title.trim() {
-                return Err(AppError::bad_request("Page title cannot have leading or trailing whitespace"));
+                return Err(AppError::bad_request(
+                    "Page title cannot have leading or trailing whitespace",
+                ));
             }
             validate_file_name(title)?;
             file_name = title.to_string();
@@ -261,10 +297,14 @@ impl PageService {
         // other page may take its name
         let dir_changes = dir_path.is_some_and(|d| d != existing.dir_path);
         if existing.is_atlas() && (file_name != existing.name || dir_changes) {
-            return Err(AppError::bad_request("The atlas page cannot be renamed or moved"));
+            return Err(AppError::bad_request(
+                "The atlas page cannot be renamed or moved",
+            ));
         }
         if !existing.is_atlas() && file_name == ATLAS_NAME && existing.page_type == "doc" {
-            return Err(AppError::bad_request(format!("'{ATLAS_NAME}' is a reserved page name")));
+            return Err(AppError::bad_request(format!(
+                "'{ATLAS_NAME}' is a reserved page name"
+            )));
         }
 
         // Prevent demoting an index page that still has children
@@ -283,7 +323,11 @@ impl PageService {
         // Names are matched ignoring case, as the files of both would be one file on Windows
         let taken: Vec<Page> = self
             .pages
-            .find_by_type_dir_path_file_name_ignoring_case(&existing.page_type, &new_dir_path, &file_name)?
+            .find_by_type_dir_path_file_name_ignoring_case(
+                &existing.page_type,
+                &new_dir_path,
+                &file_name,
+            )?
             .into_iter()
             .filter(|p| p.id != existing.id)
             .collect();
@@ -334,8 +378,12 @@ impl PageService {
     /// The scalar and list properties of one page.
     pub fn page_properties(&self, page_id: &Hmtid) -> AppResult<(ScalarProps, ListProps)> {
         let id = page_id.to_string();
-        let scalars = self.properties.find_scalar_by_targets(PAGE_TARGET, std::slice::from_ref(&id))?;
-        let lists = self.properties.find_list_by_targets(PAGE_TARGET, std::slice::from_ref(&id))?;
+        let scalars = self
+            .properties
+            .find_scalar_by_targets(PAGE_TARGET, std::slice::from_ref(&id))?;
+        let lists = self
+            .properties
+            .find_list_by_targets(PAGE_TARGET, std::slice::from_ref(&id))?;
         Ok((scalars, lists))
     }
 
@@ -344,7 +392,13 @@ impl PageService {
     /// defined for pages, and an unknown key is defined as a user key of the given type.
     /// The page file is rewritten.
     /// The tags keep their tag pages, as `update_tag_pages` says.
-    pub fn set_property(&self, page_id: &Hmtid, key: &str, value_type: &str, value: &str) -> AppResult<Page> {
+    pub fn set_property(
+        &self,
+        page_id: &Hmtid,
+        key: &str,
+        value_type: &str,
+        value: &str,
+    ) -> AppResult<Page> {
         let page = self
             .pages
             .find_by_id(page_id)?
@@ -353,11 +407,21 @@ impl PageService {
             let millis = chrono::DateTime::parse_from_rfc3339(value.trim())
                 .map(|dt| dt.timestamp_millis())
                 .map_err(|_| {
-                    AppError::bad_request(format!("Not a date-time: {value} (expected e.g. 2026-01-02T03:04:05Z)"))
+                    AppError::bad_request(format!(
+                        "Not a date-time: {value} (expected e.g. 2026-01-02T03:04:05Z)"
+                    ))
                 })?;
             let updated = self.pages.save(&Page {
-                created_date: if key == "created" { millis } else { page.created_date },
-                modified_date: if key == "modified" { millis } else { now_millis() },
+                created_date: if key == "created" {
+                    millis
+                } else {
+                    page.created_date
+                },
+                modified_date: if key == "modified" {
+                    millis
+                } else {
+                    now_millis()
+                },
                 ..page.clone()
             })?;
             self.export.queue_export(&page.id);
@@ -369,12 +433,15 @@ impl PageService {
                 .map(|id| id.trim().to_string())
                 .filter(|id| !id.is_empty())
                 .collect();
-            self.properties.sync_atlas_group(page_id.as_str(), key, &ids)?;
+            self.properties
+                .sync_atlas_group(page_id.as_str(), key, &ids)?;
             return self.touch_and_export(&page);
         }
         match self.properties.find_definition(key)? {
             Some(def) if !def.page => {
-                return Err(AppError::bad_request(format!("Property '{key}' cannot be set on a page")));
+                return Err(AppError::bad_request(format!(
+                    "Property '{key}' cannot be set on a page"
+                )));
             }
             Some(def) if def.value_type == "tags" || def.value_type == "list" => {
                 let tags: Vec<String> = value
@@ -383,12 +450,17 @@ impl PageService {
                     .filter(|t| !t.is_empty())
                     .collect();
                 let before = self.properties.find_tags(PAGE_TARGET, page_id.as_str())?;
-                self.properties.sync_tags(PAGE_TARGET, page_id.as_str(), &tags)?;
+                self.properties
+                    .sync_tags(PAGE_TARGET, page_id.as_str(), &tags)?;
                 self.update_tag_pages(&before, &tags);
             }
-            _ => self
-                .properties
-                .upsert_scalar(PAGE_TARGET, page_id.as_str(), key, value_type, value)?,
+            _ => self.properties.upsert_scalar(
+                PAGE_TARGET,
+                page_id.as_str(),
+                key,
+                value_type,
+                value,
+            )?,
         }
         self.touch_and_export(&page)
     }
@@ -398,7 +470,8 @@ impl PageService {
     pub fn replace_page_tags(&self, page_id: &Hmtid, tags: &[String]) -> AppResult<Vec<String>> {
         let before = self.properties.find_tags(PAGE_TARGET, page_id.as_str())?;
         if before != tags {
-            self.properties.sync_tags(PAGE_TARGET, page_id.as_str(), tags)?;
+            self.properties
+                .sync_tags(PAGE_TARGET, page_id.as_str(), tags)?;
         }
         Ok(before)
     }
@@ -414,22 +487,36 @@ impl PageService {
         frontmatter: &BTreeMap<String, String>,
     ) -> AppResult<AtlasImport> {
         let id = page_id.to_string();
-        let scalars = self.properties.find_scalar_by_targets(PAGE_TARGET, std::slice::from_ref(&id))?;
-        let lists = self.properties.find_list_by_targets(PAGE_TARGET, std::slice::from_ref(&id))?;
+        let scalars = self
+            .properties
+            .find_scalar_by_targets(PAGE_TARGET, std::slice::from_ref(&id))?;
+        let lists = self
+            .properties
+            .find_list_by_targets(PAGE_TARGET, std::slice::from_ref(&id))?;
         let mut result = AtlasImport::default();
 
         let bounds_before = scalars.get(&id).and_then(|s| s.get(BOUNDS_KEY));
-        match frontmatter.get(BOUNDS_KEY).map(|v| (v, normalize_bounds(v))) {
+        match frontmatter
+            .get(BOUNDS_KEY)
+            .map(|v| (v, normalize_bounds(v)))
+        {
             Some((raw, Ok(bounds))) => {
                 if bounds_before != Some(&bounds) {
-                    self.properties.upsert_scalar(PAGE_TARGET, &id, BOUNDS_KEY, "bounds", &bounds)?;
+                    self.properties.upsert_scalar(
+                        PAGE_TARGET,
+                        &id,
+                        BOUNDS_KEY,
+                        "bounds",
+                        &bounds,
+                    )?;
                     result.changed = true;
                 }
                 result.needs_write_back |= *raw != bounds;
             }
             Some((_, Err(_))) => result.needs_write_back = true,
             None if bounds_before.is_some() => {
-                self.properties.delete_property(PAGE_TARGET, &id, BOUNDS_KEY)?;
+                self.properties
+                    .delete_property(PAGE_TARGET, &id, BOUNDS_KEY)?;
                 result.changed = true;
             }
             None => {}
@@ -437,10 +524,17 @@ impl PageService {
 
         let groups_before: BTreeMap<&String, &Vec<String>> = lists
             .get(&id)
-            .map(|l| l.iter().filter(|(key, _)| is_atlas_group_key(key)).collect())
+            .map(|l| {
+                l.iter()
+                    .filter(|(key, _)| is_atlas_group_key(key))
+                    .collect()
+            })
             .unwrap_or_default();
         let mut groups_after = BTreeSet::new();
-        for (key, raw) in frontmatter.iter().filter(|(key, _)| is_atlas_group_key(key)) {
+        for (key, raw) in frontmatter
+            .iter()
+            .filter(|(key, _)| is_atlas_group_key(key))
+        {
             let ids: Vec<String> = raw
                 .split(',')
                 .map(|id| id.trim().to_string())
@@ -458,7 +552,10 @@ impl PageService {
             result.needs_write_back |= *raw != ids.join(",");
             groups_after.insert(key);
         }
-        for key in groups_before.keys().filter(|key| !groups_after.contains(*key)) {
+        for key in groups_before
+            .keys()
+            .filter(|key| !groups_after.contains(*key))
+        {
             self.properties.delete_property(PAGE_TARGET, &id, key)?;
             self.properties.delete_unused_atlas_group(key)?;
             result.changed = true;
@@ -476,12 +573,16 @@ impl PageService {
                 continue;
             }
             if texts_before.get(key) != Some(&text) {
-                self.properties.upsert_scalar(PAGE_TARGET, &id, key, "text", text)?;
+                self.properties
+                    .upsert_scalar(PAGE_TARGET, &id, key, "text", text)?;
                 result.changed = true;
             }
             texts_after.insert(key);
         }
-        for key in texts_before.keys().filter(|key| !texts_after.contains(*key)) {
+        for key in texts_before
+            .keys()
+            .filter(|key| !texts_after.contains(*key))
+        {
             self.properties.delete_property(PAGE_TARGET, &id, key)?;
             self.properties.delete_unused_atlas_text(key)?;
             result.changed = true;
@@ -492,8 +593,16 @@ impl PageService {
     /// Keeps the tag pages in step with a change of tags on one page or item: the added
     /// tags get their pages, and the removed ones lose theirs when nothing else uses them.
     pub fn update_tag_pages(&self, before: &[String], after: &[String]) {
-        let added: Vec<String> = after.iter().filter(|t| !before.contains(t)).cloned().collect();
-        let removed: Vec<String> = before.iter().filter(|t| !after.contains(t)).cloned().collect();
+        let added: Vec<String> = after
+            .iter()
+            .filter(|t| !before.contains(t))
+            .cloned()
+            .collect();
+        let removed: Vec<String> = before
+            .iter()
+            .filter(|t| !after.contains(t))
+            .cloned()
+            .collect();
         self.ensure_tag_pages(&added);
         self.delete_unused_tag_pages(&removed);
     }
@@ -540,7 +649,10 @@ impl PageService {
         if self.properties.count_tag_uses_ignoring_case(tag)? > 0 {
             return Ok(());
         }
-        for page in self.pages.find_by_type_dir_path_file_name_ignoring_case("doc", dir, name)? {
+        for page in self
+            .pages
+            .find_by_type_dir_path_file_name_ignoring_case("doc", dir, name)?
+        {
             if self.is_empty_page(&page)? {
                 self.delete_page(&page.id)?;
             }
@@ -551,7 +663,9 @@ impl PageService {
     /// A page with one empty item, as a new page has.
     fn is_empty_page(&self, page: &Page) -> AppResult<bool> {
         let items = self.items.find_by_page_id(&page.id)?;
-        Ok(matches!(items.as_slice(), [only] if only.body.trim().is_empty() && only.transclude_item_id.is_none()))
+        Ok(
+            matches!(items.as_slice(), [only] if only.body.trim().is_empty() && only.transclude_item_id.is_none()),
+        )
     }
 
     /// Deletes the tag pages that only repeat an older one in another case, like
@@ -569,8 +683,12 @@ impl PageService {
                 continue;
             }
             done.push(key);
-            let pages = self.pages.find_by_type_dir_path_file_name_ignoring_case("doc", &dir, &name)?;
-            let Some((kept, others)) = pages.split_first() else { continue };
+            let pages = self
+                .pages
+                .find_by_type_dir_path_file_name_ignoring_case("doc", &dir, &name)?;
+            let Some((kept, others)) = pages.split_first() else {
+                continue;
+            };
             let mut any = false;
             for page in others {
                 if self.is_empty_page(page)? {
@@ -578,7 +696,13 @@ impl PageService {
                     deleted += 1;
                     any = true;
                 } else {
-                    tracing::warn!("{}{} repeats {}{} in another case but is not empty", page.dir_path, page.name, kept.dir_path, kept.name);
+                    tracing::warn!(
+                        "{}{} repeats {}{} in another case but is not empty",
+                        page.dir_path,
+                        page.name,
+                        kept.dir_path,
+                        kept.name
+                    );
                 }
             }
             if any {
@@ -595,7 +719,9 @@ impl PageService {
     /// Removing the tags deletes the tag pages that became unused, as `set_property` does.
     pub fn delete_property(&self, page_id: &Hmtid, key: &str) -> AppResult<Page> {
         if key == "created" || key == "modified" {
-            return Err(AppError::bad_request(format!("Property '{key}' cannot be removed from a page")));
+            return Err(AppError::bad_request(format!(
+                "Property '{key}' cannot be removed from a page"
+            )));
         }
         let page = self
             .pages
@@ -606,7 +732,8 @@ impl PageService {
         } else {
             Vec::new()
         };
-        self.properties.delete_property(PAGE_TARGET, page_id.as_str(), key)?;
+        self.properties
+            .delete_property(PAGE_TARGET, page_id.as_str(), key)?;
         if is_atlas_group_key(key) {
             self.properties.delete_unused_atlas_group(key)?;
         }
@@ -623,7 +750,9 @@ impl PageService {
     pub fn delete_property_definition(&self, key: &str) -> AppResult<Vec<Hmtid>> {
         let mut touched = Vec::new();
         for id in self.properties.delete_definition(key)? {
-            let Ok(page_id) = Hmtid::parse(&id) else { continue };
+            let Ok(page_id) = Hmtid::parse(&id) else {
+                continue;
+            };
             if let Some(page) = self.pages.find_by_id(&page_id)? {
                 self.touch_and_export(&page)?;
                 touched.push(page_id);
@@ -687,7 +816,11 @@ impl PageService {
         Ok(())
     }
 
-    pub fn get_recent_pages(&self, max_results: i64, page_type: Option<&str>) -> AppResult<Vec<Page>> {
+    pub fn get_recent_pages(
+        &self,
+        max_results: i64,
+        page_type: Option<&str>,
+    ) -> AppResult<Vec<Page>> {
         self.pages.find_recent(max_results, page_type)
     }
 
@@ -703,14 +836,23 @@ impl PageService {
         let mut tagging_pages: BTreeSet<String> = BTreeSet::new();
         let mut linking_items: BTreeSet<String> = BTreeSet::new();
         if let Some(tag) = self.tag_of_page(&target) {
-            tagging_pages.extend(self.properties.find_page_ids_by_tag_value_ignoring_case(&tag)?);
-            linking_items.extend(self.properties.find_item_ids_by_tag_value_ignoring_case(&tag, i64::MAX)?);
+            tagging_pages.extend(
+                self.properties
+                    .find_page_ids_by_tag_value_ignoring_case(&tag)?,
+            );
+            linking_items.extend(
+                self.properties
+                    .find_item_ids_by_tag_value_ignoring_case(&tag, i64::MAX)?,
+            );
         }
         let paths = link_paths_of(&target);
         for path in &paths {
             for item in self.items.find_by_body_containing_link_to(path)? {
                 let links = wikilink::extract_wikilink_paths(&item.ast);
-                if links.iter().any(|l| paths.iter().any(|p| l.eq_ignore_ascii_case(p))) {
+                if links
+                    .iter()
+                    .any(|l| paths.iter().any(|p| l.eq_ignore_ascii_case(p)))
+                {
                     linking_items.insert(item.id.to_string());
                 }
             }
@@ -722,16 +864,24 @@ impl PageService {
             by_page.entry(id).or_default().0 = true;
         }
         for id in linking_items {
-            let Ok(item_id) = Hmtid::parse(&id) else { continue };
+            let Ok(item_id) = Hmtid::parse(&id) else {
+                continue;
+            };
             if let Some(item) = self.items.find_by_id(&item_id)? {
-                by_page.entry(item.page_id.to_string()).or_default().1.push(item);
+                by_page
+                    .entry(item.page_id.to_string())
+                    .or_default()
+                    .1
+                    .push(item);
             }
         }
         by_page.remove(page_id.as_str());
 
         let mut sources: Vec<(Page, bool, Vec<Item>)> = Vec::new();
         for (id, (tagged, items)) in by_page {
-            let Ok(source_id) = Hmtid::parse(&id) else { continue };
+            let Ok(source_id) = Hmtid::parse(&id) else {
+                continue;
+            };
             if let Some(page) = self.pages.find_by_id(&source_id)? {
                 sources.push((page, tagged, items));
             }
@@ -790,11 +940,18 @@ impl PageService {
             current_dir.push('/');
             let index_dir = current_dir.clone();
 
-            if self.pages.find_by_type_dir_path_file_name("doc", &index_dir, "index")?.is_some() {
+            if self
+                .pages
+                .find_by_type_dir_path_file_name("doc", &index_dir, "index")?
+                .is_some()
+            {
                 continue;
             }
             // Check if a named page should be promoted to index
-            if let Some(page) = self.pages.find_by_type_dir_path_file_name("doc", &parent_dir, segment)? {
+            if let Some(page) =
+                self.pages
+                    .find_by_type_dir_path_file_name("doc", &parent_dir, segment)?
+            {
                 let renamed = Page {
                     id: page.id.clone(),
                     parent_id: None,
@@ -827,7 +984,12 @@ impl PageService {
     }
 
     /// Recursively propagates a dir_path change to all child pages.
-    fn propagate_dir_path_change(&self, parent_page_id: &Hmtid, old_prefix: &str, new_prefix: &str) -> AppResult<()> {
+    fn propagate_dir_path_change(
+        &self,
+        parent_page_id: &Hmtid,
+        old_prefix: &str,
+        new_prefix: &str,
+    ) -> AppResult<()> {
         for child in self.pages.find_by_parent_id(parent_page_id)? {
             let suffix = child.dir_path.get(old_prefix.len()..).unwrap_or("");
             let child_new_dir = format!("{new_prefix}{suffix}");

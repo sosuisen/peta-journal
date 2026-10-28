@@ -17,7 +17,10 @@ pub fn routes() -> Router<SharedState> {
             "/api/config/property-definitions",
             get(property_definitions).post(add_property_definition),
         )
-        .route("/api/config/property-definitions/{key}", delete(delete_property_definition))
+        .route(
+            "/api/config/property-definitions/{key}",
+            delete(delete_property_definition),
+        )
         .route("/api/config/browse-folder", post(browse_folder))
 }
 
@@ -112,7 +115,9 @@ fn definitions_response(state: &SharedState) -> AppResult<PropertyDefinitionsRes
     })
 }
 
-async fn property_definitions(State(state): State<SharedState>) -> AppResult<Json<PropertyDefinitionsResponse>> {
+async fn property_definitions(
+    State(state): State<SharedState>,
+) -> AppResult<Json<PropertyDefinitionsResponse>> {
     blocking(move || Ok(Json(definitions_response(&state)?))).await
 }
 
@@ -157,7 +162,10 @@ async fn browse_folder() -> AppResult<Json<BrowseFolderResponse>> {
     .await
 }
 
-async fn update_config(State(state): State<SharedState>, Json(req): Json<UpdateConfigRequest>) -> AppResult<Json<ConfigResponse>> {
+async fn update_config(
+    State(state): State<SharedState>,
+    Json(req): Json<UpdateConfigRequest>,
+) -> AppResult<Json<ConfigResponse>> {
     blocking(move || {
         if let Some(dir) = &req.markdown_dir {
             state.config.set_markdown_dir(dir);

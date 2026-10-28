@@ -53,7 +53,9 @@ impl Hmtid {
     /// Parses and validates an HMTID string.
     pub fn parse(s: &str) -> Result<Hmtid, HmtidError> {
         validate(s)?;
-        Ok(Hmtid { text: s.to_string() })
+        Ok(Hmtid {
+            text: s.to_string(),
+        })
     }
 
     /// The ID as written.
@@ -100,11 +102,7 @@ fn validate(s: &str) -> Result<(), HmtidError> {
                     return Err(HmtidError::InvalidSeparator(bytes[pos] as char));
                 }
             }
-            let digits: String = s
-                .chars()
-                .take(19)
-                .filter(|c| *c != sep as char)
-                .collect();
+            let digits: String = s.chars().take(19).filter(|c| *c != sep as char).collect();
             (digits, sep, &bytes[20..])
         }
         n => return Err(HmtidError::InvalidLength(n)),
@@ -137,7 +135,13 @@ fn is_valid_date_time(digits: &str) -> bool {
     let days = match m {
         1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
         4 | 6 | 9 | 11 => 30,
-        _ => if leap { 29 } else { 28 },
+        _ => {
+            if leap {
+                29
+            } else {
+                28
+            }
+        }
     };
     d <= days
 }
@@ -364,7 +368,10 @@ mod tests {
     #[test]
     fn encodes_time_like_the_npm_package() {
         assert_eq!(encode_time(1_469_918_176_385, '_', false), "20160730223616");
-        assert_eq!(encode_time(1_634_115_600_000, '-', true), "2021-10-13-09-00-00");
+        assert_eq!(
+            encode_time(1_634_115_600_000, '-', true),
+            "2021-10-13-09-00-00"
+        );
     }
 
     #[test]

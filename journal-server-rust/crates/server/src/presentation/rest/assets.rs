@@ -43,18 +43,34 @@ async fn upload(State(state): State<SharedState>, mut multipart: Multipart) -> R
     let result = blocking(move || {
         let markdown_dir = state.config.markdown_dir();
         if markdown_dir.trim().is_empty() {
-            return Ok(json_error(StatusCode::INTERNAL_SERVER_ERROR, "Markdown directory not configured"));
+            return Ok(json_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Markdown directory not configured",
+            ));
         }
         let assets_dir = FsPath::new(&markdown_dir).join("assets");
         if let Err(e) = std::fs::create_dir_all(&assets_dir) {
             tracing::error!("Failed to create assets directory: {e}");
-            return Ok(json_error(StatusCode::INTERNAL_SERVER_ERROR, "Failed to create assets directory"));
+            return Ok(json_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to create assets directory",
+            ));
         }
-        let mut name = if original_name.trim().is_empty() { "image.png".to_string() } else { original_name };
+        let mut name = if original_name.trim().is_empty() {
+            "image.png".to_string()
+        } else {
+            original_name
+        };
         // Sanitize filename
         name = name
             .chars()
-            .map(|c| if c.is_ascii_alphanumeric() || c == '.' || c == '_' || c == '-' { c } else { '_' })
+            .map(|c| {
+                if c.is_ascii_alphanumeric() || c == '.' || c == '_' || c == '-' {
+                    c
+                } else {
+                    '_'
+                }
+            })
             .collect();
         let saved_name = resolve_unique_name(&assets_dir, &name);
         let target = assets_dir.join(&saved_name);
@@ -69,7 +85,10 @@ async fn upload(State(state): State<SharedState>, mut multipart: Multipart) -> R
             }
             Err(e) => {
                 tracing::error!("Failed to save asset: {e}");
-                Ok(json_error(StatusCode::INTERNAL_SERVER_ERROR, "Failed to save file"))
+                Ok(json_error(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Failed to save file",
+                ))
             }
         }
     })

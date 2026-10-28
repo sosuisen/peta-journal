@@ -26,7 +26,10 @@ static COUNTER: AtomicU64 = AtomicU64::new(0);
 
 pub fn server() -> &'static TestServer {
     SERVER.get_or_init(|| {
-        let dir = tempfile::Builder::new().prefix("peta-journal-it-").tempdir().expect("temp dir");
+        let dir = tempfile::Builder::new()
+            .prefix("peta-journal-it-")
+            .tempdir()
+            .expect("temp dir");
         let root = dir.path().to_path_buf();
         let markdown_dir = root.join("markdown");
         std::fs::create_dir_all(&markdown_dir).unwrap();
@@ -36,7 +39,8 @@ pub fn server() -> &'static TestServer {
         // without it the startup would open the native folder chooser.
         std::fs::write(
             config_dir.join("config.json"),
-            json!({ "markdownDir": markdown_dir.to_string_lossy(), "weekNumbering": "iso" }).to_string(),
+            json!({ "markdownDir": markdown_dir.to_string_lossy(), "weekNumbering": "iso" })
+                .to_string(),
         )
         .unwrap();
 
@@ -52,12 +56,15 @@ pub fn server() -> &'static TestServer {
                 rt.block_on(async move {
                     let mut settings = Settings::under(&settings_root, 0);
                     settings.export_interval_secs = 1;
-                    let state = AppState::build(settings, BuildOptions { interactive: false }).expect("state");
+                    let state = AppState::build(settings, BuildOptions { interactive: false })
+                        .expect("state");
                     state.start_background_tasks();
                     let app = journal_server::build_router(state);
                     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
                     tx.send(listener.local_addr().unwrap()).unwrap();
-                    let listener = listener.tap_io(|tcp| { let _ = tcp.set_nodelay(true); });
+                    let listener = listener.tap_io(|tcp| {
+                        let _ = tcp.set_nodelay(true);
+                    });
                     axum::serve(listener, app).await.unwrap();
                 });
             })
@@ -134,7 +141,11 @@ impl ItemRow {
             body: json["body"].as_str().unwrap_or("").to_string(),
             types: json["types"]
                 .as_array()
-                .map(|a| a.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+                .map(|a| {
+                    a.iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect()
+                })
                 .unwrap_or_default(),
             properties: json["properties"].as_object().cloned().unwrap_or_default(),
             collapsed: json["collapsed"].as_bool().unwrap_or(false),
@@ -156,7 +167,11 @@ pub struct PageRef {
 
 /// Creates an empty doc page with a unique title; a new page starts with one empty item.
 pub async fn new_doc_page(prefix: &str) -> PageRef {
-    let title = format!("{prefix}-{}-{}", std::process::id(), COUNTER.fetch_add(1, Ordering::SeqCst));
+    let title = format!(
+        "{prefix}-{}-{}",
+        std::process::id(),
+        COUNTER.fetch_add(1, Ordering::SeqCst)
+    );
     let (status, resp) = post("/api/pages/doc", json!({ "title": title, "dirPath": "" })).await;
     assert_eq!(status, 200, "{resp}");
     PageRef {
@@ -168,7 +183,12 @@ pub async fn new_doc_page(prefix: &str) -> PageRef {
 pub async fn items(page_id: &str) -> Vec<ItemRow> {
     let (status, resp) = get(&format!("/api/pages/{page_id}")).await;
     assert_eq!(status, 200, "{resp}");
-    resp["items"].as_array().unwrap().iter().map(ItemRow::of).collect()
+    resp["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(ItemRow::of)
+        .collect()
 }
 
 pub async fn outline_of(page_id: &str) -> Vec<String> {
@@ -193,7 +213,9 @@ pub async fn fill(page_id: &str, lines: &[&str]) -> Vec<ItemRow> {
     for line in lines {
         let body = line.trim_start();
         let level = 1 + (line.len() - body.len()) as i64 / 2;
-        after = create_item(page_id, &format!("after:{after}"), level, body).await.id;
+        after = create_item(page_id, &format!("after:{after}"), level, body)
+            .await
+            .id;
     }
     assert_eq!(delete(&format!("/api/items/{}", first.id)).await, 204);
     items(page_id).await
@@ -205,19 +227,34 @@ pub async fn update_item(item_id: &str, changes: Value) -> ItemRow {
     ItemRow::of(&resp["item"])
 }
 
-pub async fn move_items(item_ids: &[&str], target_page_id: &str, position: &str, level_delta: Option<i64>) -> Vec<ItemRow> {
-    let mut req = json!({ "itemIds": item_ids, "targetPageId": target_page_id, "position": position });
+pub async fn move_items(
+    item_ids: &[&str],
+    target_page_id: &str,
+    position: &str,
+    level_delta: Option<i64>,
+) -> Vec<ItemRow> {
+    let mut req =
+        json!({ "itemIds": item_ids, "targetPageId": target_page_id, "position": position });
     if let Some(d) = level_delta {
         req["levelDelta"] = json!(d);
     }
     let (status, resp) = post("/api/items/move", req).await;
     assert_eq!(status, 200, "{resp}");
-    resp["items"].as_array().unwrap().iter().map(ItemRow::of).collect()
+    resp["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(ItemRow::of)
+        .collect()
 }
 
 pub fn strings(v: &Value) -> Vec<String> {
     v.as_array()
-        .map(|a| a.iter().filter_map(|x| x.as_str().map(String::from)).collect())
+        .map(|a| {
+            a.iter()
+                .filter_map(|x| x.as_str().map(String::from))
+                .collect()
+        })
         .unwrap_or_default()
 }
 

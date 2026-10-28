@@ -37,13 +37,19 @@ pub fn check_configuration(config: &ConfigService, export: &MarkdownExportServic
     if markdown_dir.trim().is_empty() {
         tracing::warn!("Markdown directory not configured. Opening folder chooser...");
         let choice = folder_chooser::choose_folder();
-        tracing::info!("Folder chooser returned: selected={}, path=[{}]", choice.selected, choice.path);
+        tracing::info!(
+            "Folder chooser returned: selected={}, path=[{}]",
+            choice.selected,
+            choice.path
+        );
         if choice.selected && !choice.path.is_empty() {
             config.set_markdown_dir(&choice.path);
             markdown_dir = choice.path;
             tracing::info!("Markdown directory configured: {markdown_dir}");
         } else {
-            tracing::error!("No markdown directory selected. Application may not function correctly.");
+            tracing::error!(
+                "No markdown directory selected. Application may not function correctly."
+            );
         }
     }
     if !markdown_dir.trim().is_empty() {
@@ -65,7 +71,11 @@ fn ensure_sub_dirs(markdown_path: &Path) {
 }
 
 /// Tags every item from its hashtags once, when no tag exists yet.
-pub fn backfill_hashtags(pages: &PageRepository, items: &ItemRepository, properties: &PropertyRepository) {
+pub fn backfill_hashtags(
+    pages: &PageRepository,
+    items: &ItemRepository,
+    properties: &PropertyRepository,
+) {
     if properties.find_any_tag_exists() {
         return;
     }
@@ -79,7 +89,9 @@ pub fn backfill_hashtags(pages: &PageRepository, items: &ItemRepository, propert
         }
     };
     for page in all_pages {
-        let Ok(page_items) = items.find_by_page_id(&page.id) else { continue };
+        let Ok(page_items) = items.find_by_page_id(&page.id) else {
+            continue;
+        };
         for item in page_items {
             if item.ast.trim().is_empty() {
                 continue;
@@ -98,7 +110,11 @@ pub fn backfill_hashtags(pages: &PageRepository, items: &ItemRepository, propert
 }
 
 /// Builds the search index from the database when it is empty.
-pub fn rebuild_search_index(pages: &PageRepository, items: &ItemRepository, search: &Arc<dyn SearchIndex>) {
+pub fn rebuild_search_index(
+    pages: &PageRepository,
+    items: &ItemRepository,
+    search: &Arc<dyn SearchIndex>,
+) {
     if !search.is_empty() {
         return;
     }
@@ -113,8 +129,13 @@ pub fn rebuild_search_index(pages: &PageRepository, items: &ItemRepository, sear
     for page in &all_pages {
         search.index_page(page);
         let title = page.title();
-        let Ok(page_items) = items.find_by_page_id(&page.id) else { continue };
-        let with_body: Vec<_> = page_items.into_iter().filter(|i| !i.body.trim().is_empty()).collect();
+        let Ok(page_items) = items.find_by_page_id(&page.id) else {
+            continue;
+        };
+        let with_body: Vec<_> = page_items
+            .into_iter()
+            .filter(|i| !i.body.trim().is_empty())
+            .collect();
         search.index_items(&with_body, &title);
     }
     search.flush();

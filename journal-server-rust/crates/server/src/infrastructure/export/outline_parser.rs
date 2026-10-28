@@ -156,13 +156,19 @@ mod tests {
     fn parses_frontmatter_and_items() {
         let md = "---\nid: 2026-09-29-00-00-00-AAAAAAA\ncreated: 2026-09-29T00:00:00Z\ntags:\n  - a\n  - b\n---\n\n<!-- @ 2026-09-29-00-00-01-AAAAAAA idx=\"z0\" plan=\"2026-09-30\" -->\n- [ ] task\n";
         let r = OutlineMarkdownParser::default().parse(md).unwrap();
-        assert_eq!(r.frontmatter.get("id").map(String::as_str), Some("2026-09-29-00-00-00-AAAAAAA"));
+        assert_eq!(
+            r.frontmatter.get("id").map(String::as_str),
+            Some("2026-09-29-00-00-00-AAAAAAA")
+        );
         assert_eq!(r.frontmatter.get("tags").map(String::as_str), Some("a,b"));
         assert_eq!(r.items.len(), 1);
         let it = &r.items[0];
         assert_eq!(it.body, "task");
         assert_eq!(it.types, vec!["task"]);
         assert_eq!(it.idx.as_deref(), Some("z0"));
-        assert_eq!(it.properties, vec![("plan".to_string(), "2026-09-30".to_string())]);
+        assert_eq!(
+            it.properties,
+            vec![("plan".to_string(), "2026-09-30".to_string())]
+        );
     }
 }

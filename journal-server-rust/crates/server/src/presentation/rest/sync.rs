@@ -17,7 +17,10 @@ pub fn routes() -> Router<SharedState> {
     Router::new()
         .route("/api/sync/status", get(status))
         .route("/api/sync/scan", post(scan))
-        .route("/api/sync/pending-deletes", get(pending_page).post(pending_submit))
+        .route(
+            "/api/sync/pending-deletes",
+            get(pending_page).post(pending_submit),
+        )
 }
 
 #[derive(Serialize)]
@@ -44,7 +47,10 @@ async fn status(State(state): State<SharedState>) -> AppResult<Json<StatusRespon
         let root = state.export.markdown_root();
         Ok(Json(StatusResponse {
             import_enabled: state.settings.import_enabled,
-            markdown_root: root.as_ref().map(|r| r.display().to_string()).unwrap_or_default(),
+            markdown_root: root
+                .as_ref()
+                .map(|r| r.display().to_string())
+                .unwrap_or_default(),
             root_available: root.is_some(),
             tracked_files: state.file_sync_state.find_all()?.len(),
             missing_files: state.file_sync_state.find_missing()?.len(),
@@ -131,7 +137,11 @@ fn is_local(url: Option<&str>) -> bool {
     }
 }
 
-async fn pending_submit(State(state): State<SharedState>, headers: HeaderMap, Form(form): Form<PendingForm>) -> AppResult<Response> {
+async fn pending_submit(
+    State(state): State<SharedState>,
+    headers: HeaderMap,
+    Form(form): Form<PendingForm>,
+) -> AppResult<Response> {
     // Only accept submissions from this page itself, not from other sites
     let origin = headers.get(header::ORIGIN).and_then(|v| v.to_str().ok());
     let referer = headers.get(header::REFERER).and_then(|v| v.to_str().ok());
@@ -142,7 +152,9 @@ async fn pending_submit(State(state): State<SharedState>, headers: HeaderMap, Fo
         let mut messages: Vec<String> = Vec::new();
         let restore = form.action == "restore";
         for id_str in &form.page_ids {
-            let Ok(id) = Hmtid::parse(id_str) else { continue };
+            let Ok(id) = Hmtid::parse(id_str) else {
+                continue;
+            };
             let page = state.pages.find_by_id(&id)?;
             let label = page
                 .as_ref()
@@ -150,15 +162,24 @@ async fn pending_submit(State(state): State<SharedState>, headers: HeaderMap, Fo
                 .unwrap_or_else(|| id_str.clone());
             let result: AppResult<String> = if restore {
                 // Write now, so the message below is true when the page is shown
-                state.export.export_page(&id).map(|_| format!("Restored file: {label}"))
+                state
+                    .export
+                    .export_page(&id)
+                    .map(|_| format!("Restored file: {label}"))
             } else {
-                state.page_service.delete_page(&id).map(|_| format!("Deleted: {label}"))
+                state
+                    .page_service
+                    .delete_page(&id)
+                    .map(|_| format!("Deleted: {label}"))
             };
             match result {
                 Ok(m) => messages.push(m),
                 Err(AppError::BadRequest(m)) => messages.push(format!("Skipped {label}: {m}")),
                 Err(e) => {
-                    tracing::warn!("Failed to {} page {id}: {e}", if restore { "restore" } else { "delete" });
+                    tracing::warn!(
+                        "Failed to {} page {id}: {e}",
+                        if restore { "restore" } else { "delete" }
+                    );
                     messages.push(format!("Failed {label}: {e}"));
                 }
             }
@@ -227,7 +248,11 @@ fn render(rows: &[Row], messages: &[String]) -> String {
             .state
             .missing_since
             .and_then(chrono::DateTime::<chrono::Utc>::from_timestamp_millis)
-            .map(|t| t.with_timezone(&chrono::Local).format("%Y-%m-%d %H:%M").to_string())
+            .map(|t| {
+                t.with_timezone(&chrono::Local)
+                    .format("%Y-%m-%d %H:%M")
+                    .to_string()
+            })
             .unwrap_or_default();
         sb.push_str(&format!(
             "<tr><td><input type=\"checkbox\" name=\"pageId\" value=\"{}\"></td><td><code>{}</code></td><td>{}</td><td class=\"muted\">{}</td></tr>\n",

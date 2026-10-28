@@ -25,7 +25,10 @@ pub fn load_index_sorts() -> HashMap<String, IndexSort> {
 fn save_index_sort(dir: &str, sort: IndexSort) {
     let mut sorts = load_index_sorts();
     sorts.insert(dir.to_string(), sort);
-    dom::local_storage_set(INDEX_SORT_KEY, &serde_json::to_string(&sorts).unwrap_or_default());
+    dom::local_storage_set(
+        INDEX_SORT_KEY,
+        &serde_json::to_string(&sorts).unwrap_or_default(),
+    );
 }
 
 fn sort_key_label(key: IndexSortKey) -> &'static str {
@@ -80,9 +83,13 @@ fn IndexSortControl(dir: Memo<String>, sort: Memo<IndexSort>) -> impl IntoView {
         core.send(Event::SetIndexSort { dir, sort: chosen });
         close_menu();
     };
-    let sorts = [IndexSortKey::Name, IndexSortKey::Modified, IndexSortKey::Published]
-        .into_iter()
-        .flat_map(|key| [SortOrder::Asc, SortOrder::Desc].map(|order| IndexSort { key, order }));
+    let sorts = [
+        IndexSortKey::Name,
+        IndexSortKey::Modified,
+        IndexSortKey::Published,
+    ]
+    .into_iter()
+    .flat_map(|key| [SortOrder::Asc, SortOrder::Desc].map(|order| IndexSort { key, order }));
     view! {
         <div class="index-sort">
             <button class="collapse-btn index-sort-btn" title="Sort" on:click=open_menu>

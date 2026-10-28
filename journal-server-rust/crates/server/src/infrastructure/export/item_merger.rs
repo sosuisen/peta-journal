@@ -63,7 +63,12 @@ impl ItemMerger {
     }
 
     /// Makes the page's items match the parsed ones.
-    pub fn merge(&self, page: &Page, parsed_items: &[ParsedItem], now: i64) -> AppResult<MergeResult> {
+    pub fn merge(
+        &self,
+        page: &Page,
+        parsed_items: &[ParsedItem],
+        now: i64,
+    ) -> AppResult<MergeResult> {
         let page_id = &page.id;
         let page_rel_path = path_mapper::to_rel_path_of(page);
         let title = page.title();
@@ -112,7 +117,9 @@ impl ItemMerger {
         let idxs = match order_planner::plan(&wanted_idx) {
             Ok(v) => v,
             Err(_) => {
-                tracing::warn!("Fractional index exhausted on page {page_id}, reindexing all items");
+                tracing::warn!(
+                    "Fractional index exhausted on page {page_id}, reindexing all items"
+                );
                 order_planner::reindex_all(n)
             }
         };
@@ -125,7 +132,9 @@ impl ItemMerger {
 
         // Items no longer in the file go first, so their idx values are free for the survivors
         let existing_ids: Vec<String> = existing.iter().map(|i| i.id.to_string()).collect();
-        let scalars = self.properties.find_scalar_by_targets(ITEM_TARGET, &existing_ids)?;
+        let scalars = self
+            .properties
+            .find_scalar_by_targets(ITEM_TARGET, &existing_ids)?;
         let mut changed = false;
         let mut removed_ids: Vec<String> = Vec::new();
         for old in &existing {
@@ -136,7 +145,8 @@ impl ItemMerger {
             removed_ids.push(old.id.to_string());
             changed = true;
         }
-        self.properties.delete_all_for_targets(ITEM_TARGET, &removed_ids)?;
+        self.properties
+            .delete_all_for_targets(ITEM_TARGET, &removed_ids)?;
         self.search.remove_items(&removed_ids); // one index commit for all of them
 
         // (page_id, idx) is unique: if a surviving item is about to take another survivor's current
@@ -146,11 +156,13 @@ impl ItemMerger {
             .filter(|old| seen.contains(&old.id))
             .map(|old| (old.idx.as_str(), &old.id))
             .collect();
-        let collision = (0..n).any(|i| matches!(idx_owner.get(idxs[i].as_str()), Some(owner) if **owner != ids[i]));
+        let collision = (0..n)
+            .any(|i| matches!(idx_owner.get(idxs[i].as_str()), Some(owner) if **owner != ids[i]));
         if collision {
             for old in &existing {
                 if seen.contains(&old.id) {
-                    self.items.update_index(&old.id, &format!("\u{7f}{}", old.idx))?;
+                    self.items
+                        .update_index(&old.id, &format!("\u{7f}{}", old.idx))?;
                 }
             }
         }
@@ -219,8 +231,11 @@ impl ItemMerger {
                 };
                 self.items.save(&item)?;
                 if body_changed {
-                    self.properties
-                        .sync_tags(ITEM_TARGET, id.as_str(), &hashtag::extract_hashtags(&ast))?;
+                    self.properties.sync_tags(
+                        ITEM_TARGET,
+                        id.as_str(),
+                        &hashtag::extract_hashtags(&ast),
+                    )?;
                 }
                 to_index.push(item);
                 changed = true;
@@ -247,7 +262,9 @@ impl ItemMerger {
 
     /// The hashtags of the given items, each once.
     fn tags_of(&self, item_ids: Vec<String>) -> AppResult<Vec<String>> {
-        let lists = self.properties.find_list_by_targets(ITEM_TARGET, &item_ids)?;
+        let lists = self
+            .properties
+            .find_list_by_targets(ITEM_TARGET, &item_ids)?;
         let tags: BTreeSet<String> = lists
             .into_values()
             .filter_map(|mut l| l.remove("tags"))

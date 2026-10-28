@@ -29,7 +29,8 @@ impl SseBroadcaster {
     /// The event stream for one subscriber: an initial `connected` event, then every broadcast.
     pub fn event_stream(&self) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
         let rx = self.tx.subscribe();
-        let first = futures::stream::once(async { Ok(Event::default().data("{\"type\":\"connected\"}")) });
+        let first =
+            futures::stream::once(async { Ok(Event::default().data("{\"type\":\"connected\"}")) });
         let rest = BroadcastStream::new(rx).filter_map(|msg| match msg {
             Ok(json) => Some(Ok(Event::default().data(json))),
             Err(BroadcastStreamRecvError::Lagged(_)) => None,
@@ -44,7 +45,9 @@ impl SseBroadcaster {
     /// `source` is `app` for changes made through the API, `file` for changes picked up
     /// from the markdown folder.
     pub fn broadcast_pages_updated_from(&self, page_id: &str, source: &str) {
-        let json = format!("{{\"type\":\"pagesUpdated\",\"pageId\":\"{page_id}\",\"source\":\"{source}\"}}");
+        let json = format!(
+            "{{\"type\":\"pagesUpdated\",\"pageId\":\"{page_id}\",\"source\":\"{source}\"}}"
+        );
         // An error only means that nobody is listening right now
         let _ = self.tx.send(json);
     }

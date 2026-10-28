@@ -14,7 +14,10 @@ use crate::state::{blocking, SharedState};
 pub fn routes() -> Router<SharedState> {
     Router::new()
         .route("/api/journals/before", get(most_recent_before))
-        .route("/api/journals/weekly/before", get(most_recent_weekly_before))
+        .route(
+            "/api/journals/weekly/before",
+            get(most_recent_weekly_before),
+        )
         .route("/api/journals/{name}", post(get_or_create))
 }
 
@@ -48,7 +51,10 @@ struct WeekQuery {
     week: Option<String>,
 }
 
-async fn get_or_create(State(state): State<SharedState>, Path(name): Path<String>) -> AppResult<Json<GetOrCreateJournalResponse>> {
+async fn get_or_create(
+    State(state): State<SharedState>,
+    Path(name): Path<String>,
+) -> AppResult<Json<GetOrCreateJournalResponse>> {
     blocking(move || {
         let result = state.journal_service.get_or_create_journal_by_name(&name)?;
         Ok(Json(GetOrCreateJournalResponse {
@@ -61,7 +67,10 @@ async fn get_or_create(State(state): State<SharedState>, Path(name): Path<String
     .await
 }
 
-fn to_response(state: &SharedState, result: MostRecentJournalResult) -> AppResult<Json<MostRecentResponse>> {
+fn to_response(
+    state: &SharedState,
+    result: MostRecentJournalResult,
+) -> AppResult<Json<MostRecentResponse>> {
     match result.page {
         None => Ok(Json(MostRecentResponse {
             found: false,
@@ -78,14 +87,36 @@ fn to_response(state: &SharedState, result: MostRecentJournalResult) -> AppResul
     }
 }
 
-async fn most_recent_before(State(state): State<SharedState>, Query(q): Query<DateQuery>) -> AppResult<Json<MostRecentResponse>> {
+async fn most_recent_before(
+    State(state): State<SharedState>,
+    Query(q): Query<DateQuery>,
+) -> AppResult<Json<MostRecentResponse>> {
     let date = q.date.unwrap_or_default();
     let before = NaiveDate::parse_from_str(&date, "%Y-%m-%d")
         .map_err(|e| AppError::bad_request(format!("Invalid date '{date}': {e}")))?;
-    blocking(move || to_response(&state, state.journal_service.get_most_recent_journal_before(before)?)).await
+    blocking(move || {
+        to_response(
+            &state,
+            state
+                .journal_service
+                .get_most_recent_journal_before(before)?,
+        )
+    })
+    .await
 }
 
-async fn most_recent_weekly_before(State(state): State<SharedState>, Query(q): Query<WeekQuery>) -> AppResult<Json<MostRecentResponse>> {
+async fn most_recent_weekly_before(
+    State(state): State<SharedState>,
+    Query(q): Query<WeekQuery>,
+) -> AppResult<Json<MostRecentResponse>> {
     let week = q.week.unwrap_or_default();
-    blocking(move || to_response(&state, state.journal_service.get_most_recent_weekly_journal_before(&week)?)).await
+    blocking(move || {
+        to_response(
+            &state,
+            state
+                .journal_service
+                .get_most_recent_weekly_journal_before(&week)?,
+        )
+    })
+    .await
 }

@@ -78,7 +78,9 @@ fn item_dto_json(dto: &ItemDto) -> Value {
 }
 
 fn ok(value: Value) -> Result<CallToolResult, McpError> {
-    Ok(CallToolResult::success(vec![Content::text(value.to_string())]))
+    Ok(CallToolResult::success(vec![Content::text(
+        value.to_string(),
+    )]))
 }
 
 fn mcp_error(e: AppError) -> McpError {
@@ -344,19 +346,34 @@ impl JournalMcp {
 
     // ---- items ----
 
-    #[tool(description = "Get a single item by its ID. Returns the item with its properties. Use 'fields' to return only specific fields (comma-separated, e.g. 'body,level,types').")]
-    async fn get_item(&self, Parameters(a): Parameters<GetItemArgs>) -> Result<CallToolResult, McpError> {
+    #[tool(
+        description = "Get a single item by its ID. Returns the item with its properties. Use 'fields' to return only specific fields (comma-separated, e.g. 'body,level,types')."
+    )]
+    async fn get_item(
+        &self,
+        Parameters(a): Parameters<GetItemArgs>,
+    ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let item_id = id(&a.item_id)?;
-        let dto = run(move || state.dtos.to_dto(&state.item_service.get_item_by_id(&item_id)?)).await?;
+        let dto = run(move || {
+            state
+                .dtos
+                .to_dto(&state.item_service.get_item_by_id(&item_id)?)
+        })
+        .await?;
         if !a.fields.is_empty() {
             return ok(Value::Object(select_fields(&dto, &a.fields)));
         }
         ok(json!({ "item": item_dto_json(&dto) }))
     }
 
-    #[tool(description = "Create a new item in a page. Use position to specify where: 'first' for page start, 'last' for page end, 'after:<id>' to insert after a specific item.")]
-    async fn create_item(&self, Parameters(a): Parameters<CreateItemArgs>) -> Result<CallToolResult, McpError> {
+    #[tool(
+        description = "Create a new item in a page. Use position to specify where: 'first' for page start, 'last' for page end, 'after:<id>' to insert after a specific item."
+    )]
+    async fn create_item(
+        &self,
+        Parameters(a): Parameters<CreateItemArgs>,
+    ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let page_id = id(&a.page_id)?;
         let pos = position(&a.position)?;
@@ -369,8 +386,13 @@ impl JournalMcp {
         ok(json!({ "item": item_json(&item) }))
     }
 
-    #[tool(description = "Update an existing item's body, level, or collapsed state. Only non-null fields are updated.")]
-    async fn update_item(&self, Parameters(a): Parameters<UpdateItemArgs>) -> Result<CallToolResult, McpError> {
+    #[tool(
+        description = "Update an existing item's body, level, or collapsed state. Only non-null fields are updated."
+    )]
+    async fn update_item(
+        &self,
+        Parameters(a): Parameters<UpdateItemArgs>,
+    ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let item_id = id(&a.item_id)?;
         let level = if a.level < 1 { None } else { Some(a.level) };
@@ -388,81 +410,140 @@ impl JournalMcp {
     }
 
     #[tool(description = "Delete an item by its ID")]
-    async fn delete_item(&self, Parameters(a): Parameters<ItemIdArgs>) -> Result<CallToolResult, McpError> {
+    async fn delete_item(
+        &self,
+        Parameters(a): Parameters<ItemIdArgs>,
+    ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let item_id = id(&a.item_id)?;
         run(move || state.item_service.delete_item(&item_id)).await?;
         ok(json!({ "deleted": true }))
     }
 
-    #[tool(description = "Move items to a target page and position. Returns items with updated indices.")]
-    async fn move_items(&self, Parameters(a): Parameters<MoveItemsArgs>) -> Result<CallToolResult, McpError> {
+    #[tool(
+        description = "Move items to a target page and position. Returns items with updated indices."
+    )]
+    async fn move_items(
+        &self,
+        Parameters(a): Parameters<MoveItemsArgs>,
+    ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let item_ids = ids(&a.item_ids)?;
         let target = id(&a.target_page_id)?;
         let pos = position(&a.position)?;
-        let delta = if a.level_delta == 0 { None } else { Some(a.level_delta) };
-        let items = run(move || state.item_service.move_items(&item_ids, &target, &pos, delta)).await?;
+        let delta = if a.level_delta == 0 {
+            None
+        } else {
+            Some(a.level_delta)
+        };
+        let items = run(move || {
+            state
+                .item_service
+                .move_items(&item_ids, &target, &pos, delta)
+        })
+        .await?;
         ok(json!({ "items": items_json(&items) }))
     }
 
     #[tool(description = "Get all items with the specified types (e.g. all 'task' items)")]
-    async fn get_items_by_type(&self, Parameters(a): Parameters<TypesArgs>) -> Result<CallToolResult, McpError> {
+    async fn get_items_by_type(
+        &self,
+        Parameters(a): Parameters<TypesArgs>,
+    ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let types: Vec<String> = a.types.split(',').map(|s| s.to_string()).collect();
         let items = run(move || state.item_service.get_items_by_types(&types)).await?;
         ok(json!({ "items": items_json(&items) }))
     }
 
-    #[tool(description = "Export items as hierarchical tree markdown. Returns tree markdown, flat markdown, and HTML representations.")]
-    async fn export_tree_markdown(&self, Parameters(a): Parameters<ItemIdsArgs>) -> Result<CallToolResult, McpError> {
+    #[tool(
+        description = "Export items as hierarchical tree markdown. Returns tree markdown, flat markdown, and HTML representations."
+    )]
+    async fn export_tree_markdown(
+        &self,
+        Parameters(a): Parameters<ItemIdsArgs>,
+    ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let item_ids = ids(&a.item_ids)?;
         let r = run(move || state.item_service.export_tree_markdown(&item_ids)).await?;
         ok(Self::export_json(r))
     }
 
-    #[tool(description = "Export an item and all its descendants (subtree) as tree markdown, flat markdown, and AST. Use this to get a complete subtree rooted at a specific item.")]
-    async fn export_subtree_markdown(&self, Parameters(a): Parameters<ItemIdArgs>) -> Result<CallToolResult, McpError> {
+    #[tool(
+        description = "Export an item and all its descendants (subtree) as tree markdown, flat markdown, and AST. Use this to get a complete subtree rooted at a specific item."
+    )]
+    async fn export_subtree_markdown(
+        &self,
+        Parameters(a): Parameters<ItemIdArgs>,
+    ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let item_id = id(&a.item_id)?;
         let r = run(move || state.item_service.export_subtree_markdown(&item_id)).await?;
         ok(Self::export_json(r))
     }
 
-    #[tool(description = "Cycle the task state of an item: non-task → task, task → started (begin), started → completed (end), completed → non-task.")]
-    async fn cycle_task(&self, Parameters(a): Parameters<ItemIdArgs>) -> Result<CallToolResult, McpError> {
+    #[tool(
+        description = "Cycle the task state of an item: non-task → task, task → started (begin), started → completed (end), completed → non-task."
+    )]
+    async fn cycle_task(
+        &self,
+        Parameters(a): Parameters<ItemIdArgs>,
+    ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let item_id = id(&a.item_id)?;
         let dto = run(move || state.dtos.to_dto(&state.item_service.cycle_task(&item_id)?)).await?;
         ok(json!({ "item": item_dto_json(&dto) }))
     }
 
-    #[tool(description = "Set a transclusion on an item, making it mirror a source item's content.")]
-    async fn set_transclusion(&self, Parameters(a): Parameters<SetTransclusionArgs>) -> Result<CallToolResult, McpError> {
+    #[tool(
+        description = "Set a transclusion on an item, making it mirror a source item's content."
+    )]
+    async fn set_transclusion(
+        &self,
+        Parameters(a): Parameters<SetTransclusionArgs>,
+    ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let item_id = id(&a.item_id)?;
         let source = id(&a.source_item_id)?;
-        let dto = run(move || state.dtos.to_dto(&state.item_service.set_transclusion(&item_id, &source)?)).await?;
+        let dto = run(move || {
+            state
+                .dtos
+                .to_dto(&state.item_service.set_transclusion(&item_id, &source)?)
+        })
+        .await?;
         ok(json!({ "item": item_dto_json(&dto) }))
     }
 
     #[tool(description = "Remove a transclusion from an item, clearing its body.")]
-    async fn remove_transclusion(&self, Parameters(a): Parameters<ItemIdArgs>) -> Result<CallToolResult, McpError> {
-        let state = Arc::clone(&self.state);
-        let item_id = id(&a.item_id)?;
-        let dto = run(move || state.dtos.to_dto(&state.item_service.remove_transclusion(&item_id)?)).await?;
-        ok(json!({ "item": item_dto_json(&dto) }))
-    }
-
-    #[tool(description = "Upsert a scalar property on an item (e.g. begin, end, due, plan, cancelled).")]
-    async fn upsert_property(&self, Parameters(a): Parameters<UpsertPropertyArgs>) -> Result<CallToolResult, McpError> {
+    async fn remove_transclusion(
+        &self,
+        Parameters(a): Parameters<ItemIdArgs>,
+    ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let item_id = id(&a.item_id)?;
         let dto = run(move || {
-            let item = state
-                .item_service
-                .set_property(&item_id, &a.key, &a.value_type, &a.value)?;
+            state
+                .dtos
+                .to_dto(&state.item_service.remove_transclusion(&item_id)?)
+        })
+        .await?;
+        ok(json!({ "item": item_dto_json(&dto) }))
+    }
+
+    #[tool(
+        description = "Upsert a scalar property on an item (e.g. begin, end, due, plan, cancelled)."
+    )]
+    async fn upsert_property(
+        &self,
+        Parameters(a): Parameters<UpsertPropertyArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        let state = Arc::clone(&self.state);
+        let item_id = id(&a.item_id)?;
+        let dto = run(move || {
+            let item =
+                state
+                    .item_service
+                    .set_property(&item_id, &a.key, &a.value_type, &a.value)?;
             state.dtos.to_dto(&item)
         })
         .await?;
@@ -470,15 +551,24 @@ impl JournalMcp {
     }
 
     #[tool(description = "Convert tree markdown (indented list format) to flat markdown.")]
-    async fn import_tree_markdown(&self, Parameters(a): Parameters<TreeMarkdownArgs>) -> Result<CallToolResult, McpError> {
-        let flat = self.state.item_service.import_tree_markdown(&a.tree_markdown);
+    async fn import_tree_markdown(
+        &self,
+        Parameters(a): Parameters<TreeMarkdownArgs>,
+    ) -> Result<CallToolResult, McpError> {
+        let flat = self
+            .state
+            .item_service
+            .import_tree_markdown(&a.tree_markdown);
         ok(json!({ "flatMarkdown": flat }))
     }
 
     // ---- pages ----
 
     #[tool(description = "Get a page and its items by page ID")]
-    async fn get_page_by_id(&self, Parameters(a): Parameters<PageIdArgs>) -> Result<CallToolResult, McpError> {
+    async fn get_page_by_id(
+        &self,
+        Parameters(a): Parameters<PageIdArgs>,
+    ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let page_id = id(&a.page_id)?;
         let (page, items) = run(move || {
@@ -493,15 +583,32 @@ impl JournalMcp {
         ok(json!({ "page": page_json(&page), "items": items_json(&items) }))
     }
 
-    #[tool(description = "Get or create a document page by title. Returns the page and its items. If the page does not exist, it is created with an empty item.")]
-    async fn get_or_create_doc(&self, Parameters(a): Parameters<GetOrCreateDocArgs>) -> Result<CallToolResult, McpError> {
+    #[tool(
+        description = "Get or create a document page by title. Returns the page and its items. If the page does not exist, it is created with an empty item."
+    )]
+    async fn get_or_create_doc(
+        &self,
+        Parameters(a): Parameters<GetOrCreateDocArgs>,
+    ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
-        let r = run(move || state.page_service.get_or_create_doc(Some(&a.title), Some(&a.dir_path))).await?;
-        ok(json!({ "page": page_json(&r.page), "items": items_json(&r.items), "created": r.created }))
+        let r = run(move || {
+            state
+                .page_service
+                .get_or_create_doc(Some(&a.title), Some(&a.dir_path))
+        })
+        .await?;
+        ok(
+            json!({ "page": page_json(&r.page), "items": items_json(&r.items), "created": r.created }),
+        )
     }
 
-    #[tool(description = "Export a page's items as flat markdown, tree markdown, and AST. Includes item properties (begin, end, tags, etc.) in HTML comments.")]
-    async fn export_page_markdown(&self, Parameters(a): Parameters<PageIdArgs>) -> Result<CallToolResult, McpError> {
+    #[tool(
+        description = "Export a page's items as flat markdown, tree markdown, and AST. Includes item properties (begin, end, tags, etc.) in HTML comments."
+    )]
+    async fn export_page_markdown(
+        &self,
+        Parameters(a): Parameters<PageIdArgs>,
+    ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let page_id = id(&a.page_id)?;
         let r = run(move || state.item_service.export_page_markdown(&page_id)).await?;
@@ -509,21 +616,30 @@ impl JournalMcp {
     }
 
     #[tool(description = "Update a page's title or directory path")]
-    async fn update_page(&self, Parameters(a): Parameters<UpdatePageArgs>) -> Result<CallToolResult, McpError> {
+    async fn update_page(
+        &self,
+        Parameters(a): Parameters<UpdatePageArgs>,
+    ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let page_id = id(&a.page_id)?;
         let title = a.title.filter(|t| !t.is_empty());
         let (page, _) = run(move || {
-            state
-                .item_service
-                .update_page(&page_id, title.as_deref(), a.dir_path.as_deref(), a.overwrite)
+            state.item_service.update_page(
+                &page_id,
+                title.as_deref(),
+                a.dir_path.as_deref(),
+                a.overwrite,
+            )
         })
         .await?;
         ok(json!({ "page": page_json(&page) }))
     }
 
     #[tool(description = "Delete a page and all its items")]
-    async fn delete_page(&self, Parameters(a): Parameters<PageIdArgs>) -> Result<CallToolResult, McpError> {
+    async fn delete_page(
+        &self,
+        Parameters(a): Parameters<PageIdArgs>,
+    ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let page_id = id(&a.page_id)?;
         run(move || state.page_service.delete_page(&page_id)).await?;
@@ -532,32 +648,55 @@ impl JournalMcp {
 
     // ---- search ----
 
-    #[tool(description = "Search pages by name. Index pages whose folder name matches come first with path prefix matches, then fuzzy/token search, then substring matching as fallback. The atlas pages (index_atlas) are not found by name.")]
-    async fn search_page_names(&self, Parameters(a): Parameters<SearchArgs>) -> Result<CallToolResult, McpError> {
+    #[tool(
+        description = "Search pages by name. Index pages whose folder name matches come first with path prefix matches, then fuzzy/token search, then substring matching as fallback. The atlas pages (index_atlas) are not found by name."
+    )]
+    async fn search_page_names(
+        &self,
+        Parameters(a): Parameters<SearchArgs>,
+    ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let max = if a.max_results > 0 { a.max_results } else { 20 };
-        let results = run(move || state.combined_search.search_page_names_internal(&a.query, max as usize))
+        let results = run(move || {
+            state
+                .combined_search
+                .search_page_names_internal(&a.query, max as usize)
+        })
         .await?;
         ok(json!({ "results": results.iter().map(search_result_json).collect::<Vec<_>>() }))
     }
 
-    #[tool(description = "Combined search supporting #tag, key=value properties, in:path page prefix, created:/modified: date filters, plain text, and OR/AND operators. Examples: '#report in:DailyReport/2026-03', 'status=done', 'created:2026-03', '#urgent OR #important'")]
-    async fn search_combined(&self, Parameters(a): Parameters<SearchArgs>) -> Result<CallToolResult, McpError> {
+    #[tool(
+        description = "Combined search supporting #tag, key=value properties, in:path page prefix, created:/modified: date filters, plain text, and OR/AND operators. Examples: '#report in:DailyReport/2026-03', 'status=done', 'created:2026-03', '#urgent OR #important'"
+    )]
+    async fn search_combined(
+        &self,
+        Parameters(a): Parameters<SearchArgs>,
+    ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
-        let max = if a.max_results > 0 { a.max_results as usize } else { 20 };
+        let max = if a.max_results > 0 {
+            a.max_results as usize
+        } else {
+            20
+        };
         let results = run(move || state.combined_search.search(&a.query, max)).await?;
         ok(json!({ "results": results.iter().map(search_result_json).collect::<Vec<_>>() }))
     }
 
     // ---- config ----
 
-    #[tool(description = "Get server configuration (markdownDir, weekNumbering, logicalOutdent, tagsDir)")]
+    #[tool(
+        description = "Get server configuration (markdownDir, weekNumbering, logicalOutdent, tagsDir)"
+    )]
     async fn get_config(&self) -> Result<CallToolResult, McpError> {
         ok(self.config_json())
     }
 
     #[tool(description = "Update server configuration")]
-    async fn update_config(&self, Parameters(a): Parameters<UpdateConfigArgs>) -> Result<CallToolResult, McpError> {
+    async fn update_config(
+        &self,
+        Parameters(a): Parameters<UpdateConfigArgs>,
+    ) -> Result<CallToolResult, McpError> {
         if let Some(w) = &a.week_numbering {
             self.state.config.set_week_numbering(w);
         }
@@ -578,8 +717,13 @@ impl JournalMcp {
 
     // ---- navigation ----
 
-    #[tool(description = "Get pages and items that link to a given page (backlinks): by a wikilink, or by the tag of a tag page as a hashtag or in a page's tags. Each entry contains the source page and the item containing the link; the item is null when the source page links by its tags.")]
-    async fn get_backlinks(&self, Parameters(a): Parameters<PageIdArgs>) -> Result<CallToolResult, McpError> {
+    #[tool(
+        description = "Get pages and items that link to a given page (backlinks): by a wikilink, or by the tag of a tag page as a hashtag or in a page's tags. Each entry contains the source page and the item containing the link; the item is null when the source page links by its tags."
+    )]
+    async fn get_backlinks(
+        &self,
+        Parameters(a): Parameters<PageIdArgs>,
+    ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let page_id = id(&a.page_id)?;
         let entries = run(move || state.page_service.get_backlinks(&page_id)).await?;
@@ -588,31 +732,64 @@ impl JournalMcp {
 
     // ---- journals ----
 
-    #[tool(description = "Get or create a journal page by file name. Supports daily (YYYY-MM-DD), weekly (YYYY-WNN), monthly (YYYY-MM), and yearly (YYYY) formats.")]
-    async fn get_or_create_journal(&self, Parameters(a): Parameters<JournalNameArgs>) -> Result<CallToolResult, McpError> {
+    #[tool(
+        description = "Get or create a journal page by file name. Supports daily (YYYY-MM-DD), weekly (YYYY-WNN), monthly (YYYY-MM), and yearly (YYYY) formats."
+    )]
+    async fn get_or_create_journal(
+        &self,
+        Parameters(a): Parameters<JournalNameArgs>,
+    ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
-        let r = run(move || state.journal_service.get_or_create_journal_by_name(&a.file_name)).await?;
-        ok(json!({ "page": page_json(&r.page), "items": items_json(&r.items), "created": r.created }))
+        let r = run(move || {
+            state
+                .journal_service
+                .get_or_create_journal_by_name(&a.file_name)
+        })
+        .await?;
+        ok(
+            json!({ "page": page_json(&r.page), "items": items_json(&r.items), "created": r.created }),
+        )
     }
 
     #[tool(description = "Get the most recent daily journal before the specified date")]
-    async fn get_most_recent_journal_before(&self, Parameters(a): Parameters<BeforeDateArgs>) -> Result<CallToolResult, McpError> {
+    async fn get_most_recent_journal_before(
+        &self,
+        Parameters(a): Parameters<BeforeDateArgs>,
+    ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
-        let before = chrono::NaiveDate::parse_from_str(&a.before_date, "%Y-%m-%d")
-            .map_err(|e| McpError::invalid_params(format!("Invalid date '{}': {e}", a.before_date), None))?;
+        let before =
+            chrono::NaiveDate::parse_from_str(&a.before_date, "%Y-%m-%d").map_err(|e| {
+                McpError::invalid_params(format!("Invalid date '{}': {e}", a.before_date), None)
+            })?;
         let r = run(move || state.journal_service.get_most_recent_journal_before(before)).await?;
         match r.page {
-            Some(page) => ok(json!({ "found": true, "page": page_json(&page), "items": items_json(&r.items) })),
+            Some(page) => ok(
+                json!({ "found": true, "page": page_json(&page), "items": items_json(&r.items) }),
+            ),
             None => ok(json!({ "found": false })),
         }
     }
 
-    #[tool(description = "Get recently modified pages, ordered by modification date (newest first)")]
-    async fn get_recent_pages(&self, Parameters(a): Parameters<RecentPagesArgs>) -> Result<CallToolResult, McpError> {
+    #[tool(
+        description = "Get recently modified pages, ordered by modification date (newest first)"
+    )]
+    async fn get_recent_pages(
+        &self,
+        Parameters(a): Parameters<RecentPagesArgs>,
+    ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let max = if a.max_results > 0 { a.max_results } else { 10 };
-        let page_type = if a.page_type.is_empty() { None } else { Some(a.page_type) };
-        let pages = run(move || state.page_service.get_recent_pages(max, page_type.as_deref())).await?;
+        let page_type = if a.page_type.is_empty() {
+            None
+        } else {
+            Some(a.page_type)
+        };
+        let pages = run(move || {
+            state
+                .page_service
+                .get_recent_pages(max, page_type.as_deref())
+        })
+        .await?;
         ok(json!({ "pages": pages.iter().map(page_json).collect::<Vec<_>>() }))
     }
 }
@@ -621,7 +798,10 @@ impl JournalMcp {
 impl ServerHandler for JournalMcp {
     fn get_info(&self) -> ServerInfo {
         ServerInfo {
-            instructions: Some("PetaJournal: journals, documents and outline items of a local markdown folder.".into()),
+            instructions: Some(
+                "PetaJournal: journals, documents and outline items of a local markdown folder."
+                    .into(),
+            ),
             capabilities: ServerCapabilities::builder().enable_tools().build(),
             ..Default::default()
         }

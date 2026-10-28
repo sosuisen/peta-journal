@@ -58,8 +58,9 @@ impl Db {
     /// Opens (or creates) the database file, creating its directory first.
     pub fn open(path: &Path) -> anyhow::Result<Db> {
         if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)
-                .with_context(|| format!("Cannot create database directory: {}", parent.display()))?;
+            std::fs::create_dir_all(parent).with_context(|| {
+                format!("Cannot create database directory: {}", parent.display())
+            })?;
         }
         if path.exists() {
             tracing::debug!("Connecting to existing SQLite database: {}", path.display());

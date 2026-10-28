@@ -57,7 +57,12 @@ pub fn between_many(
 }
 
 /// Splits the gap in the middle first, so the indices grow in length as slowly as possible.
-fn fill_between(before: &str, after: &str, count: usize, out: &mut Vec<String>) -> Result<(), NoGap> {
+fn fill_between(
+    before: &str,
+    after: &str,
+    count: usize,
+    out: &mut Vec<String>,
+) -> Result<(), NoGap> {
     if count == 0 {
         return Ok(());
     }

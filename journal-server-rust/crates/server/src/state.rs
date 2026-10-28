@@ -273,6 +273,8 @@ where
 {
     match tokio::task::spawn_blocking(f).await {
         Ok(r) => r,
-        Err(e) => Err(crate::error::AppError::internal(format!("Task failed: {e}"))),
+        Err(e) => Err(crate::error::AppError::internal(format!(
+            "Task failed: {e}"
+        ))),
     }
 }

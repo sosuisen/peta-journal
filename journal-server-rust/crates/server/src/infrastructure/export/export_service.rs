@@ -73,11 +73,16 @@ impl MarkdownExportService {
                 return;
             }
         }
-        let Ok(all_pages) = self.pages.find_all() else { return };
+        let Ok(all_pages) = self.pages.find_all() else {
+            return;
+        };
         for page in &all_pages {
             self.queue_export(&page.id);
         }
-        tracing::info!("Directory empty, queued {} pages for export", all_pages.len());
+        tracing::info!(
+            "Directory empty, queued {} pages for export",
+            all_pages.len()
+        );
     }
 
     /// The markdown root if it is configured and currently reachable. None when Dropbox (or the
@@ -238,7 +243,10 @@ pub fn append_frontmatter(
     sb.push_str("---\n");
     sb.push_str(&format!("id: {}\n", page.id));
     sb.push_str(&format!("created: {}\n", format_instant(page.created_date)));
-    sb.push_str(&format!("modified: {}\n", format_instant(page.modified_date)));
+    sb.push_str(&format!(
+        "modified: {}\n",
+        format_instant(page.modified_date)
+    ));
     for (key, value) in scalars.into_iter().flatten() {
         sb.push_str(&format!("{key}: {}\n", yaml_scalar(value)));
     }
@@ -337,6 +345,9 @@ mod tests {
     #[test]
     fn formats_instants_like_java() {
         assert_eq!(format_instant(0), "1970-01-01T00:00:00Z");
-        assert_eq!(format_instant(1_700_000_000_123), "2023-11-14T22:13:20.123Z");
+        assert_eq!(
+            format_instant(1_700_000_000_123),
+            "2023-11-14T22:13:20.123Z"
+        );
     }
 }

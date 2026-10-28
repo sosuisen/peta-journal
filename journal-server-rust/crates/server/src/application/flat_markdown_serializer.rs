@@ -67,7 +67,11 @@ pub fn append_item(
 
 /// Builds the metadata line of an item. Properties are written in a fixed order: idx, collapsed,
 /// transclude, then the remaining keys sorted alphabetically.
-pub fn metadata_line(item: &Item, scalars: &BTreeMap<String, String>, lists: &BTreeMap<String, Vec<String>>) -> String {
+pub fn metadata_line(
+    item: &Item,
+    scalars: &BTreeMap<String, String>,
+    lists: &BTreeMap<String, Vec<String>>,
+) -> String {
     let mut sb = String::from("<!-- ");
     sb.push_str(&"@".repeat(item.level.max(1) as usize));
     sb.push(' ');
@@ -94,7 +98,11 @@ pub fn metadata_line(item: &Item, scalars: &BTreeMap<String, String>, lists: &BT
 /// `- [x] ` when the task has an `end` property, otherwise `- [ ] `.
 pub fn body_with_task_prefix(item: &Item, scalars: &BTreeMap<String, String>) -> String {
     if item.types.iter().any(|t| t == "task") {
-        let prefix = if scalars.contains_key("end") { "- [x] " } else { "- [ ] " };
+        let prefix = if scalars.contains_key("end") {
+            "- [x] "
+        } else {
+            "- [ ] "
+        };
         return format!("{prefix}{}", item.body);
     }
     item.body.clone()
@@ -142,7 +150,10 @@ mod tests {
     fn writes_metadata_and_body() {
         let items = vec![item(2, "hello", &[])];
         let s = serialize(&items, &ScalarProps::new(), &ListProps::new());
-        assert_eq!(s, "<!-- @@ 2026-09-29-00-00-01-AAAAAAA idx=\"z0\" -->\nhello\n");
+        assert_eq!(
+            s,
+            "<!-- @@ 2026-09-29-00-00-01-AAAAAAA idx=\"z0\" -->\nhello\n"
+        );
     }
 
     #[test]

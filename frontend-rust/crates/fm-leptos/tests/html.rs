@@ -134,8 +134,10 @@ fn blockquote_and_rule() {
 #[test]
 fn alert_with_default_and_custom_title() {
     assert_eq!(
-        render_plain("> [!NOTE]
-> body"),
+        render_plain(
+            "> [!NOTE]
+> body"
+        ),
         "<div class=\"alert alert-note\"><p class=\"alert-title\">Note</p><p>body</p></div>"
     );
     assert_eq!(
@@ -144,9 +146,11 @@ fn alert_with_default_and_custom_title() {
         "<div class=\"alert alert-warning\"><p class=\"alert-title\">Mind the gap</p><p>body</p></div>"
     );
     assert_eq!(
-        render_plain(">>> [!TIP]
+        render_plain(
+            ">>> [!TIP]
 body
->>>"),
+>>>"
+        ),
         "<div class=\"alert alert-tip\"><p class=\"alert-title\">Tip</p><p>body</p></div>"
     );
 }

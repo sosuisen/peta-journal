@@ -52,7 +52,9 @@ pub fn is_valid(tag: &str) -> bool {
     !tag.is_empty()
         && !tag.starts_with('/')
         && !tag.ends_with('/')
-        && tag.chars().all(|c| c.is_alphanumeric() || matches!(c, '_' | '-' | '/'))
+        && tag
+            .chars()
+            .all(|c| c.is_alphanumeric() || matches!(c, '_' | '-' | '/'))
 }
 
 /// The tag as it reads once the tag `old` is named `new`: `old` itself, or a tag under it like
@@ -61,7 +63,8 @@ pub fn is_valid(tag: &str) -> bool {
 pub fn renamed(tag: &str, old: &str, new: &str) -> Option<String> {
     let head = tag.get(..old.len())?;
     let rest = &tag[old.len()..];
-    (head.eq_ignore_ascii_case(old) && (rest.is_empty() || rest.starts_with('/'))).then(|| format!("{new}{rest}"))
+    (head.eq_ignore_ascii_case(old) && (rest.is_empty() || rest.starts_with('/')))
+        .then(|| format!("{new}{rest}"))
 }
 
 #[cfg(test)]

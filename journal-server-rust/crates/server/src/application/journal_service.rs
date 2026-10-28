@@ -109,7 +109,9 @@ impl JournalService {
     /// with one wiki link per day, week or month it covers.
     pub fn get_or_create_journal_by_name(&self, file_name: &str) -> AppResult<JournalResult> {
         match journal_name::classify(file_name) {
-            JournalType::None => Err(AppError::bad_request(format!("Not a journal filename: {file_name}"))),
+            JournalType::None => Err(AppError::bad_request(format!(
+                "Not a journal filename: {file_name}"
+            ))),
             JournalType::Daily => {
                 let date = NaiveDate::parse_from_str(file_name, "%Y-%m-%d")
                     .map_err(|e| AppError::bad_request(format!("Invalid date {file_name}: {e}")))?;
@@ -117,34 +119,61 @@ impl JournalService {
             }
             JournalType::Weekly => {
                 let (y, w) = file_name.split_once("-W").unwrap_or((file_name, "1"));
-                let year: i32 = y.parse().map_err(|_| AppError::bad_request(format!("Invalid week: {file_name}")))?;
-                let week: u32 = w.parse().map_err(|_| AppError::bad_request(format!("Invalid week: {file_name}")))?;
-                self.get_or_create_link_journal(&format!("{year}-W{week:02}"), self.week_day_names(year, week)?)
+                let year: i32 = y
+                    .parse()
+                    .map_err(|_| AppError::bad_request(format!("Invalid week: {file_name}")))?;
+                let week: u32 = w
+                    .parse()
+                    .map_err(|_| AppError::bad_request(format!("Invalid week: {file_name}")))?;
+                self.get_or_create_link_journal(
+                    &format!("{year}-W{week:02}"),
+                    self.week_day_names(year, week)?,
+                )
             }
             JournalType::Monthly => {
                 let (y, m) = file_name.split_once('-').unwrap_or((file_name, "1"));
-                let year: i32 = y.parse().map_err(|_| AppError::bad_request(format!("Invalid month: {file_name}")))?;
-                let month: u32 = m.parse().map_err(|_| AppError::bad_request(format!("Invalid month: {file_name}")))?;
-                self.get_or_create_link_journal(&format!("{year}-{month:02}"), self.week_names_in_month(year, month)?)
+                let year: i32 = y
+                    .parse()
+                    .map_err(|_| AppError::bad_request(format!("Invalid month: {file_name}")))?;
+                let month: u32 = m
+                    .parse()
+                    .map_err(|_| AppError::bad_request(format!("Invalid month: {file_name}")))?;
+                self.get_or_create_link_journal(
+                    &format!("{year}-{month:02}"),
+                    self.week_names_in_month(year, month)?,
+                )
             }
             JournalType::Yearly => {
-                let year: i32 = file_name.parse().map_err(|_| AppError::bad_request(format!("Invalid year: {file_name}")))?;
+                let year: i32 = file_name
+                    .parse()
+                    .map_err(|_| AppError::bad_request(format!("Invalid year: {file_name}")))?;
                 self.get_or_create_link_journal(&year.to_string(), month_names(year))
             }
         }
     }
 
-    fn get_or_create_link_journal(&self, file_name: &str, link_targets: Vec<String>) -> AppResult<JournalResult> {
-        if let Some(page) = self.pages.find_by_type_dir_path_file_name(JOURNAL_TYPE, "", file_name)? {
+    fn get_or_create_link_journal(
+        &self,
+        file_name: &str,
+        link_targets: Vec<String>,
+    ) -> AppResult<JournalResult> {
+        if let Some(page) =
+            self.pages
+                .find_by_type_dir_path_file_name(JOURNAL_TYPE, "", file_name)?
+        {
             return self.existing_journal(page);
         }
         let page = self.create_journal_page(file_name)?;
         let mut items = Vec::new();
         let mut position = ItemPosition::First;
         for target in link_targets {
-            let item = self
-                .item_service
-                .create_item(&page.id, &position, 1, Some(&format!("[[{target}]]")), None)?;
+            let item = self.item_service.create_item(
+                &page.id,
+                &position,
+                1,
+                Some(&format!("[[{target}]]")),
+                None,
+            )?;
             position = ItemPosition::After(item.id.clone());
             items.push(item);
         }
@@ -209,7 +238,11 @@ impl JournalService {
         let mut weeks: Vec<u32> = Vec::new();
         let mut date = first;
         while date <= last {
-            let week_num = if iso { iso_week_number(date) } else { us_week_number(date, year) };
+            let week_num = if iso {
+                iso_week_number(date)
+            } else {
+                us_week_number(date, year)
+            };
             if weeks.last() != Some(&week_num) {
                 weeks.push(week_num);
             }
@@ -218,19 +251,31 @@ impl JournalService {
         Ok(weeks.iter().map(|w| format!("{year}-W{w:02}")).collect())
     }
 
-    pub fn get_most_recent_journal_before(&self, before: NaiveDate) -> AppResult<MostRecentJournalResult> {
+    pub fn get_most_recent_journal_before(
+        &self,
+        before: NaiveDate,
+    ) -> AppResult<MostRecentJournalResult> {
         self.to_most_recent(self.pages.find_most_recent_journal_before(before)?)
     }
 
-    pub fn get_most_recent_weekly_journal_before(&self, before_week: &str) -> AppResult<MostRecentJournalResult> {
-        self.to_most_recent(self.pages.find_most_recent_weekly_journal_before(before_week)?)
+    pub fn get_most_recent_weekly_journal_before(
+        &self,
+        before_week: &str,
+    ) -> AppResult<MostRecentJournalResult> {
+        self.to_most_recent(
+            self.pages
+                .find_most_recent_weekly_journal_before(before_week)?,
+        )
     }
 
     fn to_most_recent(&self, page: Option<Page>) -> AppResult<MostRecentJournalResult> {
         match page {
             Some(p) => {
                 let items = self.items.find_by_page_id(&p.id)?;
-                Ok(MostRecentJournalResult { page: Some(p), items })
+                Ok(MostRecentJournalResult {
+                    page: Some(p),
+                    items,
+                })
             }
             None => Ok(MostRecentJournalResult {
                 page: None,
@@ -246,7 +291,11 @@ fn ymd(year: i32, month: u32, day: u32) -> AppResult<NaiveDate> {
 }
 
 fn last_day_of_month(year: i32, month: u32) -> AppResult<NaiveDate> {
-    let next = if month == 12 { ymd(year + 1, 1, 1)? } else { ymd(year, month + 1, 1)? };
+    let next = if month == 12 {
+        ymd(year + 1, 1, 1)?
+    } else {
+        ymd(year, month + 1, 1)?
+    };
     Ok(next.pred_opt().unwrap_or(next))
 }
 
@@ -296,7 +345,10 @@ mod tests {
     #[test]
     fn previous_or_same_weekday() {
         let d = NaiveDate::from_ymd_opt(2026, 1, 4).unwrap(); // Sunday
-        assert_eq!(previous_or_same(d, Weekday::Mon), NaiveDate::from_ymd_opt(2025, 12, 29).unwrap());
+        assert_eq!(
+            previous_or_same(d, Weekday::Mon),
+            NaiveDate::from_ymd_opt(2025, 12, 29).unwrap()
+        );
         assert_eq!(previous_or_same(d, Weekday::Sun), d);
     }
 }

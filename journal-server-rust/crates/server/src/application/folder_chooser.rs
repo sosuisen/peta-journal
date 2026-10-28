@@ -55,7 +55,11 @@ fn choose_folder_macos() -> FolderChoice {
 fn choose_folder_linux() -> FolderChoice {
     // Try zenity first
     let mut cmd = Command::new("zenity");
-    cmd.args(["--file-selection", "--directory", "--title=Select Markdown Directory"]);
+    cmd.args([
+        "--file-selection",
+        "--directory",
+        "--title=Select Markdown Directory",
+    ]);
     let choice = execute(cmd, "Linux");
     if choice.selected {
         return choice;

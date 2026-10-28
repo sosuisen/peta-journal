@@ -411,8 +411,9 @@ pub fn check_schema_version(config_dir: &std::path::Path) {
     if version_file.exists() {
         match std::fs::read(&version_file)
             .map_err(anyhow::Error::from)
-            .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).map_err(Into::into))
-        {
+            .and_then(|bytes| {
+                serde_json::from_slice::<serde_json::Value>(&bytes).map_err(Into::into)
+            }) {
             Ok(json) => {
                 let file_version = json
                     .get("schemaVersion")
@@ -430,10 +431,16 @@ pub fn check_schema_version(config_dir: &std::path::Path) {
             Err(e) => tracing::error!("Failed to read versions.json: {e}"),
         }
     } else {
-        tracing::info!("Schema version file not found. Creating {}", version_file.display());
+        tracing::info!(
+            "Schema version file not found. Creating {}",
+            version_file.display()
+        );
         let json = serde_json::json!({ "schemaVersion": SCHEMA_VERSION });
         let result = std::fs::create_dir_all(config_dir).and_then(|_| {
-            std::fs::write(&version_file, serde_json::to_string_pretty(&json).unwrap_or_default())
+            std::fs::write(
+                &version_file,
+                serde_json::to_string_pretty(&json).unwrap_or_default(),
+            )
         });
         match result {
             Ok(_) => tracing::info!("Wrote {}", version_file.display()),
@@ -464,9 +471,27 @@ mod tests {
 
         run(&conn, &IdGenerator::new()).unwrap();
 
-        assert_eq!(count(&conn, "SELECT COUNT(*) FROM property_list_items WHERE key = 'tags'"), 2);
-        assert_eq!(count(&conn, "SELECT COUNT(*) FROM property_list_items WHERE key = 'tag'"), 0);
-        assert_eq!(count(&conn, "SELECT COUNT(*) FROM property_definitions WHERE key = 'tag'"), 0);
+        assert_eq!(
+            count(
+                &conn,
+                "SELECT COUNT(*) FROM property_list_items WHERE key = 'tags'"
+            ),
+            2
+        );
+        assert_eq!(
+            count(
+                &conn,
+                "SELECT COUNT(*) FROM property_list_items WHERE key = 'tag'"
+            ),
+            0
+        );
+        assert_eq!(
+            count(
+                &conn,
+                "SELECT COUNT(*) FROM property_definitions WHERE key = 'tag'"
+            ),
+            0
+        );
         assert_eq!(
             count(&conn, "SELECT COUNT(*) FROM property_definitions WHERE key = 'tags' AND is_system = 1 AND for_page = 1"),
             1
@@ -512,12 +537,27 @@ mod tests {
 
         run(&conn, &IdGenerator::new()).unwrap();
 
-        conn.execute("INSERT INTO property_definitions (key, value_type) VALUES ('area', 'bounds')", [])
-            .unwrap();
-        assert_eq!(count(&conn, "SELECT COUNT(*) FROM properties WHERE key = 'owner'"), 1);
-        assert_eq!(count(&conn, "SELECT COUNT(*) FROM property_list_items WHERE key = 'tags'"), 1);
+        conn.execute(
+            "INSERT INTO property_definitions (key, value_type) VALUES ('area', 'bounds')",
+            [],
+        )
+        .unwrap();
         assert_eq!(
-            count(&conn, "SELECT COUNT(*) FROM property_definitions WHERE key = 'tags' AND is_system = 1"),
+            count(&conn, "SELECT COUNT(*) FROM properties WHERE key = 'owner'"),
+            1
+        );
+        assert_eq!(
+            count(
+                &conn,
+                "SELECT COUNT(*) FROM property_list_items WHERE key = 'tags'"
+            ),
+            1
+        );
+        assert_eq!(
+            count(
+                &conn,
+                "SELECT COUNT(*) FROM property_definitions WHERE key = 'tags' AND is_system = 1"
+            ),
             1
         );
         assert_eq!(

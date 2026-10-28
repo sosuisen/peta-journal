@@ -17,7 +17,8 @@ pub type ListProps = BTreeMap<String, BTreeMap<String, Vec<String>>>;
 
 /// The types a user may give a new key. `list` and `tags` stay internal: the only list
 /// property is `tags`, which the server derives from the body of an item.
-pub const USER_VALUE_TYPES: [&str; 6] = ["text", "number", "checkbox", "date", "datetime", "bounds"];
+pub const USER_VALUE_TYPES: [&str; 6] =
+    ["text", "number", "checkbox", "date", "datetime", "bounds"];
 
 /// The start of the keys of the card groups on an atlas page. Each group is a list of the
 /// ids of its pages under a key of its own, which the frontend names.
@@ -64,7 +65,10 @@ pub fn validate_key(key: &str) -> AppResult<()> {
     if key.is_empty() {
         return Err(AppError::bad_request("Property key is required"));
     }
-    if !key.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') {
+    if !key
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+    {
         return Err(AppError::bad_request(format!(
             "Property key '{key}' may only contain letters, digits, '_' and '-'"
         )));
@@ -83,7 +87,11 @@ impl PropertyRepository {
     }
 
     /// Scalar properties (text, number, checkbox, date, datetime, bounds) of the given targets.
-    pub fn find_scalar_by_targets(&self, target_type: &str, target_ids: &[String]) -> AppResult<ScalarProps> {
+    pub fn find_scalar_by_targets(
+        &self,
+        target_type: &str,
+        target_ids: &[String],
+    ) -> AppResult<ScalarProps> {
         let mut result = ScalarProps::new();
         if target_ids.is_empty() {
             return Ok(result);
@@ -113,7 +121,11 @@ impl PropertyRepository {
     }
 
     /// List/tags properties of the given targets, in sort order.
-    pub fn find_list_by_targets(&self, target_type: &str, target_ids: &[String]) -> AppResult<ListProps> {
+    pub fn find_list_by_targets(
+        &self,
+        target_type: &str,
+        target_ids: &[String],
+    ) -> AppResult<ListProps> {
         let mut result = ListProps::new();
         if target_ids.is_empty() {
             return Ok(result);
@@ -156,8 +168,9 @@ impl PropertyRepository {
     /// All property definitions with their flags, ordered by key.
     pub fn find_definitions(&self) -> AppResult<Vec<PropertyDefinition>> {
         let conn = self.db.conn()?;
-        let mut stmt =
-            conn.prepare("SELECT key, value_type, is_system, for_page FROM property_definitions ORDER BY key")?;
+        let mut stmt = conn.prepare(
+            "SELECT key, value_type, is_system, for_page FROM property_definitions ORDER BY key",
+        )?;
         let rows = stmt.query_map([], |r| {
             Ok(PropertyDefinition {
                 key: r.get(0)?,
@@ -184,8 +197,14 @@ impl PropertyRepository {
             )));
         }
         if let Some(existing) = self.find_definition(key)? {
-            let what = if existing.system { "a system key" } else { "already defined" };
-            return Err(AppError::bad_request(format!("Property key '{key}' is {what}")));
+            let what = if existing.system {
+                "a system key"
+            } else {
+                "already defined"
+            };
+            return Err(AppError::bad_request(format!(
+                "Property key '{key}' is {what}"
+            )));
         }
         let conn = self.db.conn()?;
         conn.execute(
@@ -200,9 +219,15 @@ impl PropertyRepository {
     /// items' values. A system key and an unknown key are refused.
     pub fn delete_definition(&self, key: &str) -> AppResult<Vec<String>> {
         match self.find_definition(key)? {
-            None => return Err(AppError::bad_request(format!("Property key '{key}' is not defined"))),
+            None => {
+                return Err(AppError::bad_request(format!(
+                    "Property key '{key}' is not defined"
+                )))
+            }
             Some(def) if def.system => {
-                return Err(AppError::bad_request(format!("Property key '{key}' is a system key")))
+                return Err(AppError::bad_request(format!(
+                    "Property key '{key}' is a system key"
+                )))
             }
             Some(_) => {}
         }
@@ -221,8 +246,14 @@ impl PropertyRepository {
             rows.collect::<Result<_, _>>()?
         };
         tx.execute("DELETE FROM properties WHERE key = ?", params![key])?;
-        tx.execute("DELETE FROM property_list_items WHERE key = ?", params![key])?;
-        tx.execute("DELETE FROM property_definitions WHERE key = ?", params![key])?;
+        tx.execute(
+            "DELETE FROM property_list_items WHERE key = ?",
+            params![key],
+        )?;
+        tx.execute(
+            "DELETE FROM property_definitions WHERE key = ?",
+            params![key],
+        )?;
         tx.commit()?;
         Ok(page_ids)
     }
@@ -256,18 +287,58 @@ impl PropertyRepository {
                     .trim()
                     .parse()
                     .map_err(|_| AppError::bad_request(format!("Not a number: {value}")))?;
-                conn.execute(sql, params![target_type, target_id, key, Option::<String>::None, n, Option::<i64>::None])?;
+                conn.execute(
+                    sql,
+                    params![
+                        target_type,
+                        target_id,
+                        key,
+                        Option::<String>::None,
+                        n,
+                        Option::<i64>::None
+                    ],
+                )?;
             }
             "checkbox" => {
                 let b: i64 = if value == "true" { 1 } else { 0 };
-                conn.execute(sql, params![target_type, target_id, key, Option::<String>::None, Option::<f64>::None, b])?;
+                conn.execute(
+                    sql,
+                    params![
+                        target_type,
+                        target_id,
+                        key,
+                        Option::<String>::None,
+                        Option::<f64>::None,
+                        b
+                    ],
+                )?;
             }
             "bounds" => {
                 let bounds = normalize_bounds(value)?;
-                conn.execute(sql, params![target_type, target_id, key, bounds, Option::<f64>::None, Option::<i64>::None])?;
+                conn.execute(
+                    sql,
+                    params![
+                        target_type,
+                        target_id,
+                        key,
+                        bounds,
+                        Option::<f64>::None,
+                        Option::<i64>::None
+                    ],
+                )?;
             }
             _ => {
-                conn.execute(sql, params![target_type, target_id, key, value, Option::<f64>::None, Option::<i64>::None])?;
+                conn.execute(
+                    sql,
+                    params![
+                        target_type,
+                        target_id,
+                        key,
+                        value,
+                        Option::<f64>::None,
+                        Option::<i64>::None
+                    ],
+                )?;
             }
         }
         Ok(())
@@ -288,7 +359,11 @@ impl PropertyRepository {
     }
 
     /// Deletes every scalar and list property of the given targets.
-    pub fn delete_all_for_targets(&self, target_type: &str, target_ids: &[String]) -> AppResult<()> {
+    pub fn delete_all_for_targets(
+        &self,
+        target_type: &str,
+        target_ids: &[String],
+    ) -> AppResult<()> {
         if target_ids.is_empty() {
             return Ok(());
         }
@@ -296,7 +371,9 @@ impl PropertyRepository {
         let conn = self.db.conn()?;
         for sql in [
             format!("DELETE FROM properties WHERE target_type = ? AND target_id IN ({ph})"),
-            format!("DELETE FROM property_list_items WHERE target_type = ? AND target_id IN ({ph})"),
+            format!(
+                "DELETE FROM property_list_items WHERE target_type = ? AND target_id IN ({ph})"
+            ),
         ] {
             let mut params: Vec<&dyn rusqlite::ToSql> = vec![&target_type];
             for id in target_ids {
@@ -308,7 +385,12 @@ impl PropertyRepository {
     }
 
     /// Replaces all tag entries of a target with the given tags.
-    pub fn sync_tags(&self, target_type: &str, target_id: &str, new_tags: &[String]) -> AppResult<()> {
+    pub fn sync_tags(
+        &self,
+        target_type: &str,
+        target_id: &str,
+        new_tags: &[String],
+    ) -> AppResult<()> {
         self.replace_list(target_type, target_id, "tags", new_tags)
     }
 
@@ -346,7 +428,13 @@ impl PropertyRepository {
         Ok(())
     }
 
-    fn replace_list(&self, target_type: &str, target_id: &str, key: &str, values: &[String]) -> AppResult<()> {
+    fn replace_list(
+        &self,
+        target_type: &str,
+        target_id: &str,
+        key: &str,
+        values: &[String],
+    ) -> AppResult<()> {
         let conn = self.db.conn()?;
         conn.execute(
             "DELETE FROM property_list_items WHERE target_type = ? AND target_id = ? AND key = ?",
@@ -377,8 +465,9 @@ impl PropertyRepository {
     /// Every tag that a page or an item carries, each once.
     pub fn find_all_tag_values(&self) -> AppResult<Vec<String>> {
         let conn = self.db.conn()?;
-        let mut stmt =
-            conn.prepare("SELECT DISTINCT value FROM property_list_items WHERE key = 'tags' ORDER BY value")?;
+        let mut stmt = conn.prepare(
+            "SELECT DISTINCT value FROM property_list_items WHERE key = 'tags' ORDER BY value",
+        )?;
         let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
         Ok(rows.collect::<Result<_, _>>()?)
     }
@@ -394,7 +483,10 @@ impl PropertyRepository {
     }
 
     /// The pages that carry the tag in their `tags` property, in any case of its letters.
-    pub fn find_page_ids_by_tag_value_ignoring_case(&self, tag_value: &str) -> AppResult<Vec<String>> {
+    pub fn find_page_ids_by_tag_value_ignoring_case(
+        &self,
+        tag_value: &str,
+    ) -> AppResult<Vec<String>> {
         let conn = self.db.conn()?;
         let mut stmt = conn.prepare(
             "SELECT DISTINCT target_id FROM property_list_items \
@@ -406,7 +498,11 @@ impl PropertyRepository {
 
     /// The items that carry the tag in any case of its letters, as tags that differ only in
     /// case share one tag page.
-    pub fn find_item_ids_by_tag_value_ignoring_case(&self, tag_value: &str, max_results: i64) -> AppResult<Vec<String>> {
+    pub fn find_item_ids_by_tag_value_ignoring_case(
+        &self,
+        tag_value: &str,
+        max_results: i64,
+    ) -> AppResult<Vec<String>> {
         let conn = self.db.conn()?;
         let mut stmt = conn.prepare(
             "SELECT target_id FROM property_list_items              WHERE key = 'tags' AND value = ? COLLATE NOCASE AND target_type = 'item' LIMIT ?",
@@ -416,7 +512,9 @@ impl PropertyRepository {
     }
 
     pub fn find_any_tag_exists(&self) -> bool {
-        let Ok(conn) = self.db.conn() else { return false };
+        let Ok(conn) = self.db.conn() else {
+            return false;
+        };
         conn.query_row(
             "SELECT COUNT(*) FROM property_list_items WHERE key = 'tags' LIMIT 1",
             [],
@@ -427,7 +525,11 @@ impl PropertyRepository {
     }
 
     /// Item IDs whose page path (dir_path || name) starts with the given prefix.
-    pub fn find_item_ids_by_page_prefix(&self, path_prefix: &str, max_results: i64) -> AppResult<Vec<String>> {
+    pub fn find_item_ids_by_page_prefix(
+        &self,
+        path_prefix: &str,
+        max_results: i64,
+    ) -> AppResult<Vec<String>> {
         let conn = self.db.conn()?;
         let mut stmt = conn.prepare(
             "SELECT i.id AS item_id FROM items i JOIN pages p ON i.page_id = p.id \
@@ -438,7 +540,12 @@ impl PropertyRepository {
     }
 
     /// Item IDs that have a specific scalar property key=value.
-    pub fn find_item_ids_by_scalar_property(&self, key: &str, value: &str, max_results: i64) -> AppResult<Vec<String>> {
+    pub fn find_item_ids_by_scalar_property(
+        &self,
+        key: &str,
+        value: &str,
+        max_results: i64,
+    ) -> AppResult<Vec<String>> {
         let conn = self.db.conn()?;
         let mut stmt = conn.prepare(
             "SELECT target_id FROM properties WHERE target_type = 'item' AND key = ? AND value_text = ? LIMIT ?",
@@ -449,14 +556,22 @@ impl PropertyRepository {
 
     /// Item IDs by date range on created_date or modified_date.
     /// Supported expr formats: `2026-03`, `2026-03-12`, `>2026-03-01`, `<2026-03-01`, `2026-03-01..2026-03-12`.
-    pub fn find_item_ids_by_date_range(&self, column: &str, expr: &str, max_results: i64) -> AppResult<Vec<String>> {
+    pub fn find_item_ids_by_date_range(
+        &self,
+        column: &str,
+        expr: &str,
+        max_results: i64,
+    ) -> AppResult<Vec<String>> {
         if column != "created_date" && column != "modified_date" {
             return Err(AppError::bad_request(format!("Invalid column: {column}")));
         }
         let (sql, values): (String, Vec<i64>) = if let Some((a, b)) = expr.split_once("..") {
             (
                 format!("SELECT id FROM items WHERE {column} >= ? AND {column} < ? LIMIT ?"),
-                vec![parse_date_to_millis(a, false)?, parse_date_to_millis(b, true)?],
+                vec![
+                    parse_date_to_millis(a, false)?,
+                    parse_date_to_millis(b, true)?,
+                ],
             )
         } else if let Some(rest) = expr.strip_prefix('>') {
             (
@@ -471,12 +586,16 @@ impl PropertyRepository {
         } else {
             (
                 format!("SELECT id FROM items WHERE {column} >= ? AND {column} < ? LIMIT ?"),
-                vec![parse_date_to_millis(expr, false)?, parse_date_to_millis(expr, true)?],
+                vec![
+                    parse_date_to_millis(expr, false)?,
+                    parse_date_to_millis(expr, true)?,
+                ],
             )
         };
         let conn = self.db.conn()?;
         let mut stmt = conn.prepare(&sql)?;
-        let mut params: Vec<&dyn rusqlite::ToSql> = values.iter().map(|v| v as &dyn rusqlite::ToSql).collect();
+        let mut params: Vec<&dyn rusqlite::ToSql> =
+            values.iter().map(|v| v as &dyn rusqlite::ToSql).collect();
         params.push(&max_results);
         let rows = stmt.query_map(params.as_slice(), |r| r.get::<_, String>(0))?;
         Ok(rows.collect::<Result<_, _>>()?)
@@ -491,12 +610,20 @@ fn parse_date_to_millis(date_str: &str, to_end: bool) -> AppResult<i64> {
         let (y, m) = date_str
             .split_once('-')
             .ok_or_else(|| AppError::bad_request(format!("Invalid date: {date_str}")))?;
-        let year: i32 = y.parse().map_err(|_| AppError::bad_request(format!("Invalid date: {date_str}")))?;
-        let month: u32 = m.parse().map_err(|_| AppError::bad_request(format!("Invalid date: {date_str}")))?;
+        let year: i32 = y
+            .parse()
+            .map_err(|_| AppError::bad_request(format!("Invalid date: {date_str}")))?;
+        let month: u32 = m
+            .parse()
+            .map_err(|_| AppError::bad_request(format!("Invalid date: {date_str}")))?;
         let first = NaiveDate::from_ymd_opt(year, month, 1)
             .ok_or_else(|| AppError::bad_request(format!("Invalid date: {date_str}")))?;
         if to_end {
-            let (ny, nm) = if month == 12 { (year + 1, 1) } else { (year, month + 1) };
+            let (ny, nm) = if month == 12 {
+                (year + 1, 1)
+            } else {
+                (year, month + 1)
+            };
             NaiveDate::from_ymd_opt(ny, nm, 1).unwrap_or(first)
         } else {
             first
@@ -522,7 +649,11 @@ fn parse_date_to_millis(date_str: &str, to_end: bool) -> AppResult<i64> {
 /// a number property shows it. It stays text rather than four columns, so the front matter
 /// and the metadata line of an item hold it as one plain value.
 pub fn normalize_bounds(value: &str) -> AppResult<String> {
-    let invalid = || AppError::bad_request(format!("Bounds must be four numbers x,y,width,height: {value}"));
+    let invalid = || {
+        AppError::bad_request(format!(
+            "Bounds must be four numbers x,y,width,height: {value}"
+        ))
+    };
     let numbers = value
         .split(',')
         .map(|n| n.trim().parse::<f64>().ok().filter(|n| n.is_finite()))
@@ -531,7 +662,11 @@ pub fn normalize_bounds(value: &str) -> AppResult<String> {
     if numbers.len() != 4 {
         return Err(invalid());
     }
-    Ok(numbers.into_iter().map(format_number).collect::<Vec<_>>().join(","))
+    Ok(numbers
+        .into_iter()
+        .map(format_number)
+        .collect::<Vec<_>>()
+        .join(","))
 }
 
 fn format_number(n: f64) -> String {
@@ -550,7 +685,13 @@ fn extract_value(row: &Row<'_>, value_type: &str) -> rusqlite::Result<Option<Str
         }
         "checkbox" => {
             let cb: Option<i64> = row.get(4)?;
-            cb.map(|c| if c != 0 { "true".to_string() } else { "false".to_string() })
+            cb.map(|c| {
+                if c != 0 {
+                    "true".to_string()
+                } else {
+                    "false".to_string()
+                }
+            })
         }
         _ => row.get::<_, Option<String>>(2)?,
     })

@@ -10,7 +10,13 @@ pub fn plan(existing_idx: &[Option<String>]) -> Result<Vec<String>, NoGap> {
     let n = existing_idx.len();
     let keep = longest_increasing_subsequence(existing_idx);
     let mut result: Vec<Option<String>> = (0..n)
-        .map(|i| if keep[i] { existing_idx[i].clone() } else { None })
+        .map(|i| {
+            if keep[i] {
+                existing_idx[i].clone()
+            } else {
+                None
+            }
+        })
         .collect();
     let mut prev: Option<String> = None;
     for i in 0..n {
@@ -65,7 +71,11 @@ fn longest_increasing_subsequence(idx: &[Option<String>]) -> Vec<bool> {
     let mut i = best_end;
     while let Some(k) = i {
         keep[k] = true;
-        i = if prev[k] == usize::MAX { None } else { Some(prev[k]) };
+        i = if prev[k] == usize::MAX {
+            None
+        } else {
+            Some(prev[k])
+        };
     }
     keep
 }

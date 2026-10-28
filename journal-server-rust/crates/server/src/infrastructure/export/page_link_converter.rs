@@ -29,7 +29,9 @@ static FENCE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\s{0,3}(```|~~~)"
 /// Rewrites wikilinks and hashtags as relative Markdown links for the file at `source_rel_path`.
 pub fn to_markdown_links(body: &str, source_rel_path: &str) -> String {
     let source_dir = dir_of(source_rel_path);
-    map_outside_code(body, &|text| hashtags_to_links(&wikilinks_to_links(text, source_dir), source_dir))
+    map_outside_code(body, &|text| {
+        hashtags_to_links(&wikilinks_to_links(text, source_dir), source_dir)
+    })
 }
 
 /// Rewrites relative Markdown links that point at a page file back into wikilinks and hashtags.
@@ -68,7 +70,11 @@ fn wikilinks_to_links(text: &str, source_dir: &str) -> String {
                 Some(pos) => (&target[..pos], &target[pos..]),
                 None => (target, ""),
             };
-            let dest = format!("{}{}", relativize(source_dir, &page_file_of(page_path)), fragment);
+            let dest = format!(
+                "{}{}",
+                relativize(source_dir, &page_file_of(page_path)),
+                fragment
+            );
             markdown_link(label.unwrap_or(target), &dest)
         })
         .into_owned()
@@ -86,14 +92,19 @@ fn hashtags_to_links(text: &str, source_dir: &str) -> String {
             let rest = &raw[tag.len()..];
             format!(
                 "{lead}{}{rest}",
-                markdown_link(&format!("#{tag}"), &relativize(source_dir, &page_file_of(tag)))
+                markdown_link(
+                    &format!("#{tag}"),
+                    &relativize(source_dir, &page_file_of(tag))
+                )
             )
         })
         .into_owned()
 }
 
 fn markdown_link(label: &str, dest: &str) -> String {
-    let needs_brackets = dest.chars().any(|c| matches!(c, ' ' | '(' | ')' | '<' | '>'));
+    let needs_brackets = dest
+        .chars()
+        .any(|c| matches!(c, ' ' | '(' | ')' | '<' | '>'));
     if needs_brackets {
         format!("[{label}](<{dest}>)")
     } else {
@@ -130,7 +141,9 @@ fn links_to_wikilinks(text: &str, source_dir: &str) -> String {
             };
             match resolve(source_dir, file).and_then(|p| page_path_of(&p)) {
                 None => whole.to_string(),
-                Some(page_path) => format!("{lead}{}", wikilink_or_hashtag(label, &page_path, fragment)),
+                Some(page_path) => {
+                    format!("{lead}{}", wikilink_or_hashtag(label, &page_path, fragment))
+                }
             }
         })
         .into_owned()
@@ -189,7 +202,10 @@ pub fn resolve(source_dir: &str, relative: &str) -> Option<String> {
     if relative.is_empty() || relative.starts_with('/') || relative.contains("://") {
         return None;
     }
-    let mut stack: Vec<String> = segments(source_dir).into_iter().map(|s| s.to_string()).collect();
+    let mut stack: Vec<String> = segments(source_dir)
+        .into_iter()
+        .map(|s| s.to_string())
+        .collect();
     for seg in relative.split('/') {
         if seg.is_empty() || seg == "." {
             continue;
@@ -247,7 +263,9 @@ fn flush(out: &mut String, text_run: &mut String, f: &dyn Fn(&str) -> String) {
     let mut last = 0;
     let mut pos = 0;
     while pos < text.len() {
-        let Some(open) = INLINE_CODE.find_at(&text, pos) else { break };
+        let Some(open) = INLINE_CODE.find_at(&text, pos) else {
+            break;
+        };
         let ticks = open.as_str();
         // The span closes at the next run of exactly the same number of backticks
         let mut close: Option<(usize, usize)> = None;
@@ -284,17 +302,40 @@ mod tests {
 
     #[test]
     fn wikilink_to_link_and_back() {
-        assert_eq!(to_markdown_links("see [[My Page]]", JOURNAL), "see [My Page](../docs/My%20Page.md)".replace("%20", " ").replace("(../docs/My Page.md)", "(<../docs/My Page.md>)"));
-        assert_eq!(to_markdown_links("[[My Page]]", NESTED), "[My Page](<../My Page.md>)");
-        assert_eq!(to_wikilinks("[My Page](<../My Page.md>)", NESTED), "[[My Page]]");
-        assert_eq!(to_wikilinks("[label](../docs/x.md#frag)", JOURNAL), "[[x#frag|label]]");
-        assert_eq!(to_markdown_links("[[2026-09-27]]", NESTED), "[2026-09-27](../../journals/2026-09-27.md)");
+        assert_eq!(
+            to_markdown_links("see [[My Page]]", JOURNAL),
+            "see [My Page](../docs/My%20Page.md)"
+                .replace("%20", " ")
+                .replace("(../docs/My Page.md)", "(<../docs/My Page.md>)")
+        );
+        assert_eq!(
+            to_markdown_links("[[My Page]]", NESTED),
+            "[My Page](<../My Page.md>)"
+        );
+        assert_eq!(
+            to_wikilinks("[My Page](<../My Page.md>)", NESTED),
+            "[[My Page]]"
+        );
+        assert_eq!(
+            to_wikilinks("[label](../docs/x.md#frag)", JOURNAL),
+            "[[x#frag|label]]"
+        );
+        assert_eq!(
+            to_markdown_links("[[2026-09-27]]", NESTED),
+            "[2026-09-27](../../journals/2026-09-27.md)"
+        );
     }
 
     #[test]
     fn hashtags() {
-        assert_eq!(to_markdown_links("note #test here", JOURNAL), "note [#test](../docs/test.md) here");
-        assert_eq!(to_markdown_links("#a/b\n#x/", JOURNAL), "[#a/b](../docs/a/b.md)\n[#x](../docs/x.md)/");
+        assert_eq!(
+            to_markdown_links("note #test here", JOURNAL),
+            "note [#test](../docs/test.md) here"
+        );
+        assert_eq!(
+            to_markdown_links("#a/b\n#x/", JOURNAL),
+            "[#a/b](../docs/a/b.md)\n[#x](../docs/x.md)/"
+        );
         let body = "foo#bar \\#esc https://x/#frag";
         assert_eq!(to_markdown_links(body, JOURNAL), body);
         assert_eq!(to_wikilinks("[#test](../docs/test.md)", JOURNAL), "#test");
@@ -302,22 +343,43 @@ mod tests {
 
     #[test]
     fn renames_hashtags() {
-        assert_eq!(rename_hashtags("#old and #Old/x, #older", "old", "new"), "#new and #new/x, #older");
-        assert_eq!(rename_hashtags("**#old** foo#old \\#old", "old", "new"), "**#new** foo#old \\#old");
-        assert_eq!(rename_hashtags("#old/\n```\n#old\n```\n`#old`", "old", "new"), "#new/\n```\n#old\n```\n`#old`");
+        assert_eq!(
+            rename_hashtags("#old and #Old/x, #older", "old", "new"),
+            "#new and #new/x, #older"
+        );
+        assert_eq!(
+            rename_hashtags("**#old** foo#old \\#old", "old", "new"),
+            "**#new** foo#old \\#old"
+        );
+        assert_eq!(
+            rename_hashtags("#old/\n```\n#old\n```\n`#old`", "old", "new"),
+            "#new/\n```\n#old\n```\n`#old`"
+        );
     }
 
     #[test]
     fn code_is_untouched() {
         let body = "```\n[[x]]\n```\n`[[y]]` and [[z]]";
-        assert_eq!(to_markdown_links(body, JOURNAL), "```\n[[x]]\n```\n`[[y]]` and [z](../docs/z.md)");
+        assert_eq!(
+            to_markdown_links(body, JOURNAL),
+            "```\n[[x]]\n```\n`[[y]]` and [z](../docs/z.md)"
+        );
     }
 
     #[test]
     fn images_and_external_links_stay() {
-        assert_eq!(to_wikilinks("![img](../docs/x.md)", JOURNAL), "![img](../docs/x.md)");
-        assert_eq!(to_wikilinks("[a](https://x.y/z.md)", JOURNAL), "[a](https://x.y/z.md)");
-        assert_eq!(to_wikilinks("[a](../../etc.md)", JOURNAL), "[a](../../etc.md)");
+        assert_eq!(
+            to_wikilinks("![img](../docs/x.md)", JOURNAL),
+            "![img](../docs/x.md)"
+        );
+        assert_eq!(
+            to_wikilinks("[a](https://x.y/z.md)", JOURNAL),
+            "[a](https://x.y/z.md)"
+        );
+        assert_eq!(
+            to_wikilinks("[a](../../etc.md)", JOURNAL),
+            "[a](../../etc.md)"
+        );
     }
 
     #[test]

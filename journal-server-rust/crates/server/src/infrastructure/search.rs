@@ -17,7 +17,9 @@ use hmtid::Hmtid;
 use lindera::dictionary::load_dictionary;
 use lindera::mode::{Mode, Penalty};
 use lindera::segmenter::Segmenter;
-use lindera_analysis::character_filter::unicode_normalize::{UnicodeNormalizeCharacterFilter, UnicodeNormalizeKind};
+use lindera_analysis::character_filter::unicode_normalize::{
+    UnicodeNormalizeCharacterFilter, UnicodeNormalizeKind,
+};
 use lindera_analysis::character_filter::BoxCharacterFilter;
 use lindera_analysis::token_filter::japanese_base_form::JapaneseBaseFormTokenFilter;
 use lindera_analysis::token_filter::japanese_katakana_stem::JapaneseKatakanaStemTokenFilter;
@@ -28,7 +30,9 @@ use lindera_tantivy::tokenizer::LinderaTokenizer;
 use parking_lot::Mutex;
 use tantivy::collector::TopDocs;
 use tantivy::query::{BooleanQuery, Occur, Query, QueryParser, RegexQuery, TermQuery};
-use tantivy::schema::{Field, IndexRecordOption, Schema, TextFieldIndexing, TextOptions, Value, STORED, STRING};
+use tantivy::schema::{
+    Field, IndexRecordOption, Schema, TextFieldIndexing, TextOptions, Value, STORED, STRING,
+};
 use tantivy::snippet::SnippetGenerator;
 use tantivy::tokenizer::TextAnalyzer;
 use tantivy::{doc, Index, IndexReader, IndexWriter, ReloadPolicy, TantivyDocument, Term};
@@ -64,11 +68,36 @@ pub const COMMIT_INTERVAL: std::time::Duration = std::time::Duration::from_secs(
 /// Part-of-speech tags Lucene's `JapaneseAnalyzer` drops by default.
 fn stop_tags() -> HashSet<String> {
     [
-        "接続詞", "助詞", "助詞,格助詞", "助詞,格助詞,一般", "助詞,格助詞,引用", "助詞,格助詞,連語",
-        "助詞,接続助詞", "助詞,係助詞", "助詞,副助詞", "助詞,間投助詞", "助詞,並立助詞", "助詞,終助詞",
-        "助詞,副助詞／並立助詞／終助詞", "助詞,連体化", "助詞,副詞化", "助詞,特殊", "助動詞",
-        "記号", "記号,一般", "記号,読点", "記号,句点", "記号,空白", "記号,括弧閉", "記号,括弧開",
-        "記号,アルファベット", "その他,間投", "フィラー", "非言語音", "語断片", "未知語",
+        "接続詞",
+        "助詞",
+        "助詞,格助詞",
+        "助詞,格助詞,一般",
+        "助詞,格助詞,引用",
+        "助詞,格助詞,連語",
+        "助詞,接続助詞",
+        "助詞,係助詞",
+        "助詞,副助詞",
+        "助詞,間投助詞",
+        "助詞,並立助詞",
+        "助詞,終助詞",
+        "助詞,副助詞／並立助詞／終助詞",
+        "助詞,連体化",
+        "助詞,副詞化",
+        "助詞,特殊",
+        "助動詞",
+        "記号",
+        "記号,一般",
+        "記号,読点",
+        "記号,句点",
+        "記号,空白",
+        "記号,括弧閉",
+        "記号,括弧開",
+        "記号,アルファベット",
+        "その他,間投",
+        "フィラー",
+        "非言語音",
+        "語断片",
+        "未知語",
     ]
     .iter()
     .map(|s| s.to_string())
@@ -80,11 +109,13 @@ fn build_tokenizer() -> anyhow::Result<LinderaTokenizer> {
         .map_err(|e| anyhow::anyhow!("Cannot load the IPADIC dictionary: {e}"))?;
     let segmenter = Segmenter::new(Mode::Decompose(Penalty::default()), dictionary, None);
     let mut tokenizer = LinderaTokenizer::from_segmenter(segmenter);
-    tokenizer.append_character_filter(BoxCharacterFilter::from(UnicodeNormalizeCharacterFilter::new(
-        UnicodeNormalizeKind::NFKC,
-    )));
+    tokenizer.append_character_filter(BoxCharacterFilter::from(
+        UnicodeNormalizeCharacterFilter::new(UnicodeNormalizeKind::NFKC),
+    ));
     tokenizer.append_token_filter(BoxTokenFilter::from(JapaneseBaseFormTokenFilter::new()));
-    tokenizer.append_token_filter(BoxTokenFilter::from(JapaneseStopTagsTokenFilter::new(stop_tags())));
+    tokenizer.append_token_filter(BoxTokenFilter::from(JapaneseStopTagsTokenFilter::new(
+        stop_tags(),
+    )));
     tokenizer.append_token_filter(BoxTokenFilter::from(JapaneseKatakanaStemTokenFilter::new(
         NonZeroUsize::new(4).expect("non-zero"),
     )));
@@ -120,10 +151,15 @@ fn schema() -> (Schema, Fields) {
 
 /// True when the directory holds a Lucene index (from the Java server), which tantivy cannot read.
 fn is_lucene_index(dir: &Path) -> bool {
-    let Ok(entries) = std::fs::read_dir(dir) else { return false };
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return false;
+    };
     entries.flatten().any(|e| {
         let name = e.file_name().to_string_lossy().into_owned();
-        name.starts_with("segments") || name == "write.lock" || name.ends_with(".cfs") || name.ends_with(".si")
+        name.starts_with("segments")
+            || name == "write.lock"
+            || name.ends_with(".cfs")
+            || name.ends_with(".si")
     })
 }
 
@@ -210,7 +246,12 @@ impl TantivySearchService {
         self.dirty.store(false, Ordering::SeqCst);
     }
 
-    fn replace_item_document(&self, writer: &IndexWriter<TantivyDocument>, item: &Item, page_title: &str) {
+    fn replace_item_document(
+        &self,
+        writer: &IndexWriter<TantivyDocument>,
+        item: &Item,
+        page_title: &str,
+    ) {
         writer.delete_term(Term::from_field_text(self.fields.item_id, item.id.as_str()));
         let result = writer.add_document(doc!(
             self.fields.doc_type => TYPE_ITEM,
@@ -225,7 +266,8 @@ impl TantivySearchService {
     }
 
     fn tokenize(&self, text: &str) -> Vec<String> {
-        let Some(mut analyzer): Option<TextAnalyzer> = self.index.tokenizers().get(TOKENIZER) else {
+        let Some(mut analyzer): Option<TextAnalyzer> = self.index.tokenizers().get(TOKENIZER)
+        else {
             return vec![text.to_lowercase()];
         };
         let mut tokens = Vec::new();
@@ -261,18 +303,32 @@ impl TantivySearchService {
         Some(Box::new(BooleanQuery::new(clauses)))
     }
 
-    fn search_page_names_by(&self, query: &str, max_results: usize, contains: bool) -> Vec<SearchResult> {
-        let Some(q) = self.page_name_query(query, contains) else { return Vec::new() };
+    fn search_page_names_by(
+        &self,
+        query: &str,
+        max_results: usize,
+        contains: bool,
+    ) -> Vec<SearchResult> {
+        let Some(q) = self.page_name_query(query, contains) else {
+            return Vec::new();
+        };
         let searcher = self.reader.searcher();
-        let Ok(top) = searcher.search(&q, &TopDocs::with_limit(max_results.max(1)).order_by_score()) else {
+        let Ok(top) = searcher.search(
+            &q,
+            &TopDocs::with_limit(max_results.max(1)).order_by_score(),
+        ) else {
             return Vec::new();
         };
         let mut results = Vec::new();
         for (score, addr) in top {
-            let Ok(doc) = searcher.doc::<TantivyDocument>(addr) else { continue };
+            let Ok(doc) = searcher.doc::<TantivyDocument>(addr) else {
+                continue;
+            };
             let page_id = get_str(&doc, self.fields.page_id);
             let title = get_str(&doc, self.fields.page_title);
-            let Ok(page_id) = Hmtid::parse(&page_id) else { continue };
+            let Ok(page_id) = Hmtid::parse(&page_id) else {
+                continue;
+            };
             results.push(SearchResult {
                 page_id,
                 page_title: title.clone(),
@@ -396,15 +452,21 @@ impl SearchIndex for TantivySearchService {
         let Ok(top) = searcher.search(&q, &TopDocs::with_limit(max.max(1)).order_by_score()) else {
             return Vec::new();
         };
-        let snippets = SnippetGenerator::create(&searcher, &*q, self.fields.body).ok().map(|mut g| {
-            g.set_max_num_chars(100);
-            g
-        });
+        let snippets = SnippetGenerator::create(&searcher, &*q, self.fields.body)
+            .ok()
+            .map(|mut g| {
+                g.set_max_num_chars(100);
+                g
+            });
         let mut results = Vec::new();
         for (score, addr) in top {
-            let Ok(doc) = searcher.doc::<TantivyDocument>(addr) else { continue };
+            let Ok(doc) = searcher.doc::<TantivyDocument>(addr) else {
+                continue;
+            };
             let page_id = get_str(&doc, self.fields.page_id);
-            let Ok(page_id) = Hmtid::parse(&page_id) else { continue };
+            let Ok(page_id) = Hmtid::parse(&page_id) else {
+                continue;
+            };
             let body = get_str(&doc, self.fields.body);
             let mut snippet = body.clone();
             if let Some(g) = &snippets {

@@ -47,11 +47,19 @@ pub struct Cli {
 
     /// While files are missing and undecided, reopen the confirmation page in the browser
     /// on every scan, but not more often than this (seconds)
-    #[arg(long, env = "PETAJOURNAL_IMPORT_DELETE_PROMPT_COOLDOWN", default_value_t = 300)]
+    #[arg(
+        long,
+        env = "PETAJOURNAL_IMPORT_DELETE_PROMPT_COOLDOWN",
+        default_value_t = 300
+    )]
     pub import_delete_prompt_cooldown: u64,
 
     /// Allowed CORS origins, comma separated
-    #[arg(long, env = "PETAJOURNAL_CORS_ORIGINS", default_value = "http://localhost:4200,http://localhost:5180")]
+    #[arg(
+        long,
+        env = "PETAJOURNAL_CORS_ORIGINS",
+        default_value = "http://localhost:4200,http://localhost:5180"
+    )]
     pub cors_origins: String,
 }
 

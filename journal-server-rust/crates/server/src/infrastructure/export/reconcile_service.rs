@@ -86,7 +86,8 @@ impl MarkdownReconcileService {
         std::thread::Builder::new()
             .name("markdown-scan".into())
             .spawn(move || {
-                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| me.do_scan()));
+                let result =
+                    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| me.do_scan()));
                 if result.is_err() {
                     tracing::error!("Folder scan failed");
                 }
@@ -122,7 +123,10 @@ impl MarkdownReconcileService {
         };
         // If neither top folder is there, the folder is not really available (unmounted, selective sync off)
         if !TOP_DIRS.iter().any(|d| root.join(d).is_dir()) {
-            tracing::warn!("Neither docs/ nor journals/ found under {}; skipping scan", root.display());
+            tracing::warn!(
+                "Neither docs/ nor journals/ found under {}; skipping scan",
+                root.display()
+            );
             return ScanSummary::default();
         }
 
@@ -210,7 +214,11 @@ impl MarkdownReconcileService {
         }
 
         // Keep asking while anything is left undecided; the prompt's cooldown limits how often
-        let pending_missing = self.file_sync_state.find_missing().map(|m| m.len()).unwrap_or(0);
+        let pending_missing = self
+            .file_sync_state
+            .find_missing()
+            .map(|m| m.len())
+            .unwrap_or(0);
         if pending_missing > 0 {
             tracing::info!(
                 "{pending_missing} markdown file(s) missing ({} new); asking the user what to do",

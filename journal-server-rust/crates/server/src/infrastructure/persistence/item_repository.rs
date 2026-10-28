@@ -105,9 +105,15 @@ impl ItemRepository {
     /// `[[path|label]]`. LIKE ignores the case of ASCII letters, as page paths are matched.
     /// The caller checks the parsed links, since `[[path/more]]` matches too.
     pub fn find_by_body_containing_link_to(&self, path: &str) -> AppResult<Vec<Item>> {
-        let escaped = path.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_");
+        let escaped = path
+            .replace('\\', "\\\\")
+            .replace('%', "\\%")
+            .replace('_', "\\_");
         let pattern = format!("%[[{escaped}%");
-        self.query_items(&format!("{SELECT_ITEMS}WHERE b.body LIKE ? ESCAPE '\\'"), &[&pattern])
+        self.query_items(
+            &format!("{SELECT_ITEMS}WHERE b.body LIKE ? ESCAPE '\\'"),
+            &[&pattern],
+        )
     }
 
     pub fn find_by_types(&self, types: &[String]) -> AppResult<Vec<Item>> {
@@ -119,7 +125,8 @@ impl ItemRepository {
              ORDER BY b.created_date DESC",
             placeholders(types.len())
         );
-        let params: Vec<&dyn rusqlite::ToSql> = types.iter().map(|t| t as &dyn rusqlite::ToSql).collect();
+        let params: Vec<&dyn rusqlite::ToSql> =
+            types.iter().map(|t| t as &dyn rusqlite::ToSql).collect();
         self.query_items(&sql, &params)
     }
 
@@ -238,7 +245,10 @@ impl ItemRepository {
                     p.item_id.as_str()
                 ])?;
                 if n == 0 {
-                    return Err(AppError::bad_request(format!("Item not found: {}", p.item_id)));
+                    return Err(AppError::bad_request(format!(
+                        "Item not found: {}",
+                        p.item_id
+                    )));
                 }
             }
         }
@@ -257,8 +267,12 @@ impl ItemRepository {
                 ])?;
             }
         }
-        tx.commit()
-            .with_context(|| format!("Failed to move {} items to page: {target_page_id}", placements.len()))?;
+        tx.commit().with_context(|| {
+            format!(
+                "Failed to move {} items to page: {target_page_id}",
+                placements.len()
+            )
+        })?;
         Ok(())
     }
 
@@ -298,7 +312,8 @@ impl ItemRepository {
         let mut conn = self.db.conn()?;
         let tx = conn.immediate()?;
         let items: Vec<(String, i32)> = {
-            let mut stmt = tx.prepare("SELECT id, level FROM items WHERE page_id = ? ORDER BY idx")?;
+            let mut stmt =
+                tx.prepare("SELECT id, level FROM items WHERE page_id = ? ORDER BY idx")?;
             let rows = stmt.query_map([page_id.as_str()], |r| Ok((r.get(0)?, r.get(1)?)))?;
             rows.collect::<Result<_, _>>()?
         };

@@ -301,7 +301,10 @@ async fn call(handle: &CoreHandle, op: ApiOp) -> ApiResult<ApiOutput> {
                 .map_err(|e| ApiError(e.to_string()))?;
             // 409: another page has the name, which the core asks the user about
             if resp.status() == 409 {
-                let ApiError(message) = ensure_ok(&resp).await.err().unwrap_or(ApiError(String::new()));
+                let ApiError(message) = ensure_ok(&resp)
+                    .await
+                    .err()
+                    .unwrap_or(ApiError(String::new()));
                 return Ok(ApiOutput::PageNameTaken(message));
             }
             let env: PageEnvelope = json(resp).await?;

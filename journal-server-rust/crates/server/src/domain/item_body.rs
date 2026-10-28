@@ -85,9 +85,15 @@ mod tests {
 
     #[test]
     fn detects_types() {
-        assert_eq!(ItemBody::parse(Some("# Title")).text_types(), vec!["heading"]);
+        assert_eq!(
+            ItemBody::parse(Some("# Title")).text_types(),
+            vec!["heading"]
+        );
         assert_eq!(ItemBody::parse(Some("```js")).text_types(), vec!["code"]);
-        assert_eq!(ItemBody::parse(Some("> quote")).text_types(), vec!["blockquote"]);
+        assert_eq!(
+            ItemBody::parse(Some("> quote")).text_types(),
+            vec!["blockquote"]
+        );
         assert!(ItemBody::parse(Some("text")).text_types().is_empty());
     }
 }
