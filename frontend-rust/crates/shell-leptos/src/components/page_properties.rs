@@ -76,7 +76,8 @@ pub fn PageProperties(drafts: RwSignal<Vec<Draft>>) -> impl IntoView {
                 } else if p.editable {
                     value_input(&value_type, value.into(), send, false, NodeRef::new())
                 } else {
-                    view! { <span class="property-value property-readonly">{move || dom::local_minutes(&value.get())}</span> }.into_any()
+                    // The same input as an editable date-time, so the browser shows both dates alike
+                    view! { <input type="datetime-local" class="property-value property-readonly" readonly prop:value=move || dom::local_minutes(&value.get()) /> }.into_any()
                 };
                 view! {
                     <div class="property-row">
