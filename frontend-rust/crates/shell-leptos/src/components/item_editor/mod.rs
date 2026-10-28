@@ -120,13 +120,19 @@ pub fn ItemEditor(row: RwSignal<Row>) -> impl IntoView {
         }
     };
 
+    // A paste event has no modifier keys, so the Shift of Ctrl+Shift+V is taken from the keys
+    let shift_held = StoredValue::new(false);
+
     let on_keydown = {
         let id = item_id.clone();
         move |ev: web_sys::KeyboardEvent| {
+            shift_held.set_value(ev.shift_key());
             let Some(el) = textarea.get() else { return };
             handle_keydown(&core, &id, &el, &ev, row);
         }
     };
+
+    let on_keyup = move |ev: web_sys::KeyboardEvent| shift_held.set_value(ev.shift_key());
 
     let on_paste = {
         let id = item_id.clone();
@@ -159,6 +165,7 @@ pub fn ItemEditor(row: RwSignal<Row>) -> impl IntoView {
                 text,
                 html,
                 cursor,
+                raw: shift_held.get_value(),
             });
         }
     };
@@ -187,6 +194,8 @@ pub fn ItemEditor(row: RwSignal<Row>) -> impl IntoView {
     let on_blur = {
         let id = item_id.clone();
         move |_| {
+            // A Shift released in another window sends no keyup here
+            shift_held.set_value(false);
             core.send(Event::EditFinished {
                 item_id: id.clone(),
             })
@@ -213,6 +222,7 @@ pub fn ItemEditor(row: RwSignal<Row>) -> impl IntoView {
                 rows="1"
                 on:input=on_input
                 on:keydown=on_keydown
+                on:keyup=on_keyup
                 on:paste=on_paste
                 on:drop=on_drop
                 on:blur=on_blur

@@ -8,11 +8,20 @@ fn harness() -> Harness {
 }
 
 fn paste(h: &mut Harness, item_id: &str, text: &str, cursor: usize) {
+    send_paste(h, item_id, text, cursor, false);
+}
+
+fn paste_raw(h: &mut Harness, item_id: &str, text: &str, cursor: usize) {
+    send_paste(h, item_id, text, cursor, true);
+}
+
+fn send_paste(h: &mut Harness, item_id: &str, text: &str, cursor: usize, raw: bool) {
     h.send(Event::PasteText {
         item_id: item_id.into(),
         text: text.into(),
         html: String::new(),
         cursor,
+        raw,
     });
 }
 
@@ -109,6 +118,63 @@ fn plain_text_inside_an_open_code_fence_is_not_split() {
     assert_eq!(
         h.model.state.get_item_by_id("code").unwrap().body,
         "```\nleta\nb\n```"
+    );
+}
+
+#[test]
+fn raw_text_goes_into_the_item_at_the_cursor_without_a_split() {
+    let mut h = harness();
+    paste_raw(
+        &mut h,
+        "a",
+        "one
+  two
+three",
+        2,
+    );
+    assert!(!h.api.called("ParseFlatMarkdown"));
+    assert_eq!(
+        h.outline(),
+        [
+            "a:1=abone
+  two
+three|cd",
+            "z:1=body of z"
+        ]
+    );
+    assert_eq!(
+        h.focus_cursor(),
+        Some(
+            2 + "one
+  two
+three"
+                .len()
+        )
+    );
+    assert_eq!(h.model.undo.pop_undo().unwrap().label, "paste");
+}
+
+#[test]
+fn raw_tree_markdown_and_stored_flat_markdown_are_not_converted() {
+    let mut h = harness();
+    h.model.clipboard = Some(("flat".into(), "- tree".into()));
+    paste_raw(&mut h, "a", "- tree", 2);
+    paste_raw(
+        &mut h,
+        "z",
+        "- x
+  - y",
+        0,
+    );
+    assert!(!h.api.called("ImportTreeMarkdown"));
+    assert!(!h.api.called("ParseFlatMarkdown"));
+    assert_eq!(
+        h.bodies(),
+        [
+            "a=ab- tree|cd",
+            "z=- x
+  - ybody of z"
+        ]
     );
 }
 

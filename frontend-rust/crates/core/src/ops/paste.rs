@@ -1,7 +1,8 @@
 //! Pastes into an item editor, ported from `paste.service.ts`. Text is split into items at
 //! the same block boundaries as a markdown file, the first piece joins the text before the
 //! cursor and the last piece the text after it; the pieces in between become new items
-//! below. An image is uploaded and linked at the cursor.
+//! below. A raw paste puts the text into the item as it is. An image is uploaded and linked
+//! at the cursor.
 
 use crate::app::{apply, done, log_error, run, Cmd, Event, Model};
 use crate::effects::{Api, ApiError};
@@ -18,13 +19,14 @@ struct PastedItem {
 }
 
 /// Pastes text into an item. Supports plain text, tree markdown, and flat markdown that
-/// was copied from this app.
+/// was copied from this app. A raw paste skips all of them and keeps the text in one item.
 pub fn paste_text(
     model: &mut Model,
     item_id: &str,
     text: String,
     _html: String,
     cursor: usize,
+    raw: bool,
 ) -> Cmd {
     let Some(item) = model.current_item(item_id) else {
         return done();
@@ -32,11 +34,11 @@ pub fn paste_text(
     let item: Item = (*item).clone();
     // If we have stored flat markdown for this clipboard content, use it
     let stored_flat = match &model.clipboard {
-        Some((flat, tree)) if *tree == text => Some(flat.clone()),
+        Some((flat, tree)) if !raw && *tree == text => Some(flat.clone()),
         _ => None,
     };
     run(move |api| async move {
-        if let Err(e) = paste_text_now(&api, item, text, cursor, stored_flat).await {
+        if let Err(e) = paste_text_now(&api, item, text, cursor, stored_flat, raw).await {
             log_error(format!("Failed to process paste: {e}"));
             apply(&api, "paste: abort undo", |m| {
                 m.undo.abort();
@@ -52,13 +54,14 @@ async fn paste_text_now(
     text: String,
     cursor: usize,
     stored_flat: Option<String>,
+    raw: bool,
 ) -> Result<(), ApiError> {
     let mut text_to_parse = text.clone();
     let mut is_plain_text = true;
     if let Some(flat) = stored_flat {
         text_to_parse = flat;
         is_plain_text = false;
-    } else if text.trim_start().starts_with("- ") {
+    } else if !raw && text.trim_start().starts_with("- ") {
         // Text that looks like tree markdown is converted
         match api.import_tree_markdown(&text).await {
             Ok(flat) => {
@@ -73,7 +76,7 @@ async fn paste_text_now(
 
     let (before, after) = split_at_char(&item.body, cursor);
     // Plain text pasted inside an open code fence stays in this item as it is
-    let skip_split = is_plain_text && has_unclosed_code_fence(before);
+    let skip_split = raw || (is_plain_text && has_unclosed_code_fence(before));
     let mut parsed: Vec<PastedItem> = if skip_split {
         vec![PastedItem {
             body: text_to_parse,

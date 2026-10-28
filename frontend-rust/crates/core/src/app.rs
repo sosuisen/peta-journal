@@ -159,6 +159,8 @@ pub enum Event {
         text: String,
         html: String,
         cursor: usize,
+        /// The text goes into the item as it is, e.g. on Ctrl+Shift+V.
+        raw: bool,
     },
     PasteImage {
         item_id: String,
@@ -752,7 +754,8 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             text,
             html,
             cursor,
-        } => ops::paste::paste_text(model, &item_id, text, html, cursor),
+            raw,
+        } => ops::paste::paste_text(model, &item_id, text, html, cursor, raw),
         PasteImage {
             item_id,
             file,
