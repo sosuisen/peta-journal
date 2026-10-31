@@ -69,6 +69,27 @@ pub fn link_blob_svg(target: &str, size: i32) -> String {
     blob_svg(target, LINK_BLOB_COLOR, size, false)
 }
 
+/// The white of the blob of a card whose label is hidden
+const HIDDEN_BLOB_COLOR: Color = Color::rgb(0xFF, 0xFF, 0xFF);
+
+/// A blob as `blob_svg` drew it, filled white: the blob of a card whose label is hidden. The
+/// shape stays, so the card is still told apart from its neighbors.
+pub fn hidden_blob_svg(blob: &str) -> String {
+    // The fill of the path is the first in the SVG
+    let Some(start) = blob.find(" fill=\"").map(|i| i + " fill=\"".len()) else {
+        return blob.to_string();
+    };
+    let Some(end) = blob[start..].find('"').map(|i| start + i) else {
+        return blob.to_string();
+    };
+    format!(
+        "{}{}{}",
+        &blob[..start],
+        HIDDEN_BLOB_COLOR.to_hex(),
+        &blob[end..]
+    )
+}
+
 fn blob_svg(name: &str, color: Color, size: i32, outlined: bool) -> String {
     let svg = signature_svg(name, SignatureStyle::Blob, color, size, size);
     // The fill of the path is the first in the SVG

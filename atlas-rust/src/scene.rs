@@ -4,7 +4,9 @@
 
 use serde::Serialize;
 
-use crate::marks::{callout_face_svg, group_color, link_blob_svg, tag_blob_svg, tag_icon_svg};
+use crate::marks::{
+    callout_face_svg, group_color, hidden_blob_svg, link_blob_svg, tag_blob_svg, tag_icon_svg,
+};
 use crate::{card_label, Bounds};
 
 /// The size of the icon of a card, in pixels of the canvas.
@@ -111,14 +113,16 @@ impl Card {
 
     /// The card with its label hidden, as a site shows a page it does not publish. The label,
     /// the page it opens and the icon go, so none of them reaches the scene. The card keeps its
-    /// place, its group and its blob. `label_width` is the width of the card at scale 1 that
-    /// the label gave it, as [`crate::measure`] measures it, so the card keeps its size.
+    /// place, its group and the shape of its blob, which turns white. `label_width` is the width
+    /// of the card at scale 1 that the label gave it, as [`crate::measure`] measures it, so the
+    /// card keeps its size.
     pub fn hide_label(self, label_width: f64) -> Card {
         Card {
             label: String::new(),
             path: None,
             icon: None,
             width: label_width * self.scale,
+            blob: hidden_blob_svg(&self.blob),
             masked: true,
             ..self
         }
