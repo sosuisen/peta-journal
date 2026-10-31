@@ -13,6 +13,10 @@
 // A callout or a link card is selected, dragged and scaled as a card is, but joins no group.
 // A double click on a callout or a link card, or its menu, opens its dialog.
 // The menus and the dialog are made with @pixi/ui, the global `PIXI.ui` of vendor/pixi-ui.js.
+// A canvas that is not editable only shows the atlas, as a static site does: a drag with
+// either button moves the view, the wheel scales it, and a click on a label opens its page.
+// It needs no @pixi/ui. A card whose label is hidden (`masked`) shows a faint blob only, and
+// opens nothing.
 // The wheel scales that container around the point under the pointer. With Ctrl, it scales
 // the selected cards instead, each around its own center.
 //
@@ -94,10 +98,11 @@ const LINK_LABEL_COLOR = 0x1d4ed8;
 // The page names offered under the input of the dialog of a link, and the height of each row
 const LINK_ROWS = 8;
 const LINK_ROW_HEIGHT = 26;
-// The handwritten font of the group titles, copied to the root of the site by index.html.
-// From the root: a relative path would be read from the folder of the page.
-const TITLE_FONT = '851 Tegaki Zatsu';
-const TITLE_FONT_URL = '/851tegaki_zatsu_normal_0883.ttf';
+// The handwritten font of the group titles and the callouts, copied to the root of the site by
+// index.html. From the root: a relative path would be read from the folder of the page.
+const TITLE_FONT = { family: '851 Tegaki Zatsu', url: '/851tegaki_zatsu_normal_0883.ttf' };
+// How much of the blob of a card with a hidden label shows
+const MASKED_ALPHA = 0.35;
 
 window.AtlasCanvas = class AtlasCanvas {
   // onOpen(path, newTab, newWindow) opens the page of a card whose label is clicked.
@@ -105,7 +110,11 @@ window.AtlasCanvas = class AtlasCanvas {
   // onMenu(pageId, clientX, clientY) opens the menu of a card that is right-clicked.
   // onView(panX, panY, zoom) keeps the view once the hand tool or the wheel has stopped.
   // panX, panY and zoom are the view to start with, as onView last gave them.
-  constructor(host, onOpen, onPlace, onMenu, onView, panX, panY, zoom) {
+  // options: { editable, labelFont, titleFont }. editable is true unless it is false. A font is
+  // { family, url }; labelFont is the font of the labels of the cards, and the cards are drawn
+  // once it has come, so a label takes the width it has in that font. Without it, the labels
+  // take the font of the page. titleFont is the font of the group titles and the callouts.
+  constructor(host, onOpen, onPlace, onMenu, onView, panX, panY, zoom, options = {}) {
     this.onOpen = onOpen;
     this.onPlace = onPlace;
     this.onMenu = onMenu;
@@ -123,6 +132,16 @@ window.AtlasCanvas = class AtlasCanvas {
     this.data = [];
     this.calloutList = [];
     this.destroyed = false;
+    this.editable = options.editable !== false;
+    this.labelFont = options.labelFont ?? null;
+    this.titleFont = options.titleFont ?? TITLE_FONT;
+    // The cards are drawn once this is set, after the font of the labels has come
+    this.started = false;
+    const labelFontReady = this.labelFont
+      ? PIXI.Assets.load({ src: this.labelFont.url, data: { family: this.labelFont.family } }).catch(e =>
+          console.warn('atlas: cannot load the font of the labels', e),
+        )
+      : Promise.resolve();
     this.app = new PIXI.Application();
     this.ready = this.app
       .init({
@@ -156,6 +175,13 @@ window.AtlasCanvas = class AtlasCanvas {
         this.resizeObserver.observe(host);
         this.listenForHand();
         this.center();
+        return labelFontReady;
+      })
+      .then(() => {
+        if (this.destroyed || !this.cards) {
+          return;
+        }
+        this.started = true;
         this.build();
         this.buildCallouts();
         this.loadTitleFont();
@@ -174,6 +200,21 @@ window.AtlasCanvas = class AtlasCanvas {
     // A listener of its own, not the wheel event of PixiJS: that one is passive, so it
     // cannot keep the page from scrolling
     this.app.canvas.addEventListener('wheel', e => this.zoomAt(e), { passive: false });
+    // The right button moves the view; the menu of the browser would open at its end. An
+    // editable canvas is in the app, which keeps that menu away itself.
+    if (!this.editable) {
+      this.app.canvas.addEventListener('contextmenu', e => e.preventDefault());
+    }
+  }
+
+  // The fonts of the labels and of the titles, each followed by the font of the page for the
+  // characters it does not have
+  fonts() {
+    const page = uiFont();
+    return {
+      label: this.labelFont ? `"${this.labelFont.family}", ${page}` : page,
+      title: `"${this.titleFont.family}", ${page}`,
+    };
   }
 
   // The point under the pointer stays where it is while the view is scaled
@@ -286,9 +327,13 @@ window.AtlasCanvas = class AtlasCanvas {
       return;
     }
     this.closeMenu();
+    const card = cardOf(e.target);
+    if (!this.editable) {
+      this.startViewPan(e, card);
+      return;
+    }
     // The left button on a card drags the card, on a group its cards; elsewhere it moves the
     // view
-    const card = cardOf(e.target);
     if (e.button === 0 && extraOf(e.target)) {
       return;
     }
@@ -311,6 +356,23 @@ window.AtlasCanvas = class AtlasCanvas {
       area: e.target?.groupArea ? e.target : null,
       extra: extraOf(e.target),
       point: this.world.toLocal(e.global),
+    };
+    this.showHand();
+  }
+
+  // A press anywhere on a canvas that is not editable moves the view. One that does not move is
+  // a click, which opens the page of a label.
+  startViewPan(e, card) {
+    if (this.panning || (e.button !== 0 && e.button !== 2)) {
+      return;
+    }
+    this.panning = {
+      button: e.button,
+      start: { x: e.global.x, y: e.global.y },
+      origin: { x: this.pan.x, y: this.pan.y },
+      moved: false,
+      card,
+      onLabel: Boolean(card) && e.target === card.cardLabel,
     };
     this.showHand();
   }
@@ -350,6 +412,11 @@ window.AtlasCanvas = class AtlasCanvas {
     this.showHand();
     if (panning.moved) {
       this.keepView();
+    } else if (!this.editable) {
+      const data = panning.card?.cardData;
+      if (panning.button === 0 && panning.onLabel && opens(data)) {
+        this.onOpen(data.path, e.ctrlKey || e.metaKey, e.shiftKey);
+      }
     } else if (panning.button === 2 && panning.card?.linkData && !panning.card.destroyed) {
       const data = panning.card.linkData;
       this.openMenu(
@@ -387,7 +454,7 @@ window.AtlasCanvas = class AtlasCanvas {
   // The font file is large, so the titles and the callouts show in the font of the app until it
   // has come; then they are drawn again in it. PixiJS draws a Text once and would keep the first font.
   loadTitleFont() {
-    PIXI.Assets.load({ src: TITLE_FONT_URL, data: { family: TITLE_FONT } })
+    PIXI.Assets.load({ src: this.titleFont.url, data: { family: this.titleFont.family } })
       .then(() => {
         if (!this.destroyed && !this.drag && !this.groupDrag) {
           this.drawGroups();
@@ -720,7 +787,7 @@ window.AtlasCanvas = class AtlasCanvas {
   }
 
   keepView() {
-    this.onView(this.pan.x, this.pan.y, this.zoom);
+    this.onView?.(this.pan.x, this.pan.y, this.zoom);
   }
 
   // While the hand tool is on, the cards neither take a press nor show their own cursors
@@ -836,7 +903,7 @@ window.AtlasCanvas = class AtlasCanvas {
   // of drawSize pixels square
   setCallouts(json) {
     this.calloutList = JSON.parse(json);
-    if (this.callouts) {
+    if (this.started) {
       this.buildCallouts();
     }
   }
@@ -849,13 +916,15 @@ window.AtlasCanvas = class AtlasCanvas {
     this.callouts.removeChildren().forEach(c => c.destroy({ children: true }));
     for (const data of this.calloutList) {
       const scale = data.scale > 0 ? data.scale : 1;
-      const view = callout(data, this.textResolution(scale), this.iconResolution() * Math.max(1, scale));
+      const view = callout(data, this.textResolution(scale), this.iconResolution() * Math.max(1, scale), this.fonts());
       view.extraId = data.key;
       view.extraLabel = view.calloutText;
       view.extraSelection = view.calloutSelection;
       view.saveMove = (x, y) => this.onMoveCallout?.(data.key, x, y);
       view.saveScale = scale => this.onScaleCallout?.(data.key, scale);
-      this.makeDraggable(view, data);
+      if (this.editable) {
+        this.makeDraggable(view, data);
+      }
       this.callouts.addChild(view);
     }
     this.keepSelection();
@@ -879,15 +948,16 @@ window.AtlasCanvas = class AtlasCanvas {
   }
 
   // The placed cards as JSON: [{ id, label, path, isDir, isLink, x, y, width, height, scale,
-  // group, groupColor, groupTitle, groupTitleSide, icon, blob, iconSize, iconDrawSize }], where
-  // x and y are the center of the card. The id of a link card is the id of its item, and its
+  // group, groupColor, groupTitle, groupTitleSide, icon, blob, iconSize, iconDrawSize, masked }],
+  // where x and y are the center of the card. A card with a null path opens nothing. A masked
+  // card has its label hidden: its width is set, and only its blob shows, faintly. The id of a link card is the id of its item, and its
   // path is the page it links to. width and height are its size as scaled, and a width of 0
   // leaves it to the label. icon and blob are SVGs or null, and iconDrawSize is the size of the
   // SVG, which is shown at iconSize. The core gives the color of each group, so it is the same
   // as on the tag icons.
   setCards(json) {
     this.data = JSON.parse(json);
-    if (this.cards) {
+    if (this.started) {
       this.build();
     }
   }
@@ -898,12 +968,22 @@ window.AtlasCanvas = class AtlasCanvas {
     this.cards.removeChildren().forEach(c => c.destroy({ children: true }));
     for (const data of this.data) {
       // The icons of a card scaled up are drawn in more pixels too
-      const view = card(data, this.textResolution(data.scale), this.iconResolution() * Math.max(1, data.scale));
+      const view = card(
+        data,
+        this.textResolution(data.scale),
+        this.iconResolution() * Math.max(1, data.scale),
+        this.fonts().label,
+      );
       view.position.set(data.x, data.y);
       if (data.isLink) {
         view.linkData = data;
       }
-      this.makeDraggable(view, data);
+      if (this.editable) {
+        this.makeDraggable(view, data);
+      } else {
+        // The groups and the clicks find the data of a card here
+        view.cardData = data;
+      }
       this.cards.addChild(view);
     }
     this.keepSelection();
@@ -959,7 +1039,7 @@ window.AtlasCanvas = class AtlasCanvas {
         area = new PIXI.Graphics({ label: group });
         // A press on the area drags the group. Not on its frame, which only shows the edge.
         area.eventMode = 'static';
-        area.cursor = 'grab';
+        area.cursor = this.editable ? 'grab' : 'default';
         area.groupArea = true;
         area.frame = new PIXI.Graphics();
         // The frame shows only while a card of the group is dragged
@@ -986,7 +1066,7 @@ window.AtlasCanvas = class AtlasCanvas {
         area.titleChars.eventMode = 'none';
         area.titleChars.alpha = TITLE_ALPHA;
         const style = new PIXI.TextStyle({
-          fontFamily: `"${TITLE_FONT}", ${uiFont()}`,
+          fontFamily: this.fonts().title,
           fontSize: 20,
           fontWeight: 'bold',
           fill: 0x333333,
@@ -1198,7 +1278,7 @@ window.AtlasCanvas = class AtlasCanvas {
         if (leavers.length > 0 && this.onUngroup) {
           this.onUngroup(JSON.stringify(leavers));
         }
-      } else if (drag.onLabel) {
+      } else if (drag.onLabel && opens(data)) {
         // A link, as it always was: Ctrl opens it in a new tab and leaves the selection
         // as it was before the press
         if (drag.ctrl && !drag.wasSelected) {
@@ -1520,7 +1600,12 @@ function iconSprite(svg, width, height, resolution, x, y, alpha) {
 // A callout: its character centered at its point, and a speech bubble on one side of it with
 // the tail toward the character. The character faces the other way when its bubble is on the
 // left or below it.
-function callout(data, resolution, iconResolution) {
+// Whether a click on the label of a card opens a page
+function opens(data) {
+  return Boolean(data?.path) && !data.masked;
+}
+
+function callout(data, resolution, iconResolution, fonts) {
   const { x, y, side, text, character, drawSize } = data;
   const view = new PIXI.Container();
   view.position.set(x, y);
@@ -1540,7 +1625,7 @@ function callout(data, resolution, iconResolution) {
     text,
     resolution,
     style: {
-      fontFamily: `"${TITLE_FONT}", ${uiFont()}`,
+      fontFamily: fonts.title,
       fontSize: CALLOUT_FONT_SIZE,
       fill: 0x333333,
       wordWrap: true,
@@ -1714,8 +1799,8 @@ function cross() {
 // name wraps to fit it. The card is drawn at its unscaled size and then scaled as a whole. The
 // width it takes on the canvas is written back into the data, which the outlines of the
 // groups read.
-function card(data, resolution, iconResolution) {
-  const { label, icon, blob, iconSize, iconDrawSize, isLink } = data;
+function card(data, resolution, iconResolution, fontFamily) {
+  const { label, icon, blob, iconSize, iconDrawSize, isLink, masked } = data;
   const scale = data.scale > 0 ? data.scale : 1;
   const height = data.height / scale;
   const setWidth = data.width > 0 ? data.width / scale : null;
@@ -1723,7 +1808,7 @@ function card(data, resolution, iconResolution) {
     text: label,
     resolution,
     style: {
-      fontFamily: getComputedStyle(document.body).fontFamily,
+      fontFamily,
       fontSize: 13,
       fill: isLink ? LINK_LABEL_COLOR : 0x222222,
       // A white edge keeps the label readable over the icon and the groups behind it. The
@@ -1770,7 +1855,9 @@ function card(data, resolution, iconResolution) {
   if (blob) {
     // Over the whole card, behind the icon. The SVG is drawn at the size of the card rather than
     // drawn square and stretched: a stretched line around the blob would be thicker on two sides.
-    inside.addChild(iconSprite(sizedSvg(blob, width, height), width, height, iconResolution, width / 2, height / 2, 1));
+    // A card with a hidden label shows its blob faintly, so it reads as a place, not a page
+    const alpha = masked ? MASKED_ALPHA : 1;
+    inside.addChild(iconSprite(sizedSvg(blob, width, height), width, height, iconResolution, width / 2, height / 2, alpha));
   }
   if (icon) {
     // Rasterized in as many pixels as the icon covers at its largest, not at the size of the SVG
@@ -1784,7 +1871,7 @@ function card(data, resolution, iconResolution) {
   text.position.set(width / 2, height / 2);
   // The card handles the press; the label only shows that it opens the page
   text.eventMode = 'static';
-  text.cursor = 'pointer';
+  text.cursor = opens(data) ? 'pointer' : 'default';
   c.cardLabel = text;
   inside.addChild(text);
   return c;
