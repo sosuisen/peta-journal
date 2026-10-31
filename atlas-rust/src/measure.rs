@@ -74,14 +74,39 @@ mod tests {
         assert_eq!(font().card_width("a"), 40.0);
     }
 
-    // 長いラベルは折り返すので、カードは折り返す幅より広くならない
+    // 長いラベルは、入るところまでの文字で折り返し、いちばん広い行の幅になる
     #[test]
-    fn a_long_label_wraps_at_the_widest_card() {
-        let long = "あ".repeat(40);
+    fn a_long_label_wraps_after_the_last_character_that_fits() {
+        // 22 characters of 13px fit in the 296px of a line
         assert_eq!(
-            font().card_width(&long),
-            (320.0_f64 - 24.0 + 3.0 + 24.0).ceil()
+            font().card_width(&"あ".repeat(40)),
+            22.0 * 13.0 + 3.0 + 24.0
         );
+    }
+
+    // PixiJS 8が、Chromiumでこのフォントで描いたカードの幅と同じになる
+    #[test]
+    fn a_card_is_as_wide_as_pixijs_draws_it_in_chromium() {
+        // Read back from atlas.js in headless Chromium, at a device pixel ratio of 1
+        let drawn = [
+            ("支持体としてのビデオメモリー", 209.0),
+            ("Bike OutlinerとLogseq OG", 184.0),
+            // The ink of the X reaches past its advance
+            ("VSCodeで始めるJavaFX", 170.0),
+            ("sss-wallpaper 制作ノート", 179.0),
+            ("JavaFX Development on VSCode", 223.0),
+            ("Picturesque Marks", 139.0),
+            ("ノートとADR", 105.0),
+            // The words are measured one by one, so no kerning crosses a space
+            ("AVA Wave Type", 119.0),
+            (
+                "アウトラインを記録するためのMarkdown解釈という長い題名のページ",
+                312.0,
+            ),
+        ];
+        for (label, width) in drawn {
+            assert_eq!(font().card_width(label), width, "{label}");
+        }
     }
 
     // 欧文の幅は文字ごとに違い、カーニングも入る
