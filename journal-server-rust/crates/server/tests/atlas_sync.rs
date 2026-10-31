@@ -20,10 +20,12 @@ impl Device {
         Device::with(dir, Settings::under(dir, 0))
     }
 
-    /// A device that takes a file with the id of a page still elsewhere as a copy at once
-    fn copying_at_once(dir: &Path) -> Device {
+    /// A device that does not wait: it takes a file with the id of a page still elsewhere as
+    /// a copy at once, and writes a page over a file not taken in yet at once
+    fn not_waiting(dir: &Path) -> Device {
         let settings = Settings {
             import_copy_wait_secs: 0,
+            export_overwrite_wait_secs: 0,
             ..Settings::under(dir, 0)
         };
         Device::with(dir, settings)
@@ -49,13 +51,32 @@ impl Device {
 
     /// Takes the file as the other device wrote it, as the cloud folder brings it.
     fn receive(&self, from: &Device, rel_path: &str) -> Outcome {
+        self.deliver(from, rel_path);
+        self.sync(rel_path)
+    }
+
+    /// Puts the file the other device wrote into the folder, before the server takes it in
+    fn deliver(&self, from: &Device, rel_path: &str) {
         from.export();
         let content = std::fs::read(from.root.join(rel_path))
             .unwrap_or_else(|e| panic!("{rel_path}: {e} in {:?}", walk(&from.root)));
         let target = self.root.join(rel_path);
         std::fs::create_dir_all(target.parent().unwrap()).unwrap();
         std::fs::write(&target, content).unwrap();
-        self.state.import.sync_file(&self.root, rel_path)
+    }
+
+    /// The file as it is on disk now, without writing the queued pages first
+    fn on_disk(&self, rel_path: &str) -> String {
+        std::fs::read_to_string(self.root.join(rel_path)).unwrap()
+    }
+
+    /// Gives the first item of the page a property, as an edit in the app
+    fn edit(&self, page_id: &Hmtid, value: &str) {
+        let items = self.state.page_service.get_page_items(page_id).unwrap();
+        self.state
+            .item_service
+            .set_property(&items[0].id, "note", "text", value)
+            .unwrap();
     }
 
     fn file(&self, rel_path: &str) -> String {
@@ -170,12 +191,12 @@ const ATLAS: &str = "docs/d/index_atlas.md";
 
 /// Two devices that share the directory `d/` with the page a and its atlas, made on A
 fn two_devices(dir: &Path) -> (Device, Device) {
+    two_devices_with(dir, Device::new)
+}
+
+fn two_devices_with(dir: &Path, make_b: fn(&Path) -> Device) -> (Device, Device) {
     let a = Device::new(&dir.join("a"));
-    let b = Device::new(&dir.join("b"));
-    // The index page of a folder made for a page of it has no file until it is written; both
-    // devices are to have the same one
-    let index = a.doc("index");
-    a.state.export.queue_export(&index);
+    let b = make_b(&dir.join("b"));
     a.doc("a");
     a.doc("index_atlas");
     for rel_path in ["docs/index.md", INDEX, "docs/d/a.md", ATLAS] {
@@ -412,7 +433,7 @@ fn a_file_that_waits_comes_in_on_the_scan_after_the_old_file_went() {
 #[test]
 fn a_copied_file_becomes_a_page_of_its_own_once_the_wait_is_over() {
     let dir = tempfile::tempdir().unwrap();
-    let device = Device::copying_at_once(dir.path());
+    let device = Device::not_waiting(dir.path());
     let a = device.doc("a");
     device.export();
     std::fs::copy(
@@ -428,4 +449,76 @@ fn a_copied_file_becomes_a_page_of_its_own_once_the_wait_is_over() {
     assert_eq!(device.page_in("d/", "a"), Some(a));
     // The copy is written again with its own id
     assert!(device.file("docs/d/a2.md").contains(copy.as_str()));
+}
+
+#[test]
+fn a_file_not_taken_in_yet_is_not_written_over() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    let page = a.page_in("d/", "a").unwrap();
+    a.edit(&page, "from A");
+    b.deliver(&a, "docs/d/a.md");
+
+    // B changes the page before it takes in the file that came
+    b.edit(&page, "from B");
+    b.export();
+    assert!(b.on_disk("docs/d/a.md").contains("from A"));
+
+    // The import decides: the change on B is later, so the file of A is kept as a backup
+    assert_eq!(b.sync("docs/d/a.md"), Outcome::Conflict);
+    assert!(b.file("docs/d/a.md").contains("from B"));
+    let backups = b.conflicts();
+    assert_eq!(backups.len(), 1);
+    assert!(std::fs::read_to_string(&backups[0])
+        .unwrap()
+        .contains("from A"));
+}
+
+#[test]
+fn a_file_not_taken_in_after_the_wait_is_kept_as_a_backup_and_written_over() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices_with(dir.path(), Device::not_waiting);
+    let page = a.page_in("d/", "a").unwrap();
+    a.edit(&page, "from A");
+    b.deliver(&a, "docs/d/a.md");
+
+    b.edit(&page, "from B");
+    b.export();
+
+    assert!(b.on_disk("docs/d/a.md").contains("from B"));
+    let backups = b.conflicts();
+    assert_eq!(backups.len(), 1);
+    assert!(std::fs::read_to_string(&backups[0])
+        .unwrap()
+        .contains("from A"));
+}
+
+#[test]
+fn a_folder_index_made_in_the_app_gets_a_file_at_once() {
+    let dir = tempfile::tempdir().unwrap();
+    let device = Device::new(dir.path());
+    device.doc("a");
+    let index = device.page_in("d/", "index").unwrap();
+
+    device.export();
+
+    assert!(device.on_disk(INDEX).contains(index.as_str()));
+}
+
+#[test]
+fn a_folder_index_made_for_a_file_taken_in_waits_for_the_index_file_of_the_other_device() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    a.state
+        .page_service
+        .get_or_create_doc(Some("x"), Some("e/"))
+        .unwrap();
+
+    b.receive(&a, "docs/e/x.md");
+    b.export();
+    assert!(!b.root.join("docs/e/index.md").exists());
+
+    b.receive(&a, "docs/e/index.md");
+    assert_eq!(b.page_in("e/", "index"), a.page_in("e/", "index"));
+    assert_eq!(b.file("docs/e/index.md"), a.file("docs/e/index.md"));
 }
