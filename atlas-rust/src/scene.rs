@@ -286,9 +286,9 @@ mod tests {
         assert_eq!(card.group.as_deref(), Some("G1"));
     }
 
-    // ラベルを伏せたカードは、ラベル・リンク先・アイコンを持たず、元の幅と形のblobを保つ
+    // ラベルを伏せたカードは、ラベル・リンク先・アイコンを持たず、元の幅と形のblobを白で保つ
     #[test]
-    fn a_card_with_a_hidden_label_keeps_its_size_and_blob_only() {
+    fn a_card_with_a_hidden_label_keeps_its_size_and_a_white_blob_only() {
         let tags = vec!["JavaFX".to_string()];
         let shown = Card::page(
             &page("P1", "Draft", &tags, false),
@@ -302,7 +302,8 @@ mod tests {
         assert!(hidden.masked);
         // The width of the label at scale 1, scaled as the card is
         assert_eq!(hidden.width, 150.0);
-        assert_eq!(hidden.blob, shown.blob);
+        // The same shape, filled white in place of the tag color
+        assert_eq!(hidden.blob, shown.blob.replace("#CFE3FF", "#FFFFFF"));
         assert_eq!(
             (hidden.x, hidden.y, hidden.group),
             (shown.x, shown.y, shown.group)
