@@ -109,6 +109,21 @@ impl Card {
         }
     }
 
+    /// The card with its label hidden, as a site shows a page it does not publish. The label,
+    /// the page it opens and the icon go, so none of them reaches the scene. The card keeps its
+    /// place, its group and its blob. `label_width` is the width of the card at scale 1 that
+    /// the label gave it, as [`crate::measure`] measures it, so the card keeps its size.
+    pub fn hide_label(self, label_width: f64) -> Card {
+        Card {
+            label: String::new(),
+            path: None,
+            icon: None,
+            width: label_width * self.scale,
+            masked: true,
+            ..self
+        }
+    }
+
     fn new(
         id: &str,
         label: &str,
