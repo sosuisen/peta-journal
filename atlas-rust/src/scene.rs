@@ -4,7 +4,9 @@
 
 use serde::Serialize;
 
-use crate::marks::{callout_face_svg, group_color, link_blob_svg, tag_blob_svg, tag_icon_svg};
+use crate::marks::{
+    callout_face_svg, group_color, hidden_blob_svg, link_blob_svg, tag_blob_svg, tag_icon_svg,
+};
 use crate::{card_label, Bounds};
 
 /// The size of the icon of a card, in pixels of the canvas.
@@ -111,14 +113,16 @@ impl Card {
 
     /// The card with its label hidden, as a site shows a page it does not publish. The label,
     /// the page it opens and the icon go, so none of them reaches the scene. The card keeps its
-    /// place, its group and its blob. `label_width` is the width of the card at scale 1 that
-    /// the label gave it, as [`crate::measure`] measures it, so the card keeps its size.
+    /// place, its group and the shape of its blob, which turns white. `label_width` is the width
+    /// of the card at scale 1 that the label gave it, as [`crate::measure`] measures it, so the
+    /// card keeps its size.
     pub fn hide_label(self, label_width: f64) -> Card {
         Card {
             label: String::new(),
             path: None,
             icon: None,
             width: label_width * self.scale,
+            blob: hidden_blob_svg(&self.blob),
             masked: true,
             ..self
         }
@@ -286,9 +290,9 @@ mod tests {
         assert_eq!(card.group.as_deref(), Some("G1"));
     }
 
-    // ラベルを伏せたカードは、ラベル・リンク先・アイコンを持たず、元の幅と形のblobを保つ
+    // ラベルを伏せたカードは、ラベル・リンク先・アイコンを持たず、元の幅と形のblobを白で保つ
     #[test]
-    fn a_card_with_a_hidden_label_keeps_its_size_and_blob_only() {
+    fn a_card_with_a_hidden_label_keeps_its_size_and_a_white_blob_only() {
         let tags = vec!["JavaFX".to_string()];
         let shown = Card::page(
             &page("P1", "Draft", &tags, false),
@@ -302,7 +306,8 @@ mod tests {
         assert!(hidden.masked);
         // The width of the label at scale 1, scaled as the card is
         assert_eq!(hidden.width, 150.0);
-        assert_eq!(hidden.blob, shown.blob);
+        // The same shape, filled white in place of the tag color
+        assert_eq!(hidden.blob, shown.blob.replace("#CFE3FF", "#FFFFFF"));
         assert_eq!(
             (hidden.x, hidden.y, hidden.group),
             (shown.x, shown.y, shown.group)
