@@ -1,3 +1,4 @@
+pub mod atlas;
 pub mod fractional_index;
 pub mod hashtag;
 pub mod id_generator;

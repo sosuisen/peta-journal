@@ -3,7 +3,9 @@
 use crate::core::CoreHandle;
 use crux_core::Request;
 use gloo_net::http::{Request as Http, Response};
-use peta_core::effects::{ApiError, ApiOp, ApiOutput, ApiResult, FolderChoice, FunctionInfo};
+use peta_core::effects::{
+    ApiError, ApiOp, ApiOutput, ApiResult, AtlasChange, FolderChoice, FunctionInfo,
+};
 use peta_core::model::*;
 use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
@@ -74,6 +76,54 @@ async fn send_empty(method: &str, url: &str) -> ApiResult<()> {
     };
     let resp = builder.send().await.map_err(|e| ApiError(e.to_string()))?;
     ensure_ok(&resp).await
+}
+
+/// The method, the path under `/api/pages/{id}/atlas/` and the body of a change of an atlas.
+fn atlas_request(change: AtlasChange) -> (&'static str, String, Option<Value>) {
+    match change {
+        AtlasChange::AddLink { target, bounds } => (
+            "POST",
+            "links".into(),
+            Some(json!({ "target": target, "bounds": bounds })),
+        ),
+        AtlasChange::SetLink { item_id, target } => (
+            "PUT",
+            format!("links/{item_id}"),
+            Some(json!({ "target": target })),
+        ),
+        AtlasChange::Group { cards, target } => (
+            "POST",
+            "group".into(),
+            Some(json!({ "cards": cards, "target": target })),
+        ),
+        AtlasChange::Ungroup { cards } => {
+            ("POST", "ungroup".into(), Some(json!({ "cards": cards })))
+        }
+        AtlasChange::SetGroupTitle {
+            item_id,
+            side,
+            title,
+        } => (
+            "PUT",
+            format!("groups/{item_id}"),
+            Some(json!({ "side": side, "title": title })),
+        ),
+        AtlasChange::AddCallout { bounds, side, text } => (
+            "POST",
+            "callouts".into(),
+            Some(json!({ "bounds": bounds, "side": side, "text": text })),
+        ),
+        AtlasChange::SetCallout {
+            item_id,
+            side,
+            text,
+        } => (
+            "PUT",
+            format!("callouts/{item_id}"),
+            Some(json!({ "side": side, "text": text })),
+        ),
+        AtlasChange::Remove { item_id } => ("DELETE", format!("items/{item_id}"), None),
+    }
 }
 
 #[derive(serde::Deserialize)]
@@ -248,6 +298,21 @@ async fn call(handle: &CoreHandle, op: ApiOp) -> ApiResult<ApiOutput> {
             )
             .await?;
             ApiOutput::Item(env.item)
+        }
+        ApiOp::DeleteItemProperty { item_id, key } => {
+            let env: ItemEnvelope = send_json(
+                "DELETE",
+                &format!("/api/items/{item_id}/properties/{}", enc(&key)),
+                None,
+            )
+            .await?;
+            ApiOutput::Item(env.item)
+        }
+        ApiOp::ChangeAtlas { atlas_id, change } => {
+            let (method, path, body) = atlas_request(change);
+            let env: ItemsEnvelope =
+                send_json(method, &format!("/api/pages/{atlas_id}/atlas/{path}"), body).await?;
+            ApiOutput::Items(env.items)
         }
         ApiOp::SearchCombined { query, max_results } => {
             let env: ResultsEnvelope = get(&format!(

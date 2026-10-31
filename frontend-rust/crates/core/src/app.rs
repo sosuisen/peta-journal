@@ -228,21 +228,22 @@ pub enum Event {
     ToggleAtlas,
     /// The up button of an atlas page: opens the atlas of the directory above.
     AtlasUp,
-    /// A card dropped on the atlas canvas: the page's card is placed with its center there.
+    /// A card dropped on the atlas canvas: the card is placed with its center there. A page
+    /// card is named by its page, a link card by its item.
     PlaceAtlasCard {
-        page_id: String,
+        card_id: String,
         x: f64,
         y: f64,
     },
-    /// The selected cards scaled with Ctrl and the wheel: the page's card takes the scale.
+    /// The selected cards scaled with Ctrl and the wheel: the card takes the scale.
     ScaleAtlasCard {
-        page_id: String,
+        card_id: String,
         scale: f64,
     },
     /// The group menu's "Edit Title": the group's title lies along a side of its outline.
     /// An empty title takes it away.
     SetAtlasGroupTitle {
-        group_key: String,
+        group_id: String,
         side: String,
         title: String,
     },
@@ -272,17 +273,6 @@ pub enum Event {
         y: f64,
         target: String,
     },
-    /// A link card dragged to a new place: its center
-    MoveAtlasLink {
-        item_id: String,
-        x: f64,
-        y: f64,
-    },
-    /// The selected link cards scaled with Ctrl and the wheel
-    ScaleAtlasLink {
-        item_id: String,
-        scale: f64,
-    },
     /// The link card menu's "Edit Link": the card links to another page
     SetAtlasLink {
         item_id: String,
@@ -308,12 +298,12 @@ pub enum Event {
     },
     /// Cards dropped on another card with Ctrl held: they join the group of that card.
     GroupAtlasCards {
-        page_ids: Vec<String>,
+        card_ids: Vec<String>,
         target_id: String,
     },
     /// Cards dragged out of the outline of their group with Ctrl held: they leave it.
     UngroupAtlasCards {
-        page_ids: Vec<String>,
+        card_ids: Vec<String>,
     },
     /// The page menu: show the property rows of the doc page even while it has none.
     EditPageProperties,
@@ -826,31 +816,29 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         DemoteIndex => screens::page::demote_index(model),
         ToggleAtlas => screens::page::toggle_atlas(model),
         AtlasUp => screens::page::atlas_up(model),
-        PlaceAtlasCard { page_id, x, y } => screens::atlas::place_card(model, page_id, x, y),
-        ScaleAtlasCard { page_id, scale } => screens::atlas::scale_card(model, page_id, scale),
+        PlaceAtlasCard { card_id, x, y } => screens::atlas::place_card(model, card_id, x, y),
+        ScaleAtlasCard { card_id, scale } => screens::atlas::scale_card(model, card_id, scale),
         SetAtlasGroupTitle {
-            group_key,
+            group_id,
             side,
             title,
-        } => screens::atlas::set_group_title(model, group_key, side, title),
+        } => screens::atlas::set_group_title(model, group_id, side, title),
         AddAtlasCallout { x, y, side, text } => {
             screens::atlas::add_callout(model, x, y, side, text)
         }
         MoveAtlasCallout { key, x, y } => screens::atlas::move_callout(model, key, x, y),
         ScaleAtlasCallout { key, scale } => screens::atlas::scale_callout(model, key, scale),
         AddAtlasLink { x, y, target } => screens::atlas::add_link(model, x, y, target),
-        MoveAtlasLink { item_id, x, y } => screens::atlas::move_link(model, item_id, x, y),
-        ScaleAtlasLink { item_id, scale } => screens::atlas::scale_link(model, item_id, scale),
         SetAtlasLink { item_id, target } => screens::atlas::set_link(model, item_id, target),
         RemoveAtlasLink { item_id } => screens::atlas::remove_link(model, item_id),
         SearchAtlasLinks { query } => screens::atlas::search_links(model, query),
         SetAtlasCallout { key, side, text } => screens::atlas::set_callout(model, key, side, text),
         RemoveAtlasCard { page_id } => screens::atlas::remove_card(model, page_id),
         GroupAtlasCards {
-            page_ids,
+            card_ids,
             target_id,
-        } => screens::atlas::group_cards(model, page_ids, target_id),
-        UngroupAtlasCards { page_ids } => screens::atlas::ungroup_cards(model, page_ids),
+        } => screens::atlas::group_cards(model, card_ids, target_id),
+        UngroupAtlasCards { card_ids } => screens::atlas::ungroup_cards(model, card_ids),
         EditPageProperties => screens::page::edit_properties(model),
         SetPageProperty {
             key,

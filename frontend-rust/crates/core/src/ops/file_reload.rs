@@ -4,6 +4,7 @@
 
 use crate::app::{apply, done, log_error, run, Cmd, Event, Model};
 use crate::effects::{Api, TimerOutput};
+use crate::model::Item;
 use crate::ops::edit::{is_edit_in_progress, read};
 
 /// How long the auto-save gets to flush before pending pages are replaced.
@@ -31,23 +32,7 @@ pub async fn replace_page(api: &Api<Event>, page_id: &str) {
         Ok(result) => {
             let page_id = page_id.to_string();
             apply(api, "replace page", move |m| {
-                let items = m.state.items();
-                let first = items.iter().position(|i| i.page_id == page_id);
-                let mut next = Vec::with_capacity(items.len() + result.items.len());
-                match first {
-                    None => next.extend(items.iter().cloned()),
-                    Some(first) => next.extend(items[..first].iter().cloned()),
-                }
-                next.extend(result.items.into_iter().map(std::sync::Arc::new));
-                if let Some(first) = first {
-                    next.extend(
-                        items[first..]
-                            .iter()
-                            .filter(|i| i.page_id != page_id)
-                            .cloned(),
-                    );
-                }
-                m.state.set_item_refs(next);
+                replace_page_items(m, &page_id, result.items);
                 if let Some(trees) = result.transcluded_trees {
                     m.state.merge_transcluded_trees(trees);
                 }
@@ -56,6 +41,28 @@ pub async fn replace_page(api: &Api<Event>, page_id: &str) {
         }
         Err(e) => log_error(format!("Failed to reload page {page_id}: {e}")),
     }
+}
+
+/// Puts the given items in place of the items of one page. The items of the other pages keep
+/// their places. A page with no items shown gets them at the end.
+pub fn replace_page_items(m: &mut Model, page_id: &str, page_items: Vec<Item>) {
+    let items = m.state.items();
+    let first = items.iter().position(|i| i.page_id == page_id);
+    let mut next = Vec::with_capacity(items.len() + page_items.len());
+    match first {
+        None => next.extend(items.iter().cloned()),
+        Some(first) => next.extend(items[..first].iter().cloned()),
+    }
+    next.extend(page_items.into_iter().map(std::sync::Arc::new));
+    if let Some(first) = first {
+        next.extend(
+            items[first..]
+                .iter()
+                .filter(|i| i.page_id != page_id)
+                .cloned(),
+        );
+    }
+    m.state.set_item_refs(next);
 }
 
 /// Replaces all items with the server's version of the shown page, e.g. after a

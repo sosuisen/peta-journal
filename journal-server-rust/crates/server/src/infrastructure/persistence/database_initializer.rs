@@ -134,9 +134,10 @@ fn run(conn: &Connection, ids: &IdGenerator) -> rusqlite::Result<()> {
 /// The keys the app reserves, with their types, and whether they can be set on a page. The
 /// task dates and times and the zoom are item-only; `created` and `modified` are the page's
 /// own dates, which a page property write changes in place; `published` is the date-time
-/// the user publishes a page at, which the sidebar can sort pages by; `atlas_bounds` is
-/// where a page lies on the atlas of its directory.
-pub const SYSTEM_KEYS: [(&str, &str, bool); 12] = [
+/// the user publishes a page at, which the sidebar can sort pages by. The `atlas_` keys are
+/// on the items of an atlas page: where a card or a callout lies, the page a card stands
+/// for, what an item that is no card is, and the side of a title or a bubble.
+pub const SYSTEM_KEYS: [(&str, &str, bool); 15] = [
     ("tags", "tags", true),
     ("begin", "datetime", false),
     ("end", "datetime", false),
@@ -148,7 +149,10 @@ pub const SYSTEM_KEYS: [(&str, &str, bool); 12] = [
     ("created", "datetime", true),
     ("modified", "datetime", true),
     ("published", "datetime", true),
-    ("atlas_bounds", "bounds", true),
+    ("atlas_bounds", "bounds", false),
+    ("atlas_page", "text", false),
+    ("atlas_type", "text", false),
+    ("atlas_side", "text", false),
 ];
 
 /// Renames the system key `tag` to `tags`, the key other Markdown tools use in the front
@@ -564,7 +568,7 @@ mod tests {
             count(
                 &conn,
                 "SELECT COUNT(*) FROM property_definitions
-                 WHERE key = 'atlas_bounds' AND value_type = 'bounds' AND is_system = 1 AND for_page = 1"
+                 WHERE key = 'atlas_bounds' AND value_type = 'bounds' AND is_system = 1 AND for_page = 0"
             ),
             1
         );

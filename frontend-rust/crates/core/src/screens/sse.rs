@@ -42,18 +42,15 @@ fn on_message(model: &mut Model, data: &str) -> Cmd {
         .and_then(|p| p.as_str())
         .unwrap_or_default()
         .to_string();
-    let from_file = json.get("source").and_then(|s| s.as_str()) == Some("file");
-    let (reload, groups) = if from_file {
-        (
-            file_reload::reload_page(model, &page_id),
-            atlas::reload_groups(model, &page_id),
-        )
-    } else {
-        (done(), done())
+    // The server writes the outline of an atlas page by itself, as when a page of its
+    // directory is made, and tells so with its own source
+    let reload = match json.get("source").and_then(|s| s.as_str()) {
+        Some("file") => file_reload::reload_page(model, &page_id),
+        Some("server") => atlas::reload_atlas(model, &page_id),
+        _ => done(),
     };
     Command::all([
         reload,
-        groups,
         sidebar::refresh_recent_pages(),
         sidebar::load_index_pages(model),
         page::reload_backlinks(model),

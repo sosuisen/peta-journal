@@ -211,10 +211,8 @@ impl MarkdownImportService {
         // The file is the newer version of the page, so a file without tags has none
         let page_tags = frontmatter_tags(fm);
         let page_tags_before = self.page_service.replace_page_tags(&page.id, &page_tags)?;
-        let atlas = self.page_service.replace_atlas_properties(&page.id, fm)?;
 
-        let page_changed =
-            renamed || merge.changed || is_new || page_tags_before != page_tags || atlas.changed;
+        let page_changed = renamed || merge.changed || is_new || page_tags_before != page_tags;
         if page_changed {
             let new_modified = if is_new {
                 page.modified_date
@@ -228,16 +226,16 @@ impl MarkdownImportService {
             } else {
                 self.page_matcher.touch(&page, loc, new_modified)?
             };
+        } else if file_modified > page.modified_date {
+            // The same page written later on another device: the page takes the date of the
+            // file, or a later change here would count as older than the file there
+            page = self.page_matcher.touch(&page, loc, file_modified)?;
         }
 
         self.file_sync_state
             .upsert_synced(rel_path, &page.id, hash, attrs.size, attrs.mtime)?;
 
-        if write_back
-            || merge.needs_write_back
-            || atlas.needs_write_back
-            || !tags_written_as_exported(fm, &page_tags)
-        {
+        if write_back || merge.needs_write_back || !tags_written_as_exported(fm, &page_tags) {
             // Give the file its ids / frontmatter. The export records the new hash, so it won't echo back.
             self.export.queue_export(&page.id);
         }
@@ -247,6 +245,13 @@ impl MarkdownImportService {
             &union(&merge.tags_before, &page_tags_before),
             &union(&merge.tags_after, &page_tags),
         );
+        // A new or moved file changes the pages of a directory. An atlas file that only
+        // changed came from another device, which wrote it from its pages. Writing it again
+        // here from pages that differ for a while, as a rename on its way, would send it back
+        // and forth until the pages agree; a page file that comes writes it again anyway.
+        if page_changed && (is_new || renamed || !page.is_atlas()) {
+            self.page_service.sync_atlases();
+        }
         if page_changed {
             self.sse
                 .broadcast_pages_updated_from(page.id.as_str(), "file");

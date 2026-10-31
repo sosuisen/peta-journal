@@ -122,7 +122,6 @@ window.AtlasCanvas = class AtlasCanvas {
     this.selected = new Set();
     this.data = [];
     this.calloutList = [];
-    this.linkList = [];
     this.destroyed = false;
     this.app = new PIXI.Application();
     this.ready = this.app
@@ -143,12 +142,10 @@ window.AtlasCanvas = class AtlasCanvas {
         host.appendChild(this.app.canvas);
         this.world = new PIXI.Container();
         this.cards = new PIXI.Container();
-        // The outlines of the groups lie behind the cards, the link cards and the callouts above
-        // them
+        // The outlines of the groups lie behind the cards, the callouts above them
         this.groups = new PIXI.Container();
-        this.links = new PIXI.Container();
         this.callouts = new PIXI.Container();
-        this.world.addChild(cross(), this.groups, this.cards, this.links, this.callouts);
+        this.world.addChild(cross(), this.groups, this.cards, this.callouts);
         // The menu and the dialog, in pixels of the screen above the scaled view
         this.overlay = new PIXI.Container();
         this.app.stage.addChild(this.world, this.overlay);
@@ -160,7 +157,6 @@ window.AtlasCanvas = class AtlasCanvas {
         this.listenForHand();
         this.center();
         this.build();
-        this.buildLinks();
         this.buildCallouts();
         this.loadTitleFont();
       });
@@ -354,13 +350,8 @@ window.AtlasCanvas = class AtlasCanvas {
     this.showHand();
     if (panning.moved) {
       this.keepView();
-    } else if (panning.button === 2 && panning.card) {
-      this.onMenu(panning.card.cardData.id, e.clientX, e.clientY);
-    } else if (panning.button === 2 && panning.extra?.calloutData && !panning.extra.destroyed) {
-      const data = panning.extra.calloutData;
-      this.openMenu([['Edit Callout', () => this.openCalloutDialog(data)]], e.global.x, e.global.y);
-    } else if (panning.button === 2 && panning.extra?.linkData && !panning.extra.destroyed) {
-      const data = panning.extra.linkData;
+    } else if (panning.button === 2 && panning.card?.linkData && !panning.card.destroyed) {
+      const data = panning.card.linkData;
       this.openMenu(
         [
           ['Edit Link', () => this.openLinkDialog(data)],
@@ -369,6 +360,11 @@ window.AtlasCanvas = class AtlasCanvas {
         e.global.x,
         e.global.y,
       );
+    } else if (panning.button === 2 && panning.card) {
+      this.onMenu(panning.card.cardData.id, e.clientX, e.clientY);
+    } else if (panning.button === 2 && panning.extra?.calloutData && !panning.extra.destroyed) {
+      const data = panning.extra.calloutData;
+      this.openMenu([['Edit Callout', () => this.openCalloutDialog(data)]], e.global.x, e.global.y);
     } else if (panning.button === 2 && panning.area && !panning.area.destroyed) {
       const group = panning.area.label;
       this.openMenu([['Edit Title', () => this.openTitleDialog(group)]], e.global.x, e.global.y);
@@ -709,20 +705,16 @@ window.AtlasCanvas = class AtlasCanvas {
     }
   }
 
-  // The views that are no cards of pages: the link cards and the callouts. They are selected,
-  // dragged and scaled as the cards are, but join no group. Each knows its id, its label, its
-  // selection ring, and how a move or a scale of it is saved.
+  // The views that are no cards: the callouts. They are selected, dragged and scaled as the
+  // cards are, but join no group. Each knows its id, its label, its selection ring, and how a
+  // move or a scale of it is saved.
   extras() {
-    return [...this.links.children, ...this.callouts.children];
+    return this.callouts.children;
   }
 
-  // A card, a link card or a callout taken off the canvas is no longer selected
+  // A card or a callout taken off the canvas is no longer selected
   keepSelection() {
-    const ids = new Set([
-      ...this.data.map(d => d.id),
-      ...this.linkList.map(d => d.id),
-      ...this.calloutList.map(d => d.key),
-    ]);
+    const ids = new Set([...this.data.map(d => d.id), ...this.calloutList.map(d => d.key)]);
     this.selected = new Set([...this.selected].filter(id => ids.has(id)));
     this.showSelection();
   }
@@ -735,7 +727,6 @@ window.AtlasCanvas = class AtlasCanvas {
   showHand() {
     this.cards.interactiveChildren = this.panning === null;
     this.groups.interactiveChildren = this.panning === null;
-    this.links.interactiveChildren = this.panning === null;
     this.callouts.interactiveChildren = this.panning === null;
     // A press that has not moved yet may still be a click, so it keeps the plain cursor.
     // Not grab: that is the cursor of a card, which moves the card and not the view.
@@ -800,22 +791,22 @@ window.AtlasCanvas = class AtlasCanvas {
     return { global: new PIXI.Point(clientX - rect.left, clientY - rect.top), ctrlKey: ctrl };
   }
 
-  // onGroup(pageIdsJson, targetId) puts the cards dropped with Ctrl on a card into its group
+  // onGroup(cardIdsJson, targetId) puts the cards dropped with Ctrl on a card into its group
   setOnGroup(onGroup) {
     this.onGroup = onGroup;
   }
 
-  // onUngroup(pageIdsJson) takes the cards let go outside their group with Ctrl out of it
+  // onUngroup(cardIdsJson) takes the cards let go outside their group with Ctrl out of it
   setOnUngroup(onUngroup) {
     this.onUngroup = onUngroup;
   }
 
-  // onScale(pageId, scale) scales the card of a page
+  // onScale(cardId, scale) scales a card
   setOnScale(onScale) {
     this.onScale = onScale;
   }
 
-  // onGroupTitle(groupKey, side, title) gives a group a title along a side of its outline
+  // onGroupTitle(groupId, side, title) gives a group a title along a side of its outline
   setOnGroupTitle(onGroupTitle) {
     this.onGroupTitle = onGroupTitle;
   }
@@ -871,15 +862,13 @@ window.AtlasCanvas = class AtlasCanvas {
   }
 
   // onAddLink(x, y, target) adds a link card with its center at a point; onSetLink(id, target)
-  // links one to another page; onMoveLink(id, x, y)
-  // moves one; onScaleLink(id, scale) scales one; onRemoveLink(id) takes one away, deleting its
-  // link. onLinkQuery(text) asks for the page names that match what is typed in the dialog of a
-  // link, which come back through setLinkSuggestions; an empty text clears them.
-  setOnLink(onAddLink, onSetLink, onMoveLink, onScaleLink, onRemoveLink, onLinkQuery) {
+  // links one to another page; onRemoveLink(id) takes one away, deleting its link. A link card
+  // moves and scales as any card does. onLinkQuery(text) asks for the page names that match
+  // what is typed in the dialog of a link, which come back through setLinkSuggestions; an
+  // empty text clears them.
+  setOnLink(onAddLink, onSetLink, onRemoveLink, onLinkQuery) {
     this.onAddLink = onAddLink;
     this.onSetLink = onSetLink;
-    this.onMoveLink = onMoveLink;
-    this.onScaleLink = onScaleLink;
     this.onRemoveLink = onRemoveLink;
     this.onLinkQuery = onLinkQuery;
   }
@@ -889,41 +878,13 @@ window.AtlasCanvas = class AtlasCanvas {
     this.showSuggestions?.(JSON.parse(json));
   }
 
-  // The link cards as JSON, as the cards are, with id the id of the item of the link and path
-  // the page it links to
-  setLinks(json) {
-    this.linkList = JSON.parse(json);
-    if (this.links) {
-      this.buildLinks();
-    }
-  }
-
-  buildLinks() {
-    // A dragged link card is destroyed with the others: a new list wins over the drag
-    if (this.drag?.view.linkData) {
-      this.drag = null;
-    }
-    this.links.removeChildren().forEach(c => c.destroy({ children: true }));
-    for (const data of this.linkList) {
-      const view = card(data, this.textResolution(data.scale), this.iconResolution() * Math.max(1, data.scale));
-      view.position.set(data.x, data.y);
-      view.linkData = data;
-      view.extraId = data.id;
-      view.extraLabel = view.cardLabel;
-      view.extraSelection = view.cardSelection;
-      view.saveMove = (x, y) => this.onMoveLink?.(data.id, x, y);
-      view.saveScale = scale => this.onScaleLink?.(data.id, scale);
-      this.makeDraggable(view, data);
-      this.links.addChild(view);
-    }
-    this.keepSelection();
-  }
-
-  // The placed cards as JSON: [{ id, label, path, isDir, x, y, width, height, scale, group,
-  // groupColor, groupTitle, groupTitleSide, icon, blob, iconSize, iconDrawSize }], where x and
-  // y are the center of the card,
-  // width and height are its size as scaled, a width of 0 leaves it to the label, icon and blob are SVGs or null, and iconDrawSize is the size of the SVG, which is shown at iconSize. The core gives the color of
-  // each group, so it is the same as on the tag icons.
+  // The placed cards as JSON: [{ id, label, path, isDir, isLink, x, y, width, height, scale,
+  // group, groupColor, groupTitle, groupTitleSide, icon, blob, iconSize, iconDrawSize }], where
+  // x and y are the center of the card. The id of a link card is the id of its item, and its
+  // path is the page it links to. width and height are its size as scaled, and a width of 0
+  // leaves it to the label. icon and blob are SVGs or null, and iconDrawSize is the size of the
+  // SVG, which is shown at iconSize. The core gives the color of each group, so it is the same
+  // as on the tag icons.
   setCards(json) {
     this.data = JSON.parse(json);
     if (this.cards) {
@@ -939,6 +900,9 @@ window.AtlasCanvas = class AtlasCanvas {
       // The icons of a card scaled up are drawn in more pixels too
       const view = card(data, this.textResolution(data.scale), this.iconResolution() * Math.max(1, data.scale));
       view.position.set(data.x, data.y);
+      if (data.isLink) {
+        view.linkData = data;
+      }
       this.makeDraggable(view, data);
       this.cards.addChild(view);
     }
@@ -1117,12 +1081,12 @@ window.AtlasCanvas = class AtlasCanvas {
     return null;
   }
 
-  // A drag moves the selected cards, link cards and callouts and places them where they are let
+  // A drag moves the selected cards and callouts and places them where they are let
   // go. A click on the label of a card or a link card opens its page, in a new tab with Ctrl. A
-  // click with Ctrl elsewhere adds it to the selection or takes it out. Only the cards of pages
-  // take part in the groups.
+  // click with Ctrl elsewhere adds it to the selection or takes it out. Only the cards take
+  // part in the groups, the link cards too.
   makeDraggable(view, data) {
-    // A link card or a callout has an id of its own; a card is selected by its page
+    // A callout has an id of its own; a card is selected by the id of its data
     const id = view.extraId ?? data.id;
     if (view.extraId === undefined) {
       view.cardData = data;
@@ -1149,7 +1113,7 @@ window.AtlasCanvas = class AtlasCanvas {
         view,
         // Plain copies: `global` is reused for the next event
         start: { x: e.global.x, y: e.global.y },
-        // The cards, which the groups follow, apart from the link cards and the callouts
+        // The cards, which the groups follow, apart from the callouts
         origins: views.map(v => ({ view: v, x: v.x, y: v.y })),
         extras: extras.map(v => ({ view: v, x: v.x, y: v.y })),
         moved: false,
@@ -1181,7 +1145,7 @@ window.AtlasCanvas = class AtlasCanvas {
       for (const o of [...drag.origins, ...drag.extras]) {
         o.view.position.set(o.x + dx / this.zoom, o.y + dy / this.zoom);
       }
-      // Link cards and callouts alone touch no group
+      // Callouts alone touch no group
       const ctrl = (e.ctrlKey || e.metaKey) && drag.origins.length > 0;
       this.drawGroups(drag, ctrl);
       drag.ctrlShape = ctrl;
@@ -1329,7 +1293,7 @@ function cardOf(target) {
   return null;
 }
 
-// The link card or the callout a press landed on, from any part of it
+// The callout a press landed on, from any part of it
 function extraOf(target) {
   for (let node = target; node; node = node.parent) {
     if (node.extraId !== undefined) {

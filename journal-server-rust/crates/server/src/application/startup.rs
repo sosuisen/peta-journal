@@ -1,5 +1,5 @@
-//! Startup checks: the markdown directory, the hashtag backfill, the search index rebuild and
-//! the missing tag pages.
+//! Startup checks: the markdown directory, the hashtag backfill, the search index rebuild,
+//! the missing tag pages and the atlas pages.
 
 use std::path::Path;
 use std::sync::Arc;
@@ -9,6 +9,7 @@ use crate::domain::search::SearchIndex;
 use crate::infrastructure::export::export_service::MarkdownExportService;
 use crate::infrastructure::persistence::{ItemRepository, PageRepository, PropertyRepository};
 
+use super::atlas_service::AtlasService;
 use super::config_service::ConfigService;
 use super::folder_chooser;
 use super::page_service::PageService;
@@ -26,6 +27,19 @@ pub fn ensure_tag_pages(page_service: &PageService) {
         Ok(0) => {}
         Ok(n) => tracing::info!("Created {n} missing tag pages"),
         Err(e) => tracing::warn!("Missing tag pages were not created: {e}"),
+    }
+}
+
+/// Moves the atlas of old into the outlines of the atlas pages, then writes every atlas page
+/// for the pages its directory has now: they may have changed while the server was down.
+pub fn bring_atlases_up_to_date(atlas: &AtlasService) {
+    match atlas.move_old_properties() {
+        Ok(0) => {}
+        Ok(n) => tracing::info!("Moved the atlas properties of {n} pages into the atlas pages"),
+        Err(e) => tracing::warn!("The atlas properties of the pages were not moved: {e}"),
+    }
+    if let Err(e) = atlas.sync_all() {
+        tracing::warn!("The atlas pages were not brought up to date: {e}");
     }
 }
 

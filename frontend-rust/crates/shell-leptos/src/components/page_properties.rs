@@ -8,6 +8,7 @@ use leptos::prelude::*;
 use peta_core::model::PropertyDefinition;
 use peta_core::view::ScreenView;
 use peta_core::Event;
+use wasm_bindgen::JsCast;
 
 /// A row added with `+` and not yet saved: it becomes a property once it has a key and a
 /// value. Kept by the page, so a re-render of the header does not lose it.
@@ -145,7 +146,8 @@ pub fn PageProperties(drafts: RwSignal<Vec<Draft>>) -> impl IntoView {
 
 /// A list value as tag chips: a chip opens its tag page, its `×` removes the tag, and `+`
 /// opens an input that adds the typed tags on Enter or when the focus leaves. A new row
-/// (`open`) starts with that input open.
+/// (`open`) starts with that input open. A chip dragged onto another one moves the tag
+/// before or after it.
 #[component]
 fn TagList(
     value: Signal<String>,
@@ -195,6 +197,31 @@ fn TagList(
             }
         }
     };
+    // The tag being dragged, and the chip it would land at with whether it goes after it
+    let dragged = RwSignal::new(None::<String>);
+    let drop_at = RwSignal::new(None::<(String, bool)>);
+    let end_drag = move || {
+        dragged.set(None);
+        drop_at.set(None);
+    };
+    let reorder = {
+        let save = save.clone();
+        move |target: String, after: bool| {
+            let Some(moved) = dragged.get_untracked() else {
+                return;
+            };
+            let old = tags.get_untracked();
+            let mut new: Vec<String> = old.iter().filter(|t| **t != moved).cloned().collect();
+            let Some(at) = new.iter().position(|t| *t == target) else {
+                return;
+            };
+            new.insert(if after { at + 1 } else { at }, moved);
+            // A drop back where the tag was would build the page again for nothing
+            if new != old {
+                save(new.join(", "));
+            }
+        }
+    };
     let add = move |typed: String| {
         // Enter and Escape take the input away, and its blur then comes too late to add again
         if !adding.get_untracked() {
@@ -224,9 +251,61 @@ fn TagList(
                 };
                 let remove = remove.clone();
                 let removed = tag.clone();
+                let reorder = reorder.clone();
+                let start_tag = tag.clone();
+                let over_tag = tag.clone();
+                let before_tag = tag.clone();
+                let after_tag = tag.clone();
                 view! {
-                    <span class="property-tag">
-                        <a class="property-tag-link" href=href on:click=open>{format!("#{tag}")}</a>
+                    <span
+                        class="property-tag"
+                        draggable="true"
+                        class:dragging={
+                            let tag = tag.clone();
+                            move || dragged.with(|d| d.as_ref() == Some(&tag))
+                        }
+                        class:drop-before=move || drop_at.with(|d| d.as_ref() == Some(&(before_tag.clone(), false)))
+                        class:drop-after=move || drop_at.with(|d| d.as_ref() == Some(&(after_tag.clone(), true)))
+                        on:dragstart=move |ev: web_sys::DragEvent| {
+                            if let Some(dt) = ev.data_transfer() {
+                                // Firefox starts no drag without data
+                                let _ = dt.set_data("text/plain", &format!("#{start_tag}"));
+                                dt.set_effect_allowed("move");
+                            }
+                            dragged.set(Some(start_tag.clone()));
+                        }
+                        on:dragover=move |ev: web_sys::DragEvent| {
+                            // Text or a card dragged from elsewhere is not a tag of this list
+                            if dragged.with_untracked(|d| d.is_none()) {
+                                return;
+                            }
+                            ev.prevent_default();
+                            if let Some(dt) = ev.data_transfer() {
+                                dt.set_drop_effect("move");
+                            }
+                            let after = drop_side(&ev);
+                            let at = Some((over_tag.clone(), after));
+                            if drop_at.with_untracked(|d| *d != at) {
+                                drop_at.set(at);
+                            }
+                        }
+                        on:drop={
+                            let tag = tag.clone();
+                            move |ev: web_sys::DragEvent| {
+                                if dragged.with_untracked(|d| d.is_none()) {
+                                    return;
+                                }
+                                ev.prevent_default();
+                                reorder(tag.clone(), drop_side(&ev));
+                                end_drag();
+                            }
+                        }
+                        // The next dragover shows the mark again when the pointer only moved onto the link
+                        on:dragleave=move |_| drop_at.set(None)
+                        on:dragend=move |_| end_drag()
+                    >
+                        // The link would drag its URL instead of the chip
+                        <a class="property-tag-link" href=href draggable="false" on:click=open>{format!("#{tag}")}</a>
                         <button class="property-tag-remove" title="Remove tag" on:click=move |_| remove(removed.clone())>"×"</button>
                     </span>
                 }
@@ -261,6 +340,21 @@ fn TagList(
             }}
         </div>
     }
+}
+
+/// Whether a tag dropped at the pointer goes after the chip under it: it does on the right
+/// half of the chip.
+fn drop_side(ev: &web_sys::DragEvent) -> bool {
+    // Not `current_target`: Leptos hands the event on from an element further up
+    let Some(chip) = ev
+        .target()
+        .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
+        .and_then(|t| t.closest(".property-tag").ok().flatten())
+    else {
+        return false;
+    };
+    let rect = chip.get_bounding_client_rect();
+    ev.client_x() as f64 > rect.left() + rect.width() / 2.0
 }
 
 /// The input of a value, by the type of its key. Text-like types save on change (blur or

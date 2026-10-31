@@ -279,6 +279,9 @@ app-page .page-title:hover { background: rgba(0,0,0,0.04); }
 .property-tags { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .property-tag { display: inline-flex; align-items: center; background: #e8f0fe; border-radius: 4px; font-size: 0.9em; }
 .property-tag:hover { background: #d0e3fc; }
+.property-tag.dragging { opacity: 0.4; }
+.property-tag.drop-before { box-shadow: -3px 0 0 #007bff; }
+.property-tag.drop-after { box-shadow: 3px 0 0 #007bff; }
 .property-tag-link { color: #007bff; text-decoration: none; padding: 1px 2px 1px 5px; }
 .property-tag-link:hover { color: #0056b3; }
 .property-tag-remove, .property-tag-add {

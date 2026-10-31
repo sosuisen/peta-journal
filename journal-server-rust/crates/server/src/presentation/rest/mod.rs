@@ -1,6 +1,7 @@
 //! The REST API, route for route the same as the Java server.
 
 pub mod assets;
+pub mod atlas;
 pub mod config;
 pub mod functions;
 pub mod items;
@@ -20,6 +21,7 @@ pub fn router() -> Router<SharedState> {
         .route("/api/health", get(health))
         .route("/api/events", get(events))
         .merge(pages::routes())
+        .merge(atlas::routes())
         .merge(items::routes())
         .merge(journals::routes())
         .merge(search::routes())

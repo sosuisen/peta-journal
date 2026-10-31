@@ -9,6 +9,8 @@ use tokio_stream::wrappers::errors::BroadcastStreamRecvError;
 use tokio_stream::wrappers::BroadcastStream;
 use tokio_stream::StreamExt;
 
+use crate::application::atlas_service::AtlasEvents;
+
 #[derive(Debug, Clone)]
 pub struct SseBroadcaster {
     tx: broadcast::Sender<String>,
@@ -43,12 +45,19 @@ impl SseBroadcaster {
     }
 
     /// `source` is `app` for changes made through the API, `file` for changes picked up
-    /// from the markdown folder.
+    /// from the markdown folder, and `server` for changes the server made by itself.
     pub fn broadcast_pages_updated_from(&self, page_id: &str, source: &str) {
         let json = format!(
             "{{\"type\":\"pagesUpdated\",\"pageId\":\"{page_id}\",\"source\":\"{source}\"}}"
         );
         // An error only means that nobody is listening right now
         let _ = self.tx.send(json);
+    }
+}
+
+/// The server writes an atlas page by itself, so a client that shows it reads it again.
+impl AtlasEvents for SseBroadcaster {
+    fn atlas_changed(&self, atlas_id: &hmtid::Hmtid) {
+        self.broadcast_pages_updated_from(atlas_id.as_str(), "server");
     }
 }
