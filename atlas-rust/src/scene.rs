@@ -271,6 +271,29 @@ mod tests {
         assert_eq!(card.group.as_deref(), Some("G1"));
     }
 
+    // ラベルを伏せたカードは、ラベル・リンク先・アイコンを持たず、元の幅と形のblobを保つ
+    #[test]
+    fn a_card_with_a_hidden_label_keeps_its_size_and_blob_only() {
+        let tags = vec!["JavaFX".to_string()];
+        let shown = Card::page(
+            &page("P1", "Draft", &tags, false),
+            bounds(5.0, 6.0, 0.0, 60.0),
+            Some(&group()),
+        );
+        let hidden = shown.clone().hide_label(100.0);
+        assert_eq!(hidden.label, "");
+        assert_eq!(hidden.path, None);
+        assert_eq!(hidden.icon, None);
+        assert!(hidden.masked);
+        // The width of the label at scale 1, scaled as the card is
+        assert_eq!(hidden.width, 150.0);
+        assert_eq!(hidden.blob, shown.blob);
+        assert_eq!(
+            (hidden.x, hidden.y, hidden.group),
+            (shown.x, shown.y, shown.group)
+        );
+    }
+
     // コールアウトは、テキストの顔をキャラクターとして持つ
     #[test]
     fn a_callout_has_the_face_of_its_text() {
