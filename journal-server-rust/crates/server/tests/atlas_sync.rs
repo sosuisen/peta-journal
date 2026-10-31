@@ -206,8 +206,9 @@ fn a_page_deleted_on_both_devices_leaves_both_atlases_alike() {
     a.state.page_service.delete_page(&c).unwrap();
     b.receive(&a, ATLAS);
 
-    // B has the page until it deletes it too, as the question about the missing file asks
-    assert_eq!(b.outline(), ["1:[[d/a]]", "1:[[d/c]]"]);
+    // B takes the atlas as it came, while it has the page until it deletes it too, as the
+    // question about the missing file asks
+    assert_eq!(b.outline(), ["1:[[d/a]]"]);
     b.state.page_service.delete_page(&c).unwrap();
     a.receive(&b, ATLAS);
 
@@ -279,4 +280,63 @@ fn two_devices_moving_the_atlas_of_old_write_the_same_atlas() {
     );
     assert_eq!(a.file(ATLAS), b.file(ATLAS));
     assert_eq!(b.receive(&a, ATLAS), Outcome::Unchanged);
+}
+
+/// Delivers the atlas back and forth a few times; each device writes what it takes in, as
+/// the cloud folder sends every change on
+fn exchange(a: &Device, b: &Device) {
+    for _ in 0..3 {
+        b.receive(a, ATLAS);
+        a.receive(b, ATLAS);
+    }
+}
+
+#[test]
+fn an_atlas_that_comes_before_a_rename_is_kept_as_it_came() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    let c = a.doc("c");
+    b.receive(&a, "docs/d/c.md");
+    b.receive(&a, ATLAS);
+
+    a.state
+        .page_service
+        .update_page(&c, Some("c2"), None, false)
+        .unwrap();
+    let renamed = a.file(ATLAS);
+    exchange(&a, &b);
+
+    // B does not write its own atlas from the old name while the rename is on its way
+    assert_eq!(b.file(ATLAS), renamed);
+    assert_eq!(a.file(ATLAS), renamed);
+    std::fs::remove_file(b.root.join("docs/d/c.md")).unwrap();
+    assert_eq!(b.receive(&a, "docs/d/c2.md"), Outcome::Imported);
+    assert_eq!(b.outline(), ["1:[[d/a]]", "1:[[d/c2]]"]);
+    assert_eq!(b.file(ATLAS), renamed);
+    assert!(a.conflicts().is_empty() && b.conflicts().is_empty());
+}
+
+#[test]
+fn an_atlas_that_comes_before_a_move_is_kept_as_it_came() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    let c = a.doc("c");
+    b.receive(&a, "docs/d/c.md");
+    b.receive(&a, ATLAS);
+
+    a.state
+        .page_service
+        .update_page(&c, None, Some("e/"), false)
+        .unwrap();
+    let moved = a.file(ATLAS);
+    exchange(&a, &b);
+
+    assert_eq!(b.file(ATLAS), moved);
+    assert_eq!(a.file(ATLAS), moved);
+    assert_eq!(a.outline(), ["1:[[d/a]]"]);
+    // The cloud folder takes the file away from where it was, then brings it where it went
+    std::fs::remove_file(b.root.join("docs/d/c.md")).unwrap();
+    assert_eq!(b.receive(&a, "docs/e/c.md"), Outcome::Imported);
+    assert_eq!(b.file(ATLAS), moved);
+    assert!(a.conflicts().is_empty() && b.conflicts().is_empty());
 }

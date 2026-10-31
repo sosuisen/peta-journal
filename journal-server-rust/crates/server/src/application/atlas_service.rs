@@ -361,7 +361,9 @@ impl AtlasService {
             .pages
             .find_by_parent_id(&index.id)?
             .into_iter()
-            .filter(|p| p.page_type == "doc" && !p.is_atlas())
+            // By the path too, as a card of a page elsewhere goes: the two must agree, or two
+            // devices would write the card and take it away in turn
+            .filter(|p| atlas::is_in_dir(p, &atlas.dir_path))
             .collect())
     }
 
