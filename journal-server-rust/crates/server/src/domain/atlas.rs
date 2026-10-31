@@ -134,6 +134,52 @@ pub fn link_body(path: &str) -> String {
     format!("[[{path}]]")
 }
 
+/// An id that the atlas and a name of what it is for make, the same on every device. It takes
+/// the time of the atlas id and a hash of both for the random part.
+pub fn derived_id(atlas: &Hmtid, name: &str) -> Hmtid {
+    let time = atlas.timestamp_digits();
+    let hash = format!("{}\0{name}", atlas.canonical())
+        .bytes()
+        .fold(0xcbf2_9ce4_8422_2325_u64, |hash, byte| {
+            (hash ^ byte as u64).wrapping_mul(0x0000_0100_0000_01b3)
+        });
+    let random: String = (0..7)
+        .map(|i| hmtid::ENCODING[((hash >> (i * 5)) & 31) as usize] as char)
+        .collect();
+    Hmtid::parse(&format!(
+        "{}-{}-{}-{}-{}-{}-{random}",
+        &time[0..4],
+        &time[4..6],
+        &time[6..8],
+        &time[8..10],
+        &time[10..12],
+        &time[12..14]
+    ))
+    .expect("the time of a valid id and the digits of the encoding make a valid id")
+}
+
+/// The id of the card of a page on an atlas.
+pub fn page_card_id(atlas: &Hmtid, page_id: &str) -> Hmtid {
+    derived_id(atlas, &format!("card {page_id}"))
+}
+
+/// Whether a page shows as a card on the atlas of the directory: a page of the directory, or
+/// the index page of a folder right in it.
+pub fn is_in_dir(page: &Page, dir: &str) -> bool {
+    if page.page_type != "doc" || page.is_atlas() {
+        return false;
+    }
+    if page.name != "index" {
+        return page.dir_path == dir;
+    }
+    let inner = page.dir_path.trim_end_matches('/');
+    !inner.is_empty()
+        && match inner.rfind('/') {
+            Some(slash) => &page.dir_path[..=slash] == dir,
+            None => dir.is_empty(),
+        }
+}
+
 /// The name a card shows for the page at `path`: the last part of the path. An index page is
 /// named by its folder with a slash, and the index of the root `(root)/`.
 pub fn card_label(path: &str) -> String {
@@ -215,23 +261,32 @@ impl Outline {
     }
 
     /// Makes the outline fit the pages of its directory: each page has one card, which links
-    /// to the page by its current path, and the card of a page that left goes. A group with
-    /// fewer than two cards goes, and its card goes out of it; the callouts have a parent
-    /// while there is a callout. `new_id` gives the ids of new items.
-    pub fn fit(&mut self, pages: &[Page], mut new_id: impl FnMut() -> Hmtid) {
+    /// to the page by its current path. A group with fewer than two cards goes, and its card
+    /// goes out of it; the callouts have a parent while there is a callout.
+    ///
+    /// The card of a page that is not in the directory stays, unless `moved_away` says the
+    /// page is in another one. Another device may have sent the atlas before the page, and
+    /// the place of the card would be lost. A deleted page takes its card with it through
+    /// [`Outline::forget`].
+    ///
+    /// The items made here take ids from the atlas and the page, as [`derived_id`] makes
+    /// them. Two devices then write the same outline from the same pages.
+    pub fn fit(&mut self, atlas: &Hmtid, pages: &[Page], moved_away: impl Fn(&str) -> bool) {
         let by_id: BTreeMap<String, &Page> = pages.iter().map(|p| (p.id.to_string(), p)).collect();
         let mut carded = BTreeSet::new();
         let mut fit_card = |card: &mut Node| -> bool {
             let Kind::Page(page_id) = &card.kind else {
                 return true;
             };
-            match by_id.get(page_id) {
+            let page_id = page_id.clone();
+            card.id = page_card_id(atlas, &page_id);
+            match by_id.get(&page_id) {
                 Some(page) => {
                     card.body = link_body(&page.title());
-                    carded.insert(page_id.clone());
+                    carded.insert(page_id);
                     true
                 }
-                None => false,
+                None => !moved_away(&page_id),
             }
         };
         for group in &mut self.groups {
@@ -242,7 +297,7 @@ impl Outline {
             let page_id = page.id.to_string();
             if !carded.contains(&page_id) {
                 self.cards.push(Node::new(
-                    new_id(),
+                    page_card_id(atlas, &page_id),
                     link_body(&page.title()),
                     Kind::Page(page_id),
                 ));
@@ -251,13 +306,28 @@ impl Outline {
         self.drop_small_groups();
         if self.callouts.is_empty() {
             self.callouts_parent = None;
-        } else if self.callouts_parent.is_none() {
-            self.callouts_parent = Some(Node::new(
-                new_id(),
-                CALLOUTS_BODY.to_string(),
-                Kind::Callouts,
-            ));
+        } else {
+            let id = derived_id(atlas, CALLOUTS_TYPE);
+            match &mut self.callouts_parent {
+                Some(parent) => parent.id = id,
+                None => {
+                    self.callouts_parent =
+                        Some(Node::new(id, CALLOUTS_BODY.to_string(), Kind::Callouts))
+                }
+            }
         }
+    }
+
+    /// Takes away the card of a deleted page. True when the outline had one.
+    pub fn forget(&mut self, page_id: &str) -> bool {
+        let is_card = |card: &Node| matches!(&card.kind, Kind::Page(id) if id == page_id);
+        let before = self.cards.len() + self.groups.iter().map(|g| g.cards.len()).sum::<usize>();
+        self.cards.retain(|c| !is_card(c));
+        for group in &mut self.groups {
+            group.cards.retain(|c| !is_card(c));
+        }
+        let after = self.cards.len() + self.groups.iter().map(|g| g.cards.len()).sum::<usize>();
+        after < before
     }
 
     fn drop_small_groups(&mut self) {
@@ -532,12 +602,8 @@ mod tests {
         props
     }
 
-    fn ids_from(start: u32) -> impl FnMut() -> Hmtid {
-        let mut next = start;
-        move || {
-            next += 1;
-            id(next)
-        }
+    fn atlas() -> Hmtid {
+        id(9999)
     }
 
     fn outline_of(rows: &[Row]) -> Vec<String> {
@@ -556,7 +622,7 @@ mod tests {
         ];
         let mut outline = Outline::default();
 
-        outline.fit(&pages, ids_from(100));
+        outline.fit(&atlas(), &pages, |_| false);
 
         assert_eq!(
             outline_of(&outline.rows()),
@@ -575,7 +641,7 @@ mod tests {
         let pages = [page(1, "d/", "alpha"), page(2, "d/", "gamma")];
         let mut outline = Outline::read(&items, &Props::new());
 
-        outline.fit(&pages, ids_from(100));
+        outline.fit(&atlas(), &pages, |_| false);
 
         assert_eq!(
             outline_of(&outline.rows()),
@@ -594,16 +660,60 @@ mod tests {
         let props = props(&[(10, PAGE_KEY, id(1).as_str()), (10, BOUNDS_KEY, "1,2,0,40")]);
         let mut outline = Outline::read(&items, &props);
 
-        outline.fit(&[page(1, "d/", "new")], ids_from(100));
+        outline.fit(&atlas(), &[page(1, "d/", "new")], |_| false);
 
         let rows = outline.rows();
         assert_eq!(outline_of(&rows), ["1:[[d/new]]"]);
-        assert_eq!(rows[0].node.id, id(10));
         assert_eq!(rows[0].node.bounds.as_deref(), Some("1,2,0,40"));
     }
 
     #[test]
-    fn the_card_of_a_page_that_left_goes_and_an_item_of_no_kind_goes() {
+    fn a_page_card_takes_an_id_from_the_atlas_and_the_page() {
+        let items = [item(10, 1, "[[d/a]]")];
+        let props = props(&[(10, PAGE_KEY, id(1).as_str())]);
+        let mut kept = Outline::read(&items, &props);
+        let mut made = Outline::default();
+
+        kept.fit(&atlas(), &[page(1, "d/", "a")], |_| false);
+        made.fit(&atlas(), &[page(1, "d/", "a")], |_| false);
+
+        // Two devices make the same card, and a card of old takes the same id
+        assert_eq!(kept.rows(), made.rows());
+        assert_eq!(
+            made.rows()[0].node.id,
+            page_card_id(&atlas(), id(1).as_str())
+        );
+        // Another atlas gives the page another card
+        assert_ne!(
+            page_card_id(&id(9998), id(1).as_str()),
+            made.rows()[0].node.id
+        );
+    }
+
+    #[test]
+    fn the_parent_of_the_callouts_takes_an_id_from_the_atlas() {
+        let mut outline = Outline::default();
+        outline.add_callout(id(50), "0,0,0,40".to_string(), "top", "hi");
+
+        outline.fit(&atlas(), &[], |_| false);
+
+        assert_eq!(
+            outline.rows()[0].node.id,
+            derived_id(&atlas(), CALLOUTS_TYPE)
+        );
+    }
+
+    #[test]
+    fn a_derived_id_is_a_valid_id_of_the_time_of_the_atlas() {
+        let made = derived_id(&atlas(), "card x");
+
+        assert_eq!(made.timestamp_digits(), atlas().timestamp_digits());
+        assert_eq!(made, derived_id(&atlas(), "card x"));
+        assert_ne!(made, derived_id(&atlas(), "card y"));
+    }
+
+    #[test]
+    fn the_card_of_a_page_moved_to_another_directory_goes_and_an_item_of_no_kind_goes() {
         let items = [
             item(10, 1, "[[d/gone]]"),
             item(11, 1, "some text"),
@@ -612,9 +722,57 @@ mod tests {
         let props = props(&[(10, PAGE_KEY, id(1).as_str())]);
         let mut outline = Outline::read(&items, &props);
 
-        outline.fit(&[], ids_from(100));
+        outline.fit(&atlas(), &[], |page_id| page_id == id(1).as_str());
 
         assert!(outline.rows().is_empty());
+    }
+
+    #[test]
+    fn the_card_of_a_page_not_known_yet_stays_with_its_place() {
+        // Another device sent the atlas before the page
+        let items = [item(10, 1, "[[d/coming]]")];
+        let props = props(&[(10, PAGE_KEY, id(1).as_str()), (10, BOUNDS_KEY, "1,2,0,40")]);
+        let mut outline = Outline::read(&items, &props);
+
+        outline.fit(&atlas(), &[], |_| false);
+        assert_eq!(outline_of(&outline.rows()), ["1:[[d/coming]]"]);
+
+        outline.fit(&atlas(), &[page(1, "d/", "coming")], |_| false);
+        let rows = outline.rows();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].node.bounds.as_deref(), Some("1,2,0,40"));
+    }
+
+    #[test]
+    fn a_deleted_page_takes_its_card_with_it() {
+        let items = [
+            item(10, 1, "Tools"),
+            item(11, 2, "[[d/a]]"),
+            item(12, 2, "[[d/b]]"),
+        ];
+        let props = props(&[
+            (10, TYPE_KEY, GROUP_TYPE),
+            (11, PAGE_KEY, id(1).as_str()),
+            (12, PAGE_KEY, id(2).as_str()),
+        ]);
+        let mut outline = Outline::read(&items, &props);
+
+        assert!(outline.forget(id(2).as_str()));
+        assert!(!outline.forget(id(3).as_str()));
+        outline.fit(&atlas(), &[page(1, "d/", "a")], |_| false);
+
+        assert_eq!(outline_of(&outline.rows()), ["1:[[d/a]]"]);
+    }
+
+    #[test]
+    fn a_page_is_in_a_directory_by_its_path() {
+        assert!(is_in_dir(&page(1, "d/", "a"), "d/"));
+        assert!(is_in_dir(&page(1, "d/sub/", "index"), "d/"));
+        assert!(is_in_dir(&page(1, "top/", "index"), ""));
+        assert!(!is_in_dir(&page(1, "d/", "index"), "d/"));
+        assert!(!is_in_dir(&page(1, "", "index"), ""));
+        assert!(!is_in_dir(&page(1, "d/", "index_atlas"), "d/"));
+        assert!(!is_in_dir(&page(1, "e/", "a"), "d/"));
     }
 
     #[test]
@@ -640,7 +798,7 @@ mod tests {
             .map(|(i, name)| page(i as u32 + 1, "d/", name))
             .collect();
 
-        outline.fit(&pages, ids_from(100));
+        outline.fit(&atlas(), &pages, |_| false);
 
         assert_eq!(
             outline_of(&outline.rows()),
@@ -670,7 +828,9 @@ mod tests {
         ]);
         let mut outline = Outline::read(&items, &props);
 
-        outline.fit(&[page(1, "d/", "a")], ids_from(100));
+        outline.fit(&atlas(), &[page(1, "d/", "a")], |page_id| {
+            page_id == id(2).as_str()
+        });
 
         assert_eq!(outline_of(&outline.rows()), ["1:[[d/a]]"]);
     }
@@ -690,7 +850,7 @@ mod tests {
         ]);
         let mut outline = Outline::read(&items, &props);
 
-        outline.fit(&[], ids_from(100));
+        outline.fit(&atlas(), &[], |_| false);
 
         assert_eq!(
             outline_of(&outline.rows()),
@@ -705,7 +865,7 @@ mod tests {
         let mut outline = Outline::read(&items, &props);
 
         assert!(outline.set_callout(&id(11), "top", " "));
-        outline.fit(&[], ids_from(100));
+        outline.fit(&atlas(), &[], |_| false);
 
         assert!(outline.rows().is_empty());
     }
@@ -713,7 +873,9 @@ mod tests {
     #[test]
     fn a_card_dropped_on_a_card_in_no_group_makes_a_group_of_both() {
         let mut outline = Outline::default();
-        outline.fit(&[page(1, "d/", "a"), page(2, "d/", "b")], ids_from(100));
+        outline.fit(&atlas(), &[page(1, "d/", "a"), page(2, "d/", "b")], |_| {
+            false
+        });
         outline.add_link(id(50), "x/link", "0,0,0,40".to_string());
         let a = outline.card_id(id(1).as_str()).unwrap();
 
@@ -784,7 +946,7 @@ mod tests {
     #[test]
     fn a_page_card_cannot_be_removed_but_a_link_card_can() {
         let mut outline = Outline::default();
-        outline.fit(&[page(1, "d/", "a")], ids_from(100));
+        outline.fit(&atlas(), &[page(1, "d/", "a")], |_| false);
         outline.add_link(id(50), "x/link", "0,0,0,40".to_string());
         let a = outline.card_id(id(1).as_str()).unwrap();
 

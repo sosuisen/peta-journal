@@ -98,10 +98,23 @@ impl AtlasService {
         for atlas in self.pages.find_all()?.into_iter().filter(Page::is_atlas) {
             let loaded = self.load(atlas)?;
             let mut outline = Outline::read(&loaded.items, &loaded.props);
-            outline.fit(&self.dir_pages(&loaded.atlas)?, || {
-                self.ids.generate_item_id()
-            });
-            self.write(&loaded, &outline)?;
+            self.fit(&mut outline, &loaded.atlas)?;
+            self.write(&loaded, &outline, auto_modified(&loaded.atlas))?;
+        }
+        Ok(())
+    }
+
+    /// Takes the card of a deleted page off every atlas. A page that is only not in the
+    /// directory keeps its card, as `Outline::fit` says.
+    pub fn forget_page(&self, page_id: &Hmtid) -> AppResult<()> {
+        let _guard = self.lock.lock();
+        for atlas in self.pages.find_all()?.into_iter().filter(Page::is_atlas) {
+            let loaded = self.load(atlas)?;
+            let mut outline = Outline::read(&loaded.items, &loaded.props);
+            if outline.forget(page_id.as_str()) {
+                self.fit(&mut outline, &loaded.atlas)?;
+                self.write(&loaded, &outline, auto_modified(&loaded.atlas))?;
+            }
         }
         Ok(())
     }
@@ -238,7 +251,7 @@ impl AtlasService {
             let pages = self.dir_pages(atlas)?;
             let loaded = self.load(atlas.clone())?;
             let mut outline = Outline::read(&loaded.items, &loaded.props);
-            outline.fit(&pages, || self.ids.generate_item_id());
+            self.fit(&mut outline, atlas)?;
             for page in &pages {
                 let bounds = scalars
                     .get(page.id.as_str())
@@ -260,7 +273,8 @@ impl AtlasService {
                 let Some((target, moving)) = cards.split_first() else {
                     continue;
                 };
-                let group_id = self.ids.generate_item_id();
+                // From the old key, so another device moving the same atlas makes the same group
+                let group_id = atlas::derived_id(&atlas.id, key);
                 outline.group(moving, target, || group_id.clone());
                 let title_key = key.replacen(OLD_GROUP_PREFIX, OLD_TITLE_PREFIX, 1);
                 if let Some(value) = atlas_scalars.get(&title_key) {
@@ -271,14 +285,14 @@ impl AtlasService {
             let callouts = atlas_scalars
                 .iter()
                 .filter(|(key, _)| key.starts_with(OLD_CALLOUT_PREFIX));
-            for (_, value) in callouts {
+            for (key, value) in callouts {
                 if let Some((bounds, side, text)) = old_callout(value) {
-                    outline.add_callout(self.ids.generate_item_id(), bounds, side, text);
+                    outline.add_callout(atlas::derived_id(&atlas.id, key), bounds, side, text);
                 }
             }
             // Again, for the parent of the callouts
-            outline.fit(&pages, || self.ids.generate_item_id());
-            self.write(&loaded, &outline)?;
+            self.fit(&mut outline, atlas)?;
+            self.write(&loaded, &outline, auto_modified(&loaded.atlas))?;
         }
         for page in &old_pages {
             let id = page.id.to_string();
@@ -312,14 +326,26 @@ impl AtlasService {
             .find_by_id(atlas_id)?
             .filter(Page::is_atlas)
             .ok_or_else(|| AppError::bad_request(format!("Not an atlas page: {atlas_id}")))?;
-        let pages = self.dir_pages(&atlas)?;
         let loaded = self.load(atlas)?;
         let mut outline = Outline::read(&loaded.items, &loaded.props);
-        outline.fit(&pages, || self.ids.generate_item_id());
+        self.fit(&mut outline, &loaded.atlas)?;
         change(&mut outline)?;
-        outline.fit(&pages, || self.ids.generate_item_id());
-        self.write(&loaded, &outline)?;
+        self.fit(&mut outline, &loaded.atlas)?;
+        self.write(&loaded, &outline, now_millis())?;
         self.items.find_by_page_id(atlas_id)
+    }
+
+    /// Makes the outline fit the pages of the directory of the atlas. A card whose page is
+    /// in another directory goes; one whose page is not known waits for it.
+    fn fit(&self, outline: &mut Outline, atlas: &Page) -> AppResult<()> {
+        let pages = self.dir_pages(atlas)?;
+        outline.fit(&atlas.id, &pages, |page_id| {
+            let page = Hmtid::parse(page_id)
+                .ok()
+                .and_then(|id| self.pages.find_by_id(&id).ok().flatten());
+            page.is_some_and(|p| !atlas::is_in_dir(&p, &atlas.dir_path))
+        });
+        Ok(())
     }
 
     /// The pages the atlas shows: the pages and the folders of its directory, as the index
@@ -351,8 +377,9 @@ impl AtlasService {
     }
 
     /// Writes the outline over the items of the atlas page. Nothing is written when they are
-    /// the same already; otherwise the page file is written and the clients are told.
-    fn write(&self, loaded: &Loaded, outline: &Outline) -> AppResult<()> {
+    /// the same already; otherwise the page takes the modified date, its file is written and
+    /// the clients are told.
+    fn write(&self, loaded: &Loaded, outline: &Outline, modified: i64) -> AppResult<()> {
         let rows = outline.rows();
         let before: BTreeMap<&str, &Item> =
             loaded.items.iter().map(|i| (i.id.as_str(), i)).collect();
@@ -420,7 +447,7 @@ impl AtlasService {
         }
         self.search.index_items(&saved, &atlas.title());
         self.pages.save(&Page {
-            modified_date: now,
+            modified_date: modified,
             ..atlas.clone()
         })?;
         self.export.queue_export(&atlas.id);
@@ -475,6 +502,14 @@ impl AtlasService {
             transclude_item_id: None,
         }
     }
+}
+
+/// The modified date of an atlas the server wrote by itself: one millisecond after the last.
+/// Another device that writes the same outline from the same pages then writes the same
+/// file. A file of the same date and content is no change there, and a later one wins over
+/// the outline it had. A change made in the app takes the time of the change instead.
+fn auto_modified(atlas: &Page) -> i64 {
+    atlas.modified_date + 1
 }
 
 /// The page a link card is to link to, without the brackets of a link around it, as the

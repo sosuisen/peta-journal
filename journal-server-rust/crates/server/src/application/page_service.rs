@@ -689,6 +689,10 @@ impl PageService {
         // Remove the markdown file too, otherwise the folder scan would bring the page back
         self.export.delete_page_file(&page);
         self.delete_unused_tag_pages(&tags);
+        // An atlas keeps the card of a page it does not know, so a deleted page says so
+        if let Err(e) = self.atlas.forget_page(page_id) {
+            tracing::warn!("Could not take the deleted page {page_id} off the atlases: {e}");
+        }
         self.sync_atlases();
         Ok(())
     }
