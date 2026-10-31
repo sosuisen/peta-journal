@@ -200,6 +200,7 @@ window.AtlasCanvas = class AtlasCanvas {
     // A listener of its own, not the wheel event of PixiJS: that one is passive, so it
     // cannot keep the page from scrolling
     this.app.canvas.addEventListener('wheel', e => this.zoomAt(e), { passive: false });
+    this.listenForPinch();
     // The right button moves the view; the menu of the browser would open at its end. An
     // editable canvas is in the app, which keeps that menu away itself.
     if (!this.editable) {
@@ -217,6 +218,85 @@ window.AtlasCanvas = class AtlasCanvas {
     };
   }
 
+  // Two fingers scale the view, as the wheel does: the point between them stays under them,
+  // and moving them together moves the view. The touches are read from the canvas itself, as
+  // PixiJS gives each pointer alone. The browser would scale or scroll the page with the same
+  // fingers, so it is told to leave the touches to the canvas.
+  listenForPinch() {
+    const canvas = this.app.canvas;
+    canvas.style.touchAction = 'none';
+    this.touches = new Map();
+    this.pinch = null;
+    const point = e => {
+      const rect = canvas.getBoundingClientRect();
+      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    };
+    canvas.addEventListener('pointerdown', e => {
+      if (e.pointerType !== 'touch') {
+        return;
+      }
+      this.touches.set(e.pointerId, point(e));
+      if (this.touches.size === 2) {
+        this.startPinch();
+      }
+    });
+    canvas.addEventListener('pointermove', e => {
+      if (!this.touches.has(e.pointerId)) {
+        return;
+      }
+      this.touches.set(e.pointerId, point(e));
+      if (this.pinch && this.touches.size === 2) {
+        this.movePinch();
+      }
+    });
+    const end = e => {
+      if (!this.touches.delete(e.pointerId)) {
+        return;
+      }
+      if (this.pinch) {
+        this.endPinch();
+      }
+    };
+    canvas.addEventListener('pointerup', end);
+    canvas.addEventListener('pointercancel', end);
+  }
+
+  // The second finger ends the pan of the first: the view follows the pair from here
+  startPinch() {
+    if (this.dialog) {
+      return;
+    }
+    this.closeMenu();
+    this.panning = null;
+    this.showHand();
+    const { center, distance } = this.pinchSpan();
+    this.pinch = { center, distance, zoom: this.zoom };
+  }
+
+  movePinch() {
+    const { center, distance } = this.pinchSpan();
+    const pinch = this.pinch;
+    this.pan = { x: this.pan.x + center.x - pinch.center.x, y: this.pan.y + center.y - pinch.center.y };
+    pinch.center = center;
+    this.zoomTo((this.zoom * distance) / pinch.distance, center.x, center.y);
+    pinch.distance = distance;
+  }
+
+  // The finger that stays may go on alone; it starts no pan, as its press has passed
+  endPinch() {
+    this.pinch = null;
+    this.keepView();
+  }
+
+  // The point between the two fingers, in pixels of the canvas, and how far apart they are
+  pinchSpan() {
+    const [a, b] = [...this.touches.values()];
+    return {
+      center: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
+      distance: Math.max(1, Math.hypot(b.x - a.x, b.y - a.y)),
+    };
+  }
+
   // The point under the pointer stays where it is while the view is scaled
   zoomAt(e) {
     e.preventDefault();
@@ -231,9 +311,13 @@ window.AtlasCanvas = class AtlasCanvas {
       return;
     }
     const rect = this.app.canvas.getBoundingClientRect();
-    const px = e.clientX - rect.left;
-    const py = e.clientY - rect.top;
-    const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, this.zoom * Math.exp(-delta * ZOOM_PER_PIXEL)));
+    this.zoomTo(this.zoom * Math.exp(-delta * ZOOM_PER_PIXEL), e.clientX - rect.left, e.clientY - rect.top);
+  }
+
+  // Scales the view to `zoom`, within its limits, so that the point (px, py) of the canvas
+  // stays where it is
+  zoomTo(wanted, px, py) {
+    const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, wanted));
     const ratio = zoom / this.zoom;
     const cx = this.app.screen.width / 2;
     const cy = this.app.screen.height / 2;
@@ -244,8 +328,8 @@ window.AtlasCanvas = class AtlasCanvas {
     };
     this.zoom = zoom;
     this.center();
-    // Drawing every label again on each step of the wheel would make the zoom stutter.
-    // The view is kept then too, not on each step.
+    // Drawing every label again on each step of the wheel or the fingers would make the zoom
+    // stutter. The view is kept then too, not on each step.
     clearTimeout(this.sharpenTimer);
     this.sharpenTimer = setTimeout(() => {
       this.sharpenText();
@@ -383,7 +467,7 @@ window.AtlasCanvas = class AtlasCanvas {
       return;
     }
     const panning = this.panning;
-    if (!panning) {
+    if (!panning || this.pinch) {
       return;
     }
     const dx = e.global.x - panning.start.x;
