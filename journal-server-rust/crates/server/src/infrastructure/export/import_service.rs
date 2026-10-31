@@ -226,6 +226,10 @@ impl MarkdownImportService {
             } else {
                 self.page_matcher.touch(&page, loc, new_modified)?
             };
+        } else if file_modified > page.modified_date {
+            // The same page written later on another device: the page takes the date of the
+            // file, or a later change here would count as older than the file there
+            page = self.page_matcher.touch(&page, loc, file_modified)?;
         }
 
         self.file_sync_state
