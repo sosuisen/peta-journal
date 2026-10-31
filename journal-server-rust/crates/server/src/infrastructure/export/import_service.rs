@@ -4,6 +4,9 @@
 //! Rules:
 //! - A file whose content hash matches `file_sync_state` is our own write: skipped.
 //! - Pages are matched by frontmatter id first, then by path; see `PageMatcher`.
+//! - A file with the id of a page whose file is still elsewhere waits: a move may bring the
+//!   new file before it takes the old one away. It comes in as the page moved once the old
+//!   file goes, or as a copy when the old file is still there after a while.
 //! - Last writer wins by `modified`: when the DB is newer than the file, the file is backed up as
 //!   `name.conflict-yyyyMMdd-HHmmss.md` and overwritten from the DB.
 //! - Items are merged by id; see `ItemMerger`.
@@ -13,6 +16,7 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use parking_lot::Mutex;
 
@@ -26,7 +30,7 @@ use super::export_service::{mtime_millis, MarkdownExportService};
 use super::file_sync_state::FileSyncStateRepository;
 use super::item_merger::ItemMerger;
 use super::outline_parser::{OutlineMarkdownParser, ParsedItem};
-use super::page_matcher::{parse_instant, PageMatch, PageMatcher};
+use super::page_matcher::{parse_instant, Matched, PageMatch, PageMatcher};
 use super::path_mapper::{self, PageLocation};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -36,7 +40,15 @@ pub enum Outcome {
     Unchanged,
     Imported,
     Conflict,
+    /// The file waits for the file of the same page to go; see `MarkdownImportService`.
+    Waiting,
     Error,
+}
+
+/// A file that waits, with the file of the same page and when it began to wait.
+struct Wait {
+    other: String,
+    since: Instant,
 }
 
 pub struct MarkdownImportService {
@@ -49,6 +61,10 @@ pub struct MarkdownImportService {
     /// Takes the tags of the front matter, and keeps the tag pages in step with them and
     /// with the hashtags of the imported bodies.
     page_service: Arc<PageService>,
+    /// How long a file waits for the file of the same page to go before it is a copy.
+    copy_wait: Duration,
+    /// The files that wait, by path. They are lost on a restart; the scan brings them again.
+    waiting: Mutex<BTreeMap<String, Wait>>,
     /// One file at a time, like the Java `synchronized` method.
     lock: Mutex<()>,
 }
@@ -59,6 +75,7 @@ struct FileAttrs {
 }
 
 impl MarkdownImportService {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         parser: OutlineMarkdownParser,
         page_matcher: PageMatcher,
@@ -67,6 +84,7 @@ impl MarkdownImportService {
         export: Arc<MarkdownExportService>,
         sse: SseBroadcaster,
         page_service: Arc<PageService>,
+        copy_wait: Duration,
     ) -> MarkdownImportService {
         MarkdownImportService {
             parser,
@@ -76,13 +94,20 @@ impl MarkdownImportService {
             export,
             sse,
             page_service,
+            copy_wait,
+            waiting: Mutex::new(BTreeMap::new()),
             lock: Mutex::new(()),
         }
     }
 
-    /// Syncs one file from the folder into the DB. Safe to call repeatedly.
+    /// Syncs one file from the folder into the DB. Safe to call repeatedly. When the file is
+    /// gone, the files that wait for it come in.
     pub fn sync_file(&self, root: &Path, rel_path: &str) -> Outcome {
         let _guard = self.lock.lock();
+        self.sync_locked(root, rel_path)
+    }
+
+    fn sync_locked(&self, root: &Path, rel_path: &str) -> Outcome {
         if path_mapper::is_ignored(rel_path) {
             return Outcome::Ignored;
         }
@@ -91,6 +116,7 @@ impl MarkdownImportService {
         };
         let file = root.join(rel_path);
         if !file.is_file() {
+            self.sync_waiting_for(root, rel_path);
             return Outcome::Missing;
         }
         let (content, attrs) = match read_stable(&file).and_then(|c| {
@@ -148,6 +174,22 @@ impl MarkdownImportService {
         }
     }
 
+    /// Takes in the files that wait for the file that went, as the page moved.
+    fn sync_waiting_for(&self, root: &Path, gone: &str) {
+        let waiting: Vec<String> = {
+            let mut waiting = self.waiting.lock();
+            waiting.remove(gone);
+            waiting
+                .iter()
+                .filter(|(_, w)| w.other == gone)
+                .map(|(rel, _)| rel.clone())
+                .collect()
+        };
+        for rel in waiting {
+            self.sync_locked(root, &rel);
+        }
+    }
+
     fn import_content(
         &self,
         root: &Path,
@@ -174,14 +216,35 @@ impl MarkdownImportService {
             parse_instant(fm.get("modified").map(String::as_str)).unwrap_or(attrs.mtime);
         let now = now_millis();
 
+        let since = self.waiting.lock().get(rel_path).map(|w| w.since);
+        let copy_allowed = since.unwrap_or_else(Instant::now).elapsed() >= self.copy_wait;
+        let matched =
+            self.page_matcher
+                .match_file(root, rel_path, loc, fm, file_modified, copy_allowed)?;
         let PageMatch {
             mut page,
             is_new,
             renamed,
             write_back,
-        } = self
-            .page_matcher
-            .match_file(root, rel_path, loc, fm, file_modified)?;
+        } = match matched {
+            Matched::Page(m) => {
+                self.waiting.lock().remove(rel_path);
+                m
+            }
+            Matched::Elsewhere { other } => {
+                if since.is_none() {
+                    tracing::info!("{rel_path} has the id of {other}, waiting for that file to go");
+                }
+                self.waiting.lock().insert(
+                    rel_path.to_string(),
+                    Wait {
+                        other,
+                        since: since.unwrap_or_else(Instant::now),
+                    },
+                );
+                return Ok(Outcome::Waiting);
+            }
+        };
 
         if !is_new
             && file_modified < page.modified_date

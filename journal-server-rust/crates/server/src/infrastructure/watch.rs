@@ -228,6 +228,8 @@ impl MarkdownFolderWatcher {
                     self.retries.lock().remove(&rel);
                 }
                 Outcome::Missing => {
+                    // A file that waited for this one may have come in as the page moved
+                    index_changed = true;
                     if let Ok(Some(state)) = self.file_sync_state.find_by_path(&rel) {
                         if !state.is_missing() {
                             if let Err(e) = self.file_sync_state.mark_missing(&rel) {

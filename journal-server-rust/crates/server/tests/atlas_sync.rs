@@ -1,5 +1,5 @@
-//! An atlas shared by two devices through their markdown folders, as a cloud folder keeps
-//! them alike. Each device has a server state and a folder of its own. A file reaches the
+//! Pages and their atlas shared by two devices through their markdown folders, as a cloud
+//! folder keeps them alike. Each device has a server state and a folder of its own. A file reaches the
 //! other device when the test copies it, so the test decides the order the files arrive in.
 
 use std::path::{Path, PathBuf};
@@ -17,6 +17,19 @@ struct Device {
 
 impl Device {
     fn new(dir: &Path) -> Device {
+        Device::with(dir, Settings::under(dir, 0))
+    }
+
+    /// A device that takes a file with the id of a page still elsewhere as a copy at once
+    fn copying_at_once(dir: &Path) -> Device {
+        let settings = Settings {
+            import_copy_wait_secs: 0,
+            ..Settings::under(dir, 0)
+        };
+        Device::with(dir, settings)
+    }
+
+    fn with(dir: &Path, settings: Settings) -> Device {
         let root = dir.join("markdown");
         let config_dir = dir.join("config");
         std::fs::create_dir_all(&root).unwrap();
@@ -26,8 +39,7 @@ impl Device {
             json!({ "markdownDir": root.to_string_lossy() }).to_string(),
         )
         .unwrap();
-        let state =
-            AppState::build(Settings::under(dir, 0), BuildOptions { interactive: false }).unwrap();
+        let state = AppState::build(settings, BuildOptions { interactive: false }).unwrap();
         Device { state, root }
     }
 
@@ -49,6 +61,19 @@ impl Device {
     fn file(&self, rel_path: &str) -> String {
         self.export();
         std::fs::read_to_string(self.root.join(rel_path)).unwrap()
+    }
+
+    fn sync(&self, rel_path: &str) -> Outcome {
+        self.state.import.sync_file(&self.root, rel_path)
+    }
+
+    /// The id of the page in the directory, if there is one
+    fn page_in(&self, dir_path: &str, name: &str) -> Option<Hmtid> {
+        self.state
+            .pages
+            .find_by_type_dir_path_file_name("doc", dir_path, name)
+            .unwrap()
+            .map(|p| p.id)
     }
 
     fn doc(&self, name: &str) -> Hmtid {
@@ -339,4 +364,68 @@ fn an_atlas_that_comes_before_a_move_is_kept_as_it_came() {
     assert_eq!(b.receive(&a, "docs/e/c.md"), Outcome::Imported);
     assert_eq!(b.file(ATLAS), moved);
     assert!(a.conflicts().is_empty() && b.conflicts().is_empty());
+}
+
+/// The page c made on A and sent to B, then moved to `e/` on A
+fn moved_on_a(a: &Device, b: &Device) -> Hmtid {
+    let c = a.doc("c");
+    b.receive(a, "docs/d/c.md");
+    a.state
+        .page_service
+        .update_page(&c, None, Some("e/"), false)
+        .unwrap();
+    c
+}
+
+#[test]
+fn a_move_that_brings_the_new_file_first_moves_the_page_when_the_old_file_goes() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    let c = moved_on_a(&a, &b);
+
+    // The cloud folder brings the file where it went before it takes the old one away
+    assert_eq!(b.receive(&a, "docs/e/c.md"), Outcome::Waiting);
+    std::fs::remove_file(b.root.join("docs/d/c.md")).unwrap();
+    assert_eq!(b.sync("docs/d/c.md"), Outcome::Missing);
+
+    assert_eq!(b.page_in("e/", "c"), Some(c));
+    assert_eq!(b.page_in("d/", "c"), None);
+    assert_eq!(b.file("docs/e/c.md"), a.file("docs/e/c.md"));
+    assert!(b.conflicts().is_empty());
+}
+
+#[test]
+fn a_file_that_waits_comes_in_on_the_scan_after_the_old_file_went() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    let c = moved_on_a(&a, &b);
+    assert_eq!(b.receive(&a, "docs/e/c.md"), Outcome::Waiting);
+
+    // The old file goes while the server does not see it, as when it was not running
+    std::fs::remove_file(b.root.join("docs/d/c.md")).unwrap();
+    assert_eq!(b.sync("docs/e/c.md"), Outcome::Imported);
+
+    assert_eq!(b.page_in("e/", "c"), Some(c));
+    assert_eq!(b.page_in("d/", "c"), None);
+}
+
+#[test]
+fn a_copied_file_becomes_a_page_of_its_own_once_the_wait_is_over() {
+    let dir = tempfile::tempdir().unwrap();
+    let device = Device::copying_at_once(dir.path());
+    let a = device.doc("a");
+    device.export();
+    std::fs::copy(
+        device.root.join("docs/d/a.md"),
+        device.root.join("docs/d/a2.md"),
+    )
+    .unwrap();
+
+    assert_eq!(device.sync("docs/d/a2.md"), Outcome::Imported);
+
+    let copy = device.page_in("d/", "a2").unwrap();
+    assert_ne!(copy, a);
+    assert_eq!(device.page_in("d/", "a"), Some(a));
+    // The copy is written again with its own id
+    assert!(device.file("docs/d/a2.md").contains(copy.as_str()));
 }
