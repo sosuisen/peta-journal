@@ -11,10 +11,10 @@ use crate::core::CoreHandle;
 use crate::dom;
 use crate::listeners::DocumentListeners;
 use leptos::prelude::*;
+use peta_atlas::scene::{self, GroupRef};
 use peta_core::app::Event;
 use peta_core::screens::atlas::{
-    callout_face_svg, group_color, link_blob_svg, link_label, parent_dir_label, tag_blob_svg,
-    tag_icon_svg, Callout, LinkCard, CARD_HEIGHT, CARD_WIDTH,
+    parent_dir_label, Callout, GroupTitle, LinkCard, CARD_HEIGHT, CARD_WIDTH,
 };
 use peta_core::view::{AtlasCard, ScreenView};
 use std::collections::HashMap;
@@ -169,94 +169,47 @@ extern "C" {
     fn destroy(this: &AtlasCanvas);
 }
 
-/// The size of the icon of a card, in pixels of the canvas.
-const ICON_SIZE: i32 = 48;
-/// The size the icon is drawn at before it is scaled down to the card. The hatching of
-/// picturesque-marks has a fixed size made for an icon of about 100px; drawn small, a shape
-/// would hold only a few of its dots or lines.
-const ICON_DRAW_SIZE: i32 = 100;
+/// The group of a card as the scene takes it.
+fn group_ref(group: Option<&String>, title: Option<&GroupTitle>) -> Option<GroupRef> {
+    group.map(|id| GroupRef {
+        id: id.clone(),
+        title: title.map(|t| (t.text.clone(), t.side.clone())),
+    })
+}
 
 /// The placed cards as `atlas.js` reads them, the link cards among them. The icons are drawn
 /// here rather than in the view, so they are drawn only when the cards change.
 fn placed_json(cards: &[AtlasCard], links: &[LinkCard]) -> String {
-    let mut placed: Vec<_> = cards
+    let mut placed: Vec<scene::Card> = cards
         .iter()
         .filter_map(|c| {
-            c.bounds.map(|b| {
-                serde_json::json!({
-                    "id": c.page_id,
-                    "label": c.label,
-                    "path": c.path,
-                    "isDir": c.is_dir,
-                    "x": b.x,
-                    "y": b.y,
-                    "width": b.width,
-                    "height": b.height,
-                    "scale": b.scale(),
-                    "group": c.group,
-                    "groupColor": c.group_color,
-                    "groupTitle": c.group_title.as_ref().map(|t| &t.text),
-                    "groupTitleSide": c.group_title.as_ref().map(|t| &t.side),
-                    "icon": (!c.icon_tags.is_empty())
-                        .then(|| tag_icon_svg(&c.icon_tags, ICON_DRAW_SIZE)),
-                    // The blob is drawn from the main tag, which comes first. A page without tags
-                    // takes its own name, so its card has a blob too. A published page has a line
-                    // around it.
-                    "blob": tag_blob_svg(c.icon_tags.first().unwrap_or(&c.label), ICON_DRAW_SIZE, c.published),
-                    "iconSize": ICON_SIZE,
-                    "iconDrawSize": ICON_DRAW_SIZE,
-                })
-            })
+            let page = scene::Page {
+                id: &c.page_id,
+                label: &c.label,
+                path: &c.path,
+                is_dir: c.is_dir,
+                icon_tags: &c.icon_tags,
+                published: c.published,
+            };
+            let group = group_ref(c.group.as_ref(), c.group_title.as_ref());
+            c.bounds
+                .map(|b| scene::Card::page(&page, b, group.as_ref()))
         })
         .collect();
-    placed.extend(links.iter().map(link_json));
-    serde_json::Value::Array(placed).to_string()
+    placed.extend(links.iter().map(|l| {
+        let group = group_ref(l.group.as_ref(), l.group_title.as_ref());
+        scene::Card::link(&l.item_id, &l.target, l.bounds, group.as_ref())
+    }));
+    scene::cards_json(&placed)
 }
-
-/// The size the character of a callout is drawn at, as the icons are
-const CALLOUT_DRAW_SIZE: i32 = 100;
 
 /// The callouts as `atlas.js` reads them, each with its character drawn from its text.
 fn callouts_json(callouts: &[Callout]) -> String {
-    let all: Vec<_> = callouts
+    let all: Vec<scene::Callout> = callouts
         .iter()
-        .map(|c| {
-            serde_json::json!({
-                "key": c.key,
-                "x": c.x,
-                "y": c.y,
-                "scale": c.scale,
-                "side": c.side,
-                "text": c.text,
-                "character": callout_face_svg(&c.text, CALLOUT_DRAW_SIZE),
-                "drawSize": CALLOUT_DRAW_SIZE,
-            })
-        })
+        .map(|c| scene::Callout::new(&c.key, c.x, c.y, c.scale, &c.side, &c.text))
         .collect();
-    serde_json::Value::Array(all).to_string()
-}
-
-/// A link card as `atlas.js` reads it: as a card is, with the item of the link as the id. The
-/// blob is drawn from the page it links to, in a color of its own.
-fn link_json(l: &LinkCard) -> serde_json::Value {
-    serde_json::json!({
-        "id": l.item_id,
-        "label": link_label(&l.target),
-        "path": l.target,
-        "isLink": true,
-        "x": l.bounds.x,
-        "y": l.bounds.y,
-        "width": l.bounds.width,
-        "height": l.bounds.height,
-        "scale": l.bounds.scale(),
-        "group": l.group,
-        "groupColor": l.group.as_deref().map(group_color),
-        "groupTitle": l.group_title.as_ref().map(|t| &t.text),
-        "groupTitleSide": l.group_title.as_ref().map(|t| &t.side),
-        "blob": link_blob_svg(&l.target, ICON_DRAW_SIZE),
-        "iconSize": ICON_SIZE,
-        "iconDrawSize": ICON_DRAW_SIZE,
-    })
+    scene::callouts_json(&all)
 }
 
 #[component]

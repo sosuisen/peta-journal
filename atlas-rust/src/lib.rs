@@ -126,8 +126,8 @@ pub struct Entry<'a, T> {
 /// The items of an atlas page that are of a kind, in their order. A card at level 2 or deeper
 /// belongs to the group above it. A card at level 1, or the parent of the callouts, ends the
 /// group.
-pub fn entries<T: AtlasItem>(items: &[T]) -> Vec<Entry<'_, T>> {
-    let mut open_group: Option<&T> = None;
+pub fn entries<'a, T: AtlasItem + 'a>(items: impl IntoIterator<Item = &'a T>) -> Vec<Entry<'a, T>> {
+    let mut open_group: Option<&'a T> = None;
     let mut entries = Vec::new();
     for item in items {
         let Some(kind) = kind_of(item.body(), |key| item.prop(key)) else {

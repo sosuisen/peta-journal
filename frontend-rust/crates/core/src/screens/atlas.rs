@@ -15,138 +15,54 @@ use crate::ops::file_reload;
 use crate::screens::page::{split_doc_path, ATLAS_NAME};
 use crate::screens::sidebar;
 use crux_core::Command;
-use picturesque_marks::{
-    background_svg, signature_svg, BackgroundStyle, Color, ColorName, ComposeLayout,
-    SignatureStyle, MAX_COMPOSED_TAGS,
-};
+use peta_atlas::{AtlasItem, Kind};
 use serde_json::Value;
 
-/// The item property that holds where a card or a callout lies: `x,y,width,height`.
-pub const BOUNDS_KEY: &str = "atlas_bounds";
-/// The item property of a page card: the id of its page.
-pub const PAGE_KEY: &str = "atlas_page";
-/// The item property of an item that is no card: `group`, `callouts` or `callout`.
-pub const TYPE_KEY: &str = "atlas_type";
-/// The item property of the side a group title lies along, or a bubble is on.
-pub const SIDE_KEY: &str = "atlas_side";
-
-const GROUP_TYPE: &str = "group";
-const CALLOUT_TYPE: &str = "callout";
+pub use peta_atlas::marks::{
+    callout_face_svg, group_color, link_blob_svg, tag_blob_svg, tag_icon_svg,
+};
+pub use peta_atlas::{
+    card_label as link_label, link_target, Bounds, AUTO_WIDTH, BOUNDS_KEY, CARD_HEIGHT,
+    MIN_CARD_SCALE, PAGE_KEY, SIDES as TITLE_SIDES, SIDE_KEY, TYPE_KEY,
+};
 
 /// The width of a card in the list of unplaced cards, which a drop from the list reads.
 pub const CARD_WIDTH: f64 = 120.0;
-/// The height of a card at scale 1, which it takes when it is first placed.
-pub const CARD_HEIGHT: f64 = 40.0;
-/// The stored width that lets the label set the width of a card. Any other width is the
-/// width of the card. A card first placed takes this one.
-pub const AUTO_WIDTH: f64 = 0.0;
-/// The smallest a card can be scaled to. A larger card has no limit.
-pub const MIN_CARD_SCALE: f64 = 0.5;
-
-/// The place and size of a card. `x` and `y` are its center; `y` grows downward,
-/// as on the screen.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Bounds {
-    pub x: f64,
-    pub y: f64,
-    pub width: f64,
-    pub height: f64,
-}
-
-impl Bounds {
-    /// Reads a bounds value as the server writes it. A value that is not four numbers
-    /// counts as no value, so the card stays in the list and can be placed again.
-    pub fn parse(value: &str) -> Option<Bounds> {
-        let numbers = value
-            .split(',')
-            .map(|n| n.trim().parse::<f64>().ok().filter(|n| n.is_finite()))
-            .collect::<Option<Vec<f64>>>()?;
-        match numbers[..] {
-            [x, y, width, height] => Some(Bounds {
-                x,
-                y,
-                width,
-                height,
-            }),
-            _ => None,
-        }
+impl AtlasItem for Item {
+    fn level(&self) -> i32 {
+        self.level
     }
 
-    pub fn of(item: &Item) -> Option<Bounds> {
-        item.prop_str(BOUNDS_KEY).and_then(Bounds::parse)
+    fn body(&self) -> &str {
+        &self.body
     }
 
-    fn to_value(self) -> String {
-        format!("{},{},{},{}", self.x, self.y, self.width, self.height)
-    }
-
-    /// How much the card is scaled, read from the height: the width may be left to the label.
-    pub fn scale(&self) -> f64 {
-        self.height / CARD_HEIGHT
+    fn prop(&self, key: &str) -> Option<&str> {
+        self.prop_str(key)
     }
 }
 
-/// What an item of the atlas page is.
-#[derive(Debug, Clone, PartialEq)]
-enum Kind {
-    /// The card of a page of the directory, with the id of the page
-    Page(String),
-    /// A card that links to the page it names
-    Link(String),
-    Group,
-    Callout,
-    /// The parent of the callouts, or an item the server would not write
-    Other,
-}
+type Entry<'a> = peta_atlas::Entry<'a, Item>;
 
-fn kind_of(item: &Item) -> Kind {
-    match item.prop_str(TYPE_KEY) {
-        Some(GROUP_TYPE) => Kind::Group,
-        Some(CALLOUT_TYPE) => Kind::Callout,
-        Some(_) => Kind::Other,
-        None => match (item.prop_str(PAGE_KEY), link_target(&item.body)) {
-            (Some(page_id), _) => Kind::Page(page_id.to_string()),
-            (None, Some(target)) => Kind::Link(target.to_string()),
-            (None, None) => Kind::Other,
-        },
-    }
-}
-
-/// An item of the shown atlas page, with the group item it is under when it is a card.
-struct Entry<'a> {
-    item: &'a Item,
-    kind: Kind,
-    group: Option<&'a Item>,
-}
-
-/// The items of the shown atlas page in their order; none on any other page. A card at level 2
-/// belongs to the group above it.
+/// The items of the shown atlas page that are of a kind, in their order; none on any other
+/// page. A card at level 2 belongs to the group above it.
 fn entries(model: &Model) -> Vec<Entry<'_>> {
     let Some(atlas) = shown_atlas_page(model) else {
         return Vec::new();
     };
-    let mut group = None;
-    model
-        .state
-        .items()
-        .iter()
-        .filter(|item| item.page_id == atlas.id)
-        .map(|item| {
-            let kind = kind_of(item);
-            if item.level == 1 {
-                group = (kind == Kind::Group).then_some(&**item);
-            }
-            let in_group = match kind {
-                Kind::Page(_) | Kind::Link(_) if item.level > 1 => group,
-                _ => None,
-            };
-            Entry {
-                item,
-                kind,
-                group: in_group,
-            }
-        })
-        .collect()
+    peta_atlas::entries(
+        model
+            .state
+            .items()
+            .iter()
+            .filter(|item| item.page_id == atlas.id)
+            .map(|item| &**item),
+    )
+}
+
+/// Where a card or a callout lies, read from its item.
+fn bounds_of(item: &Item) -> Option<Bounds> {
+    item.prop_str(BOUNDS_KEY).and_then(Bounds::parse)
 }
 
 /// The item of a card: of a page card by the id of its page, of a link card by its own id.
@@ -155,7 +71,7 @@ fn card_item(model: &Model, card_id: &str) -> Option<Item> {
         .into_iter()
         .find(|e| match &e.kind {
             Kind::Page(page_id) => page_id == card_id,
-            Kind::Link(_) => e.item.id == card_id,
+            Kind::Link => e.item.id == card_id,
             _ => false,
         })
         .map(|e| e.item.clone())
@@ -173,7 +89,7 @@ pub fn place_card(model: &mut Model, card_id: String, x: f64, y: f64) -> Cmd {
         return done();
     }
     // A card keeps its size when it moves; whole pixels keep the stored value short
-    let (width, height) = Bounds::of(&item)
+    let (width, height) = bounds_of(&item)
         .map(|b| (b.width, b.height))
         .unwrap_or((AUTO_WIDTH, CARD_HEIGHT));
     let bounds = Bounds {
@@ -192,7 +108,7 @@ pub fn scale_card(model: &mut Model, card_id: String, scale: f64) -> Cmd {
     let Some(item) = card_item(model, &card_id) else {
         return done();
     };
-    let Some(before) = Bounds::of(&item).filter(|_| scale.is_finite()) else {
+    let Some(before) = bounds_of(&item).filter(|_| scale.is_finite()) else {
         return done();
     };
     let bounds = Bounds {
@@ -206,7 +122,7 @@ pub fn scale_card(model: &mut Model, card_id: String, scale: f64) -> Cmd {
 /// Gives an item new bounds at once and saves them, unless they stay the same. A refusal of
 /// the server puts the old ones back.
 fn save_bounds(model: &mut Model, item: &Item, bounds: Bounds) -> Cmd {
-    if Bounds::of(item) == Some(bounds) {
+    if bounds_of(item) == Some(bounds) {
         return done();
     }
     let item_id = item.id.clone();
@@ -241,7 +157,7 @@ fn set_property(model: &mut Model, item_id: &str, value: Option<Value>) {
 /// Takes the card of a page off the canvas: its bounds are removed, so it waits in the list
 /// of unplaced cards again. The card leaves at once; a refusal of the server puts it back.
 pub fn remove_card(model: &mut Model, page_id: String) -> Cmd {
-    let Some(item) = card_item(model, &page_id).filter(|i| Bounds::of(i).is_some()) else {
+    let Some(item) = card_item(model, &page_id).filter(|i| bounds_of(i).is_some()) else {
         return done();
     };
     let item_id = item.id.clone();
@@ -307,7 +223,7 @@ pub fn ungroup_cards(model: &mut Model, card_ids: Vec<String>) -> Cmd {
         e.group.is_some()
             && match &e.kind {
                 Kind::Page(page_id) => card_ids.contains(page_id),
-                Kind::Link(_) => card_ids.contains(&e.item.id),
+                Kind::Link => card_ids.contains(&e.item.id),
                 _ => false,
             }
     });
@@ -317,9 +233,6 @@ pub fn ungroup_cards(model: &mut Model, card_ids: Vec<String>) -> Cmd {
     change(model, AtlasChange::Ungroup { cards: card_ids })
 }
 
-/// The sides of the outline of a group that its title can lie along, the first by default.
-pub const TITLE_SIDES: [&str; 4] = ["top", "bottom", "left", "right"];
-
 /// The title of a group and the side of its outline it lies along.
 #[derive(Debug, Clone, PartialEq)]
 pub struct GroupTitle {
@@ -328,16 +241,12 @@ pub struct GroupTitle {
 }
 
 fn side_of(item: &Item) -> String {
-    match item.prop_str(SIDE_KEY) {
-        Some(side) if TITLE_SIDES.contains(&side) => side.to_string(),
-        _ => TITLE_SIDES[0].to_string(),
-    }
+    peta_atlas::side_of(item).to_string()
 }
 
 /// The title of a group item; none while its body is empty.
 fn group_title(group: &Item) -> Option<GroupTitle> {
-    let text = group.body.trim();
-    (!text.is_empty()).then(|| GroupTitle {
+    peta_atlas::group_title(group).map(|text| GroupTitle {
         side: side_of(group),
         text: text.to_string(),
     })
@@ -353,11 +262,7 @@ pub fn set_group_title(model: &mut Model, group_id: String, side: String, title:
     else {
         return done();
     };
-    let side = if TITLE_SIDES.contains(&side.as_str()) {
-        side
-    } else {
-        TITLE_SIDES[0].to_string()
-    };
+    let side = peta_atlas::side_or_default(&side).to_string();
     let title = title.trim().to_string();
     if group.body.trim() == title && side_of(&group) == side {
         return done();
@@ -394,7 +299,7 @@ pub fn shown_callouts(model: &Model) -> Vec<Callout> {
         .into_iter()
         .filter(|e| e.kind == Kind::Callout)
         .filter_map(|e| {
-            let bounds = Bounds::of(e.item).filter(|b| b.height > 0.0)?;
+            let bounds = bounds_of(e.item).filter(|b| b.height > 0.0)?;
             Some(Callout {
                 key: e.item.id.clone(),
                 x: bounds.x,
@@ -485,31 +390,6 @@ pub fn set_callout(model: &mut Model, key: String, side: String, text: String) -
     )
 }
 
-/// The color of the character of a callout
-const CALLOUT_COLOR: Color = Color::rgb(0x00, 0x00, 0x00);
-
-/// The width of the lines of the character of a callout, in pixels of the SVG as drawn
-const CALLOUT_STROKE_WIDTH: &str = "3.5";
-
-/// The character of a callout as an SVG of `size` pixels square: the face picturesque-marks
-/// draws for the text as its signature, in black, its lines thinner.
-pub fn callout_face_svg(text: &str, size: i32) -> String {
-    // picturesque-marks has no option for the width of the lines of a face; it writes 5
-    signature_svg(text, SignatureStyle::Face, CALLOUT_COLOR, size, size).replace(
-        r#"stroke-width="5""#,
-        &format!(r#"stroke-width="{CALLOUT_STROKE_WIDTH}""#),
-    )
-}
-
-/// The color of a group as `#RRGGBB`, one of the six of picturesque-marks, the colors of the
-/// tag icons. A hash of the id of the group picks it, so a group keeps its color on every
-/// machine.
-pub fn group_color(group_id: &str) -> String {
-    ColorName::from_index(fnv1a(group_id) as u32)
-        .color()
-        .to_hex()
-}
-
 /// The tags the icon of a card is drawn from. A tag page stands for its tag, and so does a
 /// folder of tag pages, so its card takes the tag itself. Any other page takes its own tags.
 /// A folder, whose card is its index page, takes the tags of that page, or else its name, so
@@ -537,105 +417,6 @@ pub fn icon_tags(page: &Page, tags_dir: &str) -> Vec<String> {
     }
 }
 
-/// The icon of the tags as an SVG of `size` pixels square, as picturesque-marks draws it for
-/// a tag. Only the first tags fit in one icon.
-pub fn tag_icon_svg(tags: &[String], size: i32) -> String {
-    let tags = &tags[..tags.len().min(MAX_COMPOSED_TAGS)];
-    background_svg(
-        tags,
-        ComposeLayout::default(),
-        BackgroundStyle::default(),
-        size,
-        size,
-    )
-}
-
-/// The light blue of the blob behind the icon of a card.
-const BLOB_COLOR: Color = Color::rgb(0xCF, 0xE3, 0xFF);
-/// The light orange of the blob of a link card, which tells it from the cards of the directory.
-const LINK_BLOB_COLOR: Color = Color::rgb(0xFF, 0xD8, 0xA8);
-/// The line around the blob of a published page: red, so it stands out, in pixels of the
-/// card whatever the SVG is stretched to.
-const BLOB_LINE: &str =
-    r##" stroke="#E53935" stroke-width="5" vector-effect="non-scaling-stroke""##;
-/// The space kept around an outlined blob, as a share of its size, so its line is not cut off
-/// at the edges of the SVG
-const BLOB_LINE_MARGIN: f64 = 0.09;
-
-/// The blob of a tag as an SVG of `size` pixels square: the outline picturesque-marks draws
-/// for the tag name, filled in light blue. The blob fills the whole SVG, which the card
-/// stretches to its own size. An outlined blob has a line around it and keeps a thin margin
-/// for that line.
-pub fn tag_blob_svg(tag: &str, size: i32, outlined: bool) -> String {
-    blob_svg(tag, BLOB_COLOR, size, outlined)
-}
-
-/// The blob of a link card: drawn from the page it links to as a tag blob is, in light orange.
-pub fn link_blob_svg(target: &str, size: i32) -> String {
-    blob_svg(target, LINK_BLOB_COLOR, size, false)
-}
-
-fn blob_svg(name: &str, color: Color, size: i32, outlined: bool) -> String {
-    let svg = signature_svg(name, SignatureStyle::Blob, color, size, size);
-    // The fill of the path is the first in the SVG
-    let svg = if outlined {
-        svg.replacen(" fill=\"", &format!("{BLOB_LINE} fill=\""), 1)
-    } else {
-        svg
-    };
-    // picturesque-marks leaves a margin around the blob, which would keep it off the edges of
-    // the card. The view box is cut to the points of its path instead. The control points of a
-    // curve lie a little outside it, so a thin margin stays.
-    let Some((mut min_x, mut min_y, mut max_x, mut max_y)) = path_bounds(&svg) else {
-        return svg;
-    };
-    if outlined {
-        let margin_x = (max_x - min_x) * BLOB_LINE_MARGIN;
-        let margin_y = (max_y - min_y) * BLOB_LINE_MARGIN;
-        (min_x, max_x, min_y, max_y) = (
-            min_x - margin_x,
-            max_x + margin_x,
-            min_y - margin_y,
-            max_y + margin_y,
-        );
-    }
-    let Some(start) = svg.find("viewBox=\"") else {
-        return svg;
-    };
-    let Some(end) = svg[start + 9..].find('"').map(|i| start + 9 + i) else {
-        return svg;
-    };
-    format!(
-        r#"{}viewBox="{} {} {} {}" preserveAspectRatio="none"{}"#,
-        &svg[..start],
-        min_x,
-        min_y,
-        max_x - min_x,
-        max_y - min_y,
-        &svg[end + 1..]
-    )
-}
-
-/// The smallest box around the points of the first path in the SVG.
-fn path_bounds(svg: &str) -> Option<(f64, f64, f64, f64)> {
-    let start = svg.find(" d=\"")? + 4;
-    let end = start + svg[start..].find('"')?;
-    let numbers: Vec<f64> = svg[start..end]
-        .split(|c: char| c.is_ascii_whitespace() || c == ',' || c.is_ascii_alphabetic())
-        .filter_map(|n| n.parse().ok())
-        .collect();
-    let (xs, ys): (Vec<f64>, Vec<f64>) = numbers.chunks_exact(2).map(|p| (p[0], p[1])).unzip();
-    let min = |v: &[f64]| v.iter().copied().fold(f64::INFINITY, f64::min);
-    let max = |v: &[f64]| v.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-    (!xs.is_empty()).then(|| (min(&xs), min(&ys), max(&xs), max(&ys)))
-}
-
-fn fnv1a(text: &str) -> u64 {
-    text.bytes().fold(0xcbf2_9ce4_8422_2325, |hash, byte| {
-        (hash ^ byte as u64).wrapping_mul(0x0000_0100_0000_01b3)
-    })
-}
-
 /// Takes the items of the shown atlas page from the server again, after the server or a file
 /// changed them. The server writes the outline of an atlas page by itself, as when a page of
 /// its directory is made, so the reload is needed even while no items are shown.
@@ -660,44 +441,25 @@ pub struct LinkCard {
     pub group_title: Option<GroupTitle>,
 }
 
-/// The page a body links to when the body is a single wiki link and nothing else.
-pub fn link_target(body: &str) -> Option<&str> {
-    let inner = body.trim().strip_prefix("[[")?.strip_suffix("]]")?;
-    let inner = inner.trim();
-    (!inner.is_empty() && !inner.contains("[[") && !inner.contains("]]")).then_some(inner)
-}
-
 /// The link cards of the shown atlas page, in the order of its items. A link card without a
 /// place is left out.
 pub fn link_cards(model: &Model) -> Vec<LinkCard> {
     entries(model)
         .into_iter()
         .filter_map(|e| {
-            let Kind::Link(target) = e.kind else {
+            if e.kind != Kind::Link {
                 return None;
-            };
+            }
+            let target = link_target(&e.item.body)?.to_string();
             Some(LinkCard {
                 item_id: e.item.id.clone(),
                 target,
-                bounds: Bounds::of(e.item)?,
+                bounds: bounds_of(e.item)?,
                 group: e.group.map(|g| g.id.clone()),
                 group_title: e.group.and_then(group_title),
             })
         })
         .collect()
-}
-
-/// The name a link card shows: the last part of the path it links to. An index page is named
-/// by its directory, and the index of the root `(root)/`, as the up button names it.
-pub fn link_label(target: &str) -> String {
-    let (dir, name) = split_doc_path(target);
-    if name != "index" {
-        return name;
-    }
-    match dir.trim_end_matches('/').rsplit('/').next() {
-        Some(last) if !last.is_empty() => format!("{last}/"),
-        _ => "(root)/".to_string(),
-    }
 }
 
 fn shown_atlas_page(model: &Model) -> Option<&Page> {
@@ -820,7 +582,7 @@ pub fn cards(model: &Model) -> Vec<(Page, Option<Bounds>, Option<String>, Option
             let entry = entries
                 .iter()
                 .find(|e| matches!(&e.kind, Kind::Page(id) if *id == p.id));
-            let bounds = entry.and_then(|e| Bounds::of(e.item));
+            let bounds = entry.and_then(|e| bounds_of(e.item));
             let group = entry.and_then(|e| e.group);
             (
                 p,

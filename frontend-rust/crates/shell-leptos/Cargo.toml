@@ -11,6 +11,7 @@ path = "src/main.rs"
 
 [dependencies]
 peta-core = { path = "../core" }
+peta-atlas = { path = "../../../atlas-rust", features = ["marks"] }
 fm-ast = { path = "../fm-ast" }
 fm-leptos = { path = "../fm-leptos" }
 flatmarkdown = "0.4.3"
