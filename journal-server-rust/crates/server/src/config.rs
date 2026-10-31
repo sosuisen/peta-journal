@@ -54,6 +54,12 @@ pub struct Cli {
     )]
     pub import_delete_prompt_cooldown: u64,
 
+    /// A file with the id of a page whose file is still there may be that page moved, with
+    /// the old file not taken away yet. Wait this long for that before taking the file as a
+    /// copy (seconds)
+    #[arg(long, env = "PETAJOURNAL_IMPORT_COPY_WAIT", default_value_t = 300)]
+    pub import_copy_wait: u64,
+
     /// Allowed CORS origins, comma separated
     #[arg(
         long,
@@ -76,6 +82,7 @@ pub struct Settings {
     pub import_debounce_ms: u64,
     pub import_scan_interval_secs: u64,
     pub import_delete_prompt_cooldown_secs: u64,
+    pub import_copy_wait_secs: u64,
     pub cors_origins: Vec<String>,
 }
 
@@ -110,6 +117,7 @@ impl Settings {
             import_debounce_ms: cli.import_debounce_ms,
             import_scan_interval_secs: cli.import_scan_interval.max(1),
             import_delete_prompt_cooldown_secs: cli.import_delete_prompt_cooldown,
+            import_copy_wait_secs: cli.import_copy_wait,
             cors_origins: cli
                 .cors_origins
                 .split(',')
@@ -132,6 +140,7 @@ impl Settings {
             import_debounce_ms: 2000,
             import_scan_interval_secs: 60,
             import_delete_prompt_cooldown_secs: 300,
+            import_copy_wait_secs: 300,
             cors_origins: vec!["http://localhost:4200".to_string()],
         }
     }

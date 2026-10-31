@@ -1,6 +1,8 @@
 //! Decides which page a markdown file belongs to, and saves pages at the location their file has.
 //! 1. By frontmatter id: same path is the page itself; a new path is a rename, unless the old
-//!    file still exists, in which case this file is a copy and gets a page of its own.
+//!    file still exists. The file may be the page moved, with the old file not taken away
+//!    yet, so the caller waits for that first. When a copy is allowed, the file is a copy and
+//!    gets a page of its own.
 //! 2. By path: a file without an id gets ours. A file with another id comes from a device that
 //!    created the same page independently; the older id wins on every device.
 //! 3. Otherwise a new page is created, keeping the file's id when it has one.
@@ -33,6 +35,17 @@ pub struct PageMatch {
     pub write_back: bool,
 }
 
+/// What `match_file` found for a file.
+#[derive(Debug, Clone)]
+pub enum Matched {
+    Page(PageMatch),
+    /// The file has the id of a page whose file at `other` is still there, and a copy is not
+    /// allowed yet.
+    Elsewhere {
+        other: String,
+    },
+}
+
 pub struct PageMatcher {
     pages: PageRepository,
     items: ItemRepository,
@@ -58,7 +71,8 @@ impl PageMatcher {
         }
     }
 
-    /// Finds the page a file belongs to, or creates one.
+    /// Finds the page a file belongs to, or creates one. A file with the id of a page whose
+    /// file is still elsewhere becomes a new page only when `copy_allowed`.
     pub fn match_file(
         &self,
         root: &Path,
@@ -66,7 +80,8 @@ impl PageMatcher {
         loc: &PageLocation,
         frontmatter: &BTreeMap<String, String>,
         file_modified: i64,
-    ) -> AppResult<PageMatch> {
+        copy_allowed: bool,
+    ) -> AppResult<Matched> {
         let mut file_id = parse_id(frontmatter.get("id").map(String::as_str));
         let mut write_back = false;
 
@@ -75,21 +90,24 @@ impl PageMatcher {
             if let Some(p) = self.pages.find_by_id(fid)? {
                 let current_rel = path_mapper::to_rel_path_of(&p);
                 if current_rel == rel_path {
-                    return Ok(PageMatch {
+                    return Ok(Matched::Page(PageMatch {
                         page: p,
                         is_new: false,
                         renamed: false,
                         write_back: false,
-                    });
+                    }));
                 }
                 if !root.join(&current_rel).exists() {
                     tracing::info!("Page {} moved: {current_rel} -> {rel_path}", p.id);
-                    return Ok(PageMatch {
+                    return Ok(Matched::Page(PageMatch {
                         page: p,
                         is_new: false,
                         renamed: true,
                         write_back: false,
-                    });
+                    }));
+                }
+                if !copy_allowed {
+                    return Ok(Matched::Elsewhere { other: current_rel });
                 }
                 // Same id in two files: this one is a copy, give it a new identity
                 tracing::info!("{rel_path} is a copy of {current_rel}, creating a new page");
@@ -116,12 +134,12 @@ impl PageMatcher {
                 }
                 Some(_) => {}
             }
-            return Ok(PageMatch {
+            return Ok(Matched::Page(PageMatch {
                 page,
                 is_new: false,
                 renamed: false,
                 write_back,
-            });
+            }));
         }
 
         // 3. New page
@@ -145,12 +163,12 @@ impl PageMatcher {
         };
         let page = self.save(&page, loc, file_modified)?;
         tracing::info!("Created page {} from {rel_path}", page.id);
-        Ok(PageMatch {
+        Ok(Matched::Page(PageMatch {
             page,
             is_new: true,
             renamed: false,
             write_back,
-        })
+        }))
     }
 
     /// Saves a page at the location of its file, creating the index pages above it first,
