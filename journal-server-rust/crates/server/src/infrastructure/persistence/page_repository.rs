@@ -186,6 +186,8 @@ impl PageRepository {
             "UPDATE file_sync_state SET page_id = ? WHERE page_id = ?",
             "UPDATE properties SET target_id = ? WHERE target_type = 'page' AND target_id = ?",
             "UPDATE property_list_items SET target_id = ? WHERE target_type = 'page' AND target_id = ?",
+            // The card of the page on the atlas of its directory names it by id
+            "UPDATE properties SET value_text = ? WHERE target_type = 'item' AND key = 'atlas_page' AND value_text = ?",
         ];
         let mut conn = self.db.conn()?;
         let tx = conn.immediate()?;

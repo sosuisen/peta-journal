@@ -20,34 +20,6 @@ pub type ListProps = BTreeMap<String, BTreeMap<String, Vec<String>>>;
 pub const USER_VALUE_TYPES: [&str; 6] =
     ["text", "number", "checkbox", "date", "datetime", "bounds"];
 
-/// The start of the keys of the card groups on an atlas page. Each group is a list of the
-/// ids of its pages under a key of its own, which the frontend names.
-pub const ATLAS_GROUP_PREFIX: &str = "atlas_group_";
-
-pub fn is_atlas_group_key(key: &str) -> bool {
-    key.len() > ATLAS_GROUP_PREFIX.len() && key.starts_with(ATLAS_GROUP_PREFIX)
-}
-
-/// The start of the keys of the titles of the card groups on an atlas page. A title is text
-/// under the key of its group with this prefix instead.
-pub const ATLAS_TITLE_PREFIX: &str = "atlas_title_";
-
-/// The start of the keys of the callouts on an atlas page: text under a key of its own, which
-/// the frontend names.
-pub const ATLAS_CALLOUT_PREFIX: &str = "atlas_callout_";
-
-/// A key of text the frontend makes on an atlas page: a group title or a callout
-pub fn is_atlas_text_key(key: &str) -> bool {
-    [ATLAS_TITLE_PREFIX, ATLAS_CALLOUT_PREFIX]
-        .iter()
-        .any(|prefix| key.len() > prefix.len() && key.starts_with(prefix))
-}
-
-/// A key the frontend makes for an atlas, not one the user chooses
-pub fn is_atlas_key(key: &str) -> bool {
-    is_atlas_group_key(key) || is_atlas_text_key(key)
-}
-
 /// A property definition: the key, its value type and who may use it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PropertyDefinition {
@@ -394,36 +366,11 @@ impl PropertyRepository {
         self.replace_list(target_type, target_id, "tags", new_tags)
     }
 
-    /// Replaces the ids of a card group on an atlas page. The key gets a system definition
-    /// of its own, as every value must have one. A system key stays out of the user's
-    /// hands, and the settings leave group keys out of their list.
-    pub fn sync_atlas_group(&self, page_id: &str, key: &str, ids: &[String]) -> AppResult<()> {
-        validate_key(key)?;
+    /// Removes the definitions whose keys start with the prefix and that no value uses.
+    pub fn delete_unused_definitions_with_prefix(&self, prefix: &str) -> AppResult<()> {
         self.db.conn()?.execute(
-            "INSERT OR IGNORE INTO property_definitions (key, value_type, is_system, for_page) VALUES (?, 'list', 1, 1)",
-            params![key],
-        )?;
-        self.replace_list("page", page_id, key, ids)
-    }
-
-    /// Drops the definition of a card group that no page holds any more, so the definitions
-    /// do not pile up as groups come and go.
-    pub fn delete_unused_atlas_group(&self, key: &str) -> AppResult<()> {
-        self.db.conn()?.execute(
-            "DELETE FROM property_definitions WHERE key = ?1 \
-             AND NOT EXISTS (SELECT 1 FROM property_list_items WHERE key = ?1)",
-            params![key],
-        )?;
-        Ok(())
-    }
-
-    /// Removes the definition of a group title or a callout once no page has it. Each has its
-    /// own key, so the definitions would pile up as they come and go.
-    pub fn delete_unused_atlas_text(&self, key: &str) -> AppResult<()> {
-        self.db.conn()?.execute(
-            "DELETE FROM property_definitions WHERE key = ?1 \
-             AND NOT EXISTS (SELECT 1 FROM properties WHERE key = ?1)",
-            params![key],
+            "DELETE FROM property_definitions WHERE substr(key, 1, length(?1)) = ?1              AND key NOT IN (SELECT key FROM properties)              AND key NOT IN (SELECT key FROM property_list_items)",
+            params![prefix],
         )?;
         Ok(())
     }

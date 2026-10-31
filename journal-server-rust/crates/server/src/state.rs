@@ -2,6 +2,7 @@
 
 use std::sync::Arc;
 
+use crate::application::atlas_service::AtlasService;
 use crate::application::combined_search::CombinedSearchService;
 use crate::application::config_service::ConfigService;
 use crate::application::extension_functions::ExtensionFunctionService;
@@ -48,6 +49,7 @@ pub struct AppState {
     pub watcher: Arc<MarkdownFolderWatcher>,
     pub item_service: Arc<ItemService>,
     pub page_service: Arc<PageService>,
+    pub atlas: Arc<AtlasService>,
     pub journal_service: Arc<JournalService>,
     pub combined_search: Arc<CombinedSearchService>,
     pub functions: Arc<ExtensionFunctionService>,
@@ -93,6 +95,16 @@ impl AppState {
             items.clone(),
             properties.clone(),
         ));
+        let atlas = Arc::new(AtlasService::new(
+            pages.clone(),
+            items.clone(),
+            properties.clone(),
+            parser.clone(),
+            Arc::clone(&search),
+            Arc::clone(&export),
+            Arc::clone(&ids),
+            Arc::new(sse.clone()),
+        ));
         let page_service = Arc::new(PageService::new(
             pages.clone(),
             items.clone(),
@@ -102,6 +114,7 @@ impl AppState {
             properties.clone(),
             Arc::clone(&ids),
             Arc::clone(&config),
+            Arc::clone(&atlas),
         ));
         let item_service = Arc::new(ItemService::new(
             items.clone(),
@@ -192,6 +205,7 @@ impl AppState {
         // After the rebuild, which skips an index that is not empty: the new pages are indexed
         // one by one as they are created
         startup::ensure_tag_pages(&page_service);
+        startup::bring_atlases_up_to_date(&atlas);
 
         Ok(Arc::new(AppState {
             settings,
@@ -211,6 +225,7 @@ impl AppState {
             watcher,
             item_service,
             page_service,
+            atlas,
             journal_service,
             combined_search,
             functions,

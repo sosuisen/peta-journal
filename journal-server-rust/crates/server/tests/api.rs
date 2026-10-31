@@ -408,7 +408,7 @@ async fn the_most_recently_touched_page_comes_first_in_recent_pages() {
     let newer = new_doc_page("pages-recent-newer").await;
 
     // Other tests create pages at the same time, so only the relative order is checked
-    let (status, resp) = get("/api/pages/recent?maxResults=200&type=doc").await;
+    let (status, resp) = get("/api/pages/recent?maxResults=2000&type=doc").await;
     assert_eq!(status, 200);
     let ids: Vec<Value> = field_of_each(&resp, "pages", "id");
 
@@ -1011,7 +1011,7 @@ async fn property_definitions_list_the_system_keys_and_accept_user_keys() {
     );
     assert_eq!(
         definition(&resp, "atlas_bounds").unwrap()["page"],
-        json!(true)
+        json!(false)
     );
     assert_eq!(resp["propertyDefinitions"]["atlas_bounds"], json!("bounds"));
 
@@ -1146,7 +1146,7 @@ static TAGS_DIR: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 /// The id of a doc page by its name.
 async fn doc_page_named(name: &str) -> Option<String> {
-    let (_, resp) = get("/api/pages/recent?maxResults=200&type=doc").await;
+    let (_, resp) = get("/api/pages/recent?maxResults=2000&type=doc").await;
     resp["pages"]
         .as_array()
         .unwrap()
@@ -1191,7 +1191,7 @@ async fn a_new_page_tag_gets_its_tag_page_and_the_last_use_takes_it_away() {
 
 /// The ids of the doc pages with this name in any case of its letters.
 async fn doc_pages_named_ignoring_case(name: &str) -> Vec<String> {
-    let (_, resp) = get("/api/pages/recent?maxResults=200&type=doc").await;
+    let (_, resp) = get("/api/pages/recent?maxResults=2000&type=doc").await;
     resp["pages"]
         .as_array()
         .unwrap()
@@ -1507,12 +1507,6 @@ async fn the_children_of_an_index_page_carry_their_tags_but_no_other_list() {
     let page_id = resp["page"]["id"].as_str().unwrap().to_string();
     let parent_id = resp["page"]["parentId"].as_str().unwrap().to_string();
     set_page_tags(&page_id, "children-tag-b, children-tag-a").await;
-    let group = format!("atlas_group_{}", nanos());
-    put(
-        &format!("/api/pages/{page_id}/properties/{group}"),
-        json!({ "valueType": "list", "value": "x,y" }),
-    )
-    .await;
 
     let (_, resp) = get(&format!("/api/pages/{parent_id}/children")).await;
     let child = resp["pages"]
@@ -1525,7 +1519,6 @@ async fn the_children_of_an_index_page_carry_their_tags_but_no_other_list() {
         child["properties"]["tags"],
         json!(["children-tag-b", "children-tag-a"])
     );
-    assert!(child["properties"].get(&group).is_none(), "{child}");
 }
 
 #[tokio::test]
@@ -1591,19 +1584,15 @@ async fn atlas_of(dir: &str) -> String {
 }
 
 #[tokio::test]
-async fn an_atlas_page_is_not_found_by_its_name_but_its_items_are() {
+async fn an_atlas_page_is_not_found_by_its_name() {
     let dir = format!("{}/", new_doc_page("atlas-search").await.title);
     let atlas_id = atlas_of(&dir).await;
-    let word = format!("compass{}", nanos());
-    fill(&atlas_id, &[&format!("the {word} rose")]).await;
 
     for query in [format!("{dir}index_atlas"), "index_atlas".to_string()] {
         let resp = search("/api/search/pages", &query).await;
         let ids = field_of_each(&resp, "results", "pageId");
         assert!(!ids.contains(&json!(atlas_id)), "{query}: {ids:?}");
     }
-    let resp = search("/api/search/combined", &word).await;
-    assert_eq!(resp["results"][0]["pageId"], json!(atlas_id));
 }
 
 #[tokio::test]
@@ -1665,217 +1654,274 @@ async fn a_bounds_property_holds_four_numbers() {
     }
 }
 
+async fn doc_in(dir: &str, title: &str) -> String {
+    let (status, resp) = post("/api/pages/doc", json!({ "title": title, "dirPath": dir })).await;
+    assert_eq!(status, 200, "{resp}");
+    resp["page"]["id"].as_str().unwrap().to_string()
+}
+
+/// A directory with the pages `b` and `a` and the folder `z`, and its atlas page.
+async fn atlas_dir(prefix: &str) -> (String, String) {
+    let dir = format!("{}/", new_doc_page(prefix).await.title);
+    doc_in(&dir, "b").await;
+    doc_in(&dir, "a").await;
+    doc_in(&format!("{dir}z/"), "c").await;
+    (dir.clone(), atlas_of(&dir).await)
+}
+
+async fn atlas_post(atlas_id: &str, path: &str, body: Value) -> Vec<ItemRow> {
+    let (status, resp) = post(&format!("/api/pages/{atlas_id}/atlas/{path}"), body).await;
+    assert_eq!(status, 200, "{resp}");
+    resp["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(ItemRow::of)
+        .collect()
+}
+
+async fn atlas_put(atlas_id: &str, path: &str, body: Value) -> Vec<ItemRow> {
+    let (status, resp) = put(&format!("/api/pages/{atlas_id}/atlas/{path}"), body).await;
+    assert_eq!(status, 200, "{resp}");
+    resp["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(ItemRow::of)
+        .collect()
+}
+
+fn outline(rows: &[ItemRow]) -> Vec<String> {
+    rows.iter().map(ItemRow::outline).collect()
+}
+
+fn card_of<'a>(rows: &'a [ItemRow], page_id: &str) -> &'a ItemRow {
+    rows.iter()
+        .find(|r| r.properties.get("atlas_page") == Some(&json!(page_id)))
+        .unwrap_or_else(|| panic!("no card of {page_id} in {rows:?}"))
+}
+
 #[tokio::test]
-async fn a_page_takes_its_bounds_on_the_atlas() {
-    let page = new_doc_page("atlas-bounds").await;
+async fn an_atlas_lists_the_folders_and_then_the_pages_of_its_directory_by_name() {
+    let (dir, atlas_id) = atlas_dir("atlas-list").await;
+
+    assert_eq!(
+        outline_of(&atlas_id).await,
+        vs(&[
+            &format!("1:[[{dir}z/index]]"),
+            &format!("1:[[{dir}a]]"),
+            &format!("1:[[{dir}b]]"),
+        ])
+    );
+}
+
+#[tokio::test]
+async fn the_atlas_follows_a_new_a_renamed_and_a_deleted_page() {
+    let (dir, atlas_id) = atlas_dir("atlas-follow").await;
+    let a = doc_in(&dir, "a").await;
+    let b = doc_in(&dir, "b").await;
+    let card = card_of(&items(&atlas_id).await, &a).id.clone();
     let (status, resp) = put(
-        &format!("/api/pages/{}/properties/atlas_bounds", page.id),
-        json!({ "valueType": "bounds", "value": "24, 24, 160, 56" }),
+        &format!("/api/items/{card}/properties/atlas_bounds"),
+        json!({ "valueType": "bounds", "value": "5,6,0,40" }),
     )
     .await;
     assert_eq!(status, 200, "{resp}");
-    assert_eq!(
-        resp["page"]["properties"]["atlas_bounds"],
-        json!("24,24,160,56")
-    );
 
-    let (status, resp) = post(
-        "/api/config/property-definitions",
-        json!({ "key": "atlas_bounds", "valueType": "bounds" }),
+    let (status, resp) = put(&format!("/api/pages/{a}"), json!({ "title": "y" })).await;
+    assert_eq!(status, 200, "{resp}");
+    assert_eq!(delete(&format!("/api/pages/{b}")).await, 204);
+    doc_in(&dir, "x").await;
+
+    let rows = items(&atlas_id).await;
+    assert_eq!(
+        outline(&rows),
+        vs(&[
+            &format!("1:[[{dir}z/index]]"),
+            &format!("1:[[{dir}x]]"),
+            &format!("1:[[{dir}y]]"),
+        ])
+    );
+    let renamed = card_of(&rows, &a);
+    assert_eq!(renamed.id, card);
+    assert_eq!(renamed.properties["atlas_bounds"], json!("5,6,0,40"));
+}
+
+#[tokio::test]
+async fn placing_a_card_leaves_its_page_as_it_was() {
+    let (dir, atlas_id) = atlas_dir("atlas-place").await;
+    let a = doc_in(&dir, "a").await;
+    let (_, before) = get(&format!("/api/pages/{a}")).await;
+    let card = card_of(&items(&atlas_id).await, &a).id.clone();
+
+    let (status, resp) = put(
+        &format!("/api/items/{card}/properties/atlas_bounds"),
+        json!({ "valueType": "text", "value": " 24, 24, 0 ,40 " }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(
+        card_of(&items(&atlas_id).await, &a).properties["atlas_bounds"],
+        json!("24,24,0,40")
+    );
+    let (_, after) = get(&format!("/api/pages/{a}")).await;
+    assert_eq!(
+        after["page"]["modifiedDate"],
+        before["page"]["modifiedDate"]
+    );
+    let (status, resp) = put(
+        &format!("/api/pages/{a}/properties/atlas_bounds"),
+        json!({ "valueType": "bounds", "value": "1,2,3,4" }),
+    )
+    .await;
+    assert_eq!(status, 400, "{resp}");
+    let (status, resp) = put(
+        &format!("/api/items/{card}/properties/atlas_bounds"),
+        json!({ "valueType": "text", "value": "not bounds" }),
     )
     .await;
     assert_eq!(status, 400, "{resp}");
 }
 
 #[tokio::test]
-async fn an_atlas_keeps_a_card_group_as_a_list_of_ids_out_of_the_settings() {
-    let page = new_doc_page("atlas-group").await;
-    let key = format!("atlas_group_{}", nanos());
-    let (status, resp) = put(
-        &format!("/api/pages/{}/properties/{key}", page.id),
-        json!({ "valueType": "list", "value": "id-b, id-a" }),
+async fn a_link_card_takes_its_place_by_its_name_and_can_be_relinked_and_removed() {
+    let (dir, atlas_id) = atlas_dir("atlas-link").await;
+
+    let rows = atlas_post(
+        &atlas_id,
+        "links",
+        json!({ "target": "[[elsewhere/aa]]", "bounds": "1,2,0,40" }),
     )
     .await;
-    assert_eq!(status, 200, "{resp}");
-    // The order is kept, and no tag is made of an id
-    assert_eq!(resp["page"]["properties"][&key], json!(["id-b", "id-a"]));
-    assert!(resp["page"]["properties"].get("tags").is_none(), "{resp}");
-    wait_until("the group is written as a list", || {
-        read(&file_of(&page)).contains(&format!("{key}:\n  - id-b\n  - id-a\n"))
-    })
-    .await;
+    assert_eq!(
+        outline(&rows),
+        vs(&[
+            &format!("1:[[{dir}z/index]]"),
+            &format!("1:[[{dir}a]]"),
+            "1:[[elsewhere/aa]]",
+            &format!("1:[[{dir}b]]"),
+        ])
+    );
+    let link = rows[2].clone();
+    assert_eq!(link.properties["atlas_bounds"], json!("1,2,0,40"));
 
-    let (_, resp) = get("/api/config/property-definitions").await;
-    assert!(definition(&resp, &key).is_none(), "{resp}");
-    assert!(resp["propertyDefinitions"].get(&key).is_none(), "{resp}");
+    let rows = atlas_put(
+        &atlas_id,
+        &format!("links/{}", link.id),
+        json!({ "target": "far/zz" }),
+    )
+    .await;
+    assert_eq!(rows.last().unwrap().outline(), "1:[[far/zz]]");
+    assert_eq!(rows.last().unwrap().id, link.id);
 
     let (status, resp) = send(
         reqwest::Method::DELETE,
-        &format!("/api/pages/{}/properties/{key}", page.id),
+        &format!("/api/pages/{atlas_id}/atlas/items/{}", link.id),
         None,
     )
     .await;
     assert_eq!(status, 200, "{resp}");
-    assert!(resp["page"]["properties"].get(&key).is_none(), "{resp}");
+    assert_eq!(outline_of(&atlas_id).await.len(), 3);
 }
 
 #[tokio::test]
-async fn the_atlas_of_a_file_edited_outside_is_taken_into_the_page() {
-    let _folder = FOLDER_SCAN.lock().await;
-    let page = new_doc_page("file-atlas").await;
-    let key = format!("atlas_group_{}", nanos());
-    fill(&page.id, &["before the edit"]).await;
-    wait_until("the page is exported", || {
-        read(&file_of(&page)).contains("before the edit")
-    })
-    .await;
+async fn cards_dropped_on_a_card_make_a_group_that_ends_with_its_second_last_card() {
+    let (dir, atlas_id) = atlas_dir("atlas-group").await;
+    let a = doc_in(&dir, "a").await;
+    let b = doc_in(&dir, "b").await;
+    let link = atlas_post(
+        &atlas_id,
+        "links",
+        json!({ "target": "elsewhere/l", "bounds": "0,0,0,40" }),
+    )
+    .await
+    .into_iter()
+    .find(|r| r.body == "[[elsewhere/l]]")
+    .unwrap();
 
-    edit_file(&page, |text| {
-        text.replacen(
-            "---\n\n",
-            &format!("atlas_bounds: \"-10, 20.5,120,40\"\n{key}:\n  - id-b\n  - id-a\n---\n\n"),
-            1,
-        )
-    });
-    scan().await;
-    let (_, resp) = get(&format!("/api/pages/{}", page.id)).await;
+    let rows = atlas_post(
+        &atlas_id,
+        "group",
+        json!({ "cards": [b, link.id], "target": a }),
+    )
+    .await;
     assert_eq!(
-        resp["page"]["properties"]["atlas_bounds"],
-        json!("-10,20.5,120,40")
+        outline(&rows),
+        vs(&[
+            "1:",
+            &format!("2:[[{dir}a]]"),
+            &format!("2:[[{dir}b]]"),
+            "2:[[elsewhere/l]]",
+            &format!("1:[[{dir}z/index]]"),
+        ])
     );
-    assert_eq!(resp["page"]["properties"][&key], json!(["id-b", "id-a"]));
-    wait_until("the file has the bounds as exported", || {
-        read(&file_of(&page)).contains("atlas_bounds: \"-10,20.5,120,40\"\n")
-    })
-    .await;
+    let group = rows[0].id.clone();
+    assert_eq!(rows[0].properties["atlas_type"], json!("group"));
 
-    edit_file(&page, |text| {
-        text.lines()
-            .filter(|l| {
-                !l.starts_with("atlas_bounds") && !l.starts_with(&key) && !l.starts_with("  - id-")
-            })
-            .map(|l| format!("{l}\n"))
-            .collect()
-    });
-    scan().await;
-    let (_, resp) = get(&format!("/api/pages/{}", page.id)).await;
-    assert!(
-        resp["page"]["properties"].get("atlas_bounds").is_none(),
-        "{resp}"
-    );
-    assert!(resp["page"]["properties"].get(&key).is_none(), "{resp}");
+    let rows = atlas_put(
+        &atlas_id,
+        &format!("groups/{group}"),
+        json!({ "side": "left", "title": "Tools" }),
+    )
+    .await;
+    assert_eq!(rows[0].outline(), "1:Tools");
+    assert_eq!(rows[0].properties["atlas_side"], json!("left"));
+
+    atlas_post(&atlas_id, "ungroup", json!({ "cards": [link.id] })).await;
+    let rows = atlas_post(&atlas_id, "ungroup", json!({ "cards": [b] })).await;
+    assert!(rows.iter().all(|r| r.level == 1), "{rows:?}");
+    assert!(rows.iter().all(|r| r.id != group), "{rows:?}");
 }
 
 #[tokio::test]
-async fn a_group_title_stays_out_of_the_settings_and_follows_its_file() {
-    let _folder = FOLDER_SCAN.lock().await;
-    let page = new_doc_page("atlas-title").await;
-    let key = format!("atlas_title_{}", nanos());
-    let (status, resp) = put(
-        &format!("/api/pages/{}/properties/{key}", page.id),
-        json!({ "valueType": "text", "value": "top:Before" }),
+async fn the_callouts_go_last_under_their_parent() {
+    let (_, atlas_id) = atlas_dir("atlas-callout").await;
+
+    let rows = atlas_post(
+        &atlas_id,
+        "callouts",
+        json!({ "bounds": "10,20,0,60", "side": "left", "text": "Hello" }),
     )
     .await;
-    assert_eq!(status, 200, "{resp}");
-    wait_until("the title is exported", || {
-        read(&file_of(&page)).contains(&format!("{key}: top:Before\n"))
-    })
+    let n = rows.len();
+    assert_eq!(outline(&rows[n - 2..]), vs(&["1:callout", "2:Hello"]));
+    let callout = rows[n - 1].clone();
+    assert_eq!(callout.properties["atlas_type"], json!("callout"));
+    assert_eq!(callout.properties["atlas_side"], json!("left"));
+    assert_eq!(callout.properties["atlas_bounds"], json!("10,20,0,60"));
+
+    let rows = atlas_put(
+        &atlas_id,
+        &format!("callouts/{}", callout.id),
+        json!({ "side": "bottom", "text": "Bye" }),
+    )
     .await;
-    let (_, resp) = get("/api/config/property-definitions").await;
-    assert!(definition(&resp, &key).is_none(), "{resp}");
+    assert_eq!(rows.last().unwrap().outline(), "2:Bye");
 
-    edit_file(&page, |text| text.replace("top:Before", "left:After"));
-    scan().await;
-    let (_, resp) = get(&format!("/api/pages/{}", page.id)).await;
-    assert_eq!(resp["page"]["properties"][&key], json!("left:After"));
-
-    edit_file(&page, |text| {
-        text.lines()
-            .filter(|l| !l.starts_with(&key))
-            .map(|l| format!("{l}\n"))
-            .collect()
-    });
-    scan().await;
-    let (_, resp) = get(&format!("/api/pages/{}", page.id)).await;
-    assert!(resp["page"]["properties"].get(&key).is_none(), "{resp}");
+    let rows = atlas_put(
+        &atlas_id,
+        &format!("callouts/{}", callout.id),
+        json!({ "side": "bottom", "text": " " }),
+    )
+    .await;
+    assert_eq!(rows.len(), n - 2, "{rows:?}");
 }
 
 #[tokio::test]
-async fn a_callout_stays_out_of_the_settings_and_follows_its_file() {
-    let _folder = FOLDER_SCAN.lock().await;
-    let page = new_doc_page("atlas-callout").await;
-    let key = format!("atlas_callout_{}", nanos());
-    let (status, resp) = put(
-        &format!("/api/pages/{}/properties/{key}", page.id),
-        json!({ "valueType": "text", "value": "10,20,top:Hello" }),
-    )
-    .await;
-    assert_eq!(status, 200, "{resp}");
-    wait_until("the callout is exported", || {
-        read(&file_of(&page)).contains(&format!("{key}: 10,20,top:Hello\n"))
-    })
-    .await;
-    let (_, resp) = get("/api/config/property-definitions").await;
-    assert!(definition(&resp, &key).is_none(), "{resp}");
+async fn an_item_written_on_an_atlas_page_goes_when_the_atlas_is_written() {
+    let (dir, atlas_id) = atlas_dir("atlas-own").await;
+    fill(&atlas_id, &["a note"]).await;
 
-    edit_file(&page, |text| {
-        text.replace("10,20,top:Hello", "10,20,left:Bye")
-    });
-    scan().await;
-    let (_, resp) = get(&format!("/api/pages/{}", page.id)).await;
-    assert_eq!(resp["page"]["properties"][&key], json!("10,20,left:Bye"));
+    doc_in(&dir, "d").await;
 
-    let status = delete(&format!("/api/pages/{}/properties/{key}", page.id)).await;
-    assert!((200..300).contains(&status), "{status}");
-    wait_until("the callout leaves the file", || {
-        !read(&file_of(&page)).contains(&key)
-    })
-    .await;
-}
-
-#[tokio::test]
-async fn bounds_in_a_file_that_are_not_bounds_are_written_over_by_the_page() {
-    let _folder = FOLDER_SCAN.lock().await;
-    let page = new_doc_page("file-bad-bounds").await;
-    put(
-        &format!("/api/pages/{}/properties/atlas_bounds", page.id),
-        json!({ "valueType": "bounds", "value": "1,2,3,4" }),
-    )
-    .await;
-    wait_until("the bounds are exported", || {
-        read(&file_of(&page)).contains("atlas_bounds: 1,2,3,4\n")
-    })
-    .await;
-
-    edit_file(&page, |text| {
-        text.replace("atlas_bounds: 1,2,3,4", "atlas_bounds: here")
-    });
-    scan().await;
-    let (_, resp) = get(&format!("/api/pages/{}", page.id)).await;
-    assert_eq!(resp["page"]["properties"]["atlas_bounds"], json!("1,2,3,4"));
-    wait_until("the file has the bounds again", || {
-        read(&file_of(&page)).contains("atlas_bounds: 1,2,3,4\n")
-    })
-    .await;
+    let lines = outline_of(&atlas_id).await;
+    assert!(!lines.iter().any(|l| l.contains("a note")), "{lines:?}");
 }
 
 #[tokio::test]
 async fn a_value_is_checked_by_the_type_of_its_definition_not_the_type_sent() {
     let page = new_doc_page("defined-type").await;
-    let (status, resp) = put(
-        &format!("/api/pages/{}/properties/atlas_bounds", page.id),
-        json!({ "valueType": "text", "value": "not bounds" }),
-    )
-    .await;
-    assert_eq!(status, 400, "{resp}");
-    let (status, resp) = put(
-        &format!("/api/pages/{}/properties/atlas_bounds", page.id),
-        json!({ "valueType": "text", "value": "1, 2, 3, 4" }),
-    )
-    .await;
-    assert_eq!(status, 200, "{resp}");
-    assert_eq!(resp["page"]["properties"]["atlas_bounds"], json!("1,2,3,4"));
-
     let item = fill(&page.id, &["zoomed"]).await.remove(0);
     let (status, resp) = put(
         &format!("/api/items/{}/properties/zoom", item.id),

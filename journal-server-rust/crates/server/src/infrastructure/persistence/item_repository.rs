@@ -15,6 +15,11 @@ use super::page_repository::parse;
 /// Not in the index alphabet, so a parked index never equals a real one.
 const PARKED_IDX_PREFIX: &str = "~";
 
+/// An index no real item holds, for an item that is to be arranged.
+pub fn parked_idx(id: &Hmtid) -> String {
+    format!("{PARKED_IDX_PREFIX}{id}")
+}
+
 /// The item columns `map_item` reads, joined with the page columns an item carries.
 const SELECT_ITEMS: &str =
     "SELECT b.id, b.page_id, b.parent_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.ast, b.collapsed, b.transclude_item_id, \
@@ -240,10 +245,7 @@ impl ItemRepository {
         {
             let mut stmt = tx.prepare("UPDATE items SET idx = ? WHERE id = ?")?;
             for p in placements {
-                let n = stmt.execute(params![
-                    format!("{PARKED_IDX_PREFIX}{}", p.item_id),
-                    p.item_id.as_str()
-                ])?;
+                let n = stmt.execute(params![parked_idx(&p.item_id), p.item_id.as_str()])?;
                 if n == 0 {
                     return Err(AppError::bad_request(format!(
                         "Item not found: {}",
@@ -273,6 +275,32 @@ impl ItemRepository {
                 placements.len()
             )
         })?;
+        Ok(())
+    }
+
+    /// Gives the items of a page new indices and levels, in one transaction. The items not
+    /// named keep theirs. A new item may be saved first with [`parked_idx`], as no other item
+    /// can hold it.
+    pub fn arrange(&self, page_id: &Hmtid, rows: &[(Hmtid, String, i32)]) -> AppResult<()> {
+        let mut conn = self.db.conn()?;
+        let tx = conn.immediate()?;
+        // (page_id, idx) is unique and checked per statement, as in `move_items`
+        {
+            let mut stmt = tx.prepare("UPDATE items SET idx = ? WHERE id = ?")?;
+            for (id, _, _) in rows {
+                stmt.execute(params![parked_idx(id), id.as_str()])?;
+            }
+        }
+        {
+            let mut stmt = tx.prepare(
+                "UPDATE items SET idx = ?, level = ?, parent_id = NULL WHERE id = ? AND page_id = ?",
+            )?;
+            for (id, idx, level) in rows {
+                stmt.execute(params![idx, level, id.as_str(), page_id.as_str()])?;
+            }
+        }
+        tx.commit()
+            .with_context(|| format!("Failed to arrange the items of page: {page_id}"))?;
         Ok(())
     }
 

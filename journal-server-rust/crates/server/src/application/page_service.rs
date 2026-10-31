@@ -6,6 +6,7 @@ use std::sync::{Arc, LazyLock};
 use hmtid::Hmtid;
 use regex::Regex;
 
+use super::atlas_service::AtlasService;
 use super::config_service::ConfigService;
 use crate::domain::fractional_index;
 use crate::domain::id_generator::IdGenerator;
@@ -17,23 +18,10 @@ use crate::error::{AppError, AppResult};
 use crate::infrastructure::export::export_queue_repository::ExportQueueRepository;
 use crate::infrastructure::export::export_service::MarkdownExportService;
 use crate::infrastructure::persistence::db::now_millis;
-use crate::infrastructure::persistence::property_repository::{
-    is_atlas_group_key, is_atlas_text_key, normalize_bounds, validate_key, ListProps, ScalarProps,
-};
+use crate::infrastructure::persistence::property_repository::{ListProps, ScalarProps};
 use crate::infrastructure::persistence::{ItemRepository, PageRepository, PropertyRepository};
 
 const PAGE_TARGET: &str = "page";
-/// Where the card of a page lies on the atlas of its directory.
-const BOUNDS_KEY: &str = "atlas_bounds";
-
-/// What taking the atlas properties of an imported file did.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct AtlasImport {
-    /// The page took a new value or lost one.
-    pub changed: bool,
-    /// The file holds a value otherwise than the export writes it.
-    pub needs_write_back: bool,
-}
 
 /// Result of getting or creating a document page.
 #[derive(Debug, Clone)]
@@ -52,6 +40,8 @@ pub struct PageService {
     properties: PropertyRepository,
     ids: Arc<IdGenerator>,
     config: Arc<ConfigService>,
+    /// Keeps the atlas pages in step with the pages of their directories.
+    atlas: Arc<AtlasService>,
 }
 
 static FORBIDDEN_CHARS: LazyLock<Regex> =
@@ -121,6 +111,7 @@ impl PageService {
         properties: PropertyRepository,
         ids: Arc<IdGenerator>,
         config: Arc<ConfigService>,
+        atlas: Arc<AtlasService>,
     ) -> PageService {
         PageService {
             pages,
@@ -131,6 +122,15 @@ impl PageService {
             properties,
             ids,
             config,
+            atlas,
+        }
+    }
+
+    /// Writes the atlas pages again after the pages of a directory may have changed. A failure
+    /// leaves an atlas as it was, which does not undo the change of the pages.
+    pub fn sync_atlases(&self) {
+        if let Err(e) = self.atlas.sync_all() {
+            tracing::warn!("The atlas pages were not brought up to date: {e}");
         }
     }
 
@@ -232,12 +232,17 @@ impl PageService {
         let page = self.pages.save(&page)?;
         self.search.index_page(&page);
 
-        let item = self.initial_item(&page, now);
-        self.items.save(&item)?;
+        // The items of an atlas page are its cards, which the server writes; an empty first
+        // item could take the index a card took already
+        if !page.is_atlas() {
+            self.items.save(&self.initial_item(&page, now))?;
+        }
         self.export.queue_export(&id);
+        self.sync_atlases();
         Ok(DocResult {
+            // A new atlas page is written at once
+            items: self.items.find_by_page_id(&id)?,
             page,
-            items: vec![item],
             created: true,
         })
     }
@@ -372,6 +377,7 @@ impl PageService {
         }
 
         self.export.queue_export(page_id);
+        self.sync_atlases();
         Ok(updated)
     }
 
@@ -427,16 +433,6 @@ impl PageService {
             self.export.queue_export(&page.id);
             return Ok(updated);
         }
-        if is_atlas_group_key(key) {
-            let ids: Vec<String> = value
-                .split(',')
-                .map(|id| id.trim().to_string())
-                .filter(|id| !id.is_empty())
-                .collect();
-            self.properties
-                .sync_atlas_group(page_id.as_str(), key, &ids)?;
-            return self.touch_and_export(&page);
-        }
         match self.properties.find_definition(key)? {
             Some(def) if !def.page => {
                 return Err(AppError::bad_request(format!(
@@ -474,120 +470,6 @@ impl PageService {
                 .sync_tags(PAGE_TARGET, page_id.as_str(), tags)?;
         }
         Ok(before)
-    }
-
-    /// Sets the atlas properties of a page as an imported file has them: the bounds of its
-    /// card and, on an atlas page, its card groups, their titles and its callouts. A key the
-    /// file lacks goes from the page.
-    /// A value that cannot be taken keeps the page's value, and the file is to be written
-    /// again; so is a value written otherwise than the export writes it.
-    pub fn replace_atlas_properties(
-        &self,
-        page_id: &Hmtid,
-        frontmatter: &BTreeMap<String, String>,
-    ) -> AppResult<AtlasImport> {
-        let id = page_id.to_string();
-        let scalars = self
-            .properties
-            .find_scalar_by_targets(PAGE_TARGET, std::slice::from_ref(&id))?;
-        let lists = self
-            .properties
-            .find_list_by_targets(PAGE_TARGET, std::slice::from_ref(&id))?;
-        let mut result = AtlasImport::default();
-
-        let bounds_before = scalars.get(&id).and_then(|s| s.get(BOUNDS_KEY));
-        match frontmatter
-            .get(BOUNDS_KEY)
-            .map(|v| (v, normalize_bounds(v)))
-        {
-            Some((raw, Ok(bounds))) => {
-                if bounds_before != Some(&bounds) {
-                    self.properties.upsert_scalar(
-                        PAGE_TARGET,
-                        &id,
-                        BOUNDS_KEY,
-                        "bounds",
-                        &bounds,
-                    )?;
-                    result.changed = true;
-                }
-                result.needs_write_back |= *raw != bounds;
-            }
-            Some((_, Err(_))) => result.needs_write_back = true,
-            None if bounds_before.is_some() => {
-                self.properties
-                    .delete_property(PAGE_TARGET, &id, BOUNDS_KEY)?;
-                result.changed = true;
-            }
-            None => {}
-        }
-
-        let groups_before: BTreeMap<&String, &Vec<String>> = lists
-            .get(&id)
-            .map(|l| {
-                l.iter()
-                    .filter(|(key, _)| is_atlas_group_key(key))
-                    .collect()
-            })
-            .unwrap_or_default();
-        let mut groups_after = BTreeSet::new();
-        for (key, raw) in frontmatter
-            .iter()
-            .filter(|(key, _)| is_atlas_group_key(key))
-        {
-            let ids: Vec<String> = raw
-                .split(',')
-                .map(|id| id.trim().to_string())
-                .filter(|id| !id.is_empty())
-                .collect();
-            // A key that cannot be stored, or a group with no card, is dropped from the file
-            if ids.is_empty() || validate_key(key).is_err() {
-                result.needs_write_back = true;
-                continue;
-            }
-            if groups_before.get(key) != Some(&&ids) {
-                self.properties.sync_atlas_group(&id, key, &ids)?;
-                result.changed = true;
-            }
-            result.needs_write_back |= *raw != ids.join(",");
-            groups_after.insert(key);
-        }
-        for key in groups_before
-            .keys()
-            .filter(|key| !groups_after.contains(*key))
-        {
-            self.properties.delete_property(PAGE_TARGET, &id, key)?;
-            self.properties.delete_unused_atlas_group(key)?;
-            result.changed = true;
-        }
-
-        let texts_before: BTreeMap<&String, &String> = scalars
-            .get(&id)
-            .map(|s| s.iter().filter(|(key, _)| is_atlas_text_key(key)).collect())
-            .unwrap_or_default();
-        let mut texts_after = BTreeSet::new();
-        for (key, text) in frontmatter.iter().filter(|(key, _)| is_atlas_text_key(key)) {
-            // A key that cannot be stored, or an empty text, is dropped from the file
-            if text.trim().is_empty() || validate_key(key).is_err() {
-                result.needs_write_back = true;
-                continue;
-            }
-            if texts_before.get(key) != Some(&text) {
-                self.properties
-                    .upsert_scalar(PAGE_TARGET, &id, key, "text", text)?;
-                result.changed = true;
-            }
-            texts_after.insert(key);
-        }
-        for key in texts_before
-            .keys()
-            .filter(|key| !texts_after.contains(*key))
-        {
-            self.properties.delete_property(PAGE_TARGET, &id, key)?;
-            self.properties.delete_unused_atlas_text(key)?;
-            result.changed = true;
-        }
-        Ok(result)
     }
 
     /// Keeps the tag pages in step with a change of tags on one page or item: the added
@@ -734,12 +616,6 @@ impl PageService {
         };
         self.properties
             .delete_property(PAGE_TARGET, page_id.as_str(), key)?;
-        if is_atlas_group_key(key) {
-            self.properties.delete_unused_atlas_group(key)?;
-        }
-        if is_atlas_text_key(key) {
-            self.properties.delete_unused_atlas_text(key)?;
-        }
         self.delete_unused_tag_pages(&before);
         self.touch_and_export(&page)
     }
@@ -813,6 +689,7 @@ impl PageService {
         // Remove the markdown file too, otherwise the folder scan would bring the page back
         self.export.delete_page_file(&page);
         self.delete_unused_tag_pages(&tags);
+        self.sync_atlases();
         Ok(())
     }
 
