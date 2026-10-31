@@ -297,6 +297,9 @@ impl MarkdownImportService {
 
         self.file_sync_state
             .upsert_synced(rel_path, &page.id, hash, attrs.size, attrs.mtime)?;
+        if renamed {
+            self.forget_old_paths(root, rel_path, &page)?;
+        }
 
         if write_back || merge.needs_write_back || !tags_written_as_exported(fm, &page_tags) {
             // Give the file its ids / frontmatter. The export records the new hash, so it won't echo back.
@@ -332,6 +335,17 @@ impl MarkdownImportService {
             );
         }
         Ok(Outcome::Imported)
+    }
+
+    /// Drops the sync state of the files the moved page had before, when they are gone. They
+    /// would count as deleted files otherwise, and the page would be offered for deletion.
+    fn forget_old_paths(&self, root: &Path, rel_path: &str, page: &Page) -> AppResult<()> {
+        for old in self.file_sync_state.find_by_page_id(&page.id)? {
+            if old.rel_path != rel_path && !root.join(&old.rel_path).exists() {
+                self.file_sync_state.delete_by_path(&old.rel_path)?;
+            }
+        }
+        Ok(())
     }
 
     #[allow(clippy::too_many_arguments)]

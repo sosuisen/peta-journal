@@ -186,11 +186,18 @@ impl MarkdownReconcileService {
 
         // Files we knew about that are no longer there
         for state in states.values() {
-            if state.is_missing() {
-                continue;
-            }
             if root.join(&state.rel_path).exists() {
                 continue; // exists but ignored (e.g. renamed to .conflict)
+            }
+            if self.moved_away(&root, state) {
+                // Left from a move taken in before the import dropped the old paths
+                if let Err(e) = self.file_sync_state.delete_by_path(&state.rel_path) {
+                    tracing::warn!("Cannot forget {}: {e}", state.rel_path);
+                }
+                continue;
+            }
+            if state.is_missing() {
+                continue;
             }
             if let Err(e) = self.file_sync_state.mark_missing(&state.rel_path) {
                 tracing::warn!("Cannot mark {} missing: {e}", state.rel_path);
@@ -235,6 +242,17 @@ impl MarkdownReconcileService {
             summary.exported
         );
         summary
+    }
+
+    /// Whether the page of a file that is gone lives in another file now, which is there.
+    fn moved_away(&self, root: &Path, state: &FileSyncState) -> bool {
+        match self.pages.find_by_id(&state.page_id) {
+            Ok(Some(page)) => {
+                let current = path_mapper::to_rel_path_of(&page);
+                current != state.rel_path && root.join(current).exists()
+            }
+            _ => false,
+        }
     }
 }
 
