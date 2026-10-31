@@ -15,8 +15,8 @@
 // The menus and the dialog are made with @pixi/ui, the global `PIXI.ui` of vendor/pixi-ui.js.
 // A canvas that is not editable only shows the atlas, as a static site does: a drag with
 // either button moves the view, the wheel scales it, and a click on a label opens its page.
-// It needs no @pixi/ui. A card whose label is hidden (`masked`) shows its blob only, and
-// opens nothing.
+// It needs no @pixi/ui. A card whose label is hidden (`masked`) shows a softened blob only,
+// and opens nothing.
 // The wheel scales that container around the point under the pointer. With Ctrl, it scales
 // the selected cards instead, each around its own center.
 //
@@ -101,6 +101,9 @@ const LINK_ROW_HEIGHT = 26;
 // The handwritten font of the group titles and the callouts, copied to the root of the site by
 // index.html. From the root: a relative path would be read from the folder of the page.
 const TITLE_FONT = { family: '851 Tegaki Zatsu', url: '/851tegaki_zatsu_normal_0883.ttf' };
+// How much of the blob of a card with a hidden label shows. The scene gives it a white blob,
+// which would glare at full strength on the paper of the canvas.
+const MASKED_ALPHA = 0.7;
 
 window.AtlasCanvas = class AtlasCanvas {
   // onOpen(path, newTab, newWindow) opens the page of a card whose label is clicked.
@@ -1032,7 +1035,7 @@ window.AtlasCanvas = class AtlasCanvas {
   // The placed cards as JSON: [{ id, label, path, isDir, isLink, x, y, width, height, scale,
   // group, groupColor, groupTitle, groupTitleSide, icon, blob, iconSize, iconDrawSize, masked }],
   // where x and y are the center of the card. A card with a null path opens nothing. A masked
-  // card has its label hidden: its width is set, and only its blob shows. The id of a link card is the id of its item, and its
+  // card has its label hidden: its width is set, and only its blob shows, softened. The id of a link card is the id of its item, and its
   // path is the page it links to. width and height are its size as scaled, and a width of 0
   // leaves it to the label. icon and blob are SVGs or null, and iconDrawSize is the size of the
   // SVG, which is shown at iconSize. The core gives the color of each group, so it is the same
@@ -1882,7 +1885,7 @@ function cross() {
 // width it takes on the canvas is written back into the data, which the outlines of the
 // groups read.
 function card(data, resolution, iconResolution, fontFamily) {
-  const { label, icon, blob, iconSize, iconDrawSize, isLink } = data;
+  const { label, icon, blob, iconSize, iconDrawSize, isLink, masked } = data;
   const scale = data.scale > 0 ? data.scale : 1;
   const height = data.height / scale;
   const setWidth = data.width > 0 ? data.width / scale : null;
@@ -1937,9 +1940,8 @@ function card(data, resolution, iconResolution, fontFamily) {
   if (blob) {
     // Over the whole card, behind the icon. The SVG is drawn at the size of the card rather than
     // drawn square and stretched: a stretched line around the blob would be thicker on two sides.
-    // A card with a hidden label shows its blob as any card does; the scene gives it a color
-    // of its own
-    inside.addChild(iconSprite(sizedSvg(blob, width, height), width, height, iconResolution, width / 2, height / 2, 1));
+    const alpha = masked ? MASKED_ALPHA : 1;
+    inside.addChild(iconSprite(sizedSvg(blob, width, height), width, height, iconResolution, width / 2, height / 2, alpha));
   }
   if (icon) {
     // Rasterized in as many pixels as the icon covers at its largest, not at the size of the SVG
