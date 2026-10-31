@@ -71,6 +71,14 @@ pub enum ApiOp {
         value_type: String,
         value: String,
     },
+    DeleteItemProperty {
+        item_id: String,
+        key: String,
+    },
+    ChangeAtlas {
+        atlas_id: String,
+        change: AtlasChange,
+    },
     SearchCombined {
         query: String,
         max_results: u32,
@@ -166,6 +174,47 @@ pub struct FolderChoice {
     pub selected: bool,
     #[serde(default)]
     pub path: String,
+}
+
+/// A change of the outline of an atlas page, which the server makes. Each card is named by the
+/// id of its item, or a page card by the id of its page.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum AtlasChange {
+    AddLink {
+        target: String,
+        bounds: String,
+    },
+    SetLink {
+        item_id: String,
+        target: String,
+    },
+    Group {
+        cards: Vec<String>,
+        target: String,
+    },
+    Ungroup {
+        cards: Vec<String>,
+    },
+    SetGroupTitle {
+        item_id: String,
+        side: String,
+        title: String,
+    },
+    AddCallout {
+        bounds: String,
+        side: String,
+        text: String,
+    },
+    /// An empty text takes the callout away
+    SetCallout {
+        item_id: String,
+        side: String,
+        text: String,
+    },
+    /// Takes away a link card or a callout
+    Remove {
+        item_id: String,
+    },
 }
 
 /// The answer to an [`ApiOp`]; the variant matches the operation.
@@ -579,6 +628,29 @@ impl<Event: Send + 'static> Api<Event> {
             })
             .await,
             Item
+        )
+    }
+
+    pub async fn delete_item_property(&self, item_id: &str, key: &str) -> ApiResult<Item> {
+        expect_output!(
+            self.call(ApiOp::DeleteItemProperty {
+                item_id: item_id.into(),
+                key: key.into(),
+            })
+            .await,
+            Item
+        )
+    }
+
+    /// Changes the outline of an atlas page and answers with the items of the page.
+    pub async fn change_atlas(&self, atlas_id: &str, change: AtlasChange) -> ApiResult<Vec<Item>> {
+        expect_output!(
+            self.call(ApiOp::ChangeAtlas {
+                atlas_id: atlas_id.into(),
+                change,
+            })
+            .await,
+            Items
         )
     }
 

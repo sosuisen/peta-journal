@@ -13,8 +13,8 @@ use crate::listeners::DocumentListeners;
 use leptos::prelude::*;
 use peta_core::app::Event;
 use peta_core::screens::atlas::{
-    callout_face_svg, link_blob_svg, link_label, parent_dir_label, tag_blob_svg, tag_icon_svg,
-    Callout, LinkCard, CARD_HEIGHT, CARD_WIDTH,
+    callout_face_svg, group_color, link_blob_svg, link_label, parent_dir_label, tag_blob_svg,
+    tag_icon_svg, Callout, LinkCard, CARD_HEIGHT, CARD_WIDTH,
 };
 use peta_core::view::{AtlasCard, ScreenView};
 use std::collections::HashMap;
@@ -132,14 +132,9 @@ extern "C" {
         this: &AtlasCanvas,
         on_add: &js_sys::Function,
         on_set: &js_sys::Function,
-        on_move: &js_sys::Function,
-        on_scale: &js_sys::Function,
         on_remove: &js_sys::Function,
         on_query: &js_sys::Function,
     );
-
-    #[wasm_bindgen(method, js_name = setLinks)]
-    fn set_links(this: &AtlasCanvas, json: String);
 
     #[wasm_bindgen(method, js_name = setLinkSuggestions)]
     fn set_link_suggestions(this: &AtlasCanvas, json: String);
@@ -181,10 +176,10 @@ const ICON_SIZE: i32 = 48;
 /// would hold only a few of its dots or lines.
 const ICON_DRAW_SIZE: i32 = 100;
 
-/// The placed cards as `atlas.js` reads them. The icons are drawn here rather than in the
-/// view, so they are drawn only when the cards change.
-fn placed_json(cards: &[AtlasCard]) -> String {
-    let placed: Vec<_> = cards
+/// The placed cards as `atlas.js` reads them, the link cards among them. The icons are drawn
+/// here rather than in the view, so they are drawn only when the cards change.
+fn placed_json(cards: &[AtlasCard], links: &[LinkCard]) -> String {
+    let mut placed: Vec<_> = cards
         .iter()
         .filter_map(|c| {
             c.bounds.map(|b| {
@@ -214,6 +209,7 @@ fn placed_json(cards: &[AtlasCard]) -> String {
             })
         })
         .collect();
+    placed.extend(links.iter().map(link_json));
     serde_json::Value::Array(placed).to_string()
 }
 
@@ -240,29 +236,27 @@ fn callouts_json(callouts: &[Callout]) -> String {
     serde_json::Value::Array(all).to_string()
 }
 
-/// The link cards as `atlas.js` reads them: as the cards are, with the item of the link as the
-/// id. The blob is drawn from the page it links to, in a color of its own.
-fn links_json(links: &[LinkCard]) -> String {
-    let all: Vec<_> = links
-        .iter()
-        .map(|l| {
-            serde_json::json!({
-                "id": l.item_id,
-                "label": link_label(&l.target),
-                "path": l.target,
-                "isLink": true,
-                "x": l.bounds.x,
-                "y": l.bounds.y,
-                "width": l.bounds.width,
-                "height": l.bounds.height,
-                "scale": l.bounds.scale(),
-                "blob": link_blob_svg(&l.target, ICON_DRAW_SIZE),
-                "iconSize": ICON_SIZE,
-                "iconDrawSize": ICON_DRAW_SIZE,
-            })
-        })
-        .collect();
-    serde_json::Value::Array(all).to_string()
+/// A link card as `atlas.js` reads it: as a card is, with the item of the link as the id. The
+/// blob is drawn from the page it links to, in a color of its own.
+fn link_json(l: &LinkCard) -> serde_json::Value {
+    serde_json::json!({
+        "id": l.item_id,
+        "label": link_label(&l.target),
+        "path": l.target,
+        "isLink": true,
+        "x": l.bounds.x,
+        "y": l.bounds.y,
+        "width": l.bounds.width,
+        "height": l.bounds.height,
+        "scale": l.bounds.scale(),
+        "group": l.group,
+        "groupColor": l.group.as_deref().map(group_color),
+        "groupTitle": l.group_title.as_ref().map(|t| &t.text),
+        "groupTitleSide": l.group_title.as_ref().map(|t| &t.side),
+        "blob": link_blob_svg(&l.target, ICON_DRAW_SIZE),
+        "iconSize": ICON_SIZE,
+        "iconDrawSize": ICON_DRAW_SIZE,
+    })
 }
 
 #[component]
@@ -298,8 +292,8 @@ pub fn Atlas() -> impl IntoView {
     ));
     // A card dragged to a new place on the canvas
     let on_place = StoredValue::new_local(Closure::<dyn Fn(String, f64, f64)>::new(
-        move |page_id: String, x: f64, y: f64| {
-            core.send(Event::PlaceAtlasCard { page_id, x, y });
+        move |card_id: String, x: f64, y: f64| {
+            core.send(Event::PlaceAtlasCard { card_id, x, y });
         },
     ));
 
@@ -346,9 +340,9 @@ pub fn Atlas() -> impl IntoView {
     // Cards dropped on a card with Ctrl held: the ids of the dropped cards come as JSON
     let on_group = StoredValue::new_local(Closure::<dyn Fn(String, String)>::new(
         move |ids_json: String, target_id: String| {
-            if let Ok(page_ids) = serde_json::from_str::<Vec<String>>(&ids_json) {
+            if let Ok(card_ids) = serde_json::from_str::<Vec<String>>(&ids_json) {
                 core.send(Event::GroupAtlasCards {
-                    page_ids,
+                    card_ids,
                     target_id,
                 });
             }
@@ -357,21 +351,21 @@ pub fn Atlas() -> impl IntoView {
     // Cards dragged out of the outline of their group with Ctrl held, as JSON
     let on_ungroup =
         StoredValue::new_local(Closure::<dyn Fn(String)>::new(move |ids_json: String| {
-            if let Ok(page_ids) = serde_json::from_str::<Vec<String>>(&ids_json) {
-                core.send(Event::UngroupAtlasCards { page_ids });
+            if let Ok(card_ids) = serde_json::from_str::<Vec<String>>(&ids_json) {
+                core.send(Event::UngroupAtlasCards { card_ids });
             }
         }));
     // A card scaled with Ctrl and the wheel
     let on_scale = StoredValue::new_local(Closure::<dyn Fn(String, f64)>::new(
-        move |page_id: String, scale: f64| {
-            core.send(Event::ScaleAtlasCard { page_id, scale });
+        move |card_id: String, scale: f64| {
+            core.send(Event::ScaleAtlasCard { card_id, scale });
         },
     ));
     // The title of a group given in its dialog, along a side of its outline
     let on_group_title = StoredValue::new_local(Closure::<dyn Fn(String, String, String)>::new(
-        move |group_key: String, side: String, title: String| {
+        move |group_id: String, side: String, title: String| {
             core.send(Event::SetAtlasGroupTitle {
-                group_key,
+                group_id,
                 side,
                 title,
             });
@@ -411,16 +405,6 @@ pub fn Atlas() -> impl IntoView {
     let on_set_link = StoredValue::new_local(Closure::<dyn Fn(String, String)>::new(
         move |item_id: String, target: String| {
             core.send(Event::SetAtlasLink { item_id, target });
-        },
-    ));
-    let on_move_link = StoredValue::new_local(Closure::<dyn Fn(String, f64, f64)>::new(
-        move |item_id: String, x: f64, y: f64| {
-            core.send(Event::MoveAtlasLink { item_id, x, y });
-        },
-    ));
-    let on_scale_link = StoredValue::new_local(Closure::<dyn Fn(String, f64)>::new(
-        move |item_id: String, scale: f64| {
-            core.send(Event::ScaleAtlasLink { item_id, scale });
         },
     ));
     let on_remove_link =
@@ -483,20 +467,14 @@ pub fn Atlas() -> impl IntoView {
                     .with_value(|sc| made.set_on_scale_callout(sc.as_ref().unchecked_ref()));
                 on_add_link.with_value(|add| {
                     on_set_link.with_value(|set| {
-                        on_move_link.with_value(|mv| {
-                            on_scale_link.with_value(|sc| {
-                                on_remove_link.with_value(|rm| {
-                                    on_link_query.with_value(|query| {
-                                        made.set_on_link(
-                                            add.as_ref().unchecked_ref(),
-                                            set.as_ref().unchecked_ref(),
-                                            mv.as_ref().unchecked_ref(),
-                                            sc.as_ref().unchecked_ref(),
-                                            rm.as_ref().unchecked_ref(),
-                                            query.as_ref().unchecked_ref(),
-                                        )
-                                    })
-                                })
+                        on_remove_link.with_value(|rm| {
+                            on_link_query.with_value(|query| {
+                                made.set_on_link(
+                                    add.as_ref().unchecked_ref(),
+                                    set.as_ref().unchecked_ref(),
+                                    rm.as_ref().unchecked_ref(),
+                                    query.as_ref().unchecked_ref(),
+                                )
                             })
                         })
                     })
@@ -507,16 +485,12 @@ pub fn Atlas() -> impl IntoView {
     };
     // Apart, so a change of a callout does not draw every card again
     Effect::new(move |_| {
-        let json = cards.with(|cs| placed_json(cs));
+        let json = cards.with(|cs| links.with(|ls| placed_json(cs, ls)));
         with_canvas(&|c| c.set_cards(json.clone()));
     });
     Effect::new(move |_| {
         let json = callouts.with(|cs| callouts_json(cs));
         with_canvas(&|c| c.set_callouts(json.clone()));
-    });
-    Effect::new(move |_| {
-        let json = links.with(|ls| links_json(ls));
-        with_canvas(&|c| c.set_links(json.clone()));
     });
     Effect::new(move |_| {
         let json = link_suggestions.with(|ts| serde_json::to_string(ts).unwrap_or_default());
@@ -560,13 +534,13 @@ pub fn Atlas() -> impl IntoView {
         // The grabbed spot of the card stays under the pointer, as the dragged image shows it.
         // The card is placed by its center, which lies this far from the grabbed spot.
         core.send(Event::PlaceAtlasCard {
-            page_id: grab.page_id.clone(),
+            card_id: grab.page_id.clone(),
             x: x + (0.5 - grab.x) * CARD_WIDTH,
             y: y + (0.5 - grab.y) * CARD_HEIGHT,
         });
         if let Some(target_id) = target_id {
             core.send(Event::GroupAtlasCards {
-                page_ids: vec![grab.page_id],
+                card_ids: vec![grab.page_id],
                 target_id,
             });
         }
