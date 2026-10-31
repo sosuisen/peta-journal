@@ -536,8 +536,13 @@ fn a_folder_index_made_for_a_file_taken_in_waits_for_the_index_file_of_the_other
     b.export();
     assert!(!b.root.join("docs/e/index.md").exists());
 
+    // Both index pages have an id of the same second, so either may be the older one; the
+    // older wins on both devices once each has the file of the other
+    let older = a.page_in("e/", "index").min(b.page_in("e/", "index"));
     b.receive(&a, "docs/e/index.md");
-    assert_eq!(b.page_in("e/", "index"), a.page_in("e/", "index"));
+    a.receive(&b, "docs/e/index.md");
+    assert_eq!(a.page_in("e/", "index"), older);
+    assert_eq!(b.page_in("e/", "index"), older);
     assert_eq!(b.file("docs/e/index.md"), a.file("docs/e/index.md"));
 }
 
