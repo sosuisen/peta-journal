@@ -1,0 +1,17 @@
+[package]
+name = "peta-atlas"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "The atlas of PetaJournal: reads the outline of index_atlas, draws its marks as SVG and writes the scene that atlas.js draws"
+publish = false
+
+[features]
+# The SVG of the icons, blobs and faces, and the scene that holds them. The server reads the
+# outline only, so it does not build picturesque-marks.
+marks = ["dep:picturesque-marks", "dep:serde", "dep:serde_json"]
+
+[dependencies]
+picturesque-marks = { version = "0.4", optional = true }
+serde = { version = "1", features = ["derive"], optional = true }
+serde_json = { version = "1", optional = true }
