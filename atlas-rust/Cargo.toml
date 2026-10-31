@@ -10,8 +10,11 @@ publish = false
 # The SVG of the icons, blobs and faces, and the scene that holds them. The server reads the
 # outline only, so it does not build picturesque-marks.
 marks = ["dep:picturesque-marks", "dep:serde", "dep:serde_json"]
+# Measures a label in a font, for a card whose label is hidden from the scene
+measure = ["dep:rustybuzz"]
 
 [dependencies]
 picturesque-marks = { version = "0.4", optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
 serde_json = { version = "1", optional = true }
+rustybuzz = { version = "0.20.1", optional = true }

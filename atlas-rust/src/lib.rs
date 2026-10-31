@@ -5,9 +5,12 @@
 //! - The crate root reads the outline: what each item is and which group a card is in.
 //! - [`marks`] draws the icons, blobs and faces as SVG (feature `marks`).
 //! - [`scene`] writes the cards and callouts as `atlas.js` reads them (feature `marks`).
+//! - [`measure`] measures the width of a card from its label in a font (feature `measure`).
 
 #[cfg(feature = "marks")]
 pub mod marks;
+#[cfg(feature = "measure")]
+pub mod measure;
 #[cfg(feature = "marks")]
 pub mod scene;
 
