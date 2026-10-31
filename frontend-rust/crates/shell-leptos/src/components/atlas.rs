@@ -101,6 +101,7 @@ extern "C" {
         pan_x: f64,
         pan_y: f64,
         zoom: f64,
+        options: &JsValue,
     ) -> AtlasCanvas;
 
     #[wasm_bindgen(method, js_name = setOnGroup)]
@@ -167,6 +168,15 @@ extern "C" {
 
     #[wasm_bindgen(method)]
     fn destroy(this: &AtlasCanvas);
+}
+
+/// The options of the canvas: the labels in the font that a static site draws an atlas in
+/// too, so a label takes the same width in both. index.html copies the font to the root.
+const CANVAS_OPTIONS: &str =
+    r#"{ "labelFont": { "family": "PetaAtlas Label", "url": "/NotoSansJP-Regular.ttf" } }"#;
+
+fn canvas_options() -> JsValue {
+    js_sys::JSON::parse(CANVAS_OPTIONS).expect("the options are JSON")
 }
 
 /// The group of a card as the scene takes it.
@@ -399,6 +409,7 @@ pub fn Atlas() -> impl IntoView {
                                     start.x,
                                     start.y,
                                     start.zoom,
+                                    &canvas_options(),
                                 )
                             })
                         })
