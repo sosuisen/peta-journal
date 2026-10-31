@@ -94,6 +94,7 @@ impl AppState {
             pages.clone(),
             items.clone(),
             properties.clone(),
+            std::time::Duration::from_secs(settings.export_overwrite_wait_secs),
         ));
         let atlas = Arc::new(AtlasService::new(
             pages.clone(),

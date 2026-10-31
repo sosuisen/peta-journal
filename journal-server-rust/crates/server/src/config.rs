@@ -60,6 +60,12 @@ pub struct Cli {
     #[arg(long, env = "PETAJOURNAL_IMPORT_COPY_WAIT", default_value_t = 300)]
     pub import_copy_wait: u64,
 
+    /// A file that changed on disk and was not taken in yet is not written over: the export
+    /// waits for the import. After this long it keeps the file as a conflict backup and
+    /// writes the page (seconds)
+    #[arg(long, env = "PETAJOURNAL_EXPORT_OVERWRITE_WAIT", default_value_t = 300)]
+    pub export_overwrite_wait: u64,
+
     /// Allowed CORS origins, comma separated
     #[arg(
         long,
@@ -83,6 +89,7 @@ pub struct Settings {
     pub import_scan_interval_secs: u64,
     pub import_delete_prompt_cooldown_secs: u64,
     pub import_copy_wait_secs: u64,
+    pub export_overwrite_wait_secs: u64,
     pub cors_origins: Vec<String>,
 }
 
@@ -118,6 +125,7 @@ impl Settings {
             import_scan_interval_secs: cli.import_scan_interval.max(1),
             import_delete_prompt_cooldown_secs: cli.import_delete_prompt_cooldown,
             import_copy_wait_secs: cli.import_copy_wait,
+            export_overwrite_wait_secs: cli.export_overwrite_wait,
             cors_origins: cli
                 .cors_origins
                 .split(',')
@@ -141,6 +149,7 @@ impl Settings {
             import_scan_interval_secs: 60,
             import_delete_prompt_cooldown_secs: 300,
             import_copy_wait_secs: 300,
+            export_overwrite_wait_secs: 300,
             cors_origins: vec!["http://localhost:4200".to_string()],
         }
     }

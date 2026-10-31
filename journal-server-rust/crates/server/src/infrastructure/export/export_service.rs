@@ -1,11 +1,15 @@
-//! Writes pages to the markdown folder.
+//! Writes pages to the markdown folder. A file that changed on disk and was not taken in yet,
+//! as one another device sent, is not written over: the page waits in the queue until the
+//! import has taken the file in. After a while the file is kept as a conflict backup instead.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use hmtid::Hmtid;
+use parking_lot::Mutex;
 
 use crate::application::config_service::ConfigService;
 use crate::application::flat_markdown_serializer;
@@ -27,6 +31,10 @@ pub struct MarkdownExportService {
     /// True while a scheduler run is writing files; a run that overlaps is skipped.
     processing: AtomicBool,
     warned_dir_unavailable: AtomicBool,
+    /// How long a page waits for the import of its file before the file is written over.
+    overwrite_wait: Duration,
+    /// The pages that wait for the import of their file, and since when.
+    waiting: Mutex<BTreeMap<Hmtid, Instant>>,
 }
 
 impl MarkdownExportService {
@@ -37,6 +45,7 @@ impl MarkdownExportService {
         pages: PageRepository,
         items: ItemRepository,
         properties: PropertyRepository,
+        overwrite_wait: Duration,
     ) -> MarkdownExportService {
         MarkdownExportService {
             config,
@@ -47,6 +56,8 @@ impl MarkdownExportService {
             properties,
             processing: AtomicBool::new(false),
             warned_dir_unavailable: AtomicBool::new(false),
+            overwrite_wait,
+            waiting: Mutex::new(BTreeMap::new()),
         }
     }
 
@@ -160,6 +171,21 @@ impl MarkdownExportService {
             }
         }
 
+        if self.has_changes_not_taken_in(&file_path, &rel_path, &markdown)? {
+            let since = *self
+                .waiting
+                .lock()
+                .entry(page_id.clone())
+                .or_insert_with(Instant::now);
+            if since.elapsed() < self.overwrite_wait {
+                tracing::debug!("{rel_path} changed on disk, waiting for the import");
+                self.queue_export(page_id);
+                return Ok(());
+            }
+            backup_before_overwrite(&file_path, &page.name)?;
+        }
+        self.waiting.lock().remove(page_id);
+
         if let Some(parent) = file_path.parent() {
             std::fs::create_dir_all(parent)?;
         }
@@ -185,6 +211,38 @@ impl MarkdownExportService {
         )?;
         tracing::debug!("Exported page {} to {}", page.name, file_path.display());
         Ok(())
+    }
+
+    /// Whether the file has content that was neither written here nor taken in: it differs
+    /// from what the sync state recorded, and from what is to be written.
+    fn has_changes_not_taken_in(
+        &self,
+        file: &Path,
+        rel_path: &str,
+        markdown: &str,
+    ) -> AppResult<bool> {
+        let Ok(meta) = std::fs::metadata(file) else {
+            return Ok(false);
+        };
+        let state = self.file_sync_state.find_by_path(rel_path)?;
+        if let Some(s) = &state {
+            if !s.is_missing()
+                && s.file_size == meta.len() as i64
+                && s.file_mtime == mtime_millis(&meta)
+            {
+                return Ok(false);
+            }
+        }
+        // Content that is not text cannot be taken in either; it is kept as a backup too
+        let content = std::fs::read_to_string(file).unwrap_or_default();
+        if content == markdown {
+            return Ok(false);
+        }
+        let hash = path_mapper::sha256(&content);
+        Ok(match &state {
+            Some(s) => s.is_missing() || s.content_hash != hash,
+            None => true,
+        })
     }
 
     /// Removes the markdown file of a page that was deleted from the DB. Safe when the file is gone.
@@ -291,6 +349,20 @@ pub fn format_instant(millis: i64) -> String {
 }
 
 /// Modification time of a file as epoch millis.
+/// Keeps the file that is to be written over as a conflict backup next to it. The file is
+/// not written over when this fails.
+fn backup_before_overwrite(file: &Path, name: &str) -> std::io::Result<()> {
+    let ts = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
+    let backup = file.with_file_name(path_mapper::conflict_file_name(name, &ts));
+    std::fs::copy(file, &backup)?;
+    tracing::warn!(
+        "{} was not taken in; kept it as {} and wrote the page over it",
+        file.display(),
+        backup.display()
+    );
+    Ok(())
+}
+
 pub fn mtime_millis(meta: &std::fs::Metadata) -> i64 {
     meta.modified()
         .ok()

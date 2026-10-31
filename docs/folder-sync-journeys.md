@@ -67,6 +67,9 @@ PC A の DB:
 3. パスは `docs/Ideas.md`(`{type}s/{dirPath}{name}.md`)。内容の SHA-256 を計算
 4. `file_sync_state` を page_id で引き、**別パス**の行があればその古いファイルを消す(ページのリネーム・移動の後始末)。今回は無し
 5. `file_sync_state` にこのパスの行があり、ハッシュが同じで、ファイルも存在すればスキップ。今回は行が無いので書く
+   - ディスクのファイルが、記録した内容とも、これから書く内容とも違うことがある。別のPCから届いて、まだ取り込んでいないファイルである。このときは書かずに、キューへ戻す。取り込みが先に動き、マージするか、`.conflict`のバックアップを作る。
+   - 5分たっても取り込まれなければ、ディスクのファイルを`.conflict`として残してから書く。
+   - サイズと更新日時が記録と同じなら、中身は読まない。
 6. `docs/.Ideas.md.tmp` に書いてから `docs/Ideas.md` へアトミックにリネーム。途中状態のファイルは誰にも見えない
 7. `file_sync_state` に記録: `(docs/Ideas.md, A-page, ハッシュ, size, mtime, synced)`
 
@@ -133,6 +136,13 @@ PC B の Watcher: `.dropbox.cache` 配下は無視、`docs/Ideas.md` の CREATE 
 ### 補足: 同じページを両 PC で別々に作った場合(今日のジャーナルなど)
 
 Dropbox は同じパスの 2 ファイルを見て片方を正、もう片方を「conflicted copy」にする(こちらは無視。中身は人が拾う)。正になった方を相手が取り込むと、ID では見つからず**パスで**見つかり、ID が違う。このとき**古い方の ID が勝つ**(HMTID は時刻順)。負けた側は `PageRepository.rekey()` でローカルのページ ID を付け替える(items / export_queue / file_sync_state / page properties / 検索インデックスをまとめて移す)。両 PC で同じ判定をするので必ず同じ ID に収束する。
+
+### 補足: フォルダのindexページ
+
+ページを`d/`に作ると、`d/index`のページもDBにできる(`ensure_ancestor_pages`)。
+
+- アプリで作ったときは、indexページもすぐにexportのキューに入れる。ファイルがすぐにでき、相手のPCはそれを取り込む。自分のindexページを別に作らない。
+- 取り込んだファイルのために作ったときは、すぐには書かない。送ってきたPCのindexファイルが、あとから届くことがあるため。届けば、パスで照合して、古いidが勝つ。届かなければ、60秒ごとのスキャンが「ファイルの無いページ」として書く。
 
 ### 補足: ページを移動した場合(新しいファイルが先に届く)
 
@@ -206,3 +216,4 @@ Dropbox B が削除。PC B の Watcher:
 | `petajournal.import.scan-interval` | 60 | フルスキャンの間隔(秒)。初回は起動 10 秒後 |
 | `petajournal.import.delete-prompt-cooldown` | 300 | 確認ページを開く間隔の下限(秒) |
 | `PETAJOURNAL_IMPORT_COPY_WAIT`(Rust版) | 300 | 同じidのファイルがほかに残るとき、コピーと決めるまで待つ時間(秒) |
+| `PETAJOURNAL_EXPORT_OVERWRITE_WAIT`(Rust版) | 300 | まだ取り込んでいないファイルを、バックアップして上書きするまで待つ時間(秒) |
