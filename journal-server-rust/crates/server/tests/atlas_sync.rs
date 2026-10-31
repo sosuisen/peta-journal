@@ -32,6 +32,12 @@ impl Device {
     }
 
     fn with(dir: &Path, settings: Settings) -> Device {
+        // A scan that finds missing files opens the browser, unless it did within the
+        // cooldown; one longer than the time since 1970 keeps it shut
+        let settings = Settings {
+            import_delete_prompt_cooldown_secs: 10_000_000_000,
+            ..settings
+        };
         let root = dir.join("markdown");
         let config_dir = dir.join("config");
         std::fs::create_dir_all(&root).unwrap();
@@ -82,6 +88,18 @@ impl Device {
     fn file(&self, rel_path: &str) -> String {
         self.export();
         std::fs::read_to_string(self.root.join(rel_path)).unwrap()
+    }
+
+    /// The paths the scan holds as deleted files, to ask the user about
+    fn missing(&self) -> Vec<String> {
+        self.state.reconcile.scan();
+        self.state
+            .file_sync_state
+            .find_missing()
+            .unwrap()
+            .into_iter()
+            .map(|s| s.rel_path)
+            .collect()
     }
 
     fn sync(&self, rel_path: &str) -> Outcome {
@@ -518,7 +536,45 @@ fn a_folder_index_made_for_a_file_taken_in_waits_for_the_index_file_of_the_other
     b.export();
     assert!(!b.root.join("docs/e/index.md").exists());
 
+    // Both index pages have an id of the same second, so either may be the older one; the
+    // older wins on both devices once each has the file of the other
+    let older = a.page_in("e/", "index").min(b.page_in("e/", "index"));
     b.receive(&a, "docs/e/index.md");
-    assert_eq!(b.page_in("e/", "index"), a.page_in("e/", "index"));
+    a.receive(&b, "docs/e/index.md");
+    assert_eq!(a.page_in("e/", "index"), older);
+    assert_eq!(b.page_in("e/", "index"), older);
     assert_eq!(b.file("docs/e/index.md"), a.file("docs/e/index.md"));
+}
+
+#[test]
+fn a_page_moved_on_the_other_device_is_not_offered_for_deletion() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    moved_on_a(&a, &b);
+
+    std::fs::remove_file(b.root.join("docs/d/c.md")).unwrap();
+    assert_eq!(b.sync("docs/d/c.md"), Outcome::Missing);
+    assert_eq!(b.receive(&a, "docs/e/c.md"), Outcome::Imported);
+
+    // The import forgets the old path before any scan
+    let old = b.state.file_sync_state.find_by_path("docs/d/c.md").unwrap();
+    assert!(old.is_none());
+    assert!(b.missing().is_empty());
+}
+
+#[test]
+fn the_old_path_of_a_page_moved_before_is_no_longer_offered_for_deletion() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    let c = moved_on_a(&a, &b);
+    std::fs::remove_file(b.root.join("docs/d/c.md")).unwrap();
+    b.receive(&a, "docs/e/c.md");
+    // A move taken in by an older version left the old path as a deleted file
+    let sync_state = &b.state.file_sync_state;
+    sync_state
+        .upsert_synced("docs/d/c.md", &c, "old", 1, 1)
+        .unwrap();
+    sync_state.mark_missing("docs/d/c.md").unwrap();
+
+    assert!(b.missing().is_empty());
 }
