@@ -805,9 +805,20 @@ impl PageService {
         (head.eq_ignore_ascii_case(&tags_dir) && !tag.is_empty()).then(|| tag.to_string())
     }
 
-    /// Ensures that all ancestor directory pages exist for the given dirPath.
-    /// For example, dirPath "dir1/dir2/" creates pages ("dir1/", "index") and ("dir1/dir2/", "index").
+    /// Ensures that all ancestor directory pages exist for the given dirPath, and writes their
+    /// files. For example, dirPath "dir1/dir2/" creates pages ("dir1/", "index") and
+    /// ("dir1/dir2/", "index").
     pub fn ensure_ancestor_pages(&self, dir_path: &str) -> AppResult<()> {
+        self.make_ancestor_pages(dir_path, true)
+    }
+
+    /// Ensures the ancestor directory pages of a file being taken in. Their files are not
+    /// written: the device that sent the file may send its index files too.
+    pub fn ensure_ancestor_pages_from_file(&self, dir_path: &str) -> AppResult<()> {
+        self.make_ancestor_pages(dir_path, false)
+    }
+
+    fn make_ancestor_pages(&self, dir_path: &str, export: bool) -> AppResult<()> {
         if dir_path.is_empty() {
             return Ok(());
         }
@@ -844,6 +855,9 @@ impl PageService {
                 };
                 self.pages.save(&renamed)?;
                 self.search.index_page(&renamed);
+                if export {
+                    self.export.queue_export(&renamed.id);
+                }
             } else {
                 let now = now_millis();
                 let page = Page {
@@ -859,6 +873,11 @@ impl PageService {
                 self.search.index_page(&page);
                 let item = self.initial_item(&page, now);
                 self.items.save(&item)?;
+                if export {
+                    // A file at once, so another device takes this index page and does not
+                    // make one of its own
+                    self.export.queue_export(&page.id);
+                }
             }
         }
         Ok(())

@@ -197,7 +197,10 @@ impl PageMatcher {
 
     fn save(&self, page: &Page, loc: &PageLocation, modified: i64) -> AppResult<Page> {
         if loc.page_type == "doc" && !loc.dir_path.is_empty() && loc.name != "index" {
-            self.page_service.ensure_ancestor_pages(&loc.dir_path)?;
+            // The index file may be on its way from the device that sent this file; the scan
+            // writes one later when none comes
+            self.page_service
+                .ensure_ancestor_pages_from_file(&loc.dir_path)?;
         }
         self.touch(page, loc, modified)
     }
