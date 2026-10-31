@@ -12,6 +12,7 @@ path = "src/main.rs"
 
 [dependencies]
 hmtid = { path = "../hmtid" }
+peta-atlas = { path = "../../../atlas-rust" }
 flatmarkdown = "0.4.3"
 
 # Web

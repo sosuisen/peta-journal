@@ -266,21 +266,6 @@ fn only_an_atlas_page_has_cards() {
 }
 
 #[test]
-fn bounds_that_are_not_four_numbers_leave_the_card_unplaced() {
-    assert_eq!(Bounds::parse("1,2,3"), None);
-    assert_eq!(Bounds::parse("1,2,x,4"), None);
-    assert_eq!(
-        Bounds::parse(" 1, 2.5,3 ,4 "),
-        Some(Bounds {
-            x: 1.0,
-            y: 2.5,
-            width: 3.0,
-            height: 4.0
-        })
-    );
-}
-
-#[test]
 fn a_dropped_card_takes_the_label_width_and_scale_1_with_its_center_at_the_given_point() {
     let mut h = atlas_with(&[("one", None)]);
     place(&mut h, "a/b/one", 10.4, -20.0);
@@ -652,23 +637,6 @@ fn a_card_in_no_group_leaves_nothing() {
 }
 
 #[test]
-fn the_id_of_a_group_picks_one_of_the_six_colors() {
-    use crate::screens::atlas::group_color;
-    let six = [
-        "#F9A2A2", "#B5B5FF", "#94D094", "#E1A6E1", "#5FD3D3", "#C3C372",
-    ];
-    for id in [
-        "g",
-        "2026-09-29-10-00-00-AAAAAAA",
-        "2026-09-29-10-00-01-AAAAAAB",
-    ] {
-        assert!(six.contains(&group_color(id).as_str()), "{id}");
-        // The same group keeps its color
-        assert_eq!(group_color(id), group_color(id));
-    }
-}
-
-#[test]
 fn a_card_in_a_group_has_the_color_of_its_group() {
     let h = atlas_with_group("", None);
     let color = Some(crate::screens::atlas::group_color("g"));
@@ -847,53 +815,6 @@ fn a_folder_draws_its_icon_from_its_tag_its_tags_or_its_name() {
     assert_eq!(icon_tags(&tagged, "tags/"), ["lang"]);
     // The folder of the tags itself is no tag
     assert_eq!(icon_tags(&doc("tags/", "index"), "tags/"), ["tags"]);
-}
-
-#[test]
-fn an_icon_is_an_svg_of_the_size_asked() {
-    use crate::screens::atlas::tag_icon_svg;
-    let tags: Vec<String> = ["a", "b", "c", "d", "e"]
-        .iter()
-        .map(|t| t.to_string())
-        .collect();
-    let svg = tag_icon_svg(&tags, 24);
-    assert!(svg.starts_with("<svg"), "{svg}");
-    assert!(svg.contains(r#"width="24""#), "{svg}");
-    // The same tags draw the same icon
-    assert_eq!(svg, tag_icon_svg(&tags, 24));
-}
-
-#[test]
-fn a_blob_is_a_light_blue_svg_drawn_from_the_tag() {
-    use crate::screens::atlas::tag_blob_svg;
-    let svg = tag_blob_svg("DailyReport", 100, false);
-    assert!(svg.starts_with("<svg"), "{svg}");
-    assert!(svg.contains(r##"fill="#CFE3FF""##), "{svg}");
-    // The same tag draws the same blob, and another tag another one
-    assert_eq!(svg, tag_blob_svg("DailyReport", 100, false));
-    assert_ne!(svg, tag_blob_svg("JavaFX", 100, false));
-}
-
-#[test]
-fn the_blob_of_a_link_card_is_light_orange() {
-    use crate::screens::atlas::{link_blob_svg, tag_blob_svg};
-    let svg = link_blob_svg("x/Target", 100);
-    assert!(svg.contains(r##"fill="#FFD8A8""##), "{svg}");
-    assert!(!svg.contains(r##"fill="#CFE3FF""##), "{svg}");
-    // The same shape as the blob of a card of that name
-    assert_eq!(
-        svg.replace("#FFD8A8", "#CFE3FF"),
-        tag_blob_svg("x/Target", 100, false)
-    );
-}
-
-#[test]
-fn a_blob_fills_its_svg_to_the_edges() {
-    use crate::screens::atlas::tag_blob_svg;
-    let svg = tag_blob_svg("DailyReport", 100, false);
-    // The view box is cut to the blob and stretched to the size of the SVG
-    assert!(svg.contains(r#"preserveAspectRatio="none""#), "{svg}");
-    assert!(!svg.contains(r#"viewBox="-50 -50 100 100""#), "{svg}");
 }
 
 // ---- the callouts ----
@@ -1119,39 +1040,11 @@ fn a_refused_move_of_a_callout_puts_it_back() {
 }
 
 #[test]
-fn the_character_of_a_callout_is_a_face_of_its_text() {
-    let svg = crate::screens::atlas::callout_face_svg("Hello", 64);
-
-    assert!(svg.starts_with("<svg"), "{svg}");
-    assert!(svg.contains("<path"), "{svg}");
-    assert!(svg.contains(r#"stroke-width="3.5""#), "{svg}");
-    assert!(!svg.contains(r#"stroke-width="5""#), "{svg}");
-}
-
-#[test]
 fn the_up_button_names_the_directory_above() {
     use crate::screens::atlas::parent_dir_label;
     assert_eq!(parent_dir_label("a/b/"), "a/");
     assert_eq!(parent_dir_label("a/b/c/"), "a/b/");
     assert_eq!(parent_dir_label("a/"), "(root)/");
-}
-
-#[test]
-fn the_blob_of_a_published_page_has_a_line_around_it() {
-    use crate::screens::atlas::tag_blob_svg;
-    let plain = tag_blob_svg("DailyReport", 100, false);
-    let outlined = tag_blob_svg("DailyReport", 100, true);
-
-    assert!(!plain.contains("stroke="), "{plain}");
-    assert!(outlined.contains(r##"<path d="##), "{outlined}");
-    assert!(
-        outlined.contains(r#"vector-effect="non-scaling-stroke""#),
-        "{outlined}"
-    );
-    assert!(
-        outlined.contains(r#"preserveAspectRatio="none""#),
-        "{outlined}"
-    );
 }
 
 #[test]
@@ -1254,18 +1147,6 @@ fn a_link_card_under_a_group_item_belongs_to_the_group() {
             text: "Tools".into()
         })
     );
-}
-
-#[test]
-fn a_link_card_is_named_by_the_last_part_of_its_target() {
-    use crate::screens::atlas::link_label;
-    assert_eq!(
-        link_label("sosuisen.net/article/Picturesque Tags"),
-        "Picturesque Tags"
-    );
-    assert_eq!(link_label("Top"), "Top");
-    assert_eq!(link_label("a/b/index"), "b/");
-    assert_eq!(link_label("index"), "(root)/");
 }
 
 #[test]

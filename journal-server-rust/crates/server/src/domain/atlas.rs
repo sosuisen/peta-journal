@@ -16,38 +16,14 @@ use hmtid::Hmtid;
 
 use super::model::{Item, Page};
 
-/// Where a card or a callout lies: `x,y,width,height`.
-pub const BOUNDS_KEY: &str = "atlas_bounds";
-/// The id of the page a page card stands for.
-pub const PAGE_KEY: &str = "atlas_page";
-/// What an item that is no card is: `group`, `callouts` or `callout`.
-pub const TYPE_KEY: &str = "atlas_type";
-/// The side of a group its title lies along, or the side of a callout its bubble is on.
-pub const SIDE_KEY: &str = "atlas_side";
-
-pub const GROUP_TYPE: &str = "group";
-pub const CALLOUTS_TYPE: &str = "callouts";
-pub const CALLOUT_TYPE: &str = "callout";
-
-/// The body of the parent of the callouts.
-pub const CALLOUTS_BODY: &str = "callout";
-/// The sides a title or a bubble can take, the first by default.
-pub const SIDES: [&str; 4] = ["top", "bottom", "left", "right"];
+pub use peta_atlas::{
+    card_label, link_body, link_target, Kind, BOUNDS_KEY, CALLOUTS_BODY, PAGE_KEY, SIDES, SIDE_KEY,
+    TYPE_KEY,
+};
+use peta_atlas::{AtlasItem, CALLOUTS_TYPE, CALLOUT_TYPE, GROUP_TYPE};
 
 /// A group needs at least this many cards; one with fewer is no group.
 const MIN_GROUP_CARDS: usize = 2;
-
-/// What an item of the atlas is.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Kind {
-    /// The card of a page of the directory, with the id of the page.
-    Page(String),
-    /// A card whose body is a link to any page.
-    Link,
-    Group,
-    Callouts,
-    Callout,
-}
 
 /// One item of the atlas outline.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -122,18 +98,6 @@ pub struct Outline {
     pub callouts: Vec<Node>,
 }
 
-/// The page a body links to when the body is a single wiki link and nothing else.
-pub fn link_target(body: &str) -> Option<&str> {
-    let inner = body.trim().strip_prefix("[[")?.strip_suffix("]]")?;
-    let inner = inner.trim();
-    (!inner.is_empty() && !inner.contains("[[") && !inner.contains("]]")).then_some(inner)
-}
-
-/// The body of a card that links to the page at `path`.
-pub fn link_body(path: &str) -> String {
-    format!("[[{path}]]")
-}
-
 /// An id that the atlas and a name of what it is for make, the same on every device. It takes
 /// the time of the atlas id and a hash of both for the random part.
 pub fn derived_id(atlas: &Hmtid, name: &str) -> Hmtid {
@@ -180,22 +144,6 @@ pub fn is_in_dir(page: &Page, dir: &str) -> bool {
         }
 }
 
-/// The name a card shows for the page at `path`: the last part of the path. An index page is
-/// named by its folder with a slash, and the index of the root `(root)/`.
-pub fn card_label(path: &str) -> String {
-    let (dir, name) = match path.rfind('/') {
-        Some(slash) => (&path[..=slash], &path[slash + 1..]),
-        None => ("", path),
-    };
-    if name != "index" {
-        return name.to_string();
-    }
-    match dir.trim_end_matches('/').rsplit('/').next() {
-        Some(last) if !last.is_empty() => format!("{last}/"),
-        _ => "(root)/".to_string(),
-    }
-}
-
 /// How a card sorts: folders first, then by the name it shows, then by the whole path.
 fn card_order(card: &Node) -> (bool, String, String) {
     let path = link_target(&card.body).unwrap_or(&card.body).to_string();
@@ -205,11 +153,7 @@ fn card_order(card: &Node) -> (bool, String, String) {
 
 /// A side as stored: one of [`SIDES`], or the first.
 pub fn side_or_default(side: &str) -> String {
-    if SIDES.contains(&side) {
-        side.to_string()
-    } else {
-        SIDES[0].to_string()
-    }
+    peta_atlas::side_or_default(side).to_string()
 }
 
 impl Outline {
@@ -218,43 +162,51 @@ impl Outline {
     /// An item of no kind is left out, and so is a second card of the same page.
     pub fn read(items: &[Item], props: &BTreeMap<String, BTreeMap<String, String>>) -> Outline {
         let empty = BTreeMap::new();
+        let items: Vec<WithProps> = items
+            .iter()
+            .map(|item| WithProps {
+                item,
+                props: props.get(item.id.as_str()).unwrap_or(&empty),
+            })
+            .collect();
         let mut outline = Outline::default();
         let mut pages = BTreeSet::new();
-        // The group the next deeper cards belong to
-        let mut open_group: Option<usize> = None;
-        for item in items {
-            let props = props.get(item.id.as_str()).unwrap_or(&empty);
-            let Some(node) = node_of(item, props) else {
-                continue;
-            };
+        // The group of the outline that each group item became
+        let mut group_of: Vec<(*const WithProps, usize)> = Vec::new();
+        for entry in peta_atlas::entries(&items) {
+            let node = node_of(entry.item, entry.kind);
             if let Kind::Page(page_id) = &node.kind {
                 if !pages.insert(page_id.clone()) {
                     continue;
                 }
             }
             match node.kind {
-                Kind::Group if item.level == 1 => {
+                Kind::Group if entry.item.level() == 1 => {
                     outline.groups.push(Group {
                         node,
                         cards: Vec::new(),
                     });
-                    open_group = Some(outline.groups.len() - 1);
+                    group_of.push((entry.item, outline.groups.len() - 1));
                 }
                 Kind::Group => {}
                 Kind::Callouts => {
                     if outline.callouts_parent.is_none() {
                         outline.callouts_parent = Some(node);
                     }
-                    open_group = None;
                 }
                 Kind::Callout => outline.callouts.push(node),
-                Kind::Page(_) | Kind::Link => match open_group.filter(|_| item.level > 1) {
-                    Some(group) => outline.groups[group].cards.push(node),
-                    None => {
-                        outline.cards.push(node);
-                        open_group = None;
+                Kind::Page(_) | Kind::Link => {
+                    let group = entry.group.and_then(|g| {
+                        group_of
+                            .iter()
+                            .find(|(item, _)| std::ptr::eq(*item, g))
+                            .map(|(_, index)| *index)
+                    });
+                    match group {
+                        Some(group) => outline.groups[group].cards.push(node),
+                        None => outline.cards.push(node),
                     }
-                },
+                }
             }
         }
         outline
@@ -515,36 +467,43 @@ impl Outline {
     }
 }
 
-/// The node an item stands for, or None for an item of no kind.
-fn node_of(item: &Item, props: &BTreeMap<String, String>) -> Option<Node> {
-    let kind = match props.get(TYPE_KEY).map(String::as_str) {
-        Some(GROUP_TYPE) => Kind::Group,
-        Some(CALLOUTS_TYPE) => Kind::Callouts,
-        Some(CALLOUT_TYPE) if !item.body.trim().is_empty() => Kind::Callout,
-        Some(_) => return None,
-        None => match props.get(PAGE_KEY) {
-            Some(page_id) => Kind::Page(page_id.clone()),
-            None if link_target(&item.body).is_some() => Kind::Link,
-            None => return None,
-        },
-    };
+/// An item with its scalar properties, as the reader of the outline takes it.
+struct WithProps<'a> {
+    item: &'a Item,
+    props: &'a BTreeMap<String, String>,
+}
+
+impl AtlasItem for WithProps<'_> {
+    fn level(&self) -> i32 {
+        self.item.level
+    }
+
+    fn body(&self) -> &str {
+        &self.item.body
+    }
+
+    fn prop(&self, key: &str) -> Option<&str> {
+        self.props.get(key).map(String::as_str)
+    }
+}
+
+/// The node of an item of a kind, with the properties that kind keeps.
+fn node_of(item: &WithProps, kind: Kind) -> Node {
     let side = match kind {
-        Kind::Group | Kind::Callout => Some(side_or_default(
-            props.get(SIDE_KEY).map(String::as_str).unwrap_or(""),
-        )),
+        Kind::Group | Kind::Callout => Some(side_or_default(item.prop(SIDE_KEY).unwrap_or(""))),
         _ => None,
     };
     let bounds = match kind {
-        Kind::Page(_) | Kind::Link | Kind::Callout => props.get(BOUNDS_KEY).cloned(),
+        Kind::Page(_) | Kind::Link | Kind::Callout => item.prop(BOUNDS_KEY).map(str::to_string),
         _ => None,
     };
-    Some(Node {
-        id: item.id.clone(),
-        body: item.body.clone(),
+    Node {
+        id: item.item.id.clone(),
+        body: item.item.body.clone(),
         kind,
         side,
         bounds,
-    })
+    }
 }
 
 #[cfg(test)]
@@ -953,12 +912,5 @@ mod tests {
         assert!(!outline.remove(&a));
         assert!(outline.remove(&id(50)));
         assert_eq!(outline_of(&outline.rows()), ["1:[[d/a]]"]);
-    }
-
-    #[test]
-    fn a_card_label_names_an_index_page_by_its_folder() {
-        assert_eq!(card_label("a/b/index"), "b/");
-        assert_eq!(card_label("index"), "(root)/");
-        assert_eq!(card_label("a/page"), "page");
     }
 }

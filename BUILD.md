@@ -113,6 +113,23 @@ directory, so its markdown export lands there and never in the markdown folder o
 run otherwise. When starting a second server by hand for an experiment, always pass
 `--config-dir` as well, or it will export into your real markdown folder.
 
+## Atlas crate (atlas-rust)
+
+`atlas-rust` is the crate `peta-atlas`. The server and the frontend both use it, and so can
+another program that shows an atlas, such as a static site. It reads the outline of an
+`index_atlas` page, draws the marks of the atlas as SVG, and writes the scene that
+`atlas.js` draws. Its features choose what is built:
+
+- no feature: reading the outline only, as the server does
+- `marks`: the SVG marks and the scene, as the frontend uses them
+- `measure`: the width of a card from its label, for a card whose label is hidden. It
+  measures in the font of the labels, `frontend-rust/assets/NotoSansJP-Regular.ttf`.
+
+```powershell
+cd peta-journal/atlas-rust
+cargo test --all-features
+```
+
 ## Development Workflow
 
 1. Start the journal server: `cd journal-server-rust && cargo run`
