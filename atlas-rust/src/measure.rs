@@ -2,6 +2,54 @@
 //! A program that hides a label from the scene, such as a static site that hides its drafts,
 //! measures the label here and gives the card that width, so the card keeps its size.
 
+use rustybuzz::{Face, UnicodeBuffer};
+
+// The style of the labels in `card()` of `atlas.js`. A change there must come here too.
+/// The size of the characters of a label, in pixels of the canvas
+const FONT_SIZE: f64 = 13.0;
+/// The width of the white edge around the characters. PixiJS counts it in the width of a text.
+const STROKE_WIDTH: f64 = 3.0;
+/// The space between the label of a card and its sides
+const CARD_PADDING: f64 = 12.0;
+/// The narrowest and the widest a card grows to fit its label
+const CARD_MIN_WIDTH: f64 = 40.0;
+const CARD_MAX_WIDTH: f64 = 320.0;
+
+/// The font of the labels of the cards.
+pub struct LabelFont<'a> {
+    face: Face<'a>,
+}
+
+impl<'a> LabelFont<'a> {
+    /// The font in the bytes of a font file, or none when they hold no font.
+    pub fn from_bytes(data: &'a [u8]) -> Option<LabelFont<'a>> {
+        Face::from_slice(data, 0).map(|face| LabelFont { face })
+    }
+
+    /// The width of a card at scale 1 whose width is left to its label, as `atlas.js` draws it.
+    /// A label wider than the widest card wraps, so its widest line is taken as that width.
+    /// The lines of a wrapped label break between words, so the true line may be a little
+    /// narrower; a hidden label has no lines to show, and the card only keeps its size.
+    pub fn card_width(&self, label: &str) -> f64 {
+        let wrap_width = CARD_MAX_WIDTH - 2.0 * CARD_PADDING;
+        let text_width = self.advance(label).min(wrap_width) + STROKE_WIDTH;
+        (text_width + 2.0 * CARD_PADDING).max(CARD_MIN_WIDTH).ceil()
+    }
+
+    /// How far the label reaches in pixels, shaped as a browser shapes it, with kerning
+    fn advance(&self, label: &str) -> f64 {
+        let mut buffer = UnicodeBuffer::new();
+        buffer.push_str(label);
+        let glyphs = rustybuzz::shape(&self.face, &[], buffer);
+        let units: i64 = glyphs
+            .glyph_positions()
+            .iter()
+            .map(|p| i64::from(p.x_advance))
+            .sum();
+        units as f64 * FONT_SIZE / f64::from(self.face.units_per_em())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -9,7 +57,7 @@ mod tests {
     /// The font PetaJournal draws the labels in
     const FONT: &[u8] = include_bytes!("../../frontend-rust/assets/NotoSansJP-Regular.ttf");
 
-    fn font() -> LabelFont {
+    fn font() -> LabelFont<'static> {
         LabelFont::from_bytes(FONT).unwrap()
     }
 
@@ -30,7 +78,10 @@ mod tests {
     #[test]
     fn a_long_label_wraps_at_the_widest_card() {
         let long = "あ".repeat(40);
-        assert_eq!(font().card_width(&long), (320.0_f64 - 24.0 + 3.0 + 24.0).ceil());
+        assert_eq!(
+            font().card_width(&long),
+            (320.0_f64 - 24.0 + 3.0 + 24.0).ceil()
+        );
     }
 
     // 欧文の幅は文字ごとに違い、カーニングも入る
