@@ -2,7 +2,7 @@
 //! Layout: `{type}s/{dirPath}{name}.md`, e.g. `docs/proj/a.md`, `journals/2026-09-27.md`.
 //! Also decides which files in the folder are ours to look at.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use sha2::{Digest, Sha256};
 
@@ -26,6 +26,12 @@ pub fn to_rel_path_of(page: &Page) -> String {
 
 pub fn to_rel_path(page_type: &str, dir_path: &str, name: &str) -> String {
     format!("{page_type}s/{dir_path}{name}{MD_EXT}")
+}
+
+/// The folder under `root` that holds the markdown file of a page.
+pub fn export_folder(root: &Path, page: &Page) -> PathBuf {
+    let file = root.join(to_rel_path_of(page));
+    file.parent().map(Path::to_path_buf).unwrap_or(file)
 }
 
 /// Decodes a relative path into (type, dirPath, name). None if the path is not a page file we manage.
@@ -109,6 +115,31 @@ pub fn sha256(content: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn page(page_type: &str, dir_path: &str, name: &str) -> Page {
+        Page {
+            id: hmtid::Hmtid::parse("2026-09-29-00-00-00-AAAAAAA").unwrap(),
+            parent_id: None,
+            dir_path: dir_path.to_string(),
+            name: name.to_string(),
+            page_type: page_type.to_string(),
+            created_date: 0,
+            modified_date: 0,
+        }
+    }
+
+    #[test]
+    fn the_export_folder_is_the_type_folder_plus_the_dir_path() {
+        let root = Path::new("/md");
+        assert_eq!(
+            export_folder(root, &page("doc", "proj/sub/", "a")),
+            root.join("docs").join("proj").join("sub")
+        );
+        assert_eq!(
+            export_folder(root, &page("journal", "", "2026-09-27")),
+            root.join("journals")
+        );
+    }
 
     #[test]
     fn round_trip() {
