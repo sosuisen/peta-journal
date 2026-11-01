@@ -160,6 +160,10 @@ pub enum ApiOp {
     LaunchUrl {
         url: String,
     },
+    /// `POST /api/pages/{id}/open-folder`: the OS shows the folder of the page's markdown file.
+    OpenExportFolder {
+        page_id: String,
+    },
 }
 
 /// A registered extension function (`GET /api/functions`).
@@ -894,6 +898,14 @@ impl<Event: Send + 'static> Api<Event> {
             self.call(ApiOp::LaunchUrl { url: url.into() }).await,
             Launched
         )
+    }
+
+    pub async fn open_export_folder(&self, page_id: &str) -> ApiResult<()> {
+        self.call(ApiOp::OpenExportFolder {
+            page_id: page_id.into(),
+        })
+        .await
+        .map(|_| ())
     }
 
     // ---- Other shell requests ----

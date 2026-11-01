@@ -116,6 +116,13 @@ impl MarkdownExportService {
         Some(root)
     }
 
+    /// The folder that holds the markdown file of a page. None when the markdown root is not
+    /// configured or not reachable.
+    pub fn export_folder_of(&self, page: &Page) -> Option<PathBuf> {
+        let root = self.markdown_root()?;
+        Some(path_mapper::export_folder(&root, page))
+    }
+
     /// Writes every queued page. Skipped when a run is already in progress.
     pub fn process_export_queue(&self) {
         if self.processing.swap(true, Ordering::SeqCst) {

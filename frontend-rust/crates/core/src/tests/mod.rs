@@ -14,6 +14,7 @@ mod page_properties;
 mod paste;
 mod rename;
 mod settings;
+mod sidebar_menu;
 mod sidebar_sort;
 mod split;
 mod tags_button;

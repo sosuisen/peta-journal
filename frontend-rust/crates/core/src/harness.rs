@@ -77,6 +77,7 @@ pub fn op_name(op: &ApiOp) -> &'static str {
         ApiOp::UploadAsset { .. } => "UploadAsset",
         ApiOp::GetFunctions => "GetFunctions",
         ApiOp::LaunchUrl { .. } => "LaunchUrl",
+        ApiOp::OpenExportFolder { .. } => "OpenExportFolder",
     }
 }
 
@@ -296,6 +297,7 @@ impl FakeApi {
             }),
             ApiOp::BrowseFolder => ApiOutput::Folder(FolderChoice::default()),
             ApiOp::LaunchUrl { .. } => ApiOutput::Launched(true),
+            ApiOp::OpenExportFolder { .. } => ApiOutput::Done,
             ApiOp::GetMostRecentJournalBefore { .. }
             | ApiOp::GetMostRecentWeeklyJournalBefore { .. } => {
                 ApiOutput::JournalBefore(JournalBefore::default())

@@ -9,6 +9,7 @@ use serde_json::json;
 
 use crate::domain::model::Page;
 use crate::error::{parse_id, AppError, AppResult};
+use crate::infrastructure::launcher;
 use crate::presentation::dto::{backlink_dto, page_dto_with, BacklinkEntryDto, ItemDto, PageDto};
 use crate::state::{blocking, SharedState};
 
@@ -22,6 +23,7 @@ pub fn routes() -> Router<SharedState> {
         )
         .route("/api/pages/{id}/backlinks", get(get_backlinks))
         .route("/api/pages/{id}/children", get(get_children))
+        .route("/api/pages/{id}/open-folder", post(open_export_folder))
         .route(
             "/api/pages/{id}/properties/{key}",
             axum::routing::put(upsert_property).delete(delete_property),
@@ -194,6 +196,31 @@ async fn delete_page(
     blocking(move || {
         state.page_service.delete_page(&page_id)?;
         state.sse.broadcast_pages_updated(&id);
+        Ok(StatusCode::NO_CONTENT)
+    })
+    .await
+}
+
+/// Opens the folder that holds the markdown file of a page in the file manager of the OS.
+/// The folder of a page that was not exported yet does not exist, so it cannot be opened.
+async fn open_export_folder(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+) -> AppResult<StatusCode> {
+    let page_id = parse_id(&id)?;
+    blocking(move || {
+        let page = state
+            .page_service
+            .get_page(&page_id)?
+            .ok_or_else(|| AppError::not_found(format!("Page not found: {id}")))?;
+        let folder = state
+            .export
+            .export_folder_of(&page)
+            .filter(|f| f.is_dir())
+            .ok_or_else(|| AppError::not_found("Export folder not found"))?;
+        if !launcher::open_folder(&folder) {
+            return Err(AppError::internal("Failed to open the export folder"));
+        }
         Ok(StatusCode::NO_CONTENT)
     })
     .await

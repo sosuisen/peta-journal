@@ -85,6 +85,7 @@ app-sidebar nav.sidebar {
 .index-sort-item:hover { background: #f0f0f0; }
 .index-sort-item.current { font-weight: 600; }
 .index-sort-check { width: 12px; color: #007bff; font-size: 11px; }
+.sidebar-context-menu { position: fixed; right: auto; }
 .contents-item { padding: 3px 12px; cursor: pointer; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .contents-item:hover { background: #e9ecef; }
 .contents-h1 { font-size: 13px; font-weight: 600; }
