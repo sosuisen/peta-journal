@@ -389,6 +389,10 @@ pub enum Event {
     LaunchUrl {
         url: String,
     },
+    /// Shows the folder of the page's markdown file in the file manager of the OS.
+    OpenExportFolder {
+        page_id: String,
+    },
 
     // ---- from the shell's streams ----
     Sse(SseEvent),
@@ -942,6 +946,13 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         LaunchUrl { url } => run(move |api| async move {
             if !api.launch_url(&url).await.unwrap_or(false) {
                 log_error(format!("Failed to launch app with URL: {url}"));
+            }
+        }),
+        OpenExportFolder { page_id } => run(move |api| async move {
+            if let Err(e) = api.open_export_folder(&page_id).await {
+                log_error(format!(
+                    "Failed to open the export folder of {page_id}: {e}"
+                ));
             }
         }),
 

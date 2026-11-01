@@ -533,5 +533,9 @@ async fn call(handle: &CoreHandle, op: ApiOp) -> ApiResult<ApiOutput> {
             .await?;
             ApiOutput::Launched(env.success)
         }
+        ApiOp::OpenExportFolder { page_id } => {
+            send_empty("POST", &format!("/api/pages/{page_id}/open-folder")).await?;
+            ApiOutput::Done
+        }
     })
 }

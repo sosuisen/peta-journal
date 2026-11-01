@@ -1,5 +1,6 @@
 //! The sidebar, ported from `sidebar.ts`: calendar, the index pages, the table of contents,
-//! the recent pages and the settings button.
+//! the recent pages and the settings button. A right click on a page opens a menu that shows
+//! the folder of its markdown file.
 
 use crate::components::calendar::Calendar;
 use crate::core::CoreHandle;
@@ -118,6 +119,14 @@ fn IndexSortControl(dir: Memo<String>, sort: Memo<IndexSort>) -> impl IntoView {
     }
 }
 
+/// The page a right click opened the context menu for, and where the pointer was.
+#[derive(Clone)]
+struct PageContextMenu {
+    page_id: String,
+    x: i32,
+    y: i32,
+}
+
 fn load_collapsed() -> HashSet<String> {
     dom::local_storage_get(COLLAPSED_KEY)
         .and_then(|s| serde_json::from_str::<Vec<String>>(&s).ok())
@@ -177,6 +186,45 @@ pub fn Sidebar() -> impl IntoView {
     let recent = core.select(|v| v.sidebar.recent_pages.clone());
     let current_page_id = core.select(|v| v.sidebar.current_page_id.clone());
 
+    let context_menu: RwSignal<Option<PageContextMenu>> = RwSignal::new(None);
+    // The click outside and the Escape that close the open context menu
+    let menu_listeners = DocumentListeners::new();
+    let close_menu = move || {
+        context_menu.set(None);
+        menu_listeners.clear_later();
+    };
+    let open_menu = move |page_id: String, ev: &web_sys::MouseEvent| {
+        ev.prevent_default();
+        menu_listeners.clear();
+        context_menu.set(Some(PageContextMenu {
+            page_id,
+            x: ev.client_x(),
+            y: ev.client_y(),
+        }));
+        // Listening starts after this click, so the click itself does not close the menu
+        dom::after_render(move || {
+            menu_listeners.on_cancelable("mousedown", move |ev: &web_sys::MouseEvent| {
+                let inside_menu = ev
+                    .target()
+                    .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
+                    .is_some_and(|t| t.closest(".sidebar-context-menu").ok().flatten().is_some());
+                if !inside_menu {
+                    close_menu();
+                }
+            });
+            menu_listeners.on("keydown", move |ev: &web_sys::KeyboardEvent| {
+                if ev.key() == "Escape" {
+                    ev.prevent_default();
+                    close_menu();
+                }
+            });
+        });
+    };
+    let open_export_folder = move |page_id: String| {
+        core.send(Event::OpenExportFolder { page_id });
+        close_menu();
+    };
+
     let go_to_page = {
         move |page: &SidebarPage, ev: &web_sys::MouseEvent| {
             core.send(Event::GoToPage {
@@ -194,6 +242,7 @@ pub fn Sidebar() -> impl IntoView {
             .map(|p| {
                 let go = go_to_page;
                 let is_active = active && current_page_id.with(|c| c.as_deref() == Some(p.page.id.as_str()));
+                let page_id = p.page.id.clone();
                 let label = p.label.clone();
                 let dir_label = p.dir_label.clone();
                 let is_dir = p.is_dir;
@@ -205,7 +254,8 @@ pub fn Sidebar() -> impl IntoView {
                     "#icon-page"
                 };
                 view! {
-                    <div class="sidebar-item recent-page-item" class:folder-item=is_dir class:active=is_active on:click=move |ev| go(&p, &ev)>
+                    <div class="sidebar-item recent-page-item" class:folder-item=is_dir class:active=is_active on:click=move |ev| go(&p, &ev)
+                         on:contextmenu=move |ev| open_menu(page_id.clone(), &ev)>
                         <svg class="page-icon" width=if is_dir { "14" } else { "11" } height=if is_dir { "12" } else { "11" }><use href=icon/></svg>
                         <span class="page-label">
                             {dir_label.map(|d| view! { <span class="page-dir">{d}</span> })}
@@ -301,6 +351,16 @@ pub fn Sidebar() -> impl IntoView {
                     </button>
                 </div>
             </nav>
+            {move || context_menu.get().map(|menu| {
+                let page_id = menu.page_id;
+                view! {
+                    <div class="index-sort-menu sidebar-context-menu" style=format!("left:{}px;top:{}px", menu.x, menu.y)>
+                        <button class="index-sort-item" on:click=move |_| open_export_folder(page_id.clone())>
+                            "Open export folder"
+                        </button>
+                    </div>
+                }
+            })}
         </app-sidebar>
     }
 }
