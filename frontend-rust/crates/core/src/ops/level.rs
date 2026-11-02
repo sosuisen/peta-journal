@@ -108,11 +108,8 @@ fn outdent_below_parent(model: &mut Model, item: &Item, group: Vec<ItemRef>, par
             {
                 Ok(moved) => apply(&api, "logical outdent: moved", move |m| {
                     m.state.replace_items(&group_ids, moved.clone(), &position);
-                    m.undo.begin("outdent", None);
-                    for (b, after) in before.iter().zip(moved.iter()) {
-                        m.undo.push_update(b, after);
-                    }
-                    m.undo.commit(None, m.clock_ms);
+                    m.undo
+                        .record_updates("outdent", before.iter().zip(&moved), m.clock_ms);
                     done()
                 }),
                 Err(e) => log_error(format!("Failed to move outdented items: {e}")),

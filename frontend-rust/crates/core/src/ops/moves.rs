@@ -224,11 +224,8 @@ async fn move_group_to(
     let before = group.clone();
     let moved_for_undo = moved.clone();
     apply(api, "move: record", move |m| {
-        m.undo.begin("move", None);
-        for (b, after) in before.iter().zip(moved_for_undo.iter()) {
-            m.undo.push_update(b, after);
-        }
-        m.undo.commit(None, m.clock_ms);
+        m.undo
+            .record_updates("move", before.iter().zip(&moved_for_undo), m.clock_ms);
         done()
     });
     // Reordering the list blurs the editor; the edit goes on in the moved item
@@ -304,11 +301,8 @@ fn move_selection(model: &mut Model, direction: MoveDirection) -> Cmd {
         {
             Ok(moved) => apply(&api, "move selection: reorder", move |m| {
                 m.state.replace_items(&all_ids, moved.clone(), &target);
-                m.undo.begin("move-selection", None);
-                for (b, after) in before.iter().zip(moved.iter()) {
-                    m.undo.push_update(b, after);
-                }
-                m.undo.commit(None, m.clock_ms);
+                m.undo
+                    .record_updates("move-selection", before.iter().zip(&moved), m.clock_ms);
                 done()
             }),
             Err(e) => log_error(format!("Failed to move selected items: {e}")),

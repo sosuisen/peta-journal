@@ -38,9 +38,8 @@ pub fn cycle_task(model: &mut Model, item_id: &str) -> Cmd {
             let mut after = item.clone();
             after.types = updated.types;
             after.properties = updated.properties;
-            m.undo.begin("cycle-task", None);
-            m.undo.push_update(&item, &after);
-            m.undo.commit(None, m.clock_ms);
+            m.undo
+                .record_update("cycle-task", &item, &after, m.clock_ms);
             done()
         });
     })
@@ -110,9 +109,7 @@ pub fn toggle_collapsed(model: &mut Model, item_id: &str) -> Cmd {
             Ok(_) => apply(&api, "collapse: record", move |m| {
                 let mut after = item.clone();
                 after.collapsed = new_collapsed;
-                m.undo.begin("collapse", None);
-                m.undo.push_update(&item, &after);
-                m.undo.commit(None, m.clock_ms);
+                m.undo.record_update("collapse", &item, &after, m.clock_ms);
                 done()
             }),
             Err(e) => {

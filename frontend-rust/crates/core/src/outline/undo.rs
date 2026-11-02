@@ -55,6 +55,25 @@ impl UndoStacks {
         self.pending = true;
     }
 
+    /// Records one entry that changes an item, in one step.
+    pub fn record_update(&mut self, label: &str, before: &Item, after: &Item, now_ms: u64) {
+        self.record_updates(label, [(before, after)], now_ms);
+    }
+
+    /// Records one entry that changes several items, in one step.
+    pub fn record_updates<'a>(
+        &mut self,
+        label: &str,
+        changes: impl IntoIterator<Item = (&'a Item, &'a Item)>,
+        now_ms: u64,
+    ) {
+        self.begin(label, None);
+        for (before, after) in changes {
+            self.push_update(before, after);
+        }
+        self.commit(None, now_ms);
+    }
+
     pub fn push_update(&mut self, before: &Item, after: &Item) {
         self.pending_ops.push(UndoOp::Update {
             before: before.clone(),

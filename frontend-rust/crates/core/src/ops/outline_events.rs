@@ -41,9 +41,9 @@ pub fn body_changed(model: &mut Model, item_id: &str, new_body: String) -> Cmd {
     let cmd = record_typing(model, &before, &new_body);
     let mut after = before.clone();
     after.body = new_body;
-    model.undo.begin("body", None);
-    model.undo.push_update(&before, &after);
-    model.undo.commit(None, model.clock_ms);
+    model
+        .undo
+        .record_update("body", &before, &after, model.clock_ms);
     cmd
 }
 
