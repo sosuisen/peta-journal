@@ -114,20 +114,20 @@ pub fn discard_pending_edit_of_focused_item(model: &mut Model) -> Cmd {
 pub async fn flush_pending_edit(api: &Api<Event>, item: &Item) -> ApiResult<()> {
     let item_id = item.id.clone();
     let target = save_target_id(item);
-    let (tx, rx) = futures::channel::oneshot::channel::<Option<String>>();
-    apply(api, "flush: take pending", move |m| {
+    let body = read_with(api, "flush: take pending", move |m| {
         if !m.edits.dirty_item_ids.remove(&item_id) {
-            let _ = tx.send(None);
-            return done();
+            return (None, done());
         }
         let pending = m.edits.pending_saves.remove(&target);
-        let _ = tx.send(pending.as_ref().map(|p| p.body.clone()));
-        match pending {
+        let body = pending.as_ref().map(|p| p.body.clone());
+        let cancel = match pending {
             Some(p) => Command::notify_shell(TimerOp::Cancel { id: p.timer_id }).into(),
             None => done(),
-        }
-    });
-    if let Ok(Some(body)) = rx.await {
+        };
+        (body, cancel)
+    })
+    .await;
+    if let Some(body) = body {
         api.update_body(&save_target_id(item), &ensure_code_fence_closed(&body))
             .await?;
     }
@@ -160,13 +160,12 @@ pub async fn save_body(api: &Api<Event>, item_id: &str, body: &str) -> ApiResult
 /// Saves the body the shown item has in the state. When the item is a transclusion root,
 /// the AST and types returned for the source are copied back to the shown item.
 pub async fn save_shown_item(api: &Api<Event>, item: &Item) -> ApiResult<Option<Item>> {
-    let (tx, rx) = futures::channel::oneshot::channel::<Option<String>>();
     let id = item.id.clone();
-    apply(api, "save_shown_item: read body", move |m| {
-        let _ = tx.send(m.state.get_item_by_id(&id).map(|i| i.body.clone()));
-        done()
-    });
-    let Ok(Some(body)) = rx.await else {
+    let body = read(api, move |m| {
+        m.state.get_item_by_id(&id).map(|i| i.body.clone())
+    })
+    .await;
+    let Some(body) = body else {
         return Ok(None);
     };
     let target_id = save_target_id(item);
@@ -186,25 +185,19 @@ pub async fn save_shown_item(api: &Api<Event>, item: &Item) -> ApiResult<Option<
 
 /// Saves typed text right away and closes the editor; a clean item is left alone.
 pub async fn save_item_if_dirty(api: &Api<Event>, item: &Item) -> ApiResult<()> {
-    let (tx, rx) = futures::channel::oneshot::channel::<bool>();
     let it = item.clone();
-    apply(api, "save_item_if_dirty: check", move |m| {
+    let dirty = read_with(api, "save_item_if_dirty: check", move |m| {
         if !m.edits.dirty_item_ids.contains(&it.id) {
-            let _ = tx.send(false);
-            return done();
+            return (false, done());
         }
-        let _ = tx.send(true);
-        discard_pending_edit(m, &it)
-    });
-    if rx.await != Ok(true) {
+        (true, discard_pending_edit(m, &it))
+    })
+    .await;
+    if !dirty {
         return Ok(());
     }
     if save_shown_item(api, item).await?.is_some() {
-        let id = item.id.clone();
-        apply(api, "save_item_if_dirty: close editor", move |m| {
-            m.state.remove_editing_item(&id);
-            done()
-        });
+        close_editor(api, "save_item_if_dirty: close editor", item.id.clone());
     }
     Ok(())
 }
@@ -227,16 +220,7 @@ pub fn finish_edit(model: &mut Model, item_id: &str) -> Cmd {
 
     if model.edits.dirty_item_ids.contains(item_id) {
         let discard = discard_pending_edit(model, &item);
-        let save = run(move |api| async move {
-            if let Err(e) = save_shown_item(&api, &item).await {
-                log_error(format!("Failed to save item: {e}"));
-            }
-            let id = item.id.clone();
-            apply(&api, "finish_edit: close", move |m| {
-                m.state.remove_editing_item(&id);
-                done()
-            });
-        });
+        let save = save_and_close(item);
         return Command::all([close_wiki, discard, save]);
     }
 
@@ -246,20 +230,29 @@ pub fn finish_edit(model: &mut Model, item_id: &str) -> Cmd {
         .map(|c| has_unclosed_code_fence(&c.body))
         .unwrap_or(false);
     if unclosed {
-        let save = run(move |api| async move {
-            if let Err(e) = save_shown_item(&api, &item).await {
-                log_error(format!("Failed to save item: {e}"));
-            }
-            let id = item.id.clone();
-            apply(&api, "finish_edit: close", move |m| {
-                m.state.remove_editing_item(&id);
-                done()
-            });
-        });
+        let save = save_and_close(item);
         return Command::all([close_wiki, save]);
     }
     model.state.remove_editing_item(item_id);
     close_wiki
+}
+
+/// Saves the shown item and closes its editor, whether or not the save went through.
+fn save_and_close(item: Item) -> Cmd {
+    run(move |api| async move {
+        if let Err(e) = save_shown_item(&api, &item).await {
+            log_error(format!("Failed to save item: {e}"));
+        }
+        close_editor(&api, "finish_edit: close", item.id);
+    })
+}
+
+/// Switches an item to view mode from inside an async command.
+pub fn close_editor(api: &Api<Event>, label: &'static str, item_id: String) {
+    apply(api, label, move |m| {
+        m.state.remove_editing_item(&item_id);
+        done()
+    });
 }
 
 /// Keeps the blur of an editor from ending an edit while a handler that saves the item and
@@ -295,10 +288,21 @@ pub async fn read<T: Send + 'static>(
     api: &Api<Event>,
     f: impl FnOnce(&mut Model) -> T + Send + 'static,
 ) -> T {
+    read_with(api, "read", move |m| (f(m), done())).await
+}
+
+/// Reads something from the model and runs a command on it in the same step, from inside
+/// an async command.
+pub async fn read_with<T: Send + 'static>(
+    api: &Api<Event>,
+    label: &'static str,
+    f: impl FnOnce(&mut Model) -> (T, Cmd) + Send + 'static,
+) -> T {
     let (tx, rx) = futures::channel::oneshot::channel::<T>();
-    apply(api, "read", move |m| {
-        let _ = tx.send(f(m));
-        done()
+    apply(api, label, move |m| {
+        let (value, cmd) = f(m);
+        let _ = tx.send(value);
+        cmd
     });
     rx.await.expect("the core always answers a read")
 }
