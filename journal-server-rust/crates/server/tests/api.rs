@@ -1516,6 +1516,29 @@ async fn a_list_of_an_item_edited_in_the_file_is_merged_into_the_item() {
     );
 }
 
+// ファイルから消した項目のlist型のキーは、項目からも消える。
+#[tokio::test]
+async fn a_list_of_an_item_removed_from_the_file_goes_from_the_item() {
+    let _folder = FOLDER_SCAN.lock().await;
+    let page = new_doc_page("file-item-list-gone").await;
+    let item = fill(&page.id, &["listed"]).await.remove(0);
+    put(
+        &format!("/api/items/{}/properties/item_list", item.id),
+        json!({ "valueType": "list", "value": "a, b" }),
+    )
+    .await;
+    wait_until("the list is in the file", || {
+        read(&file_of(&page)).contains("item_list=\"a,b\"")
+    })
+    .await;
+
+    edit_file(&page, |text| text.replace(" item_list=\"a,b\"", ""));
+    scan().await;
+
+    let properties = &items(&page.id).await[0].properties;
+    assert!(properties.get("item_list").is_none(), "{properties:?}");
+}
+
 // 古いtagキーで書かれたファイルのタグは失われない。
 #[tokio::test]
 async fn a_file_written_with_the_old_tag_key_keeps_its_tags() {
