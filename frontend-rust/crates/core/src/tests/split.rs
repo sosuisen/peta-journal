@@ -325,3 +325,17 @@ fn enter_at_the_start_of_a_transcluded_descendant_puts_the_empty_item_before_it_
     );
     assert!(h.api.called("GetPageById"));
 }
+
+// 元の木の最初の子の行頭での Enter は、参照元ページの元の項目の直後に空の項目を作る。ルートのidは参照元ページにないからである。
+#[test]
+fn enter_at_the_start_of_the_first_transcluded_child_puts_the_empty_item_after_the_source_item() {
+    let mut h = transclusion_harness(Vec::new());
+    enter(&mut h, "c", 0);
+    let calls = create_calls(&h.api);
+    assert_eq!(calls.len(), 1);
+    let (page_id, position, level, _, _) = &calls[0];
+    assert_eq!(
+        (page_id.as_str(), position.as_str(), *level),
+        ("src", "after:s", 2)
+    );
+}
