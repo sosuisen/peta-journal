@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use chrono::{Datelike, NaiveDate, TimeZone};
-use rusqlite::{params, Row};
+use rusqlite::{params, Connection, Row};
 
 use crate::error::{AppError, AppResult};
 
@@ -354,11 +354,20 @@ impl PropertyRepository {
         target_type: &str,
         target_ids: &[String],
     ) -> AppResult<()> {
+        Self::delete_all_for_targets_in(&*self.db.conn()?, target_type, target_ids)
+    }
+
+    /// Removes every property of the targets on the given connection, as part of a larger
+    /// transaction.
+    pub fn delete_all_for_targets_in(
+        conn: &Connection,
+        target_type: &str,
+        target_ids: &[String],
+    ) -> AppResult<()> {
         if target_ids.is_empty() {
             return Ok(());
         }
         let ph = placeholders(target_ids.len());
-        let conn = self.db.conn()?;
         for sql in [
             format!("DELETE FROM properties WHERE target_type = ? AND target_id IN ({ph})"),
             format!(
@@ -381,7 +390,17 @@ impl PropertyRepository {
         target_id: &str,
         new_tags: &[String],
     ) -> AppResult<()> {
-        self.replace_list(target_type, target_id, "tags", new_tags)
+        Self::sync_tags_in(&*self.db.conn()?, target_type, target_id, new_tags)
+    }
+
+    /// Replaces the tags of a target on the given connection, as part of a larger transaction.
+    pub fn sync_tags_in(
+        conn: &Connection,
+        target_type: &str,
+        target_id: &str,
+        new_tags: &[String],
+    ) -> AppResult<()> {
+        replace_list_in(conn, target_type, target_id, "tags", new_tags)
     }
 
     /// Removes the definitions whose keys start with the prefix and that no value uses.
@@ -400,25 +419,19 @@ impl PropertyRepository {
         key: &str,
         values: &[String],
     ) -> AppResult<()> {
-        let conn = self.db.conn()?;
-        conn.execute(
-            "DELETE FROM property_list_items WHERE target_type = ? AND target_id = ? AND key = ?",
-            params![target_type, target_id, key],
-        )?;
-        if !values.is_empty() {
-            let mut stmt = conn.prepare(
-                "INSERT INTO property_list_items (target_type, target_id, key, sort_order, value) VALUES (?, ?, ?, ?, ?)",
-            )?;
-            for (i, value) in values.iter().enumerate() {
-                stmt.execute(params![target_type, target_id, key, i as i64, value])?;
-            }
-        }
-        Ok(())
+        replace_list_in(&*self.db.conn()?, target_type, target_id, key, values)
     }
 
     /// The tags of one target, in sort order.
     pub fn find_tags(&self, target_type: &str, target_id: &str) -> AppResult<Vec<String>> {
-        let conn = self.db.conn()?;
+        Self::find_tags_in(&*self.db.conn()?, target_type, target_id)
+    }
+
+    pub fn find_tags_in(
+        conn: &Connection,
+        target_type: &str,
+        target_id: &str,
+    ) -> AppResult<Vec<String>> {
         let mut stmt = conn.prepare(
             "SELECT value FROM property_list_items \
              WHERE target_type = ? AND target_id = ? AND key = 'tags' ORDER BY sort_order",
@@ -680,4 +693,27 @@ fn format_double(n: f64) -> String {
     } else {
         format!("{s}.0")
     }
+}
+
+/// Replaces a list property of a target with the given values.
+fn replace_list_in(
+    conn: &Connection,
+    target_type: &str,
+    target_id: &str,
+    key: &str,
+    values: &[String],
+) -> AppResult<()> {
+    conn.execute(
+        "DELETE FROM property_list_items WHERE target_type = ? AND target_id = ? AND key = ?",
+        params![target_type, target_id, key],
+    )?;
+    if !values.is_empty() {
+        let mut stmt = conn.prepare(
+            "INSERT INTO property_list_items (target_type, target_id, key, sort_order, value) VALUES (?, ?, ?, ?, ?)",
+        )?;
+        for (i, value) in values.iter().enumerate() {
+            stmt.execute(params![target_type, target_id, key, i as i64, value])?;
+        }
+    }
+    Ok(())
 }

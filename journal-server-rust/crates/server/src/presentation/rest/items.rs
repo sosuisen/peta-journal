@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
@@ -18,6 +18,7 @@ pub fn routes() -> Router<SharedState> {
         .route("/api/items", post(create_item).get(get_items_by_types))
         .route("/api/items/move", post(move_items))
         .route("/api/items/merge", post(merge_items))
+        .route("/api/items/delete", post(delete_items))
         .route("/api/items/shift-level", post(shift_levels))
         .route("/api/items/export", post(export_tree_markdown))
         .route("/api/items/export-page", post(export_page_markdown))
@@ -74,6 +75,12 @@ struct MoveItemsRequest {
     target_page_id: Option<String>,
     position: Option<String>,
     level_delta: Option<i32>,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+struct DeleteItemsRequest {
+    item_ids: Option<Vec<String>>,
 }
 
 #[derive(Deserialize, Default)]
@@ -271,6 +278,29 @@ async fn update_item(
         state.sse.broadcast_pages_updated(&page_id);
         broadcast_to_transcluders(&state, &item_id, &page_id)?;
         item_response(&state, &item)
+    })
+    .await
+}
+
+async fn delete_items(
+    State(state): State<SharedState>,
+    Json(req): Json<DeleteItemsRequest>,
+) -> AppResult<StatusCode> {
+    let item_ids = parse_ids(req.item_ids, "itemIds")?;
+    blocking(move || {
+        // The pages to tell are found first: after the deletion the items are gone
+        let mut pages = BTreeSet::new();
+        for id in &item_ids {
+            pages.extend(state.item_service.get_item_page_id(id)?);
+            for t in state.items.find_transcluders(id)? {
+                pages.insert(t.page_id.to_string());
+            }
+        }
+        state.item_service.delete_items(&item_ids)?;
+        for page_id in pages {
+            state.sse.broadcast_pages_updated(&page_id);
+        }
+        Ok(StatusCode::NO_CONTENT)
     })
     .await
 }

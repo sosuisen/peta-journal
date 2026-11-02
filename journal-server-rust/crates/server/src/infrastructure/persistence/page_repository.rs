@@ -142,6 +142,15 @@ impl PageRepository {
         self.query_pages(&format!("{SELECT_PAGES}ORDER BY modified_date DESC"), &[])
     }
 
+    /// Marks a page as changed, on the given connection, as part of a larger transaction.
+    pub fn touch_in(conn: &Connection, page_id: &Hmtid, modified_date: i64) -> AppResult<()> {
+        conn.execute(
+            "UPDATE pages SET modified_date = ? WHERE id = ?",
+            params![modified_date, page_id.as_str()],
+        )?;
+        Ok(())
+    }
+
     /// Inserts or updates a page. The parent is resolved from `dir_path` and `name`.
     pub fn save(&self, page: &Page) -> AppResult<Page> {
         let mut conn = self.db.conn()?;
