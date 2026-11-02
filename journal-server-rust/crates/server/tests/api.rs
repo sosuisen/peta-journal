@@ -464,6 +464,38 @@ async fn a_transclusion_is_not_merged_on_either_side() {
     );
 }
 
+// トランスクルードされている項目を結合で消すと、埋め込み側には本文と子孫の写しが普通の項目として残る。
+#[tokio::test]
+async fn merging_away_a_source_item_leaves_a_copy_in_its_transcluders() {
+    let source_page = new_doc_page("items-merge-source").await;
+    let source = fill(&source_page.id, &["above", "source", "  child"]).await;
+    let page = new_doc_page("items-merge-host").await;
+    let host = fill(&page.id, &["host"]).await.remove(0);
+    let (status, resp) = post(
+        &format!("/api/items/{}/transclude", host.id),
+        json!({ "sourceItemId": source[1].id }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    let (status, resp) = post(
+        "/api/items/merge",
+        json!({ "itemId": source[1].id, "intoId": source[0].id }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(
+        outline_of(&source_page.id).await,
+        ["1:abovesource", "2:child"]
+    );
+    assert_eq!(outline_of(&page.id).await, ["1:source", "2:child"]);
+    assert!(items(&page.id)
+        .await
+        .iter()
+        .all(|i| i.transclude_item_id.is_none()));
+}
+
 // ---- Pages ----
 
 // 新しいdocページは空の項目1つで始まり、同じタイトルで再び見つかる。
