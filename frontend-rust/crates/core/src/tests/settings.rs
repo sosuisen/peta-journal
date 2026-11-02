@@ -2,6 +2,7 @@ use crate::app::Event;
 use crate::effects::ApiOp;
 use crate::harness::Harness;
 
+// プロパティ定義を追加すると、前後の空白を除いたキーがサーバーに送られ、サーバーの一覧が表示される。
 #[test]
 fn adding_a_property_definition_sends_it_and_shows_the_server_list() {
     let mut h = Harness::with_items(vec![]);
@@ -17,6 +18,7 @@ fn adding_a_property_definition_sends_it_and_shows_the_server_list() {
     assert!(h.model.config.definition_error.is_none());
 }
 
+// 拒否された定義はその理由を示し、空のキーは送られずに必須である旨が示される。
 #[test]
 fn a_refused_definition_shows_the_reason_and_an_empty_key_is_not_sent() {
     let mut h = Harness::with_items(vec![]);
@@ -44,6 +46,7 @@ fn a_refused_definition_shows_the_reason_and_an_empty_key_is_not_sent() {
     );
 }
 
+// プロパティ定義を削除すると、それがサーバーに送られ、サーバーの一覧が表示される。拒否された削除はその理由を示す。
 #[test]
 fn deleting_a_property_definition_sends_it_and_shows_the_server_list() {
     let mut h = Harness::with_items(vec![]);
@@ -75,6 +78,7 @@ fn deleting_a_property_definition_sends_it_and_shows_the_server_list() {
     );
 }
 
+// ホームリンクを設定すると、それがサーバーに送られ、サーバーの答えが保持される。
 #[test]
 fn setting_the_home_link_sends_it_and_keeps_the_servers_answer() {
     let mut h = Harness::with_items(vec![]);
@@ -88,6 +92,7 @@ fn setting_the_home_link_sends_it_and_keeps_the_servers_answer() {
     assert_eq!(h.view().config.home_link, "a/Foo");
 }
 
+// ホームリンクがなければ、ホームは今日のページを開く。
 #[test]
 fn home_opens_today_without_a_link() {
     let mut h = Harness::new();
@@ -95,6 +100,7 @@ fn home_opens_today_without_a_link() {
     assert_eq!(h.navigations.last().unwrap().url, "/today");
 }
 
+// ホームはホームリンクのページを開く。
 #[test]
 fn home_opens_the_page_of_its_link() {
     let mut h = Harness::new();
@@ -106,6 +112,7 @@ fn home_opens_the_page_of_its_link() {
     );
 }
 
+// ホームはフォルダを最後に見たときの表示で開く。
 #[test]
 fn home_opens_a_folder_as_it_was_last_seen() {
     let mut h = Harness::new();
@@ -115,6 +122,7 @@ fn home_opens_a_folder_as_it_was_last_seen() {
     assert_eq!(h.navigations.last().unwrap().url, "/pages/a/index_atlas");
 }
 
+// タグフォルダを設定すると、それがサーバーに送られ、サーバーが正規化した形が保持される。
 #[test]
 fn setting_the_tags_dir_sends_it_and_keeps_the_servers_normalized_form() {
     let mut h = Harness::with_items(vec![]);

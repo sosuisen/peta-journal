@@ -3,6 +3,7 @@
 use crate::app::Event;
 use crate::harness::Harness;
 
+// タグボタンはタグフォルダの index ページを開く。
 #[test]
 fn the_tags_button_opens_the_index_page_of_the_tags_folder() {
     let mut h = Harness::new();
@@ -12,6 +13,7 @@ fn the_tags_button_opens_the_index_page_of_the_tags_folder() {
     assert_eq!(h.navigations.last().unwrap().url, "/pages/tags/index");
 }
 
+// タグがルートにあるときは、タグボタンはルートの index を開く。
 #[test]
 fn with_the_tags_in_the_root_the_tags_button_opens_the_root_index() {
     let mut h = Harness::new();

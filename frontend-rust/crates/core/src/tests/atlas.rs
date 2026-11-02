@@ -27,6 +27,7 @@ fn showing(page: Page) -> Harness {
     h
 }
 
+// インデックスページのマップボタンは、そのディレクトリのアトラスを開く。
 #[test]
 fn the_map_button_of_an_index_page_opens_the_atlas_of_its_directory() {
     let mut h = showing(doc("a/b/", "index"));
@@ -35,6 +36,7 @@ fn the_map_button_of_an_index_page_opens_the_atlas_of_its_directory() {
     assert_eq!(h.navigations.last().unwrap().url, "/pages/a/b/index_atlas");
 }
 
+// ルートのインデックスページのマップボタンは、ルートのアトラスを開く。
 #[test]
 fn the_map_button_of_the_root_index_opens_the_root_atlas() {
     let mut h = showing(doc("", "index"));
@@ -43,6 +45,7 @@ fn the_map_button_of_the_root_index_opens_the_root_atlas() {
     assert_eq!(h.navigations.last().unwrap().url, "/pages/index_atlas");
 }
 
+// アトラスページのマップボタンは、インデックスページに戻る。
 #[test]
 fn the_map_button_of_an_atlas_page_goes_back_to_the_index_page() {
     let mut h = showing(doc("a/b/", ATLAS_NAME));
@@ -51,6 +54,7 @@ fn the_map_button_of_an_atlas_page_goes_back_to_the_index_page() {
     assert_eq!(h.navigations.last().unwrap().url, "/pages/a/b/index");
 }
 
+// アトラスページのタイトルは、そのディレクトリ名から付けられる。ルートのアトラスでは "(root)/" と表される。
 #[test]
 fn an_atlas_page_is_titled_by_its_directory() {
     assert_eq!(page_title(&doc("a/b/", ATLAS_NAME)), "Atlas of a/b/");
@@ -66,6 +70,7 @@ fn index_with_atlas() -> Harness {
     h
 }
 
+// アトラスを持つインデックスページの降格では、まず確認が求められ、承諾後にアトラスが削除されてページ名が変更される。
 #[test]
 fn demoting_an_index_page_with_an_atlas_asks_first_then_deletes_the_atlas_and_renames() {
     let mut h = index_with_atlas();
@@ -86,6 +91,7 @@ fn demoting_an_index_page_with_an_atlas_asks_first_then_deletes_the_atlas_and_re
     assert!(h.api.called("UpdatePage"));
 }
 
+// 確認に「いいえ」と答えると、アトラスもインデックスページもそのまま残される。
 #[test]
 fn a_no_to_the_question_keeps_the_atlas_and_the_index_page() {
     let mut h = index_with_atlas();
@@ -96,6 +102,7 @@ fn a_no_to_the_question_keeps_the_atlas_and_the_index_page() {
     assert!(!h.api.called("UpdatePage"));
 }
 
+// アトラスを持たないインデックスページは、確認なしに名前が変更される。
 #[test]
 fn an_index_page_without_an_atlas_is_renamed_without_a_question() {
     let mut h = showing(doc("a/b/", "index"));
@@ -211,6 +218,7 @@ fn scale(h: &mut Harness, card_id: &str, scale: f64) {
     });
 }
 
+// 境界を持たないページのカードは未配置のまま待機し、境界を持つページのカードはキャンバス上に置かれる。
 #[test]
 fn a_page_without_bounds_waits_unplaced_and_a_page_with_them_lies_on_the_canvas() {
     let h = atlas_with(&[("one", None), ("two", Some("-80,-28,160,56"))]);
@@ -232,6 +240,7 @@ fn a_page_without_bounds_waits_unplaced_and_a_page_with_them_lies_on_the_canvas(
     );
 }
 
+// カードの位置は、そのページを指すアイテムから読み取られる。同じページへのリンクを持つだけの他のアイテムの境界は使われない。
 #[test]
 fn the_place_of_a_card_is_read_from_the_item_of_its_page() {
     let h = atlas_of(
@@ -246,6 +255,7 @@ fn the_place_of_a_card_is_read_from_the_item_of_its_page() {
     assert_eq!(bounds_of(&h, "a/b/two").map(|b| b.x), Some(1.0));
 }
 
+// フォルダのカードはそのフォルダのアトラスを開き、ページのカードはそのページを開く。
 #[test]
 fn a_folder_card_opens_the_atlas_of_the_folder_and_a_page_card_the_page() {
     let h = atlas_of(vec![doc("a/b/c/", "index"), child("one")], vec![]);
@@ -257,6 +267,7 @@ fn a_folder_card_opens_the_atlas_of_the_folder_and_a_page_card_the_page() {
     );
 }
 
+// カードを持つのはアトラスページだけである。インデックスページではカードは空である。
 #[test]
 fn only_an_atlas_page_has_cards() {
     let mut h = showing(doc("a/b/", "index"));
@@ -265,6 +276,7 @@ fn only_an_atlas_page_has_cards() {
     assert!(h.view().atlas_cards.is_empty());
 }
 
+// ドロップされたカードは、ラベルに任せた幅0と倍率1の高さ40をとり、指定した点を中心に置かれて保存される。座標は整数に丸められる。
 #[test]
 fn a_dropped_card_takes_the_label_width_and_scale_1_with_its_center_at_the_given_point() {
     let mut h = atlas_with(&[("one", None)]);
@@ -283,6 +295,7 @@ fn a_dropped_card_takes_the_label_width_and_scale_1_with_its_center_at_the_given
     );
 }
 
+// ページに対応するアイテムがまだないカードは配置されず、何も保存されない。
 #[test]
 fn a_card_whose_page_has_no_item_yet_is_not_placed() {
     let mut h = atlas_of(vec![child("one")], vec![]);
@@ -291,6 +304,7 @@ fn a_card_whose_page_has_no_item_yet_is_not_placed() {
     assert!(upserts(&h).is_empty());
 }
 
+// 配置済みのカードは、移動してもその大きさを保つ。
 #[test]
 fn a_placed_card_keeps_its_size_when_it_moves() {
     let mut h = atlas_with(&[("one", Some("0,0,200,100"))]);
@@ -299,6 +313,7 @@ fn a_placed_card_keeps_its_size_when_it_moves() {
     assert_eq!(upserts(&h)[0].2, "1,0,200,100");
 }
 
+// 拡大縮小されたカードは位置を保ち、倍率は高さとして保存される。
 #[test]
 fn a_scaled_card_keeps_its_place_and_stores_its_scale_as_its_height() {
     let mut h = atlas_with(&[("one", Some("10,-20,0,40"))]);
@@ -309,6 +324,7 @@ fn a_scaled_card_keeps_its_place_and_stores_its_scale_as_its_height() {
     assert_eq!(Bounds::parse("10,-20,0,60").unwrap().scale(), 1.5);
 }
 
+// 拡大縮小されたカードの幅は0になり、ラベルに委ねられる。
 #[test]
 fn a_scaled_card_leaves_its_width_to_the_label() {
     let mut h = atlas_with(&[("one", Some("0,0,200,80"))]);
@@ -317,6 +333,7 @@ fn a_scaled_card_leaves_its_width_to_the_label() {
     assert_eq!(upserts(&h)[0].2, "0,0,0,40");
 }
 
+// カードは半分より小さくは縮まず、拡大には上限がない。
 #[test]
 fn a_card_shrinks_no_smaller_than_half_and_grows_without_limit() {
     let mut h = atlas_with(&[("one", Some("0,0,0,40")), ("two", Some("0,0,0,40"))]);
@@ -327,6 +344,7 @@ fn a_card_shrinks_no_smaller_than_half_and_grows_without_limit() {
     assert_eq!(saved, ["0,0,0,20", "0,0,0,400"]);
 }
 
+// 未配置のカードや倍率の変わらないカードは拡大縮小されず、何も保存されない。
 #[test]
 fn an_unplaced_or_unchanged_card_is_not_scaled() {
     let mut h = atlas_with(&[("one", None), ("two", Some("0,0,0,40"))]);
@@ -336,6 +354,7 @@ fn an_unplaced_or_unchanged_card_is_not_scaled() {
     assert!(upserts(&h).is_empty());
 }
 
+// 配置の保存が拒否されると、カードは未配置の状態に戻され、アラートが表示される。
 #[test]
 fn a_refused_place_puts_the_card_back() {
     let mut h = atlas_with(&[("one", None)]);
@@ -357,6 +376,7 @@ fn removed_properties(h: &Harness) -> Vec<(String, String)> {
         .collect()
 }
 
+// 取り除かれたカードは境界のプロパティを失い、再び未配置のまま待機する。
 #[test]
 fn a_removed_card_loses_its_bounds_and_waits_unplaced_again() {
     let mut h = atlas_with(&[("one", Some("0,0,120,40"))]);
@@ -371,6 +391,7 @@ fn a_removed_card_loses_its_bounds_and_waits_unplaced_again() {
     );
 }
 
+// 取り除きが拒否されると、カードはキャンバス上の元の位置に戻され、アラートが表示される。
 #[test]
 fn a_refused_remove_puts_the_card_back_on_the_canvas() {
     let mut h = atlas_with(&[("one", Some("0,0,120,40"))]);
@@ -391,6 +412,7 @@ fn a_refused_remove_puts_the_card_back_on_the_canvas() {
     assert!(h.ui.iter().any(|op| matches!(op, UiOp::Alert(_))));
 }
 
+// アトラスの上へボタンは、一つ上のディレクトリのアトラスを開く。
 #[test]
 fn the_up_button_of_an_atlas_opens_the_atlas_of_the_directory_above() {
     let mut h = showing(doc("a/b/", ATLAS_NAME));
@@ -399,6 +421,7 @@ fn the_up_button_of_an_atlas_opens_the_atlas_of_the_directory_above() {
     assert_eq!(h.navigations.last().unwrap().url, "/pages/a/index_atlas");
 }
 
+// 最上位ディレクトリの上へボタンは、ルートのアトラスを開く。
 #[test]
 fn the_up_button_of_a_top_directory_opens_the_root_atlas() {
     let mut h = showing(doc("a/", ATLAS_NAME));
@@ -407,6 +430,7 @@ fn the_up_button_of_a_top_directory_opens_the_root_atlas() {
     assert_eq!(h.navigations.last().unwrap().url, "/pages/index_atlas");
 }
 
+// ルートのアトラスには上のディレクトリがなく、上へボタンでは遷移しない。
 #[test]
 fn the_root_atlas_has_no_directory_above() {
     let mut h = showing(doc("", ATLAS_NAME));
@@ -436,6 +460,7 @@ fn go_to(h: &mut Harness, path: &str) -> String {
     h.navigations.last().unwrap().url.clone()
 }
 
+// 最後にマップとして見たフォルダは、そのアトラスとして開かれる。他のフォルダはインデックスページのまま開かれる。
 #[test]
 fn a_folder_last_seen_as_a_map_opens_as_its_atlas() {
     let mut h = Harness::new();
@@ -446,6 +471,7 @@ fn a_folder_last_seen_as_a_map_opens_as_its_atlas() {
     assert_eq!(go_to(&mut h, "a/c/index"), "/pages/a/c/index");
 }
 
+// 最後にインデックスとして見たフォルダは、再びインデックスとして開かれる。
 #[test]
 fn a_folder_last_seen_as_its_index_opens_as_its_index_again() {
     let mut h = Harness::new();
@@ -455,6 +481,7 @@ fn a_folder_last_seen_as_its_index_opens_as_its_index_again() {
     assert_eq!(go_to(&mut h, "a/b/index"), "/pages/a/b/index");
 }
 
+// ルートとタグフォルダも、最後に見た形で開かれる。
 #[test]
 fn the_root_and_the_tags_folder_open_as_they_were_last_seen() {
     let mut h = Harness::new();
@@ -468,6 +495,7 @@ fn the_root_and_the_tags_folder_open_as_they_were_last_seen() {
     assert_eq!(h.navigations.last().unwrap().url, "/pages/tags/index_atlas");
 }
 
+// フォルダをマップとして見た後でも、マップボタンはインデックスページに戻る。
 #[test]
 fn the_map_button_still_goes_back_to_the_index_page() {
     let mut h = Harness::new();
@@ -482,6 +510,7 @@ fn the_map_button_still_goes_back_to_the_index_page() {
     assert_eq!(h.navigations.last().unwrap().url, "/pages/a/b/index");
 }
 
+// マップとして見たフォルダの一覧はシェルに保存され、復元されるとそのフォルダはアトラスとして開かれる。
 #[test]
 fn the_folders_seen_as_maps_are_kept_by_the_shell_and_restored() {
     let mut h = Harness::new();
@@ -534,6 +563,7 @@ fn ungroup(h: &mut Harness, card_ids: &[&str]) {
     });
 }
 
+// グループアイテムの下にあるカードは、そのグループに属する。
 #[test]
 fn a_card_under_a_group_item_belongs_to_the_group() {
     let h = atlas_with_group("", None);
@@ -554,6 +584,7 @@ fn a_card_under_a_group_item_belongs_to_the_group() {
     );
 }
 
+// カードの上にドロップされたカードはサーバーによってグループ化され、サーバーが返したアウトラインが表示に反映される。ドロップ先自身はグループ化の対象から除かれる。
 #[test]
 fn cards_dropped_on_a_card_are_grouped_by_the_server_which_answers_with_the_outline() {
     let mut h = atlas_with(&[("one", Some("0,0,0,40")), ("two", Some("9,0,0,40"))]);
@@ -578,6 +609,7 @@ fn cards_dropped_on_a_card_are_grouped_by_the_server_which_answers_with_the_outl
     assert_eq!(groups, [Some("g".to_string()), Some("g".to_string())]);
 }
 
+// 自分自身や存在しないカードの上にドロップされたカードは、グループを作らない。
 #[test]
 fn a_card_dropped_on_itself_or_on_no_card_makes_no_group() {
     let mut h = atlas_with(&[("one", Some("0,0,0,40"))]);
@@ -587,6 +619,7 @@ fn a_card_dropped_on_itself_or_on_no_card_makes_no_group() {
     assert!(changes(&h).is_empty());
 }
 
+// 配置とグループ化が同時に行われたカードは、表示されていた位置を保つ。サーバーが位置の保存前にグループ化を返すためである。
 #[test]
 fn a_card_placed_and_grouped_at_once_keeps_the_place_shown_for_it() {
     let mut h = atlas_with(&[("one", None), ("two", Some("9,0,0,40"))]);
@@ -605,6 +638,7 @@ fn a_card_placed_and_grouped_at_once_keeps_the_place_shown_for_it() {
     assert_eq!(bounds_of(&h, "a/b/one").map(|b| b.x), Some(5.0));
 }
 
+// グループ化が拒否されると、アウトラインは元のまま保たれ、アラートが表示される。
 #[test]
 fn a_refused_group_leaves_the_outline_as_it_was() {
     let mut h = atlas_with_group("", None);
@@ -615,6 +649,7 @@ fn a_refused_group_leaves_the_outline_as_it_was() {
     assert!(h.ui.iter().any(|op| matches!(op, UiOp::Alert(_))));
 }
 
+// グループの外へドラッグされたカードは、サーバーへのグループ解除として送られる。
 #[test]
 fn a_card_dragged_out_of_its_group_is_ungrouped_by_the_server() {
     let mut h = atlas_with_group("", None);
@@ -628,6 +663,7 @@ fn a_card_dragged_out_of_its_group_is_ungrouped_by_the_server() {
     );
 }
 
+// どのグループにも属さないカードのグループ解除では、何も送られない。
 #[test]
 fn a_card_in_no_group_leaves_nothing() {
     let mut h = atlas_with_group("", None);
@@ -636,6 +672,7 @@ fn a_card_in_no_group_leaves_nothing() {
     assert!(changes(&h).is_empty());
 }
 
+// グループに属するカードはそのグループの色を持ち、属さないカードは色を持たない。
 #[test]
 fn a_card_in_a_group_has_the_color_of_its_group() {
     let h = atlas_with_group("", None);
@@ -665,6 +702,7 @@ fn titled(h: &mut Harness, group_id: &str, side: &str, title: &str) {
     });
 }
 
+// グループは外形の一辺に沿ったタイトルをとる。タイトルの前後の空白は取り除かれて送られる。
 #[test]
 fn a_group_takes_a_title_along_a_side_of_its_outline() {
     let mut h = atlas_with_group("", None);
@@ -680,6 +718,7 @@ fn a_group_takes_a_title_along_a_side_of_its_outline() {
     );
 }
 
+// グループの各カードはそのタイトルを持ち、辺が指定されていなければタイトルは上辺に沿う。
 #[test]
 fn every_card_of_a_group_carries_its_title_which_lies_along_the_top_by_default() {
     let h = atlas_with_group("Tools", None);
@@ -704,6 +743,7 @@ fn every_card_of_a_group_carries_its_title_which_lies_along_the_top_by_default()
     );
 }
 
+// 空のタイトルは、タイトルを取り去るために送られる。
 #[test]
 fn an_empty_title_is_sent_to_take_the_title_away() {
     let mut h = atlas_with_group("Tools", Some("left"));
@@ -719,6 +759,7 @@ fn an_empty_title_is_sent_to_take_the_title_away() {
     );
 }
 
+// 存在しないグループやグループでないアイテムへのタイトル、変更のないタイトルは送られず、不明な辺は上辺に直されて送られる。
 #[test]
 fn a_title_of_no_group_an_unknown_side_or_no_change_is_not_sent_as_given() {
     let mut h = atlas_with_group("Tools", None);
@@ -746,6 +787,7 @@ fn page_changed(h: &mut Harness, page_id: &str, source: &str) {
     ))));
 }
 
+// 表示中のアトラスは、サーバーがそのアウトラインを書き換えると、アウトラインを取得し直す。
 #[test]
 fn the_shown_atlas_takes_its_outline_again_when_the_server_writes_it() {
     // No item is shown yet, as on an atlas whose directory had no pages
@@ -768,6 +810,7 @@ fn the_shown_atlas_takes_its_outline_again_when_the_server_writes_it() {
     assert_eq!(h.view().atlas_links.len(), 1);
 }
 
+// アプリ内で行われた変更や他のページの変更では、アウトラインは取得されない。
 #[test]
 fn the_outline_is_not_fetched_for_a_change_made_in_the_app_or_on_another_page() {
     let mut h = atlas_with(&[("one", None)]);
@@ -777,6 +820,7 @@ fn the_outline_is_not_fetched_for_a_change_made_in_the_app_or_on_another_page() 
     assert!(!h.api.called("GetPageById"));
 }
 
+// カードのアイコンは、そのページのタグから決まる。タグがなければ空である。
 #[test]
 fn a_card_draws_its_icon_from_the_tags_of_its_page() {
     use crate::screens::atlas::icon_tags;
@@ -787,6 +831,7 @@ fn a_card_draws_its_icon_from_the_tags_of_its_page() {
     assert_eq!(icon_tags(&page, "tags/"), ["cardbox", "card"]);
 }
 
+// タグページのアイコンは、タグディレクトリからの相対パスで表した自身のタグから決まる。
 #[test]
 fn a_tag_page_draws_its_icon_from_its_own_tag() {
     use crate::screens::atlas::icon_tags;
@@ -797,6 +842,7 @@ fn a_tag_page_draws_its_icon_from_its_own_tag() {
     );
 }
 
+// フォルダのアイコンは、タグページのフォルダならそのタグから、それ以外ならインデックスページのタグか、なければフォルダ名から決まる。タグフォルダ自体はタグではない。
 #[test]
 fn a_folder_draws_its_icon_from_its_tag_its_tags_or_its_name() {
     use crate::screens::atlas::icon_tags;
@@ -860,6 +906,7 @@ fn atlas_with_callout() -> Harness {
     atlas_with_callouts(vec![callout_item("c", "Hello", "10,20,0,60")])
 }
 
+// 吹き出しは吹き出しの親アイテムの下にあるアイテムであり、位置・倍率・辺・テキストを持って表示される。
 #[test]
 fn a_callout_is_an_item_under_the_parent_of_the_callouts() {
     let h = atlas_with_callout();
@@ -871,6 +918,7 @@ fn a_callout_is_an_item_under_the_parent_of_the_callouts() {
     assert_eq!(h.view().atlas_callouts, [shown]);
 }
 
+// 境界がない吹き出しや高さが0の吹き出しは、表示から除かれる。辺のない吹き出しは上に表示される。
 #[test]
 fn a_callout_without_a_place_is_left_out() {
     let mut no_side = callout_item("b", "Hi", "1,2,0,40");
@@ -888,6 +936,7 @@ fn a_callout_without_a_place_is_left_out() {
     );
 }
 
+// 吹き出しは、丸めた座標と辺、前後の空白を除いたテキストでサーバーによって追加され、返されたアウトラインが表示される。
 #[test]
 fn a_callout_is_added_by_the_server_at_the_point_with_its_side_and_text() {
     let mut h = atlas_with_callouts(vec![]);
@@ -916,6 +965,7 @@ fn a_callout_is_added_by_the_server_at_the_point_with_its_side_and_text() {
     assert_eq!(h.view().atlas_callouts.len(), 1);
 }
 
+// テキストが空の吹き出しは追加されない。
 #[test]
 fn an_empty_callout_is_not_added() {
     let mut h = atlas_with_callouts(vec![]);
@@ -929,6 +979,7 @@ fn an_empty_callout_is_not_added() {
     assert!(changes(&h).is_empty());
 }
 
+// 編集された吹き出しは、辺とテキストとともに送られる。変更のない編集は送られない。
 #[test]
 fn an_edited_callout_is_sent_with_its_side_and_text() {
     let mut h = atlas_with_callout();
@@ -954,6 +1005,7 @@ fn an_edited_callout_is_sent_with_its_side_and_text() {
     );
 }
 
+// 空のテキストは、吹き出しを取り去るために送られる。
 #[test]
 fn an_empty_text_is_sent_to_take_the_callout_away() {
     let mut h = atlas_with_callout();
@@ -973,6 +1025,7 @@ fn an_empty_text_is_sent_to_take_the_callout_away() {
     );
 }
 
+// 移動した吹き出しは倍率を保つ。座標は整数に丸められて保存される。
 #[test]
 fn a_moved_callout_keeps_its_scale() {
     let mut h = atlas_with_callout();
@@ -989,6 +1042,7 @@ fn a_moved_callout_keeps_its_scale() {
     assert_eq!(h.view().atlas_callouts[0].x, -30.0);
 }
 
+// 吹き出しは半分より小さくは縮まず、拡大には上限がない。
 #[test]
 fn a_callout_shrinks_no_smaller_than_half_and_grows_without_limit() {
     let mut h = atlas_with_callout();
@@ -1005,6 +1059,7 @@ fn a_callout_shrinks_no_smaller_than_half_and_grows_without_limit() {
     assert_eq!(values, ["10,20,0,20", "10,20,0,100"]);
 }
 
+// 丸めると変わらない移動や拡大縮小、存在しない吹き出しの移動は保存されない。
 #[test]
 fn a_callout_that_does_not_change_is_not_saved() {
     let mut h = atlas_with_callout();
@@ -1026,6 +1081,7 @@ fn a_callout_that_does_not_change_is_not_saved() {
     assert!(upserts(&h).is_empty());
 }
 
+// 吹き出しの移動が拒否されると、吹き出しは元の位置に戻される。
 #[test]
 fn a_refused_move_of_a_callout_puts_it_back() {
     let mut h = atlas_with_callout();
@@ -1039,6 +1095,7 @@ fn a_refused_move_of_a_callout_puts_it_back() {
     assert_eq!(h.view().atlas_callouts[0].x, 10.0);
 }
 
+// 上へボタンには一つ上のディレクトリ名が表示される。最上位ディレクトリでは "(root)/" である。
 #[test]
 fn the_up_button_names_the_directory_above() {
     use crate::screens::atlas::parent_dir_label;
@@ -1047,6 +1104,7 @@ fn the_up_button_names_the_directory_above() {
     assert_eq!(parent_dir_label("a/"), "(root)/");
 }
 
+// アトラスのカードは、そのページが公開済みかどうかを知っている。
 #[test]
 fn an_atlas_card_knows_whether_its_page_is_published() {
     let mut published = child("one");
@@ -1097,6 +1155,7 @@ fn atlas_with_link() -> Harness {
     )
 }
 
+// 本文がリンク一つだけで配置済みのアトラスのアイテムはリンクカードである。未配置のもの、リンク以外の文字を含むもの、リンクが複数あるもの、ページカードは除かれる。
 #[test]
 fn an_item_of_the_atlas_that_is_one_placed_link_is_a_link_card() {
     let h = atlas_of(
@@ -1127,6 +1186,7 @@ fn an_item_of_the_atlas_that_is_one_placed_link_is_a_link_card() {
     );
 }
 
+// グループアイテムの下にあるリンクカードはそのグループに属し、グループのタイトルを持つ。
 #[test]
 fn a_link_card_under_a_group_item_belongs_to_the_group() {
     let h = atlas_of(
@@ -1149,6 +1209,7 @@ fn a_link_card_under_a_group_item_belongs_to_the_group() {
     );
 }
 
+// 追加されたリンクは、丸めた位置とともにサーバーによって書き込まれ、返されたアウトラインが表示される。リンク先の括弧と空白は取り除かれる。
 #[test]
 fn an_added_link_is_written_by_the_server_with_its_place() {
     let mut h = atlas_of(vec![], vec![]);
@@ -1178,6 +1239,7 @@ fn an_added_link_is_written_by_the_server_with_its_place() {
     assert_eq!(links[0].target, "x/Target");
 }
 
+// 空のリンクは追加されない。
 #[test]
 fn an_empty_link_is_not_added() {
     let mut h = atlas_of(vec![], vec![]);
@@ -1190,6 +1252,7 @@ fn an_empty_link_is_not_added() {
     assert!(changes(&h).is_empty());
 }
 
+// リンクカードは、ページカードと同じように移動と拡大縮小ができる。
 #[test]
 fn a_link_card_moves_and_scales_as_a_card() {
     let mut h = atlas_with_link();
@@ -1214,6 +1277,7 @@ fn a_link_card_moves_and_scales_as_a_card() {
     );
 }
 
+// リンクの移動が拒否されると、リンクカードは元の位置に戻される。
 #[test]
 fn a_refused_move_of_a_link_puts_it_back() {
     let mut h = atlas_with_link();
@@ -1223,6 +1287,7 @@ fn a_refused_move_of_a_link_puts_it_back() {
     assert_eq!(h.view().atlas_links[0].bounds.x, 10.0);
 }
 
+// リンクカードは、ページカードと同じようにグループに加わる。
 #[test]
 fn a_link_card_joins_a_group_as_a_card() {
     let mut h = atlas_with_link();
@@ -1237,6 +1302,7 @@ fn a_link_card_joins_a_group_as_a_card() {
     );
 }
 
+// 取り除かれたリンクカードは、サーバーによって取り去られる。
 #[test]
 fn a_removed_link_card_is_taken_away_by_the_server() {
     let mut h = atlas_with_link();
@@ -1252,6 +1318,7 @@ fn a_removed_link_card_is_taken_away_by_the_server() {
     );
 }
 
+// リンクとして取り除かれるのはリンクカードだけである。ページカードでは何も送られない。
 #[test]
 fn only_a_link_card_is_removed_as_a_link() {
     let mut h = atlas_with_link();
@@ -1262,6 +1329,7 @@ fn only_a_link_card_is_removed_as_a_link() {
     assert!(changes(&h).is_empty());
 }
 
+// リンクカードを編集すると、新しいページへのリンクになる。リンク先の括弧と空白は取り除かれる。
 #[test]
 fn editing_a_link_card_links_it_to_the_new_page() {
     let mut h = atlas_with_link();
@@ -1279,6 +1347,7 @@ fn editing_a_link_card_links_it_to_the_new_page() {
     );
 }
 
+// 空のリンク先や同じページへの編集、ページカードへの編集では何も変わらない。
 #[test]
 fn an_edit_of_a_link_to_nothing_or_to_the_same_page_changes_nothing() {
     let mut h = atlas_with_link();
@@ -1299,6 +1368,7 @@ fn an_edit_of_a_link_to_nothing_or_to_the_same_page_changes_nothing() {
     assert_eq!(h.view().atlas_links[0].target, "x/Target");
 }
 
+// リンクのダイアログは、入力が一息置いた後にページ名の候補を示す。検索語が空になると候補は空になる。
 #[test]
 fn the_dialog_of_a_link_offers_page_names_after_a_pause() {
     let mut h = atlas_with(&[]);

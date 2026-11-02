@@ -20,6 +20,7 @@ fn with_props(
     it
 }
 
+// タスクは begin と end から自分の状態を報告する。
 #[test]
 fn a_task_reports_its_state_from_begin_and_end() {
     let h = Harness::with_items(vec![
@@ -51,6 +52,7 @@ fn a_task_reports_its_state_from_begin_and_end() {
     );
 }
 
+// 一行だけの見出しは見出し行であるが、続きの行がある見出しはそうではない。
 #[test]
 fn a_one_line_heading_is_a_heading_line_but_a_heading_with_more_lines_is_not() {
     let h = Harness::with_items(vec![
@@ -64,6 +66,7 @@ fn a_one_line_heading_is_a_heading_line_but_a_heading_with_more_lines_is_not() {
     assert_eq!((r[2].heading_level, r[2].heading_line), (0, false));
 }
 
+// 自前の zoom を持つ項目だけが zoom を持つとされる。子は zoom を継承するが自前のものではない。
 #[test]
 fn only_an_item_with_a_zoom_of_its_own_has_one() {
     let h = Harness::with_items(vec![

@@ -44,6 +44,7 @@ fn page_options() -> RenderOptions {
     }
 }
 
+// インライン書式を含む段落は em・strong・code・del 要素を持つ p にレンダリングされる。
 #[test]
 fn paragraph_with_inline_formatting() {
     assert_eq!(
@@ -52,6 +53,7 @@ fn paragraph_with_inline_formatting() {
     );
 }
 
+// 見出しはレベルに応じた h1〜h6 要素にレンダリングされる。
 #[test]
 fn headings() {
     assert_eq!(render_plain("# One"), "<h1>One</h1>");
@@ -59,6 +61,7 @@ fn headings() {
     assert_eq!(render_plain("###### Six"), "<h6>Six</h6>");
 }
 
+// コードブロックは情報文字列に応じた language- クラスつきの pre/code にレンダリングされ、情報文字列が空ならクラスがなく、中身はエスケープされる。
 #[test]
 fn code_block_with_and_without_info() {
     assert_eq!(
@@ -83,6 +86,7 @@ fn code_block_with_and_without_info() {
     );
 }
 
+// 箇条書きと番号付きリストは項目を p で包んだ ul/ol にレンダリングされ、開始番号は start 属性になる。comrak が項目を tight: false とするためである。
 #[test]
 fn lists() {
     // comrak marks items `tight: false` even in a tight list, and the Angular renderer reads
@@ -101,6 +105,7 @@ fn lists() {
     );
 }
 
+// タスクリストは disabled なチェックボックスを持つ li にレンダリングされ、完了項目には checked が付く。
 #[test]
 fn task_list() {
     assert_eq!(
@@ -112,6 +117,7 @@ fn task_list() {
     );
 }
 
+// 配置指定つきのテーブルは th/td に align 属性を持つ table にレンダリングされ、指定のない列には属性が付かない。
 #[test]
 fn table_with_alignment() {
     assert_eq!(
@@ -123,6 +129,7 @@ fn table_with_alignment() {
     );
 }
 
+// 引用と水平線は blockquote と hr にレンダリングされる。
 #[test]
 fn blockquote_and_rule() {
     assert_eq!(
@@ -131,6 +138,7 @@ fn blockquote_and_rule() {
     );
 }
 
+// アラートは種別のクラスを持つ div にレンダリングされ、タイトルは指定がなければ種別名、指定があればその文字列になる。
 #[test]
 fn alert_with_default_and_custom_title() {
     assert_eq!(
@@ -155,6 +163,7 @@ body
     );
 }
 
+// リンクは href と title を持つ a に、画像は src と alt を持つ img にレンダリングされる。
 #[test]
 fn link_and_image() {
     assert_eq!(
@@ -171,6 +180,7 @@ fn link_and_image() {
     );
 }
 
+// 画像 URL のフラグメントの w と h は img の width と height 属性になり、値のないフラグや数値でない値は無視される。
 #[test]
 fn embed_width_and_height() {
     // Both sizes.
@@ -195,6 +205,7 @@ fn embed_width_and_height() {
     );
 }
 
+// ウィキリンクとハッシュタグはオプションのプレフィックスとクラスを持つ a にレンダリングされ、オプションがなければプレフィックスもクラスもない。
 #[test]
 fn wikilink_and_hashtag() {
     assert_eq!(
@@ -216,6 +227,7 @@ fn wikilink_and_hashtag() {
     );
 }
 
+// 脚注参照は脚注へのリンクを持つ sup に、脚注定義は参照へ戻るラベルつきの div にレンダリングされる。
 #[test]
 fn footnotes() {
     assert_eq!(
@@ -227,6 +239,7 @@ fn footnotes() {
     );
 }
 
+// 段落内の改行はそのまま改行文字として、インライン HTML とブロック HTML は span で包んでレンダリングされる。
 #[test]
 fn breaks_and_html() {
     assert_eq!(render_plain("first\nsecond"), "<p>first\nsecond</p>");
@@ -240,6 +253,7 @@ fn breaks_and_html() {
     );
 }
 
+// JSON から作ったその他のノード（front_matter・escaped・shortcode・math・alert・spoilered_text・raw・insert・footnote_definition）は Angular レンダラーと同じ HTML になる。
 #[test]
 fn other_nodes_from_json() {
     let render_json = |json: &str| {
@@ -287,6 +301,7 @@ fn other_nodes_from_json() {
     );
 }
 
+// FmRoot コンポーネントは AST の JSON 文字列を HTML にレンダリングし、JSON でない文字列には空を返す。
 #[test]
 fn fm_root_component() {
     let json = flatmarkdown::body_to_ast_with("# Hi", &options());

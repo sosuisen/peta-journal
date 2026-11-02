@@ -38,6 +38,7 @@ fn rows(h: &Harness) -> Vec<(String, String, bool, bool)> {
     }
 }
 
+// ページの作成日時と更新日時は削除できない行として示され、プロパティ行を開かない。日付は保存されるプロパティではなく、サーバーのページとともにだけ変わる。
 #[test]
 fn the_dates_of_the_page_are_rows_that_cannot_be_removed_and_do_not_open_the_rows() {
     let mut h = Harness::with_items(vec![]);
@@ -69,6 +70,7 @@ fn the_dates_of_the_page_are_rows_that_cannot_be_removed_and_do_not_open_the_row
     assert_eq!(rows(&h)[0].1, "1970-01-01T00:00:00.042Z");
 }
 
+// ページプロパティを設定すると、それが表示され、サーバーが返したページの値が取り込まれる。
 #[test]
 fn setting_a_page_property_shows_it_and_takes_the_server_value() {
     let mut h = Harness::with_items(vec![]);
@@ -90,6 +92,7 @@ fn setting_a_page_property_shows_it_and_takes_the_server_value() {
     }
 }
 
+// タグ値の設定をサーバーが拒否すると、元の空のプロパティに戻り、理由が利用者に知らされる。
 #[test]
 fn a_tag_value_is_shown_as_a_list_until_the_server_answers() {
     let mut h = Harness::with_items(vec![]);
@@ -107,6 +110,7 @@ fn a_tag_value_is_shown_as_a_list_until_the_server_answers() {
         .any(|u| matches!(u, UiOp::Alert(m) if m == "offline")));
 }
 
+// ページプロパティを削除すると、それは取り除かれる。最後のプロパティが消えても行は閉じたままで、メニューから開くと示される。
 #[test]
 fn deleting_a_page_property_removes_it() {
     let mut h = Harness::with_items(vec![]);
@@ -130,6 +134,7 @@ fn deleting_a_page_property_removes_it() {
     assert!(shows_properties(&h));
 }
 
+// タグの前に打たれた # は取り除かれ、同じタグは一つだけ残される。
 #[test]
 fn a_hash_typed_before_a_tag_is_dropped_and_a_tag_is_kept_once() {
     let mut h = Harness::with_items(vec![]);

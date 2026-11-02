@@ -37,6 +37,7 @@ fn harness() -> Harness {
     h
 }
 
+// 最上位の項目を上へ動かすと、子ごと翌日のジャーナルの末尾へ移動される。翌日ページの唯一の空項目は削除され、翌日へ遷移する。
 #[test]
 fn moving_the_topmost_item_up_takes_it_with_its_children_to_the_end_of_the_next_day() {
     let mut h = harness();
@@ -75,6 +76,7 @@ fn moving_the_topmost_item_up_takes_it_with_its_children_to_the_end_of_the_next_
     assert_eq!(h.navigations.last().unwrap().url, "/pages/2026-02-11");
 }
 
+// 最下位の項目を下へ動かすと前日のジャーナルの先頭へ移動される。遷移はせず表示中のジャーナルが再読み込みされる。
 #[test]
 fn moving_the_bottommost_item_down_takes_it_to_the_start_of_the_previous_day() {
     let mut h = harness();
@@ -103,6 +105,7 @@ fn moving_the_bottommost_item_down_takes_it_to_the_start_of_the_previous_day() {
     ));
 }
 
+// 移動元のページが空になる場合は、空の項目が移動元に残される。
 #[test]
 fn leaves_an_empty_item_behind_when_the_source_page_would_become_empty() {
     let mut h = Harness::new();
@@ -121,6 +124,7 @@ fn leaves_an_empty_item_behind_when_the_source_page_would_become_empty() {
     assert_eq!(create_calls(&h.api)[0].0, "p09");
 }
 
+// 前日ページの最後より上にある項目を下へ動かすと、ジャーナルは作られずそのページ内で移動される。
 #[test]
 fn an_item_above_the_last_one_stays_on_its_page() {
     let mut h = harness();
@@ -133,6 +137,7 @@ fn an_item_above_the_last_one_stays_on_its_page() {
     assert_eq!(move_calls(&h.api)[0].1, "p09");
 }
 
+// 表示中ページの最下位でない項目を下へ動かすと、ジャーナルは作られずそのページ内で移動される。
 #[test]
 fn an_item_in_the_middle_of_its_page_stays() {
     let mut h = harness();
@@ -144,6 +149,7 @@ fn an_item_in_the_middle_of_its_page_stays() {
     assert_eq!(move_calls(&h.api)[0].1, "p10");
 }
 
+// 2番目にあるレベル2の項目を上へ動かすと、読み込み済みの翌日の最後のルート項目の下へ移動される。ページは作られない。
 #[test]
 fn a_level_2_item_in_second_position_moves_up_under_the_last_root_of_the_loaded_next_day() {
     let mut h = Harness::new();

@@ -231,6 +231,7 @@ pub fn generate_untitled_title(now: LocalDateTime) -> String {
 mod tests {
     use super::*;
 
+    // RFC 3339 の時刻文字列はサーバーの書式と同じエポックミリ秒に解析され、日付だけなら UTC の0時になり、オフセットのない時刻や日付でない文字列は None になる。
     #[test]
     fn rfc3339_instants_parse_to_the_millis_the_server_formats() {
         assert_eq!(
@@ -254,6 +255,7 @@ mod tests {
         assert_eq!(parse_rfc3339_millis("yesterday"), None);
     }
 
+    // エポックミリ秒はサーバーが書くのと同じ ISO 8601 UTC 形式に整形され、ミリ秒は0でないときだけ付く。
     #[test]
     fn instants_are_formatted_like_the_server_writes_them() {
         assert_eq!(format_instant(0), "1970-01-01T00:00:00Z");
@@ -264,6 +266,7 @@ mod tests {
         );
     }
 
+    // 日付の曜日計算・日数シフト・エポック日からの復元はうるう年をまたいでも正しく、存在しない日付の解析は None になる。
     #[test]
     fn day_arithmetic_round_trips() {
         let d = Date::parse("2026-02-10").unwrap();
@@ -278,6 +281,7 @@ mod tests {
         assert!(Date::parse("2026-02-30").is_none());
     }
 
+    // ジャーナルのファイル名は Angular アプリと同じ日本語表記（年・年月・週・年月日と曜日）に整形され、日付でない名前はそのまま返り、ISO 日付は日数分ずらされる。
     #[test]
     fn formats_like_the_angular_app() {
         assert_eq!(format_journal_date("2024"), "2024年");

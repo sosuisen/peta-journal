@@ -17,6 +17,7 @@ fn create_item(h: &mut Harness, after_item_id: &str, level: i32, body: &str) {
     });
 }
 
+// 空の after_item_id は Angular サービスと同じく先頭を意味し、項目が先頭に作られて結果が拡張に返される。
 #[test]
 fn an_empty_after_item_id_means_first_as_in_the_angular_service() {
     let mut h = Harness::with_items(vec![]);
@@ -38,6 +39,7 @@ fn an_empty_after_item_id_means_first_as_in_the_angular_service() {
         .any(|op| matches!(op, UiOp::ExtensionReply { source: 1, message } if message["type"] == "CreateItemResult")));
 }
 
+// 空の position は after_item_id にフォールバックし、その項目の直後に指定のレベルで作られる。
 #[test]
 fn an_empty_position_falls_back_to_after_item_id() {
     let mut h = Harness::with_items(vec![item("a", 1, "# AM")]);
@@ -55,6 +57,7 @@ fn an_empty_position_falls_back_to_after_item_id() {
     assert_eq!(create_calls(&h.api)[0].2, 2);
 }
 
+// ジャーナルの作成が拡張に通知される。
 #[test]
 fn creating_a_journal_tells_the_extensions() {
     use crate::effects::ApiOutput;
@@ -107,6 +110,7 @@ fn added_tags(h: &Harness) -> Vec<Vec<String>> {
         .collect()
 }
 
+// ページへのタグ追加では、新しく追加されたタグだけが拡張に通知される。
 #[test]
 fn adding_tags_to_a_page_tells_the_extensions_of_the_new_ones_only() {
     let mut h = Harness::with_items(vec![]);
@@ -115,6 +119,7 @@ fn adding_tags_to_a_page_tells_the_extensions_of_the_new_ones_only() {
     assert_eq!(added_tags(&h), vec![vec!["a"], vec!["b", "c"]]);
 }
 
+// タグの削除や他のプロパティの設定では拡張に何も通知されない。
 #[test]
 fn removing_a_tag_or_setting_another_property_tells_the_extensions_nothing() {
     let mut h = Harness::with_items(vec![]);
@@ -128,6 +133,7 @@ fn removing_a_tag_or_setting_another_property_tells_the_extensions_nothing() {
     assert_eq!(added_tags(&h), vec![vec!["a", "b"]]);
 }
 
+// 保存が拒否されたタグは拡張に通知されない。
 #[test]
 fn a_refused_tag_is_not_told_to_the_extensions() {
     let mut h = Harness::with_items(vec![]);
@@ -136,6 +142,7 @@ fn a_refused_tag_is_not_told_to_the_extensions() {
     assert!(added_tags(&h).is_empty());
 }
 
+// 拡張がユーザーに確認を求めると、その答えが requestId 付きで拡張に返される。
 #[test]
 fn an_extension_asks_the_user_and_gets_the_answer() {
     for answer in [true, false] {
@@ -155,6 +162,7 @@ fn an_extension_asks_the_user_and_gets_the_answer() {
     }
 }
 
+// 拡張が作る項目は別の項目をトランスクルードでき、結果に新しい項目 ID が返される。
 #[test]
 fn an_extension_item_can_transclude_another_item() {
     let mut h = Harness::with_items(vec![item("a", 1, "# AM")]);
@@ -178,6 +186,7 @@ fn an_extension_item_can_transclude_another_item() {
     ));
 }
 
+// transclude のない拡張の項目作成ではトランスクルージョンが設定されない。
 #[test]
 fn an_extension_item_without_transclude_sets_none() {
     let mut h = Harness::with_items(vec![]);
@@ -202,6 +211,7 @@ fn create_last(h: &mut Harness, body: &str, transclude: Option<&str>) {
     });
 }
 
+// 2行目として作られる項目は、唯一の空の1行目を上書きする。新しい項目は作られず、結果にはその項目の ID が返される。
 #[test]
 fn an_item_for_the_second_line_overwrites_a_lone_empty_first_line() {
     let mut h = Harness::with_items(vec![item("e", 1, "")]);
@@ -218,6 +228,7 @@ fn an_item_for_the_second_line_overwrites_a_lone_empty_first_line() {
     ));
 }
 
+// 上書きされた空行はトランスクルージョンになることができる。
 #[test]
 fn the_overwritten_empty_line_can_become_a_transclusion() {
     let mut h = Harness::with_items(vec![item("e", 1, "")]);
@@ -228,6 +239,7 @@ fn the_overwritten_empty_line_can_become_a_transclusion() {
     ));
 }
 
+// テキストのある1行目や2行目がある場合は上書きされず、新しい項目が作られる。
 #[test]
 fn a_first_line_with_text_or_a_second_line_is_not_overwritten() {
     for items in [
@@ -240,6 +252,7 @@ fn a_first_line_with_text_or_a_second_line_is_not_overwritten() {
     }
 }
 
+// 1行目として作られる項目は空行を上書きせず、その前に挿入される。
 #[test]
 fn an_item_for_the_first_line_does_not_overwrite_the_empty_one() {
     let mut h = Harness::with_items(vec![item("e", 1, "")]);
@@ -247,6 +260,7 @@ fn an_item_for_the_first_line_does_not_overwrite_the_empty_one() {
     assert_eq!(h.bodies(), vec!["new1=# AM", "e="]);
 }
 
+// 唯一の空行の後に作られる項目はその空行を上書きしない。
 #[test]
 fn an_item_after_the_lone_empty_line_does_not_overwrite_it() {
     let mut h = Harness::with_items(vec![item("e", 1, "")]);
@@ -254,6 +268,7 @@ fn an_item_after_the_lone_empty_line_does_not_overwrite_it() {
     assert_eq!(h.bodies(), vec!["e=", "new1=## App"]);
 }
 
+// トランスクルージョンの失敗はアラートで伝えられ、次の項目は空行の後に作られる。
 #[test]
 fn a_failed_transclusion_is_told_and_the_next_item_goes_after_the_empty_line() {
     let mut h = Harness::with_items(vec![item("e", 1, "")]);

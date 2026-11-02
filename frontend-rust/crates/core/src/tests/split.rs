@@ -18,6 +18,7 @@ fn enter(h: &mut Harness, item_id: &str, cursor: usize) {
     });
 }
 
+// 途中での Enter はカーソルより前の文を残し、残りを下の新しい項目に移す。編集は新しい項目に移り、カーソルはその先頭に置かれる。
 #[test]
 fn enter_in_the_middle_keeps_the_text_before_the_cursor_and_moves_the_rest_below() {
     let mut h = harness();
@@ -33,6 +34,7 @@ fn enter_in_the_middle_keeps_the_text_before_the_cursor_and_moves_the_rest_below
     assert_eq!(h.focus_cursor(), Some(0));
 }
 
+// 末尾での Enter は空の項目をすぐに示し、クライアントが作った id でバックグラウンドで作成する。
 #[test]
 fn enter_at_the_end_shows_an_empty_item_at_once_and_creates_it_in_the_background() {
     let mut h = harness();
@@ -65,6 +67,7 @@ fn enter_at_the_end_shows_an_empty_item_at_once_and_creates_it_in_the_background
     );
 }
 
+// バックグラウンドの作成に失敗すると、ページはサーバーから読み直される。
 #[test]
 fn when_the_background_creation_fails_the_page_is_reloaded_from_the_server() {
     let mut h = harness();
@@ -74,6 +77,7 @@ fn when_the_background_creation_fails_the_page_is_reloaded_from_the_server() {
     assert_eq!(h.bodies(), ["reloaded=reloaded"]);
 }
 
+// 先頭での Enter は空の項目を上に置き、その新しい項目が編集される。
 #[test]
 fn enter_at_the_start_puts_an_empty_item_above_and_keeps_editing_the_new_one() {
     let mut h = harness();
@@ -86,6 +90,7 @@ fn enter_at_the_start_puts_an_empty_item_above_and_keeps_editing_the_new_one() {
     assert_eq!(h.focused_editor_requests(), [Some("new1".to_string())]);
 }
 
+// 展開された親の後ろの新しい項目は、その最初の子として作られる。
 #[test]
 fn a_new_item_after_an_expanded_parent_is_created_as_its_first_child() {
     let mut h = Harness::with_items(vec![item("a", 1, "parent"), item("c", 2, "")]);
@@ -95,6 +100,7 @@ fn a_new_item_after_an_expanded_parent_is_created_as_its_first_child() {
     assert_eq!(calls[0].2, 2);
 }
 
+// 空の最後の子での Enter は、項目を作る代わりにその子をアウトデントする。
 #[test]
 fn enter_on_an_empty_last_child_outdents_it_instead() {
     let mut h = Harness::with_items(vec![item("a", 1, ""), item("e", 2, "")]);
@@ -105,6 +111,7 @@ fn enter_on_an_empty_last_child_outdents_it_instead() {
     assert_eq!(h.focused_editor_requests(), [Some("e".to_string())]);
 }
 
+// 押されたキーは、アウトラインが次のエディタにフォーカスするまで保留される。フォーカス要求が出た時点で保留は解かれている。
 #[test]
 fn holds_the_keys_pressed_until_the_outline_focuses_the_next_editor() {
     let mut h = harness();
@@ -114,6 +121,7 @@ fn holds_the_keys_pressed_until_the_outline_focuses_the_next_editor() {
     assert!(!h.focused_editor_requests().is_empty());
 }
 
+// 分割に失敗すると、キーの保留は終わり、編集の引き継ぎも終わる。
 #[test]
 fn stops_holding_keys_when_the_split_fails() {
     let mut h = harness();
@@ -126,6 +134,7 @@ fn stops_holding_keys_when_the_split_fails() {
     );
 }
 
+// トランスクルージョンの中では、新しい項目は参照元ページに作られ、ページが読み直される。
 #[test]
 fn inside_a_transclusion_the_new_item_is_created_on_the_source_page_and_the_page_reloads() {
     let root = item_with("root", 2, |i| {
@@ -187,6 +196,7 @@ fn transclusion_harness(own_after_root: Vec<crate::model::Item>) -> Harness {
     h
 }
 
+// 最後のトランスクルード項目の末尾での Enter は、新しい項目をホストページのルートの直後に作る。
 #[test]
 fn enter_at_the_end_of_the_last_transcluded_item_creates_the_new_item_on_the_host_page() {
     let mut h = transclusion_harness(vec![item("b", 1, "")]);
@@ -201,6 +211,7 @@ fn enter_at_the_end_of_the_last_transcluded_item_creates_the_new_item_on_the_hos
     assert_eq!(h.items_ids(), ["a", "root", new_id.as_ref().unwrap(), "b"]);
 }
 
+// 最後のトランスクルード項目の末尾での Enter は、ルートに自前の子があればその子に加わる。
 #[test]
 fn enter_at_the_end_of_the_last_transcluded_item_joins_the_own_children_of_the_root() {
     let mut h = transclusion_harness(vec![item("own", 2, "")]);
@@ -213,6 +224,7 @@ fn enter_at_the_end_of_the_last_transcluded_item_joins_the_own_children_of_the_r
     );
 }
 
+// 下にまだトランスクルード項目があるとき、その項目の末尾での Enter は参照元ページに作る。
 #[test]
 fn enter_at_the_end_of_a_transcluded_item_with_one_below_still_creates_on_the_source_page() {
     let mut h = transclusion_harness(Vec::new());

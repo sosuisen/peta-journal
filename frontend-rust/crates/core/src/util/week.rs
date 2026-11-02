@@ -44,6 +44,7 @@ pub fn weeks_in_year(year: i32, numbering: WeekNumbering) -> u32 {
 mod tests {
     use super::*;
 
+    // ISO 週番号と ISO 週の年は年末年始をまたいでも正しく、年の週数は53週の年と52週の年で区別される。
     #[test]
     fn iso_weeks() {
         assert_eq!(iso_week_number(Date::new(2026, 1, 1)), 1);
@@ -56,6 +57,7 @@ mod tests {
         assert_eq!(weeks_in_year(2025, WeekNumbering::Iso), 52);
     }
 
+    // US 週番号は日曜始まりで1月1日を第1週とし、土曜始まりのうるう年は54週になる。
     #[test]
     fn us_weeks() {
         assert_eq!(us_week_number(Date::new(2026, 1, 1)), 1);

@@ -42,6 +42,7 @@ fn overwrites(h: &Harness) -> Vec<bool> {
         .collect()
 }
 
+// 確認に「はい」と答えると、その名前を持つページが上書きされる。
 #[test]
 fn a_yes_overwrites_the_page_that_has_the_name() {
     let mut h = showing_a_page();
@@ -56,6 +57,7 @@ fn a_yes_overwrites_the_page_that_has_the_name() {
     assert!(h.navigations.last().unwrap().url.ends_with("/theirs"));
 }
 
+// 確認に「いいえ」と答えると、両方のページがそのまま残る。
 #[test]
 fn a_no_keeps_both_pages() {
     let mut h = showing_a_page();

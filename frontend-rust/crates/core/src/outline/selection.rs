@@ -210,6 +210,7 @@ mod tests {
         ids
     }
 
+    // エディタから始めた選択を上に伸ばすと上の項目がその部分木ごと含まれ、下に伸ばすと再び縮み、終了すると選択モードが解除される。
     #[test]
     fn shift_up_pulls_in_whole_subtrees() {
         let mut state = state();
@@ -228,6 +229,7 @@ mod tests {
         assert!(state.selected_item_ids().is_empty());
     }
 
+    // ドラッグ選択は開始項目の部分木から始まり、マウスが入った項目まで広がる。ボタンを離した後はマウスが動いても選択が変わらない。
     #[test]
     fn drag_selection_follows_the_mouse() {
         let mut state = state();

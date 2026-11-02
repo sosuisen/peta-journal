@@ -4,6 +4,7 @@ use crate::harness::{create_calls, item, move_calls, Harness};
 use crate::testing::item_with;
 use std::collections::HashSet;
 
+// タスク状態の切り替えで次の状態が保存され、Undo に記録される。
 #[test]
 fn cycle_task_saves_the_next_task_state_and_records_it_for_undo() {
     let mut h = Harness::with_items(vec![item("a", 1, "do it")]);
@@ -15,6 +16,7 @@ fn cycle_task_saves_the_next_task_state_and_records_it_for_undo() {
     assert_eq!(h.model.undo.pop_undo().unwrap().label, "cycle-task");
 }
 
+// 日次ジャーナル上の項目がタスクになると、その日の日付が plan プロパティとして保存される。
 #[test]
 fn an_item_that_becomes_a_task_on_a_daily_journal_is_planned_for_that_day() {
     let mut h = Harness::with_items(vec![item_with("a", 1, |i| {
@@ -31,6 +33,7 @@ fn an_item_that_becomes_a_task_on_a_daily_journal_is_planned_for_that_day() {
     );
 }
 
+// ズームの変更で倍率が表示に反映されて保存され、リセットで 1.0 に戻る。
 #[test]
 fn set_zoom_shows_and_saves_the_factor() {
     let mut h = Harness::with_items(vec![item("a", 1, "")]);
@@ -46,6 +49,7 @@ fn set_zoom_shows_and_saves_the_factor() {
     assert_eq!(h.model.state.get_item_by_id("a").unwrap().zoom(), 1.0);
 }
 
+// 子を持つ項目の折りたたみ切り替えで項目が折りたたまれて保存され、Undo に記録される。
 #[test]
 fn toggle_collapsed_collapses_an_item_with_children_saves_it_and_records_it_for_undo() {
     let mut h = Harness::with_items(vec![item("a", 1, ""), item("b", 2, "")]);
@@ -64,6 +68,7 @@ fn toggle_collapsed_collapses_an_item_with_children_saves_it_and_records_it_for_
     assert_eq!(h.model.undo.pop_undo().unwrap().label, "collapse");
 }
 
+// 折りたたみの保存が失敗すると画面が元の展開状態に戻される。
 #[test]
 fn toggle_collapsed_puts_the_screen_back_when_the_save_fails() {
     let mut h = Harness::with_items(vec![item("a", 1, ""), item("b", 2, "")]);
@@ -75,6 +80,7 @@ fn toggle_collapsed_puts_the_screen_back_when_the_save_fails() {
     assert_eq!(h.model.state.visible_items().len(), 2);
 }
 
+// 子を持たない項目では折りたたみ切り替えが何もしない。
 #[test]
 fn toggle_collapsed_does_nothing_for_an_item_without_children() {
     let mut h = Harness::with_items(vec![item("a", 1, "")]);
@@ -84,6 +90,7 @@ fn toggle_collapsed_does_nothing_for_an_item_without_children() {
     assert!(h.api.calls.is_empty());
 }
 
+// トランスクルージョンとしての貼り付けで、項目が貼り付けられた ID に結び付けられてページが再読み込みされる。
 #[test]
 fn paste_as_transclusion_links_the_item_to_the_pasted_id_and_reloads_the_page() {
     let mut h = Harness::with_items(vec![item("a", 1, "")]);
@@ -95,6 +102,7 @@ fn paste_as_transclusion_links_the_item_to_the_pasted_id_and_reloads_the_page() 
     assert!(h.api.called("GetPageById"));
 }
 
+// 項目 ID でないテキストはトランスクルージョンとしての貼り付けで無視される。
 #[test]
 fn paste_as_transclusion_ignores_text_that_is_not_an_item_id() {
     let mut h = Harness::with_items(vec![item("a", 1, "")]);
@@ -105,6 +113,7 @@ fn paste_as_transclusion_ignores_text_that_is_not_an_item_id() {
     assert!(!h.api.called("SetTransclusion"));
 }
 
+// Stash への送付で Stash 見出しがページ末尾に作られ、部分木がそのまま（タグなしで）その下へ移動される。
 #[test]
 fn sending_to_the_stash_creates_its_heading_at_the_end_and_moves_the_subtree_under_it() {
     let mut h = Harness::with_items(vec![
@@ -133,6 +142,7 @@ fn sending_to_the_stash_creates_its_heading_at_the_end_and_moves_the_subtree_und
     );
 }
 
+// Stash 見出しが既にあれば、Stash への送付で新しい見出しは作られずその直後へ移動される。
 #[test]
 fn sending_to_the_stash_reuses_an_existing_stash_heading() {
     let mut h = Harness::with_items(vec![item("a", 1, "todo"), item("stash", 1, "# Stash")]);
@@ -143,6 +153,7 @@ fn sending_to_the_stash_reuses_an_existing_stash_heading() {
     assert_eq!(move_calls(&h.api)[0].2, "after:stash");
 }
 
+// 選択範囲の削除で項目が一つの Undo エントリとして削除され、ページが空にならないよう空の項目が一つ作られる。
 #[test]
 fn deleting_the_selection_removes_the_items_as_one_undo_entry_and_keeps_one_item_on_the_page() {
     let mut h = Harness::with_items(vec![item("a", 1, ""), item("b", 1, "")]);
@@ -161,6 +172,7 @@ fn deleting_the_selection_removes_the_items_as_one_undo_entry_and_keeps_one_item
     assert_eq!(h.model.undo.pop_undo().unwrap().label, "delete-selection");
 }
 
+// 選択範囲のコピーでツリー形式の Markdown が書き出されてクリップボードに渡され、フラット形式がモデルに記憶される。
 #[test]
 fn copying_the_selection_exports_tree_markdown_and_remembers_the_flat_form() {
     let mut h = Harness::with_items(vec![item("a", 1, "")]);
@@ -177,6 +189,7 @@ fn copying_the_selection_exports_tree_markdown_and_remembers_the_flat_form() {
     assert_eq!(h.model.clipboard, Some(("flat".into(), "- tree".into())));
 }
 
+// 書き出しに失敗したコピーはシェルに失敗が伝えられ、クリップボードへの書き込みは行われない。
 #[test]
 fn a_copy_whose_export_fails_tells_the_shell_so_it_can_give_up_the_clipboard_write() {
     let mut h = Harness::with_items(vec![item("a", 1, "")]);
@@ -202,6 +215,7 @@ fn select_with_transclusion(key: crate::app::SelectionKey) -> Harness {
     h
 }
 
+// トランスクルージョンを含む選択範囲の削除は警告とともに拒否され、元の項目と選択状態が残る。
 #[test]
 fn deleting_a_selection_with_a_transclusion_is_refused_so_the_source_stays() {
     let h = select_with_transclusion(crate::app::SelectionKey::Delete);
@@ -214,6 +228,7 @@ fn deleting_a_selection_with_a_transclusion_is_refused_so_the_source_stays() {
     assert_eq!(h.items_ids(), ["a", "t"]);
 }
 
+// トランスクルージョンを含む選択範囲の切り取りも同様に拒否される。
 #[test]
 fn cutting_a_selection_with_a_transclusion_is_refused_too() {
     let h = select_with_transclusion(crate::app::SelectionKey::Cut);

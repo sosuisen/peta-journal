@@ -466,6 +466,7 @@ mod tests {
         spec.iter().map(|(id, level)| item(id, *level)).collect()
     }
 
+    // 平坦な項目リストから部分木・下のきょうだいの有無・直前の位置・新規項目のレベルが求められる。
     #[test]
     fn subtree_and_siblings() {
         let items = list(&[("a", 1), ("b", 2), ("c", 3), ("d", 2), ("e", 1)]);
@@ -480,6 +481,7 @@ mod tests {
         assert_eq!(level_for_new_item_after(&items, &items[3]), 2);
     }
 
+    // 親の直下の最初の子はインデントできず、上に同レベルのきょうだいがある項目はインデントできる。親のインデックスは一段浅い直近の項目である。
     #[test]
     fn indent_rules() {
         let items = list(&[("a", 1), ("b", 2), ("c", 2), ("d", 1)]);
@@ -491,6 +493,7 @@ mod tests {
         assert_eq!(parent_index_of(&items, 0), None);
     }
 
+    // 上下移動の移動先は同レベルの項目の部分木の後ろや一段浅い項目の直下として求められ、移動できないときや空のリストでは None になる。
     #[test]
     fn move_targets() {
         let items = list(&[("a", 1), ("b", 2), ("c", 2), ("d", 1), ("e", 2)]);
@@ -522,6 +525,7 @@ mod tests {
         );
     }
 
+    // 選択の開始位置はアンカーのレベルの先祖まで戻り、範囲は部分木ごと ID に展開され、親が選択済みの項目はルート項目に含まれない。
     #[test]
     fn selection_rules() {
         let items = list(&[("a", 1), ("b", 2), ("c", 2), ("d", 1)]);
@@ -534,6 +538,7 @@ mod tests {
         assert_eq!(roots, ["a", "d"]);
     }
 
+    // 先頭の項目と、上の項目と名前の日付が異なる項目は、日付グループの先頭になる。
     #[test]
     fn date_groups() {
         let mut a = item("a", 1);

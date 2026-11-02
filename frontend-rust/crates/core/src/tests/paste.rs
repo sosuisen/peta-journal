@@ -36,6 +36,7 @@ fn parse_calls(h: &Harness) -> Vec<String> {
         .collect()
 }
 
+// 一つの断片はカーソル位置の項目に入り、カーソルは貼り付けた文の直後に置かれる。
 #[test]
 fn one_piece_goes_into_the_item_at_the_cursor() {
     let mut h = harness();
@@ -46,6 +47,7 @@ fn one_piece_goes_into_the_item_at_the_cursor() {
     assert_eq!(h.focus_cursor(), Some(4));
 }
 
+// 複数の断片は下に項目として作られ、最後の項目がカーソルより後ろの文を受け取る。カーソルは最後の項目の貼り付けた文の直後に置かれる。
 #[test]
 fn several_pieces_become_items_below_the_last_one_taking_the_text_after_the_cursor() {
     let mut h = harness();
@@ -79,6 +81,7 @@ fn several_pieces_become_items_below_the_last_one_taking_the_text_after_the_curs
     assert_eq!(h.focus_cursor(), Some(5));
 }
 
+// 貼り付けは更新と作られた項目を一つの undo 項目として記録する。
 #[test]
 fn records_one_undo_entry_with_the_update_and_the_created_items() {
     let mut h = harness();
@@ -92,6 +95,7 @@ fn records_one_undo_entry_with_the_update_and_the_created_items() {
     assert_eq!(entry.cursor_before.unwrap().position, 2);
 }
 
+// このアプリからコピーした文は、保存しておいた Flat Markdown から貼り付けられる。
 #[test]
 fn text_copied_from_this_app_is_pasted_from_the_stored_flat_markdown() {
     let mut h = harness();
@@ -101,6 +105,7 @@ fn text_copied_from_this_app_is_pasted_from_the_stored_flat_markdown() {
     assert!(!h.api.called("ImportTreeMarkdown"));
 }
 
+// 外部からのツリー Markdown は、先にサーバーで変換される。
 #[test]
 fn tree_markdown_from_elsewhere_is_converted_by_the_server_first() {
     let mut h = harness();
@@ -109,6 +114,7 @@ fn tree_markdown_from_elsewhere_is_converted_by_the_server_first() {
     assert_eq!(parse_calls(&h), ["from tree"]);
 }
 
+// 開いたままのコードフェンスの中では、平文は分割されない。保存時に開いているフェンスは閉じられる。
 #[test]
 fn plain_text_inside_an_open_code_fence_is_not_split() {
     let mut h = Harness::with_items(vec![item("code", 1, "```\nlet")]);
@@ -121,6 +127,7 @@ fn plain_text_inside_an_open_code_fence_is_not_split() {
     );
 }
 
+// raw 貼り付けでは、文は分割されずにカーソル位置の項目に入る。
 #[test]
 fn raw_text_goes_into_the_item_at_the_cursor_without_a_split() {
     let mut h = harness();
@@ -154,6 +161,7 @@ three"
     assert_eq!(h.model.undo.pop_undo().unwrap().label, "paste");
 }
 
+// raw 貼り付けでは、ツリー Markdown も保存しておいた Flat Markdown も変換されない。
 #[test]
 fn raw_tree_markdown_and_stored_flat_markdown_are_not_converted() {
     let mut h = harness();
@@ -178,6 +186,7 @@ fn raw_tree_markdown_and_stored_flat_markdown_are_not_converted() {
     );
 }
 
+// 項目の作成に失敗すると、undo 項目は捨てられる。
 #[test]
 fn a_failed_creation_drops_the_undo_entry() {
     let mut h = harness();
@@ -186,6 +195,7 @@ fn a_failed_creation_drops_the_undo_entry() {
     assert!(!h.model.undo.can_undo());
 }
 
+// 画像はアップロードされてカーソル位置にリンクされ、カーソルはリンクの直後に置かれる。
 #[test]
 fn an_image_is_uploaded_linked_at_the_cursor_and_the_cursor_goes_after_the_link() {
     let mut h = harness();
