@@ -339,3 +339,22 @@ fn enter_at_the_start_of_the_first_transcluded_child_puts_the_empty_item_after_t
         ("src", "after:s", 2)
     );
 }
+
+// 元の項目が消えた（壊れた）ルートの行頭での Enter も、ホストページのルートの直前に空の項目を作る。
+#[test]
+fn enter_at_the_start_of_a_broken_transclusion_root_puts_the_empty_item_before_it_on_the_host_page()
+{
+    let root = item_with("root", 1, |i| {
+        i.transclude_item_id = Some("gone".into());
+        i.body = "shown".into();
+    });
+    let mut h = Harness::with_items(vec![item("a", 1, ""), root]);
+    enter(&mut h, "root", 0);
+    let calls = create_calls(&h.api);
+    let (page_id, position, level, _, _) = &calls[0];
+    assert_eq!(
+        (page_id.as_str(), position.as_str(), *level),
+        ("page1", "after:a", 1)
+    );
+    assert_eq!(h.items_ids(), ["a", "new1", "root"]);
+}
