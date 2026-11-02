@@ -281,3 +281,22 @@ fn enter_at_the_end_of_a_collapsed_parent_creates_the_item_after_its_hidden_chil
     let calls = create_calls(&h.api);
     assert_eq!(calls[0].1, "after:d");
 }
+
+// ルートの行頭での Enter は、ホストページのルートの直前に空の項目を作る。参照元ページには何も作らない。
+#[test]
+fn enter_at_the_start_of_a_transclusion_root_puts_the_empty_item_before_it_on_the_host_page() {
+    let mut h = transclusion_harness(Vec::new());
+    enter(&mut h, "root", 0);
+    let calls = create_calls(&h.api);
+    assert_eq!(calls.len(), 1);
+    let (page_id, position, level, body, _) = &calls[0];
+    assert_eq!(
+        (page_id.as_str(), position.as_str(), *level, body.as_str()),
+        ("page1", "after:a", 1, "")
+    );
+    assert_eq!(
+        h.items_ids()[..2],
+        ["a".to_string(), calls[0].4.clone().unwrap_or_default()]
+    );
+    assert_eq!(h.items_ids()[2], "root");
+}
