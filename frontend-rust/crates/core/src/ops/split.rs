@@ -48,18 +48,15 @@ pub fn handle_enter(model: &mut Model, item_id: &str, cursor: usize) -> Cmd {
     let cursor = cursor.min(body_len);
 
     let cmd = if cursor == 0 && body_len > 0 {
-        // The root is an item of this page: the empty item goes before it here, not on the source page
-        let (ctx, position) = if ctx.in_transclusion && model.state.is_own_item(&item.id) {
-            let host = EditContext {
-                page_id: item.page_id.clone(),
-                level_offset: 0,
-                in_transclusion: false,
-            };
-            (host, position_before(model.state.items(), &item.id))
-        } else if ctx.in_transclusion {
+        // A transclusion root is an item of this page: the empty item goes before it here,
+        // not on the source page. Only a transcluded descendant gets its item on the source page
+        let (ctx, position) = if ctx.in_transclusion && !model.state.is_own_item(&item.id) {
             (ctx, position_before_on_source_page(model, &item.id))
         } else {
-            (ctx, position_before(model.state.items(), &item.id))
+            (
+                host_context(&item.page_id),
+                position_before(model.state.items(), &item.id),
+            )
         };
         run(move |api| async move {
             let _handover = Handover::begin(&api);
@@ -102,6 +99,15 @@ fn release_keys(api: &Api<Event>) {
         m.key_relay.release();
         done()
     });
+}
+
+/// The context of an item created on the shown page itself, outside any transclusion.
+fn host_context(page_id: &str) -> EditContext {
+    EditContext {
+        page_id: page_id.to_string(),
+        level_offset: 0,
+        in_transclusion: false,
+    }
 }
 
 /// The position before a transcluded descendant on its source page. The item above it is a
@@ -166,11 +172,7 @@ fn append_empty_item_after_transclusion(
     cursor: usize,
     root: &Item,
 ) -> Cmd {
-    let ctx = EditContext {
-        page_id: root.page_id.clone(),
-        level_offset: 0,
-        in_transclusion: false,
-    };
+    let ctx = host_context(&root.page_id);
     let subtree = get_subtree(model.state.items(), &root.id);
     let (position, new_level) = if model.state.is_collapsed(&root.id) || subtree.len() == 1 {
         let last = &subtree[subtree.len() - 1];
