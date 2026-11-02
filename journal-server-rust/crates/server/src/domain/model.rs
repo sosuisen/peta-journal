@@ -2,6 +2,8 @@
 
 use hmtid::Hmtid;
 
+use super::fractional_index;
+
 /// A page: a journal (`type = "journal"`) or a document (`type = "doc"`).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Page {
@@ -15,6 +17,19 @@ pub struct Page {
 }
 
 impl Page {
+    /// A page made at `now`. Its parent is resolved when it is saved.
+    pub fn new(id: Hmtid, dir_path: &str, name: &str, page_type: &str, now: i64) -> Page {
+        Page {
+            id,
+            parent_id: None,
+            dir_path: dir_path.to_string(),
+            name: name.to_string(),
+            page_type: page_type.to_string(),
+            created_date: now,
+            modified_date: now,
+        }
+    }
+
     /// The full path of the page, `dir_path + name`, used as its title.
     pub fn title(&self) -> String {
         format!("{}{}", self.dir_path, self.name)
@@ -67,6 +82,29 @@ pub struct Item {
 }
 
 impl Item {
+    /// A new empty item at the top level and the first index of `page`, dated `now`: what a new
+    /// page gets as its only item. A caller that adds an item elsewhere sets the fields that
+    /// differ.
+    pub fn new_on(id: Hmtid, page: &Page, now: i64) -> Item {
+        Item {
+            id,
+            page_id: page.id.clone(),
+            parent_item_id: None,
+            dir_path: page.dir_path.clone(),
+            name: page.name.clone(),
+            item_type: page.page_type.clone(),
+            created_date: now,
+            modified_date: now,
+            idx: fractional_index::initial(),
+            level: 1,
+            body: String::new(),
+            ast: String::new(),
+            collapsed: false,
+            types: Vec::new(),
+            transclude_item_id: None,
+        }
+    }
+
     pub fn is_task(&self) -> bool {
         self.types.iter().any(|t| t == ItemPatch::TASK_TYPE)
     }

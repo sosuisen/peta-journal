@@ -8,7 +8,6 @@ use regex::Regex;
 
 use super::atlas_service::AtlasService;
 use super::config_service::ConfigService;
-use crate::domain::fractional_index;
 use crate::domain::id_generator::IdGenerator;
 use crate::domain::journal_name;
 use crate::domain::model::{BacklinkEntry, Item, Page, ATLAS_NAME};
@@ -48,6 +47,21 @@ static FORBIDDEN_CHARS: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r#"[<>:"/\\|?*\x00-\x1F\x7F]"#).unwrap());
 static RESERVED_NAMES: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?i)^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$").unwrap());
+
+/// A title a page may take: not blank, not padded, and a file name on every OS.
+pub fn validate_title(title: &str) -> AppResult<()> {
+    if title.trim().is_empty() {
+        return Err(AppError::bad_request(
+            "Page title cannot be empty or whitespace-only",
+        ));
+    }
+    if title != title.trim() {
+        return Err(AppError::bad_request(
+            "Page title cannot have leading or trailing whitespace",
+        ));
+    }
+    validate_file_name(title)
+}
 
 pub fn validate_file_name(title: &str) -> AppResult<()> {
     if let Some(m) = FORBIDDEN_CHARS.find(title) {
@@ -138,6 +152,13 @@ impl PageService {
         self.pages.find_by_id(page_id)
     }
 
+    /// The page a change is made to; a missing one is bad input, as the id came from the caller.
+    pub fn require_page(&self, page_id: &Hmtid) -> AppResult<Page> {
+        self.pages
+            .find_by_id(page_id)?
+            .ok_or_else(|| AppError::bad_request(format!("Page not found: {page_id}")))
+    }
+
     pub fn get_page_items(&self, page_id: &Hmtid) -> AppResult<Vec<Item>> {
         self.items.find_by_page_id(page_id)
     }
@@ -149,19 +170,9 @@ impl PageService {
         dir_path: Option<&str>,
     ) -> AppResult<DocResult> {
         let title = title.unwrap_or("");
-        if title.trim().is_empty() {
-            return Err(AppError::bad_request(
-                "Page title cannot be empty or whitespace-only",
-            ));
-        }
-        if title != title.trim() {
-            return Err(AppError::bad_request(
-                "Page title cannot have leading or trailing whitespace",
-            ));
-        }
+        validate_title(title)?;
         let dir = dir_path.unwrap_or("");
         let file_name = title;
-        validate_file_name(file_name)?;
 
         // Reject journal-type names as doc titles only when dirPath is empty
         if dir.is_empty() && journal_name::is_journal_file_name(file_name) {
@@ -172,70 +183,21 @@ impl PageService {
 
         self.ensure_ancestor_pages(dir)?;
 
-        if let Some(page) = self
-            .pages
-            .find_by_type_dir_path_file_name("doc", dir, file_name)?
-        {
-            let items = self.items.find_by_page_id(&page.id)?;
-            return Ok(DocResult {
-                page,
-                items,
-                created: false,
-            });
-        }
-
-        // If no exact match, check if an index page exists at dir+fileName/
-        let index_dir = format!("{dir}{file_name}/");
-        if let Some(page) = self
-            .pages
-            .find_by_type_dir_path_file_name("doc", &index_dir, "index")?
-        {
-            let items = self.items.find_by_page_id(&page.id)?;
-            return Ok(DocResult {
-                page,
-                items,
-                created: false,
-            });
-        }
-
-        // A page whose path differs only in case has the same file on Windows and macOS: a
-        // second page there would overwrite its file again and again
-        let same_file = self
-            .pages
-            .find_by_type_dir_path_file_name_ignoring_case("doc", dir, file_name)?
-            .into_iter()
-            .chain(
-                self.pages
-                    .find_by_type_dir_path_file_name_ignoring_case("doc", &index_dir, "index")?,
-            )
-            .next();
-        if let Some(page) = same_file {
-            let items = self.items.find_by_page_id(&page.id)?;
-            return Ok(DocResult {
-                page,
-                items,
-                created: false,
-            });
+        if let Some(page) = self.find_doc(dir, file_name)? {
+            return self.existing_doc(page);
         }
 
         let id = self.ids.generate_page_id();
         let now = now_millis();
-        let page = Page {
-            id: id.clone(),
-            parent_id: None,
-            dir_path: dir.to_string(),
-            name: file_name.to_string(),
-            page_type: "doc".to_string(),
-            created_date: now,
-            modified_date: now,
-        };
+        let page = Page::new(id.clone(), dir, file_name, "doc", now);
         let page = self.pages.save(&page)?;
         self.search.index_page(&page);
 
         // The items of an atlas page are its cards, which the server writes; an empty first
         // item could take the index a card took already
         if !page.is_atlas() {
-            self.items.save(&self.initial_item(&page, now))?;
+            self.items
+                .save(&Item::new_on(self.ids.generate_item_id(), &page, now))?;
         }
         self.export.queue_export(&id);
         self.sync_atlases();
@@ -247,24 +209,42 @@ impl PageService {
         })
     }
 
-    fn initial_item(&self, page: &Page, now: i64) -> Item {
-        Item {
-            id: self.ids.generate_item_id(),
-            page_id: page.id.clone(),
-            parent_item_id: None,
-            dir_path: page.dir_path.clone(),
-            name: page.name.clone(),
-            item_type: page.page_type.clone(),
-            created_date: now,
-            modified_date: now,
-            idx: fractional_index::initial(),
-            level: 1,
-            body: String::new(),
-            ast: String::new(),
-            collapsed: false,
-            types: Vec::new(),
-            transclude_item_id: None,
+    /// The document a title names in a folder: the page with that name, else the index page of
+    /// the folder of that name (opening `[[a]]` shows `a/index`), else a page whose path
+    /// differs only in case. Such a page has the same file on Windows and macOS: a second
+    /// page there would overwrite its file again and again.
+    fn find_doc(&self, dir: &str, file_name: &str) -> AppResult<Option<Page>> {
+        if let Some(page) = self
+            .pages
+            .find_by_type_dir_path_file_name("doc", dir, file_name)?
+        {
+            return Ok(Some(page));
         }
+        let index_dir = format!("{dir}{file_name}/");
+        if let Some(page) = self
+            .pages
+            .find_by_type_dir_path_file_name("doc", &index_dir, "index")?
+        {
+            return Ok(Some(page));
+        }
+        Ok(self
+            .pages
+            .find_by_type_dir_path_file_name_ignoring_case("doc", dir, file_name)?
+            .into_iter()
+            .chain(
+                self.pages
+                    .find_by_type_dir_path_file_name_ignoring_case("doc", &index_dir, "index")?,
+            )
+            .next())
+    }
+
+    fn existing_doc(&self, page: Page) -> AppResult<DocResult> {
+        let items = self.items.find_by_page_id(&page.id)?;
+        Ok(DocResult {
+            page,
+            items,
+            created: false,
+        })
     }
 
     /// Updates a page's metadata. Only the given parameters are applied.
@@ -277,24 +257,11 @@ impl PageService {
         dir_path: Option<&str>,
         overwrite: bool,
     ) -> AppResult<Page> {
-        let existing = self
-            .pages
-            .find_by_id(page_id)?
-            .ok_or_else(|| AppError::bad_request(format!("Page not found: {page_id}")))?;
+        let existing = self.require_page(page_id)?;
 
         let mut file_name = existing.name.clone();
         if let Some(title) = title {
-            if title.trim().is_empty() {
-                return Err(AppError::bad_request(
-                    "Page title cannot be empty or whitespace-only",
-                ));
-            }
-            if title != title.trim() {
-                return Err(AppError::bad_request(
-                    "Page title cannot have leading or trailing whitespace",
-                ));
-            }
-            validate_file_name(title)?;
+            validate_title(title)?;
             file_name = title.to_string();
         }
 
@@ -355,13 +322,10 @@ impl PageService {
         let dir_path_changed = existing.name == "index" && new_dir_path != old_dir_path;
 
         let updated = Page {
-            id: existing.id.clone(),
-            parent_id: None,
             dir_path: new_dir_path.clone(),
             name: file_name,
-            page_type: existing.page_type.clone(),
-            created_date: existing.created_date,
             modified_date: now_millis(),
+            ..existing.clone()
         };
         let updated = self.pages.save(&updated)?;
         self.search.index_page(&updated);
@@ -405,10 +369,7 @@ impl PageService {
         value_type: &str,
         value: &str,
     ) -> AppResult<Page> {
-        let page = self
-            .pages
-            .find_by_id(page_id)?
-            .ok_or_else(|| AppError::bad_request(format!("Page not found: {page_id}")))?;
+        let page = self.require_page(page_id)?;
         if key == "created" || key == "modified" {
             let millis = chrono::DateTime::parse_from_rfc3339(value.trim())
                 .map(|dt| dt.timestamp_millis())
@@ -605,10 +566,7 @@ impl PageService {
                 "Property '{key}' cannot be removed from a page"
             )));
         }
-        let page = self
-            .pages
-            .find_by_id(page_id)?
-            .ok_or_else(|| AppError::bad_request(format!("Page not found: {page_id}")))?;
+        let page = self.require_page(page_id)?;
         let before = if key == "tags" {
             self.properties.find_tags(PAGE_TARGET, page_id.as_str())?
         } else {
@@ -649,10 +607,7 @@ impl PageService {
     /// Deletes a page with all its items and their properties. The tags of the page and of
     /// its items go with them, so their tag pages are deleted when nothing else uses them.
     pub fn delete_page(&self, page_id: &Hmtid) -> AppResult<()> {
-        let page = self
-            .pages
-            .find_by_id(page_id)?
-            .ok_or_else(|| AppError::bad_request(format!("Page not found: {page_id}")))?;
+        let page = self.require_page(page_id)?;
 
         if page.name == "index" && page.dir_path.is_empty() {
             return Err(AppError::bad_request("Cannot delete the root index page."));
@@ -845,34 +800,23 @@ impl PageService {
                     .find_by_type_dir_path_file_name("doc", &parent_dir, segment)?
             {
                 let renamed = Page {
-                    id: page.id.clone(),
-                    parent_id: None,
                     dir_path: index_dir.clone(),
                     name: "index".to_string(),
-                    page_type: page.page_type.clone(),
-                    created_date: page.created_date,
                     modified_date: now_millis(),
+                    ..page
                 };
-                self.pages.save(&renamed)?;
+                let renamed = self.pages.save(&renamed)?;
                 self.search.index_page(&renamed);
                 if export {
                     self.export.queue_export(&renamed.id);
                 }
             } else {
                 let now = now_millis();
-                let page = Page {
-                    id: self.ids.generate_page_id(),
-                    parent_id: None,
-                    dir_path: index_dir.clone(),
-                    name: "index".to_string(),
-                    page_type: "doc".to_string(),
-                    created_date: now,
-                    modified_date: now,
-                };
+                let page = Page::new(self.ids.generate_page_id(), &index_dir, "index", "doc", now);
                 self.pages.save(&page)?;
                 self.search.index_page(&page);
-                let item = self.initial_item(&page, now);
-                self.items.save(&item)?;
+                self.items
+                    .save(&Item::new_on(self.ids.generate_item_id(), &page, now))?;
                 if export {
                     // A file at once, so another device takes this index page and does not
                     // make one of its own
@@ -894,13 +838,8 @@ impl PageService {
             let suffix = child.dir_path.get(old_prefix.len()..).unwrap_or("");
             let child_new_dir = format!("{new_prefix}{suffix}");
             let updated = Page {
-                id: child.id.clone(),
-                parent_id: None,
                 dir_path: child_new_dir.clone(),
-                name: child.name.clone(),
-                page_type: child.page_type.clone(),
-                created_date: child.created_date,
-                modified_date: child.modified_date,
+                ..child.clone()
             };
             let updated = self.pages.save(&updated)?;
             self.search.index_page(&updated);

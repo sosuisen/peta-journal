@@ -123,37 +123,20 @@ impl ItemService {
         };
 
         let types = parsed.all_types();
-        let page = self
-            .pages
-            .find_by_id(page_id)?
-            .ok_or_else(|| AppError::bad_request(format!("Page not found: {page_id}")))?;
+        let page = self.page_service.require_page(page_id)?;
 
         let item = Item {
-            id: id.clone(),
-            page_id: page_id.clone(),
-            parent_item_id: None,
-            dir_path: page.dir_path.clone(),
-            name: page.name.clone(),
-            item_type: page.page_type.clone(),
-            created_date: now,
-            modified_date: now,
             idx,
             level,
             body: parsed.text.clone(),
             ast: ast.clone(),
-            collapsed: false,
             types,
-            transclude_item_id: None,
+            ..Item::new_on(id.clone(), &page, now)
         };
-        let mut item = self.items.save(&item)?;
-
-        // Recalculate parent_id for all items on this page
-        self.items.recalculate_parent_ids(page_id)?;
-        if let Some(fresh) = self.items.find_by_id(&id)? {
-            item = fresh;
-        }
-
-        self.touch_page(page_id)?;
+        let item = self.items.save(&item)?;
+        self.reparent_and_export(page_id)?;
+        // The new item may have got a parent
+        let item = self.items.find_by_id(&id)?.unwrap_or(item);
 
         // Sync hashtags as tag properties
         let hashtags = hashtag::extract_hashtags(&ast);
@@ -164,7 +147,6 @@ impl ItemService {
         }
 
         self.search.index_item(&item, &page.title());
-        self.export.queue_export(page_id);
         Ok(item)
     }
 
@@ -211,17 +193,13 @@ impl ItemService {
             self.items.recalculate_parent_ids(&existing.page_id)?;
         }
         let updated = self.get_item_by_id(item_id)?;
-
-        self.touch_page(&existing.page_id)?;
+        self.touch_and_export(&existing.page_id)?;
 
         // The search index holds the body only; level and collapsed do not change it
         if new_body.is_some() {
             if let Some(page) = self.pages.find_by_id(&existing.page_id)? {
                 self.search.index_item(&updated, &page.title());
             }
-        }
-        self.export.queue_export(&existing.page_id);
-        if new_body.is_some() {
             self.sync_transcluders(&updated)?;
         }
         Ok(updated)
@@ -240,8 +218,7 @@ impl ItemService {
                     ..transcluder.clone()
                 })?;
             }
-            self.touch_page(&transcluder.page_id)?;
-            self.export.queue_export(&transcluder.page_id);
+            self.touch_and_export(&transcluder.page_id)?;
         }
         Ok(())
     }
@@ -260,9 +237,7 @@ impl ItemService {
         }
         self.items.shift_levels(item_ids, delta, now_millis())?;
         for page_id in &page_ids {
-            self.items.recalculate_parent_ids(page_id)?;
-            self.touch_page(page_id)?;
-            self.export.queue_export(page_id);
+            self.reparent_and_export(page_id)?;
         }
         self.find_all(item_ids)
     }
@@ -318,9 +293,7 @@ impl ItemService {
         }
         // The pages the items left need new parents and a new export too
         for page_id in &touched {
-            self.items.recalculate_parent_ids(page_id)?;
-            self.touch_page(page_id)?;
-            self.export.queue_export(page_id);
+            self.reparent_and_export(page_id)?;
         }
         self.find_all(item_ids)
     }
@@ -348,13 +321,10 @@ impl ItemService {
             .delete_all_for_targets(ITEM_TARGET, &[item_id.to_string()])?;
         self.page_service.delete_unused_tag_pages(&tags);
         if let Some(b) = item {
-            self.items.recalculate_parent_ids(&b.page_id)?;
-            self.touch_page(&b.page_id)?;
-            self.export.queue_export(&b.page_id);
+            self.reparent_and_export(&b.page_id)?;
         }
         for t in transcluders {
-            self.touch_page(&t.page_id)?;
-            self.export.queue_export(&t.page_id);
+            self.touch_and_export(&t.page_id)?;
         }
         Ok(())
     }
@@ -393,8 +363,7 @@ impl ItemService {
             ..item.clone()
         };
         let updated = self.items.save(&updated)?;
-        self.touch_page(&item.page_id)?;
-        self.export.queue_export(&item.page_id);
+        self.touch_and_export(&item.page_id)?;
         Ok(updated)
     }
 
@@ -462,8 +431,7 @@ impl ItemService {
             self.clear_task_times(&id)?;
             r
         };
-        self.touch_page(&existing.page_id)?;
-        self.export.queue_export(&existing.page_id);
+        self.touch_and_export(&existing.page_id)?;
         Ok(result)
     }
 
@@ -479,8 +447,7 @@ impl ItemService {
         let existing = self.get_item_by_id(item_id)?;
         self.properties
             .upsert_scalar(ITEM_TARGET, item_id.as_str(), key, value_type, value)?;
-        self.touch_page(&existing.page_id)?;
-        self.export.queue_export(&existing.page_id);
+        self.touch_and_export(&existing.page_id)?;
         Ok(existing)
     }
 
@@ -489,8 +456,7 @@ impl ItemService {
         let existing = self.get_item_by_id(item_id)?;
         self.properties
             .delete_property(ITEM_TARGET, item_id.as_str(), key)?;
-        self.touch_page(&existing.page_id)?;
-        self.export.queue_export(&existing.page_id);
+        self.touch_and_export(&existing.page_id)?;
         Ok(existing)
     }
 
@@ -576,10 +542,7 @@ impl ItemService {
         dir_path: Option<&str>,
         overwrite: bool,
     ) -> AppResult<(Page, Vec<Hmtid>)> {
-        let existing = self
-            .pages
-            .find_by_id(page_id)?
-            .ok_or_else(|| AppError::bad_request(format!("Page not found: {page_id}")))?;
+        let existing = self.page_service.require_page(page_id)?;
         let moved = Page {
             name: title.map_or_else(|| existing.name.clone(), str::to_string),
             dir_path: dir_path.map_or_else(|| existing.dir_path.clone(), str::to_string),
@@ -661,7 +624,9 @@ impl ItemService {
         Ok(changed.into_iter().collect())
     }
 
-    fn touch_page(&self, page_id: &Hmtid) -> AppResult<()> {
+    /// Marks a page as changed and queues its file: what every change of an item does to its
+    /// page. A page the item has lost is not written.
+    fn touch_and_export(&self, page_id: &Hmtid) -> AppResult<()> {
         if let Some(page) = self.pages.find_by_id(page_id)? {
             let updated = Page {
                 modified_date: now_millis(),
@@ -669,7 +634,15 @@ impl ItemService {
             };
             self.pages.save(&updated)?;
         }
+        self.export.queue_export(page_id);
         Ok(())
+    }
+
+    /// `touch_and_export` for a change that can give the items of the page other parents: an
+    /// item added, removed, moved or moved to another level.
+    fn reparent_and_export(&self, page_id: &Hmtid) -> AppResult<()> {
+        self.items.recalculate_parent_ids(page_id)?;
+        self.touch_and_export(page_id)
     }
 }
 

@@ -117,15 +117,8 @@ mod tests {
     use super::*;
 
     fn page(page_type: &str, dir_path: &str, name: &str) -> Page {
-        Page {
-            id: hmtid::Hmtid::parse("2026-09-29-00-00-00-AAAAAAA").unwrap(),
-            parent_id: None,
-            dir_path: dir_path.to_string(),
-            name: name.to_string(),
-            page_type: page_type.to_string(),
-            created_date: 0,
-            modified_date: 0,
-        }
+        let id = hmtid::Hmtid::parse("2026-09-29-00-00-00-AAAAAAA").unwrap();
+        Page::new(id, dir_path, name, page_type, 0)
     }
 
     #[test]
