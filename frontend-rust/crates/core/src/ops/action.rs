@@ -10,10 +10,9 @@ use crate::ops::file_reload::reload_shown_page;
 /// Cycles the task state: normal → task → running → done → normal.
 /// An item that just became a task on a daily journal gets the journal date as its plan.
 pub fn cycle_task(model: &mut Model, item_id: &str) -> Cmd {
-    let Some(item) = model.current_item(item_id) else {
+    let Some(item) = model.cloned_item(item_id) else {
         return done();
     };
-    let item: Item = (*item).clone();
     run(move |api| async move {
         let target_id = save_target_id(&item);
         let was_task = item.is_task();
@@ -95,10 +94,9 @@ pub fn toggle_collapsed(model: &mut Model, item_id: &str) -> Cmd {
     if !model.state.has_children(item_id) {
         return done();
     }
-    let Some(item) = model.current_item(item_id) else {
+    let Some(item) = model.cloned_item(item_id) else {
         return done();
     };
-    let item: Item = (*item).clone();
     let new_collapsed = !item.collapsed;
     model.state.toggle_collapsed(&item.id);
     model
@@ -132,10 +130,9 @@ pub fn toggle_collapsed(model: &mut Model, item_id: &str) -> Cmd {
 
 /// Makes the item a transclusion of the item whose id is on the clipboard.
 pub fn paste_as_transclusion(model: &mut Model, item_id: &str) -> Cmd {
-    let Some(item) = model.current_item(item_id) else {
+    let Some(item) = model.cloned_item(item_id) else {
         return done();
     };
-    let item: Item = (*item).clone();
     run(move |api| async move {
         let pasted = api.read_clipboard_text().await;
         transclude(&api, &item, &pasted).await;
@@ -192,10 +189,9 @@ const STASH_HEADING: &str = "# Stash";
 /// Sends an item (and its children) to the page's stash: moves the group under the
 /// `# Stash` heading, which is created at the end of the page when missing.
 pub fn send_to_stash(model: &mut Model, item_id: &str) -> Cmd {
-    let Some(item) = model.current_item(item_id) else {
+    let Some(item) = model.cloned_item(item_id) else {
         return done();
     };
-    let item: Item = (*item).clone();
     let group_ids: Vec<String> = model
         .state
         .get_item_with_children(&item.id)

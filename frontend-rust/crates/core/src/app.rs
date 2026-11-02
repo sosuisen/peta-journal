@@ -672,6 +672,12 @@ impl Model {
             .or_else(|| self.state.get_item_by_id(item_id))
     }
 
+    /// A copy of the item as the state shows it, for a command that goes on after the
+    /// state has changed.
+    pub fn cloned_item(&self, item_id: &str) -> Option<Item> {
+        self.current_item(item_id).map(|item| (*item).clone())
+    }
+
     /// A fresh HMTID for an item created on the client.
     pub fn new_item_id(&self, now_ms: u64) -> String {
         self.hmtid.generate_at(now_ms).as_str().to_string()

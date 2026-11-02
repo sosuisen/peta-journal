@@ -19,10 +19,9 @@ use futures::future::join;
 
 /// Handles Enter at a cursor position in an item.
 pub fn handle_enter(model: &mut Model, item_id: &str, cursor: usize) -> Cmd {
-    let Some(item) = model.current_item(item_id) else {
+    let Some(item) = model.cloned_item(item_id) else {
         return done();
     };
-    let item: Item = (*item).clone();
     // The next editor is focused after the next render; keys pressed before that are kept for it
     model.key_relay.hold_until_focus();
     let discard = discard_pending_edit(model, &item);

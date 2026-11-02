@@ -28,10 +28,9 @@ pub fn paste_text(
     cursor: usize,
     raw: bool,
 ) -> Cmd {
-    let Some(item) = model.current_item(item_id) else {
+    let Some(item) = model.cloned_item(item_id) else {
         return done();
     };
-    let item: Item = (*item).clone();
     // If we have stored flat markdown for this clipboard content, use it
     let stored_flat = match &model.clipboard {
         Some((flat, tree)) if !raw && *tree == text => Some(flat.clone()),
@@ -176,10 +175,9 @@ async fn split_text_into_items(api: &Api<Event>, text: &str) -> Result<Vec<Paste
 
 /// Uploads a pasted image and puts a link to it at the cursor.
 pub fn paste_image(model: &mut Model, item_id: &str, file: u64, cursor: usize) -> Cmd {
-    let Some(item) = model.current_item(item_id) else {
+    let Some(item) = model.cloned_item(item_id) else {
         return done();
     };
-    let item: Item = (*item).clone();
     run(move |api| async move {
         let file_name = match api.upload_asset(file).await {
             Ok(name) => name,

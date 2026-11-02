@@ -35,10 +35,9 @@ pub fn edit_requested(model: &mut Model, item_id: &str, cursor: usize) -> Cmd {
 /// The user typed in an editor: the state shows it, the auto-save is scheduled and the
 /// edit is recorded for undo.
 pub fn body_changed(model: &mut Model, item_id: &str, new_body: String) -> Cmd {
-    let Some(item) = model.current_item(item_id) else {
+    let Some(before) = model.cloned_item(item_id) else {
         return done();
     };
-    let before: Item = (*item).clone();
     let cmd = record_typing(model, &before, &new_body);
     let mut after = before.clone();
     after.body = new_body;

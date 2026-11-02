@@ -61,10 +61,9 @@ pub fn start_next_move(model: &mut Model) -> Cmd {
 
 /// Moves an item and its children up or down past the neighbouring sibling tree.
 fn move_item(model: &mut Model, item_id: &str, direction: MoveDirection) -> Cmd {
-    let Some(item) = model.current_item(item_id) else {
+    let Some(item) = model.cloned_item(item_id) else {
         return done();
     };
-    let item: Item = (*item).clone();
     run(move |api| async move {
         if let Err(e) = flush_pending_edit(&api, &item).await {
             log_error(format!("Failed to save before move: {e}"));

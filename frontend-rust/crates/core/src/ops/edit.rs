@@ -216,10 +216,9 @@ pub fn finish_edit(model: &mut Model, item_id: &str) -> Cmd {
     if model.edits.edit_handovers > 0 || !model.state.is_editing(item_id) {
         return done();
     }
-    let Some(item) = model.current_item(item_id) else {
+    let Some(item) = model.cloned_item(item_id) else {
         return done();
     };
-    let item: Item = (*item).clone();
     let close_wiki = if model.wiki.item_id.as_deref() == Some(item_id) {
         crate::ops::wiki::close(model)
     } else {
