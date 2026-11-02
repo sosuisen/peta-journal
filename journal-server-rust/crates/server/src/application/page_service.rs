@@ -48,6 +48,21 @@ static FORBIDDEN_CHARS: LazyLock<Regex> =
 static RESERVED_NAMES: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?i)^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$").unwrap());
 
+/// A title a page may take: not blank, not padded, and a file name on every OS.
+pub fn validate_title(title: &str) -> AppResult<()> {
+    if title.trim().is_empty() {
+        return Err(AppError::bad_request(
+            "Page title cannot be empty or whitespace-only",
+        ));
+    }
+    if title != title.trim() {
+        return Err(AppError::bad_request(
+            "Page title cannot have leading or trailing whitespace",
+        ));
+    }
+    validate_file_name(title)
+}
+
 pub fn validate_file_name(title: &str) -> AppResult<()> {
     if let Some(m) = FORBIDDEN_CHARS.find(title) {
         let ch = m.as_str().chars().next().unwrap_or(' ');
@@ -155,19 +170,9 @@ impl PageService {
         dir_path: Option<&str>,
     ) -> AppResult<DocResult> {
         let title = title.unwrap_or("");
-        if title.trim().is_empty() {
-            return Err(AppError::bad_request(
-                "Page title cannot be empty or whitespace-only",
-            ));
-        }
-        if title != title.trim() {
-            return Err(AppError::bad_request(
-                "Page title cannot have leading or trailing whitespace",
-            ));
-        }
+        validate_title(title)?;
         let dir = dir_path.unwrap_or("");
         let file_name = title;
-        validate_file_name(file_name)?;
 
         // Reject journal-type names as doc titles only when dirPath is empty
         if dir.is_empty() && journal_name::is_journal_file_name(file_name) {
@@ -178,50 +183,8 @@ impl PageService {
 
         self.ensure_ancestor_pages(dir)?;
 
-        if let Some(page) = self
-            .pages
-            .find_by_type_dir_path_file_name("doc", dir, file_name)?
-        {
-            let items = self.items.find_by_page_id(&page.id)?;
-            return Ok(DocResult {
-                page,
-                items,
-                created: false,
-            });
-        }
-
-        // If no exact match, check if an index page exists at dir+fileName/
-        let index_dir = format!("{dir}{file_name}/");
-        if let Some(page) = self
-            .pages
-            .find_by_type_dir_path_file_name("doc", &index_dir, "index")?
-        {
-            let items = self.items.find_by_page_id(&page.id)?;
-            return Ok(DocResult {
-                page,
-                items,
-                created: false,
-            });
-        }
-
-        // A page whose path differs only in case has the same file on Windows and macOS: a
-        // second page there would overwrite its file again and again
-        let same_file = self
-            .pages
-            .find_by_type_dir_path_file_name_ignoring_case("doc", dir, file_name)?
-            .into_iter()
-            .chain(
-                self.pages
-                    .find_by_type_dir_path_file_name_ignoring_case("doc", &index_dir, "index")?,
-            )
-            .next();
-        if let Some(page) = same_file {
-            let items = self.items.find_by_page_id(&page.id)?;
-            return Ok(DocResult {
-                page,
-                items,
-                created: false,
-            });
+        if let Some(page) = self.find_doc(dir, file_name)? {
+            return self.existing_doc(page);
         }
 
         let id = self.ids.generate_page_id();
@@ -254,6 +217,44 @@ impl PageService {
         })
     }
 
+    /// The document a title names in a folder: the page with that name, else the index page of
+    /// the folder of that name (opening `[[a]]` shows `a/index`), else a page whose path
+    /// differs only in case. Such a page has the same file on Windows and macOS: a second
+    /// page there would overwrite its file again and again.
+    fn find_doc(&self, dir: &str, file_name: &str) -> AppResult<Option<Page>> {
+        if let Some(page) = self
+            .pages
+            .find_by_type_dir_path_file_name("doc", dir, file_name)?
+        {
+            return Ok(Some(page));
+        }
+        let index_dir = format!("{dir}{file_name}/");
+        if let Some(page) = self
+            .pages
+            .find_by_type_dir_path_file_name("doc", &index_dir, "index")?
+        {
+            return Ok(Some(page));
+        }
+        Ok(self
+            .pages
+            .find_by_type_dir_path_file_name_ignoring_case("doc", dir, file_name)?
+            .into_iter()
+            .chain(
+                self.pages
+                    .find_by_type_dir_path_file_name_ignoring_case("doc", &index_dir, "index")?,
+            )
+            .next())
+    }
+
+    fn existing_doc(&self, page: Page) -> AppResult<DocResult> {
+        let items = self.items.find_by_page_id(&page.id)?;
+        Ok(DocResult {
+            page,
+            items,
+            created: false,
+        })
+    }
+
     /// Updates a page's metadata. Only the given parameters are applied.
     /// When another page has the new name, the update is refused as a conflict unless
     /// `overwrite` is set; then that page is deleted and this one takes its place.
@@ -268,17 +269,7 @@ impl PageService {
 
         let mut file_name = existing.name.clone();
         if let Some(title) = title {
-            if title.trim().is_empty() {
-                return Err(AppError::bad_request(
-                    "Page title cannot be empty or whitespace-only",
-                ));
-            }
-            if title != title.trim() {
-                return Err(AppError::bad_request(
-                    "Page title cannot have leading or trailing whitespace",
-                ));
-            }
-            validate_file_name(title)?;
+            validate_title(title)?;
             file_name = title.to_string();
         }
 
