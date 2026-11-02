@@ -17,6 +17,7 @@ pub fn routes() -> Router<SharedState> {
     Router::new()
         .route("/api/items", post(create_item).get(get_items_by_types))
         .route("/api/items/move", post(move_items))
+        .route("/api/items/merge", post(merge_items))
         .route("/api/items/shift-level", post(shift_levels))
         .route("/api/items/export", post(export_tree_markdown))
         .route("/api/items/export-page", post(export_page_markdown))
@@ -73,6 +74,13 @@ struct MoveItemsRequest {
     target_page_id: Option<String>,
     position: Option<String>,
     level_delta: Option<i32>,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+struct MergeItemsRequest {
+    item_id: Option<String>,
+    into_id: Option<String>,
 }
 
 #[derive(Deserialize, Default)]
@@ -263,6 +271,31 @@ async fn update_item(
         state.sse.broadcast_pages_updated(&page_id);
         broadcast_to_transcluders(&state, &item_id, &page_id)?;
         item_response(&state, &item)
+    })
+    .await
+}
+
+async fn merge_items(
+    State(state): State<SharedState>,
+    Json(req): Json<MergeItemsRequest>,
+) -> AppResult<Json<ItemResponse>> {
+    let item_id = parse_id(req.item_id.as_deref().unwrap_or(""))?;
+    let into_id = parse_id(req.into_id.as_deref().unwrap_or(""))?;
+    blocking(move || {
+        // The merged item goes away: its transcluders are found first so their pages can be told
+        let transcluders = state.items.find_transcluders(&item_id)?;
+        let item_page_id = state.item_service.get_item_page_id(&item_id)?;
+        let into = state.item_service.merge_item(&item_id, &into_id)?;
+        let page_id = into.page_id.to_string();
+        state.sse.broadcast_pages_updated(&page_id);
+        if let Some(item_page_id) = item_page_id {
+            state.sse.broadcast_pages_updated(&item_page_id);
+        }
+        broadcast_to_transcluders(&state, &into_id, &page_id)?;
+        for t in transcluders {
+            state.sse.broadcast_pages_updated(t.page_id.as_str());
+        }
+        item_response(&state, &into)
     })
     .await
 }
