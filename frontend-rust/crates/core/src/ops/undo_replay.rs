@@ -126,6 +126,8 @@ fn cursor_of(entry: &UndoEntry, dir: Direction) -> Option<CursorState> {
 /// Sends the replayed ops to the server, in the order they were applied.
 fn sync_to_server(ops: Vec<UndoOp>, dir: Direction) -> Cmd {
     run(move |api| async move {
+        // The deletes go last, as one group: a parent deleted on its own is refused
+        let mut to_delete = Vec::new();
         for op in ops {
             let result = match &op {
                 UndoOp::Update { before, after } => {
@@ -162,13 +164,19 @@ fn sync_to_server(ops: Vec<UndoOp>, dir: Direction) -> Cmd {
                     if exists_again {
                         recreate_on_server(&api, item).await
                     } else {
-                        api.delete_item(&item.id).await
+                        to_delete.push(item.id.clone());
+                        Ok(())
                     }
                 }
             };
             if let Err(e) = result {
                 log_error(format!("Failed to sync undo/redo to server: {e}"));
                 return;
+            }
+        }
+        if !to_delete.is_empty() {
+            if let Err(e) = api.delete_items(to_delete).await {
+                log_error(format!("Failed to sync undo/redo to server: {e}"));
             }
         }
     })

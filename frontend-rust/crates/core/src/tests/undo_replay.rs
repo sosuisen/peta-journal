@@ -66,10 +66,10 @@ fn undo_of_a_create_of_a_parent_and_its_child_deletes_them_as_one_group() {
     h.model.undo.commit(None, 0);
     h.send(Event::Undo);
     assert_eq!(h.items_ids(), ["a"]);
-    assert_eq!(
-        delete_calls(&h.api),
-        [vec!["p".to_string(), "c".to_string()]]
-    );
+    // The order inside the group does not matter to the server
+    let mut sent = delete_calls(&h.api);
+    sent.iter_mut().for_each(|ids| ids.sort());
+    assert_eq!(sent, [vec!["c".to_string(), "p".to_string()]]);
 }
 
 // 作成の redo は項目をその index の位置に戻し、サーバーが与えた id を取る。
