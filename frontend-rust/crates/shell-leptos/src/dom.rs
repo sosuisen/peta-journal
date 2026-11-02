@@ -458,6 +458,16 @@ pub fn local_storage_set(key: &str, value: &str) {
     }
 }
 
+/// A value stored as JSON; None when there is none or it does not read as `T`.
+pub fn local_storage_json<T: serde::de::DeserializeOwned>(key: &str) -> Option<T> {
+    local_storage_get(key).and_then(|s| serde_json::from_str(&s).ok())
+}
+
+/// Stores a value as JSON.
+pub fn local_storage_set_json<T: serde::Serialize + ?Sized>(key: &str, value: &T) {
+    local_storage_set(key, &serde_json::to_string(value).unwrap_or_default());
+}
+
 /// The first image file in a paste or a drop, if there is one.
 pub fn image_file(data: &web_sys::DataTransfer) -> Option<web_sys::File> {
     let items = data.items();

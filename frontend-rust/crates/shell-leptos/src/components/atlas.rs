@@ -25,16 +25,11 @@ const ATLAS_VIEWS_KEY: &str = "atlas-views";
 
 /// The folders last seen as their atlas, as the browser stored them.
 pub fn load_atlas_dirs() -> Vec<String> {
-    dom::local_storage_get(ATLAS_DIRS_KEY)
-        .and_then(|s| serde_json::from_str(&s).ok())
-        .unwrap_or_default()
+    dom::local_storage_json(ATLAS_DIRS_KEY).unwrap_or_default()
 }
 
 pub fn save_atlas_dirs(dirs: &[String]) {
-    dom::local_storage_set(
-        ATLAS_DIRS_KEY,
-        &serde_json::to_string(dirs).unwrap_or_default(),
-    );
+    dom::local_storage_set_json(ATLAS_DIRS_KEY, dirs);
 }
 
 /// Where the hand tool and the wheel left the view of an atlas: how far it is moved from
@@ -58,18 +53,13 @@ impl Default for View {
 
 /// The view of each atlas as the browser stored it, by the dir path of the atlas.
 fn load_views() -> HashMap<String, View> {
-    dom::local_storage_get(ATLAS_VIEWS_KEY)
-        .and_then(|s| serde_json::from_str(&s).ok())
-        .unwrap_or_default()
+    dom::local_storage_json(ATLAS_VIEWS_KEY).unwrap_or_default()
 }
 
 fn save_view(dir: &str, view: View) {
     let mut views = load_views();
     views.insert(dir.to_string(), view);
-    dom::local_storage_set(
-        ATLAS_VIEWS_KEY,
-        &serde_json::to_string(&views).unwrap_or_default(),
-    );
+    dom::local_storage_set_json(ATLAS_VIEWS_KEY, &views);
 }
 
 /// The drag data of an unplaced card. A type of its own keeps text dragged from elsewhere

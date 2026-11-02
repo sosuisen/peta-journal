@@ -25,18 +25,16 @@ const STANDARD_PROTOCOLS: [&str; 9] = [
 ];
 
 fn load_sidebar_width() -> f64 {
-    dom::local_storage_get(CONFIG_KEY)
-        .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
+    dom::local_storage_json::<serde_json::Value>(CONFIG_KEY)
         .and_then(|v| v.get("sidebarWidth").and_then(|w| w.as_f64()))
         .unwrap_or(260.0)
 }
 
 fn save_sidebar_width(width: f64) {
-    let mut config = dom::local_storage_get(CONFIG_KEY)
-        .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
+    let mut config = dom::local_storage_json::<serde_json::Value>(CONFIG_KEY)
         .unwrap_or_else(|| serde_json::json!({}));
     config["sidebarWidth"] = serde_json::json!(width);
-    dom::local_storage_set(CONFIG_KEY, &config.to_string());
+    dom::local_storage_set_json(CONFIG_KEY, &config);
 }
 
 /// True for a link with a custom URL scheme (`peta-journal://...`), which the server opens.

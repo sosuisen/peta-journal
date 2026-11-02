@@ -17,18 +17,13 @@ const INDEX_SORT_KEY: &str = "sidebar-index-sort";
 
 /// The sort of each directory's index list, as the browser stored it.
 pub fn load_index_sorts() -> HashMap<String, IndexSort> {
-    dom::local_storage_get(INDEX_SORT_KEY)
-        .and_then(|s| serde_json::from_str(&s).ok())
-        .unwrap_or_default()
+    dom::local_storage_json(INDEX_SORT_KEY).unwrap_or_default()
 }
 
 fn save_index_sort(dir: &str, sort: IndexSort) {
     let mut sorts = load_index_sorts();
     sorts.insert(dir.to_string(), sort);
-    dom::local_storage_set(
-        INDEX_SORT_KEY,
-        &serde_json::to_string(&sorts).unwrap_or_default(),
-    );
+    dom::local_storage_set_json(INDEX_SORT_KEY, &sorts);
 }
 
 fn sort_key_label(key: IndexSortKey) -> &'static str {
@@ -110,8 +105,7 @@ struct PageContextMenu {
 }
 
 fn load_collapsed() -> HashSet<String> {
-    dom::local_storage_get(COLLAPSED_KEY)
-        .and_then(|s| serde_json::from_str::<Vec<String>>(&s).ok())
+    dom::local_storage_json::<Vec<String>>(COLLAPSED_KEY)
         .map(|v| v.into_iter().collect())
         .unwrap_or_default()
 }
@@ -152,10 +146,7 @@ pub fn Sidebar() -> impl IntoView {
                     c.insert(section.to_string());
                 }
                 let list: Vec<&String> = c.iter().collect();
-                dom::local_storage_set(
-                    COLLAPSED_KEY,
-                    &serde_json::to_string(&list).unwrap_or_default(),
-                );
+                dom::local_storage_set_json(COLLAPSED_KEY, &list);
             });
         })
     };
