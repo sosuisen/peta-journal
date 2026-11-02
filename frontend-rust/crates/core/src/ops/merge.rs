@@ -5,7 +5,8 @@
 
 use crate::app::{apply, done, log_error, run, Cmd, Model};
 use crate::model::Item;
-use crate::ops::edit::{discard_pending_edit, focus_editor, save_body};
+use crate::ops::edit::{discard_pending_edit, focus_editor};
+use crate::ops::file_reload::reload_shown_page;
 use crate::outline::tree::index_of;
 use crate::outline::CursorState;
 use crate::util::char_len;
@@ -43,13 +44,14 @@ pub fn merge_into_previous(model: &mut Model, item_id: &str) -> Cmd {
 
     let merge = run(move |api| async move {
         focus_editor(&api, Some(prev.id.clone())).await;
-        let updated_prev = match save_body(&api, &prev.id, &merged_body).await {
+        // The server joins the two in one step; if it refuses, the page is shown as it has it
+        let updated_prev = match api.merge_items(&item.id, &prev.id).await {
             Ok(u) => u,
-            Err(e) => return log_error(format!("Failed to merge items: {e}")),
+            Err(e) => {
+                log_error(format!("Failed to merge items: {e}"));
+                return reload_shown_page(&api).await;
+            }
         };
-        if let Err(e) = api.delete_item(&item.id).await {
-            log_error(format!("Failed to delete merged item: {e}"));
-        }
         apply(&api, "backspace merge: record", move |m| {
             m.undo
                 .begin("backspace", Some(CursorState::new(&item.id, 0)));
@@ -93,13 +95,13 @@ pub fn merge_next_into(model: &mut Model, item_id: &str) -> Cmd {
     model.state.delete_item(&next.id);
 
     let merge = run(move |api| async move {
-        let updated = match save_body(&api, &item.id, &merged_body).await {
+        let updated = match api.merge_items(&next.id, &item.id).await {
             Ok(u) => u,
-            Err(e) => return log_error(format!("Failed to merge items: {e}")),
+            Err(e) => {
+                log_error(format!("Failed to merge items: {e}"));
+                return reload_shown_page(&api).await;
+            }
         };
-        if let Err(e) = api.delete_item(&next.id).await {
-            log_error(format!("Failed to delete merged item: {e}"));
-        }
         apply(&api, "delete merge: record", move |m| {
             m.undo
                 .begin("delete", Some(CursorState::new(&item.id, cursor_pos)));
