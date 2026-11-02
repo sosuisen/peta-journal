@@ -78,3 +78,16 @@ fn a_transclusion_whose_source_is_gone_is_shown_as_broken() {
         .collect();
     assert_eq!(broken, [false, true]);
 }
+
+// 壊れたトランスクルージョンのルートは、クリックしても編集にならない。
+#[test]
+fn a_broken_transclusion_root_does_not_open_an_editor_when_clicked() {
+    let transclusion = item_with("t", 1, |i| i.transclude_item_id = Some("gone".into()));
+    let mut h = Harness::with_items(vec![item("a", 1, ""), transclusion]);
+    h.send(Event::EditRequested {
+        item_id: "t".into(),
+        cursor: 0,
+    });
+    assert!(!h.model.state.is_editing("t"));
+    assert_eq!(h.model.state.focused_item_id(), None);
+}
