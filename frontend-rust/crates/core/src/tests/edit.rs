@@ -139,3 +139,63 @@ fn arrow_navigation_saves_and_moves_the_editor_with_the_cursor_column() {
     assert_eq!(h.focus_cursor(), Some(3));
     assert_eq!(update_calls(&h.api), [("a".into(), Some("x".into()))]);
 }
+
+// 上矢印は、カーソル桁を保ったままエディタを上の項目に移す。先頭の項目では何も起きない。
+#[test]
+fn arrow_up_moves_the_editor_to_the_item_above_and_stops_at_the_top() {
+    let mut h = Harness::with_items(vec![item("a", 1, ""), item("b", 1, "")]);
+    h.model.state.add_editing_item("b");
+    h.send(Event::NavigateUp {
+        item_id: "b".into(),
+        cursor: 2,
+    });
+    assert!(h.model.state.is_editing("a"));
+    assert!(!h.model.state.is_editing("b"));
+    assert_eq!(h.focus_cursor(), Some(2));
+
+    h.send(Event::NavigateUp {
+        item_id: "a".into(),
+        cursor: 2,
+    });
+    assert!(h.model.state.is_editing("a"));
+}
+
+// 編集を終えると、開いていたページ名のポップアップも閉じる。
+#[test]
+fn finish_edit_closes_the_wiki_popup() {
+    let mut h = Harness::with_items(vec![item("a", 1, "[[To]]")]);
+    h.model.state.add_editing_item("a");
+    h.model.wiki.item_id = Some("a".into());
+    h.model.wiki.suggestions = vec!["Todo".into()];
+    h.send(Event::EditFinished {
+        item_id: "a".into(),
+    });
+    assert_eq!(h.view().outline.wiki.item_id, None);
+}
+
+// トランスクルージョンのルートの保存で、サーバーが返した構文木と種類は、表示しているルートにも写される。
+#[test]
+fn saving_a_transclusion_root_copies_the_parsed_result_to_the_shown_root() {
+    let mut h = Harness::with_items(vec![item_with("root", 1, |i| {
+        i.transclude_item_id = Some("s".into())
+    })]);
+    let mut trees = TranscludedTrees::new();
+    trees.insert("s".into(), vec![item("s", 1, "src")]);
+    h.model.state.set_transcluded_trees(trees);
+    h.model.state.add_editing_item("root");
+    typed(&mut h, "root", "# typed");
+    h.api.answer_next(
+        "UpdateItem",
+        Ok(crate::effects::ApiOutput::Item(item_with("s", 1, |i| {
+            i.body = "# typed".into();
+            i.ast = "parsed".into();
+            i.types = vec!["heading".into()];
+        }))),
+    );
+    h.send(Event::EditFinished {
+        item_id: "root".into(),
+    });
+    let root = h.model.state.get_item_by_id("root").unwrap();
+    assert_eq!(root.ast, "parsed");
+    assert_eq!(root.types, ["heading"]);
+}

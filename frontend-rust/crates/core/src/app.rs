@@ -428,11 +428,6 @@ where
     Command::new(move |ctx| f(Api::new(ctx)))
 }
 
-pub fn all(cmds: impl IntoIterator<Item = Cmd>) -> Cmd {
-    Command::all(cmds)
-}
-
-/// Logs an error the user does not need to see, like `console.error` in the Angular app.
 /// Stops a debounce timer that is still running and forgets it.
 pub fn cancel_timer(timer_id: &mut u64) -> Cmd {
     if *timer_id == 0 {

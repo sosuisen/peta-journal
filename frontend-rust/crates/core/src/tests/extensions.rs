@@ -284,3 +284,38 @@ fn an_extension_asks_the_user_and_gets_the_answer() {
             if message["type"] == "ConfirmResult" && message["ok"] == answer && message["requestId"] == "req-9")));
     }
 }
+
+// 拡張の URL は OS に渡されて開かれる。開けなくても、書き出しフォルダを開けなくても、画面には何も出ない。
+#[test]
+fn a_url_and_the_export_folder_are_opened_by_the_os() {
+    let mut h = Harness::new();
+    h.send(Event::LaunchUrl {
+        url: "peta://x".into(),
+    });
+    h.api
+        .answer_next("LaunchUrl", Ok(crate::effects::ApiOutput::Launched(false)));
+    h.send(Event::LaunchUrl {
+        url: "peta://y".into(),
+    });
+    h.send(Event::OpenExportFolder {
+        page_id: "page1".into(),
+    });
+    h.api.fail_next("OpenExportFolder", "no folder");
+    h.send(Event::OpenExportFolder {
+        page_id: "page1".into(),
+    });
+
+    assert_eq!(h.api.calls_named("LaunchUrl").len(), 2);
+    assert_eq!(h.api.calls_named("OpenExportFolder").len(), 2);
+    assert!(!h.ui.iter().any(|u| matches!(u, UiOp::Alert(_))));
+}
+
+// 項目を作れなかったときは、拡張にその失敗が返る。
+#[test]
+fn a_failed_creation_is_told_to_the_extension() {
+    let mut h = Harness::with_items(vec![item("a", 1, "")]);
+    h.api.fail_next("CreateItem", "offline");
+    create_item(&mut h, "a", 1, "x");
+    assert!(h.ui.iter().any(|op| matches!(op, UiOp::ExtensionReply { source: 1, message }
+        if message["type"] == "CreateItemError" && message["error"] == "offline" && message["requestId"] == "req-1")));
+}

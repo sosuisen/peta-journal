@@ -88,15 +88,10 @@ pub fn pick(model: &mut Model, title: &str) -> Cmd {
         return close(model);
     };
     let body = item.body.clone();
-    let query_len = char_len(&model.wiki.query);
     let close_cmd = close(model);
     // The query sits right before `]]`: find the `[[` that opens it
-    let Some(close_idx) = find_close_after_query(&body, &model_query_hint(query_len)) else {
+    let Some((open_idx, close_idx)) = link_being_typed(&body) else {
         return close_cmd;
-    };
-    let open_idx = match body[..close_idx].rfind("[[") {
-        Some(i) => i,
-        None => return close_cmd,
     };
     let new_body = format!("{}{}{}", &body[..open_idx + 2], title, &body[close_idx..]);
     let new_cursor = char_len(&body[..open_idx + 2]) + char_len(title);
@@ -106,9 +101,9 @@ pub fn pick(model: &mut Model, title: &str) -> Cmd {
     Command::all([close_cmd, typing])
 }
 
-/// The byte index of the `]]` that closes the link being typed: the first `]]` that follows
-/// an unclosed `[[`.
-fn find_close_after_query(body: &str, _hint: &usize) -> Option<usize> {
+/// The byte indexes of the `[[` and the `]]` of the link being typed: the first `]]` that
+/// follows an unclosed `[[`.
+fn link_being_typed(body: &str) -> Option<(usize, usize)> {
     let mut search_from = 0;
     while let Some(open_rel) = body[search_from..].find("[[") {
         let open = search_from + open_rel;
@@ -118,13 +113,9 @@ fn find_close_after_query(body: &str, _hint: &usize) -> Option<usize> {
             search_from = open + 2;
             continue;
         }
-        return Some(close);
+        return Some((open, close));
     }
     None
-}
-
-fn model_query_hint(query_len: usize) -> usize {
-    query_len
 }
 
 pub fn close(model: &mut Model) -> Cmd {

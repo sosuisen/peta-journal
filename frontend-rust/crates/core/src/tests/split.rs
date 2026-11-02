@@ -232,3 +232,52 @@ fn enter_at_the_end_of_a_transcluded_item_with_one_below_still_creates_on_the_so
     let calls = create_calls(&h.api);
     assert_eq!(calls[0].0, "src");
 }
+
+// 次のエディタを待つ間に押されたキーは、そのエディタに渡される。待っていなければキーは捨てられる。
+// The fake server answers at once, so the wait is started by hand and ended by a merge.
+#[test]
+fn keys_pressed_while_waiting_for_the_next_editor_are_played_into_it() {
+    let held = |k: &str| crate::model::DeferredKey {
+        key: k.into(),
+        code: format!("Key{}", k.to_uppercase()),
+        shift_key: false,
+        ctrl_key: false,
+        alt_key: false,
+        meta_key: false,
+    };
+    let mut h = harness();
+    h.send(Event::KeyHeld(held("z")));
+    h.model.key_relay.hold_until_focus();
+    h.send(Event::KeyHeld(held("x")));
+    h.send(Event::BackspaceAtStart {
+        item_id: "b".into(),
+    });
+
+    let replayed: Vec<Vec<String>> =
+        h.ui.iter()
+            .filter_map(|u| match u {
+                crate::effects::UiOp::FocusEditor { replay_keys, .. } => {
+                    Some(replay_keys.iter().map(|k| k.key.clone()).collect())
+                }
+                _ => None,
+            })
+            .collect();
+    assert_eq!(replayed, [vec!["x".to_string()]]);
+}
+
+// 折りたたまれた親の末尾での Enter は、隠れている子の後ろに新しい項目を作る。
+#[test]
+fn enter_at_the_end_of_a_collapsed_parent_creates_the_item_after_its_hidden_children() {
+    let mut h = Harness::with_items(vec![
+        item_with("a", 1, |i| {
+            i.body = "parent".into();
+            i.collapsed = true;
+        }),
+        item("c", 2, ""),
+        item("d", 3, ""),
+    ]);
+    h.model.state.toggle_collapsed("a");
+    enter(&mut h, "a", "parent".len());
+    let calls = create_calls(&h.api);
+    assert_eq!(calls[0].1, "after:d");
+}

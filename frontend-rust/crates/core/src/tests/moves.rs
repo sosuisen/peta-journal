@@ -103,3 +103,28 @@ fn inside_a_transclusion_a_descendant_moves_within_the_source_tree_and_the_page_
     );
     assert!(h.api.called("GetPageById"));
 }
+
+// 入力した直後に動かすと、自動保存を待たずに本文が保存されてから移動する。
+#[test]
+fn text_typed_just_before_a_move_is_saved_before_the_item_moves() {
+    let mut h = page_harness();
+    h.model.state.add_editing_item("a");
+    h.send(Event::BodyChanged {
+        item_id: "a".into(),
+        body: "typed".into(),
+        now_ms: h.now_ms,
+    });
+    h.send(Event::MoveDown {
+        item_id: "a".into(),
+    });
+    assert_eq!(
+        crate::harness::update_calls(&h.api),
+        [("a".into(), Some("typed".into()))]
+    );
+    assert!(h.api.calls_named("UpdateItem").len() < h.api.calls.len());
+    assert!(
+        h.pending_timer_ids().is_empty(),
+        "the auto-save is not needed any more"
+    );
+    assert_eq!(h.items_ids(), ["b", "b1", "a", "c"]);
+}

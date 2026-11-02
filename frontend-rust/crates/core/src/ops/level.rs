@@ -100,31 +100,20 @@ fn outdent_below_parent(model: &mut Model, item: &Item, group: Vec<ItemRef>, par
         if let Err(e) = api.shift_item_levels(group_ids.clone(), -1).await {
             log_error(format!("Failed to change item levels: {e}"));
         }
-        if last_child_id != parent.id {
-            let position = ItemPosition::after(last_child_id.clone());
-            match api
-                .move_items(group_ids.clone(), &page_id, position.clone(), None)
-                .await
-            {
-                Ok(moved) => apply(&api, "logical outdent: moved", move |m| {
-                    m.state.replace_items(&group_ids, moved.clone(), &position);
-                    m.undo
-                        .record_updates("outdent", before.iter().zip(&moved), m.clock_ms);
-                    done()
-                }),
-                Err(e) => log_error(format!("Failed to move outdented items: {e}")),
-            }
-        } else {
-            apply(&api, "logical outdent: record", move |m| {
-                m.undo.begin("outdent", None);
-                for b in &before {
-                    let mut after = b.clone();
-                    after.level -= 1;
-                    m.undo.push_update(b, &after);
-                }
-                m.undo.commit(None, m.clock_ms);
+        // The item is never the parent's first child here: the item above it is not the
+        // parent, so the parent has a child outside the group and the position is below it
+        let position = ItemPosition::after(last_child_id.clone());
+        match api
+            .move_items(group_ids.clone(), &page_id, position.clone(), None)
+            .await
+        {
+            Ok(moved) => apply(&api, "logical outdent: moved", move |m| {
+                m.state.replace_items(&group_ids, moved.clone(), &position);
+                m.undo
+                    .record_updates("outdent", before.iter().zip(&moved), m.clock_ms);
                 done()
-            });
+            }),
+            Err(e) => log_error(format!("Failed to move outdented items: {e}")),
         }
     })
 }

@@ -178,3 +178,49 @@ fn a_level_2_item_in_second_position_moves_up_under_the_last_root_of_the_loaded_
         |c| matches!(c, ApiOp::GetOrCreateJournal { file_name } if file_name == "2026-02-11")
     ));
 }
+
+// 翌日へ遷移した後、動かした項目はひと息置いて編集中になり、そのエディタにフォーカスが移る。
+#[test]
+fn after_the_move_the_moved_item_is_edited_on_the_next_day() {
+    let mut h = harness();
+    h.send(Event::MoveUp {
+        item_id: "a".into(),
+    });
+    assert!(!h.model.state.is_editing("a"));
+
+    h.fire_timers();
+    assert!(h.model.state.is_editing("a"));
+    assert_eq!(h.focused_editor_requests(), [Some("a".to_string())]);
+}
+
+// 最下位にあるレベル2の項目を下へ動かすと、読み込み済みの前日の最初のルート項目の下へ移動される。
+#[test]
+fn a_level_2_item_at_the_bottom_moves_down_under_the_first_root_of_the_previous_day() {
+    let mut h = Harness::new();
+    h.model.state.set_items(vec![
+        journal_item("a", 1, "p10", "2026-02-10"),
+        journal_item("a1", 2, "p10", "2026-02-10"),
+        journal_item("c", 1, "p09", "2026-02-09"),
+        journal_item("c1", 2, "p09", "2026-02-09"),
+        journal_item("d", 1, "p09", "2026-02-09"),
+    ]);
+    h.model.screen = Screen::Journal(JournalState {
+        current_date: "2026-02-10".into(),
+        ..Default::default()
+    });
+    h.send(Event::MoveDown {
+        item_id: "a1".into(),
+    });
+    assert_eq!(
+        move_calls(&h.api),
+        [(
+            vec!["a1".to_string()],
+            "p09".to_string(),
+            "after:c".to_string()
+        )]
+    );
+    // No page is created for the move; the journal only reloads itself afterwards
+    assert!(!h.api.calls.iter().any(
+        |c| matches!(c, ApiOp::GetOrCreateJournal { file_name } if file_name == "2026-02-09")
+    ));
+}

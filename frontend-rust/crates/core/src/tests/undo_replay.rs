@@ -110,3 +110,21 @@ fn a_collapse_change_also_flips_the_collapsed_set() {
     assert!(!h.model.state.is_collapsed("a"));
     assert_eq!(h.model.state.visible_items().len(), 2);
 }
+
+// 入力した直後の undo は入力を戻して保存する。その入力の自動保存は捨てられ、戻した本文が上書きされることはない。
+#[test]
+fn an_undo_right_after_typing_drops_the_pending_save_of_the_typed_text() {
+    let mut h = Harness::with_items(vec![item("a", 1, "old")]);
+    h.model.state.add_editing_item("a");
+    h.model.state.set_focused_item("a", None);
+    h.send(Event::BodyChanged {
+        item_id: "a".into(),
+        body: "typed".into(),
+        now_ms: h.now_ms,
+    });
+
+    h.send(Event::Undo);
+    h.fire_timers();
+    assert_eq!(h.bodies(), ["a=old"]);
+    assert_eq!(update_calls(&h.api), [("a".into(), Some("old".into()))]);
+}

@@ -44,3 +44,36 @@ fn toggle_collapsed_does_nothing_for_an_item_without_children() {
     });
     assert!(h.api.calls.is_empty());
 }
+
+fn visible(h: &Harness) -> Vec<String> {
+    h.model
+        .state
+        .visible_items()
+        .iter()
+        .map(|i| i.id.clone())
+        .collect()
+}
+
+// トランスクルージョンの中の項目を折りたたむと、その子は隠れる。他の項目は見えたままである。
+#[test]
+fn collapsing_an_item_inside_a_transclusion_hides_its_children() {
+    let root = crate::testing::item_with("root", 1, |i| i.transclude_item_id = Some("s".into()));
+    let mut h = Harness::with_items(vec![root]);
+    let mut trees = crate::model::TranscludedTrees::new();
+    trees.insert(
+        "s".into(),
+        vec![
+            item("s", 1, ""),
+            item("s1", 2, ""),
+            item("s11", 3, ""),
+            item("s2", 2, ""),
+        ],
+    );
+    h.model.state.set_transcluded_trees(trees);
+    assert_eq!(visible(&h), ["root", "s1", "s11", "s2"]);
+
+    h.send(Event::CollapseToggle {
+        item_id: "s1".into(),
+    });
+    assert_eq!(visible(&h), ["root", "s1", "s2"]);
+}

@@ -110,3 +110,207 @@ fn cutting_a_selection_with_a_transclusion_is_refused_too() {
     assert!(!h.api.called("ExportTreeMarkdown"));
     assert!(h.ui.iter().any(|op| matches!(op, UiOp::Alert(_))));
 }
+
+fn selected(h: &Harness) -> Vec<String> {
+    let mut ids: Vec<String> = h.model.state.selected_item_ids().iter().cloned().collect();
+    ids.sort();
+    ids
+}
+
+fn key(h: &mut Harness, key: SelectionKey) {
+    h.send(Event::SelectionKey(key));
+}
+
+// エディタの外へドラッグすると、その項目と子が選ばれて編集は終わる。マウスが入った項目まで選択が広がり、ボタンを離すと選択はそのまま残る。
+#[test]
+fn dragging_out_of_an_editor_selects_the_item_with_its_children_and_follows_the_mouse() {
+    let mut h = Harness::with_items(vec![
+        item("a", 1, ""),
+        item("a1", 2, ""),
+        item("b", 1, ""),
+        item("c", 1, ""),
+    ]);
+    h.model.state.add_editing_item("a");
+    h.send(Event::DragBeyondBounds {
+        item_id: "a".into(),
+    });
+    assert_eq!(selected(&h), ["a", "a1"]);
+    assert!(!h.model.state.is_editing("a"));
+    assert!(h.model.selection.is_dragging());
+
+    h.send(Event::ItemMouseEnter {
+        item_id: "c".into(),
+    });
+    assert_eq!(selected(&h), ["a", "a1", "b", "c"]);
+
+    h.send(Event::SelectionClickOutside);
+    assert!(
+        h.model.state.item_selection_mode(),
+        "a click during the drag is the drag itself"
+    );
+
+    h.send(Event::SelectionMouseUp);
+    assert!(!h.model.selection.is_dragging());
+    assert_eq!(selected(&h), ["a", "a1", "b", "c"]);
+}
+
+// ドラッグしていないときにマウスが項目に入っても、何も選ばれない。
+#[test]
+fn the_mouse_entering_an_item_without_a_drag_selects_nothing() {
+    let mut h = Harness::with_items(vec![item("a", 1, ""), item("b", 1, "")]);
+    h.send(Event::ItemMouseEnter {
+        item_id: "b".into(),
+    });
+    assert!(selected(&h).is_empty());
+    assert!(!h.model.state.item_selection_mode());
+}
+
+// Shift+矢印はエディタの項目だけを選んで編集を終える。Shift+↓/↑で選択は下へ上へ伸び縮みし、Escape で終わる。
+#[test]
+fn shift_arrows_grow_and_shrink_the_selection_from_the_editor_and_escape_ends_it() {
+    let mut h = Harness::with_items(vec![
+        item("a", 1, ""),
+        item("b", 1, ""),
+        item("c", 1, ""),
+        item("d", 1, ""),
+    ]);
+    h.model.state.add_editing_item("b");
+    h.send(Event::ShiftSelect {
+        item_id: "b".into(),
+    });
+    assert_eq!(selected(&h), ["b"]);
+    assert!(!h.model.state.is_editing("b"));
+
+    key(&mut h, SelectionKey::ExtendDown);
+    key(&mut h, SelectionKey::ExtendDown);
+    assert_eq!(selected(&h), ["b", "c", "d"]);
+    key(&mut h, SelectionKey::ExtendDown);
+    assert_eq!(selected(&h), ["b", "c", "d"], "the end of the outline");
+
+    key(&mut h, SelectionKey::ExtendUp);
+    key(&mut h, SelectionKey::ExtendUp);
+    assert_eq!(selected(&h), ["b"]);
+    key(&mut h, SelectionKey::ExtendUp);
+    assert_eq!(selected(&h), ["a", "b"]);
+    key(&mut h, SelectionKey::ExtendUp);
+    assert_eq!(selected(&h), ["a", "b"], "the start of the outline");
+
+    key(&mut h, SelectionKey::Escape);
+    assert!(!h.model.state.item_selection_mode());
+    assert!(selected(&h).is_empty());
+}
+
+// 選択の外をクリックすると選択は終わる。選択していなければキーは何もしない。
+#[test]
+fn a_click_outside_ends_the_selection_and_keys_do_nothing_without_one() {
+    let mut h = Harness::with_items(vec![item("a", 1, ""), item("b", 1, "")]);
+    select(&mut h, &["a"]);
+    h.send(Event::SelectionClickOutside);
+    assert!(!h.model.state.item_selection_mode());
+
+    key(&mut h, SelectionKey::ExtendDown);
+    key(&mut h, SelectionKey::Delete);
+    assert!(selected(&h).is_empty());
+    assert!(!h.api.called("DeleteItem"));
+}
+
+// 選択中の Tab と Shift+Tab は、選ばれた項目をまとめて一段下げ、一段上げる。先頭の項目は下げられない。
+#[test]
+fn tab_indents_and_outdents_the_selected_items_together() {
+    let mut h = Harness::with_items(vec![item("a", 1, ""), item("b", 1, ""), item("c", 1, "")]);
+    select(&mut h, &["b", "c"]);
+    key(&mut h, SelectionKey::Indent);
+    let levels =
+        |h: &Harness| -> Vec<i32> { h.model.state.items().iter().map(|i| i.level).collect() };
+    assert_eq!(levels(&h), [1, 2, 2]);
+    assert_eq!(h.model.undo.pop_undo().unwrap().label, "indent-selection");
+
+    key(&mut h, SelectionKey::Outdent);
+    assert_eq!(levels(&h), [1, 1, 1]);
+
+    select(&mut h, &["a"]);
+    key(&mut h, SelectionKey::Indent);
+    assert_eq!(
+        levels(&h),
+        [1, 1, 1],
+        "the first item has nothing to go under"
+    );
+}
+
+// 選択中の Alt+↓ は、選ばれた項目をまとめて下の兄弟の後ろへ動かす。
+#[test]
+fn moving_the_selection_down_puts_it_after_the_next_sibling() {
+    let mut h = Harness::with_items(vec![item("a", 1, ""), item("b", 1, ""), item("c", 1, "")]);
+    select(&mut h, &["a", "b"]);
+    key(&mut h, SelectionKey::MoveDown);
+    assert_eq!(h.items_ids(), ["c", "a", "b"]);
+}
+
+// 選択中の Ctrl+Z と Ctrl+Y は、エディタの中と同じように undo と redo をする。
+#[test]
+fn undo_and_redo_work_while_items_are_selected() {
+    let mut h = Harness::with_items(vec![item("a", 1, ""), item("b", 1, ""), item("c", 1, "")]);
+    select(&mut h, &["b", "c"]);
+    key(&mut h, SelectionKey::Indent);
+    let levels =
+        |h: &Harness| -> Vec<i32> { h.model.state.items().iter().map(|i| i.level).collect() };
+    assert_eq!(levels(&h), [1, 2, 2]);
+
+    select(&mut h, &["a"]);
+    key(&mut h, SelectionKey::Undo);
+    assert_eq!(levels(&h), [1, 1, 1]);
+    key(&mut h, SelectionKey::Redo);
+    assert_eq!(levels(&h), [1, 2, 2]);
+}
+
+// 選択範囲の切り取りは、コピーした後に削除する。
+#[test]
+fn cutting_the_selection_copies_it_and_then_deletes_it() {
+    let mut h = Harness::with_items(vec![item("a", 1, "x"), item("b", 1, "y")]);
+    select(&mut h, &["a"]);
+    key(&mut h, SelectionKey::Cut);
+    assert!(h.api.called("ExportTreeMarkdown"));
+    assert_eq!(h.api.calls_named("DeleteItem").len(), 1);
+    assert_eq!(h.items_ids(), ["b"]);
+}
+
+// 子を持つ項目まで選択を伸ばすと、その子も入る。伸ばし続けると、入っている子は飛ばして次へ進む。
+#[test]
+fn extending_over_a_parent_takes_its_children_and_skips_them_on_the_next_step() {
+    // * a (1)
+    // * b (1)
+    //     * b1 (2)
+    //     * b2 (2)
+    // * c (1)
+    let mut h = Harness::with_items(vec![
+        item("a", 1, ""),
+        item("b", 1, ""),
+        item("b1", 2, ""),
+        item("b2", 2, ""),
+        item("c", 1, ""),
+    ]);
+    h.model.state.add_editing_item("a");
+    h.send(Event::ShiftSelect {
+        item_id: "a".into(),
+    });
+    key(&mut h, SelectionKey::ExtendDown);
+    assert_eq!(selected(&h), ["a", "b", "b1", "b2"]);
+    key(&mut h, SelectionKey::ExtendDown);
+    assert_eq!(selected(&h), ["a", "b", "b1", "b2", "c"]);
+
+    let mut h = Harness::with_items(vec![
+        item("a", 1, ""),
+        item("b", 1, ""),
+        item("b1", 2, ""),
+        item("b2", 2, ""),
+        item("c", 1, ""),
+    ]);
+    h.model.state.add_editing_item("c");
+    h.send(Event::ShiftSelect {
+        item_id: "c".into(),
+    });
+    key(&mut h, SelectionKey::ExtendUp);
+    assert_eq!(selected(&h), ["b", "b1", "b2", "c"]);
+    key(&mut h, SelectionKey::ExtendUp);
+    assert_eq!(selected(&h), ["a", "b", "b1", "b2", "c"]);
+}

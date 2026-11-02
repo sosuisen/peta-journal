@@ -98,21 +98,11 @@ async fn move_now(api: &Api<Event>, item: Item, direction: MoveDirection) -> Api
             Ok(())
         }
         MovePlan::AcrossDays(plan) => {
-            if let Some(crossed) = move_across_days(api, &item, plan).await? {
-                apply(api, "cross-day move", move |m| {
-                    screens::journal::on_cross_day_moved(m, crossed)
-                });
-                return Ok(());
-            }
-            // The item stayed on its page: move it within the page
-            let item2 = item.clone();
-            let target = read(api, move |m| within_page_target(m, &item2, direction)).await;
-            match target {
-                Some((position, state_position)) => {
-                    move_group_to(api, &item, position, state_position).await
-                }
-                None => Ok(()),
-            }
+            let crossed = move_across_days(api, &item, plan).await?;
+            apply(api, "cross-day move", move |m| {
+                screens::journal::on_cross_day_moved(m, crossed)
+            });
+            Ok(())
         }
         MovePlan::WithinPage {
             position,
@@ -431,7 +421,7 @@ async fn move_across_days(
     api: &Api<Event>,
     item: &Item,
     plan: DayMovePlan,
-) -> ApiResult<Option<CrossDayMove>> {
+) -> ApiResult<CrossDayMove> {
     match plan {
         DayMovePlan::Whole {
             target_date,
@@ -450,11 +440,11 @@ async fn move_across_days(
             keep_source_page_non_empty(api, &item.page_id, &group_ids).await?;
             // The journal navigates to the next day when the item left the page it shows
             let navigate = is_next && shown_page_id.as_deref() == Some(&item.page_id);
-            Ok(Some(CrossDayMove {
+            Ok(CrossDayMove {
                 target_date,
                 navigate,
                 item_id: item.id.clone(),
-            }))
+            })
         }
         DayMovePlan::Level2 {
             target_date,
@@ -465,11 +455,11 @@ async fn move_across_days(
             api.move_items(group_ids.clone(), &target_page_id, placement, None)
                 .await?;
             keep_source_page_non_empty(api, &item.page_id, &group_ids).await?;
-            Ok(Some(CrossDayMove {
+            Ok(CrossDayMove {
                 target_date,
                 navigate: false,
                 item_id: item.id.clone(),
-            }))
+            })
         }
     }
 }

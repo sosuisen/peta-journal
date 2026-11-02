@@ -11,6 +11,7 @@ mod split;
 mod undo_replay;
 
 // 日々をたどる
+mod journal;
 mod journal_fragment;
 mod journal_moves;
 mod stash;
@@ -22,13 +23,19 @@ mod selection;
 
 // ページで知識を整える
 mod backlinks;
+mod delete_page;
+mod new_page;
+mod page_open;
 mod page_properties;
 mod rename;
+mod search;
+mod sidebar_index;
 mod sidebar_menu;
 mod sidebar_sort;
 mod tags_button;
 mod transclusion;
 mod view;
+mod wiki;
 
 // 地図で俯瞰する
 mod atlas;
@@ -36,6 +43,7 @@ mod atlas;
 // 設定とサーバーと付き合う
 mod file_reload;
 mod settings;
+mod sse;
 
 // 外のプログラムと組む
 mod extensions;
