@@ -184,7 +184,7 @@ fn create_page(model: &mut Model, title: String) -> Cmd {
             }
         }
         apply(&api, "search: create page", move |_| {
-            navigate::to_page(&title, false, false, false, None)
+            navigate::open_page(&title)
         });
     });
     Command::all([clear, go])

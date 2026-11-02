@@ -770,7 +770,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         WikiQuery { item_id, context } => ops::wiki::query(model, &item_id, context),
         WikiKey { key } => ops::wiki::key_nav(model, &key),
         WikiPick { title } => ops::wiki::pick(model, &title),
-        OpenWikiLink { text } => screens::navigate::to_page(&text, false, false, false, None),
+        OpenWikiLink { text } => screens::navigate::open_page(&text),
         ShiftSelect { item_id } => {
             model
                 .selection
@@ -852,26 +852,12 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         DeletePageProperty { key } => screens::page::delete_property(model, key),
         CreateNewPage { search_query } => screens::layout::create_new_page(model, search_query),
         DeleteCurrentPage => screens::layout::delete_current_page(model),
-        NavigateToToday => Command::notify_shell(crate::effects::NavigateOp {
-            url: "/today".into(),
-            replace: false,
-        })
-        .into(),
+        NavigateToToday => screens::navigate::to_url("/today", false),
         NavigateHome => screens::settings::navigate_home(model),
-        NavigateToRoot => screens::navigate::to_page(
-            &screens::atlas::folder_path(model, "index"),
-            false,
-            false,
-            false,
-            None,
-        ),
-        NavigateToTags => screens::navigate::to_page(
-            &screens::atlas::folder_path(model, &format!("{}index", model.config.tags_dir)),
-            false,
-            false,
-            false,
-            None,
-        ),
+        NavigateToRoot => screens::navigate::open_folder(model, "index"),
+        NavigateToTags => {
+            screens::navigate::open_folder(model, &format!("{}index", model.config.tags_dir))
+        }
         GoToPage {
             path,
             new_tab,

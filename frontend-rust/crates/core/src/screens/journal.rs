@@ -237,7 +237,7 @@ pub fn nav(model: &mut Model, nav: JournalNav) -> Cmd {
         JournalNav::PrevDay | JournalNav::NextDay => {
             let delta = if nav == JournalNav::PrevDay { -1 } else { 1 };
             match Date::parse(&current) {
-                Some(d) => navigate::to_page(&d.shift(delta).iso(), false, false, false, None),
+                Some(d) => navigate::open_page(&d.shift(delta).iso()),
                 None => done(),
             }
         }
@@ -258,7 +258,7 @@ pub fn nav(model: &mut Model, nav: JournalNav) -> Cmd {
                 year += 1;
                 week = 1;
             }
-            navigate::to_page(&format!("{year}-W{week:02}"), false, false, false, None)
+            navigate::open_page(&format!("{year}-W{week:02}"))
         }
     }
 }
@@ -268,7 +268,7 @@ pub fn on_cross_day_moved(model: &mut Model, moved: CrossDayMove) -> Cmd {
     if moved.navigate {
         let timer_id = model.next_timer_id();
         let item_id = moved.item_id;
-        let go = navigate::to_page(&moved.target_date, false, false, false, None);
+        let go = navigate::open_page(&moved.target_date);
         let edit = run(move |api| async move {
             if api.sleep(timer_id, 300).await != crate::effects::TimerOutput::Fired {
                 return;

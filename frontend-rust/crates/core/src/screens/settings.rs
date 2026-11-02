@@ -131,13 +131,7 @@ pub fn navigate_home(model: &mut Model) -> Cmd {
     if link.is_empty() {
         return super::navigate::to_url("/today", false);
     }
-    super::navigate::to_page(
-        &super::atlas::folder_path(model, link),
-        false,
-        false,
-        false,
-        None,
-    )
+    super::navigate::open_folder(model, link)
 }
 
 /// Opens the server's folder chooser and saves the chosen markdown directory.

@@ -35,9 +35,7 @@ pub fn create_new_page(model: &mut Model, search_query: String) -> Cmd {
                 return;
             }
         }
-        apply(&api, "new page", move |_| {
-            navigate::to_page(&title, false, false, false, None)
-        });
+        apply(&api, "new page", move |_| navigate::open_page(&title));
     });
     Command::all([clear, open])
 }

@@ -63,7 +63,7 @@ pub fn open(model: &mut Model, name: &str, fragment: Option<String>) -> Cmd {
         let canonical = p.canonical_path();
         if canonical != page_name {
             apply(&api, "page: redirect", move |_| {
-                navigate::to_page(&canonical, false, false, true, None)
+                navigate::replace_page(&canonical)
             });
             return;
         }
@@ -221,13 +221,7 @@ pub fn toggle_atlas(model: &mut Model) -> Cmd {
     } else {
         return done();
     };
-    navigate::to_page(
-        &format!("{}{target}", p.dir_path),
-        false,
-        false,
-        false,
-        None,
-    )
+    navigate::open_page(&format!("{}{target}", p.dir_path))
 }
 
 /// Opens the atlas page of the directory above the shown atlas page. The map stays a map
@@ -244,7 +238,7 @@ pub fn atlas_up(model: &mut Model) -> Cmd {
         Some((parent, _)) => format!("{parent}/"),
         None => String::new(),
     };
-    navigate::to_page(&format!("{parent}{ATLAS_NAME}"), false, false, false, None)
+    navigate::open_page(&format!("{parent}{ATLAS_NAME}"))
 }
 
 /// The display title: journals as dates, index pages as their directory, docs as their name.
@@ -359,7 +353,7 @@ pub fn save_title(model: &mut Model, dir_path: String, file_name: String) -> Cmd
             Command::all([
                 navigate::set_title(full_page_title(&updated)),
                 sidebar::refresh_recent_pages(),
-                navigate::to_page(&canonical, false, false, true, None),
+                navigate::replace_page(&canonical),
             ])
         });
     })
@@ -597,7 +591,7 @@ pub fn demote_index(model: &mut Model) -> Cmd {
         apply(&api, "demoted", move |_| {
             Command::all([
                 sidebar::refresh_recent_pages(),
-                navigate::to_page(&format!("{parent_dir}{name}"), false, false, false, None),
+                navigate::open_page(&format!("{parent_dir}{name}")),
             ])
         });
     })
