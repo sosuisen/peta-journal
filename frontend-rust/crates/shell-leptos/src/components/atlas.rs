@@ -552,14 +552,8 @@ pub fn Atlas() -> impl IntoView {
                         view! {
                             <div class="atlas-card" class:folder=card.is_dir draggable="true"
                                 on:dragstart=move |ev: web_sys::DragEvent| {
-                                    // The card, not the label inside it that may be under the pointer.
-                                    // Not `current_target`: Leptos hands the event on from an element
-                                    // further up, which would measure the grab against that element.
-                                    let Some(el) = ev
-                                        .target()
-                                        .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
-                                        .and_then(|t| t.closest(".atlas-card").ok().flatten())
-                                    else {
+                                    // The card, not the label inside it that may be under the pointer
+                                    let Some(el) = dom::target_closest(&ev, ".atlas-card") else {
                                         return;
                                     };
                                     let rect = el.get_bounding_client_rect();

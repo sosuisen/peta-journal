@@ -10,7 +10,6 @@ use crate::listeners::DocumentListeners;
 use leptos::prelude::*;
 use peta_core::view::ScreenView;
 use peta_core::Event;
-use wasm_bindgen::JsCast;
 
 const CONFIG_KEY: &str = "peta-journal-config";
 const STANDARD_PROTOCOLS: [&str; 9] = [
@@ -94,9 +93,7 @@ pub fn MainLayout() -> impl IntoView {
                 ev.prevent_default();
                 focus();
             } else if !is_editing && !ev.alt_key() && !ev.meta_key() {
-                let tag = ev
-                    .target()
-                    .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
+                let tag = dom::target_element(ev)
                     .map(|e| e.tag_name())
                     .unwrap_or_default();
                 if tag == "INPUT" || tag == "TEXTAREA" {
@@ -128,10 +125,7 @@ pub fn MainLayout() -> impl IntoView {
         global.on_cancelable("dragover", |ev: &web_sys::Event| ev.prevent_default());
         global.on_cancelable("drop", |ev: &web_sys::Event| ev.prevent_default());
         global.on_capture("click", move |ev: &web_sys::Event| {
-            let Some(target) = ev
-                .target()
-                .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
-            else {
+            let Some(target) = dom::target_element(ev) else {
                 return;
             };
             let Some(anchor) = target.closest("a").ok().flatten() else {

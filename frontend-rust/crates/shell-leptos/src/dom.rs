@@ -22,6 +22,18 @@ pub fn query<T: JsCast>(selector: &str) -> Option<T> {
         .and_then(|el| el.dyn_into::<T>().ok())
 }
 
+/// The element an event happened on. Not `current_target`: Leptos hands an event on from an
+/// element further up.
+pub fn target_element(ev: &web_sys::Event) -> Option<web_sys::Element> {
+    ev.target()
+        .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
+}
+
+/// The closest ancestor-or-self of the event's target that matches the selector.
+pub fn target_closest(ev: &web_sys::Event, selector: &str) -> Option<web_sys::Element> {
+    target_element(ev).and_then(|t| t.closest(selector).ok().flatten())
+}
+
 pub fn element_by_id(id: &str) -> Option<web_sys::HtmlElement> {
     document()
         .get_element_by_id(id)

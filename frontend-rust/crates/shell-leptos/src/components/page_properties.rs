@@ -8,7 +8,6 @@ use leptos::prelude::*;
 use peta_core::model::PropertyDefinition;
 use peta_core::view::ScreenView;
 use peta_core::Event;
-use wasm_bindgen::JsCast;
 
 /// A row added with `+` and not yet saved: it becomes a property once it has a key and a
 /// value. Kept by the page, so a re-render of the header does not lose it.
@@ -345,12 +344,7 @@ fn TagList(
 /// Whether a tag dropped at the pointer goes after the chip under it: it does on the right
 /// half of the chip.
 fn drop_side(ev: &web_sys::DragEvent) -> bool {
-    // Not `current_target`: Leptos hands the event on from an element further up
-    let Some(chip) = ev
-        .target()
-        .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
-        .and_then(|t| t.closest(".property-tag").ok().flatten())
-    else {
+    let Some(chip) = dom::target_closest(ev, ".property-tag") else {
         return false;
     };
     let rect = chip.get_bounding_client_rect();

@@ -42,13 +42,7 @@ pub fn ItemView(row: RwSignal<Row>) -> impl IntoView {
     let on_mousedown = {
         let id = item_id.clone();
         move |ev: web_sys::MouseEvent| {
-            let Some(target) = ev
-                .target()
-                .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
-            else {
-                return;
-            };
-            if target.closest("a").ok().flatten().is_some() {
+            if dom::target_element(&ev).is_none() || dom::target_closest(&ev, "a").is_some() {
                 return;
             }
             // The editor replaces this view and takes the focus inside this very handler; the
@@ -92,10 +86,7 @@ pub fn ItemView(row: RwSignal<Row>) -> impl IntoView {
     // Link clicks (Ctrl+click on a wiki link stays native, so it opens a background tab)
     let on_click = {
         move |ev: web_sys::MouseEvent| {
-            let Some(target) = ev
-                .target()
-                .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
-            else {
+            let Some(target) = dom::target_element(&ev) else {
                 return;
             };
             if let Some(footnote) = target
