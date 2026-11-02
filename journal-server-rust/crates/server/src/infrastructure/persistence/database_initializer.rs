@@ -461,6 +461,7 @@ mod tests {
         conn.query_row(sql, [], |r| r.get(0)).unwrap()
     }
 
+    // tagキーは、タグを失わずにtagsに改名される。
     #[test]
     fn the_tag_key_is_renamed_to_tags_without_losing_a_tag() {
         let conn = Connection::open_in_memory().unwrap();
@@ -502,6 +503,7 @@ mod tests {
         );
     }
 
+    // 古いデータベースはbounds型を受け入れ、プロパティを保つ。
     #[test]
     fn an_old_database_takes_the_bounds_type_and_keeps_its_properties() {
         let conn = Connection::open_in_memory().unwrap();

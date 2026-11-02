@@ -563,6 +563,7 @@ mod tests {
             .collect()
     }
 
+    // カードはフォルダが先に、次に名前順に並ぶ。
     #[test]
     fn the_cards_go_folders_first_and_then_by_name() {
         let pages = [
@@ -586,6 +587,7 @@ mod tests {
         );
     }
 
+    // リンクカードは、表示する名前でページのカードの間に並ぶ。
     #[test]
     fn a_link_card_sorts_among_the_page_cards_by_the_name_it_shows() {
         let items = [item(10, 1, "[[other/beta]]"), item(11, 1, "[[x/y/index]]")];
@@ -605,6 +607,7 @@ mod tests {
         );
     }
 
+    // ページのカードはIDでページに追随し、位置を保つ。
     #[test]
     fn a_page_card_follows_its_page_by_id_and_keeps_its_place() {
         let items = [item(10, 1, "[[d/old]]")];
@@ -618,6 +621,7 @@ mod tests {
         assert_eq!(rows[0].node.bounds.as_deref(), Some("1,2,0,40"));
     }
 
+    // ページのカードのIDは、アトラスとページから決まる。
     #[test]
     fn a_page_card_takes_an_id_from_the_atlas_and_the_page() {
         let items = [item(10, 1, "[[d/a]]")];
@@ -641,6 +645,7 @@ mod tests {
         );
     }
 
+    // コールアウトの親のIDは、アトラスから決まる。
     #[test]
     fn the_parent_of_the_callouts_takes_an_id_from_the_atlas() {
         let mut outline = Outline::default();
@@ -654,6 +659,7 @@ mod tests {
         );
     }
 
+    // 導出したIDは、アトラスと同じ時刻の正しいIDである。
     #[test]
     fn a_derived_id_is_a_valid_id_of_the_time_of_the_atlas() {
         let made = derived_id(&atlas(), "card x");
@@ -663,6 +669,7 @@ mod tests {
         assert_ne!(made, derived_id(&atlas(), "card y"));
     }
 
+    // 別のディレクトリへ移動したページのカードは消え、種類のない項目も消える。
     #[test]
     fn the_card_of_a_page_moved_to_another_directory_goes_and_an_item_of_no_kind_goes() {
         let items = [
@@ -678,6 +685,7 @@ mod tests {
         assert!(outline.rows().is_empty());
     }
 
+    // まだ知らないページのカードは、位置とともに残る。
     #[test]
     fn the_card_of_a_page_not_known_yet_stays_with_its_place() {
         // Another device sent the atlas before the page
@@ -694,6 +702,7 @@ mod tests {
         assert_eq!(rows[0].node.bounds.as_deref(), Some("1,2,0,40"));
     }
 
+    // 削除したページのカードは消える。
     #[test]
     fn a_deleted_page_takes_its_card_with_it() {
         let items = [
@@ -715,6 +724,7 @@ mod tests {
         assert_eq!(outline_of(&outline.rows()), ["1:[[d/a]]"]);
     }
 
+    // ページがディレクトリにあるかは、パスで決まる。
     #[test]
     fn a_page_is_in_a_directory_by_its_path() {
         assert!(is_in_dir(&page(1, "d/", "a"), "d/"));
@@ -726,6 +736,7 @@ mod tests {
         assert!(!is_in_dir(&page(1, "e/", "a"), "d/"));
     }
 
+    // グループはタイトル順に先頭に並び、タイトルのないグループはその最後に来る。
     #[test]
     fn groups_come_first_by_title_with_the_untitled_last() {
         let items = [
@@ -765,6 +776,7 @@ mod tests {
         );
     }
 
+    // カードが1枚だけ残ったグループは消える。
     #[test]
     fn a_group_left_with_one_card_goes() {
         let items = [
@@ -786,6 +798,7 @@ mod tests {
         assert_eq!(outline_of(&outline.rows()), ["1:[[d/a]]"]);
     }
 
+    // コールアウトは、親の下に元の順で末尾に置かれる。
     #[test]
     fn the_callouts_go_last_under_their_parent_in_their_order() {
         let items = [
@@ -809,6 +822,7 @@ mod tests {
         );
     }
 
+    // 最後のコールアウトが消えると、その親も消える。
     #[test]
     fn the_parent_of_the_callouts_goes_with_the_last_callout() {
         let items = [item(10, 1, CALLOUTS_BODY), item(11, 2, "hello")];
@@ -821,6 +835,7 @@ mod tests {
         assert!(outline.rows().is_empty());
     }
 
+    // グループにないカードに落としたカードは、両方で1つのグループを作る。
     #[test]
     fn a_card_dropped_on_a_card_in_no_group_makes_a_group_of_both() {
         let mut outline = Outline::default();
@@ -840,6 +855,7 @@ mod tests {
         assert_eq!(rows[0].node.id, id(60));
     }
 
+    // カードは落とした先のグループに入り、元のグループを抜ける。
     #[test]
     fn a_card_joins_the_group_of_the_target_and_leaves_its_own() {
         let items = [
@@ -861,6 +877,7 @@ mod tests {
         );
     }
 
+    // 2枚のグループからカードを出すと、グループは終わる。
     #[test]
     fn a_card_taken_out_of_a_group_of_two_ends_the_group() {
         let items = [
@@ -876,6 +893,7 @@ mod tests {
         assert_eq!(outline_of(&outline.rows()), ["1:[[x/a]]", "1:[[x/b]]"]);
     }
 
+    // グループのタイトルは辺を持ち、知らない辺は上辺になる。
     #[test]
     fn a_group_title_takes_its_side_and_a_side_not_known_is_the_top() {
         let items = [
@@ -894,6 +912,7 @@ mod tests {
         assert_eq!(outline.rows()[0].node.side.as_deref(), Some("top"));
     }
 
+    // ページのカードは削除できないが、リンクカードは削除できる。
     #[test]
     fn a_page_card_cannot_be_removed_but_a_link_card_can() {
         let mut outline = Outline::default();

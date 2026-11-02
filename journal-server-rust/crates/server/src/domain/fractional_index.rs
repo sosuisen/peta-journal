@@ -164,29 +164,33 @@ fn pad(s: &str, len: usize) -> String {
 mod tests {
     use super::*;
 
+    // 最初のインデックスはz0である。
     #[test]
     fn initial_is_z0() {
         assert_eq!(initial(), "z0");
         assert_eq!(between(None, None), "z0");
     }
 
+    // 末尾の後ろと先頭の前にインデックスが作られる。
     #[test]
-    fn append_and_prepend() {
+    fn an_index_is_made_after_the_last_and_before_the_first() {
         assert_eq!(between(Some("z0"), None), "z1");
         assert_eq!(between(Some("zz"), None), "zzV");
         assert_eq!(between(None, Some("z0")), "y");
         assert_eq!(between(None, Some("z1")), "z0");
     }
 
+    // 2つのインデックスの間にインデックスが作られる。
     #[test]
-    fn midpoints() {
+    fn an_index_is_made_between_two_indices() {
         assert_eq!(between(Some("z0"), Some("z2")), "z1");
         let m = between(Some("z0"), Some("z1"));
         assert!(m.as_str() > "z0" && m.as_str() < "z1");
     }
 
+    // 隙間に複数のインデックスが順に収まる。
     #[test]
-    fn many_in_gap() {
+    fn many_indices_fit_in_a_gap_in_order() {
         let v = between_many(Some("z0"), Some("z1"), 5).unwrap();
         assert_eq!(v.len(), 5);
         for w in v.windows(2) {
@@ -195,8 +199,9 @@ mod tests {
         assert!(v[0].as_str() > "z0" && v[4].as_str() < "z1");
     }
 
+    // 末尾の後ろと先頭の前に複数のインデックスが作られる。
     #[test]
-    fn many_after_and_before() {
+    fn many_indices_are_made_after_the_last_and_before_the_first() {
         let v = between_many(Some("z0"), None, 3).unwrap();
         assert_eq!(v, vec!["z1", "z2", "z3"]);
         let v = between_many(None, Some("z3"), 3).unwrap();
@@ -216,6 +221,7 @@ mod tests {
         }
     }
 
+    // 狭い隙間でも、まとまりは隙間の中に収まる。
     #[test]
     fn group_stays_inside_a_narrow_gap() {
         // 17 items after "z0" used to reach "z0V", the index of the next item
@@ -224,12 +230,14 @@ mod tests {
         assert_ascending_between(Some("z0"), Some("z0V"), &indices);
     }
 
+    // 隣り合うインデックスの隙間でも、まとまりはその中に収まる。
     #[test]
     fn group_stays_inside_a_gap_of_adjacent_indices() {
         let indices = between_many(Some("z0U"), Some("z0V"), 25).unwrap();
         assert_ascending_between(Some("z0U"), Some("z0V"), &indices);
     }
 
+    // 何度移動しても、隙間は使えるままである。
     #[test]
     fn gaps_stay_usable_after_many_moves() {
         let before = "z0".to_string();
@@ -241,6 +249,7 @@ mod tests {
         }
     }
 
+    // 末尾に置いたまとまりは、最後の項目の後ろに並ぶ。
     #[test]
     fn group_at_the_end_sorts_after_the_last_item() {
         let indices = between_many(Some("z3"), None, 70).unwrap();
@@ -248,6 +257,7 @@ mod tests {
         assert_ascending_between(Some("z3"), None, &indices);
     }
 
+    // 先頭に置いたまとまりは、最初の項目の前に並ぶ。
     #[test]
     fn group_at_the_top_sorts_before_the_first_item() {
         let indices = between_many(None, Some("z0"), 20).unwrap();
@@ -255,19 +265,22 @@ mod tests {
         assert_ascending_between(None, Some("z0"), &indices);
     }
 
+    // 0個の項目にはインデックスが要らない。
     #[test]
     fn zero_items_need_no_index() {
         assert!(between_many(Some("z0"), Some("z1"), 0).unwrap().is_empty());
     }
 
+    // 逆向きの隙間と幅のない隙間はエラーになる。
     #[test]
-    fn no_gap() {
+    fn a_reversed_or_empty_gap_is_an_error() {
         assert!(between_many(Some("z1"), Some("z0"), 1).is_err());
         assert!(between_many(Some("z1"), Some("z1"), 1).is_err());
     }
 
+    // 連番のインデックスはz0から始まる。
     #[test]
-    fn generates_sequence() {
+    fn a_sequence_of_indices_starts_at_z0() {
         assert_eq!(generate_indices(3), vec!["z0", "z1", "z2"]);
         assert!(generate_indices(0).is_empty());
     }

@@ -8,6 +8,7 @@ use journal_server::config::Settings;
 use journal_server::state::{AppState, BuildOptions};
 use serde_json::json;
 
+// 旧形式のアトラスは、アトラスページのアウトラインに移される。
 #[test]
 fn the_atlas_of_old_moves_into_the_outline_of_the_atlas_page() {
     let dir = tempfile::tempdir().unwrap();

@@ -58,8 +58,9 @@ pub fn is_journal_file_name(file_name: &str) -> bool {
 mod tests {
     use super::*;
 
+    // 名前は日付の形で分類される。
     #[test]
-    fn classifies() {
+    fn a_name_is_classified_by_its_date_form() {
         assert_eq!(classify("2026-02-18"), JournalType::Daily);
         assert_eq!(classify("2026-W08"), JournalType::Weekly);
         assert_eq!(classify("2026-W8"), JournalType::Weekly);

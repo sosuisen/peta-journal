@@ -566,6 +566,7 @@ fn old_callout(value: &str) -> Option<(String, &str, &str)> {
 mod tests {
     use super::*;
 
+    // 旧形式のコールアウトは、倍率を高さに読み替える。
     #[test]
     fn a_callout_of_old_takes_its_scale_as_the_height() {
         assert_eq!(
@@ -579,6 +580,7 @@ mod tests {
         assert_eq!(old_callout("1,2,middle:a"), None);
     }
 
+    // 旧形式のタイトルは、辺の指定がなければ上辺に置かれる。
     #[test]
     fn a_title_of_old_without_a_side_lies_along_the_top() {
         assert_eq!(old_side_and_text("left:Tools"), ("left", "Tools"));

@@ -300,8 +300,9 @@ mod tests {
     const JOURNAL: &str = "journals/2026-09-27.md";
     const NESTED: &str = "docs/a/b.md";
 
+    // ウィキリンクはMarkdownのリンクになり、元に戻る。
     #[test]
-    fn wikilink_to_link_and_back() {
+    fn a_wikilink_becomes_a_markdown_link_and_back() {
         assert_eq!(
             to_markdown_links("see [[My Page]]", JOURNAL),
             "see [My Page](../docs/My%20Page.md)"
@@ -326,8 +327,9 @@ mod tests {
         );
     }
 
+    // ハッシュタグはタグページへのリンクになり、元に戻る。
     #[test]
-    fn hashtags() {
+    fn a_hashtag_becomes_a_link_to_its_tag_page_and_back() {
         assert_eq!(
             to_markdown_links("note #test here", JOURNAL),
             "note [#test](../docs/test.md) here"
@@ -341,6 +343,7 @@ mod tests {
         assert_eq!(to_wikilinks("[#test](../docs/test.md)", JOURNAL), "#test");
     }
 
+    // ハッシュタグが改名される。
     #[test]
     fn renames_hashtags() {
         assert_eq!(
@@ -357,6 +360,7 @@ mod tests {
         );
     }
 
+    // コードの中は変換されない。
     #[test]
     fn code_is_untouched() {
         let body = "```\n[[x]]\n```\n`[[y]]` and [[z]]";
@@ -366,6 +370,7 @@ mod tests {
         );
     }
 
+    // 画像と外部リンクはそのまま残る。
     #[test]
     fn images_and_external_links_stay() {
         assert_eq!(
@@ -382,8 +387,9 @@ mod tests {
         );
     }
 
+    // パスは相対にされ、また解決される。
     #[test]
-    fn relativize_and_resolve() {
+    fn a_path_is_made_relative_and_resolved_again() {
         assert_eq!(relativize("docs/a", "docs/b.md"), "../b.md");
         assert_eq!(relativize("journals", "docs/x.md"), "../docs/x.md");
         assert_eq!(relativize("docs", "docs/x.md"), "x.md");

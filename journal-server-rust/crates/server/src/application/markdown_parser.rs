@@ -35,6 +35,7 @@ impl MarkdownParser {
 mod tests {
     use super::*;
 
+    // ハッシュタグはASTのノードになる。
     #[test]
     fn hashtags_become_nodes() {
         let ast = MarkdownParser.parse_to_ast("remember #urgent");
@@ -42,6 +43,7 @@ mod tests {
         assert_eq!(MarkdownParser.parse_to_ast(""), "");
     }
 
+    // 相対リンクは、Javaのラッパーと同じようにウィキリンクになる。
     #[test]
     fn relative_links_become_wikilinks_like_the_java_wrapper() {
         let ast =
@@ -54,6 +56,7 @@ mod tests {
         assert!(ast.contains(r#""type":"link","url":"docs/x.md""#), "{ast}");
     }
 
+    // ページのJSONには、項目とフロントマターが入る。
     #[test]
     fn page_json_has_items() {
         let json = MarkdownParser.parse_page(

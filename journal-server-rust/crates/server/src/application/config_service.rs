@@ -170,6 +170,7 @@ fn normalize_home_link(value: &str) -> String {
 mod tests {
     use super::{normalize_home_link, normalize_tags_dir};
 
+    // ホームリンクはリンク先の形で保存される。
     #[test]
     fn home_link_is_kept_as_the_target_of_a_link() {
         assert_eq!(normalize_home_link(""), "");
@@ -178,6 +179,7 @@ mod tests {
         assert_eq!(normalize_home_link(" [[ a/Foo ]] "), "a/Foo");
     }
 
+    // タグのディレクトリはdirPathの形に正規化される。
     #[test]
     fn tags_dir_is_normalized_to_the_dir_path_form() {
         assert_eq!(normalize_tags_dir(""), "");

@@ -53,6 +53,7 @@ fn csv(ids: &[&str]) -> String {
 
 // ---- The server ----
 
+// Javaサーバーと同じツールが一覧される。
 #[tokio::test]
 async fn the_tools_of_the_java_server_are_listed() {
     let mcp = connect().await;
@@ -94,6 +95,7 @@ async fn the_tools_of_the_java_server_are_listed() {
     );
 }
 
+// 不正なIDは、invalid paramsとして拒否される。
 #[tokio::test]
 async fn a_bad_id_is_refused_as_invalid_params() {
     let mcp = connect().await;
@@ -105,6 +107,7 @@ async fn a_bad_id_is_refused_as_invalid_params() {
 
 // ---- Items ----
 
+// 項目は作成、取得、更新、削除できる。
 #[tokio::test]
 async fn an_item_is_created_read_updated_and_deleted() {
     let mcp = connect().await;
@@ -149,6 +152,7 @@ async fn an_item_is_created_read_updated_and_deleted() {
     assert!(error.contains("Item not found"), "{error}");
 }
 
+// 項目は、レベルをずらして、またはそのままで、ページの間を移動する。
 #[tokio::test]
 async fn items_move_between_pages_with_their_levels_shifted_or_kept() {
     let mcp = connect().await;
@@ -190,6 +194,7 @@ async fn items_move_between_pages_with_their_levels_shifted_or_kept() {
     assert!(outline_of(&target.id).await.is_empty());
 }
 
+// タスクは状態を進められ、型で一覧される。
 #[tokio::test]
 async fn a_task_is_cycled_and_listed_by_its_type() {
     let mcp = connect().await;
@@ -209,6 +214,7 @@ async fn a_task_is_cycled_and_listed_by_its_type() {
     );
 }
 
+// トランスクルージョンは、解除されるまで参照元を映す。
 #[tokio::test]
 async fn a_transclusion_mirrors_the_source_until_it_is_removed() {
     let mcp = connect().await;
@@ -231,6 +237,7 @@ async fn a_transclusion_mirrors_the_source_until_it_is_removed() {
     assert!(removed["item"]["transcludeItemId"].is_null());
 }
 
+// 項目にプロパティが設定される。
 #[tokio::test]
 async fn a_property_is_set_on_an_item() {
     let mcp = connect().await;
@@ -251,6 +258,7 @@ async fn a_property_is_set_on_an_item() {
     );
 }
 
+// 項目は木のMarkdownとしてエクスポートされ、平らなMarkdownとしてインポートされる。
 #[tokio::test]
 async fn items_are_exported_as_tree_markdown_and_imported_back_as_flat_markdown() {
     let mcp = connect().await;
@@ -287,6 +295,7 @@ async fn items_are_exported_as_tree_markdown_and_imported_back_as_flat_markdown(
 
 // ---- Pages ----
 
+// docページは作成、再取得、改名、削除できる。
 #[tokio::test]
 async fn a_doc_page_is_created_found_again_renamed_and_deleted() {
     let mcp = connect().await;
@@ -326,6 +335,7 @@ async fn a_doc_page_is_created_found_again_renamed_and_deleted() {
     assert!(error.contains("Page not found"), "{error}");
 }
 
+// 最近のページでは、最後に触ったページが先頭に来る。
 #[tokio::test]
 async fn the_most_recently_touched_page_comes_first_among_recent_pages() {
     let mcp = connect().await;
@@ -357,6 +367,7 @@ async fn the_most_recently_touched_page_comes_first_among_recent_pages() {
     assert_eq!(any_type["pages"].as_array().map(Vec::len), Some(10));
 }
 
+// ページへのウィキリンクは、そのページのバックリンクに現れる。
 #[tokio::test]
 async fn a_wiki_link_to_a_page_shows_up_in_its_backlinks() {
     let mcp = connect().await;
@@ -382,6 +393,7 @@ fn nanos() -> i64 {
     chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0)
 }
 
+// ページ名と項目の本文を検索できる。
 #[tokio::test]
 async fn page_names_and_item_text_are_searched() {
     let mcp = connect().await;
@@ -429,6 +441,7 @@ async fn page_names_and_item_text_are_searched() {
 
 // ---- Config ----
 
+// 設定は読み書きできる。
 #[tokio::test]
 async fn the_config_is_read_and_updated() {
     let mcp = connect().await;
@@ -480,6 +493,7 @@ async fn the_config_is_read_and_updated() {
 
 // ---- Journals (1998 so that nothing else is near) ----
 
+// ジャーナルは名前で作られ、ある日付より前の直近の日が見つかる。
 #[tokio::test]
 async fn a_journal_is_created_by_name_and_the_most_recent_day_before_a_date_is_found() {
     let mcp = connect().await;
