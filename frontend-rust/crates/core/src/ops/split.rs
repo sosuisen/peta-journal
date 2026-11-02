@@ -57,7 +57,8 @@ pub fn handle_enter(model: &mut Model, item_id: &str, cursor: usize) -> Cmd {
             };
             (host, position_before(model.state.items(), &item.id))
         } else if ctx.in_transclusion {
-            (ctx, ItemPosition::First)
+            // A descendant's neighbours above are source items, shown with their own ids
+            (ctx, position_before(model.state.visible_items(), &item.id))
         } else {
             (ctx, position_before(model.state.items(), &item.id))
         };
