@@ -316,6 +316,24 @@ impl PropertyRepository {
         Ok(())
     }
 
+    /// Replaces the list of a target under a key of a list type, defining the key with that
+    /// type when it is new. The key `tags` has `sync_tags`.
+    pub fn upsert_list(
+        &self,
+        target_type: &str,
+        target_id: &str,
+        key: &str,
+        value_type: &str,
+        values: &[String],
+    ) -> AppResult<()> {
+        validate_key(key)?;
+        self.db.conn()?.execute(
+            "INSERT OR IGNORE INTO property_definitions (key, value_type) VALUES (?, ?)",
+            params![key, value_type],
+        )?;
+        self.replace_list(target_type, target_id, key, values)
+    }
+
     /// Removes a property, scalar or list, of one target.
     pub fn delete_property(&self, target_type: &str, target_id: &str, key: &str) -> AppResult<()> {
         let conn = self.db.conn()?;

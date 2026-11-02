@@ -1189,6 +1189,29 @@ async fn page_properties_are_set_removed_and_written_to_the_front_matter() {
     .await;
 }
 
+// ページのユーザー定義のlist型のキーは、そのキーのリストとして保存され、タグには触らない。
+#[tokio::test]
+async fn a_list_of_a_page_is_kept_under_its_own_key_apart_from_the_tags() {
+    let _tags_dir = TAGS_DIR.lock().await;
+    let page = new_doc_page("page-list").await;
+    set_page_tags(&page.id, "page-list-tag").await;
+
+    // The second value replaces the first, as a value of a scalar does
+    for value in ["x, y", "y,z"] {
+        let (status, resp) = put(
+            &format!("/api/pages/{}/properties/page_list", page.id),
+            json!({ "valueType": "list", "value": value }),
+        )
+        .await;
+        assert_eq!(status, 200, "{resp}");
+    }
+
+    let (_, resp) = get(&format!("/api/pages/{}", page.id)).await;
+    assert_eq!(resp["page"]["properties"]["page_list"], json!(["y", "z"]));
+    assert_eq!(resp["page"]["properties"]["tags"], json!(["page-list-tag"]));
+    assert!(doc_page_named("y").await.is_none());
+}
+
 /// Held by a test that changes the tag directory, and by the tests of tag pages. A tag page
 /// made while the directory is changed would be looked for in the wrong folder later.
 static TAGS_DIR: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
@@ -1554,7 +1577,7 @@ async fn the_children_of_an_index_page_carry_their_scalar_properties() {
     );
 }
 
-// indexページの子ページは、タグを順番どおりに持って返る。
+// indexページの子ページは、タグを持って返る。他のリストのプロパティは返らない。アトラスがカードのアイコンに使うのはタグだけである。
 #[tokio::test]
 async fn the_children_of_an_index_page_carry_their_tags_but_no_other_list() {
     let _tags_dir = TAGS_DIR.lock().await;
@@ -1568,6 +1591,12 @@ async fn the_children_of_an_index_page_carry_their_tags_but_no_other_list() {
     let page_id = resp["page"]["id"].as_str().unwrap().to_string();
     let parent_id = resp["page"]["parentId"].as_str().unwrap().to_string();
     set_page_tags(&page_id, "children-tag-b, children-tag-a").await;
+    let (status, resp) = put(
+        &format!("/api/pages/{page_id}/properties/children_list"),
+        json!({ "valueType": "list", "value": "x" }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
 
     let (_, resp) = get(&format!("/api/pages/{parent_id}/children")).await;
     let child = resp["pages"]
@@ -1579,6 +1608,11 @@ async fn the_children_of_an_index_page_carry_their_tags_but_no_other_list() {
     assert_eq!(
         child["properties"]["tags"],
         json!(["children-tag-b", "children-tag-a"])
+    );
+    assert!(
+        child["properties"].get("children_list").is_none(),
+        "{}",
+        child["properties"]
     );
 }
 

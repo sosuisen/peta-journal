@@ -394,30 +394,40 @@ impl PageService {
             self.export.queue_export(&page.id);
             return Ok(updated);
         }
-        match self.properties.find_definition(key)? {
-            Some(def) if !def.page => {
-                return Err(AppError::bad_request(format!(
-                    "Property '{key}' cannot be set on a page"
-                )));
-            }
-            Some(def) if def.value_type == "tags" || def.value_type == "list" => {
-                let tags: Vec<String> = value
-                    .split(',')
-                    .map(|t| t.trim().to_string())
-                    .filter(|t| !t.is_empty())
-                    .collect();
+        let definition = self.properties.find_definition(key)?;
+        if definition.as_ref().is_some_and(|def| !def.page) {
+            return Err(AppError::bad_request(format!(
+                "Property '{key}' cannot be set on a page"
+            )));
+        }
+        // The type of a key is fixed when it is defined; a new key takes the type sent
+        let value_type = definition
+            .as_ref()
+            .map(|def| def.value_type.as_str())
+            .unwrap_or(value_type);
+        if value_type == "tags" || value_type == "list" {
+            let values: Vec<String> = value
+                .split(',')
+                .map(|t| t.trim().to_string())
+                .filter(|t| !t.is_empty())
+                .collect();
+            if key == "tags" {
                 let before = self.properties.find_tags(PAGE_TARGET, page_id.as_str())?;
                 self.properties
-                    .sync_tags(PAGE_TARGET, page_id.as_str(), &tags)?;
-                self.update_tag_pages(&before, &tags);
+                    .sync_tags(PAGE_TARGET, page_id.as_str(), &values)?;
+                self.update_tag_pages(&before, &values);
+            } else {
+                self.properties.upsert_list(
+                    PAGE_TARGET,
+                    page_id.as_str(),
+                    key,
+                    value_type,
+                    &values,
+                )?;
             }
-            _ => self.properties.upsert_scalar(
-                PAGE_TARGET,
-                page_id.as_str(),
-                key,
-                value_type,
-                value,
-            )?,
+        } else {
+            self.properties
+                .upsert_scalar(PAGE_TARGET, page_id.as_str(), key, value_type, value)?;
         }
         self.touch_and_export(&page)
     }
