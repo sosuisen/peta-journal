@@ -121,6 +121,7 @@ mod tests {
         Page::new(id, dir_path, name, page_type, 0)
     }
 
+    // エクスポート先のフォルダは、型のフォルダにdirPathを加えたものである。
     #[test]
     fn the_export_folder_is_the_type_folder_plus_the_dir_path() {
         let root = Path::new("/md");
@@ -134,8 +135,9 @@ mod tests {
         );
     }
 
+    // ページの場所は相対パスになり、元に戻る。
     #[test]
-    fn round_trip() {
+    fn a_page_location_becomes_a_relative_path_and_back() {
         assert_eq!(to_rel_path("doc", "proj/", "a"), "docs/proj/a.md");
         let loc = from_rel_path("docs/proj/a.md").unwrap();
         assert_eq!(loc.page_type, "doc");
@@ -149,8 +151,9 @@ mod tests {
         assert!(from_rel_path("docs/.md").is_none());
     }
 
+    // 競合ファイル、一時ファイル、Markdown以外のファイルは無視される。
     #[test]
-    fn ignored() {
+    fn conflict_temp_and_non_markdown_files_are_ignored() {
         assert!(is_ignored("docs/a.conflict-20260927-101500.md"));
         assert!(is_ignored("docs/a (conflicted copy).md"));
         assert!(is_ignored("docs/.sb-123/a.md"));
@@ -159,8 +162,9 @@ mod tests {
         assert!(!is_ignored("docs/a.md"));
     }
 
+    // 空文字列のSHA-256は既知のダイジェストである。
     #[test]
-    fn hashes() {
+    fn sha256_of_an_empty_string_is_the_known_digest() {
         assert_eq!(
             sha256(""),
             "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"

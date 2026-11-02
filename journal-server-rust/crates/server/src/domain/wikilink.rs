@@ -47,14 +47,16 @@ fn collect(node: &Value, paths: &mut Vec<String>) {
 mod tests {
     use super::*;
 
+    // パスはフラグメントを除いて集められる。
     #[test]
     fn collects_the_paths_without_the_fragment() {
         let ast = r#"{"type":"document","children":[{"type":"paragraph","children":[{"type":"wikilink","url":"Wiki","children":[]},{"type":"wikilink","url":"a/b#id","children":[{"type":"text","value":"label"}]},{"type":"wikilink","url":"Wiki","children":[]}]}]}"#;
         assert_eq!(extract_wikilink_paths(ast), vec!["Wiki", "a/b"]);
     }
 
+    // 空または不正なJSONからはパスが取れない。
     #[test]
-    fn empty_and_invalid() {
+    fn empty_or_invalid_json_gives_no_paths() {
         assert!(extract_wikilink_paths("").is_empty());
         assert!(extract_wikilink_paths("not json").is_empty());
     }

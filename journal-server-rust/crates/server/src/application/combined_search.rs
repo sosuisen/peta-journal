@@ -328,8 +328,9 @@ impl CombinedSearchService {
 mod tests {
     use super::*;
 
+    // 検索語は、タグ、ページの接頭辞、プロパティと日付のフィルタ、本文の語に分けられる。
     #[test]
-    fn parses_terms() {
+    fn a_query_is_parsed_into_tags_prefixes_filters_and_text() {
         let t = QueryTerms::parse(
             "#report in:DailyReport/2026-03 status=done created:2026-03 hello world",
         );
@@ -347,8 +348,9 @@ mod tests {
         assert!(t.has_filters());
     }
 
+    // ORが検索語をグループに分ける。先頭のORは語として扱われる。
     #[test]
-    fn or_groups() {
+    fn or_splits_a_query_into_groups() {
         assert_eq!(split_or_groups("#a OR #b"), vec!["#a", "#b"]);
         assert_eq!(split_or_groups("a b"), vec!["a b"]);
         assert_eq!(split_or_groups("OR a"), vec!["OR a"]);

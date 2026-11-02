@@ -11,6 +11,7 @@ fn vs(items: &[&str]) -> Vec<String> {
 
 // ---- Items: creating ----
 
+// 項目は、先頭、末尾、または別の項目の後ろに作られる。
 #[tokio::test]
 async fn items_go_first_last_or_after_another_item() {
     let page = new_doc_page("items-create").await;
@@ -26,6 +27,7 @@ async fn items_go_first_last_or_after_another_item() {
     );
 }
 
+// クライアントが付けたIDがそのまま使われる。
 #[tokio::test]
 async fn a_client_id_is_kept() {
     let page = new_doc_page("items-client-id").await;
@@ -41,6 +43,7 @@ async fn a_client_id_is_kept() {
     assert_eq!(resp["item"]["id"].as_str(), Some(id.as_str()));
 }
 
+// 本文のハッシュタグがtagsプロパティとして返る。
 #[tokio::test]
 async fn a_hashtag_in_the_body_comes_back_as_a_tag_property() {
     let page = new_doc_page("items-hashtag").await;
@@ -54,6 +57,7 @@ async fn a_hashtag_in_the_body_comes_back_as_a_tag_property() {
 
 // ---- Items: updating ----
 
+// 本文はASTと型に解析される。
 #[tokio::test]
 async fn the_body_is_parsed_into_an_ast_and_types() {
     let page = new_doc_page("items-parse").await;
@@ -73,6 +77,7 @@ async fn the_body_is_parsed_into_an_ast_and_types() {
         .contains("\"heading\""));
 }
 
+// レベルと折りたたみ状態が保存される。
 #[tokio::test]
 async fn level_and_collapsed_state_are_saved() {
     let page = new_doc_page("items-flags").await;
@@ -86,6 +91,7 @@ async fn level_and_collapsed_state_are_saved() {
     assert_eq!(after[1].level, 3);
 }
 
+// 項目にプロパティを設定できる。
 #[tokio::test]
 async fn a_property_can_be_set_on_an_item() {
     let page = new_doc_page("items-property").await;
@@ -104,6 +110,7 @@ async fn a_property_can_be_set_on_an_item() {
     );
 }
 
+// 削除した項目はページから消える。
 #[tokio::test]
 async fn a_deleted_item_is_gone_from_its_page() {
     let page = new_doc_page("items-delete").await;
@@ -116,6 +123,7 @@ async fn a_deleted_item_is_gone_from_its_page() {
 
 // ---- Items: levels ----
 
+// shift-levelは、複数の項目のレベルを相対量だけ動かす。
 #[tokio::test]
 async fn shift_level_moves_a_group_by_a_relative_amount() {
     let page = new_doc_page("items-shift").await;
@@ -136,6 +144,7 @@ async fn shift_level_moves_a_group_by_a_relative_amount() {
 
 // ---- Items: moving ----
 
+// 部分木は、同じページの兄弟を越えて移動する。
 #[tokio::test]
 async fn a_subtree_moves_past_its_sibling_on_the_same_page() {
     let page = new_doc_page("items-move").await;
@@ -160,6 +169,7 @@ async fn a_subtree_moves_past_its_sibling_on_the_same_page() {
     );
 }
 
+// 項目は、レベルをずらして別のページへ移動する。
 #[tokio::test]
 async fn items_move_to_another_page_with_their_levels_shifted() {
     let from = new_doc_page("items-move-from").await;
@@ -188,6 +198,7 @@ async fn items_move_to_another_page_with_their_levels_shifted() {
 
 // ---- Items: tasks ----
 
+// cycle-taskは、タスク、実行中、完了を経て通常の項目に戻る。
 #[tokio::test]
 async fn cycle_task_goes_through_task_running_done_and_back_to_normal() {
     let page = new_doc_page("items-task").await;
@@ -226,6 +237,7 @@ async fn cycle_task_goes_through_task_running_done_and_back_to_normal() {
     assert!(!normal.properties.contains_key("end"));
 }
 
+// タスクは型で一覧できる。
 #[tokio::test]
 async fn tasks_can_be_listed_by_type() {
     let page = new_doc_page("items-task-list").await;
@@ -245,6 +257,7 @@ async fn tasks_can_be_listed_by_type() {
 
 // ---- Items: transclusion ----
 
+// トランスクルージョンは、ページとともに参照元の木を返す。
 #[tokio::test]
 async fn a_transclusion_shows_the_source_tree_with_the_page() {
     let source_page = new_doc_page("items-transclusion-source").await;
@@ -278,6 +291,7 @@ async fn a_transclusion_shows_the_source_tree_with_the_page() {
     assert!(items(&page.id).await[0].transclude_item_id.is_none());
 }
 
+// 参照元の項目を編集すると、トランスクルードしている側の保存済みの写しも更新される。
 #[tokio::test]
 async fn editing_a_source_item_updates_the_stored_copy_in_its_transcluders() {
     let source_page = new_doc_page("items-transclusion-edit-source").await;
@@ -313,6 +327,7 @@ async fn editing_a_source_item_updates_the_stored_copy_in_its_transcluders() {
 
 // ---- Pages ----
 
+// 新しいdocページは空の項目1つで始まり、同じタイトルで再び見つかる。
 #[tokio::test]
 async fn a_new_doc_page_starts_with_one_empty_item_and_is_found_again_by_its_title() {
     let title = format!(
@@ -330,6 +345,7 @@ async fn a_new_doc_page_starts_with_one_empty_item_and_is_found_again_by_its_tit
     assert_eq!(first["page"]["id"], again["page"]["id"]);
 }
 
+// ページの取得は、ページとその項目を順番どおりに返す。
 #[tokio::test]
 async fn get_page_returns_the_page_with_its_items_in_order() {
     let page = new_doc_page("pages-get").await;
@@ -349,6 +365,7 @@ async fn get_page_returns_the_page_with_its_items_in_order() {
     );
 }
 
+// ページの改名で、タイトルとパスが変わる。
 #[tokio::test]
 async fn renaming_a_page_changes_its_title_and_path() {
     let page = new_doc_page("pages-rename").await;
@@ -372,6 +389,7 @@ async fn renaming_a_page_changes_its_title_and_path() {
     );
 }
 
+// 別のページと同じ名前への改名は、上書きを指定しない限り拒否される。
 #[tokio::test]
 async fn renaming_to_the_name_of_another_page_is_refused_unless_it_is_overwritten() {
     let page = new_doc_page("pages-overwrite").await;
@@ -401,6 +419,7 @@ async fn renaming_to_the_name_of_another_page_is_refused_unless_it_is_overwritte
         .any(|line| line.ends_with(":mine")));
 }
 
+// 最近のページでは、最後に触ったページが先頭に来る。
 #[tokio::test]
 async fn the_most_recently_touched_page_comes_first_in_recent_pages() {
     let older = new_doc_page("pages-recent-older").await;
@@ -416,6 +435,7 @@ async fn the_most_recently_touched_page_comes_first_in_recent_pages() {
     assert!(pos(&newer.id).unwrap() < pos(&older.id).unwrap(), "{ids:?}");
 }
 
+// 削除したページは見つからなくなる。
 #[tokio::test]
 async fn a_deleted_page_is_gone() {
     let page = new_doc_page("pages-delete").await;
@@ -425,6 +445,7 @@ async fn a_deleted_page_is_gone() {
     assert_eq!(get(&format!("/api/pages/{}", page.id)).await.0, 404);
 }
 
+// ページへのウィキリンクは、そのページのバックリンクに現れる。
 #[tokio::test]
 async fn a_wiki_link_to_a_page_shows_up_in_its_backlinks() {
     let target = new_doc_page("pages-target").await;
@@ -449,6 +470,7 @@ async fn a_wiki_link_to_a_page_shows_up_in_its_backlinks() {
     );
 }
 
+// タグページのバックリンクには、そのタグを使うページと項目が並ぶ。
 #[tokio::test]
 async fn a_tag_page_lists_the_pages_and_items_that_use_its_tag() {
     let _tags_dir = TAGS_DIR.lock().await;
@@ -497,6 +519,7 @@ async fn journal(name: &str) -> Value {
     resp
 }
 
+// 日のジャーナルは空の項目1つで作られ、同じ日付で再び見つかる。
 #[tokio::test]
 async fn a_day_is_created_with_one_empty_item_and_found_again_by_its_date() {
     let first = journal("1999-06-15").await;
@@ -510,6 +533,7 @@ async fn a_day_is_created_with_one_empty_item_and_found_again_by_its_date() {
     assert_eq!(first["page"]["id"], again["page"]["id"]);
 }
 
+// ある日付より前の、直近の日のジャーナルが見つかる。
 #[tokio::test]
 async fn the_most_recent_day_before_a_date_is_found() {
     journal("1999-03-05").await;
@@ -524,6 +548,7 @@ async fn the_most_recent_day_before_a_date_is_found() {
     assert_eq!(nothing["found"], json!(false));
 }
 
+// 週のジャーナルは、1日に1つのリンクを持って作られる。
 #[tokio::test]
 async fn a_week_is_created_with_one_link_per_day() {
     let week = journal("1999-W10").await;
@@ -535,6 +560,7 @@ async fn a_week_is_created_with_one_link_per_day() {
     assert_eq!(bodies[6], json!("[[1999-03-14]]"));
 }
 
+// ある週より前の、直近の週のジャーナルが見つかる。
 #[tokio::test]
 async fn the_most_recent_week_before_a_week_is_found() {
     journal("1999-W20").await;
@@ -546,11 +572,13 @@ async fn the_most_recent_week_before_a_week_is_found() {
     assert_eq!(before["page"]["name"], json!("1999-W20"));
 }
 
+// ジャーナルの名前でないものは拒否される。
 #[tokio::test]
 async fn a_name_that_is_not_a_journal_is_refused() {
     assert_eq!(post_empty("/api/journals/not-a-date").await.0, 400);
 }
 
+// 項目は別の日のジャーナルへ移動する。
 #[tokio::test]
 async fn an_item_moves_to_another_day() {
     let from = journal("1999-09-01").await["page"]["id"]
@@ -592,6 +620,7 @@ fn nanos() -> i64 {
     chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0)
 }
 
+// ページ名は前方一致で見つかる。
 #[tokio::test]
 async fn page_names_are_found_by_prefix() {
     let page = new_doc_page("Searchable").await;
@@ -602,6 +631,7 @@ async fn page_names_are_found_by_prefix() {
     assert!(titles.contains(&json!(page.title)), "titles: {titles:?}");
 }
 
+// 項目の本文は、抜粋付きで見つかる。
 #[tokio::test]
 async fn item_text_is_found_with_a_snippet() {
     let page = new_doc_page("search-text").await;
@@ -622,6 +652,7 @@ async fn item_text_is_found_with_a_snippet() {
     assert!(snippet.contains("<mark>zebra"), "{snippet}");
 }
 
+// 2語の検索では、両方の語を含む項目だけが見つかる。
 #[tokio::test]
 async fn two_words_must_both_be_in_the_item() {
     let page = new_doc_page("search-and").await;
@@ -637,6 +668,7 @@ async fn two_words_must_both_be_in_the_item() {
     );
 }
 
+// 本文のハッシュタグはタグとして見つかる。
 #[tokio::test]
 async fn a_hashtag_in_the_body_is_found_as_a_tag() {
     let page = new_doc_page("search-tag").await;
@@ -653,6 +685,7 @@ async fn a_hashtag_in_the_body_is_found_as_a_tag() {
     );
 }
 
+// タグは大文字と小文字を区別せずに見つかる。
 #[tokio::test]
 async fn a_tag_is_found_in_any_case_of_its_letters() {
     let page = new_doc_page("search-tag-case").await;
@@ -673,6 +706,7 @@ async fn a_tag_is_found_in_any_case_of_its_letters() {
     );
 }
 
+// 削除した項目は見つからなくなる。
 #[tokio::test]
 async fn a_deleted_item_is_no_longer_found() {
     let page = new_doc_page("search-deleted").await;
@@ -696,6 +730,7 @@ async fn parse(markdown: &str) -> Value {
     resp
 }
 
+// 平らなMarkdownは、ブロックの境目で項目に分かれる。
 #[tokio::test]
 async fn flat_markdown_is_split_into_items_at_block_boundaries() {
     let resp = parse("# Night\n\n- [ ] Hanon\n\n- [ ] Upload\n").await;
@@ -710,6 +745,7 @@ async fn flat_markdown_is_split_into_items_at_block_boundaries() {
     );
 }
 
+// メタデータの行が各項目のレベルを決める。
 #[tokio::test]
 async fn metadata_lines_carry_the_level_of_each_item() {
     let resp = parse("# Night\n\n<!-- @@ -->\n- [ ] Hanon\n\n<!-- @@ -->\n- [ ] Upload\n").await;
@@ -728,6 +764,7 @@ async fn metadata_lines_carry_the_level_of_each_item() {
     );
 }
 
+// エクスポートした項目は、インポートと解析を経て元のまま戻る。
 #[tokio::test]
 async fn exported_items_come_back_through_import_and_parse_unchanged() {
     let page = new_doc_page("markdown-roundtrip").await;
@@ -771,6 +808,7 @@ async fn exported_items_come_back_through_import_and_parse_unchanged() {
     );
 }
 
+// ページ全体のエクスポートは、その項目のエクスポートと同じになる。
 #[tokio::test]
 async fn a_whole_page_exports_like_its_items() {
     let page = new_doc_page("markdown-page").await;
@@ -826,6 +864,7 @@ async fn scan() -> Value {
     resp
 }
 
+// 同期の状態は、フォルダの場所と、それがあることを返す。
 #[tokio::test]
 async fn the_status_names_the_folder_and_says_it_is_there() {
     let (status, resp) = get("/api/sync/status").await;
@@ -839,6 +878,7 @@ async fn the_status_names_the_folder_and_says_it_is_there() {
     assert_eq!(resp["rootAvailable"], json!(true));
 }
 
+// ページはMarkdownファイルに書き出される。
 #[tokio::test]
 async fn a_page_is_written_to_its_markdown_file() {
     let page = new_doc_page("sync-export").await;
@@ -857,6 +897,7 @@ async fn a_page_is_written_to_its_markdown_file() {
     assert!(markdown.contains("first line"), "{markdown}");
 }
 
+// ファイルへの変更はページに取り込まれる。
 #[tokio::test]
 async fn a_change_made_to_the_file_is_merged_into_the_page() {
     let _folder = FOLDER_SCAN.lock().await;
@@ -881,6 +922,7 @@ async fn a_change_made_to_the_file_is_merged_into_the_page() {
     );
 }
 
+// フォルダに置いた新しいファイルはページになる。
 #[tokio::test]
 async fn a_new_file_in_the_folder_becomes_a_page() {
     let _folder = FOLDER_SCAN.lock().await;
@@ -909,6 +951,7 @@ async fn a_new_file_in_the_folder_becomes_a_page() {
     );
 }
 
+// 変わっていないファイルには手を付けない。
 #[tokio::test]
 async fn an_unchanged_file_is_left_alone() {
     let _folder = FOLDER_SCAN.lock().await;
@@ -928,8 +971,9 @@ async fn an_unchanged_file_is_left_alone() {
 
 // ---- Health and config ----
 
+// ヘルスチェックはokを返し、設定は読み書きできる。
 #[tokio::test]
-async fn health_and_config() {
+async fn health_is_ok_and_the_config_is_read_and_updated() {
     let (status, resp) = get("/api/health").await;
     assert_eq!(status, 200);
     assert_eq!(resp["status"], json!("ok"));
@@ -957,6 +1001,7 @@ async fn health_and_config() {
     assert_eq!(resp["propertyDefinitions"]["plan"], json!("date"));
 }
 
+// ホームリンクはリンク先の形で保存される。
 #[tokio::test]
 async fn the_home_link_is_kept_as_the_target_of_a_link() {
     let (status, resp) = put("/api/config", json!({ "homeLink": " [[a/Foo]] " })).await;
@@ -981,6 +1026,7 @@ fn definition<'a>(resp: &'a Value, key: &str) -> Option<&'a Value> {
         .find(|d| d["key"] == key)
 }
 
+// プロパティ定義にはシステムのキーが並び、ユーザーのキーを追加できる。
 #[tokio::test]
 async fn property_definitions_list_the_system_keys_and_accept_user_keys() {
     let (status, resp) = get("/api/config/property-definitions").await;
@@ -1038,6 +1084,7 @@ async fn property_definitions_list_the_system_keys_and_accept_user_keys() {
     }
 }
 
+// 項目からプロパティを削除できる。
 #[tokio::test]
 async fn a_property_can_be_removed_from_an_item() {
     let page = new_doc_page("items-property-delete").await;
@@ -1060,6 +1107,7 @@ async fn a_property_can_be_removed_from_an_item() {
     assert!(items(&page.id).await[0].properties.get("plan").is_none());
 }
 
+// 項目のプロパティの変更だけでも、ページのファイルが書き直される。
 #[tokio::test]
 async fn an_item_property_change_alone_rewrites_the_page_file() {
     let page = new_doc_page("items-property-export").await;
@@ -1081,6 +1129,7 @@ async fn an_item_property_change_alone_rewrites_the_page_file() {
     .await;
 }
 
+// ページのプロパティは設定と削除ができ、フロントマターに書き出される。
 #[tokio::test]
 async fn page_properties_are_set_removed_and_written_to_the_front_matter() {
     let page = new_doc_page("page-properties").await;
@@ -1164,6 +1213,7 @@ async fn set_page_tags(page_id: &str, tags: &str) {
     assert_eq!(status, 200, "{resp}");
 }
 
+// 新しいページタグにはタグページが作られ、最後の使用がなくなると消える。
 #[tokio::test]
 async fn a_new_page_tag_gets_its_tag_page_and_the_last_use_takes_it_away() {
     let _tags_dir = TAGS_DIR.lock().await;
@@ -1201,6 +1251,7 @@ async fn doc_pages_named_ignoring_case(name: &str) -> Vec<String> {
         .collect()
 }
 
+// 大文字と小文字だけが違うタグは、1つのタグページを共有する。
 #[tokio::test]
 async fn tags_that_differ_only_in_case_share_one_tag_page() {
     let _tags_dir = TAGS_DIR.lock().await;
@@ -1227,6 +1278,7 @@ async fn tags_that_differ_only_in_case_share_one_tag_page() {
         .is_empty());
 }
 
+// 使われなくなっても、内容のあるタグページは残る。
 #[tokio::test]
 async fn an_unused_tag_page_with_content_stays() {
     let _tags_dir = TAGS_DIR.lock().await;
@@ -1241,6 +1293,7 @@ async fn an_unused_tag_page_with_content_stays() {
     assert_eq!(doc_page_named(tag).await, Some(tag_page));
 }
 
+// 本文のハッシュタグも、ページタグと同じようにタグページを保つ。
 #[tokio::test]
 async fn a_hashtag_in_a_body_keeps_its_tag_page_as_a_page_tag_does() {
     let _tags_dir = TAGS_DIR.lock().await;
@@ -1266,6 +1319,7 @@ async fn a_hashtag_in_a_body_keeps_its_tag_page_as_a_page_tag_does() {
     assert!(doc_page_named(tag).await.is_none());
 }
 
+// タグページの改名で、ページタグと本文のタグも改名される。
 #[tokio::test]
 async fn renaming_a_tag_page_renames_its_tag_in_page_tags_and_bodies() {
     let _tags_dir = TAGS_DIR.lock().await;
@@ -1294,6 +1348,7 @@ async fn renaming_a_tag_page_renames_its_tag_in_page_tags_and_bodies() {
     assert!(doc_page_named(&old).await.is_none());
 }
 
+// タグページには、タグでないタイトルを付けられない。
 #[tokio::test]
 async fn a_tag_page_cannot_take_a_title_that_is_not_a_tag() {
     let _tags_dir = TAGS_DIR.lock().await;
@@ -1311,6 +1366,7 @@ async fn a_tag_page_cannot_take_a_title_that_is_not_a_tag() {
     assert_eq!(doc_page_named(&tag).await, Some(tag_page));
 }
 
+// ページを削除すると、そのタグのタグページも消える。
 #[tokio::test]
 async fn a_deleted_page_takes_the_tag_pages_of_its_tags_with_it() {
     let _tags_dir = TAGS_DIR.lock().await;
@@ -1339,6 +1395,7 @@ fn edit_file(page: &PageRef, edit: impl Fn(&str) -> String) {
     std::fs::write(file_of(page), edit(&text)).unwrap();
 }
 
+// 外部で編集したファイルのタグにも、タグページが保たれる。
 #[tokio::test]
 async fn the_tags_of_a_file_edited_outside_keep_their_tag_pages() {
     let _tags_dir = TAGS_DIR.lock().await;
@@ -1385,6 +1442,7 @@ async fn the_tags_of_a_file_edited_outside_keep_their_tag_pages() {
     assert!(doc_page_named(body_tag).await.is_none());
 }
 
+// 古いtagキーで書かれたファイルのタグは失われない。
 #[tokio::test]
 async fn a_file_written_with_the_old_tag_key_keeps_its_tags() {
     let _folder = FOLDER_SCAN.lock().await;
@@ -1408,6 +1466,7 @@ async fn a_file_written_with_the_old_tag_key_keeps_its_tags() {
     .await;
 }
 
+// ページの日付はプロパティとして設定でき、削除はできない。
 #[tokio::test]
 async fn the_dates_of_a_page_are_set_as_properties_and_cannot_be_removed() {
     let page = new_doc_page("page-dates").await;
@@ -1448,6 +1507,7 @@ async fn the_dates_of_a_page_are_set_as_properties_and_cannot_be_removed() {
     .await;
 }
 
+// indexページの子ページは、スカラーのプロパティを持って返る。
 #[tokio::test]
 async fn the_children_of_an_index_page_carry_their_scalar_properties() {
     // A unique directory so other tests' pages stay out of the listing
@@ -1494,6 +1554,7 @@ async fn the_children_of_an_index_page_carry_their_scalar_properties() {
     );
 }
 
+// indexページの子ページは、タグを順番どおりに持って返る。
 #[tokio::test]
 async fn the_children_of_an_index_page_carry_their_tags_but_no_other_list() {
     let _tags_dir = TAGS_DIR.lock().await;
@@ -1521,6 +1582,7 @@ async fn the_children_of_an_index_page_carry_their_tags_but_no_other_list() {
     );
 }
 
+// プロパティ定義を削除すると、ページと項目からその値が消える。
 #[tokio::test]
 async fn deleting_a_property_definition_removes_its_values_from_pages_and_items() {
     let page = new_doc_page("definition-delete").await;
@@ -1583,6 +1645,7 @@ async fn atlas_of(dir: &str) -> String {
     resp["page"]["id"].as_str().unwrap().to_string()
 }
 
+// アトラスページは、名前で検索しても見つからない。
 #[tokio::test]
 async fn an_atlas_page_is_not_found_by_its_name() {
     let dir = format!("{}/", new_doc_page("atlas-search").await.title);
@@ -1595,6 +1658,7 @@ async fn an_atlas_page_is_not_found_by_its_name() {
     }
 }
 
+// アトラスページは改名も移動もできない。
 #[tokio::test]
 async fn the_atlas_page_cannot_be_renamed_or_moved() {
     let dir = format!("{}/", new_doc_page("atlas-rename").await.title);
@@ -1610,6 +1674,7 @@ async fn the_atlas_page_cannot_be_renamed_or_moved() {
     assert_eq!(status, 400, "{resp}");
 }
 
+// 他のページはアトラスの名前を取れない。
 #[tokio::test]
 async fn no_other_page_can_take_the_atlas_name() {
     let page = new_doc_page("atlas-reserved").await;
@@ -1622,6 +1687,7 @@ async fn no_other_page_can_take_the_atlas_name() {
     assert_eq!(status, 400, "{resp}");
 }
 
+// boundsのプロパティは4つの数を持つ。
 #[tokio::test]
 async fn a_bounds_property_holds_four_numbers() {
     let (status, resp) = post(
@@ -1701,6 +1767,7 @@ fn card_of<'a>(rows: &'a [ItemRow], page_id: &str) -> &'a ItemRow {
         .unwrap_or_else(|| panic!("no card of {page_id} in {rows:?}"))
 }
 
+// アトラスには、ディレクトリのフォルダが先に、次にページが名前順に並ぶ。
 #[tokio::test]
 async fn an_atlas_lists_the_folders_and_then_the_pages_of_its_directory_by_name() {
     let (dir, atlas_id) = atlas_dir("atlas-list").await;
@@ -1715,6 +1782,7 @@ async fn an_atlas_lists_the_folders_and_then_the_pages_of_its_directory_by_name(
     );
 }
 
+// アトラスは、ページの追加、改名、削除に追随する。
 #[tokio::test]
 async fn the_atlas_follows_a_new_a_renamed_and_a_deleted_page() {
     let (dir, atlas_id) = atlas_dir("atlas-follow").await;
@@ -1747,6 +1815,7 @@ async fn the_atlas_follows_a_new_a_renamed_and_a_deleted_page() {
     assert_eq!(renamed.properties["atlas_bounds"], json!("5,6,0,40"));
 }
 
+// カードを置いても、そのページは変わらない。
 #[tokio::test]
 async fn placing_a_card_leaves_its_page_as_it_was() {
     let (dir, atlas_id) = atlas_dir("atlas-place").await;
@@ -1784,6 +1853,7 @@ async fn placing_a_card_leaves_its_page_as_it_was() {
     assert_eq!(status, 400, "{resp}");
 }
 
+// リンクカードは名前の順に置かれ、リンク先の変更と削除ができる。
 #[tokio::test]
 async fn a_link_card_takes_its_place_by_its_name_and_can_be_relinked_and_removed() {
     let (dir, atlas_id) = atlas_dir("atlas-link").await;
@@ -1825,6 +1895,7 @@ async fn a_link_card_takes_its_place_by_its_name_and_can_be_relinked_and_removed
     assert_eq!(outline_of(&atlas_id).await.len(), 3);
 }
 
+// カードに落としたカードはグループになり、グループは残り1枚で終わる。
 #[tokio::test]
 async fn cards_dropped_on_a_card_make_a_group_that_ends_with_its_second_last_card() {
     let (dir, atlas_id) = atlas_dir("atlas-group").await;
@@ -1874,6 +1945,7 @@ async fn cards_dropped_on_a_card_make_a_group_that_ends_with_its_second_last_car
     assert!(rows.iter().all(|r| r.id != group), "{rows:?}");
 }
 
+// コールアウトは、親の下にまとめて末尾に置かれる。
 #[tokio::test]
 async fn the_callouts_go_last_under_their_parent() {
     let (_, atlas_id) = atlas_dir("atlas-callout").await;
@@ -1908,6 +1980,7 @@ async fn the_callouts_go_last_under_their_parent() {
     assert_eq!(rows.len(), n - 2, "{rows:?}");
 }
 
+// アトラスページに書いた項目は、アトラスが書き直されると消える。
 #[tokio::test]
 async fn an_item_written_on_an_atlas_page_goes_when_the_atlas_is_written() {
     let (dir, atlas_id) = atlas_dir("atlas-own").await;
@@ -1919,6 +1992,7 @@ async fn an_item_written_on_an_atlas_page_goes_when_the_atlas_is_written() {
     assert!(!lines.iter().any(|l| l.contains("a note")), "{lines:?}");
 }
 
+// 値は、送られた型ではなく定義の型で検査される。
 #[tokio::test]
 async fn a_value_is_checked_by_the_type_of_its_definition_not_the_type_sent() {
     let page = new_doc_page("defined-type").await;
@@ -1933,6 +2007,7 @@ async fn a_value_is_checked_by_the_type_of_its_definition_not_the_type_sent() {
 
 // ---- Extension functions ----
 
+// 拡張機能のファイルは、フォルダを除いて名前順に一覧される。
 #[tokio::test]
 async fn the_files_of_a_function_are_listed_by_name_without_its_folders() {
     let dir = server()
@@ -1950,6 +2025,7 @@ async fn the_files_of_a_function_are_listed_by_name_without_its_folders() {
     assert_eq!(strings(&resp), vs(&["a.md", "b.md", "index.html"]));
 }
 
+// ない拡張機能にはファイル一覧がない。
 #[tokio::test]
 async fn a_missing_function_has_no_file_list() {
     let (status, _) = get("/api/functions/fn-missing").await;

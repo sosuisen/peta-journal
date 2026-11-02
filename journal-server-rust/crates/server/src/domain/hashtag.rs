@@ -71,20 +71,23 @@ pub fn renamed(tag: &str, old: &str, new: &str) -> Option<String> {
 mod tests {
     use super::*;
 
+    // タグは現れた順に、重複なく集められる。
     #[test]
     fn collects_in_order_without_duplicates() {
         let ast = r#"{"type":"root","children":[{"type":"hashtag","value":"b"},{"type":"paragraph","children":[{"type":"hashtag","value":"a"},{"type":"hashtag","value":"b"}]}]}"#;
         assert_eq!(extract_hashtags(ast), vec!["b", "a"]);
     }
 
+    // 空または不正なJSONからはタグが取れない。
     #[test]
-    fn empty_and_invalid() {
+    fn empty_or_invalid_json_gives_no_tags() {
         assert!(extract_hashtags("").is_empty());
         assert!(extract_hashtags("not json").is_empty());
     }
 
+    // 正しいタグは、空白を含まず、両端がスラッシュでない。
     #[test]
-    fn valid_tags() {
+    fn a_tag_has_no_space_and_no_slash_at_either_end() {
         assert!(is_valid("a/b-c_1"));
         assert!(is_valid("日本語"));
         assert!(!is_valid("a b"));
@@ -93,6 +96,7 @@ mod tests {
         assert!(!is_valid(""));
     }
 
+    // タグとその下のタグが改名される。
     #[test]
     fn renames_the_tag_and_the_tags_under_it() {
         assert_eq!(renamed("old", "old", "new").as_deref(), Some("new"));

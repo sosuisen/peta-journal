@@ -311,8 +311,9 @@ fn us_week_number(date: NaiveDate, year: i32) -> u32 {
 mod tests {
     use super::*;
 
+    // ISO週番号と米国式週番号は、年の変わり目で食い違う。
     #[test]
-    fn week_numbers() {
+    fn iso_and_us_week_numbers_part_at_the_turn_of_the_year() {
         let d = NaiveDate::from_ymd_opt(2026, 2, 16).unwrap();
         assert_eq!(iso_week_number(d), 8);
         assert_eq!(us_week_number(d, 2026), 8);
@@ -321,8 +322,9 @@ mod tests {
         assert_eq!(us_week_number(jan1, 2027), 1);
     }
 
+    // 指定の曜日の、同じ日か直前の日が見つかる。
     #[test]
-    fn previous_or_same_weekday() {
+    fn the_previous_or_same_weekday_is_found() {
         let d = NaiveDate::from_ymd_opt(2026, 1, 4).unwrap(); // Sunday
         assert_eq!(
             previous_or_same(d, Weekday::Mon),

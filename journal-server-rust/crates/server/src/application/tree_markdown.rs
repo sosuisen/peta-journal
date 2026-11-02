@@ -120,14 +120,16 @@ fn find_list_marker_pos(line: &str) -> Option<Marker> {
 mod tests {
     use super::*;
 
+    // 木のMarkdownは、レベルをマーカーにした平らなMarkdownになる。
     #[test]
-    fn tree_to_flat() {
+    fn tree_markdown_becomes_flat_markdown_with_levels_as_markers() {
         let flat = tree_markdown_to_flat_markdown("- a\n  - b\n    second line\n- [ ] c");
         assert_eq!(flat, "a\n\n<!-- @@ -->\nb\nsecond line\n\n- [ ] c");
     }
 
+    // 空の木のMarkdownからは、空の平らなMarkdownになる。
     #[test]
-    fn empty() {
+    fn empty_tree_markdown_gives_empty_flat_markdown() {
         assert_eq!(tree_markdown_to_flat_markdown(""), "");
     }
 }

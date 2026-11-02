@@ -93,6 +93,7 @@ mod tests {
         v.iter().map(|o| o.map(|x| x.to_string())).collect()
     }
 
+    // 既存のインデックスは保たれ、隙間が埋められる。
     #[test]
     fn keeps_existing_and_fills_gaps() {
         let r = plan(&s(&[Some("z0"), None, Some("z2")])).unwrap();
@@ -101,6 +102,7 @@ mod tests {
         assert!(r[1].as_str() > "z0" && r[1].as_str() < "z2");
     }
 
+    // 順序と食い違うインデックスは付け直される。
     #[test]
     fn reorders_disagreeing_indices() {
         let r = plan(&s(&[Some("z2"), Some("z0"), Some("z1")])).unwrap();
@@ -110,8 +112,9 @@ mod tests {
         assert_eq!(r[2], "z1");
     }
 
+    // インデックスのない項目はz0から番号が付く。
     #[test]
-    fn all_new() {
+    fn items_without_an_index_are_numbered_from_z0() {
         let r = plan(&s(&[None, None])).unwrap();
         assert_eq!(r, vec!["z0", "z1"]);
     }

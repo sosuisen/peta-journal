@@ -70,6 +70,7 @@ impl ItemBody {
 mod tests {
     use super::*;
 
+    // タスクの接頭辞が本文から取り除かれる。
     #[test]
     fn strips_task_prefix() {
         let b = ItemBody::parse(Some("- [ ] buy milk"));
@@ -83,6 +84,7 @@ mod tests {
         assert_eq!(ItemBody::parse(None).text, "");
     }
 
+    // 本文の型が検出される。
     #[test]
     fn detects_types() {
         assert_eq!(

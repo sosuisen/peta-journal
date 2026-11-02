@@ -146,6 +146,7 @@ mod tests {
         }
     }
 
+    // メタデータの行と本文が書き出される。
     #[test]
     fn writes_metadata_and_body() {
         let items = vec![item(2, "hello", &[])];
@@ -156,8 +157,9 @@ mod tests {
         );
     }
 
+    // タスクには接頭辞が付き、プロパティはメタデータの行に書かれる。
     #[test]
-    fn task_prefix_and_properties() {
+    fn a_task_takes_its_prefix_and_its_properties_go_on_the_metadata_line() {
         let it = item(1, "do it", &["task"]);
         let mut scalars = BTreeMap::new();
         scalars.insert("plan".to_string(), "2026-09-27".to_string());
@@ -172,8 +174,9 @@ mod tests {
         assert_eq!(body_with_task_prefix(&it, &scalars), "- [x] do it");
     }
 
+    // 値の引用符とバックスラッシュはエスケープされる。
     #[test]
-    fn escapes_values() {
+    fn quotes_and_backslashes_in_values_are_escaped() {
         assert_eq!(escape("a\"b\\c"), "a\\\"b\\\\c");
     }
 }

@@ -107,6 +107,7 @@ fn to_split_item(node: &Value) -> SplitItem {
 mod tests {
     use super::*;
 
+    // メタデータの行で項目に分かれる。
     #[test]
     fn splits_items_with_metadata() {
         let md = "---\nid: 2026-09-29-00-00-00-AAAAAAA\n---\n\n<!-- @ 2026-09-29-00-00-01-AAAAAAA idx=\"z0\" -->\nfirst\n\n<!-- @@ 2026-09-29-00-00-02-AAAAAAA idx=\"z1\" collapsed=\"true\" -->\nsecond\n";
@@ -125,6 +126,7 @@ mod tests {
         );
     }
 
+    // メタデータのない本文は、レベル1の項目になる。
     #[test]
     fn plain_text_is_level_one() {
         let page = FlatMarkdownSplitter::default()
@@ -134,6 +136,7 @@ mod tests {
         assert!(page.items[0].id.is_none());
     }
 
+    // 空の文字列からは項目ができない。
     #[test]
     fn empty_gives_no_items() {
         let page = FlatMarkdownSplitter::default().split("").unwrap();

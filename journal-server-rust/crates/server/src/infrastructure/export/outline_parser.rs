@@ -152,6 +152,7 @@ fn to_parsed_item(item: &SplitItem) -> ParsedItem {
 mod tests {
     use super::*;
 
+    // フロントマターと項目が解析される。
     #[test]
     fn parses_frontmatter_and_items() {
         let md = "---\nid: 2026-09-29-00-00-00-AAAAAAA\ncreated: 2026-09-29T00:00:00Z\ntags:\n  - a\n  - b\n---\n\n<!-- @ 2026-09-29-00-00-01-AAAAAAA idx=\"z0\" plan=\"2026-09-30\" -->\n- [ ] task\n";

@@ -421,6 +421,7 @@ pub fn delete_quietly(path: &Path) {
 mod tests {
     use super::*;
 
+    // 時刻はJavaと同じ形式に整形される。
     #[test]
     fn formats_instants_like_java() {
         assert_eq!(format_instant(0), "1970-01-01T00:00:00Z");

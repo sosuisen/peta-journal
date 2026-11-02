@@ -223,6 +223,7 @@ fn two_devices_with(dir: &Path, make_b: fn(&Path) -> Device) -> (Device, Device)
     (a, b)
 }
 
+// 2台のデバイスは、同じページから同じアトラスを書く。
 #[test]
 fn two_devices_write_the_same_atlas_from_the_same_pages() {
     let dir = tempfile::tempdir().unwrap();
@@ -240,6 +241,7 @@ fn two_devices_write_the_same_atlas_from_the_same_pages() {
     assert!(a.conflicts().is_empty() && b.conflicts().is_empty());
 }
 
+// 一方のデバイスで置いたカードは、アトラスがページより先に届いても位置を保つ。
 #[test]
 fn a_card_placed_on_one_device_keeps_its_place_when_the_atlas_comes_before_the_page() {
     let dir = tempfile::tempdir().unwrap();
@@ -259,6 +261,7 @@ fn a_card_placed_on_one_device_keeps_its_place_when_the_atlas_comes_before_the_p
     assert!(b.conflicts().is_empty());
 }
 
+// 両方のデバイスで削除したページは、両方のアトラスを同じに保つ。
 #[test]
 fn a_page_deleted_on_both_devices_leaves_both_atlases_alike() {
     let dir = tempfile::tempdir().unwrap();
@@ -284,6 +287,7 @@ fn a_page_deleted_on_both_devices_leaves_both_atlases_alike() {
     assert!(a.conflicts().is_empty() && b.conflicts().is_empty());
 }
 
+// 旧形式のアトラスを移した2台のデバイスは、同じアトラスを書く。
 #[test]
 fn two_devices_moving_the_atlas_of_old_write_the_same_atlas() {
     let dir = tempfile::tempdir().unwrap();
@@ -355,6 +359,7 @@ fn exchange(a: &Device, b: &Device) {
     }
 }
 
+// 改名より先に届いたアトラスは、届いたまま保たれる。
 #[test]
 fn an_atlas_that_comes_before_a_rename_is_kept_as_it_came() {
     let dir = tempfile::tempdir().unwrap();
@@ -380,6 +385,7 @@ fn an_atlas_that_comes_before_a_rename_is_kept_as_it_came() {
     assert!(a.conflicts().is_empty() && b.conflicts().is_empty());
 }
 
+// 移動より先に届いたアトラスは、届いたまま保たれる。
 #[test]
 fn an_atlas_that_comes_before_a_move_is_kept_as_it_came() {
     let dir = tempfile::tempdir().unwrap();
@@ -416,6 +422,7 @@ fn moved_on_a(a: &Device, b: &Device) -> Hmtid {
     c
 }
 
+// 新しいファイルが先に届いた移動は、古いファイルが消えたときにページを移動する。
 #[test]
 fn a_move_that_brings_the_new_file_first_moves_the_page_when_the_old_file_goes() {
     let dir = tempfile::tempdir().unwrap();
@@ -433,6 +440,7 @@ fn a_move_that_brings_the_new_file_first_moves_the_page_when_the_old_file_goes()
     assert!(b.conflicts().is_empty());
 }
 
+// 待機中のファイルは、古いファイルが消えたあとの走査で取り込まれる。
 #[test]
 fn a_file_that_waits_comes_in_on_the_scan_after_the_old_file_went() {
     let dir = tempfile::tempdir().unwrap();
@@ -448,6 +456,7 @@ fn a_file_that_waits_comes_in_on_the_scan_after_the_old_file_went() {
     assert_eq!(b.page_in("d/", "c"), None);
 }
 
+// 複製されたファイルは、待機が終わると独立したページになる。
 #[test]
 fn a_copied_file_becomes_a_page_of_its_own_once_the_wait_is_over() {
     let dir = tempfile::tempdir().unwrap();
@@ -469,6 +478,7 @@ fn a_copied_file_becomes_a_page_of_its_own_once_the_wait_is_over() {
     assert!(device.file("docs/d/a2.md").contains(copy.as_str()));
 }
 
+// まだ取り込んでいないファイルは上書きされない。
 #[test]
 fn a_file_not_taken_in_yet_is_not_written_over() {
     let dir = tempfile::tempdir().unwrap();
@@ -492,6 +502,7 @@ fn a_file_not_taken_in_yet_is_not_written_over() {
         .contains("from A"));
 }
 
+// 待機が終わっても取り込まれなかったファイルは、バックアップを残して上書きされる。
 #[test]
 fn a_file_not_taken_in_after_the_wait_is_kept_as_a_backup_and_written_over() {
     let dir = tempfile::tempdir().unwrap();
@@ -511,6 +522,7 @@ fn a_file_not_taken_in_after_the_wait_is_kept_as_a_backup_and_written_over() {
         .contains("from A"));
 }
 
+// アプリで作られたフォルダのindexページは、すぐにファイルを得る。
 #[test]
 fn a_folder_index_made_in_the_app_gets_a_file_at_once() {
     let dir = tempfile::tempdir().unwrap();
@@ -523,6 +535,7 @@ fn a_folder_index_made_in_the_app_gets_a_file_at_once() {
     assert!(device.on_disk(INDEX).contains(index.as_str()));
 }
 
+// 取り込んだファイルのために作られたindexページは、他方のデバイスのindexファイルを待つ。
 #[test]
 fn a_folder_index_made_for_a_file_taken_in_waits_for_the_index_file_of_the_other_device() {
     let dir = tempfile::tempdir().unwrap();
@@ -546,6 +559,7 @@ fn a_folder_index_made_for_a_file_taken_in_waits_for_the_index_file_of_the_other
     assert_eq!(b.file("docs/e/index.md"), a.file("docs/e/index.md"));
 }
 
+// 他方のデバイスで移動したページは、削除の候補にならない。
 #[test]
 fn a_page_moved_on_the_other_device_is_not_offered_for_deletion() {
     let dir = tempfile::tempdir().unwrap();
@@ -562,6 +576,7 @@ fn a_page_moved_on_the_other_device_is_not_offered_for_deletion() {
     assert!(b.missing().is_empty());
 }
 
+// 以前に移動したページの古いパスは、もう削除の候補にならない。
 #[test]
 fn the_old_path_of_a_page_moved_before_is_no_longer_offered_for_deletion() {
     let dir = tempfile::tempdir().unwrap();

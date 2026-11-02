@@ -234,8 +234,9 @@ pub fn parse_instant(s: Option<&str>) -> Option<i64> {
 mod tests {
     use super::*;
 
+    // 時刻はミリ秒に解析される。
     #[test]
-    fn parses_instants() {
+    fn an_instant_is_parsed_to_milliseconds() {
         assert_eq!(parse_instant(Some("1970-01-01T00:00:01Z")), Some(1000));
         assert_eq!(parse_instant(Some("1970-01-01T00:00:00.500Z")), Some(500));
         assert_eq!(parse_instant(Some("bad")), None);
