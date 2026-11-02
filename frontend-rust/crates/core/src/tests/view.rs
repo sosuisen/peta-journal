@@ -1,5 +1,7 @@
-//! What the rows of the view model say about their items.
+//! What the rows of the view model say about their items, and the zoom of an item.
 
+use crate::app::Event;
+use crate::effects::ApiOp;
 use crate::harness::{item, Harness};
 use crate::view::{Row, TaskState};
 
@@ -64,6 +66,22 @@ fn a_one_line_heading_is_a_heading_line_but_a_heading_with_more_lines_is_not() {
     assert_eq!((r[0].heading_level, r[0].heading_line), (2, true));
     assert_eq!((r[1].heading_level, r[1].heading_line), (2, false));
     assert_eq!((r[2].heading_level, r[2].heading_line), (0, false));
+}
+
+// ズームの変更で倍率が表示に反映されて保存され、リセットで 1.0 に戻る。
+#[test]
+fn set_zoom_shows_and_saves_the_factor() {
+    let mut h = Harness::with_items(vec![item("a", 1, "")]);
+    h.send(Event::ZoomStep {
+        item_id: "a".into(),
+        up: true,
+    });
+    assert_eq!(h.model.state.get_item_by_id("a").unwrap().zoom(), 1.1);
+    assert!(h.api.calls.iter().any(|c| matches!(c, ApiOp::UpsertItemProperty { key, value, .. } if key == "zoom" && value == "1.1")));
+    h.send(Event::ResetZoom {
+        item_id: "a".into(),
+    });
+    assert_eq!(h.model.state.get_item_by_id("a").unwrap().zoom(), 1.0);
 }
 
 // 自前の zoom を持つ項目だけが zoom を持つとされる。子は zoom を継承するが自前のものではない。
