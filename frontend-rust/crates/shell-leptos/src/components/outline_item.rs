@@ -45,24 +45,7 @@ pub fn OutlineItem(row: RwSignal<Row>) -> impl IntoView {
         let (hl, ht) = host_rect.map(|r| (r.left(), r.top())).unwrap_or((0.0, 0.0));
         menu_pos.set((btn_rect.left() - hl, btn_rect.bottom() - ht));
         menu_open.set(true);
-        // Listening starts after this click, so the click itself does not close the menu
-        dom::after_render(move || {
-            menu_listeners.on_cancelable("mousedown", move |ev: &web_sys::MouseEvent| {
-                let inside_menu = ev
-                    .target()
-                    .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
-                    .is_some_and(|t| t.closest(".item-popup-menu").ok().flatten().is_some());
-                if !inside_menu {
-                    close_menu();
-                }
-            });
-            menu_listeners.on("keydown", move |ev: &web_sys::KeyboardEvent| {
-                if ev.key() == "Escape" {
-                    ev.prevent_default();
-                    close_menu();
-                }
-            });
-        });
+        menu_listeners.close_menu_on_outside_or_escape(".item-popup-menu", close_menu);
     };
 
     let copy_text = |text: String| {

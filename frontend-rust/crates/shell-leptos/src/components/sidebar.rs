@@ -11,7 +11,6 @@ use peta_core::model::{IndexSort, IndexSortKey, SortOrder};
 use peta_core::view::SidebarPage;
 use peta_core::Event;
 use std::collections::{HashMap, HashSet};
-use wasm_bindgen::JsCast;
 
 const COLLAPSED_KEY: &str = "sidebar-collapsed";
 const INDEX_SORT_KEY: &str = "sidebar-index-sort";
@@ -59,24 +58,7 @@ fn IndexSortControl(dir: Memo<String>, sort: Memo<IndexSort>) -> impl IntoView {
             return;
         }
         menu_open.set(true);
-        // Listening starts after this click, so the click itself does not close the menu
-        dom::after_render(move || {
-            menu_listeners.on_cancelable("mousedown", move |ev: &web_sys::MouseEvent| {
-                let inside_menu = ev
-                    .target()
-                    .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
-                    .is_some_and(|t| t.closest(".index-sort-menu").ok().flatten().is_some());
-                if !inside_menu {
-                    close_menu();
-                }
-            });
-            menu_listeners.on("keydown", move |ev: &web_sys::KeyboardEvent| {
-                if ev.key() == "Escape" {
-                    ev.prevent_default();
-                    close_menu();
-                }
-            });
-        });
+        menu_listeners.close_menu_on_outside_or_escape(".index-sort-menu", close_menu);
     };
     let choose = move |chosen: IndexSort| {
         let dir = dir.get();
@@ -201,24 +183,7 @@ pub fn Sidebar() -> impl IntoView {
             x: ev.client_x(),
             y: ev.client_y(),
         }));
-        // Listening starts after this click, so the click itself does not close the menu
-        dom::after_render(move || {
-            menu_listeners.on_cancelable("mousedown", move |ev: &web_sys::MouseEvent| {
-                let inside_menu = ev
-                    .target()
-                    .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
-                    .is_some_and(|t| t.closest(".sidebar-context-menu").ok().flatten().is_some());
-                if !inside_menu {
-                    close_menu();
-                }
-            });
-            menu_listeners.on("keydown", move |ev: &web_sys::KeyboardEvent| {
-                if ev.key() == "Escape" {
-                    ev.prevent_default();
-                    close_menu();
-                }
-            });
-        });
+        menu_listeners.close_menu_on_outside_or_escape(".sidebar-context-menu", close_menu);
     };
     let open_export_folder = move |page_id: String| {
         core.send(Event::OpenExportFolder { page_id });

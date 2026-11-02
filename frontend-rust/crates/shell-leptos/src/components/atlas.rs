@@ -272,24 +272,7 @@ pub fn Atlas() -> impl IntoView {
         move |page_id: String, x: f64, y: f64| {
             menu_listeners.clear_later();
             menu.set(Some((page_id, x, y)));
-            // Listening starts after this click, so the click itself does not close the menu
-            dom::after_render(move || {
-                menu_listeners.on_cancelable("mousedown", move |ev: &web_sys::MouseEvent| {
-                    let inside_menu = ev
-                        .target()
-                        .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
-                        .is_some_and(|t| t.closest(".atlas-menu").ok().flatten().is_some());
-                    if !inside_menu {
-                        close_menu();
-                    }
-                });
-                menu_listeners.on("keydown", move |ev: &web_sys::KeyboardEvent| {
-                    if ev.key() == "Escape" {
-                        ev.prevent_default();
-                        close_menu();
-                    }
-                });
-            });
+            menu_listeners.close_menu_on_outside_or_escape(".atlas-menu", close_menu);
         },
     ));
     // The directory whose view the canvas shows, fixed when the canvas is made: the view
