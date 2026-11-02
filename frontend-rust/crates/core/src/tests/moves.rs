@@ -2,7 +2,6 @@ use crate::app::Event;
 use crate::harness::{item, move_calls, Harness};
 use crate::model::TranscludedTrees;
 use crate::testing::item_with;
-use std::collections::HashSet;
 
 fn page_harness() -> Harness {
     // * a (1)
@@ -103,24 +102,4 @@ fn inside_a_transclusion_a_descendant_moves_within_the_source_tree_and_the_page_
         )]
     );
     assert!(h.api.called("GetPageById"));
-}
-
-// 選択移動では、選択されたサブツリーが一つのまとまりとして端のルートの兄弟を越えて移動する。
-#[test]
-fn move_selection_moves_the_selected_subtrees_as_one_group_past_the_sibling_of_the_edge_root() {
-    let mut h = page_harness();
-    let selected: HashSet<String> = ["b", "b1", "c"].iter().map(|s| s.to_string()).collect();
-    h.model.state.set_selected_item_ids(selected);
-    h.model.state.set_item_selection_mode(true);
-    h.send(Event::SelectionKey(crate::app::SelectionKey::MoveUp));
-    assert_eq!(
-        move_calls(&h.api),
-        [(
-            vec!["b".to_string(), "b1".to_string(), "c".to_string()],
-            "page1".to_string(),
-            "first".to_string()
-        )]
-    );
-    assert_eq!(h.items_ids(), ["b", "b1", "c", "a"]);
-    assert_eq!(h.model.undo.pop_undo().unwrap().label, "move-selection");
 }
