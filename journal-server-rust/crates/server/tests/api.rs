@@ -1577,7 +1577,7 @@ async fn the_children_of_an_index_page_carry_their_scalar_properties() {
     );
 }
 
-// indexページの子ページは、タグを順番どおりに持って返る。
+// indexページの子ページは、タグを持って返る。他のリストのプロパティは返らない。アトラスがカードのアイコンに使うのはタグだけである。
 #[tokio::test]
 async fn the_children_of_an_index_page_carry_their_tags_but_no_other_list() {
     let _tags_dir = TAGS_DIR.lock().await;
@@ -1591,6 +1591,12 @@ async fn the_children_of_an_index_page_carry_their_tags_but_no_other_list() {
     let page_id = resp["page"]["id"].as_str().unwrap().to_string();
     let parent_id = resp["page"]["parentId"].as_str().unwrap().to_string();
     set_page_tags(&page_id, "children-tag-b, children-tag-a").await;
+    let (status, resp) = put(
+        &format!("/api/pages/{page_id}/properties/children_list"),
+        json!({ "valueType": "list", "value": "x" }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
 
     let (_, resp) = get(&format!("/api/pages/{parent_id}/children")).await;
     let child = resp["pages"]
@@ -1602,6 +1608,11 @@ async fn the_children_of_an_index_page_carry_their_tags_but_no_other_list() {
     assert_eq!(
         child["properties"]["tags"],
         json!(["children-tag-b", "children-tag-a"])
+    );
+    assert!(
+        child["properties"].get("children_list").is_none(),
+        "{}",
+        child["properties"]
     );
 }
 
