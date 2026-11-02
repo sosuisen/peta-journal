@@ -435,8 +435,8 @@ impl ItemService {
         Ok(result)
     }
 
-    /// Sets a scalar property of an item. The page file is rewritten, as for any other
-    /// change of the item.
+    /// Sets a property of an item. A key of a list type takes the values comma-separated.
+    /// The page file is rewritten, as for any other change of the item.
     pub fn set_property(
         &self,
         item_id: &Hmtid,
@@ -445,8 +445,34 @@ impl ItemService {
         value: &str,
     ) -> AppResult<Item> {
         let existing = self.get_item_by_id(item_id)?;
-        self.properties
-            .upsert_scalar(ITEM_TARGET, item_id.as_str(), key, value_type, value)?;
+        // The type of a key is fixed when it is defined; a new key takes the type sent
+        let value_type = self
+            .properties
+            .find_definition(key)?
+            .map(|def| def.value_type)
+            .unwrap_or_else(|| value_type.to_string());
+        if value_type == "tags" || value_type == "list" {
+            let values: Vec<String> = value
+                .split(',')
+                .map(|t| t.trim().to_string())
+                .filter(|t| !t.is_empty())
+                .collect();
+            self.properties.upsert_list(
+                ITEM_TARGET,
+                item_id.as_str(),
+                key,
+                &value_type,
+                &values,
+            )?;
+        } else {
+            self.properties.upsert_scalar(
+                ITEM_TARGET,
+                item_id.as_str(),
+                key,
+                &value_type,
+                value,
+            )?;
+        }
         self.touch_and_export(&existing.page_id)?;
         Ok(existing)
     }
