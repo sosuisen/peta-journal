@@ -188,6 +188,8 @@ atlasのデータは、すべてディレクトリの `index_atlas.md` の本文
 <!-- @@ <id> idx="..." plan="2026-03-01" tags="a,b" zoom="1.5" -->
 ```
 
+ファイルの取り込みでは、メタデータ行のスカラー値と `list` 型の値を、項目のプロパティに合わせる。行にないキーの値は消す。`tags` だけは読まず、本文の `#hashtag` から作り直す。
+
 ### ページ
 
 frontmatterに書く。`id` / `created` / `modified` の後にスカラー値を `key: value` で、リスト値をYAMLのリストで書く。
