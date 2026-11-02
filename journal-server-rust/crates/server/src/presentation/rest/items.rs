@@ -8,7 +8,7 @@ use axum::{Json, Router};
 use hmtid::Hmtid;
 use serde::{Deserialize, Serialize};
 
-use crate::domain::model::ItemPosition;
+use crate::domain::model::{Item, ItemPosition};
 use crate::error::{parse_id, AppError, AppResult};
 use crate::presentation::dto::{select_fields, ItemDto};
 use crate::state::{blocking, SharedState};
@@ -177,6 +177,19 @@ fn parse_position(position: Option<&str>) -> AppResult<ItemPosition> {
     ItemPosition::parse(position.unwrap_or("")).map_err(AppError::bad_request)
 }
 
+/// An item as the API answers with it, with its properties.
+fn item_response(state: &SharedState, item: &Item) -> AppResult<Json<ItemResponse>> {
+    Ok(Json(ItemResponse {
+        item: state.dtos.to_dto(item)?,
+    }))
+}
+
+fn items_response(state: &SharedState, items: &[Item]) -> AppResult<Json<ItemsResponse>> {
+    Ok(Json(ItemsResponse {
+        items: state.dtos.to_dtos(items)?,
+    }))
+}
+
 fn broadcast_to_transcluders(
     state: &SharedState,
     source_item_id: &Hmtid,
@@ -210,9 +223,7 @@ async fn create_item(
             client_id,
         )?;
         state.sse.broadcast_pages_updated(page_id.as_str());
-        Ok(Json(ItemResponse {
-            item: state.dtos.to_dto(&item)?,
-        }))
+        item_response(&state, &item)
     })
     .await
 }
@@ -251,9 +262,7 @@ async fn update_item(
         let page_id = item.page_id.to_string();
         state.sse.broadcast_pages_updated(&page_id);
         broadcast_to_transcluders(&state, &item_id, &page_id)?;
-        Ok(Json(ItemResponse {
-            item: state.dtos.to_dto(&item)?,
-        }))
+        item_response(&state, &item)
     })
     .await
 }
@@ -289,9 +298,7 @@ async fn set_transclusion(
     blocking(move || {
         let item = state.item_service.set_transclusion(&item_id, &source_id)?;
         state.sse.broadcast_pages_updated(item.page_id.as_str());
-        Ok(Json(ItemResponse {
-            item: state.dtos.to_dto(&item)?,
-        }))
+        item_response(&state, &item)
     })
     .await
 }
@@ -304,9 +311,7 @@ async fn remove_transclusion(
     blocking(move || {
         let item = state.item_service.remove_transclusion(&item_id)?;
         state.sse.broadcast_pages_updated(item.page_id.as_str());
-        Ok(Json(ItemResponse {
-            item: state.dtos.to_dto(&item)?,
-        }))
+        item_response(&state, &item)
     })
     .await
 }
@@ -321,9 +326,7 @@ async fn get_items_by_types(
             None => Vec::new(),
         };
         let items = state.item_service.get_items_by_types(&types)?;
-        Ok(Json(ItemsResponse {
-            items: state.dtos.to_dtos(&items)?,
-        }))
+        items_response(&state, &items)
     })
     .await
 }
@@ -336,9 +339,7 @@ async fn cycle_task(
     blocking(move || {
         let item = state.item_service.cycle_task(&item_id)?;
         state.sse.broadcast_pages_updated(item.page_id.as_str());
-        Ok(Json(ItemResponse {
-            item: state.dtos.to_dto(&item)?,
-        }))
+        item_response(&state, &item)
     })
     .await
 }
@@ -355,9 +356,7 @@ async fn move_items(
             .item_service
             .move_items(&ids, &target, &position, req.level_delta)?;
         state.sse.broadcast_pages_updated(target.as_str());
-        Ok(Json(ItemsResponse {
-            items: state.dtos.to_dtos(&items)?,
-        }))
+        items_response(&state, &items)
     })
     .await
 }
@@ -382,9 +381,7 @@ async fn shift_levels(
         for item in &items {
             broadcast_to_transcluders(&state, &item.id, item.page_id.as_str())?;
         }
-        Ok(Json(ItemsResponse {
-            items: state.dtos.to_dtos(&items)?,
-        }))
+        items_response(&state, &items)
     })
     .await
 }
@@ -404,9 +401,7 @@ async fn upsert_property(
         )?;
         state.sse.broadcast_pages_updated(item.page_id.as_str());
         // The DTO is built after the upsert, so it carries the new property
-        Ok(Json(ItemResponse {
-            item: state.dtos.to_dto(&item)?,
-        }))
+        item_response(&state, &item)
     })
     .await
 }
@@ -420,9 +415,7 @@ async fn delete_property(
         let item = state.item_service.delete_property(&item_id, &key)?;
         state.sse.broadcast_pages_updated(item.page_id.as_str());
         // The DTO is built after the delete, so the property is already gone from it
-        Ok(Json(ItemResponse {
-            item: state.dtos.to_dto(&item)?,
-        }))
+        item_response(&state, &item)
     })
     .await
 }
