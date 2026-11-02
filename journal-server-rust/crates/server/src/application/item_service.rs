@@ -123,10 +123,7 @@ impl ItemService {
         };
 
         let types = parsed.all_types();
-        let page = self
-            .pages
-            .find_by_id(page_id)?
-            .ok_or_else(|| AppError::bad_request(format!("Page not found: {page_id}")))?;
+        let page = self.page_service.require_page(page_id)?;
 
         let item = Item {
             idx,
@@ -567,10 +564,7 @@ impl ItemService {
         dir_path: Option<&str>,
         overwrite: bool,
     ) -> AppResult<(Page, Vec<Hmtid>)> {
-        let existing = self
-            .pages
-            .find_by_id(page_id)?
-            .ok_or_else(|| AppError::bad_request(format!("Page not found: {page_id}")))?;
+        let existing = self.page_service.require_page(page_id)?;
         let moved = Page {
             name: title.map_or_else(|| existing.name.clone(), str::to_string),
             dir_path: dir_path.map_or_else(|| existing.dir_path.clone(), str::to_string),

@@ -572,10 +572,7 @@ impl JournalMcp {
         let state = Arc::clone(&self.state);
         let page_id = id(&a.page_id)?;
         let (page, items) = run(move || {
-            let page = state
-                .page_service
-                .get_page(&page_id)?
-                .ok_or_else(|| AppError::bad_request(format!("Page not found: {page_id}")))?;
+            let page = state.page_service.require_page(&page_id)?;
             let items = state.page_service.get_page_items(&page.id)?;
             Ok((page, items))
         })

@@ -137,6 +137,13 @@ impl PageService {
         self.pages.find_by_id(page_id)
     }
 
+    /// The page a change is made to; a missing one is bad input, as the id came from the caller.
+    pub fn require_page(&self, page_id: &Hmtid) -> AppResult<Page> {
+        self.pages
+            .find_by_id(page_id)?
+            .ok_or_else(|| AppError::bad_request(format!("Page not found: {page_id}")))
+    }
+
     pub fn get_page_items(&self, page_id: &Hmtid) -> AppResult<Vec<Item>> {
         self.items.find_by_page_id(page_id)
     }
@@ -257,10 +264,7 @@ impl PageService {
         dir_path: Option<&str>,
         overwrite: bool,
     ) -> AppResult<Page> {
-        let existing = self
-            .pages
-            .find_by_id(page_id)?
-            .ok_or_else(|| AppError::bad_request(format!("Page not found: {page_id}")))?;
+        let existing = self.require_page(page_id)?;
 
         let mut file_name = existing.name.clone();
         if let Some(title) = title {
@@ -385,10 +389,7 @@ impl PageService {
         value_type: &str,
         value: &str,
     ) -> AppResult<Page> {
-        let page = self
-            .pages
-            .find_by_id(page_id)?
-            .ok_or_else(|| AppError::bad_request(format!("Page not found: {page_id}")))?;
+        let page = self.require_page(page_id)?;
         if key == "created" || key == "modified" {
             let millis = chrono::DateTime::parse_from_rfc3339(value.trim())
                 .map(|dt| dt.timestamp_millis())
@@ -585,10 +586,7 @@ impl PageService {
                 "Property '{key}' cannot be removed from a page"
             )));
         }
-        let page = self
-            .pages
-            .find_by_id(page_id)?
-            .ok_or_else(|| AppError::bad_request(format!("Page not found: {page_id}")))?;
+        let page = self.require_page(page_id)?;
         let before = if key == "tags" {
             self.properties.find_tags(PAGE_TARGET, page_id.as_str())?
         } else {
@@ -629,10 +627,7 @@ impl PageService {
     /// Deletes a page with all its items and their properties. The tags of the page and of
     /// its items go with them, so their tag pages are deleted when nothing else uses them.
     pub fn delete_page(&self, page_id: &Hmtid) -> AppResult<()> {
-        let page = self
-            .pages
-            .find_by_id(page_id)?
-            .ok_or_else(|| AppError::bad_request(format!("Page not found: {page_id}")))?;
+        let page = self.require_page(page_id)?;
 
         if page.name == "index" && page.dir_path.is_empty() {
             return Err(AppError::bad_request("Cannot delete the root index page."));
