@@ -4,7 +4,7 @@
 
 出典は次のとおりである。括弧内は、各節の見出しに書いた略記である。
 
-- `frontend-rust/crates/core/src/tests/*.rs`（`tests/`）
+- `frontend-rust/crates/core/src/tests/**/*.rs`（`tests/`）
 - `frontend-rust/crates/core/src/outline/*.rs`、`util/*.rs`、`model.rs`（`core/`）
 - `frontend-rust/crates/fm-ast/tests/roundtrip.rs`（`fm-ast`）
 - `frontend-rust/crates/fm-leptos/tests/html.rs`（`fm-leptos`）
@@ -16,7 +16,7 @@
 
 ### アプリを開く
 
-出典: `e2e/journal`、`tests/settings.rs`
+出典: `e2e/journal`、`tests/home.rs`
 
 - 今日のジャーナルが開く
   - ホームリンクがなければ、ホームは今日のページを開く
@@ -79,7 +79,7 @@
 
 ### 構造を整える
 
-出典: `tests/level.rs`、`tests/moves.rs`、`tests/actions.rs`、`core/outline/tree.rs`、`core/outline/state.rs`、`e2e/outline-structure`
+出典: `tests/level.rs`、`tests/moves.rs`、`tests/collapse.rs`、`core/outline/tree.rs`、`core/outline/state.rs`、`e2e/outline-structure`
 
 - インデント（Tab）
   - 項目が子ごと1段深くなり、1つの相対シフトとして保存され、Undoに記録される
@@ -124,7 +124,7 @@
 
 ### タスクにする
 
-出典: `tests/actions.rs`、`tests/view.rs`、`e2e/outline-structure`
+出典: `tests/task.rs`、`tests/view.rs`、`e2e/outline-structure`
 
 - Ctrl+Enterでタスクの状態が次へ切り替わり、保存され、Undoに記録される
   - チェックボックスが本文の前に出る
@@ -161,7 +161,7 @@
 
 ### 片付ける
 
-出典: `tests/actions.rs`
+出典: `tests/stash.rs`
 
 - Send to Stashで、ページ末尾に「# Stash」見出しが作られ、部分木がタグなしでその下へ移る
 - Stash見出しが既にあれば、新しい見出しは作られず、その直後へ移る
@@ -180,7 +180,7 @@
 
 ### 選んだ項目を動かす
 
-出典: `tests/actions.rs`、`tests/moves.rs`、`e2e/outline-structure`
+出典: `tests/selection.rs`、`e2e/outline-structure`
 
 - Deleteで1つのUndoエントリとして削除する。ページが空になるなら、空の項目を1つ残す
 - 選択移動では、選択された部分木が1つのまとまりとして端のルートの兄弟を越えて移動する
@@ -249,7 +249,7 @@
 
 ### 項目をつなぐ
 
-出典: `tests/actions.rs`、`core/outline/state.rs`、`e2e/outline-content`
+出典: `tests/transclusion.rs`、`core/outline/state.rs`、`e2e/outline-content`
 
 - `[[`と打つとページ名の候補が出て、Enterで補完される
 - Paste as Transclusionで、項目が貼り付けられたidに結び付けられ、ページが再読み込みされる
@@ -259,7 +259,7 @@
 
 ### 本文を読む
 
-出典: `tests/actions.rs`、`tests/view.rs`、`fm-ast`、`fm-leptos`
+出典: `tests/view.rs`、`fm-ast`、`fm-leptos`
 
 - ズーム
   - 倍率が表示に反映されて保存され、リセットで1.0に戻る
@@ -281,9 +281,9 @@
 
 ## 地図で俯瞰する
 
-出典: `tests/atlas.rs`
-
 ### アトラスを開く
+
+出典: `tests/atlas/navigation.rs`
 
 - indexページのマップボタンは、そのディレクトリのアトラスを開く。ルートのindexはルートのアトラスを開く
 - アトラスページのマップボタンは、indexページに戻る
@@ -297,6 +297,8 @@
   - マップとして見た後でも、マップボタンはindexページに戻る
 
 ### カードを置く
+
+出典: `tests/atlas/cards.rs`
 
 - 境界を持たないページのカードは未配置で待機し、境界を持つページのカードはキャンバスに置かれる
   - カードの位置は、そのページを指す項目から読まれる。リンクを持つだけの他の項目の境界は使われない
@@ -318,6 +320,8 @@
 
 ### まとまりを作る
 
+出典: `tests/atlas/groups.rs`
+
 - グループ項目の下にあるカードは、そのグループに属する。グループの色を持つ
 - カードの上にドロップされたカードはサーバーがグループ化し、返されたアウトラインが表示に反映される
   - ドロップ先自身はグループ化の対象から除かれる
@@ -331,6 +335,8 @@
   - 存在しないグループやグループでない項目へのタイトル、変更のないタイトルは送られない
 
 ### 書き込む
+
+出典: `tests/atlas/callouts.rs`、`tests/atlas/links.rs`
 
 - 吹き出しは、吹き出しの親項目の下にある項目であり、位置・倍率・辺・文を持って表示される
   - 境界がない吹き出しや高さ0の吹き出しは表示されない。辺のない吹き出しは上に表示される
@@ -350,14 +356,16 @@
 
 ### ほかで眺める
 
+出典: `tests/atlas/sync.rs`
+
 - 表示中のアトラスは、サーバーがそのアウトラインを書き換えると、アウトラインを取得し直す
   - アプリ内で行われた変更や、他のページの変更では、取得しない
 
 ## 設定とサーバーと付き合う
 
-出典: `tests/settings.rs`、`tests/edit.rs`
-
 ### 設定を変える
+
+出典: `tests/settings.rs`
 
 - プロパティ定義を追加すると、前後の空白を除いたキーがサーバーに送られ、サーバーの一覧が表示される
   - 断られた定義はその理由を示す。空のキーは送られず、必須である旨が示される
@@ -366,6 +374,8 @@
 - タグフォルダを設定すると、サーバーに送られ、サーバーが正規化した形が保持される
 
 ### サーバーの変化を受け取る
+
+出典: `tests/file_reload.rs`
 
 - ファイルの変更通知は編集の終了を待ち、自動保存の猶予の後にページが再読み込みされる
 

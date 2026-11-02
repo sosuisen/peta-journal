@@ -55,7 +55,7 @@
       - ^ 短い間隔の入力は1つの取り消し単位にまとまる
         - ^ 作成・削除・移動・折りたたみもサーバーごと戻る
 - 日々をたどる #利用者
-  - // 出典: e2e/journal.spec.ts, tests/journal_moves.rs, tests/journal_fragment.rs, tests/actions.rs, util/date.rs, util/week.rs
+  - // 出典: e2e/journal.spec.ts, tests/journal_moves.rs, tests/journal_fragment.rs, tests/task.rs, tests/stash.rs, util/date.rs, util/week.rs
   - タスクにする
     - v Ctrl+Enter で 通常 → タスク → 進行中 → 完了 と切り替わる
       - ^ チェックボックスが本文の前に出る
@@ -75,7 +75,7 @@
   - 片付ける
     - vv Send to Stash で項目を子ごとページ末尾の「# Stash」見出しの下へ移す
 - まとめて扱う #利用者
-  - // 出典: e2e/outline-structure.spec.ts, tests/paste.rs, outline/selection.rs, ops/outline_events.rs
+  - // 出典: e2e/outline-structure.spec.ts, tests/selection.rs, tests/paste.rs, outline/selection.rs, ops/outline_events.rs
   - 複数の項目を選ぶ
     - vv エディタから Shift+↑↓ で上下の項目へ選択を広げる
       - ^ 本文の外へマウスをドラッグすると項目の選択になり、端で自動スクロールする
@@ -128,7 +128,7 @@
         - Shift+ホイールで項目ごとの文字の大きさを変え、Reset Zoom で戻す
           - ^ サイドバーの Contents に見出しの目次が出る
 - 地図で俯瞰する #利用者
-  - // 出典: tests/atlas.rs, docs/properties.md の atlas の節
+  - // 出典: tests/atlas/*.rs, docs/properties.md の atlas の節
   - アトラスを開く
     - vvv index ページのマップボタンでそのフォルダのアトラスを開き、もう一度押すと戻る
       - ^ フォルダは最後に見た形（マップか一覧か）で開く
@@ -152,7 +152,7 @@
     - vvvv 他の PC やサイトがアトラスを書き換えると、表示が追いつく
       - ^ `atlas.js` で、編集なしの地図を別のサイトに貼る
 - 設定とサーバーと付き合う #利用者 #同期
-  - // 出典: tests/settings.rs, screens/sse.rs, ops/file_reload.rs, docs/folder-sync-journeys.md
+  - // 出典: tests/settings.rs, tests/file_reload.rs, screens/sse.rs, ops/file_reload.rs, docs/folder-sync-journeys.md
   - 設定を変える
     - vvvv Markdown の作業フォルダを選ぶ（反映にはサーバーの再起動が要る）
       - ^ 週番号の方式、論理アウトデント、タグフォルダ、ホームリンクを決める
