@@ -7,6 +7,7 @@ use crate::app::{apply, done, log_error, run, Cmd, Model};
 use crate::model::{Item, ItemPosition};
 use crate::ops::edit::discard_pending_edit_of_focused_item;
 use crate::ops::edit::focus_editor;
+use crate::ops::file_reload::reload_shown_page;
 use crate::ops::outline_events::ensure_at_least_one_item;
 use crate::outline::tree::position_by_index;
 use crate::outline::{CursorState, UndoEntry, UndoOp};
@@ -177,6 +178,7 @@ fn sync_to_server(ops: Vec<UndoOp>, dir: Direction) -> Cmd {
         if !to_delete.is_empty() {
             if let Err(e) = api.delete_items(to_delete).await {
                 log_error(format!("Failed to sync undo/redo to server: {e}"));
+                reload_shown_page(&api).await;
             }
         }
     })
