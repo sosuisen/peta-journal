@@ -334,14 +334,22 @@ impl ItemMerger {
         defs: &BTreeMap<String, String>,
     ) -> AppResult<bool> {
         let mut changed = false;
+        let mut want: Vec<&str> = Vec::new();
         for (k, v) in file_properties {
             if defs.get(k).map(String::as_str) != Some("list") {
                 continue;
             }
+            want.push(k);
             let values = list_values(v);
             if have.get(k) != Some(&values) {
                 self.properties
                     .upsert_list(ITEM_TARGET, item_id, k, "list", &values)?;
+                changed = true;
+            }
+        }
+        for key in have.keys() {
+            if key != "tags" && !want.contains(&key.as_str()) {
+                self.properties.delete_property(ITEM_TARGET, item_id, key)?;
                 changed = true;
             }
         }
