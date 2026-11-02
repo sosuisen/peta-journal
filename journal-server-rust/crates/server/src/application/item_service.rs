@@ -139,16 +139,20 @@ impl ItemService {
         // The new item may have got a parent
         let item = self.items.find_by_id(&id)?.unwrap_or(item);
 
-        // Sync hashtags as tag properties
-        let hashtags = hashtag::extract_hashtags(&ast);
+        self.register_new_item(&item, &page)?;
+        Ok(item)
+    }
+
+    /// Makes a new item findable: its hashtags become tag properties and its body is indexed.
+    fn register_new_item(&self, item: &Item, page: &Page) -> AppResult<()> {
+        let hashtags = hashtag::extract_hashtags(&item.ast);
         if !hashtags.is_empty() {
             self.properties
-                .sync_tags(ITEM_TARGET, id.as_str(), &hashtags)?;
+                .sync_tags(ITEM_TARGET, item.id.as_str(), &hashtags)?;
             self.page_service.update_tag_pages(&[], &hashtags);
         }
-
-        self.search.index_item(&item, &page.title());
-        Ok(item)
+        self.search.index_item(item, &page.title());
+        Ok(())
     }
 
     /// Updates an existing item. Only the given fields are written.
@@ -364,13 +368,7 @@ impl ItemService {
                     ..Item::new_on(self.ids.generate_item_id(), &page, now_millis())
                 };
                 let copy = self.items.save(&copy)?;
-                let hashtags = hashtag::extract_hashtags(&copy.ast);
-                if !hashtags.is_empty() {
-                    self.properties
-                        .sync_tags(ITEM_TARGET, copy.id.as_str(), &hashtags)?;
-                    self.page_service.update_tag_pages(&[], &hashtags);
-                }
-                self.search.index_item(&copy, &page.title());
+                self.register_new_item(&copy, &page)?;
                 above = copy.id;
             }
         }
