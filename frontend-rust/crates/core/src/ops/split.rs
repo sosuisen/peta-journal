@@ -57,8 +57,7 @@ pub fn handle_enter(model: &mut Model, item_id: &str, cursor: usize) -> Cmd {
             };
             (host, position_before(model.state.items(), &item.id))
         } else if ctx.in_transclusion {
-            // A descendant's neighbours above are source items, shown with their own ids
-            (ctx, position_before(model.state.visible_items(), &item.id))
+            (ctx, position_before_on_source_page(model, &item.id))
         } else {
             (ctx, position_before(model.state.items(), &item.id))
         };
@@ -103,6 +102,21 @@ fn release_keys(api: &Api<Event>) {
         m.key_relay.release();
         done()
     });
+}
+
+/// The position before a transcluded descendant on its source page. The item above it is a
+/// source item shown with its own id, except the root, which stands for the source item.
+fn position_before_on_source_page(model: &Model, item_id: &str) -> ItemPosition {
+    match position_before(model.state.visible_items(), item_id) {
+        ItemPosition::After(above_id) => {
+            let source_id = model
+                .state
+                .get_item_by_id(&above_id)
+                .and_then(|above| above.transclude_item_id.clone());
+            ItemPosition::After(source_id.unwrap_or(above_id))
+        }
+        position => position,
+    }
 }
 
 /// Enter at the beginning: a new empty item goes before the current one, which keeps its text.
