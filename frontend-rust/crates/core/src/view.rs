@@ -414,14 +414,7 @@ fn outline(model: &Model) -> OutlineView {
 
         let is_editing = editing.contains(&item.id);
         let heading_level = item.heading_level_of_body();
-        let is_broken = match &item.transclude_item_id {
-            Some(source) => state
-                .transcluded_trees()
-                .get(source)
-                .map(|t| t.is_empty())
-                .unwrap_or(true),
-            None => false,
-        };
+        let is_broken = state.is_broken_transclusion(&item.id);
         let date_header = (item.item_type == "journal"
             && item.name != journal_date
             && starts_date_group(visible, own_ids, index))

@@ -61,6 +61,19 @@ impl OutlineState {
         &self.transcluded_trees
     }
 
+    /// True for a transclusion whose source item is gone: it has nothing to show but its
+    /// stored copy, and nothing to edit.
+    pub fn is_broken_transclusion(&self, item_id: &str) -> bool {
+        self.get_item_by_id(item_id)
+            .and_then(|item| item.transclude_item_id.clone())
+            .is_some_and(|source| {
+                self.transcluded_trees
+                    .get(&source)
+                    .map(|t| t.is_empty())
+                    .unwrap_or(true)
+            })
+    }
+
     pub fn focused_item_id(&self) -> Option<&str> {
         self.focused_item_id.as_deref()
     }

@@ -78,3 +78,46 @@ fn a_transclusion_whose_source_is_gone_is_shown_as_broken() {
         .collect();
     assert_eq!(broken, [false, true]);
 }
+
+// 壊れたトランスクルージョンのルートは、クリックしても編集にならない。
+#[test]
+fn a_broken_transclusion_root_does_not_open_an_editor_when_clicked() {
+    let transclusion = item_with("t", 1, |i| i.transclude_item_id = Some("gone".into()));
+    let mut h = Harness::with_items(vec![item("a", 1, ""), transclusion]);
+    h.send(Event::EditRequested {
+        item_id: "t".into(),
+        cursor: 0,
+    });
+    assert!(!h.model.state.is_editing("t"));
+    assert_eq!(h.model.state.focused_item_id(), None);
+}
+
+// 矢印キーでの移動は、壊れたルートを飛ばして次の項目へ移る。その先に項目がなければ、今の項目にとどまる。
+#[test]
+fn arrow_navigation_skips_a_broken_transclusion_root() {
+    let transclusion = item_with("t", 1, |i| i.transclude_item_id = Some("gone".into()));
+    let mut h = Harness::with_items(vec![item("a", 1, ""), transclusion, item("b", 1, "")]);
+    h.model.state.add_editing_item("a");
+    h.send(Event::NavigateDown {
+        item_id: "a".into(),
+        cursor: 0,
+    });
+    assert!(h.model.state.is_editing("b"));
+    assert!(!h.model.state.is_editing("t"));
+
+    h.send(Event::NavigateUp {
+        item_id: "b".into(),
+        cursor: 0,
+    });
+    assert!(h.model.state.is_editing("a"));
+
+    let transclusion = item_with("t", 1, |i| i.transclude_item_id = Some("gone".into()));
+    let mut h = Harness::with_items(vec![item("a", 1, ""), transclusion]);
+    h.model.state.add_editing_item("a");
+    h.send(Event::NavigateDown {
+        item_id: "a".into(),
+        cursor: 0,
+    });
+    assert!(h.model.state.is_editing("a"));
+    assert!(!h.model.state.is_editing("t"));
+}
