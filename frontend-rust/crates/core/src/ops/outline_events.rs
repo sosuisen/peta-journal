@@ -11,7 +11,7 @@ use crux_core::Command;
 
 /// The user clicked an item to start editing it. Ignored in selection mode.
 pub fn edit_requested(model: &mut Model, item_id: &str, cursor: usize) -> Cmd {
-    if model.state.item_selection_mode() {
+    if model.state.item_selection_mode() || model.state.is_broken_transclusion(item_id) {
         return done();
     }
     let current = model
