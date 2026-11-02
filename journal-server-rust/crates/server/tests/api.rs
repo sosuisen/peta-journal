@@ -531,6 +531,43 @@ async fn a_group_of_items_is_deleted_with_its_descendants_in_one_request() {
     assert_eq!(outline_of(&page.id).await, ["1:keep", "1:last"]);
 }
 
+// 子孫がそろっていないグループは断られ、何も消えない。
+#[tokio::test]
+async fn a_group_that_leaves_a_descendant_behind_is_refused_and_nothing_is_deleted() {
+    let page = new_doc_page("items-group-delete-refuse").await;
+    let rows = fill(
+        &page.id,
+        &["parent", "  child", "    grandchild", "sibling"],
+    )
+    .await;
+
+    let (status, _) = post(
+        "/api/items/delete",
+        json!({ "itemIds": [rows[0].id, rows[1].id, rows[3].id] }),
+    )
+    .await;
+    assert_eq!(status, 400);
+
+    assert_eq!(
+        outline_of(&page.id).await,
+        ["1:parent", "2:child", "3:grandchild", "1:sibling"]
+    );
+}
+
+// 単体の削除は、子を持つ項目を断る。子のない項目は消える。
+#[tokio::test]
+async fn a_single_delete_refuses_an_item_with_children() {
+    let page = new_doc_page("items-single-delete").await;
+    let rows = fill(&page.id, &["parent", "  child"]).await;
+
+    assert_eq!(delete(&format!("/api/items/{}", rows[0].id)).await, 400);
+    assert_eq!(outline_of(&page.id).await, ["1:parent", "2:child"]);
+
+    assert_eq!(delete(&format!("/api/items/{}", rows[1].id)).await, 204);
+    assert_eq!(delete(&format!("/api/items/{}", rows[0].id)).await, 204);
+    assert_eq!(outline_of(&page.id).await, Vec::<String>::new());
+}
+
 // ---- Pages ----
 
 // 新しいdocページは空の項目1つで始まり、同じタイトルで再び見つかる。
