@@ -296,3 +296,32 @@ fn enter_at_the_start_of_a_transclusion_root_puts_the_empty_item_before_it_on_th
     );
     assert_eq!(h.items_ids(), ["a", "new1", "root"]);
 }
+
+// 埋め込まれた子孫の行頭での Enter は、参照元ページのその項目の直前に空の項目を作り、ページを読み直す。
+#[test]
+fn enter_at_the_start_of_a_transcluded_descendant_puts_the_empty_item_before_it_on_the_source_page()
+{
+    let mut h = transclusion_harness(Vec::new());
+    let mut trees = TranscludedTrees::new();
+    trees.insert(
+        "s".into(),
+        vec![
+            item_with("s", 1, |i| i.page_id = "src".into()),
+            item_with("c", 2, |i| i.page_id = "src".into()),
+            item_with("d", 2, |i| {
+                i.page_id = "src".into();
+                i.body = "second".into();
+            }),
+        ],
+    );
+    h.model.state.set_transcluded_trees(trees);
+    enter(&mut h, "d", 0);
+    let calls = create_calls(&h.api);
+    assert_eq!(calls.len(), 1);
+    let (page_id, position, level, body, _) = &calls[0];
+    assert_eq!(
+        (page_id.as_str(), position.as_str(), *level, body.as_str()),
+        ("src", "after:c", 2, "")
+    );
+    assert!(h.api.called("GetPageById"));
+}
