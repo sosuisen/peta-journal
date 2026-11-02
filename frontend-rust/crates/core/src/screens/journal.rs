@@ -4,10 +4,10 @@
 use crate::app::{
     apply, done, log_error, run, Cmd, Event, JournalNav, JournalState, Model, Screen,
 };
-use crate::effects::{Api, UiOp};
+use crate::effects::Api;
 use crate::ops::edit::focus_editor;
 use crate::ops::moves::CrossDayMove;
-use crate::screens::{navigate, page, sidebar};
+use crate::screens::{extensions, navigate, page, sidebar};
 use crate::util::date::{format_journal_date, Date};
 use crate::util::filename::{classify_journal_file_name, JournalType};
 use crate::util::week::weeks_in_year;
@@ -89,16 +89,7 @@ pub fn load_journal(model: &mut Model, date: String) -> Cmd {
                 page::scroll_to_item(m, focus_item_id),
             ];
             if created {
-                cmds.push(sidebar::refresh_recent_pages());
-                cmds.push(
-                    Command::notify_shell(UiOp::ExtensionPageCreate {
-                        page_id: result.page.id.clone(),
-                        file_name: d.clone(),
-                        dir_name: result.page.dir_path.clone(),
-                        page_type: result.page.page_type.clone(),
-                    })
-                    .into(),
-                );
+                cmds.push(extensions::page_created(&result.page, d.clone()));
             }
             Command::all(cmds)
         });

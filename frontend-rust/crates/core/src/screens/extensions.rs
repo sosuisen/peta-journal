@@ -6,6 +6,7 @@ use crate::effects::{Api, ApiError, UiOp};
 use crate::model::{ItemPosition, Page};
 use crate::ops::file_reload::reload_shown_page;
 use crate::outline::tree::can_place;
+use crate::screens::sidebar;
 use crux_core::Command;
 use serde_json::json;
 
@@ -167,6 +168,21 @@ pub fn confirm(source: u64, request_id: Option<String>, message: String) -> Cmd 
             message: json!({ "type": "ConfirmResult", "ok": ok, "requestId": request_id }),
         });
     })
+}
+
+/// A page made on the way to it: the recent pages are refreshed and the extensions hear of
+/// it. The file name of a journal is its date.
+pub fn page_created(page: &Page, file_name: String) -> Cmd {
+    Command::all([
+        sidebar::refresh_recent_pages(),
+        Command::notify_shell(UiOp::ExtensionPageCreate {
+            page_id: page.id.clone(),
+            file_name,
+            dir_name: page.dir_path.clone(),
+            page_type: page.page_type.clone(),
+        })
+        .into(),
+    ])
 }
 
 /// The extensions hear of the tags added to the tags property of a page. Nothing is sent

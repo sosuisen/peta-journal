@@ -92,16 +92,8 @@ pub fn open(model: &mut Model, name: &str, fragment: Option<String>) -> Cmd {
                 load_backlinks(page_for_state.id.clone()),
             ];
             if created {
-                cmds.push(sidebar::refresh_recent_pages());
-                cmds.push(
-                    Command::notify_shell(UiOp::ExtensionPageCreate {
-                        page_id: page_for_state.id.clone(),
-                        file_name: page_for_state.name.clone(),
-                        dir_name: page_for_state.dir_path.clone(),
-                        page_type: page_for_state.page_type.clone(),
-                    })
-                    .into(),
-                );
+                let name = page_for_state.name.clone();
+                cmds.push(extensions::page_created(&page_for_state, name));
             }
             Command::all(cmds)
         });
