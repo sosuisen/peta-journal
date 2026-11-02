@@ -8,8 +8,8 @@
 //! The place of a card or a callout is saved as a property of its item. Every other change
 //! goes to the server, which writes the outline again and answers with its items.
 
-use crate::app::{apply, done, log_error, run, Cmd, Model};
-use crate::effects::{AtlasChange, TimerOp, TimerOutput, UiOp};
+use crate::app::{apply, cancel_timer, done, log_error, run, Cmd, Model};
+use crate::effects::{AtlasChange, TimerOutput, UiOp};
 use crate::model::{Item, Page};
 use crate::ops::file_reload;
 use crate::screens::page::{split_doc_path, ATLAS_NAME};
@@ -532,12 +532,7 @@ pub const LINK_SUGGESTIONS: u32 = 8;
 /// The page names that match the text typed in the dialog of a link, found after a pause in
 /// the typing. An empty text clears them.
 pub fn search_links(model: &mut Model, query: String) -> Cmd {
-    let cancel = if model.atlas_link_search.timer_id == 0 {
-        done()
-    } else {
-        let id = std::mem::take(&mut model.atlas_link_search.timer_id);
-        Command::notify_shell(TimerOp::Cancel { id }).into()
-    };
+    let cancel = cancel_timer(&mut model.atlas_link_search.timer_id);
     let query = query.trim().to_string();
     if query.is_empty() {
         model.atlas_link_search.suggestions.clear();

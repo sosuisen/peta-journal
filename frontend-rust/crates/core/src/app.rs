@@ -433,6 +433,15 @@ pub fn all(cmds: impl IntoIterator<Item = Cmd>) -> Cmd {
 }
 
 /// Logs an error the user does not need to see, like `console.error` in the Angular app.
+/// Stops a debounce timer that is still running and forgets it.
+pub fn cancel_timer(timer_id: &mut u64) -> Cmd {
+    if *timer_id == 0 {
+        return done();
+    }
+    let id = std::mem::take(timer_id);
+    Command::notify_shell(crate::effects::TimerOp::Cancel { id }).into()
+}
+
 pub fn log_error(message: impl fmt::Display) {
     #[cfg(target_arch = "wasm32")]
     {
