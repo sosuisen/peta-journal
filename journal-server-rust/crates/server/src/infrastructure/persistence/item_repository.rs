@@ -231,11 +231,18 @@ impl ItemRepository {
     pub fn patch(&self, id: &Hmtid, patch: &ItemPatch) -> AppResult<bool> {
         let mut conn = self.db.conn()?;
         let tx = conn.immediate()?;
-        let found = patch_columns(&tx, id, patch)?;
-        if found {
-            patch_types(&tx, id, patch)?;
-        }
+        let found = Self::patch_in(&tx, id, patch)?;
         tx.commit()?;
+        Ok(found)
+    }
+
+    /// Writes only the fields set in the patch, on the given connection, as part of a larger
+    /// transaction. Returns whether the item exists.
+    pub fn patch_in(tx: &Connection, id: &Hmtid, patch: &ItemPatch) -> AppResult<bool> {
+        let found = patch_columns(tx, id, patch)?;
+        if found {
+            patch_types(tx, id, patch)?;
+        }
         Ok(found)
     }
 

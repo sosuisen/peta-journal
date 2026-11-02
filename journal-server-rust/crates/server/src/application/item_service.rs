@@ -35,14 +35,15 @@ pub struct TreeMarkdownExport {
     pub flat_markdown: String,
 }
 
-/// What a removal of items does outside the database, once its transaction is committed.
+/// What an operation does outside the database, once its transaction is committed: the
+/// search index, the tag pages and the export of the pages it touched.
 #[derive(Default)]
-struct RemovalEffects {
+struct AfterCommit {
     removed_ids: Vec<String>,
-    /// Each copy made for a transcluder, with the title of its page for the search index.
-    copies: Vec<(Item, String)>,
-    tags_removed: Vec<String>,
-    hashtags_added: Vec<String>,
+    /// Each item to index anew, with the title of its page.
+    indexed: Vec<(Item, String)>,
+    /// The tags of an item before and after, for the tag pages.
+    tag_changes: Vec<(Vec<String>, Vec<String>)>,
     pages: BTreeSet<Hmtid>,
 }
 
@@ -357,9 +358,10 @@ impl ItemService {
                 }
             }
         }
-        let effects = self.remove_items(&tx, &items)?;
+        let mut effects = AfterCommit::default();
+        self.remove_items(&tx, &items, &mut effects)?;
         tx.commit()?;
-        self.finish_removal(effects);
+        self.finish(effects);
         Ok(())
     }
 
@@ -367,51 +369,105 @@ impl ItemService {
     /// the items go, children before parents, with their properties. The pages touched get
     /// their parents recalculated. What happens outside the database is returned for after
     /// the commit.
-    fn remove_items(&self, tx: &Connection, items: &[Item]) -> AppResult<RemovalEffects> {
-        let mut effects = RemovalEffects::default();
+    fn remove_items(
+        &self,
+        tx: &Connection,
+        items: &[Item],
+        effects: &mut AfterCommit,
+    ) -> AppResult<()> {
         // A transcluder keeps what it showed, so the descendants are copied while they exist
         for item in items {
             let transcluders = ItemRepository::find_transcluders_in(tx, &item.id)?;
-            self.copy_descendants_to_transcluders(tx, item, &transcluders, &mut effects)?;
+            self.copy_descendants_to_transcluders(tx, item, &transcluders, effects)?;
             effects
                 .pages
                 .extend(transcluders.iter().map(|t| t.page_id.clone()));
         }
         let mut items: Vec<&Item> = items.iter().collect();
         items.sort_by_key(|item| std::cmp::Reverse(item.level));
+        let mut removed_ids = Vec::new();
         for item in items {
-            effects
-                .tags_removed
-                .extend(PropertyRepository::find_tags_in(
-                    tx,
-                    ITEM_TARGET,
-                    item.id.as_str(),
-                )?);
+            let tags = PropertyRepository::find_tags_in(tx, ITEM_TARGET, item.id.as_str())?;
+            effects.tag_changes.push((tags, Vec::new()));
             ItemRepository::delete_in(tx, &item.id)?;
-            effects.removed_ids.push(item.id.to_string());
+            removed_ids.push(item.id.to_string());
             effects.pages.insert(item.page_id.clone());
         }
-        PropertyRepository::delete_all_for_targets_in(tx, ITEM_TARGET, &effects.removed_ids)?;
+        PropertyRepository::delete_all_for_targets_in(tx, ITEM_TARGET, &removed_ids)?;
+        effects.removed_ids.extend(removed_ids);
         let now = now_millis();
         for page_id in &effects.pages {
             ItemRepository::recalculate_parent_ids_in(tx, page_id)?;
             PageRepository::touch_in(tx, page_id, now)?;
         }
-        Ok(effects)
+        Ok(())
     }
 
-    /// The work of a removal that lives outside the database, done once the commit is through.
-    fn finish_removal(&self, effects: RemovalEffects) {
+    /// Gives an item a new body inside a transaction: its types, its hashtags and the stored
+    /// copies in its transcluders follow. Returns the item as it is now.
+    fn set_body_in(
+        &self,
+        tx: &Connection,
+        item: &Item,
+        body: &str,
+        effects: &mut AfterCommit,
+    ) -> AppResult<Item> {
+        let parsed = ItemBody::parse(Some(body));
+        let ast = self.parser.parse_to_ast(&parsed.text);
+        let now = now_millis();
+        // A task stays a task when its body changes; only the prefix can add the type here
+        let patch = ItemPatch::new(
+            Some(parsed.text.clone()),
+            Some(ast.clone()),
+            Some(parsed.text_types()),
+            parsed.task.then_some(true),
+            None,
+            None,
+            now,
+        )
+        .map_err(AppError::bad_request)?;
+        ItemRepository::patch_in(tx, &item.id, &patch)?;
+        let before = PropertyRepository::find_tags_in(tx, ITEM_TARGET, item.id.as_str())?;
+        let hashtags = hashtag::extract_hashtags(&ast);
+        PropertyRepository::sync_tags_in(tx, ITEM_TARGET, item.id.as_str(), &hashtags)?;
+        effects.tag_changes.push((before, hashtags));
+        let updated = ItemRepository::find_by_id_in(tx, &item.id)?
+            .ok_or_else(|| AppError::not_found(format!("Item not found: {}", item.id)))?;
+        let page = self.page_service.require_page(&item.page_id)?;
+        effects.indexed.push((updated.clone(), page.title()));
+        PageRepository::touch_in(tx, &item.page_id, now)?;
+        effects.pages.insert(item.page_id.clone());
+        // The exported Markdown of a transcluder is built from its stored copy, so the copy
+        // follows the source
+        for transcluder in ItemRepository::find_transcluders_in(tx, &item.id)? {
+            if transcluder.body != updated.body {
+                ItemRepository::save_in(
+                    tx,
+                    &Item {
+                        modified_date: now,
+                        body: updated.body.clone(),
+                        ast: updated.ast.clone(),
+                        ..transcluder.clone()
+                    },
+                )?;
+            }
+            PageRepository::touch_in(tx, &transcluder.page_id, now)?;
+            effects.pages.insert(transcluder.page_id.clone());
+        }
+        Ok(updated)
+    }
+
+    /// The work that lives outside the database, done once the commit is through.
+    fn finish(&self, effects: AfterCommit) {
         for id in &effects.removed_ids {
             self.search.remove_item(id);
         }
-        for (copy, title) in &effects.copies {
-            self.search.index_item(copy, title);
+        for (item, title) in &effects.indexed {
+            self.search.index_item(item, title);
         }
-        self.page_service
-            .delete_unused_tag_pages(&effects.tags_removed);
-        self.page_service
-            .update_tag_pages(&[], &effects.hashtags_added);
+        for (before, after) in &effects.tag_changes {
+            self.page_service.update_tag_pages(before, after);
+        }
         for page_id in &effects.pages {
             self.export.queue_export(page_id);
         }
@@ -424,7 +480,7 @@ impl ItemService {
         tx: &Connection,
         source: &Item,
         transcluders: &[Item],
-        effects: &mut RemovalEffects,
+        effects: &mut AfterCommit,
     ) -> AppResult<()> {
         let descendants: Vec<Item> = ItemRepository::find_item_with_descendants_in(tx, &source.id)?
             .into_iter()
@@ -451,10 +507,10 @@ impl ItemService {
                 let hashtags = hashtag::extract_hashtags(&copy.ast);
                 if !hashtags.is_empty() {
                     PropertyRepository::sync_tags_in(tx, ITEM_TARGET, copy.id.as_str(), &hashtags)?;
-                    effects.hashtags_added.extend(hashtags);
+                    effects.tag_changes.push((Vec::new(), hashtags));
                 }
                 above = copy.id.clone();
-                effects.copies.push((copy, page.title()));
+                effects.indexed.push((copy, page.title()));
             }
         }
         Ok(())
@@ -470,13 +526,14 @@ impl ItemService {
             return Err(AppError::bad_request("A transclusion cannot be merged"));
         }
         let merged = format!("{}{}", into.body, item.body);
-        let into = self.update_item(into_id, Some(&merged), None, None)?;
-        // The children stay, with the receiving item as their parent: no group is needed
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
-        let effects = self.remove_items(&tx, std::slice::from_ref(&item))?;
+        let mut effects = AfterCommit::default();
+        let into = self.set_body_in(&tx, &into, &merged, &mut effects)?;
+        // The children stay, with the receiving item as their parent: no group is needed
+        self.remove_items(&tx, std::slice::from_ref(&item), &mut effects)?;
         tx.commit()?;
-        self.finish_removal(effects);
+        self.finish(effects);
         Ok(into)
     }
 
