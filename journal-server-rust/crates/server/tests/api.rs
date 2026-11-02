@@ -507,6 +507,30 @@ async fn merging_away_a_source_item_leaves_a_copy_in_its_transcluders() {
         .all(|i| i.transclude_item_id.is_none()));
 }
 
+// 受け取る項目がトランスクルードされていれば、結合した本文が埋め込み側の写しにも入る。
+#[tokio::test]
+async fn merging_into_a_transcluded_item_updates_the_stored_copy_in_its_transcluders() {
+    let page = new_doc_page("items-merge-into-source").await;
+    let rows = fill(&page.id, &["first", "second"]).await;
+    let host_page = new_doc_page("items-merge-into-host").await;
+    let host = fill(&host_page.id, &["placeholder"]).await.remove(0);
+    let (status, resp) = post(
+        &format!("/api/items/{}/transclude", host.id),
+        json!({ "sourceItemId": rows[0].id }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    let (status, resp) = post(
+        "/api/items/merge",
+        json!({ "itemId": rows[1].id, "intoId": rows[0].id }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(items(&host_page.id).await[0].body, "firstsecond");
+}
+
 // ---- Items: group delete ----
 
 // グループ削除は、項目を子孫ごと1回のリクエストで消す。
