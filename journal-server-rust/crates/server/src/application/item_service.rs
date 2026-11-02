@@ -380,6 +380,10 @@ impl ItemService {
     pub fn merge_item(&self, item_id: &Hmtid, into_id: &Hmtid) -> AppResult<Item> {
         let item = self.get_item_by_id(item_id)?;
         let into = self.get_item_by_id(into_id)?;
+        // A transclusion shows its source: its body is not its own to give or to take
+        if item.transclude_item_id.is_some() || into.transclude_item_id.is_some() {
+            return Err(AppError::bad_request("A transclusion cannot be merged"));
+        }
         let merged = format!("{}{}", into.body, item.body);
         let into = self.update_item(into_id, Some(&merged), None, None)?;
         self.delete_item(item_id)?;
