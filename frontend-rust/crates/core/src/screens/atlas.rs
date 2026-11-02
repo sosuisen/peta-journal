@@ -463,9 +463,7 @@ pub fn link_cards(model: &Model) -> Vec<LinkCard> {
 }
 
 fn shown_atlas_page(model: &Model) -> Option<&Page> {
-    super::page::page_state(model)
-        .and_then(|ps| ps.page.as_ref())
-        .filter(|p| super::page::is_atlas(p))
+    super::page::shown_doc_page(model).filter(|p| super::page::is_atlas(p))
 }
 
 /// The target typed in the dialog of a link, without the brackets of a link around it, as the

@@ -39,6 +39,15 @@ pub(crate) fn page_mut(model: &mut Model) -> Option<&mut PageState> {
     }
 }
 
+/// The doc page on screen, once it is loaded.
+pub fn shown_doc_page(model: &Model) -> Option<&Page> {
+    page_state(model).and_then(|ps| ps.page.as_ref())
+}
+
+fn shown_doc_page_mut(model: &mut Model) -> Option<&mut Page> {
+    page_mut(model).and_then(|ps| ps.page.as_mut())
+}
+
 /// Shows a doc page by its path; the fragment is the item to scroll to.
 pub fn open(model: &mut Model, name: &str, fragment: Option<String>) -> Cmd {
     let remember = crate::screens::atlas::remember_folder_view(model, name);
@@ -114,11 +123,7 @@ pub fn open(model: &mut Model, name: &str, fragment: Option<String>) -> Cmd {
         // The outline loads the items of the page
         match api.get_page_by_id(&p.id).await {
             Ok(loaded) => apply(&api, "page items", move |m| {
-                if page_state(m)
-                    .and_then(|ps| ps.page.as_ref())
-                    .map(|pg| pg.id.as_str())
-                    != Some(&p.id)
-                {
+                if shown_doc_page(m).map(|pg| pg.id.as_str()) != Some(&p.id) {
                     return done();
                 }
                 m.state.set_items(loaded.items);
@@ -136,7 +141,7 @@ pub fn open(model: &mut Model, name: &str, fragment: Option<String>) -> Cmd {
 
 /// Loads the backlinks of the shown doc page again: any page may have changed its links.
 pub fn reload_backlinks(model: &Model) -> Cmd {
-    match page_state(model).and_then(|p| p.page.as_ref()) {
+    match shown_doc_page(model) {
         Some(p) => load_backlinks(p.id.clone()),
         None => done(),
     }
@@ -211,7 +216,7 @@ pub fn atlas_title(p: &Page) -> String {
 /// Opens the atlas page of the directory of the shown index page, or the index page of the
 /// shown atlas page. The atlas page is created when it is opened for the first time.
 pub fn toggle_atlas(model: &mut Model) -> Cmd {
-    let Some(p) = page_state(model).and_then(|ps| ps.page.as_ref()) else {
+    let Some(p) = shown_doc_page(model) else {
         return done();
     };
     let target = if p.name == "index" {
@@ -227,7 +232,7 @@ pub fn toggle_atlas(model: &mut Model) -> Cmd {
 /// Opens the atlas page of the directory above the shown atlas page. The map stays a map
 /// on the way up. The root atlas has no directory above.
 pub fn atlas_up(model: &mut Model) -> Cmd {
-    let Some(p) = page_state(model).and_then(|ps| ps.page.as_ref()) else {
+    let Some(p) = shown_doc_page(model) else {
         return done();
     };
     let dir = p.dir_path.trim_end_matches('/');
@@ -306,7 +311,7 @@ pub fn demote_name(p: &Page) -> String {
 
 /// Saves the edited page title and/or directory path to the server.
 pub fn save_title(model: &mut Model, dir_path: String, file_name: String) -> Cmd {
-    let Some(p) = page_state(model).and_then(|ps| ps.page.clone()) else {
+    let Some(p) = shown_doc_page(model).cloned() else {
         return done();
     };
     let raw = file_name.trim().to_string();
@@ -400,7 +405,7 @@ fn property_value(value_type: &str, value: &str) -> Value {
 /// formats numbers) replaces it, and a refusal puts the old properties back. The page's
 /// dates (`created`, `modified`) only change when the server has accepted them.
 pub fn set_property(model: &mut Model, key: String, value_type: String, value: String) -> Cmd {
-    let Some(page) = page_mut(model).and_then(|ps| ps.page.as_mut()) else {
+    let Some(page) = shown_doc_page_mut(model) else {
         return done();
     };
     // The server gets the same list as the screen shows
@@ -446,7 +451,7 @@ fn tag_list(value: Option<&Value>) -> Vec<String> {
 
 /// Removes a property of the doc page, the same way `set_property` sets one.
 pub fn delete_property(model: &mut Model, key: String) -> Cmd {
-    let Some(page) = page_mut(model).and_then(|ps| ps.page.as_mut()) else {
+    let Some(page) = shown_doc_page_mut(model) else {
         return done();
     };
     let before = page.properties.clone();
@@ -491,9 +496,7 @@ async fn settle_property_change(
 
 /// The doc page on screen when it is still the given one.
 fn shown_page_mut<'a>(model: &'a mut Model, page_id: &str) -> Option<&'a mut Page> {
-    page_mut(model)
-        .and_then(|ps| ps.page.as_mut())
-        .filter(|p| p.id == page_id)
+    shown_doc_page_mut(model).filter(|p| p.id == page_id)
 }
 
 /// Updates the title or folder of a page. When another page has the new name, asks first
@@ -536,7 +539,7 @@ async fn update_page(
 
 /// Renames a childless index page `a/b/index` to the page `a/b`.
 pub fn demote_index(model: &mut Model) -> Cmd {
-    let Some(p) = page_state(model).and_then(|ps| ps.page.clone()) else {
+    let Some(p) = shown_doc_page(model).cloned() else {
         return done();
     };
     if p.dir_path.is_empty() {
