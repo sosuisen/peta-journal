@@ -520,6 +520,9 @@ async fn merging_into_a_transcluded_item_updates_the_stored_copy_in_its_transclu
     )
     .await;
     assert_eq!(status, 200, "{resp}");
+    let (_, resp) = get(&format!("/api/pages/{}", host_page.id)).await;
+    let modified_before = field_of_each(&resp, "items", "modifiedDate").remove(0);
+    tokio::time::sleep(std::time::Duration::from_millis(5)).await;
 
     let (status, resp) = post(
         "/api/items/merge",
@@ -529,6 +532,18 @@ async fn merging_into_a_transcluded_item_updates_the_stored_copy_in_its_transclu
     assert_eq!(status, 200, "{resp}");
 
     assert_eq!(items(&host_page.id).await[0].body, "firstsecond");
+    // The copy carries the parsed form too, and counts as changed, so a sync by date picks it up
+    let (_, source) = get(&format!("/api/pages/{}", page.id)).await;
+    let (_, resp) = get(&format!("/api/pages/{}", host_page.id)).await;
+    assert_eq!(
+        field_of_each(&resp, "items", "ast")[0],
+        field_of_each(&source, "items", "ast")[0]
+    );
+    let modified_after = field_of_each(&resp, "items", "modifiedDate").remove(0);
+    assert!(
+        modified_after.as_i64() > modified_before.as_i64(),
+        "{modified_before} -> {modified_after}"
+    );
 }
 
 // ---- Items: group delete ----
