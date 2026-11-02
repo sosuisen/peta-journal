@@ -203,3 +203,13 @@ fn a_pick_for_an_item_that_is_gone_only_closes_the_popup() {
     assert_eq!(h.view().outline.wiki.item_id, None);
     assert!(update_calls(&h.api).is_empty());
 }
+
+// リンクをクリックすると、そのページが開く。
+#[test]
+fn clicking_a_link_opens_its_page() {
+    let mut h = Harness::new();
+    h.send(Event::OpenWikiLink {
+        text: "notes/Idea".into(),
+    });
+    assert_eq!(h.navigations.last().unwrap().url, "/pages/notes/Idea");
+}

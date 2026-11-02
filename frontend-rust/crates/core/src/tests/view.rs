@@ -99,3 +99,15 @@ fn only_an_item_with_a_zoom_of_its_own_has_one() {
     );
     assert_eq!(r[1].effective_zoom, 1.5);
 }
+
+// 項目へのスクロールの求めは、なめらかなスクロールとしてシェルに渡る。
+#[test]
+fn a_scroll_request_is_passed_on_as_a_smooth_scroll() {
+    let mut h = Harness::with_items(vec![item("a", 1, "")]);
+    h.send(Event::ScrollToItemRequested {
+        item_id: "a".into(),
+    });
+    assert!(h.ui.iter().any(
+        |u| matches!(u, crate::effects::UiOp::ScrollToItem { item_id, smooth: true } if item_id == "a")
+    ));
+}

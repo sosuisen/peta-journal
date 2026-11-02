@@ -168,3 +168,22 @@ fn a_deeper_descendant_is_outdented_and_stored_with_the_trees_level_offset() {
     assert_eq!(shift_calls(&h), [(vec!["c2".to_string()], -1)]);
     assert_eq!(h.model.state.get_item_by_id("c2").unwrap().level, 2);
 }
+
+// 深い子の後ろにある項目も、同じ段の項目が上にあれば、その最後の子として1段深くできる。
+#[test]
+fn an_item_after_a_deep_subtree_can_be_indented_under_the_root_above() {
+    // * a (1)
+    //     * b (2)
+    //         * c (3)
+    // * d (1)  ← indent
+    let mut h = Harness::with_items(vec![
+        item("a", 1, ""),
+        item("b", 2, ""),
+        item("c", 3, ""),
+        item("d", 1, ""),
+    ]);
+    h.send(Event::Indent {
+        item_id: "d".into(),
+    });
+    assert_eq!(h.outline(), ["a:1=", "b:2=", "c:3=", "d:2="]);
+}

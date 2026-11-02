@@ -292,3 +292,42 @@ fn the_settings_url_shows_the_settings() {
     assert_eq!(titles(&h), ["Settings"]);
     assert!(h.api.called("GetConfig"));
 }
+
+// ヘッダーの Today は今日のジャーナルを開く。
+#[test]
+fn the_today_button_opens_today() {
+    let mut h = Harness::new();
+    h.send(Event::NavigateToToday);
+    assert_eq!(h.navigations.last().unwrap().url, "/today");
+}
+
+// 週のジャーナルをスクロールして残りが少なくなると、前の週が読み込まれる。
+#[test]
+fn scrolling_a_weekly_journal_loads_the_week_before() {
+    let mut h = Harness::new();
+    h.api.answer_next(
+        "GetOrCreateJournal",
+        Ok(ApiOutput::Page(PageWithItems {
+            page: journal_page("2026-W07"),
+            items: vec![journal_item("w", "2026-W07")],
+            created: false,
+            transcluded_trees: None,
+        })),
+    );
+    visit(&mut h, "2026-W07");
+    assert_eq!(
+        h.api.calls_named("GetMostRecentWeeklyJournalBefore").len(),
+        1
+    );
+
+    h.send(Event::OutlineScrolled {
+        scrolled_from_top: true,
+        top_visible_index: 0,
+        rendered_start: 0,
+        rendered_end: 1,
+    });
+    assert_eq!(
+        h.api.calls_named("GetMostRecentWeeklyJournalBefore").len(),
+        2
+    );
+}

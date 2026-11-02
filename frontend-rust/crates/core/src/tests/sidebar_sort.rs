@@ -161,3 +161,27 @@ fn the_view_sorts_the_index_list_by_the_sort_of_its_directory() {
     h.model.sidebar.index_header = "other/".into();
     assert_eq!(h.view().sidebar.index_sort, IndexSort::default());
 }
+
+// 起動時にブラウザから戻された並び順は、そのフォルダの一覧に使われる。
+#[test]
+fn the_sorts_restored_at_startup_are_used_for_their_folders() {
+    let mut h = Harness::new();
+    h.model.sidebar.index_header = "notes/".into();
+    h.model.sidebar.index_pages = vec![page("beta", 2, None), page("alpha", 1, None)];
+    h.send(Event::IndexSortsRestored(
+        [(
+            "notes/".to_string(),
+            sort(IndexSortKey::Modified, SortOrder::Desc),
+        )]
+        .into_iter()
+        .collect(),
+    ));
+    let labels: Vec<String> = h
+        .view()
+        .sidebar
+        .index_pages
+        .iter()
+        .map(|p| p.label.clone())
+        .collect();
+    assert_eq!(labels, ["beta", "alpha"]);
+}
