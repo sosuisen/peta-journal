@@ -139,16 +139,20 @@ impl ItemService {
         // The new item may have got a parent
         let item = self.items.find_by_id(&id)?.unwrap_or(item);
 
-        // Sync hashtags as tag properties
-        let hashtags = hashtag::extract_hashtags(&ast);
+        self.register_new_item(&item, &page)?;
+        Ok(item)
+    }
+
+    /// Makes a new item findable: its hashtags become tag properties and its body is indexed.
+    fn register_new_item(&self, item: &Item, page: &Page) -> AppResult<()> {
+        let hashtags = hashtag::extract_hashtags(&item.ast);
         if !hashtags.is_empty() {
             self.properties
-                .sync_tags(ITEM_TARGET, id.as_str(), &hashtags)?;
+                .sync_tags(ITEM_TARGET, item.id.as_str(), &hashtags)?;
             self.page_service.update_tag_pages(&[], &hashtags);
         }
-
-        self.search.index_item(&item, &page.title());
-        Ok(item)
+        self.search.index_item(item, &page.title());
+        Ok(())
     }
 
     /// Updates an existing item. Only the given fields are written.
@@ -315,6 +319,9 @@ impl ItemService {
         // Deleting the source clears `transclude_item_id` on these items (FK ON DELETE SET
         // NULL), so their files must be rewritten without the transclude attribute
         let transcluders = self.items.find_transcluders(item_id)?;
+        if let Some(source) = &item {
+            self.copy_descendants_to_transcluders(source, &transcluders)?;
+        }
         let tags = self.properties.find_tags(ITEM_TARGET, item_id.as_str())?;
         self.items.delete(item_id)?;
         self.search.remove_item(item_id.as_str());
@@ -325,7 +332,45 @@ impl ItemService {
             self.reparent_and_export(&b.page_id)?;
         }
         for t in transcluders {
-            self.touch_and_export(&t.page_id)?;
+            self.reparent_and_export(&t.page_id)?;
+        }
+        Ok(())
+    }
+
+    /// Before a source item goes, its descendants are copied below each transcluder, so the
+    /// transcluder keeps showing what it showed. Its own body is already a stored copy.
+    fn copy_descendants_to_transcluders(
+        &self,
+        source: &Item,
+        transcluders: &[Item],
+    ) -> AppResult<()> {
+        let descendants: Vec<Item> = self
+            .items
+            .find_item_with_descendants(&source.id)?
+            .into_iter()
+            .filter(|d| d.id != source.id)
+            .collect();
+        for transcluder in transcluders {
+            let page = self.page_service.require_page(&transcluder.page_id)?;
+            let mut above = transcluder.id.clone();
+            for descendant in &descendants {
+                let existing = self.items.find_by_page_id(&transcluder.page_id)?;
+                let idx = calculate_insertion_index(&existing, &ItemPosition::After(above.clone()))
+                    .map_err(AppError::internal)?;
+                let copy = Item {
+                    idx,
+                    level: transcluder.level + descendant.level - source.level,
+                    body: descendant.body.clone(),
+                    ast: descendant.ast.clone(),
+                    collapsed: descendant.collapsed,
+                    types: descendant.types.clone(),
+                    transclude_item_id: descendant.transclude_item_id.clone(),
+                    ..Item::new_on(self.ids.generate_item_id(), &page, now_millis())
+                };
+                let copy = self.items.save(&copy)?;
+                self.register_new_item(&copy, &page)?;
+                above = copy.id;
+            }
         }
         Ok(())
     }
