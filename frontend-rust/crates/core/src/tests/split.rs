@@ -294,9 +294,5 @@ fn enter_at_the_start_of_a_transclusion_root_puts_the_empty_item_before_it_on_th
         (page_id.as_str(), position.as_str(), *level, body.as_str()),
         ("page1", "after:a", 1, "")
     );
-    assert_eq!(
-        h.items_ids()[..2],
-        ["a".to_string(), calls[0].4.clone().unwrap_or_default()]
-    );
-    assert_eq!(h.items_ids()[2], "root");
+    assert_eq!(h.items_ids(), ["a", "new1", "root"]);
 }

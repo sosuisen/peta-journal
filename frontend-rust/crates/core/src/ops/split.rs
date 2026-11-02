@@ -48,10 +48,18 @@ pub fn handle_enter(model: &mut Model, item_id: &str, cursor: usize) -> Cmd {
     let cursor = cursor.min(body_len);
 
     let cmd = if cursor == 0 && body_len > 0 {
-        let position = if ctx.in_transclusion {
-            ItemPosition::First
+        // The root is an item of this page: the empty item goes before it here, not on the source page
+        let (ctx, position) = if ctx.in_transclusion && model.state.is_own_item(&item.id) {
+            let host = EditContext {
+                page_id: item.page_id.clone(),
+                level_offset: 0,
+                in_transclusion: false,
+            };
+            (host, position_before(model.state.items(), &item.id))
+        } else if ctx.in_transclusion {
+            (ctx, ItemPosition::First)
         } else {
-            position_before(model.state.items(), &item.id)
+            (ctx, position_before(model.state.items(), &item.id))
         };
         run(move |api| async move {
             let _handover = Handover::begin(&api);
