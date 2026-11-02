@@ -110,6 +110,30 @@ async fn a_property_can_be_set_on_an_item() {
     );
 }
 
+// 項目のユーザー定義のlist型のキーは、そのキーのリストとして保存され、タグには触らない。
+#[tokio::test]
+async fn a_list_of_an_item_is_kept_under_its_own_key_apart_from_the_tags() {
+    let page = new_doc_page("items-list").await;
+    let item = fill(&page.id, &["listed #items-list-tag"]).await.remove(0);
+
+    // The second value replaces the first, as a value of a scalar does
+    let mut last = Value::Null;
+    for value in ["x, y", "y,z"] {
+        let (status, resp) = put(
+            &format!("/api/items/{}/properties/item_list", item.id),
+            json!({ "valueType": "list", "value": value }),
+        )
+        .await;
+        assert_eq!(status, 200, "{resp}");
+        last = resp;
+    }
+
+    assert_eq!(last["item"]["properties"]["item_list"], json!(["y", "z"]));
+    let after = items(&page.id).await.remove(0);
+    assert_eq!(after.properties["item_list"], json!(["y", "z"]));
+    assert_eq!(after.properties["tags"], json!(["items-list-tag"]));
+}
+
 // 削除した項目はページから消える。
 #[tokio::test]
 async fn a_deleted_item_is_gone_from_its_page() {
