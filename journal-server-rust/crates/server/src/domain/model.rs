@@ -17,6 +17,19 @@ pub struct Page {
 }
 
 impl Page {
+    /// A page made at `now`. Its parent is resolved when it is saved.
+    pub fn new(id: Hmtid, dir_path: &str, name: &str, page_type: &str, now: i64) -> Page {
+        Page {
+            id,
+            parent_id: None,
+            dir_path: dir_path.to_string(),
+            name: name.to_string(),
+            page_type: page_type.to_string(),
+            created_date: now,
+            modified_date: now,
+        }
+    }
+
     /// The full path of the page, `dir_path + name`, used as its title.
     pub fn title(&self) -> String {
         format!("{}{}", self.dir_path, self.name)

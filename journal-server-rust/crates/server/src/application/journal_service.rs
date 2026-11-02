@@ -177,16 +177,13 @@ impl JournalService {
 
     /// Saves and indexes a new journal page without items.
     fn create_journal_page(&self, file_name: &str) -> AppResult<Page> {
-        let now = now_millis();
-        let page = Page {
-            id: self.ids.generate_page_id(),
-            parent_id: None,
-            dir_path: String::new(),
-            name: file_name.to_string(),
-            page_type: JOURNAL_TYPE.to_string(),
-            created_date: now,
-            modified_date: now,
-        };
+        let page = Page::new(
+            self.ids.generate_page_id(),
+            "",
+            file_name,
+            JOURNAL_TYPE,
+            now_millis(),
+        );
         let page = self.pages.save(&page)?;
         self.search.index_page(&page);
         Ok(page)

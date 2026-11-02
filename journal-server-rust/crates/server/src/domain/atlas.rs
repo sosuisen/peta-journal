@@ -517,15 +517,7 @@ mod tests {
     }
 
     fn page(n: u32, dir: &str, name: &str) -> Page {
-        Page {
-            id: id(n),
-            parent_id: None,
-            dir_path: dir.to_string(),
-            name: name.to_string(),
-            page_type: "doc".to_string(),
-            created_date: 0,
-            modified_date: 0,
-        }
+        Page::new(id(n), dir, name, "doc", 0)
     }
 
     fn item(n: u32, level: i32, body: &str) -> Item {

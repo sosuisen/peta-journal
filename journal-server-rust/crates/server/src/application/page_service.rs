@@ -189,15 +189,7 @@ impl PageService {
 
         let id = self.ids.generate_page_id();
         let now = now_millis();
-        let page = Page {
-            id: id.clone(),
-            parent_id: None,
-            dir_path: dir.to_string(),
-            name: file_name.to_string(),
-            page_type: "doc".to_string(),
-            created_date: now,
-            modified_date: now,
-        };
+        let page = Page::new(id.clone(), dir, file_name, "doc", now);
         let page = self.pages.save(&page)?;
         self.search.index_page(&page);
 
@@ -330,13 +322,10 @@ impl PageService {
         let dir_path_changed = existing.name == "index" && new_dir_path != old_dir_path;
 
         let updated = Page {
-            id: existing.id.clone(),
-            parent_id: None,
             dir_path: new_dir_path.clone(),
             name: file_name,
-            page_type: existing.page_type.clone(),
-            created_date: existing.created_date,
             modified_date: now_millis(),
+            ..existing.clone()
         };
         let updated = self.pages.save(&updated)?;
         self.search.index_page(&updated);
@@ -811,30 +800,19 @@ impl PageService {
                     .find_by_type_dir_path_file_name("doc", &parent_dir, segment)?
             {
                 let renamed = Page {
-                    id: page.id.clone(),
-                    parent_id: None,
                     dir_path: index_dir.clone(),
                     name: "index".to_string(),
-                    page_type: page.page_type.clone(),
-                    created_date: page.created_date,
                     modified_date: now_millis(),
+                    ..page
                 };
-                self.pages.save(&renamed)?;
+                let renamed = self.pages.save(&renamed)?;
                 self.search.index_page(&renamed);
                 if export {
                     self.export.queue_export(&renamed.id);
                 }
             } else {
                 let now = now_millis();
-                let page = Page {
-                    id: self.ids.generate_page_id(),
-                    parent_id: None,
-                    dir_path: index_dir.clone(),
-                    name: "index".to_string(),
-                    page_type: "doc".to_string(),
-                    created_date: now,
-                    modified_date: now,
-                };
+                let page = Page::new(self.ids.generate_page_id(), &index_dir, "index", "doc", now);
                 self.pages.save(&page)?;
                 self.search.index_page(&page);
                 self.items
@@ -860,13 +838,8 @@ impl PageService {
             let suffix = child.dir_path.get(old_prefix.len()..).unwrap_or("");
             let child_new_dir = format!("{new_prefix}{suffix}");
             let updated = Page {
-                id: child.id.clone(),
-                parent_id: None,
                 dir_path: child_new_dir.clone(),
-                name: child.name.clone(),
-                page_type: child.page_type.clone(),
-                created_date: child.created_date,
-                modified_date: child.modified_date,
+                ..child.clone()
             };
             let updated = self.pages.save(&updated)?;
             self.search.index_page(&updated);

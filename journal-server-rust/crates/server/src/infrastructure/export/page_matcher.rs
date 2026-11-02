@@ -153,13 +153,8 @@ impl PageMatcher {
         let created =
             parse_instant(frontmatter.get("created").map(String::as_str)).unwrap_or(file_modified);
         let page = Page {
-            id,
-            parent_id: None,
-            dir_path: loc.dir_path.clone(),
-            name: loc.name.clone(),
-            page_type: loc.page_type.clone(),
-            created_date: created,
             modified_date: file_modified,
+            ..Page::new(id, &loc.dir_path, &loc.name, &loc.page_type, created)
         };
         let page = self.save(&page, loc, file_modified)?;
         tracing::info!("Created page {} from {rel_path}", page.id);
@@ -183,13 +178,11 @@ impl PageMatcher {
     /// Saves a page with a new modified date at a location whose index pages exist already.
     pub fn touch(&self, page: &Page, loc: &PageLocation, modified: i64) -> AppResult<Page> {
         let saved = self.pages.save(&Page {
-            id: page.id.clone(),
-            parent_id: None,
             dir_path: loc.dir_path.clone(),
             name: loc.name.clone(),
             page_type: loc.page_type.clone(),
-            created_date: page.created_date,
             modified_date: modified,
+            ..page.clone()
         })?;
         self.search.index_page(&saved);
         Ok(saved)
