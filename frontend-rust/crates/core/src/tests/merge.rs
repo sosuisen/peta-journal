@@ -44,6 +44,19 @@ fn backspace_records_one_undo_entry_that_puts_the_cursor_at_the_join() {
     assert!(h.model.undo.pop_undo().is_none());
 }
 
+// サーバーが結合を断ると、ページはサーバーの持つ形に読み直される。
+#[test]
+fn a_merge_the_server_refuses_reloads_the_page() {
+    let mut h = harness();
+    h.api
+        .fail_next("MergeItems", "A transclusion cannot be merged");
+    h.send(Event::BackspaceAtStart {
+        item_id: "b".into(),
+    });
+    assert!(h.api.called("GetPageById"));
+    assert_eq!(h.bodies(), ["reloaded=reloaded"]);
+}
+
 // 先頭の項目では行頭での Backspace が何もしない。
 #[test]
 fn backspace_does_nothing_for_the_first_item() {
