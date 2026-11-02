@@ -13,6 +13,7 @@ use crate::domain::id_generator::IdGenerator;
 use crate::domain::model::{Item, Page};
 use crate::domain::search::SearchIndex;
 use crate::error::AppResult;
+use crate::infrastructure::persistence::property_repository::list_values;
 use crate::infrastructure::persistence::{ItemRepository, PropertyRepository};
 
 use super::order_planner;
@@ -135,6 +136,9 @@ impl ItemMerger {
         let scalars = self
             .properties
             .find_scalar_by_targets(ITEM_TARGET, &existing_ids)?;
+        let lists = self
+            .properties
+            .find_list_by_targets(ITEM_TARGET, &existing_ids)?;
         let mut changed = false;
         let mut removed_ids: Vec<String> = Vec::new();
         for old in &existing {
@@ -245,6 +249,10 @@ impl ItemMerger {
             if self.sync_scalar_properties(id.as_str(), &pi.properties, &have, &defs)? {
                 changed = true;
             }
+            let have = lists.get(id.as_str()).cloned().unwrap_or_default();
+            if self.sync_list_properties(id.as_str(), &pi.properties, &have, &defs)? {
+                changed = true;
+            }
         }
 
         self.search.index_items(&to_index, &title);
@@ -309,6 +317,38 @@ impl ItemMerger {
         }
         for key in have.keys() {
             if !want.iter().any(|(k, _)| *k == key.as_str()) {
+                self.properties.delete_property(ITEM_TARGET, item_id, key)?;
+                changed = true;
+            }
+        }
+        Ok(changed)
+    }
+
+    /// Makes the list properties of an item match the `key="a,b"` pairs of its metadata line.
+    /// The tags are not among them: they come from the hashtags of the body.
+    fn sync_list_properties(
+        &self,
+        item_id: &str,
+        file_properties: &[(String, String)],
+        have: &BTreeMap<String, Vec<String>>,
+        defs: &BTreeMap<String, String>,
+    ) -> AppResult<bool> {
+        let mut changed = false;
+        let mut want: Vec<&str> = Vec::new();
+        for (k, v) in file_properties {
+            if defs.get(k).map(String::as_str) != Some("list") {
+                continue;
+            }
+            want.push(k);
+            let values = list_values(v);
+            if have.get(k) != Some(&values) {
+                self.properties
+                    .upsert_list(ITEM_TARGET, item_id, k, "list", &values)?;
+                changed = true;
+            }
+        }
+        for key in have.keys() {
+            if key != "tags" && !want.contains(&key.as_str()) {
                 self.properties.delete_property(ITEM_TARGET, item_id, key)?;
                 changed = true;
             }
