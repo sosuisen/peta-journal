@@ -54,7 +54,16 @@ pub fn navigate(model: &mut Model, item_id: &str, cursor: usize, delta: i32) -> 
     let Some(idx) = index_of(items, item_id) else {
         return done();
     };
-    let target = idx as i64 + delta as i64;
+    // A broken transclusion has no editor to move into: step past it
+    let mut target = idx as i64 + delta as i64;
+    while target >= 0
+        && target < items.len() as i64
+        && model
+            .state
+            .is_broken_transclusion(&items[target as usize].id)
+    {
+        target += delta as i64;
+    }
     if target < 0 || target >= items.len() as i64 {
         return done();
     }
