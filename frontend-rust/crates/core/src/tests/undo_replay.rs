@@ -1,5 +1,5 @@
 use crate::app::Event;
-use crate::harness::{create_calls, item, update_calls, Harness};
+use crate::harness::{create_calls, delete_calls, item, update_calls, Harness};
 use crate::outline::CursorState;
 
 // undo は古い本文を戻して保存し、その項目を redo スタックに移す。redo はそれを元に戻す。
@@ -47,9 +47,41 @@ fn undo_of_a_create_removes_the_item_here_and_on_the_server() {
     h.model.undo.commit(Some(CursorState::new("n", 0)), 0);
     h.send(Event::Undo);
     assert_eq!(h.items_ids(), ["a"]);
-    assert!(h.api.called("DeleteItem"));
+    assert_eq!(delete_calls(&h.api), [vec!["n".to_string()]]);
     // The recorded cursor is used
     assert_eq!(h.model.state.focused_item_id(), Some("a"));
+}
+
+// 親と子を作った操作の undo は、両方を1つのグループとしてサーバーに送る。親だけを先に消すとサーバーが断るためである。
+#[test]
+fn undo_of_a_create_of_a_parent_and_its_child_deletes_them_as_one_group() {
+    let mut h = Harness::with_items(vec![
+        item("a", 1, ""),
+        item("p", 1, "parent"),
+        item("c", 2, "child"),
+    ]);
+    h.model.undo.begin("paste", None);
+    h.model.undo.push_create(&item("p", 1, "parent"));
+    h.model.undo.push_create(&item("c", 2, "child"));
+    h.model.undo.commit(None, 0);
+    h.send(Event::Undo);
+    assert_eq!(h.items_ids(), ["a"]);
+    // The order inside the group does not matter to the server
+    let mut sent = delete_calls(&h.api);
+    sent.iter_mut().for_each(|ids| ids.sort());
+    assert_eq!(sent, [vec!["c".to_string(), "p".to_string()]]);
+}
+
+// undo の削除をサーバーが断ると、ページはサーバーの持つ形に読み直される。
+#[test]
+fn an_undo_delete_the_server_refuses_reloads_the_page() {
+    let mut h = Harness::with_items(vec![item("a", 1, ""), item("n", 1, "created")]);
+    h.model.undo.begin("enter", None);
+    h.model.undo.push_create(&item("n", 1, "created"));
+    h.model.undo.commit(None, 0);
+    h.api.fail_next("DeleteItems", "refused");
+    h.send(Event::Undo);
+    assert!(h.api.called("GetPageById"));
 }
 
 // 作成の redo は項目をその index の位置に戻し、サーバーが与えた id を取る。

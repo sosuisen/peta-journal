@@ -269,9 +269,11 @@ pub fn delete_items(model: &mut Model, item_ids: &[String]) -> Cmd {
     model.state.delete_items(item_ids);
     let ids = item_ids.to_vec();
     run(move |api| async move {
-        let results = futures::future::join_all(ids.iter().map(|id| api.delete_item(id))).await;
-        if let Some(e) = results.into_iter().find_map(Result::err) {
+        // One group: the server deletes all of them or none, and copies what a transclusion
+        // showed before any of it goes. If it refuses, the page is shown as the server has it
+        if let Err(e) = api.delete_items(ids).await {
             log_error(format!("Failed to delete selected items: {e}"));
+            reload_shown_page(&api).await;
         }
     })
 }

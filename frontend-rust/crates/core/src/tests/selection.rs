@@ -2,7 +2,7 @@
 
 use crate::app::{Event, SelectionKey};
 use crate::effects::UiOp;
-use crate::harness::{item, move_calls, Harness};
+use crate::harness::{delete_calls, item, move_calls, Harness};
 use crate::testing::item_with;
 
 fn select(h: &mut Harness, ids: &[&str]) {
@@ -13,12 +13,16 @@ fn select(h: &mut Harness, ids: &[&str]) {
 }
 
 // 選択範囲の削除で項目が一つの Undo エントリとして削除され、ページが空にならないよう空の項目が一つ作られる。
+// サーバーには、選んだ項目を1つのグループとして1回で送る。
 #[test]
 fn deleting_the_selection_removes_the_items_as_one_undo_entry_and_keeps_one_item_on_the_page() {
     let mut h = Harness::with_items(vec![item("a", 1, ""), item("b", 1, "")]);
     select(&mut h, &["a", "b"]);
     h.send(Event::SelectionKey(SelectionKey::Delete));
-    assert_eq!(h.api.calls_named("DeleteItem").len(), 2);
+    assert_eq!(
+        delete_calls(&h.api),
+        [vec!["a".to_string(), "b".to_string()]]
+    );
     assert!(!h.model.state.item_selection_mode());
     assert_eq!(
         h.items_ids(),
@@ -270,8 +274,18 @@ fn cutting_the_selection_copies_it_and_then_deletes_it() {
     select(&mut h, &["a"]);
     key(&mut h, SelectionKey::Cut);
     assert!(h.api.called("ExportTreeMarkdown"));
-    assert_eq!(h.api.calls_named("DeleteItem").len(), 1);
+    assert_eq!(delete_calls(&h.api), [vec!["a".to_string()]]);
     assert_eq!(h.items_ids(), ["b"]);
+}
+
+// サーバーが選択範囲の削除を断ると、ページはサーバーの持つ形に読み直される。
+#[test]
+fn a_selection_delete_the_server_refuses_reloads_the_page() {
+    let mut h = Harness::with_items(vec![item("a", 1, "x"), item("b", 1, "y")]);
+    select(&mut h, &["a"]);
+    h.api.fail_next("DeleteItems", "refused");
+    key(&mut h, SelectionKey::Delete);
+    assert!(h.api.called("GetPageById"));
 }
 
 // 子を持つ項目まで選択を伸ばすと、その子も入る。伸ばし続けると、入っている子は飛ばして次へ進む。

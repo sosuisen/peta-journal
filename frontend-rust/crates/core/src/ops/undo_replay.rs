@@ -7,6 +7,7 @@ use crate::app::{apply, done, log_error, run, Cmd, Model};
 use crate::model::{Item, ItemPosition};
 use crate::ops::edit::discard_pending_edit_of_focused_item;
 use crate::ops::edit::focus_editor;
+use crate::ops::file_reload::reload_shown_page;
 use crate::ops::outline_events::ensure_at_least_one_item;
 use crate::outline::tree::position_by_index;
 use crate::outline::{CursorState, UndoEntry, UndoOp};
@@ -126,6 +127,8 @@ fn cursor_of(entry: &UndoEntry, dir: Direction) -> Option<CursorState> {
 /// Sends the replayed ops to the server, in the order they were applied.
 fn sync_to_server(ops: Vec<UndoOp>, dir: Direction) -> Cmd {
     run(move |api| async move {
+        // The deletes go last, as one group: a parent deleted on its own is refused
+        let mut to_delete = Vec::new();
         for op in ops {
             let result = match &op {
                 UndoOp::Update { before, after } => {
@@ -162,13 +165,20 @@ fn sync_to_server(ops: Vec<UndoOp>, dir: Direction) -> Cmd {
                     if exists_again {
                         recreate_on_server(&api, item).await
                     } else {
-                        api.delete_item(&item.id).await
+                        to_delete.push(item.id.clone());
+                        Ok(())
                     }
                 }
             };
             if let Err(e) = result {
                 log_error(format!("Failed to sync undo/redo to server: {e}"));
                 return;
+            }
+        }
+        if !to_delete.is_empty() {
+            if let Err(e) = api.delete_items(to_delete).await {
+                log_error(format!("Failed to sync undo/redo to server: {e}"));
+                reload_shown_page(&api).await;
             }
         }
     })

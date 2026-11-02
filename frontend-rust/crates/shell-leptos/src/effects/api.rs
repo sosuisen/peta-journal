@@ -280,6 +280,27 @@ async fn call(handle: &CoreHandle, op: ApiOp) -> ApiResult<ApiOutput> {
             send_empty("DELETE", &format!("/api/items/{item_id}")).await?;
             ApiOutput::Done
         }
+        ApiOp::DeleteItems { item_ids } => {
+            ensure_ok(
+                &send(
+                    "POST",
+                    "/api/items/delete",
+                    Some(json!({ "itemIds": item_ids })),
+                )
+                .await?,
+            )
+            .await?;
+            ApiOutput::Done
+        }
+        ApiOp::MergeItems { item_id, into_id } => {
+            let env: ItemEnvelope = send_json(
+                "POST",
+                "/api/items/merge",
+                Some(json!({ "itemId": item_id, "intoId": into_id })),
+            )
+            .await?;
+            ApiOutput::Item(env.item)
+        }
         ApiOp::CycleTask { item_id } => {
             let env: ItemEnvelope =
                 send_json("POST", &format!("/api/items/{item_id}/cycle-task"), None).await?;

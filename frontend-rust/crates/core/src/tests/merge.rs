@@ -1,5 +1,5 @@
 use crate::app::Event;
-use crate::harness::{item, update_calls, Harness};
+use crate::harness::{item, merge_calls, Harness};
 use crate::outline::UndoOp;
 use crate::testing::item_with;
 
@@ -12,6 +12,7 @@ fn harness() -> Harness {
 }
 
 // 行頭での Backspace でテキストが上の項目に連結され、その項目は削除されて上の項目の編集が続く。
+// サーバーには結合を1回だけ送る。本文の更新と削除を別々には送らない。
 #[test]
 fn backspace_appends_the_text_to_the_item_above_deletes_the_item_and_keeps_editing_above() {
     let mut h = harness();
@@ -19,8 +20,9 @@ fn backspace_appends_the_text_to_the_item_above_deletes_the_item_and_keeps_editi
         item_id: "b".into(),
     });
     assert_eq!(h.bodies(), ["a=hello world", "c=!"]);
-    assert!(update_calls(&h.api).contains(&("a".to_string(), Some("hello world".to_string()))));
-    assert!(h.api.called("DeleteItem"));
+    assert_eq!(merge_calls(&h.api), [("b".to_string(), "a".to_string())]);
+    assert!(!h.api.called("UpdateItem"));
+    assert!(!h.api.called("DeleteItem"));
     assert!(h.model.state.is_editing("a"));
     assert_eq!(h.focused_editor_requests(), [Some("a".to_string())]);
 }
@@ -40,6 +42,19 @@ fn backspace_records_one_undo_entry_that_puts_the_cursor_at_the_join() {
     ));
     assert_eq!(entry.cursor_after.unwrap().position, "hello".len());
     assert!(h.model.undo.pop_undo().is_none());
+}
+
+// サーバーが結合を断ると、ページはサーバーの持つ形に読み直される。
+#[test]
+fn a_merge_the_server_refuses_reloads_the_page() {
+    let mut h = harness();
+    h.api
+        .fail_next("MergeItems", "A transclusion cannot be merged");
+    h.send(Event::BackspaceAtStart {
+        item_id: "b".into(),
+    });
+    assert!(h.api.called("GetPageById"));
+    assert_eq!(h.bodies(), ["reloaded=reloaded"]);
 }
 
 // 先頭の項目では行頭での Backspace が何もしない。
@@ -88,6 +103,7 @@ fn backspace_does_not_merge_the_first_item_of_a_journal_day_into_the_day_above()
 }
 
 // 行末での Delete で下の項目が連結されて削除され、結合位置にカーソルを戻す Undo が記録される。
+// サーバーには、下の項目をこの項目に結合する1回の呼び出しだけを送る。
 #[test]
 fn delete_appends_the_item_below_and_deletes_it() {
     let mut h = harness();
@@ -95,9 +111,23 @@ fn delete_appends_the_item_below_and_deletes_it() {
         item_id: "a".into(),
     });
     assert_eq!(h.bodies(), ["a=hello world", "c=!"]);
+    assert_eq!(merge_calls(&h.api), [("b".to_string(), "a".to_string())]);
+    assert!(!h.api.called("UpdateItem"));
+    assert!(!h.api.called("DeleteItem"));
     let entry = h.model.undo.pop_undo().unwrap();
     assert_eq!(entry.label, "delete");
     assert_eq!(entry.cursor_after.unwrap().position, "hello".len());
+}
+
+// サーバーが行末での Delete の結合を断ると、ページは読み直される。
+#[test]
+fn a_delete_merge_the_server_refuses_reloads_the_page() {
+    let mut h = harness();
+    h.api.fail_next("MergeItems", "refused");
+    h.send(Event::DeleteAtEnd {
+        item_id: "a".into(),
+    });
+    assert!(h.api.called("GetPageById"));
 }
 
 // 最後の項目では行末での Delete が何もしない。
