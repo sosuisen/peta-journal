@@ -4,7 +4,6 @@ use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 use std::collections::{BTreeMap, HashMap};
-use std::fmt;
 use std::sync::Arc;
 
 /// An item as the server returns it (`presentation/dto.rs` in journal-server-rust).
@@ -211,12 +210,6 @@ impl ItemPosition {
                 .strip_prefix("after:")
                 .map(|id| ItemPosition::After(id.to_string())),
         }
-    }
-}
-
-impl fmt::Display for ItemPosition {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.to_api())
     }
 }
 

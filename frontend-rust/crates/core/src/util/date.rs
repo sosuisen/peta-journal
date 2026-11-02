@@ -1,7 +1,5 @@
 //! Calendar dates without a clock: the core never asks what time it is, the shell tells it.
 
-use std::fmt;
-
 /// A calendar date in the proleptic Gregorian calendar.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Date {
@@ -80,12 +78,6 @@ impl Date {
     /// The date `YYYY-MM-DD`.
     pub fn iso(self) -> String {
         format!("{:04}-{:02}-{:02}", self.year, self.month, self.day)
-    }
-}
-
-impl fmt::Display for Date {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.iso())
     }
 }
 
@@ -211,12 +203,6 @@ pub struct LocalDateTime {
     pub day: u32,
     pub hour: u32,
     pub minute: u32,
-}
-
-impl LocalDateTime {
-    pub fn date(&self) -> Date {
-        Date::new(self.year, self.month, self.day)
-    }
 }
 
 /// `Untitled-YYYYMMDDHHMM` for a page created without a name.

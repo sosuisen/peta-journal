@@ -8,7 +8,7 @@
 
 use crate::app::{apply, cont, done, log_error, run, Cmd, Event, Model, PendingSave};
 use crate::effects::{Api, ApiResult, TimerOp, TimerOutput};
-use crate::model::{Item, ItemRef};
+use crate::model::Item;
 use crate::util::{ensure_code_fence_closed, has_unclosed_code_fence};
 use crux_core::Command;
 
@@ -305,12 +305,6 @@ pub async fn read_with<T: Send + 'static>(
         cmd
     });
     rx.await.expect("the core always answers a read")
-}
-
-/// Reads an item as the state has it now, from inside an async command.
-pub async fn read_item(api: &Api<Event>, item_id: &str) -> Option<ItemRef> {
-    let id = item_id.to_string();
-    read(api, move |m| m.current_item(&id)).await
 }
 
 /// Focuses the editor of an item once the next render is done, playing the keys that were
