@@ -134,7 +134,7 @@ fn save_bounds(model: &mut Model, item: &Item, bounds: Bounds) -> Cmd {
             .upsert_item_property(&item_id, BOUNDS_KEY, "bounds", &value)
             .await
         {
-            api.notify(UiOp::Alert(e.0));
+            api.alert(e.0);
             apply(&api, "atlas place put back", move |m| {
                 set_property(m, &item_id, before);
                 done()
@@ -165,7 +165,7 @@ pub fn remove_card(model: &mut Model, page_id: String) -> Cmd {
     set_property(model, &item_id, None);
     run(move |api| async move {
         if let Err(e) = api.delete_item_property(&item_id, BOUNDS_KEY).await {
-            api.notify(UiOp::Alert(e.0));
+            api.alert(e.0);
             apply(&api, "atlas card put back", move |m| {
                 set_property(m, &item_id, before);
                 done()
@@ -194,7 +194,7 @@ fn change(model: &Model, change: AtlasChange) -> Cmd {
                 file_reload::replace_page_items(m, &atlas_id, items);
                 done()
             }),
-            Err(e) => api.notify(UiOp::Alert(e.0)),
+            Err(e) => api.alert(e.0),
         }
     })
 }

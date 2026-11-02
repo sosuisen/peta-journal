@@ -483,7 +483,7 @@ async fn settle_property_change(
             extensions::tags_added(page, added_tags)
         }),
         Err(e) => {
-            api.notify(UiOp::Alert(e.0));
+            api.alert(e.0);
             apply(api, "page property reverted", move |m| {
                 if let Some(page) = shown_page_mut(m, &page_id) {
                     page.properties = before;
@@ -526,11 +526,7 @@ async fn update_page(
                 overwrite = true;
             }
             Ok(PageUpdate::NameTaken(message)) | Err(ApiError(message)) => {
-                api.notify(UiOp::Alert(if message.is_empty() {
-                    "Failed to rename page".into()
-                } else {
-                    message
-                }));
+                api.alert(ApiError(message).message_or("Failed to rename page"));
                 return None;
             }
         }
@@ -558,7 +554,7 @@ pub fn demote_index(model: &mut Model) -> Cmd {
         // Asked again here: an atlas page may have been made since the button was shown
         let atlas = match api.get_child_pages(&p.id).await {
             Ok(children) => children.into_iter().find(is_atlas),
-            Err(e) => return api.notify(UiOp::Alert(e.0)),
+            Err(e) => return api.alert(e.0),
         };
         if let Some(atlas) = atlas {
             if !api
@@ -571,11 +567,7 @@ pub fn demote_index(model: &mut Model) -> Cmd {
                 return;
             }
             if let Err(e) = api.delete_page(&atlas.id).await {
-                api.notify(UiOp::Alert(if e.0.is_empty() {
-                    "Failed to delete the atlas page".into()
-                } else {
-                    e.0
-                }));
+                api.alert(e.message_or("Failed to delete the atlas page"));
                 return;
             }
         }

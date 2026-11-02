@@ -153,9 +153,7 @@ async fn set_transclusion(api: &Api<Event>, item_id: &str, source_id: &str) {
             reload_shown_page(api).await;
         }
         // Told, not only logged: a template with a wrong id would leave an empty item unseen
-        Err(e) => api.notify(UiOp::Alert(format!(
-            "Failed to transclude the item {source_id}: {e}"
-        ))),
+        Err(e) => api.alert(format!("Failed to transclude the item {source_id}: {e}")),
     }
 }
 

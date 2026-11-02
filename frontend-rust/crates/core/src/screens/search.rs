@@ -2,7 +2,7 @@
 //! navigation of the results, and creating a page from the query.
 
 use crate::app::{apply, cancel_timer, done, log_error, run, Cmd, Model, SearchKey};
-use crate::effects::{TimerOutput, UiOp};
+use crate::effects::TimerOutput;
 use crate::model::SearchResult;
 use crate::screens::navigate;
 use crate::util::filename::{classify_journal_file_name, validate_file_name, JournalType};
@@ -171,7 +171,7 @@ fn create_page(model: &mut Model, title: String) -> Cmd {
             let stripped = title.strip_suffix(".md").unwrap_or(&title);
             let file_name = stripped.rsplit('/').next().unwrap_or(stripped);
             if let Some(error) = validate_file_name(file_name) {
-                api.notify(UiOp::Alert(error));
+                api.alert(error);
                 return;
             }
         }
