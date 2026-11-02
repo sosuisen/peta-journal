@@ -157,6 +157,7 @@ atlasのデータは、すべてディレクトリの `index_atlas.md` の本文
 ### アイテム
 
 - `PUT /api/items/{id}/properties/{key}`: ボディは `{ valueType, value }`。`valueType` 省略時は `text`。未定義のキーは、その型でユーザー定義キーとして作られる。
+  - `list` 型のキーはカンマ区切りの文字列を受け取り、そのキーのリストとして保存する。`tags` は本文の `#hashtag` からサーバーが作るので、ここでは書かない。
 - `DELETE /api/items/{id}/properties/{key}`
 
 どちらも更新後のアイテムを `{ item }` で返す。
