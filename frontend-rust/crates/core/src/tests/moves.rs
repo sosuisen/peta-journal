@@ -17,6 +17,7 @@ fn page_harness() -> Harness {
     ])
 }
 
+// 項目は子と一緒に上の兄弟を越えて移動し、そのエディタのフォーカスは保たれる。移動は undo の対象として記録される。
 #[test]
 fn moves_the_item_with_its_children_past_the_sibling_above_and_keeps_its_editor() {
     let mut h = page_harness();
@@ -37,6 +38,7 @@ fn moves_the_item_with_its_children_past_the_sibling_above_and_keeps_its_editor(
     assert!(!h.model.move_in_progress);
 }
 
+// 項目は子と一緒に下の兄弟を越えて移動される。
 #[test]
 fn moves_the_item_past_the_sibling_below() {
     let mut h = page_harness();
@@ -47,6 +49,7 @@ fn moves_the_item_past_the_sibling_below() {
     assert_eq!(h.items_ids(), ["a", "c", "b", "b1"]);
 }
 
+// 先頭の項目の上移動と末尾の項目の下移動では何も起きない。
 #[test]
 fn does_nothing_at_the_top_or_bottom() {
     let mut h = page_harness();
@@ -60,6 +63,7 @@ fn does_nothing_at_the_top_or_bottom() {
     assert!(!h.model.move_in_progress);
 }
 
+// 連続した移動は一つずつ順に実行される。
 #[test]
 fn moves_run_one_after_another() {
     let mut h = page_harness();
@@ -73,6 +77,7 @@ fn moves_run_one_after_another() {
     assert_eq!(move_calls(&h.api).len(), 2);
 }
 
+// トランスクルージョンの中では、子孫の項目は参照元ツリーの中で移動し、ページが読み直される。
 #[test]
 fn inside_a_transclusion_a_descendant_moves_within_the_source_tree_and_the_page_reloads() {
     // own: root (1, transcludes s); source: s (1), c1 (2), c2 (2)
@@ -100,6 +105,7 @@ fn inside_a_transclusion_a_descendant_moves_within_the_source_tree_and_the_page_
     assert!(h.api.called("GetPageById"));
 }
 
+// 選択移動では、選択されたサブツリーが一つのまとまりとして端のルートの兄弟を越えて移動する。
 #[test]
 fn move_selection_moves_the_selected_subtrees_as_one_group_past_the_sibling_of_the_edge_root() {
     let mut h = page_harness();

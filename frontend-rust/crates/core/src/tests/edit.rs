@@ -12,6 +12,7 @@ fn typed(h: &mut Harness, item_id: &str, body: &str) {
     });
 }
 
+// 入力したテキストはすぐに表示され、自動保存は最後の入力から一定時間後に一度だけ行われる。
 #[test]
 fn typing_shows_the_text_at_once_and_schedules_the_auto_save() {
     let mut h = Harness::with_items(vec![item("a", 1, "")]);
@@ -33,6 +34,7 @@ fn typing_shows_the_text_at_once_and_schedules_the_auto_save() {
     assert!(h.model.edits.pending_saves.is_empty());
 }
 
+// トランスクルージョンのルート項目への入力は、元の項目に対する保存として予約される。
 #[test]
 fn a_transclusion_root_schedules_the_save_for_its_source_item() {
     let mut h = Harness::with_items(vec![item_with("root", 1, |i| {
@@ -47,6 +49,7 @@ fn a_transclusion_root_schedules_the_save_for_its_source_item() {
     assert_eq!(update_calls(&h.api), [("s".into(), Some("typed".into()))]);
 }
 
+// 編集終了で入力したテキストが一度だけ保存され、自動保存のタイマーが取り消されてエディタが閉じられる。
 #[test]
 fn finish_edit_saves_typed_text_once_cancelling_the_auto_save_and_closes_the_editor() {
     let mut h = Harness::with_items(vec![item("a", 1, "")]);
@@ -62,6 +65,7 @@ fn finish_edit_saves_typed_text_once_cancelling_the_auto_save_and_closes_the_edi
     assert_eq!(update_calls(&h.api).len(), 1, "the text is not sent twice");
 }
 
+// 変更のない項目の編集終了では保存されずにエディタが閉じられる。
 #[test]
 fn finish_edit_closes_the_editor_of_a_clean_item_without_a_save() {
     let mut h = Harness::with_items(vec![item("a", 1, "x")]);
@@ -73,6 +77,7 @@ fn finish_edit_closes_the_editor_of_a_clean_item_without_a_save() {
     assert!(!h.model.state.is_editing("a"));
 }
 
+// 編集終了で開いたままのコードフェンスが閉じられて保存される。その後に何も入力されていなくても同様である。
 #[test]
 fn finish_edit_closes_an_open_code_fence_even_when_nothing_was_typed_since() {
     let mut h = Harness::with_items(vec![item("a", 1, "```js")]);
@@ -86,6 +91,7 @@ fn finish_edit_closes_an_open_code_fence_even_when_nothing_was_typed_since() {
     );
 }
 
+// 引き継ぎがその項目を保存している間は、編集終了が無視される。
 #[test]
 fn finish_edit_is_ignored_while_a_handover_is_saving_the_item_itself() {
     let mut h = Harness::with_items(vec![item("a", 1, "")]);
@@ -99,6 +105,7 @@ fn finish_edit_is_ignored_while_a_handover_is_saving_the_item_itself() {
     assert!(h.model.state.is_editing("a"));
 }
 
+// 別の項目をクリックすると変更中の項目が保存され、クリックされた項目のエディタが開かれる。
 #[test]
 fn clicking_another_item_saves_the_dirty_one_and_opens_the_clicked_editor() {
     let mut h = Harness::with_items(vec![item("a", 1, ""), item("b", 1, "")]);
@@ -117,6 +124,7 @@ fn clicking_another_item_saves_the_dirty_one_and_opens_the_clicked_editor() {
     assert_eq!(h.model.edits.edit_handovers, 0);
 }
 
+// 矢印キーでの移動で項目が保存され、カーソル桁を保ったままエディタが移動先の項目に移される。
 #[test]
 fn arrow_navigation_saves_and_moves_the_editor_with_the_cursor_column() {
     let mut h = Harness::with_items(vec![item("a", 1, ""), item("b", 1, "")]);
@@ -132,6 +140,7 @@ fn arrow_navigation_saves_and_moves_the_editor_with_the_cursor_column() {
     assert_eq!(update_calls(&h.api), [("a".into(), Some("x".into()))]);
 }
 
+// ファイルの変更通知は編集の終了を待ち、自動保存の猶予の後にページが再読み込みされる。
 #[test]
 fn a_file_change_waits_for_the_edit_to_end_and_then_reloads_the_page() {
     let mut h = Harness::with_items(vec![item("a", 1, "")]);

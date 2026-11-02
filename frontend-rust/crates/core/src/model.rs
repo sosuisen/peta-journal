@@ -377,6 +377,7 @@ impl DeferredKey {
 mod tests {
     use super::*;
 
+    // サーバーが返す JSON を Item にデシリアライズすると、camelCase のフィールドと properties のアクセサがサーバーの形どおりに読み取られる。
     #[test]
     fn item_json_matches_server_shape() {
         let json = r##"{"id":"a","pageId":"p","dirPath":"","name":"2026-02-10","type":"journal",
@@ -394,6 +395,7 @@ mod tests {
         assert_eq!(item.heading_level_of_body(), 1);
     }
 
+    // ItemPosition は first・last・after:<id> の文字列を解析して同じ文字列に戻し、after は "after:x" という JSON 文字列にシリアライズされる。
     #[test]
     fn position_round_trips() {
         for s in ["first", "last", "after:2026-01-01-00-00-00-AAAAAAA"] {

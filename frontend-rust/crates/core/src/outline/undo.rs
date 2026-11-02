@@ -200,6 +200,7 @@ mod tests {
     use super::*;
     use crate::testing::plain_item;
 
+    // 同じ項目への本文編集が短い間隔で続くと、一つの undo エントリにまとめられる。
     #[test]
     fn groups_quick_body_edits() {
         let mut undo = UndoStacks::default();
@@ -223,6 +224,7 @@ mod tests {
         }
     }
 
+    // 本文編集の間隔が結合の間隔を超えると、別々の undo エントリになる。
     #[test]
     fn separate_entries_after_the_interval() {
         let mut undo = UndoStacks::default();
@@ -239,6 +241,7 @@ mod tests {
         assert!(!undo.can_undo());
     }
 
+    // 操作のないコミットは undo スタックに積まれず、保留状態も残らない。
     #[test]
     fn empty_commit_is_dropped() {
         let mut undo = UndoStacks::default();

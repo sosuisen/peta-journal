@@ -35,6 +35,7 @@ fn sort(key: IndexSortKey, order: SortOrder) -> IndexSort {
     IndexSort { key, order }
 }
 
+// 名前順では、サブディレクトリは index ではなく自分の名前で並ぶ。
 #[test]
 fn by_name_a_subdirectory_sorts_by_its_own_name_not_by_index() {
     let pages = vec![
@@ -48,6 +49,7 @@ fn by_name_a_subdirectory_sorts_by_its_own_name_not_by_index() {
     assert_eq!(names(&sorted), vec!["gamma/", "beta/", "alpha/"]);
 }
 
+// サブディレクトリは、昇順でも降順でも、どのキーでもファイルより前に来る。
 #[test]
 fn subdirectories_come_before_files_in_either_order() {
     let pages = vec![
@@ -63,6 +65,7 @@ fn subdirectories_come_before_files_in_either_order() {
     assert_eq!(names(&sorted), vec!["beta/", "alpha", "zeta"]);
 }
 
+// 更新日時順の降順では、最も新しいページが先頭に来る。
 #[test]
 fn by_modified_the_newest_comes_first_when_descending() {
     let pages = vec![
@@ -74,6 +77,7 @@ fn by_modified_the_newest_comes_first_when_descending() {
     assert_eq!(names(&sorted), vec!["b", "c", "a"]);
 }
 
+// 公開日順では、published プロパティのないページは更新日時を使う。日付として読めない値も同じく扱われる。
 #[test]
 fn by_published_a_page_without_the_property_uses_its_modified_date() {
     let pages = vec![
@@ -89,6 +93,7 @@ fn by_published_a_page_without_the_property_uses_its_modified_date() {
     );
 }
 
+// 同じ日付のページは名前の順に並ぶ。降順では名前も降順である。
 #[test]
 fn pages_with_the_same_date_keep_the_name_order() {
     let pages = vec![page("b", 7, None), page("a", 7, None), page("c", 7, None)];
@@ -96,6 +101,7 @@ fn pages_with_the_same_date_keep_the_name_order() {
     assert_eq!(names(&sorted), vec!["c", "b", "a"]);
 }
 
+// 親の項目は親ディレクトリの index ページを開く。ルートにはそれ以上の親がない。
 #[test]
 fn the_parent_entry_opens_the_index_page_of_the_parent_directory() {
     use crate::screens::sidebar::parent_index_path;
@@ -108,6 +114,7 @@ fn the_parent_entry_opens_the_index_page_of_the_parent_directory() {
     assert_eq!(parent_index_path(""), None);
 }
 
+// ビューは index 一覧をそのディレクトリに設定された並び順で並べる。published プロパティのあるページには印が付き、他のディレクトリは既定の並び順のままである。
 #[test]
 fn the_view_sorts_the_index_list_by_the_sort_of_its_directory() {
     let mut h = Harness::with_items(vec![]);

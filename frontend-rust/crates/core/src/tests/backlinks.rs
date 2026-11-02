@@ -33,6 +33,7 @@ fn open(h: &mut Harness, name: &str) {
     });
 }
 
+// ページはバックリンクをリンク元ページごとにまとめ、その下にリンクしている項目を並べる。ジャーナルは日付の表題で示され、項目のないリンク元ページは表題だけで示される。
 #[test]
 fn a_page_lists_its_backlinks_by_source_page_with_the_linking_items_under_it() {
     let mut h = Harness::new();
@@ -86,6 +87,7 @@ fn a_page_lists_its_backlinks_by_source_page_with_the_linking_items_under_it() {
     );
 }
 
+// どのページが変更されても、バックリンクは読み直される。
 #[test]
 fn a_change_to_any_page_loads_the_backlinks_again() {
     let mut h = Harness::with_items(vec![item("a", 1, "")]);

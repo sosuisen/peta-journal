@@ -11,6 +11,7 @@ fn harness() -> Harness {
     ])
 }
 
+// 行頭での Backspace でテキストが上の項目に連結され、その項目は削除されて上の項目の編集が続く。
 #[test]
 fn backspace_appends_the_text_to_the_item_above_deletes_the_item_and_keeps_editing_above() {
     let mut h = harness();
@@ -24,6 +25,7 @@ fn backspace_appends_the_text_to_the_item_above_deletes_the_item_and_keeps_editi
     assert_eq!(h.focused_editor_requests(), [Some("a".to_string())]);
 }
 
+// 行頭での Backspace は結合位置にカーソルを戻す一つの Undo エントリとして記録される。
 #[test]
 fn backspace_records_one_undo_entry_that_puts_the_cursor_at_the_join() {
     let mut h = harness();
@@ -40,6 +42,7 @@ fn backspace_records_one_undo_entry_that_puts_the_cursor_at_the_join() {
     assert!(h.model.undo.pop_undo().is_none());
 }
 
+// 先頭の項目では行頭での Backspace が何もしない。
 #[test]
 fn backspace_does_nothing_for_the_first_item() {
     let mut h = harness();
@@ -50,6 +53,7 @@ fn backspace_does_nothing_for_the_first_item() {
     assert!(h.api.calls.is_empty());
 }
 
+// トランスクルージョン項目は行頭での Backspace で結合されて消えることがない。
 #[test]
 fn backspace_does_not_merge_a_transclusion_item_away() {
     let mut h = Harness::with_items(vec![
@@ -62,6 +66,7 @@ fn backspace_does_not_merge_a_transclusion_item_away() {
     assert_eq!(h.items_ids(), ["a", "t"]);
 }
 
+// ジャーナルの日の先頭項目は行頭での Backspace で上の日に結合されない。
 #[test]
 fn backspace_does_not_merge_the_first_item_of_a_journal_day_into_the_day_above() {
     let day = |id: &str, page: &str, name: &str| {
@@ -82,6 +87,7 @@ fn backspace_does_not_merge_the_first_item_of_a_journal_day_into_the_day_above()
     assert_eq!(h.items_ids(), ["x", "y"]);
 }
 
+// 行末での Delete で下の項目が連結されて削除され、結合位置にカーソルを戻す Undo が記録される。
 #[test]
 fn delete_appends_the_item_below_and_deletes_it() {
     let mut h = harness();
@@ -94,6 +100,7 @@ fn delete_appends_the_item_below_and_deletes_it() {
     assert_eq!(entry.cursor_after.unwrap().position, "hello".len());
 }
 
+// 最後の項目では行末での Delete が何もしない。
 #[test]
 fn delete_does_nothing_for_the_last_item() {
     let mut h = harness();

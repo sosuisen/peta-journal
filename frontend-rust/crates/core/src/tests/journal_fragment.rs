@@ -4,6 +4,7 @@ use crate::app::{Event, Route};
 use crate::effects::UiOp;
 use crate::harness::Harness;
 
+// 項目をフラグメントに持つジャーナル URL では、その項目までスクロールされて選択される。
 #[test]
 fn a_journal_url_with_an_item_scrolls_to_the_item_and_selects_it() {
     let mut h = Harness::new();
@@ -27,6 +28,7 @@ fn a_journal_url_with_an_item_scrolls_to_the_item_and_selects_it() {
         .any(|r| r.item.id == "item-2031-01-02" && r.is_selected));
 }
 
+// 項目のないジャーナル URL ではスクロールされない。
 #[test]
 fn a_journal_url_without_an_item_does_not_scroll() {
     let mut h = Harness::new();

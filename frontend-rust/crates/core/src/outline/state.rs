@@ -448,6 +448,7 @@ mod tests {
     use super::*;
     use crate::testing::{item_with, plain_item};
 
+    // 折りたたまれた項目の子孫は visible_items に現れず、折りたたみを切り替えると再び表示される。
     #[test]
     fn collapsed_subtrees_are_hidden() {
         let mut state = OutlineState::default();
@@ -469,6 +470,7 @@ mod tests {
         assert_eq!(state.visible_items().len(), 4);
     }
 
+    // トランスクルードされた項目は元の木の本文と子孫を自分のレベルに合わせて表示し、その子孫は他ページの項目として更新と削除ができる。
     #[test]
     fn transclusions_show_the_source_tree() {
         let mut state = OutlineState::default();
@@ -505,6 +507,7 @@ mod tests {
         assert_eq!(state.visible_items().len(), 3);
     }
 
+    // add_item と replace_items は after・First・Last の各位置に項目を置き、replace_items は古い項目を取り除いてから挿入する。
     #[test]
     fn insertion_positions() {
         let mut state = OutlineState::default();
@@ -524,6 +527,7 @@ mod tests {
         assert_eq!(state.get_item_with_children("a").len(), 2);
     }
 
+    // フォーカス要求は set_focused_item のたびに増える連番を持ち、フォーカス中の項目 ID が更新される。
     #[test]
     fn focus_requests_are_numbered() {
         let mut state = OutlineState::default();

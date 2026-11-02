@@ -4,6 +4,7 @@ use crate::app::Event;
 use crate::effects::ApiOp;
 use crate::harness::Harness;
 
+// エクスポートフォルダを開くと、そのページのフォルダをサーバーに求める。
 #[test]
 fn opening_the_export_folder_asks_the_server_for_the_page() {
     let mut h = Harness::new();
@@ -18,6 +19,7 @@ fn opening_the_export_folder_asks_the_server_for_the_page() {
     );
 }
 
+// フォルダを開けなかった場合はログに記録されるだけである。
 #[test]
 fn a_failure_to_open_the_folder_is_only_logged() {
     let mut h = Harness::new();

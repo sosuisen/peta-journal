@@ -43,6 +43,7 @@ pub fn char_len(text: &str) -> usize {
 mod tests {
     use super::*;
 
+    // 閉じていないコードフェンスは ``` で始まる行が奇数個あることで検出され、閉じフェンスが補われる。
     #[test]
     fn code_fences() {
         assert!(has_unclosed_code_fence("```js\nlet a"));
@@ -51,6 +52,7 @@ mod tests {
         assert_eq!(ensure_code_fence_closed("x"), "x");
     }
 
+    // テキストは文字インデックスで分割され、範囲外のインデックスは末尾に丸められ、長さは文字数で数えられる。
     #[test]
     fn char_splitting() {
         assert_eq!(split_at_char("日本語", 1), ("日", "本語"));

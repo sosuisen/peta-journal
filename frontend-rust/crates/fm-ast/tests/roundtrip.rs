@@ -41,6 +41,7 @@ fn first_block(root: &Node) -> &Node {
     &root.children()[0]
 }
 
+// インライン書式を含む段落は document 配下の paragraph として解析され、子ノードの型の並びと抽出テキストがそろう。
 #[test]
 fn paragraph_with_inline_formatting() {
     let root = ast("hello *em* **strong** `code`");
@@ -53,6 +54,7 @@ fn paragraph_with_inline_formatting() {
     assert_eq!(heading_level(&root), None);
 }
 
+// レベル1から6の見出しは Heading ノードとして解析され、heading_level はトップレベルの最初の見出しのレベルを返す。
 #[test]
 fn headings_one_to_six() {
     for level in 1..=6u8 {
@@ -74,6 +76,7 @@ fn headings_one_to_six() {
     assert_eq!(heading_level(&root), Some(3));
 }
 
+// 情報文字列つきのフェンスコードブロックは info と literal を持つ CodeBlock として解析され、その中身は抽出テキストに含まれない。
 #[test]
 fn fenced_code_block_with_info() {
     let root = ast("```rust\nfn main() {}\n```");
@@ -87,6 +90,7 @@ fn fenced_code_block_with_info() {
     assert_eq!(extract_text(&root), "");
 }
 
+// タイトな箇条書きとルーズな番号付きリストは List ノードとして解析され、tight・start・delimiter が正しく入る。
 #[test]
 fn tight_and_loose_lists() {
     let tight = ast("- a\n- b");
@@ -129,6 +133,7 @@ fn tight_and_loose_lists() {
     assert_eq!(extract_text(&tight), "ab");
 }
 
+// タスクリストの項目は TaskItem として解析され、未完了は symbol が None、完了は "x" になる。
 #[test]
 fn task_items() {
     let root = ast("- [ ] todo\n- [x] done");
@@ -141,6 +146,7 @@ fn task_items() {
     assert_eq!(extract_text(&root), "tododone");
 }
 
+// 配置指定つきのテーブルは alignments・列数・行数・ヘッダ行を持つ Table として解析される。
 #[test]
 fn table_with_alignment() {
     let root = ast("| a | b | c |\n|:--|:-:|--:|\n| 1 | 2 | 3 |");
@@ -163,6 +169,7 @@ fn table_with_alignment() {
     assert_eq!(extract_text(&root), "abc123");
 }
 
+// 引用と水平線は BlockQuote と ThematicBreak として解析される。
 #[test]
 fn blockquote_and_thematic_break() {
     let root = ast("> quoted\n\n---");
@@ -171,6 +178,7 @@ fn blockquote_and_thematic_break() {
     assert_eq!(extract_text(&root), "quoted");
 }
 
+// リンクは url と title を持つ Link として解析され、Markdown の画像は flatmarkdown が出す Embed になる。npm パッケージ形式の image ノードも Image として解析される。
 #[test]
 fn link_and_image() {
     let root = ast("[site](https://example.com \"Title\") ![alt](pic.png)");
@@ -210,6 +218,7 @@ fn link_and_image() {
     assert_eq!(extract_text(&image), "x");
 }
 
+// ウィキリンクとハッシュタグは Wikilink と Hashtag として解析され、サーバーのオプションでは相対 Markdown リンクも同じノードに解決される。
 #[test]
 fn wikilink_and_hashtag() {
     let root = ast("see [[Other Page]] and #topic");
@@ -232,6 +241,7 @@ fn wikilink_and_hashtag() {
     assert!(matches!(&inlines[2], Node::Hashtag { value } if value == "tag"));
 }
 
+// 脚注参照と脚注定義は名前を持つ FootnoteReference と FootnoteDefinition として解析される。
 #[test]
 fn footnote_reference_and_definition() {
     let root = ast("text[^1]\n\n[^1]: the note");
@@ -258,6 +268,7 @@ fn footnote_reference_and_definition() {
     }
 }
 
+// 取り消し線は Strikethrough ノードとして解析される。
 #[test]
 fn strikethrough() {
     let root = ast("~~gone~~");
@@ -268,6 +279,7 @@ fn strikethrough() {
     assert_eq!(extract_text(&root), "gone");
 }
 
+// 段落内の改行は linebreak か softbreak として解析され、JSON の softbreak と linebreak ノードはそれぞれの型になる。
 #[test]
 fn softbreak_and_linebreak() {
     // In Flat Markdown a newline inside a paragraph is a hard line break.
@@ -288,6 +300,7 @@ fn softbreak_and_linebreak() {
     assert!(matches!(hard.children()[0], Node::Linebreak));
 }
 
+// インライン HTML は html_inline として、ブロック HTML は literal を持つ HtmlBlock として解析される。
 #[test]
 fn html_inline_and_block() {
     let root = ast("a <b>bold</b> c");
@@ -304,6 +317,7 @@ fn html_inline_and_block() {
     }
 }
 
+// 未知の型のノードはエラーにならず Unknown として子を保持し、余分なフィールドは無視される。
 #[test]
 fn unknown_type_is_tolerated_and_keeps_children() {
     let json = r#"{"type":"document","children":[
@@ -331,6 +345,7 @@ fn unknown_type_is_tolerated_and_keeps_children() {
     );
 }
 
+// 既知の型でフィールドの型が合わないノード、type のないノード、JSON でない文字列の解析はエラーになる。
 #[test]
 fn malformed_known_node_is_an_error() {
     assert!(parse(r#"{"type":"heading","level":"two"}"#).is_err());
@@ -338,6 +353,7 @@ fn malformed_known_node_is_an_error() {
     assert!(parse("not json").is_err());
 }
 
+// 省略された任意フィールドは既定値になる。children は空、fenced と display_math は false である。
 #[test]
 fn missing_optional_fields_default() {
     let root = parse(r#"{"type":"document"}"#).unwrap();
@@ -354,6 +370,7 @@ fn missing_optional_fields_default() {
     ));
 }
 
+// 解析した AST は type タグつきの JSON にシリアライズされ、Unknown ノードの type は "unknown" になる。
 #[test]
 fn serializes_back_to_tagged_json() {
     let root = ast("# Hi");

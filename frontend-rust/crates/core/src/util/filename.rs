@@ -83,6 +83,7 @@ pub fn validate_file_name(title: &str) -> Option<String> {
 mod tests {
     use super::*;
 
+    // ファイル名は日次・週次・月次・年次のジャーナル種別に分類され、それ以外の名前・空文字・3桁の週番号は None になる。
     #[test]
     fn classifies_journal_names() {
         assert_eq!(classify_journal_file_name("2026-02-10"), JournalType::Daily);
@@ -95,6 +96,7 @@ mod tests {
         assert_eq!(classify_journal_file_name("2026-W123"), JournalType::None);
     }
 
+    // 禁止文字・先頭の /・末尾のドット・Windows の予約名・制御文字を含むタイトルにはエラーメッセージが返り、有効なタイトルには None が返る。
     #[test]
     fn validates_file_names() {
         assert_eq!(validate_file_name("hello"), None);
