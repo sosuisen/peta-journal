@@ -281,3 +281,80 @@ fn enter_at_the_end_of_a_collapsed_parent_creates_the_item_after_its_hidden_chil
     let calls = create_calls(&h.api);
     assert_eq!(calls[0].1, "after:d");
 }
+
+// ルートの行頭での Enter は、ホストページのルートの直前に空の項目を作る。参照元ページには何も作らない。
+#[test]
+fn enter_at_the_start_of_a_transclusion_root_puts_the_empty_item_before_it_on_the_host_page() {
+    let mut h = transclusion_harness(Vec::new());
+    enter(&mut h, "root", 0);
+    let calls = create_calls(&h.api);
+    assert_eq!(calls.len(), 1);
+    let (page_id, position, level, body, _) = &calls[0];
+    assert_eq!(
+        (page_id.as_str(), position.as_str(), *level, body.as_str()),
+        ("page1", "after:a", 1, "")
+    );
+    assert_eq!(h.items_ids(), ["a", "new1", "root"]);
+}
+
+// 埋め込まれた子孫の行頭での Enter は、参照元ページのその項目の直前に空の項目を作り、ページを読み直す。
+#[test]
+fn enter_at_the_start_of_a_transcluded_descendant_puts_the_empty_item_before_it_on_the_source_page()
+{
+    let mut h = transclusion_harness(Vec::new());
+    let mut trees = TranscludedTrees::new();
+    trees.insert(
+        "s".into(),
+        vec![
+            item_with("s", 1, |i| i.page_id = "src".into()),
+            item_with("c", 2, |i| i.page_id = "src".into()),
+            item_with("d", 2, |i| {
+                i.page_id = "src".into();
+                i.body = "second".into();
+            }),
+        ],
+    );
+    h.model.state.set_transcluded_trees(trees);
+    enter(&mut h, "d", 0);
+    let calls = create_calls(&h.api);
+    assert_eq!(calls.len(), 1);
+    let (page_id, position, level, body, _) = &calls[0];
+    assert_eq!(
+        (page_id.as_str(), position.as_str(), *level, body.as_str()),
+        ("src", "after:c", 2, "")
+    );
+    assert!(h.api.called("GetPageById"));
+}
+
+// 元の木の最初の子の行頭での Enter は、参照元ページの元の項目の直後に空の項目を作る。ルートのidは参照元ページにないからである。
+#[test]
+fn enter_at_the_start_of_the_first_transcluded_child_puts_the_empty_item_after_the_source_item() {
+    let mut h = transclusion_harness(Vec::new());
+    enter(&mut h, "c", 0);
+    let calls = create_calls(&h.api);
+    assert_eq!(calls.len(), 1);
+    let (page_id, position, level, _, _) = &calls[0];
+    assert_eq!(
+        (page_id.as_str(), position.as_str(), *level),
+        ("src", "after:s", 2)
+    );
+}
+
+// 元の項目が消えた（壊れた）ルートの行頭での Enter も、ホストページのルートの直前に空の項目を作る。
+#[test]
+fn enter_at_the_start_of_a_broken_transclusion_root_puts_the_empty_item_before_it_on_the_host_page()
+{
+    let root = item_with("root", 1, |i| {
+        i.transclude_item_id = Some("gone".into());
+        i.body = "shown".into();
+    });
+    let mut h = Harness::with_items(vec![item("a", 1, ""), root]);
+    enter(&mut h, "root", 0);
+    let calls = create_calls(&h.api);
+    let (page_id, position, level, _, _) = &calls[0];
+    assert_eq!(
+        (page_id.as_str(), position.as_str(), *level),
+        ("page1", "after:a", 1)
+    );
+    assert_eq!(h.items_ids(), ["a", "new1", "root"]);
+}

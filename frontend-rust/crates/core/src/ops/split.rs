@@ -48,10 +48,15 @@ pub fn handle_enter(model: &mut Model, item_id: &str, cursor: usize) -> Cmd {
     let cursor = cursor.min(body_len);
 
     let cmd = if cursor == 0 && body_len > 0 {
-        let position = if ctx.in_transclusion {
-            ItemPosition::First
+        // A transclusion root is an item of this page: the empty item goes before it here,
+        // not on the source page. Only a transcluded descendant gets its item on the source page
+        let (ctx, position) = if ctx.in_transclusion && !model.state.is_own_item(&item.id) {
+            (ctx, position_before_on_source_page(model, &item.id))
         } else {
-            position_before(model.state.items(), &item.id)
+            (
+                host_context(&item.page_id),
+                position_before(model.state.items(), &item.id),
+            )
         };
         run(move |api| async move {
             let _handover = Handover::begin(&api);
@@ -94,6 +99,30 @@ fn release_keys(api: &Api<Event>) {
         m.key_relay.release();
         done()
     });
+}
+
+/// The context of an item created on the shown page itself, outside any transclusion.
+fn host_context(page_id: &str) -> EditContext {
+    EditContext {
+        page_id: page_id.to_string(),
+        level_offset: 0,
+        in_transclusion: false,
+    }
+}
+
+/// The position before a transcluded descendant on its source page. The item above it is a
+/// source item shown with its own id, except the root, which stands for the source item.
+fn position_before_on_source_page(model: &Model, item_id: &str) -> ItemPosition {
+    match position_before(model.state.visible_items(), item_id) {
+        ItemPosition::After(above_id) => {
+            let source_id = model
+                .state
+                .get_item_by_id(&above_id)
+                .and_then(|above| above.transclude_item_id.clone());
+            ItemPosition::After(source_id.unwrap_or(above_id))
+        }
+        position => position,
+    }
 }
 
 /// Enter at the beginning: a new empty item goes before the current one, which keeps its text.
@@ -143,11 +172,7 @@ fn append_empty_item_after_transclusion(
     cursor: usize,
     root: &Item,
 ) -> Cmd {
-    let ctx = EditContext {
-        page_id: root.page_id.clone(),
-        level_offset: 0,
-        in_transclusion: false,
-    };
+    let ctx = host_context(&root.page_id);
     let subtree = get_subtree(model.state.items(), &root.id);
     let (position, new_level) = if model.state.is_collapsed(&root.id) || subtree.len() == 1 {
         let last = &subtree[subtree.len() - 1];
