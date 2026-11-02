@@ -129,21 +129,12 @@ impl ItemService {
             .ok_or_else(|| AppError::bad_request(format!("Page not found: {page_id}")))?;
 
         let item = Item {
-            id: id.clone(),
-            page_id: page_id.clone(),
-            parent_item_id: None,
-            dir_path: page.dir_path.clone(),
-            name: page.name.clone(),
-            item_type: page.page_type.clone(),
-            created_date: now,
-            modified_date: now,
             idx,
             level,
             body: parsed.text.clone(),
             ast: ast.clone(),
-            collapsed: false,
             types,
-            transclude_item_id: None,
+            ..Item::new_on(id.clone(), &page, now)
         };
         let mut item = self.items.save(&item)?;
 

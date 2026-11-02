@@ -4,7 +4,6 @@ use std::sync::Arc;
 
 use chrono::{Datelike, Days, NaiveDate, Weekday};
 
-use crate::domain::fractional_index;
 use crate::domain::id_generator::IdGenerator;
 use crate::domain::journal_name::{self, JournalType};
 use crate::domain::model::{Item, ItemPosition, Page};
@@ -77,24 +76,7 @@ impl JournalService {
             return self.existing_journal(page);
         }
         let page = self.create_journal_page(&date.format("%Y-%m-%d").to_string())?;
-        let now = page.created_date;
-        let item = Item {
-            id: self.ids.generate_item_id(),
-            page_id: page.id.clone(),
-            parent_item_id: None,
-            dir_path: page.dir_path.clone(),
-            name: page.name.clone(),
-            item_type: page.page_type.clone(),
-            created_date: now,
-            modified_date: now,
-            idx: fractional_index::initial(),
-            level: 1,
-            body: String::new(),
-            ast: String::new(),
-            collapsed: false,
-            types: Vec::new(),
-            transclude_item_id: None,
-        };
+        let item = Item::new_on(self.ids.generate_item_id(), &page, page.created_date);
         let item = self.items.save(&item)?;
         self.export.queue_export(&page.id);
         Ok(JournalResult {

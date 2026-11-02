@@ -8,7 +8,6 @@ use regex::Regex;
 
 use super::atlas_service::AtlasService;
 use super::config_service::ConfigService;
-use crate::domain::fractional_index;
 use crate::domain::id_generator::IdGenerator;
 use crate::domain::journal_name;
 use crate::domain::model::{BacklinkEntry, Item, Page, ATLAS_NAME};
@@ -235,7 +234,8 @@ impl PageService {
         // The items of an atlas page are its cards, which the server writes; an empty first
         // item could take the index a card took already
         if !page.is_atlas() {
-            self.items.save(&self.initial_item(&page, now))?;
+            self.items
+                .save(&Item::new_on(self.ids.generate_item_id(), &page, now))?;
         }
         self.export.queue_export(&id);
         self.sync_atlases();
@@ -245,26 +245,6 @@ impl PageService {
             page,
             created: true,
         })
-    }
-
-    fn initial_item(&self, page: &Page, now: i64) -> Item {
-        Item {
-            id: self.ids.generate_item_id(),
-            page_id: page.id.clone(),
-            parent_item_id: None,
-            dir_path: page.dir_path.clone(),
-            name: page.name.clone(),
-            item_type: page.page_type.clone(),
-            created_date: now,
-            modified_date: now,
-            idx: fractional_index::initial(),
-            level: 1,
-            body: String::new(),
-            ast: String::new(),
-            collapsed: false,
-            types: Vec::new(),
-            transclude_item_id: None,
-        }
     }
 
     /// Updates a page's metadata. Only the given parameters are applied.
@@ -871,8 +851,8 @@ impl PageService {
                 };
                 self.pages.save(&page)?;
                 self.search.index_page(&page);
-                let item = self.initial_item(&page, now);
-                self.items.save(&item)?;
+                self.items
+                    .save(&Item::new_on(self.ids.generate_item_id(), &page, now))?;
                 if export {
                     // A file at once, so another device takes this index page and does not
                     // make one of its own
