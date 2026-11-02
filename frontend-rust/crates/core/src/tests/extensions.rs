@@ -57,111 +57,6 @@ fn an_empty_position_falls_back_to_after_item_id() {
     assert_eq!(create_calls(&h.api)[0].2, 2);
 }
 
-// ジャーナルの作成が拡張に通知される。
-#[test]
-fn creating_a_journal_tells_the_extensions() {
-    use crate::effects::ApiOutput;
-    use crate::model::{Page, PageWithItems};
-    let mut h = Harness::new();
-    h.api.answer_next(
-        "GetOrCreateJournal",
-        Ok(ApiOutput::Page(PageWithItems {
-            page: Page {
-                id: "p1".into(),
-                name: "2031-01-05".into(),
-                page_type: "journal".into(),
-                ..Default::default()
-            },
-            items: vec![item("e", 1, "")],
-            created: true,
-            ..Default::default()
-        })),
-    );
-    h.send(Event::Route {
-        route: crate::app::Route::Page {
-            name: "2031-01-05".into(),
-            fragment: None,
-        },
-        today: "2031-01-01".into(),
-    });
-    assert!(
-        h.ui.iter().any(|op| matches!(op, UiOp::ExtensionPageCreate { file_name, .. } if file_name == "2031-01-05")),
-        "ui ops: {:?}",
-        h.ui
-    );
-}
-
-fn set_tags(h: &mut Harness, value: &str) {
-    h.send(Event::SetPageProperty {
-        key: "tags".into(),
-        value_type: "tags".into(),
-        value: value.into(),
-    });
-}
-
-fn added_tags(h: &Harness) -> Vec<Vec<String>> {
-    h.ui.iter()
-        .filter_map(|op| match op {
-            UiOp::ExtensionPageTagAdd { page_id, tags, .. } if page_id == "page1" => {
-                Some(tags.clone())
-            }
-            _ => None,
-        })
-        .collect()
-}
-
-// ページへのタグ追加では、新しく追加されたタグだけが拡張に通知される。
-#[test]
-fn adding_tags_to_a_page_tells_the_extensions_of_the_new_ones_only() {
-    let mut h = Harness::with_items(vec![]);
-    set_tags(&mut h, "a");
-    set_tags(&mut h, "a, #b, c");
-    assert_eq!(added_tags(&h), vec![vec!["a"], vec!["b", "c"]]);
-}
-
-// タグの削除や他のプロパティの設定では拡張に何も通知されない。
-#[test]
-fn removing_a_tag_or_setting_another_property_tells_the_extensions_nothing() {
-    let mut h = Harness::with_items(vec![]);
-    set_tags(&mut h, "a, b");
-    set_tags(&mut h, "a");
-    h.send(Event::SetPageProperty {
-        key: "owner".into(),
-        value_type: "text".into(),
-        value: "me".into(),
-    });
-    assert_eq!(added_tags(&h), vec![vec!["a", "b"]]);
-}
-
-// 保存が拒否されたタグは拡張に通知されない。
-#[test]
-fn a_refused_tag_is_not_told_to_the_extensions() {
-    let mut h = Harness::with_items(vec![]);
-    h.api.fail_next("UpsertPageProperty", "refused");
-    set_tags(&mut h, "a");
-    assert!(added_tags(&h).is_empty());
-}
-
-// 拡張がユーザーに確認を求めると、その答えが requestId 付きで拡張に返される。
-#[test]
-fn an_extension_asks_the_user_and_gets_the_answer() {
-    for answer in [true, false] {
-        let mut h = Harness::with_items(vec![]);
-        h.confirm = answer;
-        h.send(Event::ExtensionConfirm {
-            source: 3,
-            request_id: Some("req-9".into()),
-            message: "Insert?".into(),
-        });
-        assert!(h
-            .ui
-            .iter()
-            .any(|op| matches!(op, UiOp::Confirm(m) if m == "Insert?")));
-        assert!(h.ui.iter().any(|op| matches!(op, UiOp::ExtensionReply { source: 3, message }
-            if message["type"] == "ConfirmResult" && message["ok"] == answer && message["requestId"] == "req-9")));
-    }
-}
-
 // 拡張が作る項目は別の項目をトランスクルードでき、結果に新しい項目 ID が返される。
 #[test]
 fn an_extension_item_can_transclude_another_item() {
@@ -281,4 +176,111 @@ fn a_failed_transclusion_is_told_and_the_next_item_goes_after_the_empty_line() {
         .any(|op| matches!(op, UiOp::Alert(m) if m.contains("missing-id"))));
     create_item(&mut h, "e", 1, "## App");
     assert_eq!(h.bodies(), vec!["e=", "new1=## App"]);
+}
+
+// ---- what the extensions are told ----
+
+// ジャーナルの作成が拡張に通知される。
+#[test]
+fn creating_a_journal_tells_the_extensions() {
+    use crate::effects::ApiOutput;
+    use crate::model::{Page, PageWithItems};
+    let mut h = Harness::new();
+    h.api.answer_next(
+        "GetOrCreateJournal",
+        Ok(ApiOutput::Page(PageWithItems {
+            page: Page {
+                id: "p1".into(),
+                name: "2031-01-05".into(),
+                page_type: "journal".into(),
+                ..Default::default()
+            },
+            items: vec![item("e", 1, "")],
+            created: true,
+            ..Default::default()
+        })),
+    );
+    h.send(Event::Route {
+        route: crate::app::Route::Page {
+            name: "2031-01-05".into(),
+            fragment: None,
+        },
+        today: "2031-01-01".into(),
+    });
+    assert!(
+        h.ui.iter().any(|op| matches!(op, UiOp::ExtensionPageCreate { file_name, .. } if file_name == "2031-01-05")),
+        "ui ops: {:?}",
+        h.ui
+    );
+}
+
+fn set_tags(h: &mut Harness, value: &str) {
+    h.send(Event::SetPageProperty {
+        key: "tags".into(),
+        value_type: "tags".into(),
+        value: value.into(),
+    });
+}
+
+fn added_tags(h: &Harness) -> Vec<Vec<String>> {
+    h.ui.iter()
+        .filter_map(|op| match op {
+            UiOp::ExtensionPageTagAdd { page_id, tags, .. } if page_id == "page1" => {
+                Some(tags.clone())
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+// ページへのタグ追加では、新しく追加されたタグだけが拡張に通知される。
+#[test]
+fn adding_tags_to_a_page_tells_the_extensions_of_the_new_ones_only() {
+    let mut h = Harness::with_items(vec![]);
+    set_tags(&mut h, "a");
+    set_tags(&mut h, "a, #b, c");
+    assert_eq!(added_tags(&h), vec![vec!["a"], vec!["b", "c"]]);
+}
+
+// タグの削除や他のプロパティの設定では拡張に何も通知されない。
+#[test]
+fn removing_a_tag_or_setting_another_property_tells_the_extensions_nothing() {
+    let mut h = Harness::with_items(vec![]);
+    set_tags(&mut h, "a, b");
+    set_tags(&mut h, "a");
+    h.send(Event::SetPageProperty {
+        key: "owner".into(),
+        value_type: "text".into(),
+        value: "me".into(),
+    });
+    assert_eq!(added_tags(&h), vec![vec!["a", "b"]]);
+}
+
+// 保存が拒否されたタグは拡張に通知されない。
+#[test]
+fn a_refused_tag_is_not_told_to_the_extensions() {
+    let mut h = Harness::with_items(vec![]);
+    h.api.fail_next("UpsertPageProperty", "refused");
+    set_tags(&mut h, "a");
+    assert!(added_tags(&h).is_empty());
+}
+
+// 拡張がユーザーに確認を求めると、その答えが requestId 付きで拡張に返される。
+#[test]
+fn an_extension_asks_the_user_and_gets_the_answer() {
+    for answer in [true, false] {
+        let mut h = Harness::with_items(vec![]);
+        h.confirm = answer;
+        h.send(Event::ExtensionConfirm {
+            source: 3,
+            request_id: Some("req-9".into()),
+            message: "Insert?".into(),
+        });
+        assert!(h
+            .ui
+            .iter()
+            .any(|op| matches!(op, UiOp::Confirm(m) if m == "Insert?")));
+        assert!(h.ui.iter().any(|op| matches!(op, UiOp::ExtensionReply { source: 3, message }
+            if message["type"] == "ConfirmResult" && message["ok"] == answer && message["requestId"] == "req-9")));
+    }
 }

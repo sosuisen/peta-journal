@@ -95,6 +95,15 @@ fn records_one_undo_entry_with_the_update_and_the_created_items() {
     assert_eq!(entry.cursor_before.unwrap().position, 2);
 }
 
+// 項目の作成に失敗すると、undo 項目は捨てられる。
+#[test]
+fn a_failed_creation_drops_the_undo_entry() {
+    let mut h = harness();
+    h.api.fail_next("CreateItem", "offline");
+    paste(&mut h, "a", "one\ntwo", 2);
+    assert!(!h.model.undo.can_undo());
+}
+
 // このアプリからコピーした文は、保存しておいた Flat Markdown から貼り付けられる。
 #[test]
 fn text_copied_from_this_app_is_pasted_from_the_stored_flat_markdown() {
@@ -184,15 +193,6 @@ fn raw_tree_markdown_and_stored_flat_markdown_are_not_converted() {
   - ybody of z"
         ]
     );
-}
-
-// 項目の作成に失敗すると、undo 項目は捨てられる。
-#[test]
-fn a_failed_creation_drops_the_undo_entry() {
-    let mut h = harness();
-    h.api.fail_next("CreateItem", "offline");
-    paste(&mut h, "a", "one\ntwo", 2);
-    assert!(!h.model.undo.can_undo());
 }
 
 // 画像はアップロードされてカーソル位置にリンクされ、カーソルはリンクの直後に置かれる。
