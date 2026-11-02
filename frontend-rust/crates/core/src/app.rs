@@ -433,6 +433,15 @@ pub fn all(cmds: impl IntoIterator<Item = Cmd>) -> Cmd {
 }
 
 /// Logs an error the user does not need to see, like `console.error` in the Angular app.
+/// Stops a debounce timer that is still running and forgets it.
+pub fn cancel_timer(timer_id: &mut u64) -> Cmd {
+    if *timer_id == 0 {
+        return done();
+    }
+    let id = std::mem::take(timer_id);
+    Command::notify_shell(crate::effects::TimerOp::Cancel { id }).into()
+}
+
 pub fn log_error(message: impl fmt::Display) {
     #[cfg(target_arch = "wasm32")]
     {
@@ -672,6 +681,12 @@ impl Model {
             .or_else(|| self.state.get_item_by_id(item_id))
     }
 
+    /// A copy of the item as the state shows it, for a command that goes on after the
+    /// state has changed.
+    pub fn cloned_item(&self, item_id: &str) -> Option<Item> {
+        self.current_item(item_id).map(|item| (*item).clone())
+    }
+
     /// A fresh HMTID for an item created on the client.
     pub fn new_item_id(&self, now_ms: u64) -> String {
         self.hmtid.generate_at(now_ms).as_str().to_string()
@@ -770,7 +785,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         WikiQuery { item_id, context } => ops::wiki::query(model, &item_id, context),
         WikiKey { key } => ops::wiki::key_nav(model, &key),
         WikiPick { title } => ops::wiki::pick(model, &title),
-        OpenWikiLink { text } => screens::navigate::to_page(&text, false, false, false, None),
+        OpenWikiLink { text } => screens::navigate::open_page(&text),
         ShiftSelect { item_id } => {
             model
                 .selection
@@ -852,26 +867,12 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         DeletePageProperty { key } => screens::page::delete_property(model, key),
         CreateNewPage { search_query } => screens::layout::create_new_page(model, search_query),
         DeleteCurrentPage => screens::layout::delete_current_page(model),
-        NavigateToToday => Command::notify_shell(crate::effects::NavigateOp {
-            url: "/today".into(),
-            replace: false,
-        })
-        .into(),
+        NavigateToToday => screens::navigate::to_url("/today", false),
         NavigateHome => screens::settings::navigate_home(model),
-        NavigateToRoot => screens::navigate::to_page(
-            &screens::atlas::folder_path(model, "index"),
-            false,
-            false,
-            false,
-            None,
-        ),
-        NavigateToTags => screens::navigate::to_page(
-            &screens::atlas::folder_path(model, &format!("{}index", model.config.tags_dir)),
-            false,
-            false,
-            false,
-            None,
-        ),
+        NavigateToRoot => screens::navigate::open_folder(model, "index"),
+        NavigateToTags => {
+            screens::navigate::open_folder(model, &format!("{}index", model.config.tags_dir))
+        }
         GoToPage {
             path,
             new_tab,

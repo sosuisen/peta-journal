@@ -4,8 +4,9 @@
 use crate::app::{apply, done, log_error, run, Cmd, Event, Model};
 use crate::effects::{Api, ApiError, UiOp};
 use crate::model::{ItemPosition, Page};
-use crate::ops::file_reload::reload_shown_page;
+use crate::ops::action::show_transclusion_change;
 use crate::outline::tree::can_place;
+use crate::screens::sidebar;
 use crux_core::Command;
 use serde_json::json;
 
@@ -144,18 +145,9 @@ async fn answer_created(
 /// either way, and only the link to the source is missing.
 async fn set_transclusion(api: &Api<Event>, item_id: &str, source_id: &str) {
     match api.set_transclusion(item_id, source_id).await {
-        Ok(updated) => {
-            apply(api, "extension transclusion", move |m| {
-                m.state.replace_item(&updated);
-                done()
-            });
-            // The source tree of the transclusion comes with the page only
-            reload_shown_page(api).await;
-        }
+        Ok(updated) => show_transclusion_change(api, updated).await,
         // Told, not only logged: a template with a wrong id would leave an empty item unseen
-        Err(e) => api.notify(UiOp::Alert(format!(
-            "Failed to transclude the item {source_id}: {e}"
-        ))),
+        Err(e) => api.alert(format!("Failed to transclude the item {source_id}: {e}")),
     }
 }
 
@@ -169,6 +161,21 @@ pub fn confirm(source: u64, request_id: Option<String>, message: String) -> Cmd 
             message: json!({ "type": "ConfirmResult", "ok": ok, "requestId": request_id }),
         });
     })
+}
+
+/// A page made on the way to it: the recent pages are refreshed and the extensions hear of
+/// it. The file name of a journal is its date.
+pub fn page_created(page: &Page, file_name: String) -> Cmd {
+    Command::all([
+        sidebar::refresh_recent_pages(),
+        Command::notify_shell(UiOp::ExtensionPageCreate {
+            page_id: page.id.clone(),
+            file_name,
+            dir_name: page.dir_path.clone(),
+            page_type: page.page_type.clone(),
+        })
+        .into(),
+    ])
 }
 
 /// The extensions hear of the tags added to the tags property of a page. Nothing is sent

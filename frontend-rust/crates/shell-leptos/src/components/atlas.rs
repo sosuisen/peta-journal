@@ -25,16 +25,11 @@ const ATLAS_VIEWS_KEY: &str = "atlas-views";
 
 /// The folders last seen as their atlas, as the browser stored them.
 pub fn load_atlas_dirs() -> Vec<String> {
-    dom::local_storage_get(ATLAS_DIRS_KEY)
-        .and_then(|s| serde_json::from_str(&s).ok())
-        .unwrap_or_default()
+    dom::local_storage_json(ATLAS_DIRS_KEY).unwrap_or_default()
 }
 
 pub fn save_atlas_dirs(dirs: &[String]) {
-    dom::local_storage_set(
-        ATLAS_DIRS_KEY,
-        &serde_json::to_string(dirs).unwrap_or_default(),
-    );
+    dom::local_storage_set_json(ATLAS_DIRS_KEY, dirs);
 }
 
 /// Where the hand tool and the wheel left the view of an atlas: how far it is moved from
@@ -58,18 +53,13 @@ impl Default for View {
 
 /// The view of each atlas as the browser stored it, by the dir path of the atlas.
 fn load_views() -> HashMap<String, View> {
-    dom::local_storage_get(ATLAS_VIEWS_KEY)
-        .and_then(|s| serde_json::from_str(&s).ok())
-        .unwrap_or_default()
+    dom::local_storage_json(ATLAS_VIEWS_KEY).unwrap_or_default()
 }
 
 fn save_view(dir: &str, view: View) {
     let mut views = load_views();
     views.insert(dir.to_string(), view);
-    dom::local_storage_set(
-        ATLAS_VIEWS_KEY,
-        &serde_json::to_string(&views).unwrap_or_default(),
-    );
+    dom::local_storage_set_json(ATLAS_VIEWS_KEY, &views);
 }
 
 /// The drag data of an unplaced card. A type of its own keeps text dragged from elsewhere
@@ -272,24 +262,7 @@ pub fn Atlas() -> impl IntoView {
         move |page_id: String, x: f64, y: f64| {
             menu_listeners.clear_later();
             menu.set(Some((page_id, x, y)));
-            // Listening starts after this click, so the click itself does not close the menu
-            dom::after_render(move || {
-                menu_listeners.on_cancelable("mousedown", move |ev: &web_sys::MouseEvent| {
-                    let inside_menu = ev
-                        .target()
-                        .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
-                        .is_some_and(|t| t.closest(".atlas-menu").ok().flatten().is_some());
-                    if !inside_menu {
-                        close_menu();
-                    }
-                });
-                menu_listeners.on("keydown", move |ev: &web_sys::KeyboardEvent| {
-                    if ev.key() == "Escape" {
-                        ev.prevent_default();
-                        close_menu();
-                    }
-                });
-            });
+            menu_listeners.close_menu_on_outside_or_escape(".atlas-menu", close_menu);
         },
     ));
     // The directory whose view the canvas shows, fixed when the canvas is made: the view
@@ -552,14 +525,8 @@ pub fn Atlas() -> impl IntoView {
                         view! {
                             <div class="atlas-card" class:folder=card.is_dir draggable="true"
                                 on:dragstart=move |ev: web_sys::DragEvent| {
-                                    // The card, not the label inside it that may be under the pointer.
-                                    // Not `current_target`: Leptos hands the event on from an element
-                                    // further up, which would measure the grab against that element.
-                                    let Some(el) = ev
-                                        .target()
-                                        .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
-                                        .and_then(|t| t.closest(".atlas-card").ok().flatten())
-                                    else {
+                                    // The card, not the label inside it that may be under the pointer
+                                    let Some(el) = dom::target_closest(&ev, ".atlas-card") else {
                                         return;
                                     };
                                     let rect = el.get_bounding_client_rect();

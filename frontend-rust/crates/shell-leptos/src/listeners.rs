@@ -62,6 +62,28 @@ impl DocumentListeners {
         self.0.try_update_value(|l| l.push(listener));
     }
 
+    /// Closes a popup menu on a mousedown outside it or on Escape. Listening starts after
+    /// the current render, so the click that opened the menu does not close it.
+    pub fn close_menu_on_outside_or_escape(
+        self,
+        menu_selector: &'static str,
+        close: impl Fn() + Copy + 'static,
+    ) {
+        crate::dom::after_render(move || {
+            self.on_cancelable("mousedown", move |ev: &web_sys::MouseEvent| {
+                if crate::dom::target_closest(ev, menu_selector).is_none() {
+                    close();
+                }
+            });
+            self.on("keydown", move |ev: &web_sys::KeyboardEvent| {
+                if ev.key() == "Escape" {
+                    ev.prevent_default();
+                    close();
+                }
+            });
+        });
+    }
+
     /// Removes the listeners now. Not from inside one of them: use [`clear_later`](Self::clear_later).
     pub fn clear(self) {
         self.0.try_update_value(|l| l.clear());

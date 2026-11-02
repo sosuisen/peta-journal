@@ -5,7 +5,9 @@
 use crate::app::{apply, done, log_error, run, Cmd, Event, Model};
 use crate::effects::Api;
 use crate::model::{Item, ItemPosition};
-use crate::ops::edit::{discard_pending_edit, focus_editor, save_body, save_target_id, Handover};
+use crate::ops::edit::{
+    close_editor, discard_pending_edit, focus_editor, save_body, save_target_id, Handover,
+};
 use crate::ops::file_reload::reload_shown_page;
 use crate::ops::level;
 use crate::outline::tree::{
@@ -19,10 +21,9 @@ use futures::future::join;
 
 /// Handles Enter at a cursor position in an item.
 pub fn handle_enter(model: &mut Model, item_id: &str, cursor: usize) -> Cmd {
-    let Some(item) = model.current_item(item_id) else {
+    let Some(item) = model.cloned_item(item_id) else {
         return done();
     };
-    let item: Item = (*item).clone();
     // The next editor is focused after the next render; keys pressed before that are kept for it
     model.key_relay.hold_until_focus();
     let discard = discard_pending_edit(model, &item);
@@ -129,11 +130,7 @@ async fn insert_empty_item_before(
         done()
     });
     focus_editor(api, Some(new_item.id.clone())).await;
-    let old_id = item.id.clone();
-    apply(api, "enter before: close old editor", move |m| {
-        m.state.remove_editing_item(&old_id);
-        done()
-    });
+    close_editor(api, "enter before: close old editor", item.id.clone());
     Ok(())
 }
 
@@ -243,11 +240,7 @@ fn append_empty_item_after(
         if let Err(e) = save_body(&api, &save_target_id(&item), before).await {
             log_error(format!("Failed to save item: {e}"));
         }
-        let old_id = item.id.clone();
-        apply(&api, "enter after: close old editor", move |m| {
-            m.state.remove_editing_item(&old_id);
-            done()
-        });
+        close_editor(&api, "enter after: close old editor", item.id.clone());
     });
     Command::all([create, finish])
 }
@@ -290,11 +283,7 @@ async fn split_item_at(
         done()
     });
     focus_editor(api, Some(new_item.id.clone())).await;
-    let old_id = item.id.clone();
-    apply(api, "enter split: close old editor", move |m| {
-        m.state.remove_editing_item(&old_id);
-        done()
-    });
+    close_editor(api, "enter split: close old editor", item.id.clone());
     Ok(())
 }
 

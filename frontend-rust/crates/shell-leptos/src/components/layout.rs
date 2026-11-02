@@ -10,7 +10,6 @@ use crate::listeners::DocumentListeners;
 use leptos::prelude::*;
 use peta_core::view::ScreenView;
 use peta_core::Event;
-use wasm_bindgen::JsCast;
 
 const CONFIG_KEY: &str = "peta-journal-config";
 const STANDARD_PROTOCOLS: [&str; 9] = [
@@ -26,18 +25,16 @@ const STANDARD_PROTOCOLS: [&str; 9] = [
 ];
 
 fn load_sidebar_width() -> f64 {
-    dom::local_storage_get(CONFIG_KEY)
-        .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
+    dom::local_storage_json::<serde_json::Value>(CONFIG_KEY)
         .and_then(|v| v.get("sidebarWidth").and_then(|w| w.as_f64()))
         .unwrap_or(260.0)
 }
 
 fn save_sidebar_width(width: f64) {
-    let mut config = dom::local_storage_get(CONFIG_KEY)
-        .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
+    let mut config = dom::local_storage_json::<serde_json::Value>(CONFIG_KEY)
         .unwrap_or_else(|| serde_json::json!({}));
     config["sidebarWidth"] = serde_json::json!(width);
-    dom::local_storage_set(CONFIG_KEY, &config.to_string());
+    dom::local_storage_set_json(CONFIG_KEY, &config);
 }
 
 /// True for a link with a custom URL scheme (`peta-journal://...`), which the server opens.
@@ -94,9 +91,7 @@ pub fn MainLayout() -> impl IntoView {
                 ev.prevent_default();
                 focus();
             } else if !is_editing && !ev.alt_key() && !ev.meta_key() {
-                let tag = ev
-                    .target()
-                    .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
+                let tag = dom::target_element(ev)
                     .map(|e| e.tag_name())
                     .unwrap_or_default();
                 if tag == "INPUT" || tag == "TEXTAREA" {
@@ -128,10 +123,7 @@ pub fn MainLayout() -> impl IntoView {
         global.on_cancelable("dragover", |ev: &web_sys::Event| ev.prevent_default());
         global.on_cancelable("drop", |ev: &web_sys::Event| ev.prevent_default());
         global.on_capture("click", move |ev: &web_sys::Event| {
-            let Some(target) = ev
-                .target()
-                .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
-            else {
+            let Some(target) = dom::target_element(ev) else {
                 return;
             };
             let Some(anchor) = target.closest("a").ok().flatten() else {

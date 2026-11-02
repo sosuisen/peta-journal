@@ -14,10 +14,9 @@ use crux_core::Command;
 /// Backspace at the start: the item's text goes to the end of the item above, which keeps
 /// the editor, and the item is deleted.
 pub fn merge_into_previous(model: &mut Model, item_id: &str) -> Cmd {
-    let Some(item) = model.current_item(item_id) else {
+    let Some(item) = model.cloned_item(item_id) else {
         return done();
     };
-    let item: Item = (*item).clone();
     if item.transclude_item_id.is_some() {
         return done();
     }
@@ -67,10 +66,9 @@ pub fn merge_into_previous(model: &mut Model, item_id: &str) -> Cmd {
 /// Delete at the end: the text of the item below is appended to this item, and the item
 /// below is deleted.
 pub fn merge_next_into(model: &mut Model, item_id: &str) -> Cmd {
-    let Some(item) = model.current_item(item_id) else {
+    let Some(item) = model.cloned_item(item_id) else {
         return done();
     };
-    let item: Item = (*item).clone();
     let items = model.state.visible_items();
     let Some(idx) = index_of(items, &item.id) else {
         return done();

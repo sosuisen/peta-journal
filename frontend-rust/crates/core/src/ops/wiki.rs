@@ -2,8 +2,8 @@
 //! from `wiki-suggestions.ts`. The outline feeds it the query from the editor and inserts
 //! the pick into the body.
 
-use crate::app::{apply, done, log_error, run, Cmd, Model, WikiLinkContext};
-use crate::effects::{TimerOp, TimerOutput};
+use crate::app::{apply, cancel_timer, done, log_error, run, Cmd, Model, WikiLinkContext};
+use crate::effects::TimerOutput;
 use crate::ops::edit::record_typing;
 use crate::util::char_len;
 use crux_core::Command;
@@ -29,7 +29,7 @@ pub fn query(model: &mut Model, item_id: &str, context: Option<WikiLinkContext>)
         model.wiki.suggestions.clear();
         return done();
     }
-    let cancel = cancel_timer(model);
+    let cancel = cancel_timer(&mut model.wiki.timer_id);
     let timer_id = model.next_timer_id();
     model.wiki.timer_id = timer_id;
     let q = ctx.query;
@@ -53,14 +53,6 @@ pub fn query(model: &mut Model, item_id: &str, context: Option<WikiLinkContext>)
         });
     });
     Command::all([cancel, search])
-}
-
-fn cancel_timer(model: &mut Model) -> Cmd {
-    if model.wiki.timer_id == 0 {
-        return done();
-    }
-    let id = std::mem::take(&mut model.wiki.timer_id);
-    Command::notify_shell(TimerOp::Cancel { id }).into()
 }
 
 /// ArrowUp, ArrowDown or Enter while the popup is open.
@@ -139,5 +131,5 @@ pub fn close(model: &mut Model) -> Cmd {
     model.wiki.suggestions.clear();
     model.wiki.item_id = None;
     model.wiki.query.clear();
-    cancel_timer(model)
+    cancel_timer(&mut model.wiki.timer_id)
 }

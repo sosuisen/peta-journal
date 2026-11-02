@@ -1,7 +1,8 @@
 //! The server settings, ported from `config.service.ts` and `settings.ts`.
 
-use crate::app::{apply, done, log_error, run, Cmd, Model};
-use crate::model::WeekNumbering;
+use crate::app::{apply, done, log_error, run, Cmd, Event, Model};
+use crate::effects::{Api, ApiResult};
+use crate::model::{PropertyDefinition, ServerConfig, WeekNumbering};
 
 /// Loads the server's settings and the property definitions.
 pub fn load_server_config() -> Cmd {
@@ -42,16 +43,7 @@ pub fn add_property_definition(model: &mut Model, key: String, value_type: Strin
         return done();
     }
     run(move |api| async move {
-        match api.add_property_definition(&key, &value_type).await {
-            Ok(defs) => apply(&api, "property definition added", move |m| {
-                m.config.property_definitions = defs;
-                done()
-            }),
-            Err(e) => apply(&api, "property definition refused", move |m| {
-                m.config.definition_error = Some(e.0);
-                done()
-            }),
-        }
+        settle_definitions(&api, api.add_property_definition(&key, &value_type).await);
     })
 }
 
@@ -60,38 +52,73 @@ pub fn add_property_definition(model: &mut Model, key: String, value_type: Strin
 pub fn delete_property_definition(model: &mut Model, key: String) -> Cmd {
     model.config.definition_error = None;
     run(move |api| async move {
-        match api.delete_property_definition(&key).await {
-            Ok(defs) => apply(&api, "property definition deleted", move |m| {
-                m.config.property_definitions = defs;
-                done()
-            }),
-            Err(e) => apply(&api, "property definition delete refused", move |m| {
-                m.config.definition_error = Some(e.0);
-                done()
-            }),
-        }
+        settle_definitions(&api, api.delete_property_definition(&key).await);
     })
+}
+
+/// Takes the server's answer to a change of the property definitions: the whole list, or
+/// the reason the change was refused.
+fn settle_definitions(api: &Api<Event>, result: ApiResult<Vec<PropertyDefinition>>) {
+    match result {
+        Ok(defs) => apply(api, "property definitions changed", move |m| {
+            m.config.property_definitions = defs;
+            done()
+        }),
+        Err(e) => apply(api, "property definition change refused", move |m| {
+            m.config.definition_error = Some(e.0);
+            done()
+        }),
+    }
 }
 
 pub fn set_week_numbering(model: &mut Model, value: WeekNumbering) -> Cmd {
     model.config.week_numbering = value;
     run(move |api| async move {
-        if let Err(e) = api
-            .update_config(None, Some(value.as_str().to_string()), None, None, None)
-            .await
-        {
-            log_error(format!("Failed to save config to server: {e}"));
-        }
+        save_config(
+            &api,
+            None,
+            Some(value.as_str().to_string()),
+            None,
+            None,
+            None,
+        )
+        .await;
     })
 }
 
 pub fn set_logical_outdent(model: &mut Model, value: bool) -> Cmd {
     model.config.logical_outdent = value;
     run(move |api| async move {
-        if let Err(e) = api.update_config(None, None, Some(value), None, None).await {
-            log_error(format!("Failed to save config to server: {e}"));
-        }
+        save_config(&api, None, None, Some(value), None, None).await;
     })
+}
+
+/// Saves the given settings on the server. A failure is logged: the screen keeps the
+/// typed value. The server's config comes back when it was saved.
+async fn save_config(
+    api: &Api<Event>,
+    markdown_dir: Option<String>,
+    week_numbering: Option<String>,
+    logical_outdent: Option<bool>,
+    tags_dir: Option<String>,
+    home_link: Option<String>,
+) -> Option<ServerConfig> {
+    match api
+        .update_config(
+            markdown_dir,
+            week_numbering,
+            logical_outdent,
+            tags_dir,
+            home_link,
+        )
+        .await
+    {
+        Ok(config) => Some(config),
+        Err(e) => {
+            log_error(format!("Failed to save config to server: {e}"));
+            None
+        }
+    }
 }
 
 /// Saves the tag directory. The server normalizes it to the `dirPath` form (`tags/`),
@@ -99,12 +126,11 @@ pub fn set_logical_outdent(model: &mut Model, value: bool) -> Cmd {
 pub fn set_tags_dir(model: &mut Model, value: String) -> Cmd {
     model.config.tags_dir = value.clone();
     run(move |api| async move {
-        match api.update_config(None, None, None, Some(value), None).await {
-            Ok(c) => apply(&api, "tags dir", move |m| {
+        if let Some(c) = save_config(&api, None, None, None, Some(value), None).await {
+            apply(&api, "tags dir", move |m| {
                 m.config.tags_dir = c.tags_dir;
                 done()
-            }),
-            Err(e) => log_error(format!("Failed to save config to server: {e}")),
+            });
         }
     })
 }
@@ -114,12 +140,11 @@ pub fn set_tags_dir(model: &mut Model, value: String) -> Cmd {
 pub fn set_home_link(model: &mut Model, value: String) -> Cmd {
     model.config.home_link = value.trim().to_string();
     run(move |api| async move {
-        match api.update_config(None, None, None, None, Some(value)).await {
-            Ok(c) => apply(&api, "home link", move |m| {
+        if let Some(c) = save_config(&api, None, None, None, None, Some(value)).await {
+            apply(&api, "home link", move |m| {
                 m.config.home_link = c.home_link;
                 done()
-            }),
-            Err(e) => log_error(format!("Failed to save config to server: {e}")),
+            });
         }
     })
 }
@@ -131,13 +156,7 @@ pub fn navigate_home(model: &mut Model) -> Cmd {
     if link.is_empty() {
         return super::navigate::to_url("/today", false);
     }
-    super::navigate::to_page(
-        &super::atlas::folder_path(model, link),
-        false,
-        false,
-        false,
-        None,
-    )
+    super::navigate::open_folder(model, link)
 }
 
 /// Opens the server's folder chooser and saves the chosen markdown directory.
@@ -150,12 +169,7 @@ pub fn browse_folder(_model: &mut Model) -> Cmd {
                     m.config.markdown_dir = path;
                     done()
                 });
-                if let Err(e) = api
-                    .update_config(Some(choice.path), None, None, None, None)
-                    .await
-                {
-                    log_error(format!("Failed to save config to server: {e}"));
-                }
+                save_config(&api, Some(choice.path), None, None, None, None).await;
             }
             Ok(_) => {}
             Err(e) => log_error(format!("Failed to browse folder: {e}")),

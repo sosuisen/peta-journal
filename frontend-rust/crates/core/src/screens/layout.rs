@@ -1,7 +1,6 @@
 //! The header's actions, ported from `main-layout.ts`: a new page and deleting the shown page.
 
 use crate::app::{apply, done, run, Cmd, Model, Screen};
-use crate::effects::UiOp;
 use crate::screens::{navigate, search, sidebar};
 use crate::util::date::generate_untitled_title;
 use crate::util::filename::{is_journal_file_name, validate_file_name};
@@ -31,13 +30,11 @@ pub fn create_new_page(model: &mut Model, search_query: String) -> Cmd {
         }
         if !is_journal_file_name(&title) {
             if let Some(error) = validate_file_name(&title) {
-                api.notify(UiOp::Alert(error));
+                api.alert(error);
                 return;
             }
         }
-        apply(&api, "new page", move |_| {
-            navigate::to_page(&title, false, false, false, None)
-        });
+        apply(&api, "new page", move |_| navigate::open_page(&title));
     });
     Command::all([clear, open])
 }
@@ -70,14 +67,10 @@ pub fn delete_current_page(model: &mut Model) -> Cmd {
         };
         let page = match page {
             Ok(p) => p.page,
-            Err(e) => return api.notify(UiOp::Alert(e.0)),
+            Err(e) => return api.alert(e.0),
         };
         if let Err(e) = api.delete_page(&page.id).await {
-            api.notify(UiOp::Alert(if e.0.is_empty() {
-                "Failed to delete page".into()
-            } else {
-                e.0
-            }));
+            api.alert(e.message_or("Failed to delete page"));
             return;
         }
         apply(&api, "page deleted", |_| {

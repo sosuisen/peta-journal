@@ -10,10 +10,9 @@ use crate::ops::file_reload::reload_shown_page;
 /// Cycles the task state: normal → task → running → done → normal.
 /// An item that just became a task on a daily journal gets the journal date as its plan.
 pub fn cycle_task(model: &mut Model, item_id: &str) -> Cmd {
-    let Some(item) = model.current_item(item_id) else {
+    let Some(item) = model.cloned_item(item_id) else {
         return done();
     };
-    let item: Item = (*item).clone();
     run(move |api| async move {
         let target_id = save_target_id(&item);
         let was_task = item.is_task();
@@ -39,9 +38,8 @@ pub fn cycle_task(model: &mut Model, item_id: &str) -> Cmd {
             let mut after = item.clone();
             after.types = updated.types;
             after.properties = updated.properties;
-            m.undo.begin("cycle-task", None);
-            m.undo.push_update(&item, &after);
-            m.undo.commit(None, m.clock_ms);
+            m.undo
+                .record_update("cycle-task", &item, &after, m.clock_ms);
             done()
         });
     })
@@ -95,10 +93,9 @@ pub fn toggle_collapsed(model: &mut Model, item_id: &str) -> Cmd {
     if !model.state.has_children(item_id) {
         return done();
     }
-    let Some(item) = model.current_item(item_id) else {
+    let Some(item) = model.cloned_item(item_id) else {
         return done();
     };
-    let item: Item = (*item).clone();
     let new_collapsed = !item.collapsed;
     model.state.toggle_collapsed(&item.id);
     model
@@ -112,9 +109,7 @@ pub fn toggle_collapsed(model: &mut Model, item_id: &str) -> Cmd {
             Ok(_) => apply(&api, "collapse: record", move |m| {
                 let mut after = item.clone();
                 after.collapsed = new_collapsed;
-                m.undo.begin("collapse", None);
-                m.undo.push_update(&item, &after);
-                m.undo.commit(None, m.clock_ms);
+                m.undo.record_update("collapse", &item, &after, m.clock_ms);
                 done()
             }),
             Err(e) => {
@@ -132,10 +127,9 @@ pub fn toggle_collapsed(model: &mut Model, item_id: &str) -> Cmd {
 
 /// Makes the item a transclusion of the item whose id is on the clipboard.
 pub fn paste_as_transclusion(model: &mut Model, item_id: &str) -> Cmd {
-    let Some(item) = model.current_item(item_id) else {
+    let Some(item) = model.cloned_item(item_id) else {
         return done();
     };
-    let item: Item = (*item).clone();
     run(move |api| async move {
         let pasted = api.read_clipboard_text().await;
         transclude(&api, &item, &pasted).await;
@@ -155,15 +149,19 @@ async fn transclude(api: &Api<Event>, item: &Item, pasted_text: &str) {
         return;
     }
     match api.set_transclusion(&item.id, source_id).await {
-        Ok(updated) => {
-            apply(api, "transclude: apply", move |m| {
-                m.state.replace_item(&updated);
-                done()
-            });
-            reload_shown_page(api).await;
-        }
+        Ok(updated) => show_transclusion_change(api, updated).await,
         Err(e) => log_error(format!("Failed to set transclusion: {e}")),
     }
+}
+
+/// Shows an item whose transclusion changed: the item at once, then the page again, since
+/// the source tree of a transclusion comes with the page only.
+pub async fn show_transclusion_change(api: &Api<Event>, updated: Item) {
+    apply(api, "transclusion changed", move |m| {
+        m.state.replace_item(&updated);
+        done()
+    });
+    reload_shown_page(api).await;
 }
 
 /// Turns a transclusion back into a plain item.
@@ -174,13 +172,7 @@ pub fn remove_transclusion(model: &mut Model, item_id: &str) -> Cmd {
     let id = item.id.clone();
     run(move |api| async move {
         match api.remove_transclusion(&id).await {
-            Ok(updated) => {
-                apply(&api, "remove transclusion: apply", move |m| {
-                    m.state.replace_item(&updated);
-                    done()
-                });
-                reload_shown_page(&api).await;
-            }
+            Ok(updated) => show_transclusion_change(&api, updated).await,
             Err(e) => log_error(format!("Failed to remove transclusion: {e}")),
         }
     })
@@ -192,10 +184,9 @@ const STASH_HEADING: &str = "# Stash";
 /// Sends an item (and its children) to the page's stash: moves the group under the
 /// `# Stash` heading, which is created at the end of the page when missing.
 pub fn send_to_stash(model: &mut Model, item_id: &str) -> Cmd {
-    let Some(item) = model.current_item(item_id) else {
+    let Some(item) = model.cloned_item(item_id) else {
         return done();
     };
-    let item: Item = (*item).clone();
     let group_ids: Vec<String> = model
         .state
         .get_item_with_children(&item.id)

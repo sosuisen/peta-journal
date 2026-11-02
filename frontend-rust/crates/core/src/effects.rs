@@ -264,6 +264,17 @@ impl std::fmt::Display for ApiError {
     }
 }
 
+impl ApiError {
+    /// The server's message, or the fallback when the server gave none.
+    pub fn message_or(self, fallback: &str) -> String {
+        if self.0.is_empty() {
+            fallback.to_string()
+        } else {
+            self.0
+        }
+    }
+}
+
 pub type ApiResult<T> = Result<T, ApiError>;
 
 impl Operation for ApiOp {
@@ -959,6 +970,11 @@ impl<Event: Send + 'static> Api<Event> {
 
     pub fn notify(&self, op: UiOp) {
         self.ctx.notify_shell(op);
+    }
+
+    /// Shows a message in a dialog.
+    pub fn alert(&self, message: impl Into<String>) {
+        self.notify(UiOp::Alert(message.into()));
     }
 
     pub fn send_event(&self, event: Event) {

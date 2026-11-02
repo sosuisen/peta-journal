@@ -1,7 +1,8 @@
 //! Router navigation, ported from `navigation.service.ts`.
 
-use crate::app::Cmd;
+use crate::app::{Cmd, Model};
 use crate::effects::{NavigateOp, UiOp};
+use crate::screens::atlas::folder_path;
 use crux_core::Command;
 
 /// Navigates to a page by its path (optionally with a dir path prefix like `cat/mypage`).
@@ -22,6 +23,21 @@ pub fn to_page(
     } else {
         to_url(url, replace)
     }
+}
+
+/// Opens a page in this tab.
+pub fn open_page(path: &str) -> Cmd {
+    to_page(path, false, false, false, None)
+}
+
+/// Opens a page in this tab in place of the current URL, so the back button skips it.
+pub fn replace_page(path: &str) -> Cmd {
+    to_page(path, false, false, true, None)
+}
+
+/// Opens a folder's page as the folder was last seen: its atlas or its index.
+pub fn open_folder(model: &Model, path: &str) -> Cmd {
+    open_page(&folder_path(model, path))
 }
 
 pub fn to_url(url: impl Into<String>, replace: bool) -> Cmd {

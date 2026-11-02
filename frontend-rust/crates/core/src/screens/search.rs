@@ -1,8 +1,8 @@
 //! The search box, ported from `search-bar.ts`: a debounced combined search, keyboard
 //! navigation of the results, and creating a page from the query.
 
-use crate::app::{apply, done, log_error, run, Cmd, Model, SearchKey};
-use crate::effects::{TimerOp, TimerOutput, UiOp};
+use crate::app::{apply, cancel_timer, done, log_error, run, Cmd, Model, SearchKey};
+use crate::effects::TimerOutput;
 use crate::model::SearchResult;
 use crate::screens::navigate;
 use crate::util::filename::{classify_journal_file_name, validate_file_name, JournalType};
@@ -12,7 +12,7 @@ const DEBOUNCE_MS: u32 = 200;
 
 pub fn query_changed(model: &mut Model, value: String) -> Cmd {
     model.search.query = value.clone();
-    let cancel = cancel_timer(model);
+    let cancel = cancel_timer(&mut model.search.timer_id);
     if value.trim().is_empty() {
         model.search.page_results.clear();
         model.search.item_results.clear();
@@ -45,14 +45,6 @@ pub fn query_changed(model: &mut Model, value: String) -> Cmd {
         }
     });
     Command::all([cancel, search])
-}
-
-fn cancel_timer(model: &mut Model) -> Cmd {
-    if model.search.timer_id == 0 {
-        return done();
-    }
-    let id = std::mem::take(&mut model.search.timer_id);
-    Command::notify_shell(TimerOp::Cancel { id }).into()
 }
 
 /// The titles offered by the "create" entries between the page and item results, in display
@@ -168,7 +160,7 @@ pub fn clear(model: &mut Model) -> Cmd {
     model.search.item_results.clear();
     model.search.show_create_button = false;
     model.search.selected_index = None;
-    cancel_timer(model)
+    cancel_timer(&mut model.search.timer_id)
 }
 
 /// Creates a new page with the given title (one of `create_titles`).
@@ -179,12 +171,12 @@ fn create_page(model: &mut Model, title: String) -> Cmd {
             let stripped = title.strip_suffix(".md").unwrap_or(&title);
             let file_name = stripped.rsplit('/').next().unwrap_or(stripped);
             if let Some(error) = validate_file_name(file_name) {
-                api.notify(UiOp::Alert(error));
+                api.alert(error);
                 return;
             }
         }
         apply(&api, "search: create page", move |_| {
-            navigate::to_page(&title, false, false, false, None)
+            navigate::open_page(&title)
         });
     });
     Command::all([clear, go])

@@ -8,8 +8,8 @@
 //! The place of a card or a callout is saved as a property of its item. Every other change
 //! goes to the server, which writes the outline again and answers with its items.
 
-use crate::app::{apply, done, log_error, run, Cmd, Model};
-use crate::effects::{AtlasChange, TimerOp, TimerOutput, UiOp};
+use crate::app::{apply, cancel_timer, done, log_error, run, Cmd, Model};
+use crate::effects::{AtlasChange, TimerOutput, UiOp};
 use crate::model::{Item, Page};
 use crate::ops::file_reload;
 use crate::screens::page::{split_doc_path, ATLAS_NAME};
@@ -134,7 +134,7 @@ fn save_bounds(model: &mut Model, item: &Item, bounds: Bounds) -> Cmd {
             .upsert_item_property(&item_id, BOUNDS_KEY, "bounds", &value)
             .await
         {
-            api.notify(UiOp::Alert(e.0));
+            api.alert(e.0);
             apply(&api, "atlas place put back", move |m| {
                 set_property(m, &item_id, before);
                 done()
@@ -165,7 +165,7 @@ pub fn remove_card(model: &mut Model, page_id: String) -> Cmd {
     set_property(model, &item_id, None);
     run(move |api| async move {
         if let Err(e) = api.delete_item_property(&item_id, BOUNDS_KEY).await {
-            api.notify(UiOp::Alert(e.0));
+            api.alert(e.0);
             apply(&api, "atlas card put back", move |m| {
                 set_property(m, &item_id, before);
                 done()
@@ -194,7 +194,7 @@ fn change(model: &Model, change: AtlasChange) -> Cmd {
                 file_reload::replace_page_items(m, &atlas_id, items);
                 done()
             }),
-            Err(e) => api.notify(UiOp::Alert(e.0)),
+            Err(e) => api.alert(e.0),
         }
     })
 }
@@ -463,9 +463,7 @@ pub fn link_cards(model: &Model) -> Vec<LinkCard> {
 }
 
 fn shown_atlas_page(model: &Model) -> Option<&Page> {
-    super::page::page_state(model)
-        .and_then(|ps| ps.page.as_ref())
-        .filter(|p| super::page::is_atlas(p))
+    super::page::shown_doc_page(model).filter(|p| super::page::is_atlas(p))
 }
 
 /// The target typed in the dialog of a link, without the brackets of a link around it, as the
@@ -532,12 +530,7 @@ pub const LINK_SUGGESTIONS: u32 = 8;
 /// The page names that match the text typed in the dialog of a link, found after a pause in
 /// the typing. An empty text clears them.
 pub fn search_links(model: &mut Model, query: String) -> Cmd {
-    let cancel = if model.atlas_link_search.timer_id == 0 {
-        done()
-    } else {
-        let id = std::mem::take(&mut model.atlas_link_search.timer_id);
-        Command::notify_shell(TimerOp::Cancel { id }).into()
-    };
+    let cancel = cancel_timer(&mut model.atlas_link_search.timer_id);
     let query = query.trim().to_string();
     if query.is_empty() {
         model.atlas_link_search.suggestions.clear();

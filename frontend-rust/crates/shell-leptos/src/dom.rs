@@ -22,6 +22,18 @@ pub fn query<T: JsCast>(selector: &str) -> Option<T> {
         .and_then(|el| el.dyn_into::<T>().ok())
 }
 
+/// The element an event happened on. Not `current_target`: Leptos hands an event on from an
+/// element further up.
+pub fn target_element(ev: &web_sys::Event) -> Option<web_sys::Element> {
+    ev.target()
+        .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
+}
+
+/// The closest ancestor-or-self of the event's target that matches the selector.
+pub fn target_closest(ev: &web_sys::Event, selector: &str) -> Option<web_sys::Element> {
+    target_element(ev).and_then(|t| t.closest(selector).ok().flatten())
+}
+
 pub fn element_by_id(id: &str) -> Option<web_sys::HtmlElement> {
     document()
         .get_element_by_id(id)
@@ -444,6 +456,16 @@ pub fn local_storage_set(key: &str, value: &str) {
     if let Some(s) = window().local_storage().ok().flatten() {
         let _ = s.set_item(key, value);
     }
+}
+
+/// A value stored as JSON; None when there is none or it does not read as `T`.
+pub fn local_storage_json<T: serde::de::DeserializeOwned>(key: &str) -> Option<T> {
+    local_storage_get(key).and_then(|s| serde_json::from_str(&s).ok())
+}
+
+/// Stores a value as JSON.
+pub fn local_storage_set_json<T: serde::Serialize + ?Sized>(key: &str, value: &T) {
+    local_storage_set(key, &serde_json::to_string(value).unwrap_or_default());
 }
 
 /// The first image file in a paste or a drop, if there is one.

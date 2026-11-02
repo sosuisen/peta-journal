@@ -39,6 +39,15 @@ pub(crate) fn page_mut(model: &mut Model) -> Option<&mut PageState> {
     }
 }
 
+/// The doc page on screen, once it is loaded.
+pub fn shown_doc_page(model: &Model) -> Option<&Page> {
+    page_state(model).and_then(|ps| ps.page.as_ref())
+}
+
+fn shown_doc_page_mut(model: &mut Model) -> Option<&mut Page> {
+    page_mut(model).and_then(|ps| ps.page.as_mut())
+}
+
 /// Shows a doc page by its path; the fragment is the item to scroll to.
 pub fn open(model: &mut Model, name: &str, fragment: Option<String>) -> Cmd {
     let remember = crate::screens::atlas::remember_folder_view(model, name);
@@ -63,7 +72,7 @@ pub fn open(model: &mut Model, name: &str, fragment: Option<String>) -> Cmd {
         let canonical = p.canonical_path();
         if canonical != page_name {
             apply(&api, "page: redirect", move |_| {
-                navigate::to_page(&canonical, false, false, true, None)
+                navigate::replace_page(&canonical)
             });
             return;
         }
@@ -83,16 +92,8 @@ pub fn open(model: &mut Model, name: &str, fragment: Option<String>) -> Cmd {
                 load_backlinks(page_for_state.id.clone()),
             ];
             if created {
-                cmds.push(sidebar::refresh_recent_pages());
-                cmds.push(
-                    Command::notify_shell(UiOp::ExtensionPageCreate {
-                        page_id: page_for_state.id.clone(),
-                        file_name: page_for_state.name.clone(),
-                        dir_name: page_for_state.dir_path.clone(),
-                        page_type: page_for_state.page_type.clone(),
-                    })
-                    .into(),
-                );
+                let name = page_for_state.name.clone();
+                cmds.push(extensions::page_created(&page_for_state, name));
             }
             Command::all(cmds)
         });
@@ -114,11 +115,7 @@ pub fn open(model: &mut Model, name: &str, fragment: Option<String>) -> Cmd {
         // The outline loads the items of the page
         match api.get_page_by_id(&p.id).await {
             Ok(loaded) => apply(&api, "page items", move |m| {
-                if page_state(m)
-                    .and_then(|ps| ps.page.as_ref())
-                    .map(|pg| pg.id.as_str())
-                    != Some(&p.id)
-                {
+                if shown_doc_page(m).map(|pg| pg.id.as_str()) != Some(&p.id) {
                     return done();
                 }
                 m.state.set_items(loaded.items);
@@ -136,7 +133,7 @@ pub fn open(model: &mut Model, name: &str, fragment: Option<String>) -> Cmd {
 
 /// Loads the backlinks of the shown doc page again: any page may have changed its links.
 pub fn reload_backlinks(model: &Model) -> Cmd {
-    match page_state(model).and_then(|p| p.page.as_ref()) {
+    match shown_doc_page(model) {
         Some(p) => load_backlinks(p.id.clone()),
         None => done(),
     }
@@ -211,7 +208,7 @@ pub fn atlas_title(p: &Page) -> String {
 /// Opens the atlas page of the directory of the shown index page, or the index page of the
 /// shown atlas page. The atlas page is created when it is opened for the first time.
 pub fn toggle_atlas(model: &mut Model) -> Cmd {
-    let Some(p) = page_state(model).and_then(|ps| ps.page.as_ref()) else {
+    let Some(p) = shown_doc_page(model) else {
         return done();
     };
     let target = if p.name == "index" {
@@ -221,19 +218,13 @@ pub fn toggle_atlas(model: &mut Model) -> Cmd {
     } else {
         return done();
     };
-    navigate::to_page(
-        &format!("{}{target}", p.dir_path),
-        false,
-        false,
-        false,
-        None,
-    )
+    navigate::open_page(&format!("{}{target}", p.dir_path))
 }
 
 /// Opens the atlas page of the directory above the shown atlas page. The map stays a map
 /// on the way up. The root atlas has no directory above.
 pub fn atlas_up(model: &mut Model) -> Cmd {
-    let Some(p) = page_state(model).and_then(|ps| ps.page.as_ref()) else {
+    let Some(p) = shown_doc_page(model) else {
         return done();
     };
     let dir = p.dir_path.trim_end_matches('/');
@@ -244,7 +235,7 @@ pub fn atlas_up(model: &mut Model) -> Cmd {
         Some((parent, _)) => format!("{parent}/"),
         None => String::new(),
     };
-    navigate::to_page(&format!("{parent}{ATLAS_NAME}"), false, false, false, None)
+    navigate::open_page(&format!("{parent}{ATLAS_NAME}"))
 }
 
 /// The display title: journals as dates, index pages as their directory, docs as their name.
@@ -312,7 +303,7 @@ pub fn demote_name(p: &Page) -> String {
 
 /// Saves the edited page title and/or directory path to the server.
 pub fn save_title(model: &mut Model, dir_path: String, file_name: String) -> Cmd {
-    let Some(p) = page_state(model).and_then(|ps| ps.page.clone()) else {
+    let Some(p) = shown_doc_page(model).cloned() else {
         return done();
     };
     let raw = file_name.trim().to_string();
@@ -359,7 +350,7 @@ pub fn save_title(model: &mut Model, dir_path: String, file_name: String) -> Cmd
             Command::all([
                 navigate::set_title(full_page_title(&updated)),
                 sidebar::refresh_recent_pages(),
-                navigate::to_page(&canonical, false, false, true, None),
+                navigate::replace_page(&canonical),
             ])
         });
     })
@@ -406,7 +397,7 @@ fn property_value(value_type: &str, value: &str) -> Value {
 /// formats numbers) replaces it, and a refusal puts the old properties back. The page's
 /// dates (`created`, `modified`) only change when the server has accepted them.
 pub fn set_property(model: &mut Model, key: String, value_type: String, value: String) -> Cmd {
-    let Some(page) = page_mut(model).and_then(|ps| ps.page.as_mut()) else {
+    let Some(page) = shown_doc_page_mut(model) else {
         return done();
     };
     // The server gets the same list as the screen shows
@@ -452,7 +443,7 @@ fn tag_list(value: Option<&Value>) -> Vec<String> {
 
 /// Removes a property of the doc page, the same way `set_property` sets one.
 pub fn delete_property(model: &mut Model, key: String) -> Cmd {
-    let Some(page) = page_mut(model).and_then(|ps| ps.page.as_mut()) else {
+    let Some(page) = shown_doc_page_mut(model) else {
         return done();
     };
     let before = page.properties.clone();
@@ -484,7 +475,7 @@ async fn settle_property_change(
             extensions::tags_added(page, added_tags)
         }),
         Err(e) => {
-            api.notify(UiOp::Alert(e.0));
+            api.alert(e.0);
             apply(api, "page property reverted", move |m| {
                 if let Some(page) = shown_page_mut(m, &page_id) {
                     page.properties = before;
@@ -497,9 +488,7 @@ async fn settle_property_change(
 
 /// The doc page on screen when it is still the given one.
 fn shown_page_mut<'a>(model: &'a mut Model, page_id: &str) -> Option<&'a mut Page> {
-    page_mut(model)
-        .and_then(|ps| ps.page.as_mut())
-        .filter(|p| p.id == page_id)
+    shown_doc_page_mut(model).filter(|p| p.id == page_id)
 }
 
 /// Updates the title or folder of a page. When another page has the new name, asks first
@@ -529,11 +518,7 @@ async fn update_page(
                 overwrite = true;
             }
             Ok(PageUpdate::NameTaken(message)) | Err(ApiError(message)) => {
-                api.notify(UiOp::Alert(if message.is_empty() {
-                    "Failed to rename page".into()
-                } else {
-                    message
-                }));
+                api.alert(ApiError(message).message_or("Failed to rename page"));
                 return None;
             }
         }
@@ -542,7 +527,7 @@ async fn update_page(
 
 /// Renames a childless index page `a/b/index` to the page `a/b`.
 pub fn demote_index(model: &mut Model) -> Cmd {
-    let Some(p) = page_state(model).and_then(|ps| ps.page.clone()) else {
+    let Some(p) = shown_doc_page(model).cloned() else {
         return done();
     };
     if p.dir_path.is_empty() {
@@ -561,7 +546,7 @@ pub fn demote_index(model: &mut Model) -> Cmd {
         // Asked again here: an atlas page may have been made since the button was shown
         let atlas = match api.get_child_pages(&p.id).await {
             Ok(children) => children.into_iter().find(is_atlas),
-            Err(e) => return api.notify(UiOp::Alert(e.0)),
+            Err(e) => return api.alert(e.0),
         };
         if let Some(atlas) = atlas {
             if !api
@@ -574,11 +559,7 @@ pub fn demote_index(model: &mut Model) -> Cmd {
                 return;
             }
             if let Err(e) = api.delete_page(&atlas.id).await {
-                api.notify(UiOp::Alert(if e.0.is_empty() {
-                    "Failed to delete the atlas page".into()
-                } else {
-                    e.0
-                }));
+                api.alert(e.message_or("Failed to delete the atlas page"));
                 return;
             }
         }
@@ -597,7 +578,7 @@ pub fn demote_index(model: &mut Model) -> Cmd {
         apply(&api, "demoted", move |_| {
             Command::all([
                 sidebar::refresh_recent_pages(),
-                navigate::to_page(&format!("{parent_dir}{name}"), false, false, false, None),
+                navigate::open_page(&format!("{parent_dir}{name}")),
             ])
         });
     })

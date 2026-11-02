@@ -4,10 +4,10 @@
 use crate::app::{
     apply, done, log_error, run, Cmd, Event, JournalNav, JournalState, Model, Screen,
 };
-use crate::effects::{Api, UiOp};
+use crate::effects::Api;
 use crate::ops::edit::focus_editor;
 use crate::ops::moves::CrossDayMove;
-use crate::screens::{navigate, page, sidebar};
+use crate::screens::{extensions, navigate, page, sidebar};
 use crate::util::date::{format_journal_date, Date};
 use crate::util::filename::{classify_journal_file_name, JournalType};
 use crate::util::week::weeks_in_year;
@@ -89,16 +89,7 @@ pub fn load_journal(model: &mut Model, date: String) -> Cmd {
                 page::scroll_to_item(m, focus_item_id),
             ];
             if created {
-                cmds.push(sidebar::refresh_recent_pages());
-                cmds.push(
-                    Command::notify_shell(UiOp::ExtensionPageCreate {
-                        page_id: result.page.id.clone(),
-                        file_name: d.clone(),
-                        dir_name: result.page.dir_path.clone(),
-                        page_type: result.page.page_type.clone(),
-                    })
-                    .into(),
-                );
+                cmds.push(extensions::page_created(&result.page, d.clone()));
             }
             Command::all(cmds)
         });
@@ -237,7 +228,7 @@ pub fn nav(model: &mut Model, nav: JournalNav) -> Cmd {
         JournalNav::PrevDay | JournalNav::NextDay => {
             let delta = if nav == JournalNav::PrevDay { -1 } else { 1 };
             match Date::parse(&current) {
-                Some(d) => navigate::to_page(&d.shift(delta).iso(), false, false, false, None),
+                Some(d) => navigate::open_page(&d.shift(delta).iso()),
                 None => done(),
             }
         }
@@ -258,7 +249,7 @@ pub fn nav(model: &mut Model, nav: JournalNav) -> Cmd {
                 year += 1;
                 week = 1;
             }
-            navigate::to_page(&format!("{year}-W{week:02}"), false, false, false, None)
+            navigate::open_page(&format!("{year}-W{week:02}"))
         }
     }
 }
@@ -268,7 +259,7 @@ pub fn on_cross_day_moved(model: &mut Model, moved: CrossDayMove) -> Cmd {
     if moved.navigate {
         let timer_id = model.next_timer_id();
         let item_id = moved.item_id;
-        let go = navigate::to_page(&moved.target_date, false, false, false, None);
+        let go = navigate::open_page(&moved.target_date);
         let edit = run(move |api| async move {
             if api.sleep(timer_id, 300).await != crate::effects::TimerOutput::Fired {
                 return;
