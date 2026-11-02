@@ -1554,7 +1554,7 @@ async fn the_children_of_an_index_page_carry_their_scalar_properties() {
     );
 }
 
-// indexページの子ページは、タグを順番どおりに持って返る。
+// indexページの子ページは、タグを持って返る。他のリストのプロパティは返らない。アトラスがカードのアイコンに使うのはタグだけである。
 #[tokio::test]
 async fn the_children_of_an_index_page_carry_their_tags_but_no_other_list() {
     let _tags_dir = TAGS_DIR.lock().await;
@@ -1568,6 +1568,23 @@ async fn the_children_of_an_index_page_carry_their_tags_but_no_other_list() {
     let page_id = resp["page"]["id"].as_str().unwrap().to_string();
     let parent_id = resp["page"]["parentId"].as_str().unwrap().to_string();
     set_page_tags(&page_id, "children-tag-b, children-tag-a").await;
+    // A list other than the tags, as a definition of a user may hold one day. The API has
+    // no list type for a user yet, so the list goes straight into the database
+    {
+        let conn = server().state.db.conn().unwrap();
+        conn.execute(
+            "INSERT OR IGNORE INTO property_definitions (key, value_type, is_system, for_page) \
+             VALUES ('children_list', 'list', 0, 1)",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO property_list_items (target_type, target_id, key, sort_order, value) \
+             VALUES ('page', ?, 'children_list', 0, 'x')",
+            rusqlite::params![page_id],
+        )
+        .unwrap();
+    }
 
     let (_, resp) = get(&format!("/api/pages/{parent_id}/children")).await;
     let child = resp["pages"]
@@ -1579,6 +1596,11 @@ async fn the_children_of_an_index_page_carry_their_tags_but_no_other_list() {
     assert_eq!(
         child["properties"]["tags"],
         json!(["children-tag-b", "children-tag-a"])
+    );
+    assert!(
+        child["properties"].get("children_list").is_none(),
+        "{}",
+        child["properties"]
     );
 }
 
