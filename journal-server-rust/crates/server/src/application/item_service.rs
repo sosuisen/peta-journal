@@ -375,6 +375,21 @@ impl ItemService {
         Ok(())
     }
 
+    /// Joins an item into another: its body goes to the end of `into`, its children keep
+    /// their level and get their parent recalculated, and the item itself is deleted.
+    pub fn merge_item(&self, item_id: &Hmtid, into_id: &Hmtid) -> AppResult<Item> {
+        let item = self.get_item_by_id(item_id)?;
+        let into = self.get_item_by_id(into_id)?;
+        // A transclusion shows its source: its body is not its own to give or to take
+        if item.transclude_item_id.is_some() || into.transclude_item_id.is_some() {
+            return Err(AppError::bad_request("A transclusion cannot be merged"));
+        }
+        let merged = format!("{}{}", into.body, item.body);
+        let into = self.update_item(into_id, Some(&merged), None, None)?;
+        self.delete_item(item_id)?;
+        Ok(into)
+    }
+
     /// Sets a transclusion on an item, making it mirror a source item.
     pub fn set_transclusion(&self, item_id: &Hmtid, source_item_id: &Hmtid) -> AppResult<Item> {
         let item = self.get_item_by_id(item_id)?;

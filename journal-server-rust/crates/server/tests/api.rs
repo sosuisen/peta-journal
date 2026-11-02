@@ -401,6 +401,101 @@ async fn deleting_a_source_item_leaves_its_descendants_as_a_copy_in_its_transclu
     assert_eq!(field_of_each(&resp, "items", "ast")[2], child_ast);
 }
 
+// ---- Items: merge ----
+
+// 結合すると、消える項目の本文が受け取る項目の末尾につながり、消える項目の子は受け取る項目の子になる。
+#[tokio::test]
+async fn merging_appends_the_body_and_hands_the_children_to_the_receiving_item() {
+    let page = new_doc_page("items-merge").await;
+    let rows = fill(
+        &page.id,
+        &["first", "  first child", "second", "  second child"],
+    )
+    .await;
+
+    let (status, resp) = post(
+        "/api/items/merge",
+        json!({ "itemId": rows[2].id, "intoId": rows[0].id }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(resp["item"]["body"], json!("firstsecond"));
+    assert_eq!(
+        outline_of(&page.id).await,
+        ["1:firstsecond", "2:first child", "2:second child"]
+    );
+    let (_, resp) = get(&format!("/api/pages/{}", page.id)).await;
+    assert_eq!(
+        field_of_each(&resp, "items", "parentItemId")[2],
+        json!(rows[0].id)
+    );
+}
+
+// トランスクルージョンは結合できない。消える側でも受け取る側でも断られる。
+#[tokio::test]
+async fn a_transclusion_is_not_merged_on_either_side() {
+    let source_page = new_doc_page("items-merge-refuse-source").await;
+    let source = fill(&source_page.id, &["source"]).await.remove(0);
+    let page = new_doc_page("items-merge-refuse").await;
+    let rows = fill(&page.id, &["plain", "host", "below"]).await;
+    let (status, resp) = post(
+        &format!("/api/items/{}/transclude", rows[1].id),
+        json!({ "sourceItemId": source.id }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    let (status, _) = post(
+        "/api/items/merge",
+        json!({ "itemId": rows[1].id, "intoId": rows[0].id }),
+    )
+    .await;
+    assert_eq!(status, 400);
+    let (status, _) = post(
+        "/api/items/merge",
+        json!({ "itemId": rows[2].id, "intoId": rows[1].id }),
+    )
+    .await;
+    assert_eq!(status, 400);
+    assert_eq!(
+        outline_of(&page.id).await,
+        ["1:plain", "1:source", "1:below"]
+    );
+}
+
+// トランスクルードされている項目を結合で消すと、埋め込み側には本文と子孫の写しが普通の項目として残る。
+#[tokio::test]
+async fn merging_away_a_source_item_leaves_a_copy_in_its_transcluders() {
+    let source_page = new_doc_page("items-merge-source").await;
+    let source = fill(&source_page.id, &["above", "source", "  child"]).await;
+    let page = new_doc_page("items-merge-host").await;
+    let host = fill(&page.id, &["host"]).await.remove(0);
+    let (status, resp) = post(
+        &format!("/api/items/{}/transclude", host.id),
+        json!({ "sourceItemId": source[1].id }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    let (status, resp) = post(
+        "/api/items/merge",
+        json!({ "itemId": source[1].id, "intoId": source[0].id }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(
+        outline_of(&source_page.id).await,
+        ["1:abovesource", "2:child"]
+    );
+    assert_eq!(outline_of(&page.id).await, ["1:source", "2:child"]);
+    assert!(items(&page.id)
+        .await
+        .iter()
+        .all(|i| i.transclude_item_id.is_none()));
+}
+
 // ---- Pages ----
 
 // 新しいdocページは空の項目1つで始まり、同じタイトルで再び見つかる。
