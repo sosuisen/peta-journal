@@ -432,6 +432,38 @@ async fn merging_appends_the_body_and_hands_the_children_to_the_receiving_item()
     );
 }
 
+// トランスクルージョンは結合できない。消える側でも受け取る側でも断られる。
+#[tokio::test]
+async fn a_transclusion_is_not_merged_on_either_side() {
+    let source_page = new_doc_page("items-merge-refuse-source").await;
+    let source = fill(&source_page.id, &["source"]).await.remove(0);
+    let page = new_doc_page("items-merge-refuse").await;
+    let rows = fill(&page.id, &["plain", "host", "below"]).await;
+    let (status, resp) = post(
+        &format!("/api/items/{}/transclude", rows[1].id),
+        json!({ "sourceItemId": source.id }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    let (status, _) = post(
+        "/api/items/merge",
+        json!({ "itemId": rows[1].id, "intoId": rows[0].id }),
+    )
+    .await;
+    assert_eq!(status, 400);
+    let (status, _) = post(
+        "/api/items/merge",
+        json!({ "itemId": rows[2].id, "intoId": rows[1].id }),
+    )
+    .await;
+    assert_eq!(status, 400);
+    assert_eq!(
+        outline_of(&page.id).await,
+        ["1:plain", "1:source", "1:below"]
+    );
+}
+
 // ---- Pages ----
 
 // 新しいdocページは空の項目1つで始まり、同じタイトルで再び見つかる。
