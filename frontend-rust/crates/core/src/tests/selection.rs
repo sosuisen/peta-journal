@@ -278,6 +278,16 @@ fn cutting_the_selection_copies_it_and_then_deletes_it() {
     assert_eq!(h.items_ids(), ["b"]);
 }
 
+// サーバーが選択範囲の削除を断ると、ページはサーバーの持つ形に読み直される。
+#[test]
+fn a_selection_delete_the_server_refuses_reloads_the_page() {
+    let mut h = Harness::with_items(vec![item("a", 1, "x"), item("b", 1, "y")]);
+    select(&mut h, &["a"]);
+    h.api.fail_next("DeleteItems", "refused");
+    key(&mut h, SelectionKey::Delete);
+    assert!(h.api.called("GetPageById"));
+}
+
 // 子を持つ項目まで選択を伸ばすと、その子も入る。伸ばし続けると、入っている子は飛ばして次へ進む。
 #[test]
 fn extending_over_a_parent_takes_its_children_and_skips_them_on_the_next_step() {

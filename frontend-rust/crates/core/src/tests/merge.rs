@@ -119,6 +119,17 @@ fn delete_appends_the_item_below_and_deletes_it() {
     assert_eq!(entry.cursor_after.unwrap().position, "hello".len());
 }
 
+// サーバーが行末での Delete の結合を断ると、ページは読み直される。
+#[test]
+fn a_delete_merge_the_server_refuses_reloads_the_page() {
+    let mut h = harness();
+    h.api.fail_next("MergeItems", "refused");
+    h.send(Event::DeleteAtEnd {
+        item_id: "a".into(),
+    });
+    assert!(h.api.called("GetPageById"));
+}
+
 // 最後の項目では行末での Delete が何もしない。
 #[test]
 fn delete_does_nothing_for_the_last_item() {

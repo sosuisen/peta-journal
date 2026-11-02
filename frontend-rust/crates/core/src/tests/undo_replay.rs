@@ -72,6 +72,18 @@ fn undo_of_a_create_of_a_parent_and_its_child_deletes_them_as_one_group() {
     assert_eq!(sent, [vec!["c".to_string(), "p".to_string()]]);
 }
 
+// undo の削除をサーバーが断ると、ページはサーバーの持つ形に読み直される。
+#[test]
+fn an_undo_delete_the_server_refuses_reloads_the_page() {
+    let mut h = Harness::with_items(vec![item("a", 1, ""), item("n", 1, "created")]);
+    h.model.undo.begin("enter", None);
+    h.model.undo.push_create(&item("n", 1, "created"));
+    h.model.undo.commit(None, 0);
+    h.api.fail_next("DeleteItems", "refused");
+    h.send(Event::Undo);
+    assert!(h.api.called("GetPageById"));
+}
+
 // 作成の redo は項目をその index の位置に戻し、サーバーが与えた id を取る。
 #[test]
 fn redo_of_a_create_puts_the_item_back_by_its_index_and_takes_the_id_the_server_gives() {
