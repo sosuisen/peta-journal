@@ -496,6 +496,35 @@ async fn merging_away_a_source_item_leaves_a_copy_in_its_transcluders() {
         .all(|i| i.transclude_item_id.is_none()));
 }
 
+// ---- Items: group delete ----
+
+// グループ削除は、項目を子孫ごと1回のリクエストで消す。
+#[tokio::test]
+async fn a_group_of_items_is_deleted_with_its_descendants_in_one_request() {
+    let page = new_doc_page("items-group-delete").await;
+    let rows = fill(
+        &page.id,
+        &[
+            "keep",
+            "parent",
+            "  child",
+            "    grandchild",
+            "sibling",
+            "last",
+        ],
+    )
+    .await;
+
+    let (status, resp) = post(
+        "/api/items/delete",
+        json!({ "itemIds": [rows[1].id, rows[2].id, rows[3].id, rows[4].id] }),
+    )
+    .await;
+    assert_eq!(status, 204, "{resp}");
+
+    assert_eq!(outline_of(&page.id).await, ["1:keep", "1:last"]);
+}
+
 // ---- Pages ----
 
 // 新しいdocページは空の項目1つで始まり、同じタイトルで再び見つかる。
