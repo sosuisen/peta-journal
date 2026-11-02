@@ -208,7 +208,7 @@
 
 ### ページを作る・直す
 
-出典: `tests/rename.rs`、`tests/atlas.rs`、`core/util/filename.rs`、`tests/sidebar_menu.rs`
+出典: `tests/rename.rs`、`tests/atlas/navigation.rs`、`core/util/filename.rs`、`tests/sidebar_menu.rs`
 
 - 名前の変更で同名のページがあれば確認する。「はい」で上書きし、「いいえ」で両方残る
 - アトラスを持つindexページの降格では、まず確認し、承諾後にアトラスを削除して名前を変える
