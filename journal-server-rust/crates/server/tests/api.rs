@@ -401,6 +401,37 @@ async fn deleting_a_source_item_leaves_its_descendants_as_a_copy_in_its_transclu
     assert_eq!(field_of_each(&resp, "items", "ast")[2], child_ast);
 }
 
+// ---- Items: merge ----
+
+// 結合すると、消える項目の本文が受け取る項目の末尾につながり、消える項目の子は受け取る項目の子になる。
+#[tokio::test]
+async fn merging_appends_the_body_and_hands_the_children_to_the_receiving_item() {
+    let page = new_doc_page("items-merge").await;
+    let rows = fill(
+        &page.id,
+        &["first", "  first child", "second", "  second child"],
+    )
+    .await;
+
+    let (status, resp) = post(
+        "/api/items/merge",
+        json!({ "itemId": rows[2].id, "intoId": rows[0].id }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(resp["item"]["body"], json!("firstsecond"));
+    assert_eq!(
+        outline_of(&page.id).await,
+        ["1:firstsecond", "2:first child", "2:second child"]
+    );
+    let (_, resp) = get(&format!("/api/pages/{}", page.id)).await;
+    assert_eq!(
+        field_of_each(&resp, "items", "parentItemId")[2],
+        json!(rows[0].id)
+    );
+}
+
 // ---- Pages ----
 
 // 新しいdocページは空の項目1つで始まり、同じタイトルで再び見つかる。
