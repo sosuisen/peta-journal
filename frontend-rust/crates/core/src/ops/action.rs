@@ -149,15 +149,19 @@ async fn transclude(api: &Api<Event>, item: &Item, pasted_text: &str) {
         return;
     }
     match api.set_transclusion(&item.id, source_id).await {
-        Ok(updated) => {
-            apply(api, "transclude: apply", move |m| {
-                m.state.replace_item(&updated);
-                done()
-            });
-            reload_shown_page(api).await;
-        }
+        Ok(updated) => show_transclusion_change(api, updated).await,
         Err(e) => log_error(format!("Failed to set transclusion: {e}")),
     }
+}
+
+/// Shows an item whose transclusion changed: the item at once, then the page again, since
+/// the source tree of a transclusion comes with the page only.
+pub async fn show_transclusion_change(api: &Api<Event>, updated: Item) {
+    apply(api, "transclusion changed", move |m| {
+        m.state.replace_item(&updated);
+        done()
+    });
+    reload_shown_page(api).await;
 }
 
 /// Turns a transclusion back into a plain item.
@@ -168,13 +172,7 @@ pub fn remove_transclusion(model: &mut Model, item_id: &str) -> Cmd {
     let id = item.id.clone();
     run(move |api| async move {
         match api.remove_transclusion(&id).await {
-            Ok(updated) => {
-                apply(&api, "remove transclusion: apply", move |m| {
-                    m.state.replace_item(&updated);
-                    done()
-                });
-                reload_shown_page(&api).await;
-            }
+            Ok(updated) => show_transclusion_change(&api, updated).await,
             Err(e) => log_error(format!("Failed to remove transclusion: {e}")),
         }
     })

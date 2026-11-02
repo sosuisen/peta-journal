@@ -4,7 +4,7 @@
 use crate::app::{apply, done, log_error, run, Cmd, Event, Model};
 use crate::effects::{Api, ApiError, UiOp};
 use crate::model::{ItemPosition, Page};
-use crate::ops::file_reload::reload_shown_page;
+use crate::ops::action::show_transclusion_change;
 use crate::outline::tree::can_place;
 use crate::screens::sidebar;
 use crux_core::Command;
@@ -145,14 +145,7 @@ async fn answer_created(
 /// either way, and only the link to the source is missing.
 async fn set_transclusion(api: &Api<Event>, item_id: &str, source_id: &str) {
     match api.set_transclusion(item_id, source_id).await {
-        Ok(updated) => {
-            apply(api, "extension transclusion", move |m| {
-                m.state.replace_item(&updated);
-                done()
-            });
-            // The source tree of the transclusion comes with the page only
-            reload_shown_page(api).await;
-        }
+        Ok(updated) => show_transclusion_change(api, updated).await,
         // Told, not only logged: a template with a wrong id would leave an empty item unseen
         Err(e) => api.alert(format!("Failed to transclude the item {source_id}: {e}")),
     }
