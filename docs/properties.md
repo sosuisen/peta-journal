@@ -13,7 +13,7 @@
 | `is_system` | システム管理キーなら1。ユーザーは定義を追加・変更・削除できない |
 | `for_page` | ページに付けられるキーなら1 |
 
-ユーザーが新しいキーを定義するときに選べる型は `text` / `number` / `checkbox` / `date` / `datetime` / `bounds` の6つである。`list` と `tags` は内部用で、`tags` キーだけが使う。
+ユーザーがSettings画面や `POST /api/config/property-definitions` で新しいキーを定義するときに選べる型は `text` / `number` / `checkbox` / `date` / `datetime` / `bounds` の6つである。`list` 型のキーは、未定義のキーに `valueType: "list"` で値を送ると作られる。`tags` 型は `tags` キーだけが使う。
 
 キーの型は最初に定義されたときに固定される。既存キーに別の型で値を送っても定義は変わらない。値は送った型ではなく、定義の型でチェックして保存する。例えば `number` のキーに `valueType: "text"` で数値でない値を送ると400エラーになる。
 
@@ -163,7 +163,8 @@ atlasのデータは、すべてディレクトリの `index_atlas.md` の本文
 
 - `PUT /api/pages/{id}/properties/{key}`: ボディは `{ valueType, value }`。
   - `created` と `modified` はRFC 3339の日時（例 `2026-01-02T03:04:05Z`）を受け取り、`pages` テーブルの日付を書き換える。`properties` テーブルには入らない。形式が違えば400。
-  - `tags` はカンマ区切りの文字列を受け取り、リストとして保存する。
+  - `tags` はカンマ区切りの文字列を受け取り、リストとして保存する。タグページを持つのは `tags` だけである。
+  - `list` 型のキーもカンマ区切りの文字列を受け取り、そのキーのリストとして保存する。`tags` には触らない。
   - `for_page` が0のキー（`zoom` など）は400。
   - 未定義のキーは、その型でユーザー定義キーとして作られる。
 - `DELETE /api/pages/{id}/properties/{key}`: `created` と `modified` は消せない（400）。
