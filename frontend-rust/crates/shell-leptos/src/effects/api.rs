@@ -33,24 +33,19 @@ async fn ensure_ok(resp: &Response) -> ApiResult<()> {
     ))
 }
 
+/// A transport error as the core sees it.
+fn api_err(e: impl std::fmt::Display) -> ApiError {
+    ApiError(e.to_string())
+}
+
 async fn json<T: DeserializeOwned>(resp: Response) -> ApiResult<T> {
     ensure_ok(&resp).await?;
-    resp.json::<T>().await.map_err(|e| ApiError(e.to_string()))
+    resp.json::<T>().await.map_err(api_err)
 }
 
-async fn get<T: DeserializeOwned>(url: &str) -> ApiResult<T> {
-    let resp = Http::get(url)
-        .send()
-        .await
-        .map_err(|e| ApiError(e.to_string()))?;
-    json(resp).await
-}
-
-async fn send_json<T: DeserializeOwned>(
-    method: &str,
-    url: &str,
-    body: Option<Value>,
-) -> ApiResult<T> {
+/// Sends a request with a JSON body, when there is one, and gives the response back as it
+/// is, whatever its status.
+async fn send(method: &str, url: &str, body: Option<Value>) -> ApiResult<Response> {
     let builder = match method {
         "POST" => Http::post(url),
         "PUT" => Http::put(url),
@@ -61,21 +56,37 @@ async fn send_json<T: DeserializeOwned>(
         Some(body) => builder
             .header("Content-Type", "application/json")
             .body(body.to_string())
-            .map_err(|e| ApiError(e.to_string()))?,
-        None => builder.build().map_err(|e| ApiError(e.to_string()))?,
+            .map_err(api_err)?,
+        None => builder.build().map_err(api_err)?,
     };
-    let resp = request.send().await.map_err(|e| ApiError(e.to_string()))?;
-    json(resp).await
+    request.send().await.map_err(api_err)
+}
+
+async fn get<T: DeserializeOwned>(url: &str) -> ApiResult<T> {
+    json(send("GET", url, None).await?).await
+}
+
+async fn send_json<T: DeserializeOwned>(
+    method: &str,
+    url: &str,
+    body: Option<Value>,
+) -> ApiResult<T> {
+    json(send(method, url, body).await?).await
 }
 
 async fn send_empty(method: &str, url: &str) -> ApiResult<()> {
-    let builder = match method {
-        "POST" => Http::post(url),
-        "DELETE" => Http::delete(url),
-        _ => Http::get(url),
-    };
-    let resp = builder.send().await.map_err(|e| ApiError(e.to_string()))?;
-    ensure_ok(&resp).await
+    ensure_ok(&send(method, url, None).await?).await
+}
+
+/// A JSON object without the fields that are not set, for an update that leaves the other
+/// fields as they are.
+fn without_nulls(value: Value) -> Value {
+    match value {
+        Value::Object(fields) => {
+            Value::Object(fields.into_iter().filter(|(_, v)| !v.is_null()).collect())
+        }
+        other => other,
+    }
 }
 
 /// The method, the path under `/api/pages/{id}/atlas/` and the body of a change of an atlas.
@@ -228,22 +239,11 @@ async fn call(handle: &CoreHandle, op: ApiOp) -> ApiResult<ApiOutput> {
             level,
             collapsed,
         } => {
-            let mut payload = serde_json::Map::new();
-            if let Some(b) = body {
-                payload.insert("body".into(), Value::String(b));
-            }
-            if let Some(l) = level {
-                payload.insert("level".into(), json!(l));
-            }
-            if let Some(c) = collapsed {
-                payload.insert("collapsed".into(), json!(c));
-            }
-            let env: ItemEnvelope = send_json(
-                "PUT",
-                &format!("/api/items/{item_id}"),
-                Some(Value::Object(payload)),
-            )
-            .await?;
+            let payload = without_nulls(json!({
+                "body": body, "level": level, "collapsed": collapsed,
+            }));
+            let env: ItemEnvelope =
+                send_json("PUT", &format!("/api/items/{item_id}"), Some(payload)).await?;
             ApiOutput::Item(env.item)
         }
         ApiOp::ShiftItemLevels { item_ids, delta } => {
@@ -347,23 +347,10 @@ async fn call(handle: &CoreHandle, op: ApiOp) -> ApiResult<ApiOutput> {
             dir_path,
             overwrite,
         } => {
-            let mut payload = serde_json::Map::new();
-            if let Some(t) = title {
-                payload.insert("title".into(), Value::String(t));
-            }
-            if let Some(d) = dir_path {
-                payload.insert("dirPath".into(), Value::String(d));
-            }
-            if overwrite {
-                payload.insert("overwrite".into(), Value::Bool(true));
-            }
-            let resp = Http::put(&format!("/api/pages/{page_id}"))
-                .header("Content-Type", "application/json")
-                .body(Value::Object(payload).to_string())
-                .map_err(|e| ApiError(e.to_string()))?
-                .send()
-                .await
-                .map_err(|e| ApiError(e.to_string()))?;
+            let payload = without_nulls(json!({
+                "title": title, "dirPath": dir_path, "overwrite": overwrite.then_some(true),
+            }));
+            let resp = send("PUT", &format!("/api/pages/{page_id}"), Some(payload)).await?;
             // 409: another page has the name, which the core asks the user about
             if resp.status() == 409 {
                 let ApiError(message) = ensure_ok(&resp)
@@ -428,23 +415,11 @@ async fn call(handle: &CoreHandle, op: ApiOp) -> ApiResult<ApiOutput> {
             tags_dir,
             home_link,
         } => {
-            let mut payload = serde_json::Map::new();
-            if let Some(v) = markdown_dir {
-                payload.insert("markdownDir".into(), Value::String(v));
-            }
-            if let Some(v) = week_numbering {
-                payload.insert("weekNumbering".into(), Value::String(v));
-            }
-            if let Some(v) = logical_outdent {
-                payload.insert("logicalOutdent".into(), json!(v));
-            }
-            if let Some(v) = tags_dir {
-                payload.insert("tagsDir".into(), Value::String(v));
-            }
-            if let Some(v) = home_link {
-                payload.insert("homeLink".into(), Value::String(v));
-            }
-            ApiOutput::Config(send_json("PUT", "/api/config", Some(Value::Object(payload))).await?)
+            let payload = without_nulls(json!({
+                "markdownDir": markdown_dir, "weekNumbering": week_numbering,
+                "logicalOutdent": logical_outdent, "tagsDir": tags_dir, "homeLink": home_link,
+            }));
+            ApiOutput::Config(send_json("PUT", "/api/config", Some(payload)).await?)
         }
         ApiOp::BrowseFolder => {
             let choice: FolderChoice = send_json("POST", "/api/config/browse-folder", None).await?;
@@ -510,14 +485,14 @@ async fn call(handle: &CoreHandle, op: ApiOp) -> ApiResult<ApiOutput> {
                 .map_err(|_| ApiError("FormData".into()))?;
             let resp = Http::post("/api/assets/upload")
                 .body(form)
-                .map_err(|e| ApiError(e.to_string()))?
+                .map_err(api_err)?
                 .send()
                 .await
-                .map_err(|e| ApiError(e.to_string()))?;
+                .map_err(api_err)?;
             if !resp.ok() {
                 return Err(ApiError(format!("Upload failed: {}", resp.status())));
             }
-            let env: UploadEnvelope = resp.json().await.map_err(|e| ApiError(e.to_string()))?;
+            let env: UploadEnvelope = resp.json().await.map_err(api_err)?;
             ApiOutput::FileName(env.file_name)
         }
         ApiOp::GetFunctions => {
