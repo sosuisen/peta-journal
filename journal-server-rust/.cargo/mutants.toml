@@ -1,0 +1,11 @@
+# cargo-mutants, run before a PR on the changed code only; see "Coverage and mutation testing"
+# in the README for the command. Every mutant runs the whole test suite, about 70 seconds.
+#
+# The files no test can run are skipped, as the coverage in .cargo/config.toml skips them and
+# for the same reason: they hand over to the OS.
+exclude_globs = [
+    "crates/server/src/main.rs",
+    "crates/server/src/application/folder_chooser.rs",
+    "crates/server/src/infrastructure/launcher.rs",
+    "crates/server/src/infrastructure/export/pending_delete_prompt.rs",
+]

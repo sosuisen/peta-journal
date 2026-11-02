@@ -1,0 +1,21 @@
+# `cargo cov` measures the test coverage of the server crate with cargo-llvm-cov. It prints a
+# table per file; `cargo cov --html` writes a browsable report to target/llvm-cov/html/.
+# Setup, once: `rustup component add llvm-tools-preview` and
+# `cargo install cargo-llvm-cov --locked`.
+#
+# The numbers are not a target: the report is read for the lines no test reaches, which are
+# either removed or given a test of the behaviour that needs them.
+#
+# These files are left out of the measurement, as agreed on 2026-11-02, because no ordinary
+# test can run them: they hand over to the OS.
+# - src/main.rs: the entry point, which binds the port and waits for Ctrl-C
+# - application/folder_chooser.rs: the native folder dialog (osascript, PowerShell, zenity)
+# - infrastructure/launcher.rs: opens a URL or a folder with the OS
+# - infrastructure/export/pending_delete_prompt.rs: opens the browser through the launcher
+# cargo-mutants skips the same files; see .cargo/mutants.toml.
+[alias]
+cov = [
+    "llvm-cov",
+    "-p", "journal-server",
+    "--ignore-filename-regex", "src/main\\.rs$|application/folder_chooser\\.rs$|infrastructure/launcher\\.rs$|export/pending_delete_prompt\\.rs$",
+]
