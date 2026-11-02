@@ -287,22 +287,24 @@ async fn delete_items(
     Json(req): Json<DeleteItemsRequest>,
 ) -> AppResult<StatusCode> {
     let item_ids = parse_ids(req.item_ids, "itemIds")?;
-    blocking(move || {
-        // The pages to tell are found first: after the deletion the items are gone
-        let mut pages = BTreeSet::new();
-        for id in &item_ids {
-            pages.extend(state.item_service.get_item_page_id(id)?);
-            for t in state.items.find_transcluders(id)? {
-                pages.insert(t.page_id.to_string());
-            }
+    blocking(move || delete_and_tell(&state, &item_ids)).await
+}
+
+/// Deletes items and tells the pages they were on and the pages that transcluded them.
+fn delete_and_tell(state: &SharedState, item_ids: &[Hmtid]) -> AppResult<StatusCode> {
+    // The pages to tell are found first: after the deletion the items are gone
+    let mut pages = BTreeSet::new();
+    for id in item_ids {
+        pages.extend(state.item_service.get_item_page_id(id)?);
+        for t in state.items.find_transcluders(id)? {
+            pages.insert(t.page_id.to_string());
         }
-        state.item_service.delete_items(&item_ids)?;
-        for page_id in pages {
-            state.sse.broadcast_pages_updated(&page_id);
-        }
-        Ok(StatusCode::NO_CONTENT)
-    })
-    .await
+    }
+    state.item_service.delete_items(item_ids)?;
+    for page_id in pages {
+        state.sse.broadcast_pages_updated(&page_id);
+    }
+    Ok(StatusCode::NO_CONTENT)
 }
 
 async fn merge_items(
@@ -335,20 +337,7 @@ async fn delete_item(
     Path(id): Path<String>,
 ) -> AppResult<StatusCode> {
     let item_id = parse_id(&id)?;
-    blocking(move || {
-        // Find transcluders before deletion so we can notify their pages
-        let transcluders = state.items.find_transcluders(&item_id)?;
-        let page_id = state.item_service.get_item_page_id(&item_id)?;
-        state.item_service.delete_item(&item_id)?;
-        if let Some(page_id) = page_id {
-            state.sse.broadcast_pages_updated(&page_id);
-        }
-        for t in transcluders {
-            state.sse.broadcast_pages_updated(t.page_id.as_str());
-        }
-        Ok(StatusCode::NO_CONTENT)
-    })
-    .await
+    blocking(move || delete_and_tell(&state, &[item_id])).await
 }
 
 async fn set_transclusion(
