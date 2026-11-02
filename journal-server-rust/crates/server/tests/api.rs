@@ -349,14 +349,18 @@ async fn editing_a_source_item_updates_the_stored_copy_in_its_transcluders() {
     );
 }
 
-// 参照元の項目を削除すると、トランスクルージョンは解除され、そのときの子孫もトランスクルードしている側に普通の項目として残る。
-// 子孫の本文、AST、折りたたみ、型、入れ子のトランスクルージョンは、そのまま写される。
+// 参照元の木を削除すると、トランスクルージョンは解除され、そのときの子孫もトランスクルードしている側に普通の項目として残る。
+// 子孫の本文、AST、折りたたみ、型、ハッシュタグ、入れ子のトランスクルージョンは、そのまま写される。
 #[tokio::test]
 async fn deleting_a_source_item_leaves_its_descendants_as_a_copy_in_its_transcluders() {
     let other_page = new_doc_page("items-transclusion-delete-other").await;
     let other = fill(&other_page.id, &["other"]).await.remove(0);
     let source_page = new_doc_page("items-transclusion-delete-source").await;
-    let source = fill(&source_page.id, &["root", "  # child", "    grandchild"]).await;
+    let source = fill(
+        &source_page.id,
+        &["root", "  # child #kept", "    grandchild"],
+    )
+    .await;
     update_item(&source[1].id, json!({ "collapsed": true })).await;
     let (status, resp) = post(
         &format!("/api/items/{}/transclude", source[2].id),
@@ -375,7 +379,13 @@ async fn deleting_a_source_item_leaves_its_descendants_as_a_copy_in_its_transclu
     let (_, resp) = get(&format!("/api/pages/{}", source_page.id)).await;
     let child_ast = field_of_each(&resp, "items", "ast").remove(1);
 
-    assert_eq!(delete(&format!("/api/items/{}", source[0].id)).await, 204);
+    // The whole tree goes in one group: the copies are made before any of it is deleted
+    let (status, resp) = post(
+        "/api/items/delete",
+        json!({ "itemIds": [source[0].id, source[1].id, source[2].id] }),
+    )
+    .await;
+    assert_eq!(status, 204, "{resp}");
 
     // The copies follow the host item and come before its own children
     assert_eq!(
@@ -383,7 +393,7 @@ async fn deleting_a_source_item_leaves_its_descendants_as_a_copy_in_its_transclu
         [
             "1:intro",
             "2:root",
-            "3:# child",
+            "3:# child #kept",
             "4:other",
             "3:own child",
             "1:after"
@@ -393,6 +403,7 @@ async fn deleting_a_source_item_leaves_its_descendants_as_a_copy_in_its_transclu
     assert!(copies[1].transclude_item_id.is_none());
     assert_eq!(copies[2].types, ["heading"]);
     assert!(copies[2].collapsed);
+    assert_eq!(copies[2].properties["tags"], json!(["kept"]));
     assert_eq!(
         copies[3].transclude_item_id.as_deref(),
         Some(other.id.as_str())
@@ -494,6 +505,74 @@ async fn merging_away_a_source_item_leaves_a_copy_in_its_transcluders() {
         .await
         .iter()
         .all(|i| i.transclude_item_id.is_none()));
+}
+
+// ---- Items: group delete ----
+
+// グループ削除は、項目を子孫ごと1回のリクエストで消す。
+#[tokio::test]
+async fn a_group_of_items_is_deleted_with_its_descendants_in_one_request() {
+    let page = new_doc_page("items-group-delete").await;
+    let rows = fill(
+        &page.id,
+        &[
+            "keep",
+            "parent",
+            "  child",
+            "    grandchild",
+            "sibling",
+            "last",
+        ],
+    )
+    .await;
+
+    let (status, resp) = post(
+        "/api/items/delete",
+        json!({ "itemIds": [rows[1].id, rows[2].id, rows[3].id, rows[4].id] }),
+    )
+    .await;
+    assert_eq!(status, 204, "{resp}");
+
+    assert_eq!(outline_of(&page.id).await, ["1:keep", "1:last"]);
+}
+
+// 子孫がそろっていないグループは断られ、何も消えない。
+#[tokio::test]
+async fn a_group_that_leaves_a_descendant_behind_is_refused_and_nothing_is_deleted() {
+    let page = new_doc_page("items-group-delete-refuse").await;
+    let rows = fill(
+        &page.id,
+        &["parent", "  child", "    grandchild", "sibling"],
+    )
+    .await;
+
+    let (status, _) = post(
+        "/api/items/delete",
+        json!({ "itemIds": [rows[0].id, rows[1].id, rows[3].id] }),
+    )
+    .await;
+    assert_eq!(status, 400);
+    let (status, _) = post("/api/items/delete", json!({ "itemIds": [] })).await;
+    assert_eq!(status, 400);
+
+    assert_eq!(
+        outline_of(&page.id).await,
+        ["1:parent", "2:child", "3:grandchild", "1:sibling"]
+    );
+}
+
+// 単体の削除は、子を持つ項目を断る。子のない項目は消える。
+#[tokio::test]
+async fn a_single_delete_refuses_an_item_with_children() {
+    let page = new_doc_page("items-single-delete").await;
+    let rows = fill(&page.id, &["parent", "  child"]).await;
+
+    assert_eq!(delete(&format!("/api/items/{}", rows[0].id)).await, 400);
+    assert_eq!(outline_of(&page.id).await, ["1:parent", "2:child"]);
+
+    assert_eq!(delete(&format!("/api/items/{}", rows[1].id)).await, 204);
+    assert_eq!(delete(&format!("/api/items/{}", rows[0].id)).await, 204);
+    assert_eq!(outline_of(&page.id).await, Vec::<String>::new());
 }
 
 // ---- Pages ----

@@ -26,6 +26,16 @@ const SELECT_ITEMS: &str =
      p.dir_path, p.name, p.type \
      FROM items b JOIN pages p ON b.page_id = p.id ";
 
+/// An item and all its descendants, by a recursive query on parent_id, in page order.
+const SELECT_ITEM_WITH_DESCENDANTS: &str = "WITH RECURSIVE descendants AS (\
+       SELECT i.* FROM items i WHERE i.id = ? \
+       UNION ALL \
+       SELECT i.* FROM items i JOIN descendants d ON i.parent_id = d.id\
+     ) \
+     SELECT b.id, b.page_id, b.parent_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.ast, b.collapsed, b.transclude_item_id, \
+     p.dir_path, p.name, p.type \
+     FROM descendants b JOIN pages p ON b.page_id = p.id ORDER BY b.idx";
+
 #[derive(Debug, Clone)]
 pub struct ItemRepository {
     db: Arc<Db>,
@@ -80,27 +90,37 @@ impl ItemRepository {
         ItemRepository { db }
     }
 
+    /// The database, for a service that runs several repository calls in one transaction.
+    pub fn db(&self) -> &Db {
+        &self.db
+    }
+
     /// Runs a query whose result rows are items in the shape of `SELECT_ITEMS`.
     fn query_items(&self, sql: &str, params: &[&dyn rusqlite::ToSql]) -> AppResult<Vec<Item>> {
-        let conn = self.db.conn()?;
-        let mut stmt = conn.prepare(sql)?;
-        let mut rows = stmt.query(params)?;
-        let mut items = Vec::new();
-        while let Some(row) = rows.next()? {
-            items.push(map_item(&conn, row)?);
-        }
-        Ok(items)
+        query_items_in(&*self.db.conn()?, sql, params)
     }
 
     pub fn find_by_id(&self, id: &Hmtid) -> AppResult<Option<Item>> {
-        Ok(self
-            .query_items(&format!("{SELECT_ITEMS}WHERE b.id = ?"), &[&id.as_str()])?
-            .into_iter()
-            .next())
+        Self::find_by_id_in(&*self.db.conn()?, id)
+    }
+
+    pub fn find_by_id_in(conn: &Connection, id: &Hmtid) -> AppResult<Option<Item>> {
+        Ok(query_items_in(
+            conn,
+            &format!("{SELECT_ITEMS}WHERE b.id = ?"),
+            &[&id.as_str()],
+        )?
+        .into_iter()
+        .next())
     }
 
     pub fn find_by_page_id(&self, page_id: &Hmtid) -> AppResult<Vec<Item>> {
-        self.query_items(
+        Self::find_by_page_id_in(&*self.db.conn()?, page_id)
+    }
+
+    pub fn find_by_page_id_in(conn: &Connection, page_id: &Hmtid) -> AppResult<Vec<Item>> {
+        query_items_in(
+            conn,
             &format!("{SELECT_ITEMS}WHERE b.page_id = ? ORDER BY b.idx"),
             &[&page_id.as_str()],
         )
@@ -137,7 +157,12 @@ impl ItemRepository {
 
     /// All items that transclude the given source item.
     pub fn find_transcluders(&self, source_item_id: &Hmtid) -> AppResult<Vec<Item>> {
-        self.query_items(
+        Self::find_transcluders_in(&*self.db.conn()?, source_item_id)
+    }
+
+    pub fn find_transcluders_in(conn: &Connection, source_item_id: &Hmtid) -> AppResult<Vec<Item>> {
+        query_items_in(
+            conn,
             &format!("{SELECT_ITEMS}WHERE b.transclude_item_id = ?"),
             &[&source_item_id.as_str()],
         )
@@ -145,22 +170,26 @@ impl ItemRepository {
 
     /// An item and all its descendants, using a recursive query on parent_id.
     pub fn find_item_with_descendants(&self, item_id: &Hmtid) -> AppResult<Vec<Item>> {
-        self.query_items(
-            "WITH RECURSIVE descendants AS (\
-               SELECT i.* FROM items i WHERE i.id = ? \
-               UNION ALL \
-               SELECT i.* FROM items i JOIN descendants d ON i.parent_id = d.id\
-             ) \
-             SELECT b.id, b.page_id, b.parent_id, b.created_date, b.modified_date, b.idx, b.level, b.body, b.ast, b.collapsed, b.transclude_item_id, \
-             p.dir_path, p.name, p.type \
-             FROM descendants b JOIN pages p ON b.page_id = p.id ORDER BY b.idx",
-            &[&item_id.as_str()],
-        )
+        Self::find_item_with_descendants_in(&*self.db.conn()?, item_id)
+    }
+
+    pub fn find_item_with_descendants_in(
+        conn: &Connection,
+        item_id: &Hmtid,
+    ) -> AppResult<Vec<Item>> {
+        query_items_in(conn, SELECT_ITEM_WITH_DESCENDANTS, &[&item_id.as_str()])
     }
 
     pub fn save(&self, item: &Item) -> AppResult<Item> {
         let mut conn = self.db.conn()?;
         let tx = conn.immediate()?;
+        Self::save_in(&tx, item)?;
+        tx.commit()?;
+        Ok(item.clone())
+    }
+
+    /// Inserts or updates an item on the given connection, as part of a larger transaction.
+    pub fn save_in(tx: &Connection, item: &Item) -> AppResult<()> {
         let parent = item.parent_item_id.as_ref().map(|p| p.to_string());
         let transclude = item.transclude_item_id.as_ref().map(|p| p.to_string());
         tx.execute(
@@ -191,15 +220,11 @@ impl ItemRepository {
             ],
         )
         .with_context(|| format!("Failed to save item: {}", item.id))?;
-        delete_types(&tx, item.id.as_str())?;
+        delete_types(tx, item.id.as_str())?;
         for t in &item.types {
-            tx.execute(
-                "INSERT OR IGNORE INTO item_types (item_id, type) VALUES (?, ?)",
-                params![item.id.as_str(), t],
-            )?;
+            insert_type(tx, &item.id, t)?;
         }
-        tx.commit()?;
-        Ok(item.clone())
+        Ok(())
     }
 
     /// Writes only the fields set in the patch, in one transaction. Returns whether the item exists.
@@ -305,12 +330,18 @@ impl ItemRepository {
     }
 
     pub fn delete(&self, id: &Hmtid) -> AppResult<()> {
-        // Foreign keys are not enforced on these connections, so the types are removed by hand
         let mut conn = self.db.conn()?;
         let tx = conn.immediate()?;
-        delete_types(&tx, id.as_str())?;
-        tx.execute("DELETE FROM items WHERE id = ?", [id.as_str()])?;
+        Self::delete_in(&tx, id)?;
         tx.commit()?;
+        Ok(())
+    }
+
+    /// Deletes an item on the given connection, as part of a larger transaction.
+    pub fn delete_in(tx: &Connection, id: &Hmtid) -> AppResult<()> {
+        // Foreign keys are not enforced on these connections, so the types are removed by hand
+        delete_types(tx, id.as_str())?;
+        tx.execute("DELETE FROM items WHERE id = ?", [id.as_str()])?;
         Ok(())
     }
 
@@ -339,6 +370,14 @@ impl ItemRepository {
     pub fn recalculate_parent_ids(&self, page_id: &Hmtid) -> AppResult<()> {
         let mut conn = self.db.conn()?;
         let tx = conn.immediate()?;
+        Self::recalculate_parent_ids_in(&tx, page_id)?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// Recalculates the parents of a page's items on the given connection, as part of a
+    /// larger transaction.
+    pub fn recalculate_parent_ids_in(tx: &Connection, page_id: &Hmtid) -> AppResult<()> {
         let items: Vec<(String, i32)> = {
             let mut stmt =
                 tx.prepare("SELECT id, level FROM items WHERE page_id = ? ORDER BY idx")?;
@@ -362,9 +401,23 @@ impl ItemRepository {
                 update.execute(params![parent, items[i].0])?;
             }
         }
-        tx.commit()?;
         Ok(())
     }
+}
+
+/// Runs a query whose result rows are items in the shape of `SELECT_ITEMS`.
+fn query_items_in(
+    conn: &Connection,
+    sql: &str,
+    params: &[&dyn rusqlite::ToSql],
+) -> AppResult<Vec<Item>> {
+    let mut stmt = conn.prepare(sql)?;
+    let mut rows = stmt.query(params)?;
+    let mut items = Vec::new();
+    while let Some(row) = rows.next()? {
+        items.push(map_item(conn, row)?);
+    }
+    Ok(items)
 }
 
 fn patch_columns(conn: &Connection, id: &Hmtid, patch: &ItemPatch) -> rusqlite::Result<bool> {

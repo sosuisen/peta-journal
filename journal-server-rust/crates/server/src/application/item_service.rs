@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use hmtid::Hmtid;
 use parking_lot::Mutex;
+use rusqlite::Connection;
 
 use crate::domain::fractional_index;
 use crate::domain::hashtag;
@@ -32,6 +33,17 @@ pub struct TreeMarkdownExport {
     pub tree_markdown: String,
     pub ast: String,
     pub flat_markdown: String,
+}
+
+/// What a removal of items does outside the database, once its transaction is committed.
+#[derive(Default)]
+struct RemovalEffects {
+    removed_ids: Vec<String>,
+    /// Each copy made for a transcluder, with the title of its page for the search index.
+    copies: Vec<(Item, String)>,
+    tags_removed: Vec<String>,
+    hashtags_added: Vec<String>,
+    pages: BTreeSet<Hmtid>,
 }
 
 pub struct ItemService {
@@ -314,39 +326,107 @@ impl ItemService {
     }
 
     /// Deletes an item together with its properties and removes it from the search index.
+    /// Deletes one item. An item with children is refused: a deletion never leaves an item
+    /// without its parent. The children go first, in one group, or they are merged away.
     pub fn delete_item(&self, item_id: &Hmtid) -> AppResult<()> {
-        let item = self.items.find_by_id(item_id)?;
-        // Deleting the source clears `transclude_item_id` on these items (FK ON DELETE SET
-        // NULL), so their files must be rewritten without the transclude attribute
-        let transcluders = self.items.find_transcluders(item_id)?;
-        if let Some(source) = &item {
-            self.copy_descendants_to_transcluders(source, &transcluders)?;
+        self.delete_items(std::slice::from_ref(item_id))
+    }
+
+    /// Deletes items as one group, in one transaction: all of them or none. Every descendant
+    /// of a deleted item must be in the group, so that no item is left without its parent.
+    pub fn delete_items(&self, item_ids: &[Hmtid]) -> AppResult<()> {
+        if item_ids.is_empty() {
+            return Err(AppError::bad_request("itemIds must not be empty"));
         }
-        let tags = self.properties.find_tags(ITEM_TARGET, item_id.as_str())?;
-        self.items.delete(item_id)?;
-        self.search.remove_item(item_id.as_str());
-        self.properties
-            .delete_all_for_targets(ITEM_TARGET, &[item_id.to_string()])?;
-        self.page_service.delete_unused_tag_pages(&tags);
-        if let Some(b) = item {
-            self.reparent_and_export(&b.page_id)?;
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+        let mut items = Vec::new();
+        for id in item_ids {
+            let item = ItemRepository::find_by_id_in(&tx, id)?
+                .ok_or_else(|| AppError::not_found(format!("Item not found: {id}")))?;
+            items.push(item);
         }
-        for t in transcluders {
-            self.reparent_and_export(&t.page_id)?;
+        let group: BTreeSet<&str> = item_ids.iter().map(Hmtid::as_str).collect();
+        for item in &items {
+            for descendant in ItemRepository::find_item_with_descendants_in(&tx, &item.id)? {
+                if !group.contains(descendant.id.as_str()) {
+                    return Err(AppError::bad_request(format!(
+                        "Item {} has a descendant that is not deleted: {}",
+                        item.id, descendant.id
+                    )));
+                }
+            }
         }
+        let effects = self.remove_items(&tx, &items)?;
+        tx.commit()?;
+        self.finish_removal(effects);
         Ok(())
+    }
+
+    /// Removes items inside a transaction: their copies go to their transcluders first, then
+    /// the items go, children before parents, with their properties. The pages touched get
+    /// their parents recalculated. What happens outside the database is returned for after
+    /// the commit.
+    fn remove_items(&self, tx: &Connection, items: &[Item]) -> AppResult<RemovalEffects> {
+        let mut effects = RemovalEffects::default();
+        // A transcluder keeps what it showed, so the descendants are copied while they exist
+        for item in items {
+            let transcluders = ItemRepository::find_transcluders_in(tx, &item.id)?;
+            self.copy_descendants_to_transcluders(tx, item, &transcluders, &mut effects)?;
+            effects
+                .pages
+                .extend(transcluders.iter().map(|t| t.page_id.clone()));
+        }
+        let mut items: Vec<&Item> = items.iter().collect();
+        items.sort_by_key(|item| std::cmp::Reverse(item.level));
+        for item in items {
+            effects
+                .tags_removed
+                .extend(PropertyRepository::find_tags_in(
+                    tx,
+                    ITEM_TARGET,
+                    item.id.as_str(),
+                )?);
+            ItemRepository::delete_in(tx, &item.id)?;
+            effects.removed_ids.push(item.id.to_string());
+            effects.pages.insert(item.page_id.clone());
+        }
+        PropertyRepository::delete_all_for_targets_in(tx, ITEM_TARGET, &effects.removed_ids)?;
+        let now = now_millis();
+        for page_id in &effects.pages {
+            ItemRepository::recalculate_parent_ids_in(tx, page_id)?;
+            PageRepository::touch_in(tx, page_id, now)?;
+        }
+        Ok(effects)
+    }
+
+    /// The work of a removal that lives outside the database, done once the commit is through.
+    fn finish_removal(&self, effects: RemovalEffects) {
+        for id in &effects.removed_ids {
+            self.search.remove_item(id);
+        }
+        for (copy, title) in &effects.copies {
+            self.search.index_item(copy, title);
+        }
+        self.page_service
+            .delete_unused_tag_pages(&effects.tags_removed);
+        self.page_service
+            .update_tag_pages(&[], &effects.hashtags_added);
+        for page_id in &effects.pages {
+            self.export.queue_export(page_id);
+        }
     }
 
     /// Before a source item goes, its descendants are copied below each transcluder, so the
     /// transcluder keeps showing what it showed. Its own body is already a stored copy.
     fn copy_descendants_to_transcluders(
         &self,
+        tx: &Connection,
         source: &Item,
         transcluders: &[Item],
+        effects: &mut RemovalEffects,
     ) -> AppResult<()> {
-        let descendants: Vec<Item> = self
-            .items
-            .find_item_with_descendants(&source.id)?
+        let descendants: Vec<Item> = ItemRepository::find_item_with_descendants_in(tx, &source.id)?
             .into_iter()
             .filter(|d| d.id != source.id)
             .collect();
@@ -354,7 +434,7 @@ impl ItemService {
             let page = self.page_service.require_page(&transcluder.page_id)?;
             let mut above = transcluder.id.clone();
             for descendant in &descendants {
-                let existing = self.items.find_by_page_id(&transcluder.page_id)?;
+                let existing = ItemRepository::find_by_page_id_in(tx, &transcluder.page_id)?;
                 let idx = calculate_insertion_index(&existing, &ItemPosition::After(above.clone()))
                     .map_err(AppError::internal)?;
                 let copy = Item {
@@ -367,9 +447,14 @@ impl ItemService {
                     transclude_item_id: descendant.transclude_item_id.clone(),
                     ..Item::new_on(self.ids.generate_item_id(), &page, now_millis())
                 };
-                let copy = self.items.save(&copy)?;
-                self.register_new_item(&copy, &page)?;
-                above = copy.id;
+                ItemRepository::save_in(tx, &copy)?;
+                let hashtags = hashtag::extract_hashtags(&copy.ast);
+                if !hashtags.is_empty() {
+                    PropertyRepository::sync_tags_in(tx, ITEM_TARGET, copy.id.as_str(), &hashtags)?;
+                    effects.hashtags_added.extend(hashtags);
+                }
+                above = copy.id.clone();
+                effects.copies.push((copy, page.title()));
             }
         }
         Ok(())
@@ -386,7 +471,12 @@ impl ItemService {
         }
         let merged = format!("{}{}", into.body, item.body);
         let into = self.update_item(into_id, Some(&merged), None, None)?;
-        self.delete_item(item_id)?;
+        // The children stay, with the receiving item as their parent: no group is needed
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+        let effects = self.remove_items(&tx, std::slice::from_ref(&item))?;
+        tx.commit()?;
+        self.finish_removal(effects);
         Ok(into)
     }
 
