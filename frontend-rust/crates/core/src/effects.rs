@@ -62,6 +62,17 @@ pub enum ApiOp {
     DeleteItem {
         item_id: String,
     },
+    /// Deletes items as one group, with their descendants; the server refuses a group that
+    /// leaves a descendant behind.
+    DeleteItems {
+        item_ids: Vec<String>,
+    },
+    /// Joins `item_id` into `into_id`: the body goes to the end of the receiving item, the
+    /// children follow, and the item is deleted.
+    MergeItems {
+        item_id: String,
+        into_id: String,
+    },
     CycleTask {
         item_id: String,
     },
@@ -607,6 +618,21 @@ impl<Event: Send + 'static> Api<Event> {
         })
         .await
         .map(|_| ())
+    }
+
+    pub async fn delete_items(&self, item_ids: Vec<String>) -> ApiResult<()> {
+        self.call(ApiOp::DeleteItems { item_ids }).await.map(|_| ())
+    }
+
+    pub async fn merge_items(&self, item_id: &str, into_id: &str) -> ApiResult<Item> {
+        expect_output!(
+            self.call(ApiOp::MergeItems {
+                item_id: item_id.into(),
+                into_id: into_id.into(),
+            })
+            .await,
+            Item
+        )
     }
 
     pub async fn delete_page(&self, page_id: &str) -> ApiResult<()> {

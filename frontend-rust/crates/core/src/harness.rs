@@ -51,6 +51,8 @@ pub fn op_name(op: &ApiOp) -> &'static str {
         ApiOp::MoveItems { .. } => "MoveItems",
         ApiOp::DeletePage { .. } => "DeletePage",
         ApiOp::DeleteItem { .. } => "DeleteItem",
+        ApiOp::DeleteItems { .. } => "DeleteItems",
+        ApiOp::MergeItems { .. } => "MergeItems",
         ApiOp::CycleTask { .. } => "CycleTask",
         ApiOp::UpsertItemProperty { .. } => "UpsertItemProperty",
         ApiOp::DeleteItemProperty { .. } => "DeleteItemProperty",
@@ -146,7 +148,10 @@ impl FakeApi {
                     .map(|id| plain_item(id, 1, &format!("body of {id}")))
                     .collect(),
             ),
-            ApiOp::DeleteItem { .. } | ApiOp::DeletePage { .. } => ApiOutput::Done,
+            ApiOp::DeleteItem { .. } | ApiOp::DeleteItems { .. } | ApiOp::DeletePage { .. } => {
+                ApiOutput::Done
+            }
+            ApiOp::MergeItems { into_id, .. } => ApiOutput::Item(plain_item(into_id, 1, "")),
             ApiOp::CycleTask { item_id } => {
                 let mut item = plain_item(item_id, 1, "");
                 item.types = vec!["task".into()];
@@ -549,6 +554,28 @@ pub fn update_calls(api: &FakeApi) -> Vec<(String, Option<String>)> {
         .iter()
         .filter_map(|op| match op {
             ApiOp::UpdateItem { item_id, body, .. } => Some((item_id.clone(), body.clone())),
+            _ => None,
+        })
+        .collect()
+}
+
+/// The group delete calls, each the ids sent together.
+pub fn delete_calls(api: &FakeApi) -> Vec<Vec<String>> {
+    api.calls
+        .iter()
+        .filter_map(|op| match op {
+            ApiOp::DeleteItems { item_ids } => Some(item_ids.clone()),
+            _ => None,
+        })
+        .collect()
+}
+
+/// The merge calls as `(item, into)`.
+pub fn merge_calls(api: &FakeApi) -> Vec<(String, String)> {
+    api.calls
+        .iter()
+        .filter_map(|op| match op {
+            ApiOp::MergeItems { item_id, into_id } => Some((item_id.clone(), into_id.clone())),
             _ => None,
         })
         .collect()
