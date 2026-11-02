@@ -113,6 +113,27 @@ directory, so its markdown export lands there and never in the markdown folder o
 run otherwise. When starting a second server by hand for an experiment, always pass
 `--config-dir` as well, or it will export into your real markdown folder.
 
+### Coverage
+
+Setup, once:
+
+```
+rustup component add llvm-tools-preview
+cargo install cargo-llvm-cov --locked
+```
+
+After a change, read the coverage for the lines no test reaches (the numbers are not a target):
+
+```
+cd peta-journal/frontend-rust
+cargo cov            # a table per file
+cargo cov --html     # target/llvm-cov/html/index.html, line by line
+```
+
+`cargo cov` is an alias in `.cargo/config.toml`. It measures `peta-core`, `fm-ast` and
+`fm-leptos`. The wasm shell `peta-frontend` (`crates/shell-leptos`) is left out: it only runs in
+the browser, so the E2E tests cover it instead.
+
 ## Atlas crate (atlas-rust)
 
 `atlas-rust` is the crate `peta-atlas`. The server and the frontend both use it, and so can

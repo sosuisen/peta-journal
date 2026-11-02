@@ -1,3 +1,17 @@
 # hmtid uses rand, whose getrandom needs the JavaScript backend on wasm32.
 [target.wasm32-unknown-unknown]
 rustflags = ['--cfg', 'getrandom_backend="wasm_js"']
+
+# `cargo cov` measures the test coverage of the crates that run natively with cargo-llvm-cov. It
+# prints a table per file; `cargo cov --html` writes a browsable report to target/llvm-cov/html/.
+# Setup, once: `rustup component add llvm-tools-preview` and
+# `cargo install cargo-llvm-cov --locked`.
+#
+# The numbers are not a target: the report is read for the lines no test reaches, which are
+# either removed or given a test of the behaviour that needs them.
+#
+# `peta-frontend` (crates/shell-leptos) is left out, as agreed on 2026-11-03, because it is the
+# wasm shell around the core: it only runs in the browser, so no ordinary test can run it. The
+# E2E tests in ../e2e cover it instead.
+[alias]
+cov = ["llvm-cov", "-p", "peta-core", "-p", "fm-ast", "-p", "fm-leptos"]
