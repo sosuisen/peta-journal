@@ -610,6 +610,16 @@ fn parse_date_to_millis(date_str: &str, to_end: bool) -> AppResult<i64> {
     Ok(dt.timestamp_millis())
 }
 
+/// The values of a list as a client sends them: comma-separated, with the spaces around
+/// each value and the empty values dropped.
+pub fn list_values(value: &str) -> Vec<String> {
+    value
+        .split(',')
+        .map(|t| t.trim().to_string())
+        .filter(|t| !t.is_empty())
+        .collect()
+}
+
 /// Reads a bounds value `x,y,width,height` and writes it back without spaces, each number as
 /// a number property shows it. It stays text rather than four columns, so the front matter
 /// and the metadata line of an item hold it as one plain value.

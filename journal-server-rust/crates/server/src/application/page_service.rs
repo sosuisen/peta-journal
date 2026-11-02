@@ -17,7 +17,9 @@ use crate::error::{AppError, AppResult};
 use crate::infrastructure::export::export_queue_repository::ExportQueueRepository;
 use crate::infrastructure::export::export_service::MarkdownExportService;
 use crate::infrastructure::persistence::db::now_millis;
-use crate::infrastructure::persistence::property_repository::{ListProps, ScalarProps};
+use crate::infrastructure::persistence::property_repository::{
+    list_values, ListProps, ScalarProps,
+};
 use crate::infrastructure::persistence::{ItemRepository, PageRepository, PropertyRepository};
 
 const PAGE_TARGET: &str = "page";
@@ -406,11 +408,7 @@ impl PageService {
             .map(|def| def.value_type.as_str())
             .unwrap_or(value_type);
         if value_type == "tags" || value_type == "list" {
-            let values: Vec<String> = value
-                .split(',')
-                .map(|t| t.trim().to_string())
-                .filter(|t| !t.is_empty())
-                .collect();
+            let values = list_values(value);
             if key == "tags" {
                 let before = self.properties.find_tags(PAGE_TARGET, page_id.as_str())?;
                 self.properties

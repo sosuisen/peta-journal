@@ -16,6 +16,7 @@ use crate::error::{AppError, AppResult};
 use crate::infrastructure::export::export_service::MarkdownExportService;
 use crate::infrastructure::export::page_link_converter;
 use crate::infrastructure::persistence::db::now_millis;
+use crate::infrastructure::persistence::property_repository::list_values;
 use crate::infrastructure::persistence::{ItemRepository, PageRepository, PropertyRepository};
 
 use super::markdown_parser::MarkdownParser;
@@ -452,11 +453,7 @@ impl ItemService {
             .map(|def| def.value_type)
             .unwrap_or_else(|| value_type.to_string());
         if value_type == "tags" || value_type == "list" {
-            let values: Vec<String> = value
-                .split(',')
-                .map(|t| t.trim().to_string())
-                .filter(|t| !t.is_empty())
-                .collect();
+            let values = list_values(value);
             self.properties.upsert_list(
                 ITEM_TARGET,
                 item_id.as_str(),
