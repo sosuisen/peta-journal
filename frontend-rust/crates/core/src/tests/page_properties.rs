@@ -94,7 +94,7 @@ fn setting_a_page_property_shows_it_and_takes_the_server_value() {
 
 // タグ値の設定をサーバーが拒否すると、元の空のプロパティに戻り、理由が利用者に知らされる。
 #[test]
-fn a_tag_value_is_shown_as_a_list_until_the_server_answers() {
+fn a_refused_tag_value_puts_the_old_properties_back_and_tells_the_user() {
     let mut h = Harness::with_items(vec![]);
     h.api.fail_next("UpsertPageProperty", "offline");
     h.send(Event::SetPageProperty {
