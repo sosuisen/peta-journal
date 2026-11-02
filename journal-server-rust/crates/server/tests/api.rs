@@ -349,6 +349,40 @@ async fn editing_a_source_item_updates_the_stored_copy_in_its_transcluders() {
     );
 }
 
+// 参照元の項目を削除すると、トランスクルージョンは解除され、そのときの子孫もトランスクルードしている側に普通の項目として残る。
+#[tokio::test]
+async fn deleting_a_source_item_leaves_its_descendants_as_a_copy_in_its_transcluders() {
+    let source_page = new_doc_page("items-transclusion-delete-source").await;
+    let source = fill(&source_page.id, &["root", "  child", "    grandchild"]).await;
+    let page = new_doc_page("items-transclusion-delete").await;
+    let host = fill(&page.id, &["intro", "  host", "    own child", "after"]).await;
+    let (status, resp) = post(
+        &format!("/api/items/{}/transclude", host[1].id),
+        json!({ "sourceItemId": source[0].id }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(delete(&format!("/api/items/{}", source[0].id)).await, 204);
+
+    // The copies follow the host item and come before its own children
+    assert_eq!(
+        outline_of(&page.id).await,
+        [
+            "1:intro",
+            "2:root",
+            "3:child",
+            "4:grandchild",
+            "3:own child",
+            "1:after"
+        ]
+    );
+    assert!(items(&page.id)
+        .await
+        .iter()
+        .all(|i| i.transclude_item_id.is_none()));
+}
+
 // ---- Pages ----
 
 // 新しいdocページは空の項目1つで始まり、同じタイトルで再び見つかる。
