@@ -125,6 +125,23 @@ async fn a_property_can_be_set_on_an_item() {
     );
 }
 
+// checkbox型のプロパティは、trueとfalseだけを持つ。それ以外の値はfalseになる。
+#[tokio::test]
+async fn a_checkbox_property_holds_true_or_false() {
+    let page = new_doc_page("items-checkbox").await;
+    let item = fill(&page.id, &["checked"]).await.remove(0);
+
+    for (sent, held) in [("true", "true"), ("false", "false"), ("yes", "false")] {
+        let (status, _) = put(
+            &format!("/api/items/{}/properties/done", item.id),
+            json!({ "valueType": "checkbox", "value": sent }),
+        )
+        .await;
+        assert_eq!(status, 200);
+        assert_eq!(items(&page.id).await[0].properties["done"], json!(held));
+    }
+}
+
 // 項目のユーザー定義のlist型のキーは、そのキーのリストとして保存され、タグには触らない。
 #[tokio::test]
 async fn a_list_of_an_item_is_kept_under_its_own_key_apart_from_the_tags() {

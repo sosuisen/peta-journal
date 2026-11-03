@@ -527,9 +527,7 @@ impl AtlasService {
             let have = stored.and_then(|s| s.get(key));
             match wanted.get(key) {
                 Some(value) if have != Some(value) => {
-                    // The atlas keys are defined when the database is made, and the
-                    // definition gives the type; the type sent here is never used
-                    PropertyRepository::upsert_scalar_in(tx, ITEM_TARGET, id, key, "text", value)?;
+                    PropertyRepository::write_scalar_in(tx, ITEM_TARGET, id, key, value)?;
                     changed = true;
                 }
                 None if have.is_some() => {
