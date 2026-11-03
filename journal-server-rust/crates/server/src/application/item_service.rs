@@ -4,7 +4,7 @@ use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use hmtid::Hmtid;
-use rusqlite::Connection;
+use rusqlite::{Connection, Transaction};
 
 use crate::domain::fractional_index;
 use crate::domain::hashtag;
@@ -48,7 +48,6 @@ struct AfterCommit {
 
 pub struct ItemService {
     items: ItemRepository,
-    pages: PageRepository,
     parser: MarkdownParser,
     search: Arc<dyn SearchIndex>,
     export: Arc<MarkdownExportService>,
@@ -67,7 +66,6 @@ impl ItemService {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         items: ItemRepository,
-        pages: PageRepository,
         parser: MarkdownParser,
         search: Arc<dyn SearchIndex>,
         export: Arc<MarkdownExportService>,
@@ -77,7 +75,6 @@ impl ItemService {
     ) -> ItemService {
         ItemService {
             items,
-            pages,
             parser,
             search,
             export,
@@ -543,11 +540,7 @@ impl ItemService {
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
         ItemRepository::save_in(&tx, &updated)?;
-        PageRepository::touch_in(&tx, &item.page_id, now)?;
-        tx.commit()?;
-        let mut effects = AfterCommit::default();
-        effects.pages.insert(item.page_id.clone());
-        self.finish(effects);
+        self.commit_page(tx, &item.page_id, now)?;
         Ok(updated)
     }
 
@@ -575,20 +568,26 @@ impl ItemService {
     pub fn cycle_task(&self, item_id: &Hmtid) -> AppResult<Item> {
         let existing = self.get_item_by_id(item_id)?;
         let id = item_id.to_string();
-        let scalars = self
-            .properties
-            .find_scalar_by_targets(ITEM_TARGET, std::slice::from_ref(&id))?;
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+        let scalars = PropertyRepository::find_scalar_by_targets_in(
+            &tx,
+            ITEM_TARGET,
+            std::slice::from_ref(&id),
+        )?;
         let scalars = scalars.get(&id).cloned().unwrap_or_default();
         let is_task = existing.is_task();
         let has_begin = scalars.contains_key("begin");
         let has_end = scalars.contains_key("end");
+        let now = now_millis();
 
         let result = if !is_task {
-            let r = self.patch_task(&existing, true)?;
-            self.clear_task_times(&id)?;
+            let r = patch_task_in(&tx, &existing, true, now)?;
+            clear_task_times_in(&tx, &id)?;
             r
         } else if !has_begin && !has_end {
-            self.properties.upsert_scalar(
+            PropertyRepository::upsert_scalar_in(
+                &tx,
                 ITEM_TARGET,
                 &id,
                 "begin",
@@ -597,7 +596,8 @@ impl ItemService {
             )?;
             existing.clone()
         } else if has_begin && !has_end {
-            self.properties.upsert_scalar(
+            PropertyRepository::upsert_scalar_in(
+                &tx,
                 ITEM_TARGET,
                 &id,
                 "end",
@@ -606,11 +606,11 @@ impl ItemService {
             )?;
             existing.clone()
         } else {
-            let r = self.patch_task(&existing, false)?;
-            self.clear_task_times(&id)?;
+            let r = patch_task_in(&tx, &existing, false, now)?;
+            clear_task_times_in(&tx, &id)?;
             r
         };
-        self.touch_and_export(&existing.page_id)?;
+        self.commit_page(tx, &existing.page_id, now)?;
         Ok(result)
     }
 
@@ -624,15 +624,16 @@ impl ItemService {
         value: &str,
     ) -> AppResult<Item> {
         let existing = self.get_item_by_id(item_id)?;
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
         // The type of a key is fixed when it is defined; a new key takes the type sent
-        let value_type = self
-            .properties
-            .find_definition(key)?
+        let value_type = PropertyRepository::find_definition_in(&tx, key)?
             .map(|def| def.value_type)
             .unwrap_or_else(|| value_type.to_string());
         if value_type == "tags" || value_type == "list" {
             let values = list_values(value);
-            self.properties.upsert_list(
+            PropertyRepository::upsert_list_in(
+                &tx,
                 ITEM_TARGET,
                 item_id.as_str(),
                 key,
@@ -640,7 +641,8 @@ impl ItemService {
                 &values,
             )?;
         } else {
-            self.properties.upsert_scalar(
+            PropertyRepository::upsert_scalar_in(
+                &tx,
                 ITEM_TARGET,
                 item_id.as_str(),
                 key,
@@ -648,36 +650,18 @@ impl ItemService {
                 value,
             )?;
         }
-        self.touch_and_export(&existing.page_id)?;
+        self.commit_page(tx, &existing.page_id, now_millis())?;
         Ok(existing)
     }
 
     /// Removes a property of an item. The page file is rewritten.
     pub fn delete_property(&self, item_id: &Hmtid, key: &str) -> AppResult<Item> {
         let existing = self.get_item_by_id(item_id)?;
-        self.properties
-            .delete_property(ITEM_TARGET, item_id.as_str(), key)?;
-        self.touch_and_export(&existing.page_id)?;
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+        PropertyRepository::delete_property_in(&tx, ITEM_TARGET, item_id.as_str(), key)?;
+        self.commit_page(tx, &existing.page_id, now_millis())?;
         Ok(existing)
-    }
-
-    fn clear_task_times(&self, item_id: &str) -> AppResult<()> {
-        self.properties
-            .delete_property(ITEM_TARGET, item_id, "begin")?;
-        self.properties
-            .delete_property(ITEM_TARGET, item_id, "end")?;
-        Ok(())
-    }
-
-    /// Adds or removes the task type without writing any other field of the item.
-    fn patch_task(&self, existing: &Item, task: bool) -> AppResult<Item> {
-        let patch = ItemPatch::new(None, None, None, Some(task), None, None, now_millis())
-            .map_err(AppError::internal)?;
-        self.items.patch(&existing.id, &patch)?;
-        Ok(self
-            .items
-            .find_by_id(&existing.id)?
-            .unwrap_or_else(|| existing.clone()))
     }
 
     pub fn export_page_markdown(&self, page_id: &Hmtid) -> AppResult<TreeMarkdownExport> {
@@ -811,19 +795,30 @@ impl ItemService {
         Ok(changed.into_iter().collect())
     }
 
-    /// Marks a page as changed and queues its file: what every change of an item does to its
-    /// page. A page the item has lost is not written.
-    fn touch_and_export(&self, page_id: &Hmtid) -> AppResult<()> {
-        if let Some(page) = self.pages.find_by_id(page_id)? {
-            let updated = Page {
-                modified_date: now_millis(),
-                ..page
-            };
-            self.pages.save(&updated)?;
-        }
-        self.export.queue_export(page_id);
+    /// Commits a transaction that changed the items of one page, marking the page as changed
+    /// inside it and queuing its file after it.
+    fn commit_page(&self, tx: Transaction<'_>, page_id: &Hmtid, now: i64) -> AppResult<()> {
+        PageRepository::touch_in(&tx, page_id, now)?;
+        tx.commit()?;
+        let mut effects = AfterCommit::default();
+        effects.pages.insert(page_id.clone());
+        self.finish(effects);
         Ok(())
     }
+}
+
+fn clear_task_times_in(tx: &Connection, item_id: &str) -> AppResult<()> {
+    PropertyRepository::delete_property_in(tx, ITEM_TARGET, item_id, "begin")?;
+    PropertyRepository::delete_property_in(tx, ITEM_TARGET, item_id, "end")?;
+    Ok(())
+}
+
+/// Adds or removes the task type without writing any other field of the item.
+fn patch_task_in(tx: &Connection, existing: &Item, task: bool, now: i64) -> AppResult<Item> {
+    let patch = ItemPatch::new(None, None, None, Some(task), None, None, now)
+        .map_err(AppError::internal)?;
+    ItemRepository::patch_in(tx, &existing.id, &patch)?;
+    Ok(ItemRepository::find_by_id_in(tx, &existing.id)?.unwrap_or_else(|| existing.clone()))
 }
 
 enum PlanError {

@@ -119,7 +119,6 @@ impl AppState {
         ));
         let item_service = Arc::new(ItemService::new(
             items.clone(),
-            pages.clone(),
             parser.clone(),
             Arc::clone(&search),
             Arc::clone(&export),

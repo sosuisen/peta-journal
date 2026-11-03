@@ -64,7 +64,13 @@ fn main() {
             0,
         )
         .unwrap();
-        state.items.patch(&id, &p).unwrap();
+        {
+            let mut conn = state.items.db().conn().unwrap();
+            let tx = conn.immediate().unwrap();
+            journal_server::infrastructure::persistence::ItemRepository::patch_in(&tx, &id, &p)
+                .unwrap();
+            tx.commit().unwrap();
+        }
         patch.push(t.elapsed().as_secs_f64() * 1000.0);
         let t = Instant::now();
         state
