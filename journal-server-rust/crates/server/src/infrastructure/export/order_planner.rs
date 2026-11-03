@@ -22,25 +22,7 @@ pub fn plan(existing_idx: &[Option<String>]) -> Result<Vec<String>, NoGap> {
     for i in 0..n {
         if result[i].is_none() {
             let next = result[i + 1..].iter().find_map(|r| r.clone());
-            let before = prev.as_deref();
-            let after = next.as_deref();
-            if let (Some(b), Some(a)) = (before, after) {
-                if b >= a {
-                    return Err(NoGap(format!("No gap between {b} and {a}")));
-                }
-            }
-            let idx = fractional_index::between(before, after);
-            if let Some(b) = before {
-                if idx.as_str() <= b {
-                    return Err(NoGap(format!("No index after {b}")));
-                }
-            }
-            if let Some(a) = after {
-                if idx.as_str() >= a {
-                    return Err(NoGap(format!("No index before {a}")));
-                }
-            }
-            result[i] = Some(idx);
+            result[i] = Some(fractional_index::between(prev.as_deref(), next.as_deref())?);
         }
         prev = result[i].clone();
     }
@@ -96,26 +78,26 @@ mod tests {
     // 既存のインデックスは保たれ、隙間が埋められる。
     #[test]
     fn keeps_existing_and_fills_gaps() {
-        let r = plan(&s(&[Some("z0"), None, Some("z2")])).unwrap();
-        assert_eq!(r[0], "z0");
-        assert_eq!(r[2], "z2");
-        assert!(r[1].as_str() > "z0" && r[1].as_str() < "z2");
+        let r = plan(&s(&[Some("a0"), None, Some("a2")])).unwrap();
+        assert_eq!(r[0], "a0");
+        assert_eq!(r[2], "a2");
+        assert!(r[1].as_str() > "a0" && r[1].as_str() < "a2");
     }
 
     // 順序と食い違うインデックスは付け直される。
     #[test]
     fn reorders_disagreeing_indices() {
-        let r = plan(&s(&[Some("z2"), Some("z0"), Some("z1")])).unwrap();
+        let r = plan(&s(&[Some("a2"), Some("a0"), Some("a1")])).unwrap();
         assert!(r[0] < r[1] && r[1] < r[2]);
-        // The longest increasing run (z0, z1) is kept
-        assert_eq!(r[1], "z0");
-        assert_eq!(r[2], "z1");
+        // The longest increasing run (a0, a1) is kept
+        assert_eq!(r[1], "a0");
+        assert_eq!(r[2], "a1");
     }
 
-    // インデックスのない項目はz0から番号が付く。
+    // インデックスのない項目はa0から番号が付く。
     #[test]
-    fn items_without_an_index_are_numbered_from_z0() {
+    fn items_without_an_index_are_numbered_from_a0() {
         let r = plan(&s(&[None, None])).unwrap();
-        assert_eq!(r, vec!["z0", "z1"]);
+        assert_eq!(r, vec!["a0", "a1"]);
     }
 }

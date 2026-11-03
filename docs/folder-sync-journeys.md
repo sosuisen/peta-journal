@@ -26,10 +26,10 @@ created: <ISO 日時>
 modified: <ISO 日時>
 ---
 
-<!-- @ <アイテム HMTID> idx="z0" -->
+<!-- @ <アイテム HMTID> idx="a0" -->
 本文
 
-<!-- @@ <アイテム HMTID> idx="z1" collapsed="true" transclude="<ID>" plan="2026-09-27" -->
+<!-- @@ <アイテム HMTID> idx="a1" collapsed="true" transclude="<ID>" plan="2026-09-27" -->
 次のアイテム …
 ```
 
@@ -53,7 +53,7 @@ PC A の DB:
 | テーブル | 行 |
 |---|---|
 | `pages` | id = **A-page**、dir_path = `""`、name = `Ideas`、type = `doc` |
-| `items` | id = **A-item**、page_id = A-page、body = `""`、idx = `z0` |
+| `items` | id = **A-item**、page_id = A-page、body = `""`、idx = `a0` |
 | `export_queue` | page_id = A-page |
 
 ファイルはまだ無い。
@@ -112,9 +112,9 @@ PC B の Watcher: `.dropbox.cache` 配下は無視、`docs/Ideas.md` の CREATE 
 
 `mergeItems()`:
 
-1. **ID**: ファイルのメタデータ行 `<!-- @ A-item idx="z0" -->` の ID は B の DB のどこにも無い → そのまま使う。
+1. **ID**: ファイルのメタデータ行 `<!-- @ A-item idx="a0" -->` の ID は B の DB のどこにも無い → そのまま使う。
    (このページには無いが**他のページにはある** ID は「別ファイルからコピーされた」とみなして新 ID を振り、後で書き戻す。そうしないとアイテムがページ間を行き来する)
-2. **idx**: メタデータ行の `idx="z0"` をそのまま採用。無ければ前後の間の値を計算。行の順序と `idx` が食い違っていれば行の順序を正とし、食い違った分だけ計算し直して書き戻す
+2. **idx**: メタデータ行の `idx="a0"` をそのまま採用。無ければ前後の間の値を計算。行の順序と `idx` が食い違っていれば行の順序を正とし、食い違った分だけ計算し直して書き戻す
 3. **保存**: 既存が無いので保存。AST 生成、ハッシュタグ → tag プロパティ、検索インデックス
 4. **プロパティ**: メタデータ行の `key="value"` のスカラー値を upsert。ファイルに無いものは削除
 5. **削除**: ファイルに無い既存アイテムは削除(上書き前に実行し、`idx` の衝突を避ける)
