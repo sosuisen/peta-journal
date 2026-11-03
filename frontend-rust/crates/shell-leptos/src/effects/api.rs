@@ -172,6 +172,11 @@ struct FlatEnvelope {
     flat_markdown: String,
 }
 #[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ItemIdsEnvelope {
+    item_ids: Vec<String>,
+}
+#[derive(serde::Deserialize)]
 struct ParsedEnvelope {
     items: Vec<ParsedFlatItem>,
 }
@@ -445,6 +450,15 @@ async fn call(handle: &CoreHandle, op: ApiOp) -> ApiResult<ApiOutput> {
         ApiOp::BrowseFolder => {
             let choice: FolderChoice = send_json("POST", "/api/config/browse-folder", None).await?;
             ApiOutput::Folder(choice)
+        }
+        ApiOp::TranscludedItems { item_ids } => {
+            let env: ItemIdsEnvelope = send_json(
+                "POST",
+                "/api/items/transcluded",
+                Some(json!({ "itemIds": item_ids })),
+            )
+            .await?;
+            ApiOutput::ItemIds(env.item_ids)
         }
         ApiOp::ExportTreeMarkdown { item_ids } => ApiOutput::TreeExport(
             send_json(

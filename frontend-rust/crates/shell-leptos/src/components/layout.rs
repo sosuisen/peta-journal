@@ -1,6 +1,7 @@
 //! The frame of the app, ported from `main-layout.ts` and `app.ts`: header, sidebar with its
 //! resize handle, the screen, the footer, and the global key and click listeners.
 
+use crate::components::confirm_dialog::ConfirmDialog;
 use crate::components::page::PageDispatcher;
 use crate::components::search_bar::{SearchBar, SearchInput};
 use crate::components::sidebar::Sidebar;
@@ -236,6 +237,7 @@ pub fn MainLayout() -> impl IntoView {
                 {move || focused_item().map(|id| view! { <span class="item-id">"Item: " {id}</span> })}
             </footer>
         </div>
+        <ConfirmDialog />
         </app-main-layout>
     }
 }

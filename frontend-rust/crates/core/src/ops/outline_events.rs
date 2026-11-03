@@ -161,10 +161,17 @@ fn delete_selected(model: &mut Model) -> Cmd {
     if ids.is_empty() {
         return done();
     }
-    model.selection.exit(&mut model.state);
-    let delete = action::delete_items(model, &ids);
-    let ensure = ensure_at_least_one_item(model);
-    Command::all([delete, ensure])
+    run(move |api| async move {
+        if !action::confirm_deleting_transcluded(&api, ids.clone()).await {
+            return;
+        }
+        apply(&api, "delete selection", move |model| {
+            model.selection.exit(&mut model.state);
+            let delete = action::delete_items(model, &ids);
+            let ensure = ensure_at_least_one_item(model);
+            Command::all([delete, ensure])
+        });
+    })
 }
 
 /// Whether a selected item is a transclusion. The selected ids stand for the source items,

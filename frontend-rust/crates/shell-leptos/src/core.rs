@@ -31,6 +31,10 @@ pub struct Inner {
     pub extensions: RefCell<effects::ui::Extensions>,
     /// A clipboard write begun on the user's copy key, waiting for the markdown from the core.
     pub pending_copy: RefCell<Option<effects::ui::PendingCopy>>,
+    /// The confirmation dialog on screen, waiting for the user's answer.
+    pub confirm: RefCell<Option<effects::ui::PendingConfirm>>,
+    /// The message of that dialog, for the view; None when no dialog is open.
+    pub confirm_message: RwSignal<Option<String>>,
 }
 
 thread_local! {
@@ -59,6 +63,8 @@ impl CoreHandle {
             scroller: RefCell::new(None),
             extensions: RefCell::new(effects::ui::Extensions::default()),
             pending_copy: RefCell::new(None),
+            confirm: RefCell::new(None),
+            confirm_message: RwSignal::new(None),
         });
         INNER.with(|i| *i.borrow_mut() = Some(inner));
         CoreHandle

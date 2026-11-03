@@ -477,6 +477,29 @@ async fn a_transclusion_shows_the_source_tree_with_the_page() {
     assert!(items(&page.id).await[0].transclude_item_id.is_none());
 }
 
+// 削除の前に、どの項目が他の項目からトランスクルードされているかを尋ねられる。
+#[tokio::test]
+async fn the_items_other_items_transclude_are_told_apart_before_a_deletion() {
+    let source_page = new_doc_page("items-transcluded-source").await;
+    let source = fill(&source_page.id, &["shown elsewhere", "kept here"]).await;
+    let page = new_doc_page("items-transcluded").await;
+    let host = fill(&page.id, &["placeholder"]).await.remove(0);
+    post(
+        &format!("/api/items/{}/transclude", host.id),
+        json!({ "sourceItemId": source[0].id }),
+    )
+    .await;
+
+    let (status, resp) = post(
+        "/api/items/transcluded",
+        json!({ "itemIds": [source[0].id, source[1].id, host.id] }),
+    )
+    .await;
+
+    assert_eq!(status, 200, "{resp}");
+    assert_eq!(resp["itemIds"], json!([source[0].id]));
+}
+
 // トランスクルージョンを外すと、項目の本文は空になり、保存済みのASTも空になる。
 #[tokio::test]
 async fn removing_a_transclusion_leaves_an_empty_body_and_an_empty_ast() {

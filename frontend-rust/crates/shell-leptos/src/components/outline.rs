@@ -3,6 +3,7 @@
 //! scroll reports the journal needs, scrolling to an item, and the document listeners of
 //! selection mode.
 
+use crate::components::confirm_dialog;
 use crate::components::edge_scroll::EdgeScroll;
 use crate::components::outline_item::OutlineItem;
 use crate::components::wiki_suggestions::WikiSuggestions;
@@ -387,13 +388,18 @@ pub fn Outline(
             }
         });
         selection_listeners.on_cancelable("keydown", move |ev: &web_sys::KeyboardEvent| {
+            if confirm_dialog::is_inside(ev) {
+                return;
+            }
             if let Some(key) = selection_key(ev) {
                 ev.prevent_default();
                 send_selection_key(core, key);
             }
         });
-        selection_listeners.on("click", move |_: &web_sys::Event| {
-            core.send(Event::SelectionClickOutside)
+        selection_listeners.on("click", move |ev: &web_sys::Event| {
+            if !confirm_dialog::is_inside(ev) {
+                core.send(Event::SelectionClickOutside)
+            }
         });
         selection_listeners.on("mouseup", move |_: &web_sys::Event| {
             edge_scroll.stop();

@@ -19,6 +19,7 @@ pub fn routes() -> Router<SharedState> {
         .route("/api/items/move", post(move_items))
         .route("/api/items/merge", post(merge_items))
         .route("/api/items/delete", post(delete_items))
+        .route("/api/items/transcluded", post(transcluded_items))
         .route("/api/items/shift-level", post(shift_levels))
         .route("/api/items/export", post(export_tree_markdown))
         .route("/api/items/export-page", post(export_page_markdown))
@@ -101,6 +102,19 @@ struct ShiftLevelsRequest {
 #[serde(rename_all = "camelCase", default)]
 struct ExportTreeMarkdownRequest {
     item_ids: Option<Vec<String>>,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+struct TranscludedItemsRequest {
+    item_ids: Option<Vec<String>>,
+}
+
+/// The ids, among those asked about, of the items some other item transcludes
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct TranscludedItemsResponse {
+    item_ids: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -328,6 +342,24 @@ async fn merge_items(
             state.sse.broadcast_pages_updated(t.page_id.as_str());
         }
         item_response(&state, &into)
+    })
+    .await
+}
+
+/// Which of the items are transcluded by other items, as a client asks before it deletes them.
+async fn transcluded_items(
+    State(state): State<SharedState>,
+    Json(req): Json<TranscludedItemsRequest>,
+) -> AppResult<Json<TranscludedItemsResponse>> {
+    let ids = parse_ids(req.item_ids, "itemIds")?;
+    blocking(move || {
+        let mut item_ids = Vec::new();
+        for id in ids {
+            if !state.items.find_transcluders(&id)?.is_empty() {
+                item_ids.push(id.to_string());
+            }
+        }
+        Ok(Json(TranscludedItemsResponse { item_ids }))
     })
     .await
 }

@@ -436,6 +436,21 @@ app-item-view .alert-caution { border-left-color: #cf222e; }
 app-item-view .alert-caution .alert-title { color: #cf222e; }
 app-item-view .task-checkbox ~ .item-content { padding-left: 2px; }
 
+/* ---- confirm dialog (confirm_dialog.rs) ---- */
+.confirm-overlay {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.3); z-index: 2000;
+  display: flex; align-items: center; justify-content: center;
+}
+.confirm-dialog {
+  background: #fff; border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  padding: 20px 24px; min-width: 320px; max-width: 480px;
+}
+.confirm-message { margin: 0 0 16px; font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
+.confirm-buttons { display: flex; justify-content: flex-end; gap: 8px; }
+.confirm-buttons button { padding: 6px 16px; font-size: 13px; border: 1px solid #ccc; border-radius: 4px; background: #f5f5f5; cursor: pointer; }
+.confirm-buttons button:focus { outline: 2px solid #4a90d9; outline-offset: 1px; }
+.confirm-buttons .confirm-ok { background: #d9534f; border-color: #d9534f; color: #fff; }
+
 /* ---- wiki suggestions (wiki-suggestions.ts) ---- */
 .wiki-suggestions {
   position: fixed; background: #fff; border: 1px solid #ddd; border-radius: 6px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);

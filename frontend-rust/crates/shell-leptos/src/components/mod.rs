@@ -1,5 +1,6 @@
 pub mod atlas;
 pub mod calendar;
+pub mod confirm_dialog;
 pub mod edge_scroll;
 pub mod item_drag;
 pub mod item_editor;
