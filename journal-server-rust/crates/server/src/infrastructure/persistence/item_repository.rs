@@ -365,7 +365,11 @@ impl ItemRepository {
     }
 
     pub fn update_index(&self, item_id: &Hmtid, new_idx: &str) -> AppResult<()> {
-        let conn = self.db.conn()?;
+        Self::update_index_in(&*self.db.conn()?, item_id, new_idx)
+    }
+
+    /// Gives an item a new index on the given connection, as part of a larger transaction.
+    pub fn update_index_in(conn: &Connection, item_id: &Hmtid, new_idx: &str) -> AppResult<()> {
         conn.execute(
             "UPDATE items SET idx = ? WHERE id = ?",
             params![new_idx, item_id.as_str()],
