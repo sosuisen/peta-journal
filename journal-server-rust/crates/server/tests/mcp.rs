@@ -339,6 +339,10 @@ async fn a_doc_page_is_created_found_again_renamed_and_deleted() {
 #[tokio::test]
 async fn the_most_recently_touched_page_comes_first_among_recent_pages() {
     let mcp = connect().await;
+    // The default of maxResults is 10, so the test makes enough pages on its own
+    for i in 0..10 {
+        new_doc_page(&format!("mcp-recent-filler-{i}")).await;
+    }
     let older = new_doc_page("mcp-recent-older").await;
     tokio::time::sleep(std::time::Duration::from_millis(5)).await;
     let newer = new_doc_page("mcp-recent-newer").await;
