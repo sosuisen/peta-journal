@@ -77,4 +77,4 @@
   - [x] 起動時のハッシュタグの付け直し
   - [x] 接続を自分で取るメソッドを消し、`_in`関数だけにする
 - [x] スキーマの版を`PRAGMA user_version`に置き、マイグレーションを番号付きの列にする（ADR 005）。`versions.json`と、Rustサーバーで足した3つのマイグレーションを消す
-- [ ] 開発機のデータベースが版1になったら、`adopt_unversioned`（`database_initializer.rs`）を消す
+- [x] 開発機のデータベースが版1になったら、`adopt_unversioned`（`database_initializer.rs`）を消す

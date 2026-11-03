@@ -30,7 +30,6 @@ pub fn initialize(db: &Db, ids: &IdGenerator) -> anyhow::Result<()> {
 fn run(conn: &Connection, ids: &IdGenerator) -> anyhow::Result<()> {
     conn.pragma_update(None, "journal_mode", "WAL")?;
     conn.pragma_update(None, "foreign_keys", "ON")?;
-    adopt_unversioned(conn)?;
     migrate(conn)?;
     ensure_root_index(conn, ids)?;
     seed_system_keys(conn)?;
@@ -62,21 +61,6 @@ fn migrate(conn: &Connection) -> anyhow::Result<()> {
 fn user_version(conn: &Connection) -> rusqlite::Result<usize> {
     let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     Ok(version as usize)
-}
-
-/// Takes a database from before the versions as version 1: the one database carried over
-/// already had the tables of that version. Goes once that database has been opened.
-fn adopt_unversioned(conn: &Connection) -> rusqlite::Result<()> {
-    let has_tables: bool = conn.query_row(
-        "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type = 'table' AND name = 'items'",
-        [],
-        |r| r.get(0),
-    )?;
-    if has_tables && user_version(conn)? == 0 {
-        tracing::info!("Taking the database from before the schema versions as version 1");
-        conn.pragma_update(None, "user_version", 1)?;
-    }
-    Ok(())
 }
 
 /// Version 1: the tables and the indexes.
@@ -293,29 +277,6 @@ mod tests {
         run(&conn, &IdGenerator::new()).unwrap();
 
         assert_eq!(user_version(&conn).unwrap(), MIGRATIONS.len());
-        assert_eq!(
-            count(
-                &conn,
-                "SELECT COUNT(*) FROM property_definitions WHERE key = 'owner'"
-            ),
-            1
-        );
-    }
-
-    // 版の付く前のデータベースは、版1として引き継がれる。
-    #[test]
-    fn a_database_from_before_the_versions_is_taken_as_version_1() {
-        let conn = Connection::open_in_memory().unwrap();
-        create_tables(&conn).unwrap();
-        conn.execute(
-            "INSERT INTO property_definitions (key, value_type) VALUES ('owner', 'text')",
-            [],
-        )
-        .unwrap();
-
-        run(&conn, &IdGenerator::new()).unwrap();
-
-        assert_eq!(user_version(&conn).unwrap(), 1);
         assert_eq!(
             count(
                 &conn,
