@@ -7,6 +7,7 @@ use std::sync::Arc;
 
 use hmtid::Hmtid;
 use parking_lot::Mutex;
+use rusqlite::Connection;
 
 use crate::domain::atlas::{self, Outline, BOUNDS_KEY, PAGE_KEY, SIDE_KEY, TYPE_KEY};
 use crate::domain::fractional_index;
@@ -43,6 +44,16 @@ const MIN_SCALE: f64 = 0.5;
 /// Tells the clients that the server changed an atlas page by itself.
 pub trait AtlasEvents: Send + Sync {
     fn atlas_changed(&self, atlas_id: &Hmtid);
+}
+
+/// What a write of an atlas does outside the database, once its transaction is committed:
+/// the search index, the file and the clients.
+#[derive(Default)]
+struct AfterCommit {
+    removed_item_ids: Vec<String>,
+    /// The items of each atlas written, with the title to index them under.
+    indexed: Vec<(Vec<Item>, String)>,
+    written: Vec<Hmtid>,
 }
 
 pub struct AtlasService {
@@ -246,8 +257,12 @@ impl AtlasService {
             return Ok(0);
         }
         let empty = BTreeMap::new();
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+        let mut effects = AfterCommit::default();
         for atlas in all.iter().filter(|p| p.is_atlas()) {
             let atlas_scalars = scalars.get(atlas.id.as_str()).unwrap_or(&empty);
+            // Read outside the transaction: what it wrote so far is other atlases
             let pages = self.dir_pages(atlas)?;
             let loaded = self.load(atlas.clone())?;
             let mut outline = Outline::read(&loaded.items, &loaded.props);
@@ -292,7 +307,13 @@ impl AtlasService {
             }
             // Again, for the parent of the callouts
             self.fit(&mut outline, atlas)?;
-            self.write(&loaded, &outline, auto_modified(&loaded.atlas))?;
+            self.write_in(
+                &tx,
+                &loaded,
+                &outline,
+                auto_modified(&loaded.atlas),
+                &mut effects,
+            )?;
         }
         for page in &old_pages {
             let id = page.id.to_string();
@@ -303,13 +324,16 @@ impl AtlasService {
                 .chain(lists.get(&id).into_iter().flat_map(|l| l.keys()))
                 .filter(|k| is_old(k));
             for key in keys {
-                self.properties.delete_property(PAGE_TARGET, &id, key)?;
+                PropertyRepository::delete_property_in(&tx, PAGE_TARGET, &id, key)?;
             }
-            self.export.queue_export(&page.id);
         }
         for prefix in [OLD_GROUP_PREFIX, OLD_TITLE_PREFIX, OLD_CALLOUT_PREFIX] {
-            self.properties
-                .delete_unused_definitions_with_prefix(prefix)?;
+            PropertyRepository::delete_unused_definitions_with_prefix_in(&tx, prefix)?;
+        }
+        tx.commit()?;
+        self.finish(effects);
+        for page in &old_pages {
+            self.export.queue_export(&page.id);
         }
         Ok(old_pages.len())
     }
@@ -382,6 +406,25 @@ impl AtlasService {
     /// the same already; otherwise the page takes the modified date, its file is written and
     /// the clients are told.
     fn write(&self, loaded: &Loaded, outline: &Outline, modified: i64) -> AppResult<()> {
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+        let mut effects = AfterCommit::default();
+        self.write_in(&tx, loaded, outline, modified, &mut effects)?;
+        tx.commit()?;
+        self.finish(effects);
+        Ok(())
+    }
+
+    /// Writes the outline over the items of the atlas page, in the transaction. What the
+    /// write does outside the database goes into `effects`.
+    fn write_in(
+        &self,
+        tx: &Connection,
+        loaded: &Loaded,
+        outline: &Outline,
+        modified: i64,
+        effects: &mut AfterCommit,
+    ) -> AppResult<()> {
         let rows = outline.rows();
         let before: BTreeMap<&str, &Item> =
             loaded.items.iter().map(|i| (i.id.as_str(), i)).collect();
@@ -402,12 +445,11 @@ impl AtlasService {
 
         for id in &removed {
             if let Ok(id) = Hmtid::parse(id) {
-                self.items.delete(&id)?;
+                ItemRepository::delete_in(tx, &id)?;
             }
         }
-        self.properties
-            .delete_all_for_targets(ITEM_TARGET, &removed)?;
-        self.search.remove_items(&removed);
+        PropertyRepository::delete_all_for_targets_in(tx, ITEM_TARGET, &removed)?;
+        effects.removed_item_ids.extend(removed);
 
         let mut saved = Vec::with_capacity(rows.len());
         for row in &rows {
@@ -428,10 +470,11 @@ impl AtlasService {
                         ..found
                             .map_or_else(|| self.new_item(atlas, &node.id, now), |i| (*i).clone())
                     };
-                    self.items.save(&item)?
+                    ItemRepository::save_in(tx, &item)?;
+                    item
                 }
             };
-            changed |= self.write_properties(node, loaded.props.get(node.id.as_str()))?;
+            changed |= Self::write_properties_in(tx, node, loaded.props.get(node.id.as_str()))?;
             saved.push(item);
         }
         if !changed {
@@ -444,22 +487,36 @@ impl AtlasService {
                 .zip(indices)
                 .map(|(r, idx)| (r.node.id.clone(), idx, r.level))
                 .collect();
-            self.items.arrange(&atlas.id, &placements)?;
-            self.items.recalculate_parent_ids(&atlas.id)?;
+            ItemRepository::arrange_in(tx, &atlas.id, &placements)?;
+            ItemRepository::recalculate_parent_ids_in(tx, &atlas.id)?;
         }
-        self.search.index_items(&saved, &atlas.title());
-        self.pages.save(&Page {
-            modified_date: modified,
-            ..atlas.clone()
-        })?;
-        self.export.queue_export(&atlas.id);
-        self.events.atlas_changed(&atlas.id);
+        PageRepository::save_in(
+            tx,
+            &Page {
+                modified_date: modified,
+                ..atlas.clone()
+            },
+        )?;
+        effects.indexed.push((saved, atlas.title()));
+        effects.written.push(atlas.id.clone());
         Ok(())
     }
 
+    /// The work that lives outside the database, done once the commit is through.
+    fn finish(&self, effects: AfterCommit) {
+        self.search.remove_items(&effects.removed_item_ids);
+        for (items, title) in &effects.indexed {
+            self.search.index_items(items, title);
+        }
+        for atlas_id in &effects.written {
+            self.export.queue_export(atlas_id);
+            self.events.atlas_changed(atlas_id);
+        }
+    }
+
     /// Gives an item the atlas properties of its node. True when one changed.
-    fn write_properties(
-        &self,
+    fn write_properties_in(
+        tx: &Connection,
         node: &atlas::Node,
         stored: Option<&BTreeMap<String, String>>,
     ) -> AppResult<bool> {
@@ -471,12 +528,18 @@ impl AtlasService {
             match wanted.get(key) {
                 Some(value) if have != Some(value) => {
                     let value_type = if key == BOUNDS_KEY { "bounds" } else { "text" };
-                    self.properties
-                        .upsert_scalar(ITEM_TARGET, id, key, value_type, value)?;
+                    PropertyRepository::upsert_scalar_in(
+                        tx,
+                        ITEM_TARGET,
+                        id,
+                        key,
+                        value_type,
+                        value,
+                    )?;
                     changed = true;
                 }
                 None if have.is_some() => {
-                    self.properties.delete_property(ITEM_TARGET, id, key)?;
+                    PropertyRepository::delete_property_in(tx, ITEM_TARGET, id, key)?;
                     changed = true;
                 }
                 _ => {}
