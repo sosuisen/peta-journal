@@ -179,7 +179,17 @@ impl PropertyRepository {
     }
 
     pub fn find_definition(&self, key: &str) -> AppResult<Option<PropertyDefinition>> {
-        Ok(self.find_definitions()?.into_iter().find(|d| d.key == key))
+        Self::find_definition_in(&*self.db.conn()?, key)
+    }
+
+    /// The definition of one key, on the given connection.
+    pub fn find_definition_in(
+        conn: &Connection,
+        key: &str,
+    ) -> AppResult<Option<PropertyDefinition>> {
+        Ok(Self::find_definitions_in(conn)?
+            .into_iter()
+            .find(|d| d.key == key))
     }
 
     /// Defines a user key. A system key, an existing key and a type the user may not choose

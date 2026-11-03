@@ -227,15 +227,6 @@ impl ItemRepository {
         Ok(())
     }
 
-    /// Writes only the fields set in the patch, in one transaction. Returns whether the item exists.
-    pub fn patch(&self, id: &Hmtid, patch: &ItemPatch) -> AppResult<bool> {
-        let mut conn = self.db.conn()?;
-        let tx = conn.immediate()?;
-        let found = Self::patch_in(&tx, id, patch)?;
-        tx.commit()?;
-        Ok(found)
-    }
-
     /// Writes only the fields set in the patch, on the given connection, as part of a larger
     /// transaction. Returns whether the item exists.
     pub fn patch_in(tx: &Connection, id: &Hmtid, patch: &ItemPatch) -> AppResult<bool> {
@@ -362,10 +353,6 @@ impl ItemRepository {
         tx.execute("DELETE FROM items WHERE page_id = ?", [page_id.as_str()])?;
         tx.commit()?;
         Ok(())
-    }
-
-    pub fn update_index(&self, item_id: &Hmtid, new_idx: &str) -> AppResult<()> {
-        Self::update_index_in(&*self.db.conn()?, item_id, new_idx)
     }
 
     /// Gives an item a new index on the given connection, as part of a larger transaction.

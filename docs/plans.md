@@ -65,5 +65,7 @@
       - [x] 移動
       - [x] レベルの変更、トランスクルージョンの設定と解除、取り込み
       - [x] 本文の更新
-      - [ ] 接続を自分で取るメソッド（`save`、`delete`など）を消し、`_in`関数だけにする
+      - [x] タスクの切り替え、プロパティの設定と削除。`ItemService`の書き込みはすべて1つのトランザクションになった
+      - [x] 項目の操作だけが使っていた、接続を自分で取るメソッド（`patch`、`update_index`、`shift_levels`、`move_items`）を消す
+      - [ ] 残りの接続を自分で取るメソッド（`save`、`delete`、`recalculate_parent_ids`、`sync_tags`、`upsert_scalar`、`upsert_list`、`delete_property`、`delete_all_for_targets`）は、ページ・atlas・ジャーナルの操作が使う。それらの操作を1つのトランザクションに移すときに消す
   - [x] フロントエンド: 結合と選択範囲の削除とUndoを、新しい操作に切り替える
