@@ -704,6 +704,32 @@ async fn renaming_a_page_changes_its_title_and_path() {
     );
 }
 
+// indexページを動かすと、その下のページも一緒に動く。
+#[tokio::test]
+async fn moving_an_index_page_moves_the_pages_under_it() {
+    // Making a page under it turns this page into the index page of its directory
+    let root = new_doc_page("pages-move-dir").await;
+    let dir = format!("{}/", root.title);
+    let (status, resp) = post(
+        "/api/pages/doc",
+        json!({ "title": "deep", "dirPath": format!("{dir}sub/") }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+    let deep_id = resp["page"]["id"].as_str().unwrap().to_string();
+
+    let moved_dir = format!("{}-moved/", root.title);
+    let (status, resp) = put(
+        &format!("/api/pages/{}", root.id),
+        json!({ "title": "index", "dirPath": moved_dir }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    let (_, deep) = get(&format!("/api/pages/{deep_id}")).await;
+    assert_eq!(deep["page"]["dirPath"], json!(format!("{moved_dir}sub/")));
+}
+
 // 別のページと同じ名前への改名は、上書きを指定しない限り拒否される。
 #[tokio::test]
 async fn renaming_to_the_name_of_another_page_is_refused_unless_it_is_overwritten() {
