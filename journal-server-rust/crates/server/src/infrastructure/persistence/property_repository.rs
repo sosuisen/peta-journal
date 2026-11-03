@@ -224,7 +224,16 @@ impl PropertyRepository {
     /// answers with the ids of the pages that lost a value: their own, or one of their
     /// items' values. A system key and an unknown key are refused.
     pub fn delete_definition(&self, key: &str) -> AppResult<Vec<String>> {
-        match self.find_definition(key)? {
+        let mut conn = self.db.conn()?;
+        let tx = conn.immediate()?;
+        let page_ids = Self::delete_definition_in(&tx, key)?;
+        tx.commit()?;
+        Ok(page_ids)
+    }
+
+    /// `delete_definition` on the given connection, as part of a larger transaction.
+    pub fn delete_definition_in(tx: &Connection, key: &str) -> AppResult<Vec<String>> {
+        match Self::find_definition_in(tx, key)? {
             None => {
                 return Err(AppError::bad_request(format!(
                     "Property key '{key}' is not defined"
@@ -237,8 +246,6 @@ impl PropertyRepository {
             }
             Some(_) => {}
         }
-        let mut conn = self.db.conn()?;
-        let tx = conn.immediate()?;
         let page_ids: Vec<String> = {
             let mut stmt = tx.prepare(
                 "SELECT target_id FROM properties WHERE key = ?1 AND target_type = 'page'
@@ -260,7 +267,6 @@ impl PropertyRepository {
             "DELETE FROM property_definitions WHERE key = ?",
             params![key],
         )?;
-        tx.commit()?;
         Ok(page_ids)
     }
 
@@ -486,7 +492,15 @@ impl PropertyRepository {
 
     /// Removes the definitions whose keys start with the prefix and that no value uses.
     pub fn delete_unused_definitions_with_prefix(&self, prefix: &str) -> AppResult<()> {
-        self.db.conn()?.execute(
+        Self::delete_unused_definitions_with_prefix_in(&*self.db.conn()?, prefix)
+    }
+
+    /// `delete_unused_definitions_with_prefix` on the given connection.
+    pub fn delete_unused_definitions_with_prefix_in(
+        conn: &Connection,
+        prefix: &str,
+    ) -> AppResult<()> {
+        conn.execute(
             "DELETE FROM property_definitions WHERE substr(key, 1, length(?1)) = ?1              AND key NOT IN (SELECT key FROM properties)              AND key NOT IN (SELECT key FROM property_list_items)",
             params![prefix],
         )?;

@@ -107,10 +107,23 @@ impl PageRepository {
         dir_path: &str,
         file_name: &str,
     ) -> AppResult<Option<Page>> {
-        self.first_page(
+        Self::find_by_type_dir_path_file_name_in(&*self.db.conn()?, page_type, dir_path, file_name)
+    }
+
+    /// The page at a path, on the given connection.
+    pub fn find_by_type_dir_path_file_name_in(
+        conn: &Connection,
+        page_type: &str,
+        dir_path: &str,
+        file_name: &str,
+    ) -> AppResult<Option<Page>> {
+        Ok(query_pages_in(
+            conn,
             &format!("{SELECT_PAGES}WHERE type = ? AND dir_path = ? AND name = ?"),
             &[&page_type, &dir_path, &file_name],
-        )
+        )?
+        .into_iter()
+        .next())
     }
 
     /// The pages at a path, ignoring the case of the letters, oldest first. Windows and
@@ -122,7 +135,23 @@ impl PageRepository {
         dir_path: &str,
         file_name: &str,
     ) -> AppResult<Vec<Page>> {
-        self.query_pages(
+        Self::find_by_type_dir_path_file_name_ignoring_case_in(
+            &*self.db.conn()?,
+            page_type,
+            dir_path,
+            file_name,
+        )
+    }
+
+    /// `find_by_type_dir_path_file_name_ignoring_case` on the given connection.
+    pub fn find_by_type_dir_path_file_name_ignoring_case_in(
+        conn: &Connection,
+        page_type: &str,
+        dir_path: &str,
+        file_name: &str,
+    ) -> AppResult<Vec<Page>> {
+        query_pages_in(
+            conn,
             &format!(
                 "{SELECT_PAGES}WHERE type = ? AND dir_path = ? COLLATE NOCASE AND name = ? COLLATE NOCASE ORDER BY id"
             ),
@@ -162,7 +191,15 @@ impl PageRepository {
     pub fn save(&self, page: &Page) -> AppResult<Page> {
         let mut conn = self.db.conn()?;
         let tx = conn.immediate()?;
-        let parent_id = resolve_parent_id(&tx, &page.id, &page.dir_path, &page.name)?;
+        let saved = Self::save_in(&tx, page)?;
+        tx.commit()?;
+        Ok(saved)
+    }
+
+    /// Inserts or updates a page on the given connection, as part of a larger transaction.
+    /// The parent is resolved from `dir_path` and `name`.
+    pub fn save_in(tx: &Connection, page: &Page) -> AppResult<Page> {
+        let parent_id = resolve_parent_id(tx, &page.id, &page.dir_path, &page.name)?;
         let parent_str = parent_id.as_ref().map(|p| p.to_string());
         tx.execute(
             "INSERT INTO pages (id, parent_id, dir_path, name, type, created_date, modified_date) \
@@ -185,7 +222,6 @@ impl PageRepository {
             ],
         )
         .with_context(|| format!("Failed to save page: {}", page.id))?;
-        tx.commit()?;
         Ok(Page {
             parent_id,
             ..page.clone()
@@ -194,6 +230,16 @@ impl PageRepository {
 
     /// Changes a page's id, moving its items and related rows along.
     pub fn rekey(&self, old_id: &Hmtid, new_id: &Hmtid) -> AppResult<()> {
+        let mut conn = self.db.conn()?;
+        let tx = conn.immediate()?;
+        Self::rekey_in(&tx, old_id, new_id)?;
+        tx.commit()
+            .with_context(|| format!("Failed to rekey page {old_id} -> {new_id}"))?;
+        Ok(())
+    }
+
+    /// Changes a page's id on the given connection, as part of a larger transaction.
+    pub fn rekey_in(tx: &Connection, old_id: &Hmtid, new_id: &Hmtid) -> AppResult<()> {
         let updates = [
             "UPDATE pages SET id = ? WHERE id = ?",
             "UPDATE pages SET parent_id = ? WHERE parent_id = ?",
@@ -205,20 +251,20 @@ impl PageRepository {
             // The card of the page on the atlas of its directory names it by id
             "UPDATE properties SET value_text = ? WHERE target_type = 'item' AND key = 'atlas_page' AND value_text = ?",
         ];
-        let mut conn = self.db.conn()?;
-        let tx = conn.immediate()?;
         // Rows reference each other by page id; check constraints at commit, not per statement
         tx.execute_batch("PRAGMA defer_foreign_keys = ON")?;
         for sql in updates {
             tx.execute(sql, params![new_id.as_str(), old_id.as_str()])?;
         }
-        tx.commit()
-            .with_context(|| format!("Failed to rekey page {old_id} -> {new_id}"))?;
         Ok(())
     }
 
     pub fn delete(&self, id: &Hmtid) -> AppResult<()> {
-        let conn = self.db.conn()?;
+        Self::delete_in(&*self.db.conn()?, id)
+    }
+
+    /// Deletes a page on the given connection, as part of a larger transaction.
+    pub fn delete_in(conn: &Connection, id: &Hmtid) -> AppResult<()> {
         conn.execute("DELETE FROM pages WHERE id = ?", [id.as_str()])?;
         Ok(())
     }
@@ -261,7 +307,13 @@ impl PageRepository {
     }
 
     pub fn find_by_parent_id(&self, parent_id: &Hmtid) -> AppResult<Vec<Page>> {
-        self.query_pages(
+        Self::find_by_parent_id_in(&*self.db.conn()?, parent_id)
+    }
+
+    /// The child pages of a page, on the given connection.
+    pub fn find_by_parent_id_in(conn: &Connection, parent_id: &Hmtid) -> AppResult<Vec<Page>> {
+        query_pages_in(
+            conn,
             &format!("{SELECT_PAGES}WHERE parent_id = ? ORDER BY name"),
             &[&parent_id.as_str()],
         )

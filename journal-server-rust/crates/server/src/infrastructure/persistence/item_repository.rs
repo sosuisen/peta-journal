@@ -307,6 +307,18 @@ impl ItemRepository {
     pub fn arrange(&self, page_id: &Hmtid, rows: &[(Hmtid, String, i32)]) -> AppResult<()> {
         let mut conn = self.db.conn()?;
         let tx = conn.immediate()?;
+        Self::arrange_in(&tx, page_id, rows)?;
+        tx.commit()
+            .with_context(|| format!("Failed to arrange the items of page: {page_id}"))?;
+        Ok(())
+    }
+
+    /// `arrange` on the given connection, as part of a larger transaction.
+    pub fn arrange_in(
+        tx: &Connection,
+        page_id: &Hmtid,
+        rows: &[(Hmtid, String, i32)],
+    ) -> AppResult<()> {
         // (page_id, idx) is unique and checked per statement, as in `move_items`
         {
             let mut stmt = tx.prepare("UPDATE items SET idx = ? WHERE id = ?")?;
@@ -322,8 +334,6 @@ impl ItemRepository {
                 stmt.execute(params![idx, level, id.as_str(), page_id.as_str()])?;
             }
         }
-        tx.commit()
-            .with_context(|| format!("Failed to arrange the items of page: {page_id}"))?;
         Ok(())
     }
 
@@ -346,12 +356,18 @@ impl ItemRepository {
     pub fn delete_by_page_id(&self, page_id: &Hmtid) -> AppResult<()> {
         let mut conn = self.db.conn()?;
         let tx = conn.immediate()?;
+        Self::delete_by_page_id_in(&tx, page_id)?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// Deletes every item of a page on the given connection, as part of a larger transaction.
+    pub fn delete_by_page_id_in(tx: &Connection, page_id: &Hmtid) -> AppResult<()> {
         tx.execute(
             "DELETE FROM item_types WHERE item_id IN (SELECT id FROM items WHERE page_id = ?)",
             [page_id.as_str()],
         )?;
         tx.execute("DELETE FROM items WHERE page_id = ?", [page_id.as_str()])?;
-        tx.commit()?;
         Ok(())
     }
 
