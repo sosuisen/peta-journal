@@ -1140,6 +1140,16 @@ async fn a_week_is_created_with_one_link_per_day() {
     assert_eq!(bodies[6], json!("[[1999-03-14]]"));
 }
 
+// 米国式の週番号で閏年が土曜に始まると週54が出るので、週54のジャーナルも作られる。
+#[tokio::test]
+async fn a_week_54_is_created_as_the_us_numbering_reaches_it_in_a_leap_year_starting_on_saturday() {
+    let week = journal("2028-W54").await;
+
+    assert_eq!(week["created"], json!(true));
+    assert_eq!(week["page"]["name"], json!("2028-W54"));
+    assert_eq!(field_of_each(&week, "items", "body").len(), 7);
+}
+
 // 月のジャーナルは、その月にかかる週に1つずつのリンクを持って作られる。
 #[tokio::test]
 async fn a_month_is_created_with_one_link_per_week_that_touches_it() {

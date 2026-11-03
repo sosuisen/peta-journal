@@ -12,7 +12,8 @@ use chrono::NaiveDate;
 pub enum JournalName {
     /// `YYYY-MM-DD`
     Daily(NaiveDate),
-    /// `YYYY-WNN`; week 1 to 53
+    /// `YYYY-WNN`; week 1 to 54. ISO weeks end at 53, but the US numbering, in which week 1
+    /// holds January 1st, reaches 54 in a leap year that starts on a Saturday, like 2028.
     Weekly { year: i32, week: u32 },
     /// `YYYY-MM`
     Monthly { year: i32, month: u32 },
@@ -48,7 +49,7 @@ fn parse(text: &str) -> Option<JournalName> {
             Some(JournalName::Daily(date))
         }
         [y, w] if (2..=3).contains(&w.len()) && w.starts_with('W') => {
-            let week = number(&w[1..]).filter(|w| (1..=53).contains(w))?;
+            let week = number(&w[1..]).filter(|w| (1..=54).contains(w))?;
             Some(JournalName::Weekly {
                 year: year(y)?,
                 week,
@@ -132,6 +133,14 @@ mod tests {
                 "2026-02",
             ),
             ("2026", JournalName::Yearly(2026), "2026"),
+            (
+                "2028-W54",
+                JournalName::Weekly {
+                    year: 2028,
+                    week: 54,
+                },
+                "2028-W54",
+            ),
         ];
         for (text, name, written) in cases {
             assert_eq!(text.parse::<JournalName>().unwrap(), name, "{text}");
@@ -147,7 +156,7 @@ mod tests {
             "",
             "2026-W123",
             "2026-W0",
-            "2026-W54",
+            "2026-W55",
             "2026-13",
             "2026-00",
             "2026-02-30",
