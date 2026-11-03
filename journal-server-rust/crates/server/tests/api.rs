@@ -699,6 +699,7 @@ async fn get_page_returns_the_page_with_its_items_in_order() {
 #[tokio::test]
 async fn renaming_a_page_changes_its_title_and_path() {
     let page = new_doc_page("pages-rename").await;
+    let old = date_the_page_in_the_past(&page.id).await;
 
     let (status, resp) = put(
         &format!("/api/pages/{}", page.id),
@@ -712,6 +713,7 @@ async fn renaming_a_page_changes_its_title_and_path() {
         json!(format!("{}-renamed", page.title))
     );
     assert_eq!(resp["page"]["dirPath"], json!("notes/"));
+    assert_ne!(resp["page"]["modifiedDate"], json!(old));
     let (_, again) = get(&format!("/api/pages/{}", page.id)).await;
     assert_eq!(
         again["page"]["name"],
