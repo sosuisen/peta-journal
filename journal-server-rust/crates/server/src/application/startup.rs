@@ -1,14 +1,12 @@
-//! Startup checks: the markdown directory, the hashtag backfill, the search index rebuild,
-//! the missing tag pages and the atlas pages.
+//! Startup checks: the markdown directory, the search index rebuild, the missing tag pages
+//! and the atlas pages.
 
 use std::path::Path;
 use std::sync::Arc;
 
-use crate::domain::hashtag;
 use crate::domain::search::SearchIndex;
-use crate::error::AppResult;
 use crate::infrastructure::export::export_service::MarkdownExportService;
-use crate::infrastructure::persistence::{ItemRepository, PageRepository, PropertyRepository};
+use crate::infrastructure::persistence::{ItemRepository, PageRepository};
 
 use super::atlas_service::AtlasService;
 use super::config_service::ConfigService;
@@ -83,44 +81,6 @@ fn ensure_sub_dirs(markdown_path: &Path) {
             }
         }
     }
-}
-
-/// Tags every item from its hashtags once, when no tag exists yet.
-pub fn backfill_hashtags(
-    pages: &PageRepository,
-    items: &ItemRepository,
-    properties: &PropertyRepository,
-) {
-    if properties.find_any_tag_exists() {
-        return;
-    }
-    tracing::info!("Backfilling hashtag tags for existing items...");
-    if let Err(e) = backfill_hashtags_once(pages, items) {
-        tracing::warn!("Hashtag backfill skipped: {e}");
-    }
-}
-
-/// Tags the items in one transaction, so a restart in the middle starts over.
-fn backfill_hashtags_once(pages: &PageRepository, items: &ItemRepository) -> AppResult<()> {
-    let mut count = 0;
-    let all_pages = pages.find_all()?;
-    let mut conn = items.db().conn()?;
-    let tx = conn.immediate()?;
-    for page in all_pages {
-        for item in ItemRepository::find_by_page_id_in(&tx, &page.id)? {
-            if item.ast.trim().is_empty() {
-                continue;
-            }
-            let hashtags = hashtag::extract_hashtags(&item.ast);
-            if !hashtags.is_empty() {
-                PropertyRepository::sync_tags_in(&tx, "item", item.id.as_str(), &hashtags)?;
-                count += 1;
-            }
-        }
-    }
-    tx.commit()?;
-    tracing::info!("Hashtag backfill complete: {count} items tagged");
-    Ok(())
 }
 
 /// Builds the search index from the database when it is empty.

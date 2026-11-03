@@ -199,7 +199,6 @@ impl AppState {
                 export.export_all_if_empty(&dir);
             }
         }
-        startup::backfill_hashtags(&pages, &items, &properties);
         startup::rebuild_search_index(&pages, &items, &search);
         // After the rebuild, which skips an index that is not empty: the new pages are indexed
         // one by one as they are created

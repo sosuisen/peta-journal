@@ -504,19 +504,6 @@ impl PropertyRepository {
         Ok(rows.collect::<Result<_, _>>()?)
     }
 
-    pub fn find_any_tag_exists(&self) -> bool {
-        let Ok(conn) = self.db.conn() else {
-            return false;
-        };
-        conn.query_row(
-            "SELECT COUNT(*) FROM property_list_items WHERE key = 'tags' LIMIT 1",
-            [],
-            |r| r.get::<_, i64>(0),
-        )
-        .map(|n| n > 0)
-        .unwrap_or(false)
-    }
-
     /// Item IDs whose page path (dir_path || name) starts with the given prefix.
     pub fn find_item_ids_by_page_prefix(
         &self,
