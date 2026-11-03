@@ -224,6 +224,30 @@ fn two_devices_with(dir: &Path, make_b: fn(&Path) -> Device) -> (Device, Device)
     (a, b)
 }
 
+// カードが持つはずのないアトラスのキーは、次にアトラスを書くときに取り除かれる。
+#[test]
+fn an_atlas_key_a_card_cannot_have_goes_when_the_atlas_is_written_again() {
+    let dir = tempfile::tempdir().unwrap();
+    let a = Device::new(dir.path());
+    let page = a.doc("a");
+    a.doc("index_atlas");
+    let card = a.card_item(&page);
+    // A side belongs to a group or a callout, not to a card
+    a.state
+        .item_service
+        .set_property(&card, "atlas_side", "text", "left")
+        .unwrap();
+
+    a.state.atlas.sync_all().unwrap();
+
+    let props = a
+        .state
+        .properties
+        .find_scalar_by_targets("item", &[card.to_string()])
+        .unwrap();
+    assert_eq!(props[card.as_str()].get("atlas_side"), None, "{props:?}");
+}
+
 // 2台のデバイスは、同じページから同じアトラスを書く。
 #[test]
 fn two_devices_write_the_same_atlas_from_the_same_pages() {
