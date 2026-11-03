@@ -4,7 +4,6 @@ use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use hmtid::Hmtid;
-use parking_lot::Mutex;
 use rusqlite::Connection;
 
 use crate::domain::fractional_index;
@@ -57,8 +56,6 @@ pub struct ItemService {
     ids: Arc<IdGenerator>,
     /// Keeps the tag pages in step with the hashtags of the bodies.
     page_service: Arc<PageService>,
-    /// Two moves must not plan their indices from the same snapshot of a page.
-    move_lock: Mutex<()>,
 }
 
 /// Formats the current time like `Instant.now().truncatedTo(SECONDS).toString()`.
@@ -87,7 +84,6 @@ impl ItemService {
             properties,
             ids,
             page_service,
-            move_lock: Mutex::new(()),
         }
     }
 
@@ -269,61 +265,55 @@ impl ItemService {
         level_delta: Option<i32>,
     ) -> AppResult<Vec<Item>> {
         let delta = level_delta.unwrap_or(0);
-        let mut touched: Vec<Hmtid> = vec![target_page_id.clone()];
-        {
-            let _guard = self.move_lock.lock();
-            self.pages.find_by_id(target_page_id)?.ok_or_else(|| {
-                AppError::bad_request(format!("Target page not found: {target_page_id}"))
-            })?;
-            let moving = self.find_all(item_ids)?;
-            for item in &moving {
-                if !touched.contains(&item.page_id) {
-                    touched.push(item.page_id.clone());
-                }
+        // The write lock of the transaction keeps two moves from planning their indices from
+        // the same snapshot of a page
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+        PageRepository::find_by_id_in(&tx, target_page_id)?.ok_or_else(|| {
+            AppError::bad_request(format!("Target page not found: {target_page_id}"))
+        })?;
+        let moving = find_all_in(&tx, item_ids)?;
+        let mut effects = AfterCommit::default();
+        effects.pages.insert(target_page_id.clone());
+        effects
+            .pages
+            .extend(moving.iter().map(|item| item.page_id.clone()));
+        let mut staying = items_staying_on_in(&tx, target_page_id, item_ids)?;
+        validate_levels(&moving, delta, find_anchor(&staying, position)?)?;
+
+        let new_idxs = match plan_indices(&staying, position, moving.len()) {
+            Ok(v) => v,
+            Err(PlanError::Invalid(msg)) => return Err(AppError::bad_request(msg)),
+            Err(PlanError::NoGap) => {
+                // No room left in the gap: reindex the page and plan again
+                let all = ItemRepository::find_by_page_id_in(&tx, target_page_id)?;
+                reindex_page(&tx, target_page_id, &all)?;
+                staying = items_staying_on_in(&tx, target_page_id, item_ids)?;
+                plan_indices(&staying, position, moving.len()).map_err(|e| match e {
+                    PlanError::Invalid(msg) => AppError::bad_request(msg),
+                    PlanError::NoGap => AppError::internal("No index available"),
+                })?
             }
-            let mut staying = self.items_staying_on(target_page_id, item_ids)?;
-            validate_levels(&moving, delta, find_anchor(&staying, position)?)?;
-
-            let new_idxs = match plan_indices(&staying, position, moving.len()) {
-                Ok(v) => v,
-                Err(PlanError::Invalid(msg)) => return Err(AppError::bad_request(msg)),
-                Err(PlanError::NoGap) => {
-                    // No room left in the gap: reindex the page and plan again
-                    let all = self.items.find_by_page_id(target_page_id)?;
-                    reindex_page(&*self.items.db().conn()?, target_page_id, &all)?;
-                    staying = self.items_staying_on(target_page_id, item_ids)?;
-                    plan_indices(&staying, position, moving.len()).map_err(|e| match e {
-                        PlanError::Invalid(msg) => AppError::bad_request(msg),
-                        PlanError::NoGap => AppError::internal("No index available"),
-                    })?
-                }
-            };
-            let placements: Vec<ItemPlacement> = moving
-                .iter()
-                .zip(new_idxs)
-                .map(|(item, idx)| ItemPlacement {
-                    item_id: item.id.clone(),
-                    idx,
-                })
-                .collect();
-            self.items
-                .move_items(target_page_id, &placements, delta, now_millis())?;
-        }
+        };
+        let placements: Vec<ItemPlacement> = moving
+            .iter()
+            .zip(new_idxs)
+            .map(|(item, idx)| ItemPlacement {
+                item_id: item.id.clone(),
+                idx,
+            })
+            .collect();
+        let now = now_millis();
+        ItemRepository::move_items_in(&tx, target_page_id, &placements, delta, now)?;
         // The pages the items left need new parents and a new export too
-        for page_id in &touched {
-            self.reparent_and_export(page_id)?;
+        for page_id in &effects.pages {
+            ItemRepository::recalculate_parent_ids_in(&tx, page_id)?;
+            PageRepository::touch_in(&tx, page_id, now)?;
         }
-        self.find_all(item_ids)
-    }
-
-    fn items_staying_on(&self, page_id: &Hmtid, moving_ids: &[Hmtid]) -> AppResult<Vec<Item>> {
-        let moving: BTreeSet<&Hmtid> = moving_ids.iter().collect();
-        Ok(self
-            .items
-            .find_by_page_id(page_id)?
-            .into_iter()
-            .filter(|item| !moving.contains(&item.id))
-            .collect())
+        let moved = find_all_in(&tx, item_ids)?;
+        tx.commit()?;
+        self.finish(effects);
+        Ok(moved)
     }
 
     /// Deletes an item together with its properties and removes it from the search index.
@@ -936,6 +926,30 @@ fn plan_indices(
         return Ok(fractional_index::generate_indices(count));
     }
     fractional_index::between_many(after_idx, next_idx, count).map_err(|_| PlanError::NoGap)
+}
+
+/// The items with the given IDs, in that order, on the given connection.
+fn find_all_in(conn: &Connection, item_ids: &[Hmtid]) -> AppResult<Vec<Item>> {
+    item_ids
+        .iter()
+        .map(|id| {
+            ItemRepository::find_by_id_in(conn, id)?
+                .ok_or_else(|| AppError::bad_request(format!("Item not found: {id}")))
+        })
+        .collect()
+}
+
+/// The items of a page that are not among the moving ones, on the given connection.
+fn items_staying_on_in(
+    conn: &Connection,
+    page_id: &Hmtid,
+    moving_ids: &[Hmtid],
+) -> AppResult<Vec<Item>> {
+    let moving: BTreeSet<&Hmtid> = moving_ids.iter().collect();
+    Ok(ItemRepository::find_by_page_id_in(conn, page_id)?
+        .into_iter()
+        .filter(|item| !moving.contains(&item.id))
+        .collect())
 }
 
 /// Re-assigns fresh fractional indices to all items on a page, on the given connection.
