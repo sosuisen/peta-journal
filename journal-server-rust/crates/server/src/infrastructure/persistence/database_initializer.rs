@@ -1,5 +1,8 @@
-//! Creates the tables and indexes, then runs the migrations.
+//! Creates the tables and indexes, seeds what every database has, then runs the migrations.
 //! Safe to run on an existing database: everything is "if not exists" or checks first.
+//!
+//! A migration stays until every database it was written for has been opened once; then it
+//! goes. The ones here came with the Rust server; the Java server's are gone with it.
 
 use anyhow::Context;
 use rusqlite::{params, Connection};
@@ -21,13 +24,6 @@ pub fn initialize(db: &Db, ids: &IdGenerator) -> anyhow::Result<()> {
 fn run(conn: &Connection, ids: &IdGenerator) -> rusqlite::Result<()> {
     conn.pragma_update(None, "journal_mode", "WAL")?;
     conn.pragma_update(None, "foreign_keys", "ON")?;
-
-    // Drop removed tables
-    conn.execute_batch(
-        "DROP TABLE IF EXISTS page_tags;
-         DROP TABLE IF EXISTS bookmarks;
-         DROP TABLE IF EXISTS bookmark_groups;",
-    )?;
 
     conn.execute_batch(
         r#"
@@ -52,6 +48,7 @@ fn run(conn: &Connection, ids: &IdGenerator) -> rusqlite::Result<()> {
             body TEXT NOT NULL DEFAULT '',
             ast TEXT NOT NULL DEFAULT '',
             collapsed INTEGER NOT NULL DEFAULT 0,
+            transclude_item_id TEXT REFERENCES items(id) ON DELETE SET NULL,
             FOREIGN KEY (page_id) REFERENCES pages(id) ON DELETE CASCADE
         );
 
@@ -114,6 +111,7 @@ fn run(conn: &Connection, ids: &IdGenerator) -> rusqlite::Result<()> {
         CREATE UNIQUE INDEX IF NOT EXISTS idx_items_page_id_idx ON items(page_id, idx);
         CREATE INDEX IF NOT EXISTS idx_items_parent_id ON items(parent_id);
         CREATE INDEX IF NOT EXISTS idx_items_body ON items(body);
+        CREATE INDEX IF NOT EXISTS idx_items_transclude ON items(transclude_item_id) WHERE transclude_item_id IS NOT NULL;
         CREATE INDEX IF NOT EXISTS idx_props_key_text ON properties(key, value_text);
         CREATE INDEX IF NOT EXISTS idx_props_key_number ON properties(key, value_number);
         CREATE INDEX IF NOT EXISTS idx_pli_target ON property_list_items(target_type, target_id, key, sort_order);
@@ -121,13 +119,11 @@ fn run(conn: &Connection, ids: &IdGenerator) -> rusqlite::Result<()> {
         "#,
     )?;
 
-    migrate_html_to_ast(conn)?;
-    migrate_properties(conn)?;
-    migrate_root_index(conn, ids)?;
-    migrate_transclusion(conn)?;
-    migrate_datetime_to_seconds(conn)?;
+    ensure_root_index(conn, ids)?;
     migrate_tag_key_to_tags(conn)?;
-    migrate_definition_flags(conn)?;
+    // Before the keys: an old table refuses a system key of the bounds type
+    migrate_bounds_value_type(conn)?;
+    seed_system_keys(conn)?;
     Ok(())
 }
 
@@ -155,9 +151,56 @@ pub const SYSTEM_KEYS: [(&str, &str, bool); 15] = [
     ("atlas_side", "text", false),
 ];
 
+/// Creates the root index page with one empty item when the database has none.
+fn ensure_root_index(conn: &Connection, ids: &IdGenerator) -> rusqlite::Result<()> {
+    let exists: Option<String> = conn
+        .query_row(
+            "SELECT id FROM pages WHERE dir_path = '' AND name = 'index' LIMIT 1",
+            [],
+            |r| r.get(0),
+        )
+        .ok();
+    if exists.is_some() {
+        return Ok(());
+    }
+    tracing::info!("Creating root index page...");
+    let root_id = ids.generate_page_id().to_string();
+    let now = now_millis();
+    conn.execute(
+        "INSERT INTO pages (id, parent_id, dir_path, name, type, created_date, modified_date) \
+         VALUES (?, NULL, '', 'index', 'doc', ?, ?)",
+        params![root_id, now, now],
+    )?;
+    let item_id = ids.generate_item_id().to_string();
+    conn.execute(
+        "INSERT INTO items (id, page_id, parent_id, created_date, modified_date, idx, level, body, ast, collapsed) \
+         VALUES (?, ?, NULL, ?, ?, 'a0', 1, '', '', 0)",
+        params![item_id, root_id, now, now],
+    )?;
+    tracing::info!("Root index page created: {root_id}");
+    Ok(())
+}
+
+/// Defines the system keys and marks them. Runs on every start, so a key that became a
+/// system key is flagged too, and gets the reserved type even when a user had defined it
+/// with another one.
+fn seed_system_keys(conn: &Connection) -> rusqlite::Result<()> {
+    for (key, value_type, for_page) in SYSTEM_KEYS {
+        conn.execute(
+            "INSERT OR IGNORE INTO property_definitions (key, value_type, is_system, for_page) VALUES (?, ?, 1, ?)",
+            rusqlite::params![key, value_type, for_page as i64],
+        )?;
+        conn.execute(
+            "UPDATE property_definitions SET is_system = 1, for_page = ?, value_type = ? WHERE key = ?",
+            rusqlite::params![for_page as i64, value_type, key],
+        )?;
+    }
+    Ok(())
+}
+
 /// Renames the system key `tag` to `tags`, the key other Markdown tools use in the front
 /// matter. The rows are renamed in place, so no tag is lost. The old definition goes only
-/// when nothing refers to it any more.
+/// when nothing refers to it any more. From 2026-10-27.
 fn migrate_tag_key_to_tags(conn: &Connection) -> rusqlite::Result<()> {
     let old: i64 = conn.query_row(
         "SELECT COUNT(*) FROM property_definitions WHERE key = 'tag'",
@@ -179,36 +222,9 @@ fn migrate_tag_key_to_tags(conn: &Connection) -> rusqlite::Result<()> {
     Ok(())
 }
 
-/// Adds the `is_system` and `for_page` flags to the property definitions and marks the
-/// system keys. Runs on every start, so a key that became a system key is flagged too, and
-/// gets the reserved type even when a user had defined it with another one.
-fn migrate_definition_flags(conn: &Connection) -> rusqlite::Result<()> {
-    if !has_column(conn, "property_definitions", "is_system")? {
-        tracing::info!("Adding is_system and for_page flags to property_definitions...");
-        conn.execute_batch(
-            "ALTER TABLE property_definitions ADD COLUMN is_system INTEGER NOT NULL DEFAULT 0;
-             ALTER TABLE property_definitions ADD COLUMN for_page INTEGER NOT NULL DEFAULT 1;",
-        )?;
-    }
-    // Before the keys: an old table refuses a system key of the bounds type. After the
-    // flags: the table is copied with them.
-    migrate_bounds_value_type(conn)?;
-    for (key, value_type, for_page) in SYSTEM_KEYS {
-        conn.execute(
-            "INSERT OR IGNORE INTO property_definitions (key, value_type, is_system, for_page) VALUES (?, ?, 1, ?)",
-            rusqlite::params![key, value_type, for_page as i64],
-        )?;
-        conn.execute(
-            "UPDATE property_definitions SET is_system = 1, for_page = ?, value_type = ? WHERE key = ?",
-            rusqlite::params![for_page as i64, value_type, key],
-        )?;
-    }
-    Ok(())
-}
-
 /// Lets a property definition take the `bounds` type. SQLite cannot change the CHECK of a
 /// column in place, so the table is built again under the same name. Its rows are copied
-/// with an INSERT, not deleted: the properties refer to their keys.
+/// with an INSERT, not deleted: the properties refer to their keys. From 2026-10-27.
 fn migrate_bounds_value_type(conn: &Connection) -> rusqlite::Result<()> {
     let sql: String = conn.query_row(
         "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'property_definitions'",
@@ -243,169 +259,6 @@ fn migrate_bounds_value_type(conn: &Connection) -> rusqlite::Result<()> {
     }
     conn.pragma_update(None, "foreign_keys", "ON")?;
     result
-}
-
-fn has_column(conn: &Connection, table: &str, column: &str) -> rusqlite::Result<bool> {
-    let mut stmt = conn.prepare(&format!("PRAGMA table_info({table})"))?;
-    let names = stmt.query_map([], |row| row.get::<_, String>(1))?;
-    for name in names {
-        if name? == column {
-            return Ok(true);
-        }
-    }
-    Ok(false)
-}
-
-fn migrate_html_to_ast(conn: &Connection) -> rusqlite::Result<()> {
-    if has_column(conn, "items", "html")? {
-        tracing::info!("Renaming items.html column to items.ast...");
-        conn.execute_batch("ALTER TABLE items RENAME COLUMN html TO ast")?;
-        tracing::info!("Column renamed successfully.");
-    }
-    Ok(())
-}
-
-fn backfill_task_plan_property(conn: &Connection) -> rusqlite::Result<()> {
-    let count: i64 = conn.query_row(
-        r#"
-        SELECT COUNT(*) FROM item_types it
-        JOIN items i ON it.item_id = i.id
-        JOIN pages p ON i.page_id = p.id
-        WHERE it.type = 'task'
-          AND p.type = 'journal'
-          AND p.name GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
-          AND NOT EXISTS (
-            SELECT 1 FROM properties pr
-            WHERE pr.target_type = 'item' AND pr.target_id = it.item_id AND pr.key = 'plan'
-          )
-        "#,
-        [],
-        |r| r.get(0),
-    )?;
-    if count > 0 {
-        tracing::info!("Backfilling plan property for {count} task items on daily journals...");
-        conn.execute_batch(
-            r#"
-            INSERT OR IGNORE INTO property_definitions (key, value_type) VALUES ('plan', 'date');
-            INSERT OR IGNORE INTO properties (target_type, target_id, key, value_text)
-            SELECT 'item', it.item_id, 'plan', p.name
-            FROM item_types it
-            JOIN items i ON it.item_id = i.id
-            JOIN pages p ON i.page_id = p.id
-            WHERE it.type = 'task'
-              AND p.type = 'journal'
-              AND p.name GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'
-              AND NOT EXISTS (
-                SELECT 1 FROM properties pr
-                WHERE pr.target_type = 'item' AND pr.target_id = it.item_id AND pr.key = 'plan'
-              );
-            "#,
-        )?;
-        tracing::info!("Plan property backfill complete");
-    }
-    Ok(())
-}
-
-fn migrate_root_index(conn: &Connection, ids: &IdGenerator) -> rusqlite::Result<()> {
-    let exists: Option<String> = conn
-        .query_row(
-            "SELECT id FROM pages WHERE dir_path = '' AND name = 'index' LIMIT 1",
-            [],
-            |r| r.get(0),
-        )
-        .ok();
-    if exists.is_some() {
-        return Ok(());
-    }
-    tracing::info!("Creating root index page...");
-    let root_id = ids.generate_page_id().to_string();
-    let now = now_millis();
-    conn.execute(
-        "INSERT INTO pages (id, parent_id, dir_path, name, type, created_date, modified_date) \
-         VALUES (?, NULL, '', 'index', 'doc', ?, ?)",
-        params![root_id, now, now],
-    )?;
-    let item_id = ids.generate_item_id().to_string();
-    conn.execute(
-        "INSERT INTO items (id, page_id, parent_id, created_date, modified_date, idx, level, body, ast, collapsed) \
-         VALUES (?, ?, NULL, ?, ?, 'a0', 1, '', '', 0)",
-        params![item_id, root_id, now, now],
-    )?;
-    tracing::info!("Root index page created: {root_id}");
-    Ok(())
-}
-
-fn migrate_transclusion(conn: &Connection) -> rusqlite::Result<()> {
-    if has_column(conn, "items", "transclude_item_id")? {
-        return Ok(());
-    }
-    tracing::info!("Adding transclude_item_id column to items...");
-    conn.execute_batch(
-        "ALTER TABLE items ADD COLUMN transclude_item_id TEXT REFERENCES items(id) ON DELETE SET NULL;
-         CREATE INDEX IF NOT EXISTS idx_items_transclude ON items(transclude_item_id) WHERE transclude_item_id IS NOT NULL;",
-    )?;
-    tracing::info!("Transclusion migration complete");
-    Ok(())
-}
-
-fn migrate_datetime_to_seconds(conn: &Connection) -> rusqlite::Result<()> {
-    // Older versions stored datetime properties with nanoseconds ("...:47.387871400Z").
-    // New values stop at whole seconds, so cut the fraction off the stored ones too.
-    // The pages that change are queued so their markdown files get the same values.
-    conn.execute(
-        r#"
-        INSERT OR IGNORE INTO export_queue (page_id, queued_at)
-        SELECT DISTINCT i.page_id, strftime('%s', 'now') * 1000
-        FROM properties p
-        JOIN property_definitions d ON d.key = p.key AND d.value_type = 'datetime'
-        JOIN items i ON p.target_type = 'item' AND i.id = p.target_id
-        WHERE p.value_text LIKE '____-__-__T__:__:__.%Z'
-        "#,
-        [],
-    )?;
-    let updated = conn.execute(
-        r#"
-        UPDATE properties
-        SET value_text = substr(value_text, 1, 19) || 'Z'
-        WHERE key IN (SELECT key FROM property_definitions WHERE value_type = 'datetime')
-          AND value_text LIKE '____-__-__T__:__:__.%Z'
-        "#,
-        [],
-    )?;
-    if updated > 0 {
-        tracing::info!("Truncated {updated} datetime property values to whole seconds");
-    }
-    Ok(())
-}
-
-fn migrate_properties(conn: &Connection) -> rusqlite::Result<()> {
-    // 1. Backfill item_types if empty
-    let count: i64 = conn.query_row("SELECT COUNT(*) FROM item_types", [], |r| r.get(0))?;
-    if count == 0 {
-        tracing::info!("Backfilling item_types from existing items...");
-        conn.execute_batch(
-            "INSERT OR IGNORE INTO item_types (item_id, type) SELECT id, 'heading' FROM items WHERE body LIKE '#%';
-             INSERT OR IGNORE INTO item_types (item_id, type) SELECT id, 'code' FROM items WHERE body LIKE '```%';
-             INSERT OR IGNORE INTO item_types (item_id, type) SELECT id, 'blockquote' FROM items WHERE body LIKE '>%';",
-        )?;
-        let n: i64 = conn.query_row("SELECT COUNT(*) FROM item_types", [], |r| r.get(0))?;
-        tracing::info!("Backfilled {n} item_types rows");
-    }
-
-    // 2. Backfill plan property for tasks on daily journals
-    backfill_task_plan_property(conn)?;
-
-    // 3. Seed property_definitions
-    conn.execute_batch(
-        "INSERT OR IGNORE INTO property_definitions (key, value_type) VALUES ('plan', 'date');
-         INSERT OR IGNORE INTO property_definitions (key, value_type) VALUES ('due', 'date');
-         INSERT OR IGNORE INTO property_definitions (key, value_type) VALUES ('begin', 'datetime');
-         INSERT OR IGNORE INTO property_definitions (key, value_type) VALUES ('end', 'datetime');
-         INSERT OR IGNORE INTO property_definitions (key, value_type) VALUES ('cancelled', 'date');
-         INSERT OR IGNORE INTO property_definitions (key, value_type) VALUES ('tags', 'tags');
-         INSERT OR IGNORE INTO property_definitions (key, value_type) VALUES ('zoom', 'number');",
-    )?;
-    Ok(())
 }
 
 /// Reads or creates `versions.json` in the config directory and warns on a schema mismatch.
