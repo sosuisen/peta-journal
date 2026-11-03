@@ -12,6 +12,7 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
+use crate::domain::journal_name::JournalName;
 use crate::domain::model::{BacklinkEntry, Item, ItemPosition, Page, SearchResult};
 use crate::error::{parse_id, AppError, AppResult};
 use crate::infrastructure::export::export_service::format_instant;
@@ -740,7 +741,7 @@ impl JournalMcp {
         let r = run(move || {
             state
                 .journal_service
-                .get_or_create_journal_by_name(&a.file_name)
+                .get_or_create_journal_by_name(a.file_name.parse::<JournalName>()?)
         })
         .await?;
         ok(

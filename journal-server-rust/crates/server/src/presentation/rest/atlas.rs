@@ -7,6 +7,7 @@ use axum::routing::{delete, post, put};
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 
+use crate::domain::bounds::Bounds;
 use crate::domain::model::Item;
 use crate::error::{parse_id, AppResult};
 use crate::presentation::dto::ItemDto;
@@ -75,7 +76,8 @@ async fn add_link(
 ) -> AppResult<Json<ItemsResponse>> {
     let atlas_id = parse_id(&id)?;
     blocking(move || {
-        let items = state.atlas.add_link(&atlas_id, &req.target, &req.bounds);
+        let bounds = req.bounds.parse::<Bounds>()?;
+        let items = state.atlas.add_link(&atlas_id, &req.target, bounds);
         respond(&state, items)
     })
     .await
@@ -144,9 +146,10 @@ async fn add_callout(
 ) -> AppResult<Json<ItemsResponse>> {
     let atlas_id = parse_id(&id)?;
     blocking(move || {
+        let bounds = req.bounds.parse::<Bounds>()?;
         let items = state
             .atlas
-            .add_callout(&atlas_id, &req.bounds, &req.side, &req.text);
+            .add_callout(&atlas_id, bounds, &req.side, &req.text);
         respond(&state, items)
     })
     .await
