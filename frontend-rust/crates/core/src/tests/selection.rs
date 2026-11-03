@@ -262,6 +262,40 @@ fn a_cancel_leaves_the_selected_transclusion_as_it_is() {
     assert!(!h.api.called("DeleteItems"));
 }
 
+// 折りたたまれた親を消すと、隠れた子も一緒にサーバーへ送られる。
+#[test]
+fn deleting_a_collapsed_parent_sends_its_hidden_children_too() {
+    let mut h = Harness::with_items(vec![
+        item_with("p", 1, |i| i.collapsed = true),
+        item("q", 2, "hidden"),
+        item("r", 1, ""),
+    ]);
+    select(&mut h, &["p", "q"]);
+    h.send(Event::SelectionKey(SelectionKey::Delete));
+    assert_eq!(
+        delete_calls(&h.api),
+        [vec!["p".to_string(), "q".to_string()]]
+    );
+    assert_eq!(h.items_ids(), ["r"]);
+}
+
+// トランスクルージョンの自分の子は、トランスクルージョンと一緒に削除される。
+#[test]
+fn a_selected_transclusion_goes_with_its_own_children() {
+    let transclusion = item_with("t", 1, |i| i.transclude_item_id = Some("src".into()));
+    let mut h = Harness::with_items(vec![transclusion, item("own", 2, ""), item("z", 1, "")]);
+    let mut trees = TranscludedTrees::new();
+    trees.insert("src".into(), vec![item("src", 1, "y"), item("c", 2, "z")]);
+    h.model.state.set_transcluded_trees(trees);
+    select(&mut h, &["t", "c", "own"]);
+    h.send(Event::SelectionKey(SelectionKey::Delete));
+    assert_eq!(
+        delete_calls(&h.api),
+        [vec!["t".to_string(), "own".to_string()]]
+    );
+    assert_eq!(h.items_ids(), ["z"]);
+}
+
 fn selected(h: &Harness) -> Vec<String> {
     let mut ids: Vec<String> = h.model.state.selected_item_ids().iter().cloned().collect();
     ids.sort();

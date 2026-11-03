@@ -175,7 +175,7 @@ fn delete_selected(model: &mut Model) -> Cmd {
     })
 }
 
-/// What deleting the selection deletes, in the order shown.
+/// What deleting the selection deletes.
 struct SelectionDeletion {
     /// Each selected item by its own id. A selected transclusion stands for itself here, not
     /// for its source item.
@@ -184,21 +184,23 @@ struct SelectionDeletion {
     transclusions: Vec<String>,
 }
 
-/// The items to delete for the selection. The source items a selected transclusion shows are
-/// left out: they belong to the source page, and only the transclusion goes.
+/// The items to delete for the selection: every selected own item, collapsed ones too, as a
+/// selected item takes its descendants with it. The source items a selected transclusion
+/// shows are selected with it but left out: they belong to the source page, and only the
+/// transclusion goes. Source items selected on their own are deleted on their page.
 fn selection_deletion(model: &Model) -> SelectionDeletion {
     let state = &model.state;
     let selected = state.selected_item_ids();
+    let own = state.own_item_ids();
     let shown_by_selected_transclusion = |item: &Item| {
-        !state.own_item_ids().contains(&item.id)
-            && transclusion_context_of(item, state.items(), state.transcluded_trees())
-                .is_some_and(|ctx| selected.contains(&ctx.root_item_id))
+        transclusion_context_of(item, state.items(), state.transcluded_trees())
+            .is_some_and(|ctx| selected.contains(&ctx.root_item_id))
     };
-    let items: Vec<&ItemRef> = state
-        .visible_items()
-        .iter()
-        .filter(|b| selected.contains(&b.id) && !shown_by_selected_transclusion(b))
-        .collect();
+    let own_items = state.items().iter().filter(|b| selected.contains(&b.id));
+    let source_items = state.visible_items().iter().filter(|b| {
+        selected.contains(&b.id) && !own.contains(&b.id) && !shown_by_selected_transclusion(b)
+    });
+    let items: Vec<&ItemRef> = own_items.chain(source_items).collect();
     SelectionDeletion {
         ids: items.iter().map(|b| b.id.clone()).collect(),
         transclusions: items
