@@ -78,3 +78,4 @@
   - [x] 接続を自分で取るメソッドを消し、`_in`関数だけにする
 - [x] スキーマの版を`PRAGMA user_version`に置き、マイグレーションを番号付きの列にする（ADR 005）。`versions.json`と、Rustサーバーで足した3つのマイグレーションを消す
 - [x] 開発機のデータベースが版1になったら、`adopt_unversioned`（`database_initializer.rs`）を消す
+- [ ] 将来: フォルダ同期の項目ごとの合流（項目ごとのLWW、conflicted copyの合流、`idx`衝突の決め）。案は`docs/folder-sync-future.md`
