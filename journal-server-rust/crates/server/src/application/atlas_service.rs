@@ -25,21 +25,9 @@ use crate::infrastructure::persistence::{ItemRepository, PageRepository, Propert
 use super::markdown_parser::MarkdownParser;
 
 const ITEM_TARGET: &str = "item";
-const PAGE_TARGET: &str = "page";
 
 /// The atlas keys an item can have; the server keeps them as the outline says.
 const ITEM_KEYS: [&str; 4] = [PAGE_KEY, TYPE_KEY, SIDE_KEY, BOUNDS_KEY];
-
-/// The keys of the atlas of old, on the pages: the place of a card on the page itself, and
-/// the groups, their titles and the callouts on the atlas page.
-const OLD_GROUP_PREFIX: &str = "atlas_group_";
-const OLD_TITLE_PREFIX: &str = "atlas_title_";
-const OLD_CALLOUT_PREFIX: &str = "atlas_callout_";
-
-/// The height of a card or a callout at scale 1.
-const CARD_HEIGHT: f64 = 40.0;
-/// The smallest a card or a callout can be scaled to.
-const MIN_SCALE: f64 = 0.5;
 
 /// Tells the clients that the server changed an atlas page by itself.
 pub trait AtlasEvents: Send + Sync {
@@ -225,117 +213,6 @@ impl AtlasService {
     /// Takes a link card or a callout away. Returns the items of the page.
     pub fn remove(&self, atlas_id: &Hmtid, item_id: &Hmtid) -> AppResult<Vec<Item>> {
         self.edit(atlas_id, |outline| found(outline.remove(item_id), item_id))
-    }
-
-    /// Moves the atlas of old into the outlines: the place of each card from its page, and the
-    /// groups, their titles and the callouts from the atlas page. The old keys go, and so do
-    /// their definitions. A page whose place moved keeps its modified date: only how its file
-    /// is written changes.
-    pub fn move_old_properties(&self) -> AppResult<usize> {
-        let _guard = self.lock.lock();
-        let all = self.pages.find_all()?;
-        let ids: Vec<String> = all.iter().map(|p| p.id.to_string()).collect();
-        let scalars = self.properties.find_scalar_by_targets(PAGE_TARGET, &ids)?;
-        let lists = self.properties.find_list_by_targets(PAGE_TARGET, &ids)?;
-        let is_old = |key: &str| {
-            key == BOUNDS_KEY
-                || [OLD_GROUP_PREFIX, OLD_TITLE_PREFIX, OLD_CALLOUT_PREFIX]
-                    .iter()
-                    .any(|prefix| key.starts_with(prefix))
-        };
-        let old_pages: Vec<&Page> = all
-            .iter()
-            .filter(|p| {
-                let id = p.id.to_string();
-                scalars
-                    .get(&id)
-                    .is_some_and(|s| s.keys().any(|k| is_old(k)))
-                    || lists.get(&id).is_some_and(|l| l.keys().any(|k| is_old(k)))
-            })
-            .collect();
-        if old_pages.is_empty() {
-            return Ok(0);
-        }
-        let empty = BTreeMap::new();
-        let mut conn = self.items.db().conn()?;
-        let tx = conn.immediate()?;
-        let mut effects = AfterCommit::default();
-        for atlas in all.iter().filter(|p| p.is_atlas()) {
-            let atlas_scalars = scalars.get(atlas.id.as_str()).unwrap_or(&empty);
-            // Read outside the transaction: what it wrote so far is other atlases
-            let pages = self.dir_pages(atlas)?;
-            let loaded = self.load(atlas.clone())?;
-            let mut outline = Outline::read(&loaded.items, &loaded.props);
-            self.fit(&mut outline, atlas)?;
-            for page in &pages {
-                let bounds = scalars
-                    .get(page.id.as_str())
-                    .and_then(|s| s.get(BOUNDS_KEY));
-                if let (Some(bounds), Some(card)) = (bounds, outline.card_id(page.id.as_str())) {
-                    outline.set_bounds(&card, bounds.clone());
-                }
-            }
-            let groups = lists
-                .get(atlas.id.as_str())
-                .into_iter()
-                .flatten()
-                .filter(|(key, _)| key.starts_with(OLD_GROUP_PREFIX));
-            for (key, page_ids) in groups {
-                let cards: Vec<Hmtid> = page_ids
-                    .iter()
-                    .filter_map(|id| outline.card_id(id))
-                    .collect();
-                let Some((target, moving)) = cards.split_first() else {
-                    continue;
-                };
-                // From the old key, so another device moving the same atlas makes the same group
-                let group_id = atlas::derived_id(&atlas.id, key);
-                outline.group(moving, target, || group_id.clone());
-                let title_key = key.replacen(OLD_GROUP_PREFIX, OLD_TITLE_PREFIX, 1);
-                if let Some(value) = atlas_scalars.get(&title_key) {
-                    let (side, title) = old_side_and_text(value);
-                    outline.set_group_title(&group_id, side, title);
-                }
-            }
-            let callouts = atlas_scalars
-                .iter()
-                .filter(|(key, _)| key.starts_with(OLD_CALLOUT_PREFIX));
-            for (key, value) in callouts {
-                if let Some((bounds, side, text)) = old_callout(value) {
-                    outline.add_callout(atlas::derived_id(&atlas.id, key), bounds, side, text);
-                }
-            }
-            // Again, for the parent of the callouts
-            self.fit(&mut outline, atlas)?;
-            self.write_in(
-                &tx,
-                &loaded,
-                &outline,
-                auto_modified(&loaded.atlas),
-                &mut effects,
-            )?;
-        }
-        for page in &old_pages {
-            let id = page.id.to_string();
-            let keys = scalars
-                .get(&id)
-                .into_iter()
-                .flat_map(|s| s.keys())
-                .chain(lists.get(&id).into_iter().flat_map(|l| l.keys()))
-                .filter(|k| is_old(k));
-            for key in keys {
-                PropertyRepository::delete_property_in(&tx, PAGE_TARGET, &id, key)?;
-            }
-        }
-        for prefix in [OLD_GROUP_PREFIX, OLD_TITLE_PREFIX, OLD_CALLOUT_PREFIX] {
-            PropertyRepository::delete_unused_definitions_with_prefix_in(&tx, prefix)?;
-        }
-        tx.commit()?;
-        self.finish(effects);
-        for page in &old_pages {
-            self.export.queue_export(&page.id);
-        }
-        Ok(old_pages.len())
     }
 
     /// Changes the outline of one atlas page and writes it. Returns the items of the page.
@@ -587,58 +464,5 @@ fn found(found: bool, id: &Hmtid) -> AppResult<()> {
         Ok(())
     } else {
         Err(AppError::bad_request(format!("Not on the atlas: {id}")))
-    }
-}
-
-/// The side and the text of a value of old, `side:text`. A value without a known side lies
-/// along the top, all of it as the text.
-fn old_side_and_text(value: &str) -> (&str, &str) {
-    match value.split_once(':') {
-        Some((side, text)) if atlas::SIDES.contains(&side) => (side, text),
-        _ => (atlas::SIDES[0], value),
-    }
-}
-
-/// A callout of old, `x,y,scale,side:text` or `x,y,side:text`, as its bounds, side and text.
-fn old_callout(value: &str) -> Option<(String, &str, &str)> {
-    let (head, text) = value.split_once(':')?;
-    let parts: Vec<&str> = head.split(',').map(str::trim).collect();
-    let (x, y, scale, side) = match parts[..] {
-        [x, y, side] => (x, y, "1", side),
-        [x, y, scale, side] => (x, y, scale, side),
-        _ => return None,
-    };
-    let scale: f64 = scale
-        .parse()
-        .ok()
-        .filter(|s: &f64| s.is_finite() && *s > 0.0)?;
-    let height = (CARD_HEIGHT * scale.max(MIN_SCALE) * 100.0).round() / 100.0;
-    let bounds = normalize_bounds(&format!("{x},{y},0,{height}")).ok()?;
-    (atlas::SIDES.contains(&side) && !text.trim().is_empty()).then_some((bounds, side, text))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    // 旧形式のコールアウトは、倍率を高さに読み替える。
-    #[test]
-    fn a_callout_of_old_takes_its_scale_as_the_height() {
-        assert_eq!(
-            old_callout("120,-40,1.5,top:hello"),
-            Some(("120,-40,0,60".to_string(), "top", "hello"))
-        );
-        assert_eq!(
-            old_callout("1,2,left:a: b"),
-            Some(("1,2,0,40".to_string(), "left", "a: b"))
-        );
-        assert_eq!(old_callout("1,2,middle:a"), None);
-    }
-
-    // 旧形式のタイトルは、辺の指定がなければ上辺に置かれる。
-    #[test]
-    fn a_title_of_old_without_a_side_lies_along_the_top() {
-        assert_eq!(old_side_and_text("left:Tools"), ("left", "Tools"));
-        assert_eq!(old_side_and_text("Tools: more"), ("top", "Tools: more"));
     }
 }

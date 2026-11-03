@@ -425,18 +425,6 @@ impl PropertyRepository {
         replace_list_in(conn, target_type, target_id, "tags", new_tags)
     }
 
-    /// `delete_unused_definitions_with_prefix` on the given connection.
-    pub fn delete_unused_definitions_with_prefix_in(
-        conn: &Connection,
-        prefix: &str,
-    ) -> AppResult<()> {
-        conn.execute(
-            "DELETE FROM property_definitions WHERE substr(key, 1, length(?1)) = ?1              AND key NOT IN (SELECT key FROM properties)              AND key NOT IN (SELECT key FROM property_list_items)",
-            params![prefix],
-        )?;
-        Ok(())
-    }
-
     /// The tags of one target, in sort order.
     pub fn find_tags(&self, target_type: &str, target_id: &str) -> AppResult<Vec<String>> {
         Self::find_tags_in(&*self.db.conn()?, target_type, target_id)

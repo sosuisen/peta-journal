@@ -25,7 +25,7 @@ pub struct Cli {
     #[arg(long, env = "PETAJOURNAL_INDEX_DIR")]
     pub index_dir: Option<PathBuf>,
 
-    /// Configuration directory (config.json, versions.json, functions/). Default: ~/.peta-journal
+    /// Configuration directory (config.json, functions/). Default: ~/.peta-journal
     #[arg(long, env = "PETAJOURNAL_CONFIG_DIR")]
     pub config_dir: Option<PathBuf>,
 
