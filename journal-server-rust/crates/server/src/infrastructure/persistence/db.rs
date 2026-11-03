@@ -1,5 +1,7 @@
-//! SQLite connections. Like the Java server, every repository call takes its own connection;
-//! idle connections are kept in a small pool. WAL mode and a 30 s busy timeout let several
+//! SQLite connections. A service operation borrows one connection and runs in one
+//! transaction on it (ADR 004); the repository functions take that connection. A borrowed
+//! connection goes back to a small pool of idle ones; a borrow never waits, as a new
+//! connection is opened when none is idle. WAL mode and a 30 s busy timeout let several
 //! threads work on the database at once; transactions start with `BEGIN IMMEDIATE` so that a
 //! writer takes the lock up front instead of failing on its first write.
 
