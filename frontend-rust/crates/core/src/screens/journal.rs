@@ -256,6 +256,15 @@ pub fn nav(model: &mut Model, nav: JournalNav) -> Cmd {
 
 /// After an item moved to another day: navigates to that day, or reloads the journal.
 pub fn on_cross_day_moved(model: &mut Model, moved: CrossDayMove) -> Cmd {
+    // A page the move made is told to the extensions, as a page made by opening it is
+    let created = match &moved.created_page {
+        Some(page) => extensions::page_created(page, moved.target_date.clone()),
+        None => done(),
+    };
+    Command::all([created, show_cross_day_move(model, moved)])
+}
+
+fn show_cross_day_move(model: &mut Model, moved: CrossDayMove) -> Cmd {
     if moved.navigate {
         let timer_id = model.next_timer_id();
         let item_id = moved.item_id;
