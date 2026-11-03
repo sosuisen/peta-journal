@@ -166,6 +166,11 @@ impl OutlineState {
             .collect()
     }
 
+    /// The ids of an item and of everything under it, as a selection takes them.
+    pub fn selection_group(&self, item_id: &str) -> HashSet<String> {
+        super::tree::selection_group(&self.visible, &self.items, item_id)
+    }
+
     /// The item and all its descendants as a group.
     pub fn get_item_with_children(&self, item_id: &str) -> Vec<ItemRef> {
         let Some(item) = self.get_item_by_id(item_id) else {

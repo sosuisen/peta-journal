@@ -1,8 +1,9 @@
 //! What happens to the selected items: delete, copy, cut and move.
 
 use crate::app::{Event, SelectionKey};
-use crate::effects::{ApiOutput, UiOp};
-use crate::harness::{delete_calls, item, move_calls, Harness};
+use crate::effects::{ApiOp, ApiOutput, UiOp};
+use crate::harness::{delete_calls, item, move_calls, op_name, Harness};
+use crate::model::TranscludedTrees;
 use crate::testing::item_with;
 
 fn select(h: &mut Harness, ids: &[&str]) {
@@ -185,34 +186,114 @@ fn a_copy_whose_export_fails_tells_the_shell_so_it_can_give_up_the_clipboard_wri
     assert_eq!(h.model.clipboard, None);
 }
 
+/// Own items "a" and "t", where "t" transcludes "src" on another page. The tree of "src"
+/// shows its child "c" under "t". The selection holds "a", "t" and "c", as a range does.
 fn select_with_transclusion(key: SelectionKey) -> Harness {
     let transclusion = item_with("t", 1, |i| i.transclude_item_id = Some("src".into()));
     let mut h = Harness::with_items(vec![item("a", 1, "x"), transclusion]);
-    select(&mut h, &["a", "t"]);
+    let mut trees = TranscludedTrees::new();
+    trees.insert("src".into(), vec![item("src", 1, "y"), item("c", 2, "z")]);
+    h.model.state.set_transcluded_trees(trees);
+    select(&mut h, &["a", "t", "c"]);
     h.send(Event::SelectionKey(key));
     h
 }
 
-// トランスクルージョンを含む選択範囲の削除は警告とともに拒否され、元の項目と選択状態が残る。
-#[test]
-fn deleting_a_selection_with_a_transclusion_is_refused_so_the_source_stays() {
-    let h = select_with_transclusion(SelectionKey::Delete);
-    assert!(!h.api.called("DeleteItem"));
-    assert!(h
-        .ui
+fn position(h: &Harness, name: &str) -> usize {
+    h.api
+        .calls
         .iter()
-        .any(|op| matches!(op, UiOp::Alert(m) if m.contains("transclusion"))));
+        .position(|op| op_name(op) == name)
+        .unwrap_or_else(|| panic!("no {name} call"))
+}
+
+// 選択にトランスクルージョンがあれば、その解除の後に、トランスクルージョン自身が削除される。
+// 元の項目とその子は、元のページの項目なので削除しない。
+#[test]
+fn deleting_a_selected_transclusion_removes_the_transclusion_first_and_keeps_the_source() {
+    let h = select_with_transclusion(SelectionKey::Delete);
+    let removed: Vec<_> = h.api.calls_named("RemoveTransclusion");
+    assert!(matches!(removed[..], [ApiOp::RemoveTransclusion { ref item_id }] if item_id == "t"));
+    assert!(position(&h, "RemoveTransclusion") < position(&h, "DeleteItems"));
+    assert_eq!(
+        delete_calls(&h.api),
+        [vec!["a".to_string(), "t".to_string()]]
+    );
+    assert!(!h.model.state.item_selection_mode());
+    assert_eq!(h.items_ids(), ["new1"]);
+}
+
+// 切り取りも同じで、コピーの後に、解除してからトランスクルージョン自身を削除する。
+#[test]
+fn cutting_a_selected_transclusion_removes_the_transclusion_first_and_keeps_the_source() {
+    let h = select_with_transclusion(SelectionKey::Cut);
+    assert!(h.api.called("ExportTreeMarkdown"));
+    assert!(position(&h, "RemoveTransclusion") < position(&h, "DeleteItems"));
+    assert_eq!(
+        delete_calls(&h.api),
+        [vec!["a".to_string(), "t".to_string()]]
+    );
+}
+
+// 解除をサーバーが断ると、何も削除されず、選択が残る。
+#[test]
+fn a_refused_removal_of_the_transclusion_deletes_nothing() {
+    let transclusion = item_with("t", 1, |i| i.transclude_item_id = Some("src".into()));
+    let mut h = Harness::with_items(vec![item("a", 1, "x"), transclusion]);
+    h.api.fail_next("RemoveTransclusion", "offline");
+    select(&mut h, &["a", "t"]);
+    h.send(Event::SelectionKey(SelectionKey::Delete));
+    assert!(!h.api.called("DeleteItems"));
     assert!(h.model.state.item_selection_mode(), "the selection stays");
     assert_eq!(h.items_ids(), ["a", "t"]);
 }
 
-// トランスクルージョンを含む選択範囲の切り取りも同様に拒否される。
+// 確認でキャンセルすると、トランスクルージョンは解除されない。
 #[test]
-fn cutting_a_selection_with_a_transclusion_is_refused_too() {
-    let h = select_with_transclusion(SelectionKey::Cut);
-    assert!(!h.api.called("DeleteItem"));
-    assert!(!h.api.called("ExportTreeMarkdown"));
-    assert!(h.ui.iter().any(|op| matches!(op, UiOp::Alert(_))));
+fn a_cancel_leaves_the_selected_transclusion_as_it_is() {
+    let transclusion = item_with("t", 1, |i| i.transclude_item_id = Some("src".into()));
+    let mut h = Harness::with_items(vec![item("a", 1, "x"), transclusion]);
+    h.confirm = false;
+    h.api
+        .answer_next("TranscludedItems", Ok(ApiOutput::ItemIds(vec!["a".into()])));
+    select(&mut h, &["a", "t"]);
+    h.send(Event::SelectionKey(SelectionKey::Delete));
+    assert!(!h.api.called("RemoveTransclusion"));
+    assert!(!h.api.called("DeleteItems"));
+}
+
+// 折りたたまれた親を消すと、隠れた子も一緒にサーバーへ送られる。
+#[test]
+fn deleting_a_collapsed_parent_sends_its_hidden_children_too() {
+    let mut h = Harness::with_items(vec![
+        item_with("p", 1, |i| i.collapsed = true),
+        item("q", 2, "hidden"),
+        item("r", 1, ""),
+    ]);
+    select(&mut h, &["p", "q"]);
+    h.send(Event::SelectionKey(SelectionKey::Delete));
+    assert_eq!(
+        delete_calls(&h.api),
+        [vec!["p".to_string(), "q".to_string()]]
+    );
+    assert_eq!(h.items_ids(), ["r"]);
+}
+
+// トランスクルージョンの自分の子は、トランスクルージョンと一緒に削除される。
+#[test]
+fn a_selected_transclusion_goes_with_its_own_children() {
+    let transclusion = item_with("t", 1, |i| i.transclude_item_id = Some("src".into()));
+    let mut h = Harness::with_items(vec![transclusion, item("own", 2, ""), item("z", 1, "")]);
+    let mut trees = TranscludedTrees::new();
+    trees.insert("src".into(), vec![item("src", 1, "y"), item("c", 2, "z")]);
+    h.model.state.set_transcluded_trees(trees);
+    select(&mut h, &["t", "c", "own"]);
+    h.send(Event::SelectionKey(SelectionKey::Delete));
+    assert_eq!(
+        delete_calls(&h.api),
+        [vec!["t".to_string(), "own".to_string()]]
+    );
+    assert_eq!(h.items_ids(), ["z"]);
 }
 
 fn selected(h: &Harness) -> Vec<String> {

@@ -1,12 +1,11 @@
 //! The handlers of the outline component, ported from `outline.ts`: starting and ending
 //! edits, moving between items, and what the keys of selection mode do.
 
-use crate::app::{apply, done, run, Cmd, Model, MoveDirection, SelectionKey};
-use crate::effects::UiOp;
-use crate::model::{Item, ItemPosition};
+use crate::app::{apply, done, log_error, run, Cmd, Model, MoveDirection, SelectionKey};
+use crate::model::{Item, ItemPosition, ItemRef};
 use crate::ops::edit::{focus_editor, record_typing, save_item_if_dirty, save_target_id, Handover};
 use crate::ops::{action, level, moves, undo_replay};
-use crate::outline::tree::index_of;
+use crate::outline::tree::{index_of, transclusion_context_of};
 use crux_core::Command;
 
 /// The user clicked an item to start editing it. Ignored in selection mode.
@@ -143,9 +142,6 @@ pub fn selection_key(model: &mut Model, key: SelectionKey) -> Cmd {
         }
         SelectionKey::Copy => action::copy_items(ordered_selected_ids(model)),
         SelectionKey::Cut => {
-            if selection_has_transclusion(model) {
-                return refuse_transclusion_delete();
-            }
             let copy = action::copy_items(ordered_selected_ids(model));
             let delete = delete_selected(model);
             Command::all([copy, delete])
@@ -154,16 +150,21 @@ pub fn selection_key(model: &mut Model, key: SelectionKey) -> Cmd {
 }
 
 fn delete_selected(model: &mut Model) -> Cmd {
-    if selection_has_transclusion(model) {
-        return refuse_transclusion_delete();
-    }
-    let ids = ordered_selected_ids(model);
+    let SelectionDeletion { ids, transclusions } = selection_deletion(model);
     if ids.is_empty() {
         return done();
     }
     run(move |api| async move {
         if !action::confirm_deleting_transcluded(&api, ids.clone()).await {
             return;
+        }
+        // A transclusion is turned into a plain item before it goes, so the deletion can only
+        // reach the item itself and never its source. If that fails, nothing is deleted
+        for id in &transclusions {
+            if let Err(e) = api.remove_transclusion(id).await {
+                log_error(format!("Failed to remove a transclusion to delete it: {e}"));
+                return;
+            }
         }
         apply(&api, "delete selection", move |model| {
             model.selection.exit(&mut model.state);
@@ -174,24 +175,40 @@ fn delete_selected(model: &mut Model) -> Cmd {
     })
 }
 
-/// Whether a selected item is a transclusion. The selected ids stand for the source items,
-/// so deleting the selection would delete the sources on their own pages.
-fn selection_has_transclusion(model: &Model) -> bool {
-    let selected = model.state.selected_item_ids();
-    model
-        .state
-        .visible_items()
-        .iter()
-        .any(|b| selected.contains(&b.id) && b.transclude_item_id.is_some())
+/// What deleting the selection deletes.
+struct SelectionDeletion {
+    /// Each selected item by its own id. A selected transclusion stands for itself here, not
+    /// for its source item.
+    ids: Vec<String>,
+    /// The selected transclusions, which are turned into plain items first.
+    transclusions: Vec<String>,
 }
 
-/// Keeps the selection, so the user can change it and try again.
-fn refuse_transclusion_delete() -> Cmd {
-    Command::notify_shell(UiOp::Alert(
-        "The selection includes a transclusion, so nothing was deleted. Deleting it here would delete its source item."
-            .into(),
-    ))
-    .into()
+/// The items to delete for the selection: every selected own item, collapsed ones too, as a
+/// selected item takes its descendants with it. The source items a selected transclusion
+/// shows are selected with it but left out: they belong to the source page, and only the
+/// transclusion goes. Source items selected on their own are deleted on their page.
+fn selection_deletion(model: &Model) -> SelectionDeletion {
+    let state = &model.state;
+    let selected = state.selected_item_ids();
+    let own = state.own_item_ids();
+    let shown_by_selected_transclusion = |item: &Item| {
+        transclusion_context_of(item, state.items(), state.transcluded_trees())
+            .is_some_and(|ctx| selected.contains(&ctx.root_item_id))
+    };
+    let own_items = state.items().iter().filter(|b| selected.contains(&b.id));
+    let source_items = state.visible_items().iter().filter(|b| {
+        selected.contains(&b.id) && !own.contains(&b.id) && !shown_by_selected_transclusion(b)
+    });
+    let items: Vec<&ItemRef> = own_items.chain(source_items).collect();
+    SelectionDeletion {
+        ids: items.iter().map(|b| b.id.clone()).collect(),
+        transclusions: items
+            .iter()
+            .filter(|b| b.transclude_item_id.is_some())
+            .map(|b| b.id.clone())
+            .collect(),
+    }
 }
 
 fn indent_selected(model: &mut Model) -> Cmd {

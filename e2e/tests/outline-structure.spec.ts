@@ -116,19 +116,20 @@ test.describe('outline structure', () => {
     });
   });
 
-  test('a selection that grows over a parent takes its whole subtree', async ({ page }) => {
+  test('a selection started at a parent takes its whole subtree, and grows past it', async ({ page }) => {
     await openEditor(page, byBody('a').id);
 
-    await page.keyboard.press('Shift+ArrowDown');  // a
-    await page.keyboard.press('Shift+ArrowDown');  // a1, and with it the rest of a's subtree
-
+    await page.keyboard.press('Shift+ArrowDown');  // a, with a1 and a2
     await expect(page.locator('app-outline-item .outline-item.selected')).toHaveCount(3);
+
+    await page.keyboard.press('Shift+ArrowDown');  // b, with b1
+    await expect(page.locator('app-outline-item .outline-item.selected')).toHaveCount(5);
   });
 
   test('Escape ends a selection without changing anything', async ({ page }) => {
     await openEditor(page, byBody('b').id);
-    await page.keyboard.press('Shift+ArrowDown');
-    await expect(page.locator('app-outline-item .outline-item.selected')).toHaveCount(1);
+    await page.keyboard.press('Shift+ArrowDown');  // b, with b1
+    await expect(page.locator('app-outline-item .outline-item.selected')).toHaveCount(2);
 
     await page.keyboard.press('Escape');
 
