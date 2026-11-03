@@ -987,13 +987,9 @@ fn calculate_insertion_index(existing: &[Item], position: &ItemPosition) -> Resu
     if existing.is_empty() {
         return Ok(fractional_index::initial());
     }
-    Ok(match position {
-        ItemPosition::First => {
-            fractional_index::between(None, existing.first().map(|i| i.idx.as_str()))
-        }
-        ItemPosition::Last => {
-            fractional_index::between(existing.last().map(|i| i.idx.as_str()), None)
-        }
+    let (before, after) = match position {
+        ItemPosition::First => (None, existing.first().map(|i| i.idx.as_str())),
+        ItemPosition::Last => (existing.last().map(|i| i.idx.as_str()), None),
         ItemPosition::After(item_id) => {
             let mut after_idx = None;
             let mut next_idx = None;
@@ -1004,9 +1000,10 @@ fn calculate_insertion_index(existing: &[Item], position: &ItemPosition) -> Resu
                     break;
                 }
             }
-            fractional_index::between(after_idx, next_idx)
+            (after_idx, next_idx)
         }
-    })
+    };
+    fractional_index::between(before, after).map_err(|e| e.0)
 }
 
 /// The item directly above the insertion position; None if the list is empty or position is FIRST.

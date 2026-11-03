@@ -27,6 +27,49 @@ async fn items_go_first_last_or_after_another_item() {
     );
 }
 
+/// The indexes of the items of a page, in order
+async fn idxs_of(page_id: &str) -> Vec<String> {
+    let (_, resp) = get(&format!("/api/pages/{page_id}")).await;
+    resp["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|i| i["idx"].as_str().unwrap().to_string())
+        .collect()
+}
+
+/// Gives the items the indexes of the scheme before this one, as a database from then has
+fn give_old_indexes(rows: &[ItemRow]) {
+    let conn = server().state.db.conn().unwrap();
+    for (row, idx) in rows.iter().zip(["z0", "z1", "z2", "z3"]) {
+        conn.execute(
+            "UPDATE items SET idx = ? WHERE id = ?",
+            rusqlite::params![idx, row.id],
+        )
+        .unwrap();
+    }
+}
+
+// 旧い形のインデックスを持つページに項目を足すか動かすと、ページの全項目が付け直される。
+#[tokio::test]
+async fn a_page_with_indexes_of_the_old_scheme_is_reindexed_when_an_item_is_added_or_moved() {
+    let page = new_doc_page("items-old-idx").await;
+    let rows = fill(&page.id, &["a", "b"]).await;
+    give_old_indexes(&rows);
+
+    create_item(&page.id, &format!("after:{}", rows[0].id), 1, "x").await;
+
+    assert_eq!(outline_of(&page.id).await, vs(&["1:a", "1:x", "1:b"]));
+    assert_eq!(idxs_of(&page.id).await, vs(&["a0", "a0V", "a1"]));
+
+    let rows = items(&page.id).await;
+    give_old_indexes(&rows);
+    move_items(&[&rows[2].id], &page.id, "first", None).await;
+
+    assert_eq!(outline_of(&page.id).await, vs(&["1:b", "1:a", "1:x"]));
+    assert_eq!(idxs_of(&page.id).await, vs(&["Zz", "a0", "a1"]));
+}
+
 // クライアントが付けたIDがそのまま使われる。
 #[tokio::test]
 async fn a_client_id_is_kept() {
@@ -1380,6 +1423,39 @@ async fn a_new_file_in_the_folder_becomes_a_page() {
         outline_of(ids[0].as_str().unwrap()).await,
         vs(&["1:hello from disk", "1:second block"])
     );
+}
+
+// 旧い形のインデックスのファイルは、付け直して書き戻される。
+#[tokio::test]
+async fn a_file_with_indexes_of_the_old_scheme_is_reindexed_and_written_back() {
+    let _folder = FOLDER_SCAN.lock().await;
+    let page = new_doc_page("sync-old-idx").await;
+    fill(&page.id, &["one", "two"]).await;
+    wait_until("the page is exported", || {
+        read(&file_of(&page)).contains("two")
+    })
+    .await;
+
+    // As the server of old wrote it, with a line someone added by hand
+    let old = read(&file_of(&page))
+        .replace("idx=\"a0\"", "idx=\"z0\"")
+        .replace("idx=\"a1\"", "idx=\"z1\"")
+        + "\nthree\n";
+    assert!(old.contains("idx=\"z1\""), "{old}");
+    std::fs::write(file_of(&page), old).unwrap();
+    let result = scan().await;
+
+    assert!(result["imported"].as_i64().unwrap() >= 1, "{result}");
+    assert_eq!(
+        outline_of(&page.id).await,
+        vs(&["1:one", "1:two", "1:three"])
+    );
+    assert_eq!(idxs_of(&page.id).await, vs(&["a0", "a1", "a2"]));
+    wait_until("the file is written back", || {
+        let file = read(&file_of(&page));
+        file.contains("three") && !file.contains("idx=\"z")
+    })
+    .await;
 }
 
 // 変わっていないファイルには手を付けない。

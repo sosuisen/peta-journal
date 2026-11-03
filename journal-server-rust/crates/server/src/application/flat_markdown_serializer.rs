@@ -1,6 +1,6 @@
 //! Serializes items to Flat Markdown (spec v0.2).
 //! Every item is written as one metadata line followed by its body:
-//! `<!-- @@ ID idx="z0" collapsed="true" transclude="ID" key="value" -->`.
+//! `<!-- @@ ID idx="a0" collapsed="true" transclude="ID" key="value" -->`.
 //! The number of `@` characters is the item level. Items are separated by a blank line.
 
 use std::collections::BTreeMap;
