@@ -9,7 +9,7 @@
 
 use crate::app::{apply, done, log_error, run, Cmd, Event, Model, MoveDirection};
 use crate::effects::{Api, ApiError, ApiResult};
-use crate::model::{Item, ItemPosition, ItemRef};
+use crate::model::{Item, ItemPosition, ItemRef, Page};
 use crate::ops::edit::{flush_pending_edit, focus_editor, read, Handover};
 use crate::ops::file_reload::reload_shown_page;
 use crate::outline::tree::{
@@ -21,13 +21,15 @@ use crate::screens;
 use crate::util::date::shift_iso_date;
 
 /// What a move to another day's page did; the journal reloads from it.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct CrossDayMove {
     /// The date of the page the item went to.
     pub target_date: String,
     /// True when the journal should navigate to that page.
     pub navigate: bool,
     pub item_id: String,
+    /// The page the move made, when the target day had no page yet.
+    pub created_page: Option<Page>,
 }
 
 /// A move of a single item; the selection moves are queued the same way with an empty id.
@@ -430,6 +432,7 @@ async fn move_across_days(
             shown_page_id,
         } => {
             let result = api.get_or_create_journal(&target_date).await?;
+            let created_page = result.created.then(|| result.page.clone());
             let is_next = position == ItemPosition::Last;
             api.move_items(group_ids.clone(), &result.page.id, position, None)
                 .await?;
@@ -444,6 +447,7 @@ async fn move_across_days(
                 target_date,
                 navigate,
                 item_id: item.id.clone(),
+                created_page,
             })
         }
         DayMovePlan::Level2 {
@@ -459,6 +463,7 @@ async fn move_across_days(
                 target_date,
                 navigate: false,
                 item_id: item.id.clone(),
+                created_page: None,
             })
         }
     }
