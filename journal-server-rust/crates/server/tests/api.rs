@@ -2478,13 +2478,27 @@ async fn the_callouts_go_last_under_their_parent() {
     assert_eq!(callout.properties["atlas_side"], json!("left"));
     assert_eq!(callout.properties["atlas_bounds"], json!("10,20,0,60"));
 
+    // A new text is a change of the item: it is parsed again and dated anew
+    let (_, before) = get(&format!("/api/items/{}", callout.id)).await;
+    tokio::time::sleep(std::time::Duration::from_millis(5)).await;
     let rows = atlas_put(
         &atlas_id,
         &format!("callouts/{}", callout.id),
-        json!({ "side": "bottom", "text": "Bye" }),
+        json!({ "side": "bottom", "text": "## Bye" }),
     )
     .await;
-    assert_eq!(rows.last().unwrap().outline(), "2:Bye");
+    let renamed = rows.last().unwrap();
+    assert_eq!(renamed.outline(), "2:## Bye");
+    assert!(
+        renamed.types.contains(&"heading".to_string()),
+        "{renamed:?}"
+    );
+    let (_, after) = get(&format!("/api/items/{}", callout.id)).await;
+    assert!(after["item"]["ast"].as_str().unwrap().contains("Bye"));
+    assert!(
+        after["item"]["modifiedDate"].as_i64() > before["item"]["modifiedDate"].as_i64(),
+        "{before} {after}"
+    );
 
     let rows = atlas_put(
         &atlas_id,
