@@ -16,6 +16,7 @@ use crate::error::{AppError, AppResult};
 use crate::infrastructure::export::export_service::MarkdownExportService;
 use crate::infrastructure::export::page_link_converter;
 use crate::infrastructure::persistence::db::now_millis;
+use crate::infrastructure::persistence::item_repository::parked_idx;
 use crate::infrastructure::persistence::property_repository::list_values;
 use crate::infrastructure::persistence::{ItemRepository, PageRepository, PropertyRepository};
 
@@ -165,6 +166,9 @@ impl ItemService {
             ..Item::new_on(id.clone(), &page, now)
         };
         ItemRepository::save_in(tx, &item)?;
+        if item.idx.len() > fractional_index::MAX_LEN {
+            shorten_indices_in(tx, page_id)?;
+        }
         ItemRepository::recalculate_parent_ids_in(tx, page_id)?;
         PageRepository::touch_in(tx, page_id, now)?;
         // The new item may have got a parent
@@ -316,6 +320,12 @@ impl ItemService {
             .collect();
         let now = now_millis();
         ItemRepository::move_items_in(&tx, target_page_id, &placements, delta, now)?;
+        if placements
+            .iter()
+            .any(|p| p.idx.len() > fractional_index::MAX_LEN)
+        {
+            shorten_indices_in(&tx, target_page_id)?;
+        }
         // The pages the items left need new parents and a new export too
         for page_id in &effects.pages {
             ItemRepository::recalculate_parent_ids_in(&tx, page_id)?;
@@ -970,14 +980,39 @@ fn items_staying_on_in(
 
 /// Re-assigns fresh fractional indices to all items on a page, on the given connection.
 fn reindex_page(conn: &Connection, page_id: &Hmtid, items: &[Item]) -> AppResult<()> {
-    tracing::warn!(
-        "REINDEX: Reassigning fractional indices for page {page_id} ({} items). \
-         This may cause conflicts with CRDT-based sync.",
+    tracing::info!(
+        "Reindexing the {} items of page {page_id}: the index space is used up",
         items.len()
     );
     let new_indices = fractional_index::generate_indices(items.len());
-    for (item, idx) in items.iter().zip(new_indices) {
-        ItemRepository::update_index_in(conn, &item.id, &idx)?;
+    let changes: Vec<(&Item, String)> = items.iter().zip(new_indices).collect();
+    assign_indices_in(conn, &changes)
+}
+
+/// Reindexes the items around the indices grown past the limit, so the page stays short.
+/// Only the indices change: the items keep their modified date, as the order is the same.
+/// Falls back to the whole page when an index of the old scheme is in the way.
+fn shorten_indices_in(conn: &Connection, page_id: &Hmtid) -> AppResult<()> {
+    let items = ItemRepository::find_by_page_id_in(conn, page_id)?;
+    let indices: Vec<&str> = items.iter().map(|i| i.idx.as_str()).collect();
+    let Ok(changes) = fractional_index::shorten(&indices) else {
+        return reindex_page(conn, page_id, &items);
+    };
+    let changes: Vec<(&Item, String)> = changes
+        .into_iter()
+        .map(|(position, idx)| (&items[position], idx))
+        .collect();
+    assign_indices_in(conn, &changes)
+}
+
+/// Writes new indices. The items are parked first: (page_id, idx) is unique and checked per
+/// statement, so an item cannot take an index another still holds.
+fn assign_indices_in(conn: &Connection, changes: &[(&Item, String)]) -> AppResult<()> {
+    for (item, _) in changes {
+        ItemRepository::update_index_in(conn, &item.id, &parked_idx(&item.id))?;
+    }
+    for (item, idx) in changes {
+        ItemRepository::update_index_in(conn, &item.id, idx)?;
     }
     Ok(())
 }

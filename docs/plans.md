@@ -80,4 +80,4 @@
 - [x] 開発機のデータベースが版1になったら、`adopt_unversioned`（`database_initializer.rs`）を消す
 - [ ] 将来: フォルダ同期の項目ごとの合流（項目ごとのLWW、conflicted copyの合流、`idx`衝突の決め）。案は`docs/folder-sync-future.md`
 - [x] 項目の`idx`をrocicorpの方式に置き換え、先頭への挿入が62回目で落ちるのを直す（`docs/folder-sync-future.md`）
-- [ ] 16文字を超えた`idx`を、隙間の周りだけ振り直す（`docs/folder-sync-future.md`の4つの規則）
+- [x] 16文字を超えた`idx`を、隙間の周りだけ振り直す（`docs/folder-sync-future.md`の4つの規則）
