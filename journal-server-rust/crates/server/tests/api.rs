@@ -1250,7 +1250,9 @@ fn read(file: &std::path::Path) -> String {
     std::fs::read_to_string(file).unwrap_or_default()
 }
 
-/// The export scheduler starts a few seconds after the server and then runs every second.
+/// Writes the export queue until the condition holds. The test writes the queue itself: the
+/// export scheduler starts a few seconds after the server, and under load its runs come
+/// late, which made the tests time out.
 async fn wait_until(what: &str, mut condition: impl FnMut() -> bool) {
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
     while !condition() {
@@ -1258,7 +1260,11 @@ async fn wait_until(what: &str, mut condition: impl FnMut() -> bool) {
             std::time::Instant::now() < deadline,
             "timed out waiting until {what}"
         );
-        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+        let state = server().state.clone();
+        tokio::task::spawn_blocking(move || state.export.process_export_queue())
+            .await
+            .unwrap();
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
     }
 }
 

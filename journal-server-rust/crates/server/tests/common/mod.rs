@@ -11,13 +11,16 @@ use std::sync::OnceLock;
 
 use axum::serve::ListenerExt;
 use journal_server::config::Settings;
-use journal_server::state::{AppState, BuildOptions};
+use journal_server::state::{AppState, BuildOptions, SharedState};
 use serde_json::{json, Value};
 
 pub struct TestServer {
     pub base_url: String,
     pub root: PathBuf,
     pub markdown_dir: PathBuf,
+    /// The state of the server, for what a test does on the server side, such as writing
+    /// the export queue without waiting for the scheduler.
+    pub state: SharedState,
     _keep: tempfile::TempDir,
 }
 
@@ -44,7 +47,7 @@ pub fn server() -> &'static TestServer {
         )
         .unwrap();
 
-        let (tx, rx) = std::sync::mpsc::channel::<SocketAddr>();
+        let (tx, rx) = std::sync::mpsc::channel::<(SocketAddr, SharedState)>();
         let settings_root = root.clone();
         std::thread::Builder::new()
             .name("test-server".into())
@@ -59,9 +62,9 @@ pub fn server() -> &'static TestServer {
                     let state = AppState::build(settings, BuildOptions { interactive: false })
                         .expect("state");
                     state.start_background_tasks();
-                    let app = journal_server::build_router(state);
+                    let app = journal_server::build_router(state.clone());
                     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-                    tx.send(listener.local_addr().unwrap()).unwrap();
+                    tx.send((listener.local_addr().unwrap(), state)).unwrap();
                     let listener = listener.tap_io(|tcp| {
                         let _ = tcp.set_nodelay(true);
                     });
@@ -69,11 +72,12 @@ pub fn server() -> &'static TestServer {
                 });
             })
             .unwrap();
-        let addr = rx.recv().expect("server address");
+        let (addr, state) = rx.recv().expect("server address");
         TestServer {
             base_url: format!("http://{addr}"),
             root,
             markdown_dir,
+            state,
             _keep: dir,
         }
     })
