@@ -5,6 +5,7 @@
 use std::collections::BTreeMap;
 
 use journal_server::config::Settings;
+use journal_server::infrastructure::persistence::PropertyRepository;
 use journal_server::state::{AppState, BuildOptions};
 use serde_json::json;
 
@@ -34,11 +35,19 @@ fn the_atlas_of_old_moves_into_the_outline_of_the_atlas_page() {
         .unwrap()
         .page;
     let props = &state.properties;
-    props
-        .upsert_scalar("page", a.id.as_str(), "atlas_bounds", "bounds", "1,2,0,40")
+    {
+        let conn = state.db.conn().unwrap();
+        PropertyRepository::upsert_scalar_in(
+            &conn,
+            "page",
+            a.id.as_str(),
+            "atlas_bounds",
+            "bounds",
+            "1,2,0,40",
+        )
         .unwrap();
-    props
-        .upsert_scalar(
+        PropertyRepository::upsert_scalar_in(
+            &conn,
             "page",
             atlas.id.as_str(),
             "atlas_title_x",
@@ -46,8 +55,8 @@ fn the_atlas_of_old_moves_into_the_outline_of_the_atlas_page() {
             "left:Tools",
         )
         .unwrap();
-    props
-        .upsert_scalar(
+        PropertyRepository::upsert_scalar_in(
+            &conn,
             "page",
             atlas.id.as_str(),
             "atlas_callout_y",
@@ -55,8 +64,6 @@ fn the_atlas_of_old_moves_into_the_outline_of_the_atlas_page() {
             "10,20,1.5,top:Hi",
         )
         .unwrap();
-    {
-        let conn = state.db.conn().unwrap();
         conn.execute(
             "INSERT INTO property_definitions (key, value_type, is_system, for_page) \
              VALUES ('atlas_group_x', 'list', 1, 1)",

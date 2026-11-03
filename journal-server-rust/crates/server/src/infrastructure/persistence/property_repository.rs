@@ -220,17 +220,6 @@ impl PropertyRepository {
         Ok(())
     }
 
-    /// Removes a user key with every value set under it, on items and pages alike, and
-    /// answers with the ids of the pages that lost a value: their own, or one of their
-    /// items' values. A system key and an unknown key are refused.
-    pub fn delete_definition(&self, key: &str) -> AppResult<Vec<String>> {
-        let mut conn = self.db.conn()?;
-        let tx = conn.immediate()?;
-        let page_ids = Self::delete_definition_in(&tx, key)?;
-        tx.commit()?;
-        Ok(page_ids)
-    }
-
     /// `delete_definition` on the given connection, as part of a larger transaction.
     pub fn delete_definition_in(tx: &Connection, key: &str) -> AppResult<Vec<String>> {
         match Self::find_definition_in(tx, key)? {
@@ -268,27 +257,6 @@ impl PropertyRepository {
             params![key],
         )?;
         Ok(page_ids)
-    }
-
-    /// Inserts or replaces a scalar property, creating its definition if needed. The value
-    /// is checked and stored by the type of the definition: `value_type` only names the type
-    /// of a new key.
-    pub fn upsert_scalar(
-        &self,
-        target_type: &str,
-        target_id: &str,
-        key: &str,
-        value_type: &str,
-        value: &str,
-    ) -> AppResult<()> {
-        Self::upsert_scalar_in(
-            &*self.db.conn()?,
-            target_type,
-            target_id,
-            key,
-            value_type,
-            value,
-        )
     }
 
     /// `upsert_scalar` on the given connection, as part of a larger transaction.
@@ -374,26 +342,6 @@ impl PropertyRepository {
         Ok(())
     }
 
-    /// Replaces the list of a target under a key of a list type, defining the key with that
-    /// type when it is new. The key `tags` has `sync_tags`.
-    pub fn upsert_list(
-        &self,
-        target_type: &str,
-        target_id: &str,
-        key: &str,
-        value_type: &str,
-        values: &[String],
-    ) -> AppResult<()> {
-        Self::upsert_list_in(
-            &*self.db.conn()?,
-            target_type,
-            target_id,
-            key,
-            value_type,
-            values,
-        )
-    }
-
     /// `upsert_list` on the given connection, as part of a larger transaction.
     pub fn upsert_list_in(
         conn: &Connection,
@@ -409,11 +357,6 @@ impl PropertyRepository {
             params![key, value_type],
         )?;
         replace_list_in(conn, target_type, target_id, key, values)
-    }
-
-    /// Removes a property, scalar or list, of one target.
-    pub fn delete_property(&self, target_type: &str, target_id: &str, key: &str) -> AppResult<()> {
-        Self::delete_property_in(&*self.db.conn()?, target_type, target_id, key)
     }
 
     /// Removes a property of one target on the given connection, as part of a larger
@@ -433,15 +376,6 @@ impl PropertyRepository {
             params![target_type, target_id, key],
         )?;
         Ok(())
-    }
-
-    /// Deletes every scalar and list property of the given targets.
-    pub fn delete_all_for_targets(
-        &self,
-        target_type: &str,
-        target_ids: &[String],
-    ) -> AppResult<()> {
-        Self::delete_all_for_targets_in(&*self.db.conn()?, target_type, target_ids)
     }
 
     /// Removes every property of the targets on the given connection, as part of a larger
@@ -470,16 +404,6 @@ impl PropertyRepository {
         Ok(())
     }
 
-    /// Replaces all tag entries of a target with the given tags.
-    pub fn sync_tags(
-        &self,
-        target_type: &str,
-        target_id: &str,
-        new_tags: &[String],
-    ) -> AppResult<()> {
-        Self::sync_tags_in(&*self.db.conn()?, target_type, target_id, new_tags)
-    }
-
     /// Replaces the tags of a target on the given connection, as part of a larger transaction.
     pub fn sync_tags_in(
         conn: &Connection,
@@ -488,11 +412,6 @@ impl PropertyRepository {
         new_tags: &[String],
     ) -> AppResult<()> {
         replace_list_in(conn, target_type, target_id, "tags", new_tags)
-    }
-
-    /// Removes the definitions whose keys start with the prefix and that no value uses.
-    pub fn delete_unused_definitions_with_prefix(&self, prefix: &str) -> AppResult<()> {
-        Self::delete_unused_definitions_with_prefix_in(&*self.db.conn()?, prefix)
     }
 
     /// `delete_unused_definitions_with_prefix` on the given connection.

@@ -69,14 +69,6 @@ impl PageRepository {
         .next())
     }
 
-    pub fn find_journal(&self, date: NaiveDate) -> AppResult<Option<Page>> {
-        let file_name = date.format("%Y-%m-%d").to_string();
-        self.first_page(
-            &format!("{SELECT_PAGES}WHERE type = 'journal' AND dir_path = '' AND name = ?"),
-            &[&file_name],
-        )
-    }
-
     pub fn find_most_recent_journal_before(&self, before: NaiveDate) -> AppResult<Option<Page>> {
         let file_name = before.format("%Y-%m-%d").to_string();
         self.first_page(
@@ -187,15 +179,6 @@ impl PageRepository {
         Ok(())
     }
 
-    /// Inserts or updates a page. The parent is resolved from `dir_path` and `name`.
-    pub fn save(&self, page: &Page) -> AppResult<Page> {
-        let mut conn = self.db.conn()?;
-        let tx = conn.immediate()?;
-        let saved = Self::save_in(&tx, page)?;
-        tx.commit()?;
-        Ok(saved)
-    }
-
     /// Inserts or updates a page on the given connection, as part of a larger transaction.
     /// The parent is resolved from `dir_path` and `name`.
     pub fn save_in(tx: &Connection, page: &Page) -> AppResult<Page> {
@@ -228,16 +211,6 @@ impl PageRepository {
         })
     }
 
-    /// Changes a page's id, moving its items and related rows along.
-    pub fn rekey(&self, old_id: &Hmtid, new_id: &Hmtid) -> AppResult<()> {
-        let mut conn = self.db.conn()?;
-        let tx = conn.immediate()?;
-        Self::rekey_in(&tx, old_id, new_id)?;
-        tx.commit()
-            .with_context(|| format!("Failed to rekey page {old_id} -> {new_id}"))?;
-        Ok(())
-    }
-
     /// Changes a page's id on the given connection, as part of a larger transaction.
     pub fn rekey_in(tx: &Connection, old_id: &Hmtid, new_id: &Hmtid) -> AppResult<()> {
         let updates = [
@@ -257,10 +230,6 @@ impl PageRepository {
             tx.execute(sql, params![new_id.as_str(), old_id.as_str()])?;
         }
         Ok(())
-    }
-
-    pub fn delete(&self, id: &Hmtid) -> AppResult<()> {
-        Self::delete_in(&*self.db.conn()?, id)
     }
 
     /// Deletes a page on the given connection, as part of a larger transaction.

@@ -48,11 +48,6 @@ impl ExportQueueRepository {
         Ok(())
     }
 
-    /// Drops a pending export, e.g. when the page was deleted.
-    pub fn remove(&self, page_id: &Hmtid) -> AppResult<()> {
-        Self::remove_in(&*self.db.conn()?, page_id)
-    }
-
     /// Takes a page off the queue on the given connection, as part of a larger transaction.
     pub fn remove_in(conn: &Connection, page_id: &Hmtid) -> AppResult<()> {
         conn.execute(

@@ -73,13 +73,27 @@ fn main() {
         }
         patch.push(t.elapsed().as_secs_f64() * 1000.0);
         let t = Instant::now();
-        state
-            .properties
-            .sync_tags("item", id.as_str(), &["a".to_string()])
+        {
+            let mut conn = state.items.db().conn().unwrap();
+            let tx = conn.immediate().unwrap();
+            journal_server::infrastructure::persistence::PropertyRepository::sync_tags_in(
+                &tx,
+                "item",
+                id.as_str(),
+                &["a".to_string()],
+            )
             .unwrap();
+            tx.commit().unwrap();
+        }
         tags.push(t.elapsed().as_secs_f64() * 1000.0);
         let t = Instant::now();
-        state.pages.save(&doc.page).unwrap();
+        {
+            let mut conn = state.items.db().conn().unwrap();
+            let tx = conn.immediate().unwrap();
+            journal_server::infrastructure::persistence::PageRepository::save_in(&tx, &doc.page)
+                .unwrap();
+            tx.commit().unwrap();
+        }
         touch.push(t.elapsed().as_secs_f64() * 1000.0);
         let t = Instant::now();
         state.export.queue_export(&it.page_id);

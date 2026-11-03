@@ -180,14 +180,6 @@ impl ItemRepository {
         query_items_in(conn, SELECT_ITEM_WITH_DESCENDANTS, &[&item_id.as_str()])
     }
 
-    pub fn save(&self, item: &Item) -> AppResult<Item> {
-        let mut conn = self.db.conn()?;
-        let tx = conn.immediate()?;
-        Self::save_in(&tx, item)?;
-        tx.commit()?;
-        Ok(item.clone())
-    }
-
     /// Inserts or updates an item on the given connection, as part of a larger transaction.
     pub fn save_in(tx: &Connection, item: &Item) -> AppResult<()> {
         let parent = item.parent_item_id.as_ref().map(|p| p.to_string());
@@ -301,18 +293,6 @@ impl ItemRepository {
         Ok(())
     }
 
-    /// Gives the items of a page new indices and levels, in one transaction. The items not
-    /// named keep theirs. A new item may be saved first with [`parked_idx`], as no other item
-    /// can hold it.
-    pub fn arrange(&self, page_id: &Hmtid, rows: &[(Hmtid, String, i32)]) -> AppResult<()> {
-        let mut conn = self.db.conn()?;
-        let tx = conn.immediate()?;
-        Self::arrange_in(&tx, page_id, rows)?;
-        tx.commit()
-            .with_context(|| format!("Failed to arrange the items of page: {page_id}"))?;
-        Ok(())
-    }
-
     /// `arrange` on the given connection, as part of a larger transaction.
     pub fn arrange_in(
         tx: &Connection,
@@ -337,27 +317,11 @@ impl ItemRepository {
         Ok(())
     }
 
-    pub fn delete(&self, id: &Hmtid) -> AppResult<()> {
-        let mut conn = self.db.conn()?;
-        let tx = conn.immediate()?;
-        Self::delete_in(&tx, id)?;
-        tx.commit()?;
-        Ok(())
-    }
-
     /// Deletes an item on the given connection, as part of a larger transaction.
     pub fn delete_in(tx: &Connection, id: &Hmtid) -> AppResult<()> {
         // Foreign keys are not enforced on these connections, so the types are removed by hand
         delete_types(tx, id.as_str())?;
         tx.execute("DELETE FROM items WHERE id = ?", [id.as_str()])?;
-        Ok(())
-    }
-
-    pub fn delete_by_page_id(&self, page_id: &Hmtid) -> AppResult<()> {
-        let mut conn = self.db.conn()?;
-        let tx = conn.immediate()?;
-        Self::delete_by_page_id_in(&tx, page_id)?;
-        tx.commit()?;
         Ok(())
     }
 
@@ -377,15 +341,6 @@ impl ItemRepository {
             "UPDATE items SET idx = ? WHERE id = ?",
             params![new_idx, item_id.as_str()],
         )?;
-        Ok(())
-    }
-
-    /// Recalculates parent_id for all items on a page based on idx ordering and level.
-    pub fn recalculate_parent_ids(&self, page_id: &Hmtid) -> AppResult<()> {
-        let mut conn = self.db.conn()?;
-        let tx = conn.immediate()?;
-        Self::recalculate_parent_ids_in(&tx, page_id)?;
-        tx.commit()?;
         Ok(())
     }
 

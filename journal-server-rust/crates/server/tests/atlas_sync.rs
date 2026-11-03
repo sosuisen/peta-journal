@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 use hmtid::Hmtid;
 use journal_server::config::Settings;
 use journal_server::infrastructure::export::import_service::Outcome;
+use journal_server::infrastructure::persistence::PropertyRepository;
 use journal_server::state::{AppState, BuildOptions, SharedState};
 use serde_json::json;
 
@@ -303,26 +304,25 @@ fn two_devices_moving_the_atlas_of_old_write_the_same_atlas() {
         .unwrap()
         .id;
     for device in [&a, &b] {
-        let props = &device.state.properties;
-        props
-            .upsert_scalar(
-                "page",
-                page_a.as_str(),
-                "atlas_bounds",
-                "bounds",
-                "1,2,0,40",
-            )
-            .unwrap();
-        props
-            .upsert_scalar(
-                "page",
-                device.atlas_id().as_str(),
-                "atlas_callout_x",
-                "text",
-                "10,20,1.5,top:Hi",
-            )
-            .unwrap();
         let conn = device.state.db.conn().unwrap();
+        PropertyRepository::upsert_scalar_in(
+            &conn,
+            "page",
+            page_a.as_str(),
+            "atlas_bounds",
+            "bounds",
+            "1,2,0,40",
+        )
+        .unwrap();
+        PropertyRepository::upsert_scalar_in(
+            &conn,
+            "page",
+            device.atlas_id().as_str(),
+            "atlas_callout_x",
+            "text",
+            "10,20,1.5,top:Hi",
+        )
+        .unwrap();
         conn.execute(
             "INSERT OR IGNORE INTO property_definitions (key, value_type, is_system, for_page) \
              VALUES ('atlas_group_x', 'list', 1, 1)",
