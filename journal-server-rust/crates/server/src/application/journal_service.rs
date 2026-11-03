@@ -3,6 +3,7 @@
 use std::sync::Arc;
 
 use chrono::{Datelike, Days, NaiveDate, Weekday};
+use rusqlite::Connection;
 
 use crate::domain::id_generator::IdGenerator;
 use crate::domain::journal_name::{self, JournalType};
@@ -12,9 +13,10 @@ use crate::error::{AppError, AppResult};
 use crate::infrastructure::export::export_service::MarkdownExportService;
 use crate::infrastructure::persistence::db::now_millis;
 use crate::infrastructure::persistence::{ItemRepository, PageRepository};
+use hmtid::Hmtid;
 
 use super::config_service::ConfigService;
-use super::item_service::ItemService;
+use super::item_service::{AfterCommit, ItemService};
 
 const JOURNAL_TYPE: &str = "journal";
 
@@ -72,12 +74,17 @@ impl JournalService {
 
     /// Gets an existing daily journal page for the given date, or creates one with a single empty item.
     pub fn get_or_create_journal(&self, date: NaiveDate) -> AppResult<JournalResult> {
-        if let Some(page) = self.pages.find_journal(date)? {
+        let file_name = date.format("%Y-%m-%d").to_string();
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+        if let Some(page) = Self::find_journal_in(&tx, &file_name)? {
             return self.existing_journal(page);
         }
-        let page = self.create_journal_page(&date.format("%Y-%m-%d").to_string())?;
+        let page = Self::create_journal_page_in(&tx, self.ids.generate_page_id(), &file_name)?;
         let item = Item::new_on(self.ids.generate_item_id(), &page, page.created_date);
-        let item = self.items.save(&item)?;
+        ItemRepository::save_in(&tx, &item)?;
+        tx.commit()?;
+        self.search.index_page(&page);
         self.export.queue_export(&page.id);
         Ok(JournalResult {
             page,
@@ -139,26 +146,32 @@ impl JournalService {
         file_name: &str,
         link_targets: Vec<String>,
     ) -> AppResult<JournalResult> {
-        if let Some(page) =
-            self.pages
-                .find_by_type_dir_path_file_name(JOURNAL_TYPE, "", file_name)?
-        {
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+        if let Some(page) = Self::find_journal_in(&tx, file_name)? {
             return self.existing_journal(page);
         }
-        let page = self.create_journal_page(file_name)?;
+        let page = Self::create_journal_page_in(&tx, self.ids.generate_page_id(), file_name)?;
+        let mut effects = AfterCommit::default();
         let mut items = Vec::new();
         let mut position = ItemPosition::First;
         for target in link_targets {
-            let item = self.item_service.create_item(
+            let item = self.item_service.create_item_in(
+                &tx,
                 &page.id,
                 &position,
                 1,
                 Some(&format!("[[{target}]]")),
                 None,
+                &mut effects,
             )?;
             position = ItemPosition::After(item.id.clone());
             items.push(item);
         }
+        tx.commit()?;
+        self.search.index_page(&page);
+        // The items are indexed and the page is written by the item effects
+        self.item_service.finish(effects);
         Ok(JournalResult {
             page,
             items,
@@ -175,18 +188,17 @@ impl JournalService {
         })
     }
 
-    /// Saves and indexes a new journal page without items.
-    fn create_journal_page(&self, file_name: &str) -> AppResult<Page> {
-        let page = Page::new(
-            self.ids.generate_page_id(),
-            "",
-            file_name,
-            JOURNAL_TYPE,
-            now_millis(),
-        );
-        let page = self.pages.save(&page)?;
-        self.search.index_page(&page);
-        Ok(page)
+    fn find_journal_in(tx: &Connection, file_name: &str) -> AppResult<Option<Page>> {
+        PageRepository::find_by_type_dir_path_file_name_in(tx, JOURNAL_TYPE, "", file_name)
+    }
+
+    /// Saves a new journal page without items, in the transaction. The caller indexes it
+    /// once the transaction is committed.
+    fn create_journal_page_in(tx: &Connection, id: Hmtid, file_name: &str) -> AppResult<Page> {
+        PageRepository::save_in(
+            tx,
+            &Page::new(id, "", file_name, JOURNAL_TYPE, now_millis()),
+        )
     }
 
     fn is_iso_week_numbering(&self) -> bool {
