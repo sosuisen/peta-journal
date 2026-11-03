@@ -116,7 +116,7 @@ impl ItemMerger {
                     .or_else(|| by_id.get(&ids[i]).map(|old| old.idx.clone()))
             })
             .collect();
-        let idxs = match order_planner::plan(&wanted_idx) {
+        let idxs = match order_planner::plan(&wanted_idx).and_then(order_planner::shortened) {
             Ok(v) => v,
             Err(_) => {
                 tracing::warn!(

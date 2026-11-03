@@ -62,6 +62,16 @@ fn longest_increasing_subsequence(idx: &[Option<String>]) -> Vec<bool> {
     keep
 }
 
+/// The indices with the ones grown too long replaced, as `fractional_index::shorten` does.
+pub fn shortened(mut indices: Vec<String>) -> Result<Vec<String>, NoGap> {
+    let as_str: Vec<&str> = indices.iter().map(String::as_str).collect();
+    let changes = fractional_index::shorten(&as_str)?;
+    for (position, idx) in changes {
+        indices[position] = idx;
+    }
+    Ok(indices)
+}
+
 /// Fresh indices for every position, used when the index space is exhausted.
 pub fn reindex_all(n: usize) -> Vec<String> {
     fractional_index::generate_indices(n)
@@ -92,6 +102,14 @@ mod tests {
         // The longest increasing run (a0, a1) is kept
         assert_eq!(r[1], "a0");
         assert_eq!(r[2], "a1");
+    }
+
+    // 長くなりすぎたインデックスは、取り込みで付け直される。
+    #[test]
+    fn indices_grown_too_long_are_replaced() {
+        let long = format!("a0{}", "V".repeat(20));
+        let r = shortened(vec!["a0".to_string(), long, "a1".to_string()]).unwrap();
+        assert_eq!(r, vec!["a0", "a0V", "a1"]);
     }
 
     // インデックスのない項目はa0から番号が付く。

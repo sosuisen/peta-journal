@@ -12,6 +12,10 @@
 const DIGITS: &[u8] = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 const RADIX: usize = DIGITS.len();
 const FIRST: &str = "a0";
+/// The longest an index may grow before the items around it are reindexed.
+pub const MAX_LEN: usize = 16;
+/// An index short enough to stay as it is and bound a reindex.
+const SHORT_LEN: usize = 8;
 
 /// No index fits between the two given, or one of them is not an index of this scheme.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
@@ -119,6 +123,34 @@ pub fn generate_indices(count: usize) -> Vec<String> {
         previous = Some(next);
     }
     indices
+}
+
+/// Fresh indexes for the items around every index longer than `MAX_LEN`: the run from the
+/// nearest short index before it to the nearest short index after it is spread over the gap
+/// between those two, which keep theirs. Returns the positions that change, with their new
+/// index. The rest of the page is untouched, so another device editing it meets as few
+/// changed indexes as possible.
+pub fn shorten(indices: &[&str]) -> Result<Vec<(usize, String)>, NoGap> {
+    let mut changes = Vec::new();
+    let mut i = 0;
+    while i < indices.len() {
+        if indices[i].len() <= MAX_LEN {
+            i += 1;
+            continue;
+        }
+        let left = (0..i).rev().find(|&k| indices[k].len() <= SHORT_LEN);
+        let right = (i + 1..indices.len()).find(|&k| indices[k].len() <= SHORT_LEN);
+        let start = left.map_or(0, |k| k + 1);
+        let end = right.unwrap_or(indices.len());
+        let fresh = between_many(
+            left.map(|k| indices[k]),
+            right.map(|k| indices[k]),
+            end - start,
+        )?;
+        changes.extend((start..end).zip(fresh));
+        i = end;
+    }
+    Ok(changes)
 }
 
 fn validate(key: &str) -> Result<(), NoGap> {
@@ -438,5 +470,62 @@ mod tests {
     fn a_sequence_of_indices_starts_at_a0() {
         assert_eq!(generate_indices(3), vec!["a0", "a1", "a2"]);
         assert!(generate_indices(0).is_empty());
+    }
+
+    fn long(n: usize) -> String {
+        format!("a0{}", "V".repeat(n))
+    }
+
+    // 上限より長いインデックスがなければ、何も変わらない。
+    #[test]
+    fn nothing_changes_while_no_index_is_longer_than_the_limit() {
+        let at_limit = long(MAX_LEN - 2);
+        assert_eq!(at_limit.len(), MAX_LEN);
+        assert!(shorten(&["a0", &at_limit, "a1"]).unwrap().is_empty());
+    }
+
+    // 長いインデックスの一続きは、両隣の短いインデックスの間に付け直される。
+    #[test]
+    fn a_run_of_long_indices_is_reindexed_between_its_short_neighbours() {
+        let run = [long(9), long(15), long(20)];
+        let indices = ["a0", "a0V", &run[0], &run[1], &run[2], "a0W", "a1"];
+
+        let changes = shorten(&indices).unwrap();
+
+        let positions: Vec<usize> = changes.iter().map(|(p, _)| *p).collect();
+        assert_eq!(positions, [2, 3, 4]);
+        let fresh: Vec<String> = changes.into_iter().map(|(_, idx)| idx).collect();
+        assert_ascending_between(Some("a0V"), Some("a0W"), &fresh);
+        assert!(fresh.iter().all(|idx| idx.len() <= 5), "{fresh:?}");
+    }
+
+    // 片側に短いインデックスがなければ、ページの端までが付け直される。
+    #[test]
+    fn a_run_without_a_short_neighbour_is_reindexed_up_to_the_end_of_the_page() {
+        let run = [long(20), long(9)];
+        let changes = shorten(&[&run[0], &run[1], "a5"]).unwrap();
+        let fresh: Vec<String> = changes.iter().map(|(_, idx)| idx.clone()).collect();
+        assert_eq!(fresh, ["a3", "a4"]);
+
+        let changes = shorten(&["a5", &run[0]]).unwrap();
+        assert_eq!(changes, [(1, "a6".to_string())]);
+
+        let changes = shorten(&[&run[0]]).unwrap();
+        assert_eq!(changes, [(0, "a0".to_string())]);
+    }
+
+    // 離れた2つの一続きは、それぞれ付け直される。
+    #[test]
+    fn two_runs_apart_are_each_reindexed() {
+        let run = [long(20), long(20)];
+        let changes = shorten(&["a0", &run[0], "a1", &run[1], "a2"]).unwrap();
+        assert_eq!(changes, [(1, "a0V".to_string()), (3, "a1V".to_string())]);
+    }
+
+    // 隣が旧い形のインデックスなら、付け直せない。
+    #[test]
+    fn a_run_next_to_an_index_of_the_old_scheme_cannot_be_reindexed() {
+        let run = long(20);
+        assert!(shorten(&["z0", &run, "a1"]).is_err());
     }
 }

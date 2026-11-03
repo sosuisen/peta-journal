@@ -38,16 +38,66 @@ async fn idxs_of(page_id: &str) -> Vec<String> {
         .collect()
 }
 
-/// Gives the items the indexes of the scheme before this one, as a database from then has
-fn give_old_indexes(rows: &[ItemRow]) {
+/// Writes the indexes straight into the database, as a database from before would have them
+fn set_indexes(rows: &[ItemRow], indexes: &[&str]) {
     let conn = server().state.db.conn().unwrap();
-    for (row, idx) in rows.iter().zip(["z0", "z1", "z2", "z3"]) {
+    for (row, idx) in rows.iter().zip(indexes) {
         conn.execute(
             "UPDATE items SET idx = ? WHERE id = ?",
             rusqlite::params![idx, row.id],
         )
         .unwrap();
     }
+}
+
+/// Gives the items the indexes of the scheme before this one
+fn give_old_indexes(rows: &[ItemRow]) {
+    set_indexes(rows, &["z0", "z1", "z2", "z3"]);
+}
+
+/// An index at the limit, and one right after it: nothing short fits between the two
+fn tight_gap() -> (String, String) {
+    let at_limit = format!("a0{}", "V".repeat(14));
+    assert_eq!(at_limit.len(), 16);
+    (at_limit.clone(), format!("{at_limit}W"))
+}
+
+// 狭い隙間に項目を動かしてインデックスが長くなると、その周りだけが付け直される。
+#[tokio::test]
+async fn moving_an_item_into_a_tight_gap_reindexes_around_the_gap() {
+    let page = new_doc_page("items-move-tight").await;
+    let rows = fill(&page.id, &["a", "b", "c"]).await;
+    let (a, b) = tight_gap();
+    set_indexes(&rows, &[&a, &b, "a1"]);
+
+    move_items(
+        &[&rows[2].id],
+        &page.id,
+        &format!("after:{}", rows[0].id),
+        None,
+    )
+    .await;
+
+    assert_eq!(outline_of(&page.id).await, vs(&["1:a", "1:c", "1:b"]));
+    let idxs = idxs_of(&page.id).await;
+    assert!(idxs.iter().all(|idx| idx.len() <= 16), "{idxs:?}");
+}
+
+// 長いインデックスの隣に旧い形のインデックスがあれば、ページ全体が付け直される。
+#[tokio::test]
+async fn an_index_of_the_old_scheme_next_to_a_long_one_makes_the_whole_page_reindex() {
+    let page = new_doc_page("items-old-next-to-long").await;
+    let rows = fill(&page.id, &["a", "b", "c"]).await;
+    let (a, b) = tight_gap();
+    set_indexes(&rows, &[&a, &b, "z5"]);
+
+    create_item(&page.id, &format!("after:{}", rows[0].id), 1, "x").await;
+
+    assert_eq!(
+        outline_of(&page.id).await,
+        vs(&["1:a", "1:x", "1:b", "1:c"])
+    );
+    assert_eq!(idxs_of(&page.id).await, vs(&["a0", "a1", "a2", "a3"]));
 }
 
 // 旧い形のインデックスを持つページに項目を足すか動かすと、ページの全項目が付け直される。
@@ -68,6 +118,43 @@ async fn a_page_with_indexes_of_the_old_scheme_is_reindexed_when_an_item_is_adde
 
     assert_eq!(outline_of(&page.id).await, vs(&["1:b", "1:a", "1:x"]));
     assert_eq!(idxs_of(&page.id).await, vs(&["Zz", "a0", "a1"]));
+}
+
+// 同じ隙間に入れ続けてインデックスが長くなると、その周りだけが付け直される。
+#[tokio::test]
+async fn indexes_grown_long_in_one_gap_are_reindexed_around_that_gap_only() {
+    let page = new_doc_page("items-long-idx").await;
+    let rows = fill(&page.id, &["a", "b"]).await;
+    let before = idxs_of(&page.id).await;
+    let (_, b_before) = get(&format!("/api/items/{}", rows[1].id)).await;
+
+    // Each new item goes right under "a", between it and the one before
+    for n in 0..90 {
+        create_item(
+            &page.id,
+            &format!("after:{}", rows[0].id),
+            1,
+            &format!("x{n}"),
+        )
+        .await;
+    }
+
+    let outline = outline_of(&page.id).await;
+    assert_eq!(outline.len(), 92);
+    assert_eq!(outline[0], "1:a");
+    assert_eq!(outline[1], "1:x89");
+    assert_eq!(outline[90], "1:x0");
+    assert_eq!(outline[91], "1:b");
+    let idxs = idxs_of(&page.id).await;
+    assert_eq!(idxs[0], before[0]);
+    assert_eq!(idxs[91], before[1]);
+    assert!(idxs.iter().all(|idx| idx.len() <= 16), "{idxs:?}");
+    // The items reindexed were not changed: b keeps its index and its modified date
+    let (_, b_after) = get(&format!("/api/items/{}", rows[1].id)).await;
+    assert_eq!(
+        b_after["item"]["modifiedDate"],
+        b_before["item"]["modifiedDate"]
+    );
 }
 
 // クライアントが付けたIDがそのまま使われる。
@@ -1454,6 +1541,39 @@ async fn a_file_with_indexes_of_the_old_scheme_is_reindexed_and_written_back() {
     wait_until("the file is written back", || {
         let file = read(&file_of(&page));
         file.contains("three") && !file.contains("idx=\"z")
+    })
+    .await;
+}
+
+// 長くなりすぎたインデックスのファイルは、付け直して書き戻される。
+#[tokio::test]
+async fn a_file_with_an_index_grown_too_long_is_reindexed_and_written_back() {
+    let _folder = FOLDER_SCAN.lock().await;
+    let page = new_doc_page("sync-long-idx").await;
+    fill(&page.id, &["one", "two"]).await;
+    wait_until("the page is exported", || {
+        read(&file_of(&page)).contains("two")
+    })
+    .await;
+
+    let before = idxs_of(&page.id).await;
+    let long = format!("{}{}", before[1], "V".repeat(20));
+    let grown = read(&file_of(&page)).replace(
+        &format!("idx=\"{}\"", before[1]),
+        &format!("idx=\"{long}\""),
+    );
+    assert!(grown.contains(&long), "{grown}");
+    std::fs::write(file_of(&page), grown).unwrap();
+    let result = scan().await;
+
+    assert!(result["imported"].as_i64().unwrap() >= 1, "{result}");
+    assert_eq!(outline_of(&page.id).await, vs(&["1:one", "1:two"]));
+    let idxs = idxs_of(&page.id).await;
+    assert_eq!(idxs[0], before[0]);
+    assert!(idxs[1].len() <= 16, "{idxs:?}");
+    wait_until("the file is written back", || {
+        let file = read(&file_of(&page));
+        file.contains(&format!("idx=\"{}\"", idxs[1])) && !file.contains(&long)
     })
     .await;
 }
