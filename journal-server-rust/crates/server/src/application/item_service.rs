@@ -560,15 +560,22 @@ impl ItemService {
         body: &str,
         transclude: Option<Hmtid>,
     ) -> AppResult<Item> {
+        let now = now_millis();
         let updated = Item {
-            modified_date: now_millis(),
+            modified_date: now,
             body: body.to_string(),
             ast: self.parser.parse_to_ast(body),
             transclude_item_id: transclude,
             ..item.clone()
         };
-        let updated = self.items.save(&updated)?;
-        self.touch_and_export(&item.page_id)?;
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+        ItemRepository::save_in(&tx, &updated)?;
+        PageRepository::touch_in(&tx, &item.page_id, now)?;
+        tx.commit()?;
+        let mut effects = AfterCommit::default();
+        effects.pages.insert(item.page_id.clone());
+        self.finish(effects);
         Ok(updated)
     }
 
