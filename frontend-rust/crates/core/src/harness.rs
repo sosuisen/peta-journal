@@ -70,6 +70,7 @@ pub fn op_name(op: &ApiOp) -> &'static str {
         ApiOp::UpdateConfig { .. } => "UpdateConfig",
         ApiOp::BrowseFolder => "BrowseFolder",
         ApiOp::ExportTreeMarkdown { .. } => "ExportTreeMarkdown",
+        ApiOp::TranscludedItems { .. } => "TranscludedItems",
         ApiOp::ImportTreeMarkdown { .. } => "ImportTreeMarkdown",
         ApiOp::ParseFlatMarkdown { .. } => "ParseFlatMarkdown",
         ApiOp::SetTransclusion { .. } => "SetTransclusion",
@@ -219,6 +220,7 @@ impl FakeApi {
             ),
             ApiOp::ImportTreeMarkdown { .. } => ApiOutput::FlatMarkdown("from tree".into()),
             ApiOp::UploadAsset { .. } => ApiOutput::FileName("pic.png".into()),
+            ApiOp::TranscludedItems { .. } => ApiOutput::ItemIds(Vec::new()),
             ApiOp::ExportTreeMarkdown { .. } => ApiOutput::TreeExport(TreeExport {
                 tree_markdown: "- tree".into(),
                 ast: String::new(),
@@ -433,7 +435,7 @@ impl Harness {
                 let op = request.operation.clone();
                 let answer = match &op {
                     UiOp::ReadClipboardText => UiOutput::Text(Some(self.clipboard_text.clone())),
-                    UiOp::Confirm(_) => UiOutput::Bool(self.confirm),
+                    UiOp::Confirm(_) | UiOp::ConfirmDestructive(_) => UiOutput::Bool(self.confirm),
                     UiOp::Prompt(_) => UiOutput::Text(self.prompt.clone()),
                     UiOp::LocalNow => UiOutput::Now {
                         local: LocalDateTimeDto {

@@ -1,7 +1,7 @@
 //! What happens to the selected items: delete, copy, cut and move.
 
 use crate::app::{Event, SelectionKey};
-use crate::effects::UiOp;
+use crate::effects::{ApiOutput, UiOp};
 use crate::harness::{delete_calls, item, move_calls, Harness};
 use crate::testing::item_with;
 
@@ -30,6 +30,106 @@ fn deleting_the_selection_removes_the_items_as_one_undo_entry_and_keeps_one_item
         "an empty item was created so the page is not empty"
     );
     assert_eq!(h.model.undo.pop_undo().unwrap().label, "delete-selection");
+}
+
+/// "a" and "b" selected, with "a" transcluded by an item on another page
+fn select_with_a_transcluded_item(confirm: bool) -> Harness {
+    let mut h = Harness::with_items(vec![item("a", 1, "x"), item("b", 1, "y")]);
+    h.confirm = confirm;
+    h.api
+        .answer_next("TranscludedItems", Ok(ApiOutput::ItemIds(vec!["a".into()])));
+    select(&mut h, &["a", "b"]);
+    h
+}
+
+fn destructive_confirms(h: &Harness) -> Vec<String> {
+    h.ui.iter()
+        .filter_map(|op| match op {
+            UiOp::ConfirmDestructive(m) => Some(m.clone()),
+            _ => None,
+        })
+        .collect()
+}
+
+// 他の項目からトランスクルードされている項目を含む選択の削除は、確認でOKのときだけ行われる。
+#[test]
+fn deleting_a_selection_with_a_transcluded_item_asks_first_and_deletes_on_ok() {
+    let mut h = select_with_a_transcluded_item(true);
+    key(&mut h, SelectionKey::Delete);
+
+    assert_eq!(
+        destructive_confirms(&h),
+        ["1 item to delete is transcluded by another item. Delete anyway? Each transclusion keeps a plain copy."]
+    );
+    assert_eq!(
+        delete_calls(&h.api),
+        [vec!["a".to_string(), "b".to_string()]]
+    );
+    assert!(!h.model.state.item_selection_mode());
+}
+
+// 確認でキャンセルすると、何も消えず、選択状態も残る。
+#[test]
+fn a_cancel_to_the_confirmation_deletes_nothing_and_keeps_the_selection() {
+    let mut h = select_with_a_transcluded_item(false);
+    key(&mut h, SelectionKey::Delete);
+
+    assert_eq!(destructive_confirms(&h).len(), 1);
+    assert!(delete_calls(&h.api).is_empty());
+    assert_eq!(h.items_ids(), ["a", "b"]);
+    assert!(h.model.state.item_selection_mode(), "the selection stays");
+}
+
+// 切り取りも、確認でキャンセルすると何も消えない。
+#[test]
+fn a_cut_of_a_transcluded_item_is_asked_about_too() {
+    let mut h = select_with_a_transcluded_item(false);
+    key(&mut h, SelectionKey::Cut);
+
+    assert_eq!(destructive_confirms(&h).len(), 1);
+    assert!(delete_calls(&h.api).is_empty());
+    assert_eq!(h.items_ids(), ["a", "b"]);
+}
+
+// 複数の項目がトランスクルードされていれば、確認はその数を伝える。
+#[test]
+fn the_confirmation_tells_how_many_items_are_transcluded() {
+    let mut h = Harness::with_items(vec![item("a", 1, "x"), item("b", 1, "y")]);
+    h.api.answer_next(
+        "TranscludedItems",
+        Ok(ApiOutput::ItemIds(vec!["a".into(), "b".into()])),
+    );
+    select(&mut h, &["a", "b"]);
+    key(&mut h, SelectionKey::Delete);
+
+    assert!(destructive_confirms(&h)[0]
+        .starts_with("2 items to delete are transcluded by other items."));
+}
+
+// トランスクルードされている項目がなければ、確認なしに削除される。
+#[test]
+fn a_selection_no_other_item_transcludes_is_deleted_without_a_question() {
+    let mut h = Harness::with_items(vec![item("a", 1, "x"), item("b", 1, "y")]);
+    h.confirm = false;
+    select(&mut h, &["a"]);
+    key(&mut h, SelectionKey::Delete);
+
+    assert!(h.api.called("TranscludedItems"));
+    assert!(destructive_confirms(&h).is_empty());
+    assert_eq!(delete_calls(&h.api), [vec!["a".to_string()]]);
+}
+
+// サーバーに尋ねるのに失敗したら、確認なしに削除する。
+#[test]
+fn a_failed_question_to_the_server_deletes_without_a_confirmation() {
+    let mut h = Harness::with_items(vec![item("a", 1, "x"), item("b", 1, "y")]);
+    h.confirm = false;
+    h.api.fail_next("TranscludedItems", "offline");
+    select(&mut h, &["a"]);
+    key(&mut h, SelectionKey::Delete);
+
+    assert!(destructive_confirms(&h).is_empty());
+    assert_eq!(delete_calls(&h.api), [vec!["a".to_string()]]);
 }
 
 // 選択移動では、選択されたサブツリーが一つのまとまりとして端のルートの兄弟を越えて移動する。

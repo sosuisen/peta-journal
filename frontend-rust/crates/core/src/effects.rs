@@ -143,6 +143,10 @@ pub enum ApiOp {
     ExportTreeMarkdown {
         item_ids: Vec<String>,
     },
+    /// Which of the items other items transclude; asked before a deletion.
+    TranscludedItems {
+        item_ids: Vec<String>,
+    },
     ImportTreeMarkdown {
         tree_markdown: String,
     },
@@ -248,6 +252,7 @@ pub enum ApiOutput {
     Folder(FolderChoice),
     TreeExport(TreeExport),
     FlatMarkdown(String),
+    ItemIds(Vec<String>),
     ParsedItems(Vec<ParsedFlatItem>),
     FileName(String),
     Functions(Vec<FunctionInfo>),
@@ -368,6 +373,9 @@ pub enum UiOp {
     Alert(String),
     /// Resolved with `UiOutput::Bool`.
     Confirm(String),
+    /// A confirmation of something hard to undo: the shell's dialog answers No by default,
+    /// so Enter or Escape alone never says yes. Resolved with `UiOutput::Bool`.
+    ConfirmDestructive(String),
     /// Resolved with `UiOutput::Text`; None when dismissed.
     Prompt(String),
     OpenWindow {
@@ -854,6 +862,13 @@ impl<Event: Send + 'static> Api<Event> {
         expect_output!(self.call(ApiOp::BrowseFolder).await, Folder)
     }
 
+    pub async fn transcluded_items(&self, item_ids: Vec<String>) -> ApiResult<Vec<String>> {
+        expect_output!(
+            self.call(ApiOp::TranscludedItems { item_ids }).await,
+            ItemIds
+        )
+    }
+
     pub async fn export_tree_markdown(&self, item_ids: Vec<String>) -> ApiResult<TreeExport> {
         expect_output!(
             self.call(ApiOp::ExportTreeMarkdown { item_ids }).await,
@@ -965,6 +980,13 @@ impl<Event: Send + 'static> Api<Event> {
     pub async fn confirm(&self, message: &str) -> bool {
         matches!(
             self.ui(UiOp::Confirm(message.into())).await,
+            UiOutput::Bool(true)
+        )
+    }
+
+    pub async fn confirm_destructive(&self, message: &str) -> bool {
+        matches!(
+            self.ui(UiOp::ConfirmDestructive(message.into())).await,
             UiOutput::Bool(true)
         )
     }

@@ -1,7 +1,7 @@
 //! The handlers of the outline component, ported from `outline.ts`: starting and ending
 //! edits, moving between items, and what the keys of selection mode do.
 
-use crate::app::{apply, done, run, Cmd, Model, MoveDirection, SelectionKey};
+use crate::app::{apply, done, log_error, run, Cmd, Model, MoveDirection, SelectionKey};
 use crate::effects::UiOp;
 use crate::model::{Item, ItemPosition};
 use crate::ops::edit::{focus_editor, record_typing, save_item_if_dirty, save_target_id, Handover};
@@ -161,10 +161,39 @@ fn delete_selected(model: &mut Model) -> Cmd {
     if ids.is_empty() {
         return done();
     }
-    model.selection.exit(&mut model.state);
-    let delete = action::delete_items(model, &ids);
-    let ensure = ensure_at_least_one_item(model);
-    Command::all([delete, ensure])
+    run(move |api| async move {
+        // Items other items transclude are asked about first: the deletion leaves only plain
+        // copies in their place, which is hard to undo on those other pages
+        let transcluded = match api.transcluded_items(ids.clone()).await {
+            Ok(transcluded) => transcluded,
+            Err(e) => {
+                log_error(format!("Failed to ask which items are transcluded: {e}"));
+                Vec::new()
+            }
+        };
+        if !transcluded.is_empty()
+            && !api
+                .confirm_destructive(&transcluded_delete_message(transcluded.len()))
+                .await
+        {
+            return;
+        }
+        apply(&api, "delete selection", move |model| {
+            model.selection.exit(&mut model.state);
+            let delete = action::delete_items(model, &ids);
+            let ensure = ensure_at_least_one_item(model);
+            Command::all([delete, ensure])
+        });
+    })
+}
+
+fn transcluded_delete_message(count: usize) -> String {
+    let subject = if count == 1 {
+        "1 item to delete is transcluded by another item".to_string()
+    } else {
+        format!("{count} items to delete are transcluded by other items")
+    };
+    format!("{subject}. Delete anyway? Each transclusion keeps a plain copy.")
 }
 
 /// Whether a selected item is a transclusion. The selected ids stand for the source items,

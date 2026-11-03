@@ -4,6 +4,7 @@
 use crate::core::CoreHandle;
 use crate::dom;
 use crux_core::Request;
+use leptos::prelude::Set;
 use peta_core::effects::{FunctionInfo, LocalDateTimeDto, UiOp, UiOutput};
 use peta_core::Event;
 use wasm_bindgen::prelude::*;
@@ -86,6 +87,21 @@ impl PendingCopy {
         let _ = self.text.reject.call1(&JsValue::NULL, &reason);
         let _ = self.html.reject.call1(&JsValue::NULL, &reason);
     }
+}
+
+/// A `ConfirmDestructive` request waiting for the dialog's answer.
+pub struct PendingConfirm {
+    request: Request<UiOp>,
+}
+
+/// Answers the confirmation dialog on screen, if one is open, and closes it.
+pub fn answer_confirm(handle: CoreHandle, ok: bool) {
+    let inner = handle.inner();
+    let Some(mut pending) = inner.confirm.take() else {
+        return;
+    };
+    inner.confirm_message.set(None);
+    handle.resolve(&mut pending.request, UiOutput::Bool(ok));
 }
 
 /// Begins the clipboard write of a copy or cut of the selection. Called from the handler of
@@ -182,6 +198,15 @@ pub fn perform(handle: CoreHandle, mut request: Request<UiOp>) {
                 .confirm_with_message(&message)
                 .unwrap_or(false);
             handle.resolve(&mut request, UiOutput::Bool(ok));
+        }
+        UiOp::ConfirmDestructive(message) => {
+            // The browser's confirm answers OK to Enter, so this one is a dialog of our own
+            // whose Cancel button has the focus; see `ConfirmDialog`
+            let inner = handle.inner();
+            if let Some(mut earlier) = inner.confirm.replace(Some(PendingConfirm { request })) {
+                handle.resolve(&mut earlier.request, UiOutput::Bool(false));
+            }
+            inner.confirm_message.set(Some(message));
         }
         UiOp::Prompt(message) => {
             let answer = dom::window().prompt_with_message(&message).ok().flatten();
