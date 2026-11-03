@@ -64,6 +64,15 @@ impl PropertyRepository {
         target_type: &str,
         target_ids: &[String],
     ) -> AppResult<ScalarProps> {
+        Self::find_scalar_by_targets_in(&*self.db.conn()?, target_type, target_ids)
+    }
+
+    /// The scalar properties of the given targets, on the given connection.
+    pub fn find_scalar_by_targets_in(
+        conn: &Connection,
+        target_type: &str,
+        target_ids: &[String],
+    ) -> AppResult<ScalarProps> {
         let mut result = ScalarProps::new();
         if target_ids.is_empty() {
             return Ok(result);
@@ -74,7 +83,6 @@ impl PropertyRepository {
              WHERE p.target_type = ? AND p.target_id IN ({})",
             placeholders(target_ids.len())
         );
-        let conn = self.db.conn()?;
         let mut stmt = conn.prepare(&sql)?;
         let mut params: Vec<&dyn rusqlite::ToSql> = vec![&target_type];
         for id in target_ids {
@@ -98,6 +106,15 @@ impl PropertyRepository {
         target_type: &str,
         target_ids: &[String],
     ) -> AppResult<ListProps> {
+        Self::find_list_by_targets_in(&*self.db.conn()?, target_type, target_ids)
+    }
+
+    /// The list properties of the given targets, on the given connection.
+    pub fn find_list_by_targets_in(
+        conn: &Connection,
+        target_type: &str,
+        target_ids: &[String],
+    ) -> AppResult<ListProps> {
         let mut result = ListProps::new();
         if target_ids.is_empty() {
             return Ok(result);
@@ -107,7 +124,6 @@ impl PropertyRepository {
              WHERE target_type = ? AND target_id IN ({}) ORDER BY target_id, key, sort_order",
             placeholders(target_ids.len())
         );
-        let conn = self.db.conn()?;
         let mut stmt = conn.prepare(&sql)?;
         let mut params: Vec<&dyn rusqlite::ToSql> = vec![&target_type];
         for id in target_ids {
@@ -130,8 +146,12 @@ impl PropertyRepository {
 
     /// All property definitions, ordered by key: key -> value type.
     pub fn find_all_definitions(&self) -> AppResult<BTreeMap<String, String>> {
-        Ok(self
-            .find_definitions()?
+        Self::find_all_definitions_in(&*self.db.conn()?)
+    }
+
+    /// All property definitions, on the given connection: key -> value type.
+    pub fn find_all_definitions_in(conn: &Connection) -> AppResult<BTreeMap<String, String>> {
+        Ok(Self::find_definitions_in(conn)?
             .into_iter()
             .map(|d| (d.key, d.value_type))
             .collect())
@@ -139,7 +159,11 @@ impl PropertyRepository {
 
     /// All property definitions with their flags, ordered by key.
     pub fn find_definitions(&self) -> AppResult<Vec<PropertyDefinition>> {
-        let conn = self.db.conn()?;
+        Self::find_definitions_in(&*self.db.conn()?)
+    }
+
+    /// All property definitions with their flags, on the given connection.
+    pub fn find_definitions_in(conn: &Connection) -> AppResult<Vec<PropertyDefinition>> {
         let mut stmt = conn.prepare(
             "SELECT key, value_type, is_system, for_page FROM property_definitions ORDER BY key",
         )?;
@@ -241,8 +265,26 @@ impl PropertyRepository {
         value_type: &str,
         value: &str,
     ) -> AppResult<()> {
+        Self::upsert_scalar_in(
+            &*self.db.conn()?,
+            target_type,
+            target_id,
+            key,
+            value_type,
+            value,
+        )
+    }
+
+    /// `upsert_scalar` on the given connection, as part of a larger transaction.
+    pub fn upsert_scalar_in(
+        conn: &Connection,
+        target_type: &str,
+        target_id: &str,
+        key: &str,
+        value_type: &str,
+        value: &str,
+    ) -> AppResult<()> {
         validate_key(key)?;
-        let conn = self.db.conn()?;
         conn.execute(
             "INSERT OR IGNORE INTO property_definitions (key, value_type) VALUES (?, ?)",
             params![key, value_type],
@@ -326,17 +368,46 @@ impl PropertyRepository {
         value_type: &str,
         values: &[String],
     ) -> AppResult<()> {
+        Self::upsert_list_in(
+            &*self.db.conn()?,
+            target_type,
+            target_id,
+            key,
+            value_type,
+            values,
+        )
+    }
+
+    /// `upsert_list` on the given connection, as part of a larger transaction.
+    pub fn upsert_list_in(
+        conn: &Connection,
+        target_type: &str,
+        target_id: &str,
+        key: &str,
+        value_type: &str,
+        values: &[String],
+    ) -> AppResult<()> {
         validate_key(key)?;
-        self.db.conn()?.execute(
+        conn.execute(
             "INSERT OR IGNORE INTO property_definitions (key, value_type) VALUES (?, ?)",
             params![key, value_type],
         )?;
-        self.replace_list(target_type, target_id, key, values)
+        replace_list_in(conn, target_type, target_id, key, values)
     }
 
     /// Removes a property, scalar or list, of one target.
     pub fn delete_property(&self, target_type: &str, target_id: &str, key: &str) -> AppResult<()> {
-        let conn = self.db.conn()?;
+        Self::delete_property_in(&*self.db.conn()?, target_type, target_id, key)
+    }
+
+    /// Removes a property of one target on the given connection, as part of a larger
+    /// transaction.
+    pub fn delete_property_in(
+        conn: &Connection,
+        target_type: &str,
+        target_id: &str,
+        key: &str,
+    ) -> AppResult<()> {
         conn.execute(
             "DELETE FROM properties WHERE target_type = ? AND target_id = ? AND key = ?",
             params![target_type, target_id, key],
@@ -410,16 +481,6 @@ impl PropertyRepository {
             params![prefix],
         )?;
         Ok(())
-    }
-
-    fn replace_list(
-        &self,
-        target_type: &str,
-        target_id: &str,
-        key: &str,
-        values: &[String],
-    ) -> AppResult<()> {
-        replace_list_in(&*self.db.conn()?, target_type, target_id, key, values)
     }
 
     /// The tags of one target, in sort order.

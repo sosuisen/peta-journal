@@ -152,7 +152,6 @@ impl AppState {
         );
         let item_merger = ItemMerger::new(
             items.clone(),
-            properties.clone(),
             parser.clone(),
             Arc::clone(&search),
             Arc::clone(&ids),
