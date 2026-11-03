@@ -188,8 +188,7 @@ pub fn selection_start_index(items: &[ItemRef], anchor_idx: usize, other_idx: us
     start
 }
 
-/// The ids of the visible items from start to end (inclusive) together with their whole
-/// subtrees, read from the own items so that collapsed children are included too.
+/// The ids of the visible items from start to end (inclusive), each with its selection group.
 pub fn ids_of_range_with_subtrees(
     visible: &[ItemRef],
     own: &[ItemRef],
@@ -198,10 +197,21 @@ pub fn ids_of_range_with_subtrees(
 ) -> HashSet<String> {
     let mut ids = HashSet::new();
     for item in &visible[start..=end.min(visible.len() - 1)] {
-        ids.insert(item.id.clone());
-        for b in get_subtree(own, &item.id) {
-            ids.insert(b.id.clone());
-        }
+        ids.extend(selection_group(visible, own, &item.id));
+    }
+    ids
+}
+
+/// The ids of an item and of everything under it, as a selection takes them. The own items
+/// give the collapsed children too. The visible items give what a transclusion shows under
+/// it, which is not in the own items.
+pub fn selection_group(visible: &[ItemRef], own: &[ItemRef], item_id: &str) -> HashSet<String> {
+    let mut ids = HashSet::from([item_id.to_string()]);
+    for b in get_subtree(own, item_id)
+        .iter()
+        .chain(get_subtree(visible, item_id).iter())
+    {
+        ids.insert(b.id.clone());
     }
     ids
 }

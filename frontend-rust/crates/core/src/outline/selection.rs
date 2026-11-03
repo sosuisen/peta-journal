@@ -23,20 +23,17 @@ impl Selection {
         self.dragging
     }
 
-    /// Starts a keyboard selection from an editor: only the item itself, no subtree.
+    /// Starts a keyboard selection from an editor: the item with everything under it, as a
+    /// selected item always comes with its descendants.
     pub fn start_from_editor(&mut self, state: &mut OutlineState, item_id: &str) {
         state.remove_all_editing_items();
-        self.enter(state, item_id, HashSet::from([item_id.to_string()]));
+        let ids = state.selection_group(item_id);
+        self.enter(state, item_id, ids);
     }
 
     /// Selects an item together with its subtree, e.g. the item the page was opened on.
     pub fn select_subtree(&mut self, state: &mut OutlineState, item_id: &str) {
-        let mut ids: HashSet<String> = state
-            .get_children(item_id)
-            .iter()
-            .map(|b| b.id.clone())
-            .collect();
-        ids.insert(item_id.to_string());
+        let ids = state.selection_group(item_id);
         self.enter(state, item_id, ids);
     }
 
@@ -47,11 +44,7 @@ impl Selection {
         state.set_item_selection_mode(true);
         self.anchor_item_id = Some(item_id.to_string());
         self.dragging = true;
-        let group: HashSet<String> = state
-            .get_item_with_children(item_id)
-            .iter()
-            .map(|b| b.id.clone())
-            .collect();
+        let group = state.selection_group(item_id);
         state.set_selected_item_ids(group);
     }
 
@@ -190,7 +183,8 @@ impl Selection {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::testing::plain_item;
+    use crate::model::TranscludedTrees;
+    use crate::testing::{item_with, plain_item};
 
     fn state() -> OutlineState {
         let mut state = OutlineState::default();
@@ -241,5 +235,59 @@ mod tests {
         sel.end_drag();
         sel.extend_drag_to(&mut state, "a");
         assert_eq!(selected(&state).len(), 5);
+    }
+
+    // エディタから始めた選択も、その項目の子孫をすべて含む。
+    #[test]
+    fn a_selection_from_an_editor_takes_the_children_too() {
+        let mut state = state();
+        let mut sel = Selection::default();
+        sel.start_from_editor(&mut state, "a");
+        assert_eq!(selected(&state), ["a", "b", "c"]);
+    }
+
+    /// "t" transcludes "src", which shows its child "c" under "t". "t" also has its own
+    /// child "own", which is collapsed and so hidden, with its child "hidden".
+    fn state_with_transclusion() -> OutlineState {
+        let mut state = OutlineState::default();
+        state.set_items(vec![
+            plain_item("x", 1, ""),
+            item_with("t", 1, |i| i.transclude_item_id = Some("src".into())),
+            item_with("own", 2, |i| i.collapsed = true),
+            plain_item("hidden", 3, ""),
+            plain_item("y", 1, ""),
+        ]);
+        let mut trees = TranscludedTrees::new();
+        trees.insert(
+            "src".into(),
+            vec![plain_item("src", 1, ""), plain_item("c", 2, "")],
+        );
+        state.set_transcluded_trees(trees);
+        state
+    }
+
+    // トランスクルージョンを選ぶと、その下に見える項目と、折りたたまれた自分の子も選ばれる。
+    // エディタから始めても、範囲を広げても、ドラッグでも同じである。
+    #[test]
+    fn selecting_a_transclusion_takes_everything_under_it() {
+        let under_t = ["c", "hidden", "own", "t"];
+
+        let mut state = state_with_transclusion();
+        let mut sel = Selection::default();
+        sel.start_from_editor(&mut state, "t");
+        assert_eq!(selected(&state), under_t);
+
+        let mut state = state_with_transclusion();
+        let mut sel = Selection::default();
+        sel.start_from_editor(&mut state, "x");
+        sel.extend_down(&mut state);
+        assert_eq!(selected(&state), ["c", "hidden", "own", "t", "x"]);
+        sel.extend_down(&mut state);
+        assert_eq!(selected(&state), ["c", "hidden", "own", "t", "x", "y"]);
+
+        let mut state = state_with_transclusion();
+        let mut sel = Selection::default();
+        sel.start_drag(&mut state, "t");
+        assert_eq!(selected(&state), under_t);
     }
 }

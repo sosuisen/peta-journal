@@ -171,7 +171,7 @@ test.describe('deleting a selected transclusion', () => {
       await openEditor(page, host[0].id);
       await page.keyboard.press('Shift+ArrowDown');  // leaves the editor: "before" is selected
       await page.keyboard.press('Shift+ArrowDown');  // B and what it shows join the selection
-      await expect(page.locator('app-outline-item .outline-item.selected')).toHaveCount(2);
+      await expect(page.locator('app-outline-item .outline-item.selected')).toHaveCount(3);
       await page.keyboard.press(key);
 
       expect(outlineOf(await server.itemsSettled(hostId, i => i.length === 1))).toEqual(['1:after']);
