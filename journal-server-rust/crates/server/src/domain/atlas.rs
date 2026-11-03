@@ -659,9 +659,9 @@ mod tests {
         );
     }
 
-    // 導出したIDは、アトラスと同じ時刻の正しいIDである。
+    // 導出したIDは、アトラスと同じ時刻を持ち、アトラスと名前で決まる。
     #[test]
-    fn a_derived_id_is_a_valid_id_of_the_time_of_the_atlas() {
+    fn a_derived_id_takes_the_time_of_the_atlas_and_is_decided_by_the_atlas_and_the_name() {
         let made = derived_id(&atlas(), "card x");
 
         assert_eq!(made.timestamp_digits(), atlas().timestamp_digits());

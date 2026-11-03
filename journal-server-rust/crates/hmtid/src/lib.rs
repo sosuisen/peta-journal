@@ -438,15 +438,4 @@ mod tests {
         let next = g.generate_at(1_634_115_600_200);
         assert_eq!(next.as_str(), "20211013090001_0000001");
     }
-
-    #[test]
-    fn serde_round_trip() {
-        let id = Hmtid::parse("2026-09-29-00-00-00-AAAAAAA").unwrap();
-        let json = serde_json_lite(&id);
-        assert_eq!(json, "\"2026-09-29-00-00-00-AAAAAAA\"");
-    }
-
-    fn serde_json_lite(id: &Hmtid) -> String {
-        format!("\"{}\"", id)
-    }
 }

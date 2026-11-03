@@ -65,6 +65,18 @@ impl From<hmtid::HmtidError> for AppError {
     }
 }
 
+impl From<crate::domain::bounds::NotBounds> for AppError {
+    fn from(e: crate::domain::bounds::NotBounds) -> Self {
+        AppError::BadRequest(e.to_string())
+    }
+}
+
+impl From<crate::domain::journal_name::NotAJournalName> for AppError {
+    fn from(e: crate::domain::journal_name::NotAJournalName) -> Self {
+        AppError::BadRequest(e.to_string())
+    }
+}
+
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         match self {

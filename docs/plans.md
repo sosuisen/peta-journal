@@ -81,3 +81,9 @@
 - [ ] 将来: フォルダ同期の項目ごとの合流（項目ごとのLWW、conflicted copyの合流、`idx`衝突の決め）。案は`docs/folder-sync-future.md`
 - [x] 項目の`idx`をrocicorpの方式に置き換え、先頭への挿入が62回目で落ちるのを直す（`docs/folder-sync-future.md`）
 - [x] 16文字を超えた`idx`を、隙間の周りだけ振り直す（`docs/folder-sync-future.md`の4つの規則）
+- [x] 型が保証する検査をテストから外す（Rustスキル「型で保証してテストを減らす」）
+  - [x] `hmtid`の`serde_round_trip`を消す（`Display`は別のテストが確かめている）
+  - [x] `Bounds`型: 4つの数の解析を境界で一度だけ行い、不正な値のテストを型の単体テストへ移す
+  - [x] `JournalName`型: ジャーナルの名前の解析を境界で一度だけ行い、拒否のテストを型の単体テストへ移す
+  - [ ] `ItemBody::parse`の引数を`Option<&str>`から`&str`にし、`None`の分岐とテストを消す
+  - やらないと決めたもの: checkboxの値の`bool`化とASTの型化。保存の形まで変わるので、見合わない

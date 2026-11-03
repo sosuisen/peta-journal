@@ -1140,6 +1140,31 @@ async fn a_week_is_created_with_one_link_per_day() {
     assert_eq!(bodies[6], json!("[[1999-03-14]]"));
 }
 
+// 月のジャーナルは、その月にかかる週に1つずつのリンクを持って作られる。
+#[tokio::test]
+async fn a_month_is_created_with_one_link_per_week_that_touches_it() {
+    let month = journal("1999-03").await;
+
+    assert_eq!(month["created"], json!(true));
+    let bodies = field_of_each(&month, "items", "body");
+    // March 1999 runs from ISO week 9 (Monday the 1st) to week 13 (Wednesday the 31st)
+    assert_eq!(bodies.len(), 5);
+    assert_eq!(bodies[0], json!("[[1999-W09]]"));
+    assert_eq!(bodies[4], json!("[[1999-W13]]"));
+}
+
+// 年のジャーナルは、1か月に1つのリンクを持って作られる。
+#[tokio::test]
+async fn a_year_is_created_with_one_link_per_month() {
+    let year = journal("1999").await;
+
+    assert_eq!(year["created"], json!(true));
+    let bodies = field_of_each(&year, "items", "body");
+    assert_eq!(bodies.len(), 12);
+    assert_eq!(bodies[0], json!("[[1999-01]]"));
+    assert_eq!(bodies[11], json!("[[1999-12]]"));
+}
+
 // ある週より前の、直近の週のジャーナルが見つかる。
 #[tokio::test]
 async fn the_most_recent_week_before_a_week_is_found() {
@@ -1150,12 +1175,6 @@ async fn the_most_recent_week_before_a_week_is_found() {
 
     assert_eq!(before["found"], json!(true));
     assert_eq!(before["page"]["name"], json!("1999-W20"));
-}
-
-// ジャーナルの名前でないものは拒否される。
-#[tokio::test]
-async fn a_name_that_is_not_a_journal_is_refused() {
-    assert_eq!(post_empty("/api/journals/not-a-date").await.0, 400);
 }
 
 // 項目は別の日のジャーナルへ移動する。
@@ -2489,15 +2508,6 @@ async fn a_bounds_property_holds_four_numbers() {
     .await;
     assert_eq!(status, 200, "{resp}");
     assert_eq!(resp["page"]["properties"]["area"], json!("10,20.5,160,-56"));
-
-    for value in ["1,2,3", "1,2,3,4,5", "1,2,x,4", "", "1,2,3,inf"] {
-        let (status, resp) = put(
-            &format!("/api/pages/{}/properties/area", page.id),
-            json!({ "valueType": "bounds", "value": value }),
-        )
-        .await;
-        assert_eq!(status, 400, "{value} -> {resp}");
-    }
 }
 
 async fn doc_in(dir: &str, title: &str) -> String {

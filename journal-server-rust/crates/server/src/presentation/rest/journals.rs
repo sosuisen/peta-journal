@@ -7,6 +7,7 @@ use chrono::NaiveDate;
 use serde::{Deserialize, Serialize};
 
 use crate::application::journal_service::MostRecentJournalResult;
+use crate::domain::journal_name::JournalName;
 use crate::error::{AppError, AppResult};
 use crate::presentation::dto::{ItemDto, PageDto};
 use crate::state::{blocking, SharedState};
@@ -56,7 +57,9 @@ async fn get_or_create(
     Path(name): Path<String>,
 ) -> AppResult<Json<GetOrCreateJournalResponse>> {
     blocking(move || {
-        let result = state.journal_service.get_or_create_journal_by_name(&name)?;
+        let result = state
+            .journal_service
+            .get_or_create_journal_by_name(name.parse::<JournalName>()?)?;
         Ok(Json(GetOrCreateJournalResponse {
             page: state.dtos.page_to_dto(&result.page)?,
             items: state.dtos.to_dtos(&result.items)?,

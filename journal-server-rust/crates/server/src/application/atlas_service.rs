@@ -10,6 +10,7 @@ use parking_lot::Mutex;
 use rusqlite::Connection;
 
 use crate::domain::atlas::{self, Outline, BOUNDS_KEY, PAGE_KEY, SIDE_KEY, TYPE_KEY};
+use crate::domain::bounds::Bounds;
 use crate::domain::fractional_index;
 use crate::domain::id_generator::IdGenerator;
 use crate::domain::item_body::ItemBody;
@@ -19,7 +20,7 @@ use crate::error::{AppError, AppResult};
 use crate::infrastructure::export::export_service::MarkdownExportService;
 use crate::infrastructure::persistence::db::now_millis;
 use crate::infrastructure::persistence::item_repository::parked_idx;
-use crate::infrastructure::persistence::property_repository::{normalize_bounds, ScalarProps};
+use crate::infrastructure::persistence::property_repository::ScalarProps;
 use crate::infrastructure::persistence::{ItemRepository, PageRepository, PropertyRepository};
 
 use super::markdown_parser::MarkdownParser;
@@ -119,12 +120,11 @@ impl AtlasService {
     }
 
     /// Adds a link card to the atlas page. Returns the items of the page.
-    pub fn add_link(&self, atlas_id: &Hmtid, target: &str, bounds: &str) -> AppResult<Vec<Item>> {
+    pub fn add_link(&self, atlas_id: &Hmtid, target: &str, bounds: Bounds) -> AppResult<Vec<Item>> {
         let target = link_target(target)?;
-        let bounds = normalize_bounds(bounds)?;
         let id = self.ids.generate_item_id();
         self.edit(atlas_id, |outline| {
-            outline.add_link(id, &target, bounds);
+            outline.add_link(id, &target, bounds.to_string());
             Ok(())
         })
     }
@@ -182,15 +182,14 @@ impl AtlasService {
     pub fn add_callout(
         &self,
         atlas_id: &Hmtid,
-        bounds: &str,
+        bounds: Bounds,
         side: &str,
         text: &str,
     ) -> AppResult<Vec<Item>> {
-        let bounds = normalize_bounds(bounds)?;
         let id = self.ids.generate_item_id();
         self.edit(atlas_id, |outline| {
             if !text.trim().is_empty() {
-                outline.add_callout(id, bounds, side, text);
+                outline.add_callout(id, bounds.to_string(), side, text);
             }
             Ok(())
         })

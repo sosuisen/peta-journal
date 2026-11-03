@@ -6,6 +6,8 @@ use std::sync::Arc;
 use chrono::{Datelike, NaiveDate, TimeZone};
 use rusqlite::{params, Connection, Row};
 
+use crate::domain::bounds::Bounds;
+use crate::domain::number_text::format_number;
 use crate::error::{AppError, AppResult};
 
 use super::db::{placeholders, Db};
@@ -323,7 +325,7 @@ impl PropertyRepository {
                 )?;
             }
             "bounds" => {
-                let bounds = normalize_bounds(value)?;
+                let bounds = value.parse::<Bounds>()?.to_string();
                 conn.execute(
                     sql,
                     params![
@@ -623,38 +625,6 @@ pub fn list_values(value: &str) -> Vec<String> {
         .collect()
 }
 
-/// Reads a bounds value `x,y,width,height` and writes it back without spaces, each number as
-/// a number property shows it. It stays text rather than four columns, so the front matter
-/// and the metadata line of an item hold it as one plain value.
-pub fn normalize_bounds(value: &str) -> AppResult<String> {
-    let invalid = || {
-        AppError::bad_request(format!(
-            "Bounds must be four numbers x,y,width,height: {value}"
-        ))
-    };
-    let numbers = value
-        .split(',')
-        .map(|n| n.trim().parse::<f64>().ok().filter(|n| n.is_finite()))
-        .collect::<Option<Vec<f64>>>()
-        .ok_or_else(invalid)?;
-    if numbers.len() != 4 {
-        return Err(invalid());
-    }
-    Ok(numbers
-        .into_iter()
-        .map(format_number)
-        .collect::<Vec<_>>()
-        .join(","))
-}
-
-fn format_number(n: f64) -> String {
-    if n == n.floor() && n.abs() < 1e15 {
-        format!("{}", n as i64)
-    } else {
-        format_double(n)
-    }
-}
-
 fn extract_value(row: &Row<'_>, value_type: &str) -> rusqlite::Result<Option<String>> {
     Ok(match value_type {
         "number" => {
@@ -673,16 +643,6 @@ fn extract_value(row: &Row<'_>, value_type: &str) -> rusqlite::Result<Option<Str
         }
         _ => row.get::<_, Option<String>>(2)?,
     })
-}
-
-/// Formats a non-integral double the way Java's `String.valueOf(double)` does for common values.
-fn format_double(n: f64) -> String {
-    let s = format!("{n}");
-    if s.contains('.') || s.contains('e') || s.contains("inf") || s.contains("NaN") {
-        s
-    } else {
-        format!("{s}.0")
-    }
 }
 
 /// Replaces a list property of a target with the given values.

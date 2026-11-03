@@ -6,7 +6,7 @@ use chrono::{Datelike, Days, NaiveDate, Weekday};
 use rusqlite::Connection;
 
 use crate::domain::id_generator::IdGenerator;
-use crate::domain::journal_name::{self, JournalType};
+use crate::domain::journal_name::JournalName;
 use crate::domain::model::{Item, ItemPosition, Page};
 use crate::domain::search::SearchIndex;
 use crate::error::{AppError, AppResult};
@@ -93,50 +93,20 @@ impl JournalService {
         })
     }
 
-    /// Gets or creates a journal page by file name: daily (`YYYY-MM-DD`), weekly (`YYYY-WNN`),
-    /// monthly (`YYYY-MM`) or yearly (`YYYY`). A new weekly, monthly or yearly journal is filled
-    /// with one wiki link per day, week or month it covers.
-    pub fn get_or_create_journal_by_name(&self, file_name: &str) -> AppResult<JournalResult> {
-        match journal_name::classify(file_name) {
-            JournalType::None => Err(AppError::bad_request(format!(
-                "Not a journal filename: {file_name}"
-            ))),
-            JournalType::Daily => {
-                let date = NaiveDate::parse_from_str(file_name, "%Y-%m-%d")
-                    .map_err(|e| AppError::bad_request(format!("Invalid date {file_name}: {e}")))?;
-                self.get_or_create_journal(date)
+    /// Gets or creates a journal page by name. A new weekly, monthly or yearly journal is
+    /// filled with one wiki link per day, week or month it covers.
+    pub fn get_or_create_journal_by_name(&self, name: JournalName) -> AppResult<JournalResult> {
+        match name {
+            JournalName::Daily(date) => self.get_or_create_journal(date),
+            JournalName::Weekly { year, week } => {
+                self.get_or_create_link_journal(&name.to_string(), self.week_day_names(year, week)?)
             }
-            JournalType::Weekly => {
-                let (y, w) = file_name.split_once("-W").unwrap_or((file_name, "1"));
-                let year: i32 = y
-                    .parse()
-                    .map_err(|_| AppError::bad_request(format!("Invalid week: {file_name}")))?;
-                let week: u32 = w
-                    .parse()
-                    .map_err(|_| AppError::bad_request(format!("Invalid week: {file_name}")))?;
-                self.get_or_create_link_journal(
-                    &format!("{year}-W{week:02}"),
-                    self.week_day_names(year, week)?,
-                )
-            }
-            JournalType::Monthly => {
-                let (y, m) = file_name.split_once('-').unwrap_or((file_name, "1"));
-                let year: i32 = y
-                    .parse()
-                    .map_err(|_| AppError::bad_request(format!("Invalid month: {file_name}")))?;
-                let month: u32 = m
-                    .parse()
-                    .map_err(|_| AppError::bad_request(format!("Invalid month: {file_name}")))?;
-                self.get_or_create_link_journal(
-                    &format!("{year}-{month:02}"),
-                    self.week_names_in_month(year, month)?,
-                )
-            }
-            JournalType::Yearly => {
-                let year: i32 = file_name
-                    .parse()
-                    .map_err(|_| AppError::bad_request(format!("Invalid year: {file_name}")))?;
-                self.get_or_create_link_journal(&year.to_string(), month_names(year))
+            JournalName::Monthly { year, month } => self.get_or_create_link_journal(
+                &name.to_string(),
+                self.week_names_in_month(year, month)?,
+            ),
+            JournalName::Yearly(year) => {
+                self.get_or_create_link_journal(&name.to_string(), month_names(year))
             }
         }
     }
