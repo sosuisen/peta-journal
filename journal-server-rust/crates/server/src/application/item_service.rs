@@ -184,6 +184,7 @@ impl ItemService {
             _ => None,
         };
 
+        let now = now_millis();
         let patch = ItemPatch::new(
             new_body.clone(),
             new_ast.clone(),
@@ -191,50 +192,37 @@ impl ItemService {
             task,
             level,
             collapsed,
-            now_millis(),
+            now,
         )
         .map_err(AppError::bad_request)?;
-        self.items.patch(item_id, &patch)?;
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+        let mut effects = AfterCommit::default();
+        ItemRepository::patch_in(&tx, item_id, &patch)?;
 
         if let Some(ast) = &new_ast {
-            let before = self.properties.find_tags(ITEM_TARGET, item_id.as_str())?;
+            let before = PropertyRepository::find_tags_in(&tx, ITEM_TARGET, item_id.as_str())?;
             let hashtags = hashtag::extract_hashtags(ast);
-            self.properties
-                .sync_tags(ITEM_TARGET, item_id.as_str(), &hashtags)?;
-            self.page_service.update_tag_pages(&before, &hashtags);
+            PropertyRepository::sync_tags_in(&tx, ITEM_TARGET, item_id.as_str(), &hashtags)?;
+            effects.tag_changes.push((before, hashtags));
         }
         if level.is_some() {
-            self.items.recalculate_parent_ids(&existing.page_id)?;
+            ItemRepository::recalculate_parent_ids_in(&tx, &existing.page_id)?;
         }
-        let updated = self.get_item_by_id(item_id)?;
-        self.touch_and_export(&existing.page_id)?;
+        let updated = ItemRepository::find_by_id_in(&tx, item_id)?
+            .ok_or_else(|| AppError::not_found(format!("Item not found: {item_id}")))?;
+        PageRepository::touch_in(&tx, &existing.page_id, now)?;
+        effects.pages.insert(existing.page_id.clone());
 
         // The search index holds the body only; level and collapsed do not change it
         if new_body.is_some() {
-            if let Some(page) = self.pages.find_by_id(&existing.page_id)? {
-                self.search.index_item(&updated, &page.title());
-            }
-            self.sync_transcluders(&updated)?;
+            let page = self.page_service.require_page(&existing.page_id)?;
+            effects.indexed.push((updated.clone(), page.title()));
+            sync_transcluders_in(&tx, &updated, now, &mut effects)?;
         }
+        tx.commit()?;
+        self.finish(effects);
         Ok(updated)
-    }
-
-    /// Copies the body of a changed source item into every item that transcludes it, and
-    /// queues their pages for export. The UI resolves the source at read time, but the
-    /// exported Markdown is built from the stored copy, so the copy must follow the source.
-    fn sync_transcluders(&self, source: &Item) -> AppResult<()> {
-        for transcluder in self.items.find_transcluders(&source.id)? {
-            if transcluder.body != source.body {
-                self.items.save(&Item {
-                    modified_date: now_millis(),
-                    body: source.body.clone(),
-                    ast: source.ast.clone(),
-                    ..transcluder.clone()
-                })?;
-            }
-            self.touch_and_export(&transcluder.page_id)?;
-        }
-        Ok(())
     }
 
     /// Adds delta to the level of every given item in one step.
@@ -434,23 +422,7 @@ impl ItemService {
         effects.indexed.push((updated.clone(), page.title()));
         PageRepository::touch_in(tx, &item.page_id, now)?;
         effects.pages.insert(item.page_id.clone());
-        // The exported Markdown of a transcluder is built from its stored copy, so the copy
-        // follows the source
-        for transcluder in ItemRepository::find_transcluders_in(tx, &item.id)? {
-            if transcluder.body != updated.body {
-                ItemRepository::save_in(
-                    tx,
-                    &Item {
-                        modified_date: now,
-                        body: updated.body.clone(),
-                        ast: updated.ast.clone(),
-                        ..transcluder.clone()
-                    },
-                )?;
-            }
-            PageRepository::touch_in(tx, &transcluder.page_id, now)?;
-            effects.pages.insert(transcluder.page_id.clone());
-        }
+        sync_transcluders_in(tx, &updated, now, effects)?;
         Ok(updated)
     }
 
@@ -928,6 +900,34 @@ fn plan_indices(
         return Ok(fractional_index::generate_indices(count));
     }
     fractional_index::between_many(after_idx, next_idx, count).map_err(|_| PlanError::NoGap)
+}
+
+/// Copies the body of a changed source item into every item that transcludes it, on the
+/// given connection, and marks their pages for export. The UI resolves the source at read
+/// time, but the exported Markdown is built from the stored copy, so the copy must follow
+/// the source.
+fn sync_transcluders_in(
+    tx: &Connection,
+    source: &Item,
+    now: i64,
+    effects: &mut AfterCommit,
+) -> AppResult<()> {
+    for transcluder in ItemRepository::find_transcluders_in(tx, &source.id)? {
+        if transcluder.body != source.body {
+            ItemRepository::save_in(
+                tx,
+                &Item {
+                    modified_date: now,
+                    body: source.body.clone(),
+                    ast: source.ast.clone(),
+                    ..transcluder.clone()
+                },
+            )?;
+        }
+        PageRepository::touch_in(tx, &transcluder.page_id, now)?;
+        effects.pages.insert(transcluder.page_id.clone());
+    }
+    Ok(())
 }
 
 /// The items with the given IDs, in that order, on the given connection.
