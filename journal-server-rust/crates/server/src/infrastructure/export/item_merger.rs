@@ -6,6 +6,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use hmtid::Hmtid;
+use rusqlite::Connection;
 
 use crate::application::markdown_parser::MarkdownParser;
 use crate::domain::hashtag;
@@ -40,7 +41,6 @@ pub struct MergeResult {
 
 pub struct ItemMerger {
     items: ItemRepository,
-    properties: PropertyRepository,
     parser: MarkdownParser,
     search: Arc<dyn SearchIndex>,
     ids: Arc<IdGenerator>,
@@ -49,21 +49,20 @@ pub struct ItemMerger {
 impl ItemMerger {
     pub fn new(
         items: ItemRepository,
-        properties: PropertyRepository,
         parser: MarkdownParser,
         search: Arc<dyn SearchIndex>,
         ids: Arc<IdGenerator>,
     ) -> ItemMerger {
         ItemMerger {
             items,
-            properties,
             parser,
             search,
             ids,
         }
     }
 
-    /// Makes the page's items match the parsed ones.
+    /// Makes the page's items match the parsed ones, in one transaction. The search index
+    /// follows once the commit is through.
     pub fn merge(
         &self,
         page: &Page,
@@ -73,9 +72,11 @@ impl ItemMerger {
         let page_id = &page.id;
         let page_rel_path = path_mapper::to_rel_path_of(page);
         let title = page.title();
-        let existing = self.items.find_by_page_id(page_id)?;
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+        let existing = ItemRepository::find_by_page_id_in(&tx, page_id)?;
         let by_id: BTreeMap<&Hmtid, &Item> = existing.iter().map(|i| (&i.id, i)).collect();
-        let tags_before = self.tags_of(existing.iter().map(|i| i.id.to_string()).collect())?;
+        let tags_before = self.tags_of(&tx, existing.iter().map(|i| i.id.to_string()).collect())?;
 
         // Resolve an id for every parsed item
         let n = parsed_items.len();
@@ -87,7 +88,7 @@ impl ItemMerger {
             if let Some(candidate) = &id {
                 if !seen.contains(candidate)
                     && !by_id.contains_key(candidate)
-                    && self.items.find_by_id(candidate)?.is_some()
+                    && ItemRepository::find_by_id_in(&tx, candidate)?.is_some()
                 {
                     // Belongs to another page (copy-pasted between files): don't steal it
                     id = None;
@@ -133,25 +134,20 @@ impl ItemMerger {
 
         // Items no longer in the file go first, so their idx values are free for the survivors
         let existing_ids: Vec<String> = existing.iter().map(|i| i.id.to_string()).collect();
-        let scalars = self
-            .properties
-            .find_scalar_by_targets(ITEM_TARGET, &existing_ids)?;
-        let lists = self
-            .properties
-            .find_list_by_targets(ITEM_TARGET, &existing_ids)?;
+        let scalars =
+            PropertyRepository::find_scalar_by_targets_in(&tx, ITEM_TARGET, &existing_ids)?;
+        let lists = PropertyRepository::find_list_by_targets_in(&tx, ITEM_TARGET, &existing_ids)?;
         let mut changed = false;
         let mut removed_ids: Vec<String> = Vec::new();
         for old in &existing {
             if seen.contains(&old.id) {
                 continue;
             }
-            self.items.delete(&old.id)?;
+            ItemRepository::delete_in(&tx, &old.id)?;
             removed_ids.push(old.id.to_string());
             changed = true;
         }
-        self.properties
-            .delete_all_for_targets(ITEM_TARGET, &removed_ids)?;
-        self.search.remove_items(&removed_ids); // one index commit for all of them
+        PropertyRepository::delete_all_for_targets_in(&tx, ITEM_TARGET, &removed_ids)?;
 
         // (page_id, idx) is unique: if a surviving item is about to take another survivor's current
         // idx, park every survivor on a temporary idx first.
@@ -165,13 +161,12 @@ impl ItemMerger {
         if collision {
             for old in &existing {
                 if seen.contains(&old.id) {
-                    self.items
-                        .update_index(&old.id, &format!("\u{7f}{}", old.idx))?;
+                    ItemRepository::update_index_in(&tx, &old.id, &format!("\u{7f}{}", old.idx))?;
                 }
             }
         }
 
-        let defs = self.properties.find_all_definitions()?;
+        let defs = PropertyRepository::find_all_definitions_in(&tx)?;
         let mut to_index: Vec<Item> = Vec::new(); // indexed in one commit at the end
 
         for i in 0..n {
@@ -233,9 +228,10 @@ impl ItemMerger {
                     types,
                     transclude_item_id: transclude,
                 };
-                self.items.save(&item)?;
+                ItemRepository::save_in(&tx, &item)?;
                 if body_changed {
-                    self.properties.sync_tags(
+                    PropertyRepository::sync_tags_in(
+                        &tx,
                         ITEM_TARGET,
                         id.as_str(),
                         &hashtag::extract_hashtags(&ast),
@@ -246,20 +242,23 @@ impl ItemMerger {
             }
 
             let have = scalars.get(id.as_str()).cloned().unwrap_or_default();
-            if self.sync_scalar_properties(id.as_str(), &pi.properties, &have, &defs)? {
+            if self.sync_scalar_properties(&tx, id.as_str(), &pi.properties, &have, &defs)? {
                 changed = true;
             }
             let have = lists.get(id.as_str()).cloned().unwrap_or_default();
-            if self.sync_list_properties(id.as_str(), &pi.properties, &have, &defs)? {
+            if self.sync_list_properties(&tx, id.as_str(), &pi.properties, &have, &defs)? {
                 changed = true;
             }
         }
 
-        self.search.index_items(&to_index, &title);
         if changed {
-            self.items.recalculate_parent_ids(page_id)?;
+            ItemRepository::recalculate_parent_ids_in(&tx, page_id)?;
         }
-        let tags_after = self.tags_of(ids.iter().map(|id| id.to_string()).collect())?;
+        let tags_after = self.tags_of(&tx, ids.iter().map(|id| id.to_string()).collect())?;
+        tx.commit()?;
+        // The search index lives outside the database, so it follows the commit
+        self.search.remove_items(&removed_ids); // one index commit for all of them
+        self.search.index_items(&to_index, &title);
         Ok(MergeResult {
             changed,
             needs_write_back,
@@ -269,10 +268,8 @@ impl ItemMerger {
     }
 
     /// The hashtags of the given items, each once.
-    fn tags_of(&self, item_ids: Vec<String>) -> AppResult<Vec<String>> {
-        let lists = self
-            .properties
-            .find_list_by_targets(ITEM_TARGET, &item_ids)?;
+    fn tags_of(&self, conn: &Connection, item_ids: Vec<String>) -> AppResult<Vec<String>> {
+        let lists = PropertyRepository::find_list_by_targets_in(conn, ITEM_TARGET, &item_ids)?;
         let tags: BTreeSet<String> = lists
             .into_values()
             .filter_map(|mut l| l.remove("tags"))
@@ -285,6 +282,7 @@ impl ItemMerger {
     /// Reserved keys and list-typed keys are not properties here. Returns true if anything changed.
     fn sync_scalar_properties(
         &self,
+        conn: &Connection,
         item_id: &str,
         file_properties: &[(String, String)],
         have: &BTreeMap<String, String>,
@@ -309,7 +307,7 @@ impl ItemMerger {
         for (k, v) in &want {
             if have.get(*k).map(String::as_str) != Some(*v) {
                 let t = defs.get(*k).map(String::as_str).unwrap_or("text");
-                match self.properties.upsert_scalar(ITEM_TARGET, item_id, k, t, v) {
+                match PropertyRepository::upsert_scalar_in(conn, ITEM_TARGET, item_id, k, t, v) {
                     Ok(_) => changed = true,
                     Err(e) => tracing::warn!("Skipping property {k}={v} on item {item_id}: {e}"),
                 }
@@ -317,7 +315,7 @@ impl ItemMerger {
         }
         for key in have.keys() {
             if !want.iter().any(|(k, _)| *k == key.as_str()) {
-                self.properties.delete_property(ITEM_TARGET, item_id, key)?;
+                PropertyRepository::delete_property_in(conn, ITEM_TARGET, item_id, key)?;
                 changed = true;
             }
         }
@@ -328,6 +326,7 @@ impl ItemMerger {
     /// The tags are not among them: they come from the hashtags of the body.
     fn sync_list_properties(
         &self,
+        conn: &Connection,
         item_id: &str,
         file_properties: &[(String, String)],
         have: &BTreeMap<String, Vec<String>>,
@@ -342,14 +341,13 @@ impl ItemMerger {
             want.push(k);
             let values = list_values(v);
             if have.get(k) != Some(&values) {
-                self.properties
-                    .upsert_list(ITEM_TARGET, item_id, k, "list", &values)?;
+                PropertyRepository::upsert_list_in(conn, ITEM_TARGET, item_id, k, "list", &values)?;
                 changed = true;
             }
         }
         for key in have.keys() {
             if key != "tags" && !want.contains(&key.as_str()) {
-                self.properties.delete_property(ITEM_TARGET, item_id, key)?;
+                PropertyRepository::delete_property_in(conn, ITEM_TARGET, item_id, key)?;
                 changed = true;
             }
         }

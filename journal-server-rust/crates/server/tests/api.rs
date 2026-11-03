@@ -315,6 +315,32 @@ async fn a_transclusion_shows_the_source_tree_with_the_page() {
     assert!(items(&page.id).await[0].transclude_item_id.is_none());
 }
 
+// トランスクルージョンの設定は項目の変更として数えられ、日付での同期がそれを拾う。
+#[tokio::test]
+async fn setting_a_transclusion_counts_as_a_change_of_the_item() {
+    let source_page = new_doc_page("items-transclusion-change-source").await;
+    let source = fill(&source_page.id, &["root"]).await;
+    let page = new_doc_page("items-transclusion-change").await;
+    let host = fill(&page.id, &["placeholder"]).await.remove(0);
+    let (_, resp) = get(&format!("/api/pages/{}", page.id)).await;
+    let modified_before = field_of_each(&resp, "items", "modifiedDate").remove(0);
+    tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+
+    let (status, resp) = post(
+        &format!("/api/items/{}/transclude", host.id),
+        json!({ "sourceItemId": source[0].id }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    let (_, resp) = get(&format!("/api/pages/{}", page.id)).await;
+    let modified_after = field_of_each(&resp, "items", "modifiedDate").remove(0);
+    assert!(
+        modified_after.as_i64() > modified_before.as_i64(),
+        "{modified_before} -> {modified_after}"
+    );
+}
+
 // 参照元の項目を編集すると、トランスクルードしている側の保存済みの写しも更新される。
 #[tokio::test]
 async fn editing_a_source_item_updates_the_stored_copy_in_its_transcluders() {
