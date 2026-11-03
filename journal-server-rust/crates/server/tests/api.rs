@@ -55,6 +55,21 @@ async fn a_hashtag_in_the_body_comes_back_as_a_tag_property() {
     assert_eq!(updated.properties["tags"], json!(["urgent", "later"]));
 }
 
+// ページにプロパティを設定すると、ページの変更日が新しくなる。
+#[tokio::test]
+async fn setting_a_property_counts_as_a_change_of_the_page() {
+    let page = new_doc_page("pages-property-date").await;
+    let old = date_the_page_in_the_past(&page.id).await;
+
+    let (status, resp) = put(
+        &format!("/api/pages/{}/properties/tags", page.id),
+        json!({ "valueType": "tags", "value": "dated" }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+    assert_ne!(resp["page"]["modifiedDate"], json!(old));
+}
+
 // ---- Items: updating ----
 
 // 本文はASTと型に解析される。
@@ -702,6 +717,56 @@ async fn renaming_a_page_changes_its_title_and_path() {
         again["page"]["name"],
         json!(format!("{}-renamed", page.title))
     );
+}
+
+/// Gives the page a modified date in the past, so a later change shows as a new date.
+async fn date_the_page_in_the_past(page_id: &str) -> i64 {
+    let (status, resp) = put(
+        &format!("/api/pages/{page_id}/properties/modified"),
+        json!({ "valueType": "datetime", "value": "2021-02-03T04:05:06Z" }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+    resp["page"]["modifiedDate"].as_i64().unwrap()
+}
+
+// ページの下にページを作ると、そのページはディレクトリのindexページになり、変更日が新しくなる。
+#[tokio::test]
+async fn a_page_becomes_the_index_page_of_its_directory_when_a_page_is_made_under_it() {
+    let root = new_doc_page("pages-promote").await;
+    let old = date_the_page_in_the_past(&root.id).await;
+
+    let (status, resp) = post(
+        "/api/pages/doc",
+        json!({ "title": "child", "dirPath": format!("{}/", root.title) }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    let (_, resp) = get(&format!("/api/pages/{}", root.id)).await;
+    assert_eq!(resp["page"]["name"], json!("index"));
+    assert_eq!(resp["page"]["dirPath"], json!(format!("{}/", root.title)));
+    assert_ne!(resp["page"]["modifiedDate"], json!(old));
+}
+
+// 子ページを持つindexページは、普通のページに改名できず、削除もできない。
+#[tokio::test]
+async fn an_index_page_with_children_is_neither_renamed_to_a_plain_page_nor_deleted() {
+    let root = new_doc_page("pages-index-guard").await;
+    let (status, resp) = post(
+        "/api/pages/doc",
+        json!({ "title": "child", "dirPath": format!("{}/", root.title) }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    let (status, resp) = put(
+        &format!("/api/pages/{}", root.id),
+        json!({ "title": "plain" }),
+    )
+    .await;
+    assert_eq!(status, 400, "{resp}");
+    assert_eq!(delete(&format!("/api/pages/{}", root.id)).await, 400);
 }
 
 // indexページを動かすと、その下のページも一緒に動く。
