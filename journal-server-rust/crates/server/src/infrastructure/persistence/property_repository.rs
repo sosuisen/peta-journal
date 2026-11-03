@@ -259,7 +259,8 @@ impl PropertyRepository {
         Ok(page_ids)
     }
 
-    /// `upsert_scalar` on the given connection, as part of a larger transaction.
+    /// Sets a scalar value of a key, as part of a larger transaction. A key not defined yet
+    /// is defined with the given type; a defined key keeps its type.
     pub fn upsert_scalar_in(
         conn: &Connection,
         target_type: &str,
@@ -273,11 +274,21 @@ impl PropertyRepository {
             "INSERT OR IGNORE INTO property_definitions (key, value_type) VALUES (?, ?)",
             params![key, value_type],
         )?;
-        let value_type: String = conn.query_row(
-            "SELECT value_type FROM property_definitions WHERE key = ?",
-            params![key],
-            |r| r.get(0),
-        )?;
+        Self::write_scalar_in(conn, target_type, target_id, key, value)
+    }
+
+    /// Sets a scalar value of a defined key, as part of a larger transaction. The value is
+    /// stored as the type of the definition says. A key with no definition is refused.
+    pub fn write_scalar_in(
+        conn: &Connection,
+        target_type: &str,
+        target_id: &str,
+        key: &str,
+        value: &str,
+    ) -> AppResult<()> {
+        let value_type = Self::find_definition_in(conn, key)?
+            .map(|def| def.value_type)
+            .ok_or_else(|| AppError::bad_request(format!("Property '{key}' is not defined")))?;
         let sql = "INSERT OR REPLACE INTO properties (target_type, target_id, key, value_text, value_number, value_checkbox) VALUES (?, ?, ?, ?, ?, ?)";
         match value_type.as_str() {
             "number" => {
