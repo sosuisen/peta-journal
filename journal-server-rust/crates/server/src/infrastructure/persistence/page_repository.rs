@@ -48,10 +48,7 @@ impl PageRepository {
     }
 
     fn query_pages(&self, sql: &str, params: &[&dyn rusqlite::ToSql]) -> AppResult<Vec<Page>> {
-        let conn = self.db.conn()?;
-        let mut stmt = conn.prepare(sql)?;
-        let rows = stmt.query_map(params, map_page)?;
-        Ok(rows.collect::<Result<Vec<_>, _>>()?)
+        query_pages_in(&*self.db.conn()?, sql, params)
     }
 
     fn first_page(&self, sql: &str, params: &[&dyn rusqlite::ToSql]) -> AppResult<Option<Page>> {
@@ -59,7 +56,17 @@ impl PageRepository {
     }
 
     pub fn find_by_id(&self, id: &Hmtid) -> AppResult<Option<Page>> {
-        self.first_page(&format!("{SELECT_PAGES}WHERE id = ?"), &[&id.as_str()])
+        Self::find_by_id_in(&*self.db.conn()?, id)
+    }
+
+    pub fn find_by_id_in(conn: &Connection, id: &Hmtid) -> AppResult<Option<Page>> {
+        Ok(query_pages_in(
+            conn,
+            &format!("{SELECT_PAGES}WHERE id = ?"),
+            &[&id.as_str()],
+        )?
+        .into_iter()
+        .next())
     }
 
     pub fn find_journal(&self, date: NaiveDate) -> AppResult<Option<Page>> {
@@ -287,6 +294,17 @@ fn resolve_parent_id(
             other => other,
         })
     }
+}
+
+/// Runs a query whose result rows are pages in the shape of `SELECT_PAGES`.
+fn query_pages_in(
+    conn: &Connection,
+    sql: &str,
+    params: &[&dyn rusqlite::ToSql],
+) -> AppResult<Vec<Page>> {
+    let mut stmt = conn.prepare(sql)?;
+    let rows = stmt.query_map(params, map_page)?;
+    Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
 fn find_page_id(conn: &Connection, dir_path: &str, name: &str) -> rusqlite::Result<Option<Hmtid>> {

@@ -262,16 +262,15 @@ impl ItemRepository {
         Ok(())
     }
 
-    /// Moves items to their new places on a page, in one transaction. Either every item moves or none does.
-    pub fn move_items(
-        &self,
+    /// Moves items to their new places on a page, on the given connection, as part of a larger
+    /// transaction.
+    pub fn move_items_in(
+        tx: &Connection,
         target_page_id: &Hmtid,
         placements: &[ItemPlacement],
         level_delta: i32,
         modified_date: i64,
     ) -> AppResult<()> {
-        let mut conn = self.db.conn()?;
-        let tx = conn.immediate()?;
         // (page_id, idx) is unique and checked per statement. A moving item may take the index
         // that another moving item still holds, so all of them leave their index first.
         {
@@ -298,15 +297,15 @@ impl ItemRepository {
                     level_delta,
                     modified_date,
                     p.item_id.as_str()
-                ])?;
+                ])
+                .with_context(|| {
+                    format!(
+                        "Failed to move item {} to page: {target_page_id}",
+                        p.item_id
+                    )
+                })?;
             }
         }
-        tx.commit().with_context(|| {
-            format!(
-                "Failed to move {} items to page: {target_page_id}",
-                placements.len()
-            )
-        })?;
         Ok(())
     }
 
