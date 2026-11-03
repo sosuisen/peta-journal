@@ -29,14 +29,9 @@ pub fn ensure_tag_pages(page_service: &PageService) {
     }
 }
 
-/// Moves the atlas of old into the outlines of the atlas pages, then writes every atlas page
-/// for the pages its directory has now: they may have changed while the server was down.
+/// Writes every atlas page for the pages its directory has now: they may have changed while
+/// the server was down.
 pub fn bring_atlases_up_to_date(atlas: &AtlasService) {
-    match atlas.move_old_properties() {
-        Ok(0) => {}
-        Ok(n) => tracing::info!("Moved the atlas properties of {n} pages into the atlas pages"),
-        Err(e) => tracing::warn!("The atlas properties of the pages were not moved: {e}"),
-    }
     if let Err(e) = atlas.sync_all() {
         tracing::warn!("The atlas pages were not brought up to date: {e}");
     }

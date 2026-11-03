@@ -7,7 +7,6 @@ use std::path::{Path, PathBuf};
 use hmtid::Hmtid;
 use journal_server::config::Settings;
 use journal_server::infrastructure::export::import_service::Outcome;
-use journal_server::infrastructure::persistence::PropertyRepository;
 use journal_server::state::{AppState, BuildOptions, SharedState};
 use serde_json::json;
 
@@ -310,68 +309,6 @@ fn a_page_deleted_on_both_devices_leaves_both_atlases_alike() {
     a.doc("e");
     assert_eq!(b.receive(&a, ATLAS), Outcome::Imported);
     assert!(a.conflicts().is_empty() && b.conflicts().is_empty());
-}
-
-// 旧形式のアトラスを移した2台のデバイスは、同じアトラスを書く。
-#[test]
-fn two_devices_moving_the_atlas_of_old_write_the_same_atlas() {
-    let dir = tempfile::tempdir().unwrap();
-    let (a, b) = two_devices(dir.path());
-    let c = a.doc("c");
-    b.receive(&a, "docs/d/c.md");
-    b.receive(&a, ATLAS);
-    let page_a = a
-        .state
-        .pages
-        .find_by_type_dir_path_file_name("doc", "d/", "a")
-        .unwrap()
-        .unwrap()
-        .id;
-    for device in [&a, &b] {
-        let conn = device.state.db.conn().unwrap();
-        PropertyRepository::upsert_scalar_in(
-            &conn,
-            "page",
-            page_a.as_str(),
-            "atlas_bounds",
-            "bounds",
-            "1,2,0,40",
-        )
-        .unwrap();
-        PropertyRepository::upsert_scalar_in(
-            &conn,
-            "page",
-            device.atlas_id().as_str(),
-            "atlas_callout_x",
-            "text",
-            "10,20,1.5,top:Hi",
-        )
-        .unwrap();
-        conn.execute(
-            "INSERT OR IGNORE INTO property_definitions (key, value_type, is_system, for_page) \
-             VALUES ('atlas_group_x', 'list', 1, 1)",
-            [],
-        )
-        .unwrap();
-        for (i, id) in [&page_a, &c].iter().enumerate() {
-            conn.execute(
-                "INSERT INTO property_list_items (target_type, target_id, key, sort_order, value) \
-                 VALUES ('page', ?, 'atlas_group_x', ?, ?)",
-                rusqlite::params![device.atlas_id().as_str(), i as i64, id.as_str()],
-            )
-            .unwrap();
-        }
-    }
-
-    a.state.atlas.move_old_properties().unwrap();
-    b.state.atlas.move_old_properties().unwrap();
-
-    assert_eq!(
-        a.outline(),
-        ["1:", "2:[[d/a]]", "2:[[d/c]]", "1:callout", "2:Hi"]
-    );
-    assert_eq!(a.file(ATLAS), b.file(ATLAS));
-    assert_eq!(b.receive(&a, ATLAS), Outcome::Unchanged);
 }
 
 /// Delivers the atlas back and forth a few times; each device writes what it takes in, as

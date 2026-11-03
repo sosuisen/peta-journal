@@ -67,12 +67,11 @@ pub struct BuildOptions {
 
 impl AppState {
     /// Opens the database and the search index, wires the services and runs the startup steps
-    /// (schema check, configuration check, hashtag backfill, index rebuild).
+    /// (configuration check, index rebuild, tag pages, atlas pages).
     pub fn build(settings: Settings, options: BuildOptions) -> anyhow::Result<SharedState> {
         let ids = Arc::new(IdGenerator::new());
         let db = Arc::new(Db::open(&settings.db_path)?);
         database_initializer::initialize(&db, &ids)?;
-        database_initializer::check_schema_version(&settings.config_dir);
 
         let pages = PageRepository::new(Arc::clone(&db));
         let items = ItemRepository::new(Arc::clone(&db));

@@ -116,11 +116,7 @@ atlasのデータは、すべてディレクトリの `index_atlas.md` の本文
 - リンクカードのダブルクリックか、右クリックメニュー「Edit Link」で、同じダイアログを開いてリンク先を変える。位置と倍率は変わらない。空の入力では何も変えない。
 - 右クリックメニュー「Remove Link」で、項目ごと消す。
 
-以前は、カードの位置をページの `atlas_bounds` に持ち、グループ、タイトル、コールアウトを、atlasページの `atlas_group_`、`atlas_title_`、`atlas_callout_` で始まるキーに持っていた。起動時の `AtlasService::move_old_properties` が、これらを項目へ移し、古いキーと定義を消す。移すときに、ページの `modified` は変えない。
-
-`bounds` を受け付けない古いデータベースは、起動時の `migrate_bounds_value_type` が `property_definitions` を作り直す。SQLiteはCHECK制約をその場で変えられないためである。行はINSERTで写し、外部キーで参照する値は消さない。作り直しは `migrate_definition_flags` の中で、システム管理キーを登録する前に行う。古いテーブルは `atlas_bounds` の型を拒むためである。
-
-システム管理キーはサーバー起動時に `migrate_definition_flags` が必ずフラグを立てる。ユーザーが別の型で定義していたキーが後からシステム管理キーになったときは、型も予約された型に書き換える。
+システム管理キーはサーバー起動時に `seed_system_keys` が必ずフラグを立てる。ユーザーが別の型で定義していたキーが後からシステム管理キーになったときは、型も予約された型に書き換える。
 
 ユーザー定義キーは `for_page` が既定で1になる。
 

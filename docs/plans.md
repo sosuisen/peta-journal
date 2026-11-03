@@ -76,4 +76,5 @@
   - [x] 取り込み: ページの保存とidの採用
   - [x] 起動時のハッシュタグの付け直し
   - [x] 接続を自分で取るメソッドを消し、`_in`関数だけにする
-- [ ] 2026-12-03以降: Rustサーバーで足したマイグレーションを消す。`tag`→`tags`の改名、`bounds`型の表の作り直し（`database_initializer.rs`）、旧形式のアトラスの移動（`AtlasService::move_old_properties`）。どれも2026-10-27〜31に入り、起動のたびに「古い形が残っているか」を見ている
+- [x] スキーマの版を`PRAGMA user_version`に置き、マイグレーションを番号付きの列にする（ADR 005）。`versions.json`と、Rustサーバーで足した3つのマイグレーションを消す
+- [ ] 開発機のデータベースが版1になったら、`adopt_unversioned`（`database_initializer.rs`）を消す

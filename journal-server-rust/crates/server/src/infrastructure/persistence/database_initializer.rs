@@ -1,8 +1,13 @@
-//! Creates the tables and indexes, seeds what every database has, then runs the migrations.
-//! Safe to run on an existing database: everything is "if not exists" or checks first.
+//! Brings the database up to the schema of this server, then seeds what every database has.
 //!
-//! A migration stays until every database it was written for has been opened once; then it
-//! goes. The ones here came with the Rust server; the Java server's are gone with it.
+//! The schema version is the `user_version` of the database file (see ADR 005). The
+//! migrations are a list; the position of each is the version it brings the database to. A
+//! migration runs once, in a transaction of its own that also writes the new version, so a
+//! crash leaves no half-done version. A migration is never changed once it is in `main`: a
+//! mistake is put right by the next one.
+//!
+//! The seeds (the root index page, the system keys) are no migrations: they run on every
+//! start and keep the database as the server expects it.
 
 use anyhow::Context;
 use rusqlite::{params, Connection};
@@ -11,8 +16,9 @@ use crate::domain::id_generator::IdGenerator;
 
 use super::db::{now_millis, Db};
 
-/// Bump this constant whenever the DB schema changes.
-pub const SCHEMA_VERSION: &str = "0.1";
+/// The migrations, in the order they run. The version of a database is the number of them
+/// it has had.
+const MIGRATIONS: &[fn(&Connection) -> rusqlite::Result<()>] = &[create_tables];
 
 pub fn initialize(db: &Db, ids: &IdGenerator) -> anyhow::Result<()> {
     let conn = db.conn()?;
@@ -21,13 +27,63 @@ pub fn initialize(db: &Db, ids: &IdGenerator) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn run(conn: &Connection, ids: &IdGenerator) -> rusqlite::Result<()> {
+fn run(conn: &Connection, ids: &IdGenerator) -> anyhow::Result<()> {
     conn.pragma_update(None, "journal_mode", "WAL")?;
     conn.pragma_update(None, "foreign_keys", "ON")?;
+    adopt_unversioned(conn)?;
+    migrate(conn)?;
+    ensure_root_index(conn, ids)?;
+    seed_system_keys(conn)?;
+    Ok(())
+}
 
+/// Runs the migrations the database has not had yet. A database of a newer server is
+/// refused: this server does not know its schema.
+fn migrate(conn: &Connection) -> anyhow::Result<()> {
+    let version = user_version(conn)?;
+    let known = MIGRATIONS.len();
+    if version > known {
+        anyhow::bail!(
+            "The database is at schema version {version}, which is newer than the version \
+             {known} of this server. Update the server."
+        );
+    }
+    for (i, migration) in MIGRATIONS.iter().enumerate().skip(version) {
+        let next = i + 1;
+        tracing::info!("Migrating the database to schema version {next}...");
+        let tx = conn.unchecked_transaction()?;
+        migration(&tx)?;
+        tx.pragma_update(None, "user_version", next as i64)?;
+        tx.commit()?;
+    }
+    Ok(())
+}
+
+fn user_version(conn: &Connection) -> rusqlite::Result<usize> {
+    let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
+    Ok(version as usize)
+}
+
+/// Takes a database from before the versions as version 1: the one database carried over
+/// already had the tables of that version. Goes once that database has been opened.
+fn adopt_unversioned(conn: &Connection) -> rusqlite::Result<()> {
+    let has_tables: bool = conn.query_row(
+        "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type = 'table' AND name = 'items'",
+        [],
+        |r| r.get(0),
+    )?;
+    if has_tables && user_version(conn)? == 0 {
+        tracing::info!("Taking the database from before the schema versions as version 1");
+        conn.pragma_update(None, "user_version", 1)?;
+    }
+    Ok(())
+}
+
+/// Version 1: the tables and the indexes.
+fn create_tables(conn: &Connection) -> rusqlite::Result<()> {
     conn.execute_batch(
         r#"
-        CREATE TABLE IF NOT EXISTS pages (
+        CREATE TABLE pages (
             id TEXT PRIMARY KEY,
             parent_id TEXT,
             dir_path TEXT NOT NULL,
@@ -37,7 +93,7 @@ fn run(conn: &Connection, ids: &IdGenerator) -> rusqlite::Result<()> {
             modified_date INTEGER NOT NULL
         );
 
-        CREATE TABLE IF NOT EXISTS items (
+        CREATE TABLE items (
             id TEXT PRIMARY KEY,
             page_id TEXT NOT NULL,
             parent_id TEXT,
@@ -52,20 +108,20 @@ fn run(conn: &Connection, ids: &IdGenerator) -> rusqlite::Result<()> {
             FOREIGN KEY (page_id) REFERENCES pages(id) ON DELETE CASCADE
         );
 
-        CREATE TABLE IF NOT EXISTS item_types (
+        CREATE TABLE item_types (
             item_id TEXT NOT NULL,
             type TEXT NOT NULL,
             PRIMARY KEY (item_id, type),
             FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE CASCADE
         );
 
-        CREATE TABLE IF NOT EXISTS export_queue (
+        CREATE TABLE export_queue (
             page_id TEXT PRIMARY KEY,
             queued_at INTEGER NOT NULL,
             FOREIGN KEY (page_id) REFERENCES pages(id) ON DELETE CASCADE
         );
 
-        CREATE TABLE IF NOT EXISTS file_sync_state (
+        CREATE TABLE file_sync_state (
             rel_path TEXT PRIMARY KEY,
             page_id TEXT NOT NULL,
             content_hash TEXT NOT NULL,
@@ -75,9 +131,9 @@ fn run(conn: &Connection, ids: &IdGenerator) -> rusqlite::Result<()> {
             status TEXT NOT NULL DEFAULT 'synced' CHECK(status IN ('synced', 'missing')),
             missing_since INTEGER
         );
-        CREATE INDEX IF NOT EXISTS idx_fss_page_id ON file_sync_state(page_id);
+        CREATE INDEX idx_fss_page_id ON file_sync_state(page_id);
 
-        CREATE TABLE IF NOT EXISTS property_definitions (
+        CREATE TABLE property_definitions (
             key TEXT PRIMARY KEY,
             value_type TEXT NOT NULL CHECK(value_type IN (
                 'text', 'number', 'checkbox', 'date', 'datetime', 'bounds', 'list', 'tags'
@@ -86,7 +142,7 @@ fn run(conn: &Connection, ids: &IdGenerator) -> rusqlite::Result<()> {
             for_page INTEGER NOT NULL DEFAULT 1
         );
 
-        CREATE TABLE IF NOT EXISTS properties (
+        CREATE TABLE properties (
             target_type TEXT NOT NULL CHECK(target_type IN ('item', 'page')),
             target_id TEXT NOT NULL,
             key TEXT NOT NULL REFERENCES property_definitions(key),
@@ -96,7 +152,7 @@ fn run(conn: &Connection, ids: &IdGenerator) -> rusqlite::Result<()> {
             PRIMARY KEY (target_type, target_id, key)
         );
 
-        CREATE TABLE IF NOT EXISTS property_list_items (
+        CREATE TABLE property_list_items (
             id INTEGER PRIMARY KEY,
             target_type TEXT NOT NULL CHECK(target_type IN ('item', 'page')),
             target_id TEXT NOT NULL,
@@ -105,26 +161,19 @@ fn run(conn: &Connection, ids: &IdGenerator) -> rusqlite::Result<()> {
             value TEXT NOT NULL
         );
 
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_pages_type_dir_name ON pages(type, dir_path, name);
-        CREATE INDEX IF NOT EXISTS idx_pages_modified ON pages(modified_date DESC);
-        CREATE INDEX IF NOT EXISTS idx_pages_parent_id ON pages(parent_id);
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_items_page_id_idx ON items(page_id, idx);
-        CREATE INDEX IF NOT EXISTS idx_items_parent_id ON items(parent_id);
-        CREATE INDEX IF NOT EXISTS idx_items_body ON items(body);
-        CREATE INDEX IF NOT EXISTS idx_items_transclude ON items(transclude_item_id) WHERE transclude_item_id IS NOT NULL;
-        CREATE INDEX IF NOT EXISTS idx_props_key_text ON properties(key, value_text);
-        CREATE INDEX IF NOT EXISTS idx_props_key_number ON properties(key, value_number);
-        CREATE INDEX IF NOT EXISTS idx_pli_target ON property_list_items(target_type, target_id, key, sort_order);
-        CREATE INDEX IF NOT EXISTS idx_pli_value ON property_list_items(key, value);
+        CREATE UNIQUE INDEX idx_pages_type_dir_name ON pages(type, dir_path, name);
+        CREATE INDEX idx_pages_modified ON pages(modified_date DESC);
+        CREATE INDEX idx_pages_parent_id ON pages(parent_id);
+        CREATE UNIQUE INDEX idx_items_page_id_idx ON items(page_id, idx);
+        CREATE INDEX idx_items_parent_id ON items(parent_id);
+        CREATE INDEX idx_items_body ON items(body);
+        CREATE INDEX idx_items_transclude ON items(transclude_item_id) WHERE transclude_item_id IS NOT NULL;
+        CREATE INDEX idx_props_key_text ON properties(key, value_text);
+        CREATE INDEX idx_props_key_number ON properties(key, value_number);
+        CREATE INDEX idx_pli_target ON property_list_items(target_type, target_id, key, sort_order);
+        CREATE INDEX idx_pli_value ON property_list_items(key, value);
         "#,
-    )?;
-
-    ensure_root_index(conn, ids)?;
-    migrate_tag_key_to_tags(conn)?;
-    // Before the keys: an old table refuses a system key of the bounds type
-    migrate_bounds_value_type(conn)?;
-    seed_system_keys(conn)?;
-    Ok(())
+    )
 }
 
 /// The keys the app reserves, with their types, and whether they can be set on a page. The
@@ -198,114 +247,6 @@ fn seed_system_keys(conn: &Connection) -> rusqlite::Result<()> {
     Ok(())
 }
 
-/// Renames the system key `tag` to `tags`, the key other Markdown tools use in the front
-/// matter. The rows are renamed in place, so no tag is lost. The old definition goes only
-/// when nothing refers to it any more. From 2026-10-27.
-fn migrate_tag_key_to_tags(conn: &Connection) -> rusqlite::Result<()> {
-    let old: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM property_definitions WHERE key = 'tag'",
-        [],
-        |r| r.get(0),
-    )?;
-    if old == 0 {
-        return Ok(());
-    }
-    tracing::info!("Renaming the property key 'tag' to 'tags'...");
-    conn.execute_batch(
-        "BEGIN;
-         INSERT OR IGNORE INTO property_definitions (key, value_type) VALUES ('tags', 'tags');
-         UPDATE property_list_items SET key = 'tags' WHERE key = 'tag';
-         DELETE FROM property_definitions WHERE key = 'tag'
-             AND NOT EXISTS (SELECT 1 FROM properties WHERE key = 'tag');
-         COMMIT;",
-    )?;
-    Ok(())
-}
-
-/// Lets a property definition take the `bounds` type. SQLite cannot change the CHECK of a
-/// column in place, so the table is built again under the same name. Its rows are copied
-/// with an INSERT, not deleted: the properties refer to their keys. From 2026-10-27.
-fn migrate_bounds_value_type(conn: &Connection) -> rusqlite::Result<()> {
-    let sql: String = conn.query_row(
-        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'property_definitions'",
-        [],
-        |r| r.get(0),
-    )?;
-    if sql.contains("'bounds'") {
-        return Ok(());
-    }
-    tracing::info!("Adding the bounds value type to property_definitions...");
-    // Off while the tables are swapped: dropping the old table would check the properties
-    // that refer to it. The pragma cannot change inside a transaction.
-    conn.pragma_update(None, "foreign_keys", "OFF")?;
-    let result = conn.execute_batch(
-        "BEGIN;
-         CREATE TABLE property_definitions_new (
-             key TEXT PRIMARY KEY,
-             value_type TEXT NOT NULL CHECK(value_type IN (
-                 'text', 'number', 'checkbox', 'date', 'datetime', 'bounds', 'list', 'tags'
-             )),
-             is_system INTEGER NOT NULL DEFAULT 0,
-             for_page INTEGER NOT NULL DEFAULT 1
-         );
-         INSERT INTO property_definitions_new (key, value_type, is_system, for_page)
-             SELECT key, value_type, is_system, for_page FROM property_definitions;
-         DROP TABLE property_definitions;
-         ALTER TABLE property_definitions_new RENAME TO property_definitions;
-         COMMIT;",
-    );
-    if result.is_err() {
-        let _ = conn.execute_batch("ROLLBACK");
-    }
-    conn.pragma_update(None, "foreign_keys", "ON")?;
-    result
-}
-
-/// Reads or creates `versions.json` in the config directory and warns on a schema mismatch.
-pub fn check_schema_version(config_dir: &std::path::Path) {
-    let version_file = config_dir.join("versions.json");
-    tracing::info!("Schema version (embedded): {SCHEMA_VERSION}");
-    if version_file.exists() {
-        match std::fs::read(&version_file)
-            .map_err(anyhow::Error::from)
-            .and_then(|bytes| {
-                serde_json::from_slice::<serde_json::Value>(&bytes).map_err(Into::into)
-            }) {
-            Ok(json) => {
-                let file_version = json
-                    .get("schemaVersion")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .to_string();
-                tracing::info!("Schema version (file):     {file_version}");
-                if file_version != SCHEMA_VERSION {
-                    tracing::warn!(
-                        "Schema version MISMATCH! embedded={SCHEMA_VERSION}, file={file_version}. \
-                         A database migration may be required."
-                    );
-                }
-            }
-            Err(e) => tracing::error!("Failed to read versions.json: {e}"),
-        }
-    } else {
-        tracing::info!(
-            "Schema version file not found. Creating {}",
-            version_file.display()
-        );
-        let json = serde_json::json!({ "schemaVersion": SCHEMA_VERSION });
-        let result = std::fs::create_dir_all(config_dir).and_then(|_| {
-            std::fs::write(
-                &version_file,
-                serde_json::to_string_pretty(&json).unwrap_or_default(),
-            )
-        });
-        match result {
-            Ok(_) => tracing::info!("Wrote {}", version_file.display()),
-            Err(e) => tracing::error!("Failed to write versions.json: {e}"),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -314,124 +255,96 @@ mod tests {
         conn.query_row(sql, [], |r| r.get(0)).unwrap()
     }
 
-    // tagキーは、タグを失わずにtagsに改名される。
+    // 新しいデータベースは、すべてのマイグレーションを通り、最新の版になる。
     #[test]
-    fn the_tag_key_is_renamed_to_tags_without_losing_a_tag() {
+    fn a_new_database_goes_through_every_migration_to_the_latest_version() {
+        let conn = Connection::open_in_memory().unwrap();
+
+        run(&conn, &IdGenerator::new()).unwrap();
+
+        assert_eq!(user_version(&conn).unwrap(), MIGRATIONS.len());
+        assert_eq!(
+            count(
+                &conn,
+                "SELECT COUNT(*) FROM pages WHERE dir_path = '' AND name = 'index'"
+            ),
+            1
+        );
+        assert_eq!(
+            count(
+                &conn,
+                "SELECT COUNT(*) FROM property_definitions WHERE is_system = 1"
+            ),
+            SYSTEM_KEYS.len() as i64
+        );
+    }
+
+    // 最新の版のデータベースを開き直しても、マイグレーションは走らない。
+    #[test]
+    fn a_database_at_the_latest_version_is_opened_again_without_a_migration() {
         let conn = Connection::open_in_memory().unwrap();
         run(&conn, &IdGenerator::new()).unwrap();
-        // A database from before the rename
-        conn.execute_batch(
-            "INSERT INTO property_definitions (key, value_type, is_system) VALUES ('tag', 'tags', 1);
-             INSERT INTO property_list_items (target_type, target_id, key, sort_order, value)
-                 VALUES ('page', 'p1', 'tag', 0, 'a'), ('item', 'i1', 'tag', 0, 'b');",
+        conn.execute(
+            "INSERT INTO property_definitions (key, value_type) VALUES ('owner', 'text')",
+            [],
         )
         .unwrap();
 
         run(&conn, &IdGenerator::new()).unwrap();
 
+        assert_eq!(user_version(&conn).unwrap(), MIGRATIONS.len());
         assert_eq!(
             count(
                 &conn,
-                "SELECT COUNT(*) FROM property_list_items WHERE key = 'tags'"
+                "SELECT COUNT(*) FROM property_definitions WHERE key = 'owner'"
             ),
-            2
-        );
-        assert_eq!(
-            count(
-                &conn,
-                "SELECT COUNT(*) FROM property_list_items WHERE key = 'tag'"
-            ),
-            0
-        );
-        assert_eq!(
-            count(
-                &conn,
-                "SELECT COUNT(*) FROM property_definitions WHERE key = 'tag'"
-            ),
-            0
-        );
-        assert_eq!(
-            count(&conn, "SELECT COUNT(*) FROM property_definitions WHERE key = 'tags' AND is_system = 1 AND for_page = 1"),
             1
         );
     }
 
-    // 古いデータベースはbounds型を受け入れ、プロパティを保つ。
+    // 版の付く前のデータベースは、版1として引き継がれる。
     #[test]
-    fn an_old_database_takes_the_bounds_type_and_keeps_its_properties() {
+    fn a_database_from_before_the_versions_is_taken_as_version_1() {
         let conn = Connection::open_in_memory().unwrap();
-        // The tables as they were before the bounds type, with values set under the keys
-        conn.execute_batch(
-            "CREATE TABLE property_definitions (
-                 key TEXT PRIMARY KEY,
-                 value_type TEXT NOT NULL CHECK(value_type IN (
-                     'text', 'number', 'checkbox', 'date', 'datetime', 'list', 'tags'
-                 )),
-                 is_system INTEGER NOT NULL DEFAULT 0,
-                 for_page INTEGER NOT NULL DEFAULT 1
-             );
-             CREATE TABLE properties (
-                 target_type TEXT NOT NULL CHECK(target_type IN ('item', 'page')),
-                 target_id TEXT NOT NULL,
-                 key TEXT NOT NULL REFERENCES property_definitions(key),
-                 value_text TEXT,
-                 value_number REAL,
-                 value_checkbox INTEGER,
-                 PRIMARY KEY (target_type, target_id, key)
-             );
-             CREATE TABLE property_list_items (
-                 id INTEGER PRIMARY KEY,
-                 target_type TEXT NOT NULL CHECK(target_type IN ('item', 'page')),
-                 target_id TEXT NOT NULL,
-                 key TEXT NOT NULL REFERENCES property_definitions(key),
-                 sort_order REAL NOT NULL,
-                 value TEXT NOT NULL
-             );
-             INSERT INTO property_definitions (key, value_type) VALUES ('owner', 'text'), ('tags', 'tags');
-             INSERT INTO properties (target_type, target_id, key, value_text) VALUES ('page', 'p1', 'owner', 'me');
-             INSERT INTO property_list_items (target_type, target_id, key, sort_order, value)
-                 VALUES ('page', 'p1', 'tags', 0, 'a');",
+        create_tables(&conn).unwrap();
+        conn.execute(
+            "INSERT INTO property_definitions (key, value_type) VALUES ('owner', 'text')",
+            [],
         )
         .unwrap();
 
         run(&conn, &IdGenerator::new()).unwrap();
 
-        conn.execute(
-            "INSERT INTO property_definitions (key, value_type) VALUES ('area', 'bounds')",
-            [],
-        )
-        .unwrap();
-        assert_eq!(
-            count(&conn, "SELECT COUNT(*) FROM properties WHERE key = 'owner'"),
-            1
-        );
+        assert_eq!(user_version(&conn).unwrap(), 1);
         assert_eq!(
             count(
                 &conn,
-                "SELECT COUNT(*) FROM property_list_items WHERE key = 'tags'"
+                "SELECT COUNT(*) FROM property_definitions WHERE key = 'owner'"
             ),
             1
         );
-        assert_eq!(
-            count(
-                &conn,
-                "SELECT COUNT(*) FROM property_definitions WHERE key = 'tags' AND is_system = 1"
-            ),
-            1
-        );
-        assert_eq!(
-            count(
-                &conn,
-                "SELECT COUNT(*) FROM property_definitions
-                 WHERE key = 'atlas_bounds' AND value_type = 'bounds' AND is_system = 1 AND for_page = 0"
-            ),
-            1
-        );
-        let mut check = conn.prepare("PRAGMA foreign_key_check").unwrap();
-        assert!(check.query([]).unwrap().next().unwrap().is_none());
-        // The foreign keys are checked again after the swap
-        assert!(conn
-            .execute("INSERT INTO properties (target_type, target_id, key) VALUES ('page', 'p1', 'nokey')", [])
-            .is_err());
+    }
+
+    // 新しいサーバーのデータベースは、開かれない。
+    #[test]
+    fn a_database_of_a_newer_server_is_refused() {
+        let conn = Connection::open_in_memory().unwrap();
+        run(&conn, &IdGenerator::new()).unwrap();
+        conn.pragma_update(None, "user_version", MIGRATIONS.len() as i64 + 1)
+            .unwrap();
+
+        assert!(run(&conn, &IdGenerator::new()).is_err());
+    }
+
+    // 途中で失敗したマイグレーションは、版を進めない。
+    #[test]
+    fn a_migration_that_fails_leaves_the_version_as_it_was() {
+        let conn = Connection::open_in_memory().unwrap();
+        // A table in the way of the first migration
+        conn.execute("CREATE TABLE pages (id TEXT)", []).unwrap();
+
+        assert!(run(&conn, &IdGenerator::new()).is_err());
+
+        assert_eq!(user_version(&conn).unwrap(), 0);
     }
 }
