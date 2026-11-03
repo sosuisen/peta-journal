@@ -246,19 +246,20 @@ impl ItemRepository {
         Ok(found)
     }
 
-    /// Adds delta to the level of every given item, in one transaction. A level never goes below 1.
-    pub fn shift_levels(&self, ids: &[Hmtid], delta: i32, modified_date: i64) -> AppResult<()> {
-        let mut conn = self.db.conn()?;
-        let tx = conn.immediate()?;
-        {
-            let mut stmt = tx.prepare(
-                "UPDATE items SET level = MAX(1, level + ?), modified_date = ? WHERE id = ?",
-            )?;
-            for id in ids {
-                stmt.execute(params![delta, modified_date, id.as_str()])?;
-            }
+    /// Adds delta to the level of every given item, on the given connection, as part of a
+    /// larger transaction. A level never goes below 1.
+    pub fn shift_levels_in(
+        tx: &Connection,
+        ids: &[Hmtid],
+        delta: i32,
+        modified_date: i64,
+    ) -> AppResult<()> {
+        let mut stmt = tx.prepare(
+            "UPDATE items SET level = MAX(1, level + ?), modified_date = ? WHERE id = ?",
+        )?;
+        for id in ids {
+            stmt.execute(params![delta, modified_date, id.as_str()])?;
         }
-        tx.commit()?;
         Ok(())
     }
 

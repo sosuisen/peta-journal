@@ -242,18 +242,25 @@ impl ItemService {
         if item_ids.is_empty() {
             return Err(AppError::bad_request("itemIds must not be empty"));
         }
-        let mut page_ids: Vec<Hmtid> = Vec::new();
-        for id in item_ids {
-            let page_id = self.get_item_by_id(id)?.page_id;
-            if !page_ids.contains(&page_id) {
-                page_ids.push(page_id);
-            }
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+        let mut effects = AfterCommit::default();
+        effects.pages.extend(
+            find_all_in(&tx, item_ids)?
+                .into_iter()
+                .map(|item| item.page_id),
+        );
+        let now = now_millis();
+        ItemRepository::shift_levels_in(&tx, item_ids, delta, now)?;
+        // The items may have other parents now
+        for page_id in &effects.pages {
+            ItemRepository::recalculate_parent_ids_in(&tx, page_id)?;
+            PageRepository::touch_in(&tx, page_id, now)?;
         }
-        self.items.shift_levels(item_ids, delta, now_millis())?;
-        for page_id in &page_ids {
-            self.reparent_and_export(page_id)?;
-        }
-        self.find_all(item_ids)
+        let shifted = find_all_in(&tx, item_ids)?;
+        tx.commit()?;
+        self.finish(effects);
+        Ok(shifted)
     }
 
     /// Moves items to a target page at the specified position. All or nothing.
@@ -571,11 +578,6 @@ impl ItemService {
             .ok_or_else(|| AppError::bad_request(format!("Item not found: {item_id}")))
     }
 
-    /// The items with the given IDs, in that order.
-    fn find_all(&self, item_ids: &[Hmtid]) -> AppResult<Vec<Item>> {
-        item_ids.iter().map(|id| self.get_item_by_id(id)).collect()
-    }
-
     pub fn get_items_by_types(&self, types: &[String]) -> AppResult<Vec<Item>> {
         self.items.find_by_types(types)
     }
@@ -842,13 +844,6 @@ impl ItemService {
         }
         self.export.queue_export(page_id);
         Ok(())
-    }
-
-    /// `touch_and_export` for a change that can give the items of the page other parents: an
-    /// item added, removed, moved or moved to another level.
-    fn reparent_and_export(&self, page_id: &Hmtid) -> AppResult<()> {
-        self.items.recalculate_parent_ids(page_id)?;
-        self.touch_and_export(page_id)
     }
 }
 
