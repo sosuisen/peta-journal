@@ -105,7 +105,9 @@ impl ItemService {
         let parsed = ItemBody::parse(body);
         let ast = self.parser.parse_to_ast(&parsed.text);
 
-        let mut existing = self.items.find_by_page_id(page_id)?;
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+        let mut existing = ItemRepository::find_by_page_id_in(&tx, page_id)?;
 
         // Validate level constraint
         match find_item_above(&existing, position) {
@@ -130,8 +132,8 @@ impl ItemService {
             Ok(idx) => idx,
             Err(_) => {
                 // Fractional index exhausted: reindex and retry
-                self.reindex_page(page_id, &existing)?;
-                existing = self.items.find_by_page_id(page_id)?;
+                reindex_page(&tx, page_id, &existing)?;
+                existing = ItemRepository::find_by_page_id_in(&tx, page_id)?;
                 calculate_insertion_index(&existing, position).map_err(AppError::internal)?
             }
         };
@@ -147,25 +149,23 @@ impl ItemService {
             types,
             ..Item::new_on(id.clone(), &page, now)
         };
-        let item = self.items.save(&item)?;
-        self.reparent_and_export(page_id)?;
+        ItemRepository::save_in(&tx, &item)?;
+        ItemRepository::recalculate_parent_ids_in(&tx, page_id)?;
+        PageRepository::touch_in(&tx, page_id, now)?;
         // The new item may have got a parent
-        let item = self.items.find_by_id(&id)?.unwrap_or(item);
+        let item = ItemRepository::find_by_id_in(&tx, &id)?.unwrap_or(item);
 
-        self.register_new_item(&item, &page)?;
-        Ok(item)
-    }
-
-    /// Makes a new item findable: its hashtags become tag properties and its body is indexed.
-    fn register_new_item(&self, item: &Item, page: &Page) -> AppResult<()> {
+        let mut effects = AfterCommit::default();
+        effects.pages.insert(page_id.clone());
         let hashtags = hashtag::extract_hashtags(&item.ast);
         if !hashtags.is_empty() {
-            self.properties
-                .sync_tags(ITEM_TARGET, item.id.as_str(), &hashtags)?;
-            self.page_service.update_tag_pages(&[], &hashtags);
+            PropertyRepository::sync_tags_in(&tx, ITEM_TARGET, item.id.as_str(), &hashtags)?;
+            effects.tag_changes.push((Vec::new(), hashtags));
         }
-        self.search.index_item(item, &page.title());
-        Ok(())
+        effects.indexed.push((item.clone(), page.title()));
+        tx.commit()?;
+        self.finish(effects);
+        Ok(item)
     }
 
     /// Updates an existing item. Only the given fields are written.
@@ -290,7 +290,7 @@ impl ItemService {
                 Err(PlanError::NoGap) => {
                     // No room left in the gap: reindex the page and plan again
                     let all = self.items.find_by_page_id(target_page_id)?;
-                    self.reindex_page(target_page_id, &all)?;
+                    reindex_page(&*self.items.db().conn()?, target_page_id, &all)?;
                     staying = self.items_staying_on(target_page_id, item_ids)?;
                     plan_indices(&staying, position, moving.len()).map_err(|e| match e {
                         PlanError::Invalid(msg) => AppError::bad_request(msg),
@@ -747,20 +747,6 @@ impl ItemService {
         tree_markdown::tree_markdown_to_flat_markdown(tree_markdown)
     }
 
-    /// Re-assigns fresh fractional indices to all items on a page.
-    fn reindex_page(&self, page_id: &Hmtid, items: &[Item]) -> AppResult<()> {
-        tracing::warn!(
-            "REINDEX: Reassigning fractional indices for page {page_id} ({} items). \
-             This may cause conflicts with CRDT-based sync.",
-            items.len()
-        );
-        let new_indices = fractional_index::generate_indices(items.len());
-        for (item, idx) in items.iter().zip(new_indices) {
-            self.items.update_index(&item.id, &idx)?;
-        }
-        Ok(())
-    }
-
     /// Updates a page's title or folder, as `PageService::update_page` does, which also says
     /// what `overwrite` does. A tag page
     /// names its tag, so renaming one renames the tag on every page and item that has it,
@@ -950,6 +936,20 @@ fn plan_indices(
         return Ok(fractional_index::generate_indices(count));
     }
     fractional_index::between_many(after_idx, next_idx, count).map_err(|_| PlanError::NoGap)
+}
+
+/// Re-assigns fresh fractional indices to all items on a page, on the given connection.
+fn reindex_page(conn: &Connection, page_id: &Hmtid, items: &[Item]) -> AppResult<()> {
+    tracing::warn!(
+        "REINDEX: Reassigning fractional indices for page {page_id} ({} items). \
+         This may cause conflicts with CRDT-based sync.",
+        items.len()
+    );
+    let new_indices = fractional_index::generate_indices(items.len());
+    for (item, idx) in items.iter().zip(new_indices) {
+        ItemRepository::update_index_in(conn, &item.id, &idx)?;
+    }
+    Ok(())
 }
 
 /// The fractional index for inserting an item at the specified position.

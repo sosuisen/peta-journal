@@ -36,7 +36,7 @@ Before a PR, run the mutation test on the changed code. Every mutant runs the te
 crate, and the workspace has about 3600 mutants, so a full run takes many hours:
 
 ```
-git diff main...HEAD > /tmp/pr.diff
+git diff --relative main...HEAD > /tmp/pr.diff
 cargo mutants --in-diff /tmp/pr.diff --in-place
 ```
 
