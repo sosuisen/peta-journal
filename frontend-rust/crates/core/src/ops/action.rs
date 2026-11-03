@@ -251,6 +251,33 @@ async fn send_to_stash_now(
     Ok(())
 }
 
+/// Whether the items may be deleted: yes when no other item transcludes them, or when the
+/// user says OK to a dialog that answers No by default. The deletion leaves only plain copies
+/// in the transcluding items, which is hard to undo on their pages. When the server cannot
+/// be asked, the deletion goes ahead, so a deletion never stops working on that account.
+pub async fn confirm_deleting_transcluded(api: &Api<Event>, item_ids: Vec<String>) -> bool {
+    let transcluded = match api.transcluded_items(item_ids).await {
+        Ok(transcluded) => transcluded,
+        Err(e) => {
+            log_error(format!("Failed to ask which items are transcluded: {e}"));
+            return true;
+        }
+    };
+    transcluded.is_empty()
+        || api
+            .confirm_destructive(&transcluded_delete_message(transcluded.len()))
+            .await
+}
+
+fn transcluded_delete_message(count: usize) -> String {
+    let subject = if count == 1 {
+        "1 item to delete is transcluded by another item".to_string()
+    } else {
+        format!("{count} items to delete are transcluded by other items")
+    };
+    format!("{subject}. Delete anyway? Each transclusion keeps a plain copy.")
+}
+
 /// Deletes items from the screen first and then from the server, as one undo entry.
 pub fn delete_items(model: &mut Model, item_ids: &[String]) -> Cmd {
     if item_ids.is_empty() {

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { serverPort } from '../playwright.config';
-import { Server, StoredItem, openEditor, openPage, outlineOf } from './support';
+import { Server, StoredItem, editorOf, openEditor, openPage, outlineOf } from './support';
 
 // An item another page transcludes is deleted only after the user says OK in a dialog whose
 // Cancel has the focus, so Enter alone keeps the item.
@@ -73,5 +73,70 @@ test.describe('deleting a transcluded item', () => {
 
     expect(outlineOf(await server.itemsSettled(pageId, i => i.length === 1))).toEqual(['1:shown elsewhere']);
     await expect(page.locator('.confirm-dialog')).toHaveCount(0);
+  });
+});
+
+// A1, A2 and A3 in this order, with A2 transcluded by an item on another page. Joining A2
+// into A1 deletes A2, so the editor asks first, as the selection does.
+test.describe('joining a transcluded item in the editor', () => {
+  let server: Server;
+  let pageId: string;
+  let items: StoredItem[];
+
+  test.beforeEach(async ({ page, request }) => {
+    server = new Server(request);
+    const source = await server.newDocPage('joined-source');
+    pageId = source.id;
+    items = await server.fill(pageId, ['one', 'two', 'three']);
+    const host = await server.newDocPage('joined-host');
+    const [placeholder] = await server.fill(host.id, ['placeholder']);
+    const resp = await request.post(
+      `http://localhost:${serverPort}/api/items/${placeholder.id}/transclude`,
+      { data: { sourceItemId: items[1].id } },
+    );
+    expect(resp.ok()).toBe(true);
+    await openPage(page, source.title);
+  });
+
+  test('Backspace at the start of A2 asks first, and Cancel keeps A2 with the cursor at its start', async ({ page }) => {
+    await openEditor(page, items[1].id);
+    await page.keyboard.press('Home');
+    await page.keyboard.press('Backspace');
+
+    const dialog = page.locator('.confirm-dialog');
+    await expect(dialog).toBeVisible();
+    await page.keyboard.press('Enter');  // Cancel has the focus
+
+    await expect(dialog).toBeHidden();
+    const editor = editorOf(page, items[1].id);
+    await expect(editor).toBeFocused();
+    expect(await editor.evaluate((el: HTMLTextAreaElement) => el.selectionStart)).toBe(0);
+    expect(outlineOf(await server.items(pageId))).toEqual(['1:one', '1:two', '1:three']);
+  });
+
+  test('Backspace at the start of A2 joins it into A1 after OK', async ({ page }) => {
+    await openEditor(page, items[1].id);
+    await page.keyboard.press('Home');
+    await page.keyboard.press('Backspace');
+
+    await page.locator('.confirm-dialog').getByRole('button', { name: 'OK' }).click();
+
+    expect(outlineOf(await server.itemsSettled(pageId, i => i.length === 2))).toEqual(['1:onetwo', '1:three']);
+    await expect(editorOf(page, items[0].id)).toBeFocused();
+  });
+
+  test('Delete at the end of A1 asks first, and Escape keeps A2 with the cursor at the end of A1', async ({ page }) => {
+    await openEditor(page, items[0].id);
+    await page.keyboard.press('End');
+    await page.keyboard.press('Delete');
+
+    await expect(page.locator('.confirm-dialog')).toBeVisible();
+    await page.keyboard.press('Escape');
+
+    await expect(page.locator('.confirm-dialog')).toBeHidden();
+    const editor = editorOf(page, items[0].id);
+    await expect(editor).toBeFocused();
+    expect(await editor.evaluate((el: HTMLTextAreaElement) => el.selectionStart)).toBe(3);
+    expect(outlineOf(await server.items(pageId))).toEqual(['1:one', '1:two', '1:three']);
   });
 });
