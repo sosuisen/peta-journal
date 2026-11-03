@@ -81,3 +81,4 @@
 - [ ] 将来: フォルダ同期の項目ごとの合流（項目ごとのLWW、conflicted copyの合流、`idx`衝突の決め）。案は`docs/folder-sync-future.md`
 - [x] 項目の`idx`をrocicorpの方式に置き換え、先頭への挿入が62回目で落ちるのを直す（`docs/folder-sync-future.md`）
 - [x] 16文字を超えた`idx`を、隙間の周りだけ振り直す（`docs/folder-sync-future.md`の4つの規則）
+- [ ] スキャン系のAPIテストのゆらぎを調べて直す。`cargo test -p journal-server`を並列で走らせると、ファイルを外から書き換えて`/api/sync/scan`を呼ぶテスト（`a_change_made_to_the_file_is_merged_into_the_page`、`the_tags_of_a_file_edited_outside_keep_their_tag_pages`、`a_file_with_an_index_grown_too_long_is_reindexed_and_written_back`など）が、たまに「取り込み数が0」「タグが付いていない」で落ちる。再実行すると通る。PR #59で、新しいテストを除いても落ちることを確かめた。原因の推測: 書き出しのあとにページが`touch`され、ファイルの`modified`がDBより古くなり、スキャンが「DBが新しい」として書き換えを捨てる（`import_service.rs`の`file_modified < page.modified_date`）。直す前に、落ちたときのログで確かめる
