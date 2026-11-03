@@ -5,6 +5,7 @@ use std::sync::{Arc, LazyLock};
 
 use hmtid::Hmtid;
 use regex::Regex;
+use rusqlite::{Connection, Transaction};
 
 use super::atlas_service::AtlasService;
 use super::config_service::ConfigService;
@@ -32,12 +33,27 @@ pub struct DocResult {
     pub created: bool,
 }
 
+/// What a page operation does outside the database, once its transaction is committed: the
+/// search index, the files, the tag pages and the atlas pages.
+#[derive(Default)]
+struct AfterCommit {
+    /// Pages to index anew, each with the items to index under its title.
+    indexed: Vec<(Page, Vec<Item>)>,
+    removed_page_ids: Vec<String>,
+    exported: BTreeSet<Hmtid>,
+    /// Pages whose markdown file goes too.
+    deleted: Vec<Page>,
+    /// The tags before and after, for the tag pages.
+    tag_changes: Vec<(Vec<String>, Vec<String>)>,
+    /// The pages of a directory changed, so the atlas pages are written again.
+    atlases_stale: bool,
+}
+
 pub struct PageService {
     pages: PageRepository,
     items: ItemRepository,
     search: Arc<dyn SearchIndex>,
     export: Arc<MarkdownExportService>,
-    export_queue: ExportQueueRepository,
     properties: PropertyRepository,
     ids: Arc<IdGenerator>,
     config: Arc<ConfigService>,
@@ -123,7 +139,6 @@ impl PageService {
         items: ItemRepository,
         search: Arc<dyn SearchIndex>,
         export: Arc<MarkdownExportService>,
-        export_queue: ExportQueueRepository,
         properties: PropertyRepository,
         ids: Arc<IdGenerator>,
         config: Arc<ConfigService>,
@@ -134,7 +149,6 @@ impl PageService {
             items,
             search,
             export,
-            export_queue,
             properties,
             ids,
             config,
@@ -183,29 +197,48 @@ impl PageService {
             )));
         }
 
-        self.ensure_ancestor_pages(dir)?;
-
-        if let Some(page) = self.find_doc(dir, file_name)? {
-            return self.existing_doc(page);
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+        let mut effects = AfterCommit::default();
+        self.make_ancestor_pages_in(&tx, dir, true, &mut effects)?;
+        let mut result = match self.find_doc_in(&tx, dir, file_name)? {
+            Some(page) => DocResult {
+                items: ItemRepository::find_by_page_id_in(&tx, &page.id)?,
+                page,
+                created: false,
+            },
+            None => self.create_doc_in(&tx, dir, file_name, &mut effects)?,
+        };
+        tx.commit()?;
+        self.finish(effects);
+        if result.created {
+            // A new atlas page is written at once, by the sync after the commit
+            result.items = self.items.find_by_page_id(&result.page.id)?;
         }
+        Ok(result)
+    }
 
+    /// Creates a document page with one empty item, in the transaction.
+    fn create_doc_in(
+        &self,
+        tx: &Connection,
+        dir: &str,
+        file_name: &str,
+        effects: &mut AfterCommit,
+    ) -> AppResult<DocResult> {
         let id = self.ids.generate_page_id();
         let now = now_millis();
-        let page = Page::new(id.clone(), dir, file_name, "doc", now);
-        let page = self.pages.save(&page)?;
-        self.search.index_page(&page);
-
+        let page = PageRepository::save_in(tx, &Page::new(id.clone(), dir, file_name, "doc", now))?;
         // The items of an atlas page are its cards, which the server writes; an empty first
         // item could take the index a card took already
         if !page.is_atlas() {
-            self.items
-                .save(&Item::new_on(self.ids.generate_item_id(), &page, now))?;
+            ItemRepository::save_in(tx, &Item::new_on(self.ids.generate_item_id(), &page, now))?;
         }
-        self.export.queue_export(&id);
-        self.sync_atlases();
+        effects.indexed.push((page.clone(), Vec::new()));
+        effects.exported.insert(id.clone());
+        effects.atlases_stale = true;
         Ok(DocResult {
-            // A new atlas page is written at once
-            items: self.items.find_by_page_id(&id)?,
+            items: ItemRepository::find_by_page_id_in(tx, &id)?,
             page,
             created: true,
         })
@@ -215,38 +248,30 @@ impl PageService {
     /// the folder of that name (opening `[[a]]` shows `a/index`), else a page whose path
     /// differs only in case. Such a page has the same file on Windows and macOS: a second
     /// page there would overwrite its file again and again.
-    fn find_doc(&self, dir: &str, file_name: &str) -> AppResult<Option<Page>> {
-        if let Some(page) = self
-            .pages
-            .find_by_type_dir_path_file_name("doc", dir, file_name)?
+    fn find_doc_in(&self, tx: &Connection, dir: &str, file_name: &str) -> AppResult<Option<Page>> {
+        if let Some(page) =
+            PageRepository::find_by_type_dir_path_file_name_in(tx, "doc", dir, file_name)?
         {
             return Ok(Some(page));
         }
         let index_dir = format!("{dir}{file_name}/");
-        if let Some(page) = self
-            .pages
-            .find_by_type_dir_path_file_name("doc", &index_dir, "index")?
+        if let Some(page) =
+            PageRepository::find_by_type_dir_path_file_name_in(tx, "doc", &index_dir, "index")?
         {
             return Ok(Some(page));
         }
-        Ok(self
-            .pages
-            .find_by_type_dir_path_file_name_ignoring_case("doc", dir, file_name)?
+        Ok(
+            PageRepository::find_by_type_dir_path_file_name_ignoring_case_in(
+                tx, "doc", dir, file_name,
+            )?
             .into_iter()
             .chain(
-                self.pages
-                    .find_by_type_dir_path_file_name_ignoring_case("doc", &index_dir, "index")?,
+                PageRepository::find_by_type_dir_path_file_name_ignoring_case_in(
+                    tx, "doc", &index_dir, "index",
+                )?,
             )
-            .next())
-    }
-
-    fn existing_doc(&self, page: Page) -> AppResult<DocResult> {
-        let items = self.items.find_by_page_id(&page.id)?;
-        Ok(DocResult {
-            page,
-            items,
-            created: false,
-        })
+            .next(),
+        )
     }
 
     /// Updates a page's metadata. Only the given parameters are applied.
@@ -281,9 +306,12 @@ impl PageService {
             )));
         }
 
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+
         // Prevent demoting an index page that still has children
         if existing.name == "index" && file_name != "index" {
-            let children = self.pages.find_by_parent_id(page_id)?;
+            let children = PageRepository::find_by_parent_id_in(&tx, page_id)?;
             if !children.is_empty() {
                 return Err(AppError::bad_request(format!(
                     "Cannot rename index page with {} child page(s). Delete or move child pages first.",
@@ -295,28 +323,28 @@ impl PageService {
         let new_dir_path = dir_path.map_or_else(|| existing.dir_path.clone(), str::to_string);
 
         // Names are matched ignoring case, as the files of both would be one file on Windows
-        let taken: Vec<Page> = self
-            .pages
-            .find_by_type_dir_path_file_name_ignoring_case(
-                &existing.page_type,
-                &new_dir_path,
-                &file_name,
-            )?
-            .into_iter()
-            .filter(|p| p.id != existing.id)
-            .collect();
+        let taken: Vec<Page> = PageRepository::find_by_type_dir_path_file_name_ignoring_case_in(
+            &tx,
+            &existing.page_type,
+            &new_dir_path,
+            &file_name,
+        )?
+        .into_iter()
+        .filter(|p| p.id != existing.id)
+        .collect();
         if !taken.is_empty() && !overwrite {
             return Err(AppError::conflict(format!(
                 "A page named '{new_dir_path}{file_name}' already exists"
             )));
         }
+        let mut effects = AfterCommit::default();
         for page in &taken {
-            self.delete_page(&page.id)?;
+            self.delete_page_in(&tx, page, &mut effects)?;
         }
 
         // Ensure ancestor index pages exist for the new dir_path
         if dir_path.is_some() && file_name != "index" {
-            self.ensure_ancestor_pages(&new_dir_path)?;
+            self.make_ancestor_pages_in(&tx, &new_dir_path, true, &mut effects)?;
         }
 
         // Detect dir_path change for index pages to propagate to descendants
@@ -329,21 +357,27 @@ impl PageService {
             modified_date: now_millis(),
             ..existing.clone()
         };
-        let updated = self.pages.save(&updated)?;
-        self.search.index_page(&updated);
-
-        // Re-index all items with the new page title
-        let new_title = updated.title();
-        for item in self.items.find_by_page_id(page_id)? {
-            self.search.index_item(&item, &new_title);
-        }
+        let updated = PageRepository::save_in(&tx, &updated)?;
+        // The items are indexed again under the new page title
+        effects.indexed.push((
+            updated.clone(),
+            ItemRepository::find_by_page_id_in(&tx, page_id)?,
+        ));
 
         if dir_path_changed {
-            self.propagate_dir_path_change(page_id, &old_dir_path, &new_dir_path)?;
+            self.propagate_dir_path_change_in(
+                &tx,
+                page_id,
+                &old_dir_path,
+                &new_dir_path,
+                &mut effects,
+            )?;
         }
 
-        self.export.queue_export(page_id);
-        self.sync_atlases();
+        effects.exported.insert(page_id.clone());
+        effects.atlases_stale = true;
+        tx.commit()?;
+        self.finish(effects);
         Ok(updated)
     }
 
@@ -380,23 +414,31 @@ impl PageService {
                         "Not a date-time: {value} (expected e.g. 2026-01-02T03:04:05Z)"
                     ))
                 })?;
-            let updated = self.pages.save(&Page {
-                created_date: if key == "created" {
-                    millis
-                } else {
-                    page.created_date
+            let mut conn = self.items.db().conn()?;
+            let tx = conn.immediate()?;
+            let updated = PageRepository::save_in(
+                &tx,
+                &Page {
+                    created_date: if key == "created" {
+                        millis
+                    } else {
+                        page.created_date
+                    },
+                    modified_date: if key == "modified" {
+                        millis
+                    } else {
+                        now_millis()
+                    },
+                    ..page.clone()
                 },
-                modified_date: if key == "modified" {
-                    millis
-                } else {
-                    now_millis()
-                },
-                ..page.clone()
-            })?;
+            )?;
+            tx.commit()?;
             self.export.queue_export(&page.id);
             return Ok(updated);
         }
-        let definition = self.properties.find_definition(key)?;
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+        let definition = PropertyRepository::find_definition_in(&tx, key)?;
         if definition.as_ref().is_some_and(|def| !def.page) {
             return Err(AppError::bad_request(format!(
                 "Property '{key}' cannot be set on a page"
@@ -407,15 +449,16 @@ impl PageService {
             .as_ref()
             .map(|def| def.value_type.as_str())
             .unwrap_or(value_type);
+        let mut effects = AfterCommit::default();
         if value_type == "tags" || value_type == "list" {
             let values = list_values(value);
             if key == "tags" {
-                let before = self.properties.find_tags(PAGE_TARGET, page_id.as_str())?;
-                self.properties
-                    .sync_tags(PAGE_TARGET, page_id.as_str(), &values)?;
-                self.update_tag_pages(&before, &values);
+                let before = PropertyRepository::find_tags_in(&tx, PAGE_TARGET, page_id.as_str())?;
+                PropertyRepository::sync_tags_in(&tx, PAGE_TARGET, page_id.as_str(), &values)?;
+                effects.tag_changes.push((before, values));
             } else {
-                self.properties.upsert_list(
+                PropertyRepository::upsert_list_in(
+                    &tx,
                     PAGE_TARGET,
                     page_id.as_str(),
                     key,
@@ -424,20 +467,28 @@ impl PageService {
                 )?;
             }
         } else {
-            self.properties
-                .upsert_scalar(PAGE_TARGET, page_id.as_str(), key, value_type, value)?;
+            PropertyRepository::upsert_scalar_in(
+                &tx,
+                PAGE_TARGET,
+                page_id.as_str(),
+                key,
+                value_type,
+                value,
+            )?;
         }
-        self.touch_and_export(&page)
+        self.touch_and_commit(tx, &page, effects)
     }
 
     /// Sets the tags of a page as an imported file has them, and returns the tags it had.
     /// The tag pages are left to the caller, which knows when the import is complete.
     pub fn replace_page_tags(&self, page_id: &Hmtid, tags: &[String]) -> AppResult<Vec<String>> {
-        let before = self.properties.find_tags(PAGE_TARGET, page_id.as_str())?;
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+        let before = PropertyRepository::find_tags_in(&tx, PAGE_TARGET, page_id.as_str())?;
         if before != tags {
-            self.properties
-                .sync_tags(PAGE_TARGET, page_id.as_str(), tags)?;
+            PropertyRepository::sync_tags_in(&tx, PAGE_TARGET, page_id.as_str(), tags)?;
         }
+        tx.commit()?;
         Ok(before)
     }
 
@@ -575,53 +626,125 @@ impl PageService {
             )));
         }
         let page = self.require_page(page_id)?;
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
         let before = if key == "tags" {
-            self.properties.find_tags(PAGE_TARGET, page_id.as_str())?
+            PropertyRepository::find_tags_in(&tx, PAGE_TARGET, page_id.as_str())?
         } else {
             Vec::new()
         };
-        self.properties
-            .delete_property(PAGE_TARGET, page_id.as_str(), key)?;
-        self.delete_unused_tag_pages(&before);
-        self.touch_and_export(&page)
+        PropertyRepository::delete_property_in(&tx, PAGE_TARGET, page_id.as_str(), key)?;
+        let mut effects = AfterCommit::default();
+        effects.tag_changes.push((before, Vec::new()));
+        self.touch_and_commit(tx, &page, effects)
     }
 
     /// Removes a user property key everywhere. Every page that lost a value, on itself or
     /// on one of its items, gets a new modified date and its file rewritten; their ids come
     /// back so the caller can tell the clients.
     pub fn delete_property_definition(&self, key: &str) -> AppResult<Vec<Hmtid>> {
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+        let mut effects = AfterCommit::default();
         let mut touched = Vec::new();
-        for id in self.properties.delete_definition(key)? {
+        let now = now_millis();
+        for id in PropertyRepository::delete_definition_in(&tx, key)? {
             let Ok(page_id) = Hmtid::parse(&id) else {
                 continue;
             };
-            if let Some(page) = self.pages.find_by_id(&page_id)? {
-                self.touch_and_export(&page)?;
+            if PageRepository::find_by_id_in(&tx, &page_id)?.is_some() {
+                PageRepository::touch_in(&tx, &page_id, now)?;
+                effects.exported.insert(page_id.clone());
                 touched.push(page_id);
             }
         }
+        tx.commit()?;
+        self.finish(effects);
         Ok(touched)
     }
 
-    fn touch_and_export(&self, page: &Page) -> AppResult<Page> {
-        let updated = self.pages.save(&Page {
-            modified_date: now_millis(),
-            ..page.clone()
-        })?;
-        self.export.queue_export(&page.id);
+    /// Gives the page a new modified date, commits, and queues its file: what every change
+    /// of a page does. Returns the page as it is now.
+    fn touch_and_commit(
+        &self,
+        tx: Transaction<'_>,
+        page: &Page,
+        mut effects: AfterCommit,
+    ) -> AppResult<Page> {
+        let updated = PageRepository::save_in(
+            &tx,
+            &Page {
+                modified_date: now_millis(),
+                ..page.clone()
+            },
+        )?;
+        tx.commit()?;
+        effects.exported.insert(page.id.clone());
+        self.finish(effects);
         Ok(updated)
+    }
+
+    /// The work that lives outside the database, done once the commit is through.
+    fn finish(&self, effects: AfterCommit) {
+        for id in &effects.removed_page_ids {
+            self.search.remove_page(id);
+        }
+        for (page, items) in &effects.indexed {
+            self.search.index_page(page);
+            let title = page.title();
+            for item in items {
+                self.search.index_item(item, &title);
+            }
+        }
+        for page_id in &effects.exported {
+            self.export.queue_export(page_id);
+        }
+        for page in &effects.deleted {
+            // Remove the markdown file too, otherwise the folder scan would bring the page back
+            self.export.delete_page_file(page);
+            // An atlas keeps the card of a page it does not know, so a deleted page says so
+            if let Err(e) = self.atlas.forget_page(&page.id) {
+                tracing::warn!(
+                    "Could not take the deleted page {} off the atlases: {e}",
+                    page.id
+                );
+            }
+        }
+        for (before, after) in &effects.tag_changes {
+            self.update_tag_pages(before, after);
+        }
+        if effects.atlases_stale {
+            self.sync_atlases();
+        }
     }
 
     /// Deletes a page with all its items and their properties. The tags of the page and of
     /// its items go with them, so their tag pages are deleted when nothing else uses them.
     pub fn delete_page(&self, page_id: &Hmtid) -> AppResult<()> {
         let page = self.require_page(page_id)?;
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+        let mut effects = AfterCommit::default();
+        self.delete_page_in(&tx, &page, &mut effects)?;
+        tx.commit()?;
+        self.finish(effects);
+        Ok(())
+    }
 
+    /// Deletes a page with its items and their properties, in the transaction. Its file, its
+    /// card on the atlases and the tag pages its tags held up go after the commit.
+    fn delete_page_in(
+        &self,
+        tx: &Connection,
+        page: &Page,
+        effects: &mut AfterCommit,
+    ) -> AppResult<()> {
+        let page_id = &page.id;
         if page.name == "index" && page.dir_path.is_empty() {
             return Err(AppError::bad_request("Cannot delete the root index page."));
         }
         if page.name == "index" {
-            let children = self.pages.find_by_parent_id(page_id)?;
+            let children = PageRepository::find_by_parent_id_in(tx, page_id)?;
             if !children.is_empty() {
                 return Err(AppError::bad_request(format!(
                     "Cannot delete index page with {} child page(s). Delete or move child pages first.",
@@ -630,33 +753,29 @@ impl PageService {
             }
         }
 
-        self.search.remove_page(page_id.as_str());
-        let item_ids: Vec<String> = self
-            .items
-            .find_by_page_id(page_id)?
+        let item_ids: Vec<String> = ItemRepository::find_by_page_id_in(tx, page_id)?
             .iter()
             .map(|i| i.id.to_string())
             .collect();
-        let mut tags = self.properties.find_tags(PAGE_TARGET, page_id.as_str())?;
+        let mut tags = PropertyRepository::find_tags_in(tx, PAGE_TARGET, page_id.as_str())?;
         for id in &item_ids {
-            tags.extend(self.properties.find_tags("item", id)?);
+            tags.extend(PropertyRepository::find_tags_in(tx, "item", id)?);
         }
         tags.sort();
         tags.dedup();
-        self.properties.delete_all_for_targets("item", &item_ids)?;
-        self.properties
-            .delete_all_for_targets(PAGE_TARGET, std::slice::from_ref(&page_id.to_string()))?;
-        self.items.delete_by_page_id(page_id)?;
-        self.pages.delete(page_id)?;
-        self.export_queue.remove(page_id)?;
-        // Remove the markdown file too, otherwise the folder scan would bring the page back
-        self.export.delete_page_file(&page);
-        self.delete_unused_tag_pages(&tags);
-        // An atlas keeps the card of a page it does not know, so a deleted page says so
-        if let Err(e) = self.atlas.forget_page(page_id) {
-            tracing::warn!("Could not take the deleted page {page_id} off the atlases: {e}");
-        }
-        self.sync_atlases();
+        PropertyRepository::delete_all_for_targets_in(tx, "item", &item_ids)?;
+        PropertyRepository::delete_all_for_targets_in(
+            tx,
+            PAGE_TARGET,
+            std::slice::from_ref(&page_id.to_string()),
+        )?;
+        ItemRepository::delete_by_page_id_in(tx, page_id)?;
+        PageRepository::delete_in(tx, page_id)?;
+        ExportQueueRepository::remove_in(tx, page_id)?;
+        effects.removed_page_ids.push(page_id.to_string());
+        effects.deleted.push(page.clone());
+        effects.tag_changes.push((tags, Vec::new()));
+        effects.atlases_stale = true;
         Ok(())
     }
 
@@ -768,20 +887,28 @@ impl PageService {
         (head.eq_ignore_ascii_case(&tags_dir) && !tag.is_empty()).then(|| tag.to_string())
     }
 
-    /// Ensures that all ancestor directory pages exist for the given dirPath, and writes their
-    /// files. For example, dirPath "dir1/dir2/" creates pages ("dir1/", "index") and
-    /// ("dir1/dir2/", "index").
-    pub fn ensure_ancestor_pages(&self, dir_path: &str) -> AppResult<()> {
-        self.make_ancestor_pages(dir_path, true)
-    }
-
     /// Ensures the ancestor directory pages of a file being taken in. Their files are not
     /// written: the device that sent the file may send its index files too.
     pub fn ensure_ancestor_pages_from_file(&self, dir_path: &str) -> AppResult<()> {
-        self.make_ancestor_pages(dir_path, false)
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+        let mut effects = AfterCommit::default();
+        self.make_ancestor_pages_in(&tx, dir_path, false, &mut effects)?;
+        tx.commit()?;
+        self.finish(effects);
+        Ok(())
     }
 
-    fn make_ancestor_pages(&self, dir_path: &str, export: bool) -> AppResult<()> {
+    /// Makes every ancestor directory page of the given dirPath that is missing, in the
+    /// transaction. For example, dirPath "dir1/dir2/" creates pages ("dir1/", "index") and
+    /// ("dir1/dir2/", "index"). With `export`, their files are written too.
+    fn make_ancestor_pages_in(
+        &self,
+        tx: &Connection,
+        dir_path: &str,
+        export: bool,
+        effects: &mut AfterCommit,
+    ) -> AppResult<()> {
         if dir_path.is_empty() {
             return Ok(());
         }
@@ -795,69 +922,78 @@ impl PageService {
             current_dir.push('/');
             let index_dir = current_dir.clone();
 
-            if self
-                .pages
-                .find_by_type_dir_path_file_name("doc", &index_dir, "index")?
+            if PageRepository::find_by_type_dir_path_file_name_in(tx, "doc", &index_dir, "index")?
                 .is_some()
             {
                 continue;
             }
             // Check if a named page should be promoted to index
             if let Some(page) =
-                self.pages
-                    .find_by_type_dir_path_file_name("doc", &parent_dir, segment)?
+                PageRepository::find_by_type_dir_path_file_name_in(tx, "doc", &parent_dir, segment)?
             {
-                let renamed = Page {
-                    dir_path: index_dir.clone(),
-                    name: "index".to_string(),
-                    modified_date: now_millis(),
-                    ..page
-                };
-                let renamed = self.pages.save(&renamed)?;
-                self.search.index_page(&renamed);
+                let renamed = PageRepository::save_in(
+                    tx,
+                    &Page {
+                        dir_path: index_dir.clone(),
+                        name: "index".to_string(),
+                        modified_date: now_millis(),
+                        ..page
+                    },
+                )?;
                 if export {
-                    self.export.queue_export(&renamed.id);
+                    effects.exported.insert(renamed.id.clone());
                 }
+                effects.indexed.push((renamed, Vec::new()));
             } else {
                 let now = now_millis();
                 let page = Page::new(self.ids.generate_page_id(), &index_dir, "index", "doc", now);
-                self.pages.save(&page)?;
-                self.search.index_page(&page);
-                self.items
-                    .save(&Item::new_on(self.ids.generate_item_id(), &page, now))?;
+                let page = PageRepository::save_in(tx, &page)?;
+                ItemRepository::save_in(
+                    tx,
+                    &Item::new_on(self.ids.generate_item_id(), &page, now),
+                )?;
                 if export {
                     // A file at once, so another device takes this index page and does not
                     // make one of its own
-                    self.export.queue_export(&page.id);
+                    effects.exported.insert(page.id.clone());
                 }
+                effects.indexed.push((page, Vec::new()));
             }
         }
         Ok(())
     }
 
-    /// Recursively propagates a dir_path change to all child pages.
-    fn propagate_dir_path_change(
+    /// Recursively propagates a dir_path change to all child pages, in the transaction.
+    fn propagate_dir_path_change_in(
         &self,
+        tx: &Connection,
         parent_page_id: &Hmtid,
         old_prefix: &str,
         new_prefix: &str,
+        effects: &mut AfterCommit,
     ) -> AppResult<()> {
-        for child in self.pages.find_by_parent_id(parent_page_id)? {
+        for child in PageRepository::find_by_parent_id_in(tx, parent_page_id)? {
             let suffix = child.dir_path.get(old_prefix.len()..).unwrap_or("");
             let child_new_dir = format!("{new_prefix}{suffix}");
-            let updated = Page {
-                dir_path: child_new_dir.clone(),
-                ..child.clone()
-            };
-            let updated = self.pages.save(&updated)?;
-            self.search.index_page(&updated);
-            let child_title = updated.title();
-            for item in self.items.find_by_page_id(&child.id)? {
-                self.search.index_item(&item, &child_title);
-            }
-            self.export.queue_export(&child.id);
+            let updated = PageRepository::save_in(
+                tx,
+                &Page {
+                    dir_path: child_new_dir.clone(),
+                    ..child.clone()
+                },
+            )?;
+            effects
+                .indexed
+                .push((updated, ItemRepository::find_by_page_id_in(tx, &child.id)?));
+            effects.exported.insert(child.id.clone());
             if child.name == "index" {
-                self.propagate_dir_path_change(&child.id, &child.dir_path, &child_new_dir)?;
+                self.propagate_dir_path_change_in(
+                    tx,
+                    &child.id,
+                    &child.dir_path,
+                    &child_new_dir,
+                    effects,
+                )?;
             }
         }
         Ok(())
