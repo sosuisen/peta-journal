@@ -37,7 +37,7 @@ pub struct TreeMarkdownExport {
 /// What an operation does outside the database, once its transaction is committed: the
 /// search index, the tag pages and the export of the pages it touched.
 #[derive(Default)]
-struct AfterCommit {
+pub(crate) struct AfterCommit {
     removed_ids: Vec<String>,
     /// Each item to index anew, with the title of its page.
     indexed: Vec<(Item, String)>,
@@ -93,14 +93,35 @@ impl ItemService {
         body: Option<&str>,
         client_id: Option<Hmtid>,
     ) -> AppResult<Item> {
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+        let mut effects = AfterCommit::default();
+        let item =
+            self.create_item_in(&tx, page_id, position, level, body, client_id, &mut effects)?;
+        tx.commit()?;
+        self.finish(effects);
+        Ok(item)
+    }
+
+    /// Creates an item in the transaction. The page gets a new modified date; what the item
+    /// changes outside the database goes into `effects`.
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn create_item_in(
+        &self,
+        tx: &Connection,
+        page_id: &Hmtid,
+        position: &ItemPosition,
+        level: i32,
+        body: Option<&str>,
+        client_id: Option<Hmtid>,
+        effects: &mut AfterCommit,
+    ) -> AppResult<Item> {
         let id = client_id.unwrap_or_else(|| self.ids.generate_item_id());
         let now = now_millis();
         let parsed = ItemBody::parse(body);
         let ast = self.parser.parse_to_ast(&parsed.text);
 
-        let mut conn = self.items.db().conn()?;
-        let tx = conn.immediate()?;
-        let mut existing = ItemRepository::find_by_page_id_in(&tx, page_id)?;
+        let mut existing = ItemRepository::find_by_page_id_in(tx, page_id)?;
 
         // Validate level constraint
         match find_item_above(&existing, position) {
@@ -125,14 +146,15 @@ impl ItemService {
             Ok(idx) => idx,
             Err(_) => {
                 // Fractional index exhausted: reindex and retry
-                reindex_page(&tx, page_id, &existing)?;
-                existing = ItemRepository::find_by_page_id_in(&tx, page_id)?;
+                reindex_page(tx, page_id, &existing)?;
+                existing = ItemRepository::find_by_page_id_in(tx, page_id)?;
                 calculate_insertion_index(&existing, position).map_err(AppError::internal)?
             }
         };
 
         let types = parsed.all_types();
-        let page = self.page_service.require_page(page_id)?;
+        let page = PageRepository::find_by_id_in(tx, page_id)?
+            .ok_or_else(|| AppError::bad_request(format!("Page not found: {page_id}")))?;
 
         let item = Item {
             idx,
@@ -142,22 +164,19 @@ impl ItemService {
             types,
             ..Item::new_on(id.clone(), &page, now)
         };
-        ItemRepository::save_in(&tx, &item)?;
-        ItemRepository::recalculate_parent_ids_in(&tx, page_id)?;
-        PageRepository::touch_in(&tx, page_id, now)?;
+        ItemRepository::save_in(tx, &item)?;
+        ItemRepository::recalculate_parent_ids_in(tx, page_id)?;
+        PageRepository::touch_in(tx, page_id, now)?;
         // The new item may have got a parent
-        let item = ItemRepository::find_by_id_in(&tx, &id)?.unwrap_or(item);
+        let item = ItemRepository::find_by_id_in(tx, &id)?.unwrap_or(item);
 
-        let mut effects = AfterCommit::default();
         effects.pages.insert(page_id.clone());
         let hashtags = hashtag::extract_hashtags(&item.ast);
         if !hashtags.is_empty() {
-            PropertyRepository::sync_tags_in(&tx, ITEM_TARGET, item.id.as_str(), &hashtags)?;
+            PropertyRepository::sync_tags_in(tx, ITEM_TARGET, item.id.as_str(), &hashtags)?;
             effects.tag_changes.push((Vec::new(), hashtags));
         }
         effects.indexed.push((item.clone(), page.title()));
-        tx.commit()?;
-        self.finish(effects);
         Ok(item)
     }
 
@@ -424,7 +443,7 @@ impl ItemService {
     }
 
     /// The work that lives outside the database, done once the commit is through.
-    fn finish(&self, effects: AfterCommit) {
+    pub(crate) fn finish(&self, effects: AfterCommit) {
         for id in &effects.removed_ids {
             self.search.remove_item(id);
         }

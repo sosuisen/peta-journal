@@ -111,7 +111,6 @@ impl AppState {
             items.clone(),
             Arc::clone(&search),
             Arc::clone(&export),
-            export_queue.clone(),
             properties.clone(),
             Arc::clone(&ids),
             Arc::clone(&config),

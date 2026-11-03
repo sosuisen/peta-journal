@@ -177,13 +177,19 @@ impl PageMatcher {
 
     /// Saves a page with a new modified date at a location whose index pages exist already.
     pub fn touch(&self, page: &Page, loc: &PageLocation, modified: i64) -> AppResult<Page> {
-        let saved = self.pages.save(&Page {
-            dir_path: loc.dir_path.clone(),
-            name: loc.name.clone(),
-            page_type: loc.page_type.clone(),
-            modified_date: modified,
-            ..page.clone()
-        })?;
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+        let saved = PageRepository::save_in(
+            &tx,
+            &Page {
+                dir_path: loc.dir_path.clone(),
+                name: loc.name.clone(),
+                page_type: loc.page_type.clone(),
+                modified_date: modified,
+                ..page.clone()
+            },
+        )?;
+        tx.commit()?;
         self.search.index_page(&saved);
         Ok(saved)
     }
@@ -204,12 +210,13 @@ impl PageMatcher {
             "Adopting page id {new_id} from {rel_path} (was {})",
             page.id
         );
-        self.search.remove_page(page.id.as_str());
-        self.pages.rekey(&page.id, new_id)?;
-        let rekeyed = self
-            .pages
-            .find_by_id(new_id)?
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+        PageRepository::rekey_in(&tx, &page.id, new_id)?;
+        let rekeyed = PageRepository::find_by_id_in(&tx, new_id)?
             .ok_or_else(|| AppError::internal(format!("Page vanished after rekey: {new_id}")))?;
+        tx.commit()?;
+        self.search.remove_page(page.id.as_str());
         self.search.index_page(&rekeyed);
         self.search
             .index_items(&self.items.find_by_page_id(&rekeyed.id)?, &rekeyed.title());

@@ -6,6 +6,7 @@ use std::sync::Arc;
 
 use crate::domain::hashtag;
 use crate::domain::search::SearchIndex;
+use crate::error::AppResult;
 use crate::infrastructure::export::export_service::MarkdownExportService;
 use crate::infrastructure::persistence::{ItemRepository, PageRepository, PropertyRepository};
 
@@ -94,33 +95,32 @@ pub fn backfill_hashtags(
         return;
     }
     tracing::info!("Backfilling hashtag tags for existing items...");
+    if let Err(e) = backfill_hashtags_once(pages, items) {
+        tracing::warn!("Hashtag backfill skipped: {e}");
+    }
+}
+
+/// Tags the items in one transaction, so a restart in the middle starts over.
+fn backfill_hashtags_once(pages: &PageRepository, items: &ItemRepository) -> AppResult<()> {
     let mut count = 0;
-    let all_pages = match pages.find_all() {
-        Ok(p) => p,
-        Err(e) => {
-            tracing::warn!("Hashtag backfill skipped: {e}");
-            return;
-        }
-    };
+    let all_pages = pages.find_all()?;
+    let mut conn = items.db().conn()?;
+    let tx = conn.immediate()?;
     for page in all_pages {
-        let Ok(page_items) = items.find_by_page_id(&page.id) else {
-            continue;
-        };
-        for item in page_items {
+        for item in ItemRepository::find_by_page_id_in(&tx, &page.id)? {
             if item.ast.trim().is_empty() {
                 continue;
             }
             let hashtags = hashtag::extract_hashtags(&item.ast);
             if !hashtags.is_empty() {
-                if let Err(e) = properties.sync_tags("item", item.id.as_str(), &hashtags) {
-                    tracing::warn!("Failed to tag item {}: {e}", item.id);
-                    continue;
-                }
+                PropertyRepository::sync_tags_in(&tx, "item", item.id.as_str(), &hashtags)?;
                 count += 1;
             }
         }
     }
+    tx.commit()?;
     tracing::info!("Hashtag backfill complete: {count} items tagged");
+    Ok(())
 }
 
 /// Builds the search index from the database when it is empty.
