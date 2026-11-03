@@ -477,6 +477,31 @@ async fn a_transclusion_shows_the_source_tree_with_the_page() {
     assert!(items(&page.id).await[0].transclude_item_id.is_none());
 }
 
+// トランスクルージョンを外すと、項目の本文は空になり、保存済みのASTも空になる。
+#[tokio::test]
+async fn removing_a_transclusion_leaves_an_empty_body_and_an_empty_ast() {
+    let source_page = new_doc_page("items-transclusion-remove-source").await;
+    let source = fill(&source_page.id, &["**root**"]).await;
+    let page = new_doc_page("items-transclusion-remove").await;
+    let host = fill(&page.id, &["placeholder"]).await.remove(0);
+    post(
+        &format!("/api/items/{}/transclude", host.id),
+        json!({ "sourceItemId": source[0].id }),
+    )
+    .await;
+    let (_, resp) = get(&format!("/api/items/{}", host.id)).await;
+    assert_ne!(resp["item"]["ast"], json!(""), "{resp}");
+
+    assert_eq!(
+        delete(&format!("/api/items/{}/transclude", host.id)).await,
+        200
+    );
+
+    let (_, resp) = get(&format!("/api/items/{}", host.id)).await;
+    assert_eq!(resp["item"]["body"], json!(""));
+    assert_eq!(resp["item"]["ast"], json!(""));
+}
+
 // トランスクルージョンの設定は項目の変更として数えられ、日付での同期がそれを拾う。
 #[tokio::test]
 async fn setting_a_transclusion_counts_as_a_change_of_the_item() {
@@ -1996,6 +2021,50 @@ async fn renaming_a_tag_page_renames_its_tag_in_page_tags_and_bodies() {
     assert_eq!(item.properties["tags"], json!([new]));
     assert_eq!(doc_page_named(&new).await, Some(tag_page.clone()));
     assert!(doc_page_named(&old).await.is_none());
+}
+
+// タグページをタグフォルダの中の別のフォルダへ動かすと、タグもそのフォルダの名前で付け直される。
+#[tokio::test]
+async fn moving_a_tag_page_into_a_folder_renames_its_tag_after_the_folder() {
+    let _tags_dir = TAGS_DIR.lock().await;
+    let old = format!("moved-tag-{}", nanos());
+    let new = format!("sub/{old}");
+    let tagged = new_doc_page("moved-tag-page").await;
+    set_page_tags(&tagged.id, &old).await;
+    let tag_page = doc_page_named(&old).await.unwrap();
+    let (_, config) = get("/api/config").await;
+    let tags_dir = config["tagsDir"].as_str().unwrap();
+
+    let (status, resp) = put(
+        &format!("/api/pages/{tag_page}"),
+        json!({ "dirPath": format!("{tags_dir}sub/") }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    let (_, resp) = get(&format!("/api/pages/{}", tagged.id)).await;
+    assert_eq!(resp["page"]["properties"]["tags"], json!([new]));
+}
+
+// タグページをタグが変わらないように更新しても、タグの付いたページは触られない。
+#[tokio::test]
+async fn updating_a_tag_page_without_changing_its_tag_leaves_the_tagged_pages_alone() {
+    let _tags_dir = TAGS_DIR.lock().await;
+    let tag = format!("same-tag-{}", nanos());
+    let tagged = new_doc_page("same-tag-page").await;
+    set_page_tags(&tagged.id, &tag).await;
+    let tag_page = doc_page_named(&tag).await.unwrap();
+    let (_, before) = get(&format!("/api/pages/{}", tagged.id)).await;
+    tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+
+    let (status, resp) = put(&format!("/api/pages/{tag_page}"), json!({ "title": tag })).await;
+    assert_eq!(status, 200, "{resp}");
+
+    let (_, after) = get(&format!("/api/pages/{}", tagged.id)).await;
+    assert_eq!(
+        after["page"]["modifiedDate"],
+        before["page"]["modifiedDate"]
+    );
 }
 
 // タグページには、タグでないタイトルを付けられない。
