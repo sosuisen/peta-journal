@@ -33,6 +33,11 @@ impl FailingImport {
     fn tries(&self) -> i32 {
         self.tries.load(Ordering::SeqCst)
     }
+
+    /// Fails the next tries, as when the file is locked again
+    fn fail_next(&self, failures: i32) {
+        self.failures_left.store(failures, Ordering::SeqCst);
+    }
 }
 
 impl FileImport for FailingImport {
@@ -274,4 +279,21 @@ async fn a_file_that_keeps_failing_is_left_to_the_scan_after_four_tries() {
     folder.state.reconcile.scan();
     let page = folder.page("stuck").unwrap();
     assert_eq!(folder.outline(&page), ["1:for the scan"]);
+}
+
+// 一度失敗してから取り込めたファイルは、あとでまた失敗しても、また4回試される。
+#[tokio::test]
+async fn a_file_taken_in_after_failing_gets_four_tries_again_when_it_fails_later() {
+    let (folder, import) = Folder::watched_failing(2);
+    folder.write("docs/twice.md", "first save\n");
+    eventually("the file is a page", || folder.page("twice").is_some()).await;
+    assert_eq!(import.tries(), 3);
+
+    import.fail_next(i32::MAX);
+    folder.write("docs/twice.md", "second save\n");
+
+    eventually("the watcher tried four more times", || import.tries() >= 7).await;
+    // Long enough for two more tries, if the watcher had not given up
+    tokio::time::sleep(Duration::from_millis(1500)).await;
+    assert_eq!(import.tries(), 7);
 }
