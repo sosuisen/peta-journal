@@ -1,8 +1,6 @@
 //! The API tests of the Java server, run against the Rust server.
 
-mod common;
-
-use common::*;
+use crate::common::*;
 use serde_json::{json, Value};
 
 fn vs(items: &[&str]) -> Vec<String> {

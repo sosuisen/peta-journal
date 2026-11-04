@@ -59,4 +59,4 @@ HLCが守るのは「見てから直した」順序だけである。2台が互�
 
 ## 進め方
 
-1から始める。合流のテストは、2台のデバイスの形（`journal-server-rust/crates/server/tests/atlas_sync.rs`）で書く。`idx`の直しは、`panic`を止める変更、アルゴリズムの置き換え、長さによる振り直しの順で、同期の話より先に進めてよい。
+1から始める。合流のテストは、2台のデバイスの形（`journal-server-rust/crates/server/tests/it/atlas_sync.rs`）で書く。`idx`の直しは、`panic`を止める変更、アルゴリズムの置き換え、長さによる振り直しの順で、同期の話より先に進めてよい。
