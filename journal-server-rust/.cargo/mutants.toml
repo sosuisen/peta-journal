@@ -10,3 +10,8 @@ exclude_globs = [
     "crates/server/src/infrastructure/launcher.rs",
     "crates/server/src/infrastructure/export/pending_delete_prompt.rs",
 ]
+
+# A mutant that loops forever runs until the test timeout. By default the timeout is five times
+# the test time of the unmutated tree, near 70 seconds here. Twice that time is still far above
+# what the tests need, and each such mutant takes 40 seconds less.
+timeout_multiplier = 2.0
