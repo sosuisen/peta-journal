@@ -180,7 +180,7 @@ impl AppState {
             settings.import_enabled,
             settings.import_debounce_ms,
             Arc::clone(&export),
-            Arc::clone(&import),
+            import.clone(),
             Arc::clone(&reconcile),
             file_sync_state.clone(),
             Arc::clone(&prompt),

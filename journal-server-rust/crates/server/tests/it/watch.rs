@@ -2,12 +2,16 @@
 //! without waiting for the folder scan. Each test watches a folder of its own with a server
 //! state of its own. Only the watcher runs there: no export scheduler and no folder scan.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicI32, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use hmtid::Hmtid;
 use journal_server::config::Settings;
-use journal_server::infrastructure::export::import_service::Outcome;
+use journal_server::infrastructure::export::import_service::{MarkdownImportService, Outcome};
+use journal_server::infrastructure::export::pending_delete_prompt::PendingDeletePrompt;
+use journal_server::infrastructure::watch::{FileImport, MarkdownFolderWatcher};
 use journal_server::state::{AppState, BuildOptions, SharedState};
 use serde_json::json;
 
@@ -17,9 +21,70 @@ struct Folder {
     _dir: tempfile::TempDir,
 }
 
+/// An import that fails the first times, as when an editor or a cloud folder still holds the
+/// file locked. Then it takes the file in. It counts how often the watcher tried.
+struct FailingImport {
+    real: Arc<MarkdownImportService>,
+    failures_left: AtomicI32,
+    tries: AtomicI32,
+}
+
+impl FailingImport {
+    fn tries(&self) -> i32 {
+        self.tries.load(Ordering::SeqCst)
+    }
+}
+
+impl FileImport for FailingImport {
+    fn sync_file(&self, root: &Path, rel_path: &str) -> Outcome {
+        self.tries.fetch_add(1, Ordering::SeqCst);
+        if self.failures_left.fetch_sub(1, Ordering::SeqCst) > 0 {
+            return Outcome::Error;
+        }
+        self.real.sync_file(root, rel_path)
+    }
+}
+
 impl Folder {
     /// A markdown folder with a docs/ folder, watched from now on
     fn watched() -> Folder {
+        let folder = Folder::new();
+        folder.state.watcher.start();
+        // start() attaches the watcher only after a few seconds; restart() does it now
+        folder.state.watcher.restart();
+        folder
+    }
+
+    /// A watched folder whose import fails the given number of times
+    fn watched_failing(failures: i32) -> (Folder, Arc<FailingImport>) {
+        let folder = Folder::new();
+        let import = Arc::new(FailingImport {
+            real: Arc::clone(&folder.state.import),
+            failures_left: AtomicI32::new(failures),
+            tries: AtomicI32::new(0),
+        });
+        let state = &folder.state;
+        let watcher = Arc::new(MarkdownFolderWatcher::new(
+            true,
+            state.settings.import_debounce_ms,
+            Arc::clone(&state.export),
+            import.clone(),
+            Arc::clone(&state.reconcile),
+            state.file_sync_state.clone(),
+            Arc::new(PendingDeletePrompt::new(
+                0,
+                state.settings.import_delete_prompt_cooldown_secs,
+            )),
+            Arc::clone(&state.search),
+        ));
+        // The tasks the watcher starts keep it alive
+        watcher.start();
+        watcher.restart();
+        (folder, import)
+    }
+
+    /// A markdown folder with a docs/ folder, not watched yet
+    fn new() -> Folder {
         let dir = tempfile::Builder::new()
             .prefix("peta-journal-watch-")
             .tempdir()
@@ -42,9 +107,6 @@ impl Folder {
         )
         .unwrap();
         let state = AppState::build(settings, BuildOptions { interactive: false }).unwrap();
-        state.watcher.start();
-        // start() attaches the watcher only after a few seconds; restart() does it now
-        state.watcher.restart();
         Folder {
             state,
             root,
@@ -181,4 +243,35 @@ async fn an_empty_file_becomes_a_page_only_once_its_content_is_written() {
         folder.outline(&page) == ["1:written later"]
     })
     .await;
+}
+
+// 読み込みに失敗したファイルは、新しい変更を待たずに取り込み直される。
+#[tokio::test]
+async fn a_file_that_failed_to_read_is_taken_in_again_without_a_new_change() {
+    let (folder, import) = Folder::watched_failing(2);
+
+    folder.write("docs/locked.md", "read at last\n");
+
+    eventually("the file is a page", || folder.page("locked").is_some()).await;
+    let page = folder.page("locked").unwrap();
+    assert_eq!(folder.outline(&page), ["1:read at last"]);
+    assert_eq!(import.tries(), 3);
+}
+
+// 読み込みの失敗が続くファイルは、4回試したところで諦められ、スキャンが取り込む。
+#[tokio::test]
+async fn a_file_that_keeps_failing_is_left_to_the_scan_after_four_tries() {
+    let (folder, import) = Folder::watched_failing(i32::MAX);
+
+    folder.write("docs/stuck.md", "for the scan\n");
+
+    eventually("the watcher tried four times", || import.tries() >= 4).await;
+    // Long enough for two more tries, if the watcher had not given up
+    tokio::time::sleep(Duration::from_millis(1500)).await;
+    assert_eq!(import.tries(), 4);
+    assert_eq!(folder.page("stuck"), None);
+
+    folder.state.reconcile.scan();
+    let page = folder.page("stuck").unwrap();
+    assert_eq!(folder.outline(&page), ["1:for the scan"]);
 }
