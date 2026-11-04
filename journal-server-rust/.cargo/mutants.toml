@@ -11,6 +11,13 @@ exclude_globs = [
     "crates/server/src/infrastructure/export/pending_delete_prompt.rs",
 ]
 
+# Single mutants that no test can catch, skipped by name, as agreed with the user:
+# - The quiet time of the folder watcher (2026-11-05). With `+` for `-` the watcher takes a
+#   file in at once, and the page ends the same. How often a file was taken in does not show.
+exclude_re = [
+    "replace - with \\+ in MarkdownFolderWatcher::flush_pending",
+]
+
 # A mutant that loops forever runs until the test timeout. By default the timeout is five times
 # the test time of the unmutated tree, near 70 seconds here. Twice that time is still far above
 # what the tests need, and each such mutant takes 40 seconds less.
