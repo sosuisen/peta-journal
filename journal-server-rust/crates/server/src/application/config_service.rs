@@ -164,6 +164,37 @@ mod tests {
 
     use super::{normalize_home_link, normalize_tags_dir, ConfigService};
 
+    // 設定を書いている途中に読んでも、ほかの設定は消えない。
+    #[test]
+    fn a_setting_read_while_another_is_written_is_still_there() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = Arc::new(ConfigService::new(dir.path().to_path_buf()));
+        config.set_markdown_dir("/notes");
+
+        let writer = std::thread::spawn({
+            let config = Arc::clone(&config);
+            move || {
+                for round in 0..200 {
+                    config.set_home_link(&format!("home-{round}"));
+                }
+            }
+        });
+        let mut read = Vec::new();
+        while !writer.is_finished() {
+            read.push(config.markdown_dir());
+        }
+        writer.join().unwrap();
+
+        let wrong: Vec<&String> = read.iter().filter(|dir| *dir != "/notes").collect();
+        assert!(
+            wrong.is_empty(),
+            "{} of {} reads: {wrong:?}",
+            wrong.len(),
+            read.len()
+        );
+        assert_eq!(config.markdown_dir(), "/notes");
+    }
+
     // 別々の設定を同時に変えても、両方の変更が残る。
     #[test]
     fn two_settings_changed_at_once_both_stay() {
