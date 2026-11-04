@@ -21,6 +21,18 @@ use super::export::reconcile_service::MarkdownReconcileService;
 
 const MAX_RETRIES: i32 = 3;
 
+/// What the watcher needs of the import: taking in one file. The import service does it.
+/// A test gives the watcher an import that fails, as a locked file makes the real one fail.
+pub trait FileImport: Send + Sync {
+    fn sync_file(&self, root: &Path, rel_path: &str) -> Outcome;
+}
+
+impl FileImport for MarkdownImportService {
+    fn sync_file(&self, root: &Path, rel_path: &str) -> Outcome {
+        MarkdownImportService::sync_file(self, root, rel_path)
+    }
+}
+
 struct WatchState {
     watcher: Option<RecommendedWatcher>,
     root: Option<PathBuf>,
@@ -30,7 +42,7 @@ pub struct MarkdownFolderWatcher {
     import_enabled: bool,
     debounce_ms: i64,
     export: Arc<MarkdownExportService>,
-    import: Arc<MarkdownImportService>,
+    import: Arc<dyn FileImport>,
     reconcile: Arc<MarkdownReconcileService>,
     file_sync_state: FileSyncStateRepository,
     prompt: Arc<PendingDeletePrompt>,
@@ -48,7 +60,7 @@ impl MarkdownFolderWatcher {
         import_enabled: bool,
         debounce_ms: u64,
         export: Arc<MarkdownExportService>,
-        import: Arc<MarkdownImportService>,
+        import: Arc<dyn FileImport>,
         reconcile: Arc<MarkdownReconcileService>,
         file_sync_state: FileSyncStateRepository,
         prompt: Arc<PendingDeletePrompt>,
