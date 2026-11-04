@@ -19,7 +19,7 @@ pub struct TestServer {
     pub root: PathBuf,
     pub markdown_dir: PathBuf,
     /// The state of the server, for what a test does on the server side, such as writing
-    /// the export queue without waiting for the scheduler.
+    /// the file of a page.
     pub state: SharedState,
     _keep: tempfile::TempDir,
 }
@@ -57,11 +57,15 @@ pub fn server() -> &'static TestServer {
                     .build()
                     .unwrap();
                 rt.block_on(async move {
-                    let mut settings = Settings::under(&settings_root, 0);
-                    settings.export_interval_secs = 1;
+                    let settings = Settings::under(&settings_root, 0);
                     let state = AppState::build(settings, BuildOptions { interactive: false })
                         .expect("state");
-                    state.start_background_tasks();
+                    // Only the search index commits run in the background. The tests write
+                    // the files and scan the folder themselves. The export scheduler, the
+                    // folder scans and the folder watcher would do the same work at times
+                    // the test does not know. They wrote a page halfway through a test's
+                    // change, and a scan of the test found nothing as theirs was running.
+                    state.tantivy.start_background_commits();
                     let app = journal_server::build_router(state.clone());
                     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
                     tx.send((listener.local_addr().unwrap(), state)).unwrap();
@@ -83,8 +87,18 @@ pub fn server() -> &'static TestServer {
     })
 }
 
+thread_local! {
+    static CLIENT: reqwest::Client = reqwest::Client::new();
+}
+
+/// The client of the running test. Its requests share their connections. A new client for
+/// each request opened a new connection each time, and every closed one holds its local port
+/// for a while. Some test runs in a row used up the ports of the machine.
+///
+/// The client is not shared further: each test runs on a thread and a runtime of its own,
+/// and a connection cannot outlive the runtime it was made on.
 pub fn client() -> reqwest::Client {
-    reqwest::Client::new()
+    CLIENT.with(reqwest::Client::clone)
 }
 
 pub fn url(path: &str) -> String {
