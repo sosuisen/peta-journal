@@ -2,11 +2,13 @@
 
 use std::path::{Path, PathBuf};
 
+use parking_lot::Mutex;
 use serde_json::{Map, Value};
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ConfigService {
     config_dir: PathBuf,
+    update: Mutex<()>,
 }
 
 const CONFIG_FILE_NAME: &str = "config.json";
@@ -14,7 +16,10 @@ const DEFAULT_TAGS_DIR: &str = "tags/";
 
 impl ConfigService {
     pub fn new(config_dir: PathBuf) -> ConfigService {
-        ConfigService { config_dir }
+        ConfigService {
+            config_dir,
+            update: Mutex::new(()),
+        }
     }
 
     pub fn config_dir(&self) -> &Path {
@@ -35,6 +40,7 @@ impl ConfigService {
     }
 
     pub fn set_markdown_dir(&self, markdown_dir: &str) {
+        let _update = self.update.lock();
         let mut config = self.load();
         config.insert(
             "markdownDir".into(),
@@ -53,6 +59,7 @@ impl ConfigService {
     }
 
     pub fn set_week_numbering(&self, week_numbering: &str) {
+        let _update = self.update.lock();
         let mut config = self.load();
         config.insert(
             "weekNumbering".into(),
@@ -69,6 +76,7 @@ impl ConfigService {
     }
 
     pub fn set_logical_outdent(&self, logical_outdent: bool) {
+        let _update = self.update.lock();
         let mut config = self.load();
         config.insert("logicalOutdent".into(), Value::Bool(logical_outdent));
         self.save(&config);
@@ -87,6 +95,7 @@ impl ConfigService {
     }
 
     pub fn set_tags_dir(&self, tags_dir: &str) {
+        let _update = self.update.lock();
         let mut config = self.load();
         config.insert(
             "tagsDir".into(),
@@ -106,6 +115,7 @@ impl ConfigService {
     }
 
     pub fn set_home_link(&self, home_link: &str) {
+        let _update = self.update.lock();
         let mut config = self.load();
         config.insert(
             "homeLink".into(),
