@@ -40,13 +40,7 @@ impl ConfigService {
     }
 
     pub fn set_markdown_dir(&self, markdown_dir: &str) {
-        let _update = self.update.lock();
-        let mut config = self.load();
-        config.insert(
-            "markdownDir".into(),
-            Value::String(markdown_dir.to_string()),
-        );
-        self.save(&config);
+        self.set("markdownDir", Value::String(markdown_dir.to_string()));
     }
 
     /// The week numbering system: `us` or `iso` (defaults to `us`).
@@ -59,13 +53,7 @@ impl ConfigService {
     }
 
     pub fn set_week_numbering(&self, week_numbering: &str) {
-        let _update = self.update.lock();
-        let mut config = self.load();
-        config.insert(
-            "weekNumbering".into(),
-            Value::String(week_numbering.to_string()),
-        );
-        self.save(&config);
+        self.set("weekNumbering", Value::String(week_numbering.to_string()));
     }
 
     pub fn logical_outdent(&self) -> bool {
@@ -76,10 +64,7 @@ impl ConfigService {
     }
 
     pub fn set_logical_outdent(&self, logical_outdent: bool) {
-        let _update = self.update.lock();
-        let mut config = self.load();
-        config.insert("logicalOutdent".into(), Value::Bool(logical_outdent));
-        self.save(&config);
+        self.set("logicalOutdent", Value::Bool(logical_outdent));
     }
 
     /// The directory of the tag pages, relative to the pages root and ending with `/`
@@ -95,13 +80,7 @@ impl ConfigService {
     }
 
     pub fn set_tags_dir(&self, tags_dir: &str) {
-        let _update = self.update.lock();
-        let mut config = self.load();
-        config.insert(
-            "tagsDir".into(),
-            Value::String(normalize_tags_dir(tags_dir)),
-        );
-        self.save(&config);
+        self.set("tagsDir", Value::String(normalize_tags_dir(tags_dir)));
     }
 
     /// The page the Home button opens, as the target of a wiki link (e.g. `today` or
@@ -115,12 +94,15 @@ impl ConfigService {
     }
 
     pub fn set_home_link(&self, home_link: &str) {
+        self.set("homeLink", Value::String(normalize_home_link(home_link)));
+    }
+
+    /// Changes one setting and keeps the others. The lock keeps a second change from reading
+    /// the file before this one is saved, and saving its old copy over this change.
+    fn set(&self, key: &str, value: Value) {
         let _update = self.update.lock();
         let mut config = self.load();
-        config.insert(
-            "homeLink".into(),
-            Value::String(normalize_home_link(home_link)),
-        );
+        config.insert(key.into(), value);
         self.save(&config);
     }
 
