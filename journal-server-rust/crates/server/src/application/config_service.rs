@@ -10,7 +10,10 @@ use crate::infrastructure::files::write_atomic;
 #[derive(Debug)]
 pub struct ConfigService {
     config_dir: PathBuf,
-    update: Mutex<()>,
+    /// Held over each read and each change of the file. Even with the atomic save, Windows
+    /// shows no file for a moment while the rename replaces it. A read in that moment would
+    /// find no settings at all.
+    file: Mutex<()>,
 }
 
 const CONFIG_FILE_NAME: &str = "config.json";
@@ -20,7 +23,7 @@ impl ConfigService {
     pub fn new(config_dir: PathBuf) -> ConfigService {
         ConfigService {
             config_dir,
-            update: Mutex::new(()),
+            file: Mutex::new(()),
         }
     }
 
@@ -34,7 +37,7 @@ impl ConfigService {
 
     /// The configured markdown export directory, or an empty string if not configured.
     pub fn markdown_dir(&self) -> String {
-        self.load()
+        self.read()
             .get("markdownDir")
             .and_then(|v| v.as_str())
             .unwrap_or("")
@@ -47,7 +50,7 @@ impl ConfigService {
 
     /// The week numbering system: `us` or `iso` (defaults to `us`).
     pub fn week_numbering(&self) -> String {
-        self.load()
+        self.read()
             .get("weekNumbering")
             .and_then(|v| v.as_str())
             .unwrap_or("us")
@@ -59,7 +62,7 @@ impl ConfigService {
     }
 
     pub fn logical_outdent(&self) -> bool {
-        self.load()
+        self.read()
             .get("logicalOutdent")
             .and_then(|v| v.as_bool())
             .unwrap_or(false)
@@ -74,7 +77,7 @@ impl ConfigService {
     /// it is `tags/`: the config file stays on each machine, and a machine that never set it
     /// would put the tag pages at the root of the shared folder.
     pub fn tags_dir(&self) -> String {
-        self.load()
+        self.read()
             .get("tagsDir")
             .and_then(|v| v.as_str())
             .map(normalize_tags_dir)
@@ -88,7 +91,7 @@ impl ConfigService {
     /// The page the Home button opens, as the target of a wiki link (e.g. `today` or
     /// `a/index`), or an empty string for today's journal.
     pub fn home_link(&self) -> String {
-        self.load()
+        self.read()
             .get("homeLink")
             .and_then(|v| v.as_str())
             .map(normalize_home_link)
@@ -99,10 +102,15 @@ impl ConfigService {
         self.set("homeLink", Value::String(normalize_home_link(home_link)));
     }
 
+    fn read(&self) -> Map<String, Value> {
+        let _file = self.file.lock();
+        self.load()
+    }
+
     /// Changes one setting and keeps the others. The lock keeps a second change from reading
     /// the file before this one is saved, and saving its old copy over this change.
     fn set(&self, key: &str, value: Value) {
-        let _update = self.update.lock();
+        let _file = self.file.lock();
         let mut config = self.load();
         config.insert(key.into(), value);
         self.save(&config);
