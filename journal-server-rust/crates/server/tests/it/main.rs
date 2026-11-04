@@ -7,3 +7,4 @@ mod atlas_sync;
 #[path = "../common/mod.rs"]
 mod common;
 mod property_repository;
+mod watch;
