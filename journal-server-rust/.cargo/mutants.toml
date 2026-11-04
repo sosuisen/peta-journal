@@ -14,8 +14,13 @@ exclude_globs = [
 # Single mutants that no test can catch, skipped by name, as agreed with the user:
 # - The quiet time of the folder watcher (2026-11-05). With `+` for `-` the watcher takes a
 #   file in at once, and the page ends the same. How often a file was taken in does not show.
+# - The search index flush after the folder watcher takes a file in (2026-11-05). Without it
+#   the index still commits before the next search and every second, so a search finds the
+#   file anyway. The flush only makes the index durable at once, for a crash in that second,
+#   and a test cannot open the index from disk while the server holds it.
 exclude_re = [
     "replace - with \\+ in MarkdownFolderWatcher::flush_pending",
+    "delete match arm Outcome::Imported \\| Outcome::Conflict in MarkdownFolderWatcher::flush_pending",
 ]
 
 # A mutant that loops forever runs until the test timeout. By default the timeout is five times
