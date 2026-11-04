@@ -87,6 +87,16 @@ impl Folder {
             .collect()
     }
 
+    /// Whether a search for the word finds the page
+    fn finds(&self, page_id: &Hmtid, word: &str) -> bool {
+        self.state
+            .combined_search
+            .search(word, 10)
+            .unwrap()
+            .iter()
+            .any(|r| &r.page_id == page_id)
+    }
+
     fn is_missing(&self, rel_path: &str) -> bool {
         self.state
             .file_sync_state
@@ -96,27 +106,30 @@ impl Folder {
     }
 }
 
-/// Lets the watcher work until the condition holds
+/// Lets the watcher work until the condition holds. The watcher takes a file in within a
+/// second. The limit stays below the 20 seconds after which cargo-mutants stops a test, so a
+/// mutant that stops the watcher counts as caught, not as a timeout.
 async fn eventually(what: &str, mut condition: impl FnMut() -> bool) {
-    let deadline = Instant::now() + Duration::from_secs(20);
+    let deadline = Instant::now() + Duration::from_secs(10);
     while !condition() {
         assert!(Instant::now() < deadline, "timed out waiting until {what}");
         tokio::time::sleep(Duration::from_millis(50)).await;
     }
 }
 
-// 外部で編集したファイルは、スキャンを待たずにページに取り込まれる。
+// 外部で編集したファイルは、スキャンを待たずにページに取り込まれ、検索で見つかる。
 #[tokio::test]
-async fn a_file_edited_outside_is_taken_into_its_page_without_a_scan() {
+async fn a_file_edited_outside_is_taken_into_its_page_and_found_without_a_scan() {
     let folder = Folder::watched();
     let page = folder.page_with_file("edited", "before the edit\n");
 
-    folder.write("docs/edited.md", "edited outside\n");
+    folder.write("docs/edited.md", "edited outside with rhubarb\n");
 
     eventually("the edit is in the page", || {
-        folder.outline(&page) == ["1:edited outside"]
+        folder.outline(&page) == ["1:edited outside with rhubarb"]
     })
     .await;
+    eventually("the edit is found", || folder.finds(&page, "rhubarb")).await;
 }
 
 // フォルダに置いた新しいファイルは、スキャンを待たずにページになる。
