@@ -56,8 +56,9 @@ cd peta-journal/journal-server-rust
 cargo test
 ```
 
-`cargo test` runs the unit tests and the API tests (`crates/server/tests/api.rs`). The API
-tests start the server once on a free port with everything under a temporary directory.
+`cargo test` runs the unit tests and two test binaries. `crates/server/tests/it/` holds the API
+tests and the other integration tests. `crates/server/tests/mcp/` holds the MCP tests. Each
+binary starts the server once on a free port with everything under a temporary directory.
 
 ## Rust frontend (frontend-rust)
 

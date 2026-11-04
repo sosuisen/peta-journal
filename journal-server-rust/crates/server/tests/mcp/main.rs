@@ -1,6 +1,11 @@
 //! The MCP tools, called over Streamable HTTP at `/mcp` the way an MCP client does. Pages and
 //! items are set up over the REST API where they are not what the test is about.
+//!
+//! These tests are a binary of their own, apart from the REST tests in `it`. One test here
+//! changes the config, such as the week numbering. The REST tests read the same config, so the
+//! two must not share a server.
 
+#[path = "../common/mod.rs"]
 mod common;
 
 use common::*;
