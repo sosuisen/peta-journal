@@ -37,11 +37,19 @@ crate, and the workspace has about 3600 mutants, so a full run takes many hours:
 
 ```
 git diff --relative main...HEAD > /tmp/pr.diff
-cargo mutants --in-diff /tmp/pr.diff --in-place
+python -I scripts/mutants-parallel.py --in-diff /tmp/pr.diff
 ```
 
-`--in-place` is needed because `peta-atlas` is a path dependency outside this workspace, which
-the copy cargo-mutants normally works in cannot reach. The files no test can run (the entry
+The script runs cargo-mutants in 3 shards at once, each in a git worktree of its own under
+`target/mutants-shards/` of the main checkout. The worktrees and their builds stay there, so
+the next run builds only what changed. Commit the changes first: the shards test the commit at
+HEAD. `--jobs N` sets the number of shards, and the other arguments go to cargo mutants. A
+shard's output is in `target/mutants-shards/shard<k>.log`.
+
+The script passes `--in-place` to cargo mutants. It is needed because `peta-atlas` is a path
+dependency outside this workspace, which the copy cargo-mutants normally works in cannot reach.
+For a few mutants, `cargo mutants --in-diff /tmp/pr.diff --in-place` runs them one by one in
+this tree. The files no test can run (the entry
 point, the native folder dialog, the launcher) are left out of both; `.cargo/config.toml` and
 `.cargo/mutants.toml` say which and why.
 
