@@ -168,7 +168,41 @@ fn normalize_home_link(value: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{normalize_home_link, normalize_tags_dir};
+    use std::sync::{Arc, Barrier};
+
+    use super::{normalize_home_link, normalize_tags_dir, ConfigService};
+
+    // 別々の設定を同時に変えても、両方の変更が残る。
+    #[test]
+    fn two_settings_changed_at_once_both_stay() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = Arc::new(ConfigService::new(dir.path().to_path_buf()));
+
+        // The app and an MCP client may change settings at the same moment. One round is
+        // seldom enough to meet, so the test runs many.
+        for round in 0..100 {
+            let start = Arc::new(Barrier::new(2));
+            let home = std::thread::spawn({
+                let (config, start) = (Arc::clone(&config), Arc::clone(&start));
+                move || {
+                    start.wait();
+                    config.set_home_link(&format!("home-{round}"));
+                }
+            });
+            let tags = std::thread::spawn({
+                let (config, start) = (Arc::clone(&config), Arc::clone(&start));
+                move || {
+                    start.wait();
+                    config.set_tags_dir(&format!("tags-{round}"));
+                }
+            });
+            home.join().unwrap();
+            tags.join().unwrap();
+
+            assert_eq!(config.home_link(), format!("home-{round}"));
+            assert_eq!(config.tags_dir(), format!("tags-{round}/"));
+        }
+    }
 
     // ホームリンクはリンク先の形で保存される。
     #[test]
