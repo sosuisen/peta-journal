@@ -5,6 +5,8 @@ use std::path::{Path, PathBuf};
 use parking_lot::Mutex;
 use serde_json::{Map, Value};
 
+use crate::infrastructure::export::export_service::write_atomic;
+
 #[derive(Debug)]
 pub struct ConfigService {
     config_dir: PathBuf,
@@ -126,7 +128,7 @@ impl ConfigService {
         let result = std::fs::create_dir_all(&self.config_dir).and_then(|_| {
             let text =
                 serde_json::to_string_pretty(&Value::Object(config.clone())).unwrap_or_default();
-            std::fs::write(&path, text)
+            write_atomic(&path, &text)
         });
         match result {
             Ok(_) => tracing::info!("Config saved to {}", path.display()),

@@ -395,7 +395,7 @@ fn has_markdown_files(dir: &Path) -> std::io::Result<bool> {
 
 /// Writes to a temp file in the same directory and renames it over the target, so Dropbox and
 /// the folder watcher never see a half-written file.
-fn write_atomic(path: &Path, content: &str) -> std::io::Result<()> {
+pub(crate) fn write_atomic(path: &Path, content: &str) -> std::io::Result<()> {
     let name = path
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
