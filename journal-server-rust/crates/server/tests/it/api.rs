@@ -1904,8 +1904,9 @@ async fn a_list_of_a_page_is_kept_under_its_own_key_apart_from_the_tags() {
     let page = new_doc_page("page-list").await;
     set_page_tags(&page.id, "page-list-tag").await;
 
-    // The second value replaces the first, as a value of a scalar does
-    for value in ["x, y", "y,z"] {
+    // The second value replaces the first, as a value of a scalar does. The values are names
+    // no other test gives a page: the server is shared, and another test renames a page `y`.
+    for value in ["list-x, list-y", "list-y,list-z"] {
         let (status, resp) = put(
             &format!("/api/pages/{}/properties/page_list", page.id),
             json!({ "valueType": "list", "value": value }),
@@ -1915,9 +1916,12 @@ async fn a_list_of_a_page_is_kept_under_its_own_key_apart_from_the_tags() {
     }
 
     let (_, resp) = get(&format!("/api/pages/{}", page.id)).await;
-    assert_eq!(resp["page"]["properties"]["page_list"], json!(["y", "z"]));
+    assert_eq!(
+        resp["page"]["properties"]["page_list"],
+        json!(["list-y", "list-z"])
+    );
     assert_eq!(resp["page"]["properties"]["tags"], json!(["page-list-tag"]));
-    assert!(doc_page_named("y").await.is_none());
+    assert!(doc_page_named("list-y").await.is_none());
 }
 
 /// Held by a test that changes the tag directory, and by the tests of tag pages. A tag page
