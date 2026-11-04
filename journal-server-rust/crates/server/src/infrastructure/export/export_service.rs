@@ -15,6 +15,7 @@ use crate::application::config_service::ConfigService;
 use crate::application::flat_markdown_serializer;
 use crate::domain::model::{Item, Page};
 use crate::error::{AppError, AppResult};
+use crate::infrastructure::files::{delete_quietly, write_atomic};
 use crate::infrastructure::persistence::{ItemRepository, PageRepository, PropertyRepository};
 
 use super::export_queue_repository::ExportQueueRepository;
@@ -391,30 +392,6 @@ fn has_markdown_files(dir: &Path) -> std::io::Result<bool> {
         }
     }
     Ok(false)
-}
-
-/// Writes to a temp file in the same directory and renames it over the target, so Dropbox and
-/// the folder watcher never see a half-written file.
-pub(crate) fn write_atomic(path: &Path, content: &str) -> std::io::Result<()> {
-    let name = path
-        .file_name()
-        .map(|n| n.to_string_lossy().into_owned())
-        .unwrap_or_default();
-    let tmp = path.with_file_name(format!(".{name}.tmp"));
-    std::fs::write(&tmp, content)?;
-    if let Err(e) = std::fs::rename(&tmp, path) {
-        delete_quietly(&tmp);
-        return Err(e);
-    }
-    Ok(())
-}
-
-pub fn delete_quietly(path: &Path) {
-    match std::fs::remove_file(path) {
-        Ok(_) => {}
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-        Err(e) => tracing::debug!("Could not delete {}: {e}", path.display()),
-    }
 }
 
 #[cfg(test)]
