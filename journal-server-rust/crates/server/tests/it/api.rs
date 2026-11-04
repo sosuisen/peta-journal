@@ -1472,20 +1472,26 @@ fn read(file: &std::path::Path) -> String {
     std::fs::read_to_string(file).unwrap_or_default()
 }
 
-/// Writes the export queue until the condition holds. The test writes the queue itself: the
-/// export scheduler starts a few seconds after the server, and under load its runs come
-/// late, which made the tests time out.
-async fn wait_until(what: &str, mut condition: impl FnMut() -> bool) {
+/// Writes the file of the page until the condition holds. The test writes this one page, not
+/// the export queue. A run of the queue does nothing while another test runs it, and that run
+/// may have written the page before the last change. The file then passed the condition with
+/// an older page, and the scan after the edit found the page newer than the file.
+async fn wait_until(page: &PageRef, what: &str, mut condition: impl FnMut() -> bool) {
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
-    while !condition() {
+    loop {
+        let state = server().state.clone();
+        let id = hmtid::Hmtid::parse(&page.id).unwrap();
+        tokio::task::spawn_blocking(move || state.export.export_page(&id))
+            .await
+            .unwrap()
+            .unwrap();
+        if condition() {
+            return;
+        }
         assert!(
             std::time::Instant::now() < deadline,
             "timed out waiting until {what}"
         );
-        let state = server().state.clone();
-        tokio::task::spawn_blocking(move || state.export.process_export_queue())
-            .await
-            .unwrap();
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
     }
 }
@@ -1520,7 +1526,7 @@ async fn a_page_is_written_to_its_markdown_file() {
     let page = new_doc_page("sync-export").await;
     fill(&page.id, &["first line", "  second line"]).await;
 
-    wait_until("the page is exported", || {
+    wait_until(&page, "the page is exported", || {
         read(&file_of(&page)).contains("second line")
     })
     .await;
@@ -1539,7 +1545,7 @@ async fn a_change_made_to_the_file_is_merged_into_the_page() {
     let _folder = FOLDER_SCAN.lock().await;
     let page = new_doc_page("sync-import").await;
     fill(&page.id, &["before the edit"]).await;
-    wait_until("the page is exported", || {
+    wait_until(&page, "the page is exported", || {
         read(&file_of(&page)).contains("before the edit")
     })
     .await;
@@ -1593,7 +1599,7 @@ async fn a_file_with_indexes_of_the_old_scheme_is_reindexed_and_written_back() {
     let _folder = FOLDER_SCAN.lock().await;
     let page = new_doc_page("sync-old-idx").await;
     fill(&page.id, &["one", "two"]).await;
-    wait_until("the page is exported", || {
+    wait_until(&page, "the page is exported", || {
         read(&file_of(&page)).contains("two")
     })
     .await;
@@ -1613,7 +1619,7 @@ async fn a_file_with_indexes_of_the_old_scheme_is_reindexed_and_written_back() {
         vs(&["1:one", "1:two", "1:three"])
     );
     assert_eq!(idxs_of(&page.id).await, vs(&["a0", "a1", "a2"]));
-    wait_until("the file is written back", || {
+    wait_until(&page, "the file is written back", || {
         let file = read(&file_of(&page));
         file.contains("three") && !file.contains("idx=\"z")
     })
@@ -1626,7 +1632,7 @@ async fn a_file_with_an_index_grown_too_long_is_reindexed_and_written_back() {
     let _folder = FOLDER_SCAN.lock().await;
     let page = new_doc_page("sync-long-idx").await;
     fill(&page.id, &["one", "two"]).await;
-    wait_until("the page is exported", || {
+    wait_until(&page, "the page is exported", || {
         read(&file_of(&page)).contains("two")
     })
     .await;
@@ -1646,7 +1652,7 @@ async fn a_file_with_an_index_grown_too_long_is_reindexed_and_written_back() {
     let idxs = idxs_of(&page.id).await;
     assert_eq!(idxs[0], before[0]);
     assert!(idxs[1].len() <= 16, "{idxs:?}");
-    wait_until("the file is written back", || {
+    wait_until(&page, "the file is written back", || {
         let file = read(&file_of(&page));
         file.contains(&format!("idx=\"{}\"", idxs[1])) && !file.contains(&long)
     })
@@ -1659,7 +1665,7 @@ async fn an_unchanged_file_is_left_alone() {
     let _folder = FOLDER_SCAN.lock().await;
     let page = new_doc_page("sync-unchanged").await;
     fill(&page.id, &["stable"]).await;
-    wait_until("the page is exported", || {
+    wait_until(&page, "the page is exported", || {
         read(&file_of(&page)).contains("stable")
     })
     .await;
@@ -1814,7 +1820,7 @@ async fn a_property_can_be_removed_from_an_item() {
 async fn an_item_property_change_alone_rewrites_the_page_file() {
     let page = new_doc_page("items-property-export").await;
     let item = fill(&page.id, &["planned"]).await.remove(0);
-    wait_until("the page file exists", || {
+    wait_until(&page, "the page file exists", || {
         read(&file_of(&page)).contains("planned")
     })
     .await;
@@ -1825,7 +1831,7 @@ async fn an_item_property_change_alone_rewrites_the_page_file() {
     )
     .await;
 
-    wait_until("the plan is in the file", || {
+    wait_until(&page, "the plan is in the file", || {
         read(&file_of(&page)).contains("plan=\"2026-03-01\"")
     })
     .await;
@@ -1869,7 +1875,7 @@ async fn page_properties_are_set_removed_and_written_to_the_front_matter() {
     assert_eq!(resp["page"]["properties"]["owner"], json!("me: now"));
     assert_eq!(resp["page"]["properties"]["tags"], json!(["a", "b"]));
 
-    wait_until("the front matter has the properties", || {
+    wait_until(&page, "the front matter has the properties", || {
         let text = read(&file_of(&page));
         text.contains("owner: \"me: now\"\n") && text.contains("tags:\n  - a\n  - b\n---\n")
     })
@@ -1885,7 +1891,7 @@ async fn page_properties_are_set_removed_and_written_to_the_front_matter() {
     assert!(resp["page"]["properties"].get("owner").is_none());
     assert_eq!(resp["page"]["properties"]["tags"], json!(["a", "b"]));
 
-    wait_until("the owner left the front matter", || {
+    wait_until(&page, "the owner left the front matter", || {
         !read(&file_of(&page)).contains("owner:")
     })
     .await;
@@ -2173,7 +2179,7 @@ async fn the_tags_of_a_file_edited_outside_keep_their_tag_pages() {
     let body_tag = "file-tag-pages-body";
     let page = new_doc_page("file-tag-pages").await;
     fill(&page.id, &["before the edit"]).await;
-    wait_until("the page is exported", || {
+    wait_until(&page, "the page is exported", || {
         read(&file_of(&page)).contains("before the edit")
     })
     .await;
@@ -2222,7 +2228,7 @@ async fn a_list_of_an_item_edited_in_the_file_is_merged_into_the_item() {
         json!({ "valueType": "list", "value": "a, b" }),
     )
     .await;
-    wait_until("the list is in the file", || {
+    wait_until(&page, "the list is in the file", || {
         read(&file_of(&page)).contains("item_list=\"a,b\"")
     })
     .await;
@@ -2249,7 +2255,7 @@ async fn a_list_of_an_item_removed_from_the_file_goes_from_the_item() {
         json!({ "valueType": "list", "value": "a, b" }),
     )
     .await;
-    wait_until("the list is in the file", || {
+    wait_until(&page, "the list is in the file", || {
         read(&file_of(&page)).contains("item_list=\"a,b\"")
     })
     .await;
@@ -2267,7 +2273,7 @@ async fn a_file_written_with_the_old_tag_key_keeps_its_tags() {
     let _folder = FOLDER_SCAN.lock().await;
     let page = new_doc_page("file-old-tag-key").await;
     fill(&page.id, &["before the edit"]).await;
-    wait_until("the page is exported", || {
+    wait_until(&page, "the page is exported", || {
         read(&file_of(&page)).contains("before the edit")
     })
     .await;
@@ -2279,7 +2285,7 @@ async fn a_file_written_with_the_old_tag_key_keeps_its_tags() {
     scan().await;
     let (_, resp) = get(&format!("/api/pages/{}", page.id)).await;
     assert_eq!(resp["page"]["properties"]["tags"], json!(["old-key"]));
-    wait_until("the file has the new key", || {
+    wait_until(&page, "the file has the new key", || {
         read(&file_of(&page)).contains("tags:\n  - old-key\n")
     })
     .await;
@@ -2320,7 +2326,7 @@ async fn the_dates_of_a_page_are_set_as_properties_and_cannot_be_removed() {
     .await;
     assert_eq!(status, 400);
 
-    wait_until("the front matter has the new created date", || {
+    wait_until(&page, "the front matter has the new created date", || {
         read(&file_of(&page)).contains("created: 2020-01-02T03:04:05Z\n")
     })
     .await;
