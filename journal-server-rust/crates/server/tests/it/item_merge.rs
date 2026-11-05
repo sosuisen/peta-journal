@@ -32,6 +32,21 @@ impl Device {
         self.state.item_service.delete_item(item_id).unwrap();
     }
 
+    fn item_idx(&self, item_id: &Hmtid) -> String {
+        self.state.item_service.get_item_by_id(item_id).unwrap().idx
+    }
+
+    fn indexes(&self, page_id: &Hmtid) -> Vec<String> {
+        self.state
+            .page_service
+            .get_page_items(page_id)
+            .unwrap()
+            .into_iter()
+            .filter(|i| !i.body.is_empty())
+            .map(|i| i.idx)
+            .collect()
+    }
+
     fn bodies(&self, page_id: &Hmtid) -> Vec<String> {
         self.state
             .page_service
@@ -458,6 +473,36 @@ fn an_item_moved_to_another_page_does_not_come_back_from_an_older_file() {
 
     assert_eq!(b.bodies(&page), ["x from A"]);
     assert_eq!(b.bodies(&other), ["y"]);
+}
+
+// 2台が同じ隙間に足して同じidxになると、どちらのファイルが先に届いても、項目idの順に並ぶ。
+#[test]
+fn items_with_the_same_index_end_in_the_order_of_their_ids_whichever_file_comes_first() {
+    for larger_id_writes_first in [true, false] {
+        let dir = tempfile::tempdir().unwrap();
+        let (a, b, page, _, _) = two_devices_with_items(dir.path());
+        let from_a = a.add(&page, "from A");
+        let from_b = b.add(&page, "from B");
+        assert_eq!(a.item_idx(&from_a), b.item_idx(&from_b));
+        let ((smaller, smaller_body), (larger, larger_body)) = if from_a < from_b {
+            ((&a, "from A"), (&b, "from B"))
+        } else {
+            ((&b, "from B"), (&a, "from A"))
+        };
+        let (writer, reader) = if larger_id_writes_first {
+            (larger, smaller)
+        } else {
+            (smaller, larger)
+        };
+
+        writer.export();
+        reader.receive(writer, PAGE);
+        writer.receive(reader, PAGE);
+
+        assert_eq!(a.bodies(&page), ["x", "y", smaller_body, larger_body]);
+        assert_eq!(a.bodies(&page), b.bodies(&page));
+        assert_eq!(a.indexes(&page), b.indexes(&page));
+    }
 }
 
 // ページより古いファイルは、ページのタグを変えない。
