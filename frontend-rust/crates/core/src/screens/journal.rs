@@ -224,34 +224,29 @@ pub fn nav(model: &mut Model, nav: JournalNav) -> Cmd {
         return done();
     };
     let current = j.current_date.clone();
-    match nav {
-        JournalNav::PrevDay | JournalNav::NextDay => {
-            let delta = if nav == JournalNav::PrevDay { -1 } else { 1 };
-            match Date::parse(&current) {
-                Some(d) => navigate::open_page(&d.shift(delta).iso()),
-                None => done(),
-            }
-        }
-        JournalNav::PrevWeek | JournalNav::NextWeek => {
-            let delta: i32 = if nav == JournalNav::PrevWeek { -1 } else { 1 };
-            let Some((y, w)) = current.split_once("-W") else {
-                return done();
-            };
-            let (Ok(mut year), Ok(week)) = (y.parse::<i32>(), w.parse::<i32>()) else {
-                return done();
-            };
-            let mut week = week + delta;
-            let numbering = model.config.week_numbering;
-            if week < 1 {
-                year -= 1;
-                week = weeks_in_year(year, numbering) as i32;
-            } else if week > weeks_in_year(year, numbering) as i32 {
-                year += 1;
-                week = 1;
-            }
-            navigate::open_page(&format!("{year}-W{week:02}"))
-        }
+    let delta: i32 = match nav {
+        JournalNav::Prev => -1,
+        JournalNav::Next => 1,
+    };
+    if let Some(day) = Date::parse(&current) {
+        return navigate::open_page(&day.shift(delta.into()).iso());
     }
+    let Some((y, w)) = current.split_once("-W") else {
+        return done();
+    };
+    let (Ok(mut year), Ok(week)) = (y.parse::<i32>(), w.parse::<i32>()) else {
+        return done();
+    };
+    let mut week = week + delta;
+    let numbering = model.config.week_numbering;
+    if week < 1 {
+        year -= 1;
+        week = weeks_in_year(year, numbering) as i32;
+    } else if week > weeks_in_year(year, numbering) as i32 {
+        year += 1;
+        week = 1;
+    }
+    navigate::open_page(&format!("{year}-W{week:02}"))
 }
 
 /// After an item moved to another day: navigates to that day, or reloads the journal.
