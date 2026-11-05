@@ -127,6 +127,62 @@ fn a_failed_search_keeps_the_hits_shown() {
     assert_eq!(h.view().search.page_results, [page_hit("Plans")]);
 }
 
+// 検索語を変えると選択は消える。答えが届く前にEnterを押しても、前の検索語の結果は開かない。
+#[test]
+fn enter_right_after_changing_the_query_opens_no_result_of_the_old_query() {
+    let mut h = Harness::new();
+    searched(&mut h, "plan", vec![page_hit("Plans")]);
+    key(&mut h, SearchKey::Down);
+    assert_eq!(h.view().search.selected_index, Some(0));
+
+    typed(&mut h, "plans");
+    assert_eq!(h.view().search.selected_index, None);
+    key(&mut h, SearchKey::Enter);
+    assert!(urls(&h).is_empty());
+}
+
+// 検索語を受けてから答えが届くまで、検索中である。
+#[test]
+fn a_search_is_running_until_its_answer_arrives() {
+    let mut h = Harness::new();
+    assert!(!h.view().search.searching);
+    typed(&mut h, "plan");
+    assert!(h.view().search.searching);
+    h.api
+        .answer_next("SearchCombined", Ok(ApiOutput::SearchResults(vec![])));
+    h.fire_timers();
+    assert!(!h.view().search.searching);
+}
+
+// 検索が失敗しても、検索中は終わる。
+#[test]
+fn a_failed_search_is_no_longer_running() {
+    let mut h = Harness::new();
+    h.api.fail_next("SearchCombined", "offline");
+    typed(&mut h, "plan");
+    h.fire_timers();
+    assert!(!h.view().search.searching);
+}
+
+// 空の検索語は検索しないので、検索中ではない。
+#[test]
+fn an_empty_query_is_not_a_running_search() {
+    let mut h = Harness::new();
+    typed(&mut h, "plan");
+    typed(&mut h, "  ");
+    assert!(!h.view().search.searching);
+}
+
+// 結果を開くと検索は片付き、検索中でなくなる。
+#[test]
+fn opening_a_result_ends_the_running_search() {
+    let mut h = Harness::new();
+    searched(&mut h, "plan", vec![page_hit("Plans")]);
+    typed(&mut h, "plans");
+    h.send(Event::SearchResultClicked { index: 0 });
+    assert!(!h.view().search.searching);
+}
+
 // docページを開いているときは、そのフォルダに作る項目も出る。同じ名前のページが検索結果かサイドバーにあれば、その項目は出ない。大文字小文字は区別しない。
 #[test]
 fn the_create_entries_offer_the_bare_title_and_the_title_in_the_folder_of_the_open_page() {

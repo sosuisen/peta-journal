@@ -270,6 +270,8 @@ pub struct SearchView {
     /// The titles of the create entries, in display order.
     pub create_titles: Vec<String>,
     pub selected_index: Option<usize>,
+    /// The results are still those of an older query, as the answer to this one is on its way.
+    pub searching: bool,
     /// Index of the first create entry in the flat navigation order.
     pub create_index: usize,
     /// Index of the first item result in the flat navigation order.
@@ -508,6 +510,7 @@ fn search(model: &Model) -> SearchView {
         item_results: model.search.item_results.clone(),
         show_dropdown: model.search.show_dropdown,
         selected_index: model.search.selected_index,
+        searching: false,
         create_index: page_count,
         item_offset: page_count + create_titles.len(),
         create_titles,
