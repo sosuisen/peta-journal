@@ -1,6 +1,6 @@
 # フォルダ同期の将来の課題
 
-2026-11-03に話し合った、Markdownフォルダ同期の品質を上げる案。まだ着手していない。狙いは「トランザクションや難しい手順なしで、Markdownファイルを介して2台のPCを合わせる」ことなので、その中で少ないコードで効くものだけを挙げる。いまの仕組みは[folder-sync-journeys.md](folder-sync-journeys.md)を見ること。
+2026-11-03に話し合った、Markdownフォルダ同期の品質を上げる案。案1から案3は実装した。決定の理由は[ADR 006](adr/adr-006-item-level-lww-for-folder-sync.md)にある。狙いは「トランザクションや難しい手順なしで、Markdownファイルを介して2台のPCを合わせる」ことなので、その中で少ないコードで効くものだけを挙げる。いまの仕組みは[folder-sync-journeys.md](folder-sync-journeys.md)を見ること。
 
 ## いまの仕組みのどこが強く、どこが弱いか
 
