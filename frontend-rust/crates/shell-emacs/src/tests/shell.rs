@@ -2,6 +2,7 @@ use crate::protocol::{AskKind, Bullet, Envelope, Inbound, Outbound, RowView};
 use crate::shell::{Host, Input, Now, Shell};
 use peta_core::effects::{ApiError, ApiOp, ApiOutput, LocalDateTimeDto, SseEvent};
 use serde_json::{json, Value};
+use std::mem::ManuallyDrop;
 
 #[derive(Default)]
 struct FakeHost {
@@ -61,14 +62,17 @@ fn page_answer(items: &[Value]) -> ApiOutput {
 }
 
 struct Driver {
-    shell: Shell<FakeHost>,
+    /// Never dropped. A test ends with commands of the core still waiting, and one of them
+    /// sends an event from its destructor, which panics once the core is gone. The real
+    /// process ends with `process::exit`, so this only happens in a test.
+    shell: ManuallyDrop<Shell<FakeHost>>,
     seq: u64,
 }
 
 impl Driver {
     fn new() -> Driver {
         Driver {
-            shell: Shell::new(FakeHost::default()),
+            shell: ManuallyDrop::new(Shell::new(FakeHost::default())),
             seq: 0,
         }
     }
@@ -83,13 +87,10 @@ impl Driver {
 
     /// Answers the waiting API call the predicate picks. Panics when there is none.
     fn answer(&mut self, pick: impl Fn(&ApiOp) -> bool, output: ApiOutput) {
-        let id = self
-            .take_api(pick)
-            .expect("no such API call is waiting")
-            .0;
+        let id = self.take_api(pick).expect("no such API call is waiting").0;
         self.shell.handle(Input::ApiDone {
             id,
-            result: Ok(output),
+            result: Box::new(Ok(output)),
         });
     }
 
@@ -98,7 +99,7 @@ impl Driver {
         while let Some((id, _)) = self.take_api(|_| true) {
             self.shell.handle(Input::ApiDone {
                 id,
-                result: Err(ApiError("not in this test".into())),
+                result: Box::new(Err(ApiError("not in this test".into()))),
             });
         }
     }
@@ -113,16 +114,25 @@ impl Driver {
         self.shell.host.apis.iter().any(|(_, op)| pick(op))
     }
 
+    /// Answers the two calls that load a page: the page, then its items.
+    fn load_page(&mut self, items: &[Value]) {
+        self.answer(
+            |op| matches!(op, ApiOp::GetOrCreateDoc { .. }),
+            page_answer(&[]),
+        );
+        self.answer(
+            |op| matches!(op, ApiOp::GetPageById { .. }),
+            page_answer(items),
+        );
+    }
+
     /// Opens a page with these items and forgets what was said until now.
     fn open(items: &[Value]) -> Driver {
         let mut driver = Driver::new();
         driver.send(Inbound::Start {
             url: "/pages/notes".into(),
         });
-        driver.answer(
-            |op| matches!(op, ApiOp::GetOrCreateDoc { .. }),
-            page_answer(items),
-        );
+        driver.load_page(items);
         driver.shell.host.out.clear();
         driver
     }
@@ -164,7 +174,9 @@ fn starting_connects_the_events_and_opens_the_url() {
         url: "/pages/notes".into(),
     });
     assert_eq!(driver.shell.host.streams.len(), 1);
-    assert!(driver.waiting(|op| matches!(op, ApiOp::GetOrCreateDoc { title, .. } if title == "notes")));
+    assert!(
+        driver.waiting(|op| matches!(op, ApiOp::GetOrCreateDoc { title, .. } if title == "notes"))
+    );
 }
 
 // /todayは、ホストの時計の今日のジャーナルを開く。
@@ -186,10 +198,7 @@ fn a_loaded_page_reaches_emacs_as_rows() {
     driver.send(Inbound::Start {
         url: "/pages/notes".into(),
     });
-    driver.answer(
-        |op| matches!(op, ApiOp::GetOrCreateDoc { .. }),
-        page_answer(&[item("a", 1, "親"), item("b", 2, "子")]),
-    );
+    driver.load_page(&[item("a", 1, "親"), item("b", 2, "子")]);
     let rows = driver.last_rows().unwrap();
     let shown: Vec<_> = rows
         .iter()
@@ -224,9 +233,7 @@ fn typed_text_is_saved_once_after_the_autosave_timer() {
 
     let (timer, _) = *driver.shell.host.timers.last().unwrap();
     driver.shell.handle(Input::TimerFired { id: timer });
-    assert!(driver.waiting(
-        |op| matches!(op, ApiOp::UpdateItem { body: Some(b), .. } if b == "xy")
-    ));
+    assert!(driver.waiting(|op| matches!(op, ApiOp::UpdateItem { body: Some(b), .. } if b == "xy")));
 }
 
 // 取り消されたタイマーが遅れて鳴っても、何も起きない。
@@ -330,6 +337,11 @@ fn a_paste_goes_through_the_core() {
         text: "Z".into(),
         cursor: 1,
     });
+    let parsed = serde_json::from_value(json!({ "ParsedItems": [{ "level": 1, "body": "Z" }] }));
+    driver.answer(
+        |op| matches!(op, ApiOp::ParseFlatMarkdown { .. }),
+        parsed.unwrap(),
+    );
     assert_eq!(driver.last_rows().unwrap()[0].body, "xZy");
 }
 
@@ -392,10 +404,14 @@ fn navigation_opens_pages_and_back_returns_to_the_previous_one() {
     driver.send(Inbound::GoToPage {
         path: "other".into(),
     });
-    assert!(driver.waiting(|op| matches!(op, ApiOp::GetOrCreateDoc { title, .. } if title == "other")));
+    assert!(
+        driver.waiting(|op| matches!(op, ApiOp::GetOrCreateDoc { title, .. } if title == "other"))
+    );
 
     driver.send(Inbound::Back);
-    assert!(driver.waiting(|op| matches!(op, ApiOp::GetOrCreateDoc { title, .. } if title == "notes")));
+    assert!(
+        driver.waiting(|op| matches!(op, ApiOp::GetOrCreateDoc { title, .. } if title == "notes"))
+    );
 }
 
 // ハッシュタグは、設定のタグのフォルダのページを開く。
@@ -403,7 +419,9 @@ fn navigation_opens_pages_and_back_returns_to_the_previous_one() {
 fn a_tag_opens_its_page() {
     let mut driver = Driver::open(&[item("a", 1, "x")]);
     driver.send(Inbound::OpenTag { tag: "rust".into() });
-    assert!(driver.waiting(|op| matches!(op, ApiOp::GetOrCreateDoc { title, .. } if title == "rust")));
+    assert!(
+        driver.waiting(|op| matches!(op, ApiOp::GetOrCreateDoc { title, .. } if title == "rust"))
+    );
 }
 
 // 処理した行の番号がEmacsに伝わる。Emacsはこれを待って次のキーを処理する。
@@ -498,7 +516,9 @@ fn search_results_are_numbered_and_open_by_their_number() {
     assert_eq!(last.snippet, "rust本");
 
     driver.send(Inbound::SearchResult { index: last.index });
-    assert!(driver.waiting(|op| matches!(op, ApiOp::GetOrCreateDoc { title, .. } if title == "memo")));
+    assert!(
+        driver.waiting(|op| matches!(op, ApiOp::GetOrCreateDoc { title, .. } if title == "memo"))
+    );
 }
 
 // 終了の前に編集を閉じ、書きかけの文を保存する。答えが返るまで、終わってよい状態にならない。
@@ -517,9 +537,8 @@ fn shutting_down_saves_the_edit_and_waits_for_the_answer() {
 
     driver.shell.shutdown();
 
-    assert!(driver.waiting(
-        |op| matches!(op, ApiOp::UpdateItem { body: Some(b), .. } if b == "書きかけ")
-    ));
+    assert!(driver
+        .waiting(|op| matches!(op, ApiOp::UpdateItem { body: Some(b), .. } if b == "書きかけ")));
     assert!(!driver.shell.is_idle());
 
     let updated = serde_json::from_value(json!({ "Item": item("a", 1, "書きかけ") })).unwrap();
