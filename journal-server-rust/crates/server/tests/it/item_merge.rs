@@ -421,6 +421,45 @@ fn an_item_with_the_same_content_takes_the_later_date_of_the_file() {
     assert_eq!(modified_of(&written.unwrap(), &x), modified_of(&from_a, &x));
 }
 
+// 2台がそれぞれ足して書き出した項目は、相手のファイルを取り込むと両方に残る。
+#[test]
+fn items_added_and_written_on_two_devices_are_both_kept_when_one_file_comes() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b, page, _, _) = two_devices_with_items(dir.path());
+    a.add(&page, "from A");
+    a.export();
+    b.add(&page, "from B");
+    b.export();
+
+    b.receive(&a, PAGE);
+    a.receive(&b, PAGE);
+
+    for device in [&a, &b] {
+        let mut bodies = device.bodies(&page);
+        bodies.sort();
+        assert_eq!(bodies, ["from A", "from B", "x", "y"]);
+    }
+}
+
+// 別のページへ動かした項目は、古いファイルが届いても戻らない。
+#[test]
+fn an_item_moved_to_another_page_does_not_come_back_from_an_older_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b, page, x, y) = two_devices_with_items(dir.path());
+    let other = b.doc("other");
+    a.write(&x, "x from A");
+    a.export();
+    b.state
+        .item_service
+        .move_items(std::slice::from_ref(&y), &other, &ItemPosition::Last, None)
+        .unwrap();
+
+    b.receive(&a, PAGE);
+
+    assert_eq!(b.bodies(&page), ["x from A"]);
+    assert_eq!(b.bodies(&other), ["y"]);
+}
+
 // ページより古いファイルは、ページのタグを変えない。
 #[test]
 fn an_older_file_leaves_the_tags_of_the_page() {
