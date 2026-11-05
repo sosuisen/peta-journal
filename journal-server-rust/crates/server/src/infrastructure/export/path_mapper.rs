@@ -103,6 +103,11 @@ pub fn has_ignored_segment(rel_path: &str) -> bool {
         .any(|s| s.starts_with('.') || s.starts_with("~$"))
 }
 
+/// The page a file is a conflicted copy of, as Dropbox names them.
+pub fn conflicted_copy_of(_rel_path: &str) -> Option<PageLocation> {
+    None
+}
+
 /// Name for a conflict backup written next to the page file.
 pub fn conflict_file_name(name: &str, timestamp: &str) -> String {
     format!("{name}{CONFLICT_MARKER}-{timestamp}{MD_EXT}")
@@ -155,11 +160,43 @@ mod tests {
     #[test]
     fn conflict_temp_and_non_markdown_files_are_ignored() {
         assert!(is_ignored("docs/a.conflict-20260927-101500.md"));
-        assert!(is_ignored("docs/a (conflicted copy).md"));
+        assert!(is_ignored("docs/a conflicted copy.md"));
         assert!(is_ignored("docs/.sb-123/a.md"));
         assert!(is_ignored("docs/~$a.md"));
         assert!(is_ignored("docs/a.txt"));
         assert!(!is_ignored("docs/a.md"));
+    }
+
+    // Dropboxのconflicted copyの名前から、元のページの場所が分かり、無視されない。
+    #[test]
+    fn a_conflicted_copy_names_the_page_it_is_a_version_of() {
+        let names = [
+            "docs/d/a (PC's conflicted copy 2026-11-05).md",
+            "docs/d/a (PC の競合コピー 2026-11-05).md",
+            "docs/d/a (Conflicted Copy).md",
+        ];
+        for name in names {
+            assert_eq!(conflicted_copy_of(name), from_rel_path("docs/d/a.md"));
+            assert!(!is_ignored(name));
+        }
+    }
+
+    // conflicted copyの形でない名前は、コピーとして扱わない。
+    #[test]
+    fn other_names_are_no_conflicted_copy() {
+        let names = [
+            "docs/d/a.md",
+            "docs/d/a (draft).md",
+            "docs/d/a conflicted copy.md",
+            "docs/d/a (conflicted copy) old.md",
+            "docs/d/ (conflicted copy).md",
+            "docs/d/a (conflicted copy).txt",
+            "docs/.sb-1/a (conflicted copy).md",
+            "other/a (conflicted copy).md",
+        ];
+        for name in names {
+            assert_eq!(conflicted_copy_of(name), None, "{name}");
+        }
     }
 
     // 空文字列のSHA-256は既知のダイジェストである。

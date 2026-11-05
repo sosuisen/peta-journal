@@ -654,3 +654,267 @@ fn the_file_of_a_page_dates_its_items_and_the_file_of_an_atlas_does_not() {
     assert!(modified_of(&a.file(PAGE), &x).is_some());
     assert!(!a.file(ATLAS).contains(" modified=\""));
 }
+
+const COPY: &str = "docs/d/a (PC's conflicted copy 2026-11-05).md";
+
+impl Device {
+    /// Puts the version into the folder as Dropbox does when it lost, and takes it in
+    fn take_copy(&self, version: &str) -> Outcome {
+        std::fs::write(self.root.join(COPY), version).unwrap();
+        self.sync(COPY)
+    }
+
+    fn empty_items(&self, page_id: &Hmtid) -> usize {
+        let items = self.state.page_service.get_page_items(page_id).unwrap();
+        items.iter().filter(|i| i.body.is_empty()).count()
+    }
+
+    fn has_copy(&self) -> bool {
+        self.root.join(COPY).exists()
+    }
+}
+
+// 2台が書き出してファイルが行き違うと、負けた版の項目はconflicted copyから戻り、両方に残る。
+#[test]
+fn an_item_only_in_the_version_that_lost_comes_back_from_the_copy_on_both() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b, page, _, _) = two_devices_with_items(dir.path());
+    a.add(&page, "from A");
+    let version_of_a = a.file(PAGE);
+    b.add(&page, "from B");
+    b.export();
+    a.receive(&b, PAGE);
+
+    assert_eq!(a.take_copy(&version_of_a), Outcome::Imported);
+    b.receive(&a, PAGE);
+
+    let mut bodies = a.bodies(&page);
+    bodies.sort();
+    assert_eq!(bodies, ["from A", "from B", "x", "y"]);
+    assert_eq!(a.bodies(&page), b.bodies(&page));
+    assert_eq!(a.indexes(&page), b.indexes(&page));
+    assert!(!a.has_copy());
+}
+
+// 自分が書いたファイルと同じ内容のコピーは、そのファイルが差し替わるまで残り、そのあと合流する。
+#[test]
+fn a_copy_of_the_file_written_here_waits_until_that_file_is_replaced() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b, page, _, _) = two_devices_with_items(dir.path());
+    a.add(&page, "from A");
+    let version_of_a = a.file(PAGE);
+    b.add(&page, "from B");
+    b.export();
+
+    assert_eq!(a.take_copy(&version_of_a), Outcome::Waiting);
+    assert!(a.has_copy());
+    a.receive(&b, PAGE);
+    assert_eq!(a.sync(COPY), Outcome::Imported);
+
+    let mut bodies = a.bodies(&page);
+    bodies.sort();
+    assert_eq!(bodies, ["from A", "from B", "x", "y"]);
+    assert!(!a.has_copy());
+}
+
+// コピーの新しい編集は入り、ここの新しい編集も残り、ファイルに書かれ、コピーは消える。
+#[test]
+fn a_copy_brings_its_later_edit_and_leaves_the_later_edit_here() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b, page, x, y) = two_devices_with_items(dir.path());
+    b.write(&y, "y from B");
+    let copy = b.file(PAGE);
+    a.write(&x, "x from A");
+
+    assert_eq!(a.take_copy(&copy), Outcome::Imported);
+
+    assert_eq!(a.bodies(&page), ["x from A", "y from B"]);
+    assert!(a.file(PAGE).contains("y from B"));
+    assert!(!a.has_copy());
+    assert!(a.conflicts().is_empty());
+}
+
+// コピーにない項目は、書き出したあとでも消えない。
+#[test]
+fn an_item_not_in_the_copy_stays_even_when_it_was_written_to_a_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b, page, _, y) = two_devices_with_items(dir.path());
+    b.write(&y, "y from B");
+    let copy = b.file(PAGE);
+    a.add(&page, "here");
+    a.export();
+    std::thread::sleep(std::time::Duration::from_millis(5));
+
+    a.take_copy(&copy);
+
+    assert_eq!(a.bodies(&page), ["x", "y from B", "here"]);
+}
+
+// コピーの順序は、ここの順序を変えない。
+#[test]
+fn a_copy_does_not_change_the_order_here() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b, page, x, _) = two_devices_with_items(dir.path());
+    b.state
+        .item_service
+        .move_items(std::slice::from_ref(&x), &page, &ItemPosition::Last, None)
+        .unwrap();
+    let copy = b.file(PAGE);
+    assert!(copy.find("\ny\n") < copy.find("\nx\n"));
+
+    a.take_copy(&copy);
+
+    assert_eq!(a.bodies(&page), ["x", "y"]);
+}
+
+// ここで消した項目は、コピーからは戻らない。
+#[test]
+fn an_item_deleted_here_does_not_come_back_from_a_copy() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b, page, x, y) = two_devices_with_items(dir.path());
+    b.write(&x, "x from B");
+    let copy = b.file(PAGE);
+    std::thread::sleep(std::time::Duration::from_millis(5));
+    a.delete(&y);
+
+    a.take_copy(&copy);
+
+    assert_eq!(a.bodies(&page), ["x from B"]);
+}
+
+// 消した後に相手が編集した項目は、コピーから戻る。
+#[test]
+fn an_item_edited_after_it_was_deleted_here_comes_back_from_a_copy() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b, page, _, y) = two_devices_with_items(dir.path());
+    a.delete(&y);
+    std::thread::sleep(std::time::Duration::from_millis(5));
+    b.write(&y, "y from B");
+    let copy = b.file(PAGE);
+
+    a.take_copy(&copy);
+
+    assert_eq!(a.bodies(&page), ["x", "y from B"]);
+}
+
+// コピーの編集が負けるときは、消す前に`.conflict`へ残す。
+#[test]
+fn an_edit_of_a_copy_that_loses_is_kept_as_a_conflict_backup() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b, page, x, _) = two_devices_with_items(dir.path());
+    b.write(&x, "x from B");
+    let copy = b.file(PAGE);
+    std::thread::sleep(std::time::Duration::from_millis(5));
+    a.write(&x, "x from A");
+    a.export();
+
+    assert_eq!(a.take_copy(&copy), Outcome::Conflict);
+
+    assert_eq!(a.bodies(&page), ["x from A", "y"]);
+    assert!(!a.has_copy());
+    let backups = a.conflicts();
+    assert_eq!(backups.len(), 1);
+    let backup = std::fs::read_to_string(a.root.join(&backups[0])).unwrap();
+    assert!(backup.contains("x from B"));
+}
+
+// コピーのタグは、ページのタグに足される。
+#[test]
+fn the_tags_of_a_copy_are_added_to_the_tags_of_the_page() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b, page, _, _) = two_devices_with_items(dir.path());
+    a.state
+        .page_service
+        .replace_page_tags(&page, &["here".to_string()])
+        .unwrap();
+    b.state
+        .page_service
+        .replace_page_tags(&page, &["there".to_string()])
+        .unwrap();
+    let copy = b.file(PAGE);
+    assert!(copy.contains("there"));
+
+    a.take_copy(&copy);
+
+    let mut tags = a.state.page_service.page_tags(&page).unwrap();
+    tags.sort();
+    assert_eq!(tags, ["here", "there"]);
+}
+
+// 2台で別々に作ったページの版は、項目を足し、空の行を足さない。
+#[test]
+fn a_version_of_the_same_page_made_on_the_other_device_adds_items_and_no_empty_line() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    let page = a.page_in("d/", "a").unwrap();
+    a.add(&page, "from A");
+    a.export();
+    let empty_before = a.empty_items(&page);
+    let made_on_b = b.doc("n");
+    b.state
+        .item_service
+        .create_item(&made_on_b, &ItemPosition::Last, 1, "", None)
+        .unwrap();
+    b.add(&made_on_b, "from B");
+    let copy = b.file("docs/d/n.md");
+
+    a.take_copy(&copy);
+
+    let mut bodies = a.bodies(&page);
+    bodies.sort();
+    assert_eq!(bodies, ["from A", "from B"]);
+    assert_eq!(a.empty_items(&page), empty_before);
+}
+
+// まだファイルのないページのコピーは、ページを作らず、そのまま待つ。
+#[test]
+fn a_copy_of_a_page_without_a_file_here_waits() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b, _, _, _) = two_devices_with_items(dir.path());
+    let copy = b.file(PAGE);
+    let name = "docs/d/n (PC's conflicted copy 2026-11-05).md";
+    std::fs::write(a.root.join(name), copy).unwrap();
+
+    assert_eq!(a.sync(name), Outcome::Waiting);
+
+    assert!(a.root.join(name).exists());
+    assert!(a.page_in("d/", "n").is_none());
+}
+
+// アトラスのコピーは合流せず、消さない。
+#[test]
+fn a_copy_of_an_atlas_is_left_alone() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, _b, _, _, _) = two_devices_with_items(dir.path());
+    let file = a.file(ATLAS);
+    let name = ATLAS.replace(".md", " (PC's conflicted copy 2026-11-05).md");
+    std::fs::write(a.root.join(&name), file).unwrap();
+
+    assert_eq!(a.sync(&name), Outcome::Ignored);
+
+    assert!(a.root.join(&name).exists());
+}
+
+// フォルダのスキャンは、届いていたコピーを合流する。
+#[test]
+fn the_scan_takes_in_a_copy_found_in_the_folder() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b, page, _, y) = two_devices_with_items(dir.path());
+    b.write(&y, "y from B");
+    let copy = b.file(PAGE);
+    std::fs::write(a.root.join(COPY), copy).unwrap();
+
+    a.state.reconcile.scan();
+
+    assert_eq!(a.bodies(&page), ["x", "y from B"]);
+    assert!(!a.has_copy());
+}
+
+// なくなったコピーは、合流も報告もしない。
+#[test]
+fn a_copy_already_gone_is_ignored() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, _b, _, _, _) = two_devices_with_items(dir.path());
+
+    assert_eq!(a.sync(COPY), Outcome::Ignored);
+}
