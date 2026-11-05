@@ -344,6 +344,37 @@ fn enter_after_a_closed_code_fence_splits_the_item() {
     assert_eq!(driver.last_rows().unwrap().len(), 2);
 }
 
+// `[[`を打ったと伝えると、`]]`を足した本文が返り、カーソルはその間に留まる。
+#[test]
+fn typing_a_wiki_link_opening_closes_it_and_keeps_the_cursor_inside() {
+    let mut driver = Driver::open(&[item("a", 1, "")]);
+    driver.send(Inbound::BodyChanged {
+        id: "a".into(),
+        body: "see [[".into(),
+    });
+    driver.send(Inbound::Typed {
+        id: "a".into(),
+        cursor: 6,
+    });
+    assert_eq!(driver.last_rows().unwrap()[0].body, "see [[]]");
+    assert_eq!(
+        driver.focuses().last().unwrap(),
+        &("a".to_string(), Some(6))
+    );
+}
+
+// 補うものがなければ、何も送り返さない。
+#[test]
+fn typing_with_nothing_to_close_changes_nothing() {
+    let mut driver = Driver::open(&[item("a", 1, "x[")]);
+    driver.send(Inbound::Typed {
+        id: "a".into(),
+        cursor: 2,
+    });
+    assert!(driver.last_rows().is_none());
+    assert!(driver.focuses().is_empty());
+}
+
 // インデントは、coreの判断のとおりに行のレベルを変えて送り返す。
 #[test]
 fn indent_comes_back_as_a_row_with_a_new_level() {
