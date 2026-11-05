@@ -13,13 +13,14 @@ use anyhow::Context;
 use rusqlite::{params, Connection};
 
 use crate::domain::id_generator::IdGenerator;
+use crate::domain::nfc::to_nfc;
 
 use super::db::{now_millis, Db};
 
 /// The migrations, in the order they run. The version of a database is the number of them
 /// it has had.
 const MIGRATIONS: &[fn(&Connection) -> rusqlite::Result<()>] =
-    &[create_tables, create_deleted_items];
+    &[create_tables, create_deleted_items, put_names_in_nfc];
 
 pub fn initialize(db: &Db, ids: &IdGenerator) -> anyhow::Result<()> {
     let conn = db.conn()?;
@@ -62,6 +63,32 @@ fn migrate(conn: &Connection) -> anyhow::Result<()> {
 fn user_version(conn: &Connection) -> rusqlite::Result<usize> {
     let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     Ok(version as usize)
+}
+
+/// Version 3: the names of pages and their files in NFC, see ADR 007. Rows are only updated.
+/// Deleting a page would delete its items too.
+fn put_names_in_nfc(conn: &Connection) -> rusqlite::Result<()> {
+    let pages: Vec<(String, String, String)> = conn
+        .prepare("SELECT id, dir_path, name FROM pages")?
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+        .collect::<rusqlite::Result<_>>()?;
+    for (id, dir_path, name) in pages {
+        conn.execute(
+            "UPDATE pages SET dir_path = ?, name = ? WHERE id = ?",
+            params![to_nfc(&dir_path), to_nfc(&name), id],
+        )?;
+    }
+    let paths: Vec<String> = conn
+        .prepare("SELECT rel_path FROM file_sync_state")?
+        .query_map([], |r| r.get(0))?
+        .collect::<rusqlite::Result<_>>()?;
+    for path in paths {
+        conn.execute(
+            "UPDATE file_sync_state SET rel_path = ? WHERE rel_path = ?",
+            params![to_nfc(&path), path],
+        )?;
+    }
+    Ok(())
 }
 
 /// Version 2: the items deleted here, so that taking in a file can tell them from items
