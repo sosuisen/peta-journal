@@ -11,6 +11,8 @@
 //!   that was not seen here loses, the file is backed up as `name.conflict-yyyyMMdd-HHmmss.md`.
 //! - An atlas goes by its page: when the DB is newer than the file, the file is backed up and
 //!   overwritten from the DB.
+//! - A Dropbox conflicted copy is taken in as one more version of its page, and then
+//!   deleted. It never takes items away.
 //! - Nothing is deleted from the DB because a file disappeared; that goes through the
 //!   pending-deletes page.
 
@@ -109,6 +111,12 @@ impl MarkdownImportService {
     }
 
     fn sync_locked(&self, root: &Path, rel_path: &str) -> Outcome {
+        if let Some(loc) = path_mapper::conflicted_copy_of(rel_path) {
+            return self.merge_copy(root, rel_path, &loc).unwrap_or_else(|e| {
+                tracing::error!("Failed to merge {rel_path}: {e:#}");
+                Outcome::Error
+            });
+        }
         if path_mapper::is_ignored(rel_path) {
             return Outcome::Ignored;
         }
@@ -173,6 +181,72 @@ impl MarkdownImportService {
                 Outcome::Error
             }
         }
+    }
+
+    /// Takes in a conflicted copy as one more version of the page at `loc`, then deletes it.
+    /// The other device needs no copy after that: the file of the page holds it all.
+    fn merge_copy(&self, root: &Path, rel_path: &str, loc: &PageLocation) -> AppResult<Outcome> {
+        let file = root.join(rel_path);
+        if !file.is_file() {
+            return Ok(Outcome::Ignored);
+        }
+        let page_path = path_mapper::to_rel_path(&loc.page_type, &loc.dir_path, &loc.name);
+        let Some(state) = self.file_sync_state.find_by_path(&page_path)? else {
+            return Ok(Outcome::Waiting);
+        };
+        let Some(page) = self.page_service.get_page(&state.page_id)? else {
+            return Ok(Outcome::Waiting);
+        };
+        if page.is_atlas() {
+            return Ok(Outcome::Ignored);
+        }
+        let content = read_stable(&file)?;
+        if content.trim().is_empty() {
+            return Ok(Outcome::Error);
+        }
+        // The version written here, while the version that won may still be on its way. Taken
+        // in now, it would change nothing and be gone when that version drops its items.
+        if path_mapper::sha256(&content) == state.content_hash {
+            return Ok(Outcome::Waiting);
+        }
+        let content = content.replace("\r\n", "\n");
+        let parsed = self.parser.parse(&content)?;
+        let mtime = mtime_millis(&std::fs::metadata(&file)?);
+        let file_modified =
+            parse_instant(parsed.frontmatter.get("modified").map(String::as_str)).unwrap_or(mtime);
+        let now = now_millis();
+        let mode = MergeMode::Copy {
+            last_synced: state.file_mtime,
+        };
+        let merge = self
+            .item_merger
+            .merge(&page, &parsed.items, file_modified, mode, now)?;
+        let page_tags = union(
+            &self.page_service.page_tags(&page.id)?,
+            &frontmatter_tags(&parsed.frontmatter),
+        );
+        let page_tags_before = self.page_service.replace_page_tags(&page.id, &page_tags)?;
+        if merge.file_lost {
+            self.write_conflict_backup(root, rel_path, loc, &content);
+        }
+        if merge.changed || merge.changed_here || page_tags_before != page_tags {
+            let page = self.page_matcher.touch(&page, loc, now)?;
+            self.export.queue_export(&page.id);
+            self.page_service.update_tag_pages(
+                &union(&merge.tags_before, &page_tags_before),
+                &union(&merge.tags_after, &page_tags),
+            );
+            self.page_service.sync_atlases();
+            self.sse
+                .broadcast_pages_updated_from(page.id.as_str(), "file");
+        }
+        std::fs::remove_file(&file)?;
+        tracing::info!("Merged and deleted {rel_path}");
+        Ok(if merge.file_lost {
+            Outcome::Conflict
+        } else {
+            Outcome::Imported
+        })
     }
 
     /// Takes in the files that wait for the file that went, as the page moved.

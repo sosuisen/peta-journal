@@ -750,17 +750,13 @@ fn an_item_not_in_the_copy_stays_even_when_it_was_written_to_a_file() {
     assert_eq!(a.bodies(&page), ["x", "y from B", "here"]);
 }
 
-// コピーの順序は、ここの順序を変えない。
+// 日付が同じ項目の位置は、コピーでは変わらない。コピーの`idx`は古いことがある。
 #[test]
-fn a_copy_does_not_change_the_order_here() {
+fn a_copy_does_not_move_an_item_of_the_same_date() {
     let dir = tempfile::tempdir().unwrap();
-    let (a, b, page, x, _) = two_devices_with_items(dir.path());
-    b.state
-        .item_service
-        .move_items(std::slice::from_ref(&x), &page, &ItemPosition::Last, None)
-        .unwrap();
-    let copy = b.file(PAGE);
-    assert!(copy.find("\ny\n") < copy.find("\nx\n"));
+    let (a, _b, page, x, _) = two_devices_with_items(dir.path());
+    let attr = format!("idx=\"{}\"", a.item_idx(&x));
+    let copy = a.file(PAGE).replace(&attr, "idx=\"z9\"");
 
     a.take_copy(&copy);
 
@@ -822,23 +818,20 @@ fn an_edit_of_a_copy_that_loses_is_kept_as_a_conflict_backup() {
 #[test]
 fn the_tags_of_a_copy_are_added_to_the_tags_of_the_page() {
     let dir = tempfile::tempdir().unwrap();
-    let (a, b, page, _, _) = two_devices_with_items(dir.path());
+    let (a, _b, page, _, _) = two_devices_with_items(dir.path());
     a.state
         .page_service
         .replace_page_tags(&page, &["here".to_string()])
         .unwrap();
-    b.state
-        .page_service
-        .replace_page_tags(&page, &["there".to_string()])
-        .unwrap();
-    let copy = b.file(PAGE);
-    assert!(copy.contains("there"));
+    let copy = a.file(PAGE).replacen("---\n", "---\ntags: [there]\n", 1);
 
     a.take_copy(&copy);
 
     let mut tags = a.state.page_service.page_tags(&page).unwrap();
     tags.sort();
     assert_eq!(tags, ["here", "there"]);
+    assert!(!a.has_copy());
+    assert!(a.file(PAGE).contains("there"));
 }
 
 // 2台で別々に作ったページの版は、項目を足し、空の行を足さない。

@@ -10,6 +10,8 @@ use crate::domain::model::Page;
 
 pub const MD_EXT: &str = ".md";
 const CONFLICT_MARKER: &str = ".conflict";
+/// What Dropbox writes in the name of a conflicted copy, by the language of its app.
+const COPY_MARKERS: [&str; 2] = ["conflicted copy", "競合コピー"];
 
 /// Location of a page's markdown file, decoded from a relative path.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -75,8 +77,9 @@ pub fn relativize(root: &Path, file: &Path) -> String {
         .join("/")
 }
 
-/// Files we must never import: temp/partial files from editors and Dropbox,
-/// Dropbox conflicted copies, our own conflict backups, and anything not .md.
+/// Files we must never import: temp/partial files from editors and Dropbox, names that
+/// look like a conflicted copy without being one, our own conflict backups, and anything
+/// not .md. A real conflicted copy comes through; see `conflicted_copy_of`.
 pub fn is_ignored(rel_path: &str) -> bool {
     if !rel_path.ends_with(MD_EXT) {
         return true;
@@ -89,8 +92,8 @@ pub fn is_ignored(rel_path: &str) -> bool {
     if base.contains(CONFLICT_MARKER) {
         return true;
     }
-    if base.to_lowercase().contains("conflicted copy") {
-        return true;
+    if has_copy_marker(base) {
+        return conflicted_copy_of(rel_path).is_none();
     }
     false
 }
@@ -104,8 +107,21 @@ pub fn has_ignored_segment(rel_path: &str) -> bool {
 }
 
 /// The page a file is a conflicted copy of, as Dropbox names them.
-pub fn conflicted_copy_of(_rel_path: &str) -> Option<PageLocation> {
-    None
+pub fn conflicted_copy_of(rel_path: &str) -> Option<PageLocation> {
+    if has_ignored_segment(rel_path) {
+        return None;
+    }
+    let base = rel_path.strip_suffix(MD_EXT)?.strip_suffix(')')?;
+    let (page, note) = base.rsplit_once(" (")?;
+    if !has_copy_marker(note) {
+        return None;
+    }
+    from_rel_path(&format!("{page}{MD_EXT}"))
+}
+
+fn has_copy_marker(text: &str) -> bool {
+    let text = text.to_lowercase();
+    COPY_MARKERS.iter().any(|m| text.contains(m))
 }
 
 /// Name for a conflict backup written next to the page file.

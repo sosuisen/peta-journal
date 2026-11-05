@@ -416,6 +416,9 @@ pub enum MergeMode {
     /// The later change of each item stays. `last_synced` is when this device last wrote or
     /// took in a file of the page: a change in the file after it was not seen here yet.
     ItemByItem { last_synced: i64 },
+    /// A version that lost to another one in the cloud folder. It says nothing about what
+    /// is not in it, so it only brings its later changes and its items.
+    Copy { last_synced: i64 },
 }
 
 /// An item of the file with its id and its body as the app stores it.
@@ -501,9 +504,10 @@ fn plan_merge<'a>(
     let mut kept: Vec<&'a Item> = Vec::new();
     let mut differs_from_file = false;
     let mut file_lost = false;
-    let (by_item, last_synced) = match facts.mode {
-        MergeMode::WholeFile => (false, i64::MAX),
-        MergeMode::ItemByItem { last_synced } => (true, last_synced),
+    let (by_item, is_copy, last_synced) = match facts.mode {
+        MergeMode::WholeFile => (false, false, i64::MAX),
+        MergeMode::ItemByItem { last_synced } => (true, false, last_synced),
+        MergeMode::Copy { last_synced } => (true, true, last_synced),
     };
     let page_modified = facts.page_modified;
 
@@ -511,7 +515,11 @@ fn plan_merge<'a>(
         let stamp = fi.parsed.modified.unwrap_or(facts.file_modified);
         let old = facts.by_id.get(&fi.id).copied();
         match old {
-            Some(o) if by_item && o.modified_date > stamp => {
+            // At the same date the order here stays: the order in a copy may be old
+            Some(o)
+                if by_item
+                    && (o.modified_date > stamp || (is_copy && o.modified_date == stamp)) =>
+            {
                 let same = same_content(o, fi, facts.scalars, facts.lists);
                 // A file not newer than the last sync is no file of the other device: it was
                 // edited by hand from what was here before, so the edit is worth keeping too
@@ -520,7 +528,8 @@ fn plan_merge<'a>(
                 kept.push(o);
             }
             None if by_item
-                && (fi.deleted_date.is_some_and(|date| date >= stamp)
+                && ((is_copy && fi.body.is_empty())
+                    || fi.deleted_date.is_some_and(|date| date >= stamp)
                     || (fi.of_another_page && facts.file_modified < page_modified)) =>
             {
                 differs_from_file = true;
@@ -534,7 +543,8 @@ fn plan_merge<'a>(
     for old in existing {
         let in_file = file_items.iter().any(|fi| fi.id == old.id);
         let changed_after_file = old.modified_date > facts.file_modified;
-        if by_item && !in_file && (changed_after_file || old.modified_date > last_synced) {
+        if by_item && !in_file && (is_copy || changed_after_file || old.modified_date > last_synced)
+        {
             differs_from_file = true;
             kept.push(old);
         }
