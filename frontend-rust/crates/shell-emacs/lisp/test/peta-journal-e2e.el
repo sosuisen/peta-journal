@@ -215,6 +215,16 @@ The server is a real one, with its files in a temporary folder."
     (peta-journal-e2e--keys "C-x C-s")
     (peta-journal-e2e--wait-saved '("ab" "cd"))))
 
+;; 動いているシェルが止まると、警告が出る。
+(ert-deftest peta-journal-e2e-a-stopped-shell-is-reported ()
+  (peta-journal-e2e--with-app
+    (let ((warning nil))
+      (cl-letf (((symbol-function 'display-warning)
+                 (lambda (_type message &rest _) (setq warning message))))
+        (delete-process peta-journal--process)
+        (peta-journal-e2e--wait-for "the warning" (lambda () warning)))
+      (should (equal peta-journal--connection "shell stopped")))))
+
 ;; 続けて打った文字は、Enterのあとの項目に入る。
 (ert-deftest peta-journal-e2e-keys-after-enter-go-to-the-new-item ()
   (peta-journal-e2e--with-app

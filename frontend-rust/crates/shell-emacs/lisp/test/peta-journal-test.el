@@ -487,6 +487,44 @@
     (peta-journal--on-search "q" [] nil)
     (should-not peta-journal--searching)))
 
+;;;; The shell stopping
+
+(defun peta-journal-test--emacs-process (sentinel &rest args)
+  "Start a batch Emacs with ARGS and SENTINEL, as a stand-in for the shell."
+  (make-process :name "peta-test-process"
+                :command (append (list (expand-file-name invocation-name invocation-directory)
+                                       "--batch")
+                                 args)
+                :connection-type 'pipe
+                :noquery t
+                :sentinel sentinel))
+
+;; シェルが思いがけず止まると、以後の入力は保存されない。それをモード行と警告で伝える。
+(ert-deftest peta-journal-warns-when-the-shell-stops ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
+    (let ((process (peta-journal-test--emacs-process #'ignore))
+          (warning nil))
+      (while (process-live-p process)
+        (accept-process-output process 0.02))
+      (cl-letf (((symbol-function 'display-warning)
+                 (lambda (_type message &rest _) (setq warning message))))
+        (peta-journal--sentinel process "exited abnormally with code 1\n"))
+      (should (string-match-p "exited abnormally with code 1" warning))
+      (should (equal peta-journal--connection "shell stopped")))))
+
+;; こちらから止めたときは、警告を出さない。
+(ert-deftest peta-journal-stays-silent-when-told-to-stop-the-shell ()
+  (let* ((warning nil)
+         ;; Ends when its input closes, as the shell does
+         (peta-journal--process (peta-journal-test--emacs-process
+                                 #'peta-journal--sentinel "--eval" "(read-string \"\")")))
+    (cl-letf (((symbol-function 'display-warning)
+               (lambda (_type message &rest _) (setq warning message))))
+      (peta-journal-stop)
+      (accept-process-output nil 0.05))
+    (should-not (process-live-p peta-journal--process))
+    (should-not warning)))
+
 ;;;; Links
 
 ;; リンクを開くコマンドは、編集を閉じてから、カーソルの位置をシェルへ送る。リンクかどうかはcoreが決める。
