@@ -325,6 +325,19 @@
     (peta-journal--post-command)
     (should (equal peta-journal-test--sent '(("edit_requested" :id "a" :cursor 0))))))
 
+;; 別のページを開くコマンドの直後は、離れるページの項目で編集を始めない。
+(ert-deftest peta-journal-going-to-another-page-leaves-the-edit-closed ()
+  (dolist (command '(peta-journal-today peta-journal-find-page peta-journal-back
+                     peta-journal-next-day peta-journal-previous-day
+                     peta-journal-open-at-point))
+    (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
+      (peta-journal-test--goto "a" 0)
+      (peta-journal--go "back")
+      (setq peta-journal-test--sent nil)
+      (let ((this-command command))
+        (peta-journal--post-command))
+      (should (null peta-journal-test--sent)))))
+
 ;; 一息つくと編集を閉じる。開いたままだと、coreは他からの変更の読み直しを待ち続けるため。
 (ert-deftest peta-journal-idling-ends-the-edit ()
   (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))

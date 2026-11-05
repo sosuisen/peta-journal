@@ -327,6 +327,38 @@ The server is a real one, with its files in a temporary folder."
       (peta-journal-e2e--keys "C-x C-s")
       (peta-journal-e2e--wait-saved '("ページの本文")))))
 
+;; リンクを開くと、そのページへ移り、バックリンクの一覧から元のページへ戻れる。
+(ert-deftest peta-journal-e2e-a-link-opens-and-its-backlink-leads-back ()
+  (peta-journal-e2e--with-app
+    (let ((journal peta-journal--page-id))
+      (peta-journal-e2e--type "[[リンク先]]")
+      (peta-journal-e2e--keys "C-x C-s")
+      (peta-journal-e2e--wait-saved '("[[リンク先]]"))
+      (peta-journal-e2e--keys "C-b C-b C-c C-o")
+      (peta-journal-e2e--wait-for "the linked page"
+                                  (lambda () (not (equal peta-journal--page-id journal))))
+      (peta-journal-e2e--wait-for "the backlinks"
+                                  (lambda () (> (length peta-journal--backlinks) 0)))
+      (peta-journal-backlinks)
+      (with-current-buffer "*PetaJournal Backlinks*"
+        (should (string-search "[[リンク先]]" (buffer-string)))
+        (select-window (get-buffer-window (current-buffer)))
+        (peta-journal-list-open))
+      (with-current-buffer "*PetaJournal*"
+        (peta-journal-e2e--wait-for "the page with the link"
+                                    (lambda () (equal peta-journal--page-id journal)))))))
+
+;; 次のジャーナルへ移り、前のページへ戻れる。
+(ert-deftest peta-journal-e2e-journals-can-be-walked ()
+  (peta-journal-e2e--with-app
+    (let ((today peta-journal--page-id))
+      (peta-journal-e2e--keys "C-c C-n")
+      (peta-journal-e2e--wait-for "the next journal"
+                                  (lambda () (not (equal peta-journal--page-id today))))
+      (peta-journal-e2e--keys "C-c C-l")
+      (peta-journal-e2e--wait-for "the journal before"
+                                  (lambda () (equal peta-journal--page-id today))))))
+
 ;; Emacsを閉じても、打ったばかりの文字は保存される。
 (ert-deftest peta-journal-e2e-stopping-saves-what-was-typed ()
   (peta-journal-e2e--with-app
