@@ -104,7 +104,6 @@ impl ItemMerger {
                 mode,
                 scalars: &scalars,
                 lists: &lists,
-                defs: &defs,
             },
         );
         let entries = &plan.entries;
@@ -187,8 +186,7 @@ impl ItemMerger {
             let same = same_fields && old.is_some_and(|o| o.idx == *idx) && !collision;
             let edited_by_hand = matches!(mode, MergeMode::ItemByItem { .. })
                 && old.is_some_and(|o| {
-                    pi.modified == Some(o.modified_date)
-                        && !same_content(o, fi, &scalars, &lists, &defs)
+                    pi.modified == Some(o.modified_date) && !same_content(o, fi, &scalars, &lists)
                 });
             let modified_date = match old {
                 _ if edited_by_hand => now,
@@ -466,7 +464,6 @@ struct MergeFacts<'a> {
     mode: MergeMode,
     scalars: &'a BTreeMap<String, BTreeMap<String, String>>,
     lists: &'a BTreeMap<String, BTreeMap<String, Vec<String>>>,
-    defs: &'a BTreeMap<String, String>,
 }
 
 struct MergePlan<'a> {
@@ -499,7 +496,7 @@ fn plan_merge<'a>(
         let old = facts.by_id.get(&fi.id).copied();
         match old {
             Some(o) if by_item && o.modified_date > stamp => {
-                let same = same_content(o, fi, facts.scalars, facts.lists, facts.defs);
+                let same = same_content(o, fi, facts.scalars, facts.lists);
                 // A file not newer than the last sync is no file of the other device: it was
                 // edited by hand from what was here before, so the edit is worth keeping too
                 file_lost |= !same && (stamp > last_synced || facts.file_modified <= last_synced);
@@ -566,7 +563,6 @@ fn same_content(
     fi: &FileItem,
     scalars: &BTreeMap<String, BTreeMap<String, String>>,
     lists: &BTreeMap<String, BTreeMap<String, Vec<String>>>,
-    defs: &BTreeMap<String, String>,
 ) -> bool {
     if !same_fields(old, fi) {
         return false;
@@ -586,7 +582,6 @@ fn same_content(
         .properties
         .iter()
         .filter(|(k, _)| !RESERVED_KEYS.contains(&k.as_str()))
-        .filter(|(k, _)| defs.get(k).map(String::as_str) != Some("tags"))
         .map(|(k, v)| (k.as_str(), v.clone()))
         .collect();
     here == in_file

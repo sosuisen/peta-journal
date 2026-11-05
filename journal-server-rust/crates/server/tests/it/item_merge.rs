@@ -61,6 +61,12 @@ fn modified_of(file: &str, item_id: &Hmtid) -> Option<String> {
     Some(rest.split('"').next()?.to_string())
 }
 
+/// The `modified` value of the front matter
+fn page_date_of(file: &str) -> Option<String> {
+    let line = file.lines().find(|l| l.starts_with("modified: "))?;
+    Some(line.trim_start_matches("modified: ").to_string())
+}
+
 /// The file as the server wrote it before the items had dates
 fn without_item_dates(file: &str) -> String {
     let mut out = String::new();
@@ -295,6 +301,56 @@ fn a_file_saved_by_hand_from_old_content_is_kept_as_a_backup_when_it_loses() {
         .contains("x by hand"));
 }
 
+// 手で足した項目は、古い日付とidが書かれていても取り込まれる。
+#[test]
+fn an_item_added_by_hand_with_an_old_date_and_its_own_id_is_taken_in() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, _b, page, _, _) = two_devices_with_items(dir.path());
+    let mut file = a.file(PAGE);
+    file.push_str("\n<!-- @ 2020-01-01-00-00-00-AAAAAAA idx=\"a9\" modified=\"2020-01-01T00:00:00Z\" -->\nby hand\n");
+    std::fs::write(a.root.join(PAGE), file).unwrap();
+
+    assert_eq!(a.sync(PAGE), Outcome::Imported);
+
+    assert_eq!(a.bodies(&page), ["x", "y", "by hand"]);
+}
+
+// ファイルより後に動かした項目は、その位置に残り、相手にも届く。
+#[test]
+fn an_item_moved_after_the_file_was_written_keeps_its_place_on_both_devices() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b, page, x, y) = two_devices_with_items(dir.path());
+    a.write(&x, "x from A");
+    a.export();
+    b.state
+        .item_service
+        .move_items(std::slice::from_ref(&y), &page, &ItemPosition::First, None)
+        .unwrap();
+
+    b.receive(&a, PAGE);
+    a.receive(&b, PAGE);
+
+    assert_eq!(b.bodies(&page), ["y", "x from A"]);
+    assert_eq!(a.bodies(&page), ["y", "x from A"]);
+}
+
+// 内容が同じなら、ファイルの日付が古くてもバックアップは作らない。
+#[test]
+fn a_file_that_only_has_older_dates_makes_no_backup() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, _b, page, x, _) = two_devices_with_items(dir.path());
+    a.write(&x, "x #tagged");
+    a.edit(&page, "a note");
+    let file = a.file(PAGE);
+    a.write(&x, "x #tagged");
+    a.export();
+    std::fs::write(a.root.join(PAGE), file).unwrap();
+
+    assert_eq!(a.sync(PAGE), Outcome::Imported);
+
+    assert!(a.conflicts().is_empty());
+}
+
 // 手で消した行の項目は消える。
 #[test]
 fn an_item_whose_lines_were_removed_by_hand_goes() {
@@ -316,14 +372,23 @@ fn an_item_whose_lines_were_removed_by_hand_goes() {
 #[test]
 fn a_file_without_item_dates_counts_by_the_date_of_the_page() {
     let dir = tempfile::tempdir().unwrap();
-    let (a, b, page, x, _) = two_devices_with_items(dir.path());
+    let (a, b, page, x, y) = two_devices_with_items(dir.path());
+    let date_of_y = modified_of(&b.file(PAGE), &y);
     a.write(&x, "x from A");
     let old_form = without_item_dates(&a.file(PAGE));
-    std::fs::write(b.root.join(PAGE), old_form).unwrap();
+    std::fs::write(b.root.join(PAGE), &old_form).unwrap();
 
     assert_eq!(b.sync(PAGE), Outcome::Imported);
 
     assert_eq!(b.bodies(&page), ["x from A", "y"]);
+    let written = b.state.export.serialize_to_outline_markdown(
+        &b.state.pages.find_by_id(&page).unwrap().unwrap(),
+        &b.state.page_service.get_page_items(&page).unwrap(),
+    );
+    let written = written.unwrap();
+    // The changed item takes the date of the file, and the other item keeps its own
+    assert_eq!(modified_of(&written, &x), page_date_of(&old_form));
+    assert_eq!(modified_of(&written, &y), date_of_y);
 }
 
 // ページのファイルの項目には更新日が書かれ、アトラスのファイルには書かれない。
