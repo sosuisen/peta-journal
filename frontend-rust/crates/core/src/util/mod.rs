@@ -117,6 +117,24 @@ mod tests {
         assert_eq!(auto_close("[", 1), None);
     }
 
+    // リンクの中で閉じる`]`を打つと、続く`]`の上を進み、`]`は増えない。
+    #[test]
+    fn auto_close_types_over_the_closing_of_a_wiki_link() {
+        assert_eq!(auto_close("日[[本]]]後", 5), Some(("日[[本]]後".into(), 5)));
+        assert_eq!(auto_close("日[[本]]]後", 6), Some(("日[[本]]後".into(), 6)));
+        assert_eq!(auto_close("[[]]]", 3), Some(("[[]]".into(), 3)));
+    }
+
+    // リンクの外、閉じたリンクの後、別の行、閉じる位置でないところの`]`は、そのまま残る。
+    #[test]
+    fn auto_close_leaves_a_bracket_outside_the_closing_of_a_link() {
+        assert_eq!(auto_close("a]]", 2), None);
+        assert_eq!(auto_close("[[a]] b]]]", 7), None);
+        assert_eq!(auto_close("[[a\n]]]", 5), None);
+        assert_eq!(auto_close("[[a]]b]]", 4), None);
+        assert_eq!(auto_close("[[a]]", 5), None);
+    }
+
     // 行頭の```を打つと、本文の末尾に閉じるフェンスが補われ、カーソルは留まる。
     #[test]
     fn auto_close_closes_a_code_fence_just_opened() {
