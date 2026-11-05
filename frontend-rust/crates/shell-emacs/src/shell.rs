@@ -4,7 +4,7 @@
 //! Everything here runs on one thread: the requests the core waits on stay here, and the host's
 //! threads only send back their results.
 
-use crate::protocol::{AskKind, BacklinkEntry, Envelope, Inbound, Outbound, RowView};
+use crate::protocol::{BacklinkEntry, Envelope, Inbound, Outbound, RowView};
 use crate::route::parse_url;
 use crux_core::capability::Operation;
 use crux_core::{Core, Request};
@@ -16,7 +16,6 @@ use peta_core::effects::{
 use peta_core::util::{auto_close, link_at};
 use peta_core::view::{ScreenView, SearchView};
 use peta_core::{Event, PetaApp, ViewModel};
-use serde_json::Value;
 use std::collections::{HashMap, VecDeque};
 
 /// The time as the core wants it.
@@ -58,7 +57,7 @@ struct Sent {
     rows: Vec<RowView>,
     focus_seq: u64,
     connection: Option<String>,
-    search: Option<(String, Vec<peta_core::view::SearchEntry>, bool)>,
+    search: Option<(Vec<peta_core::view::SearchEntry>, bool)>,
     recent: Vec<String>,
     backlinks: Vec<BacklinkEntry>,
 }
@@ -71,7 +70,7 @@ pub struct Shell<H: Host> {
     timers: HashMap<u64, Request<TimerOp>>,
     sse: Option<(u64, Request<SseOp>)>,
     next_stream: u64,
-    asks: HashMap<u64, (AskKind, Request<UiOp>)>,
+    asks: HashMap<u64, Request<UiOp>>,
     next_ask: u64,
     /// The line of Emacs being handled.
     ack: u64,
@@ -226,7 +225,7 @@ impl<H: Host> Shell<H> {
                 self.send(Event::SearchQueryChanged(query));
             }
             Inbound::SearchResult { index } => self.send(Event::SearchResultClicked { index }),
-            Inbound::Answer { req, value } => self.answer(req, value),
+            Inbound::Answer { req, yes } => self.answer(req, yes),
         }
     }
 
@@ -299,24 +298,15 @@ impl<H: Host> Shell<H> {
         });
     }
 
-    fn answer(&mut self, req: u64, value: Value) {
-        let Some((kind, mut request)) = self.asks.remove(&req) else {
+    fn answer(&mut self, req: u64, yes: bool) {
+        let Some(mut request) = self.asks.remove(&req) else {
             return;
         };
-        match kind {
-            AskKind::Confirm | AskKind::ConfirmDestructive => {
-                let ok = value.as_bool().unwrap_or(false);
-                self.resolve(&mut request, UiOutput::Bool(ok));
-                // The deletion that asked has selected its items. It ends here, so they must
-                // not stay selected: an editor does not open while they are
-                if !ok && self.core.view().outline.selection_mode {
-                    self.send(Event::SelectionKey(SelectionKey::Escape));
-                }
-            }
-            AskKind::Prompt | AskKind::Clipboard => {
-                let text = value.as_str().map(str::to_string);
-                self.resolve(&mut request, UiOutput::Text(text));
-            }
+        self.resolve(&mut request, UiOutput::Bool(yes));
+        // The deletion that asked has selected its items. It ends here, so they must not stay
+        // selected: an editor does not open while they are
+        if !yes && self.core.view().outline.selection_mode {
+            self.send(Event::SelectionKey(SelectionKey::Escape));
         }
     }
 
@@ -438,16 +428,10 @@ impl<H: Host> Shell<H> {
                 self.after_render.push(Outbound::Scroll { id: item_id });
             }
             UiOp::SetTitle(title) => self.host.emit(Outbound::Title { title }),
-            UiOp::CopyText(text) | UiOp::CopyMarkdown { markdown: text } => {
-                self.host.emit(Outbound::Copy { text });
-            }
             UiOp::Alert(text) => self.after_render.push(Outbound::Message { text }),
-            UiOp::Confirm(message) => self.ask(AskKind::Confirm, message, request),
-            UiOp::ConfirmDestructive(message) => {
-                self.ask(AskKind::ConfirmDestructive, message, request);
+            UiOp::Confirm(message) | UiOp::ConfirmDestructive(message) => {
+                self.ask(message, request);
             }
-            UiOp::Prompt(message) => self.ask(AskKind::Prompt, message, request),
-            UiOp::ReadClipboardText => self.ask(AskKind::Clipboard, String::new(), request),
             UiOp::LocalNow => {
                 let now = self.host.now();
                 self.resolve(
@@ -461,9 +445,14 @@ impl<H: Host> Shell<H> {
             // Emacs has one window on one page, so another window is this one
             UiOp::OpenWindow { url, .. } => self.navigations.push_back((url, false)),
             // There is nothing to do these with here: the atlas map and the extension iframes
-            // are parts of the web shell, and a clipboard write is never begun ahead of its text
+            // are parts of the web shell. Copying, a new page from the header and pasting a
+            // transclusion start from events that Emacs does not send
             UiOp::SaveAtlasDirs(_)
+            | UiOp::CopyText(_)
+            | UiOp::CopyMarkdown { .. }
             | UiOp::CopyFailed
+            | UiOp::Prompt(_)
+            | UiOp::ReadClipboardText
             | UiOp::LoadExtensions { .. }
             | UiOp::ExtensionPageCreate { .. }
             | UiOp::ExtensionPageTagAdd { .. }
@@ -472,12 +461,11 @@ impl<H: Host> Shell<H> {
         None
     }
 
-    fn ask(&mut self, kind: AskKind, message: String, request: Request<UiOp>) {
+    fn ask(&mut self, message: String, request: Request<UiOp>) {
         self.next_ask += 1;
-        self.asks.insert(self.next_ask, (kind, request));
+        self.asks.insert(self.next_ask, request);
         self.after_render.push(Outbound::Ask {
             req: self.next_ask,
-            kind,
             message,
         });
     }
@@ -538,19 +526,11 @@ impl<H: Host> Shell<H> {
     }
 
     fn tell_search(&mut self, search: &SearchView) {
-        let now = Some((
-            search.query.clone(),
-            search.results.clone(),
-            search.searching,
-        ));
+        let now = Some((search.results.clone(), search.searching));
         if self.sent.search != now {
             self.sent.search.clone_from(&now);
-            if let Some((query, results, searching)) = now {
-                self.host.emit(Outbound::Search {
-                    query,
-                    results,
-                    searching,
-                });
+            if let Some((results, searching)) = now {
+                self.host.emit(Outbound::Search { results, searching });
             }
         }
     }

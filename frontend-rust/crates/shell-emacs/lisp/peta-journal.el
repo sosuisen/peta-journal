@@ -158,9 +158,10 @@ The core does not take in changes from elsewhere while an edit is open."
              end-of-mark
            (next-single-property-change end-of-mark 'peta-row)))))
 
-(defun peta-journal--row-index (id)
-  "The place of the item ID among the rows, or nil."
-  (cl-position-if (lambda (row) (equal (plist-get row :id) id)) peta-journal--rows))
+(defun peta-journal--row-index (id &optional rows)
+  "The place of the item ID among ROWS, or else among those on screen, or nil."
+  (cl-position-if (lambda (row) (equal (plist-get row :id) id))
+                  (or rows peta-journal--rows)))
 
 (defun peta-journal--row-of (id)
   "The row of the item ID, or nil."
@@ -181,7 +182,7 @@ The core does not take in changes from elsewhere while an edit is open."
   "The bullet of ROW."
   (let* ((kind (plist-get row :bullet))
          (level (plist-get row :level))
-         (mark (or (cdr (assoc kind peta-journal--bullets)) "•")))
+         (mark (cdr (assoc kind peta-journal--bullets))))
     (propertize (concat mark " ")
                 'peta-bullet (plist-get row :id)
                 'font-lock-face (if (equal kind "done") 'peta-journal-done 'peta-journal-bullet)
@@ -245,9 +246,7 @@ The first PREFIX rows are left out."
   "Give the edited row in NEW the text on screen, if ACK is behind the typing."
   (when (and peta-journal--current (< ack peta-journal--seq))
     (when-let* ((old (peta-journal--row-of peta-journal--current))
-                (index (cl-position-if
-                        (lambda (row) (equal (plist-get row :id) peta-journal--current))
-                        new)))
+                (index (peta-journal--row-index peta-journal--current new)))
       (setf (aref new index)
             (plist-put (copy-sequence (aref new index)) :body (plist-get old :body))))))
 
@@ -390,10 +389,6 @@ is handled when the outline it was meant for is on screen."
   (apply #'peta-journal--send type fields)
   (peta-journal--wait))
 
-(defun peta-journal--filter (_process output)
-  "Take OUTPUT of the shell."
-  (peta-journal--read-output output))
-
 (defun peta-journal--read-output (output)
   "Handle the complete lines in OUTPUT, and keep the rest for the next piece."
   (let ((lines (split-string (concat peta-journal--output output) "\n")))
@@ -405,14 +400,8 @@ is handled when the outline it was meant for is on screen."
 
 (defmacro peta-journal--in-buffer (&rest body)
   "Run BODY in the buffer of the page, if there is one."
-  `(when-let* ((buffer (peta-journal--buffer)))
+  `(when-let* ((buffer (get-buffer "*PetaJournal*")))
      (with-current-buffer buffer ,@body)))
-
-(defun peta-journal--buffer ()
-  "The buffer of the page: the current one in a test, or else the one by its name."
-  (if (derived-mode-p 'peta-journal-mode)
-      (current-buffer)
-    (get-buffer "*PetaJournal*")))
 
 (defun peta-journal--sentinel (process event)
   "Say that the shell PROCESS has stopped, as EVENT tells.
@@ -442,19 +431,18 @@ M-x peta-journal starts it and shows the saved text.  See *peta-journal-log*."
                                       (plist-get message :cursor)
                                       (plist-get message :ack))))
     ("scroll" (peta-journal--in-buffer (peta-journal--on-scroll (plist-get message :id))))
-    ("title" (peta-journal--on-title (plist-get message :title)))
+    ("title" (peta-journal--in-buffer
+              (setq peta-journal--title (plist-get message :title))
+              (force-mode-line-update)))
     ("status" (peta-journal--in-buffer
                (setq peta-journal--connection (plist-get message :connection))
                (force-mode-line-update)))
-    ("search" (peta-journal--on-search (plist-get message :query)
-                                       (plist-get message :results)
+    ("search" (peta-journal--on-search (plist-get message :results)
                                        (plist-get message :searching)))
     ("recent" (setq peta-journal--recent (append (plist-get message :paths) nil)))
     ("backlinks" (setq peta-journal--backlinks (plist-get message :groups)))
     ("message" (message "%s" (plist-get message :text)))
-    ("copy" (kill-new (plist-get message :text)))
     ("ask" (peta-journal--on-ask (plist-get message :req)
-                                 (plist-get message :kind)
                                  (plist-get message :message)))))
 
 (defun peta-journal--on-focus (id cursor ack)
@@ -477,28 +465,15 @@ still under way: the point has moved on since."
       (set-window-point window (point))
       (with-selected-window window (recenter)))))
 
-(defun peta-journal--on-title (title)
-  "Show TITLE as the title of the page."
-  (peta-journal--in-buffer
-   (setq peta-journal--title title)
-   (force-mode-line-update)))
-
-(defun peta-journal--on-ask (req kind text)
-  "Ask the user TEXT in the way of KIND, and answer the request REQ.
+(defun peta-journal--on-ask (req text)
+  "Ask the user the yes-or-no question TEXT, and answer the request REQ.
 Not from here but from a timer: a process filter is no place for a prompt."
   (run-at-time
    0 nil
    (lambda ()
-     (let ((answer
-            (pcase kind
-              ("clipboard" (or (ignore-errors (current-kill 0 t)) :null))
-              ("prompt" (condition-case nil (read-string (concat text " "))
-                          (quit :null)))
-              (_ (if (condition-case nil (yes-or-no-p (concat text " "))
-                       (quit nil))
-                     t
-                   :false)))))
-       (peta-journal--send "answer" :req req :value answer)))))
+     (let ((yes (condition-case nil (yes-or-no-p (concat text " "))
+                  (quit nil))))
+       (peta-journal--send "answer" :req req :yes (if yes t :false))))))
 
 ;;;; Edits
 
@@ -548,8 +523,7 @@ A saved edit must stay closed, and a page being left has nothing more to edit.")
               (row (peta-journal--row-of id)))
     (peta-journal--start-edit id)
     (peta-journal--restyle-body start (plist-get row :level))
-    (let ((body (buffer-substring-no-properties (peta-journal--body-start start)
-                                                (peta-journal--body-end start))))
+    (let ((body (peta-journal--body-at start)))
       (plist-put row :body body)
       (peta-journal--send "body_changed" :id id :body body))
     (restore-buffer-modified-p nil)))
@@ -740,10 +714,6 @@ Only for these characters: waiting on every key would slow typing down."
     (quit-window)
     (funcall action)))
 
-(defun peta-journal--insert-entry (text action)
-  "Insert the line TEXT, which runs ACTION when it is opened."
-  (insert (propertize (concat text "\n") 'peta-action action)))
-
 (defun peta-journal--strip-tags (html)
   "HTML without its tags, as the search snippets mark their hits."
   (replace-regexp-in-string "<[^>]+>" "" html))
@@ -798,7 +768,7 @@ Only for these characters: waiting on every key would slow typing down."
           peta-journal--search-selected (and (> (length results) 0) 0))
     (peta-journal--search-show-selection)))
 
-(defun peta-journal--on-search (_query results searching)
+(defun peta-journal--on-search (results searching)
   "Show RESULTS in the list, when it is open.
 SEARCHING says that the results of a newer query are coming."
   (setq peta-journal--searching searching)
@@ -809,7 +779,7 @@ SEARCHING says that the results of a newer query are coming."
 (defun peta-journal--search-open ()
   "Open the empty list of search results below, without selecting it."
   (with-current-buffer (get-buffer-create peta-journal--search-buffer)
-    (peta-journal-list-mode)
+    (special-mode)
     (display-buffer (current-buffer)
                     '((display-buffer-at-bottom) (window-height . 0.4)))))
 
@@ -930,7 +900,8 @@ C-n and C-p select a result, RET opens it, and C-g closes the search."
 
 (defun peta-journal--insert-backlink (text url)
   "Insert the line TEXT of the list of backlinks, which opens URL."
-  (peta-journal--insert-entry text (lambda () (peta-journal--go "go" :url url))))
+  (insert (propertize (concat text "\n")
+                      'peta-action (lambda () (peta-journal--go "go" :url url)))))
 
 ;;;; The mode
 
@@ -956,14 +927,12 @@ C-n and C-p select a result, RET opens it, and C-g closes the search."
   "C-c C-n" #'peta-journal-next-day
   "C-c C-p" #'peta-journal-previous-day
   "<remap> <delete-backward-char>" #'peta-journal-backspace
-  "<remap> <backward-delete-char-untabify>" #'peta-journal-backspace
   "<remap> <delete-char>" #'peta-journal-delete
   "<remap> <delete-forward-char>" #'peta-journal-delete
   "<remap> <kill-line>" #'peta-journal-kill-line
   "<remap> <move-beginning-of-line>" #'peta-journal-beginning-of-line
   "<remap> <yank>" #'peta-journal-yank
   "<remap> <undo>" #'peta-journal-undo
-  "<remap> <undo-only>" #'peta-journal-undo
   "<remap> <undo-redo>" #'peta-journal-redo
   "<remap> <save-buffer>" #'peta-journal-save)
 
@@ -1013,7 +982,7 @@ Type in a body as in any buffer.  The outline changes through these keys:
   "The program to run: the one set, or on the `exec-path', or in the build folder."
   (or peta-journal-shell-program
       (executable-find "peta-shell-emacs")
-      (let* ((here (file-name-directory (or load-file-name (locate-library "peta-journal"))))
+      (let* ((here (file-name-directory (locate-library "peta-journal")))
              (target (expand-file-name "../../../target/" here)))
         (seq-find #'file-executable-p
                   (mapcan (lambda (profile)
@@ -1040,7 +1009,8 @@ Type in a body as in any buffer.  The outline changes through these keys:
                           :coding 'utf-8-unix
                           :noquery t
                           :stderr (get-buffer-create "*peta-journal-log*")
-                          :filter #'peta-journal--filter
+                          :filter (lambda (_process output)
+                                    (peta-journal--read-output output))
                           :sentinel #'peta-journal--sentinel))
       (unless peta-journal--idle-timer
         (setq peta-journal--idle-timer

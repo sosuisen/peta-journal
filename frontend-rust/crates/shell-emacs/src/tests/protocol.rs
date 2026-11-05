@@ -39,18 +39,12 @@ fn a_line_from_emacs_has_a_sequence_number_and_a_message() {
     );
 }
 
-// 答えのない質問は、値がnullの答えとして届く。
+// 質問への答えは、はいかいいえとして届く。
 #[test]
-fn an_answer_may_have_no_value() {
-    let line = r#"{"seq":1,"type":"answer","req":3,"value":null}"#;
+fn an_answer_is_yes_or_no() {
+    let line = r#"{"seq":1,"type":"answer","req":3,"yes":false}"#;
     let envelope: Envelope = serde_json::from_str(line).unwrap();
-    assert_eq!(
-        envelope.message,
-        Inbound::Answer {
-            req: 3,
-            value: serde_json::Value::Null
-        }
-    );
+    assert_eq!(envelope.message, Inbound::Answer { req: 3, yes: false });
 }
 
 // 行は、Emacsが読むJSONとして書き出され、日本語はエスケープされない。
