@@ -74,6 +74,9 @@ fn the_bullet_shows_what_the_row_is_in_order_of_importance() {
         Bullet::of(false, false, Some(TaskState::NotStarted)),
         Bullet::Task
     );
-    assert_eq!(Bullet::of(false, false, Some(TaskState::Done)), Bullet::Done);
+    assert_eq!(
+        Bullet::of(false, false, Some(TaskState::Done)),
+        Bullet::Done
+    );
     assert_eq!(Bullet::of(false, false, None), Bullet::Plain);
 }
