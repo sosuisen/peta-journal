@@ -246,19 +246,19 @@ fn scrolling_a_doc_page_or_an_empty_outline_loads_nothing() {
     assert_eq!(before_calls(&h), Vec::<String>::new());
 }
 
-// 前日・翌日のボタンは隣の日を開く。日付でないジャーナルでは何もしない。
+// 日のジャーナルで前後へ移ると、隣の日が開く。日でも週でもないジャーナルでは何もしない。
 #[test]
-fn the_day_buttons_open_the_day_before_and_after() {
+fn moving_in_a_daily_journal_opens_the_day_before_and_after() {
     let mut h = Harness::new();
     visit(&mut h, TODAY);
-    h.send(Event::JournalNav(JournalNav::PrevDay));
-    h.send(Event::JournalNav(JournalNav::NextDay));
+    h.send(Event::JournalNav(JournalNav::Prev));
+    h.send(Event::JournalNav(JournalNav::Next));
     let urls: Vec<_> = h.navigations.iter().map(|n| n.url.as_str()).collect();
     assert_eq!(urls, ["/pages/2026-02-09", "/pages/2026-02-11"]);
 
     let mut h = Harness::new();
     visit(&mut h, "2026-02");
-    h.send(Event::JournalNav(JournalNav::PrevDay));
+    h.send(Event::JournalNav(JournalNav::Prev));
     assert!(h.navigations.is_empty());
 }
 
