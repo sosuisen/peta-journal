@@ -1,5 +1,7 @@
 # peta-shell-emacs
 
+English | [日本語](README.ja.md)
+
 The Emacs frontend of PetaJournal. It has two parts:
 
 - `peta-shell-emacs` is a Rust program. It holds the Crux core (`peta-core`) and performs its
