@@ -403,10 +403,10 @@ The server is a real one, with its files in a temporary folder."
 (ert-deftest peta-journal-e2e-a-link-opens-and-its-backlink-leads-back ()
   (peta-journal-e2e--with-app
     (let ((journal peta-journal--page-id))
-      (peta-journal-e2e--type "[[リンク先]]")
+      (peta-journal-e2e--type "[[リンク先")
       (peta-journal-e2e--keys "C-x C-s")
       (peta-journal-e2e--wait-saved '("[[リンク先]]"))
-      (peta-journal-e2e--keys "C-b C-b C-c C-o")
+      (peta-journal-e2e--keys "C-c C-o")
       (peta-journal-e2e--wait-for "the linked page"
                                   (lambda () (not (equal peta-journal--page-id journal))))
       (peta-journal-e2e--wait-for "the backlinks"
