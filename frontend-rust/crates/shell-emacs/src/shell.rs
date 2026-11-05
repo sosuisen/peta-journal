@@ -8,12 +8,11 @@ use crate::protocol::{AskKind, BacklinkEntry, Envelope, Inbound, Outbound, RowVi
 use crate::route::parse_url;
 use crux_core::capability::Operation;
 use crux_core::{Core, Request};
-use peta_core::app::SelectionKey;
+use peta_core::app::{JournalNav, SelectionKey};
 use peta_core::effects::{
     ApiOp, ApiResult, Effect, LocalDateTimeDto, SseEvent, SseOp, TimerOp, TimerOutput, UiOp,
     UiOutput,
 };
-use peta_core::util::filename::JournalType;
 use peta_core::util::{auto_close, link_at};
 use peta_core::view::{ScreenView, SearchView};
 use peta_core::{Event, PetaApp, ViewModel};
@@ -176,7 +175,11 @@ impl<H: Host> Shell<H> {
                 new_window: false,
             }),
             Inbound::OpenLinkAt { id, cursor } => self.open_link_at(id, cursor),
-            Inbound::JournalNav { forward } => self.journal_nav(forward),
+            Inbound::JournalNav { forward } => self.send(Event::JournalNav(if forward {
+                JournalNav::Next
+            } else {
+                JournalNav::Prev
+            })),
             Inbound::EditRequested { id, cursor } => {
                 self.own_edit = Some((id.clone(), cursor));
                 self.send(Event::EditRequested {
@@ -294,20 +297,6 @@ impl<H: Host> Shell<H> {
             item_id: id,
             cursor,
         });
-    }
-
-    fn journal_nav(&mut self, forward: bool) {
-        use peta_core::app::JournalNav;
-        let weekly = matches!(
-            self.core.view().screen,
-            ScreenView::Journal(j) if j.journal_type == Some(JournalType::Weekly)
-        );
-        self.send(Event::JournalNav(match (weekly, forward) {
-            (false, false) => JournalNav::PrevDay,
-            (false, true) => JournalNav::NextDay,
-            (true, false) => JournalNav::PrevWeek,
-            (true, true) => JournalNav::NextWeek,
-        }));
     }
 
     fn answer(&mut self, req: u64, value: Value) {

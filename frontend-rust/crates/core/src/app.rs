@@ -68,10 +68,8 @@ pub enum SearchKey {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum JournalNav {
-    PrevDay,
-    NextDay,
-    PrevWeek,
-    NextWeek,
+    Prev,
+    Next,
 }
 
 /// The URL the shell is showing.
