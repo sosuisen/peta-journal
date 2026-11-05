@@ -28,12 +28,7 @@ impl FakeHttp {
 }
 
 impl Http for FakeHttp {
-    fn send(
-        &self,
-        method: &str,
-        path: &str,
-        body: Option<&Value>,
-    ) -> Result<HttpResponse, String> {
+    fn send(&self, method: &str, path: &str, body: Option<&Value>) -> Result<HttpResponse, String> {
         self.asked
             .borrow_mut()
             .push((method.to_string(), path.to_string(), body.cloned()));
