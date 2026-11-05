@@ -487,6 +487,31 @@
     (peta-journal--on-search "q" [] nil)
     (should-not peta-journal--searching)))
 
+;;;; The shell stopping
+
+(defun peta-journal-test--emacs-process (sentinel &rest args)
+  "Start a batch Emacs with ARGS and the process SENTINEL, as a stand-in for the shell."
+  (make-process :name "peta-test-process"
+                :command (append (list (expand-file-name invocation-name invocation-directory)
+                                       "--batch")
+                                 args)
+                :connection-type 'pipe
+                :noquery t
+                :sentinel sentinel))
+
+;; シェルが思いがけず止まると、以後の入力は保存されない。それをモード行と警告で伝える。
+(ert-deftest peta-journal-warns-when-the-shell-stops ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
+    (let ((process (peta-journal-test--emacs-process #'ignore))
+          (warning nil))
+      (while (process-live-p process)
+        (accept-process-output process 0.02))
+      (cl-letf (((symbol-function 'display-warning)
+                 (lambda (_type message &rest _) (setq warning message))))
+        (peta-journal--sentinel process "exited abnormally with code 1\n"))
+      (should (string-match-p "exited abnormally with code 1" warning))
+      (should (equal peta-journal--connection "shell stopped")))))
+
 ;;;; Links
 
 ;; カーソルの下のウィキリンクとタグを読み取る。
