@@ -4,6 +4,7 @@ use crate::app::{Event, PageState, Screen, SearchKey};
 use crate::effects::{ApiOp, ApiOutput, UiOp};
 use crate::harness::Harness;
 use crate::model::{Page, SearchResult};
+use crate::view::{SearchEntry, SearchKind};
 
 fn page_hit(title: &str) -> SearchResult {
     SearchResult {
@@ -57,9 +58,18 @@ fn on_doc_page() -> Harness {
     h
 }
 
-// 入力が一息置いた後に検索され、結果はページと項目に分けられる。作成の項目も出て、選択はまだない。
+fn entry(index: usize, kind: SearchKind, title: &str) -> SearchEntry {
+    SearchEntry {
+        index,
+        kind,
+        title: title.into(),
+        snippet: String::new(),
+    }
+}
+
+// 入力が一息置いた後に検索され、結果はページ、作成、項目の順に番号付きで並ぶ。選択はまだない。
 #[test]
-fn the_query_is_searched_after_a_pause_and_the_hits_are_split_into_pages_and_items() {
+fn the_query_is_searched_after_a_pause_and_the_results_are_listed_with_their_numbers() {
     let mut h = Harness::new();
     typed(&mut h, "plan");
     assert!(!h.api.called("SearchCombined"), "not before the pause");
@@ -74,9 +84,14 @@ fn the_query_is_searched_after_a_pause_and_the_hits_are_split_into_pages_and_ite
     h.fire_timers();
     let search = h.view().search;
     assert_eq!(search.query, "plan");
-    assert_eq!(search.page_results, [page_hit("Plans")]);
-    assert_eq!(search.item_results, [item_hit("Diary", "i1")]);
-    assert_eq!(search.create_titles, ["plan"]);
+    assert_eq!(
+        search.results,
+        [
+            entry(0, SearchKind::Page, "Plans"),
+            entry(1, SearchKind::Create, "plan"),
+            entry(2, SearchKind::Item, "Diary"),
+        ]
+    );
     assert_eq!(search.selected_index, None);
 }
 
