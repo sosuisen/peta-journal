@@ -172,6 +172,32 @@ mod tests {
         assert!(from_rel_path("docs/.md").is_none());
     }
 
+    // ファイルシステムがNFDで返した名前は、NFCの相対パスになる。
+    #[test]
+    fn a_name_the_file_system_returns_in_nfd_becomes_an_nfc_relative_path() {
+        let root = Path::new("/md");
+        let file = root
+            .join("docs")
+            .join("\u{30c6}\u{3099}ir")
+            .join("\u{30ab}\u{3099}.md");
+
+        assert_eq!(relativize(root, &file), "docs/\u{30c7}ir/\u{30ac}.md");
+    }
+
+    // ファイルシステムがNFDで返したconflicted copyの名前も、コピーと分かる。
+    #[test]
+    fn a_conflicted_copy_the_file_system_returns_in_nfd_is_known_as_a_copy() {
+        let root = Path::new("/md");
+        let file = root
+            .join("docs")
+            .join("a (PC の競合コヒ\u{309a}ー 2026-11-05).md");
+
+        let rel = relativize(root, &file);
+
+        assert_eq!(conflicted_copy_of(&rel), from_rel_path("docs/a.md"));
+        assert!(!is_ignored(&rel));
+    }
+
     // 競合ファイル、一時ファイル、Markdown以外のファイルは無視される。
     #[test]
     fn conflict_temp_and_non_markdown_files_are_ignored() {
