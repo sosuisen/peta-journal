@@ -612,6 +612,33 @@ fn the_answer_to_an_older_query_does_not_end_the_search() {
     assert!(!searching(&driver));
 }
 
+// 検索が失敗しても検索中は終わる。画面は描き直されないが、Emacsは終わりを待っている。
+#[test]
+fn a_failed_search_ends_the_search() {
+    let mut driver = Driver::open(&[item("a", 1, "x")]);
+    driver.fail_all_waiting_calls();
+    driver.send(Inbound::Search { query: "ru".into() });
+    fire_timers(&mut driver);
+    driver.fail_all_waiting_calls();
+    assert!(!searching(&driver));
+}
+
+// 同じ検索語がまた届いても、検索中のまま止まらない。
+#[test]
+fn the_same_query_again_does_not_stay_searching() {
+    let mut driver = Driver::open(&[item("a", 1, "x")]);
+    driver.send(Inbound::Search { query: "ru".into() });
+    fire_timers(&mut driver);
+    driver.answer(
+        |op| matches!(op, ApiOp::SearchCombined { .. }),
+        no_results(),
+    );
+    driver.send(Inbound::Search { query: "ru".into() });
+    fire_timers(&mut driver);
+    driver.fail_all_waiting_calls();
+    assert!(!searching(&driver));
+}
+
 // 空の検索語は検索しないので、検索中にならない。
 #[test]
 fn an_empty_query_is_not_a_running_search() {
