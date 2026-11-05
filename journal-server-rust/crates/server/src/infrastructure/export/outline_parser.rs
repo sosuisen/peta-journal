@@ -130,7 +130,7 @@ fn to_parsed_item(item: &SplitItem) -> ParsedItem {
             _ => properties.push((k.clone(), v.clone())),
         }
     }
-    let body = ItemBody::parse(Some(&item.body));
+    let body = ItemBody::parse(&item.body);
     let mut types = Vec::new();
     if body.task {
         types.push(TASK_TYPE.to_string());

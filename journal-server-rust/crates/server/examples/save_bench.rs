@@ -33,7 +33,7 @@ fn main() {
         .unwrap();
     let item = state
         .item_service
-        .create_item(&doc.page.id, &ItemPosition::Last, 1, Some("hello"), None)
+        .create_item(&doc.page.id, &ItemPosition::Last, 1, "hello", None)
         .unwrap();
     let id = item.id.clone();
     let mut full = vec![];

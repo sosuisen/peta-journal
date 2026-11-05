@@ -248,7 +248,7 @@ async fn create_item(
             &page_id,
             &position,
             req.level,
-            req.body.as_deref(),
+            req.body.as_deref().unwrap_or_default(),
             client_id,
         )?;
         state.sse.broadcast_pages_updated(page_id.as_str());

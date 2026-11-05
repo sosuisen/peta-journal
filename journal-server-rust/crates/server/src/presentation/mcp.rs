@@ -381,7 +381,7 @@ impl JournalMcp {
         let item = run(move || {
             state
                 .item_service
-                .create_item(&page_id, &pos, a.level, Some(&a.body), None)
+                .create_item(&page_id, &pos, a.level, &a.body, None)
         })
         .await?;
         ok(json!({ "item": item_json(&item) }))

@@ -19,14 +19,8 @@ pub struct ItemBody {
 }
 
 impl ItemBody {
-    /// Splits a raw body into its text and its task flag. `None` counts as empty.
-    pub fn parse(raw: Option<&str>) -> ItemBody {
-        let Some(raw) = raw else {
-            return ItemBody {
-                text: String::new(),
-                task: false,
-            };
-        };
+    /// Splits a raw body into its text and its task flag.
+    pub fn parse(raw: &str) -> ItemBody {
         if raw.starts_with(OPEN_TASK_PREFIX) || raw.starts_with(DONE_TASK_PREFIX) {
             return ItemBody {
                 text: raw[OPEN_TASK_PREFIX.len()..].to_string(),
@@ -73,29 +67,22 @@ mod tests {
     // タスクの接頭辞が本文から取り除かれる。
     #[test]
     fn strips_task_prefix() {
-        let b = ItemBody::parse(Some("- [ ] buy milk"));
+        let b = ItemBody::parse("- [ ] buy milk");
         assert_eq!(b.text, "buy milk");
         assert!(b.task);
-        let b = ItemBody::parse(Some("- [x] done"));
+        let b = ItemBody::parse("- [x] done");
         assert_eq!(b.text, "done");
         assert!(b.task);
-        let b = ItemBody::parse(Some("plain"));
+        let b = ItemBody::parse("plain");
         assert!(!b.task);
-        assert_eq!(ItemBody::parse(None).text, "");
     }
 
     // 本文の型が検出される。
     #[test]
     fn detects_types() {
-        assert_eq!(
-            ItemBody::parse(Some("# Title")).text_types(),
-            vec!["heading"]
-        );
-        assert_eq!(ItemBody::parse(Some("```js")).text_types(), vec!["code"]);
-        assert_eq!(
-            ItemBody::parse(Some("> quote")).text_types(),
-            vec!["blockquote"]
-        );
-        assert!(ItemBody::parse(Some("text")).text_types().is_empty());
+        assert_eq!(ItemBody::parse("# Title").text_types(), vec!["heading"]);
+        assert_eq!(ItemBody::parse("```js").text_types(), vec!["code"]);
+        assert_eq!(ItemBody::parse("> quote").text_types(), vec!["blockquote"]);
+        assert!(ItemBody::parse("text").text_types().is_empty());
     }
 }

@@ -91,7 +91,7 @@ impl ItemService {
         page_id: &Hmtid,
         position: &ItemPosition,
         level: i32,
-        body: Option<&str>,
+        body: &str,
         client_id: Option<Hmtid>,
     ) -> AppResult<Item> {
         let mut conn = self.items.db().conn()?;
@@ -113,7 +113,7 @@ impl ItemService {
         page_id: &Hmtid,
         position: &ItemPosition,
         level: i32,
-        body: Option<&str>,
+        body: &str,
         client_id: Option<Hmtid>,
         effects: &mut AfterCommit,
     ) -> AppResult<Item> {
@@ -194,7 +194,7 @@ impl ItemService {
     ) -> AppResult<Item> {
         let existing = self.get_item_by_id(item_id)?;
 
-        let parsed = body.map(|b| ItemBody::parse(Some(b)));
+        let parsed = body.map(ItemBody::parse);
         let new_body = parsed.as_ref().map(|p| p.text.clone());
         let new_ast = new_body.as_deref().map(|b| self.parser.parse_to_ast(b));
         let body_types = parsed.as_ref().map(|p| p.text_types());
@@ -423,7 +423,7 @@ impl ItemService {
         body: &str,
         effects: &mut AfterCommit,
     ) -> AppResult<Item> {
-        let parsed = ItemBody::parse(Some(body));
+        let parsed = ItemBody::parse(body);
         let ast = self.parser.parse_to_ast(&parsed.text);
         let now = now_millis();
         // A task stays a task when its body changes; only the prefix can add the type here

@@ -171,6 +171,21 @@ async fn a_client_id_is_kept() {
     assert_eq!(resp["item"]["id"].as_str(), Some(id.as_str()));
 }
 
+// 本文を省いて作った項目の本文は空である。
+#[tokio::test]
+async fn an_item_made_without_a_body_has_an_empty_body() {
+    let page = new_doc_page("items-no-body").await;
+
+    let (status, resp) = post(
+        "/api/items",
+        json!({ "pageId": page.id, "position": "last", "level": 1 }),
+    )
+    .await;
+
+    assert_eq!(status, 200, "{resp}");
+    assert_eq!(resp["item"]["body"], json!(""));
+}
+
 // 本文のハッシュタグがtagsプロパティとして返る。
 #[tokio::test]
 async fn a_hashtag_in_the_body_comes_back_as_a_tag_property() {

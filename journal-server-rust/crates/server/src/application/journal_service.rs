@@ -131,7 +131,7 @@ impl JournalService {
                 &page.id,
                 &position,
                 1,
-                Some(&format!("[[{target}]]")),
+                &format!("[[{target}]]"),
                 None,
                 &mut effects,
             )?;
