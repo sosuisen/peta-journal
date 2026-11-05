@@ -904,6 +904,27 @@ fn the_scan_takes_in_a_copy_found_in_the_folder() {
     assert!(!a.has_copy());
 }
 
+// このPCの版のコピーは、負けても`.conflict`に残さず、新しい編集は入り、コピーは消える。
+#[test]
+fn a_copy_of_this_device_that_loses_an_item_is_merged_without_a_backup() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b, page, x, y) = two_devices_with_items(dir.path());
+    b.write(&x, "old x");
+    b.write(&y, "y from the copy");
+    let copy = b.file(PAGE);
+    std::thread::sleep(std::time::Duration::from_millis(5));
+    a.write(&x, "x here");
+    a.export();
+    let name = "docs/d/a (test-device の競合コピー 2026-11-05).md";
+    std::fs::write(a.root.join(name), copy).unwrap();
+
+    assert_eq!(a.sync(name), Outcome::Imported);
+
+    assert_eq!(a.bodies(&page), ["x here", "y from the copy"]);
+    assert!(a.conflicts().is_empty());
+    assert!(!a.root.join(name).exists());
+}
+
 // なくなったコピーは、合流も報告もしない。
 #[test]
 fn a_copy_already_gone_is_ignored() {

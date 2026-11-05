@@ -119,6 +119,11 @@ pub fn conflicted_copy_of(rel_path: &str) -> Option<PageLocation> {
     from_rel_path(&format!("{page}{MD_EXT}"))
 }
 
+/// The conflicted copy holds a version this device wrote, by the name Dropbox gave it.
+pub fn is_copy_of_device(_rel_path: &str, _device: &str) -> bool {
+    false
+}
+
 fn has_copy_marker(text: &str) -> bool {
     let text = text.to_lowercase();
     COPY_MARKERS.iter().any(|m| text.contains(m))
@@ -195,6 +200,19 @@ mod tests {
             assert_eq!(conflicted_copy_of(name), from_rel_path("docs/d/a.md"));
             assert!(!is_ignored(name));
         }
+    }
+
+    // コピーの名前のPC名がこのPCと同じか、大文字と小文字を区別せずに分かる。
+    #[test]
+    fn a_copy_names_the_device_that_wrote_it() {
+        let japanese = "docs/a (Polaris の競合コピー 2026-11-05).md";
+        let english = "docs/a (Polaris's conflicted copy 2026-11-05).md";
+        assert!(is_copy_of_device(japanese, "Polaris"));
+        assert!(is_copy_of_device(japanese, "POLARIS"));
+        assert!(is_copy_of_device(english, "Polaris"));
+        assert!(!is_copy_of_device(japanese, "Pol"));
+        assert!(!is_copy_of_device(japanese, "Mac"));
+        assert!(!is_copy_of_device("docs/a.md", "docs"));
     }
 
     // conflicted copyの形でない名前は、コピーとして扱わない。
