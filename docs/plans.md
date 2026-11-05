@@ -4,9 +4,3 @@
 
 ## ユーザータスク
 
-- [x] 項目の作成: 本文がタスクの接頭辞で始まると、型に`task`が入ることをテストで確かめる
-- [x] CI: 3つのワークスペース（server、frontend、atlas）で、整形の検査、clippy、テストをUbuntuで実行する
-- [x] `frontend-rust`に、`journal-server-rust`で行ったビルドとテストの高速化を入れる
-- [x] フォルダ同期: 同じページの別の項目を2台で編集しても、両方が残る（項目ごとのLWW。`docs/folder-sync-future.md`の案1）
-- [x] フォルダ同期: 2台が同じ隙間に入れて`idx`が同じになっても、両側が同じ順に収束する（案3。UNIQUE制約は保つ）
-- [x] フォルダ同期: Dropboxのconflicted copyを合流し、合流後に消す（案2）
