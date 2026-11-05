@@ -169,10 +169,9 @@ impl ItemMerger {
         for (entry, idx) in entries.iter().zip(&idxs) {
             let fi = match &entry.source {
                 Source::Kept(old) => {
-                    if collision || old.idx != *idx {
-                        ItemRepository::update_index_in(&tx, &old.id, idx)?;
-                        changed = true;
-                    }
+                    // Also when the index stays: the item may be parked by now
+                    ItemRepository::update_index_in(&tx, &old.id, idx)?;
+                    changed |= old.idx != *idx;
                     continue;
                 }
                 Source::File(fi) => fi,
@@ -256,7 +255,7 @@ impl ItemMerger {
         self.search.index_items(&to_index, &title);
         Ok(MergeResult {
             changed,
-            needs_write_back: needs_write_back || restamped,
+            needs_write_back,
             changed_here: plan.differs_from_file || restamped,
             file_lost: plan.file_lost,
             restamped,
@@ -474,9 +473,10 @@ struct MergePlan<'a> {
 }
 
 /// Decides for every item which side it comes from, by the rules in
-/// docs/folder-sync-future.md: the later change of an item stays; an item only here stays when
-/// it changed after the file was written; an item only in the file comes in when it changed
-/// after the page here, or when the file as a whole is not older than the page here.
+/// docs/folder-sync-future.md: the later change of an item stays. An item only here stays when
+/// it changed after the file was written, or was not written to a file yet: the other device
+/// cannot have deleted it. An item only in the file stays out when this device saw it and the
+/// page here is newer than the file and the item: it was deleted here.
 fn plan_merge<'a>(
     file_items: &'a [FileItem<'a>],
     existing: &'a [Item],
@@ -505,10 +505,10 @@ fn plan_merge<'a>(
             }
             None if by_item
                 && fi.has_own_id
+                && stamp <= last_synced
                 && stamp <= facts.page_modified
                 && facts.file_modified < facts.page_modified =>
             {
-                file_lost |= stamp > last_synced;
                 differs_from_file = true;
             }
             _ => from_file.push(Entry {
@@ -519,7 +519,8 @@ fn plan_merge<'a>(
     }
     for old in existing {
         let in_file = file_items.iter().any(|fi| fi.id == old.id);
-        if by_item && !in_file && old.modified_date > facts.file_modified {
+        let changed_after_file = old.modified_date > facts.file_modified;
+        if by_item && !in_file && (changed_after_file || old.modified_date > last_synced) {
             differs_from_file = true;
             kept.push(old);
         }

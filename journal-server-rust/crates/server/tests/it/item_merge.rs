@@ -198,24 +198,51 @@ fn an_item_only_in_a_newer_file_is_added() {
     assert_eq!(a.bodies(&page), ["x from A", "y from B", "z from B"]);
 }
 
-// ここより古いファイルにしかない項目は取り込まず、そのファイルをバックアップに残す。
+// ここより古いファイルにしかない項目でも、前回の同期の後にできたものなら足される。
 #[test]
-fn an_item_only_in_an_older_file_stays_out_and_the_file_is_kept_as_a_backup() {
+fn an_item_made_after_the_last_sync_comes_in_from_an_older_file() {
     let dir = tempfile::tempdir().unwrap();
     let (a, b, page, x, _) = two_devices_with_items(dir.path());
     b.add(&page, "z from B");
     b.export();
     a.write(&x, "x from A");
-    a.deliver(&b, PAGE);
 
-    assert_eq!(a.sync(PAGE), Outcome::Conflict);
+    assert_eq!(a.receive(&b, PAGE), Outcome::Imported);
 
-    assert_eq!(a.bodies(&page), ["x from A", "y"]);
-    let backups = a.conflicts();
-    assert_eq!(backups.len(), 1);
-    assert!(std::fs::read_to_string(&backups[0])
-        .unwrap()
-        .contains("z from B"));
+    assert_eq!(a.bodies(&page), ["x from A", "y", "z from B"]);
+    assert!(a.conflicts().is_empty());
+}
+
+// まだ書き出していない項目は、より新しいファイルに無くても残る。
+#[test]
+fn an_item_not_written_yet_stays_against_a_newer_file_without_it() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b, page, x, _) = two_devices_with_items(dir.path());
+    b.add(&page, "z from B");
+    a.write(&x, "x from A");
+
+    b.receive(&a, PAGE);
+
+    assert_eq!(b.bodies(&page), ["x from A", "y", "z from B"]);
+}
+
+// 2台で同時に足した項目は、どちらも両方に残る。
+#[test]
+fn items_added_on_two_devices_at_once_are_both_kept_on_both() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b, page, _, _) = two_devices_with_items(dir.path());
+    a.add(&page, "from A");
+    b.add(&page, "from B");
+    a.export();
+
+    b.receive(&a, PAGE);
+    a.receive(&b, PAGE);
+
+    let mut on_a = a.bodies(&page);
+    on_a.sort();
+    assert_eq!(on_a, ["from A", "from B", "x", "y"]);
+    assert_eq!(a.bodies(&page), b.bodies(&page));
+    assert_eq!(a.file(PAGE), b.file(PAGE));
 }
 
 // ファイルを書いたあとで消した項目は、古いファイルが届いても戻らない。
@@ -320,12 +347,12 @@ fn an_item_added_by_hand_with_an_old_date_and_its_own_id_is_taken_in() {
 fn an_item_moved_after_the_file_was_written_keeps_its_place_on_both_devices() {
     let dir = tempfile::tempdir().unwrap();
     let (a, b, page, x, y) = two_devices_with_items(dir.path());
-    a.write(&x, "x from A");
-    a.export();
     b.state
         .item_service
         .move_items(std::slice::from_ref(&y), &page, &ItemPosition::First, None)
         .unwrap();
+    a.write(&x, "x from A");
+    a.export();
 
     b.receive(&a, PAGE);
     a.receive(&b, PAGE);
@@ -349,6 +376,47 @@ fn a_file_that_only_has_older_dates_makes_no_backup() {
     assert_eq!(a.sync(PAGE), Outcome::Imported);
 
     assert!(a.conflicts().is_empty());
+}
+
+// ファイルの並びが他の項目の位置を奪っても、残した項目は元の位置にとどまる。
+#[test]
+fn a_kept_item_stays_in_its_place_when_the_file_takes_the_index_of_another() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, _b, page, x, y) = two_devices_with_items(dir.path());
+    let file = a.file(PAGE);
+    let items = a.state.page_service.get_page_items(&page).unwrap();
+    let idx_of = |id: &Hmtid| items.iter().find(|i| i.id == *id).unwrap().idx.clone();
+    let (idx_x, idx_y) = (idx_of(&x), idx_of(&y));
+    let swapped = file
+        .replace(&format!("idx=\"{idx_x}\""), "idx=\"swap\"")
+        .replace(&format!("idx=\"{idx_y}\""), &format!("idx=\"{idx_x}\""))
+        .replace("idx=\"swap\"", &format!("idx=\"{idx_y}\""));
+    a.state
+        .item_service
+        .create_item(&page, &ItemPosition::First, 1, "z", None)
+        .unwrap();
+    std::fs::write(a.root.join(PAGE), swapped).unwrap();
+
+    a.sync(PAGE);
+
+    assert_eq!(a.bodies(&page), ["z", "x", "y"]);
+}
+
+// 内容が同じでも、ファイルの日付が新しければ、項目はその日付になる。
+#[test]
+fn an_item_with_the_same_content_takes_the_later_date_of_the_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b, page, x, _) = two_devices_with_items(dir.path());
+    a.write(&x, "x");
+    let from_a = a.file(PAGE);
+
+    b.receive(&a, PAGE);
+
+    let written = b.state.export.serialize_to_outline_markdown(
+        &b.state.pages.find_by_id(&page).unwrap().unwrap(),
+        &b.state.page_service.get_page_items(&page).unwrap(),
+    );
+    assert_eq!(modified_of(&written.unwrap(), &x), modified_of(&from_a, &x));
 }
 
 // 手で消した行の項目は消える。
