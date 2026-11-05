@@ -152,6 +152,13 @@ cd peta-journal/atlas-rust
 cargo test --all-features
 ```
 
+## CI
+
+`.github/workflows/ci.yml` runs on every pull request and every push to `main`. A change to the
+documents alone does not start it. On Ubuntu, each of the three workspaces runs `cargo fmt --check`,
+`cargo clippy` and `cargo test`. The frontend also checks the shell for wasm. The end-to-end tests
+in `e2e/` do not run there, so run them by hand. A warning from clippy does not fail the run.
+
 ## Development Workflow
 
 1. Start the journal server: `cd journal-server-rust && cargo run`
