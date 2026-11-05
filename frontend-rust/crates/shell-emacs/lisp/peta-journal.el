@@ -452,9 +452,7 @@ M-x peta-journal starts it and shows the saved text.  See *peta-journal-log*."
     ("recent" (setq peta-journal--recent (append (plist-get message :paths) nil)))
     ("backlinks" (setq peta-journal--backlinks (plist-get message :groups)))
     ("message" (message "%s" (plist-get message :text)))
-    ("copy" (kill-new (plist-get message :text)))
     ("ask" (peta-journal--on-ask (plist-get message :req)
-                                 (plist-get message :kind)
                                  (plist-get message :message)))))
 
 (defun peta-journal--on-focus (id cursor ack)
@@ -483,22 +481,15 @@ still under way: the point has moved on since."
    (setq peta-journal--title title)
    (force-mode-line-update)))
 
-(defun peta-journal--on-ask (req kind text)
-  "Ask the user TEXT in the way of KIND, and answer the request REQ.
+(defun peta-journal--on-ask (req text)
+  "Ask the user the yes-or-no question TEXT, and answer the request REQ.
 Not from here but from a timer: a process filter is no place for a prompt."
   (run-at-time
    0 nil
    (lambda ()
-     (let ((answer
-            (pcase kind
-              ("clipboard" (or (ignore-errors (current-kill 0 t)) :null))
-              ("prompt" (condition-case nil (read-string (concat text " "))
-                          (quit :null)))
-              (_ (if (condition-case nil (yes-or-no-p (concat text " "))
-                       (quit nil))
-                     t
-                   :false)))))
-       (peta-journal--send "answer" :req req :value answer)))))
+     (let ((yes (condition-case nil (yes-or-no-p (concat text " "))
+                  (quit nil))))
+       (peta-journal--send "answer" :req req :yes (if yes t :false))))))
 
 ;;;; Edits
 

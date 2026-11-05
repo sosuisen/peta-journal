@@ -1,4 +1,4 @@
-use crate::protocol::{AskKind, Bullet, Envelope, Inbound, Outbound, RowView};
+use crate::protocol::{Bullet, Envelope, Inbound, Outbound, RowView};
 use crate::shell::{Host, Input, Now, Shell};
 use peta_core::effects::{ApiError, ApiOp, ApiOutput, LocalDateTimeDto, SseEvent};
 use serde_json::{json, Value};
@@ -442,19 +442,12 @@ fn refusing_to_delete_a_transcluded_item_leaves_everything_as_it_was() {
         .sent()
         .iter()
         .find_map(|m| match m {
-            Outbound::Ask {
-                req,
-                kind: AskKind::Confirm | AskKind::ConfirmDestructive,
-                ..
-            } => Some(*req),
+            Outbound::Ask { req, .. } => Some(*req),
             _ => None,
         })
         .expect("the user was not asked");
 
-    driver.send(Inbound::Answer {
-        req,
-        value: json!(false),
-    });
+    driver.send(Inbound::Answer { req, yes: false });
 
     assert!(!driver.waiting(|op| matches!(op, ApiOp::DeleteItems { .. })));
     assert!(!driver.shell.core.view().outline.selection_mode);

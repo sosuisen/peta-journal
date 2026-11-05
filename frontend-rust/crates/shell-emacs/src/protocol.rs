@@ -2,7 +2,6 @@
 
 use peta_core::view::{BacklinkGroup, Row, SearchEntry, TaskState};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 /// One line from Emacs. Emacs numbers its lines, so it can tell which of them an answer has seen.
 #[derive(Debug, PartialEq, Deserialize)]
@@ -99,7 +98,7 @@ pub enum Inbound {
     },
     Answer {
         req: u64,
-        value: Value,
+        yes: bool,
     },
 }
 
@@ -148,24 +147,11 @@ pub enum Outbound {
     Message {
         text: String,
     },
-    /// A question for the user. Emacs answers with [`Inbound::Answer`].
+    /// A yes-or-no question for the user. Emacs answers with [`Inbound::Answer`].
     Ask {
         req: u64,
-        kind: AskKind,
         message: String,
     },
-    Copy {
-        text: String,
-    },
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum AskKind {
-    Confirm,
-    ConfirmDestructive,
-    Prompt,
-    Clipboard,
 }
 
 /// One row of the outline, as Emacs draws it.
