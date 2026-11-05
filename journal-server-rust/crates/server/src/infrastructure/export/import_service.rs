@@ -250,7 +250,7 @@ impl MarkdownImportService {
         let states = self.file_sync_state.find_by_page_id(&page.id)?;
         // A page that never had a file on this device (e.g. the root index a fresh install
         // creates) is not "newer" in any meaningful way, so the file wins
-        let had_file = !is_new && !states.is_empty();
+        let had_file = !states.is_empty();
         if had_file && page.is_atlas() && file_modified < page.modified_date {
             // DB is newer: keep the DB, keep the file's content as a backup, then overwrite the file.
             // A moved file still moves the page, so the export lands at the new path.
@@ -331,7 +331,7 @@ impl MarkdownImportService {
             self.export.export_page(&page.id)?;
         } else if write_back
             || merge.needs_write_back
-            || file_is_older
+            || page.modified_date > file_modified
             || !tags_written_as_exported(fm, &page_tags)
         {
             // Give the file its ids / frontmatter. The export records the new hash, so it won't echo back.

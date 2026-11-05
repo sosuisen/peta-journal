@@ -222,8 +222,10 @@ fn an_item_not_written_yet_stays_against_a_newer_file_without_it() {
     a.write(&x, "x from A");
 
     b.receive(&a, PAGE);
+    a.receive(&b, PAGE);
 
     assert_eq!(b.bodies(&page), ["x from A", "y", "z from B"]);
+    assert_eq!(a.bodies(&page), ["x from A", "y", "z from B"]);
 }
 
 // 2台で同時に足した項目は、どちらも両方に残る。
@@ -417,6 +419,39 @@ fn an_item_with_the_same_content_takes_the_later_date_of_the_file() {
         &b.state.page_service.get_page_items(&page).unwrap(),
     );
     assert_eq!(modified_of(&written.unwrap(), &x), modified_of(&from_a, &x));
+}
+
+// ページより古いファイルは、ページのタグを変えない。
+#[test]
+fn an_older_file_leaves_the_tags_of_the_page() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b, page, x, _) = two_devices_with_items(dir.path());
+    a.write(&x, "x from A");
+    a.export();
+    b.state
+        .page_service
+        .set_property(&page, "tags", "tags", "kept")
+        .unwrap();
+
+    b.receive(&a, PAGE);
+
+    assert_eq!(b.state.page_service.page_tags(&page).unwrap(), ["kept"]);
+}
+
+// 手で足したページのタグは、ページの日付を変えずに書いたファイルからも取り込まれる。
+#[test]
+fn a_tag_added_by_hand_is_taken_in_and_gives_the_page_a_new_date() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, _b, page, _, _) = two_devices_with_items(dir.path());
+    let before = a.file(PAGE);
+    let edited = before.replacen("---\n\n", "tags:\n  - hand\n---\n\n", 1);
+    assert_ne!(before, edited);
+    std::fs::write(a.root.join(PAGE), edited).unwrap();
+
+    a.sync(PAGE);
+
+    assert_eq!(a.state.page_service.page_tags(&page).unwrap(), ["hand"]);
+    assert_ne!(page_date_of(&a.file(PAGE)), page_date_of(&before));
 }
 
 // 手で消した行の項目は消える。
