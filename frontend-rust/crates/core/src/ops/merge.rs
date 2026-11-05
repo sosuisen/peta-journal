@@ -4,16 +4,17 @@
 //! into each other. An item that other items transclude is merged away only after the user
 //! says OK, as a deletion of it would be.
 
+use crate::app::Event;
 use crate::app::{apply, done, log_error, run, Cmd, Model};
+use crate::effects::{Api, ApiResult};
 use crate::model::Item;
 use crate::ops::action::confirm_deleting_transcluded;
-use crate::ops::edit::{discard_pending_edit, focus_editor};
+use crate::ops::edit::{flush_pending_edit, focus_editor};
 use crate::ops::file_reload::reload_shown_page;
 use crate::ops::outline_events::edit_requested;
 use crate::outline::tree::index_of;
 use crate::outline::CursorState;
 use crate::util::char_len;
-use crux_core::Command;
 
 /// The item Backspace at its start joins into the one above, and that item: None when the
 /// two are not joined.
@@ -71,6 +72,14 @@ fn join_when_agreed(
     })
 }
 
+/// Joins `item` into `into` on the server. The server joins the bodies it has, so text still
+/// waiting for the auto-save goes first. A later auto-save would overwrite the joined body.
+async fn merge_on_server(api: &Api<Event>, item: &Item, into: &Item) -> ApiResult<Item> {
+    flush_pending_edit(api, into).await?;
+    flush_pending_edit(api, item).await?;
+    api.merge_items(&item.id, &into.id).await
+}
+
 /// Backspace at the start: the item's text goes to the end of the item above, which keeps
 /// the editor, and the item is deleted.
 pub fn merge_into_previous(model: &mut Model, item_id: &str) -> Cmd {
@@ -86,7 +95,6 @@ fn join_into_previous(model: &mut Model, item_id: &str) -> Cmd {
     let Some((item, prev)) = previous_join(model, item_id) else {
         return done();
     };
-    let discard = discard_pending_edit(model, &item);
     let cursor_pos = char_len(&prev.body);
     let merged_body = format!("{}{}", prev.body, item.body);
     let shown = merged_body.clone();
@@ -94,10 +102,10 @@ fn join_into_previous(model: &mut Model, item_id: &str) -> Cmd {
     model.state.delete_item(&item.id);
     model.state.add_editing_item(&prev.id);
 
-    let merge = run(move |api| async move {
+    run(move |api| async move {
         focus_editor(&api, Some(prev.id.clone())).await;
         // The server joins the two in one step; if it refuses, the page is shown as it has it
-        let updated_prev = match api.merge_items(&item.id, &prev.id).await {
+        let updated_prev = match merge_on_server(&api, &item, &prev).await {
             Ok(u) => u,
             Err(e) => {
                 log_error(format!("Failed to merge items: {e}"));
@@ -113,8 +121,7 @@ fn join_into_previous(model: &mut Model, item_id: &str) -> Cmd {
                 .commit(Some(CursorState::new(&prev.id, cursor_pos)), m.clock_ms);
             done()
         });
-    });
-    Command::all([discard, merge])
+    })
 }
 
 /// Delete at the end: the text of the item below is appended to this item, and the item
@@ -137,15 +144,14 @@ fn join_next_into(model: &mut Model, item_id: &str) -> Cmd {
     let Some((item, next)) = next_join(model, item_id) else {
         return done();
     };
-    let discard = discard_pending_edit(model, &next);
     let cursor_pos = char_len(&item.body);
     let merged_body = format!("{}{}", item.body, next.body);
     let shown = merged_body.clone();
     model.state.update_item(&item.id, |i| i.body = shown);
     model.state.delete_item(&next.id);
 
-    let merge = run(move |api| async move {
-        let updated = match api.merge_items(&next.id, &item.id).await {
+    run(move |api| async move {
+        let updated = match merge_on_server(&api, &next, &item).await {
             Ok(u) => u,
             Err(e) => {
                 log_error(format!("Failed to merge items: {e}"));
@@ -161,6 +167,5 @@ fn join_next_into(model: &mut Model, item_id: &str) -> Cmd {
                 .commit(Some(CursorState::new(&item.id, cursor_pos)), m.clock_ms);
             done()
         });
-    });
-    Command::all([discard, merge])
+    })
 }
