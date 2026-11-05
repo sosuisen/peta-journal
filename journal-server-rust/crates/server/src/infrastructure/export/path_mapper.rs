@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 use sha2::{Digest, Sha256};
 
 use crate::domain::model::Page;
+use crate::domain::nfc::to_nfc;
 
 pub const MD_EXT: &str = ".md";
 const CONFLICT_MARKER: &str = ".conflict";
@@ -68,13 +69,17 @@ pub fn from_rel_path(rel_path: &str) -> Option<PageLocation> {
     })
 }
 
-/// Relative path of `file` under `root`, always using '/'.
+/// Relative path of `file` under `root`, always using '/', in NFC. macOS can return a name in
+/// NFD. The NFC path still opens the file there, as ADR 007 expects. Windows and Linux would
+/// not open it, but they get no NFD names, as peta-journal makes all the names.
 pub fn relativize(root: &Path, file: &Path) -> String {
     let rel = file.strip_prefix(root).unwrap_or(file);
-    rel.components()
+    let path = rel
+        .components()
         .map(|c| c.as_os_str().to_string_lossy().into_owned())
         .collect::<Vec<_>>()
-        .join("/")
+        .join("/");
+    to_nfc(&path)
 }
 
 /// Files we must never import: temp/partial files from editors and Dropbox, names that
