@@ -6,3 +6,16 @@
 
 - [x] ページ名とパスをNFCで持ち、アトラスの書き合いを止める（ADR 007）
 
+## 判断
+
+### 2026-11-06 `Event::Continue(Thunk)`は当面残す
+
+コアの`Event::Continue(Thunk)`は、Cruxの流儀から外れている。Cruxの`Event`は起きたことを表すデータだが、`Thunk`は実行するコードそのものである。そのため、`Event`はシリアライズできない。
+
+それでも、次のシェルには実害がないので、今は変えない。
+
+- `shell-leptos`: Rustから`Core`を直接呼ぶ。
+- `shell-emacs`: Rustプロセスが`peta-core`に直接依存する。Emacsとの間は、独自のJSON Lines（`protocol.rs`の`Inbound`など）でやり取りする。Crux公式のFFIブリッジは通らない。
+
+Swift、Kotlinなど、CruxのFFIブリッジを通るシェルを作ると決めたら、見直す。最初の作業は、シェルが送るイベントを、シリアライズできる公開用の型に分けることである。
+
