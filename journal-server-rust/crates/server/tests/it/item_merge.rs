@@ -912,3 +912,48 @@ fn a_copy_already_gone_is_ignored() {
 
     assert_eq!(a.sync(COPY), Outcome::Ignored);
 }
+
+// タスクの開始と終了を記録すると、項目の日付が進む。
+#[test]
+fn beginning_and_ending_a_task_move_the_date_of_the_item_forward() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, _b, _, x, _) = two_devices_with_items(dir.path());
+    let date_of = |device: &Device| {
+        device
+            .state
+            .item_service
+            .get_item_by_id(&x)
+            .unwrap()
+            .modified_date
+    };
+    a.state.item_service.cycle_task(&x).unwrap();
+    let as_task = date_of(&a);
+
+    for _ in ["begin", "end"] {
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        let before = date_of(&a);
+        let item = a.state.item_service.cycle_task(&x).unwrap();
+        assert!(date_of(&a) > before);
+        assert_eq!(item.modified_date, date_of(&a));
+    }
+    assert!(date_of(&a) > as_task);
+}
+
+// 相手がタスクを続けて進めても、手での編集と取り違えず、最後の状態が両方に届く。
+#[test]
+fn a_task_cycled_twice_on_the_other_device_arrives_without_a_conflict() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b, _, x, _) = two_devices_with_items(dir.path());
+    a.state.item_service.cycle_task(&x).unwrap();
+    assert_eq!(b.receive(&a, PAGE), Outcome::Imported);
+
+    for _ in ["begin", "end"] {
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        a.state.item_service.cycle_task(&x).unwrap();
+        assert_eq!(b.receive(&a, PAGE), Outcome::Imported);
+        assert_eq!(b.file(PAGE), a.file(PAGE));
+    }
+
+    assert!(b.conflicts().is_empty());
+    assert!(b.file(PAGE).contains(" end=\""));
+}

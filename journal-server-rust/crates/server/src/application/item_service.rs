@@ -624,7 +624,7 @@ impl ItemService {
                 "datetime",
                 &now_in_seconds(),
             )?;
-            existing.clone()
+            touched_in(&tx, &existing, now)?
         } else if has_begin && !has_end {
             PropertyRepository::upsert_scalar_in(
                 &tx,
@@ -634,7 +634,7 @@ impl ItemService {
                 "datetime",
                 &now_in_seconds(),
             )?;
-            existing.clone()
+            touched_in(&tx, &existing, now)?
         } else {
             let r = patch_task_in(&tx, &existing, false, now)?;
             clear_task_times_in(&tx, &id)?;
@@ -848,6 +848,16 @@ fn clear_task_times_in(tx: &Connection, item_id: &str) -> AppResult<()> {
 }
 
 /// Adds or removes the task type without writing any other field of the item.
+/// The item with a new date, as a change of its properties is a change of the item: another
+/// device takes the later item when it syncs.
+fn touched_in(tx: &Connection, existing: &Item, now: i64) -> AppResult<Item> {
+    ItemRepository::touch_in(tx, &existing.id, now)?;
+    Ok(Item {
+        modified_date: now,
+        ..existing.clone()
+    })
+}
+
 fn patch_task_in(tx: &Connection, existing: &Item, task: bool, now: i64) -> AppResult<Item> {
     let patch = ItemPatch::new(None, None, None, Some(task), None, None, now)
         .map_err(AppError::internal)?;
