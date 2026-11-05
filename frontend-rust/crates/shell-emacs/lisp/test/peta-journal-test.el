@@ -318,6 +318,10 @@
     (peta-journal-save)
     (should (equal peta-journal-test--sent '(("edit_finished" :id "a"))))
     (setq peta-journal-test--sent nil)
+    ;; 保存のコマンド自身の直後には、編集を開き直さない。
+    (let ((this-command 'peta-journal-save))
+      (peta-journal--post-command))
+    (should (null peta-journal-test--sent))
     (peta-journal--post-command)
     (should (equal peta-journal-test--sent '(("edit_requested" :id "a" :cursor 0))))))
 

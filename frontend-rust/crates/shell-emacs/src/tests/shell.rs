@@ -286,6 +286,38 @@ fn enter_at_the_end_shows_a_new_row_and_moves_the_point_there() {
     assert!(driver.waiting(|op| matches!(op, ApiOp::CreateItem { .. })));
 }
 
+// 途中でのEnterの間はキーを止め、新しい項目へカーソルが移ったら、止めるのをやめたと伝える。
+#[test]
+fn the_end_of_holding_keys_reaches_emacs() {
+    let mut driver = Driver::open(&[item("a", 1, "abcd")]);
+    driver.send(Inbound::Enter {
+        id: "a".into(),
+        cursor: 2,
+    });
+    let holding = |driver: &Driver| {
+        driver
+            .sent()
+            .iter()
+            .rev()
+            .find_map(|message| match message {
+                Outbound::State { holding, .. } => Some(*holding),
+                _ => None,
+            })
+    };
+    assert_eq!(holding(&driver), Some(true));
+    let answer = |value| ApiOutput::Item(serde_json::from_value(value).unwrap());
+    driver.answer(
+        |op| matches!(op, ApiOp::UpdateItem { .. }),
+        answer(item("a", 1, "ab")),
+    );
+    driver.answer(
+        |op| matches!(op, ApiOp::CreateItem { .. }),
+        answer(item("b", 1, "cd")),
+    );
+    assert_eq!(driver.focuses().last().unwrap().0, "b");
+    assert_eq!(holding(&driver), Some(false));
+}
+
 // 閉じていないコードフェンスの中のEnterは、項目を分けずに改行を入れ、カーソルを次の行へ進める。
 #[test]
 fn enter_inside_an_open_code_fence_adds_a_line_instead_of_a_row() {
