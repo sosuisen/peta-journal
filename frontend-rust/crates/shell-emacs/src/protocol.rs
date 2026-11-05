@@ -133,7 +133,6 @@ pub enum Outbound {
         connection: String,
     },
     Search {
-        query: String,
         results: Vec<SearchEntry>,
         /// The results are still those of an older query, as the answer to this one is on its way.
         searching: bool,

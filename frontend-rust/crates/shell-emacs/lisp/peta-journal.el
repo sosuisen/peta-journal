@@ -181,7 +181,7 @@ The core does not take in changes from elsewhere while an edit is open."
   "The bullet of ROW."
   (let* ((kind (plist-get row :bullet))
          (level (plist-get row :level))
-         (mark (or (cdr (assoc kind peta-journal--bullets)) "•")))
+         (mark (cdr (assoc kind peta-journal--bullets))))
     (propertize (concat mark " ")
                 'peta-bullet (plist-get row :id)
                 'font-lock-face (if (equal kind "done") 'peta-journal-done 'peta-journal-bullet)
@@ -446,8 +446,7 @@ M-x peta-journal starts it and shows the saved text.  See *peta-journal-log*."
     ("status" (peta-journal--in-buffer
                (setq peta-journal--connection (plist-get message :connection))
                (force-mode-line-update)))
-    ("search" (peta-journal--on-search (plist-get message :query)
-                                       (plist-get message :results)
+    ("search" (peta-journal--on-search (plist-get message :results)
                                        (plist-get message :searching)))
     ("recent" (setq peta-journal--recent (append (plist-get message :paths) nil)))
     ("backlinks" (setq peta-journal--backlinks (plist-get message :groups)))
@@ -789,7 +788,7 @@ Only for these characters: waiting on every key would slow typing down."
           peta-journal--search-selected (and (> (length results) 0) 0))
     (peta-journal--search-show-selection)))
 
-(defun peta-journal--on-search (_query results searching)
+(defun peta-journal--on-search (results searching)
   "Show RESULTS in the list, when it is open.
 SEARCHING says that the results of a newer query are coming."
   (setq peta-journal--searching searching)
@@ -947,14 +946,12 @@ C-n and C-p select a result, RET opens it, and C-g closes the search."
   "C-c C-n" #'peta-journal-next-day
   "C-c C-p" #'peta-journal-previous-day
   "<remap> <delete-backward-char>" #'peta-journal-backspace
-  "<remap> <backward-delete-char-untabify>" #'peta-journal-backspace
   "<remap> <delete-char>" #'peta-journal-delete
   "<remap> <delete-forward-char>" #'peta-journal-delete
   "<remap> <kill-line>" #'peta-journal-kill-line
   "<remap> <move-beginning-of-line>" #'peta-journal-beginning-of-line
   "<remap> <yank>" #'peta-journal-yank
   "<remap> <undo>" #'peta-journal-undo
-  "<remap> <undo-only>" #'peta-journal-undo
   "<remap> <undo-redo>" #'peta-journal-redo
   "<remap> <save-buffer>" #'peta-journal-save)
 

@@ -57,7 +57,7 @@ struct Sent {
     rows: Vec<RowView>,
     focus_seq: u64,
     connection: Option<String>,
-    search: Option<(String, Vec<peta_core::view::SearchEntry>, bool)>,
+    search: Option<(Vec<peta_core::view::SearchEntry>, bool)>,
     recent: Vec<String>,
     backlinks: Vec<BacklinkEntry>,
 }
@@ -526,19 +526,11 @@ impl<H: Host> Shell<H> {
     }
 
     fn tell_search(&mut self, search: &SearchView) {
-        let now = Some((
-            search.query.clone(),
-            search.results.clone(),
-            search.searching,
-        ));
+        let now = Some((search.results.clone(), search.searching));
         if self.sent.search != now {
             self.sent.search.clone_from(&now);
-            if let Some((query, results, searching)) = now {
-                self.host.emit(Outbound::Search {
-                    query,
-                    results,
-                    searching,
-                });
+            if let Some((results, searching)) = now {
+                self.host.emit(Outbound::Search { results, searching });
             }
         }
     }
