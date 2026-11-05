@@ -96,6 +96,32 @@ mod tests {
         assert_eq!(ensure_code_fence_closed("x"), "x");
     }
 
+    // `[[`を打つと`]]`が補われ、カーソルはその間に留まる。すでに`]]`が続いていれば補わない。
+    #[test]
+    fn auto_close_closes_a_wiki_link_just_opened() {
+        assert_eq!(auto_close("日[[後", 3), Some(("日[[]]後".into(), 3)));
+        assert_eq!(auto_close("[[]]", 2), None);
+        assert_eq!(auto_close("[", 1), None);
+    }
+
+    // 行頭の```を打つと、本文の末尾に閉じるフェンスが補われ、カーソルは留まる。
+    #[test]
+    fn auto_close_closes_a_code_fence_just_opened() {
+        assert_eq!(auto_close("```", 3), Some(("```\n```".into(), 3)));
+        assert_eq!(
+            auto_close("a\n  ```\nb", 7),
+            Some(("a\n  ```\nb\n```".into(), 7))
+        );
+    }
+
+    // 閉じるフェンスを打ったときや、行の途中のバッククォートでは、何も補わない。
+    #[test]
+    fn auto_close_leaves_a_closed_fence_and_plain_backticks() {
+        assert_eq!(auto_close("```\na\n```", 9), None);
+        assert_eq!(auto_close("a```", 4), None);
+        assert_eq!(auto_close("``", 2), None);
+    }
+
     // カーソルの下のウィキリンクとタグを、文字数の位置で読み取る。リンクの両端もリンクの上である。
     #[test]
     fn link_at_finds_the_wiki_link_or_the_tag_around_the_cursor() {
