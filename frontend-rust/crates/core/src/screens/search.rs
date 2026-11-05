@@ -12,6 +12,10 @@ const DEBOUNCE_MS: u32 = 200;
 
 pub fn query_changed(model: &mut Model, value: String) -> Cmd {
     model.search.query = value.clone();
+    // The number of a selected result means another result once the create entries follow the
+    // new query, and the results themselves still belong to the old one
+    model.search.selected_index = None;
+    model.search.searching = !value.trim().is_empty();
     let cancel = cancel_timer(&mut model.search.timer_id);
     if value.trim().is_empty() {
         model.search.page_results.clear();
@@ -38,10 +42,19 @@ pub fn query_changed(model: &mut Model, value: String) -> Cmd {
                 m.search.page_results = pages;
                 m.search.item_results = items;
                 m.search.selected_index = None;
+                m.search.searching = false;
                 m.search.show_create_button = !has_tag_terms && !value.trim().is_empty();
                 done()
             }),
-            Err(e) => log_error(format!("Search failed: {e}")),
+            Err(e) => {
+                log_error(format!("Search failed: {e}"));
+                apply(&api, "search failed", move |m| {
+                    if m.search.timer_id == timer_id {
+                        m.search.searching = false;
+                    }
+                    done()
+                });
+            }
         }
     });
     Command::all([cancel, search])
@@ -160,6 +173,7 @@ pub fn clear(model: &mut Model) -> Cmd {
     model.search.item_results.clear();
     model.search.show_create_button = false;
     model.search.selected_index = None;
+    model.search.searching = false;
     cancel_timer(&mut model.search.timer_id)
 }
 

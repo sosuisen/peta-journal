@@ -88,11 +88,6 @@ pub struct Shell<H: Host> {
     navigations: VecDeque<(String, bool)>,
     current_url: Option<String>,
     history: Vec<String>,
-    /// True from a query until its answer. The core does not say so, and Emacs must not open a
-    /// result of an older query.
-    searching: bool,
-    /// The call that answers the latest query. The call of an older query may still arrive.
-    search_call: Option<u64>,
 }
 
 impl<H: Host> Shell<H> {
@@ -114,8 +109,6 @@ impl<H: Host> Shell<H> {
             navigations: VecDeque::new(),
             current_url: None,
             history: Vec::new(),
-            searching: false,
-            search_call: None,
         }
     }
 
@@ -151,16 +144,9 @@ impl<H: Host> Shell<H> {
     }
 
     fn on_api_done(&mut self, id: u64, result: ApiResult<peta_core::effects::ApiOutput>) {
-        if self.search_call == Some(id) {
-            self.search_call = None;
-            self.searching = false;
-        }
         if let Some(mut request) = self.apis.remove(&id) {
             self.resolve(&mut request, result);
         }
-        // A failed search renders nothing, and Emacs still waits to hear that it ended
-        let view = self.core.view();
-        self.tell_search(&view.search);
     }
 
     fn on_sse(&mut self, stream: u64, event: SseEvent) {
@@ -238,8 +224,6 @@ impl<H: Host> Shell<H> {
                 rendered_end: bottom,
             }),
             Inbound::Search { query } => {
-                self.searching = !query.trim().is_empty();
-                self.search_call = None;
                 self.send(Event::SearchDropdown(true));
                 self.send(Event::SearchQueryChanged(query));
             }
@@ -379,9 +363,6 @@ impl<H: Host> Shell<H> {
                 Effect::Render(_) => render = true,
                 Effect::Api(request) => {
                     self.next_api += 1;
-                    if matches!(request.operation, ApiOp::SearchCombined { .. }) {
-                        self.search_call = Some(self.next_api);
-                    }
                     self.host.api(self.next_api, request.operation.clone());
                     self.apis.insert(self.next_api, request);
                 }
@@ -552,7 +533,7 @@ impl<H: Host> Shell<H> {
 
     fn tell_search(&mut self, search: &SearchView) {
         let entries = search_entries(search);
-        let now = Some((search.query.clone(), entries, self.searching));
+        let now = Some((search.query.clone(), entries, search.searching));
         if self.sent.search != now {
             self.sent.search.clone_from(&now);
             if let Some((query, results, searching)) = now {
