@@ -14,7 +14,7 @@ use peta_core::effects::{
     UiOutput,
 };
 use peta_core::util::filename::JournalType;
-use peta_core::util::link_at;
+use peta_core::util::{auto_close, link_at};
 use peta_core::view::{ScreenView, SearchView};
 use peta_core::{Event, PetaApp, ViewModel};
 use serde_json::Value;
@@ -187,6 +187,7 @@ impl<H: Host> Shell<H> {
             }
             Inbound::EditFinished { id } => self.send(Event::EditFinished { item_id: id }),
             Inbound::BodyChanged { id, body } => self.body_changed(id, body),
+            Inbound::Typed { id, cursor } => self.typed(id, cursor),
             Inbound::Enter { id, cursor } => self.enter(id, cursor),
             Inbound::BackspaceAtStart { id } => {
                 self.send(Event::BackspaceAtStart { item_id: id });
@@ -232,6 +233,32 @@ impl<H: Host> Shell<H> {
             row.body = body.clone();
         }
         let now_ms = self.host.now().now_ms;
+        self.send(Event::BodyChanged {
+            item_id: id,
+            body,
+            now_ms,
+        });
+    }
+
+    fn typed(&mut self, id: String, cursor: usize) {
+        let closed = self
+            .core
+            .view()
+            .outline
+            .rows
+            .iter()
+            .find(|r| r.item.id == id)
+            .and_then(|r| auto_close(&r.item.body, cursor));
+        let Some((body, cursor)) = closed else {
+            return;
+        };
+        let now_ms = self.host.now().now_ms;
+        self.after_render.push(Outbound::Focus {
+            ack: self.ack,
+            id: id.clone(),
+            cursor: Some(cursor),
+        });
+        // Not through `body_changed`: Emacs does not have the closing part yet
         self.send(Event::BodyChanged {
             item_id: id,
             body,

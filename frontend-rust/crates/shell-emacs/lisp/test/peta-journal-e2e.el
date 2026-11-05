@@ -225,6 +225,24 @@ The server is a real one, with its files in a temporary folder."
         (peta-journal-e2e--wait-for "the warning" (lambda () warning)))
       (should (equal peta-journal--connection "shell stopped")))))
 
+;; `[[`を打つと`]]`が補われ、続けて打った文字はその間に入る。
+(ert-deftest peta-journal-e2e-a-wiki-link-closes-itself ()
+  (peta-journal-e2e--with-app
+    (peta-journal-e2e--type "see [[Plan")
+    (should (equal (peta-journal--body-at (point)) "see [[Plan]]"))
+    (peta-journal-e2e--keys "C-x C-s")
+    (peta-journal-e2e--wait-saved '("see [[Plan]]"))))
+
+;; ```を打つと閉じるフェンスが補われる。中のEnterは項目を分けず、文字は次の行に入る。
+(ert-deftest peta-journal-e2e-a-code-fence-closes-itself ()
+  (peta-journal-e2e--with-app
+    (peta-journal-e2e--type "```")
+    (peta-journal-e2e--keys "RET")
+    (peta-journal-e2e--type "code")
+    (should (equal (peta-journal--body-at (point)) "```\ncode\n```"))
+    (peta-journal-e2e--keys "C-x C-s")
+    (peta-journal-e2e--wait-saved '("```\ncode\n```"))))
+
 ;; 続けて打った文字は、Enterのあとの項目に入る。
 (ert-deftest peta-journal-e2e-keys-after-enter-go-to-the-new-item ()
   (peta-journal-e2e--with-app

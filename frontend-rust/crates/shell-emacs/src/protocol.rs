@@ -44,6 +44,11 @@ pub enum Inbound {
         id: String,
         body: String,
     },
+    /// A `[` or a backtick was typed, and may need its closing part.
+    Typed {
+        id: String,
+        cursor: usize,
+    },
     Enter {
         id: String,
         cursor: usize,

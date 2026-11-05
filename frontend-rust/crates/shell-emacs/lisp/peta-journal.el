@@ -554,6 +554,14 @@ A saved edit must stay closed, and a page being left has nothing more to edit.")
       (peta-journal--send "body_changed" :id id :body body))
     (restore-buffer-modified-p nil)))
 
+(defun peta-journal--close-typed ()
+  "Let the core close the `[[' or the code fence just typed.
+Only for these characters: waiting on every key would slow typing down."
+  (when (memq (char-before) '(?\[ ?`))
+    (peta-journal--send-and-wait "typed"
+                                 :id (peta-journal--item)
+                                 :cursor (peta-journal--cursor))))
+
 (defun peta-journal--idle ()
   "End the edit while Emacs idles, so the core can take in changes from elsewhere."
   (peta-journal--in-buffer (peta-journal--finish-edit)))
@@ -975,6 +983,7 @@ Type in a body as in any buffer.  The outline changes through these keys:
   (setq-local font-lock-defaults '(peta-journal--font-lock-keywords t))
   (setq-local header-line-format '(:eval (peta-journal--header-line)))
   (add-hook 'after-change-functions #'peta-journal--after-change nil t)
+  (add-hook 'post-self-insert-hook #'peta-journal--close-typed nil t)
   (add-hook 'post-command-hook #'peta-journal--post-command nil t)
   (add-hook 'window-scroll-functions #'peta-journal--on-window-scroll nil t)
   (add-hook 'kill-buffer-hook #'peta-journal-stop nil t))
