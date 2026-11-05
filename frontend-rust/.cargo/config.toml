@@ -15,3 +15,8 @@ rustflags = ['--cfg', 'getrandom_backend="wasm_js"']
 # E2E tests in ../e2e cover it instead.
 [alias]
 cov = ["llvm-cov", "-p", "peta-core", "-p", "fm-ast", "-p", "fm-leptos"]
+
+# rust-lld links much faster than the MSVC link.exe, and it comes with the Rust toolchain. Every
+# test run waits for the link of the test binaries. The wasm target already links with it.
+[target.x86_64-pc-windows-msvc]
+linker = "rust-lld.exe"
