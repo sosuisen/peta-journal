@@ -450,6 +450,15 @@ impl Entry<'_> {
         }
     }
 
+    fn sorts_after(&self, item: &Item) -> bool {
+        let id = match &self.source {
+            Source::File(fi) => &fi.id,
+            Source::Kept(old) => &old.id,
+        };
+        self.wanted_idx()
+            .is_some_and(|idx| (idx.as_str(), id) > (item.idx.as_str(), &item.id))
+    }
+
     fn wanted_idx(&self) -> Option<String> {
         match &self.source {
             Source::File(fi) => fi
@@ -532,12 +541,13 @@ fn plan_merge<'a>(
     }
 
     // The file keeps its line order, which may differ from its indexes when edited by hand.
-    // A kept item goes in before the first item that sorts after it.
+    // A kept item goes in before the first item that sorts after it. Two devices can give
+    // items the same index, so the id decides, whichever file comes first.
     let mut entries = from_file;
     for old in kept {
         let at = entries
             .iter()
-            .position(|e| e.wanted_idx().is_some_and(|idx| idx > old.idx))
+            .position(|e| e.sorts_after(old))
             .unwrap_or(entries.len());
         entries.insert(
             at,
