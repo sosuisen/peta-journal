@@ -1,6 +1,6 @@
 use crate::app::Event;
 use crate::effects::{ApiOutput, UiOp};
-use crate::harness::{item, merge_calls, Harness};
+use crate::harness::{item, merge_calls, op_name, update_calls, Harness};
 use crate::outline::UndoOp;
 use crate::testing::item_with;
 
@@ -43,6 +43,111 @@ fn backspace_records_one_undo_entry_that_puts_the_cursor_at_the_join() {
     ));
     assert_eq!(entry.cursor_after.unwrap().position, "hello".len());
     assert!(h.model.undo.pop_undo().is_none());
+}
+
+/// The saves and merges that went to the server, in the order they went.
+fn saves_and_merges(h: &Harness) -> Vec<&'static str> {
+    h.api
+        .calls
+        .iter()
+        .map(op_name)
+        .filter(|name| matches!(*name, "UpdateItem" | "MergeItems"))
+        .collect()
+}
+
+fn typed(h: &mut Harness, item_id: &str, body: &str) {
+    let now = h.now_ms;
+    h.send(Event::BodyChanged {
+        item_id: item_id.into(),
+        body: body.into(),
+        now_ms: now,
+    });
+}
+
+// 自動保存の前に行頭で Backspace を押しても、打ったばかりの文字は結合の前に保存され、失われない。
+#[test]
+fn backspace_saves_the_text_just_typed_before_the_join() {
+    let mut h = harness();
+    typed(&mut h, "b", " world?");
+    h.send(Event::BackspaceAtStart {
+        item_id: "b".into(),
+    });
+    assert_eq!(saves_and_merges(&h), ["UpdateItem", "MergeItems"]);
+    assert_eq!(
+        update_calls(&h.api),
+        [("b".to_string(), Some(" world?".to_string()))]
+    );
+    assert_eq!(h.bodies(), ["a=hello world?", "c=!"]);
+    h.fire_timers();
+    assert_eq!(update_calls(&h.api).len(), 1, "the text is not sent twice");
+}
+
+// 行頭での Backspace の前に上の項目へ打った文字も、結合の前に保存される。
+#[test]
+fn backspace_saves_the_text_just_typed_in_the_item_above_before_the_join() {
+    let mut h = harness();
+    typed(&mut h, "a", "hello?");
+    h.send(Event::BackspaceAtStart {
+        item_id: "b".into(),
+    });
+    assert_eq!(saves_and_merges(&h), ["UpdateItem", "MergeItems"]);
+    assert_eq!(
+        update_calls(&h.api),
+        [("a".to_string(), Some("hello?".to_string()))]
+    );
+    h.fire_timers();
+    assert_eq!(update_calls(&h.api).len(), 1, "the text is not sent twice");
+}
+
+// 自動保存の前に行末で Delete を押しても、打ったばかりの文字は結合の前に保存される。
+// 結合の後に自動保存が届いて、取り込んだ文字を上書きすることもない。
+#[test]
+fn delete_saves_the_text_just_typed_before_the_join_and_not_after_it() {
+    let mut h = harness();
+    typed(&mut h, "a", "hello?");
+    h.send(Event::DeleteAtEnd {
+        item_id: "a".into(),
+    });
+    assert_eq!(saves_and_merges(&h), ["UpdateItem", "MergeItems"]);
+    assert_eq!(
+        update_calls(&h.api),
+        [("a".to_string(), Some("hello?".to_string()))]
+    );
+    assert_eq!(h.bodies(), ["a=hello? world", "c=!"]);
+    h.fire_timers();
+    assert_eq!(
+        update_calls(&h.api).len(),
+        1,
+        "the merged text is not overwritten"
+    );
+}
+
+// 行末での Delete で取り込む下の項目に打った文字も、結合の前に保存される。
+#[test]
+fn delete_saves_the_text_just_typed_in_the_item_below_before_the_join() {
+    let mut h = harness();
+    typed(&mut h, "b", " world?");
+    h.send(Event::DeleteAtEnd {
+        item_id: "a".into(),
+    });
+    assert_eq!(saves_and_merges(&h), ["UpdateItem", "MergeItems"]);
+    assert_eq!(
+        update_calls(&h.api),
+        [("b".to_string(), Some(" world?".to_string()))]
+    );
+}
+
+// 打った文字を保存できなければ結合はせず、ページはサーバーの持つ形に読み直される。
+#[test]
+fn a_failed_save_stops_the_join_and_reloads_the_page() {
+    let mut h = harness();
+    typed(&mut h, "b", " world?");
+    h.api.fail_next("UpdateItem", "offline");
+    h.send(Event::BackspaceAtStart {
+        item_id: "b".into(),
+    });
+    assert!(merge_calls(&h.api).is_empty());
+    assert!(h.api.called("GetPageById"));
 }
 
 // サーバーが結合を断ると、ページはサーバーの持つ形に読み直される。
