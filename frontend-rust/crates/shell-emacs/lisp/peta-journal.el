@@ -394,20 +394,6 @@ is handled when the outline it was meant for is on screen."
   "Take OUTPUT of the shell."
   (peta-journal--read-output output))
 
-(defun peta-journal--sentinel (process event)
-  "Say that the shell PROCESS has stopped, as EVENT tells.
-Without a shell, `peta-journal--send' does nothing and edits are lost in silence."
-  (unless (process-live-p process)
-    (peta-journal--in-buffer
-     (setq peta-journal--connection "shell stopped")
-     (force-mode-line-update))
-    (display-warning
-     'peta-journal
-     (format "The shell stopped: %s.  Edits are not saved until it runs again.  \
-M-x peta-journal starts it and shows the saved text.  See *peta-journal-log*."
-             (string-trim event))
-     :error)))
-
 (defun peta-journal--read-output (output)
   "Handle the complete lines in OUTPUT, and keep the rest for the next piece."
   (let ((lines (split-string (concat peta-journal--output output) "\n")))
@@ -427,6 +413,20 @@ M-x peta-journal starts it and shows the saved text.  See *peta-journal-log*."
   (if (derived-mode-p 'peta-journal-mode)
       (current-buffer)
     (get-buffer "*PetaJournal*")))
+
+(defun peta-journal--sentinel (process event)
+  "Say that the shell PROCESS has stopped, as EVENT tells.
+Without a shell, edits would be lost in silence."
+  (unless (process-live-p process)
+    (peta-journal--in-buffer
+     (setq peta-journal--connection "shell stopped")
+     (force-mode-line-update))
+    (display-warning
+     'peta-journal
+     (format "The shell stopped: %s.  Edits are not saved until it runs again.  \
+M-x peta-journal starts it and shows the saved text.  See *peta-journal-log*."
+             (string-trim event))
+     :error)))
 
 (defun peta-journal--on-line (message)
   "Do what the line MESSAGE from the shell says."
@@ -1068,6 +1068,7 @@ Type in a body as in any buffer.  The outline changes through these keys:
   "Save what was typed and stop the shell."
   (interactive)
   (when (process-live-p peta-journal--process)
+    (set-process-sentinel peta-journal--process #'ignore)
     ;; The shell ends the edit by itself when its input closes, and exits when it is saved
     (process-send-eof peta-journal--process)
     (let ((deadline (+ (float-time) peta-journal--stop-seconds)))

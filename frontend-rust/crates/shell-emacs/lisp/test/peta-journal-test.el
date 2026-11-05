@@ -490,7 +490,7 @@
 ;;;; The shell stopping
 
 (defun peta-journal-test--emacs-process (sentinel &rest args)
-  "Start a batch Emacs with ARGS and the process SENTINEL, as a stand-in for the shell."
+  "Start a batch Emacs with ARGS and SENTINEL, as a stand-in for the shell."
   (make-process :name "peta-test-process"
                 :command (append (list (expand-file-name invocation-name invocation-directory)
                                        "--batch")
