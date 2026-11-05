@@ -1,5 +1,7 @@
 # peta-shell-emacs
 
+English | [日本語](README.ja.md)
+
 The Emacs frontend of PetaJournal. It has two parts:
 
 - `peta-shell-emacs` is a Rust program. It holds the Crux core (`peta-core`) and performs its
@@ -28,8 +30,21 @@ Add this to your Emacs init file:
 Then run `M-x peta-journal` while the journal server is running. It opens today's journal.
 
 The mode finds the program in `target/release` or `target/debug`, or on the `exec-path`. To use
-another one, set `peta-journal-shell-program`. To use another server, set `peta-journal-server`.
-Emacs 29.1 or newer is needed.
+another one, set `peta-journal-shell-program`. Emacs 29.1 or newer is needed.
+
+### Using another server
+
+The mode connects to `http://localhost:8087` by default. To use another server, add this to your
+Emacs init file, with the address of that server:
+
+```elisp
+(setq peta-journal-server "http://localhost:18087")
+```
+
+To change it for the current session only, press `M-:` and enter the same expression.
+
+The setting takes effect only when the shell starts. If PetaJournal is already open, kill the
+`*PetaJournal*` buffer with `C-x k`. This also stops the shell. Then run `M-x peta-journal` again.
 
 ## Editing
 
