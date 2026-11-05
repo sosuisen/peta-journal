@@ -20,17 +20,38 @@ pub fn ensure_code_fence_closed(text: &str) -> String {
     }
 }
 
-/// What a `[[` or an opening code fence just typed becomes: the body with its closing part, and
-/// the cursor. `cursor` is the character index right after the typed character. None when
-/// nothing is to be closed.
+/// What a `[[`, an opening code fence or a closing `]` just typed becomes: the body with its
+/// closing part added or typed over, and the cursor. `cursor` is the character index right after
+/// the typed character. None when the body stays as it is.
 pub fn auto_close(body: &str, cursor: usize) -> Option<(String, usize)> {
     let (before, after) = split_at_char(body, cursor);
     if before.ends_with("[[") && !after.starts_with("]]") {
         return Some((format!("{before}]]{after}"), cursor));
     }
-    let line = before.rsplit('\n').next().unwrap_or(before);
+    if types_over_link_closing(before, after) {
+        return Some((format!("{before}{}", &after[1..]), cursor));
+    }
+    let line = last_line(before);
     let opens_fence = before.ends_with('`') && line.trim_start().starts_with("```");
     (opens_fence && has_unclosed_code_fence(body)).then(|| (format!("{body}\n```"), cursor))
+}
+
+/// True when the `]` at the end of `before` was typed right in front of the rest of the `]]` that
+/// closes an open wiki link.
+fn types_over_link_closing(before: &str, after: &str) -> bool {
+    let Some(typed_at) = before.strip_suffix(']') else {
+        return false;
+    };
+    let rest = if typed_at.ends_with(']') { "]" } else { "]]" };
+    let line = last_line(typed_at);
+    let in_link = line
+        .rfind("[[")
+        .is_some_and(|open| !line[open..].contains("]]"));
+    in_link && after.starts_with(rest)
+}
+
+fn last_line(text: &str) -> &str {
+    text.rsplit('\n').next().unwrap_or(text)
 }
 
 /// The byte offset of a character index, clamped to the text. Cursor positions arrive from
@@ -115,6 +136,24 @@ mod tests {
         assert_eq!(auto_close("日[[後", 3), Some(("日[[]]後".into(), 3)));
         assert_eq!(auto_close("[[]]", 2), None);
         assert_eq!(auto_close("[", 1), None);
+    }
+
+    // リンクの中で閉じる`]`を打つと、続く`]`の上を進み、`]`は増えない。
+    #[test]
+    fn auto_close_types_over_the_closing_of_a_wiki_link() {
+        assert_eq!(auto_close("日[[本]]]後", 5), Some(("日[[本]]後".into(), 5)));
+        assert_eq!(auto_close("日[[本]]]後", 6), Some(("日[[本]]後".into(), 6)));
+        assert_eq!(auto_close("[[]]]", 3), Some(("[[]]".into(), 3)));
+    }
+
+    // リンクの外、閉じたリンクの後、別の行、閉じる位置でないところの`]`は、そのまま残る。
+    #[test]
+    fn auto_close_leaves_a_bracket_outside_the_closing_of_a_link() {
+        assert_eq!(auto_close("a]]", 2), None);
+        assert_eq!(auto_close("[[a]] b]]]", 7), None);
+        assert_eq!(auto_close("[[a\n]]]", 5), None);
+        assert_eq!(auto_close("[[a]]b]]", 4), None);
+        assert_eq!(auto_close("[[a]]", 5), None);
     }
 
     // 行頭の```を打つと、本文の末尾に閉じるフェンスが補われ、カーソルは留まる。

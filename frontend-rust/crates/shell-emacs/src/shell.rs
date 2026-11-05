@@ -260,7 +260,7 @@ impl<H: Host> Shell<H> {
             id: id.clone(),
             cursor: Some(cursor),
         });
-        // Not through `body_changed`: Emacs does not have the closing part yet
+        // Not through `body_changed`: Emacs does not have this text yet
         self.send(Event::BodyChanged {
             item_id: id,
             body,

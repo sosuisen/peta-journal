@@ -53,6 +53,13 @@ test.describe('outline content', () => {
     await expect(page.locator('.wiki-suggestions')).toHaveCount(0);
   });
 
+  test('typing the closing brackets of a wiki link goes over them', async ({ page }) => {
+    await page.keyboard.type('see [[Plan]] now');
+
+    const [item] = await server.itemsSettled(pageId, i => i[0].body.endsWith('now'));
+    expect(item.body).toBe('see [[Plan]] now');
+  });
+
   test('a wiki link in a shown item opens the page it names', async ({ page, request }) => {
     const target = await new Server(request).newDocPage('Opened');
     await page.keyboard.type(`go to [[${target.title}`);  // the editor closes the link itself

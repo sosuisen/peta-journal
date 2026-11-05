@@ -529,9 +529,9 @@ A saved edit must stay closed, and a page being left has nothing more to edit.")
     (restore-buffer-modified-p nil)))
 
 (defun peta-journal--close-typed ()
-  "Let the core close the `[[' or the code fence just typed.
+  "Let the core close the `[[' or the code fence just typed, or go over a `]'.
 Only for these characters: waiting on every key would slow typing down."
-  (when (memq (char-before) '(?\[ ?`))
+  (when (memq (char-before) '(?\[ ?\] ?`))
     (peta-journal--send-and-wait "typed"
                                  :id (peta-journal--item)
                                  :cursor (peta-journal--cursor))))

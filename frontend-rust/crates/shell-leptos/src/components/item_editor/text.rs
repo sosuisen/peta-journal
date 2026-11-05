@@ -6,7 +6,8 @@ use crate::core::CoreHandle;
 use crate::dom;
 use peta_core::Event;
 
-/// Adds the closing part of the `[[` or the code fence just typed, as the core says.
+/// Adds the closing part of the `[[` or the code fence just typed, or goes over the `]` of a
+/// link, as the core says.
 pub(super) fn close_typed(el: &web_sys::HtmlTextAreaElement) {
     let value = el.value();
     let start = el.selection_start().ok().flatten().unwrap_or(0);

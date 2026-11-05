@@ -233,6 +233,14 @@ The server is a real one, with its files in a temporary folder."
     (peta-journal-e2e--keys "C-x C-s")
     (peta-journal-e2e--wait-saved '("see [[Plan]]"))))
 
+;; `]]`まで手で打っても`]`は増えず、カーソルはリンクの後ろへ進む。
+(ert-deftest peta-journal-e2e-the-closing-of-a-wiki-link-can-be-typed-over ()
+  (peta-journal-e2e--with-app
+    (peta-journal-e2e--type "see [[Plan]] now")
+    (should (equal (peta-journal--body-at (point)) "see [[Plan]] now"))
+    (peta-journal-e2e--keys "C-x C-s")
+    (peta-journal-e2e--wait-saved '("see [[Plan]] now"))))
+
 ;; ```を打つと閉じるフェンスが補われる。中のEnterは項目を分けず、文字は次の行に入る。
 (ert-deftest peta-journal-e2e-a-code-fence-closes-itself ()
   (peta-journal-e2e--with-app

@@ -43,7 +43,7 @@ pub enum Inbound {
         id: String,
         body: String,
     },
-    /// A `[` or a backtick was typed, and may need its closing part.
+    /// A `[`, a `]` or a backtick was typed. It may close a link or a code fence.
     Typed {
         id: String,
         cursor: usize,

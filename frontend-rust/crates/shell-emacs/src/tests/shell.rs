@@ -363,6 +363,25 @@ fn typing_a_wiki_link_opening_closes_it_and_keeps_the_cursor_inside() {
     );
 }
 
+// リンクの中で`]`を打ったと伝えると、増えた`]`のない本文が返り、カーソルは進んだ位置に留まる。
+#[test]
+fn typing_over_the_closing_of_a_wiki_link_sends_the_body_back() {
+    let mut driver = Driver::open(&[item("a", 1, "")]);
+    driver.send(Inbound::BodyChanged {
+        id: "a".into(),
+        body: "[[x]]]".into(),
+    });
+    driver.send(Inbound::Typed {
+        id: "a".into(),
+        cursor: 4,
+    });
+    assert_eq!(driver.last_rows().unwrap()[0].body, "[[x]]");
+    assert_eq!(
+        driver.focuses().last().unwrap(),
+        &("a".to_string(), Some(4))
+    );
+}
+
 // 補うものがなければ、何も送り返さない。
 #[test]
 fn typing_with_nothing_to_close_changes_nothing() {
