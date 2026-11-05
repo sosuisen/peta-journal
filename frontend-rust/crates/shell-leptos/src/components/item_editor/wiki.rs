@@ -5,21 +5,6 @@ use crate::dom;
 use peta_core::app::WikiLinkContext;
 use peta_core::Event;
 
-/// The text of the `[[wiki link]]` the caret is inside of.
-pub(super) fn wiki_link_at_caret(value: &str, start: u32) -> Option<String> {
-    let units: Vec<u16> = value.encode_utf16().collect();
-    let before = String::from_utf16_lossy(&units[..(start as usize).min(units.len())]);
-    let after = String::from_utf16_lossy(&units[(start as usize).min(units.len())..]);
-    let open = before.rfind("[[")?;
-    let between = &before[open + 2..];
-    if between.contains("]]") {
-        return None;
-    }
-    let close = after.find("]]")?;
-    let text = format!("{between}{}", &after[..close]).trim().to_string();
-    (!text.is_empty()).then_some(text)
-}
-
 /// Reports the `[[` the caret is inside of, with the caret's place on the screen, or closes
 /// the popup.
 pub(super) fn check_wiki_link_context(

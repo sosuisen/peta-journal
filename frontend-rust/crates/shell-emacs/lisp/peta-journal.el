@@ -665,28 +665,10 @@ A saved edit must stay closed, and a page being left has nothing more to edit.")
   (peta-journal--in-buffer (peta-journal--finish-edit))
   (apply #'peta-journal--send type fields))
 
-(defun peta-journal--link-at (text pos)
-  "The link in TEXT around the index POS: (wiki . NAME), (tag . NAME) or nil."
-  (let ((found nil)
-        (start 0))
-    (while (and (not found)
-                (string-match "\\[\\[\\([^]\n]+\\)\\]\\]\\|#\\([^ \t\n#]+\\)" text start))
-      (if (and (<= (match-beginning 0) pos) (<= pos (match-end 0)))
-          (setq found (if (match-beginning 1)
-                          (cons 'wiki (match-string 1 text))
-                        (cons 'tag (match-string 2 text))))
-        (setq start (match-end 0))))
-    found))
-
 (defun peta-journal-open-at-point ()
   "Open the page of the wiki link or the tag at the point."
   (interactive)
-  (pcase (peta-journal--link-at (buffer-substring-no-properties (line-beginning-position)
-                                                                (line-end-position))
-                                (- (point) (line-beginning-position)))
-    (`(wiki . ,text) (peta-journal--go "open_wiki_link" :text text))
-    (`(tag . ,tag) (peta-journal--go "open_tag" :tag tag))
-    (_ (user-error "No link here"))))
+  (peta-journal--go "open_link_at" :id (peta-journal--item) :cursor (peta-journal--cursor)))
 
 (defun peta-journal-today ()
   "Open today's journal."
