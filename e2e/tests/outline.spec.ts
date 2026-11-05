@@ -113,6 +113,42 @@ test.describe('outline editing', () => {
     await expect(editorOf(page, items[0].id)).toBeFocused();
   });
 
+  test('text typed right before Backspace at the start reaches the server in the joined item', async ({ page }) => {
+    await openFirstEditor(page);
+    await page.keyboard.type('one');
+    await page.keyboard.press('Enter');
+    await server.itemsSettled(pageId, items => items.length === 2 && items[0].body === 'one');
+
+    // No pause between the keys: the auto-save has not sent the text yet when the items join
+    await page.keyboard.type('two');
+    await page.keyboard.press('Home');
+    await page.keyboard.press('Backspace');
+
+    const items = await server.itemsSettled(pageId, items => items.length === 1 && items[0].body === 'onetwo');
+    expect(items[0].body).toBe('onetwo');
+    expect(await shownBodies(page)).toEqual(['onetwo']);
+  });
+
+  test('text typed right before Delete at the end reaches the server in the joined item', async ({ page }) => {
+    const firstId = await openFirstEditor(page);
+    await page.keyboard.type('one');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('two');
+    await server.itemsSettled(pageId, items => items.length === 2 && items[1].body === 'two');
+    await openEditor(page, firstId);
+
+    // No pause between the keys: the auto-save has not sent the text yet when the items join
+    await page.keyboard.press('End');
+    await page.keyboard.type('!');
+    await page.keyboard.press('Delete');
+
+    const items = await server.itemsSettled(pageId, items => items.length === 1 && items[0].body === 'one!two');
+    expect(items[0].body).toBe('one!two');
+    // The pending auto-save must not arrive after the join and overwrite it
+    await page.waitForTimeout(600);
+    expect((await server.items(pageId)).map(i => i.body)).toEqual(['one!two']);
+  });
+
   test('Ctrl+Z takes back the split', async ({ page }) => {
     await openFirstEditor(page);
     await page.keyboard.type('keep');

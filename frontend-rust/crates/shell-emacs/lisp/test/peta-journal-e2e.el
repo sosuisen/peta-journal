@@ -253,6 +253,19 @@ The server is a real one, with its files in a temporary folder."
                                 (lambda () (equal (buffer-string) "• abcd\n")))
     (peta-journal-e2e--wait-saved '("abcd"))))
 
+;; 自動保存の前に行頭のBackspaceで結合しても、打ったばかりの文字はサーバーに残る。
+(ert-deftest peta-journal-e2e-text-typed-before-a-join-is-saved ()
+  (peta-journal-e2e--with-app
+    (execute-kbd-macro (kbd "a b RET"))
+    (peta-journal--wait)
+    (peta-journal-e2e--keys "C-x C-s")
+    (peta-journal-e2e--wait-saved '("ab" ""))
+    (peta-journal-e2e--type "cd")
+    (peta-journal-e2e--keys "C-a DEL")
+    (peta-journal-e2e--wait-for "the join"
+                                (lambda () (equal (buffer-string) "• abcd\n")))
+    (peta-journal-e2e--wait-saved '("abcd"))))
+
 ;; 元に戻す操作はコアの履歴をたどる。打った文字を戻し、次に項目の分割を戻す。
 (ert-deftest peta-journal-e2e-undo-goes-through-the-core ()
   (peta-journal-e2e--with-app
