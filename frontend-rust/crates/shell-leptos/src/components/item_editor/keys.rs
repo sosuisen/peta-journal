@@ -1,7 +1,6 @@
 //! The keyboard shortcuts of the editor.
 
 use super::text::insert_at_cursor;
-use super::text::Utf16Pipe;
 use super::wiki::wiki_link_at_caret;
 use crate::core::CoreHandle;
 use crate::dom;
@@ -84,17 +83,6 @@ pub(super) fn handle_keydown(
     }
 
     if key == "Enter" && !ev.shift_key() && !ev.ctrl_key() {
-        let before: String = value
-            .encode_utf16()
-            .take(start as usize)
-            .collect::<Vec<_>>()
-            .pipe();
-        if peta_core::util::has_unclosed_code_fence(&before) {
-            // Inside a code fence: a newline instead of a split
-            ev.prevent_default();
-            insert_at_cursor(core, item_id, el, "\n", 1);
-            return;
-        }
         ev.prevent_default();
         send(Event::EnterPressed {
             item_id: id,
