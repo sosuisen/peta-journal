@@ -401,6 +401,7 @@ impl ItemService {
             let tags = PropertyRepository::find_tags_in(tx, ITEM_TARGET, item.id.as_str())?;
             effects.tag_changes.push((tags, Vec::new()));
             ItemRepository::delete_in(tx, &item.id)?;
+            ItemRepository::record_deleted_in(tx, &item.id, now_millis())?;
             removed_ids.push(item.id.to_string());
             effects.pages.insert(item.page_id.clone());
         }

@@ -278,6 +278,7 @@ impl ItemMerger {
         let mut any_missing_id = false;
         for pi in parsed_items {
             let mut id = parse_id(pi.id.as_deref());
+            let mut of_another_page = false;
             if let Some(candidate) = &id {
                 if !seen.contains(candidate)
                     && !by_id.contains_key(candidate)
@@ -285,15 +286,17 @@ impl ItemMerger {
                 {
                     // Belongs to another page (copy-pasted between files): don't steal it
                     id = None;
+                    of_another_page = true;
                 }
             }
-            let (id, has_own_id) = match id {
-                Some(i) if !seen.contains(&i) => (i, true),
+            let id = match id {
+                Some(i) if !seen.contains(&i) => i,
                 _ => {
                     any_missing_id = true;
-                    (self.ids.generate_item_id(), false)
+                    self.ids.generate_item_id()
                 }
             };
+            let deleted_date = ItemRepository::deleted_date_in(tx, &id)?;
             seen.insert(id.clone());
             // The file holds relative Markdown links; the app stores wikilinks and hashtags
             let body = page_link_converter::to_wikilinks(&pi.body, page_rel_path);
@@ -308,7 +311,8 @@ impl ItemMerger {
             file_items.push(FileItem {
                 parsed: pi,
                 id,
-                has_own_id,
+                of_another_page,
+                deleted_date,
                 body,
                 transclude,
             });
@@ -418,8 +422,10 @@ pub enum MergeMode {
 struct FileItem<'a> {
     parsed: &'a ParsedItem,
     id: Hmtid,
-    /// False when the file gave no id, or one that cannot be this item's.
-    has_own_id: bool,
+    /// The id in the file is that of an item on another page, so this item has a new id.
+    of_another_page: bool,
+    /// When the user deleted the item here, if so.
+    deleted_date: Option<i64>,
     body: String,
     transclude: Option<Hmtid>,
 }
@@ -475,8 +481,8 @@ struct MergePlan<'a> {
 /// Decides for every item which side it comes from, by the rules in
 /// docs/folder-sync-future.md: the later change of an item stays. An item only here stays when
 /// it changed after the file was written, or was not written to a file yet: the other device
-/// cannot have deleted it. An item only in the file stays out when this device saw it and the
-/// page here is newer than the file and the item: it was deleted here.
+/// cannot have deleted it. An item only in the file comes in, unless the user deleted it here
+/// after its last change, or an older file holds it after it moved to another page.
 fn plan_merge<'a>(
     file_items: &'a [FileItem<'a>],
     existing: &'a [Item],
@@ -490,6 +496,7 @@ fn plan_merge<'a>(
         MergeMode::WholeFile => (false, i64::MAX),
         MergeMode::ItemByItem { last_synced } => (true, last_synced),
     };
+    let page_modified = facts.page_modified;
 
     for fi in file_items {
         let stamp = fi.parsed.modified.unwrap_or(facts.file_modified);
@@ -504,10 +511,8 @@ fn plan_merge<'a>(
                 kept.push(o);
             }
             None if by_item
-                && fi.has_own_id
-                && stamp <= last_synced
-                && stamp <= facts.page_modified
-                && facts.file_modified < facts.page_modified =>
+                && (fi.deleted_date.is_some_and(|date| date >= stamp)
+                    || (fi.of_another_page && facts.file_modified < page_modified)) =>
             {
                 differs_from_file = true;
             }

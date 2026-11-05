@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use hmtid::Hmtid;
-use rusqlite::{params, Connection, Row};
+use rusqlite::{params, Connection, OptionalExtension, Row};
 
 use crate::domain::model::{Item, ItemPatch, ItemPlacement};
 use crate::error::{AppError, AppResult};
@@ -336,6 +336,27 @@ impl ItemRepository {
     }
 
     /// Gives an item a new index on the given connection, as part of a larger transaction.
+    /// Remembers that the user deleted the item here, for the files that still hold it.
+    pub fn record_deleted_in(conn: &Connection, id: &Hmtid, date: i64) -> AppResult<()> {
+        conn.execute(
+            "INSERT OR REPLACE INTO deleted_items (id, deleted_date) VALUES (?, ?)",
+            params![id.as_str(), date],
+        )?;
+        Ok(())
+    }
+
+    /// When the user deleted the item here, if so.
+    pub fn deleted_date_in(conn: &Connection, id: &Hmtid) -> AppResult<Option<i64>> {
+        let date = conn
+            .query_row(
+                "SELECT deleted_date FROM deleted_items WHERE id = ?",
+                [id.as_str()],
+                |r| r.get(0),
+            )
+            .optional()?;
+        Ok(date)
+    }
+
     /// Gives an item a new modified date, for a change kept outside the item row.
     pub fn touch_in(conn: &Connection, item_id: &Hmtid, modified_date: i64) -> AppResult<()> {
         conn.execute(

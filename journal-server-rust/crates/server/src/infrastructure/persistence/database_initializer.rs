@@ -18,7 +18,8 @@ use super::db::{now_millis, Db};
 
 /// The migrations, in the order they run. The version of a database is the number of them
 /// it has had.
-const MIGRATIONS: &[fn(&Connection) -> rusqlite::Result<()>] = &[create_tables];
+const MIGRATIONS: &[fn(&Connection) -> rusqlite::Result<()>] =
+    &[create_tables, create_deleted_items];
 
 pub fn initialize(db: &Db, ids: &IdGenerator) -> anyhow::Result<()> {
     let conn = db.conn()?;
@@ -61,6 +62,14 @@ fn migrate(conn: &Connection) -> anyhow::Result<()> {
 fn user_version(conn: &Connection) -> rusqlite::Result<usize> {
     let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     Ok(version as usize)
+}
+
+/// Version 2: the items deleted here, so that taking in a file can tell them from items
+/// this device has not seen yet.
+fn create_deleted_items(conn: &Connection) -> rusqlite::Result<()> {
+    conn.execute_batch(
+        "CREATE TABLE deleted_items (id TEXT PRIMARY KEY, deleted_date INTEGER NOT NULL);",
+    )
 }
 
 /// Version 1: the tables and the indexes.
@@ -284,6 +293,20 @@ mod tests {
             ),
             1
         );
+    }
+
+    // 版1のデータベースを開くと、消した項目の表ができ、版が上がる。
+    #[test]
+    fn a_database_at_version_1_gets_the_table_of_deleted_items() {
+        let conn = Connection::open_in_memory().unwrap();
+        run(&conn, &IdGenerator::new()).unwrap();
+        conn.execute_batch("DROP TABLE deleted_items; PRAGMA user_version = 1;")
+            .unwrap();
+
+        run(&conn, &IdGenerator::new()).unwrap();
+
+        assert_eq!(user_version(&conn).unwrap(), MIGRATIONS.len());
+        assert_eq!(count(&conn, "SELECT COUNT(*) FROM deleted_items"), 0);
     }
 
     // 新しいサーバーのデータベースは、開かれない。
