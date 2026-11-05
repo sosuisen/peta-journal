@@ -1811,6 +1811,7 @@ dependencies = [
  "getrandom 0.3.4",
  "getrandom 0.4.3",
  "hmtid",
+ "percent-encoding",
  "peta-atlas",
  "serde",
  "serde_json",
@@ -1847,7 +1848,6 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "crux_core",
- "percent-encoding",
  "peta-core",
  "serde",
  "serde_json",

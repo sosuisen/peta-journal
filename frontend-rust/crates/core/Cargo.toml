@@ -16,6 +16,7 @@ fm-ast = { path = "../fm-ast" }
 hmtid = { path = "../../../journal-server-rust/crates/hmtid" }
 getrandom = { version = "0.3", features = ["wasm_js"] }
 futures = "0.3"
+percent-encoding = "2.3.2"
 peta-atlas = { path = "../../../atlas-rust", features = ["marks"] }
 # rand of picturesque-marks, under peta-atlas, pulls in getrandom 0.4, which needs a backend on wasm
 getrandom-04 = { package = "getrandom", version = "0.4", features = ["wasm_js"] }
