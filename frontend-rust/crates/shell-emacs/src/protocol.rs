@@ -1,6 +1,6 @@
 //! The JSON lines this process and `peta-journal.el` send each other.
 
-use peta_core::view::{BacklinkGroup, Row, TaskState};
+use peta_core::view::{BacklinkGroup, Row, SearchEntry, TaskState};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -217,23 +217,6 @@ impl Bullet {
             None => Bullet::Plain,
         }
     }
-}
-
-/// One line of the search results. `index` is what [`Inbound::SearchResult`] sends back.
-#[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct SearchEntry {
-    pub index: usize,
-    pub kind: SearchKind,
-    pub title: String,
-    pub snippet: String,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SearchKind {
-    Page,
-    Create,
-    Item,
 }
 
 /// A page that links to the shown page.
