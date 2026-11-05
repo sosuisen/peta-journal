@@ -17,7 +17,7 @@ use peta_core::model::DeferredKey;
 use peta_core::view::Row;
 use peta_core::Event;
 use replay::replay_keys;
-use text::auto_close_code_fence;
+use text::close_typed;
 use wasm_bindgen::JsCast;
 use wiki::check_wiki_link_context;
 
@@ -114,8 +114,10 @@ pub fn ItemEditor(row: RwSignal<Row>) -> impl IntoView {
         move |ev: web_sys::Event| {
             let Some(el) = textarea.get() else { return };
             if let Some(input) = ev.dyn_ref::<web_sys::InputEvent>() {
-                if input.input_type() == "insertText" && input.data().as_deref() == Some("`") {
-                    auto_close_code_fence(&el);
+                if input.input_type() == "insertText"
+                    && matches!(input.data().as_deref(), Some("`" | "["))
+                {
+                    close_typed(&el);
                 }
             }
             let body = el.value();

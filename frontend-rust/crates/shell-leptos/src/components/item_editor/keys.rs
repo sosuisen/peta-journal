@@ -180,19 +180,6 @@ pub(super) fn handle_keydown(
         return;
     }
 
-    // Auto-close [[ with ]]
-    if key == "[" && start > 0 {
-        let units: Vec<u16> = value.encode_utf16().collect();
-        let prev_is_bracket = units[start as usize - 1] == '[' as u16;
-        let next_two: String =
-            String::from_utf16_lossy(&units[start as usize..(start as usize + 2).min(units.len())]);
-        if prev_is_bracket && next_two != "]]" {
-            ev.prevent_default();
-            insert_at_cursor(core, item_id, el, "[]]", 1);
-            return;
-        }
-    }
-
     if key == "Tab" {
         ev.prevent_default();
         send(if ev.shift_key() {

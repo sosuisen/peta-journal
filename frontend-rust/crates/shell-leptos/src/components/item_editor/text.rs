@@ -1,32 +1,19 @@
-//! Helpers over the textarea's text: insertions that report the new body, the code fence
-//! that closes itself.
+//! Helpers over the textarea's text: insertions that report the new body, the wiki link and
+//! the code fence that close themselves.
 
 use super::wiki::check_wiki_link_context;
 use crate::core::CoreHandle;
 use crate::dom;
 use peta_core::Event;
 
-/// Typing the third backtick of an opening fence adds the closing fence below.
-pub(super) fn auto_close_code_fence(el: &web_sys::HtmlTextAreaElement) {
+/// Adds the closing part of the `[[` or the code fence just typed, as the core says.
+pub(super) fn close_typed(el: &web_sys::HtmlTextAreaElement) {
     let value = el.value();
-    let start = el.selection_start().ok().flatten().unwrap_or(0) as usize;
-    let before: String = value.encode_utf16().take(start).collect::<Vec<_>>().pipe();
-    let line_start = before.rfind('\n').map(|i| i + 1).unwrap_or(0);
-    if !before[line_start..].trim_start().starts_with("```") {
-        return;
-    }
-    if peta_core::util::has_unclosed_code_fence(&value) {
-        el.set_value(&format!("{value}\n```"));
-        let _ = el.set_selection_range(start as u32, start as u32);
-    }
-}
-
-pub(super) trait Utf16Pipe {
-    fn pipe(self) -> String;
-}
-impl Utf16Pipe for Vec<u16> {
-    fn pipe(self) -> String {
-        String::from_utf16_lossy(&self)
+    let start = el.selection_start().ok().flatten().unwrap_or(0);
+    let cursor = dom::utf16_to_chars(&value, start);
+    if let Some((body, cursor)) = peta_core::util::auto_close(&value, cursor) {
+        el.set_value(&body);
+        dom::set_cursor_chars(el, cursor);
     }
 }
 
