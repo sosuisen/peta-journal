@@ -77,13 +77,11 @@ fn parsed<T: DeserializeOwned>(reply: &HttpReply) -> ApiResult<T> {
 
 /// A JSON object without the fields that are not set, for an update that leaves the other
 /// fields as they are.
-fn without_nulls(value: Value) -> Value {
-    match value {
-        Value::Object(fields) => {
-            Value::Object(fields.into_iter().filter(|(_, v)| !v.is_null()).collect())
-        }
-        other => other,
+fn without_nulls(mut value: Value) -> Value {
+    if let Some(fields) = value.as_object_mut() {
+        fields.retain(|_, v| !v.is_null());
     }
+    value
 }
 
 /// The method, the path under `/api/pages/{id}/atlas/` and the body of a change of an atlas.
