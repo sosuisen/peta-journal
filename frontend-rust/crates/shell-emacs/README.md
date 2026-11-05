@@ -46,6 +46,10 @@ To change it for the current session only, press `M-:` and enter the same expres
 The setting takes effect only when the shell starts. If PetaJournal is already open, kill the
 `*PetaJournal*` buffer with `C-x k`. This also stops the shell. Then run `M-x peta-journal` again.
 
+If the shell stops by itself, Emacs shows a warning and `[shell stopped]` in the mode line. Edits are
+not saved until it runs again. Run `M-x peta-journal` to start it. This shows the saved text, so
+copy what you typed after the warning first. Errors of the shell are in `*peta-journal-log*`.
+
 ## Editing
 
 The whole page is in one buffer. Type in a body as in any other buffer. The bullets and the line
