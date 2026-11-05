@@ -52,6 +52,35 @@ mod tests {
         assert_eq!(ensure_code_fence_closed("x"), "x");
     }
 
+    // カーソルの下のウィキリンクとタグを、文字数の位置で読み取る。リンクの両端もリンクの上である。
+    #[test]
+    fn link_at_finds_the_wiki_link_or_the_tag_around_the_cursor() {
+        let text = "a [[メモ/本]] b #rust c";
+        let wiki = || Some(Link::Wiki("メモ/本".into()));
+        assert_eq!(link_at(text, 1), None);
+        assert_eq!(link_at(text, 2), wiki());
+        assert_eq!(link_at(text, 5), wiki());
+        assert_eq!(link_at(text, 11), wiki());
+        assert_eq!(link_at(text, 12), None);
+        assert_eq!(link_at(text, 15), Some(Link::Tag("rust".into())));
+    }
+
+    // ウィキリンクの中の # はタグではない。リンクの名前の前後の空白は名前に含めない。
+    #[test]
+    fn link_at_reads_the_whole_wiki_link_and_trims_its_name() {
+        assert_eq!(link_at("[[a#b]]", 3), Some(Link::Wiki("a#b".into())));
+        assert_eq!(link_at("[[ a ]]", 3), Some(Link::Wiki("a".into())));
+    }
+
+    // 名前のないリンク、閉じていないリンク、行をまたぐリンクは、リンクではない。
+    #[test]
+    fn link_at_ignores_what_is_not_a_link() {
+        assert_eq!(link_at("[[ ]]", 2), None);
+        assert_eq!(link_at("[[a", 2), None);
+        assert_eq!(link_at("[[a\nb]]", 2), None);
+        assert_eq!(link_at("# title", 0), None);
+    }
+
     // テキストは文字インデックスで分割され、範囲外のインデックスは末尾に丸められ、長さは文字数で数えられる。
     #[test]
     fn char_splitting() {
