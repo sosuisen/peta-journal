@@ -394,6 +394,99 @@
         (peta-journal--read-output "tle\":\"題\"}\n")
         (should (equal title "題"))))))
 
+;;;; The search box
+
+(defmacro peta-journal-test--with-search (&rest body)
+  "Run BODY with an open list of search results."
+  (declare (indent 0))
+  `(let ((peta-journal--searching nil))
+     (peta-journal--search-open)
+     (unwind-protect
+         (progn ,@body)
+       (peta-journal--search-close))))
+
+(defun peta-journal-test--entries (&rest titles)
+  "Search results of the kind page, with TITLES."
+  (vconcat (seq-map-indexed
+            (lambda (title index)
+              (list :index index :kind "page" :title title :snippet ""))
+            titles)))
+
+(defun peta-journal-test--search-text ()
+  "What the list of search results shows, without its marks."
+  (with-current-buffer "*PetaJournal Search*"
+    (substring-no-properties (buffer-string))))
+
+;; 検索窓は C-c / で呼び出す。
+(ert-deftest peta-journal-the-search-box-is-on-a-short-key ()
+  (with-temp-buffer
+    (peta-journal-mode)
+    (should (eq (key-binding (kbd "C-c /")) #'peta-journal-search))))
+
+;; 結果は入力に合わせて窓に並ぶ。ページ、新規作成、項目はそれぞれの形で示される。
+(ert-deftest peta-journal-results-show-pages-creates-and-items ()
+  (peta-journal-test--with-search
+    (peta-journal--on-search
+     "設計"
+     (vector (list :index 0 :kind "page" :title "設計メモ" :snippet "")
+             (list :index 1 :kind "create" :title "設計" :snippet "")
+             (list :index 2 :kind "item" :title "Quarkus" :snippet "<b>設計</b>の方針"))
+     nil)
+    (should (equal (peta-journal-test--search-text)
+                   "  設計メモ\n  [新規] 設計\n  Quarkus: 設計の方針\n"))))
+
+;; 先頭の結果が選ばれていて、C-n と C-p で動く。端では反対の端へ回る。
+(ert-deftest peta-journal-the-selection-moves-and-wraps ()
+  (peta-journal-test--with-search
+    (peta-journal--on-search "q" (peta-journal-test--entries "a" "b" "c") nil)
+    (should (= (peta-journal--search-choice) 0))
+    (peta-journal-search-next)
+    (should (= (peta-journal--search-choice) 1))
+    (peta-journal-search-previous)
+    (peta-journal-search-previous)
+    (should (= (peta-journal--search-choice) 2))
+    (peta-journal-search-next)
+    (should (= (peta-journal--search-choice) 0))))
+
+;; 選ぶ番号は、行の順番ではなくコアが付けた番号である。
+(ert-deftest peta-journal-the-choice-is-the-number-from-the-core ()
+  (peta-journal-test--with-search
+    (peta-journal--on-search
+     "q" (vector (list :index 7 :kind "page" :title "a" :snippet "")) nil)
+    (should (= (peta-journal--search-choice) 7))))
+
+;; 同じ結果がまた届いても選択は動かない。結果が変われば先頭へ戻る。
+(ert-deftest peta-journal-the-selection-stays-until-the-results-change ()
+  (peta-journal-test--with-search
+    (peta-journal--on-search "q" (peta-journal-test--entries "a" "b") t)
+    (peta-journal-search-next)
+    (peta-journal--on-search "q" (peta-journal-test--entries "a" "b") nil)
+    (should (= (peta-journal--search-choice) 1))
+    (peta-journal--on-search "qq" (peta-journal-test--entries "b" "c") nil)
+    (should (= (peta-journal--search-choice) 0))))
+
+;; 検索語が空になると結果は消え、選べるものがなくなる。
+(ert-deftest peta-journal-an-empty-query-empties-the-list ()
+  (peta-journal-test--with-search
+    (peta-journal--on-search "q" (peta-journal-test--entries "a") nil)
+    (peta-journal--on-search "" [] nil)
+    (should (equal (peta-journal-test--search-text) ""))
+    (should (null (peta-journal--search-choice)))))
+
+;; 窓を閉じたあとに届いた結果では、何も開かれない。
+(ert-deftest peta-journal-results-after-closing-the-box-are-ignored ()
+  (peta-journal--search-close)
+  (peta-journal--on-search "q" (peta-journal-test--entries "a") nil)
+  (should-not (get-buffer "*PetaJournal Search*")))
+
+;; 検索中かどうかは、シェルの言葉どおりに覚える。
+(ert-deftest peta-journal-remembers-whether-a-search-is-running ()
+  (let ((peta-journal--searching nil))
+    (peta-journal--on-search "q" [] t)
+    (should peta-journal--searching)
+    (peta-journal--on-search "q" [] nil)
+    (should-not peta-journal--searching)))
+
 ;;;; Links
 
 ;; カーソルの下のウィキリンクとタグを読み取る。

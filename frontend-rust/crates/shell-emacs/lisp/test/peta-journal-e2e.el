@@ -315,19 +315,50 @@ The server is a real one, with its files in a temporary folder."
     (peta-journal-e2e--wait-for "the delete" (lambda () (= (length peta-journal--rows) 1)))
     (peta-journal-e2e--wait-saved '("a"))))
 
-;; 検索の結果を開くと、そのページへ移る。
-(ert-deftest peta-journal-e2e-searching-finds-an-item ()
+(defun peta-journal-e2e--search-keys (query &rest keys)
+  "Press C-c /, type QUERY without a pause, and press KEYS."
+  (execute-kbd-macro (vconcat (kbd "C-c /") query (kbd (string-join keys " "))))
+  (peta-journal--wait))
+
+(defun peta-journal-e2e--wait-page-title (title)
+  "Wait until the page shown has TITLE."
+  (peta-journal-e2e--wait-for
+   (format "the page %s, now %s" title peta-journal--title)
+   (lambda () (equal peta-journal--title title))))
+
+;; C-c / で検索語を打って RET を押すと、その語の新しいページができて開く。間を置かなくてもよい。
+(ert-deftest peta-journal-e2e-the-search-box-creates-a-page ()
+  (peta-journal-e2e--with-app
+    (peta-journal-e2e--search-keys "新しいページ" "RET")
+    (peta-journal-e2e--wait-page-title "新しいページ")
+    (should-not (get-buffer "*PetaJournal Search*"))
+    (should (equal (buffer-name (window-buffer (selected-window))) "*PetaJournal*"))))
+
+;; 項目の検索結果を C-n で選んで開くと、そのページへ移る。ページ名に当たらない語でも見つかる。
+(ert-deftest peta-journal-e2e-the-search-box-finds-an-item ()
   (peta-journal-e2e--with-app
     (peta-journal-e2e--type "探すことば")
     (peta-journal-e2e--keys "C-x C-s")
     (peta-journal-e2e--wait-saved '("探すことば"))
-    (peta-journal-search "探すことば")
-    (peta-journal-e2e--wait-for
-     "a search result"
-     (lambda ()
-       (with-current-buffer "*PetaJournal Search*"
-         (string-search "探すことば" (buffer-substring (min (point-max) 20) (point-max))))))
-    (set-window-buffer (selected-window) "*PetaJournal*")))
+    (let ((journal peta-journal--page-id))
+      (peta-journal-find-page "他のページ")
+      (peta-journal-e2e--wait-page-title "他のページ")
+      ;; The first result is the entry that creates a page with this name
+      (peta-journal-e2e--search-keys "探すことば" "C-n" "RET")
+      (peta-journal-e2e--wait-for "the page of the item"
+                                  (lambda () (equal peta-journal--page-id journal))))))
+
+;; C-g で閉じると、どこへも移らず、結果の窓も消える。
+(ert-deftest peta-journal-e2e-quitting-the-search-box-stays-on-the-page ()
+  (peta-journal-e2e--with-app
+    (let ((journal peta-journal--page-id))
+      (condition-case nil
+          (peta-journal-e2e--search-keys "途中で" "C-g")
+        (quit nil))
+      (peta-journal--wait)
+      (should-not (get-buffer "*PetaJournal Search*"))
+      (should (equal peta-journal--page-id journal))
+      (should-not peta-journal--searching))))
 
 ;; ページの移動は、名前で開いて、その本文が見える。
 (ert-deftest peta-journal-e2e-finding-a-page-opens-it ()

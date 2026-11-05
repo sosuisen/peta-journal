@@ -553,6 +553,74 @@ fn search_results_are_numbered_and_open_by_their_number() {
     );
 }
 
+/// Whether the last word to Emacs about the search says that it is still running.
+fn searching(driver: &Driver) -> bool {
+    driver
+        .sent()
+        .iter()
+        .rev()
+        .find_map(|m| match m {
+            Outbound::Search { searching, .. } => Some(*searching),
+            _ => None,
+        })
+        .unwrap()
+}
+
+fn fire_timers(driver: &mut Driver) {
+    let timers: Vec<u64> = driver.shell.host.timers.iter().map(|t| t.0).collect();
+    for id in timers {
+        driver.shell.handle(Input::TimerFired { id });
+    }
+}
+
+fn no_results() -> ApiOutput {
+    serde_json::from_value(json!({ "SearchResults": [] })).unwrap()
+}
+
+// 検索語を受けてから答えが届くまでは、検索中と伝える。古い結果を開かないため。
+#[test]
+fn a_search_is_running_until_its_answer_arrives() {
+    let mut driver = Driver::open(&[item("a", 1, "x")]);
+    driver.send(Inbound::Search { query: "ru".into() });
+    assert!(searching(&driver));
+    fire_timers(&mut driver);
+    assert!(searching(&driver));
+    driver.answer(
+        |op| matches!(op, ApiOp::SearchCombined { .. }),
+        no_results(),
+    );
+    assert!(!searching(&driver));
+}
+
+// 前の検索語の答えが届いても、今の検索語の答えが届くまでは検索中のままである。
+#[test]
+fn the_answer_to_an_older_query_does_not_end_the_search() {
+    let mut driver = Driver::open(&[item("a", 1, "x")]);
+    driver.send(Inbound::Search { query: "r".into() });
+    fire_timers(&mut driver);
+    driver.send(Inbound::Search { query: "ru".into() });
+    driver.answer(
+        |op| matches!(op, ApiOp::SearchCombined { query, .. } if query == "r"),
+        no_results(),
+    );
+    assert!(searching(&driver));
+    fire_timers(&mut driver);
+    driver.answer(
+        |op| matches!(op, ApiOp::SearchCombined { query, .. } if query == "ru"),
+        no_results(),
+    );
+    assert!(!searching(&driver));
+}
+
+// 空の検索語は検索しないので、検索中にならない。
+#[test]
+fn an_empty_query_is_not_a_running_search() {
+    let mut driver = Driver::open(&[item("a", 1, "x")]);
+    driver.send(Inbound::Search { query: "ru".into() });
+    driver.send(Inbound::Search { query: " ".into() });
+    assert!(!searching(&driver));
+}
+
 // 終了の前に編集を閉じ、書きかけの文を保存する。答えが返るまで、終わってよい状態にならない。
 #[test]
 fn shutting_down_saves_the_edit_and_waits_for_the_answer() {
