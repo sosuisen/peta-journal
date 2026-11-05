@@ -11,6 +11,7 @@ use crate::screens::atlas::{self, Bounds};
 use crate::screens::{journal, page, sidebar};
 use crate::util::date::{format_instant, format_journal_date};
 use crate::util::filename::JournalType;
+use serde::Serialize;
 
 /// Where a task stands, by its `begin` and `end` properties.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -264,18 +265,30 @@ pub struct SidebarView {
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct SearchView {
     pub query: String,
-    pub page_results: Vec<SearchResult>,
-    pub item_results: Vec<SearchResult>,
+    /// The pages, the create entries and the items, in display order.
+    pub results: Vec<SearchEntry>,
     pub show_dropdown: bool,
-    /// The titles of the create entries, in display order.
-    pub create_titles: Vec<String>,
     pub selected_index: Option<usize>,
     /// The results are still those of an older query, as the answer to this one is on its way.
     pub searching: bool,
-    /// Index of the first create entry in the flat navigation order.
-    pub create_index: usize,
-    /// Index of the first item result in the flat navigation order.
-    pub item_offset: usize,
+}
+
+/// One line of the search results. `index` is what `Event::SearchResultClicked` takes.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct SearchEntry {
+    pub index: usize,
+    pub kind: SearchKind,
+    /// The path of the page, or of the page to create.
+    pub title: String,
+    pub snippet: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SearchKind {
+    Page,
+    Create,
+    Item,
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -502,17 +515,32 @@ fn sidebar(model: &Model) -> SidebarView {
 }
 
 fn search(model: &Model) -> SearchView {
-    let create_titles = crate::screens::search::create_titles(model);
-    let page_count = model.search.page_results.len();
+    let hits = |kind, results: &[SearchResult]| {
+        results
+            .iter()
+            .map(|r| (kind, r.page_title.clone(), r.snippet.clone()))
+            .collect::<Vec<_>>()
+    };
+    let creates = crate::screens::search::create_titles(model)
+        .into_iter()
+        .map(|title| (SearchKind::Create, title, String::new()));
+    let results = hits(SearchKind::Page, &model.search.page_results)
+        .into_iter()
+        .chain(creates)
+        .chain(hits(SearchKind::Item, &model.search.item_results))
+        .enumerate()
+        .map(|(index, (kind, title, snippet))| SearchEntry {
+            index,
+            kind,
+            title,
+            snippet,
+        })
+        .collect();
     SearchView {
         query: model.search.query.clone(),
-        page_results: model.search.page_results.clone(),
-        item_results: model.search.item_results.clone(),
+        results,
         show_dropdown: model.search.show_dropdown,
         selected_index: model.search.selected_index,
         searching: model.search.searching,
-        create_index: page_count,
-        item_offset: page_count + create_titles.len(),
-        create_titles,
     }
 }

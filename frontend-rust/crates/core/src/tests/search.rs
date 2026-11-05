@@ -58,6 +58,13 @@ fn on_doc_page() -> Harness {
     h
 }
 
+/// The titles of the create entries.
+fn creates(h: &Harness) -> Vec<String> {
+    let results = h.view().search.results;
+    let creates = results.into_iter().filter(|r| r.kind == SearchKind::Create);
+    creates.map(|r| r.title).collect()
+}
+
 fn entry(index: usize, kind: SearchKind, title: &str) -> SearchEntry {
     SearchEntry {
         index,
@@ -100,7 +107,7 @@ fn the_query_is_searched_after_a_pause_and_the_results_are_listed_with_their_num
 fn a_query_with_a_tag_offers_no_page_to_create() {
     let mut h = Harness::new();
     searched(&mut h, "#todo plan", vec![]);
-    assert!(h.view().search.create_titles.is_empty());
+    assert!(h.view().search.results.is_empty());
 }
 
 // 検索語が空になると、結果は検索せずにすぐ消える。
@@ -109,8 +116,7 @@ fn an_empty_query_clears_the_hits_at_once() {
     let mut h = Harness::new();
     searched(&mut h, "plan", vec![page_hit("Plans")]);
     typed(&mut h, "  ");
-    assert!(h.view().search.page_results.is_empty());
-    assert!(h.view().search.create_titles.is_empty());
+    assert!(h.view().search.results.is_empty());
     assert!(h.pending_timer_ids().is_empty());
     assert_eq!(h.api.calls_named("SearchCombined").len(), 1);
 }
@@ -139,7 +145,7 @@ fn a_failed_search_keeps_the_hits_shown() {
     h.api.fail_next("SearchCombined", "offline");
     typed(&mut h, "plans");
     h.fire_timers();
-    assert_eq!(h.view().search.page_results, [page_hit("Plans")]);
+    assert_eq!(h.view().search.results[0].title, "Plans");
 }
 
 // 検索語を変えると選択は消える。答えが届く前にEnterを押しても、前の検索語の結果は開かない。
@@ -203,10 +209,10 @@ fn opening_a_result_ends_the_running_search() {
 fn the_create_entries_offer_the_bare_title_and_the_title_in_the_folder_of_the_open_page() {
     let mut h = on_doc_page();
     searched(&mut h, "Plan", vec![]);
-    assert_eq!(h.view().search.create_titles, ["Plan", "notes/Plan"]);
+    assert_eq!(creates(&h), ["Plan", "notes/Plan"]);
 
     searched(&mut h, "Plan", vec![page_hit("plan")]);
-    assert_eq!(h.view().search.create_titles, ["notes/Plan"]);
+    assert_eq!(creates(&h), ["notes/Plan"]);
 
     h.model.sidebar.index_pages = vec![Page {
         dir_path: "notes/".into(),
@@ -214,7 +220,7 @@ fn the_create_entries_offer_the_bare_title_and_the_title_in_the_folder_of_the_op
         ..Default::default()
     }];
     searched(&mut h, "Plan", vec![]);
-    assert_eq!(h.view().search.create_titles, ["Plan"]);
+    assert_eq!(creates(&h), ["Plan"]);
 }
 
 // ジャーナルやルートのページを開いているときは、フォルダがないので素の名前だけを提案する。
@@ -223,7 +229,7 @@ fn a_journal_or_a_root_page_offers_only_the_bare_title() {
     let mut h = on_doc_page();
     h.model.current_page.as_mut().unwrap().page_type = "journal".into();
     searched(&mut h, "Plan", vec![]);
-    assert_eq!(h.view().search.create_titles, ["Plan"]);
+    assert_eq!(creates(&h), ["Plan"]);
 
     h.model.current_page = Some(Page {
         name: "Root".into(),
@@ -231,7 +237,7 @@ fn a_journal_or_a_root_page_offers_only_the_bare_title() {
         ..Default::default()
     });
     searched(&mut h, "Plan", vec![]);
-    assert_eq!(h.view().search.create_titles, ["Plan"]);
+    assert_eq!(creates(&h), ["Plan"]);
 }
 
 // 下キーと上キーは、ページ・作成・項目を通した一覧の上で選択を動かし、端で折り返す。結果がなければ何も選ばれない。
@@ -291,7 +297,7 @@ fn a_page_hit_opens_the_page_and_an_item_hit_jumps_to_the_item() {
     h.send(Event::SearchResultClicked { index: 2 });
     assert_eq!(urls(&h), ["/pages/Diary#i1"]);
     assert_eq!(h.view().search.query, "");
-    assert!(h.view().search.item_results.is_empty());
+    assert!(h.view().search.results.is_empty());
 
     searched(&mut h, "plan", vec![page_hit("Plans")]);
     h.send(Event::SearchResultClicked { index: 0 });
