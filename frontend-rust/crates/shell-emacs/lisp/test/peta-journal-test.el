@@ -512,6 +512,19 @@
       (should (string-match-p "exited abnormally with code 1" warning))
       (should (equal peta-journal--connection "shell stopped")))))
 
+;; こちらから止めたときは、警告を出さない。
+(ert-deftest peta-journal-stays-silent-when-told-to-stop-the-shell ()
+  (let* ((warning nil)
+         ;; Ends when its input closes, as the shell does
+         (peta-journal--process (peta-journal-test--emacs-process
+                                 #'peta-journal--sentinel "--eval" "(read-string \"\")")))
+    (cl-letf (((symbol-function 'display-warning)
+               (lambda (_type message &rest _) (setq warning message))))
+      (peta-journal-stop)
+      (accept-process-output nil 0.05))
+    (should-not (process-live-p peta-journal--process))
+    (should-not warning)))
+
 ;;;; Links
 
 ;; カーソルの下のウィキリンクとタグを読み取る。
