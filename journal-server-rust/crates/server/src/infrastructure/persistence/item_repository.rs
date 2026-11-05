@@ -336,6 +336,15 @@ impl ItemRepository {
     }
 
     /// Gives an item a new index on the given connection, as part of a larger transaction.
+    /// Gives an item a new modified date, for a change kept outside the item row.
+    pub fn touch_in(conn: &Connection, item_id: &Hmtid, modified_date: i64) -> AppResult<()> {
+        conn.execute(
+            "UPDATE items SET modified_date = ? WHERE id = ?",
+            params![modified_date, item_id.as_str()],
+        )?;
+        Ok(())
+    }
+
     pub fn update_index_in(conn: &Connection, item_id: &Hmtid, new_idx: &str) -> AppResult<()> {
         conn.execute(
             "UPDATE items SET idx = ? WHERE id = ?",

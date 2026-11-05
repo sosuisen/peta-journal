@@ -14,21 +14,27 @@ pub const IDX_KEY: &str = "idx";
 pub const COLLAPSED_KEY: &str = "collapsed";
 /// Metadata key that holds the source item ID of a transclusion.
 pub const TRANSCLUDE_KEY: &str = "transclude";
+/// Metadata key that holds when the item last changed, in the file of a page.
+pub const MODIFIED_KEY: &str = "modified";
 
 static EMPTY_SCALARS: BTreeMap<String, String> = BTreeMap::new();
 static EMPTY_LISTS: BTreeMap<String, Vec<String>> = BTreeMap::new();
 
 /// Serializes items in order, including their properties.
 pub fn serialize(items: &[Item], scalar_props: &ScalarProps, list_props: &ListProps) -> String {
-    serialize_with(items, scalar_props, list_props, &|s| s.to_string())
+    serialize_with(items, scalar_props, list_props, &|s| s.to_string(), &|_| {
+        None
+    })
 }
 
 /// Serializes items in order, passing each body through `body_mapper` before it is written.
+/// `date` gives the value of the `modified` key of an item, if it is to have one.
 pub fn serialize_with(
     items: &[Item],
     scalar_props: &ScalarProps,
     list_props: &ListProps,
     body_mapper: &dyn Fn(&str) -> String,
+    date: &dyn Fn(&Item) -> Option<String>,
 ) -> String {
     let mut out = String::new();
     for (i, item) in items.iter().enumerate() {
@@ -42,6 +48,7 @@ pub fn serialize_with(
             scalar_props.get(&id).unwrap_or(&EMPTY_SCALARS),
             list_props.get(&id).unwrap_or(&EMPTY_LISTS),
             body_mapper,
+            date(item).as_deref(),
         );
     }
     out
@@ -54,8 +61,9 @@ pub fn append_item(
     scalars: &BTreeMap<String, String>,
     lists: &BTreeMap<String, Vec<String>>,
     body_mapper: &dyn Fn(&str) -> String,
+    modified: Option<&str>,
 ) {
-    out.push_str(&metadata_line(item, scalars, lists));
+    out.push_str(&metadata_line(item, scalars, lists, modified));
     out.push('\n');
     let body = body_mapper(&body_with_task_prefix(item, scalars));
     // An empty body is expressed by the metadata line alone
@@ -66,11 +74,12 @@ pub fn append_item(
 }
 
 /// Builds the metadata line of an item. Properties are written in a fixed order: idx, collapsed,
-/// transclude, then the remaining keys sorted alphabetically.
+/// transclude, modified, then the remaining keys sorted alphabetically.
 pub fn metadata_line(
     item: &Item,
     scalars: &BTreeMap<String, String>,
     lists: &BTreeMap<String, Vec<String>>,
+    modified: Option<&str>,
 ) -> String {
     let mut sb = String::from("<!-- ");
     sb.push_str(&"@".repeat(item.level.max(1) as usize));
@@ -83,11 +92,17 @@ pub fn metadata_line(
     if let Some(t) = &item.transclude_item_id {
         append_property(&mut sb, TRANSCLUDE_KEY, t.as_str());
     }
+    if let Some(modified) = modified {
+        append_property(&mut sb, MODIFIED_KEY, modified);
+    }
     let mut others: BTreeMap<String, String> = scalars.clone();
     for (key, values) in lists {
         others.insert(key.clone(), values.join(","));
     }
     for (key, value) in &others {
+        if modified.is_some() && key == MODIFIED_KEY {
+            continue;
+        }
         append_property(&mut sb, key, value);
     }
     sb.push_str(" -->");
@@ -166,7 +181,7 @@ mod tests {
         let mut lists = BTreeMap::new();
         lists.insert("tags".to_string(), vec!["a".to_string(), "b".to_string()]);
         assert_eq!(
-            metadata_line(&it, &scalars, &lists),
+            metadata_line(&it, &scalars, &lists, None),
             "<!-- @ 2026-09-29-00-00-01-AAAAAAA idx=\"z0\" plan=\"2026-09-27\" tags=\"a,b\" -->"
         );
         assert_eq!(body_with_task_prefix(&it, &scalars), "- [ ] do it");

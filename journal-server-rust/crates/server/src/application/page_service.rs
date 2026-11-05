@@ -481,6 +481,12 @@ impl PageService {
 
     /// Sets the tags of a page as an imported file has them, and returns the tags it had.
     /// The tag pages are left to the caller, which knows when the import is complete.
+    /// The tags of the page.
+    pub fn page_tags(&self, page_id: &Hmtid) -> AppResult<Vec<String>> {
+        let conn = self.items.db().conn()?;
+        PropertyRepository::find_tags_in(&conn, PAGE_TARGET, page_id.as_str())
+    }
+
     pub fn replace_page_tags(&self, page_id: &Hmtid, tags: &[String]) -> AppResult<Vec<String>> {
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;

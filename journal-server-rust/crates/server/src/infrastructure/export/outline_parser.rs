@@ -4,9 +4,13 @@
 
 use std::collections::BTreeMap;
 
-use crate::application::flat_markdown_serializer::{COLLAPSED_KEY, IDX_KEY, TRANSCLUDE_KEY};
+use crate::application::flat_markdown_serializer::{
+    COLLAPSED_KEY, IDX_KEY, MODIFIED_KEY, TRANSCLUDE_KEY,
+};
 use crate::application::flat_markdown_splitter::{FlatMarkdownSplitter, SplitItem};
 use crate::domain::item_body::{ItemBody, TASK_TYPE};
+
+use super::page_matcher::parse_instant;
 
 /// Front matter and items of one parsed page.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -27,6 +31,8 @@ pub struct ParsedItem {
     pub properties: Vec<(String, String)>,
     pub transclude_item_id: Option<String>,
     pub idx: Option<String>,
+    /// When the item last changed. A file written before items had dates has none.
+    pub modified: Option<i64>,
 }
 
 impl ParsedItem {
@@ -41,6 +47,7 @@ impl ParsedItem {
             properties: Vec::new(),
             transclude_item_id: None,
             idx: None,
+            modified: None,
         }
     }
 }
@@ -121,12 +128,16 @@ fn to_parsed_item(item: &SplitItem) -> ParsedItem {
     let mut idx = None;
     let mut collapsed = false;
     let mut transclude = None;
+    let mut modified = None;
     let mut properties = Vec::new();
     for (k, v) in &item.properties {
         match k.as_str() {
             IDX_KEY => idx = Some(v.clone()),
             COLLAPSED_KEY => collapsed = v == "true",
             TRANSCLUDE_KEY => transclude = Some(v.clone()),
+            MODIFIED_KEY if parse_instant(Some(v)).is_some() => {
+                modified = parse_instant(Some(v));
+            }
             _ => properties.push((k.clone(), v.clone())),
         }
     }
@@ -145,6 +156,7 @@ fn to_parsed_item(item: &SplitItem) -> ParsedItem {
         properties,
         transclude_item_id: transclude,
         idx,
+        modified,
     }
 }
 

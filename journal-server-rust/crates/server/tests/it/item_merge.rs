@@ -274,6 +274,27 @@ fn a_file_edited_by_hand_is_taken_in_and_the_item_gets_a_new_date() {
     assert_ne!(modified_of(&before, &x), modified_of(&after, &x));
 }
 
+// 古い内容のまま手で保存したファイルは、アプリの編集に負けてもバックアップに残る。
+#[test]
+fn a_file_saved_by_hand_from_old_content_is_kept_as_a_backup_when_it_loses() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, _b, page, x, _) = two_devices_with_items(dir.path());
+    let before = a.file(PAGE);
+    a.write(&x, "x in the app");
+    a.export();
+    let edited = before.replace("\nx\n", "\nx by hand\n");
+    std::fs::write(a.root.join(PAGE), edited).unwrap();
+
+    assert_eq!(a.sync(PAGE), Outcome::Conflict);
+
+    assert_eq!(a.bodies(&page), ["x in the app", "y"]);
+    let backups = a.conflicts();
+    assert_eq!(backups.len(), 1);
+    assert!(std::fs::read_to_string(&backups[0])
+        .unwrap()
+        .contains("x by hand"));
+}
+
 // 手で消した行の項目は消える。
 #[test]
 fn an_item_whose_lines_were_removed_by_hand_goes() {
