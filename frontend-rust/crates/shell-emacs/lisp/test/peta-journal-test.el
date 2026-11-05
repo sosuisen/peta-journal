@@ -24,6 +24,7 @@
   "Run BODY in a peta-journal buffer that shows ROWS, with the shell replaced."
   (declare (indent 1))
   `(with-temp-buffer
+     (rename-buffer "*PetaJournal*")
      (peta-journal-mode)
      (setq peta-journal-test--sent nil)
      (let ((peta-journal--seq 0))
@@ -386,13 +387,10 @@
 ;; 届いた行は、途中で切れていても、改行まで揃ってから読まれる。
 (ert-deftest peta-journal-lines-from-the-shell-may-arrive-in-pieces ()
   (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
-    (let ((title nil))
-      (cl-letf (((symbol-function 'peta-journal--on-title)
-                 (lambda (text) (setq title text))))
-        (peta-journal--read-output "{\"t\":\"title\",\"ti")
-        (should (null title))
-        (peta-journal--read-output "tle\":\"題\"}\n")
-        (should (equal title "題"))))))
+    (peta-journal--read-output "{\"t\":\"title\",\"ti")
+    (should (equal peta-journal--title ""))
+    (peta-journal--read-output "tle\":\"題\"}\n")
+    (should (equal peta-journal--title "題"))))
 
 ;;;; Starting
 
