@@ -135,6 +135,16 @@ cargo cov --html     # target/llvm-cov/html/index.html, line by line
 `fm-leptos`. The wasm shell `peta-frontend` (`crates/shell-leptos`) is left out: it only runs in
 the browser, so the E2E tests cover it instead.
 
+### Emacs frontend
+
+`crates/shell-emacs` is a second shell around the same core. It is a native program, and an Emacs
+mode draws what it sends. `crates/shell-emacs/README.md` describes the setup, the keys and the tests.
+
+```powershell
+cd peta-journal/frontend-rust
+cargo build --release -p peta-shell-emacs
+```
+
 ## Atlas crate (atlas-rust)
 
 `atlas-rust` is the crate `peta-atlas`. The server and the frontend both use it, and so can
