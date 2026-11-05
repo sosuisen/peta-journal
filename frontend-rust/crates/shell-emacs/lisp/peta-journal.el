@@ -432,7 +432,9 @@ is handled when the outline it was meant for is on screen."
     ("status" (peta-journal--in-buffer
                (setq peta-journal--connection (plist-get message :connection))
                (force-mode-line-update)))
-    ("search" (peta-journal--on-search (plist-get message :query) (plist-get message :results)))
+    ("search" (peta-journal--on-search (plist-get message :query)
+                                       (plist-get message :results)
+                                       (plist-get message :searching)))
     ("recent" (setq peta-journal--recent (append (plist-get message :paths) nil)))
     ("backlinks" (setq peta-journal--backlinks (plist-get message :groups)))
     ("message" (message "%s" (plist-get message :text)))
@@ -502,7 +504,8 @@ Not from here but from a timer: a process filter is no place for a prompt."
 
 (defconst peta-journal--commands-that-end-the-edit
   '(peta-journal-save peta-journal-today peta-journal-find-page peta-journal-back
-    peta-journal-next-day peta-journal-previous-day peta-journal-open-at-point)
+    peta-journal-next-day peta-journal-previous-day peta-journal-open-at-point
+    peta-journal-search)
   "The commands after which the point stays in an item that is not being edited.
 A saved edit must stay closed, and a page being left has nothing more to edit.")
 
@@ -750,34 +753,159 @@ A saved edit must stay closed, and a page being left has nothing more to edit.")
       ("item" (format "%s: %s" title (string-replace "\n" " " snippet)))
       (_ title))))
 
-(defun peta-journal--on-search (query results)
-  "Show RESULTS of QUERY in the list of search results, when that list is open."
-  (when-let* ((buffer (get-buffer "*PetaJournal Search*")))
-    (unless (string-empty-p query)
-      (with-current-buffer buffer
-        (let ((inhibit-read-only t))
-          (erase-buffer)
-          (insert (format "Search: %s\n\n" query))
-          (seq-doseq (entry results)
-            (let ((index (plist-get entry :index)))
-              (peta-journal--insert-entry
-               (peta-journal--search-line entry)
-               (lambda ()
-                 (peta-journal--in-buffer (peta-journal--finish-edit))
-                 (peta-journal--send "search_result" :index index)))))
-          (goto-char (point-min))
-          (forward-line 2))))))
+(defconst peta-journal--search-buffer "*PetaJournal Search*"
+  "The name of the list of search results.")
 
-(defun peta-journal-search (query)
-  "Search the pages and the items for QUERY."
-  (interactive "sSearch: ")
-  (peta-journal--ensure-started)
-  (with-current-buffer (get-buffer-create "*PetaJournal Search*")
-    (peta-journal-list-mode)
+(defvar peta-journal--searching nil
+  "Non-nil while the results are not yet those of the latest query.")
+
+(defvar peta-journal--search-history nil "The queries typed so far.")
+
+(defvar-local peta-journal--search-entries []
+  "The search results on screen.")
+(defvar-local peta-journal--search-selected nil
+  "The line of the selected result, or nil.")
+(defvar-local peta-journal--search-marks nil
+  "The overlays that mark the selected result.")
+
+(defun peta-journal--search-show-selection ()
+  "Mark the selected result, and scroll the list to it."
+  (mapc #'delete-overlay peta-journal--search-marks)
+  (setq peta-journal--search-marks nil)
+  (when peta-journal--search-selected
+    (goto-char (point-min))
+    (forward-line peta-journal--search-selected)
+    (let ((line (make-overlay (point) (line-beginning-position 2)))
+          (arrow (make-overlay (point) (+ (point) 2))))
+      (overlay-put line 'face 'highlight)
+      (overlay-put arrow 'display "> ")
+      (setq peta-journal--search-marks (list line arrow)))
+    (when-let* ((window (get-buffer-window (current-buffer) t)))
+      (set-window-point window (point)))))
+
+(defun peta-journal--search-render (results)
+  "Show RESULTS.  The selection stays when they are on screen already."
+  (unless (equal results peta-journal--search-entries)
     (let ((inhibit-read-only t))
-      (erase-buffer)))
-  (peta-journal--send "search" :query query)
-  (pop-to-buffer "*PetaJournal Search*"))
+      (erase-buffer)
+      (seq-doseq (entry results)
+        (insert "  " (peta-journal--search-line entry) "\n")))
+    (setq peta-journal--search-entries results
+          peta-journal--search-selected (and (> (length results) 0) 0))
+    (peta-journal--search-show-selection)))
+
+(defun peta-journal--on-search (_query results searching)
+  "Show RESULTS in the list, when it is open.
+SEARCHING says that the results of a newer query are coming."
+  (setq peta-journal--searching searching)
+  (when-let* ((buffer (get-buffer peta-journal--search-buffer)))
+    (with-current-buffer buffer
+      (peta-journal--search-render results))))
+
+(defun peta-journal--search-open ()
+  "Open the empty list of search results below, without selecting it."
+  (with-current-buffer (get-buffer-create peta-journal--search-buffer)
+    (peta-journal-list-mode)
+    (display-buffer (current-buffer)
+                    '((display-buffer-at-bottom) (window-height . 0.4)))))
+
+(defun peta-journal--search-close ()
+  "Close the list of search results."
+  (when-let* ((buffer (get-buffer peta-journal--search-buffer)))
+    (when-let* ((window (get-buffer-window buffer t)))
+      (quit-restore-window window 'bury))
+    (kill-buffer buffer)))
+
+(defun peta-journal--search-choice ()
+  "The number the core gave to the selected result, or nil."
+  (when-let* ((buffer (get-buffer peta-journal--search-buffer)))
+    (with-current-buffer buffer
+      (when peta-journal--search-selected
+        (plist-get (aref peta-journal--search-entries peta-journal--search-selected)
+                   :index)))))
+
+(defun peta-journal--search-move (step)
+  "Move the selection by STEP results, going round at the ends.
+This waits for the results of the query typed, as their arrival resets the
+selection.  The keys pressed in the meantime stay in the input queue."
+  (peta-journal--search-settled-p)
+  (with-current-buffer peta-journal--search-buffer
+    (when peta-journal--search-selected
+      (setq peta-journal--search-selected
+            (mod (+ peta-journal--search-selected step)
+                 (length peta-journal--search-entries)))
+      (peta-journal--search-show-selection))))
+
+(defun peta-journal-search-next ()
+  "Select the next search result."
+  (interactive)
+  (peta-journal--search-move 1))
+
+(defun peta-journal-search-previous ()
+  "Select the previous search result."
+  (interactive)
+  (peta-journal--search-move -1))
+
+(defun peta-journal--search-settled-p ()
+  "Wait for the results of the query typed.  Non-nil when they have arrived.
+The core waits for a pause in the typing before it searches.  Without this
+wait, a quick RET would open a result of an older query."
+  (let ((deadline (+ (float-time) peta-journal--wait-seconds))
+        (settled (lambda ()
+                   (and (>= peta-journal--ack peta-journal--seq)
+                        (not peta-journal--searching)))))
+    (while (and (process-live-p peta-journal--process)
+                (not (funcall settled))
+                (< (float-time) deadline))
+      (accept-process-output peta-journal--process 0.05))
+    (funcall settled)))
+
+(defun peta-journal-search-exit ()
+  "Open the selected search result."
+  (interactive)
+  (cond
+   ((not (peta-journal--search-settled-p))
+    (minibuffer-message "The search does not answer"))
+   ((peta-journal--search-choice) (exit-minibuffer))
+   (t (minibuffer-message "No result to open"))))
+
+(defun peta-journal--search-input-changed (_beg _end _length)
+  "Search for what the minibuffer holds now."
+  (peta-journal--send "search" :query (minibuffer-contents-no-properties)))
+
+(defvar-keymap peta-journal-search-minibuffer-map
+  :parent minibuffer-local-map
+  "RET" #'peta-journal-search-exit
+  "C-j" #'peta-journal-search-exit
+  "C-n" #'peta-journal-search-next
+  "C-p" #'peta-journal-search-previous
+  "<down>" #'peta-journal-search-next
+  "<up>" #'peta-journal-search-previous)
+
+;;;###autoload
+(defun peta-journal-search ()
+  "Search as you type, and open a page, a new page or an item from the results.
+C-n and C-p select a result, RET opens it, and C-g closes the search."
+  (interactive)
+  (let ((page (peta-journal--ensure-started))
+        (chosen nil))
+    (peta-journal--search-open)
+    (unwind-protect
+        (progn
+          (minibuffer-with-setup-hook
+              (lambda ()
+                (add-hook 'after-change-functions
+                          #'peta-journal--search-input-changed nil t))
+            (read-from-minibuffer "Search: " nil peta-journal-search-minibuffer-map
+                                  nil 'peta-journal--search-history))
+          (setq chosen (peta-journal--search-choice)))
+      (peta-journal--search-close)
+      (unless chosen
+        (peta-journal--send "search" :query "")))
+    (peta-journal--go "search_result" :index chosen)
+    (if-let* ((window (get-buffer-window page)))
+        (select-window window)
+      (pop-to-buffer-same-window page))))
 
 (defun peta-journal-backlinks ()
   "List the pages that link to the page on screen."
@@ -818,7 +946,7 @@ A saved edit must stay closed, and a page being left has nothing more to edit.")
   "C-c C-o" #'peta-journal-open-at-point
   "C-c C-j" #'peta-journal-today
   "C-c C-f" #'peta-journal-find-page
-  "C-c C-s" #'peta-journal-search
+  "C-c /" #'peta-journal-search
   "C-c C-b" #'peta-journal-backlinks
   "C-c C-l" #'peta-journal-back
   "C-c C-n" #'peta-journal-next-day

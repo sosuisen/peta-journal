@@ -79,8 +79,29 @@ These keys go to other places:
 | `C-c C-n`, `C-c C-p` | The next or the previous journal |
 | `C-c C-l` | Back to the page before |
 | `C-c C-o` | Open the wiki link or the tag at the point |
-| `C-c C-s` | Search |
+| `C-c /` | The search box |
 | `C-c C-b` | Backlinks of this page |
+
+## The search box
+
+Press `C-c /` and type in the minibuffer. The results appear in a window below and change as you
+type. They list the pages, an entry that makes a new page, and the items.
+
+| Key | Action |
+|---|---|
+| `C-n`, `<down>` | Select the next result |
+| `C-p`, `<up>` | Select the previous result |
+| `RET` | Open the selected result |
+| `C-g` | Close the search box and stay on the page |
+
+You can press these keys right after typing. They wait for the results of what you typed.
+
+To open the search box from any buffer, add this to your Emacs init file:
+
+```elisp
+(autoload 'peta-journal-search "peta-journal" nil t)
+(global-set-key (kbd "C-c /") #'peta-journal-search)
+```
 
 ## Not in this version
 
