@@ -446,14 +446,31 @@ fn navigation_opens_pages_and_back_returns_to_the_previous_one() {
     );
 }
 
-// ハッシュタグは、設定のタグのフォルダのページを開く。
+// カーソルの下のタグは、そのページを開く。
 #[test]
-fn a_tag_opens_its_page() {
-    let mut driver = Driver::open(&[item("a", 1, "x")]);
-    driver.send(Inbound::OpenTag { tag: "rust".into() });
+fn the_tag_at_the_cursor_opens_its_page() {
+    let mut driver = Driver::open(&[item("a", 1, "about #rust")]);
+    driver.send(Inbound::OpenLinkAt {
+        id: "a".into(),
+        cursor: 8,
+    });
     assert!(
         driver.waiting(|op| matches!(op, ApiOp::GetOrCreateDoc { title, .. } if title == "rust"))
     );
+}
+
+// カーソルの下にリンクがなければ、そのことをEmacsに伝える。
+#[test]
+fn emacs_is_told_when_the_cursor_is_not_on_a_link() {
+    let mut driver = Driver::open(&[item("a", 1, "plain")]);
+    driver.send(Inbound::OpenLinkAt {
+        id: "a".into(),
+        cursor: 2,
+    });
+    assert!(driver
+        .sent()
+        .iter()
+        .any(|m| matches!(m, Outbound::Message { text } if text == "No link here")));
 }
 
 // 処理した行の番号がEmacsに伝わる。Emacsはこれを待って次のキーを処理する。

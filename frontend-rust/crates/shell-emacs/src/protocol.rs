@@ -26,11 +26,9 @@ pub enum Inbound {
     GoToPage {
         path: String,
     },
-    OpenWikiLink {
-        text: String,
-    },
-    OpenTag {
-        tag: String,
+    OpenLinkAt {
+        id: String,
+        cursor: usize,
     },
     JournalNav {
         forward: bool,

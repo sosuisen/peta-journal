@@ -1,7 +1,6 @@
 //! The keyboard shortcuts of the editor.
 
 use super::text::insert_at_cursor;
-use super::wiki::wiki_link_at_caret;
 use crate::core::CoreHandle;
 use crate::dom;
 use leptos::prelude::*;
@@ -62,11 +61,12 @@ pub(super) fn handle_keydown(
     }
 
     if key == "o" && ev.ctrl_key() {
-        if let Some(link) = wiki_link_at_caret(&value, start) {
-            ev.prevent_default();
-            send(Event::OpenWikiLink { text: link });
-            return;
-        }
+        ev.prevent_default();
+        send(Event::OpenLinkAt {
+            item_id: id,
+            cursor: dom::utf16_to_chars(&value, start),
+        });
+        return;
     }
 
     if key == "Enter" && ev.ctrl_key() {

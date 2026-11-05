@@ -5,11 +5,25 @@
 use crate::app::{apply, cancel_timer, done, log_error, run, Cmd, Model, WikiLinkContext};
 use crate::effects::TimerOutput;
 use crate::ops::edit::record_typing;
-use crate::util::char_len;
+use crate::screens::navigate::open_page;
+use crate::util::{char_len, link_at, Link};
 use crux_core::Command;
 
 /// How long typing may pause before the page names are searched.
 pub const SEARCH_DELAY_MS: u32 = 150;
+
+/// Opens the page of the wiki link or the tag at the cursor. Off a link, nothing happens.
+pub fn open_link_at(model: &Model, item_id: &str, cursor: usize) -> Cmd {
+    let link = model
+        .state
+        .get_item_by_id(item_id)
+        .and_then(|item| link_at(&item.body, cursor));
+    match link {
+        Some(Link::Wiki(name)) => open_page(&name),
+        Some(Link::Tag(tag)) => open_page(&format!("{}{tag}", model.config.tags_dir)),
+        None => done(),
+    }
+}
 
 /// True when the popup is open for this item.
 pub fn is_shown_for(model: &Model, item_id: &str) -> bool {

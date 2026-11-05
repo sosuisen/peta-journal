@@ -76,6 +76,24 @@ test.describe('outline content', () => {
     expect(items.map(i => i.body)).toEqual(['```\none\ntwo\n```']);
   });
 
+  test('Ctrl+O opens the wiki link at the caret', async ({ page, request }) => {
+    const target = await new Server(request).newDocPage('CtrlO');
+    await page.keyboard.type(`go to [[${target.title}`);  // the editor closes the link itself
+
+    await page.keyboard.press('Control+o');
+
+    await expect(page).toHaveURL(new RegExp(`/pages/${target.title}$`));
+  });
+
+  test('Ctrl+O opens the page of the tag at the caret', async ({ page }) => {
+    const tag = `tag${Date.now()}`;
+    await page.keyboard.type(`about #${tag}`);
+
+    await page.keyboard.press('Control+o');
+
+    await expect(page).toHaveURL(new RegExp(`/pages/(.*/)?${tag}$`));
+  });
+
   test('Shift+Enter puts a line break inside the item instead of splitting it', async ({ page }) => {
     const [first] = await server.items(pageId);
     await page.keyboard.type('line one');
