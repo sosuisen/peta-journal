@@ -391,6 +391,33 @@ mod tests {
         );
     }
 
+    // NFCにすると別の行と同じ名前になる行は、項目も含めてそのまま残り、データベースは開ける。
+    #[test]
+    fn a_row_that_would_take_the_name_of_another_row_stays_as_it_is() {
+        let conn = Connection::open_in_memory().unwrap();
+        run(&conn, &IdGenerator::new()).unwrap();
+        add_page_with_file(&conn, "p1", "", "\u{30ac}");
+        add_page_with_file(&conn, "p2", "", "\u{30ab}\u{3099}");
+        set_version(&conn, 2);
+
+        run(&conn, &IdGenerator::new()).unwrap();
+
+        assert_eq!(user_version(&conn).unwrap(), MIGRATIONS.len());
+        let name_of = "SELECT name FROM pages WHERE id = ?";
+        assert_eq!(text(&conn, name_of, "p1"), "\u{30ac}");
+        assert_eq!(text(&conn, name_of, "p2"), "\u{30ab}\u{3099}");
+        let path_of = "SELECT rel_path FROM file_sync_state WHERE page_id = ?";
+        assert_eq!(text(&conn, path_of, "p1"), "docs/\u{30ac}.md");
+        assert_eq!(text(&conn, path_of, "p2"), "docs/\u{30ab}\u{3099}.md");
+        assert_eq!(
+            count(
+                &conn,
+                "SELECT COUNT(*) FROM items WHERE page_id IN ('p1', 'p2')"
+            ),
+            2
+        );
+    }
+
     // 新しいサーバーのデータベースは、開かれない。
     #[test]
     fn a_database_of_a_newer_server_is_refused() {
