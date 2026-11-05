@@ -17,8 +17,8 @@
 
 (defun peta-journal-test--row (id level body &rest more)
   "A row as the shell sends it, with ID, LEVEL and BODY, and MORE fields."
-  (append (list :id id :level level :body body :bullet "plain" :collapsed nil :header nil)
-          more))
+  (append more
+          (list :id id :level level :body body :bullet "plain" :collapsed nil :header nil)))
 
 (defmacro peta-journal-test--with-rows (rows &rest body)
   "Run BODY in a peta-journal buffer that shows ROWS, with the shell replaced."
@@ -26,13 +26,14 @@
   `(with-temp-buffer
      (peta-journal-mode)
      (setq peta-journal-test--sent nil)
-     (cl-letf (((symbol-function 'peta-journal--send)
-                (lambda (type &rest fields)
-                  (setq peta-journal-test--sent
-                        (append peta-journal-test--sent (list (cons type fields))))))
-               ((symbol-function 'peta-journal--wait) #'ignore))
-       (peta-journal--apply-rows (vconcat ,rows) "page" 0)
-       ,@body)))
+     (let ((peta-journal--seq 0))
+       (cl-letf (((symbol-function 'peta-journal--send)
+                  (lambda (type &rest fields)
+                    (setq peta-journal-test--sent
+                          (append peta-journal-test--sent (list (cons type fields))))))
+                 ((symbol-function 'peta-journal--wait) #'ignore))
+         (peta-journal--apply-rows (vconcat ,rows) "page" 0)
+         ,@body))))
 
 (defun peta-journal-test--goto (id cursor)
   "Put the point in the item ID at CURSOR, as a command would."
@@ -302,7 +303,9 @@
   (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "xy"))
     (peta-journal-test--goto "a" 1)
     (setq peta-journal-test--sent nil)
-    (let ((kill-ring (list (propertize "貼" 'face 'bold))))
+    ;; Without this, the kill comes from the clipboard of the OS
+    (let ((interprogram-paste-function nil)
+          (kill-ring (list (propertize "貼" 'face 'bold))))
       (peta-journal-yank))
     (should (equal peta-journal-test--sent '(("paste" :id "a" :text "貼" :cursor 1))))
     (should-not (text-properties-at 0 (plist-get (cdar peta-journal-test--sent) :text)))))
