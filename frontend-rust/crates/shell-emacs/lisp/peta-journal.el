@@ -1013,7 +1013,7 @@ Type in a body as in any buffer.  The outline changes through these keys:
   "The program to run: the one set, or on the `exec-path', or in the build folder."
   (or peta-journal-shell-program
       (executable-find "peta-shell-emacs")
-      (let* ((here (file-name-directory (or load-file-name (locate-library "peta-journal"))))
+      (let* ((here (file-name-directory (locate-library "peta-journal")))
              (target (expand-file-name "../../../target/" here)))
         (seq-find #'file-executable-p
                   (mapcan (lambda (profile)
