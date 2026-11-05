@@ -65,6 +65,17 @@ test.describe('outline content', () => {
     await expect(page.locator('app-outline-item').first()).toBeVisible();
   });
 
+  test('Enter inside a code fence adds a line and the caret follows it', async ({ page }) => {
+    await page.keyboard.type('```');  // the editor closes the fence itself
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('one');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('two');
+
+    const items = await server.itemsSettled(pageId, i => i[0].body.includes('two'));
+    expect(items.map(i => i.body)).toEqual(['```\none\ntwo\n```']);
+  });
+
   test('Ctrl+O opens the wiki link at the caret', async ({ page, request }) => {
     const target = await new Server(request).newDocPage('CtrlO');
     await page.keyboard.type(`go to [[${target.title}`);  // the editor closes the link itself

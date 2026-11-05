@@ -34,6 +34,34 @@ fn enter_in_the_middle_keeps_the_text_before_the_cursor_and_moves_the_rest_below
     assert_eq!(h.focus_cursor(), Some(0));
 }
 
+// 閉じていないコードフェンスの中のEnterは、項目を分けずに改行を入れ、カーソルを次の行へ進める。改行はふつうの入力と同じく後で保存される。
+#[test]
+fn enter_inside_an_open_code_fence_adds_a_line_instead_of_an_item() {
+    let mut h = Harness::with_items(vec![item("a", 1, "```\n日本語\n```")]);
+    h.model.state.add_editing_item("a");
+    enter(&mut h, "a", 7);
+    assert_eq!(h.bodies(), ["a=```\n日本語\n\n```"]);
+    assert_eq!(h.focus_cursor(), Some(8));
+    assert!(h.model.state.is_editing("a"));
+    assert!(!h.model.key_relay.is_holding());
+    assert!(create_calls(&h.api).is_empty());
+    assert!(update_calls(&h.api).is_empty());
+    h.fire_timers();
+    assert_eq!(
+        update_calls(&h.api),
+        [("a".into(), Some("```\n日本語\n\n```".into()))]
+    );
+}
+
+// 閉じたコードフェンスの後のEnterは、ふつうに項目を分ける。
+#[test]
+fn enter_after_a_closed_code_fence_splits_the_item() {
+    let mut h = Harness::with_items(vec![item("a", 1, "```\ncode\n```\nafter")]);
+    h.model.state.add_editing_item("a");
+    enter(&mut h, "a", 12);
+    assert_eq!(h.bodies(), ["a=```\ncode\n```", "new1=\nafter"]);
+}
+
 // 末尾での Enter は空の項目をすぐに示し、クライアントが作った id でバックグラウンドで作成する。
 #[test]
 fn enter_at_the_end_shows_an_empty_item_at_once_and_creates_it_in_the_background() {

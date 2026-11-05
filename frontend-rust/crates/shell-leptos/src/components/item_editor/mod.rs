@@ -66,6 +66,15 @@ pub fn ItemEditor(row: RwSignal<Row>) -> impl IntoView {
             match mine {
                 Some(req) => {
                     consumed.set_value(req.seq);
+                    // The row reaches this editor after this Effect. Setting its new body then
+                    // would throw the caret to the end, so the body goes in before the caret.
+                    let body = vm.with_untracked(|v| {
+                        let row = v.outline.rows.iter().find(|r| r.item.id == item_id);
+                        row.map(|r| r.item.body.clone())
+                    });
+                    if let Some(body) = body.filter(|body| *body != el.value()) {
+                        el.set_value(&body);
+                    }
                     if let Some(cursor) = req.cursor {
                         dom::set_cursor_chars(&el, cursor);
                     }

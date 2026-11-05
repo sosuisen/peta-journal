@@ -15,7 +15,7 @@ use peta_core::effects::{
     ApiOp, ApiResult, Effect, LocalDateTimeDto, SseEvent, SseOp, TimerOp, TimerOutput, UiOp,
     UiOutput,
 };
-use peta_core::util::{has_unclosed_code_fence, link_at};
+use peta_core::util::link_at;
 use peta_core::view::{ScreenView, SearchView};
 use peta_core::{Event, PetaApp, ViewModel};
 use serde_json::Value;
@@ -245,31 +245,6 @@ impl<H: Host> Shell<H> {
     }
 
     fn enter(&mut self, id: String, cursor: usize) {
-        let view = self.core.view();
-        let body = view
-            .outline
-            .rows
-            .iter()
-            .find(|r| r.item.id == id)
-            .map(|r| r.item.body.clone())
-            .unwrap_or_default();
-        let before: String = body.chars().take(cursor).collect();
-        if has_unclosed_code_fence(&before) {
-            let after: String = body.chars().skip(cursor).collect();
-            let now_ms = self.host.now().now_ms;
-            self.after_render.push(Outbound::Focus {
-                ack: self.ack,
-                id: id.clone(),
-                cursor: Some(cursor + 1),
-            });
-            // Not through `body_changed`: Emacs does not have this newline yet
-            self.send(Event::BodyChanged {
-                item_id: id,
-                body: format!("{before}\n{after}"),
-                now_ms,
-            });
-            return;
-        }
         let now_ms = self.host.now().now_ms;
         self.send(Event::EnterPressed {
             item_id: id,
