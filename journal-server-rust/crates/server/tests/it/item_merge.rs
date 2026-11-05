@@ -900,6 +900,7 @@ fn the_scan_takes_in_a_copy_found_in_the_folder() {
     a.state.reconcile.scan();
 
     assert_eq!(a.bodies(&page), ["x", "y from B"]);
+    assert!(a.file(PAGE).contains("y from B"));
     assert!(!a.has_copy());
 }
 

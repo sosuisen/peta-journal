@@ -229,7 +229,7 @@ impl MarkdownImportService {
         if merge.file_lost {
             self.write_conflict_backup(root, rel_path, loc, &content);
         }
-        if merge.changed || merge.changed_here || page_tags_before != page_tags {
+        if merge.changed || page_tags_before != page_tags {
             let page = self.page_matcher.touch(&page, loc, now)?;
             self.export.queue_export(&page.id);
             self.page_service.update_tag_pages(
