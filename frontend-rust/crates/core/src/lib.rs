@@ -7,6 +7,7 @@ pub mod effects;
 pub mod model;
 pub mod ops;
 pub mod outline;
+pub mod rest;
 pub mod screens;
 pub mod testing;
 pub mod util;

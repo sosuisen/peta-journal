@@ -42,6 +42,7 @@ mod atlas;
 
 // 設定とサーバーと付き合う
 mod file_reload;
+mod rest;
 mod settings;
 mod sse;
 
