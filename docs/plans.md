@@ -88,8 +88,9 @@
   - [x] `hmtid`の`serde_round_trip`を消す（`Display`は別のテストが確かめている）
   - [x] `Bounds`型: 4つの数の解析を境界で一度だけ行い、不正な値のテストを型の単体テストへ移す
   - [x] `JournalName`型: ジャーナルの名前の解析を境界で一度だけ行い、拒否のテストを型の単体テストへ移す
-  - [ ] `ItemBody::parse`の引数を`Option<&str>`から`&str`にし、`None`の分岐とテストを消す
+  - [x] `ItemBody::parse`の引数を`Option<&str>`から`&str`にし、`None`の分岐とテストを消す
   - やらないと決めたもの: checkboxの値の`bool`化とASTの型化。保存の形まで変わるので、見合わない
-- [ ] 書き出し: ページを削除・改名すると、古いmarkdownファイルが消えることをテストで確かめる（ミュータント`replace delete_quietly with ()`を取り逃している。PR #72）
-- [ ] `fractional_index.rs`の`shorten`のテストを強くする（ミュータント`replace + with * in shorten`を取り逃している）
+- [x] 書き出し: ページを削除・改名すると、古いmarkdownファイルが消えることをテストで確かめる（ミュータント`replace delete_quietly with ()`を取り逃している。PR #72）
+- [x] `fractional_index.rs`の`shorten`で、ミュータント`replace + with * in shorten`を消す（等価なので、テストではなく書き直しで消した）
+- [ ] 項目の作成: 本文がタスクの接頭辞で始まると、型に`task`が入ることをテストで確かめる（`ItemBody::all_types`の`task`を足す行を、どのテストも通っていない）
 - [ ] `frontend-rust`に、PR #66のビルドの設定（`debug = "line-tables-only"`、依存の`debug = false`、Windowsの`rust-lld.exe`）を入れる

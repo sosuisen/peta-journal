@@ -139,7 +139,7 @@ pub fn shorten(indices: &[&str]) -> Result<Vec<(usize, String)>, NoGap> {
             continue;
         }
         let left = (0..i).rev().find(|&k| indices[k].len() <= SHORT_LEN);
-        let right = (i + 1..indices.len()).find(|&k| indices[k].len() <= SHORT_LEN);
+        let right = (i..indices.len()).find(|&k| indices[k].len() <= SHORT_LEN);
         let start = left.map_or(0, |k| k + 1);
         let end = right.unwrap_or(indices.len());
         let fresh = between_many(

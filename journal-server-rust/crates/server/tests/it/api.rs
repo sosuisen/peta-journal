@@ -171,6 +171,21 @@ async fn a_client_id_is_kept() {
     assert_eq!(resp["item"]["id"].as_str(), Some(id.as_str()));
 }
 
+// 本文を省いて作った項目の本文は空である。
+#[tokio::test]
+async fn an_item_made_without_a_body_has_an_empty_body() {
+    let page = new_doc_page("items-no-body").await;
+
+    let (status, resp) = post(
+        "/api/items",
+        json!({ "pageId": page.id, "position": "last", "level": 1 }),
+    )
+    .await;
+
+    assert_eq!(status, 200, "{resp}");
+    assert_eq!(resp["item"]["body"], json!(""));
+}
+
 // 本文のハッシュタグがtagsプロパティとして返る。
 #[tokio::test]
 async fn a_hashtag_in_the_body_comes_back_as_a_tag_property() {
@@ -1562,6 +1577,63 @@ async fn a_change_made_to_the_file_is_merged_into_the_page() {
         outline_of(&page.id).await,
         vs(&["1:edited on disk, a bit longer"])
     );
+}
+
+/// Exports the page, and returns its file once it is there.
+async fn exported_file_of(page: &PageRef) -> std::path::PathBuf {
+    let file = file_of(page);
+    wait_until(page, "the page has its file", || file.exists()).await;
+    file
+}
+
+async fn rename(page: &PageRef) -> PageRef {
+    let title = format!("{}-renamed", page.title);
+    let (status, resp) = put(
+        &format!("/api/pages/{}", page.id),
+        json!({ "title": title, "dirPath": "" }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+    PageRef {
+        id: page.id.clone(),
+        title,
+    }
+}
+
+// ページの名前を変えて書き出すと、古い名前のファイルは消える。
+#[tokio::test]
+async fn exporting_a_renamed_page_removes_the_file_of_its_old_name() {
+    let page = new_doc_page("sync-export-rename").await;
+    let old_file = exported_file_of(&page).await;
+
+    let renamed = rename(&page).await;
+    let new_file = exported_file_of(&renamed).await;
+
+    assert!(new_file.exists());
+    assert!(!old_file.exists());
+}
+
+// ページを削除すると、そのファイルも消える。
+#[tokio::test]
+async fn deleting_a_page_removes_its_file() {
+    let page = new_doc_page("sync-export-delete").await;
+    let file = exported_file_of(&page).await;
+
+    assert_eq!(delete(&format!("/api/pages/{}", page.id)).await, 204);
+
+    assert!(!file.exists());
+}
+
+// 名前を変えたページを書き出す前に削除しても、古い名前のファイルは消える。
+#[tokio::test]
+async fn deleting_a_renamed_page_before_its_export_removes_the_file_of_its_old_name() {
+    let page = new_doc_page("sync-export-rename-delete").await;
+    let old_file = exported_file_of(&page).await;
+
+    rename(&page).await;
+    assert_eq!(delete(&format!("/api/pages/{}", page.id)).await, 204);
+
+    assert!(!old_file.exists());
 }
 
 // フォルダに置いた新しいファイルはページになる。
