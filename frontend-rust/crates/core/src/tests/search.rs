@@ -136,9 +136,9 @@ fn enter_right_after_changing_the_query_opens_no_result_of_the_old_query() {
     assert_eq!(h.view().search.selected_index, Some(0));
 
     typed(&mut h, "plans");
-    assert_eq!(h.view().search.selected_index, None);
     key(&mut h, SearchKey::Enter);
-    assert!(urls(&h).is_empty());
+    assert_eq!(urls(&h), Vec::<String>::new());
+    assert_eq!(h.view().search.selected_index, None);
 }
 
 // 検索語を受けてから答えが届くまで、検索中である。
