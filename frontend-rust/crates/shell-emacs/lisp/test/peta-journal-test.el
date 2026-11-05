@@ -527,16 +527,17 @@
 
 ;;;; Closing what was typed
 
-;; `[`とバッククォートを打つと、カーソルの位置をシェルへ伝える。他の文字では伝えない。
+;; `[`と`]`とバッククォートを打つと、カーソルの位置をシェルへ伝える。他の文字では伝えない。
 (ert-deftest peta-journal-reports-only-the-characters-that-may-need-closing ()
   (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 ""))
     (peta-journal-test--goto "a" 0)
-    (dolist (key '(?x ?\[ ?`))
+    (dolist (key '(?x ?\[ ?\] ?`))
       (let ((last-command-event key))
         (self-insert-command 1)))
     (should (equal (peta-journal-test--sent-of "typed")
                    '(("typed" :id "a" :cursor 2)
-                     ("typed" :id "a" :cursor 3))))))
+                     ("typed" :id "a" :cursor 3)
+                     ("typed" :id "a" :cursor 4))))))
 
 ;;;; Links
 
