@@ -1,12 +1,12 @@
 //! The real [`Host`]: threads for HTTP, timers and the event stream, and JSON lines on stdin and
 //! stdout. The E2E test in `lisp/test/` runs this file, as a unit test would need the OS.
 
-use crate::api::{call, Http, HttpResponse};
+use crate::api::{call, Http};
 use crate::protocol::{Envelope, Outbound};
 use crate::shell::{Host, Input, Now, Shell};
 use chrono::{Datelike, Local, Timelike};
 use peta_core::effects::{ApiOp, LocalDateTimeDto, SseEvent};
-use serde_json::Value;
+use peta_core::rest::{HttpReply, HttpRequest};
 use std::io::{BufRead, Write};
 use std::sync::mpsc::{channel, RecvTimeoutError, Sender};
 use std::thread;
@@ -39,9 +39,9 @@ impl UreqHttp {
 }
 
 impl Http for UreqHttp {
-    fn send(&self, method: &str, path: &str, body: Option<&Value>) -> Result<HttpResponse, String> {
-        let url = format!("{}{path}", self.server);
-        let result = match (method, body) {
+    fn send(&self, request: &HttpRequest) -> Result<HttpReply, String> {
+        let url = format!("{}{}", self.server, request.path);
+        let result = match (request.method, &request.body) {
             ("POST", Some(body)) => self.agent.post(&url).send_json(body),
             ("POST", None) => self.agent.post(&url).send_empty(),
             ("PUT", Some(body)) => self.agent.put(&url).send_json(body),
@@ -57,7 +57,7 @@ impl Http for UreqHttp {
             .limit(u64::MAX)
             .read_to_string()
             .map_err(|e| e.to_string())?;
-        Ok(HttpResponse { status, body })
+        Ok(HttpReply { status, body })
     }
 }
 
