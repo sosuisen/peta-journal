@@ -4,6 +4,7 @@ use crate::core::CoreHandle;
 use crate::dom;
 use leptos::prelude::*;
 use peta_core::app::SearchKey;
+use peta_core::view::{SearchEntry, SearchKind};
 use peta_core::Event;
 
 #[component]
@@ -22,11 +23,7 @@ pub fn SearchBar() -> impl IntoView {
         }
     });
 
-    let has_results = move || {
-        search.with(|s| {
-            !s.page_results.is_empty() || !s.item_results.is_empty() || !s.create_titles.is_empty()
-        }) && search.with(|s| s.show_dropdown)
-    };
+    let has_results = move || search.with(|s| !s.results.is_empty() && s.show_dropdown);
 
     let on_keydown = {
         move |ev: web_sys::KeyboardEvent| {
@@ -67,40 +64,38 @@ pub fn SearchBar() -> impl IntoView {
                     <div class="search-dropdown">
                         {move || {
                             let s = search.get();
-                                                        let selected = s.selected_index;
-                            let pages = s.page_results.iter().enumerate().map(|(i, r)| {
-                                                                view! {
-                                    <div class="search-result" class:selected=selected == Some(i) on:mousedown=move |_| core.send(Event::SearchResultClicked { index: i })>
-                                        <div class="result-page">
-                                            <svg class="result-icon" width="14" height="14"><use href="#icon-page"/></svg>
-                                            <span class="page-title">{r.page_title.clone()}</span>
-                                        </div>
-                                    </div>
-                                }
-                            }).collect::<Vec<_>>();
-                            let create = s.create_titles.iter().enumerate().map(|(i, title)| {
-                                let index = s.create_index + i;
-                                view! {
-                                    <div class="search-create" class:selected=selected == Some(index) on:mousedown=move |_| core.send(Event::SearchResultClicked { index })>
-                                        {format!("+ Create \"{title}\"")}
-                                    </div>
-                                }
-                            }).collect::<Vec<_>>();
-                            let items = s.item_results.iter().enumerate().map(|(i, r)| {
-                                                                let index = s.item_offset + i;
-                                view! {
-                                    <div class="search-result" class:selected=selected == Some(index) on:mousedown=move |_| core.send(Event::SearchResultClicked { index })>
-                                        <div class="result-item">
-                                            <svg class="result-icon" width="14" height="14"><use href="#icon-item"/></svg>
-                                            <div class="item-content">
-                                                <div class="item-page-path">{r.page_title.clone()}</div>
-                                                <div class="item-snippet" inner_html=r.snippet.clone()></div>
+                            let selected = s.selected_index;
+                            s.results.into_iter().map(|entry| {
+                                let SearchEntry { index, kind, title, snippet } = entry;
+                                let is_selected = selected == Some(index);
+                                let click = move |_: web_sys::MouseEvent| core.send(Event::SearchResultClicked { index });
+                                match kind {
+                                    SearchKind::Page => view! {
+                                        <div class="search-result" class:selected=is_selected on:mousedown=click>
+                                            <div class="result-page">
+                                                <svg class="result-icon" width="14" height="14"><use href="#icon-page"/></svg>
+                                                <span class="page-title">{title}</span>
                                             </div>
                                         </div>
-                                    </div>
+                                    }.into_any(),
+                                    SearchKind::Create => view! {
+                                        <div class="search-create" class:selected=is_selected on:mousedown=click>
+                                            {format!("+ Create \"{title}\"")}
+                                        </div>
+                                    }.into_any(),
+                                    SearchKind::Item => view! {
+                                        <div class="search-result" class:selected=is_selected on:mousedown=click>
+                                            <div class="result-item">
+                                                <svg class="result-icon" width="14" height="14"><use href="#icon-item"/></svg>
+                                                <div class="item-content">
+                                                    <div class="item-page-path">{title}</div>
+                                                    <div class="item-snippet" inner_html=snippet></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }.into_any(),
                                 }
-                            }).collect::<Vec<_>>();
-                            view! { {pages} {create} {items} }
+                            }).collect::<Vec<_>>()
                         }}
                     </div>
                 </Show>

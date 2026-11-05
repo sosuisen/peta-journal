@@ -4,9 +4,7 @@
 //! Everything here runs on one thread: the requests the core waits on stay here, and the host's
 //! threads only send back their results.
 
-use crate::protocol::{
-    AskKind, BacklinkEntry, Envelope, Inbound, Outbound, RowView, SearchEntry, SearchKind,
-};
+use crate::protocol::{AskKind, BacklinkEntry, Envelope, Inbound, Outbound, RowView};
 use crate::route::parse_url;
 use crux_core::capability::Operation;
 use crux_core::{Core, Request};
@@ -61,7 +59,7 @@ struct Sent {
     rows: Vec<RowView>,
     focus_seq: u64,
     connection: Option<String>,
-    search: Option<(String, Vec<SearchEntry>, bool)>,
+    search: Option<(String, Vec<peta_core::view::SearchEntry>, bool)>,
     recent: Vec<String>,
     backlinks: Vec<BacklinkEntry>,
 }
@@ -524,8 +522,11 @@ impl<H: Host> Shell<H> {
     }
 
     fn tell_search(&mut self, search: &SearchView) {
-        let entries = search_entries(search);
-        let now = Some((search.query.clone(), entries, search.searching));
+        let now = Some((
+            search.query.clone(),
+            search.results.clone(),
+            search.searching,
+        ));
         if self.sent.search != now {
             self.sent.search.clone_from(&now);
             if let Some((query, results, searching)) = now {
@@ -576,31 +577,4 @@ impl<H: Host> Shell<H> {
             });
         }
     }
-}
-
-/// The results as the core numbers them: the pages, what can be created, the items.
-fn search_entries(search: &SearchView) -> Vec<SearchEntry> {
-    let pages = search
-        .page_results
-        .iter()
-        .map(|r| (SearchKind::Page, r.page_title.clone(), r.snippet.clone()));
-    let creates = search
-        .create_titles
-        .iter()
-        .map(|t| (SearchKind::Create, t.clone(), String::new()));
-    let items = search
-        .item_results
-        .iter()
-        .map(|r| (SearchKind::Item, r.page_title.clone(), r.snippet.clone()));
-    pages
-        .chain(creates)
-        .chain(items)
-        .enumerate()
-        .map(|(index, (kind, title, snippet))| SearchEntry {
-            index,
-            kind,
-            title,
-            snippet,
-        })
-        .collect()
 }
