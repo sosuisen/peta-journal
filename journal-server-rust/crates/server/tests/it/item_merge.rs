@@ -454,6 +454,73 @@ fn a_tag_added_by_hand_is_taken_in_and_gives_the_page_a_new_date() {
     assert_ne!(page_date_of(&a.file(PAGE)), page_date_of(&before));
 }
 
+// ファイルの中で同じidを持つ行は、新しい項目になる。
+#[test]
+fn a_line_with_an_id_used_above_it_becomes_a_new_item() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, _b, page, x, _) = two_devices_with_items(dir.path());
+    let mut file = a.file(PAGE);
+    file.push_str(&format!("\n<!-- @ {x} idx=\"a9\" -->\nsecond x\n"));
+    std::fs::write(a.root.join(PAGE), file).unwrap();
+
+    a.sync(PAGE);
+
+    assert_eq!(a.bodies(&page), ["x", "y", "second x"]);
+}
+
+// 別のページの項目のidを持つ行は新しい項目になり、元の項目は元のページに残る。
+#[test]
+fn a_line_with_the_id_of_an_item_of_another_page_leaves_that_item_alone() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, _b, page, _, _) = two_devices_with_items(dir.path());
+    let other = a.doc("other");
+    let foreign = a.add(&other, "foreign");
+    let mut file = a.file(PAGE);
+    file.push_str(&format!("\n<!-- @ {foreign} idx=\"a9\" -->\ncopied\n"));
+    std::fs::write(a.root.join(PAGE), file).unwrap();
+
+    a.sync(PAGE);
+
+    assert_eq!(a.bodies(&page), ["x", "y", "copied"]);
+    assert_eq!(a.bodies(&other), ["foreign"]);
+}
+
+// `transclude`のない古い形の行でも、本文が同じならトランスクルージョンのままである。
+#[test]
+fn a_line_without_transclude_stays_a_transclusion_while_its_body_is_the_same() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, _b, _page, x, y) = two_devices_with_items(dir.path());
+    a.state.item_service.set_transclusion(&x, &y).unwrap();
+    let file = a.file(PAGE);
+    let attr = format!(" transclude=\"{y}\"");
+    assert!(file.contains(&attr));
+    std::fs::write(a.root.join(PAGE), file.replace(&attr, "")).unwrap();
+
+    a.sync(PAGE);
+
+    let item = a.state.item_service.get_item_by_id(&x).unwrap();
+    assert_eq!(item.transclude_item_id, Some(y));
+}
+
+// `transclude`のない行で本文が変わると、トランスクルージョンではなくなる。
+#[test]
+fn a_line_without_transclude_and_with_a_new_body_is_no_transclusion() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, _b, _page, x, y) = two_devices_with_items(dir.path());
+    a.state.item_service.set_transclusion(&x, &y).unwrap();
+    let file = a.file(PAGE);
+    let attr = format!(" transclude=\"{y}\"");
+    let line = file.lines().find(|l| l.contains(&attr)).unwrap();
+    let edited = file.replace(line, &format!("{}\nby hand", line.replace(&attr, "")));
+    std::fs::write(a.root.join(PAGE), edited).unwrap();
+
+    a.sync(PAGE);
+
+    let item = a.state.item_service.get_item_by_id(&x).unwrap();
+    assert_eq!(item.transclude_item_id, None);
+    assert!(item.body.starts_with("by hand"), "{}", item.body);
+}
+
 // 手で消した行の項目は消える。
 #[test]
 fn an_item_whose_lines_were_removed_by_hand_goes() {

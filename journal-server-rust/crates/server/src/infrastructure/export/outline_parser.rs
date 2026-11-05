@@ -164,6 +164,20 @@ fn to_parsed_item(item: &SplitItem) -> ParsedItem {
 mod tests {
     use super::*;
 
+    // 項目の`modified`は日時なら更新日になり、そうでなければプロパティのままである。
+    #[test]
+    fn modified_is_the_date_of_the_item_only_when_it_is_a_date() {
+        let md = "<!-- @ 2026-09-29-00-00-01-AAAAAAA modified=\"1970-01-01T00:00:01Z\" -->\na\n\n<!-- @ 2026-09-29-00-00-02-AAAAAAA modified=\"soon\" -->\nb\n";
+        let r = OutlineMarkdownParser::default().parse(md).unwrap();
+        assert_eq!(r.items[0].modified, Some(1000));
+        assert!(r.items[0].properties.is_empty());
+        assert_eq!(r.items[1].modified, None);
+        assert_eq!(
+            r.items[1].properties,
+            vec![("modified".to_string(), "soon".to_string())]
+        );
+    }
+
     // フロントマターと項目が解析される。
     #[test]
     fn parses_frontmatter_and_items() {

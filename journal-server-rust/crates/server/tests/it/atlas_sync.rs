@@ -115,7 +115,7 @@ impl Device {
             .map(|p| p.id)
     }
 
-    fn doc(&self, name: &str) -> Hmtid {
+    pub(super) fn doc(&self, name: &str) -> Hmtid {
         self.state
             .page_service
             .get_or_create_doc(Some(name), Some("d/"))
