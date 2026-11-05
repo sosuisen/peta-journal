@@ -553,6 +553,7 @@ pub struct SearchState {
     pub show_dropdown: bool,
     pub show_create_button: bool,
     pub selected_index: Option<usize>,
+    pub searching: bool,
     pub timer_id: u64,
 }
 

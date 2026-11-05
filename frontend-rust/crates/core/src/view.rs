@@ -510,7 +510,7 @@ fn search(model: &Model) -> SearchView {
         item_results: model.search.item_results.clone(),
         show_dropdown: model.search.show_dropdown,
         selected_index: model.search.selected_index,
-        searching: false,
+        searching: model.search.searching,
         create_index: page_count,
         item_offset: page_count + create_titles.len(),
         create_titles,
