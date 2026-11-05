@@ -503,8 +503,10 @@ Not from here but from a timer: a process filter is no place for a prompt."
 (defun peta-journal--post-command ()
   "Keep the point in a body, and the core informed of the item it is in."
   (peta-journal--keep-point-in-body)
-  (when-let* ((id (peta-journal--id-at (point))))
-    (peta-journal--start-edit id))
+  ;; Saving ends the edit, so this command must not open it again at once
+  (unless (eq this-command 'peta-journal-save)
+    (when-let* ((id (peta-journal--id-at (point))))
+      (peta-journal--start-edit id)))
   (setq peta-journal--last-point (point)))
 
 (defun peta-journal--restyle-body (start level)

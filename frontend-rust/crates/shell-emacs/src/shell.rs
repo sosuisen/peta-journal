@@ -485,7 +485,6 @@ impl<H: Host> Shell<H> {
         self.tell_search(&view.search);
         self.tell_recent(&view);
         self.tell_backlinks(&view);
-        self.sent.holding = view.outline.key_relay_holding;
     }
 
     fn tell_rows(&mut self, view: &ViewModel) {
