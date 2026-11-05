@@ -1,6 +1,6 @@
 //! What Enter does in an editor, ported from `item-split.service.ts`: splits the item at
 //! the cursor, or inserts an empty item before or after it. An empty last child is
-//! outdented instead.
+//! outdented instead. Inside an open code fence it adds a line to the item.
 
 use crate::app::{apply, done, log_error, run, Cmd, Event, Model};
 use crate::effects::Api;
@@ -10,12 +10,13 @@ use crate::ops::edit::{
 };
 use crate::ops::file_reload::reload_shown_page;
 use crate::ops::level;
+use crate::ops::outline_events::body_changed;
 use crate::outline::tree::{
     edit_context_of, get_subtree, has_sibling_below, level_for_new_item_after,
     position_after_subtree, position_before, transclusion_root_ending_at, EditContext,
 };
 use crate::outline::CursorState;
-use crate::util::split_at_char;
+use crate::util::{char_len, has_unclosed_code_fence, split_at_char};
 use crux_core::Command;
 use futures::future::join;
 
@@ -24,6 +25,15 @@ pub fn handle_enter(model: &mut Model, item_id: &str, cursor: usize) -> Cmd {
     let Some(item) = model.cloned_item(item_id) else {
         return done();
     };
+    let (before, after) = split_at_char(&item.body, cursor);
+    if has_unclosed_code_fence(before) {
+        // Not an edit that moves to another editor, so no keys are held
+        let body = format!("{before}\n{after}");
+        model
+            .state
+            .set_focused_item(item_id, Some(char_len(before) + 1));
+        return body_changed(model, item_id, body);
+    }
     // The next editor is focused after the next render; keys pressed before that are kept for it
     model.key_relay.hold_until_focus();
     let discard = discard_pending_edit(model, &item);
@@ -44,7 +54,7 @@ pub fn handle_enter(model: &mut Model, item_id: &str, cursor: usize) -> Cmd {
         model.state.own_item_ids(),
         model.state.transcluded_trees(),
     );
-    let body_len = crate::util::char_len(&item.body);
+    let body_len = char_len(&item.body);
     let cursor = cursor.min(body_len);
 
     let cmd = if cursor == 0 && body_len > 0 {
