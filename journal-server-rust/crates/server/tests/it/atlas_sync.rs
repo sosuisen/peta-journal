@@ -10,9 +10,9 @@ use journal_server::infrastructure::export::import_service::Outcome;
 use journal_server::state::{AppState, BuildOptions, SharedState};
 use serde_json::json;
 
-struct Device {
-    state: SharedState,
-    root: PathBuf,
+pub(super) struct Device {
+    pub(super) state: SharedState,
+    pub(super) root: PathBuf,
 }
 
 impl Device {
@@ -51,18 +51,18 @@ impl Device {
         Device { state, root }
     }
 
-    fn export(&self) {
+    pub(super) fn export(&self) {
         self.state.export.process_export_queue();
     }
 
     /// Takes the file as the other device wrote it, as the cloud folder brings it.
-    fn receive(&self, from: &Device, rel_path: &str) -> Outcome {
+    pub(super) fn receive(&self, from: &Device, rel_path: &str) -> Outcome {
         self.deliver(from, rel_path);
         self.sync(rel_path)
     }
 
     /// Puts the file the other device wrote into the folder, before the server takes it in
-    fn deliver(&self, from: &Device, rel_path: &str) {
+    pub(super) fn deliver(&self, from: &Device, rel_path: &str) {
         from.export();
         let content = std::fs::read(from.root.join(rel_path))
             .unwrap_or_else(|e| panic!("{rel_path}: {e} in {:?}", walk(&from.root)));
@@ -77,7 +77,7 @@ impl Device {
     }
 
     /// Gives the first item of the page a property, as an edit in the app
-    fn edit(&self, page_id: &Hmtid, value: &str) {
+    pub(super) fn edit(&self, page_id: &Hmtid, value: &str) {
         let items = self.state.page_service.get_page_items(page_id).unwrap();
         self.state
             .item_service
@@ -85,7 +85,7 @@ impl Device {
             .unwrap();
     }
 
-    fn file(&self, rel_path: &str) -> String {
+    pub(super) fn file(&self, rel_path: &str) -> String {
         self.export();
         std::fs::read_to_string(self.root.join(rel_path)).unwrap()
     }
@@ -102,12 +102,12 @@ impl Device {
             .collect()
     }
 
-    fn sync(&self, rel_path: &str) -> Outcome {
+    pub(super) fn sync(&self, rel_path: &str) -> Outcome {
         self.state.import.sync_file(&self.root, rel_path)
     }
 
     /// The id of the page in the directory, if there is one
-    fn page_in(&self, dir_path: &str, name: &str) -> Option<Hmtid> {
+    pub(super) fn page_in(&self, dir_path: &str, name: &str) -> Option<Hmtid> {
         self.state
             .pages
             .find_by_type_dir_path_file_name("doc", dir_path, name)
@@ -183,7 +183,7 @@ impl Device {
     }
 
     /// The backups of files that lost to the database
-    fn conflicts(&self) -> Vec<String> {
+    pub(super) fn conflicts(&self) -> Vec<String> {
         walk(&self.root)
             .into_iter()
             .filter(|p| p.contains("conflict"))
@@ -205,10 +205,10 @@ fn walk(dir: &Path) -> Vec<String> {
 }
 
 const INDEX: &str = "docs/d/index.md";
-const ATLAS: &str = "docs/d/index_atlas.md";
+pub(super) const ATLAS: &str = "docs/d/index_atlas.md";
 
 /// Two devices that share the directory `d/` with the page a and its atlas, made on A
-fn two_devices(dir: &Path) -> (Device, Device) {
+pub(super) fn two_devices(dir: &Path) -> (Device, Device) {
     two_devices_with(dir, Device::new)
 }
 
