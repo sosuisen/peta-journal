@@ -1,6 +1,17 @@
 use crate::protocol::{Bullet, Envelope, Inbound, Outbound, RowView};
+use crate::runtime::sse_data;
 use peta_core::view::TaskState;
 use serde_json::json;
+
+// イベントストリームのdata行だけが、メッセージになる。
+#[test]
+fn only_the_data_lines_of_an_event_stream_are_messages() {
+    assert_eq!(sse_data("data: {\"a\":1}"), Some("{\"a\":1}"));
+    assert_eq!(sse_data("data:{\"a\":1}"), Some("{\"a\":1}"));
+    assert_eq!(sse_data(": keep-alive"), None);
+    assert_eq!(sse_data("event: ping"), None);
+    assert_eq!(sse_data(""), None);
+}
 
 fn row(bullet: Bullet) -> RowView {
     RowView {
