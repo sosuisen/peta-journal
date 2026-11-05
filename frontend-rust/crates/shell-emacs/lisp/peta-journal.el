@@ -500,11 +500,16 @@ Not from here but from a timer: a process filter is no place for a prompt."
     (peta-journal--send "edit_finished" :id peta-journal--current)
     (setq peta-journal--current nil)))
 
+(defconst peta-journal--commands-that-end-the-edit
+  '(peta-journal-save peta-journal-today peta-journal-find-page peta-journal-back
+    peta-journal-next-day peta-journal-previous-day peta-journal-open-at-point)
+  "The commands after which the point stays in an item that is not being edited.
+A saved edit must stay closed, and a page being left has nothing more to edit.")
+
 (defun peta-journal--post-command ()
   "Keep the point in a body, and the core informed of the item it is in."
   (peta-journal--keep-point-in-body)
-  ;; Saving ends the edit, so this command must not open it again at once
-  (unless (eq this-command 'peta-journal-save)
+  (unless (memq this-command peta-journal--commands-that-end-the-edit)
     (when-let* ((id (peta-journal--id-at (point))))
       (peta-journal--start-edit id)))
   (setq peta-journal--last-point (point)))
