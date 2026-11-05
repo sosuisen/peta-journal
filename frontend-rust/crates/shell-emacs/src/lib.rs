@@ -5,6 +5,7 @@
 pub mod api;
 pub mod protocol;
 pub mod route;
+pub mod shell;
 
 #[cfg(test)]
 mod tests;
