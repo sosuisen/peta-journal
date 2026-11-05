@@ -66,7 +66,8 @@ fn user_version(conn: &Connection) -> rusqlite::Result<usize> {
 }
 
 /// Version 3: the names of pages and their files in NFC, see ADR 007. Rows are only updated.
-/// Deleting a page would delete its items too.
+/// Deleting a page would delete its items too. `OR IGNORE` leaves a row as it is when its NFC
+/// name is taken, as a failure here would keep the server from starting.
 fn put_names_in_nfc(conn: &Connection) -> rusqlite::Result<()> {
     let pages: Vec<(String, String, String)> = conn
         .prepare("SELECT id, dir_path, name FROM pages")?
@@ -74,7 +75,7 @@ fn put_names_in_nfc(conn: &Connection) -> rusqlite::Result<()> {
         .collect::<rusqlite::Result<_>>()?;
     for (id, dir_path, name) in pages {
         conn.execute(
-            "UPDATE pages SET dir_path = ?, name = ? WHERE id = ?",
+            "UPDATE OR IGNORE pages SET dir_path = ?, name = ? WHERE id = ?",
             params![to_nfc(&dir_path), to_nfc(&name), id],
         )?;
     }
@@ -84,7 +85,7 @@ fn put_names_in_nfc(conn: &Connection) -> rusqlite::Result<()> {
         .collect::<rusqlite::Result<_>>()?;
     for path in paths {
         conn.execute(
-            "UPDATE file_sync_state SET rel_path = ? WHERE rel_path = ?",
+            "UPDATE OR IGNORE file_sync_state SET rel_path = ? WHERE rel_path = ?",
             params![to_nfc(&path), path],
         )?;
     }
