@@ -28,6 +28,7 @@ mod new_page;
 mod page_open;
 mod page_properties;
 mod rename;
+mod route;
 mod search;
 mod sidebar_index;
 mod sidebar_menu;
