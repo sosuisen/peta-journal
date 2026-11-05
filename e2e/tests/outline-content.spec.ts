@@ -65,6 +65,17 @@ test.describe('outline content', () => {
     await expect(page.locator('app-outline-item').first()).toBeVisible();
   });
 
+  test('Enter inside a code fence adds a line and the caret follows it', async ({ page }) => {
+    await page.keyboard.type('```');  // the editor closes the fence itself
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('one');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('two');
+
+    const items = await server.itemsSettled(pageId, i => i[0].body.includes('two'));
+    expect(items.map(i => i.body)).toEqual(['```\none\ntwo\n```']);
+  });
+
   test('Shift+Enter puts a line break inside the item instead of splitting it', async ({ page }) => {
     const [first] = await server.items(pageId);
     await page.keyboard.type('line one');
