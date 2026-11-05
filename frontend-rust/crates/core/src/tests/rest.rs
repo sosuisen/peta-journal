@@ -649,6 +649,22 @@ fn a_taken_page_name_is_an_answer_not_an_error() {
     assert_eq!(output, Ok(ApiOutput::PageNameTaken("taken: x".into())));
 }
 
+// 名前が重複しなければ、更新されたページを答える。
+#[test]
+fn a_page_update_answers_the_page() {
+    let page = Page::default();
+    let output = answer(
+        ApiOp::UpdatePage {
+            page_id: id("p"),
+            title: Some(id("x")),
+            dir_path: None,
+            overwrite: false,
+        },
+        json!({ "page": json_of(&page) }),
+    );
+    assert_eq!(output, ApiOutput::PageInfo(page));
+}
+
 // 他の操作の409は、ただのエラーである。
 #[test]
 fn a_conflict_on_another_operation_is_an_error() {
