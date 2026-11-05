@@ -20,6 +20,19 @@ pub fn ensure_code_fence_closed(text: &str) -> String {
     }
 }
 
+/// What a `[[` or an opening code fence just typed becomes: the body with its closing part, and
+/// the cursor. `cursor` is the character index right after the typed character. None when
+/// nothing is to be closed.
+pub fn auto_close(body: &str, cursor: usize) -> Option<(String, usize)> {
+    let (before, after) = split_at_char(body, cursor);
+    if before.ends_with("[[") && !after.starts_with("]]") {
+        return Some((format!("{before}]]{after}"), cursor));
+    }
+    let line = before.rsplit('\n').next().unwrap_or(before);
+    let opens_fence = before.ends_with('`') && line.trim_start().starts_with("```");
+    (opens_fence && has_unclosed_code_fence(body)).then(|| (format!("{body}\n```"), cursor))
+}
+
 /// The byte offset of a character index, clamped to the text. Cursor positions arrive from
 /// the shell as UTF-16 code units, which the shell converts to character counts first.
 pub fn byte_offset(text: &str, char_index: usize) -> usize {
