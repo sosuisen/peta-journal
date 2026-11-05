@@ -66,6 +66,7 @@ pub struct MarkdownImportService {
     page_service: Arc<PageService>,
     /// How long a file waits for the file of the same page to go before it is a copy.
     copy_wait: Duration,
+    device_name: String,
     /// The files that wait, by path. They are lost on a restart; the scan brings them again.
     waiting: Mutex<BTreeMap<String, Wait>>,
     /// One file at a time, like the Java `synchronized` method.
@@ -88,6 +89,7 @@ impl MarkdownImportService {
         sse: SseBroadcaster,
         page_service: Arc<PageService>,
         copy_wait: Duration,
+        device_name: String,
     ) -> MarkdownImportService {
         MarkdownImportService {
             parser,
@@ -98,6 +100,7 @@ impl MarkdownImportService {
             sse,
             page_service,
             copy_wait,
+            device_name,
             waiting: Mutex::new(BTreeMap::new()),
             lock: Mutex::new(()),
         }
@@ -226,7 +229,11 @@ impl MarkdownImportService {
             &frontmatter_tags(&parsed.frontmatter),
         );
         let page_tags_before = self.page_service.replace_page_tags(&page.id, &page_tags)?;
-        if merge.file_lost {
+        // A version this device wrote is mostly an earlier state of what is here now. Its
+        // backups only pile up when two devices edit a page in turn.
+        let backed_up =
+            merge.file_lost && !path_mapper::is_copy_of_device(rel_path, &self.device_name);
+        if backed_up {
             self.write_conflict_backup(root, rel_path, loc, &content);
         }
         if merge.changed || page_tags_before != page_tags {
@@ -242,7 +249,7 @@ impl MarkdownImportService {
         }
         std::fs::remove_file(&file)?;
         tracing::info!("Merged and deleted {rel_path}");
-        Ok(if merge.file_lost {
+        Ok(if backed_up {
             Outcome::Conflict
         } else {
             Outcome::Imported

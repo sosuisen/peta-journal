@@ -162,6 +162,7 @@ impl AppState {
             sse.clone(),
             Arc::clone(&page_service),
             std::time::Duration::from_secs(settings.import_copy_wait_secs),
+            settings.device_name.clone(),
         ));
         let prompt = Arc::new(PendingDeletePrompt::new(
             settings.port,

@@ -111,17 +111,27 @@ pub fn conflicted_copy_of(rel_path: &str) -> Option<PageLocation> {
     if has_ignored_segment(rel_path) {
         return None;
     }
-    let base = rel_path.strip_suffix(MD_EXT)?.strip_suffix(')')?;
-    let (page, note) = base.rsplit_once(" (")?;
+    let (page, note) = split_copy_name(rel_path)?;
     if !has_copy_marker(note) {
         return None;
     }
     from_rel_path(&format!("{page}{MD_EXT}"))
 }
 
+/// The path before the last note in brackets, and the note.
+fn split_copy_name(rel_path: &str) -> Option<(&str, &str)> {
+    let base = rel_path.strip_suffix(MD_EXT)?.strip_suffix(')')?;
+    base.rsplit_once(" (")
+}
+
 /// The conflicted copy holds a version this device wrote, by the name Dropbox gave it.
-pub fn is_copy_of_device(_rel_path: &str, _device: &str) -> bool {
-    false
+pub fn is_copy_of_device(rel_path: &str, device: &str) -> bool {
+    let Some((_, note)) = split_copy_name(rel_path) else {
+        return false;
+    };
+    note.to_lowercase()
+        .strip_prefix(&device.to_lowercase())
+        .is_some_and(|rest| rest.starts_with([' ', '\'', '\u{2019}']))
 }
 
 fn has_copy_marker(text: &str) -> bool {

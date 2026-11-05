@@ -90,6 +90,8 @@ pub struct Settings {
     pub import_delete_prompt_cooldown_secs: u64,
     pub import_copy_wait_secs: u64,
     pub export_overwrite_wait_secs: u64,
+    /// The name of this device, to know its own version in a Dropbox conflicted copy
+    pub device_name: String,
     pub cors_origins: Vec<String>,
 }
 
@@ -126,6 +128,7 @@ impl Settings {
             import_delete_prompt_cooldown_secs: cli.import_delete_prompt_cooldown,
             import_copy_wait_secs: cli.import_copy_wait,
             export_overwrite_wait_secs: cli.export_overwrite_wait,
+            device_name: gethostname::gethostname().to_string_lossy().into_owned(),
             cors_origins: cli
                 .cors_origins
                 .split(',')
@@ -150,6 +153,7 @@ impl Settings {
             import_delete_prompt_cooldown_secs: 300,
             import_copy_wait_secs: 300,
             export_overwrite_wait_secs: 300,
+            device_name: "test-device".to_string(),
             cors_origins: vec!["http://localhost:4200".to_string()],
         }
     }
