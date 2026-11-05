@@ -10,6 +10,8 @@ use crate::domain::model::Page;
 
 pub const MD_EXT: &str = ".md";
 const CONFLICT_MARKER: &str = ".conflict";
+/// What Dropbox writes in the name of a conflicted copy, by the language of its app.
+const COPY_MARKERS: [&str; 2] = ["conflicted copy", "競合コピー"];
 
 /// Location of a page's markdown file, decoded from a relative path.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -75,8 +77,9 @@ pub fn relativize(root: &Path, file: &Path) -> String {
         .join("/")
 }
 
-/// Files we must never import: temp/partial files from editors and Dropbox,
-/// Dropbox conflicted copies, our own conflict backups, and anything not .md.
+/// Files we must never import: temp/partial files from editors and Dropbox, names that
+/// look like a conflicted copy without being one, our own conflict backups, and anything
+/// not .md. A real conflicted copy comes through; see `conflicted_copy_of`.
 pub fn is_ignored(rel_path: &str) -> bool {
     if !rel_path.ends_with(MD_EXT) {
         return true;
@@ -89,8 +92,8 @@ pub fn is_ignored(rel_path: &str) -> bool {
     if base.contains(CONFLICT_MARKER) {
         return true;
     }
-    if base.to_lowercase().contains("conflicted copy") {
-        return true;
+    if has_copy_marker(base) {
+        return conflicted_copy_of(rel_path).is_none();
     }
     false
 }
@@ -101,6 +104,24 @@ pub fn has_ignored_segment(rel_path: &str) -> bool {
         .split('/')
         .filter(|s| !s.is_empty())
         .any(|s| s.starts_with('.') || s.starts_with("~$"))
+}
+
+/// The page a file is a conflicted copy of, as Dropbox names them.
+pub fn conflicted_copy_of(rel_path: &str) -> Option<PageLocation> {
+    if has_ignored_segment(rel_path) {
+        return None;
+    }
+    let base = rel_path.strip_suffix(MD_EXT)?.strip_suffix(')')?;
+    let (page, note) = base.rsplit_once(" (")?;
+    if !has_copy_marker(note) {
+        return None;
+    }
+    from_rel_path(&format!("{page}{MD_EXT}"))
+}
+
+fn has_copy_marker(text: &str) -> bool {
+    let text = text.to_lowercase();
+    COPY_MARKERS.iter().any(|m| text.contains(m))
 }
 
 /// Name for a conflict backup written next to the page file.
@@ -155,11 +176,43 @@ mod tests {
     #[test]
     fn conflict_temp_and_non_markdown_files_are_ignored() {
         assert!(is_ignored("docs/a.conflict-20260927-101500.md"));
-        assert!(is_ignored("docs/a (conflicted copy).md"));
+        assert!(is_ignored("docs/a conflicted copy.md"));
         assert!(is_ignored("docs/.sb-123/a.md"));
         assert!(is_ignored("docs/~$a.md"));
         assert!(is_ignored("docs/a.txt"));
         assert!(!is_ignored("docs/a.md"));
+    }
+
+    // Dropboxのconflicted copyの名前から、元のページの場所が分かり、無視されない。
+    #[test]
+    fn a_conflicted_copy_names_the_page_it_is_a_version_of() {
+        let names = [
+            "docs/d/a (PC's conflicted copy 2026-11-05).md",
+            "docs/d/a (PC の競合コピー 2026-11-05).md",
+            "docs/d/a (Conflicted Copy).md",
+        ];
+        for name in names {
+            assert_eq!(conflicted_copy_of(name), from_rel_path("docs/d/a.md"));
+            assert!(!is_ignored(name));
+        }
+    }
+
+    // conflicted copyの形でない名前は、コピーとして扱わない。
+    #[test]
+    fn other_names_are_no_conflicted_copy() {
+        let names = [
+            "docs/d/a.md",
+            "docs/d/a (draft).md",
+            "docs/d/a conflicted copy.md",
+            "docs/d/a (conflicted copy) old.md",
+            "docs/d/ (conflicted copy).md",
+            "docs/d/a (conflicted copy).txt",
+            "docs/.sb-1/a (conflicted copy).md",
+            "other/a (conflicted copy).md",
+        ];
+        for name in names {
+            assert_eq!(conflicted_copy_of(name), None, "{name}");
+        }
     }
 
     // 空文字列のSHA-256は既知のダイジェストである。

@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["docs/**", "**.md"]
+  pull_request:
+    paths-ignore: ["docs/**", "**.md"]
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    name: ${{ matrix.workspace }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - workspace: journal-server-rust
+            args: --workspace
+          - workspace: frontend-rust
+            args: --workspace
+          - workspace: atlas-rust
+            args: --all-features
+    defaults:
+      run:
+        working-directory: ${{ matrix.workspace }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ${{ matrix.workspace }}
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets ${{ matrix.args }}
+      - run: cargo test ${{ matrix.args }}
+      # The shell only runs in the browser, and the native build above does not show what breaks on wasm
+      - if: matrix.workspace == 'frontend-rust'
+        run: cargo check --target wasm32-unknown-unknown -p peta-frontend

@@ -401,6 +401,7 @@ impl ItemService {
             let tags = PropertyRepository::find_tags_in(tx, ITEM_TARGET, item.id.as_str())?;
             effects.tag_changes.push((tags, Vec::new()));
             ItemRepository::delete_in(tx, &item.id)?;
+            ItemRepository::record_deleted_in(tx, &item.id, now_millis())?;
             removed_ids.push(item.id.to_string());
             effects.pages.insert(item.page_id.clone());
         }
@@ -679,7 +680,9 @@ impl ItemService {
                 value,
             )?;
         }
-        self.commit_page(tx, &existing.page_id, now_millis())?;
+        let now = now_millis();
+        ItemRepository::touch_in(&tx, item_id, now)?;
+        self.commit_page(tx, &existing.page_id, now)?;
         Ok(existing)
     }
 
@@ -689,7 +692,9 @@ impl ItemService {
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
         PropertyRepository::delete_property_in(&tx, ITEM_TARGET, item_id.as_str(), key)?;
-        self.commit_page(tx, &existing.page_id, now_millis())?;
+        let now = now_millis();
+        ItemRepository::touch_in(&tx, item_id, now)?;
+        self.commit_page(tx, &existing.page_id, now)?;
         Ok(existing)
     }
 

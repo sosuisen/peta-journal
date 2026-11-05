@@ -135,7 +135,7 @@ PC B の Watcher: `.dropbox.cache` 配下は無視、`docs/Ideas.md` の CREATE 
 
 ### 補足: 同じページを両 PC で別々に作った場合(今日のジャーナルなど)
 
-Dropbox は同じパスの 2 ファイルを見て片方を正、もう片方を「conflicted copy」にする(こちらは無視。中身は人が拾う)。正になった方を相手が取り込むと、ID では見つからず**パスで**見つかり、ID が違う。このとき**古い方の ID が勝つ**(HMTID は時刻順)。負けた側は `PageRepository.rekey()` でローカルのページ ID を付け替える(items / export_queue / file_sync_state / page properties / 検索インデックスをまとめて移す)。両 PC で同じ判定をするので必ず同じ ID に収束する。
+Dropbox は同じパスの 2 ファイルを見て片方を正、もう片方を「conflicted copy」にする(こちらはもう1つの版として合流して消す。`docs/folder-sync-future.md`の案2)。正になった方を相手が取り込むと、ID では見つからず**パスで**見つかり、ID が違う。このとき**古い方の ID が勝つ**(HMTID は時刻順)。負けた側は `PageRepository.rekey()` でローカルのページ ID を付け替える(items / export_queue / file_sync_state / page properties / 検索インデックスをまとめて移す)。両 PC で同じ判定をするので必ず同じ ID に収束する。
 
 ### 補足: フォルダのindexページ
 

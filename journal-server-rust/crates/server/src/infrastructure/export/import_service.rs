@@ -7,9 +7,12 @@
 //! - A file with the id of a page whose file is still elsewhere waits: a move may bring the
 //!   new file before it takes the old one away. It comes in as the page moved once the old
 //!   file goes, or as a copy when the old file is still there after a while.
-//! - Last writer wins by `modified`: when the DB is newer than the file, the file is backed up as
-//!   `name.conflict-yyyyMMdd-HHmmss.md` and overwritten from the DB.
-//! - Items are merged by id; see `ItemMerger`.
+//! - Last writer wins by `modified`, for each item; see `ItemMerger`. When a change in the file
+//!   that was not seen here loses, the file is backed up as `name.conflict-yyyyMMdd-HHmmss.md`.
+//! - An atlas goes by its page: when the DB is newer than the file, the file is backed up and
+//!   overwritten from the DB.
+//! - A Dropbox conflicted copy is taken in as one more version of its page, and then
+//!   deleted. It never takes items away.
 //! - Nothing is deleted from the DB because a file disappeared; that goes through the
 //!   pending-deletes page.
 
@@ -28,7 +31,7 @@ use crate::presentation::sse::SseBroadcaster;
 
 use super::export_service::{mtime_millis, MarkdownExportService};
 use super::file_sync_state::FileSyncStateRepository;
-use super::item_merger::ItemMerger;
+use super::item_merger::{ItemMerger, MergeMode};
 use super::outline_parser::{OutlineMarkdownParser, ParsedItem};
 use super::page_matcher::{parse_instant, Matched, PageMatch, PageMatcher};
 use super::path_mapper::{self, PageLocation};
@@ -108,6 +111,12 @@ impl MarkdownImportService {
     }
 
     fn sync_locked(&self, root: &Path, rel_path: &str) -> Outcome {
+        if let Some(loc) = path_mapper::conflicted_copy_of(rel_path) {
+            return self.merge_copy(root, rel_path, &loc).unwrap_or_else(|e| {
+                tracing::error!("Failed to merge {rel_path}: {e:#}");
+                Outcome::Error
+            });
+        }
         if path_mapper::is_ignored(rel_path) {
             return Outcome::Ignored;
         }
@@ -172,6 +181,72 @@ impl MarkdownImportService {
                 Outcome::Error
             }
         }
+    }
+
+    /// Takes in a conflicted copy as one more version of the page at `loc`, then deletes it.
+    /// The other device needs no copy after that: the file of the page holds it all.
+    fn merge_copy(&self, root: &Path, rel_path: &str, loc: &PageLocation) -> AppResult<Outcome> {
+        let file = root.join(rel_path);
+        if !file.is_file() {
+            return Ok(Outcome::Ignored);
+        }
+        let page_path = path_mapper::to_rel_path(&loc.page_type, &loc.dir_path, &loc.name);
+        let Some(state) = self.file_sync_state.find_by_path(&page_path)? else {
+            return Ok(Outcome::Waiting);
+        };
+        let Some(page) = self.page_service.get_page(&state.page_id)? else {
+            return Ok(Outcome::Waiting);
+        };
+        if page.is_atlas() {
+            return Ok(Outcome::Ignored);
+        }
+        let content = read_stable(&file)?;
+        if content.trim().is_empty() {
+            return Ok(Outcome::Error);
+        }
+        // The version written here, while the version that won may still be on its way. Taken
+        // in now, it would change nothing and be gone when that version drops its items.
+        if path_mapper::sha256(&content) == state.content_hash {
+            return Ok(Outcome::Waiting);
+        }
+        let content = content.replace("\r\n", "\n");
+        let parsed = self.parser.parse(&content)?;
+        let mtime = mtime_millis(&std::fs::metadata(&file)?);
+        let file_modified =
+            parse_instant(parsed.frontmatter.get("modified").map(String::as_str)).unwrap_or(mtime);
+        let now = now_millis();
+        let mode = MergeMode::Copy {
+            last_synced: state.file_mtime,
+        };
+        let merge = self
+            .item_merger
+            .merge(&page, &parsed.items, file_modified, mode, now)?;
+        let page_tags = union(
+            &self.page_service.page_tags(&page.id)?,
+            &frontmatter_tags(&parsed.frontmatter),
+        );
+        let page_tags_before = self.page_service.replace_page_tags(&page.id, &page_tags)?;
+        if merge.file_lost {
+            self.write_conflict_backup(root, rel_path, loc, &content);
+        }
+        if merge.changed || page_tags_before != page_tags {
+            let page = self.page_matcher.touch(&page, loc, now)?;
+            self.export.queue_export(&page.id);
+            self.page_service.update_tag_pages(
+                &union(&merge.tags_before, &page_tags_before),
+                &union(&merge.tags_after, &page_tags),
+            );
+            self.page_service.sync_atlases();
+            self.sse
+                .broadcast_pages_updated_from(page.id.as_str(), "file");
+        }
+        std::fs::remove_file(&file)?;
+        tracing::info!("Merged and deleted {rel_path}");
+        Ok(if merge.file_lost {
+            Outcome::Conflict
+        } else {
+            Outcome::Imported
+        })
     }
 
     /// Takes in the files that wait for the file that went, as the page moved.
@@ -246,14 +321,13 @@ impl MarkdownImportService {
             }
         };
 
-        if !is_new
-            && file_modified < page.modified_date
-            && !self.file_sync_state.find_by_page_id(&page.id)?.is_empty()
-        {
+        let states = self.file_sync_state.find_by_page_id(&page.id)?;
+        // A page that never had a file on this device (e.g. the root index a fresh install
+        // creates) is not "newer" in any meaningful way, so the file wins
+        let had_file = !states.is_empty();
+        if had_file && page.is_atlas() && file_modified < page.modified_date {
             // DB is newer: keep the DB, keep the file's content as a backup, then overwrite the file.
             // A moved file still moves the page, so the export lands at the new path.
-            // A page that never had a file on this device (e.g. the root index a fresh install creates)
-            // is not "newer" in any meaningful way, so the file wins and this branch is skipped.
             if renamed {
                 page = self
                     .page_matcher
@@ -270,17 +344,41 @@ impl MarkdownImportService {
         } else {
             &parsed.items
         };
-        let merge = self.item_merger.merge(&page, items, now)?;
-        // The file is the newer version of the page, so a file without tags has none
-        let page_tags = frontmatter_tags(fm);
+        let mode = match states.iter().map(|s| s.file_mtime).max() {
+            Some(last_synced) if had_file && !page.is_atlas() => {
+                MergeMode::ItemByItem { last_synced }
+            }
+            _ => MergeMode::WholeFile,
+        };
+        let merge = self
+            .item_merger
+            .merge(&page, items, file_modified, mode, now)?;
+        let file_is_older = had_file && file_modified < page.modified_date;
+        // A file newer than the page says which tags it has, so a file without tags has none
+        let page_tags = if file_is_older {
+            self.page_service.page_tags(&page.id)?
+        } else {
+            frontmatter_tags(fm)
+        };
         let page_tags_before = self.page_service.replace_page_tags(&page.id, &page_tags)?;
+        if merge.file_lost {
+            self.write_conflict_backup(root, rel_path, loc, &content);
+        }
 
-        let page_changed = renamed || merge.changed || is_new || page_tags_before != page_tags;
+        let page_changed = renamed
+            || merge.changed
+            || merge.changed_here
+            || is_new
+            || page_tags_before != page_tags;
         if page_changed {
             let new_modified = if is_new {
                 page.modified_date
+            } else if merge.changed_here {
+                now
             } else if file_modified > page.modified_date {
                 file_modified
+            } else if file_is_older {
+                page.modified_date
             } else {
                 now
             };
@@ -301,7 +399,15 @@ impl MarkdownImportService {
             self.forget_old_paths(root, rel_path, &page)?;
         }
 
-        if write_back || merge.needs_write_back || !tags_written_as_exported(fm, &page_tags) {
+        if merge.restamped {
+            // At once: the next edit by hand starts from this file, and with the old date of
+            // the item in it, the edit would count as older than the item
+            self.export.export_page(&page.id)?;
+        } else if write_back
+            || merge.needs_write_back
+            || page.modified_date > file_modified
+            || !tags_written_as_exported(fm, &page_tags)
+        {
             // Give the file its ids / frontmatter. The export records the new hash, so it won't echo back.
             self.export.queue_export(&page.id);
         }
@@ -334,7 +440,11 @@ impl MarkdownImportService {
                 started.elapsed().as_millis()
             );
         }
-        Ok(Outcome::Imported)
+        Ok(if merge.file_lost {
+            Outcome::Conflict
+        } else {
+            Outcome::Imported
+        })
     }
 
     /// Drops the sync state of the files the moved page had before, when they are gone. They
@@ -348,6 +458,29 @@ impl MarkdownImportService {
         Ok(())
     }
 
+    /// Keeps the content of a file next to it, as it loses to the database.
+    fn write_conflict_backup(
+        &self,
+        root: &Path,
+        rel_path: &str,
+        loc: &PageLocation,
+        content: &str,
+    ) {
+        let file = root.join(rel_path);
+        let ts = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
+        let backup = file.with_file_name(path_mapper::conflict_file_name(&loc.name, &ts));
+        match std::fs::write(&backup, content) {
+            Ok(_) => tracing::warn!(
+                "{rel_path} lost to the database version; kept it as {}",
+                backup
+                    .file_name()
+                    .map(|n| n.to_string_lossy().into_owned())
+                    .unwrap_or_default()
+            ),
+            Err(e) => tracing::error!("Could not write conflict backup {}: {e}", backup.display()),
+        }
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn backup_conflict(
         &self,
@@ -359,18 +492,7 @@ impl MarkdownImportService {
         page: &Page,
         attrs: &FileAttrs,
     ) -> AppResult<()> {
-        let file = root.join(rel_path);
-        let ts = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
-        let backup = file.with_file_name(path_mapper::conflict_file_name(&loc.name, &ts));
-        match std::fs::write(&backup, content) {
-            Ok(_) => {
-                tracing::warn!(
-                "{rel_path} is older than the database version; kept it as {} and restored from DB",
-                backup.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()
-            )
-            }
-            Err(e) => tracing::error!("Could not write conflict backup {}: {e}", backup.display()),
-        }
+        self.write_conflict_backup(root, rel_path, loc, content);
         // Remember this content so we don't back it up again before the export overwrites it
         self.file_sync_state
             .upsert_synced(rel_path, &page.id, hash, attrs.size, attrs.mtime)?;

@@ -16,3 +16,12 @@ opt-level = "z"
 lto = "fat"
 codegen-units = 1
 panic = "abort"
+
+# Less debug info makes the debug build link faster, which every test run waits for. Our crates
+# keep the line tables, so a panic still names the file and line. The dependencies keep none, as
+# we do not step into them.
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false
