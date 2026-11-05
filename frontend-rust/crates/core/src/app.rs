@@ -209,8 +209,10 @@ pub enum Event {
     WikiPick {
         title: String,
     },
-    OpenWikiLink {
-        text: String,
+    /// Opens the wiki link or the tag at the cursor of an item.
+    OpenLinkAt {
+        item_id: String,
+        cursor: usize,
     },
     ShiftSelect {
         item_id: String,
@@ -803,7 +805,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         WikiQuery { item_id, context } => ops::wiki::query(model, &item_id, context),
         WikiKey { key } => ops::wiki::key_nav(model, &key),
         WikiPick { title } => ops::wiki::pick(model, &title),
-        OpenWikiLink { text } => screens::navigate::open_page(&text),
+        OpenLinkAt { item_id, cursor } => ops::wiki::open_link_at(model, &item_id, cursor),
         ShiftSelect { item_id } => {
             model
                 .selection
