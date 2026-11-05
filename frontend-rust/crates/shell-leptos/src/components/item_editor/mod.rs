@@ -115,7 +115,7 @@ pub fn ItemEditor(row: RwSignal<Row>) -> impl IntoView {
             let Some(el) = textarea.get() else { return };
             if let Some(input) = ev.dyn_ref::<web_sys::InputEvent>() {
                 if input.input_type() == "insertText"
-                    && matches!(input.data().as_deref(), Some("`" | "["))
+                    && matches!(input.data().as_deref(), Some("`" | "[" | "]"))
                 {
                     close_typed(&el);
                 }
