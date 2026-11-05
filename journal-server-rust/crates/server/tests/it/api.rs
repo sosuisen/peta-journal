@@ -945,6 +945,46 @@ async fn renaming_a_page_changes_its_title_and_path() {
     );
 }
 
+// NFDのタイトルとフォルダで開いても、ページはNFCの名前になり、NFCで開いたときと同じページである。
+#[tokio::test]
+async fn a_doc_opened_with_an_nfd_title_and_folder_has_nfc_names_and_is_the_same_page() {
+    let n = nanos();
+
+    let (status, first) = post(
+        "/api/pages/doc",
+        json!({ "title": format!("\u{30ab}\u{3099}-{n}"), "dirPath": format!("\u{30c6}\u{3099}-{n}/") }),
+    )
+    .await;
+    assert_eq!(status, 200, "{first}");
+    let (_, again) = post(
+        "/api/pages/doc",
+        json!({ "title": format!("\u{30ac}-{n}"), "dirPath": format!("\u{30c7}-{n}/") }),
+    )
+    .await;
+
+    assert_eq!(first["page"]["name"], json!(format!("\u{30ac}-{n}")));
+    assert_eq!(first["page"]["dirPath"], json!(format!("\u{30c7}-{n}/")));
+    assert_eq!(again["created"], json!(false));
+    assert_eq!(first["page"]["id"], again["page"]["id"]);
+}
+
+// NFDのタイトルとフォルダへ改名すると、ページはNFCの名前になる。
+#[tokio::test]
+async fn renaming_a_page_to_an_nfd_title_and_folder_gives_nfc_names() {
+    let page = new_doc_page("pages-rename-nfd").await;
+    let n = nanos();
+
+    let (status, resp) = put(
+        &format!("/api/pages/{}", page.id),
+        json!({ "title": format!("\u{30ab}\u{3099}-{n}"), "dirPath": format!("\u{30c6}\u{3099}-{n}/") }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(resp["page"]["name"], json!(format!("\u{30ac}-{n}")));
+    assert_eq!(resp["page"]["dirPath"], json!(format!("\u{30c7}-{n}/")));
+}
+
 /// Gives the page a modified date in the past, so a later change shows as a new date.
 async fn date_the_page_in_the_past(page_id: &str) -> i64 {
     let (status, resp) = put(
@@ -2169,6 +2209,30 @@ async fn renaming_a_tag_page_renames_its_tag_in_page_tags_and_bodies() {
     assert_eq!(item.properties["tags"], json!([new]));
     assert_eq!(doc_page_named(&new).await, Some(tag_page.clone()));
     assert!(doc_page_named(&old).await.is_none());
+}
+
+// タグページをNFDのタイトルへ改名すると、本文とタグにはNFCの名前が入る。
+#[tokio::test]
+async fn renaming_a_tag_page_to_an_nfd_title_writes_the_tag_in_nfc() {
+    let _tags_dir = TAGS_DIR.lock().await;
+    let old = format!("nfd-tag-old-{}", nanos());
+    let n = nanos();
+    let page = new_doc_page("nfd-tag-body").await;
+    let item = items(&page.id).await.into_iter().next().unwrap();
+    update_item(&item.id, json!({ "body": format!("see #{old}") })).await;
+    let tag_page = doc_page_named(&old).await.unwrap();
+
+    let (status, resp) = put(
+        &format!("/api/pages/{tag_page}"),
+        json!({ "title": format!("\u{30ab}\u{3099}-{n}") }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    let new = format!("\u{30ac}-{n}");
+    let item = items(&page.id).await.into_iter().next().unwrap();
+    assert_eq!(item.body, format!("see #{new}"));
+    assert_eq!(item.properties["tags"], json!([new]));
 }
 
 // タグページをタグフォルダの中の別のフォルダへ動かすと、タグもそのフォルダの名前で付け直される。

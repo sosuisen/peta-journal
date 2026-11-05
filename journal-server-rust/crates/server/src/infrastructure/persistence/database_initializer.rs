@@ -13,13 +13,14 @@ use anyhow::Context;
 use rusqlite::{params, Connection};
 
 use crate::domain::id_generator::IdGenerator;
+use crate::domain::nfc::to_nfc;
 
 use super::db::{now_millis, Db};
 
 /// The migrations, in the order they run. The version of a database is the number of them
 /// it has had.
 const MIGRATIONS: &[fn(&Connection) -> rusqlite::Result<()>] =
-    &[create_tables, create_deleted_items];
+    &[create_tables, create_deleted_items, put_names_in_nfc];
 
 pub fn initialize(db: &Db, ids: &IdGenerator) -> anyhow::Result<()> {
     let conn = db.conn()?;
@@ -62,6 +63,33 @@ fn migrate(conn: &Connection) -> anyhow::Result<()> {
 fn user_version(conn: &Connection) -> rusqlite::Result<usize> {
     let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     Ok(version as usize)
+}
+
+/// Version 3: the names of pages and their files in NFC, see ADR 007. Rows are only updated.
+/// Deleting a page would delete its items too. `OR IGNORE` leaves a row as it is when its NFC
+/// name is taken, as a failure here would keep the server from starting.
+fn put_names_in_nfc(conn: &Connection) -> rusqlite::Result<()> {
+    let pages: Vec<(String, String, String)> = conn
+        .prepare("SELECT id, dir_path, name FROM pages")?
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+        .collect::<rusqlite::Result<_>>()?;
+    for (id, dir_path, name) in pages {
+        conn.execute(
+            "UPDATE OR IGNORE pages SET dir_path = ?, name = ? WHERE id = ?",
+            params![to_nfc(&dir_path), to_nfc(&name), id],
+        )?;
+    }
+    let paths: Vec<String> = conn
+        .prepare("SELECT rel_path FROM file_sync_state")?
+        .query_map([], |r| r.get(0))?
+        .collect::<rusqlite::Result<_>>()?;
+    for path in paths {
+        conn.execute(
+            "UPDATE OR IGNORE file_sync_state SET rel_path = ? WHERE rel_path = ?",
+            params![to_nfc(&path), path],
+        )?;
+    }
+    Ok(())
 }
 
 /// Version 2: the items deleted here, so that taking in a file can tell them from items
@@ -307,6 +335,88 @@ mod tests {
 
         assert_eq!(user_version(&conn).unwrap(), MIGRATIONS.len());
         assert_eq!(count(&conn, "SELECT COUNT(*) FROM deleted_items"), 0);
+    }
+
+    fn add_page_with_file(conn: &Connection, id: &str, dir_path: &str, name: &str) {
+        conn.execute(
+            "INSERT INTO pages (id, dir_path, name, type, created_date, modified_date) \
+             VALUES (?, ?, ?, 'doc', 1, 2)",
+            params![id, dir_path, name],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO items (id, page_id, created_date, modified_date, idx, body) \
+             VALUES (?, ?, 1, 2, 'a0', ?)",
+            params![format!("item-{id}"), id, name],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO file_sync_state (rel_path, page_id, content_hash, file_size, file_mtime, synced_at) \
+             VALUES (?, ?, 'hash', 1, 1, 1)",
+            params![format!("docs/{dir_path}{name}.md"), id],
+        )
+        .unwrap();
+    }
+
+    fn set_version(conn: &Connection, version: i64) {
+        conn.pragma_update(None, "user_version", version).unwrap();
+    }
+
+    fn text(conn: &Connection, sql: &str, id: &str) -> String {
+        conn.query_row(sql, [id], |r| r.get(0)).unwrap()
+    }
+
+    // 版2のデータベースを開くと、NFDのページ名と同期パスはNFCになり、項目、日付、idはそのままである。
+    #[test]
+    fn a_database_at_version_2_gets_nfc_page_names_and_paths_and_keeps_the_rest() {
+        let conn = Connection::open_in_memory().unwrap();
+        run(&conn, &IdGenerator::new()).unwrap();
+        add_page_with_file(&conn, "p1", "\u{30c6}\u{3099}/", "\u{30ab}\u{3099}");
+        set_version(&conn, 2);
+
+        run(&conn, &IdGenerator::new()).unwrap();
+
+        assert_eq!(user_version(&conn).unwrap(), MIGRATIONS.len());
+        let name_of = "SELECT name FROM pages WHERE id = ?";
+        assert_eq!(text(&conn, name_of, "p1"), "\u{30ac}");
+        let dir_of = "SELECT dir_path FROM pages WHERE id = ?";
+        assert_eq!(text(&conn, dir_of, "p1"), "\u{30c7}/");
+        let path_of = "SELECT rel_path FROM file_sync_state WHERE page_id = ?";
+        assert_eq!(text(&conn, path_of, "p1"), "docs/\u{30c7}/\u{30ac}.md");
+        // The body is what the user wrote, so it keeps its form
+        let body_of = "SELECT body FROM items WHERE page_id = ?";
+        assert_eq!(text(&conn, body_of, "p1"), "\u{30ab}\u{3099}");
+        assert_eq!(
+            count(&conn, "SELECT modified_date FROM pages WHERE id = 'p1'"),
+            2
+        );
+    }
+
+    // NFCにすると別の行と同じ名前になる行は、項目も含めてそのまま残り、データベースは開ける。
+    #[test]
+    fn a_row_that_would_take_the_name_of_another_row_stays_as_it_is() {
+        let conn = Connection::open_in_memory().unwrap();
+        run(&conn, &IdGenerator::new()).unwrap();
+        add_page_with_file(&conn, "p1", "", "\u{30ac}");
+        add_page_with_file(&conn, "p2", "", "\u{30ab}\u{3099}");
+        set_version(&conn, 2);
+
+        run(&conn, &IdGenerator::new()).unwrap();
+
+        assert_eq!(user_version(&conn).unwrap(), MIGRATIONS.len());
+        let name_of = "SELECT name FROM pages WHERE id = ?";
+        assert_eq!(text(&conn, name_of, "p1"), "\u{30ac}");
+        assert_eq!(text(&conn, name_of, "p2"), "\u{30ab}\u{3099}");
+        let path_of = "SELECT rel_path FROM file_sync_state WHERE page_id = ?";
+        assert_eq!(text(&conn, path_of, "p1"), "docs/\u{30ac}.md");
+        assert_eq!(text(&conn, path_of, "p2"), "docs/\u{30ab}\u{3099}.md");
+        assert_eq!(
+            count(
+                &conn,
+                "SELECT COUNT(*) FROM items WHERE page_id IN ('p1', 'p2')"
+            ),
+            2
+        );
     }
 
     // 新しいサーバーのデータベースは、開かれない。

@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 use sha2::{Digest, Sha256};
 
 use crate::domain::model::Page;
+use crate::domain::nfc::to_nfc;
 
 pub const MD_EXT: &str = ".md";
 const CONFLICT_MARKER: &str = ".conflict";
@@ -68,13 +69,17 @@ pub fn from_rel_path(rel_path: &str) -> Option<PageLocation> {
     })
 }
 
-/// Relative path of `file` under `root`, always using '/'.
+/// Relative path of `file` under `root`, always using '/', in NFC. macOS can return a name in
+/// NFD. The NFC path still opens the file there, as ADR 007 expects. Windows and Linux would
+/// not open it, but they get no NFD names, as peta-journal makes all the names.
 pub fn relativize(root: &Path, file: &Path) -> String {
     let rel = file.strip_prefix(root).unwrap_or(file);
-    rel.components()
+    let path = rel
+        .components()
         .map(|c| c.as_os_str().to_string_lossy().into_owned())
         .collect::<Vec<_>>()
-        .join("/")
+        .join("/");
+    to_nfc(&path)
 }
 
 /// Files we must never import: temp/partial files from editors and Dropbox, names that
@@ -170,6 +175,32 @@ mod tests {
         assert!(from_rel_path("other/a.md").is_none());
         assert!(from_rel_path("docs/a.txt").is_none());
         assert!(from_rel_path("docs/.md").is_none());
+    }
+
+    // ファイルシステムがNFDで返した名前は、NFCの相対パスになる。
+    #[test]
+    fn a_name_the_file_system_returns_in_nfd_becomes_an_nfc_relative_path() {
+        let root = Path::new("/md");
+        let file = root
+            .join("docs")
+            .join("\u{30c6}\u{3099}ir")
+            .join("\u{30ab}\u{3099}.md");
+
+        assert_eq!(relativize(root, &file), "docs/\u{30c7}ir/\u{30ac}.md");
+    }
+
+    // ファイルシステムがNFDで返したconflicted copyの名前も、コピーと分かる。
+    #[test]
+    fn a_conflicted_copy_the_file_system_returns_in_nfd_is_known_as_a_copy() {
+        let root = Path::new("/md");
+        let file = root
+            .join("docs")
+            .join("a (PC の競合コヒ\u{309a}ー 2026-11-05).md");
+
+        let rel = relativize(root, &file);
+
+        assert_eq!(conflicted_copy_of(&rel), from_rel_path("docs/a.md"));
+        assert!(!is_ignored(&rel));
     }
 
     // 競合ファイル、一時ファイル、Markdown以外のファイルは無視される。
