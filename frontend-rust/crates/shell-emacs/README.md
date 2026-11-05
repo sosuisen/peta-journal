@@ -53,7 +53,8 @@ copy what you typed after the warning first. Errors of the shell are in `*peta-j
 ## Editing
 
 The whole page is in one buffer. Type in a body as in any other buffer. Typing `[[` adds `]]`, and
-typing three backticks at the start of a line adds the closing code fence. The bullets and the line
+typing `]]` then goes over them. Typing three backticks at the start of a line adds the closing code
+fence. The bullets and the line
 ends between items are read-only. The outline changes only through these keys:
 
 | Key | Action |
