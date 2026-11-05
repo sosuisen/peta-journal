@@ -2,6 +2,7 @@
 //! the core and performs its effects. `lisp/peta-journal.el` only draws what it is told and sends
 //! back what the user does, as JSON lines over stdin and stdout.
 
+pub mod api;
 pub mod protocol;
 pub mod route;
 
