@@ -19,43 +19,11 @@ fn main() {
     mount_to_body(|| view! { <Router><App /></Router> });
 }
 
-/// The URL as the core understands it: `/today`, `/pages/<name>`, `/docs/<name>`,
-/// `/journals/<name>` or `/settings`.
+/// The route of the location, whose parts the browser keeps encoded.
 fn parse_route(pathname: &str, hash: &str) -> Option<Route> {
-    let path = dom::decode_uri(pathname.trim_start_matches('/'));
-    let fragment = hash
-        .strip_prefix('#')
-        .filter(|f| !f.is_empty())
-        .map(dom::decode_uri);
-    if path == "settings" {
-        return Some(Route::Settings);
-    }
-    if path.is_empty() {
-        return None;
-    }
-    if path == "today" {
-        return Some(Route::Page {
-            name: "today".into(),
-            fragment,
-        });
-    }
-    for prefix in ["pages/", "docs/", "journals/"] {
-        if let Some(rest) = path.strip_prefix(prefix) {
-            let name = rest.trim_end_matches('/').to_string();
-            return Some(Route::Page {
-                name: if name.is_empty() {
-                    "today".into()
-                } else {
-                    name
-                },
-                fragment,
-            });
-        }
-    }
-    Some(Route::Page {
-        name: path,
-        fragment,
-    })
+    let path = dom::decode_uri(pathname);
+    let fragment = hash.strip_prefix('#').map(dom::decode_uri);
+    Route::parse(&path, fragment.as_deref())
 }
 
 #[component]

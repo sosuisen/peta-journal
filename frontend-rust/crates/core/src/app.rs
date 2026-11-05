@@ -85,6 +85,28 @@ pub enum Route {
     Settings,
 }
 
+impl Route {
+    /// The route of a URL. `path` and `fragment` are already decoded, as only the shell knows how
+    /// its URLs are encoded. None when the path names nothing.
+    pub fn parse(path: &str, fragment: Option<&str>) -> Option<Route> {
+        let path = path.trim_start_matches('/');
+        if path == "settings" {
+            return Some(Route::Settings);
+        }
+        if path.is_empty() {
+            return None;
+        }
+        let name = ["pages/", "docs/", "journals/"]
+            .iter()
+            .find_map(|prefix| path.strip_prefix(prefix))
+            .map_or(path, |rest| rest.trim_end_matches('/'));
+        Some(Route::Page {
+            name: if name.is_empty() { "today" } else { name }.to_string(),
+            fragment: fragment.filter(|f| !f.is_empty()).map(str::to_string),
+        })
+    }
+}
+
 #[derive(Debug)]
 pub enum Event {
     /// The shell is up: connect, load the settings and the sidebar.
