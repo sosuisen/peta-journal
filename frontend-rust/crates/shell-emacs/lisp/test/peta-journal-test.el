@@ -394,6 +394,18 @@
         (peta-journal--read-output "tle\":\"題\"}\n")
         (should (equal title "題"))))))
 
+;;;; Starting
+
+;; 別のファイルの読み込み中に起動しても、プログラムはこのモードの場所から見つかる。
+(ert-deftest peta-journal-the-program-is-found-while-another-file-loads ()
+  (let* ((peta-journal-shell-program nil)
+         (load-file-name "c:/elsewhere/init.el")
+         (here (file-name-directory (locate-library "peta-journal")))
+         (program (expand-file-name "../../../target/debug/peta-shell-emacs" here)))
+    (cl-letf (((symbol-function 'executable-find) #'ignore)
+              ((symbol-function 'file-executable-p) (lambda (file) (equal file program))))
+      (should (equal (peta-journal--program) program)))))
+
 ;;;; The search box
 
 (defmacro peta-journal-test--with-search (&rest body)
