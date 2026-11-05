@@ -489,11 +489,15 @@
 
 ;;;; Links
 
-;; カーソルの下のウィキリンクとタグを読み取る。
-(ert-deftest peta-journal-finds-the-link-at-a-position ()
-  (let ((text "a [[メモ/本]] b #rust c"))
-    (should (equal (peta-journal--link-at text 5) '(wiki . "メモ/本")))
-    (should (equal (peta-journal--link-at text 15) '(tag . "rust")))
-    (should (null (peta-journal--link-at text 0)))))
+;; リンクを開くコマンドは、編集を閉じてから、カーソルの位置をシェルへ送る。リンクかどうかはcoreが決める。
+(ert-deftest peta-journal-sends-the-cursor-to-open-a-link ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "see [[x]]"))
+    (peta-journal-test--goto "a" 6)
+    (setq peta-journal--current "a"
+          peta-journal-test--sent nil)
+    (peta-journal-open-at-point)
+    (should (equal peta-journal-test--sent
+                   '(("edit_finished" :id "a")
+                     ("open_link_at" :id "a" :cursor 6))))))
 
 ;;; peta-journal-test.el ends here

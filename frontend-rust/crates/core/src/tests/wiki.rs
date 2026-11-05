@@ -204,12 +204,34 @@ fn a_pick_for_an_item_that_is_gone_only_closes_the_popup() {
     assert!(update_calls(&h.api).is_empty());
 }
 
-// リンクをクリックすると、そのページが開く。
-#[test]
-fn clicking_a_link_opens_its_page() {
-    let mut h = Harness::new();
-    h.send(Event::OpenWikiLink {
-        text: "notes/Idea".into(),
+fn open_link_at(h: &mut Harness, cursor: usize) {
+    h.send(Event::OpenLinkAt {
+        item_id: "a".into(),
+        cursor,
     });
+}
+
+// カーソルの下のウィキリンクは、そのページを開く。
+#[test]
+fn the_wiki_link_at_the_cursor_opens_its_page() {
+    let mut h = Harness::with_items(vec![item("a", 1, "see [[notes/Idea]]")]);
+    open_link_at(&mut h, 8);
     assert_eq!(h.navigations.last().unwrap().url, "/pages/notes/Idea");
+}
+
+// カーソルの下のハッシュタグは、設定のタグのフォルダのページを開く。
+#[test]
+fn the_tag_at_the_cursor_opens_its_page_in_the_tags_folder() {
+    let mut h = Harness::with_items(vec![item("a", 1, "about #rust")]);
+    h.model.config.tags_dir = "tags/".into();
+    open_link_at(&mut h, 8);
+    assert_eq!(h.navigations.last().unwrap().url, "/pages/tags/rust");
+}
+
+// カーソルの下にリンクがなければ、どこへも移動しない。
+#[test]
+fn no_page_opens_when_the_cursor_is_not_on_a_link() {
+    let mut h = Harness::with_items(vec![item("a", 1, "see [[notes/Idea]]")]);
+    open_link_at(&mut h, 1);
+    assert!(h.navigations.is_empty());
 }

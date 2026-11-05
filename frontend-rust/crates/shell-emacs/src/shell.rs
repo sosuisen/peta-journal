@@ -14,8 +14,8 @@ use peta_core::effects::{
     UiOutput,
 };
 use peta_core::util::filename::JournalType;
-use peta_core::util::has_unclosed_code_fence;
-use peta_core::view::{ScreenView, SearchEntry, SearchView};
+use peta_core::util::{has_unclosed_code_fence, link_at};
+use peta_core::view::{ScreenView, SearchView};
 use peta_core::{Event, PetaApp, ViewModel};
 use serde_json::Value;
 use std::collections::{HashMap, VecDeque};
@@ -59,7 +59,7 @@ struct Sent {
     rows: Vec<RowView>,
     focus_seq: u64,
     connection: Option<String>,
-    search: Option<(String, Vec<SearchEntry>, bool)>,
+    search: Option<(String, Vec<peta_core::view::SearchEntry>, bool)>,
     recent: Vec<String>,
     backlinks: Vec<BacklinkEntry>,
 }
@@ -175,11 +175,7 @@ impl<H: Host> Shell<H> {
                 new_tab: false,
                 new_window: false,
             }),
-            Inbound::OpenWikiLink { text } => self.send(Event::OpenWikiLink { text }),
-            Inbound::OpenTag { tag } => {
-                let tags_dir = self.core.view().config.tags_dir;
-                self.navigate(&format!("/pages/{tags_dir}{tag}"), false);
-            }
+            Inbound::OpenLinkAt { id, cursor } => self.open_link_at(id, cursor),
             Inbound::JournalNav { forward } => self.journal_nav(forward),
             Inbound::EditRequested { id, cursor } => {
                 self.own_edit = Some((id.clone(), cursor));
@@ -274,6 +270,27 @@ impl<H: Host> Shell<H> {
             item_id: id,
             cursor,
             now_ms,
+        });
+    }
+
+    fn open_link_at(&mut self, id: String, cursor: usize) {
+        // Only to say so: a key that seems to do nothing would look broken in Emacs
+        let on_link = self
+            .core
+            .view()
+            .outline
+            .rows
+            .iter()
+            .find(|r| r.item.id == id)
+            .is_some_and(|r| link_at(&r.item.body, cursor).is_some());
+        if !on_link {
+            self.host.emit(Outbound::Message {
+                text: "No link here".into(),
+            });
+        }
+        self.send(Event::OpenLinkAt {
+            item_id: id,
+            cursor,
         });
     }
 
