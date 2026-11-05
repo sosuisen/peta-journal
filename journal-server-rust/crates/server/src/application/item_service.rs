@@ -11,6 +11,7 @@ use crate::domain::hashtag;
 use crate::domain::id_generator::IdGenerator;
 use crate::domain::item_body::ItemBody;
 use crate::domain::model::{Item, ItemPatch, ItemPlacement, ItemPosition, Page};
+use crate::domain::nfc::to_nfc;
 use crate::domain::search::SearchIndex;
 use crate::error::{AppError, AppResult};
 use crate::infrastructure::export::export_service::MarkdownExportService;
@@ -747,6 +748,10 @@ impl ItemService {
         dir_path: Option<&str>,
         overwrite: bool,
     ) -> AppResult<(Page, Vec<Hmtid>)> {
+        let title = title.map(to_nfc);
+        let title = title.as_deref();
+        let dir_path = dir_path.map(to_nfc);
+        let dir_path = dir_path.as_deref();
         let existing = self.page_service.require_page(page_id)?;
         let moved = Page {
             name: title.map_or_else(|| existing.name.clone(), str::to_string),

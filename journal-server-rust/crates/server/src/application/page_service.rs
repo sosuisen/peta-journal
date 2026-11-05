@@ -12,6 +12,7 @@ use super::config_service::ConfigService;
 use crate::domain::id_generator::IdGenerator;
 use crate::domain::journal_name;
 use crate::domain::model::{BacklinkEntry, Item, Page, ATLAS_NAME};
+use crate::domain::nfc::to_nfc;
 use crate::domain::search::SearchIndex;
 use crate::domain::wikilink;
 use crate::error::{AppError, AppResult};
@@ -185,9 +186,11 @@ impl PageService {
         title: Option<&str>,
         dir_path: Option<&str>,
     ) -> AppResult<DocResult> {
-        let title = title.unwrap_or("");
+        let title = to_nfc(title.unwrap_or(""));
+        let title = title.as_str();
         validate_title(title)?;
-        let dir = dir_path.unwrap_or("");
+        let dir = to_nfc(dir_path.unwrap_or(""));
+        let dir = dir.as_str();
         let file_name = title;
 
         // Reject journal-type names as doc titles only when dirPath is empty
