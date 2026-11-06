@@ -156,12 +156,8 @@ pub async fn save_body(api: &Api<Event>, item_id: &str, body: &str) -> ApiResult
     let updated = api.update_body(item_id, &normalized).await?;
     let u = updated.clone();
     apply(api, "save_body: server answer", move |m| {
-        m.state.update_item(&u.id, |i| {
-            i.body = u.body;
-            i.ast = u.ast;
-            i.types = u.types;
-            i.properties = u.properties;
-        });
+        m.state.update_item(&u.id, |i| i.body = u.body.clone());
+        show_parsed(m, &u);
         done()
     });
     Ok(updated)
