@@ -125,6 +125,14 @@ fn every_operation_goes_to_its_endpoint() {
             "/api/items/a/cycle-task",
         ),
         (
+            ApiOp::SetTask {
+                item_id: id("a"),
+                state: TaskState::default(),
+            },
+            "PUT",
+            "/api/items/a/task",
+        ),
+        (
             ApiOp::UpsertItemProperty {
                 item_id: id("a"),
                 key: key.clone(),
