@@ -8,6 +8,7 @@ use axum::{Json, Router};
 use hmtid::Hmtid;
 use serde::{Deserialize, Serialize};
 
+use crate::application::item_service::TaskState;
 use crate::domain::model::{Item, ItemPosition};
 use crate::error::{parse_id, AppError, AppResult};
 use crate::presentation::dto::{select_fields, ItemDto};
@@ -35,6 +36,7 @@ pub fn routes() -> Router<SharedState> {
             post(set_transclusion).delete(remove_transclusion),
         )
         .route("/api/items/{id}/cycle-task", post(cycle_task))
+        .route("/api/items/{id}/task", axum::routing::put(set_task))
         .route(
             "/api/items/{id}/properties/{key}",
             axum::routing::put(upsert_property).delete(delete_property),
@@ -161,6 +163,15 @@ struct ParseFlatMarkdownResponse {
 struct UpsertPropertyRequest {
     value_type: Option<String>,
     value: Option<String>,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+struct SetTaskRequest {
+    task: bool,
+    begin: Option<String>,
+    end: Option<String>,
+    plan: Option<String>,
 }
 
 #[derive(Deserialize, Default)]
@@ -422,6 +433,26 @@ async fn cycle_task(
     let item_id = parse_id(&id)?;
     blocking(move || {
         let item = state.item_service.cycle_task(&item_id)?;
+        state.sse.broadcast_pages_updated(item.page_id.as_str());
+        item_response(&state, &item)
+    })
+    .await
+}
+
+async fn set_task(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    Json(req): Json<SetTaskRequest>,
+) -> AppResult<Json<ItemResponse>> {
+    let item_id = parse_id(&id)?;
+    let task = TaskState {
+        task: req.task,
+        begin: req.begin,
+        end: req.end,
+        plan: req.plan,
+    };
+    blocking(move || {
+        let item = state.item_service.set_task(&item_id, &task)?;
         state.sse.broadcast_pages_updated(item.page_id.as_str());
         item_response(&state, &item)
     })

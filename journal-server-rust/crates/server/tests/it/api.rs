@@ -452,6 +452,65 @@ async fn cycle_task_goes_through_task_running_done_and_back_to_normal() {
     assert!(!normal.properties.contains_key("end"));
 }
 
+// タスク状態の設定は、完了したタスクを元の時刻と予定日ごと元に戻す。
+#[tokio::test]
+async fn set_task_puts_back_a_done_task_with_its_times_and_plan() {
+    let page = new_doc_page("items-task-set").await;
+    let item = fill(&page.id, &["buy milk"]).await.remove(0);
+
+    let (status, resp) = put(
+        &format!("/api/items/{}/task", item.id),
+        json!({
+            "task": true,
+            "begin": "2026-01-02T03:04:05",
+            "end": "2026-01-02T04:05:06",
+            "plan": "2026-01-02",
+        }),
+    )
+    .await;
+
+    assert_eq!(status, 200);
+    let answered = ItemRow::of(&resp["item"]);
+    let stored = items(&page.id).await.remove(0);
+    for row in [answered, stored] {
+        assert!(row.types.contains(&"task".to_string()));
+        assert_eq!(row.properties["begin"], json!("2026-01-02T03:04:05"));
+        assert_eq!(row.properties["end"], json!("2026-01-02T04:05:06"));
+        assert_eq!(row.properties["plan"], json!("2026-01-02"));
+    }
+}
+
+// タスク状態の設定は、指定しなかった時刻と予定日を消し、項目を通常の項目に戻せる。
+#[tokio::test]
+async fn set_task_removes_what_it_is_not_given() {
+    let page = new_doc_page("items-task-unset").await;
+    let item = fill(&page.id, &["buy milk"]).await.remove(0);
+    let path = format!("/api/items/{}/task", item.id);
+    let full = json!({ "task": true, "begin": "b", "end": "e", "plan": "2026-01-02" });
+    assert_eq!(put(&path, full).await.0, 200);
+
+    assert_eq!(put(&path, json!({ "task": false })).await.0, 200);
+
+    let row = items(&page.id).await.remove(0);
+    assert!(!row.types.contains(&"task".to_string()));
+    for key in ["begin", "end", "plan"] {
+        assert!(!row.properties.contains_key(key), "{key} is still there");
+    }
+}
+
+// 通常の項目に時刻は持たせられない。cycle-taskも、そのような状態を作らない。
+#[tokio::test]
+async fn set_task_refuses_times_on_a_normal_item() {
+    let page = new_doc_page("items-task-refuse").await;
+    let item = fill(&page.id, &["buy milk"]).await.remove(0);
+    let path = format!("/api/items/{}/task", item.id);
+
+    for times in [json!({ "begin": "b" }), json!({ "end": "e" })] {
+        assert_eq!(put(&path, times).await.0, 400);
+    }
+    assert!(items(&page.id).await[0].properties.is_empty());
+}
+
 // タスクは型で一覧できる。
 #[tokio::test]
 async fn tasks_can_be_listed_by_type() {

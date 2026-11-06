@@ -45,9 +45,28 @@ pub struct Item {
 /// reference counted: a change makes a new item instead of touching the shared one.
 pub type ItemRef = Arc<Item>;
 
+/// The task state of an item, with the times and the plan that go with it.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct TaskState {
+    pub task: bool,
+    pub begin: Option<String>,
+    pub end: Option<String>,
+    pub plan: Option<String>,
+}
+
 impl Item {
     pub fn is_task(&self) -> bool {
         self.types.iter().any(|t| t == "task")
+    }
+
+    pub fn task_state(&self) -> TaskState {
+        let text_of = |key| self.prop_str(key).map(str::to_string);
+        TaskState {
+            task: self.is_task(),
+            begin: text_of("begin"),
+            end: text_of("end"),
+            plan: text_of("plan"),
+        }
     }
 
     pub fn has_type(&self, name: &str) -> bool {

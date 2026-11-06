@@ -1,6 +1,10 @@
 use crate::app::Event;
-use crate::harness::{create_calls, delete_calls, item, update_calls, Harness};
+use crate::effects::ApiOutput;
+use crate::harness::{create_calls, delete_calls, item, set_task_calls, update_calls, Harness};
+use crate::model::{Item, TaskState, TranscludedTrees};
 use crate::outline::CursorState;
+use crate::testing::item_with;
+use serde_json::json;
 
 // undo は古い本文を戻して保存し、その項目を redo スタックに移す。redo はそれを元に戻す。
 #[test]
@@ -62,6 +66,97 @@ fn the_redo_of_a_task_cycle_keeps_the_item_a_task() {
     h.send(Event::Undo);
     h.send(Event::Redo);
     assert!(h.model.state.get_item_by_id("a").unwrap().is_task());
+}
+
+/// A task that is done, with its times and its plan.
+fn done_task(id: &str) -> Item {
+    item_with(id, 1, |i| {
+        i.body = "x".into();
+        i.types = vec!["task".into()];
+        i.properties = [
+            ("begin".to_string(), json!("b")),
+            ("end".to_string(), json!("e")),
+            ("plan".to_string(), json!("p")),
+        ]
+        .into();
+    })
+}
+
+fn done_state() -> TaskState {
+    TaskState {
+        task: true,
+        begin: Some("b".into()),
+        end: Some("e".into()),
+        plan: Some("p".into()),
+    }
+}
+
+// タスク状態の切り替えの undo は、元の時刻と予定日ごと、元の状態をサーバーに送る。redo は切り替え後の状態を送る。
+#[test]
+fn undo_and_redo_of_a_task_cycle_send_the_task_state_to_the_server() {
+    let mut h = Harness::with_items(vec![done_task("a")]);
+    // A done task cycles on to a normal item
+    h.api
+        .answer_next("CycleTask", Ok(ApiOutput::Item(item("a", 1, "x"))));
+    h.send(Event::TaskCycle {
+        item_id: "a".into(),
+    });
+
+    h.send(Event::Undo);
+    assert_eq!(set_task_calls(&h.api), [("a".to_string(), done_state())]);
+
+    h.send(Event::Redo);
+    assert_eq!(set_task_calls(&h.api).len(), 2);
+    assert_eq!(set_task_calls(&h.api)[1].1, TaskState::default());
+}
+
+// undo の後は、サーバーが答えたタスク状態が表示される。
+#[test]
+fn undo_of_a_task_cycle_shows_the_task_state_the_server_answers() {
+    let mut h = Harness::with_items(vec![done_task("a")]);
+    h.send(Event::TaskCycle {
+        item_id: "a".into(),
+    });
+    h.send(Event::Undo);
+    let shown = h.model.state.get_item_by_id("a").unwrap();
+    assert_eq!(shown.task_state(), done_state());
+}
+
+// トランスクルージョンのルートでのタスク状態の undo は、元の項目のタスク状態を戻す。
+#[test]
+fn undo_of_a_task_cycle_on_a_transclusion_root_goes_to_the_source_item() {
+    let root = item_with("root", 1, |i| i.transclude_item_id = Some("s".into()));
+    let mut h = Harness::with_items(vec![root]);
+    let mut trees = TranscludedTrees::new();
+    trees.insert("s".into(), vec![done_task("s")]);
+    h.model.state.set_transcluded_trees(trees);
+    h.send(Event::TaskCycle {
+        item_id: "root".into(),
+    });
+
+    h.send(Event::Undo);
+
+    assert_eq!(set_task_calls(&h.api), [("s".to_string(), done_state())]);
+    let rows = h.view().outline.rows;
+    let shown = rows.iter().find(|r| r.item.id == "root").unwrap();
+    assert_eq!(shown.item.task_state(), done_state());
+}
+
+// タスク状態が変わらない操作の undo では、タスク状態を送らない。
+#[test]
+fn undo_of_a_body_edit_does_not_send_the_task_state() {
+    let mut h = Harness::with_items(vec![done_task("a")]);
+    h.send(Event::EditRequested {
+        item_id: "a".into(),
+        cursor: 1,
+    });
+    h.send(Event::BodyChanged {
+        item_id: "a".into(),
+        body: "y".into(),
+        now_ms: 0,
+    });
+    h.send(Event::Undo);
+    assert!(set_task_calls(&h.api).is_empty());
 }
 
 // undo の後も更新された項目の編集は続き、カーソルはその本文の末尾に置かれる。
