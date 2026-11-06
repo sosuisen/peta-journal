@@ -285,6 +285,33 @@ fn enter_opens_the_selected_entry_and_escape_closes_the_list() {
     assert_eq!(urls(&h), ["/pages/Plans"]);
 }
 
+// Enterで結果を開いても検索欄にはフォーカスが残る。そのまま入力すると、一覧がまた開く。
+#[test]
+fn typing_after_enter_opened_a_result_shows_the_list_again() {
+    let mut h = Harness::new();
+    h.send(Event::SearchDropdown(true));
+    searched(&mut h, "plan", vec![page_hit("Plans")]);
+    key(&mut h, SearchKey::Down);
+    key(&mut h, SearchKey::Enter);
+    assert!(!h.view().search.show_dropdown);
+
+    searched(&mut h, "diary", vec![page_hit("Diary")]);
+    assert!(h.view().search.show_dropdown);
+}
+
+// Escapeで一覧を閉じても検索欄にはフォーカスが残る。そのまま入力すると、一覧がまた開く。
+#[test]
+fn typing_after_escape_closed_the_list_shows_it_again() {
+    let mut h = Harness::new();
+    h.send(Event::SearchDropdown(true));
+    searched(&mut h, "plan", vec![page_hit("Plans")]);
+    key(&mut h, SearchKey::Escape);
+    assert!(!h.view().search.show_dropdown);
+
+    typed(&mut h, "plans");
+    assert!(h.view().search.show_dropdown);
+}
+
 // ページの結果を選ぶとそのページが開き、項目の結果を選ぶとその項目まで飛ぶ。どちらも検索語と結果は消える。
 #[test]
 fn a_page_hit_opens_the_page_and_an_item_hit_jumps_to_the_item() {

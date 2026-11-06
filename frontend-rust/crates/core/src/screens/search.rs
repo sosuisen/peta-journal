@@ -12,6 +12,8 @@ const DEBOUNCE_MS: u32 = 200;
 
 pub fn query_changed(model: &mut Model, value: String) -> Cmd {
     model.search.query = value.clone();
+    // Enter and Escape close the list but leave the focus in the box, so no focus event reopens it
+    model.search.show_dropdown = true;
     // The number of a selected result means another result once the create entries follow the
     // new query, and the results themselves still belong to the old one
     model.search.selected_index = None;
