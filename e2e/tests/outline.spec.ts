@@ -113,6 +113,49 @@ test.describe('outline editing', () => {
     await expect(editorOf(page, items[0].id)).toBeFocused();
   });
 
+  test('the joined item keeps showing the joined text when the cursor moves down right after Backspace', async ({ page }) => {
+    await openFirstEditor(page);
+    await page.keyboard.type('one');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('two');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('three');
+    const created = await server.itemsSettled(pageId, items => items.length === 3 && items[2].body === 'three');
+    await page.keyboard.press('ArrowUp');
+    await expect(editorOf(page, created[1].id)).toBeFocused();
+
+    await page.keyboard.press('Home');
+    await page.keyboard.press('Backspace');
+    await expect(editorOf(page, created[0].id)).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+
+    await expect(editorOf(page, created[2].id)).toBeFocused();
+    await server.itemsSettled(pageId, items => items.length === 2 && items[0].body === 'onetwo');
+    await expect.poll(() => shownBodies(page)).toEqual(['onetwo', 'three']);
+  });
+
+  test('the item shows the redone text when the cursor moves down after Redo', async ({ page }) => {
+    await openFirstEditor(page);
+    await page.keyboard.type('alpha');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('beta');
+    const created = await server.itemsSettled(pageId, items => items.length === 2 && items[1].body === 'beta');
+    await page.keyboard.press('ArrowUp');
+    await expect(editorOf(page, created[0].id)).toBeFocused();
+
+    await page.keyboard.press('End');
+    await page.keyboard.type('X');
+    await page.keyboard.press('Control+z');
+    await expect(editorOf(page, created[0].id)).toHaveValue('alpha');
+    await page.keyboard.press('Control+Shift+z');
+    await expect(editorOf(page, created[0].id)).toHaveValue('alphaX');
+    await server.itemsSettled(pageId, items => items[0].body === 'alphaX');
+    await page.keyboard.press('ArrowDown');
+
+    await expect(editorOf(page, created[1].id)).toBeFocused();
+    await expect.poll(() => shownBodies(page)).toEqual(['alphaX', 'beta']);
+  });
+
   test('text typed right before Backspace at the start reaches the server in the joined item', async ({ page }) => {
     await openFirstEditor(page);
     await page.keyboard.type('one');

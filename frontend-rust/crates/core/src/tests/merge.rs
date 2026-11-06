@@ -163,6 +163,68 @@ fn a_merge_the_server_refuses_reloads_the_page() {
     assert_eq!(h.bodies(), ["reloaded=reloaded"]);
 }
 
+/// The item as a fake server returns it after joining: parsed from the joined text.
+fn joined(id: &str, body: &str) -> ApiOutput {
+    ApiOutput::Item(item_with(id, 1, |i| {
+        i.body = body.into();
+        i.ast = format!("ast:{body}");
+        i.types = vec!["heading".into()];
+        i.properties = [("tags".to_string(), serde_json::json!(["joined"]))].into();
+    }))
+}
+
+/// What the view of an item renders and styles itself from.
+fn shown_parse(h: &Harness, item_id: &str) -> (String, Vec<String>, Option<serde_json::Value>) {
+    let rows = h.view().outline.rows;
+    let row = rows.iter().find(|r| r.item.id == item_id).unwrap();
+    (
+        row.item.ast.clone(),
+        row.item.types.clone(),
+        row.item.properties.get("tags").cloned(),
+    )
+}
+
+// 行頭での Backspace の直後に下の項目へ移動しても、上の項目は結合後の内容で表示される。
+#[test]
+fn the_item_above_shows_the_joined_text_after_backspace_and_moving_away() {
+    let mut h = harness();
+    h.api
+        .answer_next("MergeItems", Ok(joined("a", "hello world")));
+    h.send(Event::BackspaceAtStart {
+        item_id: "b".into(),
+    });
+    h.send(Event::NavigateDown {
+        item_id: "a".into(),
+        cursor: 0,
+    });
+    assert!(!h.model.state.is_editing("a"));
+    assert_eq!(
+        shown_parse(&h, "a"),
+        (
+            "ast:hello world".to_string(),
+            vec!["heading".to_string()],
+            Some(serde_json::json!(["joined"]))
+        )
+    );
+}
+
+// 行末での Delete の直後に下の項目へ移動しても、取り込んだ項目は結合後の内容で表示される。
+#[test]
+fn the_item_shows_the_joined_text_after_delete_and_moving_away() {
+    let mut h = harness();
+    h.api
+        .answer_next("MergeItems", Ok(joined("a", "hello world")));
+    h.send(Event::DeleteAtEnd {
+        item_id: "a".into(),
+    });
+    h.send(Event::NavigateDown {
+        item_id: "a".into(),
+        cursor: 0,
+    });
+    assert!(!h.model.state.is_editing("a"));
+    assert_eq!(shown_parse(&h, "a").0, "ast:hello world");
+}
+
 // 先頭の項目では行頭での Backspace が何もしない。
 #[test]
 fn backspace_does_nothing_for_the_first_item() {
