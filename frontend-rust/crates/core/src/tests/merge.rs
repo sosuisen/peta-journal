@@ -208,6 +208,23 @@ fn the_item_above_shows_the_joined_text_after_backspace_and_moving_away() {
     );
 }
 
+// 行末での Delete の直後に下の項目へ移動しても、取り込んだ項目は結合後の内容で表示される。
+#[test]
+fn the_item_shows_the_joined_text_after_delete_and_moving_away() {
+    let mut h = harness();
+    h.api
+        .answer_next("MergeItems", Ok(joined("a", "hello world")));
+    h.send(Event::DeleteAtEnd {
+        item_id: "a".into(),
+    });
+    h.send(Event::NavigateDown {
+        item_id: "a".into(),
+        cursor: 0,
+    });
+    assert!(!h.model.state.is_editing("a"));
+    assert_eq!(shown_parse(&h, "a").0, "ast:hello world");
+}
+
 // 先頭の項目では行頭での Backspace が何もしない。
 #[test]
 fn backspace_does_nothing_for_the_first_item() {
