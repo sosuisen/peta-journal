@@ -1,4 +1,5 @@
 use crate::app::Event;
+use crate::effects::ApiOutput;
 use crate::harness::{create_calls, delete_calls, item, set_task_calls, update_calls, Harness};
 use crate::model::{Item, TaskState, TranscludedTrees};
 use crate::outline::CursorState;
@@ -94,6 +95,9 @@ fn done_state() -> TaskState {
 #[test]
 fn undo_and_redo_of_a_task_cycle_send_the_task_state_to_the_server() {
     let mut h = Harness::with_items(vec![done_task("a")]);
+    // A done task cycles on to a normal item
+    h.api
+        .answer_next("CycleTask", Ok(ApiOutput::Item(item("a", 1, "x"))));
     h.send(Event::TaskCycle {
         item_id: "a".into(),
     });

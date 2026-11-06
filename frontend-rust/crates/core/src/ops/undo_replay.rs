@@ -6,7 +6,7 @@
 use crate::app::{apply, done, log_error, run, Cmd, Model};
 use crate::model::{Item, ItemPosition};
 use crate::ops::edit::discard_pending_edit_of_focused_item;
-use crate::ops::edit::{focus_editor, show_parsed};
+use crate::ops::edit::{focus_editor, save_target_id, show_parsed};
 use crate::ops::file_reload::reload_shown_page;
 use crate::ops::outline_events::ensure_at_least_one_item;
 use crate::outline::tree::position_by_index;
@@ -147,8 +147,8 @@ fn sync_to_server(ops: Vec<UndoOp>, dir: Direction) -> Cmd {
                         .await
                     {
                         Ok(updated) => {
-                            // An entry that kept the body also keeps its parse: the task state
-                            // is not replayed to the server, so its answer has the old types
+                            // An entry that kept the body also keeps its parse: the answer has
+                            // the task state from before the replay of it just below
                             let body_changed = before.body != after.body;
                             apply(&api, "undo sync: answer", move |m| {
                                 if body_changed {
@@ -160,7 +160,7 @@ fn sync_to_server(ops: Vec<UndoOp>, dir: Direction) -> Cmd {
                                 });
                                 done()
                             });
-                            Ok(())
+                            replay_task_state(&api, before, after, target).await
                         }
                         Err(e) => Err(e),
                     }
@@ -188,6 +188,27 @@ fn sync_to_server(ops: Vec<UndoOp>, dir: Direction) -> Cmd {
             }
         }
     })
+}
+
+/// Puts the task state of the replayed item on the server, when the entry changed it. A
+/// transclusion root shows the task state of its source item, so the state goes there.
+async fn replay_task_state(
+    api: &crate::effects::Api<crate::app::Event>,
+    before: &Item,
+    after: &Item,
+    target: &Item,
+) -> Result<(), crate::effects::ApiError> {
+    if before.task_state() == after.task_state() {
+        return Ok(());
+    }
+    let answer = api
+        .set_task(&save_target_id(target), target.task_state())
+        .await?;
+    apply(api, "undo sync: task state", move |m| {
+        show_parsed(m, &answer);
+        done()
+    });
+    Ok(())
 }
 
 /// Creates the item of a create/delete op again on the server and shows the server's item.

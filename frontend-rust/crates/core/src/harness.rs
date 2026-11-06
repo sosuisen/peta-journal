@@ -54,6 +54,7 @@ pub fn op_name(op: &ApiOp) -> &'static str {
         ApiOp::DeleteItems { .. } => "DeleteItems",
         ApiOp::MergeItems { .. } => "MergeItems",
         ApiOp::CycleTask { .. } => "CycleTask",
+        ApiOp::SetTask { .. } => "SetTask",
         ApiOp::UpsertItemProperty { .. } => "UpsertItemProperty",
         ApiOp::DeleteItemProperty { .. } => "DeleteItemProperty",
         ApiOp::ChangeAtlas { .. } => "ChangeAtlas",
@@ -156,6 +157,24 @@ impl FakeApi {
             ApiOp::CycleTask { item_id } => {
                 let mut item = plain_item(item_id, 1, "");
                 item.types = vec!["task".into()];
+                ApiOutput::Item(item)
+            }
+            ApiOp::SetTask { item_id, state } => {
+                let mut item = plain_item(item_id, 1, "");
+                if state.task {
+                    item.types = vec!["task".into()];
+                }
+                let times = [
+                    ("begin", &state.begin),
+                    ("end", &state.end),
+                    ("plan", &state.plan),
+                ];
+                for (key, value) in times {
+                    if let Some(value) = value {
+                        item.properties
+                            .insert(key.to_string(), serde_json::json!(value));
+                    }
+                }
                 ApiOutput::Item(item)
             }
             ApiOp::UpsertItemProperty {
@@ -578,6 +597,17 @@ pub fn merge_calls(api: &FakeApi) -> Vec<(String, String)> {
         .iter()
         .filter_map(|op| match op {
             ApiOp::MergeItems { item_id, into_id } => Some((item_id.clone(), into_id.clone())),
+            _ => None,
+        })
+        .collect()
+}
+
+/// The task state calls as `(item, state)`.
+pub fn set_task_calls(api: &FakeApi) -> Vec<(String, TaskState)> {
+    api.calls
+        .iter()
+        .filter_map(|op| match op {
+            ApiOp::SetTask { item_id, state } => Some((item_id.clone(), state.clone())),
             _ => None,
         })
         .collect()
