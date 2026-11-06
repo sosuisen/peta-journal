@@ -134,6 +134,16 @@ pub async fn flush_pending_edit(api: &Api<Event>, item: &Item) -> ApiResult<()> 
     Ok(())
 }
 
+/// Takes what the server parsed from a body it was sent, because the view renders that and
+/// not the body. The body stays: text typed while the answer was on its way must not go.
+pub fn show_parsed(model: &mut Model, answer: &Item) {
+    model.state.update_item(&answer.id, |i| {
+        i.ast = answer.ast.clone();
+        i.types = answer.types.clone();
+        i.properties = answer.properties.clone();
+    });
+}
+
 /// Saves a body to the server and shows the server's rendering of it. An open code fence
 /// is closed first.
 pub async fn save_body(api: &Api<Event>, item_id: &str, body: &str) -> ApiResult<Item> {

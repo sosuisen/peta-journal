@@ -9,7 +9,7 @@ use crate::app::{apply, done, log_error, run, Cmd, Model};
 use crate::effects::{Api, ApiResult};
 use crate::model::Item;
 use crate::ops::action::confirm_deleting_transcluded;
-use crate::ops::edit::{flush_pending_edit, focus_editor};
+use crate::ops::edit::{flush_pending_edit, focus_editor, show_parsed};
 use crate::ops::file_reload::reload_shown_page;
 use crate::ops::outline_events::edit_requested;
 use crate::outline::tree::index_of;
@@ -113,6 +113,7 @@ fn join_into_previous(model: &mut Model, item_id: &str) -> Cmd {
             }
         };
         apply(&api, "backspace merge: record", move |m| {
+            show_parsed(m, &updated_prev);
             m.undo
                 .begin("backspace", Some(CursorState::new(&item.id, 0)));
             m.undo.push_update(&prev, &updated_prev);
