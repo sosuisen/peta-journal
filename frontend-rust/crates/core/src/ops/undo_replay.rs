@@ -6,7 +6,7 @@
 use crate::app::{apply, done, log_error, run, Cmd, Model};
 use crate::model::{Item, ItemPosition};
 use crate::ops::edit::discard_pending_edit_of_focused_item;
-use crate::ops::edit::focus_editor;
+use crate::ops::edit::{focus_editor, show_parsed};
 use crate::ops::file_reload::reload_shown_page;
 use crate::ops::outline_events::ensure_at_least_one_item;
 use crate::outline::tree::position_by_index;
@@ -147,7 +147,8 @@ fn sync_to_server(ops: Vec<UndoOp>, dir: Direction) -> Cmd {
                         .await
                     {
                         Ok(updated) => {
-                            apply(&api, "undo sync: idx", move |m| {
+                            apply(&api, "undo sync: answer", move |m| {
+                                show_parsed(m, &updated);
                                 m.state.update_item(&updated.id, |i| {
                                     i.idx = updated.idx;
                                     i.level = updated.level;
