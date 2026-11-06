@@ -36,6 +36,15 @@ pub struct TreeMarkdownExport {
     pub flat_markdown: String,
 }
 
+/// The task state of an item, with the times and the plan that go with it.
+#[derive(Debug, Clone)]
+pub struct TaskState {
+    pub task: bool,
+    pub begin: Option<String>,
+    pub end: Option<String>,
+    pub plan: Option<String>,
+}
+
 /// What an operation does outside the database, once its transaction is committed: the
 /// search index, the tag pages and the export of the pages it touched.
 #[derive(Default)]
@@ -645,6 +654,25 @@ impl ItemService {
         Ok(result)
     }
 
+    /// Puts an item in the given task state in one step, as an undo of [`Self::cycle_task`]
+    /// needs: cycling back would write new times over the ones to restore.
+    pub fn set_task(&self, item_id: &Hmtid, state: &TaskState) -> AppResult<Item> {
+        if !state.task && (state.begin.is_some() || state.end.is_some()) {
+            return Err(AppError::bad_request("A normal item has no task times"));
+        }
+        let existing = self.get_item_by_id(item_id)?;
+        let id = item_id.to_string();
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+        let now = now_millis();
+        let result = patch_task_in(&tx, &existing, state.task, now)?;
+        set_or_clear_in(&tx, &id, "begin", "datetime", state.begin.as_deref())?;
+        set_or_clear_in(&tx, &id, "end", "datetime", state.end.as_deref())?;
+        set_or_clear_in(&tx, &id, "plan", "date", state.plan.as_deref())?;
+        self.commit_page(tx, &existing.page_id, now)?;
+        Ok(result)
+    }
+
     /// Sets a property of an item. A key of a list type takes the values comma-separated.
     /// The page file is rewritten, as for any other change of the item.
     pub fn set_property(
@@ -849,6 +877,22 @@ impl ItemService {
 fn clear_task_times_in(tx: &Connection, item_id: &str) -> AppResult<()> {
     PropertyRepository::delete_property_in(tx, ITEM_TARGET, item_id, "begin")?;
     PropertyRepository::delete_property_in(tx, ITEM_TARGET, item_id, "end")?;
+    Ok(())
+}
+
+fn set_or_clear_in(
+    tx: &Connection,
+    item_id: &str,
+    key: &str,
+    value_type: &str,
+    value: Option<&str>,
+) -> AppResult<()> {
+    match value {
+        Some(value) => {
+            PropertyRepository::upsert_scalar_in(tx, ITEM_TARGET, item_id, key, value_type, value)?
+        }
+        None => PropertyRepository::delete_property_in(tx, ITEM_TARGET, item_id, key)?,
+    };
     Ok(())
 }
 
