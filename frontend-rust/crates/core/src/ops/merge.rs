@@ -160,6 +160,7 @@ fn join_next_into(model: &mut Model, item_id: &str) -> Cmd {
             }
         };
         apply(&api, "delete merge: record", move |m| {
+            show_parsed(m, &updated);
             m.undo
                 .begin("delete", Some(CursorState::new(&item.id, cursor_pos)));
             m.undo.push_update(&item, &updated);
