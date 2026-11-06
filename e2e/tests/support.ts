@@ -7,6 +7,7 @@ export interface StoredItem {
   level: number;
   body: string;
   types: string[];
+  properties: Record<string, unknown>;
   collapsed: boolean;
 }
 
@@ -49,7 +50,7 @@ export class Server {
     const resp = await this.request.get(`${this.base}/api/pages/${pageId}`);
     expect(resp.ok()).toBe(true);
     const { items } = await resp.json();
-    return items.map((i: StoredItem) => ({ id: i.id, level: i.level, body: i.body, types: i.types ?? [], collapsed: !!i.collapsed }));
+    return items.map((i: StoredItem) => ({ id: i.id, level: i.level, body: i.body, types: i.types ?? [], properties: i.properties ?? {}, collapsed: !!i.collapsed }));
   }
 
   /** Waits until the stored items of the page satisfy the check; the auto-save needs a moment. */

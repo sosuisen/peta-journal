@@ -137,6 +137,38 @@ test.describe('outline structure', () => {
     expect(outlineOf(await server.items(pageId))).toEqual(['1:a', '2:a1', '2:a2', '1:b', '2:b1']);
   });
 
+  test('undo of Ctrl+Enter reaches the server, so a reload keeps the undone state', async ({ page }) => {
+    const b1 = byBody('b1').id;
+    await openEditor(page, b1);
+    await page.keyboard.press('Control+Enter');
+    await server.itemsSettled(pageId, i => i[4].types.includes('task'));
+
+    await page.keyboard.press('Control+z');
+
+    await server.itemsSettled(pageId, i => !i[4].types.includes('task'));
+    await page.reload();
+    await page.locator('app-outline-item').first().waitFor();
+    await expect(page.locator(`[id="${b1}"] .task-checkbox`)).toHaveCount(0);
+  });
+
+  test('undo of the cycle from done to normal puts the task back with its times', async ({ page }) => {
+    const b1 = byBody('b1').id;
+    await openEditor(page, b1);
+    await page.keyboard.press('Control+Enter');
+    await server.itemsSettled(pageId, i => i[4].types.includes('task'));
+    await page.keyboard.press('Control+Enter');
+    await server.itemsSettled(pageId, i => 'begin' in i[4].properties);
+    await page.keyboard.press('Control+Enter');
+    const [, , , , done] = await server.itemsSettled(pageId, i => 'end' in i[4].properties);
+    await page.keyboard.press('Control+Enter');
+    await server.itemsSettled(pageId, i => !i[4].types.includes('task'));
+
+    await page.keyboard.press('Control+z');
+
+    const [, , , , undone] = await server.itemsSettled(pageId, i => i[4].types.includes('task'));
+    expect(undone.properties).toMatchObject({ begin: done.properties.begin, end: done.properties.end });
+  });
+
   test('Ctrl+Enter turns the item into a task and shows its checkbox', async ({ page }) => {
     await openEditor(page, byBody('b1').id);
 
