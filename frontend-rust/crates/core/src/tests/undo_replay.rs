@@ -23,6 +23,35 @@ fn undo_puts_the_old_body_back_saves_it_and_moves_the_entry_to_the_redo_stack() 
     assert!(h.model.undo.can_undo());
 }
 
+fn shown_ast(h: &Harness, item_id: &str) -> String {
+    let rows = h.view().outline.rows;
+    let row = rows.iter().find(|r| r.item.id == item_id).unwrap();
+    row.item.ast.clone()
+}
+
+// 入力を redo した後に別の項目へ移動しても、redo した本文の内容で表示される。
+#[test]
+fn the_view_shows_the_redone_text_after_moving_away() {
+    let mut h = Harness::with_items(vec![item("a", 1, "old"), item("b", 1, "")]);
+    h.send(Event::EditRequested {
+        item_id: "a".into(),
+        cursor: 3,
+    });
+    h.send(Event::BodyChanged {
+        item_id: "a".into(),
+        body: "new".into(),
+        now_ms: 0,
+    });
+    h.send(Event::Undo);
+    h.send(Event::Redo);
+    h.send(Event::NavigateDown {
+        item_id: "a".into(),
+        cursor: 0,
+    });
+    assert!(!h.model.state.is_editing("a"));
+    assert_eq!(shown_ast(&h, "a"), "ast:new");
+}
+
 // undo の後も更新された項目の編集は続き、カーソルはその本文の末尾に置かれる。
 #[test]
 fn keeps_editing_the_updated_item_with_the_cursor_at_the_end_of_its_body() {
