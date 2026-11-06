@@ -147,8 +147,13 @@ fn sync_to_server(ops: Vec<UndoOp>, dir: Direction) -> Cmd {
                         .await
                     {
                         Ok(updated) => {
+                            // An entry that kept the body also keeps its parse: the task state
+                            // is not replayed to the server, so its answer has the old types
+                            let body_changed = before.body != after.body;
                             apply(&api, "undo sync: answer", move |m| {
-                                show_parsed(m, &updated);
+                                if body_changed {
+                                    show_parsed(m, &updated);
+                                }
                                 m.state.update_item(&updated.id, |i| {
                                     i.idx = updated.idx;
                                     i.level = updated.level;
