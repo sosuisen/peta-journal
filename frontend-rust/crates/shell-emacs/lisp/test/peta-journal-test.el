@@ -716,6 +716,30 @@
   (should-not (peta-journal-test--face "<b>太</b>" "太"))
   (should (eq (peta-journal-test--face "<br />" "<br") 'peta-journal-html)))
 
+;; 行の一部だけを色付けし直しても、複数行の修飾は本文全体から判断される。
+(ert-deftest peta-journal-a-partial-fontify-sees-the-whole-body ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "```\nx\n```")
+                                      (peta-journal-test--row "b" 1 "y"))
+    (font-lock-set-defaults)
+    (goto-char (point-min))
+    (search-forward "x")
+    (font-lock-fontify-region (match-beginning 0) (match-end 0))
+    (should (eq (get-text-property (match-beginning 0) 'face) 'peta-journal-code))
+    (goto-char (point-min))
+    (search-forward "```")
+    (should (eq (get-text-property (match-beginning 0) 'face) 'peta-journal-code))))
+
+;; コードブロックを打ち始めると、打った行より後の行の色も変わる。
+(ert-deftest peta-journal-opening-a-block-recolors-the-lines-after-it ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x\ny"))
+    (font-lock-set-defaults)
+    (peta-journal-test--goto "a" 0)
+    (peta-journal-test--type "```\n")
+    (font-lock-fontify-region (point) (1+ (point)))
+    (goto-char (point-min))
+    (search-forward "y")
+    (should (eq (get-text-property (match-beginning 0) 'face) 'peta-journal-code))))
+
 ;;;; Links
 
 ;; リンクを開くコマンドは、編集を閉じてから、カーソルの位置をシェルへ送る。リンクかどうかはcoreが決める。
