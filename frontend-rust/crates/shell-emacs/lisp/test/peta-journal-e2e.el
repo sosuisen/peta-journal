@@ -518,25 +518,22 @@ The server is a real one, with its files in a temporary folder."
       (should (equal (format-time-string "%Y-%m-%d %H:%M" (/ saved 1000))
                      "2026-01-02 03:04")))))
 
-;; 定義のある日時のキーを新しく付けるときは、現在時刻が入っているので、Enterだけで保存される。
+;; 日時のキーを新しく付けるときは、現在時刻が入っているので、Enterだけで保存される。
 (ert-deftest peta-journal-e2e-a-new-date-starts-at-now ()
   (peta-journal-e2e--with-app
-    (peta-journal-e2e--request "POST" "/api/config/property-definitions"
-                               '(:key "due" :valueType "datetime"))
-    ;; A shell reads the definitions when it starts, so the new one needs a new shell
-    (peta-journal-new-buffer "新しい日時のページ")
-    (with-current-buffer (window-buffer (selected-window))
+    (peta-journal-find-page "新しい日時のページ")
+    (peta-journal-e2e--wait-page-title "新しい日時のページ")
+    (peta-journal-e2e--wait-for
+     "the key published" (lambda () (member "published" peta-journal--free-keys)))
+    (let ((before (format-time-string "%Y-%m-%d %H:%M")))
+      (execute-kbd-macro (vconcat (kbd "C-c C-s") "published" (kbd "RET RET")))
       (peta-journal-e2e--wait-for
-       "the key due" (lambda () (member "due" peta-journal--free-keys)))
-      (let ((before (format-time-string "%Y-%m-%d %H:%M")))
-        (execute-kbd-macro (vconcat (kbd "C-c C-s") "due" (kbd "RET RET")))
-        (peta-journal-e2e--wait-for
-         "the date in the list"
-         (lambda () (string-search "due" (peta-journal-e2e--properties-text))))
-        (let ((after (format-time-string "%Y-%m-%d %H:%M"))
-              (shown (peta-journal-e2e--properties-text)))
-          (should (or (string-search (concat "due       " before) shown)
-                      (string-search (concat "due       " after) shown))))))))
+       "the date in the list"
+       (lambda () (string-search "published" (peta-journal-e2e--properties-text))))
+      (let ((after (format-time-string "%Y-%m-%d %H:%M"))
+            (shown (peta-journal-e2e--properties-text)))
+        (should (or (string-search (concat "published  " before) shown)
+                    (string-search (concat "published  " after) shown)))))))
 
 ;; ジャーナルでは、キーを尋ねずに断る。
 (ert-deftest peta-journal-e2e-a-journal-refuses-a-property ()

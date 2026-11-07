@@ -657,7 +657,7 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
     (should (equal peta-journal-test--sent '(("set_property" :key "rating" :value "5"))))))
 
 (defmacro peta-journal-test--with-dates-in-japan (&rest body)
-  "Run BODY in Japan, on a page with dates in `created' and `met', and `due' to add."
+  "Run BODY in Japan, on a page with dates in `created' and `met', and `published' to add."
   (declare (indent 0))
   `(let ((zone (getenv "TZ")))
      (unwind-protect
@@ -672,8 +672,8 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
                      (:key "met" :value "soon" :removable t :editable t)
                      (:key "status" :value "2026-11-07T15:21:04Z"
                       :removable t :editable t)]
-              :free_keys ["due"]
-              :datetime_keys ["created" "modified" "met" "due"]))
+              :free_keys ["published"]
+              :datetime_keys ["created" "modified" "met" "published"]))
            ,@body)
        (set-time-zone-rule zone))))
 
@@ -710,11 +710,11 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
   (peta-journal-test--with-dates-in-japan
     (cl-letf (((symbol-function 'current-time)
                (lambda () (date-to-time "2026-11-08T00:30:45Z"))))
-      (peta-journal-test--answering "due" initial
+      (peta-journal-test--answering "published" initial
         (call-interactively #'peta-journal-set-property)
         (should (equal initial "2026-11-08 09:30"))))
     (should (equal peta-journal-test--sent
-                   '(("set_property" :key "due" :value "2026-11-08T00:30:00Z"))))))
+                   '(("set_property" :key "published" :value "2026-11-08T00:30:00Z"))))))
 
 ;; 日時として読めない入力は、送らずに断る。ありえない日付も繰り上げずに断る。
 (ert-deftest peta-journal-a-date-that-cannot-be-read-is-refused ()

@@ -984,7 +984,7 @@ fn definitions_answer() -> ApiOutput {
         definition("rating", "number", true),
         definition("topics", "list", true),
         definition("plan", "date", false),
-        definition("due", "datetime", true),
+        definition("published", "datetime", true),
         definition("met", "datetime", true),
         definition("seen", "datetime", false),
     ])
@@ -1082,7 +1082,7 @@ fn a_doc_page_tells_emacs_its_properties_and_free_keys() {
     assert!(!modified.removable && !modified.editable);
     let created = rows.iter().find(|r| r.key == "created").unwrap();
     assert!(!created.removable && created.editable);
-    assert_eq!(free_keys, ["topics", "due", "met"]);
+    assert_eq!(free_keys, ["topics", "published", "met"]);
 }
 
 // 日時のキーをEmacsに伝える。ページ自身の日付、日時の定義を持つ使用中のキー、まだ付けられるキーである。
@@ -1091,7 +1091,7 @@ fn the_keys_that_hold_a_date_and_a_time_reach_emacs() {
     let driver = open_with_properties(json!({ "met": "2026-11-08T00:00:00Z", "rating": "5" }));
     assert_eq!(
         driver.last_datetime_keys().unwrap(),
-        ["created", "modified", "met", "due"]
+        ["created", "modified", "met", "published"]
     );
 }
 
