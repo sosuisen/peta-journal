@@ -98,6 +98,15 @@ The core does not take in changes from elsewhere while an edit is open."
 (defface peta-journal-alert '((t :inherit font-lock-warning-face))
   "The title line of an alert.")
 
+(defface peta-journal-list-mark '((t :inherit font-lock-builtin-face))
+  "The mark of a list item or of a task in a list.")
+
+(defface peta-journal-rule '((t :inherit shadow))
+  "A horizontal rule.")
+
+(defface peta-journal-subtext '((t :inherit shadow))
+  "Small text under a block.")
+
 (defun peta-journal--word-char-p (char)
   "Non-nil when CHAR is a letter or a digit.  CHAR is nil at the buffer edge."
   (and char (string-match-p "[[:alnum:]]" (string char))))
@@ -169,6 +178,9 @@ A block with no closing ends with its body, since each item is parsed alone."
     (,(peta-journal--fence "\\(~~~+\\).*$") 0 'peta-journal-code)
     (,(concat "^" peta-journal--bullet-regexp "\\( \\{4\\}.*\\(?:\n \\{4\\}.*\\)*\\)$")
      1 'peta-journal-code)
+    ;; Before the emphasis: `***' would be an italic `*'
+    (,(concat peta-journal--line-start-regexp " \\{0,3\\}\\(\\([-*_]\\)\\(?: *\\2\\)\\{2,\\} *\\)$")
+     1 'peta-journal-rule)
     ("\\$`[^`\n]+`\\$" 0 'peta-journal-math)
     (,(peta-journal--fitting-pair "\\(`+\\)[^`\n]\\(?:.*?[^`\n]\\)??\\1" ?`)
      0 'peta-journal-code)
@@ -186,6 +198,10 @@ A block with no closing ends with its body, since each item is parsed alone."
     (,(peta-journal--pair "~") 0 'peta-journal-script keep)
     (,(peta-journal--pair "^") 0 'peta-journal-script keep)
     ;; Blocks come after the inline rules, and fill in what they left
+    (,(concat peta-journal--line-start-regexp " \\{0,3\\}\\(-# .*\\)$") 1 'peta-journal-subtext keep)
+    (,(concat peta-journal--line-start-regexp
+              " *\\([-+*]\\(?: \\[[^]\n]\\]\\)?\\|[0-9]+[.)]\\)\\(?: \\|$\\)")
+     1 'peta-journal-list-mark keep)
     (peta-journal--match-alert 1 'peta-journal-alert keep)
     (,(peta-journal--fence "\\(>>>+\\).*$") 0 'peta-journal-quote keep)
     (,(concat peta-journal--line-start-regexp " \\{0,3\\}\\(>.*\\)$") 1 'peta-journal-quote keep))
