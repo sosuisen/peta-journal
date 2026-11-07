@@ -155,6 +155,10 @@ The server is a real one, with its files in a temporary folder."
          (peta-journal-stop)
          (peta-journal-e2e--stop-server server root)))))
 
+(defun peta-journal-e2e--shown ()
+  "The text of the buffer, with the space behind each bullet as a plain space."
+  (string-replace " " " " (buffer-string)))
+
 (defun peta-journal-e2e--keys (keys)
   "Press KEYS, through the same command loop as a person."
   (execute-kbd-macro (kbd keys))
@@ -208,7 +212,7 @@ The server is a real one, with its files in a temporary folder."
   (peta-journal-e2e--with-app
     (peta-journal-e2e--type "abcd")
     (peta-journal-e2e--keys "C-b C-b RET")
-    (should (equal (buffer-string) "• ab\n• cd\n"))
+    (should (equal (peta-journal-e2e--shown) "• ab\n• cd\n"))
     (should (equal (peta-journal--body-at (point)) "cd"))
     (should (= (peta-journal--cursor) 0))
     (peta-journal-e2e--keys "C-x C-s")
@@ -255,7 +259,7 @@ The server is a real one, with its files in a temporary folder."
   (peta-journal-e2e--with-app
     (execute-kbd-macro (kbd "a RET b RET c"))
     (peta-journal--wait)
-    (should (equal (buffer-string) "• a\n• b\n• c\n"))
+    (should (equal (peta-journal-e2e--shown) "• a\n• b\n• c\n"))
     (peta-journal-e2e--keys "C-x C-s")
     (peta-journal-e2e--wait-saved '("a" "b" "c"))))
 
@@ -285,7 +289,7 @@ The server is a real one, with its files in a temporary folder."
     (peta-journal-e2e--wait-saved '("ab" "cd"))
     (peta-journal-e2e--keys "C-a DEL")
     (peta-journal-e2e--wait-for "the join"
-                                (lambda () (equal (buffer-string) "• abcd\n")))
+                                (lambda () (equal (peta-journal-e2e--shown) "• abcd\n")))
     (peta-journal-e2e--wait-saved '("abcd"))))
 
 ;; 自動保存の前に行頭のBackspaceで結合しても、打ったばかりの文字はサーバーに残る。
@@ -298,7 +302,7 @@ The server is a real one, with its files in a temporary folder."
     (peta-journal-e2e--type "cd")
     (peta-journal-e2e--keys "C-a DEL")
     (peta-journal-e2e--wait-for "the join"
-                                (lambda () (equal (buffer-string) "• abcd\n")))
+                                (lambda () (equal (peta-journal-e2e--shown) "• abcd\n")))
     (peta-journal-e2e--wait-saved '("abcd"))))
 
 ;; 元に戻す操作はコアの履歴をたどる。打った文字を戻し、次に項目の分割を戻す。
@@ -306,10 +310,10 @@ The server is a real one, with its files in a temporary folder."
   (peta-journal-e2e--with-app
     (execute-kbd-macro (kbd "a b RET c"))
     (peta-journal--wait)
-    (should (equal (buffer-string) "• ab\n• c\n"))
+    (should (equal (peta-journal-e2e--shown) "• ab\n• c\n"))
     (peta-journal-e2e--keys "C-/")
     (peta-journal-e2e--wait-for "the undo of the typing"
-                                (lambda () (equal (buffer-string) "• ab\n• \n")))
+                                (lambda () (equal (peta-journal-e2e--shown) "• ab\n• \n")))
     (peta-journal-e2e--keys "C-/")
     (peta-journal-e2e--wait-for "the undo of the split"
                                 (lambda () (= (length peta-journal--rows) 1)))))
@@ -380,7 +384,7 @@ The server is a real one, with its files in a temporary folder."
       (peta-journal-e2e--rename "仕事/新しい名前")
       (peta-journal-e2e--wait-page-title "仕事/新しい名前")
       (should (equal peta-journal--page-path "仕事/新しい名前"))
-      (should (equal (buffer-string) "• 本文の続き\n"))
+      (should (equal (peta-journal-e2e--shown) "• 本文の続き\n"))
       (peta-journal-e2e--wait-saved '("本文の続き"))
       (peta-journal-e2e--wait-for
        "the file with the new name"
@@ -570,7 +574,7 @@ The server is a real one, with its files in a temporary folder."
         (peta-journal-e2e--keys "C-x C-s")
         (peta-journal-e2e--wait-saved '("一つ目の本文")))
       (with-current-buffer second
-        (should (equal (buffer-string) "• 二つ目の本文\n"))))))
+        (should (equal (peta-journal-e2e--shown) "• 二つ目の本文\n"))))))
 
 ;; すでに開いているページを新しいバッファで開こうとすると、開いているバッファへ移る。
 (ert-deftest peta-journal-e2e-a-page-already-open-is-not-opened-twice ()
