@@ -9,6 +9,7 @@ use std::mem::ManuallyDrop;
 struct FakeHost {
     out: Vec<Outbound>,
     apis: Vec<(u64, ApiOp)>,
+    uploads: Vec<(u64, String)>,
     timers: Vec<(u64, u32)>,
     streams: Vec<u64>,
 }
@@ -19,6 +20,9 @@ impl Host for FakeHost {
     }
     fn api(&mut self, id: u64, op: ApiOp) {
         self.apis.push((id, op));
+    }
+    fn upload(&mut self, id: u64, path: String) {
+        self.uploads.push((id, path));
     }
     fn start_timer(&mut self, id: u64, ms: u32) {
         self.timers.push((id, ms));
@@ -141,6 +145,36 @@ impl Driver {
 
     fn sent(&self) -> &[Outbound] {
         &self.shell.host.out
+    }
+
+    /// Whether the core holds keys, as Emacs was told last.
+    fn holding(&self) -> Option<bool> {
+        self.sent().iter().rev().find_map(|message| match message {
+            Outbound::State { holding, .. } => Some(*holding),
+            _ => None,
+        })
+    }
+
+    fn messages(&self) -> Vec<String> {
+        self.sent()
+            .iter()
+            .filter_map(|message| match message {
+                Outbound::Message { text } => Some(text.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Starts inserting pic.png into the item at the cursor, and gives the id of its upload.
+    fn insert_image(&mut self, id: &str, cursor: usize) -> u64 {
+        self.send(Inbound::InsertImage {
+            id: id.into(),
+            path: "c:/pics/pic.png".into(),
+            cursor,
+        });
+        let (upload, path) = self.shell.host.uploads.last().unwrap().clone();
+        assert_eq!(path, "c:/pics/pic.png");
+        upload
     }
 
     fn last_rows(&self) -> Option<Vec<RowView>> {
@@ -314,17 +348,7 @@ fn the_end_of_holding_keys_reaches_emacs() {
         id: "a".into(),
         cursor: 2,
     });
-    let holding = |driver: &Driver| {
-        driver
-            .sent()
-            .iter()
-            .rev()
-            .find_map(|message| match message {
-                Outbound::State { holding, .. } => Some(*holding),
-                _ => None,
-            })
-    };
-    assert_eq!(holding(&driver), Some(true));
+    assert_eq!(driver.holding(), Some(true));
     let answer = |value| ApiOutput::Item(serde_json::from_value(value).unwrap());
     driver.answer(
         |op| matches!(op, ApiOp::UpdateItem { .. }),
@@ -335,7 +359,7 @@ fn the_end_of_holding_keys_reaches_emacs() {
         answer(item("b", 1, "cd")),
     );
     assert_eq!(driver.focuses().last().unwrap().0, "b");
-    assert_eq!(holding(&driver), Some(false));
+    assert_eq!(driver.holding(), Some(false));
 }
 
 // 閉じていないコードフェンスの中のEnterは、項目を分けずに改行を入れ、カーソルを次の行へ進める。
@@ -445,6 +469,113 @@ fn a_paste_goes_through_the_core() {
         parsed.unwrap(),
     );
     assert_eq!(driver.last_rows().unwrap()[0].body, "xZy");
+}
+
+// 画像の挿入は、ファイルをアップロードし、カーソル位置にリンクを入れて保存し、カーソルをリンクの後ろへ移す。
+#[test]
+fn an_inserted_image_is_uploaded_and_linked_at_the_cursor() {
+    let link = "![pic.png](../assets/pic.png)";
+    let mut driver = Driver::open(&[item("a", 1, "xy")]);
+    let upload = driver.insert_image("a", 1);
+
+    driver.shell.handle(Input::ApiDone {
+        id: upload,
+        result: Box::new(Ok(ApiOutput::FileName("pic.png".into()))),
+    });
+
+    let body = format!("x{link}y");
+    assert_eq!(driver.last_rows().unwrap()[0].body, body);
+    driver.answer(
+        |op| matches!(op, ApiOp::UpdateItem { body: Some(b), .. } if b == &body),
+        ApiOutput::Item(serde_json::from_value(item("a", 1, &body)).unwrap()),
+    );
+    let behind_the_link = 1 + link.chars().count();
+    assert!(driver
+        .focuses()
+        .contains(&("a".to_string(), Some(behind_the_link))));
+    assert_eq!(driver.messages(), Vec::<String>::new());
+}
+
+// 挿入の間はキーを止める。打った文字は、リンクを入れる前の本文に上書きされて消えてしまうため。
+#[test]
+fn keys_are_held_until_the_inserted_image_is_saved() {
+    let mut driver = Driver::open(&[item("a", 1, "xy")]);
+    let upload = driver.insert_image("a", 1);
+    assert_eq!(driver.holding(), Some(true));
+
+    driver.shell.handle(Input::ApiDone {
+        id: upload,
+        result: Box::new(Ok(ApiOutput::FileName("pic.png".into()))),
+    });
+    assert_eq!(driver.holding(), Some(true));
+
+    let saved = item("a", 1, "x![pic.png](../assets/pic.png)y");
+    driver.answer(
+        |op| matches!(op, ApiOp::UpdateItem { .. }),
+        ApiOutput::Item(serde_json::from_value(saved).unwrap()),
+    );
+    assert_eq!(driver.holding(), Some(false));
+}
+
+// アップロードに失敗すると、その理由を伝え、本文は変わらず、キーも止めない。
+#[test]
+fn a_failed_upload_is_reported_and_the_body_stays() {
+    let mut driver = Driver::open(&[item("a", 1, "xy")]);
+    let upload = driver.insert_image("a", 1);
+
+    driver.shell.handle(Input::ApiDone {
+        id: upload,
+        result: Box::new(Err(ApiError("Upload failed: 413".into()))),
+    });
+
+    assert_eq!(
+        driver.messages(),
+        ["Could not insert the image: Upload failed: 413"]
+    );
+    assert_eq!(driver.rows_sent(), 0);
+    assert_eq!(driver.holding(), Some(false));
+}
+
+// アップロードのあとでリンクの保存に失敗しても、そのことを伝える。
+#[test]
+fn a_failed_save_of_the_link_is_reported() {
+    let mut driver = Driver::open(&[item("a", 1, "xy")]);
+    let upload = driver.insert_image("a", 1);
+    driver.shell.handle(Input::ApiDone {
+        id: upload,
+        result: Box::new(Ok(ApiOutput::FileName("pic.png".into()))),
+    });
+
+    let (save, _) = driver
+        .take_api(|op| matches!(op, ApiOp::UpdateItem { .. }))
+        .expect("the link was not saved");
+    driver.shell.handle(Input::ApiDone {
+        id: save,
+        result: Box::new(Err(ApiError("server down".into()))),
+    });
+
+    assert_eq!(
+        driver.messages(),
+        ["Could not insert the image: server down"]
+    );
+    assert_eq!(driver.holding(), Some(false));
+}
+
+// 挿入の間でも、関係のない呼び出しの失敗は、画像の失敗として伝えず、キーを止める理由にもしない。
+#[test]
+fn a_failure_of_another_call_is_not_reported_as_one_of_the_image() {
+    let mut driver = Driver::open(&[item("a", 1, "xy")]);
+    driver.send(Inbound::DeleteItem { id: "a".into() });
+    let upload = driver.insert_image("a", 1);
+    driver.fail_all_waiting_calls();
+    assert_eq!(driver.messages(), Vec::<String>::new());
+    assert_eq!(driver.holding(), Some(true));
+
+    driver.shell.handle(Input::ApiDone {
+        id: upload,
+        result: Box::new(Err(ApiError("Upload failed: 500".into()))),
+    });
+    assert_eq!(driver.holding(), Some(false));
 }
 
 // 項目の削除は、参照の確認を経て、子ごとサーバーへ送られる。

@@ -92,6 +92,11 @@ pub enum Inbound {
         text: String,
         cursor: usize,
     },
+    InsertImage {
+        id: String,
+        path: String,
+        cursor: usize,
+    },
     DeleteItem {
         id: String,
     },

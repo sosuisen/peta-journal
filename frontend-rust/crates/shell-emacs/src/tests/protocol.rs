@@ -55,6 +55,21 @@ fn a_rename_carries_the_new_path() {
     assert_eq!(envelope.message, Inbound::RenamePage { path: "a/b".into() });
 }
 
+// 画像の挿入は、項目とカーソルと、Emacsが選んだファイルのパスとして届く。
+#[test]
+fn an_image_insertion_carries_the_item_the_cursor_and_the_path() {
+    let line = r#"{"seq":1,"type":"insert_image","id":"a","path":"c:/写真/pic.png","cursor":2}"#;
+    let envelope: Envelope = serde_json::from_str(line).unwrap();
+    assert_eq!(
+        envelope.message,
+        Inbound::InsertImage {
+            id: "a".into(),
+            path: "c:/写真/pic.png".into(),
+            cursor: 2,
+        }
+    );
+}
+
 // プロパティの設定はキーと値として、削除はキーとして届く。
 #[test]
 fn a_property_line_carries_its_key_and_value() {

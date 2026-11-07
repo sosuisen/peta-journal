@@ -16,7 +16,7 @@ use peta_core::effects::{
 use peta_core::util::{auto_close, link_at};
 use peta_core::view::{ScreenView, SearchView};
 use peta_core::{Event, PetaApp, ViewModel};
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 /// The time as the core wants it.
 pub struct Now {
@@ -28,6 +28,8 @@ pub struct Now {
 pub trait Host {
     fn emit(&mut self, message: Outbound);
     fn api(&mut self, id: u64, op: ApiOp);
+    /// Sends the file at `path` to the server. The result comes back like that of [`Host::api`].
+    fn upload(&mut self, id: u64, path: String);
     fn start_timer(&mut self, id: u64, ms: u32);
     fn connect_sse(&mut self, stream: u64);
     fn now(&self) -> Now;
@@ -69,6 +71,10 @@ pub struct Shell<H: Host> {
     pub host: H,
     apis: HashMap<u64, Request<ApiOp>>,
     next_api: u64,
+    /// The paths of the images Emacs chose. The core knows each by its index here.
+    image_files: Vec<String>,
+    /// The calls under way for an image: its upload, then the save of its link.
+    image_calls: HashSet<u64>,
     timers: HashMap<u64, Request<TimerOp>>,
     sse: Option<(u64, Request<SseOp>)>,
     next_stream: u64,
@@ -95,6 +101,8 @@ impl<H: Host> Shell<H> {
             host,
             apis: HashMap::new(),
             next_api: 0,
+            image_files: Vec::new(),
+            image_calls: HashSet::new(),
             timers: HashMap::new(),
             sse: None,
             next_stream: 0,
@@ -142,9 +150,27 @@ impl<H: Host> Shell<H> {
     }
 
     fn on_api_done(&mut self, id: u64, result: ApiResult<peta_core::effects::ApiOutput>) {
-        if let Some(mut request) = self.apis.remove(&id) {
+        let Some(mut request) = self.apis.remove(&id) else {
+            return;
+        };
+        if !self.image_calls.remove(&id) {
             self.resolve(&mut request, result);
+            return;
         }
+        // The core only writes this to its log, and the image would just not appear
+        if let Err(e) = &result {
+            self.host.emit(Outbound::Message {
+                text: format!("Could not insert the image: {e}"),
+            });
+        }
+        self.keeping_image_calls(|shell| shell.resolve(&mut request, result));
+    }
+
+    /// Counts the calls that `step` starts as calls for an image.
+    fn keeping_image_calls(&mut self, step: impl FnOnce(&mut Self)) {
+        let before = self.next_api;
+        step(self);
+        self.image_calls.extend(before + 1..=self.next_api);
     }
 
     fn on_sse(&mut self, stream: u64, event: SseEvent) {
@@ -217,6 +243,7 @@ impl<H: Host> Shell<H> {
                 cursor,
                 raw: false,
             }),
+            Inbound::InsertImage { id, path, cursor } => self.insert_image(id, path, cursor),
             Inbound::DeleteItem { id } => {
                 self.send(Event::ShiftSelect { item_id: id });
                 self.send(Event::SelectionKey(SelectionKey::Delete));
@@ -236,6 +263,18 @@ impl<H: Host> Shell<H> {
             Inbound::SearchResult { index } => self.send(Event::SearchResultClicked { index }),
             Inbound::Answer { req, yes } => self.answer(req, yes),
         }
+    }
+
+    fn insert_image(&mut self, id: String, path: String, cursor: usize) {
+        let file = self.image_files.len() as u64;
+        self.image_files.push(path);
+        self.keeping_image_calls(|shell| {
+            shell.send(Event::PasteImage {
+                item_id: id,
+                file,
+                cursor,
+            });
+        });
     }
 
     fn set_property(&mut self, key: String, value: String) {
@@ -377,7 +416,13 @@ impl<H: Host> Shell<H> {
                 Effect::Render(_) => render = true,
                 Effect::Api(request) => {
                     self.next_api += 1;
-                    self.host.api(self.next_api, request.operation.clone());
+                    match &request.operation {
+                        ApiOp::UploadAsset { file } => {
+                            let path = self.image_files[*file as usize].clone();
+                            self.host.upload(self.next_api, path);
+                        }
+                        op => self.host.api(self.next_api, op.clone()),
+                    }
                     self.apis.insert(self.next_api, request);
                 }
                 Effect::Timer(request) => self.on_timer_op(request),
@@ -619,7 +664,9 @@ impl<H: Host> Shell<H> {
 
     /// Tells Emacs which line was handled, and whether the core still holds keys.
     fn tell_state(&mut self) {
-        let holding = self.core.view().outline.key_relay_holding;
+        // The core writes the link into the body it had at the start of the insertion: a key typed
+        // in the meantime would be overwritten
+        let holding = self.core.view().outline.key_relay_holding || !self.image_calls.is_empty();
         if self.ack != self.sent.ack || holding != self.sent.holding {
             self.sent.ack = self.ack;
             self.sent.holding = holding;

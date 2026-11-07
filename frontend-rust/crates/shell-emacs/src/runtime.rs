@@ -1,7 +1,7 @@
 //! The real [`Host`]: threads for HTTP, timers and the event stream, and JSON lines on stdin and
 //! stdout. The E2E test in `lisp/test/` runs this file, as a unit test would need the OS.
 
-use crate::api::{call, Http};
+use crate::api::{call, upload, Http};
 use crate::protocol::{Envelope, Outbound};
 use crate::shell::{Host, Input, Now, Shell};
 use chrono::{Datelike, Local, Timelike};
@@ -15,6 +15,9 @@ use ureq::Agent;
 
 /// How long typed text may take to reach the server once Emacs has gone away.
 const SHUTDOWN_LIMIT: Duration = Duration::from_secs(5);
+
+/// Marks the ends of the form in an upload. It is long enough not to occur in an image.
+const UPLOAD_BOUNDARY: &str = "peta-journal-emacs-upload-7f3a9c1e5b";
 
 enum Message {
     Input(Input),
@@ -49,16 +52,51 @@ impl Http for UreqHttp {
             ("DELETE", _) => self.agent.delete(&url).call(),
             _ => self.agent.get(&url).call(),
         };
-        let mut response = result.map_err(|e| e.to_string())?;
-        let status = response.status().as_u16();
-        let body = response
-            .body_mut()
-            .with_config()
-            .limit(u64::MAX)
-            .read_to_string()
-            .map_err(|e| e.to_string())?;
-        Ok(HttpReply { status, body })
+        read_reply(result)
     }
+
+    fn upload(&self, file_name: &str, bytes: &[u8]) -> Result<HttpReply, String> {
+        let url = format!("{}/api/assets/upload", self.server);
+        let body = multipart_body(file_name, bytes);
+        let result = self
+            .agent
+            .post(&url)
+            .header(
+                "Content-Type",
+                format!("multipart/form-data; boundary={UPLOAD_BOUNDARY}"),
+            )
+            .send(&body[..]);
+        read_reply(result)
+    }
+}
+
+fn read_reply(
+    result: Result<ureq::http::Response<ureq::Body>, ureq::Error>,
+) -> Result<HttpReply, String> {
+    let mut response = result.map_err(|e| e.to_string())?;
+    let status = response.status().as_u16();
+    let body = response
+        .body_mut()
+        .with_config()
+        .limit(u64::MAX)
+        .read_to_string()
+        .map_err(|e| e.to_string())?;
+    Ok(HttpReply { status, body })
+}
+
+/// The form with one field, `file`, as the server's asset upload reads it.
+fn multipart_body(file_name: &str, bytes: &[u8]) -> Vec<u8> {
+    // These would end the header early. The server replaces them in the saved name anyway
+    let file_name = file_name.replace(['"', '\r', '\n'], "_");
+    let mut body = format!(
+        "--{UPLOAD_BOUNDARY}\r\n\
+         Content-Disposition: form-data; name=\"file\"; filename=\"{file_name}\"\r\n\
+         Content-Type: application/octet-stream\r\n\r\n"
+    )
+    .into_bytes();
+    body.extend_from_slice(bytes);
+    body.extend_from_slice(format!("\r\n--{UPLOAD_BOUNDARY}--\r\n").as_bytes());
+    body
 }
 
 struct ThreadHost {
@@ -79,6 +117,17 @@ impl Host for ThreadHost {
         let (http, to_main) = (self.http.clone(), self.to_main.clone());
         thread::spawn(move || {
             let result = call(&http, op);
+            let _ = to_main.send(Message::Input(Input::ApiDone {
+                id,
+                result: Box::new(result),
+            }));
+        });
+    }
+
+    fn upload(&mut self, id: u64, path: String) {
+        let (http, to_main) = (self.http.clone(), self.to_main.clone());
+        thread::spawn(move || {
+            let result = upload(&http, &path);
             let _ = to_main.send(Message::Input(Input::ApiDone {
                 id,
                 result: Box::new(result),
