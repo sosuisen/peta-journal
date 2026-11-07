@@ -131,6 +131,15 @@
       (should (= first-row (peta-journal--body-start (peta-journal--find-row "a"))))
       (should (= second-row (peta-journal--body-start (peta-journal--find-row "b")))))))
 
+;; 同じ内容の行が並んでいても、先頭と末尾の一致を二重に数えず、増減が正しく映る。
+(ert-deftest peta-journal-rows-with-the-same-content-are-counted-once ()
+  (let ((row (peta-journal-test--row "a" 1 "x")))
+    (peta-journal-test--with-rows (list row row)
+      (peta-journal--apply-rows (vector row row row) "page" 0)
+      (should (equal (peta-journal-test--shown) "• x\n• x\n• x\n"))
+      (peta-journal--apply-rows (vector row) "page" 0)
+      (should (equal (peta-journal-test--shown) "• x\n")))))
+
 ;; 空のページに行が届いても、すべての行が消えても、見える行は届いた行と同じである。
 (ert-deftest peta-journal-rows-can-go-from-none-to-some-and-back ()
   (peta-journal-test--with-rows nil
