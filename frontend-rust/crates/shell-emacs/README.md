@@ -71,6 +71,7 @@ ends between items are read-only. The outline changes only through these keys:
 | `C-c C-t` | Cycle the task state |
 | `C-c C-c` | Hide or show the children |
 | `C-c C-d` | Delete the item with its children |
+| `C-c C-i` | Insert an image file at the point |
 | `C-/`, `C-?` | Undo and redo, through the history of the core |
 | `C-x C-s` | Save now |
 
@@ -107,6 +108,18 @@ another page has that name, Emacs asks whether to overwrite it.
 
 Only a doc page can be renamed. On a journal, an index page or an atlas, the command stops without
 asking.
+
+## Inserting an image
+
+`C-c C-i` or `M-x peta-journal-insert-image` asks for a file. The server keeps a copy in the `assets`
+folder of the notes, and a link to it goes in at the point. The buffer shows the link as text: it
+does not show the image yet.
+
+The server changes the name of the copy. Each character other than ASCII letters, digits, `.`, `_`
+and `-` becomes `_`.
+
+The server refuses a large file: 2MB went through and 3MB did not. Emacs then shows the reason, and
+the body stays as it was.
 
 ## Page properties
 
@@ -153,7 +166,7 @@ To open the search box from any buffer, add this to your Emacs init file:
 
 ## Not in this version
 
-Wiki link completion, images, the atlas, extensions, settings and operations on several selected
+Wiki link completion, showing images, pasting images from the clipboard, the atlas, extensions, settings and operations on several selected
 items.
 
 ## Tests
