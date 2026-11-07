@@ -646,7 +646,7 @@ not hold up the typing."
     (error (puthash url 'missing peta-journal--images))))
 
 (defun peta-journal--response-bytes (status)
-  "The body of the HTTP response in the current buffer, or nil if STATUS has an error."
+  "The body of the HTTP response in this buffer, or nil if STATUS has an error."
   (unless (plist-get status :error)
     (goto-char (point-min))
     (when (re-search-forward "\r?\n\r?\n" nil t)
