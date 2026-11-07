@@ -173,6 +173,7 @@ impl<H: Host> Shell<H> {
                 new_tab: false,
                 new_window: false,
             }),
+            Inbound::RenamePage { .. } => {}
             Inbound::OpenLinkAt { id, cursor } => self.open_link_at(id, cursor),
             Inbound::JournalNav { forward } => self.send(Event::JournalNav(if forward {
                 JournalNav::Next
