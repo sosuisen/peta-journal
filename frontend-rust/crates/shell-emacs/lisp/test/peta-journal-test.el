@@ -609,6 +609,15 @@
   (should-not (peta-journal-test--face "a ~~~x~~~ b" "x"))
   (should-not (peta-journal-test--face "a \\*x* b" "x")))
 
+;; インラインコードと数式には色が付き、その中の記号は修飾にならない。
+(ert-deftest peta-journal-inline-code-has-its-color-and-holds-no-decoration ()
+  (should (eq (peta-journal-test--face "a `コード` b" "コード") 'peta-journal-code))
+  (should (eq (peta-journal-test--face "a `` x`y `` b" "x`y") 'peta-journal-code))
+  (should (eq (peta-journal-test--face "a $`x^2`$ b" "x^2") 'peta-journal-math))
+  (should (eq (peta-journal-test--face "a `**x**` b" "x") 'peta-journal-code))
+  (should (eq (peta-journal-test--face "a `#tag [[y]]` b" "#tag") 'peta-journal-code))
+  (should (eq (peta-journal-test--face "a `#tag [[y]]` b" "[[y") 'peta-journal-code)))
+
 ;;;; Links
 
 ;; リンクを開くコマンドは、編集を閉じてから、カーソルの位置をシェルへ送る。リンクかどうかはcoreが決める。
