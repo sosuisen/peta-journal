@@ -1243,13 +1243,17 @@ Signals an error on a journal, which cannot have properties."
       (user-error "The value is empty.  To remove a property, use `peta-journal-delete-property'"))
     (list key value)))
 
+(defun peta-journal--change-property (type &rest fields)
+  "Send the line of TYPE with FIELDS for the page, and show its list of properties."
+  (let ((page (peta-journal--properties-page)))
+    (with-current-buffer page
+      (apply #'peta-journal--send type fields))
+    (peta-journal--show-properties page)))
+
 (defun peta-journal-set-property (key value)
   "Set the property KEY of the page to VALUE, and show the list of properties."
   (interactive (peta-journal--read-property-to-set))
-  (let ((page (peta-journal--properties-page)))
-    (with-current-buffer page
-      (peta-journal--send "set_property" :key key :value value))
-    (peta-journal--show-properties page)))
+  (peta-journal--change-property "set_property" :key key :value value))
 
 (defun peta-journal-delete-property (key)
   "Remove the property KEY from the page, and show the list of properties."
@@ -1258,10 +1262,7 @@ Signals an error on a journal, which cannot have properties."
      (unless keys
        (user-error "This page has no property to remove"))
      (list (peta-journal--read-property-key "Remove property: " keys))))
-  (let ((page (peta-journal--properties-page)))
-    (with-current-buffer page
-      (peta-journal--send "delete_property" :key key))
-    (peta-journal--show-properties page)))
+  (peta-journal--change-property "delete_property" :key key))
 
 (defun peta-journal--insert-backlink (page text url)
   "Insert the line TEXT of the list of backlinks, which opens URL in PAGE."
