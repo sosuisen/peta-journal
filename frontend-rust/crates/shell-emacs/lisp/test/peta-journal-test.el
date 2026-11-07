@@ -41,6 +41,12 @@
   (peta-journal--goto-item id cursor)
   (peta-journal--post-command))
 
+(defun peta-journal-test--type (text)
+  "Type TEXT at the point, key by key."
+  (dolist (key (string-to-list text))
+    (let ((last-command-event key))
+      (self-insert-command 1))))
+
 (defun peta-journal-test--sent-of (type)
   "The lines of TYPE sent so far."
   (cl-remove-if-not (lambda (line) (equal (car line) type)) peta-journal-test--sent))
@@ -540,13 +546,38 @@
 (ert-deftest peta-journal-reports-only-the-characters-that-may-need-closing ()
   (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 ""))
     (peta-journal-test--goto "a" 0)
-    (dolist (key '(?x ?\[ ?\] ?`))
-      (let ((last-command-event key))
-        (self-insert-command 1)))
+    (peta-journal-test--type "x[]`")
     (should (equal (peta-journal-test--sent-of "typed")
                    '(("typed" :id "a" :cursor 2)
                      ("typed" :id "a" :cursor 3)
                      ("typed" :id "a" :cursor 4))))))
+
+;;;; The color of what was typed
+
+(defun peta-journal-test--body-has-no-color-p (id)
+  "Non-nil when no character in the body of the item ID has a color of its own."
+  (let ((start (peta-journal--find-row id)))
+    (not (text-property-not-all (peta-journal--body-start start)
+                                (peta-journal--body-end start)
+                                'font-lock-face nil))))
+
+;; 空の項目に打った文字は、バレットの色を受け継がない。
+(ert-deftest peta-journal-text-typed-in-an-empty-item-does-not-take-the-bullet-color ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 ""))
+    (peta-journal-test--goto "a" 0)
+    (peta-journal-test--type "ab")
+    (should (equal (buffer-string) "• ab\n"))
+    (should (peta-journal-test--body-has-no-color-p "a"))))
+
+;; 完了タスクの本文の先頭に打っても、色を受け継がない。バレットの色はそのままである。
+(ert-deftest peta-journal-text-typed-before-a-body-does-not-take-the-bullet-color ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "xy" :bullet "done"))
+    (peta-journal-test--goto "a" 0)
+    (peta-journal-test--type "ab")
+    (should (equal (buffer-string) "☑ abxy\n"))
+    (should (peta-journal-test--body-has-no-color-p "a"))
+    (should (eq (get-text-property (peta-journal--find-row "a") 'font-lock-face)
+                'peta-journal-done))))
 
 ;;;; Links
 

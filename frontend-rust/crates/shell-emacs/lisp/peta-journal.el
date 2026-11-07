@@ -513,7 +513,8 @@ A saved edit must stay closed, and a page being left has nothing more to edit.")
         (prefix (peta-journal--body-prefix level))
         (body-start (peta-journal--body-start start))
         (body-end (peta-journal--body-end start)))
-    (remove-list-of-text-properties body-start body-end '(peta-bullet peta-row peta-header))
+    (remove-list-of-text-properties body-start body-end
+                                    '(peta-bullet peta-row peta-header font-lock-face))
     (add-text-properties body-start body-end (list 'line-prefix prefix 'wrap-prefix prefix))))
 
 (defun peta-journal--after-change (beg _end _length)
