@@ -1339,6 +1339,8 @@ Type in a body as in any buffer.  The outline changes through these keys:
   ;; The core keeps the undo history: this one would not know about the other items
   (setq buffer-undo-list t)
   (setq-local word-wrap t)
+  ;; Japanese has no spaces: without this, a long sentence counts as one word and moves to a new line
+  (setq-local word-wrap-by-category t)
   (setq-local font-lock-defaults '(peta-journal--font-lock-keywords t))
   (setq-local font-lock-extend-region-functions
               (append font-lock-extend-region-functions
