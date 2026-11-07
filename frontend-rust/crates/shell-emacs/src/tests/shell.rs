@@ -1,6 +1,7 @@
 use crate::protocol::{Bullet, Envelope, Inbound, Outbound, RowView};
 use crate::shell::{Host, Input, Now, Shell};
 use peta_core::effects::{ApiError, ApiOp, ApiOutput, LocalDateTimeDto, SseEvent};
+use peta_core::model::PropertyDefinition;
 use serde_json::{json, Value};
 use std::mem::ManuallyDrop;
 
@@ -820,6 +821,43 @@ fn renaming_over_another_page_asks_and_overwrites_on_yes() {
             overwrite: true,
             ..
         }
+    )));
+}
+
+fn definitions_answer() -> ApiOutput {
+    let definition = |key: &str, value_type: &str, page: bool| PropertyDefinition {
+        key: key.into(),
+        value_type: value_type.into(),
+        system: false,
+        page,
+    };
+    ApiOutput::PropertyDefinitions(vec![
+        definition("rating", "number", true),
+        definition("topics", "list", true),
+        definition("plan", "date", false),
+    ])
+}
+
+fn answer_definitions(driver: &mut Driver) {
+    driver.answer(
+        |op| matches!(op, ApiOp::GetPropertyDefinitions),
+        definitions_answer(),
+    );
+}
+
+// プロパティを設定すると、定義の型とともにサーバーへ送られる。
+#[test]
+fn setting_a_property_sends_the_type_of_its_definition() {
+    let mut driver = Driver::open(&[]);
+    answer_definitions(&mut driver);
+    driver.send(Inbound::SetProperty {
+        key: "rating".into(),
+        value: "5".into(),
+    });
+    assert!(driver.waiting(|op| matches!(
+        op,
+        ApiOp::UpsertPageProperty { page_id, key, value_type, value }
+            if page_id == "p" && key == "rating" && value_type == "number" && value == "5"
     )));
 }
 
