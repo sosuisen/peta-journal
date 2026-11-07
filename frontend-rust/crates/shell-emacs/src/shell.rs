@@ -526,7 +526,9 @@ impl<H: Host> Shell<H> {
 
     fn tell_page_path(&mut self, view: &ViewModel) {
         let path = match &view.screen {
-            ScreenView::Page(Some(page)) => Some(page.page.canonical_path()),
+            ScreenView::Page(Some(page)) if !page.is_index && !page.is_atlas => {
+                Some(page.page.canonical_path())
+            }
             _ => None,
         };
         if path != self.sent.page_path {
