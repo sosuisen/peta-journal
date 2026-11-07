@@ -151,8 +151,7 @@ The server is a real one, with its files in a temporary folder."
                (peta-journal-e2e--wait-for "the first page"
                                            (lambda () (> (length peta-journal--rows) 0)))
                ,@body))
-         (when (get-buffer "*PetaJournal*")
-           (kill-buffer "*PetaJournal*"))
+         (mapc #'kill-buffer (peta-journal--pages))
          (peta-journal-stop)
          (peta-journal-e2e--stop-server server root)))))
 
@@ -450,6 +449,66 @@ The server is a real one, with its files in a temporary folder."
                               :items)))
         (should (equal (mapcar (lambda (item) (plist-get item :body)) items)
                        '("閉じる直前")))))))
+
+(defun peta-journal-e2e--open-in-new-buffer (path)
+  "Open the page at PATH in a new buffer, and return the buffer on screen."
+  (peta-journal-new-buffer path)
+  (window-buffer (selected-window)))
+
+;; 別々のページを2つのバッファで編集でき、どちらも保存される。
+(ert-deftest peta-journal-e2e-two-buffers-edit-two-pages ()
+  (peta-journal-e2e--with-app
+    (let ((first (current-buffer))
+          (journal peta-journal--page-id)
+          (second (peta-journal-e2e--open-in-new-buffer "E2E/二つ目")))
+      (should-not (eq second first))
+      (with-current-buffer second
+        (should peta-journal--page-id)
+        (should-not (equal peta-journal--page-id journal))
+        (peta-journal-e2e--type "二つ目の本文")
+        (peta-journal-e2e--keys "C-x C-s")
+        (peta-journal-e2e--wait-saved '("二つ目の本文")))
+      (set-window-buffer (selected-window) first)
+      (with-current-buffer first
+        (should (equal peta-journal--page-id journal))
+        (peta-journal-e2e--type "一つ目の本文")
+        (peta-journal-e2e--keys "C-x C-s")
+        (peta-journal-e2e--wait-saved '("一つ目の本文")))
+      (with-current-buffer second
+        (should (equal (buffer-string) "• 二つ目の本文\n"))))))
+
+;; すでに開いているページを新しいバッファで開こうとすると、開いているバッファへ移る。
+(ert-deftest peta-journal-e2e-a-page-already-open-is-not-opened-twice ()
+  (peta-journal-e2e--with-app
+    (let ((second (peta-journal-e2e--open-in-new-buffer "E2E/二つ目")))
+      (should (eq (peta-journal-e2e--open-in-new-buffer "E2E/二つ目") second))
+      (should (= (length (peta-journal--pages)) 2)))))
+
+;; 片方のバッファを閉じても、もう片方のシェルは動き続け、編集できる。
+(ert-deftest peta-journal-e2e-closing-one-buffer-leaves-the-other-working ()
+  (peta-journal-e2e--with-app
+    (let ((first (current-buffer))
+          (second (peta-journal-e2e--open-in-new-buffer "E2E/二つ目")))
+      (kill-buffer second)
+      (set-window-buffer (selected-window) first)
+      (with-current-buffer first
+        (should (process-live-p peta-journal--process))
+        (should peta-journal--idle-timer)
+        (peta-journal-e2e--type "残った本文")
+        (peta-journal-e2e--keys "C-x C-s")
+        (peta-journal-e2e--wait-saved '("残った本文"))))))
+
+;; 検索は、検索を始めたバッファのページだけを移す。
+(ert-deftest peta-journal-e2e-the-search-box-moves-only-its-own-buffer ()
+  (peta-journal-e2e--with-app
+    (let ((first (current-buffer))
+          (journal peta-journal--page-id)
+          (second (peta-journal-e2e--open-in-new-buffer "E2E/二つ目")))
+      (with-current-buffer second
+        (peta-journal-e2e--search-keys "検索先のページ" "RET")
+        (peta-journal-e2e--wait-page-title "検索先のページ"))
+      (should (eq (window-buffer (selected-window)) second))
+      (should (equal (buffer-local-value 'peta-journal--page-id first) journal)))))
 
 (provide 'peta-journal-e2e)
 
