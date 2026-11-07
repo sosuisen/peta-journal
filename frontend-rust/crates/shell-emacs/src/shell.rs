@@ -179,6 +179,8 @@ impl<H: Host> Shell<H> {
                 dir_path: String::new(),
                 file_name: path,
             }),
+            Inbound::SetProperty { .. } => {}
+            Inbound::DeleteProperty { .. } => {}
             Inbound::OpenLinkAt { id, cursor } => self.open_link_at(id, cursor),
             Inbound::JournalNav { forward } => self.send(Event::JournalNav(if forward {
                 JournalNav::Next

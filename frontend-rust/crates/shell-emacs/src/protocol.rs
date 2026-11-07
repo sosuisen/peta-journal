@@ -29,6 +29,13 @@ pub enum Inbound {
     RenamePage {
         path: String,
     },
+    SetProperty {
+        key: String,
+        value: String,
+    },
+    DeleteProperty {
+        key: String,
+    },
     OpenLinkAt {
         id: String,
         cursor: usize,
