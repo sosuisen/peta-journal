@@ -86,10 +86,33 @@ The core does not take in changes from elsewhere while an edit is open."
 (defface peta-journal-spoiler '((t :inherit shadow))
   "Spoiler text.")
 
+(defun peta-journal--word-char-p (char)
+  "Non-nil when CHAR is a letter or a digit.  CHAR is nil at the buffer edge."
+  (and char (string-match-p "[[:alnum:]]" (string char))))
+
+(defun peta-journal--delimiters-fit-p (mark start end)
+  "Non-nil when the pair of MARK runs from START to END can emphasize.
+A regexp cannot say this, as it cannot look at the next match's first character."
+  (let ((before (char-before start))
+        (after (char-after end)))
+    (and (not (memq before (list mark ?\\)))
+         (not (eq after mark))
+         (or (not (eq mark ?_))
+             (not (or (peta-journal--word-char-p before)
+                      (peta-journal--word-char-p after)))))))
+
 (defun peta-journal--pair (delimiter)
-  "A regexp for text between two DELIMITERs on one line."
-  (let ((quoted (regexp-quote delimiter)))
-    (concat quoted "[^ \t\n]\\(?:.*?[^ \t\n]\\)??" quoted)))
+  "A font-lock matcher for text between two DELIMITERs on one line."
+  (let* ((quoted (regexp-quote delimiter))
+         (regexp (concat quoted "[^ \t\n]\\(?:.*?[^ \t\n]\\)??" quoted))
+         (mark (aref delimiter 0)))
+    (lambda (limit)
+      (let (found)
+        (while (and (not found) (re-search-forward regexp limit t))
+          (if (peta-journal--delimiters-fit-p mark (match-beginning 0) (match-end 0))
+              (setq found t)
+            (goto-char (1+ (match-beginning 0)))))
+        found))))
 
 (defconst peta-journal--font-lock-keywords
   `(("\\[\\[[^]\n]+\\]\\]" 0 'peta-journal-link)
