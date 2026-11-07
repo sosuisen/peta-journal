@@ -571,6 +571,16 @@
     (should (equal (buffer-string) "• ab\n"))
     (should (peta-journal-test--body-has-no-color-p "a"))))
 
+;; 完了タスクの本文の先頭に打っても、色を受け継がない。バレットの色はそのままである。
+(ert-deftest peta-journal-text-typed-before-a-body-does-not-take-the-bullet-color ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "xy" :bullet "done"))
+    (peta-journal-test--goto "a" 0)
+    (peta-journal-test--type "ab")
+    (should (equal (buffer-string) "☑ abxy\n"))
+    (should (peta-journal-test--body-has-no-color-p "a"))
+    (should (eq (get-text-property (peta-journal--find-row "a") 'font-lock-face)
+                'peta-journal-done))))
+
 ;;;; Links
 
 ;; リンクを開くコマンドは、編集を閉じてから、カーソルの位置をシェルへ送る。リンクかどうかはcoreが決める。
