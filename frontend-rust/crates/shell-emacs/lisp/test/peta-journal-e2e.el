@@ -388,7 +388,11 @@ The server is a real one, with its files in a temporary folder."
          (let ((file (peta-journal-e2e--file-with markdown "本文の続き")))
            (and file
                 (string-suffix-p "仕事/新しい名前.md" file)
-                (not (file-exists-p old)))))))))
+                (not (file-exists-p old))))))
+      ;; 変えたあとも、そのまま書き続けられる
+      (peta-journal-e2e--type "と結び")
+      (peta-journal-e2e--keys "C-x C-s")
+      (peta-journal-e2e--wait-saved '("本文の続きと結び")))))
 
 ;; フォルダのないパスを付けると、ページはフォルダの外へ出る。
 (ert-deftest peta-journal-e2e-a-page-can-move-out-of-its-folder ()
