@@ -405,6 +405,33 @@
     (peta-journal--finish-edit)
     (should (null peta-journal-test--sent))))
 
+;;;; Wrapping
+
+(defun peta-journal-test--on-first-screen-line-p (position)
+  "Non-nil when POSITION is on the first screen line of the buffer.
+Not `vertical-motion': in a batch run it does not know about `word-wrap'."
+  (= (cdr (window-text-pixel-size nil (point-min) 2))
+     (cdr (window-text-pixel-size nil (point-min) (1+ position)))))
+
+(defmacro peta-journal-test--with-long-row (body &rest forms)
+  "Run FORMS with a row of BODY in the selected window."
+  (declare (indent 1))
+  `(peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 ,body))
+     (set-window-buffer (selected-window) (current-buffer))
+     ,@forms))
+
+;; 空白のない長い日本語の本文は、バレットの行から始まる。バレットだけの行を作らない。
+(ert-deftest peta-journal-long-japanese-starts-on-the-line-of-the-bullet ()
+  (peta-journal-test--with-long-row (make-string 300 ?あ)
+    (should (peta-journal-test--on-first-screen-line-p
+             (peta-journal--body-start (peta-journal--find-row "a"))))))
+
+;; 本文の途中に空白があっても、そこで行を空けずに日本語を続ける。
+(ert-deftest peta-journal-long-japanese-follows-a-space-on-the-same-line ()
+  (peta-journal-test--with-long-row (concat "abc " (make-string 300 ?あ))
+    (should (peta-journal-test--on-first-screen-line-p
+             (+ (peta-journal--body-start (peta-journal--find-row "a")) 4)))))
+
 ;;;; Page properties
 
 (defconst peta-journal-test--property-rows
