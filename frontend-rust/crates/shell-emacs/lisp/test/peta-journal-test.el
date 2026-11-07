@@ -345,6 +345,23 @@
         (peta-journal--post-command))
       (should (null peta-journal-test--sent)))))
 
+;; 名前の変更は、今のパスを初期値にして尋ね、編集を閉じてから新しいパスを送る。
+(ert-deftest peta-journal-renaming-offers-the-path-and-ends-the-edit ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
+    (peta-journal--on-line '(:t "page_path" :path "work/memo"))
+    (peta-journal-test--goto "a" 0)
+    (setq peta-journal-test--sent nil)
+    (let ((offered nil))
+      (cl-letf (((symbol-function 'read-string)
+                 (lambda (_prompt initial &rest _)
+                   (setq offered initial)
+                   "work/new")))
+        (call-interactively #'peta-journal-rename-page))
+      (should (equal offered "work/memo")))
+    (should (equal peta-journal-test--sent
+                   '(("edit_finished" :id "a")
+                     ("rename_page" :path "work/new"))))))
+
 ;; 一息つくと編集を閉じる。開いたままだと、coreは他からの変更の読み直しを待ち続けるため。
 (ert-deftest peta-journal-idling-ends-the-edit ()
   (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
