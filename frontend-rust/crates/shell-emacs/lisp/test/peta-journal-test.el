@@ -1374,4 +1374,115 @@ Nothing is fetched: a test hands over the answer with `peta-journal--image-arriv
                                         (peta-journal-test--row "b" 1 "![p](../assets/p.png)"))
     (should-not (peta-journal-test--image-of "b"))))
 
+(defun peta-journal-test--image-of-body (body &optional level)
+  "The image shown for an item with BODY at LEVEL, below an item with the point."
+  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
+                                        (peta-journal-test--row "b" (or level 1) body))
+    (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") peta-journal-test--png)
+    (peta-journal-test--image-of "b")))
+
+;; リンクの#w=と#h=は、Web版と同じように画像の大きさになる。
+(ert-deftest peta-journal-a-link-sets-the-size-of-its-image ()
+  (let ((image (peta-journal-test--image-of-body "![p](../assets/p.png#w=300&h=240)")))
+    (should (equal (image-property image :width) 300))
+    (should (equal (image-property image :height) 240))))
+
+;; 片方だけの指定は、その向きだけを決める。
+(ert-deftest peta-journal-a-link-may-set-one-side-of-its-image ()
+  (let ((image (peta-journal-test--image-of-body "![p](../assets/p.png#h=240)")))
+    (should-not (image-property image :width))
+    (should (equal (image-property image :height) 240))))
+
+;; 正の整数でない指定は、Web版と同じように無視する。
+(ert-deftest peta-journal-a-bad-size-in-a-link-is-ignored ()
+  (let ((image (peta-journal-test--image-of-body "![p](../assets/p.png#w&h=big)")))
+    (should image)
+    (should-not (image-property image :width))
+    (should-not (image-property image :height)))
+  (should-not (image-property (peta-journal-test--image-of-body "![p](../assets/p.png#w=0)")
+                              :width)))
+
+;; 画像はウィンドウに収まる。字下げの深い項目では、字下げの分だけ小さくなる。
+(ert-deftest peta-journal-an-image-fits-the-room-beside-its-indent ()
+  (cl-letf (((symbol-function 'window-body-width) (lambda (&rest _) 800))
+            ((symbol-function 'window-body-height) (lambda (&rest _) 600)))
+    (let ((shallow (peta-journal-test--image-of-body "![p](../assets/p.png)" 1))
+          (deep (peta-journal-test--image-of-body "![p](../assets/p.png)" 3)))
+      (should (<= (image-property shallow :max-width) 800))
+      (should (<= (image-property shallow :max-height) 600))
+      (should (= (- (image-property shallow :max-width) (image-property deep :max-width))
+                 (* 4 (frame-char-width)))))))
+
+;; ウィンドウの大きさが変わると、画像も合わせ直す。
+(ert-deftest peta-journal-an-image-follows-the-size-of-the-window ()
+  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
+                                        (peta-journal-test--row "b" 1 "![p](../assets/p.png)"))
+    (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") peta-journal-test--png)
+    (let ((before (image-property (peta-journal-test--image-of "b") :max-width)))
+      (cl-letf (((symbol-function 'window-body-width) (lambda (&rest _) (+ before 100))))
+        (peta-journal--on-window-size-change (selected-window)))
+      (should (> (image-property (peta-journal-test--image-of "b") :max-width) before)))))
+
+;; 取得できなかった画像はリンクの文字のままで、カーソルが動くたびに取りに行くことはない。
+(ert-deftest peta-journal-a-missing-image-stays-text-and-is-not-fetched-again ()
+  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
+                                        (peta-journal-test--row "b" 1 "![p](../assets/p.png)"))
+    (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") nil)
+    (peta-journal-test--goto "b" 0)
+    (peta-journal-test--goto "a" 0)
+    (should-not (peta-journal-test--image-of "b"))
+    (should (= (length peta-journal-test--fetched) 1))))
+
+;; 別のページを開くと、取得できなかった画像をもう一度取りに行く。サーバーが止まっていただけかもしれない。
+(ert-deftest peta-journal-a-new-page-fetches-a-missing-image-again ()
+  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
+                                        (peta-journal-test--row "b" 1 "![p](../assets/p.png)"))
+    (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") nil)
+    (peta-journal--apply-rows (vector (peta-journal-test--row "c" 1 "上")
+                                      (peta-journal-test--row "d" 1 "![p](../assets/p.png)"))
+                              "other-page" 0)
+    (should (= (length peta-journal-test--fetched) 2))))
+
+;; Emacsが読めない形式のファイルは、リンクの文字のままである。
+(ert-deftest peta-journal-a-file-emacs-cannot-read-stays-text ()
+  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
+                                        (peta-journal-test--row "b" 1 "![p](../assets/p.png)"))
+    (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") "not an image")
+    (should-not (peta-journal-test--image-of "b"))))
+
+;; 画像を出せない環境では、リンクの文字のままで、取りにも行かない。
+(ert-deftest peta-journal-a-display-without-images-shows-the-text ()
+  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上"))
+    (cl-letf (((symbol-function 'display-images-p) #'ignore))
+      (peta-journal--apply-rows (vector (peta-journal-test--row "a" 1 "上")
+                                        (peta-journal-test--row "b" 1 "![p](../assets/p.png)"))
+                                "page" 0)
+      (should-not (peta-journal-test--image-of "b"))
+      (should-not peta-journal-test--fetched))))
+
+;; コードの中のリンクは、書き方の例である。画像にしない。
+(ert-deftest peta-journal-a-link-in-code-stays-text ()
+  (dolist (body '("`![p](../assets/p.png)`" "```\n![p](../assets/p.png)\n```"))
+    (should-not (peta-journal-test--image-of-body body))))
+
+;; サーバーのassetsを指さないリンクは、文字のままで、取りにも行かない。
+(ert-deftest peta-journal-a-link-outside-the-assets-stays-text ()
+  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
+                                        (peta-journal-test--row "b" 1 "![p](https://example.com/p.png)"))
+    (should-not (peta-journal-test--image-of "b"))
+    (should-not peta-journal-test--fetched)))
+
+;; サーバーのURLの末尾に/があっても、画像のURLは正しい形になる。
+(ert-deftest peta-journal-the-url-of-an-image-allows-a-slash-after-the-server ()
+  (let ((peta-journal-server "http://localhost:9000/"))
+    (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
+                                          (peta-journal-test--row "b" 1 "![p](../assets/p.png)"))
+      (should (equal peta-journal-test--fetched '("http://localhost:9000/assets/p.png"))))))
+
+;; 接続を始められなくても、エラーで止まらず、文字のままである。
+(ert-deftest peta-journal-a-fetch-that-cannot-start-leaves-the-text ()
+  (cl-letf (((symbol-function 'url-retrieve) (lambda (&rest _) (error "No connection"))))
+    (peta-journal--fetch-image "http://localhost:1/assets/p.png")
+    (should (eq (gethash "http://localhost:1/assets/p.png" peta-journal--images) 'missing))))
+
 ;;; peta-journal-test.el ends here
