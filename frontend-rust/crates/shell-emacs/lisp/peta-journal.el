@@ -39,6 +39,11 @@ of the repository."
 The core does not take in changes from elsewhere while an edit is open."
   :type 'number)
 
+(defcustom peta-journal-item-gap 4
+  "The gap between two items, in pixels.
+It applies to the rows drawn after a change.  Only a graphical Emacs shows it."
+  :type 'natnum)
+
 (defconst peta-journal--bullets
   '(("plain" . "•") ("task" . "☐") ("running" . "◐") ("done" . "☑")
     ("transclusion" . "↪") ("broken" . "✗"))
@@ -412,10 +417,12 @@ A line of cells alone is plain text, and `---' with no `|' is not a delimiter."
 
 (defun peta-journal--newline-string (row)
   "The read-only newline that ends ROW."
-  (let ((newline (propertize "\n" 'read-only t)))
+  (let ((newline (propertize "\n" 'read-only t 'line-spacing peta-journal-item-gap)))
     (if (plist-get row :collapsed)
         ;; The children are hidden: the row says so where it ends
-        (propertize newline 'display (propertize " …\n" 'face 'shadow))
+        (propertize newline 'display (propertize " …\n"
+                                                 'face 'shadow
+                                                 'line-spacing peta-journal-item-gap))
       newline)))
 
 (defun peta-journal--header-string (row)
