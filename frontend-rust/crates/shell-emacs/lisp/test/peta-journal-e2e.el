@@ -361,6 +361,49 @@ The server is a real one, with its files in a temporary folder."
    (format "the page %s, now %s" title peta-journal--title)
    (lambda () (equal peta-journal--title title))))
 
+(defun peta-journal-e2e--rename (path)
+  "Press C-c C-r, replace the name it offers with PATH, and press RET."
+  (execute-kbd-macro (vconcat (kbd "C-c C-r C-a C-k") path (kbd "RET")))
+  (peta-journal--wait))
+
+;; C-c C-r で名前を変えると、打ったばかりの文も新しい名前のファイルに書かれ、古いファイルは消える。
+(ert-deftest peta-journal-e2e-renaming-moves-the-page-and-keeps-the-text ()
+  (peta-journal-e2e--with-app
+    (peta-journal-find-page "古い名前")
+    (peta-journal-e2e--wait-page-title "古い名前")
+    (peta-journal-e2e--type "本文")
+    (peta-journal-e2e--keys "C-x C-s")
+    (peta-journal-e2e--wait-saved '("本文"))
+    (let* ((markdown (expand-file-name "markdown" root))
+           (old (peta-journal-e2e--wait-for-file markdown "本文")))
+      (peta-journal-e2e--type "の続き")
+      (peta-journal-e2e--rename "仕事/新しい名前")
+      (peta-journal-e2e--wait-page-title "仕事/新しい名前")
+      (should (equal peta-journal--page-path "仕事/新しい名前"))
+      (should (equal (buffer-string) "• 本文の続き\n"))
+      (peta-journal-e2e--wait-saved '("本文の続き"))
+      (peta-journal-e2e--wait-for
+       "the file with the new name"
+       (lambda ()
+         (let ((file (peta-journal-e2e--file-with markdown "本文の続き")))
+           (and file
+                (string-suffix-p "仕事/新しい名前.md" file)
+                (not (file-exists-p old)))))))))
+
+;; フォルダのないパスを付けると、ページはフォルダの外へ出る。
+(ert-deftest peta-journal-e2e-a-page-can-move-out-of-its-folder ()
+  (peta-journal-e2e--with-app
+    (peta-journal-find-page "フォルダ/メモ")
+    (peta-journal-e2e--wait-page-title "フォルダ/メモ")
+    (peta-journal-e2e--rename "メモ")
+    (peta-journal-e2e--wait-page-title "メモ")
+    (should (equal peta-journal--page-path "メモ"))))
+
+;; ジャーナルでは、名前を尋ねずに断る。
+(ert-deftest peta-journal-e2e-a-journal-refuses-the-rename ()
+  (peta-journal-e2e--with-app
+    (should-error (execute-kbd-macro (kbd "C-c C-r")) :type 'user-error)))
+
 ;; C-c / で検索語を打って RET を押すと、その語の新しいページができて開く。間を置かなくてもよい。
 (ert-deftest peta-journal-e2e-the-search-box-creates-a-page ()
   (peta-journal-e2e--with-app
