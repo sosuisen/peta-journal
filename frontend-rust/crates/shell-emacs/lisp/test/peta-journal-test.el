@@ -321,6 +321,51 @@
     (should (equal peta-journal-test--sent '(("paste" :id "a" :text "貼" :cursor 1))))
     (should-not (text-properties-at 0 (plist-get (cdar peta-journal-test--sent) :text)))))
 
+;; 選んだ画像は、項目とカーソルと絶対パスとしてシェルへ送る。拡張子の大文字小文字は問わない。
+(ert-deftest peta-journal-inserting-an-image-sends-the-item-the-cursor-and-the-path ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "xy"))
+    (peta-journal-test--goto "a" 1)
+    (setq peta-journal-test--sent nil)
+    (cl-letf (((symbol-function 'read-file-name) (lambda (&rest _) "pic.PNG")))
+      (call-interactively #'peta-journal-insert-image))
+    (should (equal peta-journal-test--sent
+                   `(("insert_image" :id "a"
+                      :path ,(expand-file-name "pic.PNG")
+                      :cursor 1))))))
+
+;; 画像でないファイルは、サーバーへ送る前に断る。
+(ert-deftest peta-journal-a-file-that-is-no-image-is-refused ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "xy"))
+    (peta-journal-test--goto "a" 1)
+    (setq peta-journal-test--sent nil)
+    (cl-letf (((symbol-function 'read-file-name) (lambda (&rest _) "notes.txt")))
+      (should-error (call-interactively #'peta-journal-insert-image) :type 'user-error))
+    (should (null peta-journal-test--sent))))
+
+;; ファイルの候補には画像とフォルダだけが出る。フォルダは、中へ進むために要る。
+(ert-deftest peta-journal-the-file-choice-offers-images-and-folders ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "xy"))
+    (peta-journal-test--goto "a" 1)
+    (let (offered)
+      (cl-letf (((symbol-function 'read-file-name)
+                 (lambda (_prompt _dir _default _mustmatch _initial predicate)
+                   (setq offered predicate)
+                   "pic.png")))
+        (call-interactively #'peta-journal-insert-image))
+      (should (funcall offered "写真.jpeg"))
+      (should (funcall offered temporary-file-directory))
+      (should-not (funcall offered "notes.txt"))
+      (should-not (funcall offered "png")))))
+
+;; 項目の外では、ファイルを尋ねる前に断る。選んだファイルが無駄にならない。
+(ert-deftest peta-journal-inserting-an-image-outside-an-item-refuses-before-asking ()
+  (peta-journal-test--with-rows nil
+    (setq peta-journal-test--sent nil)
+    (cl-letf (((symbol-function 'read-file-name)
+               (lambda (&rest _) (error "It must not ask"))))
+      (should-error (call-interactively #'peta-journal-insert-image) :type 'user-error))
+    (should (null peta-journal-test--sent))))
+
 ;; 手で編集を終えると保存が走り、次の移動で編集がまた始まる。
 (ert-deftest peta-journal-saving-ends-the-edit-until-the-next-command ()
   (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))

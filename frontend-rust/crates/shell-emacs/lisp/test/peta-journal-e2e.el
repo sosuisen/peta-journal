@@ -412,6 +412,52 @@ The server is a real one, with its files in a temporary folder."
   (peta-journal-e2e--with-app
     (should-error (execute-kbd-macro (kbd "C-c C-r")) :type 'user-error)))
 
+(defun peta-journal-e2e--write-image (file bytes)
+  "Write the unibyte string BYTES to FILE, as they are."
+  (let ((coding-system-for-write 'no-conversion))
+    (write-region bytes nil file nil 'silent)))
+
+(defun peta-journal-e2e--bytes-of (file)
+  "The bytes in FILE, as a unibyte string."
+  (with-temp-buffer
+    (set-buffer-multibyte nil)
+    (let ((coding-system-for-read 'no-conversion))
+      (insert-file-contents-literally file))
+    (buffer-string)))
+
+;; C-c C-i で選んだ画像は、中身のままサーバーへ届き、カーソル位置にリンクが入る。続けて打った文字はリンクの後ろに入る。
+(ert-deftest peta-journal-e2e-an-inserted-image-is-uploaded-and-linked ()
+  (peta-journal-e2e--with-app
+    ;; Bytes that break when read as text: a line end, a zero and a high byte
+    (let ((bytes (unibyte-string #x89 ?P ?N ?G 13 10 0 255))
+          (image (expand-file-name "pic.png" root))
+          (link "![pic.png](../assets/pic.png)"))
+      (peta-journal-e2e--write-image image bytes)
+      (peta-journal-e2e--type "前後")
+      (peta-journal-e2e--keys "C-b")
+      (execute-kbd-macro (vconcat (kbd "C-c C-i C-a C-k") image (kbd "RET")))
+      (peta-journal--wait)
+      (peta-journal-e2e--type "と")
+      (should (equal (peta-journal-e2e--shown) (format "• 前%sと後\n" link)))
+      (should (equal (peta-journal-e2e--bytes-of
+                      (expand-file-name "markdown/assets/pic.png" root))
+                     bytes))
+      (peta-journal-e2e--keys "C-x C-s")
+      (peta-journal-e2e--wait-saved (list (format "前%sと後" link))))))
+
+;; 読めないファイルを選ぶと、その理由を伝え、本文は変わらない。そのまま書き続けられる。
+(ert-deftest peta-journal-e2e-a-file-that-cannot-be-read-is-reported ()
+  (peta-journal-e2e--with-app
+    (peta-journal-e2e--type "本文")
+    (peta-journal-insert-image (expand-file-name "no-such-file.png" root))
+    (should (equal (peta-journal-e2e--shown) "• 本文\n"))
+    (with-current-buffer "*Messages*"
+      (goto-char (point-max))
+      (should (search-backward "Could not insert the image" nil t)))
+    (peta-journal-e2e--type "の続き")
+    (peta-journal-e2e--keys "C-x C-s")
+    (peta-journal-e2e--wait-saved '("本文の続き"))))
+
 (defun peta-journal-e2e--saved-tags ()
   "The tags of the page on screen, as the server has them, in a list."
   (let* ((answer (peta-journal-e2e--request "GET" (concat "/api/pages/" peta-journal--page-id)))
