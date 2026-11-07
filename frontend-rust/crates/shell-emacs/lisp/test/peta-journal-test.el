@@ -1243,4 +1243,135 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
                    '(("edit_finished" :id "a")
                      ("open_link_at" :id "a" :cursor 6))))))
 
+;;;; Images
+
+(defconst peta-journal-test--png (unibyte-string #x89 ?P ?N ?G 13 10 26 10)
+  "The start of a PNG file: enough for Emacs to tell the type in a batch run.")
+
+(defvar peta-journal-test--fetched nil
+  "The URLs a test asked for, oldest first.")
+
+(defmacro peta-journal-test--with-images (rows &rest body)
+  "Run BODY on ROWS as `peta-journal-test--with-rows', on a display with images.
+Nothing is fetched: a test hands over the answer with `peta-journal--image-arrived'."
+  (declare (indent 1))
+  `(cl-letf (((symbol-function 'display-images-p) (lambda (&rest _) t))
+             ((symbol-function 'peta-journal--fetch-image)
+              (lambda (url)
+                (setq peta-journal-test--fetched
+                      (append peta-journal-test--fetched (list url))))))
+     (clrhash peta-journal--images)
+     (setq peta-journal-test--fetched nil)
+     (peta-journal-test--with-rows ,rows ,@body)))
+
+(defun peta-journal-test--asset-url (name)
+  "The URL of the asset NAME."
+  (concat peta-journal-server "/assets/" name))
+
+(defun peta-journal-test--image-of (id)
+  "The image shown in the item ID, or nil."
+  (let ((start (peta-journal--find-row id)))
+    (seq-some (lambda (overlay) (overlay-get overlay 'display))
+              (overlays-in start (peta-journal--body-end start)))))
+
+;; カーソルのない項目では、リンクの代わりに画像が見える。バッファの文字は変わらない。
+(ert-deftest peta-journal-an-item-without-the-point-shows-its-image ()
+  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
+                                        (peta-journal-test--row "b" 1 "![p](../assets/p.png)"))
+    (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") peta-journal-test--png)
+    (should (equal (image-property (peta-journal-test--image-of "b") :data)
+                   peta-journal-test--png))
+    (should (equal (peta-journal-test--shown) "• 上\n• ![p](../assets/p.png)\n"))))
+
+;; 画像は、リンクの部分だけを置き換える。前後の文字はそのまま見える。
+(ert-deftest peta-journal-an-image-replaces-only-its-link ()
+  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
+                                        (peta-journal-test--row "b" 1 "前![p](../assets/p.png)後"))
+    (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") peta-journal-test--png)
+    (let* ((start (peta-journal--find-row "b"))
+           (overlay (seq-find (lambda (overlay) (overlay-get overlay 'display))
+                              (overlays-in start (peta-journal--body-end start)))))
+      (should (equal (buffer-substring-no-properties (overlay-start overlay) (overlay-end overlay))
+                     "![p](../assets/p.png)")))))
+
+;; カーソルのある項目では、画像ではなくリンクの文字が見える。
+(ert-deftest peta-journal-the-item-with-the-point-shows-its-link-as-text ()
+  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "![p](../assets/p.png)")
+                                        (peta-journal-test--row "b" 1 "下"))
+    (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") peta-journal-test--png)
+    (should-not (peta-journal-test--image-of "a"))))
+
+;; カーソルを動かすと、入った項目は文字になり、出た項目は画像に戻る。
+(ert-deftest peta-journal-moving-the-point-swaps-the-image-and-the-text ()
+  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "![p](../assets/p.png)")
+                                        (peta-journal-test--row "b" 1 "![q](../assets/q.png)"))
+    (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") peta-journal-test--png)
+    (peta-journal--image-arrived (peta-journal-test--asset-url "q.png") peta-journal-test--png)
+    (should (peta-journal-test--image-of "b"))
+    (peta-journal-test--goto "b" 0)
+    (should (peta-journal-test--image-of "a"))
+    (should-not (peta-journal-test--image-of "b"))
+    (peta-journal-test--goto "a" 0)
+    (should-not (peta-journal-test--image-of "a"))
+    (should (peta-journal-test--image-of "b"))))
+
+;; カーソルを動かしても、本文の変更としてシェルへは送られない。
+(ert-deftest peta-journal-swapping-an-image-sends-no-change-of-the-body ()
+  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "![p](../assets/p.png)")
+                                        (peta-journal-test--row "b" 1 "下"))
+    (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") peta-journal-test--png)
+    (peta-journal-test--goto "b" 0)
+    (peta-journal-test--goto "a" 0)
+    (should-not (peta-journal-test--sent-of "body_changed"))))
+
+;; 項目を出ると、そこで打ったリンクも画像になる。
+(ert-deftest peta-journal-a-typed-link-becomes-an-image-when-the-point-leaves ()
+  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "")
+                                        (peta-journal-test--row "b" 1 "下"))
+    (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") peta-journal-test--png)
+    (peta-journal-test--goto "a" 0)
+    (insert "![p](../assets/p.png)")
+    (peta-journal--post-command)
+    (should-not (peta-journal-test--image-of "a"))
+    (peta-journal-test--goto "b" 0)
+    (should (peta-journal-test--image-of "a"))))
+
+;; シェルが項目を書き直しても、新しい本文の画像が見える。リンクが消えれば画像も消える。
+(ert-deftest peta-journal-a-rewritten-item-shows-the-image-of-its-new-body ()
+  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
+                                        (peta-journal-test--row "b" 1 "下"))
+    (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") peta-journal-test--png)
+    (peta-journal--apply-rows (vector (peta-journal-test--row "a" 1 "上")
+                                      (peta-journal-test--row "b" 1 "![p](../assets/p.png)"))
+                              "page" 0)
+    (should (peta-journal-test--image-of "b"))
+    (peta-journal--apply-rows (vector (peta-journal-test--row "a" 1 "上")
+                                      (peta-journal-test--row "b" 1 "文字だけ"))
+                              "page" 0)
+    (should-not (peta-journal-test--image-of "b"))))
+
+;; シェルの指示でカーソルが別の項目へ移っても、文字と画像が入れ替わる。
+(ert-deftest peta-journal-a-focus-from-the-shell-swaps-the-image-and-the-text ()
+  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "![p](../assets/p.png)")
+                                        (peta-journal-test--row "b" 1 "下"))
+    (peta-journal--image-arrived (peta-journal-test--asset-url "p.png") peta-journal-test--png)
+    (peta-journal--on-focus "b" 0 peta-journal--seq)
+    (should (peta-journal-test--image-of "a"))))
+
+;; 画像の中身は1回だけサーバーへ取りに行く。同じ画像が2つあっても、カーソルが動いても同じである。
+(ert-deftest peta-journal-an-image-is-fetched-once ()
+  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
+                                        (peta-journal-test--row "b" 1 "![p](../assets/p.png)")
+                                        (peta-journal-test--row "c" 1 "![p](../assets/p.png)"))
+    (peta-journal-test--goto "b" 0)
+    (peta-journal-test--goto "a" 0)
+    (should (equal peta-journal-test--fetched
+                   (list (peta-journal-test--asset-url "p.png"))))))
+
+;; 画像が届くまでは、リンクの文字が見える。
+(ert-deftest peta-journal-a-link-stays-text-until-its-image-arrives ()
+  (peta-journal-test--with-images (list (peta-journal-test--row "a" 1 "上")
+                                        (peta-journal-test--row "b" 1 "![p](../assets/p.png)"))
+    (should-not (peta-journal-test--image-of "b"))))
+
 ;;; peta-journal-test.el ends here
