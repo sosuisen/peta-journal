@@ -25,6 +25,10 @@ pub enum Inbound {
     GoToPage {
         path: String,
     },
+    /// Gives the page on screen this path, with its folder.
+    RenamePage {
+        path: String,
+    },
     OpenLinkAt {
         id: String,
         cursor: usize,
@@ -128,6 +132,10 @@ pub enum Outbound {
     },
     Title {
         title: String,
+    },
+    /// The path of the page on screen, when the page can be renamed.
+    PagePath {
+        path: Option<String>,
     },
     Status {
         connection: String,

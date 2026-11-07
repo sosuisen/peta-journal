@@ -295,6 +295,7 @@ A line of cells alone is plain text, and `---' with no `|' is not a delimiter."
 (defvar-local peta-journal--current nil "The id of the item being edited.")
 (defvar-local peta-journal--last-point nil "Where the point was after the last command.")
 (defvar-local peta-journal--title "" "The title of the page on screen.")
+(defvar-local peta-journal--page-path nil "The path of the page on screen, if it can be renamed.")
 (defvar-local peta-journal--connection "" "The state of the connection to the server.")
 (defvar-local peta-journal--scrolled nil "The scroll position the core knows about.")
 
@@ -668,6 +669,7 @@ M-x peta-journal in that buffer starts it and shows the saved text.  See *peta-j
     ("scroll" (peta-journal--on-scroll (plist-get message :id)))
     ("title" (setq peta-journal--title (plist-get message :title))
      (force-mode-line-update))
+    ("page_path" (setq peta-journal--page-path (plist-get message :path)))
     ("status" (setq peta-journal--connection (plist-get message :connection))
      (force-mode-line-update))
     ("search" (peta-journal--on-search (plist-get message :results)
@@ -730,7 +732,7 @@ Not from here but from a timer: a process filter is no place for a prompt."
 (defconst peta-journal--commands-that-end-the-edit
   '(peta-journal-save peta-journal-today peta-journal-find-page peta-journal-back
     peta-journal-next-day peta-journal-previous-day peta-journal-open-at-point
-    peta-journal-search)
+    peta-journal-search peta-journal-rename-page)
   "The commands after which the point stays in an item that is not being edited.
 A saved edit must stay closed, and a page being left has nothing more to edit.")
 
@@ -896,7 +898,7 @@ Only for these characters: waiting on every key would slow typing down."
 ;;;; Commands that go to other pages
 
 (defun peta-journal--go (type &rest fields)
-  "End the edit, and send the line of TYPE with FIELDS that opens another page."
+  "End the edit, and send the line of TYPE with FIELDS that changes the page."
   (with-current-buffer (peta-journal--page)
     (peta-journal--finish-edit)
     (apply #'peta-journal--send type fields)))
@@ -918,6 +920,16 @@ Only for these characters: waiting on every key would slow typing down."
    (list (completing-read "Page: " peta-journal--recent nil nil)))
   (peta-journal--ensure-started)
   (peta-journal--go "go_to_page" :path path))
+
+(defun peta-journal-rename-page (path)
+  "Give the page on screen the new PATH.  A `/' in PATH puts the page in a folder."
+  (interactive
+   (let* ((page (peta-journal--page))
+          (current (and page (buffer-local-value 'peta-journal--page-path page))))
+     (unless current
+       (user-error "Only a doc page can be renamed, not a journal, an index or an atlas"))
+     (list (read-string "Rename page to: " current))))
+  (peta-journal--go "rename_page" :path path))
 
 (defun peta-journal-back ()
   "Go back to the page shown before."
@@ -1168,6 +1180,7 @@ C-n and C-p select a result, RET opens it, and C-g closes the search."
   "C-c C-j" #'peta-journal-today
   "C-c C-f" #'peta-journal-find-page
   "C-c C-v" #'peta-journal-new-buffer
+  "C-c C-r" #'peta-journal-rename-page
   "C-c /" #'peta-journal-search
   "C-c C-b" #'peta-journal-backlinks
   "C-c C-l" #'peta-journal-back
@@ -1266,6 +1279,7 @@ A journal then loads the older days."
     (setq peta-journal--seq 0
           peta-journal--ack 0
           peta-journal--holding nil
+          peta-journal--page-path nil
           peta-journal--output "")
     (setq peta-journal--process
           (make-process :name "peta-shell-emacs"

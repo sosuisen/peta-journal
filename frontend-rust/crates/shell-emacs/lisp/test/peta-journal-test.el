@@ -336,7 +336,7 @@
 (ert-deftest peta-journal-going-to-another-page-leaves-the-edit-closed ()
   (dolist (command '(peta-journal-today peta-journal-find-page peta-journal-back
                      peta-journal-next-day peta-journal-previous-day
-                     peta-journal-open-at-point))
+                     peta-journal-open-at-point peta-journal-rename-page))
     (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
       (peta-journal-test--goto "a" 0)
       (peta-journal--go "back")
@@ -344,6 +344,55 @@
       (let ((this-command command))
         (peta-journal--post-command))
       (should (null peta-journal-test--sent)))))
+
+;; 名前の変更は、今のパスを初期値にして尋ね、編集を閉じてから新しいパスを送る。
+(ert-deftest peta-journal-renaming-offers-the-path-and-ends-the-edit ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
+    (peta-journal--on-line '(:t "page_path" :path "work/memo"))
+    (peta-journal-test--goto "a" 0)
+    (setq peta-journal-test--sent nil)
+    (let ((offered nil))
+      (cl-letf (((symbol-function 'read-string)
+                 (lambda (_prompt initial &rest _)
+                   (setq offered initial)
+                   "work/new")))
+        (call-interactively #'peta-journal-rename-page))
+      (should (equal offered "work/memo")))
+    (should (equal peta-journal-test--sent
+                   '(("edit_finished" :id "a")
+                     ("rename_page" :path "work/new"))))))
+
+;; 変えられるパスがなければ、入力を求める前に断る。打った名前が無駄にならない。
+(ert-deftest peta-journal-a-page-without-a-path-refuses-before-asking ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
+    (peta-journal--on-line '(:t "page_path" :path nil))
+    (setq peta-journal-test--sent nil)
+    (cl-letf (((symbol-function 'read-string)
+               (lambda (&rest _) (error "It must not ask"))))
+      (should-error (call-interactively #'peta-journal-rename-page) :type 'user-error))
+    (should (null peta-journal-test--sent))))
+
+;; ページのバッファの外で M-x で呼んでも、そのページの名前を変える。
+(ert-deftest peta-journal-renaming-from-another-buffer-is-about-the-page ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
+    (peta-journal--on-line '(:t "page_path" :path "memo"))
+    (setq peta-journal-test--sent nil)
+    (cl-letf (((symbol-function 'read-string) (lambda (_prompt initial &rest _) initial)))
+      (with-temp-buffer
+        (call-interactively #'peta-journal-rename-page)))
+    (should (equal peta-journal-test--sent '(("rename_page" :path "memo"))))))
+
+;; シェルを起動し直すと、前のシェルが伝えたパスは忘れる。次のページが名前を変えられるとは限らない。
+(ert-deftest peta-journal-a-new-shell-forgets-the-path ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
+    (peta-journal--on-line '(:t "page_path" :path "memo"))
+    (let ((stand-in (peta-journal-test--emacs-process #'ignore)))
+      (unwind-protect
+          (cl-letf (((symbol-function 'peta-journal--program) #'ignore)
+                    ((symbol-function 'make-process) (lambda (&rest _) stand-in)))
+            (peta-journal--start-shell "/today"))
+        (delete-process stand-in)))
+    (should (null peta-journal--page-path))))
 
 ;; 一息つくと編集を閉じる。開いたままだと、coreは他からの変更の読み直しを待ち続けるため。
 (ert-deftest peta-journal-idling-ends-the-edit ()

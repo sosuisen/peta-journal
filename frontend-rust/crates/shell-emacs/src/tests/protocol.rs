@@ -47,6 +47,14 @@ fn an_answer_is_yes_or_no() {
     assert_eq!(envelope.message, Inbound::Answer { req: 3, yes: false });
 }
 
+// 名前の変更は、フォルダを含む新しいパスとして届く。
+#[test]
+fn a_rename_carries_the_new_path() {
+    let line = r#"{"seq":1,"type":"rename_page","path":"a/b"}"#;
+    let envelope: Envelope = serde_json::from_str(line).unwrap();
+    assert_eq!(envelope.message, Inbound::RenamePage { path: "a/b".into() });
+}
+
 // 行は、Emacsが読むJSONとして書き出され、日本語はエスケープされない。
 #[test]
 fn rows_are_written_as_json_for_emacs() {

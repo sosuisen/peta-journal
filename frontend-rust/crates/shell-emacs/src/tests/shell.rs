@@ -48,15 +48,16 @@ fn item(id: &str, level: i32, body: &str) -> Value {
     })
 }
 
+fn page_info(dir_path: &str, name: &str) -> Value {
+    json!({
+        "id": "p", "parentId": "", "dirPath": dir_path, "name": name, "type": "doc",
+        "createdDate": 0, "modifiedDate": 0, "properties": {},
+    })
+}
+
 fn page_answer(items: &[Value]) -> ApiOutput {
     serde_json::from_value(json!({
-        "Page": {
-            "page": {
-                "id": "p", "parentId": "", "dirPath": "", "name": "notes", "type": "doc",
-                "createdDate": 0, "modifiedDate": 0, "properties": {},
-            },
-            "items": items,
-        }
+        "Page": { "page": page_info("", "notes"), "items": items }
     }))
     .unwrap()
 }
@@ -153,6 +154,16 @@ impl Driver {
             .iter()
             .filter(|m| matches!(m, Outbound::Rows { .. }))
             .count()
+    }
+
+    fn page_paths(&self) -> Vec<Option<String>> {
+        self.sent()
+            .iter()
+            .filter_map(|m| match m {
+                Outbound::PagePath { path } => Some(path.clone()),
+                _ => None,
+            })
+            .collect()
     }
 
     fn focuses(&self) -> Vec<(String, Option<usize>)> {
@@ -706,6 +717,110 @@ fn an_empty_query_is_not_a_running_search() {
     driver.send(Inbound::Search { query: "ru".into() });
     driver.send(Inbound::Search { query: " ".into() });
     assert!(!searching(&driver));
+}
+
+// フォルダを含むパスで名前を変えると、サーバーへ新しい名前とフォルダが送られる。
+#[test]
+fn renaming_sends_the_new_name_and_folder_to_the_server() {
+    let mut driver = Driver::open(&[item("a", 1, "x")]);
+    driver.send(Inbound::RenamePage {
+        path: "work/memo".into(),
+    });
+    assert!(driver.waiting(|op| matches!(
+        op,
+        ApiOp::UpdatePage { page_id, title, dir_path, overwrite: false }
+            if page_id == "p"
+                && title.as_deref() == Some("memo")
+                && dir_path.as_deref() == Some("work/")
+    )));
+}
+
+// 読み込んだdocページのパスを、Emacsに伝える。Emacsはこれを名前の変更の初期値にする。
+#[test]
+fn a_loaded_doc_page_tells_emacs_its_path() {
+    let mut driver = Driver::new();
+    driver.send(Inbound::Start {
+        url: "/pages/notes".into(),
+    });
+    driver.load_page(&[]);
+    assert_eq!(driver.page_paths().last(), Some(&Some("notes".to_string())));
+}
+
+// indexとアトラスのページには、変えられるパスがない。名前で役割が決まるページだからである。
+#[test]
+fn an_index_or_atlas_page_has_no_path_to_rename() {
+    for name in ["index", "index_atlas"] {
+        let mut driver = Driver::new();
+        driver.send(Inbound::Start {
+            url: format!("/pages/a/{name}"),
+        });
+        let answer = serde_json::from_value(json!({
+            "Page": { "page": page_info("a/", name), "items": [] }
+        }))
+        .unwrap();
+        driver.answer(|op| matches!(op, ApiOp::GetOrCreateDoc { .. }), answer);
+        assert!(driver.page_paths().iter().all(Option::is_none), "{name}");
+    }
+}
+
+// ジャーナルへ移ると、変えられるパスはなくなる。
+#[test]
+fn moving_to_a_journal_takes_the_path_away() {
+    let mut driver = Driver::open(&[]);
+    driver.send(Inbound::Go {
+        url: "/today".into(),
+    });
+    assert_eq!(driver.page_paths(), [None]);
+}
+
+// 名前を変えると、新しいパスと題名がEmacsに届き、項目は読み直されない。
+#[test]
+fn a_renamed_page_tells_emacs_the_new_path_and_title() {
+    let mut driver = Driver::open(&[item("a", 1, "x")]);
+    driver.fail_all_waiting_calls();
+    driver.send(Inbound::RenamePage {
+        path: "work/memo".into(),
+    });
+    let answer = serde_json::from_value(json!({ "PageInfo": page_info("work/", "memo") })).unwrap();
+    driver.answer(|op| matches!(op, ApiOp::UpdatePage { .. }), answer);
+
+    assert_eq!(driver.page_paths(), [Some("work/memo".to_string())]);
+    assert!(driver
+        .sent()
+        .iter()
+        .any(|m| matches!(m, Outbound::Title { title } if title == "work/memo")));
+    assert!(!driver.waiting(|op| matches!(op, ApiOp::GetPageById { .. })));
+}
+
+// 同じ名前のページがあれば、上書きしてよいかを尋ねる。「はい」なら上書きして変える。
+#[test]
+fn renaming_over_another_page_asks_and_overwrites_on_yes() {
+    let mut driver = Driver::open(&[]);
+    driver.fail_all_waiting_calls();
+    driver.send(Inbound::RenamePage {
+        path: "taken".into(),
+    });
+    driver.answer(
+        |op| matches!(op, ApiOp::UpdatePage { .. }),
+        ApiOutput::PageNameTaken("taken".into()),
+    );
+
+    let req = driver
+        .sent()
+        .iter()
+        .find_map(|m| match m {
+            Outbound::Ask { req, .. } => Some(*req),
+            _ => None,
+        })
+        .expect("the shell asks before it overwrites");
+    driver.send(Inbound::Answer { req, yes: true });
+    assert!(driver.waiting(|op| matches!(
+        op,
+        ApiOp::UpdatePage {
+            overwrite: true,
+            ..
+        }
+    )));
 }
 
 // 終了の前に編集を閉じ、書きかけの文を保存する。答えが返るまで、終わってよい状態にならない。

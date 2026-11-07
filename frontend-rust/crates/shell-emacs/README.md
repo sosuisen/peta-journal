@@ -84,11 +84,21 @@ These keys go to other places:
 | `C-c C-j` | Today's journal |
 | `C-c C-f` | Open a page by name |
 | `C-c C-v` | Open a page by name in a new buffer |
+| `C-c C-r` | Rename the page |
 | `C-c C-n`, `C-c C-p` | The next or the previous journal |
 | `C-c C-l` | Back to the page before |
 | `C-c C-o` | Open the wiki link or the tag at the point |
 | `C-c /` | The search box |
 | `C-c C-b` | Backlinks of this page |
+
+## Rename a page
+
+`C-c C-r` or `M-x peta-journal-rename-page` asks for a new name and offers the path of the page. A
+`/` in the name puts the page in a folder, and a name without `/` puts it outside any folder. If
+another page has that name, Emacs asks whether to overwrite it.
+
+Only a doc page can be renamed. On a journal, an index page or an atlas, the command stops without
+asking.
 
 ## Two pages at once
 
