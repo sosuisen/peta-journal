@@ -524,17 +524,20 @@ rewritten, so what does not change stays where it is."
          (suffix (peta-journal--common-suffix old new prefix))
          (start (peta-journal--nth-row prefix))
          (end (peta-journal--nth-row (- (length old) suffix)))
+         (written-end start)
          (inhibit-read-only t)
          (inhibit-modification-hooks t))
     (save-excursion
       (delete-region start end)
       (goto-char start)
       (cl-loop for index from prefix below (- (length new) suffix)
-               do (insert (peta-journal--row-string (aref new index)))))
+               do (insert (peta-journal--row-string (aref new index))))
+      (setq written-end (point)))
     (setq peta-journal--rows new
           peta-journal--page-id page-id)
     (when new-page
-      (peta-journal--warn-if-shown-elsewhere))
+      (peta-journal--warn-if-shown-elsewhere)
+      (peta-journal--forget-unknown-images))
     (restore-buffer-modified-p nil)
     (cond
      ((zerop (length new)) (goto-char (point-min)))
@@ -547,7 +550,10 @@ rewritten, so what does not change stays where it is."
       (pcase-dolist (`(,window . ,window-place) window-places)
         (when window-place
           (set-window-point window (peta-journal--pos-of-place window-place))))))
-    (setq peta-journal--last-point (point))))
+    (setq peta-journal--last-point (point))
+    ;; After the point has its place: the item it is in keeps its text
+    (peta-journal--draw-images start written-end)
+    (peta-journal--update-images)))
 
 (defun peta-journal--goto-item (id cursor)
   "Put the point in the item ID at CURSOR, or at its end when CURSOR is nil."
@@ -595,6 +601,156 @@ A step back from the start of this body goes on to the row above."
       (peta-journal--step-off-bullet start))
      ((> (point) (peta-journal--body-end start))
       (goto-char (peta-journal--body-end start))))))
+
+;;;; Images
+
+(defconst peta-journal--image-link-regexp
+  "!\\[[^][\n]*\\](\\.\\./assets/\\([A-Za-z0-9._-]+\\)\\(?:#\\([^)\n]*\\)\\)?)"
+  "A link to an image on the server.
+Group 1 is the name of the file, and group 2 what follows its `#'.  The server
+gives an uploaded file such a name, and a name of this form needs no escaping
+in a URL.")
+
+;; Global: buffers of the same server show the same files
+(defvar peta-journal--images (make-hash-table :test #'equal)
+  "What is known of the images by URL: their bytes, `loading' or `missing'.")
+
+(defvar-local peta-journal--text-item nil
+  "The id of the item that shows its links as text, where the point was last.")
+
+(defun peta-journal--asset-url (name)
+  "The URL of the file NAME in the assets of the server."
+  (concat (string-trim-right peta-journal-server "/") "/assets/" name))
+
+(defun peta-journal--image-bytes (url)
+  "The bytes of the image at URL, or nil.  The first call starts to fetch them."
+  (let ((known (gethash url peta-journal--images)))
+    (cond
+     ((stringp known) known)
+     ((null known)
+      (puthash url 'loading peta-journal--images)
+      (peta-journal--fetch-image url)
+      nil))))
+
+(defun peta-journal--fetch-image (url)
+  "Fetch the image at URL without waiting for it.
+Not through the shell: a shell handles one line at a time, and an image should
+not hold up the typing."
+  (condition-case nil
+      (url-retrieve url
+                    (lambda (status)
+                      (let ((bytes (peta-journal--response-bytes status)))
+                        (kill-buffer)
+                        (peta-journal--image-arrived url bytes)))
+                    nil t t)
+    (error (puthash url 'missing peta-journal--images))))
+
+(defun peta-journal--response-bytes (status)
+  "The body of the HTTP response in this buffer, or nil if STATUS has an error."
+  (unless (plist-get status :error)
+    (goto-char (point-min))
+    (when (re-search-forward "\r?\n\r?\n" nil t)
+      (buffer-substring-no-properties (point) (point-max)))))
+
+(defun peta-journal--image-arrived (url bytes)
+  "Keep the BYTES of the image at URL, and show the image in every page.
+BYTES is nil when the image could not be fetched."
+  (puthash url (or bytes 'missing) peta-journal--images)
+  (peta-journal--redraw-all-images))
+
+(defun peta-journal--redraw-all-images ()
+  "Draw the images of every page again."
+  (dolist (page (peta-journal--pages))
+    (with-current-buffer page
+      (peta-journal--draw-images (point-min) (point-max)))))
+
+(defun peta-journal--forget-unknown-images ()
+  "Forget the images without bytes, so they get fetched again.
+The server may have been down, and nothing else would try again."
+  (maphash (lambda (url known)
+             (unless (stringp known)
+               (remhash url peta-journal--images)))
+           peta-journal--images))
+
+(defun peta-journal--link-side (fragment key)
+  "The size that FRAGMENT of a link gives after KEY, or nil.
+As in the Web version, only a positive integer counts."
+  (when (and fragment
+             (string-match (format "\\(?:\\`\\|&\\)%s=\\([0-9]*[1-9][0-9]*\\)\\(?:&\\|\\'\\)" key)
+                           fragment))
+    (string-to-number (match-string 1 fragment))))
+
+(defun peta-journal--image-room (id)
+  "The most an image in the item ID may take, as properties of the image.
+An image taller than the window could not be scrolled through line by line."
+  (let* ((window (or (get-buffer-window) (selected-window)))
+         (level (plist-get (peta-journal--row-of id) :level))
+         (indent (length (peta-journal--body-prefix level))))
+    (list :max-width (- (window-body-width window t)
+                        ;; One more column: an image that fills the line would wrap
+                        (* (1+ indent) (frame-char-width)))
+          :max-height (- (window-body-height window t) (frame-char-height)))))
+
+(defun peta-journal--link-image (id name fragment)
+  "The image of the item ID for a link to the file NAME with FRAGMENT, or nil."
+  (when-let* ((bytes (peta-journal--image-bytes (peta-journal--asset-url name))))
+    (let ((width (peta-journal--link-side fragment "w"))
+          (height (peta-journal--link-side fragment "h")))
+      ;; Without a type, this tells it from the bytes, and gives nil if it cannot show them
+      (apply #'create-image bytes nil t
+             (append (and width (list :width width))
+                     (and height (list :height height))
+                     (peta-journal--image-room id))))))
+
+(defun peta-journal--in-code-p (pos)
+  "Non-nil when the text at POS is code.  A link there is an example, not an image."
+  (let ((start (peta-journal--row-start pos)))
+    (font-lock-ensure start (peta-journal--body-end start)))
+  (memq 'peta-journal-code (ensure-list (get-text-property pos 'face))))
+
+(defun peta-journal--on-window-size-change (_window)
+  "Fit the images of the current buffer to the new size of its window."
+  (peta-journal--draw-images (point-min) (point-max)))
+
+(defun peta-journal--draw-images (start end)
+  "Show the links between START and END as images, but for the item at the point.
+START and END are the edges of rows.  An overlay leaves the text alone, so the
+body stays as the shell knows it."
+  (remove-overlays start end 'peta-image t)
+  (when (display-images-p)
+    (let ((text-item (peta-journal--id-at (point))))
+      (save-excursion
+        (goto-char start)
+        (while (re-search-forward peta-journal--image-link-regexp end t)
+          (let* ((link-start (match-beginning 0))
+                 (link-end (match-end 0))
+                 (name (match-string-no-properties 1))
+                 (fragment (match-string-no-properties 2))
+                 (id (peta-journal--id-at link-start)))
+            (unless (or (equal id text-item)
+                        (peta-journal--in-code-p link-start))
+              (when-let* ((image (peta-journal--link-image id name fragment)))
+                (let ((overlay (make-overlay link-start link-end)))
+                  (overlay-put overlay 'peta-image t)
+                  (overlay-put overlay 'display image)
+                  ;; The shell may rewrite the row, and nothing should stay behind
+                  (overlay-put overlay 'evaporate t))))))))))
+
+(defun peta-journal--draw-images-of (id)
+  "Show the links of the item ID as images, when it is there."
+  (when-let* ((start (peta-journal--find-row id)))
+    (peta-journal--draw-images start (peta-journal--body-end start))))
+
+(defun peta-journal--update-images ()
+  "Give the item at the point its text, and the item it has left its images."
+  (let ((item (peta-journal--id-at (point)))
+        (left peta-journal--text-item))
+    (unless (equal item left)
+      (setq peta-journal--text-item item)
+      (when item
+        (peta-journal--draw-images-of item))
+      (when left
+        (peta-journal--draw-images-of left)))))
 
 ;;;; Talking to the shell
 
@@ -710,13 +866,15 @@ still under way: the point has moved on since."
       (peta-journal--goto-item id cursor))
     (when (equal (peta-journal--id-at (point)) id)
       (setq peta-journal--current id
-            peta-journal--last-point (point)))))
+            peta-journal--last-point (point)))
+    (peta-journal--update-images)))
 
 (defun peta-journal--on-scroll (id)
   "Show the item ID."
   (when (peta-journal--find-row id)
     (peta-journal--goto-item id 0)
     (setq peta-journal--last-point (point))
+    (peta-journal--update-images)
     (dolist (window (get-buffer-window-list (current-buffer) nil t))
       (set-window-point window (point))
       (with-selected-window window (recenter)))))
@@ -763,6 +921,7 @@ A saved edit must stay closed, and a page being left has nothing more to edit.")
   (unless (memq this-command peta-journal--commands-that-end-the-edit)
     (when-let* ((id (peta-journal--id-at (point))))
       (peta-journal--start-edit id)))
+  (peta-journal--update-images)
   (setq peta-journal--last-point (point)))
 
 (defun peta-journal--restyle-body (start level)
@@ -1444,6 +1603,7 @@ Type in a body as in any buffer.  The outline changes through these keys:
   (add-hook 'post-self-insert-hook #'peta-journal--close-typed nil t)
   (add-hook 'post-command-hook #'peta-journal--post-command nil t)
   (add-hook 'window-scroll-functions #'peta-journal--on-window-scroll nil t)
+  (add-hook 'window-size-change-functions #'peta-journal--on-window-size-change nil t)
   (add-hook 'kill-buffer-hook #'peta-journal-stop nil t))
 
 (defun peta-journal--on-window-scroll (_window _start)

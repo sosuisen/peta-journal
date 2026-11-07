@@ -458,6 +458,36 @@ The server is a real one, with its files in a temporary folder."
     (peta-journal-e2e--keys "C-x C-s")
     (peta-journal-e2e--wait-saved '("本文の続き"))))
 
+(defun peta-journal-e2e--shown-image ()
+  "The image shown in the buffer, or nil."
+  (seq-some (lambda (overlay) (overlay-get overlay 'display))
+            (overlays-in (point-min) (point-max))))
+
+;; 挿入した画像は、カーソルが項目を出ると、サーバーから取得した中身のまま見える。
+;; バッチ実行では描けないので、描くはずの画像の中身までを確かめる。
+(ert-deftest peta-journal-e2e-an-inserted-image-is-shown-after-the-point-leaves ()
+  (cl-letf (((symbol-function 'display-images-p) (lambda (&rest _) t)))
+    (peta-journal-e2e--with-app
+      ;; Bytes that break when read as text: a line end, a zero and a high byte
+      (let ((bytes (unibyte-string #x89 ?P ?N ?G 13 10 26 10 0 255 13 10 13 10))
+            (image (expand-file-name "shown.png" root)))
+        (peta-journal-e2e--write-image image bytes)
+        (execute-kbd-macro (vconcat (kbd "C-c C-i C-a C-k") image (kbd "RET")))
+        (peta-journal--wait)
+        (should-not (peta-journal-e2e--shown-image))
+        (peta-journal-e2e--keys "RET")
+        (peta-journal-e2e--wait-for "the image" #'peta-journal-e2e--shown-image)
+        (should (equal (image-property (peta-journal-e2e--shown-image) :data) bytes))))))
+
+;; サーバーにないファイルは、取得できなかったものとして扱う。
+(ert-deftest peta-journal-e2e-a-file-not-on-the-server-is-missing ()
+  (peta-journal-e2e--with-app
+    (let ((url (peta-journal--asset-url "no-such-file.png")))
+      (peta-journal--fetch-image url)
+      (peta-journal-e2e--wait-for "the answer of the server"
+                                  (lambda () (gethash url peta-journal--images)))
+      (should (eq (gethash url peta-journal--images) 'missing)))))
+
 (defun peta-journal-e2e--saved-tags ()
   "The tags of the page on screen, as the server has them, in a list."
   (let* ((answer (peta-journal-e2e--request "GET" (concat "/api/pages/" peta-journal--page-id)))
