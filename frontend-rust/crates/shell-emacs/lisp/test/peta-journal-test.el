@@ -409,6 +409,33 @@
     (peta-journal--finish-edit)
     (should (null peta-journal-test--sent))))
 
+;;;; The gap between items
+
+;; 項目の末尾の改行にだけ、設定の分の隙間を付ける。文字は増えない。
+(ert-deftest peta-journal-the-newline-at-the-end-of-an-item-has-the-gap ()
+  (let ((peta-journal-item-gap 7))
+    (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
+      (should (= (get-text-property (peta-journal--body-end (peta-journal--find-row "a"))
+                                    'line-spacing)
+                 7))
+      (should (equal (peta-journal-test--shown) "• x\n")))))
+
+;; 本文の中の改行には、隙間を付けない。1つの項目の行は詰まったままである。
+(ert-deftest peta-journal-a-newline-inside-a-body-has-no-gap ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x\ny"))
+    (goto-char (point-min))
+    (search-forward "\n")
+    (should-not (get-text-property (1- (point)) 'line-spacing))))
+
+;; 折りたたんだ項目は、改行の代わりに表示する文字列に隙間を持つ。表示はこの文字列から作られる。
+(ert-deftest peta-journal-a-collapsed-item-has-the-gap-in-what-it-shows ()
+  (let ((peta-journal-item-gap 7))
+    (peta-journal-test--with-rows
+        (list (peta-journal-test--row "a" 1 "x" :collapsed t))
+      (let* ((newline (peta-journal--body-end (peta-journal--find-row "a")))
+             (shown (get-text-property newline 'display)))
+        (should (= (get-text-property (1- (length shown)) 'line-spacing shown) 7))))))
+
 ;;;; Wrapping
 
 (defun peta-journal-test--on-first-screen-line-p (position)
