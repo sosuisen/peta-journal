@@ -669,6 +669,36 @@
   (should (eq (peta-journal-test--face "***" "***") 'peta-journal-rule))
   (should (eq (peta-journal-test--face "-# 小さい" "小さい") 'peta-journal-subtext)))
 
+;; 表は、区切りの行があるときだけ色が付き、表の続きの行までである。セルの中の修飾は、修飾の色になる。
+(ert-deftest peta-journal-a-table-has-its-color ()
+  (let ((body "| 見 | b |\n|:--|:-:|\n| 中 | d |\n後"))
+    (should (eq (peta-journal-test--face body "見") 'peta-journal-table))
+    (should (eq (peta-journal-test--face body "|:--") 'peta-journal-table))
+    (should (eq (peta-journal-test--face body "中") 'peta-journal-table))
+    (should-not (peta-journal-test--face body "後")))
+  (should (eq (peta-journal-test--face "見 | b\n--|--" "見") 'peta-journal-table))
+  (should-not (peta-journal-test--face "| 見 | b |" "見"))
+  (should (eq (peta-journal-test--face "| **太** |\n|--|" "太") 'peta-journal-bold)))
+
+;; 見出しは6段までで、本文のどの行でもよい。下線の見出しもある。中の修飾は、修飾の色になる。
+(ert-deftest peta-journal-a-heading-has-its-color ()
+  (should (eq (peta-journal-test--face "# 見" "見") 'peta-journal-heading))
+  (should (eq (peta-journal-test--face "###### 見" "見") 'peta-journal-heading))
+  (should-not (peta-journal-test--face "####### 見" "見"))
+  (should (eq (peta-journal-test--face "a\n# 見" "見") 'peta-journal-heading))
+  (should (eq (peta-journal-test--face "題\n===" "題") 'peta-journal-heading))
+  (should (eq (peta-journal-test--face "題\n---" "---") 'peta-journal-heading))
+  (should (eq (peta-journal-test--face "# **太** [[y]]" "太") 'peta-journal-bold))
+  (should (eq (peta-journal-test--face "# **太** [[y]]" "[[y") 'peta-journal-link)))
+
+;; タグは、文頭か空白の直後から、タグに使える文字までである。
+(ert-deftest peta-journal-a-tag-has-its-color-up-to-where-it-ends ()
+  (should (eq (peta-journal-test--face "#タグ" "タグ") 'peta-journal-link))
+  (should (eq (peta-journal-test--face "a #親/子-1 b" "子-1") 'peta-journal-link))
+  (should-not (peta-journal-test--face "a #タグ。本文" "本文"))
+  (should-not (peta-journal-test--face "a#b" "b"))
+  (should-not (peta-journal-test--face "\\#b" "b")))
+
 ;;;; Links
 
 ;; リンクを開くコマンドは、編集を閉じてから、カーソルの位置をシェルへ送る。リンクかどうかはcoreが決める。
