@@ -110,6 +110,18 @@ The core does not take in changes from elsewhere while an edit is open."
 (defface peta-journal-table '((t :inherit font-lock-type-face))
   "A table.")
 
+(defface peta-journal-image '((t :inherit font-lock-function-name-face))
+  "An image or another embedded file.")
+
+(defface peta-journal-footnote '((t :inherit font-lock-builtin-face))
+  "A footnote.")
+
+(defface peta-journal-emoji '((t :inherit font-lock-string-face))
+  "An emoji shortcode.")
+
+(defface peta-journal-html '((t :inherit font-lock-preprocessor-face))
+  "An HTML tag.")
+
 (defun peta-journal--word-char-p (char)
   "Non-nil when CHAR is a letter or a digit.  CHAR is nil at the buffer edge."
   (and char (string-match-p "[[:alnum:]]" (string char))))
@@ -225,9 +237,17 @@ A line of cells alone is plain text, and `---' with no `|' is not a delimiter."
     ("\\$`[^`\n]+`\\$" 0 'peta-journal-math)
     (,(peta-journal--fitting-pair "\\(`+\\)[^`\n]\\(?:.*?[^`\n]\\)??\\1" ?`)
      0 'peta-journal-code)
+    ;; Links and the like come before the emphasis: `_' in a URL is not emphasis
     ("\\[\\[[^]\n]+\\]\\]" 0 'peta-journal-link)
     ("\\(?:^\\|[ \t]\\)\\(#[[:alnum:]_-]\\(?:[[:alnum:]_/-]*[[:alnum:]_-]\\)?\\)"
      1 'peta-journal-link)
+    ("!\\[[^][\n]*\\]([^)\n]*)" 0 'peta-journal-image)
+    ("\\[[^][\n]*\\]([^)\n]*)" 0 'peta-journal-link)
+    ("\\(?:https?://\\|www\\.\\)[^ \t\n<>]+" 0 'peta-journal-link)
+    ("[[:alnum:]._+-]+@[[:alnum:]-]+\\.[[:alnum:].-]+" 0 'peta-journal-link)
+    ("\\[\\^[^]\n]+\\]\\|\\^\\[[^]\n]*\\]" 0 'peta-journal-footnote)
+    ("\\(?:^\\|[^[:alnum:]]\\)\\(:\\(?:[-+]1\\|[a-z][a-z0-9_+-]*\\):\\)" 1 'peta-journal-emoji)
+    ("</?[A-Za-z][A-Za-z0-9-]*\\(?:[ \t/][^<>\n]*\\)?>" 0 'peta-journal-html)
     ;; The longer delimiters come first: `**' also holds two `*'
     (,(peta-journal--pair "**") 0 'peta-journal-bold keep)
     (,(peta-journal--pair "__") 0 'peta-journal-underline keep)
