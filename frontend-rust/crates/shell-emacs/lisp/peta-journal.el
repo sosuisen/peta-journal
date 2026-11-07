@@ -524,13 +524,15 @@ rewritten, so what does not change stays where it is."
          (suffix (peta-journal--common-suffix old new prefix))
          (start (peta-journal--nth-row prefix))
          (end (peta-journal--nth-row (- (length old) suffix)))
+         (written-end start)
          (inhibit-read-only t)
          (inhibit-modification-hooks t))
     (save-excursion
       (delete-region start end)
       (goto-char start)
       (cl-loop for index from prefix below (- (length new) suffix)
-               do (insert (peta-journal--row-string (aref new index)))))
+               do (insert (peta-journal--row-string (aref new index))))
+      (setq written-end (point)))
     (setq peta-journal--rows new
           peta-journal--page-id page-id)
     (when new-page
@@ -547,7 +549,10 @@ rewritten, so what does not change stays where it is."
       (pcase-dolist (`(,window . ,window-place) window-places)
         (when window-place
           (set-window-point window (peta-journal--pos-of-place window-place))))))
-    (setq peta-journal--last-point (point))))
+    (setq peta-journal--last-point (point))
+    ;; After the point has its place: the item it is in keeps its text
+    (peta-journal--draw-images start written-end)
+    (peta-journal--update-images)))
 
 (defun peta-journal--goto-item (id cursor)
   "Put the point in the item ID at CURSOR, or at its end when CURSOR is nil."
@@ -595,6 +600,84 @@ A step back from the start of this body goes on to the row above."
       (peta-journal--step-off-bullet start))
      ((> (point) (peta-journal--body-end start))
       (goto-char (peta-journal--body-end start))))))
+
+;;;; Images
+
+(defconst peta-journal--image-link-regexp
+  "!\\[[^][\n]*\\](\\.\\./assets/\\([A-Za-z0-9._-]+\\))"
+  "A link to an image on the server.  Group 1 is the name of the file.
+The server gives an uploaded file such a name, and a name of this form needs no
+escaping in a URL.")
+
+;; Global: buffers of the same server show the same files
+(defvar peta-journal--images (make-hash-table :test #'equal)
+  "What is known of the images by URL: their bytes, or `loading'.")
+
+(defvar-local peta-journal--text-item nil
+  "The id of the item that shows its links as text, where the point was last.")
+
+(defun peta-journal--asset-url (name)
+  "The URL of the file NAME in the assets of the server."
+  (concat (string-trim-right peta-journal-server "/") "/assets/" name))
+
+(defun peta-journal--image-bytes (url)
+  "The bytes of the image at URL, or nil.  The first call starts to fetch them."
+  (let ((known (gethash url peta-journal--images)))
+    (cond
+     ((stringp known) known)
+     ((null known)
+      (puthash url 'loading peta-journal--images)
+      (peta-journal--fetch-image url)
+      nil))))
+
+(defun peta-journal--image-arrived (url bytes)
+  "Keep the BYTES of the image at URL, and show the image in every page."
+  (puthash url bytes peta-journal--images)
+  (dolist (page (peta-journal--pages))
+    (with-current-buffer page
+      (peta-journal--draw-images (point-min) (point-max)))))
+
+(defun peta-journal--link-image (name)
+  "The image for a link to the file NAME, or nil when it cannot be shown yet."
+  (when-let* ((bytes (peta-journal--image-bytes (peta-journal--asset-url name))))
+    (create-image bytes (image-type-from-data bytes) t)))
+
+(defun peta-journal--draw-images (start end)
+  "Show the links between START and END as images, but for the item at the point.
+START and END are the edges of rows.  An overlay leaves the text alone, so the
+body stays as the shell knows it."
+  (remove-overlays start end 'peta-image t)
+  (when (display-images-p)
+    (let ((text-item (peta-journal--id-at (point))))
+      (save-excursion
+        (goto-char start)
+        (while (re-search-forward peta-journal--image-link-regexp end t)
+          (let ((link-start (match-beginning 0))
+                (link-end (match-end 0))
+                (name (match-string-no-properties 1)))
+            (unless (equal (peta-journal--id-at link-start) text-item)
+              (when-let* ((image (peta-journal--link-image name)))
+                (let ((overlay (make-overlay link-start link-end)))
+                  (overlay-put overlay 'peta-image t)
+                  (overlay-put overlay 'display image)
+                  ;; The shell may rewrite the row, and nothing should stay behind
+                  (overlay-put overlay 'evaporate t))))))))))
+
+(defun peta-journal--draw-images-of (id)
+  "Show the links of the item ID as images, when it is there."
+  (when-let* ((start (peta-journal--find-row id)))
+    (peta-journal--draw-images start (peta-journal--body-end start))))
+
+(defun peta-journal--update-images ()
+  "Give the item at the point its text, and the item it has left its images."
+  (let ((item (peta-journal--id-at (point)))
+        (left peta-journal--text-item))
+    (unless (equal item left)
+      (setq peta-journal--text-item item)
+      (when item
+        (peta-journal--draw-images-of item))
+      (when left
+        (peta-journal--draw-images-of left)))))
 
 ;;;; Talking to the shell
 
@@ -710,13 +793,15 @@ still under way: the point has moved on since."
       (peta-journal--goto-item id cursor))
     (when (equal (peta-journal--id-at (point)) id)
       (setq peta-journal--current id
-            peta-journal--last-point (point)))))
+            peta-journal--last-point (point)))
+    (peta-journal--update-images)))
 
 (defun peta-journal--on-scroll (id)
   "Show the item ID."
   (when (peta-journal--find-row id)
     (peta-journal--goto-item id 0)
     (setq peta-journal--last-point (point))
+    (peta-journal--update-images)
     (dolist (window (get-buffer-window-list (current-buffer) nil t))
       (set-window-point window (point))
       (with-selected-window window (recenter)))))
@@ -763,6 +848,7 @@ A saved edit must stay closed, and a page being left has nothing more to edit.")
   (unless (memq this-command peta-journal--commands-that-end-the-edit)
     (when-let* ((id (peta-journal--id-at (point))))
       (peta-journal--start-edit id)))
+  (peta-journal--update-images)
   (setq peta-journal--last-point (point)))
 
 (defun peta-journal--restyle-body (start level)
