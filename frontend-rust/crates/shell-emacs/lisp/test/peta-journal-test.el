@@ -432,6 +432,17 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
     (should (peta-journal-test--on-first-screen-line-p
              (+ (peta-journal--body-start (peta-journal--find-row "a")) 4)))))
 
+;; 長いURLのような本文も、バレットの行から始まる。
+(ert-deftest peta-journal-a-long-word-starts-on-the-line-of-the-bullet ()
+  (peta-journal-test--with-long-row (concat "https://example.com/" (make-string 300 ?a))
+    (should (peta-journal-test--on-first-screen-line-p
+             (peta-journal--body-start (peta-journal--find-row "a"))))))
+
+;; バレットの後ろの改行しない空白に、Emacsの強調を付けない。普通の空白に見せるためである。
+(ert-deftest peta-journal-the-space-behind-the-bullet-is-not-highlighted ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
+    (should-not nobreak-char-display)))
+
 ;;;; Page properties
 
 (defconst peta-journal-test--property-rows
