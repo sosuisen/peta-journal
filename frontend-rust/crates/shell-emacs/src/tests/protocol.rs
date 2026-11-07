@@ -55,6 +55,28 @@ fn a_rename_carries_the_new_path() {
     assert_eq!(envelope.message, Inbound::RenamePage { path: "a/b".into() });
 }
 
+// プロパティの設定はキーと値として、削除はキーとして届く。
+#[test]
+fn a_property_line_carries_its_key_and_value() {
+    let set = r#"{"seq":1,"type":"set_property","key":"status","value":"draft"}"#;
+    let envelope: Envelope = serde_json::from_str(set).unwrap();
+    assert_eq!(
+        envelope.message,
+        Inbound::SetProperty {
+            key: "status".into(),
+            value: "draft".into()
+        }
+    );
+    let delete = r#"{"seq":2,"type":"delete_property","key":"status"}"#;
+    let envelope: Envelope = serde_json::from_str(delete).unwrap();
+    assert_eq!(
+        envelope.message,
+        Inbound::DeleteProperty {
+            key: "status".into()
+        }
+    );
+}
+
 // 行は、Emacsが読むJSONとして書き出され、日本語はエスケープされない。
 #[test]
 fn rows_are_written_as_json_for_emacs() {
