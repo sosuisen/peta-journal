@@ -897,6 +897,35 @@ Only for these characters: waiting on every key would slow typing down."
                                :text (substring-no-properties (current-kill 0))
                                :cursor (peta-journal--cursor)))
 
+(defconst peta-journal--image-file-regexp
+  "\\.\\(?:bmp\\|gif\\|jpe?g\\|png\\|svg\\|webp\\)\\'"
+  "The names of the files that can be inserted as an image.")
+
+(defun peta-journal--image-file-p (file)
+  "Non-nil when the name of FILE is that of an image."
+  (let ((case-fold-search t))
+    (string-match-p peta-journal--image-file-regexp file)))
+
+(defun peta-journal--read-image-file ()
+  "Ask for an image file.  The choices include folders, to go into them."
+  (read-file-name "Insert image: " nil nil t nil
+                  (lambda (file)
+                    (or (file-directory-p file) (peta-journal--image-file-p file)))))
+
+(defun peta-journal-insert-image (file)
+  "Upload the image FILE and put a link to it at the point."
+  (interactive
+   (progn
+     ;; Before asking: a file chosen for no item would be wasted
+     (peta-journal--item)
+     (list (peta-journal--read-image-file))))
+  (unless (peta-journal--image-file-p file)
+    (user-error "Not an image file: %s" file))
+  (peta-journal--send-and-wait "insert_image"
+                               :id (peta-journal--item)
+                               :path (expand-file-name file)
+                               :cursor (peta-journal--cursor)))
+
 (defun peta-journal-undo ()
   "Undo the last change of the outline."
   (interactive)
@@ -1299,6 +1328,7 @@ Signals an error on a journal, which cannot have properties."
   "C-c C-t" #'peta-journal-task-cycle
   "C-c C-c" #'peta-journal-collapse-toggle
   "C-c C-d" #'peta-journal-delete-item
+  "C-c C-i" #'peta-journal-insert-image
   "C-c C-o" #'peta-journal-open-at-point
   "C-c C-j" #'peta-journal-today
   "C-c C-f" #'peta-journal-find-page
