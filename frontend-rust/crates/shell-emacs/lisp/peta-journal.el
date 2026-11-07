@@ -107,6 +107,9 @@ The core does not take in changes from elsewhere while an edit is open."
 (defface peta-journal-subtext '((t :inherit shadow))
   "Small text under a block.")
 
+(defface peta-journal-table '((t :inherit font-lock-type-face))
+  "A table.")
+
 (defun peta-journal--word-char-p (char)
   "Non-nil when CHAR is a letter or a digit.  CHAR is nil at the buffer edge."
   (and char (string-match-p "[[:alnum:]]" (string char))))
@@ -172,12 +175,50 @@ A block with no closing ends with its body, since each item is parsed alone."
              " \\{0,3\\}\\(>\\(?:>>\\)? *\\[!\\(?:note\\|tip\\|important\\|warning\\|caution\\)\\].*\\)$")
      limit t)))
 
+(defun peta-journal--table-start ()
+  "The start of the head line above the line at the point, behind any bullet."
+  (save-excursion
+    (forward-line -1)
+    (if (looking-at peta-journal--bullet-regexp)
+        (match-end 0)
+      (point))))
+
+(defun peta-journal--table-end (body-end)
+  "The end of the last table line from the point, not going past BODY-END."
+  (save-excursion
+    (end-of-line)
+    (while (and (< (point) body-end)
+                (save-excursion
+                  (forward-line 1)
+                  (string-search "|" (buffer-substring (point) (line-end-position)))))
+      (forward-line 1)
+      (end-of-line))
+    (point)))
+
+(defun peta-journal--match-table (limit)
+  "Find a table before LIMIT, from the line above a delimiter line.
+A line of cells alone is plain text, and `---' with no `|' is not a delimiter."
+  (let (found)
+    (while (and (not found)
+                (re-search-forward "^ *|? *:?-+:? *\\(?:| *:?-+:? *\\)*|? *$" limit t))
+      (when (string-search "|" (match-string 0))
+        (let ((start (peta-journal--table-start))
+              (end (peta-journal--table-end
+                    (peta-journal--body-end (peta-journal--row-start (point))))))
+          (goto-char end)
+          (set-match-data (list start end))
+          (setq found t))))
+    found))
+
 (defconst peta-journal--font-lock-keywords
   `(;; Code comes first: what has a face stays as it is, so nothing is decorated inside
     (,(peta-journal--fence "\\(```+\\)[^`\n]*$") 0 'peta-journal-code)
     (,(peta-journal--fence "\\(~~~+\\).*$") 0 'peta-journal-code)
     (,(concat "^" peta-journal--bullet-regexp "\\( \\{4\\}.*\\(?:\n \\{4\\}.*\\)*\\)$")
      1 'peta-journal-code)
+    ;; Before the rules: the `---' under a title is not a rule
+    (,(concat peta-journal--line-start-regexp "\\([^-+>|# \n][^\n]*\n *\\(?:=+\\|-+\\) *\\)$")
+     1 'peta-journal-heading)
     ;; Before the emphasis: `***' would be an italic `*'
     (,(concat peta-journal--line-start-regexp " \\{0,3\\}\\(\\([-*_]\\)\\(?: *\\2\\)\\{2,\\} *\\)$")
      1 'peta-journal-rule)
@@ -185,8 +226,8 @@ A block with no closing ends with its body, since each item is parsed alone."
     (,(peta-journal--fitting-pair "\\(`+\\)[^`\n]\\(?:.*?[^`\n]\\)??\\1" ?`)
      0 'peta-journal-code)
     ("\\[\\[[^]\n]+\\]\\]" 0 'peta-journal-link)
-    ("\\(?:^\\|[ \t]\\)\\(#[^ \t\n#]+\\)" 1 'peta-journal-link)
-    ("^.. *\\(#+ .*\\)$" 1 'peta-journal-heading)
+    ("\\(?:^\\|[ \t]\\)\\(#[[:alnum:]_-]\\(?:[[:alnum:]_/-]*[[:alnum:]_-]\\)?\\)"
+     1 'peta-journal-link)
     ;; The longer delimiters come first: `**' also holds two `*'
     (,(peta-journal--pair "**") 0 'peta-journal-bold keep)
     (,(peta-journal--pair "__") 0 'peta-journal-underline keep)
@@ -198,6 +239,9 @@ A block with no closing ends with its body, since each item is parsed alone."
     (,(peta-journal--pair "~") 0 'peta-journal-script keep)
     (,(peta-journal--pair "^") 0 'peta-journal-script keep)
     ;; Blocks come after the inline rules, and fill in what they left
+    (,(concat peta-journal--line-start-regexp " \\{0,3\\}\\(#\\{1,6\\}\\(?: .*\\)?\\)$")
+     1 'peta-journal-heading keep)
+    (peta-journal--match-table 0 'peta-journal-table keep)
     (,(concat peta-journal--line-start-regexp " \\{0,3\\}\\(-# .*\\)$") 1 'peta-journal-subtext keep)
     (,(concat peta-journal--line-start-regexp
               " *\\([-+*]\\(?: \\[[^]\n]\\]\\)?\\|[0-9]+[.)]\\)\\(?: \\|$\\)")
