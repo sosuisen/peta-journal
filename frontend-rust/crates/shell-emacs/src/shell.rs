@@ -58,6 +58,7 @@ struct Sent {
     focus_seq: u64,
     connection: Option<String>,
     search: Option<(Vec<peta_core::view::SearchEntry>, bool)>,
+    page_path: Option<String>,
     recent: Vec<String>,
     backlinks: Vec<BacklinkEntry>,
 }
@@ -480,6 +481,7 @@ impl<H: Host> Shell<H> {
         let view = self.core.view();
         self.tell_rows(&view);
         self.tell_focus(&view);
+        self.tell_page_path(&view);
         self.tell_connection(&view);
         self.tell_search(&view.search);
         self.tell_recent(&view);
@@ -519,6 +521,17 @@ impl<H: Host> Shell<H> {
                 id: request.item_id.clone(),
                 cursor: request.cursor,
             });
+        }
+    }
+
+    fn tell_page_path(&mut self, view: &ViewModel) {
+        let path = match &view.screen {
+            ScreenView::Page(Some(page)) => Some(page.page.canonical_path()),
+            _ => None,
+        };
+        if path != self.sent.page_path {
+            self.sent.page_path.clone_from(&path);
+            self.host.emit(Outbound::PagePath { path });
         }
     }
 
