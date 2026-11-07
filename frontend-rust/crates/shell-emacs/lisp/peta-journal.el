@@ -287,8 +287,8 @@ A line of cells alone is plain text, and `---' with no `|' is not a delimiter."
 (defvar peta-journal--recent nil "The paths of the recent pages.")
 (defvar peta-journal--backlinks nil "The pages that link to the shown page.")
 (defvar peta-journal--idle-timer nil "The timer that ends an edit after an idle moment.")
-(defvar peta-journal--scroll-timer nil "The timer that reports the scroll position.")
 
+(defvar-local peta-journal--scroll-timer nil "The timer that reports the scroll position.")
 (defvar-local peta-journal--rows [] "The rows on screen, as the shell sent them.")
 (defvar-local peta-journal--page-id nil "The id of the page on screen.")
 (defvar-local peta-journal--current nil "The id of the item being edited.")
@@ -604,18 +604,30 @@ is handled when the outline it was meant for is on screen."
        (json-parse-string line :object-type 'plist :array-type 'array
                           :null-object nil :false-object nil)))))
 
-(defmacro peta-journal--in-buffer (&rest body)
-  "Run BODY in the buffer of the page, if there is one."
-  `(when-let* ((buffer (get-buffer "*PetaJournal*")))
-     (with-current-buffer buffer ,@body)))
+(defun peta-journal--pages ()
+  "The buffers that show a page, the one used last first."
+  (seq-filter (lambda (buffer)
+                (eq (buffer-local-value 'major-mode buffer) 'peta-journal-mode))
+              (buffer-list)))
+
+(defun peta-journal--page ()
+  "The buffer of the page that a command is about, or nil.
+This is the current buffer, or else the one in the window a command started
+from, or else the one used last.  The minibuffer and timers need this."
+  (let ((pages (peta-journal--pages))
+        (window (or (minibuffer-selected-window) (selected-window))))
+    (seq-find (lambda (buffer) (memq buffer pages))
+              (append (list (current-buffer) (window-buffer window)) pages))))
 
 (defun peta-journal--sentinel (process event)
   "Say that the shell PROCESS has stopped, as EVENT tells.
 Without a shell, edits would be lost in silence."
   (unless (process-live-p process)
-    (peta-journal--in-buffer
-     (setq peta-journal--connection "shell stopped")
-     (force-mode-line-update))
+    (when-let* ((page (process-get process 'peta-page))
+                ((buffer-live-p page)))
+      (with-current-buffer page
+        (setq peta-journal--connection "shell stopped")
+        (force-mode-line-update)))
     (display-warning
      'peta-journal
      (format "The shell stopped: %s.  Edits are not saved until it runs again.  \
@@ -624,25 +636,21 @@ M-x peta-journal starts it and shows the saved text.  See *peta-journal-log*."
      :error)))
 
 (defun peta-journal--on-line (message)
-  "Do what the line MESSAGE from the shell says."
+  "Do what the line MESSAGE from the shell of the current buffer says."
   (pcase (plist-get message :t)
     ("state" (setq peta-journal--ack (plist-get message :ack)
                    peta-journal--holding (plist-get message :holding)))
-    ("rows" (peta-journal--in-buffer
-             (peta-journal--apply-rows (plist-get message :rows)
-                                       (plist-get message :page_id)
-                                       (plist-get message :ack))))
-    ("focus" (peta-journal--in-buffer
-              (peta-journal--on-focus (plist-get message :id)
-                                      (plist-get message :cursor)
-                                      (plist-get message :ack))))
-    ("scroll" (peta-journal--in-buffer (peta-journal--on-scroll (plist-get message :id))))
-    ("title" (peta-journal--in-buffer
-              (setq peta-journal--title (plist-get message :title))
-              (force-mode-line-update)))
-    ("status" (peta-journal--in-buffer
-               (setq peta-journal--connection (plist-get message :connection))
-               (force-mode-line-update)))
+    ("rows" (peta-journal--apply-rows (plist-get message :rows)
+                                      (plist-get message :page_id)
+                                      (plist-get message :ack)))
+    ("focus" (peta-journal--on-focus (plist-get message :id)
+                                     (plist-get message :cursor)
+                                     (plist-get message :ack)))
+    ("scroll" (peta-journal--on-scroll (plist-get message :id)))
+    ("title" (setq peta-journal--title (plist-get message :title))
+     (force-mode-line-update))
+    ("status" (setq peta-journal--connection (plist-get message :connection))
+     (force-mode-line-update))
     ("search" (peta-journal--on-search (plist-get message :results)
                                        (plist-get message :searching)))
     ("recent" (setq peta-journal--recent (append (plist-get message :paths) nil)))
@@ -745,7 +753,9 @@ Only for these characters: waiting on every key would slow typing down."
 
 (defun peta-journal--idle ()
   "End the edit while Emacs idles, so the core can take in changes from elsewhere."
-  (peta-journal--in-buffer (peta-journal--finish-edit)))
+  (dolist (page (peta-journal--pages))
+    (with-current-buffer page
+      (peta-journal--finish-edit))))
 
 (defun peta-journal--item ()
   "The id of the item at the point.  Signals an error when there is none."
@@ -865,8 +875,9 @@ Only for these characters: waiting on every key would slow typing down."
 
 (defun peta-journal--go (type &rest fields)
   "End the edit, and send the line of TYPE with FIELDS that opens another page."
-  (peta-journal--in-buffer (peta-journal--finish-edit))
-  (apply #'peta-journal--send type fields))
+  (with-current-buffer (peta-journal--page)
+    (peta-journal--finish-edit)
+    (apply #'peta-journal--send type fields)))
 
 (defun peta-journal-open-at-point ()
   "Open the page of the wiki link or the tag at the point."
@@ -1188,20 +1199,21 @@ Type in a body as in any buffer.  The outline changes through these keys:
   "Report the scroll position soon.  Not from here: this runs during redisplay."
   (unless peta-journal--scroll-timer
     (setq peta-journal--scroll-timer
-          (run-with-idle-timer 0.2 nil #'peta-journal--report-scroll))))
+          (run-with-idle-timer 0.2 nil #'peta-journal--report-scroll (current-buffer)))))
 
-(defun peta-journal--report-scroll ()
-  "Tell the core which rows are on screen, so a journal can load the older days."
-  (setq peta-journal--scroll-timer nil)
-  (peta-journal--in-buffer
-   (when-let* ((window (get-buffer-window (current-buffer)))
-               (top (peta-journal--row-index (peta-journal--id-at (window-start window))))
-               (end (min (window-end window t) (1- (point-max))))
-               (bottom (peta-journal--row-index (peta-journal--id-at end)))
-               (scrolled (cons top bottom)))
-     (unless (equal scrolled peta-journal--scrolled)
-       (setq peta-journal--scrolled scrolled)
-       (peta-journal--send "scrolled" :top top :bottom bottom)))))
+(defun peta-journal--report-scroll (page)
+  "Tell the core which rows of PAGE are on screen, so a journal can load the older days."
+  (when (buffer-live-p page)
+    (with-current-buffer page
+      (setq peta-journal--scroll-timer nil)
+      (when-let* ((window (get-buffer-window (current-buffer)))
+                  (top (peta-journal--row-index (peta-journal--id-at (window-start window))))
+                  (end (min (window-end window t) (1- (point-max))))
+                  (bottom (peta-journal--row-index (peta-journal--id-at end)))
+                  (scrolled (cons top bottom)))
+        (unless (equal scrolled peta-journal--scrolled)
+          (setq peta-journal--scrolled scrolled)
+          (peta-journal--send "scrolled" :top top :bottom bottom))))))
 
 ;;;; Starting and stopping
 
@@ -1237,8 +1249,11 @@ Type in a body as in any buffer.  The outline changes through these keys:
                           :noquery t
                           :stderr (get-buffer-create "*peta-journal-log*")
                           :filter (lambda (_process output)
-                                    (peta-journal--read-output output))
+                                    (when (buffer-live-p buffer)
+                                      (with-current-buffer buffer
+                                        (peta-journal--read-output output))))
                           :sentinel #'peta-journal--sentinel))
+      (process-put peta-journal--process 'peta-page buffer)
       (unless peta-journal--idle-timer
         (setq peta-journal--idle-timer
               (run-with-idle-timer peta-journal-idle-finish-seconds t #'peta-journal--idle)))

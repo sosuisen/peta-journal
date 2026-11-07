@@ -519,6 +519,7 @@
   (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
     (let ((process (peta-journal-test--emacs-process #'ignore))
           (warning nil))
+      (process-put process 'peta-page (current-buffer))
       (while (process-live-p process)
         (accept-process-output process 0.02))
       (cl-letf (((symbol-function 'display-warning)
