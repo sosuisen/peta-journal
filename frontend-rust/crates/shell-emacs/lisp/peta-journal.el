@@ -1143,6 +1143,23 @@ C-n and C-p select a result, RET opens it, and C-g closes the search."
           (unless (member peta-journal--connection '("" "connected"))
             (format "  [%s]" peta-journal--connection))))
 
+(defvar font-lock-beg)
+(defvar font-lock-end)
+
+(defun peta-journal--extend-font-lock-region ()
+  "Grow the region font-lock is about to color to whole bodies.
+A code block or a quote spans lines, and a line alone does not say it is in one."
+  (let* ((first-row (peta-journal--row-start font-lock-beg))
+         (last-row (peta-journal--row-start (max font-lock-beg (1- font-lock-end))))
+         (beg (if first-row (min first-row font-lock-beg) font-lock-beg))
+         (end (if last-row
+                  (max font-lock-end (min (1+ (peta-journal--body-end last-row)) (point-max)))
+                font-lock-end)))
+    (unless (and (= beg font-lock-beg) (= end font-lock-end))
+      (setq font-lock-beg beg
+            font-lock-end end)
+      t)))
+
 (define-derived-mode peta-journal-mode text-mode "PetaJournal"
   "One page of PetaJournal in one buffer.
 Type in a body as in any buffer.  The outline changes through these keys:
@@ -1151,6 +1168,9 @@ Type in a body as in any buffer.  The outline changes through these keys:
   (setq buffer-undo-list t)
   (setq-local word-wrap t)
   (setq-local font-lock-defaults '(peta-journal--font-lock-keywords t))
+  (setq-local font-lock-extend-region-functions
+              (append font-lock-extend-region-functions
+                      '(peta-journal--extend-font-lock-region)))
   (setq-local header-line-format '(:eval (peta-journal--header-line)))
   (add-hook 'after-change-functions #'peta-journal--after-change nil t)
   (add-hook 'post-self-insert-hook #'peta-journal--close-typed nil t)
