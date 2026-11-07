@@ -46,7 +46,8 @@ The core does not take in changes from elsewhere while an edit is open."
 
 (defconst peta-journal--bullet-gap " "
   "The space behind a bullet.
-A no-break space: at a normal space, a long word would leave the bullet alone on its line.")
+A no-break space: at a normal space, a long word would leave the bullet alone
+on its line.")
 
 (defconst peta-journal--wait-seconds 3
   "How long a command waits for the shell before the next key is handled.")
