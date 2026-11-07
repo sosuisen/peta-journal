@@ -1,7 +1,7 @@
 //! The real [`Host`]: threads for HTTP, timers and the event stream, and JSON lines on stdin and
 //! stdout. The E2E test in `lisp/test/` runs this file, as a unit test would need the OS.
 
-use crate::api::{call, Http};
+use crate::api::{call, upload, Http};
 use crate::protocol::{Envelope, Outbound};
 use crate::shell::{Host, Input, Now, Shell};
 use chrono::{Datelike, Local, Timelike};
@@ -117,6 +117,17 @@ impl Host for ThreadHost {
         let (http, to_main) = (self.http.clone(), self.to_main.clone());
         thread::spawn(move || {
             let result = call(&http, op);
+            let _ = to_main.send(Message::Input(Input::ApiDone {
+                id,
+                result: Box::new(result),
+            }));
+        });
+    }
+
+    fn upload(&mut self, id: u64, path: String) {
+        let (http, to_main) = (self.http.clone(), self.to_main.clone());
+        thread::spawn(move || {
+            let result = upload(&http, &path);
             let _ = to_main.send(Message::Input(Input::ApiDone {
                 id,
                 result: Box::new(result),

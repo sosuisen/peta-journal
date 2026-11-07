@@ -561,13 +561,21 @@ fn a_failed_save_of_the_link_is_reported() {
     assert_eq!(driver.holding(), Some(false));
 }
 
-// 挿入と関係のない呼び出しの失敗は、画像の失敗として伝えない。
+// 挿入の間でも、関係のない呼び出しの失敗は、画像の失敗として伝えず、キーを止める理由にもしない。
 #[test]
-fn a_failure_outside_an_insertion_is_not_reported_as_one() {
+fn a_failure_of_another_call_is_not_reported_as_one_of_the_image() {
     let mut driver = Driver::open(&[item("a", 1, "xy")]);
     driver.send(Inbound::DeleteItem { id: "a".into() });
+    let upload = driver.insert_image("a", 1);
     driver.fail_all_waiting_calls();
     assert_eq!(driver.messages(), Vec::<String>::new());
+    assert_eq!(driver.holding(), Some(true));
+
+    driver.shell.handle(Input::ApiDone {
+        id: upload,
+        result: Box::new(Err(ApiError("Upload failed: 500".into()))),
+    });
+    assert_eq!(driver.holding(), Some(false));
 }
 
 // 項目の削除は、参照の確認を経て、子ごとサーバーへ送られる。
