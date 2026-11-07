@@ -155,6 +155,16 @@ impl Driver {
             .count()
     }
 
+    fn page_paths(&self) -> Vec<Option<String>> {
+        self.sent()
+            .iter()
+            .filter_map(|m| match m {
+                Outbound::PagePath { path } => Some(path.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+
     fn focuses(&self) -> Vec<(String, Option<usize>)> {
         self.sent()
             .iter()
@@ -722,6 +732,17 @@ fn renaming_sends_the_new_name_and_folder_to_the_server() {
                 && title.as_deref() == Some("memo")
                 && dir_path.as_deref() == Some("work/")
     )));
+}
+
+// 読み込んだdocページのパスを、Emacsに伝える。Emacsはこれを名前の変更の初期値にする。
+#[test]
+fn a_loaded_doc_page_tells_emacs_its_path() {
+    let mut driver = Driver::new();
+    driver.send(Inbound::Start {
+        url: "/pages/notes".into(),
+    });
+    driver.load_page(&[]);
+    assert_eq!(driver.page_paths().last(), Some(&Some("notes".to_string())));
 }
 
 // 終了の前に編集を閉じ、書きかけの文を保存する。答えが返るまで、終わってよい状態にならない。
