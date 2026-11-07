@@ -94,6 +94,11 @@ These keys go to other places:
 | `C-c /` | The search box |
 | `C-c C-b` | Backlinks of this page |
 
+## The gap between items
+
+`peta-journal-item-gap` sets the gap between items, in pixels. The default is `4`, and `0` removes
+the gap. A new value applies to the rows drawn after the change. Only a graphical Emacs shows the gap.
+
 ## Rename a page
 
 `C-c C-r` or `M-x peta-journal-rename-page` asks for a new name and offers the path of the page. A
