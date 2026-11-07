@@ -65,10 +65,46 @@ The core does not take in changes from elsewhere while an edit is open."
 (defface peta-journal-heading '((t :inherit font-lock-function-name-face :weight bold))
   "A body that is a heading.")
 
+(defface peta-journal-bold '((t :inherit font-lock-keyword-face :weight bold))
+  "Bold text.")
+
+(defface peta-journal-italic '((t :inherit font-lock-variable-name-face :slant italic))
+  "Italic text.")
+
+(defface peta-journal-underline '((t :inherit font-lock-string-face :underline t))
+  "Underlined text.")
+
+(defface peta-journal-strike '((t :inherit font-lock-comment-face :strike-through t))
+  "Text with a line through it.")
+
+(defface peta-journal-script '((t :inherit font-lock-constant-face))
+  "Superscript and subscript text.")
+
+(defface peta-journal-highlight '((t :inherit match))
+  "Highlighted text.")
+
+(defface peta-journal-spoiler '((t :inherit shadow))
+  "Spoiler text.")
+
+(defun peta-journal--pair (delimiter)
+  "A regexp for text between two DELIMITERs on one line."
+  (let ((quoted (regexp-quote delimiter)))
+    (concat quoted "[^ \t\n]\\(?:.*?[^ \t\n]\\)??" quoted)))
+
 (defconst peta-journal--font-lock-keywords
-  '(("\\[\\[[^]\n]+\\]\\]" 0 'peta-journal-link)
+  `(("\\[\\[[^]\n]+\\]\\]" 0 'peta-journal-link)
     ("\\(?:^\\|[ \t]\\)\\(#[^ \t\n#]+\\)" 1 'peta-journal-link)
-    ("^.. *\\(#+ .*\\)$" 1 'peta-journal-heading))
+    ("^.. *\\(#+ .*\\)$" 1 'peta-journal-heading)
+    ;; The longer delimiters come first: `**' also holds two `*'
+    (,(peta-journal--pair "**") 0 'peta-journal-bold keep)
+    (,(peta-journal--pair "__") 0 'peta-journal-underline keep)
+    (,(peta-journal--pair "~~") 0 'peta-journal-strike keep)
+    (,(peta-journal--pair "==") 0 'peta-journal-highlight keep)
+    (,(peta-journal--pair "||") 0 'peta-journal-spoiler keep)
+    (,(peta-journal--pair "*") 0 'peta-journal-italic keep)
+    (,(peta-journal--pair "_") 0 'peta-journal-italic keep)
+    (,(peta-journal--pair "~") 0 'peta-journal-script keep)
+    (,(peta-journal--pair "^") 0 'peta-journal-script keep))
   "What is highlighted in a body.")
 
 ;;;; State
