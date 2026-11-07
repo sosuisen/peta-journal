@@ -295,6 +295,7 @@ A line of cells alone is plain text, and `---' with no `|' is not a delimiter."
 (defvar-local peta-journal--current nil "The id of the item being edited.")
 (defvar-local peta-journal--last-point nil "Where the point was after the last command.")
 (defvar-local peta-journal--title "" "The title of the page on screen.")
+(defvar-local peta-journal--page-path nil "The path of the page on screen, if it can be renamed.")
 (defvar-local peta-journal--connection "" "The state of the connection to the server.")
 (defvar-local peta-journal--scrolled nil "The scroll position the core knows about.")
 
@@ -668,6 +669,7 @@ M-x peta-journal in that buffer starts it and shows the saved text.  See *peta-j
     ("scroll" (peta-journal--on-scroll (plist-get message :id)))
     ("title" (setq peta-journal--title (plist-get message :title))
      (force-mode-line-update))
+    ("page_path" (setq peta-journal--page-path (plist-get message :path)))
     ("status" (setq peta-journal--connection (plist-get message :connection))
      (force-mode-line-update))
     ("search" (peta-journal--on-search (plist-get message :results)
@@ -896,7 +898,7 @@ Only for these characters: waiting on every key would slow typing down."
 ;;;; Commands that go to other pages
 
 (defun peta-journal--go (type &rest fields)
-  "End the edit, and send the line of TYPE with FIELDS that opens another page."
+  "End the edit, and send the line of TYPE with FIELDS that changes the page on screen."
   (with-current-buffer (peta-journal--page)
     (peta-journal--finish-edit)
     (apply #'peta-journal--send type fields)))
@@ -918,6 +920,12 @@ Only for these characters: waiting on every key would slow typing down."
    (list (completing-read "Page: " peta-journal--recent nil nil)))
   (peta-journal--ensure-started)
   (peta-journal--go "go_to_page" :path path))
+
+(defun peta-journal-rename-page (path)
+  "Give the page on screen the new PATH.  A `/' in PATH puts the page in a folder."
+  (interactive
+   (list (read-string "Rename page to: " peta-journal--page-path)))
+  (peta-journal--go "rename_page" :path path))
 
 (defun peta-journal-back ()
   "Go back to the page shown before."
