@@ -861,6 +861,51 @@ fn setting_a_property_sends_the_type_of_its_definition() {
     )));
 }
 
+/// Opens the page `notes` with these properties and these definitions.
+fn open_with_properties(properties: Value) -> Driver {
+    let mut driver = Driver::new();
+    driver.send(Inbound::Start {
+        url: "/pages/notes".into(),
+    });
+    let mut page = page_info("", "notes");
+    page["properties"] = properties;
+    let answer: ApiOutput = serde_json::from_value(json!({
+        "Page": { "page": page, "items": [] }
+    }))
+    .unwrap();
+    driver.answer(|op| matches!(op, ApiOp::GetOrCreateDoc { .. }), answer);
+    answer_definitions(&mut driver);
+    driver
+}
+
+// 今の値がリストのプロパティは、定義がなくてもリストとして送られる。
+#[test]
+fn a_property_that_holds_a_list_is_sent_as_a_list() {
+    let mut driver = open_with_properties(json!({ "labels": ["a"] }));
+    driver.send(Inbound::SetProperty {
+        key: "labels".into(),
+        value: "a, b".into(),
+    });
+    assert!(driver.waiting(|op| matches!(
+        op,
+        ApiOp::UpsertPageProperty { key, value_type, .. } if key == "labels" && value_type == "tags"
+    )));
+}
+
+// 定義のないプロパティは、文として送られる。
+#[test]
+fn a_property_without_a_definition_is_sent_as_text() {
+    let mut driver = open_with_properties(json!({ "old": "x" }));
+    driver.send(Inbound::SetProperty {
+        key: "old".into(),
+        value: "y".into(),
+    });
+    assert!(driver.waiting(|op| matches!(
+        op,
+        ApiOp::UpsertPageProperty { key, value_type, .. } if key == "old" && value_type == "text"
+    )));
+}
+
 // 終了の前に編集を閉じ、書きかけの文を保存する。答えが返るまで、終わってよい状態にならない。
 #[test]
 fn shutting_down_saves_the_edit_and_waits_for_the_answer() {
