@@ -48,15 +48,16 @@ fn item(id: &str, level: i32, body: &str) -> Value {
     })
 }
 
+fn page_info(dir_path: &str, name: &str) -> Value {
+    json!({
+        "id": "p", "parentId": "", "dirPath": dir_path, "name": name, "type": "doc",
+        "createdDate": 0, "modifiedDate": 0, "properties": {},
+    })
+}
+
 fn page_answer(items: &[Value]) -> ApiOutput {
     serde_json::from_value(json!({
-        "Page": {
-            "page": {
-                "id": "p", "parentId": "", "dirPath": "", "name": "notes", "type": "doc",
-                "createdDate": 0, "modifiedDate": 0, "properties": {},
-            },
-            "items": items,
-        }
+        "Page": { "page": page_info("", "notes"), "items": items }
     }))
     .unwrap()
 }
@@ -743,6 +744,23 @@ fn a_loaded_doc_page_tells_emacs_its_path() {
     });
     driver.load_page(&[]);
     assert_eq!(driver.page_paths().last(), Some(&Some("notes".to_string())));
+}
+
+// indexとアトラスのページには、変えられるパスがない。名前で役割が決まるページだからである。
+#[test]
+fn an_index_or_atlas_page_has_no_path_to_rename() {
+    for name in ["index", "index_atlas"] {
+        let mut driver = Driver::new();
+        driver.send(Inbound::Start {
+            url: format!("/pages/a/{name}"),
+        });
+        let answer = serde_json::from_value(json!({
+            "Page": { "page": page_info("a/", name), "items": [] }
+        }))
+        .unwrap();
+        driver.answer(|op| matches!(op, ApiOp::GetOrCreateDoc { .. }), answer);
+        assert!(driver.page_paths().iter().all(Option::is_none), "{name}");
+    }
 }
 
 // 終了の前に編集を閉じ、書きかけの文を保存する。答えが返るまで、終わってよい状態にならない。
