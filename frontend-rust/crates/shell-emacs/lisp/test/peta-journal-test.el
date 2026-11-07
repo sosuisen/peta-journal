@@ -656,6 +656,100 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
       (should (null initial)))
     (should (equal peta-journal-test--sent '(("set_property" :key "rating" :value "5"))))))
 
+(defmacro peta-journal-test--with-dates-in-japan (&rest body)
+  "Run BODY in Japan, on a page with dates in `created' and `met', and `due' to add."
+  (declare (indent 0))
+  `(let ((zone (getenv "TZ")))
+     (unwind-protect
+         (peta-journal-test--with-properties peta-journal-test--property-rows []
+           (set-time-zone-rule "JST-9")
+           (peta-journal--on-line
+            '(:t "properties"
+              :rows [(:key "created" :value "2026-11-07T15:21:04.123Z"
+                      :removable nil :editable t)
+                     (:key "modified" :value "2026-11-08T00:00:00Z"
+                      :removable nil :editable nil)
+                     (:key "met" :value "soon" :removable t :editable t)
+                     (:key "status" :value "2026-11-07T15:21:04Z"
+                      :removable t :editable t)]
+              :free_keys ["due"]
+              :datetime_keys ["created" "modified" "met" "due"]))
+           ,@body)
+       (set-time-zone-rule zone))))
+
+;; 日時の値は、一覧ではローカル時刻で分まで見せる。日時のキーでも読めない値と、日時でないキーの値は、そのまま見せる。
+(ert-deftest peta-journal-the-list-shows-dates-in-local-time ()
+  (peta-journal-test--with-dates-in-japan
+    (peta-journal-properties)
+    (should (equal (peta-journal-test--properties-text)
+                   (concat "Properties\n\n"
+                           "created   2026-11-08 00:21\n"
+                           "modified  2026-11-08 09:00\n"
+                           "met       soon\n"
+                           "status    2026-11-07T15:21:04Z\n")))))
+
+;; 日時の値はローカル時刻を初期値にして尋ね、打った時刻はUTCにして送る。
+(ert-deftest peta-journal-a-date-is-asked-in-local-time-and-sent-in-utc ()
+  (peta-journal-test--with-dates-in-japan
+    (peta-journal-test--answering "created" "2026-11-09 08:05"
+      (call-interactively #'peta-journal-set-property)
+      (should (equal initial "2026-11-08 00:21")))
+    (should (equal peta-journal-test--sent
+                   '(("set_property" :key "created" :value "2026-11-08T23:05:00Z"))))))
+
+;; 初期値のままEnterを押すと、今の値をそのまま送る。分までの表示のせいで秒を失わない。
+(ert-deftest peta-journal-a-date-left-as-it-is-keeps-its-seconds ()
+  (peta-journal-test--with-dates-in-japan
+    (peta-journal-test--answering "created" "2026-11-08 00:21"
+      (call-interactively #'peta-journal-set-property))
+    (should (equal peta-journal-test--sent
+                   '(("set_property" :key "created" :value "2026-11-07T15:21:04.123Z"))))))
+
+;; まだ付いていない日時のキーは現在時刻を初期値にして尋ねるので、Enterだけで今の時刻が入る。
+(ert-deftest peta-journal-a-new-date-starts-at-now ()
+  (peta-journal-test--with-dates-in-japan
+    (cl-letf (((symbol-function 'current-time)
+               (lambda () (date-to-time "2026-11-08T00:30:45Z"))))
+      (peta-journal-test--answering "due" initial
+        (call-interactively #'peta-journal-set-property)
+        (should (equal initial "2026-11-08 09:30"))))
+    (should (equal peta-journal-test--sent
+                   '(("set_property" :key "due" :value "2026-11-08T00:30:00Z"))))))
+
+;; 日時として読めない入力は、送らずに断る。ありえない日付も繰り上げずに断る。
+(ert-deftest peta-journal-a-date-that-cannot-be-read-is-refused ()
+  (peta-journal-test--with-dates-in-japan
+    (dolist (typed '("tomorrow" "2026-11-08" "2026-13-01 00:00" "2026-02-30 00:00"
+                     "2026-11-08 24:00" "2026-11-08T09:30"))
+      (peta-journal-test--answering "created" typed
+        (should-error (call-interactively #'peta-journal-set-property) :type 'user-error)))
+    (should (null peta-journal-test--sent))))
+
+;; 日時のキーでも、値が空なら、他のキーと同じように断る。
+(ert-deftest peta-journal-an-empty-date-is-refused-as-any-empty-value ()
+  (peta-journal-test--with-dates-in-japan
+    (peta-journal-test--answering "created" ""
+      (should-error (call-interactively #'peta-journal-set-property) :type 'user-error))
+    (should (null peta-journal-test--sent))))
+
+;; 読めない値が入っている日時のキーは、初期値のままなら今の値を送り、直せば日時として送る。
+(ert-deftest peta-journal-a-date-key-with-another-value-can-be-corrected ()
+  (peta-journal-test--with-dates-in-japan
+    (peta-journal-test--answering "met" "2026-11-08 09:00"
+      (call-interactively #'peta-journal-set-property)
+      (should (equal initial "soon")))
+    (should (equal peta-journal-test--sent
+                   '(("set_property" :key "met" :value "2026-11-08T00:00:00Z"))))))
+
+;; 日時でないキーは、日時の形の値でも、打ったまま送る。
+(ert-deftest peta-journal-a-key-that-holds-no-date-is-sent-as-typed ()
+  (peta-journal-test--with-dates-in-japan
+    (peta-journal-test--answering "status" "2026-11-08 09:00"
+      (call-interactively #'peta-journal-set-property)
+      (should (equal initial "2026-11-07T15:21:04Z")))
+    (should (equal peta-journal-test--sent
+                   '(("set_property" :key "status" :value "2026-11-08 09:00"))))))
+
 ;; キーを選ばなかったときと、値が空のときは、何も送らない。値を消すのは削除の役目である。
 (ert-deftest peta-journal-setting-refuses-an-empty-key-or-value ()
   (peta-journal-test--with-properties peta-journal-test--property-rows ["rating"]
