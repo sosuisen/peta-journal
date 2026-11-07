@@ -924,7 +924,10 @@ Only for these characters: waiting on every key would slow typing down."
 (defun peta-journal-rename-page (path)
   "Give the page on screen the new PATH.  A `/' in PATH puts the page in a folder."
   (interactive
-   (list (read-string "Rename page to: " peta-journal--page-path)))
+   (list (progn
+           (unless peta-journal--page-path
+             (user-error "Only a doc page can be renamed, not a journal, an index or an atlas"))
+           (read-string "Rename page to: " peta-journal--page-path))))
   (peta-journal--go "rename_page" :path path))
 
 (defun peta-journal-back ()
