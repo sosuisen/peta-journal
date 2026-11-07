@@ -898,7 +898,7 @@ Only for these characters: waiting on every key would slow typing down."
 ;;;; Commands that go to other pages
 
 (defun peta-journal--go (type &rest fields)
-  "End the edit, and send the line of TYPE with FIELDS that changes the page on screen."
+  "End the edit, and send the line of TYPE with FIELDS that changes the page."
   (with-current-buffer (peta-journal--page)
     (peta-journal--finish-edit)
     (apply #'peta-journal--send type fields)))
