@@ -405,6 +405,86 @@
     (peta-journal--finish-edit)
     (should (null peta-journal-test--sent))))
 
+;;;; Page properties
+
+(defconst peta-journal-test--property-rows
+  [(:key "created" :value "2026-11-07" :removable nil :editable t)
+   (:key "modified" :value "2026-11-08" :removable nil :editable nil)
+   (:key "status" :value "draft" :removable t :editable t)]
+  "The rows of a doc page, as the shell sends them.")
+
+(defmacro peta-journal-test--with-properties (rows free-keys &rest body)
+  "Run BODY in a page buffer that was told ROWS and FREE-KEYS."
+  (declare (indent 2))
+  `(peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
+     (unwind-protect
+         (progn
+           (peta-journal--on-line (list :t "properties" :rows ,rows :free_keys ,free-keys))
+           (setq peta-journal-test--sent nil)
+           ,@body)
+       (when (get-buffer "*PetaJournal Properties*")
+         (kill-buffer "*PetaJournal Properties*")))))
+
+(defun peta-journal-test--properties-text ()
+  "What the list of properties shows."
+  (with-current-buffer "*PetaJournal Properties*"
+    (substring-no-properties (buffer-string))))
+
+;; C-c C-a で、プロパティの一覧を別の窓に開く。カーソルはページに残るので、続けて編集できる。
+(ert-deftest peta-journal-the-list-shows-the-properties-and-keeps-the-point ()
+  (peta-journal-test--with-properties peta-journal-test--property-rows []
+    (let ((page (current-buffer)))
+      (set-window-buffer (selected-window) page)
+      (execute-kbd-macro (kbd "C-c C-a"))
+      (should (eq (window-buffer (selected-window)) page))
+      (should (get-buffer-window "*PetaJournal Properties*"))
+      (should (equal (peta-journal-test--properties-text)
+                     (concat "Properties\n\n"
+                             "created   2026-11-07\n"
+                             "modified  2026-11-08\n"
+                             "status    draft\n"))))))
+
+;; もう一度 C-c C-a を押すと、窓を閉じる。
+(ert-deftest peta-journal-the-key-closes-the-open-list ()
+  (peta-journal-test--with-properties peta-journal-test--property-rows []
+    (set-window-buffer (selected-window) (current-buffer))
+    (peta-journal-properties)
+    (peta-journal-properties)
+    (should-not (get-buffer-window "*PetaJournal Properties*"))))
+
+;; 一覧を開いたまま値が変わると、一覧も変わる。別のページのバッファからの知らせでは変わらない。
+(ert-deftest peta-journal-the-open-list-follows-its-page ()
+  (peta-journal-test--with-properties peta-journal-test--property-rows []
+    (set-window-buffer (selected-window) (current-buffer))
+    (peta-journal-properties)
+    (peta-journal--on-line
+     '(:t "properties"
+       :rows [(:key "status" :value "done" :removable t :editable t)]
+       :free_keys []))
+    (should (string-search "status  done" (peta-journal-test--properties-text)))
+    (peta-journal-test--with-rows (list (peta-journal-test--row "b" 1 "y"))
+      (peta-journal--on-line
+       '(:t "properties"
+         :rows [(:key "other" :value "z" :removable t :editable t)]
+         :free_keys [])))
+    (should-not (string-search "other" (peta-journal-test--properties-text)))))
+
+;; ジャーナルには、プロパティの一覧がない。
+(ert-deftest peta-journal-a-journal-has-no-list-of-properties ()
+  (peta-journal-test--with-properties nil []
+    (should-error (peta-journal-properties) :type 'user-error)))
+
+;; シェルを起動し直すと、前のシェルが伝えたプロパティは忘れる。
+(ert-deftest peta-journal-a-new-shell-forgets-the-properties ()
+  (peta-journal-test--with-properties peta-journal-test--property-rows ["rating"]
+    (let ((stand-in (peta-journal-test--emacs-process #'ignore)))
+      (unwind-protect
+          (cl-letf (((symbol-function 'peta-journal--program) #'ignore)
+                    ((symbol-function 'make-process) (lambda (&rest _) stand-in)))
+            (peta-journal--start-shell "/today"))
+        (delete-process stand-in)))
+    (should-error (peta-journal-properties) :type 'user-error)))
+
 ;;;; Answers of the shell
 
 ;; 新しいカーソル位置の指示で、その項目の指定の位置へ移る。編集中の項目もそれに合わせる。
