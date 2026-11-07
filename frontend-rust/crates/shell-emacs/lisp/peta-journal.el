@@ -92,6 +92,12 @@ The core does not take in changes from elsewhere while an edit is open."
 (defface peta-journal-math '((t :inherit font-lock-builtin-face))
   "Inline math.")
 
+(defface peta-journal-quote '((t :inherit font-lock-doc-face))
+  "A block quote.")
+
+(defface peta-journal-alert '((t :inherit font-lock-warning-face))
+  "The title line of an alert.")
+
 (defun peta-journal--word-char-p (char)
   "Non-nil when CHAR is a letter or a digit.  CHAR is nil at the buffer edge."
   (and char (string-match-p "[[:alnum:]]" (string char))))
@@ -149,6 +155,14 @@ A block with no closing ends with its body, since each item is parsed alone."
           (set-match-data (list start (point)))
           t)))))
 
+(defun peta-journal--match-alert (limit)
+  "Find the title line of an alert before LIMIT.  Its kind may be in any case."
+  (let ((case-fold-search t))
+    (re-search-forward
+     (concat peta-journal--line-start-regexp
+             " \\{0,3\\}\\(>\\(?:>>\\)? *\\[!\\(?:note\\|tip\\|important\\|warning\\|caution\\)\\].*\\)$")
+     limit t)))
+
 (defconst peta-journal--font-lock-keywords
   `(;; Code comes first: what has a face stays as it is, so nothing is decorated inside
     (,(peta-journal--fence "\\(```+\\)[^`\n]*$") 0 'peta-journal-code)
@@ -170,7 +184,11 @@ A block with no closing ends with its body, since each item is parsed alone."
     (,(peta-journal--pair "*") 0 'peta-journal-italic keep)
     (,(peta-journal--pair "_") 0 'peta-journal-italic keep)
     (,(peta-journal--pair "~") 0 'peta-journal-script keep)
-    (,(peta-journal--pair "^") 0 'peta-journal-script keep))
+    (,(peta-journal--pair "^") 0 'peta-journal-script keep)
+    ;; Blocks come after the inline rules, and fill in what they left
+    (peta-journal--match-alert 1 'peta-journal-alert keep)
+    (,(peta-journal--fence "\\(>>>+\\).*$") 0 'peta-journal-quote keep)
+    (,(concat peta-journal--line-start-regexp " \\{0,3\\}\\(>.*\\)$") 1 'peta-journal-quote keep))
   "What is highlighted in a body.")
 
 ;;;; State
