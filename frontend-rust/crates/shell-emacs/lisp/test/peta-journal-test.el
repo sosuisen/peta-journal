@@ -579,6 +579,167 @@
     (should (eq (get-text-property (peta-journal--find-row "a") 'font-lock-face)
                 'peta-journal-done))))
 
+;;;; The color of Flat Markdown
+
+(defun peta-journal-test--face (body text)
+  "The face of the start of TEXT, in a row that has BODY."
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 body))
+    (font-lock-ensure)
+    (goto-char (point-min))
+    (search-forward text)
+    (get-text-property (match-beginning 0) 'face)))
+
+;; 強調の記法には、それぞれの色が付く。
+(ert-deftest peta-journal-emphasis-has-its-color ()
+  (should (eq (peta-journal-test--face "a **太字** b" "太字") 'peta-journal-bold))
+  (should (eq (peta-journal-test--face "a *斜体* b" "斜体") 'peta-journal-italic))
+  (should (eq (peta-journal-test--face "a _斜体_ b" "斜体") 'peta-journal-italic))
+  (should (eq (peta-journal-test--face "a __下線__ b" "下線") 'peta-journal-underline))
+  (should (eq (peta-journal-test--face "a ~~取消~~ b" "取消") 'peta-journal-strike))
+  (should (eq (peta-journal-test--face "a ~下付~ b" "下付") 'peta-journal-script))
+  (should (eq (peta-journal-test--face "a ^上付^ b" "上付") 'peta-journal-script))
+  (should (eq (peta-journal-test--face "a ==目立つ== b" "目立つ") 'peta-journal-highlight))
+  (should (eq (peta-journal-test--face "a ||伏せ字|| b" "伏せ字") 'peta-journal-spoiler)))
+
+;; 強調にならない記号の並びには、色が付かない。
+(ert-deftest peta-journal-delimiters-that-do-not-emphasize-have-no-color ()
+  (should-not (peta-journal-test--face "a * x * b" "x"))
+  (should-not (peta-journal-test--face "a_b_c" "b"))
+  (should-not (peta-journal-test--face "a ===x=== b" "x"))
+  (should-not (peta-journal-test--face "a ~~~x~~~ b" "x"))
+  (should-not (peta-journal-test--face "a \\*x* b" "x")))
+
+;; インラインコードと数式には色が付き、その中の記号は修飾にならない。
+(ert-deftest peta-journal-inline-code-has-its-color-and-holds-no-decoration ()
+  (should (eq (peta-journal-test--face "a `コード` b" "コード") 'peta-journal-code))
+  (should (eq (peta-journal-test--face "a `` x`y `` b" "x`y") 'peta-journal-code))
+  (should (eq (peta-journal-test--face "a $`x^2`$ b" "x^2") 'peta-journal-math))
+  (should (eq (peta-journal-test--face "a `**x**` b" "x") 'peta-journal-code))
+  (should (eq (peta-journal-test--face "a `#tag [[y]]` b" "#tag") 'peta-journal-code))
+  (should (eq (peta-journal-test--face "a `#tag [[y]]` b" "[[y") 'peta-journal-code)))
+
+;; コードブロックは、閉じる行までの全体に色が付き、中の記号は修飾にならない。
+(ert-deftest peta-journal-a-code-block-has-its-color-up-to-its-closing ()
+  (let ((body "```rust\n**x**\n```\nc"))
+    (should (eq (peta-journal-test--face body "```rust") 'peta-journal-code))
+    (should (eq (peta-journal-test--face body "**x") 'peta-journal-code))
+    (should-not (peta-journal-test--face body "c")))
+  (should (eq (peta-journal-test--face "~~~\n*x*\n~~~" "*x") 'peta-journal-code))
+  (should (eq (peta-journal-test--face "````\n```\nx\n````" "x") 'peta-journal-code))
+  (should (eq (peta-journal-test--face "a\n```\nx\n```" "x") 'peta-journal-code)))
+
+;; 閉じていないコードブロックは本文の末尾までで、次の項目へ広がらない。
+(ert-deftest peta-journal-an-open-code-block-ends-with-its-item ()
+  (should (eq (peta-journal-test--face "```\nx" "x") 'peta-journal-code))
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "```\nx")
+                                      (peta-journal-test--row "b" 1 "y"))
+    (font-lock-ensure)
+    (goto-char (point-min))
+    (search-forward "y")
+    (should-not (get-text-property (match-beginning 0) 'face))))
+
+;; 字下げのコードにも色が付く。
+(ert-deftest peta-journal-indented-code-has-its-color ()
+  (should (eq (peta-journal-test--face "    x = 1\n    y = 2" "y") 'peta-journal-code)))
+
+;; 引用とアラートには色が付く。引用の中の修飾は、修飾の色になる。
+(ert-deftest peta-journal-quotes-and-alerts-have-their-colors ()
+  (should (eq (peta-journal-test--face "> 引用" "引用") 'peta-journal-quote))
+  (should (eq (peta-journal-test--face "> a\n> 次の行" "次の行") 'peta-journal-quote))
+  (should (eq (peta-journal-test--face "> **太字**" "太字") 'peta-journal-bold))
+  (let ((body ">>>\n複数行\n>>>\n後"))
+    (should (eq (peta-journal-test--face body "複数行") 'peta-journal-quote))
+    (should-not (peta-journal-test--face body "後")))
+  (should (eq (peta-journal-test--face "> [!WARNING] 注意" "注意") 'peta-journal-alert))
+  (should (eq (peta-journal-test--face "> [!note]" "note") 'peta-journal-alert))
+  (let ((body ">>> [!TIP]\n本文\n>>>"))
+    (should (eq (peta-journal-test--face body "[!TIP") 'peta-journal-alert))
+    (should (eq (peta-journal-test--face body "本文") 'peta-journal-quote))))
+
+;; リストとタスクの記号、水平線、小さい文字には色が付く。リストの本文には付かない。
+(ert-deftest peta-journal-list-marks-rules-and-subtext-have-their-colors ()
+  (should (eq (peta-journal-test--face "- 項目" "-") 'peta-journal-list-mark))
+  (should-not (peta-journal-test--face "- 項目" "項目"))
+  (should (eq (peta-journal-test--face "* 項目" "*") 'peta-journal-list-mark))
+  (should (eq (peta-journal-test--face "12. 項目" "12.") 'peta-journal-list-mark))
+  (should (eq (peta-journal-test--face "- a\n  - 子" "- 子") 'peta-journal-list-mark))
+  (should (eq (peta-journal-test--face "- [ ] やる" "[ ]") 'peta-journal-list-mark))
+  (should (eq (peta-journal-test--face "- [x] 済み" "[x]") 'peta-journal-list-mark))
+  (should (eq (peta-journal-test--face "---" "---") 'peta-journal-rule))
+  (should (eq (peta-journal-test--face "***" "***") 'peta-journal-rule))
+  (should (eq (peta-journal-test--face "-# 小さい" "小さい") 'peta-journal-subtext)))
+
+;; 表は、区切りの行があるときだけ色が付き、表の続きの行までである。セルの中の修飾は、修飾の色になる。
+(ert-deftest peta-journal-a-table-has-its-color ()
+  (let ((body "| 見 | b |\n|:--|:-:|\n| 中 | d |\n後"))
+    (should (eq (peta-journal-test--face body "見") 'peta-journal-table))
+    (should (eq (peta-journal-test--face body "|:--") 'peta-journal-table))
+    (should (eq (peta-journal-test--face body "中") 'peta-journal-table))
+    (should-not (peta-journal-test--face body "後")))
+  (should (eq (peta-journal-test--face "見 | b\n--|--" "見") 'peta-journal-table))
+  (should-not (peta-journal-test--face "| 見 | b |" "見"))
+  (should (eq (peta-journal-test--face "| **太** |\n|--|" "太") 'peta-journal-bold)))
+
+;; 見出しは6段までで、本文のどの行でもよい。下線の見出しもある。中の修飾は、修飾の色になる。
+(ert-deftest peta-journal-a-heading-has-its-color ()
+  (should (eq (peta-journal-test--face "# 見" "見") 'peta-journal-heading))
+  (should (eq (peta-journal-test--face "###### 見" "見") 'peta-journal-heading))
+  (should-not (peta-journal-test--face "####### 見" "見"))
+  (should (eq (peta-journal-test--face "a\n# 見" "見") 'peta-journal-heading))
+  (should (eq (peta-journal-test--face "題\n===" "題") 'peta-journal-heading))
+  (should (eq (peta-journal-test--face "題\n---" "---") 'peta-journal-heading))
+  (should (eq (peta-journal-test--face "# **太** [[y]]" "太") 'peta-journal-bold))
+  (should (eq (peta-journal-test--face "# **太** [[y]]" "[[y") 'peta-journal-link)))
+
+;; タグは、文頭か空白の直後から、タグに使える文字までである。
+(ert-deftest peta-journal-a-tag-has-its-color-up-to-where-it-ends ()
+  (should (eq (peta-journal-test--face "#タグ" "タグ") 'peta-journal-link))
+  (should (eq (peta-journal-test--face "a #親/子-1 b" "子-1") 'peta-journal-link))
+  (should-not (peta-journal-test--face "a #タグ。本文" "本文"))
+  (should-not (peta-journal-test--face "a#b" "b"))
+  (should-not (peta-journal-test--face "\\#b" "b")))
+
+;; リンク、画像、脚注、絵文字、HTMLには色が付く。URLの中の記号は修飾にならない。
+(ert-deftest peta-journal-links-and-embedded-things-have-their-colors ()
+  (should (eq (peta-journal-test--face "[題](https://x.jp)" "題") 'peta-journal-link))
+  (should (eq (peta-journal-test--face "a https://x.jp/b_c_d e" "c_d") 'peta-journal-link))
+  (should (eq (peta-journal-test--face "a www.x.jp b" "www") 'peta-journal-link))
+  (should (eq (peta-journal-test--face "a me@x.jp b" "me@") 'peta-journal-link))
+  (should (eq (peta-journal-test--face "![写真](a_b_c.png#w=300)" "写真") 'peta-journal-image))
+  (should (eq (peta-journal-test--face "注[^1]" "[^1") 'peta-journal-footnote))
+  (should (eq (peta-journal-test--face "[^1]: 注記" "[^1") 'peta-journal-footnote))
+  (should (eq (peta-journal-test--face "a ^[脚注] b" "脚注") 'peta-journal-footnote))
+  (should (eq (peta-journal-test--face "a :heart_eyes: b" "heart") 'peta-journal-emoji))
+  (should (eq (peta-journal-test--face "a :+1: b" "+1") 'peta-journal-emoji))
+  (should-not (peta-journal-test--face "12:30:45" "30"))
+  (should (eq (peta-journal-test--face "<b>太</b>" "<b") 'peta-journal-html))
+  (should-not (peta-journal-test--face "<b>太</b>" "太"))
+  (should (eq (peta-journal-test--face "<br />" "<br") 'peta-journal-html)))
+
+;; 行の一部だけを色付けし直しても、複数行の修飾は本文全体から判断される。
+(ert-deftest peta-journal-a-partial-fontify-sees-the-whole-body ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "```\nx\n```")
+                                      (peta-journal-test--row "b" 1 "y"))
+    (font-lock-set-defaults)
+    (goto-char (point-min))
+    (search-forward "x")
+    (font-lock-fontify-region (match-beginning 0) (match-end 0))
+    (should (eq (get-text-property (match-beginning 0) 'face) 'peta-journal-code))
+    (goto-char (point-min))
+    (search-forward "```")
+    (should (eq (get-text-property (match-beginning 0) 'face) 'peta-journal-code))))
+
+;; コードブロックを打ち始めると、打った行より後の行の色も変わる。
+(ert-deftest peta-journal-opening-a-block-recolors-the-lines-after-it ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x\ny"))
+    (font-lock-set-defaults)
+    (peta-journal-test--goto "a" 0)
+    (peta-journal-test--type "```\n")
+    (font-lock-fontify-region (point) (1+ (point)))
+    (goto-char (point-min))
+    (search-forward "y")
+    (should (eq (get-text-property (match-beginning 0) 'face) 'peta-journal-code))))
+
 ;;;; Links
 
 ;; リンクを開くコマンドは、編集を閉じてから、カーソルの位置をシェルへ送る。リンクかどうかはcoreが決める。
