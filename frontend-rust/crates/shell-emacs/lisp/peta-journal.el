@@ -448,26 +448,6 @@ A line of cells alone is plain text, and `---' with no `|' is not a delimiter."
     (put-text-property 0 1 'peta-row (plist-get row :id) text)
     text))
 
-(defun peta-journal--common-prefix (old new)
-  "How many rows at the start of the vectors OLD and NEW are the same."
-  (let ((count 0)
-        (limit (min (length old) (length new))))
-    (while (and (< count limit)
-                (equal (aref old count) (aref new count)))
-      (cl-incf count))
-    count))
-
-(defun peta-journal--common-suffix (old new prefix)
-  "How many rows at the end of the vectors OLD and NEW are the same.
-The first PREFIX rows are left out."
-  (let ((count 0)
-        (limit (- (min (length old) (length new)) prefix)))
-    (while (and (< count limit)
-                (equal (aref old (- (length old) count 1))
-                       (aref new (- (length new) count 1))))
-      (cl-incf count))
-    count))
-
 (defun peta-journal--keep-typed-body (new ack)
   "Give the edited row in NEW the text on screen, if ACK is behind the typing."
   (when (and peta-journal--current (< ack peta-journal--seq))
@@ -520,8 +500,11 @@ rewritten, so what does not change stays where it is."
                                 windows))
          (place (peta-journal--place-of (point)))
          (old peta-journal--rows)
-         (prefix (peta-journal--common-prefix old new))
-         (suffix (peta-journal--common-suffix old new prefix))
+         (prefix (or (cl-mismatch old new :test #'equal) (length old)))
+         ;; From the end, this gives the index in OLD of the last row that differs
+         (last-changed (cl-mismatch old new :test #'equal :from-end t
+                                    :start1 prefix :start2 prefix))
+         (suffix (if last-changed (- (length old) last-changed 1) 0))
          (start (peta-journal--nth-row prefix))
          (end (peta-journal--nth-row (- (length old) suffix)))
          (written-end start)
