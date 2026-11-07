@@ -100,6 +100,45 @@
       (should (equal (peta-journal-test--shown) "• x\n• yy\n"))
       (should (= (marker-position marker) (peta-journal--body-start (point-min)))))))
 
+;; 変わった行より後ろの行も書き換えられない。行が増えても減っても同じである。
+(ert-deftest peta-journal-the-rows-after-a-change-are-not-rewritten ()
+  (dolist (new (list (list (peta-journal-test--row "a" 1 "x")
+                           (peta-journal-test--row "b" 1 "yy")
+                           (peta-journal-test--row "c" 1 "z"))
+                     (list (peta-journal-test--row "a" 1 "x")
+                           (peta-journal-test--row "n" 1 "新")
+                           (peta-journal-test--row "b" 1 "y")
+                           (peta-journal-test--row "c" 1 "z"))
+                     (list (peta-journal-test--row "a" 1 "x")
+                           (peta-journal-test--row "c" 1 "z"))))
+    (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x")
+                                        (peta-journal-test--row "b" 1 "y")
+                                        (peta-journal-test--row "c" 1 "z"))
+      (let ((marker (copy-marker (peta-journal--body-start (peta-journal--find-row "c")))))
+        (peta-journal--apply-rows (vconcat new) "page" 0)
+        (should (= (marker-position marker)
+                   (peta-journal--body-start (peta-journal--find-row "c"))))))))
+
+;; 同じ行だけが届けば、どの行も書き換えられない。
+(ert-deftest peta-journal-the-same-rows-rewrite-nothing ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x")
+                                      (peta-journal-test--row "b" 1 "y"))
+    (let ((first-row (copy-marker (peta-journal--body-start (peta-journal--find-row "a"))))
+          (second-row (copy-marker (peta-journal--body-start (peta-journal--find-row "b")))))
+      (peta-journal--apply-rows (vector (peta-journal-test--row "a" 1 "x")
+                                        (peta-journal-test--row "b" 1 "y"))
+                                "page" 0)
+      (should (= first-row (peta-journal--body-start (peta-journal--find-row "a"))))
+      (should (= second-row (peta-journal--body-start (peta-journal--find-row "b")))))))
+
+;; 空のページに行が届いても、すべての行が消えても、見える行は届いた行と同じである。
+(ert-deftest peta-journal-rows-can-go-from-none-to-some-and-back ()
+  (peta-journal-test--with-rows nil
+    (peta-journal--apply-rows (vector (peta-journal-test--row "a" 1 "x")) "page" 0)
+    (should (equal (peta-journal-test--shown) "• x\n"))
+    (peta-journal--apply-rows (vector) "page" 0)
+    (should (equal (peta-journal-test--shown) ""))))
+
 ;; 行が書き換えられても、カーソルは同じ項目の同じ文字の位置に残る。
 (ert-deftest peta-journal-the-point-stays-in-its-item-when-rows-change ()
   (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x")
