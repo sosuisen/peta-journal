@@ -1355,6 +1355,9 @@ Type in a body as in any buffer.  The outline changes through these keys:
   ;; Japanese has no spaces: without this, a long sentence counts as one word and moves to a new line
   (setq-local word-wrap-by-category t)
   (setq-local nobreak-char-display nil)
+  ;; Long items wrap all the time here: a mark on each wrapped line would only add noise
+  (setq-local fringe-indicator-alist
+              (cons '(continuation) fringe-indicator-alist))
   (setq-local font-lock-defaults '(peta-journal--font-lock-keywords t))
   (setq-local font-lock-extend-region-functions
               (append font-lock-extend-region-functions
