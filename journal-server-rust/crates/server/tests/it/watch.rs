@@ -259,7 +259,11 @@ async fn a_file_that_failed_to_read_is_taken_in_again_without_a_new_change() {
 
     eventually("the file is a page", || folder.page("locked").is_some()).await;
     let page = folder.page("locked").unwrap();
-    assert_eq!(folder.outline(&page), ["1:read at last"]);
+    // The page exists a moment before its items do
+    eventually("the page has the content", || {
+        folder.outline(&page) == ["1:read at last"]
+    })
+    .await;
     assert_eq!(import.tries(), 3);
 }
 
