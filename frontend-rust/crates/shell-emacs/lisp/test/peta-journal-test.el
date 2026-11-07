@@ -579,6 +579,28 @@
     (should (eq (get-text-property (peta-journal--find-row "a") 'font-lock-face)
                 'peta-journal-done))))
 
+;;;; The color of Flat Markdown
+
+(defun peta-journal-test--face (body text)
+  "The face of the start of TEXT, in a row that has BODY."
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 body))
+    (font-lock-ensure)
+    (goto-char (point-min))
+    (search-forward text)
+    (get-text-property (match-beginning 0) 'face)))
+
+;; 強調の記法には、それぞれの色が付く。
+(ert-deftest peta-journal-emphasis-has-its-color ()
+  (should (eq (peta-journal-test--face "a **太字** b" "太字") 'peta-journal-bold))
+  (should (eq (peta-journal-test--face "a *斜体* b" "斜体") 'peta-journal-italic))
+  (should (eq (peta-journal-test--face "a _斜体_ b" "斜体") 'peta-journal-italic))
+  (should (eq (peta-journal-test--face "a __下線__ b" "下線") 'peta-journal-underline))
+  (should (eq (peta-journal-test--face "a ~~取消~~ b" "取消") 'peta-journal-strike))
+  (should (eq (peta-journal-test--face "a ~下付~ b" "下付") 'peta-journal-script))
+  (should (eq (peta-journal-test--face "a ^上付^ b" "上付") 'peta-journal-script))
+  (should (eq (peta-journal-test--face "a ==目立つ== b" "目立つ") 'peta-journal-highlight))
+  (should (eq (peta-journal-test--face "a ||伏せ字|| b" "伏せ字") 'peta-journal-spoiler)))
+
 ;;;; Links
 
 ;; リンクを開くコマンドは、編集を閉じてから、カーソルの位置をシェルへ送る。リンクかどうかはcoreが決める。
