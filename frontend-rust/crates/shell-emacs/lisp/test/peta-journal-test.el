@@ -642,6 +642,20 @@
 (ert-deftest peta-journal-indented-code-has-its-color ()
   (should (eq (peta-journal-test--face "    x = 1\n    y = 2" "y") 'peta-journal-code)))
 
+;; 引用とアラートには色が付く。引用の中の修飾は、修飾の色になる。
+(ert-deftest peta-journal-quotes-and-alerts-have-their-colors ()
+  (should (eq (peta-journal-test--face "> 引用" "引用") 'peta-journal-quote))
+  (should (eq (peta-journal-test--face "> a\n> 次の行" "次の行") 'peta-journal-quote))
+  (should (eq (peta-journal-test--face "> **太字**" "太字") 'peta-journal-bold))
+  (let ((body ">>>\n複数行\n>>>\n後"))
+    (should (eq (peta-journal-test--face body "複数行") 'peta-journal-quote))
+    (should-not (peta-journal-test--face body "後")))
+  (should (eq (peta-journal-test--face "> [!WARNING] 注意" "注意") 'peta-journal-alert))
+  (should (eq (peta-journal-test--face "> [!note]" "note") 'peta-journal-alert))
+  (let ((body ">>> [!TIP]\n本文\n>>>"))
+    (should (eq (peta-journal-test--face body "[!TIP") 'peta-journal-alert))
+    (should (eq (peta-journal-test--face body "本文") 'peta-journal-quote))))
+
 ;;;; Links
 
 ;; リンクを開くコマンドは、編集を閉じてから、カーソルの位置をシェルへ送る。リンクかどうかはcoreが決める。
