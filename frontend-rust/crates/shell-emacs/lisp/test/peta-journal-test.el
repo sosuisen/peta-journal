@@ -618,6 +618,30 @@
   (should (eq (peta-journal-test--face "a `#tag [[y]]` b" "#tag") 'peta-journal-code))
   (should (eq (peta-journal-test--face "a `#tag [[y]]` b" "[[y") 'peta-journal-code)))
 
+;; コードブロックは、閉じる行までの全体に色が付き、中の記号は修飾にならない。
+(ert-deftest peta-journal-a-code-block-has-its-color-up-to-its-closing ()
+  (let ((body "```rust\n**x**\n```\nc"))
+    (should (eq (peta-journal-test--face body "```rust") 'peta-journal-code))
+    (should (eq (peta-journal-test--face body "**x") 'peta-journal-code))
+    (should-not (peta-journal-test--face body "c")))
+  (should (eq (peta-journal-test--face "~~~\n*x*\n~~~" "*x") 'peta-journal-code))
+  (should (eq (peta-journal-test--face "````\n```\nx\n````" "x") 'peta-journal-code))
+  (should (eq (peta-journal-test--face "a\n```\nx\n```" "x") 'peta-journal-code)))
+
+;; 閉じていないコードブロックは本文の末尾までで、次の項目へ広がらない。
+(ert-deftest peta-journal-an-open-code-block-ends-with-its-item ()
+  (should (eq (peta-journal-test--face "```\nx" "x") 'peta-journal-code))
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "```\nx")
+                                      (peta-journal-test--row "b" 1 "y"))
+    (font-lock-ensure)
+    (goto-char (point-min))
+    (search-forward "y")
+    (should-not (get-text-property (match-beginning 0) 'face))))
+
+;; 字下げのコードにも色が付く。
+(ert-deftest peta-journal-indented-code-has-its-color ()
+  (should (eq (peta-journal-test--face "    x = 1\n    y = 2" "y") 'peta-journal-code)))
+
 ;;;; Links
 
 ;; リンクを開くコマンドは、編集を閉じてから、カーソルの位置をシェルへ送る。リンクかどうかはcoreが決める。
