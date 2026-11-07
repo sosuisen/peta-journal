@@ -601,6 +601,14 @@
   (should (eq (peta-journal-test--face "a ==目立つ== b" "目立つ") 'peta-journal-highlight))
   (should (eq (peta-journal-test--face "a ||伏せ字|| b" "伏せ字") 'peta-journal-spoiler)))
 
+;; 強調にならない記号の並びには、色が付かない。
+(ert-deftest peta-journal-delimiters-that-do-not-emphasize-have-no-color ()
+  (should-not (peta-journal-test--face "a * x * b" "x"))
+  (should-not (peta-journal-test--face "a_b_c" "b"))
+  (should-not (peta-journal-test--face "a ===x=== b" "x"))
+  (should-not (peta-journal-test--face "a ~~~x~~~ b" "x"))
+  (should-not (peta-journal-test--face "a \\*x* b" "x")))
+
 ;;;; Links
 
 ;; リンクを開くコマンドは、編集を閉じてから、カーソルの位置をシェルへ送る。リンクかどうかはcoreが決める。
