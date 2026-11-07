@@ -581,15 +581,22 @@ A step back from the start of this body goes on to the row above."
                                      (decode-coding-string line 'utf-8))
                                    "\n")))))
 
+(defun peta-journal--wait-until (done)
+  "Handle the output of the shell until the function DONE says so.
+The wait has a limit."
+  (let ((deadline (+ (float-time) peta-journal--wait-seconds)))
+    (while (and (process-live-p peta-journal--process)
+                (not (funcall done))
+                (< (float-time) deadline))
+      (accept-process-output peta-journal--process 0.05))))
+
 (defun peta-journal--wait ()
   "Wait until the shell has handled every line and the core holds no keys.
 Keys pressed in the meantime stay in the input queue of Emacs.  The next one
 is handled when the outline it was meant for is on screen."
-  (let ((deadline (+ (float-time) peta-journal--wait-seconds)))
-    (while (and (process-live-p peta-journal--process)
-                (or (< peta-journal--ack peta-journal--seq) peta-journal--holding)
-                (< (float-time) deadline))
-      (accept-process-output peta-journal--process 0.05))))
+  (peta-journal--wait-until
+   (lambda ()
+     (not (or (< peta-journal--ack peta-journal--seq) peta-journal--holding)))))
 
 (defun peta-journal--send-and-wait (type &rest fields)
   "Send the shell a line of TYPE with FIELDS and wait for what it changes."
@@ -1048,14 +1055,10 @@ selection.  The keys pressed in the meantime stay in the input queue."
 The core waits for a pause in the typing before it searches.  Without this
 wait, a quick RET would open a result of an older query."
   (with-current-buffer (or (peta-journal--page) (current-buffer))
-    (let ((deadline (+ (float-time) peta-journal--wait-seconds))
-          (settled (lambda ()
+    (let ((settled (lambda ()
                      (and (>= peta-journal--ack peta-journal--seq)
                           (not peta-journal--searching)))))
-      (while (and (process-live-p peta-journal--process)
-                  (not (funcall settled))
-                  (< (float-time) deadline))
-        (accept-process-output peta-journal--process 0.05))
+      (peta-journal--wait-until settled)
       (funcall settled))))
 
 (defun peta-journal-search-exit ()
@@ -1218,7 +1221,8 @@ Type in a body as in any buffer.  The outline changes through these keys:
           (run-with-idle-timer 0.2 nil #'peta-journal--report-scroll (current-buffer)))))
 
 (defun peta-journal--report-scroll (page)
-  "Tell the core which rows of PAGE are on screen, so a journal can load the older days."
+  "Tell the core which rows of PAGE are on screen.
+A journal then loads the older days."
   (when (buffer-live-p page)
     (with-current-buffer page
       (setq peta-journal--scroll-timer nil)
@@ -1293,12 +1297,8 @@ Return the buffer of the page that a command is about."
 (defun peta-journal--wait-for-page ()
   "Wait until the shell of the current buffer has sent the items of a page.
 The core first sends a page with no rows.  A key pressed then would put its
-character in front of the first bullet.  The wait has a limit."
-  (let ((deadline (+ (float-time) peta-journal--wait-seconds)))
-    (while (and (process-live-p peta-journal--process)
-                (zerop (length peta-journal--rows))
-                (< (float-time) deadline))
-      (accept-process-output peta-journal--process 0.05))))
+character in front of the first bullet."
+  (peta-journal--wait-until (lambda () (> (length peta-journal--rows) 0))))
 
 (defun peta-journal--other-buffer-of-page (buffer)
   "Another buffer that shows the page of BUFFER, or nil."
@@ -1312,7 +1312,7 @@ character in front of the first bullet.  The wait has a limit."
 (defun peta-journal-new-buffer (path)
   "Open the page at PATH in a new buffer, with a shell of its own.
 An empty PATH opens today's journal.  When a buffer shows the page already, go
-to that buffer: edits of one item in two buffers would overwrite each other."
+to that buffer: edits of one item in two buffers could overwrite each other."
   (interactive
    (list (completing-read "Page in a new buffer: " peta-journal--recent nil nil)))
   (let ((buffer (generate-new-buffer "*PetaJournal*")))
