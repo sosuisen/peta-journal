@@ -179,7 +179,7 @@ impl<H: Host> Shell<H> {
                 dir_path: String::new(),
                 file_name: path,
             }),
-            Inbound::SetProperty { .. } => {}
+            Inbound::SetProperty { key, value } => self.set_property(key, value),
             Inbound::DeleteProperty { .. } => {}
             Inbound::OpenLinkAt { id, cursor } => self.open_link_at(id, cursor),
             Inbound::JournalNav { forward } => self.send(Event::JournalNav(if forward {
@@ -235,6 +235,23 @@ impl<H: Host> Shell<H> {
             Inbound::SearchResult { index } => self.send(Event::SearchResultClicked { index }),
             Inbound::Answer { req, yes } => self.answer(req, yes),
         }
+    }
+
+    fn set_property(&mut self, key: String, value: String) {
+        let value_type = self
+            .core
+            .view()
+            .config
+            .property_definitions
+            .iter()
+            .find(|d| d.key == key)
+            .map(|d| d.value_type.clone())
+            .unwrap_or_default();
+        self.send(Event::SetPageProperty {
+            key,
+            value_type,
+            value,
+        });
     }
 
     fn body_changed(&mut self, id: String, body: String) {
