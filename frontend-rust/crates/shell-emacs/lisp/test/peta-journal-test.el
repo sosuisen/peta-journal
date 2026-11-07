@@ -438,6 +438,14 @@
 
 ;;;; Wrapping
 
+;; 折り返しの行に、フリンジのマークを出さない。他のマークと、他のバッファの設定はそのままである。
+(ert-deftest peta-journal-wrapped-lines-have-no-marks-in-the-fringes ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
+    (should (equal (cdr (assq 'continuation fringe-indicator-alist)) nil))
+    (should (assq 'truncation fringe-indicator-alist)))
+  (with-temp-buffer
+    (should (cdr (assq 'continuation fringe-indicator-alist)))))
+
 (defun peta-journal-test--on-first-screen-line-p (position)
   "Non-nil when POSITION is on the first screen line of the buffer.
 Not `vertical-motion': in a batch run it does not know about `word-wrap'."
