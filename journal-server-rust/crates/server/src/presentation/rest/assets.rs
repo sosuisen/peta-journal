@@ -2,7 +2,7 @@
 
 use std::path::Path as FsPath;
 
-use axum::extract::{Multipart, Path, State};
+use axum::extract::{DefaultBodyLimit, Multipart, Path, State};
 use axum::http::{header, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
@@ -10,9 +10,16 @@ use axum::Router;
 
 use crate::state::{blocking, SharedState};
 
+/// The largest upload. The default of 2MB refused large screenshots. A file is held in memory
+/// while it is saved, so the limit stays. See docs/plans.md for what is still open about it.
+const UPLOAD_LIMIT_BYTES: usize = 50 * 1024 * 1024;
+
 pub fn routes() -> Router<SharedState> {
     Router::new()
-        .route("/api/assets/upload", post(upload))
+        .route(
+            "/api/assets/upload",
+            post(upload).layer(DefaultBodyLimit::max(UPLOAD_LIMIT_BYTES)),
+        )
         .route("/assets/{file_name}", get(get_asset))
 }
 
