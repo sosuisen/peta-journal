@@ -336,7 +336,7 @@
 (ert-deftest peta-journal-going-to-another-page-leaves-the-edit-closed ()
   (dolist (command '(peta-journal-today peta-journal-find-page peta-journal-back
                      peta-journal-next-day peta-journal-previous-day
-                     peta-journal-open-at-point))
+                     peta-journal-open-at-point peta-journal-rename-page))
     (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
       (peta-journal-test--goto "a" 0)
       (peta-journal--go "back")

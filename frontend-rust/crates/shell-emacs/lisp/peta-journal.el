@@ -732,7 +732,7 @@ Not from here but from a timer: a process filter is no place for a prompt."
 (defconst peta-journal--commands-that-end-the-edit
   '(peta-journal-save peta-journal-today peta-journal-find-page peta-journal-back
     peta-journal-next-day peta-journal-previous-day peta-journal-open-at-point
-    peta-journal-search)
+    peta-journal-search peta-journal-rename-page)
   "The commands after which the point stays in an item that is not being edited.
 A saved edit must stay closed, and a page being left has nothing more to edit.")
 
@@ -1180,6 +1180,7 @@ C-n and C-p select a result, RET opens it, and C-g closes the search."
   "C-c C-j" #'peta-journal-today
   "C-c C-f" #'peta-journal-find-page
   "C-c C-v" #'peta-journal-new-buffer
+  "C-c C-r" #'peta-journal-rename-page
   "C-c /" #'peta-journal-search
   "C-c C-b" #'peta-journal-backlinks
   "C-c C-l" #'peta-journal-back
