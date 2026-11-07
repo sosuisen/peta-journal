@@ -112,13 +112,33 @@ asking.
 ## Inserting an image
 
 `C-c C-i` or `M-x peta-journal-insert-image` asks for a file. The server keeps a copy in the `assets`
-folder of the notes, and a link to it goes in at the point. The buffer shows the link as text: it
-does not show the image yet.
+folder of the notes, and a link to it goes in at the point.
 
 The server changes the name of the copy. Each character other than ASCII letters, digits, `.`, `_`
 and `-` becomes `_`.
 
 The server refuses a file over 50MB. Emacs then shows the reason, and the body stays as it was.
+
+## Seeing images
+
+An item without the point shows the image in place of a link like `![name](../assets/file)`. The
+item with the point shows the link as text. The image comes back when the point leaves. Only the
+display changes: the text of the body stays as it is.
+
+An image fits the window, and fits again when the window changes size. A link with `#w=300&h=240`
+sets the size. The image scale of Emacs (`image-scaling-factor`) applies to this size too.
+
+The link stays as text in these cases:
+
+- Emacs cannot show images here, as in a terminal.
+- The server does not have the file, or Emacs cannot read its format.
+- The link is in code.
+- The link does not point to the `assets` of the server, like `https://`.
+- The file name in `assets` has characters other than ASCII letters, digits, `.`, `_` and `-`.
+
+The images come from the server. Typing does not wait for them: an image appears when it arrives.
+Emacs tries a failed image again when you open another page. The bytes of an image stay in memory
+until Emacs closes.
 
 ## Page properties
 
@@ -168,7 +188,7 @@ To open the search box from any buffer, add this to your Emacs init file:
 
 ## Not in this version
 
-Wiki link completion, showing images, pasting images from the clipboard, the atlas, extensions,
+Wiki link completion, showing images from outside the server, pasting images from the clipboard, the atlas, extensions,
 settings and operations on several selected
 items.
 
