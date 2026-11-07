@@ -548,6 +548,29 @@
                      ("typed" :id "a" :cursor 3)
                      ("typed" :id "a" :cursor 4))))))
 
+;;;; The color of what was typed
+
+(defun peta-journal-test--type (text)
+  "Type TEXT at the point, key by key."
+  (dolist (key (string-to-list text))
+    (let ((last-command-event key))
+      (self-insert-command 1))))
+
+(defun peta-journal-test--body-has-no-color-p (id)
+  "Non-nil when no character in the body of the item ID has a color of its own."
+  (let ((start (peta-journal--find-row id)))
+    (not (text-property-not-all (peta-journal--body-start start)
+                                (peta-journal--body-end start)
+                                'font-lock-face nil))))
+
+;; 空の項目に打った文字は、バレットの色を受け継がない。
+(ert-deftest peta-journal-text-typed-in-an-empty-item-does-not-take-the-bullet-color ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 ""))
+    (peta-journal-test--goto "a" 0)
+    (peta-journal-test--type "ab")
+    (should (equal (buffer-string) "• ab\n"))
+    (should (peta-journal-test--body-has-no-color-p "a"))))
+
 ;;;; Links
 
 ;; リンクを開くコマンドは、編集を閉じてから、カーソルの位置をシェルへ送る。リンクかどうかはcoreが決める。
