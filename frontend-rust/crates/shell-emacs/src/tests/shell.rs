@@ -204,7 +204,17 @@ impl Driver {
     /// The rows and the free keys that Emacs was told last.
     fn last_properties(&self) -> Option<(Option<Vec<PropertyRow>>, Vec<String>)> {
         self.sent().iter().rev().find_map(|m| match m {
-            Outbound::Properties { rows, free_keys } => Some((rows.clone(), free_keys.clone())),
+            Outbound::Properties {
+                rows, free_keys, ..
+            } => Some((rows.clone(), free_keys.clone())),
+            _ => None,
+        })
+    }
+
+    /// The keys that hold a date and a time, as Emacs was told last.
+    fn last_datetime_keys(&self) -> Option<Vec<String>> {
+        self.sent().iter().rev().find_map(|m| match m {
+            Outbound::Properties { datetime_keys, .. } => Some(datetime_keys.clone()),
             _ => None,
         })
     }
@@ -974,6 +984,9 @@ fn definitions_answer() -> ApiOutput {
         definition("rating", "number", true),
         definition("topics", "list", true),
         definition("plan", "date", false),
+        definition("due", "datetime", true),
+        definition("met", "datetime", true),
+        definition("seen", "datetime", false),
     ])
 }
 
@@ -1069,7 +1082,25 @@ fn a_doc_page_tells_emacs_its_properties_and_free_keys() {
     assert!(!modified.removable && !modified.editable);
     let created = rows.iter().find(|r| r.key == "created").unwrap();
     assert!(!created.removable && created.editable);
-    assert_eq!(free_keys, ["topics"]);
+    assert_eq!(free_keys, ["topics", "due", "met"]);
+}
+
+// 日時のキーをEmacsに伝える。ページ自身の日付、日時の定義を持つ使用中のキー、まだ付けられるキーである。
+#[test]
+fn the_keys_that_hold_a_date_and_a_time_reach_emacs() {
+    let driver = open_with_properties(json!({ "met": "2026-11-08T00:00:00Z", "rating": "5" }));
+    assert_eq!(
+        driver.last_datetime_keys().unwrap(),
+        ["created", "modified", "met", "due"]
+    );
+}
+
+// 日時の定義を持っていても、今の値がリストなら日時として扱わない。リストとして保存されるため。
+#[test]
+fn a_datetime_key_that_holds_a_list_is_not_a_datetime_key() {
+    let driver = open_with_properties(json!({ "met": ["a", "b"] }));
+    let keys = driver.last_datetime_keys().unwrap();
+    assert!(!keys.contains(&"met".to_string()));
 }
 
 // ジャーナルへ移ると、プロパティの行はなくなる。ジャーナルには付けられないからである。
