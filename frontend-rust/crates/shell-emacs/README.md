@@ -118,8 +118,8 @@ does not show the image yet.
 The server changes the name of the copy. Each character other than ASCII letters, digits, `.`, `_`
 and `-` becomes `_`.
 
-The server refuses a large file: 2MB went through and 3MB did not. Emacs then shows the reason, and
-the body stays as it was.
+The server refuses a large file: 1.9MB went through and 3MB did not. Emacs then shows the reason,
+and the body stays as it was.
 
 ## Page properties
 
@@ -166,7 +166,8 @@ To open the search box from any buffer, add this to your Emacs init file:
 
 ## Not in this version
 
-Wiki link completion, showing images, pasting images from the clipboard, the atlas, extensions, settings and operations on several selected
+Wiki link completion, showing images, pasting images from the clipboard, the atlas, extensions,
+settings and operations on several selected
 items.
 
 ## Tests
