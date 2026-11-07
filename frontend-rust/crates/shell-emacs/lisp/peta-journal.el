@@ -279,16 +279,17 @@ A line of cells alone is plain text, and `---' with no `|' is not a delimiter."
 
 ;;;; State
 
-(defvar peta-journal--process nil "The running shell.")
-(defvar peta-journal--seq 0 "The number of the last line sent to the shell.")
-(defvar peta-journal--ack 0 "The number of the last line the shell has handled.")
-(defvar peta-journal--holding nil "Non-nil while the core waits for an item to focus.")
-(defvar peta-journal--output "" "The part of a line from the shell that is not complete yet.")
 (defvar peta-journal--recent nil "The paths of the recent pages.")
-(defvar peta-journal--backlinks nil "The pages that link to the shown page.")
 (defvar peta-journal--idle-timer nil "The timer that ends an edit after an idle moment.")
-(defvar peta-journal--scroll-timer nil "The timer that reports the scroll position.")
 
+;; Each buffer has a shell of its own, as one core shows one page
+(defvar-local peta-journal--process nil "The running shell.")
+(defvar-local peta-journal--seq 0 "The number of the last line sent to the shell.")
+(defvar-local peta-journal--ack 0 "The number of the last line the shell has handled.")
+(defvar-local peta-journal--holding nil "Non-nil while the core waits for an item to focus.")
+(defvar-local peta-journal--output "" "The part of a line from the shell that is not complete yet.")
+(defvar-local peta-journal--backlinks nil "The pages that link to the shown page.")
+(defvar-local peta-journal--scroll-timer nil "The timer that reports the scroll position.")
 (defvar-local peta-journal--rows [] "The rows on screen, as the shell sent them.")
 (defvar-local peta-journal--page-id nil "The id of the page on screen.")
 (defvar-local peta-journal--current nil "The id of the item being edited.")
@@ -481,6 +482,14 @@ When its item has gone, the row now at the same index."
   (peta-journal--body-start
    (peta-journal--find-row (plist-get (aref peta-journal--rows index) :id))))
 
+(defun peta-journal--warn-if-shown-elsewhere ()
+  "Say so when another buffer shows the page of the current buffer.
+A core reloads an open page only when its file changes, so neither buffer
+shows what the other saves."
+  (when-let* ((other (peta-journal--other-buffer-of-page (current-buffer))))
+    (message "%s also shows this page.  What one buffer saves does not appear in the other"
+             (buffer-name other))))
+
 (defun peta-journal--apply-rows (new page-id ack)
   "Show the rows of the vector NEW of PAGE-ID.
 The shell has handled the lines up to ACK.  Only the rows that changed are
@@ -505,6 +514,8 @@ rewritten, so what does not change stays where it is."
                do (insert (peta-journal--row-string (aref new index)))))
     (setq peta-journal--rows new
           peta-journal--page-id page-id)
+    (when new-page
+      (peta-journal--warn-if-shown-elsewhere))
     (restore-buffer-modified-p nil)
     (cond
      ((zerop (length new)) (goto-char (point-min)))
@@ -580,15 +591,22 @@ A step back from the start of this body goes on to the row above."
                                      (decode-coding-string line 'utf-8))
                                    "\n")))))
 
+(defun peta-journal--wait-until (done)
+  "Handle the output of the shell until the function DONE says so.
+The wait has a limit."
+  (let ((deadline (+ (float-time) peta-journal--wait-seconds)))
+    (while (and (process-live-p peta-journal--process)
+                (not (funcall done))
+                (< (float-time) deadline))
+      (accept-process-output peta-journal--process 0.05))))
+
 (defun peta-journal--wait ()
   "Wait until the shell has handled every line and the core holds no keys.
 Keys pressed in the meantime stay in the input queue of Emacs.  The next one
 is handled when the outline it was meant for is on screen."
-  (let ((deadline (+ (float-time) peta-journal--wait-seconds)))
-    (while (and (process-live-p peta-journal--process)
-                (or (< peta-journal--ack peta-journal--seq) peta-journal--holding)
-                (< (float-time) deadline))
-      (accept-process-output peta-journal--process 0.05))))
+  (peta-journal--wait-until
+   (lambda ()
+     (not (or (< peta-journal--ack peta-journal--seq) peta-journal--holding)))))
 
 (defun peta-journal--send-and-wait (type &rest fields)
   "Send the shell a line of TYPE with FIELDS and wait for what it changes."
@@ -604,45 +622,54 @@ is handled when the outline it was meant for is on screen."
        (json-parse-string line :object-type 'plist :array-type 'array
                           :null-object nil :false-object nil)))))
 
-(defmacro peta-journal--in-buffer (&rest body)
-  "Run BODY in the buffer of the page, if there is one."
-  `(when-let* ((buffer (get-buffer "*PetaJournal*")))
-     (with-current-buffer buffer ,@body)))
+(defun peta-journal--pages ()
+  "The buffers that show a page, the one used last first."
+  (seq-filter (lambda (buffer)
+                (eq (buffer-local-value 'major-mode buffer) 'peta-journal-mode))
+              (buffer-list)))
+
+(defun peta-journal--page ()
+  "The buffer of the page that a command is about, or nil.
+This is the current buffer, or else the one in the window a command started
+from, or else the one used last.  The minibuffer and timers need this."
+  (let ((pages (peta-journal--pages))
+        (window (or (minibuffer-selected-window) (selected-window))))
+    (seq-find (lambda (buffer) (memq buffer pages))
+              (append (list (current-buffer) (window-buffer window)) pages))))
 
 (defun peta-journal--sentinel (process event)
   "Say that the shell PROCESS has stopped, as EVENT tells.
 Without a shell, edits would be lost in silence."
   (unless (process-live-p process)
-    (peta-journal--in-buffer
-     (setq peta-journal--connection "shell stopped")
-     (force-mode-line-update))
-    (display-warning
-     'peta-journal
-     (format "The shell stopped: %s.  Edits are not saved until it runs again.  \
-M-x peta-journal starts it and shows the saved text.  See *peta-journal-log*."
-             (string-trim event))
-     :error)))
+    (let ((page (process-get process 'peta-page)))
+      (when (buffer-live-p page)
+        (with-current-buffer page
+          (setq peta-journal--connection "shell stopped")
+          (force-mode-line-update)))
+      (display-warning
+       'peta-journal
+       (format "The shell of %s stopped: %s.  Edits are not saved until it runs again.  \
+M-x peta-journal in that buffer starts it and shows the saved text.  See *peta-journal-log*."
+               (buffer-name page)
+               (string-trim event))
+       :error))))
 
 (defun peta-journal--on-line (message)
-  "Do what the line MESSAGE from the shell says."
+  "Do what the line MESSAGE from the shell of the current buffer says."
   (pcase (plist-get message :t)
     ("state" (setq peta-journal--ack (plist-get message :ack)
                    peta-journal--holding (plist-get message :holding)))
-    ("rows" (peta-journal--in-buffer
-             (peta-journal--apply-rows (plist-get message :rows)
-                                       (plist-get message :page_id)
-                                       (plist-get message :ack))))
-    ("focus" (peta-journal--in-buffer
-              (peta-journal--on-focus (plist-get message :id)
-                                      (plist-get message :cursor)
-                                      (plist-get message :ack))))
-    ("scroll" (peta-journal--in-buffer (peta-journal--on-scroll (plist-get message :id))))
-    ("title" (peta-journal--in-buffer
-              (setq peta-journal--title (plist-get message :title))
-              (force-mode-line-update)))
-    ("status" (peta-journal--in-buffer
-               (setq peta-journal--connection (plist-get message :connection))
-               (force-mode-line-update)))
+    ("rows" (peta-journal--apply-rows (plist-get message :rows)
+                                      (plist-get message :page_id)
+                                      (plist-get message :ack)))
+    ("focus" (peta-journal--on-focus (plist-get message :id)
+                                     (plist-get message :cursor)
+                                     (plist-get message :ack)))
+    ("scroll" (peta-journal--on-scroll (plist-get message :id)))
+    ("title" (setq peta-journal--title (plist-get message :title))
+     (force-mode-line-update))
+    ("status" (setq peta-journal--connection (plist-get message :connection))
+     (force-mode-line-update))
     ("search" (peta-journal--on-search (plist-get message :results)
                                        (plist-get message :searching)))
     ("recent" (setq peta-journal--recent (append (plist-get message :paths) nil)))
@@ -674,12 +701,15 @@ still under way: the point has moved on since."
 (defun peta-journal--on-ask (req text)
   "Ask the user the yes-or-no question TEXT, and answer the request REQ.
 Not from here but from a timer: a process filter is no place for a prompt."
-  (run-at-time
-   0 nil
-   (lambda ()
-     (let ((yes (condition-case nil (yes-or-no-p (concat text " "))
-                  (quit nil))))
-       (peta-journal--send "answer" :req req :yes (if yes t :false))))))
+  (let ((page (current-buffer)))
+    (run-at-time
+     0 nil
+     (lambda ()
+       (let ((yes (condition-case nil (yes-or-no-p (concat text " "))
+                    (quit nil))))
+         (when (buffer-live-p page)
+           (with-current-buffer page
+             (peta-journal--send "answer" :req req :yes (if yes t :false)))))))))
 
 ;;;; Edits
 
@@ -745,7 +775,9 @@ Only for these characters: waiting on every key would slow typing down."
 
 (defun peta-journal--idle ()
   "End the edit while Emacs idles, so the core can take in changes from elsewhere."
-  (peta-journal--in-buffer (peta-journal--finish-edit)))
+  (dolist (page (peta-journal--pages))
+    (with-current-buffer page
+      (peta-journal--finish-edit))))
 
 (defun peta-journal--item ()
   "The id of the item at the point.  Signals an error when there is none."
@@ -865,8 +897,9 @@ Only for these characters: waiting on every key would slow typing down."
 
 (defun peta-journal--go (type &rest fields)
   "End the edit, and send the line of TYPE with FIELDS that opens another page."
-  (peta-journal--in-buffer (peta-journal--finish-edit))
-  (apply #'peta-journal--send type fields))
+  (with-current-buffer (peta-journal--page)
+    (peta-journal--finish-edit)
+    (apply #'peta-journal--send type fields)))
 
 (defun peta-journal-open-at-point ()
   "Open the page of the wiki link or the tag at the point."
@@ -1031,15 +1064,12 @@ selection.  The keys pressed in the meantime stay in the input queue."
   "Wait for the results of the query typed.  Non-nil when they have arrived.
 The core waits for a pause in the typing before it searches.  Without this
 wait, a quick RET would open a result of an older query."
-  (let ((deadline (+ (float-time) peta-journal--wait-seconds))
-        (settled (lambda ()
-                   (and (>= peta-journal--ack peta-journal--seq)
-                        (not peta-journal--searching)))))
-    (while (and (process-live-p peta-journal--process)
-                (not (funcall settled))
-                (< (float-time) deadline))
-      (accept-process-output peta-journal--process 0.05))
-    (funcall settled)))
+  (with-current-buffer (or (peta-journal--page) (current-buffer))
+    (let ((settled (lambda ()
+                     (and (>= peta-journal--ack peta-journal--seq)
+                          (not peta-journal--searching)))))
+      (peta-journal--wait-until settled)
+      (funcall settled))))
 
 (defun peta-journal-search-exit ()
   "Open the selected search result."
@@ -1052,7 +1082,9 @@ wait, a quick RET would open a result of an older query."
 
 (defun peta-journal--search-input-changed (_beg _end _length)
   "Search for what the minibuffer holds now."
-  (peta-journal--send "search" :query (minibuffer-contents-no-properties)))
+  (let ((query (minibuffer-contents-no-properties)))
+    (with-current-buffer (peta-journal--page)
+      (peta-journal--send "search" :query query))))
 
 (defvar-keymap peta-journal-search-minibuffer-map
   :parent minibuffer-local-map
@@ -1082,8 +1114,10 @@ C-n and C-p select a result, RET opens it, and C-g closes the search."
           (setq chosen (peta-journal--search-choice)))
       (peta-journal--search-close)
       (unless chosen
-        (peta-journal--send "search" :query "")))
-    (peta-journal--go "search_result" :index chosen)
+        (with-current-buffer page
+          (peta-journal--send "search" :query ""))))
+    (with-current-buffer page
+      (peta-journal--go "search_result" :index chosen))
     (if-let* ((window (get-buffer-window page)))
         (select-window window)
       (pop-to-buffer-same-window page))))
@@ -1091,24 +1125,29 @@ C-n and C-p select a result, RET opens it, and C-g closes the search."
 (defun peta-journal-backlinks ()
   "List the pages that link to the page on screen."
   (interactive)
-  (with-current-buffer (get-buffer-create "*PetaJournal Backlinks*")
-    (peta-journal-list-mode)
-    (let ((inhibit-read-only t))
-      (erase-buffer)
-      (insert "Backlinks\n\n")
-      (seq-doseq (group peta-journal--backlinks)
-        (peta-journal--insert-backlink (plist-get group :title) (plist-get group :url))
-        (seq-doseq (item (plist-get group :items))
-          (peta-journal--insert-backlink (concat "  " (plist-get item :text))
-                                         (plist-get item :url))))
-      (goto-char (point-min))
-      (forward-line 2)))
+  (let ((page (current-buffer))
+        (groups peta-journal--backlinks))
+    (with-current-buffer (get-buffer-create "*PetaJournal Backlinks*")
+      (peta-journal-list-mode)
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert "Backlinks\n\n")
+        (seq-doseq (group groups)
+          (peta-journal--insert-backlink page (plist-get group :title) (plist-get group :url))
+          (seq-doseq (item (plist-get group :items))
+            (peta-journal--insert-backlink page
+                                           (concat "  " (plist-get item :text))
+                                           (plist-get item :url))))
+        (goto-char (point-min))
+        (forward-line 2))))
   (pop-to-buffer "*PetaJournal Backlinks*"))
 
-(defun peta-journal--insert-backlink (text url)
-  "Insert the line TEXT of the list of backlinks, which opens URL."
+(defun peta-journal--insert-backlink (page text url)
+  "Insert the line TEXT of the list of backlinks, which opens URL in PAGE."
   (insert (propertize (concat text "\n")
-                      'peta-action (lambda () (peta-journal--go "go" :url url)))))
+                      'peta-action (lambda ()
+                                     (with-current-buffer page
+                                       (peta-journal--go "go" :url url))))))
 
 ;;;; The mode
 
@@ -1128,6 +1167,7 @@ C-n and C-p select a result, RET opens it, and C-g closes the search."
   "C-c C-o" #'peta-journal-open-at-point
   "C-c C-j" #'peta-journal-today
   "C-c C-f" #'peta-journal-find-page
+  "C-c C-v" #'peta-journal-new-buffer
   "C-c /" #'peta-journal-search
   "C-c C-b" #'peta-journal-backlinks
   "C-c C-l" #'peta-journal-back
@@ -1188,20 +1228,22 @@ Type in a body as in any buffer.  The outline changes through these keys:
   "Report the scroll position soon.  Not from here: this runs during redisplay."
   (unless peta-journal--scroll-timer
     (setq peta-journal--scroll-timer
-          (run-with-idle-timer 0.2 nil #'peta-journal--report-scroll))))
+          (run-with-idle-timer 0.2 nil #'peta-journal--report-scroll (current-buffer)))))
 
-(defun peta-journal--report-scroll ()
-  "Tell the core which rows are on screen, so a journal can load the older days."
-  (setq peta-journal--scroll-timer nil)
-  (peta-journal--in-buffer
-   (when-let* ((window (get-buffer-window (current-buffer)))
-               (top (peta-journal--row-index (peta-journal--id-at (window-start window))))
-               (end (min (window-end window t) (1- (point-max))))
-               (bottom (peta-journal--row-index (peta-journal--id-at end)))
-               (scrolled (cons top bottom)))
-     (unless (equal scrolled peta-journal--scrolled)
-       (setq peta-journal--scrolled scrolled)
-       (peta-journal--send "scrolled" :top top :bottom bottom)))))
+(defun peta-journal--report-scroll (page)
+  "Tell the core which rows of PAGE are on screen.
+A journal then loads the older days."
+  (when (buffer-live-p page)
+    (with-current-buffer page
+      (setq peta-journal--scroll-timer nil)
+      (when-let* ((window (get-buffer-window (current-buffer)))
+                  (top (peta-journal--row-index (peta-journal--id-at (window-start window))))
+                  (end (min (window-end window t) (1- (point-max))))
+                  (bottom (peta-journal--row-index (peta-journal--id-at end)))
+                  (scrolled (cons top bottom)))
+        (unless (equal scrolled peta-journal--scrolled)
+          (setq peta-journal--scrolled scrolled)
+          (peta-journal--send "scrolled" :top top :bottom bottom))))))
 
 ;;;; Starting and stopping
 
@@ -1218,32 +1260,42 @@ Type in a body as in any buffer.  The outline changes through these keys:
                           '("release" "debug"))))
       (user-error "Cannot find peta-shell-emacs: build it or set `peta-journal-shell-program'")))
 
+(defun peta-journal--start-shell (url)
+  "Start the shell of the current buffer, and open URL in it."
+  (let ((buffer (current-buffer)))
+    (setq peta-journal--seq 0
+          peta-journal--ack 0
+          peta-journal--holding nil
+          peta-journal--output "")
+    (setq peta-journal--process
+          (make-process :name "peta-shell-emacs"
+                        :command (list (peta-journal--program) peta-journal-server)
+                        :connection-type 'pipe
+                        :coding 'utf-8-unix
+                        :noquery t
+                        :stderr (get-buffer-create "*peta-journal-log*")
+                        :filter (lambda (_process output)
+                                  (when (buffer-live-p buffer)
+                                    (with-current-buffer buffer
+                                      (peta-journal--read-output output))))
+                        :sentinel #'peta-journal--sentinel))
+    (process-put peta-journal--process 'peta-page buffer)
+    (unless peta-journal--idle-timer
+      (setq peta-journal--idle-timer
+            (run-with-idle-timer peta-journal-idle-finish-seconds t #'peta-journal--idle)))
+    (add-hook 'kill-emacs-hook #'peta-journal--stop-all)
+    (peta-journal--send "start" :url url)))
+
 (defun peta-journal--ensure-started ()
-  "Start the shell and the buffer of the page, unless they are there."
-  (let ((buffer (or (get-buffer "*PetaJournal*")
+  "Start the shell and the buffer of the page, unless they are there.
+Return the buffer of the page that a command is about."
+  (let ((buffer (or (peta-journal--page)
                     (with-current-buffer (get-buffer-create "*PetaJournal*")
                       (peta-journal-mode)
                       (current-buffer)))))
-    (unless (process-live-p peta-journal--process)
-      (setq peta-journal--seq 0
-            peta-journal--ack 0
-            peta-journal--holding nil
-            peta-journal--output "")
-      (setq peta-journal--process
-            (make-process :name "peta-shell-emacs"
-                          :command (list (peta-journal--program) peta-journal-server)
-                          :connection-type 'pipe
-                          :coding 'utf-8-unix
-                          :noquery t
-                          :stderr (get-buffer-create "*peta-journal-log*")
-                          :filter (lambda (_process output)
-                                    (peta-journal--read-output output))
-                          :sentinel #'peta-journal--sentinel))
-      (unless peta-journal--idle-timer
-        (setq peta-journal--idle-timer
-              (run-with-idle-timer peta-journal-idle-finish-seconds t #'peta-journal--idle)))
-      (add-hook 'kill-emacs-hook #'peta-journal-stop)
-      (peta-journal--send "start" :url "/today"))
+    (with-current-buffer buffer
+      (unless (process-live-p peta-journal--process)
+        (peta-journal--start-shell "/today")))
     buffer))
 
 ;;;###autoload
@@ -1252,8 +1304,47 @@ Type in a body as in any buffer.  The outline changes through these keys:
   (interactive)
   (pop-to-buffer-same-window (peta-journal--ensure-started)))
 
+(defun peta-journal--wait-for-page ()
+  "Wait until the shell of the current buffer has sent the items of a page.
+The core first sends a page with no rows.  A key pressed then would put its
+character in front of the first bullet."
+  (peta-journal--wait-until (lambda () (> (length peta-journal--rows) 0))))
+
+(defun peta-journal--other-buffer-of-page (buffer)
+  "Another buffer that shows the page of BUFFER, or nil."
+  (when-let* ((id (buffer-local-value 'peta-journal--page-id buffer)))
+    (seq-find (lambda (page)
+                (and (not (eq page buffer))
+                     (equal (buffer-local-value 'peta-journal--page-id page) id)))
+              (peta-journal--pages))))
+
+;;;###autoload
+(defun peta-journal-new-buffer (path)
+  "Open the page at PATH in a new buffer, with a shell of its own.
+An empty PATH opens today's journal.  When a buffer shows the page already, go
+to that buffer: edits of one item in two buffers could overwrite each other."
+  (interactive
+   (list (completing-read "Page in a new buffer: " peta-journal--recent nil nil)))
+  (let ((buffer (generate-new-buffer "*PetaJournal*")))
+    (with-current-buffer buffer
+      (peta-journal-mode)
+      (peta-journal--start-shell (concat "/pages/" path))
+      ;; No warning about a page shown twice: this command goes on to the other buffer
+      (let ((inhibit-message t))
+        (peta-journal--wait-for-page)))
+    (let ((other (peta-journal--other-buffer-of-page buffer)))
+      (when other
+        (kill-buffer buffer))
+      (pop-to-buffer-same-window (or other buffer)))))
+
+(defun peta-journal--stop-all ()
+  "Save what was typed in every buffer, and stop their shells."
+  (dolist (page (peta-journal--pages))
+    (with-current-buffer page
+      (peta-journal-stop))))
+
 (defun peta-journal-stop ()
-  "Save what was typed and stop the shell."
+  "Save what was typed in the current buffer and stop its shell."
   (interactive)
   (when (process-live-p peta-journal--process)
     (set-process-sentinel peta-journal--process #'ignore)
@@ -1263,7 +1354,10 @@ Type in a body as in any buffer.  The outline changes through these keys:
       (while (and (process-live-p peta-journal--process)
                   (< (float-time) deadline))
         (accept-process-output peta-journal--process 0.05))))
-  (when peta-journal--idle-timer
+  (when (and peta-journal--idle-timer
+             (not (seq-some (lambda (page)
+                              (process-live-p (buffer-local-value 'peta-journal--process page)))
+                            (peta-journal--pages))))
     (cancel-timer peta-journal--idle-timer)
     (setq peta-journal--idle-timer nil)))
 

@@ -24,7 +24,7 @@
   "Run BODY in a peta-journal buffer that shows ROWS, with the shell replaced."
   (declare (indent 1))
   `(with-temp-buffer
-     (rename-buffer "*PetaJournal*")
+     (rename-buffer "*PetaJournal*" t)
      (peta-journal-mode)
      (setq peta-journal-test--sent nil)
      (let ((peta-journal--seq 0))
@@ -519,6 +519,7 @@
   (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
     (let ((process (peta-journal-test--emacs-process #'ignore))
           (warning nil))
+      (process-put process 'peta-page (current-buffer))
       (while (process-live-p process)
         (accept-process-output process 0.02))
       (cl-letf (((symbol-function 'display-warning)
@@ -539,6 +540,65 @@
       (accept-process-output nil 0.05))
     (should-not (process-live-p peta-journal--process))
     (should-not warning)))
+
+;;;; Two buffers
+
+;; シェルからの行は、そのシェルのバッファだけを変える。
+(ert-deftest peta-journal-a-line-from-a-shell-changes-only-its-own-buffer ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "最初"))
+    (let ((first (current-buffer)))
+      (peta-journal-test--with-rows (list (peta-journal-test--row "b" 1 "二番目"))
+        (peta-journal--on-line (list :t "rows"
+                                     :rows (vector (peta-journal-test--row "b" 1 "変更"))
+                                     :page_id "page"
+                                     :ack 0))
+        (should (equal (buffer-string) "• 変更\n"))
+        (should (equal (with-current-buffer first (buffer-string)) "• 最初\n"))))))
+
+;; 一息つくと、どのバッファの編集も閉じる。
+(ert-deftest peta-journal-an-idle-moment-ends-the-edit-in-every-buffer ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
+    (setq peta-journal--current "a")
+    (peta-journal-test--with-rows (list (peta-journal-test--row "b" 1 "y"))
+      (setq peta-journal--current "b")
+      (peta-journal--idle)
+      (let ((sent (peta-journal-test--sent-of "edit_finished")))
+        (should (= (length sent) 2))
+        (should (member '("edit_finished" :id "a") sent))
+        (should (member '("edit_finished" :id "b") sent))))))
+
+;; シェルが止まったことは、そのシェルのバッファに表示される。
+(ert-deftest peta-journal-a-stopped-shell-is-shown-in-its-own-buffer ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
+    (let ((first (current-buffer)))
+      (peta-journal-test--with-rows (list (peta-journal-test--row "b" 1 "y"))
+        (let ((process (peta-journal-test--emacs-process #'ignore)))
+          (process-put process 'peta-page (current-buffer))
+          (while (process-live-p process)
+            (accept-process-output process 0.02))
+          (cl-letf (((symbol-function 'display-warning) #'ignore))
+            (peta-journal--sentinel process "finished\n"))
+          (should (equal peta-journal--connection "shell stopped"))
+          (should (equal (buffer-local-value 'peta-journal--connection first) "")))))))
+
+;; 他のバッファが表示中のページへ移ると、そのことを一度だけ伝える。保存しても、互いの画面には届かないためである。
+(ert-deftest peta-journal-warns-when-another-buffer-shows-the-page ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
+    (let ((first (buffer-name))
+          (rows (vector (peta-journal-test--row "b" 1 "y")))
+          (messages nil))
+      (peta-journal-test--with-rows (list (peta-journal-test--row "b" 1 "y"))
+        (peta-journal--apply-rows rows "other" 0)
+        (cl-letf (((symbol-function 'message)
+                   (lambda (format-string &rest args)
+                     (push (apply #'format format-string args) messages))))
+          (peta-journal--apply-rows rows "another" 0)
+          (should-not messages)
+          (peta-journal--apply-rows rows "page" 0)
+          (should (= (length messages) 1))
+          (should (string-search first (car messages)))
+          (peta-journal--apply-rows rows "page" 0)
+          (should (= (length messages) 1)))))))
 
 ;;;; Closing what was typed
 

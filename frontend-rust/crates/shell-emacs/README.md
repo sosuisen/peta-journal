@@ -43,12 +43,13 @@ Emacs init file, with the address of that server:
 
 To change it for the current session only, press `M-:` and enter the same expression.
 
-The setting takes effect only when the shell starts. If PetaJournal is already open, kill the
-`*PetaJournal*` buffer with `C-x k`. This also stops the shell. Then run `M-x peta-journal` again.
+The setting takes effect only when a shell starts. If PetaJournal is already open, kill each of its
+buffers with `C-x k`. This also stops their shells. Then run `M-x peta-journal` again.
 
-If the shell stops by itself, Emacs shows a warning and `[shell stopped]` in the mode line. Edits are
-not saved until it runs again. Run `M-x peta-journal` to start it. This shows the saved text, so
-copy what you typed after the warning first. Errors of the shell are in `*peta-journal-log*`.
+If a shell stops by itself, Emacs shows a warning and `[shell stopped]` in the mode line. Edits in
+that buffer are not saved until the shell runs again. Run `M-x peta-journal` in that buffer to start
+it. This shows the saved text, so copy what you typed after the warning first. Errors of the shell
+are in `*peta-journal-log*`.
 
 ## Editing
 
@@ -82,11 +83,23 @@ These keys go to other places:
 |---|---|
 | `C-c C-j` | Today's journal |
 | `C-c C-f` | Open a page by name |
+| `C-c C-v` | Open a page by name in a new buffer |
 | `C-c C-n`, `C-c C-p` | The next or the previous journal |
 | `C-c C-l` | Back to the page before |
 | `C-c C-o` | Open the wiki link or the tag at the point |
 | `C-c /` | The search box |
 | `C-c C-b` | Backlinks of this page |
+
+## Two pages at once
+
+`C-c C-v` or `M-x peta-journal-new-buffer` opens a page in a new buffer, and you can edit both pages.
+An empty name opens today's journal. Each buffer has its own shell and its own undo history. Killing
+a buffer stops only its shell.
+
+If a buffer already shows the page, this command goes to that buffer. The other keys can still show
+one page in two buffers, and Emacs then warns you. Avoid this. What one buffer saves does not appear
+in the other, as a core reloads an open page only when its file changes. Edits of one item in two
+buffers could overwrite each other.
 
 ## The search box
 
