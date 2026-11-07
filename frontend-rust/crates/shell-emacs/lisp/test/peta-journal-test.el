@@ -485,6 +485,91 @@
         (delete-process stand-in)))
     (should-error (peta-journal-properties) :type 'user-error)))
 
+;; 全角のキーがあっても、値の列がそろう。
+(ert-deftest peta-journal-the-list-lines-up-wide-keys ()
+  (peta-journal-test--with-properties
+      [(:key "状態" :value "a" :removable t :editable t)
+       (:key "status" :value "b" :removable t :editable t)]
+      []
+    (peta-journal-properties)
+    (should (string-search "状態    a\nstatus  b\n" (peta-journal-test--properties-text)))))
+
+;; ジャーナルへ移ると、開いていた一覧からページの値が消える。
+(ert-deftest peta-journal-the-open-list-empties-on-a-journal ()
+  (peta-journal-test--with-properties peta-journal-test--property-rows []
+    (peta-journal-properties)
+    (peta-journal--on-line '(:t "properties" :rows nil :free_keys []))
+    (should-not (string-search "status" (peta-journal-test--properties-text)))))
+
+(defmacro peta-journal-test--answering (key value &rest body)
+  "Run BODY while the minibuffer answers KEY and VALUE.
+`offered' holds the keys it offered, and `initial' the value it started with."
+  (declare (indent 2))
+  `(let ((offered nil) (initial nil))
+     (cl-letf (((symbol-function 'completing-read)
+                (lambda (_prompt collection &rest _)
+                  (setq offered collection)
+                  ,key))
+               ((symbol-function 'read-string)
+                (lambda (_prompt start &rest _)
+                  (setq initial start)
+                  ,value)))
+       ,@body)))
+
+;; 設定では、変えられるキーと、まだ付いていないキーを補完する。今の値を初期値にして、一覧も開く。
+(ert-deftest peta-journal-setting-offers-keys-and-the-current-value ()
+  (peta-journal-test--with-properties peta-journal-test--property-rows ["rating"]
+    (peta-journal-test--answering "status" "done"
+      (call-interactively #'peta-journal-set-property)
+      (should (equal offered '("created" "status" "rating")))
+      (should (equal initial "draft")))
+    (should (equal peta-journal-test--sent '(("set_property" :key "status" :value "done"))))
+    (should (get-buffer-window "*PetaJournal Properties*"))))
+
+;; まだ付いていないキーの初期値は空である。
+(ert-deftest peta-journal-a-new-key-starts-empty ()
+  (peta-journal-test--with-properties peta-journal-test--property-rows ["rating"]
+    (peta-journal-test--answering "rating" "5"
+      (call-interactively #'peta-journal-set-property)
+      (should (null initial)))
+    (should (equal peta-journal-test--sent '(("set_property" :key "rating" :value "5"))))))
+
+;; キーを選ばなかったときと、値が空のときは、何も送らない。値を消すのは削除の役目である。
+(ert-deftest peta-journal-setting-refuses-an-empty-key-or-value ()
+  (peta-journal-test--with-properties peta-journal-test--property-rows ["rating"]
+    (peta-journal-test--answering "" "5"
+      (should-error (call-interactively #'peta-journal-set-property) :type 'user-error))
+    (peta-journal-test--answering "rating" ""
+      (should-error (call-interactively #'peta-journal-set-property) :type 'user-error))
+    (should (null peta-journal-test--sent))))
+
+;; ジャーナルでは、キーを尋ねずに断る。
+(ert-deftest peta-journal-a-journal-refuses-a-property-before-asking ()
+  (peta-journal-test--with-properties nil ["rating"]
+    (cl-letf (((symbol-function 'completing-read) (lambda (&rest _) (error "It must not ask"))))
+      (should-error (call-interactively #'peta-journal-set-property) :type 'user-error)
+      (should-error (call-interactively #'peta-journal-delete-property) :type 'user-error))))
+
+;; 削除では、消せるキーだけを補完する。キーを選ばなければ、何も送らない。
+(ert-deftest peta-journal-deleting-offers-the-removable-keys ()
+  (peta-journal-test--with-properties peta-journal-test--property-rows []
+    (peta-journal-test--answering "" ""
+      (should-error (call-interactively #'peta-journal-delete-property) :type 'user-error))
+    (should (null peta-journal-test--sent))
+    (peta-journal-test--answering "status" ""
+      (call-interactively #'peta-journal-delete-property)
+      (should (equal offered '("status"))))
+    (should (equal peta-journal-test--sent '(("delete_property" :key "status"))))
+    (should (get-buffer-window "*PetaJournal Properties*"))))
+
+;; 消せるプロパティがなければ、尋ねずに断る。
+(ert-deftest peta-journal-a-page-without-removable-keys-refuses-the-delete ()
+  (peta-journal-test--with-properties
+      [(:key "created" :value "2026-11-07" :removable nil :editable t)]
+      []
+    (cl-letf (((symbol-function 'completing-read) (lambda (&rest _) (error "It must not ask"))))
+      (should-error (call-interactively #'peta-journal-delete-property) :type 'user-error))))
+
 ;;;; Answers of the shell
 
 ;; 新しいカーソル位置の指示で、その項目の指定の位置へ移る。編集中の項目もそれに合わせる。
