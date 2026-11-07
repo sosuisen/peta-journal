@@ -61,7 +61,7 @@ struct Sent {
     connection: Option<String>,
     search: Option<(Vec<peta_core::view::SearchEntry>, bool)>,
     page_path: Option<String>,
-    properties: (Option<Vec<PropertyRow>>, Vec<String>),
+    properties: (Option<Vec<PropertyRow>>, Vec<String>, Vec<String>),
     recent: Vec<String>,
     backlinks: Vec<BacklinkEntry>,
 }
@@ -610,11 +610,16 @@ impl<H: Host> Shell<H> {
             .filter(|d| d.page && !is_used(&d.key))
             .map(|d| d.key.clone())
             .collect();
-        let now = (rows, free_keys);
+        let datetime_keys = datetime_keys(view, rows.iter().flatten(), &free_keys);
+        let now = (rows, free_keys, datetime_keys);
         if now != self.sent.properties {
             self.sent.properties.clone_from(&now);
-            let (rows, free_keys) = now;
-            self.host.emit(Outbound::Properties { rows, free_keys });
+            let (rows, free_keys, datetime_keys) = now;
+            self.host.emit(Outbound::Properties {
+                rows,
+                free_keys,
+                datetime_keys,
+            });
         }
     }
 
@@ -676,6 +681,20 @@ impl<H: Host> Shell<H> {
             });
         }
     }
+}
+
+/// The keys whose value is a date and a time. Only the page's own dates cannot be removed, and
+/// they are dates without a definition.
+fn datetime_keys<'a>(
+    view: &ViewModel,
+    rows: impl Iterator<Item = &'a PropertyRow>,
+    free_keys: &[String],
+) -> Vec<String> {
+    let is_datetime = |key: &str| property_type(view, key) == "datetime";
+    rows.filter(|row| !row.removable || is_datetime(&row.key))
+        .map(|row| row.key.clone())
+        .chain(free_keys.iter().filter(|key| is_datetime(key)).cloned())
+        .collect()
 }
 
 /// The type to send a value of the key with. A list stays a list, even when it has no definition.

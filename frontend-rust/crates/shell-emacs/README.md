@@ -129,6 +129,9 @@ key closes the window.
 list. Keys are completed from the property definitions of the server. A new key is defined in the
 settings of the web app, not here. Separate the values of a list with commas.
 
+A date and a time appear in local time, as `YYYY-MM-DD HH:MM`, and you type them in the same form.
+The server keeps them in UTC. A new key starts at the current time, so `RET` alone accepts it.
+
 A journal cannot have properties, so these keys stop without asking on a journal.
 
 ## Two pages at once

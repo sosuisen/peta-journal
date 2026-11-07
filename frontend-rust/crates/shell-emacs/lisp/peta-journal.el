@@ -17,6 +17,7 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'parse-time)
 (require 'subr-x)
 (require 'text-property-search)
 
@@ -310,6 +311,7 @@ A line of cells alone is plain text, and `---' with no `|' is not a delimiter."
 (defvar-local peta-journal--properties nil
   "The property rows of the page on screen, or nil on a screen without properties.")
 (defvar-local peta-journal--free-keys nil "The property keys that can still be added to the page.")
+(defvar-local peta-journal--datetime-keys nil "The property keys whose value is a date and a time.")
 (defvar-local peta-journal--connection "" "The state of the connection to the server.")
 (defvar-local peta-journal--scrolled nil "The scroll position the core knows about.")
 
@@ -687,7 +689,8 @@ M-x peta-journal in that buffer starts it and shows the saved text.  See *peta-j
      (force-mode-line-update))
     ("page_path" (setq peta-journal--page-path (plist-get message :path)))
     ("properties" (peta-journal--on-properties (plist-get message :rows)
-                                               (plist-get message :free_keys)))
+                                               (plist-get message :free_keys)
+                                               (plist-get message :datetime_keys)))
     ("status" (setq peta-journal--connection (plist-get message :connection))
      (force-mode-line-update))
     ("search" (peta-journal--on-search (plist-get message :results)
@@ -1209,9 +1212,46 @@ C-n and C-p select a result, RET opens it, and C-g closes the search."
 (defvar-local peta-journal--list-page nil
   "The buffer of the page that the list of properties shows.")
 
+(defconst peta-journal--local-datetime-format "%Y-%m-%d %H:%M"
+  "How a date and a time look in Emacs: in local time, to the minute.")
+
+(defun peta-journal--local-datetime (value)
+  "VALUE, a date and a time from the server, in local time.
+A value that is not one stays as it is: it may have been written elsewhere."
+  (let ((time (ignore-errors (parse-iso8601-time-string value))))
+    (if time
+        (format-time-string peta-journal--local-datetime-format time)
+      value)))
+
+(defun peta-journal--server-datetime (local)
+  "The date and time LOCAL as the server stores it, or nil when it is not one."
+  (when (string-match "\\`\\([0-9]\\{4\\}\\)-\\([0-9]\\{2\\}\\)-\\([0-9]\\{2\\}\\) \\([0-9]\\{2\\}\\):\\([0-9]\\{2\\}\\)\\'"
+                      local)
+    (let* ((part (lambda (group) (string-to-number (match-string group local))))
+           (time (encode-time (list 0 (funcall part 5) (funcall part 4)
+                                    (funcall part 3) (funcall part 2) (funcall part 1)
+                                    nil -1 nil))))
+      ;; `encode-time' carries February 30 over to March: only a real date comes back the same
+      (when (equal (format-time-string peta-journal--local-datetime-format time) local)
+        (format-time-string "%Y-%m-%dT%H:%M:%SZ" time t)))))
+
+(defun peta-journal--read-datetime (key stored)
+  "Ask for the date and time of KEY, whose value is STORED or nil on a new key.
+Return it as the server stores it, or an empty string when the answer is empty."
+  (let* ((start (if stored
+                    (peta-journal--local-datetime stored)
+                  (format-time-string peta-journal--local-datetime-format (current-time))))
+         (typed (read-string (format "Value of %s (YYYY-MM-DD HH:MM): " key) start)))
+    (cond ((string-empty-p typed) typed)
+          ;; The list shows minutes: reading it back would lose the seconds
+          ((and stored (equal typed start)) stored)
+          ((peta-journal--server-datetime typed))
+          (t (user-error "Not a date and time: %s.  Write it as YYYY-MM-DD HH:MM" typed)))))
+
 (defun peta-journal--draw-properties (page)
   "Fill the list of properties with those of the buffer PAGE."
-  (let ((rows (buffer-local-value 'peta-journal--properties page)))
+  (let ((rows (buffer-local-value 'peta-journal--properties page))
+        (datetime-keys (buffer-local-value 'peta-journal--datetime-keys page)))
     (with-current-buffer (get-buffer-create peta-journal--properties-buffer)
       (peta-journal-list-mode)
       (setq peta-journal--list-page page)
@@ -1221,17 +1261,22 @@ C-n and C-p select a result, RET opens it, and C-g closes the search."
         (erase-buffer)
         (insert "Properties\n\n")
         (seq-doseq (row rows)
-          (let ((key (plist-get row :key)))
+          (let* ((key (plist-get row :key))
+                 (value (plist-get row :value)))
             (insert (format "%s%s  %s\n"
                             key
                             (make-string (- width (string-width key)) ?\s)
-                            (plist-get row :value)))))
+                            (if (member key datetime-keys)
+                                (peta-journal--local-datetime value)
+                              value)))))
         (goto-char (point-min))))))
 
-(defun peta-journal--on-properties (rows free-keys)
-  "Keep the property ROWS and FREE-KEYS, and draw the list when it shows this page."
+(defun peta-journal--on-properties (rows free-keys datetime-keys)
+  "Keep the property ROWS, FREE-KEYS and DATETIME-KEYS.
+Draw the list when it shows this page."
   (setq peta-journal--properties rows
-        peta-journal--free-keys (append free-keys nil))
+        peta-journal--free-keys (append free-keys nil)
+        peta-journal--datetime-keys (append datetime-keys nil))
   (when-let* ((list-buffer (get-buffer peta-journal--properties-buffer)))
     (when (eq (buffer-local-value 'peta-journal--list-page list-buffer) (current-buffer))
       (peta-journal--draw-properties (current-buffer)))))
@@ -1280,7 +1325,9 @@ Signals an error on a journal, which cannot have properties."
                        (buffer-local-value 'peta-journal--free-keys page))))
          (row (seq-find (lambda (row) (equal (plist-get row :key) key))
                         (buffer-local-value 'peta-journal--properties page)))
-         (value (read-string (format "Value of %s: " key) (plist-get row :value))))
+         (value (if (member key (buffer-local-value 'peta-journal--datetime-keys page))
+                    (peta-journal--read-datetime key (plist-get row :value))
+                  (read-string (format "Value of %s: " key) (plist-get row :value)))))
     (when (string-empty-p value)
       (user-error "The value is empty.  To remove a property, use `peta-journal-delete-property'"))
     (list key value)))
@@ -1444,6 +1491,7 @@ A journal then loads the older days."
           peta-journal--page-path nil
           peta-journal--properties nil
           peta-journal--free-keys nil
+          peta-journal--datetime-keys nil
           peta-journal--output "")
     (setq peta-journal--process
           (make-process :name "peta-shell-emacs"

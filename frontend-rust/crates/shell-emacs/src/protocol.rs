@@ -151,9 +151,11 @@ pub enum Outbound {
     },
     /// The properties of the page on screen. `rows` is `None` on a screen that cannot have
     /// properties, such as a journal. `free_keys` can be set on the page and are not on it yet.
+    /// `datetime_keys` are the keys of both whose value is a date and a time.
     Properties {
         rows: Option<Vec<PropertyRow>>,
         free_keys: Vec<String>,
+        datetime_keys: Vec<String>,
     },
     Status {
         connection: String,
