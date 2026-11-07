@@ -86,6 +86,12 @@ The core does not take in changes from elsewhere while an edit is open."
 (defface peta-journal-spoiler '((t :inherit shadow))
   "Spoiler text.")
 
+(defface peta-journal-code '((t :inherit font-lock-constant-face))
+  "Inline code and code blocks.")
+
+(defface peta-journal-math '((t :inherit font-lock-builtin-face))
+  "Inline math.")
+
 (defun peta-journal--word-char-p (char)
   "Non-nil when CHAR is a letter or a digit.  CHAR is nil at the buffer edge."
   (and char (string-match-p "[[:alnum:]]" (string char))))
@@ -101,21 +107,28 @@ A regexp cannot say this, as it cannot look at the next match's first character.
              (not (or (peta-journal--word-char-p before)
                       (peta-journal--word-char-p after)))))))
 
+(defun peta-journal--fitting-pair (regexp mark)
+  "A font-lock matcher for REGEXP, when its ends are delimiters of MARK that fit."
+  (lambda (limit)
+    (let (found)
+      (while (and (not found) (re-search-forward regexp limit t))
+        (if (peta-journal--delimiters-fit-p mark (match-beginning 0) (match-end 0))
+            (setq found t)
+          (goto-char (1+ (match-beginning 0)))))
+      found)))
+
 (defun peta-journal--pair (delimiter)
   "A font-lock matcher for text between two DELIMITERs on one line."
-  (let* ((quoted (regexp-quote delimiter))
-         (regexp (concat quoted "[^ \t\n]\\(?:.*?[^ \t\n]\\)??" quoted))
-         (mark (aref delimiter 0)))
-    (lambda (limit)
-      (let (found)
-        (while (and (not found) (re-search-forward regexp limit t))
-          (if (peta-journal--delimiters-fit-p mark (match-beginning 0) (match-end 0))
-              (setq found t)
-            (goto-char (1+ (match-beginning 0)))))
-        found))))
+  (let ((quoted (regexp-quote delimiter)))
+    (peta-journal--fitting-pair (concat quoted "[^ \t\n]\\(?:.*?[^ \t\n]\\)??" quoted)
+                                (aref delimiter 0))))
 
 (defconst peta-journal--font-lock-keywords
-  `(("\\[\\[[^]\n]+\\]\\]" 0 'peta-journal-link)
+  `(;; Code comes first: what has a face stays as it is, so nothing is decorated inside
+    ("\\$`[^`\n]+`\\$" 0 'peta-journal-math)
+    (,(peta-journal--fitting-pair "\\(`+\\)[^`\n]\\(?:.*?[^`\n]\\)??\\1" ?`)
+     0 'peta-journal-code)
+    ("\\[\\[[^]\n]+\\]\\]" 0 'peta-journal-link)
     ("\\(?:^\\|[ \t]\\)\\(#[^ \t\n#]+\\)" 1 'peta-journal-link)
     ("^.. *\\(#+ .*\\)$" 1 'peta-journal-heading)
     ;; The longer delimiters come first: `**' also holds two `*'
