@@ -85,6 +85,9 @@ These keys go to other places:
 | `C-c C-f` | Open a page by name |
 | `C-c C-v` | Open a page by name in a new buffer |
 | `C-c C-r` | Rename the page |
+| `C-c C-a` | Show or hide the list of page properties |
+| `C-c C-s` | Set a page property |
+| `C-c C-k` | Remove a page property |
 | `C-c C-n`, `C-c C-p` | The next or the previous journal |
 | `C-c C-l` | Back to the page before |
 | `C-c C-o` | Open the wiki link or the tag at the point |
@@ -99,6 +102,17 @@ another page has that name, Emacs asks whether to overwrite it.
 
 Only a doc page can be renamed. On a journal, an index page or an atlas, the command stops without
 asking.
+
+## Page properties
+
+`C-c C-a` shows the properties of the page in another window. The point stays in the page. The same
+key closes the window.
+
+`C-c C-s` asks for a key and a value, and `C-c C-k` asks for a key to remove. Both then show the
+list. Keys are completed from the property definitions of the server. A new key is defined in the
+settings of the web app, not here. Separate the values of a list with commas.
+
+A journal cannot have properties, so these keys stop without asking on a journal.
 
 ## Two pages at once
 

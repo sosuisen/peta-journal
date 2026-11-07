@@ -1,6 +1,7 @@
-use crate::protocol::{Bullet, Envelope, Inbound, Outbound, RowView};
+use crate::protocol::{Bullet, Envelope, Inbound, Outbound, PropertyRow, RowView};
 use crate::shell::{Host, Input, Now, Shell};
 use peta_core::effects::{ApiError, ApiOp, ApiOutput, LocalDateTimeDto, SseEvent};
+use peta_core::model::PropertyDefinition;
 use serde_json::{json, Value};
 use std::mem::ManuallyDrop;
 
@@ -164,6 +165,14 @@ impl Driver {
                 _ => None,
             })
             .collect()
+    }
+
+    /// The rows and the free keys that Emacs was told last.
+    fn last_properties(&self) -> Option<(Option<Vec<PropertyRow>>, Vec<String>)> {
+        self.sent().iter().rev().find_map(|m| match m {
+            Outbound::Properties { rows, free_keys } => Some((rows.clone(), free_keys.clone())),
+            _ => None,
+        })
     }
 
     fn focuses(&self) -> Vec<(String, Option<usize>)> {
@@ -821,6 +830,151 @@ fn renaming_over_another_page_asks_and_overwrites_on_yes() {
             ..
         }
     )));
+}
+
+fn definitions_answer() -> ApiOutput {
+    let definition = |key: &str, value_type: &str, page: bool| PropertyDefinition {
+        key: key.into(),
+        value_type: value_type.into(),
+        system: false,
+        page,
+    };
+    ApiOutput::PropertyDefinitions(vec![
+        definition("rating", "number", true),
+        definition("topics", "list", true),
+        definition("plan", "date", false),
+    ])
+}
+
+fn answer_definitions(driver: &mut Driver) {
+    driver.answer(
+        |op| matches!(op, ApiOp::GetPropertyDefinitions),
+        definitions_answer(),
+    );
+}
+
+// プロパティを設定すると、定義の型とともにサーバーへ送られる。
+#[test]
+fn setting_a_property_sends_the_type_of_its_definition() {
+    let mut driver = Driver::open(&[]);
+    answer_definitions(&mut driver);
+    driver.send(Inbound::SetProperty {
+        key: "rating".into(),
+        value: "5".into(),
+    });
+    assert!(driver.waiting(|op| matches!(
+        op,
+        ApiOp::UpsertPageProperty { page_id, key, value_type, value }
+            if page_id == "p" && key == "rating" && value_type == "number" && value == "5"
+    )));
+}
+
+/// Opens the page `notes` with these properties and these definitions.
+fn open_with_properties(properties: Value) -> Driver {
+    let mut driver = Driver::new();
+    driver.send(Inbound::Start {
+        url: "/pages/notes".into(),
+    });
+    let mut page = page_info("", "notes");
+    page["properties"] = properties;
+    let answer: ApiOutput = serde_json::from_value(json!({
+        "Page": { "page": page, "items": [] }
+    }))
+    .unwrap();
+    driver.answer(|op| matches!(op, ApiOp::GetOrCreateDoc { .. }), answer);
+    answer_definitions(&mut driver);
+    driver
+}
+
+// 今の値がリストのプロパティは、定義がなくてもリストとして送られる。
+#[test]
+fn a_property_that_holds_a_list_is_sent_as_a_list() {
+    let mut driver = open_with_properties(json!({ "labels": ["a"] }));
+    driver.send(Inbound::SetProperty {
+        key: "labels".into(),
+        value: "a, b".into(),
+    });
+    assert!(driver.waiting(|op| matches!(
+        op,
+        ApiOp::UpsertPageProperty { key, value_type, .. } if key == "labels" && value_type == "tags"
+    )));
+}
+
+// 定義のないプロパティは、文として送られる。
+#[test]
+fn a_property_without_a_definition_is_sent_as_text() {
+    let mut driver = open_with_properties(json!({ "old": "x" }));
+    driver.send(Inbound::SetProperty {
+        key: "old".into(),
+        value: "y".into(),
+    });
+    assert!(driver.waiting(|op| matches!(
+        op,
+        ApiOp::UpsertPageProperty { key, value_type, .. } if key == "old" && value_type == "text"
+    )));
+}
+
+// プロパティを削除すると、そのキーがサーバーへ送られる。
+#[test]
+fn deleting_a_property_sends_its_key() {
+    let mut driver = open_with_properties(json!({ "old": "x" }));
+    driver.send(Inbound::DeleteProperty { key: "old".into() });
+    assert!(driver.waiting(|op| matches!(
+        op,
+        ApiOp::DeletePageProperty { page_id, key } if page_id == "p" && key == "old"
+    )));
+}
+
+// 開いたページのプロパティと、まだ付けられるキーをEmacsに伝える。ページに使えない定義と、使用中のキーは除く。
+#[test]
+fn a_doc_page_tells_emacs_its_properties_and_free_keys() {
+    let driver = open_with_properties(json!({ "rating": "5", "labels": ["a", "b"] }));
+    let (rows, free_keys) = driver.last_properties().unwrap();
+    let rows = rows.expect("a doc page has property rows");
+    let labels = rows.iter().find(|r| r.key == "labels").unwrap();
+    assert_eq!(labels.value, "a, b");
+    assert!(labels.removable && labels.editable);
+    let modified = rows.iter().find(|r| r.key == "modified").unwrap();
+    assert!(!modified.removable && !modified.editable);
+    let created = rows.iter().find(|r| r.key == "created").unwrap();
+    assert!(!created.removable && created.editable);
+    assert_eq!(free_keys, ["topics"]);
+}
+
+// ジャーナルへ移ると、プロパティの行はなくなる。ジャーナルには付けられないからである。
+#[test]
+fn a_journal_has_no_property_rows() {
+    let mut driver = open_with_properties(json!({}));
+    driver.send(Inbound::Go {
+        url: "/today".into(),
+    });
+    assert_eq!(driver.last_properties().unwrap().0, None);
+}
+
+// 同じ内容は、二度送らない。
+#[test]
+fn unchanged_properties_are_told_once() {
+    let mut driver = open_with_properties(json!({ "rating": "5" }));
+    driver.shell.host.out.clear();
+    driver.send(Inbound::Scrolled { top: 0, bottom: 0 });
+    assert_eq!(driver.last_properties(), None);
+}
+
+// サーバーの答えの値が、Emacsに届く。
+#[test]
+fn a_saved_property_reaches_emacs() {
+    let mut driver = open_with_properties(json!({}));
+    driver.fail_all_waiting_calls();
+    driver.send(Inbound::SetProperty {
+        key: "rating".into(),
+        value: "5".into(),
+    });
+    let mut page = page_info("", "notes");
+    page["properties"] = json!({ "rating": 5 });
+    let answer = serde_json::from_value(json!({ "PageInfo": page })).unwrap();
+    driver.answer(|op| matches!(op, ApiOp::UpsertPageProperty { .. }), answer);
+    let rows = driver.last_properties().unwrap().0.unwrap();
+    assert_eq!(rows.iter().find(|r| r.key == "rating").unwrap().value, "5");
 }
 
 // 終了の前に編集を閉じ、書きかけの文を保存する。答えが返るまで、終わってよい状態にならない。

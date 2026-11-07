@@ -1,6 +1,6 @@
 //! The JSON lines this process and `peta-journal.el` send each other.
 
-use peta_core::view::{BacklinkGroup, Row, SearchEntry, TaskState};
+use peta_core::view::{BacklinkGroup, PageProperty, Row, SearchEntry, TaskState};
 use serde::{Deserialize, Serialize};
 
 /// One line from Emacs. Emacs numbers its lines, so it can tell which of them an answer has seen.
@@ -28,6 +28,13 @@ pub enum Inbound {
     /// Gives the page on screen this path, with its folder.
     RenamePage {
         path: String,
+    },
+    SetProperty {
+        key: String,
+        value: String,
+    },
+    DeleteProperty {
+        key: String,
     },
     OpenLinkAt {
         id: String,
@@ -137,6 +144,12 @@ pub enum Outbound {
     PagePath {
         path: Option<String>,
     },
+    /// The properties of the page on screen. `rows` is `None` on a screen that cannot have
+    /// properties, such as a journal. `free_keys` can be set on the page and are not on it yet.
+    Properties {
+        rows: Option<Vec<PropertyRow>>,
+        free_keys: Vec<String>,
+    },
     Status {
         connection: String,
     },
@@ -211,6 +224,26 @@ impl Bullet {
             Some(TaskState::Running) => Bullet::Running,
             Some(TaskState::Done) => Bullet::Done,
             None => Bullet::Plain,
+        }
+    }
+}
+
+/// One property of the shown page.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct PropertyRow {
+    pub key: String,
+    pub value: String,
+    pub removable: bool,
+    pub editable: bool,
+}
+
+impl From<&PageProperty> for PropertyRow {
+    fn from(property: &PageProperty) -> PropertyRow {
+        PropertyRow {
+            key: property.key.clone(),
+            value: property.value.clone(),
+            removable: property.removable,
+            editable: property.editable,
         }
     }
 }
