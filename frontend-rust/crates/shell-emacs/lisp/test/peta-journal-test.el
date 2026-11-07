@@ -362,6 +362,16 @@
                    '(("edit_finished" :id "a")
                      ("rename_page" :path "work/new"))))))
 
+;; 変えられるパスがなければ、入力を求める前に断る。打った名前が無駄にならない。
+(ert-deftest peta-journal-a-page-without-a-path-refuses-before-asking ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
+    (peta-journal--on-line '(:t "page_path" :path nil))
+    (setq peta-journal-test--sent nil)
+    (cl-letf (((symbol-function 'read-string)
+               (lambda (&rest _) (error "It must not ask"))))
+      (should-error (call-interactively #'peta-journal-rename-page) :type 'user-error))
+    (should (null peta-journal-test--sent))))
+
 ;; 一息つくと編集を閉じる。開いたままだと、coreは他からの変更の読み直しを待ち続けるため。
 (ert-deftest peta-journal-idling-ends-the-edit ()
   (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
