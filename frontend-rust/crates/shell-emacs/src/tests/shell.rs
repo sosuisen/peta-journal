@@ -708,6 +708,22 @@ fn an_empty_query_is_not_a_running_search() {
     assert!(!searching(&driver));
 }
 
+// フォルダを含むパスで名前を変えると、サーバーへ新しい名前とフォルダが送られる。
+#[test]
+fn renaming_sends_the_new_name_and_folder_to_the_server() {
+    let mut driver = Driver::open(&[item("a", 1, "x")]);
+    driver.send(Inbound::RenamePage {
+        path: "work/memo".into(),
+    });
+    assert!(driver.waiting(|op| matches!(
+        op,
+        ApiOp::UpdatePage { page_id, title, dir_path, overwrite: false }
+            if page_id == "p"
+                && title.as_deref() == Some("memo")
+                && dir_path.as_deref() == Some("work/")
+    )));
+}
+
 // 終了の前に編集を閉じ、書きかけの文を保存する。答えが返るまで、終わってよい状態にならない。
 #[test]
 fn shutting_down_saves_the_edit_and_waits_for_the_answer() {
