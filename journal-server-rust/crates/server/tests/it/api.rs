@@ -3087,3 +3087,49 @@ async fn a_missing_function_has_no_file_list() {
     let (status, _) = get("/api/functions/fn-missing").await;
     assert_eq!(status, 404);
 }
+
+// ---- Assets ----
+
+const MB: usize = 1024 * 1024;
+
+/// Sends a file through the upload of the frontends. The server may close the connection
+/// while a file it refuses is on the way, so the request itself can fail.
+async fn upload_asset(file_name: &str, bytes: Vec<u8>) -> reqwest::Result<reqwest::Response> {
+    let part = reqwest::multipart::Part::bytes(bytes).file_name(file_name.to_string());
+    let form = reqwest::multipart::Form::new().part("file", part);
+    client()
+        .post(url("/api/assets/upload"))
+        .multipart(form)
+        .send()
+        .await
+}
+
+fn saved_asset(file_name: &str) -> std::path::PathBuf {
+    server().markdown_dir.join("assets").join(file_name)
+}
+
+// 上限の50MBに近い画像も、中身のまま保存される。
+#[tokio::test]
+async fn an_image_just_under_the_limit_is_saved_as_it_is() {
+    let bytes: Vec<u8> = (0..49 * MB).map(|i| (i % 251) as u8).collect();
+
+    let response = upload_asset("just-under-the-limit.png", bytes.clone())
+        .await
+        .unwrap();
+
+    assert_eq!(response.status().as_u16(), 200);
+    let answer: Value = response.json().await.unwrap();
+    assert_eq!(answer["fileName"], "just-under-the-limit.png");
+    let saved = saved_asset("just-under-the-limit.png");
+    assert!(std::fs::read(&saved).unwrap() == bytes);
+    std::fs::remove_file(saved).unwrap();
+}
+
+// 上限の50MBを超える画像は断られ、保存されない。
+#[tokio::test]
+async fn an_image_over_the_limit_is_refused_and_not_saved() {
+    let result = upload_asset("over-the-limit.png", vec![0; 51 * MB]).await;
+
+    assert!(result.map_or(true, |response| !response.status().is_success()));
+    assert!(!saved_asset("over-the-limit.png").exists());
+}

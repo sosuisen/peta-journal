@@ -118,8 +118,7 @@ does not show the image yet.
 The server changes the name of the copy. Each character other than ASCII letters, digits, `.`, `_`
 and `-` becomes `_`.
 
-The server refuses a large file: 1.9MB went through and 3MB did not. Emacs then shows the reason,
-and the body stays as it was.
+The server refuses a file over 50MB. Emacs then shows the reason, and the body stays as it was.
 
 ## Page properties
 
