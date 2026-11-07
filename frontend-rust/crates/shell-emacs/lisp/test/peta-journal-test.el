@@ -41,6 +41,12 @@
   (peta-journal--goto-item id cursor)
   (peta-journal--post-command))
 
+(defun peta-journal-test--type (text)
+  "Type TEXT at the point, key by key."
+  (dolist (key (string-to-list text))
+    (let ((last-command-event key))
+      (self-insert-command 1))))
+
 (defun peta-journal-test--sent-of (type)
   "The lines of TYPE sent so far."
   (cl-remove-if-not (lambda (line) (equal (car line) type)) peta-journal-test--sent))
@@ -540,21 +546,13 @@
 (ert-deftest peta-journal-reports-only-the-characters-that-may-need-closing ()
   (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 ""))
     (peta-journal-test--goto "a" 0)
-    (dolist (key '(?x ?\[ ?\] ?`))
-      (let ((last-command-event key))
-        (self-insert-command 1)))
+    (peta-journal-test--type "x[]`")
     (should (equal (peta-journal-test--sent-of "typed")
                    '(("typed" :id "a" :cursor 2)
                      ("typed" :id "a" :cursor 3)
                      ("typed" :id "a" :cursor 4))))))
 
 ;;;; The color of what was typed
-
-(defun peta-journal-test--type (text)
-  "Type TEXT at the point, key by key."
-  (dolist (key (string-to-list text))
-    (let ((last-command-event key))
-      (self-insert-command 1))))
 
 (defun peta-journal-test--body-has-no-color-p (id)
   "Non-nil when no character in the body of the item ID has a color of its own."
