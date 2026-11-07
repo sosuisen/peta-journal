@@ -44,6 +44,10 @@ The core does not take in changes from elsewhere while an edit is open."
     ("transclusion" . "↪") ("broken" . "✗"))
   "The mark of each kind of row.")
 
+(defconst peta-journal--bullet-gap " "
+  "The space behind a bullet.
+A no-break space: at a normal space, a long word would leave the bullet alone on its line.")
+
 (defconst peta-journal--wait-seconds 3
   "How long a command waits for the shell before the next key is handled.")
 
@@ -160,7 +164,7 @@ into its match, and the next pair could not start at a character it took."
                                 (aref delimiter 0))))
 
 (defconst peta-journal--bullet-regexp
-  (concat (regexp-opt (mapcar #'cdr peta-journal--bullets)) " ")
+  (concat (regexp-opt (mapcar #'cdr peta-journal--bullets)) peta-journal--bullet-gap)
   "The bullet in front of the first line of a body.")
 
 (defconst peta-journal--line-start-regexp
@@ -245,7 +249,8 @@ A line of cells alone is plain text, and `---' with no `|' is not a delimiter."
      0 'peta-journal-code)
     ;; Links and the like come before the emphasis: `_' in a URL is not emphasis
     ("\\[\\[[^]\n]+\\]\\]" 0 'peta-journal-link)
-    ("\\(?:^\\|[ \t]\\)\\(#[[:alnum:]_-]\\(?:[[:alnum:]_/-]*[[:alnum:]_-]\\)?\\)"
+    (,(concat "\\(?:^\\|[ \t" peta-journal--bullet-gap "]\\)"
+              "\\(#[[:alnum:]_-]\\(?:[[:alnum:]_/-]*[[:alnum:]_-]\\)?\\)")
      1 'peta-journal-link)
     ("!\\[[^][\n]*\\]([^)\n]*)" 0 'peta-journal-image)
     ("\\[[^][\n]*\\]([^)\n]*)" 0 'peta-journal-link)
@@ -394,7 +399,7 @@ A line of cells alone is plain text, and `---' with no `|' is not a delimiter."
   (let* ((kind (plist-get row :bullet))
          (level (plist-get row :level))
          (mark (cdr (assoc kind peta-journal--bullets))))
-    (propertize (concat mark " ")
+    (propertize (concat mark peta-journal--bullet-gap)
                 'peta-bullet (plist-get row :id)
                 'font-lock-face (if (equal kind "done") 'peta-journal-done 'peta-journal-bullet)
                 'read-only t
@@ -1341,6 +1346,7 @@ Type in a body as in any buffer.  The outline changes through these keys:
   (setq-local word-wrap t)
   ;; Japanese has no spaces: without this, a long sentence counts as one word and moves to a new line
   (setq-local word-wrap-by-category t)
+  (setq-local nobreak-char-display nil)
   (setq-local font-lock-defaults '(peta-journal--font-lock-keywords t))
   (setq-local font-lock-extend-region-functions
               (append font-lock-extend-region-functions

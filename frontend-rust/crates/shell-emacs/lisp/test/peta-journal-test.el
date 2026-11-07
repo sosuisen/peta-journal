@@ -47,6 +47,10 @@
     (let ((last-command-event key))
       (self-insert-command 1))))
 
+(defun peta-journal-test--shown ()
+  "The text of the buffer, with the space behind each bullet as a plain space."
+  (string-replace " " " " (buffer-string)))
+
 (defun peta-journal-test--sent-of (type)
   "The lines of TYPE sent so far."
   (cl-remove-if-not (lambda (line) (equal (car line) type)) peta-journal-test--sent))
@@ -57,7 +61,7 @@
 (ert-deftest peta-journal-a-row-is-a-bullet-and-its-body ()
   (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "親")
                                       (peta-journal-test--row "b" 2 "子"))
-    (should (equal (buffer-string) "• 親\n• 子\n"))))
+    (should (equal (peta-journal-test--shown) "• 親\n• 子\n"))))
 
 ;; 字下げは表示だけで、レベルの分の幅になる。
 (ert-deftest peta-journal-the-indent-of-a-row-follows-its-level ()
@@ -72,14 +76,14 @@
       (list (peta-journal-test--row "a" 1 "x" :bullet "task")
             (peta-journal-test--row "b" 1 "y" :bullet "running")
             (peta-journal-test--row "c" 1 "z" :bullet "done"))
-    (should (equal (buffer-string) "☐ x\n◐ y\n☑ z\n"))))
+    (should (equal (peta-journal-test--shown) "☐ x\n◐ y\n☑ z\n"))))
 
 ;; ジャーナルの日付は、項目の上の編集できない行である。
 (ert-deftest peta-journal-a-date-header-is-a-line-above-its-row ()
   (peta-journal-test--with-rows
       (list (peta-journal-test--row "a" 1 "今日")
             (peta-journal-test--row "b" 1 "昨日" :header "2026-11-05"))
-    (should (equal (buffer-string) "• 今日\n── 2026-11-05 ──\n• 昨日\n"))
+    (should (equal (peta-journal-test--shown) "• 今日\n── 2026-11-05 ──\n• 昨日\n"))
     (goto-char (point-min))
     (search-forward "──")
     (should-error (insert "x") :type 'text-read-only)))
@@ -93,7 +97,7 @@
       (peta-journal--apply-rows (vector (peta-journal-test--row "a" 1 "x")
                                         (peta-journal-test--row "b" 1 "yy"))
                                 "page" 0)
-      (should (equal (buffer-string) "• x\n• yy\n"))
+      (should (equal (peta-journal-test--shown) "• x\n• yy\n"))
       (should (= (marker-position marker) (peta-journal--body-start (point-min)))))))
 
 ;; 行が書き換えられても、カーソルは同じ項目の同じ文字の位置に残る。
@@ -149,14 +153,14 @@
     (should-error (delete-region (point-min) (point-max)) :type 'text-read-only)
     (goto-char (point-min))
     (should-error (insert "z") :type 'text-read-only)
-    (should (equal (buffer-string) "• x\n• y\n"))))
+    (should (equal (peta-journal-test--shown) "• x\n• y\n"))))
 
 ;; 空の項目にも、本文の先頭と末尾に入力できる。
 (ert-deftest peta-journal-an-empty-item-takes-text ()
   (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 ""))
     (peta-journal-test--goto "a" 0)
     (insert "x")
-    (should (equal (buffer-string) "• x\n"))))
+    (should (equal (peta-journal-test--shown) "• x\n"))))
 
 ;;;; The point
 
@@ -265,7 +269,7 @@
     (peta-journal--apply-rows (vector (peta-journal-test--row "a" 1 "x")
                                       (peta-journal-test--row "b" 1 "yy"))
                               "page" 4)
-    (should (equal (buffer-string) "• xz\n• yy\n"))))
+    (should (equal (peta-journal-test--shown) "• xz\n• yy\n"))))
 
 ;; 同じ番号まで処理された答えは、入力中の項目にも反映する。
 (ert-deftest peta-journal-a-current-answer-replaces-the-body ()
@@ -273,7 +277,7 @@
     (peta-journal-test--goto "a" 1)
     (setq peta-journal--seq 5)
     (peta-journal--apply-rows (vector (peta-journal-test--row "a" 1 "new")) "page" 5)
-    (should (equal (buffer-string) "• new\n"))))
+    (should (equal (peta-journal-test--shown) "• new\n"))))
 
 ;; RETは、カーソルの位置を添えてcoreへ送る。
 (ert-deftest peta-journal-ret-sends-enter-with-the-cursor ()
@@ -282,7 +286,7 @@
     (setq peta-journal-test--sent nil)
     (peta-journal-enter)
     (should (equal peta-journal-test--sent '(("enter" :id "a" :cursor 1))))
-    (should (equal (buffer-string) "• xy\n"))))
+    (should (equal (peta-journal-test--shown) "• xy\n"))))
 
 ;; 本文の先頭のDELは、上の項目との結合としてcoreへ送る。途中では文字を消す。
 (ert-deftest peta-journal-del-joins-items-only-at-the-start-of-a-body ()
@@ -290,7 +294,7 @@
     (peta-journal-test--goto "a" 1)
     (setq peta-journal-test--sent nil)
     (peta-journal-backspace)
-    (should (equal (buffer-string) "• y\n"))
+    (should (equal (peta-journal-test--shown) "• y\n"))
     (setq peta-journal-test--sent nil)
     (peta-journal-backspace)
     (should (equal peta-journal-test--sent '(("backspace_at_start" :id "a"))))))
@@ -300,7 +304,7 @@
   (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "xy"))
     (peta-journal-test--goto "a" 1)
     (peta-journal-delete)
-    (should (equal (buffer-string) "• x\n"))
+    (should (equal (peta-journal-test--shown) "• x\n"))
     (setq peta-journal-test--sent nil)
     (peta-journal-delete)
     (should (equal peta-journal-test--sent '(("delete_at_end" :id "a"))))))
@@ -804,8 +808,8 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
                                      :rows (vector (peta-journal-test--row "b" 1 "変更"))
                                      :page_id "page"
                                      :ack 0))
-        (should (equal (buffer-string) "• 変更\n"))
-        (should (equal (with-current-buffer first (buffer-string)) "• 最初\n"))))))
+        (should (equal (peta-journal-test--shown) "• 変更\n"))
+        (should (equal (with-current-buffer first (peta-journal-test--shown)) "• 最初\n"))))))
 
 ;; 一息つくと、どのバッファの編集も閉じる。
 (ert-deftest peta-journal-an-idle-moment-ends-the-edit-in-every-buffer ()
@@ -878,7 +882,7 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
   (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 ""))
     (peta-journal-test--goto "a" 0)
     (peta-journal-test--type "ab")
-    (should (equal (buffer-string) "• ab\n"))
+    (should (equal (peta-journal-test--shown) "• ab\n"))
     (should (peta-journal-test--body-has-no-color-p "a"))))
 
 ;; 完了タスクの本文の先頭に打っても、色を受け継がない。バレットの色はそのままである。
@@ -886,7 +890,7 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
   (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "xy" :bullet "done"))
     (peta-journal-test--goto "a" 0)
     (peta-journal-test--type "ab")
-    (should (equal (buffer-string) "☑ abxy\n"))
+    (should (equal (peta-journal-test--shown) "☑ abxy\n"))
     (should (peta-journal-test--body-has-no-color-p "a"))
     (should (eq (get-text-property (peta-journal--find-row "a") 'font-lock-face)
                 'peta-journal-done))))
