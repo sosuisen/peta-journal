@@ -4,7 +4,7 @@
 //! Everything here runs on one thread: the requests the core waits on stay here, and the host's
 //! threads only send back their results.
 
-use crate::protocol::{BacklinkEntry, Envelope, Inbound, Outbound, RowView};
+use crate::protocol::{BacklinkEntry, Envelope, Inbound, Outbound, PropertyRow, RowView};
 use crate::route::parse_url;
 use crux_core::capability::Operation;
 use crux_core::{Core, Request};
@@ -59,6 +59,7 @@ struct Sent {
     connection: Option<String>,
     search: Option<(Vec<peta_core::view::SearchEntry>, bool)>,
     page_path: Option<String>,
+    properties: (Option<Vec<PropertyRow>>, Vec<String>),
     recent: Vec<String>,
     backlinks: Vec<BacklinkEntry>,
 }
@@ -180,7 +181,7 @@ impl<H: Host> Shell<H> {
                 file_name: path,
             }),
             Inbound::SetProperty { key, value } => self.set_property(key, value),
-            Inbound::DeleteProperty { .. } => {}
+            Inbound::DeleteProperty { key } => self.send(Event::DeletePageProperty { key }),
             Inbound::OpenLinkAt { id, cursor } => self.open_link_at(id, cursor),
             Inbound::JournalNav { forward } => self.send(Event::JournalNav(if forward {
                 JournalNav::Next
@@ -493,6 +494,7 @@ impl<H: Host> Shell<H> {
         self.tell_rows(&view);
         self.tell_focus(&view);
         self.tell_page_path(&view);
+        self.tell_properties(&view);
         self.tell_connection(&view);
         self.tell_search(&view.search);
         self.tell_recent(&view);
@@ -545,6 +547,29 @@ impl<H: Host> Shell<H> {
         if path != self.sent.page_path {
             self.sent.page_path.clone_from(&path);
             self.host.emit(Outbound::PagePath { path });
+        }
+    }
+
+    fn tell_properties(&mut self, view: &ViewModel) {
+        let rows: Option<Vec<PropertyRow>> = match &view.screen {
+            ScreenView::Page(Some(page)) => {
+                Some(page.properties.iter().map(PropertyRow::from).collect())
+            }
+            _ => None,
+        };
+        let is_used = |key: &str| rows.iter().flatten().any(|r| r.key == key);
+        let free_keys: Vec<String> = view
+            .config
+            .property_definitions
+            .iter()
+            .filter(|d| d.page && !is_used(&d.key))
+            .map(|d| d.key.clone())
+            .collect();
+        let now = (rows, free_keys);
+        if now != self.sent.properties {
+            self.sent.properties.clone_from(&now);
+            let (rows, free_keys) = now;
+            self.host.emit(Outbound::Properties { rows, free_keys });
         }
     }
 
