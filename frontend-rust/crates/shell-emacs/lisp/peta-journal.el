@@ -123,8 +123,38 @@ A regexp cannot say this, as it cannot look at the next match's first character.
     (peta-journal--fitting-pair (concat quoted "[^ \t\n]\\(?:.*?[^ \t\n]\\)??" quoted)
                                 (aref delimiter 0))))
 
+(defconst peta-journal--bullet-regexp
+  (concat (regexp-opt (mapcar #'cdr peta-journal--bullets)) " ")
+  "The bullet in front of the first line of a body.")
+
+(defconst peta-journal--line-start-regexp
+  (concat "^\\(?:" peta-journal--bullet-regexp "\\)?")
+  "What comes before the text of a line in a body.")
+
+(defun peta-journal--fence (opening)
+  "A font-lock matcher for a block from the line that matches OPENING to its closing.
+Group 1 of OPENING is the run of marks that the closing line repeats.
+A block with no closing ends with its body, since each item is parsed alone."
+  (let ((regexp (concat peta-journal--line-start-regexp " \\{0,3\\}" opening)))
+    (lambda (limit)
+      (when (re-search-forward regexp limit t)
+        (let* ((run (match-string 1))
+               (start (match-beginning 1))
+               (end (peta-journal--body-end (peta-journal--row-start (point))))
+               (closing (format "^ \\{0,3\\}%s%s* *$"
+                                (regexp-quote run)
+                                (regexp-quote (substring run 0 1)))))
+          (unless (re-search-forward closing end t)
+            (goto-char end))
+          (set-match-data (list start (point)))
+          t)))))
+
 (defconst peta-journal--font-lock-keywords
   `(;; Code comes first: what has a face stays as it is, so nothing is decorated inside
+    (,(peta-journal--fence "\\(```+\\)[^`\n]*$") 0 'peta-journal-code)
+    (,(peta-journal--fence "\\(~~~+\\).*$") 0 'peta-journal-code)
+    (,(concat "^" peta-journal--bullet-regexp "\\( \\{4\\}.*\\(?:\n \\{4\\}.*\\)*\\)$")
+     1 'peta-journal-code)
     ("\\$`[^`\n]+`\\$" 0 'peta-journal-math)
     (,(peta-journal--fitting-pair "\\(`+\\)[^`\n]\\(?:.*?[^`\n]\\)??\\1" ?`)
      0 'peta-journal-code)
