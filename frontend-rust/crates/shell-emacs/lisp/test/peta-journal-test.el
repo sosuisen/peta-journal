@@ -699,6 +699,23 @@
   (should-not (peta-journal-test--face "a#b" "b"))
   (should-not (peta-journal-test--face "\\#b" "b")))
 
+;; リンク、画像、脚注、絵文字、HTMLには色が付く。URLの中の記号は修飾にならない。
+(ert-deftest peta-journal-links-and-embedded-things-have-their-colors ()
+  (should (eq (peta-journal-test--face "[題](https://x.jp)" "題") 'peta-journal-link))
+  (should (eq (peta-journal-test--face "a https://x.jp/b_c_d e" "c_d") 'peta-journal-link))
+  (should (eq (peta-journal-test--face "a www.x.jp b" "www") 'peta-journal-link))
+  (should (eq (peta-journal-test--face "a me@x.jp b" "me@") 'peta-journal-link))
+  (should (eq (peta-journal-test--face "![写真](a_b_c.png#w=300)" "写真") 'peta-journal-image))
+  (should (eq (peta-journal-test--face "注[^1]" "[^1") 'peta-journal-footnote))
+  (should (eq (peta-journal-test--face "[^1]: 注記" "[^1") 'peta-journal-footnote))
+  (should (eq (peta-journal-test--face "a ^[脚注] b" "脚注") 'peta-journal-footnote))
+  (should (eq (peta-journal-test--face "a :heart_eyes: b" "heart") 'peta-journal-emoji))
+  (should (eq (peta-journal-test--face "a :+1: b" "+1") 'peta-journal-emoji))
+  (should-not (peta-journal-test--face "12:30:45" "30"))
+  (should (eq (peta-journal-test--face "<b>太</b>" "<b") 'peta-journal-html))
+  (should-not (peta-journal-test--face "<b>太</b>" "太"))
+  (should (eq (peta-journal-test--face "<br />" "<br") 'peta-journal-html)))
+
 ;;;; Links
 
 ;; リンクを開くコマンドは、編集を閉じてから、カーソルの位置をシェルへ送る。リンクかどうかはcoreが決める。
