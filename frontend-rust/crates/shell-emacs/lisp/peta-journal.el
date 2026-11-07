@@ -296,6 +296,9 @@ A line of cells alone is plain text, and `---' with no `|' is not a delimiter."
 (defvar-local peta-journal--last-point nil "Where the point was after the last command.")
 (defvar-local peta-journal--title "" "The title of the page on screen.")
 (defvar-local peta-journal--page-path nil "The path of the page on screen, if it can be renamed.")
+(defvar-local peta-journal--properties nil
+  "The property rows of the page on screen, or nil on a screen without properties.")
+(defvar-local peta-journal--free-keys nil "The property keys that can still be added to the page.")
 (defvar-local peta-journal--connection "" "The state of the connection to the server.")
 (defvar-local peta-journal--scrolled nil "The scroll position the core knows about.")
 
@@ -670,6 +673,8 @@ M-x peta-journal in that buffer starts it and shows the saved text.  See *peta-j
     ("title" (setq peta-journal--title (plist-get message :title))
      (force-mode-line-update))
     ("page_path" (setq peta-journal--page-path (plist-get message :path)))
+    ("properties" (peta-journal--on-properties (plist-get message :rows)
+                                               (plist-get message :free_keys)))
     ("status" (setq peta-journal--connection (plist-get message :connection))
      (force-mode-line-update))
     ("search" (peta-journal--on-search (plist-get message :results)
@@ -1154,6 +1159,61 @@ C-n and C-p select a result, RET opens it, and C-g closes the search."
         (forward-line 2))))
   (pop-to-buffer "*PetaJournal Backlinks*"))
 
+;;;; Page properties
+
+(defconst peta-journal--properties-buffer "*PetaJournal Properties*"
+  "The name of the buffer that lists the properties.")
+
+(defvar-local peta-journal--list-page nil
+  "The buffer of the page that the list of properties shows.")
+
+(defun peta-journal--draw-properties (page)
+  "Fill the list of properties with those of the buffer PAGE."
+  (let ((rows (buffer-local-value 'peta-journal--properties page)))
+    (with-current-buffer (get-buffer-create peta-journal--properties-buffer)
+      (peta-journal-list-mode)
+      (setq peta-journal--list-page page)
+      (let* ((inhibit-read-only t)
+             (width (seq-max (cons 0 (mapcar (lambda (row) (length (plist-get row :key)))
+                                             rows)))))
+        (erase-buffer)
+        (insert "Properties\n\n")
+        (seq-doseq (row rows)
+          (insert (format "%s  %s\n"
+                          (string-pad (plist-get row :key) width)
+                          (plist-get row :value))))
+        (goto-char (point-min))))))
+
+(defun peta-journal--on-properties (rows free-keys)
+  "Keep the property ROWS and FREE-KEYS, and draw the list when it shows this page."
+  (setq peta-journal--properties rows
+        peta-journal--free-keys (append free-keys nil))
+  (when-let* ((list-buffer (get-buffer peta-journal--properties-buffer)))
+    (when (eq (buffer-local-value 'peta-journal--list-page list-buffer) (current-buffer))
+      (peta-journal--draw-properties (current-buffer)))))
+
+(defun peta-journal--properties-page ()
+  "The buffer of the page that a property command is about.
+Signals an error on a journal, which cannot have properties."
+  (let ((page (peta-journal--page)))
+    (unless (and page (buffer-local-value 'peta-journal--properties page))
+      (user-error "Only a doc page has properties, not a journal"))
+    page))
+
+(defun peta-journal--show-properties (page)
+  "Show the list of properties of the buffer PAGE, and keep the point where it is."
+  (peta-journal--draw-properties page)
+  (display-buffer peta-journal--properties-buffer))
+
+(defun peta-journal-properties ()
+  "Show the properties of the page in another window, or close the window."
+  (interactive)
+  (let ((page (peta-journal--properties-page))
+        (window (get-buffer-window peta-journal--properties-buffer)))
+    (if window
+        (quit-window nil window)
+      (peta-journal--show-properties page))))
+
 (defun peta-journal--insert-backlink (page text url)
   "Insert the line TEXT of the list of backlinks, which opens URL in PAGE."
   (insert (propertize (concat text "\n")
@@ -1181,6 +1241,7 @@ C-n and C-p select a result, RET opens it, and C-g closes the search."
   "C-c C-f" #'peta-journal-find-page
   "C-c C-v" #'peta-journal-new-buffer
   "C-c C-r" #'peta-journal-rename-page
+  "C-c C-a" #'peta-journal-properties
   "C-c /" #'peta-journal-search
   "C-c C-b" #'peta-journal-backlinks
   "C-c C-l" #'peta-journal-back
@@ -1280,6 +1341,8 @@ A journal then loads the older days."
           peta-journal--ack 0
           peta-journal--holding nil
           peta-journal--page-path nil
+          peta-journal--properties nil
+          peta-journal--free-keys nil
           peta-journal--output "")
     (setq peta-journal--process
           (make-process :name "peta-shell-emacs"
