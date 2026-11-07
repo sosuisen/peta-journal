@@ -656,6 +656,19 @@
     (should (eq (peta-journal-test--face body "[!TIP") 'peta-journal-alert))
     (should (eq (peta-journal-test--face body "本文") 'peta-journal-quote))))
 
+;; リストとタスクの記号、水平線、小さい文字には色が付く。リストの本文には付かない。
+(ert-deftest peta-journal-list-marks-rules-and-subtext-have-their-colors ()
+  (should (eq (peta-journal-test--face "- 項目" "-") 'peta-journal-list-mark))
+  (should-not (peta-journal-test--face "- 項目" "項目"))
+  (should (eq (peta-journal-test--face "* 項目" "*") 'peta-journal-list-mark))
+  (should (eq (peta-journal-test--face "12. 項目" "12.") 'peta-journal-list-mark))
+  (should (eq (peta-journal-test--face "- a\n  - 子" "- 子") 'peta-journal-list-mark))
+  (should (eq (peta-journal-test--face "- [ ] やる" "[ ]") 'peta-journal-list-mark))
+  (should (eq (peta-journal-test--face "- [x] 済み" "[x]") 'peta-journal-list-mark))
+  (should (eq (peta-journal-test--face "---" "---") 'peta-journal-rule))
+  (should (eq (peta-journal-test--face "***" "***") 'peta-journal-rule))
+  (should (eq (peta-journal-test--face "-# 小さい" "小さい") 'peta-journal-subtext)))
+
 ;;;; Links
 
 ;; リンクを開くコマンドは、編集を閉じてから、カーソルの位置をシェルへ送る。リンクかどうかはcoreが決める。
