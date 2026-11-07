@@ -482,6 +482,14 @@ When its item has gone, the row now at the same index."
   (peta-journal--body-start
    (peta-journal--find-row (plist-get (aref peta-journal--rows index) :id))))
 
+(defun peta-journal--warn-if-shown-elsewhere ()
+  "Say so when another buffer shows the page of the current buffer.
+A core reloads an open page only when its file changes, so neither buffer
+shows what the other saves."
+  (when-let* ((other (peta-journal--other-buffer-of-page (current-buffer))))
+    (message "%s also shows this page.  What one buffer saves does not appear in the other"
+             (buffer-name other))))
+
 (defun peta-journal--apply-rows (new page-id ack)
   "Show the rows of the vector NEW of PAGE-ID.
 The shell has handled the lines up to ACK.  Only the rows that changed are
@@ -506,6 +514,8 @@ rewritten, so what does not change stays where it is."
                do (insert (peta-journal--row-string (aref new index)))))
     (setq peta-journal--rows new
           peta-journal--page-id page-id)
+    (when new-page
+      (peta-journal--warn-if-shown-elsewhere))
     (restore-buffer-modified-p nil)
     (cond
      ((zerop (length new)) (goto-char (point-min)))
@@ -1319,7 +1329,9 @@ to that buffer: edits of one item in two buffers could overwrite each other."
     (with-current-buffer buffer
       (peta-journal-mode)
       (peta-journal--start-shell (concat "/pages/" path))
-      (peta-journal--wait-for-page))
+      ;; No warning about a page shown twice: this command goes on to the other buffer
+      (let ((inhibit-message t))
+        (peta-journal--wait-for-page)))
     (let ((other (peta-journal--other-buffer-of-page buffer)))
       (when other
         (kill-buffer buffer))
