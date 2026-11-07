@@ -581,6 +581,25 @@
           (should (equal peta-journal--connection "shell stopped"))
           (should (equal (buffer-local-value 'peta-journal--connection first) "")))))))
 
+;; 他のバッファが表示中のページへ移ると、そのことを一度だけ伝える。保存しても、互いの画面には届かないためである。
+(ert-deftest peta-journal-warns-when-another-buffer-shows-the-page ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
+    (let ((first (buffer-name))
+          (rows (vector (peta-journal-test--row "b" 1 "y")))
+          (messages nil))
+      (peta-journal-test--with-rows (list (peta-journal-test--row "b" 1 "y"))
+        (peta-journal--apply-rows rows "other" 0)
+        (cl-letf (((symbol-function 'message)
+                   (lambda (format-string &rest args)
+                     (push (apply #'format format-string args) messages))))
+          (peta-journal--apply-rows rows "another" 0)
+          (should-not messages)
+          (peta-journal--apply-rows rows "page" 0)
+          (should (= (length messages) 1))
+          (should (string-search first (car messages)))
+          (peta-journal--apply-rows rows "page" 0)
+          (should (= (length messages) 1)))))))
+
 ;;;; Closing what was typed
 
 ;; `[`と`]`とバッククォートを打つと、カーソルの位置をシェルへ伝える。他の文字では伝えない。
