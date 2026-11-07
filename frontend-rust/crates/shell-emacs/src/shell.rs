@@ -238,15 +238,7 @@ impl<H: Host> Shell<H> {
     }
 
     fn set_property(&mut self, key: String, value: String) {
-        let value_type = self
-            .core
-            .view()
-            .config
-            .property_definitions
-            .iter()
-            .find(|d| d.key == key)
-            .map(|d| d.value_type.clone())
-            .unwrap_or_default();
+        let value_type = property_type(&self.core.view(), &key);
         self.send(Event::SetPageProperty {
             key,
             value_type,
@@ -612,4 +604,20 @@ impl<H: Host> Shell<H> {
             });
         }
     }
+}
+
+/// The type to send a value of the key with. A list stays a list, even when it has no definition.
+fn property_type(view: &ViewModel, key: &str) -> String {
+    let is_list = match &view.screen {
+        ScreenView::Page(Some(page)) => page.properties.iter().any(|p| p.key == key && p.is_list),
+        _ => false,
+    };
+    if is_list {
+        return "tags".to_string();
+    }
+    view.config
+        .property_definitions
+        .iter()
+        .find(|d| d.key == key)
+        .map_or_else(|| "text".to_string(), |d| d.value_type.clone())
 }
