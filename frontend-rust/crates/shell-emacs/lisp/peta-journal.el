@@ -1174,14 +1174,16 @@ C-n and C-p select a result, RET opens it, and C-g closes the search."
       (peta-journal-list-mode)
       (setq peta-journal--list-page page)
       (let* ((inhibit-read-only t)
-             (width (seq-max (cons 0 (mapcar (lambda (row) (length (plist-get row :key)))
+             (width (seq-max (cons 0 (mapcar (lambda (row) (string-width (plist-get row :key)))
                                              rows)))))
         (erase-buffer)
         (insert "Properties\n\n")
         (seq-doseq (row rows)
-          (insert (format "%s  %s\n"
-                          (string-pad (plist-get row :key) width)
-                          (plist-get row :value))))
+          (let ((key (plist-get row :key)))
+            (insert (format "%s%s  %s\n"
+                            key
+                            (make-string (- width (string-width key)) ?\s)
+                            (plist-get row :value)))))
         (goto-char (point-min))))))
 
 (defun peta-journal--on-properties (rows free-keys)
@@ -1214,6 +1216,53 @@ Signals an error on a journal, which cannot have properties."
         (quit-window nil window)
       (peta-journal--show-properties page))))
 
+(defun peta-journal--property-keys (page field)
+  "The keys of the properties of the buffer PAGE whose FIELD is true."
+  (mapcar (lambda (row) (plist-get row :key))
+          (seq-filter (lambda (row) (plist-get row field))
+                      (buffer-local-value 'peta-journal--properties page))))
+
+(defun peta-journal--read-property-key (prompt keys)
+  "Ask with PROMPT for one of KEYS.  Signals an error when the answer is empty."
+  (let ((key (completing-read prompt keys nil t)))
+    (when (string-empty-p key)
+      (user-error "No property was chosen"))
+    key))
+
+(defun peta-journal--read-property-to-set ()
+  "Ask for a key and its value.  Return them as a list."
+  (let* ((page (peta-journal--properties-page))
+         (key (peta-journal--read-property-key
+               "Set property: "
+               (append (peta-journal--property-keys page :editable)
+                       (buffer-local-value 'peta-journal--free-keys page))))
+         (row (seq-find (lambda (row) (equal (plist-get row :key) key))
+                        (buffer-local-value 'peta-journal--properties page)))
+         (value (read-string (format "Value of %s: " key) (plist-get row :value))))
+    (when (string-empty-p value)
+      (user-error "The value is empty.  To remove a property, use `peta-journal-delete-property'"))
+    (list key value)))
+
+(defun peta-journal-set-property (key value)
+  "Set the property KEY of the page to VALUE, and show the list of properties."
+  (interactive (peta-journal--read-property-to-set))
+  (let ((page (peta-journal--properties-page)))
+    (with-current-buffer page
+      (peta-journal--send "set_property" :key key :value value))
+    (peta-journal--show-properties page)))
+
+(defun peta-journal-delete-property (key)
+  "Remove the property KEY from the page, and show the list of properties."
+  (interactive
+   (let ((keys (peta-journal--property-keys (peta-journal--properties-page) :removable)))
+     (unless keys
+       (user-error "This page has no property to remove"))
+     (list (peta-journal--read-property-key "Remove property: " keys))))
+  (let ((page (peta-journal--properties-page)))
+    (with-current-buffer page
+      (peta-journal--send "delete_property" :key key))
+    (peta-journal--show-properties page)))
+
 (defun peta-journal--insert-backlink (page text url)
   "Insert the line TEXT of the list of backlinks, which opens URL in PAGE."
   (insert (propertize (concat text "\n")
@@ -1242,6 +1291,8 @@ Signals an error on a journal, which cannot have properties."
   "C-c C-v" #'peta-journal-new-buffer
   "C-c C-r" #'peta-journal-rename-page
   "C-c C-a" #'peta-journal-properties
+  "C-c C-s" #'peta-journal-set-property
+  "C-c C-k" #'peta-journal-delete-property
   "C-c /" #'peta-journal-search
   "C-c C-b" #'peta-journal-backlinks
   "C-c C-l" #'peta-journal-back

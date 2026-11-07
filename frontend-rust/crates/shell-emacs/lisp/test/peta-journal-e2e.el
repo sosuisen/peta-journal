@@ -408,6 +408,54 @@ The server is a real one, with its files in a temporary folder."
   (peta-journal-e2e--with-app
     (should-error (execute-kbd-macro (kbd "C-c C-r")) :type 'user-error)))
 
+(defun peta-journal-e2e--saved-tags ()
+  "The tags of the page on screen, as the server has them, in a list."
+  (let* ((answer (peta-journal-e2e--request "GET" (concat "/api/pages/" peta-journal--page-id)))
+         (properties (plist-get (plist-get answer :page) :properties)))
+    (append (plist-get properties :tags) nil)))
+
+(defun peta-journal-e2e--wait-saved-tags (tags)
+  "Wait until the server has exactly TAGS on the page on screen."
+  (peta-journal-e2e--wait-for
+   (format "the server to have the tags %S, has %S" tags (peta-journal-e2e--saved-tags))
+   (lambda () (equal (peta-journal-e2e--saved-tags) tags))))
+
+(defun peta-journal-e2e--properties-text ()
+  "What the list of properties shows."
+  (with-current-buffer "*PetaJournal Properties*"
+    (buffer-substring-no-properties (point-min) (point-max))))
+
+;; C-c C-s でプロパティを設定すると、サーバーに保存され、一覧に出る。打ちかけの文はそのまま残る。
+;; もう一度設定すると今の値から直せて、C-c C-k で消せる。
+(ert-deftest peta-journal-e2e-a-property-is-set-changed-and-removed ()
+  (peta-journal-e2e--with-app
+    (peta-journal-find-page "プロパティのページ")
+    (peta-journal-e2e--wait-page-title "プロパティのページ")
+    (peta-journal-e2e--type "打ちかけ")
+    (execute-kbd-macro (vconcat (kbd "C-c C-s") "tags" (kbd "RET") "emacs, memo" (kbd "RET")))
+    (peta-journal-e2e--wait-saved-tags '("emacs" "memo"))
+    (peta-journal-e2e--wait-for
+     "the tags in the list"
+     (lambda () (string-search "tags" (peta-journal-e2e--properties-text))))
+    (should (string-search "emacs, memo" (peta-journal-e2e--properties-text)))
+    (should (equal (peta-journal--body-at (point)) "打ちかけ"))
+
+    (execute-kbd-macro (vconcat (kbd "C-c C-s") "tags" (kbd "RET") (kbd "C-e") ", more" (kbd "RET")))
+    (peta-journal-e2e--wait-saved-tags '("emacs" "memo" "more"))
+
+    (execute-kbd-macro (vconcat (kbd "C-c C-k") "tags" (kbd "RET")))
+    (peta-journal-e2e--wait-saved-tags nil)
+    (peta-journal-e2e--wait-for
+     "the tags to leave the list"
+     (lambda () (not (string-search "tags" (peta-journal-e2e--properties-text)))))
+    (peta-journal-e2e--keys "C-x C-s")
+    (peta-journal-e2e--wait-saved '("打ちかけ"))))
+
+;; ジャーナルでは、キーを尋ねずに断る。
+(ert-deftest peta-journal-e2e-a-journal-refuses-a-property ()
+  (peta-journal-e2e--with-app
+    (should-error (execute-kbd-macro (kbd "C-c C-s")) :type 'user-error)))
+
 ;; C-c / で検索語を打って RET を押すと、その語の新しいページができて開く。間を置かなくてもよい。
 (ert-deftest peta-journal-e2e-the-search-box-creates-a-page ()
   (peta-journal-e2e--with-app
