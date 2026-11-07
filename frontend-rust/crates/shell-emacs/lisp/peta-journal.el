@@ -122,13 +122,19 @@ The core does not take in changes from elsewhere while an edit is open."
 (defface peta-journal-html '((t :inherit font-lock-preprocessor-face))
   "An HTML tag.")
 
+;;;; Finding Flat Markdown
+
+;; These rules follow the parser of the server only roughly.  The shell sends Emacs the text of a
+;; body and no parsed spans, and asking for them on each key would slow typing down.
+
 (defun peta-journal--word-char-p (char)
   "Non-nil when CHAR is a letter or a digit.  CHAR is nil at the buffer edge."
   (and char (string-match-p "[[:alnum:]]" (string char))))
 
 (defun peta-journal--delimiters-fit-p (mark start end)
-  "Non-nil when the pair of MARK runs from START to END can emphasize.
-A regexp cannot say this, as it cannot look at the next match's first character."
+  "Non-nil when the pair of MARK from START to END can decorate its text.
+A regexp cannot check this.  It would take the characters around the pair
+into its match, and the next pair could not start at a character it took."
   (let ((before (char-before start))
         (after (char-after end)))
     (and (not (memq before (list mark ?\\)))
@@ -162,7 +168,7 @@ A regexp cannot say this, as it cannot look at the next match's first character.
   "What comes before the text of a line in a body.")
 
 (defun peta-journal--fence (opening)
-  "A font-lock matcher for a block from the line that matches OPENING to its closing.
+  "A font-lock matcher for a block that starts at a line matching OPENING.
 Group 1 of OPENING is the run of marks that the closing line repeats.
 A block with no closing ends with its body, since each item is parsed alone."
   (let ((regexp (concat peta-journal--line-start-regexp " \\{0,3\\}" opening)))
