@@ -1295,6 +1295,14 @@ wait, a quick RET would open a result of an older query."
    ((peta-journal--search-choice) (exit-minibuffer))
    (t (minibuffer-message "No result to open"))))
 
+(defun peta-journal-search-recent ()
+  "List the recent pages as the results, when nothing is typed yet."
+  (interactive)
+  (with-current-buffer peta-journal--search-buffer
+    (peta-journal--search-render
+     (vconcat (mapcar (lambda (path) (list :kind "recent" :title path :snippet "" :path path))
+                      peta-journal--recent)))))
+
 (defun peta-journal--search-input-changed (_beg _end _length)
   "Search for what the minibuffer holds now."
   (let ((query (minibuffer-contents-no-properties)))
@@ -1305,6 +1313,7 @@ wait, a quick RET would open a result of an older query."
   :parent minibuffer-local-map
   "RET" #'peta-journal-search-exit
   "C-j" #'peta-journal-search-exit
+  "TAB" #'peta-journal-search-recent
   "C-n" #'peta-journal-search-next
   "C-p" #'peta-journal-search-previous
   "<down>" #'peta-journal-search-next
