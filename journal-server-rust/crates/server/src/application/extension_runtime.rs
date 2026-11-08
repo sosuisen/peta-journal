@@ -228,6 +228,37 @@ mod tests {
         assert_ne!(requests[0].id, requests[1].id);
     }
 
+    // onPageTagAddが、ページの情報と足されたタグを受け取る。
+    #[test]
+    fn on_page_tag_add_gets_the_page_and_the_added_tags() {
+        let dir = function_dir(
+            "globalThis.onPageTagAdd = (page, tags) => {
+                peta.createItem({ position: 'last', level: 1, body: page.fileName + ': ' + tags.join(',') });
+            };",
+        );
+        let event = ExtensionEvent::PageTagAdd(page(), vec!["book".into(), "idea".into()]);
+
+        let requests = runtime().run(dir.path(), &event).unwrap();
+
+        assert_eq!(requests.len(), 1);
+        assert_eq!(requests[0].body, "2026-11-08: book,idea");
+    }
+
+    // ページ作成の拡張は、タグの追加では呼ばれない。
+    #[test]
+    fn on_page_create_is_not_called_for_a_tag_add() {
+        let dir = function_dir(
+            "globalThis.onPageCreate = () => {
+                peta.createItem({ position: 'last', level: 1, body: 'a' });
+            };",
+        );
+        let event = ExtensionEvent::PageTagAdd(page(), vec!["book".into()]);
+
+        let requests = runtime().run(dir.path(), &event).unwrap();
+
+        assert!(requests.is_empty());
+    }
+
     // 出来事の関数を持たない拡張は、何も頼まない。
     #[test]
     fn an_extension_without_the_event_function_asks_for_nothing() {
