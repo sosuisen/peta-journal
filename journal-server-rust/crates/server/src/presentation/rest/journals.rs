@@ -57,9 +57,12 @@ async fn get_or_create(
     Path(name): Path<String>,
 ) -> AppResult<Json<GetOrCreateJournalResponse>> {
     blocking(move || {
-        let result = state
+        let mut result = state
             .journal_service
             .get_or_create_journal_by_name(name.parse::<JournalName>()?)?;
+        if result.created {
+            result.items = state.extensions.page_created(&result.page)?;
+        }
         Ok(Json(GetOrCreateJournalResponse {
             page: state.dtos.page_to_dto(&result.page)?,
             items: state.dtos.to_dtos(&result.items)?,

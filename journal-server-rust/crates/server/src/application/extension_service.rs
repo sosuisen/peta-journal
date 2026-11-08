@@ -3,16 +3,19 @@
 
 use std::sync::Arc;
 
-use crate::domain::model::Page;
+use crate::domain::model::{Item, Page};
+use crate::error::AppResult;
 
 use super::extension_functions::ExtensionFunctionService;
 use super::extension_runtime::{ExtensionEvent, ExtensionRuntime, PageInfo};
 use super::item_service::ItemService;
+use super::page_service::PageService;
 
 pub struct ExtensionService {
     runtime: ExtensionRuntime,
     functions: Arc<ExtensionFunctionService>,
     items: Arc<ItemService>,
+    pages: Arc<PageService>,
 }
 
 impl ExtensionService {
@@ -20,19 +23,22 @@ impl ExtensionService {
         runtime: ExtensionRuntime,
         functions: Arc<ExtensionFunctionService>,
         items: Arc<ItemService>,
+        pages: Arc<PageService>,
     ) -> ExtensionService {
         ExtensionService {
             runtime,
             functions,
             items,
+            pages,
         }
     }
 
     /// Lets each extension answer a page made over the API, in the order of their folder
-    /// names. The items of each extension are written before the next one runs, so it sees
-    /// them.
-    pub fn page_created(&self, page: &Page) {
+    /// names. The items of each extension are written before the next one runs. Returns the
+    /// items the page has then, which the caller answers with.
+    pub fn page_created(&self, page: &Page) -> AppResult<Vec<Item>> {
         self.dispatch(page, &ExtensionEvent::PageCreate(page_info(page)));
+        self.pages.get_page_items(&page.id)
     }
 
     /// Runs every extension for `event`. A failed extension writes nothing, and the next ones

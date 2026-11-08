@@ -194,6 +194,7 @@ impl AppState {
             ExtensionRuntime::new(Arc::new(splitter.clone()), Arc::clone(&ids)),
             Arc::clone(&functions),
             Arc::clone(&item_service),
+            Arc::clone(&page_service),
         ));
         let dtos = ItemDtoAssembler::new(properties.clone(), items.clone());
 

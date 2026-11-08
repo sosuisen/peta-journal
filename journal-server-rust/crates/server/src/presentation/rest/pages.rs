@@ -120,8 +120,7 @@ async fn get_or_create_doc(
             .page_service
             .get_or_create_doc(req.title.as_deref(), req.dir_path.as_deref())?;
         if result.created {
-            state.extensions.page_created(&result.page);
-            result.items = state.page_service.get_page_items(&result.page.id)?;
+            result.items = state.extensions.page_created(&result.page)?;
         }
         Ok(Json(GetOrCreateDocResponse {
             page: state.dtos.page_to_dto(&result.page)?,
