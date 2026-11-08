@@ -291,7 +291,18 @@ A line of cells alone is plain text, and `---' with no `|' is not a delimiter."
 
 ;;;; State
 
-(defvar peta-journal--recent nil "The paths of the recent pages.")
+(defvar peta-journal--recent nil
+  "The paths of the recent pages, the most recently modified first.")
+
+(defun peta-journal--recent-pages ()
+  "The recent pages as a completion table that keeps their order.
+Completion sorts a plain list by name, which would hide the newest pages."
+  (let ((pages peta-journal--recent))
+    (lambda (string predicate action)
+      (if (eq action 'metadata)
+          '(metadata (display-sort-function . identity)
+                     (cycle-sort-function . identity))
+        (complete-with-action action pages string predicate)))))
 (defvar peta-journal--idle-timer nil "The timer that ends an edit after an idle moment.")
 
 ;; Each buffer has a shell of its own, as one core shows one page
@@ -1109,7 +1120,7 @@ Only for these characters: waiting on every key would slow typing down."
 (defun peta-journal-find-page (path)
   "Open the page at PATH, which is made when it does not exist."
   (interactive
-   (list (completing-read "Page: " peta-journal--recent nil nil)))
+   (list (completing-read "Page: " (peta-journal--recent-pages) nil nil)))
   (peta-journal--ensure-started)
   (peta-journal--go "go_to_page" :path path))
 
@@ -1693,7 +1704,7 @@ character in front of the first bullet."
 An empty PATH opens today's journal.  When a buffer shows the page already, go
 to that buffer: edits of one item in two buffers could overwrite each other."
   (interactive
-   (list (completing-read "Page in a new buffer: " peta-journal--recent nil nil)))
+   (list (completing-read "Page in a new buffer: " (peta-journal--recent-pages) nil nil)))
   (let ((buffer (generate-new-buffer "*PetaJournal*")))
     (with-current-buffer buffer
       (peta-journal-mode)
