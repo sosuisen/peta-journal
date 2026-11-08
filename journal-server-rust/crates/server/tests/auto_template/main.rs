@@ -20,6 +20,18 @@ pattern: Monday
 
 <!-- @@ -->
 - [ ] Check e-mails
+---
+pattern: weekly
+---
+Week goals
+---
+pattern: /^plan-/
+---
+Plan A
+---
+pattern: Friday, /^plan-/
+---
+Plan B
 ";
 
 /// The server with auto-template installed.
@@ -60,5 +72,30 @@ async fn a_new_journal_gets_the_template_of_its_weekday() {
     assert_eq!(
         ItemRow::of(&monday["items"][1]).types,
         vec!["task".to_string()]
+    );
+}
+
+// テンプレートは、名前のパターンに合うページにだけ入る。合うものがいくつもあれば、ファイルの順に続けて入る。
+#[tokio::test]
+async fn templates_go_only_into_pages_whose_names_match_their_patterns() {
+    template_server();
+
+    let (_, tuesday) = post_empty("/api/journals/2031-03-04").await;
+    let (_, week) = post_empty("/api/journals/2031-W10").await;
+    let (_, plan) = post(
+        "/api/pages/doc",
+        json!({ "title": unique_name("plan-"), "dirPath": "" }),
+    )
+    .await;
+
+    assert_eq!(outline(&tuesday["items"]), vec!["1:".to_string()]);
+    // A weekly journal starts with links to its days, so the template goes after them
+    assert_eq!(
+        outline(&week["items"]).last().map(String::as_str),
+        Some("1:Week goals")
+    );
+    assert_eq!(
+        outline(&plan["items"]),
+        vec!["1:Plan A".to_string(), "1:Plan B".to_string()]
     );
 }
