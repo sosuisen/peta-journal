@@ -75,6 +75,14 @@ pub struct ItemRequest {
     pub transclude: Option<String>,
 }
 
+/// An item of Flat Markdown, as `parseItems` gives it to the script.
+#[derive(Serialize)]
+struct ParsedItem {
+    level: i32,
+    body: String,
+    transclude: Option<String>,
+}
+
 #[derive(Deserialize)]
 struct CreateItemArgs {
     position: String,
@@ -105,7 +113,6 @@ impl Default for ExtensionLimits {
 
 /// Runs extension scripts. Each run gets a new QuickJS runtime, so extensions share nothing.
 pub struct ExtensionRuntime {
-    #[allow(dead_code)]
     splitter: Arc<FlatMarkdownSplitter>,
     ids: Arc<IdGenerator>,
     limits: ExtensionLimits,
@@ -193,6 +200,26 @@ impl ExtensionRuntime {
             },
         )?;
         peta.set("readFile", read_file)?;
+        let splitter = Arc::clone(&self.splitter);
+        let parse_items = Function::new(
+            ctx.clone(),
+            move |ctx: Ctx<'js>, markdown: String| -> rquickjs::Result<Value<'js>> {
+                let items: Vec<ParsedItem> = splitter
+                    .split(&markdown.replace("\r\n", "\n"))
+                    .map_err(|e| rquickjs::Exception::throw_type(&ctx, &e.to_string()))?
+                    .items
+                    .into_iter()
+                    .map(|item| ParsedItem {
+                        level: item.level,
+                        transclude: item.properties_map().remove("transclude"),
+                        body: item.body,
+                    })
+                    .collect();
+                to_js(&ctx, &items)
+                    .map_err(|e| rquickjs::Exception::throw_internal(&ctx, &e.to_string()))
+            },
+        )?;
+        peta.set("parseItems", parse_items)?;
         ctx.globals().set("peta", peta)?;
         Ok(())
     }
@@ -465,7 +492,7 @@ mod tests {
         );
         std::fs::write(
             dir.path().join("template.md"),
-            "- 予定\n  - [ ] 掃除\n- 引用\n  transclude:: 2026-01-01-00-00-00-AAAAAAA\n",
+            "予定\n\n<!-- @@ -->\n- [ ] 掃除\n\n<!-- @ transclude=\"2026-01-01-00-00-00-AAAAAAA\" -->\n引用\n",
         )
         .unwrap();
 
@@ -481,7 +508,7 @@ mod tests {
             items,
             vec![
                 (1, "予定", None),
-                (2, "[ ] 掃除", None),
+                (2, "- [ ] 掃除", None),
                 (1, "引用", Some("2026-01-01-00-00-00-AAAAAAA")),
             ]
         );
