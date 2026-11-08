@@ -1,21 +1,33 @@
-// Auto Template: puts the items of a template into a new page.
+// Auto Template: puts the items of a template into a new page, or into a page that gets a tag.
 //
 // It runs on the journal server (see ADR 009). The templates are the .md files of this
 // folder. Each has sections of a frontmatter and a body:
 //
 //   ---
 //   pattern: Monday, weekly
+//   tag: book
 //   ---
 //   The body, in Flat Markdown
 //
 // The items of a template go to the end of the page. A new page has only one empty item,
-// which the first item overwrites.
+// which the first item overwrites. The template of a tag goes in only after the user agrees.
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 globalThis.onPageCreate = (page) => {
   const matched = loadTemplates().filter((t) => t.patterns.some((p) => matchesPattern(p, page)));
   insertTemplates(matched);
+};
+
+globalThis.onPageTagAdd = (page, tags) => {
+  const templates = loadTemplates();
+  for (const tag of tags) {
+    const matched = templates.filter((t) => t.tags.includes(tag));
+    if (matched.length === 0) continue;
+    if (peta.confirm(`Insert the template of the tag "#${tag}" at the end of this page?`)) {
+      insertTemplates(matched);
+    }
+  }
 };
 
 /** The templates of every .md file of this folder, in file name order. */
@@ -40,14 +52,21 @@ function parseTemplates(text) {
     if (!frontmatter) continue;
 
     let patterns = [];
+    let tags = [];
     for (const line of frontmatter.split('\n')) {
       const trimmed = line.trim();
       if (trimmed.startsWith('pattern:')) {
         patterns = splitList(trimmed.substring('pattern:'.length));
       }
+      if (trimmed.startsWith('tag:')) {
+        // A '#' typed out of habit is not part of the tag, as in the tags property
+        tags = splitList(trimmed.substring('tag:'.length))
+          .map((t) => t.replace(/^#+/, '').trim())
+          .filter((t) => t);
+      }
     }
-    if (patterns.length > 0 && body) {
-      results.push({ patterns, body });
+    if ((patterns.length > 0 || tags.length > 0) && body) {
+      results.push({ patterns, tags, body });
     }
   }
   return results;
