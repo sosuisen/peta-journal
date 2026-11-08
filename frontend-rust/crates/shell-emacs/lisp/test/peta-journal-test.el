@@ -600,12 +600,12 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
   (with-current-buffer "*PetaJournal Properties*"
     (substring-no-properties (buffer-string))))
 
-;; C-c C-a で、プロパティの一覧を別の窓に開く。カーソルはページに残るので、続けて編集できる。
+;; `C-c C-x p`で、プロパティの一覧を別の窓に開く。カーソルはページに残るので、続けて編集できる。
 (ert-deftest peta-journal-the-list-shows-the-properties-and-keeps-the-point ()
   (peta-journal-test--with-properties peta-journal-test--property-rows []
     (let ((page (current-buffer)))
       (set-window-buffer (selected-window) page)
-      (execute-kbd-macro (kbd "C-c C-a"))
+      (execute-kbd-macro (kbd "C-c C-x p"))
       (should (eq (window-buffer (selected-window)) page))
       (should (get-buffer-window "*PetaJournal Properties*"))
       (should (equal (peta-journal-test--properties-text)
@@ -614,7 +614,7 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
                              "modified  2026-11-08\n"
                              "status    draft\n"))))))
 
-;; もう一度 C-c C-a を押すと、窓を閉じる。
+;; もう一度`C-c C-x p`を押すと、窓を閉じる。
 (ert-deftest peta-journal-the-key-closes-the-open-list ()
   (peta-journal-test--with-properties peta-journal-test--property-rows []
     (set-window-buffer (selected-window) (current-buffer))
@@ -910,12 +910,6 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
   "What the list of search results shows, without its marks."
   (with-current-buffer "*PetaJournal Search*"
     (substring-no-properties (buffer-string))))
-
-;; 検索窓は C-c / で呼び出す。
-(ert-deftest peta-journal-the-search-box-is-on-a-short-key ()
-  (with-temp-buffer
-    (peta-journal-mode)
-    (should (eq (key-binding (kbd "C-c /")) #'peta-journal-search))))
 
 ;; 結果は入力に合わせて窓に並ぶ。ページ、新規作成、項目はそれぞれの形で示される。
 (ert-deftest peta-journal-results-show-pages-creates-and-items ()

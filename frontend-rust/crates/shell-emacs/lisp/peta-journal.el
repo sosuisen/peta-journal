@@ -1521,27 +1521,27 @@ Signals an error on a journal, which cannot have properties."
   "S-<return>" #'peta-journal-newline
   "TAB" #'peta-journal-indent
   "<backtab>" #'peta-journal-outdent
-  "M-<right>" #'peta-journal-indent
-  "M-<left>" #'peta-journal-outdent
-  "M-<up>" #'peta-journal-move-up
-  "M-<down>" #'peta-journal-move-down
+  ;; Not M-<arrow>: those keys keep their Emacs meanings, such as moving by a word.
+  "M-S-<right>" #'peta-journal-indent
+  "M-S-<left>" #'peta-journal-outdent
+  "M-S-<up>" #'peta-journal-move-up
+  "M-S-<down>" #'peta-journal-move-down
+  ;; C-c C-c is left free: in Emacs it means "confirm" or "run".
   "C-c C-t" #'peta-journal-task-cycle
-  "C-c C-c" #'peta-journal-collapse-toggle
+  "C-c C-f" #'peta-journal-collapse-toggle
   "C-c C-d" #'peta-journal-delete-item
-  "C-c C-i" #'peta-journal-insert-image
   "C-c C-o" #'peta-journal-open-at-point
   "C-c C-j" #'peta-journal-today
-  "C-c C-f" #'peta-journal-find-page
-  "C-c C-v" #'peta-journal-new-buffer
-  "C-c C-r" #'peta-journal-rename-page
-  "C-c C-a" #'peta-journal-properties
-  "C-c C-s" #'peta-journal-set-property
-  "C-c C-k" #'peta-journal-delete-property
-  "C-c /" #'peta-journal-search
-  "C-c C-b" #'peta-journal-backlinks
-  "C-c C-l" #'peta-journal-back
+  "C-c C-s" #'peta-journal-search
+  "C-c C-b" #'peta-journal-back
   "C-c C-n" #'peta-journal-next-day
   "C-c C-p" #'peta-journal-previous-day
+  ;; Page-level commands, used less often while writing, go under C-c C-x as in Org.
+  "C-c C-x b" #'peta-journal-backlinks
+  "C-c C-x r" #'peta-journal-rename-page
+  "C-c C-x p" #'peta-journal-properties
+  "C-c C-x n" #'peta-journal-new-buffer
+  "C-c C-x i" #'peta-journal-insert-image
   "<remap> <delete-backward-char>" #'peta-journal-backspace
   "<remap> <delete-char>" #'peta-journal-delete
   "<remap> <delete-forward-char>" #'peta-journal-delete

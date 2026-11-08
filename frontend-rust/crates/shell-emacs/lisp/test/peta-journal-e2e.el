@@ -355,8 +355,8 @@ The server is a real one, with its files in a temporary folder."
     (peta-journal-e2e--wait-saved '("a"))))
 
 (defun peta-journal-e2e--search-keys (query &rest keys)
-  "Press C-c /, type QUERY without a pause, and press KEYS."
-  (execute-kbd-macro (vconcat (kbd "C-c /") query (kbd (string-join keys " "))))
+  "Press C-c C-s, type QUERY without a pause, and press KEYS."
+  (execute-kbd-macro (vconcat (kbd "C-c C-s") query (kbd (string-join keys " "))))
   (peta-journal--wait))
 
 (defun peta-journal-e2e--wait-page-title (title)
@@ -366,11 +366,11 @@ The server is a real one, with its files in a temporary folder."
    (lambda () (equal peta-journal--title title))))
 
 (defun peta-journal-e2e--rename (path)
-  "Press C-c C-r, replace the name it offers with PATH, and press RET."
-  (execute-kbd-macro (vconcat (kbd "C-c C-r C-a C-k") path (kbd "RET")))
+  "Press C-c C-x r, replace the name it offers with PATH, and press RET."
+  (execute-kbd-macro (vconcat (kbd "C-c C-x r C-a C-k") path (kbd "RET")))
   (peta-journal--wait))
 
-;; C-c C-r で名前を変えると、打ったばかりの文も新しい名前のファイルに書かれ、古いファイルは消える。
+;; `C-c C-x r`で名前を変えると、打ったばかりの文も新しい名前のファイルに書かれ、古いファイルは消える。
 (ert-deftest peta-journal-e2e-renaming-moves-the-page-and-keeps-the-text ()
   (peta-journal-e2e--with-app
     (peta-journal-find-page "古い名前")
@@ -410,7 +410,7 @@ The server is a real one, with its files in a temporary folder."
 ;; ジャーナルでは、名前を尋ねずに断る。
 (ert-deftest peta-journal-e2e-a-journal-refuses-the-rename ()
   (peta-journal-e2e--with-app
-    (should-error (execute-kbd-macro (kbd "C-c C-r")) :type 'user-error)))
+    (should-error (execute-kbd-macro (kbd "C-c C-x r")) :type 'user-error)))
 
 (defun peta-journal-e2e--write-image (file bytes)
   "Write the unibyte string BYTES to FILE, as they are."
@@ -425,7 +425,7 @@ The server is a real one, with its files in a temporary folder."
       (insert-file-contents-literally file))
     (buffer-string)))
 
-;; C-c C-i で選んだ画像は、中身のままサーバーへ届き、カーソル位置にリンクが入る。続けて打った文字はリンクの後ろに入る。
+;; `C-c C-x i`で選んだ画像は、中身のままサーバーへ届き、カーソル位置にリンクが入る。続けて打った文字はリンクの後ろに入る。
 (ert-deftest peta-journal-e2e-an-inserted-image-is-uploaded-and-linked ()
   (peta-journal-e2e--with-app
     ;; Bytes that break when read as text: a line end, a zero and a high byte
@@ -435,7 +435,7 @@ The server is a real one, with its files in a temporary folder."
       (peta-journal-e2e--write-image image bytes)
       (peta-journal-e2e--type "前後")
       (peta-journal-e2e--keys "C-b")
-      (execute-kbd-macro (vconcat (kbd "C-c C-i C-a C-k") image (kbd "RET")))
+      (execute-kbd-macro (vconcat (kbd "C-c C-x i C-a C-k") image (kbd "RET")))
       (peta-journal--wait)
       (peta-journal-e2e--type "と")
       (should (equal (peta-journal-e2e--shown) (format "• 前%sと後\n" link)))
@@ -472,7 +472,7 @@ The server is a real one, with its files in a temporary folder."
       (let ((bytes (unibyte-string #x89 ?P ?N ?G 13 10 26 10 0 255 13 10 13 10))
             (image (expand-file-name "shown.png" root)))
         (peta-journal-e2e--write-image image bytes)
-        (execute-kbd-macro (vconcat (kbd "C-c C-i C-a C-k") image (kbd "RET")))
+        (execute-kbd-macro (vconcat (kbd "C-c C-x i C-a C-k") image (kbd "RET")))
         (peta-journal--wait)
         (should-not (peta-journal-e2e--shown-image))
         (peta-journal-e2e--keys "RET")
@@ -570,7 +570,7 @@ The server is a real one, with its files in a temporary folder."
   (peta-journal-e2e--with-app
     (should-error (execute-kbd-macro (kbd "C-c C-s")) :type 'user-error)))
 
-;; C-c / で検索語を打って RET を押すと、その語の新しいページができて開く。間を置かなくてもよい。
+;; `C-c C-s`で検索語を打って`RET`を押すと、その語の新しいページができて開く。間を置かなくてもよい。
 (ert-deftest peta-journal-e2e-the-search-box-creates-a-page ()
   (peta-journal-e2e--with-app
     (peta-journal-e2e--search-keys "新しいページ" "RET")
@@ -643,7 +643,7 @@ The server is a real one, with its files in a temporary folder."
       (peta-journal-e2e--keys "C-c C-n")
       (peta-journal-e2e--wait-for "the next journal"
                                   (lambda () (not (equal peta-journal--page-id today))))
-      (peta-journal-e2e--keys "C-c C-l")
+      (peta-journal-e2e--keys "C-c C-b")
       (peta-journal-e2e--wait-for "the journal before"
                                   (lambda () (equal peta-journal--page-id today))))))
 
