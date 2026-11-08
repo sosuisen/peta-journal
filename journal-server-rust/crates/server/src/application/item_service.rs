@@ -645,15 +645,11 @@ impl ItemService {
     /// Sets a transclusion on an item, making it mirror a source item.
     pub fn set_transclusion(&self, item_id: &Hmtid, source_item_id: &Hmtid) -> AppResult<Item> {
         let item = self.get_item_by_id(item_id)?;
-        let source = self.items.find_by_id(source_item_id)?.ok_or_else(|| {
-            AppError::bad_request(format!("Source item not found: {source_item_id}"))
-        })?;
-        if source.transclude_item_id.is_some() {
-            return Err(AppError::bad_request(
-                "Cannot transclude a transclusion item. Please select the original source item.",
-            ));
-        }
-        self.save_body_and_transclusion(&item, &source.body, Some(source_item_id.clone()))
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+        let updated = self.set_transclusion_in(&tx, &item, source_item_id)?;
+        self.commit_page(tx, &item.page_id, updated.modified_date)?;
+        Ok(updated)
     }
 
     /// Removes a transclusion from an item, clearing its body.
