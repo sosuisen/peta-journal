@@ -1406,7 +1406,8 @@ Return it as the server stores it, or an empty string when the answer is empty."
   "d" #'peta-journal-delete-property)
 
 (define-derived-mode peta-journal-properties-mode peta-journal-list-mode "PetaJournal Properties"
-  "The properties of a page.  s sets the one at the point, d removes it, and q closes.")
+  "The properties of a page.
+s sets the one at the point, d removes it, and q closes the list.")
 
 (defun peta-journal--draw-properties (page)
   "Fill the list of properties with those of the buffer PAGE."
@@ -1456,7 +1457,8 @@ Signals an error on a journal, which cannot have properties."
   (display-buffer peta-journal--properties-buffer))
 
 (defun peta-journal-properties ()
-  "Show the properties of the page in another window and go there, or close the window."
+  "Show the properties of the page in another window and go there.
+When the window is open already, close it."
   (interactive)
   (let ((page (peta-journal--properties-page))
         (window (get-buffer-window peta-journal--properties-buffer)))
