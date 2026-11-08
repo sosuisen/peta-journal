@@ -1410,13 +1410,16 @@ Return it as the server stores it, or an empty string when the answer is empty."
 s sets the one at the point, d removes it, and q closes the list.")
 
 (defun peta-journal--draw-properties (page)
-  "Fill the list of properties with those of the buffer PAGE."
+  "Fill the list of properties with those of the buffer PAGE.
+The point stays on its line, so that the next key works on the same property."
   (let ((rows (buffer-local-value 'peta-journal--properties page))
         (datetime-keys (buffer-local-value 'peta-journal--datetime-keys page)))
     (with-current-buffer (get-buffer-create peta-journal--properties-buffer)
       (peta-journal-properties-mode)
       (setq peta-journal--list-page page)
       (let* ((inhibit-read-only t)
+             (window (get-buffer-window (current-buffer)))
+             (line (line-number-at-pos (if window (window-point window) (point))))
              (width (seq-max (cons 0 (mapcar (lambda (row) (string-width (plist-get row :key)))
                                              rows)))))
         (erase-buffer)
@@ -1431,7 +1434,10 @@ s sets the one at the point, d removes it, and q closes the list.")
                                             (peta-journal--local-datetime value)
                                           value))
                                 'peta-property-key key))))
-        (goto-char (point-min))))))
+        (goto-char (point-min))
+        (forward-line (1- line))
+        (when window
+          (set-window-point window (point)))))))
 
 (defun peta-journal--on-properties (rows free-keys datetime-keys)
   "Keep the property ROWS, FREE-KEYS and DATETIME-KEYS.
