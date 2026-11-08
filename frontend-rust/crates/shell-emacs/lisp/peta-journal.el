@@ -1251,11 +1251,6 @@ SEARCHING says that the results of a newer query are coming."
     (with-current-buffer buffer
       (when peta-journal--search-selected
         (aref peta-journal--search-entries peta-journal--search-selected)))))
-
-(defun peta-journal--search-choice ()
-  "The number the core gave to the selected result, or nil."
-  (plist-get (peta-journal--search-entry) :index))
-
 (defun peta-journal--search-move (step)
   "Move the selection by STEP results, going round at the ends.
 This waits for the results of the query typed, as their arrival resets the
@@ -1326,7 +1321,8 @@ wait, a quick RET would open a result of an older query."
 ;;;###autoload
 (defun peta-journal-search ()
   "Search as you type, and open a page, a new page or an item from the results.
-C-n and C-p select a result, RET opens it, and C-g closes the search."
+TAB before typing lists the recent pages.  C-n and C-p select a result, RET
+opens it, and C-g closes the search."
   (interactive)
   (let ((page (peta-journal--ensure-started))
         (chosen nil))

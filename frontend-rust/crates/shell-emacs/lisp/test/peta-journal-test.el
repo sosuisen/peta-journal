@@ -962,6 +962,10 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
               (list :index index :kind "page" :title title :snippet ""))
             titles)))
 
+(defun peta-journal-test--choice ()
+  "The number the core gave to the selected result, or nil."
+  (plist-get (peta-journal--search-entry) :index))
+
 (defun peta-journal-test--search-text ()
   "What the list of search results shows, without its marks."
   (with-current-buffer "*PetaJournal Search*"
@@ -982,21 +986,21 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
 (ert-deftest peta-journal-the-selection-moves-and-wraps ()
   (peta-journal-test--with-search
     (peta-journal--on-search (peta-journal-test--entries "a" "b" "c") nil)
-    (should (= (peta-journal--search-choice) 0))
+    (should (= (peta-journal-test--choice) 0))
     (peta-journal-search-next)
-    (should (= (peta-journal--search-choice) 1))
+    (should (= (peta-journal-test--choice) 1))
     (peta-journal-search-previous)
     (peta-journal-search-previous)
-    (should (= (peta-journal--search-choice) 2))
+    (should (= (peta-journal-test--choice) 2))
     (peta-journal-search-next)
-    (should (= (peta-journal--search-choice) 0))))
+    (should (= (peta-journal-test--choice) 0))))
 
 ;; 選ぶ番号は、行の順番ではなくコアが付けた番号である。
 (ert-deftest peta-journal-the-choice-is-the-number-from-the-core ()
   (peta-journal-test--with-search
     (peta-journal--on-search
      (vector (list :index 7 :kind "page" :title "a" :snippet "")) nil)
-    (should (= (peta-journal--search-choice) 7))))
+    (should (= (peta-journal-test--choice) 7))))
 
 ;; 同じ結果がまた届いても選択は動かない。結果が変われば先頭へ戻る。
 (ert-deftest peta-journal-the-selection-stays-until-the-results-change ()
@@ -1004,9 +1008,9 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
     (peta-journal--on-search (peta-journal-test--entries "a" "b") t)
     (peta-journal-search-next)
     (peta-journal--on-search (peta-journal-test--entries "a" "b") nil)
-    (should (= (peta-journal--search-choice) 1))
+    (should (= (peta-journal-test--choice) 1))
     (peta-journal--on-search (peta-journal-test--entries "b" "c") nil)
-    (should (= (peta-journal--search-choice) 0))))
+    (should (= (peta-journal-test--choice) 0))))
 
 ;; 検索語が空になると結果は消え、選べるものがなくなる。
 (ert-deftest peta-journal-an-empty-query-empties-the-list ()
@@ -1014,7 +1018,7 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
     (peta-journal--on-search (peta-journal-test--entries "a") nil)
     (peta-journal--on-search [] nil)
     (should (equal (peta-journal-test--search-text) ""))
-    (should (null (peta-journal--search-choice)))))
+    (should (null (peta-journal-test--choice)))))
 
 ;; 入力が空のときに`TAB`を押すと、最近のページが、その順のまま結果の一覧に並ぶ。先頭が選ばれている。
 (ert-deftest peta-journal-tab-on-an-empty-query-lists-the-recent-pages ()
