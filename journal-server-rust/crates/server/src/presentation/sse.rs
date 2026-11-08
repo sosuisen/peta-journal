@@ -58,8 +58,9 @@ impl SseBroadcaster {
 
 /// The server writes an atlas page by itself, so a client that shows it reads it again.
 impl ExtensionEvents for SseBroadcaster {
+    /// Its own source: the clients reload the page, as `server` would reload only an atlas.
     fn page_changed(&self, page_id: &hmtid::Hmtid) {
-        self.broadcast_pages_updated_from(page_id.as_str(), "server");
+        self.broadcast_pages_updated_from(page_id.as_str(), "extension");
     }
 }
 

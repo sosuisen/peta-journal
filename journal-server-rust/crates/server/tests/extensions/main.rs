@@ -224,7 +224,7 @@ async fn the_clients_hear_of_the_page_when_the_tag_extensions_are_done() {
 
     set_tags(&page.id, "tmpl-ext").await;
 
-    let expected = format!("\"pageId\":\"{}\",\"source\":\"server\"", page.id);
+    let expected = format!("\"pageId\":\"{}\",\"source\":\"extension\"", page.id);
     let mut seen = String::new();
     let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(5);
     while !seen.contains(&expected) {
