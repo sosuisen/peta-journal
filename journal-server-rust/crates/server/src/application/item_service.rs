@@ -233,8 +233,13 @@ impl ItemService {
                 }
                 other => other.clone(),
             };
-            if position == ItemPosition::Last {
-                if let Some(empty) = lone_empty_item_in(&tx, page_id)? {
+            let empty = match position {
+                ItemPosition::Last => lone_empty_item_in(&tx, page_id)?,
+                _ => None,
+            };
+            let written = match empty {
+                Some(empty) => {
+                    taken_ids.insert(request.id.clone(), empty.id.clone());
                     self.update_item_in(
                         &tx,
                         &empty,
@@ -242,25 +247,54 @@ impl ItemService {
                         Some(1),
                         None,
                         &mut effects,
-                    )?;
-                    taken_ids.insert(request.id.clone(), empty.id);
-                    continue;
+                    )?
                 }
+                None => {
+                    let level = level_that_fits_in(&tx, page_id, &position, request.level)?;
+                    self.create_item_in(
+                        &tx,
+                        page_id,
+                        &position,
+                        level,
+                        &request.body,
+                        Some(request.id.clone()),
+                        &mut effects,
+                    )?
+                }
+            };
+            if let Some(source_id) = &request.transclude {
+                self.set_transclusion_in(&tx, &written, &Hmtid::parse(source_id)?)?;
             }
-            let level = level_that_fits_in(&tx, page_id, &position, request.level)?;
-            self.create_item_in(
-                &tx,
-                page_id,
-                &position,
-                level,
-                &request.body,
-                Some(request.id.clone()),
-                &mut effects,
-            )?;
         }
         tx.commit()?;
         self.finish(effects);
         Ok(())
+    }
+
+    /// Makes `item` mirror the source item, in the transaction.
+    fn set_transclusion_in(
+        &self,
+        tx: &Connection,
+        item: &Item,
+        source_item_id: &Hmtid,
+    ) -> AppResult<Item> {
+        let source = ItemRepository::find_by_id_in(tx, source_item_id)?.ok_or_else(|| {
+            AppError::bad_request(format!("Source item not found: {source_item_id}"))
+        })?;
+        if source.transclude_item_id.is_some() {
+            return Err(AppError::bad_request(
+                "Cannot transclude a transclusion item. Please select the original source item.",
+            ));
+        }
+        let updated = Item {
+            modified_date: now_millis(),
+            body: source.body.clone(),
+            ast: self.parser.parse_to_ast(&source.body),
+            transclude_item_id: Some(source_item_id.clone()),
+            ..item.clone()
+        };
+        ItemRepository::save_in(tx, &updated)?;
+        Ok(updated)
     }
 
     /// Updates an existing item in the transaction. Only the given fields are written.
