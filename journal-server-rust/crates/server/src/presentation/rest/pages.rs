@@ -162,6 +162,7 @@ async fn upsert_property(
 ) -> AppResult<Json<UpdatePageResponse>> {
     let page_id = parse_id(&id)?;
     blocking(move || {
+        let tags_before = state.properties.find_tags("page", &id)?;
         let page = state.page_service.set_property(
             &page_id,
             &key,
@@ -169,6 +170,12 @@ async fn upsert_property(
             req.value.as_deref().unwrap_or(""),
         )?;
         state.sse.broadcast_pages_updated(&id);
+        if key == "tags" {
+            let tags_after = state.properties.find_tags("page", &id)?;
+            state
+                .extensions
+                .tags_changed(&page, &tags_before, &tags_after);
+        }
         Ok(Json(UpdatePageResponse {
             page: state.dtos.page_to_dto(&page)?,
         }))

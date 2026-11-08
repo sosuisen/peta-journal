@@ -195,6 +195,7 @@ impl AppState {
             Arc::clone(&functions),
             Arc::clone(&item_service),
             Arc::clone(&page_service),
+            Arc::new(sse.clone()),
         ));
         let dtos = ItemDtoAssembler::new(properties.clone(), items.clone());
 

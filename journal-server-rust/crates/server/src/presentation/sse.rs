@@ -10,6 +10,7 @@ use tokio_stream::wrappers::BroadcastStream;
 use tokio_stream::StreamExt;
 
 use crate::application::atlas_service::AtlasEvents;
+use crate::application::extension_service::ExtensionEvents;
 
 #[derive(Debug, Clone)]
 pub struct SseBroadcaster {
@@ -56,6 +57,12 @@ impl SseBroadcaster {
 }
 
 /// The server writes an atlas page by itself, so a client that shows it reads it again.
+impl ExtensionEvents for SseBroadcaster {
+    fn page_changed(&self, page_id: &hmtid::Hmtid) {
+        self.broadcast_pages_updated_from(page_id.as_str(), "server");
+    }
+}
+
 impl AtlasEvents for SseBroadcaster {
     fn atlas_changed(&self, atlas_id: &hmtid::Hmtid) {
         self.broadcast_pages_updated_from(atlas_id.as_str(), "server");

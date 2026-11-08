@@ -3,6 +3,8 @@
 
 use std::sync::Arc;
 
+use hmtid::Hmtid;
+
 use crate::domain::model::{Item, Page};
 use crate::error::AppResult;
 
@@ -11,11 +13,17 @@ use super::extension_runtime::{ExtensionEvent, ExtensionRuntime, PageInfo};
 use super::item_service::ItemService;
 use super::page_service::PageService;
 
+/// Tells the clients that extensions changed a page after its request was answered.
+pub trait ExtensionEvents: Send + Sync {
+    fn page_changed(&self, page_id: &Hmtid);
+}
+
 pub struct ExtensionService {
     runtime: ExtensionRuntime,
     functions: Arc<ExtensionFunctionService>,
     items: Arc<ItemService>,
     pages: Arc<PageService>,
+    events: Arc<dyn ExtensionEvents>,
 }
 
 impl ExtensionService {
@@ -24,12 +32,14 @@ impl ExtensionService {
         functions: Arc<ExtensionFunctionService>,
         items: Arc<ItemService>,
         pages: Arc<PageService>,
+        events: Arc<dyn ExtensionEvents>,
     ) -> ExtensionService {
         ExtensionService {
             runtime,
             functions,
             items,
             pages,
+            events,
         }
     }
 
@@ -39,6 +49,26 @@ impl ExtensionService {
     pub fn page_created(&self, page: &Page) -> AppResult<Vec<Item>> {
         self.dispatch(page, &ExtensionEvent::PageCreate(page_info(page)));
         self.pages.get_page_items(&page.id)
+    }
+
+    /// Lets each extension answer the tags in `after` that are not in `before`. The extensions
+    /// run on a thread of their own after the caller has answered, since one may wait for the
+    /// user. The clients hear of the page when they are done.
+    pub fn tags_changed(self: &Arc<Self>, page: &Page, before: &[String], after: &[String]) {
+        let added: Vec<String> = after
+            .iter()
+            .filter(|tag| !before.contains(tag))
+            .cloned()
+            .collect();
+        if added.is_empty() {
+            return;
+        }
+        let service = Arc::clone(self);
+        let page = page.clone();
+        std::thread::spawn(move || {
+            service.dispatch(&page, &ExtensionEvent::PageTagAdd(page_info(&page), added));
+            service.events.page_changed(&page.id);
+        });
     }
 
     /// Runs every extension for `event`. A failed extension writes nothing, and the next ones
