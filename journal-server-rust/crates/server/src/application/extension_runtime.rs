@@ -396,6 +396,43 @@ mod tests {
         assert_eq!(requests[0].body, "a.md,b.md,main.js");
     }
 
+    // readFile(name)は、自分のフォルダのファイルを読む。
+    #[test]
+    fn read_file_reads_a_file_of_its_own_folder() {
+        let dir = function_dir(
+            "globalThis.onPageCreate = () => {
+                peta.createItem({ position: 'last', level: 1, body: peta.readFile('template.md') });
+            };",
+        );
+        std::fs::write(dir.path().join("template.md"), "日記の型").unwrap();
+
+        let requests = runtime()
+            .run(dir.path(), &ExtensionEvent::PageCreate(page()))
+            .unwrap();
+
+        assert_eq!(requests[0].body, "日記の型");
+    }
+
+    // readFile(name)は、フォルダの外のファイルを読めない。
+    #[test]
+    fn read_file_cannot_read_outside_its_own_folder() {
+        let outer = tempfile::tempdir().unwrap();
+        std::fs::write(outer.path().join("secret.txt"), "secret").unwrap();
+        let dir = outer.path().join("function");
+        std::fs::create_dir(&dir).unwrap();
+        std::fs::write(
+            dir.join("main.js"),
+            "globalThis.onPageCreate = () => {
+                peta.createItem({ position: 'last', level: 1, body: peta.readFile('../secret.txt') });
+            };",
+        )
+        .unwrap();
+
+        let result = runtime().run(&dir, &ExtensionEvent::PageCreate(page()));
+
+        assert!(result.is_err());
+    }
+
     // 出来事の関数を持たない拡張は、何も頼まない。
     #[test]
     fn an_extension_without_the_event_function_asks_for_nothing() {
