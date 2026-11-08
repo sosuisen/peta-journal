@@ -598,6 +598,23 @@ The list of properties takes the point, so the current buffer may not be the pag
       (peta-journal-e2e--wait-for "the page of the item"
                                   (lambda () (equal peta-journal--page-id journal))))))
 
+;; 何も打たずに`TAB`を押すと最近のページが並び、`RET`で先頭のページが開く。
+(ert-deftest peta-journal-e2e-the-search-box-opens-a-recent-page ()
+  (peta-journal-e2e--with-app
+    (peta-journal-find-page "最近のページ")
+    (peta-journal-e2e--wait-page-title "最近のページ")
+    (peta-journal-e2e--type "本文")
+    (peta-journal-e2e--keys "C-x C-s")
+    (peta-journal-e2e--wait-saved '("本文"))
+    (peta-journal-e2e--wait-for "the page among the recent pages"
+                                (lambda () (equal (car peta-journal--recent) "最近のページ")))
+    (peta-journal-e2e--keys "C-c C-j")
+    (peta-journal-e2e--wait-for "today's journal"
+                                (lambda () (not (equal peta-journal--title "最近のページ"))))
+    (peta-journal-e2e--search-keys "" "TAB" "RET")
+    (peta-journal-e2e--wait-page-title "最近のページ")
+    (should-not (get-buffer "*PetaJournal Search*"))))
+
 ;; C-g で閉じると、どこへも移らず、結果の窓も消える。
 (ert-deftest peta-journal-e2e-quitting-the-search-box-stays-on-the-page ()
   (peta-journal-e2e--with-app
