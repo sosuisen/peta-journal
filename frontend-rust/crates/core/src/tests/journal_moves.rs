@@ -224,3 +224,35 @@ fn a_level_2_item_at_the_bottom_moves_down_under_the_first_root_of_the_previous_
         |c| matches!(c, ApiOp::GetOrCreateJournal { file_name } if file_name == "2026-02-09")
     ));
 }
+
+// 日付をまたぐ移動で作られたジャーナルは最近のページに出るので、最近のページが読み直される。既にあったジャーナルでは読み直さない。
+#[test]
+fn a_journal_made_by_a_move_refreshes_the_recent_pages() {
+    for created in [true, false] {
+        let mut h = harness();
+        h.api.answer_next(
+            "GetOrCreateJournal",
+            Ok(ApiOutput::Page(PageWithItems {
+                page: Page {
+                    id: "p11".into(),
+                    name: "2026-02-11".into(),
+                    page_type: "journal".into(),
+                    ..Default::default()
+                },
+                items: vec![item("empty", 1, "")],
+                created,
+                transcluded_trees: None,
+            })),
+        );
+
+        h.send(Event::MoveUp {
+            item_id: "a".into(),
+        });
+
+        assert_eq!(
+            h.api.called("GetRecentPages"),
+            created,
+            "created: {created}"
+        );
+    }
+}

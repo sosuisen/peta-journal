@@ -306,3 +306,28 @@ fn scrolling_a_weekly_journal_loads_the_week_before() {
         2
     );
 }
+
+// 開いたことで作られたジャーナルは最近のページに出るので、最近のページが読み直される。既にあったジャーナルでは読み直さない。
+#[test]
+fn a_journal_made_by_opening_it_refreshes_the_recent_pages() {
+    for created in [true, false] {
+        let mut h = Harness::new();
+        h.api.answer_next(
+            "GetOrCreateJournal",
+            Ok(ApiOutput::Page(PageWithItems {
+                page: journal_page(TODAY),
+                items: vec![journal_item("i", TODAY)],
+                created,
+                transcluded_trees: None,
+            })),
+        );
+
+        visit(&mut h, "today");
+
+        assert_eq!(
+            h.api.called("GetRecentPages"),
+            created,
+            "created: {created}"
+        );
+    }
+}

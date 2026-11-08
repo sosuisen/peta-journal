@@ -195,3 +195,20 @@ fn the_headings_of_a_doc_page_are_listed_in_the_sidebar() {
         .collect();
     assert_eq!(headings, [("Top".into(), 1), ("Next".into(), 2)]);
 }
+
+// 開いたことで作られたページは最近のページに出るので、最近のページが読み直される。既にあったページでは読み直さない。
+#[test]
+fn a_page_made_by_opening_it_refreshes_the_recent_pages() {
+    for created in [true, false] {
+        let mut h = Harness::new();
+        served(&mut h, doc("notes/", "Idea"), created);
+
+        visit(&mut h, "notes/Idea", None);
+
+        assert_eq!(
+            h.api.called("GetRecentPages"),
+            created,
+            "created: {created}"
+        );
+    }
+}
