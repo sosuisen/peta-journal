@@ -1,6 +1,6 @@
 //! Item use cases.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 use std::sync::Arc;
 
 use hmtid::Hmtid;
@@ -21,6 +21,7 @@ use crate::infrastructure::persistence::item_repository::parked_idx;
 use crate::infrastructure::persistence::property_repository::list_values;
 use crate::infrastructure::persistence::{ItemRepository, PageRepository, PropertyRepository};
 
+use super::extension_runtime::ItemRequest;
 use super::markdown_parser::MarkdownParser;
 use super::page_service::PageService;
 use super::tree_markdown;
@@ -210,6 +211,55 @@ impl ItemService {
         tx.commit()?;
         self.finish(effects);
         Ok(updated)
+    }
+
+    /// Writes the items an extension asked for on the page, in one transaction: all of them or
+    /// none. An item placed last on a page whose only item is empty takes the place of that
+    /// item, so a template does not start below an empty line. Its id is then the empty item's,
+    /// and a later item placed after it goes after that one.
+    pub fn apply_extension_items(
+        &self,
+        page_id: &Hmtid,
+        requests: &[ItemRequest],
+    ) -> AppResult<()> {
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+        let mut effects = AfterCommit::default();
+        let mut taken_ids: HashMap<Hmtid, Hmtid> = HashMap::new();
+        for request in requests {
+            let position = match &request.position {
+                ItemPosition::After(id) => {
+                    ItemPosition::After(taken_ids.get(id).unwrap_or(id).clone())
+                }
+                other => other.clone(),
+            };
+            if position == ItemPosition::Last {
+                if let Some(empty) = lone_empty_item_in(&tx, page_id)? {
+                    self.update_item_in(
+                        &tx,
+                        &empty,
+                        Some(&request.body),
+                        Some(1),
+                        None,
+                        &mut effects,
+                    )?;
+                    taken_ids.insert(request.id.clone(), empty.id);
+                    continue;
+                }
+            }
+            self.create_item_in(
+                &tx,
+                page_id,
+                &position,
+                request.level,
+                &request.body,
+                Some(request.id.clone()),
+                &mut effects,
+            )?;
+        }
+        tx.commit()?;
+        self.finish(effects);
+        Ok(())
     }
 
     /// Updates an existing item in the transaction. Only the given fields are written.
@@ -1129,4 +1179,15 @@ fn find_item_above<'a>(existing: &'a [Item], position: &ItemPosition) -> Option<
         ItemPosition::Last => existing.last(),
         ItemPosition::After(item_id) => existing.iter().find(|i| &i.id == item_id),
     }
+}
+
+/// The only item of the page when it is empty: no text and no transclusion.
+fn lone_empty_item_in(tx: &Connection, page_id: &Hmtid) -> AppResult<Option<Item>> {
+    let items = ItemRepository::find_by_page_id_in(tx, page_id)?;
+    Ok(match items.as_slice() {
+        [only] if only.body.trim().is_empty() && only.transclude_item_id.is_none() => {
+            Some(only.clone())
+        }
+        _ => None,
+    })
 }
