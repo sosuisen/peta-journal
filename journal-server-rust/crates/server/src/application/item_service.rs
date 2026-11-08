@@ -203,7 +203,26 @@ impl ItemService {
         collapsed: Option<bool>,
     ) -> AppResult<Item> {
         let existing = self.get_item_by_id(item_id)?;
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+        let mut effects = AfterCommit::default();
+        let updated = self.update_item_in(&tx, &existing, body, level, collapsed, &mut effects)?;
+        tx.commit()?;
+        self.finish(effects);
+        Ok(updated)
+    }
 
+    /// Updates an existing item in the transaction. Only the given fields are written.
+    pub(crate) fn update_item_in(
+        &self,
+        tx: &Connection,
+        existing: &Item,
+        body: Option<&str>,
+        level: Option<i32>,
+        collapsed: Option<bool>,
+        effects: &mut AfterCommit,
+    ) -> AppResult<Item> {
+        let item_id = &existing.id;
         let parsed = body.map(ItemBody::parse);
         let new_body = parsed.as_ref().map(|p| p.text.clone());
         let new_ast = new_body.as_deref().map(|b| self.parser.parse_to_ast(b));
@@ -225,33 +244,28 @@ impl ItemService {
             now,
         )
         .map_err(AppError::bad_request)?;
-        let mut conn = self.items.db().conn()?;
-        let tx = conn.immediate()?;
-        let mut effects = AfterCommit::default();
-        ItemRepository::patch_in(&tx, item_id, &patch)?;
+        ItemRepository::patch_in(tx, item_id, &patch)?;
 
         if let Some(ast) = &new_ast {
-            let before = PropertyRepository::find_tags_in(&tx, ITEM_TARGET, item_id.as_str())?;
+            let before = PropertyRepository::find_tags_in(tx, ITEM_TARGET, item_id.as_str())?;
             let hashtags = hashtag::extract_hashtags(ast);
-            PropertyRepository::sync_tags_in(&tx, ITEM_TARGET, item_id.as_str(), &hashtags)?;
+            PropertyRepository::sync_tags_in(tx, ITEM_TARGET, item_id.as_str(), &hashtags)?;
             effects.tag_changes.push((before, hashtags));
         }
         if level.is_some() {
-            ItemRepository::recalculate_parent_ids_in(&tx, &existing.page_id)?;
+            ItemRepository::recalculate_parent_ids_in(tx, &existing.page_id)?;
         }
-        let updated = ItemRepository::find_by_id_in(&tx, item_id)?
+        let updated = ItemRepository::find_by_id_in(tx, item_id)?
             .ok_or_else(|| AppError::not_found(format!("Item not found: {item_id}")))?;
-        PageRepository::touch_in(&tx, &existing.page_id, now)?;
+        PageRepository::touch_in(tx, &existing.page_id, now)?;
         effects.pages.insert(existing.page_id.clone());
 
         // The search index holds the body only; level and collapsed do not change it
         if new_body.is_some() {
             let page = self.page_service.require_page(&existing.page_id)?;
             effects.indexed.push((updated.clone(), page.title()));
-            sync_transcluders_in(&tx, &updated, now, &mut effects)?;
+            sync_transcluders_in(tx, &updated, now, effects)?;
         }
-        tx.commit()?;
-        self.finish(effects);
         Ok(updated)
     }
 
