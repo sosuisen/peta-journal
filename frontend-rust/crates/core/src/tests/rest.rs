@@ -279,6 +279,14 @@ fn every_operation_goes_to_its_endpoint() {
             "/api/items/a/transclude",
         ),
         (
+            ApiOp::AnswerConfirm {
+                request_id: id("confirm-1"),
+                ok: true,
+            },
+            "POST",
+            "/api/confirm/confirm-1",
+        ),
+        (
             ApiOp::GetChildPages { parent_id: id("p") },
             "GET",
             "/api/pages/p/children",

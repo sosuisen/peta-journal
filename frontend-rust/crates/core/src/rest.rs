@@ -503,6 +503,12 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             Some(json!({ "sourceItemId": source_item_id })),
             item,
         ),
+        ApiOp::AnswerConfirm { request_id, ok } => call(
+            "POST",
+            format!("/api/confirm/{}", enc(&request_id)),
+            Some(json!({ "ok": ok })),
+            done,
+        ),
         ApiOp::RemoveTransclusion { item_id } => call(
             "DELETE",
             format!("/api/items/{item_id}/transclude"),

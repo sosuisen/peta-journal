@@ -34,9 +34,30 @@ fn on_message(model: &mut Model, data: &str) -> Cmd {
     let Ok(json) = serde_json::from_str::<serde_json::Value>(data) else {
         return done();
     };
-    if json.get("type").and_then(|t| t.as_str()) != Some("pagesUpdated") {
-        return done();
+    match json.get("type").and_then(|t| t.as_str()) {
+        Some("pagesUpdated") => on_pages_updated(model, &json),
+        Some("confirm") => confirm(&json),
+        _ => done(),
     }
+}
+
+/// An extension on the server asks the user. The answer goes back with the id of the question.
+fn confirm(json: &serde_json::Value) -> Cmd {
+    let field = |name: &str| {
+        json.get(name)
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .to_string()
+    };
+    let (request_id, message) = (field("requestId"), field("message"));
+    run(move |api| async move {
+        let ok = api.confirm(&message).await;
+        // A late answer is refused by the server, and nothing is left to do about it
+        let _ = api.answer_confirm(&request_id, ok).await;
+    })
+}
+
+fn on_pages_updated(model: &mut Model, json: &serde_json::Value) -> Cmd {
     let page_id = json
         .get("pageId")
         .and_then(|p| p.as_str())
