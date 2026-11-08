@@ -176,6 +176,7 @@ impl ExtensionRuntime {
             },
         )?;
         peta.set("createItem", create_item)?;
+        let files_dir = dir.clone();
         let files = Function::new(
             ctx.clone(),
             move |ctx: Ctx<'js>| -> rquickjs::Result<Vec<String>> {
@@ -184,9 +185,28 @@ impl ExtensionRuntime {
             },
         )?;
         peta.set("files", files)?;
+        let read_file = Function::new(
+            ctx.clone(),
+            move |ctx: Ctx<'js>, name: String| -> rquickjs::Result<String> {
+                read_own_file(&files_dir, &name)
+                    .map_err(|e| rquickjs::Exception::throw_internal(&ctx, &e.to_string()))
+            },
+        )?;
+        peta.set("readFile", read_file)?;
         ctx.globals().set("peta", peta)?;
         Ok(())
     }
+}
+
+/// Reads the file `name` directly in `dir`. A name with a folder in it is refused, so an
+/// extension cannot read outside its own folder.
+fn read_own_file(dir: &Path, name: &str) -> anyhow::Result<String> {
+    let mut components = Path::new(name).components();
+    let (Some(std::path::Component::Normal(file)), None) = (components.next(), components.next())
+    else {
+        return Err(anyhow!("not a file name of the extension's folder: {name}"));
+    };
+    Ok(std::fs::read_to_string(dir.join(file))?)
 }
 
 /// The names of the files directly in `dir`, sorted. Folders are left out.
