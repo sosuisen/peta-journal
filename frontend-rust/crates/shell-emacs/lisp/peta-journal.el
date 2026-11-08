@@ -1245,13 +1245,16 @@ SEARCHING says that the results of a newer query are coming."
       (quit-restore-window window 'bury))
     (kill-buffer buffer)))
 
-(defun peta-journal--search-choice ()
-  "The number the core gave to the selected result, or nil."
+(defun peta-journal--search-entry ()
+  "The selected result, or nil."
   (when-let* ((buffer (get-buffer peta-journal--search-buffer)))
     (with-current-buffer buffer
       (when peta-journal--search-selected
-        (plist-get (aref peta-journal--search-entries peta-journal--search-selected)
-                   :index)))))
+        (aref peta-journal--search-entries peta-journal--search-selected)))))
+
+(defun peta-journal--search-choice ()
+  "The number the core gave to the selected result, or nil."
+  (plist-get (peta-journal--search-entry) :index))
 
 (defun peta-journal--search-move (step)
   "Move the selection by STEP results, going round at the ends.
@@ -1292,7 +1295,7 @@ wait, a quick RET would open a result of an older query."
   (cond
    ((not (peta-journal--search-settled-p))
     (minibuffer-message "The search does not answer"))
-   ((peta-journal--search-choice) (exit-minibuffer))
+   ((peta-journal--search-entry) (exit-minibuffer))
    (t (minibuffer-message "No result to open"))))
 
 (defun peta-journal-search-recent ()
@@ -1336,13 +1339,16 @@ C-n and C-p select a result, RET opens it, and C-g closes the search."
                           #'peta-journal--search-input-changed nil t))
             (read-from-minibuffer "Search: " nil peta-journal-search-minibuffer-map
                                   nil 'peta-journal--search-history))
-          (setq chosen (peta-journal--search-choice)))
+          (setq chosen (peta-journal--search-entry)))
       (peta-journal--search-close)
       (unless chosen
         (with-current-buffer page
           (peta-journal--send "search" :query ""))))
     (with-current-buffer page
-      (peta-journal--go "search_result" :index chosen))
+      ;; A recent page is not a result of the core, so it has a path and no number
+      (if-let* ((path (plist-get chosen :path)))
+          (peta-journal--go "go_to_page" :path path)
+        (peta-journal--go "search_result" :index (plist-get chosen :index))))
     (if-let* ((window (get-buffer-window page)))
         (select-window window)
       (pop-to-buffer-same-window page))))
