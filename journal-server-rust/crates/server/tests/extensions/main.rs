@@ -61,6 +61,15 @@ fn ext_server() -> &'static TestServer {
         );
         install(
             config_dir,
+            "e-deep",
+            "globalThis.onPageCreate = (page) => {
+                if (!page.fileName.startsWith('deep-')) return;
+                peta.createItem({ position: 'last', level: 1, body: 'top' });
+                peta.createItem({ position: 'last', level: 4, body: 'too deep' });
+            };",
+        );
+        install(
+            config_dir,
             "j-journal",
             "globalThis.onPageCreate = (page) => {
                 if (page.pageType !== 'journal' || !page.fileName.startsWith('2031-')) return;
@@ -114,6 +123,20 @@ async fn opening_a_page_that_exists_does_not_call_the_extensions() {
 
     assert_eq!(again["created"], false);
     assert_eq!(bodies(&again["items"]).len(), 3);
+}
+
+// 置けない階層は、置ける深さまで下げる。
+#[tokio::test]
+async fn a_level_too_deep_for_its_place_is_lowered_until_it_fits() {
+    ext_server();
+    let title = unique_name("deep-doc");
+
+    let (_, created) = post("/api/pages/doc", json!({ "title": title, "dirPath": "" })).await;
+
+    assert_eq!(
+        bodies(&created["items"]),
+        vec![(1, "top".to_string()), (2, "too deep".to_string())]
+    );
 }
 
 // 失敗した拡張の項目は取り消され、ほかの拡張の項目は残る。
