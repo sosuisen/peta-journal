@@ -124,4 +124,26 @@ mod tests {
         assert!(!ok);
         assert!(started.elapsed() < Duration::from_secs(1));
     }
+
+    // 時間内に答えがなければ、「いいえ」を返す。
+    #[test]
+    fn confirm_says_no_when_no_answer_comes_in_time() {
+        let service = ConfirmService::new(clients(true), Duration::from_millis(50));
+
+        let ok = service.confirm("Insert the template?");
+
+        assert!(!ok);
+    }
+
+    // 待っていない問い合わせへの答えは、受け付けない。時間切れのあとの答えも同じ。
+    #[test]
+    fn an_answer_to_a_question_that_no_one_waits_for_is_refused() {
+        let clients = clients(true);
+        let service = ConfirmService::new(clients.clone(), Duration::from_millis(50));
+        service.confirm("Insert the template?");
+        let late_id = clients.asked.lock().unwrap()[0].0.clone();
+
+        assert!(!service.answer(&late_id, true));
+        assert!(!service.answer("unknown", true));
+    }
 }
