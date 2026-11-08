@@ -697,4 +697,41 @@ mod tests {
         assert!(result.is_err());
         assert!(yes.asked.lock().unwrap().is_empty());
     }
+
+    /// Takes its time before it says yes, as a person does.
+    struct SlowUser;
+
+    impl Confirmer for SlowUser {
+        fn confirm(&self, _message: &str) -> bool {
+            std::thread::sleep(Duration::from_millis(300));
+            true
+        }
+    }
+
+    // 利用者の答えを待つ時間は、時間の上限に数えない。
+    #[test]
+    fn the_wait_for_the_user_does_not_count_toward_the_time_limit() {
+        let dir = function_dir(
+            "globalThis.onPageTagAdd = () => {
+                const ok = peta.confirm('Insert the template?');
+                // Some work after the answer, where the time limit is checked
+                let sum = 0;
+                for (let i = 0; i < 1000000; i++) { sum += i; }
+                if (ok) {
+                    peta.createItem({ position: 'last', level: 1, body: 'yes' });
+                }
+            };",
+        );
+        let runtime = runtime()
+            .with_limits(ExtensionLimits {
+                time: Duration::from_millis(100),
+                ..ExtensionLimits::default()
+            })
+            .with_confirmer(Arc::new(SlowUser));
+        let event = ExtensionEvent::PageTagAdd(page(), vec!["book".into()]);
+
+        let requests = runtime.run(dir.path(), &event).unwrap();
+
+        assert_eq!(requests[0].body, "yes");
+    }
 }
