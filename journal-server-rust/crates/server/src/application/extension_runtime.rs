@@ -7,6 +7,7 @@ use std::cell::RefCell;
 use std::path::Path;
 use std::rc::Rc;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Context as _};
 use hmtid::Hmtid;
@@ -83,16 +84,44 @@ struct CreateItemArgs {
     transclude: Option<String>,
 }
 
+/// How long a run may take and how much memory it may use.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ExtensionLimits {
+    pub time: Duration,
+    /// In bytes.
+    pub memory: usize,
+}
+
+impl Default for ExtensionLimits {
+    /// A run blocks the creation of a page, so it gets little time. A template takes a few
+    /// milliseconds.
+    fn default() -> Self {
+        ExtensionLimits {
+            time: Duration::from_secs(2),
+            memory: 32 * 1024 * 1024,
+        }
+    }
+}
+
 /// Runs extension scripts. Each run gets a new QuickJS runtime, so extensions share nothing.
 pub struct ExtensionRuntime {
     #[allow(dead_code)]
     splitter: Arc<FlatMarkdownSplitter>,
     ids: Arc<IdGenerator>,
+    limits: ExtensionLimits,
 }
 
 impl ExtensionRuntime {
     pub fn new(splitter: Arc<FlatMarkdownSplitter>, ids: Arc<IdGenerator>) -> ExtensionRuntime {
-        ExtensionRuntime { splitter, ids }
+        ExtensionRuntime {
+            splitter,
+            ids,
+            limits: ExtensionLimits::default(),
+        }
+    }
+
+    pub fn with_limits(self, limits: ExtensionLimits) -> ExtensionRuntime {
+        ExtensionRuntime { limits, ..self }
     }
 
     /// Runs the `main.js` in `dir` for `event`, and returns the items it asked for.
@@ -100,6 +129,9 @@ impl ExtensionRuntime {
         let source = std::fs::read_to_string(dir.join(MAIN_FILE))
             .with_context(|| format!("cannot read {MAIN_FILE} in {}", dir.display()))?;
         let runtime = Runtime::new()?;
+        runtime.set_memory_limit(self.limits.memory);
+        let deadline = Instant::now() + self.limits.time;
+        runtime.set_interrupt_handler(Some(Box::new(move || Instant::now() > deadline)));
         let context = Context::full(&runtime)?;
         let requests = Rc::new(RefCell::new(Vec::new()));
         context.with(|ctx| -> anyhow::Result<()> {
