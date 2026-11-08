@@ -1402,7 +1402,8 @@ Return it as the server stores it, or an empty string when the answer is empty."
           (t (user-error "Not a date and time: %s.  Write it as YYYY-MM-DD HH:MM" typed)))))
 
 (defvar-keymap peta-journal-properties-mode-map
-  "s" #'peta-journal-set-property)
+  "s" #'peta-journal-set-property
+  "d" #'peta-journal-delete-property)
 
 (define-derived-mode peta-journal-properties-mode peta-journal-list-mode "PetaJournal Properties"
   "The properties of a page.  s sets the one at the point, d removes it, and q closes.")

@@ -505,39 +505,40 @@ The server is a real one, with its files in a temporary folder."
   (with-current-buffer "*PetaJournal Properties*"
     (buffer-substring-no-properties (point-min) (point-max))))
 
-;; C-c C-s でプロパティを設定すると、サーバーに保存され、一覧に出る。打ちかけの文はそのまま残る。
-;; もう一度設定すると今の値から直せて、C-c C-k で消せる。
+;; `C-c C-x p`で開いた一覧の中で`s`を押してプロパティを設定すると、サーバーに保存され、一覧に出る。
+;; もう一度設定すると今の値から直せて、`d`で消せる。`q`で一覧を閉じると、打ちかけの文はそのまま残っている。
 (ert-deftest peta-journal-e2e-a-property-is-set-changed-and-removed ()
   (peta-journal-e2e--with-app
     (peta-journal-find-page "プロパティのページ")
     (peta-journal-e2e--wait-page-title "プロパティのページ")
     (peta-journal-e2e--type "打ちかけ")
-    (execute-kbd-macro (vconcat (kbd "C-c C-s") "tags" (kbd "RET") "emacs, memo" (kbd "RET")))
+    (execute-kbd-macro (vconcat (kbd "C-c C-x p s") "tags" (kbd "RET") "emacs, memo" (kbd "RET")))
     (peta-journal-e2e--wait-saved-tags '("emacs" "memo"))
     (peta-journal-e2e--wait-for
      "the tags in the list"
      (lambda () (string-search "tags" (peta-journal-e2e--properties-text))))
     (should (string-search "emacs, memo" (peta-journal-e2e--properties-text)))
-    (should (equal (peta-journal--body-at (point)) "打ちかけ"))
 
-    (execute-kbd-macro (vconcat (kbd "C-c C-s") "tags" (kbd "RET") (kbd "C-e") ", more" (kbd "RET")))
+    (execute-kbd-macro (vconcat (kbd "s") "tags" (kbd "RET") (kbd "C-e") ", more" (kbd "RET")))
     (peta-journal-e2e--wait-saved-tags '("emacs" "memo" "more"))
 
-    (execute-kbd-macro (vconcat (kbd "C-c C-k") "tags" (kbd "RET")))
+    (execute-kbd-macro (vconcat (kbd "d") "tags" (kbd "RET")))
     (peta-journal-e2e--wait-saved-tags nil)
     (peta-journal-e2e--wait-for
      "the tags to leave the list"
      (lambda () (not (string-search "tags" (peta-journal-e2e--properties-text)))))
+    (peta-journal-e2e--keys "q")
+    (should (equal (peta-journal--body-at (point)) "打ちかけ"))
     (peta-journal-e2e--keys "C-x C-s")
     (peta-journal-e2e--wait-saved '("打ちかけ"))))
 
-;; 作成日時を C-c C-s で直すと、サーバーに保存され、一覧にはローカル時刻で出る。
+;; 作成日時を一覧の`s`で直すと、サーバーに保存され、一覧にはローカル時刻で出る。
 (ert-deftest peta-journal-e2e-a-date-is-set-in-local-time ()
   (peta-journal-e2e--with-app
     (peta-journal-find-page "日時のページ")
     (peta-journal-e2e--wait-page-title "日時のページ")
     (execute-kbd-macro
-     (vconcat (kbd "C-c C-s") "created" (kbd "RET C-a C-k") "2026-01-02 03:04" (kbd "RET")))
+     (vconcat (kbd "C-c C-x p s") "created" (kbd "RET C-a C-k") "2026-01-02 03:04" (kbd "RET")))
     (peta-journal-e2e--wait-for
      "the new date in the list"
      (lambda () (string-search "2026-01-02 03:04" (peta-journal-e2e--properties-text))))
@@ -556,7 +557,7 @@ The server is a real one, with its files in a temporary folder."
     (peta-journal-e2e--wait-for
      "the key published" (lambda () (member "published" peta-journal--free-keys)))
     (let ((before (format-time-string "%Y-%m-%d %H:%M")))
-      (execute-kbd-macro (vconcat (kbd "C-c C-s") "published" (kbd "RET RET")))
+      (execute-kbd-macro (vconcat (kbd "C-c C-x p s") "published" (kbd "RET RET")))
       (peta-journal-e2e--wait-for
        "the date in the list"
        (lambda () (string-search "published" (peta-journal-e2e--properties-text))))
@@ -565,10 +566,10 @@ The server is a real one, with its files in a temporary folder."
         (should (or (string-search (concat "published  " before) shown)
                     (string-search (concat "published  " after) shown)))))))
 
-;; ジャーナルでは、キーを尋ねずに断る。
+;; ジャーナルでは、プロパティの一覧を開かずに断る。
 (ert-deftest peta-journal-e2e-a-journal-refuses-a-property ()
   (peta-journal-e2e--with-app
-    (should-error (execute-kbd-macro (kbd "C-c C-s")) :type 'user-error)))
+    (should-error (execute-kbd-macro (kbd "C-c C-x p")) :type 'user-error)))
 
 ;; `C-c C-s`で検索語を打って`RET`を押すと、その語の新しいページができて開く。間を置かなくてもよい。
 (ert-deftest peta-journal-e2e-the-search-box-creates-a-page ()
