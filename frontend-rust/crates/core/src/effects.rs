@@ -165,6 +165,11 @@ pub enum ApiOp {
     RemoveTransclusion {
         item_id: String,
     },
+    /// The user's answer to a question that an extension on the server asked.
+    AnswerConfirm {
+        request_id: String,
+        ok: bool,
+    },
     GetChildPages {
         parent_id: String,
     },
@@ -921,6 +926,15 @@ impl<Event: Send + 'static> Api<Event> {
             .await,
             Item
         )
+    }
+
+    pub async fn answer_confirm(&self, request_id: &str, ok: bool) -> ApiResult<()> {
+        self.call(ApiOp::AnswerConfirm {
+            request_id: request_id.into(),
+            ok,
+        })
+        .await
+        .map(|_| ())
     }
 
     pub async fn remove_transclusion(&self, item_id: &str) -> ApiResult<Item> {

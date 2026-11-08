@@ -22,3 +22,16 @@ fn a_file_change_waits_for_the_edit_to_end_and_then_reloads_the_page() {
     h.fire_timers();
     assert!(h.api.called("GetPageById"));
 }
+
+// サーバーの拡張が項目を書いたと知らされると、ファイルの変更と同じように、表示中のページが読み直される。
+#[test]
+fn items_written_by_an_extension_reload_the_page() {
+    let mut h = Harness::with_items(vec![item("a", 1, "")]);
+
+    h.send(Event::Sse(crate::effects::SseEvent::Message(
+        r#"{"type":"pagesUpdated","pageId":"page1","source":"extension"}"#.into(),
+    )));
+    h.fire_timers();
+
+    assert!(h.api.called("GetPageById"));
+}

@@ -5,6 +5,7 @@ use std::sync::Arc;
 use crate::application::atlas_service::AtlasService;
 use crate::application::combined_search::CombinedSearchService;
 use crate::application::config_service::ConfigService;
+use crate::application::confirm_service::ConfirmService;
 use crate::application::extension_functions::ExtensionFunctionService;
 use crate::application::extension_runtime::ExtensionRuntime;
 use crate::application::extension_service::ExtensionService;
@@ -56,6 +57,7 @@ pub struct AppState {
     pub combined_search: Arc<CombinedSearchService>,
     pub functions: Arc<ExtensionFunctionService>,
     pub extensions: Arc<ExtensionService>,
+    pub confirm: Arc<ConfirmService>,
     pub dtos: ItemDtoAssembler,
     pub sse: SseBroadcaster,
 }
@@ -190,8 +192,14 @@ impl AppState {
             Arc::clone(&search),
         ));
         let functions = Arc::new(ExtensionFunctionService::load(Arc::clone(&config)));
+        // A person may step away before answering, so the wait is long
+        let confirm = Arc::new(ConfirmService::new(
+            Arc::new(sse.clone()),
+            std::time::Duration::from_secs(60),
+        ));
         let extensions = Arc::new(ExtensionService::new(
-            ExtensionRuntime::new(Arc::new(splitter.clone()), Arc::clone(&ids)),
+            ExtensionRuntime::new(Arc::new(splitter.clone()), Arc::clone(&ids))
+                .with_confirmer(confirm.clone()),
             Arc::clone(&functions),
             Arc::clone(&item_service),
             Arc::clone(&page_service),
@@ -237,6 +245,7 @@ impl AppState {
             combined_search,
             functions,
             extensions,
+            confirm,
             dtos,
             sse,
         }))

@@ -76,6 +76,7 @@ pub fn op_name(op: &ApiOp) -> &'static str {
         ApiOp::ParseFlatMarkdown { .. } => "ParseFlatMarkdown",
         ApiOp::SetTransclusion { .. } => "SetTransclusion",
         ApiOp::RemoveTransclusion { .. } => "RemoveTransclusion",
+        ApiOp::AnswerConfirm { .. } => "AnswerConfirm",
         ApiOp::GetChildPages { .. } => "GetChildPages",
         ApiOp::GetBacklinks { .. } => "GetBacklinks",
         ApiOp::UploadAsset { .. } => "UploadAsset",
@@ -150,9 +151,10 @@ impl FakeApi {
                     .map(|id| plain_item(id, 1, &format!("body of {id}")))
                     .collect(),
             ),
-            ApiOp::DeleteItem { .. } | ApiOp::DeleteItems { .. } | ApiOp::DeletePage { .. } => {
-                ApiOutput::Done
-            }
+            ApiOp::DeleteItem { .. }
+            | ApiOp::DeleteItems { .. }
+            | ApiOp::DeletePage { .. }
+            | ApiOp::AnswerConfirm { .. } => ApiOutput::Done,
             ApiOp::MergeItems { into_id, .. } => ApiOutput::Item(plain_item(into_id, 1, "")),
             ApiOp::CycleTask { item_id } => {
                 let mut item = plain_item(item_id, 1, "");

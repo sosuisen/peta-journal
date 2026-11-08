@@ -3,6 +3,7 @@
 pub mod assets;
 pub mod atlas;
 pub mod config;
+pub mod confirm;
 pub mod functions;
 pub mod items;
 pub mod journals;
@@ -26,6 +27,7 @@ pub fn router() -> Router<SharedState> {
         .merge(journals::routes())
         .merge(search::routes())
         .merge(config::routes())
+        .merge(confirm::routes())
         .merge(sync::routes())
         .merge(assets::routes())
         .merge(functions::routes())

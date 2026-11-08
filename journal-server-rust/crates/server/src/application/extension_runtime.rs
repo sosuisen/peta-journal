@@ -6,7 +6,7 @@
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Context as _};
@@ -43,6 +43,11 @@ impl ExtensionEvent {
         match self {
             ExtensionEvent::PageCreate(page) | ExtensionEvent::PageTagAdd(page, _) => page,
         }
+    }
+
+    /// A page create holds up the opening of the page, so its script may not wait for the user.
+    fn may_ask_user(&self) -> bool {
+        matches!(self, ExtensionEvent::PageTagAdd(..))
     }
 
     /// The name of the global function that answers the event.
@@ -111,11 +116,17 @@ impl Default for ExtensionLimits {
     }
 }
 
+/// Asks the user a yes-or-no question for a script, and waits for the answer.
+pub trait Confirmer: Send + Sync {
+    fn confirm(&self, message: &str) -> bool;
+}
+
 /// Runs extension scripts. Each run gets a new QuickJS runtime, so extensions share nothing.
 pub struct ExtensionRuntime {
     splitter: Arc<FlatMarkdownSplitter>,
     ids: Arc<IdGenerator>,
     limits: ExtensionLimits,
+    confirmer: Option<Arc<dyn Confirmer>>,
 }
 
 impl ExtensionRuntime {
@@ -124,11 +135,20 @@ impl ExtensionRuntime {
             splitter,
             ids,
             limits: ExtensionLimits::default(),
+            confirmer: None,
         }
     }
 
     pub fn with_limits(self, limits: ExtensionLimits) -> ExtensionRuntime {
         ExtensionRuntime { limits, ..self }
+    }
+
+    /// Lets the scripts ask the user through `confirm(message)`.
+    pub fn with_confirmer(self, confirmer: Arc<dyn Confirmer>) -> ExtensionRuntime {
+        ExtensionRuntime {
+            confirmer: Some(confirmer),
+            ..self
+        }
     }
 
     /// Runs the `main.js` in `dir` for `event`, and returns the items it asked for.
@@ -137,12 +157,15 @@ impl ExtensionRuntime {
             .with_context(|| format!("cannot read {MAIN_FILE} in {}", dir.display()))?;
         let runtime = Runtime::new()?;
         runtime.set_memory_limit(self.limits.memory);
-        let deadline = Instant::now() + self.limits.time;
-        runtime.set_interrupt_handler(Some(Box::new(move || Instant::now() > deadline)));
+        let deadline = Arc::new(Mutex::new(Instant::now() + self.limits.time));
+        let until = Arc::clone(&deadline);
+        runtime.set_interrupt_handler(Some(Box::new(move || {
+            Instant::now() > *until.lock().unwrap()
+        })));
         let context = Context::full(&runtime)?;
         let requests = Rc::new(RefCell::new(Vec::new()));
         context.with(|ctx| -> anyhow::Result<()> {
-            self.install_api(&ctx, &requests, event.page().id.clone(), dir.to_path_buf())?;
+            self.install_api(&ctx, &requests, event, dir.to_path_buf(), deadline)?;
             js(&ctx, ctx.eval::<(), _>(source))?;
             let handler: Value = ctx.globals().get(event.handler_name())?;
             if let Some(handler) = handler.as_function() {
@@ -158,14 +181,19 @@ impl ExtensionRuntime {
         &self,
         ctx: &Ctx<'js>,
         requests: &Rc<RefCell<Vec<ItemRequest>>>,
-        page_id: String,
+        event: &ExtensionEvent,
         dir: PathBuf,
+        deadline: Arc<Mutex<Instant>>,
     ) -> anyhow::Result<()> {
         let peta = Object::new(ctx.clone())?;
+        let page_id = event.page().id.clone();
         peta.set("createItem", self.create_item_fn(ctx, requests, page_id)?)?;
         peta.set("files", files_fn(ctx, dir.clone())?)?;
         peta.set("readFile", read_file_fn(ctx, dir)?)?;
         peta.set("parseItems", self.parse_items_fn(ctx)?)?;
+        if let Some(confirmer) = self.confirmer.as_ref().filter(|_| event.may_ask_user()) {
+            peta.set("confirm", confirm_fn(ctx, Arc::clone(confirmer), deadline)?)?;
+        }
         ctx.globals().set("peta", peta)?;
         Ok(())
     }
@@ -242,6 +270,21 @@ fn read_file_fn<'js>(ctx: &Ctx<'js>, dir: PathBuf) -> rquickjs::Result<Function<
     )
 }
 
+/// `confirm(message)`: asks the user, and returns true for yes. The time limit is for the
+/// script, so the wait for the user moves the `deadline` back.
+fn confirm_fn<'js>(
+    ctx: &Ctx<'js>,
+    confirmer: Arc<dyn Confirmer>,
+    deadline: Arc<Mutex<Instant>>,
+) -> rquickjs::Result<Function<'js>> {
+    Function::new(ctx.clone(), move |message: String| {
+        let asked = Instant::now();
+        let ok = confirmer.confirm(&message);
+        *deadline.lock().unwrap() += asked.elapsed();
+        ok
+    })
+}
+
 /// Throws `error` into the script as an `Error`, which the script may catch.
 fn thrown(ctx: &Ctx<'_>, error: impl std::fmt::Display) -> rquickjs::Error {
     rquickjs::Exception::throw_message(ctx, &error.to_string())
@@ -295,10 +338,12 @@ fn from_js<'js, T: for<'de> Deserialize<'de>>(
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
+    use std::sync::{Arc, Mutex};
     use std::time::{Duration, Instant};
 
-    use super::{ExtensionEvent, ExtensionLimits, ExtensionRuntime, ItemRequest, PageInfo};
+    use super::{
+        Confirmer, ExtensionEvent, ExtensionLimits, ExtensionRuntime, ItemRequest, PageInfo,
+    };
     use crate::application::flat_markdown_splitter::FlatMarkdownSplitter;
     use crate::application::markdown_parser::MarkdownParser;
     use crate::domain::id_generator::IdGenerator;
@@ -597,5 +642,105 @@ mod tests {
         let result = runtime().run(dir.path(), &ExtensionEvent::PageCreate(page()));
 
         assert!(result.is_err());
+    }
+
+    /// Gives the same answer to every question, and keeps the questions.
+    struct User {
+        answer: bool,
+        asked: Mutex<Vec<String>>,
+    }
+
+    impl Confirmer for User {
+        fn confirm(&self, message: &str) -> bool {
+            self.asked.lock().unwrap().push(message.to_string());
+            self.answer
+        }
+    }
+
+    fn user(answer: bool) -> Arc<User> {
+        Arc::new(User {
+            answer,
+            asked: Mutex::new(Vec::new()),
+        })
+    }
+
+    // タグの追加では、confirm(message)が利用者に尋ね、その答えを返す。
+    #[test]
+    fn confirm_in_a_tag_add_asks_the_user_and_returns_the_answer() {
+        let dir = function_dir(
+            "globalThis.onPageTagAdd = () => {
+                const ok = peta.confirm('Insert the template?');
+                peta.createItem({ position: 'last', level: 1, body: String(ok) });
+            };",
+        );
+        let yes = user(true);
+        let no = user(false);
+        let event = ExtensionEvent::PageTagAdd(page(), vec!["book".into()]);
+
+        let after_yes = runtime()
+            .with_confirmer(yes.clone())
+            .run(dir.path(), &event);
+        let after_no = runtime().with_confirmer(no).run(dir.path(), &event);
+
+        assert_eq!(after_yes.unwrap()[0].body, "true");
+        assert_eq!(after_no.unwrap()[0].body, "false");
+        assert_eq!(*yes.asked.lock().unwrap(), vec!["Insert the template?"]);
+    }
+
+    // ページ作成はページを開く操作を止めているので、confirmは使えない。使うと失敗になる。
+    #[test]
+    fn confirm_is_not_there_in_a_page_create() {
+        let dir = function_dir(
+            "globalThis.onPageCreate = () => {
+                if (peta.confirm('Insert the template?')) {
+                    peta.createItem({ position: 'last', level: 1, body: 'a' });
+                }
+            };",
+        );
+        let yes = user(true);
+
+        let result = runtime()
+            .with_confirmer(yes.clone())
+            .run(dir.path(), &ExtensionEvent::PageCreate(page()));
+
+        assert!(result.is_err());
+        assert!(yes.asked.lock().unwrap().is_empty());
+    }
+
+    /// Takes its time before it says yes, as a person does.
+    struct SlowUser;
+
+    impl Confirmer for SlowUser {
+        fn confirm(&self, _message: &str) -> bool {
+            std::thread::sleep(Duration::from_millis(300));
+            true
+        }
+    }
+
+    // 利用者の答えを待つ時間は、時間の上限に数えない。
+    #[test]
+    fn the_wait_for_the_user_does_not_count_toward_the_time_limit() {
+        let dir = function_dir(
+            "globalThis.onPageTagAdd = () => {
+                const ok = peta.confirm('Insert the template?');
+                // Some work after the answer, where the time limit is checked
+                let sum = 0;
+                for (let i = 0; i < 100000; i++) { sum += i; }
+                if (ok) {
+                    peta.createItem({ position: 'last', level: 1, body: 'yes' });
+                }
+            };",
+        );
+        let runtime = runtime()
+            .with_limits(ExtensionLimits {
+                time: Duration::from_millis(100),
+                ..ExtensionLimits::default()
+            })
+            .with_confirmer(Arc::new(SlowUser));
+        let event = ExtensionEvent::PageTagAdd(page(), vec!["book".into()]);
+
+        let requests = runtime.run(dir.path(), &event).unwrap();
+
+        assert_eq!(requests[0].body, "yes");
     }
 }
