@@ -32,6 +32,17 @@ Plan A
 pattern: Friday, /^plan-/
 ---
 Plan B
+---
+tag: #book
+---
+Title
+
+<!-- @@ -->
+Author
+---
+tag: movie
+---
+Director
 ";
 
 /// The server with auto-template installed.
@@ -98,4 +109,48 @@ async fn templates_go_only_into_pages_whose_names_match_their_patterns() {
         outline(&plan["items"]),
         vec!["1:Plan A".to_string(), "1:Plan B".to_string()]
     );
+}
+
+/// Adds `tag` to a page that has an item, and answers the question of auto-template with `ok`.
+/// Returns the page and the question.
+async fn add_tag_and_answer(tag: &str, ok: bool) -> (PageRef, Value) {
+    let page = new_doc_page("tagged").await;
+    fill(&page.id, &["existing"]).await;
+    let mut events = client().get(url("/api/events")).send().await.unwrap();
+
+    set_tags(&page.id, tag).await;
+    let question = event_with(&mut events, &format!("#{tag}")).await;
+    let request_id = question["requestId"].as_str().unwrap();
+    let (status, _) = post(&format!("/api/confirm/{request_id}"), json!({ "ok": ok })).await;
+    assert_eq!(status, 200);
+    let done = format!("\"pageId\":\"{}\",\"source\":\"extension\"", page.id);
+    event_with(&mut events, &done).await;
+    (page, question)
+}
+
+// タグを足すと、そのタグのテンプレートを入れるかを尋ね、「はい」ならページの最後に入る。タグの前の#は無視する。
+#[tokio::test]
+async fn a_tag_template_goes_to_the_end_of_the_page_after_a_yes() {
+    template_server();
+
+    let (page, question) = add_tag_and_answer("book", true).await;
+
+    assert_eq!(
+        question["message"],
+        "Insert the template of the tag \"#book\" at the end of this page?"
+    );
+    assert_eq!(
+        outline_of(&page.id).await,
+        vec!["1:existing", "1:Title", "2:Author"]
+    );
+}
+
+// 「いいえ」と答えると、タグのテンプレートは入らない。
+#[tokio::test]
+async fn a_tag_template_stays_out_after_a_no() {
+    template_server();
+
+    let (page, _) = add_tag_and_answer("movie", false).await;
+
+    assert_eq!(outline_of(&page.id).await, vec!["1:existing"]);
 }
