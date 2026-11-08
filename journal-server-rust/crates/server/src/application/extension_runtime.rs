@@ -173,8 +173,9 @@ fn from_js<'js, T: for<'de> Deserialize<'de>>(
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
+    use std::time::{Duration, Instant};
 
-    use super::{ExtensionEvent, ExtensionRuntime, ItemRequest, PageInfo};
+    use super::{ExtensionEvent, ExtensionLimits, ExtensionRuntime, ItemRequest, PageInfo};
     use crate::application::flat_markdown_splitter::FlatMarkdownSplitter;
     use crate::application::markdown_parser::MarkdownParser;
     use crate::domain::id_generator::IdGenerator;
@@ -282,6 +283,22 @@ mod tests {
         let requests = runtime().run(dir.path(), &event).unwrap();
 
         assert!(requests.is_empty());
+    }
+
+    // 終わらない拡張は、時間の上限で失敗になる。
+    #[test]
+    fn an_extension_that_never_ends_fails_at_the_time_limit() {
+        let dir = function_dir("globalThis.onPageCreate = () => { for (;;) {} };");
+        let runtime = runtime().with_limits(ExtensionLimits {
+            time: Duration::from_millis(100),
+            ..ExtensionLimits::default()
+        });
+
+        let started = Instant::now();
+        let result = runtime.run(dir.path(), &ExtensionEvent::PageCreate(page()));
+
+        assert!(result.is_err());
+        assert!(started.elapsed() < Duration::from_secs(5));
     }
 
     // 出来事の関数を持たない拡張は、何も頼まない。
