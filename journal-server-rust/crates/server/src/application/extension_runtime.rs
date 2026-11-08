@@ -421,7 +421,8 @@ mod tests {
         let result = runtime.run(dir.path(), &ExtensionEvent::PageCreate(page()));
 
         assert!(result.is_err());
-        assert!(started.elapsed() < Duration::from_secs(5));
+        // Well under the default of 2s, so the limit given here is the one that stopped it
+        assert!(started.elapsed() < Duration::from_secs(1));
     }
 
     // メモリを使いすぎる拡張は、上限で失敗になる。
