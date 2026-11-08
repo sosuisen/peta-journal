@@ -699,6 +699,27 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
     (should (equal peta-journal-test--sent '(("set_property" :key "status" :value "done"))))
     (should (get-buffer-window "*PetaJournal Properties*"))))
 
+(defmacro peta-journal-test--answering-the-default (value &rest body)
+  "Run BODY while the minibuffer takes the key it offers by default, and answers VALUE."
+  (declare (indent 1))
+  `(cl-letf (((symbol-function 'completing-read)
+              (lambda (_prompt _collection &optional _predicate _require _initial _history default
+                               &rest _)
+                default))
+             ((symbol-function 'read-string) (lambda (&rest _) ,value)))
+     ,@body))
+
+;; 一覧の中で`s`を押すと、カーソルの行のキーを既定にして、値を設定する。
+(ert-deftest peta-journal-s-in-the-list-sets-the-property-on-the-line ()
+  (peta-journal-test--with-properties peta-journal-test--property-rows []
+    (set-window-buffer (selected-window) (current-buffer))
+    (save-current-buffer
+      (peta-journal-properties)
+      (forward-line 2)
+      (peta-journal-test--answering-the-default "done"
+        (execute-kbd-macro (kbd "s"))))
+    (should (equal peta-journal-test--sent '(("set_property" :key "status" :value "done"))))))
+
 ;; まだ付いていないキーの初期値は空である。
 (ert-deftest peta-journal-a-new-key-starts-empty ()
   (peta-journal-test--with-properties peta-journal-test--property-rows ["rating"]
