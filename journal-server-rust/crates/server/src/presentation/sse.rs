@@ -47,7 +47,8 @@ impl SseBroadcaster {
     }
 
     /// `source` is `app` for changes made through the API, `file` for changes picked up
-    /// from the markdown folder, and `server` for changes the server made by itself.
+    /// from the markdown folder, `server` for an atlas the server wrote by itself, and
+    /// `extension` for items that extensions wrote.
     pub fn broadcast_pages_updated_from(&self, page_id: &str, source: &str) {
         let json = format!(
             "{{\"type\":\"pagesUpdated\",\"pageId\":\"{page_id}\",\"source\":\"{source}\"}}"
@@ -57,7 +58,8 @@ impl SseBroadcaster {
     }
 }
 
-/// The server writes an atlas page by itself, so a client that shows it reads it again.
+/// Extensions write items after the answer of a tag add, so a client that shows the page reads
+/// it again.
 impl ExtensionEvents for SseBroadcaster {
     /// Its own source: the clients reload the page, as `server` would reload only an atlas.
     fn page_changed(&self, page_id: &hmtid::Hmtid) {
