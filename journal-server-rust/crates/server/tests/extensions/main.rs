@@ -68,6 +68,15 @@ fn ext_server() -> &'static TestServer {
                 peta.createItem({ position: 'last', level: 4, body: 'too deep' });
             };",
         );
+        // The page name after the prefix is the id of the item to transclude
+        install(
+            config_dir,
+            "f-transclude",
+            "globalThis.onPageCreate = (page) => {
+                if (!page.fileName.startsWith('tr-')) return;
+                peta.createItem({ position: 'last', level: 1, body: '', transclude: page.fileName.slice(3) });
+            };",
+        );
         install(
             config_dir,
             "j-journal",
@@ -137,6 +146,24 @@ async fn a_level_too_deep_for_its_place_is_lowered_until_it_fits() {
         bodies(&created["items"]),
         vec![(1, "top".to_string()), (2, "too deep".to_string())]
     );
+}
+
+// トランスクルード元を指定した項目は、その項目を写す。
+#[tokio::test]
+async fn an_item_with_a_transclusion_source_mirrors_that_item() {
+    ext_server();
+    let source_page = new_doc_page("source").await;
+    let source = fill(&source_page.id, &["source text"]).await.remove(0);
+
+    let (_, created) = post(
+        "/api/pages/doc",
+        json!({ "title": format!("tr-{}", source.id), "dirPath": "" }),
+    )
+    .await;
+
+    let item = &created["items"][0];
+    assert_eq!(item["transcludeItemId"], source.id.as_str());
+    assert_eq!(item["body"], "source text");
 }
 
 // 失敗した拡張の項目は取り消され、ほかの拡張の項目は残る。
