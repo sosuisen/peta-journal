@@ -111,11 +111,17 @@ impl Default for ExtensionLimits {
     }
 }
 
+/// Asks the user a yes-or-no question for a script, and waits for the answer.
+pub trait Confirmer: Send + Sync {
+    fn confirm(&self, message: &str) -> bool;
+}
+
 /// Runs extension scripts. Each run gets a new QuickJS runtime, so extensions share nothing.
 pub struct ExtensionRuntime {
     splitter: Arc<FlatMarkdownSplitter>,
     ids: Arc<IdGenerator>,
     limits: ExtensionLimits,
+    confirmer: Option<Arc<dyn Confirmer>>,
 }
 
 impl ExtensionRuntime {
@@ -124,11 +130,20 @@ impl ExtensionRuntime {
             splitter,
             ids,
             limits: ExtensionLimits::default(),
+            confirmer: None,
         }
     }
 
     pub fn with_limits(self, limits: ExtensionLimits) -> ExtensionRuntime {
         ExtensionRuntime { limits, ..self }
+    }
+
+    /// Lets the scripts ask the user through `confirm(message)`.
+    pub fn with_confirmer(self, confirmer: Arc<dyn Confirmer>) -> ExtensionRuntime {
+        ExtensionRuntime {
+            confirmer: Some(confirmer),
+            ..self
+        }
     }
 
     /// Runs the `main.js` in `dir` for `event`, and returns the items it asked for.
@@ -166,6 +181,9 @@ impl ExtensionRuntime {
         peta.set("files", files_fn(ctx, dir.clone())?)?;
         peta.set("readFile", read_file_fn(ctx, dir)?)?;
         peta.set("parseItems", self.parse_items_fn(ctx)?)?;
+        if let Some(confirmer) = &self.confirmer {
+            peta.set("confirm", confirm_fn(ctx, Arc::clone(confirmer))?)?;
+        }
         ctx.globals().set("peta", peta)?;
         Ok(())
     }
@@ -240,6 +258,16 @@ fn read_file_fn<'js>(ctx: &Ctx<'js>, dir: PathBuf) -> rquickjs::Result<Function<
             read_own_file(&dir, &name).map_err(|e| thrown(&ctx, e))
         },
     )
+}
+
+/// `confirm(message)`: asks the user, and returns true for yes.
+fn confirm_fn<'js>(
+    ctx: &Ctx<'js>,
+    confirmer: Arc<dyn Confirmer>,
+) -> rquickjs::Result<Function<'js>> {
+    Function::new(ctx.clone(), move |message: String| {
+        confirmer.confirm(&message)
+    })
 }
 
 /// Throws `error` into the script as an `Error`, which the script may catch.
