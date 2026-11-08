@@ -628,7 +628,8 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
 (ert-deftest peta-journal-the-open-list-follows-its-page ()
   (peta-journal-test--with-properties peta-journal-test--property-rows []
     (set-window-buffer (selected-window) (current-buffer))
-    (peta-journal-properties)
+    ;; The list takes the point, but the shell speaks to the page
+    (save-current-buffer (peta-journal-properties))
     (peta-journal--on-line
      '(:t "properties"
        :rows [(:key "status" :value "done" :removable t :editable t)]
@@ -669,7 +670,7 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
 ;; ジャーナルへ移ると、開いていた一覧からページの値が消える。
 (ert-deftest peta-journal-the-open-list-empties-on-a-journal ()
   (peta-journal-test--with-properties peta-journal-test--property-rows []
-    (peta-journal-properties)
+    (save-current-buffer (peta-journal-properties))
     (peta-journal--on-line '(:t "properties" :rows nil :free_keys []))
     (should-not (string-search "status" (peta-journal-test--properties-text)))))
 

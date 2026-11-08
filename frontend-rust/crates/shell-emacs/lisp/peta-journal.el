@@ -1448,13 +1448,16 @@ Signals an error on a journal, which cannot have properties."
   (display-buffer peta-journal--properties-buffer))
 
 (defun peta-journal-properties ()
-  "Show the properties of the page in another window, or close the window."
+  "Show the properties of the page in another window and go there, or close the window."
   (interactive)
   (let ((page (peta-journal--properties-page))
         (window (get-buffer-window peta-journal--properties-buffer)))
     (if window
         (quit-window nil window)
-      (peta-journal--show-properties page))))
+      (peta-journal--show-properties page)
+      (select-window (get-buffer-window peta-journal--properties-buffer))
+      (goto-char (point-min))
+      (forward-line 2))))
 
 (defun peta-journal--property-keys (page field)
   "The keys of the properties of the buffer PAGE whose FIELD is true."
