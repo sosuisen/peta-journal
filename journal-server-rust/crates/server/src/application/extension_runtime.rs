@@ -176,7 +176,7 @@ impl ExtensionRuntime {
             },
         )?;
         peta.set("createItem", create_item)?;
-        let files_dir = dir.clone();
+        let read_dir = dir.clone();
         let files = Function::new(
             ctx.clone(),
             move |ctx: Ctx<'js>| -> rquickjs::Result<Vec<String>> {
@@ -188,7 +188,7 @@ impl ExtensionRuntime {
         let read_file = Function::new(
             ctx.clone(),
             move |ctx: Ctx<'js>, name: String| -> rquickjs::Result<String> {
-                read_own_file(&files_dir, &name)
+                read_own_file(&read_dir, &name)
                     .map_err(|e| rquickjs::Exception::throw_internal(&ctx, &e.to_string()))
             },
         )?;
