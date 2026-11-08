@@ -720,6 +720,17 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
         (execute-kbd-macro (kbd "s"))))
     (should (equal peta-journal-test--sent '(("set_property" :key "status" :value "done"))))))
 
+;; 一覧の中で`d`を押すと、カーソルの行のキーを既定にして、そのプロパティを消す。
+(ert-deftest peta-journal-d-in-the-list-removes-the-property-on-the-line ()
+  (peta-journal-test--with-properties peta-journal-test--property-rows []
+    (set-window-buffer (selected-window) (current-buffer))
+    (save-current-buffer
+      (peta-journal-properties)
+      (forward-line 2)
+      (peta-journal-test--answering-the-default ""
+        (execute-kbd-macro (kbd "d"))))
+    (should (equal peta-journal-test--sent '(("delete_property" :key "status"))))))
+
 ;; まだ付いていないキーの初期値は空である。
 (ert-deftest peta-journal-a-new-key-starts-empty ()
   (peta-journal-test--with-properties peta-journal-test--property-rows ["rating"]
