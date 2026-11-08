@@ -354,6 +354,11 @@ The server is a real one, with its files in a temporary folder."
     (peta-journal-e2e--wait-for "the delete" (lambda () (= (length peta-journal--rows) 1)))
     (peta-journal-e2e--wait-saved '("a"))))
 
+(defun peta-journal-e2e--open-page (path)
+  "Ask the core to open the page at PATH, which is made when it does not exist.
+No key does this: the tests use it to reach a page without the search box."
+  (peta-journal--go "go_to_page" :path path))
+
 (defun peta-journal-e2e--search-keys (query &rest keys)
   "Press C-c C-s, type QUERY without a pause, and press KEYS."
   (execute-kbd-macro (vconcat (kbd "C-c C-s") query (kbd (string-join keys " "))))
@@ -373,7 +378,7 @@ The server is a real one, with its files in a temporary folder."
 ;; `C-c C-x r`で名前を変えると、打ったばかりの文も新しい名前のファイルに書かれ、古いファイルは消える。
 (ert-deftest peta-journal-e2e-renaming-moves-the-page-and-keeps-the-text ()
   (peta-journal-e2e--with-app
-    (peta-journal-find-page "古い名前")
+    (peta-journal-e2e--open-page "古い名前")
     (peta-journal-e2e--wait-page-title "古い名前")
     (peta-journal-e2e--type "本文")
     (peta-journal-e2e--keys "C-x C-s")
@@ -401,7 +406,7 @@ The server is a real one, with its files in a temporary folder."
 ;; フォルダのないパスを付けると、ページはフォルダの外へ出る。
 (ert-deftest peta-journal-e2e-a-page-can-move-out-of-its-folder ()
   (peta-journal-e2e--with-app
-    (peta-journal-find-page "フォルダ/メモ")
+    (peta-journal-e2e--open-page "フォルダ/メモ")
     (peta-journal-e2e--wait-page-title "フォルダ/メモ")
     (peta-journal-e2e--rename "メモ")
     (peta-journal-e2e--wait-page-title "メモ")
@@ -514,7 +519,7 @@ The list of properties takes the point, so the current buffer may not be the pag
 ;; もう一度設定すると今の値から直せて、`d`で消せる。`q`で一覧を閉じると、打ちかけの文はそのまま残っている。
 (ert-deftest peta-journal-e2e-a-property-is-set-changed-and-removed ()
   (peta-journal-e2e--with-app
-    (peta-journal-find-page "プロパティのページ")
+    (peta-journal-e2e--open-page "プロパティのページ")
     (peta-journal-e2e--wait-page-title "プロパティのページ")
     (peta-journal-e2e--type "打ちかけ")
     (execute-kbd-macro (vconcat (kbd "C-c C-x p s") "tags" (kbd "RET") "emacs, memo" (kbd "RET")))
@@ -540,7 +545,7 @@ The list of properties takes the point, so the current buffer may not be the pag
 ;; 作成日時を一覧の`s`で直すと、サーバーに保存され、一覧にはローカル時刻で出る。
 (ert-deftest peta-journal-e2e-a-date-is-set-in-local-time ()
   (peta-journal-e2e--with-app
-    (peta-journal-find-page "日時のページ")
+    (peta-journal-e2e--open-page "日時のページ")
     (peta-journal-e2e--wait-page-title "日時のページ")
     (execute-kbd-macro
      (vconcat (kbd "C-c C-x p s") "created" (kbd "RET C-a C-k") "2026-01-02 03:04" (kbd "RET")))
@@ -557,7 +562,7 @@ The list of properties takes the point, so the current buffer may not be the pag
 ;; 日時のキーを新しく付けるときは、現在時刻が入っているので、Enterだけで保存される。
 (ert-deftest peta-journal-e2e-a-new-date-starts-at-now ()
   (peta-journal-e2e--with-app
-    (peta-journal-find-page "新しい日時のページ")
+    (peta-journal-e2e--open-page "新しい日時のページ")
     (peta-journal-e2e--wait-page-title "新しい日時のページ")
     (peta-journal-e2e--wait-for
      "the key published" (lambda () (member "published" peta-journal--free-keys)))
@@ -591,7 +596,7 @@ The list of properties takes the point, so the current buffer may not be the pag
     (peta-journal-e2e--keys "C-x C-s")
     (peta-journal-e2e--wait-saved '("探すことば"))
     (let ((journal peta-journal--page-id))
-      (peta-journal-find-page "他のページ")
+      (peta-journal-e2e--open-page "他のページ")
       (peta-journal-e2e--wait-page-title "他のページ")
       ;; The first result is the entry that creates a page with this name
       (peta-journal-e2e--search-keys "探すことば" "C-n" "RET")
@@ -601,7 +606,7 @@ The list of properties takes the point, so the current buffer may not be the pag
 ;; 何も打たずに`TAB`を押すと最近のページが並び、`RET`で先頭のページが開く。
 (ert-deftest peta-journal-e2e-the-search-box-opens-a-recent-page ()
   (peta-journal-e2e--with-app
-    (peta-journal-find-page "最近のページ")
+    (peta-journal-e2e--open-page "最近のページ")
     (peta-journal-e2e--wait-page-title "最近のページ")
     (peta-journal-e2e--type "本文")
     (peta-journal-e2e--keys "C-x C-s")
@@ -626,17 +631,6 @@ The list of properties takes the point, so the current buffer may not be the pag
       (should-not (get-buffer "*PetaJournal Search*"))
       (should (equal peta-journal--page-id journal))
       (should-not peta-journal--searching))))
-
-;; ページの移動は、名前で開いて、その本文が見える。
-(ert-deftest peta-journal-e2e-finding-a-page-opens-it ()
-  (peta-journal-e2e--with-app
-    (let ((journal peta-journal--page-id))
-      (peta-journal-find-page "E2E/メモ")
-      (peta-journal-e2e--wait-for "the other page"
-                                  (lambda () (not (equal peta-journal--page-id journal))))
-      (peta-journal-e2e--type "ページの本文")
-      (peta-journal-e2e--keys "C-x C-s")
-      (peta-journal-e2e--wait-saved '("ページの本文")))))
 
 ;; リンクを開くと、そのページへ移り、バックリンクの一覧から元のページへ戻れる。
 (ert-deftest peta-journal-e2e-a-link-opens-and-its-backlink-leads-back ()

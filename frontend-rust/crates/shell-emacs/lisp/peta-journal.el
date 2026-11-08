@@ -903,7 +903,7 @@ Not from here but from a timer: a process filter is no place for a prompt."
     (setq peta-journal--current nil)))
 
 (defconst peta-journal--commands-that-end-the-edit
-  '(peta-journal-save peta-journal-today peta-journal-find-page peta-journal-back
+  '(peta-journal-save peta-journal-today peta-journal-back
     peta-journal-next-day peta-journal-previous-day peta-journal-open-at-point
     peta-journal-search peta-journal-rename-page)
   "The commands after which the point stays in an item that is not being edited.
@@ -1116,13 +1116,6 @@ Only for these characters: waiting on every key would slow typing down."
   (interactive)
   (peta-journal--ensure-started)
   (peta-journal--go "go" :url "/today"))
-
-(defun peta-journal-find-page (path)
-  "Open the page at PATH, which is made when it does not exist."
-  (interactive
-   (list (completing-read "Page: " (peta-journal--recent-pages) nil nil)))
-  (peta-journal--ensure-started)
-  (peta-journal--go "go_to_page" :path path))
 
 (defun peta-journal-rename-page (path)
   "Give the page on screen the new PATH.  A `/' in PATH puts the page in a folder."

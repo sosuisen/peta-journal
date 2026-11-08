@@ -431,7 +431,7 @@
 
 ;; 別のページを開くコマンドの直後は、離れるページの項目で編集を始めない。
 (ert-deftest peta-journal-going-to-another-page-leaves-the-edit-closed ()
-  (dolist (command '(peta-journal-today peta-journal-find-page peta-journal-back
+  (dolist (command '(peta-journal-today peta-journal-back
                      peta-journal-next-day peta-journal-previous-day
                      peta-journal-open-at-point peta-journal-rename-page))
     (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
@@ -1623,12 +1623,11 @@ Without a sort function of its own, the list is sorted by name, as `completions-
                     (lambda (pages) (sort pages #'string<)))))
       (funcall sort (all-completions "" offered)))))
 
-;; ページを開くときの候補は、名前順に並べ替えず、最近のページの順のまま見せる。
+;; 新しいバッファに開くときの候補は、名前順に並べ替えず、最近のページの順のまま見せる。
 (ert-deftest peta-journal-the-recent-pages-are-offered-in-their-own-order ()
   (let ((peta-journal--recent '("zeta" "alpha" "notes/mid")))
-    (dolist (command '(peta-journal-find-page peta-journal-new-buffer))
-      (should (equal (peta-journal-test--offered-pages command)
-                     '("zeta" "alpha" "notes/mid"))))))
+    (should (equal (peta-journal-test--offered-pages #'peta-journal-new-buffer)
+                   '("zeta" "alpha" "notes/mid")))))
 
 ;; キーは、書きながら押すものを`C-c C-文字`に、ページ単位でたまに使うものを`C-c C-x`の下に置く。
 ;; 項目の移動は`M-S-矢印`にし、`M-矢印`はEmacsの単語の移動などに残す。
