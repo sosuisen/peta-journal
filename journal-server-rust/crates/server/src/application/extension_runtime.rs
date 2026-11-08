@@ -355,6 +355,25 @@ mod tests {
         assert!(started.elapsed() < ExtensionLimits::default().time);
     }
 
+    // files()は、自分のフォルダのファイル名を名前順に返す。
+    #[test]
+    fn files_lists_the_file_names_of_its_own_folder_in_name_order() {
+        let dir = function_dir(
+            "globalThis.onPageCreate = () => {
+                peta.createItem({ position: 'last', level: 1, body: peta.files().join(',') });
+            };",
+        );
+        std::fs::write(dir.path().join("b.md"), "").unwrap();
+        std::fs::write(dir.path().join("a.md"), "").unwrap();
+        std::fs::create_dir(dir.path().join("sub")).unwrap();
+
+        let requests = runtime()
+            .run(dir.path(), &ExtensionEvent::PageCreate(page()))
+            .unwrap();
+
+        assert_eq!(requests[0].body, "a.md,b.md,main.js");
+    }
+
     // 出来事の関数を持たない拡張は、何も頼まない。
     #[test]
     fn an_extension_without_the_event_function_asks_for_nothing() {
