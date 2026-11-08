@@ -205,4 +205,53 @@ mod tests {
         assert_eq!(body, "2026-11-08 journal");
         assert_eq!(*transclude, None);
     }
+
+    // createItemは新しい項目のIDを返し、そのIDを次の項目の置き場所に使える。
+    #[test]
+    fn create_item_returns_an_id_that_places_the_next_item() {
+        let dir = function_dir(
+            "globalThis.onPageCreate = () => {
+                const first = peta.createItem({ position: 'last', level: 1, body: 'a' });
+                peta.createItem({ position: 'after:' + first, level: 2, body: 'b' });
+            };",
+        );
+
+        let requests = runtime()
+            .run(dir.path(), &ExtensionEvent::PageCreate(page()))
+            .unwrap();
+
+        assert_eq!(requests.len(), 2);
+        assert_eq!(
+            requests[1].position,
+            ItemPosition::After(requests[0].id.clone())
+        );
+        assert_ne!(requests[0].id, requests[1].id);
+    }
+
+    // 出来事の関数を持たない拡張は、何も頼まない。
+    #[test]
+    fn an_extension_without_the_event_function_asks_for_nothing() {
+        let dir = function_dir("const unused = 1;");
+
+        let requests = runtime()
+            .run(dir.path(), &ExtensionEvent::PageCreate(page()))
+            .unwrap();
+
+        assert!(requests.is_empty());
+    }
+
+    // JSの例外は失敗になり、頼んだ操作は捨てられる。
+    #[test]
+    fn a_js_exception_fails_the_run_and_drops_what_it_asked_for() {
+        let dir = function_dir(
+            "globalThis.onPageCreate = () => {
+                peta.createItem({ position: 'last', level: 1, body: 'a' });
+                throw new Error('broken template');
+            };",
+        );
+
+        let result = runtime().run(dir.path(), &ExtensionEvent::PageCreate(page()));
+
+        assert!(result.is_err());
+    }
 }
