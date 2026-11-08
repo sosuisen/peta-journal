@@ -119,19 +119,18 @@ fn ext_server() -> &'static TestServer {
 // main.jsのない古い形の拡張は、拡張の一覧に入らない。
 #[tokio::test]
 async fn an_extension_without_main_js_is_not_listed() {
-    ext_server();
+    let server = ext_server();
 
-    let (status, functions) = get("/api/functions").await;
-
-    assert_eq!(status, 200);
-    let names: Vec<Value> = functions
-        .as_array()
-        .unwrap()
+    let names: Vec<&str> = server
+        .state
+        .functions
+        .list_functions()
         .iter()
-        .map(|f| f["name"].clone())
+        .map(|f| f.dir_name.as_str())
         .collect();
-    assert!(names.contains(&json!("a-basic")), "{functions}");
-    assert!(!names.contains(&json!("k-iframe")), "{functions}");
+
+    assert!(names.contains(&"a-basic"), "{names:?}");
+    assert!(!names.contains(&"k-iframe"), "{names:?}");
 }
 
 fn bodies(items: &Value) -> Vec<(i64, String)> {

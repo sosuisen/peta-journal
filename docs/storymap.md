@@ -17,7 +17,7 @@
 ## ユーザーのタイプ（仮）
 
 - 利用者 `#利用者`: ブラウザでアプリを開いて書く人。ジャーナルとページの持ち主。
-- 拡張 `#拡張`: サーバーの API や postMessage を通して項目やページを作るプログラム。拡張機能（`ext-functions`）、Web アプリ（`ext-web-app/todo`）、デスクトップアプリ（`ext-desktop-app/stickies`）。
+- 拡張 `#拡張`: サーバーの API を通して項目やページを作るプログラム。拡張機能（`ext-functions`）、Web アプリ（`ext-web-app/todo`）、デスクトップアプリ（`ext-desktop-app/stickies`）。
 - AI エージェント `#AI`: MCP でページを探し、読み、項目やタスクを足すエージェント。
 - 別の PC `#同期`: 同じ Markdown フォルダを共有する、もう一台のジャーナルサーバー。
 
@@ -166,11 +166,11 @@
       - ^ 両方で変えたときは新しい方が勝ち、古い方は `.conflict` ファイルとして残る
         - ^ 消えたファイルは確認ページで選んだものだけが消える
 - 外のプログラムと組む #拡張 #AI
-  - // 出典: tests/extensions.rs, screens/extensions.rs, ext-functions/auto-template, journal-server-rust の MCP
+  - // 出典: journal-server-rust の tests/extensions と tests/auto_template, ext-functions/auto-template, tests/launcher.rs, journal-server-rust の MCP
   - 拡張機能から項目を作る
-    - vvvv 隠れた iframe の拡張が、ページ作成やタグ追加の通知を受けて項目を作る
+    - vvvv サーバーで動く拡張が、ページ作成やタグ追加を受けて項目を作る
       - ^ テンプレートの項目は、唯一の空の1行目を上書きし、他の項目をトランスクルードできる
-        - ^ 拡張はアプリを通して利用者に確認を求める
+        - ^ 拡張はサーバーからクライアントに確認を求める
   - 外部アプリから使う
     - vvvv URL スキームでデスクトップアプリ（付箋）を起動する
       - ^ Web アプリ（todo）がサーバーの API でタスクを読み書きする
