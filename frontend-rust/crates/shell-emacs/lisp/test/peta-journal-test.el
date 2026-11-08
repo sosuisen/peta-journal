@@ -1016,6 +1016,18 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
     (should (equal (peta-journal-test--search-text) ""))
     (should (null (peta-journal--search-choice)))))
 
+;; 入力が空のときに`TAB`を押すと、最近のページが、その順のまま結果の一覧に並ぶ。先頭が選ばれている。
+(ert-deftest peta-journal-tab-on-an-empty-query-lists-the-recent-pages ()
+  (should (eq (keymap-lookup peta-journal-search-minibuffer-map "TAB")
+              #'peta-journal-search-recent))
+  (peta-journal-test--with-search
+    (let ((peta-journal--recent '("zeta" "alpha")))
+      (with-temp-buffer
+        (peta-journal-search-recent))
+      (should (equal (peta-journal-test--search-text) "  zeta\n  alpha\n"))
+      (with-current-buffer "*PetaJournal Search*"
+        (should (= peta-journal--search-selected 0))))))
+
 ;; 窓を閉じたあとに届いた結果では、何も開かれない。
 (ert-deftest peta-journal-results-after-closing-the-box-are-ignored ()
   (peta-journal--search-close)
