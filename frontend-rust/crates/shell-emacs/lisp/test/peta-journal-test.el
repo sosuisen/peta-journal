@@ -1028,6 +1028,16 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
       (with-current-buffer "*PetaJournal Search*"
         (should (= peta-journal--search-selected 0))))))
 
+;; 検索語を入力してあるときの`TAB`は、検索の結果をそのまま残す。
+(ert-deftest peta-journal-tab-after-a-query-keeps-the-results ()
+  (peta-journal-test--with-search
+    (let ((peta-journal--recent '("zeta")))
+      (peta-journal--on-search (peta-journal-test--entries "a") nil)
+      (with-temp-buffer
+        (insert "設計")
+        (peta-journal-search-recent))
+      (should (equal (peta-journal-test--search-text) "  a\n")))))
+
 ;; 窓を閉じたあとに届いた結果では、何も開かれない。
 (ert-deftest peta-journal-results-after-closing-the-box-are-ignored ()
   (peta-journal--search-close)
