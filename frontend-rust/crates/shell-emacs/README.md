@@ -100,7 +100,7 @@ The commands on the whole page are `C-c C-x` and then one letter:
 | `C-c C-x i` | Insert an image file at the point |
 | `C-c C-x b` | Backlinks of this page |
 
-No key opens a page by name. Use the search box, or `M-x peta-journal-find-page`.
+To open a page by name, use the search box.
 
 ## The gap between items
 
