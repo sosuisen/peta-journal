@@ -165,24 +165,3 @@ fn a_list_property_is_shown_as_one_comma_separated_line() {
         .iter()
         .any(|r| r == &("tags".to_string(), "a, b".to_string(), true, true)));
 }
-
-// タグの行に足したタグだけが、拡張に新しいタグとして知らされる。
-#[test]
-fn only_the_tags_added_to_the_list_are_told_to_the_extensions() {
-    let mut h = Harness::with_items(vec![]);
-    if let Screen::Page(p) = &mut h.model.screen {
-        p.page
-            .as_mut()
-            .unwrap()
-            .properties
-            .insert("tags".into(), serde_json::json!(["a", "b"]));
-    }
-    h.send(Event::SetPageProperty {
-        key: "tags".into(),
-        value_type: "tags".into(),
-        value: "a, b, c".into(),
-    });
-    assert!(h.ui.iter().any(
-        |op| matches!(op, UiOp::ExtensionPageTagAdd { tags, .. } if tags == &["c".to_string()])
-    ));
-}

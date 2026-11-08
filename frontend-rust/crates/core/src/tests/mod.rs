@@ -48,4 +48,4 @@ mod settings;
 mod sse;
 
 // 外のプログラムと組む
-mod extensions;
+mod launcher;

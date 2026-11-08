@@ -1,4 +1,5 @@
-//! Extension functions: static web apps under `{configDir}/functions/<name>/` with a `config.json`.
+//! Extension functions: folders under `{configDir}/functions/<name>/` with a `config.json` and
+//! a `main.js`, which the server runs (see ADR 009).
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -7,6 +8,7 @@ use super::config_service::ConfigService;
 
 const FUNCTIONS_DIR: &str = "functions";
 const CONFIG_FILE: &str = "config.json";
+const MAIN_FILE: &str = "main.js";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExtensionFunction {
@@ -41,6 +43,11 @@ impl ExtensionFunctionService {
                         let config_path = path.join(CONFIG_FILE);
                         if !config_path.exists() {
                             tracing::warn!("No config.json in function directory: {dir_name}");
+                            continue;
+                        }
+                        // The old form ran in an iframe of the frontend, which is gone
+                        if !path.join(MAIN_FILE).exists() {
+                            tracing::warn!("No main.js in function directory: {dir_name}");
                             continue;
                         }
                         match std::fs::read(&config_path)

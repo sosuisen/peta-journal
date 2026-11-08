@@ -296,7 +296,6 @@ fn every_operation_goes_to_its_endpoint() {
             "GET",
             "/api/pages/p/backlinks",
         ),
-        (ApiOp::GetFunctions, "GET", "/api/functions"),
         (
             ApiOp::LaunchUrl { url: id("x://y") },
             "POST",
@@ -620,7 +619,6 @@ fn every_answer_becomes_the_output_of_its_operation() {
             json!({ "items": [] }),
             ApiOutput::ParsedItems(vec![]),
         ),
-        (ApiOp::GetFunctions, json!([]), ApiOutput::Functions(vec![])),
         (
             ApiOp::LaunchUrl { url: id("x://y") },
             json!({ "success": true }),

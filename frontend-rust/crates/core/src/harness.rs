@@ -80,7 +80,6 @@ pub fn op_name(op: &ApiOp) -> &'static str {
         ApiOp::GetChildPages { .. } => "GetChildPages",
         ApiOp::GetBacklinks { .. } => "GetBacklinks",
         ApiOp::UploadAsset { .. } => "UploadAsset",
-        ApiOp::GetFunctions => "GetFunctions",
         ApiOp::LaunchUrl { .. } => "LaunchUrl",
         ApiOp::OpenExportFolder { .. } => "OpenExportFolder",
     }
@@ -284,7 +283,6 @@ impl FakeApi {
                     page: true,
                 }])
             }
-            ApiOp::GetFunctions => ApiOutput::Functions(Vec::new()),
             ApiOp::UpdatePage {
                 page_id,
                 title,

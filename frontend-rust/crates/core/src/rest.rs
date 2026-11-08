@@ -528,9 +528,6 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             |reply| parsed::<BacklinksEnvelope>(reply).map(|e| ApiOutput::Backlinks(e.entries)),
         ),
         ApiOp::UploadAsset { .. } => return None,
-        ApiOp::GetFunctions => call("GET", "/api/functions", None, |reply| {
-            parsed(reply).map(ApiOutput::Functions)
-        }),
         ApiOp::LaunchUrl { url } => call(
             "POST",
             "/api/launcher/open",

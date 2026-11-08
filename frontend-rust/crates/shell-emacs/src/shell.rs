@@ -507,19 +507,15 @@ impl<H: Host> Shell<H> {
             }
             // Emacs has one window on one page, so another window is this one
             UiOp::OpenWindow { url, .. } => self.navigations.push_back((url, false)),
-            // There is nothing to do these with here: the atlas map and the extension iframes
-            // are parts of the web shell. Copying, a new page from the header and pasting a
-            // transclusion start from events that Emacs does not send
+            // There is nothing to do these with here: the atlas map is a part of the web shell.
+            // Copying, a new page from the header and pasting a transclusion start from events
+            // that Emacs does not send
             UiOp::SaveAtlasDirs(_)
             | UiOp::CopyText(_)
             | UiOp::CopyMarkdown { .. }
             | UiOp::CopyFailed
             | UiOp::Prompt(_)
-            | UiOp::ReadClipboardText
-            | UiOp::LoadExtensions { .. }
-            | UiOp::ExtensionPageCreate { .. }
-            | UiOp::ExtensionPageTagAdd { .. }
-            | UiOp::ExtensionReply { .. } => {}
+            | UiOp::ReadClipboardText => {}
         }
         None
     }

@@ -1,33 +1,12 @@
-//! What only the shell can do with the page: focus, scroll, clipboard, dialogs, the title,
-//! the extension iframes.
+//! What only the shell can do with the page: focus, scroll, clipboard, dialogs, the title.
 
 use crate::core::CoreHandle;
 use crate::dom;
 use crux_core::Request;
 use leptos::prelude::Set;
-use peta_core::effects::{FunctionInfo, LocalDateTimeDto, UiOp, UiOutput};
-use peta_core::Event;
+use peta_core::effects::{LocalDateTimeDto, UiOp, UiOutput};
 use wasm_bindgen::prelude::*;
-use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::{spawn_local, JsFuture};
-
-/// One hosted extension. Messages sent before its document has loaded would reach the
-/// initial blank document and be lost, so they wait in `pending` until `load` fires.
-pub struct ExtensionFrame {
-    pub iframe: web_sys::HtmlIFrameElement,
-    pub loaded: bool,
-    pub pending: Vec<JsValue>,
-    _on_load: Closure<dyn FnMut()>,
-}
-
-#[derive(Default)]
-pub struct Extensions {
-    pub frames: Vec<ExtensionFrame>,
-    /// Windows that sent a message, by the handle the core answers to.
-    pub sources: std::collections::HashMap<u64, web_sys::Window>,
-    pub next_source: u64,
-    _listener: Option<Closure<dyn FnMut(web_sys::MessageEvent)>>,
-}
 
 /// One part of a clipboard write whose content is not known yet: the promise handed to
 /// `ClipboardItem` and the functions that settle it.
@@ -220,49 +199,6 @@ pub fn perform(handle: CoreHandle, mut request: Request<UiOp>) {
                 dom::window().open_with_url_and_target(&url, "_blank")
             };
         }
-        UiOp::ExtensionPageCreate {
-            page_id,
-            file_name,
-            dir_name,
-            page_type,
-        } => {
-            post_to_frames(
-                &handle,
-                serde_json::json!({
-                    "type": "PageCreate", "pageId": page_id, "fileName": file_name,
-                    "dirName": dir_name, "pageType": page_type,
-                }),
-            );
-        }
-        UiOp::ExtensionPageTagAdd {
-            page_id,
-            file_name,
-            dir_name,
-            page_type,
-            tags,
-        } => {
-            post_to_frames(
-                &handle,
-                serde_json::json!({
-                    "type": "PageTagAdd", "pageId": page_id, "fileName": file_name,
-                    "dirName": dir_name, "pageType": page_type, "tags": tags,
-                }),
-            );
-        }
-        UiOp::ExtensionReply { source, message } => {
-            if let Some(win) = handle
-                .inner()
-                .extensions
-                .borrow_mut()
-                .sources
-                .remove(&source)
-            {
-                let _ = win.post_message(&dom::to_js(&message), "*");
-            }
-        }
-        UiOp::LoadExtensions { functions } => {
-            load_extensions(&handle, &functions);
-        }
         UiOp::LocalNow => {
             let d = js_sys::Date::new_0();
             let local = LocalDateTimeDto {
@@ -281,110 +217,4 @@ pub fn perform(handle: CoreHandle, mut request: Request<UiOp>) {
             );
         }
     }
-}
-
-/// Creates a hidden iframe per extension function and listens for their messages.
-fn load_extensions(handle: &CoreHandle, functions: &[FunctionInfo]) {
-    let document = dom::document();
-    let Some(body) = document.body() else { return };
-    let inner = handle.inner();
-    let mut ext = inner.extensions.borrow_mut();
-    for (index, f) in functions.iter().enumerate() {
-        let Ok(el) = document.create_element("iframe") else {
-            continue;
-        };
-        let iframe: web_sys::HtmlIFrameElement = el.unchecked_into();
-        let h = *handle;
-        let on_load = Closure::<dyn FnMut()>::new(move || {
-            let inner = h.inner();
-            let mut ext = inner.extensions.borrow_mut();
-            if let Some(frame) = ext.frames.get_mut(index) {
-                frame.loaded = true;
-                for js in frame.pending.drain(..) {
-                    post_to_frame(&frame.iframe, &js);
-                }
-            }
-        });
-        let _ = iframe.add_event_listener_with_callback("load", on_load.as_ref().unchecked_ref());
-        // The src is set after the listener: a cached document could load at once
-        iframe.set_src(&format!("http://localhost:8087{}", f.url));
-        let _ = iframe.style().set_property("display", "none");
-        let _ = body.append_child(&iframe);
-        ext.frames.push(ExtensionFrame {
-            iframe,
-            loaded: false,
-            pending: Vec::new(),
-            _on_load: on_load,
-        });
-    }
-    if ext._listener.is_none() {
-        let h = *handle;
-        let listener =
-            Closure::<dyn FnMut(web_sys::MessageEvent)>::new(move |ev: web_sys::MessageEvent| {
-                on_message(&h, ev);
-            });
-        let _ = dom::window()
-            .add_event_listener_with_callback("message", listener.as_ref().unchecked_ref());
-        ext._listener = Some(listener);
-    }
-}
-
-/// Posts a message to every extension; one still loading gets it once loaded.
-fn post_to_frames(handle: &CoreHandle, message: serde_json::Value) {
-    let js = dom::to_js(&message);
-    for frame in &mut handle.inner().extensions.borrow_mut().frames {
-        if frame.loaded {
-            post_to_frame(&frame.iframe, &js);
-        } else {
-            frame.pending.push(js.clone());
-        }
-    }
-}
-
-fn post_to_frame(iframe: &web_sys::HtmlIFrameElement, message: &JsValue) {
-    if let Some(win) = iframe.content_window() {
-        let _ = win.post_message(message, "*");
-    }
-}
-
-fn on_message(handle: &CoreHandle, ev: web_sys::MessageEvent) {
-    let Ok(data) = serde_wasm_bindgen::from_value::<serde_json::Value>(ev.data()) else {
-        return;
-    };
-    let kind = data.get("type").and_then(|t| t.as_str());
-    if kind != Some("CreateItem") && kind != Some("Confirm") {
-        return;
-    }
-    let source = {
-        let inner = handle.inner();
-        let mut ext = inner.extensions.borrow_mut();
-        ext.next_source += 1;
-        let id = ext.next_source;
-        // The extension runs on another origin, so its window fails `instanceof Window`
-        // and `dyn_into` would drop it. `postMessage` is allowed across origins all the same.
-        if let Some(win) = ev.source() {
-            ext.sources
-                .insert(id, win.unchecked_into::<web_sys::Window>());
-        }
-        id
-    };
-    let str_field = |k: &str| data.get(k).and_then(|v| v.as_str()).map(str::to_string);
-    if kind == Some("Confirm") {
-        handle.send(Event::ExtensionConfirm {
-            source,
-            request_id: str_field("requestId"),
-            message: str_field("message").unwrap_or_default(),
-        });
-        return;
-    }
-    handle.send(Event::ExtensionCreateItem {
-        source,
-        request_id: str_field("requestId"),
-        page_id: str_field("pageId").unwrap_or_default(),
-        position: str_field("position"),
-        after_item_id: str_field("afterItemId"),
-        level: data.get("level").and_then(|l| l.as_i64()).unwrap_or(1) as i32,
-        body: str_field("body").unwrap_or_default(),
-        transclude: str_field("transclude"),
-    });
 }

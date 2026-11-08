@@ -104,7 +104,34 @@ fn ext_server() -> &'static TestServer {
                 peta.createItem({ position: 'last', level: 1, body: 'J ' + page.fileName });
             };",
         );
+        // The old form, which ran in an iframe of the frontend: no main.js
+        let old = config_dir.join("functions").join("k-iframe");
+        std::fs::create_dir_all(&old).unwrap();
+        std::fs::write(
+            old.join("config.json"),
+            json!({ "name": "k-iframe" }).to_string(),
+        )
+        .unwrap();
+        std::fs::write(old.join("index.html"), "<script></script>").unwrap();
     })
+}
+
+// main.jsのない古い形の拡張は、拡張の一覧に入らない。
+#[tokio::test]
+async fn an_extension_without_main_js_is_not_listed() {
+    ext_server();
+
+    let (status, functions) = get("/api/functions").await;
+
+    assert_eq!(status, 200);
+    let names: Vec<Value> = functions
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| f["name"].clone())
+        .collect();
+    assert!(names.contains(&json!("a-basic")), "{functions}");
+    assert!(!names.contains(&json!("k-iframe")), "{functions}");
 }
 
 fn bodies(items: &Value) -> Vec<(i64, String)> {

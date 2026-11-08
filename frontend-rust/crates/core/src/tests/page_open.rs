@@ -108,18 +108,6 @@ fn a_url_that_is_not_the_canonical_path_is_replaced_by_it() {
     assert!(!h.api.called("GetPageById"));
 }
 
-// 開いたことで作られたページは、拡張に知らされる。
-#[test]
-fn a_page_made_by_opening_it_is_told_to_the_extensions() {
-    let mut h = Harness::new();
-    served(&mut h, doc("notes/", "Idea"), true);
-    visit(&mut h, "notes/Idea", None);
-
-    assert!(h.ui.iter().any(
-        |op| matches!(op, UiOp::ExtensionPageCreate { file_name, page_type, .. } if file_name == "Idea" && page_type == "doc")
-    ));
-}
-
 // URL のフラグメントが項目を指すと、その項目が選ばれてスクロールされる。アウトラインにない項目ならスクロールしない。
 #[test]
 fn the_fragment_selects_and_scrolls_to_its_item() {
@@ -206,4 +194,21 @@ fn the_headings_of_a_doc_page_are_listed_in_the_sidebar() {
         .map(|x| (x.text.clone(), x.level))
         .collect();
     assert_eq!(headings, [("Top".into(), 1), ("Next".into(), 2)]);
+}
+
+// 開いたことで作られたページは最近のページに出るので、最近のページが読み直される。既にあったページでは読み直さない。
+#[test]
+fn a_page_made_by_opening_it_refreshes_the_recent_pages() {
+    for created in [true, false] {
+        let mut h = Harness::new();
+        served(&mut h, doc("notes/", "Idea"), created);
+
+        visit(&mut h, "notes/Idea", None);
+
+        assert_eq!(
+            h.api.called("GetRecentPages"),
+            created,
+            "created: {created}"
+        );
+    }
 }

@@ -390,24 +390,7 @@ pub enum Event {
         key: String,
     },
 
-    // ---- extensions and links ----
-    ExtensionCreateItem {
-        source: u64,
-        request_id: Option<String>,
-        page_id: String,
-        position: Option<String>,
-        after_item_id: Option<String>,
-        level: i32,
-        body: String,
-        /// The id of the item the new item transcludes; None or empty for none.
-        transclude: Option<String>,
-    },
-    /// A `Confirm` message from an extension: asks the user and answers with `ConfirmResult`.
-    ExtensionConfirm {
-        source: u64,
-        request_id: Option<String>,
-        message: String,
-    },
+    // ---- links ----
     LaunchUrl {
         url: String,
     },
@@ -639,7 +622,6 @@ pub struct Model {
     /// The last wall-clock time the shell reported, in milliseconds.
     pub clock_ms: u64,
     pub next_timer_id: u64,
-    pub extension_functions_loaded: bool,
 }
 
 impl Default for Model {
@@ -670,7 +652,6 @@ impl Default for Model {
             hmtid: hmtid::Generator::new('-', true),
             clock_ms: 0,
             next_timer_id: 1,
-            extension_functions_loaded: false,
         }
     }
 }
@@ -937,31 +918,6 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             screens::settings::delete_property_definition(model, key)
         }
 
-        ExtensionCreateItem {
-            source,
-            request_id,
-            page_id,
-            position,
-            after_item_id,
-            level,
-            body,
-            transclude,
-        } => screens::extensions::create_item(
-            model,
-            source,
-            request_id,
-            page_id,
-            position,
-            after_item_id,
-            level,
-            body,
-            transclude,
-        ),
-        ExtensionConfirm {
-            source,
-            request_id,
-            message,
-        } => screens::extensions::confirm(source, request_id, message),
         LaunchUrl { url } => run(move |api| async move {
             if !api.launch_url(&url).await.unwrap_or(false) {
                 log_error(format!("Failed to launch app with URL: {url}"));

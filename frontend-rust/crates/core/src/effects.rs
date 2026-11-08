@@ -10,7 +10,6 @@ use crux_core::capability::Operation;
 use crux_core::command::CommandContext;
 use crux_core::render::RenderOperation;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 // ---- API ----
 
@@ -180,7 +179,6 @@ pub enum ApiOp {
     UploadAsset {
         file: u64,
     },
-    GetFunctions,
     /// `POST /api/launcher/open` with a custom URL scheme.
     LaunchUrl {
         url: String,
@@ -189,13 +187,6 @@ pub enum ApiOp {
     OpenExportFolder {
         page_id: String,
     },
-}
-
-/// A registered extension function (`GET /api/functions`).
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
-pub struct FunctionInfo {
-    pub name: String,
-    pub url: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
@@ -265,7 +256,6 @@ pub enum ApiOutput {
     ItemIds(Vec<String>),
     ParsedItems(Vec<ParsedFlatItem>),
     FileName(String),
-    Functions(Vec<FunctionInfo>),
     Launched(bool),
     /// Another page has the name a page was to take; the server's message says which.
     PageNameTaken(String),
@@ -374,10 +364,6 @@ pub enum UiOp {
     },
     /// There is nothing to copy after all: the shell gives up a clipboard write it began.
     CopyFailed,
-    /// Hosts the extension functions in hidden iframes.
-    LoadExtensions {
-        functions: Vec<FunctionInfo>,
-    },
     /// Resolved with `UiOutput::Text`.
     ReadClipboardText,
     Alert(String),
@@ -391,27 +377,6 @@ pub enum UiOp {
     OpenWindow {
         url: String,
         new_window: bool,
-    },
-    /// Tells the extension iframes that a page was created.
-    ExtensionPageCreate {
-        page_id: String,
-        file_name: String,
-        dir_name: String,
-        page_type: String,
-    },
-    /// Tells the extension iframes that tags were added to the tags property of a page.
-    /// `tags` holds the added ones only.
-    ExtensionPageTagAdd {
-        page_id: String,
-        file_name: String,
-        dir_name: String,
-        page_type: String,
-        tags: Vec<String>,
-    },
-    /// Answers an extension's message. `source` is the shell's handle of the window.
-    ExtensionReply {
-        source: u64,
-        message: Value,
     },
     /// Resolved with `UiOutput::Now`.
     LocalNow,
@@ -969,10 +934,6 @@ impl<Event: Send + 'static> Api<Event> {
 
     pub async fn upload_asset(&self, file: u64) -> ApiResult<String> {
         expect_output!(self.call(ApiOp::UploadAsset { file }).await, FileName)
-    }
-
-    pub async fn get_functions(&self) -> ApiResult<Vec<FunctionInfo>> {
-        expect_output!(self.call(ApiOp::GetFunctions).await, Functions)
     }
 
     pub async fn launch_url(&self, url: &str) -> ApiResult<bool> {
