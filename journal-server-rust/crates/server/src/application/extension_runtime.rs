@@ -33,6 +33,33 @@ pub struct PageInfo {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ExtensionEvent {
     PageCreate(PageInfo),
+    /// Tags were added to the tags property of the page.
+    PageTagAdd(PageInfo, Vec<String>),
+}
+
+impl ExtensionEvent {
+    fn page(&self) -> &PageInfo {
+        match self {
+            ExtensionEvent::PageCreate(page) | ExtensionEvent::PageTagAdd(page, _) => page,
+        }
+    }
+
+    /// The name of the global function that answers the event.
+    fn handler_name(&self) -> &'static str {
+        match self {
+            ExtensionEvent::PageCreate(_) => "onPageCreate",
+            ExtensionEvent::PageTagAdd(..) => "onPageTagAdd",
+        }
+    }
+
+    fn call<'js>(&self, ctx: &Ctx<'js>, handler: &Function<'js>) -> anyhow::Result<()> {
+        let page = to_js(ctx, self.page())?;
+        let result = match self {
+            ExtensionEvent::PageCreate(_) => handler.call::<_, ()>((page,)),
+            ExtensionEvent::PageTagAdd(_, tags) => handler.call::<_, ()>((page, to_js(ctx, tags)?)),
+        };
+        js(ctx, result)
+    }
 }
 
 /// An item the script asked for. Its id is given out at once, so the script can place the
@@ -75,14 +102,12 @@ impl ExtensionRuntime {
         let runtime = Runtime::new()?;
         let context = Context::full(&runtime)?;
         let requests = Rc::new(RefCell::new(Vec::new()));
-        let ExtensionEvent::PageCreate(page) = event;
         context.with(|ctx| -> anyhow::Result<()> {
-            self.install_api(&ctx, &requests, page.id.clone())?;
+            self.install_api(&ctx, &requests, event.page().id.clone())?;
             js(&ctx, ctx.eval::<(), _>(source))?;
-            let handler: Value = ctx.globals().get("onPageCreate")?;
+            let handler: Value = ctx.globals().get(event.handler_name())?;
             if let Some(handler) = handler.as_function() {
-                let page = to_js(&ctx, page)?;
-                js(&ctx, handler.call::<_, ()>((page,)))?;
+                event.call(&ctx, handler)?;
             }
             Ok(())
         })?;
