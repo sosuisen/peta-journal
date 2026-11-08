@@ -2,6 +2,7 @@ pub mod atlas_service;
 pub mod combined_search;
 pub mod config_service;
 pub mod extension_functions;
+pub mod extension_runtime;
 pub mod flat_markdown_serializer;
 pub mod flat_markdown_splitter;
 pub mod folder_chooser;
