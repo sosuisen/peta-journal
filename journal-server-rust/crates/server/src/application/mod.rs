@@ -1,6 +1,7 @@
 pub mod atlas_service;
 pub mod combined_search;
 pub mod config_service;
+pub mod confirm_service;
 pub mod extension_functions;
 pub mod extension_runtime;
 pub mod extension_service;
