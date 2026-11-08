@@ -55,6 +55,10 @@ async fn a_new_journal_gets_the_template_of_its_weekday() {
     assert_eq!(status, 200, "{monday}");
     assert_eq!(
         outline(&monday["items"]),
-        vec!["1:### AM".to_string(), "2:- [ ] Check e-mails".to_string()]
+        vec!["1:### AM".to_string(), "2:Check e-mails".to_string()]
+    );
+    assert_eq!(
+        ItemRow::of(&monday["items"][1]).types,
+        vec!["task".to_string()]
     );
 }
