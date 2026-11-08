@@ -671,4 +671,24 @@ mod tests {
         assert_eq!(after_no.unwrap()[0].body, "false");
         assert_eq!(*yes.asked.lock().unwrap(), vec!["Insert the template?"]);
     }
+
+    // ページ作成はページを開く操作を止めているので、confirmは使えない。使うと失敗になる。
+    #[test]
+    fn confirm_is_not_there_in_a_page_create() {
+        let dir = function_dir(
+            "globalThis.onPageCreate = () => {
+                if (peta.confirm('Insert the template?')) {
+                    peta.createItem({ position: 'last', level: 1, body: 'a' });
+                }
+            };",
+        );
+        let yes = user(true);
+
+        let result = runtime()
+            .with_confirmer(yes.clone())
+            .run(dir.path(), &ExtensionEvent::PageCreate(page()));
+
+        assert!(result.is_err());
+        assert!(yes.asked.lock().unwrap().is_empty());
+    }
 }
