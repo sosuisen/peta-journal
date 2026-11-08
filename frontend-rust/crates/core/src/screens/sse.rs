@@ -63,10 +63,11 @@ fn on_pages_updated(model: &mut Model, json: &serde_json::Value) -> Cmd {
         .and_then(|p| p.as_str())
         .unwrap_or_default()
         .to_string();
-    // The server writes the outline of an atlas page by itself, as when a page of its
-    // directory is made, and tells so with its own source
+    // A change that this client did not make is read again. An extension writes items after
+    // a tag add, and the server writes the outline of an atlas page by itself, as when a page
+    // of its directory is made. Both tell so with their own source
     let reload = match json.get("source").and_then(|s| s.as_str()) {
-        Some("file") => file_reload::reload_page(model, &page_id),
+        Some("file" | "extension") => file_reload::reload_page(model, &page_id),
         Some("server") => atlas::reload_atlas(model, &page_id),
         _ => done(),
     };
