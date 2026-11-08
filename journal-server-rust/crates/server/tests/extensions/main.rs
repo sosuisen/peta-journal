@@ -11,6 +11,7 @@ mod common;
 use std::path::Path;
 
 use common::*;
+use journal_server::infrastructure::export::import_service::Outcome;
 use serde_json::{json, Value};
 
 /// Installs an extension function: a folder with a `config.json` and a `main.js`.
@@ -210,6 +211,35 @@ async fn adding_a_tag_puts_the_extension_items_at_the_end_of_the_page() {
         bodies_once(&page.id, 2).await,
         vec!["existing".to_string(), "T tmpl-ext".to_string()]
     );
+}
+
+// フォルダ同期で取り込んだページでは、拡張は呼ばれない。
+#[tokio::test]
+async fn a_page_taken_in_from_the_folder_does_not_call_the_extensions() {
+    let server = ext_server();
+    let name = unique_name("basic-imported");
+    let rel_path = format!("docs/{name}.md");
+    std::fs::create_dir_all(server.markdown_dir.join("docs")).unwrap();
+    std::fs::write(server.markdown_dir.join(&rel_path), "written by hand\n").unwrap();
+
+    let outcome = server
+        .state
+        .import
+        .sync_file(&server.markdown_dir, &rel_path);
+
+    assert_eq!(outcome, Outcome::Imported);
+    let page = server
+        .state
+        .pages
+        .find_by_type_dir_path_file_name("doc", "", &name)
+        .unwrap()
+        .unwrap();
+    let bodies: Vec<String> = items(page.id.as_str())
+        .await
+        .into_iter()
+        .map(|r| r.body)
+        .collect();
+    assert_eq!(bodies, vec!["written by hand".to_string()]);
 }
 
 // 失敗した拡張の項目は取り消され、ほかの拡張の項目は残る。
