@@ -1298,10 +1298,11 @@ wait, a quick RET would open a result of an older query."
 (defun peta-journal-search-recent ()
   "List the recent pages as the results, when nothing is typed yet."
   (interactive)
-  (with-current-buffer peta-journal--search-buffer
-    (peta-journal--search-render
-     (vconcat (mapcar (lambda (path) (list :kind "recent" :title path :snippet "" :path path))
-                      peta-journal--recent)))))
+  (when (string-empty-p (minibuffer-contents-no-properties))
+    (with-current-buffer peta-journal--search-buffer
+      (peta-journal--search-render
+       (vconcat (mapcar (lambda (path) (list :kind "recent" :title path :snippet "" :path path))
+                        peta-journal--recent))))))
 
 (defun peta-journal--search-input-changed (_beg _end _length)
   "Search for what the minibuffer holds now."
