@@ -1533,4 +1533,25 @@ Nothing is fetched: a test hands over the answer with `peta-journal--image-arriv
     (peta-journal--fetch-image "http://localhost:1/assets/p.png")
     (should (eq (gethash "http://localhost:1/assets/p.png" peta-journal--images) 'missing))))
 
+(defun peta-journal-test--offered-pages (command)
+  "The pages COMMAND offers to open, in the order the completion list shows them.
+Without a sort function of its own, the list is sorted by name, as `completions-sort' does."
+  (let (offered)
+    (cl-letf (((symbol-function 'completing-read)
+               (lambda (_prompt collection &rest _)
+                 (setq offered collection)
+                 "")))
+      (advice-eval-interactive-spec (cadr (interactive-form command))))
+    (let ((sort (or (completion-metadata-get (completion-metadata "" offered nil)
+                                             'display-sort-function)
+                    (lambda (pages) (sort pages #'string<)))))
+      (funcall sort (all-completions "" offered)))))
+
+;; ページを開くときの候補は、名前順に並べ替えず、最近のページの順のまま見せる。
+(ert-deftest peta-journal-the-recent-pages-are-offered-in-their-own-order ()
+  (let ((peta-journal--recent '("zeta" "alpha" "notes/mid")))
+    (dolist (command '(peta-journal-find-page peta-journal-new-buffer))
+      (should (equal (peta-journal-test--offered-pages command)
+                     '("zeta" "alpha" "notes/mid"))))))
+
 ;;; peta-journal-test.el ends here
