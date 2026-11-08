@@ -162,14 +162,28 @@ impl ExtensionRuntime {
         dir: PathBuf,
     ) -> anyhow::Result<()> {
         let peta = Object::new(ctx.clone())?;
+        peta.set("createItem", self.create_item_fn(ctx, requests, page_id)?)?;
+        peta.set("files", files_fn(ctx, dir.clone())?)?;
+        peta.set("readFile", read_file_fn(ctx, dir)?)?;
+        peta.set("parseItems", self.parse_items_fn(ctx)?)?;
+        ctx.globals().set("peta", peta)?;
+        Ok(())
+    }
+
+    /// `createItem({ position, level, body, transclude })`: records the item and returns its id.
+    fn create_item_fn<'js>(
+        &self,
+        ctx: &Ctx<'js>,
+        requests: &Rc<RefCell<Vec<ItemRequest>>>,
+        page_id: String,
+    ) -> rquickjs::Result<Function<'js>> {
         let ids = Arc::clone(&self.ids);
         let requests = Rc::clone(requests);
-        let create_item = Function::new(
+        Function::new(
             ctx.clone(),
             move |ctx: Ctx<'js>, args: Value<'js>| -> rquickjs::Result<String> {
                 let args: CreateItemArgs = from_js(&ctx, args)?;
-                let position = ItemPosition::parse(&args.position)
-                    .map_err(|e| rquickjs::Exception::throw_type(&ctx, &e))?;
+                let position = ItemPosition::parse(&args.position).map_err(|e| thrown(&ctx, e))?;
                 let id = ids.generate_item_id();
                 requests.borrow_mut().push(ItemRequest {
                     id: id.clone(),
@@ -181,32 +195,19 @@ impl ExtensionRuntime {
                 });
                 Ok(id.to_string())
             },
-        )?;
-        peta.set("createItem", create_item)?;
-        let read_dir = dir.clone();
-        let files = Function::new(
-            ctx.clone(),
-            move |ctx: Ctx<'js>| -> rquickjs::Result<Vec<String>> {
-                file_names(&dir)
-                    .map_err(|e| rquickjs::Exception::throw_internal(&ctx, &e.to_string()))
-            },
-        )?;
-        peta.set("files", files)?;
-        let read_file = Function::new(
-            ctx.clone(),
-            move |ctx: Ctx<'js>, name: String| -> rquickjs::Result<String> {
-                read_own_file(&read_dir, &name)
-                    .map_err(|e| rquickjs::Exception::throw_internal(&ctx, &e.to_string()))
-            },
-        )?;
-        peta.set("readFile", read_file)?;
+        )
+    }
+
+    /// `parseItems(markdown)`: the items of Flat Markdown, as `[{ level, body, transclude }]`.
+    fn parse_items_fn<'js>(&self, ctx: &Ctx<'js>) -> rquickjs::Result<Function<'js>> {
         let splitter = Arc::clone(&self.splitter);
-        let parse_items = Function::new(
+        Function::new(
             ctx.clone(),
             move |ctx: Ctx<'js>, markdown: String| -> rquickjs::Result<Value<'js>> {
-                let items: Vec<ParsedItem> = splitter
+                let page = splitter
                     .split(&markdown.replace("\r\n", "\n"))
-                    .map_err(|e| rquickjs::Exception::throw_type(&ctx, &e.to_string()))?
+                    .map_err(|e| thrown(&ctx, e))?;
+                let items: Vec<ParsedItem> = page
                     .items
                     .into_iter()
                     .map(|item| ParsedItem {
@@ -215,14 +216,35 @@ impl ExtensionRuntime {
                         body: item.body,
                     })
                     .collect();
-                to_js(&ctx, &items)
-                    .map_err(|e| rquickjs::Exception::throw_internal(&ctx, &e.to_string()))
+                to_js(&ctx, &items).map_err(|e| thrown(&ctx, e))
             },
-        )?;
-        peta.set("parseItems", parse_items)?;
-        ctx.globals().set("peta", peta)?;
-        Ok(())
+        )
     }
+}
+
+/// `files()`: the names of the files in the extension's folder, sorted.
+fn files_fn<'js>(ctx: &Ctx<'js>, dir: PathBuf) -> rquickjs::Result<Function<'js>> {
+    Function::new(
+        ctx.clone(),
+        move |ctx: Ctx<'js>| -> rquickjs::Result<Vec<String>> {
+            file_names(&dir).map_err(|e| thrown(&ctx, e))
+        },
+    )
+}
+
+/// `readFile(name)`: the text of a file in the extension's folder.
+fn read_file_fn<'js>(ctx: &Ctx<'js>, dir: PathBuf) -> rquickjs::Result<Function<'js>> {
+    Function::new(
+        ctx.clone(),
+        move |ctx: Ctx<'js>, name: String| -> rquickjs::Result<String> {
+            read_own_file(&dir, &name).map_err(|e| thrown(&ctx, e))
+        },
+    )
+}
+
+/// Throws `error` into the script as an `Error`, which the script may catch.
+fn thrown(ctx: &Ctx<'_>, error: impl std::fmt::Display) -> rquickjs::Error {
+    rquickjs::Exception::throw_message(ctx, &error.to_string())
 }
 
 /// Reads the file `name` directly in `dir`. A name with a folder in it is refused, so an
@@ -268,7 +290,7 @@ fn from_js<'js, T: for<'de> Deserialize<'de>>(
         .map(|s| s.to_string())
         .transpose()?
         .unwrap_or_default();
-    serde_json::from_str(&json).map_err(|e| rquickjs::Exception::throw_type(ctx, &e.to_string()))
+    serde_json::from_str(&json).map_err(|e| thrown(ctx, e))
 }
 
 #[cfg(test)]
