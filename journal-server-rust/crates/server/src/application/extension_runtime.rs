@@ -4,7 +4,7 @@
 //! caller writes them after the script has ended. So a failed script leaves nothing behind.
 
 use std::cell::RefCell;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -135,7 +135,7 @@ impl ExtensionRuntime {
         let context = Context::full(&runtime)?;
         let requests = Rc::new(RefCell::new(Vec::new()));
         context.with(|ctx| -> anyhow::Result<()> {
-            self.install_api(&ctx, &requests, event.page().id.clone())?;
+            self.install_api(&ctx, &requests, event.page().id.clone(), dir.to_path_buf())?;
             js(&ctx, ctx.eval::<(), _>(source))?;
             let handler: Value = ctx.globals().get(event.handler_name())?;
             if let Some(handler) = handler.as_function() {
@@ -152,6 +152,7 @@ impl ExtensionRuntime {
         ctx: &Ctx<'js>,
         requests: &Rc<RefCell<Vec<ItemRequest>>>,
         page_id: String,
+        dir: PathBuf,
     ) -> anyhow::Result<()> {
         let peta = Object::new(ctx.clone())?;
         let ids = Arc::clone(&self.ids);
@@ -175,9 +176,30 @@ impl ExtensionRuntime {
             },
         )?;
         peta.set("createItem", create_item)?;
+        let files = Function::new(
+            ctx.clone(),
+            move |ctx: Ctx<'js>| -> rquickjs::Result<Vec<String>> {
+                file_names(&dir)
+                    .map_err(|e| rquickjs::Exception::throw_internal(&ctx, &e.to_string()))
+            },
+        )?;
+        peta.set("files", files)?;
         ctx.globals().set("peta", peta)?;
         Ok(())
     }
+}
+
+/// The names of the files directly in `dir`, sorted. Folders are left out.
+fn file_names(dir: &Path) -> std::io::Result<Vec<String>> {
+    let mut names = Vec::new();
+    for entry in std::fs::read_dir(dir)? {
+        let entry = entry?;
+        if entry.file_type()?.is_file() {
+            names.push(entry.file_name().to_string_lossy().into_owned());
+        }
+    }
+    names.sort();
+    Ok(names)
 }
 
 /// Turns a JS exception into an error with its message and stack.
