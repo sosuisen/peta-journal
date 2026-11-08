@@ -1,6 +1,61 @@
 //! Asks the user a yes-or-no question for an extension, and waits for the answer of a client
 //! (see ADR 009).
 
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::mpsc;
+use std::sync::Arc;
+use std::sync::Mutex;
+use std::time::Duration;
+
+/// Sends a question to the clients.
+pub trait ConfirmEvents: Send + Sync {
+    /// Sends the question. False when no client is there to answer it.
+    fn ask_user(&self, request_id: &str, message: &str) -> bool;
+}
+
+pub struct ConfirmService {
+    events: Arc<dyn ConfirmEvents>,
+    /// How long a question waits for its answer.
+    timeout: Duration,
+    waiting: Mutex<HashMap<String, mpsc::Sender<bool>>>,
+    next_id: AtomicU64,
+}
+
+impl ConfirmService {
+    pub fn new(events: Arc<dyn ConfirmEvents>, timeout: Duration) -> ConfirmService {
+        ConfirmService {
+            events,
+            timeout,
+            waiting: Mutex::new(HashMap::new()),
+            next_id: AtomicU64::new(1),
+        }
+    }
+
+    /// Asks the clients and waits for the first answer. Blocks the thread.
+    pub fn confirm(&self, message: &str) -> bool {
+        let request_id = format!("confirm-{}", self.next_id.fetch_add(1, Ordering::SeqCst));
+        let (sender, receiver) = mpsc::channel();
+        self.waiting
+            .lock()
+            .unwrap()
+            .insert(request_id.clone(), sender);
+        self.events.ask_user(&request_id, message);
+        let ok = receiver.recv_timeout(self.timeout).unwrap_or(false);
+        self.waiting.lock().unwrap().remove(&request_id);
+        ok
+    }
+
+    /// Gives the answer to the question waiting under `request_id`. False when no question
+    /// waits there: it was answered already, or it timed out.
+    pub fn answer(&self, request_id: &str, ok: bool) -> bool {
+        match self.waiting.lock().unwrap().remove(request_id) {
+            Some(sender) => sender.send(ok).is_ok(),
+            None => false,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::{Arc, Mutex};
