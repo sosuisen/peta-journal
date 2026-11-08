@@ -453,6 +453,40 @@ mod tests {
         assert!(result.is_err());
     }
 
+    // parseItems(markdown)は、Flat Markdownを項目（階層、本文、トランスクルード元）に分ける。
+    #[test]
+    fn parse_items_splits_flat_markdown_into_levels_bodies_and_transclusions() {
+        let dir = function_dir(
+            "globalThis.onPageCreate = () => {
+                for (const item of peta.parseItems(peta.readFile('template.md'))) {
+                    peta.createItem({ position: 'last', level: item.level, body: item.body, transclude: item.transclude });
+                }
+            };",
+        );
+        std::fs::write(
+            dir.path().join("template.md"),
+            "- 予定\n  - [ ] 掃除\n- 引用\n  transclude:: 2026-01-01-00-00-00-AAAAAAA\n",
+        )
+        .unwrap();
+
+        let requests = runtime()
+            .run(dir.path(), &ExtensionEvent::PageCreate(page()))
+            .unwrap();
+
+        let items: Vec<_> = requests
+            .iter()
+            .map(|r| (r.level, r.body.as_str(), r.transclude.as_deref()))
+            .collect();
+        assert_eq!(
+            items,
+            vec![
+                (1, "予定", None),
+                (2, "[ ] 掃除", None),
+                (1, "引用", Some("2026-01-01-00-00-00-AAAAAAA")),
+            ]
+        );
+    }
+
     // 出来事の関数を持たない拡張は、何も頼まない。
     #[test]
     fn an_extension_without_the_event_function_asks_for_nothing() {
