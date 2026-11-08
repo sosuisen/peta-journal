@@ -600,14 +600,16 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
   (with-current-buffer "*PetaJournal Properties*"
     (substring-no-properties (buffer-string))))
 
-;; `C-c C-x p`で、プロパティの一覧を別の窓に開く。カーソルはページに残るので、続けて編集できる。
-(ert-deftest peta-journal-the-list-shows-the-properties-and-keeps-the-point ()
+;; `C-c C-x p`で、プロパティの一覧を別の窓に開く。カーソルは一覧の最初のプロパティに移るので、
+;; そのまま`s`や`d`を押せる。
+(ert-deftest peta-journal-the-list-shows-the-properties-and-takes-the-point ()
   (peta-journal-test--with-properties peta-journal-test--property-rows []
     (let ((page (current-buffer)))
       (set-window-buffer (selected-window) page)
       (execute-kbd-macro (kbd "C-c C-x p"))
-      (should (eq (window-buffer (selected-window)) page))
-      (should (get-buffer-window "*PetaJournal Properties*"))
+      (should (equal (buffer-name (window-buffer (selected-window))) "*PetaJournal Properties*"))
+      (should (equal (buffer-substring-no-properties (line-beginning-position) (line-end-position))
+                     "created   2026-11-07"))
       (should (equal (peta-journal-test--properties-text)
                      (concat "Properties\n\n"
                              "created   2026-11-07\n"
