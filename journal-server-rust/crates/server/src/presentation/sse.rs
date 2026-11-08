@@ -10,6 +10,7 @@ use tokio_stream::wrappers::BroadcastStream;
 use tokio_stream::StreamExt;
 
 use crate::application::atlas_service::AtlasEvents;
+use crate::application::confirm_service::ConfirmEvents;
 use crate::application::extension_service::ExtensionEvents;
 
 #[derive(Debug, Clone)]
@@ -61,6 +62,19 @@ impl ExtensionEvents for SseBroadcaster {
     /// Its own source: the clients reload the page, as `server` would reload only an atlas.
     fn page_changed(&self, page_id: &hmtid::Hmtid) {
         self.broadcast_pages_updated_from(page_id.as_str(), "extension");
+    }
+}
+
+impl ConfirmEvents for SseBroadcaster {
+    /// Every client gets the question. The first one to answer wins.
+    fn ask_user(&self, request_id: &str, message: &str) -> bool {
+        let json = serde_json::json!({
+            "type": "confirm",
+            "requestId": request_id,
+            "message": message,
+        });
+        // An error means that no client listens, so no one can answer
+        self.tx.send(json.to_string()).is_ok()
     }
 }
 

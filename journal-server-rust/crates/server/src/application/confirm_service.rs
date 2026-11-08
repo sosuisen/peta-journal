@@ -8,6 +8,8 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
 
+use crate::application::extension_runtime::Confirmer;
+
 /// Sends a question to the clients.
 pub trait ConfirmEvents: Send + Sync {
     /// Sends the question. False when no client is there to answer it.
@@ -53,6 +55,12 @@ impl ConfirmService {
             Some(sender) => sender.send(ok).is_ok(),
             None => false,
         }
+    }
+}
+
+impl Confirmer for ConfirmService {
+    fn confirm(&self, message: &str) -> bool {
+        ConfirmService::confirm(self, message)
     }
 }
 
