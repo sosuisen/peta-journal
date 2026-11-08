@@ -28,7 +28,13 @@ static SERVER: OnceLock<TestServer> = OnceLock::new();
 static COUNTER: AtomicU64 = AtomicU64::new(0);
 
 pub fn server() -> &'static TestServer {
-    SERVER.get_or_init(|| {
+    SERVER.get_or_init(|| start(|_| {}))
+}
+
+/// Starts a server of its own. `prepare` gets the config folder before the server starts, to
+/// put what the server reads only at startup there, such as extension functions.
+pub fn start(prepare: impl FnOnce(&std::path::Path)) -> TestServer {
+    {
         let dir = tempfile::Builder::new()
             .prefix("peta-journal-it-")
             .tempdir()
@@ -46,6 +52,7 @@ pub fn server() -> &'static TestServer {
                 .to_string(),
         )
         .unwrap();
+        prepare(&config_dir);
 
         let (tx, rx) = std::sync::mpsc::channel::<(SocketAddr, SharedState)>();
         let settings_root = root.clone();
@@ -84,7 +91,7 @@ pub fn server() -> &'static TestServer {
             state,
             _keep: dir,
         }
-    })
+    }
 }
 
 thread_local! {
