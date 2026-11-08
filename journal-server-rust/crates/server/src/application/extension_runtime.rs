@@ -6,7 +6,7 @@
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, Context as _};
@@ -157,12 +157,15 @@ impl ExtensionRuntime {
             .with_context(|| format!("cannot read {MAIN_FILE} in {}", dir.display()))?;
         let runtime = Runtime::new()?;
         runtime.set_memory_limit(self.limits.memory);
-        let deadline = Instant::now() + self.limits.time;
-        runtime.set_interrupt_handler(Some(Box::new(move || Instant::now() > deadline)));
+        let deadline = Arc::new(Mutex::new(Instant::now() + self.limits.time));
+        let until = Arc::clone(&deadline);
+        runtime.set_interrupt_handler(Some(Box::new(move || {
+            Instant::now() > *until.lock().unwrap()
+        })));
         let context = Context::full(&runtime)?;
         let requests = Rc::new(RefCell::new(Vec::new()));
         context.with(|ctx| -> anyhow::Result<()> {
-            self.install_api(&ctx, &requests, event, dir.to_path_buf())?;
+            self.install_api(&ctx, &requests, event, dir.to_path_buf(), deadline)?;
             js(&ctx, ctx.eval::<(), _>(source))?;
             let handler: Value = ctx.globals().get(event.handler_name())?;
             if let Some(handler) = handler.as_function() {
@@ -180,6 +183,7 @@ impl ExtensionRuntime {
         requests: &Rc<RefCell<Vec<ItemRequest>>>,
         event: &ExtensionEvent,
         dir: PathBuf,
+        deadline: Arc<Mutex<Instant>>,
     ) -> anyhow::Result<()> {
         let peta = Object::new(ctx.clone())?;
         let page_id = event.page().id.clone();
@@ -188,7 +192,7 @@ impl ExtensionRuntime {
         peta.set("readFile", read_file_fn(ctx, dir)?)?;
         peta.set("parseItems", self.parse_items_fn(ctx)?)?;
         if let Some(confirmer) = self.confirmer.as_ref().filter(|_| event.may_ask_user()) {
-            peta.set("confirm", confirm_fn(ctx, Arc::clone(confirmer))?)?;
+            peta.set("confirm", confirm_fn(ctx, Arc::clone(confirmer), deadline)?)?;
         }
         ctx.globals().set("peta", peta)?;
         Ok(())
@@ -266,13 +270,18 @@ fn read_file_fn<'js>(ctx: &Ctx<'js>, dir: PathBuf) -> rquickjs::Result<Function<
     )
 }
 
-/// `confirm(message)`: asks the user, and returns true for yes.
+/// `confirm(message)`: asks the user, and returns true for yes. The time limit is for the
+/// script, so the wait for the user moves the `deadline` back.
 fn confirm_fn<'js>(
     ctx: &Ctx<'js>,
     confirmer: Arc<dyn Confirmer>,
+    deadline: Arc<Mutex<Instant>>,
 ) -> rquickjs::Result<Function<'js>> {
     Function::new(ctx.clone(), move |message: String| {
-        confirmer.confirm(&message)
+        let asked = Instant::now();
+        let ok = confirmer.confirm(&message);
+        *deadline.lock().unwrap() += asked.elapsed();
+        ok
     })
 }
 
@@ -716,7 +725,7 @@ mod tests {
                 const ok = peta.confirm('Insert the template?');
                 // Some work after the answer, where the time limit is checked
                 let sum = 0;
-                for (let i = 0; i < 1000000; i++) { sum += i; }
+                for (let i = 0; i < 100000; i++) { sum += i; }
                 if (ok) {
                     peta.createItem({ position: 'last', level: 1, body: 'yes' });
                 }
