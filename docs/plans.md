@@ -62,6 +62,14 @@
 - [x] Emacs版で、項目の間に隙間をあける
 - [x] Emacs版で、折り返しの行のフリンジのマークを消す
 - [x] Emacs版で、日時のプロパティをローカル時刻で見せ、新しいキーは現在時刻を初期値にする
+- [ ] journal-serverがWeb版の画面も配信する（ADR 010）。次に手を付ける作業である
+  - [ ] `dist/`のファイルを`ServeDir`で配信し、ファイルのないパスには`index.html`を返す
+  - [ ] `/api`、`/mcp`、`/assets`のルートが、画面のファイルより優先される
+  - [ ] `dist/`の場所は、`--frontend-dir`か`PETAJOURNAL_FRONTEND_DIR`、なければ実行ファイルの隣の`frontend/`。どちらもなければ画面を配信しない
+  - [ ] `journal-server-rust/.cargo/config.toml`の`[env]`に、開発用の`dist/`の場所を書く
+  - [ ] `index.html`はキャッシュさせず、ハッシュの付いたファイルは長くキャッシュさせる
+  - [ ] READMEとdocsの起動手順を、journal-serverだけを起動する形に直す
+  - [ ] PlaywrightのE2Eテストを、`trunk serve`からjournal-serverの配信へ移すかを決める
 - [ ] Emacs版に、Web版にある機能を足す
   - 項目の操作
     - [ ] ウィキリンクの補完。毎日使うので、最初の候補である
