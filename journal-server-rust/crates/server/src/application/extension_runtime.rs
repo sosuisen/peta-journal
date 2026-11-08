@@ -333,6 +333,28 @@ mod tests {
         assert!(started.elapsed() < Duration::from_secs(5));
     }
 
+    // メモリを使いすぎる拡張は、上限で失敗になる。
+    #[test]
+    fn an_extension_that_uses_too_much_memory_fails_at_the_limit() {
+        let dir = function_dir(
+            "globalThis.onPageCreate = () => {
+                const parts = [];
+                for (;;) { parts.push('x'.repeat(1024 * 1024)); }
+            };",
+        );
+        let runtime = runtime().with_limits(ExtensionLimits {
+            memory: 8 * 1024 * 1024,
+            ..ExtensionLimits::default()
+        });
+
+        let started = Instant::now();
+        let result = runtime.run(dir.path(), &ExtensionEvent::PageCreate(page()));
+
+        let error = result.unwrap_err().to_string();
+        assert!(error.contains("out of memory"), "{error}");
+        assert!(started.elapsed() < ExtensionLimits::default().time);
+    }
+
     // 出来事の関数を持たない拡張は、何も頼まない。
     #[test]
     fn an_extension_without_the_event_function_asks_for_nothing() {
