@@ -187,28 +187,6 @@ async fn an_item_with_a_transclusion_source_mirrors_that_item() {
     assert_eq!(item["ast"], source_page["items"][0]["ast"]);
 }
 
-/// The bodies of the page once it has `count` items. A tag add runs its extensions after the
-/// answer, so the items come a little later.
-async fn bodies_once(page_id: &str, count: usize) -> Vec<String> {
-    for _ in 0..100 {
-        let rows = items(page_id).await;
-        if rows.len() >= count {
-            return rows.into_iter().map(|r| r.body).collect();
-        }
-        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-    }
-    panic!("the page did not get {count} items");
-}
-
-async fn set_tags(page_id: &str, tags: &str) {
-    let (status, resp) = put(
-        &format!("/api/pages/{page_id}/properties/tags"),
-        json!({ "valueType": "tags", "value": tags }),
-    )
-    .await;
-    assert_eq!(status, 200, "{resp}");
-}
-
 // タグを足すと、onPageTagAddが足されたタグだけを受け取り、その項目がページの最後に入る。
 #[tokio::test]
 async fn adding_a_tag_puts_the_extension_items_at_the_end_of_the_page() {
@@ -235,36 +213,7 @@ async fn the_clients_hear_of_the_page_when_the_tag_extensions_are_done() {
     set_tags(&page.id, "tmpl-ext").await;
 
     let expected = format!("\"pageId\":\"{}\",\"source\":\"extension\"", page.id);
-    let mut seen = String::new();
-    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(5);
-    while !seen.contains(&expected) {
-        let chunk = tokio::time::timeout_at(deadline, events.chunk())
-            .await
-            .expect("no event from the extensions")
-            .unwrap()
-            .unwrap();
-        seen.push_str(&String::from_utf8_lossy(&chunk));
-    }
-}
-
-/// Reads the event stream until an event has `needle` in it, and returns that event.
-async fn event_with(events: &mut reqwest::Response, needle: &str) -> Value {
-    let mut seen = String::new();
-    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(5);
-    loop {
-        if let Some(line) = seen
-            .lines()
-            .find(|line| line.starts_with("data:") && line.contains(needle))
-        {
-            return serde_json::from_str(line.trim_start_matches("data:").trim()).unwrap();
-        }
-        let chunk = tokio::time::timeout_at(deadline, events.chunk())
-            .await
-            .unwrap_or_else(|_| panic!("no event with {needle}"))
-            .unwrap()
-            .unwrap();
-        seen.push_str(&String::from_utf8_lossy(&chunk));
-    }
+    event_with(&mut events, &expected).await;
 }
 
 // タグの拡張がconfirmで尋ねると、クライアントに問い合わせが届き、「はい」の答えで項目が入る。

@@ -307,3 +307,45 @@ pub fn field_of_each(v: &Value, list: &str, field: &str) -> Vec<Value> {
         .map(|a| a.iter().map(|x| x[field].clone()).collect())
         .unwrap_or_default()
 }
+
+/// The bodies of the page once it has `count` items. A tag add runs its extensions after the
+/// answer, so the items come a little later.
+pub async fn bodies_once(page_id: &str, count: usize) -> Vec<String> {
+    for _ in 0..100 {
+        let rows = items(page_id).await;
+        if rows.len() >= count {
+            return rows.into_iter().map(|r| r.body).collect();
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+    panic!("the page did not get {count} items");
+}
+
+pub async fn set_tags(page_id: &str, tags: &str) {
+    let (status, resp) = put(
+        &format!("/api/pages/{page_id}/properties/tags"),
+        json!({ "valueType": "tags", "value": tags }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+}
+
+/// Reads the event stream until an event has `needle` in it, and returns that event.
+pub async fn event_with(events: &mut reqwest::Response, needle: &str) -> Value {
+    let mut seen = String::new();
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(5);
+    loop {
+        if let Some(line) = seen
+            .lines()
+            .find(|line| line.starts_with("data:") && line.contains(needle))
+        {
+            return serde_json::from_str(line.trim_start_matches("data:").trim()).unwrap();
+        }
+        let chunk = tokio::time::timeout_at(deadline, events.chunk())
+            .await
+            .unwrap_or_else(|_| panic!("no event with {needle}"))
+            .unwrap()
+            .unwrap();
+        seen.push_str(&String::from_utf8_lossy(&chunk));
+    }
+}
