@@ -488,9 +488,14 @@ The server is a real one, with its files in a temporary folder."
                                   (lambda () (gethash url peta-journal--images)))
       (should (eq (gethash url peta-journal--images) 'missing)))))
 
+(defun peta-journal-e2e--page-id ()
+  "The id of the page in the buffer of the app.
+The list of properties takes the point, so the current buffer may not be the page."
+  (buffer-local-value 'peta-journal--page-id (get-buffer "*PetaJournal*")))
+
 (defun peta-journal-e2e--saved-tags ()
   "The tags of the page on screen, as the server has them, in a list."
-  (let* ((answer (peta-journal-e2e--request "GET" (concat "/api/pages/" peta-journal--page-id)))
+  (let* ((answer (peta-journal-e2e--request "GET" (concat "/api/pages/" (peta-journal-e2e--page-id))))
          (properties (plist-get (plist-get answer :page) :properties)))
     (append (plist-get properties :tags) nil)))
 
@@ -543,7 +548,7 @@ The server is a real one, with its files in a temporary folder."
      "the new date in the list"
      (lambda () (string-search "2026-01-02 03:04" (peta-journal-e2e--properties-text))))
     (let ((saved (plist-get (plist-get (peta-journal-e2e--request
-                                        "GET" (concat "/api/pages/" peta-journal--page-id))
+                                        "GET" (concat "/api/pages/" (peta-journal-e2e--page-id)))
                                        :page)
                             :createdDate)))
       (should (equal (format-time-string "%Y-%m-%d %H:%M" (/ saved 1000))
