@@ -7,7 +7,7 @@ use crate::app::{
 use crate::effects::Api;
 use crate::ops::edit::focus_editor;
 use crate::ops::moves::CrossDayMove;
-use crate::screens::{extensions, navigate, page, sidebar};
+use crate::screens::{navigate, page, sidebar};
 use crate::util::date::{format_journal_date, Date};
 use crate::util::filename::{classify_journal_file_name, JournalType};
 use crate::util::week::weeks_in_year;
@@ -89,7 +89,7 @@ pub fn load_journal(model: &mut Model, date: String) -> Cmd {
                 page::scroll_to_item(m, focus_item_id),
             ];
             if created {
-                cmds.push(extensions::page_created(&result.page, d.clone()));
+                cmds.push(sidebar::refresh_recent_pages());
             }
             Command::all(cmds)
         });
@@ -251,9 +251,9 @@ pub fn nav(model: &mut Model, nav: JournalNav) -> Cmd {
 
 /// After an item moved to another day: navigates to that day, or reloads the journal.
 pub fn on_cross_day_moved(model: &mut Model, moved: CrossDayMove) -> Cmd {
-    // A page the move made is told to the extensions, as a page made by opening it is
+    // A page the move made shows up in the recent pages, as a page made by opening it does
     let created = match &moved.created_page {
-        Some(page) => extensions::page_created(page, moved.target_date.clone()),
+        Some(_) => sidebar::refresh_recent_pages(),
         None => done(),
     };
     Command::all([created, show_cross_day_move(model, moved)])

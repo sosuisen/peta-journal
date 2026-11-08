@@ -108,18 +108,6 @@ fn a_url_that_is_not_the_canonical_path_is_replaced_by_it() {
     assert!(!h.api.called("GetPageById"));
 }
 
-// 開いたことで作られたページは、拡張に知らされる。
-#[test]
-fn a_page_made_by_opening_it_is_told_to_the_extensions() {
-    let mut h = Harness::new();
-    served(&mut h, doc("notes/", "Idea"), true);
-    visit(&mut h, "notes/Idea", None);
-
-    assert!(h.ui.iter().any(
-        |op| matches!(op, UiOp::ExtensionPageCreate { file_name, page_type, .. } if file_name == "Idea" && page_type == "doc")
-    ));
-}
-
 // URL のフラグメントが項目を指すと、その項目が選ばれてスクロールされる。アウトラインにない項目ならスクロールしない。
 #[test]
 fn the_fragment_selects_and_scrolls_to_its_item() {

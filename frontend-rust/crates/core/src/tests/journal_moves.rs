@@ -1,5 +1,5 @@
 use crate::app::{Event, JournalState, Screen};
-use crate::effects::{ApiOp, ApiOutput, UiOp};
+use crate::effects::{ApiOp, ApiOutput};
 use crate::harness::{create_calls, item, move_calls, Harness};
 use crate::model::{Page, PageWithItems};
 use crate::testing::item_with;
@@ -223,61 +223,4 @@ fn a_level_2_item_at_the_bottom_moves_down_under_the_first_root_of_the_previous_
     assert!(!h.api.calls.iter().any(
         |c| matches!(c, ApiOp::GetOrCreateJournal { file_name } if file_name == "2026-02-09")
     ));
-}
-
-fn created_journal(date: &str) -> ApiOutput {
-    ApiOutput::Page(PageWithItems {
-        page: Page {
-            id: format!("page-{date}"),
-            name: date.into(),
-            page_type: "journal".into(),
-            ..Default::default()
-        },
-        items: vec![item("empty", 1, "")],
-        created: true,
-        transcluded_trees: None,
-    })
-}
-
-fn page_creates(h: &Harness) -> Vec<String> {
-    h.ui.iter()
-        .filter_map(|op| match op {
-            UiOp::ExtensionPageCreate { file_name, .. } => Some(file_name.clone()),
-            _ => None,
-        })
-        .collect()
-}
-
-// 日付をまたぐ移動で翌日のジャーナルが作られると、拡張に知らされる。
-#[test]
-fn a_journal_made_by_a_move_up_is_told_to_the_extensions() {
-    let mut h = harness();
-    h.api
-        .answer_next("GetOrCreateJournal", Ok(created_journal("2026-02-11")));
-    h.send(Event::MoveUp {
-        item_id: "a".into(),
-    });
-    assert_eq!(page_creates(&h), ["2026-02-11"]);
-}
-
-// 前日のジャーナルが作られたときも、拡張に知らされる。
-#[test]
-fn a_journal_made_by_a_move_down_is_told_to_the_extensions() {
-    let mut h = harness();
-    h.api
-        .answer_next("GetOrCreateJournal", Ok(created_journal("2026-02-08")));
-    h.send(Event::MoveDown {
-        item_id: "d".into(),
-    });
-    assert_eq!(page_creates(&h), ["2026-02-08"]);
-}
-
-// すでにあるジャーナルへの移動では、拡張に何も知らせない。
-#[test]
-fn a_move_to_a_journal_that_was_there_tells_the_extensions_nothing() {
-    let mut h = harness();
-    h.send(Event::MoveDown {
-        item_id: "d".into(),
-    });
-    assert!(page_creates(&h).is_empty());
 }

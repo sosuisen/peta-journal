@@ -62,14 +62,6 @@ pub fn decode_uri(s: &str) -> String {
         .unwrap_or_else(|| s.to_string())
 }
 
-/// Converts JSON to a plain JavaScript value. Objects become `{}` objects, not `Map`s:
-/// the extension scripts read fields like `event.data.type`, and a `Map` has none.
-pub fn to_js(value: &serde_json::Value) -> JsValue {
-    use serde::Serialize;
-    let serializer = serde_wasm_bindgen::Serializer::json_compatible();
-    value.serialize(&serializer).unwrap_or(JsValue::NULL)
-}
-
 pub fn focus_without_scroll(el: &web_sys::HtmlElement) {
     let options = web_sys::FocusOptions::new();
     options.set_prevent_scroll(true);

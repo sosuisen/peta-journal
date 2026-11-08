@@ -1,8 +1,7 @@
 //! The screens around the outline: routing, the journal and page headers, the sidebar,
-//! search, settings, extensions and the server connection.
+//! search, settings and the server connection.
 
 pub mod atlas;
-pub mod extensions;
 pub mod journal;
 pub mod layout;
 pub mod navigate;
@@ -14,7 +13,7 @@ pub mod sse;
 
 pub mod start {
     use crate::app::{Cmd, Model};
-    use crate::screens::{extensions, settings, sidebar, sse};
+    use crate::screens::{settings, sidebar, sse};
     use crux_core::Command;
 
     /// The shell is up: connect to the server, load the settings and the sidebar.
@@ -24,7 +23,6 @@ pub mod start {
             settings::load_server_config(),
             settings::load_property_definitions(),
             sidebar::refresh_recent_pages(),
-            extensions::load(model),
         ])
     }
 }

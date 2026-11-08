@@ -24,18 +24,13 @@ fn pending_delays_ms(h: &Harness) -> Vec<u32> {
         .collect()
 }
 
-// 起動でサーバーのストリームにつなぎ、接続中になる。設定、プロパティ定義、最近のページ、拡張も読み込まれる。
+// 起動でサーバーのストリームにつなぎ、接続中になる。設定、プロパティ定義、最近のページも読み込まれる。
 #[test]
 fn starting_connects_to_the_stream_and_loads_the_settings() {
     let h = started();
     assert_eq!(h.view().connection, ConnectionState::Connecting);
     assert_eq!(h.sse.len(), 1);
-    for op in [
-        "GetConfig",
-        "GetPropertyDefinitions",
-        "GetRecentPages",
-        "GetFunctions",
-    ] {
+    for op in ["GetConfig", "GetPropertyDefinitions", "GetRecentPages"] {
         assert!(h.api.called(op), "{op}");
     }
 }

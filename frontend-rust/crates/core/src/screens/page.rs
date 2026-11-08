@@ -4,7 +4,7 @@
 use crate::app::{apply, done, log_error, run, Cmd, Event, Model, PageState, Screen};
 use crate::effects::{Api, ApiError, PageUpdate, UiOp};
 use crate::model::{BacklinkEntry, Page};
-use crate::screens::{extensions, navigate, sidebar};
+use crate::screens::{navigate, sidebar};
 use crate::util::filename::validate_file_name;
 use crux_core::Command;
 use serde_json::Value;
@@ -92,8 +92,7 @@ pub fn open(model: &mut Model, name: &str, fragment: Option<String>) -> Cmd {
                 load_backlinks(page_for_state.id.clone()),
             ];
             if created {
-                let name = page_for_state.name.clone();
-                cmds.push(extensions::page_created(&page_for_state, name));
+                cmds.push(sidebar::refresh_recent_pages());
             }
             Command::all(cmds)
         });
@@ -411,34 +410,13 @@ pub fn set_property(model: &mut Model, key: String, value_type: String, value: S
         page.properties
             .insert(key.clone(), property_value(&value_type, &value));
     }
-    let added_tags = if key == "tags" {
-        let old = tag_list(before.get("tags"));
-        list_items(&value)
-            .into_iter()
-            .filter(|t| !old.contains(t))
-            .collect()
-    } else {
-        Vec::new()
-    };
     let page_id = page.id.clone();
     run(move |api| async move {
         let result = api
             .upsert_page_property(&page_id, &key, &value_type, &value)
             .await;
-        settle_property_change(&api, page_id, before, result, added_tags).await;
+        settle_property_change(&api, page_id, before, result).await;
     })
-}
-
-/// The tags in a stored tags property. A text value stands for a comma separated list.
-fn tag_list(value: Option<&Value>) -> Vec<String> {
-    match value {
-        Some(Value::Array(tags)) => tags
-            .iter()
-            .filter_map(|t| t.as_str().map(str::to_string))
-            .collect(),
-        Some(Value::String(s)) => list_items(s),
-        _ => Vec::new(),
-    }
 }
 
 /// Removes a property of the doc page, the same way `set_property` sets one.
@@ -451,18 +429,16 @@ pub fn delete_property(model: &mut Model, key: String) -> Cmd {
     let page_id = page.id.clone();
     run(move |api| async move {
         let result = api.delete_page_property(&page_id, &key).await;
-        settle_property_change(&api, page_id, before, result, Vec::new()).await;
+        settle_property_change(&api, page_id, before, result).await;
     })
 }
 
-/// Settles a property change with the server's answer. The extensions hear of
-/// `added_tags` only when the server has accepted them.
+/// Settles a property change with the server's answer.
 async fn settle_property_change(
     api: &crate::effects::Api<crate::app::Event>,
     page_id: String,
     before: BTreeMap<String, Value>,
     result: Result<Page, crate::effects::ApiError>,
-    added_tags: Vec<String>,
 ) {
     match result {
         Ok(updated) => apply(api, "page property saved", move |m| {
@@ -472,7 +448,7 @@ async fn settle_property_change(
             page.properties = updated.properties;
             page.created_date = updated.created_date;
             page.modified_date = updated.modified_date;
-            extensions::tags_added(page, added_tags)
+            done()
         }),
         Err(e) => {
             api.alert(e.0);

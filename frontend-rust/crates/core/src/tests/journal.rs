@@ -100,26 +100,6 @@ fn a_date_is_titled_in_japanese() {
     assert_eq!(journal_view(&h).display_date, "2026年2月9日 月曜日");
 }
 
-// 開いたことで作られたジャーナルは、拡張に知らされる。
-#[test]
-fn a_journal_made_by_opening_it_is_told_to_the_extensions() {
-    let mut h = Harness::new();
-    h.api.answer_next(
-        "GetOrCreateJournal",
-        Ok(ApiOutput::Page(PageWithItems {
-            page: journal_page(TODAY),
-            items: vec![journal_item("i", TODAY)],
-            created: true,
-            transcluded_trees: None,
-        })),
-    );
-    visit(&mut h, "today");
-
-    assert!(h.ui.iter().any(
-        |op| matches!(op, UiOp::ExtensionPageCreate { file_name, page_type, .. } if file_name == TODAY && page_type == "journal")
-    ));
-}
-
 // 日次のジャーナルの下には、前のジャーナルが見つからなくなるまで続けて読み込まれる。読み込んだ日は記録され、見出しは日付ごとに付く。
 #[test]
 fn the_journals_before_are_appended_until_there_is_none() {
