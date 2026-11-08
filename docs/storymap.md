@@ -166,7 +166,7 @@
       - ^ 両方で変えたときは新しい方が勝ち、古い方は `.conflict` ファイルとして残る
         - ^ 消えたファイルは確認ページで選んだものだけが消える
 - 外のプログラムと組む #拡張 #AI
-  - // 出典: tests/extensions.rs, screens/extensions.rs, ext-functions/auto-template, journal-server-rust の MCP
+  - // 出典: journal-server-rust の tests/extensions と tests/auto_template, ext-functions/auto-template, tests/launcher.rs, journal-server-rust の MCP
   - 拡張機能から項目を作る
     - vvvv 隠れた iframe の拡張が、ページ作成やタグ追加の通知を受けて項目を作る
       - ^ テンプレートの項目は、唯一の空の1行目を上書きし、他の項目をトランスクルードできる
