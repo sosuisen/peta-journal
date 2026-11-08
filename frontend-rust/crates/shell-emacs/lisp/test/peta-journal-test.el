@@ -1554,4 +1554,26 @@ Without a sort function of its own, the list is sorted by name, as `completions-
       (should (equal (peta-journal-test--offered-pages command)
                      '("zeta" "alpha" "notes/mid"))))))
 
+;; キーは、書きながら押すものを`C-c C-文字`に、ページ単位でたまに使うものを`C-c C-x`の下に置く。
+;; 項目の移動は`M-S-矢印`にし、`M-矢印`はEmacsの単語の移動などに残す。
+(ert-deftest peta-journal-the-keys-of-the-mode ()
+  (pcase-dolist (`(,key . ,command)
+                 '(("M-S-<up>" . peta-journal-move-up)
+                   ("M-S-<down>" . peta-journal-move-down)
+                   ("M-S-<right>" . peta-journal-indent)
+                   ("M-S-<left>" . peta-journal-outdent)
+                   ("C-c C-f" . peta-journal-collapse-toggle)
+                   ("C-c C-s" . peta-journal-search)
+                   ("C-c C-b" . peta-journal-back)
+                   ("C-c C-x b" . peta-journal-backlinks)
+                   ("C-c C-x r" . peta-journal-rename-page)
+                   ("C-c C-x p" . peta-journal-properties)
+                   ("C-c C-x n" . peta-journal-new-buffer)
+                   ("C-c C-x i" . peta-journal-insert-image)))
+    (should (eq (keymap-lookup peta-journal-mode-map key) command)))
+  ;; `C-c C-c`はEmacsでは「確定」の意味なので、折り畳みには使わずに空けておく。
+  (dolist (key '("M-<up>" "M-<down>" "M-<right>" "M-<left>" "C-c /" "C-c C-c"
+                 "C-c C-l" "C-c C-r" "C-c C-a" "C-c C-v" "C-c C-i" "C-c C-k"))
+    (should-not (keymap-lookup peta-journal-mode-map key))))
+
 ;;; peta-journal-test.el ends here
