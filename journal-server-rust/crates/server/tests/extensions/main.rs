@@ -88,6 +88,16 @@ fn ext_server() -> &'static TestServer {
         );
         install(
             config_dir,
+            "h-confirm",
+            "globalThis.onPageTagAdd = (page, tags) => {
+                if (!tags.includes('ask-ext')) return;
+                if (peta.confirm('Insert into ' + page.fileName + '?')) {
+                    peta.createItem({ position: 'last', level: 1, body: 'confirmed' });
+                }
+            };",
+        );
+        install(
+            config_dir,
             "j-journal",
             "globalThis.onPageCreate = (page) => {
                 if (page.pageType !== 'journal' || !page.fileName.startsWith('2031-')) return;
@@ -235,6 +245,57 @@ async fn the_clients_hear_of_the_page_when_the_tag_extensions_are_done() {
             .unwrap();
         seen.push_str(&String::from_utf8_lossy(&chunk));
     }
+}
+
+/// Reads the event stream until an event has `needle` in it, and returns that event.
+async fn event_with(events: &mut reqwest::Response, needle: &str) -> Value {
+    let mut seen = String::new();
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(5);
+    loop {
+        if let Some(line) = seen
+            .lines()
+            .find(|line| line.starts_with("data:") && line.contains(needle))
+        {
+            return serde_json::from_str(line.trim_start_matches("data:").trim()).unwrap();
+        }
+        let chunk = tokio::time::timeout_at(deadline, events.chunk())
+            .await
+            .unwrap_or_else(|_| panic!("no event with {needle}"))
+            .unwrap()
+            .unwrap();
+        seen.push_str(&String::from_utf8_lossy(&chunk));
+    }
+}
+
+// タグの拡張がconfirmで尋ねると、クライアントに問い合わせが届き、「はい」の答えで項目が入る。
+#[tokio::test]
+async fn a_tag_extension_asks_the_clients_and_writes_its_items_after_a_yes() {
+    ext_server();
+    let page = new_doc_page("confirm").await;
+    fill(&page.id, &["existing"]).await;
+    let mut events = client().get(url("/api/events")).send().await.unwrap();
+
+    set_tags(&page.id, "ask-ext").await;
+    let question = event_with(&mut events, &format!("Insert into {}?", page.title)).await;
+    let request_id = question["requestId"].as_str().unwrap();
+    let (status, _) = post(&format!("/api/confirm/{request_id}"), json!({ "ok": true })).await;
+
+    assert_eq!(question["type"], "confirm");
+    assert_eq!(status, 200);
+    assert_eq!(
+        bodies_once(&page.id, 2).await,
+        vec!["existing".to_string(), "confirmed".to_string()]
+    );
+}
+
+// 待っていない問い合わせへの答えは、404になる。
+#[tokio::test]
+async fn an_answer_to_a_question_that_no_one_waits_for_is_not_found() {
+    ext_server();
+
+    let (status, _) = post("/api/confirm/unknown", json!({ "ok": true })).await;
+
+    assert_eq!(status, 404);
 }
 
 // フォルダ同期で取り込んだページでは、拡張は呼ばれない。
