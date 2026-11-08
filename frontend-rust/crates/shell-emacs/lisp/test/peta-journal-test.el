@@ -720,6 +720,27 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
         (execute-kbd-macro (kbd "s"))))
     (should (equal peta-journal-test--sent '(("set_property" :key "status" :value "done"))))))
 
+;; 設定したあとも、一覧が書き直されたあとも、カーソルは同じ行に残る。続けて同じキーを直せる。
+(ert-deftest peta-journal-the-list-keeps-the-line-after-a-change ()
+  (peta-journal-test--with-properties peta-journal-test--property-rows []
+    (let ((page (current-buffer)))
+      (set-window-buffer (selected-window) page)
+      (save-current-buffer
+        (peta-journal-properties)
+        (forward-line 2)
+        (peta-journal-test--answering-the-default "done"
+          (execute-kbd-macro (kbd "s"))))
+      (peta-journal--on-line
+       '(:t "properties"
+         :rows [(:key "created" :value "2026-11-07" :removable nil :editable t)
+                (:key "modified" :value "2026-11-08" :removable nil :editable nil)
+                (:key "status" :value "done" :removable t :editable t)]
+         :free_keys []))
+      (with-selected-window (get-buffer-window "*PetaJournal Properties*")
+        (should (equal (buffer-substring-no-properties (line-beginning-position)
+                                                       (line-end-position))
+                       "status    done"))))))
+
 ;; 一覧の中で`d`を押すと、カーソルの行のキーを既定にして、そのプロパティを消す。
 (ert-deftest peta-journal-d-in-the-list-removes-the-property-on-the-line ()
   (peta-journal-test--with-properties peta-journal-test--property-rows []
