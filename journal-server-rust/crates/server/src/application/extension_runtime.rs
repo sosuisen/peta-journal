@@ -536,6 +536,41 @@ mod tests {
         );
     }
 
+    // createItemに不正な置き場所を渡すと、拡張が受け止められる例外になる。
+    #[test]
+    fn create_item_with_a_wrong_position_throws_an_error_the_script_can_catch() {
+        let dir = function_dir(
+            "globalThis.onPageCreate = () => {
+                try {
+                    peta.createItem({ position: 'middle', level: 1, body: 'a' });
+                } catch (e) {
+                    peta.createItem({ position: 'last', level: 1, body: 'caught' });
+                }
+            };",
+        );
+
+        let requests = runtime()
+            .run(dir.path(), &ExtensionEvent::PageCreate(page()))
+            .unwrap();
+
+        let bodies: Vec<_> = requests.iter().map(|r| r.body.as_str()).collect();
+        assert_eq!(bodies, vec!["caught"]);
+    }
+
+    // readFileで、ないファイルを読むと失敗になる。
+    #[test]
+    fn read_file_of_a_missing_file_fails() {
+        let dir = function_dir(
+            "globalThis.onPageCreate = () => {
+                peta.createItem({ position: 'last', level: 1, body: peta.readFile('missing.md') });
+            };",
+        );
+
+        let result = runtime().run(dir.path(), &ExtensionEvent::PageCreate(page()));
+
+        assert!(result.is_err());
+    }
+
     // 出来事の関数を持たない拡張は、何も頼まない。
     #[test]
     fn an_extension_without_the_event_function_asks_for_nothing() {
