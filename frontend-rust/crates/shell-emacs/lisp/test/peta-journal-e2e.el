@@ -354,9 +354,14 @@ The server is a real one, with its files in a temporary folder."
     (peta-journal-e2e--wait-for "the delete" (lambda () (= (length peta-journal--rows) 1)))
     (peta-journal-e2e--wait-saved '("a"))))
 
+(defun peta-journal-e2e--open-page (path)
+  "Ask the core to open the page at PATH, which is made when it does not exist.
+No key does this: the tests use it to reach a page without the search box."
+  (peta-journal--go "go_to_page" :path path))
+
 (defun peta-journal-e2e--search-keys (query &rest keys)
-  "Press C-c /, type QUERY without a pause, and press KEYS."
-  (execute-kbd-macro (vconcat (kbd "C-c /") query (kbd (string-join keys " "))))
+  "Press C-c C-s, type QUERY without a pause, and press KEYS."
+  (execute-kbd-macro (vconcat (kbd "C-c C-s") query (kbd (string-join keys " "))))
   (peta-journal--wait))
 
 (defun peta-journal-e2e--wait-page-title (title)
@@ -366,14 +371,14 @@ The server is a real one, with its files in a temporary folder."
    (lambda () (equal peta-journal--title title))))
 
 (defun peta-journal-e2e--rename (path)
-  "Press C-c C-r, replace the name it offers with PATH, and press RET."
-  (execute-kbd-macro (vconcat (kbd "C-c C-r C-a C-k") path (kbd "RET")))
+  "Press C-c C-x r, replace the name it offers with PATH, and press RET."
+  (execute-kbd-macro (vconcat (kbd "C-c C-x r C-a C-k") path (kbd "RET")))
   (peta-journal--wait))
 
-;; C-c C-r で名前を変えると、打ったばかりの文も新しい名前のファイルに書かれ、古いファイルは消える。
+;; `C-c C-x r`で名前を変えると、打ったばかりの文も新しい名前のファイルに書かれ、古いファイルは消える。
 (ert-deftest peta-journal-e2e-renaming-moves-the-page-and-keeps-the-text ()
   (peta-journal-e2e--with-app
-    (peta-journal-find-page "古い名前")
+    (peta-journal-e2e--open-page "古い名前")
     (peta-journal-e2e--wait-page-title "古い名前")
     (peta-journal-e2e--type "本文")
     (peta-journal-e2e--keys "C-x C-s")
@@ -401,7 +406,7 @@ The server is a real one, with its files in a temporary folder."
 ;; フォルダのないパスを付けると、ページはフォルダの外へ出る。
 (ert-deftest peta-journal-e2e-a-page-can-move-out-of-its-folder ()
   (peta-journal-e2e--with-app
-    (peta-journal-find-page "フォルダ/メモ")
+    (peta-journal-e2e--open-page "フォルダ/メモ")
     (peta-journal-e2e--wait-page-title "フォルダ/メモ")
     (peta-journal-e2e--rename "メモ")
     (peta-journal-e2e--wait-page-title "メモ")
@@ -410,7 +415,7 @@ The server is a real one, with its files in a temporary folder."
 ;; ジャーナルでは、名前を尋ねずに断る。
 (ert-deftest peta-journal-e2e-a-journal-refuses-the-rename ()
   (peta-journal-e2e--with-app
-    (should-error (execute-kbd-macro (kbd "C-c C-r")) :type 'user-error)))
+    (should-error (execute-kbd-macro (kbd "C-c C-x r")) :type 'user-error)))
 
 (defun peta-journal-e2e--write-image (file bytes)
   "Write the unibyte string BYTES to FILE, as they are."
@@ -425,7 +430,7 @@ The server is a real one, with its files in a temporary folder."
       (insert-file-contents-literally file))
     (buffer-string)))
 
-;; C-c C-i で選んだ画像は、中身のままサーバーへ届き、カーソル位置にリンクが入る。続けて打った文字はリンクの後ろに入る。
+;; `C-c C-x i`で選んだ画像は、中身のままサーバーへ届き、カーソル位置にリンクが入る。続けて打った文字はリンクの後ろに入る。
 (ert-deftest peta-journal-e2e-an-inserted-image-is-uploaded-and-linked ()
   (peta-journal-e2e--with-app
     ;; Bytes that break when read as text: a line end, a zero and a high byte
@@ -435,7 +440,7 @@ The server is a real one, with its files in a temporary folder."
       (peta-journal-e2e--write-image image bytes)
       (peta-journal-e2e--type "前後")
       (peta-journal-e2e--keys "C-b")
-      (execute-kbd-macro (vconcat (kbd "C-c C-i C-a C-k") image (kbd "RET")))
+      (execute-kbd-macro (vconcat (kbd "C-c C-x i C-a C-k") image (kbd "RET")))
       (peta-journal--wait)
       (peta-journal-e2e--type "と")
       (should (equal (peta-journal-e2e--shown) (format "• 前%sと後\n" link)))
@@ -472,7 +477,7 @@ The server is a real one, with its files in a temporary folder."
       (let ((bytes (unibyte-string #x89 ?P ?N ?G 13 10 26 10 0 255 13 10 13 10))
             (image (expand-file-name "shown.png" root)))
         (peta-journal-e2e--write-image image bytes)
-        (execute-kbd-macro (vconcat (kbd "C-c C-i C-a C-k") image (kbd "RET")))
+        (execute-kbd-macro (vconcat (kbd "C-c C-x i C-a C-k") image (kbd "RET")))
         (peta-journal--wait)
         (should-not (peta-journal-e2e--shown-image))
         (peta-journal-e2e--keys "RET")
@@ -488,9 +493,14 @@ The server is a real one, with its files in a temporary folder."
                                   (lambda () (gethash url peta-journal--images)))
       (should (eq (gethash url peta-journal--images) 'missing)))))
 
+(defun peta-journal-e2e--page-id ()
+  "The id of the page in the buffer of the app.
+The list of properties takes the point, so the current buffer may not be the page."
+  (buffer-local-value 'peta-journal--page-id (get-buffer "*PetaJournal*")))
+
 (defun peta-journal-e2e--saved-tags ()
   "The tags of the page on screen, as the server has them, in a list."
-  (let* ((answer (peta-journal-e2e--request "GET" (concat "/api/pages/" peta-journal--page-id)))
+  (let* ((answer (peta-journal-e2e--request "GET" (concat "/api/pages/" (peta-journal-e2e--page-id))))
          (properties (plist-get (plist-get answer :page) :properties)))
     (append (plist-get properties :tags) nil)))
 
@@ -505,44 +515,45 @@ The server is a real one, with its files in a temporary folder."
   (with-current-buffer "*PetaJournal Properties*"
     (buffer-substring-no-properties (point-min) (point-max))))
 
-;; C-c C-s でプロパティを設定すると、サーバーに保存され、一覧に出る。打ちかけの文はそのまま残る。
-;; もう一度設定すると今の値から直せて、C-c C-k で消せる。
+;; `C-c C-x p`で開いた一覧の中で`s`を押してプロパティを設定すると、サーバーに保存され、一覧に出る。
+;; もう一度設定すると今の値から直せて、`d`で消せる。`q`で一覧を閉じると、打ちかけの文はそのまま残っている。
 (ert-deftest peta-journal-e2e-a-property-is-set-changed-and-removed ()
   (peta-journal-e2e--with-app
-    (peta-journal-find-page "プロパティのページ")
+    (peta-journal-e2e--open-page "プロパティのページ")
     (peta-journal-e2e--wait-page-title "プロパティのページ")
     (peta-journal-e2e--type "打ちかけ")
-    (execute-kbd-macro (vconcat (kbd "C-c C-s") "tags" (kbd "RET") "emacs, memo" (kbd "RET")))
+    (execute-kbd-macro (vconcat (kbd "C-c C-x p s") "tags" (kbd "RET") "emacs, memo" (kbd "RET")))
     (peta-journal-e2e--wait-saved-tags '("emacs" "memo"))
     (peta-journal-e2e--wait-for
      "the tags in the list"
      (lambda () (string-search "tags" (peta-journal-e2e--properties-text))))
     (should (string-search "emacs, memo" (peta-journal-e2e--properties-text)))
-    (should (equal (peta-journal--body-at (point)) "打ちかけ"))
 
-    (execute-kbd-macro (vconcat (kbd "C-c C-s") "tags" (kbd "RET") (kbd "C-e") ", more" (kbd "RET")))
+    (execute-kbd-macro (vconcat (kbd "s") "tags" (kbd "RET") (kbd "C-e") ", more" (kbd "RET")))
     (peta-journal-e2e--wait-saved-tags '("emacs" "memo" "more"))
 
-    (execute-kbd-macro (vconcat (kbd "C-c C-k") "tags" (kbd "RET")))
+    (execute-kbd-macro (vconcat (kbd "d") "tags" (kbd "RET")))
     (peta-journal-e2e--wait-saved-tags nil)
     (peta-journal-e2e--wait-for
      "the tags to leave the list"
      (lambda () (not (string-search "tags" (peta-journal-e2e--properties-text)))))
+    (peta-journal-e2e--keys "q")
+    (should (equal (peta-journal--body-at (point)) "打ちかけ"))
     (peta-journal-e2e--keys "C-x C-s")
     (peta-journal-e2e--wait-saved '("打ちかけ"))))
 
-;; 作成日時を C-c C-s で直すと、サーバーに保存され、一覧にはローカル時刻で出る。
+;; 作成日時を一覧の`s`で直すと、サーバーに保存され、一覧にはローカル時刻で出る。
 (ert-deftest peta-journal-e2e-a-date-is-set-in-local-time ()
   (peta-journal-e2e--with-app
-    (peta-journal-find-page "日時のページ")
+    (peta-journal-e2e--open-page "日時のページ")
     (peta-journal-e2e--wait-page-title "日時のページ")
     (execute-kbd-macro
-     (vconcat (kbd "C-c C-s") "created" (kbd "RET C-a C-k") "2026-01-02 03:04" (kbd "RET")))
+     (vconcat (kbd "C-c C-x p s") "created" (kbd "RET C-a C-k") "2026-01-02 03:04" (kbd "RET")))
     (peta-journal-e2e--wait-for
      "the new date in the list"
      (lambda () (string-search "2026-01-02 03:04" (peta-journal-e2e--properties-text))))
     (let ((saved (plist-get (plist-get (peta-journal-e2e--request
-                                        "GET" (concat "/api/pages/" peta-journal--page-id))
+                                        "GET" (concat "/api/pages/" (peta-journal-e2e--page-id)))
                                        :page)
                             :createdDate)))
       (should (equal (format-time-string "%Y-%m-%d %H:%M" (/ saved 1000))
@@ -551,12 +562,12 @@ The server is a real one, with its files in a temporary folder."
 ;; 日時のキーを新しく付けるときは、現在時刻が入っているので、Enterだけで保存される。
 (ert-deftest peta-journal-e2e-a-new-date-starts-at-now ()
   (peta-journal-e2e--with-app
-    (peta-journal-find-page "新しい日時のページ")
+    (peta-journal-e2e--open-page "新しい日時のページ")
     (peta-journal-e2e--wait-page-title "新しい日時のページ")
     (peta-journal-e2e--wait-for
      "the key published" (lambda () (member "published" peta-journal--free-keys)))
     (let ((before (format-time-string "%Y-%m-%d %H:%M")))
-      (execute-kbd-macro (vconcat (kbd "C-c C-s") "published" (kbd "RET RET")))
+      (execute-kbd-macro (vconcat (kbd "C-c C-x p s") "published" (kbd "RET RET")))
       (peta-journal-e2e--wait-for
        "the date in the list"
        (lambda () (string-search "published" (peta-journal-e2e--properties-text))))
@@ -565,12 +576,12 @@ The server is a real one, with its files in a temporary folder."
         (should (or (string-search (concat "published  " before) shown)
                     (string-search (concat "published  " after) shown)))))))
 
-;; ジャーナルでは、キーを尋ねずに断る。
+;; ジャーナルでは、プロパティの一覧を開かずに断る。
 (ert-deftest peta-journal-e2e-a-journal-refuses-a-property ()
   (peta-journal-e2e--with-app
-    (should-error (execute-kbd-macro (kbd "C-c C-s")) :type 'user-error)))
+    (should-error (execute-kbd-macro (kbd "C-c C-x p")) :type 'user-error)))
 
-;; C-c / で検索語を打って RET を押すと、その語の新しいページができて開く。間を置かなくてもよい。
+;; `C-c C-s`で検索語を打って`RET`を押すと、その語の新しいページができて開く。間を置かなくてもよい。
 (ert-deftest peta-journal-e2e-the-search-box-creates-a-page ()
   (peta-journal-e2e--with-app
     (peta-journal-e2e--search-keys "新しいページ" "RET")
@@ -585,12 +596,29 @@ The server is a real one, with its files in a temporary folder."
     (peta-journal-e2e--keys "C-x C-s")
     (peta-journal-e2e--wait-saved '("探すことば"))
     (let ((journal peta-journal--page-id))
-      (peta-journal-find-page "他のページ")
+      (peta-journal-e2e--open-page "他のページ")
       (peta-journal-e2e--wait-page-title "他のページ")
       ;; The first result is the entry that creates a page with this name
       (peta-journal-e2e--search-keys "探すことば" "C-n" "RET")
       (peta-journal-e2e--wait-for "the page of the item"
                                   (lambda () (equal peta-journal--page-id journal))))))
+
+;; 何も打たずに`TAB`を押すと最近のページが並び、`RET`で先頭のページが開く。
+(ert-deftest peta-journal-e2e-the-search-box-opens-a-recent-page ()
+  (peta-journal-e2e--with-app
+    (peta-journal-e2e--open-page "最近のページ")
+    (peta-journal-e2e--wait-page-title "最近のページ")
+    (peta-journal-e2e--type "本文")
+    (peta-journal-e2e--keys "C-x C-s")
+    (peta-journal-e2e--wait-saved '("本文"))
+    (peta-journal-e2e--wait-for "the page among the recent pages"
+                                (lambda () (equal (car peta-journal--recent) "最近のページ")))
+    (peta-journal-e2e--keys "C-c C-j")
+    (peta-journal-e2e--wait-for "today's journal"
+                                (lambda () (not (equal peta-journal--title "最近のページ"))))
+    (peta-journal-e2e--search-keys "" "TAB" "RET")
+    (peta-journal-e2e--wait-page-title "最近のページ")
+    (should-not (get-buffer "*PetaJournal Search*"))))
 
 ;; C-g で閉じると、どこへも移らず、結果の窓も消える。
 (ert-deftest peta-journal-e2e-quitting-the-search-box-stays-on-the-page ()
@@ -603,17 +631,6 @@ The server is a real one, with its files in a temporary folder."
       (should-not (get-buffer "*PetaJournal Search*"))
       (should (equal peta-journal--page-id journal))
       (should-not peta-journal--searching))))
-
-;; ページの移動は、名前で開いて、その本文が見える。
-(ert-deftest peta-journal-e2e-finding-a-page-opens-it ()
-  (peta-journal-e2e--with-app
-    (let ((journal peta-journal--page-id))
-      (peta-journal-find-page "E2E/メモ")
-      (peta-journal-e2e--wait-for "the other page"
-                                  (lambda () (not (equal peta-journal--page-id journal))))
-      (peta-journal-e2e--type "ページの本文")
-      (peta-journal-e2e--keys "C-x C-s")
-      (peta-journal-e2e--wait-saved '("ページの本文")))))
 
 ;; リンクを開くと、そのページへ移り、バックリンクの一覧から元のページへ戻れる。
 (ert-deftest peta-journal-e2e-a-link-opens-and-its-backlink-leads-back ()
@@ -643,7 +660,7 @@ The server is a real one, with its files in a temporary folder."
       (peta-journal-e2e--keys "C-c C-n")
       (peta-journal-e2e--wait-for "the next journal"
                                   (lambda () (not (equal peta-journal--page-id today))))
-      (peta-journal-e2e--keys "C-c C-l")
+      (peta-journal-e2e--keys "C-c C-b")
       (peta-journal-e2e--wait-for "the journal before"
                                   (lambda () (equal peta-journal--page-id today))))))
 

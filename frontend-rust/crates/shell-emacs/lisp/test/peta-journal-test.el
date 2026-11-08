@@ -431,7 +431,7 @@
 
 ;; 別のページを開くコマンドの直後は、離れるページの項目で編集を始めない。
 (ert-deftest peta-journal-going-to-another-page-leaves-the-edit-closed ()
-  (dolist (command '(peta-journal-today peta-journal-find-page peta-journal-back
+  (dolist (command '(peta-journal-today peta-journal-back
                      peta-journal-next-day peta-journal-previous-day
                      peta-journal-open-at-point peta-journal-rename-page))
     (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
@@ -600,21 +600,23 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
   (with-current-buffer "*PetaJournal Properties*"
     (substring-no-properties (buffer-string))))
 
-;; C-c C-a で、プロパティの一覧を別の窓に開く。カーソルはページに残るので、続けて編集できる。
-(ert-deftest peta-journal-the-list-shows-the-properties-and-keeps-the-point ()
+;; `C-c C-x p`で、プロパティの一覧を別の窓に開く。カーソルは一覧の最初のプロパティに移るので、
+;; そのまま`s`や`d`を押せる。
+(ert-deftest peta-journal-the-list-shows-the-properties-and-takes-the-point ()
   (peta-journal-test--with-properties peta-journal-test--property-rows []
     (let ((page (current-buffer)))
       (set-window-buffer (selected-window) page)
-      (execute-kbd-macro (kbd "C-c C-a"))
-      (should (eq (window-buffer (selected-window)) page))
-      (should (get-buffer-window "*PetaJournal Properties*"))
+      (execute-kbd-macro (kbd "C-c C-x p"))
+      (should (equal (buffer-name (window-buffer (selected-window))) "*PetaJournal Properties*"))
+      (should (equal (buffer-substring-no-properties (line-beginning-position) (line-end-position))
+                     "created   2026-11-07"))
       (should (equal (peta-journal-test--properties-text)
                      (concat "Properties\n\n"
                              "created   2026-11-07\n"
                              "modified  2026-11-08\n"
                              "status    draft\n"))))))
 
-;; もう一度 C-c C-a を押すと、窓を閉じる。
+;; もう一度`C-c C-x p`を押すと、窓を閉じる。
 (ert-deftest peta-journal-the-key-closes-the-open-list ()
   (peta-journal-test--with-properties peta-journal-test--property-rows []
     (set-window-buffer (selected-window) (current-buffer))
@@ -626,7 +628,8 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
 (ert-deftest peta-journal-the-open-list-follows-its-page ()
   (peta-journal-test--with-properties peta-journal-test--property-rows []
     (set-window-buffer (selected-window) (current-buffer))
-    (peta-journal-properties)
+    ;; The list takes the point, but the shell speaks to the page
+    (save-current-buffer (peta-journal-properties))
     (peta-journal--on-line
      '(:t "properties"
        :rows [(:key "status" :value "done" :removable t :editable t)]
@@ -667,7 +670,7 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
 ;; ジャーナルへ移ると、開いていた一覧からページの値が消える。
 (ert-deftest peta-journal-the-open-list-empties-on-a-journal ()
   (peta-journal-test--with-properties peta-journal-test--property-rows []
-    (peta-journal-properties)
+    (save-current-buffer (peta-journal-properties))
     (peta-journal--on-line '(:t "properties" :rows nil :free_keys []))
     (should-not (string-search "status" (peta-journal-test--properties-text)))))
 
@@ -695,6 +698,59 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
       (should (equal initial "draft")))
     (should (equal peta-journal-test--sent '(("set_property" :key "status" :value "done"))))
     (should (get-buffer-window "*PetaJournal Properties*"))))
+
+(defmacro peta-journal-test--answering-the-default (value &rest body)
+  "Run BODY while the minibuffer takes the key it offers by default, and answers VALUE."
+  (declare (indent 1))
+  `(cl-letf (((symbol-function 'completing-read)
+              (lambda (_prompt _collection &optional _predicate _require _initial _history default
+                               &rest _)
+                default))
+             ((symbol-function 'read-string) (lambda (&rest _) ,value)))
+     ,@body))
+
+;; 一覧の中で`s`を押すと、カーソルの行のキーを既定にして、値を設定する。
+(ert-deftest peta-journal-s-in-the-list-sets-the-property-on-the-line ()
+  (peta-journal-test--with-properties peta-journal-test--property-rows []
+    (set-window-buffer (selected-window) (current-buffer))
+    (save-current-buffer
+      (peta-journal-properties)
+      (forward-line 2)
+      (peta-journal-test--answering-the-default "done"
+        (execute-kbd-macro (kbd "s"))))
+    (should (equal peta-journal-test--sent '(("set_property" :key "status" :value "done"))))))
+
+;; 設定したあとも、一覧が書き直されたあとも、カーソルは同じ行に残る。続けて同じキーを直せる。
+(ert-deftest peta-journal-the-list-keeps-the-line-after-a-change ()
+  (peta-journal-test--with-properties peta-journal-test--property-rows []
+    (let ((page (current-buffer)))
+      (set-window-buffer (selected-window) page)
+      (save-current-buffer
+        (peta-journal-properties)
+        (forward-line 2)
+        (peta-journal-test--answering-the-default "done"
+          (execute-kbd-macro (kbd "s"))))
+      (peta-journal--on-line
+       '(:t "properties"
+         :rows [(:key "created" :value "2026-11-07" :removable nil :editable t)
+                (:key "modified" :value "2026-11-08" :removable nil :editable nil)
+                (:key "status" :value "done" :removable t :editable t)]
+         :free_keys []))
+      (with-selected-window (get-buffer-window "*PetaJournal Properties*")
+        (should (equal (buffer-substring-no-properties (line-beginning-position)
+                                                       (line-end-position))
+                       "status    done"))))))
+
+;; 一覧の中で`d`を押すと、カーソルの行のキーを既定にして、そのプロパティを消す。
+(ert-deftest peta-journal-d-in-the-list-removes-the-property-on-the-line ()
+  (peta-journal-test--with-properties peta-journal-test--property-rows []
+    (set-window-buffer (selected-window) (current-buffer))
+    (save-current-buffer
+      (peta-journal-properties)
+      (forward-line 2)
+      (peta-journal-test--answering-the-default ""
+        (execute-kbd-macro (kbd "d"))))
+    (should (equal peta-journal-test--sent '(("delete_property" :key "status"))))))
 
 ;; まだ付いていないキーの初期値は空である。
 (ert-deftest peta-journal-a-new-key-starts-empty ()
@@ -906,16 +962,14 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
               (list :index index :kind "page" :title title :snippet ""))
             titles)))
 
+(defun peta-journal-test--choice ()
+  "The number the core gave to the selected result, or nil."
+  (plist-get (peta-journal--search-entry) :index))
+
 (defun peta-journal-test--search-text ()
   "What the list of search results shows, without its marks."
   (with-current-buffer "*PetaJournal Search*"
     (substring-no-properties (buffer-string))))
-
-;; 検索窓は C-c / で呼び出す。
-(ert-deftest peta-journal-the-search-box-is-on-a-short-key ()
-  (with-temp-buffer
-    (peta-journal-mode)
-    (should (eq (key-binding (kbd "C-c /")) #'peta-journal-search))))
 
 ;; 結果は入力に合わせて窓に並ぶ。ページ、新規作成、項目はそれぞれの形で示される。
 (ert-deftest peta-journal-results-show-pages-creates-and-items ()
@@ -932,21 +986,21 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
 (ert-deftest peta-journal-the-selection-moves-and-wraps ()
   (peta-journal-test--with-search
     (peta-journal--on-search (peta-journal-test--entries "a" "b" "c") nil)
-    (should (= (peta-journal--search-choice) 0))
+    (should (= (peta-journal-test--choice) 0))
     (peta-journal-search-next)
-    (should (= (peta-journal--search-choice) 1))
+    (should (= (peta-journal-test--choice) 1))
     (peta-journal-search-previous)
     (peta-journal-search-previous)
-    (should (= (peta-journal--search-choice) 2))
+    (should (= (peta-journal-test--choice) 2))
     (peta-journal-search-next)
-    (should (= (peta-journal--search-choice) 0))))
+    (should (= (peta-journal-test--choice) 0))))
 
 ;; 選ぶ番号は、行の順番ではなくコアが付けた番号である。
 (ert-deftest peta-journal-the-choice-is-the-number-from-the-core ()
   (peta-journal-test--with-search
     (peta-journal--on-search
      (vector (list :index 7 :kind "page" :title "a" :snippet "")) nil)
-    (should (= (peta-journal--search-choice) 7))))
+    (should (= (peta-journal-test--choice) 7))))
 
 ;; 同じ結果がまた届いても選択は動かない。結果が変われば先頭へ戻る。
 (ert-deftest peta-journal-the-selection-stays-until-the-results-change ()
@@ -954,9 +1008,9 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
     (peta-journal--on-search (peta-journal-test--entries "a" "b") t)
     (peta-journal-search-next)
     (peta-journal--on-search (peta-journal-test--entries "a" "b") nil)
-    (should (= (peta-journal--search-choice) 1))
+    (should (= (peta-journal-test--choice) 1))
     (peta-journal--on-search (peta-journal-test--entries "b" "c") nil)
-    (should (= (peta-journal--search-choice) 0))))
+    (should (= (peta-journal-test--choice) 0))))
 
 ;; 検索語が空になると結果は消え、選べるものがなくなる。
 (ert-deftest peta-journal-an-empty-query-empties-the-list ()
@@ -964,7 +1018,29 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
     (peta-journal--on-search (peta-journal-test--entries "a") nil)
     (peta-journal--on-search [] nil)
     (should (equal (peta-journal-test--search-text) ""))
-    (should (null (peta-journal--search-choice)))))
+    (should (null (peta-journal-test--choice)))))
+
+;; 入力が空のときに`TAB`を押すと、最近のページが、その順のまま結果の一覧に並ぶ。先頭が選ばれている。
+(ert-deftest peta-journal-tab-on-an-empty-query-lists-the-recent-pages ()
+  (should (eq (keymap-lookup peta-journal-search-minibuffer-map "TAB")
+              #'peta-journal-search-recent))
+  (peta-journal-test--with-search
+    (let ((peta-journal--recent '("zeta" "alpha")))
+      (with-temp-buffer
+        (peta-journal-search-recent))
+      (should (equal (peta-journal-test--search-text) "  zeta\n  alpha\n"))
+      (with-current-buffer "*PetaJournal Search*"
+        (should (= peta-journal--search-selected 0))))))
+
+;; 検索語を入力してあるときの`TAB`は、検索の結果をそのまま残す。
+(ert-deftest peta-journal-tab-after-a-query-keeps-the-results ()
+  (peta-journal-test--with-search
+    (let ((peta-journal--recent '("zeta")))
+      (peta-journal--on-search (peta-journal-test--entries "a") nil)
+      (with-temp-buffer
+        (insert "設計")
+        (peta-journal-search-recent))
+      (should (equal (peta-journal-test--search-text) "  a\n")))))
 
 ;; 窓を閉じたあとに届いた結果では、何も開かれない。
 (ert-deftest peta-journal-results-after-closing-the-box-are-ignored ()
@@ -1547,11 +1623,32 @@ Without a sort function of its own, the list is sorted by name, as `completions-
                     (lambda (pages) (sort pages #'string<)))))
       (funcall sort (all-completions "" offered)))))
 
-;; ページを開くときの候補は、名前順に並べ替えず、最近のページの順のまま見せる。
+;; 新しいバッファに開くときの候補は、名前順に並べ替えず、最近のページの順のまま見せる。
 (ert-deftest peta-journal-the-recent-pages-are-offered-in-their-own-order ()
   (let ((peta-journal--recent '("zeta" "alpha" "notes/mid")))
-    (dolist (command '(peta-journal-find-page peta-journal-new-buffer))
-      (should (equal (peta-journal-test--offered-pages command)
-                     '("zeta" "alpha" "notes/mid"))))))
+    (should (equal (peta-journal-test--offered-pages #'peta-journal-new-buffer)
+                   '("zeta" "alpha" "notes/mid")))))
+
+;; キーは、書きながら押すものを`C-c C-文字`に、ページ単位でたまに使うものを`C-c C-x`の下に置く。
+;; 項目の移動は`M-S-矢印`にし、`M-矢印`はEmacsの単語の移動などに残す。
+(ert-deftest peta-journal-the-keys-of-the-mode ()
+  (pcase-dolist (`(,key . ,command)
+                 '(("M-S-<up>" . peta-journal-move-up)
+                   ("M-S-<down>" . peta-journal-move-down)
+                   ("M-S-<right>" . peta-journal-indent)
+                   ("M-S-<left>" . peta-journal-outdent)
+                   ("C-c C-f" . peta-journal-collapse-toggle)
+                   ("C-c C-s" . peta-journal-search)
+                   ("C-c C-b" . peta-journal-back)
+                   ("C-c C-x b" . peta-journal-backlinks)
+                   ("C-c C-x r" . peta-journal-rename-page)
+                   ("C-c C-x p" . peta-journal-properties)
+                   ("C-c C-x n" . peta-journal-new-buffer)
+                   ("C-c C-x i" . peta-journal-insert-image)))
+    (should (eq (keymap-lookup peta-journal-mode-map key) command)))
+  ;; `C-c C-c`はEmacsでは「確定」の意味なので、折り畳みには使わずに空けておく。
+  (dolist (key '("M-<up>" "M-<down>" "M-<right>" "M-<left>" "C-c /" "C-c C-c"
+                 "C-c C-l" "C-c C-r" "C-c C-a" "C-c C-v" "C-c C-i" "C-c C-k"))
+    (should-not (keymap-lookup peta-journal-mode-map key))))
 
 ;;; peta-journal-test.el ends here

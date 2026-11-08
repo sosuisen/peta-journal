@@ -903,7 +903,7 @@ Not from here but from a timer: a process filter is no place for a prompt."
     (setq peta-journal--current nil)))
 
 (defconst peta-journal--commands-that-end-the-edit
-  '(peta-journal-save peta-journal-today peta-journal-find-page peta-journal-back
+  '(peta-journal-save peta-journal-today peta-journal-back
     peta-journal-next-day peta-journal-previous-day peta-journal-open-at-point
     peta-journal-search peta-journal-rename-page)
   "The commands after which the point stays in an item that is not being edited.
@@ -1117,13 +1117,6 @@ Only for these characters: waiting on every key would slow typing down."
   (peta-journal--ensure-started)
   (peta-journal--go "go" :url "/today"))
 
-(defun peta-journal-find-page (path)
-  "Open the page at PATH, which is made when it does not exist."
-  (interactive
-   (list (completing-read "Page: " (peta-journal--recent-pages) nil nil)))
-  (peta-journal--ensure-started)
-  (peta-journal--go "go_to_page" :path path))
-
 (defun peta-journal-rename-page (path)
   "Give the page on screen the new PATH.  A `/' in PATH puts the page in a folder."
   (interactive
@@ -1245,14 +1238,12 @@ SEARCHING says that the results of a newer query are coming."
       (quit-restore-window window 'bury))
     (kill-buffer buffer)))
 
-(defun peta-journal--search-choice ()
-  "The number the core gave to the selected result, or nil."
+(defun peta-journal--search-entry ()
+  "The selected result, or nil."
   (when-let* ((buffer (get-buffer peta-journal--search-buffer)))
     (with-current-buffer buffer
       (when peta-journal--search-selected
-        (plist-get (aref peta-journal--search-entries peta-journal--search-selected)
-                   :index)))))
-
+        (aref peta-journal--search-entries peta-journal--search-selected)))))
 (defun peta-journal--search-move (step)
   "Move the selection by STEP results, going round at the ends.
 This waits for the results of the query typed, as their arrival resets the
@@ -1292,8 +1283,17 @@ wait, a quick RET would open a result of an older query."
   (cond
    ((not (peta-journal--search-settled-p))
     (minibuffer-message "The search does not answer"))
-   ((peta-journal--search-choice) (exit-minibuffer))
+   ((peta-journal--search-entry) (exit-minibuffer))
    (t (minibuffer-message "No result to open"))))
+
+(defun peta-journal-search-recent ()
+  "List the recent pages as the results, when nothing is typed yet."
+  (interactive)
+  (when (string-empty-p (minibuffer-contents-no-properties))
+    (with-current-buffer peta-journal--search-buffer
+      (peta-journal--search-render
+       (vconcat (mapcar (lambda (path) (list :kind "recent" :title path :snippet "" :path path))
+                        peta-journal--recent))))))
 
 (defun peta-journal--search-input-changed (_beg _end _length)
   "Search for what the minibuffer holds now."
@@ -1305,6 +1305,7 @@ wait, a quick RET would open a result of an older query."
   :parent minibuffer-local-map
   "RET" #'peta-journal-search-exit
   "C-j" #'peta-journal-search-exit
+  "TAB" #'peta-journal-search-recent
   "C-n" #'peta-journal-search-next
   "C-p" #'peta-journal-search-previous
   "<down>" #'peta-journal-search-next
@@ -1313,7 +1314,8 @@ wait, a quick RET would open a result of an older query."
 ;;;###autoload
 (defun peta-journal-search ()
   "Search as you type, and open a page, a new page or an item from the results.
-C-n and C-p select a result, RET opens it, and C-g closes the search."
+TAB before typing lists the recent pages.  C-n and C-p select a result, RET
+opens it, and C-g closes the search."
   (interactive)
   (let ((page (peta-journal--ensure-started))
         (chosen nil))
@@ -1326,13 +1328,16 @@ C-n and C-p select a result, RET opens it, and C-g closes the search."
                           #'peta-journal--search-input-changed nil t))
             (read-from-minibuffer "Search: " nil peta-journal-search-minibuffer-map
                                   nil 'peta-journal--search-history))
-          (setq chosen (peta-journal--search-choice)))
+          (setq chosen (peta-journal--search-entry)))
       (peta-journal--search-close)
       (unless chosen
         (with-current-buffer page
           (peta-journal--send "search" :query ""))))
     (with-current-buffer page
-      (peta-journal--go "search_result" :index chosen))
+      ;; A recent page is not a result of the core, so it has a path and no number
+      (if-let* ((path (plist-get chosen :path)))
+          (peta-journal--go "go_to_page" :path path)
+        (peta-journal--go "search_result" :index (plist-get chosen :index))))
     (if-let* ((window (get-buffer-window page)))
         (select-window window)
       (pop-to-buffer-same-window page))))
@@ -1401,14 +1406,25 @@ Return it as the server stores it, or an empty string when the answer is empty."
           ((peta-journal--server-datetime typed))
           (t (user-error "Not a date and time: %s.  Write it as YYYY-MM-DD HH:MM" typed)))))
 
+(defvar-keymap peta-journal-properties-mode-map
+  "s" #'peta-journal-set-property
+  "d" #'peta-journal-delete-property)
+
+(define-derived-mode peta-journal-properties-mode peta-journal-list-mode "PetaJournal Properties"
+  "The properties of a page.
+s sets the one at the point, d removes it, and q closes the list.")
+
 (defun peta-journal--draw-properties (page)
-  "Fill the list of properties with those of the buffer PAGE."
+  "Fill the list of properties with those of the buffer PAGE.
+The point stays on its line, so that the next key works on the same property."
   (let ((rows (buffer-local-value 'peta-journal--properties page))
         (datetime-keys (buffer-local-value 'peta-journal--datetime-keys page)))
     (with-current-buffer (get-buffer-create peta-journal--properties-buffer)
-      (peta-journal-list-mode)
+      (peta-journal-properties-mode)
       (setq peta-journal--list-page page)
       (let* ((inhibit-read-only t)
+             (window (get-buffer-window (current-buffer)))
+             (line (line-number-at-pos (if window (window-point window) (point))))
              (width (seq-max (cons 0 (mapcar (lambda (row) (string-width (plist-get row :key)))
                                              rows)))))
         (erase-buffer)
@@ -1416,13 +1432,17 @@ Return it as the server stores it, or an empty string when the answer is empty."
         (seq-doseq (row rows)
           (let* ((key (plist-get row :key))
                  (value (plist-get row :value)))
-            (insert (format "%s%s  %s\n"
-                            key
-                            (make-string (- width (string-width key)) ?\s)
-                            (if (member key datetime-keys)
-                                (peta-journal--local-datetime value)
-                              value)))))
-        (goto-char (point-min))))))
+            (insert (propertize (format "%s%s  %s\n"
+                                        key
+                                        (make-string (- width (string-width key)) ?\s)
+                                        (if (member key datetime-keys)
+                                            (peta-journal--local-datetime value)
+                                          value))
+                                'peta-property-key key))))
+        (goto-char (point-min))
+        (forward-line (1- line))
+        (when window
+          (set-window-point window (point)))))))
 
 (defun peta-journal--on-properties (rows free-keys datetime-keys)
   "Keep the property ROWS, FREE-KEYS and DATETIME-KEYS.
@@ -1448,13 +1468,17 @@ Signals an error on a journal, which cannot have properties."
   (display-buffer peta-journal--properties-buffer))
 
 (defun peta-journal-properties ()
-  "Show the properties of the page in another window, or close the window."
+  "Show the properties of the page in another window and go there.
+When the window is open already, close it."
   (interactive)
   (let ((page (peta-journal--properties-page))
         (window (get-buffer-window peta-journal--properties-buffer)))
     (if window
         (quit-window nil window)
-      (peta-journal--show-properties page))))
+      (peta-journal--show-properties page)
+      (select-window (get-buffer-window peta-journal--properties-buffer))
+      (goto-char (point-min))
+      (forward-line 2))))
 
 (defun peta-journal--property-keys (page field)
   "The keys of the properties of the buffer PAGE whose FIELD is true."
@@ -1463,8 +1487,10 @@ Signals an error on a journal, which cannot have properties."
                       (buffer-local-value 'peta-journal--properties page))))
 
 (defun peta-journal--read-property-key (prompt keys)
-  "Ask with PROMPT for one of KEYS.  Signals an error when the answer is empty."
-  (let ((key (completing-read prompt keys nil t)))
+  "Ask with PROMPT for one of KEYS.  Signals an error when the answer is empty.
+In the list of properties, the key on the line of the point is the default."
+  (let* ((here (get-text-property (line-beginning-position) 'peta-property-key))
+         (key (completing-read prompt keys nil t nil nil (car (member here keys)))))
     (when (string-empty-p key)
       (user-error "No property was chosen"))
     key))
@@ -1521,27 +1547,27 @@ Signals an error on a journal, which cannot have properties."
   "S-<return>" #'peta-journal-newline
   "TAB" #'peta-journal-indent
   "<backtab>" #'peta-journal-outdent
-  "M-<right>" #'peta-journal-indent
-  "M-<left>" #'peta-journal-outdent
-  "M-<up>" #'peta-journal-move-up
-  "M-<down>" #'peta-journal-move-down
+  ;; Not M-<arrow>: those keys keep their Emacs meanings, such as moving by a word.
+  "M-S-<right>" #'peta-journal-indent
+  "M-S-<left>" #'peta-journal-outdent
+  "M-S-<up>" #'peta-journal-move-up
+  "M-S-<down>" #'peta-journal-move-down
+  ;; C-c C-c is left free: in Emacs it means "confirm" or "run".
   "C-c C-t" #'peta-journal-task-cycle
-  "C-c C-c" #'peta-journal-collapse-toggle
+  "C-c C-f" #'peta-journal-collapse-toggle
   "C-c C-d" #'peta-journal-delete-item
-  "C-c C-i" #'peta-journal-insert-image
   "C-c C-o" #'peta-journal-open-at-point
   "C-c C-j" #'peta-journal-today
-  "C-c C-f" #'peta-journal-find-page
-  "C-c C-v" #'peta-journal-new-buffer
-  "C-c C-r" #'peta-journal-rename-page
-  "C-c C-a" #'peta-journal-properties
-  "C-c C-s" #'peta-journal-set-property
-  "C-c C-k" #'peta-journal-delete-property
-  "C-c /" #'peta-journal-search
-  "C-c C-b" #'peta-journal-backlinks
-  "C-c C-l" #'peta-journal-back
+  "C-c C-s" #'peta-journal-search
+  "C-c C-b" #'peta-journal-back
   "C-c C-n" #'peta-journal-next-day
   "C-c C-p" #'peta-journal-previous-day
+  ;; Page-level commands, used less often while writing, go under C-c C-x as in Org.
+  "C-c C-x b" #'peta-journal-backlinks
+  "C-c C-x r" #'peta-journal-rename-page
+  "C-c C-x p" #'peta-journal-properties
+  "C-c C-x n" #'peta-journal-new-buffer
+  "C-c C-x i" #'peta-journal-insert-image
   "<remap> <delete-backward-char>" #'peta-journal-backspace
   "<remap> <delete-char>" #'peta-journal-delete
   "<remap> <delete-forward-char>" #'peta-journal-delete

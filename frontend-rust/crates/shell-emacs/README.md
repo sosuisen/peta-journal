@@ -62,18 +62,20 @@ ends between items are read-only. The outline changes only through these keys:
 |---|---|
 | `RET` | Split the item, or add an item below it |
 | `S-RET`, `C-j` | Add a line in the item |
-| `TAB`, `M-<right>` | Indent |
-| `<backtab>`, `M-<left>` | Outdent |
-| `M-<up>`, `M-<down>` | Move the item up or down |
+| `TAB`, `M-S-<right>` | Indent |
+| `<backtab>`, `M-S-<left>` | Outdent |
+| `M-S-<up>`, `M-S-<down>` | Move the item up or down |
 | `DEL` at the start of a body | Join the item to the one above |
 | `C-d` at the end of a body | Join the item below to this one |
 | `C-k` at the end of a body | Join the item below to this one |
 | `C-c C-t` | Cycle the task state |
-| `C-c C-c` | Hide or show the children |
+| `C-c C-f` | Hide or show the children |
 | `C-c C-d` | Delete the item with its children |
-| `C-c C-i` | Insert an image file at the point |
 | `C-/`, `C-?` | Undo and redo, through the history of the core |
 | `C-x C-s` | Save now |
+
+The keys like `M-<right>`, with `M-` and an arrow, keep their Emacs meanings, such as moving by a
+word.
 
 Text is also saved by itself after a pause. The edit of an item ends when Emacs idles for
 `peta-journal-idle-finish-seconds`, as the core does not take in changes to the file during an edit.
@@ -83,17 +85,22 @@ These keys go to other places:
 | Key | Action |
 |---|---|
 | `C-c C-j` | Today's journal |
-| `C-c C-f` | Open a page by name |
-| `C-c C-v` | Open a page by name in a new buffer |
-| `C-c C-r` | Rename the page |
-| `C-c C-a` | Show or hide the list of page properties |
-| `C-c C-s` | Set a page property |
-| `C-c C-k` | Remove a page property |
+| `C-c C-s` | The search box |
 | `C-c C-n`, `C-c C-p` | The next or the previous journal |
-| `C-c C-l` | Back to the page before |
+| `C-c C-b` | Back to the page before |
 | `C-c C-o` | Open the wiki link or the tag at the point |
-| `C-c /` | The search box |
-| `C-c C-b` | Backlinks of this page |
+
+The commands on the whole page are `C-c C-x` and then one letter:
+
+| Key | Action |
+|---|---|
+| `C-c C-x r` | Rename the page |
+| `C-c C-x p` | Show or hide the list of page properties |
+| `C-c C-x n` | Open a page by name in a new buffer |
+| `C-c C-x i` | Insert an image file at the point |
+| `C-c C-x b` | Backlinks of this page |
+
+To open a page by name, use the search box.
 
 ## The gap between items
 
@@ -102,7 +109,7 @@ the gap. A new value applies to the rows drawn after the change. Only a graphica
 
 ## Rename a page
 
-`C-c C-r` or `M-x peta-journal-rename-page` asks for a new name and offers the path of the page. A
+`C-c C-x r` or `M-x peta-journal-rename-page` asks for a new name and offers the path of the page. A
 `/` in the name puts the page in a folder, and a name without `/` puts it outside any folder. If
 another page has that name, Emacs asks whether to overwrite it.
 
@@ -111,7 +118,7 @@ asking.
 
 ## Inserting an image
 
-`C-c C-i` or `M-x peta-journal-insert-image` asks for a file. The server keeps a copy in the `assets`
+`C-c C-x i` or `M-x peta-journal-insert-image` asks for a file. The server keeps a copy in the `assets`
 folder of the notes, and a link to it goes in at the point.
 
 The server changes the name of the copy. Each character other than ASCII letters, digits, `.`, `_`
@@ -142,21 +149,33 @@ until Emacs closes.
 
 ## Page properties
 
-`C-c C-a` shows the properties of the page in another window. The point stays in the page. The same
-key closes the window.
+`C-c C-x p` shows the properties of the page in another window. The point goes to the first
+property in the list. The same key in the window of the page closes the list.
 
-`C-c C-s` asks for a key and a value, and `C-c C-k` asks for a key to remove. Both then show the
-list. Keys are completed from the property definitions of the server. A new key is defined in the
+These keys work in the list:
+
+| Key | Action |
+|---|---|
+| `s` | Set a property. It asks for a key and a value |
+| `d` | Remove a property. It asks for the key to remove |
+| `q` | Close the list |
+| `n`, `p` | Go to the next or the previous line |
+
+`s` and `d` offer the key on the line of the point by default. `RET` alone then takes the property
+on that line. The point stays on its line after the change.
+
+Keys are completed from the property definitions of the server. A new key is defined in the
 settings of the web app, not here. Separate the values of a list with commas.
+`M-x peta-journal-set-property` and `M-x peta-journal-delete-property` do the same.
 
 A date and a time appear in local time, as `YYYY-MM-DD HH:MM`, and you type them in the same form.
 The server keeps them in UTC. A new key starts at the current time, so `RET` alone accepts it.
 
-A journal cannot have properties, so these keys stop without asking on a journal.
+A journal cannot have properties, so on a journal the list does not open.
 
 ## Two pages at once
 
-`C-c C-v` or `M-x peta-journal-new-buffer` opens a page in a new buffer, and you can edit both pages.
+`C-c C-x n` or `M-x peta-journal-new-buffer` opens a page in a new buffer, and you can edit both pages.
 An empty name opens today's journal. Each buffer has its own shell and its own undo history. Killing
 a buffer stops only its shell.
 
@@ -167,11 +186,12 @@ buffers could overwrite each other.
 
 ## The search box
 
-Press `C-c /` and type in the minibuffer. The results appear in a window below and change as you
+Press `C-c C-s` and type in the minibuffer. The results appear in a window below and change as you
 type. They list the pages, an entry that makes a new page, and the items.
 
 | Key | Action |
 |---|---|
+| `TAB` before typing | List the recent pages |
 | `C-n`, `<down>` | Select the next result |
 | `C-p`, `<up>` | Select the previous result |
 | `RET` | Open the selected result |
@@ -179,11 +199,15 @@ type. They list the pages, an entry that makes a new page, and the items.
 
 You can press these keys right after typing. They wait for the results of what you typed.
 
-To open the search box from any buffer, add this to your Emacs init file:
+The recent pages are up to 10 doc pages, the most recently modified first. Typing after that brings
+back the usual search results.
+
+To open the search box from any buffer, add this to your Emacs init file. Keys of `C-c` and one
+letter are kept free for users.
 
 ```elisp
 (autoload 'peta-journal-search "peta-journal" nil t)
-(global-set-key (kbd "C-c /") #'peta-journal-search)
+(global-set-key (kbd "C-c s") #'peta-journal-search)
 ```
 
 ## Not in this version
