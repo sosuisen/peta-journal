@@ -45,6 +45,11 @@ impl ExtensionEvent {
         }
     }
 
+    /// A page create holds up the opening of the page, so its script may not wait for the user.
+    fn may_ask_user(&self) -> bool {
+        matches!(self, ExtensionEvent::PageTagAdd(..))
+    }
+
     /// The name of the global function that answers the event.
     fn handler_name(&self) -> &'static str {
         match self {
@@ -157,7 +162,7 @@ impl ExtensionRuntime {
         let context = Context::full(&runtime)?;
         let requests = Rc::new(RefCell::new(Vec::new()));
         context.with(|ctx| -> anyhow::Result<()> {
-            self.install_api(&ctx, &requests, event.page().id.clone(), dir.to_path_buf())?;
+            self.install_api(&ctx, &requests, event, dir.to_path_buf())?;
             js(&ctx, ctx.eval::<(), _>(source))?;
             let handler: Value = ctx.globals().get(event.handler_name())?;
             if let Some(handler) = handler.as_function() {
@@ -173,15 +178,16 @@ impl ExtensionRuntime {
         &self,
         ctx: &Ctx<'js>,
         requests: &Rc<RefCell<Vec<ItemRequest>>>,
-        page_id: String,
+        event: &ExtensionEvent,
         dir: PathBuf,
     ) -> anyhow::Result<()> {
         let peta = Object::new(ctx.clone())?;
+        let page_id = event.page().id.clone();
         peta.set("createItem", self.create_item_fn(ctx, requests, page_id)?)?;
         peta.set("files", files_fn(ctx, dir.clone())?)?;
         peta.set("readFile", read_file_fn(ctx, dir)?)?;
         peta.set("parseItems", self.parse_items_fn(ctx)?)?;
-        if let Some(confirmer) = &self.confirmer {
+        if let Some(confirmer) = self.confirmer.as_ref().filter(|_| event.may_ask_user()) {
             peta.set("confirm", confirm_fn(ctx, Arc::clone(confirmer))?)?;
         }
         ctx.globals().set("peta", peta)?;
