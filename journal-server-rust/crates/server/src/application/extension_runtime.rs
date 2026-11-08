@@ -295,10 +295,12 @@ fn from_js<'js, T: for<'de> Deserialize<'de>>(
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
+    use std::sync::{Arc, Mutex};
     use std::time::{Duration, Instant};
 
-    use super::{ExtensionEvent, ExtensionLimits, ExtensionRuntime, ItemRequest, PageInfo};
+    use super::{
+        Confirmer, ExtensionEvent, ExtensionLimits, ExtensionRuntime, ItemRequest, PageInfo,
+    };
     use crate::application::flat_markdown_splitter::FlatMarkdownSplitter;
     use crate::application::markdown_parser::MarkdownParser;
     use crate::domain::id_generator::IdGenerator;
@@ -597,5 +599,48 @@ mod tests {
         let result = runtime().run(dir.path(), &ExtensionEvent::PageCreate(page()));
 
         assert!(result.is_err());
+    }
+
+    /// Gives the same answer to every question, and keeps the questions.
+    struct User {
+        answer: bool,
+        asked: Mutex<Vec<String>>,
+    }
+
+    impl Confirmer for User {
+        fn confirm(&self, message: &str) -> bool {
+            self.asked.lock().unwrap().push(message.to_string());
+            self.answer
+        }
+    }
+
+    fn user(answer: bool) -> Arc<User> {
+        Arc::new(User {
+            answer,
+            asked: Mutex::new(Vec::new()),
+        })
+    }
+
+    // タグの追加では、confirm(message)が利用者に尋ね、その答えを返す。
+    #[test]
+    fn confirm_in_a_tag_add_asks_the_user_and_returns_the_answer() {
+        let dir = function_dir(
+            "globalThis.onPageTagAdd = () => {
+                const ok = peta.confirm('Insert the template?');
+                peta.createItem({ position: 'last', level: 1, body: String(ok) });
+            };",
+        );
+        let yes = user(true);
+        let no = user(false);
+        let event = ExtensionEvent::PageTagAdd(page(), vec!["book".into()]);
+
+        let after_yes = runtime()
+            .with_confirmer(yes.clone())
+            .run(dir.path(), &event);
+        let after_no = runtime().with_confirmer(no).run(dir.path(), &event);
+
+        assert_eq!(after_yes.unwrap()[0].body, "true");
+        assert_eq!(after_no.unwrap()[0].body, "false");
+        assert_eq!(*yes.asked.lock().unwrap(), vec!["Insert the template?"]);
     }
 }
