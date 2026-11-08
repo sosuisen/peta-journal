@@ -79,6 +79,14 @@ fn ext_server() -> &'static TestServer {
         );
         install(
             config_dir,
+            "g-tag",
+            "globalThis.onPageTagAdd = (page, tags) => {
+                if (!tags.includes('tmpl-ext')) return;
+                peta.createItem({ position: 'last', level: 1, body: 'T ' + tags.join(',') });
+            };",
+        );
+        install(
+            config_dir,
             "j-journal",
             "globalThis.onPageCreate = (page) => {
                 if (page.pageType !== 'journal' || !page.fileName.startsWith('2031-')) return;
@@ -164,6 +172,44 @@ async fn an_item_with_a_transclusion_source_mirrors_that_item() {
     let item = &created["items"][0];
     assert_eq!(item["transcludeItemId"], source.id.as_str());
     assert_eq!(item["body"], "source text");
+}
+
+/// The bodies of the page once it has `count` items. A tag add runs its extensions after the
+/// answer, so the items come a little later.
+async fn bodies_once(page_id: &str, count: usize) -> Vec<String> {
+    for _ in 0..100 {
+        let rows = items(page_id).await;
+        if rows.len() >= count {
+            return rows.into_iter().map(|r| r.body).collect();
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+    panic!("the page did not get {count} items");
+}
+
+async fn set_tags(page_id: &str, tags: &str) {
+    let (status, resp) = put(
+        &format!("/api/pages/{page_id}/properties/tags"),
+        json!({ "valueType": "tags", "value": tags }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+}
+
+// タグを足すと、onPageTagAddが足されたタグだけを受け取り、その項目がページの最後に入る。
+#[tokio::test]
+async fn adding_a_tag_puts_the_extension_items_at_the_end_of_the_page() {
+    ext_server();
+    let page = new_doc_page("tagged").await;
+    fill(&page.id, &["existing"]).await;
+    set_tags(&page.id, "old").await;
+
+    set_tags(&page.id, "old, tmpl-ext").await;
+
+    assert_eq!(
+        bodies_once(&page.id, 2).await,
+        vec!["existing".to_string(), "T tmpl-ext".to_string()]
+    );
 }
 
 // 失敗した拡張の項目は取り消され、ほかの拡張の項目は残る。
