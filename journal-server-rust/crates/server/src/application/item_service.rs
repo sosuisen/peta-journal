@@ -247,11 +247,12 @@ impl ItemService {
                     continue;
                 }
             }
+            let level = level_that_fits_in(&tx, page_id, &position, request.level)?;
             self.create_item_in(
                 &tx,
                 page_id,
                 &position,
-                request.level,
+                level,
                 &request.body,
                 Some(request.id.clone()),
                 &mut effects,
@@ -1179,6 +1180,19 @@ fn find_item_above<'a>(existing: &'a [Item], position: &ItemPosition) -> Option<
         ItemPosition::Last => existing.last(),
         ItemPosition::After(item_id) => existing.iter().find(|i| &i.id == item_id),
     }
+}
+
+/// `level`, lowered until an item can sit at `position`: at most one deeper than the item
+/// above, and 1 with no item above.
+fn level_that_fits_in(
+    tx: &Connection,
+    page_id: &Hmtid,
+    position: &ItemPosition,
+    level: i32,
+) -> AppResult<i32> {
+    let existing = ItemRepository::find_by_page_id_in(tx, page_id)?;
+    let deepest = find_item_above(&existing, position).map_or(1, |above| above.level + 1);
+    Ok(level.min(deepest))
 }
 
 /// The only item of the page when it is empty: no text and no transclusion.
