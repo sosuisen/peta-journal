@@ -1,7 +1,7 @@
 //! The event stream from the server: the connection state and reconnecting.
 
 use crate::app::{ConnectionState, Event};
-use crate::effects::{SseEvent, TimerOp};
+use crate::effects::{ApiOp, SseEvent, TimerOp, UiOp};
 use crate::harness::Harness;
 
 fn started() -> Harness {
@@ -97,4 +97,32 @@ fn only_a_pages_updated_message_refreshes_the_sidebar() {
         SseEvent::Message(r#"{"type":"pagesUpdated","pageId":"x","source":"app"}"#.into()),
     );
     assert!(h.api.called("GetRecentPages"));
+}
+
+// サーバーの拡張が確認を求めると、ユーザーに尋ね、その答えを requestId 付きでサーバーに返す。
+#[test]
+fn a_confirm_from_the_server_asks_the_user_and_sends_the_answer_back() {
+    for answer in [true, false] {
+        let mut h = Harness::with_items(vec![]);
+        h.confirm = answer;
+
+        sse(
+            &mut h,
+            SseEvent::Message(
+                r#"{"type":"confirm","requestId":"confirm-7","message":"Insert?"}"#.into(),
+            ),
+        );
+
+        assert!(h
+            .ui
+            .iter()
+            .any(|op| matches!(op, UiOp::Confirm(m) if m == "Insert?")));
+        assert_eq!(
+            h.api.calls_named("AnswerConfirm"),
+            vec![&ApiOp::AnswerConfirm {
+                request_id: "confirm-7".into(),
+                ok: answer,
+            }]
+        );
+    }
 }
