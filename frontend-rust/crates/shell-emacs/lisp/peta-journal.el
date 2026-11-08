@@ -1401,12 +1401,18 @@ Return it as the server stores it, or an empty string when the answer is empty."
           ((peta-journal--server-datetime typed))
           (t (user-error "Not a date and time: %s.  Write it as YYYY-MM-DD HH:MM" typed)))))
 
+(defvar-keymap peta-journal-properties-mode-map
+  "s" #'peta-journal-set-property)
+
+(define-derived-mode peta-journal-properties-mode peta-journal-list-mode "PetaJournal Properties"
+  "The properties of a page.  s sets the one at the point, d removes it, and q closes.")
+
 (defun peta-journal--draw-properties (page)
   "Fill the list of properties with those of the buffer PAGE."
   (let ((rows (buffer-local-value 'peta-journal--properties page))
         (datetime-keys (buffer-local-value 'peta-journal--datetime-keys page)))
     (with-current-buffer (get-buffer-create peta-journal--properties-buffer)
-      (peta-journal-list-mode)
+      (peta-journal-properties-mode)
       (setq peta-journal--list-page page)
       (let* ((inhibit-read-only t)
              (width (seq-max (cons 0 (mapcar (lambda (row) (string-width (plist-get row :key)))
@@ -1416,12 +1422,13 @@ Return it as the server stores it, or an empty string when the answer is empty."
         (seq-doseq (row rows)
           (let* ((key (plist-get row :key))
                  (value (plist-get row :value)))
-            (insert (format "%s%s  %s\n"
-                            key
-                            (make-string (- width (string-width key)) ?\s)
-                            (if (member key datetime-keys)
-                                (peta-journal--local-datetime value)
-                              value)))))
+            (insert (propertize (format "%s%s  %s\n"
+                                        key
+                                        (make-string (- width (string-width key)) ?\s)
+                                        (if (member key datetime-keys)
+                                            (peta-journal--local-datetime value)
+                                          value))
+                                'peta-property-key key))))
         (goto-char (point-min))))))
 
 (defun peta-journal--on-properties (rows free-keys datetime-keys)
@@ -1466,8 +1473,10 @@ Signals an error on a journal, which cannot have properties."
                       (buffer-local-value 'peta-journal--properties page))))
 
 (defun peta-journal--read-property-key (prompt keys)
-  "Ask with PROMPT for one of KEYS.  Signals an error when the answer is empty."
-  (let ((key (completing-read prompt keys nil t)))
+  "Ask with PROMPT for one of KEYS.  Signals an error when the answer is empty.
+In the list of properties, the key on the line of the point is the default."
+  (let* ((here (get-text-property (line-beginning-position) 'peta-property-key))
+         (key (completing-read prompt keys nil t nil nil (car (member here keys)))))
     (when (string-empty-p key)
       (user-error "No property was chosen"))
     key))
