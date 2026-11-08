@@ -590,9 +590,13 @@ impl JournalMcp {
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let r = run(move || {
-            state
+            let mut r = state
                 .page_service
-                .get_or_create_doc(Some(&a.title), Some(&a.dir_path))
+                .get_or_create_doc(Some(&a.title), Some(&a.dir_path))?;
+            if r.created {
+                r.items = state.extensions.page_created(&r.page)?;
+            }
+            Ok(r)
         })
         .await?;
         ok(
@@ -739,9 +743,13 @@ impl JournalMcp {
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let r = run(move || {
-            state
+            let mut r = state
                 .journal_service
-                .get_or_create_journal_by_name(a.file_name.parse::<JournalName>()?)
+                .get_or_create_journal_by_name(a.file_name.parse::<JournalName>()?)?;
+            if r.created {
+                r.items = state.extensions.page_created(&r.page)?;
+            }
+            Ok(r)
         })
         .await?;
         ok(

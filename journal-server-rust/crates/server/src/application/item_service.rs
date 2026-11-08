@@ -1,6 +1,6 @@
 //! Item use cases.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 use std::sync::Arc;
 
 use hmtid::Hmtid;
@@ -21,6 +21,7 @@ use crate::infrastructure::persistence::item_repository::parked_idx;
 use crate::infrastructure::persistence::property_repository::list_values;
 use crate::infrastructure::persistence::{ItemRepository, PageRepository, PropertyRepository};
 
+use super::extension_runtime::ItemRequest;
 use super::markdown_parser::MarkdownParser;
 use super::page_service::PageService;
 use super::tree_markdown;
@@ -203,7 +204,110 @@ impl ItemService {
         collapsed: Option<bool>,
     ) -> AppResult<Item> {
         let existing = self.get_item_by_id(item_id)?;
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+        let mut effects = AfterCommit::default();
+        let updated = self.update_item_in(&tx, &existing, body, level, collapsed, &mut effects)?;
+        tx.commit()?;
+        self.finish(effects);
+        Ok(updated)
+    }
 
+    /// Writes the items an extension asked for on the page, in one transaction: all of them or
+    /// none. An item placed last on a page whose only item is empty takes the place of that
+    /// item, so a template does not start below an empty line. Its id is then the empty item's,
+    /// and a later item placed after it goes after that one.
+    pub fn apply_extension_items(
+        &self,
+        page_id: &Hmtid,
+        requests: &[ItemRequest],
+    ) -> AppResult<()> {
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+        let mut effects = AfterCommit::default();
+        let mut taken_ids: HashMap<Hmtid, Hmtid> = HashMap::new();
+        for request in requests {
+            let position = match &request.position {
+                ItemPosition::After(id) => {
+                    ItemPosition::After(taken_ids.get(id).unwrap_or(id).clone())
+                }
+                other => other.clone(),
+            };
+            let empty = match position {
+                ItemPosition::Last => lone_empty_item_in(&tx, page_id)?,
+                _ => None,
+            };
+            let written = match empty {
+                Some(empty) => {
+                    taken_ids.insert(request.id.clone(), empty.id.clone());
+                    self.update_item_in(
+                        &tx,
+                        &empty,
+                        Some(&request.body),
+                        Some(1),
+                        None,
+                        &mut effects,
+                    )?
+                }
+                None => {
+                    let level = level_that_fits_in(&tx, page_id, &position, request.level)?;
+                    self.create_item_in(
+                        &tx,
+                        page_id,
+                        &position,
+                        level,
+                        &request.body,
+                        Some(request.id.clone()),
+                        &mut effects,
+                    )?
+                }
+            };
+            if let Some(source_id) = &request.transclude {
+                self.set_transclusion_in(&tx, &written, &Hmtid::parse(source_id)?)?;
+            }
+        }
+        tx.commit()?;
+        self.finish(effects);
+        Ok(())
+    }
+
+    /// Makes `item` mirror the source item, in the transaction.
+    fn set_transclusion_in(
+        &self,
+        tx: &Connection,
+        item: &Item,
+        source_item_id: &Hmtid,
+    ) -> AppResult<Item> {
+        let source = ItemRepository::find_by_id_in(tx, source_item_id)?.ok_or_else(|| {
+            AppError::bad_request(format!("Source item not found: {source_item_id}"))
+        })?;
+        if source.transclude_item_id.is_some() {
+            return Err(AppError::bad_request(
+                "Cannot transclude a transclusion item. Please select the original source item.",
+            ));
+        }
+        let updated = Item {
+            modified_date: now_millis(),
+            body: source.body.clone(),
+            ast: self.parser.parse_to_ast(&source.body),
+            transclude_item_id: Some(source_item_id.clone()),
+            ..item.clone()
+        };
+        ItemRepository::save_in(tx, &updated)?;
+        Ok(updated)
+    }
+
+    /// Updates an existing item in the transaction. Only the given fields are written.
+    pub(crate) fn update_item_in(
+        &self,
+        tx: &Connection,
+        existing: &Item,
+        body: Option<&str>,
+        level: Option<i32>,
+        collapsed: Option<bool>,
+        effects: &mut AfterCommit,
+    ) -> AppResult<Item> {
+        let item_id = &existing.id;
         let parsed = body.map(ItemBody::parse);
         let new_body = parsed.as_ref().map(|p| p.text.clone());
         let new_ast = new_body.as_deref().map(|b| self.parser.parse_to_ast(b));
@@ -225,33 +329,28 @@ impl ItemService {
             now,
         )
         .map_err(AppError::bad_request)?;
-        let mut conn = self.items.db().conn()?;
-        let tx = conn.immediate()?;
-        let mut effects = AfterCommit::default();
-        ItemRepository::patch_in(&tx, item_id, &patch)?;
+        ItemRepository::patch_in(tx, item_id, &patch)?;
 
         if let Some(ast) = &new_ast {
-            let before = PropertyRepository::find_tags_in(&tx, ITEM_TARGET, item_id.as_str())?;
+            let before = PropertyRepository::find_tags_in(tx, ITEM_TARGET, item_id.as_str())?;
             let hashtags = hashtag::extract_hashtags(ast);
-            PropertyRepository::sync_tags_in(&tx, ITEM_TARGET, item_id.as_str(), &hashtags)?;
+            PropertyRepository::sync_tags_in(tx, ITEM_TARGET, item_id.as_str(), &hashtags)?;
             effects.tag_changes.push((before, hashtags));
         }
         if level.is_some() {
-            ItemRepository::recalculate_parent_ids_in(&tx, &existing.page_id)?;
+            ItemRepository::recalculate_parent_ids_in(tx, &existing.page_id)?;
         }
-        let updated = ItemRepository::find_by_id_in(&tx, item_id)?
+        let updated = ItemRepository::find_by_id_in(tx, item_id)?
             .ok_or_else(|| AppError::not_found(format!("Item not found: {item_id}")))?;
-        PageRepository::touch_in(&tx, &existing.page_id, now)?;
+        PageRepository::touch_in(tx, &existing.page_id, now)?;
         effects.pages.insert(existing.page_id.clone());
 
         // The search index holds the body only; level and collapsed do not change it
         if new_body.is_some() {
             let page = self.page_service.require_page(&existing.page_id)?;
             effects.indexed.push((updated.clone(), page.title()));
-            sync_transcluders_in(&tx, &updated, now, &mut effects)?;
+            sync_transcluders_in(tx, &updated, now, effects)?;
         }
-        tx.commit()?;
-        self.finish(effects);
         Ok(updated)
     }
 
@@ -546,15 +645,11 @@ impl ItemService {
     /// Sets a transclusion on an item, making it mirror a source item.
     pub fn set_transclusion(&self, item_id: &Hmtid, source_item_id: &Hmtid) -> AppResult<Item> {
         let item = self.get_item_by_id(item_id)?;
-        let source = self.items.find_by_id(source_item_id)?.ok_or_else(|| {
-            AppError::bad_request(format!("Source item not found: {source_item_id}"))
-        })?;
-        if source.transclude_item_id.is_some() {
-            return Err(AppError::bad_request(
-                "Cannot transclude a transclusion item. Please select the original source item.",
-            ));
-        }
-        self.save_body_and_transclusion(&item, &source.body, Some(source_item_id.clone()))
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+        let updated = self.set_transclusion_in(&tx, &item, source_item_id)?;
+        self.commit_page(tx, &item.page_id, updated.modified_date)?;
+        Ok(updated)
     }
 
     /// Removes a transclusion from an item, clearing its body.
@@ -1115,4 +1210,28 @@ fn find_item_above<'a>(existing: &'a [Item], position: &ItemPosition) -> Option<
         ItemPosition::Last => existing.last(),
         ItemPosition::After(item_id) => existing.iter().find(|i| &i.id == item_id),
     }
+}
+
+/// `level`, lowered until an item can sit at `position`: at most one deeper than the item
+/// above, and 1 with no item above.
+fn level_that_fits_in(
+    tx: &Connection,
+    page_id: &Hmtid,
+    position: &ItemPosition,
+    level: i32,
+) -> AppResult<i32> {
+    let existing = ItemRepository::find_by_page_id_in(tx, page_id)?;
+    let deepest = find_item_above(&existing, position).map_or(1, |above| above.level + 1);
+    Ok(level.min(deepest))
+}
+
+/// The only item of the page when it is empty: no text and no transclusion.
+fn lone_empty_item_in(tx: &Connection, page_id: &Hmtid) -> AppResult<Option<Item>> {
+    let items = ItemRepository::find_by_page_id_in(tx, page_id)?;
+    Ok(match items.as_slice() {
+        [only] if only.body.trim().is_empty() && only.transclude_item_id.is_none() => {
+            Some(only.clone())
+        }
+        _ => None,
+    })
 }

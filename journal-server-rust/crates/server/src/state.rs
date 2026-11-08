@@ -6,6 +6,8 @@ use crate::application::atlas_service::AtlasService;
 use crate::application::combined_search::CombinedSearchService;
 use crate::application::config_service::ConfigService;
 use crate::application::extension_functions::ExtensionFunctionService;
+use crate::application::extension_runtime::ExtensionRuntime;
+use crate::application::extension_service::ExtensionService;
 use crate::application::flat_markdown_splitter::FlatMarkdownSplitter;
 use crate::application::item_service::ItemService;
 use crate::application::journal_service::JournalService;
@@ -53,6 +55,7 @@ pub struct AppState {
     pub journal_service: Arc<JournalService>,
     pub combined_search: Arc<CombinedSearchService>,
     pub functions: Arc<ExtensionFunctionService>,
+    pub extensions: Arc<ExtensionService>,
     pub dtos: ItemDtoAssembler,
     pub sse: SseBroadcaster,
 }
@@ -187,6 +190,13 @@ impl AppState {
             Arc::clone(&search),
         ));
         let functions = Arc::new(ExtensionFunctionService::load(Arc::clone(&config)));
+        let extensions = Arc::new(ExtensionService::new(
+            ExtensionRuntime::new(Arc::new(splitter.clone()), Arc::clone(&ids)),
+            Arc::clone(&functions),
+            Arc::clone(&item_service),
+            Arc::clone(&page_service),
+            Arc::new(sse.clone()),
+        ));
         let dtos = ItemDtoAssembler::new(properties.clone(), items.clone());
 
         // Startup steps, in the order of the Java server
@@ -226,6 +236,7 @@ impl AppState {
             journal_service,
             combined_search,
             functions,
+            extensions,
             dtos,
             sse,
         }))

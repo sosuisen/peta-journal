@@ -28,7 +28,19 @@ static SERVER: OnceLock<TestServer> = OnceLock::new();
 static COUNTER: AtomicU64 = AtomicU64::new(0);
 
 pub fn server() -> &'static TestServer {
-    SERVER.get_or_init(|| {
+    SERVER.get_or_init(|| start(|_| {}))
+}
+
+/// The server of the binary, started with `prepare` if it is not running yet. A binary that
+/// needs its config prepared calls this before any request; the helpers then use that server.
+pub fn server_with(prepare: impl FnOnce(&std::path::Path)) -> &'static TestServer {
+    SERVER.get_or_init(|| start(prepare))
+}
+
+/// Starts a server of its own. `prepare` gets the config folder before the server starts, to
+/// put what the server reads only at startup there, such as extension functions.
+pub fn start(prepare: impl FnOnce(&std::path::Path)) -> TestServer {
+    {
         let dir = tempfile::Builder::new()
             .prefix("peta-journal-it-")
             .tempdir()
@@ -46,6 +58,7 @@ pub fn server() -> &'static TestServer {
                 .to_string(),
         )
         .unwrap();
+        prepare(&config_dir);
 
         let (tx, rx) = std::sync::mpsc::channel::<(SocketAddr, SharedState)>();
         let settings_root = root.clone();
@@ -84,7 +97,7 @@ pub fn server() -> &'static TestServer {
             state,
             _keep: dir,
         }
-    })
+    }
 }
 
 thread_local! {
@@ -183,13 +196,18 @@ pub struct PageRef {
     pub title: String,
 }
 
-/// Creates an empty doc page with a unique title; a new page starts with one empty item.
-pub async fn new_doc_page(prefix: &str) -> PageRef {
-    let title = format!(
+/// A name that starts with `prefix` and no other test uses.
+pub fn unique_name(prefix: &str) -> String {
+    format!(
         "{prefix}-{}-{}",
         std::process::id(),
         COUNTER.fetch_add(1, Ordering::SeqCst)
-    );
+    )
+}
+
+/// Creates an empty doc page with a unique title; a new page starts with one empty item.
+pub async fn new_doc_page(prefix: &str) -> PageRef {
+    let title = unique_name(prefix);
     let (status, resp) = post("/api/pages/doc", json!({ "title": title, "dirPath": "" })).await;
     assert_eq!(status, 200, "{resp}");
     PageRef {
