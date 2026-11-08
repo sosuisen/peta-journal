@@ -40,8 +40,8 @@ impl ConfirmService {
             .lock()
             .unwrap()
             .insert(request_id.clone(), sender);
-        self.events.ask_user(&request_id, message);
-        let ok = receiver.recv_timeout(self.timeout).unwrap_or(false);
+        let ok = self.events.ask_user(&request_id, message)
+            && receiver.recv_timeout(self.timeout).unwrap_or(false);
         self.waiting.lock().unwrap().remove(&request_id);
         ok
     }
