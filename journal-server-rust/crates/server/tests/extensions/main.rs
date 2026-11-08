@@ -173,6 +173,8 @@ async fn an_item_with_a_transclusion_source_mirrors_that_item() {
     let item = &created["items"][0];
     assert_eq!(item["transcludeItemId"], source.id.as_str());
     assert_eq!(item["body"], "source text");
+    let (_, source_page) = get(&format!("/api/pages/{}", source_page.id)).await;
+    assert_eq!(item["ast"], source_page["items"][0]["ast"]);
 }
 
 /// The bodies of the page once it has `count` items. A tag add runs its extensions after the
@@ -211,6 +213,28 @@ async fn adding_a_tag_puts_the_extension_items_at_the_end_of_the_page() {
         bodies_once(&page.id, 2).await,
         vec!["existing".to_string(), "T tmpl-ext".to_string()]
     );
+}
+
+// タグの拡張が項目を書き終えると、そのページの変更がSSEで知らされる。
+#[tokio::test]
+async fn the_clients_hear_of_the_page_when_the_tag_extensions_are_done() {
+    ext_server();
+    let page = new_doc_page("tag-event").await;
+    let mut events = client().get(url("/api/events")).send().await.unwrap();
+
+    set_tags(&page.id, "tmpl-ext").await;
+
+    let expected = format!("\"pageId\":\"{}\",\"source\":\"server\"", page.id);
+    let mut seen = String::new();
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(5);
+    while !seen.contains(&expected) {
+        let chunk = tokio::time::timeout_at(deadline, events.chunk())
+            .await
+            .expect("no event from the extensions")
+            .unwrap()
+            .unwrap();
+        seen.push_str(&String::from_utf8_lossy(&chunk));
+    }
 }
 
 // フォルダ同期で取り込んだページでは、拡張は呼ばれない。
