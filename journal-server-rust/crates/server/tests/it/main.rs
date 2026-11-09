@@ -4,6 +4,7 @@
 
 mod api;
 mod atlas_sync;
+mod client_id;
 #[path = "../common/mod.rs"]
 mod common;
 mod frontend;
