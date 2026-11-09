@@ -486,6 +486,11 @@ fn a_batch_posts_its_operations_as_the_json_the_server_reads_and_answers_the_ite
                 level: 2,
                 body: id("new"),
             },
+            BatchOp::Move {
+                ids: vec![id("m"), id("m1")],
+                page_id: id("p"),
+                position: ItemPosition::First,
+            },
             BatchOp::Delete { id: id("d") },
         ],
     });
@@ -501,6 +506,7 @@ fn a_batch_posts_its_operations_as_the_json_the_server_reads_and_answers_the_ite
             { "op": "update", "id": "s" },
             { "op": "create", "id": "n", "pageId": "p", "position": "after:a", "level": 2,
               "body": "new" },
+            { "op": "move", "ids": ["m", "m1"], "pageId": "p", "position": "first" },
             { "op": "delete", "id": "d" },
         ]}))
     );
