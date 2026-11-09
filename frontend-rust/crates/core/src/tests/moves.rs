@@ -191,3 +191,47 @@ fn the_answer_to_a_move_of_items_no_longer_shown_changes_nothing() {
     assert!(!h.model.key_relay.is_holding());
     assert!(!h.model.move_in_progress);
 }
+
+// 動かした項目が新しい場所に描き直されるとき、そのエディタはフォーカスを失う。それでも編集は終わらず、動かした項目で続く。
+#[test]
+fn the_edit_goes_on_in_the_moved_item_though_its_editor_blurs_when_it_is_drawn_again() {
+    let mut h = page_harness();
+    h.model.state.add_editing_item("b");
+    h.blurs_when_drawn = Some("b".into());
+    h.send(Event::MoveUp {
+        item_id: "b".into(),
+    });
+    assert!(h.model.state.is_editing("b"));
+    assert_eq!(h.focused_editor_requests(), [Some("b".to_string())]);
+    assert_eq!(h.model.edits.edit_handovers, 0, "the handover is over");
+}
+
+// 答えを待つ間に押されたキーは、動かした項目のエディタに渡される。キーの保留は、そのフォーカスで終わる。
+// The fake server answers at once, so the wait is started by hand.
+#[test]
+fn keys_pressed_while_a_move_is_on_its_way_are_played_into_the_moved_item() {
+    let mut h = page_harness();
+    h.model.key_relay.hold_until_focus();
+    h.send(Event::KeyHeld(crate::model::DeferredKey {
+        key: "x".into(),
+        code: "KeyX".into(),
+        shift_key: false,
+        ctrl_key: false,
+        alt_key: false,
+        meta_key: false,
+    }));
+    h.send(Event::MoveUp {
+        item_id: "b".into(),
+    });
+    let replayed: Vec<Vec<String>> =
+        h.ui.iter()
+            .filter_map(|u| match u {
+                crate::effects::UiOp::FocusEditor { replay_keys, .. } => {
+                    Some(replay_keys.iter().map(|k| k.key.clone()).collect())
+                }
+                _ => None,
+            })
+            .collect();
+    assert_eq!(replayed, [vec!["x".to_string()]]);
+    assert!(!h.model.key_relay.is_holding());
+}
