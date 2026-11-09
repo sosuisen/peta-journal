@@ -937,18 +937,6 @@ impl ItemService {
         Ok(result)
     }
 
-    /// Puts an item in the given task state in one step, as an undo of [`Self::cycle_task`]
-    /// needs: cycling back would write new times over the ones to restore.
-    pub fn set_task(&self, item_id: &Hmtid, state: &TaskState) -> AppResult<Item> {
-        let existing = self.get_item_by_id(item_id)?;
-        let mut conn = self.items.db().conn()?;
-        let tx = conn.immediate()?;
-        let now = now_millis();
-        let result = put_task_in(&tx, &existing, state, now)?;
-        self.commit_page(tx, &existing.page_id, now)?;
-        Ok(result)
-    }
-
     /// Sets a property of an item. A key of a list type takes the values comma-separated.
     /// The page file is rewritten, as for any other change of the item.
     pub fn set_property(
@@ -1183,17 +1171,19 @@ fn touched_in(tx: &Connection, existing: &Item, now: i64) -> AppResult<Item> {
     })
 }
 
-/// Puts an item in a task state, with the times and the plan that go with it.
-fn put_task_in(tx: &Connection, existing: &Item, state: &TaskState, now: i64) -> AppResult<Item> {
+/// Puts an item in a task state in one step, with the times and the plan that go with it. The
+/// undo of a task cycle needs this: cycling back would write new times over the ones to
+/// restore.
+fn put_task_in(tx: &Connection, existing: &Item, state: &TaskState, now: i64) -> AppResult<()> {
     if !state.task && (state.begin.is_some() || state.end.is_some()) {
         return Err(AppError::bad_request("A normal item has no task times"));
     }
     let id = existing.id.to_string();
-    let result = patch_task_in(tx, existing, state.task, now)?;
+    patch_task_in(tx, existing, state.task, now)?;
     set_or_clear_in(tx, &id, "begin", "datetime", state.begin.as_deref())?;
     set_or_clear_in(tx, &id, "end", "datetime", state.end.as_deref())?;
     set_or_clear_in(tx, &id, "plan", "date", state.plan.as_deref())?;
-    Ok(result)
+    Ok(())
 }
 
 fn patch_task_in(tx: &Connection, existing: &Item, task: bool, now: i64) -> AppResult<Item> {
