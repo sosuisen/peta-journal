@@ -1,6 +1,5 @@
 //! The MCP server: the same 26 tools as the Java server, served over Streamable HTTP at `/mcp`.
 
-use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use rmcp::handler::server::router::tool::ToolRouter;
@@ -106,6 +105,12 @@ where
 /// An MCP client has no client ID, so the change has its own source and not `app` (ADR-015).
 fn tell(state: &SharedState, page_id: &str) {
     state.sse.broadcast_pages_updated_from(page_id, "mcp");
+}
+
+fn tell_all(state: &SharedState, page_ids: impl IntoIterator<Item = impl AsRef<str>>) {
+    for page_id in page_ids {
+        tell(state, page_id.as_ref());
+    }
 }
 
 fn id(s: &str) -> Result<hmtid::Hmtid, McpError> {
@@ -415,10 +420,7 @@ impl JournalMcp {
                 state
                     .item_service
                     .update_item(&item_id, a.body.as_deref(), level, collapsed)?;
-            tell(&state, item.page_id.as_str());
-            for t in state.items.find_transcluders(&item_id)? {
-                tell(&state, t.page_id.as_str());
-            }
+            tell_all(&state, state.item_service.pages_showing(&[item_id])?);
             Ok(item)
         })
         .await?;
@@ -433,16 +435,11 @@ impl JournalMcp {
         let state = Arc::clone(&self.state);
         let item_id = id(&a.item_id)?;
         run(move || {
-            // The pages to tell are found first: after the deletion the item is gone
-            let mut pages = BTreeSet::new();
-            pages.extend(state.item_service.get_item_page_id(&item_id)?);
-            for t in state.items.find_transcluders(&item_id)? {
-                pages.insert(t.page_id.to_string());
-            }
+            let pages = state
+                .item_service
+                .pages_showing(std::slice::from_ref(&item_id))?;
             state.item_service.delete_item(&item_id)?;
-            for page_id in pages {
-                tell(&state, &page_id);
-            }
+            tell_all(&state, pages);
             Ok(())
         })
         .await?;

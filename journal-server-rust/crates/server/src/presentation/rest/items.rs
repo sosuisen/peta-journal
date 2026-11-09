@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
@@ -544,14 +544,7 @@ fn delete_and_tell(
     client: &ClientId,
     item_ids: &[Hmtid],
 ) -> AppResult<StatusCode> {
-    // The pages to tell are found first: after the deletion the items are gone
-    let mut pages = BTreeSet::new();
-    for id in item_ids {
-        pages.extend(state.item_service.get_item_page_id(id)?);
-        for t in state.items.find_transcluders(id)? {
-            pages.insert(t.page_id.to_string());
-        }
-    }
+    let pages = state.item_service.pages_showing(item_ids)?;
     state.item_service.delete_items(item_ids)?;
     for page_id in pages {
         state.sse.broadcast_pages_updated(client, &page_id);
