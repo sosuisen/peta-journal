@@ -234,7 +234,7 @@ pub enum Event {
         key: ops::merge::JoinKey,
         /// The item that went away.
         item_id: String,
-        merged: Item,
+        merged: Box<Item>,
     },
     /// The server refused a join, or could not be reached: nothing was written.
     MergeFailed {
@@ -835,7 +835,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             key,
             item_id,
             merged,
-        } => ops::merge::show_merged(model, key, &item_id, merged),
+        } => ops::merge::show_merged(model, key, &item_id, *merged),
         MergeFailed { unsaved } => ops::merge::merge_failed(model, &unsaved),
         NavigateUp { item_id, cursor } => {
             ops::outline_events::navigate(model, &item_id, cursor, -1)

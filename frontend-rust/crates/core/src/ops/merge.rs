@@ -131,7 +131,7 @@ pub fn merge_answered(model: &mut Model, key: JoinKey, item_id: &str, agreed: bo
             Ok(merged) => api.send_event(Event::Merged {
                 key,
                 item_id: goes.id,
-                merged,
+                merged: Box::new(merged),
             }),
             Err(e) => {
                 log_error(format!("Failed to merge items: {e}"));
