@@ -94,10 +94,10 @@ fn apply_to_state(model: &mut Model, op: &UndoOp, dir: Direction) {
             } else {
                 after
             };
-            if before.idx == after.idx {
+            if !is_move(model, before, after) {
                 model.state.replace_item(target);
             } else {
-                // A move: the item goes where its index sorts it
+                // The item goes where its index sorts it
                 model.state.delete_item(&target.id);
                 let position = position_by_index(model.state.items(), target);
                 model.state.add_item(target.clone(), &position);
@@ -123,6 +123,13 @@ fn apply_to_state(model: &mut Model, op: &UndoOp, dir: Direction) {
             }
         }
     }
+}
+
+/// True when an update moved an item of this page. A move is recorded as an update that
+/// changes the index. An item inside a transclusion is left where it is: this page does not
+/// hold the order of the items of the source page.
+fn is_move(model: &Model, before: &Item, after: &Item) -> bool {
+    before.idx != after.idx && model.state.is_own_item(&before.id)
 }
 
 /// Opens the editor where the cursor was before (undo) or after (redo) the entry.
@@ -277,7 +284,7 @@ fn sync_to_server(model: &mut Model, ops: &[UndoOp], dir: Direction) -> Cmd {
                     after
                 };
                 batch.push_update(before, after, target);
-                if before.idx != after.idx {
+                if is_move(model, before, after) {
                     moved.insert(target.id.as_str());
                 }
             }
