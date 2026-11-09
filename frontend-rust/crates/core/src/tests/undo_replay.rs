@@ -211,7 +211,7 @@ fn keeps_editing_the_updated_item_with_the_cursor_at_the_end_of_its_body() {
     assert_eq!(h.focused_editor_requests(), [Some("a".to_string())]);
 }
 
-// 作成の undo は、項目をここでもサーバーでも削除する。記録されたカーソルが使われる。
+// 作成の undo は、項目をここで消し、削除を同じ1つの要求でサーバーに送る。記録されたカーソルが使われる。
 #[test]
 fn undo_of_a_create_removes_the_item_here_and_on_the_server() {
     let mut h = Harness::with_items(vec![item("a", 1, ""), item("n", 1, "created")]);
@@ -220,7 +220,8 @@ fn undo_of_a_create_removes_the_item_here_and_on_the_server() {
     h.model.undo.commit(Some(CursorState::new("n", 0)), 0);
     h.send(Event::Undo);
     assert_eq!(h.items_ids(), ["a"]);
-    assert_eq!(delete_calls(&h.api), [vec!["n".to_string()]]);
+    assert_eq!(batch_calls(&h.api), [[BatchOp::Delete { id: "n".into() }]]);
+    assert!(delete_calls(&h.api).is_empty());
     // The recorded cursor is used
     assert_eq!(h.model.state.focused_item_id(), Some("a"));
 }
