@@ -922,6 +922,22 @@ async fn several_pasted_pieces_become_items_below_and_the_last_takes_the_text_af
     );
 }
 
+// メタデータの行が決める階層は、最初の断片からの差として、貼り付け先の項目の階層に足される。
+#[tokio::test]
+async fn pasted_levels_are_added_to_the_level_of_the_item_as_the_distance_from_the_first_piece() {
+    let page = new_doc_page("items-paste-levels").await;
+    let rows = fill(&page.id, &["top", "  host"]).await;
+
+    let flat = "<!-- @@ -->\nA\n\n<!-- @@@ -->\nB\n\n<!-- @@@@ -->\nC";
+    let (status, resp) = paste(&rows[1].id, "host", 4, flat, "auto").await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(
+        outline_of(&page.id).await,
+        ["1:top", "2:hostA", "3:B", "4:C"]
+    );
+}
+
 // ---- Items: group delete ----
 
 // グループ削除は、項目を子孫ごと1回のリクエストで消す。
