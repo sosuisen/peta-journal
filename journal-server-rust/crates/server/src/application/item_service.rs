@@ -68,12 +68,13 @@ pub enum BatchOp {
         level: i32,
         body: String,
     },
-    /// Writes the given fields of an item.
+    /// Writes the given fields of an item. A task state is written whole, with its times.
     Update {
         id: Hmtid,
         body: Option<String>,
         level: Option<i32>,
         collapsed: Option<bool>,
+        task: Option<TaskState>,
     },
     /// Deletes an item. The deletes of a batch go last, as one group.
     Delete { id: Hmtid },
@@ -785,6 +786,7 @@ impl ItemService {
                     body,
                     level,
                     collapsed,
+                    task,
                 } => {
                     let existing = find_all_in(&tx, std::slice::from_ref(id))?.remove(0);
                     self.update_item_in(
@@ -795,6 +797,19 @@ impl ItemService {
                         *collapsed,
                         &mut effects,
                     )?;
+                    if let Some(state) = task {
+                        let item_id = id.to_string();
+                        patch_task_in(&tx, &existing, state.task, now_millis())?;
+                        set_or_clear_in(
+                            &tx,
+                            &item_id,
+                            "begin",
+                            "datetime",
+                            state.begin.as_deref(),
+                        )?;
+                        set_or_clear_in(&tx, &item_id, "end", "datetime", state.end.as_deref())?;
+                        set_or_clear_in(&tx, &item_id, "plan", "date", state.plan.as_deref())?;
+                    }
                     written.push(id.clone());
                 }
                 BatchOp::Delete { id } => deleted.push(id.clone()),

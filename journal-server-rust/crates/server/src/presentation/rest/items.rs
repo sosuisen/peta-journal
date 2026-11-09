@@ -112,6 +112,7 @@ enum BatchOpRequest {
         body: Option<String>,
         level: Option<i32>,
         collapsed: Option<bool>,
+        task: Option<SetTaskRequest>,
     },
     Delete {
         id: String,
@@ -139,11 +140,18 @@ impl BatchOpRequest {
                 body,
                 level,
                 collapsed,
+                task,
             } => BatchOp::Update {
                 id: parse_id(&id)?,
                 body,
                 level,
                 collapsed,
+                task: task.map(|task| TaskState {
+                    task: task.task,
+                    begin: task.begin,
+                    end: task.end,
+                    plan: task.plan,
+                }),
             },
             BatchOpRequest::Delete { id } => BatchOp::Delete { id: parse_id(&id)? },
         })
