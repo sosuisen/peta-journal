@@ -90,9 +90,11 @@ pub fn show_pasted(model: &mut Model, item_id: &str, cursor_before: usize, paste
     model
         .undo
         .begin("paste", Some(CursorState::new(item_id, cursor_before)));
-    model
-        .state
-        .update_item(item_id, |i| i.body = first.body.clone());
+    // The item written to is the source item when a transclusion root was pasted into. The
+    // root shows the body of its source, and keeps a copy of it
+    for id in [first.id.as_str(), item_id] {
+        model.state.update_item(id, |i| i.body = first.body.clone());
+    }
     show_parsed(model, first);
     mark_dirty(model, item_id);
     if let Some(after) = model.state.get_item_by_id(item_id) {
