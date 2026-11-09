@@ -1327,6 +1327,25 @@ async fn a_batch_update_writes_the_task_state_with_its_times() {
     }
 }
 
+// 通常の項目に時刻を付ける更新は断られ、同じバッチのほかの操作も書かれない。
+#[tokio::test]
+async fn a_batch_that_gives_times_to_a_normal_item_is_refused_and_writes_nothing() {
+    let page = new_doc_page("items-batch-task-refused").await;
+    let rows = fill(&page.id, &["first", "second"]).await;
+
+    let (status, _) = batch(json!([
+        {"op": "update", "id": rows[0].id, "body": "changed"},
+        {"op": "update", "id": rows[1].id,
+         "task": {"task": false, "begin": "2026-01-02T03:04:05"}},
+    ]))
+    .await;
+
+    assert_eq!(status, 400);
+    let stored = items(&page.id).await;
+    assert_eq!(stored[0].body, "first");
+    assert!(!stored[1].properties.contains_key("begin"));
+}
+
 // ---- Items: group delete ----
 
 // グループ削除は、項目を子孫ごと1回のリクエストで消す。
