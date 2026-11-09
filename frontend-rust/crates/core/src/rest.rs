@@ -340,9 +340,18 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             Some(json!({ "itemId": item_id, "intoId": into_id })),
             item,
         ),
-        ApiOp::PasteText { item_id, .. } => {
-            call("POST", format!("/api/items/{item_id}/paste"), None, done)
-        }
+        ApiOp::PasteText {
+            item_id,
+            body,
+            cursor,
+            text,
+            ..
+        } => call(
+            "POST",
+            format!("/api/items/{item_id}/paste"),
+            Some(json!({ "body": body, "cursor": cursor, "text": text, "mode": "flat" })),
+            |reply| parsed(reply).map(ApiOutput::Pasted),
+        ),
         ApiOp::CycleTask { item_id } => call(
             "POST",
             format!("/api/items/{item_id}/cycle-task"),
