@@ -532,6 +532,34 @@ fn undo_of_a_move_of_a_parent_sends_the_group_as_one_move() {
     assert_eq!(sent.len(), 3, "two updates and one move: {sent:?}");
 }
 
+// トランスクルージョンの中での移動の undo は、項目を並べ直さず、移動も送らない。元のページの項目の並びを、このページは持っていないためである。
+#[test]
+fn undo_of_a_move_inside_a_transclusion_leaves_the_item_where_it_is() {
+    let root = item_with("root", 1, |i| i.transclude_item_id = Some("s".into()));
+    let mut h = Harness::with_items(vec![root]);
+    let mut trees = TranscludedTrees::new();
+    // c2 went from below c1 to above it
+    let tree = vec![at("s", "s", 1), at("c2", "s1", 2), at("c1", "s2", 2)];
+    trees.insert("s".into(), tree);
+    h.model.state.set_transcluded_trees(trees);
+    h.model
+        .undo
+        .record_updates("move", [(&at("c2", "s3", 2), &at("c2", "s1", 2))], 0);
+
+    h.send(Event::Undo);
+
+    assert_eq!(h.items_ids(), ["root"]);
+    let shown: Vec<String> = h
+        .view()
+        .outline
+        .rows
+        .iter()
+        .map(|r| r.item.id.clone())
+        .collect();
+    assert_eq!(shown, ["root", "c2", "c1"]);
+    assert_eq!(batch_calls(&h.api), [[update_op("c2", 2, "")]]);
+}
+
 // undo スタックが空なら何も起きず、保留中の編集もそのままである。
 #[test]
 fn does_nothing_on_an_empty_stack() {
