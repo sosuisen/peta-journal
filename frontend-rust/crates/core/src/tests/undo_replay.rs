@@ -313,6 +313,37 @@ fn undo_of_a_delete_makes_the_item_again_with_its_id_where_it_was() {
     assert_eq!(h.model.state.get_item_by_id("b").unwrap().idx, "created1");
 }
 
+fn create_op(id: &str, after: &str, level: i32, body: &str) -> BatchOp {
+    BatchOp::Create {
+        id: id.into(),
+        page_id: "page1".into(),
+        position: ItemPosition::after(after),
+        level,
+        body: body.into(),
+    }
+}
+
+// いくつかの項目の削除の undo は、上の項目から順に作り直す。下の項目は、先に作り直した上の項目を位置の基準にするためである。
+#[test]
+fn undo_of_a_delete_of_several_items_makes_them_again_from_the_top_down() {
+    let mut h = Harness::with_items(vec![item("a", 1, "")]);
+    h.model.undo.begin("delete-selection", None);
+    h.model.undo.push_delete(&item("b", 1, "parent"));
+    h.model.undo.push_delete(&item("c", 2, "child"));
+    h.model.undo.commit(None, 0);
+
+    h.send(Event::Undo);
+
+    assert_eq!(h.items_ids(), ["a", "b", "c"]);
+    assert_eq!(
+        batch_calls(&h.api),
+        [[
+            create_op("b", "a", 1, "parent"),
+            create_op("c", "b", 2, "child"),
+        ]]
+    );
+}
+
 // undo スタックが空なら何も起きず、保留中の編集もそのままである。
 #[test]
 fn does_nothing_on_an_empty_stack() {
