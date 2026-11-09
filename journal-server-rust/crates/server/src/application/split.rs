@@ -73,10 +73,17 @@ pub fn plan_below(
 impl Transclusion {
     /// The last item the transclusion shows: itself when it shows no children.
     fn last_shown(&self) -> &Item {
-        if self.root.collapsed {
-            return &self.root;
+        let mut last = &self.root;
+        // The level of a collapsed item above: what is deeper below it is hidden
+        let mut hides_below = self.root.collapsed.then_some(self.source.level);
+        for item in descendants(&self.source_page, &self.source) {
+            if hides_below.is_some_and(|level| item.level > level) {
+                continue;
+            }
+            hides_below = item.collapsed.then_some(item.level);
+            last = item;
         }
-        last_descendant(&self.source_page, &self.source).unwrap_or(&self.root)
+        last
     }
 
     /// Where the text cut off the source item goes, on the page of the source.
@@ -105,14 +112,18 @@ fn closed(mut plan: SplitPlan) -> SplitPlan {
     plan
 }
 
-/// The last of the items below `item` on its page, if it has any.
-fn last_descendant<'a>(on_page: &'a [Item], item: &Item) -> Option<&'a Item> {
+/// The items below `item` on its page, in their order.
+fn descendants<'a>(on_page: &'a [Item], item: &'a Item) -> impl Iterator<Item = &'a Item> {
     on_page
         .iter()
         .skip_while(|other| other.id != item.id)
         .skip(1)
         .take_while(|other| other.level > item.level)
-        .last()
+}
+
+/// The last of the items below `item` on its page, if it has any.
+fn last_descendant<'a>(on_page: &'a [Item], item: &'a Item) -> Option<&'a Item> {
+    descendants(on_page, item).last()
 }
 
 /// True when the whole text would move down. An empty item above does the same and keeps
