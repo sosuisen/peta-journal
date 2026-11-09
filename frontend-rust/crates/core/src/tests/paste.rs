@@ -1,7 +1,7 @@
 use crate::app::Event;
 use crate::effects::{ApiOp, ApiOutput};
 use crate::harness::{item, update_calls, Harness};
-use crate::model::{Item, PasteCursor, PasteMode, Pasted, TranscludedTrees};
+use crate::model::{Item, Page, PageWithItems, PasteCursor, PasteMode, Pasted, TranscludedTrees};
 use crate::outline::UndoOp;
 use crate::testing::item_with;
 
@@ -258,6 +258,44 @@ fn transclusion_harness() -> Harness {
     h
 }
 
+/// An item of the source page "src".
+fn source_item(id: &str, level: i32, body: &str) -> Item {
+    item_with(id, level, |i| {
+        i.page_id = "src".into();
+        i.body = body.into();
+    })
+}
+
+/// Makes the server answer the next reload of the page with "top", the root, and this tree
+/// of the source item.
+fn answer_reload(h: &mut Harness, source_tree: Vec<Item>) {
+    let root = item_with("root", 2, |i| {
+        i.transclude_item_id = Some("s".into());
+        i.body = source_tree[0].body.clone();
+    });
+    let mut trees = TranscludedTrees::new();
+    trees.insert("s".into(), source_tree);
+    let page = PageWithItems {
+        page: Page {
+            id: "page1".into(),
+            ..Default::default()
+        },
+        items: vec![item("top", 1, ""), root],
+        transcluded_trees: Some(trees),
+        ..Default::default()
+    };
+    h.api.answer_next("GetPageById", Ok(ApiOutput::Page(page)));
+}
+
+/// `id:level=body` of every item on screen, the transcluded ones too.
+fn shown(h: &Harness) -> Vec<String> {
+    let items = h.model.state.visible_items();
+    items
+        .iter()
+        .map(|i| format!("{}:{}={}", i.id, i.level, i.body))
+        .collect()
+}
+
 // トランスクルージョンのルートに入力してまだ保存していない文も、貼り付けの要求に入って届く。
 #[test]
 fn text_typed_into_a_transclusion_root_and_not_saved_yet_travels_in_the_paste() {
@@ -273,6 +311,32 @@ fn text_typed_into_a_transclusion_root_and_not_saved_yet_travels_in_the_paste() 
             text: "X".into(),
             mode: PasteMode::Auto,
         }]
+    );
+}
+
+// トランスクルージョンのルートへの貼り付けのあとは、ページが読み直される。作られた項目は参照元ページのものなので、このページの項目としては入らない。
+#[test]
+fn after_a_paste_into_a_transclusion_root_the_page_is_reloaded() {
+    let mut h = transclusion_harness();
+    answer_paste(
+        &mut h,
+        vec![source_item("s", 1, "shownone"), source_item("n1", 2, "two")],
+        "n1",
+        3,
+    );
+    answer_reload(
+        &mut h,
+        vec![
+            source_item("s", 1, "shownone"),
+            source_item("n1", 2, "two"),
+            source_item("c", 2, "child"),
+        ],
+    );
+    paste(&mut h, "root", "one\n  two", 5);
+    assert_eq!(h.items_ids(), ["top", "root"]);
+    assert_eq!(
+        shown(&h),
+        ["top:1=", "root:2=shownone", "n1:3=two", "c:3=child"]
     );
 }
 
