@@ -42,3 +42,22 @@ jobs:
       # The shell only runs in the browser, and the native build above does not show what breaks on wasm
       - if: matrix.workspace == 'frontend-rust'
         run: cargo check --target wasm32-unknown-unknown -p peta-frontend
+
+  todo:
+    name: ext-web-app/todo
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ext-web-app/todo
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: ext-web-app/todo/package-lock.json
+      - run: npm ci
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
