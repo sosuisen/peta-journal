@@ -58,11 +58,14 @@ pub struct Pasted {
     pub cursor: usize,
 }
 
-/// What a split wrote: the item that was split, and the item made beside it.
+/// What a split wrote: the item whose text was cut, which is the source item when a
+/// transclusion was split, and the new item.
 #[derive(Debug, Clone)]
 pub struct Split {
     pub item: Item,
     pub created: Item,
+    /// The pages the split changed.
+    pub page_ids: BTreeSet<Hmtid>,
 }
 
 /// One operation of a batch.
@@ -840,10 +843,12 @@ impl ItemService {
             &mut effects,
         )?;
         tx.commit()?;
+        let page_ids = effects.pages.clone();
         self.finish(effects);
         Ok(Split {
             item: updated,
             created,
+            page_ids,
         })
     }
 

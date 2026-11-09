@@ -486,9 +486,9 @@ async fn split(
             req.body.as_deref().unwrap_or_default(),
             req.cursor,
         )?;
-        let page_id = split.item.page_id.to_string();
-        state.sse.broadcast_pages_updated(&page_id);
-        broadcast_to_transcluders(&state, &item_id, &page_id)?;
+        for page_id in &split.page_ids {
+            state.sse.broadcast_pages_updated(page_id.as_str());
+        }
         Ok(Json(SplitResponse {
             item: state.dtos.to_dto(&split.item)?,
             created: state.dtos.to_dto(&split.created)?,
