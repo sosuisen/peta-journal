@@ -792,7 +792,11 @@ impl ItemService {
         // A transclusion shows its source item: the text that is cut is the text of the
         // source, and stays on its page
         let item = match &item.transclude_item_id {
-            Some(source_id) => find_all_in(&tx, std::slice::from_ref(source_id))?.remove(0),
+            // Whether the children are shown is up to the transclusion, not to its source
+            Some(source_id) => Item {
+                collapsed: item.collapsed,
+                ..find_all_in(&tx, std::slice::from_ref(source_id))?.remove(0)
+            },
             None => item,
         };
         let on_page = ItemRepository::find_by_page_id_in(&tx, &item.page_id)?;
