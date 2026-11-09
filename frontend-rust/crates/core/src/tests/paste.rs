@@ -1,6 +1,7 @@
 use crate::app::Event;
 use crate::effects::ApiOp;
 use crate::harness::{create_calls, item, Harness};
+use crate::model::PasteMode;
 use crate::outline::UndoOp;
 
 fn harness() -> Harness {
@@ -34,6 +35,23 @@ fn parse_calls(h: &Harness) -> Vec<String> {
             _ => None,
         })
         .collect()
+}
+
+// 貼り付けは、項目の今の本文とカーソルと文字列を、1つの要求でサーバーに送る。
+#[test]
+fn a_paste_sends_the_body_the_cursor_and_the_text_in_one_request() {
+    let mut h = harness();
+    paste(&mut h, "a", "one\ntwo", 2);
+    assert_eq!(
+        h.api.calls,
+        [ApiOp::PasteText {
+            item_id: "a".into(),
+            body: "ab|cd".into(),
+            cursor: 2,
+            text: "one\ntwo".into(),
+            mode: PasteMode::Auto,
+        }]
+    );
 }
 
 // 一つの断片はカーソル位置の項目に入り、カーソルは貼り付けた文の直後に置かれる。
