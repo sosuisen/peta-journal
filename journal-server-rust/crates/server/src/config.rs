@@ -159,3 +159,18 @@ impl Settings {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // `--frontend-dir`で指定したフォルダが、画面のフォルダになる。
+    #[test]
+    fn the_frontend_folder_is_the_one_given_with_the_flag() {
+        let cli = Cli::parse_from(["journal-server", "--frontend-dir", "some/dist"]);
+
+        let settings = Settings::from_cli(cli);
+
+        assert_eq!(settings.frontend_dir, Some(PathBuf::from("some/dist")));
+    }
+}
