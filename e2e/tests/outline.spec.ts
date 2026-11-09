@@ -224,6 +224,107 @@ test.describe('outline editing', () => {
     expect((await server.items(pageId)).map(i => i.body)).toEqual(['one!two']);
   });
 
+  test('Backspace at the start writes with one request, which carries the text typed and not saved yet', async ({ page }) => {
+    const firstId = await openFirstEditor(page);
+    await page.keyboard.type('one');
+    await page.keyboard.press('Enter');
+    const [, second] = await server.itemsSettled(pageId, items => items.length === 2 && items[0].body === 'one');
+    const writes: unknown[] = [];
+    page.on('request', r => {
+      if (r.method() !== 'GET') writes.push([`${r.method()} ${new URL(r.url()).pathname}`, r.postDataJSON()]);
+    });
+
+    await page.keyboard.type('two');
+    await page.keyboard.press('Home');
+    await page.keyboard.press('Backspace');
+
+    await server.itemsSettled(pageId, items => items.length === 1 && items[0].body === 'onetwo');
+    await expect(editorOf(page, firstId)).toBeFocused();
+    // Longer than the auto-save waits: the typed text must not be saved a second time
+    await page.waitForTimeout(600);
+    // The first is a question, whether another item transcludes the item that goes away
+    expect(writes).toEqual([
+      ['POST /api/items/transcluded', { itemIds: [second.id] }],
+      ['POST /api/items/merge', { itemId: second.id, intoId: firstId, body: 'two' }],
+    ]);
+  });
+
+  test('Delete at the end writes with one request, which carries the text typed and not saved yet', async ({ page }) => {
+    const firstId = await openFirstEditor(page);
+    await page.keyboard.type('one');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('two');
+    const [, second] = await server.itemsSettled(pageId, items => items.length === 2 && items[1].body === 'two');
+    await openEditor(page, firstId);
+    const writes: unknown[] = [];
+    page.on('request', r => {
+      if (r.method() !== 'GET') writes.push([`${r.method()} ${new URL(r.url()).pathname}`, r.postDataJSON()]);
+    });
+
+    await page.keyboard.press('End');
+    await page.keyboard.type('!');
+    await page.keyboard.press('Delete');
+
+    await server.itemsSettled(pageId, items => items.length === 1 && items[0].body === 'one!two');
+    await page.waitForTimeout(600);
+    expect(writes).toEqual([
+      ['POST /api/items/transcluded', { itemIds: [second.id] }],
+      ['POST /api/items/merge', { itemId: second.id, intoId: firstId, intoBody: 'one!' }],
+    ]);
+  });
+
+  test('text typed right after Backspace at the start goes in where the two texts meet', async ({ page }) => {
+    await openFirstEditor(page);
+    await page.keyboard.type('one');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('two');
+    await server.itemsSettled(pageId, items => items.length === 2 && items[1].body === 'two');
+
+    // No pause between the keys: the answer of the server is not there yet when the text arrives
+    await page.keyboard.press('Home');
+    await page.keyboard.press('Backspace');
+    await page.keyboard.type('-and-');
+
+    const items = await server.itemsSettled(pageId, items => items.length === 1 && items[0].body.length === 11);
+    expect(items[0].body).toBe('one-and-two');
+    expect(await shownBodies(page)).toEqual(['one-and-two']);
+  });
+
+  test('text typed right after Delete at the end goes in where the two texts meet', async ({ page }) => {
+    const firstId = await openFirstEditor(page);
+    await page.keyboard.type('one');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('two');
+    await server.itemsSettled(pageId, items => items.length === 2 && items[1].body === 'two');
+    await openEditor(page, firstId);
+
+    await page.keyboard.press('End');
+    await page.keyboard.press('Delete');
+    await page.keyboard.type('-and-');
+
+    const items = await server.itemsSettled(pageId, items => items.length === 1 && items[0].body.length === 11);
+    expect(items[0].body).toBe('one-and-two');
+    expect(await shownBodies(page)).toEqual(['one-and-two']);
+  });
+
+  test('Ctrl+Z after a join brings both items back, on the screen and on the server', async ({ page }) => {
+    await openFirstEditor(page);
+    await page.keyboard.type('one');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('two');
+    await server.itemsSettled(pageId, items => items.length === 2 && items[1].body === 'two');
+    await page.keyboard.press('Home');
+    await page.keyboard.press('Backspace');
+    await server.itemsSettled(pageId, items => items.length === 1 && items[0].body === 'onetwo');
+    await expect.poll(() => shownBodies(page)).toEqual(['onetwo']);
+
+    await page.keyboard.press('Control+z');
+
+    const items = await server.itemsSettled(pageId, items => items.length === 2);
+    expect(items.map(i => i.body)).toEqual(['one', 'two']);
+    await expect.poll(() => shownBodies(page)).toEqual(['one', 'two']);
+  });
+
   test('Ctrl+Z takes back the split', async ({ page }) => {
     await openFirstEditor(page);
     await page.keyboard.type('keep');
