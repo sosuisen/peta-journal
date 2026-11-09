@@ -12,6 +12,34 @@ use crate::ops::outline_events::ensure_at_least_one_item;
 use crate::outline::tree::position_by_index;
 use crate::outline::{CursorState, UndoEntry, UndoOp};
 use crux_core::Command;
+use std::collections::HashMap;
+
+/// Which sync of an undo or a redo wrote each item last. The answers can come back in another
+/// order than the requests went out, so the answer of an older sync is not shown over what a
+/// later sync wrote.
+#[derive(Debug, Default)]
+pub struct UndoSyncs {
+    sent: u64,
+    last_of_item: HashMap<String, u64>,
+}
+
+impl UndoSyncs {
+    /// Numbers a sync that is about to be sent, and notes the items it writes.
+    fn begin(&mut self, ops: &[BatchOp]) -> u64 {
+        self.sent += 1;
+        for op in ops {
+            let (BatchOp::Create { id, .. } | BatchOp::Update { id, .. } | BatchOp::Delete { id }) =
+                op;
+            self.last_of_item.insert(id.clone(), self.sent);
+        }
+        self.sent
+    }
+
+    /// True when no sync after the given one wrote the item.
+    fn wrote_last(&self, sync: u64, item_id: &str) -> bool {
+        self.last_of_item.get(item_id) == Some(&sync)
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Direction {
@@ -187,11 +215,11 @@ pub fn show_synced(
     reparsed: Vec<String>,
     recreated: Vec<String>,
 ) -> Cmd {
-    // A later sync wrote after this one: its answer is the one to show
-    if sync != model.undo_syncs_sent {
-        return done();
-    }
     for item in &items {
+        // A later sync wrote the item after this one: its answer is the one to show
+        if !model.undo_syncs.wrote_last(sync, &item.id) {
+            continue;
+        }
         if recreated.contains(&item.id) {
             model.state.replace_item(item);
             continue;
@@ -245,8 +273,7 @@ fn sync_to_server(model: &mut Model, ops: &[UndoOp], dir: Direction) -> Cmd {
         batch.push_create(model, item);
     }
     batch.ops.extend(deletes);
-    model.undo_syncs_sent += 1;
-    let sync = model.undo_syncs_sent;
+    let sync = model.undo_syncs.begin(&batch.ops);
     run(move |api| async move {
         match api.apply_batch(batch.ops).await {
             Ok(items) => api.send_event(Event::UndoSynced {
