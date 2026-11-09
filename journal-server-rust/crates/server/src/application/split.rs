@@ -42,6 +42,16 @@ pub fn plan_of_transclusion(shown: &Transclusion, body: &str, cursor: usize) -> 
         return closed(empty_above(shown.root_page, shown.root, body));
     }
     let (before, after) = split_at_char(body, cursor);
+    if after.is_empty() && last_descendant(shown.source_page, shown.source).is_none() {
+        // An item below the source item would not be shown here, where the edit goes on
+        return closed(SplitPlan {
+            body: body.to_string(),
+            new_body: String::new(),
+            page_id: shown.root.page_id.clone(),
+            position: ItemPosition::After(shown.root.id.clone()),
+            level: shown.root.level,
+        });
+    }
     let (position, level) = shown.place_of_the_rest();
     closed(SplitPlan {
         body: before.to_string(),
