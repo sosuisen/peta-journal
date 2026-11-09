@@ -1,11 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  buildBaseUrl,
-  connect,
-  onConnectionStateChange,
-  onServerEvent,
-  getItemsByTypes,
   cycleTask,
+  getItemsByTypes,
+  serverUrl,
+  subscribe,
   type ConnectionState,
   type Item,
 } from './api';
@@ -38,7 +36,7 @@ function ItemDates({ item }: { item: Item }) {
 
 /** Main todo application component. Displays task items with filtering and sorting. */
 const fmOptions: ReactRenderOptions = {
-  wikilink: { hrefPrefix: `${buildBaseUrl()}/pages/` },
+  wikilink: { hrefPrefix: `${serverUrl}/pages/` },
 };
 
 export default function App() {
@@ -54,67 +52,30 @@ export default function App() {
   const [showJournal, setShowJournal] = useState(true);
   const [showPage, setShowPage] = useState(false);
 
-  const connectedRef = useRef(false);
-
-  const fetchItems = useCallback(async () => {
-    if (!connectedRef.current) return;
-    setLoading(true);
-    try {
-      const result = await getItemsByTypes(['task']);
-      setItems(result);
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setLoading(false);
-    }
+  useEffect(() => {
+    const loadItems = async () => {
+      setLoading(true);
+      try {
+        setItems(await getItemsByTypes(['task']));
+      } catch (e) {
+        setError(String(e));
+      } finally {
+        setLoading(false);
+      }
+    };
+    return subscribe({
+      onStateChange: state => {
+        setConnectionState(state);
+        // Each try to connect takes away the error of a request that failed before it
+        if (state !== 'disconnected') setError('');
+        if (state === 'connected') loadItems();
+      },
+      onPagesUpdated: loadItems,
+    });
   }, []);
 
-  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const scheduleRetry = useCallback(() => {
-    if (retryTimer.current) return; // already scheduled
-    retryTimer.current = setTimeout(() => {
-      retryTimer.current = null;
-      connectWithRetry();
-    }, 3000);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const connectWithRetry = useCallback(() => {
-    setError('');
-    connect()
-      .then(() => {
-        connectedRef.current = true;
-        setError('');
-        fetchItems();
-      })
-      .catch(() => {
-        connectedRef.current = false;
-        scheduleRetry();
-      });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    onConnectionStateChange(state => {
-      setConnectionState(state);
-      if (state === 'disconnected' || state === 'error') {
-        connectedRef.current = false;
-        scheduleRetry();
-      }
-    });
-    connectWithRetry();
-    return () => {
-      if (retryTimer.current) clearTimeout(retryTimer.current);
-    };
-  }, [connectWithRetry]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    onServerEvent(() => {
-      fetchItems();
-    });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
   const openItemInPetaJournal = (item: Item) => {
-    window.open(`${buildBaseUrl()}${pagePath(item)}`, 'peta-journal');
+    window.open(`${serverUrl}${pagePath(item)}`, 'peta-journal');
   };
 
   const cycleItemTask = async (item: Item) => {

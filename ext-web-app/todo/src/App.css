@@ -54,9 +54,6 @@ h1 {
 .connection-status.disconnected {
   color: #999;
 }
-.connection-status.error {
-  color: #f44336;
-}
 
 .filter-bar {
   display: flex;
