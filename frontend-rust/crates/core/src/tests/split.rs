@@ -1,5 +1,5 @@
 use crate::app::Event;
-use crate::effects::ApiOutput;
+use crate::effects::{ApiOp, ApiOutput};
 use crate::harness::{batch_calls, create_calls, item, split_calls, update_calls, Harness};
 use crate::model::{BatchOp, Item, Page, PageWithItems, Split, TranscludedTrees};
 use crate::testing::item_with;
@@ -430,6 +430,22 @@ fn enter_at_the_start_of_an_item_a_transclusion_shows_is_sent_as_a_split_at_the_
         [("c".to_string(), "child".to_string(), 0)]
     );
     assert_eq!(requests(&h), ["SplitItem", "GetPageById"]);
+}
+
+// トランスクルージョンが見せている項目での Enter は、どのトランスクルージョンが見せているかも送る。サーバーは、見せている最後の項目の末尾でなら、空の項目をトランスクルージョンのページに置く。
+#[test]
+fn enter_in_an_item_a_transclusion_shows_names_the_transclusion() {
+    let mut h = transclusion_harness(Vec::new());
+    enter(&mut h, "c", "child".len());
+    assert_eq!(
+        h.api.calls[0],
+        ApiOp::SplitItem {
+            item_id: "c".into(),
+            root_id: Some("root".into()),
+            body: "child".into(),
+            cursor: 5,
+        }
+    );
 }
 
 // 元の項目が消えた（壊れた）トランスクルージョンでの Enter も、分割としてサーバーに送る。どう分けるかは、サーバーが今のデータで決める。
