@@ -96,7 +96,13 @@ fn split_at_char(text: &str, char_index: usize) -> (&str, &str) {
 /// from the first piece.
 fn split_into_pieces(splitter: &FlatMarkdownSplitter, flat: &str) -> anyhow::Result<Vec<Piece>> {
     let items = splitter.split(flat)?.items;
-    let top_level = items[0].level;
+    let Some(top_level) = items.first().map(|item| item.level) else {
+        // Nothing to paste: the body is still written, as it may hold text not saved yet
+        return Ok(vec![Piece {
+            body: String::new(),
+            level: 0,
+        }]);
+    };
     Ok(items
         .into_iter()
         .map(|item| Piece {
