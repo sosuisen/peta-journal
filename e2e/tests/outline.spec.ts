@@ -59,15 +59,15 @@ test.describe('outline editing', () => {
 
   test('text typed right after Enter in the middle goes in front of the text that moved down', async ({ page }) => {
     await openFirstEditor(page);
-    await page.keyboard.type('alpha beta');
+    await page.keyboard.type('alpha-beta');
     for (let i = 0; i < 4; i++) await page.keyboard.press('ArrowLeft');
 
     await page.keyboard.press('Enter');
-    await page.keyboard.type('gamma ');
+    await page.keyboard.type('gamma-');
 
     const items = await server.itemsSettled(pageId, items => items.length === 2 && items[1].body.length === 10);
-    expect(items.map(i => i.body)).toEqual(['alpha ', 'gamma beta']);
-    expect(await shownBodies(page)).toEqual(['alpha ', 'gamma beta']);
+    expect(items.map(i => i.body)).toEqual(['alpha-', 'gamma-beta']);
+    expect(await shownBodies(page)).toEqual(['alpha-', 'gamma-beta']);
   });
 
   test('two quick Enters in a row make two items, each with its own text', async ({ page }) => {
