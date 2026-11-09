@@ -83,11 +83,13 @@
   - [x] ジャーナルかどうかを、名前の形ではなく、サーバーが返すページの種類（`type`）で決める。週・月・年のジャーナルのタスクも「Journal」に出る
   - [x] 開始日の初期値の「今日」を、UTCではなく、利用者の地域の時刻で決める
   - [x] 行の中のリンクを押しても、行のクリック（項目のページを開く）は動かない
-  - [ ] リンクを押すと、todoのタブ自体がリンク先に移る。別のウィンドウで開くようにするかを決める
+  - [x] リンクを押すと、todoのタブ自体がリンク先に移る。直さないと決めた。別のウィンドウで開きたいときは、利用者がShiftキーなどを使う
 - [x] `ext-web-app/todo`の道具を新しくする
   - [x] TypeScriptを7にする。`tsc`は7（`@typescript/native`）で、ESLintが使うAPIは6（`typescript`は`@typescript/typescript6`の別名）である。7.0にAPIがないため
   - [x] ESLintを入れる（型を使うルール、Reactのフックのルール、`public`の省略、`readonly`）。Nodeは22.13以降か24以降が要る
   - [ ] TypeScript 7.1でAPIが戻り、typescript-eslintが対応したら、`typescript`の別名をやめて7だけにする
+  - [x] `npm audit fix`で、開発用の依存（vite、postcssなど）の7件を直す
+  - [ ] `npm audit`に残る中程度の10件は、どれもESLintとtypescript-eslintが使うminimatch 10が原因である。両方がminimatch 11に移ったら、更新して消す。`overrides`では上げない。11はAPIを削っており、ESLintが対応を確かめていないため
   - [ ] CIに`ext-web-app/todo`のジョブ（整形の検査、lint、テスト、ビルド）を足すかを決める（ユーザーが決める）
 - [ ] Emacs版に、Web版にある機能を足す
   - 項目の操作
