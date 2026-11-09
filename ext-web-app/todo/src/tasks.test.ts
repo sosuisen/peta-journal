@@ -243,7 +243,7 @@ describe('the path that opens the page of a task', () => {
       '2026-11',
       '2026',
     ]) {
-      const task = item({ id: 'item-7', name });
+      const task = item({ id: 'item-7', type: 'journal', name });
 
       expect(pagePath(task)).toBe(`/journals/${name}#item-7`);
     }

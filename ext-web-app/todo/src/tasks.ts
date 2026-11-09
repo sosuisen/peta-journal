@@ -88,7 +88,6 @@ export function groupByPlan(items: Item[]): DisplayEntry[] {
 
 /** The path of the PetaJournal web app that opens the page of the item at the item. */
 export function pagePath(item: Item): string {
-  const isJournal = /^\d{4}(-\d{2}(-\d{2})?|-W\d{1,2})?$/.test(item.name);
-  const prefix = isJournal ? '/journals' : '/docs';
+  const prefix = isJournal(item) ? '/journals' : '/docs';
   return `${prefix}/${item.dirPath}${item.name}#${item.id}`;
 }
