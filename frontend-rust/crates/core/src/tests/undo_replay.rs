@@ -1,14 +1,27 @@
 use crate::app::Event;
 use crate::effects::ApiOutput;
-use crate::harness::{create_calls, delete_calls, item, set_task_calls, update_calls, Harness};
-use crate::model::{Item, TaskState, TranscludedTrees};
+use crate::harness::{
+    batch_calls, create_calls, delete_calls, item, set_task_calls, update_calls, Harness,
+};
+use crate::model::{BatchOp, Item, TaskState, TranscludedTrees};
 use crate::outline::CursorState;
 use crate::testing::item_with;
 use serde_json::json;
 
-// undo は古い本文を戻して保存し、その項目を redo スタックに移す。redo はそれを元に戻す。
+/// The update of a batch that writes a body, a level and a collapsed state, and no task state
+fn update_op(id: &str, level: i32, body: &str) -> BatchOp {
+    BatchOp::Update {
+        id: id.into(),
+        body: Some(body.into()),
+        level: Some(level),
+        collapsed: Some(false),
+        task: None,
+    }
+}
+
+// undo は古い本文を戻し、1つの要求でサーバーに送り、その項目を redo スタックに移す。redo はそれを元に戻す。
 #[test]
-fn undo_puts_the_old_body_back_saves_it_and_moves_the_entry_to_the_redo_stack() {
+fn undo_puts_the_old_body_back_sends_it_in_one_request_and_moves_the_entry_to_the_redo_stack() {
     let mut h = Harness::with_items(vec![item("a", 1, "new")]);
     let before = item("a", 1, "old");
     let after = item("a", 1, "new");
@@ -18,12 +31,13 @@ fn undo_puts_the_old_body_back_saves_it_and_moves_the_entry_to_the_redo_stack() 
 
     h.send(Event::Undo);
     assert_eq!(h.bodies(), ["a=old"]);
-    assert_eq!(update_calls(&h.api), [("a".into(), Some("old".into()))]);
+    assert_eq!(batch_calls(&h.api), [vec![update_op("a", 1, "old")]]);
     assert!(h.model.undo.can_redo());
     assert!(!h.model.undo.can_undo());
 
     h.send(Event::Redo);
     assert_eq!(h.bodies(), ["a=new"]);
+    assert_eq!(batch_calls(&h.api)[1], [update_op("a", 1, "new")]);
     assert!(h.model.undo.can_undo());
 }
 
