@@ -674,7 +674,9 @@ async fn move_items(
             req.level_delta,
             req.body.as_deref(),
         )?;
-        state.sse.broadcast_pages_updated(target.as_str());
+        for page_id in &moved.page_ids {
+            state.sse.broadcast_pages_updated(page_id.as_str());
+        }
         items_response(&state, &moved.items)
     })
     .await
