@@ -3,8 +3,8 @@
 //! date in the background. Server errors are logged; the screen already shows the replayed
 //! state.
 
-use crate::app::{apply, done, log_error, run, Cmd, Event, Model};
-use crate::model::{BatchOp, Item, ItemPosition};
+use crate::app::{done, log_error, run, Cmd, Event, Model};
+use crate::model::{BatchOp, Item};
 use crate::ops::edit::discard_pending_edit_of_focused_item;
 use crate::ops::edit::{focus_editor, save_target_id, show_parsed};
 use crate::ops::file_reload::reload_shown_page;
@@ -46,7 +46,7 @@ pub fn perform(model: &mut Model, dir: Direction) -> Cmd {
         Direction::Undo => model.undo.push_redo(entry),
         Direction::Redo => model.undo.push_undo(entry),
     }
-    let sync = sync_to_server(ops, dir);
+    let sync = sync_to_server(model, ops, dir);
     let ensure = ensure_at_least_one_item(model);
     Command::all([discard, focus, sync, ensure])
 }
@@ -130,6 +130,8 @@ struct Batch {
     ops: Vec<BatchOp>,
     /// The items whose body or task state the replay changed: they take the server's parse.
     reparsed: Vec<String>,
+    /// The items the batch makes again: they are shown as the server made them.
+    recreated: Vec<String>,
 }
 
 impl Batch {
@@ -161,12 +163,34 @@ impl Batch {
             self.reparsed.push(task_target);
         }
     }
+
+    /// Adds the making of an item the replay put back, with the id it had, where the
+    /// replayed state has it.
+    fn push_create(&mut self, model: &Model, item: &Item) {
+        self.ops.push(BatchOp::Create {
+            id: item.id.clone(),
+            page_id: item.page_id.clone(),
+            position: position_by_index(model.state.items(), item),
+            level: item.level,
+            body: item.body.clone(),
+        });
+        self.recreated.push(item.id.clone());
+    }
 }
 
 /// Shows what the server answered to the batch of an undo or a redo: where it put each item,
-/// and how it parsed the items whose body or task state changed.
-pub fn show_synced(model: &mut Model, items: Vec<Item>, reparsed: Vec<String>) -> Cmd {
+/// how it parsed the items whose body or task state changed, and the items it made again.
+pub fn show_synced(
+    model: &mut Model,
+    items: Vec<Item>,
+    reparsed: Vec<String>,
+    recreated: Vec<String>,
+) -> Cmd {
     for item in &items {
+        if recreated.contains(&item.id) {
+            model.state.replace_item(item);
+            continue;
+        }
         if reparsed.contains(&item.id) {
             show_parsed(model, item);
         }
@@ -179,16 +203,23 @@ pub fn show_synced(model: &mut Model, items: Vec<Item>, reparsed: Vec<String>) -
 }
 
 /// Sends the replayed ops to the server, in the order they were applied.
-fn sync_to_server(ops: Vec<UndoOp>, dir: Direction) -> Cmd {
+fn sync_to_server(model: &Model, ops: Vec<UndoOp>, dir: Direction) -> Cmd {
     let mut batch = Batch::default();
     for op in &ops {
-        if let UndoOp::Update { before, after } = op {
-            let target = if dir == Direction::Undo {
-                before
-            } else {
-                after
-            };
-            batch.push_update(before, after, target);
+        match op {
+            UndoOp::Update { before, after } => {
+                let target = if dir == Direction::Undo {
+                    before
+                } else {
+                    after
+                };
+                batch.push_update(before, after, target);
+            }
+            UndoOp::Create { item } | UndoOp::Delete { item } => {
+                if exists_again(op, dir) {
+                    batch.push_create(model, item);
+                }
+            }
         }
     }
     run(move |api| async move {
@@ -197,6 +228,7 @@ fn sync_to_server(ops: Vec<UndoOp>, dir: Direction) -> Cmd {
                 Ok(items) => api.send_event(Event::UndoSynced {
                     items,
                     reparsed: batch.reparsed,
+                    recreated: batch.recreated,
                 }),
                 Err(e) => {
                     log_error(format!("Failed to sync undo/redo to server: {e}"));
@@ -205,26 +237,14 @@ fn sync_to_server(ops: Vec<UndoOp>, dir: Direction) -> Cmd {
             }
         }
         // The deletes go last, as one group: a parent deleted on its own is refused
-        let mut to_delete = Vec::new();
-        for op in ops {
-            let result = match &op {
-                UndoOp::Update { .. } => Ok(()),
-                UndoOp::Create { item } | UndoOp::Delete { item } => {
-                    let exists_again =
-                        matches!(op, UndoOp::Create { .. }) == (dir == Direction::Redo);
-                    if exists_again {
-                        recreate_on_server(&api, item).await
-                    } else {
-                        to_delete.push(item.id.clone());
-                        Ok(())
-                    }
-                }
-            };
-            if let Err(e) = result {
-                log_error(format!("Failed to sync undo/redo to server: {e}"));
-                return;
-            }
-        }
+        let to_delete: Vec<String> = ops
+            .iter()
+            .filter(|op| !exists_again(op, dir))
+            .filter_map(|op| match op {
+                UndoOp::Create { item } | UndoOp::Delete { item } => Some(item.id.clone()),
+                UndoOp::Update { .. } => None,
+            })
+            .collect();
         if !to_delete.is_empty() {
             if let Err(e) = api.delete_items(to_delete).await {
                 log_error(format!("Failed to sync undo/redo to server: {e}"));
@@ -234,28 +254,12 @@ fn sync_to_server(ops: Vec<UndoOp>, dir: Direction) -> Cmd {
     })
 }
 
-/// Creates the item of a create/delete op again on the server and shows the server's item.
-async fn recreate_on_server(
-    api: &crate::effects::Api<crate::app::Event>,
-    item: &Item,
-) -> Result<(), crate::effects::ApiError> {
-    let it = item.clone();
-    let position: ItemPosition =
-        crate::ops::edit::read(api, move |m| position_by_index(m.state.items(), &it)).await;
-    let new_item = api
-        .create_item(
-            &item.page_id,
-            position.clone(),
-            item.level,
-            &item.body,
-            None,
-        )
-        .await?;
-    let old_id = item.id.clone();
-    apply(api, "undo sync: recreated", move |m| {
-        m.state.delete_item(&old_id);
-        m.state.add_item(new_item, &position);
-        done()
-    });
-    Ok(())
+/// True when the replay of a create or a delete op puts its item back: the redo of a create,
+/// or the undo of a delete.
+fn exists_again(op: &UndoOp, dir: Direction) -> bool {
+    match op {
+        UndoOp::Create { .. } => dir == Direction::Redo,
+        UndoOp::Delete { .. } => dir == Direction::Undo,
+        UndoOp::Update { .. } => false,
+    }
 }

@@ -257,17 +257,26 @@ fn an_undo_delete_the_server_refuses_reloads_the_page() {
     assert!(h.api.called("GetPageById"));
 }
 
-// 作成の redo は項目をその index の位置に戻し、サーバーが与えた id を取る。
+// 作成の redo は、項目を元のIDのまま、その index の位置に作り直す。
 #[test]
-fn redo_of_a_create_puts_the_item_back_by_its_index_and_takes_the_id_the_server_gives() {
+fn redo_of_a_create_makes_the_item_again_with_its_id_where_its_index_puts_it() {
     let mut h = Harness::with_items(vec![item("a", 1, ""), item("n", 1, "created")]);
     h.model.undo.begin("enter", None);
     h.model.undo.push_create(&item("n", 1, "created"));
     h.model.undo.commit(None, 0);
     h.send(Event::Undo);
     h.send(Event::Redo);
-    assert_eq!(create_calls(&h.api)[0].3, "created");
-    assert_eq!(h.items_ids(), ["a", "new1"]);
+    assert_eq!(
+        batch_calls(&h.api),
+        [[BatchOp::Create {
+            id: "n".into(),
+            page_id: "page1".into(),
+            position: ItemPosition::after("a"),
+            level: 1,
+            body: "created".into(),
+        }]]
+    );
+    assert_eq!(h.items_ids(), ["a", "n"]);
 }
 
 // 削除の undo は、項目を元のIDのまま、元の位置に作り直す。サーバーが決めた並び順の値を受け取る。
