@@ -107,8 +107,11 @@ impl Route {
 
 #[derive(Debug)]
 pub enum Event {
-    /// The shell is up: connect, load the settings and the sidebar.
-    Start,
+    /// The shell is up: connect, load the settings and the sidebar. `client_id` is the UUID
+    /// that the shell made for itself and sends with every change request (ADR-015).
+    Start {
+        client_id: String,
+    },
     /// The URL changed; `today` is the local date as `YYYY-MM-DD`.
     Route {
         route: Route,
@@ -713,6 +716,9 @@ pub struct Model {
     pub atlas_link_search: AtlasLinkSearch,
     pub config: ConfigState,
     pub connection: ConnectionState,
+    /// The ID this client names itself with. The server sends it back with the changes this
+    /// client made, so they are told apart from those of the other clients.
+    pub client_id: String,
     pub sse_reconnect_attempts: u32,
     pub scrolled_from_top: bool,
     /// The flat and tree markdown of the last copy, so a paste back keeps the structure.
@@ -747,6 +753,7 @@ impl Default for Model {
             atlas_link_search: AtlasLinkSearch::default(),
             config: ConfigState::default(),
             connection: ConnectionState::Disconnected,
+            client_id: String::new(),
             sse_reconnect_attempts: 0,
             scrolled_from_top: false,
             clipboard: None,
@@ -820,7 +827,10 @@ impl App for PetaApp {
 fn dispatch(event: Event, model: &mut Model) -> Cmd {
     use Event::*;
     match event {
-        Start => screens::start::start(model),
+        Start { client_id } => {
+            model.client_id = client_id;
+            screens::start::start(model)
+        }
         Route { route, today } => screens::route::route(model, route, today),
         Continue(thunk) => (thunk.run)(model),
 

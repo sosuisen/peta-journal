@@ -31,11 +31,14 @@ fn the_shown_atlas_takes_its_outline_again_when_the_server_writes_it() {
     assert_eq!(h.view().atlas_links.len(), 1);
 }
 
-// アプリ内で行われた変更や他のページの変更では、アウトラインは取得されない。
+// このクライアント自身の変更や他のページの変更では、アウトラインは取得されない。
 #[test]
-fn the_outline_is_not_fetched_for_a_change_made_in_the_app_or_on_another_page() {
+fn the_outline_is_not_fetched_for_a_change_this_client_made_or_on_another_page() {
     let mut h = atlas_with(&[("one", None)]);
-    page_changed(&mut h, ATLAS_ID, "app");
+    h.model.client_id = "me".into();
+    h.send(Event::Sse(crate::effects::SseEvent::Message(format!(
+        r#"{{"type":"pagesUpdated","pageId":"{ATLAS_ID}","source":"app","clientId":"me"}}"#
+    ))));
     page_changed(&mut h, "a/other_atlas", "server");
 
     assert!(!h.api.called("GetPageById"));

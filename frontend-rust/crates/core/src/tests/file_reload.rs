@@ -65,3 +65,13 @@ fn a_change_by_another_client_reloads_the_page() {
 
     assert!(h.api.called("GetPageById"));
 }
+
+// このクライアント自身の変更の知らせでは、ページは読み直されない。
+#[test]
+fn a_change_by_this_client_does_not_reload_the_page() {
+    let mut h = started_with_a_page();
+
+    changed_by(&mut h, ME);
+
+    assert!(!h.api.called("GetPageById"));
+}
