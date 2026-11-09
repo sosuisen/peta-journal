@@ -411,6 +411,36 @@ async fn items_move_to_another_page_with_their_levels_shifted() {
     );
 }
 
+/// Moves items the way a key in an editor does: with the body the editor of the first item
+/// has now
+async fn move_edited(item_ids: &[&str], page_id: &str, position: &str, body: &str) -> (u16, Value) {
+    post(
+        "/api/items/move",
+        json!({ "itemIds": item_ids, "targetPageId": page_id, "position": position, "body": body }),
+    )
+    .await
+}
+
+// 移動の要求が本文を持っていれば、先頭の項目はその本文で保存されて移動する。エディタに打って、まだ保存していない文である。
+#[tokio::test]
+async fn a_move_saves_the_body_it_carries_to_the_first_item() {
+    let page = new_doc_page("items-move-unsaved").await;
+    let rows = fill(&page.id, &["a", "b", "  b1", "c"]).await;
+
+    let (status, resp) =
+        move_edited(&[&rows[1].id, &rows[2].id], &page.id, "first", "b typed").await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(
+        field_of_each(&resp, "items", "body"),
+        vec![json!("b typed"), json!("b1")]
+    );
+    assert_eq!(
+        outline_of(&page.id).await,
+        vs(&["1:b typed", "2:b1", "1:a", "1:c"])
+    );
+}
+
 // ---- Items: tasks ----
 
 // cycle-taskは、タスク、実行中、完了を経て通常の項目に戻る。
