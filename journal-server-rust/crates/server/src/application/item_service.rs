@@ -761,6 +761,7 @@ impl ItemService {
         let mut effects = AfterCommit::default();
         let mut written = Vec::new();
         let mut deleted = Vec::new();
+        let mut transcluder_pages = BTreeSet::new();
         for op in ops {
             match op {
                 BatchOp::Create {
@@ -800,6 +801,12 @@ impl ItemService {
                     if let Some(state) = task {
                         put_task_in(&tx, &existing, state, now_millis())?;
                     }
+                    // A transcluder shows the item as it is stored, so its page changed too
+                    transcluder_pages.extend(
+                        ItemRepository::find_transcluders_in(&tx, id)?
+                            .into_iter()
+                            .map(|transcluder| transcluder.page_id),
+                    );
                     written.push(id.clone());
                 }
                 BatchOp::Delete { id } => deleted.push(id.clone()),
@@ -817,7 +824,8 @@ impl ItemService {
         }
         let items = find_all_in(&tx, &answered)?;
         tx.commit()?;
-        let page_ids = effects.pages.clone();
+        let mut page_ids = effects.pages.clone();
+        page_ids.extend(transcluder_pages);
         self.finish(effects);
         Ok(BatchApplied { items, page_ids })
     }
