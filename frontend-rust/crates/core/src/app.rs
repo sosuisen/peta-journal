@@ -251,6 +251,15 @@ pub enum Event {
         /// a move of the selection.
         edited: Option<String>,
     },
+    /// The server moved an item that a transclusion shows: the page is read again.
+    MovedInTransclusion {
+        item_id: String,
+    },
+    /// The page was read again after a move inside a transclusion: the edit goes on in the
+    /// moved item.
+    MovePageReloaded {
+        item_id: String,
+    },
     /// The server refused the move of an edited item, or could not be reached: nothing was
     /// written.
     MoveFailed {
@@ -871,6 +880,8 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             position,
             edited,
         } => ops::moves::show_moved(model, moved, &position, edited),
+        MovedInTransclusion { item_id } => ops::moves::show_moved_in_transclusion(model, item_id),
+        MovePageReloaded { item_id } => ops::moves::focus_moved(model, item_id),
         MoveFailed { unsaved } => ops::moves::move_failed(model, unsaved.as_deref()),
         MoveDone { handover } => ops::moves::move_done(model, handover),
         MoveUp { item_id } => ops::moves::enqueue_move(model, &item_id, MoveDirection::Up),

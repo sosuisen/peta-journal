@@ -10,10 +10,8 @@
 use crate::app::{apply, done, log_error, run, Cmd, Event, Model, MoveDirection};
 use crate::effects::{Api, ApiError, ApiResult};
 use crate::model::{Item, ItemPosition, ItemRef, Page};
-use crate::ops::edit::{
-    flush_pending_edit, focus_editor, read, record_typing, take_unsaved, typed_body, Handover,
-};
-use crate::ops::file_reload::reload_shown_page;
+use crate::ops::edit::{flush_pending_edit, read, record_typing, take_unsaved, typed_body};
+use crate::ops::file_reload::replace_page;
 use crate::outline::tree::{
     find_cross_page_placement, find_move_down_target, find_move_up_target, get_subtree,
     selected_root_items, transclusion_context_of, transclusion_scoped_items, ScanDirection,
@@ -80,23 +78,7 @@ fn move_item(model: &mut Model, item_id: &str, direction: MoveDirection) -> Opti
         MovePlan::WithinTransclusion {
             group_ids,
             position,
-        } => Some(run(move |api| async move {
-            if let Err(e) = flush_pending_edit(&api, &item).await {
-                log_error(format!("Failed to save before move: {e}"));
-            }
-            match api
-                .move_items(group_ids, &item.page_id, position, None)
-                .await
-            {
-                Ok(_) => {
-                    let _handover = Handover::begin(&api);
-                    reload_shown_page(&api).await;
-                    focus_editor(&api, Some(item.id.clone())).await;
-                }
-                Err(e) => log_error(format!("Failed to move item: {e}")),
-            }
-            api.send_event(Event::MoveDone { handover: false });
-        })),
+        } => Some(move_in_transclusion(model, item, group_ids, position)),
         MovePlan::AcrossDays(plan) => Some(run(move |api| async move {
             if let Err(e) = flush_pending_edit(&api, &item).await {
                 log_error(format!("Failed to save before move: {e}"));
@@ -155,6 +137,58 @@ fn move_on_page(
     Command::all([discard, request])
 }
 
+/// Asks the server to move an item that a transclusion shows, within the tree of the
+/// source item. The request carries the text that was typed into the item and is not saved
+/// yet.
+fn move_in_transclusion(
+    model: &mut Model,
+    item: Item,
+    group_ids: Vec<String>,
+    position: ItemPosition,
+) -> Cmd {
+    let (body, discard) = take_unsaved(model, &item);
+    model.key_relay.hold_until_focus();
+    let request = run(move |api| async move {
+        match api
+            .move_edited_items(group_ids, &item.page_id, position, body.as_deref())
+            .await
+        {
+            Ok(_) => api.send_event(Event::MovedInTransclusion { item_id: item.id }),
+            Err(e) => {
+                log_error(format!("Failed to move item: {e}"));
+                api.send_event(Event::MoveFailed {
+                    unsaved: body.map(|_| item.id),
+                });
+            }
+        }
+    });
+    Command::all([discard, request])
+}
+
+/// Reads the page again after a move inside a transclusion: the server's version of the
+/// page says how the transclusion shows its items now.
+pub fn show_moved_in_transclusion(model: &mut Model, item_id: String) -> Cmd {
+    // Reading the page again blurs the editor of the item: the edit goes on in it
+    model.edits.edit_handovers += 1;
+    let page_id = model.shown_page_id();
+    run(move |api| async move {
+        if let Some(page_id) = page_id {
+            replace_page(&api, &page_id).await;
+        }
+        api.send_event(Event::MovePageReloaded { item_id });
+    })
+}
+
+/// Focuses the editor of the moved item again, with the keys that were pressed while the
+/// move was on its way.
+pub fn focus_moved(model: &mut Model, item_id: String) -> Cmd {
+    let keys = model.key_relay.release();
+    run(move |api| async move {
+        api.focus_editor(Some(item_id), keys).await;
+        api.send_event(Event::MoveDone { handover: true });
+    })
+}
+
 /// Puts the items the server moved at their new place, and records the move for undo. The
 /// edit goes on in `edited`, the item the move was started from; a move of the selection
 /// has none.
@@ -190,11 +224,7 @@ pub fn show_moved(
     // Putting the item at its new place blurs its editor: the edit goes on in it
     model.edits.edit_handovers += 1;
     model.state.replace_items(&ids, moved, position);
-    let keys = model.key_relay.release();
-    run(move |api| async move {
-        api.focus_editor(Some(item_id), keys).await;
-        api.send_event(Event::MoveDone { handover: true });
-    })
+    focus_moved(model, item_id)
 }
 
 /// Ends the wait for the editor after a move that did not reach the server, and schedules
