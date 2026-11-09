@@ -484,6 +484,7 @@ async fn split(
         )?;
         let page_id = split.item.page_id.to_string();
         state.sse.broadcast_pages_updated(&page_id);
+        broadcast_to_transcluders(&state, &item_id, &page_id)?;
         Ok(Json(SplitResponse {
             item: state.dtos.to_dto(&split.item)?,
             created: state.dtos.to_dto(&split.created)?,
