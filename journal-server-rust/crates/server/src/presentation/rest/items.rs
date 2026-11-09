@@ -38,6 +38,7 @@ pub fn routes() -> Router<SharedState> {
             post(set_transclusion).delete(remove_transclusion),
         )
         .route("/api/items/{id}/paste", post(paste))
+        .route("/api/items/{id}/split", post(split))
         .route("/api/items/{id}/cycle-task", post(cycle_task))
         .route(
             "/api/items/{id}/properties/{key}",
@@ -199,6 +200,19 @@ struct CursorDto {
 struct PasteResponse {
     items: Vec<ItemDto>,
     cursor: CursorDto,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+struct SplitRequest {
+    body: Option<String>,
+    cursor: usize,
+}
+
+#[derive(Serialize)]
+struct SplitResponse {
+    item: ItemDto,
+    created: ItemDto,
 }
 
 #[derive(Deserialize, Default)]
@@ -451,6 +465,28 @@ async fn paste(
                 item_id: pasted.cursor_item_id.to_string(),
                 position: pasted.cursor,
             },
+        }))
+    })
+    .await
+}
+
+async fn split(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    Json(req): Json<SplitRequest>,
+) -> AppResult<Json<SplitResponse>> {
+    let item_id = parse_id(&id)?;
+    blocking(move || {
+        let split = state.item_service.split(
+            &item_id,
+            req.body.as_deref().unwrap_or_default(),
+            req.cursor,
+        )?;
+        let page_id = split.item.page_id.to_string();
+        state.sse.broadcast_pages_updated(&page_id);
+        Ok(Json(SplitResponse {
+            item: state.dtos.to_dto(&split.item)?,
+            created: state.dtos.to_dto(&split.created)?,
         }))
     })
     .await

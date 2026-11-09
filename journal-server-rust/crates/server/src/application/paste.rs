@@ -84,7 +84,7 @@ fn has_unclosed_code_fence(text: &str) -> bool {
 }
 
 /// Splits a text at a character index. An index past the end splits at the end.
-fn split_at_char(text: &str, char_index: usize) -> (&str, &str) {
+pub(crate) fn split_at_char(text: &str, char_index: usize) -> (&str, &str) {
     let byte_index = text
         .char_indices()
         .nth(char_index)
