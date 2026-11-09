@@ -201,11 +201,12 @@
 - [ ] `fm-ast`を、`flatmarkdown-ast`クレートとして公開する（ADR 012）
   - 作業は3つのリポジトリにまたがる。上から順に進める。PetaJournalの作業は、crates.ioへの公開のあとに行う
   - `petajournal/flatmarkdown`のリポジトリ
-    - [ ] リポジトリをCargoのワークスペースにする。一番上の`Cargo.toml`は、ワークスペースの定義と版だけを持つ。既存の`src/`と`tests/`を`flatmarkdown/`の下へ移す。`SPEC_AST.md`は直下に残す
-    - [ ] READMEとCIの、移したファイルへのパスを直す
-    - [ ] `flatmarkdown-ast/`を足し、PetaJournalの`frontend-rust/crates/fm-ast`の`src/lib.rs`と`tests/roundtrip.rs`を移す。クレートの名前は`flatmarkdown-ast`にする
-    - [ ] 往復のテストが、ワークスペースの中の`flatmarkdown`をパスで参照する
-    - [ ] `flatmarkdown-ast`のREADMEを書く。`Node`に`#[non_exhaustive]`を付けないことと、ノードの種類を足すときは互換性のない変更として版を上げることを書く
+    - [x] リポジトリをCargoのワークスペースにする。一番上の`Cargo.toml`は、ワークスペースの定義と版だけを持つ。既存の`src/`と`tests/`を`flatmarkdown/`の下へ移す。`SPEC_AST.md`は直下に残す
+    - [x] READMEとCIの、移したファイルへのパスを直す。CIは、このリポジトリにまだない
+    - [x] `flatmarkdown-ast/`を足し、PetaJournalの`frontend-rust/crates/fm-ast`の`src/lib.rs`と`tests/roundtrip.rs`を移す。クレートの名前は`flatmarkdown-ast`にする
+    - [x] 往復のテストが、ワークスペースの中の`flatmarkdown`をパスで参照する
+    - [x] `flatmarkdown-ast`のREADMEを書く。`Node`に`#[non_exhaustive]`を付けないことと、ノードの種類を足すときは互換性のない変更として版を上げることを書く
+    - 2026-11-09に、`petajournal/flatmarkdown`のPR #1で入った。往復のテストは、公開するパッケージには入れていない。テストが使う`flatmarkdown`を、版なしのパスで参照しているためである
     - [ ] 公開する版を決める（ユーザーが決める）。2つのクレートは同じ版にする
     - [ ] `cargo publish --dry-run`で確かめてから、`flatmarkdown`、`flatmarkdown-ast`の順に公開する（ユーザーが行う）
   - `petajournal/flatmarkdown-ast`のリポジトリ（TypeScriptの型）
