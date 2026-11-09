@@ -2,8 +2,8 @@
 //! shell performs and resolves; the core never touches the network, timers or the DOM.
 
 use crate::model::{
-    BacklinkEntry, DeferredKey, Item, ItemPosition, JournalBefore, Page, PageWithItems, PasteMode,
-    Pasted, PropertyDefinition, SearchResult, ServerConfig, TaskState, TreeExport,
+    BacklinkEntry, BatchOp, DeferredKey, Item, ItemPosition, JournalBefore, Page, PageWithItems,
+    PasteMode, Pasted, PropertyDefinition, SearchResult, ServerConfig, TaskState, TreeExport,
 };
 use crate::util::date::LocalDateTime;
 use crux_core::capability::Operation;
@@ -80,6 +80,11 @@ pub enum ApiOp {
         cursor: usize,
         text: String,
         mode: PasteMode,
+    },
+    /// Applies operations to items in their order, all of them or none, as an undo or a redo
+    /// sends what it replays.
+    ApplyBatch {
+        ops: Vec<BatchOp>,
     },
     CycleTask {
         item_id: String,
@@ -639,6 +644,11 @@ impl<Event: Send + 'static> Api<Event> {
             .await,
             Pasted
         )
+    }
+
+    /// The items the batch wrote, as they are after it.
+    pub async fn apply_batch(&self, ops: Vec<BatchOp>) -> ApiResult<Vec<Item>> {
+        expect_output!(self.call(ApiOp::ApplyBatch { ops }).await, Items)
     }
 
     pub async fn delete_page(&self, page_id: &str) -> ApiResult<()> {

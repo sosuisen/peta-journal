@@ -343,6 +343,12 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             Some(json!({ "body": body, "cursor": cursor, "text": text, "mode": mode })),
             |reply| parsed(reply).map(ApiOutput::Pasted),
         ),
+        ApiOp::ApplyBatch { ops } => call(
+            "POST",
+            "/api/items/batch",
+            Some(json!({ "ops": ops })),
+            items,
+        ),
         ApiOp::CycleTask { item_id } => call(
             "POST",
             format!("/api/items/{item_id}/cycle-task"),

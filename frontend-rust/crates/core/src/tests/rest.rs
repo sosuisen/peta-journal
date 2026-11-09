@@ -123,6 +123,11 @@ fn every_operation_goes_to_its_endpoint() {
             "/api/items/merge",
         ),
         (
+            ApiOp::ApplyBatch { ops: vec![] },
+            "POST",
+            "/api/items/batch",
+        ),
+        (
             ApiOp::CycleTask { item_id: id("a") },
             "POST",
             "/api/items/a/cycle-task",

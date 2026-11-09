@@ -245,6 +245,36 @@ impl<'de> Deserialize<'de> for ItemPosition {
     }
 }
 
+/// One operation of a batch. The server applies the operations of a batch in their order, all
+/// of them or none. The names are the ones the server reads.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "op", rename_all = "camelCase")]
+pub enum BatchOp {
+    /// Makes an item with the id it names, as the undo of a deletion makes the item again.
+    #[serde(rename_all = "camelCase")]
+    Create {
+        id: String,
+        page_id: String,
+        position: ItemPosition,
+        level: i32,
+        body: String,
+    },
+    /// Writes the fields given. A task state is written whole, with its times.
+    Update {
+        id: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        body: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        level: Option<i32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        collapsed: Option<bool>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        task: Option<TaskState>,
+    },
+    /// Deletes an item. The server deletes the items of a batch last, as one group.
+    Delete { id: String },
+}
+
 /// How the server reads a pasted text. The names are the ones the server reads.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
