@@ -304,16 +304,17 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             target_page_id,
             position,
             level_delta,
-            ..
-        } => call(
-            "POST",
-            "/api/items/move",
-            Some(json!({
+            body,
+        } => {
+            let mut request = json!({
                 "itemIds": item_ids, "targetPageId": target_page_id,
                 "position": position.to_api(), "levelDelta": level_delta,
-            })),
-            items,
-        ),
+            });
+            if let Some(body) = body {
+                request["body"] = json!(body);
+            }
+            call("POST", "/api/items/move", Some(request), items)
+        }
         ApiOp::DeletePage { page_id } => {
             call("DELETE", format!("/api/pages/{page_id}"), None, done)
         }
