@@ -35,6 +35,9 @@ struct Context<'a> {
     cell_index: usize,
     /// Inside a tight list item: paragraphs render without `<p>`.
     tight_list: bool,
+    /// The enclosing list is tight. An item reads it: tight or loose is a property of the whole
+    /// list in CommonMark, so the AST says it on the list and not on each item.
+    in_tight_list: bool,
 }
 
 /// The heading shown for an alert whose `[!TYPE]` line carries no custom title.
@@ -57,6 +60,7 @@ pub fn render_node(node: &Node, options: &RenderOptions) -> AnyView {
         table_alignments: &[],
         cell_index: 0,
         tight_list: false,
+        in_tight_list: false,
     };
     render(node, ctx)
 }
@@ -148,9 +152,14 @@ fn render(node: &Node, ctx: Context<'_>) -> AnyView {
         Node::List {
             list_type,
             start,
+            tight,
             children: kids,
             ..
         } => {
+            let ctx = Context {
+                in_tight_list: *tight,
+                ..ctx
+            };
             if list_type == "ordered" {
                 let start = start.filter(|s| *s != 1).map(|s| s.to_string());
                 view! { <ol start=start>{children(kids, ctx)}</ol> }.into_any()
@@ -159,16 +168,20 @@ fn render(node: &Node, ctx: Context<'_>) -> AnyView {
             }
         }
 
-        Node::Item {
-            tight,
-            children: kids,
-            ..
-        } => {
-            let ctx = Context {
-                tight_list: *tight,
-                ..ctx
-            };
-            view! { <li>{children(kids, ctx)}</li> }.into_any()
+        Node::Item { children: kids, .. } => {
+            // Only a paragraph directly under the item loses its `<p>`. A paragraph deeper in
+            // the item, for example in a block quote, keeps it.
+            let views: Vec<AnyView> = kids
+                .iter()
+                .map(|kid| {
+                    let ctx = Context {
+                        tight_list: ctx.in_tight_list && matches!(kid, Node::Paragraph { .. }),
+                        ..ctx
+                    };
+                    render(kid, ctx)
+                })
+                .collect();
+            view! { <li>{views}</li> }.into_any()
         }
 
         Node::TaskItem {
