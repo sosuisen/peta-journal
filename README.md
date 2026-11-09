@@ -4,6 +4,8 @@
 
 <br>
 
+English | [日本語](README.ja.md) (how to start the app, in Japanese)
+
 A headless, offline-first outliner on top of local Markdown files.
 
 
