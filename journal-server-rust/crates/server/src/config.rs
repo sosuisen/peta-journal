@@ -73,6 +73,11 @@ pub struct Cli {
         default_value = "http://localhost:4200,http://localhost:5180"
     )]
     pub cors_origins: String,
+
+    /// Folder with the files of the web frontend (the dist/ Trunk writes). Default: the
+    /// frontend/ folder beside the server executable; without it no frontend is served
+    #[arg(long, env = "PETAJOURNAL_FRONTEND_DIR")]
+    pub frontend_dir: Option<PathBuf>,
 }
 
 /// The resolved settings used by the whole server.
@@ -135,7 +140,7 @@ impl Settings {
                 .map(|s| s.trim().to_string())
                 .filter(|s| !s.is_empty())
                 .collect(),
-            frontend_dir: None,
+            frontend_dir: cli.frontend_dir,
         }
     }
 
