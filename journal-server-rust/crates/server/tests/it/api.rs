@@ -975,6 +975,22 @@ async fn a_paste_in_auto_mode_reads_text_that_starts_with_a_dash_as_tree_markdow
     assert_eq!(outline_of(&page.id).await, ["1:hostA", "2:B", "1:C"]);
 }
 
+// `raw`では、文字列は変換も分割もされずに、そのまま項目の本文に入る。
+#[tokio::test]
+async fn a_raw_paste_puts_the_text_into_the_body_as_it_is() {
+    let page = new_doc_page("items-paste-raw").await;
+    let rows = fill(&page.id, &["ab"]).await;
+
+    let (status, resp) = paste(&rows[0].id, "ab", 1, "- X\n\nY", "raw").await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(outline_of(&page.id).await, ["1:a- X\n\nYb"]);
+    assert_eq!(
+        resp["cursor"],
+        json!({ "itemId": rows[0].id, "position": 7 })
+    );
+}
+
 // ---- Items: group delete ----
 
 // グループ削除は、項目を子孫ごと1回のリクエストで消す。
