@@ -75,7 +75,7 @@ pub fn plan(
 }
 
 /// True when the text has an odd number of lines that open or close a code fence.
-fn has_unclosed_code_fence(text: &str) -> bool {
+pub(crate) fn has_unclosed_code_fence(text: &str) -> bool {
     let fences = text
         .split('\n')
         .filter(|line| line.trim_start().starts_with("```"))

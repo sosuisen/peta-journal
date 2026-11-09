@@ -1,7 +1,7 @@
 //! What Enter makes of an item: which text stays in it, which text goes into the new item, and
 //! where the new item goes. Nothing here reads or writes the database.
 
-use super::paste::split_at_char;
+use super::paste::{has_unclosed_code_fence, split_at_char};
 use crate::domain::model::{Item, ItemPosition};
 
 /// What to write for a split.
@@ -18,6 +18,15 @@ pub struct SplitPlan {
 /// Plans the split of `item` at the character `cursor` of `body`, the text an editor has now.
 /// `on_page` holds the items of its page in their order.
 pub fn plan(on_page: &[Item], item: &Item, body: &str, cursor: usize) -> SplitPlan {
+    let mut plan = cut(on_page, item, body, cursor);
+    // A stored body never ends inside a code fence
+    if has_unclosed_code_fence(&plan.body) {
+        plan.body.push_str("\n```");
+    }
+    plan
+}
+
+fn cut(on_page: &[Item], item: &Item, body: &str, cursor: usize) -> SplitPlan {
     if cursor == 0 && !body.is_empty() {
         // The whole text would move down: an empty item above does the same and keeps the id
         let above = on_page
