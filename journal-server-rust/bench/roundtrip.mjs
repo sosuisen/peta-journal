@@ -13,12 +13,15 @@ const iterations = Number(process.argv[3] ?? 200);
 const asJson = process.argv.includes('--json');
 const PAGE_ITEMS = 30; // a page of typical size, so that recalculations and reloads are realistic
 
+// The server refuses a change of a client that does not name itself (ADR 015)
+const clientId = { 'X-Client-Id': crypto.randomUUID() };
+
 const json = (resp) => resp.json();
 
 async function call(method, path, body) {
   const resp = await fetch(base + path, {
     method,
-    headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
+    headers: body === undefined ? clientId : { ...clientId, 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!resp.ok && resp.status !== 204) throw new Error(`${method} ${path} -> ${resp.status} ${await resp.text()}`);

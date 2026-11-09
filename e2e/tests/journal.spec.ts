@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test';
-import { Server, editorOf, openEditor } from './support';
+import { expect } from '@playwright/test';
+import { Server, editorOf, openEditor, test } from './support';
 
 /** The date in the local time zone as YYYY-MM-DD, the way the server names journal pages. */
 const isoDate = (d: Date) =>

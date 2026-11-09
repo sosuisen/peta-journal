@@ -1,6 +1,6 @@
-import { APIRequestContext, Page, expect, test } from '@playwright/test';
+import { APIRequestContext, Page, expect } from '@playwright/test';
 import { serverPort } from '../playwright.config';
-import { Server, StoredItem, editorOf, openEditor, openPage, outlineOf, shownBodies } from './support';
+import { Server, StoredItem, editorOf, openEditor, openPage, outlineOf, shownBodies, test } from './support';
 
 // The item "copy" of the host page transcludes an item of the source page. Enter inside what
 // it shows is one request: the server splits the source item. Text of the source page never

@@ -67,7 +67,10 @@ signals here, where the caller can handle it."
       ;; HTTP/1.0: the server closes the connection at the end, and does not send chunks
       (process-send-string
        process
-       (format "%s %s HTTP/1.0\r\nContent-Type: application/json\r\nContent-Length: %d\r\n\r\n%s"
+       ;; The server refuses a change of a client that does not name itself (ADR 015)
+       (format (concat "%s %s HTTP/1.0\r\nContent-Type: application/json\r\n"
+                       "X-Client-Id: e2e00000-0000-4000-8000-000000000000\r\n"
+                       "Content-Length: %d\r\n\r\n%s")
                method (url-encode-url path) (length payload) payload))
       (while (and (process-live-p process) (< (float-time) deadline))
         (accept-process-output process 0.02))

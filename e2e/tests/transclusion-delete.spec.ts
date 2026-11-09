@@ -1,6 +1,6 @@
-import { expect, test } from '@playwright/test';
+import { expect } from '@playwright/test';
 import { serverPort } from '../playwright.config';
-import { Server, StoredItem, editorOf, openEditor, openPage, outlineOf } from './support';
+import { Server, StoredItem, editorOf, openEditor, openPage, outlineOf, test } from './support';
 
 // An item another page transcludes is deleted only after the user says OK in a dialog whose
 // Cancel has the focus, so Enter alone keeps the item.

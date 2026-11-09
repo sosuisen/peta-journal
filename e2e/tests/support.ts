@@ -1,5 +1,18 @@
-import { APIRequestContext, Page, expect } from '@playwright/test';
+import { APIRequestContext, Page, expect, test as base } from '@playwright/test';
+import { randomUUID } from 'node:crypto';
 import { serverPort } from '../playwright.config';
+
+/**
+ * The tests' own `test`: its `request` names itself to the server, which refuses a change
+ * without a client ID (ADR 015). The page in the browser is left alone: the app names itself.
+ */
+export const test = base.extend({
+  request: async ({ playwright }, use) => {
+    const context = await playwright.request.newContext({ extraHTTPHeaders: { 'X-Client-Id': randomUUID() } });
+    await use(context);
+    await context.dispose();
+  },
+});
 
 /** An item as the server stores it; only the fields the tests look at. */
 export interface StoredItem {

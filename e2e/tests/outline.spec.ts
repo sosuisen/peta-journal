@@ -1,5 +1,5 @@
-import { Page, expect, test } from '@playwright/test';
-import { Server, editorOf, openEditor, openPage, shownBodies } from './support';
+import { Page, expect } from '@playwright/test';
+import { Server, editorOf, openEditor, openPage, shownBodies, test } from './support';
 
 test.describe('outline editing', () => {
   let server: Server;
