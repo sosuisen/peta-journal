@@ -8,7 +8,7 @@ use axum::{Json, Router};
 use hmtid::Hmtid;
 use serde::{Deserialize, Serialize};
 
-use crate::application::item_service::TaskState;
+use crate::application::item_service::{BatchOp, TaskState};
 use crate::application::paste::PasteMode;
 use crate::domain::model::{Item, ItemPosition};
 use crate::error::{parse_id, AppError, AppResult};
@@ -21,6 +21,7 @@ pub fn routes() -> Router<SharedState> {
         .route("/api/items/move", post(move_items))
         .route("/api/items/merge", post(merge_items))
         .route("/api/items/delete", post(delete_items))
+        .route("/api/items/batch", post(apply_batch))
         .route("/api/items/transcluded", post(transcluded_items))
         .route("/api/items/shift-level", post(shift_levels))
         .route("/api/items/export", post(export_tree_markdown))
@@ -86,6 +87,41 @@ struct MoveItemsRequest {
 #[serde(rename_all = "camelCase", default)]
 struct DeleteItemsRequest {
     item_ids: Option<Vec<String>>,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct BatchRequest {
+    ops: Vec<BatchOpRequest>,
+}
+
+#[derive(Deserialize)]
+#[serde(tag = "op", rename_all = "camelCase")]
+enum BatchOpRequest {
+    Update {
+        id: String,
+        body: Option<String>,
+        level: Option<i32>,
+        collapsed: Option<bool>,
+    },
+}
+
+impl BatchOpRequest {
+    fn parse(self) -> AppResult<BatchOp> {
+        Ok(match self {
+            BatchOpRequest::Update {
+                id,
+                body,
+                level,
+                collapsed,
+            } => BatchOp::Update {
+                id: parse_id(&id)?,
+                body,
+                level,
+                collapsed,
+            },
+        })
+    }
 }
 
 #[derive(Deserialize, Default)]
@@ -368,6 +404,25 @@ async fn paste(
                 position: pasted.cursor,
             },
         }))
+    })
+    .await
+}
+
+async fn apply_batch(
+    State(state): State<SharedState>,
+    Json(req): Json<BatchRequest>,
+) -> AppResult<Json<ItemsResponse>> {
+    let ops = req
+        .ops
+        .into_iter()
+        .map(BatchOpRequest::parse)
+        .collect::<AppResult<Vec<_>>>()?;
+    blocking(move || {
+        let applied = state.item_service.apply_batch(&ops)?;
+        for page_id in &applied.page_ids {
+            state.sse.broadcast_pages_updated(page_id.as_str());
+        }
+        items_response(&state, &applied.items)
     })
     .await
 }

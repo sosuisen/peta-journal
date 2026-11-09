@@ -57,6 +57,27 @@ pub struct Pasted {
     pub cursor: usize,
 }
 
+/// One operation of a batch.
+#[derive(Debug, Clone)]
+pub enum BatchOp {
+    /// Writes the given fields of an item.
+    Update {
+        id: Hmtid,
+        body: Option<String>,
+        level: Option<i32>,
+        collapsed: Option<bool>,
+    },
+}
+
+/// What a batch came to.
+#[derive(Debug, Clone)]
+pub struct BatchApplied {
+    /// The items written, as they are after the batch.
+    pub items: Vec<Item>,
+    /// The pages the batch changed.
+    pub page_ids: BTreeSet<Hmtid>,
+}
+
 /// What an operation does outside the database, once its transaction is committed: the
 /// search index, the tag pages and the export of the pages it touched.
 #[derive(Default)]
@@ -700,6 +721,41 @@ impl ItemService {
             cursor: plan.cursor,
             items,
         })
+    }
+
+    /// Applies operations in their order, in one transaction: all of them or none. An undo
+    /// or a redo sends what it replays this way (ADR 011).
+    pub fn apply_batch(&self, ops: &[BatchOp]) -> AppResult<BatchApplied> {
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+        let mut effects = AfterCommit::default();
+        let mut written = Vec::new();
+        for op in ops {
+            match op {
+                BatchOp::Update {
+                    id,
+                    body,
+                    level,
+                    collapsed,
+                } => {
+                    let existing = find_all_in(&tx, std::slice::from_ref(id))?.remove(0);
+                    self.update_item_in(
+                        &tx,
+                        &existing,
+                        body.as_deref(),
+                        *level,
+                        *collapsed,
+                        &mut effects,
+                    )?;
+                    written.push(id.clone());
+                }
+            }
+        }
+        let items = find_all_in(&tx, &written)?;
+        tx.commit()?;
+        let page_ids = effects.pages.clone();
+        self.finish(effects);
+        Ok(BatchApplied { items, page_ids })
     }
 
     /// Sets a transclusion on an item, making it mirror a source item.
