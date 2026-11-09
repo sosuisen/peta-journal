@@ -1480,6 +1480,52 @@ async fn a_batch_move_puts_a_group_where_its_position_says() {
     assert_eq!(outline_of(&page.id).await, ["1:a", "2:a1", "1:b", "2:b1"]);
 }
 
+// 階層の更新と移動を1つのバッチで行える。論理アウトデントの undo が、階層と位置を一緒に戻すためである。
+#[tokio::test]
+async fn a_batch_updates_a_level_and_then_moves_the_item() {
+    let page = new_doc_page("items-batch-level-move").await;
+    let rows = fill(&page.id, &["parent", "  first", "  last", "moved"]).await;
+
+    let (status, resp) = batch(json!([
+        {"op": "update", "id": rows[3].id, "level": 2},
+        {"op": "move", "ids": [rows[3].id], "pageId": page.id,
+         "position": format!("after:{}", rows[1].id)},
+    ]))
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(
+        outline_of(&page.id).await,
+        ["1:parent", "2:first", "2:moved", "2:last"]
+    );
+    assert_eq!(field_of_each(&resp, "items", "id"), vec![json!(rows[3].id)]);
+}
+
+// 置けない位置への移動があるバッチは断られ、ほかの操作も書かれない。
+#[tokio::test]
+async fn a_batch_with_a_move_that_does_not_fit_is_refused_and_writes_nothing() {
+    let page = new_doc_page("items-batch-move-refused").await;
+    let rows = fill(&page.id, &["a", "  a1", "b"]).await;
+
+    // A child cannot be the first item of a page
+    let (status, _) = batch(json!([
+        {"op": "update", "id": rows[2].id, "body": "changed"},
+        {"op": "move", "ids": [rows[1].id], "pageId": page.id, "position": "first"},
+    ]))
+    .await;
+    assert_eq!(status, 400);
+    // An item cannot go after itself
+    let (status, _) = batch(json!([
+        {"op": "update", "id": rows[2].id, "body": "changed"},
+        {"op": "move", "ids": [rows[2].id], "pageId": page.id,
+         "position": format!("after:{}", rows[2].id)},
+    ]))
+    .await;
+    assert_eq!(status, 400);
+
+    assert_eq!(outline_of(&page.id).await, ["1:a", "2:a1", "1:b"]);
+}
+
 // ---- Items: group delete ----
 
 // グループ削除は、項目を子孫ごと1回のリクエストで消す。
