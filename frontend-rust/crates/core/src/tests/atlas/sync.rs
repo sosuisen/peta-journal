@@ -43,3 +43,30 @@ fn the_outline_is_not_fetched_for_a_change_this_client_made_or_on_another_page()
 
     assert!(!h.api.called("GetPageById"));
 }
+
+// ほかのクライアントが、何も置かれていない表示中のアトラスにカードを足すと、アウトラインを取得し直す。
+#[test]
+fn the_shown_empty_atlas_takes_its_outline_again_when_another_client_changes_it() {
+    let mut h = atlas_of(vec![], vec![]);
+    h.model.client_id = "me".into();
+    h.api.answer_next(
+        "GetPageById",
+        Ok(ApiOutput::Page(crate::model::PageWithItems {
+            page: doc("a/b/", ATLAS_NAME),
+            items: vec![atlas_item(
+                "l",
+                1,
+                "[[x/Target]]",
+                &[("atlas_bounds", "1,2,0,40")],
+            )],
+            ..Default::default()
+        })),
+    );
+
+    h.send(Event::Sse(crate::effects::SseEvent::Message(format!(
+        r#"{{"type":"pagesUpdated","pageId":"{ATLAS_ID}","source":"app","clientId":"other"}}"#
+    ))));
+    h.fire_timers();
+
+    assert_eq!(h.view().atlas_links.len(), 1);
+}
