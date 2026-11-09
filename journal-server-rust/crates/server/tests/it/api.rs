@@ -441,6 +441,21 @@ async fn a_move_saves_the_body_it_carries_to_the_first_item() {
     );
 }
 
+// 断られた移動は、持ってきた本文も保存しない。移動と保存は、1つのトランザクションである。
+#[tokio::test]
+async fn a_move_that_is_refused_does_not_save_the_body_it_carries() {
+    let page = new_doc_page("items-move-unsaved-refused").await;
+    let rows = fill(&page.id, &["a", "b"]).await;
+    let other = new_doc_page("items-move-unsaved-other").await;
+    let elsewhere = fill(&other.id, &["elsewhere"]).await.remove(0);
+
+    let not_on_the_page = format!("after:{}", elsewhere.id);
+    let (status, resp) = move_edited(&[&rows[1].id], &page.id, &not_on_the_page, "typed").await;
+
+    assert_eq!(status, 400, "{resp}");
+    assert_eq!(outline_of(&page.id).await, vs(&["1:a", "1:b"]));
+}
+
 // ---- Items: tasks ----
 
 // cycle-taskは、タスク、実行中、完了を経て通常の項目に戻る。
