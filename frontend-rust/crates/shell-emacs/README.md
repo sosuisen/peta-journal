@@ -180,9 +180,10 @@ An empty name opens today's journal. Each buffer has its own shell and its own u
 a buffer stops only its shell.
 
 If a buffer already shows the page, this command goes to that buffer. The other keys can still show
-one page in two buffers, and Emacs then warns you. Avoid this. What one buffer saves does not appear
-in the other, as a core reloads an open page only when its file changes. Edits of one item in two
-buffers could overwrite each other.
+one page in two buffers, and Emacs then warns you. Avoid this. Each buffer is a client of its own,
+so it shows what the other saves ([ADR 015](../../../docs/adr/adr-015-client-id-on-every-change-request.md)).
+But a buffer waits for its own edit to end first. Edits of one item in two buffers could overwrite
+each other.
 
 ## The search box
 
