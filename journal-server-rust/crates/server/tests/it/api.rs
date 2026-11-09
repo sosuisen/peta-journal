@@ -938,6 +938,19 @@ async fn pasted_levels_are_added_to_the_level_of_the_item_as_the_distance_from_t
     );
 }
 
+// 最初の断片より浅い断片は、貼り付け先の項目と同じ階層になる。
+#[tokio::test]
+async fn a_pasted_piece_above_the_first_one_gets_the_level_of_the_item() {
+    let page = new_doc_page("items-paste-shallow").await;
+    let rows = fill(&page.id, &["top", "  host"]).await;
+
+    let flat = "<!-- @@@ -->\nA\n\n<!-- @@ -->\nB";
+    let (status, resp) = paste(&rows[1].id, "host", 4, flat, "auto").await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(outline_of(&page.id).await, ["1:top", "2:hostA", "2:B"]);
+}
+
 // ---- Items: group delete ----
 
 // グループ削除は、項目を子孫ごと1回のリクエストで消す。
