@@ -809,8 +809,13 @@ impl ItemService {
         if !deleted.is_empty() {
             self.remove_group_in(&tx, &deleted, &mut effects)?;
         }
-        written.retain(|id| !deleted.contains(id));
-        let items = find_all_in(&tx, &written)?;
+        let mut answered: Vec<Hmtid> = Vec::new();
+        for id in written {
+            if !deleted.contains(&id) && !answered.contains(&id) {
+                answered.push(id);
+            }
+        }
+        let items = find_all_in(&tx, &answered)?;
         tx.commit()?;
         let page_ids = effects.pages.clone();
         self.finish(effects);
