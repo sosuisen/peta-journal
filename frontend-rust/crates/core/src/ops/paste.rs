@@ -5,7 +5,9 @@
 
 use crate::app::{apply, done, log_error, run, Cmd, Event, Model};
 use crate::model::{ItemPosition, PasteMode, Pasted};
-use crate::ops::edit::{discard_pending_edit, focus_editor, mark_dirty, save_body, show_parsed};
+use crate::ops::edit::{
+    discard_pending_edit, focus_editor, mark_dirty, record_typing, save_body, show_parsed,
+};
 use crate::outline::CursorState;
 use crate::util::split_at_char;
 use crux_core::Command;
@@ -42,10 +44,21 @@ pub fn paste_text(
                 cursor_before: cursor,
                 pasted,
             }),
-            Err(e) => log_error(format!("Failed to process paste: {e}")),
+            Err(e) => {
+                log_error(format!("Failed to process paste: {e}"));
+                api.send_event(Event::PasteFailed { item_id: item.id });
+            }
         }
     });
     Command::all([discard, request])
+}
+
+/// Schedules the auto-save of the text the failed paste was to carry, as it reached no server.
+pub fn keep_unsaved_text(model: &mut Model, item_id: &str) -> Cmd {
+    let Some(item) = model.cloned_item(item_id) else {
+        return done();
+    };
+    record_typing(model, &item, &item.body)
 }
 
 /// Shows what the server wrote for a paste, records it as one undo entry, and puts the cursor

@@ -189,6 +189,10 @@ pub enum Event {
         cursor_before: usize,
         pasted: Pasted,
     },
+    /// The server refused a paste, or could not be reached: nothing was written.
+    PasteFailed {
+        item_id: String,
+    },
     PasteImage {
         item_id: String,
         file: u64,
@@ -776,6 +780,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             cursor_before,
             pasted,
         } => ops::paste::show_pasted(model, &item_id, cursor_before, pasted),
+        PasteFailed { item_id } => ops::paste::keep_unsaved_text(model, &item_id),
         PasteImage {
             item_id,
             file,
