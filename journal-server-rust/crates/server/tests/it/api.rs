@@ -1254,6 +1254,33 @@ async fn a_batch_create_makes_the_item_again_with_the_id_it_names() {
     assert_eq!(stored[1].id, rows[1].id);
 }
 
+// 作り直した項目は、もう「ここで消した項目」としては覚えられていない。Markdownの取り込みが、その項目を消されたものとして扱わないためである。
+#[tokio::test]
+async fn an_item_made_again_is_no_longer_remembered_as_deleted() {
+    let page = new_doc_page("items-batch-undelete").await;
+    let rows = fill(&page.id, &["a", "gone"]).await;
+    assert_eq!(delete(&format!("/api/items/{}", rows[1].id)).await, 204);
+    let deleted_dates = || {
+        let conn = server().state.db.conn().unwrap();
+        conn.query_row(
+            "SELECT COUNT(*) FROM deleted_items WHERE id = ?",
+            [&rows[1].id],
+            |r| r.get::<_, i64>(0),
+        )
+        .unwrap()
+    };
+    assert_eq!(deleted_dates(), 1);
+
+    let (status, resp) = batch(json!([{
+        "op": "create", "id": rows[1].id, "pageId": page.id,
+        "position": format!("after:{}", rows[0].id), "level": 1, "body": "back",
+    }]))
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(deleted_dates(), 0);
+}
+
 // ---- Items: group delete ----
 
 // グループ削除は、項目を子孫ごと1回のリクエストで消す。
