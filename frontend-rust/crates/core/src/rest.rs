@@ -340,6 +340,9 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             Some(json!({ "itemId": item_id, "intoId": into_id })),
             item,
         ),
+        ApiOp::PasteText { item_id, .. } => {
+            call("POST", format!("/api/items/{item_id}/paste"), None, done)
+        }
         ApiOp::CycleTask { item_id } => call(
             "POST",
             format!("/api/items/{item_id}/cycle-task"),

@@ -53,6 +53,7 @@ pub fn op_name(op: &ApiOp) -> &'static str {
         ApiOp::DeleteItem { .. } => "DeleteItem",
         ApiOp::DeleteItems { .. } => "DeleteItems",
         ApiOp::MergeItems { .. } => "MergeItems",
+        ApiOp::PasteText { .. } => "PasteText",
         ApiOp::CycleTask { .. } => "CycleTask",
         ApiOp::SetTask { .. } => "SetTask",
         ApiOp::UpsertItemProperty { .. } => "UpsertItemProperty",
@@ -155,6 +156,26 @@ impl FakeApi {
             | ApiOp::DeletePage { .. }
             | ApiOp::AnswerConfirm { .. } => ApiOutput::Done,
             ApiOp::MergeItems { into_id, .. } => ApiOutput::Item(plain_item(into_id, 1, "")),
+            // The text goes into the item as one piece; a test that wants more items answers
+            // the paste itself
+            ApiOp::PasteText {
+                item_id,
+                body,
+                cursor,
+                text,
+                ..
+            } => {
+                let (before, after) = crate::util::split_at_char(body, *cursor);
+                let mut item = plain_item(item_id, 1, &format!("{before}{text}{after}"));
+                item.ast = format!("ast:{}", item.body);
+                ApiOutput::Pasted(Pasted {
+                    items: vec![item],
+                    cursor: PasteCursor {
+                        item_id: item_id.clone(),
+                        position: crate::util::char_len(before) + crate::util::char_len(text),
+                    },
+                })
+            }
             ApiOp::CycleTask { item_id } => {
                 let mut item = plain_item(item_id, 1, "");
                 item.types = vec!["task".into()];

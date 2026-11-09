@@ -3,7 +3,8 @@
 
 use crate::model::{
     BacklinkEntry, DeferredKey, Item, ItemPosition, JournalBefore, Page, PageWithItems,
-    ParsedFlatItem, PropertyDefinition, SearchResult, ServerConfig, TaskState, TreeExport,
+    ParsedFlatItem, PasteMode, Pasted, PropertyDefinition, SearchResult, ServerConfig, TaskState,
+    TreeExport,
 };
 use crate::util::date::LocalDateTime;
 use crux_core::capability::Operation;
@@ -71,6 +72,15 @@ pub enum ApiOp {
     MergeItems {
         item_id: String,
         into_id: String,
+    },
+    /// Pastes `text` at the character `cursor` of `body`, the body the item has on screen. The
+    /// server cuts the text into items and writes them all, or none.
+    PasteText {
+        item_id: String,
+        body: String,
+        cursor: usize,
+        text: String,
+        mode: PasteMode,
     },
     CycleTask {
         item_id: String,
@@ -255,6 +265,7 @@ pub enum ApiOutput {
     FlatMarkdown(String),
     ItemIds(Vec<String>),
     ParsedItems(Vec<ParsedFlatItem>),
+    Pasted(Pasted),
     FileName(String),
     Launched(bool),
     /// Another page has the name a page was to take; the server's message says which.
@@ -615,6 +626,27 @@ impl<Event: Send + 'static> Api<Event> {
             })
             .await,
             Item
+        )
+    }
+
+    pub async fn paste_text(
+        &self,
+        item_id: &str,
+        body: &str,
+        cursor: usize,
+        text: &str,
+        mode: PasteMode,
+    ) -> ApiResult<Pasted> {
+        expect_output!(
+            self.call(ApiOp::PasteText {
+                item_id: item_id.into(),
+                body: body.into(),
+                cursor,
+                text: text.into(),
+                mode,
+            })
+            .await,
+            Pasted
         )
     }
 
