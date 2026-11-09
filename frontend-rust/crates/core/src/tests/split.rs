@@ -297,43 +297,6 @@ fn the_item_that_was_split_shows_what_the_server_parsed_from_the_text_it_keeps()
     assert_eq!(h.model.state.get_item_by_id("a").unwrap().ast, "ast:hello");
 }
 
-// トランスクルージョンの中では、新しい項目は参照元ページに作られ、ページが読み直される。
-#[test]
-fn inside_a_transclusion_the_new_item_is_created_on_the_source_page_and_the_page_reloads() {
-    let root = item_with("root", 2, |i| {
-        i.transclude_item_id = Some("s".into());
-        i.body = "shown".into();
-    });
-    let mut h = Harness::with_items(vec![item("a", 1, ""), root]);
-    let mut trees = TranscludedTrees::new();
-    trees.insert(
-        "s".into(),
-        vec![item_with("s", 1, |i| {
-            i.page_id = "src".into();
-            i.body = "shown".into();
-        })],
-    );
-    h.model.state.set_transcluded_trees(trees);
-    h.api.answer_next(
-        "GetPageById",
-        Ok(crate::effects::ApiOutput::Page(PageWithItems {
-            page: Page {
-                id: "page1".into(),
-                ..Default::default()
-            },
-            items: vec![item("a", 1, ""), item("root", 2, "")],
-            ..Default::default()
-        })),
-    );
-    enter(&mut h, "root", "sho".len());
-    assert!(update_calls(&h.api).contains(&("s".to_string(), Some("sho".to_string()))));
-    assert_eq!(
-        create_calls(&h.api),
-        [("src".into(), "after:s".into(), 1, "wn".into(), None)]
-    );
-    assert!(h.api.called("GetPageById"));
-}
-
 /// A host page with "a", then the transclusion root "root" of source item "s", whose child
 /// "c" is the last transcluded item.
 fn transclusion_harness(own_after_root: Vec<crate::model::Item>) -> Harness {
@@ -357,6 +320,42 @@ fn transclusion_harness(own_after_root: Vec<crate::model::Item>) -> Harness {
     );
     h.model.state.set_transcluded_trees(trees);
     h
+}
+
+/// What the server answers for a split inside the transclusion of `transclusion_harness`:
+/// the item written to, of the source page, with the body it keeps, and the new item `n`
+/// on the given page.
+fn split_on_source_answer(
+    written_id: &str,
+    kept: &str,
+    new_page_id: &str,
+) -> crate::effects::ApiResult<ApiOutput> {
+    Ok(ApiOutput::Split(Box::new(Split {
+        item: item_with(written_id, 1, |i| {
+            i.page_id = "src".into();
+            i.body = kept.into();
+        }),
+        created: item_with("n", 1, |i| i.page_id = new_page_id.into()),
+    })))
+}
+
+/// The names of the requests sent, in their order
+fn requests(h: &Harness) -> Vec<&'static str> {
+    h.api.calls.iter().map(crate::harness::op_name).collect()
+}
+
+// トランスクルージョンの途中での Enter も、本文とカーソルを1つの要求でサーバーに送る。元の項目の更新や項目の作成は、別には送らない。答えが届くと、ページをサーバーから読み直す。
+#[test]
+fn enter_in_a_transclusion_sends_one_split_and_then_reads_the_page_again() {
+    let mut h = transclusion_harness(Vec::new());
+    h.api
+        .answer_next("SplitItem", split_on_source_answer("s", "sho", "src"));
+    enter(&mut h, "root", "sho".len());
+    assert_eq!(
+        split_calls(&h.api),
+        [("root".to_string(), "shown".to_string(), 3)]
+    );
+    assert_eq!(requests(&h), ["SplitItem", "GetPageById"]);
 }
 
 // 最後のトランスクルード項目の末尾での Enter は、新しい項目をホストページのルートの直後に作る。
