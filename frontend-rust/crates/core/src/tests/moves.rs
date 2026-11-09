@@ -77,10 +77,8 @@ fn moves_run_one_after_another() {
     assert_eq!(move_calls(&h.api).len(), 2);
 }
 
-// トランスクルージョンの中では、子孫の項目は参照元ツリーの中で移動し、ページが読み直される。
-#[test]
-fn inside_a_transclusion_a_descendant_moves_within_the_source_tree_and_the_page_reloads() {
-    // own: root (1, transcludes s); source: s (1), c1 (2), c2 (2)
+/// A page whose only item "root" transcludes "s", which shows its children "c1" and "c2".
+fn transclusion_harness() -> Harness {
     let mut h = Harness::with_items(vec![item_with("root", 1, |i| {
         i.transclude_item_id = Some("s".into())
     })]);
@@ -90,6 +88,13 @@ fn inside_a_transclusion_a_descendant_moves_within_the_source_tree_and_the_page_
         vec![item("s", 1, ""), item("c1", 2, ""), item("c2", 2, "")],
     );
     h.model.state.set_transcluded_trees(trees);
+    h
+}
+
+// トランスクルージョンの中では、子孫の項目は参照元ツリーの中で移動し、ページが読み直される。
+#[test]
+fn inside_a_transclusion_a_descendant_moves_within_the_source_tree_and_the_page_reloads() {
+    let mut h = transclusion_harness();
     h.send(Event::MoveUp {
         item_id: "c2".into(),
     });
@@ -234,4 +239,22 @@ fn keys_pressed_while_a_move_is_on_its_way_are_played_into_the_moved_item() {
             .collect();
     assert_eq!(replayed, [vec!["x".to_string()]]);
     assert!(!h.model.key_relay.is_holding());
+}
+
+// トランスクルージョンが見せている項目に打って、まだ保存していない文も、移動の要求に入って届く。保存を別には送らない。ページを読み直したあと、その項目の編集が続く。
+#[test]
+fn text_typed_into_a_shown_item_travels_in_its_move_inside_the_transclusion() {
+    let mut h = transclusion_harness();
+    typed(&mut h, "c2", "typed");
+    h.send(Event::MoveUp {
+        item_id: "c2".into(),
+    });
+    assert_eq!(carried_bodies(&h), [Some("typed".to_string())]);
+    h.fire_timers();
+    assert!(crate::harness::update_calls(&h.api).is_empty());
+    assert_eq!(h.api.calls_named("GetPageById").len(), 1);
+    assert_eq!(h.focused_editor_requests(), [Some("c2".to_string())]);
+    assert!(!h.model.key_relay.is_holding());
+    assert!(!h.model.move_in_progress);
+    assert_eq!(h.model.edits.edit_handovers, 0, "the handover is over");
 }
