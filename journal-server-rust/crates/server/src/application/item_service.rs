@@ -784,27 +784,40 @@ impl ItemService {
     /// Splits an item at the cursor of the body an editor has now, as Enter does: the text
     /// before the cursor stays, and the text after it goes into a new item below. Both are
     /// written in one transaction (ADR 011).
-    pub fn split(&self, item_id: &Hmtid, body: &str, cursor: usize) -> AppResult<Split> {
+    ///
+    /// `root_id` names the transclusion that shows the item, when the item is one of
+    /// another page that a transclusion shows below itself.
+    pub fn split(
+        &self,
+        item_id: &Hmtid,
+        root_id: Option<&Hmtid>,
+        body: &str,
+        cursor: usize,
+    ) -> AppResult<Split> {
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
         let mut effects = AfterCommit::default();
         let item = find_all_in(&tx, std::slice::from_ref(item_id))?.remove(0);
-        let on_page = ItemRepository::find_by_page_id_in(&tx, &item.page_id)?;
-        let (written, plan) = match &item.transclude_item_id {
+        let shown_by = root_id
+            .map(|root_id| {
+                let root = find_all_in(&tx, std::slice::from_ref(root_id))?.remove(0);
+                transclusion_in(&tx, root)
+            })
+            .transpose()?;
+        let below = shown_by
+            .as_ref()
+            .and_then(|shown| split::plan_below(shown, &item, body, cursor));
+        let (written, plan) = match (below, &item.transclude_item_id) {
+            (Some(plan), _) => (item, plan),
             // A transclusion shows its source item: the text that is cut is the text of
             // the source
-            Some(source_id) => {
-                let source = find_all_in(&tx, std::slice::from_ref(source_id))?.remove(0);
-                let shown = split::Transclusion {
-                    root: &item,
-                    root_page: &on_page,
-                    source: &source,
-                    source_page: &ItemRepository::find_by_page_id_in(&tx, &source.page_id)?,
-                };
+            (None, Some(_)) => {
+                let shown = transclusion_in(&tx, item)?;
                 let plan = split::plan_of_transclusion(&shown, body, cursor);
-                (source, plan)
+                (shown.source, plan)
             }
-            None => {
+            (None, None) => {
+                let on_page = ItemRepository::find_by_page_id_in(&tx, &item.page_id)?;
                 let plan = split::plan(&on_page, &item, body, cursor);
                 (item, plan)
             }
@@ -1378,6 +1391,22 @@ fn sync_transcluders_in(
         effects.pages.insert(transcluder.page_id.clone());
     }
     Ok(())
+}
+
+/// A transclusion with what a split of an item it shows is planned from, on the given
+/// connection.
+fn transclusion_in(conn: &Connection, root: Item) -> AppResult<split::Transclusion> {
+    let source_id = root
+        .transclude_item_id
+        .clone()
+        .ok_or_else(|| AppError::bad_request(format!("Not a transclusion: {}", root.id)))?;
+    let source = find_all_in(conn, std::slice::from_ref(&source_id))?.remove(0);
+    Ok(split::Transclusion {
+        root_page: ItemRepository::find_by_page_id_in(conn, &root.page_id)?,
+        source_page: ItemRepository::find_by_page_id_in(conn, &source.page_id)?,
+        root,
+        source,
+    })
 }
 
 /// The items with the given IDs, in that order, on the given connection.

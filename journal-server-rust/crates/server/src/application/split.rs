@@ -20,11 +20,11 @@ pub struct SplitPlan {
 
 /// A transclusion as its page shows it: the item that transcludes, the item it shows, and
 /// the items of the page of each, in their order.
-pub struct Transclusion<'a> {
-    pub root: &'a Item,
-    pub root_page: &'a [Item],
-    pub source: &'a Item,
-    pub source_page: &'a [Item],
+pub struct Transclusion {
+    pub root: Item,
+    pub root_page: Vec<Item>,
+    pub source: Item,
+    pub source_page: Vec<Item>,
 }
 
 /// Plans the split of `item` at the character `cursor` of `body`, the text an editor has now.
@@ -37,15 +37,14 @@ pub fn plan(on_page: &[Item], item: &Item, body: &str, cursor: usize) -> SplitPl
 /// editor has now. The text is the text of the source item: what is cut off stays on the
 /// page of the source, also where the page of the transclusion does not show it then.
 pub fn plan_of_transclusion(shown: &Transclusion, body: &str, cursor: usize) -> SplitPlan {
-    let (before, after) = split_at_char(body, cursor);
-    let shows_no_children =
-        shown.root.collapsed || last_descendant(shown.source_page, shown.source).is_none();
-    if at_start(body, cursor) || (after.is_empty() && shows_no_children) {
-        // The new item is empty: it holds no text of the source. At the end it would not
-        // be shown here if it went below the source item. So it goes on the page of the
-        // transclusion, where an item of that page would get it
-        return plan(shown.root_page, shown.root, body, cursor);
+    if at_start(body, cursor) {
+        // The empty item holds no text of the source: it goes above the transclusion
+        return plan(&shown.root_page, &shown.root, body, cursor);
     }
+    if let Some(below) = plan_below(shown, &shown.root, body, cursor) {
+        return below;
+    }
+    let (before, after) = split_at_char(body, cursor);
     let (position, level) = shown.place_of_the_rest();
     closed(SplitPlan {
         body: before.to_string(),
@@ -56,11 +55,34 @@ pub fn plan_of_transclusion(shown: &Transclusion, body: &str, cursor: usize) -> 
     })
 }
 
-impl Transclusion<'_> {
+/// Plans the empty item for a split at the end of the last item a transclusion shows,
+/// `item`: it goes below the transclusion, on its page. An item below `item` on the page of
+/// the source would not be shown where the edit goes on, or would stay inside the
+/// transclusion. None for any other split.
+pub fn plan_below(
+    shown: &Transclusion,
+    item: &Item,
+    body: &str,
+    cursor: usize,
+) -> Option<SplitPlan> {
+    let (_, after) = split_at_char(body, cursor);
+    let leaves = after.is_empty() && shown.last_shown().id == item.id;
+    leaves.then(|| plan(&shown.root_page, &shown.root, body, cursor))
+}
+
+impl Transclusion {
+    /// The last item the transclusion shows: itself when it shows no children.
+    fn last_shown(&self) -> &Item {
+        if self.root.collapsed {
+            return &self.root;
+        }
+        last_descendant(&self.source_page, &self.source).unwrap_or(&self.root)
+    }
+
     /// Where the text cut off the source item goes, on the page of the source.
     fn place_of_the_rest(&self) -> (ItemPosition, i32) {
-        let source = self.source;
-        let children_of_source = last_descendant(self.source_page, source);
+        let source = &self.source;
+        let children_of_source = last_descendant(&self.source_page, source);
         if self.root.collapsed {
             // Not among the children of the source, which the transclusion hides
             let above = children_of_source.unwrap_or(source);
@@ -69,7 +91,7 @@ impl Transclusion<'_> {
         // The children of the source and the own children of the transclusion are both shown
         // below it: what is cut off goes right below it too, as the first child
         let shows_children =
-            children_of_source.is_some() || last_descendant(self.root_page, self.root).is_some();
+            children_of_source.is_some() || last_descendant(&self.root_page, &self.root).is_some();
         let level = source.level + i32::from(shows_children);
         (ItemPosition::After(source.id.clone()), level)
     }
