@@ -68,6 +68,43 @@ fn the_view_shows_the_redone_text_after_moving_away() {
     assert_eq!(shown_ast(&h, "a"), "ast:new");
 }
 
+/// An undo entry that changed the body of `a` from "old" to "new", on a page that shows "new"
+fn harness_with_a_body_edit() -> Harness {
+    let mut h = Harness::with_items(vec![item("a", 1, "new"), item("b", 1, "")]);
+    h.model.undo.begin("body", None);
+    h.model
+        .undo
+        .push_update(&item("a", 1, "old"), &item("a", 1, "new"));
+    h.model.undo.commit(None, 0);
+    h
+}
+
+/// What the server answers for an item whose body it wrote
+fn answered(id: &str, level: i32, body: &str) -> Item {
+    item_with(id, level, |i| {
+        i.body = body.into();
+        i.ast = format!("ast:{body}");
+    })
+}
+
+// undo と redo を続けたあとに、undo の応答が遅れて届いても、redo した本文の内容で表示されたままである。
+#[test]
+fn a_late_answer_to_an_undo_does_not_show_its_parse_over_the_redone_text() {
+    let mut h = harness_with_a_body_edit();
+    h.send(Event::Undo);
+    h.send(Event::Redo);
+
+    // The answer to the undo, the first sync, comes after the answer to the redo
+    h.send(Event::UndoSynced {
+        sync: 1,
+        items: vec![answered("a", 1, "old")],
+        reparsed: vec!["a".into()],
+        recreated: vec![],
+    });
+
+    assert_eq!(h.model.state.get_item_by_id("a").unwrap().ast, "ast:new");
+}
+
 // 本文を変えない操作の redo では、サーバーの応答が項目の種類を上書きしない。
 #[test]
 fn the_redo_of_a_task_cycle_keeps_the_item_a_task() {
