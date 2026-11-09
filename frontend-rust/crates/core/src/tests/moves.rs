@@ -312,3 +312,61 @@ fn the_answer_to_a_move_inside_a_transclusion_no_longer_shown_reads_and_focuses_
     assert!(!h.model.move_in_progress);
     assert_eq!(h.model.edits.edit_handovers, 0);
 }
+
+// 移動の答えを待つ間に押された移動は、その答えのあとに始まる。移動先は、項目が動いたあとの並びから決まる。
+#[test]
+fn a_move_pressed_while_another_is_on_its_way_starts_when_that_one_is_through() {
+    let mut h = page_harness();
+    h.model.move_in_progress = true;
+    h.send(Event::MoveDown {
+        item_id: "a".into(),
+    });
+    assert!(move_calls(&h.api).is_empty());
+
+    h.send(Event::MoveDone { handover: false });
+    assert_eq!(h.items_ids(), ["b", "b1", "a", "c"]);
+}
+
+// 保存済みの項目の移動が失敗しても、何も保存されない。
+#[test]
+fn a_failed_move_saves_nothing_when_the_item_had_no_unsaved_text() {
+    let mut h = page_harness();
+    h.api.fail_next("MoveItems", "offline");
+    h.send(Event::MoveDown {
+        item_id: "a".into(),
+    });
+    h.fire_timers();
+    assert!(crate::harness::update_calls(&h.api).is_empty());
+    assert_eq!(h.items_ids(), ["a", "b", "b1", "c"]);
+}
+
+// トランスクルージョンが見せている項目は、その中だけで動く。最初の項目は上へ動かず、最後の項目は下へ動かない。
+#[test]
+fn an_item_a_transclusion_shows_does_not_move_out_of_it() {
+    let mut h = transclusion_harness();
+    h.send(Event::MoveUp {
+        item_id: "c1".into(),
+    });
+    h.send(Event::MoveDown {
+        item_id: "c2".into(),
+    });
+    assert!(h.api.calls.is_empty());
+    assert!(!h.model.key_relay.is_holding());
+}
+
+// トランスクルージョンの中で下へ動かすと、参照元ツリーの次の兄弟の後ろへ移動する。
+#[test]
+fn inside_a_transclusion_a_descendant_moves_below_its_next_sibling() {
+    let mut h = transclusion_harness();
+    h.send(Event::MoveDown {
+        item_id: "c1".into(),
+    });
+    assert_eq!(
+        move_calls(&h.api),
+        [(
+            vec!["c1".to_string()],
+            "page1".to_string(),
+            "after:c2".to_string()
+        )]
+    );
+}
