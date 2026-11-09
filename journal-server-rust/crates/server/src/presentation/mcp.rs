@@ -415,6 +415,9 @@ impl JournalMcp {
                     .item_service
                     .update_item(&item_id, a.body.as_deref(), level, collapsed)?;
             tell(&state, item.page_id.as_str());
+            for t in state.items.find_transcluders(&item_id)? {
+                tell(&state, t.page_id.as_str());
+            }
             Ok(item)
         })
         .await?;
