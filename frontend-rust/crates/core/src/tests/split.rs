@@ -453,6 +453,74 @@ fn enter_in_an_item_a_transclusion_shows_names_the_transclusion() {
     );
 }
 
+/// A host page with "a" and the transclusion "root" of the source item "s", which has no
+/// children. The server answers a split in the middle of "root" with the new item "n" on the
+/// source page, below "s", where the host page does not show it.
+fn split_that_leaves_the_page() -> Harness {
+    let mut h = Harness::with_items(vec![item("a", 1, ""), root()]);
+    h.model
+        .state
+        .set_transcluded_trees(TranscludedTrees::from([(
+            "s".to_string(),
+            vec![source("s", 1, "shown")],
+        )]));
+    h.model.state.add_editing_item("root");
+    h.api
+        .answer_next("SplitItem", split_on_source_answer("s", "sho", "src"));
+    h.api.answer_next(
+        "GetPageById",
+        reloaded(vec![item("a", 1, ""), root()], vec![source("s", 1, "sho")]),
+    );
+    h
+}
+
+// サーバーが新しい項目を元のページに作り、このページがそれを見せないときは、編集は分割した項目に残り、カーソルは残った文の末尾に置かれる。後ろの文は、このページからは見えなくなる。
+#[test]
+fn the_edit_stays_in_the_transclusion_when_the_page_does_not_show_the_new_item() {
+    let mut h = split_that_leaves_the_page();
+    enter(&mut h, "root", "sho".len());
+    assert_eq!(h.model.current_item("root").unwrap().body, "sho");
+    assert!(h.model.state.is_editing("root"));
+    assert_eq!(h.focused_editor_requests(), [Some("root".to_string())]);
+    assert_eq!(h.focus_cursor(), Some(3));
+    assert!(!h.model.key_relay.is_holding());
+}
+
+// トランスクルージョンの分割の undo は、元の項目の本文を戻し、作られた項目を消す。このページに見えていない項目も消す。
+#[test]
+fn undo_of_a_split_transclusion_puts_the_body_of_the_source_back_and_removes_the_new_item() {
+    let mut h = split_that_leaves_the_page();
+    enter(&mut h, "root", "sho".len());
+
+    h.send(Event::Undo);
+
+    let batch = &batch_calls(&h.api)[0];
+    assert!(
+        matches!(&batch[0], BatchOp::Update { id, body, .. } if id == "s" && body.as_deref() == Some("shown")),
+        "{batch:?}"
+    );
+    assert_eq!(batch[1], BatchOp::Delete { id: "n".into() });
+}
+
+// 答えのあと読み直すのは、トランスクルージョンのあるページである。ジャーナルは何日ものページを見せるので、画面のページとは限らない。
+#[test]
+fn the_page_read_again_is_the_page_of_the_transclusion() {
+    for split_id in ["root", "c"] {
+        let mut h = transclusion_harness(Vec::new());
+        h.model
+            .state
+            .update_item("root", |i| i.page_id = "day2".into());
+        enter(&mut h, split_id, 2);
+        assert_eq!(
+            h.api.calls[1],
+            ApiOp::GetPageById {
+                page_id: "day2".into()
+            },
+            "after a split of {split_id}"
+        );
+    }
+}
+
 // 元の項目が消えた（壊れた）トランスクルージョンでの Enter も、分割としてサーバーに送る。どう分けるかは、サーバーが今のデータで決める。
 #[test]
 fn enter_in_a_broken_transclusion_is_sent_to_the_server_as_a_split() {
