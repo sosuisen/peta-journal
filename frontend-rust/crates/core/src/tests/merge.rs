@@ -1,5 +1,5 @@
 use crate::app::Event;
-use crate::effects::{ApiOutput, UiOp};
+use crate::effects::{ApiOp, ApiOutput, UiOp};
 use crate::harness::{item, merge_calls, op_name, update_calls, Harness};
 use crate::outline::UndoOp;
 use crate::testing::item_with;
@@ -64,22 +64,30 @@ fn typed(h: &mut Harness, item_id: &str, body: &str) {
     });
 }
 
-// 自動保存の前に行頭で Backspace を押しても、打ったばかりの文字は結合の前に保存され、失われない。
+// 自動保存の前に行頭で Backspace を押すと、打ったばかりの文は結合の要求に入って届く。保存を別には送らず、その自動保存は取り消される。保存済みの上の項目の本文は送らない。
 #[test]
-fn backspace_saves_the_text_just_typed_before_the_join() {
+fn backspace_sends_the_text_just_typed_in_the_merge_itself() {
     let mut h = harness();
     typed(&mut h, "b", " world?");
     h.send(Event::BackspaceAtStart {
         item_id: "b".into(),
     });
-    assert_eq!(saves_and_merges(&h), ["UpdateItem", "MergeItems"]);
+    assert_eq!(saves_and_merges(&h), ["MergeItems"]);
     assert_eq!(
-        update_calls(&h.api),
-        [("b".to_string(), Some(" world?".to_string()))]
+        h.api.calls_named("MergeItems"),
+        [&ApiOp::MergeItems {
+            item_id: "b".into(),
+            into_id: "a".into(),
+            body: Some(" world?".into()),
+            into_body: None,
+        }]
     );
     assert_eq!(h.bodies(), ["a=hello world?", "c=!"]);
     h.fire_timers();
-    assert_eq!(update_calls(&h.api).len(), 1, "the text is not sent twice");
+    assert!(
+        update_calls(&h.api).is_empty(),
+        "the text is not sent twice"
+    );
 }
 
 // 行頭での Backspace の前に上の項目へ打った文字も、結合の前に保存される。
