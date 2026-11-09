@@ -1099,6 +1099,28 @@ async fn the_clients_hear_of_the_page_once_however_many_items_a_paste_creates() 
     assert_eq!(seen.matches(&pasted).count(), 1, "{seen}");
 }
 
+// トランスクルードされている項目に貼り付けると、その写しを見せているページの変更も知らされる。
+#[tokio::test]
+async fn the_clients_hear_of_the_pages_that_transclude_the_item_pasted_into() {
+    let source_page = new_doc_page("items-paste-source").await;
+    let source = fill(&source_page.id, &["ab"]).await.remove(0);
+    let page = new_doc_page("items-paste-transcluder").await;
+    let host = fill(&page.id, &["placeholder"]).await.remove(0);
+    let (status, resp) = post(
+        &format!("/api/items/{}/transclude", host.id),
+        json!({ "sourceItemId": source.id }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+    let mut events = client().get(url("/api/events")).send().await.unwrap();
+
+    let (status, resp) = paste(&source.id, "ab", 1, "X", "auto").await;
+    assert_eq!(status, 200, "{resp}");
+
+    event_with(&mut events, &format!("\"pageId\":\"{}\"", page.id)).await;
+    assert_eq!(items(&page.id).await[0].body, "aXb");
+}
+
 // ---- Items: group delete ----
 
 // グループ削除は、項目を子孫ごと1回のリクエストで消す。
