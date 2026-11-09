@@ -3,7 +3,7 @@ use crate::model::{
     BatchOp, ItemPosition, JournalBefore, Page, PageWithItems, PasteCursor, PasteMode,
     ServerConfig, TaskState, TreeExport,
 };
-use crate::rest::{rest_call, HttpReply, RestCall};
+use crate::rest::{new_client_id, rest_call, uuid_of, HttpReply, RestCall};
 use serde::Serialize;
 use serde_json::{json, Value};
 
@@ -895,4 +895,24 @@ fn a_conflict_on_another_operation_is_an_error() {
 #[test]
 fn an_upload_is_left_to_the_shell() {
     assert!(rest_call(ApiOp::UploadAsset { file: 1 }).is_none());
+}
+
+// 16バイトの乱数は、ハイフン付き36文字のバージョン4のUUIDになる。
+#[test]
+fn sixteen_random_bytes_make_a_version_4_uuid_with_hyphens() {
+    assert_eq!(uuid_of([0x00; 16]), "00000000-0000-4000-8000-000000000000");
+    assert_eq!(uuid_of([0xff; 16]), "ffffffff-ffff-4fff-bfff-ffffffffffff");
+    assert_eq!(
+        uuid_of([
+            0x12, 0x3e, 0x45, 0x67, 0xe8, 0x9b, 0x12, 0xd3, 0xa4, 0x56, 0x42, 0x66, 0x14, 0x17,
+            0x40, 0x00
+        ]),
+        "123e4567-e89b-42d3-a456-426614174000"
+    );
+}
+
+// 新しいクライアントIDは、作るたびに違う。
+#[test]
+fn a_new_client_id_differs_each_time() {
+    assert_ne!(new_client_id(), new_client_id());
 }
