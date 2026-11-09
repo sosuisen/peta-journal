@@ -10,77 +10,23 @@ import {
   type Item,
 } from './api';
 import { FmRoot, type ReactRenderOptions } from 'flatmarkdown-ast2react';
+import {
+  getDue,
+  getPlan,
+  groupByPlan,
+  isShown,
+  pagePath,
+  taskLabel,
+} from './tasks';
 
 /** Returns today's date as an ISO string (YYYY-MM-DD). */
 function getTodayISODate(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-function taskLabel(item: Item): string {
-  if (item.properties?.end) return 'DONE';
-  if (item.properties?.begin) return 'RUNNING';
-  return 'TODO';
-}
-
-/** Gets the plan date from an item's properties, or null if absent. */
-function getPlan(item: Item): string | null {
-  const plan = item.properties?.plan;
-  return typeof plan === 'string' ? plan : null;
-}
-
-/** Checks if an item belongs to a journal page (filename matches YYYY-MM-DD). */
-function isJournal(item: Item): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(item.name || '');
-}
-
-type DisplayEntry =
-  { kind: 'heading'; label: string } | { kind: 'item'; item: Item };
-
-/** Groups items by plan date, with no-plan items at the end under a heading. */
-function groupByPlan(items: Item[]): DisplayEntry[] {
-  const withPlan: Item[] = [];
-  const noPlan: Item[] = [];
-
-  for (const item of items) {
-    if (getPlan(item)) {
-      withPlan.push(item);
-    } else {
-      noPlan.push(item);
-    }
-  }
-
-  // Sort items with plan by plan date ascending
-  withPlan.sort((a, b) => getPlan(a)!.localeCompare(getPlan(b)!));
-
-  const entries: DisplayEntry[] = [];
-
-  // Group with-plan items by date, adding date headings
-  let currentDate = '';
-  for (const item of withPlan) {
-    const plan = getPlan(item)!;
-    if (plan !== currentDate) {
-      currentDate = plan;
-      entries.push({ kind: 'heading', label: plan });
-    }
-    entries.push({ kind: 'item', item });
-  }
-
-  // Append no-plan items
-  if (noPlan.length > 0) {
-    entries.push({ kind: 'heading', label: '開始日なし' });
-    for (const item of noPlan) {
-      entries.push({ kind: 'item', item });
-    }
-  }
-
-  return entries;
-}
-
 function ItemDates({ item }: { item: Item }) {
-  const plan =
-    typeof item.properties?.plan === 'string' ? item.properties.plan : null;
-  const due =
-    typeof item.properties?.due === 'string' ? item.properties.due : null;
+  const plan = getPlan(item);
+  const due = getDue(item);
   if (!plan && !due) return null;
   return (
     <span className="item-dates">
@@ -168,12 +114,7 @@ export default function App() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const openItemInPetaJournal = (item: Item) => {
-    const name = item.name;
-    if (!name) return;
-    const isJournal = /^\d{4}(-\d{2}(-\d{2})?|-W\d{1,2})?$/.test(name);
-    const prefix = isJournal ? '/journals' : '/docs';
-    const path = `${prefix}/${item.dirPath || ''}${name}`;
-    window.open(`${buildBaseUrl()}${path}#${item.id}`, 'peta-journal');
+    window.open(`${buildBaseUrl()}${pagePath(item)}`, 'peta-journal');
   };
 
   const cycleItemTask = async (item: Item) => {
@@ -185,20 +126,8 @@ export default function App() {
     }
   };
 
-  const filtered = items.filter(b => {
-    if (!showDone && b.properties?.end) return false;
-    if (isJournal(b)) {
-      if (!showJournal) return false;
-    } else {
-      if (!showPage) return false;
-    }
-    // Filter by plan date: items with plan <= untilDate, items without plan always shown
-    if (untilDate) {
-      const plan = getPlan(b);
-      if (plan && plan > untilDate) return false;
-    }
-    return true;
-  });
+  const filters = { untilDate, showDone, showJournal, showPage };
+  const filtered = items.filter(item => isShown(item, filters));
 
   const entries = groupByPlan(filtered);
 
