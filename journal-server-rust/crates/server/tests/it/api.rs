@@ -1037,6 +1037,22 @@ async fn a_paste_that_cannot_create_one_of_its_items_changes_nothing() {
     assert_eq!(outline_of(&page.id).await, ["1:ab"]);
 }
 
+// 空の文字列を貼り付けると、項目は増えず、要求が運んできた本文だけが保存される。
+#[tokio::test]
+async fn pasting_nothing_saves_the_body_the_request_carries_and_adds_no_item() {
+    let page = new_doc_page("items-paste-empty").await;
+    let rows = fill(&page.id, &["saved"]).await;
+
+    let (status, resp) = paste(&rows[0].id, "saved and typed", 5, "", "auto").await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(
+        resp["cursor"],
+        json!({ "itemId": rows[0].id, "position": 5 })
+    );
+    assert_eq!(outline_of(&page.id).await, ["1:saved and typed"]);
+}
+
 // ---- Items: group delete ----
 
 // グループ削除は、項目を子孫ごと1回のリクエストで消す。
