@@ -198,6 +198,26 @@
 - [ ] 折りたたみの保存が失敗したときの戻し方（`ops/action.rs`の`"collapse: revert"`）を確かめる
   - 値の設定ではなく反転で戻している。素早く2回切り替えて1回目の保存だけが失敗すると、折りたたみの集合と項目の値が食い違うとみているが、未確認である
   - 今のハーネスはサーバーの応答にその場で答えるので、応答が遅れる場合のテストを書けない。応答を保留する手段が要る
+- [ ] `fm-ast`を、`flatmarkdown-ast`クレートとして公開する（ADR 012）
+  - 作業は3つのリポジトリにまたがる。上から順に進める。PetaJournalの作業は、crates.ioへの公開のあとに行う
+  - `petajournal/flatmarkdown`のリポジトリ
+    - [ ] リポジトリをCargoのワークスペースにする。一番上の`Cargo.toml`は、ワークスペースの定義と版だけを持つ。既存の`src/`と`tests/`を`flatmarkdown/`の下へ移す。`SPEC_AST.md`は直下に残す
+    - [ ] READMEとCIの、移したファイルへのパスを直す
+    - [ ] `flatmarkdown-ast/`を足し、PetaJournalの`frontend-rust/crates/fm-ast`の`src/lib.rs`と`tests/roundtrip.rs`を移す。クレートの名前は`flatmarkdown-ast`にする
+    - [ ] 往復のテストが、ワークスペースの中の`flatmarkdown`をパスで参照する
+    - [ ] `flatmarkdown-ast`のREADMEを書く。`Node`に`#[non_exhaustive]`を付けないことと、ノードの種類を足すときは互換性のない変更として版を上げることを書く
+    - [ ] 公開する版を決める（ユーザーが決める）。2つのクレートは同じ版にする
+    - [ ] `cargo publish --dry-run`で確かめてから、`flatmarkdown`、`flatmarkdown-ast`の順に公開する（ユーザーが行う）
+  - `petajournal/flatmarkdown-ast`のリポジトリ（TypeScriptの型）
+    - [ ] GitHubのリポジトリの名前を`flatmarkdown-ast-ts`に変える（ユーザーが行う）
+    - [ ] 手元のフォルダの名前と`git remote`のURLを合わせる
+    - [ ] `package.json`の`repository`のURLを直す。npmのパッケージの名前は`flatmarkdown-ast`のまま変えない
+    - [ ] 2つのリポジトリのREADMEに、相手への案内を書く
+  - PetaJournalのリポジトリ
+    - [ ] `frontend-rust/crates/fm-ast`を消し、ワークスペースの`members`から外す
+    - [ ] `core`、`fm-leptos`、`shell-leptos`が、crates.ioの`flatmarkdown-ast`に依存する。`use fm_ast::`を`use flatmarkdown_ast::`に書き換える
+    - [ ] サーバーの`flatmarkdown`と、フロントエンドの`flatmarkdown-ast`を、同じ版にそろえる
+    - [ ] `BUILD.md`と`docs/`の、`fm-ast`についての記述を直す
 
 ## 判断
 
