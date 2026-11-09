@@ -10,9 +10,8 @@
 use crate::app::{apply, done, log_error, run, Cmd, Event, Model, MoveDirection};
 use crate::effects::{Api, ApiError, ApiResult};
 use crate::model::{Item, ItemPosition, ItemRef, Page};
-use crate::ops::edit::{flush_pending_edit, focus_editor, read, Handover};
+use crate::ops::edit::{flush_pending_edit, focus_editor, read, take_unsaved, Handover};
 use crate::ops::file_reload::reload_shown_page;
-use crate::ops::merge::take_unsaved;
 use crate::outline::tree::{
     find_cross_page_placement, find_move_down_target, find_move_up_target, get_subtree,
     selected_root_items, transclusion_context_of, transclusion_scoped_items, ScanDirection,
