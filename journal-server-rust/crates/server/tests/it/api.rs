@@ -1121,6 +1121,45 @@ async fn the_clients_hear_of_the_pages_that_transclude_the_item_pasted_into() {
     assert_eq!(items(&page.id).await[0].body, "aXb");
 }
 
+/// A source page with the given rows, and a page whose only item transcludes the first row
+async fn transcluded(
+    name: &str,
+    source_rows: &[&str],
+) -> (PageRef, Vec<ItemRow>, PageRef, ItemRow) {
+    let source_page = new_doc_page(&format!("{name}-source")).await;
+    let source = fill(&source_page.id, source_rows).await;
+    let page = new_doc_page(name).await;
+    let host = fill(&page.id, &["placeholder"]).await.remove(0);
+    let (status, resp) = post(
+        &format!("/api/items/{}/transclude", host.id),
+        json!({ "sourceItemId": source[0].id }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+    (source_page, source, page, host)
+}
+
+// トランスクルージョンへの貼り付けは、元の項目への貼り付けになる。入力が元の項目に保存されるのと同じである。
+#[tokio::test]
+async fn a_paste_into_a_transclusion_goes_into_its_source_item() {
+    let (source_page, source, page, host) = transcluded("items-paste-into-copy", &["ab"]).await;
+
+    let (status, resp) = paste(&host.id, "ab", 1, "X", "auto").await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(
+        field_of_each(&resp, "items", "id"),
+        vec![json!(source[0].id)]
+    );
+    assert_eq!(
+        resp["cursor"],
+        json!({ "itemId": source[0].id, "position": 2 })
+    );
+    assert_eq!(outline_of(&source_page.id).await, ["1:aXb"]);
+    // The copy the transclusion keeps follows its source
+    assert_eq!(outline_of(&page.id).await, ["1:aXb"]);
+}
+
 // もう無い項目への貼り付けは断られる。ほかの項目の操作と同じ答えである。
 #[tokio::test]
 async fn a_paste_into_an_item_that_is_gone_is_refused() {
