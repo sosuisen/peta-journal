@@ -798,17 +798,7 @@ impl ItemService {
                         &mut effects,
                     )?;
                     if let Some(state) = task {
-                        let item_id = id.to_string();
-                        patch_task_in(&tx, &existing, state.task, now_millis())?;
-                        set_or_clear_in(
-                            &tx,
-                            &item_id,
-                            "begin",
-                            "datetime",
-                            state.begin.as_deref(),
-                        )?;
-                        set_or_clear_in(&tx, &item_id, "end", "datetime", state.end.as_deref())?;
-                        set_or_clear_in(&tx, &item_id, "plan", "date", state.plan.as_deref())?;
+                        put_task_in(&tx, &existing, state, now_millis())?;
                     }
                     written.push(id.clone());
                 }
@@ -937,18 +927,11 @@ impl ItemService {
     /// Puts an item in the given task state in one step, as an undo of [`Self::cycle_task`]
     /// needs: cycling back would write new times over the ones to restore.
     pub fn set_task(&self, item_id: &Hmtid, state: &TaskState) -> AppResult<Item> {
-        if !state.task && (state.begin.is_some() || state.end.is_some()) {
-            return Err(AppError::bad_request("A normal item has no task times"));
-        }
         let existing = self.get_item_by_id(item_id)?;
-        let id = item_id.to_string();
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
         let now = now_millis();
-        let result = patch_task_in(&tx, &existing, state.task, now)?;
-        set_or_clear_in(&tx, &id, "begin", "datetime", state.begin.as_deref())?;
-        set_or_clear_in(&tx, &id, "end", "datetime", state.end.as_deref())?;
-        set_or_clear_in(&tx, &id, "plan", "date", state.plan.as_deref())?;
+        let result = put_task_in(&tx, &existing, state, now)?;
         self.commit_page(tx, &existing.page_id, now)?;
         Ok(result)
     }
@@ -1185,6 +1168,19 @@ fn touched_in(tx: &Connection, existing: &Item, now: i64) -> AppResult<Item> {
         modified_date: now,
         ..existing.clone()
     })
+}
+
+/// Puts an item in a task state, with the times and the plan that go with it.
+fn put_task_in(tx: &Connection, existing: &Item, state: &TaskState, now: i64) -> AppResult<Item> {
+    if !state.task && (state.begin.is_some() || state.end.is_some()) {
+        return Err(AppError::bad_request("A normal item has no task times"));
+    }
+    let id = existing.id.to_string();
+    let result = patch_task_in(tx, existing, state.task, now)?;
+    set_or_clear_in(tx, &id, "begin", "datetime", state.begin.as_deref())?;
+    set_or_clear_in(tx, &id, "end", "datetime", state.end.as_deref())?;
+    set_or_clear_in(tx, &id, "plan", "date", state.plan.as_deref())?;
+    Ok(result)
 }
 
 fn patch_task_in(tx: &Connection, existing: &Item, task: bool, now: i64) -> AppResult<Item> {
