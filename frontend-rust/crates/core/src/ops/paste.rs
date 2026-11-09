@@ -33,6 +33,7 @@ pub fn paste_text(
     };
     // What was typed before the paste travels in the request. Its auto-save is dropped, or
     // it would overwrite the pasted text a moment later
+    let unsaved = model.edits.dirty_item_ids.contains(item_id);
     let discard = discard_pending_edit(model, &item);
     let request = run(move |api| async move {
         match api
@@ -46,7 +47,10 @@ pub fn paste_text(
             }),
             Err(e) => {
                 log_error(format!("Failed to process paste: {e}"));
-                api.send_event(Event::PasteFailed { item_id: item.id });
+                api.send_event(Event::PasteFailed {
+                    item_id: item.id,
+                    unsaved,
+                });
             }
         }
     });

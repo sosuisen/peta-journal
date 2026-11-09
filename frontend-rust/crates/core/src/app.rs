@@ -192,6 +192,8 @@ pub enum Event {
     /// The server refused a paste, or could not be reached: nothing was written.
     PasteFailed {
         item_id: String,
+        /// The item had typed text that no request but the paste carried.
+        unsaved: bool,
     },
     PasteImage {
         item_id: String,
@@ -780,7 +782,13 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             cursor_before,
             pasted,
         } => ops::paste::show_pasted(model, &item_id, cursor_before, pasted),
-        PasteFailed { item_id } => ops::paste::keep_unsaved_text(model, &item_id),
+        PasteFailed { item_id, unsaved } => {
+            if unsaved {
+                ops::paste::keep_unsaved_text(model, &item_id)
+            } else {
+                done()
+            }
+        }
         PasteImage {
             item_id,
             file,
