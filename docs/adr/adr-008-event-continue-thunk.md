@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted
+Superseded by ADR 011
+
+2026-11-09に、WinUI3とSwiftUIの編集シェルを作る前提で見直した。操作を1つの要求にしたうえで`Thunk`を外すと決めた。
 
 ## Context
 
