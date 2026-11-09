@@ -6,7 +6,7 @@ use crate::protocol::{Envelope, Outbound};
 use crate::shell::{Host, Input, Now, Shell};
 use chrono::{Datelike, Local, Timelike};
 use peta_core::effects::{ApiOp, LocalDateTimeDto, SseEvent};
-use peta_core::rest::{HttpReply, HttpRequest};
+use peta_core::rest::{ClientId, HttpReply, HttpRequest};
 use std::io::{BufRead, Write};
 use std::sync::mpsc::{channel, RecvTimeoutError, Sender};
 use std::thread;
@@ -28,28 +28,35 @@ enum Message {
 struct UreqHttp {
     agent: Agent,
     server: String,
+    /// Sent with every request. The server refuses a change without it (ADR-015).
+    client_id: ClientId,
 }
 
 impl UreqHttp {
-    fn new(server: String) -> UreqHttp {
+    fn new(server: String, client_id: ClientId) -> UreqHttp {
         // A status above 299 is an answer here: `api` reads the server's message from it
         let agent = Agent::config_builder()
             .http_status_as_error(false)
             .build()
             .new_agent();
-        UreqHttp { agent, server }
+        UreqHttp {
+            agent,
+            server,
+            client_id,
+        }
     }
 }
 
 impl Http for UreqHttp {
     fn send(&self, request: &HttpRequest) -> Result<HttpReply, String> {
         let url = format!("{}{}", self.server, request.path);
+        let me = (ClientId::HEADER, self.client_id.as_str());
         let result = match (request.method, &request.body) {
-            ("POST", Some(body)) => self.agent.post(&url).send_json(body),
-            ("POST", None) => self.agent.post(&url).send_empty(),
-            ("PUT", Some(body)) => self.agent.put(&url).send_json(body),
-            ("PUT", None) => self.agent.put(&url).send_empty(),
-            ("DELETE", _) => self.agent.delete(&url).call(),
+            ("POST", Some(body)) => self.agent.post(&url).header(me.0, me.1).send_json(body),
+            ("POST", None) => self.agent.post(&url).header(me.0, me.1).send_empty(),
+            ("PUT", Some(body)) => self.agent.put(&url).header(me.0, me.1).send_json(body),
+            ("PUT", None) => self.agent.put(&url).header(me.0, me.1).send_empty(),
+            ("DELETE", _) => self.agent.delete(&url).header(me.0, me.1).call(),
             _ => self.agent.get(&url).call(),
         };
         read_reply(result)
@@ -61,6 +68,7 @@ impl Http for UreqHttp {
         let result = self
             .agent
             .post(&url)
+            .header(ClientId::HEADER, self.client_id.as_str())
             .header(
                 "Content-Type",
                 format!("multipart/form-data; boundary={UPLOAD_BOUNDARY}"),
@@ -213,12 +221,14 @@ fn read_emacs(to_main: &Sender<Message>) {
 /// Runs the shell until Emacs has gone away and what it typed is saved.
 pub fn run(server: String) {
     let (to_main, from_threads) = channel();
+    // One ID for this process: the server hears it in the requests, and the core from the shell
+    let client_id = ClientId::new();
     let host = ThreadHost {
-        http: UreqHttp::new(server),
+        http: UreqHttp::new(server, client_id.clone()),
         to_main: to_main.clone(),
         stdout: std::io::stdout(),
     };
-    let mut shell = Shell::new(host);
+    let mut shell = Shell::new(host, client_id);
     thread::spawn(move || read_emacs(&to_main));
 
     while let Ok(message) = from_threads.recv() {

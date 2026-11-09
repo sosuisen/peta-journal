@@ -13,6 +13,7 @@ use peta_core::effects::{
     ApiOp, ApiResult, Effect, LocalDateTimeDto, SseEvent, SseOp, TimerOp, TimerOutput, UiOp,
     UiOutput,
 };
+use peta_core::rest::ClientId;
 use peta_core::util::{auto_close, link_at};
 use peta_core::view::{ScreenView, SearchView};
 use peta_core::{Event, PetaApp, ViewModel};
@@ -69,6 +70,7 @@ struct Sent {
 pub struct Shell<H: Host> {
     pub(crate) core: Core<PetaApp>,
     pub host: H,
+    client_id: ClientId,
     apis: HashMap<u64, Request<ApiOp>>,
     next_api: u64,
     /// The paths of the images Emacs chose. The core knows each by its index here.
@@ -95,10 +97,12 @@ pub struct Shell<H: Host> {
 }
 
 impl<H: Host> Shell<H> {
-    pub fn new(host: H) -> Shell<H> {
+    /// `client_id` is the ID that the host sends with every request (ADR-015).
+    pub fn new(host: H, client_id: ClientId) -> Shell<H> {
         Shell {
             core: Core::new(),
             host,
+            client_id,
             apis: HashMap::new(),
             next_api: 0,
             image_files: Vec::new(),
@@ -142,6 +146,11 @@ impl<H: Host> Shell<H> {
         if let Some(item_id) = focused {
             self.send(Event::EditFinished { item_id });
         }
+    }
+
+    /// The ID this shell names itself with, to the server and to the core.
+    pub fn client_id(&self) -> &ClientId {
+        &self.client_id
     }
 
     /// True when nothing that could still save something is under way.
@@ -191,7 +200,9 @@ impl<H: Host> Shell<H> {
     fn on_emacs(&mut self, message: Inbound) {
         match message {
             Inbound::Start { url } => {
-                self.send(Event::Start);
+                self.send(Event::Start {
+                    client_id: self.client_id.clone(),
+                });
                 self.navigate(&url, false);
             }
             Inbound::Go { url } => self.navigate(&url, false),
