@@ -26,7 +26,11 @@ Every POST, PUT and DELETE under `/api/` must carry an `X-Client-Id` header. The
 - The server sends the ID back as `clientId` in the `pagesUpdated` event of that change.
 - A client reloads a page when the `clientId` of the event is not its own.
 
-GET requests need no ID. The form at `/api/sync/pending-deletes` needs none either.
+A client that only reads needs no ID. GET requests pass without the header, and that includes
+the event stream at `/api/events`. Such a client makes no change of its own, so it can treat
+every `pagesUpdated` event as the change of another client.
+
+The form at `/api/sync/pending-deletes` needs no ID either.
 
 ```
 curl -X POST http://localhost:8087/api/journals/2026-11-10 \
