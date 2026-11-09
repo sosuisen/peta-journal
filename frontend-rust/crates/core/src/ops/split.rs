@@ -21,9 +21,13 @@ use crux_core::Command;
 
 /// Handles Enter at a cursor position in an item.
 pub fn handle_enter(model: &mut Model, item_id: &str, cursor: usize) -> Cmd {
-    let Some(item) = model.cloned_item(item_id) else {
+    let Some(mut item) = model.cloned_item(item_id) else {
         return done();
     };
+    let unsaved = model.edits.dirty_item_ids.contains(item_id);
+    if let Some(typed) = typed_body(model, item_id).filter(|_| unsaved) {
+        item.body = typed;
+    }
     let (before, after) = split_at_char(&item.body, cursor);
     if has_unclosed_code_fence(before) {
         // Not an edit that moves to another editor, so no keys are held
@@ -35,7 +39,6 @@ pub fn handle_enter(model: &mut Model, item_id: &str, cursor: usize) -> Cmd {
     }
     // The next editor is focused after the next render; keys pressed before that are kept for it
     model.key_relay.hold_until_focus();
-    let unsaved = model.edits.dirty_item_ids.contains(item_id);
     let discard = discard_pending_edit(model, &item);
 
     if item.body.is_empty()
@@ -51,6 +54,13 @@ pub fn handle_enter(model: &mut Model, item_id: &str, cursor: usize) -> Cmd {
 
     let cursor = cursor.min(char_len(&item.body));
     Command::all([discard, split_on_server(model, item, cursor, unsaved)])
+}
+
+/// The body of an item with what was typed into it and is not saved yet. A transclusion
+/// shows the body of its source item, and holds the typed text itself until it is saved.
+fn typed_body(model: &Model, item_id: &str) -> Option<String> {
+    let item = model.state.get_item_by_id(item_id)?;
+    Some(item.body.clone())
 }
 
 /// Asks the server to split an item at the cursor. The request carries the body the editor
