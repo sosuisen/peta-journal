@@ -1259,6 +1259,115 @@ async fn a_transclusion_is_not_split() {
     assert_eq!(items(&page.id).await.len(), 1);
 }
 
+// 行末での分割では、空の項目が直後に入る。
+#[tokio::test]
+async fn a_split_at_the_end_puts_an_empty_item_below() {
+    let page = new_doc_page("items-split-end").await;
+    let rows = fill(&page.id, &["alpha", "next"]).await;
+
+    let (status, resp) = split(&rows[0].id, "alpha", 5).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(resp["created"]["body"], json!(""));
+    assert_eq!(outline_of(&page.id).await, ["1:alpha", "1:", "1:next"]);
+}
+
+// カーソルが本文の長さを超えていても、行末での分割になる。
+#[tokio::test]
+async fn a_split_with_the_cursor_past_the_end_is_a_split_at_the_end() {
+    let page = new_doc_page("items-split-past").await;
+    let rows = fill(&page.id, &["alpha"]).await;
+
+    let (status, resp) = split(&rows[0].id, "alpha", 99).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(outline_of(&page.id).await, ["1:alpha", "1:"]);
+}
+
+// ページの最初の項目を行頭で分割すると、空の項目がページの先頭に入る。
+#[tokio::test]
+async fn a_split_at_the_start_of_the_first_item_puts_the_empty_item_first_on_the_page() {
+    let page = new_doc_page("items-split-first").await;
+    let rows = fill(&page.id, &["alpha", "next"]).await;
+
+    let (status, resp) = split(&rows[0].id, "alpha", 0).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(outline_of(&page.id).await, ["1:", "1:alpha", "1:next"]);
+}
+
+// 空の項目の分割では、空の項目が下に入る。上に入れる理由になる本文がないためである。
+#[tokio::test]
+async fn a_split_of_an_empty_item_puts_the_empty_item_below() {
+    let page = new_doc_page("items-split-empty").await;
+    let rows = fill(&page.id, &["", "next"]).await;
+
+    let (status, resp) = split(&rows[0].id, "", 0).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(resp["item"]["id"], json!(rows[0].id));
+    assert_eq!(
+        idxs_of(&page.id).await[1],
+        resp["created"]["idx"].as_str().unwrap()
+    );
+}
+
+// 分割するのは、保存されている本文ではなく、要求が運んできた本文である。まだ保存されていない入力が入っている。
+#[tokio::test]
+async fn the_split_cuts_the_body_the_request_carries_not_the_stored_one() {
+    let page = new_doc_page("items-split-unsaved").await;
+    let rows = fill(&page.id, &["saved"]).await;
+
+    let (status, resp) = split(&rows[0].id, "saved and typed", 6).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(outline_of(&page.id).await, ["1:saved ", "1:and typed"]);
+}
+
+// 行頭での分割でも、要求が運んできた本文が元の項目に保存される。
+#[tokio::test]
+async fn a_split_at_the_start_saves_the_body_the_request_carries() {
+    let page = new_doc_page("items-split-start-unsaved").await;
+    let rows = fill(&page.id, &["saved"]).await;
+
+    let (status, resp) = split(&rows[0].id, "saved and typed", 0).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(outline_of(&page.id).await, ["1:", "1:saved and typed"]);
+}
+
+// 分割は項目を2つ書くが、ページの変更は1回だけクライアントに知らされる。
+#[tokio::test]
+async fn the_clients_hear_of_the_page_once_for_a_split() {
+    let page = new_doc_page("items-split-event").await;
+    let rows = fill(&page.id, &["ab"]).await;
+    let other_page = new_doc_page("items-split-event-after").await;
+    let mut events = client().get(url("/api/events")).send().await.unwrap();
+
+    let (status, resp) = split(&rows[0].id, "ab", 1).await;
+    assert_eq!(status, 200, "{resp}");
+    // The events come in order: what is read up to this one holds all those of the split
+    create_item(&other_page.id, "last", 1, "after the split").await;
+
+    let other = format!("\"pageId\":\"{}\"", other_page.id);
+    let seen = events_until(&mut events, &other).await;
+    let split_page = format!("\"pageId\":\"{}\"", page.id);
+    assert_eq!(seen.matches(&split_page).count(), 1, "{seen}");
+}
+
+// もう無い項目の分割は断られる。ほかの項目の操作と同じ答えである。
+#[tokio::test]
+async fn a_split_of_an_item_that_is_gone_is_refused() {
+    let page = new_doc_page("items-split-gone").await;
+    let rows = fill(&page.id, &["ab", "other"]).await;
+    assert_eq!(delete(&format!("/api/items/{}", rows[0].id)).await, 204);
+
+    let (status, resp) = split(&rows[0].id, "ab", 1).await;
+
+    assert_eq!(status, 400, "{resp}");
+    assert_eq!(outline_of(&page.id).await, ["1:other"]);
+}
+
 // ---- Items: batch ----
 
 /// Applies operations as one batch, the way an undo sends what it replays
