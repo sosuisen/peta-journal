@@ -94,6 +94,11 @@ describe('the date of a moment', () => {
     expect(localISODate(new Date(2026, 10, 9, 0, 30))).toBe('2026-11-09');
     expect(localISODate(new Date(2026, 10, 9, 23, 30))).toBe('2026-11-09');
   });
+
+  // 1桁の月と日は、0を付けて2桁で書かれる。
+  test('writes a month and a day of one digit with a leading zero', () => {
+    expect(localISODate(new Date(2026, 0, 5, 12))).toBe('2026-01-05');
+  });
 });
 
 // 絞り込み
