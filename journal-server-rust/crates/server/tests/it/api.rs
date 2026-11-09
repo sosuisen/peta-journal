@@ -456,6 +456,23 @@ async fn a_move_that_is_refused_does_not_save_the_body_it_carries() {
     assert_eq!(outline_of(&page.id).await, vs(&["1:a", "1:b"]));
 }
 
+// トランスクルージョンを動かす要求の本文は、元の項目に保存される。トランスクルージョンに打った文は、元の項目の文である。
+#[tokio::test]
+async fn the_body_a_move_of_a_transclusion_carries_is_saved_to_its_source_item() {
+    let (source_page, _, page, own) =
+        transclusion("items-move-copy", &["shown"], 0, &["top", "copy"], 1).await;
+
+    let (status, resp) = move_edited(&[&own[1].id], &page.id, "first", "shown typed").await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(outline_of(&source_page.id).await, vs(&["1:shown typed"]));
+    assert_eq!(outline_of(&page.id).await, vs(&["1:shown typed", "1:top"]));
+    assert_eq!(
+        field_of_each(&resp, "items", "body"),
+        vec![json!("shown typed")]
+    );
+}
+
 // ---- Items: tasks ----
 
 // cycle-taskは、タスク、実行中、完了を経て通常の項目に戻る。
