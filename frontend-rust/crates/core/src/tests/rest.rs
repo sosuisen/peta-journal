@@ -1,6 +1,7 @@
 use crate::effects::{ApiError, ApiOp, ApiOutput, AtlasChange, FolderChoice};
 use crate::model::{
-    ItemPosition, JournalBefore, Page, PageWithItems, ServerConfig, TaskState, TreeExport,
+    ItemPosition, JournalBefore, Page, PageWithItems, PasteCursor, PasteMode, ServerConfig,
+    TaskState, TreeExport,
 };
 use crate::rest::{rest_call, HttpReply, RestCall};
 use serde::Serialize;
@@ -426,6 +427,47 @@ fn creating_an_item_posts_its_position_and_answers_the_item() {
         panic!("not an item: {output:?}");
     };
     assert_eq!(item.body, "本文");
+}
+
+// 貼り付けは、本文とカーソルと文字列と読み方を送り、書かれた項目とカーソルを答える。
+#[test]
+fn a_paste_posts_the_body_the_cursor_the_text_and_the_mode_and_answers_what_was_written() {
+    let rest = call(ApiOp::PasteText {
+        item_id: id("a"),
+        body: "ab".into(),
+        cursor: 1,
+        text: "本文".into(),
+        mode: PasteMode::Flat,
+    });
+    assert_eq!(
+        (rest.request.method, rest.request.path.as_str()),
+        ("POST", "/api/items/a/paste")
+    );
+    assert_eq!(
+        rest.request.body,
+        Some(json!({ "body": "ab", "cursor": 1, "text": "本文", "mode": "flat" }))
+    );
+    let output = rest
+        .decode(&reply(
+            200,
+            json!({
+                "items": [item_json("a", "a本文"), item_json("n", "b")],
+                "cursor": { "itemId": "n", "position": 2 },
+            }),
+        ))
+        .unwrap();
+    let ApiOutput::Pasted(pasted) = output else {
+        panic!("not a paste: {output:?}");
+    };
+    let bodies: Vec<&str> = pasted.items.iter().map(|i| i.body.as_str()).collect();
+    assert_eq!(bodies, ["a本文", "b"]);
+    assert_eq!(
+        pasted.cursor,
+        PasteCursor {
+            item_id: id("n"),
+            position: 2
+        }
+    );
 }
 
 // 更新は、変えるフィールドだけを送る。
