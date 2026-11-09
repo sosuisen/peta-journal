@@ -1053,6 +1053,18 @@ async fn pasting_nothing_saves_the_body_the_request_carries_and_adds_no_item() {
     assert_eq!(outline_of(&page.id).await, ["1:saved and typed"]);
 }
 
+// 知らないモードの貼り付けは断られ、何も変わらない。
+#[tokio::test]
+async fn a_paste_in_an_unknown_mode_is_refused() {
+    let page = new_doc_page("items-paste-mode").await;
+    let rows = fill(&page.id, &["ab"]).await;
+
+    let (status, resp) = paste(&rows[0].id, "ab", 1, "X", "plain").await;
+
+    assert_eq!(status, 400, "{resp}");
+    assert_eq!(outline_of(&page.id).await, ["1:ab"]);
+}
+
 // ---- Items: group delete ----
 
 // グループ削除は、項目を子孫ごと1回のリクエストで消す。
