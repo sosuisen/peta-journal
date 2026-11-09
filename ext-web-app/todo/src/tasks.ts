@@ -33,22 +33,18 @@ export interface Filters {
 }
 
 /**
- * Whether the page of the item is a daily journal.
+ * Whether the page of the item is a journal, of a day, a week, a month or a year.
  *
- * The filters take only a daily journal for a journal, while `pagePath` also takes a
- * weekly, monthly or yearly one for a journal. The two do not agree, and which one is
- * right is not decided yet (see docs/plans.md).
+ * The server says so. The name does not: a doc page can have a name like `2026`.
  */
-function isDailyJournal(item: Item): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(item.name);
+function isJournal(item: Item): boolean {
+  return item.type === 'journal';
 }
 
 /** Whether the filters let the task through. */
 export function isShown(item: Item, filters: Filters): boolean {
   if (!filters.showDone && item.properties.end) return false;
-  const pageIsShown = isDailyJournal(item)
-    ? filters.showJournal
-    : filters.showPage;
+  const pageIsShown = isJournal(item) ? filters.showJournal : filters.showPage;
   if (!pageIsShown) return false;
   // A task without a plan date is always shown
   const plan = getPlan(item);

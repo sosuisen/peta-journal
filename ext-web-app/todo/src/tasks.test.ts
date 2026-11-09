@@ -94,7 +94,7 @@ describe('the filters', () => {
     showJournal: true,
     showPage: true,
   };
-  const onJournal = item({ name: '2026-11-09' });
+  const onJournal = item({ type: 'journal', name: '2026-11-09' });
   const onPage = item({ name: 'Notes' });
 
   // 完了したタスクは、Doneを選んだときだけ表示される。
@@ -116,8 +116,8 @@ describe('the filters', () => {
     expect(isShown(onJournal, { ...all, showJournal: false })).toBe(false);
   });
 
-  // 日次ジャーナル以外のページのタスクは、Pageを選んだときだけ表示される。
-  test('show a task of another page only with Page', () => {
+  // ジャーナルでないページのタスクは、Pageを選んだときだけ表示される。
+  test('show a task of a page that is no journal only with Page', () => {
     expect(isShown(onPage, { ...all, showJournal: false })).toBe(true);
     expect(isShown(onPage, { ...all, showPage: false })).toBe(false);
   });
