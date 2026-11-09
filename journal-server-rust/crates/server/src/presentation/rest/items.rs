@@ -81,6 +81,8 @@ struct MoveItemsRequest {
     target_page_id: Option<String>,
     position: Option<String>,
     level_delta: Option<i32>,
+    /// The body the editor of the first item has now, when it is not saved yet
+    body: Option<String>,
 }
 
 #[derive(Deserialize, Default)]
@@ -665,11 +667,15 @@ async fn move_items(
     let ids = parse_ids(req.item_ids, "itemIds")?;
     let target = parse_id(required(req.target_page_id.as_deref(), "targetPageId")?)?;
     blocking(move || {
-        let items = state
-            .item_service
-            .move_items(&ids, &target, &position, req.level_delta)?;
+        let moved = state.item_service.move_edited_items(
+            &ids,
+            &target,
+            &position,
+            req.level_delta,
+            req.body.as_deref(),
+        )?;
         state.sse.broadcast_pages_updated(target.as_str());
-        items_response(&state, &items)
+        items_response(&state, &moved.items)
     })
     .await
 }
