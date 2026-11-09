@@ -8,7 +8,9 @@
 
 use crate::app::{done, log_error, run, Cmd, Event, Model};
 use crate::model::{Item, ItemPosition, ItemRef, Split};
-use crate::ops::edit::{discard_pending_edit, focus_editor, record_typing, show_parsed};
+use crate::ops::edit::{
+    discard_pending_edit, focus_editor, record_typing, show_parsed, typed_body,
+};
 use crate::ops::file_reload::replace_page;
 use crate::ops::level;
 use crate::ops::outline_events::body_changed;
@@ -54,13 +56,6 @@ pub fn handle_enter(model: &mut Model, item_id: &str, cursor: usize) -> Cmd {
 
     let cursor = cursor.min(char_len(&item.body));
     Command::all([discard, split_on_server(model, item, cursor, unsaved)])
-}
-
-/// The body of an item with what was typed into it and is not saved yet. A transclusion
-/// shows the body of its source item, and holds the typed text itself until it is saved.
-fn typed_body(model: &Model, item_id: &str) -> Option<String> {
-    let item = model.state.get_item_by_id(item_id)?;
-    Some(item.body.clone())
 }
 
 /// Asks the server to split an item at the cursor. The request carries the body the editor
@@ -145,11 +140,8 @@ pub fn show_split(model: &mut Model, item_id: &str, cursor_before: usize, split:
 /// schedules the auto-save of the typed text the split was to carry.
 pub fn split_failed(model: &mut Model, item_id: &str, unsaved: bool) -> Cmd {
     model.key_relay.release();
-    match model.cloned_item(item_id) {
-        Some(item) if unsaved => {
-            let typed = item.body.clone();
-            record_typing(model, &item, &typed)
-        }
+    match (model.cloned_item(item_id), typed_body(model, item_id)) {
+        (Some(item), Some(typed)) if unsaved => record_typing(model, &item, &typed),
         _ => done(),
     }
 }
