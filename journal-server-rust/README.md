@@ -16,6 +16,23 @@ cargo test
 | `crates/hmtid` | HMTID (human-readable monotonic timestamp identifier), a port of the `hmtid` npm package |
 | `crates/server` | The server: `domain/` (models, fractional index, hashtags), `application/` (page, item, journal and search use cases), `infrastructure/` (SQLite, tantivy search, markdown export/import/reconcile, folder watcher), `presentation/` (REST, SSE, MCP, the files of the web frontend) |
 
+## Client ID
+
+Every POST, PUT and DELETE under `/api/` must carry an `X-Client-Id` header. The server answers
+400 Bad Request without it. See
+[ADR 015](../docs/adr/adr-015-client-id-on-every-change-request.md).
+
+- A client makes a new UUID when it starts and sends it with every change.
+- The server sends the ID back as `clientId` in the `pagesUpdated` event of that change.
+- A client reloads a page when the `clientId` of the event is not its own.
+
+GET requests need no ID. The form at `/api/sync/pending-deletes` needs none either.
+
+```
+curl -X POST http://localhost:8087/api/journals/2026-11-10 \
+  -H "X-Client-Id: 123e4567-e89b-42d3-a456-426614174000"
+```
+
 ## Coverage and mutation testing
 
 Setup, once:
