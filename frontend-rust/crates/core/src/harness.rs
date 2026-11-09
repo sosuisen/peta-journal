@@ -231,11 +231,9 @@ impl FakeApi {
                             // A moved item keeps what an update before it wrote, at a new index
                             for id in ids {
                                 self.created += 1;
+                                // The core sends the update of a moved item first
                                 let place = written.iter().position(|earlier| &earlier.id == id);
-                                let mut item = match place {
-                                    Some(place) => written.remove(place),
-                                    None => plain_item(id, 1, ""),
-                                };
+                                let mut item = written.remove(place.expect("updated before"));
                                 item.idx = format!("moved{}", self.created);
                                 written.push(item);
                             }
