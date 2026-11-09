@@ -12,6 +12,7 @@ use tokio_stream::StreamExt;
 use crate::application::atlas_service::AtlasEvents;
 use crate::application::confirm_service::ConfirmEvents;
 use crate::application::extension_service::ExtensionEvents;
+use crate::presentation::client_id::ClientId;
 
 #[derive(Debug, Clone)]
 pub struct SseBroadcaster {
@@ -42,12 +43,20 @@ impl SseBroadcaster {
         Sse::new(first.chain(rest)).keep_alive(KeepAlive::default())
     }
 
-    pub fn broadcast_pages_updated(&self, page_id: &str) {
-        self.broadcast_pages_updated_from(page_id, "app");
+    /// Tells of a change that a client made through the API. The other clients read the page
+    /// again. The client that made the change knows its own ID and does not (ADR-015).
+    pub fn broadcast_pages_updated(&self, client: &ClientId, page_id: &str) {
+        let json = serde_json::json!({
+            "type": "pagesUpdated",
+            "pageId": page_id,
+            "source": "app",
+            "clientId": client.as_str(),
+        });
+        // An error only means that nobody is listening right now
+        let _ = self.tx.send(json.to_string());
     }
 
-    /// `source` is `app` for changes made through the API, `file` for changes picked up
-    /// from the markdown folder, `server` for an atlas the server wrote by itself, and
+    /// `source` is `file` for changes picked up from the markdown folder, `server` for an atlas the server wrote by itself, and
     /// `extension` for items that extensions wrote.
     pub fn broadcast_pages_updated_from(&self, page_id: &str, source: &str) {
         let json = format!(
