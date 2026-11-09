@@ -12,7 +12,7 @@ pub mod state;
 use axum::http::{header, HeaderValue, Method};
 use axum::Router;
 use tower_http::cors::{AllowOrigin, CorsLayer};
-use tower_http::services::ServeDir;
+use tower_http::services::{ServeDir, ServeFile};
 
 use crate::state::SharedState;
 
@@ -42,7 +42,8 @@ pub fn build_router(state: SharedState) -> Router {
         .nest_service("/mcp", mcp)
         .with_state(state);
     if let Some(dir) = frontend_dir {
-        router = router.fallback_service(ServeDir::new(dir));
+        let index = ServeFile::new(dir.join("index.html"));
+        router = router.fallback_service(ServeDir::new(dir).fallback(index));
     }
     router.layer(cors)
 }
