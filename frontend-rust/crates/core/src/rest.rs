@@ -2,7 +2,7 @@
 //! answers, and sends nothing: the shells do that, each with its own HTTP client.
 
 use crate::effects::{ApiError, ApiOp, ApiOutput, ApiResult, AtlasChange};
-use crate::model::{BacklinkEntry, Item, Page, ParsedFlatItem, PropertyDefinition, SearchResult};
+use crate::model::{BacklinkEntry, Item, Page, PropertyDefinition, SearchResult};
 use percent_encoding::{utf8_percent_encode, AsciiSet, NON_ALPHANUMERIC};
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
@@ -162,17 +162,8 @@ struct DefinitionsEnvelope {
 }
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct FlatEnvelope {
-    flat_markdown: String,
-}
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
 struct ItemIdsEnvelope {
     item_ids: Vec<String>,
-}
-#[derive(Deserialize)]
-struct ParsedEnvelope {
-    items: Vec<ParsedFlatItem>,
 }
 #[derive(Deserialize)]
 struct LaunchEnvelope {
@@ -493,18 +484,6 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             "/api/items/transcluded",
             Some(json!({ "itemIds": item_ids })),
             |reply| parsed::<ItemIdsEnvelope>(reply).map(|e| ApiOutput::ItemIds(e.item_ids)),
-        ),
-        ApiOp::ImportTreeMarkdown { tree_markdown } => call(
-            "POST",
-            "/api/items/import",
-            Some(json!({ "treeMarkdown": tree_markdown })),
-            |reply| parsed::<FlatEnvelope>(reply).map(|e| ApiOutput::FlatMarkdown(e.flat_markdown)),
-        ),
-        ApiOp::ParseFlatMarkdown { markdown } => call(
-            "POST",
-            "/api/items/parse",
-            Some(json!({ "markdown": markdown })),
-            |reply| parsed::<ParsedEnvelope>(reply).map(|e| ApiOutput::ParsedItems(e.items)),
         ),
         ApiOp::SetTransclusion {
             item_id,

@@ -255,18 +255,6 @@ fn every_operation_goes_to_its_endpoint() {
             "/api/items/transcluded",
         ),
         (
-            ApiOp::ImportTreeMarkdown {
-                tree_markdown: id("x"),
-            },
-            "POST",
-            "/api/items/import",
-        ),
-        (
-            ApiOp::ParseFlatMarkdown { markdown: id("x") },
-            "POST",
-            "/api/items/parse",
-        ),
-        (
             ApiOp::SetTransclusion {
                 item_id: id("a"),
                 source_item_id: id("b"),
@@ -666,18 +654,6 @@ fn every_answer_becomes_the_output_of_its_operation() {
             ApiOp::TranscludedItems { item_ids: vec![] },
             json!({ "itemIds": ["a"] }),
             ApiOutput::ItemIds(vec![id("a")]),
-        ),
-        (
-            ApiOp::ImportTreeMarkdown {
-                tree_markdown: id("x"),
-            },
-            json!({ "flatMarkdown": "y" }),
-            ApiOutput::FlatMarkdown(id("y")),
-        ),
-        (
-            ApiOp::ParseFlatMarkdown { markdown: id("x") },
-            json!({ "items": [] }),
-            ApiOutput::ParsedItems(vec![]),
         ),
         (
             ApiOp::LaunchUrl { url: id("x://y") },

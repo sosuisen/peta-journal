@@ -273,18 +273,6 @@ pub struct PasteCursor {
     pub position: usize,
 }
 
-/// One item of Flat Markdown as split by the server. `id` is None when the metadata line has none.
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
-pub struct ParsedFlatItem {
-    pub level: i32,
-    #[serde(default)]
-    pub id: Option<String>,
-    #[serde(default)]
-    pub properties: BTreeMap<String, String>,
-    #[serde(default)]
-    pub body: String,
-}
-
 /// A property definition (`GET /api/config/property-definitions`, the `definitions` list).
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

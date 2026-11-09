@@ -2,9 +2,8 @@
 //! shell performs and resolves; the core never touches the network, timers or the DOM.
 
 use crate::model::{
-    BacklinkEntry, DeferredKey, Item, ItemPosition, JournalBefore, Page, PageWithItems,
-    ParsedFlatItem, PasteMode, Pasted, PropertyDefinition, SearchResult, ServerConfig, TaskState,
-    TreeExport,
+    BacklinkEntry, DeferredKey, Item, ItemPosition, JournalBefore, Page, PageWithItems, PasteMode,
+    Pasted, PropertyDefinition, SearchResult, ServerConfig, TaskState, TreeExport,
 };
 use crate::util::date::LocalDateTime;
 use crux_core::capability::Operation;
@@ -161,12 +160,6 @@ pub enum ApiOp {
     TranscludedItems {
         item_ids: Vec<String>,
     },
-    ImportTreeMarkdown {
-        tree_markdown: String,
-    },
-    ParseFlatMarkdown {
-        markdown: String,
-    },
     SetTransclusion {
         item_id: String,
         source_item_id: String,
@@ -262,9 +255,7 @@ pub enum ApiOutput {
     PropertyDefinitions(Vec<PropertyDefinition>),
     Folder(FolderChoice),
     TreeExport(TreeExport),
-    FlatMarkdown(String),
     ItemIds(Vec<String>),
-    ParsedItems(Vec<ParsedFlatItem>),
     Pasted(Pasted),
     FileName(String),
     Launched(bool),
@@ -891,26 +882,6 @@ impl<Event: Send + 'static> Api<Event> {
         expect_output!(
             self.call(ApiOp::ExportTreeMarkdown { item_ids }).await,
             TreeExport
-        )
-    }
-
-    pub async fn import_tree_markdown(&self, tree_markdown: &str) -> ApiResult<String> {
-        expect_output!(
-            self.call(ApiOp::ImportTreeMarkdown {
-                tree_markdown: tree_markdown.into()
-            })
-            .await,
-            FlatMarkdown
-        )
-    }
-
-    pub async fn parse_flat_markdown(&self, markdown: &str) -> ApiResult<Vec<ParsedFlatItem>> {
-        expect_output!(
-            self.call(ApiOp::ParseFlatMarkdown {
-                markdown: markdown.into()
-            })
-            .await,
-            ParsedItems
         )
     }
 
