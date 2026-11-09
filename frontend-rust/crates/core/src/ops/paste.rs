@@ -74,7 +74,7 @@ pub fn paste_failed(model: &mut Model, item_id: &str, unsaved: bool) -> Cmd {
 /// Shows what the server wrote for a paste, records it as one undo entry, and puts the cursor
 /// right after the pasted text.
 pub fn show_pasted(model: &mut Model, item_id: &str, cursor_before: usize, pasted: Pasted) -> Cmd {
-    let (Some(before), Some((first, created))) =
+    let (Some(pasted_into), Some((first, created))) =
         (model.cloned_item(item_id), pasted.items.split_first())
     else {
         return done();
@@ -82,7 +82,7 @@ pub fn show_pasted(model: &mut Model, item_id: &str, cursor_before: usize, paste
     // Inside a transclusion the items made belong to the source page. This page shows them
     // only when they are below the source item, so the server's version of it is read again
     let in_transclusion = edit_context_of(
-        &before,
+        &pasted_into,
         model.state.own_item_ids(),
         model.state.transcluded_trees(),
     )
@@ -91,13 +91,15 @@ pub fn show_pasted(model: &mut Model, item_id: &str, cursor_before: usize, paste
         .undo
         .begin("paste", Some(CursorState::new(item_id, cursor_before)));
     // The item written to is the source item when a transclusion root was pasted into. The
-    // root shows the body of its source, and keeps a copy of it
+    // undo entry holds that item, so that an undo sends the old body to it. The root shows
+    // the body of its source, and keeps a copy of it
+    let before = model.state.get_item_by_id(&first.id);
     for id in [first.id.as_str(), item_id] {
         model.state.update_item(id, |i| i.body = first.body.clone());
     }
     show_parsed(model, first);
     mark_dirty(model, item_id);
-    if let Some(after) = model.state.get_item_by_id(item_id) {
+    if let (Some(before), Some(after)) = (before, model.state.get_item_by_id(&first.id)) {
         model.undo.push_update(&before, &after);
     }
     let mut previous_id = item_id.to_string();
