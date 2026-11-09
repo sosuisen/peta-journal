@@ -33,25 +33,7 @@ impl ClientId {
 
     #[allow(clippy::new_without_default)] // each call makes another ID, which a default is not
     pub fn new() -> ClientId {
-        let mut bytes = [0u8; 16];
-        getrandom::fill(&mut bytes).expect("the system gives random bytes");
-        ClientId::of_random(bytes)
-    }
-
-    /// The version 4 UUID that these random bytes make, with hyphens and in lower case.
-    pub(crate) fn of_random(mut bytes: [u8; 16]) -> ClientId {
-        // The version and the variant take the place of six of the random bits
-        bytes[6] = (bytes[6] & 0x0f) | 0x40;
-        bytes[8] = (bytes[8] & 0x3f) | 0x80;
-        let hex: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
-        ClientId(format!(
-            "{}-{}-{}-{}-{}",
-            &hex[..8],
-            &hex[8..12],
-            &hex[12..16],
-            &hex[16..20],
-            &hex[20..]
-        ))
+        ClientId(uuid::Uuid::new_v4().to_string())
     }
 
     pub fn as_str(&self) -> &str {
