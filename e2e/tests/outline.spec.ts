@@ -330,6 +330,8 @@ test.describe('outline editing', () => {
     await page.keyboard.type('keep');
     await page.keyboard.press('Enter');
     await server.itemsSettled(pageId, items => items.length === 2);
+    // The server is ahead of the screen: nothing can be taken back before the split is shown
+    await expect.poll(() => shownBodies(page)).toEqual(['keep', '']);
 
     await page.keyboard.press('Control+z');
 
