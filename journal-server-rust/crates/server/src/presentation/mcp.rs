@@ -1,5 +1,6 @@
 //! The MCP server: the same 26 tools as the Java server, served over Streamable HTTP at `/mcp`.
 
+use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use rmcp::handler::server::router::tool::ToolRouter;
@@ -431,7 +432,20 @@ impl JournalMcp {
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let item_id = id(&a.item_id)?;
-        run(move || state.item_service.delete_item(&item_id)).await?;
+        run(move || {
+            // The pages to tell are found first: after the deletion the item is gone
+            let mut pages = BTreeSet::new();
+            pages.extend(state.item_service.get_item_page_id(&item_id)?);
+            for t in state.items.find_transcluders(&item_id)? {
+                pages.insert(t.page_id.to_string());
+            }
+            state.item_service.delete_item(&item_id)?;
+            for page_id in pages {
+                tell(&state, &page_id);
+            }
+            Ok(())
+        })
+        .await?;
         ok(json!({ "deleted": true }))
     }
 
