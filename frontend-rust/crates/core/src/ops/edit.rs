@@ -99,6 +99,19 @@ pub fn discard_pending_edit(model: &mut Model, item: &Item) -> Cmd {
     cancel_save(model, &save_target_id(item))
 }
 
+/// The text typed into an item and not saved yet, for a request that carries it to the
+/// server with what it does (ADR 011). Its auto-save is dropped, or it would overwrite what
+/// the request wrote a moment later.
+pub fn take_unsaved(model: &mut Model, item: &Item) -> (Option<String>, Cmd) {
+    if !model.edits.dirty_item_ids.contains(&item.id) {
+        return (None, done());
+    }
+    (
+        typed_body(model, &item.id),
+        discard_pending_edit(model, item),
+    )
+}
+
 /// Drops the pending edit of the focused item, e.g. before an undo replaces that item.
 pub fn discard_pending_edit_of_focused_item(model: &mut Model) -> Cmd {
     let Some(focused_id) = model.state.focused_item_id().map(str::to_string) else {

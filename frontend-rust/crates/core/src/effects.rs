@@ -54,6 +54,8 @@ pub enum ApiOp {
         target_page_id: String,
         position: ItemPosition,
         level_delta: Option<i32>,
+        /// The body the editor of the first item has now, when it is not saved yet.
+        body: Option<String>,
     },
     DeletePage {
         page_id: String,
@@ -604,7 +606,30 @@ impl<Event: Send + 'static> Api<Event> {
                 item_ids,
                 target_page_id: target_page_id.into(),
                 position,
-                level_delta
+                level_delta,
+                body: None,
+            })
+            .await,
+            Items
+        )
+    }
+
+    /// Moves items on their page as a key in an editor does. `body` is the text the editor
+    /// of the first item has now, when it is not saved yet: the server saves it with the move.
+    pub async fn move_edited_items(
+        &self,
+        item_ids: Vec<String>,
+        page_id: &str,
+        position: ItemPosition,
+        body: Option<&str>,
+    ) -> ApiResult<Vec<Item>> {
+        expect_output!(
+            self.call(ApiOp::MoveItems {
+                item_ids,
+                target_page_id: page_id.into(),
+                position,
+                level_delta: None,
+                body: body.map(str::to_string),
             })
             .await,
             Items

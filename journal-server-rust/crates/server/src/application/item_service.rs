@@ -68,6 +68,14 @@ pub struct Split {
     pub page_ids: BTreeSet<Hmtid>,
 }
 
+/// What a move wrote: the moved items as they are now.
+#[derive(Debug, Clone)]
+pub struct Moved {
+    pub items: Vec<Item>,
+    /// The pages the move changed.
+    pub page_ids: BTreeSet<Hmtid>,
+}
+
 /// One operation of a batch.
 #[derive(Debug, Clone)]
 pub enum BatchOp {
@@ -456,17 +464,44 @@ impl ItemService {
         position: &ItemPosition,
         level_delta: Option<i32>,
     ) -> AppResult<Vec<Item>> {
+        let moved = self.move_edited_items(item_ids, target_page_id, position, level_delta, None);
+        Ok(moved?.items)
+    }
+
+    /// Moves items as a key in an editor does. `body` is the text the editor of the first
+    /// item has now, when it is not saved yet: it is saved in the same transaction (ADR 011).
+    pub fn move_edited_items(
+        &self,
+        item_ids: &[Hmtid],
+        target_page_id: &Hmtid,
+        position: &ItemPosition,
+        level_delta: Option<i32>,
+        body: Option<&str>,
+    ) -> AppResult<Moved> {
         let delta = level_delta.unwrap_or(0);
         // The write lock of the transaction keeps two moves from planning their indices from
         // the same snapshot of a page
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
         let mut effects = AfterCommit::default();
+        if let (Some(body), Some(first)) = (body, item_ids.first()) {
+            let edited = find_all_in(&tx, std::slice::from_ref(first))?.remove(0);
+            // A transclusion shows its source item. What is typed into it is text of the
+            // source, and stays on the page of the source
+            let edited = match &edited.transclude_item_id {
+                Some(source_id) => find_all_in(&tx, std::slice::from_ref(source_id))?.remove(0),
+                None => edited,
+            };
+            let mut body = body.to_string();
+            paste::close_code_fence(&mut body);
+            self.update_item_in(&tx, &edited, Some(&body), None, None, &mut effects)?;
+        }
         self.move_items_in(&tx, item_ids, target_page_id, position, delta, &mut effects)?;
-        let moved = find_all_in(&tx, item_ids)?;
+        let items = find_all_in(&tx, item_ids)?;
         tx.commit()?;
+        let page_ids = effects.pages.clone();
         self.finish(effects);
-        Ok(moved)
+        Ok(Moved { items, page_ids })
     }
 
     /// Moves items inside a transaction, with the pages to tell and to export in `effects`.
@@ -737,10 +772,7 @@ impl ItemService {
             into_body.unwrap_or(&into.body),
             body.unwrap_or(&item.body)
         );
-        // A stored body never ends inside a code fence
-        if paste::has_unclosed_code_fence(&merged) {
-            merged.push_str("\n```");
-        }
+        paste::close_code_fence(&mut merged);
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
         let mut effects = AfterCommit::default();

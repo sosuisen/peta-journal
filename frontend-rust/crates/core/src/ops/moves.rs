@@ -6,12 +6,17 @@
 //! Moves run one after another. A move computes its target from the item list, and the
 //! list changes only when the server has answered. A second key press that did not wait
 //! would compute the same target again and the press would be lost.
+//!
+//! A move on a page and a move inside a transclusion are one request, which carries the
+//! text that was typed into the item and is not saved yet (ADR 011). The screen changes when
+//! its answer is there. A move to another day is still several requests.
 
 use crate::app::{apply, done, log_error, run, Cmd, Event, Model, MoveDirection};
 use crate::effects::{Api, ApiError, ApiResult};
 use crate::model::{Item, ItemPosition, ItemRef, Page};
-use crate::ops::edit::{flush_pending_edit, focus_editor, read, Handover};
-use crate::ops::file_reload::reload_shown_page;
+use crate::ops::edit::{flush_pending_edit, read, record_typing, take_unsaved, typed_body};
+use crate::ops::file_reload::replace_page;
+use crate::ops::split::host_page_of_transclusion;
 use crate::outline::tree::{
     find_cross_page_placement, find_move_down_target, find_move_up_target, get_subtree,
     selected_root_items, transclusion_context_of, transclusion_scoped_items, ScanDirection,
@@ -19,6 +24,7 @@ use crate::outline::tree::{
 };
 use crate::screens;
 use crate::util::date::shift_iso_date;
+use crux_core::Command;
 
 /// What a move to another day's page did; the journal reloads from it.
 #[derive(Debug, Clone, PartialEq)]
@@ -38,79 +44,205 @@ pub fn enqueue_move(model: &mut Model, item_id: &str, direction: MoveDirection) 
     start_next_move(model)
 }
 
-/// Starts the next queued move unless one is running.
+/// Starts the next queued move unless one is running. A move that has nowhere to go is
+/// skipped.
 pub fn start_next_move(model: &mut Model) -> Cmd {
     if model.move_in_progress {
         return done();
     }
-    let Some((item_id, direction)) = model.move_queue.pop_front() else {
-        return done();
-    };
-    model.move_in_progress = true;
-    let body = if item_id.is_empty() {
-        move_selection(model, direction)
-    } else {
-        move_item(model, &item_id, direction)
-    };
-    crux_core::Command::all([body, done()]).then(crux_core::Command::event(crate::app::cont(
-        "move done",
-        |m| {
-            m.move_in_progress = false;
-            start_next_move(m)
-        },
-    )))
+    while let Some((item_id, direction)) = model.move_queue.pop_front() {
+        let started = if item_id.is_empty() {
+            move_selection(model, direction)
+        } else {
+            move_item(model, &item_id, direction)
+        };
+        if let Some(cmd) = started {
+            model.move_in_progress = true;
+            return cmd;
+        }
+    }
+    done()
 }
 
-/// Moves an item and its children up or down past the neighbouring sibling tree.
-fn move_item(model: &mut Model, item_id: &str, direction: MoveDirection) -> Cmd {
-    let Some(item) = model.cloned_item(item_id) else {
-        return done();
-    };
-    run(move |api| async move {
-        if let Err(e) = flush_pending_edit(&api, &item).await {
-            log_error(format!("Failed to save before move: {e}"));
-        }
-        if let Err(e) = move_now(&api, item, direction).await {
-            log_error(format!("Failed to move item: {e}"));
+/// Ends a move, and starts the next one. `handover` says that the move kept the blur of
+/// the editor from ending the edit, which it does not do any longer.
+pub fn move_done(model: &mut Model, handover: bool) -> Cmd {
+    if handover {
+        model.edits.edit_handovers = model.edits.edit_handovers.saturating_sub(1);
+    }
+    model.move_in_progress = false;
+    start_next_move(model)
+}
+
+/// Moves an item and its children up or down past the neighbouring sibling tree. None when
+/// there is nowhere to move it.
+fn move_item(model: &mut Model, item_id: &str, direction: MoveDirection) -> Option<Cmd> {
+    let item = model.cloned_item(item_id)?;
+    match plan_move(model, &item, direction) {
+        MovePlan::Nothing => None,
+        MovePlan::WithinTransclusion {
+            group_ids,
+            position,
+        } => Some(move_in_transclusion(model, item, group_ids, position)),
+        MovePlan::AcrossDays(plan) => Some(run(move |api| async move {
+            if let Err(e) = flush_pending_edit(&api, &item).await {
+                log_error(format!("Failed to save before move: {e}"));
+            }
+            match move_across_days(&api, &item, plan).await {
+                Ok(crossed) => apply(&api, "cross-day move", move |m| {
+                    screens::journal::on_cross_day_moved(m, crossed)
+                }),
+                Err(e) => log_error(format!("Failed to move item: {e}")),
+            }
+            api.send_event(Event::MoveDone { handover: false });
+        })),
+        MovePlan::WithinPage {
+            position,
+            state_position,
+        } => Some(move_on_page(model, item, position, state_position)),
+    }
+}
+
+/// Moves an item with its children to a position on its own page.
+fn move_on_page(
+    model: &mut Model,
+    item: Item,
+    position: ItemPosition,
+    state_position: ItemPosition,
+) -> Cmd {
+    let group_ids: Vec<String> = model
+        .state
+        .get_item_with_children(&item.id)
+        .iter()
+        .map(|b| b.id.clone())
+        .collect();
+    request_move(model, item, group_ids, position, |moved, item_id| {
+        Event::Moved {
+            moved,
+            position: state_position,
+            edited: Some(item_id),
         }
     })
 }
 
-async fn move_now(api: &Api<Event>, item: Item, direction: MoveDirection) -> ApiResult<()> {
-    let id = item.id.clone();
-    // The item as shown now, after the flush
-    let item = read(api, move |m| m.current_item(&id).map(|i| (*i).clone()))
-        .await
-        .unwrap_or(item);
-    let plan = {
-        let item = item.clone();
-        read(api, move |m| plan_move(m, &item, direction)).await
+/// Moves an item that a transclusion shows, within the tree of the source item.
+fn move_in_transclusion(
+    model: &mut Model,
+    item: Item,
+    group_ids: Vec<String>,
+    position: ItemPosition,
+) -> Cmd {
+    request_move(model, item, group_ids, position, |_, item_id| {
+        Event::MovedInTransclusion { item_id }
+    })
+}
+
+/// Asks the server to move an edited item with the items below it. The request carries
+/// the text that was typed into the item and is not saved yet (ADR 011). `answered` makes
+/// the event for the moved items the server answers with.
+fn request_move(
+    model: &mut Model,
+    item: Item,
+    group_ids: Vec<String>,
+    position: ItemPosition,
+    answered: impl FnOnce(Vec<Item>, String) -> Event + Send + 'static,
+) -> Cmd {
+    let (body, discard) = take_unsaved(model, &item);
+    // The editor is focused again when the item is at its new place; keys pressed before
+    // that are kept for it
+    model.key_relay.hold_until_focus();
+    let request = run(move |api| async move {
+        match api
+            .move_edited_items(group_ids, &item.page_id, position, body.as_deref())
+            .await
+        {
+            Ok(moved) => api.send_event(answered(moved, item.id)),
+            Err(e) => {
+                log_error(format!("Failed to move item: {e}"));
+                api.send_event(Event::MoveFailed {
+                    unsaved: body.map(|_| item.id),
+                });
+            }
+        }
+    });
+    Command::all([discard, request])
+}
+
+/// Reads the page again after a move inside a transclusion: the server's version of the
+/// page says how the transclusion shows its items now.
+pub fn show_moved_in_transclusion(model: &mut Model, item_id: String) -> Cmd {
+    // A journal shows the pages of many days: the page to read is the one of the transclusion
+    let Some(page_id) = host_page_of_transclusion(model, &item_id) else {
+        // The screen went on to another page while the server was asked
+        model.key_relay.release();
+        return move_done(model, false);
     };
-    match plan {
-        MovePlan::Nothing => Ok(()),
-        MovePlan::WithinTransclusion {
-            group_ids,
-            position,
-        } => {
-            api.move_items(group_ids, &item.page_id, position, None)
-                .await?;
-            let _handover = Handover::begin(api);
-            reload_shown_page(api).await;
-            focus_editor(api, Some(item.id.clone())).await;
-            Ok(())
-        }
-        MovePlan::AcrossDays(plan) => {
-            let crossed = move_across_days(api, &item, plan).await?;
-            apply(api, "cross-day move", move |m| {
-                screens::journal::on_cross_day_moved(m, crossed)
-            });
-            Ok(())
-        }
-        MovePlan::WithinPage {
-            position,
-            state_position,
-        } => move_group_to(api, &item, position, state_position).await,
+    // Reading the page again blurs the editor of the item: the edit goes on in it
+    model.edits.edit_handovers += 1;
+    run(move |api| async move {
+        replace_page(&api, &page_id).await;
+        api.send_event(Event::MovePageReloaded { item_id });
+    })
+}
+
+/// Focuses the editor of the moved item again, with the keys that were pressed while the
+/// move was on its way.
+pub fn focus_moved(model: &mut Model, item_id: String) -> Cmd {
+    let keys = model.key_relay.release();
+    run(move |api| async move {
+        api.focus_editor(Some(item_id), keys).await;
+        api.send_event(Event::MoveDone { handover: true });
+    })
+}
+
+/// Puts the items the server moved at their new place, and records the move for undo. The
+/// edit goes on in `edited`, the item the move was started from; a move of the selection
+/// has none.
+pub fn show_moved(
+    model: &mut Model,
+    moved: Vec<Item>,
+    position: &ItemPosition,
+    edited: Option<String>,
+) -> Cmd {
+    let ids: Vec<String> = moved.iter().map(|item| item.id.clone()).collect();
+    let before: Vec<Item> = ids
+        .iter()
+        .filter_map(|id| model.state.get_item_by_id(id))
+        .map(|item| (*item).clone())
+        .collect();
+    if before.len() != moved.len() {
+        // The screen went on to another page while the server was asked
+        model.key_relay.release();
+        return move_done(model, false);
     }
+    let label = if edited.is_some() {
+        "move"
+    } else {
+        "move-selection"
+    };
+    model
+        .undo
+        .record_updates(label, before.iter().zip(&moved), model.clock_ms);
+    let Some(item_id) = edited else {
+        model.state.replace_items(&ids, moved, position);
+        return move_done(model, false);
+    };
+    // Putting the item at its new place blurs its editor: the edit goes on in it
+    model.edits.edit_handovers += 1;
+    model.state.replace_items(&ids, moved, position);
+    focus_moved(model, item_id)
+}
+
+/// Ends the wait for the editor after a move that did not reach the server, and schedules
+/// the auto-save of the typed text the move was to carry.
+pub fn move_failed(model: &mut Model, unsaved: Option<&str>) -> Cmd {
+    model.key_relay.release();
+    let typed = unsaved.and_then(|id| Some((model.cloned_item(id)?, typed_body(model, id)?)));
+    let save = match typed {
+        Some((item, typed)) => record_typing(model, &item, &typed),
+        None => done(),
+    };
+    Command::all([save, move_done(model, false)])
 }
 
 enum MovePlan {
@@ -193,43 +325,6 @@ fn to_full_list_position(model: &Model, position: &ItemPosition, page_id: &str) 
     }
 }
 
-/// Moves an item with its children to a position on its own page, keeping its editor open.
-async fn move_group_to(
-    api: &Api<Event>,
-    item: &Item,
-    position: ItemPosition,
-    state_position: ItemPosition,
-) -> ApiResult<()> {
-    let id = item.id.clone();
-    let group: Vec<Item> = read(api, move |m| {
-        m.state
-            .get_item_with_children(&id)
-            .iter()
-            .map(|b| (**b).clone())
-            .collect()
-    })
-    .await;
-    let group_ids: Vec<String> = group.iter().map(|b| b.id.clone()).collect();
-    let moved = api
-        .move_items(group_ids.clone(), &item.page_id, position, None)
-        .await?;
-    let before = group.clone();
-    let moved_for_undo = moved.clone();
-    apply(api, "move: record", move |m| {
-        m.undo
-            .record_updates("move", before.iter().zip(&moved_for_undo), m.clock_ms);
-        done()
-    });
-    // Reordering the list blurs the editor; the edit goes on in the moved item
-    let _handover = Handover::begin(api);
-    apply(api, "move: reorder", move |m| {
-        m.state.replace_items(&group_ids, moved, &state_position);
-        done()
-    });
-    focus_editor(api, Some(item.id.clone())).await;
-    Ok(())
-}
-
 /// Plans a move of a transcluded descendant within the tree of its transclusion root.
 fn plan_within_transclusion(
     model: &Model,
@@ -260,10 +355,10 @@ fn plan_within_transclusion(
 }
 
 /// Moves every selected subtree past the sibling tree above or below the selection.
-fn move_selection(model: &mut Model, direction: MoveDirection) -> Cmd {
+fn move_selection(model: &mut Model, direction: MoveDirection) -> Option<Cmd> {
     let roots = selected_root_items(model.state.items(), model.state.selected_item_ids());
     if roots.is_empty() {
-        return done();
+        return None;
     }
     let edge_root = match direction {
         MoveDirection::Up => roots.first().unwrap().clone(),
@@ -273,33 +368,30 @@ fn move_selection(model: &mut Model, direction: MoveDirection) -> Cmd {
         MoveDirection::Up => find_move_up_target(model.state.items(), &edge_root.id),
         MoveDirection::Down => find_move_down_target(model.state.items(), &edge_root.id),
     };
-    let Some(target) = target else { return done() };
+    let target = target?;
     let mut all_ids: Vec<String> = Vec::new();
     for root in &roots {
         for b in model.state.get_item_with_children(&root.id) {
             all_ids.push(b.id.clone());
         }
     }
-    let before: Vec<Item> = all_ids
-        .iter()
-        .filter_map(|id| model.state.get_item_by_id(id))
-        .map(|b| (*b).clone())
-        .collect();
     let page_id = edge_root.page_id.clone();
-    run(move |api| async move {
+    Some(run(move |api| async move {
         match api
-            .move_items(all_ids.clone(), &page_id, target.clone(), None)
+            .move_items(all_ids, &page_id, target.clone(), None)
             .await
         {
-            Ok(moved) => apply(&api, "move selection: reorder", move |m| {
-                m.state.replace_items(&all_ids, moved.clone(), &target);
-                m.undo
-                    .record_updates("move-selection", before.iter().zip(&moved), m.clock_ms);
-                done()
+            Ok(moved) => api.send_event(Event::Moved {
+                moved,
+                position: target,
+                edited: None,
             }),
-            Err(e) => log_error(format!("Failed to move selected items: {e}")),
+            Err(e) => {
+                log_error(format!("Failed to move selected items: {e}"));
+                api.send_event(Event::MoveDone { handover: false });
+            }
         }
-    })
+    }))
 }
 
 // ---- Journal day moves ----

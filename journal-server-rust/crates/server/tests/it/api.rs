@@ -411,6 +411,98 @@ async fn items_move_to_another_page_with_their_levels_shifted() {
     );
 }
 
+/// Moves items the way a key in an editor does: with the body the editor of the first item
+/// has now
+async fn move_edited(item_ids: &[&str], page_id: &str, position: &str, body: &str) -> (u16, Value) {
+    post(
+        "/api/items/move",
+        json!({ "itemIds": item_ids, "targetPageId": page_id, "position": position, "body": body }),
+    )
+    .await
+}
+
+// 移動の要求が本文を持っていれば、先頭の項目はその本文で保存されて移動する。エディタに打って、まだ保存していない文である。
+#[tokio::test]
+async fn a_move_saves_the_body_it_carries_to_the_first_item() {
+    let page = new_doc_page("items-move-unsaved").await;
+    let rows = fill(&page.id, &["a", "b", "  b1", "c"]).await;
+
+    let (status, resp) =
+        move_edited(&[&rows[1].id, &rows[2].id], &page.id, "first", "b typed").await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(
+        field_of_each(&resp, "items", "body"),
+        vec![json!("b typed"), json!("b1")]
+    );
+    assert_eq!(
+        outline_of(&page.id).await,
+        vs(&["1:b typed", "2:b1", "1:a", "1:c"])
+    );
+}
+
+// 断られた移動は、持ってきた本文も保存しない。移動と保存は、1つのトランザクションである。
+#[tokio::test]
+async fn a_move_that_is_refused_does_not_save_the_body_it_carries() {
+    let page = new_doc_page("items-move-unsaved-refused").await;
+    let rows = fill(&page.id, &["a", "b"]).await;
+    let other = new_doc_page("items-move-unsaved-other").await;
+    let elsewhere = fill(&other.id, &["elsewhere"]).await.remove(0);
+
+    let not_on_the_page = format!("after:{}", elsewhere.id);
+    let (status, resp) = move_edited(&[&rows[1].id], &page.id, &not_on_the_page, "typed").await;
+
+    assert_eq!(status, 400, "{resp}");
+    assert_eq!(outline_of(&page.id).await, vs(&["1:a", "1:b"]));
+}
+
+// トランスクルージョンを動かす要求の本文は、元の項目に保存される。トランスクルージョンに打った文は、元の項目の文である。
+#[tokio::test]
+async fn the_body_a_move_of_a_transclusion_carries_is_saved_to_its_source_item() {
+    let (source_page, _, page, own) =
+        transclusion("items-move-copy", &["shown"], 0, &["top", "copy"], 1).await;
+
+    let (status, resp) = move_edited(&[&own[1].id], &page.id, "first", "shown typed").await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(outline_of(&source_page.id).await, vs(&["1:shown typed"]));
+    assert_eq!(outline_of(&page.id).await, vs(&["1:shown typed", "1:top"]));
+    assert_eq!(
+        field_of_each(&resp, "items", "body"),
+        vec![json!("shown typed")]
+    );
+}
+
+// 移動の要求の本文のコードフェンスが閉じていなければ、閉じて保存される。保存された本文は、コードフェンスの途中で終わらない。
+#[tokio::test]
+async fn a_move_closes_an_open_code_fence_in_the_body_it_carries() {
+    let page = new_doc_page("items-move-fence").await;
+    let rows = fill(&page.id, &["a", "b"]).await;
+
+    let (status, resp) = move_edited(&[&rows[1].id], &page.id, "first", "```js\ncode").await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(
+        field_of_each(&resp, "items", "body"),
+        vec![json!("```js\ncode\n```")]
+    );
+}
+
+// トランスクルージョンを本文と一緒に動かすと、本文が保存された元のページの変更も、クライアントに知らされる。どちらのページも1回ずつである。
+#[tokio::test]
+async fn the_clients_hear_once_of_each_page_when_a_moved_transclusion_carries_a_body() {
+    let (source_page, _, page, own) =
+        transclusion("items-move-copy-event", &["shown"], 0, &["top", "copy"], 1).await;
+
+    let told = times_told(&[&source_page, &page], async {
+        let (status, resp) = move_edited(&[&own[1].id], &page.id, "first", "shown typed").await;
+        assert_eq!(status, 200, "{resp}");
+    })
+    .await;
+
+    assert_eq!(told, [1, 1]);
+}
+
 // ---- Items: tasks ----
 
 // cycle-taskは、タスク、実行中、完了を経て通常の項目に戻る。

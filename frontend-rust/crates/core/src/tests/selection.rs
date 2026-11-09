@@ -160,6 +160,20 @@ fn move_selection_moves_the_selected_subtrees_as_one_group_past_the_sibling_of_t
     assert_eq!(h.model.undo.pop_undo().unwrap().label, "move-selection");
 }
 
+// 選択範囲の移動をサーバーが断ると、画面は変わらない。そのあとの移動は、いつもどおり始まる。
+#[test]
+fn a_move_of_the_selection_the_server_refuses_changes_nothing_and_the_next_move_starts() {
+    let mut h = Harness::with_items(vec![item("a", 1, ""), item("b", 1, ""), item("c", 1, "")]);
+    select(&mut h, &["b"]);
+    h.api.fail_next("MoveItems", "offline");
+    h.send(Event::SelectionKey(SelectionKey::MoveUp));
+    assert_eq!(h.items_ids(), ["a", "b", "c"]);
+    assert!(h.model.undo.pop_undo().is_none());
+
+    h.send(Event::SelectionKey(SelectionKey::MoveDown));
+    assert_eq!(h.items_ids(), ["a", "c", "b"]);
+}
+
 // 選択範囲のコピーでツリー形式の Markdown が書き出されてクリップボードに渡され、フラット形式がモデルに記憶される。
 #[test]
 fn copying_the_selection_exports_tree_markdown_and_remembers_the_flat_form() {

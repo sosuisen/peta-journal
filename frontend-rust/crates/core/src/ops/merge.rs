@@ -10,7 +10,7 @@ use crate::app::Event;
 use crate::app::{done, log_error, run, Cmd, Model};
 use crate::model::Item;
 use crate::ops::action::confirm_deleting_transcluded;
-use crate::ops::edit::{discard_pending_edit, record_typing, show_parsed, typed_body};
+use crate::ops::edit::{record_typing, show_parsed, take_unsaved, typed_body};
 use crate::ops::outline_events::edit_requested;
 use crate::outline::tree::index_of;
 use crate::outline::CursorState;
@@ -143,18 +143,6 @@ pub fn merge_answered(model: &mut Model, key: JoinKey, item_id: &str, agreed: bo
         }
     });
     Command::all([discard_goes, discard_into, request])
-}
-
-/// The text typed into an item and not saved yet, for the join to carry. Its auto-save is
-/// dropped, or it would overwrite the joined text a moment later.
-fn take_unsaved(model: &mut Model, item: &Item) -> (Option<String>, Cmd) {
-    if !model.edits.dirty_item_ids.contains(&item.id) {
-        return (None, done());
-    }
-    (
-        typed_body(model, &item.id),
-        discard_pending_edit(model, item),
-    )
 }
 
 /// Shows what the server wrote for a join, records it as one undo entry, and edits the

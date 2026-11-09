@@ -256,3 +256,29 @@ fn a_journal_made_by_a_move_refreshes_the_recent_pages() {
         );
     }
 }
+
+// 入力した直後に別の日へ動かすと、自動保存を待たずに本文が保存されてから移動する。別の日への移動は、まだ1つの要求になっていない。
+#[test]
+fn text_typed_just_before_a_move_to_another_day_is_saved_before_the_item_moves() {
+    let mut h = harness();
+    h.model.state.add_editing_item("d");
+    h.send(Event::BodyChanged {
+        item_id: "d".into(),
+        body: "typed".into(),
+        now_ms: h.now_ms,
+    });
+    h.send(Event::MoveDown {
+        item_id: "d".into(),
+    });
+    assert_eq!(
+        crate::harness::update_calls(&h.api),
+        [("d".into(), Some("typed".into()))]
+    );
+    let names: Vec<&str> = h.api.calls.iter().map(crate::harness::op_name).collect();
+    let at = |name: &str| names.iter().position(|n| *n == name).unwrap();
+    assert!(at("UpdateItem") < at("MoveItems"), "{names:?}");
+    assert!(
+        h.pending_timer_ids().is_empty(),
+        "the auto-save is not needed any more"
+    );
+}
