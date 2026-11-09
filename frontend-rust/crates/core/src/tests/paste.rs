@@ -171,6 +171,17 @@ fn after_a_failed_paste_the_text_typed_and_not_saved_yet_is_auto_saved_again() {
     assert_eq!(update_calls(&h.api), [("a".into(), Some("typed".into()))]);
 }
 
+// 保存していない文がない項目では、貼り付けに失敗しても何も保存されない。
+#[test]
+fn a_failed_paste_saves_nothing_when_the_item_had_no_unsaved_text() {
+    let mut h = harness();
+    h.api.fail_next("PasteText", "offline");
+    paste(&mut h, "a", "X", 2);
+    h.fire_timers();
+    assert!(update_calls(&h.api).is_empty());
+    assert!(!h.model.edits.dirty_item_ids.contains("a"));
+}
+
 // このアプリからコピーした文は、保存しておいた Flat Markdown として貼り付けられる。
 #[test]
 fn text_copied_from_this_app_is_pasted_as_the_stored_flat_markdown() {
