@@ -3,7 +3,7 @@ import type { Filters } from './tasks';
 interface FilterCheckboxProps {
   label: string;
   checked: boolean;
-  onChange(checked: boolean): void;
+  onChange: (checked: boolean) => void;
 }
 
 function FilterCheckbox({ label, checked, onChange }: FilterCheckboxProps) {
@@ -21,7 +21,7 @@ function FilterCheckbox({ label, checked, onChange }: FilterCheckboxProps) {
 
 interface FilterBarProps {
   filters: Filters;
-  onChange(filters: Filters): void;
+  onChange: (filters: Filters) => void;
 }
 
 /** The controls that choose which tasks are listed. */

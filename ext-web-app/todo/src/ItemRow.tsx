@@ -22,7 +22,7 @@ function ItemDates({ item }: { item: Item }) {
 
 interface ItemRowProps {
   item: Item;
-  onCycle(item: Item): void;
+  onCycle: (item: Item) => void;
 }
 
 /**
