@@ -452,65 +452,6 @@ async fn cycle_task_goes_through_task_running_done_and_back_to_normal() {
     assert!(!normal.properties.contains_key("end"));
 }
 
-// タスク状態の設定は、完了したタスクを元の時刻と予定日ごと元に戻す。
-#[tokio::test]
-async fn set_task_puts_back_a_done_task_with_its_times_and_plan() {
-    let page = new_doc_page("items-task-set").await;
-    let item = fill(&page.id, &["buy milk"]).await.remove(0);
-
-    let (status, resp) = put(
-        &format!("/api/items/{}/task", item.id),
-        json!({
-            "task": true,
-            "begin": "2026-01-02T03:04:05",
-            "end": "2026-01-02T04:05:06",
-            "plan": "2026-01-02",
-        }),
-    )
-    .await;
-
-    assert_eq!(status, 200);
-    let answered = ItemRow::of(&resp["item"]);
-    let stored = items(&page.id).await.remove(0);
-    for row in [answered, stored] {
-        assert!(row.types.contains(&"task".to_string()));
-        assert_eq!(row.properties["begin"], json!("2026-01-02T03:04:05"));
-        assert_eq!(row.properties["end"], json!("2026-01-02T04:05:06"));
-        assert_eq!(row.properties["plan"], json!("2026-01-02"));
-    }
-}
-
-// タスク状態の設定は、指定しなかった時刻と予定日を消し、項目を通常の項目に戻せる。
-#[tokio::test]
-async fn set_task_removes_what_it_is_not_given() {
-    let page = new_doc_page("items-task-unset").await;
-    let item = fill(&page.id, &["buy milk"]).await.remove(0);
-    let path = format!("/api/items/{}/task", item.id);
-    let full = json!({ "task": true, "begin": "b", "end": "e", "plan": "2026-01-02" });
-    assert_eq!(put(&path, full).await.0, 200);
-
-    assert_eq!(put(&path, json!({ "task": false })).await.0, 200);
-
-    let row = items(&page.id).await.remove(0);
-    assert!(!row.types.contains(&"task".to_string()));
-    for key in ["begin", "end", "plan"] {
-        assert!(!row.properties.contains_key(key), "{key} is still there");
-    }
-}
-
-// 通常の項目に時刻は持たせられない。cycle-taskも、そのような状態を作らない。
-#[tokio::test]
-async fn set_task_refuses_times_on_a_normal_item() {
-    let page = new_doc_page("items-task-refuse").await;
-    let item = fill(&page.id, &["buy milk"]).await.remove(0);
-    let path = format!("/api/items/{}/task", item.id);
-
-    for times in [json!({ "begin": "b" }), json!({ "end": "e" })] {
-        assert_eq!(put(&path, times).await.0, 400);
-    }
-    assert!(items(&page.id).await[0].properties.is_empty());
-}
-
 // タスクは型で一覧できる。
 #[tokio::test]
 async fn tasks_can_be_listed_by_type() {
@@ -1327,23 +1268,44 @@ async fn a_batch_update_writes_the_task_state_with_its_times() {
     }
 }
 
-// 通常の項目に時刻を付ける更新は断られ、同じバッチのほかの操作も書かれない。
+// 更新の操作は、指定されなかった時刻と予定日を消し、項目を通常の項目に戻せる。
+#[tokio::test]
+async fn a_batch_update_removes_what_the_task_state_does_not_give() {
+    let page = new_doc_page("items-batch-task-unset").await;
+    let item = fill(&page.id, &["buy milk"]).await.remove(0);
+    let full = json!({ "task": true, "begin": "b", "end": "e", "plan": "2026-01-02" });
+    let (status, resp) = batch(json!([{"op": "update", "id": item.id, "task": full}])).await;
+    assert_eq!(status, 200, "{resp}");
+
+    let (status, resp) =
+        batch(json!([{"op": "update", "id": item.id, "task": {"task": false}}])).await;
+    assert_eq!(status, 200, "{resp}");
+
+    let row = items(&page.id).await.remove(0);
+    assert!(!row.types.contains(&"task".to_string()));
+    for key in ["begin", "end", "plan"] {
+        assert!(!row.properties.contains_key(key), "{key} is still there");
+    }
+}
+
+// 通常の項目に時刻を付ける更新は断られ、同じバッチのほかの操作も書かれない。cycle-taskも、そのような状態を作らない。
 #[tokio::test]
 async fn a_batch_that_gives_times_to_a_normal_item_is_refused_and_writes_nothing() {
     let page = new_doc_page("items-batch-task-refused").await;
     let rows = fill(&page.id, &["first", "second"]).await;
 
-    let (status, _) = batch(json!([
-        {"op": "update", "id": rows[0].id, "body": "changed"},
-        {"op": "update", "id": rows[1].id,
-         "task": {"task": false, "begin": "2026-01-02T03:04:05"}},
-    ]))
-    .await;
+    for times in [json!({ "begin": "b" }), json!({ "end": "e" })] {
+        let (status, _) = batch(json!([
+            {"op": "update", "id": rows[0].id, "body": "changed"},
+            {"op": "update", "id": rows[1].id, "task": times},
+        ]))
+        .await;
+        assert_eq!(status, 400);
+    }
 
-    assert_eq!(status, 400);
     let stored = items(&page.id).await;
     assert_eq!(stored[0].body, "first");
-    assert!(!stored[1].properties.contains_key("begin"));
+    assert!(stored[1].properties.is_empty());
 }
 
 // 操作は並んだ順に行われる。先に作った項目を、後の操作が位置の基準にも更新の相手にもできる。
