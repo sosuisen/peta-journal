@@ -789,23 +789,31 @@ impl ItemService {
         let tx = conn.immediate()?;
         let mut effects = AfterCommit::default();
         let item = find_all_in(&tx, std::slice::from_ref(item_id))?.remove(0);
-        // A transclusion shows its source item: the text that is cut is the text of the
-        // source, and stays on its page
-        let item = match &item.transclude_item_id {
-            // Whether the children are shown is up to the transclusion, not to its source
-            Some(source_id) => Item {
-                collapsed: item.collapsed,
-                ..find_all_in(&tx, std::slice::from_ref(source_id))?.remove(0)
-            },
-            None => item,
-        };
         let on_page = ItemRepository::find_by_page_id_in(&tx, &item.page_id)?;
-        let plan = split::plan(&on_page, &item, body, cursor);
+        let (written, plan) = match &item.transclude_item_id {
+            // A transclusion shows its source item: the text that is cut is the text of
+            // the source
+            Some(source_id) => {
+                let source = find_all_in(&tx, std::slice::from_ref(source_id))?.remove(0);
+                let shown = split::Transclusion {
+                    root: &item,
+                    root_page: &on_page,
+                    source: &source,
+                    source_page: &ItemRepository::find_by_page_id_in(&tx, &source.page_id)?,
+                };
+                let plan = split::plan_of_transclusion(&shown, body, cursor);
+                (source, plan)
+            }
+            None => {
+                let plan = split::plan(&on_page, &item, body, cursor);
+                (item, plan)
+            }
+        };
         let updated =
-            self.update_item_in(&tx, &item, Some(&plan.body), None, None, &mut effects)?;
+            self.update_item_in(&tx, &written, Some(&plan.body), None, None, &mut effects)?;
         let created = self.create_item_in(
             &tx,
-            &item.page_id,
+            &plan.page_id,
             &plan.position,
             plan.level,
             &plan.new_body,

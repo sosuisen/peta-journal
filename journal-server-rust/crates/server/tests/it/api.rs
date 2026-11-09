@@ -1329,7 +1329,7 @@ async fn the_rest_of_a_collapsed_transclusion_goes_after_the_descendants_of_its_
 // 開いているトランスクルージョンを途中で分割すると、元の項目が元のページで折りたたまれていても、後ろの文は元の項目の最初の子になる。子を見せるかどうかは、トランスクルージョンの側で決まる。
 #[tokio::test]
 async fn the_rest_of_an_open_transclusion_is_the_first_child_of_its_source_item() {
-    let (source_page, source, page, own) = transclusion(
+    let (source_page, source, _, own) = transclusion(
         "items-split-copy-open",
         &["top", "  alpha beta", "    child", "  next"],
         1,

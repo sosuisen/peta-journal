@@ -3,6 +3,7 @@
 
 use super::paste::{has_unclosed_code_fence, split_at_char};
 use crate::domain::model::{Item, ItemPosition};
+use hmtid::Hmtid;
 
 /// What to write for a split.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -11,19 +12,77 @@ pub struct SplitPlan {
     pub body: String,
     /// The body of the new item.
     pub new_body: String,
+    /// The page the new item goes on.
+    pub page_id: Hmtid,
     pub position: ItemPosition,
     pub level: i32,
+}
+
+/// A transclusion as its page shows it: the item that transcludes, the item it shows, and
+/// the items of the page of each, in their order.
+pub struct Transclusion<'a> {
+    pub root: &'a Item,
+    pub root_page: &'a [Item],
+    pub source: &'a Item,
+    pub source_page: &'a [Item],
 }
 
 /// Plans the split of `item` at the character `cursor` of `body`, the text an editor has now.
 /// `on_page` holds the items of its page in their order.
 pub fn plan(on_page: &[Item], item: &Item, body: &str, cursor: usize) -> SplitPlan {
-    let mut plan = cut(on_page, item, body, cursor);
-    // A stored body never ends inside a code fence
+    closed(cut(on_page, item, body, cursor))
+}
+
+/// Plans the split of a transclusion at the character `cursor` of `body`, the text its
+/// editor has now. The text is the text of the source item: what is cut off stays on the
+/// page of the source, also where the page of the transclusion does not show it then.
+pub fn plan_of_transclusion(shown: &Transclusion, body: &str, cursor: usize) -> SplitPlan {
+    let (before, after) = split_at_char(body, cursor);
+    let (position, level) = shown.place_of_the_rest();
+    closed(SplitPlan {
+        body: before.to_string(),
+        new_body: after.to_string(),
+        page_id: shown.source.page_id.clone(),
+        position,
+        level,
+    })
+}
+
+impl Transclusion<'_> {
+    /// Where the text cut off the source item goes, on the page of the source.
+    fn place_of_the_rest(&self) -> (ItemPosition, i32) {
+        let source = self.source;
+        let children_of_source = last_descendant(self.source_page, source);
+        if self.root.collapsed {
+            // Not among the children of the source, which the transclusion hides
+            let above = children_of_source.unwrap_or(source);
+            return (ItemPosition::After(above.id.clone()), source.level);
+        }
+        // The children of the source and the own children of the transclusion are both shown
+        // below it: what is cut off goes right below it too, as the first child
+        let shows_children =
+            children_of_source.is_some() || last_descendant(self.root_page, self.root).is_some();
+        let level = source.level + i32::from(shows_children);
+        (ItemPosition::After(source.id.clone()), level)
+    }
+}
+
+/// A stored body never ends inside a code fence.
+fn closed(mut plan: SplitPlan) -> SplitPlan {
     if has_unclosed_code_fence(&plan.body) {
         plan.body.push_str("\n```");
     }
     plan
+}
+
+/// The last of the items below `item` on its page, if it has any.
+fn last_descendant<'a>(on_page: &'a [Item], item: &Item) -> Option<&'a Item> {
+    on_page
+        .iter()
+        .skip_while(|other| other.id != item.id)
+        .skip(1)
+        .take_while(|other| other.level > item.level)
+        .last()
 }
 
 fn cut(on_page: &[Item], item: &Item, body: &str, cursor: usize) -> SplitPlan {
@@ -36,18 +95,13 @@ fn cut(on_page: &[Item], item: &Item, body: &str, cursor: usize) -> SplitPlan {
         return SplitPlan {
             body: body.to_string(),
             new_body: String::new(),
+            page_id: item.page_id.clone(),
             position: above.map_or(ItemPosition::First, |a| ItemPosition::After(a.id.clone())),
             level: item.level,
         };
     }
     let (before, after) = split_at_char(body, cursor);
-    let last_descendant = on_page
-        .iter()
-        .skip_while(|other| other.id != item.id)
-        .skip(1)
-        .take_while(|other| other.level > item.level)
-        .last();
-    let (above, level) = match last_descendant {
+    let (above, level) = match last_descendant(on_page, item) {
         // The new item is not hidden with the children: it goes after them
         Some(last) if item.collapsed => (last, item.level),
         // Right below an open parent is the place of its first child: an item of the
@@ -58,6 +112,7 @@ fn cut(on_page: &[Item], item: &Item, body: &str, cursor: usize) -> SplitPlan {
     SplitPlan {
         body: before.to_string(),
         new_body: after.to_string(),
+        page_id: item.page_id.clone(),
         position: ItemPosition::After(above.id.clone()),
         level,
     }
