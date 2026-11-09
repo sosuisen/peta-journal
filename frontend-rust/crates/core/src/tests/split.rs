@@ -521,6 +521,21 @@ fn the_page_read_again_is_the_page_of_the_transclusion() {
     }
 }
 
+// トランスクルージョンに入力してまだ保存していない文も、分割の要求に入って届く。トランスクルージョンは元の項目の本文を見せ、打った文字は保存されるまで自分で持つ。
+#[test]
+fn text_typed_into_a_transclusion_and_not_saved_yet_travels_in_the_split() {
+    let mut h = transclusion_harness(Vec::new());
+    h.model.state.add_editing_item("root");
+    typed(&mut h, "root", "shown typed");
+    enter(&mut h, "root", "shown ty".len());
+    assert_eq!(
+        split_calls(&h.api),
+        [("root".to_string(), "shown typed".to_string(), 8)]
+    );
+    h.fire_timers();
+    assert!(update_calls(&h.api).is_empty());
+}
+
 // 元の項目が消えた（壊れた）トランスクルージョンでの Enter も、分割としてサーバーに送る。どう分けるかは、サーバーが今のデータで決める。
 #[test]
 fn enter_in_a_broken_transclusion_is_sent_to_the_server_as_a_split() {
