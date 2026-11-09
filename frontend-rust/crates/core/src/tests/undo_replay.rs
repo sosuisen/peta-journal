@@ -507,6 +507,31 @@ fn undo_of_a_move_puts_the_item_back_where_it_was_and_redo_moves_it_again() {
     );
 }
 
+// 子を持つ項目の移動の undo は、まとまりを1つの移動として、上の項目から順にサーバーに送る。親だけを先に動かすと、子が別の親の下に入るためである。
+#[test]
+fn undo_of_a_move_of_a_parent_sends_the_group_as_one_move() {
+    // a and its child a1 went from above b to below it
+    let mut h = Harness::with_items(vec![at("b", "b", 1), at("a", "c", 1), at("a1", "d", 2)]);
+    h.model.undo.record_updates(
+        "move",
+        [
+            (&at("a", "a", 1), &at("a", "c", 1)),
+            (&at("a1", "a5", 2), &at("a1", "d", 2)),
+        ],
+        0,
+    );
+
+    h.send(Event::Undo);
+
+    assert_eq!(h.items_ids(), ["a", "a1", "b"]);
+    let sent = batch_calls(&h.api).remove(0);
+    assert_eq!(
+        sent.last(),
+        Some(&move_op(&["a", "a1"], ItemPosition::First))
+    );
+    assert_eq!(sent.len(), 3, "two updates and one move: {sent:?}");
+}
+
 // undo スタックが空なら何も起きず、保留中の編集もそのままである。
 #[test]
 fn does_nothing_on_an_empty_stack() {
