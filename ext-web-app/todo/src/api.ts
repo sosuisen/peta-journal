@@ -21,7 +21,13 @@ let eventSource: EventSource | null = null;
 let stateCallback: ((state: ConnectionState) => void) | null = null;
 let serverEventCallback: ((data: { pageId: string }) => void) | null = null;
 
-function buildBaseUrl(): string {
+/**
+ * The address of the journal server, from `?host=` and `?port=` of this page.
+ *
+ * The journal server serves the API and the PetaJournal web app at the same address
+ * (ADR 010), so a link to a page starts with this address too.
+ */
+export function buildBaseUrl(): string {
     const params = new URLSearchParams(window.location.search);
     const host = params.get('host') || 'localhost';
     const port = params.get('port') || '8087';
