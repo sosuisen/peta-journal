@@ -1369,6 +1369,33 @@ async fn the_rest_of_a_transclusion_with_own_children_is_the_first_child_of_its_
     );
 }
 
+// トランスクルージョンを行頭で分割すると、空の項目がこのページでその直前に入り、要求が運んできた本文は元の項目に保存される。空の項目は元のページの文を持たないので、このページに置ける。
+#[tokio::test]
+async fn a_split_at_the_start_of_a_transclusion_puts_an_empty_item_above_it_on_its_page() {
+    let (source_page, source, page, own) = transclusion(
+        "items-split-copy-start",
+        &["top", "  alpha"],
+        1,
+        &["above", "  copy"],
+        1,
+    )
+    .await;
+
+    let (status, resp) = split(&own[1].id, "alpha typed", 0).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(resp["item"]["id"], json!(source[1].id));
+    assert_eq!(resp["created"]["pageId"], json!(page.id));
+    assert_eq!(
+        outline_of(&page.id).await,
+        ["1:above", "2:", "2:alpha typed"]
+    );
+    assert_eq!(
+        outline_of(&source_page.id).await,
+        ["1:top", "2:alpha typed"]
+    );
+}
+
 // 行末での分割では、空の項目が直後に入る。
 #[tokio::test]
 async fn a_split_at_the_end_puts_an_empty_item_below() {
