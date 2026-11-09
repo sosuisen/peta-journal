@@ -170,6 +170,11 @@ pub fn show_moved(
         .filter_map(|id| model.state.get_item_by_id(id))
         .map(|item| (*item).clone())
         .collect();
+    if before.len() != moved.len() {
+        // The screen went on to another page while the server was asked
+        model.key_relay.release();
+        return move_done(model, false);
+    }
     let label = if edited.is_some() {
         "move"
     } else {
