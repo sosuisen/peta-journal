@@ -1532,6 +1532,29 @@ async fn a_split_at_the_end_of_the_last_item_a_transclusion_shows_puts_an_empty_
     );
 }
 
+// 見せている最後の項目が折りたたまれていて、その下に隠れた子があっても、行末での分割では空の項目がトランスクルージョンの下に入る。隠れた項目は、見せている項目に数えない。
+#[tokio::test]
+async fn a_collapsed_item_is_the_last_a_transclusion_shows_though_it_hides_children() {
+    let (source_page, source, page, own) = transclusion(
+        "items-split-shown-last-collapsed",
+        &["top", "  alpha", "    child", "      hidden", "  next"],
+        1,
+        &["copy"],
+        0,
+    )
+    .await;
+    collapse(&source[2].id).await;
+
+    let (status, resp) = split_shown_by(&own[0].id, &source[2].id, "child", 5).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(outline_of(&page.id).await, ["1:alpha", "1:"]);
+    assert_eq!(
+        outline_of(&source_page.id).await,
+        ["1:top", "2:alpha", "3:child", "4:hidden", "2:next"]
+    );
+}
+
 // 行末での分割では、空の項目が直後に入る。
 #[tokio::test]
 async fn a_split_at_the_end_puts_an_empty_item_below() {
