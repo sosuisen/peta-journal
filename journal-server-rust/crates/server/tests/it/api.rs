@@ -1453,6 +1453,21 @@ async fn the_clients_hear_of_each_page_of_a_batch_once() {
     }
 }
 
+// トランスクルードされている項目を更新すると、本文が変わらなくても、その写しを見せているページの変更が知らされる。
+#[tokio::test]
+async fn the_clients_hear_of_the_pages_that_transclude_an_item_a_batch_updates() {
+    let (_, source, page, _) = transcluded("items-batch-transcluder", &["buy milk"]).await;
+    let mut events = client().get(url("/api/events")).send().await.unwrap();
+
+    let (status, resp) = batch(json!([
+        {"op": "update", "id": source[0].id, "task": {"task": true}},
+    ]))
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    event_with(&mut events, &format!("\"pageId\":\"{}\"", page.id)).await;
+}
+
 // ---- Items: group delete ----
 
 // グループ削除は、項目を子孫ごと1回のリクエストで消す。
