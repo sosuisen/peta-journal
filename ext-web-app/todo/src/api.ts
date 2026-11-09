@@ -1,106 +1,108 @@
-export type ConnectionState = 'connecting' | 'connected' | 'disconnected' | 'error';
+export type ConnectionState = 'connecting' | 'connected' | 'disconnected';
 
 export interface Item {
-    id: string;
-    pageId: string;
-    dirPath: string;
-    name: string;
-    type: string;
-    createdDate: number;
-    modifiedDate: number;
-    idx: string;
-    level: number;
-    body: string;
-    ast: string;
-    collapsed: boolean;
-    types: string[];
-    properties: Record<string, string | string[]>;
+  id: string;
+  pageId: string;
+  dirPath: string;
+  name: string;
+  type: string;
+  createdDate: number;
+  modifiedDate: number;
+  idx: string;
+  level: number;
+  body: string;
+  ast: string;
+  collapsed: boolean;
+  types: string[];
+  properties: Record<string, string | string[]>;
 }
 
-let eventSource: EventSource | null = null;
-let stateCallback: ((state: ConnectionState) => void) | null = null;
-let serverEventCallback: ((data: { pageId: string }) => void) | null = null;
-
 /**
- * The address of the journal server, from `?host=` and `?port=` of this page.
+ * The address of the journal server, from `?host=` and `?port=` of the page URL.
  *
  * The journal server serves the API and the PetaJournal web app at the same address
  * (ADR 010), so a link to a page starts with this address too.
  */
-export function buildBaseUrl(): string {
-    const params = new URLSearchParams(window.location.search);
-    const host = params.get('host') || 'localhost';
-    const port = params.get('port') || '8087';
-    return `http://${host}:${port}`;
+export function serverUrlFrom(search: string): string {
+  const params = new URLSearchParams(search);
+  const host = params.get('host') || 'localhost';
+  const port = params.get('port') || '8087';
+  return `http://${host}:${port}`;
 }
 
-/** Registers a callback invoked whenever the connection state changes. */
-export function onConnectionStateChange(cb: (state: ConnectionState) => void): void {
-    stateCallback = cb;
+export const serverUrl = serverUrlFrom(window.location.search);
+
+const RETRY_MS = 3000;
+
+export interface ConnectionListener {
+  onStateChange(state: ConnectionState): void;
+  /** A page changed on the server. */
+  onPagesUpdated(): void;
 }
 
-/** Registers a callback invoked when the server pushes a pagesUpdated event. */
-export function onServerEvent(cb: (data: { pageId: string }) => void): void {
-    serverEventCallback = cb;
+/**
+ * Connects to the event stream of the server, and connects again after an error, until the
+ * returned function is called.
+ */
+export function subscribe(listener: ConnectionListener): () => void {
+  let source: EventSource | undefined;
+  let retry: ReturnType<typeof setTimeout> | undefined;
+
+  const connect = () => {
+    listener.onStateChange('connecting');
+    source = new EventSource(`${serverUrl}/api/events`);
+    source.onopen = () => listener.onStateChange('connected');
+    source.onmessage = (event: MessageEvent) => {
+      if (isPagesUpdated(event.data)) listener.onPagesUpdated();
+    };
+    source.onerror = () => {
+      // Without the close the browser would connect again by itself, at times of its own
+      source?.close();
+      listener.onStateChange('disconnected');
+      retry = setTimeout(connect, RETRY_MS);
+    };
+  };
+
+  connect();
+  return () => {
+    clearTimeout(retry);
+    source?.close();
+  };
 }
 
-/** Opens an SSE connection. Resolves when connected. */
-export function connect(): Promise<void> {
-    return new Promise((resolve, reject) => {
-        if (eventSource) {
-            resolve();
-            return;
-        }
-        stateCallback?.('connecting');
-        eventSource = new EventSource(`${buildBaseUrl()}/api/events`);
-
-        eventSource.onopen = () => {
-            stateCallback?.('connected');
-            resolve();
-        };
-
-        eventSource.onmessage = (event: MessageEvent) => {
-            try {
-                const data = JSON.parse(event.data);
-                if (data.type === 'pagesUpdated') {
-                    serverEventCallback?.(data);
-                }
-            } catch {
-                // ignore parse errors
-            }
-        };
-
-        eventSource.onerror = () => {
-            stateCallback?.('error');
-            eventSource?.close();
-            eventSource = null;
-            stateCallback?.('disconnected');
-            reject(new Error('SSE connection error'));
-        };
-    });
+function isPagesUpdated(data: string): boolean {
+  try {
+    return JSON.parse(data).type === 'pagesUpdated';
+  } catch {
+    // The stream also carries data that is not for this app
+    return false;
+  }
 }
 
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
-    const resp = await fetch(`${buildBaseUrl()}${path}`, init);
-    if (!resp.ok) {
-        const text = await resp.text().catch(() => '');
-        throw new Error(text || `HTTP ${resp.status}`);
-    }
-    return await resp.json();
+  const resp = await fetch(`${serverUrl}${path}`, init);
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => '');
+    throw new Error(text || `HTTP ${resp.status}`);
+  }
+  return await resp.json();
 }
 
 /** Fetches all items whose type matches one of the given types. */
 export async function getItemsByTypes(types: string[]): Promise<Item[]> {
-    const data = await fetchJson<{ items: Item[] }>(
-        `/api/items?types=${types.join(',')}`
-    );
-    return data.items;
+  const data = await fetchJson<{ items: Item[] }>(
+    `/api/items?types=${types.join(',')}`,
+  );
+  return data.items;
 }
 
 /** Cycles a task's state via the cycle-task endpoint. */
 export async function cycleTask(itemId: string): Promise<Item> {
-    const data = await fetchJson<{ item: Item }>(`/api/items/${itemId}/cycle-task`, {
-        method: 'POST',
-    });
-    return data.item;
+  const data = await fetchJson<{ item: Item }>(
+    `/api/items/${itemId}/cycle-task`,
+    {
+      method: 'POST',
+    },
+  );
+  return data.item;
 }
