@@ -338,9 +338,14 @@ async fn paste(
 ) -> AppResult<Json<PasteResponse>> {
     let item_id = parse_id(&id)?;
     let mode = match req.mode.as_deref() {
-        Some("raw") => PasteMode::Raw,
+        None | Some("auto") => PasteMode::Auto,
         Some("flat") => PasteMode::Flat,
-        _ => PasteMode::Auto,
+        Some("raw") => PasteMode::Raw,
+        Some(other) => {
+            return Err(AppError::bad_request(format!(
+                "mode must be auto, flat or raw, but was {other}"
+            )))
+        }
     };
     blocking(move || {
         let pasted = state.item_service.paste(
