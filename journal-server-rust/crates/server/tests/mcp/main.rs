@@ -361,8 +361,8 @@ async fn the_clients_hear_of_each_change_of_an_item_over_mcp() {
     }
 }
 
-/// A page with one item, and another page whose only item transcludes it.
-async fn transcluded(mcp: &Mcp, name: &str) -> (ItemRow, PageRef) {
+/// An item, its page, and another page whose only item transcludes the item.
+async fn transcluded(mcp: &Mcp, name: &str) -> (ItemRow, PageRef, PageRef) {
     let source_page = new_doc_page(&format!("{name}-source")).await;
     let source = fill(&source_page.id, &["the source"]).await.remove(0);
     let page = new_doc_page(name).await;
@@ -373,14 +373,14 @@ async fn transcluded(mcp: &Mcp, name: &str) -> (ItemRow, PageRef) {
         json!({ "itemId": host.id, "sourceItemId": source.id }),
     )
     .await;
-    (source, page)
+    (source, source_page, page)
 }
 
 // トランスクルードされている項目を変えると、その写しを見せているページの変更も知らされる。
 #[tokio::test]
 async fn the_clients_hear_of_the_pages_that_transclude_an_item_updated_over_mcp() {
     let mcp = connect().await;
-    let (source, page) = transcluded(&mcp, "mcp-tell-transcluder").await;
+    let (source, _, page) = transcluded(&mcp, "mcp-tell-transcluder").await;
     let mut events = listen().await;
 
     call(
@@ -391,6 +391,22 @@ async fn the_clients_hear_of_the_pages_that_transclude_an_item_updated_over_mcp(
     .await;
 
     assert_eq!(told_of(&mut events, &page.id).await["source"], "mcp");
+}
+
+// 項目を消すと、その項目があったページと、その写しを見せていたページの変更が知らされる。
+#[tokio::test]
+async fn the_clients_hear_of_the_pages_that_showed_an_item_deleted_over_mcp() {
+    let mcp = connect().await;
+    let (source, source_page, page) = transcluded(&mcp, "mcp-tell-delete").await;
+    let mut of_its_page = listen().await;
+    let mut of_the_transcluder = listen().await;
+
+    call(&mcp, "delete_item", json!({ "itemId": source.id })).await;
+
+    let its_page = told_of(&mut of_its_page, &source_page.id).await;
+    let transcluder = told_of(&mut of_the_transcluder, &page.id).await;
+    assert_eq!(its_page["source"], "mcp");
+    assert_eq!(transcluder["source"], "mcp");
 }
 
 // ---- Pages ----
