@@ -4,7 +4,7 @@ use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
-use axum::{Json, Router};
+use axum::{Extension, Json, Router};
 use hmtid::Hmtid;
 use serde::{Deserialize, Serialize};
 
@@ -378,7 +378,7 @@ fn broadcast_to_transcluders(
 
 async fn create_item(
     State(state): State<SharedState>,
-    client: ClientId,
+    Extension(client): Extension<ClientId>,
     Json(req): Json<CreateItemRequest>,
 ) -> AppResult<Json<ItemResponse>> {
     let page_id = parse_id(required(req.page_id.as_deref(), "pageId")?)?;
@@ -421,7 +421,7 @@ async fn get_item(
 
 async fn update_item(
     State(state): State<SharedState>,
-    client: ClientId,
+    Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
     Json(req): Json<UpdateItemRequest>,
 ) -> AppResult<Json<ItemResponse>> {
@@ -443,7 +443,7 @@ async fn update_item(
 
 async fn paste(
     State(state): State<SharedState>,
-    client: ClientId,
+    Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
     Json(req): Json<PasteRequest>,
 ) -> AppResult<Json<PasteResponse>> {
@@ -485,7 +485,7 @@ async fn paste(
 
 async fn split(
     State(state): State<SharedState>,
-    client: ClientId,
+    Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
     Json(req): Json<SplitRequest>,
 ) -> AppResult<Json<SplitResponse>> {
@@ -511,7 +511,7 @@ async fn split(
 
 async fn apply_batch(
     State(state): State<SharedState>,
-    client: ClientId,
+    Extension(client): Extension<ClientId>,
     Json(req): Json<BatchRequest>,
 ) -> AppResult<Json<ItemsResponse>> {
     let ops = req
@@ -531,7 +531,7 @@ async fn apply_batch(
 
 async fn delete_items(
     State(state): State<SharedState>,
-    client: ClientId,
+    Extension(client): Extension<ClientId>,
     Json(req): Json<DeleteItemsRequest>,
 ) -> AppResult<StatusCode> {
     let item_ids = parse_ids(req.item_ids, "itemIds")?;
@@ -561,7 +561,7 @@ fn delete_and_tell(
 
 async fn merge_items(
     State(state): State<SharedState>,
-    client: ClientId,
+    Extension(client): Extension<ClientId>,
     Json(req): Json<MergeItemsRequest>,
 ) -> AppResult<Json<ItemResponse>> {
     let item_id = parse_id(req.item_id.as_deref().unwrap_or(""))?;
@@ -612,7 +612,7 @@ async fn transcluded_items(
 
 async fn delete_item(
     State(state): State<SharedState>,
-    client: ClientId,
+    Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
 ) -> AppResult<StatusCode> {
     let item_id = parse_id(&id)?;
@@ -621,7 +621,7 @@ async fn delete_item(
 
 async fn set_transclusion(
     State(state): State<SharedState>,
-    client: ClientId,
+    Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
     Json(req): Json<SetTransclusionRequest>,
 ) -> AppResult<Json<ItemResponse>> {
@@ -639,7 +639,7 @@ async fn set_transclusion(
 
 async fn remove_transclusion(
     State(state): State<SharedState>,
-    client: ClientId,
+    Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
 ) -> AppResult<Json<ItemResponse>> {
     let item_id = parse_id(&id)?;
@@ -670,7 +670,7 @@ async fn get_items_by_types(
 
 async fn cycle_task(
     State(state): State<SharedState>,
-    client: ClientId,
+    Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
 ) -> AppResult<Json<ItemResponse>> {
     let item_id = parse_id(&id)?;
@@ -686,7 +686,7 @@ async fn cycle_task(
 
 async fn move_items(
     State(state): State<SharedState>,
-    client: ClientId,
+    Extension(client): Extension<ClientId>,
     Json(req): Json<MoveItemsRequest>,
 ) -> AppResult<Json<ItemsResponse>> {
     let position = parse_position(req.position.as_deref())?;
@@ -712,7 +712,7 @@ async fn move_items(
 /// arrive out of order still add up correctly.
 async fn shift_levels(
     State(state): State<SharedState>,
-    client: ClientId,
+    Extension(client): Extension<ClientId>,
     Json(req): Json<ShiftLevelsRequest>,
 ) -> AppResult<Json<ItemsResponse>> {
     let ids = parse_ids(req.item_ids, "itemIds")?;
@@ -736,7 +736,7 @@ async fn shift_levels(
 
 async fn upsert_property(
     State(state): State<SharedState>,
-    client: ClientId,
+    Extension(client): Extension<ClientId>,
     Path((id, key)): Path<(String, String)>,
     Json(req): Json<UpsertPropertyRequest>,
 ) -> AppResult<Json<ItemResponse>> {
@@ -759,7 +759,7 @@ async fn upsert_property(
 
 async fn delete_property(
     State(state): State<SharedState>,
-    client: ClientId,
+    Extension(client): Extension<ClientId>,
     Path((id, key)): Path<(String, String)>,
 ) -> AppResult<Json<ItemResponse>> {
     let item_id = parse_id(&id)?;

@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use axum::extract::{Path, State};
 use axum::routing::{delete, get, post};
-use axum::{Json, Router};
+use axum::{Extension, Json, Router};
 use serde::{Deserialize, Serialize};
 
 use crate::application::folder_chooser;
@@ -134,7 +134,7 @@ async fn add_property_definition(
 /// SSE, so an open page drops the property without a reload.
 async fn delete_property_definition(
     State(state): State<SharedState>,
-    client: ClientId,
+    Extension(client): Extension<ClientId>,
     Path(key): Path<String>,
 ) -> AppResult<Json<PropertyDefinitionsResponse>> {
     blocking(move || {

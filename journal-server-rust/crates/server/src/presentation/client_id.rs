@@ -2,8 +2,6 @@
 
 use std::str::FromStr;
 
-use axum::extract::FromRequestParts;
-use axum::http::request::Parts;
 use axum::http::HeaderMap;
 
 use crate::error::{AppError, AppResult};
@@ -16,6 +14,9 @@ pub const HEADER: &str = "x-client-id";
 ///
 /// It only tells the clients apart: anyone can send any ID, so it proves nothing about who
 /// the client is.
+///
+/// The middleware of the REST API reads it from the header and puts it on the request. A
+/// handler that tells the other clients of its change takes it as `Extension<ClientId>`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ClientId(String);
 
@@ -48,19 +49,6 @@ impl FromStr for ClientId {
                  like 123e4567-e89b-42d3-a456-426614174000",
             )),
         }
-    }
-}
-
-/// A handler that takes this tells the other clients who made its change. The ID is the one
-/// that the middleware of the REST API read from the header.
-impl<S: Send + Sync> FromRequestParts<S> for ClientId {
-    type Rejection = AppError;
-
-    async fn from_request_parts(parts: &mut Parts, _state: &S) -> AppResult<ClientId> {
-        parts.extensions.get::<ClientId>().cloned().ok_or_else(|| {
-            // Only a GET gets here: the middleware lets no other method through without an ID
-            AppError::internal("A route that tells of a change must be a POST, a PUT or a DELETE")
-        })
     }
 }
 

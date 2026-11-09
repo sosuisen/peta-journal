@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::routing::{get, post};
-use axum::{Json, Router};
+use axum::{Extension, Json, Router};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
@@ -134,7 +134,7 @@ async fn get_or_create_doc(
 
 async fn update_page(
     State(state): State<SharedState>,
-    client: ClientId,
+    Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
     Json(req): Json<UpdatePageRequest>,
 ) -> AppResult<Json<UpdatePageResponse>> {
@@ -159,7 +159,7 @@ async fn update_page(
 
 async fn upsert_property(
     State(state): State<SharedState>,
-    client: ClientId,
+    Extension(client): Extension<ClientId>,
     Path((id, key)): Path<(String, String)>,
     Json(req): Json<UpsertPropertyRequest>,
 ) -> AppResult<Json<UpdatePageResponse>> {
@@ -188,7 +188,7 @@ async fn upsert_property(
 
 async fn delete_property(
     State(state): State<SharedState>,
-    client: ClientId,
+    Extension(client): Extension<ClientId>,
     Path((id, key)): Path<(String, String)>,
 ) -> AppResult<Json<UpdatePageResponse>> {
     let page_id = parse_id(&id)?;
@@ -204,7 +204,7 @@ async fn delete_property(
 
 async fn delete_page(
     State(state): State<SharedState>,
-    client: ClientId,
+    Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
 ) -> AppResult<StatusCode> {
     let page_id = parse_id(&id)?;
