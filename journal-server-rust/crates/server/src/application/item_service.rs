@@ -674,7 +674,7 @@ impl ItemService {
         let levels: Vec<i32> = split_text
             .items
             .iter()
-            .map(|piece| piece.level - top_level)
+            .map(|piece| (piece.level - top_level).max(0))
             .collect();
         let mut pieces: Vec<String> = split_text
             .items
