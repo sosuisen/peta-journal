@@ -345,15 +345,21 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
         ),
         ApiOp::SplitItem {
             item_id,
-            root_id: _,
+            root_id,
             body,
             cursor,
-        } => call(
-            "POST",
-            format!("/api/items/{item_id}/split"),
-            Some(json!({ "body": body, "cursor": cursor })),
-            |reply| parsed(reply).map(|split| ApiOutput::Split(Box::new(split))),
-        ),
+        } => {
+            let mut request = json!({ "body": body, "cursor": cursor });
+            if let Some(root_id) = root_id {
+                request["rootId"] = json!(root_id);
+            }
+            call(
+                "POST",
+                format!("/api/items/{item_id}/split"),
+                Some(request),
+                |reply| parsed(reply).map(|split| ApiOutput::Split(Box::new(split))),
+            )
+        }
         ApiOp::ApplyBatch { ops } => call(
             "POST",
             "/api/items/batch",
