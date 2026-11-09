@@ -26,6 +26,15 @@ fn send_paste(h: &mut Harness, item_id: &str, text: &str, cursor: usize, raw: bo
     });
 }
 
+fn typed(h: &mut Harness, item_id: &str, body: &str) {
+    let now = h.now_ms;
+    h.send(Event::BodyChanged {
+        item_id: item_id.into(),
+        body: body.into(),
+        now_ms: now,
+    });
+}
+
 /// Makes the server answer the next paste with these items and this cursor.
 fn answer_paste(h: &mut Harness, items: Vec<Item>, cursor_item_id: &str, position: usize) {
     let pasted = Pasted {
@@ -130,6 +139,25 @@ fn a_failed_paste_changes_neither_the_screen_nor_the_undo_history() {
     paste(&mut h, "a", "one\ntwo", 2);
     assert_eq!(h.bodies(), ["a=ab|cd", "z=body of z"]);
     assert!(!h.model.undo.can_undo());
+}
+
+// 入力してまだ保存していない文は、貼り付けの要求に入って届く。その自動保存は取り消される。
+#[test]
+fn text_typed_and_not_saved_yet_travels_in_the_paste_and_its_auto_save_is_cancelled() {
+    let mut h = harness();
+    typed(&mut h, "a", "typed");
+    paste(&mut h, "a", "X", 5);
+    h.fire_timers();
+    assert_eq!(
+        h.api.calls,
+        [ApiOp::PasteText {
+            item_id: "a".into(),
+            body: "typed".into(),
+            cursor: 5,
+            text: "X".into(),
+            mode: PasteMode::Auto,
+        }]
+    );
 }
 
 // このアプリからコピーした文は、保存しておいた Flat Markdown として貼り付けられる。
