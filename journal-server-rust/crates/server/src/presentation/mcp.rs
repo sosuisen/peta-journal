@@ -410,9 +410,12 @@ impl JournalMcp {
             Some(s) => Some(s == "true"),
         };
         let item = run(move || {
-            state
-                .item_service
-                .update_item(&item_id, a.body.as_deref(), level, collapsed)
+            let item =
+                state
+                    .item_service
+                    .update_item(&item_id, a.body.as_deref(), level, collapsed)?;
+            tell(&state, item.page_id.as_str());
+            Ok(item)
         })
         .await?;
         ok(json!({ "item": item_json(&item) }))
@@ -500,7 +503,12 @@ impl JournalMcp {
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let item_id = id(&a.item_id)?;
-        let dto = run(move || state.dtos.to_dto(&state.item_service.cycle_task(&item_id)?)).await?;
+        let dto = run(move || {
+            let item = state.item_service.cycle_task(&item_id)?;
+            tell(&state, item.page_id.as_str());
+            state.dtos.to_dto(&item)
+        })
+        .await?;
         ok(json!({ "item": item_dto_json(&dto) }))
     }
 
@@ -515,9 +523,9 @@ impl JournalMcp {
         let item_id = id(&a.item_id)?;
         let source = id(&a.source_item_id)?;
         let dto = run(move || {
-            state
-                .dtos
-                .to_dto(&state.item_service.set_transclusion(&item_id, &source)?)
+            let item = state.item_service.set_transclusion(&item_id, &source)?;
+            tell(&state, item.page_id.as_str());
+            state.dtos.to_dto(&item)
         })
         .await?;
         ok(json!({ "item": item_dto_json(&dto) }))
@@ -531,9 +539,9 @@ impl JournalMcp {
         let state = Arc::clone(&self.state);
         let item_id = id(&a.item_id)?;
         let dto = run(move || {
-            state
-                .dtos
-                .to_dto(&state.item_service.remove_transclusion(&item_id)?)
+            let item = state.item_service.remove_transclusion(&item_id)?;
+            tell(&state, item.page_id.as_str());
+            state.dtos.to_dto(&item)
         })
         .await?;
         ok(json!({ "item": item_dto_json(&dto) }))
@@ -553,6 +561,7 @@ impl JournalMcp {
                 state
                     .item_service
                     .set_property(&item_id, &a.key, &a.value_type, &a.value)?;
+            tell(&state, item.page_id.as_str());
             state.dtos.to_dto(&item)
         })
         .await?;
