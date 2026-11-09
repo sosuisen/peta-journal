@@ -71,6 +71,10 @@ pub enum ApiOp {
     MergeItems {
         item_id: String,
         into_id: String,
+        /// The body an editor has now for the item that goes away, when it is not saved yet.
+        body: Option<String>,
+        /// The same for the item that takes the text.
+        into_body: Option<String>,
     },
     /// Pastes `text` at the character `cursor` of `body`, the body the item has on screen. The
     /// server cuts the text into items and writes them all, or none.
@@ -619,11 +623,19 @@ impl<Event: Send + 'static> Api<Event> {
         self.call(ApiOp::DeleteItems { item_ids }).await.map(|_| ())
     }
 
-    pub async fn merge_items(&self, item_id: &str, into_id: &str) -> ApiResult<Item> {
+    pub async fn merge_items(
+        &self,
+        item_id: &str,
+        into_id: &str,
+        body: Option<&str>,
+        into_body: Option<&str>,
+    ) -> ApiResult<Item> {
         expect_output!(
             self.call(ApiOp::MergeItems {
                 item_id: item_id.into(),
                 into_id: into_id.into(),
+                body: body.map(Into::into),
+                into_body: into_body.map(Into::into),
             })
             .await,
             Item

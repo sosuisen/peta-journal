@@ -325,12 +325,21 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             Some(json!({ "itemIds": item_ids })),
             done,
         ),
-        ApiOp::MergeItems { item_id, into_id } => call(
-            "POST",
-            "/api/items/merge",
-            Some(json!({ "itemId": item_id, "intoId": into_id })),
-            item,
-        ),
+        ApiOp::MergeItems {
+            item_id,
+            into_id,
+            body,
+            into_body,
+        } => {
+            let mut request = json!({ "itemId": item_id, "intoId": into_id });
+            if let Some(body) = body {
+                request["body"] = json!(body);
+            }
+            if let Some(into_body) = into_body {
+                request["intoBody"] = json!(into_body);
+            }
+            call("POST", "/api/items/merge", Some(request), item)
+        }
         ApiOp::PasteText {
             item_id,
             body,

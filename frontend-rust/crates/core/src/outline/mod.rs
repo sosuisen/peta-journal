@@ -19,9 +19,9 @@ pub struct KeyRelay {
 }
 
 impl KeyRelay {
-    /// Starts holding keys until the next editor is focused.
+    /// Starts holding keys until the next editor is focused. Keys already held stay.
     pub fn hold_until_focus(&mut self) {
-        self.held = Some(Vec::new());
+        self.held.get_or_insert_with(Vec::new);
     }
 
     pub fn is_holding(&self) -> bool {
