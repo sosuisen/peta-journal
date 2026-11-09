@@ -60,6 +60,14 @@ pub struct Pasted {
 /// One operation of a batch.
 #[derive(Debug, Clone)]
 pub enum BatchOp {
+    /// Makes an item with the given id, as the undo of a deletion makes the item again.
+    Create {
+        id: Hmtid,
+        page_id: Hmtid,
+        position: ItemPosition,
+        level: i32,
+        body: String,
+    },
     /// Writes the given fields of an item.
     Update {
         id: Hmtid,
@@ -732,6 +740,24 @@ impl ItemService {
         let mut written = Vec::new();
         for op in ops {
             match op {
+                BatchOp::Create {
+                    id,
+                    page_id,
+                    position,
+                    level,
+                    body,
+                } => {
+                    self.create_item_in(
+                        &tx,
+                        page_id,
+                        position,
+                        *level,
+                        body,
+                        Some(id.clone()),
+                        &mut effects,
+                    )?;
+                    written.push(id.clone());
+                }
                 BatchOp::Update {
                     id,
                     body,

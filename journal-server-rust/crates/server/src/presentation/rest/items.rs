@@ -98,6 +98,15 @@ struct BatchRequest {
 #[derive(Deserialize)]
 #[serde(tag = "op", rename_all = "camelCase")]
 enum BatchOpRequest {
+    #[serde(rename_all = "camelCase")]
+    Create {
+        id: String,
+        page_id: String,
+        position: String,
+        level: i32,
+        #[serde(default)]
+        body: String,
+    },
     Update {
         id: String,
         body: Option<String>,
@@ -109,6 +118,19 @@ enum BatchOpRequest {
 impl BatchOpRequest {
     fn parse(self) -> AppResult<BatchOp> {
         Ok(match self {
+            BatchOpRequest::Create {
+                id,
+                page_id,
+                position,
+                level,
+                body,
+            } => BatchOp::Create {
+                id: parse_id(&id)?,
+                page_id: parse_id(&page_id)?,
+                position: parse_position(Some(&position))?,
+                level,
+                body,
+            },
             BatchOpRequest::Update {
                 id,
                 body,
