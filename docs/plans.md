@@ -90,7 +90,7 @@
   - [ ] TypeScript 7.1でAPIが戻り、typescript-eslintが対応したら、`typescript`の別名をやめて7だけにする
   - [x] `npm audit fix`で、開発用の依存（vite、postcssなど）の7件を直す
   - [ ] `npm audit`に残る中程度の10件は、どれもESLintとtypescript-eslintが使うminimatch 10が原因である。両方がminimatch 11に移ったら、更新して消す。`overrides`では上げない。11はAPIを削っており、ESLintが対応を確かめていないため
-  - [ ] CIに`ext-web-app/todo`のジョブ（整形の検査、lint、テスト、ビルド）を足すかを決める（ユーザーが決める）
+  - [x] CIに`ext-web-app/todo`のジョブ（整形の検査、lint、テスト、ビルド）を足す。Nodeは24である
 - [ ] Emacs版に、Web版にある機能を足す
   - 項目の操作
     - [ ] ウィキリンクの補完。毎日使うので、最初の候補である
