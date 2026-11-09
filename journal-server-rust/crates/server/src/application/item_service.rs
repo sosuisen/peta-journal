@@ -76,6 +76,12 @@ pub enum BatchOp {
         collapsed: Option<bool>,
         task: Option<TaskState>,
     },
+    /// Moves items, in their order, to a position on a page: the undo of a move.
+    Move {
+        ids: Vec<Hmtid>,
+        page_id: Hmtid,
+        position: ItemPosition,
+    },
     /// Deletes an item. The deletes of a batch go last, as one group.
     Delete { id: Hmtid },
 }
@@ -444,16 +450,33 @@ impl ItemService {
         // the same snapshot of a page
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
-        PageRepository::find_by_id_in(&tx, target_page_id)?.ok_or_else(|| {
+        let mut effects = AfterCommit::default();
+        self.move_items_in(&tx, item_ids, target_page_id, position, delta, &mut effects)?;
+        let moved = find_all_in(&tx, item_ids)?;
+        tx.commit()?;
+        self.finish(effects);
+        Ok(moved)
+    }
+
+    /// Moves items inside a transaction, with the pages to tell and to export in `effects`.
+    fn move_items_in(
+        &self,
+        tx: &Connection,
+        item_ids: &[Hmtid],
+        target_page_id: &Hmtid,
+        position: &ItemPosition,
+        delta: i32,
+        effects: &mut AfterCommit,
+    ) -> AppResult<()> {
+        PageRepository::find_by_id_in(tx, target_page_id)?.ok_or_else(|| {
             AppError::bad_request(format!("Target page not found: {target_page_id}"))
         })?;
-        let moving = find_all_in(&tx, item_ids)?;
-        let mut effects = AfterCommit::default();
+        let moving = find_all_in(tx, item_ids)?;
         effects.pages.insert(target_page_id.clone());
         effects
             .pages
             .extend(moving.iter().map(|item| item.page_id.clone()));
-        let mut staying = items_staying_on_in(&tx, target_page_id, item_ids)?;
+        let mut staying = items_staying_on_in(tx, target_page_id, item_ids)?;
         validate_levels(&moving, delta, find_anchor(&staying, position)?)?;
 
         let new_idxs = match plan_indices(&staying, position, moving.len()) {
@@ -461,9 +484,9 @@ impl ItemService {
             Err(PlanError::Invalid(msg)) => return Err(AppError::bad_request(msg)),
             Err(PlanError::NoGap) => {
                 // No room left in the gap: reindex the page and plan again
-                let all = ItemRepository::find_by_page_id_in(&tx, target_page_id)?;
-                reindex_page(&tx, target_page_id, &all)?;
-                staying = items_staying_on_in(&tx, target_page_id, item_ids)?;
+                let all = ItemRepository::find_by_page_id_in(tx, target_page_id)?;
+                reindex_page(tx, target_page_id, &all)?;
+                staying = items_staying_on_in(tx, target_page_id, item_ids)?;
                 plan_indices(&staying, position, moving.len()).map_err(|e| match e {
                     PlanError::Invalid(msg) => AppError::bad_request(msg),
                     PlanError::NoGap => AppError::internal("No index available"),
@@ -479,22 +502,19 @@ impl ItemService {
             })
             .collect();
         let now = now_millis();
-        ItemRepository::move_items_in(&tx, target_page_id, &placements, delta, now)?;
+        ItemRepository::move_items_in(tx, target_page_id, &placements, delta, now)?;
         if placements
             .iter()
             .any(|p| p.idx.len() > fractional_index::MAX_LEN)
         {
-            shorten_indices_in(&tx, target_page_id)?;
+            shorten_indices_in(tx, target_page_id)?;
         }
         // The pages the items left need new parents and a new export too
         for page_id in &effects.pages {
-            ItemRepository::recalculate_parent_ids_in(&tx, page_id)?;
-            PageRepository::touch_in(&tx, page_id, now)?;
+            ItemRepository::recalculate_parent_ids_in(tx, page_id)?;
+            PageRepository::touch_in(tx, page_id, now)?;
         }
-        let moved = find_all_in(&tx, item_ids)?;
-        tx.commit()?;
-        self.finish(effects);
-        Ok(moved)
+        Ok(())
     }
 
     /// Deletes an item together with its properties and removes it from the search index.
@@ -808,6 +828,14 @@ impl ItemService {
                             .map(|transcluder| transcluder.page_id),
                     );
                     written.push(id.clone());
+                }
+                BatchOp::Move {
+                    ids,
+                    page_id,
+                    position,
+                } => {
+                    self.move_items_in(&tx, ids, page_id, position, 0, &mut effects)?;
+                    written.extend(ids.iter().cloned());
                 }
                 BatchOp::Delete { id } => deleted.push(id.clone()),
             }
