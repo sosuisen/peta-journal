@@ -473,6 +473,21 @@ async fn the_body_a_move_of_a_transclusion_carries_is_saved_to_its_source_item()
     );
 }
 
+// 移動の要求の本文のコードフェンスが閉じていなければ、閉じて保存される。保存された本文は、コードフェンスの途中で終わらない。
+#[tokio::test]
+async fn a_move_closes_an_open_code_fence_in_the_body_it_carries() {
+    let page = new_doc_page("items-move-fence").await;
+    let rows = fill(&page.id, &["a", "b"]).await;
+
+    let (status, resp) = move_edited(&[&rows[1].id], &page.id, "first", "```js\ncode").await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(
+        field_of_each(&resp, "items", "body"),
+        vec![json!("```js\ncode\n```")]
+    );
+}
+
 // ---- Items: tasks ----
 
 // cycle-taskは、タスク、実行中、完了を経て通常の項目に戻る。
