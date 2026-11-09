@@ -1,7 +1,7 @@
-//! Replays the entries recorded in the undo stacks, ported from `undo-replay.service.ts`:
-//! applies them to the outline state, restores the cursor, and then brings the server up to
-//! date in the background. Server errors are logged; the screen already shows the replayed
-//! state.
+//! Replays the entries recorded in the undo stacks: applies them to the outline state,
+//! restores the cursor, and then brings the server up to date with one request (ADR 011). The
+//! screen shows the replayed state at once; when the server refuses the request, the page is
+//! read again.
 
 use crate::app::{done, log_error, run, Cmd, Event, Model};
 use crate::model::{BatchOp, Item};

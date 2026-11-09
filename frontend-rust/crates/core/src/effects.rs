@@ -3,7 +3,7 @@
 
 use crate::model::{
     BacklinkEntry, BatchOp, DeferredKey, Item, ItemPosition, JournalBefore, Page, PageWithItems,
-    PasteMode, Pasted, PropertyDefinition, SearchResult, ServerConfig, TaskState, TreeExport,
+    PasteMode, Pasted, PropertyDefinition, SearchResult, ServerConfig, TreeExport,
 };
 use crate::util::date::LocalDateTime;
 use crux_core::capability::Operation;
@@ -88,11 +88,6 @@ pub enum ApiOp {
     },
     CycleTask {
         item_id: String,
-    },
-    /// Puts an item in a task state, as the undo of a task cycle needs.
-    SetTask {
-        item_id: String,
-        state: TaskState,
     },
     UpsertItemProperty {
         item_id: String,
@@ -663,17 +658,6 @@ impl<Event: Send + 'static> Api<Event> {
         expect_output!(
             self.call(ApiOp::CycleTask {
                 item_id: item_id.into()
-            })
-            .await,
-            Item
-        )
-    }
-
-    pub async fn set_task(&self, item_id: &str, state: TaskState) -> ApiResult<Item> {
-        expect_output!(
-            self.call(ApiOp::SetTask {
-                item_id: item_id.into(),
-                state,
             })
             .await,
             Item

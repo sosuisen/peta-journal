@@ -133,14 +133,6 @@ fn every_operation_goes_to_its_endpoint() {
             "/api/items/a/cycle-task",
         ),
         (
-            ApiOp::SetTask {
-                item_id: id("a"),
-                state: TaskState::default(),
-            },
-            "PUT",
-            "/api/items/a/task",
-        ),
-        (
             ApiOp::UpsertItemProperty {
                 item_id: id("a"),
                 key: key.clone(),
@@ -609,25 +601,6 @@ fn the_encoding_leaves_the_same_marks_as_encode_uri_component() {
     })
     .request;
     assert_eq!(request.path, "/api/journals/-_.!~*'()%2F%3F%23");
-}
-
-// タスク状態は、サーバーが読む形の JSON で送られる。
-#[test]
-fn a_task_state_goes_as_the_json_the_server_reads() {
-    let request = call(ApiOp::SetTask {
-        item_id: id("a"),
-        state: TaskState {
-            task: true,
-            begin: Some("b".into()),
-            end: None,
-            plan: Some("p".into()),
-        },
-    })
-    .request;
-    assert_eq!(
-        request.body,
-        Some(json!({ "task": true, "begin": "b", "end": null, "plan": "p" }))
-    );
 }
 
 // プロパティの名前もエンコードされる。

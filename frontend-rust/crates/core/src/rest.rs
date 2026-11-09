@@ -355,12 +355,6 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             None,
             item,
         ),
-        ApiOp::SetTask { item_id, state } => call(
-            "PUT",
-            format!("/api/items/{item_id}/task"),
-            Some(json!(state)),
-            item,
-        ),
         ApiOp::UpsertItemProperty {
             item_id,
             key,
