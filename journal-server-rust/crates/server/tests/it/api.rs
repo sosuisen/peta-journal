@@ -1636,6 +1636,68 @@ async fn a_split_is_refused_when_the_transclusion_named_does_not_show_the_item()
     assert_eq!(outline_of(&page.id).await, ["1:alpha"]);
 }
 
+// トランスクルージョンでない項目を、見せているトランスクルージョンとして名指しした分割は断られる。
+#[tokio::test]
+async fn a_split_is_refused_when_the_item_named_as_the_transclusion_is_not_one() {
+    let page = new_doc_page("items-split-shown-plain").await;
+    let rows = fill(&page.id, &["plain", "  child"]).await;
+
+    let (status, resp) = split_shown_by(&rows[0].id, &rows[1].id, "child", 5).await;
+
+    assert_eq!(status, 400, "{resp}");
+    assert_eq!(outline_of(&page.id).await, ["1:plain", "2:child"]);
+}
+
+/// How often each of the pages was reported as changed, from now until `act` is through
+async fn times_told<F: std::future::Future<Output = ()>>(pages: &[&PageRef], act: F) -> Vec<usize> {
+    let after = new_doc_page("items-told-after").await;
+    let mut events = client().get(url("/api/events")).send().await.unwrap();
+    act.await;
+    // The events come in order: what is read up to this one holds all those of the act
+    create_item(&after.id, "last", 1, "after the act").await;
+    let seen = events_until(&mut events, &format!("\"pageId\":\"{}\"", after.id)).await;
+    pages
+        .iter()
+        .map(|page| seen.matches(&format!("\"pageId\":\"{}\"", page.id)).count())
+        .collect()
+}
+
+// トランスクルージョンを途中で分割すると、元のページとトランスクルージョンのページの変更が、1回ずつクライアントに知らされる。
+#[tokio::test]
+async fn the_clients_hear_once_of_each_page_when_a_transclusion_is_split() {
+    let (source_page, _, page, own) =
+        transclusion("items-split-copy-event", &["alpha beta"], 0, &["copy"], 0).await;
+
+    let told = times_told(&[&source_page, &page], async {
+        let (status, resp) = split(&own[0].id, "alpha beta", 6).await;
+        assert_eq!(status, 200, "{resp}");
+    })
+    .await;
+
+    assert_eq!(told, [1, 1]);
+}
+
+// 見せている最後の項目を行末で分割すると、空の項目が入るトランスクルージョンのページの変更も知らされる。
+#[tokio::test]
+async fn the_clients_hear_of_the_page_of_the_transclusion_when_the_empty_item_goes_below_it() {
+    let (source_page, source, page, own) = transclusion(
+        "items-split-shown-event",
+        &["alpha", "  child"],
+        0,
+        &["copy"],
+        0,
+    )
+    .await;
+
+    let told = times_told(&[&source_page, &page], async {
+        let (status, resp) = split_shown_by(&own[0].id, &source[1].id, "child", 5).await;
+        assert_eq!(status, 200, "{resp}");
+    })
+    .await;
+
+    assert_eq!(told, [1, 1]);
+}
+
 // 行末での分割では、空の項目が直後に入る。
 #[tokio::test]
 async fn a_split_at_the_end_puts_an_empty_item_below() {
