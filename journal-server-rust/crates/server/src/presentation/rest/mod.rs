@@ -44,12 +44,15 @@ pub fn router() -> Router<SharedState> {
 
 /// Refuses a request that may change something when its client does not name itself
 /// (ADR-015). The method alone decides, so a POST that only reads needs the ID too.
-async fn require_client_id(request: Request, next: Next) -> Response {
+///
+/// The header is read here and nowhere else. A handler takes the ID as [`ClientId`].
+async fn require_client_id(mut request: Request, next: Next) -> Response {
     let may_change = [Method::POST, Method::PUT, Method::DELETE].contains(request.method());
     if may_change && request.uri().path() != FORM_PATH {
-        if let Err(refusal) = ClientId::of(request.headers()) {
-            return refusal.into_response();
-        }
+        match ClientId::of(request.headers()) {
+            Ok(client) => request.extensions_mut().insert(client),
+            Err(refusal) => return refusal.into_response(),
+        };
     }
     next.run(request).await
 }

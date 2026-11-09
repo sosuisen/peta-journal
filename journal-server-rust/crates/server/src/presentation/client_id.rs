@@ -51,11 +51,15 @@ impl FromStr for ClientId {
     }
 }
 
-/// A handler that takes this tells the other clients who made its change.
+/// A handler that takes this tells the other clients who made its change. The ID is the one
+/// that the middleware of the REST API read from the header.
 impl<S: Send + Sync> FromRequestParts<S> for ClientId {
     type Rejection = AppError;
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> AppResult<ClientId> {
-        ClientId::of(&parts.headers)
+        parts.extensions.get::<ClientId>().cloned().ok_or_else(|| {
+            // Only a GET gets here: the middleware lets no other method through without an ID
+            AppError::internal("A route that tells of a change must be a POST, a PUT or a DELETE")
+        })
     }
 }
