@@ -716,14 +716,27 @@ impl ItemService {
 
     /// Joins an item into another: its body goes to the end of `into`, its children keep
     /// their level and get their parent recalculated, and the item itself is deleted.
-    pub fn merge_item(&self, item_id: &Hmtid, into_id: &Hmtid) -> AppResult<Item> {
+    ///
+    /// `body` and `into_body` are the bodies an editor has now, for an item with text that
+    /// was typed and not saved yet. The stored body is joined where none is given.
+    pub fn merge_item(
+        &self,
+        item_id: &Hmtid,
+        into_id: &Hmtid,
+        body: Option<&str>,
+        into_body: Option<&str>,
+    ) -> AppResult<Item> {
         let item = self.get_item_by_id(item_id)?;
         let into = self.get_item_by_id(into_id)?;
         // A transclusion shows its source: its body is not its own to give or to take
         if item.transclude_item_id.is_some() || into.transclude_item_id.is_some() {
             return Err(AppError::bad_request("A transclusion cannot be merged"));
         }
-        let merged = format!("{}{}", into.body, item.body);
+        let merged = format!(
+            "{}{}",
+            into_body.unwrap_or(&into.body),
+            body.unwrap_or(&item.body)
+        );
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
         let mut effects = AfterCommit::default();

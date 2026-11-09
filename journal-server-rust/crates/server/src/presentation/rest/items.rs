@@ -178,6 +178,10 @@ impl BatchOpRequest {
 struct MergeItemsRequest {
     item_id: Option<String>,
     into_id: Option<String>,
+    /// The body an editor has now for the item that goes away, when it is not saved yet.
+    body: Option<String>,
+    /// The same for the item that takes the text.
+    into_body: Option<String>,
 }
 
 #[derive(Deserialize, Default)]
@@ -551,7 +555,12 @@ async fn merge_items(
         // The merged item goes away: its transcluders are found first so their pages can be told
         let transcluders = state.items.find_transcluders(&item_id)?;
         let item_page_id = state.item_service.get_item_page_id(&item_id)?;
-        let into = state.item_service.merge_item(&item_id, &into_id)?;
+        let into = state.item_service.merge_item(
+            &item_id,
+            &into_id,
+            req.body.as_deref(),
+            req.into_body.as_deref(),
+        )?;
         let page_id = into.page_id.to_string();
         state.sse.broadcast_pages_updated(&page_id);
         if let Some(item_page_id) = item_page_id {
