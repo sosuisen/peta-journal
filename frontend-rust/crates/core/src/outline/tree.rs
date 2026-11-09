@@ -77,28 +77,6 @@ pub fn position_before(items: &[ItemRef], item_id: &str) -> ItemPosition {
     }
 }
 
-/// The position after an item. A collapsed item hides its subtree, so the position is
-/// after its last descendant; otherwise it is after the given anchor, normally the item itself.
-pub fn position_after_subtree(items: &[ItemRef], item: &Item, anchor_id: &str) -> ItemPosition {
-    if item.collapsed {
-        let subtree = get_subtree(items, &item.id);
-        if subtree.len() > 1 {
-            return ItemPosition::after(subtree[subtree.len() - 1].id.clone());
-        }
-    }
-    ItemPosition::after(anchor_id)
-}
-
-/// The shown level of an item created right after the given one: one deeper when the
-/// item is expanded and already has children, otherwise the same level.
-pub fn level_for_new_item_after(items: &[ItemRef], item: &Item) -> i32 {
-    let next = index_of(items, &item.id).and_then(|idx| items.get(idx + 1));
-    match next {
-        Some(next) if !item.collapsed && next.level == item.level + 1 => item.level + 1,
-        _ => item.level,
-    }
-}
-
 /// Finds the position an item restored by undo goes back to: after the last item of its
 /// page whose fractional index sorts before the restored item's index.
 pub fn position_by_index(items: &[ItemRef], item: &Item) -> ItemPosition {
@@ -331,28 +309,6 @@ pub fn transclusion_scoped_items(visible: &[ItemRef], ctx: &TransclusionContext)
         .collect()
 }
 
-/// The transclusion root an item is the last shown item of, or None. The root itself is
-/// the last shown item when it shows no descendants.
-pub fn transclusion_root_ending_at(
-    item: &Item,
-    own_items: &[ItemRef],
-    visible: &[ItemRef],
-    trees: &HashMap<String, Vec<ItemRef>>,
-) -> Option<ItemRef> {
-    let ctx = transclusion_context_of(item, own_items, trees)?;
-    // Own children of the root are shown after the transcluded items; they are not part of the source tree
-    let last_id = transclusion_scoped_items(visible, &ctx)
-        .iter()
-        .rev()
-        .find(|b| !own_items.iter().any(|o| o.id == b.id))
-        .map(|b| b.id.clone())
-        .unwrap_or_else(|| ctx.root_item_id.clone());
-    if last_id != item.id {
-        return None;
-    }
-    own_items.iter().find(|b| b.id == ctx.root_item_id).cloned()
-}
-
 // ---- Journal date groups ----
 
 /// True when the visible item at the index is the first item of a journal day, so a date
@@ -476,7 +432,7 @@ mod tests {
         spec.iter().map(|(id, level)| item(id, *level)).collect()
     }
 
-    // 平坦な項目リストから部分木・下のきょうだいの有無・直前の位置・新規項目のレベルが求められる。
+    // 平坦な項目リストから部分木・下のきょうだいの有無・直前の位置が求められる。
     #[test]
     fn subtree_and_siblings() {
         let items = list(&[("a", 1), ("b", 2), ("c", 3), ("d", 2), ("e", 1)]);
@@ -487,8 +443,6 @@ mod tests {
         assert!(!has_sibling_below(&items, "d"));
         assert_eq!(position_before(&items, "a"), ItemPosition::First);
         assert_eq!(position_before(&items, "d"), ItemPosition::after("c"));
-        assert_eq!(level_for_new_item_after(&items, &items[0]), 2);
-        assert_eq!(level_for_new_item_after(&items, &items[3]), 2);
     }
 
     // 親の直下の最初の子はインデントできず、上に同レベルのきょうだいがある項目はインデントできる。親のインデックスは一段浅い直近の項目である。

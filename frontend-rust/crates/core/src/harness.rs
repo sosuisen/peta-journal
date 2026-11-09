@@ -210,6 +210,7 @@ impl FakeApi {
                 item_id,
                 body,
                 cursor,
+                ..
             } => {
                 self.created += 1;
                 let (before, after) = crate::util::split_at_char(body, *cursor);
@@ -689,6 +690,7 @@ pub fn split_calls(api: &FakeApi) -> Vec<(String, String, usize)> {
                 item_id,
                 body,
                 cursor,
+                ..
             } => Some((item_id.clone(), body.clone(), *cursor)),
             _ => None,
         })

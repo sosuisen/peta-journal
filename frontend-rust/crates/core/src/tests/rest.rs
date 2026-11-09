@@ -455,11 +455,27 @@ fn a_paste_posts_the_body_the_cursor_the_text_and_the_mode_and_answers_what_was_
     );
 }
 
+// トランスクルージョンが見せている項目の分割は、そのトランスクルージョンも送る。
+#[test]
+fn a_split_of_an_item_a_transclusion_shows_posts_the_transclusion_too() {
+    let rest = call(ApiOp::SplitItem {
+        item_id: id("a"),
+        root_id: Some(id("r")),
+        body: "ab".into(),
+        cursor: 1,
+    });
+    assert_eq!(
+        rest.request.body,
+        Some(json!({ "body": "ab", "cursor": 1, "rootId": "r" }))
+    );
+}
+
 // 分割は、本文とカーソルを送り、元の項目と作られた項目を答える。
 #[test]
 fn a_split_posts_the_body_and_the_cursor_and_answers_the_item_and_the_item_made() {
     let rest = call(ApiOp::SplitItem {
         item_id: id("a"),
+        root_id: None,
         body: "本文ab".into(),
         cursor: 2,
     });

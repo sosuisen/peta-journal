@@ -7,6 +7,7 @@ use crate::app::{apply, done, log_error, run, Cmd, Event, Model};
 use crate::model::{ItemPosition, PasteCursor, PasteMode, Pasted};
 use crate::ops::edit::{
     discard_pending_edit, focus_editor, mark_dirty, record_typing, save_body, show_parsed,
+    typed_body,
 };
 use crate::ops::file_reload::reload_shown_page;
 use crate::outline::tree::edit_context_of;
@@ -67,13 +68,6 @@ pub fn paste_failed(model: &mut Model, item_id: &str, unsaved: bool) -> Cmd {
         (Some(item), Some(typed)) if unsaved => record_typing(model, &item, &typed),
         _ => done(),
     }
-}
-
-/// The body of an item with what was typed into it and is not saved yet. A transclusion root
-/// shows the body of its source item, and holds the typed text itself until it is saved.
-fn typed_body(model: &Model, item_id: &str) -> Option<String> {
-    let item = model.state.get_item_by_id(item_id)?;
-    Some(item.body.clone())
 }
 
 /// Shows what the server wrote for a paste, records it as one undo entry, and puts the cursor

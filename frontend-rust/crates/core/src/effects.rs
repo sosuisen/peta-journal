@@ -85,6 +85,8 @@ pub enum ApiOp {
     /// Enter does. The server decides where the new item goes and writes both, or neither.
     SplitItem {
         item_id: String,
+        /// The transclusion that shows the item, for an item of another page shown below it.
+        root_id: Option<String>,
         body: String,
         cursor: usize,
     },
@@ -652,12 +654,14 @@ impl<Event: Send + 'static> Api<Event> {
     pub async fn split_item(
         &self,
         item_id: &str,
+        root_id: Option<&str>,
         body: &str,
         cursor: usize,
     ) -> ApiResult<Box<Split>> {
         expect_output!(
             self.call(ApiOp::SplitItem {
                 item_id: item_id.into(),
+                root_id: root_id.map(Into::into),
                 body: body.into(),
                 cursor,
             })

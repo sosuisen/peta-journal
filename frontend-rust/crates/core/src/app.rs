@@ -214,6 +214,12 @@ pub enum Event {
         cursor_before: usize,
         split: Box<Split>,
     },
+    /// The page was read again after a split inside a transclusion: the edit can move to the
+    /// new item, or stay in the item that was split when the page does not show the new one.
+    SplitPageReloaded {
+        item_id: String,
+        created_id: String,
+    },
     /// The server refused a split, or could not be reached: nothing was written.
     SplitFailed {
         item_id: String,
@@ -792,6 +798,10 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             cursor_before,
             split,
         } => ops::split::show_split(model, &item_id, cursor_before, *split),
+        SplitPageReloaded {
+            item_id,
+            created_id,
+        } => ops::split::focus_after_split(model, &item_id, &created_id),
         SplitFailed { item_id, unsaved } => ops::split::split_failed(model, &item_id, unsaved),
         BackspaceAtStart { item_id } => ops::merge::merge_into_previous(model, &item_id),
         DeleteAtEnd { item_id } => ops::merge::merge_next_into(model, &item_id),

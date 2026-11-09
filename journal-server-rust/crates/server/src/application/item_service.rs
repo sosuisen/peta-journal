@@ -58,11 +58,14 @@ pub struct Pasted {
     pub cursor: usize,
 }
 
-/// What a split wrote: the item that was split, and the item made beside it.
+/// What a split wrote: the item whose text was cut, which is the source item when a
+/// transclusion was split, and the new item.
 #[derive(Debug, Clone)]
 pub struct Split {
     pub item: Item,
     pub created: Item,
+    /// The pages the split changed.
+    pub page_ids: BTreeSet<Hmtid>,
 }
 
 /// One operation of a batch.
@@ -784,23 +787,55 @@ impl ItemService {
     /// Splits an item at the cursor of the body an editor has now, as Enter does: the text
     /// before the cursor stays, and the text after it goes into a new item below. Both are
     /// written in one transaction (ADR 011).
-    pub fn split(&self, item_id: &Hmtid, body: &str, cursor: usize) -> AppResult<Split> {
+    ///
+    /// `root_id` names the transclusion that shows the item, when the item is one of
+    /// another page that a transclusion shows below itself.
+    pub fn split(
+        &self,
+        item_id: &Hmtid,
+        root_id: Option<&Hmtid>,
+        body: &str,
+        cursor: usize,
+    ) -> AppResult<Split> {
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
         let mut effects = AfterCommit::default();
         let item = find_all_in(&tx, std::slice::from_ref(item_id))?.remove(0);
-        if item.transclude_item_id.is_some() {
-            // Its text is the text of the source item, and the page of the new item
-            // depends on what the transclusion shows
-            return Err(AppError::bad_request("A transclusion cannot be split"));
-        }
-        let on_page = ItemRepository::find_by_page_id_in(&tx, &item.page_id)?;
-        let plan = split::plan(&on_page, &item, body, cursor);
+        let shown_by = root_id
+            .map(|root_id| {
+                let root = find_all_in(&tx, std::slice::from_ref(root_id))?.remove(0);
+                let shown = transclusion_in(&tx, root)?;
+                if !shown.has_below(&item) {
+                    return Err(AppError::bad_request(format!(
+                        "The transclusion {root_id} does not show the item {item_id}"
+                    )));
+                }
+                Ok(shown)
+            })
+            .transpose()?;
+        let below = shown_by
+            .as_ref()
+            .and_then(|shown| split::plan_below(shown, &item, body, cursor));
+        let (written, plan) = match (below, &item.transclude_item_id) {
+            (Some(plan), _) => (item, plan),
+            // A transclusion shows its source item: the text that is cut is the text of
+            // the source
+            (None, Some(_)) => {
+                let shown = transclusion_in(&tx, item)?;
+                let plan = split::plan_of_transclusion(&shown, body, cursor);
+                (shown.source, plan)
+            }
+            (None, None) => {
+                let on_page = ItemRepository::find_by_page_id_in(&tx, &item.page_id)?;
+                let plan = split::plan(&on_page, &item, body, cursor);
+                (item, plan)
+            }
+        };
         let updated =
-            self.update_item_in(&tx, &item, Some(&plan.body), None, None, &mut effects)?;
+            self.update_item_in(&tx, &written, Some(&plan.body), None, None, &mut effects)?;
         let created = self.create_item_in(
             &tx,
-            &item.page_id,
+            &plan.page_id,
             &plan.position,
             plan.level,
             &plan.new_body,
@@ -808,10 +843,12 @@ impl ItemService {
             &mut effects,
         )?;
         tx.commit()?;
+        let page_ids = effects.pages.clone();
         self.finish(effects);
         Ok(Split {
             item: updated,
             created,
+            page_ids,
         })
     }
 
@@ -1365,6 +1402,22 @@ fn sync_transcluders_in(
         effects.pages.insert(transcluder.page_id.clone());
     }
     Ok(())
+}
+
+/// A transclusion with what a split of an item it shows is planned from, on the given
+/// connection.
+fn transclusion_in(conn: &Connection, root: Item) -> AppResult<split::Transclusion> {
+    let source_id = root
+        .transclude_item_id
+        .clone()
+        .ok_or_else(|| AppError::bad_request(format!("Not a transclusion: {}", root.id)))?;
+    let source = find_all_in(conn, std::slice::from_ref(&source_id))?.remove(0);
+    Ok(split::Transclusion {
+        root_page: ItemRepository::find_by_page_id_in(conn, &root.page_id)?,
+        source_page: ItemRepository::find_by_page_id_in(conn, &source.page_id)?,
+        root,
+        source,
+    })
 }
 
 /// The items with the given IDs, in that order, on the given connection.

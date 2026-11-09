@@ -1,7 +1,7 @@
 use crate::app::Event;
-use crate::effects::ApiOutput;
+use crate::effects::{ApiOp, ApiOutput};
 use crate::harness::{batch_calls, create_calls, item, split_calls, update_calls, Harness};
-use crate::model::{BatchOp, Page, PageWithItems, Split, TranscludedTrees};
+use crate::model::{BatchOp, Item, Page, PageWithItems, Split, TranscludedTrees};
 use crate::testing::item_with;
 
 fn harness() -> Harness {
@@ -297,126 +297,284 @@ fn the_item_that_was_split_shows_what_the_server_parsed_from_the_text_it_keeps()
     assert_eq!(h.model.state.get_item_by_id("a").unwrap().ast, "ast:hello");
 }
 
-// トランスクルージョンの中では、新しい項目は参照元ページに作られ、ページが読み直される。
-#[test]
-fn inside_a_transclusion_the_new_item_is_created_on_the_source_page_and_the_page_reloads() {
-    let root = item_with("root", 2, |i| {
-        i.transclude_item_id = Some("s".into());
-        i.body = "shown".into();
-    });
-    let mut h = Harness::with_items(vec![item("a", 1, ""), root]);
-    let mut trees = TranscludedTrees::new();
-    trees.insert(
-        "s".into(),
-        vec![item_with("s", 1, |i| {
-            i.page_id = "src".into();
-            i.body = "shown".into();
-        })],
-    );
-    h.model.state.set_transcluded_trees(trees);
-    h.api.answer_next(
-        "GetPageById",
-        Ok(crate::effects::ApiOutput::Page(PageWithItems {
-            page: Page {
-                id: "page1".into(),
-                ..Default::default()
-            },
-            items: vec![item("a", 1, ""), item("root", 2, "")],
-            ..Default::default()
-        })),
-    );
-    enter(&mut h, "root", "sho".len());
-    assert!(update_calls(&h.api).contains(&("s".to_string(), Some("sho".to_string()))));
-    assert_eq!(
-        create_calls(&h.api),
-        [("src".into(), "after:s".into(), 1, "wn".into(), None)]
-    );
-    assert!(h.api.called("GetPageById"));
+/// The transclusion of the tests below: an item of this page that shows the item "s"
+fn root() -> Item {
+    item_with("root", 1, |i| i.transclude_item_id = Some("s".into()))
+}
+
+/// An item of the source page
+fn source(id: &str, level: i32, body: &str) -> Item {
+    item_with(id, level, |i| {
+        i.page_id = "src".into();
+        i.body = body.into();
+    })
 }
 
 /// A host page with "a", then the transclusion root "root" of source item "s", whose child
 /// "c" is the last transcluded item.
-fn transclusion_harness(own_after_root: Vec<crate::model::Item>) -> Harness {
-    let root = item_with("root", 1, |i| i.transclude_item_id = Some("s".into()));
-    let mut own = vec![item("a", 1, ""), root];
+fn transclusion_harness(own_after_root: Vec<Item>) -> Harness {
+    let mut own = vec![item("a", 1, ""), root()];
     own.extend(own_after_root);
     let mut h = Harness::with_items(own);
     let mut trees = TranscludedTrees::new();
     trees.insert(
         "s".into(),
-        vec![
-            item_with("s", 1, |i| {
-                i.page_id = "src".into();
-                i.body = "shown".into();
-            }),
-            item_with("c", 2, |i| {
-                i.page_id = "src".into();
-                i.body = "child".into();
-            }),
-        ],
+        vec![source("s", 1, "shown"), source("c", 2, "child")],
     );
     h.model.state.set_transcluded_trees(trees);
     h
 }
 
-// 最後のトランスクルード項目の末尾での Enter は、新しい項目をホストページのルートの直後に作る。
+/// What the server answers when the host page is read again: its items, and the items the
+/// transclusion shows.
+fn reloaded(own: Vec<Item>, tree: Vec<Item>) -> crate::effects::ApiResult<ApiOutput> {
+    Ok(ApiOutput::Page(PageWithItems {
+        page: Page {
+            id: "page1".into(),
+            ..Default::default()
+        },
+        items: own,
+        transcluded_trees: Some(TranscludedTrees::from([("s".to_string(), tree)])),
+        ..Default::default()
+    }))
+}
+
+/// What the server answers for a split inside the transclusion of `transclusion_harness`:
+/// the item written to, of the source page, with the body it keeps, and the new item `n`
+/// on the given page.
+fn split_on_source_answer(
+    written_id: &str,
+    kept: &str,
+    new_page_id: &str,
+) -> crate::effects::ApiResult<ApiOutput> {
+    Ok(ApiOutput::Split(Box::new(Split {
+        item: item_with(written_id, 1, |i| {
+            i.page_id = "src".into();
+            i.body = kept.into();
+        }),
+        created: item_with("n", 1, |i| i.page_id = new_page_id.into()),
+    })))
+}
+
+/// The names of the requests sent, in their order
+fn requests(h: &Harness) -> Vec<&'static str> {
+    h.api.calls.iter().map(crate::harness::op_name).collect()
+}
+
+// トランスクルージョンの途中での Enter も、本文とカーソルを1つの要求でサーバーに送る。元の項目の更新や項目の作成は、別には送らない。答えが届くと、ページをサーバーから読み直す。
 #[test]
-fn enter_at_the_end_of_the_last_transcluded_item_creates_the_new_item_on_the_host_page() {
+fn enter_in_a_transclusion_sends_one_split_and_then_reads_the_page_again() {
+    let mut h = transclusion_harness(Vec::new());
+    h.api
+        .answer_next("SplitItem", split_on_source_answer("s", "sho", "src"));
+    enter(&mut h, "root", "sho".len());
+    assert_eq!(
+        h.api.calls[0],
+        ApiOp::SplitItem {
+            item_id: "root".into(),
+            root_id: None,
+            body: "shown".into(),
+            cursor: 3,
+        }
+    );
+    assert_eq!(requests(&h), ["SplitItem", "GetPageById"]);
+}
+
+// 見せている最後の項目の末尾での Enter でサーバーがこのページに作った項目は、読み直したページに現れ、編集はその項目に移る。
+#[test]
+fn the_edit_moves_to_the_new_item_below_the_transclusion_once_the_page_is_read_again() {
     let mut h = transclusion_harness(vec![item("b", 1, "")]);
-    enter(&mut h, "c", "child".len());
-    let calls = create_calls(&h.api);
-    assert_eq!(calls.len(), 1);
-    let (page_id, position, level, _, new_id) = &calls[0];
-    assert_eq!(
-        (page_id.as_str(), position.as_str(), *level),
-        ("page1", "after:root", 1)
+    h.model.state.add_editing_item("c");
+    h.api
+        .answer_next("SplitItem", split_on_source_answer("c", "child", "page1"));
+    h.api.answer_next(
+        "GetPageById",
+        reloaded(
+            vec![item("a", 1, ""), root(), item("n", 1, ""), item("b", 1, "")],
+            vec![source("s", 1, "shown"), source("c", 2, "child")],
+        ),
     );
-    assert_eq!(h.items_ids(), ["a", "root", new_id.as_ref().unwrap(), "b"]);
+    enter(&mut h, "c", "child".len());
+    assert_eq!(h.items_ids(), ["a", "root", "n", "b"]);
+    assert!(h.model.state.is_editing("n"));
+    assert!(!h.model.state.is_editing("c"));
+    assert_eq!(h.focused_editor_requests(), [Some("n".to_string())]);
+    assert_eq!(h.focus_cursor(), Some(0));
+    assert!(!h.model.key_relay.is_holding());
 }
 
-// 最後のトランスクルード項目の末尾での Enter は、ルートに自前の子があればその子に加わる。
+// トランスクルージョンの行頭での Enter は、カーソル0の分割として送る。サーバーがこのページでその直前に作った空の項目が、読み直しのあと編集される。
 #[test]
-fn enter_at_the_end_of_the_last_transcluded_item_joins_the_own_children_of_the_root() {
-    let mut h = transclusion_harness(vec![item("own", 2, "")]);
-    enter(&mut h, "c", "child".len());
-    let calls = create_calls(&h.api);
-    let (page_id, position, level, _, _) = &calls[0];
+fn enter_at_the_start_of_a_transclusion_edits_the_empty_item_the_server_put_above_it() {
+    let mut h = transclusion_harness(Vec::new());
+    h.api
+        .answer_next("SplitItem", split_on_source_answer("s", "shown", "page1"));
+    h.api.answer_next(
+        "GetPageById",
+        reloaded(
+            vec![item("a", 1, ""), item("n", 1, ""), root()],
+            vec![source("s", 1, "shown"), source("c", 2, "child")],
+        ),
+    );
+    enter(&mut h, "root", 0);
     assert_eq!(
-        (page_id.as_str(), position.as_str(), *level),
-        ("page1", "after:root", 2)
+        split_calls(&h.api),
+        [("root".to_string(), "shown".to_string(), 0)]
+    );
+    assert_eq!(h.items_ids(), ["a", "n", "root"]);
+    assert_eq!(h.focused_editor_requests(), [Some("n".to_string())]);
+}
+
+// 見せている項目の行頭での Enter も、カーソル0の分割として送り、ページを読み直す。空の項目を元のページのどこに置くかは、サーバーが決める。
+#[test]
+fn enter_at_the_start_of_an_item_a_transclusion_shows_is_sent_as_a_split_at_the_start() {
+    let mut h = transclusion_harness(Vec::new());
+    enter(&mut h, "c", 0);
+    assert_eq!(
+        split_calls(&h.api),
+        [("c".to_string(), "child".to_string(), 0)]
+    );
+    assert_eq!(requests(&h), ["SplitItem", "GetPageById"]);
+}
+
+// トランスクルージョンが見せている項目での Enter は、どのトランスクルージョンが見せているかも送る。サーバーは、見せている最後の項目の末尾でなら、空の項目をトランスクルージョンのページに置く。
+#[test]
+fn enter_in_an_item_a_transclusion_shows_names_the_transclusion() {
+    let mut h = transclusion_harness(Vec::new());
+    enter(&mut h, "c", "child".len());
+    assert_eq!(
+        h.api.calls[0],
+        ApiOp::SplitItem {
+            item_id: "c".into(),
+            root_id: Some("root".into()),
+            body: "child".into(),
+            cursor: 5,
+        }
     );
 }
 
-// 下にまだトランスクルード項目があるとき、その項目の末尾での Enter は参照元ページに作る。
-#[test]
-fn enter_at_the_end_of_a_transcluded_item_with_one_below_still_creates_on_the_source_page() {
-    let mut h = transclusion_harness(Vec::new());
-    enter(&mut h, "root", "shown".len());
-    let calls = create_calls(&h.api);
-    assert_eq!(calls[0].0, "src");
+/// A host page with "a" and the transclusion "root" of the source item "s", which has no
+/// children. The server answers a split in the middle of "root" with the new item "n" on the
+/// source page, below "s", where the host page does not show it.
+fn split_that_leaves_the_page() -> Harness {
+    let mut h = Harness::with_items(vec![item("a", 1, ""), root()]);
+    h.model
+        .state
+        .set_transcluded_trees(TranscludedTrees::from([(
+            "s".to_string(),
+            vec![source("s", 1, "shown")],
+        )]));
+    h.model.state.add_editing_item("root");
+    h.api
+        .answer_next("SplitItem", split_on_source_answer("s", "sho", "src"));
+    h.api.answer_next(
+        "GetPageById",
+        reloaded(vec![item("a", 1, ""), root()], vec![source("s", 1, "sho")]),
+    );
+    h
 }
 
-// トランスクルージョンの中での分割に失敗すると、キーの保留は終わり、編集の引き継ぎも終わる。
+// サーバーが新しい項目を元のページに作り、このページがそれを見せないときは、編集は分割した項目に残り、カーソルは残った文の末尾に置かれる。後ろの文は、このページからは見えなくなる。
 #[test]
-fn a_split_inside_a_transclusion_that_fails_stops_holding_keys() {
+fn the_edit_stays_in_the_transclusion_when_the_page_does_not_show_the_new_item() {
+    let mut h = split_that_leaves_the_page();
+    enter(&mut h, "root", "sho".len());
+    assert_eq!(h.model.current_item("root").unwrap().body, "sho");
+    assert!(h.model.state.is_editing("root"));
+    assert_eq!(h.focused_editor_requests(), [Some("root".to_string())]);
+    assert_eq!(h.focus_cursor(), Some(3));
+    assert!(!h.model.key_relay.is_holding());
+}
+
+// トランスクルージョンの分割の undo は、元の項目の本文を戻し、作られた項目を消す。このページに見えていない項目も消す。
+#[test]
+fn undo_of_a_split_transclusion_puts_the_body_of_the_source_back_and_removes_the_new_item() {
+    let mut h = split_that_leaves_the_page();
+    enter(&mut h, "root", "sho".len());
+
+    h.send(Event::Undo);
+
+    let batch = &batch_calls(&h.api)[0];
+    assert!(
+        matches!(&batch[0], BatchOp::Update { id, body, .. } if id == "s" && body.as_deref() == Some("shown")),
+        "{batch:?}"
+    );
+    assert_eq!(batch[1], BatchOp::Delete { id: "n".into() });
+}
+
+// 答えのあと読み直すのは、トランスクルージョンのあるページである。ジャーナルは何日ものページを見せるので、画面のページとは限らない。
+#[test]
+fn the_page_read_again_is_the_page_of_the_transclusion() {
+    for split_id in ["root", "c"] {
+        let mut h = transclusion_harness(Vec::new());
+        h.model
+            .state
+            .update_item("root", |i| i.page_id = "day2".into());
+        enter(&mut h, split_id, 2);
+        assert_eq!(
+            h.api.calls[1],
+            ApiOp::GetPageById {
+                page_id: "day2".into()
+            },
+            "after a split of {split_id}"
+        );
+    }
+}
+
+// トランスクルージョンに入力してまだ保存していない文も、分割の要求に入って届く。トランスクルージョンは元の項目の本文を見せ、打った文字は保存されるまで自分で持つ。
+#[test]
+fn text_typed_into_a_transclusion_and_not_saved_yet_travels_in_the_split() {
     let mut h = transclusion_harness(Vec::new());
-    h.api.fail_next("CreateItem", "offline");
+    h.model.state.add_editing_item("root");
+    typed(&mut h, "root", "shown typed");
+    enter(&mut h, "root", "shown ty".len());
+    assert_eq!(
+        split_calls(&h.api),
+        [("root".to_string(), "shown typed".to_string(), 8)]
+    );
+    h.fire_timers();
+    assert!(update_calls(&h.api).is_empty());
+}
+
+// トランスクルージョンの分割に失敗すると、要求に入っていた未保存の入力は、もう一度自動保存にかけられ、元の項目に保存される。
+#[test]
+fn after_a_failed_split_the_text_typed_into_a_transclusion_is_auto_saved_again() {
+    let mut h = transclusion_harness(Vec::new());
+    h.model.state.add_editing_item("root");
+    typed(&mut h, "root", "shown typed");
+    h.api.fail_next("SplitItem", "offline");
+    enter(&mut h, "root", 8);
+    h.fire_timers();
+    assert_eq!(
+        update_calls(&h.api),
+        [("s".into(), Some("shown typed".into()))]
+    );
+}
+
+// 元の項目が消えた（壊れた）トランスクルージョンでの Enter も、分割としてサーバーに送る。どう分けるかは、サーバーが今のデータで決める。
+#[test]
+fn enter_in_a_broken_transclusion_is_sent_to_the_server_as_a_split() {
+    let broken = item_with("root", 1, |i| {
+        i.transclude_item_id = Some("gone".into());
+        i.body = "shown".into();
+    });
+    let mut h = Harness::with_items(vec![item("a", 1, ""), broken]);
+    enter(&mut h, "root", 0);
+    assert_eq!(
+        split_calls(&h.api),
+        [("root".to_string(), "shown".to_string(), 0)]
+    );
+}
+
+// トランスクルージョンの中での分割に失敗すると、画面は変わらず、ページも読み直さない。キーの保留は終わる。
+#[test]
+fn a_split_inside_a_transclusion_that_fails_changes_nothing_and_stops_holding_keys() {
+    let mut h = transclusion_harness(Vec::new());
+    h.api.fail_next("SplitItem", "offline");
     enter(&mut h, "c", 2);
     assert!(!h.model.key_relay.is_holding());
-    assert_eq!(
-        h.model.edits.edit_handovers, 0,
-        "the handover ended despite the failure"
-    );
-}
-
-// 最後のトランスクルード項目の末尾での Enter は、空の項目をすぐに示す。その作成に失敗すると、ページはサーバーから読み直される。
-#[test]
-fn when_the_creation_below_a_transclusion_fails_the_page_is_reloaded_from_the_server() {
-    let mut h = transclusion_harness(Vec::new());
-    h.api.fail_next("CreateItem", "offline");
-    enter(&mut h, "c", "child".len());
-    assert!(h.api.called("GetPageById"));
-    assert_eq!(h.bodies(), ["reloaded=reloaded"]);
+    assert_eq!(requests(&h), ["SplitItem"]);
+    assert_eq!(h.items_ids(), ["a", "root"]);
 }
 
 // 次のエディタを待つ間に押されたキーは、そのエディタに渡される。待っていなければキーは捨てられる。
@@ -449,81 +607,4 @@ fn keys_pressed_while_waiting_for_the_next_editor_are_played_into_it() {
             })
             .collect();
     assert_eq!(replayed, [vec!["x".to_string()]]);
-}
-
-// ルートの行頭での Enter は、ホストページのルートの直前に空の項目を作る。参照元ページには何も作らない。
-#[test]
-fn enter_at_the_start_of_a_transclusion_root_puts_the_empty_item_before_it_on_the_host_page() {
-    let mut h = transclusion_harness(Vec::new());
-    enter(&mut h, "root", 0);
-    let calls = create_calls(&h.api);
-    assert_eq!(calls.len(), 1);
-    let (page_id, position, level, body, _) = &calls[0];
-    assert_eq!(
-        (page_id.as_str(), position.as_str(), *level, body.as_str()),
-        ("page1", "after:a", 1, "")
-    );
-    assert_eq!(h.items_ids(), ["a", "new1", "root"]);
-}
-
-// 埋め込まれた子孫の行頭での Enter は、参照元ページのその項目の直前に空の項目を作り、ページを読み直す。
-#[test]
-fn enter_at_the_start_of_a_transcluded_descendant_puts_the_empty_item_before_it_on_the_source_page()
-{
-    let mut h = transclusion_harness(Vec::new());
-    let mut trees = TranscludedTrees::new();
-    trees.insert(
-        "s".into(),
-        vec![
-            item_with("s", 1, |i| i.page_id = "src".into()),
-            item_with("c", 2, |i| i.page_id = "src".into()),
-            item_with("d", 2, |i| {
-                i.page_id = "src".into();
-                i.body = "second".into();
-            }),
-        ],
-    );
-    h.model.state.set_transcluded_trees(trees);
-    enter(&mut h, "d", 0);
-    let calls = create_calls(&h.api);
-    assert_eq!(calls.len(), 1);
-    let (page_id, position, level, body, _) = &calls[0];
-    assert_eq!(
-        (page_id.as_str(), position.as_str(), *level, body.as_str()),
-        ("src", "after:c", 2, "")
-    );
-    assert!(h.api.called("GetPageById"));
-}
-
-// 元の木の最初の子の行頭での Enter は、参照元ページの元の項目の直後に空の項目を作る。ルートのidは参照元ページにないからである。
-#[test]
-fn enter_at_the_start_of_the_first_transcluded_child_puts_the_empty_item_after_the_source_item() {
-    let mut h = transclusion_harness(Vec::new());
-    enter(&mut h, "c", 0);
-    let calls = create_calls(&h.api);
-    assert_eq!(calls.len(), 1);
-    let (page_id, position, level, _, _) = &calls[0];
-    assert_eq!(
-        (page_id.as_str(), position.as_str(), *level),
-        ("src", "after:s", 2)
-    );
-}
-
-// 元の項目が消えた（壊れた）ルートの行頭での Enter も、ホストページのルートの直前に空の項目を作る。
-#[test]
-fn enter_at_the_start_of_a_broken_transclusion_root_puts_the_empty_item_before_it_on_the_host_page()
-{
-    let root = item_with("root", 1, |i| {
-        i.transclude_item_id = Some("gone".into());
-        i.body = "shown".into();
-    });
-    let mut h = Harness::with_items(vec![item("a", 1, ""), root]);
-    enter(&mut h, "root", 0);
-    let calls = create_calls(&h.api);
-    let (page_id, position, level, _, _) = &calls[0];
-    assert_eq!(
-        (page_id.as_str(), position.as_str(), *level),
-        ("page1", "after:a", 1)
-    );
-    assert_eq!(h.items_ids(), ["a", "new1", "root"]);
 }

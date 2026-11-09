@@ -207,6 +207,8 @@ struct PasteResponse {
 struct SplitRequest {
     body: Option<String>,
     cursor: usize,
+    /// The transclusion that shows the item, for an item of another page shown below it.
+    root_id: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -476,15 +478,17 @@ async fn split(
     Json(req): Json<SplitRequest>,
 ) -> AppResult<Json<SplitResponse>> {
     let item_id = parse_id(&id)?;
+    let root_id = req.root_id.as_deref().map(parse_id).transpose()?;
     blocking(move || {
         let split = state.item_service.split(
             &item_id,
+            root_id.as_ref(),
             req.body.as_deref().unwrap_or_default(),
             req.cursor,
         )?;
-        let page_id = split.item.page_id.to_string();
-        state.sse.broadcast_pages_updated(&page_id);
-        broadcast_to_transcluders(&state, &item_id, &page_id)?;
+        for page_id in &split.page_ids {
+            state.sse.broadcast_pages_updated(page_id.as_str());
+        }
         Ok(Json(SplitResponse {
             item: state.dtos.to_dto(&split.item)?,
             created: state.dtos.to_dto(&split.created)?,

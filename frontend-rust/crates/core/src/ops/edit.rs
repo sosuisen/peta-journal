@@ -22,6 +22,13 @@ pub fn save_target_id(item: &Item) -> String {
         .unwrap_or_else(|| item.id.clone())
 }
 
+/// The body of an item with what was typed into it and is not saved yet. A transclusion
+/// shows the body of its source item, and holds the typed text itself until it is saved.
+pub fn typed_body(model: &Model, item_id: &str) -> Option<String> {
+    let item = model.state.get_item_by_id(item_id)?;
+    Some(item.body.clone())
+}
+
 /// True while an editor is open. Dirty ids alone do not count: an editor that was closed
 /// without a blur leaves its id behind while the auto-save finishes the save.
 pub fn is_edit_in_progress(model: &Model) -> bool {
