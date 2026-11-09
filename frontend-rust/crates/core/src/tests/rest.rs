@@ -95,6 +95,7 @@ fn every_operation_goes_to_its_endpoint() {
                 target_page_id: id("p"),
                 position: ItemPosition::Last,
                 level_delta: None,
+                body: None,
             },
             "POST",
             "/api/items/move",

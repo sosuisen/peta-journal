@@ -241,6 +241,24 @@ pub enum Event {
         /// The items with typed text that no request but the join carried.
         unsaved: Vec<String>,
     },
+    /// The server moved items: they go to their new place on screen, and the move goes into
+    /// the undo history.
+    Moved {
+        moved: Vec<Item>,
+        /// Where they go among the items of the screen.
+        position: ItemPosition,
+        /// The item the move was started from, in whose editor the edit goes on. None for
+        /// a move of the selection.
+        edited: Option<String>,
+    },
+    /// The server refused the move of an edited item, or could not be reached: nothing was
+    /// written.
+    MoveFailed,
+    /// A move is through, with all that follows it on screen: the next one can start.
+    MoveDone {
+        /// The move kept the blur of the editor from ending the edit until now.
+        handover: bool,
+    },
     /// The server refused a split, or could not be reached: nothing was written.
     SplitFailed {
         item_id: String,
@@ -845,6 +863,13 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         }
         Indent { item_id } => ops::level::indent(model, &item_id),
         Outdent { item_id } => ops::level::outdent(model, &item_id),
+        Moved {
+            moved,
+            position,
+            edited,
+        } => ops::moves::show_moved(model, moved, &position, edited),
+        MoveFailed => ops::moves::move_failed(model),
+        MoveDone { handover } => ops::moves::move_done(model, handover),
         MoveUp { item_id } => ops::moves::enqueue_move(model, &item_id, MoveDirection::Up),
         MoveDown { item_id } => ops::moves::enqueue_move(model, &item_id, MoveDirection::Down),
         TaskCycle { item_id } => ops::action::cycle_task(model, &item_id),

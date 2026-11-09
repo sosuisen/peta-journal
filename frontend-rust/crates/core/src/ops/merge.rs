@@ -147,7 +147,7 @@ pub fn merge_answered(model: &mut Model, key: JoinKey, item_id: &str, agreed: bo
 
 /// The text typed into an item and not saved yet, for the join to carry. Its auto-save is
 /// dropped, or it would overwrite the joined text a moment later.
-fn take_unsaved(model: &mut Model, item: &Item) -> (Option<String>, Cmd) {
+pub fn take_unsaved(model: &mut Model, item: &Item) -> (Option<String>, Cmd) {
     if !model.edits.dirty_item_ids.contains(&item.id) {
         return (None, done());
     }

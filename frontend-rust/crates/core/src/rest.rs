@@ -304,6 +304,7 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             target_page_id,
             position,
             level_delta,
+            ..
         } => call(
             "POST",
             "/api/items/move",

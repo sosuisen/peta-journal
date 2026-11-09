@@ -178,10 +178,19 @@ impl FakeApi {
                 ApiOutput::Item(item)
             }
             ApiOp::ShiftItemLevels { .. } => ApiOutput::Items(Vec::new()),
-            ApiOp::MoveItems { item_ids, .. } => ApiOutput::Items(
+            // The server answers with the moved items, the first with the body the request
+            // carries
+            ApiOp::MoveItems { item_ids, body, .. } => ApiOutput::Items(
                 item_ids
                     .iter()
-                    .map(|id| plain_item(id, 1, &format!("body of {id}")))
+                    .enumerate()
+                    .map(|(n, id)| {
+                        let mut item = stored(id).unwrap_or_else(|| plain_item(id, 1, ""));
+                        if let (0, Some(body)) = (n, body) {
+                            item.body = body.clone();
+                        }
+                        item
+                    })
                     .collect(),
             ),
             ApiOp::DeleteItem { .. }
