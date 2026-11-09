@@ -1,6 +1,6 @@
 use crate::app::Event;
 use crate::effects::{ApiOp, ApiOutput};
-use crate::harness::{item, update_calls, Harness};
+use crate::harness::{delete_calls, item, update_calls, Harness};
 use crate::model::{Item, Page, PageWithItems, PasteCursor, PasteMode, Pasted, TranscludedTrees};
 use crate::outline::UndoOp;
 use crate::testing::item_with;
@@ -398,6 +398,39 @@ fn a_paste_into_a_transclusion_root_is_recorded_as_an_update_of_the_source_item(
         (after.id.as_str(), after.level, after.body.as_str()),
         ("s", 1, "shownX")
     );
+}
+
+// トランスクルージョンのルートへの貼り付けを元に戻すと、元の本文が元の項目に、元のページでの階層のまま送られる。作られた項目は削除される。
+#[test]
+fn undoing_a_paste_into_a_transclusion_root_restores_the_source_item_and_deletes_what_was_made() {
+    let mut h = transclusion_harness();
+    answer_paste(
+        &mut h,
+        vec![source_item("s", 1, "shownone"), source_item("n1", 2, "two")],
+        "n1",
+        3,
+    );
+    answer_reload(
+        &mut h,
+        vec![
+            source_item("s", 1, "shownone"),
+            source_item("n1", 2, "two"),
+            source_item("c", 2, "child"),
+        ],
+    );
+    paste(&mut h, "root", "one\n  two", 5);
+    h.send(Event::Undo);
+    assert_eq!(
+        h.api.calls_named("UpdateItem"),
+        [&ApiOp::UpdateItem {
+            item_id: "s".into(),
+            body: Some("shown".into()),
+            level: Some(1),
+            collapsed: Some(false),
+        }]
+    );
+    assert_eq!(delete_calls(&h.api), [["n1"]]);
+    assert_eq!(shown(&h), ["top:1=", "root:2=shown", "c:3=child"]);
 }
 
 // トランスクルージョンのルートへの貼り付けのあと、カーソルはルートに置かれる。サーバーの答えは元の項目を指すが、画面にあるのはルートである。
