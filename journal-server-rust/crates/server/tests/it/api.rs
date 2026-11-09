@@ -1234,6 +1234,19 @@ async fn a_split_of_a_collapsed_parent_puts_the_new_item_after_its_hidden_descen
     );
 }
 
+// トランスクルードされている項目を分割すると、その写しを見せているページの変更も知らされる。
+#[tokio::test]
+async fn the_clients_hear_of_the_pages_that_transclude_the_item_that_was_split() {
+    let (_, source, page, _) = transcluded("items-split-transcluder", &["ab"]).await;
+    let mut events = client().get(url("/api/events")).send().await.unwrap();
+
+    let (status, resp) = split(&source[0].id, "ab", 1).await;
+    assert_eq!(status, 200, "{resp}");
+
+    event_with(&mut events, &format!("\"pageId\":\"{}\"", page.id)).await;
+    assert_eq!(items(&page.id).await[0].body, "a");
+}
+
 // ---- Items: batch ----
 
 /// Applies operations as one batch, the way an undo sends what it replays
