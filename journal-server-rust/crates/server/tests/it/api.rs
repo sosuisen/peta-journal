@@ -1298,6 +1298,35 @@ async fn the_deletes_of_a_batch_go_as_one_group() {
     assert_eq!(outline_of(&page.id).await, ["1:keep"]);
 }
 
+// 更新の操作は、タスクの状態も、時刻と予定日ごと書ける。タスクの切り替えの undo が、本文と同じ操作で戻すためである。
+#[tokio::test]
+async fn a_batch_update_writes_the_task_state_with_its_times() {
+    let page = new_doc_page("items-batch-task").await;
+    let item = fill(&page.id, &["buy milk"]).await.remove(0);
+
+    let (status, resp) = batch(json!([{
+        "op": "update", "id": item.id, "body": "buy oat milk",
+        "task": {
+            "task": true,
+            "begin": "2026-01-02T03:04:05",
+            "end": "2026-01-02T04:05:06",
+            "plan": "2026-01-02",
+        },
+    }]))
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    let answered = ItemRow::of(&resp["items"][0]);
+    let stored = items(&page.id).await.remove(0);
+    for row in [answered, stored] {
+        assert_eq!(row.body, "buy oat milk");
+        assert!(row.types.contains(&"task".to_string()));
+        assert_eq!(row.properties["begin"], json!("2026-01-02T03:04:05"));
+        assert_eq!(row.properties["end"], json!("2026-01-02T04:05:06"));
+        assert_eq!(row.properties["plan"], json!("2026-01-02"));
+    }
+}
+
 // ---- Items: group delete ----
 
 // グループ削除は、項目を子孫ごと1回のリクエストで消す。
