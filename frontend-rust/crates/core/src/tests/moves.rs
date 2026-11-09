@@ -152,3 +152,24 @@ fn a_move_of_an_item_with_no_unsaved_text_carries_no_body() {
     });
     assert_eq!(carried_bodies(&h), [None]);
 }
+
+// サーバーが移動を断ると、画面は変わらず、要求に入っていた未保存の入力は、もう一度自動保存にかけられる。キーの保留は終わり、次の移動を始められる。
+#[test]
+fn after_a_failed_move_nothing_moves_and_the_typed_text_is_auto_saved_again() {
+    let mut h = page_harness();
+    typed(&mut h, "a", "typed");
+    h.api.fail_next("MoveItems", "offline");
+    h.send(Event::MoveDown {
+        item_id: "a".into(),
+    });
+    assert_eq!(h.items_ids(), ["a", "b", "b1", "c"]);
+    assert!(h.model.undo.pop_undo().is_none_or(|e| e.label != "move"));
+    assert!(!h.model.key_relay.is_holding());
+    assert!(!h.model.move_in_progress);
+    assert!(crate::harness::update_calls(&h.api).is_empty());
+    h.fire_timers();
+    assert_eq!(
+        crate::harness::update_calls(&h.api),
+        [("a".into(), Some("typed".into()))]
+    );
+}
