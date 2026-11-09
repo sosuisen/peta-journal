@@ -4,14 +4,14 @@
 //! cursor.
 
 use crate::app::{apply, done, log_error, run, Cmd, Event, Model};
-use crate::model::{ItemPosition, PasteMode, Pasted};
+use crate::model::{ItemPosition, PasteCursor, PasteMode, Pasted};
 use crate::ops::edit::{
     discard_pending_edit, focus_editor, mark_dirty, record_typing, save_body, show_parsed,
 };
 use crate::ops::file_reload::reload_shown_page;
 use crate::outline::tree::edit_context_of;
 use crate::outline::CursorState;
-use crate::util::split_at_char;
+use crate::util::{char_len, split_at_char};
 use crux_core::Command;
 
 /// Asks the server to paste text into an item. Supports plain text, tree markdown, and flat
@@ -123,16 +123,31 @@ pub fn show_pasted(model: &mut Model, item_id: &str, cursor_before: usize, paste
         // The server names the item written to; on screen that is the item pasted into
         cursor.item_id = item_id.to_string();
     }
+    let fallback = PasteCursor {
+        item_id: item_id.to_string(),
+        position: char_len(&first.body),
+    };
+    if !in_transclusion {
+        return place_cursor(model, cursor, fallback);
+    }
+    run(move |api| async move {
+        reload_shown_page(&api).await;
+        api.send_event(Event::PastedPageReloaded { cursor, fallback });
+    })
+}
+
+/// Puts the cursor right after the pasted text and focuses that editor. An item made beside
+/// the source item of a transclusion is not on this page: the cursor then goes to `fallback`.
+pub fn place_cursor(model: &mut Model, cursor: PasteCursor, fallback: PasteCursor) -> Cmd {
+    let cursor = match model.state.get_visible_item(&cursor.item_id) {
+        Some(_) => cursor,
+        None => fallback,
+    };
     model
         .state
         .set_focused_item(&cursor.item_id, Some(cursor.position));
     let keys = model.key_relay.release();
-    run(move |api| async move {
-        if in_transclusion {
-            reload_shown_page(&api).await;
-        }
-        api.focus_editor(Some(cursor.item_id), keys).await
-    })
+    run(move |api| async move { api.focus_editor(Some(cursor.item_id), keys).await })
 }
 
 /// Uploads a pasted image and puts a link to it at the cursor.
