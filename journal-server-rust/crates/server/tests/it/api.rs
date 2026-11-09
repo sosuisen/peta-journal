@@ -731,6 +731,22 @@ async fn merging_joins_the_bodies_the_request_carries_and_the_stored_ones_for_th
     assert_eq!(outline_of(&page.id).await, ["1:typed third"]);
 }
 
+// 結合した本文のコードフェンスが閉じていなければ、閉じて保存される。保存された本文は、コードフェンスの途中で終わらない。
+#[tokio::test]
+async fn merging_closes_an_open_code_fence_in_the_joined_body() {
+    let page = new_doc_page("items-merge-fence").await;
+    let rows = fill(&page.id, &["first", "second"]).await;
+
+    let (status, resp) = post(
+        "/api/items/merge",
+        json!({ "itemId": rows[1].id, "intoId": rows[0].id, "intoBody": "```js\n", "body": "code" }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(resp["item"]["body"], json!("```js\ncode\n```"));
+}
+
 // トランスクルージョンは結合できない。消える側でも受け取る側でも断られる。
 #[tokio::test]
 async fn a_transclusion_is_not_merged_on_either_side() {
