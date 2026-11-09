@@ -155,7 +155,7 @@ fn showing_transclusion(model: &Model, item: &Item) -> Option<ItemRef> {
 
 /// The page that shows the item through a transclusion: the page of the transclusion.
 /// None for an item outside a transclusion, and for an item that is not shown any more.
-fn host_page_of_transclusion(model: &Model, item_id: &str) -> Option<String> {
+pub fn host_page_of_transclusion(model: &Model, item_id: &str) -> Option<String> {
     let item = model.current_item(item_id)?;
     if model.state.is_own_item(item_id) {
         return item

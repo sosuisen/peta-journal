@@ -12,6 +12,7 @@ use crate::effects::{Api, ApiError, ApiResult};
 use crate::model::{Item, ItemPosition, ItemRef, Page};
 use crate::ops::edit::{flush_pending_edit, read, record_typing, take_unsaved, typed_body};
 use crate::ops::file_reload::replace_page;
+use crate::ops::split::host_page_of_transclusion;
 use crate::outline::tree::{
     find_cross_page_placement, find_move_down_target, find_move_up_target, get_subtree,
     selected_root_items, transclusion_context_of, transclusion_scoped_items, ScanDirection,
@@ -168,7 +169,8 @@ fn request_move(
 pub fn show_moved_in_transclusion(model: &mut Model, item_id: String) -> Cmd {
     // Reading the page again blurs the editor of the item: the edit goes on in it
     model.edits.edit_handovers += 1;
-    let page_id = model.shown_page_id();
+    // A journal shows the pages of many days: the page to read is the one of the transclusion
+    let page_id = host_page_of_transclusion(model, &item_id);
     run(move |api| async move {
         if let Some(page_id) = page_id {
             replace_page(&api, &page_id).await;
