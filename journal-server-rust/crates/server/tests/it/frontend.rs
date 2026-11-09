@@ -92,3 +92,11 @@ async fn an_unknown_api_path_is_not_found_instead_of_index_html() {
 
     assert_eq!(response.status(), 404);
 }
+
+// 画面のフォルダが設定されていなければ、画面は配信されない。
+#[tokio::test]
+async fn no_frontend_is_served_without_a_frontend_folder() {
+    let response = client().get(url("/today")).send().await.expect("GET");
+
+    assert_eq!(response.status(), 404);
+}
