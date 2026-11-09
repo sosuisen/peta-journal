@@ -1209,6 +1209,31 @@ async fn a_paste_into_an_item_that_is_gone_is_refused() {
     assert_eq!(outline_of(&page.id).await, ["1:other"]);
 }
 
+// ---- Items: batch ----
+
+/// Applies operations as one batch, the way an undo sends what it replays
+async fn batch(ops: Value) -> (u16, Value) {
+    post("/api/items/batch", json!({ "ops": ops })).await
+}
+
+// 更新の操作は、本文、階層、折りたたみを書き、書いた項目を答える。
+#[tokio::test]
+async fn a_batch_update_writes_the_body_the_level_and_the_collapsed_state() {
+    let page = new_doc_page("items-batch-update").await;
+    let rows = fill(&page.id, &["top", "old"]).await;
+
+    let (status, resp) = batch(json!([
+        { "op": "update", "id": rows[1].id, "body": "new", "level": 2, "collapsed": true },
+    ]))
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(field_of_each(&resp, "items", "body"), vec![json!("new")]);
+    let stored = items(&page.id).await;
+    assert_eq!(outline_of(&page.id).await, ["1:top", "2:new"]);
+    assert!(stored[1].collapsed);
+}
+
 // ---- Items: group delete ----
 
 // グループ削除は、項目を子孫ごと1回のリクエストで消す。
