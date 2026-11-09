@@ -255,7 +255,7 @@ fn undo_of_a_create_of_a_parent_and_its_child_deletes_them_as_one_group() {
 
 // undo の要求をサーバーが断ると、ページはサーバーの持つ形に読み直される。
 #[test]
-fn an_undo_delete_the_server_refuses_reloads_the_page() {
+fn an_undo_the_server_refuses_reloads_the_page() {
     let mut h = Harness::with_items(vec![item("a", 1, ""), item("n", 1, "created")]);
     h.model.undo.begin("enter", None);
     h.model.undo.push_create(&item("n", 1, "created"));
@@ -263,6 +263,7 @@ fn an_undo_delete_the_server_refuses_reloads_the_page() {
     h.api.fail_next("ApplyBatch", "refused");
     h.send(Event::Undo);
     assert!(h.api.called("GetPageById"));
+    assert_eq!(h.items_ids(), ["reloaded"]);
 }
 
 // 作成の redo は、項目を元のIDのまま、その index の位置に作り直す。
@@ -341,6 +342,26 @@ fn undo_of_a_delete_of_several_items_makes_them_again_from_the_top_down() {
             create_op("b", "a", 1, "parent"),
             create_op("c", "b", 2, "child"),
         ]]
+    );
+}
+
+// 結合の undo は、受けた項目の更新を先に、消えた項目の作り直しを後に送る。作り直す項目の階層は、上の項目の更新後の階層で確かめられるためである。
+#[test]
+fn undo_of_a_merge_sends_the_update_before_the_item_made_again() {
+    let mut h = Harness::with_items(vec![item("a", 1, "ab")]);
+    h.model.undo.begin("backspace", None);
+    h.model
+        .undo
+        .push_update(&item("a", 1, "a"), &item("a", 1, "ab"));
+    h.model.undo.push_delete(&item("b", 1, "b"));
+    h.model.undo.commit(None, 0);
+
+    h.send(Event::Undo);
+
+    assert_eq!(h.bodies(), ["a=a", "b=b"]);
+    assert_eq!(
+        batch_calls(&h.api),
+        [[update_op("a", 1, "a"), create_op("b", "a", 1, "b")]]
     );
 }
 
