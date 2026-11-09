@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { Server, StoredItem, editorOf, openEditor, openPage, outlineOf } from './support';
+import { Server, StoredItem, editorOf, openEditor, openPage, outlineOf, shownBodies } from './support';
 
 test.describe('outline structure', () => {
   let server: Server;
@@ -49,6 +49,27 @@ test.describe('outline structure', () => {
     expect(outlineOf(await server.itemsSettled(pageId, i => i[0].body === 'b')))
       .toEqual(['1:b', '2:b1', '1:a', '2:a1', '2:a2']);
     await expect(editorOf(page, byBody('a').id)).toBeFocused();
+  });
+
+  test('Ctrl+Z takes back a move and Ctrl+Shift+Z does it again', async ({ page }) => {
+    await openEditor(page, byBody('a').id);
+    await page.keyboard.press('Alt+Shift+ArrowDown');
+    await server.itemsSettled(pageId, i => i[0].body === 'b');
+    // The server knows the move before the screen does, and only then is there a move to take back
+    await expect.poll(() => shownBodies(page)).toEqual(['b', 'b1', 'a', 'a1', 'a2']);
+
+    await page.keyboard.press('Control+z');
+
+    expect(outlineOf(await server.itemsSettled(pageId, i => i[0].body === 'a')))
+      .toEqual(['1:a', '2:a1', '2:a2', '1:b', '2:b1']);
+    await expect.poll(() => shownBodies(page)).toEqual(['a', 'a1', 'a2', 'b', 'b1']);
+    await expect(editorOf(page, byBody('a').id)).toBeFocused();
+
+    await page.keyboard.press('Control+Shift+z');
+
+    expect(outlineOf(await server.itemsSettled(pageId, i => i[0].body === 'b')))
+      .toEqual(['1:b', '2:b1', '1:a', '2:a1', '2:a2']);
+    await expect.poll(() => shownBodies(page)).toEqual(['b', 'b1', 'a', 'a1', 'a2']);
   });
 
   test('Alt+Shift+Up moves a child above its sibling', async ({ page }) => {
