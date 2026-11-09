@@ -560,6 +560,50 @@ fn undo_of_a_move_inside_a_transclusion_leaves_the_item_where_it_is() {
     assert_eq!(batch_calls(&h.api), [[update_op("c2", 2, "")]]);
 }
 
+// 論理アウトデントの undo は、階層と位置の両方を戻す。階層の更新を先に、移動を後に送る。
+#[test]
+fn undo_of_a_logical_outdent_puts_the_level_and_the_place_back() {
+    // x was the first child of p; it went below the last child, one level up
+    let mut h = Harness::with_items(vec![at("p", "p", 1), at("c1", "p2", 2), at("x", "p3", 1)]);
+    h.model
+        .undo
+        .record_updates("outdent", [(&at("x", "p1", 2), &at("x", "p3", 1))], 0);
+
+    h.send(Event::Undo);
+
+    assert_eq!(h.outline(), ["p:1=", "x:2=", "c1:2="]);
+    assert_eq!(
+        batch_calls(&h.api),
+        [[
+            update_op("x", 2, ""),
+            move_op(&["x"], ItemPosition::after("p"))
+        ]]
+    );
+}
+
+// 移動と作り直しがある undo は、上の項目から順に送る。作り直す項目の位置の基準が、先に動いているためである。
+#[test]
+fn an_undo_that_moves_and_makes_items_again_sends_them_from_the_top_down() {
+    // y went from the top to below k, and x, which was below y, was deleted
+    let mut h = Harness::with_items(vec![at("k", "b", 1), at("y", "c", 1)]);
+    h.model.undo.begin("move", None);
+    h.model.undo.push_update(&at("y", "a", 1), &at("y", "c", 1));
+    h.model.undo.push_delete(&at("x", "a5", 1));
+    h.model.undo.commit(None, 0);
+
+    h.send(Event::Undo);
+
+    assert_eq!(h.items_ids(), ["y", "x", "k"]);
+    assert_eq!(
+        batch_calls(&h.api),
+        [[
+            update_op("y", 1, ""),
+            move_op(&["y"], ItemPosition::First),
+            create_op("x", "y", 1, ""),
+        ]]
+    );
+}
+
 // undo スタックが空なら何も起きず、保留中の編集もそのままである。
 #[test]
 fn does_nothing_on_an_empty_stack() {
