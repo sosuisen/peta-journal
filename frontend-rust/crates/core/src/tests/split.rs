@@ -1,5 +1,5 @@
 use crate::app::Event;
-use crate::harness::{create_calls, item, update_calls, Harness};
+use crate::harness::{create_calls, item, split_calls, update_calls, Harness};
 use crate::model::{Page, PageWithItems, TranscludedTrees};
 use crate::testing::item_with;
 
@@ -18,16 +18,17 @@ fn enter(h: &mut Harness, item_id: &str, cursor: usize) {
     });
 }
 
-// 途中での Enter はカーソルより前の文を残し、残りを下の新しい項目に移す。編集は新しい項目に移り、カーソルはその先頭に置かれる。
+// 途中での Enter は、本文とカーソルを1つの要求でサーバーに送る。カーソルより前の文が残り、残りは下の新しい項目に移る。編集は新しい項目に移り、カーソルはその先頭に置かれる。
 #[test]
 fn enter_in_the_middle_keeps_the_text_before_the_cursor_and_moves_the_rest_below() {
     let mut h = harness();
     enter(&mut h, "a", 5);
     assert_eq!(h.bodies(), ["a=hello", "new1= world", "b=body of b"]);
     assert_eq!(
-        create_calls(&h.api),
-        [("page1".into(), "after:a".into(), 1, " world".into(), None)]
+        split_calls(&h.api),
+        [("a".to_string(), "hello world".to_string(), 5)]
     );
+    assert_eq!(h.api.calls.len(), 1, "one request does it all");
     assert!(h.model.state.is_editing("new1"));
     assert!(!h.model.state.is_editing("a"));
     assert_eq!(h.focused_editor_requests(), [Some("new1".to_string())]);
