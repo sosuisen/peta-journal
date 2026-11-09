@@ -10,7 +10,9 @@
 use crate::app::{apply, done, log_error, run, Cmd, Event, Model, MoveDirection};
 use crate::effects::{Api, ApiError, ApiResult};
 use crate::model::{Item, ItemPosition, ItemRef, Page};
-use crate::ops::edit::{flush_pending_edit, focus_editor, read, take_unsaved, Handover};
+use crate::ops::edit::{
+    flush_pending_edit, focus_editor, read, record_typing, take_unsaved, typed_body, Handover,
+};
 use crate::ops::file_reload::reload_shown_page;
 use crate::outline::tree::{
     find_cross_page_placement, find_move_down_target, find_move_up_target, get_subtree,
@@ -144,7 +146,9 @@ fn move_on_page(
             }),
             Err(e) => {
                 log_error(format!("Failed to move item: {e}"));
-                api.send_event(Event::MoveFailed);
+                api.send_event(Event::MoveFailed {
+                    unsaved: body.map(|_| item.id),
+                });
             }
         }
     });
@@ -188,10 +192,16 @@ pub fn show_moved(
     })
 }
 
-/// Ends the wait for the editor after a move that did not reach the server.
-pub fn move_failed(model: &mut Model) -> Cmd {
+/// Ends the wait for the editor after a move that did not reach the server, and schedules
+/// the auto-save of the typed text the move was to carry.
+pub fn move_failed(model: &mut Model, unsaved: Option<&str>) -> Cmd {
     model.key_relay.release();
-    move_done(model, false)
+    let typed = unsaved.and_then(|id| Some((model.cloned_item(id)?, typed_body(model, id)?)));
+    let save = match typed {
+        Some((item, typed)) => record_typing(model, &item, &typed),
+        None => done(),
+    };
+    Command::all([save, move_done(model, false)])
 }
 
 enum MovePlan {

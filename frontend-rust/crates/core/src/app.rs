@@ -253,7 +253,10 @@ pub enum Event {
     },
     /// The server refused the move of an edited item, or could not be reached: nothing was
     /// written.
-    MoveFailed,
+    MoveFailed {
+        /// The item with typed text that no request but the move carried.
+        unsaved: Option<String>,
+    },
     /// A move is through, with all that follows it on screen: the next one can start.
     MoveDone {
         /// The move kept the blur of the editor from ending the edit until now.
@@ -868,7 +871,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             position,
             edited,
         } => ops::moves::show_moved(model, moved, &position, edited),
-        MoveFailed => ops::moves::move_failed(model),
+        MoveFailed { unsaved } => ops::moves::move_failed(model, unsaved.as_deref()),
         MoveDone { handover } => ops::moves::move_done(model, handover),
         MoveUp { item_id } => ops::moves::enqueue_move(model, &item_id, MoveDirection::Up),
         MoveDown { item_id } => ops::moves::enqueue_move(model, &item_id, MoveDirection::Down),
