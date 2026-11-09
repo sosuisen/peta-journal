@@ -91,6 +91,9 @@ pub struct Settings {
     pub import_copy_wait_secs: u64,
     pub export_overwrite_wait_secs: u64,
     pub cors_origins: Vec<String>,
+    /// The folder with the files of the web frontend, the `dist/` Trunk writes. Without it
+    /// the server serves no frontend.
+    pub frontend_dir: Option<PathBuf>,
 }
 
 pub fn home_dir() -> PathBuf {
@@ -132,6 +135,7 @@ impl Settings {
                 .map(|s| s.trim().to_string())
                 .filter(|s| !s.is_empty())
                 .collect(),
+            frontend_dir: None,
         }
     }
 
@@ -151,6 +155,7 @@ impl Settings {
             import_copy_wait_secs: 300,
             export_overwrite_wait_secs: 300,
             cors_origins: vec!["http://localhost:4200".to_string()],
+            frontend_dir: None,
         }
     }
 }
