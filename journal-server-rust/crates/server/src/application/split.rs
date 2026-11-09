@@ -37,6 +37,10 @@ pub fn plan(on_page: &[Item], item: &Item, body: &str, cursor: usize) -> SplitPl
 /// editor has now. The text is the text of the source item: what is cut off stays on the
 /// page of the source, also where the page of the transclusion does not show it then.
 pub fn plan_of_transclusion(shown: &Transclusion, body: &str, cursor: usize) -> SplitPlan {
+    if at_start(body, cursor) {
+        // The empty item holds no text of the source: it goes on the page of the transclusion
+        return closed(empty_above(shown.root_page, shown.root, body));
+    }
     let (before, after) = split_at_char(body, cursor);
     let (position, level) = shown.place_of_the_rest();
     closed(SplitPlan {
@@ -85,20 +89,30 @@ fn last_descendant<'a>(on_page: &'a [Item], item: &Item) -> Option<&'a Item> {
         .last()
 }
 
+/// True when the whole text would move down. An empty item above does the same and keeps
+/// the id of the item.
+fn at_start(body: &str, cursor: usize) -> bool {
+    cursor == 0 && !body.is_empty()
+}
+
+/// An empty item right above `item` on its page, which keeps the whole body.
+fn empty_above(on_page: &[Item], item: &Item, body: &str) -> SplitPlan {
+    let above = on_page
+        .iter()
+        .take_while(|other| other.id != item.id)
+        .last();
+    SplitPlan {
+        body: body.to_string(),
+        new_body: String::new(),
+        page_id: item.page_id.clone(),
+        position: above.map_or(ItemPosition::First, |a| ItemPosition::After(a.id.clone())),
+        level: item.level,
+    }
+}
+
 fn cut(on_page: &[Item], item: &Item, body: &str, cursor: usize) -> SplitPlan {
-    if cursor == 0 && !body.is_empty() {
-        // The whole text would move down: an empty item above does the same and keeps the id
-        let above = on_page
-            .iter()
-            .take_while(|other| other.id != item.id)
-            .last();
-        return SplitPlan {
-            body: body.to_string(),
-            new_body: String::new(),
-            page_id: item.page_id.clone(),
-            position: above.map_or(ItemPosition::First, |a| ItemPosition::After(a.id.clone())),
-            level: item.level,
-        };
+    if at_start(body, cursor) {
+        return empty_above(on_page, item, body);
     }
     let (before, after) = split_at_char(body, cursor);
     let (above, level) = match last_descendant(on_page, item) {
