@@ -33,9 +33,10 @@ impl JoinKey {
             JoinKey::Backspace => previous_join(model, item_id),
             JoinKey::Delete => next_join(model, item_id).map(|(item, next)| (next, item)),
         }?;
-        // The text a transclusion shows is the text of another item: the server joins
-        // nothing into it
-        into.transclude_item_id.is_none().then_some((goes, into))
+        // The text a transclusion shows is the text of another item: it is not joined, and
+        // nothing is joined into it. The server refuses both
+        let transclusion = goes.transclude_item_id.is_some() || into.transclude_item_id.is_some();
+        (!transclusion).then_some((goes, into))
     }
 }
 
@@ -43,9 +44,6 @@ impl JoinKey {
 /// two are not joined.
 fn previous_join(model: &Model, item_id: &str) -> Option<(Item, Item)> {
     let item = model.cloned_item(item_id)?;
-    if item.transclude_item_id.is_some() {
-        return None;
-    }
     let items = model.state.visible_items();
     let idx = index_of(items, &item.id)?;
     if idx == 0 {
@@ -60,16 +58,12 @@ fn previous_join(model: &Model, item_id: &str) -> Option<(Item, Item)> {
 }
 
 /// The item Delete at its end takes in, and the item below it: None when the two are not
-/// joined. Same limits as Backspace: a transclusion is not merged away, and journal days are
-/// not merged.
+/// joined. Same limit as Backspace: journal days are not merged.
 fn next_join(model: &Model, item_id: &str) -> Option<(Item, Item)> {
     let item = model.cloned_item(item_id)?;
     let items = model.state.visible_items();
     let idx = index_of(items, &item.id)?;
     let next: Item = (**items.get(idx + 1)?).clone();
-    if next.transclude_item_id.is_some() {
-        return None;
-    }
     if item.is_daily_journal_item() && next.page_id != item.page_id {
         return None;
     }
