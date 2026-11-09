@@ -15,6 +15,15 @@ fn web() -> &'static TestServer {
         let dist = tempfile::tempdir().expect("temp dir");
         std::fs::write(dist.path().join("index.html"), INDEX).unwrap();
         std::fs::write(dist.path().join("styles-9508fe9cb1262d3b.css"), STYLES).unwrap();
+        for other in [
+            "favicon.ico",
+            "peta-frontend-ddabb055804ec070_bg.wasm",
+            "snippets/peta-frontend-cb3043ce8f507085/src/components/atlas.js",
+        ] {
+            let file = dist.path().join(other);
+            std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+            std::fs::write(file, "").unwrap();
+        }
         // Files at the paths of the server's own routes, which must never be served
         for shadowed in ["api/health", "assets/logo.png", "mcp"] {
             let file = dist.path().join(shadowed);
@@ -110,5 +119,23 @@ async fn index_html_is_checked_again_on_every_load() {
         let response = fetch(path).await;
 
         assert_eq!(response.headers()["cache-control"], "no-cache", "{path}");
+    }
+}
+
+// 名前にハッシュの付いたファイルは、長くキャッシュされる。中身が変わると名前も変わるからである。
+#[tokio::test]
+async fn a_file_with_a_hash_in_its_name_is_cached_for_long() {
+    for path in [
+        "/styles-9508fe9cb1262d3b.css",
+        "/peta-frontend-ddabb055804ec070_bg.wasm",
+        "/snippets/peta-frontend-cb3043ce8f507085/src/components/atlas.js",
+    ] {
+        let response = fetch(path).await;
+
+        assert_eq!(
+            response.headers()["cache-control"],
+            "public, max-age=31536000, immutable",
+            "{path}"
+        );
     }
 }
