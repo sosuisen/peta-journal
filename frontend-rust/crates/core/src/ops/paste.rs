@@ -8,6 +8,8 @@ use crate::model::{ItemPosition, PasteMode, Pasted};
 use crate::ops::edit::{
     discard_pending_edit, focus_editor, mark_dirty, record_typing, save_body, show_parsed,
 };
+use crate::ops::file_reload::reload_shown_page;
+use crate::outline::tree::edit_context_of;
 use crate::outline::CursorState;
 use crate::util::split_at_char;
 use crux_core::Command;
@@ -77,6 +79,14 @@ pub fn show_pasted(model: &mut Model, item_id: &str, cursor_before: usize, paste
     else {
         return done();
     };
+    // Inside a transclusion the items made belong to the source page. This page shows them
+    // only when they are below the source item, so the server's version of it is read again
+    let in_transclusion = edit_context_of(
+        &before,
+        model.state.own_item_ids(),
+        model.state.transcluded_trees(),
+    )
+    .in_transclusion;
     model
         .undo
         .begin("paste", Some(CursorState::new(item_id, cursor_before)));
@@ -90,9 +100,11 @@ pub fn show_pasted(model: &mut Model, item_id: &str, cursor_before: usize, paste
     }
     let mut previous_id = item_id.to_string();
     for new_item in created {
-        model
-            .state
-            .add_items(vec![new_item.clone()], &ItemPosition::after(previous_id));
+        if !in_transclusion {
+            model
+                .state
+                .add_items(vec![new_item.clone()], &ItemPosition::after(previous_id));
+        }
         let shown = model
             .state
             .get_item_by_id(&new_item.id)
@@ -107,7 +119,12 @@ pub fn show_pasted(model: &mut Model, item_id: &str, cursor_before: usize, paste
         .state
         .set_focused_item(&cursor.item_id, Some(cursor.position));
     let keys = model.key_relay.release();
-    run(move |api| async move { api.focus_editor(Some(cursor.item_id), keys).await })
+    run(move |api| async move {
+        if in_transclusion {
+            reload_shown_page(&api).await;
+        }
+        api.focus_editor(Some(cursor.item_id), keys).await
+    })
 }
 
 /// Uploads a pasted image and puts a link to it at the cursor.
