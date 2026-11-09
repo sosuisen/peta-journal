@@ -1065,6 +1065,40 @@ async fn a_paste_in_an_unknown_mode_is_refused() {
     assert_eq!(outline_of(&page.id).await, ["1:ab"]);
 }
 
+/// Reads the event stream until an event has `needle` in it, and returns all that was read
+async fn events_until(events: &mut reqwest::Response, needle: &str) -> String {
+    let mut seen = String::new();
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(5);
+    while !seen.contains(needle) {
+        let chunk = tokio::time::timeout_at(deadline, events.chunk())
+            .await
+            .unwrap_or_else(|_| panic!("no event with {needle}"))
+            .unwrap()
+            .unwrap();
+        seen.push_str(&String::from_utf8_lossy(&chunk));
+    }
+    seen
+}
+
+// 項目をいくつ作る貼り付けでも、ページの変更は1回だけクライアントに知らされる。
+#[tokio::test]
+async fn the_clients_hear_of_the_page_once_however_many_items_a_paste_creates() {
+    let page = new_doc_page("items-paste-event").await;
+    let rows = fill(&page.id, &["ab"]).await;
+    let other_page = new_doc_page("items-paste-event-after").await;
+    let mut events = client().get(url("/api/events")).send().await.unwrap();
+
+    let (status, resp) = paste(&rows[0].id, "ab", 1, "X\n\nY\n\nZ", "auto").await;
+    assert_eq!(status, 200, "{resp}");
+    // The events come in order: what is read up to this one holds all those of the paste
+    create_item(&other_page.id, "last", 1, "after the paste").await;
+
+    let other = format!("\"pageId\":\"{}\"", other_page.id);
+    let seen = events_until(&mut events, &other).await;
+    let pasted = format!("\"pageId\":\"{}\"", page.id);
+    assert_eq!(seen.matches(&pasted).count(), 1, "{seen}");
+}
+
 // ---- Items: group delete ----
 
 // グループ削除は、項目を子孫ごと1回のリクエストで消す。
