@@ -111,7 +111,10 @@ pub fn home_dir() -> PathBuf {
 /// The folder of the web frontend: the given one, or else `frontend/` beside the executable,
 /// where a distributed server has it.
 fn frontend_dir(given: Option<PathBuf>, executable: std::io::Result<PathBuf>) -> Option<PathBuf> {
-    given.or_else(|| Some(executable.ok()?.parent()?.join("frontend")))
+    given.or_else(|| {
+        let beside = executable.ok()?.parent()?.join("frontend");
+        beside.is_dir().then_some(beside)
+    })
 }
 
 impl Settings {
