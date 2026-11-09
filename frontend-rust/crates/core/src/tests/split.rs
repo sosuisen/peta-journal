@@ -396,6 +396,29 @@ fn enter_at_the_end_of_a_transcluded_item_with_one_below_still_creates_on_the_so
     assert_eq!(calls[0].0, "src");
 }
 
+// トランスクルージョンの中での分割に失敗すると、キーの保留は終わり、編集の引き継ぎも終わる。
+#[test]
+fn a_split_inside_a_transclusion_that_fails_stops_holding_keys() {
+    let mut h = transclusion_harness(Vec::new());
+    h.api.fail_next("CreateItem", "offline");
+    enter(&mut h, "c", 2);
+    assert!(!h.model.key_relay.is_holding());
+    assert_eq!(
+        h.model.edits.edit_handovers, 0,
+        "the handover ended despite the failure"
+    );
+}
+
+// 最後のトランスクルード項目の末尾での Enter は、空の項目をすぐに示す。その作成に失敗すると、ページはサーバーから読み直される。
+#[test]
+fn when_the_creation_below_a_transclusion_fails_the_page_is_reloaded_from_the_server() {
+    let mut h = transclusion_harness(Vec::new());
+    h.api.fail_next("CreateItem", "offline");
+    enter(&mut h, "c", "child".len());
+    assert!(h.api.called("GetPageById"));
+    assert_eq!(h.bodies(), ["reloaded=reloaded"]);
+}
+
 // 次のエディタを待つ間に押されたキーは、そのエディタに渡される。待っていなければキーは捨てられる。
 // The fake server answers at once, so the wait is started by hand and ended by a merge.
 #[test]
