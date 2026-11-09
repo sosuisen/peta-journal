@@ -345,11 +345,11 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             body,
             cursor,
             text,
-            ..
+            mode,
         } => call(
             "POST",
             format!("/api/items/{item_id}/paste"),
-            Some(json!({ "body": body, "cursor": cursor, "text": text, "mode": "flat" })),
+            Some(json!({ "body": body, "cursor": cursor, "text": text, "mode": mode })),
             |reply| parsed(reply).map(ApiOutput::Pasted),
         ),
         ApiOp::CycleTask { item_id } => call(

@@ -245,8 +245,9 @@ impl<'de> Deserialize<'de> for ItemPosition {
     }
 }
 
-/// How the server reads a pasted text.
+/// How the server reads a pasted text. The names are the ones the server reads.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum PasteMode {
     /// Tree markdown is converted, and the text is split into items.
     Auto,
