@@ -119,9 +119,10 @@ cd peta-journal/frontend-rust
 cargo test                  # core (the ported service specs), fm-ast and fm-leptos
 ```
 
-The Playwright suite in `e2e/` drives the Rust server and the Rust frontend (trunk serves it on
-port 4300 with `Trunk.e2e.toml`). Build the server first with `cargo build --release` in
-`journal-server-rust`, and install trunk with `cargo install trunk`:
+The Playwright suite in `e2e/` drives the Rust server and the Rust frontend the way they run for
+the user: it builds the frontend with `trunk build` into `dist-e2e/`, then starts one journal
+server on port 8187 that serves those files and the API. Build the server first with
+`cargo build --release` in `journal-server-rust`, and install trunk with `cargo install trunk`:
 
 ```bash
 cd peta-journal/e2e
@@ -188,7 +189,8 @@ cargo test --all-features
 
 `.github/workflows/ci.yml` runs on every pull request and every push to `main`. A change to the
 documents alone does not start it. On Ubuntu, each of the three workspaces runs `cargo fmt --check`,
-`cargo clippy` and `cargo test`. The frontend also checks the shell for wasm. The end-to-end tests
+`cargo clippy` and `cargo test`. The frontend also checks the shell for wasm. A fourth job checks
+`ext-web-app/todo` on Node 24: the format, lint, the tests and the build. The end-to-end tests
 in `e2e/` do not run there, so run them by hand. A warning from clippy does not fail the run.
 
 ## Development Workflow

@@ -71,7 +71,8 @@
   - [x] `index.html`はキャッシュさせず、ハッシュの付いたファイルは長くキャッシュさせる
     - [x] ハッシュのない名前のファイル（`favicon.ico`、フォント）も、キャッシュさせない
   - [x] READMEとdocsの起動手順を、journal-serverだけを起動する形に直す
-  - [ ] PlaywrightのE2Eテストを、`trunk serve`からjournal-serverの配信へ移すかを決める（ユーザーが決める）
+  - [x] PlaywrightのE2Eテストを、`trunk serve`からjournal-serverの配信へ移す。`trunk build`で`dist-e2e/`に作り、ポート8187のjournal-serverが配信する。`Trunk.e2e.toml`は消した
+  - [ ] `Trunk.toml`の`[serve]`と中継の設定を消すかを決める（ユーザーが決める）。E2Eテストも開発も、もう`trunk serve`を使っていない
   - [x] `ext-web-app/todo`のWeb版へのリンク（ウィキリンクと、項目を開くリンク）を、ポート4200からjournal-serverのアドレスに直す
 - [x] `ext-web-app/todo`を、機能を変えずにリファクタリングする
   - [x] VitestとPrettierを入れる

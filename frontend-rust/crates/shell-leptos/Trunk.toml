@@ -5,7 +5,8 @@ dist = "dist"
 [serve]
 port = 4200
 
-# The journal server. For the end-to-end tests see Trunk.e2e.toml.
+# The journal server, for `trunk serve`. The end-to-end tests do not use this proxy: they build
+# with `trunk build --dist dist-e2e` and let their own journal server serve the files.
 [[proxy]]
 backend = "http://localhost:8087/api/"
 
