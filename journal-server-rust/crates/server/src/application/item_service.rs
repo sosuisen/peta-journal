@@ -669,7 +669,12 @@ impl ItemService {
             .nth(cursor)
             .map_or(body.len(), |(i, _)| i);
         let (before, after) = body.split_at(split);
-        let split_text = FlatMarkdownSplitter::new(self.parser.clone()).split(text)?;
+        let flat = if text.trim_start().starts_with("- ") {
+            tree_markdown::tree_markdown_to_flat_markdown(text)
+        } else {
+            text.to_string()
+        };
+        let split_text = FlatMarkdownSplitter::new(self.parser.clone()).split(&flat)?;
         let top_level = split_text.items[0].level;
         let levels: Vec<i32> = split_text
             .items
