@@ -666,6 +666,12 @@ impl ItemService {
         mode: PasteMode,
     ) -> AppResult<Pasted> {
         let item = self.get_item_by_id(item_id)?;
+        // A transclusion shows its source item. What is pasted into it goes into the source,
+        // as what is typed into it does
+        let item = match &item.transclude_item_id {
+            Some(source_id) => self.get_item_by_id(source_id)?,
+            None => item,
+        };
         let splitter = FlatMarkdownSplitter::new(self.parser.clone());
         let plan = paste::plan(&splitter, body, cursor, text, mode)?;
 
