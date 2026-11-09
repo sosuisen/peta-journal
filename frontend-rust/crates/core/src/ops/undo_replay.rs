@@ -206,6 +206,7 @@ pub fn show_synced(
 /// it writes none, the page is shown as the server has it, as the screen is then ahead of it.
 fn sync_to_server(model: &Model, ops: &[UndoOp], dir: Direction) -> Cmd {
     let mut batch = Batch::default();
+    let mut put_back = Vec::new();
     // The server deletes last, as one group: a parent deleted on its own is refused
     let mut deletes = Vec::new();
     for op in ops {
@@ -220,7 +221,7 @@ fn sync_to_server(model: &Model, ops: &[UndoOp], dir: Direction) -> Cmd {
             }
             UndoOp::Create { item } | UndoOp::Delete { item } => {
                 if exists_again(op, dir) {
-                    batch.push_create(model, item);
+                    put_back.push(item);
                 } else {
                     deletes.push(BatchOp::Delete {
                         id: item.id.clone(),
@@ -228,6 +229,13 @@ fn sync_to_server(model: &Model, ops: &[UndoOp], dir: Direction) -> Cmd {
                 }
             }
         }
+    }
+    // From the top down, after the updates: an item is made after the one above it, which
+    // must be there, and at a level the one above allows
+    let place_of = |item: &Item| model.state.items().iter().position(|i| i.id == item.id);
+    put_back.sort_by_key(|item| place_of(item));
+    for item in put_back {
+        batch.push_create(model, item);
     }
     batch.ops.extend(deletes);
     run(move |api| async move {
