@@ -57,12 +57,13 @@ pub fn paste_text(
     Command::all([discard, request])
 }
 
-/// Schedules the auto-save of the text the failed paste was to carry, as it reached no server.
-pub fn keep_unsaved_text(model: &mut Model, item_id: &str) -> Cmd {
-    let Some(item) = model.cloned_item(item_id) else {
-        return done();
-    };
-    record_typing(model, &item, &item.body)
+/// Schedules the auto-save of the typed text a failed paste was to carry, as it did not reach
+/// the server.
+pub fn paste_failed(model: &mut Model, item_id: &str, unsaved: bool) -> Cmd {
+    match model.cloned_item(item_id) {
+        Some(item) if unsaved => record_typing(model, &item, &item.body),
+        _ => done(),
+    }
 }
 
 /// Shows what the server wrote for a paste, records it as one undo entry, and puts the cursor

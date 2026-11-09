@@ -782,13 +782,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             cursor_before,
             pasted,
         } => ops::paste::show_pasted(model, &item_id, cursor_before, pasted),
-        PasteFailed { item_id, unsaved } => {
-            if unsaved {
-                ops::paste::keep_unsaved_text(model, &item_id)
-            } else {
-                done()
-            }
-        }
+        PasteFailed { item_id, unsaved } => ops::paste::paste_failed(model, &item_id, unsaved),
         PasteImage {
             item_id,
             file,
