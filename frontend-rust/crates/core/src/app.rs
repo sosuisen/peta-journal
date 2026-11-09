@@ -197,6 +197,8 @@ pub enum Event {
     },
     /// The server wrote what an undo or a redo replayed: its answer goes on screen.
     UndoSynced {
+        /// The number of the sync this answers; see [`Model::undo_syncs_sent`].
+        sync: u64,
         items: Vec<Item>,
         /// The items whose body or task state the replay changed: they take the server's
         /// parse.
@@ -650,6 +652,9 @@ pub struct Model {
     /// The last wall-clock time the shell reported, in milliseconds.
     pub clock_ms: u64,
     pub next_timer_id: u64,
+    /// How many times an undo or a redo sent what it replayed to the server. The answers
+    /// can come back in another order than the requests went out.
+    pub undo_syncs_sent: u64,
 }
 
 impl Default for Model {
@@ -680,6 +685,7 @@ impl Default for Model {
             hmtid: hmtid::Generator::new('-', true),
             clock_ms: 0,
             next_timer_id: 1,
+            undo_syncs_sent: 0,
         }
     }
 }
@@ -802,10 +808,11 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         }
         PasteFailed { item_id, unsaved } => ops::paste::paste_failed(model, &item_id, unsaved),
         UndoSynced {
+            sync,
             items,
             reparsed,
             recreated,
-        } => ops::undo_replay::show_synced(model, items, reparsed, recreated),
+        } => ops::undo_replay::show_synced(model, sync, items, reparsed, recreated),
         PasteImage {
             item_id,
             file,

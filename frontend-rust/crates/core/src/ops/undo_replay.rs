@@ -182,10 +182,15 @@ impl Batch {
 /// how it parsed the items whose body or task state changed, and the items it made again.
 pub fn show_synced(
     model: &mut Model,
+    sync: u64,
     items: Vec<Item>,
     reparsed: Vec<String>,
     recreated: Vec<String>,
 ) -> Cmd {
+    // A later sync wrote after this one: its answer is the one to show
+    if sync != model.undo_syncs_sent {
+        return done();
+    }
     for item in &items {
         if recreated.contains(&item.id) {
             model.state.replace_item(item);
@@ -204,7 +209,7 @@ pub fn show_synced(
 
 /// Sends what was replayed to the server as one request: it writes all of it or none. When
 /// it writes none, the page is shown as the server has it, as the screen is then ahead of it.
-fn sync_to_server(model: &Model, ops: &[UndoOp], dir: Direction) -> Cmd {
+fn sync_to_server(model: &mut Model, ops: &[UndoOp], dir: Direction) -> Cmd {
     let mut batch = Batch::default();
     let mut put_back = Vec::new();
     // The server deletes last, as one group: a parent deleted on its own is refused
@@ -240,9 +245,12 @@ fn sync_to_server(model: &Model, ops: &[UndoOp], dir: Direction) -> Cmd {
         batch.push_create(model, item);
     }
     batch.ops.extend(deletes);
+    model.undo_syncs_sent += 1;
+    let sync = model.undo_syncs_sent;
     run(move |api| async move {
         match api.apply_batch(batch.ops).await {
             Ok(items) => api.send_event(Event::UndoSynced {
+                sync,
                 items,
                 reparsed: batch.reparsed,
                 recreated: batch.recreated,
