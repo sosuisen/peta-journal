@@ -1,19 +1,14 @@
 import { useState } from 'react';
 import FilterBar from './FilterBar';
 import ItemRow from './ItemRow';
-import { type Filters, groupByPlan, isShown } from './tasks';
+import { type Filters, groupByPlan, isShown, localISODate } from './tasks';
 import { useTasks } from './useTasks';
-
-/** Returns today's date as an ISO string (YYYY-MM-DD). */
-function getTodayISODate(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 /** The todo app: the tasks of the journal server, filtered and grouped by plan date. */
 export default function App() {
   const { items, loading, error, connectionState, cycle } = useTasks();
   const [filters, setFilters] = useState<Filters>(() => ({
-    untilDate: getTodayISODate(),
+    untilDate: localISODate(new Date()),
     showDone: false,
     showJournal: true,
     showPage: false,
