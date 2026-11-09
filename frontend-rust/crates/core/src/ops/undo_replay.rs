@@ -6,7 +6,7 @@
 use crate::app::{done, log_error, run, Cmd, Event, Model};
 use crate::model::{BatchOp, Item};
 use crate::ops::edit::discard_pending_edit_of_focused_item;
-use crate::ops::edit::{focus_editor, save_target_id, show_parsed};
+use crate::ops::edit::{focus_editor, save_target_id, show_parsed, Handover};
 use crate::ops::file_reload::reload_shown_page;
 use crate::ops::outline_events::ensure_at_least_one_item;
 use crate::outline::tree::position_by_index;
@@ -71,10 +71,11 @@ pub fn perform(model: &mut Model, dir: Direction) -> Cmd {
     if dir == Direction::Undo {
         ops.reverse();
     }
+    let moves = ops.iter().any(|op| moves_an_item(model, op));
     for op in &ops {
         apply_to_state(model, op, dir);
     }
-    let focus = restore_cursor(model, &entry, dir);
+    let focus = restore_cursor(model, &entry, dir, moves);
 
     match dir {
         Direction::Undo => model.undo.push_redo(entry),
@@ -132,9 +133,14 @@ fn is_move(model: &Model, before: &Item, after: &Item) -> bool {
     before.idx != after.idx && model.state.is_own_item(&before.id)
 }
 
+fn moves_an_item(model: &Model, op: &UndoOp) -> bool {
+    matches!(op, UndoOp::Update { before, after } if is_move(model, before, after))
+}
+
 /// Opens the editor where the cursor was before (undo) or after (redo) the entry.
 /// Entries without a recorded cursor, such as body edits, keep editing the first updated item.
-fn restore_cursor(model: &mut Model, entry: &UndoEntry, dir: Direction) -> Cmd {
+/// When the entry moves an item, the blur of an editor does not end its edit meanwhile.
+fn restore_cursor(model: &mut Model, entry: &UndoEntry, dir: Direction, moves: bool) -> Cmd {
     let Some(cursor) = cursor_of(entry, dir) else {
         model.state.remove_all_editing_items();
         return done();
@@ -144,7 +150,11 @@ fn restore_cursor(model: &mut Model, entry: &UndoEntry, dir: Direction) -> Cmd {
         .state
         .set_focused_item(&cursor.item_id, Some(cursor.position));
     let id = cursor.item_id.clone();
-    run(move |api| async move { focus_editor(&api, Some(id)).await })
+    run(move |api| async move {
+        // The editor of a row that is put in another place loses its focus
+        let _handover = moves.then(|| Handover::begin(&api));
+        focus_editor(&api, Some(id)).await
+    })
 }
 
 fn cursor_of(entry: &UndoEntry, dir: Direction) -> Option<CursorState> {
