@@ -1181,6 +1181,23 @@ async fn a_split_in_the_middle_leaves_the_text_before_the_cursor_and_puts_the_re
     );
 }
 
+// 行頭での分割では、空の項目が同じ階層で直前に入り、元の項目は本文を保つ。
+#[tokio::test]
+async fn a_split_at_the_start_puts_an_empty_item_above_and_the_item_keeps_its_body() {
+    let page = new_doc_page("items-split-start").await;
+    let rows = fill(&page.id, &["parent", "  alpha", "  next"]).await;
+
+    let (status, resp) = split(&rows[1].id, "alpha", 0).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(resp["item"]["body"], json!("alpha"));
+    assert_eq!(resp["created"]["body"], json!(""));
+    assert_eq!(
+        outline_of(&page.id).await,
+        ["1:parent", "2:", "2:alpha", "2:next"]
+    );
+}
+
 // ---- Items: batch ----
 
 /// Applies operations as one batch, the way an undo sends what it replays

@@ -26,6 +26,7 @@ use super::flat_markdown_splitter::FlatMarkdownSplitter;
 use super::markdown_parser::MarkdownParser;
 use super::page_service::PageService;
 use super::paste::{self, PasteMode};
+use super::split;
 use super::tree_markdown;
 
 const ITEM_TARGET: &str = "item";
@@ -784,19 +785,20 @@ impl ItemService {
     /// before the cursor stays, and the text after it goes into a new item below. Both are
     /// written in one transaction (ADR 011).
     pub fn split(&self, item_id: &Hmtid, body: &str, cursor: usize) -> AppResult<Split> {
-        let (before, after) = paste::split_at_char(body, cursor);
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
         let mut effects = AfterCommit::default();
         let item = find_all_in(&tx, std::slice::from_ref(item_id))?.remove(0);
-        let below = ItemPosition::After(item.id.clone());
-        let updated = self.update_item_in(&tx, &item, Some(before), None, None, &mut effects)?;
+        let on_page = ItemRepository::find_by_page_id_in(&tx, &item.page_id)?;
+        let plan = split::plan(&on_page, &item, body, cursor);
+        let updated =
+            self.update_item_in(&tx, &item, Some(&plan.body), None, None, &mut effects)?;
         let created = self.create_item_in(
             &tx,
             &item.page_id,
-            &below,
-            item.level,
-            after,
+            &plan.position,
+            plan.level,
+            &plan.new_body,
             None,
             &mut effects,
         )?;
