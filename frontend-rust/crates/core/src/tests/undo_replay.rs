@@ -1,7 +1,7 @@
 use crate::app::Event;
 use crate::effects::ApiOutput;
 use crate::harness::{batch_calls, create_calls, delete_calls, item, update_calls, Harness};
-use crate::model::{BatchOp, Item, TaskState, TranscludedTrees};
+use crate::model::{BatchOp, Item, ItemPosition, TaskState, TranscludedTrees};
 use crate::outline::CursorState;
 use crate::testing::item_with;
 use serde_json::json;
@@ -270,21 +270,30 @@ fn redo_of_a_create_puts_the_item_back_by_its_index_and_takes_the_id_the_server_
     assert_eq!(h.items_ids(), ["a", "new1"]);
 }
 
-// 削除の undo は項目を元の位置に作り直す。
+// 削除の undo は、項目を元のIDのまま、元の位置に作り直す。サーバーが決めた並び順の値を受け取る。
 #[test]
-fn undo_of_a_delete_recreates_the_item_where_it_was() {
+fn undo_of_a_delete_makes_the_item_again_with_its_id_where_it_was() {
+    // The index of an item of these tests is its id: b goes back between a and c
     let mut h = Harness::with_items(vec![item("a", 1, ""), item("c", 1, "")]);
-    let deleted = {
-        let mut b = item("b", 1, "gone");
-        b.idx = "b".into();
-        b
-    };
     h.model.undo.begin("delete-selection", None);
-    h.model.undo.push_delete(&deleted);
+    h.model.undo.push_delete(&item("b", 1, "gone"));
     h.model.undo.commit(None, 0);
+
     h.send(Event::Undo);
-    // Shown by its index between a and c, then replaced by the server's item
-    assert_eq!(h.items_ids(), ["a", "new1", "c"]);
+
+    assert_eq!(
+        batch_calls(&h.api),
+        [[BatchOp::Create {
+            id: "b".into(),
+            page_id: "page1".into(),
+            position: ItemPosition::after("a"),
+            level: 1,
+            body: "gone".into(),
+        }]]
+    );
+    assert!(create_calls(&h.api).is_empty());
+    assert_eq!(h.items_ids(), ["a", "b", "c"]);
+    assert_eq!(h.model.state.get_item_by_id("b").unwrap().idx, "created1");
 }
 
 // undo スタックが空なら何も起きず、保留中の編集もそのままである。
