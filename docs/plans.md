@@ -221,8 +221,12 @@
     - [x] 往復のテストが、ワークスペースの中の`flatmarkdown`をパスで参照する
     - [x] `flatmarkdown-ast`のREADMEを書く。`Node`に`#[non_exhaustive]`を付けないことと、ノードの種類を足すときは互換性のない変更として版を上げることを書く
     - 2026-11-09に、`petajournal/flatmarkdown`のPR #1で入った。往復のテストは、公開するパッケージには入れていない。テストが使う`flatmarkdown`を、版なしのパスで参照しているためである
+    - [ ] `flatmarkdown`が、ASTを`flatmarkdown-ast`の型で作る（ADR 014）。公開の前に行う。作業の中身は、`petajournal/flatmarkdown`の`docs/plans.md`に書く
+      - [ ] 型を仕様（`SPEC_AST.md`）に合わせる。ページと項目の型を足す。仕様の`math`の記述を直す
+      - [ ] パーサーと後処理を型で書く。往復のテストと、開発時の依存を消す
+      - [ ] HTMLを作るコードを型で書く
     - [ ] 公開する版を決める（ユーザーが決める）。2つのクレートは同じ版にする
-    - [ ] `cargo publish --dry-run`で確かめてから、`flatmarkdown`、`flatmarkdown-ast`の順に公開する（ユーザーが行う）
+    - [ ] `cargo publish --dry-run`で確かめてから、`flatmarkdown-ast`、`flatmarkdown`の順に公開する（ユーザーが行う）。ADR 014で、順序が逆になった
   - `petajournal/flatmarkdown-ast`のリポジトリ（TypeScriptの型）
     - [ ] GitHubのリポジトリの名前を`flatmarkdown-ast-ts`に変える（ユーザーが行う）
     - [ ] 手元のフォルダの名前と`git remote`のURLを合わせる
@@ -233,6 +237,7 @@
     - [ ] `core`、`fm-leptos`、`shell-leptos`が、crates.ioの`flatmarkdown-ast`に依存する。`use fm_ast::`を`use flatmarkdown_ast::`に書き換える
     - [ ] サーバーの`flatmarkdown`と、フロントエンドの`flatmarkdown-ast`を、同じ版にそろえる
     - [ ] `BUILD.md`と`docs/`の、`fm-ast`についての記述を直す
+    - [ ] `fm-leptos`から、`display_math`の分岐と`Node::Image`の分岐を消す。型から消えるためである（ADR 014）
 
 ## 判断
 
