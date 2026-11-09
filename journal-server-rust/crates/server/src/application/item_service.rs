@@ -1041,6 +1041,20 @@ impl ItemService {
             .map(|b| b.page_id.to_string()))
     }
 
+    /// The pages that show the items: the pages the items are on, and the pages with an item
+    /// that transcludes one of them. A change of the items is told to these pages. Before a
+    /// deletion they are found first, as the items are gone after it.
+    pub fn pages_showing(&self, item_ids: &[Hmtid]) -> AppResult<BTreeSet<String>> {
+        let mut pages = BTreeSet::new();
+        for id in item_ids {
+            pages.extend(self.get_item_page_id(id)?);
+            for t in self.items.find_transcluders(id)? {
+                pages.insert(t.page_id.to_string());
+            }
+        }
+        Ok(pages)
+    }
+
     /// Cycles the task state of an item:
     /// not a task -> task; task without begin -> begin = now; begun -> end = now;
     /// begun and ended -> back to a normal item.

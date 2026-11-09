@@ -101,6 +101,18 @@ where
     blocking(f).await.map_err(mcp_error)
 }
 
+/// Tells the clients that a tool changed the page. A client that shows the page reads it again.
+/// An MCP client has no client ID, so the change has its own source and not `app` (ADR-015).
+fn tell(state: &SharedState, page_id: &str) {
+    state.sse.broadcast_pages_updated_from(page_id, "mcp");
+}
+
+fn tell_all(state: &SharedState, page_ids: impl IntoIterator<Item = impl AsRef<str>>) {
+    for page_id in page_ids {
+        tell(state, page_id.as_ref());
+    }
+}
+
 fn id(s: &str) -> Result<hmtid::Hmtid, McpError> {
     parse_id(s).map_err(mcp_error)
 }
@@ -379,9 +391,11 @@ impl JournalMcp {
         let page_id = id(&a.page_id)?;
         let pos = position(&a.position)?;
         let item = run(move || {
-            state
+            let item = state
                 .item_service
-                .create_item(&page_id, &pos, a.level, &a.body, None)
+                .create_item(&page_id, &pos, a.level, &a.body, None)?;
+            tell(&state, page_id.as_str());
+            Ok(item)
         })
         .await?;
         ok(json!({ "item": item_json(&item) }))
@@ -402,9 +416,12 @@ impl JournalMcp {
             Some(s) => Some(s == "true"),
         };
         let item = run(move || {
-            state
-                .item_service
-                .update_item(&item_id, a.body.as_deref(), level, collapsed)
+            let item =
+                state
+                    .item_service
+                    .update_item(&item_id, a.body.as_deref(), level, collapsed)?;
+            tell_all(&state, state.item_service.pages_showing(&[item_id])?);
+            Ok(item)
         })
         .await?;
         ok(json!({ "item": item_json(&item) }))
@@ -417,7 +434,15 @@ impl JournalMcp {
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let item_id = id(&a.item_id)?;
-        run(move || state.item_service.delete_item(&item_id)).await?;
+        run(move || {
+            let pages = state
+                .item_service
+                .pages_showing(std::slice::from_ref(&item_id))?;
+            state.item_service.delete_item(&item_id)?;
+            tell_all(&state, pages);
+            Ok(())
+        })
+        .await?;
         ok(json!({ "deleted": true }))
     }
 
@@ -438,9 +463,11 @@ impl JournalMcp {
             Some(a.level_delta)
         };
         let items = run(move || {
-            state
+            let moved = state
                 .item_service
-                .move_items(&item_ids, &target, &pos, delta)
+                .move_edited_items(&item_ids, &target, &pos, delta, None)?;
+            tell_all(&state, moved.page_ids.iter().map(|id| id.as_str()));
+            Ok(moved.items)
         })
         .await?;
         ok(json!({ "items": items_json(&items) }))
@@ -492,7 +519,12 @@ impl JournalMcp {
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let item_id = id(&a.item_id)?;
-        let dto = run(move || state.dtos.to_dto(&state.item_service.cycle_task(&item_id)?)).await?;
+        let dto = run(move || {
+            let item = state.item_service.cycle_task(&item_id)?;
+            tell(&state, item.page_id.as_str());
+            state.dtos.to_dto(&item)
+        })
+        .await?;
         ok(json!({ "item": item_dto_json(&dto) }))
     }
 
@@ -507,9 +539,9 @@ impl JournalMcp {
         let item_id = id(&a.item_id)?;
         let source = id(&a.source_item_id)?;
         let dto = run(move || {
-            state
-                .dtos
-                .to_dto(&state.item_service.set_transclusion(&item_id, &source)?)
+            let item = state.item_service.set_transclusion(&item_id, &source)?;
+            tell(&state, item.page_id.as_str());
+            state.dtos.to_dto(&item)
         })
         .await?;
         ok(json!({ "item": item_dto_json(&dto) }))
@@ -523,9 +555,9 @@ impl JournalMcp {
         let state = Arc::clone(&self.state);
         let item_id = id(&a.item_id)?;
         let dto = run(move || {
-            state
-                .dtos
-                .to_dto(&state.item_service.remove_transclusion(&item_id)?)
+            let item = state.item_service.remove_transclusion(&item_id)?;
+            tell(&state, item.page_id.as_str());
+            state.dtos.to_dto(&item)
         })
         .await?;
         ok(json!({ "item": item_dto_json(&dto) }))
@@ -545,6 +577,7 @@ impl JournalMcp {
                 state
                     .item_service
                     .set_property(&item_id, &a.key, &a.value_type, &a.value)?;
+            tell(&state, item.page_id.as_str());
             state.dtos.to_dto(&item)
         })
         .await?;
@@ -625,13 +658,17 @@ impl JournalMcp {
         let state = Arc::clone(&self.state);
         let page_id = id(&a.page_id)?;
         let title = a.title.filter(|t| !t.is_empty());
-        let (page, _) = run(move || {
-            state.item_service.update_page(
+        let page = run(move || {
+            let (page, changed) = state.item_service.update_page(
                 &page_id,
                 title.as_deref(),
                 a.dir_path.as_deref(),
                 a.overwrite,
-            )
+            )?;
+            tell(&state, page_id.as_str());
+            // The pages whose tags the rename of a tag page rewrote
+            tell_all(&state, changed.iter().map(|id| id.as_str()));
+            Ok(page)
         })
         .await?;
         ok(json!({ "page": page_json(&page) }))
@@ -644,7 +681,12 @@ impl JournalMcp {
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let page_id = id(&a.page_id)?;
-        run(move || state.page_service.delete_page(&page_id)).await?;
+        run(move || {
+            state.page_service.delete_page(&page_id)?;
+            tell(&state, page_id.as_str());
+            Ok(())
+        })
+        .await?;
         ok(json!({ "deleted": true }))
     }
 

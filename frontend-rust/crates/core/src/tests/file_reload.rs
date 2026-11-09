@@ -37,6 +37,19 @@ fn items_written_by_an_extension_reload_the_page() {
     assert!(h.api.called("GetPageById"));
 }
 
+// MCPのツールがページを変えたと知らされると、表示中のページが読み直される。
+#[test]
+fn a_change_over_mcp_reloads_the_page() {
+    let mut h = Harness::with_items(vec![item("a", 1, "")]);
+
+    h.send(Event::Sse(crate::effects::SseEvent::Message(
+        r#"{"type":"pagesUpdated","pageId":"page1","source":"mcp"}"#.into(),
+    )));
+    h.fire_timers();
+
+    assert!(h.api.called("GetPageById"));
+}
+
 /// A page shown by a client that has started, and the ID it named itself with.
 fn started_with_a_page() -> (Harness, ClientId) {
     let me = ClientId::new();
