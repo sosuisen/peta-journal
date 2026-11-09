@@ -122,6 +122,15 @@ async fn index_html_is_checked_again_on_every_load() {
     }
 }
 
+// 名前にハッシュのないファイルも、毎回確かめられる。名前が同じまま、中身が変わりうるからである。
+#[tokio::test]
+async fn a_file_without_a_hash_in_its_name_is_checked_again_on_every_load() {
+    let response = fetch("/favicon.ico").await;
+
+    assert_eq!(response.status(), 200);
+    assert_eq!(response.headers()["cache-control"], "no-cache");
+}
+
 // 名前にハッシュの付いたファイルは、長くキャッシュされる。中身が変わると名前も変わるからである。
 #[tokio::test]
 async fn a_file_with_a_hash_in_its_name_is_cached_for_long() {
