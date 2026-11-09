@@ -131,7 +131,13 @@ impl FakeApi {
         !self.calls_named(name).is_empty()
     }
 
-    fn answer(&mut self, op: &ApiOp) -> ApiResult<ApiOutput> {
+    /// `stored` is the item the server has for an id: the fake keeps no items of its own,
+    /// so the harness lets it look at those of the model.
+    fn answer(
+        &mut self,
+        op: &ApiOp,
+        stored: &dyn Fn(&str) -> Option<Item>,
+    ) -> ApiResult<ApiOutput> {
         if let Some(queued) = self
             .answers
             .get_mut(op_name(op))
@@ -182,7 +188,24 @@ impl FakeApi {
             | ApiOp::DeleteItems { .. }
             | ApiOp::DeletePage { .. }
             | ApiOp::AnswerConfirm { .. } => ApiOutput::Done,
-            ApiOp::MergeItems { into_id, .. } => ApiOutput::Item(plain_item(into_id, 1, "")),
+            // The server joins the bodies the request carries, and those it has for the rest
+            ApiOp::MergeItems {
+                item_id,
+                into_id,
+                body,
+                into_body,
+            } => {
+                let body_of = |id: &str, carried: &Option<String>| {
+                    carried
+                        .clone()
+                        .or_else(|| stored(id).map(|item| item.body))
+                        .unwrap_or_default()
+                };
+                let joined = format!("{}{}", body_of(into_id, into_body), body_of(item_id, body));
+                let mut item = plain_item(into_id, 1, &joined);
+                item.ast = format!("ast:{joined}");
+                ApiOutput::Item(item)
+            }
             // The text goes into the item as one piece; a test that wants more items answers
             // the paste itself
             ApiOp::PasteText {
@@ -537,7 +560,10 @@ impl Harness {
             Effect::Render(_) => {}
             Effect::Api(mut request) => {
                 let op = request.operation.clone();
-                let answer = self.api.answer(&op);
+                let state = &self.model.state;
+                let answer = self.api.answer(&op, &|id| {
+                    state.get_item_by_id(id).map(|item| (*item).clone())
+                });
                 self.api.calls.push(op);
                 let _ = request.resolve(answer);
             }
@@ -735,7 +761,9 @@ pub fn merge_calls(api: &FakeApi) -> Vec<(String, String)> {
     api.calls
         .iter()
         .filter_map(|op| match op {
-            ApiOp::MergeItems { item_id, into_id } => Some((item_id.clone(), into_id.clone())),
+            ApiOp::MergeItems {
+                item_id, into_id, ..
+            } => Some((item_id.clone(), into_id.clone())),
             _ => None,
         })
         .collect()

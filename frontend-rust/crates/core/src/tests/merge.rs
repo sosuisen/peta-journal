@@ -90,85 +90,100 @@ fn backspace_sends_the_text_just_typed_in_the_merge_itself() {
     );
 }
 
-// 行頭での Backspace の前に上の項目へ打った文字も、結合の前に保存される。
+/// The one merge request that went to the server
+fn merge_request(h: &Harness) -> ApiOp {
+    let merges = h.api.calls_named("MergeItems");
+    assert_eq!(merges.len(), 1, "{merges:?}");
+    merges[0].clone()
+}
+
+// 行頭での Backspace の前に上の項目へ打って、まだ保存していない文も、結合の要求に入って届く。
 #[test]
-fn backspace_saves_the_text_just_typed_in_the_item_above_before_the_join() {
+fn backspace_sends_the_text_just_typed_in_the_item_above_in_the_merge() {
     let mut h = harness();
     typed(&mut h, "a", "hello?");
     h.send(Event::BackspaceAtStart {
         item_id: "b".into(),
     });
-    assert_eq!(saves_and_merges(&h), ["UpdateItem", "MergeItems"]);
+    assert_eq!(saves_and_merges(&h), ["MergeItems"]);
     assert_eq!(
-        update_calls(&h.api),
-        [("a".to_string(), Some("hello?".to_string()))]
+        merge_request(&h),
+        ApiOp::MergeItems {
+            item_id: "b".into(),
+            into_id: "a".into(),
+            body: None,
+            into_body: Some("hello?".into()),
+        }
     );
     h.fire_timers();
-    assert_eq!(update_calls(&h.api).len(), 1, "the text is not sent twice");
+    assert!(
+        update_calls(&h.api).is_empty(),
+        "the text is not sent twice"
+    );
 }
 
-// 自動保存の前に行末で Delete を押しても、打ったばかりの文字は結合の前に保存される。
+// 自動保存の前に行末で Delete を押すと、打ったばかりの文は結合の要求に入って届く。
 // 結合の後に自動保存が届いて、取り込んだ文字を上書きすることもない。
 #[test]
-fn delete_saves_the_text_just_typed_before_the_join_and_not_after_it() {
+fn delete_sends_the_text_just_typed_in_the_merge_and_saves_nothing_after_it() {
     let mut h = harness();
     typed(&mut h, "a", "hello?");
     h.send(Event::DeleteAtEnd {
         item_id: "a".into(),
     });
-    assert_eq!(saves_and_merges(&h), ["UpdateItem", "MergeItems"]);
+    assert_eq!(saves_and_merges(&h), ["MergeItems"]);
     assert_eq!(
-        update_calls(&h.api),
-        [("a".to_string(), Some("hello?".to_string()))]
+        merge_request(&h),
+        ApiOp::MergeItems {
+            item_id: "b".into(),
+            into_id: "a".into(),
+            body: None,
+            into_body: Some("hello?".into()),
+        }
     );
     assert_eq!(h.bodies(), ["a=hello? world", "c=!"]);
     h.fire_timers();
-    assert_eq!(
-        update_calls(&h.api).len(),
-        1,
+    assert!(
+        update_calls(&h.api).is_empty(),
         "the merged text is not overwritten"
     );
 }
 
-// 行末での Delete で取り込む下の項目に打った文字も、結合の前に保存される。
+// 行末での Delete で取り込む下の項目に打って、まだ保存していない文も、結合の要求に入って届く。
 #[test]
-fn delete_saves_the_text_just_typed_in_the_item_below_before_the_join() {
+fn delete_sends_the_text_just_typed_in_the_item_below_in_the_merge() {
     let mut h = harness();
     typed(&mut h, "b", " world?");
     h.send(Event::DeleteAtEnd {
         item_id: "a".into(),
     });
-    assert_eq!(saves_and_merges(&h), ["UpdateItem", "MergeItems"]);
+    assert_eq!(saves_and_merges(&h), ["MergeItems"]);
     assert_eq!(
-        update_calls(&h.api),
-        [("b".to_string(), Some(" world?".to_string()))]
+        merge_request(&h),
+        ApiOp::MergeItems {
+            item_id: "b".into(),
+            into_id: "a".into(),
+            body: Some(" world?".into()),
+            into_body: None,
+        }
     );
 }
 
-// 打った文字を保存できなければ結合はせず、ページはサーバーの持つ形に読み直される。
+// サーバーが結合を断ると、画面は変わらず、元の項目の編集が続く。ページは読み直さない。キーの保留は終わる。
 #[test]
-fn a_failed_save_stops_the_join_and_reloads_the_page() {
+fn a_merge_the_server_refuses_changes_nothing_on_screen_and_stops_holding_keys() {
     let mut h = harness();
-    typed(&mut h, "b", " world?");
-    h.api.fail_next("UpdateItem", "offline");
-    h.send(Event::BackspaceAtStart {
-        item_id: "b".into(),
-    });
-    assert!(merge_calls(&h.api).is_empty());
-    assert!(h.api.called("GetPageById"));
-}
-
-// サーバーが結合を断ると、ページはサーバーの持つ形に読み直される。
-#[test]
-fn a_merge_the_server_refuses_reloads_the_page() {
-    let mut h = harness();
+    h.model.state.add_editing_item("b");
     h.api
         .fail_next("MergeItems", "A transclusion cannot be merged");
     h.send(Event::BackspaceAtStart {
         item_id: "b".into(),
     });
-    assert!(h.api.called("GetPageById"));
-    assert_eq!(h.bodies(), ["reloaded=reloaded"]);
+    assert_eq!(h.bodies(), ["a=hello", "b= world", "c=!"]);
+    assert!(h.model.state.is_editing("b"));
+    assert!(!h.api.called("GetPageById"));
+    assert!(!h.model.key_relay.is_holding());
+    assert!(h.model.undo.pop_undo().is_none());
 }
 
 /// The item as a fake server returns it after joining: parsed from the joined text.
@@ -293,17 +308,6 @@ fn delete_appends_the_item_below_and_deletes_it() {
     let entry = h.model.undo.pop_undo().unwrap();
     assert_eq!(entry.label, "delete");
     assert_eq!(entry.cursor_after.unwrap().position, "hello".len());
-}
-
-// サーバーが行末での Delete の結合を断ると、ページは読み直される。
-#[test]
-fn a_delete_merge_the_server_refuses_reloads_the_page() {
-    let mut h = harness();
-    h.api.fail_next("MergeItems", "refused");
-    h.send(Event::DeleteAtEnd {
-        item_id: "a".into(),
-    });
-    assert!(h.api.called("GetPageById"));
 }
 
 // 最後の項目では行末での Delete が何もしない。

@@ -325,7 +325,9 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             Some(json!({ "itemIds": item_ids })),
             done,
         ),
-        ApiOp::MergeItems { item_id, into_id } => call(
+        ApiOp::MergeItems {
+            item_id, into_id, ..
+        } => call(
             "POST",
             "/api/items/merge",
             Some(json!({ "itemId": item_id, "intoId": into_id })),

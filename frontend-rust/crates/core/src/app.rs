@@ -220,6 +220,27 @@ pub enum Event {
         item_id: String,
         created_id: String,
     },
+    /// The user said whether an item that other items transclude may be joined away, or
+    /// nobody had to be asked: the join goes to the server, or the edit goes on.
+    MergeAnswered {
+        key: ops::merge::JoinKey,
+        /// The item whose editor the key was pressed in.
+        item_id: String,
+        agreed: bool,
+    },
+    /// The server joined two items: the joined item goes on screen and is edited, and the
+    /// other one goes.
+    Merged {
+        key: ops::merge::JoinKey,
+        /// The item that went away.
+        item_id: String,
+        merged: Item,
+    },
+    /// The server refused a join, or could not be reached: nothing was written.
+    MergeFailed {
+        /// The items with typed text that no request but the join carried.
+        unsaved: Vec<String>,
+    },
     /// The server refused a split, or could not be reached: nothing was written.
     SplitFailed {
         item_id: String,
@@ -805,6 +826,17 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         SplitFailed { item_id, unsaved } => ops::split::split_failed(model, &item_id, unsaved),
         BackspaceAtStart { item_id } => ops::merge::merge_into_previous(model, &item_id),
         DeleteAtEnd { item_id } => ops::merge::merge_next_into(model, &item_id),
+        MergeAnswered {
+            key,
+            item_id,
+            agreed,
+        } => ops::merge::merge_answered(model, key, &item_id, agreed),
+        Merged {
+            key,
+            item_id,
+            merged,
+        } => ops::merge::show_merged(model, key, &item_id, merged),
+        MergeFailed { unsaved } => ops::merge::merge_failed(model, &unsaved),
         NavigateUp { item_id, cursor } => {
             ops::outline_events::navigate(model, &item_id, cursor, -1)
         }

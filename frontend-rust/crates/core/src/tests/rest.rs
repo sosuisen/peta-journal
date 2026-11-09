@@ -118,6 +118,8 @@ fn every_operation_goes_to_its_endpoint() {
             ApiOp::MergeItems {
                 item_id: id("b"),
                 into_id: id("a"),
+                body: None,
+                into_body: None,
             },
             "POST",
             "/api/items/merge",
