@@ -20,6 +20,13 @@ cov = [
     "--ignore-filename-regex", "src/main\\.rs$|application/folder_chooser\\.rs$|infrastructure/launcher\\.rs$|export/pending_delete_prompt\\.rs$",
 ]
 
+# `cargo run` serves the web frontend from the folder `trunk build` writes (ADR 010), so no
+# flag is needed in development. The path is relative to the folder of this workspace. A
+# server started without cargo does not see this: it takes `--frontend-dir`, or the
+# `frontend/` folder beside its executable.
+[env]
+PETAJOURNAL_FRONTEND_DIR = { value = "../frontend-rust/crates/shell-leptos/dist", relative = true }
+
 # rust-lld links much faster than the MSVC link.exe, and it comes with the Rust toolchain.
 # Every test run and every mutant waits for the link of the server and its test binaries.
 [target.x86_64-pc-windows-msvc]

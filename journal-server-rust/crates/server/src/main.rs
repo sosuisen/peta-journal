@@ -18,6 +18,10 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!("Data: {}", settings.db_path.display());
     tracing::info!("Index: {}", settings.index_dir.display());
     tracing::info!("Config: {}", settings.config_dir.display());
+    match &settings.frontend_dir {
+        Some(dir) => tracing::info!("Frontend: {}", dir.display()),
+        None => tracing::info!("Frontend: not served (no --frontend-dir)"),
+    }
 
     let port = settings.port;
     let state = tokio::task::spawn_blocking(move || {
