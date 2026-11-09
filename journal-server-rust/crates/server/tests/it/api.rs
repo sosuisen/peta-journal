@@ -991,6 +991,19 @@ async fn a_raw_paste_puts_the_text_into_the_body_as_it_is() {
     );
 }
 
+// `flat`では、`- `で始まる文字列もツリー形式として読まれず、Flat Markdownとして分かれる。
+#[tokio::test]
+async fn a_flat_paste_does_not_read_a_dash_as_tree_markdown() {
+    let page = new_doc_page("items-paste-flat").await;
+    let rows = fill(&page.id, &["host"]).await;
+
+    let flat = "- A\n- B\n\n<!-- @@ -->\nC";
+    let (status, resp) = paste(&rows[0].id, "host", 4, flat, "flat").await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(outline_of(&page.id).await, ["1:host- A\n- B", "2:C"]);
+}
+
 // ---- Items: group delete ----
 
 // グループ削除は、項目を子孫ごと1回のリクエストで消す。
