@@ -81,6 +81,62 @@ test.describe('outline structure', () => {
       .toEqual(['1:a', '2:a2', '2:a1', '1:b', '2:b1']);
   });
 
+  test('a move writes with one request, which carries the text typed and not saved yet', async ({ page }) => {
+    await openEditor(page, byBody('a').id);
+    await page.keyboard.press('End');
+    const writes: unknown[] = [];
+    page.on('request', r => {
+      if (r.method() !== 'GET') writes.push([`${r.method()} ${new URL(r.url()).pathname}`, r.postDataJSON()]);
+    });
+
+    // No pause between the keys: the auto-save has not sent the text yet when the item moves
+    await page.keyboard.type('X');
+    await page.keyboard.press('Alt+Shift+ArrowDown');
+
+    expect(outlineOf(await server.itemsSettled(pageId, i => i[0].body === 'b')))
+      .toEqual(['1:b', '2:b1', '1:aX', '2:a1', '2:a2']);
+    await expect.poll(() => shownBodies(page)).toEqual(['b', 'b1', 'aX', 'a1', 'a2']);
+    await expect(editorOf(page, byBody('a').id)).toBeFocused();
+    // Longer than the auto-save waits: the typed text must not be saved a second time
+    await page.waitForTimeout(600);
+    expect(writes).toEqual([['POST /api/items/move', {
+      itemIds: [byBody('a').id, byBody('a1').id, byBody('a2').id],
+      targetPageId: pageId,
+      position: `after:${byBody('b1').id}`,
+      levelDelta: null,
+      body: 'aX',
+    }]]);
+  });
+
+  test('text typed right after a move goes into the moved item', async ({ page }) => {
+    await openEditor(page, byBody('a').id);
+    await page.keyboard.press('End');
+
+    // No pause between the keys: the answer of the server is not there yet when the text arrives
+    await page.keyboard.press('Alt+Shift+ArrowDown');
+    await page.keyboard.type('XY');
+
+    expect(outlineOf(await server.itemsSettled(pageId, i => i[0].body === 'b' && i[2].body === 'aXY')))
+      .toEqual(['1:b', '2:b1', '1:aXY', '2:a1', '2:a2']);
+    await expect.poll(() => shownBodies(page)).toEqual(['b', 'b1', 'aXY', 'a1', 'a2']);
+  });
+
+  test('two moves pressed without a pause both happen, in their order', async ({ page }) => {
+    await openEditor(page, byBody('a2').id);
+
+    await page.keyboard.press('Alt+Shift+ArrowUp');
+    await page.keyboard.press('Alt+Shift+ArrowDown');
+    await page.keyboard.press('Alt+Shift+ArrowUp');
+
+    expect(outlineOf(await server.itemsSettled(pageId, i => i[1].body === 'a2')))
+      .toEqual(['1:a', '2:a2', '2:a1', '1:b', '2:b1']);
+    await expect.poll(() => shownBodies(page)).toEqual(['a', 'a2', 'a1', 'b', 'b1']);
+    await expect(editorOf(page, byBody('a2').id)).toBeFocused();
+    // Nothing more is on its way
+    await page.waitForTimeout(600);
+    expect(outlineOf(await server.items(pageId))).toEqual(['1:a', '2:a2', '2:a1', '1:b', '2:b1']);
+  });
+
   test('Ctrl+ArrowUp hides the children and Ctrl+ArrowDown shows them again', async ({ page }) => {
     await openEditor(page, byBody('a').id);
     const shown = page.locator('app-outline-item');
