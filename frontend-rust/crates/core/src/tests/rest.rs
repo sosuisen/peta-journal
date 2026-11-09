@@ -457,6 +457,32 @@ fn a_paste_posts_the_body_the_cursor_the_text_and_the_mode_and_answers_what_was_
     );
 }
 
+// 結合は、項目に入力してまだ保存していない本文があれば、その本文も送る。保存済みの項目の本文は送らない。
+#[test]
+fn a_merge_posts_the_bodies_that_are_not_saved_yet() {
+    let rest = call(ApiOp::MergeItems {
+        item_id: id("b"),
+        into_id: id("a"),
+        body: Some("typed".into()),
+        into_body: None,
+    });
+    assert_eq!(
+        rest.request.body,
+        Some(json!({ "itemId": "b", "intoId": "a", "body": "typed" }))
+    );
+
+    let rest = call(ApiOp::MergeItems {
+        item_id: id("b"),
+        into_id: id("a"),
+        body: None,
+        into_body: Some("typed".into()),
+    });
+    assert_eq!(
+        rest.request.body,
+        Some(json!({ "itemId": "b", "intoId": "a", "intoBody": "typed" }))
+    );
+}
+
 // トランスクルージョンが見せている項目の分割は、そのトランスクルージョンも送る。
 #[test]
 fn a_split_of_an_item_a_transclusion_shows_posts_the_transclusion_too() {
