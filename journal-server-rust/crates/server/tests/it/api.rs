@@ -1406,6 +1406,30 @@ async fn a_batch_that_names_an_item_that_is_gone_is_refused_and_writes_nothing()
     assert_eq!(outline_of(&page.id).await, ["1:stays"]);
 }
 
+// 置けない階層への作成や更新があるバッチは断られ、ほかの操作も書かれない。
+#[tokio::test]
+async fn a_batch_with_a_level_that_does_not_fit_is_refused_and_writes_nothing() {
+    let page = new_doc_page("items-batch-level").await;
+    let rows = fill(&page.id, &["a", "b"]).await;
+    let id = hmtid::Generator::new('_', false).generate().to_string();
+
+    let (status, _) = batch(json!([
+        {"op": "update", "id": rows[0].id, "body": "changed"},
+        {"op": "create", "id": id, "pageId": page.id,
+         "position": format!("after:{}", rows[0].id), "level": 3, "body": "too deep"},
+    ]))
+    .await;
+    assert_eq!(status, 400);
+    let (status, _) = batch(json!([
+        {"op": "update", "id": rows[0].id, "body": "changed"},
+        {"op": "update", "id": rows[1].id, "level": 0},
+    ]))
+    .await;
+    assert_eq!(status, 400);
+
+    assert_eq!(outline_of(&page.id).await, ["1:a", "1:b"]);
+}
+
 // 子孫を残す削除があるバッチは断られ、ほかの操作も書かれない。
 #[tokio::test]
 async fn a_batch_whose_deletes_leave_a_descendant_behind_is_refused_and_writes_nothing() {
