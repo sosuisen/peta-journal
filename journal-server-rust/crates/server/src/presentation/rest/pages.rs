@@ -3,13 +3,14 @@ use std::collections::BTreeMap;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::routing::{get, post};
-use axum::{Json, Router};
+use axum::{Extension, Json, Router};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use crate::domain::model::Page;
 use crate::error::{parse_id, AppError, AppResult};
 use crate::infrastructure::launcher;
+use crate::presentation::client_id::ClientId;
 use crate::presentation::dto::{backlink_dto, page_dto_with, BacklinkEntryDto, ItemDto, PageDto};
 use crate::state::{blocking, SharedState};
 
@@ -133,6 +134,7 @@ async fn get_or_create_doc(
 
 async fn update_page(
     State(state): State<SharedState>,
+    Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
     Json(req): Json<UpdatePageRequest>,
 ) -> AppResult<Json<UpdatePageResponse>> {
@@ -144,9 +146,9 @@ async fn update_page(
             req.dir_path.as_deref(),
             req.overwrite,
         )?;
-        state.sse.broadcast_pages_updated(&id);
+        state.sse.broadcast_pages_updated(&client, &id);
         for page_id in changed {
-            state.sse.broadcast_pages_updated(page_id.as_str());
+            state.sse.broadcast_pages_updated(&client, page_id.as_str());
         }
         Ok(Json(UpdatePageResponse {
             page: state.dtos.page_to_dto(&page)?,
@@ -157,6 +159,7 @@ async fn update_page(
 
 async fn upsert_property(
     State(state): State<SharedState>,
+    Extension(client): Extension<ClientId>,
     Path((id, key)): Path<(String, String)>,
     Json(req): Json<UpsertPropertyRequest>,
 ) -> AppResult<Json<UpdatePageResponse>> {
@@ -169,7 +172,7 @@ async fn upsert_property(
             req.value_type.as_deref().unwrap_or("text"),
             req.value.as_deref().unwrap_or(""),
         )?;
-        state.sse.broadcast_pages_updated(&id);
+        state.sse.broadcast_pages_updated(&client, &id);
         if key == "tags" {
             let tags_after = state.properties.find_tags("page", &id)?;
             state
@@ -185,12 +188,13 @@ async fn upsert_property(
 
 async fn delete_property(
     State(state): State<SharedState>,
+    Extension(client): Extension<ClientId>,
     Path((id, key)): Path<(String, String)>,
 ) -> AppResult<Json<UpdatePageResponse>> {
     let page_id = parse_id(&id)?;
     blocking(move || {
         let page = state.page_service.delete_property(&page_id, &key)?;
-        state.sse.broadcast_pages_updated(&id);
+        state.sse.broadcast_pages_updated(&client, &id);
         Ok(Json(UpdatePageResponse {
             page: state.dtos.page_to_dto(&page)?,
         }))
@@ -200,12 +204,13 @@ async fn delete_property(
 
 async fn delete_page(
     State(state): State<SharedState>,
+    Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
 ) -> AppResult<StatusCode> {
     let page_id = parse_id(&id)?;
     blocking(move || {
         state.page_service.delete_page(&page_id)?;
-        state.sse.broadcast_pages_updated(&id);
+        state.sse.broadcast_pages_updated(&client, &id);
         Ok(StatusCode::NO_CONTENT)
     })
     .await

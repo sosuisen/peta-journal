@@ -4,7 +4,7 @@ use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
-use axum::{Json, Router};
+use axum::{Extension, Json, Router};
 use hmtid::Hmtid;
 use serde::{Deserialize, Serialize};
 
@@ -12,6 +12,7 @@ use crate::application::item_service::{BatchOp, TaskState};
 use crate::application::paste::PasteMode;
 use crate::domain::model::{Item, ItemPosition};
 use crate::error::{parse_id, AppError, AppResult};
+use crate::presentation::client_id::ClientId;
 use crate::presentation::dto::{select_fields, ItemDto};
 use crate::state::{blocking, SharedState};
 
@@ -362,13 +363,14 @@ fn items_response(state: &SharedState, items: &[Item]) -> AppResult<Json<ItemsRe
 
 fn broadcast_to_transcluders(
     state: &SharedState,
+    client: &ClientId,
     source_item_id: &Hmtid,
     exclude_page_id: &str,
 ) -> AppResult<()> {
     for t in state.items.find_transcluders(source_item_id)? {
         let page_id = t.page_id.to_string();
         if page_id != exclude_page_id {
-            state.sse.broadcast_pages_updated(&page_id);
+            state.sse.broadcast_pages_updated(client, &page_id);
         }
     }
     Ok(())
@@ -376,6 +378,7 @@ fn broadcast_to_transcluders(
 
 async fn create_item(
     State(state): State<SharedState>,
+    Extension(client): Extension<ClientId>,
     Json(req): Json<CreateItemRequest>,
 ) -> AppResult<Json<ItemResponse>> {
     let page_id = parse_id(required(req.page_id.as_deref(), "pageId")?)?;
@@ -392,7 +395,7 @@ async fn create_item(
             req.body.as_deref().unwrap_or_default(),
             client_id,
         )?;
-        state.sse.broadcast_pages_updated(page_id.as_str());
+        state.sse.broadcast_pages_updated(&client, page_id.as_str());
         item_response(&state, &item)
     })
     .await
@@ -418,6 +421,7 @@ async fn get_item(
 
 async fn update_item(
     State(state): State<SharedState>,
+    Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
     Json(req): Json<UpdateItemRequest>,
 ) -> AppResult<Json<ItemResponse>> {
@@ -430,8 +434,8 @@ async fn update_item(
             req.collapsed,
         )?;
         let page_id = item.page_id.to_string();
-        state.sse.broadcast_pages_updated(&page_id);
-        broadcast_to_transcluders(&state, &item_id, &page_id)?;
+        state.sse.broadcast_pages_updated(&client, &page_id);
+        broadcast_to_transcluders(&state, &client, &item_id, &page_id)?;
         item_response(&state, &item)
     })
     .await
@@ -439,6 +443,7 @@ async fn update_item(
 
 async fn paste(
     State(state): State<SharedState>,
+    Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
     Json(req): Json<PasteRequest>,
 ) -> AppResult<Json<PasteResponse>> {
@@ -465,8 +470,8 @@ async fn paste(
         // pasted into
         let written = &pasted.items[0];
         let page_id = written.page_id.to_string();
-        state.sse.broadcast_pages_updated(&page_id);
-        broadcast_to_transcluders(&state, &written.id, &page_id)?;
+        state.sse.broadcast_pages_updated(&client, &page_id);
+        broadcast_to_transcluders(&state, &client, &written.id, &page_id)?;
         Ok(Json(PasteResponse {
             items: state.dtos.to_dtos(&pasted.items)?,
             cursor: CursorDto {
@@ -480,6 +485,7 @@ async fn paste(
 
 async fn split(
     State(state): State<SharedState>,
+    Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
     Json(req): Json<SplitRequest>,
 ) -> AppResult<Json<SplitResponse>> {
@@ -493,7 +499,7 @@ async fn split(
             req.cursor,
         )?;
         for page_id in &split.page_ids {
-            state.sse.broadcast_pages_updated(page_id.as_str());
+            state.sse.broadcast_pages_updated(&client, page_id.as_str());
         }
         Ok(Json(SplitResponse {
             item: state.dtos.to_dto(&split.item)?,
@@ -505,6 +511,7 @@ async fn split(
 
 async fn apply_batch(
     State(state): State<SharedState>,
+    Extension(client): Extension<ClientId>,
     Json(req): Json<BatchRequest>,
 ) -> AppResult<Json<ItemsResponse>> {
     let ops = req
@@ -515,7 +522,7 @@ async fn apply_batch(
     blocking(move || {
         let applied = state.item_service.apply_batch(&ops)?;
         for page_id in &applied.page_ids {
-            state.sse.broadcast_pages_updated(page_id.as_str());
+            state.sse.broadcast_pages_updated(&client, page_id.as_str());
         }
         items_response(&state, &applied.items)
     })
@@ -524,14 +531,19 @@ async fn apply_batch(
 
 async fn delete_items(
     State(state): State<SharedState>,
+    Extension(client): Extension<ClientId>,
     Json(req): Json<DeleteItemsRequest>,
 ) -> AppResult<StatusCode> {
     let item_ids = parse_ids(req.item_ids, "itemIds")?;
-    blocking(move || delete_and_tell(&state, &item_ids)).await
+    blocking(move || delete_and_tell(&state, &client, &item_ids)).await
 }
 
 /// Deletes items and tells the pages they were on and the pages that transcluded them.
-fn delete_and_tell(state: &SharedState, item_ids: &[Hmtid]) -> AppResult<StatusCode> {
+fn delete_and_tell(
+    state: &SharedState,
+    client: &ClientId,
+    item_ids: &[Hmtid],
+) -> AppResult<StatusCode> {
     // The pages to tell are found first: after the deletion the items are gone
     let mut pages = BTreeSet::new();
     for id in item_ids {
@@ -542,13 +554,14 @@ fn delete_and_tell(state: &SharedState, item_ids: &[Hmtid]) -> AppResult<StatusC
     }
     state.item_service.delete_items(item_ids)?;
     for page_id in pages {
-        state.sse.broadcast_pages_updated(&page_id);
+        state.sse.broadcast_pages_updated(client, &page_id);
     }
     Ok(StatusCode::NO_CONTENT)
 }
 
 async fn merge_items(
     State(state): State<SharedState>,
+    Extension(client): Extension<ClientId>,
     Json(req): Json<MergeItemsRequest>,
 ) -> AppResult<Json<ItemResponse>> {
     let item_id = parse_id(req.item_id.as_deref().unwrap_or(""))?;
@@ -564,13 +577,15 @@ async fn merge_items(
             req.into_body.as_deref(),
         )?;
         let page_id = into.page_id.to_string();
-        state.sse.broadcast_pages_updated(&page_id);
+        state.sse.broadcast_pages_updated(&client, &page_id);
         if let Some(item_page_id) = item_page_id {
-            state.sse.broadcast_pages_updated(&item_page_id);
+            state.sse.broadcast_pages_updated(&client, &item_page_id);
         }
-        broadcast_to_transcluders(&state, &into_id, &page_id)?;
+        broadcast_to_transcluders(&state, &client, &into_id, &page_id)?;
         for t in transcluders {
-            state.sse.broadcast_pages_updated(t.page_id.as_str());
+            state
+                .sse
+                .broadcast_pages_updated(&client, t.page_id.as_str());
         }
         item_response(&state, &into)
     })
@@ -597,14 +612,16 @@ async fn transcluded_items(
 
 async fn delete_item(
     State(state): State<SharedState>,
+    Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
 ) -> AppResult<StatusCode> {
     let item_id = parse_id(&id)?;
-    blocking(move || delete_and_tell(&state, &[item_id])).await
+    blocking(move || delete_and_tell(&state, &client, &[item_id])).await
 }
 
 async fn set_transclusion(
     State(state): State<SharedState>,
+    Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
     Json(req): Json<SetTransclusionRequest>,
 ) -> AppResult<Json<ItemResponse>> {
@@ -612,7 +629,9 @@ async fn set_transclusion(
     let source_id = parse_id(required(req.source_item_id.as_deref(), "sourceItemId")?)?;
     blocking(move || {
         let item = state.item_service.set_transclusion(&item_id, &source_id)?;
-        state.sse.broadcast_pages_updated(item.page_id.as_str());
+        state
+            .sse
+            .broadcast_pages_updated(&client, item.page_id.as_str());
         item_response(&state, &item)
     })
     .await
@@ -620,12 +639,15 @@ async fn set_transclusion(
 
 async fn remove_transclusion(
     State(state): State<SharedState>,
+    Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
 ) -> AppResult<Json<ItemResponse>> {
     let item_id = parse_id(&id)?;
     blocking(move || {
         let item = state.item_service.remove_transclusion(&item_id)?;
-        state.sse.broadcast_pages_updated(item.page_id.as_str());
+        state
+            .sse
+            .broadcast_pages_updated(&client, item.page_id.as_str());
         item_response(&state, &item)
     })
     .await
@@ -648,12 +670,15 @@ async fn get_items_by_types(
 
 async fn cycle_task(
     State(state): State<SharedState>,
+    Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
 ) -> AppResult<Json<ItemResponse>> {
     let item_id = parse_id(&id)?;
     blocking(move || {
         let item = state.item_service.cycle_task(&item_id)?;
-        state.sse.broadcast_pages_updated(item.page_id.as_str());
+        state
+            .sse
+            .broadcast_pages_updated(&client, item.page_id.as_str());
         item_response(&state, &item)
     })
     .await
@@ -661,6 +686,7 @@ async fn cycle_task(
 
 async fn move_items(
     State(state): State<SharedState>,
+    Extension(client): Extension<ClientId>,
     Json(req): Json<MoveItemsRequest>,
 ) -> AppResult<Json<ItemsResponse>> {
     let position = parse_position(req.position.as_deref())?;
@@ -675,7 +701,7 @@ async fn move_items(
             req.body.as_deref(),
         )?;
         for page_id in &moved.page_ids {
-            state.sse.broadcast_pages_updated(page_id.as_str());
+            state.sse.broadcast_pages_updated(&client, page_id.as_str());
         }
         items_response(&state, &moved.items)
     })
@@ -686,6 +712,7 @@ async fn move_items(
 /// arrive out of order still add up correctly.
 async fn shift_levels(
     State(state): State<SharedState>,
+    Extension(client): Extension<ClientId>,
     Json(req): Json<ShiftLevelsRequest>,
 ) -> AppResult<Json<ItemsResponse>> {
     let ids = parse_ids(req.item_ids, "itemIds")?;
@@ -695,12 +722,12 @@ async fn shift_levels(
         for item in &items {
             let page_id = item.page_id.to_string();
             if !seen.contains(&page_id) {
-                state.sse.broadcast_pages_updated(&page_id);
+                state.sse.broadcast_pages_updated(&client, &page_id);
                 seen.push(page_id);
             }
         }
         for item in &items {
-            broadcast_to_transcluders(&state, &item.id, item.page_id.as_str())?;
+            broadcast_to_transcluders(&state, &client, &item.id, item.page_id.as_str())?;
         }
         items_response(&state, &items)
     })
@@ -709,6 +736,7 @@ async fn shift_levels(
 
 async fn upsert_property(
     State(state): State<SharedState>,
+    Extension(client): Extension<ClientId>,
     Path((id, key)): Path<(String, String)>,
     Json(req): Json<UpsertPropertyRequest>,
 ) -> AppResult<Json<ItemResponse>> {
@@ -720,7 +748,9 @@ async fn upsert_property(
             req.value_type.as_deref().unwrap_or("text"),
             req.value.as_deref().unwrap_or(""),
         )?;
-        state.sse.broadcast_pages_updated(item.page_id.as_str());
+        state
+            .sse
+            .broadcast_pages_updated(&client, item.page_id.as_str());
         // The DTO is built after the upsert, so it carries the new property
         item_response(&state, &item)
     })
@@ -729,12 +759,15 @@ async fn upsert_property(
 
 async fn delete_property(
     State(state): State<SharedState>,
+    Extension(client): Extension<ClientId>,
     Path((id, key)): Path<(String, String)>,
 ) -> AppResult<Json<ItemResponse>> {
     let item_id = parse_id(&id)?;
     blocking(move || {
         let item = state.item_service.delete_property(&item_id, &key)?;
-        state.sse.broadcast_pages_updated(item.page_id.as_str());
+        state
+            .sse
+            .broadcast_pages_updated(&client, item.page_id.as_str());
         // The DTO is built after the delete, so the property is already gone from it
         item_response(&state, &item)
     })

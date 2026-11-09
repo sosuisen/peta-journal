@@ -1,6 +1,6 @@
-import { expect, test } from '@playwright/test';
+import { expect } from '@playwright/test';
 import { serverPort } from '../playwright.config';
-import { Server, editorOf, openEditor, openPage, outlineOf, shownBodies } from './support';
+import { Server, editorOf, openEditor, openPage, outlineOf, shownBodies, test } from './support';
 
 // The item "copy" of the host page transcludes "top" of the source page, and shows its
 // children below itself. A move of a child stays inside what the transclusion shows, and is

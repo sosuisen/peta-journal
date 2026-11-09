@@ -63,10 +63,14 @@ fn on_pages_updated(model: &mut Model, json: &serde_json::Value) -> Cmd {
         .and_then(|p| p.as_str())
         .unwrap_or_default()
         .to_string();
-    // A change that this client did not make is read again. An extension writes items after
-    // a tag add, and the server writes the outline of an atlas page by itself, as when a page
-    // of its directory is made. Both tell so with their own source
+    let by_this_client =
+        json.get("clientId").and_then(|c| c.as_str()) == Some(model.client_id.as_str());
+    // A change that this client did not make is read again. Another client names itself with
+    // a change through the API (ADR-015). An extension writes items after a tag add, and the
+    // server writes the outline of an atlas page by itself, as when a page of its directory is
+    // made. Both tell so with their own source
     let reload = match json.get("source").and_then(|s| s.as_str()) {
+        Some("app") if !by_this_client => reload_for_another_client(model, &page_id),
         Some("file" | "extension") => file_reload::reload_page(model, &page_id),
         Some("server") => atlas::reload_atlas(model, &page_id),
         _ => done(),
@@ -77,6 +81,16 @@ fn on_pages_updated(model: &mut Model, json: &serde_json::Value) -> Cmd {
         sidebar::load_index_pages(model),
         page::reload_backlinks(model),
     ])
+}
+
+/// Reads again the page that another client changed. An atlas that shows no item yet has
+/// nothing for `reload_page` to replace, so it is read as the server's own changes to it are.
+fn reload_for_another_client(model: &mut Model, page_id: &str) -> Cmd {
+    if model.state.items().iter().any(|i| i.page_id == page_id) {
+        file_reload::reload_page(model, page_id)
+    } else {
+        atlas::reload_atlas(model, page_id)
+    }
 }
 
 fn schedule_reconnect(model: &mut Model) -> Cmd {

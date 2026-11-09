@@ -1171,6 +1171,32 @@ async fn the_clients_hear_of_the_page_once_however_many_items_a_paste_creates() 
     assert_eq!(seen.matches(&pasted).count(), 1, "{seen}");
 }
 
+const CLIENT_A: &str = "0a0a0a0a-0000-4000-8000-00000000000a";
+
+/// Creates an item as the client that the `X-Client-Id` header names, or as one that names none.
+async fn create_item_as(client_id: Option<&str>, page_id: &str) {
+    let mut request = client().post(url("/api/items")).json(&json!({
+        "pageId": page_id, "position": "last", "level": 1, "body": "x", "id": ""
+    }));
+    if let Some(client_id) = client_id {
+        request = request.header("X-Client-Id", client_id);
+    }
+    assert_eq!(request.send().await.unwrap().status(), 200);
+}
+
+// APIでの変更は、リクエストのX-Client-Idヘッダーが名乗るクライアントの変更として知らされる。
+#[tokio::test]
+async fn the_clients_hear_which_client_changed_the_page() {
+    let page = new_doc_page("items-event-client").await;
+    let mut events = client().get(url("/api/events")).send().await.unwrap();
+
+    create_item_as(Some(CLIENT_A), &page.id).await;
+
+    let event = event_with(&mut events, &format!("\"pageId\":\"{}\"", page.id)).await;
+    assert_eq!(event["source"], "app");
+    assert_eq!(event["clientId"], CLIENT_A);
+}
+
 // トランスクルードされている項目に貼り付けると、その写しを見せているページの変更も知らされる。
 #[tokio::test]
 async fn the_clients_hear_of_the_pages_that_transclude_the_item_pasted_into() {

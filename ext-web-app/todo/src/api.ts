@@ -79,6 +79,9 @@ function isPagesUpdated(data: string): boolean {
   }
 }
 
+/** The ID this tab names itself with. The server refuses a change without it (ADR 015). */
+export const clientId = crypto.randomUUID();
+
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const resp = await fetch(`${serverUrl}${path}`, init);
   if (!resp.ok) {
@@ -102,6 +105,7 @@ export async function cycleTask(itemId: string): Promise<Item> {
     `/api/items/${itemId}/cycle-task`,
     {
       method: 'POST',
+      headers: { 'X-Client-Id': clientId },
     },
   );
   return data.item;

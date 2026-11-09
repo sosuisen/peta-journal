@@ -20,6 +20,27 @@ const COMPONENT: &AsciiSet = &NON_ALPHANUMERIC
     .remove(b'(')
     .remove(b')');
 
+/// The ID a shell names itself with: a new UUID for each start (ADR-015). The shell sends it
+/// with every request and gives it to the core with `Event::Start`.
+///
+/// Only [`ClientId::new`] makes one, so a shell cannot name itself with a text of its own.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ClientId(String);
+
+impl ClientId {
+    /// The header that carries the ID. The server refuses a change without it.
+    pub const HEADER: &str = "X-Client-Id";
+
+    #[allow(clippy::new_without_default)] // each call makes another ID, which a default is not
+    pub fn new() -> ClientId {
+        ClientId(uuid::Uuid::new_v4().to_string())
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
 /// One request to the journal server. `path` starts at `/api`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct HttpRequest {

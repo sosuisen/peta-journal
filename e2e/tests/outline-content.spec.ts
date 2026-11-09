@@ -1,6 +1,6 @@
-import { expect, test } from '@playwright/test';
+import { expect } from '@playwright/test';
 import { serverPort } from '../playwright.config';
-import { Server, editorOf, openEditor, openPage, outlineOf } from './support';
+import { Server, editorOf, openEditor, openPage, outlineOf, test } from './support';
 
 /** Pastes text into the focused editor the way the browser would. */
 async function pasteText(page: import('@playwright/test').Page, text: string): Promise<void> {

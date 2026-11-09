@@ -2,11 +2,12 @@ use std::collections::BTreeMap;
 
 use axum::extract::{Path, State};
 use axum::routing::{delete, get, post};
-use axum::{Json, Router};
+use axum::{Extension, Json, Router};
 use serde::{Deserialize, Serialize};
 
 use crate::application::folder_chooser;
 use crate::error::AppResult;
+use crate::presentation::client_id::ClientId;
 use crate::state::{blocking, SharedState};
 
 pub fn routes() -> Router<SharedState> {
@@ -133,11 +134,12 @@ async fn add_property_definition(
 /// SSE, so an open page drops the property without a reload.
 async fn delete_property_definition(
     State(state): State<SharedState>,
+    Extension(client): Extension<ClientId>,
     Path(key): Path<String>,
 ) -> AppResult<Json<PropertyDefinitionsResponse>> {
     blocking(move || {
         for page_id in state.page_service.delete_property_definition(&key)? {
-            state.sse.broadcast_pages_updated(page_id.as_str());
+            state.sse.broadcast_pages_updated(&client, page_id.as_str());
         }
         Ok(Json(definitions_response(&state)?))
     })

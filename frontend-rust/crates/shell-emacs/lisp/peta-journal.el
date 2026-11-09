@@ -494,10 +494,10 @@ When its item has gone, the row now at the same index."
 
 (defun peta-journal--warn-if-shown-elsewhere ()
   "Say so when another buffer shows the page of the current buffer.
-A core reloads an open page only when its file changes, so neither buffer
-shows what the other saves."
+Each buffer shows what the other saves, but only once its own edit has ended.
+Two edits of one item overwrite each other."
   (when-let* ((other (peta-journal--other-buffer-of-page (current-buffer))))
-    (message "%s also shows this page.  What one buffer saves does not appear in the other"
+    (message "%s also shows this page.  Edits of one item in both buffers overwrite each other"
              (buffer-name other))))
 
 (defun peta-journal--apply-rows (new page-id ack)

@@ -6,6 +6,7 @@ use crate::effects;
 use leptos::prelude::*;
 use peta_core::effects::{Effect, TimerOp};
 use peta_core::model::DeferredKey;
+use peta_core::rest::ClientId;
 use peta_core::{Event, PetaApp, ViewModel};
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
@@ -17,6 +18,9 @@ pub type NavigateFn = Box<dyn Fn(&str, bool)>;
 
 pub struct Inner {
     pub core: crux_core::Core<PetaApp>,
+    /// The ID of this tab. The server hears it in every request, and the core at the start
+    /// (ADR-015).
+    pub client_id: ClientId,
     pub view: RwSignal<ViewModel>,
     pub navigate: RefCell<Option<NavigateFn>>,
     /// Files handed to the core by handle, e.g. a pasted image waiting for its upload.
@@ -56,6 +60,7 @@ impl CoreHandle {
         let view = RwSignal::new(core.view());
         let inner = Rc::new(Inner {
             core,
+            client_id: ClientId::new(),
             view,
             navigate: RefCell::new(None),
             files: RefCell::new(HashMap::new()),

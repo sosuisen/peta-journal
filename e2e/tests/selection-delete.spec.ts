@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test';
-import { Server, openEditor, openPage, outlineOf } from './support';
+import { expect } from '@playwright/test';
+import { Server, openEditor, openPage, outlineOf, test } from './support';
 
 // A selected item always comes with its descendants, so deleting it deletes them too.
 test.describe('deleting a selected parent', () => {

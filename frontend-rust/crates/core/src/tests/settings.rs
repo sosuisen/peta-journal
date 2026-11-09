@@ -120,7 +120,9 @@ fn starting_takes_the_settings_of_the_server() {
             home_link: "Home".into(),
         })),
     );
-    h.send(Event::Start);
+    h.send(Event::Start {
+        client_id: crate::rest::ClientId::new(),
+    });
 
     let c = &h.model.config;
     assert_eq!(c.markdown_dir, "/md");
@@ -136,7 +138,9 @@ fn settings_that_cannot_be_loaded_stay_at_their_defaults() {
     let mut h = Harness::new();
     h.api.fail_next("GetConfig", "offline");
     h.api.fail_next("GetPropertyDefinitions", "offline");
-    h.send(Event::Start);
+    h.send(Event::Start {
+        client_id: crate::rest::ClientId::new(),
+    });
 
     assert_eq!(h.model.config.week_numbering, WeekNumbering::Us);
     assert!(h.model.config.property_definitions.is_empty());

@@ -109,8 +109,17 @@ pub fn start_with(
 }
 
 thread_local! {
-    static CLIENT: reqwest::Client = reqwest::Client::new();
+    static CLIENT: reqwest::Client = reqwest::Client::builder()
+        .default_headers(reqwest::header::HeaderMap::from_iter([(
+            reqwest::header::HeaderName::from_static("x-client-id"),
+            reqwest::header::HeaderValue::from_static(TEST_CLIENT_ID),
+        )]))
+        .build()
+        .expect("the client of the tests");
 }
+
+/// The ID that [`client`] names itself with. The server refuses a change without one (ADR-015).
+pub const TEST_CLIENT_ID: &str = "7e577e57-0000-4000-8000-000000000000";
 
 /// The client of the running test. Its requests share their connections. A new client for
 /// each request opened a new connection each time, and every closed one holds its local port

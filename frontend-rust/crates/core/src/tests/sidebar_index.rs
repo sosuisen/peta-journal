@@ -188,7 +188,9 @@ fn recent_pages_show_their_folder_on_its_own_line() {
             doc("", "index"),
         ])),
     );
-    h.send(Event::Start);
+    h.send(Event::Start {
+        client_id: crate::rest::ClientId::new(),
+    });
 
     let labels: Vec<(Option<String>, String)> = h
         .view()

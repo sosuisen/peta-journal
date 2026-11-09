@@ -9,6 +9,7 @@ vi.hoisted(() => {
 
 import {
   type ConnectionState,
+  clientId,
   cycleTask,
   getItemsByTypes,
   serverUrl,
@@ -201,7 +202,7 @@ describe('the requests to the journal server', () => {
     );
   });
 
-  // タスクの状態は、POSTで次へ進め、進めたあとの項目が返る。
+  // タスクの状態は、自分のIDを名乗ったPOSTで次へ進め、進めたあとの項目が返る。
   test('move a task to its next state with a POST', async () => {
     answer('{"item":{"id":"item-1","properties":{"begin":"10:00"}}}');
 
@@ -210,7 +211,7 @@ describe('the requests to the journal server', () => {
     expect(item).toEqual({ id: 'item-1', properties: { begin: '10:00' } });
     expect(fetchMock).toHaveBeenCalledWith(
       'http://journal.test:9000/api/items/item-1/cycle-task',
-      { method: 'POST' },
+      { method: 'POST', headers: { 'X-Client-Id': clientId } },
     );
   });
 
