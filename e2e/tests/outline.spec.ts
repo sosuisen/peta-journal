@@ -57,6 +57,38 @@ test.describe('outline editing', () => {
     expect(await shownBodies(page)).toEqual(['alpha', 'beta']);
   });
 
+  test('text typed right after Enter in the middle goes in front of the text that moved down', async ({ page }) => {
+    await openFirstEditor(page);
+    await page.keyboard.type('alpha-beta');
+    for (let i = 0; i < 4; i++) await page.keyboard.press('ArrowLeft');
+
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('gamma-');
+
+    const items = await server.itemsSettled(pageId, items => items.length === 2 && items[1].body.length === 10);
+    expect(items.map(i => i.body)).toEqual(['alpha-', 'gamma-beta']);
+    expect(await shownBodies(page)).toEqual(['alpha-', 'gamma-beta']);
+  });
+
+  test('Enter sends one request, which carries the text typed and not saved yet', async ({ page }) => {
+    const firstId = await openFirstEditor(page);
+    const writes: string[] = [];
+    page.on('request', r => {
+      if (r.method() !== 'GET') writes.push(`${r.method()} ${new URL(r.url()).pathname} ${r.postData()}`);
+    });
+
+    await page.keyboard.type('alpha-beta');
+    for (let i = 0; i < 4; i++) await page.keyboard.press('ArrowLeft');
+    await page.keyboard.press('Enter');
+
+    const items = await server.itemsSettled(pageId, items => items.length === 2);
+    expect(items.map(i => i.body)).toEqual(['alpha-', 'beta']);
+    await expect(editorOf(page, items[1].id)).toBeFocused();
+    // Longer than the auto-save waits: the typed text must not be saved a second time
+    await page.waitForTimeout(600);
+    expect(writes).toEqual([`POST /api/items/${firstId}/split {"body":"alpha-beta","cursor":6}`]);
+  });
+
   test('two quick Enters in a row make two items, each with its own text', async ({ page }) => {
     await openFirstEditor(page);
 

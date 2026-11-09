@@ -1150,6 +1150,237 @@ async fn a_paste_into_an_item_that_is_gone_is_refused() {
     assert_eq!(outline_of(&page.id).await, ["1:other"]);
 }
 
+// ---- Items: split ----
+
+/// Splits an item the way Enter in an editor does: with the body and the cursor it has now
+async fn split(item_id: &str, body: &str, cursor: usize) -> (u16, Value) {
+    post(
+        &format!("/api/items/{item_id}/split"),
+        json!({ "body": body, "cursor": cursor }),
+    )
+    .await
+}
+
+// 途中での分割では、カーソルより前の文が元の項目に残り、後ろの文が同じ階層の新しい項目として直後に入る。
+#[tokio::test]
+async fn a_split_in_the_middle_leaves_the_text_before_the_cursor_and_puts_the_rest_in_a_new_item_below(
+) {
+    let page = new_doc_page("items-split-middle").await;
+    let rows = fill(&page.id, &["parent", "  alpha beta", "  next"]).await;
+
+    let (status, resp) = split(&rows[1].id, "alpha beta", 6).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(resp["item"]["id"], json!(rows[1].id));
+    assert_eq!(resp["item"]["body"], json!("alpha "));
+    assert_eq!(resp["created"]["body"], json!("beta"));
+    assert_eq!(resp["created"]["level"], json!(2));
+    assert_eq!(
+        outline_of(&page.id).await,
+        ["1:parent", "2:alpha ", "2:beta", "2:next"]
+    );
+}
+
+// 行頭での分割では、空の項目が同じ階層で直前に入り、元の項目は本文を保つ。
+#[tokio::test]
+async fn a_split_at_the_start_puts_an_empty_item_above_and_the_item_keeps_its_body() {
+    let page = new_doc_page("items-split-start").await;
+    let rows = fill(&page.id, &["parent", "  alpha", "  next"]).await;
+
+    let (status, resp) = split(&rows[1].id, "alpha", 0).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(resp["item"]["body"], json!("alpha"));
+    assert_eq!(resp["created"]["body"], json!(""));
+    assert_eq!(
+        outline_of(&page.id).await,
+        ["1:parent", "2:", "2:alpha", "2:next"]
+    );
+}
+
+// 開いている親を分割すると、新しい項目はその最初の子になる。親の直後に同じ階層で置くと、子を奪ってしまうためである。
+#[tokio::test]
+async fn a_split_of_an_open_parent_puts_the_new_item_in_as_its_first_child() {
+    let page = new_doc_page("items-split-parent").await;
+    let rows = fill(&page.id, &["parent", "  child", "next"]).await;
+
+    let (status, resp) = split(&rows[0].id, "parent", 6).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(
+        outline_of(&page.id).await,
+        ["1:parent", "2:", "2:child", "1:next"]
+    );
+}
+
+// 折りたたまれた親を分割すると、新しい項目は隠れている子孫の後ろに、親と同じ階層で入る。
+#[tokio::test]
+async fn a_split_of_a_collapsed_parent_puts_the_new_item_after_its_hidden_descendants() {
+    let page = new_doc_page("items-split-collapsed").await;
+    let rows = fill(&page.id, &["parent", "  child", "    grandchild", "next"]).await;
+    let (status, resp) = put(
+        &format!("/api/items/{}", rows[0].id),
+        json!({ "collapsed": true }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    let (status, resp) = split(&rows[0].id, "parent", 3).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(
+        outline_of(&page.id).await,
+        ["1:par", "2:child", "3:grandchild", "1:ent", "1:next"]
+    );
+}
+
+// トランスクルードされている項目を分割すると、その写しを見せているページの変更も知らされる。
+#[tokio::test]
+async fn the_clients_hear_of_the_pages_that_transclude_the_item_that_was_split() {
+    let (_, source, page, _) = transcluded("items-split-transcluder", &["ab"]).await;
+    let mut events = client().get(url("/api/events")).send().await.unwrap();
+
+    let (status, resp) = split(&source[0].id, "ab", 1).await;
+    assert_eq!(status, 200, "{resp}");
+
+    event_with(&mut events, &format!("\"pageId\":\"{}\"", page.id)).await;
+    assert_eq!(items(&page.id).await[0].body, "a");
+}
+
+// トランスクルージョンの分割は断られ、何も変わらない。その本文は元の項目のもので、新しい項目を置くページも表示によって変わるためである。
+#[tokio::test]
+async fn a_transclusion_is_not_split() {
+    let (source_page, _, page, host) = transcluded("items-split-copy", &["ab"]).await;
+
+    let (status, resp) = split(&host.id, "ab", 1).await;
+
+    assert_eq!(status, 400, "{resp}");
+    assert_eq!(outline_of(&source_page.id).await, ["1:ab"]);
+    assert_eq!(items(&page.id).await.len(), 1);
+}
+
+// 行末での分割では、空の項目が直後に入る。
+#[tokio::test]
+async fn a_split_at_the_end_puts_an_empty_item_below() {
+    let page = new_doc_page("items-split-end").await;
+    let rows = fill(&page.id, &["alpha", "next"]).await;
+
+    let (status, resp) = split(&rows[0].id, "alpha", 5).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(resp["created"]["body"], json!(""));
+    assert_eq!(outline_of(&page.id).await, ["1:alpha", "1:", "1:next"]);
+}
+
+// カーソルが本文の長さを超えていても、行末での分割になる。
+#[tokio::test]
+async fn a_split_with_the_cursor_past_the_end_is_a_split_at_the_end() {
+    let page = new_doc_page("items-split-past").await;
+    let rows = fill(&page.id, &["alpha"]).await;
+
+    let (status, resp) = split(&rows[0].id, "alpha", 99).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(outline_of(&page.id).await, ["1:alpha", "1:"]);
+}
+
+// ページの最初の項目を行頭で分割すると、空の項目がページの先頭に入る。
+#[tokio::test]
+async fn a_split_at_the_start_of_the_first_item_puts_the_empty_item_first_on_the_page() {
+    let page = new_doc_page("items-split-first").await;
+    let rows = fill(&page.id, &["alpha", "next"]).await;
+
+    let (status, resp) = split(&rows[0].id, "alpha", 0).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(outline_of(&page.id).await, ["1:", "1:alpha", "1:next"]);
+}
+
+// 空の項目の分割では、空の項目が下に入る。上に入れる理由になる本文がないためである。
+#[tokio::test]
+async fn a_split_of_an_empty_item_puts_the_empty_item_below() {
+    let page = new_doc_page("items-split-empty").await;
+    let rows = fill(&page.id, &["", "next"]).await;
+
+    let (status, resp) = split(&rows[0].id, "", 0).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(resp["item"]["id"], json!(rows[0].id));
+    assert_eq!(
+        idxs_of(&page.id).await[1],
+        resp["created"]["idx"].as_str().unwrap()
+    );
+}
+
+// 分割するのは、保存されている本文ではなく、要求が運んできた本文である。まだ保存されていない入力が入っている。
+#[tokio::test]
+async fn the_split_cuts_the_body_the_request_carries_not_the_stored_one() {
+    let page = new_doc_page("items-split-unsaved").await;
+    let rows = fill(&page.id, &["saved"]).await;
+
+    let (status, resp) = split(&rows[0].id, "saved and typed", 6).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(outline_of(&page.id).await, ["1:saved ", "1:and typed"]);
+}
+
+// 行頭での分割でも、要求が運んできた本文が元の項目に保存される。
+#[tokio::test]
+async fn a_split_at_the_start_saves_the_body_the_request_carries() {
+    let page = new_doc_page("items-split-start-unsaved").await;
+    let rows = fill(&page.id, &["saved"]).await;
+
+    let (status, resp) = split(&rows[0].id, "saved and typed", 0).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(outline_of(&page.id).await, ["1:", "1:saved and typed"]);
+}
+
+// 元の項目に残る本文のコードフェンスが閉じていなければ、閉じて保存される。保存された本文は、コードフェンスの途中で終わらない。
+#[tokio::test]
+async fn a_split_closes_an_open_code_fence_in_the_body_the_item_keeps() {
+    let page = new_doc_page("items-split-fence").await;
+    let rows = fill(&page.id, &["saved"]).await;
+
+    let (status, resp) = split(&rows[0].id, "```js\ncode", 0).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(resp["item"]["body"], json!("```js\ncode\n```"));
+    assert_eq!(resp["created"]["body"], json!(""));
+}
+
+// 分割は項目を2つ書くが、ページの変更は1回だけクライアントに知らされる。
+#[tokio::test]
+async fn the_clients_hear_of_the_page_once_for_a_split() {
+    let page = new_doc_page("items-split-event").await;
+    let rows = fill(&page.id, &["ab"]).await;
+    let other_page = new_doc_page("items-split-event-after").await;
+    let mut events = client().get(url("/api/events")).send().await.unwrap();
+
+    let (status, resp) = split(&rows[0].id, "ab", 1).await;
+    assert_eq!(status, 200, "{resp}");
+    // The events come in order: what is read up to this one holds all those of the split
+    create_item(&other_page.id, "last", 1, "after the split").await;
+
+    let other = format!("\"pageId\":\"{}\"", other_page.id);
+    let seen = events_until(&mut events, &other).await;
+    let split_page = format!("\"pageId\":\"{}\"", page.id);
+    assert_eq!(seen.matches(&split_page).count(), 1, "{seen}");
+}
+
+// もう無い項目の分割は断られる。ほかの項目の操作と同じ答えである。
+#[tokio::test]
+async fn a_split_of_an_item_that_is_gone_is_refused() {
+    let page = new_doc_page("items-split-gone").await;
+    let rows = fill(&page.id, &["ab", "other"]).await;
+    assert_eq!(delete(&format!("/api/items/{}", rows[0].id)).await, 204);
+
+    let (status, resp) = split(&rows[0].id, "ab", 1).await;
+
+    assert_eq!(status, 400, "{resp}");
+    assert_eq!(outline_of(&page.id).await, ["1:other"]);
+}
+
 // ---- Items: batch ----
 
 /// Applies operations as one batch, the way an undo sends what it replays

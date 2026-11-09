@@ -302,6 +302,15 @@ pub struct Pasted {
     pub cursor: PasteCursor,
 }
 
+/// What a split came to on the server.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Split {
+    /// The item that was split, with the text it keeps.
+    pub item: Item,
+    /// The item made beside it.
+    pub created: Item,
+}
+
 /// Where the cursor goes after a paste: right after the pasted text.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

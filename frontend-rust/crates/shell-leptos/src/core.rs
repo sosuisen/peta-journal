@@ -26,6 +26,10 @@ pub struct Inner {
     pub sse: RefCell<Option<effects::sse::Connection>>,
     /// Editors that can replay held keys, by item id.
     pub replayers: RefCell<HashMap<String, ReplayKeys>>,
+    /// Keys pressed while held keys wait to be played into the next editor, which happens
+    /// after the next render. They are played after those, in the order they were pressed.
+    /// `None` when no held keys are waiting.
+    pub late_keys: RefCell<Option<Vec<DeferredKey>>>,
     /// The outline's scroller, when an outline is on screen.
     pub scroller: RefCell<Option<ScrollToItem>>,
     /// A clipboard write begun on the user's copy key, waiting for the markdown from the core.
@@ -59,6 +63,7 @@ impl CoreHandle {
             timers: RefCell::new(HashMap::new()),
             sse: RefCell::new(None),
             replayers: RefCell::new(HashMap::new()),
+            late_keys: RefCell::new(None),
             scroller: RefCell::new(None),
             pending_copy: RefCell::new(None),
             confirm: RefCell::new(None),
@@ -157,6 +162,18 @@ impl CoreHandle {
             .replayers
             .borrow_mut()
             .insert(item_id.to_string(), replay);
+    }
+
+    /// Keeps a key for the replay that is waiting, and says whether there was one. Without
+    /// this, the key would reach the next editor before the keys pressed earlier.
+    pub fn keep_for_waiting_replay(&self, key: impl FnOnce() -> DeferredKey) -> bool {
+        match self.inner().late_keys.borrow_mut().as_mut() {
+            Some(late) => {
+                late.push(key());
+                true
+            }
+            None => false,
+        }
     }
 
     pub fn unregister_replayer(&self, item_id: &str) {

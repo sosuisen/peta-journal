@@ -206,6 +206,20 @@ pub enum Event {
         /// The items the batch made again: they are shown as the server made them.
         recreated: Vec<String>,
     },
+    /// The server split an item for an Enter: what it wrote goes on screen and into the undo
+    /// history, and the new item is edited.
+    SplitDone {
+        item_id: String,
+        /// Where the cursor was when Enter was pressed.
+        cursor_before: usize,
+        split: Box<Split>,
+    },
+    /// The server refused a split, or could not be reached: nothing was written.
+    SplitFailed {
+        item_id: String,
+        /// The item had typed text that no request but the split carried.
+        unsaved: bool,
+    },
     /// The server refused a paste, or could not be reached: nothing was written.
     PasteFailed {
         item_id: String,
@@ -773,6 +787,12 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             model.clock_ms = now_ms;
             ops::split::handle_enter(model, &item_id, cursor)
         }
+        SplitDone {
+            item_id,
+            cursor_before,
+            split,
+        } => ops::split::show_split(model, &item_id, cursor_before, *split),
+        SplitFailed { item_id, unsaved } => ops::split::split_failed(model, &item_id, unsaved),
         BackspaceAtStart { item_id } => ops::merge::merge_into_previous(model, &item_id),
         DeleteAtEnd { item_id } => ops::merge::merge_next_into(model, &item_id),
         NavigateUp { item_id, cursor } => {

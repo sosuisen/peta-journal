@@ -455,6 +455,37 @@ fn a_paste_posts_the_body_the_cursor_the_text_and_the_mode_and_answers_what_was_
     );
 }
 
+// 分割は、本文とカーソルを送り、元の項目と作られた項目を答える。
+#[test]
+fn a_split_posts_the_body_and_the_cursor_and_answers_the_item_and_the_item_made() {
+    let rest = call(ApiOp::SplitItem {
+        item_id: id("a"),
+        body: "本文ab".into(),
+        cursor: 2,
+    });
+    assert_eq!(
+        (rest.request.method, rest.request.path.as_str()),
+        ("POST", "/api/items/a/split")
+    );
+    assert_eq!(
+        rest.request.body,
+        Some(json!({ "body": "本文ab", "cursor": 2 }))
+    );
+    let output = rest
+        .decode(&reply(
+            200,
+            json!({ "item": item_json("a", "本文"), "created": item_json("n", "ab") }),
+        ))
+        .unwrap();
+    let ApiOutput::Split(split) = output else {
+        panic!("not a split: {output:?}");
+    };
+    assert_eq!(
+        (split.item.body.as_str(), split.created.body.as_str()),
+        ("本文", "ab")
+    );
+}
+
 // バッチは、操作をサーバーが読む形の JSON で順に送り、書かれた項目を答える。変えないフィールドは送らない。
 #[test]
 fn a_batch_posts_its_operations_as_the_json_the_server_reads_and_answers_the_items_written() {

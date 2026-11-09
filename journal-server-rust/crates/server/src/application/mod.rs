@@ -13,5 +13,6 @@ pub mod journal_service;
 pub mod markdown_parser;
 pub mod page_service;
 pub mod paste;
+pub mod split;
 pub mod startup;
 pub mod tree_markdown;

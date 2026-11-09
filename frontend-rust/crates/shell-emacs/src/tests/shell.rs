@@ -329,7 +329,12 @@ fn starting_an_edit_from_emacs_does_not_move_the_point_back() {
     assert!(driver.focuses().is_empty());
 }
 
-// 末尾でのEnterは、新しい行をすぐに示し、カーソルをその行へ移し、作成をサーバーへ送る。
+/// What the server answers for a split: the item with the text it keeps, and the item made.
+fn split_answer(item: Value, created: Value) -> ApiOutput {
+    serde_json::from_value(json!({ "Split": { "item": item, "created": created } })).unwrap()
+}
+
+// 末尾でのEnterは、分割をサーバーへ送る。答えが届くと、新しい行を示し、カーソルをその行へ移す。
 #[test]
 fn enter_at_the_end_shows_a_new_row_and_moves_the_point_there() {
     let mut driver = Driver::open(&[item("a", 1, "x")]);
@@ -341,13 +346,15 @@ fn enter_at_the_end_shows_a_new_row_and_moves_the_point_there() {
         id: "a".into(),
         cursor: 1,
     });
+    driver.answer(
+        |op| matches!(op, ApiOp::SplitItem { body, cursor: 1, .. } if body == "x"),
+        split_answer(item("a", 1, "x"), item("b", 1, "")),
+    );
     let rows = driver.last_rows().unwrap();
     assert_eq!(rows.len(), 2);
     assert_eq!(rows[0].id, "a");
-    assert_eq!(rows[1].body, "");
-    let new_id = rows[1].id.clone();
-    assert!(driver.focuses().iter().any(|(id, _)| *id == new_id));
-    assert!(driver.waiting(|op| matches!(op, ApiOp::CreateItem { .. })));
+    assert_eq!((rows[1].id.as_str(), rows[1].body.as_str()), ("b", ""));
+    assert_eq!(driver.focuses().last().unwrap().0, "b");
 }
 
 // 途中でのEnterの間はキーを止め、新しい項目へカーソルが移ったら、止めるのをやめたと伝える。
@@ -359,14 +366,9 @@ fn the_end_of_holding_keys_reaches_emacs() {
         cursor: 2,
     });
     assert_eq!(driver.holding(), Some(true));
-    let answer = |value| ApiOutput::Item(serde_json::from_value(value).unwrap());
     driver.answer(
-        |op| matches!(op, ApiOp::UpdateItem { .. }),
-        answer(item("a", 1, "ab")),
-    );
-    driver.answer(
-        |op| matches!(op, ApiOp::CreateItem { .. }),
-        answer(item("b", 1, "cd")),
+        |op| matches!(op, ApiOp::SplitItem { .. }),
+        split_answer(item("a", 1, "ab"), item("b", 1, "cd")),
     );
     assert_eq!(driver.focuses().last().unwrap().0, "b");
     assert_eq!(driver.holding(), Some(false));
@@ -395,7 +397,7 @@ fn enter_after_a_closed_code_fence_splits_the_item() {
         id: "a".into(),
         cursor: 12,
     });
-    assert_eq!(driver.last_rows().unwrap().len(), 2);
+    assert!(driver.waiting(|op| matches!(op, ApiOp::SplitItem { cursor: 12, .. })));
 }
 
 // `[[`を打ったと伝えると、`]]`を足した本文が返り、カーソルはその間に留まる。

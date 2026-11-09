@@ -3,7 +3,7 @@
 
 use crate::model::{
     BacklinkEntry, BatchOp, DeferredKey, Item, ItemPosition, JournalBefore, Page, PageWithItems,
-    PasteMode, Pasted, PropertyDefinition, SearchResult, ServerConfig, TreeExport,
+    PasteMode, Pasted, PropertyDefinition, SearchResult, ServerConfig, Split, TreeExport,
 };
 use crate::util::date::LocalDateTime;
 use crux_core::capability::Operation;
@@ -80,6 +80,13 @@ pub enum ApiOp {
         cursor: usize,
         text: String,
         mode: PasteMode,
+    },
+    /// Splits an item at the character `cursor` of `body`, the body it has on screen, as
+    /// Enter does. The server decides where the new item goes and writes both, or neither.
+    SplitItem {
+        item_id: String,
+        body: String,
+        cursor: usize,
     },
     /// Applies operations to items in their order, all of them or none, as an undo or a redo
     /// sends what it replays.
@@ -257,6 +264,7 @@ pub enum ApiOutput {
     TreeExport(TreeExport),
     ItemIds(Vec<String>),
     Pasted(Pasted),
+    Split(Box<Split>),
     FileName(String),
     Launched(bool),
     /// Another page has the name a page was to take; the server's message says which.
@@ -638,6 +646,23 @@ impl<Event: Send + 'static> Api<Event> {
             })
             .await,
             Pasted
+        )
+    }
+
+    pub async fn split_item(
+        &self,
+        item_id: &str,
+        body: &str,
+        cursor: usize,
+    ) -> ApiResult<Box<Split>> {
+        expect_output!(
+            self.call(ApiOp::SplitItem {
+                item_id: item_id.into(),
+                body: body.into(),
+                cursor,
+            })
+            .await,
+            Split
         )
     }
 

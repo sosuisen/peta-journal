@@ -1,12 +1,22 @@
 use crate::app::Event;
-use crate::harness::{create_calls, item, update_calls, Harness};
-use crate::model::{Page, PageWithItems, TranscludedTrees};
+use crate::effects::ApiOutput;
+use crate::harness::{batch_calls, create_calls, item, split_calls, update_calls, Harness};
+use crate::model::{BatchOp, Page, PageWithItems, Split, TranscludedTrees};
 use crate::testing::item_with;
 
 fn harness() -> Harness {
     let mut h = Harness::with_items(vec![item("a", 1, "hello world"), item("b", 1, "body of b")]);
     h.model.state.add_editing_item("a");
     h
+}
+
+fn typed(h: &mut Harness, item_id: &str, body: &str) {
+    let now = h.now_ms;
+    h.send(Event::BodyChanged {
+        item_id: item_id.into(),
+        body: body.into(),
+        now_ms: now,
+    });
 }
 
 fn enter(h: &mut Harness, item_id: &str, cursor: usize) {
@@ -18,16 +28,17 @@ fn enter(h: &mut Harness, item_id: &str, cursor: usize) {
     });
 }
 
-// 途中での Enter はカーソルより前の文を残し、残りを下の新しい項目に移す。編集は新しい項目に移り、カーソルはその先頭に置かれる。
+// 途中での Enter は、本文とカーソルを1つの要求でサーバーに送る。カーソルより前の文が残り、残りは下の新しい項目に移る。編集は新しい項目に移り、カーソルはその先頭に置かれる。
 #[test]
 fn enter_in_the_middle_keeps_the_text_before_the_cursor_and_moves_the_rest_below() {
     let mut h = harness();
     enter(&mut h, "a", 5);
     assert_eq!(h.bodies(), ["a=hello", "new1= world", "b=body of b"]);
     assert_eq!(
-        create_calls(&h.api),
-        [("page1".into(), "after:a".into(), 1, " world".into(), None)]
+        split_calls(&h.api),
+        [("a".to_string(), "hello world".to_string(), 5)]
     );
+    assert_eq!(h.api.calls.len(), 1, "one request does it all");
     assert!(h.model.state.is_editing("new1"));
     assert!(!h.model.state.is_editing("a"));
     assert_eq!(h.focused_editor_requests(), [Some("new1".to_string())]);
@@ -62,47 +73,40 @@ fn enter_after_a_closed_code_fence_splits_the_item() {
     assert_eq!(h.bodies(), ["a=```\ncode\n```", "new1=\nafter"]);
 }
 
-// 末尾での Enter は空の項目をすぐに示し、クライアントが作った id でバックグラウンドで作成する。
+// 末尾での Enter は、空の項目を下に置き、その項目が編集される。サーバーの答えを待ってから表示する。
 #[test]
-fn enter_at_the_end_shows_an_empty_item_at_once_and_creates_it_in_the_background() {
+fn enter_at_the_end_puts_an_empty_item_below_and_edits_it() {
     let mut h = harness();
     enter(&mut h, "a", "hello world".len());
-    let ids = h.items_ids();
-    assert_eq!(ids.len(), 3);
-    assert_eq!(ids[0], "a");
-    assert_eq!(ids[2], "b");
-    let new_id = ids[1].clone();
-    assert_ne!(new_id, "new1", "the client made the id");
-    let calls = create_calls(&h.api);
+    assert_eq!(h.bodies(), ["a=hello world", "new1=", "b=body of b"]);
     assert_eq!(
-        calls,
-        [(
-            "page1".into(),
-            "after:a".into(),
-            1,
-            "".into(),
-            Some(new_id.clone())
-        )]
+        split_calls(&h.api),
+        [("a".to_string(), "hello world".to_string(), 11)]
     );
-    assert_eq!(
-        h.model.state.get_item_by_id(&new_id).unwrap().idx,
-        "created1"
-    );
-    assert_eq!(h.model.state.focused_item_id(), Some(new_id.as_str()));
-    assert_eq!(
-        update_calls(&h.api),
-        [("a".into(), Some("hello world".into()))]
-    );
+    assert_eq!(h.api.calls.len(), 1);
+    assert!(h.model.state.is_editing("new1"));
+    assert_eq!(h.model.state.focused_item_id(), Some("new1"));
 }
 
-// バックグラウンドの作成に失敗すると、ページはサーバーから読み直される。
+// カーソルが本文より後ろにあっても、本文の末尾として送る。
 #[test]
-fn when_the_background_creation_fails_the_page_is_reloaded_from_the_server() {
+fn a_cursor_past_the_end_of_the_body_is_sent_as_its_end() {
     let mut h = harness();
-    h.api.fail_next("CreateItem", "offline");
-    enter(&mut h, "a", "hello world".len());
-    assert!(h.api.called("GetPageById"));
-    assert_eq!(h.bodies(), ["reloaded=reloaded"]);
+    enter(&mut h, "a", 99);
+    assert_eq!(split_calls(&h.api)[0].2, 11);
+}
+
+// 分割に失敗すると、画面は変わらず、元の項目の編集が続く。キーの保留は終わる。
+#[test]
+fn a_split_that_fails_changes_nothing_on_screen_and_stops_holding_keys() {
+    let mut h = harness();
+    h.api.fail_next("SplitItem", "offline");
+    enter(&mut h, "a", 5);
+    assert_eq!(h.bodies(), ["a=hello world", "b=body of b"]);
+    assert!(h.model.state.is_editing("a"));
+    assert!(!h.model.key_relay.is_holding());
+    assert!(h.focused_editor_requests().is_empty());
+    assert!(!h.model.undo.can_undo());
 }
 
 // 先頭での Enter は空の項目を上に置き、その新しい項目が編集される。
@@ -112,20 +116,63 @@ fn enter_at_the_start_puts_an_empty_item_above_and_keeps_editing_the_new_one() {
     enter(&mut h, "a", 0);
     assert_eq!(h.bodies(), ["new1=", "a=hello world", "b=body of b"]);
     assert_eq!(
-        create_calls(&h.api),
-        [("page1".into(), "first".into(), 1, "".into(), None)]
+        split_calls(&h.api),
+        [("a".to_string(), "hello world".to_string(), 0)]
     );
     assert_eq!(h.focused_editor_requests(), [Some("new1".to_string())]);
+    assert!(h.model.state.is_editing("new1"));
+    assert!(!h.model.state.is_editing("a"));
 }
 
-// 展開された親の後ろの新しい項目は、その最初の子として作られる。
+// 2番目以降の項目の先頭での Enter でも、空の項目はその項目の直前に入る。
 #[test]
-fn a_new_item_after_an_expanded_parent_is_created_as_its_first_child() {
+fn enter_at_the_start_of_a_later_item_puts_the_empty_item_right_above_it() {
+    let mut h = harness();
+    enter(&mut h, "b", 0);
+    assert_eq!(h.bodies(), ["a=hello world", "new1=", "b=body of b"]);
+}
+
+/// What the server answers for a split of `id` that keeps `kept`: the new item `n` with the
+/// given index and level.
+fn split_answer(
+    id: &str,
+    kept: &str,
+    idx: &str,
+    level: i32,
+) -> crate::effects::ApiResult<ApiOutput> {
+    Ok(ApiOutput::Split(Box::new(Split {
+        item: item(id, 1, kept),
+        created: item_with("n", level, |i| i.idx = idx.into()),
+    })))
+}
+
+// サーバーが新しい項目を1段深い階層で作ったときは、元の項目の最初の子として表示される。
+#[test]
+fn a_new_item_one_level_deeper_is_shown_as_the_first_child_of_the_item() {
     let mut h = Harness::with_items(vec![item("a", 1, "parent"), item("c", 2, "")]);
+    h.api
+        .answer_next("SplitItem", split_answer("a", "parent", "a5", 2));
     enter(&mut h, "a", "parent".len());
-    let calls = create_calls(&h.api);
-    assert_eq!(calls[0].1, "after:a");
-    assert_eq!(calls[0].2, 2);
+    assert_eq!(h.outline(), ["a:1=parent", "n:2=", "c:2="]);
+}
+
+// サーバーが新しい項目を同じ階層で作ったときは、元の項目の子孫の後ろに表示される。折りたたまれた親の分割である。
+#[test]
+fn a_new_item_of_the_same_level_is_shown_after_the_descendants_of_the_item() {
+    let mut h = Harness::with_items(vec![
+        item_with("a", 1, |i| {
+            i.body = "parent".into();
+            i.collapsed = true;
+        }),
+        item("c", 2, ""),
+        item("d", 3, ""),
+        item("e", 1, ""),
+    ]);
+    h.model.state.toggle_collapsed("a");
+    h.api
+        .answer_next("SplitItem", split_answer("a", "parent", "d5", 1));
+    enter(&mut h, "a", "parent".len());
+    assert_eq!(h.items_ids(), ["a", "c", "d", "n", "e"]);
 }
 
 // 空の最後の子での Enter は、項目を作る代わりにその子をアウトデントする。
@@ -149,17 +196,105 @@ fn holds_the_keys_pressed_until_the_outline_focuses_the_next_editor() {
     assert!(!h.focused_editor_requests().is_empty());
 }
 
-// 分割に失敗すると、キーの保留は終わり、編集の引き継ぎも終わる。
+// 途中での Enter の undo は、元の本文を戻し、作られた項目を消す。カーソルは Enter を押した位置に戻る。
 #[test]
-fn stops_holding_keys_when_the_split_fails() {
+fn undo_of_an_enter_in_the_middle_puts_the_body_back_and_removes_the_new_item() {
     let mut h = harness();
-    h.api.fail_next("CreateItem", "offline");
     enter(&mut h, "a", 5);
-    assert!(!h.model.key_relay.is_holding());
-    assert_eq!(
-        h.model.edits.edit_handovers, 0,
-        "the handover ended despite the failure"
+
+    h.send(Event::Undo);
+
+    assert_eq!(h.bodies(), ["a=hello world", "b=body of b"]);
+    assert!(h.model.state.is_editing("a"));
+    assert_eq!(h.focus_cursor(), Some(5));
+    let batch = &batch_calls(&h.api)[0];
+    assert!(
+        matches!(&batch[0], BatchOp::Update { id, body, .. } if id == "a" && body.as_deref() == Some("hello world")),
+        "{batch:?}"
     );
+    assert_eq!(batch[1], BatchOp::Delete { id: "new1".into() });
+}
+
+// 末尾や先頭での Enter は本文を変えないので、undo には作成だけが記録される。
+#[test]
+fn an_enter_that_leaves_the_body_as_it_is_records_only_the_creation() {
+    let mut h = harness();
+    enter(&mut h, "a", 0);
+
+    h.send(Event::Undo);
+
+    assert_eq!(h.bodies(), ["a=hello world", "b=body of b"]);
+    assert_eq!(
+        batch_calls(&h.api),
+        [[BatchOp::Delete { id: "new1".into() }]]
+    );
+}
+
+// 入力してまだ保存していない文は、分割の要求に入って届く。その自動保存は取り消される。
+#[test]
+fn typed_text_not_saved_yet_travels_in_the_split_and_its_auto_save_is_dropped() {
+    let mut h = harness();
+    typed(&mut h, "a", "hello world!");
+    enter(&mut h, "a", 5);
+    assert_eq!(
+        split_calls(&h.api),
+        [("a".to_string(), "hello world!".to_string(), 5)]
+    );
+    assert!(h.pending_timer_ids().is_empty());
+    h.fire_timers();
+    assert!(update_calls(&h.api).is_empty());
+    assert_eq!(h.bodies(), ["a=hello", "new1= world!", "b=body of b"]);
+}
+
+// 分割に失敗すると、要求に入っていた未保存の入力は、もう一度自動保存にかけられる。
+#[test]
+fn after_a_failed_split_the_text_typed_and_not_saved_yet_is_auto_saved_again() {
+    let mut h = harness();
+    typed(&mut h, "a", "hello world!");
+    h.api.fail_next("SplitItem", "offline");
+    enter(&mut h, "a", 5);
+    h.fire_timers();
+    assert_eq!(
+        update_calls(&h.api),
+        [("a".into(), Some("hello world!".into()))]
+    );
+}
+
+// 保存済みの本文での分割が失敗しても、何も保存されない。
+#[test]
+fn a_failed_split_saves_nothing_when_the_item_had_no_unsaved_text() {
+    let mut h = harness();
+    h.api.fail_next("SplitItem", "offline");
+    enter(&mut h, "a", 5);
+    h.fire_timers();
+    assert!(update_calls(&h.api).is_empty());
+}
+
+// 答えが届いたときに元の項目がもう画面に無ければ、何も表示しない。待っている間に別のページへ移った場合である。キーの保留は終わる。
+#[test]
+fn the_answer_to_a_split_of_an_item_no_longer_shown_changes_nothing() {
+    let mut h = harness();
+    h.model.key_relay.hold_until_focus();
+    h.send(Event::SplitDone {
+        item_id: "gone".into(),
+        cursor_before: 0,
+        split: Box::new(Split {
+            item: item("gone", 1, ""),
+            created: item("n", 1, ""),
+        }),
+    });
+    assert_eq!(h.items_ids(), ["a", "b"]);
+    assert!(!h.model.undo.can_undo());
+    assert!(!h.model.key_relay.is_holding());
+    assert!(h.focused_editor_requests().is_empty());
+}
+
+// 元の項目は、サーバーが解析した結果で表示される。分割で本文が変わるためである。
+#[test]
+fn the_item_that_was_split_shows_what_the_server_parsed_from_the_text_it_keeps() {
+    let mut h = harness();
+    enter(&mut h, "a", 5);
+    assert_eq!(h.model.state.get_item_by_id("a").unwrap().ast, "ast:hello");
 }
 
 // トランスクルージョンの中では、新しい項目は参照元ページに作られ、ページが読み直される。
@@ -261,6 +396,29 @@ fn enter_at_the_end_of_a_transcluded_item_with_one_below_still_creates_on_the_so
     assert_eq!(calls[0].0, "src");
 }
 
+// トランスクルージョンの中での分割に失敗すると、キーの保留は終わり、編集の引き継ぎも終わる。
+#[test]
+fn a_split_inside_a_transclusion_that_fails_stops_holding_keys() {
+    let mut h = transclusion_harness(Vec::new());
+    h.api.fail_next("CreateItem", "offline");
+    enter(&mut h, "c", 2);
+    assert!(!h.model.key_relay.is_holding());
+    assert_eq!(
+        h.model.edits.edit_handovers, 0,
+        "the handover ended despite the failure"
+    );
+}
+
+// 最後のトランスクルード項目の末尾での Enter は、空の項目をすぐに示す。その作成に失敗すると、ページはサーバーから読み直される。
+#[test]
+fn when_the_creation_below_a_transclusion_fails_the_page_is_reloaded_from_the_server() {
+    let mut h = transclusion_harness(Vec::new());
+    h.api.fail_next("CreateItem", "offline");
+    enter(&mut h, "c", "child".len());
+    assert!(h.api.called("GetPageById"));
+    assert_eq!(h.bodies(), ["reloaded=reloaded"]);
+}
+
 // 次のエディタを待つ間に押されたキーは、そのエディタに渡される。待っていなければキーは捨てられる。
 // The fake server answers at once, so the wait is started by hand and ended by a merge.
 #[test]
@@ -291,23 +449,6 @@ fn keys_pressed_while_waiting_for_the_next_editor_are_played_into_it() {
             })
             .collect();
     assert_eq!(replayed, [vec!["x".to_string()]]);
-}
-
-// 折りたたまれた親の末尾での Enter は、隠れている子の後ろに新しい項目を作る。
-#[test]
-fn enter_at_the_end_of_a_collapsed_parent_creates_the_item_after_its_hidden_children() {
-    let mut h = Harness::with_items(vec![
-        item_with("a", 1, |i| {
-            i.body = "parent".into();
-            i.collapsed = true;
-        }),
-        item("c", 2, ""),
-        item("d", 3, ""),
-    ]);
-    h.model.state.toggle_collapsed("a");
-    enter(&mut h, "a", "parent".len());
-    let calls = create_calls(&h.api);
-    assert_eq!(calls[0].1, "after:d");
 }
 
 // ルートの行頭での Enter は、ホストページのルートの直前に空の項目を作る。参照元ページには何も作らない。

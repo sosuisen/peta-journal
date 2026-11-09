@@ -56,6 +56,16 @@ pub struct FakeApi {
     pub answers: HashMap<&'static str, VecDeque<ApiResult<ApiOutput>>>,
 }
 
+/// An index that sorts right above `index`, after every index that starts with a smaller
+/// last character.
+fn index_right_above(index: &str) -> String {
+    let mut chars: Vec<char> = index.chars().collect();
+    let last = chars.pop().expect("an index is not empty");
+    chars.push(char::from_u32(last as u32 - 1).expect("a character below the last one"));
+    chars.push(char::MAX);
+    chars.into_iter().collect()
+}
+
 pub fn op_name(op: &ApiOp) -> &'static str {
     match op {
         ApiOp::GetPageById { .. } => "GetPageById",
@@ -72,6 +82,7 @@ pub fn op_name(op: &ApiOp) -> &'static str {
         ApiOp::DeleteItems { .. } => "DeleteItems",
         ApiOp::MergeItems { .. } => "MergeItems",
         ApiOp::PasteText { .. } => "PasteText",
+        ApiOp::SplitItem { .. } => "SplitItem",
         ApiOp::ApplyBatch { .. } => "ApplyBatch",
         ApiOp::CycleTask { .. } => "CycleTask",
         ApiOp::UpsertItemProperty { .. } => "UpsertItemProperty",
@@ -191,6 +202,35 @@ impl FakeApi {
                         position: crate::util::char_len(before) + crate::util::char_len(text),
                     },
                 })
+            }
+            // The fake does not know the page. It answers as for an item without children, at
+            // level 1, with an index that sorts the new item right above or right below an
+            // item whose index is its id. A test that wants another place answers the split itself
+            ApiOp::SplitItem {
+                item_id,
+                body,
+                cursor,
+            } => {
+                self.created += 1;
+                let (before, after) = crate::util::split_at_char(body, *cursor);
+                let above = *cursor == 0 && !body.is_empty();
+                let (kept, new_body) = if above {
+                    (body.as_str(), "")
+                } else {
+                    (before, after)
+                };
+                let mut item = plain_item(item_id, 1, kept);
+                item.ast = format!("ast:{kept}");
+                item.properties = tags_in(kept);
+                let mut created = plain_item(&format!("new{}", self.created), 1, new_body);
+                created.ast = format!("ast:{new_body}");
+                created.properties = tags_in(new_body);
+                created.idx = if above {
+                    index_right_above(item_id)
+                } else {
+                    format!("{item_id}\u{1}")
+                };
+                ApiOutput::Split(Box::new(Split { item, created }))
             }
             ApiOp::ApplyBatch { ops } => {
                 let mut written: Vec<Item> = Vec::new();
@@ -635,6 +675,21 @@ pub fn create_calls(api: &FakeApi) -> Vec<(String, String, i32, String, Option<S
                 body.clone(),
                 id.clone(),
             )),
+            _ => None,
+        })
+        .collect()
+}
+
+/// The split calls as `(item, body, cursor)`.
+pub fn split_calls(api: &FakeApi) -> Vec<(String, String, usize)> {
+    api.calls
+        .iter()
+        .filter_map(|op| match op {
+            ApiOp::SplitItem {
+                item_id,
+                body,
+                cursor,
+            } => Some((item_id.clone(), body.clone(), *cursor)),
             _ => None,
         })
         .collect()
