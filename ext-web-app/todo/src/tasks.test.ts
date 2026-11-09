@@ -122,13 +122,13 @@ describe('the filters', () => {
     expect(isShown(onPage, { ...all, showPage: false })).toBe(false);
   });
 
-  // 週、月、年のジャーナルのタスクは、絞り込みではページとして扱われる。
-  test('take a weekly, monthly or yearly journal for a page', () => {
+  // 週、月、年のジャーナルのタスクも、Journalを選んだときだけ表示される。
+  test('show a task of a weekly, monthly or yearly journal only with Journal', () => {
     for (const name of ['2026-W45', '2026-11', '2026']) {
-      const task = item({ name });
+      const task = item({ type: 'journal', name });
 
-      expect(isShown(task, { ...all, showJournal: false }), name).toBe(true);
-      expect(isShown(task, { ...all, showPage: false }), name).toBe(false);
+      expect(isShown(task, { ...all, showPage: false }), name).toBe(true);
+      expect(isShown(task, { ...all, showJournal: false }), name).toBe(false);
     }
   });
 
