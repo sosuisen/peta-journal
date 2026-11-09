@@ -298,6 +298,35 @@ async fn items_are_exported_as_tree_markdown_and_imported_back_as_flat_markdown(
     assert_eq!(imported["flatMarkdown"], json!("a\n\n<!-- @@ -->\nb"));
 }
 
+// ---- Telling the clients ----
+
+/// The event stream, opened before the change the test is about.
+async fn listen() -> reqwest::Response {
+    client().get(url("/api/events")).send().await.unwrap()
+}
+
+/// Waits for the event that tells of a change of the page.
+async fn told_of(events: &mut reqwest::Response, page_id: &str) -> Value {
+    event_with(events, &format!("\"pageId\":\"{page_id}\"")).await
+}
+
+// MCPで項目を作ると、そのページの変更が、MCPからの変更としてクライアントに知らされる。
+#[tokio::test]
+async fn the_clients_hear_of_an_item_created_over_mcp() {
+    let mcp = connect().await;
+    let page = new_doc_page("mcp-tell-create").await;
+    let mut events = listen().await;
+
+    call(
+        &mcp,
+        "create_item",
+        json!({ "pageId": page.id, "position": "last", "level": 1, "body": "a" }),
+    )
+    .await;
+
+    assert_eq!(told_of(&mut events, &page.id).await["source"], "mcp");
+}
+
 // ---- Pages ----
 
 // docページは作成、再取得、改名、削除できる。
