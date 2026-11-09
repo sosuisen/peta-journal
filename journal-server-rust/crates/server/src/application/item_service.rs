@@ -22,6 +22,7 @@ use crate::infrastructure::persistence::property_repository::list_values;
 use crate::infrastructure::persistence::{ItemRepository, PageRepository, PropertyRepository};
 
 use super::extension_runtime::ItemRequest;
+use super::flat_markdown_splitter::FlatMarkdownSplitter;
 use super::markdown_parser::MarkdownParser;
 use super::page_service::PageService;
 use super::tree_markdown;
@@ -651,7 +652,10 @@ impl ItemService {
         Ok(into)
     }
 
-    /// Pastes text into an item at the cursor of the body an editor has now.
+    /// Pastes text into an item at the cursor of the body an editor has now. The text is split
+    /// into items the way a markdown file is: the first piece joins the text before the cursor,
+    /// the last piece takes the text after it, and the pieces after the first become new items
+    /// below. All of it is written in one transaction.
     pub fn paste(
         &self,
         item_id: &Hmtid,
@@ -665,17 +669,44 @@ impl ItemService {
             .nth(cursor)
             .map_or(body.len(), |(i, _)| i);
         let (before, after) = body.split_at(split);
-        let pasted = format!("{before}{text}{after}");
+        let mut pieces: Vec<String> = FlatMarkdownSplitter::new(self.parser.clone())
+            .split(text)?
+            .items
+            .into_iter()
+            .map(|piece| piece.body)
+            .collect();
+        let last = pieces.len() - 1;
+        let cursor = if last == 0 {
+            before.chars().count() + pieces[0].chars().count()
+        } else {
+            pieces[last].chars().count()
+        };
+        pieces[0].insert_str(0, before);
+        pieces[last].push_str(after);
+
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
         let mut effects = AfterCommit::default();
-        let updated = self.update_item_in(&tx, &item, Some(&pasted), None, None, &mut effects)?;
+        let mut items =
+            vec![self.update_item_in(&tx, &item, Some(&pieces[0]), None, None, &mut effects)?];
+        for piece in &pieces[1..] {
+            let above = ItemPosition::After(items[items.len() - 1].id.clone());
+            items.push(self.create_item_in(
+                &tx,
+                &item.page_id,
+                &above,
+                item.level,
+                piece,
+                None,
+                &mut effects,
+            )?);
+        }
         tx.commit()?;
         self.finish(effects);
         Ok(Pasted {
-            cursor_item_id: updated.id.clone(),
-            cursor: before.chars().count() + text.chars().count(),
-            items: vec![updated],
+            cursor_item_id: items[last].id.clone(),
+            cursor,
+            items,
         })
     }
 
