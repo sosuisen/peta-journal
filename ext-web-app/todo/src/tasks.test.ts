@@ -132,6 +132,14 @@ describe('the filters', () => {
     }
   });
 
+  // 日付の形の名前でも、ドキュメントページのタスクは、Pageを選んだときだけ表示される。
+  test('show a task of a doc page named like a date only with Page', () => {
+    const task = item({ type: 'doc', name: '2026' });
+
+    expect(isShown(task, { ...all, showJournal: false })).toBe(true);
+    expect(isShown(task, { ...all, showPage: false })).toBe(false);
+  });
+
   // 開始日が指定の日より後のタスクは、表示されない。指定の日のタスクは表示される。
   test('hide a task that starts after the given date', () => {
     const until = { ...all, untilDate: '2026-11-05' };
