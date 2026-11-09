@@ -732,11 +732,15 @@ impl ItemService {
         if item.transclude_item_id.is_some() || into.transclude_item_id.is_some() {
             return Err(AppError::bad_request("A transclusion cannot be merged"));
         }
-        let merged = format!(
+        let mut merged = format!(
             "{}{}",
             into_body.unwrap_or(&into.body),
             body.unwrap_or(&item.body)
         );
+        // A stored body never ends inside a code fence
+        if paste::has_unclosed_code_fence(&merged) {
+            merged.push_str("\n```");
+        }
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
         let mut effects = AfterCommit::default();
