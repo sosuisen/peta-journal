@@ -493,10 +493,7 @@ impl ItemService {
                 None => edited,
             };
             let mut body = body.to_string();
-            // A stored body never ends inside a code fence
-            if paste::has_unclosed_code_fence(&body) {
-                body.push_str("\n```");
-            }
+            paste::close_code_fence(&mut body);
             self.update_item_in(&tx, &edited, Some(&body), None, None, &mut effects)?;
         }
         self.move_items_in(&tx, item_ids, target_page_id, position, delta, &mut effects)?;
@@ -775,10 +772,7 @@ impl ItemService {
             into_body.unwrap_or(&into.body),
             body.unwrap_or(&item.body)
         );
-        // A stored body never ends inside a code fence
-        if paste::has_unclosed_code_fence(&merged) {
-            merged.push_str("\n```");
-        }
+        paste::close_code_fence(&mut merged);
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
         let mut effects = AfterCommit::default();

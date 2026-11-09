@@ -67,11 +67,15 @@ pub fn plan(
     };
     pieces[0].body.insert_str(0, before);
     pieces[last].body.push_str(after);
-    // A stored body never ends inside a code fence
-    if has_unclosed_code_fence(&pieces[0].body) {
-        pieces[0].body.push_str("\n```");
-    }
+    close_code_fence(&mut pieces[0].body);
     Ok(PastePlan { pieces, cursor })
+}
+
+/// Closes the code fence a body ends in. A stored body never ends inside a code fence.
+pub(crate) fn close_code_fence(body: &mut String) {
+    if has_unclosed_code_fence(body) {
+        body.push_str("\n```");
+    }
 }
 
 /// True when the text has an odd number of lines that open or close a code fence.

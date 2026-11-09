@@ -1,7 +1,7 @@
 //! What Enter makes of an item: which text stays in it, which text goes into the new item, and
 //! where the new item goes. Nothing here reads or writes the database.
 
-use super::paste::{has_unclosed_code_fence, split_at_char};
+use super::paste::{close_code_fence, split_at_char};
 use crate::domain::model::{Item, ItemPosition};
 use hmtid::Hmtid;
 
@@ -109,11 +109,8 @@ impl Transclusion {
     }
 }
 
-/// A stored body never ends inside a code fence.
 fn closed(mut plan: SplitPlan) -> SplitPlan {
-    if has_unclosed_code_fence(&plan.body) {
-        plan.body.push_str("\n```");
-    }
+    close_code_fence(&mut plan.body);
     plan
 }
 
