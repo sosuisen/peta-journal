@@ -139,3 +139,12 @@ async fn a_file_with_a_hash_in_its_name_is_cached_for_long() {
         );
     }
 }
+
+// ハッシュと同じ形を名前に含むページのパスに返る`index.html`も、キャッシュされない。
+#[tokio::test]
+async fn index_html_for_a_page_named_like_a_hashed_file_is_not_cached() {
+    let response = fetch("/pages/note-0123456789abcdef.md").await;
+
+    assert_eq!(response.headers()["cache-control"], "no-cache");
+    assert_eq!(response.text().await.unwrap(), INDEX);
+}
