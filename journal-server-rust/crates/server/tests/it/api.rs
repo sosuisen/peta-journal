@@ -1424,6 +1424,33 @@ async fn a_split_at_the_end_of_a_transclusion_that_shows_no_children_puts_an_emp
     );
 }
 
+// 折りたたまれたトランスクルージョンを行末で分割すると、元の項目に子があっても、空の項目はこのページで、隠れている自前の子孫の後ろに入る。
+#[tokio::test]
+async fn a_split_at_the_end_of_a_collapsed_transclusion_puts_the_empty_item_after_its_own_hidden_descendants(
+) {
+    let (source_page, _, page, own) = transclusion(
+        "items-split-copy-end-collapsed",
+        &["top", "  alpha", "    child"],
+        1,
+        &["copy", "  own child", "below"],
+        0,
+    )
+    .await;
+    collapse(&own[0].id).await;
+
+    let (status, resp) = split(&own[0].id, "alpha", 5).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(
+        outline_of(&page.id).await,
+        ["1:alpha", "2:own child", "1:", "1:below"]
+    );
+    assert_eq!(
+        outline_of(&source_page.id).await,
+        ["1:top", "2:alpha", "3:child"]
+    );
+}
+
 // 行末での分割では、空の項目が直後に入る。
 #[tokio::test]
 async fn a_split_at_the_end_puts_an_empty_item_below() {
