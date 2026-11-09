@@ -327,6 +327,40 @@ async fn the_clients_hear_of_an_item_created_over_mcp() {
     assert_eq!(told_of(&mut events, &page.id).await["source"], "mcp");
 }
 
+// 項目を変えるツールのどれも、その項目のページの変更を知らせる。
+#[tokio::test]
+async fn the_clients_hear_of_each_change_of_an_item_over_mcp() {
+    let mcp = connect().await;
+    let page = new_doc_page("mcp-tell-item").await;
+    let rows = fill(&page.id, &["a", "source"]).await;
+    let (item, source) = (&rows[0].id, &rows[1].id);
+    let changes = [
+        ("update_item", json!({ "itemId": item, "body": "b" })),
+        ("cycle_task", json!({ "itemId": item })),
+        (
+            "upsert_property",
+            json!({ "itemId": item, "key": "plan", "valueType": "date", "value": "2026-03-01" }),
+        ),
+        (
+            "set_transclusion",
+            json!({ "itemId": item, "sourceItemId": source }),
+        ),
+        ("remove_transclusion", json!({ "itemId": item })),
+    ];
+
+    for (tool, args) in changes {
+        let mut events = listen().await;
+
+        call(&mcp, tool, args).await;
+
+        assert_eq!(
+            told_of(&mut events, &page.id).await["source"],
+            "mcp",
+            "{tool}"
+        );
+    }
+}
+
 // ---- Pages ----
 
 // docページは作成、再取得、改名、削除できる。
