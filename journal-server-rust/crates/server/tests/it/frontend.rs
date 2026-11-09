@@ -100,3 +100,15 @@ async fn no_frontend_is_served_without_a_frontend_folder() {
 
     assert_eq!(response.status(), 404);
 }
+
+// ---- Caching ----
+
+// `index.html`は、キャッシュされずに毎回確かめられる。作り直したアプリが、読み直しで必ず届く。
+#[tokio::test]
+async fn index_html_is_checked_again_on_every_load() {
+    for path in ["/", "/index.html", "/pages/some-page"] {
+        let response = fetch(path).await;
+
+        assert_eq!(response.headers()["cache-control"], "no-cache", "{path}");
+    }
+}
