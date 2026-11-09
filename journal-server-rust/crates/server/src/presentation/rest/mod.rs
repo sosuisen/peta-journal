@@ -11,10 +11,19 @@ pub mod pages;
 pub mod search;
 pub mod sync;
 
+use axum::extract::Request;
+use axum::http::Method;
+use axum::middleware::Next;
+use axum::response::{IntoResponse, Response};
 use axum::routing::get;
 use axum::Router;
 
+use crate::presentation::client_id::ClientId;
 use crate::state::SharedState;
+
+/// The form of the page about missing files posts here. A form of a browser cannot add a
+/// header, so this one path needs no client ID.
+const FORM_PATH: &str = "/api/sync/pending-deletes";
 
 pub fn router() -> Router<SharedState> {
     Router::new()
@@ -30,6 +39,19 @@ pub fn router() -> Router<SharedState> {
         .merge(sync::routes())
         .merge(assets::routes())
         .merge(launcher::routes())
+        .layer(axum::middleware::from_fn(require_client_id))
+}
+
+/// Refuses a request that may change something when its client does not name itself
+/// (ADR-015). The method alone decides, so a POST that only reads needs the ID too.
+async fn require_client_id(request: Request, next: Next) -> Response {
+    let may_change = [Method::POST, Method::PUT, Method::DELETE].contains(request.method());
+    if may_change && request.uri().path() != FORM_PATH {
+        if let Err(refusal) = ClientId::of(request.headers()) {
+            return refusal.into_response();
+        }
+    }
+    next.run(request).await
 }
 
 async fn health() -> ([(axum::http::HeaderName, &'static str); 1], &'static str) {

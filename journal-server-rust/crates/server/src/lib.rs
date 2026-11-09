@@ -9,7 +9,7 @@ pub mod infrastructure;
 pub mod presentation;
 pub mod state;
 
-use axum::http::{header, HeaderValue, Method};
+use axum::http::{header, HeaderName, HeaderValue, Method};
 use axum::Router;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 
@@ -33,7 +33,11 @@ pub fn build_router(state: SharedState) -> Router {
             Method::DELETE,
             Method::OPTIONS,
         ])
-        .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION])
+        .allow_headers([
+            header::CONTENT_TYPE,
+            header::AUTHORIZATION,
+            HeaderName::from_static(presentation::client_id::HEADER),
+        ])
         .expose_headers([header::CONTENT_DISPOSITION]);
 
     let mcp = presentation::mcp::service(state.clone());
