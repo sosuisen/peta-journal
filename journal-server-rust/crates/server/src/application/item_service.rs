@@ -46,6 +46,15 @@ pub struct TaskState {
     pub plan: Option<String>,
 }
 
+/// What a paste changed: the item pasted into, then the items it created, and where the
+/// cursor is after the pasted text.
+#[derive(Debug, Clone)]
+pub struct Pasted {
+    pub items: Vec<Item>,
+    pub cursor_item_id: Hmtid,
+    pub cursor: usize,
+}
+
 /// What an operation does outside the database, once its transaction is committed: the
 /// search index, the tag pages and the export of the pages it touched.
 #[derive(Default)]
@@ -640,6 +649,34 @@ impl ItemService {
         tx.commit()?;
         self.finish(effects);
         Ok(into)
+    }
+
+    /// Pastes text into an item at the cursor of the body an editor has now.
+    pub fn paste(
+        &self,
+        item_id: &Hmtid,
+        body: &str,
+        cursor: usize,
+        text: &str,
+    ) -> AppResult<Pasted> {
+        let item = self.get_item_by_id(item_id)?;
+        let split = body
+            .char_indices()
+            .nth(cursor)
+            .map_or(body.len(), |(i, _)| i);
+        let (before, after) = body.split_at(split);
+        let pasted = format!("{before}{text}{after}");
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+        let mut effects = AfterCommit::default();
+        let updated = self.update_item_in(&tx, &item, Some(&pasted), None, None, &mut effects)?;
+        tx.commit()?;
+        self.finish(effects);
+        Ok(Pasted {
+            cursor_item_id: updated.id.clone(),
+            cursor: before.chars().count() + text.chars().count(),
+            items: vec![updated],
+        })
     }
 
     /// Sets a transclusion on an item, making it mirror a source item.
