@@ -108,6 +108,12 @@ pub fn home_dir() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from("."))
 }
 
+/// The folder of the web frontend: the given one, or else `frontend/` beside the executable,
+/// where a distributed server has it.
+fn frontend_dir(given: Option<PathBuf>, executable: std::io::Result<PathBuf>) -> Option<PathBuf> {
+    given.or_else(|| Some(executable.ok()?.parent()?.join("frontend")))
+}
+
 impl Settings {
     pub fn from_cli(cli: Cli) -> Settings {
         let home = home_dir().join(".peta-journal");
@@ -140,7 +146,7 @@ impl Settings {
                 .map(|s| s.trim().to_string())
                 .filter(|s| !s.is_empty())
                 .collect(),
-            frontend_dir: cli.frontend_dir,
+            frontend_dir: frontend_dir(cli.frontend_dir, std::env::current_exe()),
         }
     }
 
