@@ -789,6 +789,11 @@ impl ItemService {
         let tx = conn.immediate()?;
         let mut effects = AfterCommit::default();
         let item = find_all_in(&tx, std::slice::from_ref(item_id))?.remove(0);
+        if item.transclude_item_id.is_some() {
+            // Its text is the text of the source item, and the page of the new item
+            // depends on what the transclusion shows
+            return Err(AppError::bad_request("A transclusion cannot be split"));
+        }
         let on_page = ItemRepository::find_by_page_id_in(&tx, &item.page_id)?;
         let plan = split::plan(&on_page, &item, body, cursor);
         let updated =
