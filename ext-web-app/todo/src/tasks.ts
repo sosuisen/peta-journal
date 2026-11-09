@@ -24,6 +24,18 @@ export function getDue(item: Item): string | null {
   return dateProperty(item, 'due');
 }
 
+/**
+ * The day of the moment in the local time, as YYYY-MM-DD.
+ *
+ * Not `toISOString()`: that is the day in UTC, which in Japan is the day before until
+ * 9 in the morning.
+ */
+export function localISODate(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
 export interface Filters {
   /** Hides the tasks planned to start after this date (YYYY-MM-DD). Empty: hides none. */
   untilDate: string;
