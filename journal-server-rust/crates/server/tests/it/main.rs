@@ -6,6 +6,7 @@ mod api;
 mod atlas_sync;
 #[path = "../common/mod.rs"]
 mod common;
+mod frontend;
 mod item_merge;
 mod property_repository;
 mod watch;
