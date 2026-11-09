@@ -355,6 +355,9 @@ async fn paste(
             req.text.as_deref().unwrap_or_default(),
             mode,
         )?;
+        let page_id = pasted.items[0].page_id.to_string();
+        state.sse.broadcast_pages_updated(&page_id);
+        broadcast_to_transcluders(&state, &item_id, &page_id)?;
         Ok(Json(PasteResponse {
             items: state.dtos.to_dtos(&pasted.items)?,
             cursor: CursorDto {
