@@ -118,7 +118,11 @@ pub fn show_pasted(model: &mut Model, item_id: &str, cursor_before: usize, paste
     }
     model.undo.commit(None, model.clock_ms);
 
-    let cursor = pasted.cursor;
+    let mut cursor = pasted.cursor;
+    if cursor.item_id == first.id {
+        // The server names the item written to; on screen that is the item pasted into
+        cursor.item_id = item_id.to_string();
+    }
     model
         .state
         .set_focused_item(&cursor.item_id, Some(cursor.position));
