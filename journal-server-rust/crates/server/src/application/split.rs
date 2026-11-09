@@ -32,17 +32,24 @@ pub fn plan(on_page: &[Item], item: &Item, body: &str, cursor: usize) -> SplitPl
         };
     }
     let (before, after) = split_at_char(body, cursor);
-    let below = on_page
+    let last_descendant = on_page
         .iter()
         .skip_while(|other| other.id != item.id)
-        .nth(1);
-    // Right below an open parent is the place of its first child: an item of the parent's
-    // level there would take the children
-    let has_children = below.is_some_and(|below| below.level > item.level);
+        .skip(1)
+        .take_while(|other| other.level > item.level)
+        .last();
+    let (above, level) = match last_descendant {
+        // The new item is not hidden with the children: it goes after them
+        Some(last) if item.collapsed => (last, item.level),
+        // Right below an open parent is the place of its first child: an item of the
+        // parent's level there would take the children
+        Some(_) => (item, item.level + 1),
+        None => (item, item.level),
+    };
     SplitPlan {
         body: before.to_string(),
         new_body: after.to_string(),
-        position: ItemPosition::After(item.id.clone()),
-        level: item.level + i32::from(has_children),
+        position: ItemPosition::After(above.id.clone()),
+        level,
     }
 }
