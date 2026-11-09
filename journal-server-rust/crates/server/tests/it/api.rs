@@ -1150,6 +1150,37 @@ async fn a_paste_into_an_item_that_is_gone_is_refused() {
     assert_eq!(outline_of(&page.id).await, ["1:other"]);
 }
 
+// ---- Items: split ----
+
+/// Splits an item the way Enter in an editor does: with the body and the cursor it has now
+async fn split(item_id: &str, body: &str, cursor: usize) -> (u16, Value) {
+    post(
+        &format!("/api/items/{item_id}/split"),
+        json!({ "body": body, "cursor": cursor }),
+    )
+    .await
+}
+
+// 途中での分割では、カーソルより前の文が元の項目に残り、後ろの文が同じ階層の新しい項目として直後に入る。
+#[tokio::test]
+async fn a_split_in_the_middle_leaves_the_text_before_the_cursor_and_puts_the_rest_in_a_new_item_below(
+) {
+    let page = new_doc_page("items-split-middle").await;
+    let rows = fill(&page.id, &["parent", "  alpha beta", "  next"]).await;
+
+    let (status, resp) = split(&rows[1].id, "alpha beta", 6).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(resp["item"]["id"], json!(rows[1].id));
+    assert_eq!(resp["item"]["body"], json!("alpha "));
+    assert_eq!(resp["created"]["body"], json!("beta"));
+    assert_eq!(resp["created"]["level"], json!(2));
+    assert_eq!(
+        outline_of(&page.id).await,
+        ["1:parent", "2:alpha ", "2:beta", "2:next"]
+    );
+}
+
 // ---- Items: batch ----
 
 /// Applies operations as one batch, the way an undo sends what it replays
