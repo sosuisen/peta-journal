@@ -84,6 +84,11 @@
   - [x] 開始日の初期値の「今日」を、UTCではなく、利用者の地域の時刻で決める
   - [x] 行の中のリンクを押しても、行のクリック（項目のページを開く）は動かない
   - [ ] リンクを押すと、todoのタブ自体がリンク先に移る。別のウィンドウで開くようにするかを決める
+- [x] `ext-web-app/todo`の道具を新しくする
+  - [x] TypeScriptを7にする。`tsc`は7（`@typescript/native`）で、ESLintが使うAPIは6（`typescript`は`@typescript/typescript6`の別名）である。7.0にAPIがないため
+  - [x] ESLintを入れる（型を使うルール、Reactのフックのルール、`public`の省略、`readonly`）。Nodeは22.13以降か24以降が要る
+  - [ ] TypeScript 7.1でAPIが戻り、typescript-eslintが対応したら、`typescript`の別名をやめて7だけにする
+  - [ ] CIに`ext-web-app/todo`のジョブ（整形の検査、lint、テスト、ビルド）を足すかを決める（ユーザーが決める）
 - [ ] Emacs版に、Web版にある機能を足す
   - 項目の操作
     - [ ] ウィキリンクの補完。毎日使うので、最初の候補である
