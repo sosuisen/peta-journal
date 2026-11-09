@@ -36,10 +36,8 @@ pub fn paste_text(
     // What was typed before the paste travels in the request. Its auto-save is dropped, or
     // it would overwrite the pasted text a moment later
     let unsaved = model.edits.dirty_item_ids.contains(item_id);
-    // A transclusion root shows the body of its source item. What was typed into it is in
-    // the root itself until it is saved
-    let body = match model.state.get_item_by_id(item_id) {
-        Some(typed) if unsaved => typed.body.clone(),
+    let body = match typed_body(model, item_id) {
+        Some(typed) if unsaved => typed,
         _ => item.body.clone(),
     };
     let discard = discard_pending_edit(model, &item);
@@ -65,17 +63,17 @@ pub fn paste_text(
 /// Schedules the auto-save of the typed text a failed paste was to carry, as it did not reach
 /// the server.
 pub fn paste_failed(model: &mut Model, item_id: &str, unsaved: bool) -> Cmd {
-    // The typed text is in the item itself: a transclusion root shows the body of its source
-    let (Some(item), Some(typed)) = (
-        model.cloned_item(item_id),
-        model.state.get_item_by_id(item_id),
-    ) else {
-        return done();
-    };
-    if !unsaved {
-        return done();
+    match (model.cloned_item(item_id), typed_body(model, item_id)) {
+        (Some(item), Some(typed)) if unsaved => record_typing(model, &item, &typed),
+        _ => done(),
     }
-    record_typing(model, &item, &typed.body)
+}
+
+/// The body of an item with what was typed into it and is not saved yet. A transclusion root
+/// shows the body of its source item, and holds the typed text itself until it is saved.
+fn typed_body(model: &Model, item_id: &str) -> Option<String> {
+    let item = model.state.get_item_by_id(item_id)?;
+    Some(item.body.clone())
 }
 
 /// Shows what the server wrote for a paste, records it as one undo entry, and puts the cursor
