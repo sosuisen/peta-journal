@@ -2,10 +2,12 @@
 
 use std::path::Path;
 
-use axum::http::StatusCode;
+use axum::http::header::CACHE_CONTROL;
+use axum::http::{HeaderValue, StatusCode};
 use axum::routing::any;
 use axum::Router;
 use tower_http::services::{ServeDir, ServeFile};
+use tower_http::set_header::SetResponseHeader;
 
 /// Serves the files of `dir` at every path that no route of `router` takes.
 ///
@@ -14,7 +16,12 @@ use tower_http::services::{ServeDir, ServeFile};
 /// HTML of the app for an answer.
 pub fn serve(router: Router, dir: &Path) -> Router {
     let index = ServeFile::new(dir.join("index.html"));
+    let files = SetResponseHeader::overriding(
+        ServeDir::new(dir).fallback(index),
+        CACHE_CONTROL,
+        HeaderValue::from_static("no-cache"),
+    );
     router
         .route("/api/{*path}", any(|| async { StatusCode::NOT_FOUND }))
-        .fallback_service(ServeDir::new(dir).fallback(index))
+        .fallback_service(files)
 }
