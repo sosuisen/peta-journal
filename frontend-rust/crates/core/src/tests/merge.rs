@@ -1,6 +1,7 @@
 use crate::app::Event;
 use crate::effects::{ApiOp, ApiOutput, UiOp};
 use crate::harness::{item, merge_calls, op_name, update_calls, Harness};
+use crate::ops::merge::JoinKey;
 use crate::outline::UndoOp;
 use crate::testing::item_with;
 
@@ -186,6 +187,107 @@ fn a_merge_the_server_refuses_changes_nothing_on_screen_and_stops_holding_keys()
     assert!(h.model.undo.pop_undo().is_none());
 }
 
+// 結合に失敗すると、要求に入っていた未保存の入力は、もう一度自動保存にかけられる。消える側の項目のものも、受け取る側の項目のものも保存される。
+#[test]
+fn after_a_failed_merge_the_text_typed_and_not_saved_yet_is_auto_saved_again() {
+    let mut h = harness();
+    typed(&mut h, "a", "hello?");
+    typed(&mut h, "b", " world?");
+    h.api.fail_next("MergeItems", "offline");
+    h.send(Event::BackspaceAtStart {
+        item_id: "b".into(),
+    });
+    assert!(update_calls(&h.api).is_empty());
+    h.fire_timers();
+    let mut saved = update_calls(&h.api);
+    saved.sort();
+    assert_eq!(
+        saved,
+        [
+            ("a".to_string(), Some("hello?".to_string())),
+            ("b".to_string(), Some(" world?".to_string()))
+        ]
+    );
+}
+
+// 保存済みの本文での結合が失敗しても、何も保存されない。
+#[test]
+fn a_failed_merge_saves_nothing_when_no_item_had_unsaved_text() {
+    let mut h = harness();
+    h.api.fail_next("MergeItems", "offline");
+    h.send(Event::DeleteAtEnd {
+        item_id: "a".into(),
+    });
+    h.fire_timers();
+    assert!(update_calls(&h.api).is_empty());
+}
+
+// 答えが届くと、つないだ項目が編集され、カーソルは2つの文のつなぎ目に置かれる。キーの保留は、そのフォーカスで終わる。Backspace でも Delete でも同じである。
+#[test]
+fn the_joined_item_is_edited_with_the_cursor_where_the_texts_meet() {
+    for key in [
+        Event::BackspaceAtStart {
+            item_id: "b".into(),
+        },
+        Event::DeleteAtEnd {
+            item_id: "a".into(),
+        },
+    ] {
+        let mut h = harness();
+        h.send(key);
+        assert!(h.model.state.is_editing("a"));
+        assert!(!h.model.state.is_editing("b"));
+        assert_eq!(h.focused_editor_requests(), [Some("a".to_string())]);
+        assert_eq!(focus(&h), ("a".into(), Some("hello".len())));
+        assert!(!h.model.key_relay.is_holding());
+    }
+}
+
+// つないだ項目は、サーバーが保存した本文で表示される。サーバーは、閉じていないコードフェンスを閉じる。
+#[test]
+fn the_joined_item_shows_the_body_the_server_stored() {
+    let mut h = harness();
+    h.api
+        .answer_next("MergeItems", Ok(joined("a", "hello world\n```")));
+    h.send(Event::BackspaceAtStart {
+        item_id: "b".into(),
+    });
+    assert_eq!(h.bodies(), ["a=hello world\n```", "c=!"]);
+}
+
+// 答えが届いたときに2つの項目がもう画面に無ければ、何も表示しない。待っている間に別のページへ移った場合である。キーの保留は終わる。
+#[test]
+fn the_answer_to_a_merge_of_items_no_longer_shown_changes_nothing() {
+    let mut h = Harness::with_items(vec![item("x", 1, "other page")]);
+    h.model.key_relay.hold_until_focus();
+    let ApiOutput::Item(merged) = joined("a", "hello world") else {
+        unreachable!()
+    };
+    h.send(Event::Merged {
+        key: JoinKey::Backspace,
+        item_id: "b".into(),
+        merged: Box::new(merged),
+    });
+    assert_eq!(h.bodies(), ["x=other page"]);
+    assert!(h.focused_editor_requests().is_empty());
+    assert!(!h.model.key_relay.is_holding());
+    assert!(h.model.undo.pop_undo().is_none());
+}
+
+// 確認を待つ間にページが変わって、もうつなぐ相手がなければ、要求は送らない。キーの保留は終わる。
+#[test]
+fn a_join_that_is_gone_when_the_user_has_answered_sends_nothing() {
+    let mut h = Harness::with_items(vec![item("x", 1, "alone")]);
+    h.model.key_relay.hold_until_focus();
+    h.send(Event::MergeAnswered {
+        key: JoinKey::Delete,
+        item_id: "x".into(),
+        agreed: true,
+    });
+    assert!(h.api.calls.is_empty());
+    assert!(!h.model.key_relay.is_holding());
+}
+
 /// The item as a fake server returns it after joining: parsed from the joined text.
 fn joined(id: &str, body: &str) -> ApiOutput {
     ApiOutput::Item(item_with(id, 1, |i| {
@@ -358,7 +460,7 @@ fn backspace_at_the_start_of_a_transcluded_item_joins_it_after_an_ok() {
     assert_eq!(merge_calls(&h.api), [("a2".into(), "a1".into())]);
 }
 
-// 確認でキャンセルすると A2 は残り、カーソルは A2 の先頭に戻る。
+// 確認でキャンセルすると A2 は残り、カーソルは A2 の先頭に戻る。キーの保留は終わる。
 #[test]
 fn a_cancel_to_backspace_keeps_the_transcluded_item_and_the_cursor_at_its_start() {
     let mut h = with_a2_transcluded(false);
@@ -370,6 +472,7 @@ fn a_cancel_to_backspace_keeps_the_transcluded_item_and_the_cursor_at_its_start(
     assert_eq!(h.bodies(), ["a1=one", "a2=two", "a3=three"]);
     assert!(merge_calls(&h.api).is_empty());
     assert_eq!(focus(&h), ("a2".into(), Some(0)));
+    assert!(!h.model.key_relay.is_holding());
 }
 
 // A1 の末尾で Delete を押すと、トランスクルードされている A2 を取り込む前に確認する。キャンセルなら A1 の末尾に戻る。
