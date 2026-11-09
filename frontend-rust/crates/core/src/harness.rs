@@ -227,6 +227,20 @@ impl FakeApi {
                             item.ast = format!("ast:{body}");
                             item
                         }
+                        BatchOp::Move { ids, .. } => {
+                            // A moved item keeps what an update before it wrote, at a new index
+                            for id in ids {
+                                self.created += 1;
+                                let place = written.iter().position(|earlier| &earlier.id == id);
+                                let mut item = match place {
+                                    Some(place) => written.remove(place),
+                                    None => plain_item(id, 1, ""),
+                                };
+                                item.idx = format!("moved{}", self.created);
+                                written.push(item);
+                            }
+                            continue;
+                        }
                         BatchOp::Delete { .. } => continue,
                     };
                     // An item written twice is answered once, as it is at the end

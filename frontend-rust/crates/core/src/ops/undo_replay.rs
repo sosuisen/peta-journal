@@ -28,9 +28,15 @@ impl UndoSyncs {
     fn begin(&mut self, ops: &[BatchOp]) -> u64 {
         self.sent += 1;
         for op in ops {
-            let (BatchOp::Create { id, .. } | BatchOp::Update { id, .. } | BatchOp::Delete { id }) =
-                op;
-            self.last_of_item.insert(id.clone(), self.sent);
+            let ids = match op {
+                BatchOp::Create { id, .. }
+                | BatchOp::Update { id, .. }
+                | BatchOp::Delete { id } => std::slice::from_ref(id),
+                BatchOp::Move { ids, .. } => ids.as_slice(),
+            };
+            for id in ids {
+                self.last_of_item.insert(id.clone(), self.sent);
+            }
         }
         self.sent
     }
