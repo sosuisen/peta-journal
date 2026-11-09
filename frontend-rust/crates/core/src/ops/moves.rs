@@ -98,8 +98,7 @@ fn move_item(model: &mut Model, item_id: &str, direction: MoveDirection) -> Opti
     }
 }
 
-/// Asks the server to move an item with its children to a position on its own page. The
-/// request carries the text that was typed into the item and is not saved yet (ADR 011).
+/// Moves an item with its children to a position on its own page.
 fn move_on_page(
     model: &mut Model,
     item: Item,
@@ -112,6 +111,37 @@ fn move_on_page(
         .iter()
         .map(|b| b.id.clone())
         .collect();
+    request_move(model, item, group_ids, position, |moved, item_id| {
+        Event::Moved {
+            moved,
+            position: state_position,
+            edited: Some(item_id),
+        }
+    })
+}
+
+/// Moves an item that a transclusion shows, within the tree of the source item.
+fn move_in_transclusion(
+    model: &mut Model,
+    item: Item,
+    group_ids: Vec<String>,
+    position: ItemPosition,
+) -> Cmd {
+    request_move(model, item, group_ids, position, |_, item_id| {
+        Event::MovedInTransclusion { item_id }
+    })
+}
+
+/// Asks the server to move an edited item with the items below it. The request carries
+/// the text that was typed into the item and is not saved yet (ADR 011). `answered` makes
+/// the event for the moved items the server answers with.
+fn request_move(
+    model: &mut Model,
+    item: Item,
+    group_ids: Vec<String>,
+    position: ItemPosition,
+    answered: impl FnOnce(Vec<Item>, String) -> Event + Send + 'static,
+) -> Cmd {
     let (body, discard) = take_unsaved(model, &item);
     // The editor is focused again when the item is at its new place; keys pressed before
     // that are kept for it
@@ -121,39 +151,7 @@ fn move_on_page(
             .move_edited_items(group_ids, &item.page_id, position, body.as_deref())
             .await
         {
-            Ok(moved) => api.send_event(Event::Moved {
-                moved,
-                position: state_position,
-                edited: Some(item.id),
-            }),
-            Err(e) => {
-                log_error(format!("Failed to move item: {e}"));
-                api.send_event(Event::MoveFailed {
-                    unsaved: body.map(|_| item.id),
-                });
-            }
-        }
-    });
-    Command::all([discard, request])
-}
-
-/// Asks the server to move an item that a transclusion shows, within the tree of the
-/// source item. The request carries the text that was typed into the item and is not saved
-/// yet.
-fn move_in_transclusion(
-    model: &mut Model,
-    item: Item,
-    group_ids: Vec<String>,
-    position: ItemPosition,
-) -> Cmd {
-    let (body, discard) = take_unsaved(model, &item);
-    model.key_relay.hold_until_focus();
-    let request = run(move |api| async move {
-        match api
-            .move_edited_items(group_ids, &item.page_id, position, body.as_deref())
-            .await
-        {
-            Ok(_) => api.send_event(Event::MovedInTransclusion { item_id: item.id }),
+            Ok(moved) => api.send_event(answered(moved, item.id)),
             Err(e) => {
                 log_error(format!("Failed to move item: {e}"));
                 api.send_event(Event::MoveFailed {
