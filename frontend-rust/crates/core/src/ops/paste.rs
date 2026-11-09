@@ -4,12 +4,14 @@
 //! cursor.
 
 use crate::app::{apply, done, log_error, run, Cmd, Event, Model};
-use crate::model::{ItemPosition, PasteMode, Pasted};
+use crate::model::{ItemPosition, PasteCursor, PasteMode, Pasted};
 use crate::ops::edit::{
     discard_pending_edit, focus_editor, mark_dirty, record_typing, save_body, show_parsed,
 };
+use crate::ops::file_reload::reload_shown_page;
+use crate::outline::tree::edit_context_of;
 use crate::outline::CursorState;
-use crate::util::split_at_char;
+use crate::util::{char_len, split_at_char};
 use crux_core::Command;
 
 /// Asks the server to paste text into an item. Supports plain text, tree markdown, and flat
@@ -34,12 +36,13 @@ pub fn paste_text(
     // What was typed before the paste travels in the request. Its auto-save is dropped, or
     // it would overwrite the pasted text a moment later
     let unsaved = model.edits.dirty_item_ids.contains(item_id);
+    let body = match typed_body(model, item_id) {
+        Some(typed) if unsaved => typed,
+        _ => item.body.clone(),
+    };
     let discard = discard_pending_edit(model, &item);
     let request = run(move |api| async move {
-        match api
-            .paste_text(&item.id, &item.body, cursor, &text, mode)
-            .await
-        {
+        match api.paste_text(&item.id, &body, cursor, &text, mode).await {
             Ok(pasted) => api.send_event(Event::Pasted {
                 item_id: item.id,
                 cursor_before: cursor,
@@ -60,36 +63,57 @@ pub fn paste_text(
 /// Schedules the auto-save of the typed text a failed paste was to carry, as it did not reach
 /// the server.
 pub fn paste_failed(model: &mut Model, item_id: &str, unsaved: bool) -> Cmd {
-    match model.cloned_item(item_id) {
-        Some(item) if unsaved => record_typing(model, &item, &item.body),
+    match (model.cloned_item(item_id), typed_body(model, item_id)) {
+        (Some(item), Some(typed)) if unsaved => record_typing(model, &item, &typed),
         _ => done(),
     }
+}
+
+/// The body of an item with what was typed into it and is not saved yet. A transclusion root
+/// shows the body of its source item, and holds the typed text itself until it is saved.
+fn typed_body(model: &Model, item_id: &str) -> Option<String> {
+    let item = model.state.get_item_by_id(item_id)?;
+    Some(item.body.clone())
 }
 
 /// Shows what the server wrote for a paste, records it as one undo entry, and puts the cursor
 /// right after the pasted text.
 pub fn show_pasted(model: &mut Model, item_id: &str, cursor_before: usize, pasted: Pasted) -> Cmd {
-    let (Some(before), Some((first, created))) =
+    let (Some(pasted_into), Some((first, created))) =
         (model.cloned_item(item_id), pasted.items.split_first())
     else {
         return done();
     };
+    // Inside a transclusion the items made belong to the source page. This page shows them
+    // only when they are below the source item, so the server's version of it is read again
+    let in_transclusion = edit_context_of(
+        &pasted_into,
+        model.state.own_item_ids(),
+        model.state.transcluded_trees(),
+    )
+    .in_transclusion;
     model
         .undo
         .begin("paste", Some(CursorState::new(item_id, cursor_before)));
-    model
-        .state
-        .update_item(item_id, |i| i.body = first.body.clone());
+    // The item written to is the source item when a transclusion root was pasted into. The
+    // undo entry holds that item, so that an undo sends the old body to it. The root shows
+    // the body of its source, and keeps a copy of it
+    let before = model.state.get_item_by_id(&first.id);
+    for id in [first.id.as_str(), item_id] {
+        model.state.update_item(id, |i| i.body = first.body.clone());
+    }
     show_parsed(model, first);
     mark_dirty(model, item_id);
-    if let Some(after) = model.state.get_item_by_id(item_id) {
+    if let (Some(before), Some(after)) = (before, model.state.get_item_by_id(&first.id)) {
         model.undo.push_update(&before, &after);
     }
     let mut previous_id = item_id.to_string();
     for new_item in created {
-        model
-            .state
-            .add_items(vec![new_item.clone()], &ItemPosition::after(previous_id));
+        if !in_transclusion {
+            model
+                .state
+                .add_items(vec![new_item.clone()], &ItemPosition::after(previous_id));
+        }
         let shown = model
             .state
             .get_item_by_id(&new_item.id)
@@ -99,7 +123,31 @@ pub fn show_pasted(model: &mut Model, item_id: &str, cursor_before: usize, paste
     }
     model.undo.commit(None, model.clock_ms);
 
-    let cursor = pasted.cursor;
+    let mut cursor = pasted.cursor;
+    if cursor.item_id == first.id {
+        // The server names the item written to; on screen that is the item pasted into
+        cursor.item_id = item_id.to_string();
+    }
+    let fallback = PasteCursor {
+        item_id: item_id.to_string(),
+        position: char_len(&first.body),
+    };
+    if !in_transclusion {
+        return place_cursor(model, cursor, fallback);
+    }
+    run(move |api| async move {
+        reload_shown_page(&api).await;
+        api.send_event(Event::PastedPageReloaded { cursor, fallback });
+    })
+}
+
+/// Puts the cursor right after the pasted text and focuses that editor. An item made beside
+/// the source item of a transclusion is not on this page: the cursor then goes to `fallback`.
+pub fn place_cursor(model: &mut Model, cursor: PasteCursor, fallback: PasteCursor) -> Cmd {
+    let cursor = match model.state.get_visible_item(&cursor.item_id) {
+        Some(_) => cursor,
+        None => fallback,
+    };
     model
         .state
         .set_focused_item(&cursor.item_id, Some(cursor.position));

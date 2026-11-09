@@ -189,6 +189,12 @@ pub enum Event {
         cursor_before: usize,
         pasted: Pasted,
     },
+    /// The page was read again after a paste inside a transclusion: the cursor can go to its
+    /// place, or to `fallback` when the page does not show the item it was to go to.
+    PastedPageReloaded {
+        cursor: PasteCursor,
+        fallback: PasteCursor,
+    },
     /// The server refused a paste, or could not be reached: nothing was written.
     PasteFailed {
         item_id: String,
@@ -782,6 +788,9 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             cursor_before,
             pasted,
         } => ops::paste::show_pasted(model, &item_id, cursor_before, pasted),
+        PastedPageReloaded { cursor, fallback } => {
+            ops::paste::place_cursor(model, cursor, fallback)
+        }
         PasteFailed { item_id, unsaved } => ops::paste::paste_failed(model, &item_id, unsaved),
         PasteImage {
             item_id,

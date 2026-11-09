@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { serverPort } from '../playwright.config';
 import { Server, editorOf, openEditor, openPage, outlineOf } from './support';
 
 /** Pastes text into the focused editor the way the browser would. */
@@ -110,5 +111,35 @@ test.describe('outline content', () => {
     const items = await server.itemsSettled(pageId, i => i[0].body.includes('line two'));
     expect(items.map(i => i.body)).toEqual(['line one\nline two']);
     await expect(editorOf(page, first.id)).toBeFocused();
+  });
+});
+
+// Item B on the host page transcludes item A. A paste into B is a paste into A: the text and
+// every item it makes go to the page of A, like the text typed into B does.
+test.describe('pasting into a transclusion', () => {
+  test('the pasted text and the items it makes go to the source page, with the text typed just before', async ({ page, request }) => {
+    const server = new Server(request);
+    const source = await server.newDocPage('paste-source');
+    const [a] = await server.fill(source.id, ['source', 'next']);
+    const host = await server.newDocPage('paste-host');
+    const [b] = await server.fill(host.id, ['placeholder']);
+    const resp = await request.post(
+      `http://localhost:${serverPort}/api/items/${b.id}/transclude`,
+      { data: { sourceItemId: a.id } },
+    );
+    expect(resp.ok()).toBe(true);
+    await openPage(page, host.title);
+    await openEditor(page, b.id);
+    await page.keyboard.press('Control+End');
+    await page.keyboard.type(' typed ');
+
+    await pasteText(page, 'one\n\ntwo');
+
+    expect(outlineOf(await server.itemsSettled(source.id, i => i.length === 3)))
+      .toEqual(['1:source typed one', '1:two', '1:next']);
+    // The host page gets no item: it keeps only its copy of the source
+    expect(outlineOf(await server.items(host.id))).toEqual(['1:source typed one']);
+    await expect(editorOf(page, b.id)).toBeFocused();
+    await expect(editorOf(page, b.id)).toHaveValue('source typed one');
   });
 });

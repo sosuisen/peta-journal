@@ -1,8 +1,9 @@
 use crate::app::Event;
 use crate::effects::{ApiOp, ApiOutput};
-use crate::harness::{item, update_calls, Harness};
-use crate::model::{Item, PasteCursor, PasteMode, Pasted};
+use crate::harness::{delete_calls, item, update_calls, Harness};
+use crate::model::{Item, Page, PageWithItems, PasteCursor, PasteMode, Pasted, TranscludedTrees};
 use crate::outline::UndoOp;
+use crate::testing::item_with;
 
 fn harness() -> Harness {
     Harness::with_items(vec![item("a", 1, "ab|cd"), item("z", 1, "body of z")])
@@ -229,6 +230,276 @@ fn a_raw_paste_sends_the_text_as_it_is_even_when_it_was_copied_from_this_app() {
     h.model.clipboard = Some(("flat".into(), "- tree".into()));
     paste_raw(&mut h, "a", "- tree", 2);
     assert_eq!(paste_requests(&h), [("- tree".into(), PasteMode::Raw)]);
+}
+
+/// A page with "top", and below it the transclusion root "root" of the source item "s" on
+/// the page "src". The child "c" of the source is shown below the root.
+fn transclusion_harness() -> Harness {
+    let root = item_with("root", 2, |i| {
+        i.transclude_item_id = Some("s".into());
+        i.body = "shown".into();
+    });
+    let mut h = Harness::with_items(vec![item("top", 1, ""), root]);
+    let mut trees = TranscludedTrees::new();
+    trees.insert(
+        "s".into(),
+        vec![
+            item_with("s", 1, |i| {
+                i.page_id = "src".into();
+                i.body = "shown".into();
+            }),
+            item_with("c", 2, |i| {
+                i.page_id = "src".into();
+                i.body = "child".into();
+            }),
+        ],
+    );
+    h.model.state.set_transcluded_trees(trees);
+    h
+}
+
+/// An item of the source page "src".
+fn source_item(id: &str, level: i32, body: &str) -> Item {
+    item_with(id, level, |i| {
+        i.page_id = "src".into();
+        i.body = body.into();
+    })
+}
+
+/// Makes the server answer the next reload of the page with "top", the root, and this tree
+/// of the source item.
+fn answer_reload(h: &mut Harness, source_tree: Vec<Item>) {
+    let root = item_with("root", 2, |i| {
+        i.transclude_item_id = Some("s".into());
+        i.body = source_tree[0].body.clone();
+    });
+    let mut trees = TranscludedTrees::new();
+    trees.insert("s".into(), source_tree);
+    let page = PageWithItems {
+        page: Page {
+            id: "page1".into(),
+            ..Default::default()
+        },
+        items: vec![item("top", 1, ""), root],
+        transcluded_trees: Some(trees),
+        ..Default::default()
+    };
+    h.api.answer_next("GetPageById", Ok(ApiOutput::Page(page)));
+}
+
+/// `id:level=body` of every item on screen, the transcluded ones too.
+fn shown(h: &Harness) -> Vec<String> {
+    let items = h.model.state.visible_items();
+    items
+        .iter()
+        .map(|i| format!("{}:{}={}", i.id, i.level, i.body))
+        .collect()
+}
+
+// トランスクルージョンのルートに入力してまだ保存していない文も、貼り付けの要求に入って届く。
+#[test]
+fn text_typed_into_a_transclusion_root_and_not_saved_yet_travels_in_the_paste() {
+    let mut h = transclusion_harness();
+    typed(&mut h, "root", "shown typed");
+    paste(&mut h, "root", "X", 11);
+    assert_eq!(
+        h.api.calls_named("PasteText"),
+        [&ApiOp::PasteText {
+            item_id: "root".into(),
+            body: "shown typed".into(),
+            cursor: 11,
+            text: "X".into(),
+            mode: PasteMode::Auto,
+        }]
+    );
+}
+
+// トランスクルージョンのルートへの貼り付けのあとは、ページが読み直される。作られた項目は参照元ページのものなので、このページの項目としては入らない。
+#[test]
+fn after_a_paste_into_a_transclusion_root_the_page_is_reloaded() {
+    let mut h = transclusion_harness();
+    answer_paste(
+        &mut h,
+        vec![source_item("s", 1, "shownone"), source_item("n1", 2, "two")],
+        "n1",
+        3,
+    );
+    answer_reload(
+        &mut h,
+        vec![
+            source_item("s", 1, "shownone"),
+            source_item("n1", 2, "two"),
+            source_item("c", 2, "child"),
+        ],
+    );
+    paste(&mut h, "root", "one\n  two", 5);
+    assert_eq!(h.items_ids(), ["top", "root"]);
+    assert_eq!(
+        shown(&h),
+        ["top:1=", "root:2=shownone", "n1:3=two", "c:3=child"]
+    );
+}
+
+// トランスクルードされた子孫への貼り付けのあとも、ページが読み直される。作られた項目は、このページの項目としては入らない。
+#[test]
+fn after_a_paste_into_a_transcluded_descendant_the_page_is_reloaded() {
+    let mut h = transclusion_harness();
+    answer_paste(
+        &mut h,
+        vec![source_item("c", 2, "childone"), source_item("n1", 2, "two")],
+        "n1",
+        3,
+    );
+    answer_reload(
+        &mut h,
+        vec![
+            source_item("s", 1, "shown"),
+            source_item("c", 2, "childone"),
+            source_item("n1", 2, "two"),
+        ],
+    );
+    paste(&mut h, "c", "one\ntwo", 5);
+    assert_eq!(h.items_ids(), ["top", "root"]);
+    assert_eq!(
+        shown(&h),
+        ["top:1=", "root:2=shown", "c:3=childone", "n1:3=two"]
+    );
+}
+
+// 読み直しに失敗しても、トランスクルージョンのルートは、元の項目の新しい本文を表示する。
+#[test]
+fn a_transclusion_root_shows_the_new_body_of_its_source_even_when_the_reload_fails() {
+    let mut h = transclusion_harness();
+    answer_paste(&mut h, vec![source_item("s", 1, "shownX")], "s", 6);
+    h.api.fail_next("GetPageById", "offline");
+    paste(&mut h, "root", "X", 5);
+    assert_eq!(shown(&h), ["top:1=", "root:2=shownX", "c:3=child"]);
+}
+
+// トランスクルージョンのルートへの貼り付けは、元の項目の更新として undo に記録される。元に戻す要求を、元の項目に送るためである。
+#[test]
+fn a_paste_into_a_transclusion_root_is_recorded_as_an_update_of_the_source_item() {
+    let mut h = transclusion_harness();
+    answer_paste(&mut h, vec![source_item("s", 1, "shownX")], "s", 6);
+    answer_reload(
+        &mut h,
+        vec![source_item("s", 1, "shownX"), source_item("c", 2, "child")],
+    );
+    paste(&mut h, "root", "X", 5);
+    let entry = h.model.undo.pop_undo().unwrap();
+    let [UndoOp::Update { before, after }] = entry.ops.as_slice() else {
+        panic!("not one update: {:?}", entry.ops);
+    };
+    assert_eq!(
+        (before.id.as_str(), before.level, before.body.as_str()),
+        ("s", 1, "shown")
+    );
+    assert_eq!(
+        (after.id.as_str(), after.level, after.body.as_str()),
+        ("s", 1, "shownX")
+    );
+}
+
+// トランスクルージョンのルートへの貼り付けを元に戻すと、元の本文が元の項目に、元のページでの階層のまま送られる。作られた項目は削除される。
+#[test]
+fn undoing_a_paste_into_a_transclusion_root_restores_the_source_item_and_deletes_what_was_made() {
+    let mut h = transclusion_harness();
+    answer_paste(
+        &mut h,
+        vec![source_item("s", 1, "shownone"), source_item("n1", 2, "two")],
+        "n1",
+        3,
+    );
+    answer_reload(
+        &mut h,
+        vec![
+            source_item("s", 1, "shownone"),
+            source_item("n1", 2, "two"),
+            source_item("c", 2, "child"),
+        ],
+    );
+    paste(&mut h, "root", "one\n  two", 5);
+    h.send(Event::Undo);
+    assert_eq!(
+        h.api.calls_named("UpdateItem"),
+        [&ApiOp::UpdateItem {
+            item_id: "s".into(),
+            body: Some("shown".into()),
+            level: Some(1),
+            collapsed: Some(false),
+        }]
+    );
+    assert_eq!(delete_calls(&h.api), [["n1"]]);
+    assert_eq!(shown(&h), ["top:1=", "root:2=shown", "c:3=child"]);
+}
+
+// トランスクルージョンのルートへの貼り付けのあと、カーソルはルートに置かれる。サーバーの答えは元の項目を指すが、画面にあるのはルートである。
+#[test]
+fn after_a_paste_into_a_transclusion_root_the_cursor_goes_into_the_root() {
+    let mut h = transclusion_harness();
+    answer_paste(&mut h, vec![source_item("s", 1, "shownX")], "s", 6);
+    answer_reload(
+        &mut h,
+        vec![source_item("s", 1, "shownX"), source_item("c", 2, "child")],
+    );
+    paste(&mut h, "root", "X", 5);
+    assert_eq!(h.focused_editor_requests(), [Some("root".into())]);
+    assert_eq!(h.model.state.focused_item_id(), Some("root"));
+    assert_eq!(h.focus_cursor(), Some(6));
+}
+
+// 作られた項目が元の項目の兄弟になると、読み直したページには現れない。カーソルは、ルートの本文の末尾に置かれる。
+#[test]
+fn the_cursor_goes_to_the_end_of_the_root_when_the_item_it_was_to_go_to_is_not_shown() {
+    let mut h = transclusion_harness();
+    answer_paste(
+        &mut h,
+        vec![source_item("s", 1, "shownone"), source_item("n1", 1, "two")],
+        "n1",
+        3,
+    );
+    answer_reload(&mut h, vec![source_item("s", 1, "shownone")]);
+    paste(&mut h, "root", "one\ntwo", 5);
+    assert_eq!(h.focused_editor_requests(), [Some("root".into())]);
+    assert_eq!(h.model.state.focused_item_id(), Some("root"));
+    assert_eq!(h.focus_cursor(), Some("shownone".len()));
+}
+
+// 作られた項目が元の項目の子孫になると、読み直したページに現れる。カーソルは、サーバーが答えたその項目に置かれる。
+#[test]
+fn the_cursor_goes_to_the_item_the_server_named_when_the_reloaded_page_shows_it() {
+    let mut h = transclusion_harness();
+    answer_paste(
+        &mut h,
+        vec![source_item("s", 1, "shownone"), source_item("n1", 2, "two")],
+        "n1",
+        3,
+    );
+    answer_reload(
+        &mut h,
+        vec![
+            source_item("s", 1, "shownone"),
+            source_item("n1", 2, "two"),
+            source_item("c", 2, "child"),
+        ],
+    );
+    paste(&mut h, "root", "one\n  two", 5);
+    assert_eq!(h.focused_editor_requests(), [Some("n1".into())]);
+    assert_eq!(h.focus_cursor(), Some(3));
+}
+
+// トランスクルージョンのルートへの貼り付けに失敗すると、ルートに入力してまだ保存していない文は、あらためて元の項目に自動保存される。
+#[test]
+fn after_a_failed_paste_into_a_transclusion_root_the_typed_text_is_saved_to_the_source_again() {
+    let mut h = transclusion_harness();
+    typed(&mut h, "root", "shown typed");
+    h.api.fail_next("PasteText", "offline");
+    paste(&mut h, "root", "X", 11);
+    h.fire_timers();
+    assert_eq!(
+        update_calls(&h.api),
+        [("s".into(), Some("shown typed".into()))]
+    );
 }
 
 // 画像はアップロードされてカーソル位置にリンクされ、カーソルはリンクの直後に置かれる。
