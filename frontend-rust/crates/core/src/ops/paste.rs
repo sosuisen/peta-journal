@@ -65,10 +65,17 @@ pub fn paste_text(
 /// Schedules the auto-save of the typed text a failed paste was to carry, as it did not reach
 /// the server.
 pub fn paste_failed(model: &mut Model, item_id: &str, unsaved: bool) -> Cmd {
-    match model.cloned_item(item_id) {
-        Some(item) if unsaved => record_typing(model, &item, &item.body),
-        _ => done(),
+    // The typed text is in the item itself: a transclusion root shows the body of its source
+    let (Some(item), Some(typed)) = (
+        model.cloned_item(item_id),
+        model.state.get_item_by_id(item_id),
+    ) else {
+        return done();
+    };
+    if !unsaved {
+        return done();
     }
+    record_typing(model, &item, &typed.body)
 }
 
 /// Shows what the server wrote for a paste, records it as one undo entry, and puts the cursor
