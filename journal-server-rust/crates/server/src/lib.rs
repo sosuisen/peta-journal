@@ -9,15 +9,14 @@ pub mod infrastructure;
 pub mod presentation;
 pub mod state;
 
-use axum::http::{header, HeaderValue, Method, StatusCode};
-use axum::routing::any;
+use axum::http::{header, HeaderValue, Method};
 use axum::Router;
 use tower_http::cors::{AllowOrigin, CorsLayer};
-use tower_http::services::{ServeDir, ServeFile};
 
 use crate::state::SharedState;
 
-/// The complete HTTP application: REST, SSE and MCP with the CORS settings of the Java server.
+/// The complete HTTP application: REST, SSE and MCP with the CORS settings of the Java server,
+/// and the web frontend when the settings name its folder.
 pub fn build_router(state: SharedState) -> Router {
     let origins: Vec<HeaderValue> = state
         .settings
@@ -39,14 +38,12 @@ pub fn build_router(state: SharedState) -> Router {
 
     let mcp = presentation::mcp::service(state.clone());
     let frontend_dir = state.settings.frontend_dir.clone();
-    let mut router = presentation::rest::router()
+    let router = presentation::rest::router()
         .nest_service("/mcp", mcp)
         .with_state(state);
-    if let Some(dir) = frontend_dir {
-        let index = ServeFile::new(dir.join("index.html"));
-        router = router
-            .route("/api/{*path}", any(|| async { StatusCode::NOT_FOUND }))
-            .fallback_service(ServeDir::new(dir).fallback(index));
-    }
+    let router = match frontend_dir {
+        Some(dir) => presentation::frontend::serve(router, &dir),
+        None => router,
+    };
     router.layer(cors)
 }
