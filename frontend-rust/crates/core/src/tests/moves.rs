@@ -1,7 +1,7 @@
 use crate::app::Event;
 use crate::effects::ApiOp;
 use crate::harness::{item, move_calls, Harness};
-use crate::model::TranscludedTrees;
+use crate::model::{ItemPosition, TranscludedTrees};
 use crate::testing::item_with;
 
 fn page_harness() -> Harness {
@@ -172,4 +172,22 @@ fn after_a_failed_move_nothing_moves_and_the_typed_text_is_auto_saved_again() {
         crate::harness::update_calls(&h.api),
         [("a".into(), Some("typed".into()))]
     );
+}
+
+// 答えが届いたときに動かした項目がもう画面に無ければ、何も表示しない。待っている間に別のページへ移った場合である。キーの保留は終わり、次の移動を始められる。
+#[test]
+fn the_answer_to_a_move_of_items_no_longer_shown_changes_nothing() {
+    let mut h = Harness::with_items(vec![item("x", 1, "other page")]);
+    h.model.key_relay.hold_until_focus();
+    h.model.move_in_progress = true;
+    h.send(Event::Moved {
+        moved: vec![item("b", 1, ""), item("b1", 2, "")],
+        position: ItemPosition::First,
+        edited: Some("b".into()),
+    });
+    assert_eq!(h.items_ids(), ["x"]);
+    assert!(h.focused_editor_requests().is_empty());
+    assert!(h.model.undo.pop_undo().is_none());
+    assert!(!h.model.key_relay.is_holding());
+    assert!(!h.model.move_in_progress);
 }
