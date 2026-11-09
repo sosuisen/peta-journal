@@ -1247,6 +1247,18 @@ async fn the_clients_hear_of_the_pages_that_transclude_the_item_that_was_split()
     assert_eq!(items(&page.id).await[0].body, "a");
 }
 
+// トランスクルージョンの分割は断られ、何も変わらない。その本文は元の項目のもので、新しい項目を置くページも表示によって変わるためである。
+#[tokio::test]
+async fn a_transclusion_is_not_split() {
+    let (source_page, _, page, host) = transcluded("items-split-copy", &["ab"]).await;
+
+    let (status, resp) = split(&host.id, "ab", 1).await;
+
+    assert_eq!(status, 400, "{resp}");
+    assert_eq!(outline_of(&source_page.id).await, ["1:ab"]);
+    assert_eq!(items(&page.id).await.len(), 1);
+}
+
 // ---- Items: batch ----
 
 /// Applies operations as one batch, the way an undo sends what it replays
