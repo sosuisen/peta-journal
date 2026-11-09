@@ -346,6 +346,20 @@ The server is a real one, with its files in a temporary folder."
      "the change in the file"
      (lambda () (string-search "外からの変更" (buffer-string))))))
 
+;; ほかのクライアントがAPIで項目を変えると、開き直さなくてもバッファに出る。
+(ert-deftest peta-journal-e2e-a-change-by-another-client-reaches-the-buffer ()
+  (peta-journal-e2e--with-app
+    (peta-journal-e2e--type "前")
+    (peta-journal-e2e--keys "C-x C-s")
+    (peta-journal-e2e--wait-saved '("前"))
+    ;; The request of the test names another client than the shell
+    (let ((item (seq-first (peta-journal-e2e--saved-items))))
+      (peta-journal-e2e--request "PUT" (concat "/api/items/" (plist-get item :id))
+                                 '(:body "ほかのクライアントの変更")))
+    (peta-journal-e2e--wait-for
+     "the change by another client"
+     (lambda () (string-search "ほかのクライアントの変更" (buffer-string))))))
+
 ;; 項目を消すと、画面からもサーバーからも消える。
 (ert-deftest peta-journal-e2e-deleting-an-item ()
   (peta-journal-e2e--with-app
