@@ -1,96 +1,25 @@
-import { useEffect, useState } from 'react';
-import {
-  cycleTask,
-  getItemsByTypes,
-  serverUrl,
-  subscribe,
-  type ConnectionState,
-  type Item,
-} from './api';
-import { FmRoot, type ReactRenderOptions } from 'flatmarkdown-ast2react';
-import {
-  getDue,
-  getPlan,
-  groupByPlan,
-  isShown,
-  pagePath,
-  taskLabel,
-} from './tasks';
+import { useState } from 'react';
+import FilterBar from './FilterBar';
+import ItemRow from './ItemRow';
+import { type Filters, groupByPlan, isShown } from './tasks';
+import { useTasks } from './useTasks';
 
 /** Returns today's date as an ISO string (YYYY-MM-DD). */
 function getTodayISODate(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-function ItemDates({ item }: { item: Item }) {
-  const plan = getPlan(item);
-  const due = getDue(item);
-  if (!plan && !due) return null;
-  return (
-    <span className="item-dates">
-      {plan && <span>開始: {plan}</span>}
-      {due && <span>期限: {due}</span>}
-    </span>
-  );
-}
-
-/** Main todo application component. Displays task items with filtering and sorting. */
-const fmOptions: ReactRenderOptions = {
-  wikilink: { hrefPrefix: `${serverUrl}/pages/` },
-};
-
+/** The todo app: the tasks of the journal server, filtered and grouped by plan date. */
 export default function App() {
-  const [connectionState, setConnectionState] =
-    useState<ConnectionState>('disconnected');
-  const [error, setError] = useState('');
-  const [items, setItems] = useState<Item[]>([]);
-  const [loading, setLoading] = useState(false);
+  const { items, loading, error, connectionState, cycle } = useTasks();
+  const [filters, setFilters] = useState<Filters>(() => ({
+    untilDate: getTodayISODate(),
+    showDone: false,
+    showJournal: true,
+    showPage: false,
+  }));
 
-  // Filters
-  const [untilDate, setUntilDate] = useState(getTodayISODate());
-  const [showDone, setShowDone] = useState(false);
-  const [showJournal, setShowJournal] = useState(true);
-  const [showPage, setShowPage] = useState(false);
-
-  useEffect(() => {
-    const loadItems = async () => {
-      setLoading(true);
-      try {
-        setItems(await getItemsByTypes(['task']));
-      } catch (e) {
-        setError(String(e));
-      } finally {
-        setLoading(false);
-      }
-    };
-    return subscribe({
-      onStateChange: state => {
-        setConnectionState(state);
-        // Each try to connect takes away the error of a request that failed before it
-        if (state !== 'disconnected') setError('');
-        if (state === 'connected') loadItems();
-      },
-      onPagesUpdated: loadItems,
-    });
-  }, []);
-
-  const openItemInPetaJournal = (item: Item) => {
-    window.open(`${serverUrl}${pagePath(item)}`, 'peta-journal');
-  };
-
-  const cycleItemTask = async (item: Item) => {
-    try {
-      const updated = await cycleTask(item.id!);
-      setItems(prev => prev.map(b => (b.id === updated.id ? updated : b)));
-    } catch (e) {
-      setError(String(e));
-    }
-  };
-
-  const filters = { untilDate, showDone, showJournal, showPage };
-  const filtered = items.filter(item => isShown(item, filters));
-
-  const entries = groupByPlan(filtered);
+  const entries = groupByPlan(items.filter(item => isShown(item, filters)));
 
   return (
     <div className="app">
@@ -98,75 +27,19 @@ export default function App() {
 
       {error && <div className="error">{error}</div>}
 
-      <div className="filter-bar">
-        <label>
-          開始日:
-          <input
-            type="date"
-            value={untilDate}
-            onChange={e => setUntilDate(e.target.value)}
-          />
-        </label>
-
-        <label className="checkbox">
-          <input
-            type="checkbox"
-            checked={showDone}
-            onChange={e => setShowDone(e.target.checked)}
-          />
-          Done
-        </label>
-        <label className="checkbox">
-          <input
-            type="checkbox"
-            checked={showJournal}
-            onChange={e => setShowJournal(e.target.checked)}
-          />
-          Journal
-        </label>
-        <label className="checkbox">
-          <input
-            type="checkbox"
-            checked={showPage}
-            onChange={e => setShowPage(e.target.checked)}
-          />
-          Page
-        </label>
-      </div>
+      <FilterBar filters={filters} onChange={setFilters} />
 
       <div className="item-list">
         {entries.length === 0 && !loading && (
           <div className="empty">No items found</div>
         )}
-        {entries.map((entry, i) =>
+        {entries.map(entry =>
           entry.kind === 'heading' ? (
             <div key={`h-${entry.label}`} className="plan-heading">
               {entry.label}
             </div>
           ) : (
-            <div
-              key={entry.item.id}
-              className="item-row"
-              onClick={() => openItemInPetaJournal(entry.item)}
-            >
-              <div className="item-main">
-                <span className="item-page">{entry.item.name}</span>
-                <span className="item-content">
-                  <FmRoot ast={entry.item.ast} options={fmOptions} />
-                </span>
-                <ItemDates item={entry.item} />
-              </div>
-              <button
-                className={`badge badge-${taskLabel(entry.item).toLowerCase()}`}
-                onClick={e => {
-                  e.stopPropagation();
-                  cycleItemTask(entry.item);
-                }}
-                title="Click to cycle task"
-              >
-                {taskLabel(entry.item)}
-              </button>
-            </div>
+            <ItemRow key={entry.item.id} item={entry.item} onCycle={cycle} />
           ),
         )}
       </div>
