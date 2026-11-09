@@ -94,7 +94,14 @@ fn apply_to_state(model: &mut Model, op: &UndoOp, dir: Direction) {
             } else {
                 after
             };
-            model.state.replace_item(target);
+            if before.idx == after.idx {
+                model.state.replace_item(target);
+            } else {
+                // A move: the item goes where its index sorts it
+                model.state.delete_item(&target.id);
+                let position = position_by_index(model.state.items(), target);
+                model.state.add_item(target.clone(), &position);
+            }
             if before.collapsed != after.collapsed {
                 model.state.toggle_collapsed(&target.id);
             }
@@ -246,6 +253,7 @@ pub fn show_synced(
 fn sync_to_server(model: &mut Model, ops: &[UndoOp], dir: Direction) -> Cmd {
     let mut batch = Batch::default();
     let mut put_back = Vec::new();
+    let mut moved = Vec::new();
     // The server deletes last, as one group: a parent deleted on its own is refused
     let mut deletes = Vec::new();
     for op in ops {
@@ -257,6 +265,9 @@ fn sync_to_server(model: &mut Model, ops: &[UndoOp], dir: Direction) -> Cmd {
                     after
                 };
                 batch.push_update(before, after, target);
+                if before.idx != after.idx {
+                    moved.push(target);
+                }
             }
             UndoOp::Create { item } | UndoOp::Delete { item } => {
                 // The redo of a create and the undo of a delete put the item back
@@ -277,6 +288,13 @@ fn sync_to_server(model: &mut Model, ops: &[UndoOp], dir: Direction) -> Cmd {
     put_back.sort_by_key(|item| place_of(item));
     for item in put_back {
         batch.push_create(model, item);
+    }
+    for item in moved {
+        batch.ops.push(BatchOp::Move {
+            ids: vec![item.id.clone()],
+            page_id: item.page_id.clone(),
+            position: position_by_index(model.state.items(), item),
+        });
     }
     batch.ops.extend(deletes);
     let sync = model.undo_syncs.begin(&batch.ops);
