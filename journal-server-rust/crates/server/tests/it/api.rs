@@ -1247,16 +1247,50 @@ async fn the_clients_hear_of_the_pages_that_transclude_the_item_that_was_split()
     assert_eq!(items(&page.id).await[0].body, "a");
 }
 
-// トランスクルージョンの分割は断られ、何も変わらない。その本文は元の項目のもので、新しい項目を置くページも表示によって変わるためである。
+/// A source page and a page with the given rows, where the row `root` of the page transcludes
+/// the row `shown` of the source page. Returns both pages with their rows.
+async fn transclusion(
+    name: &str,
+    source_rows: &[&str],
+    shown: usize,
+    rows: &[&str],
+    root: usize,
+) -> (PageRef, Vec<ItemRow>, PageRef, Vec<ItemRow>) {
+    let source_page = new_doc_page(&format!("{name}-source")).await;
+    let source = fill(&source_page.id, source_rows).await;
+    let page = new_doc_page(name).await;
+    let own = fill(&page.id, rows).await;
+    let (status, resp) = post(
+        &format!("/api/items/{}/transclude", own[root].id),
+        json!({ "sourceItemId": source[shown].id }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+    (source_page, source, page, own)
+}
+
+// 子を見せていないトランスクルージョンを途中で分割すると、後ろの文は元のページで元の項目の直後に入り、このページからは見えなくなる。元のページの文は、見せているページへ移らない。
 #[tokio::test]
-async fn a_transclusion_is_not_split() {
-    let (source_page, _, page, host) = transcluded("items-split-copy", &["ab"]).await;
+async fn the_rest_of_a_split_transclusion_goes_below_its_source_item_on_the_source_page() {
+    let (source_page, source, page, own) = transclusion(
+        "items-split-copy",
+        &["top", "  alpha beta", "  next"],
+        1,
+        &["copy", "below"],
+        0,
+    )
+    .await;
 
-    let (status, resp) = split(&host.id, "ab", 1).await;
+    let (status, resp) = split(&own[0].id, "alpha beta", 6).await;
+    assert_eq!(status, 200, "{resp}");
 
-    assert_eq!(status, 400, "{resp}");
-    assert_eq!(outline_of(&source_page.id).await, ["1:ab"]);
-    assert_eq!(items(&page.id).await.len(), 1);
+    assert_eq!(resp["item"]["id"], json!(source[1].id));
+    assert_eq!(resp["created"]["pageId"], json!(source_page.id));
+    assert_eq!(
+        outline_of(&source_page.id).await,
+        ["1:top", "2:alpha ", "2:beta", "2:next"]
+    );
+    assert_eq!(outline_of(&page.id).await, ["1:alpha ", "1:below"]);
 }
 
 // 行末での分割では、空の項目が直後に入る。
