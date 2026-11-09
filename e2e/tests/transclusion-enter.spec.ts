@@ -57,6 +57,22 @@ test.describe('Enter inside a transclusion', () => {
     expect(writes).toEqual([`POST /api/items/${host[0].id}/split {"body":"alpha-beta","cursor":6}`]);
   });
 
+  test('text typed into a transclusion right before Enter is cut with the rest of its text', async ({ page, request }) => {
+    await open(page, request, ['alpha', 'next'], 0, ['copy'], 0);
+
+    await editAt(page, host[0].id, 'alpha'.length);
+    await page.keyboard.type('-beta');
+    for (let i = 0; i < 4; i++) await page.keyboard.press('ArrowLeft');
+    await page.keyboard.press('Enter');
+
+    expect(outlineOf(await server.itemsSettled(sourceId, i => i.length === 3)))
+      .toEqual(['1:alpha-', '1:beta', '1:next']);
+    await expect(editorOf(page, host[0].id)).toHaveValue('alpha-');
+    // Longer than the auto-save waits: the typed text must not be saved over the split
+    await page.waitForTimeout(600);
+    expect(outlineOf(await server.items(sourceId))).toEqual(['1:alpha-', '1:beta', '1:next']);
+  });
+
   test('in the middle of a collapsed transclusion, the rest goes after the children of the source item', async ({ page, request }) => {
     await open(page, request, ['top', '  alpha-beta', '    child', '  next'], 1, ['copy'], 0, true);
 
