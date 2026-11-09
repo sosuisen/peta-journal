@@ -20,7 +20,7 @@ axum = { version = "0.8", features = ["multipart", "json", "query", "tokio", "ht
 tokio = { version = "1", features = ["full"] }
 tokio-stream = { version = "0.1", features = ["sync"] }
 tower = { version = "0.5", features = ["util"] }
-tower-http = { version = "0.6", features = ["cors", "fs", "trace"] }
+tower-http = { version = "0.6", features = ["cors", "fs", "set-header", "trace"] }
 futures = "0.3"
 http-body-util = "0.1"
 socket2 = "0.6.5"

@@ -13,10 +13,14 @@ use axum::Router;
 use regex::Regex;
 use tower::ServiceExt;
 use tower_http::services::{ServeDir, ServeFile};
+use tower_http::set_header::SetResponseHeader;
 
 /// The hash Trunk puts into a name: `styles-9508fe9cb1262d3b.css`, `app-…_bg.wasm`, and the
 /// folder `snippets/app-…/`.
 static CONTENT_HASH: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"-[0-9a-f]{16}[._/]").unwrap());
+
+/// The browser asks the server on every load whether the file changed.
+const NO_CACHE: &str = "no-cache";
 
 /// Serves the files of `dir` at every path that no route of `router` takes.
 ///
@@ -31,15 +35,22 @@ pub fn serve(router: Router, dir: &Path) -> Router {
 }
 
 async fn file(dir: PathBuf, request: Request) -> Response {
-    let cache_control = if CONTENT_HASH.is_match(request.uri().path()) {
+    let of_the_file = if CONTENT_HASH.is_match(request.uri().path()) {
         "public, max-age=31536000, immutable"
     } else {
-        "no-cache"
+        NO_CACHE
     };
-    let index = ServeFile::new(dir.join("index.html"));
+    // A page can have a name that looks like a hashed file, so `index.html` says for itself
+    // that it is not to be cached
+    let index = SetResponseHeader::overriding(
+        ServeFile::new(dir.join("index.html")),
+        CACHE_CONTROL,
+        HeaderValue::from_static(NO_CACHE),
+    );
     let Ok(mut response) = ServeDir::new(dir).fallback(index).oneshot(request).await;
     response
         .headers_mut()
-        .insert(CACHE_CONTROL, HeaderValue::from_static(cache_control));
+        .entry(CACHE_CONTROL)
+        .or_insert(HeaderValue::from_static(of_the_file));
     response.map(Body::new)
 }
