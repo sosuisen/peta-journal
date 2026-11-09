@@ -1326,6 +1326,49 @@ async fn the_rest_of_a_collapsed_transclusion_goes_after_the_descendants_of_its_
     assert_eq!(outline_of(&page.id).await, ["1:alpha "]);
 }
 
+// 開いているトランスクルージョンを途中で分割すると、元の項目が元のページで折りたたまれていても、後ろの文は元の項目の最初の子になる。子を見せるかどうかは、トランスクルージョンの側で決まる。
+#[tokio::test]
+async fn the_rest_of_an_open_transclusion_is_the_first_child_of_its_source_item() {
+    let (source_page, source, page, own) = transclusion(
+        "items-split-copy-open",
+        &["top", "  alpha beta", "    child", "  next"],
+        1,
+        &["copy"],
+        0,
+    )
+    .await;
+    collapse(&source[1].id).await;
+
+    let (status, resp) = split(&own[0].id, "alpha beta", 6).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(
+        outline_of(&source_page.id).await,
+        ["1:top", "2:alpha ", "3:beta", "3:child", "2:next"]
+    );
+}
+
+// 自前の子を見せているトランスクルージョンを途中で分割すると、元の項目に子がなくても、後ろの文は元の項目の最初の子になる。このページでは、自前の子の上に現れる。
+#[tokio::test]
+async fn the_rest_of_a_transclusion_with_own_children_is_the_first_child_of_its_source_item() {
+    let (source_page, _, _, own) = transclusion(
+        "items-split-copy-own",
+        &["top", "  alpha beta", "  next"],
+        1,
+        &["copy", "  own child"],
+        0,
+    )
+    .await;
+
+    let (status, resp) = split(&own[0].id, "alpha beta", 6).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(
+        outline_of(&source_page.id).await,
+        ["1:top", "2:alpha ", "3:beta", "2:next"]
+    );
+}
+
 // 行末での分割では、空の項目が直後に入る。
 #[tokio::test]
 async fn a_split_at_the_end_puts_an_empty_item_below() {
