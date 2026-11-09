@@ -105,6 +105,34 @@ fn a_late_answer_to_an_undo_does_not_show_its_parse_over_the_redone_text() {
     assert_eq!(h.model.state.get_item_by_id("a").unwrap().ast, "ast:new");
 }
 
+// 別々の項目の undo を続けたときは、先の undo の応答が後から届いても、その項目に反映される。後の undo は、その項目を書いていないためである。
+#[test]
+fn a_late_answer_is_still_shown_for_an_item_no_later_sync_wrote() {
+    let mut h = Harness::with_items(vec![item("a", 1, "new a"), item("b", 1, "new b")]);
+    for id in ["a", "b"] {
+        h.model.undo.begin("enter", None);
+        h.model.undo.push_update(
+            &item(id, 1, &format!("old {id}")),
+            &item(id, 1, &format!("new {id}")),
+        );
+        h.model.undo.commit(None, 0);
+    }
+    h.send(Event::Undo);
+    h.send(Event::Undo);
+
+    // The answer to the first undo, which wrote b, comes after the second undo wrote a
+    let mut late = answered("b", 1, "old b");
+    late.ast = "late parse".into();
+    h.send(Event::UndoSynced {
+        sync: 1,
+        items: vec![late],
+        reparsed: vec!["b".into()],
+        recreated: vec![],
+    });
+
+    assert_eq!(h.model.state.get_item_by_id("b").unwrap().ast, "late parse");
+}
+
 // 本文を変えない操作の redo では、サーバーの応答が項目の種類を上書きしない。
 #[test]
 fn the_redo_of_a_task_cycle_keeps_the_item_a_task() {
