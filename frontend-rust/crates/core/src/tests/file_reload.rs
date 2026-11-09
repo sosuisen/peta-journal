@@ -35,3 +35,33 @@ fn items_written_by_an_extension_reload_the_page() {
 
     assert!(h.api.called("GetPageById"));
 }
+
+const ME: &str = "0a0a0a0a-0000-4000-8000-00000000000a";
+const OTHER: &str = "0b0b0b0b-0000-4000-8000-00000000000b";
+
+/// A page shown by the client that named itself `ME` when it started.
+fn started_with_a_page() -> Harness {
+    let mut h = Harness::with_items(vec![item("a", 1, "")]);
+    h.send(Event::Start {
+        client_id: ME.into(),
+    });
+    h
+}
+
+/// The server tells that the client `client_id` changed the shown page through the API.
+fn changed_by(h: &mut Harness, client_id: &str) {
+    h.send(Event::Sse(crate::effects::SseEvent::Message(format!(
+        r#"{{"type":"pagesUpdated","pageId":"page1","source":"app","clientId":"{client_id}"}}"#
+    ))));
+    h.fire_timers();
+}
+
+// ほかのクライアントがAPIでページを変えたと知らされると、表示中のページが読み直される。
+#[test]
+fn a_change_by_another_client_reloads_the_page() {
+    let mut h = started_with_a_page();
+
+    changed_by(&mut h, OTHER);
+
+    assert!(h.api.called("GetPageById"));
+}
