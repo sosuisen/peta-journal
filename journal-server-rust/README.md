@@ -35,6 +35,10 @@ and it has nothing to tell apart. It can reload on every `pagesUpdated` event.
 
 The form at `/api/sync/pending-deletes` needs no ID either.
 
+The MCP tools at `/mcp` need no ID. An MCP client is never one of the clients that show pages.
+A change by an MCP tool sends a `pagesUpdated` event with `"source": "mcp"` and no `clientId`.
+Every client reloads the page on that event.
+
 ```
 curl -X POST http://localhost:8087/api/journals/2026-11-10 \
   -H "X-Client-Id: 123e4567-e89b-42d3-a456-426614174000"
