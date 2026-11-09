@@ -1346,6 +1346,113 @@ async fn a_batch_that_gives_times_to_a_normal_item_is_refused_and_writes_nothing
     assert!(!stored[1].properties.contains_key("begin"));
 }
 
+// 操作は並んだ順に行われる。先に作った項目を、後の操作が位置の基準にも更新の相手にもできる。
+#[tokio::test]
+async fn the_operations_of_a_batch_are_applied_in_their_order() {
+    let page = new_doc_page("items-batch-order").await;
+    let rows = fill(&page.id, &["a", "d"]).await;
+    let ids = hmtid::Generator::new('_', false);
+    let (b, c) = (ids.generate().to_string(), ids.generate().to_string());
+
+    let (status, resp) = batch(json!([
+        {"op": "create", "id": b, "pageId": page.id,
+         "position": format!("after:{}", rows[0].id), "level": 1, "body": "b"},
+        {"op": "create", "id": c, "pageId": page.id,
+         "position": format!("after:{b}"), "level": 2, "body": "c"},
+        {"op": "update", "id": b, "body": "B"},
+    ]))
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(outline_of(&page.id).await, ["1:a", "1:B", "2:c", "1:d"]);
+}
+
+// 同じ項目を2回書くバッチは、その項目を最後の姿で1回だけ答える。
+#[tokio::test]
+async fn an_item_written_twice_in_a_batch_is_answered_once_as_it_is_at_the_end() {
+    let page = new_doc_page("items-batch-twice").await;
+    let item = fill(&page.id, &["old"]).await.remove(0);
+
+    let (status, resp) = batch(json!([
+        {"op": "update", "id": item.id, "body": "middle"},
+        {"op": "update", "id": item.id, "body": "new"},
+    ]))
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(field_of_each(&resp, "items", "body"), vec![json!("new")]);
+}
+
+// ない項目を名指しする操作があるバッチは断られ、ほかの操作も書かれない。
+#[tokio::test]
+async fn a_batch_that_names_an_item_that_is_gone_is_refused_and_writes_nothing() {
+    let page = new_doc_page("items-batch-missing").await;
+    let rows = fill(&page.id, &["stays", "gone"]).await;
+    assert_eq!(delete(&format!("/api/items/{}", rows[1].id)).await, 204);
+
+    let (status, _) = batch(json!([
+        {"op": "update", "id": rows[0].id, "body": "changed"},
+        {"op": "update", "id": rows[1].id, "body": "back"},
+    ]))
+    .await;
+    assert_eq!(status, 400);
+    let (status, _) = batch(json!([
+        {"op": "update", "id": rows[0].id, "body": "changed"},
+        {"op": "delete", "id": rows[1].id},
+    ]))
+    .await;
+    assert_eq!(status, 404);
+
+    assert_eq!(outline_of(&page.id).await, ["1:stays"]);
+}
+
+// 子孫を残す削除があるバッチは断られ、ほかの操作も書かれない。
+#[tokio::test]
+async fn a_batch_whose_deletes_leave_a_descendant_behind_is_refused_and_writes_nothing() {
+    let page = new_doc_page("items-batch-orphan").await;
+    let rows = fill(&page.id, &["parent", "  child", "other"]).await;
+
+    let (status, _) = batch(json!([
+        {"op": "update", "id": rows[2].id, "body": "changed"},
+        {"op": "delete", "id": rows[0].id},
+    ]))
+    .await;
+    assert_eq!(status, 400);
+
+    assert_eq!(
+        outline_of(&page.id).await,
+        ["1:parent", "2:child", "1:other"]
+    );
+}
+
+// バッチがいくつ項目を書いても、ページの変更は、ページごとに1回だけクライアントに知らされる。
+#[tokio::test]
+async fn the_clients_hear_of_each_page_of_a_batch_once() {
+    let page = new_doc_page("items-batch-event").await;
+    let rows = fill(&page.id, &["a", "b"]).await;
+    let second_page = new_doc_page("items-batch-event-second").await;
+    let second = fill(&second_page.id, &["c"]).await.remove(0);
+    let other_page = new_doc_page("items-batch-event-after").await;
+    let mut events = client().get(url("/api/events")).send().await.unwrap();
+
+    let (status, resp) = batch(json!([
+        {"op": "update", "id": rows[0].id, "body": "A"},
+        {"op": "update", "id": second.id, "body": "C"},
+        {"op": "delete", "id": rows[1].id},
+    ]))
+    .await;
+    assert_eq!(status, 200, "{resp}");
+    // The events come in order: what is read up to this one holds all those of the batch
+    create_item(&other_page.id, "last", 1, "after the batch").await;
+
+    let other = format!("\"pageId\":\"{}\"", other_page.id);
+    let seen = events_until(&mut events, &other).await;
+    for page_id in [&page.id, &second_page.id] {
+        let told = format!("\"pageId\":\"{page_id}\"");
+        assert_eq!(seen.matches(&told).count(), 1, "{seen}");
+    }
+}
+
 // ---- Items: group delete ----
 
 // グループ削除は、項目を子孫ごと1回のリクエストで消す。
