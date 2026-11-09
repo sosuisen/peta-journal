@@ -6,6 +6,7 @@ import {
   getPlan,
   groupByPlan,
   isShown,
+  localISODate,
   pagePath,
   taskLabel,
 } from './tasks';
@@ -83,6 +84,15 @@ describe('the plan date and the due date', () => {
 
     expect(getPlan(task)).toBeNull();
     expect(getDue(task)).toBeNull();
+  });
+});
+
+// 日付
+describe('the date of a moment', () => {
+  // 日付は、UTCではなく、利用者の地域の時刻で決まる。日の始まりと終わりの30分で確かめる。
+  test('is the day in the local time, right after and right before midnight', () => {
+    expect(localISODate(new Date(2026, 10, 9, 0, 30))).toBe('2026-11-09');
+    expect(localISODate(new Date(2026, 10, 9, 23, 30))).toBe('2026-11-09');
   });
 });
 
