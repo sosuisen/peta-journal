@@ -112,8 +112,11 @@
   - ERTとEmacs E2EをCIで回す
 - [ ] Web版の検索で、`↓`のあとすぐにEnterを押すと、答えが届く前の古い結果を開くことがある不具合を直す
   - Emacs版では対策済みで、Web版にだけ残っている
-- [ ] `shell-leptos/src/effects/ui.rs:310`のiframeの`http://localhost:8087`をやめる
-  - 別のポートのサーバーでは、拡張機能が動かないおそれがある
+- [x] `shell-leptos/src/effects/ui.rs:310`のiframeの`http://localhost:8087`をやめる
+  - 拡張のiframeを消したとき（f70503a）に、このURLもなくなった。2026-11-09に確かめた
+- [ ] journal-serverのフォルダ監視のテスト（`tests/it/watch.rs`の7件のうち6件）が、手元のMacで落ちる原因を調べる
+  - 2026-11-09に、変更前の`main`でも同じ6件が落ちた（macOS 27.2）。10秒待っても、監視がファイルを取り込まない
+  - カバレッジとミューテーションテストは、`--skip watch::`を付けて実行した
 - [ ] Emacs版の`DeleteItem`の処理を整理する
   - 今はシェルが`ShiftSelect`と`SelectionKey::Delete`を続けて送り、Elisp側で編集中の項目を消している
 - [ ] `docs/storymap.md`にEmacs版の項目を加える
