@@ -260,6 +260,7 @@
     - [ ] サーバーの`flatmarkdown`と、フロントエンドの`flatmarkdown-ast`を、同じ版にそろえる
     - [ ] `BUILD.md`と`docs/`の、`fm-ast`についての記述を直す
     - [ ] `fm-leptos`から、`display_math`の分岐と`Node::Image`の分岐を消す。型から消えるためである（ADR 014）
+    - [ ] `fm-leptos`の`Node::CodeBlock`の分岐を、`fenced`のある型に合わせる。`fenced`は描画に使わない（ADR 014の2026-11-09の追記）
 
 ## 判断
 
