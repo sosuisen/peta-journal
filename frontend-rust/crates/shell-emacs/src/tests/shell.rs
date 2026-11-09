@@ -2,6 +2,7 @@ use crate::protocol::{Bullet, Envelope, Inbound, Outbound, PropertyRow, RowView}
 use crate::shell::{Host, Input, Now, Shell};
 use peta_core::effects::{ApiError, ApiOp, ApiOutput, LocalDateTimeDto, SseEvent};
 use peta_core::model::PropertyDefinition;
+use peta_core::rest::ClientId;
 use serde_json::{json, Value};
 use std::mem::ManuallyDrop;
 
@@ -78,8 +79,25 @@ struct Driver {
 impl Driver {
     fn new() -> Driver {
         Driver {
-            shell: ManuallyDrop::new(Shell::new(FakeHost::default())),
+            shell: ManuallyDrop::new(Shell::new(FakeHost::default(), ClientId::new())),
             seq: 0,
+        }
+    }
+
+    /// The server tells that the client `by` changed the shown page through the API.
+    fn changed_by(&mut self, by: &ClientId) {
+        let stream = self.shell.host.streams[0];
+        self.shell.handle(Input::Sse {
+            stream,
+            event: SseEvent::Message(format!(
+                r#"{{"type":"pagesUpdated","pageId":"p","source":"app","clientId":"{}"}}"#,
+                by.as_str()
+            )),
+        });
+        // The core debounces the reload with a timer
+        let timers: Vec<u64> = self.shell.host.timers.iter().map(|t| t.0).collect();
+        for id in timers {
+            self.shell.handle(Input::TimerFired { id });
         }
     }
 
@@ -739,6 +757,17 @@ fn a_change_elsewhere_reloads_the_shown_page() {
         page_answer(&[item("a", 1, "x"), item("b", 1, "他で追加")]),
     );
     assert_eq!(driver.last_rows().unwrap()[1].body, "他で追加");
+}
+
+// シェルは自分のIDをコアに渡すので、自分の変更の知らせでは、ページは読み直されない。
+#[test]
+fn a_change_by_this_shell_does_not_reload_the_shown_page() {
+    let mut driver = Driver::open(&[item("a", 1, "x")]);
+    let me = driver.shell.client_id().clone();
+
+    driver.changed_by(&me);
+
+    assert!(!driver.waiting(|op| matches!(op, ApiOp::GetPageById { .. })));
 }
 
 // 検索の結果は、ページ、作成、項目の順に通し番号が付く。番号を送り返すと、その結果を開く。
