@@ -409,6 +409,27 @@ async fn the_clients_hear_of_the_pages_that_showed_an_item_deleted_over_mcp() {
     assert_eq!(transcluder["source"], "mcp");
 }
 
+// 項目をほかのページへ移すと、出たページと入ったページの両方の変更が知らされる。
+#[tokio::test]
+async fn the_clients_hear_of_both_pages_of_a_move_over_mcp() {
+    let mcp = connect().await;
+    let from = new_doc_page("mcp-tell-move-from").await;
+    let to = new_doc_page("mcp-tell-move-to").await;
+    let item = fill(&from.id, &["a"]).await.remove(0);
+    let mut of_from = listen().await;
+    let mut of_to = listen().await;
+
+    call(
+        &mcp,
+        "move_items",
+        json!({ "itemIds": item.id, "targetPageId": to.id, "position": "last" }),
+    )
+    .await;
+
+    assert_eq!(told_of(&mut of_from, &from.id).await["source"], "mcp");
+    assert_eq!(told_of(&mut of_to, &to.id).await["source"], "mcp");
+}
+
 // ---- Pages ----
 
 // docページは作成、再取得、改名、削除できる。
