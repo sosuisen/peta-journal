@@ -236,6 +236,9 @@ pub fn finish_edit(model: &mut Model, item_id: &str) -> Cmd {
         return done();
     }
     let Some(item) = model.cloned_item(item_id) else {
+        // An item no longer shown has nothing to save, but its mark would hold back every
+        // later reload
+        model.state.remove_editing_item(item_id);
         return done();
     };
     let close_wiki = if model.wiki.item_id.as_deref() == Some(item_id) {
