@@ -40,6 +40,14 @@ pub fn server_with(prepare: impl FnOnce(&std::path::Path)) -> &'static TestServe
 /// Starts a server of its own. `prepare` gets the config folder before the server starts, to
 /// put what the server reads only at startup there, such as extension functions.
 pub fn start(prepare: impl FnOnce(&std::path::Path)) -> TestServer {
+    start_with(prepare, |_| {})
+}
+
+/// Starts a server of its own, as `start` does, with settings that `adjust` has changed.
+pub fn start_with(
+    prepare: impl FnOnce(&std::path::Path),
+    adjust: impl FnOnce(&mut Settings),
+) -> TestServer {
     {
         let dir = tempfile::Builder::new()
             .prefix("peta-journal-it-")
@@ -59,9 +67,10 @@ pub fn start(prepare: impl FnOnce(&std::path::Path)) -> TestServer {
         )
         .unwrap();
         prepare(&config_dir);
+        let mut settings = Settings::under(&root, 0);
+        adjust(&mut settings);
 
         let (tx, rx) = std::sync::mpsc::channel::<(SocketAddr, SharedState)>();
-        let settings_root = root.clone();
         std::thread::Builder::new()
             .name("test-server".into())
             .spawn(move || {
@@ -70,7 +79,6 @@ pub fn start(prepare: impl FnOnce(&std::path::Path)) -> TestServer {
                     .build()
                     .unwrap();
                 rt.block_on(async move {
-                    let settings = Settings::under(&settings_root, 0);
                     let state = AppState::build(settings, BuildOptions { interactive: false })
                         .expect("state");
                     // Only the search index commits run in the background. The tests write

@@ -73,6 +73,11 @@ pub struct Cli {
         default_value = "http://localhost:4200,http://localhost:5180"
     )]
     pub cors_origins: String,
+
+    /// Folder with the files of the web frontend (the dist/ Trunk writes). Default: the
+    /// frontend/ folder beside the server executable; without it no frontend is served
+    #[arg(long, env = "PETAJOURNAL_FRONTEND_DIR")]
+    pub frontend_dir: Option<PathBuf>,
 }
 
 /// The resolved settings used by the whole server.
@@ -91,6 +96,9 @@ pub struct Settings {
     pub import_copy_wait_secs: u64,
     pub export_overwrite_wait_secs: u64,
     pub cors_origins: Vec<String>,
+    /// The folder with the files of the web frontend, the `dist/` Trunk writes. Without it
+    /// the server serves no frontend.
+    pub frontend_dir: Option<PathBuf>,
 }
 
 pub fn home_dir() -> PathBuf {
@@ -98,6 +106,15 @@ pub fn home_dir() -> PathBuf {
         .or_else(|| std::env::var_os("USERPROFILE"))
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("."))
+}
+
+/// The folder of the web frontend: the given one, or else `frontend/` beside the executable,
+/// where a distributed server has it.
+fn frontend_dir(given: Option<PathBuf>, executable: std::io::Result<PathBuf>) -> Option<PathBuf> {
+    given.or_else(|| {
+        let beside = executable.ok()?.parent()?.join("frontend");
+        beside.is_dir().then_some(beside)
+    })
 }
 
 impl Settings {
@@ -132,6 +149,7 @@ impl Settings {
                 .map(|s| s.trim().to_string())
                 .filter(|s| !s.is_empty())
                 .collect(),
+            frontend_dir: frontend_dir(cli.frontend_dir, std::env::current_exe()),
         }
     }
 
@@ -151,6 +169,56 @@ impl Settings {
             import_copy_wait_secs: 300,
             export_overwrite_wait_secs: 300,
             cors_origins: vec!["http://localhost:4200".to_string()],
+            frontend_dir: None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // `--frontend-dir`で指定したフォルダが、画面のフォルダになる。
+    #[test]
+    fn the_frontend_folder_is_the_one_given_with_the_flag() {
+        let cli = Cli::parse_from(["journal-server", "--frontend-dir", "some/dist"]);
+
+        let settings = Settings::from_cli(cli);
+
+        assert_eq!(settings.frontend_dir, Some(PathBuf::from("some/dist")));
+    }
+
+    // 指定がなければ、実行ファイルの隣の`frontend/`が画面のフォルダになる。
+    #[test]
+    fn without_the_flag_the_frontend_folder_is_the_one_beside_the_executable() {
+        let dir = tempfile::tempdir().unwrap();
+        let beside = dir.path().join("frontend");
+        std::fs::create_dir(&beside).unwrap();
+
+        let found = frontend_dir(None, Ok(dir.path().join("journal-server")));
+
+        assert_eq!(found, Some(beside));
+    }
+
+    // 指定がなく、実行ファイルの隣に`frontend/`もなければ、画面のフォルダはない。
+    #[test]
+    fn without_the_flag_and_a_folder_beside_the_executable_there_is_no_frontend_folder() {
+        let dir = tempfile::tempdir().unwrap();
+
+        let found = frontend_dir(None, Ok(dir.path().join("journal-server")));
+
+        assert_eq!(found, None);
+    }
+
+    // 指定したフォルダは、実行ファイルの隣の`frontend/`より優先される。
+    #[test]
+    fn the_given_frontend_folder_comes_before_the_one_beside_the_executable() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir(dir.path().join("frontend")).unwrap();
+        let given = PathBuf::from("some/dist");
+
+        let found = frontend_dir(Some(given.clone()), Ok(dir.path().join("journal-server")));
+
+        assert_eq!(found, Some(given));
     }
 }

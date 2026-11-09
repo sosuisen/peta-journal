@@ -15,7 +15,8 @@ use tower_http::cors::{AllowOrigin, CorsLayer};
 
 use crate::state::SharedState;
 
-/// The complete HTTP application: REST, SSE and MCP with the CORS settings of the Java server.
+/// The complete HTTP application: REST, SSE and MCP with the CORS settings of the Java server,
+/// and the web frontend when the settings name its folder.
 pub fn build_router(state: SharedState) -> Router {
     let origins: Vec<HeaderValue> = state
         .settings
@@ -36,8 +37,13 @@ pub fn build_router(state: SharedState) -> Router {
         .expose_headers([header::CONTENT_DISPOSITION]);
 
     let mcp = presentation::mcp::service(state.clone());
-    presentation::rest::router()
+    let frontend_dir = state.settings.frontend_dir.clone();
+    let router = presentation::rest::router()
         .nest_service("/mcp", mcp)
-        .with_state(state)
-        .layer(cors)
+        .with_state(state);
+    let router = match frontend_dir {
+        Some(dir) => presentation::frontend::serve(router, &dir),
+        None => router,
+    };
+    router.layer(cors)
 }

@@ -62,14 +62,17 @@
 - [x] Emacs版で、項目の間に隙間をあける
 - [x] Emacs版で、折り返しの行のフリンジのマークを消す
 - [x] Emacs版で、日時のプロパティをローカル時刻で見せ、新しいキーは現在時刻を初期値にする
-- [ ] journal-serverがWeb版の画面も配信する（ADR 010）。次に手を付ける作業である
-  - [ ] `dist/`のファイルを`ServeDir`で配信し、ファイルのないパスには`index.html`を返す
-  - [ ] `/api`、`/mcp`、`/assets`のルートが、画面のファイルより優先される
-  - [ ] `dist/`の場所は、`--frontend-dir`か`PETAJOURNAL_FRONTEND_DIR`、なければ実行ファイルの隣の`frontend/`。どちらもなければ画面を配信しない
-  - [ ] `journal-server-rust/.cargo/config.toml`の`[env]`に、開発用の`dist/`の場所を書く
-  - [ ] `index.html`はキャッシュさせず、ハッシュの付いたファイルは長くキャッシュさせる
-  - [ ] READMEとdocsの起動手順を、journal-serverだけを起動する形に直す
-  - [ ] PlaywrightのE2Eテストを、`trunk serve`からjournal-serverの配信へ移すかを決める
+- [ ] journal-serverがWeb版の画面も配信する（ADR 010）
+  - [x] `dist/`のファイルを`ServeDir`で配信し、ファイルのないパスには`index.html`を返す
+  - [x] `/api`、`/mcp`、`/assets`のルートが、画面のファイルより優先される
+    - [x] `/api/`で始まるルートのないパスは、`index.html`ではなく404を返す。ADR 010にはない判断である。APIを呼ぶ側が、画面のHTMLを答えと取り違えないためである
+  - [x] `dist/`の場所は、`--frontend-dir`か`PETAJOURNAL_FRONTEND_DIR`、なければ実行ファイルの隣の`frontend/`。どちらもなければ画面を配信しない
+  - [x] `journal-server-rust/.cargo/config.toml`の`[env]`に、開発用の`dist/`の場所を書く
+  - [x] `index.html`はキャッシュさせず、ハッシュの付いたファイルは長くキャッシュさせる
+    - [x] ハッシュのない名前のファイル（`favicon.ico`、フォント）も、キャッシュさせない
+  - [x] READMEとdocsの起動手順を、journal-serverだけを起動する形に直す
+  - [ ] PlaywrightのE2Eテストを、`trunk serve`からjournal-serverの配信へ移すかを決める（ユーザーが決める）
+  - [ ] `ext-web-app/todo/src/config.ts`の`wikilink_base_url`が`http://localhost:4200/pages/`のままである。直すかを決める
 - [ ] Emacs版に、Web版にある機能を足す
   - 項目の操作
     - [ ] ウィキリンクの補完。毎日使うので、最初の候補である
@@ -109,8 +112,11 @@
   - ERTとEmacs E2EをCIで回す
 - [ ] Web版の検索で、`↓`のあとすぐにEnterを押すと、答えが届く前の古い結果を開くことがある不具合を直す
   - Emacs版では対策済みで、Web版にだけ残っている
-- [ ] `shell-leptos/src/effects/ui.rs:310`のiframeの`http://localhost:8087`をやめる
-  - 別のポートのサーバーでは、拡張機能が動かないおそれがある
+- [x] `shell-leptos/src/effects/ui.rs:310`のiframeの`http://localhost:8087`をやめる
+  - 拡張のiframeを消したとき（f70503a）に、このURLもなくなった。2026-11-09に確かめた
+- [ ] journal-serverのフォルダ監視のテスト（`tests/it/watch.rs`の7件のうち6件）が、手元のMacで落ちる原因を調べる
+  - 2026-11-09に、変更前の`main`でも同じ6件が落ちた（macOS 27.2）。10秒待っても、監視がファイルを取り込まない
+  - カバレッジとミューテーションテストは、`--skip watch::`を付けて実行した
 - [ ] Emacs版の`DeleteItem`の処理を整理する
   - 今はシェルが`ShiftSelect`と`SelectionKey::Delete`を続けて送り、Elisp側で編集中の項目を消している
 - [ ] `docs/storymap.md`にEmacs版の項目を加える

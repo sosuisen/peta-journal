@@ -6,8 +6,8 @@ PetaJournal is two programs: the journal server (`journal-server-rust`) and the 
 ## Rust server (journal-server-rust)
 
 `journal-server-rust` is the journal server (axum, rusqlite, tantivy, rmcp). It serves the
-REST API, the SSE stream and the MCP tools on port 8087, and keeps `journal.db`, `config.json`
-and the markdown folder under `~/.peta-journal`. It replaced the Java (Quarkus) server; the
+REST API, the SSE stream, the MCP tools and the web frontend on port 8087, and keeps
+`journal.db`, `config.json` and the markdown folder under `~/.peta-journal`. It replaced the Java (Quarkus) server; the
 port is described in `docs/rust-rewrite-plan.md`.
 
 ### Prerequisites
@@ -42,6 +42,23 @@ server used in `application.properties`, kept for people with old notes):
 | `petajournal.import.scan-interval` | `--import-scan-interval` | `PETAJOURNAL_IMPORT_SCAN_INTERVAL` |
 | `petajournal.import.delete-prompt-cooldown` | `--import-delete-prompt-cooldown` | `PETAJOURNAL_IMPORT_DELETE_PROMPT_COOLDOWN` |
 | `quarkus.http.cors.origins` | `--cors-origins` | `PETAJOURNAL_CORS_ORIGINS` |
+| (none) | `--frontend-dir` | `PETAJOURNAL_FRONTEND_DIR` |
+
+The server also serves the web frontend, so the app opens at `http://localhost:8087`
+(see `docs/adr/adr-010-journal-server-serves-the-web-frontend.md`). It takes the files from the
+first of these folders:
+
+1. the folder given with `--frontend-dir` or `PETAJOURNAL_FRONTEND_DIR`
+2. the `frontend/` folder beside the server executable
+
+Under `cargo run`, `.cargo/config.toml` sets `PETAJOURNAL_FRONTEND_DIR` to
+`frontend-rust/crates/shell-leptos/dist`, the folder `trunk build` writes. The executable started
+by hand (`./target/release/journal-server`) does not see that setting: pass `--frontend-dir`, or
+copy `dist/` to `target/release/frontend/`. With neither folder the server serves the API only,
+and logs `Frontend: not served` at startup.
+
+The server reads the files from disk on every request. After `trunk build`, reload the browser;
+the server need not restart.
 
 `RUST_LOG` controls logging (default `info,tantivy=warn`), e.g. `RUST_LOG=journal_server=debug`.
 
@@ -76,9 +93,14 @@ port is described in `docs/frontend-rust-rewrite-plan.md`.
 
 ```powershell
 cd peta-journal/frontend-rust/crates/shell-leptos
-trunk serve                 # http://localhost:4200, proxies /api and /assets to the server on 8087
-trunk build --release       # production files in dist/
+trunk build                 # debug files in dist/, for development
+trunk build --release       # small files in dist/, for daily use and distribution
 ```
+
+The journal server serves `dist/` at `http://localhost:8087`; see "Build and run" of the Rust
+server above. `trunk serve` is not needed. A `dist/` that `trunk serve` wrote still works, but
+its page looks for the reload socket of Trunk and logs an error in the browser console on every
+load; `trunk build` writes a page without it.
 
 `vendor/highlight.min.js` is highlight.js bundled for the browser. To move to a new highlight.js
 version, bundle it in a scratch directory and copy the two files over:
@@ -171,7 +193,10 @@ in `e2e/` do not run there, so run them by hand. A warning from clippy does not 
 
 ## Development Workflow
 
-1. Start the journal server: `cd journal-server-rust && cargo run`
-2. Start the frontend: `cd frontend-rust/crates/shell-leptos && trunk serve`
-3. Open `http://localhost:4200`
+1. Build the frontend: `cd frontend-rust/crates/shell-leptos && trunk build`
+2. Start the journal server: `cd journal-server-rust && cargo run`
+3. Open `http://localhost:8087`
+
+After a change to the frontend, run `trunk build` again and reload the browser. The journal
+server keeps running.
 
