@@ -264,7 +264,7 @@ pub enum ApiOutput {
     TreeExport(TreeExport),
     ItemIds(Vec<String>),
     Pasted(Pasted),
-    Split(Split),
+    Split(Box<Split>),
     FileName(String),
     Launched(bool),
     /// Another page has the name a page was to take; the server's message says which.
@@ -649,7 +649,12 @@ impl<Event: Send + 'static> Api<Event> {
         )
     }
 
-    pub async fn split_item(&self, item_id: &str, body: &str, cursor: usize) -> ApiResult<Split> {
+    pub async fn split_item(
+        &self,
+        item_id: &str,
+        body: &str,
+        cursor: usize,
+    ) -> ApiResult<Box<Split>> {
         expect_output!(
             self.call(ApiOp::SplitItem {
                 item_id: item_id.into(),

@@ -351,7 +351,7 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             "POST",
             format!("/api/items/{item_id}/split"),
             Some(json!({ "body": body, "cursor": cursor })),
-            |reply| parsed(reply).map(ApiOutput::Split),
+            |reply| parsed(reply).map(|split| ApiOutput::Split(Box::new(split))),
         ),
         ApiOp::ApplyBatch { ops } => call(
             "POST",

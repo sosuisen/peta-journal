@@ -1,12 +1,17 @@
-//! What Enter does in an editor, ported from `item-split.service.ts`: splits the item at
-//! the cursor, or inserts an empty item before or after it. An empty last child is
-//! outdented instead. Inside an open code fence it adds a line to the item.
+//! What Enter does in an editor: splits the item at the cursor, or puts an empty item before
+//! or after it. An empty last child is outdented instead. Inside an open code fence it adds a
+//! line to the item.
+//!
+//! The server splits an item in one request, and decides where the new item goes (ADR 011).
+//! Items inside a transclusion still take the older way, ported from `item-split.service.ts`,
+//! where the core sends an update and a creation.
 
 use crate::app::{apply, done, log_error, run, Cmd, Event, Model};
 use crate::effects::Api;
-use crate::model::{Item, ItemPosition};
+use crate::model::{Item, ItemPosition, Split};
 use crate::ops::edit::{
-    close_editor, discard_pending_edit, focus_editor, save_body, save_target_id, Handover,
+    close_editor, discard_pending_edit, focus_editor, record_typing, save_body, save_target_id,
+    show_parsed, Handover,
 };
 use crate::ops::file_reload::reload_shown_page;
 use crate::ops::level;
@@ -36,6 +41,7 @@ pub fn handle_enter(model: &mut Model, item_id: &str, cursor: usize) -> Cmd {
     }
     // The next editor is focused after the next render; keys pressed before that are kept for it
     model.key_relay.hold_until_focus();
+    let unsaved = model.edits.dirty_item_ids.contains(item_id);
     let discard = discard_pending_edit(model, &item);
 
     if item.body.is_empty()
@@ -56,6 +62,9 @@ pub fn handle_enter(model: &mut Model, item_id: &str, cursor: usize) -> Cmd {
     );
     let body_len = char_len(&item.body);
     let cursor = cursor.min(body_len);
+    if !ctx.in_transclusion {
+        return Command::all([discard, split_on_server(item, cursor, unsaved)]);
+    }
 
     let cmd = if cursor == 0 && body_len > 0 {
         // A transclusion root is an item of this page: the empty item goes before it here,
@@ -102,6 +111,84 @@ pub fn handle_enter(model: &mut Model, item_id: &str, cursor: usize) -> Cmd {
         })
     };
     Command::all([discard, cmd])
+}
+
+/// Asks the server to split an item at the cursor. The request carries the body the editor
+/// has now, so what was typed and not saved yet is saved with it.
+fn split_on_server(item: Item, cursor: usize, unsaved: bool) -> Cmd {
+    run(move |api| async move {
+        match api.split_item(&item.id, &item.body, cursor).await {
+            Ok(split) => api.send_event(Event::SplitDone {
+                item_id: item.id,
+                cursor_before: cursor,
+                split,
+            }),
+            Err(e) => {
+                log_error(format!("Failed to split item: {e}"));
+                api.send_event(Event::SplitFailed {
+                    item_id: item.id,
+                    unsaved,
+                });
+            }
+        }
+    })
+}
+
+/// Shows what the server wrote for a split, records it as one undo entry, and moves the edit
+/// to the new item.
+pub fn show_split(model: &mut Model, item_id: &str, cursor_before: usize, split: Split) -> Cmd {
+    let keys = model.key_relay.release();
+    let Some(before) = model.state.get_item_by_id(item_id) else {
+        return done();
+    };
+    let Split { item, created } = split;
+    model
+        .state
+        .update_item(item_id, |i| i.body = item.body.clone());
+    show_parsed(model, &item);
+    // The levels say where the new item is: an item above sorts before the split one, a
+    // child comes right below it, and a sibling comes after all that is below it
+    let position = if created.idx < item.idx {
+        position_before(model.state.items(), item_id)
+    } else if created.level > item.level {
+        ItemPosition::after(item_id)
+    } else {
+        let subtree = get_subtree(model.state.items(), item_id);
+        ItemPosition::after(subtree[subtree.len() - 1].id.clone())
+    };
+    model.state.add_item(created.clone(), &position);
+
+    model
+        .undo
+        .begin("enter", Some(CursorState::new(item_id, cursor_before)));
+    if before.body != item.body {
+        if let Some(after) = model.state.get_item_by_id(item_id) {
+            model.undo.push_update(&before, &after);
+        }
+    }
+    model.undo.push_create(&created);
+    model
+        .undo
+        .commit(Some(CursorState::new(&created.id, 0)), model.clock_ms);
+
+    model.state.add_editing_item(&created.id);
+    model.state.remove_editing_item(item_id);
+    // The caret stays where the text was cut
+    model.state.set_focused_item(&created.id, Some(0));
+    run(move |api| async move { api.focus_editor(Some(created.id), keys).await })
+}
+
+/// Ends the wait for the next editor after a split that did not reach the server, and
+/// schedules the auto-save of the typed text the split was to carry.
+pub fn split_failed(model: &mut Model, item_id: &str, unsaved: bool) -> Cmd {
+    model.key_relay.release();
+    match model.cloned_item(item_id) {
+        Some(item) if unsaved => {
+            let typed = item.body.clone();
+            record_typing(model, &item, &typed)
+        }
+        _ => done(),
+    }
 }
 
 fn release_keys(api: &Api<Event>) {

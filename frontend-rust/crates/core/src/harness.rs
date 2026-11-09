@@ -230,7 +230,7 @@ impl FakeApi {
                 } else {
                     format!("{item_id}\u{1}")
                 };
-                ApiOutput::Split(Split { item, created })
+                ApiOutput::Split(Box::new(Split { item, created }))
             }
             ApiOp::ApplyBatch { ops } => {
                 let mut written: Vec<Item> = Vec::new();
