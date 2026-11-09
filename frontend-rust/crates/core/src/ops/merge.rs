@@ -29,10 +29,13 @@ impl JoinKey {
     /// The item that goes away and the item that takes its text, for the key pressed in the
     /// editor of `item_id`: None when the two are not joined.
     fn join(self, model: &Model, item_id: &str) -> Option<(Item, Item)> {
-        match self {
+        let (goes, into) = match self {
             JoinKey::Backspace => previous_join(model, item_id),
             JoinKey::Delete => next_join(model, item_id).map(|(item, next)| (next, item)),
-        }
+        }?;
+        // The text a transclusion shows is the text of another item: the server joins
+        // nothing into it
+        into.transclude_item_id.is_none().then_some((goes, into))
     }
 }
 
