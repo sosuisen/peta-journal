@@ -1454,6 +1454,32 @@ async fn the_clients_hear_of_the_pages_that_transclude_an_item_a_batch_updates()
     event_with(&mut events, &format!("\"pageId\":\"{}\"", page.id)).await;
 }
 
+// 移動の操作は、項目のまとまりを、指定の位置へ動かし、動かした項目を答える。移動の undo が位置を戻すためである。
+#[tokio::test]
+async fn a_batch_move_puts_a_group_where_its_position_says() {
+    let page = new_doc_page("items-batch-move").await;
+    let rows = fill(&page.id, &["a", "  a1", "b", "  b1"]).await;
+
+    let (status, resp) = batch(json!([{
+        "op": "move", "ids": [rows[2].id, rows[3].id], "pageId": page.id, "position": "first",
+    }]))
+    .await;
+    assert_eq!(status, 200, "{resp}");
+    assert_eq!(
+        field_of_each(&resp, "items", "id"),
+        vec![json!(rows[2].id), json!(rows[3].id)]
+    );
+    assert_eq!(outline_of(&page.id).await, ["1:b", "2:b1", "1:a", "2:a1"]);
+
+    let (status, resp) = batch(json!([{
+        "op": "move", "ids": [rows[2].id, rows[3].id], "pageId": page.id,
+        "position": format!("after:{}", rows[1].id),
+    }]))
+    .await;
+    assert_eq!(status, 200, "{resp}");
+    assert_eq!(outline_of(&page.id).await, ["1:a", "2:a1", "1:b", "2:b1"]);
+}
+
 // ---- Items: group delete ----
 
 // グループ削除は、項目を子孫ごと1回のリクエストで消す。
