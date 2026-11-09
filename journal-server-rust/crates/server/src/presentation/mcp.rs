@@ -463,9 +463,11 @@ impl JournalMcp {
             Some(a.level_delta)
         };
         let items = run(move || {
-            state
+            let moved = state
                 .item_service
-                .move_items(&item_ids, &target, &pos, delta)
+                .move_edited_items(&item_ids, &target, &pos, delta, None)?;
+            tell_all(&state, moved.page_ids.iter().map(|id| id.as_str()));
+            Ok(moved.items)
         })
         .await?;
         ok(json!({ "items": items_json(&items) }))
