@@ -486,6 +486,12 @@ impl ItemService {
         let mut effects = AfterCommit::default();
         if let (Some(body), Some(first)) = (body, item_ids.first()) {
             let edited = find_all_in(&tx, std::slice::from_ref(first))?.remove(0);
+            // A transclusion shows its source item. What is typed into it is text of the
+            // source, and stays on the page of the source
+            let edited = match &edited.transclude_item_id {
+                Some(source_id) => find_all_in(&tx, std::slice::from_ref(source_id))?.remove(0),
+                None => edited,
+            };
             self.update_item_in(&tx, &edited, Some(body), None, None, &mut effects)?;
         }
         self.move_items_in(&tx, item_ids, target_page_id, position, delta, &mut effects)?;
