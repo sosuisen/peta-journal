@@ -204,6 +204,8 @@ impl OutlineState {
     // ---- Items ----
 
     /// Replaces all items and rebuilds the collapsed set from their collapsed flags.
+    /// An edit mark on an item that is not among them is dropped: nothing shown could end
+    /// that edit, and a mark left behind holds back every later reload.
     pub fn set_items(&mut self, items: Vec<Item>) {
         self.items = items.into_iter().map(Arc::new).collect();
         self.collapsed_item_ids = self
@@ -212,6 +214,8 @@ impl OutlineState {
             .filter(|b| b.collapsed)
             .map(|b| b.id.clone())
             .collect();
+        self.editing_item_ids
+            .retain(|id| self.items.iter().any(|i| i.id == *id));
         self.refresh();
     }
 
