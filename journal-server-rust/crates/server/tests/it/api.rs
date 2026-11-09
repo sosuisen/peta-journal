@@ -1004,6 +1004,25 @@ async fn a_flat_paste_does_not_read_a_dash_as_tree_markdown() {
     assert_eq!(outline_of(&page.id).await, ["1:host- A\n- B", "2:C"]);
 }
 
+// `auto`では、閉じていないコードフェンスの中に貼った文字列は分割されない。保存される本文では、フェンスが閉じられる。
+#[tokio::test]
+async fn a_paste_in_auto_mode_inside_an_open_code_fence_is_not_split_and_the_fence_is_closed() {
+    let page = new_doc_page("items-paste-fence").await;
+    let rows = fill(&page.id, &["x"]).await;
+
+    let (status, resp) = paste(&rows[0].id, "```\ncode", 8, "X\n\nY", "auto").await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(
+        field_of_each(&resp, "items", "body"),
+        vec![json!("```\ncodeX\n\nY\n```")]
+    );
+    assert_eq!(
+        resp["cursor"],
+        json!({ "itemId": rows[0].id, "position": 12 })
+    );
+}
+
 // ---- Items: group delete ----
 
 // グループ削除は、項目を子孫ごと1回のリクエストで消す。
