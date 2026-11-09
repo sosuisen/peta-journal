@@ -470,6 +470,24 @@ fn a_paste_posts_the_body_the_cursor_the_text_and_the_mode_and_answers_what_was_
     );
 }
 
+// 貼り付けの読み方は、サーバーが読む名前で送られる。
+#[test]
+fn the_mode_of_a_paste_goes_under_the_name_the_server_reads() {
+    let name_of = |mode| {
+        let rest = call(ApiOp::PasteText {
+            item_id: id("a"),
+            body: String::new(),
+            cursor: 0,
+            text: String::new(),
+            mode,
+        });
+        rest.request.body.unwrap()["mode"].clone()
+    };
+    assert_eq!(name_of(PasteMode::Auto), "auto");
+    assert_eq!(name_of(PasteMode::Flat), "flat");
+    assert_eq!(name_of(PasteMode::Raw), "raw");
+}
+
 // 更新は、変えるフィールドだけを送る。
 #[test]
 fn an_update_sends_only_the_fields_that_change() {
