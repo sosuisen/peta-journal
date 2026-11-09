@@ -209,4 +209,16 @@ mod tests {
 
         assert_eq!(found, None);
     }
+
+    // 指定したフォルダは、実行ファイルの隣の`frontend/`より優先される。
+    #[test]
+    fn the_given_frontend_folder_comes_before_the_one_beside_the_executable() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir(dir.path().join("frontend")).unwrap();
+        let given = PathBuf::from("some/dist");
+
+        let found = frontend_dir(Some(given.clone()), Ok(dir.path().join("journal-server")));
+
+        assert_eq!(found, Some(given));
+    }
 }
