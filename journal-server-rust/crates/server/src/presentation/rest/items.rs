@@ -8,7 +8,8 @@ use axum::{Json, Router};
 use hmtid::Hmtid;
 use serde::{Deserialize, Serialize};
 
-use crate::application::item_service::{PasteMode, TaskState};
+use crate::application::item_service::TaskState;
+use crate::application::paste::PasteMode;
 use crate::domain::model::{Item, ItemPosition};
 use crate::error::{parse_id, AppError, AppResult};
 use crate::presentation::dto::{select_fields, ItemDto};
