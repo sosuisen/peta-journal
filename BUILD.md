@@ -98,7 +98,9 @@ trunk build --release       # small files in dist/, for daily use and distributi
 ```
 
 The journal server serves `dist/` at `http://localhost:8087`; see "Build and run" of the Rust
-server above. `trunk serve` is not needed.
+server above. `trunk serve` is not needed. A `dist/` that `trunk serve` wrote still works, but
+its page looks for the reload socket of Trunk and logs an error in the browser console on every
+load; `trunk build` writes a page without it.
 
 `vendor/highlight.min.js` is highlight.js bundled for the browser. To move to a new highlight.js
 version, bundle it in a scratch directory and copy the two files over:
