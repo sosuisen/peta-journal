@@ -9,6 +9,8 @@ use super::tree_markdown;
 pub enum PasteMode {
     /// Tree markdown is converted, and the text is split into items.
     Auto,
+    /// The text is Flat Markdown, as this app copies it: it is split into items as it is.
+    Flat,
     /// The text goes into the item as it is.
     Raw,
 }
@@ -45,7 +47,11 @@ pub fn plan(
             body: text.to_string(),
             level: 0,
         }],
-        PasteMode::Auto => split_into_pieces(splitter, text)?,
+        PasteMode::Auto if text.trim_start().starts_with("- ") => split_into_pieces(
+            splitter,
+            &tree_markdown::tree_markdown_to_flat_markdown(text),
+        )?,
+        PasteMode::Auto | PasteMode::Flat => split_into_pieces(splitter, text)?,
     };
     let last = pieces.len() - 1;
     let pasted_chars = pieces[last].body.chars().count();
@@ -68,15 +74,10 @@ fn split_at_char(text: &str, char_index: usize) -> (&str, &str) {
     text.split_at(byte_index)
 }
 
-/// Cuts a text into items at the block boundaries of a markdown file. Tree markdown is
-/// converted first. The levels count from the first piece.
-fn split_into_pieces(splitter: &FlatMarkdownSplitter, text: &str) -> anyhow::Result<Vec<Piece>> {
-    let flat = if text.trim_start().starts_with("- ") {
-        tree_markdown::tree_markdown_to_flat_markdown(text)
-    } else {
-        text.to_string()
-    };
-    let items = splitter.split(&flat)?.items;
+/// Cuts Flat Markdown into items at the block boundaries of a markdown file. The levels count
+/// from the first piece.
+fn split_into_pieces(splitter: &FlatMarkdownSplitter, flat: &str) -> anyhow::Result<Vec<Piece>> {
+    let items = splitter.split(flat)?.items;
     let top_level = items[0].level;
     Ok(items
         .into_iter()

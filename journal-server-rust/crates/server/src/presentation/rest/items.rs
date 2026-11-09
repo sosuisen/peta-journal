@@ -339,6 +339,7 @@ async fn paste(
     let item_id = parse_id(&id)?;
     let mode = match req.mode.as_deref() {
         Some("raw") => PasteMode::Raw,
+        Some("flat") => PasteMode::Flat,
         _ => PasteMode::Auto,
     };
     blocking(move || {
