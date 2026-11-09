@@ -415,6 +415,23 @@ fn after_a_paste_into_a_transclusion_root_the_cursor_goes_into_the_root() {
     assert_eq!(h.focus_cursor(), Some(6));
 }
 
+// 作られた項目が元の項目の兄弟になると、読み直したページには現れない。カーソルは、ルートの本文の末尾に置かれる。
+#[test]
+fn the_cursor_goes_to_the_end_of_the_root_when_the_item_it_was_to_go_to_is_not_shown() {
+    let mut h = transclusion_harness();
+    answer_paste(
+        &mut h,
+        vec![source_item("s", 1, "shownone"), source_item("n1", 1, "two")],
+        "n1",
+        3,
+    );
+    answer_reload(&mut h, vec![source_item("s", 1, "shownone")]);
+    paste(&mut h, "root", "one\ntwo", 5);
+    assert_eq!(h.focused_editor_requests(), [Some("root".into())]);
+    assert_eq!(h.model.state.focused_item_id(), Some("root"));
+    assert_eq!(h.focus_cursor(), Some("shownone".len()));
+}
+
 // 画像はアップロードされてカーソル位置にリンクされ、カーソルはリンクの直後に置かれる。
 #[test]
 fn an_image_is_uploaded_linked_at_the_cursor_and_the_cursor_goes_after_the_link() {
