@@ -1,6 +1,7 @@
 use crate::effects::{ApiError, ApiOp, ApiOutput, AtlasChange, FolderChoice};
 use crate::model::{
-    ItemPosition, JournalBefore, Page, PageWithItems, ServerConfig, TaskState, TreeExport,
+    ItemPosition, JournalBefore, Page, PageWithItems, PasteCursor, PasteMode, ServerConfig,
+    TaskState, TreeExport,
 };
 use crate::rest::{rest_call, HttpReply, RestCall};
 use serde::Serialize;
@@ -254,18 +255,6 @@ fn every_operation_goes_to_its_endpoint() {
             "/api/items/transcluded",
         ),
         (
-            ApiOp::ImportTreeMarkdown {
-                tree_markdown: id("x"),
-            },
-            "POST",
-            "/api/items/import",
-        ),
-        (
-            ApiOp::ParseFlatMarkdown { markdown: id("x") },
-            "POST",
-            "/api/items/parse",
-        ),
-        (
             ApiOp::SetTransclusion {
                 item_id: id("a"),
                 source_item_id: id("b"),
@@ -426,6 +415,65 @@ fn creating_an_item_posts_its_position_and_answers_the_item() {
         panic!("not an item: {output:?}");
     };
     assert_eq!(item.body, "本文");
+}
+
+// 貼り付けは、本文とカーソルと文字列と読み方を送り、書かれた項目とカーソルを答える。
+#[test]
+fn a_paste_posts_the_body_the_cursor_the_text_and_the_mode_and_answers_what_was_written() {
+    let rest = call(ApiOp::PasteText {
+        item_id: id("a"),
+        body: "ab".into(),
+        cursor: 1,
+        text: "本文".into(),
+        mode: PasteMode::Flat,
+    });
+    assert_eq!(
+        (rest.request.method, rest.request.path.as_str()),
+        ("POST", "/api/items/a/paste")
+    );
+    assert_eq!(
+        rest.request.body,
+        Some(json!({ "body": "ab", "cursor": 1, "text": "本文", "mode": "flat" }))
+    );
+    let output = rest
+        .decode(&reply(
+            200,
+            json!({
+                "items": [item_json("a", "a本文"), item_json("n", "b")],
+                "cursor": { "itemId": "n", "position": 2 },
+            }),
+        ))
+        .unwrap();
+    let ApiOutput::Pasted(pasted) = output else {
+        panic!("not a paste: {output:?}");
+    };
+    let bodies: Vec<&str> = pasted.items.iter().map(|i| i.body.as_str()).collect();
+    assert_eq!(bodies, ["a本文", "b"]);
+    assert_eq!(
+        pasted.cursor,
+        PasteCursor {
+            item_id: id("n"),
+            position: 2
+        }
+    );
+}
+
+// 貼り付けの読み方は、サーバーが読む名前で送られる。
+#[test]
+fn the_mode_of_a_paste_goes_under_the_name_the_server_reads() {
+    let name_of = |mode| {
+        let rest = call(ApiOp::PasteText {
+            item_id: id("a"),
+            body: String::new(),
+            cursor: 0,
+            text: String::new(),
+            mode,
+        });
+        rest.request.body.unwrap()["mode"].clone()
+    };
+    assert_eq!(name_of(PasteMode::Auto), "auto");
+    assert_eq!(name_of(PasteMode::Flat), "flat");
+    assert_eq!(name_of(PasteMode::Raw), "raw");
 }
 
 // 更新は、変えるフィールドだけを送る。
@@ -606,18 +654,6 @@ fn every_answer_becomes_the_output_of_its_operation() {
             ApiOp::TranscludedItems { item_ids: vec![] },
             json!({ "itemIds": ["a"] }),
             ApiOutput::ItemIds(vec![id("a")]),
-        ),
-        (
-            ApiOp::ImportTreeMarkdown {
-                tree_markdown: id("x"),
-            },
-            json!({ "flatMarkdown": "y" }),
-            ApiOutput::FlatMarkdown(id("y")),
-        ),
-        (
-            ApiOp::ParseFlatMarkdown { markdown: id("x") },
-            json!({ "items": [] }),
-            ApiOutput::ParsedItems(vec![]),
         ),
         (
             ApiOp::LaunchUrl { url: id("x://y") },

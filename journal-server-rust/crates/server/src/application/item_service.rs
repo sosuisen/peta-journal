@@ -22,8 +22,10 @@ use crate::infrastructure::persistence::property_repository::list_values;
 use crate::infrastructure::persistence::{ItemRepository, PageRepository, PropertyRepository};
 
 use super::extension_runtime::ItemRequest;
+use super::flat_markdown_splitter::FlatMarkdownSplitter;
 use super::markdown_parser::MarkdownParser;
 use super::page_service::PageService;
+use super::paste::{self, PasteMode};
 use super::tree_markdown;
 
 const ITEM_TARGET: &str = "item";
@@ -44,6 +46,15 @@ pub struct TaskState {
     pub begin: Option<String>,
     pub end: Option<String>,
     pub plan: Option<String>,
+}
+
+/// What a paste changed: the item pasted into, then the items it created, and where the
+/// cursor is after the pasted text.
+#[derive(Debug, Clone)]
+pub struct Pasted {
+    pub items: Vec<Item>,
+    pub cursor_item_id: Hmtid,
+    pub cursor: usize,
 }
 
 /// What an operation does outside the database, once its transaction is committed: the
@@ -640,6 +651,49 @@ impl ItemService {
         tx.commit()?;
         self.finish(effects);
         Ok(into)
+    }
+
+    /// Pastes text into an item at the cursor of the body an editor has now. The text is split
+    /// into items the way a markdown file is: the first piece joins the text before the cursor,
+    /// the last piece takes the text after it, and the pieces after the first become new items
+    /// below. All of it is written in one transaction.
+    pub fn paste(
+        &self,
+        item_id: &Hmtid,
+        body: &str,
+        cursor: usize,
+        text: &str,
+        mode: PasteMode,
+    ) -> AppResult<Pasted> {
+        let item = self.get_item_by_id(item_id)?;
+        let splitter = FlatMarkdownSplitter::new(self.parser.clone());
+        let plan = paste::plan(&splitter, body, cursor, text, mode)?;
+
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+        let mut effects = AfterCommit::default();
+        let first = &plan.pieces[0].body;
+        let mut items =
+            vec![self.update_item_in(&tx, &item, Some(first), None, None, &mut effects)?];
+        for piece in &plan.pieces[1..] {
+            let above = ItemPosition::After(items[items.len() - 1].id.clone());
+            items.push(self.create_item_in(
+                &tx,
+                &item.page_id,
+                &above,
+                item.level + piece.level,
+                &piece.body,
+                None,
+                &mut effects,
+            )?);
+        }
+        tx.commit()?;
+        self.finish(effects);
+        Ok(Pasted {
+            cursor_item_id: items[items.len() - 1].id.clone(),
+            cursor: plan.cursor,
+            items,
+        })
     }
 
     /// Sets a transclusion on an item, making it mirror a source item.

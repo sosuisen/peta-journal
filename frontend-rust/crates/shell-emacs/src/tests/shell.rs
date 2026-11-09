@@ -473,10 +473,13 @@ fn a_paste_goes_through_the_core() {
         text: "Z".into(),
         cursor: 1,
     });
-    let parsed = serde_json::from_value(json!({ "ParsedItems": [{ "level": 1, "body": "Z" }] }));
+    let pasted = serde_json::from_value(json!({ "Pasted": {
+        "items": [item("a", 1, "xZy")],
+        "cursor": { "itemId": "a", "position": 2 },
+    } }));
     driver.answer(
-        |op| matches!(op, ApiOp::ParseFlatMarkdown { .. }),
-        parsed.unwrap(),
+        |op| matches!(op, ApiOp::PasteText { text, cursor: 1, .. } if text == "Z"),
+        pasted.unwrap(),
     );
     assert_eq!(driver.last_rows().unwrap()[0].body, "xZy");
 }

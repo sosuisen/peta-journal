@@ -182,6 +182,19 @@ pub enum Event {
         /// The text goes into the item as it is, e.g. on Ctrl+Shift+V.
         raw: bool,
     },
+    /// The server did a paste: what it wrote goes on screen and into the undo history.
+    Pasted {
+        item_id: String,
+        /// Where the cursor was when the text was pasted.
+        cursor_before: usize,
+        pasted: Pasted,
+    },
+    /// The server refused a paste, or could not be reached: nothing was written.
+    PasteFailed {
+        item_id: String,
+        /// The item had typed text that no request but the paste carried.
+        unsaved: bool,
+    },
     PasteImage {
         item_id: String,
         file: u64,
@@ -764,6 +777,12 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             cursor,
             raw,
         } => ops::paste::paste_text(model, &item_id, text, html, cursor, raw),
+        Pasted {
+            item_id,
+            cursor_before,
+            pasted,
+        } => ops::paste::show_pasted(model, &item_id, cursor_before, pasted),
+        PasteFailed { item_id, unsaved } => ops::paste::paste_failed(model, &item_id, unsaved),
         PasteImage {
             item_id,
             file,

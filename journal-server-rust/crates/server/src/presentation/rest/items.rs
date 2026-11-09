@@ -9,6 +9,7 @@ use hmtid::Hmtid;
 use serde::{Deserialize, Serialize};
 
 use crate::application::item_service::TaskState;
+use crate::application::paste::PasteMode;
 use crate::domain::model::{Item, ItemPosition};
 use crate::error::{parse_id, AppError, AppResult};
 use crate::presentation::dto::{select_fields, ItemDto};
@@ -35,6 +36,7 @@ pub fn routes() -> Router<SharedState> {
             "/api/items/{id}/transclude",
             post(set_transclusion).delete(remove_transclusion),
         )
+        .route("/api/items/{id}/paste", post(paste))
         .route("/api/items/{id}/cycle-task", post(cycle_task))
         .route("/api/items/{id}/task", axum::routing::put(set_task))
         .route(
@@ -91,6 +93,28 @@ struct DeleteItemsRequest {
 struct MergeItemsRequest {
     item_id: Option<String>,
     into_id: Option<String>,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+struct PasteRequest {
+    body: Option<String>,
+    cursor: usize,
+    text: Option<String>,
+    mode: Option<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CursorDto {
+    item_id: String,
+    position: usize,
+}
+
+#[derive(Serialize)]
+struct PasteResponse {
+    items: Vec<ItemDto>,
+    cursor: CursorDto,
 }
 
 #[derive(Deserialize, Default)]
@@ -303,6 +327,44 @@ async fn update_item(
         state.sse.broadcast_pages_updated(&page_id);
         broadcast_to_transcluders(&state, &item_id, &page_id)?;
         item_response(&state, &item)
+    })
+    .await
+}
+
+async fn paste(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+    Json(req): Json<PasteRequest>,
+) -> AppResult<Json<PasteResponse>> {
+    let item_id = parse_id(&id)?;
+    let mode = match req.mode.as_deref() {
+        None | Some("auto") => PasteMode::Auto,
+        Some("flat") => PasteMode::Flat,
+        Some("raw") => PasteMode::Raw,
+        Some(other) => {
+            return Err(AppError::bad_request(format!(
+                "mode must be auto, flat or raw, but was {other}"
+            )))
+        }
+    };
+    blocking(move || {
+        let pasted = state.item_service.paste(
+            &item_id,
+            req.body.as_deref().unwrap_or_default(),
+            req.cursor,
+            req.text.as_deref().unwrap_or_default(),
+            mode,
+        )?;
+        let page_id = pasted.items[0].page_id.to_string();
+        state.sse.broadcast_pages_updated(&page_id);
+        broadcast_to_transcluders(&state, &item_id, &page_id)?;
+        Ok(Json(PasteResponse {
+            items: state.dtos.to_dtos(&pasted.items)?,
+            cursor: CursorDto {
+                item_id: pasted.cursor_item_id.to_string(),
+                position: pasted.cursor,
+            },
+        }))
     })
     .await
 }

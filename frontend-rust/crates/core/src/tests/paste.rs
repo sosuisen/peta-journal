@@ -1,6 +1,7 @@
 use crate::app::Event;
-use crate::effects::ApiOp;
-use crate::harness::{create_calls, item, Harness};
+use crate::effects::{ApiOp, ApiOutput};
+use crate::harness::{item, update_calls, Harness};
+use crate::model::{Item, PasteCursor, PasteMode, Pasted};
 use crate::outline::UndoOp;
 
 fn harness() -> Harness {
@@ -25,15 +26,55 @@ fn send_paste(h: &mut Harness, item_id: &str, text: &str, cursor: usize, raw: bo
     });
 }
 
-fn parse_calls(h: &Harness) -> Vec<String> {
+fn typed(h: &mut Harness, item_id: &str, body: &str) {
+    let now = h.now_ms;
+    h.send(Event::BodyChanged {
+        item_id: item_id.into(),
+        body: body.into(),
+        now_ms: now,
+    });
+}
+
+/// Makes the server answer the next paste with these items and this cursor.
+fn answer_paste(h: &mut Harness, items: Vec<Item>, cursor_item_id: &str, position: usize) {
+    let pasted = Pasted {
+        items,
+        cursor: PasteCursor {
+            item_id: cursor_item_id.into(),
+            position,
+        },
+    };
+    h.api
+        .answer_next("PasteText", Ok(ApiOutput::Pasted(pasted)));
+}
+
+/// The text and the mode of every paste request.
+fn paste_requests(h: &Harness) -> Vec<(String, PasteMode)> {
     h.api
         .calls
         .iter()
         .filter_map(|op| match op {
-            ApiOp::ParseFlatMarkdown { markdown } => Some(markdown.clone()),
+            ApiOp::PasteText { text, mode, .. } => Some((text.clone(), *mode)),
             _ => None,
         })
         .collect()
+}
+
+// 貼り付けは、項目の今の本文とカーソルと文字列を、1つの要求でサーバーに送る。
+#[test]
+fn a_paste_sends_the_body_the_cursor_and_the_text_in_one_request() {
+    let mut h = harness();
+    paste(&mut h, "a", "one\ntwo", 2);
+    assert_eq!(
+        h.api.calls,
+        [ApiOp::PasteText {
+            item_id: "a".into(),
+            body: "ab|cd".into(),
+            cursor: 2,
+            text: "one\ntwo".into(),
+            mode: PasteMode::Auto,
+        }]
+    );
 }
 
 // 一つの断片はカーソル位置の項目に入り、カーソルは貼り付けた文の直後に置かれる。
@@ -47,44 +88,50 @@ fn one_piece_goes_into_the_item_at_the_cursor() {
     assert_eq!(h.focus_cursor(), Some(4));
 }
 
-// 複数の断片は下に項目として作られ、最後の項目がカーソルより後ろの文を受け取る。カーソルは最後の項目の貼り付けた文の直後に置かれる。
+// 貼り付けた項目には、サーバーが新しい本文を解析した結果が表示される。
 #[test]
-fn several_pieces_become_items_below_the_last_one_taking_the_text_after_the_cursor() {
+fn the_item_shows_what_the_server_parsed_from_the_new_body() {
     let mut h = harness();
+    paste(&mut h, "a", "XY", 2);
+    assert_eq!(
+        h.model.state.get_item_by_id("a").unwrap().ast,
+        "ast:abXY|cd"
+    );
+}
+
+// サーバーが作った項目は、貼り付けた項目の下に順に入る。カーソルは、サーバーが答えた項目と位置に置かれる。
+#[test]
+fn the_items_the_server_made_go_below_the_item_and_the_cursor_goes_where_the_server_says() {
+    let mut h = harness();
+    answer_paste(
+        &mut h,
+        vec![
+            item("a", 1, "abone"),
+            item("n1", 2, "two"),
+            item("n2", 1, "three|cd"),
+        ],
+        "n2",
+        5,
+    );
     paste(&mut h, "a", "one\n  two\nthree", 2);
     assert_eq!(
         h.outline(),
-        [
-            "a:1=abone",
-            "new1:2=two",
-            "new2:1=three|cd",
-            "z:1=body of z"
-        ]
+        ["a:1=abone", "n1:2=two", "n2:1=three|cd", "z:1=body of z"]
     );
-    let calls = create_calls(&h.api);
-    assert_eq!(
-        calls[0],
-        ("page1".into(), "after:a".into(), 2, "two".into(), None)
-    );
-    assert_eq!(
-        calls[1],
-        (
-            "page1".into(),
-            "after:new1".into(),
-            1,
-            "three|cd".into(),
-            None
-        )
-    );
-    // The cursor goes to the last item, right after the pasted text
-    assert_eq!(h.focused_editor_requests(), [Some("new2".into())]);
+    assert_eq!(h.focused_editor_requests(), [Some("n2".into())]);
     assert_eq!(h.focus_cursor(), Some(5));
 }
 
-// 貼り付けは更新と作られた項目を一つの undo 項目として記録する。
+// 貼り付けは、更新と作られた項目を、一つの undo 項目として記録する。
 #[test]
 fn records_one_undo_entry_with_the_update_and_the_created_items() {
     let mut h = harness();
+    answer_paste(
+        &mut h,
+        vec![item("a", 1, "abone"), item("n1", 1, "two|cd")],
+        "n1",
+        3,
+    );
     paste(&mut h, "a", "one\ntwo", 2);
     let entry = h.model.undo.pop_undo().unwrap();
     assert_eq!(entry.label, "paste");
@@ -95,104 +142,93 @@ fn records_one_undo_entry_with_the_update_and_the_created_items() {
     assert_eq!(entry.cursor_before.unwrap().position, 2);
 }
 
-// 項目の作成に失敗すると、undo 項目は捨てられる。
+// 答えが届いたときに項目がもう画面にないと、何も変わらない。ページを移ったあとに答えが届く場合である。
 #[test]
-fn a_failed_creation_drops_the_undo_entry() {
+fn an_answer_for_an_item_that_is_no_longer_on_screen_changes_nothing() {
     let mut h = harness();
-    h.api.fail_next("CreateItem", "offline");
+    h.send(Event::Pasted {
+        item_id: "gone".into(),
+        cursor_before: 0,
+        pasted: Pasted {
+            items: vec![item("gone", 1, "x"), item("n1", 1, "y")],
+            cursor: PasteCursor {
+                item_id: "n1".into(),
+                position: 1,
+            },
+        },
+    });
+    assert_eq!(h.bodies(), ["a=ab|cd", "z=body of z"]);
+    assert!(!h.model.undo.can_undo());
+    assert!(h.focused_editor_requests().is_empty());
+}
+
+// 貼り付けに失敗すると、画面も undo の記録も変わらない。
+#[test]
+fn a_failed_paste_changes_neither_the_screen_nor_the_undo_history() {
+    let mut h = harness();
+    h.api.fail_next("PasteText", "offline");
     paste(&mut h, "a", "one\ntwo", 2);
+    assert_eq!(h.bodies(), ["a=ab|cd", "z=body of z"]);
     assert!(!h.model.undo.can_undo());
 }
 
-// このアプリからコピーした文は、保存しておいた Flat Markdown から貼り付けられる。
+// 入力してまだ保存していない文は、貼り付けの要求に入って届く。その自動保存は取り消される。
 #[test]
-fn text_copied_from_this_app_is_pasted_from_the_stored_flat_markdown() {
+fn text_typed_and_not_saved_yet_travels_in_the_paste_and_its_auto_save_is_cancelled() {
+    let mut h = harness();
+    typed(&mut h, "a", "typed");
+    paste(&mut h, "a", "X", 5);
+    h.fire_timers();
+    assert_eq!(
+        h.api.calls,
+        [ApiOp::PasteText {
+            item_id: "a".into(),
+            body: "typed".into(),
+            cursor: 5,
+            text: "X".into(),
+            mode: PasteMode::Auto,
+        }]
+    );
+}
+
+// 貼り付けに失敗すると、入力してまだ保存していない文は、あらためて自動保存される。
+#[test]
+fn after_a_failed_paste_the_text_typed_and_not_saved_yet_is_auto_saved_again() {
+    let mut h = harness();
+    typed(&mut h, "a", "typed");
+    h.api.fail_next("PasteText", "offline");
+    paste(&mut h, "a", "X", 5);
+    h.fire_timers();
+    assert_eq!(update_calls(&h.api), [("a".into(), Some("typed".into()))]);
+}
+
+// 保存していない文がない項目では、貼り付けに失敗しても何も保存されない。
+#[test]
+fn a_failed_paste_saves_nothing_when_the_item_had_no_unsaved_text() {
+    let mut h = harness();
+    h.api.fail_next("PasteText", "offline");
+    paste(&mut h, "a", "X", 2);
+    h.fire_timers();
+    assert!(update_calls(&h.api).is_empty());
+    assert!(!h.model.edits.dirty_item_ids.contains("a"));
+}
+
+// このアプリからコピーした文は、保存しておいた Flat Markdown として貼り付けられる。
+#[test]
+fn text_copied_from_this_app_is_pasted_as_the_stored_flat_markdown() {
     let mut h = harness();
     h.model.clipboard = Some(("flat".into(), "- tree".into()));
     paste(&mut h, "a", "- tree", 5);
-    assert_eq!(parse_calls(&h), ["flat"]);
-    assert!(!h.api.called("ImportTreeMarkdown"));
+    assert_eq!(paste_requests(&h), [("flat".into(), PasteMode::Flat)]);
 }
 
-// 外部からのツリー Markdown は、先にサーバーで変換される。
+// raw 貼り付けでは、このアプリからコピーした文も、そのままの文として貼り付けられる。
 #[test]
-fn tree_markdown_from_elsewhere_is_converted_by_the_server_first() {
-    let mut h = harness();
-    paste(&mut h, "a", "- x\n  - y", 5);
-    assert!(h.api.called("ImportTreeMarkdown"));
-    assert_eq!(parse_calls(&h), ["from tree"]);
-}
-
-// 開いたままのコードフェンスの中では、平文は分割されない。保存時に開いているフェンスは閉じられる。
-#[test]
-fn plain_text_inside_an_open_code_fence_is_not_split() {
-    let mut h = Harness::with_items(vec![item("code", 1, "```\nlet")]);
-    paste(&mut h, "code", "a\nb", 7);
-    assert!(!h.api.called("ParseFlatMarkdown"));
-    // The save closes the fence that is still open
-    assert_eq!(
-        h.model.state.get_item_by_id("code").unwrap().body,
-        "```\nleta\nb\n```"
-    );
-}
-
-// raw 貼り付けでは、文は分割されずにカーソル位置の項目に入る。
-#[test]
-fn raw_text_goes_into_the_item_at_the_cursor_without_a_split() {
-    let mut h = harness();
-    paste_raw(
-        &mut h,
-        "a",
-        "one
-  two
-three",
-        2,
-    );
-    assert!(!h.api.called("ParseFlatMarkdown"));
-    assert_eq!(
-        h.outline(),
-        [
-            "a:1=abone
-  two
-three|cd",
-            "z:1=body of z"
-        ]
-    );
-    assert_eq!(
-        h.focus_cursor(),
-        Some(
-            2 + "one
-  two
-three"
-                .len()
-        )
-    );
-    assert_eq!(h.model.undo.pop_undo().unwrap().label, "paste");
-}
-
-// raw 貼り付けでは、ツリー Markdown も保存しておいた Flat Markdown も変換されない。
-#[test]
-fn raw_tree_markdown_and_stored_flat_markdown_are_not_converted() {
+fn a_raw_paste_sends_the_text_as_it_is_even_when_it_was_copied_from_this_app() {
     let mut h = harness();
     h.model.clipboard = Some(("flat".into(), "- tree".into()));
     paste_raw(&mut h, "a", "- tree", 2);
-    paste_raw(
-        &mut h,
-        "z",
-        "- x
-  - y",
-        0,
-    );
-    assert!(!h.api.called("ImportTreeMarkdown"));
-    assert!(!h.api.called("ParseFlatMarkdown"));
-    assert_eq!(
-        h.bodies(),
-        [
-            "a=ab- tree|cd",
-            "z=- x
-  - ybody of z"
-        ]
-    );
+    assert_eq!(paste_requests(&h), [("- tree".into(), PasteMode::Raw)]);
 }
 
 // 画像はアップロードされてカーソル位置にリンクされ、カーソルはリンクの直後に置かれる。

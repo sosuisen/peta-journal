@@ -53,6 +53,7 @@ pub fn op_name(op: &ApiOp) -> &'static str {
         ApiOp::DeleteItem { .. } => "DeleteItem",
         ApiOp::DeleteItems { .. } => "DeleteItems",
         ApiOp::MergeItems { .. } => "MergeItems",
+        ApiOp::PasteText { .. } => "PasteText",
         ApiOp::CycleTask { .. } => "CycleTask",
         ApiOp::SetTask { .. } => "SetTask",
         ApiOp::UpsertItemProperty { .. } => "UpsertItemProperty",
@@ -72,8 +73,6 @@ pub fn op_name(op: &ApiOp) -> &'static str {
         ApiOp::BrowseFolder => "BrowseFolder",
         ApiOp::ExportTreeMarkdown { .. } => "ExportTreeMarkdown",
         ApiOp::TranscludedItems { .. } => "TranscludedItems",
-        ApiOp::ImportTreeMarkdown { .. } => "ImportTreeMarkdown",
-        ApiOp::ParseFlatMarkdown { .. } => "ParseFlatMarkdown",
         ApiOp::SetTransclusion { .. } => "SetTransclusion",
         ApiOp::RemoveTransclusion { .. } => "RemoveTransclusion",
         ApiOp::AnswerConfirm { .. } => "AnswerConfirm",
@@ -155,6 +154,26 @@ impl FakeApi {
             | ApiOp::DeletePage { .. }
             | ApiOp::AnswerConfirm { .. } => ApiOutput::Done,
             ApiOp::MergeItems { into_id, .. } => ApiOutput::Item(plain_item(into_id, 1, "")),
+            // The text goes into the item as one piece; a test that wants more items answers
+            // the paste itself
+            ApiOp::PasteText {
+                item_id,
+                body,
+                cursor,
+                text,
+                ..
+            } => {
+                let (before, after) = crate::util::split_at_char(body, *cursor);
+                let mut item = plain_item(item_id, 1, &format!("{before}{text}{after}"));
+                item.ast = format!("ast:{}", item.body);
+                ApiOutput::Pasted(Pasted {
+                    items: vec![item],
+                    cursor: PasteCursor {
+                        item_id: item_id.clone(),
+                        position: crate::util::char_len(before) + crate::util::char_len(text),
+                    },
+                })
+            }
             ApiOp::CycleTask { item_id } => {
                 let mut item = plain_item(item_id, 1, "");
                 item.types = vec!["task".into()];
@@ -224,21 +243,6 @@ impl FakeApi {
                 },
                 ..Default::default()
             }),
-            ApiOp::ParseFlatMarkdown { markdown } => ApiOutput::ParsedItems(
-                markdown
-                    .split('\n')
-                    .filter(|l| !l.is_empty())
-                    .map(|l| {
-                        let body = l.trim_start();
-                        ParsedFlatItem {
-                            level: 1 + ((l.len() - body.len()) / 2) as i32,
-                            body: body.to_string(),
-                            ..Default::default()
-                        }
-                    })
-                    .collect(),
-            ),
-            ApiOp::ImportTreeMarkdown { .. } => ApiOutput::FlatMarkdown("from tree".into()),
             ApiOp::UploadAsset { .. } => ApiOutput::FileName("pic.png".into()),
             ApiOp::TranscludedItems { .. } => ApiOutput::ItemIds(Vec::new()),
             ApiOp::ExportTreeMarkdown { .. } => ApiOutput::TreeExport(TreeExport {

@@ -1,25 +1,19 @@
-//! Pastes into an item editor, ported from `paste.service.ts`. Text is split into items at
-//! the same block boundaries as a markdown file, the first piece joins the text before the
-//! cursor and the last piece the text after it; the pieces in between become new items
-//! below. A raw paste puts the text into the item as it is. An image is uploaded and linked
-//! at the cursor.
+//! Pastes into an item editor. Text goes to the server in one request: the server cuts it into
+//! items, joins the first piece to the text before the cursor and the last piece to the text
+//! after it, and writes them all or none (ADR 011). An image is uploaded and linked at the
+//! cursor.
 
 use crate::app::{apply, done, log_error, run, Cmd, Event, Model};
-use crate::effects::{Api, ApiError};
-use crate::model::{Item, ItemPosition};
-use crate::ops::edit::{discard_pending_edit, focus_editor, mark_dirty, save_body};
+use crate::model::{ItemPosition, PasteMode, Pasted};
+use crate::ops::edit::{
+    discard_pending_edit, focus_editor, mark_dirty, record_typing, save_body, show_parsed,
+};
 use crate::outline::CursorState;
-use crate::util::{has_unclosed_code_fence, split_at_char};
+use crate::util::split_at_char;
+use crux_core::Command;
 
-/// A piece of pasted text that becomes an item; the level is relative to the item pasted into.
-#[derive(Debug, Clone)]
-struct PastedItem {
-    body: String,
-    level: i32,
-}
-
-/// Pastes text into an item. Supports plain text, tree markdown, and flat markdown that
-/// was copied from this app. A raw paste skips all of them and keeps the text in one item.
+/// Asks the server to paste text into an item. Supports plain text, tree markdown, and flat
+/// markdown that was copied from this app. A raw paste keeps the text in one item as it is.
 pub fn paste_text(
     model: &mut Model,
     item_id: &str,
@@ -31,146 +25,86 @@ pub fn paste_text(
     let Some(item) = model.cloned_item(item_id) else {
         return done();
     };
-    // If we have stored flat markdown for this clipboard content, use it
-    let stored_flat = match &model.clipboard {
-        Some((flat, tree)) if !raw && *tree == text => Some(flat.clone()),
-        _ => None,
+    let (text, mode) = match &model.clipboard {
+        _ if raw => (text, PasteMode::Raw),
+        // Text copied from this app is pasted from the Flat Markdown stored with it
+        Some((flat, tree)) if *tree == text => (flat.clone(), PasteMode::Flat),
+        _ => (text, PasteMode::Auto),
     };
-    run(move |api| async move {
-        if let Err(e) = paste_text_now(&api, item, text, cursor, stored_flat, raw).await {
-            log_error(format!("Failed to process paste: {e}"));
-            apply(&api, "paste: abort undo", |m| {
-                m.undo.abort();
-                done()
-            });
-        }
-    })
-}
-
-async fn paste_text_now(
-    api: &Api<Event>,
-    item: Item,
-    text: String,
-    cursor: usize,
-    stored_flat: Option<String>,
-    raw: bool,
-) -> Result<(), ApiError> {
-    let mut text_to_parse = text.clone();
-    let mut is_plain_text = true;
-    if let Some(flat) = stored_flat {
-        text_to_parse = flat;
-        is_plain_text = false;
-    } else if !raw && text.trim_start().starts_with("- ") {
-        // Text that looks like tree markdown is converted
-        match api.import_tree_markdown(&text).await {
-            Ok(flat) => {
-                text_to_parse = flat;
-                is_plain_text = false;
+    // What was typed before the paste travels in the request. Its auto-save is dropped, or
+    // it would overwrite the pasted text a moment later
+    let unsaved = model.edits.dirty_item_ids.contains(item_id);
+    let discard = discard_pending_edit(model, &item);
+    let request = run(move |api| async move {
+        match api
+            .paste_text(&item.id, &item.body, cursor, &text, mode)
+            .await
+        {
+            Ok(pasted) => api.send_event(Event::Pasted {
+                item_id: item.id,
+                cursor_before: cursor,
+                pasted,
+            }),
+            Err(e) => {
+                log_error(format!("Failed to process paste: {e}"));
+                api.send_event(Event::PasteFailed {
+                    item_id: item.id,
+                    unsaved,
+                });
             }
-            Err(e) => log_error(format!(
-                "Failed to import tree markdown, using raw text: {e}"
-            )),
         }
-    }
-
-    let (before, after) = split_at_char(&item.body, cursor);
-    // Plain text pasted inside an open code fence stays in this item as it is
-    let skip_split = raw || (is_plain_text && has_unclosed_code_fence(before));
-    let mut parsed: Vec<PastedItem> = if skip_split {
-        vec![PastedItem {
-            body: text_to_parse,
-            level: 0,
-        }]
-    } else {
-        split_text_into_items(api, &text_to_parse).await?
-    };
-    if parsed.is_empty() {
-        return Ok(());
-    }
-
-    let last = parsed.len() - 1;
-    // The cursor ends right after the pasted text, in the last item it went into
-    let cursor_after = if last == 0 {
-        crate::util::char_len(before) + crate::util::char_len(&parsed[0].body)
-    } else {
-        crate::util::char_len(&parsed[last].body)
-    };
-    parsed[0].body = format!("{before}{}", parsed[0].body);
-    parsed[last].body = format!("{}{after}", parsed[last].body);
-
-    let original = item.clone();
-    let (first_body, rest): (String, Vec<PastedItem>) =
-        (parsed[0].body.clone(), parsed[1..].to_vec());
-    let it = item.clone();
-    apply(api, "paste: begin", move |m| {
-        m.undo
-            .begin("paste", Some(CursorState::new(&it.id, cursor)));
-        // The auto-save of what was typed before the paste is dropped, or it would
-        // overwrite the pasted text a moment later
-        discard_pending_edit(m, &it)
     });
-    save_body(api, &item.id, &first_body).await?;
-    let id = item.id.clone();
-    apply(api, "paste: first item", move |m| {
-        mark_dirty(m, &id);
-        if let Some(after_first) = m.state.get_item_by_id(&id) {
-            m.undo.push_update(&original, &after_first);
-        }
-        done()
-    });
-
-    let mut prev_id = item.id.clone();
-    for pasted in rest {
-        let position = ItemPosition::after(prev_id.clone());
-        let new_item = api
-            .create_item(
-                &item.page_id,
-                position.clone(),
-                item.level + pasted.level,
-                &pasted.body,
-                None,
-            )
-            .await?;
-        prev_id = new_item.id.clone();
-        apply(api, "paste: new item", move |m| {
-            m.state.add_items(vec![new_item.clone()], &position);
-            let final_item = m
-                .state
-                .get_item_by_id(&new_item.id)
-                .map(|b| (*b).clone())
-                .unwrap_or(new_item);
-            m.undo.push_create(&final_item);
-            done()
-        });
-    }
-    let target_id = prev_id;
-    let id = target_id.clone();
-    apply(api, "paste: commit", move |m| {
-        m.undo.commit(None, m.clock_ms);
-        m.state.set_focused_item(&id, Some(cursor_after));
-        done()
-    });
-    // Focus the last created item or the current item, after the pasted text
-    focus_editor(api, Some(target_id)).await;
-    Ok(())
+    Command::all([discard, request])
 }
 
-/// Splits text into items with the server-side Flat Markdown parser, so that pasted text
-/// is cut at the same block boundaries as a markdown file. Levels are made relative to the
-/// first item (0-based), because the caller places them under the current item.
-async fn split_text_into_items(api: &Api<Event>, text: &str) -> Result<Vec<PastedItem>, ApiError> {
-    let parsed = api.parse_flat_markdown(text).await?;
-    let Some(first) = parsed.first() else {
-        return Ok(Vec::new());
+/// Schedules the auto-save of the typed text a failed paste was to carry, as it did not reach
+/// the server.
+pub fn paste_failed(model: &mut Model, item_id: &str, unsaved: bool) -> Cmd {
+    match model.cloned_item(item_id) {
+        Some(item) if unsaved => record_typing(model, &item, &item.body),
+        _ => done(),
+    }
+}
+
+/// Shows what the server wrote for a paste, records it as one undo entry, and puts the cursor
+/// right after the pasted text.
+pub fn show_pasted(model: &mut Model, item_id: &str, cursor_before: usize, pasted: Pasted) -> Cmd {
+    let (Some(before), Some((first, created))) =
+        (model.cloned_item(item_id), pasted.items.split_first())
+    else {
+        return done();
     };
-    let top_level = first.level;
-    Ok(parsed
-        .iter()
-        .map(|p| PastedItem {
-            body: p.body.clone(),
-            level: (p.level - top_level).max(0),
-        })
-        .collect())
+    model
+        .undo
+        .begin("paste", Some(CursorState::new(item_id, cursor_before)));
+    model
+        .state
+        .update_item(item_id, |i| i.body = first.body.clone());
+    show_parsed(model, first);
+    mark_dirty(model, item_id);
+    if let Some(after) = model.state.get_item_by_id(item_id) {
+        model.undo.push_update(&before, &after);
+    }
+    let mut previous_id = item_id.to_string();
+    for new_item in created {
+        model
+            .state
+            .add_items(vec![new_item.clone()], &ItemPosition::after(previous_id));
+        let shown = model
+            .state
+            .get_item_by_id(&new_item.id)
+            .map_or_else(|| new_item.clone(), |i| (*i).clone());
+        model.undo.push_create(&shown);
+        previous_id = new_item.id.clone();
+    }
+    model.undo.commit(None, model.clock_ms);
+
+    let cursor = pasted.cursor;
+    model
+        .state
+        .set_focused_item(&cursor.item_id, Some(cursor.position));
+    let keys = model.key_relay.release();
+    run(move |api| async move { api.focus_editor(Some(cursor.item_id), keys).await })
 }
 
 /// Uploads a pasted image and puts a link to it at the cursor.

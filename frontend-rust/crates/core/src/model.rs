@@ -245,16 +245,32 @@ impl<'de> Deserialize<'de> for ItemPosition {
     }
 }
 
-/// One item of Flat Markdown as split by the server. `id` is None when the metadata line has none.
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
-pub struct ParsedFlatItem {
-    pub level: i32,
-    #[serde(default)]
-    pub id: Option<String>,
-    #[serde(default)]
-    pub properties: BTreeMap<String, String>,
-    #[serde(default)]
-    pub body: String,
+/// How the server reads a pasted text. The names are the ones the server reads.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PasteMode {
+    /// Tree markdown is converted, and the text is split into items.
+    Auto,
+    /// The text is Flat Markdown, as this app copies it: it is split into items as it is.
+    Flat,
+    /// The text goes into the item as it is.
+    Raw,
+}
+
+/// What a paste came to on the server.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Pasted {
+    /// The item pasted into, then the items created below it, in their order on the page.
+    pub items: Vec<Item>,
+    pub cursor: PasteCursor,
+}
+
+/// Where the cursor goes after a paste: right after the pasted text.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PasteCursor {
+    pub item_id: String,
+    pub position: usize,
 }
 
 /// A property definition (`GET /api/config/property-definitions`, the `definitions` list).
