@@ -870,6 +870,34 @@ async fn merging_into_a_transcluded_item_updates_the_stored_copy_in_its_transclu
     );
 }
 
+// ---- Items: paste ----
+
+/// Pastes into an item the way an editor does: with the body and the cursor it has now
+async fn paste(item_id: &str, body: &str, cursor: usize, text: &str, mode: &str) -> (u16, Value) {
+    post(
+        &format!("/api/items/{item_id}/paste"),
+        json!({ "body": body, "cursor": cursor, "text": text, "mode": mode }),
+    )
+    .await
+}
+
+// 1つの断片は、カーソルの位置で項目の本文に入り、カーソルはその直後に来る。
+#[tokio::test]
+async fn one_pasted_piece_goes_into_the_body_at_the_cursor() {
+    let page = new_doc_page("items-paste-one").await;
+    let rows = fill(&page.id, &["ab"]).await;
+
+    let (status, resp) = paste(&rows[0].id, "ab", 1, "X", "auto").await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(field_of_each(&resp, "items", "body"), vec![json!("aXb")]);
+    assert_eq!(
+        resp["cursor"],
+        json!({ "itemId": rows[0].id, "position": 2 })
+    );
+    assert_eq!(outline_of(&page.id).await, ["1:aXb"]);
+}
+
 // ---- Items: group delete ----
 
 // グループ削除は、項目を子孫ごと1回のリクエストで消す。
