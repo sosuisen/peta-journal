@@ -669,8 +669,14 @@ impl ItemService {
             .nth(cursor)
             .map_or(body.len(), |(i, _)| i);
         let (before, after) = body.split_at(split);
-        let mut pieces: Vec<String> = FlatMarkdownSplitter::new(self.parser.clone())
-            .split(text)?
+        let split_text = FlatMarkdownSplitter::new(self.parser.clone()).split(text)?;
+        let top_level = split_text.items[0].level;
+        let levels: Vec<i32> = split_text
+            .items
+            .iter()
+            .map(|piece| piece.level - top_level)
+            .collect();
+        let mut pieces: Vec<String> = split_text
             .items
             .into_iter()
             .map(|piece| piece.body)
@@ -689,13 +695,13 @@ impl ItemService {
         let mut effects = AfterCommit::default();
         let mut items =
             vec![self.update_item_in(&tx, &item, Some(&pieces[0]), None, None, &mut effects)?];
-        for piece in &pieces[1..] {
+        for (piece, level) in pieces.iter().zip(&levels).skip(1) {
             let above = ItemPosition::After(items[items.len() - 1].id.clone());
             items.push(self.create_item_in(
                 &tx,
                 &item.page_id,
                 &above,
-                item.level,
+                item.level + level,
                 piece,
                 None,
                 &mut effects,
