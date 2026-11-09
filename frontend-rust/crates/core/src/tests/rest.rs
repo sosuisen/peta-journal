@@ -484,6 +484,35 @@ fn a_merge_posts_the_bodies_that_are_not_saved_yet() {
     );
 }
 
+// 移動は、動かす項目に入力してまだ保存していない本文があれば、その本文も送る。保存済みなら送らない。
+#[test]
+fn a_move_posts_the_body_that_is_not_saved_yet() {
+    let moved = |body: Option<&str>| {
+        call(ApiOp::MoveItems {
+            item_ids: vec![id("a"), id("a1")],
+            target_page_id: id("p"),
+            position: ItemPosition::First,
+            level_delta: None,
+            body: body.map(str::to_string),
+        })
+        .request
+        .body
+    };
+    assert_eq!(
+        moved(Some("typed")),
+        Some(json!({
+            "itemIds": ["a", "a1"], "targetPageId": "p", "position": "first",
+            "levelDelta": null, "body": "typed",
+        }))
+    );
+    assert_eq!(
+        moved(None),
+        Some(json!({
+            "itemIds": ["a", "a1"], "targetPageId": "p", "position": "first", "levelDelta": null,
+        }))
+    );
+}
+
 // トランスクルージョンが見せている項目の分割は、そのトランスクルージョンも送る。
 #[test]
 fn a_split_of_an_item_a_transclusion_shows_posts_the_transclusion_too() {
