@@ -345,6 +345,7 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
         ),
         ApiOp::SplitItem {
             item_id,
+            root_id: _,
             body,
             cursor,
         } => call(

@@ -460,6 +460,7 @@ fn a_paste_posts_the_body_the_cursor_the_text_and_the_mode_and_answers_what_was_
 fn a_split_posts_the_body_and_the_cursor_and_answers_the_item_and_the_item_made() {
     let rest = call(ApiOp::SplitItem {
         item_id: id("a"),
+        root_id: None,
         body: "本文ab".into(),
         cursor: 2,
     });

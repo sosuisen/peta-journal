@@ -7,13 +7,13 @@
 //! after the answer.
 
 use crate::app::{done, log_error, run, Cmd, Event, Model};
-use crate::model::{Item, ItemPosition, Split};
+use crate::model::{Item, ItemPosition, ItemRef, Split};
 use crate::ops::edit::{discard_pending_edit, focus_editor, record_typing, show_parsed};
 use crate::ops::file_reload::replace_page;
 use crate::ops::level;
 use crate::ops::outline_events::body_changed;
 use crate::outline::tree::{
-    edit_context_of, get_subtree, has_sibling_below, position_before, transclusion_context_of,
+    get_subtree, has_sibling_below, position_before, transclusion_context_of,
 };
 use crate::outline::CursorState;
 use crate::util::{char_len, has_unclosed_code_fence, split_at_char};
@@ -50,14 +50,24 @@ pub fn handle_enter(model: &mut Model, item_id: &str, cursor: usize) -> Cmd {
     }
 
     let cursor = cursor.min(char_len(&item.body));
-    Command::all([discard, split_on_server(item, cursor, unsaved)])
+    Command::all([discard, split_on_server(model, item, cursor, unsaved)])
 }
 
 /// Asks the server to split an item at the cursor. The request carries the body the editor
 /// has now, so what was typed and not saved yet is saved with it.
-fn split_on_server(item: Item, cursor: usize, unsaved: bool) -> Cmd {
+fn split_on_server(model: &Model, item: Item, cursor: usize, unsaved: bool) -> Cmd {
+    // Of an item of another page, the server has to know which transclusion shows it here:
+    // at the end of the last item it shows, the new item goes on this page
+    let root_id = if model.state.is_own_item(&item.id) {
+        None
+    } else {
+        showing_transclusion(model, &item).map(|root| root.id.clone())
+    };
     run(move |api| async move {
-        match api.split_item(&item.id, &item.body, cursor).await {
+        match api
+            .split_item(&item.id, root_id.as_deref(), &item.body, cursor)
+            .await
+        {
             Ok(split) => api.send_event(Event::SplitDone {
                 item_id: item.id,
                 cursor_before: cursor,
@@ -134,25 +144,24 @@ pub fn split_failed(model: &mut Model, item_id: &str, unsaved: bool) -> Cmd {
     }
 }
 
+/// The transclusion of this page that shows the item below itself, for an item of another
+/// page.
+fn showing_transclusion(model: &Model, item: &Item) -> Option<ItemRef> {
+    let ctx = transclusion_context_of(item, model.state.items(), model.state.transcluded_trees())?;
+    model.state.get_item_by_id(&ctx.root_item_id)
+}
+
 /// The page that shows the item through a transclusion: the page of the transclusion.
 /// None for an item outside a transclusion, and for an item that is not shown any more.
 fn host_page_of_transclusion(model: &Model, item_id: &str) -> Option<String> {
     let item = model.current_item(item_id)?;
-    let in_transclusion = edit_context_of(
-        &item,
-        model.state.own_item_ids(),
-        model.state.transcluded_trees(),
-    )
-    .in_transclusion;
-    if !in_transclusion {
-        return None;
-    }
     if model.state.is_own_item(item_id) {
-        return Some(item.page_id.clone());
+        return item
+            .transclude_item_id
+            .as_ref()
+            .map(|_| item.page_id.clone());
     }
-    let ctx = transclusion_context_of(&item, model.state.items(), model.state.transcluded_trees())?;
-    let root = model.state.get_item_by_id(&ctx.root_item_id)?;
-    Some(root.page_id.clone())
+    showing_transclusion(model, &item).map(|root| root.page_id.clone())
 }
 
 /// Records a split inside a transclusion as one undo entry, and reads the page of the

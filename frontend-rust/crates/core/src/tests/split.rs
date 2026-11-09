@@ -369,8 +369,13 @@ fn enter_in_a_transclusion_sends_one_split_and_then_reads_the_page_again() {
         .answer_next("SplitItem", split_on_source_answer("s", "sho", "src"));
     enter(&mut h, "root", "sho".len());
     assert_eq!(
-        split_calls(&h.api),
-        [("root".to_string(), "shown".to_string(), 3)]
+        h.api.calls[0],
+        ApiOp::SplitItem {
+            item_id: "root".into(),
+            root_id: None,
+            body: "shown".into(),
+            cursor: 3,
+        }
     );
     assert_eq!(requests(&h), ["SplitItem", "GetPageById"]);
 }
