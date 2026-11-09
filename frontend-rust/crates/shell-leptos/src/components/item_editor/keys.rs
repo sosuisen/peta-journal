@@ -27,6 +27,12 @@ pub(super) fn handle_keydown(
         core.send(Event::KeyHeld(dom::deferred_key(ev)));
         return;
     }
+    // The held keys are played into the next editor after the next render. A key pressed
+    // before that waits behind them
+    if !ev.ctrl_key() && !ev.meta_key() && core.keep_for_waiting_replay(|| dom::deferred_key(ev)) {
+        ev.prevent_default();
+        return;
+    }
     let key = ev.key();
     let value = el.value();
     let start = el.selection_start().ok().flatten().unwrap_or(0);

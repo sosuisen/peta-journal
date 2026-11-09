@@ -106,8 +106,15 @@ pub fn perform(handle: CoreHandle, mut request: Request<UiOp>) {
             item_id,
             replay_keys,
         } => {
-            // After the next render: the editor may have been added in this very update
+            // After the next render: the editor may have been added in this very update.
+            // Keys pressed until then join the held keys, or they would overtake them
             let h = handle;
+            if !replay_keys.is_empty() {
+                h.inner()
+                    .late_keys
+                    .borrow_mut()
+                    .get_or_insert_with(Vec::new);
+            }
             dom::after_render(move || {
                 let selector = match &item_id {
                     Some(id) => format!("#item-editor-{id}"),
@@ -118,9 +125,12 @@ pub fn perform(handle: CoreHandle, mut request: Request<UiOp>) {
                     dom::auto_resize(&el);
                 }
                 if !replay_keys.is_empty() {
+                    let mut keys = replay_keys.clone();
+                    // Taken before the replay: a key it plays must not be kept again
+                    keys.extend(h.inner().late_keys.borrow_mut().take().unwrap_or_default());
                     if let Some(id) = &item_id {
                         if let Some(replay) = h.inner().replayers.borrow().get(id) {
-                            replay(replay_keys.clone());
+                            replay(keys);
                         }
                     }
                 }
