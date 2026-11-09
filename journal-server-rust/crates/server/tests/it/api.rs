@@ -1495,6 +1495,43 @@ async fn a_split_at_the_end_of_a_transclusion_that_shows_children_puts_the_empty
     assert_eq!(outline_of(&page.id).await, ["1:alpha"]);
 }
 
+/// Splits an item of another page that the transclusion `root_id` shows below itself
+async fn split_shown_by(root_id: &str, item_id: &str, body: &str, cursor: usize) -> (u16, Value) {
+    post(
+        &format!("/api/items/{item_id}/split"),
+        json!({ "body": body, "cursor": cursor, "rootId": root_id }),
+    )
+    .await
+}
+
+// トランスクルージョンが見せている最後の項目を行末で分割すると、空の項目はトランスクルージョンのページでその下に入り、要求が運んできた本文は分割した項目に保存される。
+#[tokio::test]
+async fn a_split_at_the_end_of_the_last_item_a_transclusion_shows_puts_an_empty_item_below_the_transclusion(
+) {
+    let (source_page, source, page, own) = transclusion(
+        "items-split-shown-last",
+        &["top", "  alpha", "    child a", "    child b", "  next"],
+        1,
+        &["above", "copy", "below"],
+        1,
+    )
+    .await;
+
+    let (status, resp) = split_shown_by(&own[1].id, &source[3].id, "child b typed", 13).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(resp["item"]["id"], json!(source[3].id));
+    assert_eq!(resp["created"]["pageId"], json!(page.id));
+    assert_eq!(
+        outline_of(&page.id).await,
+        ["1:above", "1:alpha", "1:", "1:below"]
+    );
+    assert_eq!(
+        outline_of(&source_page.id).await,
+        ["1:top", "2:alpha", "3:child a", "3:child b typed", "2:next"]
+    );
+}
+
 // 行末での分割では、空の項目が直後に入る。
 #[tokio::test]
 async fn a_split_at_the_end_puts_an_empty_item_below() {
