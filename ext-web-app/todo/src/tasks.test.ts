@@ -249,6 +249,13 @@ describe('the path that opens the page of a task', () => {
     }
   });
 
+  // 日付の形の名前でも、ドキュメントページは`/docs/`の下である。
+  test('is under /docs/ for a doc page named like a date', () => {
+    const task = item({ id: 'item-7', type: 'doc', name: '2026' });
+
+    expect(pagePath(task)).toBe('/docs/2026#item-7');
+  });
+
   // 日付で始まるだけの名前のページは、ドキュメントページである。
   test('is under /docs/ for a page whose name only starts with a date', () => {
     const task = item({ id: 'item-7', name: '2026-11-09 memo' });
