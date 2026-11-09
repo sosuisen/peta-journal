@@ -1,6 +1,6 @@
 use crate::app::Event;
 use crate::effects::{ApiOp, ApiOutput};
-use crate::harness::{item, Harness};
+use crate::harness::{item, update_calls, Harness};
 use crate::model::{Item, PasteCursor, PasteMode, Pasted};
 use crate::outline::UndoOp;
 
@@ -158,6 +158,17 @@ fn text_typed_and_not_saved_yet_travels_in_the_paste_and_its_auto_save_is_cancel
             mode: PasteMode::Auto,
         }]
     );
+}
+
+// 貼り付けに失敗すると、入力してまだ保存していない文は、あらためて自動保存される。
+#[test]
+fn after_a_failed_paste_the_text_typed_and_not_saved_yet_is_auto_saved_again() {
+    let mut h = harness();
+    typed(&mut h, "a", "typed");
+    h.api.fail_next("PasteText", "offline");
+    paste(&mut h, "a", "X", 5);
+    h.fire_timers();
+    assert_eq!(update_calls(&h.api), [("a".into(), Some("typed".into()))]);
 }
 
 // このアプリからコピーした文は、保存しておいた Flat Markdown として貼り付けられる。
