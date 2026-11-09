@@ -12,7 +12,7 @@ use crate::ops::outline_events::ensure_at_least_one_item;
 use crate::outline::tree::position_by_index;
 use crate::outline::{CursorState, UndoEntry, UndoOp};
 use crux_core::Command;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// Which sync of an undo or a redo wrote each item last. The answers can come back in another
 /// order than the requests went out, so the answer of an older sync is not shown over what a
@@ -217,6 +217,18 @@ impl Batch {
         });
         self.recreated.push(item.id.clone());
     }
+
+    /// Adds the move of a run of items the replay put back in their place: the run goes
+    /// after the item above its first item, in one move, so that a parent and its children
+    /// stay together.
+    fn push_move(&mut self, model: &Model, run: Option<(Vec<String>, &Item)>) {
+        let Some((ids, first)) = run else { return };
+        self.ops.push(BatchOp::Move {
+            ids,
+            page_id: first.page_id.clone(),
+            position: position_by_index(model.state.items(), first),
+        });
+    }
 }
 
 /// Shows what the server answered to the batch of an undo or a redo: where it put each item,
@@ -252,8 +264,8 @@ pub fn show_synced(
 /// it writes none, the page is shown as the server has it, as the screen is then ahead of it.
 fn sync_to_server(model: &mut Model, ops: &[UndoOp], dir: Direction) -> Cmd {
     let mut batch = Batch::default();
-    let mut put_back = Vec::new();
-    let mut moved = Vec::new();
+    let mut put_back = HashSet::new();
+    let mut moved = HashSet::new();
     // The server deletes last, as one group: a parent deleted on its own is refused
     let mut deletes = Vec::new();
     for op in ops {
@@ -266,14 +278,14 @@ fn sync_to_server(model: &mut Model, ops: &[UndoOp], dir: Direction) -> Cmd {
                 };
                 batch.push_update(before, after, target);
                 if before.idx != after.idx {
-                    moved.push(target);
+                    moved.insert(target.id.as_str());
                 }
             }
             UndoOp::Create { item } | UndoOp::Delete { item } => {
                 // The redo of a create and the undo of a delete put the item back
                 let exists_again = matches!(op, UndoOp::Create { .. }) == (dir == Direction::Redo);
                 if exists_again {
-                    put_back.push(item);
+                    put_back.insert(item.id.as_str());
                 } else {
                     deletes.push(BatchOp::Delete {
                         id: item.id.clone(),
@@ -282,20 +294,26 @@ fn sync_to_server(model: &mut Model, ops: &[UndoOp], dir: Direction) -> Cmd {
             }
         }
     }
-    // From the top down, after the updates: an item is made after the one above it, which
-    // must be there, and at a level the one above allows
-    let place_of = |item: &Item| model.state.items().iter().position(|i| i.id == item.id);
-    put_back.sort_by_key(|item| place_of(item));
-    for item in put_back {
-        batch.push_create(model, item);
+    // What the replay put in place goes from the top down, after the updates: an item is
+    // made or moved after the one above it, which must be there, at a level it allows
+    let mut moving: Option<(Vec<String>, &Item)> = None;
+    for item in model.state.items() {
+        let joins = moved.contains(item.id.as_str())
+            && moving
+                .as_ref()
+                .is_some_and(|(_, first)| first.page_id == item.page_id);
+        if let (true, Some((ids, _))) = (joins, moving.as_mut()) {
+            ids.push(item.id.clone());
+            continue;
+        }
+        batch.push_move(model, moving.take());
+        if put_back.contains(item.id.as_str()) {
+            batch.push_create(model, item);
+        } else if moved.contains(item.id.as_str()) {
+            moving = Some((vec![item.id.clone()], item));
+        }
     }
-    for item in moved {
-        batch.ops.push(BatchOp::Move {
-            ids: vec![item.id.clone()],
-            page_id: item.page_id.clone(),
-            position: position_by_index(model.state.items(), item),
-        });
-    }
+    batch.push_move(model, moving.take());
     batch.ops.extend(deletes);
     let sync = model.undo_syncs.begin(&batch.ops);
     run(move |api| async move {
