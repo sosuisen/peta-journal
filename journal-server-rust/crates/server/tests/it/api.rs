@@ -898,6 +898,30 @@ async fn one_pasted_piece_goes_into_the_body_at_the_cursor() {
     assert_eq!(outline_of(&page.id).await, ["1:aXb"]);
 }
 
+// 複数の断片は下に新しい項目になり、最後の断片がカーソルより後ろの文字を受け取る。
+#[tokio::test]
+async fn several_pasted_pieces_become_items_below_and_the_last_takes_the_text_after_the_cursor() {
+    let page = new_doc_page("items-paste-several").await;
+    let rows = fill(&page.id, &["ab", "  child", "next"]).await;
+
+    let (status, resp) = paste(&rows[0].id, "ab", 1, "X\n\nY\n\nZ", "auto").await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(
+        field_of_each(&resp, "items", "body"),
+        vec![json!("aX"), json!("Y"), json!("Zb")]
+    );
+    let created = &resp["items"][2];
+    assert_eq!(
+        resp["cursor"],
+        json!({ "itemId": created["id"], "position": 1 })
+    );
+    assert_eq!(
+        outline_of(&page.id).await,
+        ["1:aX", "1:Y", "1:Zb", "2:child", "1:next"]
+    );
+}
+
 // ---- Items: group delete ----
 
 // グループ削除は、項目を子孫ごと1回のリクエストで消す。
