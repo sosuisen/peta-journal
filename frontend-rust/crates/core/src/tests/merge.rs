@@ -422,6 +422,42 @@ fn delete_does_nothing_for_the_last_item() {
     assert_eq!(h.bodies().len(), 3);
 }
 
+// 下の項目がトランスクルージョンなら、行末での Delete はそれを取り込まない。
+#[test]
+fn delete_does_not_merge_a_transclusion_item_below_away() {
+    let mut h = Harness::with_items(vec![
+        item("a", 1, "a"),
+        item_with("t", 1, |i| i.transclude_item_id = Some("src".into())),
+    ]);
+    h.send(Event::DeleteAtEnd {
+        item_id: "a".into(),
+    });
+    assert_eq!(h.items_ids(), ["a", "t"]);
+    assert!(h.api.calls.is_empty());
+}
+
+// ジャーナルの日の最後の項目は、行末での Delete で下の日の項目を取り込まない。
+#[test]
+fn delete_does_not_merge_the_first_item_of_the_journal_day_below() {
+    let day = |id: &str, page: &str, name: &str| {
+        item_with(id, 1, |i| {
+            i.page_id = page.into();
+            i.name = name.into();
+            i.item_type = "journal".into();
+            i.body = id.into();
+        })
+    };
+    let mut h = Harness::with_items(vec![
+        day("x", "p1", "2026-02-10"),
+        day("y", "p2", "2026-02-09"),
+    ]);
+    h.send(Event::DeleteAtEnd {
+        item_id: "x".into(),
+    });
+    assert_eq!(h.items_ids(), ["x", "y"]);
+    assert!(h.api.calls.is_empty());
+}
+
 /// A1, A2, A3 in this order, with A2 transcluded by an item on another page.
 fn with_a2_transcluded(confirm: bool) -> Harness {
     let mut h = Harness::with_items(vec![
