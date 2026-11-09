@@ -69,3 +69,38 @@ impl<S: Send + Sync> FromRequestParts<S> for ClientId {
         ClientId::of(&parts.headers)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ハイフン付きの36文字のUUIDは、大文字でも小文字でもIDとして読める。
+    #[test]
+    fn a_uuid_with_hyphens_is_an_id_in_either_case() {
+        for text in [
+            "123e4567-e89b-42d3-a456-426614174000",
+            "123E4567-E89B-42D3-A456-426614174000",
+        ] {
+            assert_eq!(text.parse::<ClientId>().unwrap().as_str(), text);
+        }
+    }
+
+    // 長さが違う、ハイフンの位置が違う、16進数でない文字がある文字列は、IDとして読めない。
+    #[test]
+    fn a_text_that_is_not_shaped_as_a_uuid_is_no_id() {
+        for text in [
+            "",
+            "123e4567-e89b-42d3-a456-42661417400",
+            "123e4567-e89b-42d3-a456-4266141740000",
+            "123e4567e89b42d3a456426614174000",
+            "123e4567+e89b-42d3-a456-426614174000",
+            "123e4567-e89b+42d3-a456-426614174000",
+            "123e4567-e89b-42d3+a456-426614174000",
+            "123e4567-e89b-42d3-a456+426614174000",
+            "123e4567-e89b-42d3-a456-42661417400g",
+            "123e4567-e89b-42d3--456-426614174000",
+        ] {
+            assert!(text.parse::<ClientId>().is_err(), "{text}");
+        }
+    }
+}
