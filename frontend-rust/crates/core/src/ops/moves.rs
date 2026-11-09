@@ -6,6 +6,10 @@
 //! Moves run one after another. A move computes its target from the item list, and the
 //! list changes only when the server has answered. A second key press that did not wait
 //! would compute the same target again and the press would be lost.
+//!
+//! A move on a page and a move inside a transclusion are one request, which carries the
+//! text that was typed into the item and is not saved yet (ADR 011). The screen changes when
+//! its answer is there. A move to another day is still several requests.
 
 use crate::app::{apply, done, log_error, run, Cmd, Event, Model, MoveDirection};
 use crate::effects::{Api, ApiError, ApiResult};
