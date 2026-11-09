@@ -492,7 +492,12 @@ impl ItemService {
                 Some(source_id) => find_all_in(&tx, std::slice::from_ref(source_id))?.remove(0),
                 None => edited,
             };
-            self.update_item_in(&tx, &edited, Some(body), None, None, &mut effects)?;
+            let mut body = body.to_string();
+            // A stored body never ends inside a code fence
+            if paste::has_unclosed_code_fence(&body) {
+                body.push_str("\n```");
+            }
+            self.update_item_in(&tx, &edited, Some(&body), None, None, &mut effects)?;
         }
         self.move_items_in(&tx, item_ids, target_page_id, position, delta, &mut effects)?;
         let items = find_all_in(&tx, item_ids)?;
