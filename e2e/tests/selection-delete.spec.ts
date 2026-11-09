@@ -28,6 +28,7 @@ test.describe('deleting a selected parent', () => {
     await page.keyboard.press('Delete');
     await server.itemsSettled(p.id, i => i.length === 1);
 
+    await openEditor(page, items[2].id);
     await page.keyboard.press('Control+z');
 
     const back = await server.itemsSettled(p.id, i => i.length === 3);
