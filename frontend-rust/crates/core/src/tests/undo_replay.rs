@@ -324,6 +324,21 @@ fn create_op(id: &str, after: &str, level: i32, body: &str) -> BatchOp {
     }
 }
 
+// 削除の redo は、項目をここでもう一度消し、削除をサーバーに送る。
+#[test]
+fn redo_of_a_delete_removes_the_item_again_here_and_on_the_server() {
+    let mut h = Harness::with_items(vec![item("a", 1, ""), item("c", 1, "")]);
+    h.model.undo.begin("delete-selection", None);
+    h.model.undo.push_delete(&item("b", 1, "gone"));
+    h.model.undo.commit(None, 0);
+    h.send(Event::Undo);
+
+    h.send(Event::Redo);
+
+    assert_eq!(h.items_ids(), ["a", "c"]);
+    assert_eq!(batch_calls(&h.api)[1], [BatchOp::Delete { id: "b".into() }]);
+}
+
 // いくつかの項目の削除の undo は、上の項目から順に作り直す。下の項目は、先に作り直した上の項目を位置の基準にするためである。
 #[test]
 fn undo_of_a_delete_of_several_items_makes_them_again_from_the_top_down() {

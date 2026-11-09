@@ -220,7 +220,9 @@ fn sync_to_server(model: &Model, ops: &[UndoOp], dir: Direction) -> Cmd {
                 batch.push_update(before, after, target);
             }
             UndoOp::Create { item } | UndoOp::Delete { item } => {
-                if exists_again(op, dir) {
+                // The redo of a create and the undo of a delete put the item back
+                let exists_again = matches!(op, UndoOp::Create { .. }) == (dir == Direction::Redo);
+                if exists_again {
                     put_back.push(item);
                 } else {
                     deletes.push(BatchOp::Delete {
@@ -251,14 +253,4 @@ fn sync_to_server(model: &Model, ops: &[UndoOp], dir: Direction) -> Cmd {
             }
         }
     })
-}
-
-/// True when the replay of a create or a delete op puts its item back: the redo of a create,
-/// or the undo of a delete.
-fn exists_again(op: &UndoOp, dir: Direction) -> bool {
-    match op {
-        UndoOp::Create { .. } => dir == Direction::Redo,
-        UndoOp::Delete { .. } => dir == Direction::Undo,
-        UndoOp::Update { .. } => false,
-    }
 }
