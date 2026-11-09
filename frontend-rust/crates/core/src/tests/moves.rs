@@ -276,3 +276,23 @@ fn the_page_read_again_after_a_move_is_the_page_of_the_transclusion() {
         }]
     );
 }
+
+// トランスクルージョンに打って、まだ保存していない文も、そのトランスクルージョンを動かす要求に入って届く。トランスクルージョンは元の項目の本文を見せ、打った文字は保存されるまで自分で持つ。
+#[test]
+fn text_typed_into_a_transclusion_travels_in_the_move_of_the_transclusion() {
+    let mut h = Harness::with_items(vec![
+        item("a", 1, ""),
+        item_with("root", 1, |i| i.transclude_item_id = Some("s".into())),
+    ]);
+    let mut trees = TranscludedTrees::new();
+    trees.insert("s".into(), vec![item("s", 1, "shown")]);
+    h.model.state.set_transcluded_trees(trees);
+    typed(&mut h, "root", "shown typed");
+    h.send(Event::MoveUp {
+        item_id: "root".into(),
+    });
+    assert_eq!(carried_bodies(&h), [Some("shown typed".to_string())]);
+    assert_eq!(h.items_ids(), ["root", "a"]);
+    h.fire_timers();
+    assert!(crate::harness::update_calls(&h.api).is_empty());
+}
