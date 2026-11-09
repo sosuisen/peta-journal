@@ -1198,6 +1198,21 @@ async fn a_split_at_the_start_puts_an_empty_item_above_and_the_item_keeps_its_bo
     );
 }
 
+// 開いている親を分割すると、新しい項目はその最初の子になる。親の直後に同じ階層で置くと、子を奪ってしまうためである。
+#[tokio::test]
+async fn a_split_of_an_open_parent_puts_the_new_item_in_as_its_first_child() {
+    let page = new_doc_page("items-split-parent").await;
+    let rows = fill(&page.id, &["parent", "  child", "next"]).await;
+
+    let (status, resp) = split(&rows[0].id, "parent", 6).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(
+        outline_of(&page.id).await,
+        ["1:parent", "2:", "2:child", "1:next"]
+    );
+}
+
 // ---- Items: batch ----
 
 /// Applies operations as one batch, the way an undo sends what it replays
