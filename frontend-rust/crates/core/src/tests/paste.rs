@@ -340,6 +340,42 @@ fn after_a_paste_into_a_transclusion_root_the_page_is_reloaded() {
     );
 }
 
+// トランスクルードされた子孫への貼り付けのあとも、ページが読み直される。作られた項目は、このページの項目としては入らない。
+#[test]
+fn after_a_paste_into_a_transcluded_descendant_the_page_is_reloaded() {
+    let mut h = transclusion_harness();
+    answer_paste(
+        &mut h,
+        vec![source_item("c", 2, "childone"), source_item("n1", 2, "two")],
+        "n1",
+        3,
+    );
+    answer_reload(
+        &mut h,
+        vec![
+            source_item("s", 1, "shown"),
+            source_item("c", 2, "childone"),
+            source_item("n1", 2, "two"),
+        ],
+    );
+    paste(&mut h, "c", "one\ntwo", 5);
+    assert_eq!(h.items_ids(), ["top", "root"]);
+    assert_eq!(
+        shown(&h),
+        ["top:1=", "root:2=shown", "c:3=childone", "n1:3=two"]
+    );
+}
+
+// 読み直しに失敗しても、トランスクルージョンのルートは、元の項目の新しい本文を表示する。
+#[test]
+fn a_transclusion_root_shows_the_new_body_of_its_source_even_when_the_reload_fails() {
+    let mut h = transclusion_harness();
+    answer_paste(&mut h, vec![source_item("s", 1, "shownX")], "s", 6);
+    h.api.fail_next("GetPageById", "offline");
+    paste(&mut h, "root", "X", 5);
+    assert_eq!(shown(&h), ["top:1=", "root:2=shownX", "c:3=child"]);
+}
+
 // 画像はアップロードされてカーソル位置にリンクされ、カーソルはリンクの直後に置かれる。
 #[test]
 fn an_image_is_uploaded_linked_at_the_cursor_and_the_cursor_goes_after_the_link() {
