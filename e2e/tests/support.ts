@@ -11,7 +11,7 @@ export interface StoredItem {
   collapsed: boolean;
 }
 
-/** Talks to the journal server directly, past the dev server. */
+/** Talks to the journal server directly, past the app in the browser. */
 export class Server {
   private readonly base = `http://localhost:${serverPort}`;
 
