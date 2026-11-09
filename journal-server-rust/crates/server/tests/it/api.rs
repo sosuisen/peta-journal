@@ -1281,6 +1281,23 @@ async fn an_item_made_again_is_no_longer_remembered_as_deleted() {
     assert_eq!(deleted_dates(), 0);
 }
 
+// 削除の操作は、まとめて1つのグループとして消される。親が子より先に並んでいてもよい。消した項目は答えに入らない。
+#[tokio::test]
+async fn the_deletes_of_a_batch_go_as_one_group() {
+    let page = new_doc_page("items-batch-delete").await;
+    let rows = fill(&page.id, &["keep", "parent", "  child"]).await;
+
+    let (status, resp) = batch(json!([
+        { "op": "delete", "id": rows[1].id },
+        { "op": "delete", "id": rows[2].id },
+    ]))
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(resp["items"], json!([]));
+    assert_eq!(outline_of(&page.id).await, ["1:keep"]);
+}
+
 // ---- Items: group delete ----
 
 // グループ削除は、項目を子孫ごと1回のリクエストで消す。
