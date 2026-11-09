@@ -65,6 +65,8 @@ pub fn handle_enter(model: &mut Model, item_id: &str, cursor: usize) -> Cmd {
     if !ctx.in_transclusion {
         return Command::all([discard, split_on_server(item, cursor, unsaved)]);
     }
+    // From here on the item is inside a transclusion: the levels shown are those of the
+    // visible list, not those of the items of this page
 
     let cmd = if cursor == 0 && body_len > 0 {
         // A transclusion root is an item of this page: the empty item goes before it here,
@@ -93,14 +95,14 @@ pub fn handle_enter(model: &mut Model, item_id: &str, cursor: usize) -> Cmd {
         ) {
             Some(root) => append_empty_item_after_transclusion(model, item, cursor, &root),
             None => {
-                let new_level = level_for_new(model, &item, &ctx);
+                let new_level = level_for_new_item_after(model.state.visible_items(), &item);
                 let position =
                     position_after_subtree(model.state.items(), &item, &save_target_id(&item));
                 append_empty_item_after(model, item, cursor, ctx, position, new_level, None)
             }
         }
     } else {
-        let new_level = level_for_new(model, &item, &ctx);
+        let new_level = level_for_new_item_after(model.state.visible_items(), &item);
         let position = position_after_subtree(model.state.items(), &item, &save_target_id(&item));
         run(move |api| async move {
             let _handover = Handover::begin(&api);
@@ -425,14 +427,4 @@ async fn show_created_item(
             done()
         });
     }
-}
-
-/// The shown level of a new item after this one; a transclusion reads the neighbour from the visible list.
-fn level_for_new(model: &Model, item: &Item, ctx: &EditContext) -> i32 {
-    let items = if ctx.in_transclusion {
-        model.state.visible_items()
-    } else {
-        model.state.items()
-    };
-    level_for_new_item_after(items, item)
 }
