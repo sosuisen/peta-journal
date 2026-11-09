@@ -34,12 +34,15 @@ pub fn paste_text(
     // What was typed before the paste travels in the request. Its auto-save is dropped, or
     // it would overwrite the pasted text a moment later
     let unsaved = model.edits.dirty_item_ids.contains(item_id);
+    // A transclusion root shows the body of its source item. What was typed into it is in
+    // the root itself until it is saved
+    let body = match model.state.get_item_by_id(item_id) {
+        Some(typed) if unsaved => typed.body.clone(),
+        _ => item.body.clone(),
+    };
     let discard = discard_pending_edit(model, &item);
     let request = run(move |api| async move {
-        match api
-            .paste_text(&item.id, &item.body, cursor, &text, mode)
-            .await
-        {
+        match api.paste_text(&item.id, &body, cursor, &text, mode).await {
             Ok(pasted) => api.send_event(Event::Pasted {
                 item_id: item.id,
                 cursor_before: cursor,
