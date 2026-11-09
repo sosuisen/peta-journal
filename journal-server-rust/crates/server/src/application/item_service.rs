@@ -47,6 +47,15 @@ pub struct TaskState {
     pub plan: Option<String>,
 }
 
+/// How a pasted text is read.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PasteMode {
+    /// Tree markdown is converted, and the text is split into items.
+    Auto,
+    /// The text goes into the item as it is.
+    Raw,
+}
+
 /// What a paste changed: the item pasted into, then the items it created, and where the
 /// cursor is after the pasted text.
 #[derive(Debug, Clone)]
@@ -662,6 +671,7 @@ impl ItemService {
         body: &str,
         cursor: usize,
         text: &str,
+        mode: PasteMode,
     ) -> AppResult<Pasted> {
         let item = self.get_item_by_id(item_id)?;
         let split = body
@@ -669,23 +679,28 @@ impl ItemService {
             .nth(cursor)
             .map_or(body.len(), |(i, _)| i);
         let (before, after) = body.split_at(split);
-        let flat = if text.trim_start().starts_with("- ") {
-            tree_markdown::tree_markdown_to_flat_markdown(text)
+        let (mut pieces, levels) = if mode == PasteMode::Raw {
+            (vec![text.to_string()], vec![0])
         } else {
-            text.to_string()
+            let flat = if text.trim_start().starts_with("- ") {
+                tree_markdown::tree_markdown_to_flat_markdown(text)
+            } else {
+                text.to_string()
+            };
+            let split_text = FlatMarkdownSplitter::new(self.parser.clone()).split(&flat)?;
+            let top_level = split_text.items[0].level;
+            let levels: Vec<i32> = split_text
+                .items
+                .iter()
+                .map(|piece| (piece.level - top_level).max(0))
+                .collect();
+            let pieces: Vec<String> = split_text
+                .items
+                .into_iter()
+                .map(|piece| piece.body)
+                .collect();
+            (pieces, levels)
         };
-        let split_text = FlatMarkdownSplitter::new(self.parser.clone()).split(&flat)?;
-        let top_level = split_text.items[0].level;
-        let levels: Vec<i32> = split_text
-            .items
-            .iter()
-            .map(|piece| (piece.level - top_level).max(0))
-            .collect();
-        let mut pieces: Vec<String> = split_text
-            .items
-            .into_iter()
-            .map(|piece| piece.body)
-            .collect();
         let last = pieces.len() - 1;
         let cursor = if last == 0 {
             before.chars().count() + pieces[0].chars().count()

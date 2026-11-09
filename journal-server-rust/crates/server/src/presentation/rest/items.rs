@@ -8,7 +8,7 @@ use axum::{Json, Router};
 use hmtid::Hmtid;
 use serde::{Deserialize, Serialize};
 
-use crate::application::item_service::TaskState;
+use crate::application::item_service::{PasteMode, TaskState};
 use crate::domain::model::{Item, ItemPosition};
 use crate::error::{parse_id, AppError, AppResult};
 use crate::presentation::dto::{select_fields, ItemDto};
@@ -100,6 +100,7 @@ struct PasteRequest {
     body: Option<String>,
     cursor: usize,
     text: Option<String>,
+    mode: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -335,12 +336,17 @@ async fn paste(
     Json(req): Json<PasteRequest>,
 ) -> AppResult<Json<PasteResponse>> {
     let item_id = parse_id(&id)?;
+    let mode = match req.mode.as_deref() {
+        Some("raw") => PasteMode::Raw,
+        _ => PasteMode::Auto,
+    };
     blocking(move || {
         let pasted = state.item_service.paste(
             &item_id,
             req.body.as_deref().unwrap_or_default(),
             req.cursor,
             req.text.as_deref().unwrap_or_default(),
+            mode,
         )?;
         Ok(Json(PasteResponse {
             items: state.dtos.to_dtos(&pasted.items)?,
