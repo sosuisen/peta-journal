@@ -361,6 +361,38 @@ async fn the_clients_hear_of_each_change_of_an_item_over_mcp() {
     }
 }
 
+/// A page with one item, and another page whose only item transcludes it.
+async fn transcluded(mcp: &Mcp, name: &str) -> (ItemRow, PageRef) {
+    let source_page = new_doc_page(&format!("{name}-source")).await;
+    let source = fill(&source_page.id, &["the source"]).await.remove(0);
+    let page = new_doc_page(name).await;
+    let host = fill(&page.id, &["placeholder"]).await.remove(0);
+    call(
+        mcp,
+        "set_transclusion",
+        json!({ "itemId": host.id, "sourceItemId": source.id }),
+    )
+    .await;
+    (source, page)
+}
+
+// トランスクルードされている項目を変えると、その写しを見せているページの変更も知らされる。
+#[tokio::test]
+async fn the_clients_hear_of_the_pages_that_transclude_an_item_updated_over_mcp() {
+    let mcp = connect().await;
+    let (source, page) = transcluded(&mcp, "mcp-tell-transcluder").await;
+    let mut events = listen().await;
+
+    call(
+        &mcp,
+        "update_item",
+        json!({ "itemId": source.id, "body": "changed" }),
+    )
+    .await;
+
+    assert_eq!(told_of(&mut events, &page.id).await["source"], "mcp");
+}
+
 // ---- Pages ----
 
 // docページは作成、再取得、改名、削除できる。
