@@ -355,9 +355,12 @@ async fn paste(
             req.text.as_deref().unwrap_or_default(),
             mode,
         )?;
-        let page_id = pasted.items[0].page_id.to_string();
+        // The first item is the one written to: the source item, when a transclusion was
+        // pasted into
+        let written = &pasted.items[0];
+        let page_id = written.page_id.to_string();
         state.sse.broadcast_pages_updated(&page_id);
-        broadcast_to_transcluders(&state, &item_id, &page_id)?;
+        broadcast_to_transcluders(&state, &written.id, &page_id)?;
         Ok(Json(PasteResponse {
             items: state.dtos.to_dtos(&pasted.items)?,
             cursor: CursorDto {
