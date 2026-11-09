@@ -296,3 +296,19 @@ fn text_typed_into_a_transclusion_travels_in_the_move_of_the_transclusion() {
     h.fire_timers();
     assert!(crate::harness::update_calls(&h.api).is_empty());
 }
+
+// トランスクルージョンの中の移動の答えが届いたときに、その項目がもう画面に無ければ、ページを読み直さず、フォーカスも移さない。キーの保留は終わり、次の移動を始められる。
+#[test]
+fn the_answer_to_a_move_inside_a_transclusion_no_longer_shown_reads_and_focuses_nothing() {
+    let mut h = Harness::with_items(vec![item("x", 1, "other page")]);
+    h.model.key_relay.hold_until_focus();
+    h.model.move_in_progress = true;
+    h.send(Event::MovedInTransclusion {
+        item_id: "c2".into(),
+    });
+    assert!(h.api.calls.is_empty());
+    assert!(h.focused_editor_requests().is_empty());
+    assert!(!h.model.key_relay.is_holding());
+    assert!(!h.model.move_in_progress);
+    assert_eq!(h.model.edits.edit_handovers, 0);
+}
