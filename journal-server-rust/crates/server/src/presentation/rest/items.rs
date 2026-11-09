@@ -39,7 +39,6 @@ pub fn routes() -> Router<SharedState> {
         )
         .route("/api/items/{id}/paste", post(paste))
         .route("/api/items/{id}/cycle-task", post(cycle_task))
-        .route("/api/items/{id}/task", axum::routing::put(set_task))
         .route(
             "/api/items/{id}/properties/{key}",
             axum::routing::put(upsert_property).delete(delete_property),
@@ -112,7 +111,7 @@ enum BatchOpRequest {
         body: Option<String>,
         level: Option<i32>,
         collapsed: Option<bool>,
-        task: Option<SetTaskRequest>,
+        task: Option<TaskStateRequest>,
     },
     Delete {
         id: String,
@@ -261,7 +260,7 @@ struct UpsertPropertyRequest {
 
 #[derive(Deserialize, Default)]
 #[serde(rename_all = "camelCase", default)]
-struct SetTaskRequest {
+struct TaskStateRequest {
     task: bool,
     begin: Option<String>,
     end: Option<String>,
@@ -587,26 +586,6 @@ async fn cycle_task(
     let item_id = parse_id(&id)?;
     blocking(move || {
         let item = state.item_service.cycle_task(&item_id)?;
-        state.sse.broadcast_pages_updated(item.page_id.as_str());
-        item_response(&state, &item)
-    })
-    .await
-}
-
-async fn set_task(
-    State(state): State<SharedState>,
-    Path(id): Path<String>,
-    Json(req): Json<SetTaskRequest>,
-) -> AppResult<Json<ItemResponse>> {
-    let item_id = parse_id(&id)?;
-    let task = TaskState {
-        task: req.task,
-        begin: req.begin,
-        end: req.end,
-        plan: req.plan,
-    };
-    blocking(move || {
-        let item = state.item_service.set_task(&item_id, &task)?;
         state.sse.broadcast_pages_updated(item.page_id.as_str());
         item_response(&state, &item)
     })
