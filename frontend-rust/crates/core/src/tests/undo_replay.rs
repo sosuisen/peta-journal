@@ -581,6 +581,25 @@ fn undo_of_a_logical_outdent_puts_the_level_and_the_place_back() {
     );
 }
 
+// 移動の undo では、動いた項目のエディタが開いたままである。行が置き直されるとエディタはフォーカスを失うが、それで編集は終わらない。
+#[test]
+fn undo_of_a_move_keeps_the_editor_of_the_moved_item_open() {
+    // a went from the top to below b
+    let mut h = Harness::with_items(vec![at("b", "b", 1), at("a", "c", 1)]);
+    h.model
+        .undo
+        .record_updates("move", [(&at("a", "a", 1), &at("a", "c", 1))], 0);
+    h.model.state.add_editing_item("a");
+    h.blurs_when_drawn = Some("a".into());
+
+    h.send(Event::Undo);
+
+    assert_eq!(h.items_ids(), ["a", "b"]);
+    assert!(h.model.state.is_editing("a"));
+    assert_eq!(h.focused_editor_requests(), [Some("a".to_string())]);
+    assert_eq!(h.model.edits.edit_handovers, 0, "the handover is over");
+}
+
 // 移動と作り直しがある undo は、上の項目から順に送る。作り直す項目の位置の基準が、先に動いているためである。
 #[test]
 fn an_undo_that_moves_and_makes_items_again_sends_them_from_the_top_down() {

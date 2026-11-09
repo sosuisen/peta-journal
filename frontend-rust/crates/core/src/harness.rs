@@ -402,6 +402,9 @@ pub struct Harness {
     pub timers: Vec<Request<TimerOp>>,
     pub sse: Vec<Request<SseOp>>,
     pub ui: Vec<UiOp>,
+    /// The item whose editor loses its focus when the shell draws, as the editor of a row put
+    /// in another place does. The blur reaches the core before the answer to the focus request.
+    pub blurs_when_drawn: Option<String>,
     pub navigations: Vec<NavigateOp>,
     /// What `ReadClipboardText` answers.
     pub clipboard_text: String,
@@ -428,6 +431,7 @@ impl Harness {
             timers: Vec::new(),
             sse: Vec::new(),
             ui: Vec::new(),
+            blurs_when_drawn: None,
             navigations: Vec::new(),
             clipboard_text: String::new(),
             confirm: true,
@@ -529,6 +533,14 @@ impl Harness {
                     },
                     _ => UiOutput::Done,
                 };
+                if matches!(op, UiOp::FocusEditor { .. }) {
+                    if let Some(item_id) = self.blurs_when_drawn.take() {
+                        let cmd = self
+                            .app
+                            .update(Event::EditFinished { item_id }, &mut self.model);
+                        self.root.spawn(|ctx| cmd.into_future(ctx));
+                    }
+                }
                 self.ui.push(op);
                 let _ = request.resolve(answer);
             }
