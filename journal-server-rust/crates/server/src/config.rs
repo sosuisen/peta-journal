@@ -196,4 +196,14 @@ mod tests {
 
         assert_eq!(found, Some(beside));
     }
+
+    // 指定がなく、実行ファイルの隣に`frontend/`もなければ、画面のフォルダはない。
+    #[test]
+    fn without_the_flag_and_a_folder_beside_the_executable_there_is_no_frontend_folder() {
+        let dir = tempfile::tempdir().unwrap();
+
+        let found = frontend_dir(None, Ok(dir.path().join("journal-server")));
+
+        assert_eq!(found, None);
+    }
 }
