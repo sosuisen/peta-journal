@@ -536,6 +536,21 @@ fn text_typed_into_a_transclusion_and_not_saved_yet_travels_in_the_split() {
     assert!(update_calls(&h.api).is_empty());
 }
 
+// トランスクルージョンの分割に失敗すると、要求に入っていた未保存の入力は、もう一度自動保存にかけられ、元の項目に保存される。
+#[test]
+fn after_a_failed_split_the_text_typed_into_a_transclusion_is_auto_saved_again() {
+    let mut h = transclusion_harness(Vec::new());
+    h.model.state.add_editing_item("root");
+    typed(&mut h, "root", "shown typed");
+    h.api.fail_next("SplitItem", "offline");
+    enter(&mut h, "root", 8);
+    h.fire_timers();
+    assert_eq!(
+        update_calls(&h.api),
+        [("s".into(), Some("shown typed".into()))]
+    );
+}
+
 // 元の項目が消えた（壊れた）トランスクルージョンでの Enter も、分割としてサーバーに送る。どう分けるかは、サーバーが今のデータで決める。
 #[test]
 fn enter_in_a_broken_transclusion_is_sent_to_the_server_as_a_split() {
