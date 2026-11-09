@@ -708,6 +708,29 @@ async fn merging_appends_the_body_and_hands_the_children_to_the_receiving_item()
     );
 }
 
+// 要求が本文を運んできた項目は、保存されている本文ではなく、その本文で結合される。エディタに入力してまだ保存していない文が入っている。運んでこなかった項目は、保存されている本文で結合される。
+#[tokio::test]
+async fn merging_joins_the_bodies_the_request_carries_and_the_stored_ones_for_the_rest() {
+    let page = new_doc_page("items-merge-unsaved").await;
+    let rows = fill(&page.id, &["first", "second", "third"]).await;
+
+    let (status, resp) = post(
+        "/api/items/merge",
+        json!({ "itemId": rows[1].id, "intoId": rows[0].id, "body": "second typed" }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+    assert_eq!(resp["item"]["body"], json!("firstsecond typed"));
+
+    let (status, resp) = post(
+        "/api/items/merge",
+        json!({ "itemId": rows[2].id, "intoId": rows[0].id, "intoBody": "typed " }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+    assert_eq!(outline_of(&page.id).await, ["1:typed third"]);
+}
+
 // トランスクルージョンは結合できない。消える側でも受け取る側でも断られる。
 #[tokio::test]
 async fn a_transclusion_is_not_merged_on_either_side() {
