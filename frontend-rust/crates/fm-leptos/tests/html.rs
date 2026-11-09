@@ -86,22 +86,41 @@ fn code_block_with_and_without_info() {
     );
 }
 
-// 箇条書きと番号付きリストは項目を p で包んだ ul/ol にレンダリングされ、開始番号は start 属性になる。comrak が項目を tight: false とするためである。
+// 項目の間に空行のないリスト（タイト）は、項目を p で包まない ul/ol にレンダリングされ、開始番号は start 属性になる。
 #[test]
-fn lists() {
-    // comrak marks items `tight: false` even in a tight list, and the Angular renderer reads
-    // the item's flag, so list items keep their `<p>`.
-    assert_eq!(
-        render_plain("- a\n- b"),
-        "<ul><li><p>a</p></li><li><p>b</p></li></ul>"
-    );
-    assert_eq!(
-        render_plain("1. a\n2. b"),
-        "<ol><li><p>a</p></li><li><p>b</p></li></ol>"
-    );
+fn tight_lists() {
+    assert_eq!(render_plain("- a\n- b"), "<ul><li>a</li><li>b</li></ul>");
+    assert_eq!(render_plain("1. a\n2. b"), "<ol><li>a</li><li>b</li></ol>");
     assert_eq!(
         render_plain("3. a\n4. b"),
-        "<ol start=\"3\"><li><p>a</p></li><li><p>b</p></li></ol>"
+        "<ol start=\"3\"><li>a</li><li>b</li></ol>"
+    );
+}
+
+// 項目の間に空行のあるリスト（ルーズ）は、項目を p で包む。
+#[test]
+fn loose_lists() {
+    assert_eq!(
+        render_plain("- a\n\n- b"),
+        "<ul><li><p>a</p></li><li><p>b</p></li></ul>"
+    );
+}
+
+// タイトなリストで p が外れるのは、項目の直下の段落だけである。項目の中の引用の段落は p で包まれる。
+#[test]
+fn a_paragraph_in_a_block_quote_of_a_tight_item_keeps_its_p() {
+    assert_eq!(
+        render_plain("- a\n  > q"),
+        "<ul><li>a<blockquote><p>q</p></blockquote></li></ul>"
+    );
+}
+
+// ルーズなリストの中のタイトなリストは、p で包まれない。タイトかどうかはリストごとに決まる。
+#[test]
+fn a_tight_list_inside_a_loose_list_is_tight() {
+    assert_eq!(
+        render_plain("- a\n\n  - x\n  - y\n\n- b"),
+        "<ul><li><p>a</p><ul><li>x</li><li>y</li></ul></li><li><p>b</p></li></ul>"
     );
 }
 
