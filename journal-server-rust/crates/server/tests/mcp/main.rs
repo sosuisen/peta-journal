@@ -472,6 +472,32 @@ async fn a_doc_page_is_created_found_again_renamed_and_deleted() {
     assert!(error.contains("Page not found"), "{error}");
 }
 
+// ページを改名しても消しても、そのページの変更がクライアントに知らされる。
+#[tokio::test]
+async fn the_clients_hear_of_a_page_renamed_or_deleted_over_mcp() {
+    let mcp = connect().await;
+    let page = new_doc_page("mcp-tell-page").await;
+    let changes = [
+        (
+            "update_page",
+            json!({ "pageId": page.id, "title": format!("{}-renamed", page.title) }),
+        ),
+        ("delete_page", json!({ "pageId": page.id })),
+    ];
+
+    for (tool, args) in changes {
+        let mut events = listen().await;
+
+        call(&mcp, tool, args).await;
+
+        assert_eq!(
+            told_of(&mut events, &page.id).await["source"],
+            "mcp",
+            "{tool}"
+        );
+    }
+}
+
 // 最近のページでは、最後に触ったページが先頭に来る。
 #[tokio::test]
 async fn the_most_recently_touched_page_comes_first_among_recent_pages() {
