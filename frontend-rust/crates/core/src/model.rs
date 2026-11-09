@@ -271,6 +271,13 @@ pub enum BatchOp {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         task: Option<TaskState>,
     },
+    /// Moves items, in their order, to a position on a page, as the undo of a move does.
+    #[serde(rename_all = "camelCase")]
+    Move {
+        ids: Vec<String>,
+        page_id: String,
+        position: ItemPosition,
+    },
     /// Deletes an item. The server deletes the items of a batch last, as one group.
     Delete { id: String },
 }

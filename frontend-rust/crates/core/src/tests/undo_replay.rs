@@ -467,6 +467,162 @@ fn undo_of_a_merge_sends_the_update_before_the_item_made_again() {
     );
 }
 
+/// An item with the index that sorts it among the others of its page
+fn at(id: &str, idx: &str, level: i32) -> Item {
+    item_with(id, level, |i| i.idx = idx.into())
+}
+
+fn move_op(ids: &[&str], position: ItemPosition) -> BatchOp {
+    BatchOp::Move {
+        ids: ids.iter().map(|id| id.to_string()).collect(),
+        page_id: "page1".into(),
+        position,
+    }
+}
+
+// 移動の undo は、項目を元の位置に戻し、その移動をサーバーに送る。redo は、もう一度動かす。
+#[test]
+fn undo_of_a_move_puts_the_item_back_where_it_was_and_redo_moves_it_again() {
+    // a went from above b to below it
+    let mut h = Harness::with_items(vec![at("b", "b", 1), at("a", "c", 1)]);
+    h.model
+        .undo
+        .record_updates("move", [(&at("a", "a", 1), &at("a", "c", 1))], 0);
+
+    h.send(Event::Undo);
+    assert_eq!(h.items_ids(), ["a", "b"]);
+    assert_eq!(
+        batch_calls(&h.api),
+        [[update_op("a", 1, ""), move_op(&["a"], ItemPosition::First)]]
+    );
+
+    h.send(Event::Redo);
+    assert_eq!(h.items_ids(), ["b", "a"]);
+    assert_eq!(
+        batch_calls(&h.api)[1],
+        [
+            update_op("a", 1, ""),
+            move_op(&["a"], ItemPosition::after("b"))
+        ]
+    );
+}
+
+// 子を持つ項目の移動の undo は、まとまりを1つの移動として、上の項目から順にサーバーに送る。親だけを先に動かすと、子が別の親の下に入るためである。
+#[test]
+fn undo_of_a_move_of_a_parent_sends_the_group_as_one_move() {
+    // a and its child a1 went from above b to below it
+    let mut h = Harness::with_items(vec![at("b", "b", 1), at("a", "c", 1), at("a1", "d", 2)]);
+    h.model.undo.record_updates(
+        "move",
+        [
+            (&at("a", "a", 1), &at("a", "c", 1)),
+            (&at("a1", "a5", 2), &at("a1", "d", 2)),
+        ],
+        0,
+    );
+
+    h.send(Event::Undo);
+
+    assert_eq!(h.items_ids(), ["a", "a1", "b"]);
+    let sent = batch_calls(&h.api).remove(0);
+    assert_eq!(
+        sent.last(),
+        Some(&move_op(&["a", "a1"], ItemPosition::First))
+    );
+    assert_eq!(sent.len(), 3, "two updates and one move: {sent:?}");
+}
+
+// トランスクルージョンの中での移動の undo は、項目を並べ直さず、移動も送らない。元のページの項目の並びを、このページは持っていないためである。
+#[test]
+fn undo_of_a_move_inside_a_transclusion_leaves_the_item_where_it_is() {
+    let root = item_with("root", 1, |i| i.transclude_item_id = Some("s".into()));
+    let mut h = Harness::with_items(vec![root]);
+    let mut trees = TranscludedTrees::new();
+    // c2 went from below c1 to above it
+    let tree = vec![at("s", "s", 1), at("c2", "s1", 2), at("c1", "s2", 2)];
+    trees.insert("s".into(), tree);
+    h.model.state.set_transcluded_trees(trees);
+    h.model
+        .undo
+        .record_updates("move", [(&at("c2", "s3", 2), &at("c2", "s1", 2))], 0);
+
+    h.send(Event::Undo);
+
+    assert_eq!(h.items_ids(), ["root"]);
+    let shown: Vec<String> = h
+        .view()
+        .outline
+        .rows
+        .iter()
+        .map(|r| r.item.id.clone())
+        .collect();
+    assert_eq!(shown, ["root", "c2", "c1"]);
+    assert_eq!(batch_calls(&h.api), [[update_op("c2", 2, "")]]);
+}
+
+// 論理アウトデントの undo は、階層と位置の両方を戻す。階層の更新を先に、移動を後に送る。
+#[test]
+fn undo_of_a_logical_outdent_puts_the_level_and_the_place_back() {
+    // x was the first child of p; it went below the last child, one level up
+    let mut h = Harness::with_items(vec![at("p", "p", 1), at("c1", "p2", 2), at("x", "p3", 1)]);
+    h.model
+        .undo
+        .record_updates("outdent", [(&at("x", "p1", 2), &at("x", "p3", 1))], 0);
+
+    h.send(Event::Undo);
+
+    assert_eq!(h.outline(), ["p:1=", "x:2=", "c1:2="]);
+    assert_eq!(
+        batch_calls(&h.api),
+        [[
+            update_op("x", 2, ""),
+            move_op(&["x"], ItemPosition::after("p"))
+        ]]
+    );
+}
+
+// 移動の undo では、動いた項目のエディタが開いたままである。行が置き直されるとエディタはフォーカスを失うが、それで編集は終わらない。
+#[test]
+fn undo_of_a_move_keeps_the_editor_of_the_moved_item_open() {
+    // a went from the top to below b
+    let mut h = Harness::with_items(vec![at("b", "b", 1), at("a", "c", 1)]);
+    h.model
+        .undo
+        .record_updates("move", [(&at("a", "a", 1), &at("a", "c", 1))], 0);
+    h.model.state.add_editing_item("a");
+    h.blurs_when_drawn = Some("a".into());
+
+    h.send(Event::Undo);
+
+    assert_eq!(h.items_ids(), ["a", "b"]);
+    assert!(h.model.state.is_editing("a"));
+    assert_eq!(h.focused_editor_requests(), [Some("a".to_string())]);
+    assert_eq!(h.model.edits.edit_handovers, 0, "the handover is over");
+}
+
+// 移動と作り直しがある undo は、上の項目から順に送る。作り直す項目の位置の基準が、先に動いているためである。
+#[test]
+fn an_undo_that_moves_and_makes_items_again_sends_them_from_the_top_down() {
+    // y went from the top to below k, and x, which was below y, was deleted
+    let mut h = Harness::with_items(vec![at("k", "b", 1), at("y", "c", 1)]);
+    h.model.undo.begin("move", None);
+    h.model.undo.push_update(&at("y", "a", 1), &at("y", "c", 1));
+    h.model.undo.push_delete(&at("x", "a5", 1));
+    h.model.undo.commit(None, 0);
+
+    h.send(Event::Undo);
+
+    assert_eq!(h.items_ids(), ["y", "x", "k"]);
+    assert_eq!(
+        batch_calls(&h.api),
+        [[
+            update_op("y", 1, ""),
+            move_op(&["y"], ItemPosition::First),
+            create_op("x", "y", 1, ""),
+        ]]
+    );
+}
+
 // undo スタックが空なら何も起きず、保留中の編集もそのままである。
 #[test]
 fn does_nothing_on_an_empty_stack() {

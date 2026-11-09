@@ -113,6 +113,12 @@ enum BatchOpRequest {
         collapsed: Option<bool>,
         task: Option<TaskStateRequest>,
     },
+    #[serde(rename_all = "camelCase")]
+    Move {
+        ids: Vec<String>,
+        page_id: String,
+        position: String,
+    },
     Delete {
         id: String,
     },
@@ -151,6 +157,15 @@ impl BatchOpRequest {
                     end: task.end,
                     plan: task.plan,
                 }),
+            },
+            BatchOpRequest::Move {
+                ids,
+                page_id,
+                position,
+            } => BatchOp::Move {
+                ids: parse_ids(Some(ids), "ids")?,
+                page_id: parse_id(&page_id)?,
+                position: parse_position(Some(&position))?,
             },
             BatchOpRequest::Delete { id } => BatchOp::Delete { id: parse_id(&id)? },
         })

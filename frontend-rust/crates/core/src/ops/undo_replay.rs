@@ -6,13 +6,13 @@
 use crate::app::{done, log_error, run, Cmd, Event, Model};
 use crate::model::{BatchOp, Item};
 use crate::ops::edit::discard_pending_edit_of_focused_item;
-use crate::ops::edit::{focus_editor, save_target_id, show_parsed};
+use crate::ops::edit::{focus_editor, save_target_id, show_parsed, Handover};
 use crate::ops::file_reload::reload_shown_page;
 use crate::ops::outline_events::ensure_at_least_one_item;
 use crate::outline::tree::position_by_index;
 use crate::outline::{CursorState, UndoEntry, UndoOp};
 use crux_core::Command;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// Which sync of an undo or a redo wrote each item last. The answers can come back in another
 /// order than the requests went out, so the answer of an older sync is not shown over what a
@@ -28,9 +28,15 @@ impl UndoSyncs {
     fn begin(&mut self, ops: &[BatchOp]) -> u64 {
         self.sent += 1;
         for op in ops {
-            let (BatchOp::Create { id, .. } | BatchOp::Update { id, .. } | BatchOp::Delete { id }) =
-                op;
-            self.last_of_item.insert(id.clone(), self.sent);
+            let ids = match op {
+                BatchOp::Create { id, .. }
+                | BatchOp::Update { id, .. }
+                | BatchOp::Delete { id } => std::slice::from_ref(id),
+                BatchOp::Move { ids, .. } => ids.as_slice(),
+            };
+            for id in ids {
+                self.last_of_item.insert(id.clone(), self.sent);
+            }
         }
         self.sent
     }
@@ -65,10 +71,11 @@ pub fn perform(model: &mut Model, dir: Direction) -> Cmd {
     if dir == Direction::Undo {
         ops.reverse();
     }
+    let moves = ops.iter().any(|op| moves_an_item(model, op));
     for op in &ops {
         apply_to_state(model, op, dir);
     }
-    let focus = restore_cursor(model, &entry, dir);
+    let focus = restore_cursor(model, &entry, dir, moves);
 
     match dir {
         Direction::Undo => model.undo.push_redo(entry),
@@ -88,7 +95,14 @@ fn apply_to_state(model: &mut Model, op: &UndoOp, dir: Direction) {
             } else {
                 after
             };
-            model.state.replace_item(target);
+            if !is_move(model, before, after) {
+                model.state.replace_item(target);
+            } else {
+                // The item goes where its index sorts it
+                model.state.delete_item(&target.id);
+                let position = position_by_index(model.state.items(), target);
+                model.state.add_item(target.clone(), &position);
+            }
             if before.collapsed != after.collapsed {
                 model.state.toggle_collapsed(&target.id);
             }
@@ -112,9 +126,21 @@ fn apply_to_state(model: &mut Model, op: &UndoOp, dir: Direction) {
     }
 }
 
+/// True when an update moved an item of this page. A move is recorded as an update that
+/// changes the index. An item inside a transclusion is left where it is: this page does not
+/// hold the order of the items of the source page.
+fn is_move(model: &Model, before: &Item, after: &Item) -> bool {
+    before.idx != after.idx && model.state.is_own_item(&before.id)
+}
+
+fn moves_an_item(model: &Model, op: &UndoOp) -> bool {
+    matches!(op, UndoOp::Update { before, after } if is_move(model, before, after))
+}
+
 /// Opens the editor where the cursor was before (undo) or after (redo) the entry.
 /// Entries without a recorded cursor, such as body edits, keep editing the first updated item.
-fn restore_cursor(model: &mut Model, entry: &UndoEntry, dir: Direction) -> Cmd {
+/// When the entry moves an item, the blur of an editor does not end its edit meanwhile.
+fn restore_cursor(model: &mut Model, entry: &UndoEntry, dir: Direction, moves: bool) -> Cmd {
     let Some(cursor) = cursor_of(entry, dir) else {
         model.state.remove_all_editing_items();
         return done();
@@ -124,7 +150,11 @@ fn restore_cursor(model: &mut Model, entry: &UndoEntry, dir: Direction) -> Cmd {
         .state
         .set_focused_item(&cursor.item_id, Some(cursor.position));
     let id = cursor.item_id.clone();
-    run(move |api| async move { focus_editor(&api, Some(id)).await })
+    run(move |api| async move {
+        // The editor of a row that is put in another place loses its focus
+        let _handover = moves.then(|| Handover::begin(&api));
+        focus_editor(&api, Some(id)).await
+    })
 }
 
 fn cursor_of(entry: &UndoEntry, dir: Direction) -> Option<CursorState> {
@@ -204,6 +234,18 @@ impl Batch {
         });
         self.recreated.push(item.id.clone());
     }
+
+    /// Adds the move of a run of items the replay put back in their place: the run goes
+    /// after the item above its first item, in one move, so that a parent and its children
+    /// stay together.
+    fn push_move(&mut self, model: &Model, run: Option<(Vec<String>, &Item)>) {
+        let Some((ids, first)) = run else { return };
+        self.ops.push(BatchOp::Move {
+            ids,
+            page_id: first.page_id.clone(),
+            position: position_by_index(model.state.items(), first),
+        });
+    }
 }
 
 /// Shows what the server answered to the batch of an undo or a redo: where it put each item,
@@ -239,7 +281,8 @@ pub fn show_synced(
 /// it writes none, the page is shown as the server has it, as the screen is then ahead of it.
 fn sync_to_server(model: &mut Model, ops: &[UndoOp], dir: Direction) -> Cmd {
     let mut batch = Batch::default();
-    let mut put_back = Vec::new();
+    let mut put_back = HashSet::new();
+    let mut moved = HashSet::new();
     // The server deletes last, as one group: a parent deleted on its own is refused
     let mut deletes = Vec::new();
     for op in ops {
@@ -251,12 +294,15 @@ fn sync_to_server(model: &mut Model, ops: &[UndoOp], dir: Direction) -> Cmd {
                     after
                 };
                 batch.push_update(before, after, target);
+                if is_move(model, before, after) {
+                    moved.insert(target.id.as_str());
+                }
             }
             UndoOp::Create { item } | UndoOp::Delete { item } => {
                 // The redo of a create and the undo of a delete put the item back
                 let exists_again = matches!(op, UndoOp::Create { .. }) == (dir == Direction::Redo);
                 if exists_again {
-                    put_back.push(item);
+                    put_back.insert(item.id.as_str());
                 } else {
                     deletes.push(BatchOp::Delete {
                         id: item.id.clone(),
@@ -265,13 +311,26 @@ fn sync_to_server(model: &mut Model, ops: &[UndoOp], dir: Direction) -> Cmd {
             }
         }
     }
-    // From the top down, after the updates: an item is made after the one above it, which
-    // must be there, and at a level the one above allows
-    let place_of = |item: &Item| model.state.items().iter().position(|i| i.id == item.id);
-    put_back.sort_by_key(|item| place_of(item));
-    for item in put_back {
-        batch.push_create(model, item);
+    // What the replay put in place goes from the top down, after the updates: an item is
+    // made or moved after the one above it, which must be there, at a level it allows
+    let mut moving: Option<(Vec<String>, &Item)> = None;
+    for item in model.state.items() {
+        let joins = moved.contains(item.id.as_str())
+            && moving
+                .as_ref()
+                .is_some_and(|(_, first)| first.page_id == item.page_id);
+        if let (true, Some((ids, _))) = (joins, moving.as_mut()) {
+            ids.push(item.id.clone());
+            continue;
+        }
+        batch.push_move(model, moving.take());
+        if put_back.contains(item.id.as_str()) {
+            batch.push_create(model, item);
+        } else if moved.contains(item.id.as_str()) {
+            moving = Some((vec![item.id.clone()], item));
+        }
     }
+    batch.push_move(model, moving.take());
     batch.ops.extend(deletes);
     let sync = model.undo_syncs.begin(&batch.ops);
     run(move |api| async move {
