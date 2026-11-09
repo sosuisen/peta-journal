@@ -670,3 +670,40 @@ fn an_undo_right_after_typing_drops_the_pending_save_of_the_typed_text() {
     assert_eq!(batch_calls(&h.api), [vec![update_op("a", 1, "old")]]);
     assert!(update_calls(&h.api).is_empty());
 }
+
+fn enter(h: &mut Harness, item_id: &str, cursor: usize) {
+    let now = h.now_ms;
+    h.send(Event::EnterPressed {
+        item_id: item_id.into(),
+        cursor,
+        now_ms: now,
+    });
+}
+
+// Enter で作った項目を undo で消すと、編集はカーソルが戻る項目だけになる。消えた項目に編集中の印が残ると、他のクライアントの変更が取り込まれなくなる。
+#[test]
+fn undoing_an_enter_leaves_only_the_returned_item_being_edited() {
+    let mut h = Harness::with_items(vec![item("a", 1, "abc")]);
+    h.model.state.add_editing_item("a");
+    enter(&mut h, "a", 3);
+    assert!(h.model.state.is_editing("new1"));
+
+    h.send(Event::Undo);
+
+    assert!(h.model.state.is_editing("a"));
+    assert!(!h.model.state.is_editing("new1"));
+}
+
+// undo した Enter を redo すると、編集は作り直した項目だけになる。
+#[test]
+fn redoing_an_enter_leaves_only_the_new_item_being_edited() {
+    let mut h = Harness::with_items(vec![item("a", 1, "abc")]);
+    h.model.state.add_editing_item("a");
+    enter(&mut h, "a", 3);
+    h.send(Event::Undo);
+
+    h.send(Event::Redo);
+
+    assert!(h.model.state.is_editing("new1"));
+    assert!(!h.model.state.is_editing("a"));
+}
