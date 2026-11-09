@@ -1121,6 +1121,19 @@ async fn the_clients_hear_of_the_pages_that_transclude_the_item_pasted_into() {
     assert_eq!(items(&page.id).await[0].body, "aXb");
 }
 
+// もう無い項目への貼り付けは断られる。ほかの項目の操作と同じ答えである。
+#[tokio::test]
+async fn a_paste_into_an_item_that_is_gone_is_refused() {
+    let page = new_doc_page("items-paste-gone").await;
+    let rows = fill(&page.id, &["ab", "other"]).await;
+    assert_eq!(delete(&format!("/api/items/{}", rows[0].id)).await, 204);
+
+    let (status, resp) = paste(&rows[0].id, "ab", 1, "X", "auto").await;
+
+    assert_eq!(status, 400, "{resp}");
+    assert_eq!(outline_of(&page.id).await, ["1:other"]);
+}
+
 // ---- Items: group delete ----
 
 // グループ削除は、項目を子孫ごと1回のリクエストで消す。
