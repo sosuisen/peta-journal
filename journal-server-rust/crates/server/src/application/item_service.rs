@@ -57,6 +57,38 @@ pub struct Pasted {
     pub cursor: usize,
 }
 
+/// One operation of a batch.
+#[derive(Debug, Clone)]
+pub enum BatchOp {
+    /// Makes an item with the given id, as the undo of a deletion makes the item again.
+    Create {
+        id: Hmtid,
+        page_id: Hmtid,
+        position: ItemPosition,
+        level: i32,
+        body: String,
+    },
+    /// Writes the given fields of an item. A task state is written whole, with its times.
+    Update {
+        id: Hmtid,
+        body: Option<String>,
+        level: Option<i32>,
+        collapsed: Option<bool>,
+        task: Option<TaskState>,
+    },
+    /// Deletes an item. The deletes of a batch go last, as one group.
+    Delete { id: Hmtid },
+}
+
+/// What a batch came to.
+#[derive(Debug, Clone)]
+pub struct BatchApplied {
+    /// The items written, as they are after the batch.
+    pub items: Vec<Item>,
+    /// The pages the batch changed.
+    pub page_ids: BTreeSet<Hmtid>,
+}
+
 /// What an operation does outside the database, once its transaction is committed: the
 /// search index, the tag pages and the export of the pages it touched.
 #[derive(Default)]
@@ -139,7 +171,15 @@ impl ItemService {
         client_id: Option<Hmtid>,
         effects: &mut AfterCommit,
     ) -> AppResult<Item> {
-        let id = client_id.unwrap_or_else(|| self.ids.generate_item_id());
+        let id = match client_id {
+            Some(id) => {
+                // The undo of a deletion makes the item again with its id: it is not a
+                // deleted item any more, or the import of its file would take it away
+                ItemRepository::forget_deleted_in(tx, &id)?;
+                id
+            }
+            None => self.ids.generate_item_id(),
+        };
         let now = now_millis();
         let parsed = ItemBody::parse(body);
         let ast = self.parser.parse_to_ast(&parsed.text);
@@ -472,15 +512,30 @@ impl ItemService {
         }
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
+        let mut effects = AfterCommit::default();
+        self.remove_group_in(&tx, item_ids, &mut effects)?;
+        tx.commit()?;
+        self.finish(effects);
+        Ok(())
+    }
+
+    /// Removes a group of items inside a transaction. The group is refused when it leaves a
+    /// descendant of one of its items behind.
+    fn remove_group_in(
+        &self,
+        tx: &Connection,
+        item_ids: &[Hmtid],
+        effects: &mut AfterCommit,
+    ) -> AppResult<()> {
         let mut items = Vec::new();
         for id in item_ids {
-            let item = ItemRepository::find_by_id_in(&tx, id)?
+            let item = ItemRepository::find_by_id_in(tx, id)?
                 .ok_or_else(|| AppError::not_found(format!("Item not found: {id}")))?;
             items.push(item);
         }
         let group: BTreeSet<&str> = item_ids.iter().map(Hmtid::as_str).collect();
         for item in &items {
-            for descendant in ItemRepository::find_item_with_descendants_in(&tx, &item.id)? {
+            for descendant in ItemRepository::find_item_with_descendants_in(tx, &item.id)? {
                 if !group.contains(descendant.id.as_str()) {
                     return Err(AppError::bad_request(format!(
                         "Item {} has a descendant that is not deleted: {}",
@@ -489,11 +544,7 @@ impl ItemService {
                 }
             }
         }
-        let mut effects = AfterCommit::default();
-        self.remove_items(&tx, &items, &mut effects)?;
-        tx.commit()?;
-        self.finish(effects);
-        Ok(())
+        self.remove_items(tx, &items, effects)
     }
 
     /// Removes items inside a transaction: their copies go to their transcluders first, then
@@ -702,6 +753,83 @@ impl ItemService {
         })
     }
 
+    /// Applies operations in their order, in one transaction: all of them or none. An undo
+    /// or a redo sends what it replays this way (ADR 011).
+    pub fn apply_batch(&self, ops: &[BatchOp]) -> AppResult<BatchApplied> {
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+        let mut effects = AfterCommit::default();
+        let mut written = Vec::new();
+        let mut deleted = Vec::new();
+        let mut transcluder_pages = BTreeSet::new();
+        for op in ops {
+            match op {
+                BatchOp::Create {
+                    id,
+                    page_id,
+                    position,
+                    level,
+                    body,
+                } => {
+                    self.create_item_in(
+                        &tx,
+                        page_id,
+                        position,
+                        *level,
+                        body,
+                        Some(id.clone()),
+                        &mut effects,
+                    )?;
+                    written.push(id.clone());
+                }
+                BatchOp::Update {
+                    id,
+                    body,
+                    level,
+                    collapsed,
+                    task,
+                } => {
+                    let existing = find_all_in(&tx, std::slice::from_ref(id))?.remove(0);
+                    self.update_item_in(
+                        &tx,
+                        &existing,
+                        body.as_deref(),
+                        *level,
+                        *collapsed,
+                        &mut effects,
+                    )?;
+                    if let Some(state) = task {
+                        put_task_in(&tx, &existing, state, now_millis())?;
+                    }
+                    // A transcluder shows the item as it is stored, so its page changed too
+                    transcluder_pages.extend(
+                        ItemRepository::find_transcluders_in(&tx, id)?
+                            .into_iter()
+                            .map(|transcluder| transcluder.page_id),
+                    );
+                    written.push(id.clone());
+                }
+                BatchOp::Delete { id } => deleted.push(id.clone()),
+            }
+        }
+        // A parent deleted on its own is refused, so the deletes go together
+        if !deleted.is_empty() {
+            self.remove_group_in(&tx, &deleted, &mut effects)?;
+        }
+        let mut answered: Vec<Hmtid> = Vec::new();
+        for id in written {
+            if !deleted.contains(&id) && !answered.contains(&id) {
+                answered.push(id);
+            }
+        }
+        let items = find_all_in(&tx, &answered)?;
+        tx.commit()?;
+        let mut page_ids = effects.pages.clone();
+        page_ids.extend(transcluder_pages);
+        self.finish(effects);
+        Ok(BatchApplied { items, page_ids })
+    }
+
     /// Sets a transclusion on an item, making it mirror a source item.
     pub fn set_transclusion(&self, item_id: &Hmtid, source_item_id: &Hmtid) -> AppResult<Item> {
         let item = self.get_item_by_id(item_id)?;
@@ -812,18 +940,11 @@ impl ItemService {
     /// Puts an item in the given task state in one step, as an undo of [`Self::cycle_task`]
     /// needs: cycling back would write new times over the ones to restore.
     pub fn set_task(&self, item_id: &Hmtid, state: &TaskState) -> AppResult<Item> {
-        if !state.task && (state.begin.is_some() || state.end.is_some()) {
-            return Err(AppError::bad_request("A normal item has no task times"));
-        }
         let existing = self.get_item_by_id(item_id)?;
-        let id = item_id.to_string();
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
         let now = now_millis();
-        let result = patch_task_in(&tx, &existing, state.task, now)?;
-        set_or_clear_in(&tx, &id, "begin", "datetime", state.begin.as_deref())?;
-        set_or_clear_in(&tx, &id, "end", "datetime", state.end.as_deref())?;
-        set_or_clear_in(&tx, &id, "plan", "date", state.plan.as_deref())?;
+        let result = put_task_in(&tx, &existing, state, now)?;
         self.commit_page(tx, &existing.page_id, now)?;
         Ok(result)
     }
@@ -1060,6 +1181,19 @@ fn touched_in(tx: &Connection, existing: &Item, now: i64) -> AppResult<Item> {
         modified_date: now,
         ..existing.clone()
     })
+}
+
+/// Puts an item in a task state, with the times and the plan that go with it.
+fn put_task_in(tx: &Connection, existing: &Item, state: &TaskState, now: i64) -> AppResult<Item> {
+    if !state.task && (state.begin.is_some() || state.end.is_some()) {
+        return Err(AppError::bad_request("A normal item has no task times"));
+    }
+    let id = existing.id.to_string();
+    let result = patch_task_in(tx, existing, state.task, now)?;
+    set_or_clear_in(tx, &id, "begin", "datetime", state.begin.as_deref())?;
+    set_or_clear_in(tx, &id, "end", "datetime", state.end.as_deref())?;
+    set_or_clear_in(tx, &id, "plan", "date", state.plan.as_deref())?;
+    Ok(result)
 }
 
 fn patch_task_in(tx: &Connection, existing: &Item, task: bool, now: i64) -> AppResult<Item> {

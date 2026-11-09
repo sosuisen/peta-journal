@@ -195,6 +195,15 @@ pub enum Event {
         cursor: PasteCursor,
         fallback: PasteCursor,
     },
+    /// The server wrote what an undo or a redo replayed: its answer goes on screen.
+    UndoSynced {
+        items: Vec<Item>,
+        /// The items whose body or task state the replay changed: they take the server's
+        /// parse.
+        reparsed: Vec<String>,
+        /// The items the batch made again: they are shown as the server made them.
+        recreated: Vec<String>,
+    },
     /// The server refused a paste, or could not be reached: nothing was written.
     PasteFailed {
         item_id: String,
@@ -792,6 +801,11 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             ops::paste::place_cursor(model, cursor, fallback)
         }
         PasteFailed { item_id, unsaved } => ops::paste::paste_failed(model, &item_id, unsaved),
+        UndoSynced {
+            items,
+            reparsed,
+            recreated,
+        } => ops::undo_replay::show_synced(model, items, reparsed, recreated),
         PasteImage {
             item_id,
             file,

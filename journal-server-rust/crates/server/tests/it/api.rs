@@ -1209,6 +1209,289 @@ async fn a_paste_into_an_item_that_is_gone_is_refused() {
     assert_eq!(outline_of(&page.id).await, ["1:other"]);
 }
 
+// ---- Items: batch ----
+
+/// Applies operations as one batch, the way an undo sends what it replays
+async fn batch(ops: Value) -> (u16, Value) {
+    post("/api/items/batch", json!({ "ops": ops })).await
+}
+
+// 更新の操作は、本文、階層、折りたたみを書き、書いた項目を答える。
+#[tokio::test]
+async fn a_batch_update_writes_the_body_the_level_and_the_collapsed_state() {
+    let page = new_doc_page("items-batch-update").await;
+    let rows = fill(&page.id, &["top", "old"]).await;
+
+    let (status, resp) = batch(json!([
+        { "op": "update", "id": rows[1].id, "body": "new", "level": 2, "collapsed": true },
+    ]))
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(field_of_each(&resp, "items", "body"), vec![json!("new")]);
+    let stored = items(&page.id).await;
+    assert_eq!(outline_of(&page.id).await, ["1:top", "2:new"]);
+    assert!(stored[1].collapsed);
+}
+
+// 作成の操作は、名指しされたIDの項目を、指定の位置と階層に作る。削除した項目を、同じIDで作り直せる。
+#[tokio::test]
+async fn a_batch_create_makes_the_item_again_with_the_id_it_names() {
+    let page = new_doc_page("items-batch-create").await;
+    let rows = fill(&page.id, &["a", "  gone", "c"]).await;
+    assert_eq!(delete(&format!("/api/items/{}", rows[1].id)).await, 204);
+
+    let (status, resp) = batch(json!([{
+        "op": "create", "id": rows[1].id, "pageId": page.id,
+        "position": format!("after:{}", rows[0].id), "level": 2, "body": "back",
+    }]))
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(field_of_each(&resp, "items", "id"), vec![json!(rows[1].id)]);
+    let stored = items(&page.id).await;
+    assert_eq!(outline_of(&page.id).await, ["1:a", "2:back", "1:c"]);
+    assert_eq!(stored[1].id, rows[1].id);
+}
+
+// 作り直した項目は、もう「ここで消した項目」としては覚えられていない。Markdownの取り込みが、その項目を消されたものとして扱わないためである。
+#[tokio::test]
+async fn an_item_made_again_is_no_longer_remembered_as_deleted() {
+    let page = new_doc_page("items-batch-undelete").await;
+    let rows = fill(&page.id, &["a", "gone"]).await;
+    assert_eq!(delete(&format!("/api/items/{}", rows[1].id)).await, 204);
+    let deleted_dates = || {
+        let conn = server().state.db.conn().unwrap();
+        conn.query_row(
+            "SELECT COUNT(*) FROM deleted_items WHERE id = ?",
+            [&rows[1].id],
+            |r| r.get::<_, i64>(0),
+        )
+        .unwrap()
+    };
+    assert_eq!(deleted_dates(), 1);
+
+    let (status, resp) = batch(json!([{
+        "op": "create", "id": rows[1].id, "pageId": page.id,
+        "position": format!("after:{}", rows[0].id), "level": 1, "body": "back",
+    }]))
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(deleted_dates(), 0);
+}
+
+// 削除の操作は、まとめて1つのグループとして消される。親が子より先に並んでいてもよい。消した項目は答えに入らない。
+#[tokio::test]
+async fn the_deletes_of_a_batch_go_as_one_group() {
+    let page = new_doc_page("items-batch-delete").await;
+    let rows = fill(&page.id, &["keep", "parent", "  child"]).await;
+
+    let (status, resp) = batch(json!([
+        { "op": "delete", "id": rows[1].id },
+        { "op": "delete", "id": rows[2].id },
+    ]))
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(resp["items"], json!([]));
+    assert_eq!(outline_of(&page.id).await, ["1:keep"]);
+}
+
+// 更新の操作は、タスクの状態も、時刻と予定日ごと書ける。タスクの切り替えの undo が、本文と同じ操作で戻すためである。
+#[tokio::test]
+async fn a_batch_update_writes_the_task_state_with_its_times() {
+    let page = new_doc_page("items-batch-task").await;
+    let item = fill(&page.id, &["buy milk"]).await.remove(0);
+
+    let (status, resp) = batch(json!([{
+        "op": "update", "id": item.id, "body": "buy oat milk",
+        "task": {
+            "task": true,
+            "begin": "2026-01-02T03:04:05",
+            "end": "2026-01-02T04:05:06",
+            "plan": "2026-01-02",
+        },
+    }]))
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    let answered = ItemRow::of(&resp["items"][0]);
+    let stored = items(&page.id).await.remove(0);
+    for row in [answered, stored] {
+        assert_eq!(row.body, "buy oat milk");
+        assert!(row.types.contains(&"task".to_string()));
+        assert_eq!(row.properties["begin"], json!("2026-01-02T03:04:05"));
+        assert_eq!(row.properties["end"], json!("2026-01-02T04:05:06"));
+        assert_eq!(row.properties["plan"], json!("2026-01-02"));
+    }
+}
+
+// 通常の項目に時刻を付ける更新は断られ、同じバッチのほかの操作も書かれない。
+#[tokio::test]
+async fn a_batch_that_gives_times_to_a_normal_item_is_refused_and_writes_nothing() {
+    let page = new_doc_page("items-batch-task-refused").await;
+    let rows = fill(&page.id, &["first", "second"]).await;
+
+    let (status, _) = batch(json!([
+        {"op": "update", "id": rows[0].id, "body": "changed"},
+        {"op": "update", "id": rows[1].id,
+         "task": {"task": false, "begin": "2026-01-02T03:04:05"}},
+    ]))
+    .await;
+
+    assert_eq!(status, 400);
+    let stored = items(&page.id).await;
+    assert_eq!(stored[0].body, "first");
+    assert!(!stored[1].properties.contains_key("begin"));
+}
+
+// 操作は並んだ順に行われる。先に作った項目を、後の操作が位置の基準にも更新の相手にもできる。
+#[tokio::test]
+async fn the_operations_of_a_batch_are_applied_in_their_order() {
+    let page = new_doc_page("items-batch-order").await;
+    let rows = fill(&page.id, &["a", "d"]).await;
+    let ids = hmtid::Generator::new('_', false);
+    let (b, c) = (ids.generate().to_string(), ids.generate().to_string());
+
+    let (status, resp) = batch(json!([
+        {"op": "create", "id": b, "pageId": page.id,
+         "position": format!("after:{}", rows[0].id), "level": 1, "body": "b"},
+        {"op": "create", "id": c, "pageId": page.id,
+         "position": format!("after:{b}"), "level": 2, "body": "c"},
+        {"op": "update", "id": b, "body": "B"},
+    ]))
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(outline_of(&page.id).await, ["1:a", "1:B", "2:c", "1:d"]);
+}
+
+// 同じ項目を2回書くバッチは、その項目を最後の姿で1回だけ答える。
+#[tokio::test]
+async fn an_item_written_twice_in_a_batch_is_answered_once_as_it_is_at_the_end() {
+    let page = new_doc_page("items-batch-twice").await;
+    let item = fill(&page.id, &["old"]).await.remove(0);
+
+    let (status, resp) = batch(json!([
+        {"op": "update", "id": item.id, "body": "middle"},
+        {"op": "update", "id": item.id, "body": "new"},
+    ]))
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(field_of_each(&resp, "items", "body"), vec![json!("new")]);
+}
+
+// ない項目を名指しする操作があるバッチは断られ、ほかの操作も書かれない。
+#[tokio::test]
+async fn a_batch_that_names_an_item_that_is_gone_is_refused_and_writes_nothing() {
+    let page = new_doc_page("items-batch-missing").await;
+    let rows = fill(&page.id, &["stays", "gone"]).await;
+    assert_eq!(delete(&format!("/api/items/{}", rows[1].id)).await, 204);
+
+    let (status, _) = batch(json!([
+        {"op": "update", "id": rows[0].id, "body": "changed"},
+        {"op": "update", "id": rows[1].id, "body": "back"},
+    ]))
+    .await;
+    assert_eq!(status, 400);
+    let (status, _) = batch(json!([
+        {"op": "update", "id": rows[0].id, "body": "changed"},
+        {"op": "delete", "id": rows[1].id},
+    ]))
+    .await;
+    assert_eq!(status, 404);
+
+    assert_eq!(outline_of(&page.id).await, ["1:stays"]);
+}
+
+// 置けない階層への作成や更新があるバッチは断られ、ほかの操作も書かれない。
+#[tokio::test]
+async fn a_batch_with_a_level_that_does_not_fit_is_refused_and_writes_nothing() {
+    let page = new_doc_page("items-batch-level").await;
+    let rows = fill(&page.id, &["a", "b"]).await;
+    let id = hmtid::Generator::new('_', false).generate().to_string();
+
+    let (status, _) = batch(json!([
+        {"op": "update", "id": rows[0].id, "body": "changed"},
+        {"op": "create", "id": id, "pageId": page.id,
+         "position": format!("after:{}", rows[0].id), "level": 3, "body": "too deep"},
+    ]))
+    .await;
+    assert_eq!(status, 400);
+    let (status, _) = batch(json!([
+        {"op": "update", "id": rows[0].id, "body": "changed"},
+        {"op": "update", "id": rows[1].id, "level": 0},
+    ]))
+    .await;
+    assert_eq!(status, 400);
+
+    assert_eq!(outline_of(&page.id).await, ["1:a", "1:b"]);
+}
+
+// 子孫を残す削除があるバッチは断られ、ほかの操作も書かれない。
+#[tokio::test]
+async fn a_batch_whose_deletes_leave_a_descendant_behind_is_refused_and_writes_nothing() {
+    let page = new_doc_page("items-batch-orphan").await;
+    let rows = fill(&page.id, &["parent", "  child", "other"]).await;
+
+    let (status, _) = batch(json!([
+        {"op": "update", "id": rows[2].id, "body": "changed"},
+        {"op": "delete", "id": rows[0].id},
+    ]))
+    .await;
+    assert_eq!(status, 400);
+
+    assert_eq!(
+        outline_of(&page.id).await,
+        ["1:parent", "2:child", "1:other"]
+    );
+}
+
+// バッチがいくつ項目を書いても、ページの変更は、ページごとに1回だけクライアントに知らされる。
+#[tokio::test]
+async fn the_clients_hear_of_each_page_of_a_batch_once() {
+    let page = new_doc_page("items-batch-event").await;
+    let rows = fill(&page.id, &["a", "b"]).await;
+    let second_page = new_doc_page("items-batch-event-second").await;
+    let second = fill(&second_page.id, &["c"]).await.remove(0);
+    let other_page = new_doc_page("items-batch-event-after").await;
+    let mut events = client().get(url("/api/events")).send().await.unwrap();
+
+    let (status, resp) = batch(json!([
+        {"op": "update", "id": rows[0].id, "body": "A"},
+        {"op": "update", "id": second.id, "body": "C"},
+        {"op": "delete", "id": rows[1].id},
+    ]))
+    .await;
+    assert_eq!(status, 200, "{resp}");
+    // The events come in order: what is read up to this one holds all those of the batch
+    create_item(&other_page.id, "last", 1, "after the batch").await;
+
+    let other = format!("\"pageId\":\"{}\"", other_page.id);
+    let seen = events_until(&mut events, &other).await;
+    for page_id in [&page.id, &second_page.id] {
+        let told = format!("\"pageId\":\"{page_id}\"");
+        assert_eq!(seen.matches(&told).count(), 1, "{seen}");
+    }
+}
+
+// トランスクルードされている項目を更新すると、本文が変わらなくても、その写しを見せているページの変更が知らされる。
+#[tokio::test]
+async fn the_clients_hear_of_the_pages_that_transclude_an_item_a_batch_updates() {
+    let (_, source, page, _) = transcluded("items-batch-transcluder", &["buy milk"]).await;
+    let mut events = client().get(url("/api/events")).send().await.unwrap();
+
+    let (status, resp) = batch(json!([
+        {"op": "update", "id": source[0].id, "task": {"task": true}},
+    ]))
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    event_with(&mut events, &format!("\"pageId\":\"{}\"", page.id)).await;
+}
+
 // ---- Items: group delete ----
 
 // グループ削除は、項目を子孫ごと1回のリクエストで消す。

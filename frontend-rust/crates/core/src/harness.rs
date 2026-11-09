@@ -28,6 +28,24 @@ fn tags_in(body: &str) -> BTreeMap<String, serde_json::Value> {
     props
 }
 
+/// Gives an item a task state, as the server writes one.
+fn put_task_state(item: &mut Item, state: &TaskState) {
+    if state.task {
+        item.types = vec!["task".into()];
+    }
+    let times = [
+        ("begin", &state.begin),
+        ("end", &state.end),
+        ("plan", &state.plan),
+    ];
+    for (key, value) in times {
+        if let Some(value) = value {
+            item.properties
+                .insert(key.to_string(), serde_json::json!(value));
+        }
+    }
+}
+
 /// Records API calls and answers like the server would: an update echoes the fields it got,
 /// a create returns a new item (with the client id when one was passed), a move echoes the ids.
 #[derive(Default)]
@@ -54,8 +72,8 @@ pub fn op_name(op: &ApiOp) -> &'static str {
         ApiOp::DeleteItems { .. } => "DeleteItems",
         ApiOp::MergeItems { .. } => "MergeItems",
         ApiOp::PasteText { .. } => "PasteText",
+        ApiOp::ApplyBatch { .. } => "ApplyBatch",
         ApiOp::CycleTask { .. } => "CycleTask",
-        ApiOp::SetTask { .. } => "SetTask",
         ApiOp::UpsertItemProperty { .. } => "UpsertItemProperty",
         ApiOp::DeleteItemProperty { .. } => "DeleteItemProperty",
         ApiOp::ChangeAtlas { .. } => "ChangeAtlas",
@@ -174,27 +192,52 @@ impl FakeApi {
                     },
                 })
             }
+            ApiOp::ApplyBatch { ops } => {
+                let mut written: Vec<Item> = Vec::new();
+                for op in ops {
+                    let item = match op {
+                        BatchOp::Update {
+                            id,
+                            body,
+                            level,
+                            collapsed,
+                            task,
+                        } => {
+                            let body = body.as_deref().unwrap_or("");
+                            let mut item = plain_item(id, level.unwrap_or(1), body);
+                            item.ast = format!("ast:{body}");
+                            item.properties = tags_in(body);
+                            item.collapsed = collapsed.unwrap_or(false);
+                            if let Some(state) = task {
+                                put_task_state(&mut item, state);
+                            }
+                            item
+                        }
+                        BatchOp::Create {
+                            id,
+                            page_id,
+                            level,
+                            body,
+                            ..
+                        } => {
+                            self.created += 1;
+                            let mut item = plain_item(id, *level, body);
+                            item.page_id = page_id.clone();
+                            item.idx = format!("created{}", self.created);
+                            item.ast = format!("ast:{body}");
+                            item
+                        }
+                        BatchOp::Delete { .. } => continue,
+                    };
+                    // An item written twice is answered once, as it is at the end
+                    written.retain(|earlier| earlier.id != item.id);
+                    written.push(item);
+                }
+                ApiOutput::Items(written)
+            }
             ApiOp::CycleTask { item_id } => {
                 let mut item = plain_item(item_id, 1, "");
                 item.types = vec!["task".into()];
-                ApiOutput::Item(item)
-            }
-            ApiOp::SetTask { item_id, state } => {
-                let mut item = plain_item(item_id, 1, "");
-                if state.task {
-                    item.types = vec!["task".into()];
-                }
-                let times = [
-                    ("begin", &state.begin),
-                    ("end", &state.end),
-                    ("plan", &state.plan),
-                ];
-                for (key, value) in times {
-                    if let Some(value) = value {
-                        item.properties
-                            .insert(key.to_string(), serde_json::json!(value));
-                    }
-                }
                 ApiOutput::Item(item)
             }
             ApiOp::UpsertItemProperty {
@@ -595,23 +638,23 @@ pub fn delete_calls(api: &FakeApi) -> Vec<Vec<String>> {
         .collect()
 }
 
+/// The batches sent, each the operations of one request.
+pub fn batch_calls(api: &FakeApi) -> Vec<Vec<BatchOp>> {
+    api.calls
+        .iter()
+        .filter_map(|op| match op {
+            ApiOp::ApplyBatch { ops } => Some(ops.clone()),
+            _ => None,
+        })
+        .collect()
+}
+
 /// The merge calls as `(item, into)`.
 pub fn merge_calls(api: &FakeApi) -> Vec<(String, String)> {
     api.calls
         .iter()
         .filter_map(|op| match op {
             ApiOp::MergeItems { item_id, into_id } => Some((item_id.clone(), into_id.clone())),
-            _ => None,
-        })
-        .collect()
-}
-
-/// The task state calls as `(item, state)`.
-pub fn set_task_calls(api: &FakeApi) -> Vec<(String, TaskState)> {
-    api.calls
-        .iter()
-        .filter_map(|op| match op {
-            ApiOp::SetTask { item_id, state } => Some((item_id.clone(), state.clone())),
             _ => None,
         })
         .collect()

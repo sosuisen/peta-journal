@@ -1,7 +1,7 @@
 use crate::effects::{ApiError, ApiOp, ApiOutput, AtlasChange, FolderChoice};
 use crate::model::{
-    ItemPosition, JournalBefore, Page, PageWithItems, PasteCursor, PasteMode, ServerConfig,
-    TaskState, TreeExport,
+    BatchOp, ItemPosition, JournalBefore, Page, PageWithItems, PasteCursor, PasteMode,
+    ServerConfig, TaskState, TreeExport,
 };
 use crate::rest::{rest_call, HttpReply, RestCall};
 use serde::Serialize;
@@ -123,17 +123,14 @@ fn every_operation_goes_to_its_endpoint() {
             "/api/items/merge",
         ),
         (
+            ApiOp::ApplyBatch { ops: vec![] },
+            "POST",
+            "/api/items/batch",
+        ),
+        (
             ApiOp::CycleTask { item_id: id("a") },
             "POST",
             "/api/items/a/cycle-task",
-        ),
-        (
-            ApiOp::SetTask {
-                item_id: id("a"),
-                state: TaskState::default(),
-            },
-            "PUT",
-            "/api/items/a/task",
         ),
         (
             ApiOp::UpsertItemProperty {
@@ -458,6 +455,64 @@ fn a_paste_posts_the_body_the_cursor_the_text_and_the_mode_and_answers_what_was_
     );
 }
 
+// バッチは、操作をサーバーが読む形の JSON で順に送り、書かれた項目を答える。変えないフィールドは送らない。
+#[test]
+fn a_batch_posts_its_operations_as_the_json_the_server_reads_and_answers_the_items_written() {
+    let rest = call(ApiOp::ApplyBatch {
+        ops: vec![
+            BatchOp::Update {
+                id: id("a"),
+                body: Some(id("x")),
+                level: Some(2),
+                collapsed: Some(true),
+                task: Some(TaskState {
+                    task: true,
+                    begin: Some("b".into()),
+                    end: None,
+                    plan: None,
+                }),
+            },
+            BatchOp::Update {
+                id: id("s"),
+                body: None,
+                level: None,
+                collapsed: None,
+                task: None,
+            },
+            BatchOp::Create {
+                id: id("n"),
+                page_id: id("p"),
+                position: ItemPosition::after("a"),
+                level: 2,
+                body: id("new"),
+            },
+            BatchOp::Delete { id: id("d") },
+        ],
+    });
+    assert_eq!(
+        (rest.request.method, rest.request.path.as_str()),
+        ("POST", "/api/items/batch")
+    );
+    assert_eq!(
+        rest.request.body,
+        Some(json!({ "ops": [
+            { "op": "update", "id": "a", "body": "x", "level": 2, "collapsed": true,
+              "task": { "task": true, "begin": "b", "end": null, "plan": null } },
+            { "op": "update", "id": "s" },
+            { "op": "create", "id": "n", "pageId": "p", "position": "after:a", "level": 2,
+              "body": "new" },
+            { "op": "delete", "id": "d" },
+        ]}))
+    );
+    let output = rest
+        .decode(&reply(200, json!({ "items": [item_json("a", "x")] })))
+        .unwrap();
+    let ApiOutput::Items(items) = output else {
+        panic!("not items: {output:?}");
+    };
+    assert_eq!(items[0].body, "x");
+}
+
 // 貼り付けの読み方は、サーバーが読む名前で送られる。
 #[test]
 fn the_mode_of_a_paste_goes_under_the_name_the_server_reads() {
@@ -546,25 +601,6 @@ fn the_encoding_leaves_the_same_marks_as_encode_uri_component() {
     })
     .request;
     assert_eq!(request.path, "/api/journals/-_.!~*'()%2F%3F%23");
-}
-
-// タスク状態は、サーバーが読む形の JSON で送られる。
-#[test]
-fn a_task_state_goes_as_the_json_the_server_reads() {
-    let request = call(ApiOp::SetTask {
-        item_id: id("a"),
-        state: TaskState {
-            task: true,
-            begin: Some("b".into()),
-            end: None,
-            plan: Some("p".into()),
-        },
-    })
-    .request;
-    assert_eq!(
-        request.body,
-        Some(json!({ "task": true, "begin": "b", "end": null, "plan": "p" }))
-    );
 }
 
 // プロパティの名前もエンコードされる。

@@ -1,14 +1,25 @@
 use crate::app::Event;
 use crate::effects::ApiOutput;
-use crate::harness::{create_calls, delete_calls, item, set_task_calls, update_calls, Harness};
-use crate::model::{Item, TaskState, TranscludedTrees};
+use crate::harness::{batch_calls, create_calls, delete_calls, item, update_calls, Harness};
+use crate::model::{BatchOp, Item, ItemPosition, TaskState, TranscludedTrees};
 use crate::outline::CursorState;
 use crate::testing::item_with;
 use serde_json::json;
 
-// undo は古い本文を戻して保存し、その項目を redo スタックに移す。redo はそれを元に戻す。
+/// The update of a batch that writes a body, a level and a collapsed state, and no task state
+fn update_op(id: &str, level: i32, body: &str) -> BatchOp {
+    BatchOp::Update {
+        id: id.into(),
+        body: Some(body.into()),
+        level: Some(level),
+        collapsed: Some(false),
+        task: None,
+    }
+}
+
+// undo は古い本文を戻し、1つの要求でサーバーに送り、その項目を redo スタックに移す。redo はそれを元に戻す。
 #[test]
-fn undo_puts_the_old_body_back_saves_it_and_moves_the_entry_to_the_redo_stack() {
+fn undo_puts_the_old_body_back_sends_it_in_one_request_and_moves_the_entry_to_the_redo_stack() {
     let mut h = Harness::with_items(vec![item("a", 1, "new")]);
     let before = item("a", 1, "old");
     let after = item("a", 1, "new");
@@ -18,12 +29,13 @@ fn undo_puts_the_old_body_back_saves_it_and_moves_the_entry_to_the_redo_stack() 
 
     h.send(Event::Undo);
     assert_eq!(h.bodies(), ["a=old"]);
-    assert_eq!(update_calls(&h.api), [("a".into(), Some("old".into()))]);
+    assert_eq!(batch_calls(&h.api), [vec![update_op("a", 1, "old")]]);
     assert!(h.model.undo.can_redo());
     assert!(!h.model.undo.can_undo());
 
     h.send(Event::Redo);
     assert_eq!(h.bodies(), ["a=new"]);
+    assert_eq!(batch_calls(&h.api)[1], [update_op("a", 1, "new")]);
     assert!(h.model.undo.can_undo());
 }
 
@@ -91,7 +103,21 @@ fn done_state() -> TaskState {
     }
 }
 
-// タスク状態の切り替えの undo は、元の時刻と予定日ごと、元の状態をサーバーに送る。redo は切り替え後の状態を送る。
+/// The task states the batches sent, as `(item, state)`
+fn task_states_sent(h: &Harness) -> Vec<(String, TaskState)> {
+    let ops = batch_calls(&h.api).into_iter().flatten();
+    ops.filter_map(|op| match op {
+        BatchOp::Update {
+            id,
+            task: Some(state),
+            ..
+        } => Some((id, state)),
+        _ => None,
+    })
+    .collect()
+}
+
+// タスク状態の切り替えの undo は、元の時刻と予定日ごと、元の状態を、項目の更新と同じ操作でサーバーに送る。redo は切り替え後の状態を送る。
 #[test]
 fn undo_and_redo_of_a_task_cycle_send_the_task_state_to_the_server() {
     let mut h = Harness::with_items(vec![done_task("a")]);
@@ -103,11 +129,20 @@ fn undo_and_redo_of_a_task_cycle_send_the_task_state_to_the_server() {
     });
 
     h.send(Event::Undo);
-    assert_eq!(set_task_calls(&h.api), [("a".to_string(), done_state())]);
+    assert_eq!(
+        batch_calls(&h.api),
+        [[BatchOp::Update {
+            id: "a".into(),
+            body: Some("x".into()),
+            level: Some(1),
+            collapsed: Some(false),
+            task: Some(done_state()),
+        }]]
+    );
 
     h.send(Event::Redo);
-    assert_eq!(set_task_calls(&h.api).len(), 2);
-    assert_eq!(set_task_calls(&h.api)[1].1, TaskState::default());
+    assert_eq!(task_states_sent(&h).len(), 2);
+    assert_eq!(task_states_sent(&h)[1].1, TaskState::default());
 }
 
 // undo の後は、サーバーが答えたタスク状態が表示される。
@@ -122,7 +157,7 @@ fn undo_of_a_task_cycle_shows_the_task_state_the_server_answers() {
     assert_eq!(shown.task_state(), done_state());
 }
 
-// トランスクルージョンのルートでのタスク状態の undo は、元の項目のタスク状態を戻す。
+// トランスクルージョンのルートでのタスク状態の undo は、元の項目のタスク状態を戻す。ルートの更新と同じ要求で送る。
 #[test]
 fn undo_of_a_task_cycle_on_a_transclusion_root_goes_to_the_source_item() {
     let root = item_with("root", 1, |i| i.transclude_item_id = Some("s".into()));
@@ -136,7 +171,8 @@ fn undo_of_a_task_cycle_on_a_transclusion_root_goes_to_the_source_item() {
 
     h.send(Event::Undo);
 
-    assert_eq!(set_task_calls(&h.api), [("s".to_string(), done_state())]);
+    assert_eq!(batch_calls(&h.api).len(), 1);
+    assert_eq!(task_states_sent(&h), [("s".to_string(), done_state())]);
     let rows = h.view().outline.rows;
     let shown = rows.iter().find(|r| r.item.id == "root").unwrap();
     assert_eq!(shown.item.task_state(), done_state());
@@ -156,7 +192,8 @@ fn undo_of_a_body_edit_does_not_send_the_task_state() {
         now_ms: 0,
     });
     h.send(Event::Undo);
-    assert!(set_task_calls(&h.api).is_empty());
+    assert_eq!(batch_calls(&h.api).len(), 1);
+    assert!(task_states_sent(&h).is_empty());
 }
 
 // undo の後も更新された項目の編集は続き、カーソルはその本文の末尾に置かれる。
@@ -174,7 +211,7 @@ fn keeps_editing_the_updated_item_with_the_cursor_at_the_end_of_its_body() {
     assert_eq!(h.focused_editor_requests(), [Some("a".to_string())]);
 }
 
-// 作成の undo は、項目をここでもサーバーでも削除する。記録されたカーソルが使われる。
+// 作成の undo は、項目をここで消し、削除を同じ1つの要求でサーバーに送る。記録されたカーソルが使われる。
 #[test]
 fn undo_of_a_create_removes_the_item_here_and_on_the_server() {
     let mut h = Harness::with_items(vec![item("a", 1, ""), item("n", 1, "created")]);
@@ -183,12 +220,13 @@ fn undo_of_a_create_removes_the_item_here_and_on_the_server() {
     h.model.undo.commit(Some(CursorState::new("n", 0)), 0);
     h.send(Event::Undo);
     assert_eq!(h.items_ids(), ["a"]);
-    assert_eq!(delete_calls(&h.api), [vec!["n".to_string()]]);
+    assert_eq!(batch_calls(&h.api), [[BatchOp::Delete { id: "n".into() }]]);
+    assert!(delete_calls(&h.api).is_empty());
     // The recorded cursor is used
     assert_eq!(h.model.state.focused_item_id(), Some("a"));
 }
 
-// 親と子を作った操作の undo は、両方を1つのグループとしてサーバーに送る。親だけを先に消すとサーバーが断るためである。
+// 親と子を作った操作の undo は、両方の削除を1つの要求でサーバーに送る。親だけを先に消すとサーバーが断るためである。
 #[test]
 fn undo_of_a_create_of_a_parent_and_its_child_deletes_them_as_one_group() {
     let mut h = Harness::with_items(vec![
@@ -202,52 +240,144 @@ fn undo_of_a_create_of_a_parent_and_its_child_deletes_them_as_one_group() {
     h.model.undo.commit(None, 0);
     h.send(Event::Undo);
     assert_eq!(h.items_ids(), ["a"]);
-    // The order inside the group does not matter to the server
-    let mut sent = delete_calls(&h.api);
-    sent.iter_mut().for_each(|ids| ids.sort());
-    assert_eq!(sent, [vec!["c".to_string(), "p".to_string()]]);
+    // The order of the deletes does not matter to the server: it deletes them as one group
+    let mut sent = batch_calls(&h.api);
+    sent.iter_mut()
+        .for_each(|ops| ops.sort_by_key(|op| format!("{op:?}")));
+    assert_eq!(
+        sent,
+        [[
+            BatchOp::Delete { id: "c".into() },
+            BatchOp::Delete { id: "p".into() },
+        ]]
+    );
 }
 
-// undo の削除をサーバーが断ると、ページはサーバーの持つ形に読み直される。
+// undo の要求をサーバーが断ると、ページはサーバーの持つ形に読み直される。
 #[test]
-fn an_undo_delete_the_server_refuses_reloads_the_page() {
+fn an_undo_the_server_refuses_reloads_the_page() {
     let mut h = Harness::with_items(vec![item("a", 1, ""), item("n", 1, "created")]);
     h.model.undo.begin("enter", None);
     h.model.undo.push_create(&item("n", 1, "created"));
     h.model.undo.commit(None, 0);
-    h.api.fail_next("DeleteItems", "refused");
+    h.api.fail_next("ApplyBatch", "refused");
     h.send(Event::Undo);
     assert!(h.api.called("GetPageById"));
+    assert_eq!(h.items_ids(), ["reloaded"]);
 }
 
-// 作成の redo は項目をその index の位置に戻し、サーバーが与えた id を取る。
+// 作成の redo は、項目を元のIDのまま、その index の位置に作り直す。
 #[test]
-fn redo_of_a_create_puts_the_item_back_by_its_index_and_takes_the_id_the_server_gives() {
+fn redo_of_a_create_makes_the_item_again_with_its_id_where_its_index_puts_it() {
     let mut h = Harness::with_items(vec![item("a", 1, ""), item("n", 1, "created")]);
     h.model.undo.begin("enter", None);
     h.model.undo.push_create(&item("n", 1, "created"));
     h.model.undo.commit(None, 0);
     h.send(Event::Undo);
     h.send(Event::Redo);
-    assert_eq!(create_calls(&h.api)[0].3, "created");
-    assert_eq!(h.items_ids(), ["a", "new1"]);
+    assert_eq!(
+        batch_calls(&h.api)[1],
+        [BatchOp::Create {
+            id: "n".into(),
+            page_id: "page1".into(),
+            position: ItemPosition::after("a"),
+            level: 1,
+            body: "created".into(),
+        }]
+    );
+    assert_eq!(h.items_ids(), ["a", "n"]);
 }
 
-// 削除の undo は項目を元の位置に作り直す。
+// 削除の undo は、項目を元のIDのまま、元の位置に作り直す。サーバーが決めた並び順の値を受け取る。
 #[test]
-fn undo_of_a_delete_recreates_the_item_where_it_was() {
+fn undo_of_a_delete_makes_the_item_again_with_its_id_where_it_was() {
+    // The index of an item of these tests is its id: b goes back between a and c
     let mut h = Harness::with_items(vec![item("a", 1, ""), item("c", 1, "")]);
-    let deleted = {
-        let mut b = item("b", 1, "gone");
-        b.idx = "b".into();
-        b
-    };
     h.model.undo.begin("delete-selection", None);
-    h.model.undo.push_delete(&deleted);
+    h.model.undo.push_delete(&item("b", 1, "gone"));
+    h.model.undo.commit(None, 0);
+
+    h.send(Event::Undo);
+
+    assert_eq!(
+        batch_calls(&h.api),
+        [[BatchOp::Create {
+            id: "b".into(),
+            page_id: "page1".into(),
+            position: ItemPosition::after("a"),
+            level: 1,
+            body: "gone".into(),
+        }]]
+    );
+    assert!(create_calls(&h.api).is_empty());
+    assert_eq!(h.items_ids(), ["a", "b", "c"]);
+    assert_eq!(h.model.state.get_item_by_id("b").unwrap().idx, "created1");
+}
+
+fn create_op(id: &str, after: &str, level: i32, body: &str) -> BatchOp {
+    BatchOp::Create {
+        id: id.into(),
+        page_id: "page1".into(),
+        position: ItemPosition::after(after),
+        level,
+        body: body.into(),
+    }
+}
+
+// 削除の redo は、項目をここでもう一度消し、削除をサーバーに送る。
+#[test]
+fn redo_of_a_delete_removes_the_item_again_here_and_on_the_server() {
+    let mut h = Harness::with_items(vec![item("a", 1, ""), item("c", 1, "")]);
+    h.model.undo.begin("delete-selection", None);
+    h.model.undo.push_delete(&item("b", 1, "gone"));
     h.model.undo.commit(None, 0);
     h.send(Event::Undo);
-    // Shown by its index between a and c, then replaced by the server's item
-    assert_eq!(h.items_ids(), ["a", "new1", "c"]);
+
+    h.send(Event::Redo);
+
+    assert_eq!(h.items_ids(), ["a", "c"]);
+    assert_eq!(batch_calls(&h.api)[1], [BatchOp::Delete { id: "b".into() }]);
+}
+
+// いくつかの項目の削除の undo は、上の項目から順に作り直す。下の項目は、先に作り直した上の項目を位置の基準にするためである。
+#[test]
+fn undo_of_a_delete_of_several_items_makes_them_again_from_the_top_down() {
+    let mut h = Harness::with_items(vec![item("a", 1, "")]);
+    h.model.undo.begin("delete-selection", None);
+    h.model.undo.push_delete(&item("b", 1, "parent"));
+    h.model.undo.push_delete(&item("c", 2, "child"));
+    h.model.undo.commit(None, 0);
+
+    h.send(Event::Undo);
+
+    assert_eq!(h.items_ids(), ["a", "b", "c"]);
+    assert_eq!(
+        batch_calls(&h.api),
+        [[
+            create_op("b", "a", 1, "parent"),
+            create_op("c", "b", 2, "child"),
+        ]]
+    );
+}
+
+// 結合の undo は、受けた項目の更新を先に、消えた項目の作り直しを後に送る。作り直す項目の階層は、上の項目の更新後の階層で確かめられるためである。
+#[test]
+fn undo_of_a_merge_sends_the_update_before_the_item_made_again() {
+    let mut h = Harness::with_items(vec![item("a", 1, "ab")]);
+    h.model.undo.begin("backspace", None);
+    h.model
+        .undo
+        .push_update(&item("a", 1, "a"), &item("a", 1, "ab"));
+    h.model.undo.push_delete(&item("b", 1, "b"));
+    h.model.undo.commit(None, 0);
+
+    h.send(Event::Undo);
+
+    assert_eq!(h.bodies(), ["a=a", "b=b"]);
+    assert_eq!(
+        batch_calls(&h.api),
+        [[update_op("a", 1, "a"), create_op("b", "a", 1, "b")]]
+    );
 }
 
 // undo スタックが空なら何も起きず、保留中の編集もそのままである。
@@ -294,5 +424,6 @@ fn an_undo_right_after_typing_drops_the_pending_save_of_the_typed_text() {
     h.send(Event::Undo);
     h.fire_timers();
     assert_eq!(h.bodies(), ["a=old"]);
-    assert_eq!(update_calls(&h.api), [("a".into(), Some("old".into()))]);
+    assert_eq!(batch_calls(&h.api), [vec![update_op("a", 1, "old")]]);
+    assert!(update_calls(&h.api).is_empty());
 }
