@@ -71,6 +71,11 @@ pub fn plan_below(
 }
 
 impl Transclusion {
+    /// True for an item of the page of the source that is below the source item.
+    pub fn has_below(&self, item: &Item) -> bool {
+        descendants(&self.source_page, &self.source).any(|below| below.id == item.id)
+    }
+
     /// The last item the transclusion shows: itself when it shows no children.
     fn last_shown(&self) -> &Item {
         let mut last = &self.root;

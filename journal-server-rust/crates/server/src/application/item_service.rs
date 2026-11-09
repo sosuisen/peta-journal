@@ -801,7 +801,13 @@ impl ItemService {
         let shown_by = root_id
             .map(|root_id| {
                 let root = find_all_in(&tx, std::slice::from_ref(root_id))?.remove(0);
-                transclusion_in(&tx, root)
+                let shown = transclusion_in(&tx, root)?;
+                if !shown.has_below(&item) {
+                    return Err(AppError::bad_request(format!(
+                        "The transclusion {root_id} does not show the item {item_id}"
+                    )));
+                }
+                Ok(shown)
             })
             .transpose()?;
         let below = shown_by
