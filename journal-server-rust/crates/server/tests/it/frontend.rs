@@ -84,3 +84,11 @@ async fn the_routes_of_the_server_come_before_the_files_of_the_frontend() {
     let status = mcp.status();
     assert_ne!(mcp.text().await.unwrap(), FROM_THE_FOLDER, "{status}");
 }
+
+// `/api/`で始まるルートのないパスには、`index.html`ではなく404が返る。APIを呼ぶ側が、画面のHTMLを答えと取り違えないためである。
+#[tokio::test]
+async fn an_unknown_api_path_is_not_found_instead_of_index_html() {
+    let response = fetch("/api/no-such-route").await;
+
+    assert_eq!(response.status(), 404);
+}
