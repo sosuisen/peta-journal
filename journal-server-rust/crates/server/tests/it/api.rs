@@ -1293,6 +1293,39 @@ async fn the_rest_of_a_split_transclusion_goes_below_its_source_item_on_the_sour
     assert_eq!(outline_of(&page.id).await, ["1:alpha ", "1:below"]);
 }
 
+/// Collapses an item, as the toggle beside it does
+async fn collapse(item_id: &str) {
+    let (status, resp) = put(
+        &format!("/api/items/{item_id}"),
+        json!({ "collapsed": true }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+}
+
+// 折りたたまれたトランスクルージョンを途中で分割すると、後ろの文は元のページで、元の項目の子孫の後ろに元の項目と同じ階層で入る。直後に置くと、元の項目の子を奪ってしまうためである。
+#[tokio::test]
+async fn the_rest_of_a_collapsed_transclusion_goes_after_the_descendants_of_its_source_item() {
+    let (source_page, _, page, own) = transclusion(
+        "items-split-copy-collapsed",
+        &["top", "  alpha beta", "    child", "  next"],
+        1,
+        &["copy"],
+        0,
+    )
+    .await;
+    collapse(&own[0].id).await;
+
+    let (status, resp) = split(&own[0].id, "alpha beta", 6).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(
+        outline_of(&source_page.id).await,
+        ["1:top", "2:alpha ", "3:child", "2:beta", "2:next"]
+    );
+    assert_eq!(outline_of(&page.id).await, ["1:alpha "]);
+}
+
 // 行末での分割では、空の項目が直後に入る。
 #[tokio::test]
 async fn a_split_at_the_end_puts_an_empty_item_below() {
