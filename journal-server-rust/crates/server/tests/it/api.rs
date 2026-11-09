@@ -1234,6 +1234,26 @@ async fn a_batch_update_writes_the_body_the_level_and_the_collapsed_state() {
     assert!(stored[1].collapsed);
 }
 
+// 作成の操作は、名指しされたIDの項目を、指定の位置と階層に作る。削除した項目を、同じIDで作り直せる。
+#[tokio::test]
+async fn a_batch_create_makes_the_item_again_with_the_id_it_names() {
+    let page = new_doc_page("items-batch-create").await;
+    let rows = fill(&page.id, &["a", "  gone", "c"]).await;
+    assert_eq!(delete(&format!("/api/items/{}", rows[1].id)).await, 204);
+
+    let (status, resp) = batch(json!([{
+        "op": "create", "id": rows[1].id, "pageId": page.id,
+        "position": format!("after:{}", rows[0].id), "level": 2, "body": "back",
+    }]))
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(field_of_each(&resp, "items", "id"), vec![json!(rows[1].id)]);
+    let stored = items(&page.id).await;
+    assert_eq!(outline_of(&page.id).await, ["1:a", "2:back", "1:c"]);
+    assert_eq!(stored[1].id, rows[1].id);
+}
+
 // ---- Items: group delete ----
 
 // グループ削除は、項目を子孫ごと1回のリクエストで消す。
