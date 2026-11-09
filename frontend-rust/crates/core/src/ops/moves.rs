@@ -171,14 +171,16 @@ fn request_move(
 /// Reads the page again after a move inside a transclusion: the server's version of the
 /// page says how the transclusion shows its items now.
 pub fn show_moved_in_transclusion(model: &mut Model, item_id: String) -> Cmd {
+    // A journal shows the pages of many days: the page to read is the one of the transclusion
+    let Some(page_id) = host_page_of_transclusion(model, &item_id) else {
+        // The screen went on to another page while the server was asked
+        model.key_relay.release();
+        return move_done(model, false);
+    };
     // Reading the page again blurs the editor of the item: the edit goes on in it
     model.edits.edit_handovers += 1;
-    // A journal shows the pages of many days: the page to read is the one of the transclusion
-    let page_id = host_page_of_transclusion(model, &item_id);
     run(move |api| async move {
-        if let Some(page_id) = page_id {
-            replace_page(&api, &page_id).await;
-        }
+        replace_page(&api, &page_id).await;
         api.send_event(Event::MovePageReloaded { item_id });
     })
 }
