@@ -1,8 +1,9 @@
 use crate::app::Event;
 use crate::effects::{ApiOp, ApiOutput};
 use crate::harness::{item, update_calls, Harness};
-use crate::model::{Item, PasteCursor, PasteMode, Pasted};
+use crate::model::{Item, PasteCursor, PasteMode, Pasted, TranscludedTrees};
 use crate::outline::UndoOp;
+use crate::testing::item_with;
 
 fn harness() -> Harness {
     Harness::with_items(vec![item("a", 1, "ab|cd"), item("z", 1, "body of z")])
@@ -229,6 +230,50 @@ fn a_raw_paste_sends_the_text_as_it_is_even_when_it_was_copied_from_this_app() {
     h.model.clipboard = Some(("flat".into(), "- tree".into()));
     paste_raw(&mut h, "a", "- tree", 2);
     assert_eq!(paste_requests(&h), [("- tree".into(), PasteMode::Raw)]);
+}
+
+/// A page with "top", and below it the transclusion root "root" of the source item "s" on
+/// the page "src". The child "c" of the source is shown below the root.
+fn transclusion_harness() -> Harness {
+    let root = item_with("root", 2, |i| {
+        i.transclude_item_id = Some("s".into());
+        i.body = "shown".into();
+    });
+    let mut h = Harness::with_items(vec![item("top", 1, ""), root]);
+    let mut trees = TranscludedTrees::new();
+    trees.insert(
+        "s".into(),
+        vec![
+            item_with("s", 1, |i| {
+                i.page_id = "src".into();
+                i.body = "shown".into();
+            }),
+            item_with("c", 2, |i| {
+                i.page_id = "src".into();
+                i.body = "child".into();
+            }),
+        ],
+    );
+    h.model.state.set_transcluded_trees(trees);
+    h
+}
+
+// トランスクルージョンのルートに入力してまだ保存していない文も、貼り付けの要求に入って届く。
+#[test]
+fn text_typed_into_a_transclusion_root_and_not_saved_yet_travels_in_the_paste() {
+    let mut h = transclusion_harness();
+    typed(&mut h, "root", "shown typed");
+    paste(&mut h, "root", "X", 11);
+    assert_eq!(
+        h.api.calls_named("PasteText"),
+        [&ApiOp::PasteText {
+            item_id: "root".into(),
+            body: "shown typed".into(),
+            cursor: 11,
+            text: "X".into(),
+            mode: PasteMode::Auto,
+        }]
+    );
 }
 
 // 画像はアップロードされてカーソル位置にリンクされ、カーソルはリンクの直後に置かれる。
