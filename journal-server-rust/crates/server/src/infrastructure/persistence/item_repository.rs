@@ -345,6 +345,12 @@ impl ItemRepository {
         Ok(())
     }
 
+    /// Forgets that the user deleted the item here, as the item is made again.
+    pub fn forget_deleted_in(conn: &Connection, id: &Hmtid) -> AppResult<()> {
+        conn.execute("DELETE FROM deleted_items WHERE id = ?", [id.as_str()])?;
+        Ok(())
+    }
+
     /// When the user deleted the item here, if so.
     pub fn deleted_date_in(conn: &Connection, id: &Hmtid) -> AppResult<Option<i64>> {
         let date = conn

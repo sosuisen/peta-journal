@@ -168,7 +168,15 @@ impl ItemService {
         client_id: Option<Hmtid>,
         effects: &mut AfterCommit,
     ) -> AppResult<Item> {
-        let id = client_id.unwrap_or_else(|| self.ids.generate_item_id());
+        let id = match client_id {
+            Some(id) => {
+                // The undo of a deletion makes the item again with its id: it is not a
+                // deleted item any more, or the import of its file would take it away
+                ItemRepository::forget_deleted_in(tx, &id)?;
+                id
+            }
+            None => self.ids.generate_item_id(),
+        };
         let now = now_millis();
         let parsed = ItemBody::parse(body);
         let ast = self.parser.parse_to_ast(&parsed.text);
