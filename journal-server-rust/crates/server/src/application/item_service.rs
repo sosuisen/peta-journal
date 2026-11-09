@@ -75,6 +75,8 @@ pub enum BatchOp {
         level: Option<i32>,
         collapsed: Option<bool>,
     },
+    /// Deletes an item. The deletes of a batch go last, as one group.
+    Delete { id: Hmtid },
 }
 
 /// What a batch came to.
@@ -509,15 +511,30 @@ impl ItemService {
         }
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
+        let mut effects = AfterCommit::default();
+        self.remove_group_in(&tx, item_ids, &mut effects)?;
+        tx.commit()?;
+        self.finish(effects);
+        Ok(())
+    }
+
+    /// Removes a group of items inside a transaction. The group is refused when it leaves a
+    /// descendant of one of its items behind.
+    fn remove_group_in(
+        &self,
+        tx: &Connection,
+        item_ids: &[Hmtid],
+        effects: &mut AfterCommit,
+    ) -> AppResult<()> {
         let mut items = Vec::new();
         for id in item_ids {
-            let item = ItemRepository::find_by_id_in(&tx, id)?
+            let item = ItemRepository::find_by_id_in(tx, id)?
                 .ok_or_else(|| AppError::not_found(format!("Item not found: {id}")))?;
             items.push(item);
         }
         let group: BTreeSet<&str> = item_ids.iter().map(Hmtid::as_str).collect();
         for item in &items {
-            for descendant in ItemRepository::find_item_with_descendants_in(&tx, &item.id)? {
+            for descendant in ItemRepository::find_item_with_descendants_in(tx, &item.id)? {
                 if !group.contains(descendant.id.as_str()) {
                     return Err(AppError::bad_request(format!(
                         "Item {} has a descendant that is not deleted: {}",
@@ -526,11 +543,7 @@ impl ItemService {
                 }
             }
         }
-        let mut effects = AfterCommit::default();
-        self.remove_items(&tx, &items, &mut effects)?;
-        tx.commit()?;
-        self.finish(effects);
-        Ok(())
+        self.remove_items(tx, &items, effects)
     }
 
     /// Removes items inside a transaction: their copies go to their transcluders first, then
@@ -746,6 +759,7 @@ impl ItemService {
         let tx = conn.immediate()?;
         let mut effects = AfterCommit::default();
         let mut written = Vec::new();
+        let mut deleted = Vec::new();
         for op in ops {
             match op {
                 BatchOp::Create {
@@ -783,8 +797,14 @@ impl ItemService {
                     )?;
                     written.push(id.clone());
                 }
+                BatchOp::Delete { id } => deleted.push(id.clone()),
             }
         }
+        // A parent deleted on its own is refused, so the deletes go together
+        if !deleted.is_empty() {
+            self.remove_group_in(&tx, &deleted, &mut effects)?;
+        }
+        written.retain(|id| !deleted.contains(id));
         let items = find_all_in(&tx, &written)?;
         tx.commit()?;
         let page_ids = effects.pages.clone();

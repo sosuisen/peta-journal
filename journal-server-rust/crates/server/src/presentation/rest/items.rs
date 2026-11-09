@@ -113,6 +113,9 @@ enum BatchOpRequest {
         level: Option<i32>,
         collapsed: Option<bool>,
     },
+    Delete {
+        id: String,
+    },
 }
 
 impl BatchOpRequest {
@@ -142,6 +145,7 @@ impl BatchOpRequest {
                 level,
                 collapsed,
             },
+            BatchOpRequest::Delete { id } => BatchOp::Delete { id: parse_id(&id)? },
         })
     }
 }
