@@ -658,13 +658,17 @@ impl JournalMcp {
         let state = Arc::clone(&self.state);
         let page_id = id(&a.page_id)?;
         let title = a.title.filter(|t| !t.is_empty());
-        let (page, _) = run(move || {
-            state.item_service.update_page(
+        let page = run(move || {
+            let (page, changed) = state.item_service.update_page(
                 &page_id,
                 title.as_deref(),
                 a.dir_path.as_deref(),
                 a.overwrite,
-            )
+            )?;
+            tell(&state, page_id.as_str());
+            // The pages whose tags the rename of a tag page rewrote
+            tell_all(&state, changed.iter().map(|id| id.as_str()));
+            Ok(page)
         })
         .await?;
         ok(json!({ "page": page_json(&page) }))
@@ -677,7 +681,12 @@ impl JournalMcp {
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let page_id = id(&a.page_id)?;
-        run(move || state.page_service.delete_page(&page_id)).await?;
+        run(move || {
+            state.page_service.delete_page(&page_id)?;
+            tell(&state, page_id.as_str());
+            Ok(())
+        })
+        .await?;
         ok(json!({ "deleted": true }))
     }
 
