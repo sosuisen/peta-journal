@@ -178,4 +178,16 @@ mod tests {
 
         assert_eq!(settings.frontend_dir, Some(PathBuf::from("some/dist")));
     }
+
+    // 指定がなければ、実行ファイルの隣の`frontend/`が画面のフォルダになる。
+    #[test]
+    fn without_the_flag_the_frontend_folder_is_the_one_beside_the_executable() {
+        let dir = tempfile::tempdir().unwrap();
+        let beside = dir.path().join("frontend");
+        std::fs::create_dir(&beside).unwrap();
+
+        let found = frontend_dir(None, Ok(dir.path().join("journal-server")));
+
+        assert_eq!(found, Some(beside));
+    }
 }
