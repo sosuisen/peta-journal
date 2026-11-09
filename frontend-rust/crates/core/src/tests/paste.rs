@@ -400,6 +400,21 @@ fn a_paste_into_a_transclusion_root_is_recorded_as_an_update_of_the_source_item(
     );
 }
 
+// トランスクルージョンのルートへの貼り付けのあと、カーソルはルートに置かれる。サーバーの答えは元の項目を指すが、画面にあるのはルートである。
+#[test]
+fn after_a_paste_into_a_transclusion_root_the_cursor_goes_into_the_root() {
+    let mut h = transclusion_harness();
+    answer_paste(&mut h, vec![source_item("s", 1, "shownX")], "s", 6);
+    answer_reload(
+        &mut h,
+        vec![source_item("s", 1, "shownX"), source_item("c", 2, "child")],
+    );
+    paste(&mut h, "root", "X", 5);
+    assert_eq!(h.focused_editor_requests(), [Some("root".into())]);
+    assert_eq!(h.model.state.focused_item_id(), Some("root"));
+    assert_eq!(h.focus_cursor(), Some(6));
+}
+
 // 画像はアップロードされてカーソル位置にリンクされ、カーソルはリンクの直後に置かれる。
 #[test]
 fn an_image_is_uploaded_linked_at_the_cursor_and_the_cursor_goes_after_the_link() {
