@@ -432,6 +432,43 @@ fn the_cursor_goes_to_the_end_of_the_root_when_the_item_it_was_to_go_to_is_not_s
     assert_eq!(h.focus_cursor(), Some("shownone".len()));
 }
 
+// 作られた項目が元の項目の子孫になると、読み直したページに現れる。カーソルは、サーバーが答えたその項目に置かれる。
+#[test]
+fn the_cursor_goes_to_the_item_the_server_named_when_the_reloaded_page_shows_it() {
+    let mut h = transclusion_harness();
+    answer_paste(
+        &mut h,
+        vec![source_item("s", 1, "shownone"), source_item("n1", 2, "two")],
+        "n1",
+        3,
+    );
+    answer_reload(
+        &mut h,
+        vec![
+            source_item("s", 1, "shownone"),
+            source_item("n1", 2, "two"),
+            source_item("c", 2, "child"),
+        ],
+    );
+    paste(&mut h, "root", "one\n  two", 5);
+    assert_eq!(h.focused_editor_requests(), [Some("n1".into())]);
+    assert_eq!(h.focus_cursor(), Some(3));
+}
+
+// トランスクルージョンのルートへの貼り付けに失敗すると、ルートに入力してまだ保存していない文は、あらためて元の項目に自動保存される。
+#[test]
+fn after_a_failed_paste_into_a_transclusion_root_the_typed_text_is_saved_to_the_source_again() {
+    let mut h = transclusion_harness();
+    typed(&mut h, "root", "shown typed");
+    h.api.fail_next("PasteText", "offline");
+    paste(&mut h, "root", "X", 11);
+    h.fire_timers();
+    assert_eq!(
+        update_calls(&h.api),
+        [("s".into(), Some("shown typed".into()))]
+    );
+}
+
 // 画像はアップロードされてカーソル位置にリンクされ、カーソルはリンクの直後に置かれる。
 #[test]
 fn an_image_is_uploaded_linked_at_the_cursor_and_the_cursor_goes_after_the_link() {
