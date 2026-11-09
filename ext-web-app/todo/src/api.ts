@@ -52,7 +52,7 @@ export function subscribe(listener: ConnectionListener): () => void {
     listener.onStateChange('connecting');
     source = new EventSource(`${serverUrl}/api/events`);
     source.onopen = () => listener.onStateChange('connected');
-    source.onmessage = (event: MessageEvent) => {
+    source.onmessage = (event: MessageEvent<string>) => {
       if (isPagesUpdated(event.data)) listener.onPagesUpdated();
     };
     source.onerror = () => {
@@ -72,7 +72,7 @@ export function subscribe(listener: ConnectionListener): () => void {
 
 function isPagesUpdated(data: string): boolean {
   try {
-    return JSON.parse(data).type === 'pagesUpdated';
+    return (JSON.parse(data) as { type?: unknown }).type === 'pagesUpdated';
   } catch {
     // The stream also carries data that is not for this app
     return false;
@@ -85,7 +85,7 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
     const text = await resp.text().catch(() => '');
     throw new Error(text || `HTTP ${resp.status}`);
   }
-  return await resp.json();
+  return (await resp.json()) as T;
 }
 
 /** Fetches all items whose type matches one of the given types. */

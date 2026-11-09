@@ -34,7 +34,11 @@ export default function App() {
               {entry.label}
             </div>
           ) : (
-            <ItemRow key={entry.item.id} item={entry.item} onCycle={cycle} />
+            <ItemRow
+              key={entry.item.id}
+              item={entry.item}
+              onCycle={item => void cycle(item)}
+            />
           ),
         )}
       </div>

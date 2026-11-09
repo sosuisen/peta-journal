@@ -34,9 +34,9 @@ export function useTasks() {
         setConnectionState(state);
         // Each try to connect takes away the error of a request that failed before it
         if (state !== 'disconnected') setError('');
-        if (state === 'connected') loadItems();
+        if (state === 'connected') void loadItems();
       },
-      onPagesUpdated: loadItems,
+      onPagesUpdated: () => void loadItems(),
     });
   }, []);
 
