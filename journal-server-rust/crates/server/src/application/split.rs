@@ -37,20 +37,14 @@ pub fn plan(on_page: &[Item], item: &Item, body: &str, cursor: usize) -> SplitPl
 /// editor has now. The text is the text of the source item: what is cut off stays on the
 /// page of the source, also where the page of the transclusion does not show it then.
 pub fn plan_of_transclusion(shown: &Transclusion, body: &str, cursor: usize) -> SplitPlan {
-    if at_start(body, cursor) {
-        // The empty item holds no text of the source: it goes on the page of the transclusion
-        return closed(empty_above(shown.root_page, shown.root, body));
-    }
     let (before, after) = split_at_char(body, cursor);
-    if after.is_empty() && last_descendant(shown.source_page, shown.source).is_none() {
-        // An item below the source item would not be shown here, where the edit goes on
-        return closed(SplitPlan {
-            body: body.to_string(),
-            new_body: String::new(),
-            page_id: shown.root.page_id.clone(),
-            position: ItemPosition::After(shown.root.id.clone()),
-            level: shown.root.level,
-        });
+    let shows_no_children =
+        shown.root.collapsed || last_descendant(shown.source_page, shown.source).is_none();
+    if at_start(body, cursor) || (after.is_empty() && shows_no_children) {
+        // The new item is empty: it holds no text of the source. At the end it would not
+        // be shown here if it went below the source item. So it goes on the page of the
+        // transclusion, where an item of that page would get it
+        return plan(shown.root_page, shown.root, body, cursor);
     }
     let (position, level) = shown.place_of_the_rest();
     closed(SplitPlan {
