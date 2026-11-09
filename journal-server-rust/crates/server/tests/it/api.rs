@@ -951,6 +951,30 @@ async fn a_pasted_piece_above_the_first_one_gets_the_level_of_the_item() {
     assert_eq!(outline_of(&page.id).await, ["1:top", "2:hostA", "2:B"]);
 }
 
+// 貼り付け先の本文は、保存済みのものではなく、要求が運んできたものである。まだ保存されていない文字も残る。
+#[tokio::test]
+async fn the_paste_goes_into_the_body_the_request_carries_not_the_stored_one() {
+    let page = new_doc_page("items-paste-unsaved").await;
+    let rows = fill(&page.id, &["saved"]).await;
+
+    let (status, resp) = paste(&rows[0].id, "saved and typed", 15, "!", "auto").await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(outline_of(&page.id).await, ["1:saved and typed!"]);
+}
+
+// `auto`では、`- `で始まる文字列がツリー形式として読まれ、字下げが階層になる。
+#[tokio::test]
+async fn a_paste_in_auto_mode_reads_text_that_starts_with_a_dash_as_tree_markdown() {
+    let page = new_doc_page("items-paste-tree").await;
+    let rows = fill(&page.id, &["host"]).await;
+
+    let (status, resp) = paste(&rows[0].id, "host", 4, "- A\n  - B\n- C", "auto").await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(outline_of(&page.id).await, ["1:hostA", "2:B", "1:C"]);
+}
+
 // ---- Items: group delete ----
 
 // グループ削除は、項目を子孫ごと1回のリクエストで消す。
