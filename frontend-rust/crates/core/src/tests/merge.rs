@@ -436,6 +436,35 @@ fn delete_does_not_merge_a_transclusion_item_below_away() {
     assert!(h.api.calls.is_empty());
 }
 
+// トランスクルージョンは、文を受け取る側にもならない。その下の項目の行頭での Backspace も、トランスクルージョンの行末での Delete も、サーバーに何も送らない。サーバーは、どちらの結合も断る。
+#[test]
+fn nothing_is_joined_into_a_transclusion_and_nothing_is_sent() {
+    let keys = [
+        (
+            "Backspace",
+            Event::BackspaceAtStart {
+                item_id: "b".into(),
+            },
+        ),
+        (
+            "Delete",
+            Event::DeleteAtEnd {
+                item_id: "t".into(),
+            },
+        ),
+    ];
+    for (name, key) in keys {
+        let mut h = Harness::with_items(vec![
+            item_with("t", 1, |i| i.transclude_item_id = Some("src".into())),
+            item("b", 1, "b"),
+        ]);
+        h.send(key);
+        assert_eq!(h.items_ids(), ["t", "b"]);
+        assert!(h.api.calls.is_empty(), "{name}: {:?}", h.api.calls);
+        assert!(!h.model.key_relay.is_holding());
+    }
+}
+
 // ジャーナルの日の最後の項目は、行末での Delete で下の日の項目を取り込まない。
 #[test]
 fn delete_does_not_merge_the_first_item_of_the_journal_day_below() {
