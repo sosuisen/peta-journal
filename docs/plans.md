@@ -72,7 +72,7 @@
     - [x] ハッシュのない名前のファイル（`favicon.ico`、フォント）も、キャッシュさせない
   - [x] READMEとdocsの起動手順を、journal-serverだけを起動する形に直す
   - [ ] PlaywrightのE2Eテストを、`trunk serve`からjournal-serverの配信へ移すかを決める（ユーザーが決める）
-  - [ ] `ext-web-app/todo/src/config.ts`の`wikilink_base_url`が`http://localhost:4200/pages/`のままである。直すかを決める
+  - [x] `ext-web-app/todo`のWeb版へのリンク（ウィキリンクと、項目を開くリンク）を、ポート4200からjournal-serverのアドレスに直す
 - [ ] Emacs版に、Web版にある機能を足す
   - 項目の操作
     - [ ] ウィキリンクの補完。毎日使うので、最初の候補である

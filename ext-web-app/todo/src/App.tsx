@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { connect, onConnectionStateChange, onServerEvent, getItemsByTypes, cycleTask, type ConnectionState, type Item } from './api';
+import { buildBaseUrl, connect, onConnectionStateChange, onServerEvent, getItemsByTypes, cycleTask, type ConnectionState, type Item } from './api';
 import { FmRoot, type ReactRenderOptions } from 'flatmarkdown-ast2react';
-import { config } from './config';
 
 /** Returns today's date as an ISO string (YYYY-MM-DD). */
 function getTodayISODate(): string {
@@ -83,7 +82,7 @@ function ItemDates({ item }: { item: Item }) {
 
 /** Main todo application component. Displays task items with filtering and sorting. */
 const fmOptions: ReactRenderOptions = {
-  wikilink: { hrefPrefix: config.wikilink_base_url },
+  wikilink: { hrefPrefix: `${buildBaseUrl()}/pages/` },
 };
 
 export default function App() {
@@ -163,7 +162,7 @@ export default function App() {
     const isJournal = /^\d{4}(-\d{2}(-\d{2})?|-W\d{1,2})?$/.test(name);
     const prefix = isJournal ? '/journals' : '/docs';
     const path = `${prefix}/${item.dirPath || ''}${name}`;
-    window.open(`http://localhost:4200${path}#${item.id}`, 'peta-journal');
+    window.open(`${buildBaseUrl()}${path}#${item.id}`, 'peta-journal');
   };
 
   const cycleItemTask = async (item: Item) => {
