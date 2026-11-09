@@ -20,6 +20,33 @@ const COMPONENT: &AsciiSet = &NON_ALPHANUMERIC
     .remove(b'(')
     .remove(b')');
 
+/// The header a client names itself with. The server refuses a change without it (ADR-015).
+pub const CLIENT_ID_HEADER: &str = "X-Client-Id";
+
+/// The ID a shell names itself with: a new UUID for each start. The shell sends it in
+/// [`CLIENT_ID_HEADER`] with every request and gives it to the core with `Event::Start`.
+pub fn new_client_id() -> String {
+    let mut bytes = [0u8; 16];
+    getrandom::fill(&mut bytes).expect("the system gives random bytes");
+    uuid_of(bytes)
+}
+
+/// The version 4 UUID that these random bytes make, with hyphens and in lower case.
+pub fn uuid_of(mut bytes: [u8; 16]) -> String {
+    // The version and the variant take the place of six of the random bits
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    let hex: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
+    format!(
+        "{}-{}-{}-{}-{}",
+        &hex[..8],
+        &hex[8..12],
+        &hex[12..16],
+        &hex[16..20],
+        &hex[20..]
+    )
+}
+
 /// One request to the journal server. `path` starts at `/api`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct HttpRequest {
