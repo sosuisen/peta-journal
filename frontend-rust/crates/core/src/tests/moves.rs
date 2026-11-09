@@ -258,3 +258,21 @@ fn text_typed_into_a_shown_item_travels_in_its_move_inside_the_transclusion() {
     assert!(!h.model.move_in_progress);
     assert_eq!(h.model.edits.edit_handovers, 0, "the handover is over");
 }
+
+// 読み直すのは、トランスクルージョンのあるページである。ジャーナルは何日ものページを見せるので、画面のページとは限らない。
+#[test]
+fn the_page_read_again_after_a_move_is_the_page_of_the_transclusion() {
+    let mut h = transclusion_harness();
+    h.model
+        .state
+        .update_item("root", |i| i.page_id = "day2".into());
+    h.send(Event::MoveUp {
+        item_id: "c2".into(),
+    });
+    assert_eq!(
+        h.api.calls_named("GetPageById"),
+        [&ApiOp::GetPageById {
+            page_id: "day2".into()
+        }]
+    );
+}
