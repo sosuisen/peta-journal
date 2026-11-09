@@ -5,7 +5,7 @@ use crate::core::CoreHandle;
 use crux_core::Request;
 use gloo_net::http::Request as Http;
 use peta_core::effects::{ApiError, ApiOp, ApiOutput, ApiResult};
-use peta_core::rest::{rest_call, HttpReply, HttpRequest};
+use peta_core::rest::{rest_call, ClientId, HttpReply, HttpRequest};
 use wasm_bindgen_futures::spawn_local;
 
 /// A transport error as the core sees it.
@@ -14,14 +14,16 @@ fn api_err(e: impl std::fmt::Display) -> ApiError {
 }
 
 /// Sends a request with a JSON body, when there is one, and gives the answer back as it is,
-/// whatever its status.
-async fn send(request: &HttpRequest) -> ApiResult<HttpReply> {
+/// whatever its status. Every request names this tab, as the server refuses a change that
+/// does not (ADR-015).
+async fn send(handle: &CoreHandle, request: &HttpRequest) -> ApiResult<HttpReply> {
     let builder = match request.method {
         "POST" => Http::post(&request.path),
         "PUT" => Http::put(&request.path),
         "DELETE" => Http::delete(&request.path),
         _ => Http::get(&request.path),
-    };
+    }
+    .header(ClientId::HEADER, handle.inner().client_id.as_str());
     let sent = match &request.body {
         Some(body) => builder
             .header("Content-Type", "application/json")
@@ -51,6 +53,7 @@ async fn upload(handle: &CoreHandle, file: u64) -> ApiResult<ApiOutput> {
     form.append_with_blob("file", &file)
         .map_err(|_| ApiError("FormData".into()))?;
     let resp = Http::post("/api/assets/upload")
+        .header(ClientId::HEADER, handle.inner().client_id.as_str())
         .body(form)
         .map_err(api_err)?
         .send()
@@ -76,6 +79,6 @@ async fn call(handle: &CoreHandle, op: ApiOp) -> ApiResult<ApiOutput> {
         return upload(handle, file).await;
     }
     let rest = rest_call(op).ok_or_else(|| ApiError("not a REST call".into()))?;
-    let reply = send(&rest.request).await?;
+    let reply = send(handle, &rest.request).await?;
     rest.decode(&reply)
 }

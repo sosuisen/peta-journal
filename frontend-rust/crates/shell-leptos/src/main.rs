@@ -50,7 +50,9 @@ fn App() -> impl IntoView {
     core.send(Event::AtlasDirsRestored(
         components::atlas::load_atlas_dirs(),
     ));
-    core.send(Event::Start);
+    core.send(Event::Start {
+        client_id: core.inner().client_id.clone(),
+    });
 
     let location = use_location();
     {
