@@ -488,6 +488,21 @@ async fn a_move_closes_an_open_code_fence_in_the_body_it_carries() {
     );
 }
 
+// トランスクルージョンを本文と一緒に動かすと、本文が保存された元のページの変更も、クライアントに知らされる。どちらのページも1回ずつである。
+#[tokio::test]
+async fn the_clients_hear_once_of_each_page_when_a_moved_transclusion_carries_a_body() {
+    let (source_page, _, page, own) =
+        transclusion("items-move-copy-event", &["shown"], 0, &["top", "copy"], 1).await;
+
+    let told = times_told(&[&source_page, &page], async {
+        let (status, resp) = move_edited(&[&own[1].id], &page.id, "first", "shown typed").await;
+        assert_eq!(status, 200, "{resp}");
+    })
+    .await;
+
+    assert_eq!(told, [1, 1]);
+}
+
 // ---- Items: tasks ----
 
 // cycle-taskは、タスク、実行中、完了を経て通常の項目に戻る。
