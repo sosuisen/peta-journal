@@ -1,6 +1,6 @@
 use crate::app::Event;
 use crate::effects::{ApiOp, ApiOutput};
-use crate::harness::{batch_calls, delete_calls, item, update_calls, Harness};
+use crate::harness::{batch_calls, item, update_calls, Harness};
 use crate::model::{
     BatchOp, Item, Page, PageWithItems, PasteCursor, PasteMode, Pasted, TranscludedTrees,
 };
@@ -424,15 +424,17 @@ fn undoing_a_paste_into_a_transclusion_root_restores_the_source_item_and_deletes
     h.send(Event::Undo);
     assert_eq!(
         batch_calls(&h.api),
-        [[BatchOp::Update {
-            id: "s".into(),
-            body: Some("shown".into()),
-            level: Some(1),
-            collapsed: Some(false),
-            task: None,
-        }]]
+        [[
+            BatchOp::Update {
+                id: "s".into(),
+                body: Some("shown".into()),
+                level: Some(1),
+                collapsed: Some(false),
+                task: None,
+            },
+            BatchOp::Delete { id: "n1".into() },
+        ]]
     );
-    assert_eq!(delete_calls(&h.api), [["n1"]]);
     assert_eq!(shown(&h), ["top:1=", "root:2=shown", "c:3=child"]);
 }
 

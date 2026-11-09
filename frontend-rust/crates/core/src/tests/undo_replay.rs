@@ -226,7 +226,7 @@ fn undo_of_a_create_removes_the_item_here_and_on_the_server() {
     assert_eq!(h.model.state.focused_item_id(), Some("a"));
 }
 
-// 親と子を作った操作の undo は、両方を1つのグループとしてサーバーに送る。親だけを先に消すとサーバーが断るためである。
+// 親と子を作った操作の undo は、両方の削除を1つの要求でサーバーに送る。親だけを先に消すとサーバーが断るためである。
 #[test]
 fn undo_of_a_create_of_a_parent_and_its_child_deletes_them_as_one_group() {
     let mut h = Harness::with_items(vec![
@@ -240,20 +240,27 @@ fn undo_of_a_create_of_a_parent_and_its_child_deletes_them_as_one_group() {
     h.model.undo.commit(None, 0);
     h.send(Event::Undo);
     assert_eq!(h.items_ids(), ["a"]);
-    // The order inside the group does not matter to the server
-    let mut sent = delete_calls(&h.api);
-    sent.iter_mut().for_each(|ids| ids.sort());
-    assert_eq!(sent, [vec!["c".to_string(), "p".to_string()]]);
+    // The order of the deletes does not matter to the server: it deletes them as one group
+    let mut sent = batch_calls(&h.api);
+    sent.iter_mut()
+        .for_each(|ops| ops.sort_by_key(|op| format!("{op:?}")));
+    assert_eq!(
+        sent,
+        [[
+            BatchOp::Delete { id: "c".into() },
+            BatchOp::Delete { id: "p".into() },
+        ]]
+    );
 }
 
-// undo の削除をサーバーが断ると、ページはサーバーの持つ形に読み直される。
+// undo の要求をサーバーが断ると、ページはサーバーの持つ形に読み直される。
 #[test]
 fn an_undo_delete_the_server_refuses_reloads_the_page() {
     let mut h = Harness::with_items(vec![item("a", 1, ""), item("n", 1, "created")]);
     h.model.undo.begin("enter", None);
     h.model.undo.push_create(&item("n", 1, "created"));
     h.model.undo.commit(None, 0);
-    h.api.fail_next("DeleteItems", "refused");
+    h.api.fail_next("ApplyBatch", "refused");
     h.send(Event::Undo);
     assert!(h.api.called("GetPageById"));
 }
@@ -268,14 +275,14 @@ fn redo_of_a_create_makes_the_item_again_with_its_id_where_its_index_puts_it() {
     h.send(Event::Undo);
     h.send(Event::Redo);
     assert_eq!(
-        batch_calls(&h.api),
-        [[BatchOp::Create {
+        batch_calls(&h.api)[1],
+        [BatchOp::Create {
             id: "n".into(),
             page_id: "page1".into(),
             position: ItemPosition::after("a"),
             level: 1,
             body: "created".into(),
-        }]]
+        }]
     );
     assert_eq!(h.items_ids(), ["a", "n"]);
 }

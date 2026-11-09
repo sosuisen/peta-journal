@@ -46,7 +46,7 @@ pub fn perform(model: &mut Model, dir: Direction) -> Cmd {
         Direction::Undo => model.undo.push_redo(entry),
         Direction::Redo => model.undo.push_undo(entry),
     }
-    let sync = sync_to_server(model, ops, dir);
+    let sync = sync_to_server(model, &ops, dir);
     let ensure = ensure_at_least_one_item(model);
     Command::all([discard, focus, sync, ensure])
 }
@@ -202,10 +202,13 @@ pub fn show_synced(
     done()
 }
 
-/// Sends the replayed ops to the server, in the order they were applied.
-fn sync_to_server(model: &Model, ops: Vec<UndoOp>, dir: Direction) -> Cmd {
+/// Sends what was replayed to the server as one request: it writes all of it or none. When
+/// it writes none, the page is shown as the server has it, as the screen is then ahead of it.
+fn sync_to_server(model: &Model, ops: &[UndoOp], dir: Direction) -> Cmd {
     let mut batch = Batch::default();
-    for op in &ops {
+    // The server deletes last, as one group: a parent deleted on its own is refused
+    let mut deletes = Vec::new();
+    for op in ops {
         match op {
             UndoOp::Update { before, after } => {
                 let target = if dir == Direction::Undo {
@@ -218,35 +221,23 @@ fn sync_to_server(model: &Model, ops: Vec<UndoOp>, dir: Direction) -> Cmd {
             UndoOp::Create { item } | UndoOp::Delete { item } => {
                 if exists_again(op, dir) {
                     batch.push_create(model, item);
+                } else {
+                    deletes.push(BatchOp::Delete {
+                        id: item.id.clone(),
+                    });
                 }
             }
         }
     }
+    batch.ops.extend(deletes);
     run(move |api| async move {
-        if !batch.ops.is_empty() {
-            match api.apply_batch(batch.ops).await {
-                Ok(items) => api.send_event(Event::UndoSynced {
-                    items,
-                    reparsed: batch.reparsed,
-                    recreated: batch.recreated,
-                }),
-                Err(e) => {
-                    log_error(format!("Failed to sync undo/redo to server: {e}"));
-                    return;
-                }
-            }
-        }
-        // The deletes go last, as one group: a parent deleted on its own is refused
-        let to_delete: Vec<String> = ops
-            .iter()
-            .filter(|op| !exists_again(op, dir))
-            .filter_map(|op| match op {
-                UndoOp::Create { item } | UndoOp::Delete { item } => Some(item.id.clone()),
-                UndoOp::Update { .. } => None,
-            })
-            .collect();
-        if !to_delete.is_empty() {
-            if let Err(e) = api.delete_items(to_delete).await {
+        match api.apply_batch(batch.ops).await {
+            Ok(items) => api.send_event(Event::UndoSynced {
+                items,
+                reparsed: batch.reparsed,
+                recreated: batch.recreated,
+            }),
+            Err(e) => {
                 log_error(format!("Failed to sync undo/redo to server: {e}"));
                 reload_shown_page(&api).await;
             }
