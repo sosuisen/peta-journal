@@ -1336,6 +1336,19 @@ async fn a_split_at_the_start_saves_the_body_the_request_carries() {
     assert_eq!(outline_of(&page.id).await, ["1:", "1:saved and typed"]);
 }
 
+// 元の項目に残る本文のコードフェンスが閉じていなければ、閉じて保存される。保存された本文は、コードフェンスの途中で終わらない。
+#[tokio::test]
+async fn a_split_closes_an_open_code_fence_in_the_body_the_item_keeps() {
+    let page = new_doc_page("items-split-fence").await;
+    let rows = fill(&page.id, &["saved"]).await;
+
+    let (status, resp) = split(&rows[0].id, "```js\ncode", 0).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(resp["item"]["body"], json!("```js\ncode\n```"));
+    assert_eq!(resp["created"]["body"], json!(""));
+}
+
 // 分割は項目を2つ書くが、ページの変更は1回だけクライアントに知らされる。
 #[tokio::test]
 async fn the_clients_hear_of_the_page_once_for_a_split() {
