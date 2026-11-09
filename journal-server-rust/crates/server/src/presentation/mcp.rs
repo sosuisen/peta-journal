@@ -101,6 +101,12 @@ where
     blocking(f).await.map_err(mcp_error)
 }
 
+/// Tells the clients that a tool changed the page. A client that shows the page reads it again.
+/// An MCP client has no client ID, so the change has its own source and not `app` (ADR-015).
+fn tell(state: &SharedState, page_id: &str) {
+    state.sse.broadcast_pages_updated_from(page_id, "mcp");
+}
+
 fn id(s: &str) -> Result<hmtid::Hmtid, McpError> {
     parse_id(s).map_err(mcp_error)
 }
@@ -379,9 +385,11 @@ impl JournalMcp {
         let page_id = id(&a.page_id)?;
         let pos = position(&a.position)?;
         let item = run(move || {
-            state
+            let item = state
                 .item_service
-                .create_item(&page_id, &pos, a.level, &a.body, None)
+                .create_item(&page_id, &pos, a.level, &a.body, None)?;
+            tell(&state, page_id.as_str());
+            Ok(item)
         })
         .await?;
         ok(json!({ "item": item_json(&item) }))

@@ -56,8 +56,9 @@ impl SseBroadcaster {
         let _ = self.tx.send(json.to_string());
     }
 
-    /// `source` is `file` for changes picked up from the markdown folder, `server` for an atlas the server wrote by itself, and
-    /// `extension` for items that extensions wrote.
+    /// `source` is `file` for changes picked up from the markdown folder, `server` for an atlas
+    /// the server wrote by itself, `extension` for items that extensions wrote, and `mcp` for
+    /// changes that an MCP tool made.
     pub fn broadcast_pages_updated_from(&self, page_id: &str, source: &str) {
         let json = format!(
             "{{\"type\":\"pagesUpdated\",\"pageId\":\"{page_id}\",\"source\":\"{source}\"}}"
