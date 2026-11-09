@@ -35,9 +35,9 @@ fn the_shown_atlas_takes_its_outline_again_when_the_server_writes_it() {
 #[test]
 fn the_outline_is_not_fetched_for_a_change_this_client_made_or_on_another_page() {
     let mut h = atlas_with(&[("one", None)]);
-    h.model.client_id = "me".into();
+    let me = h.model.client_id.as_str();
     h.send(Event::Sse(crate::effects::SseEvent::Message(format!(
-        r#"{{"type":"pagesUpdated","pageId":"{ATLAS_ID}","source":"app","clientId":"me"}}"#
+        r#"{{"type":"pagesUpdated","pageId":"{ATLAS_ID}","source":"app","clientId":"{me}"}}"#
     ))));
     page_changed(&mut h, "a/other_atlas", "server");
 
@@ -48,7 +48,6 @@ fn the_outline_is_not_fetched_for_a_change_this_client_made_or_on_another_page()
 #[test]
 fn the_shown_empty_atlas_takes_its_outline_again_when_another_client_changes_it() {
     let mut h = atlas_of(vec![], vec![]);
-    h.model.client_id = "me".into();
     h.api.answer_next(
         "GetPageById",
         Ok(ApiOutput::Page(crate::model::PageWithItems {
@@ -64,7 +63,8 @@ fn the_shown_empty_atlas_takes_its_outline_again_when_another_client_changes_it(
     );
 
     h.send(Event::Sse(crate::effects::SseEvent::Message(format!(
-        r#"{{"type":"pagesUpdated","pageId":"{ATLAS_ID}","source":"app","clientId":"other"}}"#
+        r#"{{"type":"pagesUpdated","pageId":"{ATLAS_ID}","source":"app","clientId":"{}"}}"#,
+        crate::rest::ClientId::new().as_str()
     ))));
     h.fire_timers();
 

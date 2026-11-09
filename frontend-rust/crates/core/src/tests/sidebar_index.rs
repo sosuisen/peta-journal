@@ -189,7 +189,7 @@ fn recent_pages_show_their_folder_on_its_own_line() {
         ])),
     );
     h.send(Event::Start {
-        client_id: String::new(),
+        client_id: crate::rest::ClientId::new(),
     });
 
     let labels: Vec<(Option<String>, String)> = h

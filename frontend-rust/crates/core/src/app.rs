@@ -9,6 +9,7 @@ use crate::effects::{Api, Effect, SseEvent};
 use crate::model::*;
 use crate::ops;
 use crate::outline::{KeyRelay, OutlineState, Selection, UndoStacks};
+use crate::rest::ClientId;
 use crate::screens;
 use crate::util::filename::JournalType;
 use crux_core::command::CommandContext;
@@ -110,7 +111,7 @@ pub enum Event {
     /// The shell is up: connect, load the settings and the sidebar. `client_id` is the UUID
     /// that the shell made for itself and sends with every change request (ADR-015).
     Start {
-        client_id: String,
+        client_id: ClientId,
     },
     /// The URL changed; `today` is the local date as `YYYY-MM-DD`.
     Route {
@@ -717,8 +718,9 @@ pub struct Model {
     pub config: ConfigState,
     pub connection: ConnectionState,
     /// The ID this client names itself with. The server sends it back with the changes this
-    /// client made, so they are told apart from those of the other clients.
-    pub client_id: String,
+    /// client made, so they are told apart from those of the other clients. Until the shell
+    /// starts the core, this is an ID that no client has sent.
+    pub client_id: ClientId,
     pub sse_reconnect_attempts: u32,
     pub scrolled_from_top: bool,
     /// The flat and tree markdown of the last copy, so a paste back keeps the structure.
@@ -753,7 +755,7 @@ impl Default for Model {
             atlas_link_search: AtlasLinkSearch::default(),
             config: ConfigState::default(),
             connection: ConnectionState::Disconnected,
-            client_id: String::new(),
+            client_id: ClientId::new(),
             sse_reconnect_attempts: 0,
             scrolled_from_top: false,
             clipboard: None,

@@ -3,7 +3,7 @@ use crate::model::{
     BatchOp, ItemPosition, JournalBefore, Page, PageWithItems, PasteCursor, PasteMode,
     ServerConfig, TaskState, TreeExport,
 };
-use crate::rest::{new_client_id, rest_call, uuid_of, HttpReply, RestCall};
+use crate::rest::{rest_call, ClientId, HttpReply, RestCall};
 use serde::Serialize;
 use serde_json::{json, Value};
 
@@ -900,6 +900,8 @@ fn an_upload_is_left_to_the_shell() {
 // 16バイトの乱数は、ハイフン付き36文字のバージョン4のUUIDになる。
 #[test]
 fn sixteen_random_bytes_make_a_version_4_uuid_with_hyphens() {
+    let uuid_of = |bytes| ClientId::of_random(bytes).as_str().to_string();
+
     assert_eq!(uuid_of([0x00; 16]), "00000000-0000-4000-8000-000000000000");
     assert_eq!(uuid_of([0xff; 16]), "ffffffff-ffff-4fff-bfff-ffffffffffff");
     assert_eq!(
@@ -914,5 +916,5 @@ fn sixteen_random_bytes_make_a_version_4_uuid_with_hyphens() {
 // 新しいクライアントIDは、作るたびに違う。
 #[test]
 fn a_new_client_id_differs_each_time() {
-    assert_ne!(new_client_id(), new_client_id());
+    assert_ne!(ClientId::new(), ClientId::new());
 }

@@ -7,7 +7,7 @@ use crate::harness::Harness;
 fn started() -> Harness {
     let mut h = Harness::new();
     h.send(Event::Start {
-        client_id: String::new(),
+        client_id: crate::rest::ClientId::new(),
     });
     h
 }

@@ -20,31 +20,43 @@ const COMPONENT: &AsciiSet = &NON_ALPHANUMERIC
     .remove(b'(')
     .remove(b')');
 
-/// The header a client names itself with. The server refuses a change without it (ADR-015).
-pub const CLIENT_ID_HEADER: &str = "X-Client-Id";
+/// The ID a shell names itself with: a new UUID for each start (ADR-015). The shell sends it
+/// with every request and gives it to the core with `Event::Start`.
+///
+/// Only [`ClientId::new`] makes one, so a shell cannot name itself with a text of its own.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ClientId(String);
 
-/// The ID a shell names itself with: a new UUID for each start. The shell sends it in
-/// [`CLIENT_ID_HEADER`] with every request and gives it to the core with `Event::Start`.
-pub fn new_client_id() -> String {
-    let mut bytes = [0u8; 16];
-    getrandom::fill(&mut bytes).expect("the system gives random bytes");
-    uuid_of(bytes)
-}
+impl ClientId {
+    /// The header that carries the ID. The server refuses a change without it.
+    pub const HEADER: &str = "X-Client-Id";
 
-/// The version 4 UUID that these random bytes make, with hyphens and in lower case.
-pub fn uuid_of(mut bytes: [u8; 16]) -> String {
-    // The version and the variant take the place of six of the random bits
-    bytes[6] = (bytes[6] & 0x0f) | 0x40;
-    bytes[8] = (bytes[8] & 0x3f) | 0x80;
-    let hex: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
-    format!(
-        "{}-{}-{}-{}-{}",
-        &hex[..8],
-        &hex[8..12],
-        &hex[12..16],
-        &hex[16..20],
-        &hex[20..]
-    )
+    #[allow(clippy::new_without_default)] // each call makes another ID, which a default is not
+    pub fn new() -> ClientId {
+        let mut bytes = [0u8; 16];
+        getrandom::fill(&mut bytes).expect("the system gives random bytes");
+        ClientId::of_random(bytes)
+    }
+
+    /// The version 4 UUID that these random bytes make, with hyphens and in lower case.
+    pub(crate) fn of_random(mut bytes: [u8; 16]) -> ClientId {
+        // The version and the variant take the place of six of the random bits
+        bytes[6] = (bytes[6] & 0x0f) | 0x40;
+        bytes[8] = (bytes[8] & 0x3f) | 0x80;
+        let hex: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
+        ClientId(format!(
+            "{}-{}-{}-{}-{}",
+            &hex[..8],
+            &hex[8..12],
+            &hex[12..16],
+            &hex[16..20],
+            &hex[20..]
+        ))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
 }
 
 /// One request to the journal server. `path` starts at `/api`.
