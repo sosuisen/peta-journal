@@ -467,6 +467,46 @@ fn undo_of_a_merge_sends_the_update_before_the_item_made_again() {
     );
 }
 
+/// An item with the index that sorts it among the others of its page
+fn at(id: &str, idx: &str, level: i32) -> Item {
+    item_with(id, level, |i| i.idx = idx.into())
+}
+
+fn move_op(ids: &[&str], position: ItemPosition) -> BatchOp {
+    BatchOp::Move {
+        ids: ids.iter().map(|id| id.to_string()).collect(),
+        page_id: "page1".into(),
+        position,
+    }
+}
+
+// 移動の undo は、項目を元の位置に戻し、その移動をサーバーに送る。redo は、もう一度動かす。
+#[test]
+fn undo_of_a_move_puts_the_item_back_where_it_was_and_redo_moves_it_again() {
+    // a went from above b to below it
+    let mut h = Harness::with_items(vec![at("b", "b", 1), at("a", "c", 1)]);
+    h.model
+        .undo
+        .record_updates("move", [(&at("a", "a", 1), &at("a", "c", 1))], 0);
+
+    h.send(Event::Undo);
+    assert_eq!(h.items_ids(), ["a", "b"]);
+    assert_eq!(
+        batch_calls(&h.api),
+        [[update_op("a", 1, ""), move_op(&["a"], ItemPosition::First)]]
+    );
+
+    h.send(Event::Redo);
+    assert_eq!(h.items_ids(), ["b", "a"]);
+    assert_eq!(
+        batch_calls(&h.api)[1],
+        [
+            update_op("a", 1, ""),
+            move_op(&["a"], ItemPosition::after("b"))
+        ]
+    );
+}
+
 // undo スタックが空なら何も起きず、保留中の編集もそのままである。
 #[test]
 fn does_nothing_on_an_empty_stack() {
