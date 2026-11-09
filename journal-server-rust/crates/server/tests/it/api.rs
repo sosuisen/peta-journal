@@ -1555,6 +1555,87 @@ async fn a_collapsed_item_is_the_last_a_transclusion_shows_though_it_hides_child
     );
 }
 
+// 見せている項目のうち最後でないものを行末で分割すると、空の項目は元のページで、ふつうの分割と同じ場所に入る。折りたたまれた項目の後ろにも、見せている項目が続くことがある。
+#[tokio::test]
+async fn a_split_at_the_end_of_an_item_that_is_not_the_last_shown_stays_on_the_source_page() {
+    let (source_page, source, page, own) = transclusion(
+        "items-split-shown-not-last",
+        &[
+            "top",
+            "  alpha",
+            "    child a",
+            "      hidden",
+            "    child b",
+        ],
+        1,
+        &["copy"],
+        0,
+    )
+    .await;
+    collapse(&source[2].id).await;
+
+    let (status, resp) = split_shown_by(&own[0].id, &source[2].id, "child a", 7).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(resp["created"]["pageId"], json!(source_page.id));
+    assert_eq!(
+        outline_of(&source_page.id).await,
+        [
+            "1:top",
+            "2:alpha",
+            "3:child a",
+            "4:hidden",
+            "3:",
+            "3:child b"
+        ]
+    );
+    assert_eq!(outline_of(&page.id).await, ["1:alpha"]);
+}
+
+// 見せている最後の項目でも、途中での分割では、後ろの文は元のページでその直後に入る。元のページの文は、見せているページへ移らない。
+#[tokio::test]
+async fn the_rest_of_the_last_item_a_transclusion_shows_stays_on_the_source_page() {
+    let (source_page, source, page, own) = transclusion(
+        "items-split-shown-middle",
+        &["top", "  alpha", "    child beta"],
+        1,
+        &["copy"],
+        0,
+    )
+    .await;
+
+    let (status, resp) = split_shown_by(&own[0].id, &source[2].id, "child beta", 6).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(
+        outline_of(&source_page.id).await,
+        ["1:top", "2:alpha", "3:child ", "3:beta"]
+    );
+    assert_eq!(outline_of(&page.id).await, ["1:alpha"]);
+}
+
+// 名指しされたトランスクルージョンがその項目を見せていなければ、分割は断られ、何も変わらない。
+#[tokio::test]
+async fn a_split_is_refused_when_the_transclusion_named_does_not_show_the_item() {
+    let (source_page, source, page, own) = transclusion(
+        "items-split-shown-not",
+        &["top", "  alpha", "    child", "  outside"],
+        1,
+        &["copy"],
+        0,
+    )
+    .await;
+
+    let (status, resp) = split_shown_by(&own[0].id, &source[3].id, "outside", 7).await;
+
+    assert_eq!(status, 400, "{resp}");
+    assert_eq!(
+        outline_of(&source_page.id).await,
+        ["1:top", "2:alpha", "3:child", "2:outside"]
+    );
+    assert_eq!(outline_of(&page.id).await, ["1:alpha"]);
+}
+
 // 行末での分割では、空の項目が直後に入る。
 #[tokio::test]
 async fn a_split_at_the_end_puts_an_empty_item_below() {
