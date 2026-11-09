@@ -88,6 +88,17 @@ fn one_piece_goes_into_the_item_at_the_cursor() {
     assert_eq!(h.focus_cursor(), Some(4));
 }
 
+// 貼り付けた項目には、サーバーが新しい本文を解析した結果が表示される。
+#[test]
+fn the_item_shows_what_the_server_parsed_from_the_new_body() {
+    let mut h = harness();
+    paste(&mut h, "a", "XY", 2);
+    assert_eq!(
+        h.model.state.get_item_by_id("a").unwrap().ast,
+        "ast:abXY|cd"
+    );
+}
+
 // サーバーが作った項目は、貼り付けた項目の下に順に入る。カーソルは、サーバーが答えた項目と位置に置かれる。
 #[test]
 fn the_items_the_server_made_go_below_the_item_and_the_cursor_goes_where_the_server_says() {
@@ -129,6 +140,26 @@ fn records_one_undo_entry_with_the_update_and_the_created_items() {
         [UndoOp::Update { .. }, UndoOp::Create { .. }]
     ));
     assert_eq!(entry.cursor_before.unwrap().position, 2);
+}
+
+// 答えが届いたときに項目がもう画面にないと、何も変わらない。ページを移ったあとに答えが届く場合である。
+#[test]
+fn an_answer_for_an_item_that_is_no_longer_on_screen_changes_nothing() {
+    let mut h = harness();
+    h.send(Event::Pasted {
+        item_id: "gone".into(),
+        cursor_before: 0,
+        pasted: Pasted {
+            items: vec![item("gone", 1, "x"), item("n1", 1, "y")],
+            cursor: PasteCursor {
+                item_id: "n1".into(),
+                position: 1,
+            },
+        },
+    });
+    assert_eq!(h.bodies(), ["a=ab|cd", "z=body of z"]);
+    assert!(!h.model.undo.can_undo());
+    assert!(h.focused_editor_requests().is_empty());
 }
 
 // 貼り付けに失敗すると、画面も undo の記録も変わらない。
