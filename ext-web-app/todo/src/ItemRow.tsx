@@ -1,5 +1,7 @@
 import { FmRoot, type ReactRenderOptions } from 'flatmarkdown-ast2react';
+import type { MouseEvent } from 'react';
 import { serverUrl, type Item } from './api';
+import { isOnLink } from './dom';
 import { getDue, getPlan, pagePath, taskLabel } from './tasks';
 
 const fmOptions: ReactRenderOptions = {
@@ -25,11 +27,13 @@ interface ItemRowProps {
 
 /**
  * One task: a click on the row opens its page in PetaJournal, and a click on the badge
- * moves the task to its next state.
+ * moves the task to its next state. A link in the text of the task works as a link.
  */
 export default function ItemRow({ item, onCycle }: ItemRowProps) {
   const label = taskLabel(item);
-  const openInPetaJournal = () => {
+  const openInPetaJournal = (event: MouseEvent<HTMLDivElement>) => {
+    // A click on a link in the text follows that link, and does not open the page too
+    if (isOnLink(event.target as Element)) return;
     window.open(`${serverUrl}${pagePath(item)}`, 'peta-journal');
   };
   return (

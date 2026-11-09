@@ -6,6 +6,7 @@ import {
   getPlan,
   groupByPlan,
   isShown,
+  localISODate,
   pagePath,
   taskLabel,
 } from './tasks';
@@ -86,6 +87,20 @@ describe('the plan date and the due date', () => {
   });
 });
 
+// 日付
+describe('the date of a moment', () => {
+  // 日付は、UTCではなく、利用者の地域の時刻で決まる。日の始まりと終わりの30分で確かめる。
+  test('is the day in the local time, right after and right before midnight', () => {
+    expect(localISODate(new Date(2026, 10, 9, 0, 30))).toBe('2026-11-09');
+    expect(localISODate(new Date(2026, 10, 9, 23, 30))).toBe('2026-11-09');
+  });
+
+  // 1桁の月と日は、0を付けて2桁で書かれる。
+  test('writes a month and a day of one digit with a leading zero', () => {
+    expect(localISODate(new Date(2026, 0, 5, 12))).toBe('2026-01-05');
+  });
+});
+
 // 絞り込み
 describe('the filters', () => {
   const all: Filters = {
@@ -94,7 +109,7 @@ describe('the filters', () => {
     showJournal: true,
     showPage: true,
   };
-  const onJournal = item({ name: '2026-11-09' });
+  const onJournal = item({ type: 'journal', name: '2026-11-09' });
   const onPage = item({ name: 'Notes' });
 
   // 完了したタスクは、Doneを選んだときだけ表示される。
@@ -116,20 +131,28 @@ describe('the filters', () => {
     expect(isShown(onJournal, { ...all, showJournal: false })).toBe(false);
   });
 
-  // 日次ジャーナル以外のページのタスクは、Pageを選んだときだけ表示される。
-  test('show a task of another page only with Page', () => {
+  // ジャーナルでないページのタスクは、Pageを選んだときだけ表示される。
+  test('show a task of a page that is no journal only with Page', () => {
     expect(isShown(onPage, { ...all, showJournal: false })).toBe(true);
     expect(isShown(onPage, { ...all, showPage: false })).toBe(false);
   });
 
-  // 週、月、年のジャーナルのタスクは、絞り込みではページとして扱われる。
-  test('take a weekly, monthly or yearly journal for a page', () => {
+  // 週、月、年のジャーナルのタスクも、Journalを選んだときだけ表示される。
+  test('show a task of a weekly, monthly or yearly journal only with Journal', () => {
     for (const name of ['2026-W45', '2026-11', '2026']) {
-      const task = item({ name });
+      const task = item({ type: 'journal', name });
 
-      expect(isShown(task, { ...all, showJournal: false }), name).toBe(true);
-      expect(isShown(task, { ...all, showPage: false }), name).toBe(false);
+      expect(isShown(task, { ...all, showPage: false }), name).toBe(true);
+      expect(isShown(task, { ...all, showJournal: false }), name).toBe(false);
     }
+  });
+
+  // 日付の形の名前でも、ドキュメントページのタスクは、Pageを選んだときだけ表示される。
+  test('show a task of a doc page named like a date only with Page', () => {
+    const task = item({ type: 'doc', name: '2026' });
+
+    expect(isShown(task, { ...all, showJournal: false })).toBe(true);
+    expect(isShown(task, { ...all, showPage: false })).toBe(false);
   });
 
   // 開始日が指定の日より後のタスクは、表示されない。指定の日のタスクは表示される。
@@ -235,10 +258,17 @@ describe('the path that opens the page of a task', () => {
       '2026-11',
       '2026',
     ]) {
-      const task = item({ id: 'item-7', name });
+      const task = item({ id: 'item-7', type: 'journal', name });
 
       expect(pagePath(task)).toBe(`/journals/${name}#item-7`);
     }
+  });
+
+  // 日付の形の名前でも、ドキュメントページは`/docs/`の下である。
+  test('is under /docs/ for a doc page named like a date', () => {
+    const task = item({ id: 'item-7', type: 'doc', name: '2026' });
+
+    expect(pagePath(task)).toBe('/docs/2026#item-7');
   });
 
   // 日付で始まるだけの名前のページは、ドキュメントページである。
