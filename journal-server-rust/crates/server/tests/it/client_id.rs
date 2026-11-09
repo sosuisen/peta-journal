@@ -43,36 +43,21 @@ async fn a_change_without_an_id_is_refused_and_the_message_names_the_header() {
 // データを変えないPOSTも、PUTも、DELETEも、IDを名乗らなければ断られる。
 #[tokio::test]
 async fn every_post_put_and_delete_of_the_api_needs_an_id() {
+    let page = new_doc_page("client-id-methods").await;
+    let item = fill(&page.id, &["kept"]).await.remove(0);
+    // Each request is in order but for the ID, so only the missing ID can refuse it
     let requests = [
         nameless()
             .post(url("/api/items/parse"))
             .json(&json!({ "markdown": "x" })),
         nameless().put(url("/api/config")).json(&json!({})),
-        nameless().delete(url("/api/pages/none/atlas/items/none")),
+        nameless().delete(url(&format!("/api/items/{}", item.id))),
     ];
 
     for request in requests {
-        let (status, message) = refusal(request.send().await.unwrap()).await;
-
-        assert_eq!(status, 400);
-        assert!(message.contains("X-Client-Id"), "{message}");
+        assert_eq!(request.send().await.unwrap().status(), 400);
     }
-}
-
-// UUIDとして読めないIDの変更は、400で断られる。
-#[tokio::test]
-async fn a_change_with_an_id_that_is_not_a_uuid_is_refused() {
-    let response = nameless()
-        .post(url("/api/items/parse"))
-        .header("X-Client-Id", "emacs")
-        .json(&json!({ "markdown": "x" }))
-        .send()
-        .await
-        .unwrap();
-
-    let (status, message) = refusal(response).await;
-    assert_eq!(status, 400);
-    assert!(message.contains("X-Client-Id"), "{message}");
+    assert_eq!(outline_of(&page.id).await, ["1:kept"]);
 }
 
 // GETは、IDを名乗らなくても答えが返る。

@@ -63,3 +63,43 @@ impl<S: Send + Sync> FromRequestParts<S> for ClientId {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use axum::http::HeaderValue;
+
+    use super::*;
+
+    fn headers_with(id: &'static str) -> HeaderMap {
+        HeaderMap::from_iter([(
+            axum::http::HeaderName::from_static(HEADER),
+            HeaderValue::from_static(id),
+        )])
+    }
+
+    // ヘッダーのUUIDは、書かれたとおりの文字でIDになる。
+    #[test]
+    fn the_uuid_of_the_header_is_the_id_as_it_is_written() {
+        let written = "123E4567-e89b-42d3-a456-426614174000";
+
+        let id = ClientId::of(&headers_with(written)).unwrap();
+
+        assert_eq!(id.as_str(), written);
+    }
+
+    // ヘッダーがなければ、IDは読めない。
+    #[test]
+    fn no_header_gives_no_id() {
+        let refusal = ClientId::of(&HeaderMap::new()).unwrap_err();
+
+        assert!(matches!(refusal, AppError::BadRequest(_)));
+    }
+
+    // UUIDでない文字列は、IDとして読めない。
+    #[test]
+    fn a_text_that_is_not_a_uuid_is_no_id() {
+        let refusal = ClientId::of(&headers_with("emacs")).unwrap_err();
+
+        assert!(matches!(refusal, AppError::BadRequest(_)));
+    }
+}
