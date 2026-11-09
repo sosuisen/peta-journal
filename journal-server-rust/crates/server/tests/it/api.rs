@@ -1023,6 +1023,20 @@ async fn a_paste_in_auto_mode_inside_an_open_code_fence_is_not_split_and_the_fen
     );
 }
 
+// 途中の項目が作れないと、貼り付けの全体が取り消される。貼り付け先の本文も変わらない。
+#[tokio::test]
+async fn a_paste_that_cannot_create_one_of_its_items_changes_nothing() {
+    let page = new_doc_page("items-paste-atomic").await;
+    let rows = fill(&page.id, &["ab"]).await;
+
+    // The second piece is two levels below the first, which no item can be
+    let flat = "X\n\n<!-- @@@ -->\nY";
+    let (status, resp) = paste(&rows[0].id, "ab", 1, flat, "flat").await;
+
+    assert_eq!(status, 400, "{resp}");
+    assert_eq!(outline_of(&page.id).await, ["1:ab"]);
+}
+
 // ---- Items: group delete ----
 
 // グループ削除は、項目を子孫ごと1回のリクエストで消す。
