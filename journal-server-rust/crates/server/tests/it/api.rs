@@ -1213,6 +1213,27 @@ async fn a_split_of_an_open_parent_puts_the_new_item_in_as_its_first_child() {
     );
 }
 
+// 折りたたまれた親を分割すると、新しい項目は隠れている子孫の後ろに、親と同じ階層で入る。
+#[tokio::test]
+async fn a_split_of_a_collapsed_parent_puts_the_new_item_after_its_hidden_descendants() {
+    let page = new_doc_page("items-split-collapsed").await;
+    let rows = fill(&page.id, &["parent", "  child", "    grandchild", "next"]).await;
+    let (status, resp) = put(
+        &format!("/api/items/{}", rows[0].id),
+        json!({ "collapsed": true }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    let (status, resp) = split(&rows[0].id, "parent", 3).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(
+        outline_of(&page.id).await,
+        ["1:par", "2:child", "3:grandchild", "1:ent", "1:next"]
+    );
+}
+
 // ---- Items: batch ----
 
 /// Applies operations as one batch, the way an undo sends what it replays
