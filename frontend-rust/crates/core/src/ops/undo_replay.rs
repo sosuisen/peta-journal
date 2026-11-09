@@ -3,8 +3,8 @@
 //! date in the background. Server errors are logged; the screen already shows the replayed
 //! state.
 
-use crate::app::{apply, done, log_error, run, Cmd, Model};
-use crate::model::{Item, ItemPosition};
+use crate::app::{apply, done, log_error, run, Cmd, Event, Model};
+use crate::model::{BatchOp, Item, ItemPosition};
 use crate::ops::edit::discard_pending_edit_of_focused_item;
 use crate::ops::edit::{focus_editor, save_target_id, show_parsed};
 use crate::ops::file_reload::reload_shown_page;
@@ -124,47 +124,91 @@ fn cursor_of(entry: &UndoEntry, dir: Direction) -> Option<CursorState> {
     })
 }
 
+/// What an undo or a redo sends to the server in one request.
+#[derive(Default)]
+struct Batch {
+    ops: Vec<BatchOp>,
+    /// The items whose body or task state the replay changed: they take the server's parse.
+    reparsed: Vec<String>,
+}
+
+impl Batch {
+    /// Adds the update of a replayed item. A transclusion root shows the task state of its
+    /// source item, so the task state goes there, as an update of its own.
+    fn push_update(&mut self, before: &Item, after: &Item, target: &Item) {
+        let task_changed = before.task_state() != after.task_state();
+        let task_target = save_target_id(target);
+        let own_task = task_changed && task_target == target.id;
+        self.ops.push(BatchOp::Update {
+            id: target.id.clone(),
+            body: Some(target.body.clone()),
+            level: Some(target.level),
+            collapsed: Some(target.collapsed),
+            task: own_task.then(|| target.task_state()),
+        });
+        // An entry that kept the body and the task state also keeps its parse
+        if before.body != after.body || own_task {
+            self.reparsed.push(target.id.clone());
+        }
+        if task_changed && !own_task {
+            self.ops.push(BatchOp::Update {
+                id: task_target.clone(),
+                body: None,
+                level: None,
+                collapsed: None,
+                task: Some(target.task_state()),
+            });
+            self.reparsed.push(task_target);
+        }
+    }
+}
+
+/// Shows what the server answered to the batch of an undo or a redo: where it put each item,
+/// and how it parsed the items whose body or task state changed.
+pub fn show_synced(model: &mut Model, items: Vec<Item>, reparsed: Vec<String>) -> Cmd {
+    for item in &items {
+        if reparsed.contains(&item.id) {
+            show_parsed(model, item);
+        }
+        model.state.update_item(&item.id, |i| {
+            i.idx = item.idx.clone();
+            i.level = item.level;
+        });
+    }
+    done()
+}
+
 /// Sends the replayed ops to the server, in the order they were applied.
 fn sync_to_server(ops: Vec<UndoOp>, dir: Direction) -> Cmd {
+    let mut batch = Batch::default();
+    for op in &ops {
+        if let UndoOp::Update { before, after } = op {
+            let target = if dir == Direction::Undo {
+                before
+            } else {
+                after
+            };
+            batch.push_update(before, after, target);
+        }
+    }
     run(move |api| async move {
+        if !batch.ops.is_empty() {
+            match api.apply_batch(batch.ops).await {
+                Ok(items) => api.send_event(Event::UndoSynced {
+                    items,
+                    reparsed: batch.reparsed,
+                }),
+                Err(e) => {
+                    log_error(format!("Failed to sync undo/redo to server: {e}"));
+                    return;
+                }
+            }
+        }
         // The deletes go last, as one group: a parent deleted on its own is refused
         let mut to_delete = Vec::new();
         for op in ops {
             let result = match &op {
-                UndoOp::Update { before, after } => {
-                    let target = if dir == Direction::Undo {
-                        before
-                    } else {
-                        after
-                    };
-                    match api
-                        .update_item(
-                            &target.id,
-                            Some(target.body.clone()),
-                            Some(target.level),
-                            Some(target.collapsed),
-                        )
-                        .await
-                    {
-                        Ok(updated) => {
-                            // An entry that kept the body also keeps its parse: the answer has
-                            // the task state from before the replay of it just below
-                            let body_changed = before.body != after.body;
-                            apply(&api, "undo sync: answer", move |m| {
-                                if body_changed {
-                                    show_parsed(m, &updated);
-                                }
-                                m.state.update_item(&updated.id, |i| {
-                                    i.idx = updated.idx;
-                                    i.level = updated.level;
-                                });
-                                done()
-                            });
-                            replay_task_state(&api, before, after, target).await
-                        }
-                        Err(e) => Err(e),
-                    }
-                }
+                UndoOp::Update { .. } => Ok(()),
                 UndoOp::Create { item } | UndoOp::Delete { item } => {
                     let exists_again =
                         matches!(op, UndoOp::Create { .. }) == (dir == Direction::Redo);
@@ -188,27 +232,6 @@ fn sync_to_server(ops: Vec<UndoOp>, dir: Direction) -> Cmd {
             }
         }
     })
-}
-
-/// Puts the task state of the replayed item on the server, when the entry changed it. A
-/// transclusion root shows the task state of its source item, so the state goes there.
-async fn replay_task_state(
-    api: &crate::effects::Api<crate::app::Event>,
-    before: &Item,
-    after: &Item,
-    target: &Item,
-) -> Result<(), crate::effects::ApiError> {
-    if before.task_state() == after.task_state() {
-        return Ok(());
-    }
-    let answer = api
-        .set_task(&save_target_id(target), target.task_state())
-        .await?;
-    apply(api, "undo sync: task state", move |m| {
-        show_parsed(m, &answer);
-        done()
-    });
-    Ok(())
 }
 
 /// Creates the item of a create/delete op again on the server and shows the server's item.

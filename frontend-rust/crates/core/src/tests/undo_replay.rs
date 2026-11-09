@@ -1,8 +1,6 @@
 use crate::app::Event;
 use crate::effects::ApiOutput;
-use crate::harness::{
-    batch_calls, create_calls, delete_calls, item, set_task_calls, update_calls, Harness,
-};
+use crate::harness::{batch_calls, create_calls, delete_calls, item, update_calls, Harness};
 use crate::model::{BatchOp, Item, TaskState, TranscludedTrees};
 use crate::outline::CursorState;
 use crate::testing::item_with;
@@ -105,7 +103,21 @@ fn done_state() -> TaskState {
     }
 }
 
-// タスク状態の切り替えの undo は、元の時刻と予定日ごと、元の状態をサーバーに送る。redo は切り替え後の状態を送る。
+/// The task states the batches sent, as `(item, state)`
+fn task_states_sent(h: &Harness) -> Vec<(String, TaskState)> {
+    let ops = batch_calls(&h.api).into_iter().flatten();
+    ops.filter_map(|op| match op {
+        BatchOp::Update {
+            id,
+            task: Some(state),
+            ..
+        } => Some((id, state)),
+        _ => None,
+    })
+    .collect()
+}
+
+// タスク状態の切り替えの undo は、元の時刻と予定日ごと、元の状態を、項目の更新と同じ操作でサーバーに送る。redo は切り替え後の状態を送る。
 #[test]
 fn undo_and_redo_of_a_task_cycle_send_the_task_state_to_the_server() {
     let mut h = Harness::with_items(vec![done_task("a")]);
@@ -117,11 +129,20 @@ fn undo_and_redo_of_a_task_cycle_send_the_task_state_to_the_server() {
     });
 
     h.send(Event::Undo);
-    assert_eq!(set_task_calls(&h.api), [("a".to_string(), done_state())]);
+    assert_eq!(
+        batch_calls(&h.api),
+        [[BatchOp::Update {
+            id: "a".into(),
+            body: Some("x".into()),
+            level: Some(1),
+            collapsed: Some(false),
+            task: Some(done_state()),
+        }]]
+    );
 
     h.send(Event::Redo);
-    assert_eq!(set_task_calls(&h.api).len(), 2);
-    assert_eq!(set_task_calls(&h.api)[1].1, TaskState::default());
+    assert_eq!(task_states_sent(&h).len(), 2);
+    assert_eq!(task_states_sent(&h)[1].1, TaskState::default());
 }
 
 // undo の後は、サーバーが答えたタスク状態が表示される。
@@ -136,7 +157,7 @@ fn undo_of_a_task_cycle_shows_the_task_state_the_server_answers() {
     assert_eq!(shown.task_state(), done_state());
 }
 
-// トランスクルージョンのルートでのタスク状態の undo は、元の項目のタスク状態を戻す。
+// トランスクルージョンのルートでのタスク状態の undo は、元の項目のタスク状態を戻す。ルートの更新と同じ要求で送る。
 #[test]
 fn undo_of_a_task_cycle_on_a_transclusion_root_goes_to_the_source_item() {
     let root = item_with("root", 1, |i| i.transclude_item_id = Some("s".into()));
@@ -150,7 +171,8 @@ fn undo_of_a_task_cycle_on_a_transclusion_root_goes_to_the_source_item() {
 
     h.send(Event::Undo);
 
-    assert_eq!(set_task_calls(&h.api), [("s".to_string(), done_state())]);
+    assert_eq!(batch_calls(&h.api).len(), 1);
+    assert_eq!(task_states_sent(&h), [("s".to_string(), done_state())]);
     let rows = h.view().outline.rows;
     let shown = rows.iter().find(|r| r.item.id == "root").unwrap();
     assert_eq!(shown.item.task_state(), done_state());
@@ -170,7 +192,8 @@ fn undo_of_a_body_edit_does_not_send_the_task_state() {
         now_ms: 0,
     });
     h.send(Event::Undo);
-    assert!(set_task_calls(&h.api).is_empty());
+    assert_eq!(batch_calls(&h.api).len(), 1);
+    assert!(task_states_sent(&h).is_empty());
 }
 
 // undo の後も更新された項目の編集は続き、カーソルはその本文の末尾に置かれる。
@@ -308,5 +331,6 @@ fn an_undo_right_after_typing_drops_the_pending_save_of_the_typed_text() {
     h.send(Event::Undo);
     h.fire_timers();
     assert_eq!(h.bodies(), ["a=old"]);
-    assert_eq!(update_calls(&h.api), [("a".into(), Some("old".into()))]);
+    assert_eq!(batch_calls(&h.api), [vec![update_op("a", 1, "old")]]);
+    assert!(update_calls(&h.api).is_empty());
 }
