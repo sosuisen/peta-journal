@@ -133,6 +133,28 @@ fn a_late_answer_is_still_shown_for_an_item_no_later_sync_wrote() {
     assert_eq!(h.model.state.get_item_by_id("b").unwrap().ast, "late parse");
 }
 
+// 字下げの undo と redo を続けたあとに、undo の応答が遅れて届いても、項目は redo した階層のままである。
+#[test]
+fn a_late_answer_to_an_undo_does_not_put_the_item_back_at_the_old_level() {
+    let mut h = Harness::with_items(vec![item("a", 1, ""), item("b", 2, "")]);
+    h.model.undo.begin("indent", None);
+    h.model
+        .undo
+        .push_update(&item("b", 1, ""), &item("b", 2, ""));
+    h.model.undo.commit(None, 0);
+    h.send(Event::Undo);
+    h.send(Event::Redo);
+
+    h.send(Event::UndoSynced {
+        sync: 1,
+        items: vec![answered("b", 1, "")],
+        reparsed: vec![],
+        recreated: vec![],
+    });
+
+    assert_eq!(h.outline(), ["a:1=", "b:2="]);
+}
+
 // 本文を変えない操作の redo では、サーバーの応答が項目の種類を上書きしない。
 #[test]
 fn the_redo_of_a_task_cycle_keeps_the_item_a_task() {
