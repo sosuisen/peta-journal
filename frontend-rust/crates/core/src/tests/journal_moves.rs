@@ -37,43 +37,52 @@ fn harness() -> Harness {
     h
 }
 
-// 最上位の項目を上へ動かすと、子ごと翌日のジャーナルの末尾へ移動される。翌日ページの唯一の空項目は削除され、翌日へ遷移する。
+/// A move to the journal of a day, as the request carried it.
+struct JournalMove {
+    date: String,
+    item_ids: Vec<String>,
+    position: String,
+    body: Option<String>,
+}
+
+fn journal_moves(h: &Harness) -> Vec<JournalMove> {
+    h.api
+        .calls
+        .iter()
+        .filter_map(|op| match op {
+            ApiOp::MoveItemsToJournal {
+                file_name,
+                item_ids,
+                position,
+                body,
+            } => Some(JournalMove {
+                date: file_name.clone(),
+                item_ids: item_ids.clone(),
+                position: position.to_api(),
+                body: body.clone(),
+            }),
+            _ => None,
+        })
+        .collect()
+}
+
+// 最上位の項目を上へ動かすと、子ごと翌日のジャーナルの末尾へ、1つの要求で移動される。ジャーナルの取得や作成、空の項目の削除は別には送らない。翌日へ遷移する。
 #[test]
 fn moving_the_topmost_item_up_takes_it_with_its_children_to_the_end_of_the_next_day() {
     let mut h = harness();
-    h.api.answer_next(
-        "GetOrCreateJournal",
-        Ok(ApiOutput::Page(PageWithItems {
-            page: Page {
-                id: "p11".into(),
-                name: "2026-02-11".into(),
-                page_type: "journal".into(),
-                ..Default::default()
-            },
-            items: vec![item("empty", 1, "")],
-            ..Default::default()
-        })),
-    );
     h.send(Event::MoveUp {
         item_id: "a".into(),
     });
-    assert!(
-        matches!(&h.api.calls[0], ApiOp::GetOrCreateJournal { file_name } if file_name == "2026-02-11")
-    );
-    assert_eq!(
-        move_calls(&h.api),
-        [(
-            vec!["a".to_string(), "a1".to_string()],
-            "p11".to_string(),
-            "last".to_string()
-        )]
-    );
-    // The single empty item of the new target page is replaced
-    assert!(
-        matches!(h.api.calls.iter().find(|c| matches!(c, ApiOp::DeleteItem { .. })), Some(ApiOp::DeleteItem { item_id }) if item_id == "empty")
-    );
+    let names: Vec<&str> = h.api.calls.iter().map(crate::harness::op_name).collect();
+    assert_eq!(names, ["MoveItemsToJournal"]);
+    let sent = &journal_moves(&h)[0];
+    assert_eq!(sent.date, "2026-02-11");
+    assert_eq!(sent.item_ids, ["a", "a1"]);
+    assert_eq!(sent.position, "last");
+    assert_eq!(sent.body, None);
     // The item left the shown page: the journal navigates to the next day
     assert_eq!(h.navigations.last().unwrap().url, "/pages/2026-02-11");
+    assert!(!h.model.move_in_progress);
 }
 
 // 最下位の項目を下へ動かすと前日のジャーナルの先頭へ移動される。遷移はせず表示中のジャーナルが再読み込みされる。

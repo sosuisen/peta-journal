@@ -280,6 +280,23 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             None,
             page,
         ),
+        ApiOp::MoveItemsToJournal {
+            file_name,
+            item_ids,
+            position,
+            body,
+        } => {
+            let mut request = json!({ "itemIds": item_ids, "position": position.to_api() });
+            if let Some(body) = body {
+                request["body"] = json!(body);
+            }
+            call(
+                "POST",
+                format!("/api/journals/{}/move", enc(&file_name)),
+                Some(request),
+                page,
+            )
+        }
         ApiOp::GetOrCreateDoc { title, dir_path } => call(
             "POST",
             "/api/pages/doc",

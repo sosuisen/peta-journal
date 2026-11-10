@@ -28,6 +28,14 @@ pub enum ApiOp {
     GetOrCreateJournal {
         file_name: String,
     },
+    /// Moves items to the journal of the day `file_name`, which is made when there is none.
+    MoveItemsToJournal {
+        file_name: String,
+        item_ids: Vec<String>,
+        position: ItemPosition,
+        /// The body the editor of the first item has now, when it is not saved yet.
+        body: Option<String>,
+    },
     GetOrCreateDoc {
         title: String,
         dir_path: String,
@@ -500,6 +508,29 @@ impl<Event: Send + 'static> Api<Event> {
         expect_output!(
             self.call(ApiOp::GetOrCreateJournal {
                 file_name: file_name.into()
+            })
+            .await,
+            Page
+        )
+    }
+
+    /// Moves items to the journal of a day as a move key at the edge of a day does: the
+    /// journal is made when there is none, and `body`, the text the editor of the first item
+    /// has now when it is not saved yet, is saved with the move. Answers with the journal and
+    /// the moved items.
+    pub async fn move_items_to_journal(
+        &self,
+        file_name: &str,
+        item_ids: Vec<String>,
+        position: ItemPosition,
+        body: Option<&str>,
+    ) -> ApiResult<PageWithItems> {
+        expect_output!(
+            self.call(ApiOp::MoveItemsToJournal {
+                file_name: file_name.into(),
+                item_ids,
+                position,
+                body: body.map(str::to_string),
             })
             .await,
             Page
