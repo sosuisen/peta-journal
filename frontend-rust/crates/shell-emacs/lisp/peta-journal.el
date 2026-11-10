@@ -46,10 +46,17 @@ It applies to the rows drawn after a change.  Only a graphical Emacs shows it."
   :type 'natnum)
 
 (defconst peta-journal--bullets
-  '(("plain" . "•") ("collapsed" . "◉") ("task" . "☐") ("running" . "◐") ("done" . "☑")
-    ("transclusion" . "↪") ("broken" . "✗"))
+  '(("plain" . "•") ("task" . "☐") ("running" . "◐") ("done" . "☑")
+    ("transclusion" . "⊡") ("broken" . "✗"))
   "The mark of each kind of row.
-A collapsed item has a ring around its dot, as the web frontend draws it.")
+A transclusion has a square around its dot, as the web frontend draws it.")
+
+(defconst peta-journal--collapsed-bullets
+  '(("plain" . "◉") ("transclusion" . "▣"))
+  "The mark of each kind of row whose children are hidden.
+A ring around the dot, and a filled square for a transclusion, as the web
+frontend draws them.  A kind that is not here keeps its mark: that of a task
+says its state.")
 
 (defconst peta-journal--bullet-gap " "
   "The space behind a bullet.
@@ -418,8 +425,9 @@ Completion sorts a plain list by name, which would hide the newest pages."
   "The bullet of ROW."
   (let* ((kind (plist-get row :bullet))
          (level (plist-get row :level))
-         (shape (if (and (plist-get row :collapsed) (equal kind "plain")) "collapsed" kind))
-         (mark (cdr (assoc shape peta-journal--bullets))))
+         (mark (or (and (plist-get row :collapsed)
+                        (cdr (assoc kind peta-journal--collapsed-bullets)))
+                   (cdr (assoc kind peta-journal--bullets)))))
     (propertize (concat mark peta-journal--bullet-gap)
                 'peta-bullet (plist-get row :id)
                 'font-lock-face (if (equal kind "done") 'peta-journal-done 'peta-journal-bullet)
