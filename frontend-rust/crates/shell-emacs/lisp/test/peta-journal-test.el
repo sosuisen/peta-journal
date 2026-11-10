@@ -550,15 +550,6 @@
     (search-forward "\n")
     (should-not (get-text-property (1- (point)) 'line-spacing))))
 
-;; 折りたたんだ項目は、改行の代わりに表示する文字列に隙間を持つ。表示はこの文字列から作られる。
-(ert-deftest peta-journal-a-collapsed-item-has-the-gap-in-what-it-shows ()
-  (let ((peta-journal-item-gap 7))
-    (peta-journal-test--with-rows
-        (list (peta-journal-test--row "a" 1 "x" :collapsed t))
-      (let* ((newline (peta-journal--body-end (peta-journal--find-row "a")))
-             (shown (get-text-property newline 'display)))
-        (should (= (get-text-property (1- (length shown)) 'line-spacing shown) 7))))))
-
 ;;;; Wrapping
 
 ;; 折り返しの行に、フリンジのマークを出さない。他のマークと、他のバッファの設定はそのままである。

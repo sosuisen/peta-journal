@@ -46,9 +46,10 @@ It applies to the rows drawn after a change.  Only a graphical Emacs shows it."
   :type 'natnum)
 
 (defconst peta-journal--bullets
-  '(("plain" . "•") ("task" . "☐") ("running" . "◐") ("done" . "☑")
+  '(("plain" . "•") ("collapsed" . "◉") ("task" . "☐") ("running" . "◐") ("done" . "☑")
     ("transclusion" . "↪") ("broken" . "✗"))
-  "The mark of each kind of row.")
+  "The mark of each kind of row.
+A collapsed item has a ring around its dot, as the web frontend draws it.")
 
 (defconst peta-journal--bullet-gap " "
   "The space behind a bullet.
@@ -417,7 +418,8 @@ Completion sorts a plain list by name, which would hide the newest pages."
   "The bullet of ROW."
   (let* ((kind (plist-get row :bullet))
          (level (plist-get row :level))
-         (mark (cdr (assoc kind peta-journal--bullets))))
+         (shape (if (and (plist-get row :collapsed) (equal kind "plain")) "collapsed" kind))
+         (mark (cdr (assoc shape peta-journal--bullets))))
     (propertize (concat mark peta-journal--bullet-gap)
                 'peta-bullet (plist-get row :id)
                 'font-lock-face (if (equal kind "done") 'peta-journal-done 'peta-journal-bullet)
@@ -428,15 +430,9 @@ Completion sorts a plain list by name, which would hide the newest pages."
                 'line-prefix (peta-journal--prefix level)
                 'wrap-prefix (peta-journal--body-prefix level))))
 
-(defun peta-journal--newline-string (row)
-  "The read-only newline that ends ROW."
-  (let ((newline (propertize "\n" 'read-only t 'line-spacing peta-journal-item-gap)))
-    (if (plist-get row :collapsed)
-        ;; The children are hidden: the row says so where it ends
-        (propertize newline 'display (propertize " …\n"
-                                                 'face 'shadow
-                                                 'line-spacing peta-journal-item-gap))
-      newline)))
+(defun peta-journal--newline-string ()
+  "The read-only newline that ends a row."
+  (propertize "\n" 'read-only t 'line-spacing peta-journal-item-gap))
 
 (defun peta-journal--header-string (row)
   "The date line above ROW, or an empty string."
@@ -455,7 +451,7 @@ Completion sorts a plain list by name, which would hide the newest pages."
          (text (concat (peta-journal--header-string row)
                        (peta-journal--bullet-string row)
                        body
-                       (peta-journal--newline-string row))))
+                       (peta-journal--newline-string))))
     (put-text-property 0 1 'peta-row (plist-get row :id) text)
     text))
 
