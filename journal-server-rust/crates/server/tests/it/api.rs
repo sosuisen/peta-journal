@@ -2900,7 +2900,7 @@ async fn demoting_to_the_name_of_another_page_is_refused_unless_it_is_overwritte
     assert_eq!(get(&format!("/api/pages/{}", other.id)).await.0, 404);
 }
 
-// indexページでないページと、ルートのindexページは、降格できない。
+// indexページでないページは、ルートにあってもディレクトリの中にあっても降格できない。ルートのindexページも降格できない。
 #[tokio::test]
 async fn a_page_that_is_not_an_index_page_of_a_directory_is_not_demoted() {
     let page = new_doc_page("pages-demote-plain").await;
@@ -2911,6 +2911,19 @@ async fn a_page_that_is_not_an_index_page_of_a_directory_is_not_demoted() {
     let (_, root) = post("/api/pages/doc", json!({ "title": "index", "dirPath": "" })).await;
     let (status, resp) = demote(root["page"]["id"].as_str().unwrap(), false).await;
     assert_eq!(status, 400, "{resp}");
+
+    // A page in a directory that is not its index page keeps its name
+    let dir = format!("{}/", page.title);
+    let (_, child) = post(
+        "/api/pages/doc",
+        json!({ "title": "child", "dirPath": dir }),
+    )
+    .await;
+    let child_id = child["page"]["id"].as_str().unwrap();
+    let (status, resp) = demote(child_id, false).await;
+    assert_eq!(status, 400, "{resp}");
+    let (_, kept) = get(&format!("/api/pages/{child_id}")).await;
+    assert_eq!(kept["page"]["name"], json!("child"));
 }
 
 // indexページを動かすと、その下のページも一緒に動く。
