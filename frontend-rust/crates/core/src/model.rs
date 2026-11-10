@@ -69,12 +69,15 @@ impl PropertyValue {
     }
 }
 
+// Short ways to write a value in a test. The app only makes values from owned strings.
+#[cfg(test)]
 impl From<&str> for PropertyValue {
     fn from(text: &str) -> Self {
         PropertyValue::Text(text.to_string())
     }
 }
 
+#[cfg(test)]
 impl<const N: usize> From<[&str; N]> for PropertyValue {
     fn from(list: [&str; N]) -> Self {
         PropertyValue::List(list.iter().map(|text| text.to_string()).collect())
