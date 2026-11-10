@@ -54,7 +54,8 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
     @discardableResult
     private func show(_ kept: StickySettings?, url: String? = nil) -> Sticky {
         let shell = Shell(server: server, url: kept?.url ?? url)
-        let look = StickyLook(color: kept?.color ?? StickySettings.yellow, alwaysOnTop: kept?.alwaysOnTop ?? false)
+        let look = StickyLook(color: kept?.color ?? StickySettings.yellow, alwaysOnTop: kept?.alwaysOnTop ?? false,
+            zoom: kept?.zoom ?? 1)
         let window = NSWindow(
             contentRect: NSRect(origin: .zero, size: NSSize(width: 480, height: 600)),
             styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
@@ -97,19 +98,26 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
                 self?.keep(sticky, alwaysOnTop: onTop)
             }
             .store(in: &sticky.hears)
+        look.$zoom.dropFirst()
+            .sink { [weak self, weak sticky] zoom in
+                if let sticky { self?.keep(sticky, zoom: zoom) }
+            }
+            .store(in: &sticky.hears)
         window.makeKeyAndOrderFront(nil)
         return sticky
     }
 
     /// Keeps the sticky as it is now. The values handed over are those that are just changing.
-    private func keep(_ sticky: Sticky, url: String?? = nil, color: String? = nil, alwaysOnTop: Bool? = nil) {
+    private func keep(_ sticky: Sticky, url: String?? = nil, color: String? = nil, alwaysOnTop: Bool? = nil,
+        zoom: Double? = nil
+    ) {
         guard stickies.contains(where: { $0 === sticky }) else { return }
         let frame = sticky.window.frame
         store?.put(
             StickySettings(
                 id: sticky.id, url: url ?? sticky.shell.url, x: frame.minX, y: frame.minY, width: frame.width,
                 height: frame.height, color: color ?? sticky.look.color,
-                alwaysOnTop: alwaysOnTop ?? sticky.look.alwaysOnTop))
+                alwaysOnTop: alwaysOnTop ?? sticky.look.alwaysOnTop, zoom: zoom ?? sticky.look.zoom))
     }
 
     /// A little down and to the right of the newest sticky, as new windows are everywhere

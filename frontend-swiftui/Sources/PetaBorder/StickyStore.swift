@@ -14,12 +14,14 @@ public struct StickySettings: Codable, Equatable, Identifiable {
     public var color: String
     /// The window stays above the windows of other apps.
     public var alwaysOnTop: Bool
+    /// How large the page is shown: 1 is the usual size.
+    public var zoom: Double
 
     public static let yellow = "#FFFDD0"
 
     public init(
         id: String, url: String?, x: Double, y: Double, width: Double, height: Double,
-        color: String = StickySettings.yellow, alwaysOnTop: Bool = false
+        color: String = StickySettings.yellow, alwaysOnTop: Bool = false, zoom: Double = 1
     ) {
         self.id = id
         self.url = url
@@ -29,6 +31,7 @@ public struct StickySettings: Codable, Equatable, Identifiable {
         self.height = height
         self.color = color
         self.alwaysOnTop = alwaysOnTop
+        self.zoom = zoom
     }
 
     /// A file of an older version of the app lacks what was added since.
@@ -42,6 +45,7 @@ public struct StickySettings: Codable, Equatable, Identifiable {
         height = try kept.decode(Double.self, forKey: .height)
         color = try kept.decodeIfPresent(String.self, forKey: .color) ?? StickySettings.yellow
         alwaysOnTop = try kept.decodeIfPresent(Bool.self, forKey: .alwaysOnTop) ?? false
+        zoom = try kept.decodeIfPresent(Double.self, forKey: .zoom) ?? 1
     }
 }
 

@@ -50,6 +50,16 @@ public struct OutlineScreen: View {
                 }
                 .help(look.alwaysOnTop ? "Do not keep on top" : "Keep on top of other windows")
                 Menu {
+                    Button("Zoom In") { look.zoomIn() }.keyboardShortcut("+")
+                    Button("Zoom Out") { look.zoomOut() }.keyboardShortcut("-")
+                    Button("Actual Size") { look.resetZoom() }.keyboardShortcut("0")
+                } label: {
+                    Image(systemName: "textformat.size")
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+                .help("Zoom: \(Int((look.zoom * 100).rounded()))%")
+                Menu {
                     ForEach(StickyLook.colors, id: \.hex) { color in
                         Button(color.name) { look.color = color.hex }
                     }
@@ -112,7 +122,7 @@ public struct OutlineScreen: View {
 
     private var rows: some View {
         List(shell.view.outline.rows, id: \.item.id) { row in
-            ItemEditor(row: row, shell: shell, cursors: cursors)
+            ItemEditor(row: row, shell: shell, cursors: cursors, zoom: look.zoom)
                 .listRowSeparator(.hidden)
                 .listRowBackground(row.isSelected ? Color.accentColor.opacity(0.25) : Color.clear)
         }
@@ -136,6 +146,8 @@ private struct ItemEditor: View {
     let row: Row
     @ObservedObject var shell: Shell
     let cursors: Cursors
+    /// How large the item is shown: 1 is the usual size.
+    let zoom: Double
 
     /// What stands before the text: the state of a task, or whether children are hidden.
     private var mark: String {
@@ -149,11 +161,11 @@ private struct ItemEditor: View {
     var body: some View {
         HStack(alignment: .top) {
             // Without the bullet an item with no text cannot be seen
-            Text(mark).foregroundStyle(.secondary)
+            Text(mark).foregroundStyle(.secondary).font(.system(size: NSFont.systemFontSize * zoom))
             ItemText(
                 item: row.item, isFirst: row.index == 0, request: shell.view.outline.focusRequest,
-                order: shell.focus, shell: shell, cursors: cursors)
+                order: shell.focus, shell: shell, cursors: cursors, zoom: zoom)
         }
-        .padding(.leading, CGFloat(row.indentPx))
+        .padding(.leading, CGFloat(row.indentPx) * zoom)
     }
 }

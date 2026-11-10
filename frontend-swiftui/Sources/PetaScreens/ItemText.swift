@@ -14,6 +14,8 @@ struct ItemText: NSViewRepresentable {
     let order: FocusOrder?
     let shell: Shell
     let cursors: Cursors
+    /// How large the text is shown: 1 is the usual size.
+    var zoom: Double = 1
 
     func makeCoordinator() -> Editor {
         Editor(shell: shell, itemId: item.id, cursors: cursors)
@@ -29,6 +31,12 @@ struct ItemText: NSViewRepresentable {
     }
 
     func updateNSView(_ view: ItemTextView, context: Context) {
+        let size = NSFont.systemFontSize * CGFloat(zoom)
+        if view.font?.pointSize != size {
+            view.font = .systemFont(ofSize: size)
+            // The text is as high as its lines, which are of another height now
+            view.invalidateIntrinsicContentSize()
+        }
         // Text that is still being composed is not in the core yet, and must not be lost to
         // what the core has
         if !view.hasMarkedText(), view.string != item.body {
