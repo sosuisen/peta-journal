@@ -1,4 +1,4 @@
-use crate::protocol::{Bullet, Envelope, Inbound, Outbound, PropertyRow, RowView};
+use crate::protocol::{Bullet, DateUnit, Envelope, Inbound, Outbound, PropertyRow, RowView};
 use crate::shell::{Host, Input, Now, Shell};
 use peta_core::effects::{ApiError, ApiOp, ApiOutput, LocalDateTimeDto, SseEvent};
 use peta_core::model::PropertyDefinition;
@@ -1426,4 +1426,58 @@ fn the_backlinks_reach_emacs_grouped_by_page() {
     assert_eq!(groups[0].items.len(), 1);
     assert_eq!(groups[0].items[0].text, "see [[notes]]");
     assert_eq!(groups[0].items[0].url, "/pages/other#s");
+}
+
+/// The journal that is asked for after Emacs picks `unit` of the date in the calendar.
+fn journal_asked_for(driver: &mut Driver, date: &str, unit: DateUnit) -> String {
+    driver.send(Inbound::GoToDate {
+        date: date.into(),
+        unit,
+    });
+    let asked = driver.take_api(|op| matches!(op, ApiOp::GetOrCreateJournal { .. }));
+    match asked {
+        Some((_, ApiOp::GetOrCreateJournal { file_name })) => file_name,
+        _ => panic!("no journal was asked for"),
+    }
+}
+
+// カレンダーで選んだ日は、その日のジャーナルを開く。
+#[test]
+fn a_day_of_the_calendar_opens_its_journal() {
+    let mut driver = Driver::open(&[item("a", 1, "x")]);
+    let asked = journal_asked_for(&mut driver, "2026-02-10", DateUnit::Day);
+    assert_eq!(asked, "2026-02-10");
+}
+
+// カレンダーで選んだ日の月と年は、月のページと年のページを開く。
+#[test]
+fn the_month_and_the_year_of_a_day_of_the_calendar_open_their_pages() {
+    let mut driver = Driver::open(&[item("a", 1, "x")]);
+    assert_eq!(
+        journal_asked_for(&mut driver, "2026-02-10", DateUnit::Month),
+        "2026-02"
+    );
+    assert_eq!(
+        journal_asked_for(&mut driver, "2026-02-10", DateUnit::Year),
+        "2026"
+    );
+}
+
+// カレンダーで選んだ日の週は、週のページを開く。週の数え方は、サーバーの設定に従う。
+#[test]
+fn the_week_of_a_day_of_the_calendar_opens_the_week_page_of_the_servers_numbering() {
+    let mut driver = Driver::open(&[item("a", 1, "x")]);
+    // A Sunday: the start of week 7 in the US numbering, the end of week 6 in the ISO one
+    assert_eq!(
+        journal_asked_for(&mut driver, "2026-02-08", DateUnit::Week),
+        "2026-W07"
+    );
+
+    let config = serde_json::from_value(json!({ "Config": { "weekNumbering": "iso" } }));
+    driver.answer(|op| matches!(op, ApiOp::GetConfig), config.unwrap());
+
+    assert_eq!(
+        journal_asked_for(&mut driver, "2026-02-08", DateUnit::Week),
+        "2026-W06"
+    );
 }
