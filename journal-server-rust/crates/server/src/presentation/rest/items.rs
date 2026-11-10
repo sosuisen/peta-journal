@@ -351,6 +351,7 @@ struct TypesQuery {
     types: Option<String>,
     /// Leaves out the items that have a value for this property, as in `withoutProperty=end`
     without_property: Option<String>,
+    fields: Option<String>,
 }
 
 #[derive(Deserialize, Default)]
@@ -711,7 +712,7 @@ async fn remove_transclusion(
 async fn get_items_by_types(
     State(state): State<SharedState>,
     Query(q): Query<TypesQuery>,
-) -> AppResult<Json<ItemsResponse>> {
+) -> AppResult<Response> {
     blocking(move || {
         let types: Vec<String> = match q.types.as_deref().filter(|t| !t.is_empty()) {
             Some(t) => t.split(',').map(|s| s.to_string()).collect(),
@@ -720,7 +721,14 @@ async fn get_items_by_types(
         let items = state
             .item_service
             .get_items_by_types(&types, q.without_property.as_deref())?;
-        items_response(&state, &items)
+        let dtos = state.dtos.to_dtos(&items)?;
+        match q.fields.as_deref().filter(|f| !f.is_empty()) {
+            Some(fields) => {
+                let items: Vec<_> = dtos.iter().map(|dto| select_fields(dto, fields)).collect();
+                Ok(Json(serde_json::json!({ "items": items })).into_response())
+            }
+            None => Ok(Json(ItemsResponse { items: dtos }).into_response()),
+        }
     })
     .await
 }
