@@ -67,5 +67,8 @@ fn the_place_of_an_item_is_written_as_a_choice_with_a_number() {
     let read: ItemPosition = BincodeFfiFormat::deserialize(&bytes).unwrap();
     assert_eq!(read, place);
 
-    assert_eq!(serde_json::to_string(&place).unwrap(), r#""after:x""#);
+    let json = serde_json::to_string(&place).unwrap();
+    assert_eq!(json, r#""after:x""#);
+    assert_eq!(serde_json::from_str::<ItemPosition>(&json).unwrap(), place);
+    assert!(serde_json::from_str::<ItemPosition>(r#""nowhere""#).is_err());
 }
