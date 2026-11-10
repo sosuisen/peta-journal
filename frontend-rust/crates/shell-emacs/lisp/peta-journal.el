@@ -179,7 +179,9 @@ into its match, and the next pair could not start at a character it took."
                                 (aref delimiter 0))))
 
 (defconst peta-journal--bullet-regexp
-  (concat (regexp-opt (mapcar #'cdr peta-journal--bullets)) peta-journal--bullet-gap)
+  (concat (regexp-opt (mapcar #'cdr (append peta-journal--bullets
+                                            peta-journal--collapsed-bullets)))
+          peta-journal--bullet-gap)
   "The bullet in front of the first line of a body.")
 
 (defconst peta-journal--line-start-regexp
