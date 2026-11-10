@@ -14,7 +14,7 @@ Flat MarkdownのASTをHTMLにするコードが、2つある。1つはRustで、
 
 しかし、今の`node_to_html`は、ASTだけを持っている側からは使えない。`node_to_html`は公開されていない関数で、外から呼べるのは`body_to_html`だけである。`body_to_html`はMarkdownのテキストを受け取り、`comrak`で解析してからHTMLにする。そのため、`node_to_html`を使うには、`flatmarkdown`クレートの全体と、パーサーである`comrak`に依存することになる。
 
-ASTだけを持っている側は、実際にある。PetaJournalのサーバーは、項目ごとのASTをDBに保存し、APIではASTを返す。HTMLは保存していない。付箋紙アプリとtodoアプリは、このASTを受け取り、TypeScriptの`flatmarkdown-ast2html`でHTMLにしている。これらのアプリは、Markdownを解析し直す必要がない。
+ASTだけを持っている側は、実際にある。PetaJournalのサーバーは、項目ごとのASTをDBに保存し、APIではASTを返す。HTMLは保存していない。付箋紙アプリは、このASTを受け取り、TypeScriptの`flatmarkdown-ast2html`でHTMLにしている。このアプリは、Markdownを解析し直す必要がない。todoアプリもASTを受け取るが、HTMLにはしない。`flatmarkdown-ast2react`でReactの部品にしている。
 
 `node_to_html`そのものは、パーサーに依存していない。使っているのは`flatmarkdown-ast`クレートの`Node`型だけである。`html.rs`の中でパーサーに触れるのは、`body_to_html`と`body_to_html_with`の2つの関数だけである。ADR 012は、同じ理由でASTの型を`flatmarkdown-ast`クレートに分けた。ASTを読むだけの側が、`comrak`に依存しないようにするためである。
 
@@ -49,7 +49,7 @@ HTMLのテストは、新しいクレートに集める。`Node`を入力にす�
 このADRが決めるのは、ここまでである。次のことは、このADRでは決めない。
 
 - 新しいクレートをwasmにして、JavaScriptから呼べるようにすること
-- 付箋紙アプリとtodoアプリを、新しいクレートに切り替えること
+- 付箋紙アプリを、新しいクレートに切り替えること
 - npmパッケージの`flatmarkdown-ast2html`を廃止すること
 
 ## Alternatives
@@ -70,7 +70,7 @@ ASTをHTMLにする関数を、`flatmarkdown-ast`のモジュールとして公�
 
 RustのHTML出力をTypeScriptの側に合わせ、TypeScriptの側を直し続ける。
 
-付箋紙アプリとtodoアプリは、今のまま使える。しかし、Rustの側の実装はなくせない。Web版の画面は、コピーのときにRustでHTMLを作っている。2つの実装が残るので、ずれる余地も残る。そのため採らなかった。
+付箋紙アプリは、今のまま使える。しかし、Rustの側の実装はなくせない。Web版の画面は、コピーのときにRustでHTMLを作っている。2つの実装が残るので、ずれる余地も残る。そのため採らなかった。
 
 ### Alternative 4: 2つの実装を残し、同じ出力になることをテストで確かめる
 
@@ -110,7 +110,7 @@ HTMLの出力だけを直したときに、ほかの2つの版を上げずに済
 
 この決定は、後から変えることもできる。crates.ioに出した版は消せないが、`flatmarkdown`にHTMLの関数を戻すことは、いつでもできる。
 
-確信度が低いのは、`ast_to_html`の形である。この関数は、出力を変える手段を持たない。TypeScriptの`flatmarkdown-ast2html`には、wikiリンクとハッシュタグのタグ名やURLの接頭辞を変えるオプションがある。付箋紙アプリとtodoアプリがこのオプションに頼っているかは、まだ調べていない。頼っているなら、切り替えのときに関数の形を見直す。
+確信度が低いのは、`ast_to_html`の形である。この関数は、出力を変える手段を持たない。TypeScriptの`flatmarkdown-ast2html`には、wikiリンクとハッシュタグのタグ名やURLの接頭辞を変えるオプションがある。付箋紙アプリがこのオプションに頼っているかは、まだ調べていない。頼っているなら、切り替えのときに関数の形を見直す。
 
 次のことが起きたら、この決定を見直す。
 
@@ -128,7 +128,7 @@ ASTをHTMLにするRustのコードを、パーサーなしで使える。ASTだ
 
 「ast」という言葉の意味が1つになる。関数の名前の「ast」は、常に型を指す。`ast_to_html(&body_to_ast(markdown))`と、そのままつなげる。型を作ってからJSONにし、すぐ読み直す無駄は、使う側にも生まれない。
 
-HTMLを作る実装を1つにする道が開く。新しいクレートをwasmにすれば、付箋紙アプリやtodoアプリも同じコードを使える。そうなれば、TypeScriptの`flatmarkdown-ast2html`をなくせる。
+HTMLを作る実装を1つにする道が開く。新しいクレートをwasmにすれば、付箋紙アプリも同じコードを使える。そうなれば、TypeScriptの`flatmarkdown-ast2html`をなくせる。
 
 ### 悪い結果
 
@@ -150,4 +150,4 @@ ADR 012の「2つのクレートの版は常に同じ」という決まりは、
 
 HTMLのテストは、`flatmarkdown`から`flatmarkdown-ast2html`へ移る。`flatmarkdown-ast2html`のテストは、開発時だけ`flatmarkdown`に依存する。公開するクレートの依存には入らない。
 
-wasmにすること、付箋紙アプリとtodoアプリを切り替えること、npmパッケージをなくすことは、それぞれ別に決める。`ast_to_html`にオプションを足すかどうかも、切り替えのときに決める。
+wasmにすること、付箋紙アプリを切り替えること、npmパッケージをなくすことは、それぞれ別に決める。`ast_to_html`にオプションを足すかどうかも、切り替えのときに決める。
