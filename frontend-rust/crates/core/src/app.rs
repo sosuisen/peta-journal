@@ -385,6 +385,43 @@ pub enum Event {
         file_name: String,
     },
     DemoteIndex,
+    /// The server knows the opened page under another path, e.g. a folder as its index page.
+    PageRedirected {
+        path: String,
+    },
+    /// The server answered the doc page of the path the screen opened; `created` when it
+    /// made the page.
+    PageLoaded {
+        page: Page,
+        created: bool,
+    },
+    /// The server answered whether the shown index page has no pages under it.
+    CanDemoteLoaded {
+        can_demote: bool,
+    },
+    /// The server answered the items of a doc page.
+    PageItemsLoaded {
+        page_id: String,
+        loaded: Box<PageWithItems>,
+    },
+    /// The server answered the backlinks of a doc page.
+    BacklinksLoaded {
+        page_id: String,
+        entries: Vec<BacklinkEntry>,
+    },
+    /// The server saved the new title or folder of the shown page.
+    TitleSaved {
+        page: Page,
+    },
+    /// The server saved a property change of a doc page and answered with the page.
+    PagePropertySaved {
+        page: Page,
+    },
+    /// The server refused a property change of a doc page; `before` is what the page had.
+    PagePropertyRefused {
+        page_id: String,
+        before: std::collections::BTreeMap<String, serde_json::Value>,
+    },
     /// The server demoted the shown index page: the page opens under its new path.
     Demoted {
         path: String,
@@ -1113,6 +1150,20 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         } => screens::page::save_title(model, dir_path, file_name),
         DemoteIndex => screens::page::demote_index(model),
         Demoted { path } => screens::page::show_demoted(&path),
+        PageRedirected { path } => screens::navigate::replace_page(&path),
+        PageLoaded { page, created } => screens::page::show_page(model, page, created),
+        CanDemoteLoaded { can_demote } => screens::page::show_can_demote(model, can_demote),
+        PageItemsLoaded { page_id, loaded } => {
+            screens::page::show_page_items(model, &page_id, *loaded)
+        }
+        BacklinksLoaded { page_id, entries } => {
+            screens::page::show_backlinks(model, &page_id, entries)
+        }
+        TitleSaved { page } => screens::page::show_title_saved(model, page),
+        PagePropertySaved { page } => screens::page::show_property_saved(model, page),
+        PagePropertyRefused { page_id, before } => {
+            screens::page::put_properties_back(model, &page_id, before)
+        }
         ToggleAtlas => screens::page::toggle_atlas(model),
         AtlasUp => screens::page::atlas_up(model),
         PlaceAtlasCard { card_id, x, y } => screens::atlas::place_card(model, card_id, x, y),
