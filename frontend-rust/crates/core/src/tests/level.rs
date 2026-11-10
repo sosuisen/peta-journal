@@ -85,8 +85,16 @@ fn outdent_in_place_the_group_goes_up_one_level_and_keeps_its_place() {
     assert!(move_calls(&h.api).is_empty());
 }
 
-/// The moves the outdents sent: (item ids, position, level delta, body).
-fn outdent_moves(h: &Harness) -> Vec<(Vec<String>, String, Option<i32>, Option<String>)> {
+/// A move request an outdent sent.
+#[derive(Debug, PartialEq)]
+struct OutdentMove {
+    item_ids: Vec<String>,
+    position: String,
+    level_delta: Option<i32>,
+    body: Option<String>,
+}
+
+fn outdent_moves(h: &Harness) -> Vec<OutdentMove> {
     h.api
         .calls
         .iter()
@@ -97,12 +105,12 @@ fn outdent_moves(h: &Harness) -> Vec<(Vec<String>, String, Option<i32>, Option<S
                 level_delta,
                 body,
                 ..
-            } => Some((
-                item_ids.clone(),
-                position.to_api(),
-                *level_delta,
-                body.clone(),
-            )),
+            } => Some(OutdentMove {
+                item_ids: item_ids.clone(),
+                position: position.to_api(),
+                level_delta: *level_delta,
+                body: body.clone(),
+            }),
             _ => None,
         })
         .collect()
@@ -119,12 +127,12 @@ fn logical_outdent_moves_the_group_one_level_up_after_the_parents_last_child_in_
     assert!(shift_calls(&h).is_empty());
     assert_eq!(
         outdent_moves(&h),
-        [(
-            vec!["b".to_string(), "c".to_string()],
-            "after:d".to_string(),
-            Some(-1),
-            None
-        )]
+        [OutdentMove {
+            item_ids: vec!["b".to_string(), "c".to_string()],
+            position: "after:d".to_string(),
+            level_delta: Some(-1),
+            body: None,
+        }]
     );
     assert_eq!(h.outline(), ["p:1=", "a:2=", "d:2=", "b:1=", "c:2="]);
     assert_eq!(h.focused_editor_requests(), [Some("b".to_string())]);

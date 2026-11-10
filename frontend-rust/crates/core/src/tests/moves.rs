@@ -189,6 +189,7 @@ fn the_answer_to_a_move_of_items_no_longer_shown_changes_nothing() {
         moved: vec![item("b", 1, ""), item("b1", 2, "")],
         position: ItemPosition::First,
         edited: Some("b".into()),
+        label: "move",
     });
     assert_eq!(h.items_ids(), ["x"]);
     assert!(h.focused_editor_requests().is_empty());
