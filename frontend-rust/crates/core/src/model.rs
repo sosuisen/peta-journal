@@ -42,11 +42,48 @@ pub struct Item {
 }
 
 /// The value of a property. The server has only these two shapes.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(untagged)]
+///
+/// It is written in two ways. JSON has it as the server does: a string, or an array of
+/// strings. A format that does not describe itself, like the bincode of the native border
+/// (ADR 024), cannot tell the two apart by looking, so there it is an enum with a tag.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PropertyValue {
     Text(String),
     List(Vec<String>),
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(remote = "PropertyValue", untagged)]
+enum PropertyValueAsJson {
+    Text(String),
+    List(Vec<String>),
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(remote = "PropertyValue", rename = "PropertyValue")]
+enum PropertyValueWithTag {
+    Text(String),
+    List(Vec<String>),
+}
+
+impl Serialize for PropertyValue {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        if serializer.is_human_readable() {
+            PropertyValueAsJson::serialize(self, serializer)
+        } else {
+            PropertyValueWithTag::serialize(self, serializer)
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for PropertyValue {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        if deserializer.is_human_readable() {
+            PropertyValueAsJson::deserialize(deserializer)
+        } else {
+            PropertyValueWithTag::deserialize(deserializer)
+        }
+    }
 }
 
 /// Items are shared between the state, the view model and undo snapshots, so they are
