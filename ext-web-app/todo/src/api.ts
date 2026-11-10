@@ -104,9 +104,8 @@ export async function getItemsByTypes(types: string[]): Promise<Item[]> {
  * out: a done task is a task with the property `end`.
  */
 export async function getTasks(includeDone: boolean): Promise<Item[]> {
-  const data = await fetchJson<{ items: Item[] }>(
-    '/api/items?types=task&withoutProperty=end',
-  );
+  const query = includeDone ? 'types=task' : 'types=task&withoutProperty=end';
+  const data = await fetchJson<{ items: Item[] }>(`/api/items?${query}`);
   return data.items;
 }
 
