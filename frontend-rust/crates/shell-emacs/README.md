@@ -161,6 +161,18 @@ and `-` becomes `_`.
 
 The server refuses a file over 50MB. Emacs then shows the reason, and the body stays as it was.
 
+### Pasting an image from the clipboard
+
+Copy an image, such as a screenshot, and press `C-y`. The image goes to the server under the name
+`image.png`, and a link to it goes in at the point. When a file has that name already, the server
+adds a number: `image-1.png`.
+
+- The image is pasted only when the clipboard has an image and no text. With text in the clipboard,
+  `C-y` pastes the text as before.
+- Emacs must be able to read the image in the clipboard as PNG. On Windows, Emacs can do so from
+  version 31. On Windows with Emacs 30 or older, `C-y` pastes only text as before. This was tested
+  only with Emacs 31.1 on Windows.
+
 ## Seeing images
 
 An item without the point shows the image in place of a link like `![name](../assets/file)`. The
@@ -248,7 +260,7 @@ letter are kept free for users.
 
 ## Not in this version
 
-Showing images from outside the server, pasting images from the clipboard, the atlas, extensions,
+Showing images from outside the server, the atlas, extensions,
 settings and operations on several selected
 items.
 
