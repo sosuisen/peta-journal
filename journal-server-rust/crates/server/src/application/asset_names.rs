@@ -15,7 +15,7 @@ use crate::domain::asset_name::{is_saved_name, relink, saved_name};
 use crate::domain::id_generator::IdGenerator;
 use crate::domain::model::Item;
 use crate::infrastructure::persistence::ItemRepository;
-use crate::state::AppState;
+use crate::state::{AppState, BuildOptions};
 
 /// One file of `assets/` and the name it moves to.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -37,7 +37,14 @@ pub fn run(settings: Settings, step: AssetNamesStep, table: &Path) -> anyhow::Re
                 table.display()
             ))
         }
-        AssetNamesStep::Apply | AssetNamesStep::Revert => unimplemented!(),
+        AssetNamesStep::Apply => {
+            let renames: Vec<Rename> = serde_json::from_str(&std::fs::read_to_string(table)?)?;
+            let state = AppState::build(settings, BuildOptions { interactive: false })?;
+            apply(&state, &renames)?;
+            state.shutdown();
+            Ok(format!("{} files renamed", renames.len()))
+        }
+        AssetNamesStep::Revert => unimplemented!(),
     }
 }
 
