@@ -57,4 +57,26 @@ mod plan {
 
         assert_eq!(&plan[0].to[..8], made);
     }
+
+    // すでにIDの名前を持つファイルは、対応表に入らない。
+    #[test]
+    fn a_file_that_already_has_an_id_for_its_name_is_left_out() {
+        let dir = tempfile::tempdir().unwrap();
+        file_changed_at(
+            dir.path(),
+            "20261110090501_QZ998PX.png",
+            (2026, 11, 10, 9, 5, 1),
+        );
+        file_changed_at(
+            dir.path(),
+            "20261110090502_QZ998PY",
+            (2026, 11, 10, 9, 5, 2),
+        );
+        file_changed_at(dir.path(), "image.png", (2026, 2, 3, 4, 5, 6));
+
+        let plan = asset_names::plan(dir.path()).unwrap();
+
+        let old_names: Vec<&str> = plan.iter().map(|rename| rename.from.as_str()).collect();
+        assert_eq!(old_names, ["image.png"]);
+    }
 }
