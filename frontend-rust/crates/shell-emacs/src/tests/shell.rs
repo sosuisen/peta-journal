@@ -611,7 +611,7 @@ fn a_failure_of_another_call_is_not_reported_as_one_of_the_image() {
     assert_eq!(driver.holding(), Some(false));
 }
 
-// 項目の削除は、参照の確認を経て、子ごとサーバーへ送られる。
+// 項目の削除は、参照の確認を経て、子ごとサーバーへ送られる。行は、サーバーの答えのあとで消える。
 #[test]
 fn deleting_an_item_takes_its_children_with_it() {
     let mut driver = Driver::open(&[item("a", 1, "親"), item("b", 2, "子"), item("c", 1, "他")]);
@@ -623,6 +623,10 @@ fn deleting_an_item_takes_its_children_with_it() {
     let deleted = driver
         .take_api(|op| matches!(op, ApiOp::DeleteItems { .. }))
         .expect("the deletion was not sent");
+    driver.shell.handle(Input::ApiDone {
+        id: deleted.0,
+        result: Box::new(Ok(ApiOutput::Items(Vec::new()))),
+    });
     let ApiOp::DeleteItems { item_ids } = deleted.1 else {
         unreachable!();
     };

@@ -162,6 +162,10 @@ struct ItemsEnvelope {
     items: Vec<Item>,
 }
 #[derive(Deserialize)]
+struct CreatedEnvelope {
+    created: Vec<Item>,
+}
+#[derive(Deserialize)]
 struct PageEnvelope {
     page: Page,
 }
@@ -360,7 +364,7 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             "POST",
             "/api/items/delete",
             Some(json!({ "itemIds": item_ids })),
-            done,
+            |reply| parsed::<CreatedEnvelope>(reply).map(|e| ApiOutput::Items(e.created)),
         ),
         ApiOp::MergeItems {
             item_id,

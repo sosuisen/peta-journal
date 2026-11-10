@@ -4,7 +4,7 @@
 use crate::app::{apply, done, log_error, run, Cmd, Event, Model};
 use crate::effects::{Api, UiOp};
 use crate::model::{Item, ItemPosition, Stashed};
-use crate::ops::edit::{auto_save_again, save_target_id, take_unsaved};
+use crate::ops::edit::{auto_save_again, focus_editor, save_target_id, take_unsaved};
 use crate::ops::file_reload::reload_shown_page;
 use crux_core::Command;
 
@@ -256,11 +256,20 @@ fn transcluded_delete_message(count: usize) -> String {
     format!("{subject}. Delete anyway? Each transclusion keeps a plain copy.")
 }
 
-/// Deletes items from the screen first and then from the server, as one undo entry.
-pub fn delete_items(model: &mut Model, item_ids: &[String]) -> Cmd {
-    if item_ids.is_empty() {
-        return done();
+/// Asks the server to delete items as one group: it deletes all of them or none, copies what
+/// a transclusion showed before any of it goes, and keeps the page non-empty. The screen
+/// changes with the answer. When the server refuses, nothing has changed here.
+pub async fn request_delete(api: &Api<Event>, item_ids: Vec<String>) {
+    match api.delete_items(item_ids.clone()).await {
+        Ok(created) => api.send_event(Event::SelectionDeleted { item_ids, created }),
+        Err(e) => log_error(format!("Failed to delete selected items: {e}")),
     }
+}
+
+/// Shows a deletion the server made, as one undo entry, and leaves the selection. The empty
+/// item the server made on the shown page, when the deletion emptied it, takes the focus.
+pub fn show_deleted(model: &mut Model, item_ids: &[String], created: Vec<Item>) -> Cmd {
+    model.selection.exit(&mut model.state);
     let deleted: Vec<Item> = item_ids
         .iter()
         .filter_map(|id| model.state.get_item_by_id(id))
@@ -272,15 +281,17 @@ pub fn delete_items(model: &mut Model, item_ids: &[String]) -> Cmd {
     }
     model.undo.commit(None, model.clock_ms);
     model.state.delete_items(item_ids);
-    let ids = item_ids.to_vec();
-    run(move |api| async move {
-        // One group: the server deletes all of them or none, and copies what a transclusion
-        // showed before any of it goes. If it refuses, the page is shown as the server has it
-        if let Err(e) = api.delete_items(ids).await {
-            log_error(format!("Failed to delete selected items: {e}"));
-            reload_shown_page(&api).await;
-        }
-    })
+    let shown_page_id = model.shown_page_id();
+    let Some(empty) = created
+        .into_iter()
+        .find(|item| Some(&item.page_id) == shown_page_id.as_ref())
+    else {
+        return done();
+    };
+    let id = empty.id.clone();
+    model.state.add_item(empty, &ItemPosition::First);
+    model.state.set_focused_item(&id, None);
+    run(move |api| async move { focus_editor(&api, Some(id)).await })
 }
 
 /// Copies items to the system clipboard as tree markdown (and HTML made from it), and keeps

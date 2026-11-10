@@ -142,7 +142,8 @@ impl JournalService {
             .item_service
             .move_edited_items_in(&tx, &request, &mut effects)?;
         for left in left_pages.iter().filter(|left| **left != page.id) {
-            self.keep_page_non_empty_in(&tx, left, &mut effects)?;
+            self.item_service
+                .keep_page_non_empty_in(&tx, left, &mut effects)?;
         }
         tx.commit()?;
         if created {
@@ -172,27 +173,6 @@ impl JournalService {
                 self.item_service
                     .remove_group_in(tx, std::slice::from_ref(&only.id), effects)?;
             }
-        }
-        Ok(())
-    }
-
-    /// A page keeps at least one item: an empty one is made when the page has none left.
-    fn keep_page_non_empty_in(
-        &self,
-        tx: &Connection,
-        page_id: &Hmtid,
-        effects: &mut AfterCommit,
-    ) -> AppResult<()> {
-        if ItemRepository::find_by_page_id_in(tx, page_id)?.is_empty() {
-            self.item_service.create_item_in(
-                tx,
-                page_id,
-                &ItemPosition::First,
-                1,
-                "",
-                None,
-                effects,
-            )?;
         }
         Ok(())
     }

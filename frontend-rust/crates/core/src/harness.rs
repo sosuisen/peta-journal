@@ -237,9 +237,19 @@ impl FakeApi {
                     })
                     .collect(),
             ),
-            ApiOp::DeleteItems { .. } | ApiOp::DeletePage { .. } | ApiOp::AnswerConfirm { .. } => {
-                ApiOutput::Done
+            // The server makes an empty item on a page the deletion leaves without one
+            ApiOp::DeleteItems { item_ids } => {
+                let on_page = shown();
+                let emptied = on_page.iter().all(|it| item_ids.contains(&it.id));
+                let created = on_page.first().filter(|_| emptied).map(|first| {
+                    self.created += 1;
+                    let mut item = plain_item(&format!("new{}", self.created), 1, "");
+                    item.page_id = first.page_id.clone();
+                    item
+                });
+                ApiOutput::Items(created.into_iter().collect())
             }
+            ApiOp::DeletePage { .. } | ApiOp::AnswerConfirm { .. } => ApiOutput::Done,
             // The server joins the bodies the request carries, and those it has for the rest
             ApiOp::MergeItems {
                 item_id,
