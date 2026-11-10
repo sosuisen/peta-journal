@@ -255,4 +255,19 @@ mod apply {
         assert!(text.contains("first day in Kyoto"));
         assert!(text.contains(NEW_NAME));
     }
+
+    // 検索の結果に出る本文も、新しい名前を指す。
+    #[test]
+    fn the_body_a_search_shows_has_the_new_name() {
+        let notes = Notes::new();
+        notes.asset("image.png", "the picture");
+        notes.page("Trip", &["Kyoto ![pic](../assets/image.png)"]);
+
+        notes.rename("image.png", NEW_NAME);
+
+        let found = notes.state.search.search_full_text("Kyoto", 10);
+        assert_eq!(found.len(), 1);
+        assert!(found[0].snippet.contains(NEW_NAME));
+        assert!(!found[0].snippet.contains("image.png"));
+    }
 }
