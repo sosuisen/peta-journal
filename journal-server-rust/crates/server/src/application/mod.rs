@@ -12,6 +12,7 @@ pub mod folder_chooser;
 pub mod item_service;
 pub mod journal_service;
 pub mod markdown_parser;
+pub mod page_files;
 pub mod page_service;
 pub mod paste;
 pub mod split;

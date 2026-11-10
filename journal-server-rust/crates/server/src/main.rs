@@ -1,6 +1,6 @@
 use axum::serve::ListenerExt;
 use clap::Parser;
-use journal_server::application::asset_names;
+use journal_server::application::{asset_names, page_files};
 use journal_server::config::{Cli, Command, Settings};
 use journal_server::state::{AppState, BuildOptions};
 use tracing_subscriber::EnvFilter;
@@ -26,9 +26,12 @@ async fn main() -> anyhow::Result<()> {
         None => tracing::info!("Frontend: not served (no --frontend-dir)"),
     }
 
-    if let Some(Command::AssetNames { step, file }) = command {
-        let told =
-            tokio::task::spawn_blocking(move || asset_names::run(settings, step, &file)).await??;
+    if let Some(command) = command {
+        let told = tokio::task::spawn_blocking(move || match command {
+            Command::AssetNames { step, file } => asset_names::run(settings, step, &file),
+            Command::WritePages => page_files::run(settings),
+        })
+        .await??;
         println!("{told}");
         return Ok(());
     }
