@@ -13,6 +13,7 @@ import {
   cycleTask,
   getItemsByTypes,
   getTagsDir,
+  getTasks,
   serverUrl,
   serverUrlFrom,
   subscribe,
@@ -199,6 +200,19 @@ describe('the requests to the journal server', () => {
     expect(items).toEqual([{ id: 'item-1' }]);
     expect(fetchMock).toHaveBeenCalledWith(
       'http://journal.test:9000/api/items?types=task,note',
+      undefined,
+    );
+  });
+
+  // 終わったタスクを見せないときは、終わっていないタスクだけをサーバーから取る。タスクの大半は終わっているため。
+  test('get only the tasks that are not done', async () => {
+    answer('{"items":[{"id":"item-1"}]}');
+
+    const items = await getTasks(false);
+
+    expect(items).toEqual([{ id: 'item-1' }]);
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://journal.test:9000/api/items?types=task&withoutProperty=end',
       undefined,
     );
   });
