@@ -1,6 +1,6 @@
 //! The server settings, ported from `config.service.ts` and `settings.ts`.
 
-use crate::app::{apply, done, log_error, run, Cmd, Event, Model};
+use crate::app::{done, log_error, run, Cmd, Event, Model};
 use crate::effects::{Api, ApiResult};
 use crate::model::{PropertyDefinition, ServerConfig, WeekNumbering};
 
@@ -8,26 +8,26 @@ use crate::model::{PropertyDefinition, ServerConfig, WeekNumbering};
 pub fn load_server_config() -> Cmd {
     run(|api| async move {
         match api.get_config().await {
-            Ok(c) => apply(&api, "config", move |m| {
-                m.config.markdown_dir = c.markdown_dir;
-                m.config.week_numbering = WeekNumbering::parse(&c.week_numbering);
-                m.config.logical_outdent = c.logical_outdent;
-                m.config.tags_dir = c.tags_dir;
-                m.config.home_link = c.home_link;
-                done()
-            }),
+            Ok(config) => api.send_event(Event::ConfigLoaded { config }),
             Err(e) => log_error(format!("Failed to load config from server: {e}")),
         }
     })
 }
 
+/// Takes the settings the server answered with.
+pub fn show_config(model: &mut Model, c: ServerConfig) -> Cmd {
+    model.config.markdown_dir = c.markdown_dir;
+    model.config.week_numbering = WeekNumbering::parse(&c.week_numbering);
+    model.config.logical_outdent = c.logical_outdent;
+    model.config.tags_dir = c.tags_dir;
+    model.config.home_link = c.home_link;
+    done()
+}
+
 pub fn load_property_definitions() -> Cmd {
     run(|api| async move {
         match api.get_property_definitions().await {
-            Ok(defs) => apply(&api, "property definitions", move |m| {
-                m.config.property_definitions = defs;
-                done()
-            }),
+            Ok(definitions) => api.send_event(Event::PropertyDefinitionsLoaded { definitions }),
             Err(e) => log_error(format!("Failed to load property definitions: {e}")),
         }
     })
@@ -60,14 +60,8 @@ pub fn delete_property_definition(model: &mut Model, key: String) -> Cmd {
 /// the reason the change was refused.
 fn settle_definitions(api: &Api<Event>, result: ApiResult<Vec<PropertyDefinition>>) {
     match result {
-        Ok(defs) => apply(api, "property definitions changed", move |m| {
-            m.config.property_definitions = defs;
-            done()
-        }),
-        Err(e) => apply(api, "property definition change refused", move |m| {
-            m.config.definition_error = Some(e.0);
-            done()
-        }),
+        Ok(definitions) => api.send_event(Event::PropertyDefinitionsLoaded { definitions }),
+        Err(e) => api.send_event(Event::PropertyDefinitionRefused { reason: e.0 }),
     }
 }
 
@@ -127,9 +121,8 @@ pub fn set_tags_dir(model: &mut Model, value: String) -> Cmd {
     model.config.tags_dir = value.clone();
     run(move |api| async move {
         if let Some(c) = save_config(&api, None, None, None, Some(value), None).await {
-            apply(&api, "tags dir", move |m| {
-                m.config.tags_dir = c.tags_dir;
-                done()
+            api.send_event(Event::TagsDirSaved {
+                tags_dir: c.tags_dir,
             });
         }
     })
@@ -141,9 +134,8 @@ pub fn set_home_link(model: &mut Model, value: String) -> Cmd {
     model.config.home_link = value.trim().to_string();
     run(move |api| async move {
         if let Some(c) = save_config(&api, None, None, None, None, Some(value)).await {
-            apply(&api, "home link", move |m| {
-                m.config.home_link = c.home_link;
-                done()
+            api.send_event(Event::HomeLinkSaved {
+                home_link: c.home_link,
             });
         }
     })
@@ -164,10 +156,8 @@ pub fn browse_folder(_model: &mut Model) -> Cmd {
     run(|api| async move {
         match api.browse_folder().await {
             Ok(choice) if choice.selected => {
-                let path = choice.path.clone();
-                apply(&api, "markdown dir", move |m| {
-                    m.config.markdown_dir = path;
-                    done()
+                api.send_event(Event::MarkdownDirChosen {
+                    path: choice.path.clone(),
                 });
                 save_config(&api, Some(choice.path), None, None, None, None).await;
             }

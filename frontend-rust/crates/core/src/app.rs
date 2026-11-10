@@ -534,6 +534,31 @@ pub enum Event {
     DeletePropertyDefinition {
         key: String,
     },
+    /// The server answered with its settings.
+    ConfigLoaded {
+        config: ServerConfig,
+    },
+    /// The server answered with the property definitions: when they are loaded, and after a
+    /// change of them.
+    PropertyDefinitionsLoaded {
+        definitions: Vec<PropertyDefinition>,
+    },
+    /// The server refused a change of the property definitions.
+    PropertyDefinitionRefused {
+        reason: String,
+    },
+    /// The server saved the tag directory and answered with the form it keeps.
+    TagsDirSaved {
+        tags_dir: String,
+    },
+    /// The server saved the page of the Home button and answered with the form it keeps.
+    HomeLinkSaved {
+        home_link: String,
+    },
+    /// A folder was chosen for the markdown files.
+    MarkdownDirChosen {
+        path: String,
+    },
 
     // ---- links ----
     LaunchUrl {
@@ -1132,6 +1157,27 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         }
         DeletePropertyDefinition { key } => {
             screens::settings::delete_property_definition(model, key)
+        }
+        ConfigLoaded { config } => screens::settings::show_config(model, config),
+        PropertyDefinitionsLoaded { definitions } => {
+            model.config.property_definitions = definitions;
+            done()
+        }
+        PropertyDefinitionRefused { reason } => {
+            model.config.definition_error = Some(reason);
+            done()
+        }
+        TagsDirSaved { tags_dir } => {
+            model.config.tags_dir = tags_dir;
+            done()
+        }
+        HomeLinkSaved { home_link } => {
+            model.config.home_link = home_link;
+            done()
+        }
+        MarkdownDirChosen { path } => {
+            model.config.markdown_dir = path;
+            done()
         }
 
         LaunchUrl { url } => run(move |api| async move {
