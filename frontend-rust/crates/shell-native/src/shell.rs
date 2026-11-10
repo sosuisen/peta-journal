@@ -8,7 +8,7 @@ use crux_core::effects::{EffectRouter, ResolveSink, Routes};
 use crux_core::macros::effect;
 use crux_core::render::RenderOperation;
 use crux_core::{Core, Request};
-use peta_core::effects::{ApiOp, ApiOutput, ApiResult, SseEvent, UiOp};
+use peta_core::effects::{ApiOp, ApiOutput, ApiResult, SseEvent, SseOp, UiOp};
 use peta_core::rest::ClientId;
 use peta_core::{Effect, Event, PetaApp};
 use std::sync::{Arc, Weak};
@@ -69,6 +69,14 @@ impl Lanes {
             lanes.answer(&mut request, result);
         });
     }
+
+    /// Reads the event stream. The core hears of every event through the one request.
+    fn listen<H: Host>(&self, host: &Arc<H>, mut request: Request<SseOp>) {
+        let (lanes, host) = (self.clone(), host.clone());
+        thread::spawn(move || {
+            host.events(&mut |event| lanes.answer(&mut request, event));
+        });
+    }
 }
 
 pub struct NativeShell {
@@ -94,6 +102,7 @@ impl NativeShell {
             };
             move |effect| match effect {
                 Effect::Api(request) => lanes.call(&host, request),
+                Effect::Sse(request) => lanes.listen(&host, request),
                 Effect::Render(request) => send(ShellEffect::Render(request)),
                 Effect::Ui(request) => send(ShellEffect::Ui(request)),
                 _ => {}
