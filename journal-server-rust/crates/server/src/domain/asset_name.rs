@@ -18,3 +18,9 @@ fn plain_extension(name: &str) -> Option<String> {
     let plain = !extension.is_empty() && extension.chars().all(|c| c.is_ascii_alphanumeric());
     plain.then(|| extension.to_ascii_lowercase())
 }
+
+/// Whether the file name is one `saved_name` gives: an ID, with or without an extension.
+pub fn is_saved_name(name: &str) -> bool {
+    let id = name.split_once('.').map_or(name, |(id, _)| id);
+    Hmtid::parse(id).is_ok()
+}

@@ -6,7 +6,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 
-use crate::domain::asset_name::saved_name;
+use crate::domain::asset_name::{is_saved_name, saved_name};
 use crate::domain::id_generator::IdGenerator;
 
 /// One file of `assets/` and the name it moves to.
@@ -16,12 +16,16 @@ pub struct Rename {
     pub to: String,
 }
 
-/// The new name of every file in the folder, oldest file first. Nothing is changed.
+/// The new name of every file in the folder that has no ID for its name yet, oldest file
+/// first. Nothing is changed.
 pub fn plan(assets_dir: &Path) -> std::io::Result<Vec<Rename>> {
     let mut files = Vec::new();
     for entry in std::fs::read_dir(assets_dir)? {
         let entry = entry?;
         let name = entry.file_name().to_string_lossy().into_owned();
+        if is_saved_name(&name) {
+            continue;
+        }
         let data = entry.metadata()?;
         // A copied file was made at the time of the copy and keeps its modified time; a file
         // changed later keeps the time it was made. The older one is when it was first saved
