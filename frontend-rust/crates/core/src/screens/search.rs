@@ -1,7 +1,7 @@
 //! The search box, ported from `search-bar.ts`: a debounced combined search, keyboard
 //! navigation of the results, and creating a page from the query.
 
-use crate::app::{apply, cancel_timer, done, log_error, run, Cmd, Model, SearchKey};
+use crate::app::{cancel_timer, done, log_error, run, Cmd, Event, Model, SearchKey};
 use crate::effects::TimerOutput;
 use crate::model::SearchResult;
 use crate::screens::navigate;
@@ -32,34 +32,49 @@ pub fn query_changed(model: &mut Model, value: String) -> Cmd {
             return;
         }
         match api.search_combined(&value, 20).await {
-            Ok(results) => apply(&api, "search results", move |m| {
-                if m.search.timer_id != timer_id {
-                    return done();
-                }
-                let (items, pages): (Vec<SearchResult>, Vec<SearchResult>) =
-                    results.into_iter().partition(|r| !r.item_id.is_empty());
-                let has_tag_terms = value
-                    .split_whitespace()
-                    .any(|t| t.starts_with('#') && t.len() > 1);
-                m.search.page_results = pages;
-                m.search.item_results = items;
-                m.search.selected_index = None;
-                m.search.searching = false;
-                m.search.show_create_button = !has_tag_terms && !value.trim().is_empty();
-                done()
+            Ok(results) => api.send_event(Event::SearchAnswered {
+                timer_id,
+                query: value,
+                results,
             }),
             Err(e) => {
                 log_error(format!("Search failed: {e}"));
-                apply(&api, "search failed", move |m| {
-                    if m.search.timer_id == timer_id {
-                        m.search.searching = false;
-                    }
-                    done()
-                });
+                api.send_event(Event::SearchFailed { timer_id });
             }
         }
     });
     Command::all([cancel, search])
+}
+
+/// Shows the results of a search, unless a later query has started since.
+pub fn show_results(
+    model: &mut Model,
+    timer_id: u64,
+    query: &str,
+    results: Vec<SearchResult>,
+) -> Cmd {
+    if model.search.timer_id != timer_id {
+        return done();
+    }
+    let (items, pages): (Vec<SearchResult>, Vec<SearchResult>) =
+        results.into_iter().partition(|r| !r.item_id.is_empty());
+    let has_tag_terms = query
+        .split_whitespace()
+        .any(|t| t.starts_with('#') && t.len() > 1);
+    model.search.page_results = pages;
+    model.search.item_results = items;
+    model.search.selected_index = None;
+    model.search.searching = false;
+    model.search.show_create_button = !has_tag_terms && !query.trim().is_empty();
+    done()
+}
+
+/// Stops showing that a search is under way, unless a later query has started since.
+pub fn search_failed(model: &mut Model, timer_id: u64) -> Cmd {
+    if model.search.timer_id == timer_id {
+        model.search.searching = false;
+    }
+    done()
 }
 
 /// The titles offered by the "create" entries between the page and item results, in display
@@ -191,9 +206,7 @@ fn create_page(model: &mut Model, title: String) -> Cmd {
                 return;
             }
         }
-        apply(&api, "search: create page", move |_| {
-            navigate::open_page(&title)
-        });
+        api.send_event(Event::OpenPage { path: title });
     });
     Command::all([clear, go])
 }

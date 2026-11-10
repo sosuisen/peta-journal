@@ -331,3 +331,27 @@ fn a_journal_made_by_opening_it_refreshes_the_recent_pages() {
         );
     }
 }
+
+// 別の日へ移ったあとに届いた、前の日のジャーナルの答えは、表示されない。
+#[test]
+fn the_answer_for_a_day_the_user_has_moved_on_from_is_not_shown() {
+    let mut h = Harness::new();
+    visit(&mut h, "2026-02-09");
+    let shown = h.items_ids();
+    let titles_before = titles(&h);
+
+    h.send(Event::JournalLoaded {
+        date: "2026-02-08".into(),
+        title: "old".into(),
+        loaded: Box::new(PageWithItems {
+            page: journal_page("2026-02-08"),
+            items: vec![journal_item("old1", "2026-02-08")],
+            created: false,
+            transcluded_trees: None,
+        }),
+    });
+
+    assert_eq!(h.items_ids(), shown);
+    assert_eq!(titles(&h), titles_before);
+    assert_ne!(journal_view(&h).page_id.as_deref(), Some("page-2026-02-08"));
+}

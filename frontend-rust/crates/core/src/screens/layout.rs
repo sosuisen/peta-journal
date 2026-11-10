@@ -1,6 +1,6 @@
 //! The header's actions, ported from `main-layout.ts`: a new page and deleting the shown page.
 
-use crate::app::{apply, done, run, Cmd, Event, Model, Screen};
+use crate::app::{done, run, Cmd, Event, Model, Screen};
 use crate::screens::{navigate, search, sidebar};
 use crate::util::date::generate_untitled_title;
 use crate::util::filename::{is_journal_file_name, validate_file_name};
@@ -34,7 +34,7 @@ pub fn create_new_page(model: &mut Model, search_query: String) -> Cmd {
                 return;
             }
         }
-        apply(&api, "new page", move |_| navigate::open_page(&title));
+        api.send_event(Event::OpenPage { path: title });
     });
     Command::all([clear, open])
 }

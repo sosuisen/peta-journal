@@ -331,6 +331,38 @@ pub enum Event {
     WikiKey {
         key: String,
     },
+    /// The page names the search the timer `timer_id` started found for a wiki link.
+    WikiLinksSuggested {
+        timer_id: u64,
+        titles: Vec<String>,
+    },
+    /// The server changed the task state of the item `before`, saved under `target_id`.
+    TaskCycled {
+        target_id: String,
+        before: Box<Item>,
+        updated: Box<Item>,
+    },
+    /// The server saved the collapsing or expanding of the item `before`.
+    CollapseSaved {
+        before: Box<Item>,
+    },
+    /// The server refused the collapsing or expanding of the item `before`.
+    CollapseRefused {
+        before: Box<Item>,
+    },
+    /// The server made an item a transclusion, or a plain item again.
+    TransclusionChanged {
+        item: Box<Item>,
+    },
+    /// Items were copied to the system clipboard; the app keeps both forms of the text.
+    MarkdownCopied {
+        flat_markdown: String,
+        tree_markdown: String,
+    },
+    /// The server refused an indent or outdent of items of these pages.
+    LevelShiftRefused {
+        page_ids: HashSet<String>,
+    },
     WikiPick {
         title: String,
     },
@@ -385,6 +417,55 @@ pub enum Event {
         file_name: String,
     },
     DemoteIndex,
+    /// The server answered the journal of `date`; `title` is the title of the window for it.
+    JournalLoaded {
+        date: String,
+        title: String,
+        loaded: Box<PageWithItems>,
+    },
+    /// The load of the older journals that fill the outline ended.
+    PreviousJournalsLoaded,
+    /// The wait for the day an item moved to ended: the item is edited there.
+    MovedItemShown {
+        item_id: String,
+    },
+    /// The server knows the opened page under another path, e.g. a folder as its index page.
+    PageRedirected {
+        path: String,
+    },
+    /// The server answered the doc page of the path the screen opened; `created` when it
+    /// made the page.
+    PageLoaded {
+        page: Page,
+        created: bool,
+    },
+    /// The server answered whether the shown index page has no pages under it.
+    CanDemoteLoaded {
+        can_demote: bool,
+    },
+    /// The server answered the items of a doc page.
+    PageItemsLoaded {
+        page_id: String,
+        loaded: Box<PageWithItems>,
+    },
+    /// The server answered the backlinks of a doc page.
+    BacklinksLoaded {
+        page_id: String,
+        entries: Vec<BacklinkEntry>,
+    },
+    /// The server saved the new title or folder of the shown page.
+    TitleSaved {
+        page: Page,
+    },
+    /// The server saved a property change of a doc page and answered with the page.
+    PagePropertySaved {
+        page: Page,
+    },
+    /// The server refused a property change of a doc page; `before` is what the page had.
+    PagePropertyRefused {
+        page_id: String,
+        before: std::collections::BTreeMap<String, serde_json::Value>,
+    },
     /// The server demoted the shown index page: the page opens under its new path.
     Demoted {
         path: String,
@@ -470,6 +551,21 @@ pub enum Event {
     UngroupAtlasCards {
         card_ids: Vec<String>,
     },
+    /// The server refused the new bounds of a card or a callout; `before` is what it had.
+    AtlasBoundsRefused {
+        item_id: String,
+        before: Option<serde_json::Value>,
+    },
+    /// The server changed the outline of an atlas page and answered with its items.
+    AtlasChanged {
+        atlas_id: String,
+        items: Vec<Item>,
+    },
+    /// The page names the search the timer `timer_id` started found for the dialog of a link.
+    AtlasLinksSuggested {
+        timer_id: u64,
+        titles: Vec<String>,
+    },
     /// The page menu: show the property rows of the doc page even while it has none.
     EditPageProperties,
     SetPageProperty {
@@ -488,6 +584,32 @@ pub enum Event {
     /// The server deleted the shown page.
     PageDeleted,
     NavigateToToday,
+    /// A page is to be opened by its path, e.g. one just named in the header or the search.
+    OpenPage {
+        path: String,
+    },
+    /// The server answered the search the debounce timer `timer_id` started.
+    SearchAnswered {
+        timer_id: u64,
+        query: String,
+        results: Vec<SearchResult>,
+    },
+    /// The search the debounce timer `timer_id` started failed.
+    SearchFailed {
+        timer_id: u64,
+    },
+    /// The server answered the ten most recent doc pages.
+    RecentPagesLoaded {
+        pages: Vec<Page>,
+    },
+    /// The server answered the pages of the directory the index list shows.
+    IndexPagesLoaded {
+        header: String,
+        is_root: bool,
+        pages: Vec<Page>,
+    },
+    /// The wait before the next try to connect the event stream ended.
+    SseReconnect,
     /// The Home button: the page set in the settings, or today
     NavigateHome,
     NavigateToRoot,
@@ -1019,6 +1141,28 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         }
         WikiQuery { item_id, context } => ops::wiki::query(model, &item_id, context),
         WikiKey { key } => ops::wiki::key_nav(model, &key),
+        WikiLinksSuggested { timer_id, titles } => {
+            ops::wiki::show_suggestions(model, timer_id, titles)
+        }
+        TaskCycled {
+            target_id,
+            before,
+            updated,
+        } => ops::action::show_task_cycled(model, &target_id, *before, *updated),
+        CollapseSaved { before } => ops::action::record_collapse(model, *before),
+        CollapseRefused { before } => ops::action::put_collapse_back(model, *before),
+        TransclusionChanged { item } => {
+            model.state.replace_item(&item);
+            done()
+        }
+        MarkdownCopied {
+            flat_markdown,
+            tree_markdown,
+        } => {
+            model.clipboard = Some((flat_markdown, tree_markdown));
+            done()
+        }
+        LevelShiftRefused { page_ids } => ops::level::reload_after_refused_shift(model, page_ids),
         WikiPick { title } => ops::wiki::pick(model, &title),
         OpenLinkAt { item_id, cursor } => ops::wiki::open_link_at(model, &item_id, cursor),
         ShiftSelect { item_id } => {
@@ -1072,6 +1216,27 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         } => screens::page::save_title(model, dir_path, file_name),
         DemoteIndex => screens::page::demote_index(model),
         Demoted { path } => screens::page::show_demoted(&path),
+        JournalLoaded {
+            date,
+            title,
+            loaded,
+        } => screens::journal::show_journal(model, date, title, *loaded),
+        PreviousJournalsLoaded => screens::journal::previous_journals_loaded(model),
+        MovedItemShown { item_id } => screens::journal::edit_moved_item(model, &item_id),
+        PageRedirected { path } => screens::navigate::replace_page(&path),
+        PageLoaded { page, created } => screens::page::show_page(model, page, created),
+        CanDemoteLoaded { can_demote } => screens::page::show_can_demote(model, can_demote),
+        PageItemsLoaded { page_id, loaded } => {
+            screens::page::show_page_items(model, &page_id, *loaded)
+        }
+        BacklinksLoaded { page_id, entries } => {
+            screens::page::show_backlinks(model, &page_id, entries)
+        }
+        TitleSaved { page } => screens::page::show_title_saved(model, page),
+        PagePropertySaved { page } => screens::page::show_property_saved(model, page),
+        PagePropertyRefused { page_id, before } => {
+            screens::page::put_properties_back(model, &page_id, before)
+        }
         ToggleAtlas => screens::page::toggle_atlas(model),
         AtlasUp => screens::page::atlas_up(model),
         PlaceAtlasCard { card_id, x, y } => screens::atlas::place_card(model, card_id, x, y),
@@ -1097,6 +1262,13 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             target_id,
         } => screens::atlas::group_cards(model, card_ids, target_id),
         UngroupAtlasCards { card_ids } => screens::atlas::ungroup_cards(model, card_ids),
+        AtlasBoundsRefused { item_id, before } => {
+            screens::atlas::put_bounds_back(model, &item_id, before)
+        }
+        AtlasChanged { atlas_id, items } => screens::atlas::show_changed(model, &atlas_id, items),
+        AtlasLinksSuggested { timer_id, titles } => {
+            screens::atlas::show_link_suggestions(model, timer_id, titles)
+        }
         EditPageProperties => screens::page::edit_properties(model),
         SetPageProperty {
             key,
@@ -1108,6 +1280,23 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         DeleteCurrentPage => screens::layout::delete_current_page(model),
         PageDeleted => screens::layout::show_page_deleted(),
         NavigateToToday => screens::navigate::to_url("/today", false),
+        OpenPage { path } => screens::navigate::open_page(&path),
+        SearchAnswered {
+            timer_id,
+            query,
+            results,
+        } => screens::search::show_results(model, timer_id, &query, results),
+        SearchFailed { timer_id } => screens::search::search_failed(model, timer_id),
+        RecentPagesLoaded { pages } => {
+            model.recent_pages = pages;
+            done()
+        }
+        IndexPagesLoaded {
+            header,
+            is_root,
+            pages,
+        } => screens::sidebar::show_index_pages(model, header, is_root, pages),
+        SseReconnect => screens::sse::connect(model),
         NavigateHome => screens::settings::navigate_home(model),
         NavigateToRoot => screens::navigate::open_folder(model, "index"),
         NavigateToTags => {

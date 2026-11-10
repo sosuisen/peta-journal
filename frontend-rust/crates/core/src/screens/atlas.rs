@@ -8,7 +8,7 @@
 //! The place of a card or a callout is saved as a property of its item. Every other change
 //! goes to the server, which writes the outline again and answers with its items.
 
-use crate::app::{apply, cancel_timer, done, log_error, run, Cmd, Model};
+use crate::app::{cancel_timer, done, log_error, run, Cmd, Event, Model};
 use crate::effects::{AtlasChange, TimerOutput, UiOp};
 use crate::model::{Item, Page};
 use crate::ops::file_reload;
@@ -135,12 +135,15 @@ fn save_bounds(model: &mut Model, item: &Item, bounds: Bounds) -> Cmd {
             .await
         {
             api.alert(e.0);
-            apply(&api, "atlas place put back", move |m| {
-                set_property(m, &item_id, before);
-                done()
-            });
+            api.send_event(Event::AtlasBoundsRefused { item_id, before });
         }
     })
+}
+
+/// The server refused the new bounds of an item: the ones it had before are shown again.
+pub fn put_bounds_back(model: &mut Model, item_id: &str, before: Option<Value>) -> Cmd {
+    set_property(model, item_id, before);
+    done()
 }
 
 fn set_property(model: &mut Model, item_id: &str, value: Option<Value>) {
@@ -166,10 +169,7 @@ pub fn remove_card(model: &mut Model, page_id: String) -> Cmd {
     run(move |api| async move {
         if let Err(e) = api.delete_item_property(&item_id, BOUNDS_KEY).await {
             api.alert(e.0);
-            apply(&api, "atlas card put back", move |m| {
-                set_property(m, &item_id, before);
-                done()
-            });
+            api.send_event(Event::AtlasBoundsRefused { item_id, before });
         }
     })
 }
@@ -183,20 +183,23 @@ fn change(model: &Model, change: AtlasChange) -> Cmd {
     };
     run(move |api| async move {
         match api.change_atlas(&atlas_id, change).await {
-            Ok(mut items) => apply(&api, "atlas changed", move |m| {
-                for item in &mut items {
-                    let shown = m.state.get_item_by_id(&item.id);
-                    if let Some(bounds) = shown.and_then(|i| i.properties.get(BOUNDS_KEY).cloned())
-                    {
-                        item.properties.insert(BOUNDS_KEY.to_string(), bounds);
-                    }
-                }
-                file_reload::replace_page_items(m, &atlas_id, items);
-                done()
-            }),
+            Ok(items) => api.send_event(Event::AtlasChanged { atlas_id, items }),
             Err(e) => api.alert(e.0),
         }
     })
+}
+
+/// The server changed the outline of an atlas page: its items are shown. A card keeps the
+/// place shown for it.
+pub fn show_changed(model: &mut Model, atlas_id: &str, mut items: Vec<Item>) -> Cmd {
+    for item in &mut items {
+        let shown = model.state.get_item_by_id(&item.id);
+        if let Some(bounds) = shown.and_then(|i| i.properties.get(BOUNDS_KEY).cloned()) {
+            item.properties.insert(BOUNDS_KEY.to_string(), bounds);
+        }
+    }
+    file_reload::replace_page_items(model, atlas_id, items);
+    done()
 }
 
 /// Cards dropped on another card join its group. The target's group takes them, or a new
@@ -549,15 +552,19 @@ pub fn search_links(model: &mut Model, query: String) -> Cmd {
                 Vec::new()
             }
         };
-        apply(&api, "atlas link suggestions", move |m| {
-            if m.atlas_link_search.timer_id == timer_id {
-                m.atlas_link_search.timer_id = 0;
-                m.atlas_link_search.suggestions = titles;
-            }
-            done()
-        });
+        api.send_event(Event::AtlasLinksSuggested { timer_id, titles });
     });
     Command::all([cancel, search])
+}
+
+/// The page names the search the timer `timer_id` started found. The names of an older
+/// search are not shown.
+pub fn show_link_suggestions(model: &mut Model, timer_id: u64, titles: Vec<String>) -> Cmd {
+    if model.atlas_link_search.timer_id == timer_id {
+        model.atlas_link_search.timer_id = 0;
+        model.atlas_link_search.suggestions = titles;
+    }
+    done()
 }
 
 /// The cards of the pages of the shown atlas page, in the order of the sidebar's index list,

@@ -1,7 +1,7 @@
 //! The sidebar's data, ported from `recent-pages.service.ts` and `sidebar.ts`: the recent
 //! pages and the index (sibling) pages of the current doc page.
 
-use crate::app::{apply, done, log_error, run, Cmd, Model};
+use crate::app::{done, log_error, run, Cmd, Event, Model};
 use crate::model::{IndexSort, IndexSortKey, Page, SortOrder};
 use crate::screens::page;
 
@@ -9,10 +9,7 @@ use crate::screens::page;
 pub fn refresh_recent_pages() -> Cmd {
     run(|api| async move {
         if let Ok(pages) = api.get_recent_pages(10, Some("doc")).await {
-            apply(&api, "recent pages", move |m| {
-                m.recent_pages = pages;
-                done()
-            });
+            api.send_event(Event::RecentPagesLoaded { pages });
         }
     })
 }
@@ -64,20 +61,28 @@ pub fn load_index_pages(model: &mut Model) -> Cmd {
             Ok((String::new(), false, Vec::new()))
         };
         match loaded {
-            Ok((header, is_root, pages)) => apply(&api, "index pages", move |m| {
-                m.sidebar.index_header = header;
-                // The atlas page is opened by the map button of the index page, not by name
-                let pages = pages.into_iter().filter(|c| !page::is_atlas(c));
-                m.sidebar.index_pages = if is_root {
-                    pages.filter(|c| c.page_type == "doc").collect()
-                } else {
-                    pages.collect()
-                };
-                done()
+            Ok((header, is_root, pages)) => api.send_event(Event::IndexPagesLoaded {
+                header,
+                is_root,
+                pages,
             }),
             Err(e) => log_error(format!("Failed to load index pages: {e}")),
         }
     })
+}
+
+/// The server answered the pages of the directory: the index list shows them. The root
+/// directory lists doc pages only.
+pub fn show_index_pages(model: &mut Model, header: String, is_root: bool, pages: Vec<Page>) -> Cmd {
+    model.sidebar.index_header = header;
+    // The atlas page is opened by the map button of the index page, not by name
+    let pages = pages.into_iter().filter(|c| !page::is_atlas(c));
+    model.sidebar.index_pages = if is_root {
+        pages.filter(|c| c.page_type == "doc").collect()
+    } else {
+        pages.collect()
+    };
+    done()
 }
 
 /// The sort of the directory the index list shows; by name until the user picks one.

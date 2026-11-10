@@ -1,9 +1,9 @@
 //! The doc page screen, ported from `page.ts`: loading a page by its path, the title and
 //! directory editing, and demoting an index page.
 
-use crate::app::{apply, done, log_error, run, Cmd, Event, Model, PageState, Screen};
+use crate::app::{done, log_error, run, Cmd, Event, Model, PageState, Screen};
 use crate::effects::{Api, ApiError, PageUpdate, UiOp};
-use crate::model::{BacklinkEntry, Page};
+use crate::model::{BacklinkEntry, Page, PageWithItems};
 use crate::screens::{navigate, sidebar};
 use crate::util::filename::validate_file_name;
 use crux_core::Command;
@@ -71,30 +71,12 @@ pub fn open(model: &mut Model, name: &str, fragment: Option<String>) -> Cmd {
         // "Quarkus" to dirPath "Quarkus/" and name "index"
         let canonical = p.canonical_path();
         if canonical != page_name {
-            apply(&api, "page: redirect", move |_| {
-                navigate::replace_page(&canonical)
-            });
+            api.send_event(Event::PageRedirected { path: canonical });
             return;
         }
-        let created = result.created;
-        let page_for_state = p.clone();
-        apply(&api, "page loaded", move |m| {
-            let Some(ps) = page_mut(m) else { return done() };
-            if ps.page_name != page_for_state.canonical_path()
-                && ps.page_name != page_for_state.name
-            {
-                return done();
-            }
-            ps.page = Some(page_for_state.clone());
-            let mut cmds = vec![
-                navigate::set_title(full_page_title(&page_for_state)),
-                sidebar::set_current_page(m, Some(page_for_state.clone())),
-                load_backlinks(page_for_state.id.clone()),
-            ];
-            if created {
-                cmds.push(sidebar::refresh_recent_pages());
-            }
-            Command::all(cmds)
+        api.send_event(Event::PageLoaded {
+            page: p.clone(),
+            created: result.created,
         });
         // A non-root index page can be demoted when it has no children
         if p.name == "index" && !p.dir_path.is_empty() {
@@ -104,30 +86,61 @@ pub fn open(model: &mut Model, name: &str, fragment: Option<String>) -> Cmd {
                 .await
                 .map(|c| c.iter().all(is_atlas))
                 .unwrap_or(false);
-            apply(&api, "page: can demote", move |m| {
-                if let Some(ps) = page_mut(m) {
-                    ps.can_demote_index = can_demote;
-                }
-                done()
-            });
+            api.send_event(Event::CanDemoteLoaded { can_demote });
         }
         // The outline loads the items of the page
         match api.get_page_by_id(&p.id).await {
-            Ok(loaded) => apply(&api, "page items", move |m| {
-                if shown_doc_page(m).map(|pg| pg.id.as_str()) != Some(&p.id) {
-                    return done();
-                }
-                m.state.set_items(loaded.items);
-                if let Some(trees) = loaded.transcluded_trees {
-                    m.state.set_transcluded_trees(trees);
-                }
-                let focus_item_id = page_state(m).and_then(|p| p.focus_item_id.clone());
-                scroll_to_item(m, focus_item_id)
+            Ok(loaded) => api.send_event(Event::PageItemsLoaded {
+                page_id: p.id,
+                loaded: Box::new(loaded),
             }),
             Err(e) => log_error(format!("Failed to load items for page {}: {e}", p.id)),
         }
     });
     Command::all([remember, load])
+}
+
+/// The server answered the page of the path the screen opened: the screen shows it. An
+/// answer for a path the screen has left is not shown.
+pub fn show_page(model: &mut Model, page: Page, created: bool) -> Cmd {
+    let Some(ps) = page_mut(model) else {
+        return done();
+    };
+    if ps.page_name != page.canonical_path() && ps.page_name != page.name {
+        return done();
+    }
+    ps.page = Some(page.clone());
+    let mut cmds = vec![
+        navigate::set_title(full_page_title(&page)),
+        sidebar::set_current_page(model, Some(page.clone())),
+        load_backlinks(page.id),
+    ];
+    if created {
+        cmds.push(sidebar::refresh_recent_pages());
+    }
+    Command::all(cmds)
+}
+
+/// The server answered whether the shown index page can be demoted.
+pub fn show_can_demote(model: &mut Model, can_demote: bool) -> Cmd {
+    if let Some(ps) = page_mut(model) {
+        ps.can_demote_index = can_demote;
+    }
+    done()
+}
+
+/// The server answered the items of a page: the outline shows them while the page is
+/// still the shown one.
+pub fn show_page_items(model: &mut Model, page_id: &str, loaded: PageWithItems) -> Cmd {
+    if shown_doc_page(model).map(|pg| pg.id.as_str()) != Some(page_id) {
+        return done();
+    }
+    model.state.set_items(loaded.items);
+    if let Some(trees) = loaded.transcluded_trees {
+        model.state.set_transcluded_trees(trees);
+    }
+    let focus_item_id = page_state(model).and_then(|p| p.focus_item_id.clone());
+    scroll_to_item(model, focus_item_id)
 }
 
 /// Loads the backlinks of the shown doc page again: any page may have changed its links.
@@ -141,17 +154,21 @@ pub fn reload_backlinks(model: &Model) -> Cmd {
 fn load_backlinks(page_id: String) -> Cmd {
     run(move |api| async move {
         match api.get_backlinks(&page_id).await {
-            Ok(entries) => apply(&api, "page backlinks", move |m| {
-                if let Some(ps) = page_mut(m) {
-                    if ps.page.as_ref().map(|p| p.id.as_str()) == Some(page_id.as_str()) {
-                        ps.backlinks = entries;
-                    }
-                }
-                done()
-            }),
+            Ok(entries) => api.send_event(Event::BacklinksLoaded { page_id, entries }),
             Err(e) => log_error(format!("Failed to load backlinks of page {page_id}: {e}")),
         }
     })
+}
+
+/// The server answered the backlinks of a page: they are shown while the page is still
+/// the shown one.
+pub fn show_backlinks(model: &mut Model, page_id: &str, entries: Vec<BacklinkEntry>) -> Cmd {
+    if let Some(ps) = page_mut(model) {
+        if ps.page.as_ref().map(|p| p.id.as_str()) == Some(page_id) {
+            ps.backlinks = entries;
+        }
+    }
+    done()
 }
 
 /// The backlinks grouped by source page, in the server's order: the page, then the items
@@ -340,19 +357,24 @@ pub fn save_title(model: &mut Model, dir_path: String, file_name: String) -> Cmd
         else {
             return;
         };
-        let canonical = updated.canonical_path();
-        apply(&api, "title saved", move |m| {
-            if let Some(ps) = page_mut(m) {
-                ps.page = Some(updated.clone());
-                ps.page_name = canonical.clone();
-            }
-            Command::all([
-                navigate::set_title(full_page_title(&updated)),
-                sidebar::refresh_recent_pages(),
-                navigate::replace_page(&canonical),
-            ])
-        });
+        api.send_event(Event::TitleSaved { page: updated });
     })
+}
+
+/// The server saved the new title or folder of the shown page: the screen and the URL
+/// show it.
+pub fn show_title_saved(model: &mut Model, updated: Page) -> Cmd {
+    let canonical = updated.canonical_path();
+    let title = full_page_title(&updated);
+    if let Some(ps) = page_mut(model) {
+        ps.page = Some(updated);
+        ps.page_name = canonical.clone();
+    }
+    Command::all([
+        navigate::set_title(title),
+        sidebar::refresh_recent_pages(),
+        navigate::replace_page(&canonical),
+    ])
 }
 
 /// Shows the property rows of the doc page, so a first property can be added.
@@ -441,25 +463,34 @@ async fn settle_property_change(
     result: Result<Page, crate::effects::ApiError>,
 ) {
     match result {
-        Ok(updated) => apply(api, "page property saved", move |m| {
-            let Some(page) = shown_page_mut(m, &updated.id) else {
-                return done();
-            };
-            page.properties = updated.properties;
-            page.created_date = updated.created_date;
-            page.modified_date = updated.modified_date;
-            done()
-        }),
+        Ok(updated) => api.send_event(Event::PagePropertySaved { page: updated }),
         Err(e) => {
             api.alert(e.0);
-            apply(api, "page property reverted", move |m| {
-                if let Some(page) = shown_page_mut(m, &page_id) {
-                    page.properties = before;
-                }
-                done()
-            });
+            api.send_event(Event::PagePropertyRefused { page_id, before });
         }
     }
+}
+
+/// The server saved a property change: its properties and dates replace the shown ones.
+pub fn show_property_saved(model: &mut Model, updated: Page) -> Cmd {
+    if let Some(page) = shown_page_mut(model, &updated.id) {
+        page.properties = updated.properties;
+        page.created_date = updated.created_date;
+        page.modified_date = updated.modified_date;
+    }
+    done()
+}
+
+/// The server refused a property change: the properties from before it are shown again.
+pub fn put_properties_back(
+    model: &mut Model,
+    page_id: &str,
+    before: BTreeMap<String, Value>,
+) -> Cmd {
+    if let Some(page) = shown_page_mut(model, page_id) {
+        page.properties = before;
+    }
+    done()
 }
 
 /// The doc page on screen when it is still the given one.
