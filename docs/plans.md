@@ -101,11 +101,11 @@
 
 - [ ] SwiftUIのシェル（macOS）のWalking Skeletonを作る（ADR 024）
   - 目的は、ADR 024が確かめていないことを早く確かめることである。1つのページを開き、1つの項目に入力して保存できるところまでを通す
-  - [ ] `Event`に`Deserialize`を、`ViewModel`に`Serialize`を実装する
   - [ ] ネイティブのシェルのcrateを作る。`Core`を`EffectRouter`で包み、`Api`、`Sse`、`Timer`をRustで実行する
     - 答えを待たない要求に答えると、エラー（`Never`）が返る。無視する
     - SSEのように、1つの要求に何度も答える流れを確かめる
   - [ ] Swiftの型を生成する。今の`Event`と`ViewModel`で、生成が最後まで通るかを確かめる
+    - `Event`の変種を1つずつbincodeで読み戻すテストは、3つしか書いていない。型の生成は全部の変種をたどるので、読めない形があれば、ここで見つかる
   - [ ] RustのライブラリをXcodeのアプリに組み込む。Swiftから呼ぶための道具（BoltFFIなど）を、ここで決める
   - [ ] SwiftUIで、1000項目のページの入力の速さを測る。遅ければ、ADR 024を見直す
 
