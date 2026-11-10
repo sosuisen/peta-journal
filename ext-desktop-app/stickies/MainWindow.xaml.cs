@@ -416,6 +416,21 @@ public sealed partial class MainWindow : Window
     zoom: {_windowSettings.ZoomFactor.ToString(System.Globalization.CultureInfo.InvariantCulture)};
   }}
   a {{ color: #2563eb; }}
+  a[data-wikilink], a.hashtag {{ text-decoration: none; }}
+  a.hashtag {{ color: #0f766e; }}
+  mark {{ background: rgba(255,200,0,0.45); }}
+  .spoiler {{ background: #333; color: #333; border-radius: 3px; }}
+  .spoiler:hover {{ color: #fff; }}
+  hr {{ border: none; border-top: 1px solid #ccc; margin: 8px 0; }}
+  li > input[type=checkbox] {{ margin-right: 6px; }}
+  .alert {{
+    border-left: 3px solid #2563eb;
+    padding-left: 12px;
+    margin: 4px 0;
+  }}
+  .alert-warning, .alert-caution {{ border-left-color: #d97706; }}
+  .alert-title {{ font-weight: 600; }}
+  .footnote {{ font-size: 13px; color: #666; }}
   code {{
     background: rgba(0,0,0,0.06);
     padding: 1px 4px;
@@ -472,6 +487,9 @@ public sealed partial class MainWindow : Window
   document.addEventListener('click',function(e){{
     var t=e.target.closest('.collapse-toggle');
     if(t){{ window.chrome.webview.postMessage({{toggleCollapse:t.getAttribute('data-item-id')}}); }}
+    // The href of a wikilink or a hashtag is a page name, not a URL. Following it would
+    // replace the note with an error page.
+    if(e.target.closest('a[data-wikilink],a.hashtag')){{ e.preventDefault(); }}
   }});
 }})();
 </script>
