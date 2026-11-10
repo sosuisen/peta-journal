@@ -1,7 +1,7 @@
 use crate::protocol::{Bullet, DateUnit, Envelope, Inbound, Outbound, PropertyRow, RowView};
 use crate::shell::{Host, Input, Now, Shell};
 use peta_core::effects::{ApiError, ApiOp, ApiOutput, LocalDateTimeDto, SseEvent};
-use peta_core::model::PropertyDefinition;
+use peta_core::model::{PropertyDefinition, Uploaded};
 use peta_core::rest::ClientId;
 use serde_json::{json, Value};
 use std::mem::ManuallyDrop;
@@ -273,6 +273,14 @@ fn today_opens_the_journal_of_the_hosts_date() {
     ));
 }
 
+/// An image the server saved under the name it came with.
+fn uploaded(name: &str) -> Uploaded {
+    Uploaded {
+        file_name: name.into(),
+        original_name: name.into(),
+    }
+}
+
 // ページが読めると、Emacsに行が送られる。レベルと本文はサーバーのとおりである。
 #[test]
 fn a_loaded_page_reaches_emacs_as_rows() {
@@ -522,7 +530,7 @@ fn an_inserted_image_is_uploaded_and_linked_at_the_cursor() {
 
     driver.shell.handle(Input::ApiDone {
         id: upload,
-        result: Box::new(Ok(ApiOutput::FileName("pic.png".into()))),
+        result: Box::new(Ok(ApiOutput::Uploaded(uploaded("pic.png")))),
     });
 
     let body = format!("x{link}y");
@@ -547,7 +555,7 @@ fn keys_are_held_until_the_link_of_the_inserted_image_is_pasted() {
 
     driver.shell.handle(Input::ApiDone {
         id: upload,
-        result: Box::new(Ok(ApiOutput::FileName("pic.png".into()))),
+        result: Box::new(Ok(ApiOutput::Uploaded(uploaded("pic.png")))),
     });
     assert_eq!(driver.holding(), Some(true));
 
@@ -584,7 +592,7 @@ fn a_failed_paste_of_the_link_is_reported() {
     let upload = driver.insert_image("a", 1);
     driver.shell.handle(Input::ApiDone {
         id: upload,
-        result: Box::new(Ok(ApiOutput::FileName("pic.png".into()))),
+        result: Box::new(Ok(ApiOutput::Uploaded(uploaded("pic.png")))),
     });
 
     let (save, _) = driver

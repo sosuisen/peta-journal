@@ -4,7 +4,7 @@
 //! its link is pasted the same way.
 
 use crate::app::{done, log_error, run, Cmd, Event, Model};
-use crate::model::{ItemPosition, PasteCursor, PasteMode, Pasted};
+use crate::model::{ItemPosition, PasteCursor, PasteMode, Pasted, Uploaded};
 use crate::ops::edit::{discard_pending_edit, mark_dirty, record_typing, show_parsed, typed_body};
 use crate::ops::file_reload::replace_page;
 use crate::outline::tree::edit_context_of;
@@ -165,9 +165,9 @@ pub fn paste_image(item_id: &str, file: u64, cursor: usize) -> Cmd {
     let item_id = item_id.to_string();
     run(move |api| async move {
         match api.upload_asset(file).await {
-            Ok(file_name) => api.send_event(Event::ImageUploaded {
+            Ok(image) => api.send_event(Event::ImageUploaded {
                 item_id,
-                file_name,
+                image,
                 cursor,
             }),
             Err(e) => log_error(format!("Failed to paste image: {e}")),
@@ -178,7 +178,26 @@ pub fn paste_image(item_id: &str, file: u64, cursor: usize) -> Cmd {
 /// Puts a link to an uploaded image at the cursor, as a paste of text that stays in one
 /// item: the server writes it with one request, into the body the item has now. Text typed
 /// while the image was on its way is kept.
-pub fn link_image(model: &mut Model, item_id: &str, file_name: &str, cursor: usize) -> Cmd {
-    let markdown = format!("![{file_name}](../assets/{file_name})");
+///
+/// The link shows the name the file came with, and points to the name the server saved it
+/// under. See ADR-022.
+pub fn link_image(model: &mut Model, item_id: &str, image: &Uploaded, cursor: usize) -> Cmd {
+    let markdown = format!(
+        "![{}](../assets/{})",
+        escape_link_text(&image.original_name),
+        image.file_name
+    );
     request_paste(model, item_id, markdown, PasteMode::Raw, cursor)
+}
+
+/// `text` as the text of a Markdown link: a `]` in a file name would end the link early.
+fn escape_link_text(text: &str) -> String {
+    let mut escaped = String::with_capacity(text.len());
+    for c in text.chars() {
+        if matches!(c, '[' | ']' | '\\') {
+            escaped.push('\\');
+        }
+        escaped.push(c);
+    }
+    escaped
 }

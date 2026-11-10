@@ -2,7 +2,7 @@ use crate::app::Event;
 use crate::effects::{ApiOp, ApiOutput};
 use crate::harness::{batch_calls, item, typed, update_calls, Harness};
 use crate::model::{
-    BatchOp, Item, Page, PageWithItems, PasteCursor, PasteMode, Pasted, TranscludedTrees,
+    BatchOp, Item, Page, PageWithItems, PasteCursor, PasteMode, Pasted, TranscludedTrees, Uploaded,
 };
 use crate::outline::UndoOp;
 use crate::testing::item_with;
@@ -500,6 +500,14 @@ fn after_a_failed_paste_into_a_transclusion_root_the_typed_text_is_saved_to_the_
 
 const LINK: &str = "![pic.png](../assets/pic.png)";
 
+/// An image the server saved under the name it came with, as the fake server answers.
+fn uploaded(name: &str) -> Uploaded {
+    Uploaded {
+        file_name: name.into(),
+        original_name: name.into(),
+    }
+}
+
 fn paste_image(h: &mut Harness, item_id: &str, cursor: usize) {
     h.send(Event::PasteImage {
         item_id: item_id.into(),
@@ -536,6 +544,26 @@ fn an_image_is_uploaded_and_its_link_is_pasted_at_the_cursor_with_one_request() 
     assert_eq!(h.focused_editor_requests(), [Some("a".to_string())]);
 }
 
+// リンクの文字は元の名前で、リンク先はサーバーが保存した名前である。
+// 元の名前の`[`、`]`、`\`は、リンクを壊さないように、前に`\`を付ける。
+#[test]
+fn the_link_of_an_image_shows_the_original_name_and_points_to_the_saved_file() {
+    let mut h = harness();
+    h.api.answer_next(
+        "UploadAsset",
+        Ok(ApiOutput::Uploaded(Uploaded {
+            file_name: "20261110090501_QZ998PX.png".into(),
+            original_name: r"構成図 [v2]\a.png".into(),
+        })),
+    );
+    paste_image(&mut h, "a", 2);
+
+    assert_eq!(
+        h.model.state.get_item_by_id("a").unwrap().body,
+        r"ab![構成図 \[v2\]\\a.png](../assets/20261110090501_QZ998PX.png)|cd"
+    );
+}
+
 // 画像の貼り付けは、1つのUndoエントリとして記録される。
 #[test]
 fn an_image_paste_is_recorded_as_one_undo_entry() {
@@ -554,7 +582,7 @@ fn text_typed_while_the_image_uploads_travels_in_the_paste() {
     typed(&mut h, "a", "typed");
     h.send(Event::ImageUploaded {
         item_id: "a".into(),
-        file_name: "pic.png".into(),
+        image: uploaded("pic.png"),
         cursor: 5,
     });
     h.fire_timers();
@@ -589,7 +617,7 @@ fn the_link_of_an_image_is_not_pasted_into_an_item_that_is_gone() {
     let mut h = harness();
     h.send(Event::ImageUploaded {
         item_id: "gone".into(),
-        file_name: "pic.png".into(),
+        image: uploaded("pic.png"),
         cursor: 0,
     });
 

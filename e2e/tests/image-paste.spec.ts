@@ -30,7 +30,8 @@ test.describe('pasting an image', () => {
 
     await pasteImage(page, a.id);
 
-    const link = /^ab!\[[^\]]+\]\(\.\.\/assets\/[^)]+\)cd$/;
+    // The text is the name the file came with. The file is saved under an HMTID (ADR 022)
+    const link = /^ab!\[pic\.png\]\(\.\.\/assets\/\d{14}_[0-9A-Z]{7}\.png\)cd$/;
     const [pasted] = await server.itemsSettled(p.id, i => link.test(i[0].body));
     await expect(editorOf(page, a.id)).toHaveValue(pasted.body);
     expect(writes).toEqual(['POST /api/assets/upload', `POST /api/items/${a.id}/paste`]);

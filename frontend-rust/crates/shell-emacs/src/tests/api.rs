@@ -1,5 +1,6 @@
 use crate::api::{call, upload, Http};
 use peta_core::effects::{ApiError, ApiOp, ApiOutput};
+use peta_core::model::Uploaded;
 use peta_core::rest::{HttpReply, HttpRequest};
 use std::cell::RefCell;
 use std::path::PathBuf;
@@ -107,14 +108,23 @@ fn an_upload_is_not_sent_as_a_request() {
     assert!(http.asked.borrow().is_empty());
 }
 
-// ファイルの中身が元の名前で送られ、サーバーが付けた名前が答えになる。
+// ファイルの中身が元の名前で送られ、サーバーが付けた名前と元の名前が答えになる。
 #[test]
-fn a_file_is_uploaded_under_its_name_and_the_saved_name_is_the_answer() {
-    let http = fake_with_body(200, r#"{"fileName":"pic-1.png"}"#);
+fn a_file_is_uploaded_under_its_name_and_the_saved_name_is_the_answer_with_it() {
+    let http = fake_with_body(
+        200,
+        r#"{"fileName":"20261110090501_QZ998PX.png","originalName":"pic.png"}"#,
+    );
     let (folder, path) = file_in_folder_of("upload", "pic.png", b"png bytes");
     let output = upload(&http, &path);
     std::fs::remove_dir_all(folder).unwrap();
-    assert_eq!(output, Ok(ApiOutput::FileName("pic-1.png".into())));
+    assert_eq!(
+        output,
+        Ok(ApiOutput::Uploaded(Uploaded {
+            file_name: "20261110090501_QZ998PX.png".into(),
+            original_name: "pic.png".into(),
+        }))
+    );
     assert_eq!(
         *http.uploaded.borrow(),
         [("pic.png".to_string(), b"png bytes".to_vec())]
@@ -124,7 +134,7 @@ fn a_file_is_uploaded_under_its_name_and_the_saved_name_is_the_answer() {
 // 読めないファイルは、サーバーへ何も送らずにエラーになる。
 #[test]
 fn a_file_that_cannot_be_read_is_an_error_and_nothing_is_sent() {
-    let http = fake_with_body(200, r#"{"fileName":"pic.png"}"#);
+    let http = fake_with_body(200, r#"{"fileName":"pic.png","originalName":"pic.png"}"#);
     assert!(upload(&http, "no/such/folder/pic.png").is_err());
     assert!(http.uploaded.borrow().is_empty());
 }

@@ -425,7 +425,7 @@ fn the_message_of_the_server_about_an_error_reaches_emacs() {
 fn an_image_file_goes_to_the_server_as_a_form() {
     let server = Server::start();
     server.has_page(&[item("a", "first")]);
-    let saved = json!({ "fileName": "saved.png" });
+    let saved = json!({ "fileName": "saved.png", "originalName": "pic.png" });
     server.answers("POST", "/api/assets/upload", 200, &saved);
     let folder = std::env::temp_dir().join(format!("peta-shell-emacs-{}", std::process::id()));
     std::fs::create_dir_all(&folder).unwrap();

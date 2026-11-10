@@ -156,16 +156,16 @@ asking.
 `C-c C-x i` or `M-x peta-journal-insert-image` asks for a file. The server keeps a copy in the `assets`
 folder of the notes, and a link to it goes in at the point.
 
-The server changes the name of the copy. Each character other than ASCII letters, digits, `.`, `_`
-and `-` becomes `_`.
+The server names the copy. The name is an ID made of the time and random letters, an HMTID, with the
+extension of the file. The link text keeps the name of the file. For example, inserting `構成図.png`
+puts in `![構成図.png](../assets/20261110090501_QZ998PX.png)`. The time in the name is UTC.
 
 The server refuses a file over 50MB. Emacs then shows the reason, and the body stays as it was.
 
 ### Pasting an image from the clipboard
 
-Copy an image, such as a screenshot, and press `C-y`. The image goes to the server under the name
-`image.png`, and a link to it goes in at the point. When a file has that name already, the server
-adds a number: `image-1.png`.
+Copy an image, such as a screenshot, and press `C-y`. The image goes to the server, and a link to it
+goes in at the point. A pasted image has no name of its own, so the link text is `image.png`.
 
 - The image is pasted only when the clipboard has an image and no text. With text in the clipboard,
   `C-y` pastes the text as before.

@@ -4,7 +4,7 @@
 use crate::model::{
     BacklinkEntry, BatchOp, Batched, DeferredKey, Item, ItemPosition, JournalBefore, Page,
     PageWithItems, PasteMode, Pasted, PropertyDefinition, SearchResult, ServerConfig, Split,
-    Stashed, TreeExport,
+    Stashed, TreeExport, Uploaded,
 };
 use crate::util::date::LocalDateTime;
 use crux_core::capability::Operation;
@@ -295,7 +295,7 @@ pub enum ApiOutput {
     Split(Box<Split>),
     Stashed(Box<Stashed>),
     Batched(Box<Batched>),
-    FileName(String),
+    Uploaded(Uploaded),
     Launched(bool),
     /// Another page has the name a page was to take; the server's message says which.
     PageNameTaken(String),
@@ -1063,8 +1063,8 @@ impl<Event: Send + 'static> Api<Event> {
         )
     }
 
-    pub async fn upload_asset(&self, file: u64) -> ApiResult<String> {
-        expect_output!(self.call(ApiOp::UploadAsset { file }).await, FileName)
+    pub async fn upload_asset(&self, file: u64) -> ApiResult<Uploaded> {
+        expect_output!(self.call(ApiOp::UploadAsset { file }).await, Uploaded)
     }
 
     pub async fn launch_url(&self, url: &str) -> ApiResult<bool> {

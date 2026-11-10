@@ -60,6 +60,7 @@ pub struct AppState {
     pub confirm: Arc<ConfirmService>,
     pub dtos: ItemDtoAssembler,
     pub sse: SseBroadcaster,
+    pub ids: Arc<IdGenerator>,
 }
 
 pub type SharedState = Arc<AppState>;
@@ -248,6 +249,7 @@ impl AppState {
             confirm,
             dtos,
             sse,
+            ids,
         }))
     }
 
