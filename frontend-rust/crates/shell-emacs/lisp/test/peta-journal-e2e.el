@@ -447,32 +447,44 @@ No key does this: the tests use it to reach a page without the search box."
       (insert-file-contents-literally file))
     (buffer-string)))
 
+(defun peta-journal-e2e--image-link (original bytes root)
+  "The link to the image that came as ORIGINAL, shown between 前 and と後.
+Its text is ORIGINAL.  It points to the name the server made: an HMTID and
+the extension.  That file must hold BYTES in the notes under ROOT."
+  (let ((shown (peta-journal-e2e--shown)))
+    (should (string-match
+             (concat "\\`• 前\\(!\\[" (regexp-quote original) "\\]"
+                     "(\\.\\./assets/\\([0-9]\\{14\\}_[0-9A-Z]\\{7\\}\\.png\\))\\)と後\n\\'")
+             shown))
+    (let ((link (match-string 1 shown))
+          (saved (match-string 2 shown)))
+      (should (equal (peta-journal-e2e--bytes-of
+                      (expand-file-name saved (expand-file-name "markdown/assets" root)))
+                     bytes))
+      link)))
+
 ;; `C-c C-x i`で選んだ画像は、中身のままサーバーへ届き、カーソル位置にリンクが入る。続けて打った文字はリンクの後ろに入る。
+;; リンクの文字は元の名前で、リンク先はサーバーが付けた名前である。
 (ert-deftest peta-journal-e2e-an-inserted-image-is-uploaded-and-linked ()
   (peta-journal-e2e--with-app
     ;; Bytes that break when read as text: a line end, a zero and a high byte
     (let ((bytes (unibyte-string #x89 ?P ?N ?G 13 10 0 255))
-          (image (expand-file-name "pic.png" root))
-          (link "![pic.png](../assets/pic.png)"))
+          (image (expand-file-name "pic.png" root)))
       (peta-journal-e2e--write-image image bytes)
       (peta-journal-e2e--type "前後")
       (peta-journal-e2e--keys "C-b")
       (execute-kbd-macro (vconcat (kbd "C-c C-x i C-a C-k") image (kbd "RET")))
       (peta-journal--wait)
       (peta-journal-e2e--type "と")
-      (should (equal (peta-journal-e2e--shown) (format "• 前%sと後\n" link)))
-      (should (equal (peta-journal-e2e--bytes-of
-                      (expand-file-name "markdown/assets/pic.png" root))
-                     bytes))
-      (peta-journal-e2e--keys "C-x C-s")
-      (peta-journal-e2e--wait-saved (list (format "前%sと後" link))))))
+      (let ((link (peta-journal-e2e--image-link "pic.png" bytes root)))
+        (peta-journal-e2e--keys "C-x C-s")
+        (peta-journal-e2e--wait-saved (list (format "前%sと後" link)))))))
 
 ;; クリップボードに画像だけがあるとき、`C-y`でその画像が中身のままサーバーへ届き、カーソル位置にリンクが入る。
 ;; The clipboard is replaced: the real one belongs to the person at the machine.
 (ert-deftest peta-journal-e2e-an-image-in-the-clipboard-is-pasted ()
   (peta-journal-e2e--with-app
-    (let ((bytes (unibyte-string #x89 ?P ?N ?G 13 10 0 255))
-          (link "![image.png](../assets/image.png)"))
+    (let ((bytes (unibyte-string #x89 ?P ?N ?G 13 10 0 255)))
       (peta-journal-e2e--type "前後")
       (peta-journal-e2e--keys "C-b")
       (cl-letf (((symbol-function 'gui-get-selection)
@@ -482,12 +494,9 @@ No key does this: the tests use it to reach a page without the search box."
                      ('image/png bytes)))))
         (peta-journal-e2e--keys "C-y"))
       (peta-journal-e2e--type "と")
-      (should (equal (peta-journal-e2e--shown) (format "• 前%sと後\n" link)))
-      (should (equal (peta-journal-e2e--bytes-of
-                      (expand-file-name "markdown/assets/image.png" root))
-                     bytes))
-      (peta-journal-e2e--keys "C-x C-s")
-      (peta-journal-e2e--wait-saved (list (format "前%sと後" link))))))
+      (let ((link (peta-journal-e2e--image-link "image.png" bytes root)))
+        (peta-journal-e2e--keys "C-x C-s")
+        (peta-journal-e2e--wait-saved (list (format "前%sと後" link)))))))
 
 ;; 読めないファイルを選ぶと、その理由を伝え、本文は変わらない。そのまま書き続けられる。
 (ert-deftest peta-journal-e2e-a-file-that-cannot-be-read-is-reported ()
