@@ -113,9 +113,9 @@
   - [x] 書き出したファイルの更新時刻が、中の日付より古い場合
   - [x] 既存のDBのマイグレーション（版4。`file_sync_state`に`last_synced`を足す）
   - 直したあとは、4ミリ秒刻みで結合テストの全体を30回回して、すべて通った（2026-11-11）。CIのLinuxでは確かめていない
-- [ ] CIで1回ずつ落ちた、journal-serverの次のテストの原因を調べる
-  - `watch::a_file_that_failed_to_read_is_taken_in_again_without_a_new_change`（2026-11-07）
-  - `api::an_image_over_the_limit_is_refused_and_not_saved`（2026-11-10）
+- [x] CIで1回ずつ落ちた、journal-serverの次のテストの原因を調べる。どちらも、今の`main`では直っていた（2026-11-11）
+  - `watch::a_file_that_failed_to_read_is_taken_in_again_without_a_new_change`（2026-11-07）。ページができた直後に、項目を待たずに確かめていた。コミット`f8efb15c`が、項目を待つようにした
+  - `api::an_image_over_the_limit_is_refused_and_not_saved`（2026-11-10）。`assets`フォルダがまだないときに、読めずに落ちていた。今のテストは、読めないフォルダを「保存されていない」と扱う
 - [ ] `api::a_file_written_with_the_old_tag_key_keeps_its_tags`が、ファイルの更新時刻を16ミリ秒刻みに切り捨てると落ちる原因を調べる
   - 上の修正の前は20回中4回、後は20回中7回落ちた（2026-11-11）。タグが`null`になる。4ミリ秒刻みでは30回とも通った。CIで落ちた記録はない
 - [ ] Web版のE2E `outline-structure.spec.ts:93`（Ctrl+Cでのコピー）が手元のWindowsで落ちる原因を調べて直す
