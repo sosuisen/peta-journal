@@ -275,6 +275,27 @@
                    '(("edit_finished" :id "a")
                      ("edit_requested" :id "b" :cursor 1))))))
 
+;; 編集中の項目が届いた行から消えると、その編集は終わっている。終わりは送らない。
+(ert-deftest peta-journal-a-row-that-is-gone-is-no-longer-edited ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x")
+                                      (peta-journal-test--row "b" 1 "yz"))
+    (peta-journal-test--goto "a" 1)
+    (setq peta-journal-test--sent nil)
+    (peta-journal--apply-rows (vector (peta-journal-test--row "b" 1 "yz")) "page" 0)
+    (peta-journal--post-command)
+    (should (equal peta-journal-test--sent
+                   '(("edit_requested" :id "b" :cursor 0))))))
+
+;; 項目の削除は、coreに頼むだけである。断られることがあるので、編集中の項目はそのままにする。
+(ert-deftest peta-journal-deleting-an-item-only-asks-the-core ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x")
+                                      (peta-journal-test--row "b" 1 "yz"))
+    (peta-journal-test--goto "a" 1)
+    (setq peta-journal-test--sent nil)
+    (peta-journal-delete-item)
+    (peta-journal--post-command)
+    (should (equal peta-journal-test--sent '(("delete_item" :id "a"))))))
+
 ;; 同じ項目の中を動いても、何も送らない。
 (ert-deftest peta-journal-moving-inside-an-item-sends-nothing ()
   (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "xyz"))
