@@ -77,3 +77,50 @@ fn collapsing_an_item_inside_a_transclusion_hides_its_children() {
     });
     assert_eq!(visible(&h), ["root", "s1", "s2"]);
 }
+
+fn parent_and_child() -> Harness {
+    Harness::with_items(vec![item("a", 1, ""), item("b", 2, "")])
+}
+
+// 「隠す」キーは、開いている項目の子を隠す。もう隠れている項目では、何もしない。
+#[test]
+fn the_key_that_hides_the_children_never_shows_them() {
+    let mut h = parent_and_child();
+    h.send(Event::SetCollapsed {
+        item_id: "a".into(),
+        collapsed: true,
+    });
+    assert!(h.model.state.is_collapsed("a"));
+    let saves = h.api.calls.len();
+
+    h.send(Event::SetCollapsed {
+        item_id: "a".into(),
+        collapsed: true,
+    });
+
+    assert!(h.model.state.is_collapsed("a"));
+    assert_eq!(h.api.calls.len(), saves);
+}
+
+// 「表示する」キーは、隠れている子を表示する。もう開いている項目では、何もしない。
+#[test]
+fn the_key_that_shows_the_children_never_hides_them() {
+    let mut h = parent_and_child();
+    h.send(Event::SetCollapsed {
+        item_id: "a".into(),
+        collapsed: false,
+    });
+    assert!(!h.model.state.is_collapsed("a"));
+    assert!(h.api.calls.is_empty());
+    h.send(Event::CollapseToggle {
+        item_id: "a".into(),
+    });
+
+    h.send(Event::SetCollapsed {
+        item_id: "a".into(),
+        collapsed: false,
+    });
+
+    assert!(!h.model.state.is_collapsed("a"));
+    assert_eq!(h.model.state.visible_items().len(), 2);
+}
