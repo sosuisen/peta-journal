@@ -111,18 +111,17 @@ public class SettingsService
         return settings;
     }
 
+    /// <summary>
+    /// Saves the changed settings of a sticky.
+    /// A sticky that was removed is not added again: a window that is closing can still
+    /// report a change of its position or size.
+    /// </summary>
     public void UpdateWindow(StickyWindowSettings windowSettings)
     {
-        var existing = _settings.Windows.FirstOrDefault(w => w.Id == windowSettings.Id);
-        if (existing != null)
-        {
-            var idx = _settings.Windows.IndexOf(existing);
-            _settings.Windows[idx] = windowSettings;
-        }
-        else
-        {
-            _settings.Windows.Add(windowSettings);
-        }
+        ArgumentNullException.ThrowIfNull(windowSettings);
+        var idx = _settings.Windows.FindIndex(w => w.Id == windowSettings.Id);
+        if (idx < 0) return;
+        _settings.Windows[idx] = windowSettings;
         Save();
     }
 
