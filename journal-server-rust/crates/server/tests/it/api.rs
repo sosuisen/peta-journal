@@ -251,6 +251,18 @@ async fn the_body_is_parsed_into_an_ast_and_types() {
         .contains("\"heading\""));
 }
 
+// 1件の取得は、fieldsで頼まれたフィールドだけを返す。このときは、itemの包みがない。
+#[tokio::test]
+async fn one_item_is_read_with_only_the_fields_asked_for_and_without_a_wrapper() {
+    let page = new_doc_page("items-get-fields").await;
+    let item = fill(&page.id, &["top", "  narrow"]).await.remove(1);
+
+    let (status, resp) = get(&format!("/api/items/{}?fields=body,level", item.id)).await;
+
+    assert_eq!(status, 200);
+    assert_eq!(resp, json!({ "body": "narrow", "level": 2 }));
+}
+
 // レベルと折りたたみ状態が保存される。
 #[tokio::test]
 async fn level_and_collapsed_state_are_saved() {
