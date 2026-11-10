@@ -6,7 +6,6 @@
 
 - `frontend-rust/crates/core/src/tests/**/*.rs`（`tests/`）
 - `frontend-rust/crates/core/src/outline/*.rs`、`util/*.rs`、`model.rs`（`core/`）
-- `frontend-rust/crates/fm-ast/tests/roundtrip.rs`（`fm-ast`）
 - `frontend-rust/crates/fm-leptos/tests/html.rs`（`fm-leptos`）
 - `e2e/tests/*.spec.ts`（`e2e/`）
 - `frontend-rust/crates/shell-emacs/src/tests/*.rs`、`lisp/test/*.el`（`shell-emacs/`）
@@ -500,19 +499,14 @@
 
 ### 本文を読む
 
-出典: `tests/view.rs`、`fm-ast`、`fm-leptos`
+出典: `tests/view.rs`、`fm-leptos`
 
 - ズーム
   - 倍率が表示に反映されて保存され、リセットで1.0に戻る
   - 自前のzoomを持つ項目だけがzoomを持つ。子は継承するが自前ではない
 - 一行だけの見出しは見出し行である。続きの行がある見出しは違う
 - 項目へのスクロールの求めは、なめらかなスクロールとしてシェルに渡る
-- Markdownの解析（fm-ast）
-  - 段落、見出し（1〜6）、コードブロック、リスト（tight・start・delimiter）、タスクリスト、表（配置）、引用、水平線、リンク、画像、ウィキリンク、ハッシュタグ、脚注、取り消し線、改行、インラインHTML、ブロックHTMLが解析される
-  - サーバーのオプションでは、相対Markdownリンクもウィキリンクと同じノードになる
-  - 未知の型のノードはエラーにならず、子を保持する。余分なフィールドは無視される
-  - 既知の型でフィールドの型が合わないノード、typeのないノード、JSONでない文字列はエラーになる
-  - 省略された任意フィールドは既定値になる
+- Markdownの解析の型は、crates.ioの`flatmarkdown-ast`クレートにある（`petajournal/flatmarkdown`リポジトリ）。その機能一覧とテストは、そのリポジトリにある
   - 解析したASTは、typeタグ付きのJSONに戻せる
 - HTMLの描画（fm-leptos）
   - 段落・見出し・コード（言語クラス付き、中身はエスケープ）・リスト・タスクリスト（disabledなチェックボックス）・表（align属性）・引用・水平線・アラート・リンク・画像・ウィキリンク・ハッシュタグ・脚注・改行・HTMLが描かれる
