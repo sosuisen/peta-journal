@@ -93,6 +93,7 @@ pub fn op_name(op: &ApiOp) -> &'static str {
         ApiOp::SearchPageNames { .. } => "SearchPageNames",
         ApiOp::GetRecentPages { .. } => "GetRecentPages",
         ApiOp::UpdatePage { .. } => "UpdatePage",
+        ApiOp::DemotePage { .. } => "DemotePage",
         ApiOp::UpsertPageProperty { .. } => "UpsertPageProperty",
         ApiOp::DeletePageProperty { .. } => "DeletePageProperty",
         ApiOp::GetConfig => "GetConfig",
@@ -507,6 +508,11 @@ impl FakeApi {
                 id: page_id.clone(),
                 name: title.clone().unwrap_or_default(),
                 dir_path: dir_path.clone().unwrap_or_default(),
+                page_type: "doc".into(),
+                ..Default::default()
+            }),
+            ApiOp::DemotePage { page_id, .. } => ApiOutput::PageInfo(Page {
+                id: page_id.clone(),
                 page_type: "doc".into(),
                 ..Default::default()
             }),

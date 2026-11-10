@@ -378,6 +378,10 @@ pub enum Event {
         file_name: String,
     },
     DemoteIndex,
+    /// The server demoted the shown index page: the page opens under its new path.
+    Demoted {
+        path: String,
+    },
     /// The map button: switches between the index page and the atlas page of a directory.
     ToggleAtlas,
     /// The up button of an atlas page: opens the atlas of the directory above.
@@ -1030,6 +1034,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             file_name,
         } => screens::page::save_title(model, dir_path, file_name),
         DemoteIndex => screens::page::demote_index(model),
+        Demoted { path } => screens::page::show_demoted(&path),
         ToggleAtlas => screens::page::toggle_atlas(model),
         AtlasUp => screens::page::atlas_up(model),
         PlaceAtlasCard { card_id, x, y } => screens::atlas::place_card(model, card_id, x, y),

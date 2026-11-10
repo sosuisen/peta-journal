@@ -191,6 +191,14 @@ fn every_operation_goes_to_its_endpoint() {
             "/api/pages/p",
         ),
         (
+            ApiOp::DemotePage {
+                page_id: id("p"),
+                overwrite: false,
+            },
+            "POST",
+            "/api/pages/p/demote",
+        ),
+        (
             ApiOp::UpsertPageProperty {
                 page_id: id("p"),
                 key: key.clone(),
@@ -744,6 +752,26 @@ fn a_page_update_asks_to_overwrite_only_when_told() {
     };
     assert_eq!(body(false), Some(json!({ "title": "t" })));
     assert_eq!(body(true), Some(json!({ "title": "t", "overwrite": true })));
+}
+
+// 降格も、指示されたときだけ上書きを求める。名前を別のページが持っていれば、エラーではなく答えになる。
+#[test]
+fn a_demotion_asks_to_overwrite_only_when_told_and_a_taken_name_is_an_answer() {
+    let demote = |overwrite| {
+        call(ApiOp::DemotePage {
+            page_id: id("p"),
+            overwrite,
+        })
+    };
+    assert_eq!(demote(false).request.body, Some(json!({})));
+    assert_eq!(
+        demote(true).request.body,
+        Some(json!({ "overwrite": true }))
+    );
+    assert_eq!(
+        demote(false).decode(&reply(409, json!({ "error": "taken: x" }))),
+        Ok(ApiOutput::PageNameTaken("taken: x".into()))
+    );
 }
 
 // 検索語はエンコードされ、スペースや日本語を含んでもURLが壊れない。
