@@ -40,6 +40,7 @@ pub fn routes() -> Router<SharedState> {
         )
         .route("/api/items/{id}/paste", post(paste))
         .route("/api/items/{id}/split", post(split))
+        .route("/api/items/{id}/stash", post(stash))
         .route("/api/items/{id}/cycle-task", post(cycle_task))
         .route(
             "/api/items/{id}/properties/{key}",
@@ -222,6 +223,20 @@ struct SplitRequest {
 struct SplitResponse {
     item: ItemDto,
     created: ItemDto,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct StashRequest {
+    /// The text the editor of the item has now, when it is not saved yet.
+    body: Option<String>,
+}
+
+#[derive(Serialize)]
+struct StashResponse {
+    heading: ItemDto,
+    created: bool,
+    items: Vec<ItemDto>,
 }
 
 #[derive(Deserialize, Default)]
@@ -504,6 +519,28 @@ async fn split(
         Ok(Json(SplitResponse {
             item: state.dtos.to_dto(&split.item)?,
             created: state.dtos.to_dto(&split.created)?,
+        }))
+    })
+    .await
+}
+
+/// Sends an item with its descendants under the `# Stash` heading of its page (ADR 011).
+async fn stash(
+    State(state): State<SharedState>,
+    Extension(client): Extension<ClientId>,
+    Path(id): Path<String>,
+    Json(req): Json<StashRequest>,
+) -> AppResult<Json<StashResponse>> {
+    let item_id = parse_id(&id)?;
+    blocking(move || {
+        let stashed = state.item_service.stash(&item_id, req.body.as_deref())?;
+        for page_id in &stashed.page_ids {
+            state.sse.broadcast_pages_updated(&client, page_id.as_str());
+        }
+        Ok(Json(StashResponse {
+            heading: state.dtos.to_dto(&stashed.heading)?,
+            created: stashed.created,
+            items: state.dtos.to_dtos(&stashed.items)?,
         }))
     })
     .await
