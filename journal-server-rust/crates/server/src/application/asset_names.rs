@@ -56,6 +56,9 @@ pub fn apply(state: &AppState, renames: &[Rename]) -> anyhow::Result<()> {
         .markdown_root()
         .context("The markdown folder is not set or not there")?
         .join("assets");
+    // First what the folder has and the database has not: a file that waits to be taken in
+    // is not written over, and would be taken in later with its old links
+    state.reconcile.scan();
     let pages = relink_items(state, renames)?;
     for rename in renames {
         std::fs::rename(assets_dir.join(&rename.from), assets_dir.join(&rename.to))?;
