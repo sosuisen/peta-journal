@@ -2533,6 +2533,69 @@ async fn a_group_that_leaves_a_descendant_behind_is_refused_and_nothing_is_delet
     );
 }
 
+// グループ削除でページの項目がすべて消えると、同じ要求で空の項目が1つ作られ、答えに入る。
+#[tokio::test]
+async fn a_group_delete_that_empties_the_page_makes_one_empty_item_and_answers_it() {
+    let page = new_doc_page("items-group-delete-all").await;
+    let rows = fill(&page.id, &["a", "  a1"]).await;
+
+    let (status, resp) = post(
+        "/api/items/delete",
+        json!({ "itemIds": [rows[0].id, rows[1].id] }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    let left = items(&page.id).await;
+    assert_eq!(outline_of(&page.id).await, vs(&["1:"]));
+    assert_eq!(
+        field_of_each(&resp, "created", "id"),
+        vec![json!(left[0].id)]
+    );
+    assert_eq!(resp["created"][0]["pageId"], json!(page.id));
+}
+
+// ページに項目が残るグループ削除は、項目を作らない。
+#[tokio::test]
+async fn a_group_delete_that_leaves_an_item_on_the_page_makes_no_item() {
+    let page = new_doc_page("items-group-delete-some").await;
+    let rows = fill(&page.id, &["a", "b"]).await;
+
+    let (status, resp) = post("/api/items/delete", json!({ "itemIds": [rows[0].id] })).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(resp["created"], json!([]));
+    assert_eq!(outline_of(&page.id).await, vs(&["1:b"]));
+}
+
+// トランスクルージョンをグループ削除すると、その項目だけが消え、元の項目とその子は元のページに残る。
+#[tokio::test]
+async fn a_group_delete_of_a_transclusion_deletes_only_that_item_and_keeps_its_source() {
+    let source_page = new_doc_page("items-group-delete-source").await;
+    let source = fill(&source_page.id, &["root", "  child"]).await;
+    let page = new_doc_page("items-group-delete-transclusion").await;
+    let rows = fill(&page.id, &["host", "  own child", "after"]).await;
+    let (status, resp) = post(
+        &format!("/api/items/{}/transclude", rows[0].id),
+        json!({ "sourceItemId": source[0].id }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    let (status, resp) = post(
+        "/api/items/delete",
+        json!({ "itemIds": [rows[0].id, rows[1].id] }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(outline_of(&page.id).await, vs(&["1:after"]));
+    assert_eq!(
+        outline_of(&source_page.id).await,
+        vs(&["1:root", "2:child"])
+    );
+}
+
 // 単体の削除は、子を持つ項目を断る。子のない項目は消える。
 #[tokio::test]
 async fn a_single_delete_refuses_an_item_with_children() {
