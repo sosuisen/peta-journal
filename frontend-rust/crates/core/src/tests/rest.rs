@@ -668,12 +668,16 @@ fn a_batch_posts_its_operations_as_the_json_the_server_reads_and_answers_the_ite
         ]}))
     );
     let output = rest
-        .decode(&reply(200, json!({ "items": [item_json("a", "x")] })))
+        .decode(&reply(
+            200,
+            json!({ "items": [item_json("a", "x")], "created": [item_json("e", "")] }),
+        ))
         .unwrap();
-    let ApiOutput::Items(items) = output else {
-        panic!("not items: {output:?}");
+    let ApiOutput::Batched(batched) = output else {
+        panic!("not the answer of a batch: {output:?}");
     };
-    assert_eq!(items[0].body, "x");
+    assert_eq!(batched.items[0].body, "x");
+    assert_eq!(batched.created[0].id, "e");
 }
 
 // 貼り付けの読み方は、サーバーが読む名前で送られる。
