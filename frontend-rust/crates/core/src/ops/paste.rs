@@ -6,7 +6,7 @@
 use crate::app::{done, log_error, run, Cmd, Event, Model};
 use crate::model::{ItemPosition, PasteCursor, PasteMode, Pasted};
 use crate::ops::edit::{discard_pending_edit, mark_dirty, record_typing, show_parsed, typed_body};
-use crate::ops::file_reload::reload_shown_page;
+use crate::ops::file_reload::replace_page;
 use crate::outline::tree::edit_context_of;
 use crate::outline::CursorState;
 use crate::util::char_len;
@@ -137,8 +137,11 @@ pub fn show_pasted(model: &mut Model, item_id: &str, cursor_before: usize, paste
     if !in_transclusion {
         return place_cursor(model, cursor, fallback);
     }
+    let shown_page_id = model.shown_page_id();
     run(move |api| async move {
-        reload_shown_page(&api).await;
+        if let Some(page_id) = shown_page_id {
+            replace_page(&api, &page_id).await;
+        }
         api.send_event(Event::PastedPageReloaded { cursor, fallback });
     })
 }

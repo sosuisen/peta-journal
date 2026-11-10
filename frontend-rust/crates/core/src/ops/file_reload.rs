@@ -5,7 +5,7 @@
 use crate::app::{done, log_error, run, Cmd, Event, Model};
 use crate::effects::{Api, TimerOutput};
 use crate::model::{Item, PageWithItems};
-use crate::ops::edit::{is_edit_in_progress, read};
+use crate::ops::edit::is_edit_in_progress;
 
 /// How long the auto-save gets to flush before pending pages are replaced.
 const FLUSH_DELAY_MS: u32 = 1500;
@@ -73,9 +73,10 @@ pub fn replace_page_items(m: &mut Model, page_id: &str, page_items: Vec<Item>) {
 
 /// Replaces all items with the server's version of the shown page, e.g. after a
 /// transclusion changed.
-pub async fn reload_shown_page(api: &Api<Event>) {
-    if let Some(page_id) = read(api, |m| m.shown_page_id()).await {
-        replace_page(api, &page_id).await;
+pub fn reload_shown_page(model: &Model) -> Cmd {
+    match model.shown_page_id() {
+        Some(page_id) => run(move |api| async move { replace_page(&api, &page_id).await }),
+        None => done(),
     }
 }
 
