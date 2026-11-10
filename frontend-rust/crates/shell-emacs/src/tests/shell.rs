@@ -1517,7 +1517,10 @@ fn the_page_names_for_a_wiki_link_reach_emacs_with_what_was_typed() {
     );
     assert_eq!(
         page_names_sent(&driver),
-        [("no".to_string(), vec!["notes".to_string(), "work/notebook".to_string()])]
+        [(
+            "no".to_string(),
+            vec!["notes".to_string(), "work/notebook".to_string()]
+        )]
     );
 }
 

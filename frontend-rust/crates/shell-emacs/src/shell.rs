@@ -8,10 +8,10 @@ use crate::protocol::{BacklinkEntry, DateUnit, Envelope, Inbound, Outbound, Prop
 use crate::route::parse_url;
 use crux_core::capability::Operation;
 use crux_core::{Core, Request};
-use peta_core::app::JournalNav;
+use peta_core::app::{JournalNav, WikiLinkContext};
 use peta_core::effects::{
-    ApiOp, ApiResult, Effect, LocalDateTimeDto, SseEvent, SseOp, TimerOp, TimerOutput, UiOp,
-    UiOutput,
+    ApiOp, ApiOutput, ApiResult, Effect, LocalDateTimeDto, SseEvent, SseOp, TimerOp, TimerOutput,
+    UiOp, UiOutput,
 };
 use peta_core::rest::ClientId;
 use peta_core::util::date::Date;
@@ -160,9 +160,15 @@ impl<H: Host> Shell<H> {
         self.apis.is_empty() && self.timers.is_empty()
     }
 
-    fn on_api_done(&mut self, id: u64, result: ApiResult<peta_core::effects::ApiOutput>) {
+    fn on_api_done(&mut self, id: u64, result: ApiResult<ApiOutput>) {
         // The host answers each call once
         let mut request = self.apis.remove(&id).expect("the call waits");
+        if let ApiOp::SearchPageNames { query, .. } = &request.operation {
+            self.host.emit(Outbound::PageNames {
+                query: query.clone(),
+                titles: page_titles(&result),
+            });
+        }
         if !self.image_calls.remove(&id) {
             self.resolve(&mut request, result);
             return;
@@ -271,6 +277,16 @@ impl<H: Host> Shell<H> {
             }
             Inbound::SearchResult { index } => self.send(Event::SearchResultClicked { index }),
             Inbound::Answer { req, yes } => self.answer(req, yes),
+            // The popup of the web frontend has a place on the screen. Emacs shows the names
+            // with its own completion, so the place is not used
+            Inbound::PageNames { id, query } => self.send(Event::WikiQuery {
+                item_id: id,
+                context: Some(WikiLinkContext {
+                    query,
+                    x: 0.0,
+                    y: 0.0,
+                }),
+            }),
         }
     }
 
@@ -683,6 +699,17 @@ impl<H: Host> Shell<H> {
                 holding,
             });
         }
+    }
+}
+
+/// The names of the pages a search found. None when the search failed: the core writes the
+/// error to its log.
+fn page_titles(result: &ApiResult<ApiOutput>) -> Vec<String> {
+    match result {
+        Ok(ApiOutput::SearchResults(results)) => {
+            results.iter().map(|r| r.page_title.clone()).collect()
+        }
+        _ => Vec::new(),
     }
 }
 
