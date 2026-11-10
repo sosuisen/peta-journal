@@ -7,6 +7,8 @@ import PetaBorder
 public final class StickyLook: ObservableObject {
     /// The color of the paper, as `#RRGGBB`.
     @Published public var color: String
+    /// The window stays above the windows of other apps.
+    @Published public var alwaysOnTop: Bool
 
     /// The colors the menu of a sticky offers. They are those of the stickies app for Windows.
     public static let colors: [(name: String, hex: String)] = [
@@ -14,8 +16,9 @@ public final class StickyLook: ObservableObject {
         ("White", "#FFFFFF"),
     ]
 
-    public init(color: String = StickySettings.yellow) {
+    public init(color: String = StickySettings.yellow, alwaysOnTop: Bool = false) {
         self.color = color
+        self.alwaysOnTop = alwaysOnTop
     }
 
     /// The color that `#RRGGBB` names. Anything else is the yellow of a new sticky.

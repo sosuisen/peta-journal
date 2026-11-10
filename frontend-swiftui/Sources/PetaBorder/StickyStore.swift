@@ -12,12 +12,14 @@ public struct StickySettings: Codable, Equatable, Identifiable {
     public var height: Double
     /// The color of the paper, as `#RRGGBB`.
     public var color: String
+    /// The window stays above the windows of other apps.
+    public var alwaysOnTop: Bool
 
     public static let yellow = "#FFFDD0"
 
     public init(
         id: String, url: String?, x: Double, y: Double, width: Double, height: Double,
-        color: String = StickySettings.yellow
+        color: String = StickySettings.yellow, alwaysOnTop: Bool = false
     ) {
         self.id = id
         self.url = url
@@ -26,6 +28,7 @@ public struct StickySettings: Codable, Equatable, Identifiable {
         self.width = width
         self.height = height
         self.color = color
+        self.alwaysOnTop = alwaysOnTop
     }
 
     /// A file of an older version of the app lacks what was added since.
@@ -38,6 +41,7 @@ public struct StickySettings: Codable, Equatable, Identifiable {
         width = try kept.decode(Double.self, forKey: .width)
         height = try kept.decode(Double.self, forKey: .height)
         color = try kept.decodeIfPresent(String.self, forKey: .color) ?? StickySettings.yellow
+        alwaysOnTop = try kept.decodeIfPresent(Bool.self, forKey: .alwaysOnTop) ?? false
     }
 }
 

@@ -54,7 +54,7 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
     @discardableResult
     private func show(_ kept: StickySettings?, url: String? = nil) -> Sticky {
         let shell = Shell(server: server, url: kept?.url ?? url)
-        let look = StickyLook(color: kept?.color ?? StickySettings.yellow)
+        let look = StickyLook(color: kept?.color ?? StickySettings.yellow, alwaysOnTop: kept?.alwaysOnTop ?? false)
         let window = NSWindow(
             contentRect: NSRect(origin: .zero, size: NSSize(width: 480, height: 600)),
             styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
@@ -64,6 +64,7 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
         window.appearance = NSAppearance(named: .aqua)
         window.titlebarAppearsTransparent = true
         window.backgroundColor = StickyLook.color(of: look.color)
+        window.level = look.alwaysOnTop ? .floating : .normal
         window.contentView = NSHostingView(
             rootView: OutlineScreen(shell: shell, look: look, onAdd: { [weak self] in self?.add() }))
         if let kept {
@@ -89,18 +90,26 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
                 self?.keep(sticky, color: color)
             }
             .store(in: &sticky.hears)
+        look.$alwaysOnTop.dropFirst()
+            .sink { [weak self, weak sticky] onTop in
+                guard let sticky else { return }
+                sticky.window.level = onTop ? .floating : .normal
+                self?.keep(sticky, alwaysOnTop: onTop)
+            }
+            .store(in: &sticky.hears)
         window.makeKeyAndOrderFront(nil)
         return sticky
     }
 
-    /// Keeps the sticky as it is now. `url` and `color` are values that are just changing.
-    private func keep(_ sticky: Sticky, url: String?? = nil, color: String? = nil) {
+    /// Keeps the sticky as it is now. The values handed over are those that are just changing.
+    private func keep(_ sticky: Sticky, url: String?? = nil, color: String? = nil, alwaysOnTop: Bool? = nil) {
         guard stickies.contains(where: { $0 === sticky }) else { return }
         let frame = sticky.window.frame
         store?.put(
             StickySettings(
                 id: sticky.id, url: url ?? sticky.shell.url, x: frame.minX, y: frame.minY, width: frame.width,
-                height: frame.height, color: color ?? sticky.look.color))
+                height: frame.height, color: color ?? sticky.look.color,
+                alwaysOnTop: alwaysOnTop ?? sticky.look.alwaysOnTop))
     }
 
     /// A little down and to the right of the newest sticky, as new windows are everywhere

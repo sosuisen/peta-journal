@@ -43,6 +43,12 @@ public struct OutlineScreen: View {
                 }
                 .keyboardShortcut("f")
                 .help("Search pages")
+                Button {
+                    look.alwaysOnTop.toggle()
+                } label: {
+                    Image(systemName: look.alwaysOnTop ? "pin.fill" : "pin")
+                }
+                .help(look.alwaysOnTop ? "Do not keep on top" : "Keep on top of other windows")
                 Menu {
                     ForEach(StickyLook.colors, id: \.hex) { color in
                         Button(color.name) { look.color = color.hex }
