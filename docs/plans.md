@@ -12,7 +12,7 @@
   - [x] `flatmarkdown-ast2react`を0.1.0から0.3.0に上げる。0.1.0は、ハッシュタグと画像（`embed`）を表示しなかった
   - [x] タグのフォルダを設定API（`/api/config`の`tagsDir`）から取る
   - [x] ハッシュタグのリンク先を、本体と同じ`/pages/`＋タグのフォルダにする
-  - [ ] `flatmarkdown-ast2react` 0.3.0がnpmに公開されたら、`package-lock.json`を更新する
+  - [x] `flatmarkdown-ast2react` 0.3.0がnpmに公開されたら、`package-lock.json`を更新する
   - [ ] 画像の表示は確かめていない。`embed`のURLが相対パスのとき、todoアプリのアドレスに解決される。今のタスクには画像がない
 - [ ] Emacs版に、Web版にある機能を足す
   - 項目の操作
