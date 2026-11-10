@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Extension, Json, Router};
 use serde::{Deserialize, Serialize};
@@ -11,7 +12,9 @@ use crate::domain::model::Page;
 use crate::error::{parse_id, AppError, AppResult};
 use crate::infrastructure::launcher;
 use crate::presentation::client_id::ClientId;
-use crate::presentation::dto::{backlink_dto, page_dto_with, BacklinkEntryDto, ItemDto, PageDto};
+use crate::presentation::dto::{
+    backlink_dto, page_dto_with, select_fields, BacklinkEntryDto, ItemDto, PageDto,
+};
 use crate::state::{blocking, SharedState};
 
 pub fn routes() -> Router<SharedState> {
@@ -41,10 +44,16 @@ struct UpsertPropertyRequest {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct GetPageByIdResponse {
+struct GetPageByIdResponse<I> {
     page: PageDto,
-    items: Vec<ItemDto>,
-    transcluded_trees: BTreeMap<String, Vec<ItemDto>>,
+    items: Vec<I>,
+    transcluded_trees: BTreeMap<String, Vec<I>>,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
+struct FieldsQuery {
+    fields: Option<String>,
 }
 
 #[derive(Deserialize, Default)]
@@ -103,7 +112,8 @@ struct RecentQuery {
 async fn get_page(
     State(state): State<SharedState>,
     Path(id): Path<String>,
-) -> AppResult<Json<GetPageByIdResponse>> {
+    Query(q): Query<FieldsQuery>,
+) -> AppResult<Response> {
     let page_id = parse_id(&id)?;
     blocking(move || {
         let page = state
@@ -111,11 +121,29 @@ async fn get_page(
             .get_page(&page_id)?
             .ok_or_else(|| AppError::not_found(format!("Page not found: {id}")))?;
         let items = state.page_service.get_page_items(&page_id)?;
-        Ok(Json(GetPageByIdResponse {
+        let whole = GetPageByIdResponse {
             page: state.dtos.page_to_dto(&page)?,
             items: state.dtos.to_dtos(&items)?,
             transcluded_trees: state.dtos.transcluded_trees(&items)?,
-        }))
+        };
+        match q.fields.as_deref().filter(|f| !f.is_empty()) {
+            Some(fields) => {
+                let narrow = |dtos: &Vec<ItemDto>| -> Vec<_> {
+                    dtos.iter().map(|dto| select_fields(dto, fields)).collect()
+                };
+                Ok(Json(GetPageByIdResponse {
+                    items: narrow(&whole.items),
+                    transcluded_trees: whole
+                        .transcluded_trees
+                        .iter()
+                        .map(|(source, tree)| (source.clone(), narrow(tree)))
+                        .collect(),
+                    page: whole.page,
+                })
+                .into_response())
+            }
+            None => Ok(Json(whole).into_response()),
+        }
     })
     .await
 }
