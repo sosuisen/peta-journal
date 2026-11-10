@@ -129,31 +129,6 @@ pub fn discard_pending_edit_of_focused_item(model: &mut Model) -> Cmd {
     cancel_save(model, &target)
 }
 
-/// Sends typed text that is still waiting for the auto-save to the server right now, before
-/// an operation whose server response replaces the item in the state.
-pub async fn flush_pending_edit(api: &Api<Event>, item: &Item) -> ApiResult<()> {
-    let item_id = item.id.clone();
-    let target = save_target_id(item);
-    let body = read_with(api, "flush: take pending", move |m| {
-        if !m.edits.dirty_item_ids.remove(&item_id) {
-            return (None, done());
-        }
-        let pending = m.edits.pending_saves.remove(&target);
-        let body = pending.as_ref().map(|p| p.body.clone());
-        let cancel = match pending {
-            Some(p) => Command::notify_shell(TimerOp::Cancel { id: p.timer_id }).into(),
-            None => done(),
-        };
-        (body, cancel)
-    })
-    .await;
-    if let Some(body) = body {
-        api.update_body(&save_target_id(item), &ensure_code_fence_closed(&body))
-            .await?;
-    }
-    Ok(())
-}
-
 /// Takes what the server parsed from a body it was sent, because the view renders that and
 /// not the body. The body stays: text typed while the answer was on its way must not go.
 pub fn show_parsed(model: &mut Model, answer: &Item) {
