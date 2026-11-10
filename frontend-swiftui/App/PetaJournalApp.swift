@@ -1,4 +1,5 @@
 import PetaBorder
+import PetaScreens
 import SwiftUI
 
 /// The app. It needs a running journal server. `-server` and `-url` on the command line choose

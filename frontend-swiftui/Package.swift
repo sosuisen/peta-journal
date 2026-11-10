@@ -8,7 +8,8 @@ let package = Package(
         .macOS(.v13)
     ],
     products: [
-        .library(name: "PetaBorder", targets: ["PetaBorder"])
+        .library(name: "PetaBorder", targets: ["PetaBorder"]),
+        .library(name: "PetaScreens", targets: ["PetaScreens"]),
     ],
     dependencies: [
         .package(path: "generated/PetaCore"),
@@ -22,6 +23,14 @@ let package = Package(
                 .product(name: "PetaTypes", package: "PetaTypes"),
             ]
         ),
-        .testTarget(name: "PetaBorderTests", dependencies: ["PetaBorder"]),
+        // The views. They are a library so that a test can put them in a window
+        .target(
+            name: "PetaScreens",
+            dependencies: [
+                "PetaBorder",
+                .product(name: "PetaTypes", package: "PetaTypes"),
+            ]
+        ),
+        .testTarget(name: "PetaBorderTests", dependencies: ["PetaBorder", "PetaScreens"]),
     ]
 )

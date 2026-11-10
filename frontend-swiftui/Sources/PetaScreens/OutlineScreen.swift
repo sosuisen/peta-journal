@@ -3,10 +3,14 @@ import PetaTypes
 import SwiftUI
 
 /// The items of the open page, one text field each.
-struct OutlineScreen: View {
-    @ObservedObject var shell: Shell
+public struct OutlineScreen: View {
+    @ObservedObject private var shell: Shell
 
-    var body: some View {
+    public init(shell: Shell) {
+        self.shell = shell
+    }
+
+    public var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // An empty window says nothing: the page and the state of the server are always shown
             VStack(alignment: .leading, spacing: 4) {
