@@ -5,6 +5,10 @@ import SwiftUI
 /// The items of the open page, one text field each.
 public struct OutlineScreen: View {
     @ObservedObject private var shell: Shell
+    /// The item with the cursor in its text.
+    @FocusState private var cursor: String?
+    /// What is typed into the prompt on screen.
+    @State private var typed = ""
 
     public init(shell: Shell) {
         self.shell = shell
@@ -19,12 +23,39 @@ public struct OutlineScreen: View {
             }
             .padding()
             List(shell.view.outline.rows, id: \.item.id) { row in
-                ItemEditor(row: row, shell: shell)
+                ItemEditor(row: row, shell: shell, cursor: $cursor)
             }
         }
         .background(Color(nsColor: .windowBackgroundColor))
         .navigationTitle(shell.title)
         .frame(minWidth: 480, minHeight: 320)
+        .onChange(of: shell.focus) { order in
+            cursor = order?.itemId ?? shell.view.outline.rows.first?.item.id
+        }
+        .onChange(of: cursor) { itemId in
+            if let itemId { shell.startEditing(itemId) }
+        }
+        .onChange(of: shell.question) { _ in typed = "" }
+        .alert(
+            shell.question?.message ?? "",
+            isPresented: Binding(get: { shell.question != nil }, set: { _ in }),
+            presenting: shell.question
+        ) { question in
+            switch question.kind {
+            case .confirm:
+                Button("OK") { shell.answer(yes: true) }.keyboardShortcut(.defaultAction)
+                Button("Cancel", role: .cancel) { shell.answer(yes: false) }
+            case .confirmDestructive:
+                // No key says yes here: Return and Escape both cancel
+                Button("OK", role: .destructive) { shell.answer(yes: true) }
+                Button("Cancel", role: .cancel) { shell.answer(yes: false) }
+                    .keyboardShortcut(.defaultAction)
+            case .prompt:
+                TextField("", text: $typed)
+                Button("OK") { shell.answer(text: typed) }.keyboardShortcut(.defaultAction)
+                Button("Cancel", role: .cancel) { shell.answer(text: nil) }
+            }
+        }
     }
 
     private var status: String {
@@ -41,7 +72,7 @@ public struct OutlineScreen: View {
 private struct ItemEditor: View {
     let row: Row
     let shell: Shell
-    @FocusState private var hasCursor: Bool
+    let cursor: FocusState<String?>.Binding
 
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
@@ -49,10 +80,7 @@ private struct ItemEditor: View {
             Text("•").foregroundStyle(.secondary)
             TextField("", text: text)
                 .textFieldStyle(.plain)
-                .focused($hasCursor)
-                .onChange(of: hasCursor) { hasCursor in
-                    if hasCursor { shell.startEditing(row.item.id) }
-                }
+                .focused(cursor, equals: row.item.id)
         }
         .padding(.leading, CGFloat(row.indentPx))
     }
