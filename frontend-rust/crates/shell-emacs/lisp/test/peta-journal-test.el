@@ -404,18 +404,6 @@
     (peta-journal-delete)
     (should (equal peta-journal-test--sent '(("delete_at_end" :id "a"))))))
 
-;; C-yは、キルリングの先頭をcoreの貼り付けとして送る。文字の属性は渡さない。
-(ert-deftest peta-journal-yank-pastes-through-the-core ()
-  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "xy"))
-    (peta-journal-test--goto "a" 1)
-    (setq peta-journal-test--sent nil)
-    ;; Without this, the kill comes from the clipboard of the OS
-    (let ((interprogram-paste-function nil)
-          (kill-ring (list (propertize "貼" 'face 'bold))))
-      (peta-journal-yank))
-    (should (equal peta-journal-test--sent '(("paste" :id "a" :text "貼" :cursor 1))))
-    (should-not (text-properties-at 0 (plist-get (cdar peta-journal-test--sent) :text)))))
-
 (defmacro peta-journal-test--with-clipboard (text image &rest body)
   "Run BODY with TEXT and the PNG bytes IMAGE in the clipboard of the OS.
 Either can be nil, for a clipboard without it."
@@ -437,6 +425,19 @@ Either can be nil, for a clipboard without it."
     (set-buffer-multibyte nil)
     (insert-file-contents-literally file)
     (buffer-string)))
+
+;; C-yは、キルリングの先頭をcoreの貼り付けとして送る。文字の属性は渡さない。
+(ert-deftest peta-journal-yank-pastes-through-the-core ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "xy"))
+    (peta-journal-test--goto "a" 1)
+    (setq peta-journal-test--sent nil)
+    ;; Without these, the kill comes from the clipboard of the OS
+    (peta-journal-test--with-clipboard nil nil
+      (let ((interprogram-paste-function nil)
+            (kill-ring (list (propertize "貼" 'face 'bold))))
+        (peta-journal-yank)))
+    (should (equal peta-journal-test--sent '(("paste" :id "a" :text "貼" :cursor 1))))
+    (should-not (text-properties-at 0 (plist-get (cdar peta-journal-test--sent) :text)))))
 
 ;; クリップボードに画像だけがあるとき、C-yはその画像を挿入する。
 ;; 画像は、中身のまま`image.png`という名前のファイルになり、項目とカーソルと一緒にシェルへ送られる。

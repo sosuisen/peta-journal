@@ -1088,13 +1088,40 @@ server may still say no."
   (interactive)
   (peta-journal--send-and-wait "delete_item" :id (peta-journal--item)))
 
+(defun peta-journal--clipboard-image ()
+  "The image in the clipboard of the OS as the bytes of a PNG file, or nil.
+Nil as well when the clipboard has text: then the text is what gets pasted.
+Why the list of types is read first: asking for a type that is not there is an
+error on some systems."
+  (let ((types (append (gui-get-selection 'CLIPBOARD 'TARGETS) nil)))
+    (and (memq 'image/png types)
+         (not (memq 'UTF8_STRING types))
+         (not (memq 'STRING types))
+         (gui-get-selection 'CLIPBOARD 'image/png))))
+
+(defun peta-journal--paste-image (png)
+  "Upload the image with the bytes PNG and put a link to it at the point."
+  (let* ((folder (make-temp-file "peta-journal" t))
+         ;; The server names the upload after the file.  A browser gives a pasted image this name
+         (file (expand-file-name "image.png" folder)))
+    (unwind-protect
+        (progn
+          (let ((coding-system-for-write 'no-conversion))
+            (write-region png nil file nil 'silent))
+          (peta-journal-insert-image file))
+      (delete-directory folder t))))
+
 (defun peta-journal-yank ()
-  "Paste the latest kill.  The core splits it into items when it has several."
+  "Paste the latest kill.  The core splits it into items when it has several.
+When the clipboard of the OS has an image and no text, upload the image and
+put a link to it at the point."
   (interactive)
-  (peta-journal--send-and-wait "paste"
-                               :id (peta-journal--item)
-                               :text (substring-no-properties (current-kill 0))
-                               :cursor (peta-journal--cursor)))
+  (if-let* ((image (peta-journal--clipboard-image)))
+      (peta-journal--paste-image image)
+    (peta-journal--send-and-wait "paste"
+                                 :id (peta-journal--item)
+                                 :text (substring-no-properties (current-kill 0))
+                                 :cursor (peta-journal--cursor))))
 
 (defconst peta-journal--image-file-regexp
   "\\.\\(?:bmp\\|gif\\|jpe?g\\|png\\|svg\\|webp\\)\\'"
