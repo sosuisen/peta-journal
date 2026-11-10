@@ -1,6 +1,6 @@
 //! Page names: journal name patterns and the characters a file name may hold.
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub enum JournalType {
     Daily,
     Weekly,

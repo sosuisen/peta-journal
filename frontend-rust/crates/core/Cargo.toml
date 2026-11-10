@@ -10,7 +10,8 @@ name = "peta_core"
 
 [dependencies]
 crux_core = "=0.20.0"
-serde = { workspace = true }
+# `rc` writes the shared items of the view model (`Arc<Item>`)
+serde = { workspace = true, features = ["rc"] }
 serde_json = { workspace = true }
 flatmarkdown-ast = { workspace = true }
 hmtid = { path = "../../../journal-server-rust/crates/hmtid" }

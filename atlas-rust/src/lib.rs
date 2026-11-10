@@ -42,6 +42,7 @@ pub const MIN_CARD_SCALE: f64 = 0.5;
 
 /// The place and size of a card or a callout. `x` and `y` are its center; `y` grows
 /// downward, as on the screen.
+#[cfg_attr(feature = "marks", derive(serde::Serialize))]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Bounds {
     pub x: f64,

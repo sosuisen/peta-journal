@@ -765,7 +765,7 @@ pub fn log_error(message: impl fmt::Display) {
 
 // ---- Model ----
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize)]
 pub enum ConnectionState {
     Connecting,
     Connected,
