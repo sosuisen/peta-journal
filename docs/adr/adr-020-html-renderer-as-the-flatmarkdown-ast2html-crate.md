@@ -42,7 +42,7 @@ JSONが要る側のために、`flatmarkdown-ast`に`Node::to_json`と`Page::to_
 
 3つのクレートの版は、常に同じにする。ADR 012は、`flatmarkdown`と`flatmarkdown-ast`の版を常に同じにすると決めた。この決まりを、3つ目のクレートにも広げる。1つしか変えていないときも、3つの版を上げて公開する。版は、今までどおり一番上の`Cargo.toml`に1回だけ書く。
 
-HTMLのテストは、新しいクレートに集める。`Node`を入力にするテストを足す。Markdownを入力にする今のHTMLのテストも、新しいクレートの`tests/`へ移す。このテストは、ワークスペースの中の`flatmarkdown`を、開発時の依存としてパスで参照する。`flatmarkdown-ast`の往復のテストと同じ形である。
+HTMLのテストは、新しいクレートに集める。`Node`を入力にするテストを足す。Markdownを入力にする今のHTMLのテストも、新しいクレートの`tests/`へ移す。このテストは、ワークスペースの中の`flatmarkdown`を、開発時の依存としてパスで参照する。
 
 使っている側は、次の版に上げるときに直す。PetaJournalのjournal-server、Web版のコピー（`shell-leptos`）、`fm-leptos`のテスト、そして`flatmarkdown-java`である。
 
