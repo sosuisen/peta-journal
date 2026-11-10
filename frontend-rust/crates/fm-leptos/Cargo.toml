@@ -6,11 +6,11 @@ license.workspace = true
 description = "Leptos renderer for the Flat Markdown AST, matching flatmarkdown-ast2angular"
 
 [dependencies]
-fm-ast = { path = "../fm-ast" }
+flatmarkdown-ast = { workspace = true }
 leptos = { version = "0.8", features = ["csr"] }
 serde_json = { workspace = true }
 
 [dev-dependencies]
 # `ssr` adds `to_html()` so the host tests can compare rendered HTML strings.
 leptos = { version = "0.8", features = ["csr", "ssr"] }
-flatmarkdown = "0.4.3"
+flatmarkdown = "=0.5.0"

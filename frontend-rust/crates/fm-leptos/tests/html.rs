@@ -27,7 +27,7 @@ fn clean(html: String) -> String {
 
 fn render_md(md: &str, opts: &RenderOptions) -> String {
     let json = flatmarkdown::body_to_ast_with(md, &options());
-    let root = fm_ast::parse(&json).unwrap();
+    let root = flatmarkdown_ast::parse(&json).unwrap();
     clean(render_node(&root, opts).to_html())
 }
 
@@ -74,7 +74,8 @@ fn code_block_with_and_without_info() {
         "<pre><code class=\"language-text\">plain\n</code></pre>"
     );
     // With an empty info string there is no class attribute at all.
-    let root = fm_ast::parse(r#"{"type":"code_block","info":"","literal":"plain"}"#).unwrap();
+    let root =
+        flatmarkdown_ast::parse(r#"{"type":"code_block","info":"","literal":"plain"}"#).unwrap();
     assert_eq!(
         clean(render_node(&root, &RenderOptions::default()).to_html()),
         "<pre><code>plain</code></pre>"
@@ -272,25 +273,21 @@ fn breaks_and_html() {
     );
 }
 
-// JSON から作ったその他のノード（front_matter・escaped・shortcode・math・alert・spoilered_text・raw・insert・footnote_definition）は Angular レンダラーと同じ HTML になる。
+// JSON から作ったその他のノード（shortcode・math・alert・spoilered_text・footnote_definition）は Angular レンダラーと同じ HTML になる。仕様にないノード（insert など）は描かない。
 #[test]
 fn other_nodes_from_json() {
     let render_json = |json: &str| {
-        clean(render_node(&fm_ast::parse(json).unwrap(), &RenderOptions::default()).to_html())
+        clean(
+            render_node(
+                &flatmarkdown_ast::parse(json).unwrap(),
+                &RenderOptions::default(),
+            )
+            .to_html(),
+        )
     };
-    assert_eq!(render_json(r#"{"type":"front_matter","value":"x"}"#), "");
-    assert_eq!(render_json(r#"{"type":"escaped"}"#), "");
-    assert_eq!(
-        render_json(r#"{"type":"escaped_tag","value":"<t>"}"#),
-        "&lt;t&gt;"
-    );
     assert_eq!(
         render_json(r#"{"type":"shortcode","code":"smile","emoji":"😄"}"#),
         "😄"
-    );
-    assert_eq!(
-        render_json(r#"{"type":"math","display_math":true,"literal":"x^2"}"#),
-        "<pre><code class=\"math math-display\">x^2</code></pre>"
     );
     assert_eq!(
         render_json(r#"{"type":"math","literal":"x^2"}"#),
@@ -306,14 +303,13 @@ fn other_nodes_from_json() {
         render_json(r#"{"type":"spoilered_text","children":[{"type":"text","value":"s"}]}"#),
         "<span class=\"spoiler\">s</span>"
     );
-    assert_eq!(
-        render_json(r#"{"type":"raw","value":"<i>r</i>"}"#),
-        "<span><i>r</i></span>"
-    );
-    assert_eq!(
-        render_json(r#"{"type":"insert","children":[{"type":"text","value":"x"}]}"#),
-        ""
-    );
+    for unknown in [
+        r#"{"type":"insert","children":[{"type":"text","value":"x"}]}"#,
+        r#"{"type":"raw","value":"<i>r</i>"}"#,
+        r#"{"type":"front_matter","value":"x"}"#,
+    ] {
+        assert_eq!(render_json(unknown), "", "{unknown}");
+    }
     assert_eq!(
         render_json(r#"{"type":"footnote_definition","name":"a","children":[{"type":"code_block","info":"","literal":"c"}]}"#),
         "<div id=\"fn-a\" class=\"footnote\"><a href=\"#fnref-a\" class=\"footnote-label\">[a]:</a><pre><code>c</code></pre></div>"

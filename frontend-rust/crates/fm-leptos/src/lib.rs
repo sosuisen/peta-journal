@@ -6,7 +6,7 @@
 
 use std::collections::BTreeMap;
 
-use fm_ast::{extract_text, Node};
+use flatmarkdown_ast::{extract_text, Node};
 use leptos::prelude::*;
 use serde_json::Value;
 
@@ -74,7 +74,7 @@ pub fn FmRoot(
     #[prop(optional)]
     options: RenderOptions,
 ) -> impl IntoView {
-    fm_ast::parse(&ast)
+    flatmarkdown_ast::parse(&ast)
         .ok()
         .map(|root| render_node(&root, &options))
 }
@@ -107,10 +107,9 @@ fn dimension(props: &BTreeMap<String, Value>, key: &str) -> Option<String> {
 fn render(node: &Node, ctx: Context<'_>) -> AnyView {
     match node {
         // ── Block nodes ──
-        Node::Document { children: kids }
-        | Node::DescriptionItem { children: kids }
-        | Node::HeexBlock { children: kids }
-        | Node::Subtext { children: kids } => children(kids, ctx).into_any(),
+        Node::Document { children: kids } | Node::Subtext { children: kids } => {
+            children(kids, ctx).into_any()
+        }
 
         Node::Paragraph { children: kids } => {
             if ctx.tight_list {
@@ -161,7 +160,7 @@ fn render(node: &Node, ctx: Context<'_>) -> AnyView {
                 ..ctx
             };
             if list_type == "ordered" {
-                let start = start.filter(|s| *s != 1).map(|s| s.to_string());
+                let start = (*start != 1).then(|| start.to_string());
                 view! { <ol start=start>{children(kids, ctx)}</ol> }.into_any()
             } else {
                 view! { <ul>{children(kids, ctx)}</ul> }.into_any()
@@ -290,16 +289,6 @@ fn render(node: &Node, ctx: Context<'_>) -> AnyView {
             }
         }
 
-        Node::DescriptionList { children: kids } => {
-            view! { <dl>{children(kids, ctx)}</dl> }.into_any()
-        }
-        Node::DescriptionTerm { children: kids } => {
-            view! { <dt>{children(kids, ctx)}</dt> }.into_any()
-        }
-        Node::DescriptionDetails { children: kids } => {
-            view! { <dd>{children(kids, ctx)}</dd> }.into_any()
-        }
-
         Node::Alert {
             alert_type,
             title,
@@ -355,12 +344,6 @@ fn render(node: &Node, ctx: Context<'_>) -> AnyView {
             view! { <a href=url.clone() title=title>{children(kids, ctx)}</a> }.into_any()
         }
 
-        Node::Image { url, title, .. } => {
-            let alt = extract_text(node);
-            let title = non_empty(title);
-            view! { <img src=url.clone() alt=alt title=title /> }.into_any()
-        }
-
         Node::Embed {
             url, title, props, ..
         } => {
@@ -403,26 +386,14 @@ fn render(node: &Node, ctx: Context<'_>) -> AnyView {
 
         Node::Shortcode { emoji, .. } => emoji.clone().into_any(),
 
-        Node::Math {
-            display_math,
-            literal,
-            ..
-        } => {
-            if *display_math {
-                view! { <pre><code class="math math-display">{literal.clone()}</code></pre> }
-                    .into_any()
-            } else {
-                view! { <code class="math math-inline">{literal.clone()}</code> }.into_any()
-            }
+        // A `math` node is always inline math: `math_dollars` is off, so there is no display math.
+        Node::Math { literal } => {
+            view! { <code class="math math-inline">{literal.clone()}</code> }.into_any()
         }
 
-        Node::HtmlInline { value } | Node::HeexInline { value } | Node::Raw { value } => {
-            view! { <span inner_html=value.clone()></span> }.into_any()
-        }
-
-        Node::EscapedTag { value } => value.clone().into_any(),
+        Node::HtmlInline { value } => view! { <span inner_html=value.clone()></span> }.into_any(),
 
         // Not rendered, as in the Angular template (which has no case for unknown types).
-        Node::FrontMatter { .. } | Node::Escaped | Node::Unknown { .. } => ().into_any(),
+        Node::Unknown { .. } => ().into_any(),
     }
 }
