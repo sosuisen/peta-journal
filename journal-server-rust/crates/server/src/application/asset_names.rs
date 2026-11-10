@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::domain::asset_name::{is_saved_name, relink, saved_name};
 use crate::domain::id_generator::IdGenerator;
+use crate::domain::model::Item;
 use crate::infrastructure::persistence::ItemRepository;
 use crate::state::AppState;
 
@@ -59,38 +60,43 @@ pub fn apply(state: &AppState, renames: &[Rename]) -> anyhow::Result<()> {
     // First what the folder has and the database has not: a file that waits to be taken in
     // is not written over, and would be taken in later with its old links
     state.reconcile.scan();
-    let pages = relink_items(state, renames)?;
+    let relinked = relink_items(state, renames)?;
     for rename in renames {
         std::fs::rename(assets_dir.join(&rename.from), assets_dir.join(&rename.to))?;
     }
+    for item in &relinked {
+        let page_title = format!("{}{}", item.dir_path, item.name);
+        state.search.index_item(item, &page_title);
+    }
     // At once and not through the queue: the items keep their modified dates, so a file
     // with the old links would look edited by hand to the next import, and bring them back
-    for page_id in &pages {
+    let pages: BTreeSet<&Hmtid> = relinked.iter().map(|item| &item.page_id).collect();
+    for page_id in pages {
         state.export.export_page(page_id)?;
     }
     Ok(())
 }
 
-/// Points the links of the items to the new names, all of them or none. Returns the pages
-/// of the items that changed.
-fn relink_items(state: &AppState, renames: &[Rename]) -> anyhow::Result<BTreeSet<Hmtid>> {
+/// Points the links of the items to the new names, all of them or none. Returns the items
+/// that changed, as they are now.
+fn relink_items(state: &AppState, renames: &[Rename]) -> anyhow::Result<Vec<Item>> {
     let new_names: HashMap<String, String> = renames
         .iter()
         .map(|rename| (rename.from.clone(), rename.to.clone()))
         .collect();
     let mut conn = state.db.conn()?;
     let tx = conn.immediate()?;
-    let mut pages = BTreeSet::new();
+    let mut relinked = Vec::new();
     for item in state.items.find_by_body_containing_asset_path()? {
         let body = relink(&item.body, &new_names);
         if body != item.body {
             let ast = state.parser.parse_to_ast(&body);
             ItemRepository::rewrite_body_in(&tx, &item.id, &body, &ast)?;
-            pages.insert(item.page_id);
+            relinked.push(Item { body, ast, ..item });
         }
     }
     tx.commit()?;
-    Ok(pages)
+    Ok(relinked)
 }
 
 fn millis(time: SystemTime) -> u64 {
