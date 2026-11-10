@@ -25,7 +25,7 @@ use crate::util::date::shift_iso_date;
 use crux_core::Command;
 
 /// What a move to another day's page did; the journal reloads from it.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct CrossDayMove {
     /// The date of the page the item went to.
     pub target_date: String,
@@ -108,7 +108,7 @@ fn move_on_page(
             moved,
             position: state_position,
             edited: Some(item_id),
-            label: "move",
+            label: MoveLabel::Move,
         }
     })
 }
@@ -230,6 +230,24 @@ pub fn focus_moved(model: &mut Model, item_id: String) -> Cmd {
     })
 }
 
+/// What the undo history calls a move.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum MoveLabel {
+    Move,
+    MoveSelection,
+    Outdent,
+}
+
+impl MoveLabel {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            MoveLabel::Move => "move",
+            MoveLabel::MoveSelection => "move-selection",
+            MoveLabel::Outdent => "outdent",
+        }
+    }
+}
+
 /// Puts the items the server moved at their new place, and records the move for undo under
 /// `label`. The edit goes on in `edited`, the item the move was started from; a move of the
 /// selection has none.
@@ -238,7 +256,7 @@ pub fn show_moved(
     moved: Vec<Item>,
     position: &ItemPosition,
     edited: Option<String>,
-    label: &str,
+    label: MoveLabel,
 ) -> Cmd {
     let ids: Vec<String> = moved.iter().map(|item| item.id.clone()).collect();
     let before: Vec<Item> = ids
@@ -253,7 +271,7 @@ pub fn show_moved(
     }
     model
         .undo
-        .record_updates(label, before.iter().zip(&moved), model.clock_ms);
+        .record_updates(label.as_str(), before.iter().zip(&moved), model.clock_ms);
     let Some(item_id) = edited else {
         model.state.replace_items(&ids, moved, position);
         return move_done(model, false);
@@ -412,7 +430,7 @@ fn move_selection(model: &mut Model, direction: MoveDirection) -> Option<Cmd> {
                 moved,
                 position: target,
                 edited: None,
-                label: "move-selection",
+                label: MoveLabel::MoveSelection,
             }),
             Err(e) => {
                 log_error(format!("Failed to move selected items: {e}"));

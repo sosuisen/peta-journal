@@ -23,7 +23,7 @@ pub type Ctx = CommandContext<Effect, Event>;
 
 /// What the editor reports about the `[[wiki link]]` being typed: the text inside and where
 /// the caret is on the screen.
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, serde::Deserialize, serde::Serialize)]
 pub struct WikiLinkContext {
     pub query: String,
     pub x: f64,
@@ -31,7 +31,7 @@ pub struct WikiLinkContext {
 }
 
 /// Keys the shell forwards while the outline is in selection mode.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum SelectionKey {
     Escape,
     Delete,
@@ -47,7 +47,7 @@ pub enum SelectionKey {
     Redo,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum SearchKey {
     Down,
     Up,
@@ -55,14 +55,14 @@ pub enum SearchKey {
     Escape,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum JournalNav {
     Prev,
     Next,
 }
 
 /// The URL the shell is showing.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum Route {
     /// `/pages/<name>`, `/docs/<name>`, `/journals/<name>` or `/today` (name `today`).
     Page {
@@ -94,7 +94,7 @@ impl Route {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub enum Event {
     /// The shell is up: connect, load the settings and the sidebar. `client_id` is the UUID
     /// that the shell made for itself and sends with every change request (ADR-015).
@@ -243,8 +243,8 @@ pub enum Event {
         /// The item the move was started from, in whose editor the edit goes on. None for
         /// a move of the selection.
         edited: Option<String>,
-        /// The label of the undo entry: "move", "move-selection" or "outdent".
-        label: &'static str,
+        /// The label of the undo entry.
+        label: ops::moves::MoveLabel,
     },
     /// The server deleted the selected items: the screen shows it now.
     SelectionDeleted {
@@ -765,7 +765,7 @@ pub fn log_error(message: impl fmt::Display) {
 
 // ---- Model ----
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize)]
 pub enum ConnectionState {
     Connecting,
     Connected,

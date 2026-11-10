@@ -236,7 +236,7 @@ pub fn ungroup_cards(model: &mut Model, card_ids: Vec<String>) -> Cmd {
 }
 
 /// The title of a group and the side of its outline it lies along.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct GroupTitle {
     pub side: String,
     pub text: String,
@@ -281,7 +281,7 @@ pub fn set_group_title(model: &mut Model, group_id: String, side: String, title:
 
 /// A callout on the canvas of an atlas page: a character at a point, with a speech bubble on
 /// one side of it. An item under the parent of the callouts, its text the body.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct Callout {
     /// The id of the item of the callout
     pub key: String,
@@ -431,7 +431,7 @@ pub fn reload_atlas(model: &Model, page_id: &str) -> Cmd {
 
 /// A link card: an item of the atlas page whose body is a wiki link to `target`, placed by
 /// its own `atlas_bounds`.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct LinkCard {
     pub item_id: String,
     /// The page the link names, as it is written in the link

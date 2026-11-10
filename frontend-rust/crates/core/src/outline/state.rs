@@ -7,7 +7,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 /// A heading of the page, for the table of contents.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct Heading {
     pub id: String,
     pub text: String,
@@ -15,7 +15,7 @@ pub struct Heading {
 }
 
 /// The cursor an editor should open with, set once and consumed by the first editor that opens.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct FocusRequest {
     /// Grows with every request, so the shell knows which one it already applied.
     pub seq: u64,

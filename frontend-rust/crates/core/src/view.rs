@@ -14,7 +14,7 @@ use crate::util::filename::JournalType;
 use serde::Serialize;
 
 /// Where a task stands, by its `begin` and `end` properties.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum TaskState {
     NotStarted,
     /// Begun and not ended: the checkbox shows the in-between state.
@@ -39,7 +39,7 @@ impl TaskState {
 }
 
 /// One row of the outline: the item as shown plus what the row needs to draw itself.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Row {
     pub item: ItemRef,
     pub index: usize,
@@ -67,7 +67,7 @@ pub struct Row {
     pub suggestions_visible: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct WikiView {
     pub item_id: Option<String>,
     pub suggestions: Vec<String>,
@@ -76,7 +76,7 @@ pub struct WikiView {
     pub y: f64,
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct OutlineView {
     pub rows: Vec<Row>,
     pub selection_mode: bool,
@@ -87,7 +87,7 @@ pub struct OutlineView {
     pub scrolled_from_top: bool,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct JournalView {
     pub current_date: String,
     pub journal_type: Option<JournalType>,
@@ -96,7 +96,7 @@ pub struct JournalView {
 }
 
 /// One property row of a page: the value is text, a list joined by `, `.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct PageProperty {
     pub key: String,
     pub value: String,
@@ -133,7 +133,7 @@ impl PageProperty {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct PageView {
     pub page: Page,
     pub title: String,
@@ -152,7 +152,7 @@ pub struct PageView {
 
 /// A page that links to the shown page, with its items that link. The items are empty
 /// when the page links by the tag in its tags property only.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct BacklinkGroup {
     /// The path of the page as the sidebar shows it; a journal as its date.
     pub title: String,
@@ -160,7 +160,7 @@ pub struct BacklinkGroup {
     pub items: Vec<BacklinkItem>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct BacklinkItem {
     pub id: String,
     /// The first line of the body.
@@ -193,7 +193,7 @@ impl BacklinkGroup {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub enum ScreenView {
     None,
     Journal(JournalView),
@@ -202,7 +202,7 @@ pub enum ScreenView {
     Settings,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct SidebarPage {
     pub page: Page,
     pub label: String,
@@ -217,7 +217,7 @@ pub struct SidebarPage {
 
 /// A page or folder of the directory of an atlas page. A card without bounds waits in the
 /// list of unplaced cards.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct AtlasCard {
     pub page_id: String,
     pub label: String,
@@ -238,7 +238,7 @@ pub struct AtlasCard {
     pub published: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct SidebarView {
     pub index_header: String,
     pub index_sort: IndexSort,
@@ -250,7 +250,7 @@ pub struct SidebarView {
     pub current_page_id: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct SearchView {
     pub query: String,
     /// The pages, the create entries and the items, in display order.
@@ -279,7 +279,7 @@ pub enum SearchKind {
     Item,
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct ConfigView {
     pub markdown_dir: String,
     pub week_numbering: WeekNumbering,
@@ -290,7 +290,7 @@ pub struct ConfigView {
     pub definition_error: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ViewModel {
     pub screen: ScreenView,
     /// The cards of the atlas page on screen; empty on any other screen.

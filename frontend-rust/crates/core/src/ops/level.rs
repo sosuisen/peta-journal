@@ -107,7 +107,7 @@ fn outdent_below_parent(model: &mut Model, item: Item, group: Vec<ItemRef>, pare
             moved,
             position,
             edited: Some(item_id),
-            label: "outdent",
+            label: crate::ops::moves::MoveLabel::Outdent,
         },
     )
 }
