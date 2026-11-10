@@ -99,9 +99,16 @@
 
 ## ネイティブのシェル
 
-- [ ] WinUI3とSwiftUIのシェルがコアを呼ぶ方式を、ADRで決める
-  - Cruxの公式のFFIブリッジを使うか、Rust側にシェルを置いて狭いインターフェースだけを見せるかの選択である
-  - `ViewModel`のシリアライズも、ここで決める
+- [ ] SwiftUIのシェル（macOS）のWalking Skeletonを作る（ADR 024）
+  - 目的は、ADR 024が確かめていないことを早く確かめることである。1つのページを開き、1つの項目に入力して保存できるところまでを通す
+  - [ ] プロパティの値を、`serde_json::Value`から、文字列か文字列のリストを表す型に変える
+  - [ ] `Event`に`Deserialize`を、`ViewModel`に`Serialize`を実装する
+  - [ ] ネイティブのシェルのcrateを作る。`Core`を`EffectRouter`で包み、`Api`、`Sse`、`Timer`をRustで実行する
+    - 答えを待たない要求に答えると、エラー（`Never`）が返る。無視する
+    - SSEのように、1つの要求に何度も答える流れを確かめる
+  - [ ] Swiftの型を生成する。今の`Event`と`ViewModel`で、生成が最後まで通るかを確かめる
+  - [ ] RustのライブラリをXcodeのアプリに組み込む。Swiftから呼ぶための道具（BoltFFIなど）を、ここで決める
+  - [ ] SwiftUIで、1000項目のページの入力の速さを測る。遅ければ、ADR 024を見直す
 
 ## テストとCI
 
