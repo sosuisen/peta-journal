@@ -8,33 +8,22 @@ use crate::ops::edit::{auto_save_again, focus_editor, save_target_id, take_unsav
 use crate::ops::file_reload::reload_shown_page;
 use crux_core::Command;
 
-/// Cycles the task state: normal → task → running → done → normal.
-/// An item that just became a task on a daily journal gets the journal date as its plan.
+/// Cycles the task state: normal → task → running → done → normal. One request: the server
+/// also plans an item that becomes a task on the journal of a day for that day (ADR 011).
 pub fn cycle_task(model: &mut Model, item_id: &str) -> Cmd {
     let Some(item) = model.cloned_item(item_id) else {
         return done();
     };
     run(move |api| async move {
         let target_id = save_target_id(&item);
-        let was_task = item.is_task();
-        let mut updated = match api.cycle_task(&target_id).await {
-            Ok(u) => u,
-            Err(e) => return log_error(format!("Failed to cycle task: {e}")),
-        };
-        if !was_task && updated.is_task() && item.is_daily_journal_item() {
-            match api
-                .upsert_item_property(&target_id, "plan", "date", &item.name)
-                .await
-            {
-                Ok(u) => updated = u,
-                Err(e) => return log_error(format!("Failed to set plan: {e}")),
-            }
+        match api.cycle_task(&target_id).await {
+            Ok(updated) => api.send_event(Event::TaskCycled {
+                target_id,
+                before: Box::new(item),
+                updated: Box::new(updated),
+            }),
+            Err(e) => log_error(format!("Failed to cycle task: {e}")),
         }
-        api.send_event(Event::TaskCycled {
-            target_id,
-            before: Box::new(item),
-            updated: Box::new(updated),
-        });
     })
 }
 
