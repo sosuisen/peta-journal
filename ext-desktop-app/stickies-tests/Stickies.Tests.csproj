@@ -14,7 +14,12 @@
   <ItemGroup>
     <Compile Include="..\stickies\Models\ItemModel.cs" Link="App\Models\ItemModel.cs" />
     <Compile Include="..\stickies\Services\OutlineHtml.cs" Link="App\Services\OutlineHtml.cs" />
+    <Compile Include="..\stickies\Services\PageHtml.cs" Link="App\Services\PageHtml.cs" />
     <Compile Include="..\stickies\Services\PageLinks.cs" Link="App\Services\PageLinks.cs" />
+    <Compile Include="..\stickies\Services\SettingsService.cs" Link="App\Services\SettingsService.cs" />
+    <Compile Include="..\stickies\Services\WebMessage.cs" Link="App\Services\WebMessage.cs" />
+    <!-- The script of a page, to check that it sends the messages the app reads. -->
+    <EmbeddedResource Include="..\stickies\Web\page.js" LogicalName="page.js" />
   </ItemGroup>
 
   <ItemGroup>

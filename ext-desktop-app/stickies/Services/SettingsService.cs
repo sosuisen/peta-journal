@@ -41,11 +41,31 @@ public class StickiesSettings
 
 public class SettingsService
 {
-    private static readonly string SettingsPath = Path.Combine(
+    private static readonly string DefaultPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
         ".peta-stickies");
 
+    private readonly string _path;
     private StickiesSettings _settings = new();
+
+    /// <summary>
+    /// The settings in the file of the user, <c>~/.peta-stickies</c>.
+    /// </summary>
+    public SettingsService() : this(DefaultPath)
+    {
+    }
+
+    /// <summary>
+    /// The settings in a file of the caller. The tests use it, so that they do not write
+    /// the file of the user.
+    /// </summary>
+    /// <param name="path">The path of the settings file. The file does not have to exist.</param>
+    public SettingsService(string path)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(path);
+        _path = path;
+    }
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true
@@ -57,9 +77,9 @@ public class SettingsService
     {
         try
         {
-            if (File.Exists(SettingsPath))
+            if (File.Exists(_path))
             {
-                var json = File.ReadAllText(SettingsPath);
+                var json = File.ReadAllText(_path);
                 _settings = JsonSerializer.Deserialize<StickiesSettings>(json, JsonOptions)
                             ?? new StickiesSettings();
             }
@@ -75,7 +95,7 @@ public class SettingsService
         try
         {
             var json = JsonSerializer.Serialize(_settings, JsonOptions);
-            File.WriteAllText(SettingsPath, json);
+            File.WriteAllText(_path, json);
         }
         catch
         {
@@ -91,18 +111,17 @@ public class SettingsService
         return settings;
     }
 
+    /// <summary>
+    /// Saves the changed settings of a sticky.
+    /// A sticky that was removed is not added again: a window that is closing can still
+    /// report a change of its position or size.
+    /// </summary>
     public void UpdateWindow(StickyWindowSettings windowSettings)
     {
-        var existing = _settings.Windows.FirstOrDefault(w => w.Id == windowSettings.Id);
-        if (existing != null)
-        {
-            var idx = _settings.Windows.IndexOf(existing);
-            _settings.Windows[idx] = windowSettings;
-        }
-        else
-        {
-            _settings.Windows.Add(windowSettings);
-        }
+        ArgumentNullException.ThrowIfNull(windowSettings);
+        var idx = _settings.Windows.FindIndex(w => w.Id == windowSettings.Id);
+        if (idx < 0) return;
+        _settings.Windows[idx] = windowSettings;
         Save();
     }
 

@@ -159,15 +159,6 @@ public class JournalApiService : IDisposable
         catch { }
     }
 
-    public async Task DisconnectAsync()
-    {
-        _intentionalDisconnect = true;
-        _reconnectCts?.Cancel();
-        _sseCts?.Cancel();
-        _isConnected = false;
-        Disconnected?.Invoke();
-    }
-
     public async Task<SearchPageNamesResponse?> SearchPageNamesAsync(string query, int maxResults = 20)
     {
         var url = $"/api/search/pages?q={Uri.EscapeDataString(query)}&maxResults={maxResults}";
