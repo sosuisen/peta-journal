@@ -2,8 +2,10 @@
 //! effects of the screen cross as bincode. The server, the timers and the clock stay on this
 //! side.
 
+mod server;
 mod shell;
 
+pub use server::connect;
 pub use shell::{BorderError, Host, NativeShell, ShellEffect, ShellEffectFfi};
 
 #[cfg(test)]
