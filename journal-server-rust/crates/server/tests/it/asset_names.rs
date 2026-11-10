@@ -1,10 +1,15 @@
 //! Moving the files of `assets/` to names made of an ID, and the links with them (ADR-022).
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
 use chrono::{TimeZone, Utc};
-use journal_server::application::asset_names;
+use hmtid::Hmtid;
+use journal_server::application::asset_names::{self, Rename};
+use journal_server::config::Settings;
+use journal_server::domain::model::{Item, ItemPosition};
+use journal_server::state::{AppState, BuildOptions, SharedState};
+use serde_json::json;
 
 /// A file in the folder, last changed at the given time (UTC).
 fn file_changed_at(dir: &Path, name: &str, (y, mo, d, h, mi, s): (i32, u32, u32, u32, u32, u32)) {
@@ -78,5 +83,103 @@ mod plan {
 
         let old_names: Vec<&str> = plan.iter().map(|rename| rename.from.as_str()).collect();
         assert_eq!(old_names, ["image.png"]);
+    }
+}
+
+/// A server that is not running, with its markdown folder: what the command works on.
+struct Notes {
+    state: SharedState,
+    root: PathBuf,
+    _dir: tempfile::TempDir,
+}
+
+impl Notes {
+    fn new() -> Notes {
+        let dir = tempfile::Builder::new()
+            .prefix("peta-journal-asset-names-")
+            .tempdir()
+            .unwrap();
+        let settings = Settings {
+            // A scan that finds missing files opens the browser, unless it did within the
+            // cooldown; one longer than the time since 1970 keeps it shut
+            import_delete_prompt_cooldown_secs: 10_000_000_000,
+            ..Settings::under(dir.path(), 0)
+        };
+        let root = dir.path().join("markdown");
+        let config_dir = dir.path().join("config");
+        std::fs::create_dir_all(root.join("assets")).unwrap();
+        std::fs::create_dir_all(&config_dir).unwrap();
+        std::fs::write(
+            config_dir.join("config.json"),
+            json!({ "markdownDir": root.to_string_lossy() }).to_string(),
+        )
+        .unwrap();
+        let state = AppState::build(settings, BuildOptions { interactive: false }).unwrap();
+        Notes {
+            state,
+            root,
+            _dir: dir,
+        }
+    }
+
+    /// A file in `assets/` with the given content.
+    fn asset(&self, name: &str, content: &str) {
+        std::fs::write(self.asset_path(name), content).unwrap();
+    }
+
+    fn asset_path(&self, name: &str) -> PathBuf {
+        self.root.join("assets").join(name)
+    }
+
+    /// A doc page with one item per body, written to its file as the running server does.
+    fn page(&self, name: &str, bodies: &[&str]) -> Vec<Item> {
+        let page = self
+            .state
+            .page_service
+            .get_or_create_doc(Some(name), None)
+            .unwrap()
+            .page;
+        let items = bodies
+            .iter()
+            .map(|body| {
+                self.state
+                    .item_service
+                    .create_item(&page.id, &ItemPosition::Last, 1, body, None)
+                    .unwrap()
+            })
+            .collect();
+        self.state.export.process_export_queue();
+        items
+    }
+
+    fn item(&self, id: &Hmtid) -> Item {
+        self.state.item_service.get_item_by_id(id).unwrap()
+    }
+
+    fn rename(&self, from: &str, to: &str) {
+        let renames = [Rename {
+            from: from.to_string(),
+            to: to.to_string(),
+        }];
+        asset_names::apply(&self.state, &renames).unwrap();
+    }
+}
+
+const NEW_NAME: &str = "20260203040506_ABCDEFG.png";
+
+mod apply {
+    use super::*;
+
+    // ファイルは、中身はそのままで、新しい名前に変わる。
+    #[test]
+    fn the_file_moves_to_its_new_name_with_its_content() {
+        let notes = Notes::new();
+        notes.asset("image.png", "the picture");
+
+        notes.rename("image.png", NEW_NAME);
+
+        assert!(!notes.asset_path("image.png").exists());
+        let moved = std::fs::read_to_string(notes.asset_path(NEW_NAME)).unwrap();
+        assert_eq!(moved, "the picture");
     }
 }
