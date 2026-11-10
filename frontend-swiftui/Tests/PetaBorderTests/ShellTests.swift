@@ -319,12 +319,14 @@ final class ShellTests: XCTestCase {
         XCTAssertTrue(shell.pressed(.tab, in: second, editor("", cursor: 0)))
 
         // The children are shown already
-        XCTAssertFalse(shell.pressed(.unfold, in: first, editor("first", cursor: 0)))
+        XCTAssertTrue(shell.pressed(.unfold, in: first, editor("first", cursor: 0)))
+        XCTAssertFalse(shell.view.outline.rows[0].isCollapsed)
         XCTAssertTrue(shell.pressed(.fold, in: first, editor("first", cursor: 0)))
         try await waitUntil("the child is hidden") { shell.view.outline.rows.count == 1 }
         XCTAssertTrue(shell.view.outline.rows[0].isCollapsed)
         // The children are hidden already
-        XCTAssertFalse(shell.pressed(.fold, in: first, editor("first", cursor: 0)))
+        XCTAssertTrue(shell.pressed(.fold, in: first, editor("first", cursor: 0)))
+        XCTAssertTrue(shell.view.outline.rows[0].isCollapsed)
         XCTAssertTrue(shell.pressed(.unfold, in: first, editor("first", cursor: 0)))
         try await waitUntil("the child is shown again") { shell.view.outline.rows.count == 2 }
     }
@@ -334,7 +336,7 @@ final class ShellTests: XCTestCase {
         let shell = try await shellWithPage()
         let first = shell.view.outline.rows[0].item.id
 
-        XCTAssertFalse(shell.pressed(.fold, in: first, editor("", cursor: 0)))
+        XCTAssertTrue(shell.pressed(.fold, in: first, editor("", cursor: 0)))
         XCTAssertFalse(shell.view.outline.rows[0].isCollapsed)
     }
 
