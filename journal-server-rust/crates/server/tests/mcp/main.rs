@@ -157,6 +157,19 @@ async fn an_item_is_created_read_updated_and_deleted() {
     assert!(error.contains("Item not found"), "{error}");
 }
 
+// ページの最後の項目を消すと、同じ操作で空の項目が1つ作られる。
+#[tokio::test]
+async fn deleting_the_last_item_of_a_page_leaves_one_empty_item() {
+    let mcp = connect().await;
+    let page = new_doc_page("mcp-delete-last").await;
+    let only = fill(&page.id, &["only"]).await.remove(0);
+
+    let deleted = call(&mcp, "delete_item", json!({ "itemId": only.id })).await;
+
+    assert_eq!(deleted, json!({ "deleted": true }));
+    assert_eq!(outline_of(&page.id).await, vec!["1:"]);
+}
+
 // 項目は、レベルをずらして、またはそのままで、ページの間を移動する。
 #[tokio::test]
 async fn items_move_between_pages_with_their_levels_shifted_or_kept() {
