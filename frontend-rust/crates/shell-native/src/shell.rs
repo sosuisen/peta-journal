@@ -14,7 +14,8 @@ use peta_core::effects::{
 };
 use peta_core::rest::ClientId;
 use peta_core::{Effect, Event, PetaApp};
-use std::sync::{Arc, Weak};
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex, Weak};
 use std::thread;
 
 /// Why bytes could not cross the border.
@@ -47,6 +48,8 @@ type Router = EffectRouter<PetaApp, Lanes>;
 struct Lanes {
     router: Weak<Router>,
     border: Arc<Serialized<PetaApp, Lanes, BincodeFfiFormat>>,
+    /// The timers that run, by the ID the core gave them.
+    timers: Arc<Mutex<HashMap<u64, Request<TimerOp>>>>,
 }
 
 impl Routes<PetaApp> for Lanes {
@@ -54,6 +57,7 @@ impl Routes<PetaApp> for Lanes {
         Lanes {
             border: Arc::new(Serialized::new(router.clone())),
             router,
+            timers: Arc::default(),
         }
     }
 }
@@ -78,15 +82,27 @@ impl Lanes {
         });
     }
 
-    fn time<H: Host>(&self, host: &Arc<H>, mut request: Request<TimerOp>) {
-        let TimerOp::Start { ms, .. } = request.operation else {
-            return;
-        };
-        let (lanes, host) = (self.clone(), host.clone());
-        thread::spawn(move || {
-            host.sleep(ms);
-            lanes.answer(&mut request, TimerOutput::Fired);
-        });
+    fn time<H: Host>(&self, host: &Arc<H>, request: Request<TimerOp>) {
+        match request.operation {
+            TimerOp::Start { id, ms } => {
+                self.timers.lock().unwrap().insert(id, request);
+                let (lanes, host) = (self.clone(), host.clone());
+                thread::spawn(move || {
+                    host.sleep(ms);
+                    lanes.end_timer(id, TimerOutput::Fired);
+                });
+            }
+            // A notification: the core waits for the answer of the timer, not of this
+            TimerOp::Cancel { id } => self.end_timer(id, TimerOutput::Cancelled),
+        }
+    }
+
+    /// Answers the timer, unless it has ended another way already.
+    fn end_timer(&self, id: u64, output: TimerOutput) {
+        let running = self.timers.lock().unwrap().remove(&id);
+        if let Some(mut request) = running {
+            self.answer(&mut request, output);
+        }
     }
 
     /// Reads the event stream. The core hears of every event through the one request.
