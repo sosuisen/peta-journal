@@ -377,4 +377,21 @@ mod command {
             .file("docs/Trip.md")
             .contains(&format!("![pic](../assets/{new_name})")));
     }
+
+    // 「revert」は、ファイルの対応表を逆にたどって、ファイルとリンクを元に戻す。
+    #[test]
+    fn the_revert_step_moves_the_files_and_the_links_back() {
+        let notes = Notes::new();
+        notes.asset("image.png", "the picture");
+        notes.page("Trip", &["![pic](../assets/image.png)"]);
+        let notes = notes.stop();
+        let page_before = notes.file("docs/Trip.md");
+        notes.run(AssetNamesStep::Plan);
+        notes.run(AssetNamesStep::Apply);
+
+        notes.run(AssetNamesStep::Revert);
+
+        assert_eq!(notes.assets(), ["image.png"]);
+        assert_eq!(notes.file("docs/Trip.md"), page_before);
+    }
 }
