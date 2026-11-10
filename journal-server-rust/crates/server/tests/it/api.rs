@@ -2796,6 +2796,58 @@ async fn a_day_is_created_with_one_empty_item_and_found_again_by_its_date() {
     assert_eq!(first["page"]["id"], again["page"]["id"]);
 }
 
+// ---- Journals: moving items to a day ----
+
+/// The id of the page of a journal answer.
+fn page_id_of(journal: &Value) -> String {
+    journal["page"]["id"].as_str().unwrap().to_string()
+}
+
+/// Moves items to the daily journal of `date`, the way a move key at the edge of a day
+/// does: with the body the editor of the first item has now, when it is not saved yet.
+async fn move_to_journal(
+    date: &str,
+    item_ids: &[&str],
+    position: &str,
+    body: Option<&str>,
+) -> (u16, Value) {
+    let mut req = json!({ "itemIds": item_ids, "position": position });
+    if let Some(body) = body {
+        req["body"] = json!(body);
+    }
+    post(&format!("/api/journals/{date}/move"), req).await
+}
+
+// 項目は子ごと、その日のジャーナルの末尾へ動く。要求の本文は、先頭の項目に保存される。日をまたぐ移動が1つの要求で送るものである。
+#[tokio::test]
+async fn items_move_to_the_end_of_a_days_journal_with_the_body_the_request_carries() {
+    let from = page_id_of(&journal("1999-07-01").await);
+    let rows = fill(&from, &["go", "  go-child", "stay"]).await;
+    let to = page_id_of(&journal("1999-07-02").await);
+    fill(&to, &["there"]).await;
+
+    let (status, resp) = move_to_journal(
+        "1999-07-02",
+        &[&rows[0].id, &rows[1].id],
+        "last",
+        Some("go typed"),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(resp["created"], json!(false));
+    assert_eq!(resp["page"]["id"], json!(to));
+    assert_eq!(
+        field_of_each(&resp, "items", "body"),
+        vec![json!("go typed"), json!("go-child")]
+    );
+    assert_eq!(
+        outline_of(&to).await,
+        vs(&["1:there", "1:go typed", "2:go-child"])
+    );
+    assert_eq!(outline_of(&from).await, vs(&["1:stay"]));
+}
+
 // ある日付より前の、直近の日のジャーナルが見つかる。
 #[tokio::test]
 async fn the_most_recent_day_before_a_date_is_found() {
