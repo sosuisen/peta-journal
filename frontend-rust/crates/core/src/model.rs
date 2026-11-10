@@ -42,7 +42,7 @@ pub struct Item {
 }
 
 /// The value of a property. The server has only these two shapes.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum PropertyValue {
     Text(String),
