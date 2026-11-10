@@ -41,6 +41,14 @@ pub struct Item {
     pub transclude_item_id: Option<String>,
 }
 
+/// The value of a property. The server has only these two shapes.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(untagged)]
+pub enum PropertyValue {
+    Text(String),
+    List(Vec<String>),
+}
+
 /// Items are shared between the state, the view model and undo snapshots, so they are
 /// reference counted: a change makes a new item instead of touching the shared one.
 pub type ItemRef = Arc<Item>;
