@@ -333,6 +333,10 @@ pub enum Event {
     ShiftSelect {
         item_id: String,
     },
+    /// Deletes one item with everything under it, without selecting it first.
+    DeleteItem {
+        item_id: String,
+    },
     Undo,
     Redo,
     PasteAsTransclusion {
@@ -977,6 +981,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
                 .start_from_editor(&mut model.state, &item_id);
             done()
         }
+        DeleteItem { item_id } => ops::outline_events::delete_item(model, &item_id),
         Undo => ops::undo_replay::perform(model, ops::undo_replay::Direction::Undo),
         Redo => ops::undo_replay::perform(model, ops::undo_replay::Direction::Redo),
         PasteAsTransclusion { item_id } => ops::action::paste_as_transclusion(model, &item_id),

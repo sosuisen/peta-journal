@@ -7,6 +7,7 @@ use crate::ops::edit::{focus_editor, record_typing, save_item_if_dirty, save_tar
 use crate::ops::{action, level, moves, undo_replay};
 use crate::outline::tree::{index_of, transclusion_context_of};
 use crux_core::Command;
+use std::collections::HashSet;
 
 /// The user clicked an item to start editing it. Ignored in selection mode.
 pub fn edit_requested(model: &mut Model, item_id: &str, cursor: usize) -> Cmd {
@@ -149,8 +150,18 @@ pub fn selection_key(model: &mut Model, key: SelectionKey) -> Cmd {
     }
 }
 
+/// Deletes one item with everything under it, as a selection of it would, but without the
+/// selection: when the user or the server says no, nothing is left to undo on the screen.
+pub fn delete_item(model: &mut Model, item_id: &str) -> Cmd {
+    let group = model.state.selection_group(item_id);
+    delete(deletion_of(model, &group))
+}
+
 fn delete_selected(model: &mut Model) -> Cmd {
-    let ids = selection_deletion(model);
+    delete(deletion_of(model, model.state.selected_item_ids()))
+}
+
+fn delete(ids: Vec<String>) -> Cmd {
     if ids.is_empty() {
         return done();
     }
@@ -161,14 +172,13 @@ fn delete_selected(model: &mut Model) -> Cmd {
     })
 }
 
-/// The items to delete for the selection, each by its own id: every selected own item,
+/// The items to delete for the selected ones, each by its own id: every selected own item,
 /// collapsed ones too, as a selected item takes its descendants with it. A selected
 /// transclusion stands for itself, not for its source item. The source items it shows are
 /// selected with it but left out: they belong to the source page, and only the transclusion
 /// goes. Source items selected on their own are deleted on their page.
-fn selection_deletion(model: &Model) -> Vec<String> {
+fn deletion_of(model: &Model, selected: &HashSet<String>) -> Vec<String> {
     let state = &model.state;
-    let selected = state.selected_item_ids();
     let own = state.own_item_ids();
     let shown_by_selected_transclusion = |item: &Item| {
         transclusion_context_of(item, state.items(), state.transcluded_trees())

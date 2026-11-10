@@ -44,8 +44,6 @@
 - [ ] journal-serverのフォルダ監視のテスト（`tests/it/watch.rs`の7件のうち6件）が、手元のMacで落ちる原因を調べる
   - 2026-11-09に、変更前の`main`でも同じ6件が落ちた（macOS 27.2）。10秒待っても、監視がファイルを取り込まない
   - カバレッジとミューテーションテストは、`--skip watch::`を付けて実行した
-- [ ] Emacs版の`DeleteItem`の処理を整理する
-  - 今はシェルが`ShiftSelect`と`SelectionKey::Delete`を続けて送り、Elisp側で編集中の項目を消している
 - [ ] `docs/storymap.md`にEmacs版の項目を加える
   - 何をタスクとみなすか、どこに置くか、文言はユーザーが決める
 - [ ] 操作を1つの要求にし、`Thunk`を外す（ADR 011）

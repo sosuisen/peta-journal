@@ -281,6 +281,7 @@ impl OutlineState {
     pub fn delete_items(&mut self, item_ids: &[String]) {
         let ids: HashSet<&String> = item_ids.iter().collect();
         self.items.retain(|b| !ids.contains(&b.id));
+        self.editing_item_ids.retain(|id| !ids.contains(id));
         self.refresh();
     }
 
