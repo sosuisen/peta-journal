@@ -4,7 +4,7 @@
 
 use std::path::PathBuf;
 
-use clap::Parser;
+use clap::{Parser, Subcommand, ValueEnum};
 
 #[derive(Debug, Clone, Parser)]
 #[command(name = "journal-server", about = "PetaJournal journal server", version)]
@@ -79,6 +79,35 @@ pub struct Cli {
     /// frontend/ folder beside the server executable; without it no frontend is served
     #[arg(long, env = "PETAJOURNAL_FRONTEND_DIR")]
     pub frontend_dir: Option<PathBuf>,
+
+    /// Without a command the server starts
+    #[command(subcommand)]
+    pub command: Option<Command>,
+}
+
+/// Work that is run by hand in place of the server, while the server is stopped.
+#[derive(Debug, Clone, Subcommand)]
+pub enum Command {
+    /// Moves the files of assets/ to names made of an ID, and the links to them (ADR-022).
+    /// The options of the server, such as --config-dir, come before this command
+    AssetNames {
+        step: AssetNamesStep,
+
+        /// The file with the table of old and new names: `plan` writes it, the other steps
+        /// read it
+        #[arg(long)]
+        file: PathBuf,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum AssetNamesStep {
+    /// Writes the table of old and new names to the file. Changes nothing else
+    Plan,
+    /// Moves the files and the links as the table says
+    Apply,
+    /// Moves the files and the links back as the table says
+    Revert,
 }
 
 /// The resolved settings used by the whole server.

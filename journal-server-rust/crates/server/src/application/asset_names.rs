@@ -9,6 +9,8 @@ use anyhow::Context;
 use hmtid::Hmtid;
 use serde::{Deserialize, Serialize};
 
+use crate::application::config_service::ConfigService;
+use crate::config::{AssetNamesStep, Settings};
 use crate::domain::asset_name::{is_saved_name, relink, saved_name};
 use crate::domain::id_generator::IdGenerator;
 use crate::domain::model::Item;
@@ -20,6 +22,23 @@ use crate::state::AppState;
 pub struct Rename {
     pub from: String,
     pub to: String,
+}
+
+/// Runs one step of the command and returns what to tell the person who ran it.
+pub fn run(settings: Settings, step: AssetNamesStep, table: &Path) -> anyhow::Result<String> {
+    match step {
+        AssetNamesStep::Plan => {
+            let markdown_dir = ConfigService::new(settings.config_dir).markdown_dir();
+            let renames = plan(&Path::new(&markdown_dir).join("assets"))?;
+            std::fs::write(table, serde_json::to_string_pretty(&renames)?)?;
+            Ok(format!(
+                "{} files to rename. The table is in {}",
+                renames.len(),
+                table.display()
+            ))
+        }
+        AssetNamesStep::Apply | AssetNamesStep::Revert => unimplemented!(),
+    }
 }
 
 /// The new name of every file in the folder that has no ID for its name yet, oldest file
