@@ -389,13 +389,13 @@ public sealed partial class MainWindow : Window
             var isCollapsed = _collapsedItemIds.Contains(item.Id);
 
             var marker = "";
-            if (item.Status != "normal" && !string.IsNullOrEmpty(item.Status))
+            if (item.TaskState is { } taskState)
             {
-                var label = item.Status switch
+                var label = taskState switch
                 {
-                    "todo" => "&#x2610;",
-                    "running" => "&#x25B6;",
-                    "done" => "&#x2611;",
+                    TaskState.Todo => "&#x2610;",
+                    TaskState.Running => "&#x25B6;",
+                    TaskState.Done => "&#x2611;",
                     _ => ""
                 };
                 marker = $"<span style=\"margin-right:6px;font-size:16px;\">{label}</span>";
