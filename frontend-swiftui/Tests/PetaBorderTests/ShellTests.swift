@@ -54,6 +54,7 @@ final class ShellTests: XCTestCase {
         let pageId = try XCTUnwrap(page(shell)).page.id
 
         shell.startEditing(item.id)
+        XCTAssertEqual(shell.view.outline.focusedItemId, item.id)
         shell.typed("typed in SwiftUI 日本語", into: item.id)
 
         XCTAssertEqual(shell.view.outline.rows[0].item.body, "typed in SwiftUI 日本語")
