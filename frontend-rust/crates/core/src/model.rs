@@ -514,6 +514,15 @@ mod tests {
         assert_eq!(value, PropertyValue::Text("1.5".into()));
     }
 
+    // プロパティ値は、サーバーと同じ形の JSON に書かれる。文字列は文字列に、リストは配列になる。
+    #[test]
+    fn writes_json_in_the_shape_of_the_server() {
+        let text = PropertyValue::Text("1.5".into());
+        let list = PropertyValue::List(vec!["x".into(), "y".into()]);
+        assert_eq!(serde_json::to_string(&text).unwrap(), r#""1.5""#);
+        assert_eq!(serde_json::to_string(&list).unwrap(), r#"["x","y"]"#);
+    }
+
     // ItemPosition は first・last・after:<id> の文字列を解析して同じ文字列に戻し、after は "after:x" という JSON 文字列にシリアライズされる。
     #[test]
     fn position_round_trips() {
