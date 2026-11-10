@@ -69,6 +69,17 @@ under `generated/`. Run it again after a change in Rust.
 
 The app needs a running journal server (see `BUILD.md` at the top of the repository).
 
+`run.sh` does all of the below: it builds the app (the Release build), ends a running app, and
+starts the new one. What follows its own options goes to the app:
+
+```
+cd peta-journal/frontend-swiftui
+./run.sh -url /pages/notes     # --generate first makes generated/ again, after a change in Rust
+./run.sh --help
+```
+
+By hand, the steps are:
+
 ```
 cd peta-journal/frontend-swiftui
 ./generate.sh
