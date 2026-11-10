@@ -36,6 +36,32 @@ test.describe('deleting a selected parent', () => {
     expect(back.map(i => i.id)).toEqual(items.map(i => i.id));
   });
 
+  test('Delete of every item writes with one request, and the page shows the empty item the server made', async ({ page, request }) => {
+    const server = new Server(request);
+    const p = await server.newDocPage('delete-everything');
+    const items = await server.fill(p.id, ['a', '  a1']);
+    await openPage(page, p.title);
+    await openEditor(page, items[0].id);
+    await page.keyboard.press('Shift+ArrowDown');  // leaves the editor: a and a1 are selected
+    await expect(page.locator('app-outline-item .outline-item.selected')).toHaveCount(2);
+    const posts: unknown[] = [];
+    page.on('request', r => {
+      if (r.method() !== 'GET') posts.push([`${r.method()} ${new URL(r.url()).pathname}`, r.postDataJSON()]);
+    });
+
+    await page.keyboard.press('Delete');
+
+    const left = await server.itemsSettled(p.id, i => i.length === 1 && i[0].body === '');
+    await expect(page.locator(`[id="${left[0].id}"]`)).toHaveCount(1);
+    await expect(page.locator('app-outline-item')).toHaveCount(1);
+    // The first request is the question whether another item transcludes these; it writes nothing
+    const itemIds = items.map(i => i.id);
+    expect(posts).toEqual([
+      ['POST /api/items/transcluded', { itemIds }],
+      ['POST /api/items/delete', { itemIds }],
+    ]);
+  });
+
   test('Delete removes a collapsed parent with its hidden children', async ({ page, request }) => {
     const server = new Server(request);
     const p = await server.newDocPage('collapsed-parent');
