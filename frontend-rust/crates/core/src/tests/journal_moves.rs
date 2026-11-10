@@ -241,3 +241,25 @@ fn text_typed_just_before_a_move_to_another_day_travels_in_the_move_itself() {
     h.fire_timers();
     assert!(crate::harness::update_calls(&h.api).is_empty());
 }
+// 別の日への移動が断られると、画面は変わらず、要求に入れた文はもう一度自動保存にかけられる。次の移動を始められる。
+#[test]
+fn after_a_refused_move_to_another_day_nothing_changes_and_the_typed_text_is_auto_saved_again() {
+    let mut h = harness();
+    typed(&mut h, "d", "typed");
+    h.api.fail_next("MoveItemsToJournal", "offline");
+    h.send(Event::MoveDown {
+        item_id: "d".into(),
+    });
+    assert_eq!(h.items_ids(), ["a", "a1", "b", "c", "d"]);
+    assert!(h.navigations.is_empty());
+    assert!(
+        !h.api.called("GetOrCreateJournal"),
+        "the journal is not read again"
+    );
+    assert!(!h.model.move_in_progress);
+    h.fire_timers();
+    assert_eq!(
+        crate::harness::update_calls(&h.api),
+        [("d".into(), Some("typed".into()))]
+    );
+}
