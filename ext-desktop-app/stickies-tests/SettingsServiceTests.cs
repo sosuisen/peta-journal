@@ -4,7 +4,10 @@ namespace Stickies.Tests;
 
 public sealed class SettingsServiceTests : IDisposable
 {
-    private readonly string _path = Path.Combine(Path.GetTempPath(), $"peta-stickies-test-{Guid.NewGuid()}");
+    private readonly string _path = Path.Combine(
+        Path.GetTempPath(),
+        $"peta-stickies-test-{Guid.NewGuid()}"
+    );
 
     public void Dispose()
     {

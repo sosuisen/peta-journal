@@ -40,9 +40,12 @@ public class ItemModel
     {
         get
         {
-            if (!Types.Contains("task")) return null;
-            if (HasProperty("end")) return Models.TaskState.Done;
-            if (HasProperty("begin")) return Models.TaskState.Running;
+            if (!Types.Contains("task"))
+                return null;
+            if (HasProperty("end"))
+                return Models.TaskState.Done;
+            if (HasProperty("begin"))
+                return Models.TaskState.Running;
             return Models.TaskState.Todo;
         }
     }
@@ -50,7 +53,8 @@ public class ItemModel
     // An empty value means that the time is not set.
     private bool HasProperty(string key)
     {
-        if (!Properties.TryGetValue(key, out var value)) return false;
+        if (!Properties.TryGetValue(key, out var value))
+            return false;
         return value.ValueKind switch
         {
             JsonValueKind.Null or JsonValueKind.Undefined => false,

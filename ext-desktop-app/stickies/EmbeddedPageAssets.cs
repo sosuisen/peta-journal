@@ -18,7 +18,8 @@ internal static class EmbeddedPageAssets
     internal static readonly PageAssets Value = new(
         Css: Read("page.css"),
         RendererScript: Read("fm-ast2html.js"),
-        PageScript: Read("page.js"));
+        PageScript: Read("page.js")
+    );
 
     private static string Read(string name)
     {

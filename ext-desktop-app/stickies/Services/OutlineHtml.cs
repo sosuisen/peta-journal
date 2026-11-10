@@ -20,8 +20,13 @@ internal static class OutlineHtml
         ArgumentNullException.ThrowIfNull(collapsedItemIds);
 
         var parentIds = ParentIds(items);
-        return string.Join("\n", VisibleItems(items, collapsedItemIds).Select(item =>
-            Row(item, parentIds.Contains(item.Id), collapsedItemIds.Contains(item.Id))));
+        return string.Join(
+            "\n",
+            VisibleItems(items, collapsedItemIds)
+                .Select(item =>
+                    Row(item, parentIds.Contains(item.Id), collapsedItemIds.Contains(item.Id))
+                )
+        );
     }
 
     private static HashSet<string> ParentIds(IList<ItemModel> items)
@@ -36,13 +41,17 @@ internal static class OutlineHtml
     }
 
     // Leaves out the children of the collapsed items (same logic as frontend visibleItems).
-    private static List<ItemModel> VisibleItems(IList<ItemModel> items, IReadOnlySet<string> collapsedItemIds)
+    private static List<ItemModel> VisibleItems(
+        IList<ItemModel> items,
+        IReadOnlySet<string> collapsedItemIds
+    )
     {
         var visibleItems = new List<ItemModel>();
         int skipLevel = -1;
         foreach (var item in items)
         {
-            if (skipLevel >= 0 && item.Level > skipLevel) continue;
+            if (skipLevel >= 0 && item.Level > skipLevel)
+                continue;
             skipLevel = -1;
             visibleItems.Add(item);
             if (collapsedItemIds.Contains(item.Id))
@@ -61,9 +70,10 @@ internal static class OutlineHtml
 
         var marker = Marker(item, hasChildren, isCollapsed);
         var astAttr = $" data-ast=\"{EscapeHtmlAttr(item.Ast)}\"";
-        var style = marker.Length > 0
-            ? $"padding-left:{indent}px;padding:4px 8px 4px {indent + 8}px;display:flex;align-items:baseline;"
-            : $"padding-left:{indent}px;padding:4px 8px 4px {indent + 8}px;";
+        var style =
+            marker.Length > 0
+                ? $"padding-left:{indent}px;padding:4px 8px 4px {indent + 8}px;display:flex;align-items:baseline;"
+                : $"padding-left:{indent}px;padding:4px 8px 4px {indent + 8}px;";
         return $"<div style=\"{style}\">{marker}<div{astAttr}></div></div>";
     }
 
@@ -73,7 +83,8 @@ internal static class OutlineHtml
         // with and without children stand in one column.
         const string slotStyle = "display:inline-block;width:10px;flex-shrink:0;margin-right:6px;";
         var arrow = isCollapsed ? "&#x25B6;" : "&#x25BC;";
-        var toggle = $"<span class=\"collapse-toggle\" data-item-id=\"{item.Id}\" style=\"{slotStyle}color:#666;cursor:pointer;font-size:10px;user-select:none;\">{arrow}</span>";
+        var toggle =
+            $"<span class=\"collapse-toggle\" data-item-id=\"{item.Id}\" style=\"{slotStyle}color:#666;cursor:pointer;font-size:10px;user-select:none;\">{arrow}</span>";
 
         if (item.TaskState is { } taskState)
         {
@@ -83,14 +94,15 @@ internal static class OutlineHtml
             {
                 TaskState.Running => " data-running",
                 TaskState.Done => " checked",
-                _ => ""
+                _ => "",
             };
             // A checkbox takes the place of the bullet, so the arrow needs a place of its own,
             // to the left of the checkbox.
             var slot = hasChildren ? toggle : $"<span style=\"{slotStyle}\"></span>";
             return $"{slot}<input type=\"checkbox\" class=\"task-checkbox\" tabindex=\"-1\"{state}>";
         }
-        if (hasChildren) return toggle;
+        if (hasChildren)
+            return toggle;
         if (!item.Types.Contains("heading"))
         {
             return "<span style=\"margin-right:6px;color:#999;\">&#x2022;</span>";
@@ -104,7 +116,8 @@ internal static class OutlineHtml
     /// </summary>
     private static bool HasNoText(string ast)
     {
-        if (string.IsNullOrEmpty(ast)) return true;
+        if (string.IsNullOrEmpty(ast))
+            return true;
         using var document = System.Text.Json.JsonDocument.Parse(ast);
         return !document.RootElement.TryGetProperty("children", out var children)
             || children.GetArrayLength() == 0;
@@ -112,6 +125,9 @@ internal static class OutlineHtml
 
     private static string EscapeHtmlAttr(string text)
     {
-        return text.Replace("&", "&amp;").Replace("\"", "&quot;").Replace("<", "&lt;").Replace(">", "&gt;");
+        return text.Replace("&", "&amp;")
+            .Replace("\"", "&quot;")
+            .Replace("<", "&lt;")
+            .Replace(">", "&gt;");
     }
 }

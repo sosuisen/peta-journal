@@ -43,7 +43,8 @@ public class SettingsService
 {
     private static readonly string DefaultPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        ".peta-stickies");
+        ".peta-stickies"
+    );
 
     private readonly string _path;
     private StickiesSettings _settings = new();
@@ -51,9 +52,8 @@ public class SettingsService
     /// <summary>
     /// The settings in the file of the user, <c>~/.peta-stickies</c>.
     /// </summary>
-    public SettingsService() : this(DefaultPath)
-    {
-    }
+    public SettingsService()
+        : this(DefaultPath) { }
 
     /// <summary>
     /// The settings in a file of the caller. The tests use it, so that they do not write
@@ -66,10 +66,7 @@ public class SettingsService
         _path = path;
     }
 
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        WriteIndented = true
-    };
+    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
     public IReadOnlyList<StickyWindowSettings> Windows => _settings.Windows;
 
@@ -80,8 +77,9 @@ public class SettingsService
             if (File.Exists(_path))
             {
                 var json = File.ReadAllText(_path);
-                _settings = JsonSerializer.Deserialize<StickiesSettings>(json, JsonOptions)
-                            ?? new StickiesSettings();
+                _settings =
+                    JsonSerializer.Deserialize<StickiesSettings>(json, JsonOptions)
+                    ?? new StickiesSettings();
             }
         }
         catch
@@ -120,7 +118,8 @@ public class SettingsService
     {
         ArgumentNullException.ThrowIfNull(windowSettings);
         var idx = _settings.Windows.FindIndex(w => w.Id == windowSettings.Id);
-        if (idx < 0) return;
+        if (idx < 0)
+            return;
         _settings.Windows[idx] = windowSettings;
         Save();
     }
