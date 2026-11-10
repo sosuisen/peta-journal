@@ -80,3 +80,15 @@ fn a_japanese_page_name_is_read_as_it_is() {
         page("日記/メモ", None)
     );
 }
+
+// エンコードされていないURLでは、#の後ろが、開いた後で移動する項目のidになる。
+#[test]
+fn what_follows_the_hash_of_a_url_is_the_item_to_go_to() {
+    assert_eq!(Route::parse_url("/pages/a#item1"), page("a", Some("item1")));
+}
+
+// #のないURLは、ページだけを指す。
+#[test]
+fn a_url_without_a_fragment_names_only_the_page() {
+    assert_eq!(Route::parse_url("/pages/a"), page("a", None));
+}

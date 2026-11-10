@@ -13,7 +13,7 @@ mod server;
 mod shell;
 
 pub use server::connect;
-pub use shell::{BorderError, Host, NativeShell, ShellEffect, ShellEffectFfi};
+pub use shell::{BorderError, Host, NativeShell, NothingThere, ShellEffect, ShellEffectFfi};
 
 #[cfg(test)]
 mod tests;

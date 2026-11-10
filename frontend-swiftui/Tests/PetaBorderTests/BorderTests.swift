@@ -87,6 +87,14 @@ final class BorderTests: XCTestCase {
         }
     }
 
+    // URLでページを開ける。何も指さないURLは、エラーになる。
+    func testAPageIsOpenedByItsURL() throws {
+        let border = border()
+
+        XCTAssertNoThrow(try border.open("/pages/notes"))
+        XCTAssertThrowsError(try border.open(""))
+    }
+
     // 待っていない依頼への答えは、エラーになる。
     func testAnAnswerNobodyWaitsForIsAnError() {
         let border = border()

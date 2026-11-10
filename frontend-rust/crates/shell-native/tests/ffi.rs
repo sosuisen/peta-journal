@@ -64,3 +64,19 @@ fn bytes_that_cannot_be_read_come_back_as_an_error() {
     assert!(core.update(&[0xff; 3]).is_err());
     assert!(core.resolve(9_999, &[]).is_err());
 }
+
+// 入口から、URLでページを開ける。サーバーに、そのページを尋ねる。何も指さないURLは、エラーの文になる。
+#[test]
+fn a_page_is_opened_by_its_url_from_the_entrance() {
+    let (address, seen) = start_server();
+    let core = PetaCore::new(address, Arc::new(Kept::default()));
+
+    core.open("/pages/notes".into()).unwrap();
+
+    wait_until("the server is asked for the page", || {
+        let seen = seen.lock().unwrap();
+        seen.iter()
+            .any(|line| line.starts_with("POST /api/pages/doc"))
+    });
+    assert!(core.open(String::new()).is_err());
+}

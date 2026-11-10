@@ -197,8 +197,9 @@ cargo build --release -p peta-shell-emacs
 
 ## SwiftUI frontend (frontend-swiftui)
 
-The shell for macOS, a Walking Skeleton so far. `frontend-swiftui/README.md` describes the tools,
-the build and the tests. Its tests do not run in CI.
+The shell for macOS, a Walking Skeleton so far: it opens one page and saves what is typed into an
+item. `frontend-swiftui/README.md` describes the tools, the build of the app and the tests. Its
+tests do not run in CI.
 
 ## Atlas crate (atlas-rust)
 

@@ -375,3 +375,24 @@ fn bytes_that_cannot_be_read_are_refused() {
     screen.send(&Event::NavigateHome);
     assert_eq!(screen.navigations(), ["/today"]);
 }
+
+// シェルは、URLでページを開ける。今日の日付は、Rust側の時計から入る。
+#[test]
+fn the_shell_opens_a_page_by_its_url() {
+    let screen = Screen::new();
+
+    screen.shell.open("/pages/notes#a").unwrap();
+
+    wait_until("the page is in the view", || {
+        screen.view().contains("the body of a")
+    });
+    assert!(screen.view().contains("2026-11-06"));
+}
+
+// 何も指さないURLは、開けない。
+#[test]
+fn a_url_that_names_nothing_is_refused() {
+    let screen = Screen::new();
+
+    assert!(screen.shell.open("").is_err());
+}

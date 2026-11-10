@@ -1,8 +1,8 @@
 # SwiftUI frontend (frontend-swiftui)
 
-The SwiftUI shell of PetaJournal for macOS. It is a Walking Skeleton so far (ADR 024): the Rust
-core can be called from Swift, and tests show that Swift and Rust read each other's bytes. The
-app itself does not exist yet.
+The SwiftUI shell of PetaJournal for macOS. It is a Walking Skeleton so far (ADR 024): the app
+opens one page, shows its items as text fields, and what is typed into an item is saved. It has
+no keys of the outliner, no sidebar and no search yet.
 
 The core is the same Crux core as in the web and the Emacs frontends. `frontend-rust/crates/shell-native`
 wraps it for a shell that is not written in Rust. Calls to the journal server, timers and the
@@ -25,8 +25,8 @@ and sends events and answers the same way.
 
   The version has to be the same as the `boltffi` dependency in
   `frontend-rust/crates/shell-native/Cargo.toml`.
-- [XcodeGen](https://github.com/yonaskolb/XcodeGen) 2.46.0. It will make the Xcode project of
-  the app from a text file. Nothing uses it yet:
+- [XcodeGen](https://github.com/yonaskolb/XcodeGen) 2.46.0. It makes the Xcode project of the
+  app from `project.yml`:
 
   ```
   brew install xcodegen
@@ -49,14 +49,63 @@ swift test
   class `PetaCore` that calls it. BoltFFI makes both, from `frontend-rust/crates/shell-native/src/ffi.rs`
   and `boltffi.toml` next to it.
 
-`Sources/PetaBorder` is hand-written: `Border` puts the two together, so the rest of the shell
-works with the generated types and never with bytes.
+`Sources/PetaBorder` is hand-written. It has no SwiftUI in it, so `swift test` can test it:
+
+- `Border` puts the two packages together, so the rest of the shell works with the generated
+  types and never with bytes.
+- `Shell` is what one window shows. It keeps the view model up to date with the core and sends
+  what the user did. The core calls from its own threads; `Shell` moves each request to the main
+  thread, in order.
+
+## Build and run the app
+
+The app needs a running journal server (see `BUILD.md` at the top of the repository).
+
+```
+cd peta-journal/frontend-swiftui
+./generate.sh
+xcodegen generate     # makes PetaJournal.xcodeproj from project.yml
+xcodebuild -project PetaJournal.xcodeproj -scheme PetaJournal -derivedDataPath build build
+open build/Build/Products/Debug/PetaJournal.app
+```
+
+Or open `PetaJournal.xcodeproj` in Xcode and run it there. The project is not kept in the
+repository: run `xcodegen generate` again after a change in `project.yml` or a new file in `App/`.
+
+Without arguments the app opens today's journal of the server at `http://localhost:8087`. To
+choose the server and the page:
+
+```
+open build/Build/Products/Debug/PetaJournal.app --args -server http://localhost:8087 -url /pages/notes
+```
+
+`open` only brings a running app to the front: it starts no new one, and the arguments and a new
+build are ignored. Quit the app first (Cmd+Q). Start the journal server before the app, too: the
+app does not load the page again when the server comes up later.
+
+`App/` holds the views. They draw the view model of `Shell` and have no logic of their own, and
+no tests.
 
 ## Tests
 
-`swift test` runs `Tests/PetaBorderTests`. They need no journal server. They check that Swift
-reads what Rust writes (the view model, the requests) and that Rust reads what Swift writes
-(events, answers).
+`swift test` runs `Tests/PetaBorderTests`.
+
+`BorderTests` need no journal server. They check that Swift reads what Rust writes (the view
+model, the requests) and that Rust reads what Swift writes (events, answers).
+
+`ShellTests` run `Shell` against a real journal server: a page opens, and what is typed is saved
+on the server. They are skipped unless `PETA_E2E_SERVER` names the server program:
+
+```
+cd peta-journal/journal-server-rust
+cargo build --release
+cd ../frontend-swiftui
+PETA_E2E_SERVER=$PWD/../journal-server-rust/target/release/journal-server swift test
+```
+
+The tests start the server themselves, on port 18097, with all its files in a temporary folder.
+They check that the server writes its Markdown there before they use it, so the notes of whoever
+runs the tests are never touched.
 
 Why these tests matter: the Swift types are generated from the shape of the Rust types, not from
 what serde writes. A Rust type with a hand-written `Serialize` can write other bytes than its

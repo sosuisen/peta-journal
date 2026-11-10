@@ -3,7 +3,6 @@
 //! back what the user does, as JSON lines over stdin and stdout.
 
 pub mod protocol;
-pub mod route;
 pub mod runtime;
 pub mod shell;
 

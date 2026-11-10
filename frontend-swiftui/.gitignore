@@ -2,3 +2,6 @@
 /generated/
 # Swift Package Manager
 /.build/
+# Made by xcodegen from project.yml, and what xcodebuild builds
+/PetaJournal.xcodeproj/
+/build/

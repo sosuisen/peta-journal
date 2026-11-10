@@ -13,13 +13,17 @@ use peta_core::effects::{
     TimerOutput, UiOp, UiOutput,
 };
 use peta_core::rest::ClientId;
-use peta_core::{Effect, Event, PetaApp};
+use peta_core::{Effect, Event, PetaApp, Route};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, Weak};
 use std::thread;
 
 /// Why bytes could not cross the border.
 pub type BorderError = BridgeError<BincodeFfiFormat>;
+
+/// The URL names nothing that can be opened.
+#[derive(Debug, PartialEq, Eq)]
+pub struct NothingThere(pub String);
 
 /// What this side needs from the world outside the process.
 pub trait Host: Send + Sync + 'static {
@@ -117,6 +121,7 @@ impl Lanes {
 /// The core for one shell. The shell may call it from any thread.
 pub struct NativeShell {
     router: Arc<Router>,
+    host: Arc<dyn Host>,
 }
 
 impl NativeShell {
@@ -129,6 +134,7 @@ impl NativeShell {
         to_shell: impl Fn(Vec<u8>) + Send + Sync + 'static,
     ) -> NativeShell {
         let host = Arc::new(host);
+        let clock: Arc<dyn Host> = host.clone();
         let router = EffectRouter::new(Core::<PetaApp>::new(), |lanes: Lanes| {
             let send = {
                 let border = lanes.border.clone();
@@ -151,12 +157,25 @@ impl NativeShell {
             }
         });
         router.update(Event::Start { client_id });
-        NativeShell { router }
+        NativeShell {
+            router,
+            host: clock,
+        }
     }
 
     /// Takes an [`Event`] of the shell.
     pub fn update(&self, event: &[u8]) -> Result<(), BorderError> {
         self.router.routes.border.update(event)
+    }
+
+    /// Opens what the URL names, such as `/pages/notes` or `/today`. The core asks for this
+    /// with a navigation, and the shell with the first page.
+    pub fn open(&self, url: &str) -> Result<(), NothingThere> {
+        let route = Route::parse_url(url).ok_or_else(|| NothingThere(url.to_string()))?;
+        let (local, _) = self.host.now();
+        let today = format!("{:04}-{:02}-{:02}", local.year, local.month, local.day);
+        self.router.update(Event::Route { route, today });
+        Ok(())
     }
 
     /// Takes the answer of the shell to the request `id`: the output of its operation. A request

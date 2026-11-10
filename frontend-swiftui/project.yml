@@ -1,0 +1,28 @@
+# The Xcode project of the app. XcodeGen makes PetaJournal.xcodeproj from this file:
+#   xcodegen generate
+# The project itself is not kept in the repository.
+name: PetaJournal
+options:
+  bundleIdPrefix: petajournal
+  deploymentTarget:
+    macOS: "13.0"
+packages:
+  # Package.swift of this folder: the border and, through it, the generated packages
+  PetaBorder:
+    path: .
+targets:
+  PetaJournal:
+    type: application
+    platform: macOS
+    sources:
+      - App
+    dependencies:
+      - package: PetaBorder
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        MARKETING_VERSION: "0.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+        # Signed to run on this Mac only. The static library of the core is arm64 only
+        CODE_SIGN_IDENTITY: "-"
+        ARCHS: arm64

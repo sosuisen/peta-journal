@@ -97,6 +97,16 @@ impl Route {
             fragment: fragment.filter(|f| !f.is_empty()).map(str::to_string),
         })
     }
+
+    /// The route of a URL that is not encoded, with the item to go to after a `#`. The URLs of
+    /// the core's own navigation are like this. A shell with encoded URLs decodes them itself
+    /// and calls [`Route::parse`].
+    pub fn parse_url(url: &str) -> Option<Route> {
+        match url.split_once('#') {
+            Some((path, fragment)) => Route::parse(path, Some(fragment)),
+            None => Route::parse(url, None),
+        }
+    }
 }
 
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
