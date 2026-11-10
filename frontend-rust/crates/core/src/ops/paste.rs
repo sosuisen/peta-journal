@@ -1,18 +1,15 @@
 //! Pastes into an item editor. Text goes to the server in one request: the server cuts it into
 //! items, joins the first piece to the text before the cursor and the last piece to the text
-//! after it, and writes them all or none (ADR 011). An image is uploaded and linked at the
-//! cursor.
+//! after it, and writes them all or none (ADR 011). An image is uploaded, and
+//! its link is pasted the same way.
 
-use crate::app::{apply, done, log_error, run, Cmd, Event, Model};
+use crate::app::{done, log_error, run, Cmd, Event, Model};
 use crate::model::{ItemPosition, PasteCursor, PasteMode, Pasted};
-use crate::ops::edit::{
-    discard_pending_edit, focus_editor, mark_dirty, record_typing, save_body, show_parsed,
-    typed_body,
-};
+use crate::ops::edit::{discard_pending_edit, mark_dirty, record_typing, show_parsed, typed_body};
 use crate::ops::file_reload::reload_shown_page;
 use crate::outline::tree::edit_context_of;
 use crate::outline::CursorState;
-use crate::util::{char_len, split_at_char};
+use crate::util::char_len;
 use crux_core::Command;
 
 /// Asks the server to paste text into an item. Supports plain text, tree markdown, and flat
@@ -25,14 +22,25 @@ pub fn paste_text(
     cursor: usize,
     raw: bool,
 ) -> Cmd {
-    let Some(item) = model.cloned_item(item_id) else {
-        return done();
-    };
     let (text, mode) = match &model.clipboard {
         _ if raw => (text, PasteMode::Raw),
         // Text copied from this app is pasted from the Flat Markdown stored with it
         Some((flat, tree)) if *tree == text => (flat.clone(), PasteMode::Flat),
         _ => (text, PasteMode::Auto),
+    };
+    request_paste(model, item_id, text, mode, cursor)
+}
+
+/// Sends a paste to the server with the body the item has now.
+fn request_paste(
+    model: &mut Model,
+    item_id: &str,
+    text: String,
+    mode: PasteMode,
+    cursor: usize,
+) -> Cmd {
+    let Some(item) = model.cloned_item(item_id) else {
+        return done();
     };
     // What was typed before the paste travels in the request. Its auto-save is dropped, or
     // it would overwrite the pasted text a moment later
@@ -149,33 +157,25 @@ pub fn place_cursor(model: &mut Model, cursor: PasteCursor, fallback: PasteCurso
     run(move |api| async move { api.focus_editor(Some(cursor.item_id), keys).await })
 }
 
-/// Uploads a pasted image and puts a link to it at the cursor.
-pub fn paste_image(model: &mut Model, item_id: &str, file: u64, cursor: usize) -> Cmd {
-    let Some(item) = model.cloned_item(item_id) else {
-        return done();
-    };
+/// Uploads a pasted image. Its link is pasted once the server has the image.
+pub fn paste_image(item_id: &str, file: u64, cursor: usize) -> Cmd {
+    let item_id = item_id.to_string();
     run(move |api| async move {
-        let file_name = match api.upload_asset(file).await {
-            Ok(name) => name,
-            Err(e) => return log_error(format!("Failed to paste image: {e}")),
-        };
-        let markdown = format!("![{file_name}](../assets/{file_name})");
-        let (before, after) = split_at_char(&item.body, cursor);
-        let new_body = format!("{before}{markdown}{after}");
-        let it = item.clone();
-        apply(&api, "paste image: discard pending", move |m| {
-            discard_pending_edit(m, &it)
-        });
-        if let Err(e) = save_body(&api, &item.id, &new_body).await {
-            return log_error(format!("Failed to paste image: {e}"));
+        match api.upload_asset(file).await {
+            Ok(file_name) => api.send_event(Event::ImageUploaded {
+                item_id,
+                file_name,
+                cursor,
+            }),
+            Err(e) => log_error(format!("Failed to paste image: {e}")),
         }
-        let new_pos = cursor + crate::util::char_len(&markdown);
-        let id = item.id.clone();
-        apply(&api, "paste image: cursor", move |m| {
-            mark_dirty(m, &id);
-            m.state.set_focused_item(&id, Some(new_pos));
-            done()
-        });
-        focus_editor(&api, Some(item.id.clone())).await;
     })
+}
+
+/// Puts a link to an uploaded image at the cursor, as a paste of text that stays in one
+/// item: the server writes it with one request, into the body the item has now. Text typed
+/// while the image was on its way is kept.
+pub fn link_image(model: &mut Model, item_id: &str, file_name: &str, cursor: usize) -> Cmd {
+    let markdown = format!("![{file_name}](../assets/{file_name})");
+    request_paste(model, item_id, markdown, PasteMode::Raw, cursor)
 }

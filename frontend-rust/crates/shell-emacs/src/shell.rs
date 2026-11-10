@@ -75,7 +75,7 @@ pub struct Shell<H: Host> {
     next_api: u64,
     /// The paths of the images Emacs chose. The core knows each by its index here.
     image_files: Vec<String>,
-    /// The calls under way for an image: its upload, then the save of its link.
+    /// The calls under way for an image: its upload, then the paste of its link.
     image_calls: HashSet<u64>,
     timers: HashMap<u64, Request<TimerOp>>,
     sse: Option<(u64, Request<SseOp>)>,
@@ -668,8 +668,8 @@ impl<H: Host> Shell<H> {
 
     /// Tells Emacs which line was handled, and whether the core still holds keys.
     fn tell_state(&mut self) {
-        // The core writes the link into the body it had at the start of the insertion: a key typed
-        // in the meantime would be overwritten
+        // The link goes in at the cursor the insertion started with: a key typed in the meantime
+        // would move the text under it
         let holding = self.core.view().outline.key_relay_holding || !self.image_calls.is_empty();
         if self.ack != self.sent.ack || holding != self.sent.holding {
             self.sent.ack = self.ack;

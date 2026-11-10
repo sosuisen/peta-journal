@@ -498,23 +498,100 @@ fn after_a_failed_paste_into_a_transclusion_root_the_typed_text_is_saved_to_the_
     );
 }
 
-// 画像はアップロードされてカーソル位置にリンクされ、カーソルはリンクの直後に置かれる。
-#[test]
-fn an_image_is_uploaded_linked_at_the_cursor_and_the_cursor_goes_after_the_link() {
-    let mut h = harness();
+const LINK: &str = "![pic.png](../assets/pic.png)";
+
+fn paste_image(h: &mut Harness, item_id: &str, cursor: usize) {
     h.send(Event::PasteImage {
-        item_id: "a".into(),
+        item_id: item_id.into(),
         file: 7,
-        cursor: 2,
+        cursor,
     });
-    assert!(h.api.called("UploadAsset"));
+}
+
+// 画像はアップロードされ、そのリンクが、そのまま1項目に入れる貼り付けとして1つの要求で送られる。項目の保存は別には送らない。
+// リンクはカーソル位置に入り、カーソルはリンクの直後に置かれる。
+#[test]
+fn an_image_is_uploaded_and_its_link_is_pasted_at_the_cursor_with_one_request() {
+    let mut h = harness();
+    paste_image(&mut h, "a", 2);
+
+    assert_eq!(
+        h.api.calls,
+        [
+            ApiOp::UploadAsset { file: 7 },
+            ApiOp::PasteText {
+                item_id: "a".into(),
+                body: "ab|cd".into(),
+                cursor: 2,
+                text: LINK.into(),
+                mode: PasteMode::Raw,
+            }
+        ]
+    );
     assert_eq!(
         h.model.state.get_item_by_id("a").unwrap().body,
-        "ab![pic.png](../assets/pic.png)|cd"
+        format!("ab{LINK}|cd")
     );
-    assert_eq!(
-        h.focus_cursor(),
-        Some(2 + "![pic.png](../assets/pic.png)".len())
-    );
+    assert_eq!(h.focus_cursor(), Some(2 + LINK.len()));
     assert_eq!(h.focused_editor_requests(), [Some("a".to_string())]);
+}
+
+// 画像の貼り付けは、1つのUndoエントリとして記録される。
+#[test]
+fn an_image_paste_is_recorded_as_one_undo_entry() {
+    let mut h = harness();
+    paste_image(&mut h, "a", 2);
+
+    let entry = h.model.undo.pop_undo().unwrap();
+    assert_eq!(entry.label, "paste");
+    assert!(h.model.undo.pop_undo().is_none());
+}
+
+// 本文は、アップロードの答えが届いたときのものを送る。待つ間に打ってまだ保存していない文は、貼り付けの要求に入り、その自動保存は取り消される。
+#[test]
+fn text_typed_while_the_image_uploads_travels_in_the_paste() {
+    let mut h = harness();
+    typed(&mut h, "a", "typed");
+    h.send(Event::ImageUploaded {
+        item_id: "a".into(),
+        file_name: "pic.png".into(),
+        cursor: 5,
+    });
+    h.fire_timers();
+
+    assert_eq!(
+        h.api.calls,
+        [ApiOp::PasteText {
+            item_id: "a".into(),
+            body: "typed".into(),
+            cursor: 5,
+            text: LINK.into(),
+            mode: PasteMode::Raw,
+        }]
+    );
+}
+
+// アップロードに失敗すると、貼り付けは送られず、画面もUndoも変わらない。
+#[test]
+fn a_failed_upload_pastes_nothing() {
+    let mut h = harness();
+    h.api.fail_next("UploadAsset", "too large");
+    paste_image(&mut h, "a", 2);
+
+    assert!(!h.api.called("PasteText"));
+    assert_eq!(h.bodies(), ["a=ab|cd", "z=body of z"]);
+    assert!(!h.model.undo.can_undo());
+}
+
+// アップロードを待つ間に項目が画面から消えていれば、リンクは貼り付けない。
+#[test]
+fn the_link_of_an_image_is_not_pasted_into_an_item_that_is_gone() {
+    let mut h = harness();
+    h.send(Event::ImageUploaded {
+        item_id: "gone".into(),
+        file_name: "pic.png".into(),
+        cursor: 0,
+    });
+
+    assert!(h.api.calls.is_empty());
 }
