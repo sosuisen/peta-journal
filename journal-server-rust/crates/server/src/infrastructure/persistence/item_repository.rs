@@ -258,13 +258,13 @@ impl ItemRepository {
         Ok(found)
     }
 
-    /// Writes a body that says the same as the one before, as when a file it links to got a
-    /// new name. Why not `patch_in`: the item was not edited, so its modified date stays, and
+    /// Writes the body of the item, when it says the same as the one before, as when a file
+    /// it links to got a new name. Why not `patch_in`: the item was not edited, so its modified date stays, and
     /// so do its types.
-    pub fn rewrite_body_in(tx: &Connection, id: &Hmtid, body: &str, ast: &str) -> AppResult<()> {
+    pub fn rewrite_body_in(tx: &Connection, item: &Item) -> AppResult<()> {
         tx.execute(
             "UPDATE items SET body = ?, ast = ? WHERE id = ?",
-            params![body, ast, id.as_str()],
+            params![item.body, item.ast, item.id.as_str()],
         )?;
         Ok(())
     }

@@ -141,8 +141,9 @@ fn relink_items(state: &AppState, renames: &[Rename]) -> anyhow::Result<Vec<Item
         let body = relink(&item.body, &new_names);
         if body != item.body {
             let ast = state.parser.parse_to_ast(&body);
-            ItemRepository::rewrite_body_in(&tx, &item.id, &body, &ast)?;
-            relinked.push(Item { body, ast, ..item });
+            let item = Item { body, ast, ..item };
+            ItemRepository::rewrite_body_in(&tx, &item)?;
+            relinked.push(item);
         }
     }
     tx.commit()?;
