@@ -181,7 +181,7 @@ final class OutlineScreenTests: XCTestCase {
         }
     }
 
-    private static let (returnKey, downKey, zKey): (UInt16, UInt16, UInt16) = (36, 125, 6)
+    private static let (returnKey, downKey, upKey, zKey): (UInt16, UInt16, UInt16, UInt16) = (36, 125, 126, 6)
 
     // Shift+Enterは、項目を分けずに、項目の中で改行する。
     func testShiftEnterBreaksTheLineInsideTheItem() async throws {
@@ -217,16 +217,20 @@ final class OutlineScreenTests: XCTestCase {
         try await waitUntil("the cursor is still in it") { self.focused?.string == "first" }
     }
 
-    // Control+下矢印は、子の項目を折りたたむ。
-    func testControlDownFoldsTheChildren() async throws {
+    // Command+上矢印は子の項目を隠し、Command+下矢印は表示する。カーソルは、文の中で動かない。
+    func testCommandUpHidesTheChildrenAndCommandDownShowsThem() async throws {
         try await twoItems()
         editors()[1].doCommand(by: #selector(NSResponder.insertTab(_:)))
         let first = editors()[0]
         window.makeFirstResponder(first)
+        first.setSelectedRange(NSRange(location: 3, length: 0))
 
-        press(Self.downKey, "\u{F701}", .control, in: first)
-
+        press(Self.upKey, "\u{F700}", .command, in: first)
         try await waitUntil("only the parent is shown") { self.editors().map(\.string) == ["first"] }
+        press(Self.downKey, "\u{F701}", .command, in: first)
+        try await waitUntil("the child is shown again") { self.editors().map(\.string) == ["first", "second"] }
+
+        XCTAssertEqual(first.selectedRange(), NSRange(location: 3, length: 0))
     }
 
     // 末尾でのDeleteは、次の項目をつなぐ。
