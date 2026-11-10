@@ -6,8 +6,8 @@ public enum EditorKey {
     case enter, tab, backTab, up, down, left, right, backspace, delete
     /// Makes the item a task, or steps the state of the task.
     case taskCycle
-    /// Hides or shows the children of the item.
-    case fold
+    /// Hides the children of the item, and shows them again.
+    case fold, unfold
     /// Moves the item among the items: up and down, and in and out by one level.
     case moveUp, moveDown, moveIn, moveOut
     case undo, redo
@@ -92,8 +92,11 @@ extension Shell {
             return atEnd ? .deleteAtEnd(itemId: itemId) : nil
         case .taskCycle:
             return .taskCycle(itemId: itemId)
-        case .fold:
-            return .collapseToggle(itemId: itemId)
+        case .fold, .unfold:
+            // The core has one event for both. Each key only goes its own way
+            guard let row = view.outline.rows.first(where: { $0.item.id == itemId }) else { return nil }
+            let turns = key == .fold ? row.hasChildren && !row.isCollapsed : row.isCollapsed
+            return turns ? .collapseToggle(itemId: itemId) : nil
         case .moveUp:
             return .moveUp(itemId: itemId)
         case .moveDown:
