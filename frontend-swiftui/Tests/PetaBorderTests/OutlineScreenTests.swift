@@ -160,4 +160,104 @@ final class OutlineScreenTests: XCTestCase {
             self.focused === self.editors()[0] && self.focused?.selectedRange().location == 5
         }
     }
+
+    /// Presses a key of the keyboard in the editor, as AppKit hands it over.
+    private func press(_ keyCode: UInt16, _ characters: String, _ modifiers: NSEvent.ModifierFlags, in editor: NSTextView) {
+        let event = NSEvent.keyEvent(
+            with: .keyDown, location: .zero, modifierFlags: modifiers, timestamp: 0,
+            windowNumber: window.windowNumber, context: nil, characters: characters,
+            charactersIgnoringModifiers: characters, isARepeat: false, keyCode: keyCode)!
+        editor.keyDown(with: event)
+    }
+
+    /// Two items, "first" and "second", with the cursor in the second.
+    private func twoItems() async throws {
+        let editor = editors()[0]
+        type("firstsecond", into: editor)
+        editor.setSelectedRange(NSRange(location: 5, length: 0))
+        editor.doCommand(by: #selector(NSResponder.insertNewline(_:)))
+        try await waitUntil("the cursor is in the new item") {
+            self.editors().count == 2 && self.focused === self.editors()[1]
+        }
+    }
+
+    private static let (returnKey, downKey, zKey): (UInt16, UInt16, UInt16) = (36, 125, 6)
+
+    // Shift+Enterは、項目を分けずに、項目の中で改行する。
+    func testShiftEnterBreaksTheLineInsideTheItem() async throws {
+        let editor = editors()[0]
+        type("ab", into: editor)
+        editor.setSelectedRange(NSRange(location: 1, length: 0))
+
+        press(Self.returnKey, "\r", .shift, in: editor)
+
+        XCTAssertEqual(bodies(), ["a\nb"])
+    }
+
+    // Control+Enterは、項目をタスクにする。文字は入らない。
+    func testControlEnterMakesTheItemATask() async throws {
+        let editor = editors()[0]
+        type("to do", into: editor)
+
+        press(Self.returnKey, "\r", .control, in: editor)
+
+        try await waitUntil("the item is a task") { self.shell.view.outline.rows[0].task == .notStarted }
+        XCTAssertEqual(bodies(), ["to do"])
+    }
+
+    // Shift+Option+下矢印は、項目を下へ動かす。カーソルは、その項目に残る。
+    func testShiftOptionDownMovesTheItemDown() async throws {
+        try await twoItems()
+        let first = editors()[0]
+        window.makeFirstResponder(first)
+
+        press(Self.downKey, "\u{F701}", [.shift, .option], in: first)
+
+        try await waitUntil("the first item is below") { self.bodies() == ["second", "first"] }
+        try await waitUntil("the cursor is still in it") { self.focused?.string == "first" }
+    }
+
+    // Control+下矢印は、子の項目を折りたたむ。
+    func testControlDownFoldsTheChildren() async throws {
+        try await twoItems()
+        editors()[1].doCommand(by: #selector(NSResponder.insertTab(_:)))
+        let first = editors()[0]
+        window.makeFirstResponder(first)
+
+        press(Self.downKey, "\u{F701}", .control, in: first)
+
+        try await waitUntil("only the parent is shown") { self.editors().map(\.string) == ["first"] }
+    }
+
+    // 末尾でのDeleteは、次の項目をつなぐ。
+    func testDeleteAtTheEndJoinsTheNextItem() async throws {
+        try await twoItems()
+        let first = editors()[0]
+        window.makeFirstResponder(first)
+        first.setSelectedRange(NSRange(location: 5, length: 0))
+
+        first.doCommand(by: #selector(NSResponder.deleteForward(_:)))
+
+        try await waitUntil("there is one editor again") { self.editors().map(\.string) == ["firstsecond"] }
+    }
+
+    // メニューの「取り消す」とControl+Zは、コアの操作を元に戻す。Shiftを足すと、やり直す。
+    func testUndoOfTheMenuAndControlZTakeBackAChangeOfTheOutline() async throws {
+        try await twoItems()
+        let second = editors()[1]
+        let level = shell.view.outline.rows[1].item.level
+        second.doCommand(by: #selector(NSResponder.insertTab(_:)))
+        XCTAssertEqual(shell.view.outline.rows[1].item.level, level + 1)
+
+        XCTAssertTrue(second.tryToPerform(Selector(("undo:")), with: nil))
+        try await waitUntil("the indent is taken back") { self.shell.view.outline.rows[1].item.level == level }
+        press(Self.zKey, "z", [.control, .shift], in: second)
+        try await waitUntil("the indent is made again") {
+            self.shell.view.outline.rows[1].item.level == level + 1
+        }
+        press(Self.zKey, "z", .control, in: second)
+        try await waitUntil("the indent is taken back again") {
+            self.shell.view.outline.rows[1].item.level == level
+        }
+    }
 }

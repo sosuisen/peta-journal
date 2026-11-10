@@ -3,7 +3,14 @@ import PetaTypes
 
 /// A key that means something to the outline, and not only to the text of an item.
 public enum EditorKey {
-    case enter, tab, backTab, up, down, left, right, backspace
+    case enter, tab, backTab, up, down, left, right, backspace, delete
+    /// Makes the item a task, or steps the state of the task.
+    case taskCycle
+    /// Hides or shows the children of the item.
+    case fold
+    /// Moves the item among the items: up and down, and in and out by one level.
+    case moveUp, moveDown, moveIn, moveOut
+    case undo, redo
 }
 
 /// The editor of an item as a key finds it.
@@ -66,9 +73,9 @@ extension Shell {
         case .enter:
             let nowMs = UInt64(Date().timeIntervalSince1970 * 1000)
             return .enterPressed(itemId: itemId, cursor: cursor, nowMs: nowMs)
-        case .tab:
+        case .tab, .moveIn:
             return .indent(itemId: itemId)
-        case .backTab:
+        case .backTab, .moveOut:
             return .outdent(itemId: itemId)
         case .up:
             return editor.onFirstLine ? .navigateUp(itemId: itemId, cursor: cursor) : nil
@@ -81,6 +88,20 @@ extension Shell {
             return atEnd ? .navigateDown(itemId: itemId, cursor: 0) : nil
         case .backspace:
             return atStart ? .backspaceAtStart(itemId: itemId) : nil
+        case .delete:
+            return atEnd ? .deleteAtEnd(itemId: itemId) : nil
+        case .taskCycle:
+            return .taskCycle(itemId: itemId)
+        case .fold:
+            return .collapseToggle(itemId: itemId)
+        case .moveUp:
+            return .moveUp(itemId: itemId)
+        case .moveDown:
+            return .moveDown(itemId: itemId)
+        case .undo:
+            return .undo
+        case .redo:
+            return .redo
         }
     }
 }

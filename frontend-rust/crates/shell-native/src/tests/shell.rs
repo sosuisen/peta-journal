@@ -28,6 +28,8 @@ struct Clock {
 struct FakeHost {
     clock: Arc<Clock>,
     calls: Arc<Mutex<Vec<ApiOp>>>,
+    /// The titles of the pages the server has answered for, in the order of the answers.
+    answered: Arc<Mutex<Vec<String>>>,
     /// Taken by the first connection. A later one finds no stream and waits for ever.
     stream: Mutex<Option<Receiver<SseEvent>>>,
 }
@@ -35,6 +37,13 @@ struct FakeHost {
 impl Host for FakeHost {
     fn call(&self, op: ApiOp) -> ApiResult<ApiOutput> {
         self.calls.lock().unwrap().push(op.clone());
+        if let ApiOp::GetOrCreateDoc { title, .. } = &op {
+            // A page the server is slow with: a request made after it could overtake it
+            if title == "slow" {
+                thread::sleep(Duration::from_millis(50));
+            }
+            self.answered.lock().unwrap().push(title.clone());
+        }
         match op {
             ApiOp::GetOrCreateDoc { .. } | ApiOp::GetPageById { .. } => {
                 Ok(ApiOutput::Page(PageWithItems {
@@ -85,6 +94,7 @@ struct Screen {
     shell: NativeShell,
     requests: Arc<Mutex<Vec<Request<ShellEffectFfi>>>>,
     calls: Arc<Mutex<Vec<ApiOp>>>,
+    answered: Arc<Mutex<Vec<String>>>,
     stream: Sender<SseEvent>,
     clock: Arc<Clock>,
 }
@@ -93,11 +103,13 @@ impl Screen {
     fn new() -> Screen {
         let requests: Arc<Mutex<Vec<Request<ShellEffectFfi>>>> = Arc::default();
         let calls: Arc<Mutex<Vec<ApiOp>>> = Arc::default();
+        let answered: Arc<Mutex<Vec<String>>> = Arc::default();
         let (stream, from_test) = channel();
         let clock: Arc<Clock> = Arc::default();
         let host = FakeHost {
             clock: clock.clone(),
             calls: calls.clone(),
+            answered: answered.clone(),
             stream: Mutex::new(Some(from_test)),
         };
         let kept = requests.clone();
@@ -109,6 +121,7 @@ impl Screen {
             shell,
             requests,
             calls,
+            answered,
             stream,
             clock,
         }
@@ -401,6 +414,21 @@ fn the_shell_opens_a_page_by_its_url() {
         screen.view().contains("the body of a")
     });
     assert!(screen.view().contains("2026-11-06"));
+}
+
+// サーバーへの要求は、コアが出した順に、1つずつ届く。前の要求が遅くても、後の要求が追い越さない。
+// 追い越すと、保存より先に結合が届いて、打った文字が消える。
+#[test]
+fn the_requests_reach_the_server_one_at_a_time_in_the_order_the_core_made_them() {
+    let screen = Screen::new();
+
+    screen.shell.open("/pages/slow").unwrap();
+    screen.shell.open("/pages/notes").unwrap();
+
+    wait_until("the server has answered for both pages", || {
+        screen.answered.lock().unwrap().len() == 2
+    });
+    assert_eq!(*screen.answered.lock().unwrap(), ["slow", "notes"]);
 }
 
 // 何も指さないURLは、開けない。
