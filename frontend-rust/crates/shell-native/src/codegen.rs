@@ -3,6 +3,7 @@
 
 use crate::shell::ShellEffect;
 use crux_core::type_generation::facet::{Config, Export, TypeGenError, TypeRegistry};
+use peta_core::view::PageView;
 use peta_core::{Event, ViewModel};
 use std::path::Path;
 
@@ -13,6 +14,8 @@ pub fn write_swift_types(out: &Path) -> Result<(), TypeGenError> {
     ShellEffect::register_types(&mut registry)?;
     registry.register_type::<Event>()?;
     registry.register_type::<ViewModel>()?;
+    // The generator does not look into the `Box` that keeps this one in the view model
+    registry.register_type::<PageView>()?;
     let generator = registry.build()?;
     generator.swift(&Config::builder("PetaTypes", out.join("swift")).build())
 }
