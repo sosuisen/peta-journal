@@ -70,13 +70,13 @@
     (peta-journal--goto-item "b" 0)
     (should (equal (get-text-property (line-beginning-position) 'line-prefix) "    "))))
 
-;; タスクの状態は、バレットの形で示される。
-(ert-deftest peta-journal-the-bullet-shows-the-task-state ()
+;; タスクにもバレットがあり、状態の記号はその後ろに付く。
+(ert-deftest peta-journal-a-task-has-its-mark-behind-the-bullet ()
   (peta-journal-test--with-rows
-      (list (peta-journal-test--row "a" 1 "x" :bullet "task")
-            (peta-journal-test--row "b" 1 "y" :bullet "running")
-            (peta-journal-test--row "c" 1 "z" :bullet "done"))
-    (should (equal (peta-journal-test--shown) "☐ x\n◐ y\n☑ z\n"))))
+      (list (peta-journal-test--row "a" 1 "x" :task "task")
+            (peta-journal-test--row "b" 1 "y" :task "running")
+            (peta-journal-test--row "c" 1 "z" :task "done"))
+    (should (equal (peta-journal-test--shown) "• ☐ x\n• ◐ y\n• ☑ z\n"))))
 
 ;; 折りたたんだ項目は、丸で囲んだ点のバレットで示される。行末には何も足さない。
 (ert-deftest peta-journal-the-bullet-shows-a-collapsed-item ()
@@ -94,13 +94,15 @@
             (peta-journal-test--row "b" 1 "y" :bullet "transclusion" :collapsed t))
     (should (equal (peta-journal-test--shown) "⊡ x\n▣ y\n"))))
 
-;; 折りたたんだタスクのバレットは、タスクの状態を示すままである。
-(ert-deftest peta-journal-a-collapsed-task-keeps-the-bullet-of-its-state ()
+;; タスクのバレットも、折りたたみとトランスクルージョンを示す。
+(ert-deftest peta-journal-the-bullet-of-a-task-shows-what-its-row-is ()
   (peta-journal-test--with-rows
-      (list (peta-journal-test--row "a" 1 "x" :bullet "task" :collapsed t)
-            (peta-journal-test--row "b" 1 "y" :bullet "done" :collapsed t)
-            (peta-journal-test--row "c" 1 "z" :bullet "broken" :collapsed t))
-    (should (equal (peta-journal-test--shown) "☐ x\n☑ y\n✗ z\n"))))
+      (list (peta-journal-test--row "a" 1 "x" :task "task" :collapsed t)
+            (peta-journal-test--row "b" 1 "y" :task "done" :bullet "transclusion")
+            (peta-journal-test--row "c" 1 "z" :task "running" :bullet "transclusion"
+                                    :collapsed t)
+            (peta-journal-test--row "d" 1 "w" :task "task" :bullet "broken"))
+    (should (equal (peta-journal-test--shown) "◉ ☐ x\n⊡ ☑ y\n▣ ◐ z\n✗ ☐ w\n"))))
 
 ;; ジャーナルの日付は、項目の上の編集できない行である。
 (ert-deftest peta-journal-a-date-header-is-a-line-above-its-row ()
