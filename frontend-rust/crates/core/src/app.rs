@@ -501,7 +501,7 @@ pub enum Event {
     /// The server refused a property change of a doc page; `before` is what the page had.
     PagePropertyRefused {
         page_id: String,
-        before: std::collections::BTreeMap<String, serde_json::Value>,
+        before: std::collections::BTreeMap<String, crate::model::PropertyValue>,
     },
     /// The server demoted the shown index page: the page opens under its new path.
     Demoted {
@@ -591,7 +591,7 @@ pub enum Event {
     /// The server refused the new bounds of a card or a callout; `before` is what it had.
     AtlasBoundsRefused {
         item_id: String,
-        before: Option<serde_json::Value>,
+        before: Option<crate::model::PropertyValue>,
     },
     /// The server changed the outline of an atlas page and answered with its items.
     AtlasChanged {

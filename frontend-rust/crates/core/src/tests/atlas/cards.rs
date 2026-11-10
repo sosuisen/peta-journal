@@ -203,7 +203,7 @@ fn a_card_draws_its_icon_from_the_tags_of_its_page() {
     let mut page = doc("notes/", "post");
     assert!(icon_tags(&page, "tags/").is_empty());
     page.properties
-        .insert("tags".into(), serde_json::json!(["cardbox", "card"]));
+        .insert("tags".into(), ["cardbox", "card"].into());
     assert_eq!(icon_tags(&page, "tags/"), ["cardbox", "card"]);
 }
 
@@ -231,9 +231,7 @@ fn a_folder_draws_its_icon_from_its_tag_its_tags_or_its_name() {
     // Any other folder: the tags of its index page, or else its name
     assert_eq!(icon_tags(&doc("notes/rust/", "index"), "tags/"), ["rust"]);
     let mut tagged = doc("notes/rust/", "index");
-    tagged
-        .properties
-        .insert("tags".into(), serde_json::json!(["lang"]));
+    tagged.properties.insert("tags".into(), ["lang"].into());
     assert_eq!(icon_tags(&tagged, "tags/"), ["lang"]);
     // The folder of the tags itself is no tag
     assert_eq!(icon_tags(&doc("tags/", "index"), "tags/"), ["tags"]);
@@ -243,10 +241,9 @@ fn a_folder_draws_its_icon_from_its_tag_its_tags_or_its_name() {
 #[test]
 fn an_atlas_card_knows_whether_its_page_is_published() {
     let mut published = child("one");
-    published.properties.insert(
-        "published".into(),
-        serde_json::json!("2026-10-01T00:00:00Z"),
-    );
+    published
+        .properties
+        .insert("published".into(), "2026-10-01T00:00:00Z".into());
     let h = atlas_of(
         vec![published, child("two")],
         vec![

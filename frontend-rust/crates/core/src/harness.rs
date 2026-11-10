@@ -10,8 +10,8 @@ use crux_core::{App, Command, Request};
 use std::collections::{BTreeMap, HashMap, VecDeque};
 
 /// The hashtags of a body as the server stores them in the tags property.
-fn tags_in(body: &str) -> BTreeMap<String, serde_json::Value> {
-    let tags: Vec<serde_json::Value> = body
+fn tags_in(body: &str) -> BTreeMap<String, crate::model::PropertyValue> {
+    let tags: Vec<String> = body
         .split(|c: char| c.is_whitespace())
         .filter_map(|w| w.strip_prefix('#'))
         .filter(|t| {
@@ -19,11 +19,11 @@ fn tags_in(body: &str) -> BTreeMap<String, serde_json::Value> {
                 && t.chars()
                     .all(|c| c.is_alphanumeric() || c == '_' || c == '-')
         })
-        .map(|t| serde_json::Value::String(t.to_string()))
+        .map(str::to_string)
         .collect();
     let mut props = BTreeMap::new();
     if !tags.is_empty() {
-        props.insert("tags".to_string(), serde_json::Value::Array(tags));
+        props.insert("tags".to_string(), crate::model::PropertyValue::List(tags));
     }
     props
 }
@@ -40,8 +40,10 @@ fn put_task_state(item: &mut Item, state: &TaskState) {
     ];
     for (key, value) in times {
         if let Some(value) = value {
-            item.properties
-                .insert(key.to_string(), serde_json::json!(value));
+            item.properties.insert(
+                key.to_string(),
+                crate::model::PropertyValue::Text(value.clone()),
+            );
         }
     }
 }
@@ -390,8 +392,10 @@ impl FakeApi {
             } => {
                 let mut item = plain_item(item_id, 1, "");
                 item.types = vec!["task".into()];
-                item.properties
-                    .insert(key.clone(), serde_json::Value::String(value.clone()));
+                item.properties.insert(
+                    key.clone(),
+                    crate::model::PropertyValue::Text(value.clone()),
+                );
                 ApiOutput::Item(item)
             }
             ApiOp::DeleteItemProperty { item_id, .. } => {
@@ -535,8 +539,10 @@ impl FakeApi {
                     "created" => page.created_date = 42,
                     "modified" => {}
                     _ => {
-                        page.properties
-                            .insert(key.clone(), serde_json::Value::String(value.clone()));
+                        page.properties.insert(
+                            key.clone(),
+                            crate::model::PropertyValue::Text(value.clone()),
+                        );
                     }
                 }
                 ApiOutput::PageInfo(page)

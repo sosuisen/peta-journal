@@ -2,7 +2,6 @@
 
 use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use serde_json::Value;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
@@ -36,7 +35,7 @@ pub struct Item {
     pub types: Vec<String>,
     /// Property values are strings or lists of strings.
     #[serde(default)]
-    pub properties: BTreeMap<String, Value>,
+    pub properties: BTreeMap<String, PropertyValue>,
     #[serde(default)]
     pub transclude_item_id: Option<String>,
 }
@@ -50,6 +49,36 @@ pub struct Item {
 pub enum PropertyValue {
     Text(String),
     List(Vec<String>),
+}
+
+impl PropertyValue {
+    /// The text, or None for a list.
+    pub fn as_text(&self) -> Option<&str> {
+        match self {
+            PropertyValue::Text(text) => Some(text),
+            PropertyValue::List(_) => None,
+        }
+    }
+
+    /// The list, or None for a text.
+    pub fn as_list(&self) -> Option<&[String]> {
+        match self {
+            PropertyValue::Text(_) => None,
+            PropertyValue::List(list) => Some(list),
+        }
+    }
+}
+
+impl From<&str> for PropertyValue {
+    fn from(text: &str) -> Self {
+        PropertyValue::Text(text.to_string())
+    }
+}
+
+impl<const N: usize> From<[&str; N]> for PropertyValue {
+    fn from(list: [&str; N]) -> Self {
+        PropertyValue::List(list.iter().map(|text| text.to_string()).collect())
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -120,18 +149,16 @@ impl Item {
 
     /// A string property, or None when unset or not a string.
     pub fn prop_str(&self, key: &str) -> Option<&str> {
-        self.properties.get(key).and_then(|v| v.as_str())
+        self.properties.get(key).and_then(PropertyValue::as_text)
     }
 
     /// A list property, or an empty list when unset or not a list.
     pub fn prop_list(&self, key: &str) -> Vec<String> {
-        match self.properties.get(key) {
-            Some(Value::Array(values)) => values
-                .iter()
-                .filter_map(|v| v.as_str().map(str::to_string))
-                .collect(),
-            _ => Vec::new(),
-        }
+        self.properties
+            .get(key)
+            .and_then(PropertyValue::as_list)
+            .map(<[String]>::to_vec)
+            .unwrap_or_default()
     }
 
     /// The hashtags of the item, as kept in its tags property.
@@ -186,7 +213,7 @@ pub struct Page {
     pub tags: Vec<String>,
     /// Property values are strings or lists of strings; empty in page lists.
     #[serde(default)]
-    pub properties: BTreeMap<String, Value>,
+    pub properties: BTreeMap<String, PropertyValue>,
 }
 
 impl Page {

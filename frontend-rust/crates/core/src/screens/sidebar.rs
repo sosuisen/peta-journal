@@ -2,7 +2,7 @@
 //! pages and the index (sibling) pages of the current doc page.
 
 use crate::app::{done, log_error, run, Cmd, Event, Model};
-use crate::model::{IndexSort, IndexSortKey, Page, SortOrder};
+use crate::model::{IndexSort, IndexSortKey, Page, PropertyValue, SortOrder};
 use crate::screens::page;
 
 /// Reloads the ten most recent doc pages.
@@ -141,7 +141,7 @@ pub fn is_directory(page: &Page) -> bool {
 pub fn is_published(page: &Page) -> bool {
     page.properties
         .get("published")
-        .and_then(|v| v.as_str())
+        .and_then(PropertyValue::as_text)
         .is_some_and(|s| !s.trim().is_empty())
 }
 
@@ -150,7 +150,7 @@ pub fn is_published(page: &Page) -> bool {
 fn published_or_modified_millis(page: &Page) -> i64 {
     page.properties
         .get("published")
-        .and_then(|v| v.as_str())
+        .and_then(PropertyValue::as_text)
         .and_then(crate::util::date::parse_rfc3339_millis)
         .unwrap_or(page.modified_date)
 }

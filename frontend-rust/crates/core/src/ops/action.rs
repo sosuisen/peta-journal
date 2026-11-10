@@ -64,7 +64,7 @@ pub fn set_zoom(model: &mut Model, item_id: &str, zoom: f64) -> Cmd {
     let z = zoom_text.clone();
     model.state.update_item(item_id, |i| {
         i.properties
-            .insert("zoom".into(), serde_json::Value::String(z));
+            .insert("zoom".into(), crate::model::PropertyValue::Text(z));
     });
     let id = item_id.to_string();
     run(move |api| async move {

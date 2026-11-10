@@ -11,7 +11,7 @@ fn page_properties(h: &Harness) -> Vec<(String, String)> {
             .map(|pg| {
                 pg.properties
                     .iter()
-                    .map(|(k, v)| (k.clone(), v.to_string()))
+                    .map(|(k, v)| (k.clone(), serde_json::to_string(v).unwrap()))
                     .collect()
             })
             .unwrap_or_default(),
@@ -159,7 +159,7 @@ fn a_list_property_is_shown_as_one_comma_separated_line() {
             .as_mut()
             .unwrap()
             .properties
-            .insert("tags".into(), serde_json::json!(["a", "b"]));
+            .insert("tags".into(), ["a", "b"].into());
     }
     assert!(rows(&h)
         .iter()

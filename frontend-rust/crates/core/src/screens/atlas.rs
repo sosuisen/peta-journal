@@ -10,13 +10,12 @@
 
 use crate::app::{cancel_timer, done, log_error, run, Cmd, Event, Model};
 use crate::effects::{AtlasChange, TimerOutput, UiOp};
-use crate::model::{Item, Page};
+use crate::model::{Item, Page, PropertyValue};
 use crate::ops::file_reload;
 use crate::screens::page::{split_doc_path, ATLAS_NAME};
 use crate::screens::sidebar;
 use crux_core::Command;
 use peta_atlas::{AtlasItem, Kind};
-use serde_json::Value;
 
 pub use peta_atlas::marks::{
     callout_face_svg, group_color, link_blob_svg, tag_blob_svg, tag_icon_svg,
@@ -128,7 +127,7 @@ fn save_bounds(model: &mut Model, item: &Item, bounds: Bounds) -> Cmd {
     let item_id = item.id.clone();
     let before = item.properties.get(BOUNDS_KEY).cloned();
     let value = bounds.to_value();
-    set_property(model, &item_id, Some(Value::from(value.clone())));
+    set_property(model, &item_id, Some(PropertyValue::Text(value.clone())));
     run(move |api| async move {
         if let Err(e) = api
             .upsert_item_property(&item_id, BOUNDS_KEY, "bounds", &value)
@@ -141,12 +140,12 @@ fn save_bounds(model: &mut Model, item: &Item, bounds: Bounds) -> Cmd {
 }
 
 /// The server refused the new bounds of an item: the ones it had before are shown again.
-pub fn put_bounds_back(model: &mut Model, item_id: &str, before: Option<Value>) -> Cmd {
+pub fn put_bounds_back(model: &mut Model, item_id: &str, before: Option<PropertyValue>) -> Cmd {
     set_property(model, item_id, before);
     done()
 }
 
-fn set_property(model: &mut Model, item_id: &str, value: Option<Value>) {
+fn set_property(model: &mut Model, item_id: &str, value: Option<PropertyValue>) {
     model.state.update_item(item_id, |item| match value {
         Some(value) => {
             item.properties.insert(BOUNDS_KEY.to_string(), value);
@@ -407,13 +406,12 @@ pub fn icon_tags(page: &Page, tags_dir: &str) -> Vec<String> {
     if let Some(tag) = path.strip_prefix(tags_dir).filter(|tag| !tag.is_empty()) {
         return vec![tag.to_string()];
     }
-    let tags: Vec<String> = match page.properties.get("tags") {
-        Some(Value::Array(tags)) => tags
-            .iter()
-            .filter_map(|t| t.as_str().map(str::to_string))
-            .collect(),
-        _ => Vec::new(),
-    };
+    let tags: Vec<String> = page
+        .properties
+        .get("tags")
+        .and_then(PropertyValue::as_list)
+        .map(<[String]>::to_vec)
+        .unwrap_or_default();
     match path.rsplit('/').next() {
         Some(name) if is_dir && tags.is_empty() && !name.is_empty() => vec![name.to_string()],
         _ => tags,

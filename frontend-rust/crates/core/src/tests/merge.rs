@@ -285,12 +285,15 @@ fn joined(id: &str, body: &str) -> ApiOutput {
         i.body = body.into();
         i.ast = format!("ast:{body}");
         i.types = vec!["heading".into()];
-        i.properties = [("tags".to_string(), serde_json::json!(["joined"]))].into();
+        i.properties = [("tags".to_string(), ["joined"].into())].into();
     }))
 }
 
 /// What the view of an item renders and styles itself from.
-fn shown_parse(h: &Harness, item_id: &str) -> (String, Vec<String>, Option<serde_json::Value>) {
+fn shown_parse(
+    h: &Harness,
+    item_id: &str,
+) -> (String, Vec<String>, Option<crate::model::PropertyValue>) {
     let rows = h.view().outline.rows;
     let row = rows.iter().find(|r| r.item.id == item_id).unwrap();
     (
@@ -319,7 +322,7 @@ fn the_item_above_shows_the_joined_text_after_backspace_and_moving_away() {
         (
             "ast:hello world".to_string(),
             vec!["heading".to_string()],
-            Some(serde_json::json!(["joined"]))
+            Some(["joined"].into())
         )
     );
 }

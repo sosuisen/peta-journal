@@ -1208,7 +1208,7 @@ fn a_saved_property_reaches_emacs() {
         value: "5".into(),
     });
     let mut page = page_info("", "notes");
-    page["properties"] = json!({ "rating": 5 });
+    page["properties"] = json!({ "rating": "5" });
     let answer = serde_json::from_value(json!({ "PageInfo": page })).unwrap();
     driver.answer(|op| matches!(op, ApiOp::UpsertPageProperty { .. }), answer);
     let rows = driver.last_properties().unwrap().0.unwrap();
