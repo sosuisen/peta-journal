@@ -139,12 +139,22 @@ impl PageProperty {
     }
 }
 
+/// One folder on the way to a page. Why not a pair: the Swift of a native shell cannot compare
+/// a type that has a tuple.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct DirSegment {
+    pub name: String,
+    /// The folders from the root down to this one, with `/` between them.
+    pub path: String,
+}
+
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct PageView {
     pub page: Page,
     pub title: String,
-    pub dir_segments: Vec<(String, String)>,
+    pub dir_segments: Vec<DirSegment>,
     pub is_index: bool,
     pub is_root_index: bool,
     pub is_atlas: bool,

@@ -6,6 +6,7 @@ use crate::effects::{Api, ApiError, PageUpdate, UiOp};
 use crate::model::{BacklinkEntry, Page, PageWithItems, PropertyValue};
 use crate::screens::{navigate, sidebar};
 use crate::util::filename::validate_file_name;
+use crate::view::DirSegment;
 use crux_core::Command;
 use std::collections::BTreeMap;
 
@@ -291,8 +292,8 @@ pub fn full_page_title(p: &Page) -> String {
     format!("{}{}", p.dir_path, p.name)
 }
 
-/// The breadcrumb segments of a dir path: `("a", "a")`, `("b", "a/b")`, ...
-pub fn dir_path_segments(dir_path: &str) -> Vec<(String, String)> {
+/// The breadcrumb segments of a dir path: `a` with the path `a`, `b` with `a/b`, ...
+pub fn dir_path_segments(dir_path: &str) -> Vec<DirSegment> {
     let trimmed = dir_path.trim_end_matches('/');
     if trimmed.is_empty() {
         return Vec::new();
@@ -305,7 +306,10 @@ pub fn dir_path_segments(dir_path: &str) -> Vec<(String, String)> {
                 path.push('/');
             }
             path.push_str(part);
-            (part.to_string(), path.clone())
+            DirSegment {
+                name: part.to_string(),
+                path: path.clone(),
+            }
         })
         .collect()
 }

@@ -12,7 +12,7 @@ use crate::dom;
 use leptos::prelude::*;
 use peta_core::app::JournalNav;
 use peta_core::util::filename::JournalType;
-use peta_core::view::{BacklinkGroup, PageView, ScreenView};
+use peta_core::view::{BacklinkGroup, DirSegment, PageView, ScreenView};
 use peta_core::Event;
 use wasm_bindgen::JsCast;
 
@@ -250,7 +250,7 @@ fn DocPage() -> impl IntoView {
                             let p = p2.clone();
                                                         move || {
                                 let p = p.clone();
-                                let crumbs = p.dir_segments.iter().enumerate().map(|(i, (name, path))| {
+                                let crumbs = p.dir_segments.iter().enumerate().map(|(i, DirSegment { name, path })| {
                                     let last = i + 1 == p.dir_segments.len();
                                                                         let path = path.clone();
                                     if p.is_index && last {
