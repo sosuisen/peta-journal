@@ -2,14 +2,13 @@
 
 use std::path::Path as FsPath;
 
+use crate::domain::asset_name::saved_name;
+use crate::state::{blocking, SharedState};
 use axum::extract::{DefaultBodyLimit, Multipart, Path, State};
 use axum::http::{header, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::Router;
-use hmtid::Hmtid;
-
-use crate::state::{blocking, SharedState};
 
 /// The largest upload. The default of 2MB refused large screenshots. A file is held in memory
 /// while it is saved, so the limit stays. See docs/plans.md for what is still open about it.
@@ -86,23 +85,6 @@ async fn upload(State(state): State<SharedState>, mut multipart: Multipart) -> R
     })
     .await;
     result.unwrap_or_else(|e| e.into_response())
-}
-
-/// The name an upload is saved under: the ID and the extension of the name it came with.
-/// Why not that name itself: names collide, and the characters of many names cannot stay in
-/// a file name that is also part of a URL. The link in the body keeps the name. See ADR-022.
-fn saved_name(id: &Hmtid, original_name: &str) -> String {
-    match plain_extension(original_name) {
-        Some(extension) => format!("{id}.{extension}"),
-        None => id.to_string(),
-    }
-}
-
-/// The extension of `name` in lower case, when it is made of ASCII letters and digits.
-fn plain_extension(name: &str) -> Option<String> {
-    let (_, extension) = name.rsplit_once('.')?;
-    let plain = !extension.is_empty() && extension.chars().all(|c| c.is_ascii_alphanumeric());
-    plain.then(|| extension.to_ascii_lowercase())
 }
 
 async fn get_asset(State(state): State<SharedState>, Path(file_name): Path<String>) -> Response {

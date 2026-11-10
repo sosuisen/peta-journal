@@ -1,3 +1,4 @@
+pub mod asset_name;
 pub mod atlas;
 pub mod bounds;
 pub mod fractional_index;
