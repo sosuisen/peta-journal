@@ -5,7 +5,7 @@ using Stickies.Models;
 
 namespace Stickies.Services;
 
-public class JournalApiService : IDisposable
+public sealed class JournalApiService : IDisposable
 {
     private readonly HttpClient _http;
     private CancellationTokenSource? _sseCts;
@@ -136,7 +136,7 @@ public class JournalApiService : IDisposable
                 if (line == null)
                     break; // stream ended
 
-                if (line.StartsWith("data:"))
+                if (line.StartsWith("data:", StringComparison.Ordinal))
                 {
                     data = line["data:".Length..].Trim();
                 }
