@@ -24,6 +24,7 @@ struct ItemText: NSViewRepresentable {
         view.delegate = context.coordinator
         view.string = item.body
         view.onCursor = { [editor = context.coordinator] in editor.gotCursor() }
+        view.onKey = { [editor = context.coordinator] key, view in editor.pressed(key, in: view) }
         return view
     }
 
@@ -75,6 +76,7 @@ final class Editor: NSObject, NSTextViewDelegate {
         #selector(NSResponder.moveLeft(_:)): .left,
         #selector(NSResponder.moveRight(_:)): .right,
         #selector(NSResponder.deleteBackward(_:)): .backspace,
+        #selector(NSResponder.deleteForward(_:)): .delete,
     ]
 
     func textDidChange(_ notification: Notification) {
@@ -86,6 +88,11 @@ final class Editor: NSObject, NSTextViewDelegate {
     /// method and never come here, so the Enter that ends a composition splits nothing.
     func textView(_ view: NSTextView, doCommandBy selector: Selector) -> Bool {
         guard let key = Editor.keys[selector], let view = view as? ItemTextView else { return false }
+        return pressed(key, in: view)
+    }
+
+    /// Tells the shell a key, with the text and the cursor as they are now.
+    func pressed(_ key: EditorKey, in view: ItemTextView) -> Bool {
         let selected = view.selectedRange()
         let (first, last) = view.cursorLines()
         let state = EditorState(
@@ -135,6 +142,8 @@ final class Editor: NSObject, NSTextViewDelegate {
 /// A plain text view that is as high as its text.
 final class ItemTextView: NSTextView {
     var onCursor: (() -> Void)?
+    /// A key of the outline that is no command of a text view. True when it was taken.
+    var onKey: ((EditorKey, ItemTextView) -> Bool)?
     /// The text view does not keep its text storage alive when it is built by hand.
     private var storage: NSTextStorage?
 
@@ -167,6 +176,50 @@ final class ItemTextView: NSTextView {
         let became = super.becomeFirstResponder()
         if became { onCursor?() }
         return became
+    }
+
+    /// The keys with Control or Option that mean something to the outline. They are the keys
+    /// of the web frontend. AppKit has no command for them, or one that means something else.
+    override func keyDown(with event: NSEvent) {
+        // While text is composed every key belongs to the input method
+        if !hasMarkedText(), take(event) { return }
+        super.keyDown(with: event)
+    }
+
+    private func take(_ event: NSEvent) -> Bool {
+        let held = event.modifierFlags.intersection([.shift, .control, .option, .command])
+        let (returnKey, left, right, down, up, z): (UInt16, UInt16, UInt16, UInt16, UInt16, UInt16) =
+            (36, 123, 124, 125, 126, 6)
+        switch (event.keyCode, held) {
+        case (returnKey, [.shift]):
+            // A line break inside the item. Enter alone splits the item
+            insertText("\n", replacementRange: selectedRange())
+            return true
+        case (returnKey, [.control]): return onKey?(.taskCycle, self) ?? false
+        case (up, [.control]), (down, [.control]): return onKey?(.fold, self) ?? false
+        case (up, [.shift, .option]): return onKey?(.moveUp, self) ?? false
+        case (down, [.shift, .option]): return onKey?(.moveDown, self) ?? false
+        case (left, [.shift, .option]): return onKey?(.moveOut, self) ?? false
+        case (right, [.shift, .option]): return onKey?(.moveIn, self) ?? false
+        case (z, [.control]): return onKey?(.undo, self) ?? false
+        case (z, [.control, .shift]): return onKey?(.redo, self) ?? false
+        default: return false
+        }
+    }
+
+    /// "Undo" and "Redo" of the Edit menu, with their keys Command+Z and Shift+Command+Z. The
+    /// history is the one of the core: the text view keeps none.
+    @objc func undo(_ sender: Any?) {
+        _ = onKey?(.undo, self)
+    }
+
+    @objc func redo(_ sender: Any?) {
+        _ = onKey?(.redo, self)
+    }
+
+    override func validateUserInterfaceItem(_ item: NSValidatedUserInterfaceItem) -> Bool {
+        if item.action == #selector(undo(_:)) || item.action == #selector(redo(_:)) { return true }
+        return super.validateUserInterfaceItem(item)
     }
 
     func height(forWidth width: CGFloat) -> CGFloat {

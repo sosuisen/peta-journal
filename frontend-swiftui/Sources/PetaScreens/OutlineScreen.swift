@@ -68,10 +68,19 @@ private struct ItemEditor: View {
     @ObservedObject var shell: Shell
     let cursors: Cursors
 
+    /// What stands before the text: the state of a task, or whether children are hidden.
+    private var mark: String {
+        if let task = row.task {
+            if task == .done { return "☑" }
+            return task == .running ? "◐" : "☐"
+        }
+        return row.isCollapsed ? "▸" : "•"
+    }
+
     var body: some View {
         HStack(alignment: .top) {
             // Without the bullet an item with no text cannot be seen
-            Text("•").foregroundStyle(.secondary)
+            Text(mark).foregroundStyle(.secondary)
             ItemText(
                 item: row.item, isFirst: row.index == 0, request: shell.view.outline.focusRequest,
                 order: shell.focus, shell: shell, cursors: cursors)
