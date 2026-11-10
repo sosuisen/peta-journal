@@ -49,3 +49,6 @@ mod sse;
 
 // 外のプログラムと組む
 mod launcher;
+
+// ネイティブのシェルとの境界
+mod native_border;
