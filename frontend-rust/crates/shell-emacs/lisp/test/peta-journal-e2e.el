@@ -321,13 +321,13 @@ The server is a real one, with its files in a temporary folder."
     (peta-journal-e2e--wait-for "the undo of the split"
                                 (lambda () (= (length peta-journal--rows) 1)))))
 
-;; タスクの状態が、バレットに出る。
-(ert-deftest peta-journal-e2e-the-task-cycle-shows-on-the-bullet ()
+;; タスクの状態が、バレットの後ろの記号に出る。
+(ert-deftest peta-journal-e2e-the-task-cycle-shows-behind-the-bullet ()
   (peta-journal-e2e--with-app
     (peta-journal-e2e--type "仕事")
     (peta-journal-e2e--keys "C-c C-t")
-    (peta-journal-e2e--wait-for "the task bullet"
-                                (lambda () (string-prefix-p "☐" (buffer-string))))))
+    (peta-journal-e2e--wait-for "the mark of the task"
+                                (lambda () (equal (peta-journal-e2e--shown) "• ☐ 仕事\n")))))
 
 ;; Markdownファイルの変更が、イベントストリームを通って画面に届く。
 (ert-deftest peta-journal-e2e-a-change-in-the-file-reaches-the-buffer ()

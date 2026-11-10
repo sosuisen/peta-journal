@@ -46,8 +46,7 @@ It applies to the rows drawn after a change.  Only a graphical Emacs shows it."
   :type 'natnum)
 
 (defconst peta-journal--bullets
-  '(("plain" . "•") ("task" . "☐") ("running" . "◐") ("done" . "☑")
-    ("transclusion" . "⊡") ("broken" . "✗"))
+  '(("plain" . "•") ("transclusion" . "⊡") ("broken" . "✗"))
   "The mark of each kind of row.
 A transclusion has a square around its dot, as the web frontend draws it.")
 
@@ -55,8 +54,13 @@ A transclusion has a square around its dot, as the web frontend draws it.")
   '(("plain" . "◉") ("transclusion" . "▣"))
   "The mark of each kind of row whose children are hidden.
 A ring around the dot, and a filled square for a transclusion, as the web
-frontend draws them.  A kind that is not here keeps its mark: that of a task
-says its state.")
+frontend draws them.  A kind that is not here keeps its mark.")
+
+(defconst peta-journal--task-marks
+  '(("task" . "☐") ("running" . "◐") ("done" . "☑"))
+  "The mark of each state of a task.
+It comes behind the bullet: a task has the bullet of its kind too, as in the
+web frontend.")
 
 (defconst peta-journal--bullet-gap " "
   "The space behind a bullet.
@@ -74,6 +78,11 @@ on its line.")
 
 (defface peta-journal-done '((t :inherit font-lock-string-face))
   "The mark of a finished task.")
+
+(defface peta-journal-running '((t :inherit peta-journal-bullet :height 1.3))
+  "The mark of a running task.
+Larger than the text: in many fonts the half circle is smaller than the boxes
+of the other states.")
 
 (defface peta-journal-date-header '((t :inherit font-lock-doc-face :weight bold))
   "The date above the first item of a journal day.")
@@ -181,8 +190,12 @@ into its match, and the next pair could not start at a character it took."
 (defconst peta-journal--bullet-regexp
   (concat (regexp-opt (mapcar #'cdr (append peta-journal--bullets
                                             peta-journal--collapsed-bullets)))
-          peta-journal--bullet-gap)
-  "The bullet in front of the first line of a body.")
+          peta-journal--bullet-gap
+          "\\(?:" (regexp-opt (mapcar #'cdr peta-journal--task-marks))
+          peta-journal--bullet-gap "\\)?")
+  "The bullet in front of the first line of a body, with the mark of a task.
+A body that starts with such a mark and a no-break space reads as a task here.
+That only moves where the colors of its first line start.")
 
 (defconst peta-journal--line-start-regexp
   (concat "^\\(?:" peta-journal--bullet-regexp "\\)?")
@@ -351,8 +364,9 @@ Completion sorts a plain list by name, which would hide the newest pages."
     (and (get-text-property (point) 'peta-bullet) (point))))
 
 (defun peta-journal--body-start (row-start)
-  "The start of the body of the row with its bullet at ROW-START."
-  (+ row-start 2))
+  "The start of the body of the row with its bullet at ROW-START.
+The bullet says how long the marks in front of the body are."
+  (+ row-start (get-text-property row-start 'peta-marks)))
 
 (defun peta-journal--body-end (row-start)
   "The end of the body of the row with its bullet at ROW-START, before its newline."
@@ -423,16 +437,29 @@ Completion sorts a plain list by name, which would hide the newest pages."
   "The indent of the other lines of a row at LEVEL."
   (make-string (* 2 level) ?\s))
 
+(defun peta-journal--task-string (state)
+  "The mark of a task in STATE, or an empty string when STATE is nil."
+  (if state
+      (propertize (concat (cdr (assoc state peta-journal--task-marks))
+                          peta-journal--bullet-gap)
+                  'font-lock-face (pcase state
+                                    ("done" 'peta-journal-done)
+                                    ("running" 'peta-journal-running)
+                                    (_ 'peta-journal-bullet)))
+    ""))
+
 (defun peta-journal--bullet-string (row)
-  "The bullet of ROW."
+  "The bullet of ROW, with the mark of its task."
   (let* ((kind (plist-get row :bullet))
          (level (plist-get row :level))
          (mark (or (and (plist-get row :collapsed)
                         (cdr (assoc kind peta-journal--collapsed-bullets)))
                    (cdr (assoc kind peta-journal--bullets)))))
-    (propertize (concat mark peta-journal--bullet-gap)
+    (propertize (concat (propertize (concat mark peta-journal--bullet-gap)
+                                    'font-lock-face 'peta-journal-bullet)
+                        (peta-journal--task-string (plist-get row :task)))
                 'peta-bullet (plist-get row :id)
-                'font-lock-face (if (equal kind "done") 'peta-journal-done 'peta-journal-bullet)
+                'peta-marks (if (plist-get row :task) 4 2)
                 'read-only t
                 ;; The body starts right behind the bullet, and nothing goes in front of it
                 'front-sticky '(read-only)
@@ -936,7 +963,7 @@ A saved edit must stay closed, and a page being left has nothing more to edit.")
         (body-start (peta-journal--body-start start))
         (body-end (peta-journal--body-end start)))
     (remove-list-of-text-properties body-start body-end
-                                    '(peta-bullet peta-row peta-header font-lock-face))
+                                    '(peta-bullet peta-marks peta-row peta-header font-lock-face))
     (add-text-properties body-start body-end (list 'line-prefix prefix 'wrap-prefix prefix))))
 
 (defun peta-journal--after-change (beg _end _length)

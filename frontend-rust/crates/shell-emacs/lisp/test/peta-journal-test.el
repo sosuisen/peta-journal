@@ -70,13 +70,13 @@
     (peta-journal--goto-item "b" 0)
     (should (equal (get-text-property (line-beginning-position) 'line-prefix) "    "))))
 
-;; タスクの状態は、バレットの形で示される。
-(ert-deftest peta-journal-the-bullet-shows-the-task-state ()
+;; タスクにもバレットがあり、状態の記号はその後ろに付く。
+(ert-deftest peta-journal-a-task-has-its-mark-behind-the-bullet ()
   (peta-journal-test--with-rows
-      (list (peta-journal-test--row "a" 1 "x" :bullet "task")
-            (peta-journal-test--row "b" 1 "y" :bullet "running")
-            (peta-journal-test--row "c" 1 "z" :bullet "done"))
-    (should (equal (peta-journal-test--shown) "☐ x\n◐ y\n☑ z\n"))))
+      (list (peta-journal-test--row "a" 1 "x" :task "task")
+            (peta-journal-test--row "b" 1 "y" :task "running")
+            (peta-journal-test--row "c" 1 "z" :task "done"))
+    (should (equal (peta-journal-test--shown) "• ☐ x\n• ◐ y\n• ☑ z\n"))))
 
 ;; 折りたたんだ項目は、丸で囲んだ点のバレットで示される。行末には何も足さない。
 (ert-deftest peta-journal-the-bullet-shows-a-collapsed-item ()
@@ -94,13 +94,15 @@
             (peta-journal-test--row "b" 1 "y" :bullet "transclusion" :collapsed t))
     (should (equal (peta-journal-test--shown) "⊡ x\n▣ y\n"))))
 
-;; 折りたたんだタスクのバレットは、タスクの状態を示すままである。
-(ert-deftest peta-journal-a-collapsed-task-keeps-the-bullet-of-its-state ()
+;; タスクのバレットも、折りたたみとトランスクルージョンを示す。
+(ert-deftest peta-journal-the-bullet-of-a-task-shows-what-its-row-is ()
   (peta-journal-test--with-rows
-      (list (peta-journal-test--row "a" 1 "x" :bullet "task" :collapsed t)
-            (peta-journal-test--row "b" 1 "y" :bullet "done" :collapsed t)
-            (peta-journal-test--row "c" 1 "z" :bullet "broken" :collapsed t))
-    (should (equal (peta-journal-test--shown) "☐ x\n☑ y\n✗ z\n"))))
+      (list (peta-journal-test--row "a" 1 "x" :task "task" :collapsed t)
+            (peta-journal-test--row "b" 1 "y" :task "done" :bullet "transclusion")
+            (peta-journal-test--row "c" 1 "z" :task "running" :bullet "transclusion"
+                                    :collapsed t)
+            (peta-journal-test--row "d" 1 "w" :task "task" :bullet "broken"))
+    (should (equal (peta-journal-test--shown) "◉ ☐ x\n⊡ ☑ y\n▣ ◐ z\n✗ ☐ w\n"))))
 
 ;; ジャーナルの日付は、項目の上の編集できない行である。
 (ert-deftest peta-journal-a-date-header-is-a-line-above-its-row ()
@@ -1219,15 +1221,49 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
     (should (equal (peta-journal-test--shown) "• ab\n"))
     (should (peta-journal-test--body-has-no-color-p "a"))))
 
-;; 完了タスクの本文の先頭に打っても、色を受け継がない。バレットの色はそのままである。
+;; 完了タスクの本文の先頭に打っても、色を受け継がない。タスクの記号の色はそのままである。
 (ert-deftest peta-journal-text-typed-before-a-body-does-not-take-the-bullet-color ()
-  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "xy" :bullet "done"))
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "xy" :task "done"))
     (peta-journal-test--goto "a" 0)
     (peta-journal-test--type "ab")
-    (should (equal (peta-journal-test--shown) "☑ abxy\n"))
+    (should (equal (peta-journal-test--shown) "• ☑ abxy\n"))
     (should (peta-journal-test--body-has-no-color-p "a"))
-    (should (eq (get-text-property (peta-journal--find-row "a") 'font-lock-face)
+    (should (equal peta-journal-test--sent
+                   '(("edit_requested" :id "a" :cursor 0)
+                     ("body_changed" :id "a" :body "axy")
+                     ("body_changed" :id "a" :body "abxy"))))
+    (should (eq (get-text-property (+ (peta-journal--find-row "a") 2) 'font-lock-face)
                 'peta-journal-done))))
+
+;; 実行中のタスクの記号は、大きく表示するfaceを持つ。ほかの状態の四角より小さく見えるためである。
+(ert-deftest peta-journal-the-mark-of-a-running-task-has-a-face-of-its-own ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x" :task "running")
+                                      (peta-journal-test--row "b" 1 "y" :task "task"))
+    (should (eq (get-text-property (+ (peta-journal--find-row "a") 2) 'font-lock-face)
+                'peta-journal-running))
+    (should (eq (get-text-property (+ (peta-journal--find-row "b") 2) 'font-lock-face)
+                'peta-journal-bullet))
+    (should (> (face-attribute 'peta-journal-running :height) 1))))
+
+;; カーソルは、タスクの記号の上にも留まらない。
+(ert-deftest peta-journal-the-point-does-not-rest-on-the-mark-of-a-task ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x" :task "task"))
+    (goto-char (+ (peta-journal--find-row "a") 2))
+    (peta-journal--post-command)
+    (should (= (peta-journal--cursor) 0))
+    (should (equal (peta-journal--body-at (point)) "x"))))
+
+;; タスクの本文の先頭の記法にも、色が付く。
+(ert-deftest peta-journal-the-start-of-the-body-of-a-task-has-its-color ()
+  (peta-journal-test--with-rows
+      (list (peta-journal-test--row "a" 1 "> 引用" :task "task")
+            (peta-journal-test--row "b" 1 "> 引用" :task "done" :bullet "transclusion"
+                                    :collapsed t))
+    (font-lock-ensure)
+    (goto-char (point-min))
+    (dotimes (_ 2)
+      (search-forward "引用")
+      (should (eq (get-text-property (match-beginning 0) 'face) 'peta-journal-quote)))))
 
 ;;;; The color of Flat Markdown
 
