@@ -59,8 +59,8 @@ struct CreateItemRequest {
 }
 
 #[derive(Serialize)]
-struct ItemResponse {
-    item: ItemDto,
+struct ItemResponse<I = ItemDto> {
+    item: I,
 }
 
 #[derive(Serialize)]
@@ -443,7 +443,10 @@ async fn get_item(
             .dtos
             .to_dto(&state.item_service.get_item_by_id(&item_id)?)?;
         match ItemFields::parse(q.fields.as_deref()) {
-            Some(fields) => Ok(Json(fields.of(&dto)).into_response()),
+            Some(fields) => Ok(Json(ItemResponse {
+                item: fields.of(&dto),
+            })
+            .into_response()),
             None => Ok(Json(ItemResponse { item: dto }).into_response()),
         }
     })
