@@ -114,13 +114,15 @@ impl Lanes {
     }
 }
 
+/// The core for one shell. The shell may call it from any thread.
 pub struct NativeShell {
     router: Arc<Router>,
 }
 
 impl NativeShell {
-    /// Starts the core. `to_shell` gets the requests for the shell, and may be called from any
-    /// thread.
+    /// Starts the core. `to_shell` gets the requests for the shell: each call has a list of
+    /// requests, each with its number and a [`ShellEffectFfi`]. It may be called from any thread,
+    /// and for the first time before this returns.
     pub fn new<H: Host>(
         host: H,
         client_id: ClientId,
@@ -157,7 +159,8 @@ impl NativeShell {
         self.router.routes.border.update(event)
     }
 
-    /// Takes the answer of the shell to the request `id`.
+    /// Takes the answer of the shell to the request `id`: the output of its operation. A request
+    /// that only tells the shell something, such as a render, has no answer.
     pub fn resolve(&self, id: u32, output: &[u8]) -> Result<(), BorderError> {
         self.router.routes.border.resolve(EffectId(id), output)
     }
