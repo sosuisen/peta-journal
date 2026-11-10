@@ -1481,3 +1481,72 @@ fn the_week_of_a_day_of_the_calendar_opens_the_week_page_of_the_servers_numberin
         "2026-W06"
     );
 }
+
+/// Asks for the page names of a wiki link, as Emacs does, and lets the pause of the core end.
+fn ask_for_page_names(driver: &mut Driver, query: &str) {
+    driver.send(Inbound::PageNames {
+        id: "a".into(),
+        query: query.into(),
+    });
+    fire_timers(driver);
+}
+
+fn page_names_sent(driver: &Driver) -> Vec<(String, Vec<String>)> {
+    driver
+        .sent()
+        .iter()
+        .filter_map(|message| match message {
+            Outbound::PageNames { query, titles } => Some((query.clone(), titles.clone())),
+            _ => None,
+        })
+        .collect()
+}
+
+// ウィキリンクの中の文字で探したページ名は、その文字と一緒にEmacsに届く。
+#[test]
+fn the_page_names_for_a_wiki_link_reach_emacs_with_what_was_typed() {
+    let mut driver = Driver::open(&[item("a", 1, "see [[no]]")]);
+    ask_for_page_names(&mut driver, "no");
+    let found = serde_json::from_value(json!({ "SearchResults": [
+        { "pageId": "p", "pageTitle": "notes" },
+        { "pageId": "q", "pageTitle": "work/notebook" },
+    ] }));
+    driver.answer(
+        |op| matches!(op, ApiOp::SearchPageNames { query, .. } if query == "no"),
+        found.unwrap(),
+    );
+    assert_eq!(
+        page_names_sent(&driver),
+        [(
+            "no".to_string(),
+            vec!["notes".to_string(), "work/notebook".to_string()]
+        )]
+    );
+}
+
+// ページ名が見つからなくても、探し終わったことがEmacsに届く。Emacsは答えを待っているためである。
+#[test]
+fn a_search_for_page_names_that_finds_nothing_is_answered_too() {
+    let mut driver = Driver::open(&[item("a", 1, "see [[zz]]")]);
+    ask_for_page_names(&mut driver, "zz");
+    driver.answer(
+        |op| matches!(op, ApiOp::SearchPageNames { .. }),
+        no_results(),
+    );
+    assert_eq!(page_names_sent(&driver), [("zz".to_string(), Vec::new())]);
+}
+
+// ページ名の検索が失敗しても、候補なしとしてEmacsに届く。
+#[test]
+fn a_failed_search_for_page_names_is_answered_with_no_names() {
+    let mut driver = Driver::open(&[item("a", 1, "see [[no]]")]);
+    ask_for_page_names(&mut driver, "no");
+    let (id, _) = driver
+        .take_api(|op| matches!(op, ApiOp::SearchPageNames { .. }))
+        .expect("the search was not sent");
+    driver.shell.handle(Input::ApiDone {
+        id,
+        result: Box::new(Err(ApiError("refused".into()))),
+    });
+    assert_eq!(page_names_sent(&driver), [("no".to_string(), Vec::new())]);
+}

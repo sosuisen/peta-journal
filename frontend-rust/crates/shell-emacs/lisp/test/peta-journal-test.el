@@ -1729,7 +1729,9 @@ Without a sort function of its own, the list is sorted by name, as `completions-
                    ("C-c C-x p" . peta-journal-properties)
                    ("C-c C-x n" . peta-journal-new-buffer)
                    ("C-c C-x i" . peta-journal-insert-image)
-                   ("C-c C-x c" . peta-journal-calendar)))
+                   ("C-c C-x c" . peta-journal-calendar)
+                   ;; `text-mode`では、Emacsの版によってスペルの補完になるキーである。
+                   ("C-M-i" . completion-at-point)))
     (should (eq (keymap-lookup peta-journal-mode-map key) command)))
   ;; `C-c C-c`はEmacsでは「確定」の意味なので、折り畳みには使わずに空けておく。
   (dolist (key '("M-<up>" "M-<down>" "M-<right>" "M-<left>" "C-c /" "C-c C-c"
@@ -1807,5 +1809,108 @@ DATE is a list of the month, the day and the year."
     (calendar)
     (should-not (eq (key-binding (kbd "RET")) 'peta-journal-calendar-open-day))
     (should-not (eq (key-binding (kbd "w")) 'peta-journal-calendar-open-week))))
+
+;;;; Completing a wiki link
+
+(defmacro peta-journal-test--finding (names &rest body)
+  "Run BODY with a shell that finds the page NAMES for whatever is asked."
+  (declare (indent 1))
+  `(let ((collect (symbol-function 'peta-journal--send)))
+     (cl-letf (((symbol-function 'peta-journal--send)
+                (lambda (type &rest fields)
+                  (apply collect type fields)
+                  (when (equal type "page_names")
+                    (peta-journal--on-line (list :t "page_names"
+                                                 :query (plist-get fields :query)
+                                                 :titles (vconcat ,names)))))))
+       (unwind-protect
+           (progn ,@body)
+         (completion-in-region-mode -1)
+         (when (get-buffer "*Completions*")
+           (kill-buffer "*Completions*"))))))
+
+(defun peta-journal-test--offered-names ()
+  "The page names the completion at the point offers, in the order the list shows them."
+  (pcase-let* ((`(,start ,end ,table) (peta-journal--complete-wiki-link))
+               (typed (buffer-substring-no-properties start end))
+               (names (completion-all-completions typed table nil (- (point) start)))
+               (sort (completion-metadata-get (completion-metadata typed table nil)
+                                              'display-sort-function)))
+    ;; The last cdr is the length of the text the names do not replace, not a name
+    (when names
+      (setcdr (last names) nil))
+    (mapcar #'substring-no-properties (funcall sort names))))
+
+;; `[[`と`]]`の間で補完すると、そこに打った文字でページ名を1回だけ尋ねる。
+;; 見つかった名前が1つなら、打った文字がその名前に置き換わり、本文として送られる。
+;; カーソルは`]]`の前に残る。
+(ert-deftest peta-journal-completing-in-a-wiki-link-puts-in-the-page-name-that-was-found ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "see [[To]] now"))
+    (peta-journal-test--finding '("Tokyo")
+      (peta-journal-test--goto "a" 8)
+      (setq peta-journal-test--sent nil)
+      (completion-at-point)
+      (should (equal (peta-journal-test--sent-of "page_names")
+                     '(("page_names" :id "a" :query "To"))))
+      (should (equal (car (last (peta-journal-test--sent-of "body_changed")))
+                     '("body_changed" :id "a" :body "see [[Tokyo]] now")))
+      (should (looking-at-p "\\]\\] now")))))
+
+;; カーソルが名前の途中にあっても、`[[`と`]]`の間の全体で尋ね、全体を置き換える。
+(ert-deftest peta-journal-completing-in-the-middle-of-a-name-replaces-the-whole-name ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "[[kyo]]"))
+    (peta-journal-test--finding '("Tokyo")
+      (peta-journal-test--goto "a" 3)
+      (setq peta-journal-test--sent nil)
+      (completion-at-point)
+      (should (equal (peta-journal-test--sent-of "page_names")
+                     '(("page_names" :id "a" :query "kyo"))))
+      (should (equal (peta-journal--body-at (point)) "[[Tokyo]]")))))
+
+;; 候補は、サーバーが見つけた名前を、その順のまま示す。打った文字で始まらない名前も除かない。
+(ert-deftest peta-journal-the-page-names-are-offered-as-the-server-found-them ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "see [[kyo]]"))
+    (peta-journal-test--finding '("Tokyo" "Kyoto" "notes/kyo")
+      (peta-journal-test--goto "a" 9)
+      (should (equal (peta-journal-test--offered-names) '("Tokyo" "Kyoto" "notes/kyo"))))))
+
+;; 見つかった名前がいくつもあるときは、選ぶまで本文は変わらない。
+(ert-deftest peta-journal-several-page-names-leave-the-body-until-one-is-chosen ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "see [[To]]"))
+    (peta-journal-test--finding '("Tokyo" "Tools")
+      (peta-journal-test--goto "a" 8)
+      (setq peta-journal-test--sent nil)
+      (completion-at-point)
+      (should-not (peta-journal-test--sent-of "body_changed"))
+      (should (equal (peta-journal--body-at (point)) "see [[To]]")))))
+
+;; 名前が見つからなければ、本文は変わらない。
+(ert-deftest peta-journal-no-page-name-found-leaves-the-body ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "see [[To]]"))
+    (peta-journal-test--finding nil
+      (peta-journal-test--goto "a" 8)
+      (setq peta-journal-test--sent nil)
+      (completion-at-point)
+      (should-not (peta-journal-test--sent-of "body_changed"))
+      (should (equal (peta-journal--body-at (point)) "see [[To]]")))))
+
+;; 何も打っていなければ、サーバーには尋ねず、最近のページをその順のまま示す。
+(ert-deftest peta-journal-an-empty-wiki-link-is-completed-with-the-recent-pages ()
+  (let ((peta-journal--recent '("zeta" "alpha")))
+    (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "see [[]]"))
+      (peta-journal-test--finding '("Tokyo")
+        (peta-journal-test--goto "a" 6)
+        (should (equal (peta-journal-test--offered-names) '("zeta" "alpha")))
+        (should-not (peta-journal-test--sent-of "page_names"))))))
+
+;; ウィキリンクの外では、ページ名を補完しない。
+;; 閉じた`]]`の後ろ、`[[`や`]]`の2文字の間、`[`が1つだけのところも外である。
+(ert-deftest peta-journal-outside-a-wiki-link-no-page-name-is-completed ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "see [[To]] [x"))
+    (peta-journal-test--finding '("Tokyo")
+      (dolist (cursor '(2 5 9 10 13))
+        (peta-journal-test--goto "a" cursor)
+        (should-not (peta-journal--complete-wiki-link)))
+      (should-not (peta-journal-test--sent-of "page_names")))))
 
 ;;; peta-journal-test.el ends here

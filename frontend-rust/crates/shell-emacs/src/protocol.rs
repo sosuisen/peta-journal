@@ -122,6 +122,12 @@ pub enum Inbound {
         req: u64,
         yes: bool,
     },
+    /// Asks for the pages whose names match `query`, the text typed in a wiki link of the
+    /// item. The answer is [`Outbound::PageNames`].
+    PageNames {
+        id: String,
+        query: String,
+    },
 }
 
 /// Which page of a date to open.
@@ -189,6 +195,12 @@ pub enum Outbound {
     },
     Message {
         text: String,
+    },
+    /// The pages whose names match `query`, for the completion of a wiki link. It is sent
+    /// even when nothing was found, as Emacs waits for it.
+    PageNames {
+        query: String,
+        titles: Vec<String>,
     },
     /// A yes-or-no question for the user. Emacs answers with [`Inbound::Answer`].
     Ask {

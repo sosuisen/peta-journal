@@ -349,6 +349,8 @@ Completion sorts a plain list by name, which would hide the newest pages."
 (defvar-local peta-journal--datetime-keys nil "The property keys whose value is a date and a time.")
 (defvar-local peta-journal--connection "" "The state of the connection to the server.")
 (defvar-local peta-journal--scrolled nil "The scroll position the core knows about.")
+(defvar-local peta-journal--page-names nil
+  "The last page names the shell found: a cons of what was asked and the names.")
 
 ;;;; Finding rows
 
@@ -884,6 +886,9 @@ M-x peta-journal in that buffer starts it and shows the saved text.  See *peta-j
     ("search" (peta-journal--on-search (plist-get message :results)
                                        (plist-get message :searching)))
     ("recent" (setq peta-journal--recent (append (plist-get message :paths) nil)))
+    ("page_names" (setq peta-journal--page-names
+                        (cons (plist-get message :query)
+                              (append (plist-get message :titles) nil))))
     ("backlinks" (setq peta-journal--backlinks (plist-get message :groups)))
     ("message" (message "%s" (plist-get message :text)))
     ("ask" (peta-journal--on-ask (plist-get message :req)
@@ -1652,6 +1657,90 @@ In the list of properties, the key on the line of the point is the default."
                                      (with-current-buffer page
                                        (peta-journal--go "go" :url url))))))
 
+;;;; Completing a wiki link
+
+(defun peta-journal--wiki-link-bounds ()
+  "The start and the end of the page name of the wiki link at the point, or nil.
+The name stands between `[[' and `]]'.  Without a `]]', it ends at the point."
+  (when-let* ((row (peta-journal--row-start (point))))
+    (let ((body-start (peta-journal--body-start row))
+          (body-end (peta-journal--body-end row))
+          (point (point)))
+      (save-excursion
+        (skip-chars-backward "^][\n" body-start)
+        (when (and (<= (+ body-start 2) (point))
+                   (string= (buffer-substring-no-properties (- (point) 2) (point)) "[["))
+          (let ((start (point)))
+            (goto-char point)
+            (skip-chars-forward "^][\n" body-end)
+            (list start (if (looking-at-p "\\]\\]") (point) point))))))))
+
+(defun peta-journal--find-page-names (id typed)
+  "The page names the server finds for TYPED in a wiki link of the item ID.
+Without TYPED there is nothing to search for, so these are the recent pages."
+  (if (string-empty-p typed)
+      peta-journal--recent
+    (setq peta-journal--page-names nil)
+    (peta-journal--send "page_names" :id id :query typed)
+    (peta-journal--wait-until (lambda () (equal (car peta-journal--page-names) typed)))
+    (cdr peta-journal--page-names)))
+
+(defun peta-journal--page-name-table (id)
+  "A completion table of the page names for a wiki link of the item ID.
+It asks the server when the names are needed, and once for each text: Emacs
+reads a table several times in one completion."
+  (let ((page (current-buffer))
+        (found nil))
+    (lambda (typed predicate action)
+      (cond
+       ((eq action 'metadata)
+        ;; The server sorts by how well a name matches, so its order is kept
+        '(metadata (category . peta-journal-page)
+                   (display-sort-function . identity)
+                   (cycle-sort-function . identity)))
+       ((eq (car-safe action) 'boundaries) nil)
+       (t
+        (let ((names (cond
+                      ((assoc typed found) (cdr (assoc typed found)))
+                      ;; A name that was put in is read once more, to see that it is complete
+                      ((seq-some (lambda (asked) (member typed (cdr asked))) found)
+                       (list typed))
+                      (t (let ((names (with-current-buffer page
+                                        (peta-journal--find-page-names id typed))))
+                           (push (cons typed names) found)
+                           names)))))
+          (if (eq action t)
+              ;; All of them: the server has chosen, and not only by the start of a name
+              (all-completions "" names predicate)
+            (complete-with-action action names typed predicate))))))))
+
+(defun peta-journal--try-found-names (typed table predicate point)
+  "Complete TYPED to the only name TABLE found, and leave it when there are more.
+PREDICATE and POINT are as in any completion style."
+  (let ((names (all-completions typed table predicate)))
+    (cond ((null names) nil)
+          ((equal names (list typed)) t)
+          ((null (cdr names)) (cons (car names) (length (car names))))
+          (t (cons typed point)))))
+
+(defun peta-journal--all-found-names (typed table predicate _point)
+  "Every name TABLE found for TYPED that passes PREDICATE."
+  (all-completions typed table predicate))
+
+;; The usual styles keep only the names that start with the typed text.  The server also
+;; finds a name by a folder in its path or by a word inside it.
+(add-to-list 'completion-styles-alist
+             '(peta-journal-found
+               peta-journal--try-found-names peta-journal--all-found-names
+               "The page names of PetaJournal as the server found them."))
+(add-to-list 'completion-category-defaults '(peta-journal-page (styles peta-journal-found)))
+
+(defun peta-journal--complete-wiki-link ()
+  "Complete the page name of the wiki link at the point.
+This is for `completion-at-point-functions'."
+  (when-let* ((bounds (peta-journal--wiki-link-bounds)))
+    (list (car bounds) (cadr bounds) (peta-journal--page-name-table (peta-journal--item)))))
+
 ;;;; The mode
 
 (defvar-keymap peta-journal-mode-map
@@ -1682,6 +1771,8 @@ In the list of properties, the key on the line of the point is the default."
   "C-c C-x n" #'peta-journal-new-buffer
   "C-c C-x i" #'peta-journal-insert-image
   "C-c C-x c" #'peta-journal-calendar
+  ;; In `text-mode' this key completes a word from the dictionary in some versions of Emacs
+  "C-M-i" #'completion-at-point
   "<remap> <delete-backward-char>" #'peta-journal-backspace
   "<remap> <delete-char>" #'peta-journal-delete
   "<remap> <delete-forward-char>" #'peta-journal-delete
@@ -1733,6 +1824,7 @@ Type in a body as in any buffer.  The outline changes through these keys:
               (append font-lock-extend-region-functions
                       '(peta-journal--extend-font-lock-region)))
   (setq-local header-line-format '(:eval (peta-journal--header-line)))
+  (add-hook 'completion-at-point-functions #'peta-journal--complete-wiki-link nil t)
   (add-hook 'after-change-functions #'peta-journal--after-change nil t)
   (add-hook 'post-self-insert-hook #'peta-journal--close-typed nil t)
   (add-hook 'post-command-hook #'peta-journal--post-command nil t)

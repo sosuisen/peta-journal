@@ -89,6 +89,7 @@ These keys go to other places:
 | `C-c C-n`, `C-c C-p` | The next or the previous journal |
 | `C-c C-b` | Back to the page before |
 | `C-c C-o` | Open the wiki link or the tag at the point |
+| `C-M-i` | Complete the name of a page inside `[[` |
 
 The commands on the whole page are `C-c C-x` and then one letter:
 
@@ -102,6 +103,19 @@ The commands on the whole page are `C-c C-x` and then one letter:
 | `C-c C-x c` | Pick a date in the calendar and open it |
 
 To open a page by name, use the search box.
+
+## Completing a wiki link
+
+Between `[[` and `]]`, `C-M-i` completes the name of a page. This is the standard completion of
+Emacs, `completion-at-point`. A completion UI such as Corfu or Company shows the names in its own way.
+
+- The server searches for the text between `[[` and `]]`. A name does not have to start with that
+  text: a folder in its path or a word inside it also matches. The names keep the order of the
+  server. There are 10 at most.
+- One name is put in at once. With more names, choose one from the list.
+- With no text typed, the names are the recent pages.
+- The chosen name replaces all the text between `[[` and `]]`. The point stays in front of `]]`.
+- Emacs alone shows the names only when you press the key. They do not pop up while you type.
 
 ## The calendar
 
@@ -234,7 +248,7 @@ letter are kept free for users.
 
 ## Not in this version
 
-Wiki link completion, showing images from outside the server, pasting images from the clipboard, the atlas, extensions,
+Showing images from outside the server, pasting images from the clipboard, the atlas, extensions,
 settings and operations on several selected
 items.
 
