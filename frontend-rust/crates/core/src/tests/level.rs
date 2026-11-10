@@ -1,6 +1,6 @@
 use crate::app::Event;
 use crate::effects::ApiOp;
-use crate::harness::{item, move_calls, Harness};
+use crate::harness::{item, move_calls, update_calls, Harness};
 use crate::model::TranscludedTrees;
 use crate::testing::item_with;
 
@@ -137,6 +137,49 @@ fn logical_outdent_moves_the_group_one_level_up_after_the_parents_last_child_in_
     assert_eq!(h.outline(), ["p:1=", "a:2=", "d:2=", "b:1=", "c:2="]);
     assert_eq!(h.focused_editor_requests(), [Some("b".to_string())]);
     assert_eq!(h.model.undo.pop_undo().unwrap().label, "outdent");
+}
+
+fn typed(h: &mut Harness, item_id: &str, body: &str) {
+    h.model.state.add_editing_item(item_id);
+    let now = h.now_ms;
+    h.send(Event::BodyChanged {
+        item_id: item_id.into(),
+        body: body.into(),
+        now_ms: now,
+    });
+}
+
+// 入力した直後の論理アウトデントでは、打ったばかりの文は移動の要求に入って届く。保存を別には送らず、その自動保存は取り消される。画面には、サーバーが保存した本文が出る。
+#[test]
+fn text_typed_just_before_a_logical_outdent_travels_in_its_move() {
+    let mut h = outdent_harness();
+    h.model.config.logical_outdent = true;
+    typed(&mut h, "b", "b typed");
+    h.send(Event::Outdent {
+        item_id: "b".into(),
+    });
+    assert_eq!(outdent_moves(&h)[0].body, Some("b typed".to_string()));
+    h.fire_timers();
+    assert!(update_calls(&h.api).is_empty());
+    assert_eq!(h.outline(), ["p:1=", "a:2=", "d:2=", "b:1=b typed", "c:2="]);
+}
+
+// 論理アウトデントが断られると、画面は変わらず、要求に入れた文はもう一度自動保存にかけられる。キーの保留は終わる。
+#[test]
+fn after_a_refused_logical_outdent_nothing_changes_and_the_typed_text_is_auto_saved_again() {
+    let mut h = outdent_harness();
+    h.model.config.logical_outdent = true;
+    typed(&mut h, "b", "b typed");
+    h.api.fail_next("MoveItems", "offline");
+    h.send(Event::Outdent {
+        item_id: "b".into(),
+    });
+    assert_eq!(h.outline(), ["p:1=", "a:2=", "b:2=b typed", "c:3=", "d:2="]);
+    assert!(h.model.undo.pop_undo().is_none_or(|e| e.label != "outdent"));
+    assert!(!h.model.key_relay.is_holding());
+    assert!(!h.api.called("GetPageById"));
+    h.fire_timers();
+    assert_eq!(update_calls(&h.api), [("b".into(), Some("b typed".into()))]);
 }
 
 // 一人っ子の論理アウトデントでは移動が不要である。
