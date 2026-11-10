@@ -529,6 +529,10 @@ rewritten, so what does not change stays where it is."
       (setq written-end (point)))
     (setq peta-journal--rows new
           peta-journal--page-id page-id)
+    ;; The core has ended the edit of an item that is gone, for one deleted here or by
+    ;; another client.  Telling it so again would be about an item it does not know
+    (unless (and peta-journal--current (peta-journal--row-index peta-journal--current new))
+      (setq peta-journal--current nil))
     (when new-page
       (peta-journal--warn-if-shown-elsewhere)
       (peta-journal--forget-unknown-images))
@@ -1039,11 +1043,11 @@ Only for these characters: waiting on every key would slow typing down."
   (peta-journal--send-and-wait "collapse_toggle" :id (peta-journal--item)))
 
 (defun peta-journal-delete-item ()
-  "Delete the item at the point, with its children."
+  "Delete the item at the point, with its children.
+The edit of the item goes on until the rows without it arrive: the user or the
+server may still say no."
   (interactive)
-  (let ((id (peta-journal--item)))
-    (setq peta-journal--current nil)
-    (peta-journal--send-and-wait "delete_item" :id id)))
+  (peta-journal--send-and-wait "delete_item" :id (peta-journal--item)))
 
 (defun peta-journal-yank ()
   "Paste the latest kill.  The core splits it into items when it has several."
