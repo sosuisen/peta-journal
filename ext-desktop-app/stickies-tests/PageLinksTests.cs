@@ -30,9 +30,7 @@ public class PageLinksTests
     {
         var uri = PageLinks.ForWikilink(Server, "C#/0.2 メモ");
 
-        Assert.Equal(
-            "http://localhost:8087/pages/C%23/0.2%20%E3%83%A1%E3%83%A2",
-            uri.AbsoluteUri);
+        Assert.Equal("http://localhost:8087/pages/C%23/0.2%20%E3%83%A1%E3%83%A2", uri.AbsoluteUri);
     }
 
     // ハッシュタグは、タグ用フォルダにあるタグのページに通じる。

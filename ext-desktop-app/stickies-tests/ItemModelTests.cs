@@ -7,7 +7,7 @@ public class ItemModelTests
 {
     private static readonly JsonSerializerOptions ServerJson = new()
     {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
 
     private static ItemModel FromServer(string json)
@@ -37,7 +37,9 @@ public class ItemModelTests
     [Fact]
     public void A_task_with_only_begin_is_running()
     {
-        var item = FromServer("""{"types":["task"],"properties":{"begin":"2026-11-10T14:44:42Z"}}""");
+        var item = FromServer(
+            """{"types":["task"],"properties":{"begin":"2026-11-10T14:44:42Z"}}"""
+        );
 
         Assert.Equal(TaskState.Running, item.TaskState);
     }
@@ -47,7 +49,8 @@ public class ItemModelTests
     public void A_task_with_begin_and_end_is_done()
     {
         var item = FromServer(
-            """{"types":["task"],"properties":{"begin":"2026-11-09T16:40:19Z","end":"2026-11-09T16:40:19Z"}}""");
+            """{"types":["task"],"properties":{"begin":"2026-11-09T16:40:19Z","end":"2026-11-09T16:40:19Z"}}"""
+        );
 
         Assert.Equal(TaskState.Done, item.TaskState);
     }
@@ -65,7 +68,9 @@ public class ItemModelTests
     [Fact]
     public void A_time_with_an_empty_value_counts_as_not_set()
     {
-        var item = FromServer("""{"types":["task"],"properties":{"begin":"2026-11-10T14:44:42Z","end":""}}""");
+        var item = FromServer(
+            """{"types":["task"],"properties":{"begin":"2026-11-10T14:44:42Z","end":""}}"""
+        );
 
         Assert.Equal(TaskState.Running, item.TaskState);
     }

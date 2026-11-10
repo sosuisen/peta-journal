@@ -16,19 +16,30 @@ public class OutlineHtmlTests
 
     private static string AstOf(string text)
     {
-        return JsonSerializer.Serialize(new
-        {
-            type = "document",
-            children = new[]
+        return JsonSerializer.Serialize(
+            new
             {
-                new { type = "paragraph", children = new[] { new { type = "text", value = text } } }
+                type = "document",
+                children = new[]
+                {
+                    new
+                    {
+                        type = "paragraph",
+                        children = new[] { new { type = "text", value = text } },
+                    },
+                },
             }
-        });
+        );
     }
 
     private static ItemModel Item(string id, int level, string text)
     {
-        return new ItemModel { Id = id, Level = level, Ast = AstOf(text) };
+        return new ItemModel
+        {
+            Id = id,
+            Level = level,
+            Ast = AstOf(text),
+        };
     }
 
     private static ItemModel Task(string id, int level, string text, params string[] times)
@@ -101,7 +112,12 @@ public class OutlineHtmlTests
     [InlineData("""{"type":"document","children":[]}""")]
     public void An_item_without_text_is_an_empty_row_without_an_AST(string ast)
     {
-        var item = new ItemModel { Id = "a", Level = 1, Ast = ast };
+        var item = new ItemModel
+        {
+            Id = "a",
+            Level = 1,
+            Ast = ast,
+        };
 
         var row = Rows([item], NothingCollapsed)[0];
 
@@ -137,7 +153,9 @@ public class OutlineHtmlTests
     [Fact]
     public void An_item_with_children_has_a_collapse_arrow_with_its_id_in_place_of_the_bullet()
     {
-        var row = Rows([Item("parent", 1, "parent"), Item("child", 2, "child")], NothingCollapsed)[0];
+        var row = Rows([Item("parent", 1, "parent"), Item("child", 2, "child")], NothingCollapsed)[
+            0
+        ];
 
         Assert.Contains(Toggle, row);
         Assert.Contains("data-item-id=\"parent\"", row);

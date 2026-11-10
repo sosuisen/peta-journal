@@ -22,8 +22,16 @@
     <FmAst2HtmlJsPath>vendor\$(FmAst2HtmlJsName)</FmAst2HtmlJsPath>
   </PropertyGroup>
 
-  <Target Name="DownloadFmAst2Html" BeforeTargets="BeforeCompile" Condition="!Exists('$(FmAst2HtmlJsPath)')">
-    <DownloadFile SourceUrl="$(FmAst2HtmlUrl)" DestinationFolder="vendor" DestinationFileName="$(FmAst2HtmlJsName)" />
+  <Target
+    Name="DownloadFmAst2Html"
+    BeforeTargets="BeforeCompile"
+    Condition="!Exists('$(FmAst2HtmlJsPath)')"
+  >
+    <DownloadFile
+      SourceUrl="$(FmAst2HtmlUrl)"
+      DestinationFolder="vendor"
+      DestinationFileName="$(FmAst2HtmlJsName)"
+    />
   </Target>
 
   <ItemGroup>

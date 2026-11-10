@@ -9,7 +9,8 @@ public class PageHtmlTests
     private static readonly PageAssets Assets = new(
         Css: "body { color: #333; }",
         RendererScript: "var FmAst2Html = {};",
-        PageScript: "console.log('page');");
+        PageScript: "console.log('page');"
+    );
 
     private static readonly PageLook Look = new("#FFFDD0", ZoomFactor: 1.0, Scrolls: true);
 

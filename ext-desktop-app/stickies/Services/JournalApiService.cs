@@ -20,7 +20,7 @@ public class JournalApiService : IDisposable
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
 
     public event Action? Connected;
@@ -57,15 +57,24 @@ public class JournalApiService : IDisposable
                 _sseCts?.Cancel();
                 if (_sseTask != null)
                 {
-                    try { await _sseTask; } catch { }
+                    try
+                    {
+                        await _sseTask;
+                    }
+                    catch { }
                     _sseTask = null;
                 }
                 _sseCts = new CancellationTokenSource();
 
-                var connectedTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                var connectedTcs = new TaskCompletionSource(
+                    TaskCreationOptions.RunContinuationsAsynchronously
+                );
 
                 // Start SSE listener in background — it will signal connectedTcs when stream is established
-                _sseTask = Task.Run(() => SseListenLoop(_sseCts.Token, connectedTcs), _sseCts.Token);
+                _sseTask = Task.Run(
+                    () => SseListenLoop(_sseCts.Token, connectedTcs),
+                    _sseCts.Token
+                );
 
                 // Wait until SSE stream is actually established (like EventSource.onopen)
                 await connectedTcs.Task;
@@ -75,22 +84,39 @@ public class JournalApiService : IDisposable
             {
                 _isConnected = false;
                 Reconnecting?.Invoke();
-                try { await Task.Delay(delay, ct); }
-                catch (OperationCanceledException) { return; }
-                delay = TimeSpan.FromSeconds(Math.Min(delay.TotalSeconds * 2, MaxDelay.TotalSeconds));
+                try
+                {
+                    await Task.Delay(delay, ct);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+                delay = TimeSpan.FromSeconds(
+                    Math.Min(delay.TotalSeconds * 2, MaxDelay.TotalSeconds)
+                );
             }
         }
     }
 
-    private async Task SseListenLoop(CancellationToken ct, TaskCompletionSource? connectedTcs = null)
+    private async Task SseListenLoop(
+        CancellationToken ct,
+        TaskCompletionSource? connectedTcs = null
+    )
     {
         var wasConnected = false;
         try
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, "/api/events");
-            request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("text/event-stream"));
+            request.Headers.Accept.Add(
+                new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("text/event-stream")
+            );
 
-            using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
+            using var response = await _http.SendAsync(
+                request,
+                HttpCompletionOption.ResponseHeadersRead,
+                ct
+            );
             response.EnsureSuccessStatusCode();
 
             // SSE stream established — fire Connected (equivalent to EventSource.onopen)
@@ -107,7 +133,8 @@ public class JournalApiService : IDisposable
             while (!ct.IsCancellationRequested)
             {
                 var line = await reader.ReadLineAsync(ct);
-                if (line == null) break; // stream ended
+                if (line == null)
+                    break; // stream ended
 
                 if (line.StartsWith("data:"))
                 {
@@ -136,7 +163,11 @@ public class JournalApiService : IDisposable
 
             // Only auto-reconnect if the stream was previously established then dropped.
             // If connection was never established, ConnectSseWithRetryAsync's retry loop handles it.
-            if (wasConnected && !_intentionalDisconnect && _reconnectCts is { IsCancellationRequested: false })
+            if (
+                wasConnected
+                && !_intentionalDisconnect
+                && _reconnectCts is { IsCancellationRequested: false }
+            )
             {
                 _ = Task.Run(() => ConnectSseWithRetryAsync(_reconnectCts.Token));
             }
@@ -148,7 +179,8 @@ public class JournalApiService : IDisposable
         try
         {
             var json = JsonSerializer.Deserialize<JsonElement>(data);
-            if (!json.TryGetProperty("type", out var typeEl)) return;
+            if (!json.TryGetProperty("type", out var typeEl))
+                return;
             var eventType = typeEl.GetString();
 
             if (eventType == "pagesUpdated" && json.TryGetProperty("pageId", out var pageIdEl))
@@ -159,7 +191,10 @@ public class JournalApiService : IDisposable
         catch { }
     }
 
-    public async Task<SearchPageNamesResponse?> SearchPageNamesAsync(string query, int maxResults = 20)
+    public async Task<SearchPageNamesResponse?> SearchPageNamesAsync(
+        string query,
+        int maxResults = 20
+    )
     {
         var url = $"/api/search/pages?q={Uri.EscapeDataString(query)}&maxResults={maxResults}";
         var response = await _http.GetFromJsonAsync<SearchPageNamesResponse>(url, JsonOptions);

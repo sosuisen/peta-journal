@@ -26,7 +26,11 @@ public sealed partial class MainWindow : Window
 
     public string WindowId => _windowSettings.Id;
 
-    public MainWindow(JournalApiService api, SettingsService settingsService, StickyWindowSettings? settings = null)
+    public MainWindow(
+        JournalApiService api,
+        SettingsService settingsService,
+        StickyWindowSettings? settings = null
+    )
     {
         _api = api;
         _settingsService = settingsService;
@@ -79,15 +83,21 @@ public sealed partial class MainWindow : Window
         if (_appWindow != null)
         {
             var scale = GetScaleFactor();
-            _appWindow.MoveAndResize(new RectInt32(
-                _windowSettings.X, _windowSettings.Y,
-                (int)(_windowSettings.Width * scale), (int)(_windowSettings.Height * scale)));
+            _appWindow.MoveAndResize(
+                new RectInt32(
+                    _windowSettings.X,
+                    _windowSettings.Y,
+                    (int)(_windowSettings.Width * scale),
+                    (int)(_windowSettings.Height * scale)
+                )
+            );
         }
     }
 
     private async Task InitializeContentAsync()
     {
-        if (_initialized) return;
+        if (_initialized)
+            return;
         _initialized = true;
 
         await EnsureWebViewInitialized();
@@ -137,7 +147,8 @@ public sealed partial class MainWindow : Window
 
     private void OnPageUpdated(string pageId)
     {
-        if (pageId != _windowSettings.PageId) return;
+        if (pageId != _windowSettings.PageId)
+            return;
         DispatcherQueue.TryEnqueue(async () =>
         {
             await LoadPageAsync(pageId, isRefresh: true);
@@ -210,7 +221,8 @@ public sealed partial class MainWindow : Window
     {
         try
         {
-            if (!_api.IsConnected) await _api.ConnectAsync();
+            if (!_api.IsConnected)
+                await _api.ConnectAsync();
             var response = await _api.SearchPageNamesAsync(query);
             if (response != null)
             {
@@ -240,9 +252,11 @@ public sealed partial class MainWindow : Window
     {
         try
         {
-            if (!_api.IsConnected) await _api.ConnectAsync();
+            if (!_api.IsConnected)
+                await _api.ConnectAsync();
             var response = await _api.GetPageByIdAsync(pageId);
-            if (response == null) return;
+            if (response == null)
+                return;
 
             _currentItems = response.Items.ToList();
 
@@ -250,7 +264,8 @@ public sealed partial class MainWindow : Window
             _collapsedItemIds.Clear();
             foreach (var b in _currentItems)
             {
-                if (b.Collapsed) _collapsedItemIds.Add(b.Id);
+                if (b.Collapsed)
+                    _collapsedItemIds.Add(b.Id);
             }
 
             if (!isRefresh)
@@ -264,7 +279,8 @@ public sealed partial class MainWindow : Window
         }
         catch
         {
-            if (!isRefresh) ShowErrorContent("Failed to load page");
+            if (!isRefresh)
+                ShowErrorContent("Failed to load page");
         }
     }
 
@@ -286,15 +302,20 @@ public sealed partial class MainWindow : Window
             var core = ContentWebView.CoreWebView2!;
             core.NavigationStarting += (sender, e) =>
             {
-                if (Uri.TryCreate(e.Uri, UriKind.Absolute, out var uri)
-                    && uri.Scheme != "http" && uri.Scheme != "https"
-                    && uri.Scheme != "about" && uri.Scheme != "data")
+                if (
+                    Uri.TryCreate(e.Uri, UriKind.Absolute, out var uri)
+                    && uri.Scheme != "http"
+                    && uri.Scheme != "https"
+                    && uri.Scheme != "about"
+                    && uri.Scheme != "data"
+                )
                 {
                     e.Cancel = true;
                     _ = Windows.System.Launcher.LaunchUriAsync(uri);
                 }
             };
-            core.WebMessageReceived += (sender, e) => OnWebMessage(WebMessage.Parse(e.WebMessageAsJson));
+            core.WebMessageReceived += (sender, e) =>
+                OnWebMessage(WebMessage.Parse(e.WebMessageAsJson));
             core.Settings.IsZoomControlEnabled = false;
         }
     }
@@ -314,7 +335,8 @@ public sealed partial class MainWindow : Window
                 break;
             case WebMessage.WikilinkClicked wikilink:
                 _ = Windows.System.Launcher.LaunchUriAsync(
-                    PageLinks.ForWikilink(_api.BaseUrl, wikilink.PageName));
+                    PageLinks.ForWikilink(_api.BaseUrl, wikilink.PageName)
+                );
                 break;
             case WebMessage.HashtagClicked hashtag:
                 _ = OpenTagPageAsync(hashtag.Tag);
@@ -329,7 +351,8 @@ public sealed partial class MainWindow : Window
             // The folder of the tag pages is asked each time, because the user can change it.
             var tagsDir = await _api.GetTagsDirAsync();
             await Windows.System.Launcher.LaunchUriAsync(
-                PageLinks.ForHashtag(_api.BaseUrl, tagsDir, tag));
+                PageLinks.ForHashtag(_api.BaseUrl, tagsDir, tag)
+            );
         }
         catch
         {
@@ -340,18 +363,27 @@ public sealed partial class MainWindow : Window
     private string BuildHtml()
     {
         var look = new PageLook(
-            _windowSettings.BackgroundColor, _windowSettings.ZoomFactor, Scrolls: !_isDeactivated);
+            _windowSettings.BackgroundColor,
+            _windowSettings.ZoomFactor,
+            Scrolls: !_isDeactivated
+        );
         return PageHtml.ForItems(
             OutlineHtml.Build(_currentItems, _collapsedItemIds),
             look,
             PageLinks.PagesUrl(_api.BaseUrl),
-            EmbeddedPageAssets.Value);
+            EmbeddedPageAssets.Value
+        );
     }
 
     private void ShowEmptyContent()
     {
-        _ = ShowHtmlAsync(PageHtml.ForMessage(
-            "Click the search icon to find a page", "#999", _windowSettings.BackgroundColor));
+        _ = ShowHtmlAsync(
+            PageHtml.ForMessage(
+                "Click the search icon to find a page",
+                "#999",
+                _windowSettings.BackgroundColor
+            )
+        );
     }
 
     private void ShowErrorContent(string message)
@@ -427,7 +459,8 @@ public sealed partial class MainWindow : Window
     {
         // Prefer XamlRoot when available (after XAML tree is loaded)
         var xamlScale = Content?.XamlRoot?.RasterizationScale;
-        if (xamlScale.HasValue) return xamlScale.Value;
+        if (xamlScale.HasValue)
+            return xamlScale.Value;
 
         // Fallback to Win32 API (works before XAML tree is ready)
         var hwnd = WindowNative.GetWindowHandle(this);
@@ -457,7 +490,8 @@ public sealed partial class MainWindow : Window
         _api.Connected -= OnApiConnected;
         _api.Disconnected -= OnApiDisconnected;
         _api.Reconnecting -= OnApiReconnecting;
-        if (_appWindow != null) _appWindow.Changed -= AppWindow_Changed;
+        if (_appWindow != null)
+            _appWindow.Changed -= AppWindow_Changed;
         // Only the close button throws a sticky away. A window also closes when Windows
         // or another program ends the app, and then the sticky must come back at the next start.
         if (_closedByUser)

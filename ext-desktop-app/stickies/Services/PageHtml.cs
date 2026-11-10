@@ -32,7 +32,12 @@ internal static class PageHtml
     /// <param name="look">The values that change at run time.</param>
     /// <param name="pagesUrl">The address that all pages live under, from <see cref="PageLinks.PagesUrl"/>.</param>
     /// <param name="assets">The style sheet and the scripts.</param>
-    internal static string ForItems(string itemsHtml, PageLook look, string pagesUrl, PageAssets assets)
+    internal static string ForItems(
+        string itemsHtml,
+        PageLook look,
+        string pagesUrl,
+        PageAssets assets
+    )
     {
         ArgumentNullException.ThrowIfNull(itemsHtml);
         ArgumentNullException.ThrowIfNull(look);
@@ -73,7 +78,8 @@ internal static class PageHtml
     internal static string ForMessage(string message, string textColor, string backgroundColor)
     {
         ArgumentNullException.ThrowIfNull(message);
-        var bodyStyle = "font-family:'Segoe UI',sans-serif;display:flex;justify-content:center;"
+        var bodyStyle =
+            "font-family:'Segoe UI',sans-serif;display:flex;justify-content:center;"
             + $"align-items:center;height:100vh;margin:0;background:{backgroundColor};color:{textColor};";
         return $"""
             <!DOCTYPE html>

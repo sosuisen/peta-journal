@@ -8,9 +8,7 @@ namespace Stickies.Services;
 /// </summary>
 internal abstract record WebMessage
 {
-    private WebMessage()
-    {
-    }
+    private WebMessage() { }
 
     /// <summary>The user changed the zoom. 1 is 100%.</summary>
     internal sealed record ZoomChanged(double Factor) : WebMessage;
@@ -39,15 +37,21 @@ internal abstract record WebMessage
         {
             using var document = JsonDocument.Parse(json);
             var root = document.RootElement;
-            if (root.ValueKind != JsonValueKind.Object) return null;
+            if (root.ValueKind != JsonValueKind.Object)
+                return null;
 
             if (root.TryGetProperty("zoom", out var zoom))
             {
-                return zoom.ValueKind == JsonValueKind.Number ? new ZoomChanged(zoom.GetDouble()) : null;
+                return zoom.ValueKind == JsonValueKind.Number
+                    ? new ZoomChanged(zoom.GetDouble())
+                    : null;
             }
-            if (Text(root, "toggleCollapse") is { } itemId) return new CollapseToggled(itemId);
-            if (Text(root, "openWikilink") is { } pageName) return new WikilinkClicked(pageName);
-            if (Text(root, "openHashtag") is { } tag) return new HashtagClicked(tag);
+            if (Text(root, "toggleCollapse") is { } itemId)
+                return new CollapseToggled(itemId);
+            if (Text(root, "openWikilink") is { } pageName)
+                return new WikilinkClicked(pageName);
+            if (Text(root, "openHashtag") is { } tag)
+                return new HashtagClicked(tag);
             return null;
         }
         catch (JsonException)
@@ -59,8 +63,10 @@ internal abstract record WebMessage
     // The text of a property, or null when the property is missing, not a text, or empty.
     private static string? Text(JsonElement root, string name)
     {
-        if (!root.TryGetProperty(name, out var value)) return null;
-        if (value.ValueKind != JsonValueKind.String) return null;
+        if (!root.TryGetProperty(name, out var value))
+            return null;
+        if (value.ValueKind != JsonValueKind.String)
+            return null;
         var text = value.GetString();
         return string.IsNullOrEmpty(text) ? null : text;
     }
