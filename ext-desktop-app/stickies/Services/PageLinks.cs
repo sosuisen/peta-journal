@@ -7,15 +7,25 @@ namespace Stickies.Services;
 internal static class PageLinks
 {
     /// <summary>
+    /// The address that all pages live under. It ends with a slash.
+    /// A path that is relative to a page, such as the path of an image, is resolved against it.
+    /// </summary>
+    /// <param name="serverUrl">The address of the journal server, without a slash at the end.</param>
+    internal static string PagesUrl(string serverUrl)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(serverUrl);
+        return $"{serverUrl}/pages/";
+    }
+
+    /// <summary>
     /// The address of the page that a wikilink names.
     /// </summary>
     /// <param name="serverUrl">The address of the journal server, without a slash at the end.</param>
     /// <param name="pageName">The page name. It is not empty, and it may hold folders.</param>
     internal static Uri ForWikilink(string serverUrl, string pageName)
     {
-        ArgumentException.ThrowIfNullOrEmpty(serverUrl);
         ArgumentException.ThrowIfNullOrEmpty(pageName);
-        return new Uri($"{serverUrl}/pages/{EscapePath(pageName)}");
+        return new Uri(PagesUrl(serverUrl) + EscapePath(pageName));
     }
 
     /// <summary>
