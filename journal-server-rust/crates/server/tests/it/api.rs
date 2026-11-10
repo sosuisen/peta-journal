@@ -5112,6 +5112,61 @@ fn saved_asset(file_name: &str) -> std::path::PathBuf {
     server().markdown_dir.join("assets").join(file_name)
 }
 
+/// The HMTID and the extension in the name the server gave an upload.
+fn id_and_extension(file_name: &str) -> (hmtid::Hmtid, Option<&str>) {
+    let (id, extension) = match file_name.rsplit_once('.') {
+        Some((id, extension)) => (id, Some(extension)),
+        None => (file_name, None),
+    };
+    (hmtid::Hmtid::parse(id).expect(file_name), extension)
+}
+
+// 送ったファイルは、HMTIDと元の拡張子でできた名前で、中身のまま保存される。拡張子は小文字になる。
+// 答えには、保存した名前と、元の名前がそのまま入る。
+#[tokio::test]
+async fn an_upload_is_saved_under_an_hmtid_with_the_extension_of_its_name() {
+    let response = upload_asset("構成図 v2.PNG", b"drawing".to_vec())
+        .await
+        .unwrap();
+
+    assert_eq!(response.status().as_u16(), 200);
+    let answer: Value = response.json().await.unwrap();
+    let file_name = answer["fileName"].as_str().unwrap();
+    let (_, extension) = id_and_extension(file_name);
+    assert_eq!(extension, Some("png"));
+    assert_eq!(answer["originalName"], "構成図 v2.PNG");
+    assert_eq!(std::fs::read(saved_asset(file_name)).unwrap(), b"drawing");
+}
+
+// 同じ名前のファイルを続けて送ると、別々の名前で保存され、どちらも残る。
+#[tokio::test]
+async fn two_uploads_with_one_name_are_saved_as_two_files() {
+    let mut saved = Vec::new();
+    for bytes in [b"first", b"again"] {
+        let response = upload_asset("image.png", bytes.to_vec()).await.unwrap();
+        let answer: Value = response.json().await.unwrap();
+        saved.push(answer["fileName"].as_str().unwrap().to_string());
+    }
+
+    assert_ne!(saved[0], saved[1]);
+    assert_eq!(std::fs::read(saved_asset(&saved[0])).unwrap(), b"first");
+    assert_eq!(std::fs::read(saved_asset(&saved[1])).unwrap(), b"again");
+}
+
+// 拡張子のない名前と、拡張子がASCIIの英数字でない名前のファイルは、HMTIDだけの名前で保存される。
+#[tokio::test]
+async fn an_upload_without_a_plain_extension_is_saved_under_the_hmtid_alone() {
+    for name in ["README", "memo.下書き", "notes."] {
+        let response = upload_asset(name, b"text".to_vec()).await.unwrap();
+        let answer: Value = response.json().await.unwrap();
+        let file_name = answer["fileName"].as_str().unwrap();
+
+        let (_, extension) = id_and_extension(file_name);
+        assert_eq!(extension, None, "{name} was saved as {file_name}");
+        assert_eq!(std::fs::read(saved_asset(file_name)).unwrap(), b"text");
+    }
+}
+
 // 上限の50MBに近い画像も、中身のまま保存される。
 #[tokio::test]
 async fn an_image_just_under_the_limit_is_saved_as_it_is() {
