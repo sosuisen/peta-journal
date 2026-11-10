@@ -1,12 +1,19 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { serverUrl } from './api';
 import FilterBar from './FilterBar';
 import ItemRow from './ItemRow';
+import { linkOptions } from './links';
 import { type Filters, groupByPlan, isShown, localISODate } from './tasks';
 import { useTasks } from './useTasks';
 
 /** The todo app: the tasks of the journal server, filtered and grouped by plan date. */
 export default function App() {
-  const { items, loading, error, connectionState, cycle } = useTasks();
+  const { items, loading, error, connectionState, tagsDir, cycle } = useTasks();
+  // FmRoot renders again when the options are a new object, so they are kept between renders
+  const itemLinkOptions = useMemo(
+    () => linkOptions(serverUrl, tagsDir),
+    [tagsDir],
+  );
   const [filters, setFilters] = useState<Filters>(() => ({
     untilDate: localISODate(new Date()),
     showDone: false,
@@ -37,6 +44,7 @@ export default function App() {
             <ItemRow
               key={entry.item.id}
               item={entry.item}
+              linkOptions={itemLinkOptions}
               onCycle={item => void cycle(item)}
             />
           ),
