@@ -1,7 +1,7 @@
 //! One-shot commands on items, ported from `item-action.service.ts`: task state, zoom,
 //! collapsing, transclusion, archiving, and deleting or copying several items at once.
 
-use crate::app::{apply, done, log_error, run, Cmd, Event, Model};
+use crate::app::{done, log_error, run, Cmd, Event, Model};
 use crate::effects::{Api, UiOp};
 use crate::model::{Item, ItemPosition, Stashed};
 use crate::ops::edit::{auto_save_again, focus_editor, save_target_id, take_unsaved};
@@ -30,20 +30,29 @@ pub fn cycle_task(model: &mut Model, item_id: &str) -> Cmd {
                 Err(e) => return log_error(format!("Failed to set plan: {e}")),
             }
         }
-        apply(&api, "cycle task: apply", move |m| {
-            let (types, properties) = (updated.types.clone(), updated.properties.clone());
-            m.state.update_item(&target_id, |i| {
-                i.types = types;
-                i.properties = properties;
-            });
-            let mut after = item.clone();
-            after.types = updated.types;
-            after.properties = updated.properties;
-            m.undo
-                .record_update("cycle-task", &item, &after, m.clock_ms);
-            done()
+        api.send_event(Event::TaskCycled {
+            target_id,
+            before: Box::new(item),
+            updated: Box::new(updated),
         });
     })
+}
+
+/// The server changed the task state of an item: the item saved under `target_id` shows
+/// the new types and properties, and the change of `before` can be undone.
+pub fn show_task_cycled(model: &mut Model, target_id: &str, before: Item, updated: Item) -> Cmd {
+    let (types, properties) = (updated.types.clone(), updated.properties.clone());
+    model.state.update_item(target_id, |i| {
+        i.types = types;
+        i.properties = properties;
+    });
+    let mut after = before.clone();
+    after.types = updated.types;
+    after.properties = updated.properties;
+    model
+        .undo
+        .record_update("cycle-task", &before, &after, model.clock_ms);
+    done()
 }
 
 /// Shift+Wheel: a tenth more or less zoom, between 0.1 and 3.0.
@@ -107,23 +116,36 @@ pub fn toggle_collapsed(model: &mut Model, item_id: &str) -> Cmd {
             .update_item(&item.id, None, None, Some(new_collapsed))
             .await
         {
-            Ok(_) => apply(&api, "collapse: record", move |m| {
-                let mut after = item.clone();
-                after.collapsed = new_collapsed;
-                m.undo.record_update("collapse", &item, &after, m.clock_ms);
-                done()
+            Ok(_) => api.send_event(Event::CollapseSaved {
+                before: Box::new(item),
             }),
             Err(e) => {
                 log_error(format!("Failed to toggle collapse: {e}"));
-                apply(&api, "collapse: revert", move |m| {
-                    m.state.toggle_collapsed(&item.id);
-                    let was = item.collapsed;
-                    m.state.update_item(&item.id, |i| i.collapsed = was);
-                    done()
+                api.send_event(Event::CollapseRefused {
+                    before: Box::new(item),
                 });
             }
         }
     })
+}
+
+/// The server saved the collapsing or expanding of an item: the change of `before` can be
+/// undone.
+pub fn record_collapse(model: &mut Model, before: Item) -> Cmd {
+    let mut after = before.clone();
+    after.collapsed = !before.collapsed;
+    model
+        .undo
+        .record_update("collapse", &before, &after, model.clock_ms);
+    done()
+}
+
+/// The server refused the collapsing or expanding of an item: it is shown as `before` again.
+pub fn put_collapse_back(model: &mut Model, before: Item) -> Cmd {
+    model.state.toggle_collapsed(&before.id);
+    let was = before.collapsed;
+    model.state.update_item(&before.id, |i| i.collapsed = was);
+    done()
 }
 
 /// Makes the item a transclusion of the item whose id is on the clipboard.
@@ -158,9 +180,8 @@ async fn transclude(api: &Api<Event>, item: &Item, pasted_text: &str) {
 /// Shows an item whose transclusion changed: the item at once, then the page again, since
 /// the source tree of a transclusion comes with the page only.
 pub async fn show_transclusion_change(api: &Api<Event>, updated: Item) {
-    apply(api, "transclusion changed", move |m| {
-        m.state.replace_item(&updated);
-        done()
+    api.send_event(Event::TransclusionChanged {
+        item: Box::new(updated),
     });
     reload_shown_page(api).await;
 }
@@ -313,9 +334,9 @@ pub fn copy_items(item_ids: Vec<String>) -> Cmd {
                 api.notify(UiOp::CopyMarkdown {
                     markdown: result.tree_markdown.clone(),
                 });
-                apply(&api, "copy: remember", move |m| {
-                    m.clipboard = Some((result.flat_markdown, result.tree_markdown));
-                    done()
+                api.send_event(Event::MarkdownCopied {
+                    flat_markdown: result.flat_markdown,
+                    tree_markdown: result.tree_markdown,
                 });
             }
             Err(e) => {

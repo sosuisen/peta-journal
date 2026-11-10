@@ -3,7 +3,7 @@
 //! add up on the server. The logical outdent is a move instead: it is shown when the server
 //! has answered, like any move.
 
-use crate::app::{apply, done, log_error, run, Cmd, Event, Model};
+use crate::app::{done, log_error, run, Cmd, Event, Model};
 use crate::model::{Item, ItemPosition, ItemRef};
 use crate::ops::file_reload;
 use crate::ops::moves::request_move;
@@ -147,13 +147,17 @@ fn save_level_shift(group: &[ItemRef], delta: i32) -> Cmd {
     run(move |api| async move {
         if let Err(e) = api.shift_item_levels(ids, delta).await {
             log_error(format!("Failed to change item levels: {e}"));
-            apply(&api, "level shift failed: reload", move |m| {
-                let cmds: Vec<Cmd> = page_ids
-                    .iter()
-                    .map(|p| file_reload::reload_page(m, p))
-                    .collect();
-                crux_core::Command::all(cmds)
-            });
+            api.send_event(Event::LevelShiftRefused { page_ids });
         }
     })
+}
+
+/// The server refused an indent or outdent that is already shown: the pages of its items
+/// are loaded again, so the screen matches the server.
+pub fn reload_after_refused_shift(model: &mut Model, page_ids: HashSet<String>) -> Cmd {
+    let cmds: Vec<Cmd> = page_ids
+        .iter()
+        .map(|p| file_reload::reload_page(model, p))
+        .collect();
+    crux_core::Command::all(cmds)
 }
