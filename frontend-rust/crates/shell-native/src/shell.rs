@@ -9,7 +9,7 @@ use crux_core::macros::effect;
 use crux_core::render::RenderOperation;
 use crux_core::{Core, Request};
 use peta_core::effects::{
-    ApiOp, ApiOutput, ApiResult, LocalDateTimeDto, NavigateOp, SseEvent, SseOp, UiOp,
+    ApiOp, ApiOutput, ApiResult, LocalDateTimeDto, NavigateOp, SseEvent, SseOp, UiOp, UiOutput,
 };
 use peta_core::rest::ClientId;
 use peta_core::{Effect, Event, PetaApp};
@@ -109,6 +109,10 @@ impl NativeShell {
                 Effect::Api(request) => lanes.call(&host, request),
                 Effect::Sse(request) => lanes.listen(&host, request),
                 Effect::Render(request) => send(ShellEffect::Render(request)),
+                Effect::Ui(mut request) if request.operation == UiOp::LocalNow => {
+                    let (local, now_ms) = host.now();
+                    lanes.answer(&mut request, UiOutput::Now { local, now_ms });
+                }
                 Effect::Ui(request) => send(ShellEffect::Ui(request)),
                 Effect::Navigate(request) => send(ShellEffect::Navigate(request)),
                 _ => {}
