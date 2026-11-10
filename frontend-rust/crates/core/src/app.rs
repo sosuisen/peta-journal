@@ -470,6 +470,21 @@ pub enum Event {
     UngroupAtlasCards {
         card_ids: Vec<String>,
     },
+    /// The server refused the new bounds of a card or a callout; `before` is what it had.
+    AtlasBoundsRefused {
+        item_id: String,
+        before: Option<serde_json::Value>,
+    },
+    /// The server changed the outline of an atlas page and answered with its items.
+    AtlasChanged {
+        atlas_id: String,
+        items: Vec<Item>,
+    },
+    /// The page names the search the timer `timer_id` started found for the dialog of a link.
+    AtlasLinksSuggested {
+        timer_id: u64,
+        titles: Vec<String>,
+    },
     /// The page menu: show the property rows of the doc page even while it has none.
     EditPageProperties,
     SetPageProperty {
@@ -1123,6 +1138,13 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             target_id,
         } => screens::atlas::group_cards(model, card_ids, target_id),
         UngroupAtlasCards { card_ids } => screens::atlas::ungroup_cards(model, card_ids),
+        AtlasBoundsRefused { item_id, before } => {
+            screens::atlas::put_bounds_back(model, &item_id, before)
+        }
+        AtlasChanged { atlas_id, items } => screens::atlas::show_changed(model, &atlas_id, items),
+        AtlasLinksSuggested { timer_id, titles } => {
+            screens::atlas::show_link_suggestions(model, timer_id, titles)
+        }
         EditPageProperties => screens::page::edit_properties(model),
         SetPageProperty {
             key,
