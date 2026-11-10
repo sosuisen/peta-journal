@@ -14,6 +14,11 @@ public final class Border {
         core = PetaCore(server: server, shell: Listener(onRequests))
     }
 
+    /// Opens what the URL names, such as `/pages/notes` or `/today`.
+    public func open(_ url: String) throws {
+        try core.open(url: url)
+    }
+
     /// Sends an event of the shell.
     public func send(_ event: Event) throws {
         try core.update(event: Data(try event.bincodeSerialize()))
