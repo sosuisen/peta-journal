@@ -100,6 +100,7 @@ fn a_late_answer_to_an_undo_does_not_show_its_parse_over_the_redone_text() {
         items: vec![answered("a", 1, "old")],
         reparsed: vec!["a".into()],
         recreated: vec![],
+        created: Vec::new(),
     });
 
     assert_eq!(h.model.state.get_item_by_id("a").unwrap().ast, "ast:new");
@@ -128,6 +129,7 @@ fn a_late_answer_is_still_shown_for_an_item_no_later_sync_wrote() {
         items: vec![late],
         reparsed: vec!["b".into()],
         recreated: vec![],
+        created: Vec::new(),
     });
 
     assert_eq!(h.model.state.get_item_by_id("b").unwrap().ast, "late parse");
@@ -150,6 +152,7 @@ fn a_late_answer_to_an_undo_does_not_put_the_item_back_at_the_old_level() {
         items: vec![answered("b", 1, "")],
         reparsed: vec![],
         recreated: vec![],
+        created: Vec::new(),
     });
 
     assert_eq!(h.outline(), ["a:1=", "b:2="]);

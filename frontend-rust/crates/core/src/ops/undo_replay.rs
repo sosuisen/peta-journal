@@ -5,10 +5,10 @@
 
 use crate::app::{done, log_error, run, Cmd, Event, Model};
 use crate::model::{BatchOp, Item};
+use crate::ops::action::show_empty_item;
 use crate::ops::edit::discard_pending_edit_of_focused_item;
 use crate::ops::edit::{focus_editor, save_target_id, show_parsed, Handover};
 use crate::ops::file_reload::reload_shown_page;
-use crate::ops::outline_events::ensure_at_least_one_item;
 use crate::outline::tree::position_by_index;
 use crate::outline::{CursorState, UndoEntry, UndoOp};
 use crux_core::Command;
@@ -82,8 +82,7 @@ pub fn perform(model: &mut Model, dir: Direction) -> Cmd {
         Direction::Redo => model.undo.push_undo(entry),
     }
     let sync = sync_to_server(model, &ops, dir);
-    let ensure = ensure_at_least_one_item(model);
-    Command::all([discard, focus, sync, ensure])
+    Command::all([discard, focus, sync])
 }
 
 /// Applies one recorded operation to the state, in the undo or the redo direction.
@@ -251,13 +250,15 @@ impl Batch {
 }
 
 /// Shows what the server answered to the batch of an undo or a redo: where it put each item,
-/// how it parsed the items whose body or task state changed, and the items it made again.
+/// how it parsed the items whose body or task state changed, the items it made again, and
+/// the empty item it made when the replay left the page without an item.
 pub fn show_synced(
     model: &mut Model,
     sync: u64,
     items: Vec<Item>,
     reparsed: Vec<String>,
     recreated: Vec<String>,
+    created: Vec<Item>,
 ) -> Cmd {
     for item in &items {
         // A later sync wrote the item after this one: its answer is the one to show
@@ -276,7 +277,7 @@ pub fn show_synced(
             i.level = item.level;
         });
     }
-    done()
+    show_empty_item(model, created)
 }
 
 /// Sends what was replayed to the server as one request: it writes all of it or none. When
@@ -337,11 +338,12 @@ fn sync_to_server(model: &mut Model, ops: &[UndoOp], dir: Direction) -> Cmd {
     let sync = model.undo_syncs.begin(&batch.ops);
     run(move |api| async move {
         match api.apply_batch(batch.ops).await {
-            Ok(items) => api.send_event(Event::UndoSynced {
+            Ok(batched) => api.send_event(Event::UndoSynced {
                 sync,
-                items,
+                items: batched.items,
                 reparsed: batch.reparsed,
                 recreated: batch.recreated,
+                created: batched.created,
             }),
             Err(e) => {
                 log_error(format!("Failed to sync undo/redo to server: {e}"));

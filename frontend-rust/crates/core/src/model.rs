@@ -302,6 +302,15 @@ pub struct Pasted {
     pub cursor: PasteCursor,
 }
 
+/// What a batch came to on the server.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Batched {
+    /// The items the batch wrote, as they are now.
+    pub items: Vec<Item>,
+    /// The empty items the server made on the pages the batch left without an item.
+    pub created: Vec<Item>,
+}
+
 /// What sending an item to the stash came to on the server.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Stashed {

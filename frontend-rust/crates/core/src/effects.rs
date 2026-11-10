@@ -2,8 +2,9 @@
 //! shell performs and resolves; the core never touches the network, timers or the DOM.
 
 use crate::model::{
-    BacklinkEntry, BatchOp, DeferredKey, Item, ItemPosition, JournalBefore, Page, PageWithItems,
-    PasteMode, Pasted, PropertyDefinition, SearchResult, ServerConfig, Split, Stashed, TreeExport,
+    BacklinkEntry, BatchOp, Batched, DeferredKey, Item, ItemPosition, JournalBefore, Page,
+    PageWithItems, PasteMode, Pasted, PropertyDefinition, SearchResult, ServerConfig, Split,
+    Stashed, TreeExport,
 };
 use crate::util::date::LocalDateTime;
 use crux_core::capability::Operation;
@@ -286,6 +287,7 @@ pub enum ApiOutput {
     Pasted(Pasted),
     Split(Box<Split>),
     Stashed(Box<Stashed>),
+    Batched(Box<Batched>),
     FileName(String),
     Launched(bool),
     /// Another page has the name a page was to take; the server's message says which.
@@ -753,8 +755,8 @@ impl<Event: Send + 'static> Api<Event> {
     }
 
     /// The items the batch wrote, as they are after it.
-    pub async fn apply_batch(&self, ops: Vec<BatchOp>) -> ApiResult<Vec<Item>> {
-        expect_output!(self.call(ApiOp::ApplyBatch { ops }).await, Items)
+    pub async fn apply_batch(&self, ops: Vec<BatchOp>) -> ApiResult<Box<Batched>> {
+        expect_output!(self.call(ApiOp::ApplyBatch { ops }).await, Batched)
     }
 
     pub async fn delete_page(&self, page_id: &str) -> ApiResult<()> {
