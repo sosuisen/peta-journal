@@ -7,7 +7,7 @@ use crate::app::{done, log_error, run, Cmd, Event, Model};
 use crate::model::{BatchOp, Item};
 use crate::ops::action::show_empty_item;
 use crate::ops::edit::discard_pending_edit_of_focused_item;
-use crate::ops::edit::{save_target_id, show_parsed, Handover};
+use crate::ops::edit::{begin_handover, save_target_id, show_parsed};
 use crate::outline::tree::position_by_index;
 use crate::outline::{CursorState, UndoEntry, UndoOp};
 use crux_core::Command;
@@ -151,10 +151,15 @@ fn restore_cursor(model: &mut Model, entry: &UndoEntry, dir: Direction, moves: b
         .set_focused_item(&cursor.item_id, Some(cursor.position));
     let id = cursor.item_id.clone();
     let keys = model.key_relay.release();
+    // The editor of a row that is put in another place loses its focus
+    if moves {
+        begin_handover(model);
+    }
     run(move |api| async move {
-        // The editor of a row that is put in another place loses its focus
-        let _handover = moves.then(|| Handover::begin(&api));
-        api.focus_editor(Some(id), keys).await
+        api.focus_editor(Some(id), keys).await;
+        if moves {
+            api.send_event(Event::HandoverEnded);
+        }
     })
 }
 

@@ -375,6 +375,14 @@ pub enum Event {
         root_id: String,
         source: Box<Item>,
     },
+    /// A handler that kept the blur of an editor from ending an edit is done.
+    HandoverEnded,
+    /// The item left with an arrow key is saved: the edit moves on to the next item.
+    EditorSwitched {
+        from_id: String,
+        to_id: String,
+        cursor: usize,
+    },
     /// The save that ends the edit of an item is over: the item goes to view mode.
     EditorClosed {
         item_id: String,
@@ -1208,6 +1216,12 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         BodyShown { item_id, body } => ops::edit::show_body(model, &item_id, body),
         BodySaved { item } => ops::edit::show_saved_body(model, &item),
         RootParsed { root_id, source } => ops::edit::show_root_parsed(model, &root_id, *source),
+        HandoverEnded => ops::edit::end_handover(model),
+        EditorSwitched {
+            from_id,
+            to_id,
+            cursor,
+        } => ops::outline_events::switch_editor(model, &from_id, &to_id, cursor),
         EditorClosed { item_id } => {
             model.state.remove_editing_item(&item_id);
             done()

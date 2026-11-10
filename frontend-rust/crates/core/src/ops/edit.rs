@@ -6,7 +6,7 @@
 //! a handler that needs the text saved now sends it itself and cancels the auto-save, so
 //! the same text is never sent twice.
 
-use crate::app::{apply, cont, done, log_error, run, Cmd, Event, Model, PendingSave};
+use crate::app::{done, log_error, run, Cmd, Event, Model, PendingSave};
 use crate::effects::{Api, ApiResult, TimerOp, TimerOutput};
 use crate::model::Item;
 use crate::util::{ensure_code_fence_closed, has_unclosed_code_fence};
@@ -184,26 +184,28 @@ pub fn show_saved_body(model: &mut Model, saved: &Item) -> Cmd {
     done()
 }
 
-/// Saves the body the shown item has in the state. When the item is a transclusion root,
-/// the AST and types returned for the source are copied back to the shown item.
-pub async fn save_shown_item(api: &Api<Event>, item: &Item) -> ApiResult<Option<Item>> {
-    let id = item.id.clone();
-    let body = read(api, move |m| {
-        m.state.get_item_by_id(&id).map(|i| i.body.clone())
-    })
-    .await;
-    let Some(body) = body else {
-        return Ok(None);
-    };
+/// The body the state holds for the shown item. This is what was typed into it. The copy
+/// of `item` may be the visible one, and a transclusion root shows the body of its source
+/// there.
+fn typed_text(model: &Model, item: &Item) -> String {
+    match model.state.get_item_by_id(&item.id) {
+        Some(held) => held.body.clone(),
+        None => item.body.clone(),
+    }
+}
+
+/// Saves a body of the shown item. When the item is a transclusion root, the AST and types
+/// returned for the source are copied back to the shown item.
+async fn save_shown_body(api: &Api<Event>, item: &Item, body: &str) -> ApiResult<Item> {
     let target_id = save_target_id(item);
-    let updated = save_body(api, &target_id, &body).await?;
+    let updated = save_body(api, &target_id, body).await?;
     if target_id != item.id {
         api.send_event(Event::RootParsed {
             root_id: item.id.clone(),
             source: Box::new(updated.clone()),
         });
     }
-    Ok(Some(updated))
+    Ok(updated)
 }
 
 /// The server saved the source of a transclusion root: the root shows what the server
@@ -216,23 +218,35 @@ pub fn show_root_parsed(model: &mut Model, root_id: &str, source: Item) -> Cmd {
     done()
 }
 
-/// Saves typed text right away and closes the editor; a clean item is left alone.
-pub async fn save_item_if_dirty(api: &Api<Event>, item: &Item) -> ApiResult<()> {
-    let it = item.clone();
-    let dirty = read_with(api, "save_item_if_dirty: check", move |m| {
-        if !m.edits.dirty_item_ids.contains(&it.id) {
-            return (false, done());
+/// The typed text of an item that is to be saved right away, taken out of the auto-save.
+/// None when nothing was typed into the item: a clean item is left alone.
+pub struct DirtyEdit {
+    item: Item,
+    body: String,
+}
+
+/// Takes the typed text of an item for a save right away, with the command that drops its
+/// auto-save.
+pub fn take_dirty(model: &mut Model, item: &Item) -> Option<(DirtyEdit, Cmd)> {
+    if !model.edits.dirty_item_ids.contains(&item.id) {
+        return None;
+    }
+    let discard = discard_pending_edit(model, item);
+    let edit = DirtyEdit {
+        item: item.clone(),
+        body: typed_text(model, item),
+    };
+    Some((edit, discard))
+}
+
+impl DirtyEdit {
+    /// Saves the typed text and closes the editor of the item. The editor stays open when
+    /// the save fails.
+    pub async fn save(self, api: &Api<Event>) {
+        if save_shown_body(api, &self.item, &self.body).await.is_ok() {
+            close_editor(api, self.item.id);
         }
-        (true, discard_pending_edit(m, &it))
-    })
-    .await;
-    if !dirty {
-        return Ok(());
     }
-    if save_shown_item(api, item).await?.is_some() {
-        close_editor(api, item.id.clone());
-    }
-    Ok(())
 }
 
 /// Ends the edit of an item when its editor loses focus: saves typed text, or a body
@@ -256,7 +270,7 @@ pub fn finish_edit(model: &mut Model, item_id: &str) -> Cmd {
 
     if model.edits.dirty_item_ids.contains(item_id) {
         let discard = discard_pending_edit(model, &item);
-        let save = save_and_close(item);
+        let save = save_and_close(model, item);
         return Command::all([close_wiki, discard, save]);
     }
 
@@ -266,7 +280,7 @@ pub fn finish_edit(model: &mut Model, item_id: &str) -> Cmd {
         .map(|c| has_unclosed_code_fence(&c.body))
         .unwrap_or(false);
     if unclosed {
-        let save = save_and_close(item);
+        let save = save_and_close(model, item);
         return Command::all([close_wiki, save]);
     }
     model.state.remove_editing_item(item_id);
@@ -274,9 +288,10 @@ pub fn finish_edit(model: &mut Model, item_id: &str) -> Cmd {
 }
 
 /// Saves the shown item and closes its editor, whether or not the save went through.
-fn save_and_close(item: Item) -> Cmd {
+fn save_and_close(model: &Model, item: Item) -> Cmd {
+    let body = typed_text(model, &item);
     run(move |api| async move {
-        if let Err(e) = save_shown_item(&api, &item).await {
+        if let Err(e) = save_shown_body(&api, &item, &body).await {
             log_error(format!("Failed to save item: {e}"));
         }
         close_editor(&api, item.id);
@@ -289,55 +304,16 @@ pub fn close_editor(api: &Api<Event>, item_id: String) {
 }
 
 /// Keeps the blur of an editor from ending an edit while a handler that saves the item and
-/// decides which item is edited next is running. Dropping the guard ends the handover.
-pub struct Handover {
-    api: Api<Event>,
+/// decides which item is edited next is running. The handler sends
+/// [`Event::HandoverEnded`] when it is done.
+pub fn begin_handover(model: &mut Model) {
+    model.edits.edit_handovers += 1;
 }
 
-impl Handover {
-    /// Starts a handover from inside an async command.
-    pub fn begin(api: &Api<Event>) -> Handover {
-        apply(api, "handover: begin", |m| {
-            m.edits.edit_handovers += 1;
-            done()
-        });
-        Handover {
-            api: Api::new(api.ctx().clone()),
-        }
-    }
-}
-
-impl Drop for Handover {
-    fn drop(&mut self) {
-        self.api.send_event(cont("handover: end", |m| {
-            m.edits.edit_handovers = m.edits.edit_handovers.saturating_sub(1);
-            done()
-        }));
-    }
-}
-
-/// Reads something from the model from inside an async command.
-pub async fn read<T: Send + 'static>(
-    api: &Api<Event>,
-    f: impl FnOnce(&mut Model) -> T + Send + 'static,
-) -> T {
-    read_with(api, "read", move |m| (f(m), done())).await
-}
-
-/// Reads something from the model and runs a command on it in the same step, from inside
-/// an async command.
-pub async fn read_with<T: Send + 'static>(
-    api: &Api<Event>,
-    label: &'static str,
-    f: impl FnOnce(&mut Model) -> (T, Cmd) + Send + 'static,
-) -> T {
-    let (tx, rx) = futures::channel::oneshot::channel::<T>();
-    apply(api, label, move |m| {
-        let (value, cmd) = f(m);
-        let _ = tx.send(value);
-        cmd
-    });
-    rx.await.expect("the core always answers a read")
+/// A handover ended: the blur of an editor ends an edit again, once no other one runs.
+pub fn end_handover(model: &mut Model) -> Cmd {
+    model.edits.edit_handovers = model.edits.edit_handovers.saturating_sub(1);
+    done()
 }
 
 /// Focuses the editor of an item once the next render is done, playing the keys that were
