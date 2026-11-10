@@ -116,11 +116,12 @@ fn move_on_page(
         .iter()
         .map(|b| b.id.clone())
         .collect();
-    request_move(model, item, group_ids, position, |moved, item_id| {
+    request_move(model, item, group_ids, position, 0, |moved, item_id| {
         Event::Moved {
             moved,
             position: state_position,
             edited: Some(item_id),
+            label: "move",
         }
     })
 }
@@ -132,19 +133,20 @@ fn move_in_transclusion(
     group_ids: Vec<String>,
     position: ItemPosition,
 ) -> Cmd {
-    request_move(model, item, group_ids, position, |_, item_id| {
+    request_move(model, item, group_ids, position, 0, |_, item_id| {
         Event::MovedInTransclusion { item_id }
     })
 }
 
-/// Asks the server to move an edited item with the items below it. The request carries
-/// the text that was typed into the item and is not saved yet (ADR 011). `answered` makes
-/// the event for the moved items the server answers with.
-fn request_move(
+/// Asks the server to move an edited item with the items below it, `level_delta` levels
+/// deeper. The request carries the text that was typed into the item and is not saved yet
+/// (ADR 011). `answered` makes the event for the moved items the server answers with.
+pub fn request_move(
     model: &mut Model,
     item: Item,
     group_ids: Vec<String>,
     position: ItemPosition,
+    level_delta: i32,
     answered: impl FnOnce(Vec<Item>, String) -> Event + Send + 'static,
 ) -> Cmd {
     let (body, discard) = take_unsaved(model, &item);
@@ -153,7 +155,13 @@ fn request_move(
     model.key_relay.hold_until_focus();
     let request = run(move |api| async move {
         match api
-            .move_edited_items(group_ids, &item.page_id, position, body.as_deref())
+            .move_edited_items(
+                group_ids,
+                &item.page_id,
+                position,
+                level_delta,
+                body.as_deref(),
+            )
             .await
         {
             Ok(moved) => api.send_event(answered(moved, item.id)),
@@ -195,14 +203,15 @@ pub fn focus_moved(model: &mut Model, item_id: String) -> Cmd {
     })
 }
 
-/// Puts the items the server moved at their new place, and records the move for undo. The
-/// edit goes on in `edited`, the item the move was started from; a move of the selection
-/// has none.
+/// Puts the items the server moved at their new place, and records the move for undo under
+/// `label`. The edit goes on in `edited`, the item the move was started from; a move of the
+/// selection has none.
 pub fn show_moved(
     model: &mut Model,
     moved: Vec<Item>,
     position: &ItemPosition,
     edited: Option<String>,
+    label: &str,
 ) -> Cmd {
     let ids: Vec<String> = moved.iter().map(|item| item.id.clone()).collect();
     let before: Vec<Item> = ids
@@ -215,11 +224,6 @@ pub fn show_moved(
         model.key_relay.release();
         return move_done(model, false);
     }
-    let label = if edited.is_some() {
-        "move"
-    } else {
-        "move-selection"
-    };
     model
         .undo
         .record_updates(label, before.iter().zip(&moved), model.clock_ms);
@@ -385,6 +389,7 @@ fn move_selection(model: &mut Model, direction: MoveDirection) -> Option<Cmd> {
                 moved,
                 position: target,
                 edited: None,
+                label: "move-selection",
             }),
             Err(e) => {
                 log_error(format!("Failed to move selected items: {e}"));

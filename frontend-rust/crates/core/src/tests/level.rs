@@ -1,6 +1,6 @@
 use crate::app::Event;
 use crate::effects::ApiOp;
-use crate::harness::{item, move_calls, Harness};
+use crate::harness::{item, move_calls, typed, update_calls, Harness};
 use crate::model::TranscludedTrees;
 use crate::testing::item_with;
 
@@ -85,28 +85,91 @@ fn outdent_in_place_the_group_goes_up_one_level_and_keeps_its_place() {
     assert!(move_calls(&h.api).is_empty());
 }
 
-// 論理アウトデントでグループは親の最後の子の後へ移動され、後続の兄弟 d は親 p の下に残る。
+/// A move request an outdent sent.
+#[derive(Debug, PartialEq)]
+struct OutdentMove {
+    item_ids: Vec<String>,
+    position: String,
+    level_delta: Option<i32>,
+    body: Option<String>,
+}
+
+fn outdent_moves(h: &Harness) -> Vec<OutdentMove> {
+    h.api
+        .calls
+        .iter()
+        .filter_map(|op| match op {
+            ApiOp::MoveItems {
+                item_ids,
+                position,
+                level_delta,
+                body,
+                ..
+            } => Some(OutdentMove {
+                item_ids: item_ids.clone(),
+                position: position.to_api(),
+                level_delta: *level_delta,
+                body: body.clone(),
+            }),
+            _ => None,
+        })
+        .collect()
+}
+
+// 論理アウトデントは、親の最後の子の後へ1段浅くする移動を1つの要求で送り、後続の兄弟 d は親 p の下に残る。階層の変更は別には送らない。答えが来ると、階層と位置が一緒に変わり、エディタのフォーカスは保たれ、Undo に「outdent」として記録される。
 #[test]
-fn logical_outdent_moves_the_group_after_the_parents_last_child_so_d_stays_under_p() {
+fn logical_outdent_moves_the_group_one_level_up_after_the_parents_last_child_in_one_request() {
     let mut h = outdent_harness();
     h.model.config.logical_outdent = true;
     h.send(Event::Outdent {
         item_id: "b".into(),
     });
+    assert!(shift_calls(&h).is_empty());
     assert_eq!(
-        shift_calls(&h),
-        [(vec!["b".to_string(), "c".to_string()], -1)]
+        outdent_moves(&h),
+        [OutdentMove {
+            item_ids: vec!["b".to_string(), "c".to_string()],
+            position: "after:d".to_string(),
+            level_delta: Some(-1),
+            body: None,
+        }]
     );
-    assert_eq!(
-        move_calls(&h.api),
-        [(
-            vec!["b".to_string(), "c".to_string()],
-            "page1".to_string(),
-            "after:d".to_string()
-        )]
-    );
-    let ids = h.items_ids();
-    assert_eq!(ids, ["p", "a", "d", "b", "c"]);
+    assert_eq!(h.outline(), ["p:1=", "a:2=", "d:2=", "b:1=", "c:2="]);
+    assert_eq!(h.focused_editor_requests(), [Some("b".to_string())]);
+    assert_eq!(h.model.undo.pop_undo().unwrap().label, "outdent");
+}
+
+// 入力した直後の論理アウトデントでは、打ったばかりの文は移動の要求に入って届く。保存を別には送らず、その自動保存は取り消される。画面には、サーバーが保存した本文が出る。
+#[test]
+fn text_typed_just_before_a_logical_outdent_travels_in_its_move() {
+    let mut h = outdent_harness();
+    h.model.config.logical_outdent = true;
+    typed(&mut h, "b", "b typed");
+    h.send(Event::Outdent {
+        item_id: "b".into(),
+    });
+    assert_eq!(outdent_moves(&h)[0].body, Some("b typed".to_string()));
+    h.fire_timers();
+    assert!(update_calls(&h.api).is_empty());
+    assert_eq!(h.outline(), ["p:1=", "a:2=", "d:2=", "b:1=b typed", "c:2="]);
+}
+
+// 論理アウトデントが断られると、画面は変わらず、要求に入れた文はもう一度自動保存にかけられる。キーの保留は終わる。
+#[test]
+fn after_a_refused_logical_outdent_nothing_changes_and_the_typed_text_is_auto_saved_again() {
+    let mut h = outdent_harness();
+    h.model.config.logical_outdent = true;
+    typed(&mut h, "b", "b typed");
+    h.api.fail_next("MoveItems", "offline");
+    h.send(Event::Outdent {
+        item_id: "b".into(),
+    });
+    assert_eq!(h.outline(), ["p:1=", "a:2=", "b:2=b typed", "c:3=", "d:2="]);
+    assert!(h.model.undo.pop_undo().is_none_or(|e| e.label != "outdent"));
+    assert!(!h.model.key_relay.is_holding());
+    assert!(!h.api.called("GetPageById"));
+    h.fire_timers();
+    assert_eq!(update_calls(&h.api), [("b".into(), Some("b typed".into()))]);
 }
 
 // 一人っ子の論理アウトデントでは移動が不要である。

@@ -488,6 +488,32 @@ async fn a_move_closes_an_open_code_fence_in_the_body_it_carries() {
     );
 }
 
+// 階層の差と本文を持つ移動は、本文を保存し、階層を変えて動かす。論理アウトデントが、1つの要求で送るものである。
+#[tokio::test]
+async fn a_move_with_a_level_delta_saves_the_body_it_carries_and_shifts_the_levels() {
+    let page = new_doc_page("items-move-outdent").await;
+    let rows = fill(&page.id, &["p", "  a", "  b", "    c", "  d"]).await;
+
+    let (status, resp) = post(
+        "/api/items/move",
+        json!({
+            "itemIds": [rows[2].id, rows[3].id], "targetPageId": page.id,
+            "position": format!("after:{}", rows[4].id), "levelDelta": -1, "body": "b typed"
+        }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(
+        field_of_each(&resp, "items", "body"),
+        vec![json!("b typed"), json!("c")]
+    );
+    assert_eq!(
+        outline_of(&page.id).await,
+        vs(&["1:p", "2:a", "2:d", "1:b typed", "2:c"])
+    );
+}
+
 // トランスクルージョンを本文と一緒に動かすと、本文が保存された元のページの変更も、クライアントに知らされる。どちらのページも1回ずつである。
 #[tokio::test]
 async fn the_clients_hear_once_of_each_page_when_a_moved_transclusion_carries_a_body() {

@@ -1,10 +1,12 @@
 //! Indents and outdents items, ported from `level-shift.service.ts`. The change is shown at
 //! once and saved as a relative level shift, so key presses that overtake each other still
-//! add up on the server.
+//! add up on the server. The logical outdent is a move instead: it is shown when the server
+//! has answered, like any move.
 
-use crate::app::{apply, done, log_error, run, Cmd, Model};
+use crate::app::{apply, done, log_error, run, Cmd, Event, Model};
 use crate::model::{Item, ItemPosition, ItemRef};
 use crate::ops::file_reload;
+use crate::ops::moves::request_move;
 use crate::outline::tree::{
     can_indent, get_subtree, index_of, last_descendant_outside, parent_index_of,
     transclusion_context_of,
@@ -79,43 +81,35 @@ pub fn outdent(model: &mut Model, item_id: &str) -> Cmd {
     let needs_move = prev_level != Some(item.level - 1);
 
     if needs_move && model.config.logical_outdent {
-        outdent_below_parent(model, &item, group, parent)
+        outdent_below_parent(model, (*item).clone(), group, parent)
     } else {
         shift_levels(model, &group, -1, "outdent", 0)
     }
 }
 
-/// Logical outdent: the group is placed after the parent's last child and then outdented,
-/// so the siblings below it stay with the original parent.
-fn outdent_below_parent(model: &mut Model, item: &Item, group: Vec<ItemRef>, parent: Item) -> Cmd {
+/// Logical outdent: the group goes after the parent's last child, one level up, so the
+/// siblings below it stay with the original parent. It is one move request, which carries
+/// the text typed into the item (ADR 011); the screen changes when the answer is there.
+fn outdent_below_parent(model: &mut Model, item: Item, group: Vec<ItemRef>, parent: Item) -> Cmd {
     let group_ids: Vec<String> = group.iter().map(|b| b.id.clone()).collect();
     let excluded: HashSet<String> = group_ids.iter().cloned().collect();
+    // The item is never the parent's first child here: the item above it is not the
+    // parent, so the parent has a child outside the group and the position is below it
     let last_child_id = last_descendant_outside(model.state.items(), &parent.id, &excluded);
-    let before: Vec<Item> = group.iter().map(|b| (**b).clone()).collect();
-    for b in &group {
-        model.state.update_item(&b.id, |i| i.level -= 1);
-    }
-    let page_id = item.page_id.clone();
-    run(move |api| async move {
-        if let Err(e) = api.shift_item_levels(group_ids.clone(), -1).await {
-            log_error(format!("Failed to change item levels: {e}"));
-        }
-        // The item is never the parent's first child here: the item above it is not the
-        // parent, so the parent has a child outside the group and the position is below it
-        let position = ItemPosition::after(last_child_id.clone());
-        match api
-            .move_items(group_ids.clone(), &page_id, position.clone(), None)
-            .await
-        {
-            Ok(moved) => apply(&api, "logical outdent: moved", move |m| {
-                m.state.replace_items(&group_ids, moved.clone(), &position);
-                m.undo
-                    .record_updates("outdent", before.iter().zip(&moved), m.clock_ms);
-                done()
-            }),
-            Err(e) => log_error(format!("Failed to move outdented items: {e}")),
-        }
-    })
+    let position = ItemPosition::after(last_child_id);
+    request_move(
+        model,
+        item,
+        group_ids,
+        position.clone(),
+        -1,
+        |moved, item_id| Event::Moved {
+            moved,
+            position,
+            edited: Some(item_id),
+            label: "outdent",
+        },
+    )
 }
 
 /// Changes the level of a group of items on screen, records the change for undo and saves it.

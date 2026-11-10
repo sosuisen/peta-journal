@@ -178,14 +178,20 @@ impl FakeApi {
                 ApiOutput::Item(item)
             }
             ApiOp::ShiftItemLevels { .. } => ApiOutput::Items(Vec::new()),
-            // The server answers with the moved items, the first with the body the request
-            // carries
-            ApiOp::MoveItems { item_ids, body, .. } => ApiOutput::Items(
+            // The server answers with the moved items at their new levels, the first with
+            // the body the request carries
+            ApiOp::MoveItems {
+                item_ids,
+                level_delta,
+                body,
+                ..
+            } => ApiOutput::Items(
                 item_ids
                     .iter()
                     .enumerate()
                     .map(|(n, id)| {
                         let mut item = stored(id).unwrap_or_else(|| plain_item(id, 1, ""));
+                        item.level = (item.level + level_delta.unwrap_or(0)).max(1);
                         if let (0, Some(body)) = (n, body) {
                             item.body = body.clone();
                         }
@@ -730,6 +736,18 @@ pub fn split_calls(api: &FakeApi) -> Vec<(String, String, usize)> {
             _ => None,
         })
         .collect()
+}
+
+/// Types `body` into the editor of the item, as a key press does: the editor is open and
+/// the text is shown at once, with its auto-save pending.
+pub fn typed(h: &mut Harness, item_id: &str, body: &str) {
+    h.model.state.add_editing_item(item_id);
+    let now = h.now_ms;
+    h.send(Event::BodyChanged {
+        item_id: item_id.into(),
+        body: body.into(),
+        now_ms: now,
+    });
 }
 
 /// The update calls as `(item, body)`.

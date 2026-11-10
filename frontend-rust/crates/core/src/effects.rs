@@ -614,13 +614,15 @@ impl<Event: Send + 'static> Api<Event> {
         )
     }
 
-    /// Moves items on their page as a key in an editor does. `body` is the text the editor
-    /// of the first item has now, when it is not saved yet: the server saves it with the move.
+    /// Moves items on their page as a key in an editor does, `level_delta` levels deeper.
+    /// `body` is the text the editor of the first item has now, when it is not saved yet:
+    /// the server saves it with the move.
     pub async fn move_edited_items(
         &self,
         item_ids: Vec<String>,
         page_id: &str,
         position: ItemPosition,
+        level_delta: i32,
         body: Option<&str>,
     ) -> ApiResult<Vec<Item>> {
         expect_output!(
@@ -628,7 +630,7 @@ impl<Event: Send + 'static> Api<Event> {
                 item_ids,
                 target_page_id: page_id.into(),
                 position,
-                level_delta: None,
+                level_delta: (level_delta != 0).then_some(level_delta),
                 body: body.map(str::to_string),
             })
             .await,

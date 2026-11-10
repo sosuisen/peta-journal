@@ -254,6 +254,8 @@ pub enum Event {
         /// The item the move was started from, in whose editor the edit goes on. None for
         /// a move of the selection.
         edited: Option<String>,
+        /// The label of the undo entry: "move", "move-selection" or "outdent".
+        label: &'static str,
     },
     /// The server moved an item that a transclusion shows: the page is read again.
     MovedInTransclusion {
@@ -891,7 +893,8 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             moved,
             position,
             edited,
-        } => ops::moves::show_moved(model, moved, &position, edited),
+            label,
+        } => ops::moves::show_moved(model, moved, &position, edited, label),
         MovedInTransclusion { item_id } => ops::moves::show_moved_in_transclusion(model, item_id),
         MovePageReloaded { item_id } => ops::moves::focus_moved(model, item_id),
         MoveFailed { unsaved } => ops::moves::move_failed(model, unsaved.as_deref()),
