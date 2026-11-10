@@ -1,5 +1,6 @@
 //! Journal pages: daily, weekly, monthly and yearly.
 
+use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use chrono::{Datelike, Days, NaiveDate, Weekday};
@@ -26,6 +27,16 @@ pub struct JournalResult {
     pub page: Page,
     pub items: Vec<Item>,
     pub created: bool,
+}
+
+/// What a move of items to the journal of a day did.
+#[derive(Debug, Clone)]
+pub struct MovedToJournal {
+    pub page: Page,
+    pub created: bool,
+    pub items: Vec<Item>,
+    /// The pages the move changed: the journal and the pages the items left.
+    pub page_ids: BTreeSet<Hmtid>,
 }
 
 /// Result of finding the most recent journal before a date.
@@ -91,6 +102,109 @@ impl JournalService {
             items: vec![item],
             created: true,
         })
+    }
+
+    /// Moves items to the daily journal of `date`, as a move key at the edge of a day does,
+    /// in one transaction (ADR 011): the journal is made when there is none, its single
+    /// empty item goes, the items move with `body` (the text the editor of the first item
+    /// has now) saved to the first item, and a page the items leave empty keeps one empty
+    /// item. The caller lets the extensions answer a journal that was made.
+    pub fn move_items_to_journal(
+        &self,
+        date: NaiveDate,
+        item_ids: &[Hmtid],
+        position: &ItemPosition,
+        body: Option<&str>,
+    ) -> AppResult<MovedToJournal> {
+        let file_name = date.format("%Y-%m-%d").to_string();
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+        let mut effects = AfterCommit::default();
+        let (page, created) = match Self::find_journal_in(&tx, &file_name)? {
+            Some(page) => {
+                self.remove_single_empty_item_in(&tx, &page.id, &mut effects)?;
+                (page, false)
+            }
+            None => (
+                Self::create_journal_page_in(&tx, self.ids.generate_page_id(), &file_name)?,
+                true,
+            ),
+        };
+        let left_pages = Self::pages_of_in(&tx, item_ids)?;
+        let items = self.item_service.move_edited_items_in(
+            &tx,
+            item_ids,
+            &page.id,
+            position,
+            None,
+            body,
+            &mut effects,
+        )?;
+        for left in left_pages.iter().filter(|left| **left != page.id) {
+            self.keep_page_non_empty_in(&tx, left, &mut effects)?;
+        }
+        tx.commit()?;
+        if created {
+            self.search.index_page(&page);
+        }
+        let page_ids = effects.pages().clone();
+        self.item_service.finish(effects);
+        Ok(MovedToJournal {
+            page,
+            created,
+            items,
+            page_ids,
+        })
+    }
+
+    /// Removes the one empty item a journal starts with, so that it does not stay above or
+    /// below the items that move in.
+    fn remove_single_empty_item_in(
+        &self,
+        tx: &Connection,
+        page_id: &Hmtid,
+        effects: &mut AfterCommit,
+    ) -> AppResult<()> {
+        let items = ItemRepository::find_by_page_id_in(tx, page_id)?;
+        if let [only] = items.as_slice() {
+            if only.body.is_empty() {
+                self.item_service
+                    .remove_group_in(tx, std::slice::from_ref(&only.id), effects)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// A page keeps at least one item: an empty one is made when the page has none left.
+    fn keep_page_non_empty_in(
+        &self,
+        tx: &Connection,
+        page_id: &Hmtid,
+        effects: &mut AfterCommit,
+    ) -> AppResult<()> {
+        if ItemRepository::find_by_page_id_in(tx, page_id)?.is_empty() {
+            self.item_service.create_item_in(
+                tx,
+                page_id,
+                &ItemPosition::First,
+                1,
+                "",
+                None,
+                effects,
+            )?;
+        }
+        Ok(())
+    }
+
+    /// The pages the items are on.
+    fn pages_of_in(tx: &Connection, item_ids: &[Hmtid]) -> AppResult<BTreeSet<Hmtid>> {
+        let mut pages = BTreeSet::new();
+        for id in item_ids {
+            let item = ItemRepository::find_by_id_in(tx, id)?
+                .ok_or_else(|| AppError::not_found(format!("Item not found: {id}")))?;
+            pages.insert(item.page_id);
+        }
+        Ok(pages)
     }
 
     /// Gets or creates a journal page by name. A new weekly, monthly or yearly journal is
