@@ -681,6 +681,22 @@ The list of properties takes the point, so the current buffer may not be the pag
       (peta-journal-e2e--wait-for "the journal before"
                                   (lambda () (equal peta-journal--page-id today))))))
 
+(defun peta-journal-e2e--pick-in-calendar (key title)
+  "Open the calendar, press KEY on 2026-02-10, and wait for the page with TITLE."
+  (let ((page (current-buffer)))
+    (peta-journal-e2e--keys "C-c C-x c")
+    (calendar-goto-date '(2 10 2026))
+    (execute-kbd-macro (kbd key))
+    (with-current-buffer page
+      (peta-journal-e2e--wait-for (format "the page %s" title)
+                                  (lambda () (equal peta-journal--title title))))))
+
+;; カレンダーで選んだ日のジャーナルが開く。wは、その日の週のページを開く。
+(ert-deftest peta-journal-e2e-the-calendar-opens-the-journal-of-a-day-and-of-its-week ()
+  (peta-journal-e2e--with-app
+    (peta-journal-e2e--pick-in-calendar "RET" "2026年2月10日 火曜日")
+    (peta-journal-e2e--pick-in-calendar "w" "2026 Week 07")))
+
 ;; Emacsを閉じても、打ったばかりの文字は保存される。
 (ert-deftest peta-journal-e2e-stopping-saves-what-was-typed ()
   (peta-journal-e2e--with-app
