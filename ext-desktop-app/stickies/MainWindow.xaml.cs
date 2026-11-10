@@ -323,10 +323,37 @@ public sealed partial class MainWindow : Window
                             ContentWebView.NavigateToString(html);
                         }
                     }
+                    else if (msg.TryGetProperty("openWikilink", out var pageNameEl))
+                    {
+                        var pageName = pageNameEl.GetString();
+                        if (!string.IsNullOrEmpty(pageName))
+                            _ = Windows.System.Launcher.LaunchUriAsync(
+                                PageLinks.ForWikilink(_api.BaseUrl, pageName));
+                    }
+                    else if (msg.TryGetProperty("openHashtag", out var tagEl))
+                    {
+                        var tag = tagEl.GetString();
+                        if (!string.IsNullOrEmpty(tag)) _ = OpenTagPageAsync(tag);
+                    }
                 }
                 catch { }
             };
             ContentWebView.CoreWebView2.Settings.IsZoomControlEnabled = false;
+        }
+    }
+
+    private async Task OpenTagPageAsync(string tag)
+    {
+        try
+        {
+            // The folder of the tag pages is asked each time, because the user can change it.
+            var tagsDir = await _api.GetTagsDirAsync();
+            await Windows.System.Launcher.LaunchUriAsync(
+                PageLinks.ForHashtag(_api.BaseUrl, tagsDir, tag));
+        }
+        catch
+        {
+            // The server did not answer. The note stays as it is.
         }
     }
 
@@ -485,8 +512,14 @@ public sealed partial class MainWindow : Window
     var t=e.target.closest('.collapse-toggle');
     if(t){{ window.chrome.webview.postMessage({{toggleCollapse:t.getAttribute('data-item-id')}}); }}
     // The href of a wikilink or a hashtag is a page name, not a URL. Following it would
-    // replace the note with an error page.
-    if(e.target.closest('a[data-wikilink],a.hashtag')){{ e.preventDefault(); }}
+    // replace the note with an error page. The app opens the page in the web app instead.
+    var w=e.target.closest('a[data-wikilink]');
+    var h=e.target.closest('a[data-hashtag],a.hashtag');
+    if(w||h){{
+      e.preventDefault();
+      var name=(w||h).getAttribute('href');
+      if(name){{ window.chrome.webview.postMessage(w?{{openWikilink:name}}:{{openHashtag:name}}); }}
+    }}
   }});
 }})();
 </script>
