@@ -71,4 +71,18 @@ final class StickyStoreTests: XCTestCase {
 
         XCTAssertEqual(StickyStore(file: file).stickies, [sticky("a")])
     }
+
+    // 付箋紙の色は、保存される。色のない古いファイルの付箋紙は、黄色になる。
+    func testTheColorIsKeptAndAStickyWithoutOneIsYellow() throws {
+        let store = StickyStore(file: file)
+        var pink = sticky("a")
+        pink.color = "#FFD1DC"
+        store.put(pink)
+        XCTAssertEqual(StickyStore(file: file).stickies[0].color, "#FFD1DC")
+
+        let old = #"[{"id": "b", "x": 1, "y": 2, "width": 3, "height": 4}]"#
+        try Data(old.utf8).write(to: file)
+
+        XCTAssertEqual(StickyStore(file: file).stickies.map(\.color), ["#FFFDD0"])
+    }
 }

@@ -126,4 +126,25 @@ final class StickyDeskTests: XCTestCase {
 
         XCTAssertEqual(nextRun().stickies.map(\.id), [second.id])
     }
+
+    // 新しい付箋紙は黄色である。色を変えると、ウィンドウの色が変わり、次の起動でもその色で戻る。
+    func testTheColorOfAStickyIsChangedAndComesBack() async throws {
+        let sticky = desk.add()
+        XCTAssertEqual(sticky.look.color, "#FFFDD0")
+
+        sticky.look.color = "#D0E8FF"
+
+        try await waitUntil("the window is blue") {
+            sticky.window.backgroundColor == StickyLook.color(of: "#D0E8FF")
+        }
+        let next = nextRun()
+        XCTAssertEqual(next.stickies[0].look.color, "#D0E8FF")
+        XCTAssertEqual(next.stickies[0].window.backgroundColor, StickyLook.color(of: "#D0E8FF"))
+    }
+
+    // 色は、#RRGGBBの形で書く。読めない色は、黄色になる。
+    func testAColorIsWrittenAsHex() {
+        XCTAssertEqual(StickyLook.color(of: "#FF8000"), NSColor(srgbRed: 1, green: 128 / 255, blue: 0, alpha: 1))
+        XCTAssertEqual(StickyLook.color(of: "blue"), StickyLook.color(of: "#FFFDD0"))
+    }
 }
