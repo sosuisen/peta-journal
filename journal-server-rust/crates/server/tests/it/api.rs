@@ -562,6 +562,50 @@ async fn sending_to_the_stash_makes_its_heading_at_the_end_and_moves_the_subtree
     );
 }
 
+// `# Stash`見出しが既にあれば、新しい見出しは作られず、項目はその直下へ動く。末尾に空白のある見出しも見つかる。
+#[tokio::test]
+async fn sending_to_the_stash_reuses_the_heading_the_page_has() {
+    let page = new_doc_page("items-stash-reuse").await;
+    let rows = fill(&page.id, &["a", "# Stash ", "  old"]).await;
+
+    let (status, resp) = stash(&rows[0].id, None).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(resp["created"], json!(false));
+    assert_eq!(resp["heading"]["id"], json!(rows[1].id));
+    assert_eq!(
+        outline_of(&page.id).await,
+        vs(&["1:# Stash ", "2:a", "2:old"])
+    );
+}
+
+// 見出しそのものはスタッシュへ送れない。断られた要求は、本文も保存しない。
+#[tokio::test]
+async fn the_stash_heading_itself_is_not_sent_to_the_stash() {
+    let page = new_doc_page("items-stash-heading").await;
+    let rows = fill(&page.id, &["a", "# Stash"]).await;
+
+    let (status, resp) = stash(&rows[1].id, Some("# Stash typed")).await;
+
+    assert_eq!(status, 400, "{resp}");
+    assert_eq!(outline_of(&page.id).await, vs(&["1:a", "1:# Stash"]));
+}
+
+// スタッシュへ送ると、そのページの変更がクライアントに1回知らされる。見出しを作ったときも1回である。
+#[tokio::test]
+async fn the_clients_hear_once_of_the_page_when_an_item_goes_to_the_stash() {
+    let page = new_doc_page("items-stash-event").await;
+    let rows = fill(&page.id, &["a", "z"]).await;
+
+    let told = times_told(&[&page], async {
+        let (status, resp) = stash(&rows[0].id, None).await;
+        assert_eq!(status, 200, "{resp}");
+    })
+    .await;
+
+    assert_eq!(told, [1]);
+}
+
 // ---- Items: tasks ----
 
 // cycle-taskは、タスク、実行中、完了を経て通常の項目に戻る。
