@@ -67,22 +67,27 @@ fn schedule_save(model: &mut Model, target_id: &str, body: &str) -> Cmd {
         if api.sleep(timer_id, AUTO_SAVE_MS).await != TimerOutput::Fired {
             return;
         }
-        apply(&api, "auto-save fired", move |m| {
-            let pending = match m.edits.pending_saves.get(&target) {
-                Some(p) if p.timer_id == timer_id => m.edits.pending_saves.remove(&target).unwrap(),
-                _ => return done(),
-            };
-            run(move |api| async move {
-                if let Err(e) = api
-                    .update_body(&target, &ensure_code_fence_closed(&pending.body))
-                    .await
-                {
-                    log_error(format!("Auto-save failed: {e}"));
-                }
-            })
-        });
+        api.send_event(Event::AutoSaveFired { target, timer_id });
     }));
     Command::all(cmds)
+}
+
+/// The pause after typing ended: the body waiting for the item `target` is saved. Nothing
+/// is saved when a later edit took the place of the wait `timer_id`, or the body was saved
+/// another way.
+pub fn auto_save(model: &mut Model, target: String, timer_id: u64) -> Cmd {
+    let pending = match model.edits.pending_saves.get(&target) {
+        Some(p) if p.timer_id == timer_id => model.edits.pending_saves.remove(&target).unwrap(),
+        _ => return done(),
+    };
+    run(move |api| async move {
+        if let Err(e) = api
+            .update_body(&target, &ensure_code_fence_closed(&pending.body))
+            .await
+        {
+            log_error(format!("Auto-save failed: {e}"));
+        }
+    })
 }
 
 /// Cancels a pending save without saving it.

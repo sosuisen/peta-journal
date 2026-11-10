@@ -2,7 +2,7 @@
 //! on disk, ported from `file-reload.service.ts`. A page is not replaced while the user is
 //! editing, so their typing is not overwritten; it is reloaded once editing stops.
 
-use crate::app::{apply, done, log_error, run, Cmd, Event, Model};
+use crate::app::{done, log_error, run, Cmd, Event, Model};
 use crate::effects::{Api, TimerOutput};
 use crate::model::{Item, PageWithItems};
 use crate::ops::edit::{is_edit_in_progress, read};
@@ -94,14 +94,18 @@ pub fn schedule_pending_flush(model: &mut Model) -> Cmd {
         if api.sleep(timer_id, FLUSH_DELAY_MS).await != TimerOutput::Fired {
             return;
         }
-        apply(&api, "flush pending reloads", |m| {
-            m.file_reload_scheduled = false;
-            if is_edit_in_progress(m) {
-                return done();
-            }
-            let ids: Vec<String> = m.file_reload_pending.drain().collect();
-            let cmds: Vec<Cmd> = ids.iter().map(|id| reload_page(m, id)).collect();
-            crux_core::Command::all(cmds)
-        });
+        api.send_event(Event::PendingReloadsDue);
     })
+}
+
+/// The moment given to the auto-save ended: the pages that waited are read again, unless
+/// the user is editing again.
+pub fn flush_pending(model: &mut Model) -> Cmd {
+    model.file_reload_scheduled = false;
+    if is_edit_in_progress(model) {
+        return done();
+    }
+    let ids: Vec<String> = model.file_reload_pending.drain().collect();
+    let cmds: Vec<Cmd> = ids.iter().map(|id| reload_page(model, id)).collect();
+    crux_core::Command::all(cmds)
 }

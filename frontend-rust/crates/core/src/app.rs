@@ -354,6 +354,13 @@ pub enum Event {
     TransclusionChanged {
         item: Box<Item>,
     },
+    /// The pause after typing into the item saved under `target` ended.
+    AutoSaveFired {
+        target: String,
+        timer_id: u64,
+    },
+    /// The moment given to the auto-save before pages are read again ended.
+    PendingReloadsDue,
     /// A body is on its way to the server, with an open code fence closed.
     BodyShown {
         item_id: String,
@@ -1186,6 +1193,8 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             done()
         }
         LevelShiftRefused { page_ids } => ops::level::reload_after_refused_shift(model, page_ids),
+        AutoSaveFired { target, timer_id } => ops::edit::auto_save(model, target, timer_id),
+        PendingReloadsDue => ops::file_reload::flush_pending(model),
         BodyShown { item_id, body } => ops::edit::show_body(model, &item_id, body),
         BodySaved { item } => ops::edit::show_saved_body(model, &item),
         RootParsed { root_id, source } => ops::edit::show_root_parsed(model, &root_id, *source),
