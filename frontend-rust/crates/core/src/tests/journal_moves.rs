@@ -1,6 +1,6 @@
 use crate::app::{Event, JournalState, Screen};
 use crate::effects::{ApiOp, ApiOutput};
-use crate::harness::{create_calls, item, move_calls, Harness};
+use crate::harness::{create_calls, item, move_calls, typed, Harness};
 use crate::model::{Page, PageWithItems};
 use crate::testing::item_with;
 
@@ -85,52 +85,27 @@ fn moving_the_topmost_item_up_takes_it_with_its_children_to_the_end_of_the_next_
     assert!(!h.model.move_in_progress);
 }
 
-// 最下位の項目を下へ動かすと前日のジャーナルの先頭へ移動される。遷移はせず表示中のジャーナルが再読み込みされる。
+// 最下位の項目を下へ動かすと、前日のジャーナルの先頭へ1つの要求で移動される。遷移はせず、表示中のジャーナルが再読み込みされる。
 #[test]
 fn moving_the_bottommost_item_down_takes_it_to_the_start_of_the_previous_day() {
     let mut h = harness();
     h.send(Event::MoveDown {
         item_id: "d".into(),
     });
-    assert!(
-        matches!(&h.api.calls[0], ApiOp::GetOrCreateJournal { file_name } if file_name == "2026-02-08")
-    );
-    assert_eq!(
-        move_calls(&h.api),
-        [(
-            vec!["d".to_string()],
-            "page-2026-02-08".to_string(),
-            "first".to_string()
-        )]
-    );
+    let sent = &journal_moves(&h)[0];
+    assert_eq!(sent.date, "2026-02-08");
+    assert_eq!(sent.item_ids, ["d"]);
+    assert_eq!(sent.position, "first");
     assert!(
         create_calls(&h.api).is_empty(),
-        "c stays on the source page"
+        "the server keeps the page non-empty"
     );
     // The journal reloads instead of navigating
     assert!(h.navigations.is_empty());
     assert!(h.api.calls.iter().any(
         |c| matches!(c, ApiOp::GetOrCreateJournal { file_name } if file_name == "2026-02-10")
     ));
-}
-
-// 移動元のページが空になる場合は、空の項目が移動元に残される。
-#[test]
-fn leaves_an_empty_item_behind_when_the_source_page_would_become_empty() {
-    let mut h = Harness::new();
-    h.model.state.set_items(vec![
-        journal_item("a", 1, "p10", "2026-02-10"),
-        journal_item("c", 1, "p09", "2026-02-09"),
-    ]);
-    h.model.screen = Screen::Journal(JournalState {
-        current_date: "2026-02-10".into(),
-        ..Default::default()
-    });
-    h.send(Event::MoveDown {
-        item_id: "c".into(),
-    });
-    assert_eq!(move_calls(&h.api)[0].2, "first");
-    assert_eq!(create_calls(&h.api)[0].0, "p09");
+    assert!(!h.model.move_in_progress);
 }
 
 // 前日ページの最後より上にある項目を下へ動かすと、ジャーナルは作られずそのページ内で移動される。
@@ -140,9 +115,7 @@ fn an_item_above_the_last_one_stays_on_its_page() {
     h.send(Event::MoveDown {
         item_id: "c".into(),
     });
-    assert!(!h.api.calls.iter().any(
-        |c| matches!(c, ApiOp::GetOrCreateJournal { file_name } if file_name == "2026-02-08")
-    ));
+    assert!(journal_moves(&h).is_empty());
     assert_eq!(move_calls(&h.api)[0].1, "p09");
 }
 
@@ -153,7 +126,7 @@ fn an_item_in_the_middle_of_its_page_stays() {
     h.send(Event::MoveDown {
         item_id: "a".into(),
     });
-    assert!(!h.api.called("GetOrCreateJournal"));
+    assert!(journal_moves(&h).is_empty());
     // Moved within its own page instead
     assert_eq!(move_calls(&h.api)[0].1, "p10");
 }
@@ -174,18 +147,11 @@ fn a_level_2_item_in_second_position_moves_up_under_the_last_root_of_the_loaded_
     h.send(Event::MoveUp {
         item_id: "a1".into(),
     });
-    assert_eq!(
-        move_calls(&h.api),
-        [(
-            vec!["a1".to_string()],
-            "p11".to_string(),
-            "after:n".to_string()
-        )]
-    );
-    // No page is created for the move; the journal only reloads itself afterwards
-    assert!(!h.api.calls.iter().any(
-        |c| matches!(c, ApiOp::GetOrCreateJournal { file_name } if file_name == "2026-02-11")
-    ));
+    let sent = &journal_moves(&h)[0];
+    assert_eq!(sent.date, "2026-02-11");
+    assert_eq!(sent.item_ids, ["a1"]);
+    assert_eq!(sent.position, "after:n");
+    assert!(move_calls(&h.api).is_empty());
 }
 
 // 翌日へ遷移した後、動かした項目はひと息置いて編集中になり、そのエディタにフォーカスが移る。
@@ -220,18 +186,11 @@ fn a_level_2_item_at_the_bottom_moves_down_under_the_first_root_of_the_previous_
     h.send(Event::MoveDown {
         item_id: "a1".into(),
     });
-    assert_eq!(
-        move_calls(&h.api),
-        [(
-            vec!["a1".to_string()],
-            "p09".to_string(),
-            "after:c".to_string()
-        )]
-    );
-    // No page is created for the move; the journal only reloads itself afterwards
-    assert!(!h.api.calls.iter().any(
-        |c| matches!(c, ApiOp::GetOrCreateJournal { file_name } if file_name == "2026-02-09")
-    ));
+    let sent = &journal_moves(&h)[0];
+    assert_eq!(sent.date, "2026-02-09");
+    assert_eq!(sent.item_ids, ["a1"]);
+    assert_eq!(sent.position, "after:c");
+    assert!(move_calls(&h.api).is_empty());
 }
 
 // 日付をまたぐ移動で作られたジャーナルは最近のページに出るので、最近のページが読み直される。既にあったジャーナルでは読み直さない。
@@ -240,7 +199,7 @@ fn a_journal_made_by_a_move_refreshes_the_recent_pages() {
     for created in [true, false] {
         let mut h = harness();
         h.api.answer_next(
-            "GetOrCreateJournal",
+            "MoveItemsToJournal",
             Ok(ApiOutput::Page(PageWithItems {
                 page: Page {
                     id: "p11".into(),
@@ -248,7 +207,7 @@ fn a_journal_made_by_a_move_refreshes_the_recent_pages() {
                     page_type: "journal".into(),
                     ..Default::default()
                 },
-                items: vec![item("empty", 1, "")],
+                items: vec![item("a", 1, ""), item("a1", 2, "")],
                 created,
                 transcluded_trees: None,
             })),
@@ -266,28 +225,19 @@ fn a_journal_made_by_a_move_refreshes_the_recent_pages() {
     }
 }
 
-// 入力した直後に別の日へ動かすと、自動保存を待たずに本文が保存されてから移動する。別の日への移動は、まだ1つの要求になっていない。
+// 入力した直後に別の日へ動かすと、打ったばかりの文は移動の要求に入って届く。保存を別には送らず、その自動保存は取り消される。
 #[test]
-fn text_typed_just_before_a_move_to_another_day_is_saved_before_the_item_moves() {
+fn text_typed_just_before_a_move_to_another_day_travels_in_the_move_itself() {
     let mut h = harness();
-    h.model.state.add_editing_item("d");
-    h.send(Event::BodyChanged {
-        item_id: "d".into(),
-        body: "typed".into(),
-        now_ms: h.now_ms,
-    });
+    typed(&mut h, "d", "typed");
     h.send(Event::MoveDown {
         item_id: "d".into(),
     });
-    assert_eq!(
-        crate::harness::update_calls(&h.api),
-        [("d".into(), Some("typed".into()))]
-    );
-    let names: Vec<&str> = h.api.calls.iter().map(crate::harness::op_name).collect();
-    let at = |name: &str| names.iter().position(|n| *n == name).unwrap();
-    assert!(at("UpdateItem") < at("MoveItems"), "{names:?}");
+    assert_eq!(journal_moves(&h)[0].body, Some("typed".to_string()));
     assert!(
         h.pending_timer_ids().is_empty(),
         "the auto-save is not needed any more"
     );
+    h.fire_timers();
+    assert!(crate::harness::update_calls(&h.api).is_empty());
 }

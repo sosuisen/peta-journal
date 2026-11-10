@@ -7,14 +7,12 @@
 //! list changes only when the server has answered. A second key press that did not wait
 //! would compute the same target again and the press would be lost.
 //!
-//! A move on a page and a move inside a transclusion are one request, which carries the
-//! text that was typed into the item and is not saved yet (ADR 011). The screen changes when
-//! its answer is there. A move to another day is still several requests.
+//! Every move is one request, which carries the text that was typed into the item and is
+//! not saved yet (ADR 011). The screen changes when its answer is there.
 
-use crate::app::{apply, done, log_error, run, Cmd, Event, Model, MoveDirection};
-use crate::effects::{Api, ApiError, ApiResult};
+use crate::app::{done, log_error, run, Cmd, Event, Model, MoveDirection};
 use crate::model::{Item, ItemPosition, ItemRef, Page};
-use crate::ops::edit::{flush_pending_edit, read, record_typing, take_unsaved, typed_body};
+use crate::ops::edit::{record_typing, take_unsaved, typed_body};
 use crate::ops::file_reload::replace_page;
 use crate::ops::split::host_page_of_transclusion;
 use crate::outline::tree::{
@@ -84,18 +82,7 @@ fn move_item(model: &mut Model, item_id: &str, direction: MoveDirection) -> Opti
             group_ids,
             position,
         } => Some(move_in_transclusion(model, item, group_ids, position)),
-        MovePlan::AcrossDays(plan) => Some(run(move |api| async move {
-            if let Err(e) = flush_pending_edit(&api, &item).await {
-                log_error(format!("Failed to save before move: {e}"));
-            }
-            match move_across_days(&api, &item, plan).await {
-                Ok(crossed) => apply(&api, "cross-day move", move |m| {
-                    screens::journal::on_cross_day_moved(m, crossed)
-                }),
-                Err(e) => log_error(format!("Failed to move item: {e}")),
-            }
-            api.send_event(Event::MoveDone { handover: false });
-        })),
+        MovePlan::AcrossDays(plan) => Some(move_to_day(model, item, plan)),
         MovePlan::WithinPage {
             position,
             state_position,
@@ -174,6 +161,46 @@ pub fn request_move(
         }
     });
     Command::all([discard, request])
+}
+
+/// Asks the server to move an item with the items below it to the journal of the
+/// neighbouring day. The request carries the text that was typed into the item and is not
+/// saved yet (ADR 011); the journal is made when there is none.
+fn move_to_day(model: &mut Model, item: Item, plan: DayMovePlan) -> Cmd {
+    let (body, discard) = take_unsaved(model, &item);
+    let request = run(move |api| async move {
+        match api
+            .move_items_to_journal(
+                &plan.target_date,
+                plan.group_ids,
+                plan.position,
+                body.as_deref(),
+            )
+            .await
+        {
+            Ok(journal) => api.send_event(Event::MovedToDay {
+                moved: CrossDayMove {
+                    target_date: plan.target_date,
+                    navigate: plan.navigate,
+                    item_id: item.id,
+                    created_page: journal.created.then_some(journal.page),
+                },
+            }),
+            Err(e) => {
+                log_error(format!("Failed to move item to another day: {e}"));
+                api.send_event(Event::MoveFailed {
+                    unsaved: body.map(|_| item.id),
+                });
+            }
+        }
+    });
+    Command::all([discard, request])
+}
+
+/// Shows what a move to another day did, and ends the move.
+pub fn show_moved_to_day(model: &mut Model, moved: CrossDayMove) -> Cmd {
+    let shown = screens::journal::on_cross_day_moved(model, moved);
+    Command::all([shown, move_done(model, false)])
 }
 
 /// Reads the page again after a move inside a transclusion: the server's version of the
@@ -401,22 +428,14 @@ fn move_selection(model: &mut Model, direction: MoveDirection) -> Option<Cmd> {
 
 // ---- Journal day moves ----
 
+/// A move of a journal item with its children to the page of the neighbouring day.
 #[derive(Debug, Clone)]
-enum DayMovePlan {
-    /// A level 1 item at the edge of its page goes to the adjacent day's page.
-    Whole {
-        target_date: String,
-        group_ids: Vec<String>,
-        position: ItemPosition,
-        shown_page_id: Option<String>,
-    },
-    /// A level 2 item at the edge goes to the adjacent day's page when that page is loaded and has room.
-    Level2 {
-        target_date: String,
-        target_page_id: String,
-        group_ids: Vec<String>,
-        placement: ItemPosition,
-    },
+struct DayMovePlan {
+    target_date: String,
+    group_ids: Vec<String>,
+    position: ItemPosition,
+    /// True when the journal goes on to the target day: the item left the day it shows.
+    navigate: bool,
 }
 
 /// Plans the move of a daily journal item to the adjacent day's page if it is at the edge
@@ -449,11 +468,12 @@ fn plan_day_move(model: &Model, item: &Item, direction: MoveDirection) -> Option
                     .map(|b| b.id.as_str())
                     == Some(&item.id)
             {
-                return Some(DayMovePlan::Whole {
+                return Some(DayMovePlan {
                     target_date: adjacent(1),
                     group_ids,
                     position: ItemPosition::Last,
-                    shown_page_id: model.shown_page_id(),
+                    // The journal follows the item to the next day when it left the day shown
+                    navigate: model.shown_page_id().as_deref() == Some(&item.page_id),
                 });
             }
             // A level 2 item at the second position moves to the next day's page
@@ -468,11 +488,11 @@ fn plan_day_move(model: &Model, item: &Item, direction: MoveDirection) -> Option
                 return None;
             }
             if item.level == 1 {
-                return Some(DayMovePlan::Whole {
+                return Some(DayMovePlan {
                     target_date: adjacent(-1),
                     group_ids,
                     position: ItemPosition::First,
-                    shown_page_id: model.shown_page_id(),
+                    navigate: false,
                 });
             }
             if item.level == 2 {
@@ -506,84 +526,11 @@ fn plan_level2(
     if target_items.is_empty() {
         return None;
     }
-    let placement = find_cross_page_placement(&target_items, item.level, scan)?;
-    Some(DayMovePlan::Level2 {
+    let position = find_cross_page_placement(&target_items, item.level, scan)?;
+    Some(DayMovePlan {
         target_date,
-        target_page_id: target_items[0].page_id.clone(),
         group_ids,
-        placement,
+        position,
+        navigate: false,
     })
-}
-
-/// Carries out a planned day move. Returns None when a level 2 move found no room after all.
-async fn move_across_days(
-    api: &Api<Event>,
-    item: &Item,
-    plan: DayMovePlan,
-) -> ApiResult<CrossDayMove> {
-    match plan {
-        DayMovePlan::Whole {
-            target_date,
-            group_ids,
-            position,
-            shown_page_id,
-        } => {
-            let result = api.get_or_create_journal(&target_date).await?;
-            let created_page = result.created.then(|| result.page.clone());
-            let is_next = position == ItemPosition::Last;
-            api.move_items(group_ids.clone(), &result.page.id, position, None)
-                .await?;
-            // If the target page had only one item with an empty body, delete it
-            if result.items.len() == 1 && result.items[0].body.is_empty() {
-                api.delete_item(&result.items[0].id).await?;
-            }
-            keep_source_page_non_empty(api, &item.page_id, &group_ids).await?;
-            // The journal navigates to the next day when the item left the page it shows
-            let navigate = is_next && shown_page_id.as_deref() == Some(&item.page_id);
-            Ok(CrossDayMove {
-                target_date,
-                navigate,
-                item_id: item.id.clone(),
-                created_page,
-            })
-        }
-        DayMovePlan::Level2 {
-            target_date,
-            target_page_id,
-            group_ids,
-            placement,
-        } => {
-            api.move_items(group_ids.clone(), &target_page_id, placement, None)
-                .await?;
-            keep_source_page_non_empty(api, &item.page_id, &group_ids).await?;
-            Ok(CrossDayMove {
-                target_date,
-                navigate: false,
-                item_id: item.id.clone(),
-                created_page: None,
-            })
-        }
-    }
-}
-
-/// A page must keep at least one item: creates an empty one when the moved items were the last ones.
-async fn keep_source_page_non_empty(
-    api: &Api<Event>,
-    source_page_id: &str,
-    moved_ids: &[String],
-) -> Result<(), ApiError> {
-    let (page_id, moved) = (source_page_id.to_string(), moved_ids.to_vec());
-    let remaining = read(api, move |m| {
-        m.state
-            .items()
-            .iter()
-            .filter(|b| b.page_id == page_id && !moved.contains(&b.id))
-            .count()
-    })
-    .await;
-    if remaining == 0 {
-        api.create_item(source_page_id, ItemPosition::First, 1, "", None)
-            .await?;
-    }
-    Ok(())
 }
