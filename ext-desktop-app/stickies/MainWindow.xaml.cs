@@ -494,6 +494,12 @@ public sealed partial class MainWindow : Window
   document.querySelectorAll('[data-ast]').forEach(function(el){{
     try {{ el.innerHTML=FmAst2Html.renderToHtml(el.getAttribute('data-ast')); }} catch(e){{}}
   }});
+  // An image is written with a path relative to its page, such as ../assets/pic.png.
+  // This document has no address of its own, so the path is resolved against the pages.
+  var pages={System.Text.Json.JsonSerializer.Serialize(PageLinks.PagesUrl(_api.BaseUrl))};
+  document.querySelectorAll('[data-ast] [src]').forEach(function(el){{
+    try {{ el.setAttribute('src',new URL(el.getAttribute('src'),pages).href); }} catch(e){{}}
+  }});
   var z={(_windowSettings.ZoomFactor * 100).ToString(System.Globalization.CultureInfo.InvariantCulture)};
   function apply(){{ document.body.style.zoom=z+'%'; window.chrome.webview.postMessage({{zoom:z/100}}); }}
   document.addEventListener('wheel',function(e){{
