@@ -1,8 +1,10 @@
 //! The names of the files in `assets/`. See ADR-022.
 
 use std::collections::HashMap;
+use std::sync::LazyLock;
 
 use hmtid::Hmtid;
+use regex::{Captures, Regex};
 
 /// The name a file is saved under: the ID and the extension of the name it came with.
 /// Why not that name itself: names collide, and the characters of many names cannot stay in
@@ -25,6 +27,22 @@ fn plain_extension(name: &str) -> Option<String> {
 pub fn is_saved_name(name: &str) -> bool {
     let id = name.split_once('.').map_or(name, |(id, _)| id);
     Hmtid::parse(id).is_ok()
+}
+
+/// The destination of a link to a file of `assets/`, up to the end of the file name. A size
+/// may follow the name after `#`.
+static ASSET_LINK: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\]\(\.\./assets/([^)#\s]+)").unwrap());
+
+/// The body with every link to a file in `new_names` pointing to the new name of the file.
+/// The text of a link stays as it is.
+pub fn relink(body: &str, new_names: &HashMap<String, String>) -> String {
+    ASSET_LINK
+        .replace_all(body, |link: &Captures| {
+            let name = new_names.get(&link[1]).map_or(&link[1], String::as_str);
+            format!("](../assets/{name}")
+        })
+        .into_owned()
 }
 
 #[cfg(test)]
