@@ -115,7 +115,7 @@ keys of the calendar. These keys are added:
 | `m` | Open the page of the month of that day |
 | `y` | Open the page of the year of that day |
 
-Each key closes the calendar first. `q` closes the calendar and opens nothing.
+Opening the calendar shows these keys in the echo area. Each key closes the calendar first. `q` closes the calendar and opens nothing.
 
 The server sets how the weeks are numbered: US or ISO. The first day of a week in the calendar
 comes from `calendar-week-start-day` of Emacs, not from the server. With ISO weeks, set it to
