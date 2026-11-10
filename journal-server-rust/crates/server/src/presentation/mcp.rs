@@ -480,7 +480,7 @@ impl JournalMcp {
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
         let types: Vec<String> = a.types.split(',').map(|s| s.to_string()).collect();
-        let items = run(move || state.item_service.get_items_by_types(&types)).await?;
+        let items = run(move || state.item_service.get_items_by_types(&types, None)).await?;
         ok(json!({ "items": items_json(&items) }))
     }
 

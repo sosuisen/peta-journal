@@ -1179,8 +1179,14 @@ impl ItemService {
             .ok_or_else(|| AppError::bad_request(format!("Item not found: {item_id}")))
     }
 
-    pub fn get_items_by_types(&self, types: &[String]) -> AppResult<Vec<Item>> {
-        self.items.find_by_types(types)
+    /// The items of the given types. With `without_property`, the items that have a value for
+    /// that property are left out.
+    pub fn get_items_by_types(
+        &self,
+        types: &[String],
+        without_property: Option<&str>,
+    ) -> AppResult<Vec<Item>> {
+        self.items.find_by_types(types, without_property)
     }
 
     /// The page ID that contains the given item, or None if the item is not found.

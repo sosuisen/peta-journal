@@ -346,9 +346,11 @@ struct FieldsQuery {
 }
 
 #[derive(Deserialize, Default)]
-#[serde(default)]
+#[serde(rename_all = "camelCase", default)]
 struct TypesQuery {
     types: Option<String>,
+    /// Leaves out the items that have a value for this property, as in `withoutProperty=end`
+    without_property: Option<String>,
 }
 
 #[derive(Deserialize, Default)]
@@ -715,7 +717,9 @@ async fn get_items_by_types(
             Some(t) => t.split(',').map(|s| s.to_string()).collect(),
             None => Vec::new(),
         };
-        let items = state.item_service.get_items_by_types(&types)?;
+        let items = state
+            .item_service
+            .get_items_by_types(&types, q.without_property.as_deref())?;
         items_response(&state, &items)
     })
     .await
