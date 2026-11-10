@@ -282,4 +282,90 @@ final class ShellTests: XCTestCase {
 
         XCTAssertFalse(shell.pressed(.backspace, in: second, selected))
     }
+
+    // 末尾でのDeleteは、次の項目をつなぐ。途中でのDeleteは、文字を消すだけである。
+    func testDeleteAtTheEndJoinsTheNextItem() async throws {
+        let shell = try await shellWithPage()
+        try await twoItems(shell)
+        let (first, second) = (shell.view.outline.rows[0].item.id, shell.view.outline.rows[1].item.id)
+        shell.typed("second", into: second)
+        shell.startEditing(first)
+
+        XCTAssertFalse(shell.pressed(.delete, in: first, editor("first", cursor: 2)))
+        XCTAssertTrue(shell.pressed(.delete, in: first, editor("first", cursor: 5)))
+
+        try await waitUntil("the items are joined") { self.bodies(shell) == ["firstsecond"] }
+    }
+
+    // タスクの切り替えは、項目をタスクにし、押すたびに状態を進める。
+    func testTheTaskKeyMakesTheItemATaskAndStepsItsState() async throws {
+        let shell = try await shellWithPage()
+        let first = shell.view.outline.rows[0].item.id
+        shell.startEditing(first)
+        shell.typed("to do", into: first)
+        XCTAssertNil(shell.view.outline.rows[0].task)
+
+        XCTAssertTrue(shell.pressed(.taskCycle, in: first, editor("to do", cursor: 0)))
+        try await waitUntil("the item is a task") { shell.view.outline.rows[0].task == .notStarted }
+        XCTAssertTrue(shell.pressed(.taskCycle, in: first, editor("to do", cursor: 0)))
+        try await waitUntil("the task is running") { shell.view.outline.rows[0].task == .running }
+    }
+
+    // 折りたたみの切り替えは、子の項目を隠し、もう一度押すと戻す。
+    func testTheFoldKeyHidesAndShowsTheChildren() async throws {
+        let shell = try await shellWithPage()
+        try await twoItems(shell)
+        let (first, second) = (shell.view.outline.rows[0].item.id, shell.view.outline.rows[1].item.id)
+        XCTAssertTrue(shell.pressed(.tab, in: second, editor("", cursor: 0)))
+
+        XCTAssertTrue(shell.pressed(.fold, in: first, editor("first", cursor: 0)))
+        try await waitUntil("the child is hidden") { shell.view.outline.rows.count == 1 }
+        XCTAssertTrue(shell.view.outline.rows[0].isCollapsed)
+        XCTAssertTrue(shell.pressed(.fold, in: first, editor("first", cursor: 0)))
+        try await waitUntil("the child is shown again") { shell.view.outline.rows.count == 2 }
+    }
+
+    // 項目を下へ動かすと、次の項目と入れ替わる。上へ動かすと、戻る。
+    func testAnItemIsMovedDownAndUp() async throws {
+        let shell = try await shellWithPage()
+        try await twoItems(shell)
+        let (first, second) = (shell.view.outline.rows[0].item.id, shell.view.outline.rows[1].item.id)
+        shell.typed("second", into: second)
+        shell.startEditing(first)
+
+        XCTAssertTrue(shell.pressed(.moveDown, in: first, editor("first", cursor: 0)))
+        try await waitUntil("the first item is below") { self.bodies(shell) == ["second", "first"] }
+        XCTAssertTrue(shell.pressed(.moveUp, in: first, editor("first", cursor: 0)))
+        try await waitUntil("the first item is on top again") { self.bodies(shell) == ["first", "second"] }
+    }
+
+    // 項目を右へ動かすと字下げになり、左へ動かすと字上げになる。
+    func testAnItemIsMovedInAndOut() async throws {
+        let shell = try await shellWithPage()
+        try await twoItems(shell)
+        let second = shell.view.outline.rows[1].item
+
+        XCTAssertTrue(shell.pressed(.moveIn, in: second.id, editor("", cursor: 0)))
+        XCTAssertEqual(shell.view.outline.rows[1].item.level, second.level + 1)
+        XCTAssertTrue(shell.pressed(.moveOut, in: second.id, editor("", cursor: 0)))
+        XCTAssertEqual(shell.view.outline.rows[1].item.level, second.level)
+    }
+
+    // 元に戻すと、直前の操作が取り消される。やり直すと、もう一度行われる。
+    func testUndoTakesBackTheLastChangeAndRedoMakesItAgain() async throws {
+        let shell = try await shellWithPage()
+        try await twoItems(shell)
+        let second = shell.view.outline.rows[1].item
+        XCTAssertTrue(shell.pressed(.tab, in: second.id, editor("", cursor: 0)))
+        XCTAssertEqual(shell.view.outline.rows[1].item.level, second.level + 1)
+
+        XCTAssertTrue(shell.pressed(.undo, in: second.id, editor("", cursor: 0)))
+        try await waitUntil("the indent is taken back") {
+            shell.view.outline.rows[1].item.level == second.level
+        }
+        XCTAssertTrue(shell.pressed(.redo, in: second.id, editor("", cursor: 0)))
+        try await waitUntil("the indent is made again") {
+            shell.view.outline.rows[1].item.level == second.level + 1
+        }
+    }
 }
