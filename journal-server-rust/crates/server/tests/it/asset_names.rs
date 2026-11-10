@@ -209,4 +209,26 @@ mod apply {
             page_before.modified_date
         );
     }
+
+    // ページのMarkdownファイルのリンクも、新しい名前を指す。そのあとフォルダを調べても、
+    // 取り込むものはなく、項目は変わらない。
+    #[test]
+    fn the_file_of_the_page_has_the_new_name_and_a_later_scan_takes_nothing_in() {
+        let notes = Notes::new();
+        notes.asset("image.png", "the picture");
+        let item = notes
+            .page("Trip", &["![pic](../assets/image.png)"])
+            .remove(0);
+
+        notes.rename("image.png", NEW_NAME);
+
+        let text = std::fs::read_to_string(notes.root.join("docs/Trip.md")).unwrap();
+        assert!(text.contains(&format!("![pic](../assets/{NEW_NAME})")));
+        assert!(!text.contains("image.png"));
+        let renamed = notes.item(&item.id);
+        assert_eq!(notes.state.reconcile.scan().imported, 0);
+        let scanned = notes.item(&item.id);
+        assert_eq!(scanned.body, renamed.body);
+        assert_eq!(scanned.modified_date, renamed.modified_date);
+    }
 }
