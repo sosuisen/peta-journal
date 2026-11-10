@@ -5,7 +5,6 @@
 //! threads only send back their results.
 
 use crate::protocol::{BacklinkEntry, DateUnit, Envelope, Inbound, Outbound, PropertyRow, RowView};
-use crate::route::parse_url;
 use crux_core::capability::Operation;
 use crux_core::{Core, Request};
 use peta_core::app::{JournalNav, WikiLinkContext};
@@ -716,7 +715,7 @@ fn page_titles(result: &ApiResult<ApiOutput>) -> Vec<String> {
 /// The route of a URL of the core or of Emacs. Neither makes the one URL without a route, the
 /// empty one.
 fn route_of(url: &str) -> peta_core::Route {
-    parse_url(url).expect("the URL names a page")
+    peta_core::Route::parse_url(url).expect("the URL names a page")
 }
 
 /// The keys whose value is a date and a time. Only the page's own dates cannot be removed, and
