@@ -647,6 +647,22 @@ async fn cycle_task_goes_through_task_running_done_and_back_to_normal() {
     assert!(!normal.properties.contains_key("end"));
 }
 
+// 日のジャーナルの項目をタスクにすると、同じ要求で、その日が予定日（plan）になる。
+#[tokio::test]
+async fn an_item_that_becomes_a_task_on_a_day_is_planned_for_that_day() {
+    let day = journal("1998-04-10").await;
+    let item = ItemRow::of(&day["items"][0]);
+
+    let (status, resp) = post_empty(&format!("/api/items/{}/cycle-task", item.id)).await;
+
+    assert_eq!(status, 200, "{resp}");
+    let task = ItemRow::of(&resp["item"]);
+    assert!(task.types.contains(&"task".to_string()));
+    assert_eq!(task.properties.get("plan"), Some(&json!("1998-04-10")));
+    let stored = items(&page_id_of(&day)).await.remove(0);
+    assert_eq!(stored.properties.get("plan"), Some(&json!("1998-04-10")));
+}
+
 // タスクは型で一覧できる。
 #[tokio::test]
 async fn tasks_can_be_listed_by_type() {
