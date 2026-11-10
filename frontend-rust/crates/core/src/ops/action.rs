@@ -123,6 +123,14 @@ pub fn toggle_collapsed(model: &mut Model, item_id: &str) -> Cmd {
     })
 }
 
+/// Collapses an item, or expands it. An item that is already so stays as it is.
+pub fn set_collapsed(model: &mut Model, item_id: &str, collapsed: bool) -> Cmd {
+    if model.state.is_collapsed(item_id) == collapsed {
+        return done();
+    }
+    toggle_collapsed(model, item_id)
+}
+
 /// The server saved the collapsing or expanding of an item: the change of `before` can be
 /// undone.
 pub fn record_collapse(model: &mut Model, before: Item) -> Cmd {

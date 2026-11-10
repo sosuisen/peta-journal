@@ -93,10 +93,7 @@ extension Shell {
         case .taskCycle:
             return .taskCycle(itemId: itemId)
         case .fold, .unfold:
-            // The core has one event for both. Each key only goes its own way
-            guard let row = view.outline.rows.first(where: { $0.item.id == itemId }) else { return nil }
-            let turns = key == .fold ? row.hasChildren && !row.isCollapsed : row.isCollapsed
-            return turns ? .collapseToggle(itemId: itemId) : nil
+            return .setCollapsed(itemId: itemId, collapsed: key == .fold)
         case .moveUp:
             return .moveUp(itemId: itemId)
         case .moveDown:

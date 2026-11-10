@@ -173,6 +173,12 @@ pub enum Event {
     CollapseToggle {
         item_id: String,
     },
+    /// A key that only hides the children, or only shows them: nothing happens when the
+    /// item is already so.
+    SetCollapsed {
+        item_id: String,
+        collapsed: bool,
+    },
     /// Shift+Wheel: a tenth more or less zoom.
     ZoomStep {
         item_id: String,
@@ -1128,6 +1134,9 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         MoveDown { item_id } => ops::moves::enqueue_move(model, &item_id, MoveDirection::Down),
         TaskCycle { item_id } => ops::action::cycle_task(model, &item_id),
         CollapseToggle { item_id } => ops::action::toggle_collapsed(model, &item_id),
+        SetCollapsed { item_id, collapsed } => {
+            ops::action::set_collapsed(model, &item_id, collapsed)
+        }
         ZoomStep { item_id, up } => ops::action::zoom_step(model, &item_id, up),
         ResetZoom { item_id } => ops::action::set_zoom(model, &item_id, 1.0),
         PasteText {

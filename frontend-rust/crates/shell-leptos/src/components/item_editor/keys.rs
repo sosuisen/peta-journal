@@ -110,9 +110,14 @@ pub(super) fn handle_keydown(
         return;
     }
 
-    if ev.ctrl_key() && (key == "ArrowUp" || key == "ArrowDown") {
+    // Up hides the children and Down shows them. Command is the key on the Mac, where
+    // Control with an arrow belongs to the system; Control is the key elsewhere.
+    if (ev.ctrl_key() || ev.meta_key()) && (key == "ArrowUp" || key == "ArrowDown") {
         ev.prevent_default();
-        send(Event::CollapseToggle { item_id: id });
+        send(Event::SetCollapsed {
+            item_id: id,
+            collapsed: key == "ArrowUp",
+        });
         return;
     }
 
