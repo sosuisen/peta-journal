@@ -311,18 +311,31 @@ final class ShellTests: XCTestCase {
         try await waitUntil("the task is running") { shell.view.outline.rows[0].task == .running }
     }
 
-    // 折りたたみの切り替えは、子の項目を隠し、もう一度押すと戻す。
-    func testTheFoldKeyHidesAndShowsTheChildren() async throws {
+    // 折りたたむキーは子の項目を隠し、開くキーは子の項目を表示する。切り替えではない。
+    func testTheFoldKeyHidesTheChildrenAndTheUnfoldKeyShowsThem() async throws {
         let shell = try await shellWithPage()
         try await twoItems(shell)
         let (first, second) = (shell.view.outline.rows[0].item.id, shell.view.outline.rows[1].item.id)
         XCTAssertTrue(shell.pressed(.tab, in: second, editor("", cursor: 0)))
 
+        // The children are shown already
+        XCTAssertFalse(shell.pressed(.unfold, in: first, editor("first", cursor: 0)))
         XCTAssertTrue(shell.pressed(.fold, in: first, editor("first", cursor: 0)))
         try await waitUntil("the child is hidden") { shell.view.outline.rows.count == 1 }
         XCTAssertTrue(shell.view.outline.rows[0].isCollapsed)
-        XCTAssertTrue(shell.pressed(.fold, in: first, editor("first", cursor: 0)))
+        // The children are hidden already
+        XCTAssertFalse(shell.pressed(.fold, in: first, editor("first", cursor: 0)))
+        XCTAssertTrue(shell.pressed(.unfold, in: first, editor("first", cursor: 0)))
         try await waitUntil("the child is shown again") { shell.view.outline.rows.count == 2 }
+    }
+
+    // 子のない項目には、折りたたむものがない。
+    func testAnItemWithoutChildrenIsNotFolded() async throws {
+        let shell = try await shellWithPage()
+        let first = shell.view.outline.rows[0].item.id
+
+        XCTAssertFalse(shell.pressed(.fold, in: first, editor("", cursor: 0)))
+        XCTAssertFalse(shell.view.outline.rows[0].isCollapsed)
     }
 
     // 項目を下へ動かすと、次の項目と入れ替わる。上へ動かすと、戻る。

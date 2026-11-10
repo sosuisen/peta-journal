@@ -178,8 +178,8 @@ final class ItemTextView: NSTextView {
         return became
     }
 
-    /// The keys with Control or Option that mean something to the outline. They are the keys
-    /// of the web frontend. AppKit has no command for them, or one that means something else.
+    /// The keys with Control, Option or Command that mean something to the outline. AppKit has
+    /// no command for them, or one that means something else.
     override func keyDown(with event: NSEvent) {
         // While text is composed every key belongs to the input method
         if !hasMarkedText(), take(event) { return }
@@ -196,7 +196,14 @@ final class ItemTextView: NSTextView {
             insertText("\n", replacementRange: selectedRange())
             return true
         case (returnKey, [.control]): return onKey?(.taskCycle, self) ?? false
-        case (up, [.control]), (down, [.control]): return onKey?(.fold, self) ?? false
+        // Taken also when there is nothing to fold: otherwise AppKit would put the cursor at
+        // the start or the end of the text
+        case (up, [.command]):
+            _ = onKey?(.fold, self)
+            return true
+        case (down, [.command]):
+            _ = onKey?(.unfold, self)
+            return true
         case (up, [.shift, .option]): return onKey?(.moveUp, self) ?? false
         case (down, [.shift, .option]): return onKey?(.moveDown, self) ?? false
         case (left, [.shift, .option]): return onKey?(.moveOut, self) ?? false
