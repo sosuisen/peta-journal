@@ -357,4 +357,24 @@ mod command {
         assert_eq!(notes.assets(), ["image.png"]);
         assert_eq!(notes.file("docs/Trip.md"), page_before);
     }
+
+    // 「apply」は、ファイルの対応表のとおりに、ファイルとリンクを変える。
+    #[test]
+    fn the_apply_step_moves_the_files_and_the_links_as_the_table_in_the_file_says() {
+        let notes = Notes::new();
+        notes.asset("image.png", "the picture");
+        notes.page("Trip", &["![pic](../assets/image.png)"]);
+        let notes = notes.stop();
+        notes.run(AssetNamesStep::Plan);
+        let table: Vec<Rename> =
+            serde_json::from_str(&std::fs::read_to_string(notes.table()).unwrap()).unwrap();
+
+        notes.run(AssetNamesStep::Apply);
+
+        let new_name = &table[0].to;
+        assert_eq!(notes.assets(), [new_name.as_str()]);
+        assert!(notes
+            .file("docs/Trip.md")
+            .contains(&format!("![pic](../assets/{new_name})")));
+    }
 }
