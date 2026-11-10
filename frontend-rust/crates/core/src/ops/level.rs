@@ -1,6 +1,7 @@
 //! Indents and outdents items, ported from `level-shift.service.ts`. The change is shown at
 //! once and saved as a relative level shift, so key presses that overtake each other still
-//! add up on the server.
+//! add up on the server. The logical outdent is a move instead: it is shown when the server
+//! has answered, like any move.
 
 use crate::app::{apply, done, log_error, run, Cmd, Event, Model};
 use crate::model::{Item, ItemPosition, ItemRef};
