@@ -37,13 +37,17 @@ fn sending_to_the_stash_sends_one_request_and_shows_the_heading_made_with_the_su
     assert_eq!(h.outline(), ["z:1=", "new1:1=# Stash", "a:2=todo", "a1:3="]);
 }
 
-// Stash 見出しが既にあれば、Stash への送付で新しい見出しは作られずその直後へ移動される。
+// Stash 見出しが既にあれば、新しい見出しは作られず、項目はその直下へ移る。
 #[test]
 fn sending_to_the_stash_reuses_an_existing_stash_heading() {
-    let mut h = Harness::with_items(vec![item("a", 1, "todo"), item("stash", 1, "# Stash")]);
+    let mut h = Harness::with_items(vec![
+        item("a", 1, "todo"),
+        item("stash", 1, "# Stash"),
+        item("old", 2, ""),
+    ]);
     h.send(Event::SendToStash {
         item_id: "a".into(),
     });
-    assert!(!h.api.called("CreateItem"));
-    assert_eq!(move_calls(&h.api)[0].2, "after:stash");
+    assert_eq!(stash_calls(&h), [("a".to_string(), None)]);
+    assert_eq!(h.outline(), ["stash:1=# Stash", "a:2=todo", "old:2="]);
 }

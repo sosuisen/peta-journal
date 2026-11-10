@@ -3,9 +3,10 @@
 
 use crate::app::{apply, done, log_error, run, Cmd, Event, Model};
 use crate::effects::{Api, UiOp};
-use crate::model::{Item, ItemPosition};
-use crate::ops::edit::{read, save_target_id};
+use crate::model::{Item, ItemPosition, Stashed};
+use crate::ops::edit::{auto_save_again, save_target_id, take_unsaved};
 use crate::ops::file_reload::reload_shown_page;
+use crux_core::Command;
 
 /// Cycles the task state: normal → task → running → done → normal.
 /// An item that just became a task on a daily journal gets the journal date as its plan.
@@ -178,77 +179,54 @@ pub fn remove_transclusion(model: &mut Model, item_id: &str) -> Cmd {
     })
 }
 
-/// The heading the items sent to the stash are moved under.
-const STASH_HEADING: &str = "# Stash";
-
-/// Sends an item (and its children) to the page's stash: moves the group under the
-/// `# Stash` heading, which is created at the end of the page when missing.
+/// Sends an item with its children to the stash of its page: under the `# Stash` heading,
+/// which the server makes at the end of the page when there is none. One request, which
+/// carries the text typed into the item and not saved yet (ADR 011); the screen changes when
+/// the answer is there.
 pub fn send_to_stash(model: &mut Model, item_id: &str) -> Cmd {
     let Some(item) = model.cloned_item(item_id) else {
         return done();
     };
-    let group_ids: Vec<String> = model
-        .state
-        .get_item_with_children(&item.id)
-        .iter()
-        .map(|b| b.id.clone())
-        .collect();
-    if group_ids.is_empty() {
-        return done();
-    }
-    run(move |api| async move {
-        if let Err(e) = send_to_stash_now(&api, item, group_ids).await {
-            log_error(format!("Failed to send item to the stash: {e}"));
+    let (body, discard) = take_unsaved(model, &item);
+    let request = run(move |api| async move {
+        match api.stash_item(&item.id, body.as_deref()).await {
+            Ok(stashed) => api.send_event(Event::Stashed { stashed }),
+            Err(e) => {
+                log_error(format!("Failed to send item to the stash: {e}"));
+                api.send_event(Event::StashFailed {
+                    unsaved: body.map(|_| item.id),
+                });
+            }
         }
-    })
+    });
+    Command::all([discard, request])
 }
 
-async fn send_to_stash_now(
-    api: &Api<Event>,
-    item: Item,
-    group_ids: Vec<String>,
-) -> Result<(), crate::effects::ApiError> {
-    let found = read(api, |m| {
-        let items = m.state.items();
-        let stash = items
-            .iter()
-            .find(|it| it.body.trim() == STASH_HEADING)
-            .map(|a| (**a).clone());
-        (stash, items.last().map(|l| l.id.clone()))
-    })
-    .await;
-    let stash = match found {
-        (Some(stash), _) => stash,
-        (None, Some(last_id)) => {
-            let position = ItemPosition::after(last_id);
-            let created = api
-                .create_item(&item.page_id, position.clone(), 1, STASH_HEADING, None)
-                .await?;
-            let c = created.clone();
-            apply(api, "stash: created", move |m| {
-                m.state.add_item(c, &position);
-                done()
-            });
-            created
-        }
-        (None, None) => return Ok(()),
-    };
-    // The newest comes first, right under the heading
-    let level_delta = (stash.level + 1) - item.level;
-    let position = ItemPosition::after(stash.id.clone());
-    let moved = api
-        .move_items(
-            group_ids.clone(),
-            &item.page_id,
-            position.clone(),
-            Some(level_delta),
-        )
-        .await?;
-    apply(api, "stash: moved", move |m| {
-        m.state.replace_items(&group_ids, moved, &position);
-        done()
-    });
-    Ok(())
+/// Shows what sending an item to the stash did: the heading made at the end of the page,
+/// and the items at their place under it.
+pub fn show_stashed(model: &mut Model, stashed: Stashed) -> Cmd {
+    let ids: Vec<String> = stashed.items.iter().map(|item| item.id.clone()).collect();
+    if ids
+        .iter()
+        .any(|id| model.state.get_item_by_id(id).is_none())
+    {
+        // The screen went on to another page while the server was asked
+        return done();
+    }
+    if stashed.created {
+        let last = model.state.items().last().map(|item| item.id.clone());
+        let at = last.map_or(ItemPosition::First, ItemPosition::After);
+        model.state.add_item(stashed.heading.clone(), &at);
+    }
+    let under = ItemPosition::After(stashed.heading.id);
+    model.state.replace_items(&ids, stashed.items, &under);
+    done()
+}
+
+/// Schedules the auto-save of the typed text a stash was to carry, when the stash did not
+/// reach the server.
+pub fn stash_failed(model: &mut Model, unsaved: Option<&str>) -> Cmd {
+    auto_save_again(model, unsaved)
 }
 
 /// Whether the items may be deleted: yes when no other item transcludes them, or when the

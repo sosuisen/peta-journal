@@ -338,6 +338,14 @@ pub enum Event {
     SendToStash {
         item_id: String,
     },
+    /// The server sent an item to the stash: the heading and the items go to their place.
+    Stashed {
+        stashed: Box<Stashed>,
+    },
+    /// The stash did not reach the server: the typed text it was to carry is saved again.
+    StashFailed {
+        unsaved: Option<String>,
+    },
     /// A key pressed while the relay holds keys for the next editor.
     KeyHeld(DeferredKey),
     SelectionKey(SelectionKey),
@@ -965,6 +973,8 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         PasteAsTransclusion { item_id } => ops::action::paste_as_transclusion(model, &item_id),
         RemoveTransclusion { item_id } => ops::action::remove_transclusion(model, &item_id),
         SendToStash { item_id } => ops::action::send_to_stash(model, &item_id),
+        Stashed { stashed } => ops::action::show_stashed(model, *stashed),
+        StashFailed { unsaved } => ops::action::stash_failed(model, unsaved.as_deref()),
         KeyHeld(key) => {
             model.key_relay.hold(key);
             done()
