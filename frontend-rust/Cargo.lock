@@ -1983,6 +1983,7 @@ checksum = "9b4f627cb1b25917193a259e49bdad08f671f8d9708acfd5fe0a8c1455d87220"
 name = "peta-atlas"
 version = "0.1.0"
 dependencies = [
+ "facet",
  "picturesque-marks",
  "serde",
  "serde_json",
@@ -1993,6 +1994,7 @@ name = "peta-core"
 version = "0.1.0"
 dependencies = [
  "crux_core",
+ "facet",
  "flatmarkdown-ast",
  "futures",
  "getrandom 0.3.4",
@@ -2057,6 +2059,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "crux_core",
+ "facet",
  "peta-core",
  "peta-server-client",
  "serde",

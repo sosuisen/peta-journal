@@ -23,6 +23,7 @@ pub type Ctx = CommandContext<Effect, Event>;
 
 /// What the editor reports about the `[[wiki link]]` being typed: the text inside and where
 /// the caret is on the screen.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Default, serde::Deserialize, serde::Serialize)]
 pub struct WikiLinkContext {
     pub query: String,
@@ -31,6 +32,7 @@ pub struct WikiLinkContext {
 }
 
 /// Keys the shell forwards while the outline is in selection mode.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum SelectionKey {
     Escape,
@@ -47,6 +49,7 @@ pub enum SelectionKey {
     Redo,
 }
 
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum SearchKey {
     Down,
@@ -55,6 +58,7 @@ pub enum SearchKey {
     Escape,
 }
 
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum JournalNav {
     Prev,
@@ -62,6 +66,7 @@ pub enum JournalNav {
 }
 
 /// The URL the shell is showing.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
 #[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum Route {
     /// `/pages/<name>`, `/docs/<name>`, `/journals/<name>` or `/today` (name `today`).
@@ -94,6 +99,7 @@ impl Route {
     }
 }
 
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub enum Event {
     /// The shell is up: connect, load the settings and the sidebar. `client_id` is the UUID
@@ -765,6 +771,7 @@ pub fn log_error(message: impl fmt::Display) {
 
 // ---- Model ----
 
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize)]
 pub enum ConnectionState {
     Connecting,

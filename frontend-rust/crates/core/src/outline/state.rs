@@ -7,6 +7,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 /// A heading of the page, for the table of contents.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct Heading {
     pub id: String,
@@ -15,6 +16,7 @@ pub struct Heading {
 }
 
 /// The cursor an editor should open with, set once and consumed by the first editor that opens.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct FocusRequest {
     /// Grows with every request, so the shell knows which one it already applied.

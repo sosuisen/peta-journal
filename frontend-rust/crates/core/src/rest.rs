@@ -24,6 +24,7 @@ const COMPONENT: &AsciiSet = &NON_ALPHANUMERIC
 /// with every request and gives it to the core with `Event::Start`.
 ///
 /// Only [`ClientId::new`] makes one, so a shell cannot name itself with a text of its own.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub struct ClientId(String);
 

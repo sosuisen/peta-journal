@@ -1,5 +1,6 @@
 //! Page names: journal name patterns and the characters a file name may hold.
 
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub enum JournalType {
     Daily,

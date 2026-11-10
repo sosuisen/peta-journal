@@ -25,6 +25,7 @@ use crate::util::date::shift_iso_date;
 use crux_core::Command;
 
 /// What a move to another day's page did; the journal reloads from it.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct CrossDayMove {
     /// The date of the page the item went to.
@@ -231,6 +232,7 @@ pub fn focus_moved(model: &mut Model, item_id: String) -> Cmd {
 }
 
 /// What the undo history calls a move.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum MoveLabel {
     Move,

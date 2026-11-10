@@ -2,6 +2,8 @@
 //! effects of the screen cross as bincode. The server, the timers and the clock stay on this
 //! side.
 
+#[cfg(feature = "facet_typegen")]
+pub mod codegen;
 mod server;
 mod shell;
 

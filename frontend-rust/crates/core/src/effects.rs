@@ -373,6 +373,7 @@ pub enum SseOp {
     Connect,
 }
 
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SseEvent {
     Open,
@@ -389,6 +390,7 @@ impl Operation for SseOp {
 // ---- The screen ----
 
 /// Things only the shell can do with the page: focus, scroll, clipboard, dialogs.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum UiOp {
     /// Focuses the editor of an item after the next render (the first editor when None) and
@@ -430,6 +432,7 @@ pub enum UiOp {
     LocalNow,
 }
 
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum UiOutput {
     Done,
@@ -442,6 +445,7 @@ pub enum UiOutput {
 }
 
 /// `LocalDateTime` in a serializable shape.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct LocalDateTimeDto {
     pub year: i32,
@@ -469,6 +473,7 @@ impl Operation for UiOp {
 
 // ---- Navigation ----
 
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NavigateOp {
     pub url: String,
