@@ -9,6 +9,8 @@ import Foundation
 public final class Shell: ObservableObject {
     @Published public private(set) var view: ViewModel
     @Published public private(set) var title = ""
+    /// What is open, as the URL that opens it again. `nil` when nothing was opened yet.
+    @Published public private(set) var url: String?
     /// What the core asks the user now. The core waits until it is answered.
     @Published public private(set) var question: Question?
     /// The last order of the core to put the cursor somewhere.
@@ -19,10 +21,11 @@ public final class Shell: ObservableObject {
     /// The questions that wait behind the one on screen.
     private var later: [Question] = []
 
-    /// Starts a core for the journal server at `server` and opens what `url` names. `clipboard`
+    /// Starts a core for the journal server at `server` and opens what `url` names, or nothing
+    /// when there is no URL: a page is then to be searched for. `clipboard`
     /// gives the text on the clipboard when the core asks for it, and `copy` puts text there.
     public init(
-        server: String, url: String,
+        server: String, url: String?,
         clipboard: @escaping () -> String? = { NSPasteboard.general.string(forType: .string) },
         copy: @escaping (String) -> Void = { text in
             NSPasteboard.general.clearContents()
@@ -41,12 +44,13 @@ public final class Shell: ObservableObject {
         self.copy = copy
         view = Shell.must { try border.view() }
         inbox.shell = self
-        open(url)
+        if let url { open(url) }
     }
 
     /// Opens what the URL names. A URL that names nothing changes nothing.
     public func open(_ url: String) {
-        try? border.open(url)
+        guard (try? border.open(url)) != nil else { return }
+        self.url = url
     }
 
     /// The user put the cursor in the item.

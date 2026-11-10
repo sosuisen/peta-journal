@@ -2,8 +2,8 @@
 # Builds the app and starts it. A running app is ended first: `open` would only bring it to the
 # front, with its old build and its old arguments.
 #
-#   ./run.sh                          today's journal of the server at http://localhost:8087
-#   ./run.sh -url /pages/notes        another page
+#   ./run.sh                          no page, of the server at http://localhost:8087
+#   ./run.sh -url /pages/notes        a page; -url /today is today's journal
 #   ./run.sh -server http://localhost:8087 -url /pages/notes
 #   ./run.sh --generate ...           makes generated/ again first, after a change in Rust
 #   ./run.sh --debug ...              the Debug build, which is slower
