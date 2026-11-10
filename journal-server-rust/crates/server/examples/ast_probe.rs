@@ -9,6 +9,6 @@ fn main() {
         "[#test](../docs/test.md) and [Page](../docs/Page.md) and [x](docs/x.md) and [y](y.md) and [ext](https://e.x/a.md)",
         "[[Wiki]] and [[a#b|label]]", "- [ ] task", "\\#escaped",
         "[a](./docs/a.md)", "[b](../../journals/2026-01-01.md)", "[c](../x.md#frag)", "[d](<../docs/with space.md>)", "[e](/abs/x.md)", "[#f](../f.md)", "[../g](../g.md)"] {
-        println!("{b} => {}", body_to_ast_with(b, &opts));
+        println!("{b} => {}", body_to_ast_with(b, &opts).to_json());
     }
 }

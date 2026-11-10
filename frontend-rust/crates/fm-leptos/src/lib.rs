@@ -68,7 +68,7 @@ pub fn render_node(node: &Node, options: &RenderOptions) -> AnyView {
 /// Parses an AST JSON string and renders it. Renders nothing when the JSON does not parse.
 #[component]
 pub fn FmRoot(
-    /// The AST JSON (as returned by `flatmarkdown::body_to_ast`).
+    /// The AST JSON (as written by `flatmarkdown_ast::Node::to_json`).
     ast: String,
     /// Link options; defaults to no prefixes and no classes.
     #[prop(optional)]
