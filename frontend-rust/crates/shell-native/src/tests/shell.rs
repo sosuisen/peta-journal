@@ -1,6 +1,6 @@
 use crate::{Host, NativeShell, ShellEffectFfi};
 use crux_core::bridge::{BincodeFfiFormat, FfiFormat, Request};
-use peta_core::effects::{ApiError, ApiOp, ApiOutput, ApiResult, SseEvent, UiOp};
+use peta_core::effects::{ApiError, ApiOp, ApiOutput, ApiResult, SseEvent, UiOp, UiOutput};
 use peta_core::model::{Page, PageWithItems};
 use peta_core::rest::ClientId;
 use peta_core::testing::plain_item;
@@ -110,6 +110,20 @@ impl Screen {
         String::from_utf8_lossy(&self.shell.view()).into_owned()
     }
 
+    /// Answers the request for a screen operation the way a shell does: by its number.
+    fn answer(&self, op: &UiOp, output: &UiOutput) {
+        let id = {
+            let requests = self.requests.lock().unwrap();
+            let asked = requests
+                .iter()
+                .find(|request| matches!(&request.effect, ShellEffectFfi::Ui(o) if o == op));
+            asked.expect("the shell was asked for this").id.0
+        };
+        let mut bytes = Vec::new();
+        BincodeFfiFormat::serialize(&mut bytes, output).unwrap();
+        self.shell.resolve(id, &bytes).unwrap();
+    }
+
     /// The screen operations the shell was asked for, oldest first.
     fn ui_ops(&self) -> Vec<UiOp> {
         let requests = self.requests.lock().unwrap();
@@ -189,5 +203,28 @@ fn every_event_of_the_server_stream_reaches_the_core() {
 
     wait_until("the shell is asked to confirm", || {
         screen.ui_ops().contains(&UiOp::Confirm("Insert?".into()))
+    });
+}
+
+// シェルは、依頼の番号とバイト列で答える。確認に「はい」と答えると、その答えがサーバーに送られる。
+#[test]
+fn the_answer_of_the_shell_reaches_the_core() {
+    let screen = Screen::new();
+    let confirm = UiOp::Confirm("Insert?".into());
+    screen.server_says(SseEvent::Message(
+        r#"{"type":"confirm","requestId":"confirm-7","message":"Insert?"}"#.into(),
+    ));
+    wait_until("the shell is asked to confirm", || {
+        screen.ui_ops().contains(&confirm)
+    });
+
+    screen.answer(&confirm, &UiOutput::Bool(true));
+
+    wait_until("the answer is sent to the server", || {
+        let calls = screen.calls.lock().unwrap();
+        calls.contains(&ApiOp::AnswerConfirm {
+            request_id: "confirm-7".into(),
+            ok: true,
+        })
     });
 }

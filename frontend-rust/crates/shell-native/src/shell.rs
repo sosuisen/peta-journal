@@ -117,6 +117,11 @@ impl NativeShell {
         self.router.routes.border.update(event)
     }
 
+    /// Takes the answer of the shell to the request `id`.
+    pub fn resolve(&self, _id: u32, _output: &[u8]) -> Result<(), BorderError> {
+        Ok(())
+    }
+
     /// The whole [`ViewModel`](peta_core::ViewModel), to draw after a render request.
     pub fn view(&self) -> Vec<u8> {
         let view = self.router.routes.border.view();
