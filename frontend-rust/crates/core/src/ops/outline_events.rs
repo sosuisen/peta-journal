@@ -2,8 +2,8 @@
 //! edits, moving between items, and what the keys of selection mode do.
 
 use crate::app::{apply, done, run, Cmd, Model, MoveDirection, SelectionKey};
-use crate::model::{Item, ItemPosition};
-use crate::ops::edit::{focus_editor, record_typing, save_item_if_dirty, save_target_id, Handover};
+use crate::model::Item;
+use crate::ops::edit::{record_typing, save_item_if_dirty, save_target_id, Handover};
 use crate::ops::{action, level, moves, undo_replay};
 use crate::outline::tree::{index_of, transclusion_context_of};
 use crux_core::Command;
@@ -77,31 +77,6 @@ pub fn navigate(model: &mut Model, item_id: &str, cursor: usize, delta: i32) -> 
             m.state.remove_editing_item(&from.id);
             done()
         });
-    })
-}
-
-/// A page must keep at least one item: creates an empty one when none is left.
-pub fn ensure_at_least_one_item(model: &mut Model) -> Cmd {
-    if !model.state.items().is_empty() {
-        return done();
-    }
-    let Some(page_id) = model.shown_page_id() else {
-        return done();
-    };
-    run(move |api| async move {
-        if let Ok(new_item) = api
-            .create_item(&page_id, ItemPosition::First, 1, "", None)
-            .await
-        {
-            let id = new_item.id.clone();
-            let focus_id = id.clone();
-            apply(&api, "ensure one item", move |m| {
-                m.state.add_item(new_item, &ItemPosition::First);
-                m.state.set_focused_item(&id, None);
-                done()
-            });
-            focus_editor(&api, Some(focus_id)).await;
-        }
     })
 }
 

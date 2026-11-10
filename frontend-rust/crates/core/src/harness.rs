@@ -371,7 +371,10 @@ impl FakeApi {
                     written.retain(|earlier| earlier.id != item.id);
                     written.push(item);
                 }
-                ApiOutput::Items(written)
+                ApiOutput::Batched(Box::new(Batched {
+                    items: written,
+                    created: Vec::new(),
+                }))
             }
             ApiOp::CycleTask { item_id } => {
                 let mut item = plain_item(item_id, 1, "");

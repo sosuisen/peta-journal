@@ -281,6 +281,13 @@ pub fn show_deleted(model: &mut Model, item_ids: &[String], created: Vec<Item>) 
     }
     model.undo.commit(None, model.clock_ms);
     model.state.delete_items(item_ids);
+    show_empty_item(model, created)
+}
+
+/// Shows the empty item the server made on the shown page, when a write left that page
+/// without an item, and gives it the focus. The server keeps every page non-empty; the items
+/// it made on other pages are not shown here.
+pub fn show_empty_item(model: &mut Model, created: Vec<Item>) -> Cmd {
     let shown_page_id = model.shown_page_id();
     let Some(empty) = created
         .into_iter()

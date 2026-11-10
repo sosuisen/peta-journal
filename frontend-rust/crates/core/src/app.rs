@@ -209,6 +209,8 @@ pub enum Event {
         reparsed: Vec<String>,
         /// The items the batch made again: they are shown as the server made them.
         recreated: Vec<String>,
+        /// The empty items the server made on the pages the batch left without an item.
+        created: Vec<Item>,
     },
     /// The server split an item for an Enter: what it wrote goes on screen and into the undo
     /// history, and the new item is edited.
@@ -953,7 +955,8 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             items,
             reparsed,
             recreated,
-        } => ops::undo_replay::show_synced(model, sync, items, reparsed, recreated),
+            created,
+        } => ops::undo_replay::show_synced(model, sync, items, reparsed, recreated, created),
         PasteImage {
             item_id,
             file,

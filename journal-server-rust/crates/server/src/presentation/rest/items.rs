@@ -232,6 +232,13 @@ struct StashRequest {
     body: Option<String>,
 }
 
+/// The items a batch wrote, and the empty items made on the pages it left without an item
+#[derive(Serialize)]
+struct BatchResponse {
+    items: Vec<ItemDto>,
+    created: Vec<ItemDto>,
+}
+
 /// The empty items made on the pages a deletion left without an item
 #[derive(Serialize)]
 struct DeleteItemsResponse {
@@ -556,7 +563,7 @@ async fn apply_batch(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
     Json(req): Json<BatchRequest>,
-) -> AppResult<Json<ItemsResponse>> {
+) -> AppResult<Json<BatchResponse>> {
     let ops = req
         .ops
         .into_iter()
@@ -567,7 +574,10 @@ async fn apply_batch(
         for page_id in &applied.page_ids {
             state.sse.broadcast_pages_updated(&client, page_id.as_str());
         }
-        items_response(&state, &applied.items)
+        Ok(Json(BatchResponse {
+            items: state.dtos.to_dtos(&applied.items)?,
+            created: state.dtos.to_dtos(&applied.created)?,
+        }))
     })
     .await
 }

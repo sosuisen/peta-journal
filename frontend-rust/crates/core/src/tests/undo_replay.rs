@@ -1,7 +1,7 @@
 use crate::app::Event;
 use crate::effects::ApiOutput;
 use crate::harness::{batch_calls, create_calls, delete_calls, item, update_calls, Harness};
-use crate::model::{BatchOp, Item, ItemPosition, TaskState, TranscludedTrees};
+use crate::model::{BatchOp, Batched, Item, ItemPosition, TaskState, TranscludedTrees};
 use crate::outline::CursorState;
 use crate::testing::item_with;
 use serde_json::json;
@@ -100,6 +100,7 @@ fn a_late_answer_to_an_undo_does_not_show_its_parse_over_the_redone_text() {
         items: vec![answered("a", 1, "old")],
         reparsed: vec!["a".into()],
         recreated: vec![],
+        created: Vec::new(),
     });
 
     assert_eq!(h.model.state.get_item_by_id("a").unwrap().ast, "ast:new");
@@ -128,6 +129,7 @@ fn a_late_answer_is_still_shown_for_an_item_no_later_sync_wrote() {
         items: vec![late],
         reparsed: vec!["b".into()],
         recreated: vec![],
+        created: Vec::new(),
     });
 
     assert_eq!(h.model.state.get_item_by_id("b").unwrap().ast, "late parse");
@@ -150,6 +152,7 @@ fn a_late_answer_to_an_undo_does_not_put_the_item_back_at_the_old_level() {
         items: vec![answered("b", 1, "")],
         reparsed: vec![],
         recreated: vec![],
+        created: Vec::new(),
     });
 
     assert_eq!(h.outline(), ["a:1=", "b:2="]);
@@ -311,6 +314,32 @@ fn undo_of_a_create_removes_the_item_here_and_on_the_server() {
     assert!(delete_calls(&h.api).is_empty());
     // The recorded cursor is used
     assert_eq!(h.model.state.focused_item_id(), Some("a"));
+}
+
+// undo でページの項目がなくなると、サーバーが同じ要求で作った空の項目が表示され、フォーカスされる。空の項目を作る要求は送らない。
+#[test]
+fn undo_that_empties_the_page_shows_the_empty_item_the_server_made() {
+    let mut h = Harness::with_items(vec![item("n", 1, "created")]);
+    h.model.undo.begin("enter", None);
+    h.model.undo.push_create(&item("n", 1, "created"));
+    h.model.undo.commit(None, 0);
+    let empty = item_with("e", 1, |i| {
+        i.page_id = h.model.shown_page_id().expect("a page is shown");
+    });
+    h.api.answer_next(
+        "ApplyBatch",
+        Ok(ApiOutput::Batched(Box::new(Batched {
+            items: Vec::new(),
+            created: vec![empty],
+        }))),
+    );
+
+    h.send(Event::Undo);
+
+    assert_eq!(batch_calls(&h.api), [[BatchOp::Delete { id: "n".into() }]]);
+    assert!(!h.api.called("CreateItem"));
+    assert_eq!(h.items_ids(), ["e"]);
+    assert_eq!(h.model.state.focused_item_id(), Some("e"));
 }
 
 // 親と子を作った操作の undo は、両方の削除を1つの要求でサーバーに送る。親だけを先に消すとサーバーが断るためである。

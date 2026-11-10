@@ -66,6 +66,12 @@ export class Server {
     return items.map((i: StoredItem) => ({ id: i.id, level: i.level, body: i.body, types: i.types ?? [], properties: i.properties ?? {}, collapsed: !!i.collapsed }));
   }
 
+  /** Deletes an item the way another client does. */
+  async deleteItem(itemId: string): Promise<void> {
+    const resp = await this.request.delete(`${this.base}/api/items/${itemId}`);
+    expect(resp.ok()).toBe(true);
+  }
+
   /** Waits until the stored items of the page satisfy the check; the auto-save needs a moment. */
   async itemsSettled(pageId: string, check: (items: StoredItem[]) => boolean): Promise<StoredItem[]> {
     await expect.poll(async () => check(await this.items(pageId)), { timeout: 5_000 }).toBe(true);

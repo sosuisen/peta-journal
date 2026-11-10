@@ -2128,6 +2128,37 @@ async fn a_batch_update_writes_the_body_the_level_and_the_collapsed_state() {
     assert!(stored[1].collapsed);
 }
 
+// バッチがページの項目をすべて消すと、同じ要求で空の項目が1つ作られ、答えの`created`に入る。
+#[tokio::test]
+async fn a_batch_that_empties_the_page_makes_one_empty_item_and_answers_it() {
+    let page = new_doc_page("items-batch-empties").await;
+    let rows = fill(&page.id, &["only"]).await;
+
+    let (status, resp) = batch(json!([{ "op": "delete", "id": rows[0].id }])).await;
+    assert_eq!(status, 200, "{resp}");
+
+    let left = items(&page.id).await;
+    assert_eq!(outline_of(&page.id).await, vs(&["1:"]));
+    assert_eq!(
+        field_of_each(&resp, "created", "id"),
+        vec![json!(left[0].id)]
+    );
+    assert_eq!(resp["items"], json!([]));
+}
+
+// 項目が残るバッチは、空の項目を作らない。
+#[tokio::test]
+async fn a_batch_that_leaves_an_item_on_the_page_makes_no_item() {
+    let page = new_doc_page("items-batch-leaves").await;
+    let rows = fill(&page.id, &["a", "b"]).await;
+
+    let (status, resp) = batch(json!([{ "op": "delete", "id": rows[0].id }])).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(resp["created"], json!([]));
+    assert_eq!(outline_of(&page.id).await, vs(&["1:b"]));
+}
+
 // 作成の操作は、名指しされたIDの項目を、指定の位置と階層に作る。削除した項目を、同じIDで作り直せる。
 #[tokio::test]
 async fn a_batch_create_makes_the_item_again_with_the_id_it_names() {
@@ -2606,8 +2637,20 @@ async fn a_single_delete_refuses_an_item_with_children() {
     assert_eq!(outline_of(&page.id).await, ["1:parent", "2:child"]);
 
     assert_eq!(delete(&format!("/api/items/{}", rows[1].id)).await, 204);
+    assert_eq!(outline_of(&page.id).await, ["1:parent"]);
+}
+
+// 単体の削除でページの最後の項目が消えると、同じ要求で空の項目が1つ作られる。
+#[tokio::test]
+async fn a_single_delete_of_the_last_item_leaves_one_empty_item_on_the_page() {
+    let page = new_doc_page("items-single-delete-last").await;
+    let rows = fill(&page.id, &["only"]).await;
+
     assert_eq!(delete(&format!("/api/items/{}", rows[0].id)).await, 204);
-    assert_eq!(outline_of(&page.id).await, Vec::<String>::new());
+
+    let left = items(&page.id).await;
+    assert_eq!(outline_of(&page.id).await, vs(&["1:"]));
+    assert_ne!(left[0].id, rows[0].id);
 }
 
 // ---- Pages ----

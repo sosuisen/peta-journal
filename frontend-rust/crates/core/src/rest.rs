@@ -426,7 +426,7 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             "POST",
             "/api/items/batch",
             Some(json!({ "ops": ops })),
-            items,
+            |reply| parsed(reply).map(|batched| ApiOutput::Batched(Box::new(batched))),
         ),
         ApiOp::CycleTask { item_id } => call(
             "POST",
