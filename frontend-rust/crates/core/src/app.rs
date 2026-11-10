@@ -323,10 +323,10 @@ pub enum Event {
         timer_id: u64,
         titles: Vec<String>,
     },
-    /// The server changed the task state of the item `before`, saved under `target_id`.
+    /// The server changed the task state of the item `item_id`, saved under `target_id`.
     TaskCycled {
+        item_id: String,
         target_id: String,
-        before: Box<Item>,
         updated: Box<Item>,
     },
     /// The server saved the collapsing or expanding of the item `before`.
@@ -1164,10 +1164,10 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             ops::wiki::show_suggestions(model, timer_id, titles)
         }
         TaskCycled {
+            item_id,
             target_id,
-            before,
             updated,
-        } => ops::action::show_task_cycled(model, &target_id, *before, *updated),
+        } => ops::action::show_task_cycled(model, &item_id, &target_id, *updated),
         CollapseSaved { before } => ops::action::record_collapse(model, *before),
         CollapseRefused { before } => ops::action::put_collapse_back(model, *before),
         TransclusionChanged { item } => ops::action::show_transclusion_change(model, &item),

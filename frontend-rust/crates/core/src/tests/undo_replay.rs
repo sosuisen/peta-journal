@@ -221,10 +221,12 @@ fn undo_of_a_cycle_pressed_before_the_last_answer_sends_what_that_answer_wrote()
         .into();
     })]);
     h.send(Event::TaskCycled {
+        item_id: "a".into(),
         target_id: "a".into(),
         updated: Box::new(done_task("a")),
     });
     h.send(Event::TaskCycled {
+        item_id: "a".into(),
         target_id: "a".into(),
         updated: Box::new(item("a", 1, "x")),
     });
