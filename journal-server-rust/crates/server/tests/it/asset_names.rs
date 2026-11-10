@@ -6,7 +6,7 @@ use std::time::SystemTime;
 use chrono::{TimeZone, Utc};
 use hmtid::Hmtid;
 use journal_server::application::asset_names::{self, Rename};
-use journal_server::config::Settings;
+use journal_server::config::{AssetNamesStep, Settings};
 use journal_server::domain::model::{Item, ItemPosition, Page};
 use journal_server::state::{AppState, BuildOptions, SharedState};
 use serde_json::json;
@@ -86,6 +86,15 @@ mod plan {
     }
 }
 
+fn settings_under(dir: &Path) -> Settings {
+    Settings {
+        // A scan that finds missing files opens the browser, unless it did within the
+        // cooldown; one longer than the time since 1970 keeps it shut
+        import_delete_prompt_cooldown_secs: 10_000_000_000,
+        ..Settings::under(dir, 0)
+    }
+}
+
 /// A server that is not running, with its markdown folder: what the command works on.
 struct Notes {
     state: SharedState,
@@ -99,12 +108,7 @@ impl Notes {
             .prefix("peta-journal-asset-names-")
             .tempdir()
             .unwrap();
-        let settings = Settings {
-            // A scan that finds missing files opens the browser, unless it did within the
-            // cooldown; one longer than the time since 1970 keeps it shut
-            import_delete_prompt_cooldown_secs: 10_000_000_000,
-            ..Settings::under(dir.path(), 0)
-        };
+        let settings = settings_under(dir.path());
         let root = dir.path().join("markdown");
         let config_dir = dir.path().join("config");
         std::fs::create_dir_all(root.join("assets")).unwrap();
@@ -166,6 +170,45 @@ impl Notes {
             to: to.to_string(),
         }];
         asset_names::apply(&self.state, &renames).unwrap();
+    }
+}
+
+/// The notes of a server that was stopped: what the command finds when it is run by hand.
+struct Stopped {
+    root: PathBuf,
+    dir: tempfile::TempDir,
+}
+
+impl Notes {
+    fn stop(self) -> Stopped {
+        self.state.shutdown();
+        Stopped {
+            root: self.root,
+            dir: self._dir,
+        }
+    }
+}
+
+impl Stopped {
+    fn table(&self) -> PathBuf {
+        self.dir.path().join("asset-names.json")
+    }
+
+    fn run(&self, step: AssetNamesStep) -> String {
+        asset_names::run(settings_under(self.dir.path()), step, &self.table()).unwrap()
+    }
+
+    fn file(&self, rel_path: &str) -> String {
+        std::fs::read_to_string(self.root.join(rel_path)).unwrap()
+    }
+
+    fn assets(&self) -> Vec<String> {
+        let mut names: Vec<String> = std::fs::read_dir(self.root.join("assets"))
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        names
     }
 }
 
@@ -289,5 +332,29 @@ mod apply {
         );
         let kept = std::fs::read_to_string(notes.asset_path(NEW_NAME)).unwrap();
         assert_eq!(kept, "the picture");
+    }
+}
+
+mod command {
+    use super::*;
+
+    // 「plan」は、対応表をファイルに書くだけで、ノートは変えない。
+    #[test]
+    fn the_plan_step_writes_the_table_to_the_file_and_changes_nothing() {
+        let notes = Notes::new();
+        notes.asset("image.png", "the picture");
+        notes.page("Trip", &["![pic](../assets/image.png)"]);
+        let notes = notes.stop();
+        let page_before = notes.file("docs/Trip.md");
+
+        notes.run(AssetNamesStep::Plan);
+
+        let table: Vec<Rename> =
+            serde_json::from_str(&std::fs::read_to_string(notes.table()).unwrap()).unwrap();
+        assert_eq!(table.len(), 1);
+        assert_eq!(table[0].from, "image.png");
+        assert!(table[0].to.ends_with(".png"));
+        assert_eq!(notes.assets(), ["image.png"]);
+        assert_eq!(notes.file("docs/Trip.md"), page_before);
     }
 }
