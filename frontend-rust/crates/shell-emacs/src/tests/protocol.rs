@@ -1,4 +1,4 @@
-use crate::protocol::{Bullet, Envelope, Inbound, Outbound, RowView};
+use crate::protocol::{Bullet, Envelope, Inbound, Outbound, RowView, TaskMark};
 use crate::runtime::sse_data;
 use peta_core::view::TaskState;
 use serde_json::json;
@@ -19,6 +19,7 @@ fn row(bullet: Bullet) -> RowView {
         level: 2,
         body: "本文".into(),
         bullet,
+        task: None,
         collapsed: false,
         header: None,
     }
@@ -106,27 +107,30 @@ fn rows_are_written_as_json_for_emacs() {
             "t": "rows", "ack": 4, "page_id": "p",
             "rows": [{
                 "id": "a", "level": 2, "body": "本文", "bullet": "plain",
-                "collapsed": false, "header": null,
+                "task": null, "collapsed": false, "header": null,
             }],
         })
     );
     assert!(serde_json::to_string(&message).unwrap().contains("本文"));
 }
 
-// バレットの種類は、壊れた参照、参照、タスクの状態、通常の順で決まる。
+// バレットの種類は、壊れた参照、参照、通常の順で決まる。タスクかどうかは、バレットを変えない。
 #[test]
 fn the_bullet_shows_what_the_row_is_in_order_of_importance() {
-    let task = Some(TaskState::Running);
-    assert_eq!(Bullet::of(true, true, task), Bullet::Broken);
-    assert_eq!(Bullet::of(false, true, task), Bullet::Transclusion);
-    assert_eq!(Bullet::of(false, false, task), Bullet::Running);
+    assert_eq!(Bullet::of(true, true), Bullet::Broken);
+    assert_eq!(Bullet::of(false, true), Bullet::Transclusion);
+    assert_eq!(Bullet::of(false, false), Bullet::Plain);
+}
+
+// タスクの状態は、バレットとは別に伝わる。タスクでない行には、状態がない。
+#[test]
+fn the_state_of_a_task_goes_beside_the_bullet() {
+    assert_eq!(TaskMark::of(Some(TaskState::NotStarted)), Some(TaskMark::Task));
+    assert_eq!(TaskMark::of(Some(TaskState::Running)), Some(TaskMark::Running));
+    assert_eq!(TaskMark::of(Some(TaskState::Done)), Some(TaskMark::Done));
+    assert_eq!(TaskMark::of(None), None);
     assert_eq!(
-        Bullet::of(false, false, Some(TaskState::NotStarted)),
-        Bullet::Task
+        serde_json::to_value(TaskMark::Running).unwrap(),
+        json!("running")
     );
-    assert_eq!(
-        Bullet::of(false, false, Some(TaskState::Done)),
-        Bullet::Done
-    );
-    assert_eq!(Bullet::of(false, false, None), Bullet::Plain);
 }
