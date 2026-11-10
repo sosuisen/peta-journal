@@ -38,14 +38,33 @@ pub fn run(settings: Settings, step: AssetNamesStep, table: &Path) -> anyhow::Re
             ))
         }
         AssetNamesStep::Apply => {
-            let renames: Vec<Rename> = serde_json::from_str(&std::fs::read_to_string(table)?)?;
-            let state = AppState::build(settings, BuildOptions { interactive: false })?;
-            apply(&state, &renames)?;
-            state.shutdown();
-            Ok(format!("{} files renamed", renames.len()))
+            let renames = read_table(table)?;
+            rename_all(settings, &renames)
         }
-        AssetNamesStep::Revert => unimplemented!(),
+        AssetNamesStep::Revert => {
+            let back: Vec<Rename> = read_table(table)?
+                .into_iter()
+                .map(|rename| Rename {
+                    from: rename.to,
+                    to: rename.from,
+                })
+                .collect();
+            rename_all(settings, &back)
+        }
     }
+}
+
+fn read_table(table: &Path) -> anyhow::Result<Vec<Rename>> {
+    Ok(serde_json::from_str(&std::fs::read_to_string(table)?)?)
+}
+
+/// Opens the database and the search index as the server does, and applies the renames.
+/// The server must not run: it holds the search index.
+fn rename_all(settings: Settings, renames: &[Rename]) -> anyhow::Result<String> {
+    let state = AppState::build(settings, BuildOptions { interactive: false })?;
+    apply(&state, renames)?;
+    state.shutdown();
+    Ok(format!("{} files renamed", renames.len()))
 }
 
 /// The new name of every file in the folder that has no ID for its name yet, oldest file
