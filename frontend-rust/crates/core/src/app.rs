@@ -974,7 +974,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             item_id,
             file,
             cursor,
-        } => ops::paste::paste_image(model, &item_id, file, cursor),
+        } => ops::paste::paste_image(&item_id, file, cursor),
         ImageUploaded {
             item_id,
             file_name,

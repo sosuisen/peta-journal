@@ -158,10 +158,7 @@ pub fn place_cursor(model: &mut Model, cursor: PasteCursor, fallback: PasteCurso
 }
 
 /// Uploads a pasted image. Its link is pasted once the server has the image.
-pub fn paste_image(model: &mut Model, item_id: &str, file: u64, cursor: usize) -> Cmd {
-    if model.cloned_item(item_id).is_none() {
-        return done();
-    }
+pub fn paste_image(item_id: &str, file: u64, cursor: usize) -> Cmd {
     let item_id = item_id.to_string();
     run(move |api| async move {
         match api.upload_asset(file).await {

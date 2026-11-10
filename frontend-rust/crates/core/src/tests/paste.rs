@@ -582,3 +582,16 @@ fn a_failed_upload_pastes_nothing() {
     assert_eq!(h.bodies(), ["a=ab|cd", "z=body of z"]);
     assert!(!h.model.undo.can_undo());
 }
+
+// アップロードを待つ間に項目が画面から消えていれば、リンクは貼り付けない。
+#[test]
+fn the_link_of_an_image_is_not_pasted_into_an_item_that_is_gone() {
+    let mut h = harness();
+    h.send(Event::ImageUploaded {
+        item_id: "gone".into(),
+        file_name: "pic.png".into(),
+        cursor: 0,
+    });
+
+    assert!(h.api.calls.is_empty());
+}
