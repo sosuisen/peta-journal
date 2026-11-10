@@ -665,6 +665,27 @@ async fn tasks_can_be_listed_by_type() {
     assert!(ids.contains(&json!(item.id)));
 }
 
+// 型での一覧は、指定したプロパティを持つ項目を除ける。終わったタスク（end）を除いた一覧に使う。
+#[tokio::test]
+async fn items_listed_by_type_can_leave_out_those_with_a_property() {
+    let page = new_doc_page("items-task-list-open").await;
+    let rows = fill(&page.id, &["running task", "done task"]).await;
+    let (running, done) = (&rows[0], &rows[1]);
+    // A cycle makes a task of an item, starts it, and ends it, in this order
+    for (item, cycles) in [(running, 2), (done, 3)] {
+        for _ in 0..cycles {
+            let cycle = format!("/api/items/{}/cycle-task", item.id);
+            assert_eq!(post_empty(&cycle).await.0, 200);
+        }
+    }
+
+    let (status, resp) = get("/api/items?types=task&withoutProperty=end").await;
+    assert_eq!(status, 200);
+    let ids: Vec<Value> = field_of_each(&resp, "items", "id");
+    assert!(ids.contains(&json!(running.id)));
+    assert!(!ids.contains(&json!(done.id)));
+}
+
 // ---- Items: transclusion ----
 
 // トランスクルージョンは、ページとともに参照元の木を返す。
