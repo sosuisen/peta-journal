@@ -76,8 +76,10 @@ test.describe('journal', () => {
     const positions: number[] = [];
     for (let t = 0; t < 400; t++) {
       await page.mouse.wheel(0, step);
-      await page.waitForTimeout(8);
-      positions.push(Math.round(await viewport.evaluate(el => el.scrollTop)));
+      // Why not a fixed wait: the browser scrolls with the next frame. A wait shorter than a
+      // frame reads the position before the step is there, and the next read then sees two steps
+      positions.push(Math.round(await viewport.evaluate(el =>
+        new Promise<number>(done => requestAnimationFrame(() => requestAnimationFrame(() => done(el.scrollTop)))))));
     }
 
     // Every wheel step moves the viewport by that step until the end is reached: no jumps, no way back
