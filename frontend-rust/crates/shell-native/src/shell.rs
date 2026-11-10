@@ -21,6 +21,10 @@ use std::thread;
 /// Why bytes could not cross the border.
 pub type BorderError = BridgeError<BincodeFfiFormat>;
 
+/// The URL names nothing that can be opened.
+#[derive(Debug, PartialEq, Eq)]
+pub struct NothingThere(pub String);
+
 /// What this side needs from the world outside the process.
 pub trait Host: Send + Sync + 'static {
     /// Performs one operation on the journal server. It may take as long as the server does.
@@ -157,6 +161,12 @@ impl NativeShell {
     /// Takes an [`Event`] of the shell.
     pub fn update(&self, event: &[u8]) -> Result<(), BorderError> {
         self.router.routes.border.update(event)
+    }
+
+    /// Opens what the URL names, such as `/pages/notes` or `/today`. The core asks for this
+    /// with a navigation, and the shell with the first page.
+    pub fn open(&self, _url: &str) -> Result<(), NothingThere> {
+        Ok(())
     }
 
     /// Takes the answer of the shell to the request `id`: the output of its operation. A request
