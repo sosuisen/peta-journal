@@ -100,6 +100,17 @@ export async function getItemsByTypes(types: string[]): Promise<Item[]> {
 }
 
 /**
+ * Fetches the tasks. Most tasks are done, so without the done tasks the server leaves them
+ * out: a done task is a task with the property `end`.
+ */
+export async function getTasks(includeDone: boolean): Promise<Item[]> {
+  const data = await fetchJson<{ items: Item[] }>(
+    '/api/items?types=task&withoutProperty=end',
+  );
+  return data.items;
+}
+
+/**
  * The folder of the tag pages, from the configuration of the server. It is empty for the
  * pages root, and ends with `/` otherwise.
  */
