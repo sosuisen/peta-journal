@@ -1,9 +1,9 @@
 //! The Crux app: the model, the events the shell sends, and `update`.
 //!
 //! Operations that wait for the server are written as async commands. A command cannot
-//! touch the model, so it sends [`Event::Continue`] with a closure that does; the closure
-//! runs in `update` before the next effect reaches the shell. This keeps the ported
-//! service code close to the Angular original, where state changes and `await`s interleave.
+//! touch the model, so it sends an [`Event`] that carries the answer as data; `update`
+//! hands it to the function that writes it to the model (ADR 011). `update` handles the
+//! events a command sends before the next effect reaches the shell.
 
 use crate::effects::{Api, Effect, SseEvent};
 use crate::model::*;
@@ -20,18 +20,6 @@ use std::future::Future;
 
 pub type Cmd = Command<Effect, Event>;
 pub type Ctx = CommandContext<Effect, Event>;
-
-/// A continuation: the rest of an operation once the server has answered.
-pub struct Thunk {
-    pub label: &'static str,
-    pub run: Box<dyn FnOnce(&mut Model) -> Cmd + Send>,
-}
-
-impl fmt::Debug for Thunk {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Continue({})", self.label)
-    }
-}
 
 /// What the editor reports about the `[[wiki link]]` being typed: the text inside and where
 /// the caret is on the screen.
@@ -118,7 +106,6 @@ pub enum Event {
         route: Route,
         today: String,
     },
-    Continue(Thunk),
 
     // ---- the outline ----
     EditRequested {
@@ -745,23 +732,6 @@ pub enum Event {
     Sse(SseEvent),
 }
 
-/// Builds a continuation event.
-pub fn cont(label: &'static str, run: impl FnOnce(&mut Model) -> Cmd + Send + 'static) -> Event {
-    Event::Continue(Thunk {
-        label,
-        run: Box::new(run),
-    })
-}
-
-/// Sends a continuation from inside an async command.
-pub fn apply(
-    api: &Api<Event>,
-    label: &'static str,
-    run: impl FnOnce(&mut Model) -> Cmd + Send + 'static,
-) {
-    api.send_event(cont(label, run));
-}
-
 pub fn done() -> Cmd {
     Command::done()
 }
@@ -1071,7 +1041,6 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             screens::start::start(model)
         }
         Route { route, today } => screens::route::route(model, route, today),
-        Continue(thunk) => (thunk.run)(model),
 
         EditRequested { item_id, cursor } => {
             ops::outline_events::edit_requested(model, &item_id, cursor)
