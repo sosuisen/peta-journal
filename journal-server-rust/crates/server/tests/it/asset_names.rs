@@ -270,4 +270,24 @@ mod apply {
         assert!(found[0].snippet.contains(NEW_NAME));
         assert!(!found[0].snippet.contains("image.png"));
     }
+
+    // ファイルがすでに新しい名前になっていても、リンクは書き換わる。途中で止まった移行を
+    // やり直すときと、フォルダの同期が先にファイルを運んできた別の端末で起きる。
+    #[test]
+    fn the_links_change_when_the_file_is_already_under_its_new_name() {
+        let notes = Notes::new();
+        notes.asset(NEW_NAME, "the picture");
+        let item = notes
+            .page("Trip", &["![pic](../assets/image.png)"])
+            .remove(0);
+
+        notes.rename("image.png", NEW_NAME);
+
+        assert_eq!(
+            notes.item(&item.id).body,
+            format!("![pic](../assets/{NEW_NAME})")
+        );
+        let kept = std::fs::read_to_string(notes.asset_path(NEW_NAME)).unwrap();
+        assert_eq!(kept, "the picture");
+    }
 }
