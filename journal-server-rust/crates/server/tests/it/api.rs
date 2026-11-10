@@ -5191,9 +5191,13 @@ async fn an_image_over_the_limit_is_refused_and_not_saved() {
     let result = upload_asset("over-the-limit.png", vec![0; size]).await;
 
     assert!(result.map_or(true, |response| !response.status().is_success()));
-    // The name of a saved file is not known beforehand, so it is looked for by its size
+    // The name of a saved file is not known beforehand, so it is looked for by its size.
+    // The folder is missing until the first upload is saved, and the other tests add and
+    // remove files in it meanwhile: what cannot be read is not the file looked for
     let saved = std::fs::read_dir(server().markdown_dir.join("assets"))
-        .unwrap()
-        .any(|file| file.unwrap().metadata().unwrap().len() == size as u64);
+        .into_iter()
+        .flatten()
+        .flatten()
+        .any(|file| file.metadata().is_ok_and(|data| data.len() == size as u64));
     assert!(!saved);
 }
