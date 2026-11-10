@@ -116,6 +116,19 @@ fn a_demotion_to_a_taken_name_asks_and_then_overwrites() {
     assert_eq!(h.navigations.last().unwrap().url, "/pages/a/b");
 }
 
+// 上書きの確認に「いいえ」と答えると、上書きの降格は送られず、ページは移らない。
+#[test]
+fn a_no_to_overwriting_sends_no_second_demotion() {
+    let mut h = showing(doc("a/b/", "index"));
+    h.confirm = false;
+    h.api
+        .answer_next("DemotePage", Ok(ApiOutput::PageNameTaken("taken".into())));
+    h.send(Event::DemoteIndex);
+
+    assert_eq!(demotions(&h), [("a/b/index".to_string(), false)]);
+    assert!(h.navigations.is_empty());
+}
+
 // サーバーが降格を断ると、理由が出て、ページは移らない。
 #[test]
 fn a_refused_demotion_is_told_and_the_page_stays() {

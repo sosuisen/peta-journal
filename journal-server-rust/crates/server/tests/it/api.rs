@@ -2836,6 +2836,23 @@ async fn demoting_an_index_page_deletes_its_atlas_and_renames_it_in_one_request(
     assert_eq!(status, 404);
 }
 
+// 入れ子のディレクトリのindexページは、親のディレクトリの中の、ディレクトリの名前のページになる。
+#[tokio::test]
+async fn demoting_a_nested_index_page_puts_it_in_the_directory_above() {
+    let root = new_doc_page("pages-demote-nested").await;
+    let dir = format!("{}/", root.title);
+    let (status, resp) = post("/api/pages/doc", json!({ "title": "sub", "dirPath": dir })).await;
+    assert_eq!(status, 200, "{resp}");
+    let sub_id = resp["page"]["id"].as_str().unwrap().to_string();
+    atlas_of(&format!("{dir}sub/")).await;
+
+    let (status, resp) = demote(&sub_id, false).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(resp["page"]["name"], json!("sub"));
+    assert_eq!(resp["page"]["dirPath"], json!(dir));
+}
+
 // アトラス以外の子ページがあるindexページの降格は断られ、アトラスも残る。
 #[tokio::test]
 async fn demoting_an_index_page_with_a_child_page_is_refused_and_keeps_the_atlas() {
