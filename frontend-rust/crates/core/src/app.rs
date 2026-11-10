@@ -354,6 +354,29 @@ pub enum Event {
     TransclusionChanged {
         item: Box<Item>,
     },
+    /// A body is on its way to the server, with an open code fence closed.
+    BodyShown {
+        item_id: String,
+        body: String,
+    },
+    /// The server saved a body and answered with the item.
+    BodySaved {
+        item: Box<Item>,
+    },
+    /// The server saved the source of the transclusion root `root_id`.
+    RootParsed {
+        root_id: String,
+        source: Box<Item>,
+    },
+    /// The save that ends the edit of an item is over: the item goes to view mode.
+    EditorClosed {
+        item_id: String,
+    },
+    /// The server answered a page that is read again.
+    PageReplaced {
+        page_id: String,
+        loaded: Box<PageWithItems>,
+    },
     /// Items were copied to the system clipboard; the app keeps both forms of the text.
     MarkdownCopied {
         flat_markdown: String,
@@ -1163,6 +1186,16 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             done()
         }
         LevelShiftRefused { page_ids } => ops::level::reload_after_refused_shift(model, page_ids),
+        BodyShown { item_id, body } => ops::edit::show_body(model, &item_id, body),
+        BodySaved { item } => ops::edit::show_saved_body(model, &item),
+        RootParsed { root_id, source } => ops::edit::show_root_parsed(model, &root_id, *source),
+        EditorClosed { item_id } => {
+            model.state.remove_editing_item(&item_id);
+            done()
+        }
+        PageReplaced { page_id, loaded } => {
+            ops::file_reload::show_replaced_page(model, &page_id, *loaded)
+        }
         WikiPick { title } => ops::wiki::pick(model, &title),
         OpenLinkAt { item_id, cursor } => ops::wiki::open_link_at(model, &item_id, cursor),
         ShiftSelect { item_id } => {

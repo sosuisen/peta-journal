@@ -4,7 +4,7 @@
 
 use crate::app::{apply, done, log_error, run, Cmd, Event, Model};
 use crate::effects::{Api, TimerOutput};
-use crate::model::Item;
+use crate::model::{Item, PageWithItems};
 use crate::ops::edit::{is_edit_in_progress, read};
 
 /// How long the auto-save gets to flush before pending pages are replaced.
@@ -30,17 +30,23 @@ pub fn reload_page(model: &mut Model, page_id: &str) -> Cmd {
 pub async fn replace_page(api: &Api<Event>, page_id: &str) {
     match api.get_page_by_id(page_id).await {
         Ok(result) => {
-            let page_id = page_id.to_string();
-            apply(api, "replace page", move |m| {
-                replace_page_items(m, &page_id, result.items);
-                if let Some(trees) = result.transcluded_trees {
-                    m.state.merge_transcluded_trees(trees);
-                }
-                done()
+            api.send_event(Event::PageReplaced {
+                page_id: page_id.to_string(),
+                loaded: Box::new(result),
             });
         }
         Err(e) => log_error(format!("Failed to reload page {page_id}: {e}")),
     }
+}
+
+/// The server answered a page that is read again: its items take the place of the shown
+/// ones, and its transcluded trees are merged.
+pub fn show_replaced_page(model: &mut Model, page_id: &str, loaded: PageWithItems) -> Cmd {
+    replace_page_items(model, page_id, loaded.items);
+    if let Some(trees) = loaded.transcluded_trees {
+        model.state.merge_transcluded_trees(trees);
+    }
+    done()
 }
 
 /// Puts the given items in place of the items of one page. The items of the other pages keep
