@@ -4,22 +4,10 @@
 
 ## ユーザータスク
 
-- [x] `ext-web-app/todo`の道具を新しくする
-  - 今できる作業は終わった。残りの2つは、上流の対応を待っている。今は進められない。上流が新しくなったら、追従する
+- [ ] `ext-web-app/todo`の道具を、上流の対応に追従して新しくする
+  - 今できる作業は終わった。残りの2つは、上流の対応を待っている。今は進められない
   - [ ] TypeScript 7.1でAPIが戻り、typescript-eslintが対応したら、`typescript`の別名をやめて7だけにする
   - [ ] `npm audit`に残る中程度の10件は、どれもESLintとtypescript-eslintが使うminimatch 10が原因である。両方がminimatch 11に移ったら、更新して消す。`overrides`では上げない。11はAPIを削っており、ESLintが対応を確かめていないため
-- [x] `ext-web-app/todo`を、flatmarkdown 0.5.0のASTに合わせる
-  - [x] `flatmarkdown-ast2react`を0.1.0から0.3.0に上げる。0.1.0は、ハッシュタグと画像（`embed`）を表示しなかった
-  - [x] タグのフォルダを設定API（`/api/config`の`tagsDir`）から取る
-  - [x] ハッシュタグのリンク先を、本体と同じ`/pages/`＋タグのフォルダにする
-  - [x] `flatmarkdown-ast2react` 0.3.0がnpmに公開されたら、`package-lock.json`を更新する
-  - [x] 画像を表示する。画像は`../assets/名前`という相対パスで書かれていて、todoアプリのアドレスに解決されていた。`flatmarkdown-ast2react` 0.4.0の`embed.baseUrl`で、Webアプリのページのアドレスから解決する
-  - [x] `flatmarkdown-ast2react` 0.4.0がnpmに公開されたら、`package-lock.json`を更新する
-- [x] `ext-web-app/todo`を開くときの表示を速くする
-  - 2026-11-10に測った。行が出るまで約110msで、そのうち約75msがタスクの取得だった。サーバーは1446件を返し、画面に出るのは31行だった
-  - [x] `GET /api/items`に`withoutProperty`を足す。そのプロパティに値がある項目を除く
-  - [x] todoアプリは、既定では`withoutProperty=end`で終わっていないタスクだけを取る。「完了も表示」のときに全件を取る
-  - 2026-11-10に測り直した。行が出るまでは約36msになった。これ以上の高速化はしないと、ユーザーが決めた
 - [ ] Emacs版に、Web版にある機能を足す
   - 項目の操作
     - [ ] 複数項目の選択と、まとめての移動や削除。今は1項目の削除だけである
