@@ -474,6 +474,8 @@ pub enum Event {
         search_query: String,
     },
     DeleteCurrentPage,
+    /// The server deleted the shown page.
+    PageDeleted,
     NavigateToToday,
     /// The Home button: the page set in the settings, or today
     NavigateHome,
@@ -1062,6 +1064,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         DeletePageProperty { key } => screens::page::delete_property(model, key),
         CreateNewPage { search_query } => screens::layout::create_new_page(model, search_query),
         DeleteCurrentPage => screens::layout::delete_current_page(model),
+        PageDeleted => screens::layout::show_page_deleted(),
         NavigateToToday => screens::navigate::to_url("/today", false),
         NavigateHome => screens::settings::navigate_home(model),
         NavigateToRoot => screens::navigate::open_folder(model, "index"),

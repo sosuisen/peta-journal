@@ -1,6 +1,6 @@
 //! The header's actions, ported from `main-layout.ts`: a new page and deleting the shown page.
 
-use crate::app::{apply, done, run, Cmd, Model, Screen};
+use crate::app::{apply, done, run, Cmd, Event, Model, Screen};
 use crate::screens::{navigate, search, sidebar};
 use crate::util::date::generate_untitled_title;
 use crate::util::filename::{is_journal_file_name, validate_file_name};
@@ -50,34 +50,27 @@ fn shown_file_name(model: &Model) -> Option<String> {
     }
 }
 
-/// Deletes the shown page after confirmation, then goes to today's journal.
+/// Deletes the shown page after confirmation, with one request: the page is the one the
+/// screen has loaded. Nothing happens while it is not loaded yet.
 pub fn delete_current_page(model: &mut Model) -> Cmd {
-    let Some(file_name) = shown_file_name(model) else {
+    let (Some(file_name), Some(page_id)) = (shown_file_name(model), model.shown_page_id()) else {
         return done();
     };
     run(move |api| async move {
         if !api.confirm(&format!("Delete \"{file_name}\"?")).await {
             return;
         }
-        let page = if is_journal_file_name(&file_name) {
-            api.get_or_create_journal(&file_name).await
-        } else {
-            let (dir, title) = super::page::split_doc_path(&file_name);
-            api.get_or_create_doc(&title, &dir).await
-        };
-        let page = match page {
-            Ok(p) => p.page,
-            Err(e) => return api.alert(e.0),
-        };
-        if let Err(e) = api.delete_page(&page.id).await {
-            api.alert(e.message_or("Failed to delete page"));
-            return;
+        match api.delete_page(&page_id).await {
+            Ok(()) => api.send_event(Event::PageDeleted),
+            Err(e) => api.alert(e.message_or("Failed to delete page")),
         }
-        apply(&api, "page deleted", |_| {
-            Command::all([
-                sidebar::refresh_recent_pages(),
-                navigate::to_url("/today", false),
-            ])
-        });
     })
+}
+
+/// The server deleted the shown page: today's journal opens.
+pub fn show_page_deleted() -> Cmd {
+    Command::all([
+        sidebar::refresh_recent_pages(),
+        navigate::to_url("/today", false),
+    ])
 }
