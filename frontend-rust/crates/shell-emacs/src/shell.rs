@@ -255,10 +255,7 @@ impl<H: Host> Shell<H> {
                 raw: false,
             }),
             Inbound::InsertImage { id, path, cursor } => self.insert_image(id, path, cursor),
-            Inbound::DeleteItem { id } => {
-                self.send(Event::ShiftSelect { item_id: id });
-                self.send(Event::SelectionKey(SelectionKey::Delete));
-            }
+            Inbound::DeleteItem { id } => self.send(Event::DeleteItem { item_id: id }),
             Inbound::Undo => self.send(Event::Undo),
             Inbound::Redo => self.send(Event::Redo),
             Inbound::Scrolled { top, bottom } => self.send(Event::OutlineScrolled {
@@ -371,11 +368,6 @@ impl<H: Host> Shell<H> {
             return;
         };
         self.resolve(&mut request, UiOutput::Bool(yes));
-        // The deletion that asked has selected its items. It ends here, so they must not stay
-        // selected: an editor does not open while they are
-        if !yes && self.core.view().outline.selection_mode {
-            self.send(Event::SelectionKey(SelectionKey::Escape));
-        }
     }
 
     fn navigate(&mut self, url: &str, replace: bool) {
