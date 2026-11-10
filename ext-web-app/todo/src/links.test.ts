@@ -20,4 +20,11 @@ describe('link options', () => {
       'http://journal.test:9000/pages/tags/',
     );
   });
+
+  // 画像は、ページからの相対パスで書かれている。Webアプリのページのアドレスから解決する。
+  test('an image is resolved against the address of the pages', () => {
+    const options = linkOptions('http://journal.test:9000', '');
+
+    expect(options.embed?.baseUrl).toBe('http://journal.test:9000/pages/');
+  });
 });
