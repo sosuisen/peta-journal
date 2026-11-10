@@ -62,7 +62,12 @@ pub fn apply(state: &AppState, renames: &[Rename]) -> anyhow::Result<()> {
     state.reconcile.scan();
     let relinked = relink_items(state, renames)?;
     for rename in renames {
-        std::fs::rename(assets_dir.join(&rename.from), assets_dir.join(&rename.to))?;
+        // A file that is not there moved already: in a run that stopped half way, or on
+        // another device, where the synced folder brought the file before this ran
+        let from = assets_dir.join(&rename.from);
+        if from.exists() {
+            std::fs::rename(from, assets_dir.join(&rename.to))?;
+        }
     }
     for item in &relinked {
         let page_title = format!("{}{}", item.dir_path, item.name);
