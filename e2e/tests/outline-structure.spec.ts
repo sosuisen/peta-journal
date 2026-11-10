@@ -221,6 +221,8 @@ test.describe('outline structure', () => {
     await openEditor(page, b1);
     await page.keyboard.press('Control+Enter');
     await server.itemsSettled(pageId, i => i[4].types.includes('task'));
+    // The app records the cycle for undo when the answer is there: wait for the screen
+    await expect(page.locator(`[id="${b1}"] .task-checkbox`)).toBeVisible();
 
     await page.keyboard.press('Control+z');
 
@@ -232,15 +234,22 @@ test.describe('outline structure', () => {
 
   test('undo of the cycle from done to normal puts the task back with its times', async ({ page }) => {
     const b1 = byBody('b1').id;
+    const checkbox = page.locator(`[id="${b1}"] .task-checkbox`);
     await openEditor(page, b1);
+    // Each key waits for the screen, not only for the server: the app records a cycle for undo
+    // when the answer is there, so a key pressed before that would act on the state before it
     await page.keyboard.press('Control+Enter');
     await server.itemsSettled(pageId, i => i[4].types.includes('task'));
+    await expect(checkbox).toHaveJSProperty('indeterminate', false);
     await page.keyboard.press('Control+Enter');
     await server.itemsSettled(pageId, i => 'begin' in i[4].properties);
+    await expect(checkbox).toHaveJSProperty('indeterminate', true);
     await page.keyboard.press('Control+Enter');
     const [, , , , done] = await server.itemsSettled(pageId, i => 'end' in i[4].properties);
+    await expect(checkbox).toBeChecked();
     await page.keyboard.press('Control+Enter');
     await server.itemsSettled(pageId, i => !i[4].types.includes('task'));
+    await expect(checkbox).toHaveCount(0);
 
     await page.keyboard.press('Control+z');
 
