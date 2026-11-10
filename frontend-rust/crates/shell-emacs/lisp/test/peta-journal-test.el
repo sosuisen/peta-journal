@@ -1728,11 +1728,75 @@ Without a sort function of its own, the list is sorted by name, as `completions-
                    ("C-c C-x r" . peta-journal-rename-page)
                    ("C-c C-x p" . peta-journal-properties)
                    ("C-c C-x n" . peta-journal-new-buffer)
-                   ("C-c C-x i" . peta-journal-insert-image)))
+                   ("C-c C-x i" . peta-journal-insert-image)
+                   ("C-c C-x c" . peta-journal-calendar)))
     (should (eq (keymap-lookup peta-journal-mode-map key) command)))
   ;; `C-c C-c`はEmacsでは「確定」の意味なので、折り畳みには使わずに空けておく。
   (dolist (key '("M-<up>" "M-<down>" "M-<right>" "M-<left>" "C-c /" "C-c C-c"
                  "C-c C-l" "C-c C-r" "C-c C-a" "C-c C-v" "C-c C-i" "C-c C-k"))
     (should-not (keymap-lookup peta-journal-mode-map key))))
+
+;;;; The calendar
+
+(defmacro peta-journal-test--with-calendar (date &rest body)
+  "Run BODY in the calendar of a page, with the point on DATE.
+DATE is a list of the month, the day and the year."
+  (declare (indent 1))
+  `(peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
+     (unwind-protect
+         (progn
+           (peta-journal-calendar)
+           (calendar-goto-date ,date)
+           ,@body)
+       (when (get-buffer calendar-buffer)
+         (kill-buffer calendar-buffer)))))
+
+;; カレンダーの日でRETを押すと、その日のジャーナルを開き、カレンダーは閉じる。
+(ert-deftest peta-journal-ret-in-the-calendar-opens-the-journal-of-the-day ()
+  (peta-journal-test--with-calendar '(2 10 2026)
+    (should (eq major-mode 'calendar-mode))
+    (funcall (key-binding (kbd "RET")))
+    (should (equal (car (last peta-journal-test--sent))
+                   '("go_to_date" :date "2026-02-10" :unit "day")))
+    (should-not (get-buffer-window calendar-buffer))))
+
+;; カレンダーの日でw、m、yを押すと、その日の週、月、年のページを開く。
+(ert-deftest peta-journal-w-m-and-y-in-the-calendar-open-the-week-the-month-and-the-year ()
+  (dolist (case '(("w" . "week") ("m" . "month") ("y" . "year")))
+    (peta-journal-test--with-calendar '(12 31 2026)
+      (funcall (key-binding (kbd (car case))))
+      (should (equal (car (last peta-journal-test--sent))
+                     `("go_to_date" :date "2026-12-31" :unit ,(cdr case)))))))
+
+;; カレンダーで選ぶ前に、編集中の項目の編集を終える。入力した文を保存するためである。
+(ert-deftest peta-journal-a-date-of-the-calendar-ends-the-edit-first ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x"))
+    (unwind-protect
+        (progn
+          (peta-journal-test--goto "a" 1)
+          (peta-journal-calendar)
+          (calendar-goto-date '(2 10 2026))
+          (setq peta-journal-test--sent nil)
+          (peta-journal-calendar-open-day)
+          (should (equal (mapcar #'car peta-journal-test--sent)
+                         '("edit_finished" "go_to_date"))))
+      (when (get-buffer calendar-buffer)
+        (kill-buffer calendar-buffer)))))
+
+;; 日のないところでは、何も開かず、そのことを伝える。
+(ert-deftest peta-journal-a-place-of-the-calendar-without-a-date-opens-nothing ()
+  (peta-journal-test--with-calendar '(2 10 2026)
+    (goto-char (point-min))
+    (setq peta-journal-test--sent nil)
+    (should-error (peta-journal-calendar-open-day) :type 'user-error)
+    (should-not peta-journal-test--sent)))
+
+;; ふつうに開いたカレンダーには、PetaJournalのキーは付かない。
+(ert-deftest peta-journal-a-calendar-opened-by-itself-has-no-keys-of-peta-journal ()
+  (peta-journal-test--with-calendar '(2 10 2026)
+    (calendar-exit)
+    (calendar)
+    (should-not (eq (key-binding (kbd "RET")) 'peta-journal-calendar-open-day))
+    (should-not (eq (key-binding (kbd "w")) 'peta-journal-calendar-open-week))))
 
 ;;; peta-journal-test.el ends here
