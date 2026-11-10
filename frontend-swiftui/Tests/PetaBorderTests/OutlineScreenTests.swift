@@ -371,4 +371,14 @@ final class OutlineScreenTests: XCTestCase {
         try await waitUntil("the page found is shown") { self.shell.title == "apple-pie" }
         try await waitUntil("the search box is closed") { self.searchField() == nil }
     }
+
+    // ページのない画面には、検索欄が最初から出ていて、カーソルがそこにある。
+    func testAScreenWithoutAPageStartsWithTheSearchBox() async throws {
+        let empty = Shell(server: server.address, url: nil, clipboard: { nil })
+
+        window.contentView = NSHostingView(rootView: OutlineScreen(shell: empty))
+
+        try await waitUntil("the search box has the cursor") { self.searchField()?.currentEditor() != nil }
+        XCTAssertEqual(editors().filter { $0 is NSTextView && !$0.isFieldEditor }.count, 0)
+    }
 }
