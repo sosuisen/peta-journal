@@ -153,19 +153,30 @@ pub fn show_parsed(model: &mut Model, answer: &Item) {
 /// is closed first.
 pub async fn save_body(api: &Api<Event>, item_id: &str, body: &str) -> ApiResult<Item> {
     let normalized = ensure_code_fence_closed(body);
-    let (id, shown) = (item_id.to_string(), normalized.clone());
-    apply(api, "save_body: show", move |m| {
-        m.state.update_item(&id, |i| i.body = shown);
-        done()
+    api.send_event(Event::BodyShown {
+        item_id: item_id.to_string(),
+        body: normalized.clone(),
     });
     let updated = api.update_body(item_id, &normalized).await?;
-    let u = updated.clone();
-    apply(api, "save_body: server answer", move |m| {
-        m.state.update_item(&u.id, |i| i.body = u.body.clone());
-        show_parsed(m, &u);
-        done()
+    api.send_event(Event::BodySaved {
+        item: Box::new(updated.clone()),
     });
     Ok(updated)
+}
+
+/// A body is on its way to the server: the item shows it as it is sent.
+pub fn show_body(model: &mut Model, item_id: &str, body: String) -> Cmd {
+    model.state.update_item(item_id, |i| i.body = body);
+    done()
+}
+
+/// The server saved a body: the item shows the body and what the server parsed from it.
+pub fn show_saved_body(model: &mut Model, saved: &Item) -> Cmd {
+    model
+        .state
+        .update_item(&saved.id, |i| i.body = saved.body.clone());
+    show_parsed(model, saved);
+    done()
 }
 
 /// Saves the body the shown item has in the state. When the item is a transclusion root,
@@ -182,16 +193,22 @@ pub async fn save_shown_item(api: &Api<Event>, item: &Item) -> ApiResult<Option<
     let target_id = save_target_id(item);
     let updated = save_body(api, &target_id, &body).await?;
     if target_id != item.id {
-        let (shown_id, u) = (item.id.clone(), updated.clone());
-        apply(api, "save_shown_item: copy to root", move |m| {
-            m.state.update_item(&shown_id, |i| {
-                i.ast = u.ast;
-                i.types = u.types;
-            });
-            done()
+        api.send_event(Event::RootParsed {
+            root_id: item.id.clone(),
+            source: Box::new(updated.clone()),
         });
     }
     Ok(Some(updated))
+}
+
+/// The server saved the source of a transclusion root: the root shows what the server
+/// parsed from it.
+pub fn show_root_parsed(model: &mut Model, root_id: &str, source: Item) -> Cmd {
+    model.state.update_item(root_id, |i| {
+        i.ast = source.ast;
+        i.types = source.types;
+    });
+    done()
 }
 
 /// Saves typed text right away and closes the editor; a clean item is left alone.
@@ -208,7 +225,7 @@ pub async fn save_item_if_dirty(api: &Api<Event>, item: &Item) -> ApiResult<()> 
         return Ok(());
     }
     if save_shown_item(api, item).await?.is_some() {
-        close_editor(api, "save_item_if_dirty: close editor", item.id.clone());
+        close_editor(api, item.id.clone());
     }
     Ok(())
 }
@@ -257,16 +274,13 @@ fn save_and_close(item: Item) -> Cmd {
         if let Err(e) = save_shown_item(&api, &item).await {
             log_error(format!("Failed to save item: {e}"));
         }
-        close_editor(&api, "finish_edit: close", item.id);
+        close_editor(&api, item.id);
     })
 }
 
 /// Switches an item to view mode from inside an async command.
-pub fn close_editor(api: &Api<Event>, label: &'static str, item_id: String) {
-    apply(api, label, move |m| {
-        m.state.remove_editing_item(&item_id);
-        done()
-    });
+pub fn close_editor(api: &Api<Event>, item_id: String) {
+    api.send_event(Event::EditorClosed { item_id });
 }
 
 /// Keeps the blur of an editor from ending an edit while a handler that saves the item and
