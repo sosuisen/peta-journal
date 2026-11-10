@@ -99,8 +99,29 @@ The commands on the whole page are `C-c C-x` and then one letter:
 | `C-c C-x n` | Open a page by name in a new buffer |
 | `C-c C-x i` | Insert an image file at the point |
 | `C-c C-x b` | Backlinks of this page |
+| `C-c C-x c` | Pick a date in the calendar and open it |
 
 To open a page by name, use the search box.
+
+## The calendar
+
+`C-c C-x c` or `M-x peta-journal-calendar` opens the calendar of Emacs. Move to a day with the usual
+keys of the calendar. These keys are added:
+
+| Key | Action |
+|---|---|
+| `RET` | Open the journal of the day at the point |
+| `w` | Open the page of the week of that day |
+| `m` | Open the page of the month of that day |
+| `y` | Open the page of the year of that day |
+
+Each key closes the calendar first. `q` closes the calendar and opens nothing.
+
+The server sets how the weeks are numbered: US or ISO. The first day of a week in the calendar
+comes from `calendar-week-start-day` of Emacs, not from the server. With ISO weeks, set it to
+Monday: `(setq calendar-week-start-day 1)`.
+
+A calendar opened by `M-x calendar` does not have these keys.
 
 ## The gap between items
 

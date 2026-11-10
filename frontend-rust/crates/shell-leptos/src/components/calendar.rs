@@ -5,7 +5,7 @@ use crate::dom;
 use leptos::prelude::*;
 use peta_core::model::WeekNumbering;
 use peta_core::util::date::{days_in_month, Date};
-use peta_core::util::week::{iso_week_number, iso_week_year, us_week_number};
+use peta_core::util::week::{iso_week_number, us_week_number, week_page_name};
 use peta_core::Event;
 
 const US_DAY_LABELS: [&str; 7] = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
@@ -156,9 +156,7 @@ pub fn Calendar(
                         children=move |(number, days)| {
                             let first = days[0].date;
                             let week_click = move |ev: web_sys::MouseEvent| {
-                                let iso = numbering.get() == WeekNumbering::Iso;
-                                let year = if iso { iso_week_year(first) } else { first.year };
-                                go(&core, format!("{year}-W{number:02}"), &ev);
+                                go(&core, week_page_name(first, numbering.get()), &ev);
                                 notify(&ev);
                             };
                             view! {

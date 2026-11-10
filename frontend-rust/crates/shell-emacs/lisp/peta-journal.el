@@ -16,6 +16,7 @@
 
 ;;; Code:
 
+(require 'calendar)
 (require 'cl-lib)
 (require 'parse-time)
 (require 'subr-x)
@@ -1179,6 +1180,72 @@ server may still say no."
   (interactive)
   (peta-journal--go "journal_nav" :forward :false))
 
+;;;; The calendar
+
+(defvar peta-journal--calendar-page nil
+  "The buffer of the page that the calendar picks a date for.")
+
+(defun peta-journal--calendar-open (unit)
+  "Close the calendar, and open the page of UNIT of the date at the point."
+  (let* ((date (or (calendar-cursor-to-date)
+                   (user-error "The point is not on a date")))
+         (iso (format "%04d-%02d-%02d" (nth 2 date) (nth 0 date) (nth 1 date)))
+         (page peta-journal--calendar-page))
+    (calendar-exit)
+    (when-let* ((window (get-buffer-window page)))
+      (select-window window))
+    (with-current-buffer page
+      (peta-journal--go "go_to_date" :date iso :unit unit))))
+
+(defun peta-journal-calendar-open-day ()
+  "Open the journal of the day at the point of the calendar."
+  (interactive)
+  (peta-journal--calendar-open "day"))
+
+(defun peta-journal-calendar-open-week ()
+  "Open the page of the week of the day at the point of the calendar.
+The server sets how the weeks are numbered."
+  (interactive)
+  (peta-journal--calendar-open "week"))
+
+(defun peta-journal-calendar-open-month ()
+  "Open the page of the month of the day at the point of the calendar."
+  (interactive)
+  (peta-journal--calendar-open "month"))
+
+(defun peta-journal-calendar-open-year ()
+  "Open the page of the year of the day at the point of the calendar."
+  (interactive)
+  (peta-journal--calendar-open "year"))
+
+(defvar-keymap peta-journal-calendar-mode-map
+  :doc "Keys of the calendar that open a page of PetaJournal."
+  "RET" #'peta-journal-calendar-open-day
+  "w" #'peta-journal-calendar-open-week
+  "m" #'peta-journal-calendar-open-month
+  "y" #'peta-journal-calendar-open-year)
+
+(define-minor-mode peta-journal-calendar-mode
+  "Open a page of PetaJournal for the date at the point of the calendar.
+`peta-journal-calendar' turns this on.  A calendar opened by itself does not
+have it, as it starts its mode again.
+
+\\{peta-journal-calendar-mode-map}"
+  :lighter " Peta")
+
+(defun peta-journal-calendar ()
+  "Pick a date in the calendar of Emacs, and open its journal.
+The calendar opens with its usual keys, and with these:
+
+\\{peta-journal-calendar-mode-map}
+Closing the calendar stays on the page."
+  (interactive)
+  ;; Without a page, as from another buffer by M-x, this starts with today's journal
+  (let ((page (or (peta-journal--page) (peta-journal--ensure-started))))
+    (calendar)
+    (setq peta-journal--calendar-page page)
+    (peta-journal-calendar-mode 1)))
+
 ;;;; Lists of results
 
 (defvar-keymap peta-journal-list-mode-map
@@ -1605,6 +1672,7 @@ In the list of properties, the key on the line of the point is the default."
   "C-c C-x p" #'peta-journal-properties
   "C-c C-x n" #'peta-journal-new-buffer
   "C-c C-x i" #'peta-journal-insert-image
+  "C-c C-x c" #'peta-journal-calendar
   "<remap> <delete-backward-char>" #'peta-journal-backspace
   "<remap> <delete-char>" #'peta-journal-delete
   "<remap> <delete-forward-char>" #'peta-journal-delete

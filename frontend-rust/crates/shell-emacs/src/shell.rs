@@ -4,7 +4,7 @@
 //! Everything here runs on one thread: the requests the core waits on stay here, and the host's
 //! threads only send back their results.
 
-use crate::protocol::{BacklinkEntry, Envelope, Inbound, Outbound, PropertyRow, RowView};
+use crate::protocol::{BacklinkEntry, DateUnit, Envelope, Inbound, Outbound, PropertyRow, RowView};
 use crate::route::parse_url;
 use crux_core::capability::Operation;
 use crux_core::{Core, Request};
@@ -14,6 +14,8 @@ use peta_core::effects::{
     UiOutput,
 };
 use peta_core::rest::ClientId;
+use peta_core::util::date::Date;
+use peta_core::util::week::week_page_name;
 use peta_core::util::{auto_close, link_at};
 use peta_core::view::{ScreenView, SearchView};
 use peta_core::{Event, PetaApp, ViewModel};
@@ -210,6 +212,7 @@ impl<H: Host> Shell<H> {
                 new_tab: false,
                 new_window: false,
             }),
+            Inbound::GoToDate { date, unit } => self.go_to_date(&date, unit),
             // The whole path goes in the name: the core takes the folders out of it at the `/`
             Inbound::RenamePage { path } => self.send(Event::PageTitleSave {
                 dir_path: String::new(),
@@ -269,6 +272,21 @@ impl<H: Host> Shell<H> {
             Inbound::SearchResult { index } => self.send(Event::SearchResultClicked { index }),
             Inbound::Answer { req, yes } => self.answer(req, yes),
         }
+    }
+
+    fn go_to_date(&mut self, date: &str, unit: DateUnit) {
+        let date = Date::parse(date).expect("Emacs sends a date of its calendar");
+        let path = match unit {
+            DateUnit::Day => date.iso(),
+            DateUnit::Week => week_page_name(date, self.core.view().config.week_numbering),
+            DateUnit::Month => format!("{:04}-{:02}", date.year, date.month),
+            DateUnit::Year => format!("{:04}", date.year),
+        };
+        self.send(Event::GoToPage {
+            path,
+            new_tab: false,
+            new_window: false,
+        });
     }
 
     fn insert_image(&mut self, id: String, path: String, cursor: usize) {
