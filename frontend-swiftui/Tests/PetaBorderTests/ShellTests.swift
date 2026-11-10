@@ -189,12 +189,13 @@ final class ShellTests: XCTestCase {
     func testTabIndentsAndShiftTabOutdents() async throws {
         let shell = try await shellWithPage()
         try await twoItems(shell)
-        let second = shell.view.outline.rows[1].item.id
+        let second = shell.view.outline.rows[1].item
+        XCTAssertEqual(second.level, shell.view.outline.rows[0].item.level)
 
-        XCTAssertTrue(shell.pressed(.tab, in: second, editor("", cursor: 0)))
-        try await waitUntil("the second item is indented") { shell.view.outline.rows[1].item.level == 1 }
-        XCTAssertTrue(shell.pressed(.backTab, in: second, editor("", cursor: 0)))
-        try await waitUntil("the second item is outdented") { shell.view.outline.rows[1].item.level == 0 }
+        XCTAssertTrue(shell.pressed(.tab, in: second.id, editor("", cursor: 0)))
+        XCTAssertEqual(shell.view.outline.rows[1].item.level, second.level + 1)
+        XCTAssertTrue(shell.pressed(.backTab, in: second.id, editor("", cursor: 0)))
+        XCTAssertEqual(shell.view.outline.rows[1].item.level, second.level)
     }
 
     // 最初の行での上矢印は、前の項目へ移る。カーソルの位置は保たれる。
