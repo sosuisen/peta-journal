@@ -39,12 +39,12 @@ jobs:
       - run: cargo fmt --check
       - run: cargo clippy --all-targets ${{ matrix.args }}
       - run: cargo test ${{ matrix.args }}
-      # The generation of the types of the native shells is behind a feature, so the wasm shell
-      # does not build it
+      # What only a native shell needs is behind features: the generation of its types, and the
+      # entrance for another language
       - if: matrix.workspace == 'frontend-rust'
-        run: cargo clippy -p peta-shell-native --features facet_typegen --all-targets
+        run: cargo clippy -p peta-shell-native --features facet_typegen,ffi --all-targets
       - if: matrix.workspace == 'frontend-rust'
-        run: cargo test -p peta-shell-native --features facet_typegen --test codegen
+        run: cargo test -p peta-shell-native --features facet_typegen,ffi --test codegen --test ffi
       # The shell only runs in the browser, and the native build above does not show what breaks on wasm
       - if: matrix.workspace == 'frontend-rust'
         run: cargo check --target wasm32-unknown-unknown -p peta-frontend
