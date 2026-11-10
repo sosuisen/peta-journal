@@ -294,10 +294,10 @@ pub enum Event {
         file: u64,
         cursor: usize,
     },
-    /// The pasted image is on the server under this name: its link is pasted into the item.
+    /// The pasted image is on the server: its link is pasted into the item.
     ImageUploaded {
         item_id: String,
-        file_name: String,
+        image: Uploaded,
         /// Where the cursor was when the image was pasted.
         cursor: usize,
     },
@@ -1143,9 +1143,9 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         } => ops::paste::paste_image(&item_id, file, cursor),
         ImageUploaded {
             item_id,
-            file_name,
+            image,
             cursor,
-        } => ops::paste::link_image(model, &item_id, &file_name, cursor),
+        } => ops::paste::link_image(model, &item_id, &image, cursor),
         DragBeyondBounds { item_id } => {
             model.selection.start_drag(&mut model.state, &item_id);
             done()

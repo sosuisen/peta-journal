@@ -5,6 +5,7 @@ use crate::core::CoreHandle;
 use crux_core::Request;
 use gloo_net::http::Request as Http;
 use peta_core::effects::{ApiError, ApiOp, ApiOutput, ApiResult};
+use peta_core::model::Uploaded;
 use peta_core::rest::{rest_call, ClientId, HttpReply, HttpRequest};
 use wasm_bindgen_futures::spawn_local;
 
@@ -38,12 +39,6 @@ async fn send(handle: &CoreHandle, request: &HttpRequest) -> ApiResult<HttpReply
     })
 }
 
-#[derive(serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct UploadEnvelope {
-    file_name: String,
-}
-
 /// Uploads a file the shell holds. Not a REST call of the core: a `File` cannot cross into it.
 async fn upload(handle: &CoreHandle, file: u64) -> ApiResult<ApiOutput> {
     let file = handle
@@ -62,8 +57,8 @@ async fn upload(handle: &CoreHandle, file: u64) -> ApiResult<ApiOutput> {
     if !resp.ok() {
         return Err(ApiError(format!("Upload failed: {}", resp.status())));
     }
-    let env: UploadEnvelope = resp.json().await.map_err(api_err)?;
-    Ok(ApiOutput::FileName(env.file_name))
+    let uploaded: Uploaded = resp.json().await.map_err(api_err)?;
+    Ok(ApiOutput::Uploaded(uploaded))
 }
 
 pub fn perform(handle: CoreHandle, mut request: Request<ApiOp>) {

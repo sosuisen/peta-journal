@@ -294,6 +294,16 @@ pub enum PasteMode {
     Raw,
 }
 
+/// A file the server saved.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Uploaded {
+    /// The name of the file on the server. The server makes it up. See ADR-020.
+    pub file_name: String,
+    /// The name the file came with.
+    pub original_name: String,
+}
+
 /// What a paste came to on the server.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Pasted {

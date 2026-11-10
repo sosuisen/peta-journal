@@ -2,8 +2,8 @@
 //! The transport is behind [`Http`], so this can be tested without a server.
 
 use peta_core::effects::{ApiError, ApiOp, ApiOutput, ApiResult};
+use peta_core::model::Uploaded;
 use peta_core::rest::{rest_call, HttpReply, HttpRequest};
-use serde::Deserialize;
 use std::path::Path;
 
 /// One HTTP exchange with the journal server.
@@ -22,12 +22,6 @@ pub fn call<H: Http>(http: &H, op: ApiOp) -> ApiResult<ApiOutput> {
     rest.decode(&reply)
 }
 
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct Uploaded {
-    file_name: String,
-}
-
 /// Sends the file at `path`, and answers with the name the server saved it under.
 pub fn upload<H: Http>(http: &H, path: &str) -> ApiResult<ApiOutput> {
     let path = Path::new(path);
@@ -42,5 +36,5 @@ pub fn upload<H: Http>(http: &H, path: &str) -> ApiResult<ApiOutput> {
     }
     let uploaded: Uploaded =
         serde_json::from_str(&reply.body).map_err(|e| ApiError(e.to_string()))?;
-    Ok(ApiOutput::FileName(uploaded.file_name))
+    Ok(ApiOutput::Uploaded(uploaded))
 }

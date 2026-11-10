@@ -2,7 +2,7 @@ use crate::app::Event;
 use crate::effects::{ApiOp, ApiOutput};
 use crate::harness::{batch_calls, item, typed, update_calls, Harness};
 use crate::model::{
-    BatchOp, Item, Page, PageWithItems, PasteCursor, PasteMode, Pasted, TranscludedTrees,
+    BatchOp, Item, Page, PageWithItems, PasteCursor, PasteMode, Pasted, TranscludedTrees, Uploaded,
 };
 use crate::outline::UndoOp;
 use crate::testing::item_with;
@@ -500,6 +500,14 @@ fn after_a_failed_paste_into_a_transclusion_root_the_typed_text_is_saved_to_the_
 
 const LINK: &str = "![pic.png](../assets/pic.png)";
 
+/// An image the server saved under the name it came with, as the fake server answers.
+fn uploaded(name: &str) -> Uploaded {
+    Uploaded {
+        file_name: name.into(),
+        original_name: name.into(),
+    }
+}
+
 fn paste_image(h: &mut Harness, item_id: &str, cursor: usize) {
     h.send(Event::PasteImage {
         item_id: item_id.into(),
@@ -574,7 +582,7 @@ fn text_typed_while_the_image_uploads_travels_in_the_paste() {
     typed(&mut h, "a", "typed");
     h.send(Event::ImageUploaded {
         item_id: "a".into(),
-        file_name: "pic.png".into(),
+        image: uploaded("pic.png"),
         cursor: 5,
     });
     h.fire_timers();
@@ -609,7 +617,7 @@ fn the_link_of_an_image_is_not_pasted_into_an_item_that_is_gone() {
     let mut h = harness();
     h.send(Event::ImageUploaded {
         item_id: "gone".into(),
-        file_name: "pic.png".into(),
+        image: uploaded("pic.png"),
         cursor: 0,
     });
 

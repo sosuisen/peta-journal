@@ -455,7 +455,10 @@ impl FakeApi {
                 },
                 ..Default::default()
             }),
-            ApiOp::UploadAsset { .. } => ApiOutput::FileName("pic.png".into()),
+            ApiOp::UploadAsset { .. } => ApiOutput::Uploaded(Uploaded {
+                file_name: "pic.png".into(),
+                original_name: "pic.png".into(),
+            }),
             ApiOp::TranscludedItems { .. } => ApiOutput::ItemIds(Vec::new()),
             ApiOp::ExportTreeMarkdown { .. } => ApiOutput::TreeExport(TreeExport {
                 tree_markdown: "- tree".into(),
