@@ -1,7 +1,7 @@
 //! [`NativeShell`]: the core under Crux's `EffectRouter`, which sends each effect either to this
 //! side or, as bytes, to the shell.
 
-use crux_core::bridge::{BincodeFfiFormat, BridgeError};
+use crux_core::bridge::{BincodeFfiFormat, BridgeError, EffectId};
 use crux_core::capability::Operation;
 use crux_core::effects::routes::Serialized;
 use crux_core::effects::{EffectRouter, ResolveSink, Routes};
@@ -118,8 +118,8 @@ impl NativeShell {
     }
 
     /// Takes the answer of the shell to the request `id`.
-    pub fn resolve(&self, _id: u32, _output: &[u8]) -> Result<(), BorderError> {
-        Ok(())
+    pub fn resolve(&self, id: u32, output: &[u8]) -> Result<(), BorderError> {
+        self.router.routes.border.resolve(EffectId(id), output)
     }
 
     /// The whole [`ViewModel`](peta_core::ViewModel), to draw after a render request.
