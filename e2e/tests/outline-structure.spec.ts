@@ -137,18 +137,27 @@ test.describe('outline structure', () => {
     expect(outlineOf(await server.items(pageId))).toEqual(['1:a', '2:a2', '2:a1', '1:b', '2:b1']);
   });
 
-  test('Ctrl+ArrowUp hides the children and Ctrl+ArrowDown shows them again', async ({ page }) => {
-    await openEditor(page, byBody('a').id);
-    const shown = page.locator('app-outline-item');
+  // Command is the key on the Mac, Control is the key elsewhere: both are read everywhere
+  for (const modifier of ['Control', 'Meta']) {
+    test(`${modifier}+ArrowUp only hides the children and ${modifier}+ArrowDown only shows them`, async ({ page }) => {
+      await openEditor(page, byBody('a').id);
+      const shown = page.locator('app-outline-item');
 
-    await page.keyboard.press('Control+ArrowUp');
-    await expect(shown).toHaveCount(3);
-    expect((await server.itemsSettled(pageId, i => i[0].collapsed))[0].collapsed).toBe(true);
+      await page.keyboard.press(`${modifier}+ArrowDown`);  // already shown: nothing happens
+      await page.keyboard.press(`${modifier}+ArrowUp`);
+      await expect(shown).toHaveCount(3);
+      expect((await server.itemsSettled(pageId, i => i[0].collapsed))[0].collapsed).toBe(true);
 
-    await page.keyboard.press('Control+ArrowDown');
-    await expect(shown).toHaveCount(5);
-    expect((await server.itemsSettled(pageId, i => !i[0].collapsed))[0].collapsed).toBe(false);
-  });
+      await page.keyboard.press(`${modifier}+ArrowUp`);  // already hidden: nothing happens
+      await page.waitForTimeout(300);
+      await expect(shown).toHaveCount(3);
+      expect((await server.items(pageId))[0].collapsed).toBe(true);
+
+      await page.keyboard.press(`${modifier}+ArrowDown`);
+      await expect(shown).toHaveCount(5);
+      expect((await server.itemsSettled(pageId, i => !i[0].collapsed))[0].collapsed).toBe(false);
+    });
+  }
 
   test('Shift+Down selects items and Delete removes them', async ({ page }) => {
     await openEditor(page, byBody('a1').id);
