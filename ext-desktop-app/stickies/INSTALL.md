@@ -90,5 +90,8 @@ The script inside the WebView (`Web\page.js`) does not run in the tests. They on
 
 Window state is persisted at `~/.peta-stickies` (JSON). Delete this file to reset all windows.
 
-Closing a sticky removes it from this file. It does not come back at the next start.
-When the last sticky is closed, the app ends, and the next start opens one new sticky.
+The close button of a sticky removes the sticky from this file. It does not come back at the next start.
+When the last sticky is closed with the button, the app ends, and the next start opens one new sticky.
+
+A sticky that closes in another way stays in the file and comes back at the next start.
+Examples are Alt+F4, "Close window" on the taskbar, and the end of the Windows session.
