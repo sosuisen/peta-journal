@@ -845,7 +845,7 @@ async fn deleting_a_source_item_leaves_its_descendants_as_a_copy_in_its_transclu
         json!({ "itemIds": [source[0].id, source[1].id, source[2].id] }),
     )
     .await;
-    assert_eq!(status, 204, "{resp}");
+    assert_eq!(status, 200, "{resp}");
 
     // The copies follow the host item and come before its own children
     assert_eq!(
@@ -2503,7 +2503,7 @@ async fn a_group_of_items_is_deleted_with_its_descendants_in_one_request() {
         json!({ "itemIds": [rows[1].id, rows[2].id, rows[3].id, rows[4].id] }),
     )
     .await;
-    assert_eq!(status, 204, "{resp}");
+    assert_eq!(status, 200, "{resp}");
 
     assert_eq!(outline_of(&page.id).await, ["1:keep", "1:last"]);
 }

@@ -232,6 +232,12 @@ struct StashRequest {
     body: Option<String>,
 }
 
+/// The empty items made on the pages a deletion left without an item
+#[derive(Serialize)]
+struct DeleteItemsResponse {
+    created: Vec<ItemDto>,
+}
+
 #[derive(Serialize)]
 struct StashResponse {
     heading: ItemDto,
@@ -570,23 +576,20 @@ async fn delete_items(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
     Json(req): Json<DeleteItemsRequest>,
-) -> AppResult<StatusCode> {
+) -> AppResult<Json<DeleteItemsResponse>> {
     let item_ids = parse_ids(req.item_ids, "itemIds")?;
-    blocking(move || delete_and_tell(&state, &client, &item_ids)).await
-}
-
-/// Deletes items and tells the pages they were on and the pages that transcluded them.
-fn delete_and_tell(
-    state: &SharedState,
-    client: &ClientId,
-    item_ids: &[Hmtid],
-) -> AppResult<StatusCode> {
-    let pages = state.item_service.pages_showing(item_ids)?;
-    state.item_service.delete_items(item_ids)?;
-    for page_id in pages {
-        state.sse.broadcast_pages_updated(client, &page_id);
-    }
-    Ok(StatusCode::NO_CONTENT)
+    blocking(move || {
+        // The items are gone after the deletion: the pages that show them are found first
+        let pages = state.item_service.pages_showing(&item_ids)?;
+        let created = state.item_service.delete_items(&item_ids)?;
+        for page_id in pages {
+            state.sse.broadcast_pages_updated(&client, &page_id);
+        }
+        Ok(Json(DeleteItemsResponse {
+            created: state.dtos.to_dtos(&created)?,
+        }))
+    })
+    .await
 }
 
 async fn merge_items(
@@ -646,7 +649,17 @@ async fn delete_item(
     Path(id): Path<String>,
 ) -> AppResult<StatusCode> {
     let item_id = parse_id(&id)?;
-    blocking(move || delete_and_tell(&state, &client, &[item_id])).await
+    blocking(move || {
+        let pages = state
+            .item_service
+            .pages_showing(std::slice::from_ref(&item_id))?;
+        state.item_service.delete_item(&item_id)?;
+        for page_id in pages {
+            state.sse.broadcast_pages_updated(&client, &page_id);
+        }
+        Ok(StatusCode::NO_CONTENT)
+    })
+    .await
 }
 
 async fn set_transclusion(

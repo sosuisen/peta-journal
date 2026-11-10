@@ -672,12 +672,20 @@ impl ItemService {
     /// Deletes one item. An item with children is refused: a deletion never leaves an item
     /// without its parent. The children go first, in one group, or they are merged away.
     pub fn delete_item(&self, item_id: &Hmtid) -> AppResult<()> {
-        self.delete_items(std::slice::from_ref(item_id))
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+        let mut effects = AfterCommit::default();
+        self.remove_group_in(&tx, std::slice::from_ref(item_id), &mut effects)?;
+        tx.commit()?;
+        self.finish(effects);
+        Ok(())
     }
 
     /// Deletes items as one group, in one transaction: all of them or none. Every descendant
     /// of a deleted item must be in the group, so that no item is left without its parent.
-    pub fn delete_items(&self, item_ids: &[Hmtid]) -> AppResult<()> {
+    /// A page that has no item left gets an empty one in the same transaction. Returns the
+    /// items made that way.
+    pub fn delete_items(&self, item_ids: &[Hmtid]) -> AppResult<Vec<Item>> {
         if item_ids.is_empty() {
             return Err(AppError::bad_request("itemIds must not be empty"));
         }
@@ -685,9 +693,28 @@ impl ItemService {
         let tx = conn.immediate()?;
         let mut effects = AfterCommit::default();
         self.remove_group_in(&tx, item_ids, &mut effects)?;
+        let mut created = Vec::new();
+        for page_id in effects.pages().clone() {
+            created.extend(self.keep_page_non_empty_in(&tx, &page_id, &mut effects)?);
+        }
         tx.commit()?;
         self.finish(effects);
-        Ok(())
+        Ok(created)
+    }
+
+    /// A page keeps at least one item: an empty one is made when the page has none left.
+    /// Returns the item made.
+    pub(crate) fn keep_page_non_empty_in(
+        &self,
+        tx: &Connection,
+        page_id: &Hmtid,
+        effects: &mut AfterCommit,
+    ) -> AppResult<Option<Item>> {
+        if !ItemRepository::find_by_page_id_in(tx, page_id)?.is_empty() {
+            return Ok(None);
+        }
+        self.create_item_in(tx, page_id, &ItemPosition::First, 1, "", None, effects)
+            .map(Some)
     }
 
     /// Removes a group of items inside a transaction. The group is refused when it leaves a
