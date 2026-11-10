@@ -99,4 +99,18 @@ final class StickyStoreTests: XCTestCase {
 
         XCTAssertEqual(StickyStore(file: file).stickies.map(\.alwaysOnTop), [false])
     }
+
+    // ズームの倍率は、保存される。倍率のない古いファイルの付箋紙は、等倍になる。
+    func testTheZoomIsKeptAndAStickyWithoutOneIsNotZoomed() throws {
+        let store = StickyStore(file: file)
+        var large = sticky("a")
+        large.zoom = 1.5
+        store.put(large)
+        XCTAssertEqual(StickyStore(file: file).stickies.map(\.zoom), [1.5])
+
+        let old = #"[{"id": "b", "x": 1, "y": 2, "width": 3, "height": 4}]"#
+        try Data(old.utf8).write(to: file)
+
+        XCTAssertEqual(StickyStore(file: file).stickies.map(\.zoom), [1])
+    }
 }

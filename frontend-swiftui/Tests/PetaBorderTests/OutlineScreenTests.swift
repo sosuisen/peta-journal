@@ -381,4 +381,23 @@ final class OutlineScreenTests: XCTestCase {
         try await waitUntil("the search box has the cursor") { self.searchField()?.currentEditor() != nil }
         XCTAssertEqual(editors().filter { $0 is NSTextView && !$0.isFieldEditor }.count, 0)
     }
+
+    // ズームすると、項目の文字が大きくなる。等倍に戻すと、元の大きさに戻る。
+    func testTheZoomMakesTheTextOfTheItemsLarger() async throws {
+        let look = StickyLook()
+        window.contentView = NSHostingView(rootView: OutlineScreen(shell: shell, look: look))
+        try await waitUntil("the editor of the item is there") { self.editors().count == 1 }
+        let size = NSFont.systemFontSize
+        XCTAssertEqual(editors()[0].font?.pointSize, size)
+        type("zoomed", into: editors()[0])
+        let height = editors()[0].frame.height
+
+        for _ in 0..<10 { look.zoomIn() }
+
+        try await waitUntil("the text is twice as large") { self.editors()[0].font?.pointSize == size * 2 }
+        try await waitUntil("the editor is higher") { self.editors()[0].frame.height > height * 1.5 }
+        XCTAssertEqual(bodies(), ["zoomed"])
+        look.resetZoom()
+        try await waitUntil("the text is as large as before") { self.editors()[0].font?.pointSize == size }
+    }
 }

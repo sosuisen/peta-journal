@@ -162,4 +162,31 @@ final class StickyDeskTests: XCTestCase {
         sticky.look.alwaysOnTop = false
         XCTAssertEqual(sticky.window.level, .normal)
     }
+
+    // ズームは、1回で1割ずつ変わる。3割より小さくも、3倍より大きくもならない。等倍に戻せる。
+    func testTheZoomChangesByATenthAndStaysBetweenThreeTenthsAndThree() {
+        let look = StickyLook()
+        XCTAssertEqual(look.zoom, 1)
+
+        look.zoomIn()
+        look.zoomIn()
+        XCTAssertEqual(look.zoom, 1.2)
+        look.zoomOut()
+        XCTAssertEqual(look.zoom, 1.1)
+        look.resetZoom()
+        XCTAssertEqual(look.zoom, 1)
+        for _ in 0..<30 { look.zoomIn() }
+        XCTAssertEqual(look.zoom, 3)
+        for _ in 0..<40 { look.zoomOut() }
+        XCTAssertEqual(look.zoom, 0.3)
+    }
+
+    // 付箋紙のズームは、次の起動で戻る。
+    func testTheZoomOfAStickyComesBack() async throws {
+        let sticky = desk.add()
+
+        sticky.look.zoomIn()
+
+        XCTAssertEqual(nextRun().stickies[0].look.zoom, 1.1)
+    }
 }
