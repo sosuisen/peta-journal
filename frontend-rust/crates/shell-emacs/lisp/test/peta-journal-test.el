@@ -416,6 +416,68 @@
     (should (equal peta-journal-test--sent '(("paste" :id "a" :text "貼" :cursor 1))))
     (should-not (text-properties-at 0 (plist-get (cdar peta-journal-test--sent) :text)))))
 
+(defmacro peta-journal-test--with-clipboard (text image &rest body)
+  "Run BODY with TEXT and the PNG bytes IMAGE in the clipboard of the OS.
+Either can be nil, for a clipboard without it."
+  (declare (indent 2))
+  `(let ((text ,text)
+         (image ,image))
+     (cl-letf (((symbol-function 'gui-get-selection)
+                (lambda (_selection type)
+                  (pcase type
+                    ('TARGETS (vconcat (and text '(UTF8_STRING STRING))
+                                       (and image '(BITMAP image/png))))
+                    ((or 'UTF8_STRING 'STRING) text)
+                    ('image/png image)))))
+       ,@body)))
+
+(defun peta-journal-test--bytes-of (file)
+  "The bytes in FILE, as a unibyte string."
+  (with-temp-buffer
+    (set-buffer-multibyte nil)
+    (insert-file-contents-literally file)
+    (buffer-string)))
+
+;; クリップボードに画像だけがあるとき、C-yはその画像を挿入する。
+;; 画像は、中身のまま`image.png`という名前のファイルになり、項目とカーソルと一緒にシェルへ送られる。
+;; ファイルは、挿入が済むと消える。文字の貼り付けは送らない。
+(ert-deftest peta-journal-yank-inserts-the-image-in-the-clipboard ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "xy"))
+    (peta-journal-test--goto "a" 1)
+    (setq peta-journal-test--sent nil)
+    ;; Bytes that break when written as text: a line end, a zero and a high byte
+    (let ((bytes (unibyte-string #x89 ?P ?N ?G 13 10 0 255))
+          (collect (symbol-function 'peta-journal--send))
+          (uploaded nil))
+      (cl-letf (((symbol-function 'peta-journal--send)
+                 (lambda (type &rest fields)
+                   (apply collect type fields)
+                   ;; The shell reads the file while Emacs waits for it
+                   (setq uploaded (peta-journal-test--bytes-of (plist-get fields :path))))))
+        (peta-journal-test--with-clipboard nil bytes
+          (let ((interprogram-paste-function nil)
+                (kill-ring (list "古い文字")))
+            (peta-journal-yank))))
+      (pcase-let ((`((,type . ,fields)) peta-journal-test--sent))
+        (should (equal type "insert_image"))
+        (should (equal (plist-get fields :id) "a"))
+        (should (equal (plist-get fields :cursor) 1))
+        (should (equal (file-name-nondirectory (plist-get fields :path)) "image.png"))
+        (should (file-name-absolute-p (plist-get fields :path)))
+        (should-not (file-exists-p (plist-get fields :path))))
+      (should (equal uploaded bytes)))))
+
+;; クリップボードに文字もあるときは、画像があっても、文字を貼り付ける。
+(ert-deftest peta-journal-yank-pastes-the-text-when-the-clipboard-has-an-image-as-well ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "xy"))
+    (peta-journal-test--goto "a" 1)
+    (setq peta-journal-test--sent nil)
+    (peta-journal-test--with-clipboard "表" (unibyte-string #x89 ?P ?N ?G)
+      (let ((interprogram-paste-function nil)
+            (kill-ring (list "表")))
+        (peta-journal-yank)))
+    (should (equal peta-journal-test--sent '(("paste" :id "a" :text "表" :cursor 1))))))
+
 ;; 選んだ画像は、項目とカーソルと絶対パスとしてシェルへ送る。拡張子の大文字小文字は問わない。
 (ert-deftest peta-journal-inserting-an-image-sends-the-item-the-cursor-and-the-path ()
   (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "xy"))
