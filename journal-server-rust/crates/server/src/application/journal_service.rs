@@ -17,7 +17,7 @@ use crate::infrastructure::persistence::{ItemRepository, PageRepository};
 use hmtid::Hmtid;
 
 use super::config_service::ConfigService;
-use super::item_service::{AfterCommit, ItemService};
+use super::item_service::{AfterCommit, ItemService, MoveRequest};
 
 const JOURNAL_TYPE: &str = "journal";
 
@@ -131,15 +131,16 @@ impl JournalService {
             ),
         };
         let left_pages = Self::pages_of_in(&tx, item_ids)?;
-        let items = self.item_service.move_edited_items_in(
-            &tx,
+        let request = MoveRequest {
             item_ids,
-            &page.id,
+            target_page_id: &page.id,
             position,
-            None,
+            level_delta: 0,
             body,
-            &mut effects,
-        )?;
+        };
+        let items = self
+            .item_service
+            .move_edited_items_in(&tx, &request, &mut effects)?;
         for left in left_pages.iter().filter(|left| **left != page.id) {
             self.keep_page_non_empty_in(&tx, left, &mut effects)?;
         }

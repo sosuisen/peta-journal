@@ -8,7 +8,7 @@ use axum::{Extension, Json, Router};
 use hmtid::Hmtid;
 use serde::{Deserialize, Serialize};
 
-use crate::application::item_service::{BatchOp, TaskState};
+use crate::application::item_service::{BatchOp, MoveRequest, TaskState};
 use crate::application::paste::PasteMode;
 use crate::domain::model::{Item, ItemPosition};
 use crate::error::{parse_id, AppError, AppResult};
@@ -686,13 +686,13 @@ async fn move_items(
     let ids = parse_ids(req.item_ids, "itemIds")?;
     let target = parse_id(required(req.target_page_id.as_deref(), "targetPageId")?)?;
     blocking(move || {
-        let moved = state.item_service.move_edited_items(
-            &ids,
-            &target,
-            &position,
-            req.level_delta,
-            req.body.as_deref(),
-        )?;
+        let moved = state.item_service.move_edited_items(&MoveRequest {
+            item_ids: &ids,
+            target_page_id: &target,
+            position: &position,
+            level_delta: req.level_delta.unwrap_or(0),
+            body: req.body.as_deref(),
+        })?;
         for page_id in &moved.page_ids {
             state.sse.broadcast_pages_updated(&client, page_id.as_str());
         }

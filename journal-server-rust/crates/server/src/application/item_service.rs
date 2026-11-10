@@ -76,6 +76,19 @@ pub struct Moved {
     pub page_ids: BTreeSet<Hmtid>,
 }
 
+/// A move of items as a key in an editor does it.
+#[derive(Debug, Clone, Copy)]
+pub struct MoveRequest<'a> {
+    pub item_ids: &'a [Hmtid],
+    pub target_page_id: &'a Hmtid,
+    pub position: &'a ItemPosition,
+    /// How many levels deeper the items go; 0 keeps their levels.
+    pub level_delta: i32,
+    /// The text the editor of the first item has now, when it is not saved yet. It is saved
+    /// to that item (or to the source item of a transclusion) before the move.
+    pub body: Option<&'a str>,
+}
+
 /// One operation of a batch.
 #[derive(Debug, Clone)]
 pub enum BatchOp {
@@ -471,34 +484,25 @@ impl ItemService {
         position: &ItemPosition,
         level_delta: Option<i32>,
     ) -> AppResult<Vec<Item>> {
-        let moved = self.move_edited_items(item_ids, target_page_id, position, level_delta, None);
+        let moved = self.move_edited_items(&MoveRequest {
+            item_ids,
+            target_page_id,
+            position,
+            level_delta: level_delta.unwrap_or(0),
+            body: None,
+        });
         Ok(moved?.items)
     }
 
-    /// Moves items as a key in an editor does. `body` is the text the editor of the first
-    /// item has now, when it is not saved yet: it is saved in the same transaction (ADR 011).
-    pub fn move_edited_items(
-        &self,
-        item_ids: &[Hmtid],
-        target_page_id: &Hmtid,
-        position: &ItemPosition,
-        level_delta: Option<i32>,
-        body: Option<&str>,
-    ) -> AppResult<Moved> {
+    /// Moves items as a key in an editor does: with the body of the request saved in the
+    /// same transaction (ADR 011).
+    pub fn move_edited_items(&self, request: &MoveRequest<'_>) -> AppResult<Moved> {
         // The write lock of the transaction keeps two moves from planning their indices from
         // the same snapshot of a page
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
         let mut effects = AfterCommit::default();
-        let items = self.move_edited_items_in(
-            &tx,
-            item_ids,
-            target_page_id,
-            position,
-            level_delta,
-            body,
-            &mut effects,
-        )?;
+        let items = self.move_edited_items_in(&tx, request, &mut effects)?;
         tx.commit()?;
         let page_ids = effects.pages.clone();
         self.finish(effects);
@@ -510,14 +514,16 @@ impl ItemService {
     pub(crate) fn move_edited_items_in(
         &self,
         tx: &Connection,
-        item_ids: &[Hmtid],
-        target_page_id: &Hmtid,
-        position: &ItemPosition,
-        level_delta: Option<i32>,
-        body: Option<&str>,
+        request: &MoveRequest<'_>,
         effects: &mut AfterCommit,
     ) -> AppResult<Vec<Item>> {
-        let delta = level_delta.unwrap_or(0);
+        let MoveRequest {
+            item_ids,
+            target_page_id,
+            position,
+            level_delta,
+            body,
+        } = *request;
         if let (Some(body), Some(first)) = (body, item_ids.first()) {
             let edited = find_all_in(tx, std::slice::from_ref(first))?.remove(0);
             // A transclusion shows its source item. What is typed into it is text of the
@@ -530,7 +536,7 @@ impl ItemService {
             paste::close_code_fence(&mut body);
             self.update_item_in(tx, &edited, Some(&body), None, None, effects)?;
         }
-        self.move_items_in(tx, item_ids, target_page_id, position, delta, effects)?;
+        self.move_items_in(tx, item_ids, target_page_id, position, level_delta, effects)?;
         find_all_in(tx, item_ids)
     }
 
