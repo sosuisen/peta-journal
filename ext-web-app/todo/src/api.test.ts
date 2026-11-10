@@ -11,7 +11,6 @@ import {
   type ConnectionState,
   clientId,
   cycleTask,
-  getItemsByTypes,
   getTagsDir,
   getTasks,
   serverUrl,
@@ -189,19 +188,6 @@ describe('the requests to the journal server', () => {
   beforeEach(() => {
     fetchMock.mockReset();
     vi.stubGlobal('fetch', fetchMock);
-  });
-
-  // タスクの項目は、種類を指定してサーバーから取る。
-  test('get the items of the given types', async () => {
-    answer('{"items":[{"id":"item-1"}]}');
-
-    const items = await getItemsByTypes(['task', 'note']);
-
-    expect(items).toEqual([{ id: 'item-1' }]);
-    expect(fetchMock).toHaveBeenCalledWith(
-      'http://journal.test:9000/api/items?types=task,note',
-      undefined,
-    );
   });
 
   // 終わったタスクを見せないときは、終わっていないタスクだけをサーバーから取る。タスクの大半は終わっているため。

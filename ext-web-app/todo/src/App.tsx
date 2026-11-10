@@ -8,18 +8,20 @@ import { useTasks } from './useTasks';
 
 /** The todo app: the tasks of the journal server, filtered and grouped by plan date. */
 export default function App() {
-  const { items, loading, error, connectionState, tagsDir, cycle } = useTasks();
-  // FmRoot renders again when the options are a new object, so they are kept between renders
-  const itemLinkOptions = useMemo(
-    () => linkOptions(serverUrl, tagsDir),
-    [tagsDir],
-  );
   const [filters, setFilters] = useState<Filters>(() => ({
     untilDate: localISODate(new Date()),
     showDone: false,
     showJournal: true,
     showPage: false,
   }));
+  const { items, loading, error, connectionState, tagsDir, cycle } = useTasks(
+    filters.showDone,
+  );
+  // FmRoot renders again when the options are a new object, so they are kept between renders
+  const itemLinkOptions = useMemo(
+    () => linkOptions(serverUrl, tagsDir),
+    [tagsDir],
+  );
 
   const entries = groupByPlan(items.filter(item => isShown(item, filters)));
 

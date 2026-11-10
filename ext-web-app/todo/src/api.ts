@@ -91,14 +91,6 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   return (await resp.json()) as T;
 }
 
-/** Fetches all items whose type matches one of the given types. */
-export async function getItemsByTypes(types: string[]): Promise<Item[]> {
-  const data = await fetchJson<{ items: Item[] }>(
-    `/api/items?types=${types.join(',')}`,
-  );
-  return data.items;
-}
-
 /**
  * Fetches the tasks. Most tasks are done, so without the done tasks the server leaves them
  * out: a done task is a task with the property `end`.
