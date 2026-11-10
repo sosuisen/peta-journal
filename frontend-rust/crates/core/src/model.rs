@@ -302,6 +302,17 @@ pub struct Pasted {
     pub cursor: PasteCursor,
 }
 
+/// What sending an item to the stash came to on the server.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Stashed {
+    /// The `# Stash` heading the items went under.
+    pub heading: Item,
+    /// True when the heading was made for this.
+    pub created: bool,
+    /// The moved items, as they are now.
+    pub items: Vec<Item>,
+}
+
 /// What a split came to on the server.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Split {

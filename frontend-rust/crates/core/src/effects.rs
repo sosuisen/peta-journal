@@ -3,7 +3,7 @@
 
 use crate::model::{
     BacklinkEntry, BatchOp, DeferredKey, Item, ItemPosition, JournalBefore, Page, PageWithItems,
-    PasteMode, Pasted, PropertyDefinition, SearchResult, ServerConfig, Split, TreeExport,
+    PasteMode, Pasted, PropertyDefinition, SearchResult, ServerConfig, Split, Stashed, TreeExport,
 };
 use crate::util::date::LocalDateTime;
 use crux_core::capability::Operation;
@@ -91,6 +91,13 @@ pub enum ApiOp {
         cursor: usize,
         text: String,
         mode: PasteMode,
+    },
+    /// Sends an item with its descendants under the `# Stash` heading of its page, which the
+    /// server makes at the end of the page when there is none.
+    StashItem {
+        item_id: String,
+        /// The body the editor of the item has now, when it is not saved yet.
+        body: Option<String>,
     },
     /// Splits an item at the character `cursor` of `body`, the body it has on screen, as
     /// Enter does. The server decides where the new item goes and writes both, or neither.
@@ -278,6 +285,7 @@ pub enum ApiOutput {
     ItemIds(Vec<String>),
     Pasted(Pasted),
     Split(Box<Split>),
+    Stashed(Box<Stashed>),
     FileName(String),
     Launched(bool),
     /// Another page has the name a page was to take; the server's message says which.
@@ -726,6 +734,19 @@ impl<Event: Send + 'static> Api<Event> {
             })
             .await,
             Split
+        )
+    }
+
+    /// Sends an item with its descendants to the stash of its page. `body` is the text its
+    /// editor has now, when it is not saved yet: the server saves it with the move.
+    pub async fn stash_item(&self, item_id: &str, body: Option<&str>) -> ApiResult<Box<Stashed>> {
+        expect_output!(
+            self.call(ApiOp::StashItem {
+                item_id: item_id.into(),
+                body: body.map(str::to_string),
+            })
+            .await,
+            Stashed
         )
     }
 

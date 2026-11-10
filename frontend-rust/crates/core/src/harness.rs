@@ -83,6 +83,7 @@ pub fn op_name(op: &ApiOp) -> &'static str {
         ApiOp::MergeItems { .. } => "MergeItems",
         ApiOp::PasteText { .. } => "PasteText",
         ApiOp::SplitItem { .. } => "SplitItem",
+        ApiOp::StashItem { .. } => "StashItem",
         ApiOp::ApplyBatch { .. } => "ApplyBatch",
         ApiOp::CycleTask { .. } => "CycleTask",
         ApiOp::UpsertItemProperty { .. } => "UpsertItemProperty",
@@ -137,6 +138,7 @@ impl FakeApi {
         &mut self,
         op: &ApiOp,
         stored: &dyn Fn(&str) -> Option<Item>,
+        shown: &dyn Fn() -> Vec<Item>,
     ) -> ApiResult<ApiOutput> {
         if let Some(queued) = self
             .answers
@@ -178,6 +180,42 @@ impl FakeApi {
                 ApiOutput::Item(item)
             }
             ApiOp::ShiftItemLevels { .. } => ApiOutput::Items(Vec::new()),
+            // The server moves the item with the items below it under the stash heading of
+            // the page, which it makes when there is none
+            ApiOp::StashItem { item_id, body } => {
+                let on_page = shown();
+                let item = stored(item_id).unwrap_or_else(|| plain_item(item_id, 1, ""));
+                let (heading, created) = match on_page.iter().find(|it| it.body.trim() == "# Stash")
+                {
+                    Some(heading) => (heading.clone(), false),
+                    None => {
+                        self.created += 1;
+                        let mut heading = plain_item(&format!("new{}", self.created), 1, "# Stash");
+                        heading.page_id = item.page_id.clone();
+                        (heading, true)
+                    }
+                };
+                let delta = heading.level + 1 - item.level;
+                let items: Vec<Item> = on_page
+                    .iter()
+                    .skip_while(|it| it.id != item.id)
+                    .enumerate()
+                    .take_while(|(n, it)| *n == 0 || it.level > item.level)
+                    .map(|(n, it)| {
+                        let mut moved = it.clone();
+                        moved.level += delta;
+                        if let (0, Some(body)) = (n, body) {
+                            moved.body = body.clone();
+                        }
+                        moved
+                    })
+                    .collect();
+                ApiOutput::Stashed(Box::new(Stashed {
+                    heading,
+                    created,
+                    items,
+                }))
+            }
             // The server answers with the moved items at their new levels, the first with
             // the body the request carries
             ApiOp::MoveItems {
@@ -602,9 +640,11 @@ impl Harness {
             Effect::Api(mut request) => {
                 let op = request.operation.clone();
                 let state = &self.model.state;
-                let answer = self.api.answer(&op, &|id| {
-                    state.get_item_by_id(id).map(|item| (*item).clone())
-                });
+                let answer = self.api.answer(
+                    &op,
+                    &|id| state.get_item_by_id(id).map(|item| (*item).clone()),
+                    &|| state.items().iter().map(|item| (**item).clone()).collect(),
+                );
                 self.api.calls.push(op);
                 let _ = request.resolve(answer);
             }

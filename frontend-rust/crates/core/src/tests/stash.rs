@@ -1,11 +1,24 @@
 //! Sending an item with its children under the "# Stash" heading at the end of the page.
 
 use crate::app::Event;
+use crate::effects::ApiOp;
 use crate::harness::{create_calls, item, move_calls, Harness};
 
-// Stash への送付で Stash 見出しがページ末尾に作られ、部分木がそのまま（タグなしで）その下へ移動される。
+/// The stash requests sent: (item id, body).
+fn stash_calls(h: &Harness) -> Vec<(String, Option<String>)> {
+    h.api
+        .calls
+        .iter()
+        .filter_map(|op| match op {
+            ApiOp::StashItem { item_id, body } => Some((item_id.clone(), body.clone())),
+            _ => None,
+        })
+        .collect()
+}
+
+// Stash への送付は1つの要求で送られ、答えが来ると、ページ末尾に作られた Stash 見出しと、その下へ移った部分木（タグなし、見出しの子の階層）が表示される。見出しの作成や移動は別には送らない。
 #[test]
-fn sending_to_the_stash_creates_its_heading_at_the_end_and_moves_the_subtree_under_it() {
+fn sending_to_the_stash_sends_one_request_and_shows_the_heading_made_with_the_subtree_under_it() {
     let mut h = Harness::with_items(vec![
         item("a", 1, "todo"),
         item("a1", 2, ""),
@@ -14,22 +27,14 @@ fn sending_to_the_stash_creates_its_heading_at_the_end_and_moves_the_subtree_und
     h.send(Event::SendToStash {
         item_id: "a".into(),
     });
+    assert_eq!(stash_calls(&h), [("a".to_string(), None)]);
     assert!(
         !h.api.called("UpdateItem"),
-        "the item is moved as it is, with no tag"
+        "the item goes as it is, with no tag"
     );
-    assert_eq!(
-        create_calls(&h.api),
-        [("page1".into(), "after:z".into(), 1, "# Stash".into(), None)]
-    );
-    assert_eq!(
-        move_calls(&h.api),
-        [(
-            vec!["a".to_string(), "a1".to_string()],
-            "page1".to_string(),
-            "after:new1".to_string()
-        )]
-    );
+    assert!(create_calls(&h.api).is_empty());
+    assert!(move_calls(&h.api).is_empty());
+    assert_eq!(h.outline(), ["z:1=", "new1:1=# Stash", "a:2=todo", "a1:3="]);
 }
 
 // Stash 見出しが既にあれば、Stash への送付で新しい見出しは作られずその直後へ移動される。
