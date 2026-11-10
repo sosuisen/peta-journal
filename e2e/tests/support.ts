@@ -59,6 +59,12 @@ export class Server {
     return this.items(pageId);
   }
 
+  /** Turns the logical outdent on or off for the whole app; the app reads it when a page loads. */
+  async setLogicalOutdent(on: boolean): Promise<void> {
+    const resp = await this.request.put(`${this.base}/api/config`, { data: { logicalOutdent: on } });
+    expect(resp.ok()).toBe(true);
+  }
+
   /** Gets or creates the journal page of a day (YYYY-MM-DD) and returns its id. */
   async journal(date: string): Promise<{ id: string; name: string }> {
     const resp = await this.request.post(`${this.base}/api/journals/${date}`);
