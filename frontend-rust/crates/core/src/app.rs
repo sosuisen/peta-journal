@@ -502,6 +502,18 @@ pub enum Event {
     SearchFailed {
         timer_id: u64,
     },
+    /// The server answered the ten most recent doc pages.
+    RecentPagesLoaded {
+        pages: Vec<Page>,
+    },
+    /// The server answered the pages of the directory the index list shows.
+    IndexPagesLoaded {
+        header: String,
+        is_root: bool,
+        pages: Vec<Page>,
+    },
+    /// The wait before the next try to connect the event stream ended.
+    SseReconnect,
     /// The Home button: the page set in the settings, or today
     NavigateHome,
     NavigateToRoot,
@@ -1129,6 +1141,16 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             results,
         } => screens::search::show_results(model, timer_id, &query, results),
         SearchFailed { timer_id } => screens::search::search_failed(model, timer_id),
+        RecentPagesLoaded { pages } => {
+            model.recent_pages = pages;
+            done()
+        }
+        IndexPagesLoaded {
+            header,
+            is_root,
+            pages,
+        } => screens::sidebar::show_index_pages(model, header, is_root, pages),
+        SseReconnect => screens::sse::connect(model),
         NavigateHome => screens::settings::navigate_home(model),
         NavigateToRoot => screens::navigate::open_folder(model, "index"),
         NavigateToTags => {

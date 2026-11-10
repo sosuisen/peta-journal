@@ -1,7 +1,7 @@
 //! The server's event stream, ported from `sse.service.ts`: connection state, reconnection
 //! with exponential backoff, and what a `pagesUpdated` event triggers.
 
-use crate::app::{apply, done, run, Cmd, ConnectionState, Event, Model};
+use crate::app::{done, run, Cmd, ConnectionState, Event, Model};
 use crate::effects::{SseEvent, SseOp, TimerOutput};
 use crate::ops::file_reload;
 use crate::screens::{atlas, page, sidebar};
@@ -103,7 +103,7 @@ fn schedule_reconnect(model: &mut Model) -> Cmd {
     let timer_id = model.next_timer_id();
     run(move |api| async move {
         if api.sleep(timer_id, delay).await == TimerOutput::Fired {
-            apply(&api, "sse reconnect", connect);
+            api.send_event(Event::SseReconnect);
         }
     })
 }
