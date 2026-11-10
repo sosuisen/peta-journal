@@ -38,6 +38,7 @@ final class StickyDeskTests: XCTestCase {
         XCTAssertEqual(desk.stickies.count, 1)
         XCTAssertTrue(sticky.window.isVisible)
         XCTAssertNil(sticky.shell.url)
+        try await waitUntil("the window has the name of the app") { sticky.window.title == "PetaJournal" }
     }
 
     // 付箋紙は、それぞれが自分のページを持つ。1つでページを開いても、ほかの付箋紙は変わらない。
@@ -51,7 +52,7 @@ final class StickyDeskTests: XCTestCase {
         XCTAssertEqual(desk.stickies.count, 2)
         XCTAssertNil(first.shell.url)
         XCTAssertEqual(first.shell.view.outline.rows.count, 0)
-        XCTAssertEqual(second.window.title, "second-sticky")
+        try await waitUntil("the window has the name of the page") { second.window.title == "second-sticky" }
     }
 
     // 足した付箋紙は、前の付箋紙にぴったり重ならない。
