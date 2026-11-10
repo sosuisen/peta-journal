@@ -125,8 +125,14 @@ fn the_bullet_shows_what_the_row_is_in_order_of_importance() {
 // タスクの状態は、バレットとは別に伝わる。タスクでない行には、状態がない。
 #[test]
 fn the_state_of_a_task_goes_beside_the_bullet() {
-    assert_eq!(TaskMark::of(Some(TaskState::NotStarted)), Some(TaskMark::Task));
-    assert_eq!(TaskMark::of(Some(TaskState::Running)), Some(TaskMark::Running));
+    assert_eq!(
+        TaskMark::of(Some(TaskState::NotStarted)),
+        Some(TaskMark::Task)
+    );
+    assert_eq!(
+        TaskMark::of(Some(TaskState::Running)),
+        Some(TaskMark::Running)
+    );
     assert_eq!(TaskMark::of(Some(TaskState::Done)), Some(TaskMark::Done));
     assert_eq!(TaskMark::of(None), None);
     assert_eq!(

@@ -188,6 +188,9 @@ pub struct RowView {
     pub level: i32,
     pub body: String,
     pub bullet: Bullet,
+    /// The state of the task, which Emacs marks behind the bullet. None when the item is
+    /// not a task.
+    pub task: Option<TaskMark>,
     pub collapsed: bool,
     /// The date above the first item of a journal day.
     pub header: Option<String>,
@@ -199,39 +202,52 @@ impl RowView {
             id: row.item.id.clone(),
             level: row.item.level,
             body: row.item.body.clone(),
-            bullet: Bullet::of(row.is_broken_transclusion, row.is_transclusion, row.task),
+            bullet: Bullet::of(row.is_broken_transclusion, row.is_transclusion),
+            task: TaskMark::of(row.task),
             collapsed: row.is_collapsed && row.has_children,
             header: row.date_header.clone(),
         }
     }
 }
 
-/// What the mark at the start of a row shows.
+/// What the mark at the start of a row shows. A task has the bullet of its kind too: its
+/// state is a mark of its own, as in the web frontend.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Bullet {
     Plain,
-    Task,
-    Running,
-    Done,
     Transclusion,
     Broken,
 }
 
 impl Bullet {
-    pub fn of(broken: bool, transclusion: bool, task: Option<TaskState>) -> Bullet {
+    pub fn of(broken: bool, transclusion: bool) -> Bullet {
         if broken {
-            return Bullet::Broken;
+            Bullet::Broken
+        } else if transclusion {
+            Bullet::Transclusion
+        } else {
+            Bullet::Plain
         }
-        if transclusion {
-            return Bullet::Transclusion;
-        }
-        match task {
-            Some(TaskState::NotStarted) => Bullet::Task,
-            Some(TaskState::Running) => Bullet::Running,
-            Some(TaskState::Done) => Bullet::Done,
-            None => Bullet::Plain,
-        }
+    }
+}
+
+/// The state of a task, for the mark behind the bullet.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TaskMark {
+    Task,
+    Running,
+    Done,
+}
+
+impl TaskMark {
+    pub fn of(task: Option<TaskState>) -> Option<TaskMark> {
+        task.map(|state| match state {
+            TaskState::NotStarted => TaskMark::Task,
+            TaskState::Running => TaskMark::Running,
+            TaskState::Done => TaskMark::Done,
+        })
     }
 }
 
