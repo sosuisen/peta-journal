@@ -5178,8 +5178,7 @@ async fn an_image_just_under_the_limit_is_saved_as_it_is() {
 
     assert_eq!(response.status().as_u16(), 200);
     let answer: Value = response.json().await.unwrap();
-    assert_eq!(answer["fileName"], "just-under-the-limit.png");
-    let saved = saved_asset("just-under-the-limit.png");
+    let saved = saved_asset(answer["fileName"].as_str().unwrap());
     assert!(std::fs::read(&saved).unwrap() == bytes);
     std::fs::remove_file(saved).unwrap();
 }
@@ -5187,8 +5186,14 @@ async fn an_image_just_under_the_limit_is_saved_as_it_is() {
 // 上限の50MBを超える画像は断られ、保存されない。
 #[tokio::test]
 async fn an_image_over_the_limit_is_refused_and_not_saved() {
-    let result = upload_asset("over-the-limit.png", vec![0; 51 * MB]).await;
+    let size = 51 * MB;
+
+    let result = upload_asset("over-the-limit.png", vec![0; size]).await;
 
     assert!(result.map_or(true, |response| !response.status().is_success()));
-    assert!(!saved_asset("over-the-limit.png").exists());
+    // The name of a saved file is not known beforehand, so it is looked for by its size
+    let saved = std::fs::read_dir(server().markdown_dir.join("assets"))
+        .unwrap()
+        .any(|file| file.unwrap().metadata().unwrap().len() == size as u64);
+    assert!(!saved);
 }
