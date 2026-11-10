@@ -93,14 +93,13 @@ fn non_empty(value: &str) -> Option<String> {
 ///
 /// `None` unless the value is a positive integer: a bare flag (`#w`) arrives as `true`,
 /// and a non-numeric value would make the browser ignore the attribute anyway, so the
-/// `<img>` keeps its natural size on that axis.
+/// `<img>` keeps its natural size on that axis. The parser writes every value as a string
+/// (`SPEC_AST.md`, `embed`), so a number is not expected here.
 fn dimension(props: &BTreeMap<String, Value>, key: &str) -> Option<String> {
-    let value = props.get(key)?;
-    let px = match value {
-        Value::Number(n) => n.as_u64()?,
-        Value::String(s) => s.trim().parse::<u64>().ok()?,
-        _ => return None,
+    let Value::String(s) = props.get(key)? else {
+        return None;
     };
+    let px = s.trim().parse::<u64>().ok()?;
     (px > 0).then(|| px.to_string())
 }
 

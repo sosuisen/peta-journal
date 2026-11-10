@@ -200,7 +200,7 @@ fn link_and_image() {
     );
 }
 
-// 画像 URL のフラグメントの w と h は img の width と height 属性になり、値のないフラグや数値でない値は無視される。
+// 画像 URL のフラグメントの w と h は img の width と height 属性になり、値のないフラグや数値でない値、0は無視される。
 #[test]
 fn embed_width_and_height() {
     // Both sizes.
@@ -218,9 +218,13 @@ fn embed_width_and_height() {
         render_plain("![alt](img.png#h=240)"),
         "<p><img src=\"img.png\" alt=\"alt\" height=\"240\"></p>"
     );
-    // A bare flag or a non-numeric value is not a size.
+    // A bare flag, a non-numeric value, or zero is not a size.
     assert_eq!(
         render_plain("![alt](img.png#w&h=big)"),
+        "<p><img src=\"img.png\" alt=\"alt\"></p>"
+    );
+    assert_eq!(
+        render_plain("![alt](img.png#w=0&h=0)"),
         "<p><img src=\"img.png\" alt=\"alt\"></p>"
     );
 }
