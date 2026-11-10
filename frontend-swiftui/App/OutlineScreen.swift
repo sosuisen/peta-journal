@@ -7,11 +7,29 @@ struct OutlineScreen: View {
     @ObservedObject var shell: Shell
 
     var body: some View {
-        List(shell.view.outline.rows, id: \.item.id) { row in
-            ItemEditor(row: row, shell: shell)
+        VStack(alignment: .leading, spacing: 0) {
+            // An empty window says nothing: the page and the state of the server are always shown
+            VStack(alignment: .leading, spacing: 4) {
+                Text(shell.title.isEmpty ? "No page" : shell.title).font(.title2)
+                Text(status).font(.caption).foregroundStyle(.secondary)
+            }
+            .padding()
+            List(shell.view.outline.rows, id: \.item.id) { row in
+                ItemEditor(row: row, shell: shell)
+            }
         }
+        .background(Color(nsColor: .windowBackgroundColor))
         .navigationTitle(shell.title)
         .frame(minWidth: 480, minHeight: 320)
+    }
+
+    private var status: String {
+        let items = shell.view.outline.rows.count
+        switch shell.view.connection {
+        case .connected: return "Items: \(items)"
+        case .connecting: return "Connecting to the journal server…"
+        case .disconnected, .error: return "No connection to the journal server"
+        }
     }
 }
 
@@ -22,13 +40,17 @@ private struct ItemEditor: View {
     @FocusState private var hasCursor: Bool
 
     var body: some View {
-        TextField("", text: text)
-            .textFieldStyle(.plain)
-            .padding(.leading, CGFloat(row.indentPx))
-            .focused($hasCursor)
-            .onChange(of: hasCursor) { hasCursor in
-                if hasCursor { shell.startEditing(row.item.id) }
-            }
+        HStack(alignment: .firstTextBaseline) {
+            // Without the bullet an item with no text cannot be seen
+            Text("•").foregroundStyle(.secondary)
+            TextField("", text: text)
+                .textFieldStyle(.plain)
+                .focused($hasCursor)
+                .onChange(of: hasCursor) { hasCursor in
+                    if hasCursor { shell.startEditing(row.item.id) }
+                }
+        }
+        .padding(.leading, CGFloat(row.indentPx))
     }
 
     private var text: Binding<String> {
