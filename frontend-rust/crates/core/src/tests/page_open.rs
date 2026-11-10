@@ -212,3 +212,41 @@ fn a_page_made_by_opening_it_refreshes_the_recent_pages() {
         );
     }
 }
+
+// 別のページを開いたあとに届いた、前のページの答え（ページ、項目、バックリンク）は、表示されない。
+#[test]
+fn the_answers_for_a_page_the_screen_has_left_are_not_shown() {
+    let mut h = Harness::new();
+    served(&mut h, doc("", "Now"), false);
+    with_items(&mut h, doc("", "Now"), vec![item("now1", 1, "now")]);
+    visit(&mut h, "Now", None);
+
+    h.send(Event::PageLoaded {
+        page: doc("", "Old"),
+        created: false,
+    });
+    h.send(Event::PageItemsLoaded {
+        page_id: "Old".into(),
+        loaded: Box::new(PageWithItems {
+            page: doc("", "Old"),
+            items: vec![item("old1", 1, "old")],
+            created: false,
+            transcluded_trees: None,
+        }),
+    });
+    h.send(Event::BacklinksLoaded {
+        page_id: "Old".into(),
+        entries: vec![BacklinkEntry {
+            source_page: doc("", "Other"),
+            source_item: None,
+        }],
+    });
+
+    assert_eq!(titles(&h), ["Now"]);
+    assert_eq!(h.items_ids(), ["now1"]);
+    assert!(shown_page(&h).unwrap().backlinks.is_empty());
+    assert_eq!(
+        h.model.current_page.as_ref().map(|p| p.id.as_str()),
+        Some("Now")
+    );
+}
