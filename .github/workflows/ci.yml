@@ -69,3 +69,17 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
+
+  stickies:
+    name: ext-desktop-app/stickies
+    # The app is WinUI. It builds only on Windows, with the MSBuild of Visual Studio
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      # Why in this folder: its global.json selects the test runner, and the SDK finds it only
+      # from the current folder upward
+      - run: dotnet test
+        working-directory: ext-desktop-app/stickies-tests
+      # The tests compile only the files without WinUI. The build shows what breaks in the rest
+      - uses: microsoft/setup-msbuild@v3
+      - run: msbuild ext-desktop-app/stickies/Stickies.csproj -restore -p:Platform=x64 -nologo -v:m
