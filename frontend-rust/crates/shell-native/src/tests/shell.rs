@@ -136,6 +136,18 @@ impl Screen {
             .collect()
     }
 
+    /// The URLs the shell was asked to go to, oldest first.
+    fn navigations(&self) -> Vec<String> {
+        let requests = self.requests.lock().unwrap();
+        requests
+            .iter()
+            .filter_map(|request| match &request.effect {
+                ShellEffectFfi::Navigate(op) => Some(op.url.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+
     fn renders(&self) -> usize {
         let requests = self.requests.lock().unwrap();
         requests
@@ -227,4 +239,14 @@ fn the_answer_of_the_shell_reaches_the_core() {
             ok: true,
         })
     });
+}
+
+// URLを変える依頼は、バイト列でシェルに届く。
+#[test]
+fn a_navigation_reaches_the_shell_as_bytes() {
+    let screen = Screen::new();
+
+    screen.send(&Event::NavigateHome);
+
+    assert_eq!(screen.navigations(), ["/today"]);
 }

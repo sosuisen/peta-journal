@@ -8,7 +8,7 @@ use crux_core::effects::{EffectRouter, ResolveSink, Routes};
 use crux_core::macros::effect;
 use crux_core::render::RenderOperation;
 use crux_core::{Core, Request};
-use peta_core::effects::{ApiOp, ApiOutput, ApiResult, SseEvent, SseOp, UiOp};
+use peta_core::effects::{ApiOp, ApiOutput, ApiResult, NavigateOp, SseEvent, SseOp, UiOp};
 use peta_core::rest::ClientId;
 use peta_core::{Effect, Event, PetaApp};
 use std::sync::{Arc, Weak};
@@ -30,6 +30,7 @@ pub trait Host: Send + Sync + 'static {
 pub enum ShellEffect {
     Render(RenderOperation),
     Ui(UiOp),
+    Navigate(NavigateOp),
 }
 
 type Router = EffectRouter<PetaApp, Lanes>;
