@@ -187,9 +187,9 @@ impl OutlineState {
             .iter()
             .filter(|item| item.has_type("heading"))
             .map(|item| {
-                let level = fm_ast::parse(&item.ast)
+                let level = flatmarkdown_ast::parse(&item.ast)
                     .ok()
-                    .and_then(|ast| fm_ast::heading_level(&ast))
+                    .and_then(|ast| flatmarkdown_ast::heading_level(&ast))
                     .unwrap_or(1);
                 let text = item.body.trim_start_matches('#').trim_start().to_string();
                 Heading {

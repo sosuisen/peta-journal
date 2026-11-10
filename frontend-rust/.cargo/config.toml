@@ -14,7 +14,7 @@ rustflags = ['--cfg', 'getrandom_backend="wasm_js"']
 # wasm shell around the core: it only runs in the browser, so no ordinary test can run it. The
 # E2E tests in ../e2e cover it instead.
 [alias]
-cov = ["llvm-cov", "-p", "peta-core", "-p", "fm-ast", "-p", "fm-leptos"]
+cov = ["llvm-cov", "-p", "peta-core", "-p", "fm-leptos"]
 
 # rust-lld links much faster than the MSVC link.exe, and it comes with the Rust toolchain. Every
 # test run waits for the link of the test binaries. The wasm target already links with it.

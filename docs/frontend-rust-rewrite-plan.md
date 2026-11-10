@@ -1,5 +1,7 @@
 # frontend を Rust(Crux + Leptos)で書き換える計画
 
+> 2026-11-10の注: この文書にある`fm-ast`クレートは、`flatmarkdown-ast`としてcrates.ioに公開した（ADR 012、ADR 014）。このリポジトリの`frontend-rust/crates/fm-ast`は消し、`core`と`fm-leptos`はcrates.ioのクレートに依存する。以下は書いた当時のままである。
+
 現在の `frontend` は Angular 21 で書かれている(本体約 9,100 行、単体テスト約 3,100 行、Playwright の E2E 27 件)。これを Rust の Crux(共有コア)+ Leptos(Web シェル)で書き換えるための計画をまとめる。サーバー側の書き換え計画は [rust-rewrite-plan.md](rust-rewrite-plan.md) を参照。
 
 結論から言うと、書き換えは可能である。Angular 側はサービス層が DOM に触らず、`ApiService` と `OutlineView` インターフェースを引数で受け取る設計になっているため、Crux の「副作用のないコア + 薄いシェル」にほぼ 1 対 1 で移せる。ただし、Rust 側に代替がなく自作になるものが 2 つある。Angular CDK の可変高さ仮想スクロールと、Flat Markdown AST のレンダラー(`flatmarkdown-ast2angular`)である。

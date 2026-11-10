@@ -116,7 +116,7 @@ cp node_modules/highlight.js/styles/github.css <peta-journal>/frontend-rust/crat
 
 ```powershell
 cd peta-journal/frontend-rust
-cargo test                  # core (the ported service specs), fm-ast and fm-leptos
+cargo test                  # core (the ported service specs) and fm-leptos
 ```
 
 The Playwright suite in `e2e/` drives the Rust server and the Rust frontend the way they run for
@@ -154,8 +154,7 @@ cargo cov            # a table per file
 cargo cov --html     # target/llvm-cov/html/index.html, line by line
 ```
 
-`cargo cov` is an alias in `.cargo/config.toml`. It measures `peta-core`, `fm-ast` and
-`fm-leptos`. The wasm shell `peta-frontend` (`crates/shell-leptos`) is left out: it only runs in
+`cargo cov` is an alias in `.cargo/config.toml`. It measures `peta-core` and `fm-leptos`. The wasm shell `peta-frontend` (`crates/shell-leptos`) is left out: it only runs in
 the browser, so the E2E tests cover it instead.
 
 ### Emacs frontend
