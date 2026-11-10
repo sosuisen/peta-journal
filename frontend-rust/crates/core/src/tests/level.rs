@@ -85,28 +85,50 @@ fn outdent_in_place_the_group_goes_up_one_level_and_keeps_its_place() {
     assert!(move_calls(&h.api).is_empty());
 }
 
-// 論理アウトデントでグループは親の最後の子の後へ移動され、後続の兄弟 d は親 p の下に残る。
+/// The moves the outdents sent: (item ids, position, level delta, body).
+fn outdent_moves(h: &Harness) -> Vec<(Vec<String>, String, Option<i32>, Option<String>)> {
+    h.api
+        .calls
+        .iter()
+        .filter_map(|op| match op {
+            ApiOp::MoveItems {
+                item_ids,
+                position,
+                level_delta,
+                body,
+                ..
+            } => Some((
+                item_ids.clone(),
+                position.to_api(),
+                *level_delta,
+                body.clone(),
+            )),
+            _ => None,
+        })
+        .collect()
+}
+
+// 論理アウトデントは、親の最後の子の後へ1段浅くする移動を1つの要求で送り、後続の兄弟 d は親 p の下に残る。階層の変更は別には送らない。答えが来ると、階層と位置が一緒に変わり、エディタのフォーカスは保たれ、Undo に「outdent」として記録される。
 #[test]
-fn logical_outdent_moves_the_group_after_the_parents_last_child_so_d_stays_under_p() {
+fn logical_outdent_moves_the_group_one_level_up_after_the_parents_last_child_in_one_request() {
     let mut h = outdent_harness();
     h.model.config.logical_outdent = true;
     h.send(Event::Outdent {
         item_id: "b".into(),
     });
+    assert!(shift_calls(&h).is_empty());
     assert_eq!(
-        shift_calls(&h),
-        [(vec!["b".to_string(), "c".to_string()], -1)]
-    );
-    assert_eq!(
-        move_calls(&h.api),
+        outdent_moves(&h),
         [(
             vec!["b".to_string(), "c".to_string()],
-            "page1".to_string(),
-            "after:d".to_string()
+            "after:d".to_string(),
+            Some(-1),
+            None
         )]
     );
-    let ids = h.items_ids();
-    assert_eq!(ids, ["p", "a", "d", "b", "c"]);
+    assert_eq!(h.outline(), ["p:1=", "a:2=", "d:2=", "b:1=", "c:2="]);
+    assert_eq!(h.focused_editor_requests(), [Some("b".to_string())]);
+    assert_eq!(h.model.undo.pop_undo().unwrap().label, "outdent");
 }
 
 // 一人っ子の論理アウトデントでは移動が不要である。
