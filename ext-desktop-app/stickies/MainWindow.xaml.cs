@@ -388,6 +388,12 @@ public sealed partial class MainWindow : Window
             var hasChildren = hasChildrenSet.Contains(item.Id);
             var isCollapsed = _collapsedItemIds.Contains(item.Id);
 
+            // The arrow and the empty slot have the same width, so the checkboxes of the tasks
+            // with and without children stand in one column.
+            const string slotStyle = "display:inline-block;width:10px;flex-shrink:0;margin-right:6px;";
+            var arrow = isCollapsed ? "&#x25B6;" : "&#x25BC;";
+            var toggle = $"<span class=\"collapse-toggle\" data-item-id=\"{item.Id}\" style=\"{slotStyle}color:#666;cursor:pointer;font-size:10px;user-select:none;\">{arrow}</span>";
+
             var marker = "";
             if (item.TaskState is { } taskState)
             {
@@ -399,12 +405,14 @@ public sealed partial class MainWindow : Window
                     TaskState.Done => " checked",
                     _ => ""
                 };
-                marker = $"<input type=\"checkbox\" class=\"task-checkbox\" tabindex=\"-1\"{state}>";
+                // A checkbox takes the place of the bullet, so the arrow needs a place of its own,
+                // to the left of the checkbox.
+                var slot = hasChildren ? toggle : $"<span style=\"{slotStyle}\"></span>";
+                marker = $"{slot}<input type=\"checkbox\" class=\"task-checkbox\" tabindex=\"-1\"{state}>";
             }
             else if (hasChildren)
             {
-                var arrow = isCollapsed ? "&#x25B6;" : "&#x25BC;";
-                marker = $"<span class=\"collapse-toggle\" data-item-id=\"{item.Id}\" style=\"margin-right:6px;color:#666;cursor:pointer;font-size:10px;user-select:none;\">{arrow}</span>";
+                marker = toggle;
             }
             else if (!isHeading && !isEmpty)
             {
