@@ -593,6 +593,28 @@ mod tests {
         }
     }
 
+    // プロパティを持つ項目とページは、ネイティブのシェルとの境界の形式（bincode）に書いて、同じ値に読み戻せる（ADR 024）。
+    #[test]
+    fn items_and_pages_with_properties_round_trip_through_the_native_border() {
+        use crux_core::bridge::{BincodeFfiFormat, FfiFormat};
+        let properties = BTreeMap::from([
+            ("zoom".to_string(), PropertyValue::Text("1.5".into())),
+            ("tags".to_string(), PropertyValue::List(vec!["x".into()])),
+        ]);
+        let item = Item {
+            properties: properties.clone(),
+            ..Default::default()
+        };
+        let page = Page {
+            properties,
+            ..Default::default()
+        };
+        let mut bytes = Vec::new();
+        BincodeFfiFormat::serialize(&mut bytes, &(&item, &page)).unwrap();
+        let back: (Item, Page) = BincodeFfiFormat::deserialize(&bytes).unwrap();
+        assert_eq!(back, (item, page));
+    }
+
     // ItemPosition は first・last・after:<id> の文字列を解析して同じ文字列に戻し、after は "after:x" という JSON 文字列にシリアライズされる。
     #[test]
     fn position_round_trips() {
