@@ -8,7 +8,9 @@ use crux_core::effects::{EffectRouter, ResolveSink, Routes};
 use crux_core::macros::effect;
 use crux_core::render::RenderOperation;
 use crux_core::{Core, Request};
-use peta_core::effects::{ApiOp, ApiOutput, ApiResult, NavigateOp, SseEvent, SseOp, UiOp};
+use peta_core::effects::{
+    ApiOp, ApiOutput, ApiResult, LocalDateTimeDto, NavigateOp, SseEvent, SseOp, UiOp,
+};
 use peta_core::rest::ClientId;
 use peta_core::{Effect, Event, PetaApp};
 use std::sync::{Arc, Weak};
@@ -21,6 +23,8 @@ pub type BorderError = BridgeError<BincodeFfiFormat>;
 pub trait Host: Send + Sync + 'static {
     /// Performs one operation on the journal server. It may take as long as the server does.
     fn call(&self, op: ApiOp) -> ApiResult<ApiOutput>;
+    /// The local date and time, and the milliseconds since 1970.
+    fn now(&self) -> (LocalDateTimeDto, u64);
     /// Reads the event stream of the server, and returns when it has ended.
     fn events(&self, send: &mut dyn FnMut(SseEvent));
 }

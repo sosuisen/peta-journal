@@ -1,6 +1,8 @@
 use crate::{Host, NativeShell, ShellEffectFfi};
 use crux_core::bridge::{BincodeFfiFormat, FfiFormat, Request};
-use peta_core::effects::{ApiError, ApiOp, ApiOutput, ApiResult, SseEvent, UiOp, UiOutput};
+use peta_core::effects::{
+    ApiError, ApiOp, ApiOutput, ApiResult, LocalDateTimeDto, SseEvent, UiOp, UiOutput,
+};
 use peta_core::model::{Page, PageWithItems};
 use peta_core::rest::ClientId;
 use peta_core::testing::plain_item;
@@ -36,6 +38,17 @@ impl Host for FakeHost {
             }
             _ => Err(ApiError("the fake server does not know this".into())),
         }
+    }
+
+    fn now(&self) -> (LocalDateTimeDto, u64) {
+        let local = LocalDateTimeDto {
+            year: 2026,
+            month: 11,
+            day: 6,
+            hour: 9,
+            minute: 30,
+        };
+        (local, 1_000)
     }
 
     fn events(&self, send: &mut dyn FnMut(SseEvent)) {
@@ -249,4 +262,19 @@ fn a_navigation_reaches_the_shell_as_bytes() {
     screen.send(&Event::NavigateHome);
 
     assert_eq!(screen.navigations(), ["/today"]);
+}
+
+// 今の時刻は、シェルに尋ねずにRust側で答える。名前のない新しいページは、その時刻から名前を得る。
+#[test]
+fn the_time_is_answered_without_the_shell() {
+    let screen = Screen::new();
+    let prompt = UiOp::Prompt("Page title:".into());
+    screen.send(&Event::CreateNewPage {
+        search_query: String::new(),
+    });
+
+    screen.answer(&prompt, &UiOutput::Text(Some(String::new())));
+
+    assert_eq!(screen.navigations(), ["/pages/Untitled-202611060930"]);
+    assert!(!screen.ui_ops().contains(&UiOp::LocalNow));
 }
