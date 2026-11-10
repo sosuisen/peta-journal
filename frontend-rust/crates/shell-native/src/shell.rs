@@ -83,15 +83,17 @@ impl NativeShell {
     ) -> NativeShell {
         let host = Arc::new(host);
         let router = EffectRouter::new(Core::<PetaApp>::new(), |lanes: Lanes| {
+            let send = {
+                let border = lanes.border.clone();
+                move |effect: ShellEffect| {
+                    let bytes = border.serialize(effect);
+                    to_shell(bytes.expect("a request is always written"));
+                }
+            };
             move |effect| match effect {
                 Effect::Api(request) => lanes.call(&host, request),
-                Effect::Render(request) => {
-                    let bytes = lanes
-                        .border
-                        .serialize(ShellEffect::Render(request))
-                        .expect("a request is always written");
-                    to_shell(bytes);
-                }
+                Effect::Render(request) => send(ShellEffect::Render(request)),
+                Effect::Ui(request) => send(ShellEffect::Ui(request)),
                 _ => {}
             }
         });
