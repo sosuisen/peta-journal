@@ -541,6 +541,21 @@ mod tests {
         }
     }
 
+    // プロパティ値は、ネイティブのシェルとの境界の形式（bincode）に書いて、同じ値に読み戻せる（ADR 024）。
+    #[test]
+    fn round_trips_through_the_format_of_the_native_border() {
+        use crux_core::bridge::{BincodeFfiFormat, FfiFormat};
+        for value in [
+            PropertyValue::Text("1.5".into()),
+            PropertyValue::List(vec!["x".into(), "y".into()]),
+        ] {
+            let mut bytes = Vec::new();
+            BincodeFfiFormat::serialize(&mut bytes, &value).unwrap();
+            let back: PropertyValue = BincodeFfiFormat::deserialize(&bytes).unwrap();
+            assert_eq!(back, value);
+        }
+    }
+
     // ItemPosition は first・last・after:<id> の文字列を解析して同じ文字列に戻し、after は "after:x" という JSON 文字列にシリアライズされる。
     #[test]
     fn position_round_trips() {
