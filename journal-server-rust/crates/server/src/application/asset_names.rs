@@ -1,14 +1,16 @@
 //! Moves the files of `assets/` that were saved under another name to a name made of an ID,
 //! and the links to them. Run by hand, once, with the server stopped. See ADR-022.
 
+use std::collections::HashMap;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
 
-use crate::domain::asset_name::{is_saved_name, saved_name};
+use crate::domain::asset_name::{is_saved_name, relink, saved_name};
 use crate::domain::id_generator::IdGenerator;
+use crate::infrastructure::persistence::ItemRepository;
 use crate::state::AppState;
 
 /// One file of `assets/` and the name it moves to.
@@ -46,16 +48,36 @@ pub fn plan(assets_dir: &Path) -> std::io::Result<Vec<Rename>> {
         .collect())
 }
 
-/// Moves the files to their new names.
+/// Moves the files to their new names, and points the links of the items to them.
 pub fn apply(state: &AppState, renames: &[Rename]) -> anyhow::Result<()> {
     let assets_dir = state
         .export
         .markdown_root()
         .context("The markdown folder is not set or not there")?
         .join("assets");
+    relink_items(state, renames)?;
     for rename in renames {
         std::fs::rename(assets_dir.join(&rename.from), assets_dir.join(&rename.to))?;
     }
+    Ok(())
+}
+
+/// Points the links of the items to the new names, all of them or none.
+fn relink_items(state: &AppState, renames: &[Rename]) -> anyhow::Result<()> {
+    let new_names: HashMap<String, String> = renames
+        .iter()
+        .map(|rename| (rename.from.clone(), rename.to.clone()))
+        .collect();
+    let mut conn = state.db.conn()?;
+    let tx = conn.immediate()?;
+    for item in state.items.find_by_body_containing_asset_path()? {
+        let body = relink(&item.body, &new_names);
+        if body != item.body {
+            let ast = state.parser.parse_to_ast(&body);
+            ItemRepository::rewrite_body_in(&tx, &item.id, &body, &ast)?;
+        }
+    }
+    tx.commit()?;
     Ok(())
 }
 

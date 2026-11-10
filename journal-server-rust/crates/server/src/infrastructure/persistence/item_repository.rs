@@ -150,6 +150,14 @@ impl ItemRepository {
         )
     }
 
+    /// The items whose body has the path of a file in `assets/`. The caller checks the links.
+    pub fn find_by_body_containing_asset_path(&self) -> AppResult<Vec<Item>> {
+        self.query_items(
+            &format!("{SELECT_ITEMS}WHERE b.body LIKE '%../assets/%'"),
+            &[],
+        )
+    }
+
     /// The items of the given types, newest first. With `without_property`, the items that
     /// have a value for that property are left out: the tasks that are not done are the tasks
     /// without `end`. They are left out here and not by the caller, because most tasks are done.
@@ -248,6 +256,17 @@ impl ItemRepository {
             patch_types(tx, id, patch)?;
         }
         Ok(found)
+    }
+
+    /// Writes a body that says the same as the one before, as when a file it links to got a
+    /// new name. Why not `patch_in`: the item was not edited, so its modified date stays, and
+    /// so do its types.
+    pub fn rewrite_body_in(tx: &Connection, id: &Hmtid, body: &str, ast: &str) -> AppResult<()> {
+        tx.execute(
+            "UPDATE items SET body = ?, ast = ? WHERE id = ?",
+            params![body, ast, id.as_str()],
+        )?;
+        Ok(())
     }
 
     /// Adds delta to the level of every given item, on the given connection, as part of a
