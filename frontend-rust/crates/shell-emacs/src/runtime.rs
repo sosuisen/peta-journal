@@ -8,7 +8,7 @@ use chrono::{Datelike, Local, Timelike};
 use peta_core::effects::{ApiOp, LocalDateTimeDto, SseEvent};
 use peta_core::rest::{ClientId, HttpReply, HttpRequest};
 use std::io::{BufRead, Write};
-use std::sync::mpsc::{channel, RecvTimeoutError, Sender};
+use std::sync::mpsc::{channel, Sender};
 use std::thread;
 use std::time::{Duration, Instant};
 use ureq::Agent;
@@ -51,12 +51,17 @@ impl Http for UreqHttp {
     fn send(&self, request: &HttpRequest) -> Result<HttpReply, String> {
         let url = format!("{}{}", self.server, request.path);
         let me = (ClientId::HEADER, self.client_id.as_str());
-        let result = match (request.method, &request.body) {
-            ("POST", Some(body)) => self.agent.post(&url).header(me.0, me.1).send_json(body),
-            ("POST", None) => self.agent.post(&url).header(me.0, me.1).send_empty(),
-            ("PUT", Some(body)) => self.agent.put(&url).header(me.0, me.1).send_json(body),
-            ("PUT", None) => self.agent.put(&url).header(me.0, me.1).send_empty(),
-            ("DELETE", _) => self.agent.delete(&url).header(me.0, me.1).call(),
+        let with_body = |to: ureq::RequestBuilder<ureq::typestate::WithBody>| {
+            let to = to.header(me.0, me.1);
+            match &request.body {
+                Some(body) => to.send_json(body),
+                None => to.send_empty(),
+            }
+        };
+        let result = match request.method {
+            "POST" => with_body(self.agent.post(&url)),
+            "PUT" => with_body(self.agent.put(&url)),
+            "DELETE" => self.agent.delete(&url).header(me.0, me.1).call(),
             _ => self.agent.get(&url).call(),
         };
         read_reply(result)
@@ -93,7 +98,7 @@ fn read_reply(
 }
 
 /// The form with one field, `file`, as the server's asset upload reads it.
-fn multipart_body(file_name: &str, bytes: &[u8]) -> Vec<u8> {
+pub fn multipart_body(file_name: &str, bytes: &[u8]) -> Vec<u8> {
     // These would end the header early. The server replaces them in the saved name anyway
     let file_name = file_name.replace(['"', '\r', '\n'], "_");
     let mut body = format!(
@@ -177,15 +182,14 @@ fn read_events(http: &UreqHttp, stream: u64, to_main: &Sender<Message>) {
         let _ = to_main.send(Message::Input(Input::Sse { stream, event }));
     };
     let url = format!("{}/api/events", http.server);
-    let response = http.agent.get(&url).call();
-    let Ok(mut response) = response else {
-        send(SseEvent::Error);
-        return;
+    let mut response = match http.agent.get(&url).call() {
+        Ok(response) if response.status().is_success() => response,
+        // No server there, or a server without an event stream
+        _ => {
+            send(SseEvent::Error);
+            return;
+        }
     };
-    if !response.status().is_success() {
-        send(SseEvent::Error);
-        return;
-    }
     send(SseEvent::Open);
     let reader =
         std::io::BufReader::new(response.body_mut().with_config().limit(u64::MAX).reader());
@@ -245,10 +249,11 @@ pub fn run(server: String) {
         let left = deadline.saturating_duration_since(Instant::now());
         match from_threads.recv_timeout(left) {
             Ok(Message::Input(input)) => shell.handle(input),
-            Ok(Message::EmacsClosed) => {}
-            Err(RecvTimeoutError::Timeout | RecvTimeoutError::Disconnected) => break,
+            // Emacs has closed already, so this is the end of the time or of the threads
+            Ok(Message::EmacsClosed) | Err(_) => break,
         }
     }
-    // Not by returning: dropping the core with commands still waiting panics in their destructors
-    std::process::exit(0);
+    // Never dropped: dropping the core with commands still waiting panics in their destructors.
+    // Why not `process::exit`: on Windows it skips what writes the coverage of this run
+    std::mem::forget(shell);
 }
