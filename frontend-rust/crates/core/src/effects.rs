@@ -674,8 +674,10 @@ impl<Event: Send + 'static> Api<Event> {
         )
     }
 
-    pub async fn delete_items(&self, item_ids: Vec<String>) -> ApiResult<()> {
-        self.call(ApiOp::DeleteItems { item_ids }).await.map(|_| ())
+    /// Deletes items as one group. The server keeps every page non-empty: the answer is
+    /// the empty items it made on the pages the deletion left without an item.
+    pub async fn delete_items(&self, item_ids: Vec<String>) -> ApiResult<Vec<Item>> {
+        expect_output!(self.call(ApiOp::DeleteItems { item_ids }).await, Items)
     }
 
     pub async fn merge_items(

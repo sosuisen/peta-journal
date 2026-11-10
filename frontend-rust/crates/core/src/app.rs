@@ -257,6 +257,12 @@ pub enum Event {
         /// The label of the undo entry: "move", "move-selection" or "outdent".
         label: &'static str,
     },
+    /// The server deleted the selected items: the screen shows it now.
+    SelectionDeleted {
+        item_ids: Vec<String>,
+        /// The empty items the server made on the pages the deletion left without an item.
+        created: Vec<Item>,
+    },
     /// The server moved an item to the journal of another day: the journal follows it or
     /// reads itself again.
     MovedToDay {
@@ -908,6 +914,9 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             edited,
             label,
         } => ops::moves::show_moved(model, moved, &position, edited, label),
+        SelectionDeleted { item_ids, created } => {
+            ops::action::show_deleted(model, &item_ids, created)
+        }
         MovedToDay { moved } => ops::moves::show_moved_to_day(model, moved),
         MovedInTransclusion { item_id } => ops::moves::show_moved_in_transclusion(model, item_id),
         MovePageReloaded { item_id } => ops::moves::focus_moved(model, item_id),
