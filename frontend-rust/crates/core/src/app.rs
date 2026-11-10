@@ -456,6 +456,15 @@ pub enum Event {
         title: String,
         loaded: Box<PageWithItems>,
     },
+    /// The server answered the journal before one that is shown; the load goes on until
+    /// the outline holds `target_item_count` items.
+    OlderJournalLoaded {
+        weekly: bool,
+        target_item_count: usize,
+        name: String,
+        items: Vec<Item>,
+        transcluded_trees: Option<TranscludedTrees>,
+    },
     /// The load of the older journals that fill the outline ended.
     PreviousJournalsLoaded,
     /// The wait for the day an item moved to ended: the item is edited there.
@@ -1263,7 +1272,23 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             date,
             title,
             loaded,
-        } => screens::journal::show_journal(model, date, title, *loaded),
+        } => screens::journal::journal_loaded(model, date, title, *loaded),
+        OlderJournalLoaded {
+            weekly,
+            target_item_count,
+            name,
+            items,
+            transcluded_trees,
+        } => screens::journal::show_older_journal(
+            model,
+            weekly,
+            target_item_count,
+            screens::journal::OlderJournal {
+                name,
+                items,
+                transcluded_trees,
+            },
+        ),
         PreviousJournalsLoaded => screens::journal::previous_journals_loaded(model),
         MovedItemShown { item_id } => screens::journal::edit_moved_item(model, &item_id),
         PageRedirected { path } => screens::navigate::replace_page(&path),

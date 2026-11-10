@@ -2,8 +2,7 @@
 //! followed by the older ones as the user scrolls, and moving between days.
 
 use crate::app::{done, log_error, run, Cmd, Event, JournalNav, JournalState, Model, Screen};
-use crate::effects::Api;
-use crate::model::PageWithItems;
+use crate::model::{Item, PageWithItems, TranscludedTrees};
 use crate::ops::edit::focus_editor;
 use crate::ops::moves::CrossDayMove;
 use crate::screens::{navigate, page, sidebar};
@@ -64,22 +63,16 @@ pub fn load_journal(model: &mut Model, date: String) -> Cmd {
             format_journal_date(&date)
         };
         api.send_event(Event::JournalLoaded {
-            date: date.clone(),
+            date,
             title,
             loaded: Box::new(result),
         });
-        match classify_journal_file_name(&date) {
-            JournalType::Daily | JournalType::Weekly => {
-                load_previous_journals(&api, date, BUFFER_ITEMS).await
-            }
-            _ => {}
-        }
     })
 }
 
-/// The server answered the journal of a date: the screen shows it under the title. An
-/// answer for a date the user has moved on from is not shown.
-pub fn show_journal(model: &mut Model, date: String, title: String, loaded: PageWithItems) -> Cmd {
+/// Shows the journal of a date under the title. An answer for a date the user has moved on
+/// from is not shown.
+fn show_journal(model: &mut Model, date: String, title: String, loaded: PageWithItems) -> Cmd {
     let Some(j) = journal_mut(model) else {
         return done();
     };
@@ -106,57 +99,94 @@ pub fn show_journal(model: &mut Model, date: String, title: String, loaded: Page
     Command::all(cmds)
 }
 
+/// The server answered the journal of a date: the screen shows it, and a daily or weekly
+/// journal goes on to the older ones that fill the buffer.
+pub fn journal_loaded(
+    model: &mut Model,
+    date: String,
+    title: String,
+    loaded: PageWithItems,
+) -> Cmd {
+    let older = matches!(
+        classify_journal_file_name(&date),
+        JournalType::Daily | JournalType::Weekly
+    );
+    let shown = show_journal(model, date.clone(), title, loaded);
+    if !older {
+        return shown;
+    }
+    Command::all([shown, load_previous_journals(model, date, BUFFER_ITEMS)])
+}
+
 /// Appends older journals, one page at a time, until the outline holds at least
 /// `target_item_count` items or there is no older journal. Only one load runs at a time.
-async fn load_previous_journals(api: &Api<Event>, from_name: String, target_item_count: usize) {
-    let started = crate::ops::edit::read(api, |m| match journal_mut(m) {
+fn load_previous_journals(model: &mut Model, from_name: String, target_item_count: usize) -> Cmd {
+    let weekly = match journal_mut(model) {
         Some(j) if !j.loading => {
             j.loading = true;
-            Some(j.journal_type == Some(JournalType::Weekly))
+            j.journal_type == Some(JournalType::Weekly)
         }
-        _ => None,
-    })
-    .await;
-    let Some(weekly) = started else { return };
-    let mut name = from_name;
-    loop {
-        let count = crate::ops::edit::read(api, |m| m.state.items().len()).await;
-        if count >= target_item_count {
-            break;
-        }
-        let result = match api.journal_before(&name, weekly).await {
-            Ok(r) => r,
+        _ => return done(),
+    };
+    load_journal_before(model, from_name, weekly, target_item_count)
+}
+
+/// Asks the server for the journal before `name`, unless the outline holds enough items.
+/// Each answer comes back as [`Event::OlderJournalLoaded`], which asks for the next one.
+fn load_journal_before(
+    model: &mut Model,
+    name: String,
+    weekly: bool,
+    target_item_count: usize,
+) -> Cmd {
+    if model.state.items().len() >= target_item_count {
+        return previous_journals_loaded(model);
+    }
+    run(move |api| async move {
+        match api.journal_before(&name, weekly).await {
+            Ok(older) => match older.page.filter(|_| older.found) {
+                Some(page) => api.send_event(Event::OlderJournalLoaded {
+                    weekly,
+                    target_item_count,
+                    name: page.name,
+                    items: older.items,
+                    transcluded_trees: older.transcluded_trees,
+                }),
+                None => api.send_event(Event::PreviousJournalsLoaded),
+            },
             Err(e) => {
                 log_error(format!("Failed to load previous journals: {e}"));
-                break;
+                api.send_event(Event::PreviousJournalsLoaded);
             }
-        };
-        let Some(page) = result.page.filter(|_| result.found) else {
-            break;
-        };
-        name = page.name.clone();
-        let items = result.items;
-        let trees = result.transcluded_trees;
-        let n = name.clone();
-        let appended = crate::ops::edit::read(api, move |m| {
-            let Some(j) = journal_mut(m) else {
-                return false;
-            };
-            if !j.loaded_dates.insert(n) {
-                return false;
-            }
-            let mut all: Vec<_> = m.state.items().to_vec();
-            all.extend(items.into_iter().map(std::sync::Arc::new));
-            m.state.set_item_refs(all);
-            if let Some(trees) = trees {
-                m.state.merge_transcluded_trees(trees);
-            }
-            true
-        })
-        .await;
-        let _ = appended;
+        }
+    })
+}
+
+/// The server answered an older journal: its items go to the end of the outline, unless
+/// the journal is there already. Then the one before it is asked for.
+pub fn show_older_journal(
+    model: &mut Model,
+    weekly: bool,
+    target_item_count: usize,
+    older: OlderJournal,
+) -> Cmd {
+    let is_new = journal_mut(model).is_some_and(|j| j.loaded_dates.insert(older.name.clone()));
+    if is_new {
+        let mut all: Vec<_> = model.state.items().to_vec();
+        all.extend(older.items.into_iter().map(std::sync::Arc::new));
+        model.state.set_item_refs(all);
+        if let Some(trees) = older.transcluded_trees {
+            model.state.merge_transcluded_trees(trees);
+        }
     }
-    api.send_event(Event::PreviousJournalsLoaded);
+    load_journal_before(model, older.name, weekly, target_item_count)
+}
+
+/// An older journal the server answered: its name, its items and the trees they transclude.
+pub struct OlderJournal {
+    pub name: String,
+    pub items: Vec<Item>,
+    pub transcluded_trees: Option<TranscludedTrees>,
 }
 
 /// The load of the older journals ended: the next one may start.
@@ -201,9 +231,7 @@ pub fn outline_scrolled(
         let journal_name = extract_journal_name(&last_name, weekly);
         if let Some(journal_name) = journal_name {
             let target = rendered_start + BUFFER_ITEMS;
-            return run(move |api| async move {
-                load_previous_journals(&api, journal_name, target).await
-            });
+            return load_previous_journals(model, journal_name, target);
         }
     }
     done()
