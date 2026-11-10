@@ -13,6 +13,12 @@ serde = { workspace = true }
 chrono = "0.4.45"
 
 [features]
-# `#[effect(typegen)]` asks for this name. Nothing turns it on yet: the types of the shells are
-# not generated so far
-typegen = []
+# Describes the types that cross the border, to generate the types of the shells from them.
+# `#[effect(facet_typegen)]` asks for this name
+facet_typegen = ["crux_core/facet_typegen"]
+
+# Writes the Swift types of the border: `cargo run -p peta-shell-native --features facet_typegen
+# --bin codegen -- <folder>`
+[[bin]]
+name = "codegen"
+required-features = ["facet_typegen"]

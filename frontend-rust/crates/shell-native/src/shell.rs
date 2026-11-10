@@ -34,7 +34,7 @@ pub trait Host: Send + Sync + 'static {
 }
 
 /// The effects the shell performs. They cross as bytes.
-#[effect(typegen)]
+#[effect(facet_typegen)]
 pub enum ShellEffect {
     Render(RenderOperation),
     Ui(UiOp),
