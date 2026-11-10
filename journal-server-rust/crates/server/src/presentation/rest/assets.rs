@@ -90,7 +90,7 @@ async fn upload(State(state): State<SharedState>, mut multipart: Multipart) -> R
 
 /// The name an upload is saved under: the ID and the extension of the name it came with.
 /// Why not that name itself: names collide, and the characters of many names cannot stay in
-/// a file name that is also part of a URL. The link in the body keeps the name. See ADR-020.
+/// a file name that is also part of a URL. The link in the body keeps the name. See ADR-022.
 fn saved_name(id: &Hmtid, original_name: &str) -> String {
     match plain_extension(original_name) {
         Some(extension) => format!("{id}.{extension}"),

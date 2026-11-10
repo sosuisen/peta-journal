@@ -33,7 +33,7 @@ impl IdGenerator {
     }
 
     /// The ID an uploaded file is saved under. It is written without `-` between the parts
-    /// of the time, to keep the file name short. See ADR-020.
+    /// of the time, to keep the file name short. See ADR-022.
     pub fn generate_asset_id(&self) -> Hmtid {
         self.assets.generate()
     }

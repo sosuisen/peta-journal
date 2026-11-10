@@ -298,7 +298,7 @@ pub enum PasteMode {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Uploaded {
-    /// The name of the file on the server. The server makes it up. See ADR-020.
+    /// The name of the file on the server. The server makes it up. See ADR-022.
     pub file_name: String,
     /// The name the file came with.
     pub original_name: String,

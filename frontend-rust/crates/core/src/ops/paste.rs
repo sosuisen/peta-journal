@@ -180,7 +180,7 @@ pub fn paste_image(item_id: &str, file: u64, cursor: usize) -> Cmd {
 /// while the image was on its way is kept.
 ///
 /// The link shows the name the file came with, and points to the name the server saved it
-/// under. See ADR-020.
+/// under. See ADR-022.
 pub fn link_image(model: &mut Model, item_id: &str, image: &Uploaded, cursor: usize) -> Cmd {
     let markdown = format!(
         "![{}](../assets/{})",
