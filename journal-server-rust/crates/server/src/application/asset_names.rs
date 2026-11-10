@@ -22,7 +22,11 @@ pub fn plan(assets_dir: &Path) -> std::io::Result<Vec<Rename>> {
     for entry in std::fs::read_dir(assets_dir)? {
         let entry = entry?;
         let name = entry.file_name().to_string_lossy().into_owned();
-        files.push((millis(entry.metadata()?.modified()?), name));
+        let data = entry.metadata()?;
+        // A copied file was made at the time of the copy and keeps its modified time; a file
+        // changed later keeps the time it was made. The older one is when it was first saved
+        let saved = data.modified()?.min(data.created()?);
+        files.push((millis(saved), name));
     }
     // Oldest first, because the generator gives an older time the time of the one before
     files.sort();
