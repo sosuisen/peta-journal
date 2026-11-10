@@ -11,4 +11,13 @@ describe('link options', () => {
       'http://journal.test:9000/pages/',
     );
   });
+
+  // ハッシュタグは、タグのフォルダにあるページへ行く。
+  test('a hashtag leads to a page in the folder of the tag pages', () => {
+    const options = linkOptions('http://journal.test:9000', 'tags/');
+
+    expect(options.hashtag?.hrefPrefix).toBe(
+      'http://journal.test:9000/pages/tags/',
+    );
+  });
 });
