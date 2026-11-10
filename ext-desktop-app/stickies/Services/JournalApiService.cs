@@ -36,6 +36,9 @@ public class JournalApiService : IDisposable
 
     public bool IsConnected => _isConnected;
 
+    /// <summary>The address of the journal server, without a slash at the end.</summary>
+    public string BaseUrl => _baseUrl;
+
     public async Task ConnectAsync()
     {
         _intentionalDisconnect = false;
@@ -177,6 +180,15 @@ public class JournalApiService : IDisposable
         var url = $"/api/pages/{pageId}?fields={ItemModel.Fields}";
         var response = await _http.GetFromJsonAsync<GetPageByIdResponse>(url, JsonOptions);
         return response;
+    }
+
+    /// <summary>
+    /// The folder of the tag pages. It is empty for the pages root and ends with a slash otherwise.
+    /// </summary>
+    public async Task<string> GetTagsDirAsync()
+    {
+        var config = await _http.GetFromJsonAsync<ConfigResponse>("/api/config", JsonOptions);
+        return config?.TagsDir ?? "";
     }
 
     public void Dispose()
