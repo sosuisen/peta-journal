@@ -74,7 +74,7 @@ pub fn FmRoot(
     #[prop(optional)]
     options: RenderOptions,
 ) -> impl IntoView {
-    flatmarkdown_ast::parse(&ast)
+    flatmarkdown_ast::Node::from_json(&ast)
         .ok()
         .map(|root| render_node(&root, &options))
 }
