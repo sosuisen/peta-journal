@@ -27,6 +27,27 @@ private final class Asked: @unchecked Sendable {
             return nil
         }
     }
+
+    /// The navigations, once there is one. A request does not always come before the call that
+    /// caused it returns: the core starts by asking the server from threads of its own, and
+    /// when one of them is at work in the core, it is that thread that hands the request over.
+    func navigationsOnceAny() -> [String] {
+        _ = firstOnceThere { request in
+            if case .navigate = request.effect { return true }
+            return false
+        }
+        return navigations
+    }
+
+    /// The first request of a kind, once it is there.
+    func firstOnceThere(_ isOfTheKind: (Request) -> Bool) -> Request? {
+        let deadline = Date().addingTimeInterval(5)
+        while true {
+            if let found = all.first(where: isOfTheKind) { return found }
+            if Date() > deadline { return nil }
+            Thread.sleep(forTimeInterval: 0.005)
+        }
+    }
 }
 
 final class BorderTests: XCTestCase {
@@ -53,7 +74,7 @@ final class BorderTests: XCTestCase {
 
         try border.send(.navigateHome)
 
-        XCTAssertEqual(asked.navigations, ["/today"])
+        XCTAssertEqual(asked.navigationsOnceAny(), ["/today"])
     }
 
     // Swiftが書いた答えを、Rustが読める。新しいページの名前を答えると、そのページへ移る依頼が来る。
@@ -62,14 +83,14 @@ final class BorderTests: XCTestCase {
         let border = border(asked)
         try border.send(.createNewPage(searchQuery: ""))
         let prompt = try XCTUnwrap(
-            asked.all.first { request in
+            asked.firstOnceThere { request in
                 if case .ui(.prompt) = request.effect { return true }
                 return false
             })
 
         try border.answer(prompt.id, with: .text("Notes"))
 
-        XCTAssertEqual(asked.navigations, ["/pages/Notes"])
+        XCTAssertEqual(asked.navigationsOnceAny(), ["/pages/Notes"])
     }
 
     // 項目の行き先を持つイベントを、Rustが読める。行き先は、Rustでは手で書いたシリアライズを持つ型である。

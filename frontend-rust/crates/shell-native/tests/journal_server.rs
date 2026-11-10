@@ -94,12 +94,19 @@ fn a_new_page_without_a_name_is_named_after_the_clock() {
     screen.send(&Event::CreateNewPage {
         search_query: String::new(),
     });
+    // The request may come after `send` returns, from another thread that is at work in the core
+    wait_until("the shell is asked for a title", || {
+        screen.asked(&prompt).is_some()
+    });
     let id = screen.asked(&prompt).unwrap();
     let mut answer = Vec::new();
     BincodeFfiFormat::serialize(&mut answer, &UiOutput::Text(Some(String::new()))).unwrap();
 
     screen.shell.resolve(id, &answer).unwrap();
 
+    wait_until("the shell is asked to go to the new page", || {
+        !screen.navigations().is_empty()
+    });
     let url = screen.navigations().pop().unwrap();
     let digits = url.strip_prefix("/pages/Untitled-20").unwrap();
     assert_eq!(digits.len(), 10, "{url}");
