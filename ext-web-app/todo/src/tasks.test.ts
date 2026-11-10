@@ -15,18 +15,10 @@ import {
 function item(overrides: Partial<Item> = {}): Item {
   return {
     id: 'item-1',
-    pageId: 'page-1',
+    type: 'doc',
     dirPath: '',
     name: 'Notes',
-    type: 'doc',
-    createdDate: 0,
-    modifiedDate: 0,
-    idx: 'a0',
-    level: 1,
-    body: 'a task',
     ast: '{}',
-    collapsed: false,
-    types: ['task'],
     properties: {},
     ...overrides,
   };

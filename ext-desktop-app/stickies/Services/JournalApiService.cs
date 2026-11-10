@@ -174,7 +174,8 @@ public class JournalApiService : IDisposable
 
     public async Task<GetPageByIdResponse?> GetPageByIdAsync(string pageId)
     {
-        var response = await _http.GetFromJsonAsync<GetPageByIdResponse>($"/api/pages/{pageId}", JsonOptions);
+        var url = $"/api/pages/{pageId}?fields={ItemModel.Fields}";
+        var response = await _http.GetFromJsonAsync<GetPageByIdResponse>(url, JsonOptions);
         return response;
     }
 

@@ -185,6 +185,13 @@ describe('the requests to the journal server', () => {
   const answer = (body: string, status = 200) =>
     fetchMock.mockResolvedValue(new Response(body, { status }));
 
+  /** The query of the request the app sent last, without the fields it asks for. */
+  const lastQuery = () => {
+    const url = new URL(fetchMock.mock.lastCall?.[0] as string);
+    url.searchParams.delete('fields');
+    return `${url.pathname}${url.search}`;
+  };
+
   beforeEach(() => {
     fetchMock.mockReset();
     vi.stubGlobal('fetch', fetchMock);
@@ -197,10 +204,7 @@ describe('the requests to the journal server', () => {
     const items = await getTasks(false);
 
     expect(items).toEqual([{ id: 'item-1' }]);
-    expect(fetchMock).toHaveBeenCalledWith(
-      'http://journal.test:9000/api/items?types=task&withoutProperty=end',
-      undefined,
-    );
+    expect(lastQuery()).toBe('/api/items?types=task&withoutProperty=end');
   });
 
   // 終わったタスクも見せるときは、すべてのタスクを取る。
@@ -209,9 +213,18 @@ describe('the requests to the journal server', () => {
 
     await getTasks(true);
 
-    expect(fetchMock).toHaveBeenCalledWith(
-      'http://journal.test:9000/api/items?types=task',
-      undefined,
+    expect(lastQuery()).toBe('/api/items?types=task');
+  });
+
+  // タスクは、表示に使うフィールドだけを頼む。本文のMarkdownは受け取らない。
+  test('ask only for the fields of a task that the app shows', async () => {
+    answer('{"items":[]}');
+
+    await getTasks(true);
+
+    const url = new URL(fetchMock.mock.lastCall?.[0] as string);
+    expect(url.searchParams.get('fields')).toBe(
+      'id,type,dirPath,name,ast,properties',
     );
   });
 

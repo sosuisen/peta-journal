@@ -251,6 +251,18 @@ async fn the_body_is_parsed_into_an_ast_and_types() {
         .contains("\"heading\""));
 }
 
+// 1件の取得は、fieldsで頼まれたフィールドだけを返す。このときは、itemの包みがない。
+#[tokio::test]
+async fn one_item_is_read_with_only_the_fields_asked_for_and_without_a_wrapper() {
+    let page = new_doc_page("items-get-fields").await;
+    let item = fill(&page.id, &["top", "  narrow"]).await.remove(1);
+
+    let (status, resp) = get(&format!("/api/items/{}?fields=body,level", item.id)).await;
+
+    assert_eq!(status, 200);
+    assert_eq!(resp, json!({ "body": "narrow", "level": 2 }));
+}
+
 // レベルと折りたたみ状態が保存される。
 #[tokio::test]
 async fn level_and_collapsed_state_are_saved() {
@@ -771,6 +783,28 @@ async fn items_listed_by_type_can_leave_out_those_with_a_list_property() {
     let ids: Vec<Value> = field_of_each(&resp, "items", "id");
     assert!(ids.contains(&json!(plain.id)));
     assert!(!ids.contains(&json!(listed.id)));
+}
+
+// 型での一覧は、fieldsで頼まれたフィールドだけを各項目に持つ。表示だけのクライアントは、本文のMarkdownを受け取らずに済む。
+#[tokio::test]
+async fn items_listed_by_type_have_only_the_fields_asked_for() {
+    let page = new_doc_page("items-task-list-fields").await;
+    let item = fill(&page.id, &["narrow task"]).await.remove(0);
+    let cycle = format!("/api/items/{}/cycle-task", item.id);
+    let (_, task) = post_empty(&cycle).await;
+
+    let (status, resp) = get("/api/items?types=task&fields=id,ast").await;
+    assert_eq!(status, 200);
+
+    let listed = resp["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|listed| listed["id"] == json!(item.id));
+    assert_eq!(
+        listed,
+        Some(&json!({ "id": item.id, "ast": task["item"]["ast"] }))
+    );
 }
 
 // ---- Items: transclusion ----
@@ -2798,6 +2832,37 @@ async fn get_page_returns_the_page_with_its_items_in_order() {
     assert_eq!(
         field_of_each(&resp, "items", "level"),
         vec![json!(1), json!(2), json!(1)]
+    );
+}
+
+// ページの取得は、fieldsで頼まれたフィールドだけを各項目に持つ。トランスクルードの木の項目も同じである。ページの情報はそのまま返る。
+#[tokio::test]
+async fn get_page_returns_its_items_with_only_the_fields_asked_for() {
+    let source_page = new_doc_page("pages-get-fields-source").await;
+    let source = fill(&source_page.id, &["source"]).await.remove(0);
+    let page = new_doc_page("pages-get-fields").await;
+    let rows = fill(&page.id, &["one", "  host"]).await;
+    let (status, resp) = post(
+        &format!("/api/items/{}/transclude", rows[1].id),
+        json!({ "sourceItemId": source.id }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    let (status, resp) = get(&format!("/api/pages/{}?fields=id,level", page.id)).await;
+    assert_eq!(status, 200);
+
+    assert_eq!(resp["page"]["name"], json!(page.title));
+    assert_eq!(
+        resp["items"],
+        json!([
+            { "id": rows[0].id, "level": 1 },
+            { "id": rows[1].id, "level": 2 },
+        ])
+    );
+    assert_eq!(
+        resp["transcludedTrees"],
+        json!({ source.id.as_str(): [{ "id": source.id, "level": 1 }] })
     );
 }
 
