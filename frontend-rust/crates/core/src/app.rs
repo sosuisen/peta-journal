@@ -385,6 +385,18 @@ pub enum Event {
         file_name: String,
     },
     DemoteIndex,
+    /// The server answered the journal of `date`; `title` is the title of the window for it.
+    JournalLoaded {
+        date: String,
+        title: String,
+        loaded: Box<PageWithItems>,
+    },
+    /// The load of the older journals that fill the outline ended.
+    PreviousJournalsLoaded,
+    /// The wait for the day an item moved to ended: the item is edited there.
+    MovedItemShown {
+        item_id: String,
+    },
     /// The server knows the opened page under another path, e.g. a folder as its index page.
     PageRedirected {
         path: String,
@@ -1150,6 +1162,13 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         } => screens::page::save_title(model, dir_path, file_name),
         DemoteIndex => screens::page::demote_index(model),
         Demoted { path } => screens::page::show_demoted(&path),
+        JournalLoaded {
+            date,
+            title,
+            loaded,
+        } => screens::journal::show_journal(model, date, title, *loaded),
+        PreviousJournalsLoaded => screens::journal::previous_journals_loaded(model),
+        MovedItemShown { item_id } => screens::journal::edit_moved_item(model, &item_id),
         PageRedirected { path } => screens::navigate::replace_page(&path),
         PageLoaded { page, created } => screens::page::show_page(model, page, created),
         CanDemoteLoaded { can_demote } => screens::page::show_can_demote(model, can_demote),

@@ -1,10 +1,9 @@
 //! The journal screen, ported from `journal.ts`: the page of a day (or week, month, year)
 //! followed by the older ones as the user scrolls, and moving between days.
 
-use crate::app::{
-    apply, done, log_error, run, Cmd, Event, JournalNav, JournalState, Model, Screen,
-};
+use crate::app::{done, log_error, run, Cmd, Event, JournalNav, JournalState, Model, Screen};
 use crate::effects::Api;
+use crate::model::PageWithItems;
 use crate::ops::edit::focus_editor;
 use crate::ops::moves::CrossDayMove;
 use crate::screens::{navigate, page, sidebar};
@@ -59,41 +58,16 @@ pub fn load_journal(model: &mut Model, date: String) -> Cmd {
             Ok(r) => r,
             Err(e) => return log_error(format!("Failed to load journal {date}: {e}")),
         };
-        let created = result.created;
-        let page = result.page.clone();
-        let d = date.clone();
-        apply(&api, "journal loaded", move |m| {
-            let Some(j) = journal_mut(m) else {
-                return done();
-            };
-            if j.current_date != d {
-                return done(); // the user moved on
-            }
-            j.page = Some(result.page.clone());
-            j.top_visible_date = d.clone();
-            j.loaded_dates.clear();
-            j.loaded_dates.insert(d.clone());
-            let focus_item_id = j.focus_item_id.clone();
-            m.state.set_items(result.items);
-            if let Some(trees) = result.transcluded_trees {
-                m.state.set_transcluded_trees(trees);
-            }
-            let title = if d == today {
-                "Today".to_string()
-            } else {
-                format_journal_date(&d)
-            };
-            let mut cmds = vec![
-                navigate::set_title(title),
-                sidebar::set_current_page(m, Some(result.page.clone())),
-                page::scroll_to_item(m, focus_item_id),
-            ];
-            if created {
-                cmds.push(sidebar::refresh_recent_pages());
-            }
-            Command::all(cmds)
+        let title = if date == today {
+            "Today".to_string()
+        } else {
+            format_journal_date(&date)
+        };
+        api.send_event(Event::JournalLoaded {
+            date: date.clone(),
+            title,
+            loaded: Box::new(result),
         });
-        let _ = page;
         match classify_journal_file_name(&date) {
             JournalType::Daily | JournalType::Weekly => {
                 load_previous_journals(&api, date, BUFFER_ITEMS).await
@@ -101,6 +75,35 @@ pub fn load_journal(model: &mut Model, date: String) -> Cmd {
             _ => {}
         }
     })
+}
+
+/// The server answered the journal of a date: the screen shows it under the title. An
+/// answer for a date the user has moved on from is not shown.
+pub fn show_journal(model: &mut Model, date: String, title: String, loaded: PageWithItems) -> Cmd {
+    let Some(j) = journal_mut(model) else {
+        return done();
+    };
+    if j.current_date != date {
+        return done();
+    }
+    j.page = Some(loaded.page.clone());
+    j.top_visible_date = date.clone();
+    j.loaded_dates.clear();
+    j.loaded_dates.insert(date);
+    let focus_item_id = j.focus_item_id.clone();
+    model.state.set_items(loaded.items);
+    if let Some(trees) = loaded.transcluded_trees {
+        model.state.set_transcluded_trees(trees);
+    }
+    let mut cmds = vec![
+        navigate::set_title(title),
+        sidebar::set_current_page(model, Some(loaded.page)),
+        page::scroll_to_item(model, focus_item_id),
+    ];
+    if loaded.created {
+        cmds.push(sidebar::refresh_recent_pages());
+    }
+    Command::all(cmds)
 }
 
 /// Appends older journals, one page at a time, until the outline holds at least
@@ -153,12 +156,15 @@ async fn load_previous_journals(api: &Api<Event>, from_name: String, target_item
         .await;
         let _ = appended;
     }
-    apply(api, "previous journals: done", |m| {
-        if let Some(j) = journal_mut(m) {
-            j.loading = false;
-        }
-        done()
-    });
+    api.send_event(Event::PreviousJournalsLoaded);
+}
+
+/// The load of the older journals ended: the next one may start.
+pub fn previous_journals_loaded(model: &mut Model) -> Cmd {
+    if let Some(j) = journal_mut(model) {
+        j.loading = false;
+    }
+    done()
 }
 
 /// The outline reports its scroll position: the header shows the date of the top item, and
@@ -268,11 +274,8 @@ fn show_cross_day_move(model: &mut Model, moved: CrossDayMove) -> Cmd {
             if api.sleep(timer_id, 300).await != crate::effects::TimerOutput::Fired {
                 return;
             }
-            let id = item_id.clone();
-            apply(&api, "cross-day: edit moved item", move |m| {
-                m.state.add_editing_item(&id);
-                m.state.set_focused_item(&id, None);
-                done()
+            api.send_event(Event::MovedItemShown {
+                item_id: item_id.clone(),
             });
             focus_editor(&api, Some(item_id)).await;
         });
@@ -282,6 +285,13 @@ fn show_cross_day_move(model: &mut Model, moved: CrossDayMove) -> Cmd {
         return done();
     };
     load_journal(model, date)
+}
+
+/// The day an item moved to is shown: the item is edited there.
+pub fn edit_moved_item(model: &mut Model, item_id: &str) -> Cmd {
+    model.state.add_editing_item(item_id);
+    model.state.set_focused_item(item_id, None);
+    done()
 }
 
 /// The header text: the date of the top visible item, or the journal's own date.
