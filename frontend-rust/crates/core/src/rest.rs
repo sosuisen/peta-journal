@@ -406,6 +406,18 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
                 |reply| parsed(reply).map(|split| ApiOutput::Split(Box::new(split))),
             )
         }
+        ApiOp::StashItem { item_id, body } => {
+            let mut request = json!({});
+            if let Some(body) = body {
+                request["body"] = json!(body);
+            }
+            call(
+                "POST",
+                format!("/api/items/{item_id}/stash"),
+                Some(request),
+                |reply| parsed(reply).map(|stashed| ApiOutput::Stashed(Box::new(stashed))),
+            )
+        }
         ApiOp::ApplyBatch { ops } => call(
             "POST",
             "/api/items/batch",

@@ -12,7 +12,7 @@
 
 use crate::app::{done, log_error, run, Cmd, Event, Model, MoveDirection};
 use crate::model::{Item, ItemPosition, ItemRef, Page};
-use crate::ops::edit::{record_typing, take_unsaved, typed_body};
+use crate::ops::edit::{auto_save_again, take_unsaved};
 use crate::ops::file_reload::replace_page;
 use crate::ops::split::host_page_of_transclusion;
 use crate::outline::tree::{
@@ -268,11 +268,7 @@ pub fn show_moved(
 /// the auto-save of the typed text the move was to carry.
 pub fn move_failed(model: &mut Model, unsaved: Option<&str>) -> Cmd {
     model.key_relay.release();
-    let typed = unsaved.and_then(|id| Some((model.cloned_item(id)?, typed_body(model, id)?)));
-    let save = match typed {
-        Some((item, typed)) => record_typing(model, &item, &typed),
-        None => done(),
-    };
+    let save = auto_save_again(model, unsaved);
     Command::all([save, move_done(model, false)])
 }
 

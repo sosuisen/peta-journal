@@ -68,6 +68,20 @@ pub struct Split {
     pub page_ids: BTreeSet<Hmtid>,
 }
 
+/// What sending an item to the stash wrote: the heading the items went under, whether it was
+/// made for it, and the moved items as they are now.
+#[derive(Debug, Clone)]
+pub struct Stashed {
+    pub heading: Item,
+    pub created: bool,
+    pub items: Vec<Item>,
+    /// The pages the stash changed.
+    pub page_ids: BTreeSet<Hmtid>,
+}
+
+/// The heading the items sent to the stash go under.
+const STASH_HEADING: &str = "# Stash";
+
 /// What a move wrote: the moved items as they are now.
 #[derive(Debug, Clone)]
 pub struct Moved {
@@ -474,6 +488,61 @@ impl ItemService {
         tx.commit()?;
         self.finish(effects);
         Ok(shifted)
+    }
+
+    /// Sends an item with its descendants to the stash of its page: right under the
+    /// `# Stash` heading, as its children, in one transaction (ADR 011). The heading is made
+    /// at the end of the page when the page has none. `body` is the text the editor of the
+    /// item has now, when it is not saved yet: it is saved with the move.
+    pub fn stash(&self, item_id: &Hmtid, body: Option<&str>) -> AppResult<Stashed> {
+        let mut conn = self.items.db().conn()?;
+        let tx = conn.immediate()?;
+        let mut effects = AfterCommit::default();
+        let item = ItemRepository::find_by_id_in(&tx, item_id)?
+            .ok_or_else(|| AppError::not_found(format!("Item not found: {item_id}")))?;
+        if is_stash_heading(&item) {
+            return Err(AppError::bad_request(
+                "The stash heading itself cannot be sent to the stash",
+            ));
+        }
+        let on_page = ItemRepository::find_by_page_id_in(&tx, &item.page_id)?;
+        let (heading, created) = match on_page.iter().find(|it| is_stash_heading(it)) {
+            Some(heading) => (heading.clone(), false),
+            None => {
+                let heading = self.create_item_in(
+                    &tx,
+                    &item.page_id,
+                    &ItemPosition::Last,
+                    1,
+                    STASH_HEADING,
+                    None,
+                    &mut effects,
+                )?;
+                (heading, true)
+            }
+        };
+        let group: Vec<Hmtid> = ItemRepository::find_item_with_descendants_in(&tx, &item.id)?
+            .into_iter()
+            .map(|it| it.id)
+            .collect();
+        // The newest comes first, right under the heading
+        let request = MoveRequest {
+            item_ids: &group,
+            target_page_id: &item.page_id,
+            position: &ItemPosition::After(heading.id.clone()),
+            level_delta: (heading.level + 1) - item.level,
+            body,
+        };
+        let items = self.move_edited_items_in(&tx, &request, &mut effects)?;
+        tx.commit()?;
+        let page_ids = effects.pages.clone();
+        self.finish(effects);
+        Ok(Stashed {
+            heading,
+            created,
+            items,
+            page_ids,
+        })
     }
 
     /// Moves items to a target page at the specified position. All or nothing.
@@ -1640,4 +1709,9 @@ fn lone_empty_item_in(tx: &Connection, page_id: &Hmtid) -> AppResult<Option<Item
         }
         _ => None,
     })
+}
+
+/// True for the heading the stash of a page is under.
+fn is_stash_heading(item: &Item) -> bool {
+    item.body.trim() == STASH_HEADING
 }

@@ -129,6 +129,16 @@ pub fn discard_pending_edit_of_focused_item(model: &mut Model) -> Cmd {
     cancel_save(model, &target)
 }
 
+/// Schedules the auto-save of the typed text of `unsaved` again: a request that was to
+/// carry it did not reach the server.
+pub fn auto_save_again(model: &mut Model, unsaved: Option<&str>) -> Cmd {
+    let typed = unsaved.and_then(|id| Some((model.cloned_item(id)?, typed_body(model, id)?)));
+    match typed {
+        Some((item, typed)) => record_typing(model, &item, &typed),
+        None => done(),
+    }
+}
+
 /// Takes what the server parsed from a body it was sent, because the view renders that and
 /// not the body. The body stays: text typed while the answer was on its way must not go.
 pub fn show_parsed(model: &mut Model, answer: &Item) {

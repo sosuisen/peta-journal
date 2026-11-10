@@ -533,6 +533,38 @@ fn a_move_to_another_day_posts_to_the_move_of_that_days_journal_with_the_body_no
     );
 }
 
+// Stash への送付は、その項目の stash の入口へ送る。入力してまだ保存していない本文があれば、その本文も送る。答えからは、見出しと、動いた項目を読む。
+#[test]
+fn a_stash_posts_to_the_stash_of_the_item_with_the_body_not_saved_yet() {
+    let sent = |body: Option<&str>| {
+        call(ApiOp::StashItem {
+            item_id: id("a"),
+            body: body.map(str::to_string),
+        })
+        .request
+    };
+    let with_body = sent(Some("typed"));
+    assert_eq!(with_body.method, "POST");
+    assert_eq!(with_body.path, "/api/items/a/stash");
+    assert_eq!(with_body.body, Some(json!({ "body": "typed" })));
+    assert_eq!(sent(None).body, Some(json!({})));
+    let output = call(ApiOp::StashItem {
+        item_id: id("a"),
+        body: None,
+    })
+    .decode(&reply(
+        200,
+        json!({ "heading": item_json("h", "# Stash"), "created": true, "items": [item_json("a", "todo")] }),
+    ))
+    .unwrap();
+    let ApiOutput::Stashed(stashed) = output else {
+        panic!("not a stash: {output:?}");
+    };
+    assert_eq!(stashed.heading.body, "# Stash");
+    assert!(stashed.created);
+    assert_eq!(stashed.items[0].id, "a");
+}
+
 // トランスクルージョンが見せている項目の分割は、そのトランスクルージョンも送る。
 #[test]
 fn a_split_of_an_item_a_transclusion_shows_posts_the_transclusion_too() {
