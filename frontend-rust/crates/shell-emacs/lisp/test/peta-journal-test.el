@@ -78,6 +78,15 @@
             (peta-journal-test--row "c" 1 "z" :bullet "done"))
     (should (equal (peta-journal-test--shown) "☐ x\n◐ y\n☑ z\n"))))
 
+;; 折りたたんだ項目は、丸で囲んだ点のバレットで示される。行末には何も足さない。
+(ert-deftest peta-journal-the-bullet-shows-a-collapsed-item ()
+  (peta-journal-test--with-rows
+      (list (peta-journal-test--row "a" 1 "x" :collapsed t)
+            (peta-journal-test--row "b" 1 "y"))
+    (should (equal (peta-journal-test--shown) "◉ x\n• y\n"))
+    (should-not (get-text-property (peta-journal--body-end (peta-journal--find-row "a"))
+                                   'display))))
+
 ;; ジャーナルの日付は、項目の上の編集できない行である。
 (ert-deftest peta-journal-a-date-header-is-a-line-above-its-row ()
   (peta-journal-test--with-rows
