@@ -66,11 +66,12 @@ pub struct Cli {
     #[arg(long, env = "PETAJOURNAL_EXPORT_OVERWRITE_WAIT", default_value_t = 300)]
     pub export_overwrite_wait: u64,
 
-    /// Allowed CORS origins, comma separated
+    /// Allowed CORS origins, comma separated. The web frontend needs none: the server serves
+    /// it from its own origin. The default is the dev server of ext-web-app/todo
     #[arg(
         long,
         env = "PETAJOURNAL_CORS_ORIGINS",
-        default_value = "http://localhost:4200,http://localhost:5180"
+        default_value = "http://localhost:5180"
     )]
     pub cors_origins: String,
 
@@ -168,7 +169,7 @@ impl Settings {
             import_delete_prompt_cooldown_secs: 300,
             import_copy_wait_secs: 300,
             export_overwrite_wait_secs: 300,
-            cors_origins: vec!["http://localhost:4200".to_string()],
+            cors_origins: vec!["http://localhost:5180".to_string()],
             frontend_dir: None,
         }
     }

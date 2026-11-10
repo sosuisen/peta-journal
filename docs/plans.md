@@ -4,8 +4,6 @@
 
 ## ユーザータスク
 
-- [ ] journal-serverがWeb版の画面も配信する（ADR 010）
-  - [ ] `Trunk.toml`の`[serve]`と中継の設定を消すかを決める（ユーザーが決める）。E2Eテストも開発も、もう`trunk serve`を使っていない
 - [x] `ext-web-app/todo`の道具を新しくする
   - 今できる作業は終わった。残りの2つは、上流の対応を待っている。今は進められない。上流が新しくなったら、追従する
   - [ ] TypeScript 7.1でAPIが戻り、typescript-eslintが対応したら、`typescript`の別名をやめて7だけにする

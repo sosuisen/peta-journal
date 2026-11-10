@@ -2,16 +2,8 @@
 target = "index.html"
 dist = "dist"
 
-[serve]
-port = 4200
-
-# The journal server, for `trunk serve`. The end-to-end tests do not use this proxy: they build
-# with `trunk build --dist dist-e2e` and let their own journal server serve the files.
-[[proxy]]
-backend = "http://localhost:8087/api/"
-
-[[proxy]]
-backend = "http://localhost:8087/assets/"
+# No [serve] and no proxy: the journal server serves the built files (ADR 010). `trunk serve`
+# is not used, and its page could not reach the API.
 
 # Windows ARM64 only: install wasm-bindgen-cli matching Cargo.lock, since Trunk has no
 # prebuilt wasm-bindgen for that platform. No-op elsewhere (see scripts/sync-wasm-bindgen.ps1).
