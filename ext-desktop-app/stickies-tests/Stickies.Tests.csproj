@@ -15,6 +15,7 @@
     <Compile Include="..\stickies\Models\ItemModel.cs" Link="App\Models\ItemModel.cs" />
     <Compile Include="..\stickies\Services\OutlineHtml.cs" Link="App\Services\OutlineHtml.cs" />
     <Compile Include="..\stickies\Services\PageLinks.cs" Link="App\Services\PageLinks.cs" />
+    <Compile Include="..\stickies\Services\SettingsService.cs" Link="App\Services\SettingsService.cs" />
   </ItemGroup>
 
   <ItemGroup>
