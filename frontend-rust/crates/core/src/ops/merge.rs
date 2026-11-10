@@ -19,7 +19,7 @@ use crux_core::Command;
 
 /// The key that joins two items. It says which of the two has the editor: Backspace is
 /// pressed in the item that goes away, Delete in the item that takes the text.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
 pub enum JoinKey {
     Backspace,
     Delete,
