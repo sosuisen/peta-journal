@@ -773,6 +773,28 @@ async fn items_listed_by_type_can_leave_out_those_with_a_list_property() {
     assert!(!ids.contains(&json!(listed.id)));
 }
 
+// 型での一覧は、fieldsで頼まれたフィールドだけを各項目に持つ。表示だけのクライアントは、本文のMarkdownを受け取らずに済む。
+#[tokio::test]
+async fn items_listed_by_type_have_only_the_fields_asked_for() {
+    let page = new_doc_page("items-task-list-fields").await;
+    let item = fill(&page.id, &["narrow task"]).await.remove(0);
+    let cycle = format!("/api/items/{}/cycle-task", item.id);
+    let (_, task) = post_empty(&cycle).await;
+
+    let (status, resp) = get("/api/items?types=task&fields=id,ast").await;
+    assert_eq!(status, 200);
+
+    let listed = resp["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|listed| listed["id"] == json!(item.id));
+    assert_eq!(
+        listed,
+        Some(&json!({ "id": item.id, "ast": task["item"]["ast"] }))
+    );
+}
+
 // ---- Items: transclusion ----
 
 // トランスクルージョンは、ページとともに参照元の木を返す。
