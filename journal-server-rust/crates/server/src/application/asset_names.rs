@@ -4,10 +4,12 @@
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use anyhow::Context;
 use serde::{Deserialize, Serialize};
 
 use crate::domain::asset_name::{is_saved_name, saved_name};
 use crate::domain::id_generator::IdGenerator;
+use crate::state::AppState;
 
 /// One file of `assets/` and the name it moves to.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -42,6 +44,19 @@ pub fn plan(assets_dir: &Path) -> std::io::Result<Vec<Rename>> {
             Rename { from, to }
         })
         .collect())
+}
+
+/// Moves the files to their new names.
+pub fn apply(state: &AppState, renames: &[Rename]) -> anyhow::Result<()> {
+    let assets_dir = state
+        .export
+        .markdown_root()
+        .context("The markdown folder is not set or not there")?
+        .join("assets");
+    for rename in renames {
+        std::fs::rename(assets_dir.join(&rename.from), assets_dir.join(&rename.to))?;
+    }
+    Ok(())
 }
 
 fn millis(time: SystemTime) -> u64 {
