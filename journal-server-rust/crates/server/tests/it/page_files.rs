@@ -52,3 +52,17 @@ fn a_file_without_the_modified_dates_of_its_items_gets_them() {
     assert_eq!(notes.file(TRIP), with_dates);
     assert_eq!(notes.item(&item.id), item);
 }
+
+// まだ取り込まれていないファイルの編集は、失われない。先に取り込まれる。
+#[test]
+fn an_edit_of_a_file_that_was_not_taken_in_yet_is_kept() {
+    let notes = Notes::new();
+    let item = notes.page("Trip", &["first day"]).remove(0);
+    let edited = notes.file(TRIP).replace("first day", "first day in Kyoto");
+    std::fs::write(notes.root.join(TRIP), edited).unwrap();
+
+    page_files::write_all(&notes.state).unwrap();
+
+    assert_eq!(notes.item(&item.id).body, "first day in Kyoto");
+    assert!(notes.file(TRIP).contains("first day in Kyoto"));
+}
