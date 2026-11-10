@@ -40,6 +40,19 @@ pub fn weeks_in_year(year: i32, numbering: WeekNumbering) -> u32 {
     }
 }
 
+/// The name of the week page of the week the date is in, like `2026-W07`. The calendar opens
+/// the page by this name, so a week has one page whichever of its days is asked for.
+pub fn week_page_name(date: Date, numbering: WeekNumbering) -> String {
+    let (year, number) = match numbering {
+        WeekNumbering::Iso => (iso_week_year(date), iso_week_number(date)),
+        WeekNumbering::Us => {
+            let sunday = date.shift(-i64::from(date.weekday()));
+            (sunday.year, us_week_number(sunday))
+        }
+    };
+    format!("{year}-W{number:02}")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
