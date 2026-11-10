@@ -1,16 +1,7 @@
 use crate::app::Event;
-use crate::harness::{item, update_calls, Harness};
+use crate::harness::{item, typed, update_calls, Harness};
 use crate::model::TranscludedTrees;
 use crate::testing::item_with;
-
-fn typed(h: &mut Harness, item_id: &str, body: &str) {
-    let now = h.now_ms;
-    h.send(Event::BodyChanged {
-        item_id: item_id.into(),
-        body: body.into(),
-        now_ms: now,
-    });
-}
 
 // 入力したテキストはすぐに表示され、自動保存は最後の入力から一定時間後に一度だけ行われる。
 #[test]

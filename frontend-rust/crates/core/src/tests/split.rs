@@ -1,6 +1,6 @@
 use crate::app::Event;
 use crate::effects::{ApiOp, ApiOutput};
-use crate::harness::{batch_calls, create_calls, item, split_calls, update_calls, Harness};
+use crate::harness::{batch_calls, create_calls, item, split_calls, typed, update_calls, Harness};
 use crate::model::{BatchOp, Item, Page, PageWithItems, Split, TranscludedTrees};
 use crate::testing::item_with;
 
@@ -8,15 +8,6 @@ fn harness() -> Harness {
     let mut h = Harness::with_items(vec![item("a", 1, "hello world"), item("b", 1, "body of b")]);
     h.model.state.add_editing_item("a");
     h
-}
-
-fn typed(h: &mut Harness, item_id: &str, body: &str) {
-    let now = h.now_ms;
-    h.send(Event::BodyChanged {
-        item_id: item_id.into(),
-        body: body.into(),
-        now_ms: now,
-    });
 }
 
 fn enter(h: &mut Harness, item_id: &str, cursor: usize) {

@@ -738,6 +738,18 @@ pub fn split_calls(api: &FakeApi) -> Vec<(String, String, usize)> {
         .collect()
 }
 
+/// Types `body` into the editor of the item, as a key press does: the editor is open and
+/// the text is shown at once, with its auto-save pending.
+pub fn typed(h: &mut Harness, item_id: &str, body: &str) {
+    h.model.state.add_editing_item(item_id);
+    let now = h.now_ms;
+    h.send(Event::BodyChanged {
+        item_id: item_id.into(),
+        body: body.into(),
+        now_ms: now,
+    });
+}
+
 /// The update calls as `(item, body)`.
 pub fn update_calls(api: &FakeApi) -> Vec<(String, Option<String>)> {
     api.calls

@@ -1,6 +1,6 @@
 use crate::app::Event;
 use crate::effects::{ApiOp, ApiOutput};
-use crate::harness::{batch_calls, item, update_calls, Harness};
+use crate::harness::{batch_calls, item, typed, update_calls, Harness};
 use crate::model::{
     BatchOp, Item, Page, PageWithItems, PasteCursor, PasteMode, Pasted, TranscludedTrees,
 };
@@ -26,15 +26,6 @@ fn send_paste(h: &mut Harness, item_id: &str, text: &str, cursor: usize, raw: bo
         html: String::new(),
         cursor,
         raw,
-    });
-}
-
-fn typed(h: &mut Harness, item_id: &str, body: &str) {
-    let now = h.now_ms;
-    h.send(Event::BodyChanged {
-        item_id: item_id.into(),
-        body: body.into(),
-        now_ms: now,
     });
 }
 

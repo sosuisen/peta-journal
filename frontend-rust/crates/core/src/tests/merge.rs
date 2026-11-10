@@ -1,6 +1,6 @@
 use crate::app::Event;
 use crate::effects::{ApiOp, ApiOutput, UiOp};
-use crate::harness::{item, merge_calls, op_name, update_calls, Harness};
+use crate::harness::{item, merge_calls, op_name, typed, update_calls, Harness};
 use crate::ops::merge::JoinKey;
 use crate::outline::UndoOp;
 use crate::testing::item_with;
@@ -54,15 +54,6 @@ fn saves_and_merges(h: &Harness) -> Vec<&'static str> {
         .map(op_name)
         .filter(|name| matches!(*name, "UpdateItem" | "MergeItems"))
         .collect()
-}
-
-fn typed(h: &mut Harness, item_id: &str, body: &str) {
-    let now = h.now_ms;
-    h.send(Event::BodyChanged {
-        item_id: item_id.into(),
-        body: body.into(),
-        now_ms: now,
-    });
 }
 
 // 自動保存の前に行頭で Backspace を押すと、打ったばかりの文は結合の要求に入って届く。保存を別には送らず、その自動保存は取り消される。保存済みの上の項目の本文は送らない。

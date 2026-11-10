@@ -1,6 +1,6 @@
 use crate::app::Event;
 use crate::effects::ApiOp;
-use crate::harness::{item, move_calls, update_calls, Harness};
+use crate::harness::{item, move_calls, typed, update_calls, Harness};
 use crate::model::TranscludedTrees;
 use crate::testing::item_with;
 
@@ -137,16 +137,6 @@ fn logical_outdent_moves_the_group_one_level_up_after_the_parents_last_child_in_
     assert_eq!(h.outline(), ["p:1=", "a:2=", "d:2=", "b:1=", "c:2="]);
     assert_eq!(h.focused_editor_requests(), [Some("b".to_string())]);
     assert_eq!(h.model.undo.pop_undo().unwrap().label, "outdent");
-}
-
-fn typed(h: &mut Harness, item_id: &str, body: &str) {
-    h.model.state.add_editing_item(item_id);
-    let now = h.now_ms;
-    h.send(Event::BodyChanged {
-        item_id: item_id.into(),
-        body: body.into(),
-        now_ms: now,
-    });
 }
 
 // 入力した直後の論理アウトデントでは、打ったばかりの文は移動の要求に入って届く。保存を別には送らず、その自動保存は取り消される。画面には、サーバーが保存した本文が出る。

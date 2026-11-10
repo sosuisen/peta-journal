@@ -1,6 +1,6 @@
 use crate::app::Event;
 use crate::effects::ApiOp;
-use crate::harness::{item, move_calls, Harness};
+use crate::harness::{item, move_calls, typed, Harness};
 use crate::model::{ItemPosition, TranscludedTrees};
 use crate::testing::item_with;
 
@@ -120,16 +120,6 @@ fn carried_bodies(h: &Harness) -> Vec<Option<String>> {
             _ => None,
         })
         .collect()
-}
-
-fn typed(h: &mut Harness, item_id: &str, body: &str) {
-    h.model.state.add_editing_item(item_id);
-    let now = h.now_ms;
-    h.send(Event::BodyChanged {
-        item_id: item_id.into(),
-        body: body.into(),
-        now_ms: now,
-    });
 }
 
 // 入力した直後に動かすと、打ったばかりの文は移動の要求に入って届く。保存を別には送らず、その自動保存は取り消される。
