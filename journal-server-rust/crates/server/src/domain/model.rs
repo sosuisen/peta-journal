@@ -3,6 +3,7 @@
 use hmtid::Hmtid;
 
 use super::fractional_index;
+use super::journal_name::JournalName;
 
 /// A page: a journal (`type = "journal"`) or a document (`type = "doc"`).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -107,6 +108,18 @@ impl Item {
 
     pub fn is_task(&self) -> bool {
         self.types.iter().any(|t| t == ItemPatch::TASK_TYPE)
+    }
+
+    /// The day of the item, as `YYYY-MM-DD`: an item on the journal of a day belongs to that
+    /// day. None on a page, and on the journal of a week, a month or a year.
+    pub fn day(&self) -> Option<String> {
+        if self.item_type != "journal" {
+            return None;
+        }
+        match self.name.parse::<JournalName>() {
+            Ok(day @ JournalName::Daily(_)) => Some(day.to_string()),
+            _ => None,
+        }
     }
 }
 

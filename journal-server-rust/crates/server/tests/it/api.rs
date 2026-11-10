@@ -647,6 +647,69 @@ async fn cycle_task_goes_through_task_running_done_and_back_to_normal() {
     assert!(!normal.properties.contains_key("end"));
 }
 
+// 日のジャーナルの項目をタスクにすると、同じ要求で、その日が予定日（plan）になる。
+#[tokio::test]
+async fn an_item_that_becomes_a_task_on_a_day_is_planned_for_that_day() {
+    let day = journal("2050-04-10").await;
+    let item = ItemRow::of(&day["items"][0]);
+
+    let (status, resp) = post_empty(&format!("/api/items/{}/cycle-task", item.id)).await;
+
+    assert_eq!(status, 200, "{resp}");
+    let task = ItemRow::of(&resp["item"]);
+    assert!(task.types.contains(&"task".to_string()));
+    assert_eq!(task.properties.get("plan"), Some(&json!("2050-04-10")));
+    let stored = items(&page_id_of(&day)).await.remove(0);
+    assert_eq!(stored.properties.get("plan"), Some(&json!("2050-04-10")));
+}
+
+// ページの項目と、週のジャーナルの項目は、タスクにしても予定日が付かない。
+#[tokio::test]
+async fn an_item_that_becomes_a_task_on_a_page_or_a_week_is_not_planned() {
+    let page = new_doc_page("items-task-unplanned").await;
+    let on_page = fill(&page.id, &["on a page"]).await.remove(0);
+    let week = journal("2050-W30").await;
+    let on_week = ItemRow::of(&week["items"][0]);
+
+    for item in [on_page, on_week] {
+        let (status, resp) = post_empty(&format!("/api/items/{}/cycle-task", item.id)).await;
+        assert_eq!(status, 200, "{resp}");
+        let task = ItemRow::of(&resp["item"]);
+        assert!(task.types.contains(&"task".to_string()));
+        assert!(
+            !task.properties.contains_key("plan"),
+            "{:?}",
+            task.properties
+        );
+    }
+}
+
+// 予定日が書かれるのは、タスクになるときだけである。あとで変えた予定日は、開始や完了では書き直されない。もう一度タスクにすると、その日に戻る。
+#[tokio::test]
+async fn the_plan_is_written_only_when_the_item_becomes_a_task() {
+    let day = journal("2050-04-11").await;
+    let item = ItemRow::of(&day["items"][0]);
+    let cycle = format!("/api/items/{}/cycle-task", item.id);
+    let plan_of = |resp: &Value| ItemRow::of(&resp["item"]).properties.get("plan").cloned();
+    assert_eq!(post_empty(&cycle).await.0, 200);
+    let (status, resp) = put(
+        &format!("/api/items/{}/properties/plan", item.id),
+        json!({ "valueType": "date", "value": "2050-05-01" }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    let (_, running) = post_empty(&cycle).await;
+    let (_, done) = post_empty(&cycle).await;
+    let (_, normal) = post_empty(&cycle).await;
+    let (_, task_again) = post_empty(&cycle).await;
+
+    assert_eq!(plan_of(&running), Some(json!("2050-05-01")));
+    assert_eq!(plan_of(&done), Some(json!("2050-05-01")));
+    assert_eq!(plan_of(&normal), Some(json!("2050-05-01")));
+    assert_eq!(plan_of(&task_again), Some(json!("2050-04-11")));
+}
+
 // タスクは型で一覧できる。
 #[tokio::test]
 async fn tasks_can_be_listed_by_type() {

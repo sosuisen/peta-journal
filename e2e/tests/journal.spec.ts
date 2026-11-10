@@ -95,4 +95,25 @@ test.describe('journal', () => {
     await expect(page).toHaveURL(new RegExp(`/pages/${shiftDays(todayName, -1)}$`));
     await page.locator('app-outline-item').first().waitFor();
   });
+
+  test('Ctrl+Enter on an item of a day makes it a task planned for that day, in one request', async ({ page }) => {
+    // A day no other run has used: the server keeps its pages from run to run
+    const day = shiftDays('2000-01-01', Math.floor(Math.random() * 3000));
+    const journal = await server.journal(day);
+    const [item] = await server.items(journal.id);
+    await page.goto(`/pages/${day}`);
+    await openEditor(page, item.id);
+    const writes: string[] = [];
+    page.on('request', r => {
+      if (r.method() !== 'GET') writes.push(`${r.method()} ${new URL(r.url()).pathname}`);
+    });
+
+    await page.keyboard.press('Control+Enter');
+
+    const [task] = await server.itemsSettled(journal.id, i => i[0].types.includes('task'));
+    expect(task.properties.plan).toBe(day);
+    await expect(page.locator(`[id="${item.id}"] .task-checkbox`)).toHaveCount(1);
+    // The server plans the task in the request that makes it one: no second request writes the plan
+    expect(writes).toEqual([`POST /api/items/${item.id}/cycle-task`]);
+  });
 });

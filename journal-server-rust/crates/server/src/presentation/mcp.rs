@@ -511,7 +511,7 @@ impl JournalMcp {
     }
 
     #[tool(
-        description = "Cycle the task state of an item: non-task → task, task → started (begin), started → completed (end), completed → non-task."
+        description = "Cycle the task state of an item: non-task → task, task → started (begin), started → completed (end), completed → non-task. An item on a daily journal that becomes a task gets the plan property set to that day."
     )]
     async fn cycle_task(
         &self,
