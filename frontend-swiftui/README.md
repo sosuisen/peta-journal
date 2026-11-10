@@ -56,7 +56,9 @@ under `generated/`. Run it again after a change in Rust.
 - `Border` puts the two packages together, so the rest of the shell works with the generated
   types and never with bytes.
 - `Shell` is what one window shows. It keeps the view model up to date with the core and sends
-  what the user did. The core calls from its own threads; `Shell` moves each request to the main
+  what the user did. It also holds what the core asks and waits for: a question to the user
+  (`question`, shown as a dialog), an order to put the cursor in an item (`focus`), and the text
+  on the clipboard. The core calls from its own threads; `Shell` moves each request to the main
   thread, in order.
 
 ## Build and run the app
@@ -100,8 +102,8 @@ library so that the speed test can put them in a window.
 `BorderTests` need no journal server. They check that Swift reads what Rust writes (the view
 model, the requests) and that Rust reads what Swift writes (events, answers).
 
-`ShellTests` run `Shell` against a real journal server: a page opens, and what is typed is saved
-on the server. They are skipped unless `PETA_E2E_SERVER` names the server program:
+`ShellTests` run `Shell` against a real journal server: a page opens, what is typed is saved on
+the server, and the questions of the core are answered. They are skipped unless `PETA_E2E_SERVER` names the server program:
 
 ```
 cd peta-journal/journal-server-rust
