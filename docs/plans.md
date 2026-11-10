@@ -106,12 +106,18 @@
 
 - [ ] SwiftUIのシェル（macOS）のWalking Skeletonを作る（ADR 024）
   - 目的は、ADR 024が確かめていないことを早く確かめることである。1つのページを開き、1つの項目に入力して保存できるところまでを通す
-  - [ ] ネイティブのシェルのcrateを作る。`Core`を`EffectRouter`で包み、`Api`、`Sse`、`Timer`をRustで実行する
-    - 答えを待たない要求に答えると、エラー（`Never`）が返る。無視する
-    - SSEのように、1つの要求に何度も答える流れを確かめる
+  - [x] ネイティブのシェルのcrateを作る。`Core`を`EffectRouter`で包み、`Api`、`Sse`、`Timer`をRustで実行する
+    - `crates/shell-native`（`peta-shell-native`）である。入口は`connect`、`update`、`resolve`、`view`の4つである
+    - SSEのように、1つの要求に何度も答える流れは、テストで通った
+    - 答えを待たない要求（タイマーの取り消し）には、Rust側では答えない。デバッグビルドの`Core::resolve`は、エラーを返す前に`debug_assert!`で止まるためである
+    - 今の時刻（`UiOp::LocalNow`）は、シェルに送らず、Rust側で答える
+  - [ ] ネイティブのシェルで、画像を貼り付けられるようにする。今は、`ApiOp::UploadAsset`がエラーになる。ファイルをシェルからRust側へ渡す方法を決める
+  - [ ] ネイティブのシェルを閉じるときに、保存を待っている本文を保存する。`shell-emacs`の`shutdown`にあたるものが、まだない
   - [ ] Swiftの型を生成する。今の`Event`と`ViewModel`で、生成が最後まで通るかを確かめる
     - `Event`の変種を1つずつbincodeで読み戻すテストは、3つしか書いていない。型の生成は全部の変種をたどるので、読めない形があれば、ここで見つかる
   - [ ] RustのライブラリをXcodeのアプリに組み込む。Swiftから呼ぶための道具（BoltFFIなど）を、ここで決める
+    - `frontend-rust/Cargo.toml`のリリースの設定は、wasmの大きさに合わせてある（`opt-level = "z"`、`panic = "abort"`）。ネイティブのライブラリに合うかを確かめる
+    - シェルへの依頼は、どのスレッドからも届く。`connect`が返る前にも届く。Swiftの側で、メインスレッドに移す
   - [ ] SwiftUIで、1000項目のページの入力の速さを測る。遅ければ、ADR 024を見直す
 
 ## テストとCI
