@@ -485,10 +485,7 @@ async fn update_page(
         {
             Ok(PageUpdate::Updated(page)) => return Some(page),
             Ok(PageUpdate::NameTaken(_)) if !overwrite => {
-                let question = format!(
-                    "A page named \"{new_path}\" already exists. Overwrite it with the content of this page?"
-                );
-                if !api.confirm(&question).await {
+                if !api.confirm(&overwrite_question(new_path)).await {
                     return None;
                 }
                 overwrite = true;
@@ -518,44 +515,58 @@ pub fn demote_index(model: &mut Model) -> Cmd {
         Some(slash) => trimmed[..=slash].to_string(),
         None => String::new(),
     };
+    let path = format!("{parent_dir}{name}");
     run(move |api| async move {
         // Asked again here: an atlas page may have been made since the button was shown
-        let atlas = match api.get_child_pages(&p.id).await {
-            Ok(children) => children.into_iter().find(is_atlas),
+        let has_atlas = match api.get_child_pages(&p.id).await {
+            Ok(children) => children.iter().any(is_atlas),
             Err(e) => return api.alert(e.0),
         };
-        if let Some(atlas) = atlas {
-            if !api
+        if has_atlas
+            && !api
                 .confirm(&format!(
                     "Rename to \"{name}\" and delete the atlas page of {}?",
                     p.dir_path
                 ))
                 .await
-            {
-                return;
-            }
-            if let Err(e) = api.delete_page(&atlas.id).await {
-                api.alert(e.message_or("Failed to delete the atlas page"));
-                return;
-            }
-        }
-        if update_page(
-            &api,
-            &p.id,
-            Some(name.clone()),
-            Some(parent_dir.clone()),
-            &format!("{parent_dir}{name}"),
-        )
-        .await
-        .is_none()
         {
             return;
         }
-        apply(&api, "demoted", move |_| {
-            Command::all([
-                sidebar::refresh_recent_pages(),
-                navigate::open_page(&format!("{parent_dir}{name}")),
-            ])
-        });
+        if demote_page(&api, &p.id, &path).await {
+            api.send_event(Event::Demoted { path });
+        }
     })
+}
+
+/// Demotes the page with one request: the server deletes the atlas page and renames the
+/// page in one write. Asks before overwriting a page that has the new name. True when the
+/// page was demoted.
+async fn demote_page(api: &Api<Event>, page_id: &str, new_path: &str) -> bool {
+    let mut overwrite = false;
+    loop {
+        match api.demote_page(page_id, overwrite).await {
+            Ok(PageUpdate::Updated(_)) => return true,
+            Ok(PageUpdate::NameTaken(_)) if !overwrite => {
+                if !api.confirm(&overwrite_question(new_path)).await {
+                    return false;
+                }
+                overwrite = true;
+            }
+            Ok(PageUpdate::NameTaken(message)) | Err(ApiError(message)) => {
+                api.alert(ApiError(message).message_or("Failed to demote page"));
+                return false;
+            }
+        }
+    }
+}
+
+fn overwrite_question(new_path: &str) -> String {
+    format!(
+        "A page named \"{new_path}\" already exists. Overwrite it with the content of this page?"
+    )
+}
+
+/// The server demoted the shown index page: it opens under its new path.
+pub fn show_demoted(path: &str) -> Cmd {
+    Command::all([sidebar::refresh_recent_pages(), navigate::open_page(path)])
 }

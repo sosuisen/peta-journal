@@ -287,6 +287,20 @@ impl PageService {
         dir_path: Option<&str>,
         overwrite: bool,
     ) -> AppResult<Page> {
+        self.rename_page(page_id, title, dir_path, overwrite, false)
+    }
+
+    /// Updates a page's metadata as [`Self::update_page`] does. With `drop_atlas`, the atlas
+    /// page of an index page is deleted first, in the same transaction: a demotion leaves
+    /// no directory for it to belong to.
+    pub(crate) fn rename_page(
+        &self,
+        page_id: &Hmtid,
+        title: Option<&str>,
+        dir_path: Option<&str>,
+        overwrite: bool,
+        drop_atlas: bool,
+    ) -> AppResult<Page> {
         let existing = self.require_page(page_id)?;
 
         let mut file_name = existing.name.clone();
@@ -311,6 +325,14 @@ impl PageService {
 
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
+        let mut effects = AfterCommit::default();
+        if drop_atlas {
+            for child in PageRepository::find_by_parent_id_in(&tx, page_id)? {
+                if child.is_atlas() {
+                    self.delete_page_in(&tx, &child, &mut effects)?;
+                }
+            }
+        }
 
         // Prevent demoting an index page that still has children
         if existing.name == "index" && file_name != "index" {
@@ -340,7 +362,6 @@ impl PageService {
                 "A page named '{new_dir_path}{file_name}' already exists"
             )));
         }
-        let mut effects = AfterCommit::default();
         for page in &taken {
             self.delete_page_in(&tx, page, &mut effects)?;
         }

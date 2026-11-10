@@ -501,6 +501,14 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             }))),
             page_update,
         ),
+        ApiOp::DemotePage { page_id, overwrite } => call(
+            "POST",
+            format!("/api/pages/{page_id}/demote"),
+            Some(without_nulls(
+                json!({ "overwrite": overwrite.then_some(true) }),
+            )),
+            page_update,
+        ),
         ApiOp::UpsertPageProperty {
             page_id,
             key,

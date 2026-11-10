@@ -151,6 +151,13 @@ pub enum ApiOp {
         /// Deletes the other page that has the new name, so this page takes its place.
         overwrite: bool,
     },
+    /// Demotes the index page of a directory to the page of the directory's name. The server
+    /// deletes the atlas page of the directory in the same write.
+    DemotePage {
+        page_id: String,
+        /// Deletes the other page that has the new name, so this page takes its place.
+        overwrite: bool,
+    },
     /// Sets a property of a page; `tags` takes a comma separated list. Answers with the page.
     UpsertPageProperty {
         page_id: String,
@@ -301,6 +308,14 @@ pub enum PageUpdate {
     Updated(Page),
     /// Another page has the new name; the server's message says which.
     NameTaken(String),
+}
+
+fn page_update_of(output: ApiOutput) -> ApiResult<PageUpdate> {
+    match output {
+        ApiOutput::PageInfo(page) => Ok(PageUpdate::Updated(page)),
+        ApiOutput::PageNameTaken(message) => Ok(PageUpdate::NameTaken(message)),
+        other => Err(ApiError(format!("unexpected API answer: {other:?}"))),
+    }
 }
 
 /// The server's error message, or a transport error.
@@ -871,19 +886,25 @@ impl<Event: Send + 'static> Api<Event> {
         dir_path: Option<String>,
         overwrite: bool,
     ) -> ApiResult<PageUpdate> {
-        match self
+        let updated = self
             .call(ApiOp::UpdatePage {
                 page_id: page_id.into(),
                 title,
                 dir_path,
                 overwrite,
             })
-            .await?
-        {
-            ApiOutput::PageInfo(page) => Ok(PageUpdate::Updated(page)),
-            ApiOutput::PageNameTaken(message) => Ok(PageUpdate::NameTaken(message)),
-            other => Err(ApiError(format!("unexpected API answer: {other:?}"))),
-        }
+            .await?;
+        page_update_of(updated)
+    }
+
+    pub async fn demote_page(&self, page_id: &str, overwrite: bool) -> ApiResult<PageUpdate> {
+        let demoted = self
+            .call(ApiOp::DemotePage {
+                page_id: page_id.into(),
+                overwrite,
+            })
+            .await?;
+        page_update_of(demoted)
     }
 
     pub async fn upsert_page_property(
