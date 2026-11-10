@@ -65,7 +65,8 @@
   - 本文が空白1つの項目と、本文の前後に改行のある項目。読み戻すと、空白と改行が消える
   - 末尾が`/`のウィキリンク（`[[Projects/sss-music-player/]]`）。Markdownのリンクとして書かれ、読み戻してもウィキリンクに戻らない
   - `#DailyReport/summary`で始まる項目。本文は同じだが、型が`heading`になっている。47ページに1つずつある
-- [ ] ページのない項目が、DBに6つある。空のDBから作り直すと消える。消すかを決める
+- [ ] DBの`item_types`に、`items`にない項目を指す行が518ある（2026-11-10、`PRAGMA foreign_key_check`で見つけた）。型の内訳は、`task`が326、`heading`が156、`blockquote`が18、`code`が18である。`deleted_items`にあるIDは1つもない。なぜ残ったかは調べていない。消すかを決める
+  - 同じ日に、`pages`にないページを指す`items`の行を6つ消した。本文は空で、`.md`にもなかった。消した行の控えは`~/.peta-journal/orphan-items-20261110.sql`にある
 - [ ] 移す前の控えを消す。2026-11-10に、`assets`の93ファイルとリンクをHMTIDの名前に移し（ADR 022）、`write-pages`で584ファイルを書き直した。別の端末との同期は、ユーザーが確かめた（2026-11-10）。控えは`~/.peta-journal/backup-before-asset-names-20261110`と`~/.peta-journal/backup-before-write-pages-20261110`にある。問題がないと分かったら、ユーザーが消す
   - 対応表`~/.peta-journal/asset-names.json`は残す。画像の名前を元に戻すときに要る
 - [ ] 空のDBにMarkdownフォルダを取り込むとき、トランスクルージョンの元の項目がまだ入っていないページは、取り込みに失敗する（`FOREIGN KEY constraint failed`）。次のフォルダの調べで入るが、それまでページが空になる。ノートの写しでは3ページで起きた（2026-11-10）。直すかを決める
