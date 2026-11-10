@@ -137,6 +137,29 @@ fn a_new_keystroke_replaces_the_pending_search() {
         .any(|c| matches!(c, ApiOp::SearchCombined { query, .. } if query == "pl")));
 }
 
+// 次の検索が始まったあとに届いた古い検索の答えは、表示されない。
+#[test]
+fn the_answer_of_an_older_search_is_not_shown_once_a_later_one_started() {
+    let mut h = Harness::new();
+    searched(&mut h, "note", vec![page_hit("notes")]);
+    let later = h.model.search.timer_id;
+
+    h.send(Event::SearchAnswered {
+        timer_id: later - 1,
+        query: "no".into(),
+        results: vec![page_hit("nothing")],
+    });
+
+    let titles: Vec<_> = h
+        .model
+        .search
+        .page_results
+        .iter()
+        .map(|r| r.page_title.as_str())
+        .collect();
+    assert_eq!(titles, ["notes"]);
+}
+
 // 検索に失敗しても、それまでの結果は残る。
 #[test]
 fn a_failed_search_keeps_the_hits_shown() {
