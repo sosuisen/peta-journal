@@ -217,6 +217,18 @@ describe('the requests to the journal server', () => {
     );
   });
 
+  // 終わったタスクも見せるときは、すべてのタスクを取る。
+  test('get all tasks when the done tasks are shown too', async () => {
+    answer('{"items":[]}');
+
+    await getTasks(true);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://journal.test:9000/api/items?types=task',
+      undefined,
+    );
+  });
+
   // タグのページを置くフォルダは、サーバーの設定から取る。
   test('get the folder of the tag pages from the configuration', async () => {
     answer('{"tagsDir":"tags/","homeLink":""}');
