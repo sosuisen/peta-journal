@@ -2,7 +2,7 @@
 
 use crate::app::Event;
 use crate::effects::ApiOp;
-use crate::harness::{create_calls, item, move_calls, Harness};
+use crate::harness::{create_calls, item, move_calls, typed, update_calls, Harness};
 
 /// The stash requests sent: (item id, body).
 fn stash_calls(h: &Harness) -> Vec<(String, Option<String>)> {
@@ -50,4 +50,52 @@ fn sending_to_the_stash_reuses_an_existing_stash_heading() {
     });
     assert_eq!(stash_calls(&h), [("a".to_string(), None)]);
     assert_eq!(h.outline(), ["stash:1=# Stash", "a:2=todo", "old:2="]);
+}
+
+// 入力した直後に Stash へ送ると、打ったばかりの文は要求に入って届く。保存を別には送らず、その自動保存は取り消される。画面には、サーバーが保存した本文が出る。
+#[test]
+fn text_typed_just_before_sending_to_the_stash_travels_in_the_request() {
+    let mut h = Harness::with_items(vec![item("a", 1, "todo"), item("z", 1, "")]);
+    typed(&mut h, "a", "todo typed");
+    h.send(Event::SendToStash {
+        item_id: "a".into(),
+    });
+    assert_eq!(
+        stash_calls(&h),
+        [("a".to_string(), Some("todo typed".to_string()))]
+    );
+    h.fire_timers();
+    assert!(update_calls(&h.api).is_empty());
+    assert_eq!(h.outline(), ["z:1=", "new1:1=# Stash", "a:2=todo typed"]);
+}
+
+// Stash への送付が断られると、画面は変わらず、要求に入れた文はもう一度自動保存にかけられる。
+#[test]
+fn after_a_refused_stash_nothing_changes_and_the_typed_text_is_auto_saved_again() {
+    let mut h = Harness::with_items(vec![item("a", 1, "todo"), item("z", 1, "")]);
+    typed(&mut h, "a", "todo typed");
+    h.api.fail_next("StashItem", "offline");
+    h.send(Event::SendToStash {
+        item_id: "a".into(),
+    });
+    assert_eq!(h.outline(), ["a:1=todo typed", "z:1="]);
+    h.fire_timers();
+    assert_eq!(
+        update_calls(&h.api),
+        [("a".into(), Some("todo typed".into()))]
+    );
+}
+
+// 答えが届いたときに送った項目がもう画面に無ければ、何も表示しない。待っている間に別のページへ移った場合である。
+#[test]
+fn the_answer_to_a_stash_of_an_item_no_longer_shown_changes_nothing() {
+    let mut h = Harness::with_items(vec![item("x", 1, "other page")]);
+    h.send(Event::Stashed {
+        stashed: Box::new(crate::model::Stashed {
+            heading: item("new1", 1, "# Stash"),
+            created: true,
+            items: vec![item("a", 2, "todo")],
+        }),
+    });
+    assert_eq!(h.outline(), ["x:1=other page"]);
 }
