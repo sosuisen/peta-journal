@@ -2,7 +2,7 @@
 //! from `wiki-suggestions.ts`. The outline feeds it the query from the editor and inserts
 //! the pick into the body.
 
-use crate::app::{apply, cancel_timer, done, log_error, run, Cmd, Model, WikiLinkContext};
+use crate::app::{cancel_timer, done, log_error, run, Cmd, Event, Model, WikiLinkContext};
 use crate::effects::TimerOutput;
 use crate::ops::edit::record_typing;
 use crate::screens::navigate::open_page;
@@ -58,15 +58,19 @@ pub fn query(model: &mut Model, item_id: &str, context: Option<WikiLinkContext>)
                 Vec::new()
             }
         };
-        apply(&api, "wiki suggestions", move |m| {
-            if m.wiki.timer_id == timer_id && m.wiki.item_id.is_some() {
-                m.wiki.suggestions = titles;
-                m.wiki.index = 0;
-            }
-            done()
-        });
+        api.send_event(Event::WikiLinksSuggested { timer_id, titles });
     });
     Command::all([cancel, search])
+}
+
+/// The page names the search the timer `timer_id` started found. They are not shown when a
+/// later search started or the popup closed.
+pub fn show_suggestions(model: &mut Model, timer_id: u64, titles: Vec<String>) -> Cmd {
+    if model.wiki.timer_id == timer_id && model.wiki.item_id.is_some() {
+        model.wiki.suggestions = titles;
+        model.wiki.index = 0;
+    }
+    done()
 }
 
 /// ArrowUp, ArrowDown or Enter while the popup is open.

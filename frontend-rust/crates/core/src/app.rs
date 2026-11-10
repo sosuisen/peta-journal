@@ -331,6 +331,38 @@ pub enum Event {
     WikiKey {
         key: String,
     },
+    /// The page names the search the timer `timer_id` started found for a wiki link.
+    WikiLinksSuggested {
+        timer_id: u64,
+        titles: Vec<String>,
+    },
+    /// The server changed the task state of the item `before`, saved under `target_id`.
+    TaskCycled {
+        target_id: String,
+        before: Box<Item>,
+        updated: Box<Item>,
+    },
+    /// The server saved the collapsing or expanding of the item `before`.
+    CollapseSaved {
+        before: Box<Item>,
+    },
+    /// The server refused the collapsing or expanding of the item `before`.
+    CollapseRefused {
+        before: Box<Item>,
+    },
+    /// The server made an item a transclusion, or a plain item again.
+    TransclusionChanged {
+        item: Box<Item>,
+    },
+    /// Items were copied to the system clipboard; the app keeps both forms of the text.
+    MarkdownCopied {
+        flat_markdown: String,
+        tree_markdown: String,
+    },
+    /// The server refused an indent or outdent of items of these pages.
+    LevelShiftRefused {
+        page_ids: HashSet<String>,
+    },
     WikiPick {
         title: String,
     },
@@ -1109,6 +1141,28 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         }
         WikiQuery { item_id, context } => ops::wiki::query(model, &item_id, context),
         WikiKey { key } => ops::wiki::key_nav(model, &key),
+        WikiLinksSuggested { timer_id, titles } => {
+            ops::wiki::show_suggestions(model, timer_id, titles)
+        }
+        TaskCycled {
+            target_id,
+            before,
+            updated,
+        } => ops::action::show_task_cycled(model, &target_id, *before, *updated),
+        CollapseSaved { before } => ops::action::record_collapse(model, *before),
+        CollapseRefused { before } => ops::action::put_collapse_back(model, *before),
+        TransclusionChanged { item } => {
+            model.state.replace_item(&item);
+            done()
+        }
+        MarkdownCopied {
+            flat_markdown,
+            tree_markdown,
+        } => {
+            model.clipboard = Some((flat_markdown, tree_markdown));
+            done()
+        }
+        LevelShiftRefused { page_ids } => ops::level::reload_after_refused_shift(model, page_ids),
         WikiPick { title } => ops::wiki::pick(model, &title),
         OpenLinkAt { item_id, cursor } => ops::wiki::open_link_at(model, &item_id, cursor),
         ShiftSelect { item_id } => {
