@@ -2,6 +2,7 @@
 //! different items of a page on two devices are both kept. See docs/folder-sync-future.md.
 
 use std::path::Path;
+use std::time::{Duration, SystemTime};
 
 use hmtid::Hmtid;
 use journal_server::domain::model::ItemPosition;
@@ -30,6 +31,15 @@ impl Device {
 
     fn delete(&self, item_id: &Hmtid) {
         self.state.item_service.delete_item(item_id).unwrap();
+    }
+
+    /// Gives the file a modification time, as the file system does when it writes the file
+    fn date_file(&self, rel_path: &str, time: SystemTime) {
+        let file = std::fs::File::options()
+            .write(true)
+            .open(self.root.join(rel_path))
+            .unwrap();
+        file.set_modified(time).unwrap();
     }
 
     fn item_idx(&self, item_id: &Hmtid) -> String {
@@ -282,6 +292,26 @@ fn an_item_deleted_after_the_file_was_written_does_not_come_back() {
 fn an_item_deleted_on_the_other_device_goes() {
     let dir = tempfile::tempdir().unwrap();
     let (a, b, page, _, y) = two_devices_with_items(dir.path());
+
+    a.delete(&y);
+    b.receive(&a, PAGE);
+
+    assert_eq!(b.bodies(&page), ["x"]);
+    assert!(b.conflicts().is_empty());
+}
+
+// ファイルの更新時刻が中の項目の日付より古くても、相手が消した項目は消える。
+#[test]
+fn an_item_deleted_on_the_other_device_goes_when_the_file_is_dated_before_its_items() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    let page = a.page_in("d/", "a").unwrap();
+    a.add(&page, "x");
+    let y = a.add(&page, "y");
+    // The clock of the file system can be behind the clock that dates the items
+    b.deliver(&a, PAGE);
+    b.date_file(PAGE, SystemTime::now() - Duration::from_secs(60));
+    b.sync(PAGE);
 
     a.delete(&y);
     b.receive(&a, PAGE);
