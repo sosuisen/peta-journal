@@ -363,3 +363,15 @@ fn a_cancelled_timer_does_not_fire() {
     });
     assert_eq!(screen.searches(), ["ab"]);
 }
+
+// 読めないバイト列は、イベントとしても答えとしても、エラーで返る。コアは止まらない。
+#[test]
+fn bytes_that_cannot_be_read_are_refused() {
+    let screen = Screen::new();
+
+    assert!(screen.shell.update(&[0xff; 3]).is_err());
+    assert!(screen.shell.resolve(9_999, &[]).is_err());
+
+    screen.send(&Event::NavigateHome);
+    assert_eq!(screen.navigations(), ["/today"]);
+}
