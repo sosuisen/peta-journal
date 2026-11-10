@@ -12,6 +12,7 @@ import {
   clientId,
   cycleTask,
   getItemsByTypes,
+  getTagsDir,
   serverUrl,
   serverUrlFrom,
   subscribe,
@@ -198,6 +199,19 @@ describe('the requests to the journal server', () => {
     expect(items).toEqual([{ id: 'item-1' }]);
     expect(fetchMock).toHaveBeenCalledWith(
       'http://journal.test:9000/api/items?types=task,note',
+      undefined,
+    );
+  });
+
+  // タグのページを置くフォルダは、サーバーの設定から取る。
+  test('get the folder of the tag pages from the configuration', async () => {
+    answer('{"tagsDir":"tags/","homeLink":""}');
+
+    const tagsDir = await getTagsDir();
+
+    expect(tagsDir).toBe('tags/');
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://journal.test:9000/api/config',
       undefined,
     );
   });

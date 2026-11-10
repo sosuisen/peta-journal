@@ -8,6 +8,12 @@
   - 今できる作業は終わった。残りの2つは、上流の対応を待っている。今は進められない。上流が新しくなったら、追従する
   - [ ] TypeScript 7.1でAPIが戻り、typescript-eslintが対応したら、`typescript`の別名をやめて7だけにする
   - [ ] `npm audit`に残る中程度の10件は、どれもESLintとtypescript-eslintが使うminimatch 10が原因である。両方がminimatch 11に移ったら、更新して消す。`overrides`では上げない。11はAPIを削っており、ESLintが対応を確かめていないため
+- [ ] `ext-web-app/todo`を、flatmarkdown 0.5.0のASTに合わせる
+  - [x] `flatmarkdown-ast2react`を0.1.0から0.3.0に上げる。0.1.0は、ハッシュタグと画像（`embed`）を表示しなかった
+  - [x] タグのフォルダを設定API（`/api/config`の`tagsDir`）から取る
+  - [x] ハッシュタグのリンク先を、本体と同じ`/pages/`＋タグのフォルダにする
+  - [x] `flatmarkdown-ast2react` 0.3.0がnpmに公開されたら、`package-lock.json`を更新する
+  - [ ] 画像の表示は確かめていない。`embed`のURLが相対パスのとき、todoアプリのアドレスに解決される。今のタスクには画像がない
 - [ ] Emacs版に、Web版にある機能を足す
   - 項目の操作
     - [ ] ウィキリンクの補完。毎日使うので、最初の候補である

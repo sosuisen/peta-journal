@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   cycleTask,
   getItemsByTypes,
+  getTagsDir,
   subscribe,
   type ConnectionState,
   type Item,
@@ -10,6 +11,9 @@ import {
 /**
  * The tasks of the journal server. They are loaded when the app connects, and again
  * whenever a page changes on the server.
+ *
+ * The folder of the tag pages comes with them, because a hashtag in the text of a task
+ * links into it. It is loaded when the app connects.
  */
 export function useTasks() {
   const [connectionState, setConnectionState] =
@@ -17,6 +21,7 @@ export function useTasks() {
   const [error, setError] = useState('');
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(false);
+  const [tagsDir, setTagsDir] = useState('');
 
   useEffect(() => {
     const loadItems = async () => {
@@ -29,12 +34,22 @@ export function useTasks() {
         setLoading(false);
       }
     };
+    const loadTagsDir = async () => {
+      try {
+        setTagsDir(await getTagsDir());
+      } catch (e) {
+        setError(String(e));
+      }
+    };
     return subscribe({
       onStateChange: state => {
         setConnectionState(state);
         // Each try to connect takes away the error of a request that failed before it
         if (state !== 'disconnected') setError('');
-        if (state === 'connected') void loadItems();
+        if (state === 'connected') {
+          void loadItems();
+          void loadTagsDir();
+        }
       },
       onPagesUpdated: () => void loadItems(),
     });
@@ -50,5 +65,5 @@ export function useTasks() {
     }
   };
 
-  return { items, loading, error, connectionState, cycle };
+  return { items, loading, error, connectionState, tagsDir, cycle };
 }

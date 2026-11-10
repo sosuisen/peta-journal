@@ -99,6 +99,15 @@ export async function getItemsByTypes(types: string[]): Promise<Item[]> {
   return data.items;
 }
 
+/**
+ * The folder of the tag pages, from the configuration of the server. It is empty for the
+ * pages root, and ends with `/` otherwise.
+ */
+export async function getTagsDir(): Promise<string> {
+  const config = await fetchJson<{ tagsDir: string }>('/api/config');
+  return config.tagsDir;
+}
+
 /** Cycles a task's state via the cycle-task endpoint. */
 export async function cycleTask(itemId: string): Promise<Item> {
   const data = await fetchJson<{ item: Item }>(

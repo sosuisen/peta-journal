@@ -4,10 +4,6 @@ import { serverUrl, type Item } from './api';
 import { isOnLink } from './dom';
 import { getDue, getPlan, pagePath, taskLabel } from './tasks';
 
-const fmOptions: ReactRenderOptions = {
-  wikilink: { hrefPrefix: `${serverUrl}/pages/` },
-};
-
 function ItemDates({ item }: { item: Item }) {
   const plan = getPlan(item);
   const due = getDue(item);
@@ -22,6 +18,8 @@ function ItemDates({ item }: { item: Item }) {
 
 interface ItemRowProps {
   item: Item;
+  /** Where the links in the text of the task lead */
+  linkOptions: ReactRenderOptions;
   onCycle: (item: Item) => void;
 }
 
@@ -29,7 +27,7 @@ interface ItemRowProps {
  * One task: a click on the row opens its page in PetaJournal, and a click on the badge
  * moves the task to its next state. A link in the text of the task works as a link.
  */
-export default function ItemRow({ item, onCycle }: ItemRowProps) {
+export default function ItemRow({ item, linkOptions, onCycle }: ItemRowProps) {
   const label = taskLabel(item);
   const openInPetaJournal = (event: MouseEvent<HTMLDivElement>) => {
     // A click on a link in the text follows that link, and does not open the page too
@@ -41,7 +39,7 @@ export default function ItemRow({ item, onCycle }: ItemRowProps) {
       <div className="item-main">
         <span className="item-page">{item.name}</span>
         <span className="item-content">
-          <FmRoot ast={item.ast} options={fmOptions} />
+          <FmRoot ast={item.ast} options={linkOptions} />
         </span>
         <ItemDates item={item} />
       </div>
