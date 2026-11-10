@@ -4,6 +4,7 @@
 
 use crux_core::bridge::{BincodeFfiFormat, FfiFormat, Request};
 use peta_core::effects::UiOp;
+use peta_core::Event;
 use peta_shell_native::ffi::{PetaCore, PetaShell};
 use peta_shell_native::ShellEffectFfi;
 use std::sync::{Arc, Mutex};
@@ -24,13 +25,13 @@ impl PetaShell for Kept {
     }
 }
 
-// 別の言語のシェルの入口からコアを起動すると、シェルへの依頼が届き、ビューモデルを読める。
+// 別の言語のシェルの入口からコアを起動すると、シェルへの依頼が届く。
 #[test]
-fn a_shell_in_another_language_gets_the_requests_and_the_view_model() {
+fn a_shell_in_another_language_gets_the_requests_of_the_core() {
     let (address, _seen) = start_server();
     let shell = Arc::new(Kept::default());
 
-    let core = PetaCore::new(address, shell.clone());
+    let _core = PetaCore::new(address, shell.clone());
 
     wait_until("the shell is asked to confirm", || {
         let requests = shell.requests.lock().unwrap();
@@ -38,7 +39,20 @@ fn a_shell_in_another_language_gets_the_requests_and_the_view_model() {
             matches!(&request.effect, ShellEffectFfi::Ui(UiOp::Confirm(message)) if message == "Insert?")
         })
     });
-    assert!(!core.view().is_empty());
+}
+
+// 入口から送ったイベントは、コアに届く。検索の箱への入力が、ビューモデルに入る。
+#[test]
+fn an_event_from_the_entrance_shows_in_the_view_model() {
+    let (address, _seen) = start_server();
+    let core = PetaCore::new(address, Arc::new(Kept::default()));
+    let mut event = Vec::new();
+    BincodeFfiFormat::serialize(&mut event, &Event::SearchQueryChanged("apple".into())).unwrap();
+
+    core.update(&event).unwrap();
+
+    let view = core.view();
+    assert!(String::from_utf8_lossy(&view).contains("apple"));
 }
 
 // 読めないバイト列は、イベントとしても答えとしても、エラーの文として返る。
