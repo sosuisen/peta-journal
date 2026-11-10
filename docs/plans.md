@@ -324,7 +324,8 @@
     - [x] `fm-leptos`が、`item.tight`ではなく`list.tight`を読む。`item.tight`は仕様と型から消える（petajournal/flatmarkdown#11）
       - 2026-11-09に決めた。`item.tight`は常に偽だったので、タイトなリストでも`<p>`を出していた。CommonMarkどおり、タイトなリストでは`<p>`を出さない
       - `shell-leptos`のCSSは`li > p`の余白を0にしている。そのため、見た目の間隔は変わらないはずである。画面では確かめていない
-    - [ ] TSのレンダラー（`flatmarkdown-ast2html`、`flatmarkdown-ast2react`、`flatmarkdown-ast2angular`）も、`list.tight`を読むように直す
+    - [x] TSのレンダラー（`flatmarkdown-ast2html`、`flatmarkdown-ast2react`、`flatmarkdown-ast2angular`）も、`list.tight`を読むように直す
+      - 2026-11-10に、3つのリポジトリのPR #1で直した。`item`は直下の段落にだけ`<p>`を外す。引用などの中の段落は`<p>`を保つ。`fm-leptos`と同じ形である
 - [x] ほかのクライアントがAPIで変えたページを、開いているクライアントが読み直す（ADR 015）
   - 今までは、APIでの変更（`source: "app"`）をどのクライアントも読み直さなかった。自分の変更と区別できなかったためである。クライアントごとのIDで区別する
   - サーバー
