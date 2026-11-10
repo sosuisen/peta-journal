@@ -219,7 +219,15 @@ items.
 
 ## Tests
 
-`cargo test -p peta-shell-emacs` tests the shell around the core, with a fake host.
+`cargo test -p peta-shell-emacs` runs two kinds of tests:
+
+- `src/tests/` tests the shell around the core, with a fake host.
+- `tests/process.rs` starts the program itself. The test plays Emacs on its stdin and stdout, and
+  a small server of the test answers its HTTP requests. Neither Emacs nor the journal server is
+  needed. One of these tests waits 5 seconds for the shell to give up on a server.
+
+`cargo cov` measures both kinds (see `BUILD.md`). CI runs them and the tests of the buffer below,
+but not the E2E tests.
 
 The tests of the buffer run without a process:
 
@@ -229,7 +237,7 @@ emacs -Q --batch -L lisp -l lisp/test/peta-journal-test.el -f ert-run-tests-batc
 ```
 
 The E2E tests press real keys and use the real shell and a real server. They run what the other
-tests cannot, such as `src/runtime.rs`. Build both programs first. Each test starts its server on
+tests cannot: the mode, the shell and the server together. Build both programs first. Each test starts its server on
 port 18087, with its files in a temporary folder and its own `--config-dir`. The tests stop if the
 server reports a markdown folder outside that temporary folder (see ADR-002). They are skipped when
 `PETA_E2E_SERVER` is not set.

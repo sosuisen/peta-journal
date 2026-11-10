@@ -1232,3 +1232,198 @@ fn shutting_down_saves_the_edit_and_waits_for_the_answer() {
     driver.fail_all_waiting_calls();
     assert!(driver.shell.is_idle());
 }
+
+// 編集を終えると、入力した文は、自動保存のタイマーを待たずに保存される。
+#[test]
+fn ending_an_edit_saves_the_typed_text_at_once() {
+    let mut driver = Driver::open(&[item("a", 1, "x")]);
+    driver.send(Inbound::EditRequested {
+        id: "a".into(),
+        cursor: 1,
+    });
+    driver.send(Inbound::BodyChanged {
+        id: "a".into(),
+        body: "xy".into(),
+    });
+
+    driver.send(Inbound::EditFinished { id: "a".into() });
+
+    assert!(driver.waiting(|op| matches!(op, ApiOp::UpdateItem { body: Some(b), .. } if b == "xy")));
+}
+
+// 本文の先頭のBackspaceは、項目を上の項目につなげる。
+#[test]
+fn backspace_at_the_start_joins_the_item_to_the_one_above() {
+    let mut driver = Driver::open(&[item("a", 1, "x"), item("b", 1, "y")]);
+    driver.send(Inbound::BackspaceAtStart { id: "b".into() });
+    driver.answer(
+        |op| matches!(op, ApiOp::TranscludedItems { .. }),
+        ApiOutput::ItemIds(Vec::new()),
+    );
+    assert!(driver.waiting(|op| matches!(
+        op,
+        ApiOp::MergeItems { item_id, into_id, .. } if item_id == "b" && into_id == "a"
+    )));
+}
+
+// 本文の末尾のDeleteは、下の項目をこの項目につなげる。
+#[test]
+fn delete_at_the_end_joins_the_item_below_to_this_one() {
+    let mut driver = Driver::open(&[item("a", 1, "x"), item("b", 1, "y")]);
+    driver.send(Inbound::DeleteAtEnd { id: "a".into() });
+    driver.answer(
+        |op| matches!(op, ApiOp::TranscludedItems { .. }),
+        ApiOutput::ItemIds(Vec::new()),
+    );
+    assert!(driver.waiting(|op| matches!(
+        op,
+        ApiOp::MergeItems { item_id, into_id, .. } if item_id == "b" && into_id == "a"
+    )));
+}
+
+// アウトデントは、レベルが変わった行として返る。
+#[test]
+fn outdent_comes_back_as_a_row_with_a_new_level() {
+    let mut driver = Driver::open(&[item("a", 1, "x"), item("b", 2, "y")]);
+    driver.send(Inbound::Outdent { id: "b".into() });
+    assert_eq!(driver.last_rows().unwrap()[1].level, 1);
+}
+
+// 項目を上へ動かすと、上の項目の前への移動がサーバーに送られる。
+#[test]
+fn moving_an_item_up_sends_the_move_to_the_server() {
+    let mut driver = Driver::open(&[item("a", 1, "x"), item("b", 1, "y")]);
+    driver.send(Inbound::MoveUp { id: "b".into() });
+    assert!(driver.waiting(
+        |op| matches!(op, ApiOp::MoveItems { item_ids, .. } if item_ids == &["b".to_string()])
+    ));
+}
+
+// 項目を下へ動かすと、下の項目の後ろへの移動がサーバーに送られる。
+#[test]
+fn moving_an_item_down_sends_the_move_to_the_server() {
+    let mut driver = Driver::open(&[item("a", 1, "x"), item("b", 1, "y")]);
+    driver.send(Inbound::MoveDown { id: "a".into() });
+    assert!(driver.waiting(
+        |op| matches!(op, ApiOp::MoveItems { item_ids, .. } if item_ids == &["a".to_string()])
+    ));
+}
+
+// 子を持つ項目をたたむと、子の行が消え、たたんだ印が付く。
+#[test]
+fn collapsing_an_item_hides_its_children() {
+    let mut driver = Driver::open(&[item("a", 1, "親"), item("b", 2, "子")]);
+    driver.send(Inbound::CollapseToggle { id: "a".into() });
+    let rows = driver.last_rows().unwrap();
+    assert_eq!(rows.len(), 1);
+    assert!(rows[0].collapsed);
+}
+
+// 取り消した操作は、やり直せる。
+#[test]
+fn an_undone_indent_is_done_again_by_redo() {
+    let mut driver = Driver::open(&[item("a", 1, "x"), item("b", 1, "y")]);
+    driver.send(Inbound::Indent { id: "b".into() });
+    driver.fail_all_waiting_calls();
+    driver.send(Inbound::Undo);
+    assert_eq!(driver.last_rows().unwrap()[1].level, 1);
+
+    driver.send(Inbound::Redo);
+
+    assert_eq!(driver.last_rows().unwrap()[1].level, 2);
+}
+
+// 最初のページでのBackは、戻る先がないので、何も開かない。
+#[test]
+fn back_on_the_first_page_opens_nothing() {
+    let mut driver = Driver::open(&[item("a", 1, "x")]);
+    driver.send(Inbound::Back);
+    assert!(!driver.waiting(|op| matches!(op, ApiOp::GetOrCreateDoc { .. })));
+}
+
+// URLの#の後ろの項目は、ページが読めたあとに、Emacsがそこへスクロールする。
+#[test]
+fn the_item_after_the_hash_of_a_url_is_scrolled_to() {
+    let mut driver = Driver::new();
+    driver.send(Inbound::Start {
+        url: "/pages/notes#b".into(),
+    });
+    driver.load_page(&[item("a", 1, "x"), item("b", 1, "y")]);
+    assert!(driver
+        .sent()
+        .iter()
+        .any(|m| matches!(m, Outbound::Scroll { id } if id == "b")));
+}
+
+// ジャーナルでは、前のジャーナルへ移れる。
+#[test]
+fn the_previous_journal_is_asked_for_by_its_date() {
+    let mut driver = Driver::new();
+    driver.send(Inbound::Start {
+        url: "/journals/2026-11-05".into(),
+    });
+    driver.send(Inbound::JournalNav { forward: false });
+    assert!(driver.waiting(
+        |op| matches!(op, ApiOp::GetOrCreateJournal { file_name } if file_name == "2026-11-04")
+    ));
+}
+
+// ジャーナルでは、次のジャーナルへ移れる。
+#[test]
+fn the_next_journal_is_asked_for_by_its_date() {
+    let mut driver = Driver::new();
+    driver.send(Inbound::Start {
+        url: "/journals/2026-11-05".into(),
+    });
+    driver.send(Inbound::JournalNav { forward: true });
+    assert!(driver.waiting(
+        |op| matches!(op, ApiOp::GetOrCreateJournal { file_name } if file_name == "2026-11-06")
+    ));
+}
+
+// 最近のページは、パスの一覧としてEmacsに届く。
+#[test]
+fn the_recent_pages_reach_emacs_as_paths() {
+    let mut driver = Driver::open(&[item("a", 1, "x")]);
+    let pages = serde_json::from_value(json!({
+        "Pages": [page_info("", "notes"), page_info("work/", "plan")]
+    }));
+    driver.answer(
+        |op| matches!(op, ApiOp::GetRecentPages { .. }),
+        pages.unwrap(),
+    );
+    let recent = driver.sent().iter().rev().find_map(|m| match m {
+        Outbound::Recent { paths } => Some(paths.clone()),
+        _ => None,
+    });
+    assert_eq!(recent.unwrap(), ["notes", "work/plan"]);
+}
+
+// このページへリンクするページは、ページごとにまとまり、リンクする項目の文と行き先が付く。
+#[test]
+fn the_backlinks_reach_emacs_grouped_by_page() {
+    let mut driver = Driver::open(&[item("a", 1, "x")]);
+    let mut source = item("s", 1, "see [[notes]]");
+    source["pageId"] = json!("q");
+    source["name"] = json!("other");
+    let mut other = page_info("", "other");
+    other["id"] = json!("q");
+    let backlinks = serde_json::from_value(json!({
+        "Backlinks": [{ "sourcePage": other, "sourceItem": source }]
+    }));
+    driver.answer(
+        |op| matches!(op, ApiOp::GetBacklinks { .. }),
+        backlinks.unwrap(),
+    );
+    let groups = driver.sent().iter().rev().find_map(|m| match m {
+        Outbound::Backlinks { groups } => Some(groups.clone()),
+        _ => None,
+    });
+    let groups = groups.unwrap();
+    assert_eq!(groups.len(), 1);
+    assert_eq!(groups[0].title, "other");
+    assert_eq!(groups[0].url, "/pages/other");
+    assert_eq!(groups[0].items.len(), 1);
+    assert_eq!(groups[0].items[0].text, "see [[notes]]");
+    assert_eq!(groups[0].items[0].url, "/pages/other#s");
+}

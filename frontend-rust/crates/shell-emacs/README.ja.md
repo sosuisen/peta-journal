@@ -177,7 +177,12 @@ Emacsの初期設定ファイルに、次の内容を追加する。
 
 ## テスト
 
-`cargo test -p peta-shell-emacs`は、偽のホストを使って、コアを動かすシェルをテストする。
+`cargo test -p peta-shell-emacs`は、2種類のテストを動かす。
+
+- `src/tests/`は、偽のホストを使って、コアを動かすシェルをテストする。
+- `tests/process.rs`は、プログラムそのものを起動する。テストがEmacsの代わりに標準入力と標準出力でやり取りし、テストの中の小さなサーバーがHTTPの要求に答える。Emacsもjournal-serverもいらない。このうち1件は、シェルがサーバーをあきらめるまでの5秒を待つ。
+
+`cargo cov`は、この両方を測る（`BUILD.md`を参照）。CIは、この両方と、下のバッファのテストを動かす。E2Eテストは動かさない。
 
 バッファのテストは、プロセスなしで動く。
 
@@ -186,7 +191,7 @@ cd peta-journal/frontend-rust/crates/shell-emacs
 emacs -Q --batch -L lisp -l lisp/test/peta-journal-test.el -f ert-run-tests-batch-and-exit
 ```
 
-E2Eテストは、実際のキー入力、本物のシェル、本物のサーバーを使う。`src/runtime.rs`など、他のテストでは動かせない部分を動かす。先に両方のプログラムをビルドする。各テストは、ポート18087でサーバーを起動する。サーバーのファイルは一時フォルダに置き、専用の`--config-dir`を渡す。サーバーの報告するMarkdownフォルダが一時フォルダの外なら、テストは止まる（ADR-002を参照）。`PETA_E2E_SERVER`が設定されていなければ、テストはスキップされる。
+E2Eテストは、実際のキー入力、本物のシェル、本物のサーバーを使う。モード、シェル、サーバーをつないだ全体という、他のテストでは動かせない部分を動かす。先に両方のプログラムをビルドする。各テストは、ポート18087でサーバーを起動する。サーバーのファイルは一時フォルダに置き、専用の`--config-dir`を渡す。サーバーの報告するMarkdownフォルダが一時フォルダの外なら、テストは止まる（ADR-002を参照）。`PETA_E2E_SERVER`が設定されていなければ、テストはスキップされる。
 
 ```powershell
 $env:PETA_E2E_SERVER = "<peta-journal>\journal-server-rust\target\debug\journal-server.exe"

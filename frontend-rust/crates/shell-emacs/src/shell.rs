@@ -476,7 +476,7 @@ impl<H: Host> Shell<H> {
     }
 
     /// Performs a screen operation. A focus request comes back, to be resolved after the render.
-    fn on_ui_op(&mut self, mut request: Request<UiOp>) -> Option<Request<UiOp>> {
+    fn on_ui_op(&mut self, request: Request<UiOp>) -> Option<Request<UiOp>> {
         match request.operation.clone() {
             // The keys are never held in the core: Emacs keeps them in its own input queue while
             // it waits for this answer, so `replay_keys` stays empty
@@ -498,22 +498,12 @@ impl<H: Host> Shell<H> {
             UiOp::Confirm(message) | UiOp::ConfirmDestructive(message) => {
                 self.ask(message, request);
             }
-            UiOp::LocalNow => {
-                let now = self.host.now();
-                self.resolve(
-                    &mut request,
-                    UiOutput::Now {
-                        local: now.local,
-                        now_ms: now.now_ms,
-                    },
-                );
-            }
-            // Emacs has one window on one page, so another window is this one
-            UiOp::OpenWindow { url, .. } => self.navigations.push_back((url, false)),
             // There is nothing to do these with here: the atlas map is a part of the web shell.
-            // Copying, a new page from the header and pasting a transclusion start from events
-            // that Emacs does not send
-            UiOp::SaveAtlasDirs(_)
+            // Copying, a new page from the header, a page in another window and pasting a
+            // transclusion start from events that Emacs does not send
+            UiOp::LocalNow
+            | UiOp::OpenWindow { .. }
+            | UiOp::SaveAtlasDirs(_)
             | UiOp::CopyText(_)
             | UiOp::CopyMarkdown { .. }
             | UiOp::CopyFailed
