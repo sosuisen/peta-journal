@@ -1760,6 +1760,15 @@ DATE is a list of the month, the day and the year."
                    '("go_to_date" :date "2026-02-10" :unit "day")))
     (should-not (get-buffer-window calendar-buffer))))
 
+;; カレンダーを開くと、日、週、月、年を開くキーと、閉じるキーの案内が出る。
+(ert-deftest peta-journal-opening-the-calendar-tells-its-keys ()
+  (let (told)
+    (cl-letf (((symbol-function 'message)
+               (lambda (format-string &rest args)
+                 (setq told (apply #'format-message format-string args)))))
+      (peta-journal-test--with-calendar '(2 10 2026)
+        (should (equal told "RET: day  w: week  m: month  y: year  q: close"))))))
+
 ;; カレンダーの日でw、m、yを押すと、その日の週、月、年のページを開く。
 (ert-deftest peta-journal-w-m-and-y-in-the-calendar-open-the-week-the-month-and-the-year ()
   (dolist (case '(("w" . "week") ("m" . "month") ("y" . "year")))
