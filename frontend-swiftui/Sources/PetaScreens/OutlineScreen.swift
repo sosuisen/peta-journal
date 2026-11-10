@@ -29,11 +29,11 @@ public struct OutlineScreen: View {
 
     private var status: String {
         let items = shell.view.outline.rows.count
-        switch shell.view.connection {
-        case .connected: return "Items: \(items)"
-        case .connecting: return "Connecting to the journal server…"
-        case .disconnected, .error: return "No connection to the journal server"
-        }
+        // Not a switch: the optimizing compiler of Swift 6.4.2 crashes on one over this enum
+        let connection = shell.view.connection
+        if connection == .connected { return "Items: \(items)" }
+        if connection == .connecting { return "Connecting to the journal server…" }
+        return "No connection to the journal server"
     }
 }
 
