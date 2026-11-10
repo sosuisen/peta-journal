@@ -86,6 +86,33 @@ The tests cover the code that does not use WinUI: the rows of the items, the sta
 They do not start the app. The window has no tests.
 The script inside the WebView (`Web\page.js`) does not run in the tests. They only check that it sends the messages the app reads.
 
+## Format
+
+The formatter is [CSharpier](https://csharpier.com). It formats the C#, XAML and project files under `ext-desktop-app`.
+It is a local tool. Its version is in `ext-desktop-app\dotnet-tools.json`.
+
+```powershell
+cd ext-desktop-app
+dotnet tool restore        # once, to install the tool
+dotnet csharpier format .  # format the files
+dotnet csharpier check .   # only check, as the CI does
+```
+
+Format after every change. The CI fails when a file is not formatted.
+
+## Lint
+
+The linter is the set of analyzers in the .NET SDK. There is nothing to install.
+The analyzers run in every build, of the app and of the tests. Their findings are warnings of the build.
+
+The settings are in `ext-desktop-app\Directory.Build.props`.
+
+- `AnalysisLevel` is `latest-recommended`: the rules that Microsoft recommends.
+- The null safety warnings of the compiler (CS86xx) are errors. They stop the build.
+- All other findings are warnings. They do not stop the build, so read the output of the build.
+
+The tests turn off one rule, CA1707, in `ext-desktop-app\stickies-tests\.editorconfig`. The file tells why.
+
 ## Settings
 
 Window state is persisted at `~/.peta-stickies` (JSON). Delete this file to reset all windows.
