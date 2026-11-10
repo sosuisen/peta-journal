@@ -523,6 +523,24 @@ mod tests {
         assert_eq!(serde_json::to_string(&list).unwrap(), r#"["x","y"]"#);
     }
 
+    // JSON の文字列の配列は、リストのプロパティ値として読み取られる。
+    #[test]
+    fn reads_a_json_array_of_strings_as_a_list_value() {
+        let value: PropertyValue = serde_json::from_str(r#"["x","y"]"#).unwrap();
+        assert_eq!(value, PropertyValue::List(vec!["x".into(), "y".into()]));
+    }
+
+    // 文字列でも文字列の配列でもない JSON は、プロパティ値として読み取れない。サーバーはこの 2 つの形しか返さない。
+    #[test]
+    fn refuses_json_of_any_other_shape() {
+        for json in ["1.5", "true", "null", "[1]", r#"{"a":"b"}"#] {
+            assert!(
+                serde_json::from_str::<PropertyValue>(json).is_err(),
+                "{json}"
+            );
+        }
+    }
+
     // ItemPosition は first・last・after:<id> の文字列を解析して同じ文字列に戻し、after は "after:x" という JSON 文字列にシリアライズされる。
     #[test]
     fn position_round_trips() {
