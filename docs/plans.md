@@ -13,7 +13,8 @@
   - [x] タグのフォルダを設定API（`/api/config`の`tagsDir`）から取る
   - [x] ハッシュタグのリンク先を、本体と同じ`/pages/`＋タグのフォルダにする
   - [x] `flatmarkdown-ast2react` 0.3.0がnpmに公開されたら、`package-lock.json`を更新する
-  - [ ] 画像の表示は確かめていない。`embed`のURLが相対パスのとき、todoアプリのアドレスに解決される。今のタスクには画像がない
+  - [x] 画像を表示する。画像は`../assets/名前`という相対パスで書かれていて、todoアプリのアドレスに解決されていた。`flatmarkdown-ast2react` 0.4.0の`embed.baseUrl`で、Webアプリのページのアドレスから解決する
+  - [x] `flatmarkdown-ast2react` 0.4.0がnpmに公開されたら、`package-lock.json`を更新する
 - [ ] Emacs版に、Web版にある機能を足す
   - 項目の操作
     - [ ] ウィキリンクの補完。毎日使うので、最初の候補である
