@@ -27,6 +27,7 @@ pub struct FileSyncState {
     /// Until when the page and the file were in step: the later of the file mtime and the
     /// latest date the content holds. The clock of the file system can be behind the clock
     /// that dates the items, so the mtime alone may be before a date written in the file.
+    /// A date of the content after the time of the sync counts as that time.
     pub last_synced: i64,
     pub synced_at: i64,
     /// `synced` or `missing`.
@@ -59,6 +60,15 @@ fn map(row: &Row<'_>) -> rusqlite::Result<FileSyncState> {
     })
 }
 
+/// Until when a file and its page were in step; see `FileSyncState::last_synced`.
+///
+/// Why not the date of the content as it is: the clock of another device may be ahead, and
+/// nothing was seen here after now. An item made here before the date of that device would
+/// count as seen, and would go with the next file that does not hold it.
+fn last_synced(file_mtime: i64, content_date: i64, now: i64) -> i64 {
+    file_mtime.max(content_date.min(now))
+}
+
 #[derive(Debug, Clone)]
 pub struct FileSyncStateRepository {
     db: Arc<Db>,
@@ -81,7 +91,7 @@ impl FileSyncStateRepository {
         content_date: i64,
     ) -> AppResult<()> {
         let now = now_millis();
-        let last_synced = file_mtime.max(content_date);
+        let last_synced = last_synced(file_mtime, content_date, now);
         let conn = self.db.conn()?;
         conn.execute(
             &format!(
@@ -170,5 +180,28 @@ impl FileSyncStateRepository {
             [page_id.as_str()],
         )?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // 中の日付がファイルの更新時刻より遅ければ、前回の同期は中の日付になる。
+    #[test]
+    fn the_last_sync_is_the_date_of_the_content_when_the_mtime_is_behind_it() {
+        assert_eq!(last_synced(10, 20, 30), 20);
+    }
+
+    // ファイルの更新時刻が中の日付より遅ければ、前回の同期は更新時刻になる。
+    #[test]
+    fn the_last_sync_is_the_mtime_when_it_is_after_the_date_of_the_content() {
+        assert_eq!(last_synced(20, 10, 30), 20);
+    }
+
+    // 今より先の中の日付は、今として数える。
+    #[test]
+    fn a_date_of_the_content_after_now_counts_as_now() {
+        assert_eq!(last_synced(10, 99, 30), 30);
     }
 }

@@ -356,26 +356,6 @@ fn an_item_added_here_stays_after_a_file_of_a_device_whose_clock_is_ahead() {
     assert_eq!(b.bodies(&page), ["x ahead", "y ahead", "z from B"]);
 }
 
-// 書き出したファイルの前回の同期は、中の項目の日付より前にならない。
-#[test]
-fn the_last_sync_of_a_written_file_is_not_before_the_dates_of_its_items() {
-    let dir = tempfile::tempdir().unwrap();
-    let (a, _b, page, x, _) = two_devices_with_items(dir.path());
-    let mut file = a.file(PAGE);
-    file.push_str("\n<!-- @ 2020-01-01-00-00-00-AAAAAAA idx=\"a9\" modified=\"2999-01-01T00:00:00Z\" -->\ndated ahead of the file\n");
-    std::fs::write(a.root.join(PAGE), file).unwrap();
-    a.sync(PAGE);
-
-    a.write(&x, "x again");
-    a.export();
-
-    let state = &a.state.file_sync_state;
-    let last_synced = state.find_by_path(PAGE).unwrap().unwrap().last_synced;
-    let items = a.state.page_service.get_page_items(&page).unwrap();
-    let latest = items.iter().map(|i| i.modified_date).max().unwrap();
-    assert!(last_synced >= latest, "{last_synced} < {latest}");
-}
-
 // 相手が消した項目でも、それより後に編集していれば両方に残る。
 #[test]
 fn an_item_edited_after_it_was_deleted_on_the_other_device_stays_on_both() {
