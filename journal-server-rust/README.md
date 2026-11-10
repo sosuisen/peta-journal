@@ -44,6 +44,31 @@ curl -X POST http://localhost:8087/api/journals/2026-11-10 \
   -H "X-Client-Id: 123e4567-e89b-42d3-a456-426614174000"
 ```
 
+## Writing the page files again
+
+The server writes the markdown file of a page when the page changes. A file therefore keeps
+the shape of the server that wrote it last. The files from before the server wrote the
+modified date of each item have none. A database that is built from such files gives the
+items other dates.
+
+The `write-pages` command writes the file of every page again. Stop the server first.
+
+```
+journal-server write-pages
+```
+
+It takes in what changed in the folder first. Then it writes each file that does not say what
+its page says, and tells how many it wrote. The database stays as it is. The files of the
+atlases get no dates of items: a device builds an atlas from its own pages.
+
+A written file gets everything this server writes, not the dates alone. In an old file a link
+to a page is `[[Java/Thread]]` and the tags of an item are `tag="book"`. This server writes
+`[Java/Thread](Thread.md)` and `tags="book"`.
+
+A device that has the same notes through a synced folder takes the written files in. A few
+items do not come back from their file exactly as they are in the database, such as a body
+that ends with a line break. That device gives those items the date of that day.
+
 ## Moving the asset files to ID names
 
 Uploads are saved under a name made of an HMTID (ADR-022). The files that were saved before
