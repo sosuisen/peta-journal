@@ -87,6 +87,21 @@
     (should-not (get-text-property (peta-journal--body-end (peta-journal--find-row "a"))
                                    'display))))
 
+;; トランスクルージョンは、四角で囲んだ点のバレットで示される。折りたたむと、四角が塗られる。
+(ert-deftest peta-journal-the-bullet-shows-a-transclusion ()
+  (peta-journal-test--with-rows
+      (list (peta-journal-test--row "a" 1 "x" :bullet "transclusion")
+            (peta-journal-test--row "b" 1 "y" :bullet "transclusion" :collapsed t))
+    (should (equal (peta-journal-test--shown) "⊡ x\n▣ y\n"))))
+
+;; 折りたたんだタスクのバレットは、タスクの状態を示すままである。
+(ert-deftest peta-journal-a-collapsed-task-keeps-the-bullet-of-its-state ()
+  (peta-journal-test--with-rows
+      (list (peta-journal-test--row "a" 1 "x" :bullet "task" :collapsed t)
+            (peta-journal-test--row "b" 1 "y" :bullet "done" :collapsed t)
+            (peta-journal-test--row "c" 1 "z" :bullet "broken" :collapsed t))
+    (should (equal (peta-journal-test--shown) "☐ x\n☑ y\n✗ z\n"))))
+
 ;; ジャーナルの日付は、項目の上の編集できない行である。
 (ert-deftest peta-journal-a-date-header-is-a-line-above-its-row ()
   (peta-journal-test--with-rows
