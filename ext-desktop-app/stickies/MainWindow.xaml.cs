@@ -16,7 +16,10 @@ public sealed partial class MainWindow : Window
     private readonly JournalApiService _api;
     private readonly SettingsService _settingsService;
     private StickyWindowSettings _windowSettings;
+    private static readonly TimeSpan SaveDelay = TimeSpan.FromMilliseconds(500);
+
     private DispatcherTimer? _debounceTimer;
+    private DispatcherTimer? _saveTimer;
     private AppWindow? _appWindow;
     private bool _initialized;
     private bool _isDeactivated;
@@ -480,8 +483,26 @@ public sealed partial class MainWindow : Window
             _windowSettings.Y = pos.Y;
             _windowSettings.Width = (int)(size.Width / scale);
             _windowSettings.Height = (int)(size.Height / scale);
-            _settingsService.UpdateWindow(_windowSettings);
+            SaveWindowSettingsSoon();
         }
+    }
+
+    // A drag reports a change for every step of the mouse, and each save writes the whole
+    // settings file. So the save waits until the window has rested for a moment.
+    private void SaveWindowSettingsSoon()
+    {
+        if (_saveTimer == null)
+        {
+            _saveTimer = new DispatcherTimer { Interval = SaveDelay };
+            _saveTimer.Tick += (_, _) =>
+            {
+                _saveTimer.Stop();
+                _settingsService.UpdateWindow(_windowSettings);
+            };
+        }
+        // Stop and Start begin the wait again.
+        _saveTimer.Stop();
+        _saveTimer.Start();
     }
 
     private void OnClosed(object sender, WindowEventArgs args)
@@ -492,6 +513,8 @@ public sealed partial class MainWindow : Window
         _api.Reconnecting -= OnApiReconnecting;
         if (_appWindow != null)
             _appWindow.Changed -= AppWindow_Changed;
+        // The lines below save or remove the settings now, so a waiting save is not needed.
+        _saveTimer?.Stop();
         // Only the close button throws a sticky away. A window also closes when Windows
         // or another program ends the app, and then the sticky must come back at the next start.
         if (_closedByUser)
