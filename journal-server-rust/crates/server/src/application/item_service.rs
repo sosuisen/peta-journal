@@ -1214,6 +1214,8 @@ impl ItemService {
     /// Cycles the task state of an item:
     /// not a task -> task; task without begin -> begin = now; begun -> end = now;
     /// begun and ended -> back to a normal item.
+    /// An item of the journal of a day that becomes a task is planned for that day, in the
+    /// same transaction.
     pub fn cycle_task(&self, item_id: &Hmtid) -> AppResult<Item> {
         let existing = self.get_item_by_id(item_id)?;
         let id = item_id.to_string();
@@ -1233,6 +1235,10 @@ impl ItemService {
         let result = if !is_task {
             let r = patch_task_in(&tx, &existing, true, now)?;
             clear_task_times_in(&tx, &id)?;
+            // A task made on the journal of a day is planned for that day
+            if let Some(day) = existing.day() {
+                PropertyRepository::upsert_scalar_in(&tx, ITEM_TARGET, &id, "plan", "date", &day)?;
+            }
             r
         } else if !has_begin && !has_end {
             PropertyRepository::upsert_scalar_in(
