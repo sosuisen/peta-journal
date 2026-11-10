@@ -1,9 +1,9 @@
 # SwiftUI frontend (frontend-swiftui)
 
 The SwiftUI shell of PetaJournal for macOS. It is a Walking Skeleton so far (ADR 024): the app
-opens one page, shows its items as an outline, and what is typed into an item is saved. Enter
-splits an item, Tab and Shift+Tab change its level, the arrows move between the items, and
-Backspace at the start joins an item to the one before. It has no sidebar and no search yet.
+opens one page, shows its items as an outline, and what is typed into an item is saved. The
+keys of the outline work as in the web frontend (see "Keys" below). It has no sidebar and no
+search yet, and items cannot be selected.
 
 The core is the same Crux core as in the web and the Emacs frontends. `frontend-rust/crates/shell-native`
 wraps it for a shell that is not written in Rust. Calls to the journal server, timers and the
@@ -114,6 +114,28 @@ The text of an item is a text view of AppKit (`ItemText`), not a text field of S
 of the outline need the place of the cursor, which SwiftUI does not tell. Text that is still
 being composed by an input method is not sent to the core until it is confirmed, and the Enter
 that confirms it does not split the item.
+
+## Keys
+
+The keys are those of the web frontend. Control is the Control key, not Command.
+
+| Key | What it does |
+|---|---|
+| Enter | splits the item at the cursor |
+| Shift+Enter | breaks the line inside the item |
+| Control+Enter | makes the item a task, then steps its state |
+| Tab, Shift+Tab | indents, outdents |
+| Up, Down on the first or last line | goes to the item before or after |
+| Left at the start, Right at the end | goes to the end of the item before, the start of the item after |
+| Backspace at the start | joins the item to the one before |
+| Delete at the end (fn+Delete) | joins the next item to this one |
+| Control+Up, Control+Down | hides or shows the children |
+| Shift+Option+Up, Down | moves the item up or down |
+| Shift+Option+Left, Right | outdents, indents |
+| Command+Z, Control+Z | undo; with Shift, redo |
+
+macOS takes Control+Up and Control+Down for Mission Control unless those shortcuts are turned
+off in System Settings > Keyboard > Keyboard Shortcuts > Mission Control.
 
 ## Tests
 
