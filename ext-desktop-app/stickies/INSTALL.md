@@ -70,6 +70,21 @@ Output: `bin\x64\Debug\net10.0-windows10.0.22621.0\Stickies.exe`
 1. Start the journal server first. Stickies connects to `http://localhost:8087` (REST API and SSE). See `BUILD.md` at the root of the repository.
 2. Run `bin\x64\Debug\net10.0-windows10.0.22621.0\Stickies.exe`
 
+## Test
+
+The tests are in `ext-desktop-app\stickies-tests`. They need only the .NET 10 SDK.
+
+```powershell
+cd ext-desktop-app\stickies-tests
+dotnet test
+```
+
+Run `dotnet test` in this folder, not at the root of the repository.
+The `global.json` in this folder selects the test runner, and the SDK finds it only from the current folder upward.
+
+The tests cover the code that does not use WinUI: the rows of the items, the state of a task, and the addresses of links and images.
+They do not start the app. The window and the script inside the WebView have no tests.
+
 ## Settings
 
 Window state is persisted at `~/.peta-stickies` (JSON). Delete this file to reset all windows.
