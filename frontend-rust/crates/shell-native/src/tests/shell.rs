@@ -1,0 +1,377 @@
+use crate::{Host, NativeShell, ShellEffectFfi};
+use crux_core::bridge::{BincodeFfiFormat, FfiFormat, Request};
+use peta_core::effects::{
+    ApiError, ApiOp, ApiOutput, ApiResult, LocalDateTimeDto, SseEvent, UiOp, UiOutput,
+};
+use peta_core::model::{Page, PageWithItems};
+use peta_core::rest::ClientId;
+use peta_core::testing::plain_item;
+use peta_core::{Event, Route};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::{Duration, Instant};
+
+/// The time of the fake host: it only passes when the test says so.
+#[derive(Default)]
+struct Clock {
+    /// How many waits have begun. A wait is known by its place in this order.
+    begun: AtomicUsize,
+    /// How many waits, from the first on, may end.
+    ended: AtomicUsize,
+    /// How many waits have ended.
+    over: AtomicUsize,
+}
+
+/// A journal server with one page, `notes`, and an event stream the test writes.
+struct FakeHost {
+    clock: Arc<Clock>,
+    calls: Arc<Mutex<Vec<ApiOp>>>,
+    /// Taken by the first connection. A later one finds no stream and waits for ever.
+    stream: Mutex<Option<Receiver<SseEvent>>>,
+}
+
+impl Host for FakeHost {
+    fn call(&self, op: ApiOp) -> ApiResult<ApiOutput> {
+        self.calls.lock().unwrap().push(op.clone());
+        match op {
+            ApiOp::GetOrCreateDoc { .. } | ApiOp::GetPageById { .. } => {
+                Ok(ApiOutput::Page(PageWithItems {
+                    page: Page {
+                        id: "p".into(),
+                        name: "notes".into(),
+                        page_type: "doc".into(),
+                        ..Default::default()
+                    },
+                    items: vec![plain_item("a", 1, "the body of a")],
+                    created: false,
+                    transcluded_trees: None,
+                }))
+            }
+            _ => Err(ApiError("the fake server does not know this".into())),
+        }
+    }
+
+    fn now(&self) -> (LocalDateTimeDto, u64) {
+        let local = LocalDateTimeDto {
+            year: 2026,
+            month: 11,
+            day: 6,
+            hour: 9,
+            minute: 30,
+        };
+        (local, 1_000)
+    }
+
+    fn sleep(&self, _ms: u32) {
+        let place = self.clock.begun.fetch_add(1, Ordering::SeqCst);
+        while self.clock.ended.load(Ordering::SeqCst) <= place {
+            thread::sleep(Duration::from_millis(1));
+        }
+        self.clock.over.fetch_add(1, Ordering::SeqCst);
+    }
+
+    fn events(&self, send: &mut dyn FnMut(SseEvent)) {
+        let stream = self.stream.lock().unwrap().take();
+        for event in stream.into_iter().flatten() {
+            send(event);
+        }
+    }
+}
+
+/// The shell on the other side of the border: it keeps what it was sent.
+struct Screen {
+    shell: NativeShell,
+    requests: Arc<Mutex<Vec<Request<ShellEffectFfi>>>>,
+    calls: Arc<Mutex<Vec<ApiOp>>>,
+    stream: Sender<SseEvent>,
+    clock: Arc<Clock>,
+}
+
+impl Screen {
+    fn new() -> Screen {
+        let requests: Arc<Mutex<Vec<Request<ShellEffectFfi>>>> = Arc::default();
+        let calls: Arc<Mutex<Vec<ApiOp>>> = Arc::default();
+        let (stream, from_test) = channel();
+        let clock: Arc<Clock> = Arc::default();
+        let host = FakeHost {
+            clock: clock.clone(),
+            calls: calls.clone(),
+            stream: Mutex::new(Some(from_test)),
+        };
+        let kept = requests.clone();
+        let shell = NativeShell::new(host, ClientId::new(), move |bytes| {
+            let sent: Vec<Request<ShellEffectFfi>> = BincodeFfiFormat::deserialize(&bytes).unwrap();
+            kept.lock().unwrap().extend(sent);
+        });
+        Screen {
+            shell,
+            requests,
+            calls,
+            stream,
+            clock,
+        }
+    }
+
+    /// Types into the search box, and waits until the timer for it runs.
+    fn search(&self, query: &str) {
+        let timers = self.clock.begun.load(Ordering::SeqCst);
+        self.send(&Event::SearchQueryChanged(query.into()));
+        wait_until("the timer of the search runs", || {
+            self.clock.begun.load(Ordering::SeqCst) == timers + 1
+        });
+    }
+
+    /// Lets the time of the first `timers` timers pass.
+    fn let_time_pass(&self, timers: usize) {
+        self.clock.ended.store(timers, Ordering::SeqCst);
+    }
+
+    /// The queries the server was asked to search for, oldest first.
+    fn searches(&self) -> Vec<String> {
+        let calls = self.calls.lock().unwrap();
+        calls
+            .iter()
+            .filter_map(|op| match op {
+                ApiOp::SearchCombined { query, .. } => Some(query.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// How often the server was asked for this operation, by the name of its variant.
+    fn calls_named(&self, name: &str) -> usize {
+        let calls = self.calls.lock().unwrap();
+        calls
+            .iter()
+            .filter(|op| format!("{op:?}").starts_with(name))
+            .count()
+    }
+
+    fn server_says(&self, event: SseEvent) {
+        self.stream.send(event).unwrap();
+    }
+
+    fn send(&self, event: &Event) {
+        let mut bytes = Vec::new();
+        BincodeFfiFormat::serialize(&mut bytes, event).unwrap();
+        self.shell.update(&bytes).unwrap();
+    }
+
+    fn open_notes(&self) {
+        self.send(&Event::Route {
+            route: Route::Page {
+                name: "notes".into(),
+                fragment: None,
+            },
+            today: "2026-02-10".into(),
+        });
+    }
+
+    /// The view model as the shell gets it. Text in it is readable in the bytes.
+    fn view(&self) -> String {
+        String::from_utf8_lossy(&self.shell.view()).into_owned()
+    }
+
+    /// Answers the request for a screen operation the way a shell does: by its number.
+    fn answer(&self, op: &UiOp, output: &UiOutput) {
+        let id = {
+            let requests = self.requests.lock().unwrap();
+            let asked = requests
+                .iter()
+                .find(|request| matches!(&request.effect, ShellEffectFfi::Ui(o) if o == op));
+            asked.expect("the shell was asked for this").id.0
+        };
+        let mut bytes = Vec::new();
+        BincodeFfiFormat::serialize(&mut bytes, output).unwrap();
+        self.shell.resolve(id, &bytes).unwrap();
+    }
+
+    /// The screen operations the shell was asked for, oldest first.
+    fn ui_ops(&self) -> Vec<UiOp> {
+        let requests = self.requests.lock().unwrap();
+        requests
+            .iter()
+            .filter_map(|request| match &request.effect {
+                ShellEffectFfi::Ui(op) => Some(op.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// The URLs the shell was asked to go to, oldest first.
+    fn navigations(&self) -> Vec<String> {
+        let requests = self.requests.lock().unwrap();
+        requests
+            .iter()
+            .filter_map(|request| match &request.effect {
+                ShellEffectFfi::Navigate(op) => Some(op.url.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn renders(&self) -> usize {
+        let requests = self.requests.lock().unwrap();
+        requests
+            .iter()
+            .filter(|request| matches!(request.effect, ShellEffectFfi::Render(_)))
+            .count()
+    }
+}
+
+/// Waits for what the threads of the shell do. A test that waits in vain fails here.
+fn wait_until(what: &str, done: impl Fn() -> bool) {
+    let started = Instant::now();
+    while !done() {
+        assert!(
+            started.elapsed() < Duration::from_secs(5),
+            "never happened: {what}"
+        );
+        thread::sleep(Duration::from_millis(2));
+    }
+}
+
+// シェルがページを開くと、Rust側がサーバーから読み、描画の依頼とビューモデルがバイト列でシェルに届く。
+#[test]
+fn a_page_the_shell_opens_is_read_from_the_server_and_reaches_the_shell_as_bytes() {
+    let screen = Screen::new();
+
+    screen.open_notes();
+
+    wait_until("the page is in the view", || {
+        screen.view().contains("the body of a")
+    });
+    assert!(screen.renders() > 0);
+}
+
+// 画面の操作は、バイト列でシェルに届く。ページを開くと、タイトルを変える依頼が届く。
+#[test]
+fn an_operation_of_the_screen_reaches_the_shell_as_bytes() {
+    let screen = Screen::new();
+
+    screen.open_notes();
+
+    wait_until("the shell is asked to set the title", || {
+        screen
+            .ui_ops()
+            .iter()
+            .any(|op| matches!(op, UiOp::SetTitle(title) if title.contains("notes")))
+    });
+}
+
+// サーバーのストリームの出来事は、1つの依頼に何度でも届く。開くと最近のページが読み直され、そのあとの確認の依頼はシェルに届く。
+#[test]
+fn every_event_of_the_server_stream_reaches_the_core() {
+    let screen = Screen::new();
+    wait_until("the start has read the recent pages", || {
+        screen.calls_named("GetRecentPages") == 1
+    });
+
+    screen.server_says(SseEvent::Open);
+    wait_until("the open stream reads the recent pages again", || {
+        screen.calls_named("GetRecentPages") == 2
+    });
+    screen.server_says(SseEvent::Message(
+        r#"{"type":"confirm","requestId":"confirm-7","message":"Insert?"}"#.into(),
+    ));
+
+    wait_until("the shell is asked to confirm", || {
+        screen.ui_ops().contains(&UiOp::Confirm("Insert?".into()))
+    });
+}
+
+// シェルは、依頼の番号とバイト列で答える。確認に「はい」と答えると、その答えがサーバーに送られる。
+#[test]
+fn the_answer_of_the_shell_reaches_the_core() {
+    let screen = Screen::new();
+    let confirm = UiOp::Confirm("Insert?".into());
+    screen.server_says(SseEvent::Message(
+        r#"{"type":"confirm","requestId":"confirm-7","message":"Insert?"}"#.into(),
+    ));
+    wait_until("the shell is asked to confirm", || {
+        screen.ui_ops().contains(&confirm)
+    });
+
+    screen.answer(&confirm, &UiOutput::Bool(true));
+
+    wait_until("the answer is sent to the server", || {
+        let calls = screen.calls.lock().unwrap();
+        calls.contains(&ApiOp::AnswerConfirm {
+            request_id: "confirm-7".into(),
+            ok: true,
+        })
+    });
+}
+
+// URLを変える依頼は、バイト列でシェルに届く。
+#[test]
+fn a_navigation_reaches_the_shell_as_bytes() {
+    let screen = Screen::new();
+
+    screen.send(&Event::NavigateHome);
+
+    assert_eq!(screen.navigations(), ["/today"]);
+}
+
+// 今の時刻は、シェルに尋ねずにRust側で答える。名前のない新しいページは、その時刻から名前を得る。
+#[test]
+fn the_time_is_answered_without_the_shell() {
+    let screen = Screen::new();
+    let prompt = UiOp::Prompt("Page title:".into());
+    screen.send(&Event::CreateNewPage {
+        search_query: String::new(),
+    });
+
+    screen.answer(&prompt, &UiOutput::Text(Some(String::new())));
+
+    assert_eq!(screen.navigations(), ["/pages/Untitled-202611060930"]);
+    assert!(!screen.ui_ops().contains(&UiOp::LocalNow));
+}
+
+// タイマーは、Rust側で時間が過ぎると鳴る。検索は、入力のあとの待ちが明けてから、サーバーに送られる。
+#[test]
+fn a_timer_fires_when_its_time_has_passed() {
+    let screen = Screen::new();
+
+    screen.search("apple");
+    assert!(screen.searches().is_empty());
+    screen.let_time_pass(1);
+
+    wait_until("the server is asked to search", || {
+        screen.searches() == ["apple"]
+    });
+}
+
+// 取り消されたタイマーは鳴らない。検索の入力を続けると、前の入力の検索はサーバーに送られない。
+#[test]
+fn a_cancelled_timer_does_not_fire() {
+    let screen = Screen::new();
+    screen.search("a");
+    screen.search("ab");
+
+    // The time of the cancelled timer passes first, so its search would be the first one
+    screen.let_time_pass(1);
+    wait_until("the time of the first timer is over", || {
+        screen.clock.over.load(Ordering::SeqCst) == 1
+    });
+    screen.let_time_pass(2);
+
+    wait_until("the server is asked to search", || {
+        !screen.searches().is_empty()
+    });
+    assert_eq!(screen.searches(), ["ab"]);
+}
+
+// 読めないバイト列は、イベントとしても答えとしても、エラーで返る。コアは止まらない。
+#[test]
+fn bytes_that_cannot_be_read_are_refused() {
+    let screen = Screen::new();
+
+    assert!(screen.shell.update(&[0xff; 3]).is_err());
+    assert!(screen.shell.resolve(9_999, &[]).is_err());
+
+    screen.send(&Event::NavigateHome);
+    assert_eq!(screen.navigations(), ["/today"]);
+}

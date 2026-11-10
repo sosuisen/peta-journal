@@ -28,6 +28,8 @@ cov = [
     "peta-server-client",
     "-p",
     "peta-shell-emacs",
+    "-p",
+    "peta-shell-native",
 ]
 
 # rust-lld links much faster than the MSVC link.exe, and it comes with the Rust toolchain. Every
