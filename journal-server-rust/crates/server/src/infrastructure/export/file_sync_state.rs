@@ -24,6 +24,11 @@ pub struct FileSyncState {
     pub file_size: i64,
     /// File mtime (epoch millis) at that time.
     pub file_mtime: i64,
+    /// Until when the page and the file were in step: the later of the file mtime and the
+    /// latest date the content holds. The clock of the file system can be behind the clock
+    /// that dates the items, so the mtime alone may be before a date written in the file.
+    /// A date of the content after the time of the sync counts as that time.
+    pub last_synced: i64,
     pub synced_at: i64,
     /// `synced` or `missing`.
     pub status: String,
@@ -37,8 +42,8 @@ impl FileSyncState {
     }
 }
 
-const COLUMNS: &str =
-    "rel_path, page_id, content_hash, file_size, file_mtime, synced_at, status, missing_since";
+const COLUMNS: &str = "rel_path, page_id, content_hash, file_size, file_mtime, last_synced, \
+    synced_at, status, missing_since";
 
 fn map(row: &Row<'_>) -> rusqlite::Result<FileSyncState> {
     let page_id: String = row.get(1)?;
@@ -48,10 +53,20 @@ fn map(row: &Row<'_>) -> rusqlite::Result<FileSyncState> {
         content_hash: row.get(2)?,
         file_size: row.get(3)?,
         file_mtime: row.get(4)?,
-        synced_at: row.get(5)?,
-        status: row.get(6)?,
-        missing_since: row.get(7)?,
+        last_synced: row.get(5)?,
+        synced_at: row.get(6)?,
+        status: row.get(7)?,
+        missing_since: row.get(8)?,
     })
+}
+
+/// Until when a file and its page were in step; see `FileSyncState::last_synced`.
+///
+/// Why not the date of the content as it is: the clock of another device may be ahead, and
+/// nothing was seen here after now. An item made here before the date of that device would
+/// count as seen, and would go with the next file that does not hold it.
+fn last_synced(file_mtime: i64, content_date: i64, now: i64) -> i64 {
+    file_mtime.max(content_date.min(now))
 }
 
 #[derive(Debug, Clone)]
@@ -65,6 +80,7 @@ impl FileSyncStateRepository {
     }
 
     /// Records that the file at rel_path now matches the given content (read or written by us).
+    /// `content_date` is the latest date the content holds, of the page or of an item.
     pub fn upsert_synced(
         &self,
         rel_path: &str,
@@ -72,14 +88,16 @@ impl FileSyncStateRepository {
         content_hash: &str,
         file_size: i64,
         file_mtime: i64,
+        content_date: i64,
     ) -> AppResult<()> {
         let now = now_millis();
+        let last_synced = last_synced(file_mtime, content_date, now);
         let conn = self.db.conn()?;
         conn.execute(
             &format!(
-                "INSERT INTO file_sync_state ({COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, 'synced', NULL) \
+                "INSERT INTO file_sync_state ({COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, 'synced', NULL) \
                  ON CONFLICT(rel_path) DO UPDATE SET page_id=?, content_hash=?, file_size=?, file_mtime=?, \
-                 synced_at=?, status='synced', missing_since=NULL"
+                 last_synced=?, synced_at=?, status='synced', missing_since=NULL"
             ),
             params![
                 rel_path,
@@ -87,11 +105,13 @@ impl FileSyncStateRepository {
                 content_hash,
                 file_size,
                 file_mtime,
+                last_synced,
                 now,
                 page_id.as_str(),
                 content_hash,
                 file_size,
                 file_mtime,
+                last_synced,
                 now
             ],
         )
@@ -160,5 +180,28 @@ impl FileSyncStateRepository {
             [page_id.as_str()],
         )?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // 中の日付がファイルの更新時刻より遅ければ、前回の同期は中の日付になる。
+    #[test]
+    fn the_last_sync_is_the_date_of_the_content_when_the_mtime_is_behind_it() {
+        assert_eq!(last_synced(10, 20, 30), 20);
+    }
+
+    // ファイルの更新時刻が中の日付より遅ければ、前回の同期は更新時刻になる。
+    #[test]
+    fn the_last_sync_is_the_mtime_when_it_is_after_the_date_of_the_content() {
+        assert_eq!(last_synced(20, 10, 30), 20);
+    }
+
+    // 今より先の中の日付は、今として数える。
+    #[test]
+    fn a_date_of_the_content_after_now_counts_as_now() {
+        assert_eq!(last_synced(10, 99, 30), 30);
     }
 }

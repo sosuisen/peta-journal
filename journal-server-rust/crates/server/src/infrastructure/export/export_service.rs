@@ -216,6 +216,10 @@ impl MarkdownExportService {
             &hash,
             meta.len() as i64,
             mtime_millis(&meta),
+            items
+                .iter()
+                .map(|i| i.modified_date)
+                .fold(page.modified_date, i64::max),
         )?;
         tracing::debug!("Exported page {} to {}", page.name, file_path.display());
         Ok(())

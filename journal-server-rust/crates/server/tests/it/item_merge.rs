@@ -2,10 +2,14 @@
 //! different items of a page on two devices are both kept. See docs/folder-sync-future.md.
 
 use std::path::Path;
+use std::time::{Duration, SystemTime};
 
 use hmtid::Hmtid;
 use journal_server::domain::model::ItemPosition;
+use journal_server::infrastructure::export::export_service::format_instant;
 use journal_server::infrastructure::export::import_service::Outcome;
+use journal_server::infrastructure::persistence::db::now_millis;
+use regex::Regex;
 
 use super::atlas_sync::{two_devices, Device, ATLAS};
 
@@ -30,6 +34,15 @@ impl Device {
 
     fn delete(&self, item_id: &Hmtid) {
         self.state.item_service.delete_item(item_id).unwrap();
+    }
+
+    /// Gives the file a modification time, as the file system does when it writes the file
+    fn date_file(&self, rel_path: &str, time: SystemTime) {
+        let file = std::fs::File::options()
+            .write(true)
+            .open(self.root.join(rel_path))
+            .unwrap();
+        file.set_modified(time).unwrap();
     }
 
     fn item_idx(&self, item_id: &Hmtid) -> String {
@@ -80,6 +93,18 @@ fn modified_of(file: &str, item_id: &Hmtid) -> Option<String> {
 fn page_date_of(file: &str) -> Option<String> {
     let line = file.lines().find(|l| l.starts_with("modified: "))?;
     Some(line.trim_start_matches("modified: ").to_string())
+}
+
+/// The file with the date as the `modified` value of its page and of every item
+fn dated(file: &str, millis: i64) -> String {
+    let date = format_instant(millis);
+    let file = Regex::new(r"(?m)^modified: .*$")
+        .unwrap()
+        .replace(file, format!("modified: {date}"));
+    Regex::new(r#" modified="[^"]*""#)
+        .unwrap()
+        .replace_all(&file, format!(r#" modified="{date}""#))
+        .into_owned()
 }
 
 /// The file as the server wrote it before the items had dates
@@ -288,6 +313,47 @@ fn an_item_deleted_on_the_other_device_goes() {
 
     assert_eq!(b.bodies(&page), ["x"]);
     assert!(b.conflicts().is_empty());
+}
+
+// ファイルの更新時刻が中の項目の日付より古くても、相手が消した項目は消える。
+#[test]
+fn an_item_deleted_on_the_other_device_goes_when_the_file_is_dated_before_its_items() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = two_devices(dir.path());
+    let page = a.page_in("d/", "a").unwrap();
+    a.add(&page, "x");
+    let y = a.add(&page, "y");
+    // The clock of the file system can be behind the clock that dates the items
+    b.deliver(&a, PAGE);
+    b.date_file(PAGE, SystemTime::now() - Duration::from_secs(60));
+    b.sync(PAGE);
+
+    a.delete(&y);
+    b.receive(&a, PAGE);
+
+    assert_eq!(b.bodies(&page), ["x"]);
+    assert!(b.conflicts().is_empty());
+}
+
+// 時計の進んだ相手のファイルを取り込んだあとでも、ここで足した項目は、相手の次のファイルに無くても残る。
+#[test]
+fn an_item_added_here_stays_after_a_file_of_a_device_whose_clock_is_ahead() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b, page, _, _) = two_devices_with_items(dir.path());
+    let written = a.file(PAGE);
+    let ahead = now_millis() + 3_600_000;
+    let first = dated(&written.replace("\nx\n", "\nx ahead\n"), ahead);
+    let second = dated(&first.replace("\ny\n", "\ny ahead\n"), ahead + 1000);
+    // The cloud folder gives the file the time of this device, not of the device ahead
+    std::fs::write(b.root.join(PAGE), first).unwrap();
+    assert_eq!(b.sync(PAGE), Outcome::Imported);
+    std::thread::sleep(Duration::from_millis(5));
+
+    b.add(&page, "z from B");
+    std::fs::write(b.root.join(PAGE), second).unwrap();
+    b.sync(PAGE);
+
+    assert_eq!(b.bodies(&page), ["x ahead", "y ahead", "z from B"]);
 }
 
 // 相手が消した項目でも、それより後に編集していれば両方に残る。
