@@ -2809,6 +2809,68 @@ async fn an_index_page_with_children_is_neither_renamed_to_a_plain_page_nor_dele
     assert_eq!(delete(&format!("/api/pages/{}", root.id)).await, 400);
 }
 
+/// Demotes an index page the way the app does
+async fn demote(page_id: &str, overwrite: bool) -> (u16, Value) {
+    post(
+        &format!("/api/pages/{page_id}/demote"),
+        json!({ "overwrite": overwrite }),
+    )
+    .await
+}
+
+// 降格は、1つの要求で、アトラスページを消し、indexページをディレクトリの名前のページに変える。
+#[tokio::test]
+async fn demoting_an_index_page_deletes_its_atlas_and_renames_it_in_one_request() {
+    let root = new_doc_page("pages-demote").await;
+    let atlas_id = atlas_of(&format!("{}/", root.title)).await;
+    let (_, before) = get(&format!("/api/pages/{}", root.id)).await;
+    assert_eq!(before["page"]["name"], json!("index"));
+
+    let (status, resp) = demote(&root.id, false).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(resp["page"]["id"], json!(root.id));
+    assert_eq!(resp["page"]["name"], json!(root.title));
+    assert_eq!(resp["page"]["dirPath"], json!(""));
+    let (status, _) = get(&format!("/api/pages/{atlas_id}")).await;
+    assert_eq!(status, 404);
+}
+
+// アトラス以外の子ページがあるindexページの降格は断られ、アトラスも残る。
+#[tokio::test]
+async fn demoting_an_index_page_with_a_child_page_is_refused_and_keeps_the_atlas() {
+    let root = new_doc_page("pages-demote-child").await;
+    let dir = format!("{}/", root.title);
+    let atlas_id = atlas_of(&dir).await;
+    let (status, resp) = post(
+        "/api/pages/doc",
+        json!({ "title": "child", "dirPath": dir }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    let (status, resp) = demote(&root.id, false).await;
+    assert_eq!(status, 400, "{resp}");
+
+    let (status, _) = get(&format!("/api/pages/{atlas_id}")).await;
+    assert_eq!(status, 200);
+    let (_, page) = get(&format!("/api/pages/{}", root.id)).await;
+    assert_eq!(page["page"]["name"], json!("index"));
+}
+
+// indexページでないページと、ルートのindexページは、降格できない。
+#[tokio::test]
+async fn a_page_that_is_not_an_index_page_of_a_directory_is_not_demoted() {
+    let page = new_doc_page("pages-demote-plain").await;
+
+    let (status, resp) = demote(&page.id, false).await;
+    assert_eq!(status, 400, "{resp}");
+
+    let (_, root) = post("/api/pages/doc", json!({ "title": "index", "dirPath": "" })).await;
+    let (status, resp) = demote(root["page"]["id"].as_str().unwrap(), false).await;
+    assert_eq!(status, 400, "{resp}");
+}
+
 // indexページを動かすと、その下のページも一緒に動く。
 #[tokio::test]
 async fn moving_an_index_page_moves_the_pages_under_it() {
