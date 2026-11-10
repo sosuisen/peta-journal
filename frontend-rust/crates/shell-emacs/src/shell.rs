@@ -8,7 +8,7 @@ use crate::protocol::{BacklinkEntry, Envelope, Inbound, Outbound, PropertyRow, R
 use crate::route::parse_url;
 use crux_core::capability::Operation;
 use crux_core::{Core, Request};
-use peta_core::app::{JournalNav, SelectionKey};
+use peta_core::app::JournalNav;
 use peta_core::effects::{
     ApiOp, ApiResult, Effect, LocalDateTimeDto, SseEvent, SseOp, TimerOp, TimerOutput, UiOp,
     UiOutput,
