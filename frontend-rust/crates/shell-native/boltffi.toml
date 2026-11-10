@@ -1,0 +1,22 @@
+# How BoltFFI packs this crate for the shells in other languages. Run `boltffi pack apple` in
+# this folder; ../../../frontend-swiftui/README.md has the whole build.
+
+[package]
+name = "peta-shell-native"
+crate = "peta_shell_native"
+
+# The SwiftUI shell runs on macOS only (ADR 024), so nothing is built for iOS
+[targets.apple]
+output = "../../../frontend-swiftui/generated/PetaCore"
+include_macos = true
+ios_architectures = []
+simulator_architectures = []
+macos_architectures = ["arm64"]
+cargo_args = ["--features", "ffi"]
+
+[targets.apple.swift]
+module_name = "PetaCore"
+
+[targets.apple.spm]
+package_name = "PetaCore"
+layout = "ffi-only"
