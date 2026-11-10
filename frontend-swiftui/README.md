@@ -160,6 +160,9 @@ A click into the text of an item also ends the selection.
 Each window is a sticky with a page of its own. The button with the plus, or Command+N, opens
 another sticky. The app ends when the last one is closed.
 
+The menu with the palette gives the sticky another color: yellow, pink, green, blue or white.
+A sticky is light in every color, also when the Mac is in dark mode.
+
 The button with the magnifying glass, or Command+F, opens the search box. What is typed there
 is searched for a moment later. Down and Up choose an entry, Enter opens it, and Escape hides
 the entries, then closes the box. The entry "Create" makes a page with the typed name.

@@ -5,6 +5,7 @@ import SwiftUI
 /// The items of the open page, one text field each.
 public struct OutlineScreen: View {
     @ObservedObject private var shell: Shell
+    @ObservedObject private var look: StickyLook
     @StateObject private var cursors = Cursors()
     /// What is typed into the prompt on screen.
     @State private var typed = ""
@@ -16,8 +17,12 @@ public struct OutlineScreen: View {
 
     /// `searching` opens the search box from the start. With `onAdd` the screen has a button
     /// that opens another window.
-    public init(shell: Shell, searching: Bool = false, onAdd: (() -> Void)? = nil) {
+    @MainActor
+    public init(
+        shell: Shell, look: StickyLook? = nil, searching: Bool = false, onAdd: (() -> Void)? = nil
+    ) {
         self.shell = shell
+        self.look = look ?? StickyLook()
         self.onAdd = onAdd
         _searching = State(initialValue: searching)
     }
@@ -38,6 +43,16 @@ public struct OutlineScreen: View {
                 }
                 .keyboardShortcut("f")
                 .help("Search pages")
+                Menu {
+                    ForEach(StickyLook.colors, id: \.hex) { color in
+                        Button(color.name) { look.color = color.hex }
+                    }
+                } label: {
+                    Image(systemName: "paintpalette")
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+                .help("Color")
                 if let onAdd {
                     Button(action: onAdd) {
                         Image(systemName: "plus")
@@ -60,7 +75,7 @@ public struct OutlineScreen: View {
             }
         }
         .background(SelectionKeys(shell: shell, selecting: shell.view.outline.selectionMode))
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(Color(nsColor: StickyLook.color(of: look.color)))
         // The name of the window. A window without a name is hard to find among the others
         .navigationTitle(shell.title.isEmpty ? "PetaJournal" : shell.title)
         .frame(minWidth: 480, minHeight: 320)
@@ -93,8 +108,10 @@ public struct OutlineScreen: View {
         List(shell.view.outline.rows, id: \.item.id) { row in
             ItemEditor(row: row, shell: shell, cursors: cursors)
                 .listRowSeparator(.hidden)
-                .listRowBackground(row.isSelected ? Color.accentColor.opacity(0.25) : nil)
+                .listRowBackground(row.isSelected ? Color.accentColor.opacity(0.25) : Color.clear)
         }
+        // The paper shows through the list
+        .scrollContentBackground(.hidden)
     }
 
     private var status: String {

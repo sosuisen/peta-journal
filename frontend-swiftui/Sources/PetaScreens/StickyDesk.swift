@@ -9,12 +9,14 @@ public final class Sticky: Identifiable {
     public let id: String
     public let window: NSWindow
     public let shell: Shell
+    public let look: StickyLook
     fileprivate var hears: Set<AnyCancellable> = []
 
-    fileprivate init(id: String, window: NSWindow, shell: Shell) {
+    fileprivate init(id: String, window: NSWindow, shell: Shell, look: StickyLook) {
         self.id = id
         self.window = window
         self.shell = shell
+        self.look = look
     }
 }
 
@@ -52,40 +54,53 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
     @discardableResult
     private func show(_ kept: StickySettings?, url: String? = nil) -> Sticky {
         let shell = Shell(server: server, url: kept?.url ?? url)
+        let look = StickyLook(color: kept?.color ?? StickySettings.yellow)
         let window = NSWindow(
             contentRect: NSRect(origin: .zero, size: NSSize(width: 480, height: 600)),
             styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         // The desk keeps the window, and lets it go when it is closed
         window.isReleasedWhenClosed = false
+        // The paper is light in every color, and so the text on it is always dark
+        window.appearance = NSAppearance(named: .aqua)
+        window.titlebarAppearsTransparent = true
+        window.backgroundColor = StickyLook.color(of: look.color)
         window.contentView = NSHostingView(
-            rootView: OutlineScreen(shell: shell, onAdd: { [weak self] in self?.add() }))
+            rootView: OutlineScreen(shell: shell, look: look, onAdd: { [weak self] in self?.add() }))
         if let kept {
             window.setFrame(NSRect(x: kept.x, y: kept.y, width: kept.width, height: kept.height), display: false)
         } else {
             place(window)
         }
-        let sticky = Sticky(id: kept?.id ?? UUID().uuidString, window: window, shell: shell)
+        let sticky = Sticky(id: kept?.id ?? UUID().uuidString, window: window, shell: shell, look: look)
         stickies.append(sticky)
         keep(sticky)
         // After the first keeping: the delegate hears the window move
         window.delegate = self
+        // A published value is told before it is in its place, so it is handed over
         shell.$url.dropFirst()
-            .sink { [weak self, weak sticky] _ in
-                // The new value is in the shell only after this call
-                DispatchQueue.main.async { if let sticky { self?.keep(sticky) } }
+            .sink { [weak self, weak sticky] url in
+                if let sticky { self?.keep(sticky, url: .some(url)) }
+            }
+            .store(in: &sticky.hears)
+        look.$color.dropFirst()
+            .sink { [weak self, weak sticky] color in
+                guard let sticky else { return }
+                sticky.window.backgroundColor = StickyLook.color(of: color)
+                self?.keep(sticky, color: color)
             }
             .store(in: &sticky.hears)
         window.makeKeyAndOrderFront(nil)
         return sticky
     }
 
-    private func keep(_ sticky: Sticky) {
+    /// Keeps the sticky as it is now. `url` and `color` are values that are just changing.
+    private func keep(_ sticky: Sticky, url: String?? = nil, color: String? = nil) {
         guard stickies.contains(where: { $0 === sticky }) else { return }
         let frame = sticky.window.frame
         store?.put(
             StickySettings(
-                id: sticky.id, url: sticky.shell.url, x: frame.minX, y: frame.minY, width: frame.width,
-                height: frame.height))
+                id: sticky.id, url: url ?? sticky.shell.url, x: frame.minX, y: frame.minY, width: frame.width,
+                height: frame.height, color: color ?? sticky.look.color))
     }
 
     /// A little down and to the right of the newest sticky, as new windows are everywhere
@@ -106,11 +121,11 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
     }
 
     public func windowDidMove(_ notification: Notification) {
-        sticky(of: notification).map(keep)
+        sticky(of: notification).map { keep($0) }
     }
 
     public func windowDidResize(_ notification: Notification) {
-        sticky(of: notification).map(keep)
+        sticky(of: notification).map { keep($0) }
     }
 
     /// A sticky that the user closed does not come back. The windows are not closed when the

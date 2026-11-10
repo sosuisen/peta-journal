@@ -10,14 +10,34 @@ public struct StickySettings: Codable, Equatable, Identifiable {
     public var y: Double
     public var width: Double
     public var height: Double
+    /// The color of the paper, as `#RRGGBB`.
+    public var color: String
 
-    public init(id: String, url: String?, x: Double, y: Double, width: Double, height: Double) {
+    public static let yellow = "#FFFDD0"
+
+    public init(
+        id: String, url: String?, x: Double, y: Double, width: Double, height: Double,
+        color: String = StickySettings.yellow
+    ) {
         self.id = id
         self.url = url
         self.x = x
         self.y = y
         self.width = width
         self.height = height
+        self.color = color
+    }
+
+    /// A file of an older version of the app lacks what was added since.
+    public init(from decoder: Decoder) throws {
+        let kept = try decoder.container(keyedBy: CodingKeys.self)
+        id = try kept.decode(String.self, forKey: .id)
+        url = try kept.decodeIfPresent(String.self, forKey: .url)
+        x = try kept.decode(Double.self, forKey: .x)
+        y = try kept.decode(Double.self, forKey: .y)
+        width = try kept.decode(Double.self, forKey: .width)
+        height = try kept.decode(Double.self, forKey: .height)
+        color = try kept.decodeIfPresent(String.self, forKey: .color) ?? StickySettings.yellow
     }
 }
 
