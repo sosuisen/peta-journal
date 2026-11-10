@@ -584,3 +584,17 @@ fn a_no_to_deleting_a_transcluded_item_changes_nothing() {
     assert!(h.model.state.is_editing("a"));
     assert!(!h.model.state.item_selection_mode());
 }
+
+// もうない項目の削除は、何も送らない。ほかのクライアントが先に消したときに起きる。
+#[test]
+fn deleting_an_item_that_is_gone_sends_nothing() {
+    let mut h = Harness::with_items(vec![item("a", 1, "x")]);
+
+    h.send(Event::DeleteItem {
+        item_id: "gone".into(),
+    });
+
+    assert!(!h.api.called("TranscludedItems"));
+    assert!(delete_calls(&h.api).is_empty());
+    assert_eq!(h.items_ids(), ["a"]);
+}
