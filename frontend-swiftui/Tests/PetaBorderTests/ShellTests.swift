@@ -473,6 +473,60 @@ final class ShellTests: XCTestCase {
 
         XCTAssertFalse(shell.view.outline.selectionMode)
     }
+
+    /// A shell on the page "swift-notes", with a second page "apple-pie" on the server.
+    private func shellWithTwoPages() async throws -> Shell {
+        let shell = try await shellWithPage()
+        shell.open("/pages/apple-pie")
+        try await waitUntil("the second page is shown") { shell.title == "apple-pie" }
+        shell.open("/pages/swift-notes")
+        try await waitUntil("the first page is shown again") { shell.title == "swift-notes" }
+        return shell
+    }
+
+    private func pagesFound(_ shell: Shell) -> [String] {
+        shell.view.search.results.filter { $0.kind == .page }.map(\.title)
+    }
+
+    // 検索欄に入力すると、少しあとにページの候補が出る。候補を選ぶと、そのページが開き、検索欄は空になる。
+    func testASearchFindsAPageAndPickingItOpensThePage() async throws {
+        let shell = try await shellWithTwoPages()
+
+        shell.search("apple")
+        XCTAssertEqual(shell.view.search.query, "apple")
+        try await waitUntil("the page is found") { self.pagesFound(shell) == ["apple-pie"] }
+        XCTAssertTrue(shell.view.search.showDropdown)
+        shell.pick(shell.view.search.results[0].index)
+
+        try await waitUntil("the page found is shown") { shell.title == "apple-pie" }
+        XCTAssertEqual(shell.view.search.query, "")
+        XCTAssertFalse(shell.view.search.showDropdown)
+    }
+
+    // 検索の候補は、下矢印で選び、Enterで開く。
+    func testAFoundPageIsChosenWithDownAndOpenedWithEnter() async throws {
+        let shell = try await shellWithTwoPages()
+        shell.search("apple")
+        try await waitUntil("the page is found") { self.pagesFound(shell) == ["apple-pie"] }
+
+        shell.search(key: .down)
+        XCTAssertEqual(shell.view.search.selectedIndex, 0)
+        shell.search(key: .enter)
+
+        try await waitUntil("the page found is shown") { shell.title == "apple-pie" }
+    }
+
+    // Escapeは、検索の候補を隠す。
+    func testEscapeHidesWhatWasFound() async throws {
+        let shell = try await shellWithTwoPages()
+        shell.search("apple")
+        try await waitUntil("the page is found") { self.pagesFound(shell) == ["apple-pie"] }
+
+        shell.search(key: .escape)
+
+        XCTAssertFalse(shell.view.search.showDropdown)
+        XCTAssertEqual(shell.title, "swift-notes")
+    }
 }
 
 /// What the shell put on the clipboard.
