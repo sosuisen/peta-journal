@@ -88,3 +88,6 @@ They do not start the app. The window and the script inside the WebView have no 
 ## Settings
 
 Window state is persisted at `~/.peta-stickies` (JSON). Delete this file to reset all windows.
+
+Closing a sticky removes it from this file. It does not come back at the next start.
+When the last sticky is closed, the app ends, and the next start opens one new sticky.
