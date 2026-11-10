@@ -77,6 +77,8 @@ final class Editor: NSObject, NSTextViewDelegate {
         #selector(NSResponder.moveRight(_:)): .right,
         #selector(NSResponder.deleteBackward(_:)): .backspace,
         #selector(NSResponder.deleteForward(_:)): .delete,
+        #selector(NSResponder.moveUpAndModifySelection(_:)): .selectUp,
+        #selector(NSResponder.moveDownAndModifySelection(_:)): .selectDown,
     ]
 
     func textDidChange(_ notification: Notification) {
@@ -103,7 +105,11 @@ final class Editor: NSObject, NSTextViewDelegate {
 
     /// The text view got the cursor, by a click or by an order of the core.
     func gotCursor() {
-        guard shell.view.outline.focusedItemId != itemId else { return }
+        // Only the user puts the cursor here while items are selected, and that ends the
+        // selection. The core still names this item as the one with the cursor then
+        let selecting = shell.view.outline.selectionMode
+        if selecting { shell.leaveSelection() }
+        guard selecting || shell.view.outline.focusedItemId != itemId else { return }
         shell.startEditing(itemId)
         // The core answers with an order to put the cursor at the start of this item. The
         // cursor is already here, and where the user clicked
@@ -131,6 +137,8 @@ final class Editor: NSObject, NSTextViewDelegate {
         }
         if let asked { cursors.request = asked.seq }
         if let ordered { cursors.order = ordered.number }
+        // A cursor in an editor would end the selection
+        guard !shell.view.outline.selectionMode else { return }
         window.makeFirstResponder(view)
         if let cursor = asked?.cursor {
             let place = Cursor.utf16(characters: cursor, in: view.string)
