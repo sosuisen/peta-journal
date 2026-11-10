@@ -24,7 +24,7 @@
 
 - **API を待つ処理の書き方**: Angular のサービスは `await api...` の前後で状態を書き換える。Crux の `update` は同期なので、非同期コマンドの中からモデルに触るために `Event::Continue(Thunk)`(`FnOnce(&mut Model) -> Command` を運ぶイベント)を用意し、`apply(&api, "ラベル", |m| ...)` で送る。コアは次の `update` でそれを実行してから、続く effect をシェルに渡す。これで `item-split.service.ts` などの流れをほぼそのままの順序で移せた(`crates/core/src/app.rs` の冒頭に説明がある)。
 - **シェルからの読み取り**: 同じ仕組みで `read(&api, |m| ...)` が oneshot チャネルで値を返す。
-- **上の2つは、2026-11-10に外した**: `Event::Continue(Thunk)`、`apply`、`read`は、もうない。非同期コマンドは、答えをデータの`Event`で送り、`update`が、それをモデルに書く関数へ渡す。理由は [ADR 011](adr/adr-011-one-request-per-operation.md) にある。
+- **上の2つは、2026-11-10に外した**: `Event::Continue(Thunk)`、`apply`、`read`は、もうない。非同期コマンドは、答えをデータの`Event`で送り、`update`が、それをモデルに書く関数へ渡す。理由は [ADR 011](adr/adr-011-one-request-per-operation-and-data-only-events.md) にある。
 - **通知と要求の区別**: `Ui` の操作のうち `FocusEditor`、`ReadClipboardText`、`Confirm`、`Prompt`、`LocalNow` だけが答えを待つ要求で、残り(タイトル、スクロール、クリップボード書き込み、ダイアログ、拡張機能)と `Navigate` は `notify_shell` による通知。シェルは通知を resolve してはいけない(debug ビルドでは Crux が panic する)。
 - **フォーカスの扱い**: Angular の `pendingCursorPosition` は、ViewModel の `focus_request { seq, item_id, cursor, mouse_drag }` に置き換えた。エディタは自分宛ての未処理の seq を見てカーソルを置く。「次の描画後にフォーカスして保留キーを再生する」`focusEditor()` は `UiOp::FocusEditor` の要求で、シェルは `setTimeout(0)` 後に実行して resolve する。
 - **Leptos 側の描画**: ViewModel の行は id ごとの `RwSignal<Row>` に差分で流し込み(`RowStore`)、ウィンドウ内の行だけを `<For>` で描く。本文の編集/表示の切り替えは `Memo<(broken, editing)>` で判定する。行全体の変化で切り替えると、1 キーごとにエディタが作り直されてフォーカスが外れる。
