@@ -1221,15 +1221,49 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
     (should (equal (peta-journal-test--shown) "• ab\n"))
     (should (peta-journal-test--body-has-no-color-p "a"))))
 
-;; 完了タスクの本文の先頭に打っても、色を受け継がない。バレットの色はそのままである。
+;; 完了タスクの本文の先頭に打っても、色を受け継がない。タスクの記号の色はそのままである。
 (ert-deftest peta-journal-text-typed-before-a-body-does-not-take-the-bullet-color ()
-  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "xy" :bullet "done"))
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "xy" :task "done"))
     (peta-journal-test--goto "a" 0)
     (peta-journal-test--type "ab")
-    (should (equal (peta-journal-test--shown) "☑ abxy\n"))
+    (should (equal (peta-journal-test--shown) "• ☑ abxy\n"))
     (should (peta-journal-test--body-has-no-color-p "a"))
-    (should (eq (get-text-property (peta-journal--find-row "a") 'font-lock-face)
+    (should (equal peta-journal-test--sent
+                   '(("edit_requested" :id "a" :cursor 0)
+                     ("body_changed" :id "a" :body "axy")
+                     ("body_changed" :id "a" :body "abxy"))))
+    (should (eq (get-text-property (+ (peta-journal--find-row "a") 2) 'font-lock-face)
                 'peta-journal-done))))
+
+;; 実行中のタスクの記号は、大きく表示するfaceを持つ。ほかの状態の四角より小さく見えるためである。
+(ert-deftest peta-journal-the-mark-of-a-running-task-has-a-face-of-its-own ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x" :task "running")
+                                      (peta-journal-test--row "b" 1 "y" :task "task"))
+    (should (eq (get-text-property (+ (peta-journal--find-row "a") 2) 'font-lock-face)
+                'peta-journal-running))
+    (should (eq (get-text-property (+ (peta-journal--find-row "b") 2) 'font-lock-face)
+                'peta-journal-bullet))
+    (should (> (face-attribute 'peta-journal-running :height) 1))))
+
+;; カーソルは、タスクの記号の上にも留まらない。
+(ert-deftest peta-journal-the-point-does-not-rest-on-the-mark-of-a-task ()
+  (peta-journal-test--with-rows (list (peta-journal-test--row "a" 1 "x" :task "task"))
+    (goto-char (+ (peta-journal--find-row "a") 2))
+    (peta-journal--post-command)
+    (should (= (peta-journal--cursor) 0))
+    (should (equal (peta-journal--body-at (point)) "x"))))
+
+;; タスクの本文の先頭の記法にも、色が付く。
+(ert-deftest peta-journal-the-start-of-the-body-of-a-task-has-its-color ()
+  (peta-journal-test--with-rows
+      (list (peta-journal-test--row "a" 1 "> 引用" :task "task")
+            (peta-journal-test--row "b" 1 "> 引用" :task "done" :bullet "transclusion"
+                                    :collapsed t))
+    (font-lock-ensure)
+    (goto-char (point-min))
+    (dotimes (_ 2)
+      (search-forward "引用")
+      (should (eq (get-text-property (match-beginning 0) 'face) 'peta-journal-quote)))))
 
 ;;;; The color of Flat Markdown
 
