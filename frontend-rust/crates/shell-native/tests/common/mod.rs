@@ -32,7 +32,7 @@ fn serve(connection: TcpStream, seen: &Mutex<Vec<String>>) {
     let mut reader = BufReader::new(connection);
     let mut first = String::new();
     reader.read_line(&mut first).unwrap();
-    // No request of these tests has a body, so the head is all there is to read
+    // The body of a request, if it has one, is left unread: no test looks at it
     let mut line = String::new();
     while reader.read_line(&mut line).unwrap() > 2 {
         line.clear();
