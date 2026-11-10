@@ -307,14 +307,32 @@ impl ItemPosition {
     }
 }
 
+/// The form of a format that does not describe itself, like the bincode of the native border
+/// (ADR 024). The types of a native shell are generated from the shape of the Rust type, so
+/// the bytes have to follow that shape too.
+#[derive(Serialize, Deserialize)]
+#[serde(remote = "ItemPosition", rename = "ItemPosition")]
+enum ItemPositionWithTag {
+    First,
+    Last,
+    After(String),
+}
+
 impl Serialize for ItemPosition {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(&self.to_api())
+        if serializer.is_human_readable() {
+            serializer.serialize_str(&self.to_api())
+        } else {
+            ItemPositionWithTag::serialize(self, serializer)
+        }
     }
 }
 
 impl<'de> Deserialize<'de> for ItemPosition {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        if !deserializer.is_human_readable() {
+            return ItemPositionWithTag::deserialize(deserializer);
+        }
         let s = String::deserialize(deserializer)?;
         ItemPosition::parse(&s).ok_or_else(|| D::Error::custom(format!("bad position: {s}")))
     }
