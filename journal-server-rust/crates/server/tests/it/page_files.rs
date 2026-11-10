@@ -4,7 +4,7 @@ use journal_server::application::page_files;
 use journal_server::infrastructure::export::path_mapper;
 use regex::Regex;
 
-use super::asset_names::Notes;
+use super::asset_names::{settings_under, Notes};
 
 const TRIP: &str = "docs/Trip.md";
 
@@ -65,4 +65,20 @@ fn an_edit_of_a_file_that_was_not_taken_in_yet_is_kept() {
 
     assert_eq!(notes.item(&item.id).body, "first day in Kyoto");
     assert!(notes.file(TRIP).contains("first day in Kyoto"));
+}
+
+// コマンドは、止まっているサーバーのノートのファイルを書き直し、書いたページの数を伝える。
+#[test]
+fn the_command_writes_the_files_of_a_stopped_server_and_tells_how_many_pages_it_wrote() {
+    let notes = Notes::new();
+    notes.page("Trip", &["first day"]);
+    notes.page("Home", &["back"]);
+    let with_dates = notes.file(TRIP);
+    notes.file_from_an_old_server(TRIP);
+    let notes = notes.stop();
+
+    let told = page_files::run(settings_under(notes.dir.path())).unwrap();
+
+    assert_eq!(notes.file(TRIP), with_dates);
+    assert_eq!(told, "1 of 2 page files written");
 }
