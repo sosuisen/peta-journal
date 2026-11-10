@@ -1,8 +1,9 @@
 # SwiftUI frontend (frontend-swiftui)
 
 The SwiftUI shell of PetaJournal for macOS. It is a Walking Skeleton so far (ADR 024): the app
-opens one page, shows its items as text fields, and what is typed into an item is saved. It has
-no keys of the outliner, no sidebar and no search yet.
+opens one page, shows its items as an outline, and what is typed into an item is saved. Enter
+splits an item, Tab and Shift+Tab change its level, the arrows move between the items, and
+Backspace at the start joins an item to the one before. It has no sidebar and no search yet.
 
 The core is the same Crux core as in the web and the Emacs frontends. `frontend-rust/crates/shell-native`
 wraps it for a shell that is not written in Rust. Calls to the journal server, timers and the
@@ -58,12 +59,26 @@ under `generated/`. Run it again after a change in Rust.
 - `Shell` is what one window shows. It keeps the view model up to date with the core and sends
   what the user did. It also holds what the core asks and waits for: a question to the user
   (`question`, shown as a dialog), an order to put the cursor in an item (`focus`), and the text
-  on the clipboard. The core calls from its own threads; `Shell` moves each request to the main
+  on the clipboard.
+- `Keys.swift` says what a key in the editor of an item means to the outline (`Shell.pressed`),
+  and `Cursor` turns the place of a cursor from the UTF-16 units of AppKit into the characters
+  the core counts, and back. The core calls from its own threads; `Shell` moves each request to the main
   thread, in order.
 
 ## Build and run the app
 
 The app needs a running journal server (see `BUILD.md` at the top of the repository).
+
+`run.sh` does all of the below: it builds the app (the Release build), ends a running app, and
+starts the new one. What follows its own options goes to the app:
+
+```
+cd peta-journal/frontend-swiftui
+./run.sh -url /pages/notes     # --generate first makes generated/ again, after a change in Rust
+./run.sh --help
+```
+
+By hand, the steps are:
 
 ```
 cd peta-journal/frontend-swiftui
@@ -92,8 +107,13 @@ build are ignored. Quit the app first (Cmd+Q). Start the journal server before t
 app does not load the page again when the server comes up later.
 
 `Sources/PetaScreens` holds the views, and `App/` only the start of the app. The views draw the
-view model of `Shell` and have no logic of their own, and no tests of what they show. They are a
-library so that the speed test can put them in a window.
+view model of `Shell` and decide nothing about the outline. They are a library so that tests can
+put them in a window.
+
+The text of an item is a text view of AppKit (`ItemText`), not a text field of SwiftUI: the keys
+of the outline need the place of the cursor, which SwiftUI does not tell. Text that is still
+being composed by an input method is not sent to the core until it is confirmed, and the Enter
+that confirms it does not split the item.
 
 ## Tests
 
@@ -112,6 +132,10 @@ cd ../frontend-swiftui
 PETA_E2E_SERVER=$PWD/../journal-server-rust/target/release/journal-server swift test
 ```
 
+`OutlineScreenTests` put the screen in a window and give its editors the text and the keys as
+AppKit does: typing, composing, Enter, the arrows, Tab and Backspace. No key of a real keyboard
+is pressed, so they do not show that an input method works with the editors.
+
 `TypingSpeedTests` measures one key on a page of 1000 items, with the views in a real window. It
 prints the times and fails on none of them. Run it optimized, and alone:
 
@@ -123,7 +147,7 @@ PETA_E2E_SERVER=$PWD/../journal-server-rust/target/release/journal-server \
 On an M1 MacBook Air (2026-11-11): the event into the core 0.07 ms, the view model out of the
 core and read in Swift 4.9 ms, the window drawn again 4.2 ms.
 
-The tests start the server themselves, on ports 18095 and 18097, with all its files in a temporary folder.
+The tests start the server themselves, on ports 18094, 18095 and 18097, with all its files in a temporary folder.
 They check that the server writes its Markdown there before they use it, so the notes of whoever
 runs the tests are never touched.
 

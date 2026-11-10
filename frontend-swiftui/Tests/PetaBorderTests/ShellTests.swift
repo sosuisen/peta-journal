@@ -159,4 +159,127 @@ final class ShellTests: XCTestCase {
         try await waitUntil("the shell is asked to confirm") { shell.question != nil }
         XCTAssertEqual(shell.question?.kind, .confirmDestructive)
     }
+
+    /// The editor of an item as a key finds it: its text and where the cursor is in it.
+    private func editor(_ text: String, cursor: Int, firstLine: Bool = true, lastLine: Bool = true)
+        -> EditorState
+    {
+        EditorState(text: text, selection: cursor..<cursor, onFirstLine: firstLine, onLastLine: lastLine)
+    }
+
+    private func bodies(_ shell: Shell) -> [String] {
+        shell.view.outline.rows.map(\.item.body)
+    }
+
+    // Enterは、カーソルの位置で項目を分ける。カーソルは、新しい項目の先頭に移る。
+    func testEnterSplitsTheItemAtTheCursor() async throws {
+        let shell = try await shellWithPage()
+        let first = shell.view.outline.rows[0].item.id
+        shell.startEditing(first)
+        shell.typed("日本語second", into: first)
+
+        XCTAssertTrue(shell.pressed(.enter, in: first, editor("日本語second", cursor: 3)))
+
+        try await waitUntil("the item is split") { self.bodies(shell) == ["日本語", "second"] }
+        let second = shell.view.outline.rows[1].item.id
+        try await waitUntil("the cursor is asked into the new item") { shell.focus?.itemId == second }
+    }
+
+    // Tabは項目を字下げし、Shift+Tabは字上げする。
+    func testTabIndentsAndShiftTabOutdents() async throws {
+        let shell = try await shellWithPage()
+        try await twoItems(shell)
+        let second = shell.view.outline.rows[1].item
+        XCTAssertEqual(second.level, shell.view.outline.rows[0].item.level)
+
+        XCTAssertTrue(shell.pressed(.tab, in: second.id, editor("", cursor: 0)))
+        XCTAssertEqual(shell.view.outline.rows[1].item.level, second.level + 1)
+        XCTAssertTrue(shell.pressed(.backTab, in: second.id, editor("", cursor: 0)))
+        XCTAssertEqual(shell.view.outline.rows[1].item.level, second.level)
+    }
+
+    // 最初の行での上矢印は、前の項目へ移る。カーソルの位置は保たれる。
+    func testUpOnTheFirstLineGoesToTheItemBefore() async throws {
+        let shell = try await shellWithPage()
+        try await twoItems(shell)
+        let (first, second) = (shell.view.outline.rows[0].item.id, shell.view.outline.rows[1].item.id)
+        shell.typed("second", into: second)
+
+        XCTAssertTrue(shell.pressed(.up, in: second, editor("second", cursor: 2)))
+
+        try await waitUntil("the cursor is asked into the first item") {
+            shell.view.outline.focusRequest?.itemId == first
+        }
+        XCTAssertEqual(shell.view.outline.focusRequest?.cursor, 2)
+    }
+
+    // 最後の行での下矢印は、次の項目へ移る。
+    func testDownOnTheLastLineGoesToTheItemAfter() async throws {
+        let shell = try await shellWithPage()
+        try await twoItems(shell)
+        let (first, second) = (shell.view.outline.rows[0].item.id, shell.view.outline.rows[1].item.id)
+        shell.startEditing(first)
+
+        XCTAssertTrue(shell.pressed(.down, in: first, editor("first", cursor: 1)))
+
+        try await waitUntil("the cursor is asked into the second item") {
+            shell.view.outline.focusRequest?.itemId == second
+        }
+    }
+
+    // 項目の中で行を移る矢印は、テキストの中での移動のままである。
+    func testAnArrowInsideTheTextIsLeftToTheEditor() async throws {
+        let shell = try await shellWithPage()
+        try await twoItems(shell)
+        let second = shell.view.outline.rows[1].item.id
+        let inside = editor("two\nlines", cursor: 5, firstLine: false, lastLine: false)
+
+        XCTAssertFalse(shell.pressed(.up, in: second, inside))
+        XCTAssertFalse(shell.pressed(.down, in: second, inside))
+        XCTAssertFalse(shell.pressed(.left, in: second, inside))
+        XCTAssertFalse(shell.pressed(.right, in: second, inside))
+        XCTAssertFalse(shell.pressed(.backspace, in: second, inside))
+    }
+
+    // 先頭での左矢印は、前の項目の末尾へ移る。末尾での右矢印は、次の項目の先頭へ移る。
+    func testLeftAtTheStartAndRightAtTheEndLeaveTheItem() async throws {
+        let shell = try await shellWithPage()
+        try await twoItems(shell)
+        let (first, second) = (shell.view.outline.rows[0].item.id, shell.view.outline.rows[1].item.id)
+
+        XCTAssertTrue(shell.pressed(.left, in: second, editor("", cursor: 0)))
+        try await waitUntil("the cursor is asked to the end of the first item") {
+            shell.view.outline.focusRequest?.itemId == first
+        }
+        let asked = try XCTUnwrap(shell.view.outline.focusRequest?.cursor)
+        XCTAssertEqual(Cursor.utf16(characters: asked, in: "first"), 5)
+
+        XCTAssertTrue(shell.pressed(.right, in: first, editor("first", cursor: 5)))
+        try await waitUntil("the cursor is asked to the start of the second item") {
+            shell.view.outline.focusRequest?.itemId == second
+        }
+        XCTAssertEqual(shell.view.outline.focusRequest?.cursor, 0)
+    }
+
+    // 先頭でのBackspaceは、項目を前の項目につなぐ。
+    func testBackspaceAtTheStartJoinsTheItemToTheOneBefore() async throws {
+        let shell = try await shellWithPage()
+        try await twoItems(shell)
+        let second = shell.view.outline.rows[1].item.id
+        shell.typed("second", into: second)
+
+        XCTAssertTrue(shell.pressed(.backspace, in: second, editor("second", cursor: 0)))
+
+        try await waitUntil("the items are joined") { self.bodies(shell) == ["firstsecond"] }
+    }
+
+    // 文字を選んでいるときのBackspaceは、選んだ文字を消すだけである。
+    func testBackspaceWithASelectionIsLeftToTheEditor() async throws {
+        let shell = try await shellWithPage()
+        try await twoItems(shell)
+        let second = shell.view.outline.rows[1].item.id
+        let selected = EditorState(text: "second", selection: 0..<3, onFirstLine: true, onLastLine: true)
+
+        XCTAssertFalse(shell.pressed(.backspace, in: second, selected))
+    }
 }

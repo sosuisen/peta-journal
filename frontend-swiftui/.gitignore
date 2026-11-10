@@ -5,3 +5,4 @@
 # Made by xcodegen from project.yml, and what xcodebuild builds
 /PetaJournal.xcodeproj/
 /build/
+/build.log

@@ -176,6 +176,7 @@ impl Screen {
 
     /// Answers the request for a screen operation the way a shell does: by its number.
     fn answer(&self, op: &UiOp, output: &UiOutput) {
+        wait_until("the shell is asked for this", || self.ui_ops().contains(op));
         let id = {
             let requests = self.requests.lock().unwrap();
             let asked = requests
@@ -198,6 +199,16 @@ impl Screen {
                 _ => None,
             })
             .collect()
+    }
+
+    /// The URLs the shell was asked to go to, once there is one. A request does not always come
+    /// before the call that caused it returns: when another thread is at work in the core, such
+    /// as the one with an answer of the server, it is that thread that hands the request over.
+    fn navigations_once_any(&self) -> Vec<String> {
+        wait_until("the shell is asked to go somewhere", || {
+            !self.navigations().is_empty()
+        });
+        self.navigations()
     }
 
     /// The URLs the shell was asked to go to, oldest first.
@@ -312,7 +323,7 @@ fn a_navigation_reaches_the_shell_as_bytes() {
 
     screen.send(&Event::NavigateHome);
 
-    assert_eq!(screen.navigations(), ["/today"]);
+    assert_eq!(screen.navigations_once_any(), ["/today"]);
 }
 
 // 今の時刻は、シェルに尋ねずにRust側で答える。名前のない新しいページは、その時刻から名前を得る。
@@ -326,7 +337,10 @@ fn the_time_is_answered_without_the_shell() {
 
     screen.answer(&prompt, &UiOutput::Text(Some(String::new())));
 
-    assert_eq!(screen.navigations(), ["/pages/Untitled-202611060930"]);
+    assert_eq!(
+        screen.navigations_once_any(),
+        ["/pages/Untitled-202611060930"]
+    );
     assert!(!screen.ui_ops().contains(&UiOp::LocalNow));
 }
 
@@ -373,7 +387,7 @@ fn bytes_that_cannot_be_read_are_refused() {
     assert!(screen.shell.resolve(9_999, &[]).is_err());
 
     screen.send(&Event::NavigateHome);
-    assert_eq!(screen.navigations(), ["/today"]);
+    assert_eq!(screen.navigations_once_any(), ["/today"]);
 }
 
 // シェルは、URLでページを開ける。今日の日付は、Rust側の時計から入る。
