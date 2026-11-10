@@ -310,10 +310,11 @@
     - [x] `cargo publish --dry-run`で確かめてから、`flatmarkdown-ast`、`flatmarkdown`の順に公開する（ユーザーが行う）。ADR 014で、順序が逆になった
       - 2026-11-10に、`flatmarkdown-ast 0.5.0`と`flatmarkdown 0.5.0`を公開した
   - `petajournal/flatmarkdown-ast`のリポジトリ（TypeScriptの型）
-    - [ ] GitHubのリポジトリの名前を`flatmarkdown-ast-ts`に変える（ユーザーが行う）
-    - [ ] 手元のフォルダの名前と`git remote`のURLを合わせる
-    - [ ] `package.json`の`repository`のURLを直す。npmのパッケージの名前は`flatmarkdown-ast`のまま変えない
-    - [ ] 2つのリポジトリのREADMEに、相手への案内を書く
+    - [x] GitHubのリポジトリの名前を`flatmarkdown-ast-ts`に変える（ユーザーが行う）
+    - [x] 手元のフォルダの名前と`git remote`のURLを合わせる
+    - [x] `package.json`の`repository`のURLを直す。npmのパッケージの名前は`flatmarkdown-ast`のまま変えない
+    - [x] 2つのリポジトリのREADMEに、相手への案内を書く
+      - 2026-11-10に行った。`flatmarkdown-ast-ts` #1と`flatmarkdown` #37
   - PetaJournalのリポジトリ
     - [x] `frontend-rust/crates/fm-ast`を消し、ワークスペースの`members`から外す
     - [x] `core`、`fm-leptos`、`shell-leptos`が、crates.ioの`flatmarkdown-ast`に依存する。`use fm_ast::`を`use flatmarkdown_ast::`に書き換える
