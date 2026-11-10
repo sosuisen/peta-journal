@@ -79,7 +79,6 @@ pub fn op_name(op: &ApiOp) -> &'static str {
         ApiOp::ShiftItemLevels { .. } => "ShiftItemLevels",
         ApiOp::MoveItems { .. } => "MoveItems",
         ApiOp::DeletePage { .. } => "DeletePage",
-        ApiOp::DeleteItem { .. } => "DeleteItem",
         ApiOp::DeleteItems { .. } => "DeleteItems",
         ApiOp::MergeItems { .. } => "MergeItems",
         ApiOp::PasteText { .. } => "PasteText",
@@ -200,10 +199,9 @@ impl FakeApi {
                     })
                     .collect(),
             ),
-            ApiOp::DeleteItem { .. }
-            | ApiOp::DeleteItems { .. }
-            | ApiOp::DeletePage { .. }
-            | ApiOp::AnswerConfirm { .. } => ApiOutput::Done,
+            ApiOp::DeleteItems { .. } | ApiOp::DeletePage { .. } | ApiOp::AnswerConfirm { .. } => {
+                ApiOutput::Done
+            }
             // The server joins the bodies the request carries, and those it has for the rest
             ApiOp::MergeItems {
                 item_id,

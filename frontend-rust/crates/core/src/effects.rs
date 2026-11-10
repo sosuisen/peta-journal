@@ -68,9 +68,6 @@ pub enum ApiOp {
     DeletePage {
         page_id: String,
     },
-    DeleteItem {
-        item_id: String,
-    },
     /// Deletes items as one group, with their descendants; the server refuses a group that
     /// leaves a descendant behind.
     DeleteItems {
@@ -667,14 +664,6 @@ impl<Event: Send + 'static> Api<Event> {
             .await,
             Items
         )
-    }
-
-    pub async fn delete_item(&self, item_id: &str) -> ApiResult<()> {
-        self.call(ApiOp::DeleteItem {
-            item_id: item_id.into(),
-        })
-        .await
-        .map(|_| ())
     }
 
     pub async fn delete_items(&self, item_ids: Vec<String>) -> ApiResult<()> {

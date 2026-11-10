@@ -356,9 +356,6 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
         ApiOp::DeletePage { page_id } => {
             call("DELETE", format!("/api/pages/{page_id}"), None, done)
         }
-        ApiOp::DeleteItem { item_id } => {
-            call("DELETE", format!("/api/items/{item_id}"), None, done)
-        }
         ApiOp::DeleteItems { item_ids } => call(
             "POST",
             "/api/items/delete",
