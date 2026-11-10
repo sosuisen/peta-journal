@@ -10,5 +10,6 @@ mod client_id;
 mod common;
 mod frontend;
 mod item_merge;
+mod page_files;
 mod property_repository;
 mod watch;

@@ -86,7 +86,7 @@ mod plan {
     }
 }
 
-fn settings_under(dir: &Path) -> Settings {
+pub(super) fn settings_under(dir: &Path) -> Settings {
     Settings {
         // A scan that finds missing files opens the browser, unless it did within the
         // cooldown; one longer than the time since 1970 keeps it shut
@@ -96,14 +96,14 @@ fn settings_under(dir: &Path) -> Settings {
 }
 
 /// A server that is not running, with its markdown folder: what the command works on.
-struct Notes {
-    state: SharedState,
-    root: PathBuf,
+pub(super) struct Notes {
+    pub(super) state: SharedState,
+    pub(super) root: PathBuf,
     _dir: tempfile::TempDir,
 }
 
 impl Notes {
-    fn new() -> Notes {
+    pub(super) fn new() -> Notes {
         let dir = tempfile::Builder::new()
             .prefix("peta-journal-asset-names-")
             .tempdir()
@@ -136,7 +136,7 @@ impl Notes {
     }
 
     /// A doc page with one item per body, written to its file as the running server does.
-    fn page(&self, name: &str, bodies: &[&str]) -> Vec<Item> {
+    pub(super) fn page(&self, name: &str, bodies: &[&str]) -> Vec<Item> {
         let page = self
             .state
             .page_service
@@ -156,7 +156,7 @@ impl Notes {
         items
     }
 
-    fn item(&self, id: &Hmtid) -> Item {
+    pub(super) fn item(&self, id: &Hmtid) -> Item {
         self.state.item_service.get_item_by_id(id).unwrap()
     }
 
@@ -174,13 +174,13 @@ impl Notes {
 }
 
 /// The notes of a server that was stopped: what the command finds when it is run by hand.
-struct Stopped {
-    root: PathBuf,
-    dir: tempfile::TempDir,
+pub(super) struct Stopped {
+    pub(super) root: PathBuf,
+    pub(super) dir: tempfile::TempDir,
 }
 
 impl Notes {
-    fn stop(self) -> Stopped {
+    pub(super) fn stop(self) -> Stopped {
         self.state.shutdown();
         Stopped {
             root: self.root,
@@ -198,7 +198,7 @@ impl Stopped {
         asset_names::run(settings_under(self.dir.path()), step, &self.table()).unwrap()
     }
 
-    fn file(&self, rel_path: &str) -> String {
+    pub(super) fn file(&self, rel_path: &str) -> String {
         std::fs::read_to_string(self.root.join(rel_path)).unwrap()
     }
 
