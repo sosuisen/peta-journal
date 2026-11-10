@@ -1,10 +1,11 @@
 import AppKit
+import PetaBorder
 import PetaScreens
 import SwiftUI
 
-/// The app. It needs a running journal server. `-server` and `-url` on the command line choose
-/// the server and the page of the first sticky. Without `-url` the sticky has no page, and one
-/// is searched for.
+/// The app. It needs a running journal server, which `-server` on the command line chooses.
+/// The stickies of the run before come back. `-stickies` names the file that keeps them.
+/// With `-url` the app shows only that page instead, and keeps nothing.
 @main
 struct PetaJournalApp: App {
     @NSApplicationDelegateAdaptor(Stickies.self) private var stickies
@@ -20,10 +21,18 @@ final class Stickies: NSObject, NSApplicationDelegate {
     private var desk: StickyDesk?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        let desk = StickyDesk(
-            server: UserDefaults.standard.string(forKey: "server") ?? "http://localhost:8087")
-        self.desk = desk
-        desk.add(url: UserDefaults.standard.string(forKey: "url"))
+        let defaults = UserDefaults.standard
+        let server = defaults.string(forKey: "server") ?? "http://localhost:8087"
+        if let url = defaults.string(forKey: "url") {
+            let desk = StickyDesk(server: server)
+            self.desk = desk
+            desk.add(url: url)
+        } else {
+            let file = defaults.string(forKey: "stickies").map { URL(fileURLWithPath: $0) }
+            let desk = StickyDesk(server: server, store: StickyStore(file: file ?? StickyStore.standardFile))
+            self.desk = desk
+            desk.open()
+        }
         NSApp.activate(ignoringOtherApps: true)
     }
 

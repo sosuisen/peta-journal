@@ -95,9 +95,14 @@ under `build/Build/Products/Release`).
 Or open `PetaJournal.xcodeproj` in Xcode and run it there. The project is not kept in the
 repository: run `xcodegen generate` again after a change in `project.yml` or a new file in `App/`.
 
-Without arguments the app opens no page of the server at `http://localhost:8087`: its window
-shows the search box, to search for a page. To
-choose the server and the page:
+Without arguments the app shows the stickies of the run before, with their pages, places and
+sizes, from the server at `http://localhost:8087`. A sticky that was closed does not come back.
+The first time there is one sticky without a page: it shows the search box, to search for a
+page. The stickies are kept in `~/Library/Application Support/PetaJournal/stickies.json`;
+`-stickies <file>` names another file.
+
+With `-url` the app shows only that page, and neither reads nor keeps stickies. To choose the
+server and the page:
 
 ```
 open build/Build/Products/Debug/PetaJournal.app --args -server http://localhost:8087 -url /pages/notes
