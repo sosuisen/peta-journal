@@ -15,14 +15,19 @@ public final class Shell: ObservableObject {
     @Published public private(set) var focus: FocusOrder?
     private let border: Border
     private let clipboard: () -> String?
+    private let copy: (String) -> Void
     /// The questions that wait behind the one on screen.
     private var later: [Question] = []
 
     /// Starts a core for the journal server at `server` and opens what `url` names. `clipboard`
-    /// gives the text on the clipboard when the core asks for it.
+    /// gives the text on the clipboard when the core asks for it, and `copy` puts text there.
     public init(
         server: String, url: String,
-        clipboard: @escaping () -> String? = { NSPasteboard.general.string(forType: .string) }
+        clipboard: @escaping () -> String? = { NSPasteboard.general.string(forType: .string) },
+        copy: @escaping (String) -> Void = { text in
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(text, forType: .string)
+        }
     ) {
         let inbox = Inbox()
         let border = Border(server: server) { requests in
@@ -33,6 +38,7 @@ public final class Shell: ObservableObject {
         }
         self.border = border
         self.clipboard = clipboard
+        self.copy = copy
         view = Shell.must { try border.view() }
         inbox.shell = self
         open(url)
@@ -120,6 +126,9 @@ public final class Shell: ObservableObject {
             ask(Question(id: id, message: message, kind: .confirmDestructive))
         case .prompt(let message):
             ask(Question(id: id, message: message, kind: .prompt))
+        case .copyText(let text), .copyMarkdown(let text):
+            // Markdown goes as plain text: no rich text is made of it here
+            copy(text)
         case .readClipboardText:
             Shell.must { try border.answer(id, with: .text(clipboard())) }
         default:

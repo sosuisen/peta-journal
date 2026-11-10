@@ -383,4 +383,100 @@ final class ShellTests: XCTestCase {
             shell.view.outline.rows[1].item.level == second.level + 1
         }
     }
+
+    /// Two items, "first" and "second", with the second one selected from its editor.
+    private func secondOfTwoSelected(_ shell: Shell) async throws {
+        try await twoItems(shell)
+        let second = shell.view.outline.rows[1].item.id
+        shell.typed("second", into: second)
+        XCTAssertTrue(shell.pressed(.selectDown, in: second, editor("second", cursor: 0)))
+    }
+
+    private func selected(_ shell: Shell) -> [String] {
+        shell.view.outline.rows.filter(\.isSelected).map(\.item.body)
+    }
+
+    // 最後の行でのShift+下は、その項目を選ぶ。最初の行でのShift+上も同じである。ほかの行では、文字を選ぶキーのままである。
+    func testShiftArrowOnTheEdgeLineSelectsTheItem() async throws {
+        let shell = try await shellWithPage()
+        try await twoItems(shell)
+        let first = shell.view.outline.rows[0].item.id
+
+        XCTAssertFalse(shell.pressed(.selectDown, in: first, editor("a\nb", cursor: 0, lastLine: false)))
+        XCTAssertFalse(shell.pressed(.selectUp, in: first, editor("a\nb", cursor: 3, firstLine: false)))
+        XCTAssertFalse(shell.view.outline.selectionMode)
+        XCTAssertTrue(shell.pressed(.selectUp, in: first, editor("first", cursor: 0)))
+
+        XCTAssertTrue(shell.view.outline.selectionMode)
+        XCTAssertEqual(selected(shell), ["first"])
+    }
+
+    // 選んでいるあいだのShift+上下は、選択を広げる。Escapeは、選択をやめる。
+    func testTheSelectionGrowsAndEscapeEndsIt() async throws {
+        let shell = try await shellWithPage()
+        try await secondOfTwoSelected(shell)
+
+        shell.selection(.extendUp)
+        XCTAssertEqual(selected(shell), ["first", "second"])
+        shell.selection(.escape)
+
+        XCTAssertFalse(shell.view.outline.selectionMode)
+        XCTAssertEqual(selected(shell), [])
+        XCTAssertEqual(bodies(shell), ["first", "second"])
+    }
+
+    // 選んだ項目を消せる。
+    func testTheSelectedItemsAreDeleted() async throws {
+        let shell = try await shellWithPage()
+        try await secondOfTwoSelected(shell)
+
+        shell.selection(.delete)
+
+        try await waitUntil("the second item is gone") { self.bodies(shell) == ["first"] }
+        XCTAssertFalse(shell.view.outline.selectionMode)
+    }
+
+    // 選んだ項目を上へ動かせる。
+    func testTheSelectedItemsAreMoved() async throws {
+        let shell = try await shellWithPage()
+        try await secondOfTwoSelected(shell)
+
+        shell.selection(.moveUp)
+
+        try await waitUntil("the second item is on top") { self.bodies(shell) == ["second", "first"] }
+        XCTAssertEqual(selected(shell), ["second"])
+    }
+
+    // 選んだ項目をコピーすると、Markdownがクリップボードに載る。
+    func testCopyPutsTheSelectedItemsOnTheClipboard() async throws {
+        let copied = Copied()
+        let shell = Shell(
+            server: server.address, url: "/pages/swift-notes", clipboard: { nil },
+            copy: { copied.text = $0 })
+        try await waitUntil("the page is shown") { !shell.view.outline.rows.isEmpty }
+        try await secondOfTwoSelected(shell)
+        shell.selection(.extendUp)
+
+        shell.selection(.copy)
+
+        try await waitUntil("the clipboard has the items") { copied.text != nil }
+        XCTAssertEqual(copied.text, "- first\n- second")
+        XCTAssertEqual(bodies(shell), ["first", "second"])
+    }
+
+    // 選択をやめるように言うと、選択が消える。ほかの場所をクリックしたときである。
+    func testLeavingTheSelectionEndsIt() async throws {
+        let shell = try await shellWithPage()
+        try await secondOfTwoSelected(shell)
+
+        shell.leaveSelection()
+
+        XCTAssertFalse(shell.view.outline.selectionMode)
+    }
+}
+
+/// What the shell put on the clipboard.
+@MainActor
+private final class Copied {
+    var text: String?
 }

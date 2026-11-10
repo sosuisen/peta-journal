@@ -12,10 +12,12 @@ final class OutlineScreenTests: XCTestCase {
     private var server: JournalServer!
     private var shell: Shell!
     private var window: NSWindow!
+    /// What the shell put on the clipboard.
+    private var copied: String?
 
     override func setUp() async throws {
         server = try JournalServer(port: 18094)
-        shell = Shell(server: server.address, url: "/pages/screen", clipboard: { nil })
+        shell = Shell(server: server.address, url: "/pages/screen", clipboard: { nil }, copy: { [weak self] in self?.copied = $0 })
         try await waitUntil("the page is shown") { !self.shell.view.outline.rows.isEmpty }
         window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 600, height: 400), styleMask: [.titled],
@@ -162,7 +164,7 @@ final class OutlineScreenTests: XCTestCase {
     }
 
     /// Presses a key of the keyboard in the editor, as AppKit hands it over.
-    private func press(_ keyCode: UInt16, _ characters: String, _ modifiers: NSEvent.ModifierFlags, in editor: NSTextView) {
+    private func press(_ keyCode: UInt16, _ characters: String, _ modifiers: NSEvent.ModifierFlags, in editor: NSResponder) {
         let event = NSEvent.keyEvent(
             with: .keyDown, location: .zero, modifierFlags: modifiers, timestamp: 0,
             windowNumber: window.windowNumber, context: nil, characters: characters,
@@ -263,5 +265,77 @@ final class OutlineScreenTests: XCTestCase {
         try await waitUntil("the indent is taken back again") {
             self.shell.view.outline.rows[1].item.level == level
         }
+    }
+
+    private static let (escapeKey, backspaceKey, cKey): (UInt16, UInt16, UInt16) = (53, 51, 8)
+
+    private func selected() -> [String] {
+        shell.view.outline.rows.filter(\.isSelected).map(\.item.body)
+    }
+
+    /// Two items, with the second one selected by Shift+Up in its editor. The keys go to what
+    /// is returned, as no editor has the cursor while items are selected.
+    private func secondOfTwoSelected() async throws -> NSResponder {
+        try await twoItems()
+        editors()[1].doCommand(by: #selector(NSResponder.moveUpAndModifySelection(_:)))
+        try await waitUntil("the second item is selected and no editor has the cursor") {
+            self.selected() == ["second"] && self.focused == nil && self.window.firstResponder !== self.window
+        }
+        return try XCTUnwrap(window.firstResponder)
+    }
+
+    // Shift+上は、項目を選ぶ。もう一度押すと選択が広がり、Escapeで選択が消える。
+    func testShiftUpSelectsItemsAndEscapeEndsTheSelection() async throws {
+        let keys = try await secondOfTwoSelected()
+
+        press(Self.upKey, "\u{F700}", .shift, in: keys)
+        XCTAssertEqual(selected(), ["first", "second"])
+        press(Self.escapeKey, "\u{1B}", [], in: keys)
+
+        XCTAssertEqual(selected(), [])
+        XCTAssertFalse(shell.view.outline.selectionMode)
+    }
+
+    // 選んでいるあいだのBackspaceは、選んだ項目を消す。
+    func testBackspaceDeletesTheSelectedItems() async throws {
+        let keys = try await secondOfTwoSelected()
+
+        press(Self.backspaceKey, "\u{7F}", [], in: keys)
+
+        try await waitUntil("the second item is gone") { self.bodies() == ["first"] }
+    }
+
+    // 選んでいるあいだのShift+Option+上は、選んだ項目を上へ動かす。
+    func testShiftOptionUpMovesTheSelectedItems() async throws {
+        let keys = try await secondOfTwoSelected()
+
+        press(Self.upKey, "\u{F700}", [.shift, .option], in: keys)
+
+        try await waitUntil("the second item is on top") { self.bodies() == ["second", "first"] }
+    }
+
+    // 選んでいるあいだのCommand+Cと、メニューの「コピー」は、選んだ項目をクリップボードに載せる。
+    func testCommandCAndCopyOfTheMenuCopyTheSelectedItems() async throws {
+        let keys = try await secondOfTwoSelected()
+
+        press(Self.cKey, "c", .command, in: keys)
+        try await waitUntil("the clipboard has the item") { self.copied == "- second" }
+        copied = nil
+        XCTAssertTrue(keys.tryToPerform(Selector(("copy:")), with: nil))
+
+        try await waitUntil("the clipboard has the item again") { self.copied == "- second" }
+    }
+
+    // 選んでいるあいだに項目の文字をクリックすると、選択が消え、その項目に入力できる。
+    func testTheCursorInAnEditorEndsTheSelection() async throws {
+        _ = try await secondOfTwoSelected()
+        let second = editors()[1]
+
+        window.makeFirstResponder(second)
+        second.insertText("!", replacementRange: NSRange(location: 6, length: 0))
+
+        XCTAssertFalse(shell.view.outline.selectionMode)
+        XCTAssertEqual(bodies(), ["first", "second!"])
+        XCTAssertTrue(shell.view.outline.rows[1].isEditing)
     }
 }
