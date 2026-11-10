@@ -78,6 +78,30 @@
             (peta-journal-test--row "c" 1 "z" :bullet "done"))
     (should (equal (peta-journal-test--shown) "☐ x\n◐ y\n☑ z\n"))))
 
+;; 折りたたんだ項目は、丸で囲んだ点のバレットで示される。行末には何も足さない。
+(ert-deftest peta-journal-the-bullet-shows-a-collapsed-item ()
+  (peta-journal-test--with-rows
+      (list (peta-journal-test--row "a" 1 "x" :collapsed t)
+            (peta-journal-test--row "b" 1 "y"))
+    (should (equal (peta-journal-test--shown) "◉ x\n• y\n"))
+    (should-not (get-text-property (peta-journal--body-end (peta-journal--find-row "a"))
+                                   'display))))
+
+;; トランスクルージョンは、四角で囲んだ点のバレットで示される。折りたたむと、四角が塗られる。
+(ert-deftest peta-journal-the-bullet-shows-a-transclusion ()
+  (peta-journal-test--with-rows
+      (list (peta-journal-test--row "a" 1 "x" :bullet "transclusion")
+            (peta-journal-test--row "b" 1 "y" :bullet "transclusion" :collapsed t))
+    (should (equal (peta-journal-test--shown) "⊡ x\n▣ y\n"))))
+
+;; 折りたたんだタスクのバレットは、タスクの状態を示すままである。
+(ert-deftest peta-journal-a-collapsed-task-keeps-the-bullet-of-its-state ()
+  (peta-journal-test--with-rows
+      (list (peta-journal-test--row "a" 1 "x" :bullet "task" :collapsed t)
+            (peta-journal-test--row "b" 1 "y" :bullet "done" :collapsed t)
+            (peta-journal-test--row "c" 1 "z" :bullet "broken" :collapsed t))
+    (should (equal (peta-journal-test--shown) "☐ x\n☑ y\n✗ z\n"))))
+
 ;; ジャーナルの日付は、項目の上の編集できない行である。
 (ert-deftest peta-journal-a-date-header-is-a-line-above-its-row ()
   (peta-journal-test--with-rows
@@ -540,15 +564,6 @@
     (goto-char (point-min))
     (search-forward "\n")
     (should-not (get-text-property (1- (point)) 'line-spacing))))
-
-;; 折りたたんだ項目は、改行の代わりに表示する文字列に隙間を持つ。表示はこの文字列から作られる。
-(ert-deftest peta-journal-a-collapsed-item-has-the-gap-in-what-it-shows ()
-  (let ((peta-journal-item-gap 7))
-    (peta-journal-test--with-rows
-        (list (peta-journal-test--row "a" 1 "x" :collapsed t))
-      (let* ((newline (peta-journal--body-end (peta-journal--find-row "a")))
-             (shown (get-text-property newline 'display)))
-        (should (= (get-text-property (1- (length shown)) 'line-spacing shown) 7))))))
 
 ;;;; Wrapping
 
@@ -1272,6 +1287,18 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
     (goto-char (point-min))
     (search-forward "y")
     (should-not (get-text-property (match-beginning 0) 'face))))
+
+;; 本文の先頭の記法は、どのバレットの後ろでも色が付く。
+(ert-deftest peta-journal-the-start-of-a-body-has-its-color-behind-any-bullet ()
+  (peta-journal-test--with-rows
+      (list (peta-journal-test--row "a" 1 "> 引用" :collapsed t)
+            (peta-journal-test--row "b" 1 "> 引用" :bullet "transclusion")
+            (peta-journal-test--row "c" 1 "> 引用" :bullet "transclusion" :collapsed t))
+    (font-lock-ensure)
+    (goto-char (point-min))
+    (dotimes (_ 3)
+      (search-forward "引用")
+      (should (eq (get-text-property (match-beginning 0) 'face) 'peta-journal-quote)))))
 
 ;; 字下げのコードにも色が付く。
 (ert-deftest peta-journal-indented-code-has-its-color ()

@@ -47,8 +47,16 @@ It applies to the rows drawn after a change.  Only a graphical Emacs shows it."
 
 (defconst peta-journal--bullets
   '(("plain" . "•") ("task" . "☐") ("running" . "◐") ("done" . "☑")
-    ("transclusion" . "↪") ("broken" . "✗"))
-  "The mark of each kind of row.")
+    ("transclusion" . "⊡") ("broken" . "✗"))
+  "The mark of each kind of row.
+A transclusion has a square around its dot, as the web frontend draws it.")
+
+(defconst peta-journal--collapsed-bullets
+  '(("plain" . "◉") ("transclusion" . "▣"))
+  "The mark of each kind of row whose children are hidden.
+A ring around the dot, and a filled square for a transclusion, as the web
+frontend draws them.  A kind that is not here keeps its mark: that of a task
+says its state.")
 
 (defconst peta-journal--bullet-gap " "
   "The space behind a bullet.
@@ -171,7 +179,9 @@ into its match, and the next pair could not start at a character it took."
                                 (aref delimiter 0))))
 
 (defconst peta-journal--bullet-regexp
-  (concat (regexp-opt (mapcar #'cdr peta-journal--bullets)) peta-journal--bullet-gap)
+  (concat (regexp-opt (mapcar #'cdr (append peta-journal--bullets
+                                            peta-journal--collapsed-bullets)))
+          peta-journal--bullet-gap)
   "The bullet in front of the first line of a body.")
 
 (defconst peta-journal--line-start-regexp
@@ -417,7 +427,9 @@ Completion sorts a plain list by name, which would hide the newest pages."
   "The bullet of ROW."
   (let* ((kind (plist-get row :bullet))
          (level (plist-get row :level))
-         (mark (cdr (assoc kind peta-journal--bullets))))
+         (mark (or (and (plist-get row :collapsed)
+                        (cdr (assoc kind peta-journal--collapsed-bullets)))
+                   (cdr (assoc kind peta-journal--bullets)))))
     (propertize (concat mark peta-journal--bullet-gap)
                 'peta-bullet (plist-get row :id)
                 'font-lock-face (if (equal kind "done") 'peta-journal-done 'peta-journal-bullet)
@@ -428,15 +440,9 @@ Completion sorts a plain list by name, which would hide the newest pages."
                 'line-prefix (peta-journal--prefix level)
                 'wrap-prefix (peta-journal--body-prefix level))))
 
-(defun peta-journal--newline-string (row)
-  "The read-only newline that ends ROW."
-  (let ((newline (propertize "\n" 'read-only t 'line-spacing peta-journal-item-gap)))
-    (if (plist-get row :collapsed)
-        ;; The children are hidden: the row says so where it ends
-        (propertize newline 'display (propertize " …\n"
-                                                 'face 'shadow
-                                                 'line-spacing peta-journal-item-gap))
-      newline)))
+(defun peta-journal--newline-string ()
+  "The read-only newline that ends a row."
+  (propertize "\n" 'read-only t 'line-spacing peta-journal-item-gap))
 
 (defun peta-journal--header-string (row)
   "The date line above ROW, or an empty string."
@@ -455,7 +461,7 @@ Completion sorts a plain list by name, which would hide the newest pages."
          (text (concat (peta-journal--header-string row)
                        (peta-journal--bullet-string row)
                        body
-                       (peta-journal--newline-string row))))
+                       (peta-journal--newline-string))))
     (put-text-property 0 1 'peta-row (plist-get row :id) text)
     text))
 
