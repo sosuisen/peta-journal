@@ -1,5 +1,5 @@
 import { defineConfig } from '@playwright/test';
-import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -8,7 +8,7 @@ import { join, resolve } from 'node:path';
  * server, on its own port with a fresh, throw-away data directory, that answers the API and
  * serves the frontend trunk built.
  *
- * Build first: `cd journal-server-rust && cargo build --release`, and `cargo install trunk`.
+ * The run builds the server and the frontend first. Setup, once: `cargo install trunk`.
  */
 export const serverPort = 8187;
 export const dataDir = mkdtempSync(join(tmpdir(), 'peta-journal-e2e-'));
@@ -38,12 +38,20 @@ function frontendBuildCommand(): string {
   return `trunk build --dist ${JSON.stringify(frontendDir)}`;
 }
 
+const serverDir = resolve(__dirname, '../journal-server-rust');
+
+/**
+ * Builds the server. Without this the tests ran against whatever binary was there: on
+ * 2026-11-11 a binary a few commits old made a test of a new request fail, and it looked like
+ * a bug of the app. A build with nothing to do takes under a second.
+ */
+function serverBuildCommand(): string {
+  return `cargo build --release --manifest-path ${JSON.stringify(join(serverDir, 'Cargo.toml'))}`;
+}
+
 function serverCommand(): string {
-  const binary = resolve(__dirname, '../journal-server-rust/target/release/journal-server'
+  const binary = join(serverDir, 'target/release/journal-server'
     + (process.platform === 'win32' ? '.exe' : ''));
-  if (!existsSync(binary)) {
-    throw new Error(`Server binary not found: ${binary}\nRun "cargo build --release" in journal-server-rust first.`);
-  }
   return [
     JSON.stringify(binary), '--port', String(serverPort),
     '--data-dir', JSON.stringify(dataDir), '--index-dir', JSON.stringify(join(dataDir, 'index')),
@@ -65,12 +73,12 @@ export default defineConfig({
     trace: 'retain-on-failure',
   },
   webServer: {
-    // The server starts only after the build, so no test ever sees files of an older build
-    command: `${frontendBuildCommand()} && ${serverCommand()}`,
+    // The server starts only after both builds, so no test ever sees an older build
+    command: `${serverBuildCommand()} && ${frontendBuildCommand()} && ${serverCommand()}`,
     cwd: shellDir,
     url: `http://localhost:${serverPort}/`,
-    // Long enough for a first build of the frontend
-    timeout: 240_000,
+    // Long enough for a first build of the server and the frontend
+    timeout: 900_000,
     reuseExistingServer: false,
   },
 });
