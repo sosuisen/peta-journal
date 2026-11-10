@@ -231,4 +231,28 @@ mod apply {
         assert_eq!(scanned.body, renamed.body);
         assert_eq!(scanned.modified_date, renamed.modified_date);
     }
+
+    // まだ取り込まれていないMarkdownファイルの編集は、失われない。先に取り込まれる。
+    #[test]
+    fn an_edit_of_the_file_that_was_not_taken_in_yet_is_kept() {
+        let notes = Notes::new();
+        notes.asset("image.png", "the picture");
+        let items = notes.page("Trip", &["![pic](../assets/image.png)", "first day"]);
+        let file = notes.root.join("docs/Trip.md");
+        let edited = std::fs::read_to_string(&file)
+            .unwrap()
+            .replace("first day", "first day in Kyoto");
+        std::fs::write(&file, edited).unwrap();
+
+        notes.rename("image.png", NEW_NAME);
+
+        assert_eq!(notes.item(&items[1].id).body, "first day in Kyoto");
+        assert_eq!(
+            notes.item(&items[0].id).body,
+            format!("![pic](../assets/{NEW_NAME})")
+        );
+        let text = std::fs::read_to_string(&file).unwrap();
+        assert!(text.contains("first day in Kyoto"));
+        assert!(text.contains(NEW_NAME));
+    }
 }
