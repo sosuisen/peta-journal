@@ -6,6 +6,7 @@ members = [
     "crates/server-client",
     "crates/shell-leptos",
     "crates/shell-emacs",
+    "crates/shell-native",
 ]
 
 [workspace.package]

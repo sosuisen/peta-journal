@@ -1,0 +1,18 @@
+[package]
+name = "peta-shell-native"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "PetaJournal native frontends: the Crux core behind a border of bytes, for the SwiftUI and WinUI3 shells (ADR 024)"
+
+[dependencies]
+peta-core = { path = "../core" }
+peta-server-client = { path = "../server-client" }
+crux_core = "=0.20.0"
+serde = { workspace = true }
+chrono = "0.4.45"
+
+[features]
+# `#[effect(typegen)]` asks for this name. Nothing turns it on yet: the types of the shells are
+# not generated so far
+typegen = []

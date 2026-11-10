@@ -1876,6 +1876,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "peta-shell-native"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "crux_core",
+ "peta-core",
+ "peta-server-client",
+ "serde",
+]
+
+[[package]]
 name = "phf"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
