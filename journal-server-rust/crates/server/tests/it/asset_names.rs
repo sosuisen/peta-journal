@@ -7,7 +7,7 @@ use chrono::{TimeZone, Utc};
 use hmtid::Hmtid;
 use journal_server::application::asset_names::{self, Rename};
 use journal_server::config::Settings;
-use journal_server::domain::model::{Item, ItemPosition};
+use journal_server::domain::model::{Item, ItemPosition, Page};
 use journal_server::state::{AppState, BuildOptions, SharedState};
 use serde_json::json;
 
@@ -156,6 +156,10 @@ impl Notes {
         self.state.item_service.get_item_by_id(id).unwrap()
     }
 
+    fn page_of(&self, item: &Item) -> Page {
+        self.state.page_service.require_page(&item.page_id).unwrap()
+    }
+
     fn rename(&self, from: &str, to: &str) {
         let renames = [Rename {
             from: from.to_string(),
@@ -181,5 +185,28 @@ mod apply {
         assert!(!notes.asset_path("image.png").exists());
         let moved = std::fs::read_to_string(notes.asset_path(NEW_NAME)).unwrap();
         assert_eq!(moved, "the picture");
+    }
+
+    // 項目の本文のリンクは、新しい名前を指す。項目とページの更新日時は変わらない。
+    #[test]
+    fn the_link_in_an_item_goes_to_the_new_name_and_the_modified_dates_stay() {
+        let notes = Notes::new();
+        notes.asset("image.png", "the picture");
+        let before = notes
+            .page("Trip", &["![pic](../assets/image.png)"])
+            .remove(0);
+        let page_before = notes.page_of(&before);
+
+        notes.rename("image.png", NEW_NAME);
+
+        let after = notes.item(&before.id);
+        assert_eq!(after.body, format!("![pic](../assets/{NEW_NAME})"));
+        assert!(after.ast.contains(NEW_NAME));
+        assert!(!after.ast.contains("image.png"));
+        assert_eq!(after.modified_date, before.modified_date);
+        assert_eq!(
+            notes.page_of(&after).modified_date,
+            page_before.modified_date
+        );
     }
 }
