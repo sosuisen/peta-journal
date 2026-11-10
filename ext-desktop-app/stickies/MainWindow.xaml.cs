@@ -267,7 +267,7 @@ public sealed partial class MainWindow : Window
                 PageTitleText.Text = page?.Name ?? "Untitled";
             }
 
-            var html = BuildHtml(page, _currentItems);
+            var html = BuildHtml();
             await EnsureWebViewInitialized();
             ContentWebView.NavigateToString(html);
         }
@@ -292,7 +292,8 @@ public sealed partial class MainWindow : Window
         if (ContentWebView.CoreWebView2 == null)
         {
             await ContentWebView.EnsureCoreWebView2Async();
-            ContentWebView.CoreWebView2.NavigationStarting += (sender, e) =>
+            var core = ContentWebView.CoreWebView2!;
+            core.NavigationStarting += (sender, e) =>
             {
                 if (Uri.TryCreate(e.Uri, UriKind.Absolute, out var uri)
                     && uri.Scheme != "http" && uri.Scheme != "https"
@@ -302,43 +303,31 @@ public sealed partial class MainWindow : Window
                     _ = Windows.System.Launcher.LaunchUriAsync(uri);
                 }
             };
-            ContentWebView.CoreWebView2.WebMessageReceived += (sender, e) =>
-            {
-                try
-                {
-                    var msg = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(e.WebMessageAsJson);
-                    if (msg.TryGetProperty("zoom", out var zoomEl))
-                    {
-                        _windowSettings.ZoomFactor = zoomEl.GetDouble();
-                        _settingsService.UpdateWindow(_windowSettings);
-                    }
-                    else if (msg.TryGetProperty("toggleCollapse", out var itemIdEl))
-                    {
-                        var itemId = itemIdEl.GetString();
-                        if (itemId != null)
-                        {
-                            if (!_collapsedItemIds.Remove(itemId))
-                                _collapsedItemIds.Add(itemId);
-                            var html = BuildHtml(_currentPage, _currentItems);
-                            ContentWebView.NavigateToString(html);
-                        }
-                    }
-                    else if (msg.TryGetProperty("openWikilink", out var pageNameEl))
-                    {
-                        var pageName = pageNameEl.GetString();
-                        if (!string.IsNullOrEmpty(pageName))
-                            _ = Windows.System.Launcher.LaunchUriAsync(
-                                PageLinks.ForWikilink(_api.BaseUrl, pageName));
-                    }
-                    else if (msg.TryGetProperty("openHashtag", out var tagEl))
-                    {
-                        var tag = tagEl.GetString();
-                        if (!string.IsNullOrEmpty(tag)) _ = OpenTagPageAsync(tag);
-                    }
-                }
-                catch { }
-            };
-            ContentWebView.CoreWebView2.Settings.IsZoomControlEnabled = false;
+            core.WebMessageReceived += (sender, e) => OnWebMessage(WebMessage.Parse(e.WebMessageAsJson));
+            core.Settings.IsZoomControlEnabled = false;
+        }
+    }
+
+    private void OnWebMessage(WebMessage? message)
+    {
+        switch (message)
+        {
+            case WebMessage.ZoomChanged zoom:
+                _windowSettings.ZoomFactor = zoom.Factor;
+                _settingsService.UpdateWindow(_windowSettings);
+                break;
+            case WebMessage.CollapseToggled toggled:
+                if (!_collapsedItemIds.Remove(toggled.ItemId))
+                    _collapsedItemIds.Add(toggled.ItemId);
+                ContentWebView.NavigateToString(BuildHtml());
+                break;
+            case WebMessage.WikilinkClicked wikilink:
+                _ = Windows.System.Launcher.LaunchUriAsync(
+                    PageLinks.ForWikilink(_api.BaseUrl, wikilink.PageName));
+                break;
+            case WebMessage.HashtagClicked hashtag:
+                _ = OpenTagPageAsync(hashtag.Tag);
+                break;
         }
     }
 
@@ -357,166 +346,32 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private string BuildHtml(PageModel? page, IList<ItemModel> items)
+    private string BuildHtml()
     {
-        var itemsHtml = OutlineHtml.Build(items, _collapsedItemIds);
-
-        return $@"<!DOCTYPE html>
-<html>
-<head>
-<meta charset=""utf-8"">
-<style>
-  * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-  body {{
-    font-family: -apple-system, 'Segoe UI', sans-serif;
-    font-size: 14px;
-    line-height: 1.6;
-    background: {_backgroundColor};
-    color: #333;
-    padding: 12px;
-    overflow-wrap: break-word;
-    overflow: {(_isDeactivated ? "hidden" : "auto")};
-    zoom: {_windowSettings.ZoomFactor.ToString(System.Globalization.CultureInfo.InvariantCulture)};
-  }}
-  a {{ color: #2563eb; }}
-  a[data-wikilink], a.hashtag {{ text-decoration: none; }}
-  a.hashtag {{ color: #0f766e; }}
-  mark {{ background: rgba(255,200,0,0.45); }}
-  .spoiler {{ background: #333; color: #333; border-radius: 3px; }}
-  .spoiler:hover {{ color: #fff; }}
-  hr {{ border: none; border-top: 1px solid #ccc; margin: 8px 0; }}
-  li > input[type=checkbox] {{ margin-right: 6px; }}
-  /* The app only shows the state of a task, so a click must not change the checkbox. */
-  .task-checkbox {{ margin-right: 6px; flex-shrink: 0; pointer-events: none; }}
-  .task-checkbox:indeterminate {{ accent-color: #22c55e; }}
-  .alert {{
-    border-left: 3px solid #2563eb;
-    padding-left: 12px;
-    margin: 4px 0;
-  }}
-  .alert-warning, .alert-caution {{ border-left-color: #d97706; }}
-  .alert-title {{ font-weight: 600; }}
-  .footnote {{ font-size: 13px; color: #666; }}
-  code {{
-    background: rgba(0,0,0,0.06);
-    padding: 1px 4px;
-    border-radius: 3px;
-    font-size: 13px;
-  }}
-  pre {{
-    background: rgba(0,0,0,0.06);
-    padding: 8px 12px;
-    border-radius: 6px;
-    overflow-x: auto;
-    margin: 4px 0;
-  }}
-  pre code {{ background: none; padding: 0; }}
-  h1 {{ font-size: 1.5em; margin: 8px 0 4px; }}
-  h2 {{ font-size: 1.3em; margin: 8px 0 4px; }}
-  h3 {{ font-size: 1.1em; margin: 8px 0 4px; }}
-  blockquote {{
-    border-left: 3px solid #ccc;
-    padding-left: 12px;
-    color: #666;
-    margin: 4px 0;
-  }}
-  img {{ max-width: 100%; }}
-  table {{ border-collapse: collapse; margin: 4px 0; }}
-  th, td {{ border: 1px solid #ddd; padding: 4px 8px; }}
-  ul, ol {{ padding-left: 24px; }}
-</style>
-</head>
-<body>
-{itemsHtml}
-<script>
-{FmAst2HtmlBundle.Script}
-</script>
-<script>
-(function(){{
-  document.querySelectorAll('.task-checkbox[data-running]').forEach(function(el){{ el.indeterminate=true; }});
-  document.querySelectorAll('[data-ast]').forEach(function(el){{
-    try {{ el.innerHTML=FmAst2Html.renderToHtml(el.getAttribute('data-ast')); }} catch(e){{}}
-  }});
-  // An image is written with a path relative to its page, such as ../assets/pic.png.
-  // This document has no address of its own, so the path is resolved against the pages.
-  var pages={System.Text.Json.JsonSerializer.Serialize(PageLinks.PagesUrl(_api.BaseUrl))};
-  document.querySelectorAll('[data-ast] [src]').forEach(function(el){{
-    try {{ el.setAttribute('src',new URL(el.getAttribute('src'),pages).href); }} catch(e){{}}
-  }});
-  var z={(_windowSettings.ZoomFactor * 100).ToString(System.Globalization.CultureInfo.InvariantCulture)};
-  function apply(){{ document.body.style.zoom=z+'%'; window.chrome.webview.postMessage({{zoom:z/100}}); }}
-  document.addEventListener('wheel',function(e){{
-    if(!e.ctrlKey)return;
-    e.preventDefault();
-    z=Math.min(300,Math.max(30,z+(e.deltaY<0?10:-10)));
-    apply();
-  }},{{passive:false}});
-  document.addEventListener('keydown',function(e){{
-    if(!e.ctrlKey)return;
-    if(e.key==='+'||e.key==='='){{ e.preventDefault(); z=Math.min(300,z+10); apply(); }}
-    else if(e.key==='-'){{ e.preventDefault(); z=Math.max(30,z-10); apply(); }}
-    else if(e.key==='0'){{ e.preventDefault(); z=100; apply(); }}
-  }});
-  document.addEventListener('click',function(e){{
-    var t=e.target.closest('.collapse-toggle');
-    if(t){{ window.chrome.webview.postMessage({{toggleCollapse:t.getAttribute('data-item-id')}}); }}
-    // The href of a wikilink or a hashtag is a page name, not a URL. Following it would
-    // replace the note with an error page. The app opens the page in the web app instead.
-    var w=e.target.closest('a[data-wikilink]');
-    var h=e.target.closest('a[data-hashtag],a.hashtag');
-    if(w||h){{
-      e.preventDefault();
-      var name=(w||h).getAttribute('href');
-      if(name){{ window.chrome.webview.postMessage(w?{{openWikilink:name}}:{{openHashtag:name}}); }}
-    }}
-  }});
-}})();
-</script>
-</body>
-</html>";
+        var look = new PageLook(
+            _windowSettings.BackgroundColor, _windowSettings.ZoomFactor, Scrolls: !_isDeactivated);
+        return PageHtml.ForItems(
+            OutlineHtml.Build(_currentItems, _collapsedItemIds),
+            look,
+            PageLinks.PagesUrl(_api.BaseUrl),
+            EmbeddedPageAssets.Value);
     }
 
     private void ShowEmptyContent()
     {
-        var html = $@"<!DOCTYPE html>
-<html><head><meta charset=""utf-8"">
-<style>
-  body {{
-    font-family: 'Segoe UI', sans-serif;
-    display: flex; justify-content: center; align-items: center;
-    height: 100vh; margin: 0;
-    background: {_backgroundColor}; color: #999;
-  }}
-</style></head>
-<body><p>Click the search icon to find a page</p></body></html>";
-        _ = ShowHtmlAsync(html);
+        _ = ShowHtmlAsync(PageHtml.ForMessage(
+            "Click the search icon to find a page", "#999", _windowSettings.BackgroundColor));
     }
 
     private void ShowErrorContent(string message)
     {
-        var html = $@"<!DOCTYPE html>
-<html><head><meta charset=""utf-8"">
-<style>
-  body {{
-    font-family: 'Segoe UI', sans-serif;
-    display: flex; justify-content: center; align-items: center;
-    height: 100vh; margin: 0;
-    background: {_backgroundColor}; color: #cc3333;
-  }}
-</style></head>
-<body><p>{EscapeHtml(message)}</p></body></html>";
-        _ = ShowHtmlAsync(html);
+        _ = ShowHtmlAsync(PageHtml.ForMessage(message, "#cc3333", _windowSettings.BackgroundColor));
     }
 
     private async Task ShowHtmlAsync(string html)
     {
         await EnsureWebViewInitialized();
         ContentWebView.NavigateToString(html);
-    }
-
-    private static string EscapeHtml(string text)
-    {
-        return text.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
     }
 
     // --- New Window / Close ---

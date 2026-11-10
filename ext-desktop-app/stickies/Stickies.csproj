@@ -28,6 +28,8 @@
 
   <ItemGroup>
     <EmbeddedResource Include="$(FmAst2HtmlJsPath)" LogicalName="fm-ast2html.js" />
+    <EmbeddedResource Include="Web\page.css" LogicalName="page.css" />
+    <EmbeddedResource Include="Web\page.js" LogicalName="page.js" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.7.250401001" />
   </ItemGroup>
 </Project>
