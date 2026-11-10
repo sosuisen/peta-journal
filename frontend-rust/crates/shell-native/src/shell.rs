@@ -15,6 +15,7 @@ use peta_core::effects::{
 use peta_core::rest::ClientId;
 use peta_core::{Effect, Event, PetaApp, Route};
 use std::collections::HashMap;
+use std::sync::mpsc::{channel, Sender};
 use std::sync::{Arc, Mutex, Weak};
 use std::thread;
 
@@ -54,6 +55,8 @@ struct Lanes {
     border: Arc<Serialized<PetaApp, Lanes, BincodeFfiFormat>>,
     /// The timers that run, by the ID the core gave them.
     timers: Arc<Mutex<HashMap<u64, Request<TimerOp>>>>,
+    /// The way to the one thread that asks the server, once there is such a thread.
+    to_server: Arc<Mutex<Option<Sender<Request<ApiOp>>>>>,
 }
 
 impl Routes<PetaApp> for Lanes {
@@ -62,6 +65,7 @@ impl Routes<PetaApp> for Lanes {
             border: Arc::new(Serialized::new(router.clone())),
             router,
             timers: Arc::default(),
+            to_server: Arc::default(),
         }
     }
 }
@@ -78,12 +82,30 @@ impl Lanes {
             .expect("the core waits for the answer");
     }
 
-    fn call<H: Host>(&self, host: &Arc<H>, mut request: Request<ApiOp>) {
-        let (lanes, host) = (self.clone(), host.clone());
-        thread::spawn(move || {
-            let result = host.call(request.operation.clone());
-            lanes.answer(&mut request, result);
+    /// Asks the server, one request at a time and in the order the core made them. With a
+    /// thread for each request a later one overtook a slow one: a join reached the server
+    /// before the save of the text just typed, and the text was lost.
+    fn call<H: Host>(&self, host: &Arc<H>, request: Request<ApiOp>) {
+        let mut to_server = self.to_server.lock().unwrap();
+        let queue = to_server.get_or_insert_with(|| {
+            let (queue, requests) = channel::<Request<ApiOp>>();
+            // The thread must not keep the queue open itself: it ends when the shell is gone
+            let (router, host) = (self.router.clone(), host.clone());
+            thread::spawn(move || {
+                for mut request in requests {
+                    let result = host.call(request.operation.clone());
+                    let Some(router) = router.upgrade() else {
+                        return;
+                    };
+                    router
+                        .resolve_request(&mut request, result)
+                        .expect("the core waits for the answer");
+                }
+            });
+            queue
         });
+        // The thread only ends with the shell, and then nobody calls this
+        let _ = queue.send(request);
     }
 
     fn time<H: Host>(&self, host: &Arc<H>, request: Request<TimerOp>) {
