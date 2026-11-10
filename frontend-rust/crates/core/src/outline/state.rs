@@ -187,7 +187,7 @@ impl OutlineState {
             .iter()
             .filter(|item| item.has_type("heading"))
             .map(|item| {
-                let level = flatmarkdown_ast::parse(&item.ast)
+                let level = flatmarkdown_ast::Node::from_json(&item.ast)
                     .ok()
                     .and_then(|ast| flatmarkdown_ast::heading_level(&ast))
                     .unwrap_or(1);

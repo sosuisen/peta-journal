@@ -26,7 +26,7 @@ fn clean(html: String) -> String {
 }
 
 fn render_md(md: &str, opts: &RenderOptions) -> String {
-    let root = flatmarkdown::body_to_ast_with(md, &options());
+    let root = flatmarkdown::parse_body_with(md, &options());
     clean(render_node(&root, opts).to_html())
 }
 
@@ -74,7 +74,8 @@ fn code_block_with_and_without_info() {
     );
     // With an empty info string there is no class attribute at all.
     let root =
-        flatmarkdown_ast::parse(r#"{"type":"code_block","info":"","literal":"plain"}"#).unwrap();
+        flatmarkdown_ast::Node::from_json(r#"{"type":"code_block","info":"","literal":"plain"}"#)
+            .unwrap();
     assert_eq!(
         clean(render_node(&root, &RenderOptions::default()).to_html()),
         "<pre><code>plain</code></pre>"
@@ -282,7 +283,7 @@ fn other_nodes_from_json() {
     let render_json = |json: &str| {
         clean(
             render_node(
-                &flatmarkdown_ast::parse(json).unwrap(),
+                &flatmarkdown_ast::Node::from_json(json).unwrap(),
                 &RenderOptions::default(),
             )
             .to_html(),
@@ -322,7 +323,7 @@ fn other_nodes_from_json() {
 // FmRoot コンポーネントは AST の JSON 文字列を HTML にレンダリングし、JSON でない文字列には空を返す。
 #[test]
 fn fm_root_component() {
-    let json = flatmarkdown::body_to_ast_with("# Hi", &options()).to_json();
+    let json = flatmarkdown::parse_body_with("# Hi", &options()).to_json();
     let html = clean(view! { <FmRoot ast=json /> }.to_html());
     assert_eq!(html, "<h1>Hi</h1>");
     let html =

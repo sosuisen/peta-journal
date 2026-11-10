@@ -22,12 +22,12 @@ impl MarkdownParser {
         if markdown.is_empty() {
             return String::new();
         }
-        flatmarkdown::body_to_ast_with(markdown, &options()).to_json()
+        flatmarkdown::parse_body_with(markdown, &options()).to_json()
     }
 
     /// Splits a whole Flat Markdown page into items; returns the flatmarkdown page JSON.
     pub fn parse_page(&self, markdown: &str) -> String {
-        flatmarkdown::page_to_ast_with(markdown, &options()).to_json()
+        flatmarkdown::parse_page_with(markdown, &options()).to_json()
     }
 }
 

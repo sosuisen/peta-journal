@@ -151,7 +151,7 @@ pub fn perform(handle: CoreHandle, mut request: Request<UiOp>) {
             let _ = dom::window().navigator().clipboard().write_text(&text);
         }
         UiOp::CopyMarkdown { markdown } => {
-            let html = flatmarkdown_ast2html::ast_to_html(&flatmarkdown::body_to_ast(&markdown));
+            let html = flatmarkdown_ast2html::ast_to_html(&flatmarkdown::parse_body(&markdown));
             let pending = handle.inner().pending_copy.take();
             match pending {
                 Some(pending) => {

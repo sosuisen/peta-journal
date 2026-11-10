@@ -13,4 +13,4 @@ serde_json = { workspace = true }
 [dev-dependencies]
 # `ssr` adds `to_html()` so the host tests can compare rendered HTML strings.
 leptos = { version = "0.8", features = ["csr", "ssr"] }
-flatmarkdown = "=0.6.0"
+flatmarkdown = "=0.7.0"
