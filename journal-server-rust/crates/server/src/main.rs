@@ -1,6 +1,7 @@
 use axum::serve::ListenerExt;
 use clap::Parser;
-use journal_server::config::{Cli, Settings};
+use journal_server::application::asset_names;
+use journal_server::config::{Cli, Command, Settings};
 use journal_server::state::{AppState, BuildOptions};
 use tracing_subscriber::EnvFilter;
 
@@ -14,13 +15,22 @@ async fn main() -> anyhow::Result<()> {
         )
         .init();
 
-    let settings = Settings::from_cli(Cli::parse());
+    let mut cli = Cli::parse();
+    let command = cli.command.take();
+    let settings = Settings::from_cli(cli);
     tracing::info!("Data: {}", settings.db_path.display());
     tracing::info!("Index: {}", settings.index_dir.display());
     tracing::info!("Config: {}", settings.config_dir.display());
     match &settings.frontend_dir {
         Some(dir) => tracing::info!("Frontend: {}", dir.display()),
         None => tracing::info!("Frontend: not served (no --frontend-dir)"),
+    }
+
+    if let Some(Command::AssetNames { step, file }) = command {
+        let told =
+            tokio::task::spawn_blocking(move || asset_names::run(settings, step, &file)).await??;
+        println!("{told}");
+        return Ok(());
     }
 
     let port = settings.port;
