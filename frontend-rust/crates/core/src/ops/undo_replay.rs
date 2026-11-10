@@ -7,8 +7,7 @@ use crate::app::{done, log_error, run, Cmd, Event, Model};
 use crate::model::{BatchOp, Item};
 use crate::ops::action::show_empty_item;
 use crate::ops::edit::discard_pending_edit_of_focused_item;
-use crate::ops::edit::{focus_editor, save_target_id, show_parsed, Handover};
-use crate::ops::file_reload::reload_shown_page;
+use crate::ops::edit::{save_target_id, show_parsed, Handover};
 use crate::outline::tree::position_by_index;
 use crate::outline::{CursorState, UndoEntry, UndoOp};
 use crux_core::Command;
@@ -151,10 +150,11 @@ fn restore_cursor(model: &mut Model, entry: &UndoEntry, dir: Direction, moves: b
         .state
         .set_focused_item(&cursor.item_id, Some(cursor.position));
     let id = cursor.item_id.clone();
+    let keys = model.key_relay.release();
     run(move |api| async move {
         // The editor of a row that is put in another place loses its focus
         let _handover = moves.then(|| Handover::begin(&api));
-        focus_editor(&api, Some(id)).await
+        api.focus_editor(Some(id), keys).await
     })
 }
 
@@ -347,7 +347,7 @@ fn sync_to_server(model: &mut Model, ops: &[UndoOp], dir: Direction) -> Cmd {
             }),
             Err(e) => {
                 log_error(format!("Failed to sync undo/redo to server: {e}"));
-                reload_shown_page(&api).await;
+                api.send_event(Event::ReloadShownPage);
             }
         }
     })

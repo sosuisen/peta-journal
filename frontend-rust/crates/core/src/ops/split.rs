@@ -50,7 +50,7 @@ pub fn handle_enter(model: &mut Model, item_id: &str, cursor: usize) -> Cmd {
         // Empty last child: outdent instead of creating a new item
         let outdent = level::outdent(model, &item.id);
         let id = item.id.clone();
-        let focus = run(move |api| async move { focus_editor(&api, Some(id)).await });
+        let focus = focus_editor(model, Some(id));
         return Command::all([discard, outdent, focus]);
     }
 

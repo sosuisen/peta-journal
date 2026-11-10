@@ -172,18 +172,18 @@ async fn transclude(api: &Api<Event>, item: &Item, pasted_text: &str) {
         return;
     }
     match api.set_transclusion(&item.id, source_id).await {
-        Ok(updated) => show_transclusion_change(api, updated).await,
+        Ok(updated) => api.send_event(Event::TransclusionChanged {
+            item: Box::new(updated),
+        }),
         Err(e) => log_error(format!("Failed to set transclusion: {e}")),
     }
 }
 
 /// Shows an item whose transclusion changed: the item at once, then the page again, since
 /// the source tree of a transclusion comes with the page only.
-pub async fn show_transclusion_change(api: &Api<Event>, updated: Item) {
-    api.send_event(Event::TransclusionChanged {
-        item: Box::new(updated),
-    });
-    reload_shown_page(api).await;
+pub fn show_transclusion_change(model: &mut Model, updated: &Item) -> Cmd {
+    model.state.replace_item(updated);
+    reload_shown_page(model)
 }
 
 /// Turns a transclusion back into a plain item.
@@ -194,7 +194,9 @@ pub fn remove_transclusion(model: &mut Model, item_id: &str) -> Cmd {
     let id = item.id.clone();
     run(move |api| async move {
         match api.remove_transclusion(&id).await {
-            Ok(updated) => show_transclusion_change(&api, updated).await,
+            Ok(updated) => api.send_event(Event::TransclusionChanged {
+                item: Box::new(updated),
+            }),
             Err(e) => log_error(format!("Failed to remove transclusion: {e}")),
         }
     })
@@ -319,7 +321,7 @@ pub fn show_empty_item(model: &mut Model, created: Vec<Item>) -> Cmd {
     let id = empty.id.clone();
     model.state.add_item(empty, &ItemPosition::First);
     model.state.set_focused_item(&id, None);
-    run(move |api| async move { focus_editor(&api, Some(id)).await })
+    focus_editor(model, Some(id))
 }
 
 /// Copies items to the system clipboard as tree markdown (and HTML made from it), and keeps

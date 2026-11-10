@@ -342,7 +342,7 @@ pub async fn read_with<T: Send + 'static>(
 
 /// Focuses the editor of an item once the next render is done, playing the keys that were
 /// held for it; the first editor on the page when None.
-pub async fn focus_editor(api: &Api<Event>, item_id: Option<String>) {
-    let keys = read(api, |m| m.key_relay.release()).await;
-    api.focus_editor(item_id, keys).await;
+pub fn focus_editor(model: &mut Model, item_id: Option<String>) -> Cmd {
+    let keys = model.key_relay.release();
+    run(move |api| async move { api.focus_editor(item_id, keys).await })
 }

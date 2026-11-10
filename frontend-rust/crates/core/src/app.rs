@@ -384,6 +384,9 @@ pub enum Event {
         page_id: String,
         loaded: Box<PageWithItems>,
     },
+    /// The shown page is to be read from the server again, e.g. after an undo did not
+    /// reach the server.
+    ReloadShownPage,
     /// Items were copied to the system clipboard; the app keeps both forms of the text.
     MarkdownCopied {
         flat_markdown: String,
@@ -1181,10 +1184,8 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         } => ops::action::show_task_cycled(model, &target_id, *before, *updated),
         CollapseSaved { before } => ops::action::record_collapse(model, *before),
         CollapseRefused { before } => ops::action::put_collapse_back(model, *before),
-        TransclusionChanged { item } => {
-            model.state.replace_item(&item);
-            done()
-        }
+        TransclusionChanged { item } => ops::action::show_transclusion_change(model, &item),
+        ReloadShownPage => ops::file_reload::reload_shown_page(model),
         MarkdownCopied {
             flat_markdown,
             tree_markdown,

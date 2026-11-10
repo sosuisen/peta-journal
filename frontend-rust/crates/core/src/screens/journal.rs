@@ -274,10 +274,7 @@ fn show_cross_day_move(model: &mut Model, moved: CrossDayMove) -> Cmd {
             if api.sleep(timer_id, 300).await != crate::effects::TimerOutput::Fired {
                 return;
             }
-            api.send_event(Event::MovedItemShown {
-                item_id: item_id.clone(),
-            });
-            focus_editor(&api, Some(item_id)).await;
+            api.send_event(Event::MovedItemShown { item_id });
         });
         return Command::all([go, edit]);
     }
@@ -291,7 +288,7 @@ fn show_cross_day_move(model: &mut Model, moved: CrossDayMove) -> Cmd {
 pub fn edit_moved_item(model: &mut Model, item_id: &str) -> Cmd {
     model.state.add_editing_item(item_id);
     model.state.set_focused_item(item_id, None);
-    done()
+    focus_editor(model, Some(item_id.to_string()))
 }
 
 /// The header text: the date of the top visible item, or the journal's own date.
