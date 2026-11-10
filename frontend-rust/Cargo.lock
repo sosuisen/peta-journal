@@ -1855,15 +1855,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "peta-server-client"
+version = "0.1.0"
+dependencies = [
+ "peta-core",
+ "serde_json",
+ "ureq",
+]
+
+[[package]]
 name = "peta-shell-emacs"
 version = "0.1.0"
 dependencies = [
  "chrono",
  "crux_core",
  "peta-core",
+ "peta-server-client",
  "serde",
  "serde_json",
- "ureq",
 ]
 
 [[package]]

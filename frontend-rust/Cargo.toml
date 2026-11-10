@@ -1,6 +1,12 @@
 [workspace]
 resolver = "2"
-members = ["crates/fm-leptos", "crates/core", "crates/shell-leptos", "crates/shell-emacs"]
+members = [
+    "crates/fm-leptos",
+    "crates/core",
+    "crates/server-client",
+    "crates/shell-leptos",
+    "crates/shell-emacs",
+]
 
 [workspace.package]
 version = "0.1.0"
