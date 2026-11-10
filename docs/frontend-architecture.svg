@@ -148,16 +148,16 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <text x="912" y="351" text-anchor="end" dominant-baseline="central">Effect・VM</text>
 
 <line class="arr" x1="603" y1="114" x2="603" y2="272" marker-start="url(#arrow)" marker-end="url(#arrow)" />
-<text x="595" y="134" text-anchor="end" dominant-baseline="central">JSON lines（stdin/stdout）</text>
+<text x="595" y="134" text-anchor="end" dominant-baseline="central">JSON lines・stdio（パイプ）</text>
 <line class="arr" x1="933" y1="114" x2="933" y2="272" marker-start="url(#arrow)" marker-end="url(#arrow)" />
 <text x="925" y="134" text-anchor="end" dominant-baseline="central">bincode（BoltFFI）</text>
 
 <line class="arr" x1="64" y1="332" x2="64" y2="538" marker-start="url(#arrow)" marker-end="url(#arrow)" />
-<text x="72" y="517" dominant-baseline="central">fetch・EventSource</text>
+<text x="72" y="517" dominant-baseline="central">REST・SSE（fetch・EventSource）</text>
 <line class="arr" x1="397" y1="248" x2="397" y2="538" marker-start="url(#arrow)" marker-end="url(#arrow)" />
-<text x="405" y="517" dominant-baseline="central">ureq</text>
+<text x="405" y="517" dominant-baseline="central">REST・SSE（ureq）</text>
 <line class="arr" x1="727" y1="248" x2="727" y2="538" marker-start="url(#arrow)" marker-end="url(#arrow)" />
-<text x="735" y="517" dominant-baseline="central">ureq</text>
+<text x="735" y="517" dominant-baseline="central">REST・SSE（ureq）</text>
 
 
 <g opacity="0.6">
@@ -190,7 +190,7 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <line class="arr" x1="1263" y1="114" x2="1263" y2="272" marker-start="url(#arrow)" marker-end="url(#arrow)" />
 <text x="1255" y="134" text-anchor="end" dominant-baseline="central">bincode（FFIは未定）</text>
 <line class="arr" x1="1057" y1="248" x2="1057" y2="538" marker-start="url(#arrow)" marker-end="url(#arrow)" />
-<text x="1065" y="517" dominant-baseline="central">ureq</text>
+<text x="1065" y="517" dominant-baseline="central">REST・SSE（ureq）</text>
 <g class="chip">
 <rect x="1234" y="459" width="36" height="18" rx="9" />
 <text x="1252" y="468" text-anchor="middle" dominant-baseline="central">-ast</text>
@@ -233,7 +233,7 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <text x="228" y="765" text-anchor="middle" dominant-baseline="central">タスクを一覧・状態を切り替えできるWebアプリ</text>
 </g>
 <line class="arr" x1="340" y1="646" x2="340" y2="724" marker-start="url(#arrow)" marker-end="url(#arrow)" />
-<text x="348" y="668" dominant-baseline="central">fetch・EventSource</text>
+<text x="348" y="668" dominant-baseline="central">REST・SSE（fetch・EventSource）</text>
 
 <rect class="frame" x="457" y="690" width="416" height="108" rx="14" />
 <text class="th" x="473" y="712" dominant-baseline="central">WebViewアプリ（C#, WinUI3, WebView）</text>
@@ -243,7 +243,7 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <text x="665" y="765" text-anchor="middle" dominant-baseline="central">ページを付箋紙として表示できるデスクトップアプリ</text>
 </g>
 <line class="arr" x1="790" y1="646" x2="790" y2="724" marker-start="url(#arrow)" marker-end="url(#arrow)" />
-<text x="798" y="668" dominant-baseline="central">HttpClient（REST・SSE）</text>
+<text x="798" y="668" dominant-baseline="central">REST・SSE（HttpClient）</text>
 
 <rect class="frame" x="894" y="690" width="416" height="108" rx="14" />
 <text class="th" x="910" y="712" dominant-baseline="central">AIエージェント（MCP）</text>
@@ -253,7 +253,7 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <text x="1102" y="765" text-anchor="middle" dominant-baseline="central">ページを検索・読み書き</text>
 </g>
 <line class="arr" x1="1102" y1="646" x2="1102" y2="724" marker-start="url(#arrow)" marker-end="url(#arrow)" />
-<text x="1110" y="668" dominant-baseline="central">MCP（Streamable HTTP）</text>
+<text x="1110" y="668" dominant-baseline="central">MCP・Streamable HTTP</text>
 <g class="chip">
 <rect x="312" y="776" width="68" height="18" rx="9" style="fill:#FFFFFF;stroke:#444441;stroke-width:1" />
 <text x="346" y="785" text-anchor="middle" dominant-baseline="central" style="fill:#444441">-ast2react</text>
