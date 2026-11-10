@@ -64,6 +64,19 @@ final class JournalServer {
         try Data(contentsOf: URL(string: address + path)!)
     }
 
+    /// Sends JSON with a POST and waits for the answer.
+    func post(_ path: String, _ json: [String: Any]) async throws {
+        var request = URLRequest(url: URL(string: address + path)!)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        // The server refuses a change that does not say which client made it
+        request.setValue(UUID().uuidString.lowercased(), forHTTPHeaderField: "X-Client-Id")
+        request.httpBody = try JSONSerialization.data(withJSONObject: json)
+        let (_, answer) = try await URLSession.shared.data(for: request)
+        let status = (answer as? HTTPURLResponse)?.statusCode ?? 0
+        guard (200..<300).contains(status) else { throw ServerError.refused("\(path): \(status)") }
+    }
+
     func stop() {
         if process.isRunning {
             process.terminate()
@@ -75,5 +88,6 @@ final class JournalServer {
     enum ServerError: Error {
         case neverCameUp
         case writesElsewhere(String)
+        case refused(String)
     }
 }
