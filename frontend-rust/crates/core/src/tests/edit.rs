@@ -77,6 +77,18 @@ fn finish_edit_closes_the_editor_of_a_clean_item_without_a_save() {
     assert!(!h.model.state.is_editing("a"));
 }
 
+// 表示していない項目の編集終了は、保存するものがなくても、その編集中の印を消す。印が残ると、他のクライアントの変更が取り込まれなくなる。
+#[test]
+fn finish_edit_of_an_item_not_shown_drops_its_edit_mark() {
+    let mut h = Harness::with_items(vec![item("a", 1, "x")]);
+    h.model.state.add_editing_item("gone");
+    h.send(Event::EditFinished {
+        item_id: "gone".into(),
+    });
+    assert!(h.api.calls.is_empty());
+    assert!(!h.model.state.is_editing("gone"));
+}
+
 // 編集終了で開いたままのコードフェンスが閉じられて保存される。その後に何も入力されていなくても同様である。
 #[test]
 fn finish_edit_closes_an_open_code_fence_even_when_nothing_was_typed_since() {

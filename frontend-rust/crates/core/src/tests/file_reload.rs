@@ -79,6 +79,18 @@ fn a_change_by_another_client_reloads_the_page() {
     assert!(h.api.called("GetPageById"));
 }
 
+// 新しいページの項目が入ると、そこにない項目の編集中の印は消える。離れたページの項目に印が残ると、他のクライアントの変更が取り込まれなくなる。
+#[test]
+fn the_items_of_a_page_drop_the_edit_marks_of_the_items_not_in_it() {
+    let (mut h, _) = started_with_a_page();
+    h.model.state.add_editing_item("item-of-the-page-left");
+    h.model.state.set_items(vec![item("a", 1, "")]);
+
+    changed_by(&mut h, &ClientId::new());
+
+    assert!(h.api.called("GetPageById"));
+}
+
 // このクライアント自身の変更の知らせでは、ページは読み直されない。
 #[test]
 fn a_change_by_this_client_does_not_reload_the_page() {

@@ -141,8 +141,10 @@ fn moves_an_item(model: &Model, op: &UndoOp) -> bool {
 /// Entries without a recorded cursor, such as body edits, keep editing the first updated item.
 /// When the entry moves an item, the blur of an editor does not end its edit meanwhile.
 fn restore_cursor(model: &mut Model, entry: &UndoEntry, dir: Direction, moves: bool) -> Cmd {
+    // The item edited before the replay may be gone now; a mark left on it would hold back
+    // every later reload from another client
+    model.state.remove_all_editing_items();
     let Some(cursor) = cursor_of(entry, dir) else {
-        model.state.remove_all_editing_items();
         return done();
     };
     model.state.add_editing_item(&cursor.item_id);
