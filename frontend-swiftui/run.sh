@@ -20,7 +20,7 @@ while [ $# -gt 0 ]; do
         --generate) generate=yes ;;
         --debug) configuration=Debug ;;
         -h | --help)
-            sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
+            sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'
             exit 0
             ;;
         *) break ;;
