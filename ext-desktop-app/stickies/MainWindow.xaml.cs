@@ -357,7 +357,7 @@ public sealed partial class MainWindow : Window
             var indent = (item.Level - 1) * 24;
             var types = item.Types;
             var isHeading = types.Contains("heading");
-            var isEmpty = string.IsNullOrWhiteSpace(item.Body);
+            var isEmpty = HasNoText(item.Ast);
             var hasChildren = hasChildrenSet.Contains(item.Id);
             var isCollapsed = _collapsedItemIds.Contains(item.Id);
 
@@ -388,14 +388,11 @@ public sealed partial class MainWindow : Window
                 return $"<div style=\"padding-left:{indent + 8}px;height:1.6em;\"></div>";
             }
 
-            var astAttr = !string.IsNullOrEmpty(item.Ast)
-                ? $" data-ast=\"{EscapeHtmlAttr(item.Ast)}\""
-                : "";
-            var fallback = string.IsNullOrEmpty(item.Ast) ? EscapeHtml(item.Body) : "";
+            var astAttr = $" data-ast=\"{EscapeHtmlAttr(item.Ast)}\"";
             var style = marker.Length > 0
                 ? $"padding-left:{indent}px;padding:4px 8px 4px {indent + 8}px;display:flex;align-items:baseline;"
                 : $"padding-left:{indent}px;padding:4px 8px 4px {indent + 8}px;";
-            return $"<div style=\"{style}\">{marker}<div{astAttr}>{fallback}</div></div>";
+            return $"<div style=\"{style}\">{marker}<div{astAttr}></div></div>";
         }));
 
         return $@"<!DOCTYPE html>
@@ -515,6 +512,18 @@ public sealed partial class MainWindow : Window
     {
         await EnsureWebViewInitialized();
         ContentWebView.NavigateToString(html);
+    }
+
+    /// <summary>
+    /// Whether the AST of an item has no text. The server sends an empty AST for an empty
+    /// item, and a document without children for an item of only spaces.
+    /// </summary>
+    private static bool HasNoText(string ast)
+    {
+        if (string.IsNullOrEmpty(ast)) return true;
+        using var document = System.Text.Json.JsonDocument.Parse(ast);
+        return !document.RootElement.TryGetProperty("children", out var children)
+            || children.GetArrayLength() == 0;
     }
 
     private static string EscapeHtml(string text)
