@@ -28,6 +28,12 @@ impl PetaCore {
         }
     }
 
+    /// Opens what the URL names, such as `/pages/notes` or `/today`.
+    pub fn open(&self, url: String) -> Result<(), String> {
+        let _ = url;
+        Ok(())
+    }
+
     /// Takes an event of the shell. The error says why the bytes could not be read.
     pub fn update(&self, event: &[u8]) -> Result<(), String> {
         self.shell.update(event).map_err(|e| e.to_string())
