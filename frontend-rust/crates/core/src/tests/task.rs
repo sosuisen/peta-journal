@@ -45,3 +45,16 @@ fn an_item_that_becomes_a_task_on_a_daily_journal_shows_the_plan_the_server_answ
         Some("2026-02-10")
     );
 }
+
+// 切り替えの答えが届いたときに、その項目がもう画面になければ、何も変わらず、Undo にも記録されない。答えを待つ間に、別のページへ移ったときに起きる。
+#[test]
+fn an_answer_for_an_item_no_longer_on_screen_changes_nothing() {
+    let mut h = Harness::with_items(vec![item("a", 1, "do it")]);
+    h.send(Event::TaskCycled {
+        item_id: "gone".into(),
+        target_id: "gone".into(),
+        updated: Box::new(item_with("gone", 1, |i| i.types = vec!["task".into()])),
+    });
+    assert!(!h.model.state.get_item_by_id("a").unwrap().is_task());
+    assert!(h.model.undo.pop_undo().is_none());
+}

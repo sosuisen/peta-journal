@@ -206,6 +206,34 @@ fn task_states_sent(h: &Harness) -> Vec<(String, TaskState)> {
     .collect()
 }
 
+// 切り替えの答えが届く前に、もう一度切り替えても、undo は、先の答えが書いた時刻のある状態を送る。2 つめのキーを押したとき、画面はまだ先の答えを持たない。
+#[test]
+fn undo_of_a_cycle_pressed_before_the_last_answer_sends_what_that_answer_wrote() {
+    // A running task: the key that ends it and the key that makes it a normal item again were
+    // both pressed before the server answered the first of them
+    let mut h = Harness::with_items(vec![item_with("a", 1, |i| {
+        i.body = "x".into();
+        i.types = vec!["task".into()];
+        i.properties = [
+            ("begin".to_string(), "b".into()),
+            ("plan".to_string(), "p".into()),
+        ]
+        .into();
+    })]);
+    h.send(Event::TaskCycled {
+        item_id: "a".into(),
+        target_id: "a".into(),
+        updated: Box::new(done_task("a")),
+    });
+    h.send(Event::TaskCycled {
+        item_id: "a".into(),
+        target_id: "a".into(),
+        updated: Box::new(item("a", 1, "x")),
+    });
+    h.send(Event::Undo);
+    assert_eq!(task_states_sent(&h), [("a".to_string(), done_state())]);
+}
+
 // タスク状態の切り替えの undo は、元の時刻と予定日ごと、元の状態を、項目の更新と同じ操作でサーバーに送る。redo は切り替え後の状態を送る。
 #[test]
 fn undo_and_redo_of_a_task_cycle_send_the_task_state_to_the_server() {

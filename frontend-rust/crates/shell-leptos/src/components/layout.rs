@@ -102,6 +102,24 @@ pub fn MainLayout() -> impl IntoView {
                 focus();
             }
         });
+        // A key pressed while an editor waits for its focus is kept for that editor. It finds
+        // no editor: a row that is put at another place, as after a move, blurs its editor.
+        // An editor that has the focus keeps such a key by itself
+        global.on_cancelable("keydown", move |ev: &web_sys::KeyboardEvent| {
+            if ev.default_prevented() || ev.ctrl_key() || ev.meta_key() || dom::is_ime_composing(ev)
+            {
+                return;
+            }
+            let tag = dom::target_element(ev)
+                .map(|e| e.tag_name())
+                .unwrap_or_default();
+            if tag == "INPUT" || tag == "TEXTAREA" {
+                return;
+            }
+            if core.keep_for_waiting_replay(|| dom::deferred_key(ev)) {
+                ev.prevent_default();
+            }
+        });
         // Ctrl+Alt+Enter opens Home. In the capture phase and stopped there, as an item editor
         // would take it as its own Ctrl+Enter.
         global.on_capture("keydown", move |ev: &web_sys::KeyboardEvent| {

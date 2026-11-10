@@ -30,9 +30,9 @@ pub struct Inner {
     pub sse: RefCell<Option<effects::sse::Connection>>,
     /// Editors that can replay held keys, by item id.
     pub replayers: RefCell<HashMap<String, ReplayKeys>>,
-    /// Keys pressed while held keys wait to be played into the next editor, which happens
-    /// after the next render. They are played after those, in the order they were pressed.
-    /// `None` when no held keys are waiting.
+    /// Keys pressed while an editor waits for its focus, which it gets after the next render.
+    /// They are played into it after the held keys, in the order they were pressed. `None`
+    /// when no editor is waiting.
     pub late_keys: RefCell<Option<Vec<DeferredKey>>>,
     /// The outline's scroller, when an outline is on screen.
     pub scroller: RefCell<Option<ScrollToItem>>,

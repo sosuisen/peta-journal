@@ -18,8 +18,8 @@ pub fn cycle_task(model: &mut Model, item_id: &str) -> Cmd {
         let target_id = save_target_id(&item);
         match api.cycle_task(&target_id).await {
             Ok(updated) => api.send_event(Event::TaskCycled {
+                item_id: item.id,
                 target_id,
-                before: Box::new(item),
                 updated: Box::new(updated),
             }),
             Err(e) => log_error(format!("Failed to cycle task: {e}")),
@@ -27,9 +27,14 @@ pub fn cycle_task(model: &mut Model, item_id: &str) -> Cmd {
     })
 }
 
-/// The server changed the task state of an item: the item saved under `target_id` shows
-/// the new types and properties, and the change of `before` can be undone.
-pub fn show_task_cycled(model: &mut Model, target_id: &str, before: Item, updated: Item) -> Cmd {
+/// The server changed the task state of the item `item_id`: the item saved under `target_id`
+/// shows the new types and properties, and the change can be undone.
+pub fn show_task_cycled(model: &mut Model, item_id: &str, target_id: &str, updated: Item) -> Cmd {
+    // Why not the item as it was when the key was pressed: a second key may be pressed before
+    // the answer to the first one is here, and its item would lack what that answer wrote
+    let Some(before) = model.cloned_item(item_id) else {
+        return done();
+    };
     let (types, properties) = (updated.types.clone(), updated.properties.clone());
     model.state.update_item(target_id, |i| {
         i.types = types;

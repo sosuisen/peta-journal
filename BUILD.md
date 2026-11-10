@@ -119,9 +119,9 @@ cargo test                  # core (the ported service specs) and fm-leptos
 ```
 
 The Playwright suite in `e2e/` drives the Rust server and the Rust frontend the way they run for
-the user: it builds the frontend with `trunk build` into `dist-e2e/`, then starts one journal
-server on port 8187 that serves those files and the API. Build the server first with
-`cargo build --release` in `journal-server-rust`, and install trunk with `cargo install trunk`:
+the user: it builds the server with `cargo build --release` and the frontend with `trunk build`
+into `dist-e2e/`, then starts one journal server on port 8187 that serves those files and the
+API. Install trunk once with `cargo install trunk`:
 
 ```bash
 cd peta-journal/e2e

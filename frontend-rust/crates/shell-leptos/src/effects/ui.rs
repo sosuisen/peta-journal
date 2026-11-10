@@ -107,9 +107,11 @@ pub fn perform(handle: CoreHandle, mut request: Request<UiOp>) {
             replay_keys,
         } => {
             // After the next render: the editor may have been added in this very update.
-            // Keys pressed until then join the held keys, or they would overtake them
+            // Keys pressed until then join the held keys, or they would overtake them. They
+            // are kept even when no key is held: a row put at another place has blurred its
+            // editor, and a key pressed before the focus is back would reach no editor at all
             let h = handle;
-            if !replay_keys.is_empty() {
+            if item_id.is_some() || !replay_keys.is_empty() {
                 h.inner()
                     .late_keys
                     .borrow_mut()
@@ -124,10 +126,10 @@ pub fn perform(handle: CoreHandle, mut request: Request<UiOp>) {
                     dom::focus_without_scroll(&el);
                     dom::auto_resize(&el);
                 }
-                if !replay_keys.is_empty() {
-                    let mut keys = replay_keys.clone();
-                    // Taken before the replay: a key it plays must not be kept again
-                    keys.extend(h.inner().late_keys.borrow_mut().take().unwrap_or_default());
+                let mut keys = replay_keys.clone();
+                // Taken before the replay: a key it plays must not be kept again
+                keys.extend(h.inner().late_keys.borrow_mut().take().unwrap_or_default());
+                if !keys.is_empty() {
                     if let Some(id) = &item_id {
                         if let Some(replay) = h.inner().replayers.borrow().get(id) {
                             replay(keys);
