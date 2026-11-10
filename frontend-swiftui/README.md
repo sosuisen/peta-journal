@@ -40,7 +40,9 @@ cd peta-journal/frontend-swiftui
 swift test
 ```
 
-`generate.sh` makes two Swift packages under `generated/`. Run it again after a change in Rust.
+`generate.sh` builds the Rust library optimized (`boltffi pack apple --release`; without the
+flag BoltFFI makes a debug build, which is about twice as slow). It makes two Swift packages
+under `generated/`. Run it again after a change in Rust.
 `generated/` is not kept in the repository.
 
 - `generated/swift/PetaTypes`: the types that cross the border, generated from the Rust types
@@ -69,6 +71,10 @@ xcodebuild -project PetaJournal.xcodeproj -scheme PetaJournal -derivedDataPath b
 open build/Build/Products/Debug/PetaJournal.app
 ```
 
+This is the Debug build of the Swift code. It reads the view model about three times slower than
+the Release build: add `-configuration Release` to judge the speed of the app (the app is then
+under `build/Build/Products/Release`).
+
 Or open `PetaJournal.xcodeproj` in Xcode and run it there. The project is not kept in the
 repository: run `xcodegen generate` again after a change in `project.yml` or a new file in `App/`.
 
@@ -83,8 +89,9 @@ open build/Build/Products/Debug/PetaJournal.app --args -server http://localhost:
 build are ignored. Quit the app first (Cmd+Q). Start the journal server before the app, too: the
 app does not load the page again when the server comes up later.
 
-`App/` holds the views. They draw the view model of `Shell` and have no logic of their own, and
-no tests.
+`Sources/PetaScreens` holds the views, and `App/` only the start of the app. The views draw the
+view model of `Shell` and have no logic of their own, and no tests of what they show. They are a
+library so that the speed test can put them in a window.
 
 ## Tests
 
@@ -103,7 +110,18 @@ cd ../frontend-swiftui
 PETA_E2E_SERVER=$PWD/../journal-server-rust/target/release/journal-server swift test
 ```
 
-The tests start the server themselves, on port 18097, with all its files in a temporary folder.
+`TypingSpeedTests` measures one key on a page of 1000 items, with the views in a real window. It
+prints the times and fails on none of them. Run it optimized, and alone:
+
+```
+PETA_E2E_SERVER=$PWD/../journal-server-rust/target/release/journal-server \
+  swift test -c release -Xswiftc -enable-testing --filter TypingSpeed
+```
+
+On an M1 MacBook Air (2026-11-11): the event into the core 0.07 ms, the view model out of the
+core and read in Swift 4.9 ms, the window drawn again 4.2 ms.
+
+The tests start the server themselves, on ports 18095 and 18097, with all its files in a temporary folder.
 They check that the server writes its Markdown there before they use it, so the notes of whoever
 runs the tests are never touched.
 

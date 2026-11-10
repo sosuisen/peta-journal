@@ -3,10 +3,14 @@ import PetaTypes
 import SwiftUI
 
 /// The items of the open page, one text field each.
-struct OutlineScreen: View {
-    @ObservedObject var shell: Shell
+public struct OutlineScreen: View {
+    @ObservedObject private var shell: Shell
 
-    var body: some View {
+    public init(shell: Shell) {
+        self.shell = shell
+    }
+
+    public var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // An empty window says nothing: the page and the state of the server are always shown
             VStack(alignment: .leading, spacing: 4) {
@@ -25,11 +29,11 @@ struct OutlineScreen: View {
 
     private var status: String {
         let items = shell.view.outline.rows.count
-        switch shell.view.connection {
-        case .connected: return "Items: \(items)"
-        case .connecting: return "Connecting to the journal server…"
-        case .disconnected, .error: return "No connection to the journal server"
-        }
+        // Not a switch: the optimizing compiler of Swift 6.4.2 crashes on one over this enum
+        let connection = shell.view.connection
+        if connection == .connected { return "Items: \(items)" }
+        if connection == .connecting { return "Connecting to the journal server…" }
+        return "No connection to the journal server"
     }
 }
 

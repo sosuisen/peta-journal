@@ -18,6 +18,9 @@ targets:
       - App
     dependencies:
       - package: PetaBorder
+        product: PetaBorder
+      - package: PetaBorder
+        product: PetaScreens
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
