@@ -11,6 +11,9 @@ public enum EditorKey {
     /// Moves the item among the items: up and down, and in and out by one level.
     case moveUp, moveDown, moveIn, moveOut
     case undo, redo
+    /// Shift with Up or Down. On the first or the last line it selects the item; on any other
+    /// line it selects text, as in any editor.
+    case selectUp, selectDown
 }
 
 /// The editor of an item as a key finds it.
@@ -60,8 +63,24 @@ extension Shell {
     /// outline here, and the editor does with it what it does in any text.
     public func pressed(_ key: EditorKey, in itemId: String, _ editor: EditorState) -> Bool {
         guard let event = event(of: key, in: itemId, editor) else { return false }
+        if case .shiftSelect = event {
+            // The edit ends first, which saves what was typed. The core does not save it when
+            // a selection starts, and a move of the selected item would bring back the text
+            // the server has
+            send(.editFinished(itemId: itemId))
+        }
         send(event)
         return true
+    }
+
+    /// The user pressed a key while items are selected. No editor has the cursor then.
+    public func selection(_ key: SelectionKey) {
+        send(.selectionKey(key))
+    }
+
+    /// The user turned to something else, such as the text of an item: nothing stays selected.
+    public func leaveSelection() {
+        send(.selectionClickOutside)
     }
 
     private func event(of key: EditorKey, in itemId: String, _ editor: EditorState) -> Event? {
@@ -92,6 +111,10 @@ extension Shell {
             return atEnd ? .deleteAtEnd(itemId: itemId) : nil
         case .taskCycle:
             return .taskCycle(itemId: itemId)
+        case .selectUp:
+            return editor.onFirstLine ? .shiftSelect(itemId: itemId) : nil
+        case .selectDown:
+            return editor.onLastLine ? .shiftSelect(itemId: itemId) : nil
         case .fold, .unfold:
             return .setCollapsed(itemId: itemId, collapsed: key == .fold)
         case .moveUp:

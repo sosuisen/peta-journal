@@ -24,8 +24,10 @@ public struct OutlineScreen: View {
             List(shell.view.outline.rows, id: \.item.id) { row in
                 ItemEditor(row: row, shell: shell, cursors: cursors)
                     .listRowSeparator(.hidden)
+                    .listRowBackground(row.isSelected ? Color.accentColor.opacity(0.25) : nil)
             }
         }
+        .background(SelectionKeys(shell: shell, selecting: shell.view.outline.selectionMode))
         .background(Color(nsColor: .windowBackgroundColor))
         .navigationTitle(shell.title)
         .frame(minWidth: 480, minHeight: 320)
