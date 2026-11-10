@@ -355,3 +355,29 @@ fn the_answer_for_a_day_the_user_has_moved_on_from_is_not_shown() {
     assert_eq!(titles(&h), titles_before);
     assert_ne!(journal_view(&h).page_id.as_deref(), Some("page-2026-02-08"));
 }
+
+// 前のジャーナルの読み込みは、アウトラインの項目が100個に届いたところで止まる。
+#[test]
+fn the_journals_before_are_no_longer_loaded_once_the_outline_holds_enough_items() {
+    let mut h = Harness::new();
+    let name = "2026-02-09";
+    h.api.answer_next(
+        "GetMostRecentJournalBefore",
+        Ok(ApiOutput::JournalBefore(JournalBefore {
+            found: true,
+            page: Some(journal_page(name)),
+            items: (0..100)
+                .map(|i| journal_item(&format!("item-{i}"), name))
+                .collect(),
+            transcluded_trees: None,
+        })),
+    );
+    h.api.answer_next(
+        "GetMostRecentJournalBefore",
+        Ok(older_journal("2026-02-07")),
+    );
+    visit(&mut h, TODAY);
+
+    assert_eq!(before_calls(&h), ["2026-02-10"]);
+    assert_eq!(h.items_ids().len(), 101);
+}
