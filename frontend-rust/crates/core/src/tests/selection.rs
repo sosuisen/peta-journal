@@ -517,7 +517,11 @@ fn extending_over_a_parent_takes_its_children_and_skips_them_on_the_next_step() 
 // 1つの項目の削除は、選択を経ずに、子ごと1回でサーバーへ送られる。
 #[test]
 fn deleting_an_item_sends_it_with_its_children_without_selecting_them() {
-    let mut h = Harness::with_items(vec![item("a", 1, "親"), item("b", 2, "子"), item("c", 1, "")]);
+    let mut h = Harness::with_items(vec![
+        item("a", 1, "親"),
+        item("b", 2, "子"),
+        item("c", 1, ""),
+    ]);
 
     h.send(Event::DeleteItem {
         item_id: "a".into(),
