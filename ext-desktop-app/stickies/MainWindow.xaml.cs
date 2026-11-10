@@ -611,7 +611,9 @@ public sealed partial class MainWindow : Window
         _api.Connected -= OnApiConnected;
         _api.Disconnected -= OnApiDisconnected;
         _api.Reconnecting -= OnApiReconnecting;
-        _settingsService.UpdateWindow(_windowSettings);
+        // Closing a sticky throws it away. It does not come back at the next start.
+        if (_appWindow != null) _appWindow.Changed -= AppWindow_Changed;
+        _settingsService.RemoveWindow(_windowSettings.Id);
         App.OnWindowClosed(this);
     }
 }
