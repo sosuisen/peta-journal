@@ -1,11 +1,12 @@
 //! Moves the files of `assets/` that were saved under another name to a name made of an ID,
 //! and the links to them. Run by hand, once, with the server stopped. See ADR-022.
 
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::Context;
+use hmtid::Hmtid;
 use serde::{Deserialize, Serialize};
 
 use crate::domain::asset_name::{is_saved_name, relink, saved_name};
@@ -55,30 +56,38 @@ pub fn apply(state: &AppState, renames: &[Rename]) -> anyhow::Result<()> {
         .markdown_root()
         .context("The markdown folder is not set or not there")?
         .join("assets");
-    relink_items(state, renames)?;
+    let pages = relink_items(state, renames)?;
     for rename in renames {
         std::fs::rename(assets_dir.join(&rename.from), assets_dir.join(&rename.to))?;
+    }
+    // At once and not through the queue: the items keep their modified dates, so a file
+    // with the old links would look edited by hand to the next import, and bring them back
+    for page_id in &pages {
+        state.export.export_page(page_id)?;
     }
     Ok(())
 }
 
-/// Points the links of the items to the new names, all of them or none.
-fn relink_items(state: &AppState, renames: &[Rename]) -> anyhow::Result<()> {
+/// Points the links of the items to the new names, all of them or none. Returns the pages
+/// of the items that changed.
+fn relink_items(state: &AppState, renames: &[Rename]) -> anyhow::Result<BTreeSet<Hmtid>> {
     let new_names: HashMap<String, String> = renames
         .iter()
         .map(|rename| (rename.from.clone(), rename.to.clone()))
         .collect();
     let mut conn = state.db.conn()?;
     let tx = conn.immediate()?;
+    let mut pages = BTreeSet::new();
     for item in state.items.find_by_body_containing_asset_path()? {
         let body = relink(&item.body, &new_names);
         if body != item.body {
             let ast = state.parser.parse_to_ast(&body);
             ItemRepository::rewrite_body_in(&tx, &item.id, &body, &ast)?;
+            pages.insert(item.page_id);
         }
     }
     tx.commit()?;
-    Ok(())
+    Ok(pages)
 }
 
 fn millis(time: SystemTime) -> u64 {
