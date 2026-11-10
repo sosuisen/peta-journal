@@ -660,6 +660,28 @@ fn refusing_to_delete_a_transcluded_item_leaves_everything_as_it_was() {
     assert!(!driver.shell.core.view().outline.selection_mode);
 }
 
+// サーバーが項目の削除を断ると、何も消えず、選択も残らない。
+#[test]
+fn a_deletion_the_server_refuses_leaves_everything_as_it_was() {
+    let mut driver = Driver::open(&[item("a", 1, "x"), item("b", 1, "y")]);
+    driver.send(Inbound::DeleteItem { id: "a".into() });
+    driver.answer(
+        |op| matches!(op, ApiOp::TranscludedItems { .. }),
+        ApiOutput::ItemIds(Vec::new()),
+    );
+    let deleted = driver
+        .take_api(|op| matches!(op, ApiOp::DeleteItems { .. }))
+        .expect("the deletion was not sent");
+
+    driver.shell.handle(Input::ApiDone {
+        id: deleted.0,
+        result: Box::new(Err(ApiError("refused".into()))),
+    });
+
+    assert_eq!(driver.shell.core.view().outline.rows.len(), 2);
+    assert!(!driver.shell.core.view().outline.selection_mode);
+}
+
 // 移動の通知は、そのURLのページを開く。Backは一つ前のページへ戻る。
 #[test]
 fn navigation_opens_pages_and_back_returns_to_the_previous_one() {
