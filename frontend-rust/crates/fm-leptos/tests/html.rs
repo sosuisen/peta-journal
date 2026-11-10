@@ -26,8 +26,7 @@ fn clean(html: String) -> String {
 }
 
 fn render_md(md: &str, opts: &RenderOptions) -> String {
-    let json = flatmarkdown::body_to_ast_with(md, &options());
-    let root = flatmarkdown_ast::parse(&json).unwrap();
+    let root = flatmarkdown::body_to_ast_with(md, &options());
     clean(render_node(&root, opts).to_html())
 }
 
@@ -323,7 +322,7 @@ fn other_nodes_from_json() {
 // FmRoot コンポーネントは AST の JSON 文字列を HTML にレンダリングし、JSON でない文字列には空を返す。
 #[test]
 fn fm_root_component() {
-    let json = flatmarkdown::body_to_ast_with("# Hi", &options());
+    let json = flatmarkdown::body_to_ast_with("# Hi", &options()).to_json();
     let html = clean(view! { <FmRoot ast=json /> }.to_html());
     assert_eq!(html, "<h1>Hi</h1>");
     let html =

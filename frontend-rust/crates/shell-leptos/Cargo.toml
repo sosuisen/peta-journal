@@ -13,7 +13,8 @@ path = "src/main.rs"
 peta-core = { path = "../core" }
 peta-atlas = { path = "../../../atlas-rust", features = ["marks"] }
 fm-leptos = { path = "../fm-leptos" }
-flatmarkdown = "=0.5.0"
+flatmarkdown = "=0.6.0"
+flatmarkdown-ast2html = "=0.6.0"
 crux_core = "=0.20.0"
 leptos = { version = "0.8", features = ["csr"] }
 leptos_router = { version = "0.8" }

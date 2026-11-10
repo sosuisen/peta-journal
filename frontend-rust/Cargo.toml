@@ -10,8 +10,9 @@ license = "MIT"
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-# The same version as `flatmarkdown` of journal-server-rust: a release has both crates.
-flatmarkdown-ast = "=0.5.0"
+# The same version as `flatmarkdown` of journal-server-rust and as `flatmarkdown-ast2html`:
+# a release has all three crates (ADR 020).
+flatmarkdown-ast = "=0.6.0"
 
 [profile.release]
 opt-level = "z"
