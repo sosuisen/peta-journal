@@ -137,6 +137,8 @@ pub enum BatchOp {
 pub struct BatchApplied {
     /// The items written, as they are after the batch.
     pub items: Vec<Item>,
+    /// The empty items made on the pages the batch left without an item.
+    pub created: Vec<Item>,
     /// The pages the batch changed.
     pub page_ids: BTreeSet<Hmtid>,
 }
@@ -676,6 +678,7 @@ impl ItemService {
         let tx = conn.immediate()?;
         let mut effects = AfterCommit::default();
         self.remove_group_in(&tx, std::slice::from_ref(item_id), &mut effects)?;
+        self.keep_pages_non_empty_in(&tx, &mut effects)?;
         tx.commit()?;
         self.finish(effects);
         Ok(())
@@ -693,12 +696,22 @@ impl ItemService {
         let tx = conn.immediate()?;
         let mut effects = AfterCommit::default();
         self.remove_group_in(&tx, item_ids, &mut effects)?;
-        let mut created = Vec::new();
-        for page_id in effects.pages().clone() {
-            created.extend(self.keep_page_non_empty_in(&tx, &page_id, &mut effects)?);
-        }
+        let created = self.keep_pages_non_empty_in(&tx, &mut effects)?;
         tx.commit()?;
         self.finish(effects);
+        Ok(created)
+    }
+
+    /// Keeps every page the transaction touched non-empty. Returns the items made.
+    fn keep_pages_non_empty_in(
+        &self,
+        tx: &Connection,
+        effects: &mut AfterCommit,
+    ) -> AppResult<Vec<Item>> {
+        let mut created = Vec::new();
+        for page_id in effects.pages().clone() {
+            created.extend(self.keep_page_non_empty_in(tx, &page_id, effects)?);
+        }
         Ok(created)
     }
 
@@ -1111,11 +1124,16 @@ impl ItemService {
             }
         }
         let items = find_all_in(&tx, &answered)?;
+        let created = self.keep_pages_non_empty_in(&tx, &mut effects)?;
         tx.commit()?;
         let mut page_ids = effects.pages.clone();
         page_ids.extend(transcluder_pages);
         self.finish(effects);
-        Ok(BatchApplied { items, page_ids })
+        Ok(BatchApplied {
+            items,
+            created,
+            page_ids,
+        })
     }
 
     /// Sets a transclusion on an item, making it mirror a source item.
