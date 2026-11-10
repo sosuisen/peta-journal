@@ -1360,6 +1360,40 @@ impl ItemService {
         dir_path: Option<&str>,
         overwrite: bool,
     ) -> AppResult<(Page, Vec<Hmtid>)> {
+        self.rename_page(page_id, title, dir_path, overwrite, false)
+    }
+
+    /// Demotes the index page of a directory, `a/b/index`, to the page `a/b`, in one
+    /// transaction with the deletion of the atlas page of the directory. Any other page in
+    /// the directory refuses it. `overwrite` is what it is for [`Self::update_page`].
+    /// Returns the page and the other pages that changed.
+    pub fn demote_index_page(
+        &self,
+        page_id: &Hmtid,
+        overwrite: bool,
+    ) -> AppResult<(Page, Vec<Hmtid>)> {
+        let existing = self.page_service.require_page(page_id)?;
+        let dir = existing.dir_path.trim_end_matches('/');
+        if existing.name != "index" || dir.is_empty() {
+            return Err(AppError::bad_request(
+                "Only the index page of a directory can be demoted",
+            ));
+        }
+        let (parent_dir, name) = match dir.rsplit_once('/') {
+            Some((parent, name)) => (format!("{parent}/"), name),
+            None => (String::new(), dir),
+        };
+        self.rename_page(page_id, Some(name), Some(&parent_dir), overwrite, true)
+    }
+
+    fn rename_page(
+        &self,
+        page_id: &Hmtid,
+        title: Option<&str>,
+        dir_path: Option<&str>,
+        overwrite: bool,
+        drop_atlas: bool,
+    ) -> AppResult<(Page, Vec<Hmtid>)> {
         let title = title.map(to_nfc);
         let title = title.as_deref();
         let dir_path = dir_path.map(to_nfc);
@@ -1387,7 +1421,7 @@ impl ItemService {
         };
         let page = self
             .page_service
-            .update_page(page_id, title, dir_path, overwrite)?;
+            .rename_page(page_id, title, dir_path, overwrite, drop_atlas)?;
         let changed = match rename {
             Some((old, new)) => self.rename_tag(&old, &new)?,
             None => Vec::new(),

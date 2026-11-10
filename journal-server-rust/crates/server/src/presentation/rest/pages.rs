@@ -23,6 +23,7 @@ pub fn routes() -> Router<SharedState> {
             get(get_page).put(update_page).delete(delete_page),
         )
         .route("/api/pages/{id}/backlinks", get(get_backlinks))
+        .route("/api/pages/{id}/demote", post(demote_page))
         .route("/api/pages/{id}/children", get(get_children))
         .route("/api/pages/{id}/open-folder", post(open_export_folder))
         .route(
@@ -66,6 +67,13 @@ struct UpdatePageRequest {
     title: Option<String>,
     dir_path: Option<String>,
     /// Deletes another page that has the new name, instead of refusing the update.
+    overwrite: bool,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+struct DemotePageRequest {
+    /// Deletes another page that has the new name, instead of refusing the demotion.
     overwrite: bool,
 }
 
@@ -146,6 +154,28 @@ async fn update_page(
             req.dir_path.as_deref(),
             req.overwrite,
         )?;
+        state.sse.broadcast_pages_updated(&client, &id);
+        for page_id in changed {
+            state.sse.broadcast_pages_updated(&client, page_id.as_str());
+        }
+        Ok(Json(UpdatePageResponse {
+            page: state.dtos.page_to_dto(&page)?,
+        }))
+    })
+    .await
+}
+
+async fn demote_page(
+    State(state): State<SharedState>,
+    Extension(client): Extension<ClientId>,
+    Path(id): Path<String>,
+    Json(req): Json<DemotePageRequest>,
+) -> AppResult<Json<UpdatePageResponse>> {
+    let page_id = parse_id(&id)?;
+    blocking(move || {
+        let (page, changed) = state
+            .item_service
+            .demote_index_page(&page_id, req.overwrite)?;
         state.sse.broadcast_pages_updated(&client, &id);
         for page_id in changed {
             state.sse.broadcast_pages_updated(&client, page_id.as_str());

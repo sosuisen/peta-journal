@@ -2858,6 +2858,31 @@ async fn demoting_an_index_page_with_a_child_page_is_refused_and_keeps_the_atlas
     assert_eq!(page["page"]["name"], json!("index"));
 }
 
+// 降格先の名前を別のページが持っていると、降格は断られ、アトラスも残る。上書きを指定すると、そのページを消して降格する。
+#[tokio::test]
+async fn demoting_to_the_name_of_another_page_is_refused_unless_it_is_overwritten() {
+    let root = new_doc_page("pages-demote-taken").await;
+    let atlas_id = atlas_of(&format!("{}/", root.title)).await;
+    let other = new_doc_page("pages-demote-taker").await;
+    let (status, resp) = put(
+        &format!("/api/pages/{}", other.id),
+        json!({ "title": root.title }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    let (status, resp) = demote(&root.id, false).await;
+    assert_eq!(status, 409, "{resp}");
+    assert_eq!(get(&format!("/api/pages/{atlas_id}")).await.0, 200);
+    assert_eq!(get(&format!("/api/pages/{}", other.id)).await.0, 200);
+
+    let (status, resp) = demote(&root.id, true).await;
+    assert_eq!(status, 200, "{resp}");
+    assert_eq!(resp["page"]["name"], json!(root.title));
+    assert_eq!(get(&format!("/api/pages/{atlas_id}")).await.0, 404);
+    assert_eq!(get(&format!("/api/pages/{}", other.id)).await.0, 404);
+}
+
 // indexページでないページと、ルートのindexページは、降格できない。
 #[tokio::test]
 async fn a_page_that_is_not_an_index_page_of_a_directory_is_not_demoted() {
