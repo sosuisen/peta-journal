@@ -20,6 +20,8 @@ struct Clock {
     begun: AtomicUsize,
     /// How many waits, from the first on, may end.
     ended: AtomicUsize,
+    /// How many waits have ended.
+    over: AtomicUsize,
 }
 
 /// A journal server with one page, `notes`, and an event stream the test writes.
@@ -67,6 +69,7 @@ impl Host for FakeHost {
         while self.clock.ended.load(Ordering::SeqCst) <= place {
             thread::sleep(Duration::from_millis(1));
         }
+        self.clock.over.fetch_add(1, Ordering::SeqCst);
     }
 
     fn events(&self, send: &mut dyn FnMut(SseEvent)) {
@@ -339,4 +342,24 @@ fn a_timer_fires_when_its_time_has_passed() {
     wait_until("the server is asked to search", || {
         screen.searches() == ["apple"]
     });
+}
+
+// 取り消されたタイマーは鳴らない。検索の入力を続けると、前の入力の検索はサーバーに送られない。
+#[test]
+fn a_cancelled_timer_does_not_fire() {
+    let screen = Screen::new();
+    screen.search("a");
+    screen.search("ab");
+
+    // The time of the cancelled timer passes first, so its search would be the first one
+    screen.let_time_pass(1);
+    wait_until("the time of the first timer is over", || {
+        screen.clock.over.load(Ordering::SeqCst) == 1
+    });
+    screen.let_time_pass(2);
+
+    wait_until("the server is asked to search", || {
+        !screen.searches().is_empty()
+    });
+    assert_eq!(screen.searches(), ["ab"]);
 }
