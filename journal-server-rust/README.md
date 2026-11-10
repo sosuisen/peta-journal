@@ -72,8 +72,13 @@ The options of the server, such as `--config-dir` and `--data-dir`, come before
 `asset-names`. Try the command on a copy of the notes first: give `--data-dir`, `--index-dir`
 and `--config-dir` of the copy, with a `config.json` whose `markdownDir` is the copied folder.
 
-A device that has the same notes through a synced folder needs the same `apply` with the same
-table. The links change there even when the folder brought the renamed files first.
+A device that has the same notes through a synced folder gets the new links with the markdown
+files. Its server takes them in as edits made by hand. The items with a link then get the date
+of that day as their modified date, on every device.
+
+To keep the modified dates on that device too, run `apply` there with the same table before
+the folder brings the files: stop the server and pause the sync first. Both devices then
+write the same files.
 
 ## Coverage and mutation testing
 
