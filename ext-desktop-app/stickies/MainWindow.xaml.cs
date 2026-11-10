@@ -389,16 +389,17 @@ public sealed partial class MainWindow : Window
             var isCollapsed = _collapsedItemIds.Contains(item.Id);
 
             var marker = "";
-            if (item.Status != "normal" && !string.IsNullOrEmpty(item.Status))
+            if (item.TaskState is { } taskState)
             {
-                var label = item.Status switch
+                // The same checkbox as the web app: empty for todo, a line for running, a check
+                // for done. HTML has no attribute for the line, so the script below sets it.
+                var state = taskState switch
                 {
-                    "todo" => "&#x2610;",
-                    "running" => "&#x25B6;",
-                    "done" => "&#x2611;",
+                    TaskState.Running => " data-running",
+                    TaskState.Done => " checked",
                     _ => ""
                 };
-                marker = $"<span style=\"margin-right:6px;font-size:16px;\">{label}</span>";
+                marker = $"<input type=\"checkbox\" class=\"task-checkbox\" tabindex=\"-1\"{state}>";
             }
             else if (hasChildren)
             {
@@ -447,6 +448,9 @@ public sealed partial class MainWindow : Window
   .spoiler:hover {{ color: #fff; }}
   hr {{ border: none; border-top: 1px solid #ccc; margin: 8px 0; }}
   li > input[type=checkbox] {{ margin-right: 6px; }}
+  /* The app only shows the state of a task, so a click must not change the checkbox. */
+  .task-checkbox {{ margin-right: 6px; flex-shrink: 0; pointer-events: none; }}
+  .task-checkbox:indeterminate {{ accent-color: #22c55e; }}
   .alert {{
     border-left: 3px solid #2563eb;
     padding-left: 12px;
@@ -491,6 +495,7 @@ public sealed partial class MainWindow : Window
 </script>
 <script>
 (function(){{
+  document.querySelectorAll('.task-checkbox[data-running]').forEach(function(el){{ el.indeterminate=true; }});
   document.querySelectorAll('[data-ast]').forEach(function(el){{
     try {{ el.innerHTML=FmAst2Html.renderToHtml(el.getAttribute('data-ast')); }} catch(e){{}}
   }});
