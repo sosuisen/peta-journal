@@ -2823,6 +2823,37 @@ async fn get_page_returns_the_page_with_its_items_in_order() {
     );
 }
 
+// ページの取得は、fieldsで頼まれたフィールドだけを各項目に持つ。トランスクルードの木の項目も同じである。ページの情報はそのまま返る。
+#[tokio::test]
+async fn get_page_returns_its_items_with_only_the_fields_asked_for() {
+    let source_page = new_doc_page("pages-get-fields-source").await;
+    let source = fill(&source_page.id, &["source"]).await.remove(0);
+    let page = new_doc_page("pages-get-fields").await;
+    let rows = fill(&page.id, &["one", "  host"]).await;
+    let (status, resp) = post(
+        &format!("/api/items/{}/transclude", rows[1].id),
+        json!({ "sourceItemId": source.id }),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    let (status, resp) = get(&format!("/api/pages/{}?fields=id,level", page.id)).await;
+    assert_eq!(status, 200);
+
+    assert_eq!(resp["page"]["name"], json!(page.title));
+    assert_eq!(
+        resp["items"],
+        json!([
+            { "id": rows[0].id, "level": 1 },
+            { "id": rows[1].id, "level": 2 },
+        ])
+    );
+    assert_eq!(
+        resp["transcludedTrees"],
+        json!({ source.id.as_str(): [{ "id": source.id, "level": 1 }] })
+    );
+}
+
 // ページの改名で、タイトルとパスが変わる。
 #[tokio::test]
 async fn renaming_a_page_changes_its_title_and_path() {
