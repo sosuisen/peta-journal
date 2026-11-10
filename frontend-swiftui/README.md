@@ -117,7 +117,8 @@ that confirms it does not split the item.
 
 ## Keys
 
-The keys are those of the web frontend. Control is the Control key, not Command.
+The keys are those of the web frontend, but for folding: there the Mac has Command where
+Windows has Control. Control in this table is the Control key.
 
 | Key | What it does |
 |---|---|
@@ -129,13 +130,11 @@ The keys are those of the web frontend. Control is the Control key, not Command.
 | Left at the start, Right at the end | goes to the end of the item before, the start of the item after |
 | Backspace at the start | joins the item to the one before |
 | Delete at the end (fn+Delete) | joins the next item to this one |
-| Control+Up, Control+Down | hides or shows the children |
+| Command+Up | hides the children |
+| Command+Down | shows the children |
 | Shift+Option+Up, Down | moves the item up or down |
 | Shift+Option+Left, Right | outdents, indents |
 | Command+Z, Control+Z | undo; with Shift, redo |
-
-macOS takes Control+Up and Control+Down for Mission Control unless those shortcuts are turned
-off in System Settings > Keyboard > Keyboard Shortcuts > Mission Control.
 
 ## Tests
 
