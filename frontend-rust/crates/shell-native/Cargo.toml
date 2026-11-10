@@ -5,6 +5,10 @@ edition.workspace = true
 license.workspace = true
 description = "PetaJournal native frontends: the Crux core behind a border of bytes, for the SwiftUI and WinUI3 shells (ADR 024)"
 
+# The static library is what a native shell links with
+[lib]
+crate-type = ["lib", "staticlib"]
+
 [dependencies]
 peta-core = { path = "../core" }
 peta-server-client = { path = "../server-client" }
@@ -12,8 +16,11 @@ crux_core = "=0.20.0"
 serde = { workspace = true }
 chrono = "0.4.45"
 facet = { version = "=0.46.5", optional = true }
+boltffi = { version = "=0.32.1", optional = true }
 
 [features]
+# The entrance for a shell in another language, made with BoltFFI. `boltffi pack` turns it on
+ffi = ["dep:boltffi"]
 # Describes the types that cross the border, to generate the types of the shells from them.
 # `#[effect(facet_typegen)]` asks for this name
 facet_typegen = ["dep:facet", "crux_core/facet_typegen", "peta-core/facet_typegen"]

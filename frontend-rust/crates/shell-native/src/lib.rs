@@ -4,6 +4,11 @@
 
 #[cfg(feature = "facet_typegen")]
 pub mod codegen;
+#[cfg(feature = "ffi")]
+boltffi::scaffolding!();
+
+#[cfg(feature = "ffi")]
+pub mod ffi;
 mod server;
 mod shell;
 
