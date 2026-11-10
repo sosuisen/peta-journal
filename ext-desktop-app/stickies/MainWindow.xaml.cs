@@ -17,12 +17,9 @@ public sealed partial class MainWindow : Window
     private readonly SettingsService _settingsService;
     private StickyWindowSettings _windowSettings;
     private DispatcherTimer? _debounceTimer;
-    private string? _currentPageId;
-    private string _backgroundColor = "#FFFDD0";
     private AppWindow? _appWindow;
     private bool _initialized;
     private bool _isDeactivated;
-    private PageModel? _currentPage;
     private List<ItemModel> _currentItems = new();
     private readonly HashSet<string> _collapsedItemIds = new();
 
@@ -76,8 +73,6 @@ public sealed partial class MainWindow : Window
 
     private void RestoreState()
     {
-        _backgroundColor = _windowSettings.BackgroundColor;
-        _currentPageId = _windowSettings.PageId;
         UpdatePinIcon();
 
         if (_appWindow != null)
@@ -96,9 +91,9 @@ public sealed partial class MainWindow : Window
 
         await EnsureWebViewInitialized();
 
-        if (!string.IsNullOrEmpty(_currentPageId))
+        if (!string.IsNullOrEmpty(_windowSettings.PageId))
         {
-            await LoadPageAsync(_currentPageId);
+            await LoadPageAsync(_windowSettings.PageId);
         }
         else
         {
@@ -114,9 +109,9 @@ public sealed partial class MainWindow : Window
             ReconnectingText.Visibility = Visibility.Collapsed;
             PageTitleText.Visibility = Visibility.Visible;
 
-            if (!string.IsNullOrEmpty(_currentPageId))
+            if (!string.IsNullOrEmpty(_windowSettings.PageId))
             {
-                await LoadPageAsync(_currentPageId, isRefresh: true);
+                await LoadPageAsync(_windowSettings.PageId, isRefresh: true);
             }
         });
     }
@@ -141,7 +136,7 @@ public sealed partial class MainWindow : Window
 
     private void OnPageUpdated(string pageId)
     {
-        if (pageId != _currentPageId) return;
+        if (pageId != _windowSettings.PageId) return;
         DispatcherQueue.TryEnqueue(async () =>
         {
             await LoadPageAsync(pageId, isRefresh: true);
@@ -232,10 +227,9 @@ public sealed partial class MainWindow : Window
         if (e.ClickedItem is SearchResultModel result)
         {
             SearchPanel.Visibility = Visibility.Collapsed;
-            _currentPageId = result.PageId;
-            _windowSettings.PageId = _currentPageId;
+            _windowSettings.PageId = result.PageId;
             _settingsService.UpdateWindow(_windowSettings);
-            _ = LoadPageAsync(_currentPageId);
+            _ = LoadPageAsync(result.PageId);
         }
     }
 
@@ -249,11 +243,7 @@ public sealed partial class MainWindow : Window
             var response = await _api.GetPageByIdAsync(pageId);
             if (response == null) return;
 
-            var page = response.Page;
-            var items = response.Items;
-
-            _currentPage = page;
-            _currentItems = items.ToList();
+            _currentItems = response.Items.ToList();
 
             // Initialize collapsed state from server data
             _collapsedItemIds.Clear();
@@ -264,14 +254,14 @@ public sealed partial class MainWindow : Window
 
             if (!isRefresh)
             {
-                PageTitleText.Text = page?.Name ?? "Untitled";
+                PageTitleText.Text = response.Page?.Name ?? "Untitled";
             }
 
             var html = BuildHtml();
             await EnsureWebViewInitialized();
             ContentWebView.NavigateToString(html);
         }
-        catch(Exception e)
+        catch
         {
             if (!isRefresh) ShowErrorContent("Failed to load page");
         }
@@ -401,7 +391,7 @@ public sealed partial class MainWindow : Window
 
     private void UpdatePinIcon()
     {
-        // E718 = Pin, E77A = PinFill (pinned)
+        // E718 = Pin, E841 = Pinned
         PinIcon.Glyph = _windowSettings.AlwaysOnTop ? "\uE841" : "\uE718";
     }
 
@@ -411,14 +401,13 @@ public sealed partial class MainWindow : Window
     {
         if (sender is MenuFlyoutItem item && item.Tag is string color)
         {
-            _backgroundColor = color;
             _windowSettings.BackgroundColor = color;
             _settingsService.UpdateWindow(_windowSettings);
 
             // Refresh content with new color
-            if (!string.IsNullOrEmpty(_currentPageId))
+            if (!string.IsNullOrEmpty(_windowSettings.PageId))
             {
-                _ = LoadPageAsync(_currentPageId);
+                _ = LoadPageAsync(_windowSettings.PageId);
             }
             else
             {
