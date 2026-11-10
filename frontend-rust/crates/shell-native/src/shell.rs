@@ -106,6 +106,7 @@ impl NativeShell {
                 Effect::Sse(request) => lanes.listen(&host, request),
                 Effect::Render(request) => send(ShellEffect::Render(request)),
                 Effect::Ui(request) => send(ShellEffect::Ui(request)),
+                Effect::Navigate(request) => send(ShellEffect::Navigate(request)),
                 _ => {}
             }
         });
