@@ -467,6 +467,28 @@ No key does this: the tests use it to reach a page without the search box."
       (peta-journal-e2e--keys "C-x C-s")
       (peta-journal-e2e--wait-saved (list (format "前%sと後" link))))))
 
+;; クリップボードに画像だけがあるとき、`C-y`でその画像が中身のままサーバーへ届き、カーソル位置にリンクが入る。
+;; The clipboard is replaced: the real one belongs to the person at the machine.
+(ert-deftest peta-journal-e2e-an-image-in-the-clipboard-is-pasted ()
+  (peta-journal-e2e--with-app
+    (let ((bytes (unibyte-string #x89 ?P ?N ?G 13 10 0 255))
+          (link "![image.png](../assets/image.png)"))
+      (peta-journal-e2e--type "前後")
+      (peta-journal-e2e--keys "C-b")
+      (cl-letf (((symbol-function 'gui-get-selection)
+                 (lambda (_selection type)
+                   (pcase type
+                     ('TARGETS [BITMAP image/png])
+                     ('image/png bytes)))))
+        (peta-journal-e2e--keys "C-y"))
+      (peta-journal-e2e--type "と")
+      (should (equal (peta-journal-e2e--shown) (format "• 前%sと後\n" link)))
+      (should (equal (peta-journal-e2e--bytes-of
+                      (expand-file-name "markdown/assets/image.png" root))
+                     bytes))
+      (peta-journal-e2e--keys "C-x C-s")
+      (peta-journal-e2e--wait-saved (list (format "前%sと後" link))))))
+
 ;; 読めないファイルを選ぶと、その理由を伝え、本文は変わらない。そのまま書き続けられる。
 (ert-deftest peta-journal-e2e-a-file-that-cannot-be-read-is-reported ()
   (peta-journal-e2e--with-app
