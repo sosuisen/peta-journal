@@ -20,6 +20,7 @@ public sealed partial class MainWindow : Window
     private AppWindow? _appWindow;
     private bool _initialized;
     private bool _isDeactivated;
+    private bool _closedByUser;
     private List<ItemModel> _currentItems = new();
     private readonly HashSet<string> _collapsedItemIds = new();
 
@@ -373,6 +374,7 @@ public sealed partial class MainWindow : Window
 
     private void CloseButton_Click(object sender, RoutedEventArgs e)
     {
+        _closedByUser = true;
         Close();
     }
 
@@ -455,9 +457,13 @@ public sealed partial class MainWindow : Window
         _api.Connected -= OnApiConnected;
         _api.Disconnected -= OnApiDisconnected;
         _api.Reconnecting -= OnApiReconnecting;
-        // Closing a sticky throws it away. It does not come back at the next start.
         if (_appWindow != null) _appWindow.Changed -= AppWindow_Changed;
-        _settingsService.RemoveWindow(_windowSettings.Id);
+        // Only the close button throws a sticky away. A window also closes when Windows
+        // or another program ends the app, and then the sticky must come back at the next start.
+        if (_closedByUser)
+            _settingsService.RemoveWindow(_windowSettings.Id);
+        else
+            _settingsService.UpdateWindow(_windowSettings);
         App.OnWindowClosed(this);
     }
 }
