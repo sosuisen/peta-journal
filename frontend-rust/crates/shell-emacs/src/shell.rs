@@ -159,9 +159,8 @@ impl<H: Host> Shell<H> {
     }
 
     fn on_api_done(&mut self, id: u64, result: ApiResult<peta_core::effects::ApiOutput>) {
-        let Some(mut request) = self.apis.remove(&id) else {
-            return;
-        };
+        // The host answers each call once
+        let mut request = self.apis.remove(&id).expect("the call waits");
         if !self.image_calls.remove(&id) {
             self.resolve(&mut request, result);
             return;
@@ -183,9 +182,8 @@ impl<H: Host> Shell<H> {
     }
 
     fn on_sse(&mut self, stream: u64, event: SseEvent) {
-        let Some((current, mut request)) = self.sse.take() else {
-            return;
-        };
+        // The host only has a stream to tell about after the core asked for one
+        let (current, mut request) = self.sse.take().expect("a stream is connected");
         if current != stream {
             self.sse = Some((current, request));
             return;
@@ -364,16 +362,13 @@ impl<H: Host> Shell<H> {
     }
 
     fn answer(&mut self, req: u64, yes: bool) {
-        let Some(mut request) = self.asks.remove(&req) else {
-            return;
-        };
+        // Emacs answers each question once
+        let mut request = self.asks.remove(&req).expect("the question waits");
         self.resolve(&mut request, UiOutput::Bool(yes));
     }
 
     fn navigate(&mut self, url: &str, replace: bool) {
-        let Some(route) = parse_url(url) else {
-            return;
-        };
+        let route = route_of(url);
         if !replace {
             if let Some(current) = self.current_url.take() {
                 self.history.push(current);
@@ -387,10 +382,9 @@ impl<H: Host> Shell<H> {
         let Some(url) = self.history.pop() else {
             return;
         };
-        if let Some(route) = parse_url(&url) {
-            self.current_url = Some(url);
-            self.open_route(route);
-        }
+        let route = route_of(&url);
+        self.current_url = Some(url);
+        self.open_route(route);
     }
 
     fn open_route(&mut self, route: peta_core::Route) {
@@ -405,10 +399,12 @@ impl<H: Host> Shell<H> {
     }
 
     fn resolve<Op: Operation>(&mut self, request: &mut Request<Op>, output: Op::Output) {
-        match self.core.resolve(request, output) {
-            Ok(effects) => self.process(effects),
-            Err(e) => eprintln!("[shell-emacs] resolve failed: {e}"),
-        }
+        // Each request is kept until its answer and no longer, so the core is waiting for it
+        let effects = self
+            .core
+            .resolve(request, output)
+            .expect("the core waits for the answer");
+        self.process(effects);
     }
 
     fn process(&mut self, effects: Vec<Effect>) {
@@ -670,6 +666,12 @@ impl<H: Host> Shell<H> {
             });
         }
     }
+}
+
+/// The route of a URL of the core or of Emacs. Neither makes the one URL without a route, the
+/// empty one.
+fn route_of(url: &str) -> peta_core::Route {
+    parse_url(url).expect("the URL names a page")
 }
 
 /// The keys whose value is a date and a time. Only the page's own dates cannot be removed, and
