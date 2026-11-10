@@ -166,6 +166,7 @@ impl MarkdownImportService {
                         &hash,
                         attrs.size,
                         attrs.mtime,
+                        state.last_synced,
                     ) {
                         tracing::warn!("Failed to refresh sync state of {rel_path}: {e}");
                     }
@@ -216,7 +217,7 @@ impl MarkdownImportService {
             parse_instant(parsed.frontmatter.get("modified").map(String::as_str)).unwrap_or(mtime);
         let now = now_millis();
         let mode = MergeMode::Copy {
-            last_synced: state.file_mtime,
+            last_synced: state.last_synced,
         };
         let merge = self
             .item_merger
@@ -344,7 +345,7 @@ impl MarkdownImportService {
         } else {
             &parsed.items
         };
-        let mode = match states.iter().map(|s| s.file_mtime).max() {
+        let mode = match states.iter().map(|s| s.last_synced).max() {
             Some(last_synced) if had_file && !page.is_atlas() => {
                 MergeMode::ItemByItem { last_synced }
             }
@@ -393,8 +394,18 @@ impl MarkdownImportService {
             page = self.page_matcher.touch(&page, loc, file_modified)?;
         }
 
-        self.file_sync_state
-            .upsert_synced(rel_path, &page.id, hash, attrs.size, attrs.mtime)?;
+        let content_date = items
+            .iter()
+            .filter_map(|i| i.modified)
+            .fold(file_modified, i64::max);
+        self.file_sync_state.upsert_synced(
+            rel_path,
+            &page.id,
+            hash,
+            attrs.size,
+            attrs.mtime,
+            content_date,
+        )?;
         if renamed {
             self.forget_old_paths(root, rel_path, &page)?;
         }
@@ -494,8 +505,15 @@ impl MarkdownImportService {
     ) -> AppResult<()> {
         self.write_conflict_backup(root, rel_path, loc, content);
         // Remember this content so we don't back it up again before the export overwrites it
-        self.file_sync_state
-            .upsert_synced(rel_path, &page.id, hash, attrs.size, attrs.mtime)?;
+        // An atlas goes by the date of its page, so no date of the content is needed
+        self.file_sync_state.upsert_synced(
+            rel_path,
+            &page.id,
+            hash,
+            attrs.size,
+            attrs.mtime,
+            attrs.mtime,
+        )?;
         Ok(())
     }
 }

@@ -548,7 +548,7 @@ fn the_old_path_of_a_page_moved_before_is_no_longer_offered_for_deletion() {
     // A move taken in by an older version left the old path as a deleted file
     let sync_state = &b.state.file_sync_state;
     sync_state
-        .upsert_synced("docs/d/c.md", &c, "old", 1, 1)
+        .upsert_synced("docs/d/c.md", &c, "old", 1, 1, 1)
         .unwrap();
     sync_state.mark_missing("docs/d/c.md").unwrap();
 

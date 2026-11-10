@@ -30,6 +30,7 @@ impl Notes {
                 &path_mapper::sha256(&old),
                 data.len() as i64,
                 known.file_mtime,
+                known.last_synced,
             )
             .unwrap();
     }

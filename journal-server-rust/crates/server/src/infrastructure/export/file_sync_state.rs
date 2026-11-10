@@ -24,6 +24,10 @@ pub struct FileSyncState {
     pub file_size: i64,
     /// File mtime (epoch millis) at that time.
     pub file_mtime: i64,
+    /// Until when the page and the file were in step: the later of the file mtime and the
+    /// latest date the content holds. The clock of the file system can be behind the clock
+    /// that dates the items, so the mtime alone may be before a date written in the file.
+    pub last_synced: i64,
     pub synced_at: i64,
     /// `synced` or `missing`.
     pub status: String,
@@ -37,8 +41,8 @@ impl FileSyncState {
     }
 }
 
-const COLUMNS: &str =
-    "rel_path, page_id, content_hash, file_size, file_mtime, synced_at, status, missing_since";
+const COLUMNS: &str = "rel_path, page_id, content_hash, file_size, file_mtime, last_synced, \
+    synced_at, status, missing_since";
 
 fn map(row: &Row<'_>) -> rusqlite::Result<FileSyncState> {
     let page_id: String = row.get(1)?;
@@ -48,9 +52,10 @@ fn map(row: &Row<'_>) -> rusqlite::Result<FileSyncState> {
         content_hash: row.get(2)?,
         file_size: row.get(3)?,
         file_mtime: row.get(4)?,
-        synced_at: row.get(5)?,
-        status: row.get(6)?,
-        missing_since: row.get(7)?,
+        last_synced: row.get(5)?,
+        synced_at: row.get(6)?,
+        status: row.get(7)?,
+        missing_since: row.get(8)?,
     })
 }
 
@@ -65,6 +70,7 @@ impl FileSyncStateRepository {
     }
 
     /// Records that the file at rel_path now matches the given content (read or written by us).
+    /// `content_date` is the latest date the content holds, of the page or of an item.
     pub fn upsert_synced(
         &self,
         rel_path: &str,
@@ -72,14 +78,16 @@ impl FileSyncStateRepository {
         content_hash: &str,
         file_size: i64,
         file_mtime: i64,
+        content_date: i64,
     ) -> AppResult<()> {
         let now = now_millis();
+        let last_synced = file_mtime.max(content_date);
         let conn = self.db.conn()?;
         conn.execute(
             &format!(
-                "INSERT INTO file_sync_state ({COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, 'synced', NULL) \
+                "INSERT INTO file_sync_state ({COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, 'synced', NULL) \
                  ON CONFLICT(rel_path) DO UPDATE SET page_id=?, content_hash=?, file_size=?, file_mtime=?, \
-                 synced_at=?, status='synced', missing_since=NULL"
+                 last_synced=?, synced_at=?, status='synced', missing_since=NULL"
             ),
             params![
                 rel_path,
@@ -87,11 +95,13 @@ impl FileSyncStateRepository {
                 content_hash,
                 file_size,
                 file_mtime,
+                last_synced,
                 now,
                 page_id.as_str(),
                 content_hash,
                 file_size,
                 file_mtime,
+                last_synced,
                 now
             ],
         )

@@ -19,8 +19,12 @@ use super::db::{now_millis, Db};
 
 /// The migrations, in the order they run. The version of a database is the number of them
 /// it has had.
-const MIGRATIONS: &[fn(&Connection) -> rusqlite::Result<()>] =
-    &[create_tables, create_deleted_items, put_names_in_nfc];
+const MIGRATIONS: &[fn(&Connection) -> rusqlite::Result<()>] = &[
+    create_tables,
+    create_deleted_items,
+    put_names_in_nfc,
+    add_last_synced,
+];
 
 pub fn initialize(db: &Db, ids: &IdGenerator) -> anyhow::Result<()> {
     let conn = db.conn()?;
@@ -63,6 +67,15 @@ fn migrate(conn: &Connection) -> anyhow::Result<()> {
 fn user_version(conn: &Connection) -> rusqlite::Result<usize> {
     let version: i64 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))?;
     Ok(version as usize)
+}
+
+/// Version 4: until when each file and its page were in step. It was the mtime of the file
+/// before, so the rows start with that.
+fn add_last_synced(conn: &Connection) -> rusqlite::Result<()> {
+    conn.execute_batch(
+        "ALTER TABLE file_sync_state ADD COLUMN last_synced INTEGER NOT NULL DEFAULT 0;
+         UPDATE file_sync_state SET last_synced = file_mtime;",
+    )
 }
 
 /// Version 3: the names of pages and their files in NFC, see ADR 007. Rows are only updated.
@@ -328,8 +341,8 @@ mod tests {
     fn a_database_at_version_1_gets_the_table_of_deleted_items() {
         let conn = Connection::open_in_memory().unwrap();
         run(&conn, &IdGenerator::new()).unwrap();
-        conn.execute_batch("DROP TABLE deleted_items; PRAGMA user_version = 1;")
-            .unwrap();
+        conn.execute_batch("DROP TABLE deleted_items").unwrap();
+        set_version(&conn, 1);
 
         run(&conn, &IdGenerator::new()).unwrap();
 
@@ -358,8 +371,28 @@ mod tests {
         .unwrap();
     }
 
+    /// Puts a database of the latest version back to an older one, of 1 to 3. The column of
+    /// version 4 goes, as its migration cannot add a column that is there.
     fn set_version(conn: &Connection, version: i64) {
+        conn.execute_batch("ALTER TABLE file_sync_state DROP COLUMN last_synced")
+            .unwrap();
         conn.pragma_update(None, "user_version", version).unwrap();
+    }
+
+    // 版3のデータベースを開くと、前回の同期の日時は、ファイルの更新時刻で始まる。
+    #[test]
+    fn a_database_at_version_3_starts_the_last_sync_of_a_file_at_its_mtime() {
+        let conn = Connection::open_in_memory().unwrap();
+        run(&conn, &IdGenerator::new()).unwrap();
+        set_version(&conn, 3);
+        add_page_with_file(&conn, "p1", "", "a");
+        conn.execute("UPDATE file_sync_state SET file_mtime = 7", [])
+            .unwrap();
+
+        run(&conn, &IdGenerator::new()).unwrap();
+
+        assert_eq!(user_version(&conn).unwrap(), MIGRATIONS.len());
+        assert_eq!(count(&conn, "SELECT last_synced FROM file_sync_state"), 7);
     }
 
     fn text(conn: &Connection, sql: &str, id: &str) -> String {
