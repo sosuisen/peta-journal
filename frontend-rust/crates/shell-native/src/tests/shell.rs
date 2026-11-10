@@ -7,13 +7,24 @@ use peta_core::model::{Page, PageWithItems};
 use peta_core::rest::ClientId;
 use peta_core::testing::plain_item;
 use peta_core::{Event, Route};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
+/// The time of the fake host: it only passes when the test says so.
+#[derive(Default)]
+struct Clock {
+    /// How many waits have begun. A wait is known by its place in this order.
+    begun: AtomicUsize,
+    /// How many waits, from the first on, may end.
+    ended: AtomicUsize,
+}
+
 /// A journal server with one page, `notes`, and an event stream the test writes.
 struct FakeHost {
+    clock: Arc<Clock>,
     calls: Arc<Mutex<Vec<ApiOp>>>,
     /// Taken by the first connection. A later one finds no stream and waits for ever.
     stream: Mutex<Option<Receiver<SseEvent>>>,
@@ -51,6 +62,13 @@ impl Host for FakeHost {
         (local, 1_000)
     }
 
+    fn sleep(&self, _ms: u32) {
+        let place = self.clock.begun.fetch_add(1, Ordering::SeqCst);
+        while self.clock.ended.load(Ordering::SeqCst) <= place {
+            thread::sleep(Duration::from_millis(1));
+        }
+    }
+
     fn events(&self, send: &mut dyn FnMut(SseEvent)) {
         let stream = self.stream.lock().unwrap().take();
         for event in stream.into_iter().flatten() {
@@ -65,6 +83,7 @@ struct Screen {
     requests: Arc<Mutex<Vec<Request<ShellEffectFfi>>>>,
     calls: Arc<Mutex<Vec<ApiOp>>>,
     stream: Sender<SseEvent>,
+    clock: Arc<Clock>,
 }
 
 impl Screen {
@@ -72,7 +91,9 @@ impl Screen {
         let requests: Arc<Mutex<Vec<Request<ShellEffectFfi>>>> = Arc::default();
         let calls: Arc<Mutex<Vec<ApiOp>>> = Arc::default();
         let (stream, from_test) = channel();
+        let clock: Arc<Clock> = Arc::default();
         let host = FakeHost {
+            clock: clock.clone(),
             calls: calls.clone(),
             stream: Mutex::new(Some(from_test)),
         };
@@ -86,7 +107,34 @@ impl Screen {
             requests,
             calls,
             stream,
+            clock,
         }
+    }
+
+    /// Types into the search box, and waits until the timer for it runs.
+    fn search(&self, query: &str) {
+        let timers = self.clock.begun.load(Ordering::SeqCst);
+        self.send(&Event::SearchQueryChanged(query.into()));
+        wait_until("the timer of the search runs", || {
+            self.clock.begun.load(Ordering::SeqCst) == timers + 1
+        });
+    }
+
+    /// Lets the time of the first `timers` timers pass.
+    fn let_time_pass(&self, timers: usize) {
+        self.clock.ended.store(timers, Ordering::SeqCst);
+    }
+
+    /// The queries the server was asked to search for, oldest first.
+    fn searches(&self) -> Vec<String> {
+        let calls = self.calls.lock().unwrap();
+        calls
+            .iter()
+            .filter_map(|op| match op {
+                ApiOp::SearchCombined { query, .. } => Some(query.clone()),
+                _ => None,
+            })
+            .collect()
     }
 
     /// How often the server was asked for this operation, by the name of its variant.
@@ -277,4 +325,18 @@ fn the_time_is_answered_without_the_shell() {
 
     assert_eq!(screen.navigations(), ["/pages/Untitled-202611060930"]);
     assert!(!screen.ui_ops().contains(&UiOp::LocalNow));
+}
+
+// タイマーは、Rust側で時間が過ぎると鳴る。検索は、入力のあとの待ちが明けてから、サーバーに送られる。
+#[test]
+fn a_timer_fires_when_its_time_has_passed() {
+    let screen = Screen::new();
+
+    screen.search("apple");
+    assert!(screen.searches().is_empty());
+    screen.let_time_pass(1);
+
+    wait_until("the server is asked to search", || {
+        screen.searches() == ["apple"]
+    });
 }

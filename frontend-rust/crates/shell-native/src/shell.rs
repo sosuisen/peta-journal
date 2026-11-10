@@ -25,6 +25,8 @@ pub trait Host: Send + Sync + 'static {
     fn call(&self, op: ApiOp) -> ApiResult<ApiOutput>;
     /// The local date and time, and the milliseconds since 1970.
     fn now(&self) -> (LocalDateTimeDto, u64);
+    /// Returns after this many milliseconds.
+    fn sleep(&self, ms: u32);
     /// Reads the event stream of the server, and returns when it has ended.
     fn events(&self, send: &mut dyn FnMut(SseEvent));
 }
