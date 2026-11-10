@@ -1,3 +1,4 @@
+import AppKit
 import Combine
 import Foundation
 @preconcurrency import PetaTypes
@@ -8,10 +9,21 @@ import Foundation
 public final class Shell: ObservableObject {
     @Published public private(set) var view: ViewModel
     @Published public private(set) var title = ""
+    /// What the core asks the user now. The core waits until it is answered.
+    @Published public private(set) var question: Question?
+    /// The last order of the core to put the cursor somewhere.
+    @Published public private(set) var focus: FocusOrder?
     private let border: Border
+    private let clipboard: () -> String?
+    /// The questions that wait behind the one on screen.
+    private var later: [Question] = []
 
-    /// Starts a core for the journal server at `server` and opens what `url` names.
-    public init(server: String, url: String) {
+    /// Starts a core for the journal server at `server` and opens what `url` names. `clipboard`
+    /// gives the text on the clipboard when the core asks for it.
+    public init(
+        server: String, url: String,
+        clipboard: @escaping () -> String? = { NSPasteboard.general.string(forType: .string) }
+    ) {
         let inbox = Inbox()
         let border = Border(server: server) { requests in
             // The core calls from its own threads. The main queue keeps the requests in order
@@ -20,6 +32,7 @@ public final class Shell: ObservableObject {
             }
         }
         self.border = border
+        self.clipboard = clipboard
         view = Shell.must { try border.view() }
         inbox.shell = self
         open(url)
@@ -41,7 +54,33 @@ public final class Shell: ObservableObject {
         send(.bodyChanged(itemId: itemId, body: body, nowMs: nowMs))
     }
 
-    private func send(_ event: Event) {
+    /// Answers the confirmation on screen.
+    public func answer(yes: Bool) {
+        answer(.bool(yes))
+    }
+
+    /// Answers the prompt on screen. `nil` is the answer of a user who closed it.
+    public func answer(text: String?) {
+        answer(.text(text))
+    }
+
+    private func answer(_ output: UiOutput) {
+        guard let asked = question else { return }
+        question = later.isEmpty ? nil : later.removeFirst()
+        Shell.must { try border.answer(asked.id, with: output) }
+        view = Shell.must { try border.view() }
+    }
+
+    private func ask(_ asked: Question) {
+        if question == nil {
+            question = asked
+        } else {
+            later.append(asked)
+        }
+    }
+
+    /// Sends what the user did to the core.
+    func send(_ event: Event) {
         Shell.must { try border.send(event) }
         // Not left to the render request. It comes a turn of the main queue later, and a text
         // field that reads its old text back after a key loses the key. Some events, such as
@@ -50,22 +89,39 @@ public final class Shell: ObservableObject {
     }
 
     private func handle(_ requests: [Request]) {
+        var cursors: [(UInt32, String?)] = []
         for request in requests {
             switch request.effect {
             case .render:
                 view = Shell.must { try border.view() }
             case .navigate(let op):
                 open(op.url)
+            case .ui(.focusEditor(let itemId, _)):
+                cursors.append((request.id, itemId))
             case .ui(let op):
-                show(op)
+                show(op, asked: request.id)
             }
+        }
+        // After the render: the item to put the cursor in may have come with these very requests
+        for (id, itemId) in cursors {
+            focus = FocusOrder(number: (focus?.number ?? 0) + 1, itemId: itemId)
+            Shell.must { try border.answer(id, with: .done) }
         }
     }
 
-    private func show(_ op: UiOp) {
+    /// Only some requests wait for an answer. The core takes an answer to any other as an error.
+    private func show(_ op: UiOp, asked id: UInt32) {
         switch op {
         case .setTitle(let title):
             self.title = title
+        case .confirm(let message):
+            ask(Question(id: id, message: message, kind: .confirm))
+        case .confirmDestructive(let message):
+            ask(Question(id: id, message: message, kind: .confirmDestructive))
+        case .prompt(let message):
+            ask(Question(id: id, message: message, kind: .prompt))
+        case .readClipboardText:
+            Shell.must { try border.answer(id, with: .text(clipboard())) }
         default:
             break
         }
@@ -80,6 +136,30 @@ public final class Shell: ObservableObject {
             fatalError("The border cannot be crossed: \(error)")
         }
     }
+}
+
+/// Something the core asks the user and waits for.
+public struct Question: Equatable, Identifiable {
+    /// The number of the request of the core.
+    public let id: UInt32
+    public let message: String
+    public let kind: Kind
+
+    public enum Kind {
+        /// Yes or no.
+        case confirm
+        /// Yes or no to something hard to undo: the dialog must answer no by default.
+        case confirmDestructive
+        /// A line of text.
+        case prompt
+    }
+}
+
+/// An order to put the cursor in the editor of an item, or of the first item when `itemId` is
+/// `nil`. `number` tells two orders for the same item apart.
+public struct FocusOrder: Equatable {
+    public let number: Int
+    public let itemId: String?
 }
 
 /// Where the requests of the core find the shell, which is made after the core.

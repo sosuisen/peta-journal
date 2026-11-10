@@ -102,7 +102,7 @@ final class ShellTests: XCTestCase {
 
         shell.send(.deleteCurrentPage)
         try await waitUntil("the shell is asked to confirm") { shell.question != nil }
-        XCTAssertEqual(shell.question?.message, "Delete \"swift-notes.md\"?")
+        XCTAssertEqual(shell.question?.message, "Delete \"swift-notes\"?")
         XCTAssertEqual(shell.question?.kind, .confirm)
         shell.answer(yes: false)
         XCTAssertNil(shell.question)
