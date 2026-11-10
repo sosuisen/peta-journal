@@ -8,19 +8,37 @@ public struct OutlineScreen: View {
     @StateObject private var cursors = Cursors()
     /// What is typed into the prompt on screen.
     @State private var typed = ""
+    /// The search box is on screen.
+    @State private var searching: Bool
 
-    public init(shell: Shell) {
+    /// `searching` opens the search box from the start.
+    public init(shell: Shell, searching: Bool = false) {
         self.shell = shell
+        _searching = State(initialValue: searching)
     }
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // An empty window says nothing: the page and the state of the server are always shown
-            VStack(alignment: .leading, spacing: 4) {
-                Text(shell.title.isEmpty ? "No page" : shell.title).font(.title2)
-                Text(status).font(.caption).foregroundStyle(.secondary)
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(shell.title.isEmpty ? "No page" : shell.title).font(.title2)
+                    Text(status).font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button {
+                    searching.toggle()
+                } label: {
+                    Image(systemName: "magnifyingglass")
+                }
+                .keyboardShortcut("f")
+                .help("Search pages")
             }
             .padding()
+            if searching {
+                SearchBox(shell: shell) { searching = false }
+                    .padding([.horizontal, .bottom])
+            }
             List(shell.view.outline.rows, id: \.item.id) { row in
                 ItemEditor(row: row, shell: shell, cursors: cursors)
                     .listRowSeparator(.hidden)
@@ -32,6 +50,8 @@ public struct OutlineScreen: View {
         .navigationTitle(shell.title)
         .frame(minWidth: 480, minHeight: 320)
         .onChange(of: shell.question) { _ in typed = "" }
+        // The page that was searched for is here
+        .onChange(of: shell.title) { _ in searching = false }
         .alert(
             shell.question?.message ?? "",
             isPresented: Binding(get: { shell.question != nil }, set: { _ in }),
