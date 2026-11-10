@@ -1,21 +1,28 @@
 export type ConnectionState = 'connecting' | 'connected' | 'disconnected';
 
+/**
+ * A task as the app shows it. The server has more fields of an item, such as the Markdown
+ * text. The app does not ask for them: it draws the text from `ast`.
+ */
 export interface Item {
   id: string;
-  pageId: string;
+  /** The type of the page of the item: `journal` or `doc` */
+  type: string;
   dirPath: string;
   name: string;
-  type: string;
-  createdDate: number;
-  modifiedDate: number;
-  idx: string;
-  level: number;
-  body: string;
   ast: string;
-  collapsed: boolean;
-  types: string[];
   properties: Record<string, string | string[]>;
 }
+
+/** The fields of `Item`, as the server is asked for them. */
+const ITEM_FIELDS: readonly (keyof Item)[] = [
+  'id',
+  'type',
+  'dirPath',
+  'name',
+  'ast',
+  'properties',
+];
 
 /**
  * The address of the journal server, from `?host=` and `?port=` of the page URL.
@@ -98,7 +105,7 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
 export async function getTasks(includeDone: boolean): Promise<Item[]> {
   const query = includeDone ? 'types=task' : 'types=task&withoutProperty=end';
   const data = await fetchJson<{ items: Item[] }>(
-    `/api/items?${query}&fields=id,type,dirPath,name,ast,properties`,
+    `/api/items?${query}&fields=${ITEM_FIELDS.join(',')}`,
   );
   return data.items;
 }
