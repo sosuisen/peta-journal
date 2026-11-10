@@ -645,6 +645,21 @@ mod tests {
         assert_eq!(back, (item, page));
     }
 
+    // 文字列として読むプロパティがリストなら値はなく、リストとして読むプロパティが文字列なら空のリストになる。
+    #[test]
+    fn a_value_of_the_other_shape_reads_as_unset() {
+        let item = Item {
+            properties: BTreeMap::from([
+                ("zoom".to_string(), PropertyValue::List(vec!["2".into()])),
+                ("tags".to_string(), PropertyValue::Text("x".into())),
+            ]),
+            ..Default::default()
+        };
+        assert_eq!(item.prop_str("zoom"), None);
+        assert_eq!(item.zoom(), 1.0);
+        assert!(item.tags().is_empty());
+    }
+
     // ItemPosition は first・last・after:<id> の文字列を解析して同じ文字列に戻し、after は "after:x" という JSON 文字列にシリアライズされる。
     #[test]
     fn position_round_trips() {
