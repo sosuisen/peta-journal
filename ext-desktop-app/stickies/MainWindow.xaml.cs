@@ -359,77 +359,7 @@ public sealed partial class MainWindow : Window
 
     private string BuildHtml(PageModel? page, IList<ItemModel> items)
     {
-        // Build a set of item IDs that have children
-        var hasChildrenSet = new HashSet<string>();
-        for (int i = 0; i < items.Count - 1; i++)
-        {
-            if (items[i + 1].Level > items[i].Level)
-                hasChildrenSet.Add(items[i].Id);
-        }
-
-        // Filter out children of collapsed items (same logic as frontend visibleItems)
-        var visibleItems = new List<ItemModel>();
-        int skipLevel = -1;
-        foreach (var item in items)
-        {
-            if (skipLevel >= 0 && item.Level > skipLevel) continue;
-            skipLevel = -1;
-            visibleItems.Add(item);
-            if (_collapsedItemIds.Contains(item.Id))
-                skipLevel = item.Level;
-        }
-
-        var itemsHtml = string.Join("\n", visibleItems.Select(item =>
-        {
-            var indent = (item.Level - 1) * 24;
-            var types = item.Types;
-            var isHeading = types.Contains("heading");
-            var isEmpty = HasNoText(item.Ast);
-            var hasChildren = hasChildrenSet.Contains(item.Id);
-            var isCollapsed = _collapsedItemIds.Contains(item.Id);
-
-            // The arrow and the empty slot have the same width, so the checkboxes of the tasks
-            // with and without children stand in one column.
-            const string slotStyle = "display:inline-block;width:10px;flex-shrink:0;margin-right:6px;";
-            var arrow = isCollapsed ? "&#x25B6;" : "&#x25BC;";
-            var toggle = $"<span class=\"collapse-toggle\" data-item-id=\"{item.Id}\" style=\"{slotStyle}color:#666;cursor:pointer;font-size:10px;user-select:none;\">{arrow}</span>";
-
-            var marker = "";
-            if (item.TaskState is { } taskState)
-            {
-                // The same checkbox as the web app: empty for todo, a line for running, a check
-                // for done. HTML has no attribute for the line, so the script below sets it.
-                var state = taskState switch
-                {
-                    TaskState.Running => " data-running",
-                    TaskState.Done => " checked",
-                    _ => ""
-                };
-                // A checkbox takes the place of the bullet, so the arrow needs a place of its own,
-                // to the left of the checkbox.
-                var slot = hasChildren ? toggle : $"<span style=\"{slotStyle}\"></span>";
-                marker = $"{slot}<input type=\"checkbox\" class=\"task-checkbox\" tabindex=\"-1\"{state}>";
-            }
-            else if (hasChildren)
-            {
-                marker = toggle;
-            }
-            else if (!isHeading && !isEmpty)
-            {
-                marker = "<span style=\"margin-right:6px;color:#999;\">&#x2022;</span>";
-            }
-
-            if (isEmpty)
-            {
-                return $"<div style=\"padding-left:{indent + 8}px;height:1.6em;\"></div>";
-            }
-
-            var astAttr = $" data-ast=\"{EscapeHtmlAttr(item.Ast)}\"";
-            var style = marker.Length > 0
-                ? $"padding-left:{indent}px;padding:4px 8px 4px {indent + 8}px;display:flex;align-items:baseline;"
-                : $"padding-left:{indent}px;padding:4px 8px 4px {indent + 8}px;";
-            return $"<div style=\"{style}\">{marker}<div{astAttr}></div></div>";
-        }));
+        var itemsHtml = OutlineHtml.Build(items, _collapsedItemIds);
 
         return $@"<!DOCTYPE html>
 <html>
@@ -584,26 +514,9 @@ public sealed partial class MainWindow : Window
         ContentWebView.NavigateToString(html);
     }
 
-    /// <summary>
-    /// Whether the AST of an item has no text. The server sends an empty AST for an empty
-    /// item, and a document without children for an item of only spaces.
-    /// </summary>
-    private static bool HasNoText(string ast)
-    {
-        if (string.IsNullOrEmpty(ast)) return true;
-        using var document = System.Text.Json.JsonDocument.Parse(ast);
-        return !document.RootElement.TryGetProperty("children", out var children)
-            || children.GetArrayLength() == 0;
-    }
-
     private static string EscapeHtml(string text)
     {
         return text.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
-    }
-
-    private static string EscapeHtmlAttr(string text)
-    {
-        return text.Replace("&", "&amp;").Replace("\"", "&quot;").Replace("<", "&lt;").Replace(">", "&gt;");
     }
 
     // --- New Window / Close ---

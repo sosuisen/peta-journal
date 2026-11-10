@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Stickies.Tests</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <!-- The tests compile the source files of the app that do not use WinUI.
+       They do not reference Stickies.csproj: that project is a WinUI program, and it builds
+       only with the MSBuild of Visual Studio. This way, "dotnet test" is enough. -->
+  <ItemGroup>
+    <Compile Include="..\stickies\Models\ItemModel.cs" Link="App\Models\ItemModel.cs" />
+    <Compile Include="..\stickies\Services\OutlineHtml.cs" Link="App\Services\OutlineHtml.cs" />
+    <Compile Include="..\stickies\Services\PageLinks.cs" Link="App\Services\PageLinks.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- xunit.v3 runs on Microsoft.Testing.Platform. The .NET 10 SDK runs it with "dotnet test"
+         only when global.json says so, and it looks for global.json from the current folder
+         upward. So run "dotnet test" in this folder. -->
+    <PackageReference Include="xunit.v3" Version="4.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+</Project>
