@@ -3,6 +3,7 @@
 //! binary is linked once.
 
 mod api;
+mod asset_names;
 mod atlas_sync;
 mod client_id;
 #[path = "../common/mod.rs"]

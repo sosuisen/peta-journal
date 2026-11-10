@@ -1,3 +1,4 @@
+pub mod asset_names;
 pub mod atlas_service;
 pub mod combined_search;
 pub mod config_service;

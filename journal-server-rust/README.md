@@ -44,6 +44,37 @@ curl -X POST http://localhost:8087/api/journals/2026-11-10 \
   -H "X-Client-Id: 123e4567-e89b-42d3-a456-426614174000"
 ```
 
+## Moving the asset files to ID names
+
+Uploads are saved under a name made of an HMTID (ADR-022). The files that were saved before
+that keep their old names, such as `image-3.png`. The `asset-names` command moves them, and
+the links to them, to ID names. It is run by hand, once.
+
+Stop the server first. The command opens the database and the search index as the server
+does, and the server holds the search index.
+
+```
+journal-server asset-names plan   --file ~/.peta-journal/asset-names.json
+journal-server asset-names apply  --file ~/.peta-journal/asset-names.json
+journal-server asset-names revert --file ~/.peta-journal/asset-names.json
+```
+
+- `plan` writes the table of old and new names to the file. It changes nothing else. Read the
+  table before the next step.
+- `apply` renames the files, points the links in the items to the new names, and writes the
+  markdown files of those pages. The items and the pages keep their modified dates.
+- `revert` does the same in the other direction, with the same table. Keep the file.
+
+The time in a new name is the modified time of the file, or the time the file was made when
+that is older. The text of a link stays as it is.
+
+The options of the server, such as `--config-dir` and `--data-dir`, come before
+`asset-names`. Try the command on a copy of the notes first: give `--data-dir`, `--index-dir`
+and `--config-dir` of the copy, with a `config.json` whose `markdownDir` is the copied folder.
+
+A device that has the same notes through a synced folder needs the same `apply` with the same
+table. The links change there even when the folder brought the renamed files first.
+
 ## Coverage and mutation testing
 
 Setup, once:
