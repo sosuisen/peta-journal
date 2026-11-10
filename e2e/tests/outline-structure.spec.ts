@@ -269,4 +269,20 @@ test.describe('outline structure', () => {
     expect(outlineOf(await server.itemsSettled(pageId, i => i[3].level === 2 && i[4].level === 3)))
       .toEqual(['1:a', '2:a1', '2:a2', '2:b', '3:b1']);
   });
+
+  test('Send to Stash writes with one request and puts the item with its children under a new # Stash heading', async ({ page }) => {
+    const writes: unknown[] = [];
+    page.on('request', r => {
+      if (r.method() !== 'GET') writes.push([`${r.method()} ${new URL(r.url()).pathname}`, r.postDataJSON()]);
+    });
+
+    await page.locator(`[id="${byBody('a').id}"] .item-menu`).first().click({ force: true });
+    await page.getByRole('button', { name: 'Send to Stash' }).click();
+
+    expect(outlineOf(await server.itemsSettled(pageId, i => i.some(x => x.body === '# Stash'))))
+      .toEqual(['1:b', '2:b1', '1:# Stash', '2:a', '3:a1', '3:a2']);
+    // The heading is shown as text, without its mark
+    await expect.poll(() => shownBodies(page)).toEqual(['b', 'b1', 'Stash', 'a', 'a1', 'a2']);
+    expect(writes).toEqual([[`POST /api/items/${byBody('a').id}/stash`, {}]]);
+  });
 });
