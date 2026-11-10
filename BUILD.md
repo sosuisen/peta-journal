@@ -160,6 +160,27 @@ the browser, so the E2E tests cover it instead.
 No file of `peta-shell-emacs` is left out. Its tests start the program itself, and `cargo cov`
 measures that run too.
 
+`cargo cov` turns on the feature `facet_typegen` of `peta-shell-native`, so the generation of
+the types of the native shells is measured too.
+
+### Types of the native shells
+
+`crates/shell-native` holds the core for a shell that is not written in Rust, such as the SwiftUI
+shell (ADR 024). The types that cross to such a shell are generated from the Rust types:
+
+```
+cd peta-journal/frontend-rust
+cargo run -p peta-shell-native --features facet_typegen --bin codegen -- <folder>
+```
+
+This writes the Swift package `PetaTypes` under `<folder>/swift`. The generated code is not kept
+in the repository. The tests of the generation need the feature too:
+`cargo test -p peta-shell-native --features facet_typegen`.
+
+A type that crosses has `#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]`. The
+generator reads the shape of the Rust type, not what serde writes. A type with a hand-written
+`Serialize` has to write that same shape in bincode, as `PropertyValue` and `ItemPosition` do.
+
 ### Emacs frontend
 
 `crates/shell-emacs` is a second shell around the same core. It is a native program, and an Emacs

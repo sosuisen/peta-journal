@@ -22,3 +22,9 @@ peta-atlas = { path = "../../../atlas-rust", features = ["marks"] }
 # rand of picturesque-marks, under peta-atlas, pulls in getrandom 0.4, which needs a backend on wasm
 getrandom-04 = { package = "getrandom", version = "0.4", features = ["wasm_js"] }
 uuid = { version = "1.29.2", features = ["v4", "js"] }
+# Describes the types that cross the native border (ADR 024). Only the generation of the types
+# of the shells turns it on
+facet = { version = "=0.46.5", optional = true }
+
+[features]
+facet_typegen = ["dep:facet", "peta-atlas/facet"]

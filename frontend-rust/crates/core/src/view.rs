@@ -14,6 +14,7 @@ use crate::util::filename::JournalType;
 use serde::Serialize;
 
 /// Where a task stands, by its `begin` and `end` properties.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum TaskState {
     NotStarted,
@@ -39,6 +40,7 @@ impl TaskState {
 }
 
 /// One row of the outline: the item as shown plus what the row needs to draw itself.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Row {
     pub item: ItemRef,
@@ -67,6 +69,7 @@ pub struct Row {
     pub suggestions_visible: bool,
 }
 
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct WikiView {
     pub item_id: Option<String>,
@@ -76,6 +79,7 @@ pub struct WikiView {
     pub y: f64,
 }
 
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct OutlineView {
     pub rows: Vec<Row>,
@@ -87,6 +91,7 @@ pub struct OutlineView {
     pub scrolled_from_top: bool,
 }
 
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct JournalView {
     pub current_date: String,
@@ -96,6 +101,7 @@ pub struct JournalView {
 }
 
 /// One property row of a page: the value is text, a list joined by `, `.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct PageProperty {
     pub key: String,
@@ -133,11 +139,22 @@ impl PageProperty {
     }
 }
 
+/// One folder on the way to a page. Why not a pair: the Swift of a native shell cannot compare
+/// a type that has a tuple.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct DirSegment {
+    pub name: String,
+    /// The folders from the root down to this one, with `/` between them.
+    pub path: String,
+}
+
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct PageView {
     pub page: Page,
     pub title: String,
-    pub dir_segments: Vec<(String, String)>,
+    pub dir_segments: Vec<DirSegment>,
     pub is_index: bool,
     pub is_root_index: bool,
     pub is_atlas: bool,
@@ -152,6 +169,7 @@ pub struct PageView {
 
 /// A page that links to the shown page, with its items that link. The items are empty
 /// when the page links by the tag in its tags property only.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct BacklinkGroup {
     /// The path of the page as the sidebar shows it; a journal as its date.
@@ -160,6 +178,7 @@ pub struct BacklinkGroup {
     pub items: Vec<BacklinkItem>,
 }
 
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct BacklinkItem {
     pub id: String,
@@ -193,6 +212,7 @@ impl BacklinkGroup {
     }
 }
 
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub enum ScreenView {
     None,
@@ -202,6 +222,7 @@ pub enum ScreenView {
     Settings,
 }
 
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct SidebarPage {
     pub page: Page,
@@ -217,6 +238,7 @@ pub struct SidebarPage {
 
 /// A page or folder of the directory of an atlas page. A card without bounds waits in the
 /// list of unplaced cards.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct AtlasCard {
     pub page_id: String,
@@ -238,6 +260,7 @@ pub struct AtlasCard {
     pub published: bool,
 }
 
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct SidebarView {
     pub index_header: String,
@@ -250,6 +273,7 @@ pub struct SidebarView {
     pub current_page_id: Option<String>,
 }
 
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct SearchView {
     pub query: String,
@@ -262,6 +286,7 @@ pub struct SearchView {
 }
 
 /// One line of the search results. `index` is what `Event::SearchResultClicked` takes.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct SearchEntry {
     pub index: usize,
@@ -271,6 +296,7 @@ pub struct SearchEntry {
     pub snippet: String,
 }
 
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SearchKind {
@@ -279,6 +305,7 @@ pub enum SearchKind {
     Item,
 }
 
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Default, Serialize)]
 pub struct ConfigView {
     pub markdown_dir: String,
@@ -290,6 +317,7 @@ pub struct ConfigView {
     pub definition_error: Option<String>,
 }
 
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct ViewModel {
     pub screen: ScreenView,

@@ -6,6 +6,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
 /// An item as the server returns it (`presentation/dto.rs` in journal-server-rust).
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Item {
@@ -45,6 +46,7 @@ pub struct Item {
 /// It is written in two ways. JSON has it as the server does: a string, or an array of
 /// strings. A format that does not describe itself, like the bincode of the native border
 /// (ADR 024), cannot tell the two apart by looking, so there it is an enum with a tag.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PropertyValue {
     Text(String),
@@ -196,6 +198,7 @@ impl Item {
     }
 }
 
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Page {
@@ -235,6 +238,7 @@ impl Page {
 }
 
 /// What the sidebar's index list is sorted by.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum IndexSortKey {
@@ -245,6 +249,7 @@ pub enum IndexSortKey {
     Published,
 }
 
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum SortOrder {
@@ -254,12 +259,14 @@ pub enum SortOrder {
 }
 
 /// The sort of one directory's index list. The shell keeps one per directory.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct IndexSort {
     pub key: IndexSortKey,
     pub order: SortOrder,
 }
 
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchResult {
@@ -275,6 +282,7 @@ pub struct SearchResult {
 }
 
 /// Where an item goes: first on the page, last, or after another item.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ItemPosition {
     First,
@@ -307,14 +315,32 @@ impl ItemPosition {
     }
 }
 
+/// The form of a format that does not describe itself, like the bincode of the native border
+/// (ADR 024). The types of a native shell are generated from the shape of the Rust type, so
+/// the bytes have to follow that shape too.
+#[derive(Serialize, Deserialize)]
+#[serde(remote = "ItemPosition", rename = "ItemPosition")]
+enum ItemPositionWithTag {
+    First,
+    Last,
+    After(String),
+}
+
 impl Serialize for ItemPosition {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(&self.to_api())
+        if serializer.is_human_readable() {
+            serializer.serialize_str(&self.to_api())
+        } else {
+            ItemPositionWithTag::serialize(self, serializer)
+        }
     }
 }
 
 impl<'de> Deserialize<'de> for ItemPosition {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        if !deserializer.is_human_readable() {
+            return ItemPositionWithTag::deserialize(deserializer);
+        }
         let s = String::deserialize(deserializer)?;
         ItemPosition::parse(&s).ok_or_else(|| D::Error::custom(format!("bad position: {s}")))
     }
@@ -370,6 +396,7 @@ pub enum PasteMode {
 }
 
 /// A file the server saved.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Uploaded {
@@ -380,6 +407,7 @@ pub struct Uploaded {
 }
 
 /// What a paste came to on the server.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Pasted {
     /// The item pasted into, then the items created below it, in their order on the page.
@@ -397,6 +425,7 @@ pub struct Batched {
 }
 
 /// What sending an item to the stash came to on the server.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Stashed {
     /// The `# Stash` heading the items went under.
@@ -408,6 +437,7 @@ pub struct Stashed {
 }
 
 /// What a split came to on the server.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Split {
     /// The item that was split, with the text it keeps.
@@ -417,6 +447,7 @@ pub struct Split {
 }
 
 /// Where the cursor goes after a paste: right after the pasted text.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PasteCursor {
@@ -425,6 +456,7 @@ pub struct PasteCursor {
 }
 
 /// A property definition (`GET /api/config/property-definitions`, the `definitions` list).
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PropertyDefinition {
@@ -444,6 +476,7 @@ pub const USER_VALUE_TYPES: [&str; 6] =
     ["text", "number", "checkbox", "date", "datetime", "bounds"];
 
 /// The server's settings (`GET /api/config`).
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ServerConfig {
@@ -462,6 +495,7 @@ pub struct ServerConfig {
 }
 
 /// How weeks are numbered: US (Sunday start) or ISO (Monday start).
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet), repr(C))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum WeekNumbering {
@@ -490,6 +524,7 @@ impl WeekNumbering {
 pub type TranscludedTrees = HashMap<String, Vec<Item>>;
 
 /// `GET /api/pages/{id}` and the journal endpoints: a page with its items.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PageWithItems {
@@ -515,6 +550,7 @@ pub struct JournalBefore {
     pub transcluded_trees: Option<TranscludedTrees>,
 }
 
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BacklinkEntry {
@@ -535,6 +571,7 @@ pub struct TreeExport {
 }
 
 /// A key press kept for an editor that was not yet on screen when it was pressed.
+#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct DeferredKey {
     pub key: String,
