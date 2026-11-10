@@ -135,6 +135,21 @@ Windows has Control. Control in this table is the Control key.
 | Shift+Option+Up, Down | moves the item up or down |
 | Shift+Option+Left, Right | outdents, indents |
 | Command+Z, Control+Z | undo; with Shift, redo |
+| Shift+Up on the first line, Shift+Down on the last line | selects the item with its children |
+
+While items are selected, no item has the cursor and the keys mean this:
+
+| Key | What it does |
+|---|---|
+| Shift+Up, Down | makes the selection larger or smaller |
+| Escape | ends the selection |
+| Backspace, Delete | deletes the selected items |
+| Shift+Option+Up, Down | moves the selected items up or down |
+| Tab, Shift+Tab, Shift+Option+Right, Left | indents, outdents the selected items |
+| Command+C, Command+X | copies, cuts the selected items as Markdown |
+| Command+Z, Control+Z | undo; with Shift, redo |
+
+A click into the text of an item also ends the selection.
 
 ## Tests
 
