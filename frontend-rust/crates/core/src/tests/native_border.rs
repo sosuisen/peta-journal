@@ -3,6 +3,7 @@
 
 use crate::app::{Event, Route, Screen};
 use crate::harness::{item, Harness};
+use crate::model::ItemPosition;
 use crate::rest::ClientId;
 use crux_core::bridge::{BincodeFfiFormat, FfiFormat};
 
@@ -51,4 +52,20 @@ fn the_view_model_is_written_for_the_shell() {
     let written = String::from_utf8_lossy(&bytes);
     assert!(written.contains("the body of a"));
     assert!(written.contains("tags"));
+}
+
+// 項目の行き先は、境界の形式では、番号の付いた選択肢として書かれる。JSONでは、サーバーが読む文字列のままである。
+// ネイティブのシェルの型は、Rustの型の形から生成されるので、文字列で書くと読み手とずれる。
+#[test]
+fn the_place_of_an_item_is_written_as_a_choice_with_a_number() {
+    let place = ItemPosition::after("x");
+
+    let mut bytes = Vec::new();
+    BincodeFfiFormat::serialize(&mut bytes, &place).unwrap();
+    // The third choice, then the length of the ID and the ID
+    assert_eq!(bytes, [2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, b'x']);
+    let read: ItemPosition = BincodeFfiFormat::deserialize(&bytes).unwrap();
+    assert_eq!(read, place);
+
+    assert_eq!(serde_json::to_string(&place).unwrap(), r#""after:x""#);
 }
