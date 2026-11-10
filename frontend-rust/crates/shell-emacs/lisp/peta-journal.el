@@ -1244,7 +1244,16 @@ Closing the calendar stays on the page."
   (let ((page (or (peta-journal--page) (peta-journal--ensure-started))))
     (calendar)
     (setq peta-journal--calendar-page page)
-    (peta-journal-calendar-mode 1)))
+    (peta-journal-calendar-mode 1)
+    ;; The calendar itself shows none of these keys
+    (message "%s"
+             (substitute-command-keys
+              "\\<peta-journal-calendar-mode-map>\
+\\[peta-journal-calendar-open-day]: day  \
+\\[peta-journal-calendar-open-week]: week  \
+\\[peta-journal-calendar-open-month]: month  \
+\\[peta-journal-calendar-open-year]: year  \
+\\<calendar-mode-map>\\[calendar-exit]: close"))))
 
 ;;;; Lists of results
 
