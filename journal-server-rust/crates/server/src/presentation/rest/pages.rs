@@ -13,7 +13,7 @@ use crate::error::{parse_id, AppError, AppResult};
 use crate::infrastructure::launcher;
 use crate::presentation::client_id::ClientId;
 use crate::presentation::dto::{
-    backlink_dto, page_dto_with, select_fields, BacklinkEntryDto, ItemDto, PageDto,
+    backlink_dto, page_dto_with, BacklinkEntryDto, ItemDto, ItemFields, PageDto,
 };
 use crate::state::{blocking, SharedState};
 
@@ -126,24 +126,20 @@ async fn get_page(
             items: state.dtos.to_dtos(&items)?,
             transcluded_trees: state.dtos.transcluded_trees(&items)?,
         };
-        match q.fields.as_deref().filter(|f| !f.is_empty()) {
-            Some(fields) => {
-                let narrow = |dtos: &Vec<ItemDto>| -> Vec<_> {
-                    dtos.iter().map(|dto| select_fields(dto, fields)).collect()
-                };
-                Ok(Json(GetPageByIdResponse {
-                    items: narrow(&whole.items),
-                    transcluded_trees: whole
-                        .transcluded_trees
-                        .iter()
-                        .map(|(source, tree)| (source.clone(), narrow(tree)))
-                        .collect(),
-                    page: whole.page,
-                })
-                .into_response())
-            }
-            None => Ok(Json(whole).into_response()),
-        }
+        let response = match ItemFields::parse(q.fields.as_deref()) {
+            Some(fields) => Json(GetPageByIdResponse {
+                items: fields.of_each(&whole.items),
+                transcluded_trees: whole
+                    .transcluded_trees
+                    .iter()
+                    .map(|(source, tree)| (source.clone(), fields.of_each(tree)))
+                    .collect(),
+                page: whole.page,
+            })
+            .into_response(),
+            None => Json(whole).into_response(),
+        };
+        Ok(response)
     })
     .await
 }

@@ -13,7 +13,7 @@ use crate::application::paste::PasteMode;
 use crate::domain::model::{Item, ItemPosition};
 use crate::error::{parse_id, AppError, AppResult};
 use crate::presentation::client_id::ClientId;
-use crate::presentation::dto::{select_fields, ItemDto};
+use crate::presentation::dto::{ItemDto, ItemFields};
 use crate::state::{blocking, SharedState};
 
 pub fn routes() -> Router<SharedState> {
@@ -64,8 +64,8 @@ struct ItemResponse {
 }
 
 #[derive(Serialize)]
-struct ItemsResponse {
-    items: Vec<ItemDto>,
+struct ItemsResponse<I = ItemDto> {
+    items: Vec<I>,
 }
 
 #[derive(Deserialize, Default)]
@@ -442,8 +442,8 @@ async fn get_item(
         let dto = state
             .dtos
             .to_dto(&state.item_service.get_item_by_id(&item_id)?)?;
-        match q.fields.as_deref().filter(|f| !f.is_empty()) {
-            Some(fields) => Ok(Json(select_fields(&dto, fields)).into_response()),
+        match ItemFields::parse(q.fields.as_deref()) {
+            Some(fields) => Ok(Json(fields.of(&dto)).into_response()),
             None => Ok(Json(ItemResponse { item: dto }).into_response()),
         }
     })
@@ -722,13 +722,14 @@ async fn get_items_by_types(
             .item_service
             .get_items_by_types(&types, q.without_property.as_deref())?;
         let dtos = state.dtos.to_dtos(&items)?;
-        match q.fields.as_deref().filter(|f| !f.is_empty()) {
-            Some(fields) => {
-                let items: Vec<_> = dtos.iter().map(|dto| select_fields(dto, fields)).collect();
-                Ok(Json(serde_json::json!({ "items": items })).into_response())
-            }
-            None => Ok(Json(ItemsResponse { items: dtos }).into_response()),
-        }
+        let response = match ItemFields::parse(q.fields.as_deref()) {
+            Some(fields) => Json(ItemsResponse {
+                items: fields.of_each(&dtos),
+            })
+            .into_response(),
+            None => Json(ItemsResponse { items: dtos }).into_response(),
+        };
+        Ok(response)
     })
     .await
 }

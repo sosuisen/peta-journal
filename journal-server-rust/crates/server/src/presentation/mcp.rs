@@ -17,7 +17,7 @@ use crate::domain::journal_name::JournalName;
 use crate::domain::model::{BacklinkEntry, Item, ItemPosition, Page, SearchResult};
 use crate::error::{parse_id, AppError, AppResult};
 use crate::infrastructure::export::export_service::format_instant;
-use crate::presentation::dto::{select_fields, ItemDto};
+use crate::presentation::dto::{ItemDto, ItemFields};
 use crate::state::{blocking, SharedState};
 
 // ---- JSON of the domain records, the way the Java server's Jackson wrote them ----
@@ -375,8 +375,8 @@ impl JournalMcp {
                 .to_dto(&state.item_service.get_item_by_id(&item_id)?)
         })
         .await?;
-        if !a.fields.is_empty() {
-            return ok(Value::Object(select_fields(&dto, &a.fields)));
+        if let Some(fields) = ItemFields::parse(Some(&a.fields)) {
+            return ok(Value::Object(fields.of(&dto)));
         }
         ok(json!({ "item": item_dto_json(&dto) }))
     }

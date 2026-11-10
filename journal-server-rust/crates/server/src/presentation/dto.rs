@@ -162,19 +162,38 @@ pub fn backlink_dto(e: &BacklinkEntry) -> BacklinkEntryDto {
     }
 }
 
-/// Only the requested fields of an item DTO, for `?fields=body,level`.
-pub fn select_fields(dto: &ItemDto, fields_csv: &str) -> serde_json::Map<String, Value> {
-    let requested: HashSet<&str> = fields_csv.split(',').collect();
-    let all = serde_json::to_value(dto).unwrap_or(Value::Null);
-    let mut out = serde_json::Map::new();
-    if let Value::Object(map) = all {
-        for (k, v) in map {
-            if requested.contains(k.as_str()) {
-                out.insert(k, v);
+/// An item DTO with only the fields a client asked for.
+pub type NarrowItem = serde_json::Map<String, Value>;
+
+/// The fields of an item a client asked for, as in `?fields=body,level`.
+pub struct ItemFields(HashSet<String>);
+
+impl ItemFields {
+    /// The fields named in a comma-separated list. `None` when no field is named: the client
+    /// then gets whole items.
+    pub fn parse(fields_csv: Option<&str>) -> Option<ItemFields> {
+        let csv = fields_csv.filter(|csv| !csv.is_empty())?;
+        Some(ItemFields(csv.split(',').map(String::from).collect()))
+    }
+
+    /// Only these fields of an item DTO.
+    pub fn of(&self, dto: &ItemDto) -> NarrowItem {
+        let all = serde_json::to_value(dto).unwrap_or(Value::Null);
+        let mut out = serde_json::Map::new();
+        if let Value::Object(map) = all {
+            for (k, v) in map {
+                if self.0.contains(&k) {
+                    out.insert(k, v);
+                }
             }
         }
+        out
     }
-    out
+
+    /// Only these fields of each item DTO, in the same order.
+    pub fn of_each(&self, dtos: &[ItemDto]) -> Vec<NarrowItem> {
+        dtos.iter().map(|dto| self.of(dto)).collect()
+    }
 }
 
 /// Builds item DTOs with their properties loaded, and the transcluded trees a list of items refers to.
