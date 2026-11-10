@@ -177,6 +177,10 @@ This writes the Swift package `PetaTypes` under `<folder>/swift`. The generated 
 in the repository. The tests of the generation need the feature too:
 `cargo test -p peta-shell-native --features facet_typegen`.
 
+The feature `ffi` adds the entrance for a shell in another language (`src/ffi.rs`), made with
+BoltFFI. `frontend-swiftui/README.md` describes how the SwiftUI shell is built from both, and the
+tools it needs.
+
 A type that crosses has `#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]`. The
 generator reads the shape of the Rust type, not what serde writes. A type with a hand-written
 `Serialize` has to write that same shape in bincode, as `PropertyValue` and `ItemPosition` do.
@@ -190,6 +194,11 @@ mode draws what it sends. `crates/shell-emacs/README.md` describes the setup, th
 cd peta-journal/frontend-rust
 cargo build --release -p peta-shell-emacs
 ```
+
+## SwiftUI frontend (frontend-swiftui)
+
+The shell for macOS, a Walking Skeleton so far. `frontend-swiftui/README.md` describes the tools,
+the build and the tests. Its tests do not run in CI.
 
 ## Atlas crate (atlas-rust)
 
