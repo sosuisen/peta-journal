@@ -42,6 +42,13 @@ jobs:
       # The shell only runs in the browser, and the native build above does not show what breaks on wasm
       - if: matrix.workspace == 'frontend-rust'
         run: cargo check --target wasm32-unknown-unknown -p peta-frontend
+      # The Emacs mode of crates/shell-emacs. These tests need no process. The E2E tests are not
+      # run here: they need the journal server too
+      - if: matrix.workspace == 'frontend-rust'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends emacs-nox
+      - if: matrix.workspace == 'frontend-rust'
+        working-directory: frontend-rust/crates/shell-emacs
+        run: emacs -Q --batch -L lisp -l lisp/test/peta-journal-test.el -f ert-run-tests-batch-and-exit
 
   todo:
     name: ext-web-app/todo
