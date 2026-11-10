@@ -535,3 +535,52 @@ fn deleting_an_item_sends_it_with_its_children_without_selecting_them() {
     assert_eq!(h.items_ids(), ["c"]);
     assert!(!h.model.state.item_selection_mode());
 }
+
+// 編集中の項目を消すと、その編集も終わる。
+#[test]
+fn deleting_the_edited_item_ends_its_edit() {
+    let mut h = Harness::with_items(vec![item("a", 1, "x"), item("b", 1, "y")]);
+    h.model.state.add_editing_item("a");
+
+    h.send(Event::DeleteItem {
+        item_id: "a".into(),
+    });
+
+    assert_eq!(h.items_ids(), ["b"]);
+    assert!(!h.model.state.is_editing("a"));
+}
+
+// サーバーが1つの項目の削除を断ると、何も消えず、編集は続き、選択にもならない。
+#[test]
+fn a_delete_of_an_item_the_server_refuses_changes_nothing() {
+    let mut h = Harness::with_items(vec![item("a", 1, "x"), item("b", 1, "y")]);
+    h.model.state.add_editing_item("a");
+    h.api.fail_next("DeleteItems", "refused");
+
+    h.send(Event::DeleteItem {
+        item_id: "a".into(),
+    });
+
+    assert_eq!(h.items_ids(), ["a", "b"]);
+    assert!(h.model.state.is_editing("a"));
+    assert!(!h.model.state.item_selection_mode());
+    assert!(h.model.undo.pop_undo().is_none());
+}
+
+// 他の項目からトランスクルードされている項目の削除を断ると、何も消えず、編集は続き、選択にもならない。
+#[test]
+fn a_no_to_deleting_a_transcluded_item_changes_nothing() {
+    let mut h = Harness::with_items(vec![item("a", 1, "x"), item("b", 1, "y")]);
+    h.confirm = false;
+    h.api
+        .answer_next("TranscludedItems", Ok(ApiOutput::ItemIds(vec!["a".into()])));
+    h.model.state.add_editing_item("a");
+
+    h.send(Event::DeleteItem {
+        item_id: "a".into(),
+    });
+
+    assert!(delete_calls(&h.api).is_empty());
+    assert!(h.model.state.is_editing("a"));
+    assert!(!h.model.state.item_selection_mode());
+}
