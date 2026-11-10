@@ -504,7 +504,16 @@ fn a_paste_goes_through_the_core() {
     assert_eq!(driver.last_rows().unwrap()[0].body, "xZy");
 }
 
-// 画像の挿入は、ファイルをアップロードし、カーソル位置にリンクを入れて保存し、カーソルをリンクの後ろへ移す。
+/// What the server answers to the paste of the link of an image into "a" at the cursor 1
+fn link_pasted(body: &str, position: usize) -> ApiOutput {
+    serde_json::from_value(json!({ "Pasted": {
+        "items": [item("a", 1, body)],
+        "cursor": { "itemId": "a", "position": position },
+    } }))
+    .unwrap()
+}
+
+// 画像の挿入は、ファイルをアップロードし、リンクをカーソル位置への貼り付けとして送り、カーソルをリンクの後ろへ移す。
 #[test]
 fn an_inserted_image_is_uploaded_and_linked_at_the_cursor() {
     let link = "![pic.png](../assets/pic.png)";
@@ -517,21 +526,21 @@ fn an_inserted_image_is_uploaded_and_linked_at_the_cursor() {
     });
 
     let body = format!("x{link}y");
-    assert_eq!(driver.last_rows().unwrap()[0].body, body);
-    driver.answer(
-        |op| matches!(op, ApiOp::UpdateItem { body: Some(b), .. } if b == &body),
-        ApiOutput::Item(serde_json::from_value(item("a", 1, &body)).unwrap()),
-    );
     let behind_the_link = 1 + link.chars().count();
+    driver.answer(
+        |op| matches!(op, ApiOp::PasteText { text, cursor: 1, .. } if text == link),
+        link_pasted(&body, behind_the_link),
+    );
+    assert_eq!(driver.last_rows().unwrap()[0].body, body);
     assert!(driver
         .focuses()
         .contains(&("a".to_string(), Some(behind_the_link))));
     assert_eq!(driver.messages(), Vec::<String>::new());
 }
 
-// 挿入の間はキーを止める。打った文字は、リンクを入れる前の本文に上書きされて消えてしまうため。
+// 挿入の間はキーを止める。リンクは挿入を始めたときのカーソル位置に入るので、その間に打つと位置がずれるため。
 #[test]
-fn keys_are_held_until_the_inserted_image_is_saved() {
+fn keys_are_held_until_the_link_of_the_inserted_image_is_pasted() {
     let mut driver = Driver::open(&[item("a", 1, "xy")]);
     let upload = driver.insert_image("a", 1);
     assert_eq!(driver.holding(), Some(true));
@@ -542,10 +551,9 @@ fn keys_are_held_until_the_inserted_image_is_saved() {
     });
     assert_eq!(driver.holding(), Some(true));
 
-    let saved = item("a", 1, "x![pic.png](../assets/pic.png)y");
     driver.answer(
-        |op| matches!(op, ApiOp::UpdateItem { .. }),
-        ApiOutput::Item(serde_json::from_value(saved).unwrap()),
+        |op| matches!(op, ApiOp::PasteText { .. }),
+        link_pasted("x![pic.png](../assets/pic.png)y", 30),
     );
     assert_eq!(driver.holding(), Some(false));
 }
@@ -569,9 +577,9 @@ fn a_failed_upload_is_reported_and_the_body_stays() {
     assert_eq!(driver.holding(), Some(false));
 }
 
-// アップロードのあとでリンクの保存に失敗しても、そのことを伝える。
+// アップロードのあとでリンクの貼り付けに失敗しても、そのことを伝える。
 #[test]
-fn a_failed_save_of_the_link_is_reported() {
+fn a_failed_paste_of_the_link_is_reported() {
     let mut driver = Driver::open(&[item("a", 1, "xy")]);
     let upload = driver.insert_image("a", 1);
     driver.shell.handle(Input::ApiDone {
@@ -580,8 +588,8 @@ fn a_failed_save_of_the_link_is_reported() {
     });
 
     let (save, _) = driver
-        .take_api(|op| matches!(op, ApiOp::UpdateItem { .. }))
-        .expect("the link was not saved");
+        .take_api(|op| matches!(op, ApiOp::PasteText { .. }))
+        .expect("the link was not pasted");
     driver.shell.handle(Input::ApiDone {
         id: save,
         result: Box::new(Err(ApiError("server down".into()))),
