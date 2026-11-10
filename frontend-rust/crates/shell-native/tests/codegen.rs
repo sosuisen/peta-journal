@@ -38,3 +38,24 @@ fn the_swift_types_of_the_border_are_written() {
         assert!(swift.contains(&format!("public {declared}:")), "{declared}");
     }
 }
+
+// ビューモデルが`Box`の中に持つ型も、生成される。生成の道具は`Box`の中をたどらないので、漏れるとSwiftがコンパイルできない。
+#[test]
+fn a_type_the_view_model_keeps_in_a_box_is_written() {
+    let swift = swift_types(&generated("boxed"));
+
+    assert!(swift.contains("case page(PageView?)"));
+    assert!(swift.contains("public struct PageView:"));
+}
+
+// 生成されたSwiftに、タプルはない。Swiftのタプルは比べられないので、それを持つ型がコンパイルできなくなる。
+#[test]
+fn no_tuple_is_written() {
+    let swift = swift_types(&generated("tuples"));
+
+    let tuples: Vec<&str> = swift
+        .lines()
+        .filter(|line| line.contains("public var") && line.contains(": [("))
+        .collect();
+    assert!(tuples.is_empty(), "{tuples:?}");
+}
