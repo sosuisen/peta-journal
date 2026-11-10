@@ -16,18 +16,24 @@ pub struct Rename {
     pub to: String,
 }
 
-/// The new name of every file in the folder. Nothing is changed.
+/// The new name of every file in the folder, oldest file first. Nothing is changed.
 pub fn plan(assets_dir: &Path) -> std::io::Result<Vec<Rename>> {
-    let ids = IdGenerator::new();
-    let mut plan = Vec::new();
+    let mut files = Vec::new();
     for entry in std::fs::read_dir(assets_dir)? {
         let entry = entry?;
-        let from = entry.file_name().to_string_lossy().into_owned();
-        let id = ids.generate_asset_id_at(millis(entry.metadata()?.modified()?));
-        let to = saved_name(&id, &from);
-        plan.push(Rename { from, to });
+        let name = entry.file_name().to_string_lossy().into_owned();
+        files.push((millis(entry.metadata()?.modified()?), name));
     }
-    Ok(plan)
+    // Oldest first, because the generator gives an older time the time of the one before
+    files.sort();
+    let ids = IdGenerator::new();
+    Ok(files
+        .into_iter()
+        .map(|(saved_ms, from)| {
+            let to = saved_name(&ids.generate_asset_id_at(saved_ms), &from);
+            Rename { from, to }
+        })
+        .collect())
 }
 
 fn millis(time: SystemTime) -> u64 {

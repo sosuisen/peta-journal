@@ -45,4 +45,16 @@ mod plan {
         assert_eq!(times, ["20260203040506", "20260927000000"]);
         assert_eq!(plan[0].from, "b.png");
     }
+
+    // 作成日時が更新日時より古いファイルは、作成日時を名前に持つ。
+    #[test]
+    fn a_file_made_before_its_modified_time_is_named_by_the_time_it_was_made() {
+        let dir = tempfile::tempdir().unwrap();
+        file_changed_at(dir.path(), "image.png", (2099, 1, 1, 0, 0, 0));
+        let made = Utc::now().format("%Y%m%d").to_string();
+
+        let plan = asset_names::plan(dir.path()).unwrap();
+
+        assert_eq!(&plan[0].to[..8], made);
+    }
 }
