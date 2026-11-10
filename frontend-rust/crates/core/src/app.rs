@@ -257,6 +257,11 @@ pub enum Event {
         /// The label of the undo entry: "move", "move-selection" or "outdent".
         label: &'static str,
     },
+    /// The server moved an item to the journal of another day: the journal follows it or
+    /// reads itself again.
+    MovedToDay {
+        moved: ops::moves::CrossDayMove,
+    },
     /// The server moved an item that a transclusion shows: the page is read again.
     MovedInTransclusion {
         item_id: String,
@@ -895,6 +900,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
             edited,
             label,
         } => ops::moves::show_moved(model, moved, &position, edited, label),
+        MovedToDay { moved } => ops::moves::show_moved_to_day(model, moved),
         MovedInTransclusion { item_id } => ops::moves::show_moved_in_transclusion(model, item_id),
         MovePageReloaded { item_id } => ops::moves::focus_moved(model, item_id),
         MoveFailed { unsaved } => ops::moves::move_failed(model, unsaved.as_deref()),

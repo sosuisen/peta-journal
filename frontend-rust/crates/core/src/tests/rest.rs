@@ -106,11 +106,6 @@ fn every_operation_goes_to_its_endpoint() {
             "/api/pages/p",
         ),
         (
-            ApiOp::DeleteItem { item_id: id("a") },
-            "DELETE",
-            "/api/items/a",
-        ),
-        (
             ApiOp::DeleteItems { item_ids: vec![] },
             "POST",
             "/api/items/delete",
@@ -513,6 +508,31 @@ fn a_move_posts_the_body_that_is_not_saved_yet() {
     );
 }
 
+// 別の日への移動は、その日のジャーナルの移動の入口へ送る。動かす項目に入力してまだ保存していない本文があれば、その本文も送る。
+#[test]
+fn a_move_to_another_day_posts_to_the_move_of_that_days_journal_with_the_body_not_saved_yet() {
+    let moved = |body: Option<&str>| {
+        call(ApiOp::MoveItemsToJournal {
+            file_name: "2026-02-11".into(),
+            item_ids: vec![id("a"), id("a1")],
+            position: ItemPosition::Last,
+            body: body.map(str::to_string),
+        })
+        .request
+    };
+    let with_body = moved(Some("typed"));
+    assert_eq!(with_body.method, "POST");
+    assert_eq!(with_body.path, "/api/journals/2026-02-11/move");
+    assert_eq!(
+        with_body.body,
+        Some(json!({ "itemIds": ["a", "a1"], "position": "last", "body": "typed" }))
+    );
+    assert_eq!(
+        moved(None).body,
+        Some(json!({ "itemIds": ["a", "a1"], "position": "last" }))
+    );
+}
+
 // トランスクルージョンが見せている項目の分割は、そのトランスクルージョンも送る。
 #[test]
 fn a_split_of_an_item_a_transclusion_shows_posts_the_transclusion_too() {
@@ -829,7 +849,7 @@ fn a_success_without_a_body_answers_done() {
 // サーバーのエラーは、そのメッセージをcoreへ渡す。
 #[test]
 fn a_server_error_carries_its_message() {
-    let result = call(ApiOp::DeleteItem { item_id: id("a") })
+    let result = call(ApiOp::DeletePage { page_id: id("p") })
         .decode(&reply(400, json!({ "error": "Level must be 1" })));
     assert_eq!(result, Err(ApiError("Level must be 1".into())));
 }
@@ -837,7 +857,7 @@ fn a_server_error_carries_its_message() {
 // メッセージのないエラーは、HTTPの状態を伝える。
 #[test]
 fn an_error_without_a_message_names_the_status() {
-    let result = call(ApiOp::DeleteItem { item_id: id("a") }).decode(&HttpReply {
+    let result = call(ApiOp::DeletePage { page_id: id("p") }).decode(&HttpReply {
         status: 500,
         body: "oops".into(),
     });
@@ -886,7 +906,7 @@ fn a_page_update_answers_the_page() {
 // 他の操作の409は、ただのエラーである。
 #[test]
 fn a_conflict_on_another_operation_is_an_error() {
-    let result = call(ApiOp::DeleteItem { item_id: id("a") })
+    let result = call(ApiOp::DeletePage { page_id: id("p") })
         .decode(&reply(409, json!({ "error": "taken: x" })));
     assert_eq!(result, Err(ApiError("taken: x".into())));
 }

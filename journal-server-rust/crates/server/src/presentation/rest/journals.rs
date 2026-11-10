@@ -2,13 +2,16 @@ use std::collections::BTreeMap;
 
 use axum::extract::{Path, Query, State};
 use axum::routing::{get, post};
-use axum::{Json, Router};
+use axum::{Extension, Json, Router};
 use chrono::NaiveDate;
+use hmtid::Hmtid;
 use serde::{Deserialize, Serialize};
 
 use crate::application::journal_service::MostRecentJournalResult;
 use crate::domain::journal_name::JournalName;
-use crate::error::{AppError, AppResult};
+use crate::domain::model::ItemPosition;
+use crate::error::{parse_id, AppError, AppResult};
+use crate::presentation::client_id::ClientId;
 use crate::presentation::dto::{ItemDto, PageDto};
 use crate::state::{blocking, SharedState};
 
@@ -20,6 +23,24 @@ pub fn routes() -> Router<SharedState> {
             get(most_recent_weekly_before),
         )
         .route("/api/journals/{name}", post(get_or_create))
+        .route("/api/journals/{name}/move", post(move_items))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct MoveToJournalRequest {
+    item_ids: Vec<String>,
+    position: String,
+    /// The text the editor of the first item has now, when it is not saved yet.
+    body: Option<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct MoveToJournalResponse {
+    page: PageDto,
+    created: bool,
+    items: Vec<ItemDto>,
 }
 
 #[derive(Serialize)]
@@ -68,6 +89,47 @@ async fn get_or_create(
             items: state.dtos.to_dtos(&result.items)?,
             created: result.created,
             transcluded_trees: state.dtos.transcluded_trees(&result.items)?,
+        }))
+    })
+    .await
+}
+
+/// Moves items to the journal of a day, as a move key at the edge of a day does (ADR 011).
+async fn move_items(
+    State(state): State<SharedState>,
+    Extension(client): Extension<ClientId>,
+    Path(name): Path<String>,
+    Json(req): Json<MoveToJournalRequest>,
+) -> AppResult<Json<MoveToJournalResponse>> {
+    let JournalName::Daily(date) = name.parse::<JournalName>()? else {
+        return Err(AppError::bad_request(
+            "Items move to the journal of a day only",
+        ));
+    };
+    let item_ids: Vec<Hmtid> = req
+        .item_ids
+        .iter()
+        .map(|s| parse_id(s))
+        .collect::<AppResult<_>>()?;
+    let position = ItemPosition::parse(&req.position).map_err(AppError::bad_request)?;
+    blocking(move || {
+        let moved = state.journal_service.move_items_to_journal(
+            date,
+            &item_ids,
+            &position,
+            req.body.as_deref(),
+        )?;
+        if moved.created {
+            // The extensions see the journal with the items that moved in
+            state.extensions.page_created(&moved.page)?;
+        }
+        for page_id in &moved.page_ids {
+            state.sse.broadcast_pages_updated(&client, page_id.as_str());
+        }
+        Ok(Json(MoveToJournalResponse {
+            page: state.dtos.page_to_dto(&moved.page)?,
+            created: moved.created,
+            items: state.dtos.to_dtos(&moved.items)?,
         }))
     })
     .await

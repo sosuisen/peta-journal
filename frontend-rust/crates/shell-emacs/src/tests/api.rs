@@ -64,8 +64,8 @@ fn an_operation_is_sent_and_its_reply_is_read() {
     let http = fake(204);
     let output = call(
         &http,
-        ApiOp::DeleteItem {
-            item_id: "a".into(),
+        ApiOp::DeletePage {
+            page_id: "p".into(),
         },
     );
     assert_eq!(output, Ok(ApiOutput::Done));
@@ -73,7 +73,7 @@ fn an_operation_is_sent_and_its_reply_is_read() {
     assert_eq!(asked.len(), 1);
     assert_eq!(
         (asked[0].method, asked[0].path.as_str()),
-        ("DELETE", "/api/items/a")
+        ("DELETE", "/api/pages/p")
     );
 }
 

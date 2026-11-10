@@ -2796,6 +2796,160 @@ async fn a_day_is_created_with_one_empty_item_and_found_again_by_its_date() {
     assert_eq!(first["page"]["id"], again["page"]["id"]);
 }
 
+// ---- Journals: moving items to a day ----
+
+/// The id of the page of a journal answer.
+fn page_id_of(journal: &Value) -> String {
+    journal["page"]["id"].as_str().unwrap().to_string()
+}
+
+/// Moves items to the daily journal of `date`, the way a move key at the edge of a day
+/// does: with the body the editor of the first item has now, when it is not saved yet.
+async fn move_to_journal(
+    date: &str,
+    item_ids: &[&str],
+    position: &str,
+    body: Option<&str>,
+) -> (u16, Value) {
+    let mut req = json!({ "itemIds": item_ids, "position": position });
+    if let Some(body) = body {
+        req["body"] = json!(body);
+    }
+    post(&format!("/api/journals/{date}/move"), req).await
+}
+
+// 項目は子ごと、その日のジャーナルの末尾へ動く。要求の本文は、先頭の項目に保存される。日をまたぐ移動が1つの要求で送るものである。
+#[tokio::test]
+async fn items_move_to_the_end_of_a_days_journal_with_the_body_the_request_carries() {
+    let from = page_id_of(&journal("1999-07-01").await);
+    let rows = fill(&from, &["go", "  go-child", "stay"]).await;
+    let to = page_id_of(&journal("1999-07-02").await);
+    fill(&to, &["there"]).await;
+
+    let (status, resp) = move_to_journal(
+        "1999-07-02",
+        &[&rows[0].id, &rows[1].id],
+        "last",
+        Some("go typed"),
+    )
+    .await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(resp["created"], json!(false));
+    assert_eq!(resp["page"]["id"], json!(to));
+    assert_eq!(
+        field_of_each(&resp, "items", "body"),
+        vec![json!("go typed"), json!("go-child")]
+    );
+    assert_eq!(
+        outline_of(&to).await,
+        vs(&["1:there", "1:go typed", "2:go-child"])
+    );
+    assert_eq!(outline_of(&from).await, vs(&["1:stay"]));
+}
+
+// その日のジャーナルがなければ、移動が作る。作られたページは、空の項目を持たずに動かした項目だけを持ち、`created`で答え、名前で検索できる。
+#[tokio::test]
+async fn a_move_makes_the_journal_of_the_day_when_there_is_none() {
+    let from = page_id_of(&journal("1999-07-03").await);
+    let rows = fill(&from, &["go", "stay"]).await;
+
+    let (status, resp) = move_to_journal("1999-07-04", &[&rows[0].id], "last", None).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(resp["created"], json!(true));
+    assert_eq!(resp["page"]["name"], json!("1999-07-04"));
+    let to = page_id_of(&resp);
+    assert_eq!(outline_of(&to).await, vs(&["1:go"]));
+    let again = journal("1999-07-04").await;
+    assert_eq!(again["created"], json!(false));
+    assert_eq!(page_id_of(&again), to);
+    let found = search("/api/search/pages", "1999-07-04").await;
+    assert!(
+        field_of_each(&found, "results", "pageTitle").contains(&json!("1999-07-04")),
+        "{found}"
+    );
+}
+
+// 移動先の日が空の1項目だけを持っていれば、その項目は消え、動かした項目だけが残る。
+#[tokio::test]
+async fn the_single_empty_item_of_the_day_goes_when_items_move_in() {
+    let from = page_id_of(&journal("1999-07-05").await);
+    let rows = fill(&from, &["go", "stay"]).await;
+    let to = page_id_of(&journal("1999-07-06").await);
+
+    let (status, resp) = move_to_journal("1999-07-06", &[&rows[0].id], "first", None).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(outline_of(&to).await, vs(&["1:go"]));
+}
+
+// 動かした項目が最後の項目だった日は、空の項目を1つ残す。ページは項目を1つは持つ。
+#[tokio::test]
+async fn the_day_the_last_item_leaves_keeps_one_empty_item() {
+    let from = page_id_of(&journal("1999-07-07").await);
+    let rows = fill(&from, &["go", "  go-child"]).await;
+    let to = page_id_of(&journal("1999-07-08").await);
+    fill(&to, &["there"]).await;
+
+    let (status, resp) =
+        move_to_journal("1999-07-08", &[&rows[0].id, &rows[1].id], "first", None).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(outline_of(&from).await, vs(&["1:"]));
+    assert_eq!(
+        outline_of(&to).await,
+        vs(&["1:go", "2:go-child", "1:there"])
+    );
+}
+
+// 断られた移動は、何も書かない。本文も保存されず、日のジャーナルも作られない。
+#[tokio::test]
+async fn a_refused_move_to_a_day_writes_nothing() {
+    let from = page_id_of(&journal("1999-07-09").await);
+    let rows = fill(&from, &["go"]).await;
+
+    let not_there = "after:00000000000000000000000000";
+    let (status, resp) =
+        move_to_journal("1999-07-10", &[&rows[0].id], not_there, Some("typed")).await;
+
+    assert_eq!(status, 400, "{resp}");
+    assert_eq!(outline_of(&from).await, vs(&["1:go"]));
+    assert_eq!(journal("1999-07-10").await["created"], json!(true));
+}
+
+// 日でないジャーナル（週、月、年）への移動は断られる。
+#[tokio::test]
+async fn items_do_not_move_to_a_week_a_month_or_a_year() {
+    let from = page_id_of(&journal("1999-07-11").await);
+    let rows = fill(&from, &["go"]).await;
+
+    let (status, resp) = move_to_journal("1999-W28", &[&rows[0].id], "last", None).await;
+
+    assert_eq!(status, 400, "{resp}");
+    assert_eq!(outline_of(&from).await, vs(&["1:go"]));
+}
+
+// 日への移動では、移動先の日と、項目が出ていった日の変更が、クライアントに1回ずつ知らされる。
+#[tokio::test]
+async fn the_clients_hear_once_of_each_day_a_move_changes() {
+    let from = journal("1999-07-12").await;
+    let rows = fill(&page_id_of(&from), &["go", "stay"]).await;
+    let to = journal("1999-07-13").await;
+    let as_ref = |j: &Value| PageRef {
+        id: page_id_of(j),
+        title: j["page"]["name"].as_str().unwrap().to_string(),
+    };
+
+    let told = times_told(&[&as_ref(&from), &as_ref(&to)], async {
+        let (status, resp) = move_to_journal("1999-07-13", &[&rows[0].id], "last", None).await;
+        assert_eq!(status, 200, "{resp}");
+    })
+    .await;
+
+    assert_eq!(told, [1, 1]);
+}
+
 // ある日付より前の、直近の日のジャーナルが見つかる。
 #[tokio::test]
 async fn the_most_recent_day_before_a_date_is_found() {

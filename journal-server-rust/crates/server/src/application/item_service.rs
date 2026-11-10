@@ -76,6 +76,19 @@ pub struct Moved {
     pub page_ids: BTreeSet<Hmtid>,
 }
 
+/// A move of items as a key in an editor does it.
+#[derive(Debug, Clone, Copy)]
+pub struct MoveRequest<'a> {
+    pub item_ids: &'a [Hmtid],
+    pub target_page_id: &'a Hmtid,
+    pub position: &'a ItemPosition,
+    /// How many levels deeper the items go; 0 keeps their levels.
+    pub level_delta: i32,
+    /// The text the editor of the first item has now, when it is not saved yet. It is saved
+    /// to that item (or to the source item of a transclusion) before the move.
+    pub body: Option<&'a str>,
+}
+
 /// One operation of a batch.
 #[derive(Debug, Clone)]
 pub enum BatchOp {
@@ -124,6 +137,13 @@ pub(crate) struct AfterCommit {
     /// The tags of an item before and after, for the tag pages.
     tag_changes: Vec<(Vec<String>, Vec<String>)>,
     pages: BTreeSet<Hmtid>,
+}
+
+impl AfterCommit {
+    /// The pages the operation changed, to tell the clients of.
+    pub(crate) fn pages(&self) -> &BTreeSet<Hmtid> {
+        &self.pages
+    }
 }
 
 pub struct ItemService {
@@ -464,44 +484,60 @@ impl ItemService {
         position: &ItemPosition,
         level_delta: Option<i32>,
     ) -> AppResult<Vec<Item>> {
-        let moved = self.move_edited_items(item_ids, target_page_id, position, level_delta, None);
+        let moved = self.move_edited_items(&MoveRequest {
+            item_ids,
+            target_page_id,
+            position,
+            level_delta: level_delta.unwrap_or(0),
+            body: None,
+        });
         Ok(moved?.items)
     }
 
-    /// Moves items as a key in an editor does. `body` is the text the editor of the first
-    /// item has now, when it is not saved yet: it is saved in the same transaction (ADR 011).
-    pub fn move_edited_items(
-        &self,
-        item_ids: &[Hmtid],
-        target_page_id: &Hmtid,
-        position: &ItemPosition,
-        level_delta: Option<i32>,
-        body: Option<&str>,
-    ) -> AppResult<Moved> {
-        let delta = level_delta.unwrap_or(0);
+    /// Moves items as a key in an editor does: with the body of the request saved in the
+    /// same transaction (ADR 011).
+    pub fn move_edited_items(&self, request: &MoveRequest<'_>) -> AppResult<Moved> {
         // The write lock of the transaction keeps two moves from planning their indices from
         // the same snapshot of a page
         let mut conn = self.items.db().conn()?;
         let tx = conn.immediate()?;
         let mut effects = AfterCommit::default();
-        if let (Some(body), Some(first)) = (body, item_ids.first()) {
-            let edited = find_all_in(&tx, std::slice::from_ref(first))?.remove(0);
-            // A transclusion shows its source item. What is typed into it is text of the
-            // source, and stays on the page of the source
-            let edited = match &edited.transclude_item_id {
-                Some(source_id) => find_all_in(&tx, std::slice::from_ref(source_id))?.remove(0),
-                None => edited,
-            };
-            let mut body = body.to_string();
-            paste::close_code_fence(&mut body);
-            self.update_item_in(&tx, &edited, Some(&body), None, None, &mut effects)?;
-        }
-        self.move_items_in(&tx, item_ids, target_page_id, position, delta, &mut effects)?;
-        let items = find_all_in(&tx, item_ids)?;
+        let items = self.move_edited_items_in(&tx, request, &mut effects)?;
         tx.commit()?;
         let page_ids = effects.pages.clone();
         self.finish(effects);
         Ok(Moved { items, page_ids })
+    }
+
+    /// `move_edited_items` inside a transaction, with the pages to tell and to export in
+    /// `effects`. Returns the moved items.
+    pub(crate) fn move_edited_items_in(
+        &self,
+        tx: &Connection,
+        request: &MoveRequest<'_>,
+        effects: &mut AfterCommit,
+    ) -> AppResult<Vec<Item>> {
+        let MoveRequest {
+            item_ids,
+            target_page_id,
+            position,
+            level_delta,
+            body,
+        } = *request;
+        if let (Some(body), Some(first)) = (body, item_ids.first()) {
+            let edited = find_all_in(tx, std::slice::from_ref(first))?.remove(0);
+            // A transclusion shows its source item. What is typed into it is text of the
+            // source, and stays on the page of the source
+            let edited = match &edited.transclude_item_id {
+                Some(source_id) => find_all_in(tx, std::slice::from_ref(source_id))?.remove(0),
+                None => edited,
+            };
+            let mut body = body.to_string();
+            paste::close_code_fence(&mut body);
+            self.update_item_in(tx, &edited, Some(&body), None, None, effects)?;
+        }
+        self.move_items_in(tx, item_ids, target_page_id, position, level_delta, effects)?;
+        find_all_in(tx, item_ids)
     }
 
     /// Moves items inside a transaction, with the pages to tell and to export in `effects`.
@@ -587,7 +623,7 @@ impl ItemService {
 
     /// Removes a group of items inside a transaction. The group is refused when it leaves a
     /// descendant of one of its items behind.
-    fn remove_group_in(
+    pub(crate) fn remove_group_in(
         &self,
         tx: &Connection,
         item_ids: &[Hmtid],

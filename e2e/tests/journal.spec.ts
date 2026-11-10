@@ -27,15 +27,19 @@ test.describe('journal', () => {
     expect((await server.items(today.id)).map(i => i.body)).toEqual(['']);
   });
 
-  test('moving the top item up sends it to the next day and follows it there', async ({ page }) => {
+  test('moving the top item up sends it to the next day in one request, which carries the typed text, and follows it there', async ({ page }) => {
     await page.goto('/today');
     await page.locator('app-outline-item').first().waitFor();
     const today = await server.journal(todayName);
     const [item] = await server.items(today.id);
     await openEditor(page, item.id);
-    await page.keyboard.type('tomorrow please');
-    await server.itemsSettled(today.id, i => i[0].body === 'tomorrow please');
+    const writes: unknown[] = [];
+    page.on('request', r => {
+      if (r.method() !== 'GET') writes.push([`${r.method()} ${new URL(r.url()).pathname}`, r.postDataJSON()]);
+    });
 
+    // No pause between the keys: the auto-save has not sent the text yet when the item moves
+    await page.keyboard.type('tomorrow please');
     await page.keyboard.press('Alt+Shift+ArrowUp');
 
     const nextDay = shiftDays(todayName, 1);
@@ -46,6 +50,13 @@ test.describe('journal', () => {
     // The day it left keeps an empty item
     expect((await server.itemsSettled(today.id, i => i.length === 1))[0].body).toBe('');
     await expect(editorOf(page, item.id)).toBeFocused();
+    // Longer than the auto-save waits: the typed text must not be saved a second time
+    await page.waitForTimeout(600);
+    // The journal that opens reads its day with a POST, which is not a write of the move
+    expect(writes.filter(([name]) => name !== `POST /api/journals/${nextDay}`)).toEqual([[
+      `POST /api/journals/${nextDay}/move`,
+      { itemIds: [item.id], position: 'last', body: 'tomorrow please' },
+    ]]);
   });
 
   test('slow scrolling across day boundaries keeps a steady pace', async ({ page }) => {

@@ -12,6 +12,7 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
+use crate::application::item_service::MoveRequest;
 use crate::domain::journal_name::JournalName;
 use crate::domain::model::{BacklinkEntry, Item, ItemPosition, Page, SearchResult};
 use crate::error::{parse_id, AppError, AppResult};
@@ -457,15 +458,14 @@ impl JournalMcp {
         let item_ids = ids(&a.item_ids)?;
         let target = id(&a.target_page_id)?;
         let pos = position(&a.position)?;
-        let delta = if a.level_delta == 0 {
-            None
-        } else {
-            Some(a.level_delta)
-        };
         let items = run(move || {
-            let moved = state
-                .item_service
-                .move_edited_items(&item_ids, &target, &pos, delta, None)?;
+            let moved = state.item_service.move_edited_items(&MoveRequest {
+                item_ids: &item_ids,
+                target_page_id: &target,
+                position: &pos,
+                level_delta: a.level_delta,
+                body: None,
+            })?;
             tell_all(&state, moved.page_ids.iter().map(|id| id.as_str()));
             Ok(moved.items)
         })

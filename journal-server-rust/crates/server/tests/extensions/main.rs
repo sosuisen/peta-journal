@@ -314,6 +314,34 @@ async fn a_failed_extension_writes_nothing_and_the_others_still_run() {
     assert_eq!(bodies(&created["items"]), vec![(1, "D1".to_string())]);
 }
 
+// 別の日への移動が作ったジャーナルにも、拡張が頼んだ項目が入る。動かした項目のあとに入り、答えは動かした項目だけを持つ。
+#[tokio::test]
+async fn a_journal_made_by_a_move_gets_the_items_its_extension_asked_for_after_the_moved_ones() {
+    ext_server();
+    let (_, from) = post_empty("/api/journals/2031-02-01").await;
+    let from_id = from["page"]["id"].as_str().unwrap();
+    let rows = fill(from_id, &["go", "stay"]).await;
+
+    let (status, moved) = post(
+        "/api/journals/2031-02-02/move",
+        json!({ "itemIds": [rows[0].id], "position": "last" }),
+    )
+    .await;
+
+    assert_eq!(status, 200, "{moved}");
+    assert_eq!(moved["created"], json!(true));
+    assert_eq!(bodies(&moved["items"]), vec![(1, "go".to_string())]);
+    let (_, page) = get(&format!(
+        "/api/pages/{}",
+        moved["page"]["id"].as_str().unwrap()
+    ))
+    .await;
+    assert_eq!(
+        bodies(&page["items"]),
+        vec![(1, "go".to_string()), (1, "J 2031-02-02".to_string())]
+    );
+}
+
 // 新しいジャーナルも、拡張が頼んだ項目を持って返る。
 #[tokio::test]
 async fn a_new_journal_comes_with_the_items_its_extension_asked_for() {

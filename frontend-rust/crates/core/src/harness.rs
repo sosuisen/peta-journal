@@ -72,13 +72,13 @@ pub fn op_name(op: &ApiOp) -> &'static str {
         ApiOp::GetMostRecentJournalBefore { .. } => "GetMostRecentJournalBefore",
         ApiOp::GetMostRecentWeeklyJournalBefore { .. } => "GetMostRecentWeeklyJournalBefore",
         ApiOp::GetOrCreateJournal { .. } => "GetOrCreateJournal",
+        ApiOp::MoveItemsToJournal { .. } => "MoveItemsToJournal",
         ApiOp::GetOrCreateDoc { .. } => "GetOrCreateDoc",
         ApiOp::CreateItem { .. } => "CreateItem",
         ApiOp::UpdateItem { .. } => "UpdateItem",
         ApiOp::ShiftItemLevels { .. } => "ShiftItemLevels",
         ApiOp::MoveItems { .. } => "MoveItems",
         ApiOp::DeletePage { .. } => "DeletePage",
-        ApiOp::DeleteItem { .. } => "DeleteItem",
         ApiOp::DeleteItems { .. } => "DeleteItems",
         ApiOp::MergeItems { .. } => "MergeItems",
         ApiOp::PasteText { .. } => "PasteText",
@@ -199,10 +199,9 @@ impl FakeApi {
                     })
                     .collect(),
             ),
-            ApiOp::DeleteItem { .. }
-            | ApiOp::DeleteItems { .. }
-            | ApiOp::DeletePage { .. }
-            | ApiOp::AnswerConfirm { .. } => ApiOutput::Done,
+            ApiOp::DeleteItems { .. } | ApiOp::DeletePage { .. } | ApiOp::AnswerConfirm { .. } => {
+                ApiOutput::Done
+            }
             // The server joins the bodies the request carries, and those it has for the rest
             ApiOp::MergeItems {
                 item_id,
@@ -365,6 +364,33 @@ impl FakeApi {
                     ..Default::default()
                 },
                 items: vec![plain_item(&format!("item-{file_name}"), 1, "")],
+                ..Default::default()
+            }),
+            // The server answers with the journal of the day and the moved items, the first
+            // with the body the request carries
+            ApiOp::MoveItemsToJournal {
+                file_name,
+                item_ids,
+                body,
+                ..
+            } => ApiOutput::Page(PageWithItems {
+                page: Page {
+                    id: format!("page-{file_name}"),
+                    name: file_name.clone(),
+                    page_type: "journal".into(),
+                    ..Default::default()
+                },
+                items: item_ids
+                    .iter()
+                    .enumerate()
+                    .map(|(n, id)| {
+                        let mut item = stored(id).unwrap_or_else(|| plain_item(id, 1, ""));
+                        if let (0, Some(body)) = (n, body) {
+                            item.body = body.clone();
+                        }
+                        item
+                    })
+                    .collect(),
                 ..Default::default()
             }),
             ApiOp::GetOrCreateDoc { title, dir_path } => ApiOutput::Page(PageWithItems {

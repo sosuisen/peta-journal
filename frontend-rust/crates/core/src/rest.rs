@@ -280,6 +280,23 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
             None,
             page,
         ),
+        ApiOp::MoveItemsToJournal {
+            file_name,
+            item_ids,
+            position,
+            body,
+        } => {
+            let mut request = json!({ "itemIds": item_ids, "position": position.to_api() });
+            if let Some(body) = body {
+                request["body"] = json!(body);
+            }
+            call(
+                "POST",
+                format!("/api/journals/{}/move", enc(&file_name)),
+                Some(request),
+                page,
+            )
+        }
         ApiOp::GetOrCreateDoc { title, dir_path } => call(
             "POST",
             "/api/pages/doc",
@@ -338,9 +355,6 @@ pub fn rest_call(op: ApiOp) -> Option<RestCall> {
         }
         ApiOp::DeletePage { page_id } => {
             call("DELETE", format!("/api/pages/{page_id}"), None, done)
-        }
-        ApiOp::DeleteItem { item_id } => {
-            call("DELETE", format!("/api/items/{item_id}"), None, done)
         }
         ApiOp::DeleteItems { item_ids } => call(
             "POST",
