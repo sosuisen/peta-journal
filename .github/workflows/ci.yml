@@ -43,9 +43,10 @@ jobs:
       - if: matrix.workspace == 'frontend-rust'
         run: cargo check --target wasm32-unknown-unknown -p peta-frontend
       # The Emacs mode of crates/shell-emacs. These tests need no process. The E2E tests are not
-      # run here: they need the journal server too
+      # run here: they need the journal server too.
+      # Why not emacs-nox: it has no images and no fringes, and some of the tests are about them
       - if: matrix.workspace == 'frontend-rust'
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends emacs-nox
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends emacs-gtk
       - if: matrix.workspace == 'frontend-rust'
         working-directory: frontend-rust/crates/shell-emacs
         run: emacs -Q --batch -L lisp -l lisp/test/peta-journal-test.el -f ert-run-tests-batch-and-exit
