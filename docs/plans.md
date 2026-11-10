@@ -71,6 +71,9 @@
   - 別の端末のDBには残っていない。2026-11-10にユーザーがDBを消し、`.md`から作り直した
 - [ ] 移す前の控えを消す。2026-11-10に、`assets`の93ファイルとリンクをHMTIDの名前に移し（ADR 022）、`write-pages`で584ファイルを書き直した。別の端末との同期は、ユーザーが確かめた（2026-11-10）。控えは`~/.peta-journal/backup-before-asset-names-20261110`と`~/.peta-journal/backup-before-write-pages-20261110`にある。問題がないと分かったら、ユーザーが消す
   - 対応表`~/.peta-journal/asset-names.json`は残す。画像の名前を元に戻すときに要る
+  - 控えを消すときに、コマンド`asset-names`の`plan`、`apply`、`revert`と対応表を、まとめて消す。名前をもう戻さないと決めたことになるからである（2026-11-11にユーザーが決めた）。消すのは、`application/asset_names.rs`、`main.rs`のサブコマンド、`tests/it/asset_names.rs`、READMEと`features.md`の説明である。`tests/it/page_files.rs`が使う`settings_under`と`Notes`は、別の場所に移す
+  - `plan`と`apply`だけを先に消すことはしない。`revert`は、対応表の向きを逆にして`apply`と同じコードを通る。消しても、ほとんど減らない
+  - コマンド`write-pages`は消さない。サーバーがファイルに書く形を変えたときに、また使う
 - [ ] 空のDBにMarkdownフォルダを取り込むとき、トランスクルージョンの元の項目がまだ入っていないページは、取り込みに失敗する（`FOREIGN KEY constraint failed`）。次のフォルダの調べで入るが、それまでページが空になる。ノートの写しでは3ページで起きた（2026-11-10）。直すかを決める
 - [ ] 別のページへの移動（`POST /api/items/move`）で元のページが空になるかを確かめる
   - ページを空にしない約束（ADR 021）は、項目を消す入口と、バッチ、日をまたぐ移動で守っている。この移動では確かめていない。空になるなら、同じ処理を呼ぶ
