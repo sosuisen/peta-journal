@@ -1288,6 +1288,18 @@ Not `vertical-motion': in a batch run it does not know about `word-wrap'."
     (search-forward "y")
     (should-not (get-text-property (match-beginning 0) 'face))))
 
+;; 本文の先頭の記法は、どのバレットの後ろでも色が付く。
+(ert-deftest peta-journal-the-start-of-a-body-has-its-color-behind-any-bullet ()
+  (peta-journal-test--with-rows
+      (list (peta-journal-test--row "a" 1 "> 引用" :collapsed t)
+            (peta-journal-test--row "b" 1 "> 引用" :bullet "transclusion")
+            (peta-journal-test--row "c" 1 "> 引用" :bullet "transclusion" :collapsed t))
+    (font-lock-ensure)
+    (goto-char (point-min))
+    (dotimes (_ 3)
+      (search-forward "引用")
+      (should (eq (get-text-property (match-beginning 0) 'face) 'peta-journal-quote)))))
+
 ;; 字下げのコードにも色が付く。
 (ert-deftest peta-journal-indented-code-has-its-color ()
   (should (eq (peta-journal-test--face "    x = 1\n    y = 2" "y") 'peta-journal-code)))
