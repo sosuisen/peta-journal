@@ -80,5 +80,6 @@ fn the_command_writes_the_files_of_a_stopped_server_and_tells_how_many_pages_it_
     let told = page_files::run(settings_under(notes.dir.path())).unwrap();
 
     assert_eq!(notes.file(TRIP), with_dates);
-    assert_eq!(told, "1 of 2 page files written");
+    // The third page is the atlas of the docs, which the server makes
+    assert_eq!(told, "1 of 3 page files written");
 }

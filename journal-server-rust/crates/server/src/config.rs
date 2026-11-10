@@ -98,6 +98,11 @@ pub enum Command {
         #[arg(long)]
         file: PathBuf,
     },
+
+    /// Writes the markdown file of every page again, so that the files of an older server
+    /// get what this server writes, such as the modified date of each item. The database
+    /// stays as it is
+    WritePages,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
