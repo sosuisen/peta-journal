@@ -1,6 +1,6 @@
 use crate::{Host, NativeShell, ShellEffectFfi};
 use crux_core::bridge::{BincodeFfiFormat, FfiFormat, Request};
-use peta_core::effects::{ApiError, ApiOp, ApiOutput, ApiResult};
+use peta_core::effects::{ApiError, ApiOp, ApiOutput, ApiResult, UiOp};
 use peta_core::model::{Page, PageWithItems};
 use peta_core::rest::ClientId;
 use peta_core::testing::plain_item;
@@ -72,6 +72,18 @@ impl Screen {
         String::from_utf8_lossy(&self.shell.view()).into_owned()
     }
 
+    /// The screen operations the shell was asked for, oldest first.
+    fn ui_ops(&self) -> Vec<UiOp> {
+        let requests = self.requests.lock().unwrap();
+        requests
+            .iter()
+            .filter_map(|request| match &request.effect {
+                ShellEffectFfi::Ui(op) => Some(op.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+
     fn renders(&self) -> usize {
         let requests = self.requests.lock().unwrap();
         requests
@@ -104,4 +116,19 @@ fn a_page_the_shell_opens_is_read_from_the_server_and_reaches_the_shell_as_bytes
         screen.view().contains("the body of a")
     });
     assert!(screen.renders() > 0);
+}
+
+// 画面の操作は、バイト列でシェルに届く。ページを開くと、タイトルを変える依頼が届く。
+#[test]
+fn an_operation_of_the_screen_reaches_the_shell_as_bytes() {
+    let screen = Screen::new(FakeHost);
+
+    screen.open_notes();
+
+    wait_until("the shell is asked to set the title", || {
+        screen
+            .ui_ops()
+            .iter()
+            .any(|op| matches!(op, UiOp::SetTitle(title) if title.contains("notes")))
+    });
 }
