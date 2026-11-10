@@ -793,6 +793,11 @@ fn every_answer_becomes_the_output_of_its_operation() {
             ApiOutput::JournalBefore(JournalBefore::default()),
         ),
         (
+            ApiOp::DeleteItems { item_ids: vec![] },
+            json!({ "created": [] }),
+            ApiOutput::Items(vec![]),
+        ),
+        (
             ApiOp::ShiftItemLevels {
                 item_ids: vec![],
                 delta: 1,
@@ -868,10 +873,7 @@ fn every_answer_becomes_the_output_of_its_operation() {
 // 本文のない成功は、Doneを答える。
 #[test]
 fn a_success_without_a_body_answers_done() {
-    let output = call(ApiOp::DeleteItems {
-        item_ids: vec![id("a")],
-    })
-    .decode(&HttpReply {
+    let output = call(ApiOp::DeletePage { page_id: id("p") }).decode(&HttpReply {
         status: 204,
         body: String::new(),
     });

@@ -1,7 +1,7 @@
 //! What happens to the selected items: delete, copy, cut and move.
 
 use crate::app::{Event, SelectionKey};
-use crate::effects::{ApiOp, ApiOutput, UiOp};
+use crate::effects::{ApiOutput, UiOp};
 use crate::harness::{delete_calls, item, move_calls, op_name, Harness};
 use crate::model::TranscludedTrees;
 use crate::testing::item_with;
@@ -13,8 +13,8 @@ fn select(h: &mut Harness, ids: &[&str]) {
     h.model.state.set_item_selection_mode(true);
 }
 
-// 選択範囲の削除で項目が一つの Undo エントリとして削除され、ページが空にならないよう空の項目が一つ作られる。
-// サーバーには、選んだ項目を1つのグループとして1回で送る。
+// 選択範囲の削除で項目が一つの Undo エントリとして削除され、ページが空にならないようサーバーが作った空の項目が表示される。
+// サーバーには、選んだ項目を1つのグループとして1回で送る。空の項目を作る要求は送らない。
 #[test]
 fn deleting_the_selection_removes_the_items_as_one_undo_entry_and_keeps_one_item_on_the_page() {
     let mut h = Harness::with_items(vec![item("a", 1, ""), item("b", 1, "")]);
@@ -28,8 +28,10 @@ fn deleting_the_selection_removes_the_items_as_one_undo_entry_and_keeps_one_item
     assert_eq!(
         h.items_ids(),
         ["new1"],
-        "an empty item was created so the page is not empty"
+        "the empty item the server made is shown so the page is not empty"
     );
+    assert!(!h.api.called("CreateItem"));
+    assert_eq!(h.model.state.focused_item_id(), Some("new1"));
     assert_eq!(h.model.undo.pop_undo().unwrap().label, "delete-selection");
 }
 
@@ -221,14 +223,12 @@ fn position(h: &Harness, name: &str) -> usize {
         .unwrap_or_else(|| panic!("no {name} call"))
 }
 
-// 選択にトランスクルージョンがあれば、その解除の後に、トランスクルージョン自身が削除される。
+// 選択にトランスクルージョンがあれば、解除の要求は送らず、トランスクルージョン自身を1回の削除で送る。
 // 元の項目とその子は、元のページの項目なので削除しない。
 #[test]
-fn deleting_a_selected_transclusion_removes_the_transclusion_first_and_keeps_the_source() {
+fn deleting_a_selected_transclusion_sends_it_in_the_one_delete_and_keeps_the_source() {
     let h = select_with_transclusion(SelectionKey::Delete);
-    let removed: Vec<_> = h.api.calls_named("RemoveTransclusion");
-    assert!(matches!(removed[..], [ApiOp::RemoveTransclusion { ref item_id }] if item_id == "t"));
-    assert!(position(&h, "RemoveTransclusion") < position(&h, "DeleteItems"));
+    assert!(!h.api.called("RemoveTransclusion"));
     assert_eq!(
         delete_calls(&h.api),
         [vec!["a".to_string(), "t".to_string()]]
@@ -237,29 +237,16 @@ fn deleting_a_selected_transclusion_removes_the_transclusion_first_and_keeps_the
     assert_eq!(h.items_ids(), ["new1"]);
 }
 
-// 切り取りも同じで、コピーの後に、解除してからトランスクルージョン自身を削除する。
+// 切り取りも同じで、コピーの後に、トランスクルージョン自身を1回の削除で送る。
 #[test]
-fn cutting_a_selected_transclusion_removes_the_transclusion_first_and_keeps_the_source() {
+fn cutting_a_selected_transclusion_sends_it_in_the_one_delete_and_keeps_the_source() {
     let h = select_with_transclusion(SelectionKey::Cut);
-    assert!(h.api.called("ExportTreeMarkdown"));
-    assert!(position(&h, "RemoveTransclusion") < position(&h, "DeleteItems"));
+    assert!(position(&h, "ExportTreeMarkdown") < position(&h, "DeleteItems"));
+    assert!(!h.api.called("RemoveTransclusion"));
     assert_eq!(
         delete_calls(&h.api),
         [vec!["a".to_string(), "t".to_string()]]
     );
-}
-
-// 解除をサーバーが断ると、何も削除されず、選択が残る。
-#[test]
-fn a_refused_removal_of_the_transclusion_deletes_nothing() {
-    let transclusion = item_with("t", 1, |i| i.transclude_item_id = Some("src".into()));
-    let mut h = Harness::with_items(vec![item("a", 1, "x"), transclusion]);
-    h.api.fail_next("RemoveTransclusion", "offline");
-    select(&mut h, &["a", "t"]);
-    h.send(Event::SelectionKey(SelectionKey::Delete));
-    assert!(!h.api.called("DeleteItems"));
-    assert!(h.model.state.item_selection_mode(), "the selection stays");
-    assert_eq!(h.items_ids(), ["a", "t"]);
 }
 
 // 確認でキャンセルすると、トランスクルージョンは解除されない。
@@ -473,14 +460,17 @@ fn cutting_the_selection_copies_it_and_then_deletes_it() {
     assert_eq!(h.items_ids(), ["b"]);
 }
 
-// サーバーが選択範囲の削除を断ると、ページはサーバーの持つ形に読み直される。
+// サーバーが選択範囲の削除を断ると、何も消えず、選択もUndoも変わらない。画面は変えていないので、ページは読み直さない。
 #[test]
-fn a_selection_delete_the_server_refuses_reloads_the_page() {
+fn a_selection_delete_the_server_refuses_changes_nothing() {
     let mut h = Harness::with_items(vec![item("a", 1, "x"), item("b", 1, "y")]);
     select(&mut h, &["a"]);
     h.api.fail_next("DeleteItems", "refused");
     key(&mut h, SelectionKey::Delete);
-    assert!(h.api.called("GetPageById"));
+    assert_eq!(h.items_ids(), ["a", "b"]);
+    assert!(h.model.state.item_selection_mode(), "the selection stays");
+    assert!(h.model.undo.pop_undo().is_none());
+    assert!(!h.api.called("GetPageById"));
 }
 
 // 子を持つ項目まで選択を伸ばすと、その子も入る。伸ばし続けると、入っている子は飛ばして次へ進む。
