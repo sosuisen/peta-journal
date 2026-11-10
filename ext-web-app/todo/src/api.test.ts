@@ -215,6 +215,18 @@ describe('the requests to the journal server', () => {
     );
   });
 
+  // タスクは、表示に使うフィールドだけを頼む。本文のMarkdownは受け取らない。
+  test('ask only for the fields of a task that the app shows', async () => {
+    answer('{"items":[]}');
+
+    await getTasks(true);
+
+    const url = new URL(fetchMock.mock.calls[0][0] as string);
+    expect(url.searchParams.get('fields')).toBe(
+      'id,type,dirPath,name,ast,properties',
+    );
+  });
+
   // タグのページを置くフォルダは、サーバーの設定から取る。
   test('get the folder of the tag pages from the configuration', async () => {
     answer('{"tagsDir":"tags/","homeLink":""}');
