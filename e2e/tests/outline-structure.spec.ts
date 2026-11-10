@@ -182,6 +182,8 @@ test.describe('outline structure', () => {
       await openEditor(page, byBody('b1').id);
       await page.keyboard.press('End');
       await page.keyboard.press('Enter');  // an empty item below b1
+      // The new item is shown once the server has answered: a paste sent before that goes into b1
+      await expect(page.locator('textarea:focus')).toHaveValue('');
       await page.evaluate(async () => {
         const data = new DataTransfer();
         data.setData('text/plain', await navigator.clipboard.readText());
