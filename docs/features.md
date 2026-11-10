@@ -776,6 +776,16 @@
 
 - 拡張のURLはOSに渡されて開かれる。開けなくても、書き出しフォルダを開けなくても、画面には何も出ない
 
+### 表示だけのアプリに項目を渡す
+
+出典: `journal-server-rust/crates/server/tests/it/api.rs`、`ext-web-app/todo/src/api.test.ts`
+
+- 型での一覧（`GET /api/items`）とページの取得（`GET /api/pages/{id}`）は、`fields`で頼まれたフィールドだけを各項目に持つ。`items`や`page`の包みは変わらない
+  - 表示だけのアプリは、本文のMarkdown（`body`）を受け取らずに、`ast`から描ける
+  - ページの取得では、トランスクルードの木の項目も同じである。ページの情報はそのまま返る
+  - 1件の取得（`GET /api/items/{id}`）は、`fields`を付けると`item`の包みがなく、フィールドが直接返る
+- todoアプリは、表示に使うフィールドだけを頼む
+
 ## Emacsで読み書きする
 
 出典: `shell-emacs/`
