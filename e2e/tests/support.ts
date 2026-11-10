@@ -66,6 +66,18 @@ export class Server {
     return items.map((i: StoredItem) => ({ id: i.id, level: i.level, body: i.body, types: i.types ?? [], properties: i.properties ?? {}, collapsed: !!i.collapsed }));
   }
 
+  /** Makes the atlas page of a directory, which turns the page of that name into its index page. */
+  async newAtlas(dirPath: string): Promise<{ id: string }> {
+    const resp = await this.request.post(`${this.base}/api/pages/doc`, { data: { title: 'index_atlas', dirPath } });
+    expect(resp.ok()).toBe(true);
+    return { id: (await resp.json()).page.id };
+  }
+
+  /** Whether the server still has the page. */
+  async hasPage(pageId: string): Promise<boolean> {
+    return (await this.request.get(`${this.base}/api/pages/${pageId}`)).ok();
+  }
+
   /** Deletes an item the way another client does. */
   async deleteItem(itemId: string): Promise<void> {
     const resp = await this.request.delete(`${this.base}/api/items/${itemId}`);
