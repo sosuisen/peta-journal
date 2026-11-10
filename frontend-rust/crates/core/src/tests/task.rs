@@ -28,8 +28,7 @@ fn an_item_that_becomes_a_task_on_a_daily_journal_shows_the_plan_the_server_answ
         "CycleTask",
         Ok(ApiOutput::Item(item_with("a", 1, |i| {
             i.types = vec!["task".into()];
-            i.properties
-                .insert("plan".into(), serde_json::json!("2026-02-10"));
+            i.properties.insert("plan".into(), "2026-02-10".into());
         }))),
     );
     h.send(Event::TaskCycle {

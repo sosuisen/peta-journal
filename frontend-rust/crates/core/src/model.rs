@@ -2,7 +2,6 @@
 
 use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use serde_json::Value;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
@@ -36,9 +35,87 @@ pub struct Item {
     pub types: Vec<String>,
     /// Property values are strings or lists of strings.
     #[serde(default)]
-    pub properties: BTreeMap<String, Value>,
+    pub properties: BTreeMap<String, PropertyValue>,
     #[serde(default)]
     pub transclude_item_id: Option<String>,
+}
+
+/// The value of a property. The server has only these two shapes.
+///
+/// It is written in two ways. JSON has it as the server does: a string, or an array of
+/// strings. A format that does not describe itself, like the bincode of the native border
+/// (ADR 024), cannot tell the two apart by looking, so there it is an enum with a tag.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PropertyValue {
+    Text(String),
+    List(Vec<String>),
+}
+
+impl PropertyValue {
+    /// The text, or None for a list.
+    pub fn as_text(&self) -> Option<&str> {
+        match self {
+            PropertyValue::Text(text) => Some(text),
+            PropertyValue::List(_) => None,
+        }
+    }
+
+    /// The list, or None for a text.
+    pub fn as_list(&self) -> Option<&[String]> {
+        match self {
+            PropertyValue::Text(_) => None,
+            PropertyValue::List(list) => Some(list),
+        }
+    }
+}
+
+// Short ways to write a value in a test. The app only makes values from owned strings.
+#[cfg(test)]
+impl From<&str> for PropertyValue {
+    fn from(text: &str) -> Self {
+        PropertyValue::Text(text.to_string())
+    }
+}
+
+#[cfg(test)]
+impl<const N: usize> From<[&str; N]> for PropertyValue {
+    fn from(list: [&str; N]) -> Self {
+        PropertyValue::List(list.iter().map(|text| text.to_string()).collect())
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(remote = "PropertyValue", untagged)]
+enum PropertyValueAsJson {
+    Text(String),
+    List(Vec<String>),
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(remote = "PropertyValue", rename = "PropertyValue")]
+enum PropertyValueWithTag {
+    Text(String),
+    List(Vec<String>),
+}
+
+impl Serialize for PropertyValue {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        if serializer.is_human_readable() {
+            PropertyValueAsJson::serialize(self, serializer)
+        } else {
+            PropertyValueWithTag::serialize(self, serializer)
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for PropertyValue {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        if deserializer.is_human_readable() {
+            PropertyValueAsJson::deserialize(deserializer)
+        } else {
+            PropertyValueWithTag::deserialize(deserializer)
+        }
+    }
 }
 
 /// Items are shared between the state, the view model and undo snapshots, so they are
@@ -75,18 +152,16 @@ impl Item {
 
     /// A string property, or None when unset or not a string.
     pub fn prop_str(&self, key: &str) -> Option<&str> {
-        self.properties.get(key).and_then(|v| v.as_str())
+        self.properties.get(key).and_then(PropertyValue::as_text)
     }
 
     /// A list property, or an empty list when unset or not a list.
     pub fn prop_list(&self, key: &str) -> Vec<String> {
-        match self.properties.get(key) {
-            Some(Value::Array(values)) => values
-                .iter()
-                .filter_map(|v| v.as_str().map(str::to_string))
-                .collect(),
-            _ => Vec::new(),
-        }
+        self.properties
+            .get(key)
+            .and_then(PropertyValue::as_list)
+            .map(<[String]>::to_vec)
+            .unwrap_or_default()
     }
 
     /// The hashtags of the item, as kept in its tags property.
@@ -141,7 +216,7 @@ pub struct Page {
     pub tags: Vec<String>,
     /// Property values are strings or lists of strings; empty in page lists.
     #[serde(default)]
-    pub properties: BTreeMap<String, Value>,
+    pub properties: BTreeMap<String, PropertyValue>,
 }
 
 impl Page {
@@ -497,6 +572,92 @@ mod tests {
         assert_eq!(item.prop_str("end"), Some("2026-01-01T00:00:00Z"));
         assert!(item.is_daily_journal_item());
         assert_eq!(item.heading_level_of_body(), 1);
+    }
+
+    // JSON の文字列は、文字列のプロパティ値として読み取られる。
+    #[test]
+    fn reads_a_json_string_as_a_text_value() {
+        let value: PropertyValue = serde_json::from_str(r#""1.5""#).unwrap();
+        assert_eq!(value, PropertyValue::Text("1.5".into()));
+    }
+
+    // プロパティ値は、サーバーと同じ形の JSON に書かれる。文字列は文字列に、リストは配列になる。
+    #[test]
+    fn writes_json_in_the_shape_of_the_server() {
+        let text = PropertyValue::Text("1.5".into());
+        let list = PropertyValue::List(vec!["x".into(), "y".into()]);
+        assert_eq!(serde_json::to_string(&text).unwrap(), r#""1.5""#);
+        assert_eq!(serde_json::to_string(&list).unwrap(), r#"["x","y"]"#);
+    }
+
+    // JSON の文字列の配列は、リストのプロパティ値として読み取られる。
+    #[test]
+    fn reads_a_json_array_of_strings_as_a_list_value() {
+        let value: PropertyValue = serde_json::from_str(r#"["x","y"]"#).unwrap();
+        assert_eq!(value, PropertyValue::List(vec!["x".into(), "y".into()]));
+    }
+
+    // 文字列でも文字列の配列でもない JSON は、プロパティ値として読み取れない。サーバーはこの 2 つの形しか返さない。
+    #[test]
+    fn refuses_json_of_any_other_shape() {
+        for json in ["1.5", "true", "null", "[1]", r#"{"a":"b"}"#] {
+            assert!(
+                serde_json::from_str::<PropertyValue>(json).is_err(),
+                "{json}"
+            );
+        }
+    }
+
+    // プロパティ値は、ネイティブのシェルとの境界の形式（bincode）に書いて、同じ値に読み戻せる（ADR 024）。
+    #[test]
+    fn round_trips_through_the_format_of_the_native_border() {
+        use crux_core::bridge::{BincodeFfiFormat, FfiFormat};
+        for value in [
+            PropertyValue::Text("1.5".into()),
+            PropertyValue::List(vec!["x".into(), "y".into()]),
+        ] {
+            let mut bytes = Vec::new();
+            BincodeFfiFormat::serialize(&mut bytes, &value).unwrap();
+            let back: PropertyValue = BincodeFfiFormat::deserialize(&bytes).unwrap();
+            assert_eq!(back, value);
+        }
+    }
+
+    // プロパティを持つ項目とページは、ネイティブのシェルとの境界の形式（bincode）に書いて、同じ値に読み戻せる（ADR 024）。
+    #[test]
+    fn items_and_pages_with_properties_round_trip_through_the_native_border() {
+        use crux_core::bridge::{BincodeFfiFormat, FfiFormat};
+        let properties = BTreeMap::from([
+            ("zoom".to_string(), PropertyValue::Text("1.5".into())),
+            ("tags".to_string(), PropertyValue::List(vec!["x".into()])),
+        ]);
+        let item = Item {
+            properties: properties.clone(),
+            ..Default::default()
+        };
+        let page = Page {
+            properties,
+            ..Default::default()
+        };
+        let mut bytes = Vec::new();
+        BincodeFfiFormat::serialize(&mut bytes, &(&item, &page)).unwrap();
+        let back: (Item, Page) = BincodeFfiFormat::deserialize(&bytes).unwrap();
+        assert_eq!(back, (item, page));
+    }
+
+    // 文字列として読むプロパティがリストなら値はなく、リストとして読むプロパティが文字列なら空のリストになる。
+    #[test]
+    fn a_value_of_the_other_shape_reads_as_unset() {
+        let item = Item {
+            properties: BTreeMap::from([
+                ("zoom".to_string(), PropertyValue::List(vec!["2".into()])),
+                ("tags".to_string(), PropertyValue::Text("x".into())),
+            ]),
+            ..Default::default()
+        };
+        assert_eq!(item.prop_str("zoom"), None);
+        assert_eq!(item.zoom(), 1.0);
+        assert!(item.tags().is_empty());
     }
 
     // ItemPosition は first・last・after:<id> の文字列を解析して同じ文字列に戻し、after は "after:x" という JSON 文字列にシリアライズされる。

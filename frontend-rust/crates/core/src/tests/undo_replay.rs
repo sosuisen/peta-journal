@@ -4,7 +4,6 @@ use crate::harness::{batch_calls, create_calls, delete_calls, item, update_calls
 use crate::model::{BatchOp, Batched, Item, ItemPosition, TaskState, TranscludedTrees};
 use crate::outline::CursorState;
 use crate::testing::item_with;
-use serde_json::json;
 
 /// The update of a batch that writes a body, a level and a collapsed state, and no task state
 fn update_op(id: &str, level: i32, body: &str) -> BatchOp {
@@ -176,9 +175,9 @@ fn done_task(id: &str) -> Item {
         i.body = "x".into();
         i.types = vec!["task".into()];
         i.properties = [
-            ("begin".to_string(), json!("b")),
-            ("end".to_string(), json!("e")),
-            ("plan".to_string(), json!("p")),
+            ("begin".to_string(), "b".into()),
+            ("end".to_string(), "e".into()),
+            ("plan".to_string(), "p".into()),
         ]
         .into();
     })

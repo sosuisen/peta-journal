@@ -2,7 +2,7 @@
 
 use crate::app::{ConnectionState, Model, Screen};
 use crate::model::{
-    IndexSort, Item, ItemRef, Page, PropertyDefinition, SearchResult, WeekNumbering,
+    IndexSort, Item, ItemRef, Page, PropertyDefinition, PropertyValue, SearchResult, WeekNumbering,
 };
 use crate::ops::wiki;
 use crate::outline::tree::starts_date_group;
@@ -108,29 +108,17 @@ pub struct PageProperty {
 }
 
 impl PageProperty {
-    fn of(key: &str, value: &serde_json::Value) -> PageProperty {
-        match value {
-            serde_json::Value::Array(values) => PageProperty {
-                key: key.to_string(),
-                value: values
-                    .iter()
-                    .filter_map(|v| v.as_str())
-                    .collect::<Vec<_>>()
-                    .join(", "),
-                is_list: true,
-                removable: true,
-                editable: true,
-            },
-            other => PageProperty {
-                key: key.to_string(),
-                value: other
-                    .as_str()
-                    .map(str::to_string)
-                    .unwrap_or_else(|| other.to_string()),
-                is_list: false,
-                removable: true,
-                editable: true,
-            },
+    fn of(key: &str, value: &PropertyValue) -> PageProperty {
+        let (value, is_list) = match value {
+            PropertyValue::List(values) => (values.join(", "), true),
+            PropertyValue::Text(text) => (text.clone(), false),
+        };
+        PageProperty {
+            key: key.to_string(),
+            value,
+            is_list,
+            removable: true,
+            editable: true,
         }
     }
 

@@ -3,11 +3,10 @@
 
 use crate::app::{done, log_error, run, Cmd, Event, Model, PageState, Screen};
 use crate::effects::{Api, ApiError, PageUpdate, UiOp};
-use crate::model::{BacklinkEntry, Page, PageWithItems};
+use crate::model::{BacklinkEntry, Page, PageWithItems, PropertyValue};
 use crate::screens::{navigate, sidebar};
 use crate::util::filename::validate_file_name;
 use crux_core::Command;
-use serde_json::Value;
 use std::collections::BTreeMap;
 
 /// The reserved file name of the atlas page of a directory.
@@ -406,11 +405,11 @@ fn list_items(value: &str) -> Vec<String> {
 }
 
 /// The shown value of a property as the server would store it: `tags` is a list.
-fn property_value(value_type: &str, value: &str) -> Value {
+fn property_value(value_type: &str, value: &str) -> PropertyValue {
     if is_list_type(value_type) {
-        Value::Array(list_items(value).into_iter().map(Value::String).collect())
+        PropertyValue::List(list_items(value))
     } else {
-        Value::String(value.to_string())
+        PropertyValue::Text(value.to_string())
     }
 }
 
@@ -459,7 +458,7 @@ pub fn delete_property(model: &mut Model, key: String) -> Cmd {
 async fn settle_property_change(
     api: &crate::effects::Api<crate::app::Event>,
     page_id: String,
-    before: BTreeMap<String, Value>,
+    before: BTreeMap<String, PropertyValue>,
     result: Result<Page, crate::effects::ApiError>,
 ) {
     match result {
@@ -485,7 +484,7 @@ pub fn show_property_saved(model: &mut Model, updated: Page) -> Cmd {
 pub fn put_properties_back(
     model: &mut Model,
     page_id: &str,
-    before: BTreeMap<String, Value>,
+    before: BTreeMap<String, PropertyValue>,
 ) -> Cmd {
     if let Some(page) = shown_page_mut(model, page_id) {
         page.properties = before;

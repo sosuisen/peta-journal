@@ -16,8 +16,7 @@ fn with_props(
 ) -> crate::model::Item {
     it.types = types.iter().map(|t| t.to_string()).collect();
     for (k, v) in props {
-        it.properties
-            .insert(k.to_string(), serde_json::Value::String(v.to_string()));
+        it.properties.insert(k.to_string(), (*v).into());
     }
     it
 }
