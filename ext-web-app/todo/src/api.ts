@@ -97,7 +97,9 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
  */
 export async function getTasks(includeDone: boolean): Promise<Item[]> {
   const query = includeDone ? 'types=task' : 'types=task&withoutProperty=end';
-  const data = await fetchJson<{ items: Item[] }>(`/api/items?${query}`);
+  const data = await fetchJson<{ items: Item[] }>(
+    `/api/items?${query}&fields=id,type,dirPath,name,ast,properties`,
+  );
   return data.items;
 }
 

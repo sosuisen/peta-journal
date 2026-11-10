@@ -198,7 +198,7 @@ describe('the requests to the journal server', () => {
 
     expect(items).toEqual([{ id: 'item-1' }]);
     expect(fetchMock).toHaveBeenCalledWith(
-      'http://journal.test:9000/api/items?types=task&withoutProperty=end',
+      'http://journal.test:9000/api/items?types=task&withoutProperty=end&fields=id,type,dirPath,name,ast,properties',
       undefined,
     );
   });
@@ -210,7 +210,7 @@ describe('the requests to the journal server', () => {
     await getTasks(true);
 
     expect(fetchMock).toHaveBeenCalledWith(
-      'http://journal.test:9000/api/items?types=task',
+      'http://journal.test:9000/api/items?types=task&fields=id,type,dirPath,name,ast,properties',
       undefined,
     );
   });
