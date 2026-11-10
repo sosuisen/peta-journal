@@ -79,6 +79,10 @@ choose the server and the page:
 open build/Build/Products/Debug/PetaJournal.app --args -server http://localhost:8087 -url /pages/notes
 ```
 
+`open` only brings a running app to the front: it starts no new one, and the arguments and a new
+build are ignored. Quit the app first (Cmd+Q). Start the journal server before the app, too: the
+app does not load the page again when the server comes up later.
+
 `App/` holds the views. They draw the view model of `Shell` and have no logic of their own, and
 no tests.
 
