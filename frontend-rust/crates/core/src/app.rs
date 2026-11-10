@@ -488,6 +488,20 @@ pub enum Event {
     /// The server deleted the shown page.
     PageDeleted,
     NavigateToToday,
+    /// A page is to be opened by its path, e.g. one just named in the header or the search.
+    OpenPage {
+        path: String,
+    },
+    /// The server answered the search the debounce timer `timer_id` started.
+    SearchAnswered {
+        timer_id: u64,
+        query: String,
+        results: Vec<SearchResult>,
+    },
+    /// The search the debounce timer `timer_id` started failed.
+    SearchFailed {
+        timer_id: u64,
+    },
     /// The Home button: the page set in the settings, or today
     NavigateHome,
     NavigateToRoot,
@@ -1108,6 +1122,13 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
         DeleteCurrentPage => screens::layout::delete_current_page(model),
         PageDeleted => screens::layout::show_page_deleted(),
         NavigateToToday => screens::navigate::to_url("/today", false),
+        OpenPage { path } => screens::navigate::open_page(&path),
+        SearchAnswered {
+            timer_id,
+            query,
+            results,
+        } => screens::search::show_results(model, timer_id, &query, results),
+        SearchFailed { timer_id } => screens::search::search_failed(model, timer_id),
         NavigateHome => screens::settings::navigate_home(model),
         NavigateToRoot => screens::navigate::open_folder(model, "index"),
         NavigateToTags => {
