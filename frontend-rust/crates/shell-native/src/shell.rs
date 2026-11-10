@@ -9,7 +9,8 @@ use crux_core::macros::effect;
 use crux_core::render::RenderOperation;
 use crux_core::{Core, Request};
 use peta_core::effects::{
-    ApiOp, ApiOutput, ApiResult, LocalDateTimeDto, NavigateOp, SseEvent, SseOp, UiOp, UiOutput,
+    ApiOp, ApiOutput, ApiResult, LocalDateTimeDto, NavigateOp, SseEvent, SseOp, TimerOp,
+    TimerOutput, UiOp, UiOutput,
 };
 use peta_core::rest::ClientId;
 use peta_core::{Effect, Event, PetaApp};
@@ -77,6 +78,17 @@ impl Lanes {
         });
     }
 
+    fn time<H: Host>(&self, host: &Arc<H>, mut request: Request<TimerOp>) {
+        let TimerOp::Start { ms, .. } = request.operation else {
+            return;
+        };
+        let (lanes, host) = (self.clone(), host.clone());
+        thread::spawn(move || {
+            host.sleep(ms);
+            lanes.answer(&mut request, TimerOutput::Fired);
+        });
+    }
+
     /// Reads the event stream. The core hears of every event through the one request.
     fn listen<H: Host>(&self, host: &Arc<H>, mut request: Request<SseOp>) {
         let (lanes, host) = (self.clone(), host.clone());
@@ -110,6 +122,7 @@ impl NativeShell {
             move |effect| match effect {
                 Effect::Api(request) => lanes.call(&host, request),
                 Effect::Sse(request) => lanes.listen(&host, request),
+                Effect::Timer(request) => lanes.time(&host, request),
                 Effect::Render(request) => send(ShellEffect::Render(request)),
                 Effect::Ui(mut request) if request.operation == UiOp::LocalNow => {
                     let (local, now_ms) = host.now();
@@ -117,7 +130,6 @@ impl NativeShell {
                 }
                 Effect::Ui(request) => send(ShellEffect::Ui(request)),
                 Effect::Navigate(request) => send(ShellEffect::Navigate(request)),
-                _ => {}
             }
         });
         router.update(Event::Start { client_id });
