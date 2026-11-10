@@ -529,6 +529,39 @@ async fn the_clients_hear_once_of_each_page_when_a_moved_transclusion_carries_a_
     assert_eq!(told, [1, 1]);
 }
 
+// ---- Items: the stash ----
+
+/// Sends an item to the stash of its page, with the body its editor has now when it is not
+/// saved yet.
+async fn stash(item_id: &str, body: Option<&str>) -> (u16, Value) {
+    let mut req = json!({});
+    if let Some(body) = body {
+        req["body"] = json!(body);
+    }
+    post(&format!("/api/items/{item_id}/stash"), req).await
+}
+
+// スタッシュへ送ると、ページ末尾に`# Stash`見出しが作られ、項目は子ごとその直下へ、見出しの子の階層で動く。要求の本文は項目に保存される。1つの要求である。
+#[tokio::test]
+async fn sending_to_the_stash_makes_its_heading_at_the_end_and_moves_the_subtree_under_it() {
+    let page = new_doc_page("items-stash").await;
+    let rows = fill(&page.id, &["a", "  a1", "z"]).await;
+
+    let (status, resp) = stash(&rows[0].id, Some("a typed")).await;
+    assert_eq!(status, 200, "{resp}");
+
+    assert_eq!(resp["created"], json!(true));
+    assert_eq!(resp["heading"]["body"], json!("# Stash"));
+    assert_eq!(
+        field_of_each(&resp, "items", "body"),
+        vec![json!("a typed"), json!("a1")]
+    );
+    assert_eq!(
+        outline_of(&page.id).await,
+        vs(&["1:z", "1:# Stash", "2:a typed", "3:a1"])
+    );
+}
+
 // ---- Items: tasks ----
 
 // cycle-taskは、タスク、実行中、完了を経て通常の項目に戻る。
