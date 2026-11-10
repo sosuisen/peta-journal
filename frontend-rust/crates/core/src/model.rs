@@ -499,6 +499,13 @@ mod tests {
         assert_eq!(item.heading_level_of_body(), 1);
     }
 
+    // JSON の文字列は、文字列のプロパティ値として読み取られる。
+    #[test]
+    fn reads_a_json_string_as_a_text_value() {
+        let value: PropertyValue = serde_json::from_str(r#""1.5""#).unwrap();
+        assert_eq!(value, PropertyValue::Text("1.5".into()));
+    }
+
     // ItemPosition は first・last・after:<id> の文字列を解析して同じ文字列に戻し、after は "after:x" という JSON 文字列にシリアライズされる。
     #[test]
     fn position_round_trips() {
