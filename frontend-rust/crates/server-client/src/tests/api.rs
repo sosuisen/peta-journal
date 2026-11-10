@@ -1,4 +1,4 @@
-use crate::api::{call, upload, Http};
+use crate::{call, upload, Http};
 use peta_core::effects::{ApiError, ApiOp, ApiOutput};
 use peta_core::model::Uploaded;
 use peta_core::rest::{HttpReply, HttpRequest};

@@ -18,7 +18,17 @@ rustflags = ['--cfg', 'getrandom_backend="wasm_js"']
 # crates/shell-emacs/tests/process.rs run the program itself, and that run is measured too. For
 # this the program ends by returning from `main`: a killed program writes no coverage.
 [alias]
-cov = ["llvm-cov", "-p", "peta-core", "-p", "fm-leptos", "-p", "peta-shell-emacs"]
+cov = [
+    "llvm-cov",
+    "-p",
+    "peta-core",
+    "-p",
+    "fm-leptos",
+    "-p",
+    "peta-server-client",
+    "-p",
+    "peta-shell-emacs",
+]
 
 # rust-lld links much faster than the MSVC link.exe, and it comes with the Rust toolchain. Every
 # test run waits for the link of the test binaries. The wasm target already links with it.
