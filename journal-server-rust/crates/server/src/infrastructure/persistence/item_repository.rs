@@ -26,6 +26,15 @@ const SELECT_ITEMS: &str =
      p.dir_path, p.name, p.type \
      FROM items b JOIN pages p ON b.page_id = p.id ";
 
+/// Leaves out the items that have a value for a property. A value is a row in one of the two
+/// tables: `properties` for one value, and `property_list_items` for a list.
+const WITHOUT_ITEM_PROPERTY: &str = "AND NOT EXISTS (\
+       SELECT 1 FROM properties pr \
+       WHERE pr.target_type = 'item' AND pr.target_id = b.id AND pr.key = ?) \
+     AND NOT EXISTS (\
+       SELECT 1 FROM property_list_items pl \
+       WHERE pl.target_type = 'item' AND pl.target_id = b.id AND pl.key = ?) ";
+
 /// An item and all its descendants, by a recursive query on parent_id, in page order.
 const SELECT_ITEM_WITH_DESCENDANTS: &str = "WITH RECURSIVE descendants AS (\
        SELECT i.* FROM items i WHERE i.id = ? \
@@ -141,17 +150,29 @@ impl ItemRepository {
         )
     }
 
-    pub fn find_by_types(&self, types: &[String]) -> AppResult<Vec<Item>> {
+    /// The items of the given types, newest first. With `without_property`, the items that
+    /// have a value for that property are left out: the tasks that are not done are the tasks
+    /// without `end`. They are left out here and not by the caller, because most tasks are done.
+    pub fn find_by_types(
+        &self,
+        types: &[String],
+        without_property: Option<&str>,
+    ) -> AppResult<Vec<Item>> {
         if types.is_empty() {
             return Ok(Vec::new());
         }
+        let mut params: Vec<&dyn rusqlite::ToSql> =
+            types.iter().map(|t| t as &dyn rusqlite::ToSql).collect();
+        let mut without = "";
+        if let Some(key) = &without_property {
+            without = WITHOUT_ITEM_PROPERTY;
+            params.extend([key as &dyn rusqlite::ToSql, key]);
+        }
         let sql = format!(
             "{SELECT_ITEMS}WHERE b.id IN (SELECT item_id FROM item_types WHERE type IN ({})) \
-             ORDER BY b.created_date DESC",
+             {without}ORDER BY b.created_date DESC",
             placeholders(types.len())
         );
-        let params: Vec<&dyn rusqlite::ToSql> =
-            types.iter().map(|t| t as &dyn rusqlite::ToSql).collect();
         self.query_items(&sql, &params)
     }
 

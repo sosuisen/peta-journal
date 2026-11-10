@@ -11,8 +11,8 @@ import {
   type ConnectionState,
   clientId,
   cycleTask,
-  getItemsByTypes,
   getTagsDir,
+  getTasks,
   serverUrl,
   serverUrlFrom,
   subscribe,
@@ -190,15 +190,27 @@ describe('the requests to the journal server', () => {
     vi.stubGlobal('fetch', fetchMock);
   });
 
-  // タスクの項目は、種類を指定してサーバーから取る。
-  test('get the items of the given types', async () => {
+  // 終わったタスクを見せないときは、終わっていないタスクだけをサーバーから取る。タスクの大半は終わっているため。
+  test('get only the tasks that are not done', async () => {
     answer('{"items":[{"id":"item-1"}]}');
 
-    const items = await getItemsByTypes(['task', 'note']);
+    const items = await getTasks(false);
 
     expect(items).toEqual([{ id: 'item-1' }]);
     expect(fetchMock).toHaveBeenCalledWith(
-      'http://journal.test:9000/api/items?types=task,note',
+      'http://journal.test:9000/api/items?types=task&withoutProperty=end',
+      undefined,
+    );
+  });
+
+  // 終わったタスクも見せるときは、すべてのタスクを取る。
+  test('get all tasks when the done tasks are shown too', async () => {
+    answer('{"items":[]}');
+
+    await getTasks(true);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://journal.test:9000/api/items?types=task',
       undefined,
     );
   });
