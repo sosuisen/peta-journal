@@ -38,7 +38,8 @@ private struct SearchEntryRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
             Text(entry.kind == .create ? "Create \"\(entry.title)\"" : entry.title)
-            if !entry.snippet.isEmpty {
+            // The snippet of a page found by its name is the name again
+            if !entry.snippet.isEmpty, entry.snippet != entry.title {
                 Text(entry.snippet).font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }
         }
