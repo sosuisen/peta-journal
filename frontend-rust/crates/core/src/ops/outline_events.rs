@@ -1,9 +1,9 @@
 //! The handlers of the outline component, ported from `outline.ts`: starting and ending
 //! edits, moving between items, and what the keys of selection mode do.
 
-use crate::app::{apply, done, run, Cmd, Model, MoveDirection, SelectionKey};
+use crate::app::{done, run, Cmd, Event, Model, MoveDirection, SelectionKey};
 use crate::model::Item;
-use crate::ops::edit::{record_typing, save_item_if_dirty, save_target_id, Handover};
+use crate::ops::edit::{begin_handover, record_typing, save_target_id, take_dirty};
 use crate::ops::{action, level, moves, undo_replay};
 use crate::outline::tree::{index_of, transclusion_context_of};
 use crux_core::Command;
@@ -20,16 +20,19 @@ pub fn edit_requested(model: &mut Model, item_id: &str, cursor: usize) -> Cmd {
         .filter(|id| *id != item_id)
         .and_then(|id| model.state.get_item_by_id(id))
         .map(|i| (*i).clone());
-    let save = match current {
-        Some(current) => run(move |api| async move {
-            let _handover = Handover::begin(&api);
-            let _ = save_item_if_dirty(&api, &current).await;
-        }),
-        None => done(),
-    };
     model.state.add_editing_item(item_id);
     model.state.set_focused_item(item_id, Some(cursor));
-    save
+    // The item left is saved when text was typed into it. The blur of its editor does not
+    // end the edit meanwhile
+    let Some((edit, discard)) = current.and_then(|current| take_dirty(model, &current)) else {
+        return done();
+    };
+    begin_handover(model);
+    let save = run(move |api| async move {
+        edit.save(&api).await;
+        api.send_event(Event::HandoverEnded);
+    });
+    Command::all([discard, save])
 }
 
 /// The user typed in an editor: the state shows it, the auto-save is scheduled and the
@@ -69,15 +72,27 @@ pub fn navigate(model: &mut Model, item_id: &str, cursor: usize, delta: i32) -> 
     }
     let from: Item = (*items[idx]).clone();
     let to_id = items[target as usize].id.clone();
-    run(move |api| async move {
-        let _ = save_item_if_dirty(&api, &from).await;
-        apply(&api, "navigate: switch editor", move |m| {
-            m.state.add_editing_item(&to_id);
-            m.state.set_focused_item(&to_id, Some(cursor));
-            m.state.remove_editing_item(&from.id);
-            done()
+    let from_id = from.id.clone();
+    let Some((edit, discard)) = take_dirty(model, &from) else {
+        return switch_editor(model, &from_id, &to_id, cursor);
+    };
+    let save = run(move |api| async move {
+        edit.save(&api).await;
+        api.send_event(Event::EditorSwitched {
+            from_id,
+            to_id,
+            cursor,
         });
-    })
+    });
+    Command::all([discard, save])
+}
+
+/// Moves the edit from one item to another, with the cursor at `cursor` in the new one.
+pub fn switch_editor(model: &mut Model, from_id: &str, to_id: &str, cursor: usize) -> Cmd {
+    model.state.add_editing_item(to_id);
+    model.state.set_focused_item(to_id, Some(cursor));
+    model.state.remove_editing_item(from_id);
+    done()
 }
 
 /// The ids of the selected items in outline order, each resolved to the item its edits are saved to.
