@@ -136,9 +136,10 @@ when the cursor leaves it, the shell tells the core that the edit is over (`Shel
 as the web frontend does, and the item shows its decoration again. The marks before the text
 (the bullet, the box of a task) are drawn by the screen, not taken from the HTML.
 
-A click on a link of an item that shows its decoration opens what the link names
-(`Shell.follow`): a wikilink opens its page in that sticky, a hashtag the page of the tag in the
-folder of the tags, and any other link opens in the browser. Such a click does not put the
+A click on a link of an item that shows its decoration opens it in the browser
+(`Shell.follow`). A wikilink opens its page, and a hashtag the page of the tag in the folder of
+the tags, in the web frontend at the address of the journal server; the sticky keeps its page.
+Any other link opens as it is. Such a click does not put the
 cursor in the item. A click beside the links does, and the item shows its Markdown.
 
 A journal (`/today`, `/journals/2026-11-11`) shows the days before below the day that was

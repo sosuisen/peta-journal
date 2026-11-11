@@ -33,16 +33,27 @@ pub fn copied_html(ast: &str, app_url: &str, tags_dir: &str) -> String {
     ast_to_html(&root)
 }
 
+/// The URL that opens the page of a wikilink in the web frontend, served at `app_url`.
+pub fn wikilink_url(app_url: &str, page: &str) -> String {
+    url_of(app_url, &format!("/pages/{page}"))
+}
+
+/// The URL that opens the page of a tag in the web frontend. A tag page lies under the
+/// configured tag directory.
+pub fn hashtag_url(app_url: &str, tags_dir: &str, tag: &str) -> String {
+    url_of(app_url, &format!("/pages/{tags_dir}{tag}"))
+}
+
 /// Makes every wikilink and hashtag under `node` an ordinary link to its page.
 fn link_to_the_app(node: &mut Node, app_url: &str, tags_dir: &str) {
     let link = match node {
         Node::Wikilink { url, children } => Some(Node::Link {
-            url: url_of(app_url, &format!("/pages/{url}")),
+            url: wikilink_url(app_url, url),
             title: String::new(),
             children: std::mem::take(children),
         }),
         Node::Hashtag { value } => Some(Node::Link {
-            url: url_of(app_url, &format!("/pages/{tags_dir}{value}")),
+            url: hashtag_url(app_url, tags_dir, value),
             title: String::new(),
             children: vec![Node::Text {
                 value: format!("#{value}"),

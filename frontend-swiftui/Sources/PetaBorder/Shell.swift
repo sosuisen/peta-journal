@@ -71,15 +71,20 @@ public final class Shell: ObservableObject {
         self.url = url
     }
 
-    /// The user clicked a link of a shown item. A wikilink and a hashtag open their page here,
-    /// as in the web frontend; any other link opens in the browser.
+    /// The user clicked a link of a shown item. Every link opens in the browser: a wikilink
+    /// and a hashtag open their page in the web frontend, which the journal server serves.
+    /// The sticky keeps its page.
     public func follow(_ link: URL) {
         switch ShownText.target(of: link) {
-        case .page(let path): open("/pages/\(path)")
-        case .tag(let name): open("/pages/\(view.config.tagsDir)\(name)")
+        case .page(let path): browse(wikilinkUrl(appUrl: server, page: path))
+        case .tag(let name): browse(hashtagUrl(appUrl: server, tagsDir: view.config.tagsDir, tag: name))
         case .out(let address): browse(address)
         case nil: break
         }
+    }
+
+    private func browse(_ address: String) {
+        if let url = URL(string: address) { browse(url) }
     }
 
     /// Sets the title. The core names every journal by the day it was opened for; the day at
