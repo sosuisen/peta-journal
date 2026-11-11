@@ -2134,6 +2134,7 @@ dependencies = [
  "chrono",
  "crux_core",
  "facet",
+ "flatmarkdown",
  "peta-core",
  "peta-server-client",
  "serde",
