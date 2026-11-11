@@ -60,7 +60,7 @@ public sealed class ShownTextTests
             "/pages/shown",
             main.Post,
             reply => reply(null),
-            _ => { },
+            (_, _) => { },
             _ => { }
         );
         main.WaitUntil("the page is shown", () => shell.View.Outline.Rows.Count > 0);

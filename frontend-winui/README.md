@@ -35,6 +35,8 @@ cd peta-journal/frontend-winui
 dotnet test PetaBorder.Tests
 ```
 
+`generate.sh` and `run.sh` do the same as the two `.ps1` scripts, for Git Bash.
+
 `generate.ps1` builds the Rust library optimized (`boltffi pack csharp --release`). It makes
 two C# projects under `generated/`. Run it again after a change in Rust. `generated/` is not
 kept in the repository.
@@ -76,6 +78,7 @@ follows its own option goes to the app:
 ```
 cd peta-journal/frontend-winui
 ./run.ps1 -url /pages/notes     # -Generate first makes generated/ again, after a change in Rust
+./run.sh -url /pages/notes      # the same in Git Bash; --generate, --debug, --help
 ```
 
 By hand, the steps are:
@@ -122,10 +125,14 @@ Markdown at once; when the cursor leaves it, the shell tells the core that the e
 Text that is still being composed by an input method is not sent to the core until it is
 confirmed, and the Enter that confirms it does not split the item.
 
-A click on a link of an item that shows its decoration opens what the link names
-(`Shell.Follow`): a wikilink opens its page in that sticky, a hashtag the page of the tag in
-the folder of the tags, and a link to the web or a mail address opens in the browser or the
-mail app. Such a click does not put the cursor in the item.
+A click on a link of an item that shows its decoration opens the link in the browser
+(`Shell.Follow`), as in the SwiftUI shell. A wikilink and a hashtag open their page in the
+web frontend, which the journal server serves: `WikilinkUrl` and `HashtagUrl` of the core
+library make the address. The sticky keeps its page. Of the other links, only those to the
+web and to a mail address are opened. Such a click does not put the cursor in the item.
+
+Items that are copied go to the clipboard as Markdown and as HTML (ADR 027). `CopiedHtml`
+of the core library makes the HTML.
 
 A journal (`/today`, `/journals/2026-11-11`) shows the days before below the day that was
 opened. Above the first item of each earlier day there is a line and the date of that day. The
@@ -180,10 +187,13 @@ Each window is a sticky with a page of its own. Its title bar shows the name of 
 the tools of the sticky at the right: search, pin, color and a new sticky. The tools are
 hidden while the window does not have the focus.
 
-A sticky that is closed is gone, and the app ends when the last one is closed. Ctrl+Q ends the
+A sticky that is closed with the button of its title bar is gone. A sticky whose window is
+closed in any other way is kept and comes back in the next run: Alt+F4, the taskbar, or
+Windows that ends the session. The app ends when the last window is closed. Ctrl+Q ends the
 app with all its stickies kept, as Command+Q does on a Mac.
 
-The menu with the palette gives the sticky another color: yellow, pink, green, blue or white.
+The menu with the palette gives the sticky another color: yellow, red, green, blue, orange,
+purple, white, gray or light gray. They are the colors of the SwiftUI shell.
 A sticky is light in every color, also when Windows is in dark mode.
 
 A double click on the title bar rolls the sticky up, so that only its title bar is left, and
@@ -191,7 +201,7 @@ another one rolls it down again to the size it had. A sticky that is rolled up s
 and comes back rolled up in the next run. A sticky cannot be maximized.
 
 The button with the pin keeps the sticky on top of the windows of other apps, until it is
-pressed again. The zoom stays between 30% and 300%. Color, pin and zoom are kept with each
+pressed again. The pin is filled while it does. The zoom stays between 30% and 300%. Color, pin and zoom are kept with each
 sticky.
 
 In the search box, what is typed is searched for a moment later. Down and Up choose an entry,
@@ -226,8 +236,8 @@ The windows have no tests. The SwiftUI shell puts its screen in a window in its 
 like that is written here yet. The app was checked by hand against a throwaway server
 (2026-11-11): typing, Enter, Tab, a task, the decoration, links, selecting and deleting items,
 the search box, a second sticky, the zoom, rolling up, a journal, and stickies that come back
-in the next run. Not checked: an input method, the dialogs of the core, the pin, the colors,
-and Ctrl+Q in a sticky where nothing has the focus.
+in the next run. The user checked an input method for Japanese. Not checked: the dialogs of
+the core, a click on a link, and Ctrl+Q in a sticky where nothing has the focus.
 
 Why the tests of the border matter: the C# types are generated from the shape of the Rust
 types, not from what serde writes. A Rust type with a hand-written `Serialize` can write other

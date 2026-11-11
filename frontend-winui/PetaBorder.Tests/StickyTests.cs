@@ -184,7 +184,7 @@ public sealed class StickyLookTests
     public void A_color_is_read_and_anything_else_is_yellow()
     {
         Assert.Equal(((byte)0xD0, (byte)0xE8, (byte)0xFF), StickyLook.Rgb("#D0E8FF"));
-        Assert.Equal(((byte)0xFF, (byte)0xFD, (byte)0xD0), StickyLook.Rgb("blue"));
-        Assert.Equal(((byte)0xFF, (byte)0xFD, (byte)0xD0), StickyLook.Rgb("#12345"));
+        Assert.Equal(((byte)0xFF, (byte)0xF8, (byte)0xD0), StickyLook.Rgb("blue"));
+        Assert.Equal(((byte)0xFF, (byte)0xF8, (byte)0xD0), StickyLook.Rgb("#12345"));
     }
 }

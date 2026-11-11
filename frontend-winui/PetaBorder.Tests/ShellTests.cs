@@ -17,6 +17,9 @@ public sealed class ShellTests : IDisposable
     /// <summary>What the shell put on the clipboard.</summary>
     private string? copied;
 
+    /// <summary>The HTML that the shell put on the clipboard with the text.</summary>
+    private string? copiedHtml;
+
     public void Dispose()
     {
         shells.ForEach(shell => shell.Dispose());
@@ -30,7 +33,7 @@ public sealed class ShellTests : IDisposable
             url,
             main.Post,
             reply => reply(onClipboard),
-            text => copied = text,
+            (text, html) => (copied, copiedHtml) = (text, html),
             _ => { }
         );
         shells.Add(shell);
@@ -567,7 +570,7 @@ public sealed class ShellTests : IDisposable
         Assert.Equal(["second"], Selected(shell));
     }
 
-    // 選んだ項目をコピーすると、Markdownがクリップボードに載る。
+    // 選んだ項目をコピーすると、Markdownがクリップボードに載る。同じ内容のHTMLも載る。
     [Fact]
     public void Copy_puts_the_selected_items_on_the_clipboard()
     {
@@ -579,6 +582,8 @@ public sealed class ShellTests : IDisposable
 
         main.WaitUntil("the clipboard has the items", () => copied is not null);
         Assert.Equal("- first\n- second", copied);
+        Assert.Contains("<li>first</li>", copiedHtml);
+        Assert.Contains("<li>second</li>", copiedHtml);
         Assert.Equal(["first", "second"], Bodies(shell));
     }
 
@@ -676,9 +681,9 @@ public sealed class ShellTests : IDisposable
         Assert.Equal("/pages/winui-notes", shell.Url);
     }
 
-    // ウィキリンクをたどると、そのページが開く。ハッシュタグは、タグのフォルダのページを開く。外のリンクは、ブラウザに渡す。
+    // リンクをたどると、どれもブラウザに渡る。ウィキリンクとハッシュタグは、Webのフロントエンドでそのページを開くURLになる。付箋紙のページは変わらない。
     [Fact]
-    public void A_link_that_is_followed_opens_its_page_or_goes_to_the_browser()
+    public void A_link_that_is_followed_goes_to_the_browser_and_the_sticky_keeps_its_page()
     {
         Uri? browsed = null;
         var shell = new Shell(
@@ -686,25 +691,23 @@ public sealed class ShellTests : IDisposable
             "/pages/winui-notes",
             main.Post,
             reply => reply(null),
-            _ => { },
+            (_, _) => { },
             uri => browsed = uri
         );
         shells.Add(shell);
         main.WaitUntil("the page is shown", () => shell.View.Outline.Rows.Count > 0);
-
-        shell.Follow(new LinkTarget.Page("linked/idea"));
-        main.WaitUntil("the linked page is shown", () => shell.Title == "linked/idea");
-        Assert.Equal("/pages/linked/idea", shell.Url);
-
         var tags = shell.View.Config.TagsDir;
         Assert.NotEqual("", tags);
+
+        shell.Follow(new LinkTarget.Page("linked/idea"));
+        Assert.Equal(new Uri($"{server.Address}/pages/linked/idea"), browsed);
+
         shell.Follow(new LinkTarget.Tag("todo"));
-        main.WaitUntil("the page of the tag is shown", () => shell.Title == $"{tags}todo");
-        Assert.Equal($"/pages/{tags}todo", shell.Url);
+        Assert.Equal(new Uri($"{server.Address}/pages/{tags}todo"), browsed);
 
         shell.Follow(new LinkTarget.Out(new Uri("https://example.com/a")));
         Assert.Equal(new Uri("https://example.com/a"), browsed);
-        Assert.Equal($"/pages/{tags}todo", shell.Url);
+        Assert.Equal("/pages/winui-notes", shell.Url);
     }
 
     /// <summary>

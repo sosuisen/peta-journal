@@ -5,7 +5,7 @@ namespace PetaBorder;
 /// <summary>What is kept of one sticky between two runs of the app.</summary>
 public sealed record StickySettings
 {
-    public const string Yellow = "#FFFDD0";
+    public const string Yellow = "#FFF8D0";
 
     public required string Id { get; init; }
 
