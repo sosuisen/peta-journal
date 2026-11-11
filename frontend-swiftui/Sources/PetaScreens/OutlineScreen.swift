@@ -7,6 +7,7 @@ public struct OutlineScreen: View {
     @ObservedObject private var shell: Shell
     @ObservedObject private var look: StickyLook
     @StateObject private var cursors = Cursors()
+    @StateObject private var texts = ShownTexts()
     /// What is typed into the prompt on screen.
     @State private var typed = ""
 
@@ -72,7 +73,7 @@ public struct OutlineScreen: View {
 
     private var rows: some View {
         List(shell.view.outline.rows, id: \.item.id) { row in
-            ItemEditor(row: row, shell: shell, cursors: cursors, zoom: look.zoom)
+            ItemEditor(row: row, shell: shell, cursors: cursors, texts: texts, zoom: look.zoom)
                 .listRowSeparator(.hidden)
                 .listRowBackground(row.isSelected ? Color.accentColor.opacity(0.25) : Color.clear)
         }
@@ -96,6 +97,8 @@ private struct ItemEditor: View {
     let row: Row
     @ObservedObject var shell: Shell
     let cursors: Cursors
+    /// The row is drawn again when the text with its decoration was made.
+    @ObservedObject var texts: ShownTexts
     /// How large the item is shown: 1 is the usual size.
     let zoom: Double
 
@@ -106,8 +109,10 @@ private struct ItemEditor: View {
                 Text(mark).foregroundStyle(.secondary).font(.system(size: NSFont.systemFontSize * zoom))
             }
             ItemText(
-                item: row.item, isFirst: row.index == 0, request: shell.view.outline.focusRequest,
-                order: shell.focus, shell: shell, cursors: cursors, zoom: zoom)
+                item: row.item, isEditing: row.isEditing, shown: texts.text(of: row.item, zoom: zoom),
+                texts: texts, changes: texts.changes, isFirst: row.index == 0,
+                request: shell.view.outline.focusRequest, order: shell.focus, shell: shell, cursors: cursors,
+                zoom: zoom)
         }
         .padding(.leading, CGFloat(row.indentPx) * zoom)
     }

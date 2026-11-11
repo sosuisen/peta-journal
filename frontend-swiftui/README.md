@@ -69,7 +69,10 @@ under `generated/`. Run it again after a change in Rust.
   Markdown (ADR 025). It does not read the AST. `itemHtml` of the core library makes HTML of
   the AST, with flatmarkdown-ast2html, and macOS turns the HTML into text with attributes.
   `ShownText` puts text in the place of the three things macOS drops (the checkbox of a task
-  list, the line between two parts, an image). The screen does not use it yet.
+  list, the line between two parts, an image).
+- `ShownTexts` keeps the texts that were made, for one screen. macOS makes such a text on the
+  main thread only, and not while SwiftUI draws: a row asks for its text, shows the body of the
+  item meanwhile, and is drawn again when the text is there.
 
 ## Build and run the app
 
@@ -126,6 +129,12 @@ The text of an item is a text view of AppKit (`ItemText`), not a text field of S
 of the outline need the place of the cursor, which SwiftUI does not tell. Text that is still
 being composed by an input method is not sent to the core until it is confirmed, and the Enter
 that confirms it does not split the item.
+
+Only the item with the cursor shows its Markdown. Every other item shows its text with its
+decoration (ADR 025) and cannot be typed into. A click into an item makes it Markdown at once;
+when the cursor leaves it, the shell tells the core that the edit is over (`Shell.finishEditing`),
+as the web frontend does, and the item shows its decoration again. The marks before the text
+(the bullet, the box of a task) are drawn by the screen, not taken from the HTML.
 
 ## Keys
 

@@ -17,6 +17,8 @@ public enum ShownText {
     /// The text of the item. An item whose AST cannot be read shows its body as it is: nothing
     /// that was written is left out.
     public static func of(_ item: Item, zoom: Double = 1) -> NSAttributedString {
+        // The AST of what was just typed comes from the server a moment later
+        if item.ast.isEmpty { return plain(item.body, zoom: zoom) }
         guard let html = try? itemHtml(ast: item.ast) else { return plain(item.body, zoom: zoom) }
         return text(ofHTML: html, zoom: zoom)
     }
@@ -83,5 +85,61 @@ public enum ShownText {
         kept = kept.replacingOccurrences(
             of: "<img src=\"[^\"]*\" alt=\"([^\"]*)\"[^>]*/>", with: "[$1]", options: .regularExpression)
         return kept
+    }
+}
+
+/// The shown texts of a screen that were made already. To make one takes two or three
+/// milliseconds, and it must not be done while SwiftUI draws: a row that has no text yet asks
+/// for it here, and is told when it is there.
+@MainActor
+public final class ShownTexts: ObservableObject {
+    private struct Made {
+        let ast: String
+        let body: String
+        let zoom: Double
+        let text: NSAttributedString
+    }
+
+    private var made: [String: Made] = [:]
+    /// Counts up whenever the rows are to be drawn again. A row is handed this number: SwiftUI
+    /// draws a row again only when what it is given changes.
+    public private(set) var changes = 0
+    private var wanted: [String: (item: Item, zoom: Double)] = [:]
+
+    public init() {}
+
+    /// The text of the item as it is now, when it was made already.
+    public func text(of item: Item, zoom: Double) -> NSAttributedString? {
+        guard let made = made[item.id], made.ast == item.ast, made.body == item.body, made.zoom == zoom else {
+            return nil
+        }
+        return made.text
+    }
+
+    /// Makes the text of the item soon, outside the drawing, and tells that it changed.
+    public func want(_ item: Item, zoom: Double) {
+        let first = wanted.isEmpty
+        wanted[item.id] = (item, zoom)
+        guard first else { return }
+        // All the rows of one drawing are made together, and told once
+        DispatchQueue.main.async { [self] in
+            objectWillChange.send()
+            changes += 1
+            for (id, asked) in wanted {
+                made[id] = Made(
+                    ast: asked.item.ast, body: asked.item.body, zoom: asked.zoom,
+                    text: ShownText.of(asked.item, zoom: asked.zoom))
+            }
+            wanted = [:]
+        }
+    }
+
+    /// Has the rows drawn again soon. The cursor left an item: nothing that the row is given
+    /// says so, and the item is to show its decoration again.
+    public func redraw() {
+        DispatchQueue.main.async { [self] in
+            objectWillChange.send()
+            changes += 1
+        }
     }
 }
