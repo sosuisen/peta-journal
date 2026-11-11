@@ -37,14 +37,14 @@ final class TypingSpeedTests: XCTestCase {
     }
 
     /// A page with many items, each with a line of text. Gives the URL of the page.
-    private func longPage() async throws -> String {
+    private func longPage(body: (Int) -> String = { "Item \($0) with some text to draw" }) async throws -> String {
         let maker = Shell(server: server.address, url: "/pages/long")
         try await waitUntil("the page is made") { !maker.view.outline.rows.isEmpty }
         guard case .page(let page?) = maker.view.screen else { throw CancellationError() }
         for n in 1..<Self.items {
             try await server.post(
                 "/api/items",
-                ["pageId": page.page.id, "position": "last", "level": n % 3, "body": "Item \(n) with some text to draw"])
+                ["pageId": page.page.id, "position": "last", "level": n % 3, "body": body(n)])
         }
         return "/pages/long"
     }
@@ -116,6 +116,108 @@ final class TypingSpeedTests: XCTestCase {
         report("shell takes the key", shellTimes)
         report("window is drawn again", drawTimes)
         XCTAssertEqual(shell.view.outline.rows[0].item.body, String(repeating: "b", count: Self.keys))
+        window.close()
+    }
+
+    private func editors(in view: NSView) -> [NSTextView] {
+        var found: [NSTextView] = []
+        func look(_ view: NSView) {
+            if let editor = view as? NSTextView { found.append(editor) }
+            view.subviews.forEach(look)
+        }
+        look(view)
+        return found
+    }
+
+    private func scrollView(in view: NSView) -> NSScrollView? {
+        if let scroll = view as? NSScrollView, scroll.documentView != nil { return scroll }
+        for child in view.subviews {
+            if let found = scrollView(in: child) { return found }
+        }
+        return nil
+    }
+
+    // 装飾のある1000項目のページで、スクロールしたときに装飾付きの表示ができるまでの時間を測る（ADR 025の見直しの条件）。
+    func testScrollingALongPageWithDecoration() async throws {
+        let url = try await longPage { "Item \($0) with **bold**, `code`, [[Page \($0 % 7)]] and #tag to draw" }
+        let shell = Shell(server: server.address, url: url)
+        try await waitUntil("the long page is shown") {
+            let rows = shell.view.outline.rows
+            return rows.count >= Self.items && rows.dropFirst().allSatisfy { !$0.item.ast.isEmpty }
+        }
+
+        // The making of the text alone
+        let items = shell.view.outline.rows.dropFirst().prefix(Self.keys).map(\.item)
+        report("text of one item is made", items.map { item in timed { _ = ShownText.of(item) } })
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 800, height: 600), styleMask: [.titled],
+            backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        let host = NSHostingView(rootView: OutlineScreen(shell: shell))
+        window.contentView = host
+        window.orderFrontRegardless()
+        try await Task.sleep(nanoseconds: 1_000_000_000)
+        let scroll = try XCTUnwrap(scrollView(in: host))
+        func draw() {
+            host.layoutSubtreeIfNeeded()
+            host.displayIfNeeded()
+            CATransaction.flush()
+        }
+        /// Whether an editor that can be seen still shows Markdown.
+        func waits() -> Bool {
+            editors(in: host).contains { !$0.visibleRect.isEmpty && $0.string.contains("**") }
+        }
+
+        // A screen further at a time: every row that comes into view is new
+        var first: [Double] = []
+        var settled: [Double] = []
+        var made: [Double] = []
+        let step = scroll.contentView.bounds.height
+        for n in 1...30 {
+            let start = CFAbsoluteTimeGetCurrent()
+            scroll.contentView.scroll(to: NSPoint(x: 0, y: CGFloat(n) * step))
+            scroll.reflectScrolledClipView(scroll.contentView)
+            draw()
+            // The rows are there, with their Markdown
+            first.append(CFAbsoluteTimeGetCurrent() - start)
+            var longest = 0.0
+            while waits() {
+                // The texts are made in one turn of the main queue
+                let turn = CFAbsoluteTimeGetCurrent()
+                try await Task.sleep(nanoseconds: 1_000_000)
+                longest = max(longest, CFAbsoluteTimeGetCurrent() - turn)
+                draw()
+                if CFAbsoluteTimeGetCurrent() - start > 5 { break }
+            }
+            made.append(longest)
+            settled.append(CFAbsoluteTimeGetCurrent() - start)
+        }
+        XCTAssertFalse(waits())
+        print("SPEED rows in view: \(editors(in: host).filter { !$0.visibleRect.isEmpty }.count)")
+        report("a screen further: rows drawn with Markdown", first)
+        report("a screen further: longest turn that makes the texts", made)
+        report("a screen further: rows drawn with decoration", settled)
+
+        // The cursor goes from one item to another. The waits between the steps are not
+        // counted: they let the main queue run, where the rows are told to be drawn again
+        var moved: [Double] = []
+        var drawn: [Double] = []
+        let seen = editors(in: host).filter { !$0.visibleRect.isEmpty }
+        window.makeFirstResponder(seen[0])
+        for n in 1...20 {
+            try await Task.sleep(nanoseconds: 20_000_000)
+            draw()
+            moved.append(timed { window.makeFirstResponder(seen[n % 2]) })
+            var time = timed { draw() }
+            for _ in 0..<3 {
+                try await Task.sleep(nanoseconds: 2_000_000)
+                time += timed { draw() }
+            }
+            drawn.append(time)
+        }
+        report("cursor to another item: the shell and the core", moved)
+        report("cursor to another item: window is drawn again", drawn)
         window.close()
     }
 }
