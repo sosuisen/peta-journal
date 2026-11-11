@@ -338,6 +338,36 @@
   - 候補は2つである。リポジトリの中の1つのフォルダにまとめるか、別のリポジトリに分けるかである
   - 決めたら、ADRに記録する
 
+## journal-coreとAndroidのシェル
+
+- [ ] ジャーナルサーバーの中身を、ライブラリ`journal-core`として切り出す（ADR 029）
+  - 目的は、Androidのシェルが、PCと同じ中身をアプリに組み込んで使うことである。REST、MCP、embed版が、同じ入口（`Journal`）を通る
+  - ジャーナルサーバーの動きは変えない。RESTとMCPの答えは、切り出しの前と同じである。既存の結合テストで守る
+  - [ ] クレートを分ける。`journal-server-rust/crates/core`に、`domain`、`application`、`persistence`、`export`、検索の索引、答えの型を移す。入口はまだ作らない
+    - `AppError`は`journal-core`に置き、HTTPの状態への直し方は`journal-server`に残す
+    - カバレッジとミューテーションテストの設定を、2つのクレートに合わせて直す
+  - [ ] 索引の確定を、索引の実装の中のtokioから外へ出す。`journal-core`は、tokioに依存しない
+  - [ ] 拡張関数（`rquickjs`）を、フィーチャーにする。外したビルドが通ることを確かめる
+  - [ ] 入口`Journal`を作り、ハンドラーとMCPの処理を下ろす。検索、ページ、項目、ジャーナル、アトラス、設定の順に、1つずつ行う
+    - 下ろすのは、要求の値の確かめ、拡張関数の呼び出し、変わったページの知らせ、答えの組み立てである
+    - ジャーナル、アトラス、設定、同期、アセットのハンドラーは、まだ中身を読んでいない（2026-11-11）。下ろしにくい処理があれば、ADR 029を見直す
+  - [ ] 変わったページの知らせを、外から渡すトレイトにする。ジャーナルサーバーは`SseBroadcaster`で実装する
+  - [ ] フロントエンドの側に、`shell-native`の`Host`を`journal-core`で実装するクレートを作る。答えはJSONに書いて、コアの`rest.rs`の読み取りに渡す
+  - [ ] 構成図（`docs/frontend-architecture.svg`）に、`journal-core`とembed版を描き足す
+- [ ] Androidのシェルを作る。最初の版は、Dropboxからの取り込み、検索、ページの表示までである。編集とアップロードは、次の版にする
+  - ファイルは、Dropbox SDKでAPIを通して取る。Dropbox SDKは、PCのDropboxアプリの役をする。アプリ内のフォルダーとDropboxの間で、ファイルを運ぶだけである
+  - Android SDK、AVD、Gradleのキャッシュは、`D:\Android`にある（2026-11-11に移した）。元の場所には、ジャンクションを残してある
+  - [ ] 捨てるブランチで確かめる
+    - [x] `journal-core`に当たる依存が、Android（`arm64`）向けにビルドできるか。`rquickjs`のほかは通った。tantivyとlinderaを入れたライブラリは53.0MBだった（2026-11-11）
+    - [ ] 端末かエミュレーターで、SQLite、tantivy、辞書が動くか。メモリーが足りるか
+    - [ ] Kotlinの型が、今の型で生成でき、コンパイルが通るか。`facet_generate`の0.19.1と0.22.3を試す
+    - [ ] `boltffi pack android`が、`arm64-v8a`と`x86_64`でビルドできるか。エミュレーターなしのJVMのテストが動くか
+    - [ ] Dropbox SDKで、PKCEの認証、再帰の一覧、ダウンロードが通るか。Dropboxのアプリの登録は、ユーザーが行う
+    - [ ] Composeの`AnnotatedString.fromHtml`が、`ast_to_html`のHTMLをどこまで描けるか
+  - [ ] ADR 030を書く。Dropbox SDKでの同期、端末でのDBとフォルダーの置き場所、定期の仕事を誰が回すか、Kotlinの型、HTMLの描き方を決める
+  - [ ] `frontend-android`を作る
+  - [ ] Androidでページを作れるようにするときに、拡張関数を入れるかを見直す（ADR 029のAlternative 7）。`rquickjs`の`bindgen`には、LLVMが要る
+
 ## テストとCI
 
 - [x] ネイティブのシェルで、保存していない文字が消えることがあるのを直す（2026-11-11）
