@@ -16,12 +16,15 @@ public struct StickySettings: Codable, Equatable, Identifiable {
     public var alwaysOnTop: Bool
     /// How large the page is shown: 1 is the usual size.
     public var zoom: Double
+    /// Only the title bar of the window is shown. The frame is still that of the whole sticky.
+    public var rolledUp: Bool
 
     public static let yellow = "#FFFDD0"
 
     public init(
         id: String, url: String?, x: Double, y: Double, width: Double, height: Double,
-        color: String = StickySettings.yellow, alwaysOnTop: Bool = false, zoom: Double = 1
+        color: String = StickySettings.yellow, alwaysOnTop: Bool = false, zoom: Double = 1,
+        rolledUp: Bool = false
     ) {
         self.id = id
         self.url = url
@@ -32,6 +35,7 @@ public struct StickySettings: Codable, Equatable, Identifiable {
         self.color = color
         self.alwaysOnTop = alwaysOnTop
         self.zoom = zoom
+        self.rolledUp = rolledUp
     }
 
     /// A file of an older version of the app lacks what was added since.
@@ -46,6 +50,7 @@ public struct StickySettings: Codable, Equatable, Identifiable {
         color = try kept.decodeIfPresent(String.self, forKey: .color) ?? StickySettings.yellow
         alwaysOnTop = try kept.decodeIfPresent(Bool.self, forKey: .alwaysOnTop) ?? false
         zoom = try kept.decodeIfPresent(Double.self, forKey: .zoom) ?? 1
+        rolledUp = try kept.decodeIfPresent(Bool.self, forKey: .rolledUp) ?? false
     }
 }
 

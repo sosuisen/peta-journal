@@ -165,6 +165,10 @@ another sticky. The app ends when the last one is closed.
 The menu with the palette gives the sticky another color: yellow, pink, green, blue or white.
 A sticky is light in every color, also when the Mac is in dark mode.
 
+A double click on the title bar rolls the sticky up, so that only its title bar is left, and
+another one rolls it down again to the size it had. A sticky that is rolled up comes back
+rolled up in the next run.
+
 The button with the pin keeps the sticky on top of the windows of other apps, until it is
 pressed again.
 

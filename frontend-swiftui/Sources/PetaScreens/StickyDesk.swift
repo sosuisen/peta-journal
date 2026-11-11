@@ -10,6 +10,10 @@ public final class Sticky: Identifiable {
     public let window: NSWindow
     public let shell: Shell
     public let look: StickyLook
+    /// Only the title bar of the window is shown.
+    public fileprivate(set) var rolledUp = false
+    /// The height of the window before it was rolled up.
+    fileprivate var fullHeight: CGFloat = 0
     fileprivate var hears: Set<AnyCancellable> = []
 
     fileprivate init(id: String, window: NSWindow, shell: Shell, look: StickyLook) {
@@ -17,6 +21,29 @@ public final class Sticky: Identifiable {
         self.window = window
         self.shell = shell
         self.look = look
+    }
+}
+
+/// The window of a sticky. It hears the double click on its title bar, which macOS would
+/// answer by zooming or minimizing the window.
+private final class StickyWindow: NSWindow {
+    var onTitleBarDoubleClick: (() -> Void)?
+
+    override func sendEvent(_ event: NSEvent) {
+        if event.type == .leftMouseDown, event.clickCount == 2, isOnBareTitleBar(event.locationInWindow) {
+            onTitleBarDoubleClick?()
+            return
+        }
+        super.sendEvent(event)
+    }
+
+    /// On the title bar, and not on a button of it.
+    private func isOnBareTitleBar(_ place: NSPoint) -> Bool {
+        guard place.y > contentLayoutRect.maxY, let frame = contentView?.superview else { return false }
+        if titlebarAccessoryViewControllers.contains(where: { !$0.view.isHidden && $0.view.convert($0.view.bounds, to: nil).contains(place) }) {
+            return false
+        }
+        return !(frame.hitTest(frame.convert(place, from: nil)) is NSControl)
     }
 }
 
@@ -29,6 +56,8 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
     private let store: StickyStore?
     /// The app is ending.
     private var ending = false
+    /// The paper is not smaller than this.
+    private static let smallest = NSSize(width: 480, height: 320)
 
     /// The stickies show pages of the journal server at `server`.
     public init(server: String, store: StickyStore? = nil) {
@@ -58,7 +87,7 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
         let shell = Shell(server: server, url: kept?.url ?? url)
         let look = StickyLook(color: kept?.color ?? StickySettings.yellow, alwaysOnTop: kept?.alwaysOnTop ?? false,
             zoom: kept?.zoom ?? 1)
-        let window = NSWindow(
+        let window = StickyWindow(
             contentRect: NSRect(origin: .zero, size: NSSize(width: 480, height: 600)),
             styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         // The desk keeps the window, and lets it go when it is closed
@@ -68,7 +97,16 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
         window.titlebarAppearsTransparent = true
         window.backgroundColor = StickyLook.color(of: look.color)
         window.level = look.alwaysOnTop ? .floating : .normal
-        window.contentView = NSHostingView(rootView: OutlineScreen(shell: shell, look: look))
+        let paper = NSHostingView(rootView: OutlineScreen(shell: shell, look: look))
+        // The paper lies in a plain view. As the content view itself, it would not let the
+        // window be smaller than what is on it, and so not be rolled up
+        paper.sizingOptions = []
+        let under = NSView(frame: NSRect(origin: .zero, size: window.contentLayoutRect.size))
+        paper.frame = under.bounds
+        paper.autoresizingMask = [.width, .height]
+        under.addSubview(paper)
+        window.contentView = under
+        window.contentMinSize = StickyDesk.smallest
         let tools = NSTitlebarAccessoryViewController()
         tools.layoutAttribute = .trailing
         let buttons = NSHostingView(rootView: StickyTools(look: look, onAdd: { [weak self] in self?.add() }))
@@ -82,6 +120,10 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
         }
         let sticky = Sticky(id: kept?.id ?? UUID().uuidString, window: window, shell: shell, look: look)
         stickies.append(sticky)
+        window.onTitleBarDoubleClick = { [weak self, weak sticky] in
+            if let sticky { self?.roll(sticky) }
+        }
+        if kept?.rolledUp == true { roll(sticky) }
         keep(sticky)
         // After the first keeping: the delegate hears the window move
         window.delegate = self
@@ -90,6 +132,11 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
             .sink { [weak self, weak sticky] url in
                 if let sticky { self?.keep(sticky, url: .some(url)) }
             }
+            .store(in: &sticky.hears)
+        // The paper is not the content view, so its name does not reach the window by itself.
+        // A window without a name is hard to find among the others
+        shell.$title
+            .sink { [weak window] title in window?.title = title.isEmpty ? "PetaStickies" : title }
             .store(in: &sticky.hears)
         look.$color.dropFirst()
             .sink { [weak self, weak sticky] color in
@@ -121,11 +168,38 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
     ) {
         guard stickies.contains(where: { $0 === sticky }) else { return }
         let frame = sticky.window.frame
+        // What is kept is the whole sticky, also while only its title bar is shown
+        let height = sticky.rolledUp ? sticky.fullHeight : frame.height
         store?.put(
             StickySettings(
-                id: sticky.id, url: url ?? sticky.shell.url, x: frame.minX, y: frame.minY, width: frame.width,
-                height: frame.height, color: color ?? sticky.look.color,
-                alwaysOnTop: alwaysOnTop ?? sticky.look.alwaysOnTop, zoom: zoom ?? sticky.look.zoom))
+                id: sticky.id, url: url ?? sticky.shell.url, x: frame.minX, y: frame.maxY - height,
+                width: frame.width, height: height, color: color ?? sticky.look.color,
+                alwaysOnTop: alwaysOnTop ?? sticky.look.alwaysOnTop, zoom: zoom ?? sticky.look.zoom,
+                rolledUp: sticky.rolledUp))
+    }
+
+    /// Rolls the sticky up to its title bar, or down again to the height it had. The top edge
+    /// stays where it is.
+    public func roll(_ sticky: Sticky) {
+        let window = sticky.window
+        let frame = window.frame
+        let height: CGFloat
+        if sticky.rolledUp {
+            sticky.rolledUp = false
+            window.contentMinSize = StickyDesk.smallest
+            window.contentMaxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: .greatestFiniteMagnitude)
+            height = sticky.fullHeight
+        } else {
+            sticky.fullHeight = frame.height
+            sticky.rolledUp = true
+            // The width can still be changed, the height cannot
+            window.contentMinSize = NSSize(width: StickyDesk.smallest.width, height: 0)
+            window.contentMaxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: 0)
+            height = window.frameRect(forContentRect: .zero).height
+        }
+        window.setFrame(
+            NSRect(x: frame.minX, y: frame.maxY - height, width: frame.width, height: height), display: true)
+        keep(sticky)
     }
 
     /// A little down and to the right of the newest sticky, as new windows are everywhere

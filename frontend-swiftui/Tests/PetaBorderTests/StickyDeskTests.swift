@@ -154,9 +154,9 @@ final class StickyDeskTests: XCTestCase {
     // タイトルバーの検索のツールを使うと、付箋紙に検索欄が出る。
     func testTheSearchToolOfTheTitleBarOpensTheSearchBox() async throws {
         let sticky = desk.add(url: "/pages/with-tools")
-        // The screen has the page, not only the shell: the screen closes the search box when
-        // a page comes
         try await waitUntil("the page is shown") { sticky.window.title == "with-tools" }
+        // The screen follows the shell a moment later, and closes the search box when a page comes
+        try await Task.sleep(nanoseconds: 300_000_000)
         XCTAssertFalse(hasSearchBox(sticky))
 
         sticky.look.searching = true
@@ -170,6 +170,61 @@ final class StickyDeskTests: XCTestCase {
             return view.subviews.contains(where: look)
         }
         return sticky.window.contentView.map(look) ?? false
+    }
+
+    /// A double click as AppKit gives it to the window, `fromTop` points under its top edge.
+    private func doubleClick(_ sticky: Sticky, fromTop: CGFloat) throws {
+        let place = NSPoint(x: sticky.window.frame.width / 2, y: sticky.window.frame.height - fromTop)
+        let click = try XCTUnwrap(
+            NSEvent.mouseEvent(
+                with: .leftMouseDown, location: place, modifierFlags: [], timestamp: 0,
+                windowNumber: sticky.window.windowNumber, context: nil, eventNumber: 0, clickCount: 2, pressure: 1))
+        sticky.window.sendEvent(click)
+    }
+
+    // タイトルバーをダブルクリックすると、付箋紙はタイトルバーだけになる。上の端と幅は変わらない。もう一度ダブルクリックすると、元の大きさに戻る。
+    func testADoubleClickOnTheTitleBarLeavesOnlyTheTitleBarAndAnotherBringsTheStickyBack() async throws {
+        let sticky = desk.add()
+        let frame = NSRect(x: 120, y: 130, width: 500, height: 400)
+        sticky.window.setFrame(frame, display: true)
+
+        try doubleClick(sticky, fromTop: 10)
+
+        XCTAssertTrue(sticky.rolledUp)
+        XCTAssertEqual(sticky.window.contentLayoutRect.height, 0)
+        XCTAssertEqual(sticky.window.frame.maxY, frame.maxY)
+        XCTAssertEqual(sticky.window.frame.width, frame.width)
+
+        try doubleClick(sticky, fromTop: 10)
+
+        XCTAssertFalse(sticky.rolledUp)
+        XCTAssertEqual(sticky.window.frame, frame)
+    }
+
+    // 紙の上のダブルクリックでは、付箋紙の大きさは変わらない。
+    func testADoubleClickOnThePaperDoesNotChangeTheSticky() async throws {
+        let sticky = desk.add()
+        let frame = sticky.window.frame
+
+        try doubleClick(sticky, fromTop: 200)
+
+        XCTAssertFalse(sticky.rolledUp)
+        XCTAssertEqual(sticky.window.frame, frame)
+    }
+
+    // タイトルバーだけにした付箋紙は、次の起動でもタイトルバーだけで戻る。ダブルクリックすると、元の大きさに戻る。
+    func testAStickyThatIsRolledUpComesBackRolledUpAndUnrollsToItsSize() async throws {
+        let sticky = desk.add()
+        let frame = NSRect(x: 120, y: 130, width: 500, height: 400)
+        sticky.window.setFrame(frame, display: true)
+        try doubleClick(sticky, fromTop: 10)
+
+        let next = nextRun().stickies[0]
+
+        XCTAssertTrue(next.rolledUp)
+        XCTAssertEqual(next.window.frame, sticky.window.frame)
+        try doubleClick(next, fromTop: 10)
+        XCTAssertEqual(next.window.frame, frame)
     }
 
     // 新しい付箋紙は黄色である。色を変えると、ウィンドウの色が変わり、次の起動でもその色で戻る。
