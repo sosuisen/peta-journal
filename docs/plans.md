@@ -217,6 +217,7 @@
     - [x] リンクの置き換えと符号化を、Webのシェルとネイティブのシェルで1つにまとめる（ユーザーが決めた、2026-11-11）
       - 新しいクレート`crates/page-links`（`peta-page-links`）に置いた。ページへのリンクの行き先（`wikilink_path`、`hashtag_path`、`AppLinks`）と、コピーのHTML（`copied_html`）である
       - `shell-leptos`の`page_links.rs`と`effects/copied_html.rs`を、テストごとここへ移した。`shell-native`の写しは消し、このクレートを呼ぶ
+      - ページのプロパティに出るタグのリンク（`page_properties.rs`）も、手で作るのをやめて`hashtag_path`を呼ぶ（ユーザーが求めた、2026-11-11）
       - コアには置かない。コアはHTMLを作らず（ADR 025、ADR 026）、アプリのURLも知らない
       - カバレッジの対象に足した。WebのE2Eテスト（コピーのHTML、表示のリンク）も通った
       - 構成図（`docs/frontend-architecture.svg`）には、まだこのクレートを描いていない
