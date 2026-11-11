@@ -6,7 +6,7 @@
 
 - `frontend-rust/crates/core/src/tests/**/*.rs`（`tests/`）
 - `frontend-rust/crates/core/src/outline/*.rs`、`util/*.rs`、`model.rs`（`core/`）
-- `frontend-rust/crates/fm-leptos/tests/html.rs`（`fm-leptos`）
+- `frontend-rust/crates/shell-leptos/src/components/item_html.rs`（`shell-leptos`）
 - `e2e/tests/*.spec.ts`（`e2e/`）
 - `frontend-rust/crates/shell-emacs/src/tests/*.rs`、`tests/*.rs`、`lisp/test/*.el`（`shell-emacs/`）
 
@@ -560,7 +560,7 @@
 
 ### 本文を読む
 
-出典: `tests/view.rs`、`fm-leptos`
+出典: `tests/view.rs`、`shell-leptos`、`e2e/outline-content.spec.ts`
 
 - ズーム
   - 倍率が表示に反映されて保存され、リセットで1.0に戻る
@@ -569,13 +569,13 @@
 - 項目へのスクロールの求めは、なめらかなスクロールとしてシェルに渡る
 - Markdownの解析の型は、crates.ioの`flatmarkdown-ast`クレートにある（`petajournal/flatmarkdown`リポジトリ）。その機能一覧とテストは、そのリポジトリにある
   - 解析したASTは、typeタグ付きのJSONに戻せる
-- HTMLの描画（fm-leptos）
-  - 段落・見出し・コード（言語クラス付き、中身はエスケープ）・リスト・タスクリスト（disabledなチェックボックス）・表（align属性）・引用・水平線・アラート・リンク・画像・ウィキリンク・ハッシュタグ・脚注・改行・HTMLが描かれる
-  - 項目の間に空行のないリスト（タイト）は、項目の直下の段落をpで包まない。空行のあるリスト（ルーズ）は包む。タイトかどうかはリストごとに決まる
-  - 画像URLのフラグメントのwとhは、imgのwidthとheightになる
-  - アラートのタイトルは、指定がなければ種別名になる
-  - その他のノード（front_matter・math・spoilered_textなど）は、Angular版と同じHTMLになる
-  - FmRootコンポーネントは、JSONでない文字列には空を返す
+- HTMLの描画（shell-leptos）
+  - 項目のASTは、crates.ioの`flatmarkdown-ast2html`クレートがHTMLにする（ADR 026）。HTMLの形の機能一覧とテストは、`petajournal/flatmarkdown`リポジトリにある
+  - 本文が空の項目は、何も表示しない
+  - 画像URLのフラグメントのwとhは、imgのwidthとheightになる。リストの中など、深いところにある画像でも同じである
+    - 値のない辺、数値でない辺、0の辺は、与えられていないものとする
+  - ウィキリンクは`/pages/`の下を、ハッシュタグはタグのページを指す。ブラウザがそのまま開ける
+  - 言語を書いたコードブロックは、色が付き、言語の札が出る。言語を書かないコードブロックは、色を付けず、札も出さない
 
 ## 地図で俯瞰する
 

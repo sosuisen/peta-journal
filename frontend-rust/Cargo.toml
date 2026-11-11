@@ -1,7 +1,6 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/fm-leptos",
     "crates/core",
     "crates/server-client",
     "crates/shell-leptos",

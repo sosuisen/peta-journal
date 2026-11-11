@@ -2,15 +2,21 @@
 //! clicks that open links or start editing at the clicked character.
 
 use crate::components::item_drag::Drag;
+use crate::components::item_html::{item_html, ImageSize};
 use crate::components::task_checkbox::TaskCheckbox;
 use crate::core::CoreHandle;
 use crate::dom;
-use fm_leptos::{FmRoot, RenderOptions};
 use leptos::prelude::*;
 use peta_core::view::Row;
 use peta_core::Event;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
+
+/// The marks that `ast_to_html` puts on a wikilink and on a hashtag, as CSS selectors.
+const WIKILINKS: &str = "a[data-wikilink]";
+const HASHTAGS: &str = "a.hashtag";
+/// The attribute that keeps the name of the page a wikilink or a hashtag leads to.
+const PAGE_OF_LINK: &str = "data-page";
 
 #[wasm_bindgen]
 extern "C" {
@@ -24,15 +30,21 @@ pub fn ItemView(row: RwSignal<Row>) -> impl IntoView {
     let drag: Drag = expect_context();
     let item_id = row.with_untracked(|r| r.item.id.clone());
     let content = NodeRef::<leptos::html::Div>::new();
-    let ast = Memo::new(move |_| row.with(|r| r.item.ast.clone()));
+    let html = Memo::new(move |_| row.with(|r| item_html(&r.item.ast)));
+    // A hashtag links under the configured tag directory, so a tag page can live in its own
+    // folder (e.g. `tags/topic`) and a published site can keep the same relative paths.
+    let tags_dir = core.select(|v| v.config.tags_dir.clone());
 
-    // Syntax highlighting and the language label, once the AST is rendered. The view may be
-    // gone by then (replaced by the editor, scrolled out of the window), so the node ref is
-    // read with `try_`: a disposed ref is not an error, just nothing to highlight.
+    // What `ast_to_html` leaves to the shell, once the HTML is in the page (ADR 026). The
+    // view may be gone by then (replaced by the editor, scrolled out of the window), so the
+    // node ref is read with `try_`: a disposed ref is not an error, just nothing to do.
     Effect::new(move |_| {
-        ast.track();
+        html.track();
+        let tags_dir = tags_dir.get();
         dom::after_render(move || {
             if let Some(el) = content.try_get_untracked().flatten() {
+                point_links_at_pages(&el, &tags_dir);
+                size_images(&el);
                 highlight_code_blocks(&el);
             }
         });
@@ -109,7 +121,7 @@ pub fn ItemView(row: RwSignal<Row>) -> impl IntoView {
                 return;
             }
             if let Some(anchor) = target
-                .closest("a:not(.wiki-link):not(.wiki-link-new):not(.hashtag-link)")
+                .closest(&format!("a:not({WIKILINKS}):not({HASHTAGS})"))
                 .ok()
                 .flatten()
             {
@@ -128,7 +140,7 @@ pub fn ItemView(row: RwSignal<Row>) -> impl IntoView {
                 }
             }
             if let Some(link) = target
-                .closest(".wiki-link, .wiki-link-new, .hashtag-link")
+                .closest(&format!("{WIKILINKS}, {HASHTAGS}"))
                 .ok()
                 .flatten()
             {
@@ -154,24 +166,17 @@ pub fn ItemView(row: RwSignal<Row>) -> impl IntoView {
         }
     };
 
-    // A hashtag links under the configured tag directory, so a tag page can live in its own
-    // folder (e.g. `tags/topic`) and a published site can keep the same relative paths.
-    let tags_dir = core.select(|v| v.config.tags_dir.clone());
-    let options = Memo::new(move |_| RenderOptions {
-        wikilink_prefix: "/pages/".into(),
-        wikilink_class: "wiki-link".into(),
-        hashtag_prefix: format!("/pages/{}", tags_dir.get()),
-        hashtag_class: "hashtag-link".into(),
-    });
-
     view! {
         <app-item-view>
             <TaskCheckbox row=row />
-            <div node_ref=content class="item-content" on:mousedown=on_mousedown on:click=on_click on:drop=on_drop>
-                {move || {
-                    view! { <FmRoot ast=ast.get() options=options.get() /> }
-                }}
-            </div>
+            <div
+                node_ref=content
+                class="item-content"
+                inner_html=move || html.get()
+                on:mousedown=on_mousedown
+                on:click=on_click
+                on:drop=on_drop
+            ></div>
         </app-item-view>
     }
 }
@@ -188,14 +193,57 @@ fn untitled_suffix() -> String {
     )
 }
 
-fn highlight_code_blocks(content: &web_sys::HtmlDivElement) {
-    let Ok(blocks) = content.query_selector_all("pre code") else {
-        return;
+/// The elements under `content` that `selector` finds.
+fn elements(content: &web_sys::Element, selector: &str) -> Vec<web_sys::HtmlElement> {
+    let Ok(found) = content.query_selector_all(selector) else {
+        return Vec::new();
     };
-    for i in 0..blocks.length() {
-        let Some(code) = blocks
-            .get(i)
-            .and_then(|n| n.dyn_into::<web_sys::HtmlElement>().ok())
+    (0..found.length())
+        .filter_map(|i| found.get(i)?.dyn_into().ok())
+        .collect()
+}
+
+/// Makes every wikilink and hashtag point at its page. `ast_to_html` writes the name of the
+/// page alone, which the browser would read as relative to the page that is open. The browser
+/// uses the `href` as it is for Ctrl+click, the middle button and its own menu.
+fn point_links_at_pages(content: &web_sys::Element, tags_dir: &str) {
+    for (selector, prefix) in [
+        (WIKILINKS, "/pages/".to_string()),
+        (HASHTAGS, format!("/pages/{tags_dir}")),
+    ] {
+        for link in elements(content, selector) {
+            // The name is kept apart from the `href`: this runs again on the same links when
+            // the tag directory changes, and must not add a second prefix.
+            let page = link.get_attribute(PAGE_OF_LINK).unwrap_or_else(|| {
+                let page = link.get_attribute("href").unwrap_or_default();
+                let _ = link.set_attribute(PAGE_OF_LINK, &page);
+                page
+            });
+            let _ = link.set_attribute("href", &format!("{prefix}{page}"));
+        }
+    }
+}
+
+/// Gives every image the size that its URL carries (see `item_html`).
+fn size_images(content: &web_sys::Element) {
+    for image in elements(content, "img") {
+        let size = ImageSize::of_src(&image.get_attribute("src").unwrap_or_default());
+        for (side, pixels) in [("width", size.width), ("height", size.height)] {
+            if let Some(pixels) = pixels {
+                let _ = image.set_attribute(side, &pixels.to_string());
+            }
+        }
+    }
+}
+
+/// Colours every code block that names its language, and shows the name on it. A block
+/// without a language is left alone: highlight.js would guess one and colour plain text.
+fn highlight_code_blocks(content: &web_sys::Element) {
+    for code in elements(content, "pre code") {
+        let Some(lang) = code
+            .class_name()
+            .split(' ')
+            .find_map(|c| c.strip_prefix("language-").map(str::to_string))
         else {
             continue;
         };
@@ -212,17 +260,11 @@ fn highlight_code_blocks(content: &web_sys::HtmlDivElement) {
             .flatten()
             .is_none()
         {
-            let lang = code
-                .class_name()
-                .split(' ')
-                .find_map(|c| c.strip_prefix("language-").map(str::to_string));
-            if let Some(lang) = lang {
-                if let Ok(label) = dom::document().create_element("div") {
-                    label.set_class_name("code-lang-label");
-                    label.set_text_content(Some(&lang));
-                    let _ = pre.style().set_property("position", "relative");
-                    let _ = pre.append_child(&label);
-                }
+            if let Ok(label) = dom::document().create_element("div") {
+                label.set_class_name("code-lang-label");
+                label.set_text_content(Some(&lang));
+                let _ = pre.style().set_property("position", "relative");
+                let _ = pre.append_child(&label);
             }
         }
     }

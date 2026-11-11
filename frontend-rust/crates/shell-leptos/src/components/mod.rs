@@ -4,6 +4,7 @@ pub mod confirm_dialog;
 pub mod edge_scroll;
 pub mod item_drag;
 pub mod item_editor;
+pub mod item_html;
 pub mod item_view;
 pub mod layout;
 pub mod outline;
