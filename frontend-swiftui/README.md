@@ -151,6 +151,10 @@ While items are selected, no item has the cursor and the keys mean this:
 
 A click into the text of an item also ends the selection.
 
+The button with the magnifying glass, or Command+F, opens the search box. What is typed there
+is searched for a moment later. Down and Up choose an entry, Enter opens it, and Escape hides
+the entries, then closes the box. The entry "Create" makes a page with the typed name.
+
 ## Tests
 
 `swift test` runs `Tests/PetaBorderTests`.

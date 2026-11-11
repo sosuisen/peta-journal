@@ -338,4 +338,37 @@ final class OutlineScreenTests: XCTestCase {
         XCTAssertEqual(bodies(), ["first", "second!"])
         XCTAssertTrue(shell.view.outline.rows[1].isEditing)
     }
+
+    /// The search box, when it is on screen.
+    private func searchField() -> NSTextField? {
+        var found: NSTextField?
+        func look(_ view: NSView) {
+            if let field = view as? NSTextField, field.accessibilityIdentifier() == "search" { found = field }
+            view.subviews.forEach(look)
+        }
+        if let content = window.contentView { look(content) }
+        return found
+    }
+
+    // 検索欄に入力すると、ページの候補が出る。下矢印で選び、Enterで開くと、検索欄は閉じる。
+    func testTypingInTheSearchBoxFindsAPageAndEnterOpensIt() async throws {
+        shell.open("/pages/apple-pie")
+        try await waitUntil("the second page is shown") { self.shell.title == "apple-pie" }
+        shell.open("/pages/screen")
+        try await waitUntil("the first page is shown again") { self.shell.title == "screen" }
+        window.contentView = NSHostingView(rootView: OutlineScreen(shell: shell, searching: true))
+        try await waitUntil("the search box has the cursor") { self.searchField()?.currentEditor() != nil }
+        let typing = try XCTUnwrap(searchField()?.currentEditor() as? NSTextView)
+
+        typing.insertText("apple", replacementRange: typing.selectedRange())
+        XCTAssertEqual(shell.view.search.query, "apple")
+        try await waitUntil("the page is found") {
+            self.shell.view.search.results.first?.title == "apple-pie"
+        }
+        typing.doCommand(by: #selector(NSResponder.moveDown(_:)))
+        typing.doCommand(by: #selector(NSResponder.insertNewline(_:)))
+
+        try await waitUntil("the page found is shown") { self.shell.title == "apple-pie" }
+        try await waitUntil("the search box is closed") { self.searchField() == nil }
+    }
 }
