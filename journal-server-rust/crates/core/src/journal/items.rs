@@ -658,8 +658,8 @@ impl Journal {
             .into())
     }
 
-    pub fn export_page_markdown(&self, page_id: Option<&str>) -> AppResult<TreeMarkdownAnswer> {
-        let page_id = parse_id(required(page_id, "pageId")?)?;
+    pub fn export_page_markdown(&self, page_id: &str) -> AppResult<TreeMarkdownAnswer> {
+        let page_id = parse_id(page_id)?;
         Ok(self
             .services
             .item_service
