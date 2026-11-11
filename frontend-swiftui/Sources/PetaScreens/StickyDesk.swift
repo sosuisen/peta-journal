@@ -125,7 +125,7 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
         window.onTitleBarDoubleClick = { [weak self, weak sticky] in
             if let sticky { self?.roll(sticky) }
         }
-        if kept?.rolledUp == true { roll(sticky) }
+        if kept?.rolledUp == true { roll(sticky, animated: false) }
         keep(sticky)
         // After the first keeping: the delegate hears the window move
         window.delegate = self
@@ -182,27 +182,36 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
     }
 
     /// Rolls the sticky up to its title bar, or down again to the height it had. The top edge
-    /// stays where it is.
-    public func roll(_ sticky: Sticky) {
+    /// stays where it is. The window moves there in steps, as the Stickies of macOS do.
+    public func roll(_ sticky: Sticky, animated: Bool = true) {
         let window = sticky.window
         let frame = window.frame
+        let anyHeight = NSSize(width: CGFloat.greatestFiniteMagnitude, height: .greatestFiniteMagnitude)
+        let down = sticky.rolledUp
         let height: CGFloat
-        if sticky.rolledUp {
-            sticky.rolledUp = false
-            window.contentMinSize = StickyDesk.smallest
-            window.contentMaxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: .greatestFiniteMagnitude)
+        if down {
+            window.contentMaxSize = anyHeight
             height = sticky.fullHeight
         } else {
             sticky.fullHeight = frame.height
             sticky.rolledUp = true
-            // The width can still be changed, the height cannot
+            showTools(of: sticky)
             window.contentMinSize = NSSize(width: StickyDesk.smallest.width, height: 0)
-            window.contentMaxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: 0)
             height = window.frameRect(forContentRect: .zero).height
         }
+        // On the way the sticky counts as rolled up: what is kept then is its whole height,
+        // not the height of a step
         window.setFrame(
-            NSRect(x: frame.minX, y: frame.maxY - height, width: frame.width, height: height), display: true)
-        showTools(of: sticky)
+            NSRect(x: frame.minX, y: frame.maxY - height, width: frame.width, height: height), display: true,
+            animate: animated)
+        if down {
+            sticky.rolledUp = false
+            window.contentMinSize = StickyDesk.smallest
+            showTools(of: sticky)
+        } else {
+            // The width can still be changed, the height cannot
+            window.contentMaxSize = NSSize(width: anyHeight.width, height: 0)
+        }
         keep(sticky)
     }
 
