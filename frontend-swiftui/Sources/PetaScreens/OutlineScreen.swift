@@ -129,12 +129,8 @@ private struct ItemEditor: View {
                 if place == 0 {
                     Text(mark).foregroundStyle(.secondary).font(.system(size: size))
                 } else {
-                    // The mark after the bullet is the state of a task: a click steps it. It is
-                    // half as large again, to be seen and hit. It keeps the height of a line
-                    // of the text, so that it stays in the middle of the first line
-                    Text(mark).foregroundStyle(.secondary).font(.system(size: size * 1.5))
-                        .frame(height: NSLayoutManager().defaultLineHeight(for: .systemFont(ofSize: size)))
-                        .contentShape(Rectangle())
+                    // The mark after the bullet is the state of a task: a click steps it
+                    TaskBox(mark: mark, line: NSLayoutManager().defaultLineHeight(for: .systemFont(ofSize: size)))
                         .onTapGesture { shell.clickedTask(of: row.item.id) }
                 }
             }
@@ -144,6 +140,39 @@ private struct ItemEditor: View {
                 request: shell.view.outline.focusRequest, order: shell.focus, shell: shell, cursors: cursors,
                 zoom: zoom)
         }
+    }
+}
+
+/// The box that shows the state of a task: empty, with a line while the task runs, or checked.
+/// It is drawn here and not written as a letter: the three letters come from different fonts
+/// and are of different sizes, and none stands in the middle of its line.
+private struct TaskBox: View {
+    let mark: String
+    /// How high a line of the text of the item is. The box stands in the middle of the first.
+    let line: CGFloat
+
+    var body: some View {
+        // Half as large again as the letter was
+        let side = (line * 0.85).rounded()
+        let stroke = max(1, side / 11)
+        ZStack {
+            RoundedRectangle(cornerRadius: side / 6).stroke(lineWidth: stroke)
+            Path { path in
+                if mark == "⊟" {
+                    path.move(to: CGPoint(x: side * 0.25, y: side * 0.5))
+                    path.addLine(to: CGPoint(x: side * 0.75, y: side * 0.5))
+                } else if mark == "☑" {
+                    path.move(to: CGPoint(x: side * 0.22, y: side * 0.52))
+                    path.addLine(to: CGPoint(x: side * 0.42, y: side * 0.72))
+                    path.addLine(to: CGPoint(x: side * 0.78, y: side * 0.28))
+                }
+            }
+            .stroke(style: StrokeStyle(lineWidth: stroke * 1.4, lineCap: .round, lineJoin: .round))
+        }
+        .foregroundStyle(.secondary)
+        .frame(width: side, height: side)
+        .frame(height: line)
+        .contentShape(Rectangle())
     }
 }
 
