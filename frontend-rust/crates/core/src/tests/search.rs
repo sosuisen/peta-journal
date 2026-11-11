@@ -147,6 +147,17 @@ fn the_query_today_is_matched_without_its_case_and_the_spaces_around_it() {
     assert_eq!(kinds(&h), []);
 }
 
+// `Open Today` を選ぶと今日のジャーナルが開く。検索の答えは待たない。検索語は消える。
+#[test]
+fn open_today_opens_the_journal_of_today_and_clears_the_query() {
+    let mut h = Harness::new();
+    typed(&mut h, "today");
+    h.send(Event::SearchResultClicked { index: 0 });
+    assert_eq!(urls(&h), ["/today"]);
+    assert_eq!(h.view().search.query, "");
+    assert!(h.pending_timer_ids().is_empty());
+}
+
 // `#タグ` を含む検索語では、ページ作成の項目は出ない。
 #[test]
 fn a_query_with_a_tag_offers_no_page_to_create() {
