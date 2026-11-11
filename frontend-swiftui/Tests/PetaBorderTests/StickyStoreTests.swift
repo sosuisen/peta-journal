@@ -83,7 +83,7 @@ final class StickyStoreTests: XCTestCase {
         let old = #"[{"id": "b", "x": 1, "y": 2, "width": 3, "height": 4}]"#
         try Data(old.utf8).write(to: file)
 
-        XCTAssertEqual(StickyStore(file: file).stickies.map(\.color), ["#FFFDD0"])
+        XCTAssertEqual(StickyStore(file: file).stickies.map(\.color), ["#FFF8D0"])
     }
 
     // 常に手前に表示するかどうかは、保存される。その設定のない古いファイルの付箋紙は、手前に表示しない。

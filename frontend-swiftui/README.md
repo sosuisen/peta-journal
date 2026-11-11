@@ -208,7 +208,8 @@ the tools of the sticky at the right. The tools are hidden while the window does
 focus. The button with the plus, or Command+N, opens
 another sticky. The app ends when the last one is closed.
 
-The menu with the palette gives the sticky another color: yellow, pink, green, blue or white.
+The menu with the palette gives the sticky another color: yellow, red, green, blue, orange,
+purple, white, gray or light gray. They are the colors of the cards of Petasti.
 A sticky is light in every color, also when the Mac is in dark mode.
 
 A double click on the title bar rolls the sticky up, so that only its title bar is left, and

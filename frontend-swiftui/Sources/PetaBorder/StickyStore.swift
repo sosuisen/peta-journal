@@ -19,7 +19,7 @@ public struct StickySettings: Codable, Equatable, Identifiable {
     /// Only the title bar of the window is shown. The frame is still that of the whole sticky.
     public var rolledUp: Bool
 
-    public static let yellow = "#FFFDD0"
+    public static let yellow = "#FFF8D0"
 
     public init(
         id: String, url: String?, x: Double, y: Double, width: Double, height: Double,
