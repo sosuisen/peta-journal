@@ -6,8 +6,19 @@ import SwiftUI
 /// The text of one item, in a text view of AppKit. A text field of SwiftUI does not tell where
 /// its cursor is, and the keys of the outline depend on that: Enter splits the item at the
 /// cursor, and an arrow leaves the item only from its first or last line.
+///
+/// The item that is edited shows its Markdown. Every other item shows its text with its
+/// decoration (ADR 025), and cannot be typed into. The core says which item is edited.
 struct ItemText: NSViewRepresentable {
     let item: Item
+    /// The core counts the item as edited: it has, or just had, the cursor.
+    let isEditing: Bool
+    /// The text of the item with its decoration, when it was made already. It is handed over,
+    /// and not looked up here: SwiftUI draws a row again only when what it is given changes.
+    let shown: NSAttributedString?
+    let texts: ShownTexts
+    /// What `texts` counts. It is here only to have the row drawn again when it goes up.
+    let changes: Int
     /// The first item of the page: the cursor goes here when the core names no item.
     let isFirst: Bool
     let request: FocusRequest?
@@ -18,24 +29,40 @@ struct ItemText: NSViewRepresentable {
     var zoom: Double = 1
 
     func makeCoordinator() -> Editor {
-        Editor(shell: shell, itemId: item.id, cursors: cursors)
+        Editor(shell: shell, itemId: item.id, cursors: cursors, texts: texts)
     }
 
     func makeNSView(context: Context) -> ItemTextView {
         let view = ItemTextView.make()
         view.delegate = context.coordinator
         view.string = item.body
-        view.onCursor = { [editor = context.coordinator] in editor.gotCursor() }
+        view.onCursor = { [editor = context.coordinator, weak view] in
+            if let view { editor.gotCursor(in: view) }
+        }
+        view.onCursorLeft = { [editor = context.coordinator] in editor.lostCursor() }
         view.onKey = { [editor = context.coordinator] key, view in editor.pressed(key, in: view) }
         return view
     }
 
     func updateNSView(_ view: ItemTextView, context: Context) {
         let size = NSFont.systemFontSize * CGFloat(zoom)
-        if view.font?.pointSize != size {
-            view.font = .systemFont(ofSize: size)
-            // The text is as high as its lines, which are of another height now
-            view.invalidateIntrinsicContentSize()
+        context.coordinator.body = item.body
+        context.coordinator.size = size
+        // The view with the cursor is Markdown at once, before the core counts its item as
+        // edited: what is typed right after a click must not be lost
+        if isEditing || view.window?.firstResponder === view {
+            edit(view, size: size)
+        } else {
+            show(view)
+        }
+        context.coordinator.putCursor(in: view, request: request, order: order, isFirst: isFirst)
+    }
+
+    /// The Markdown of the item, to type into.
+    private func edit(_ view: ItemTextView, size: CGFloat) {
+        guard view.isMarkdown else {
+            view.showMarkdown(item.body, size: size)
+            return
         }
         // Text that is still being composed is not in the core yet, and must not be lost to
         // what the core has
@@ -44,7 +71,25 @@ struct ItemText: NSViewRepresentable {
             view.string = item.body
             view.setSelectedRange(NSRange(location: cursor, length: 0))
         }
-        context.coordinator.putCursor(in: view, request: request, order: order, isFirst: isFirst)
+        if view.font?.pointSize != size {
+            view.font = .systemFont(ofSize: size)
+            // The text is as high as its lines, which are of another height now
+            view.invalidateIntrinsicContentSize()
+        }
+    }
+
+    /// The text of the item with its decoration. Until it is made, the item shows its body.
+    private func show(_ view: ItemTextView) {
+        view.isEditable = false
+        guard let text = shown else {
+            texts.want(item, zoom: zoom)
+            if view.shown == nil, view.string != item.body { view.string = item.body }
+            return
+        }
+        guard view.shown !== text else { return }
+        view.shown = text
+        view.textStorage?.setAttributedString(text)
+        view.invalidateIntrinsicContentSize()
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, nsView: ItemTextView, context: Context) -> CGSize? {
@@ -68,11 +113,16 @@ final class Editor: NSObject, NSTextViewDelegate {
     private let shell: Shell
     private let itemId: String
     private let cursors: Cursors
+    private let texts: ShownTexts
+    /// The Markdown of the item and the size of its letters, as the screen last drew them.
+    var body = ""
+    var size = NSFont.systemFontSize
 
-    init(shell: Shell, itemId: String, cursors: Cursors) {
+    init(shell: Shell, itemId: String, cursors: Cursors, texts: ShownTexts) {
         self.shell = shell
         self.itemId = itemId
         self.cursors = cursors
+        self.texts = texts
     }
 
     private static let keys: [Selector: EditorKey] = [
@@ -111,13 +161,25 @@ final class Editor: NSObject, NSTextViewDelegate {
         return shell.pressed(key, in: itemId, state)
     }
 
+    /// The cursor left the text view: the edit of the item is over.
+    func lostCursor() {
+        shell.finishEditing(itemId)
+        // The core may have ended the edit before, while the cursor was still here. Then
+        // nothing changes for the row now, and it would go on to show Markdown
+        texts.redraw()
+    }
+
     /// The text view got the cursor, by a click or by an order of the core.
-    func gotCursor() {
+    func gotCursor(in view: ItemTextView) {
+        if !view.isMarkdown { view.showMarkdown(body, size: size) }
         // Only the user puts the cursor here while items are selected, and that ends the
         // selection. The core still names this item as the one with the cursor then
         let selecting = shell.view.outline.selectionMode
         if selecting { shell.leaveSelection() }
-        guard selecting || shell.view.outline.focusedItemId != itemId else { return }
+        // The core may name this item as the one with the cursor and still not count it as
+        // edited: the cursor left it for something that is no item, and came back
+        let edited = shell.view.outline.rows.contains { $0.item.id == itemId && $0.isEditing }
+        guard selecting || !edited || shell.view.outline.focusedItemId != itemId else { return }
         shell.startEditing(itemId)
         // The core answers with an order to put the cursor at the start of this item. The
         // cursor is already here, and where the user clicked
@@ -158,6 +220,9 @@ final class Editor: NSObject, NSTextViewDelegate {
 /// A plain text view that is as high as its text.
 final class ItemTextView: NSTextView {
     var onCursor: (() -> Void)?
+    var onCursorLeft: (() -> Void)?
+    /// The text with its decoration that the view shows, when it does not show Markdown.
+    var shown: NSAttributedString?
     /// A key of the outline that is no command of a text view. True when it was taken.
     var onKey: ((EditorKey, ItemTextView) -> Bool)?
     /// The text view does not keep its text storage alive when it is built by hand.
@@ -188,10 +253,38 @@ final class ItemTextView: NSTextView {
         return view
     }
 
+    /// The view shows the Markdown of its item, and can be typed into.
+    var isMarkdown: Bool {
+        shown == nil && isEditable
+    }
+
+    /// Shows the Markdown of the item in place of its text with decoration. The cursor stays as
+    /// far into the text as it was: in the text with decoration that is not the same place,
+    /// but one near it.
+    func showMarkdown(_ body: String, size: CGFloat) {
+        let cursor = min(selectedRange().location, (body as NSString).length)
+        let plain: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: size), .foregroundColor: NSColor.labelColor,
+        ]
+        shown = nil
+        isEditable = true
+        // The whole text with its attributes: the letters alone would keep the decoration
+        textStorage?.setAttributedString(NSAttributedString(string: body, attributes: plain))
+        typingAttributes = plain
+        setSelectedRange(NSRange(location: cursor, length: 0))
+        invalidateIntrinsicContentSize()
+    }
+
     override func becomeFirstResponder() -> Bool {
         let became = super.becomeFirstResponder()
         if became { onCursor?() }
         return became
+    }
+
+    override func resignFirstResponder() -> Bool {
+        let resigned = super.resignFirstResponder()
+        if resigned { onCursorLeft?() }
+        return resigned
     }
 
     /// The keys with Control, Option or Command that mean something to the outline. AppKit has

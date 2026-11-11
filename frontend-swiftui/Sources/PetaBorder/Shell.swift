@@ -58,6 +58,12 @@ public final class Shell: ObservableObject {
         send(.editRequested(itemId: itemId, cursor: 0))
     }
 
+    /// The cursor left the item. The core saves what was typed, and the item is shown with its
+    /// decoration again.
+    public func finishEditing(_ itemId: String) {
+        send(.editFinished(itemId: itemId))
+    }
+
     /// The user changed the text of the item. The core saves it a moment later.
     public func typed(_ body: String, into itemId: String) {
         let nowMs = UInt64(Date().timeIntervalSince1970 * 1000)
