@@ -219,6 +219,33 @@ final class OutlineScreenTests: XCTestCase {
         XCTAssertEqual(bodies(), ["to do"])
     }
 
+    // 本文が見出しの1行である項目は、編集中も見出しの大きさの太字で出る。Markdownの記号はそのまま見える。見出しでなくなると、ふつうの文字に戻る。
+    func testAnItemThatIsOneHeadingLineIsEditedAtTheSizeOfItsHeading() async throws {
+        let editor = editors()[0]
+        let usual = NSFont.systemFontSize
+
+        type("## Title", into: editor)
+
+        try await waitUntil("the editor has the size of a heading of the second level") {
+            abs((editor.font?.pointSize ?? 0) - usual * 1.4) < 0.01
+        }
+        XCTAssertTrue(isBold(editor, at: 0))
+        XCTAssertTrue(isBold(editor, at: 5))
+        XCTAssertEqual(editor.string, "## Title")
+        XCTAssertTrue(focused === editor)
+
+        editor.insertText(" more", replacementRange: editor.selectedRange())
+        XCTAssertTrue(isBold(editor, at: 10))
+
+        editor.setSelectedRange(NSRange(location: 0, length: 3))
+        editor.insertText("", replacementRange: editor.selectedRange())
+        try await waitUntil("the editor has the usual size again") {
+            abs((editor.font?.pointSize ?? 0) - usual) < 0.01
+        }
+        XCTAssertFalse(isBold(editor, at: 0))
+        XCTAssertEqual(bodies(), ["Title more"])
+    }
+
     // Tabは、文字を入れずに、項目を字下げする。
     func testTabIndentsTheItemAndTypesNothing() async throws {
         let editor = editors()[0]
