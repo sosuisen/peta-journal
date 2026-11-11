@@ -185,6 +185,51 @@ final class OutlineScreenTests: XCTestCase {
 
     private static let (returnKey, downKey, upKey, zKey): (UInt16, UInt16, UInt16, UInt16) = (36, 125, 126, 6)
 
+    /// Two items: the first has text in bold, and the cursor is in the second, which is empty.
+    private func boldItemAndTheCursorInTheNext() async throws {
+        let editor = editors()[0]
+        type("**bold** text", into: editor)
+        editor.doCommand(by: #selector(NSResponder.insertNewline(_:)))
+        try await waitUntil("there are two editors") { self.editors().count == 2 }
+        try await waitUntil("the cursor is in the new item") { self.focused === self.editors()[1] }
+    }
+
+    private func isBold(_ editor: NSTextView, at place: Int) -> Bool {
+        let font = editor.textStorage?.attribute(.font, at: place, effectiveRange: nil) as? NSFont
+        return font?.fontDescriptor.symbolicTraits.contains(.bold) ?? false
+    }
+
+    // 編集していない項目は、装飾付きで出る。Markdownの記号は出ない。
+    func testAnItemThatIsNotEditedIsShownWithItsDecoration() async throws {
+        try await boldItemAndTheCursorInTheNext()
+
+        try await waitUntil("the first item is shown without the signs of Markdown") {
+            self.editors()[0].string == "bold text"
+        }
+        XCTAssertTrue(isBold(editors()[0], at: 0))
+        XCTAssertFalse(isBold(editors()[0], at: 6))
+        XCTAssertEqual(bodies(), ["**bold** text", ""])
+    }
+
+    // 装飾付きの項目にカーソルを入れると、Markdownに戻って編集できる。カーソルが出ると、また装飾付きで出る。
+    func testAnItemThatGetsTheCursorIsMarkdownAgainAndIsDecoratedWhenTheCursorLeaves() async throws {
+        try await boldItemAndTheCursorInTheNext()
+        try await waitUntil("the first item is decorated") { self.editors()[0].string == "bold text" }
+
+        window.makeFirstResponder(editors()[0])
+
+        try await waitUntil("the first item is Markdown") { self.editors()[0].string == "**bold** text" }
+        XCTAssertFalse(isBold(editors()[0], at: 2))
+        let editor = editors()[0]
+        editor.setSelectedRange(NSRange(location: (editor.string as NSString).length, length: 0))
+        editor.insertText("!", replacementRange: editor.selectedRange())
+        try await waitUntil("what is typed reaches the core") { self.bodies() == ["**bold** text!", ""] }
+
+        window.makeFirstResponder(editors()[1])
+
+        try await waitUntil("the first item is decorated again") { self.editors()[0].string == "bold text!" }
+    }
+
     // Shift+Enterは、項目を分けずに、項目の中で改行する。
     func testShiftEnterBreaksTheLineInsideTheItem() async throws {
         let editor = editors()[0]
