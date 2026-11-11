@@ -1,7 +1,19 @@
 package net.sosuisen.petajournal
 
+import android.graphics.BitmapFactory
 import android.net.Uri
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalWindowInfo
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.File
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -75,7 +87,7 @@ fun JournalScreen(shell: Shell, cloud: SyncState? = null, onSignIn: () -> Unit =
                     Results(found(view), shell::pick)
                 } else {
                     shell.missing?.let { Text("No page yet: $it", Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) }
-                    Outline(title(view), view.outline.rows, view.config.tagsDir, shell::follow)
+                    Outline(title(view), view.outline.rows, view.config.tagsDir, shell::follow, shell::image)
                 }
             }
         }
@@ -130,17 +142,17 @@ private fun Results(entries: List<SearchEntry>, onPick: (SearchEntry) -> Unit) {
 }
 
 @Composable
-private fun Outline(title: String, rows: List<Row>, tagsDir: String, onPage: (String) -> Unit) {
+private fun Outline(title: String, rows: List<Row>, tagsDir: String, onPage: (String) -> Unit, image: (String) -> File?) {
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
         item(key = "title") {
             Text(title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(vertical = 8.dp))
         }
-        items(rows, key = { it.item.id }) { row -> OutlineRow(row, tagsDir, onPage) }
+        items(rows, key = { it.item.id }) { row -> OutlineRow(row, tagsDir, onPage, image) }
     }
 }
 
 @Composable
-private fun OutlineRow(row: Row, tagsDir: String, onPage: (String) -> Unit) {
+private fun OutlineRow(row: Row, tagsDir: String, onPage: (String) -> Unit, image: (String) -> File?) {
     val uriHandler = LocalUriHandler.current
     val blocks = remember(row.item.ast, row.item.body, tagsDir) {
         shownBlocks(row.item, tagsDir) { href ->
@@ -165,6 +177,7 @@ private fun OutlineRow(row: Row, tagsDir: String, onPage: (String) -> Unit) {
                         is ShownBlock.Text -> Text(block.text, style = MaterialTheme.typography.bodyLarge)
                         is ShownBlock.Code -> CodeBlock(block)
                         is ShownBlock.Table -> TableBlock(block)
+                        is ShownBlock.Image -> ImageBlock(block, image)
                     }
                 }
             }
@@ -226,4 +239,51 @@ private fun TableBlock(table: ShownBlock.Table) {
     }
 }
 
-private fun isWebAddress(href: String): Boolean = href.startsWith("https://") || href.startsWith("http://")
+/** What is known of the file of an image. */
+private sealed interface Picture {
+    /** Not read yet. Nothing is drawn, so that the alt does not flash before the image. */
+    data object Reading : Picture
+
+    data object Missing : Picture
+
+    /** @param width the width of the image in its file, which [bitmap] may be smaller than. */
+    data class Here(val bitmap: ImageBitmap, val width: Int) : Picture
+}
+
+/**
+ * An image, as wide as the page asks, or else as wide as it is in its file. A pixel of the
+ * page is one `dp`, as in a browser. It is never wider than the room it has. An image whose
+ * file is not here, or cannot be read, shows what stands for it.
+ */
+@Composable
+private fun ImageBlock(image: ShownBlock.Image, file: (String) -> File?) {
+    val roomPx = LocalWindowInfo.current.containerSize.width
+    val picture by produceState<Picture>(Picture.Reading, image.path) {
+        value = withContext(Dispatchers.IO) { file(image.path)?.let { read(it, roomPx) } ?: Picture.Missing }
+    }
+    when (val known = picture) {
+        Picture.Reading -> Unit
+        Picture.Missing -> Text(image.alt.ifEmpty { image.path }, style = MaterialTheme.typography.bodyLarge)
+        is Picture.Here -> Image(
+            known.bitmap,
+            contentDescription = image.alt,
+            contentScale = ContentScale.FillWidth,
+            modifier = Modifier
+                .padding(vertical = 4.dp)
+                .width((image.width ?: known.width).dp)
+                .aspectRatio(known.bitmap.width.toFloat() / known.bitmap.height),
+        )
+    }
+}
+
+/**
+ * Reads the image of the file. A large image is read smaller, by whole halves, down to no
+ * less than [roomPx] wide: a photo at its full size takes the memory of many screens.
+ */
+private fun read(file: File, roomPx: Int): Picture.Here? {
+    val size = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeFile(file.path, size)
+    val halves = generateSequence(1) { it * 2 }.takeWhile { size.outWidth / it >= roomPx }.lastOrNull() ?: 1
+    val bitmap = BitmapFactory.decodeFile(file.path, BitmapFactory.Options().apply { inSampleSize = halves })
+    return bitmap?.let { Picture.Here(it.asImageBitmap(), size.outWidth) }
+}

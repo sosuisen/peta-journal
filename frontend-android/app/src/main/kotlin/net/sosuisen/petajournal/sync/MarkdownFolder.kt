@@ -16,12 +16,7 @@ import java.security.MessageDigest
  *   must never take in half a file.
  */
 class MarkdownFolder(private val root: File, private val temp: File) {
-    /** The file or folder at the path, however its name is spelled here. */
-    private fun find(path: String): File? =
-        path.split('/').fold<String, File?>(root) { dir, name -> dir?.let { child(it, name) } }
-
-    private fun child(dir: File, name: String): File? =
-        dir.listFiles()?.firstOrNull { it.name.equals(name, ignoreCase = true) }
+    private fun find(path: String): File? = findWithoutCase(root, path)
 
     /** Deletes the file, or the folder with all that is in it. Nothing there is fine. */
     fun remove(path: String) {
@@ -83,6 +78,16 @@ class MarkdownFolder(private val root: File, private val temp: File) {
         fun keeps(path: String): Boolean = path.endsWith(MARKDOWN) || path.startsWith(ASSETS)
     }
 }
+
+/**
+ * The file or folder at the path under [root], however its name is spelled there. The path of
+ * the cloud, and the path that a page writes for its image, may differ from it in case.
+ */
+fun findWithoutCase(root: File, path: String): File? =
+    path.split('/').fold<String, File?>(root) { dir, name -> dir?.let { child(it, name) } }
+
+private fun child(dir: File, name: String): File? =
+    dir.listFiles()?.firstOrNull { it.name.equals(name, ignoreCase = true) }
 
 private const val BLOCK = 4 * 1024 * 1024
 
