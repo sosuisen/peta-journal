@@ -27,7 +27,7 @@ class ShownTextTest {
         properties = emptyMap(),
     )
 
-    private fun shown(body: String, ast: String) = shownBlocks(item(body, ast)) {}
+    private fun shown(body: String, ast: String) = shownBlocks(item(body, ast), tagsDir = "") {}
 
     private val asItIs = listOf(ShownBlock.Text(AnnotatedString("**body**")))
 

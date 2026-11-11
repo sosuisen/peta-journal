@@ -159,6 +159,47 @@ class JournalScreenTest {
         for (cell in listOf("name", "count", "apple", "2")) compose.onNode(hasText(cell)).assertExists()
     }
 
+    // ページへのリンクに触れると、そのページが開く。
+    @Test
+    fun a_link_to_a_page_opens_the_page() {
+        download("notes.md", "[[other page]]" + NL)
+        download("other page.md", "what the other page says" + NL)
+        openNotes()
+        waitFor("other page")
+
+        compose.onNode(hasText("other page")).performClick()
+
+        waitFor("what the other page says")
+    }
+
+    // タグに触れると、そのタグのページが開く。
+    @Test
+    fun a_tag_opens_the_page_of_the_tag() {
+        download("notes.md", "#topic" + NL)
+        openNotes()
+        waitFor("#topic")
+
+        compose.onNode(hasText("#topic")).performClick()
+
+        compose.waitUntil(WAIT_MS) { compose.onAllNodes(hasText("topic")).fetchSemanticsNodes().isNotEmpty() }
+    }
+
+    // まだないページへのリンクに触れても、ページは作られない。ないことが見え、元のページが開いたままになる。
+    @Test
+    fun a_link_to_a_page_that_is_not_there_says_so_and_makes_no_page() {
+        download("notes.md", "[[ghost]]" + NL)
+        openNotes()
+        waitFor("ghost")
+
+        compose.onNode(hasText("ghost")).performClick()
+
+        waitFor("No page yet: ghost")
+        compose.onNode(hasText("notes")).assertExists()
+        type("ghost")
+        compose.waitUntil(WAIT_MS) { shell.view.search.results.any { it.kind == SearchKind.CREATE } }
+        assertEquals(emptyList<String>(), shell.view.search.results.filter { it.kind == SearchKind.PAGE }.map { it.title })
+    }
+
     // ページを作る結果（今日のジャーナル、入力した名前のページ）は、結果に出ない。最初の版は何も変えない。
     @Test
     fun the_results_that_make_a_page_are_left_out() {
@@ -208,5 +249,6 @@ class JournalScreenTest {
     private companion object {
         /** The search waits a moment after the last key, and the first sync opens the index. */
         const val WAIT_MS = 10_000L
+        const val NL = "\n"
     }
 }

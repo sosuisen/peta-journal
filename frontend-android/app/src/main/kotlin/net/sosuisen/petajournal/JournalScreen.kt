@@ -1,5 +1,6 @@
 package net.sosuisen.petajournal
 
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -68,7 +69,8 @@ fun JournalScreen(shell: Shell, cloud: SyncState? = null, onSignIn: () -> Unit =
                 if (view.search.showDropdown) {
                     Results(found(view), shell::pick)
                 } else {
-                    Outline(title(view), view.outline.rows)
+                    shell.missing?.let { Text("No page yet: $it", Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) }
+                    Outline(title(view), view.outline.rows, view.config.tagsDir, shell::follow)
                 }
             }
         }
@@ -123,21 +125,27 @@ private fun Results(entries: List<SearchEntry>, onPick: (SearchEntry) -> Unit) {
 }
 
 @Composable
-private fun Outline(title: String, rows: List<Row>) {
+private fun Outline(title: String, rows: List<Row>, tagsDir: String, onPage: (String) -> Unit) {
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
         item(key = "title") {
             Text(title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(vertical = 8.dp))
         }
-        items(rows, key = { it.item.id }) { row -> OutlineRow(row) }
+        items(rows, key = { it.item.id }) { row -> OutlineRow(row, tagsDir, onPage) }
     }
 }
 
 @Composable
-private fun OutlineRow(row: Row) {
+private fun OutlineRow(row: Row, tagsDir: String, onPage: (String) -> Unit) {
     val uriHandler = LocalUriHandler.current
-    val blocks = remember(row.item.ast, row.item.body) {
-        // A link to a page or a tag has no address, and opens nothing yet
-        shownBlocks(row.item) { href -> if (isWebAddress(href)) uriHandler.openUri(href) }
+    val blocks = remember(row.item.ast, row.item.body, tagsDir) {
+        shownBlocks(row.item, tagsDir) { href ->
+            when {
+                isWebAddress(href) -> uriHandler.openUri(href)
+                // The core takes the URL of a page as it is written, not encoded
+                href.startsWith(Shell.PAGES) -> onPage(Uri.decode(href))
+                // Any other link, such as one to a file, opens nothing
+            }
+        }
     }
     Column {
         row.dateHeader?.let { date ->
