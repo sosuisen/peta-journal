@@ -2,8 +2,10 @@
 
 use crate::core::CoreHandle;
 use crate::dom;
+use crate::effects::copied_html::copied_html;
+use crate::page_links::AppLinks;
 use crux_core::Request;
-use leptos::prelude::Set;
+use leptos::prelude::{Set, WithUntracked};
 use peta_core::effects::{LocalDateTimeDto, UiOp, UiOutput};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::{spawn_local, JsFuture};
@@ -150,8 +152,17 @@ pub fn perform(handle: CoreHandle, mut request: Request<UiOp>) {
         UiOp::CopyText(text) => {
             let _ = dom::window().navigator().clipboard().write_text(&text);
         }
-        UiOp::CopyMarkdown { markdown } => {
-            let html = flatmarkdown_ast2html::ast_to_html(&flatmarkdown::parse_body(&markdown));
+        UiOp::CopyMarkdown { markdown, ast } => {
+            // The origin is what another app needs to open a page of this app.
+            let app_url = dom::window().location().origin().unwrap_or_default();
+            let tags_dir = handle.view().with_untracked(|v| v.config.tags_dir.clone());
+            let html = copied_html(
+                &ast,
+                AppLinks {
+                    app_url: &app_url,
+                    tags_dir: &tags_dir,
+                },
+            );
             let pending = handle.inner().pending_copy.take();
             match pending {
                 Some(pending) => {

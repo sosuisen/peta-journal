@@ -409,8 +409,13 @@ pub enum UiOp {
     CopyText(String),
     /// Copies tree markdown as text and, rendered to HTML, as rich text. The shell may have
     /// begun the clipboard write on the user's key already and only fills it in here.
+    ///
+    /// `ast` is the AST of the markdown as the server parsed it, as JSON like the AST of an
+    /// item. A shell makes the HTML from it and does not parse the markdown (ADR 027). It is
+    /// empty when the markdown is empty.
     CopyMarkdown {
         markdown: String,
+        ast: String,
     },
     /// There is nothing to copy after all: the shell gives up a clipboard write it began.
     CopyFailed,

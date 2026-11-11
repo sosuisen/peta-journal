@@ -95,6 +95,39 @@ test.describe('outline content', () => {
       .toHaveAttribute('href', new RegExp(`^/pages/(.*/)?${tag}$`));
   });
 
+  // コピーしたHTMLでは、ウィキリンクとハッシュタグが、アプリのURLから始まるリンクになる。貼り付けた先から開ける
+  test('the copied HTML links a wiki link and a hashtag to whole URLs of the app', async ({ page, request }) => {
+    const target = await new Server(request).newDocPage('Copied');
+    const tag = `tag${Date.now()}`;
+    await page.keyboard.type(`#${tag} and [[${target.title}`);  // the editor closes the link itself
+    const [item] = await server.itemsSettled(pageId, i => i[0].body.endsWith(`${target.title}]]`));
+    await page.reload();  // closes the list of page names, which would take the arrow key
+    await openEditor(page, item.id);
+    // The test keeps what the app writes, and does not read the real clipboard: reading it
+    // needs a permission and the focus of the window.
+    await page.evaluate(() => {
+      navigator.clipboard.write = async items => {
+        (window as unknown as { copied: ClipboardItem }).copied = items[0];
+      };
+    });
+
+    await page.keyboard.press('Shift+ArrowDown');  // leaves the editor: the item is selected
+    await expect(page.locator('app-outline-item .outline-item.selected')).toHaveCount(1);
+    await page.keyboard.press('Control+c');
+
+    const links = await page.evaluate(async () => {
+      const { copied } = window as unknown as { copied: ClipboardItem };
+      const html = await (await copied.getType('text/html')).text();
+      const anchors = new DOMParser().parseFromString(html, 'text/html').querySelectorAll('a');
+      return Array.from(anchors, a => ({ href: a.getAttribute('href'), text: a.textContent }));
+    });
+    const { origin } = new URL(page.url());
+    expect(links).toHaveLength(2);
+    expect(links[0].href).toMatch(new RegExp(`^${origin}/pages/(.*/)?${tag}$`));
+    expect(links[0].text).toBe(`#${tag}`);
+    expect(links[1]).toEqual({ href: `${origin}/pages/${encodeURI(target.title)}`, text: target.title });
+  });
+
   // 画像のURLの w と h は、表示中の画像の幅と高さになる
   test('the w and h of an image URL size the shown image', async ({ page }) => {
     await pasteText(page, '![pic](pic.png#w=120&h=80)');

@@ -337,6 +337,7 @@ pub fn copy_items(item_ids: Vec<String>) -> Cmd {
             Ok(result) => {
                 api.notify(UiOp::CopyMarkdown {
                     markdown: result.tree_markdown.clone(),
+                    ast: result.ast,
                 });
                 api.send_event(Event::MarkdownCopied {
                     flat_markdown: result.flat_markdown,

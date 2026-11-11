@@ -6,6 +6,7 @@ use crate::components::item_html::{item_html, ImageSize};
 use crate::components::task_checkbox::TaskCheckbox;
 use crate::core::CoreHandle;
 use crate::dom;
+use crate::page_links::{hashtag_path, wikilink_path};
 use leptos::prelude::*;
 use peta_core::view::Row;
 use peta_core::Event;
@@ -207,20 +208,21 @@ fn elements(content: &web_sys::Element, selector: &str) -> Vec<web_sys::HtmlElem
 /// page alone, which the browser would read as relative to the page that is open. The browser
 /// uses the `href` as it is for Ctrl+click, the middle button and its own menu.
 fn point_links_at_pages(content: &web_sys::Element, tags_dir: &str) {
-    for (selector, prefix) in [
-        (WIKILINKS, "/pages/".to_string()),
-        (HASHTAGS, format!("/pages/{tags_dir}")),
-    ] {
-        for link in elements(content, selector) {
-            // The name is kept apart from the `href`: this runs again on the same links when
-            // the tag directory changes, and must not add a second prefix.
-            let page = link.get_attribute(PAGE_OF_LINK).unwrap_or_else(|| {
-                let page = link.get_attribute("href").unwrap_or_default();
-                let _ = link.set_attribute(PAGE_OF_LINK, &page);
-                page
-            });
-            let _ = link.set_attribute("href", &format!("{prefix}{page}"));
-        }
+    point_links(content, WIKILINKS, wikilink_path);
+    point_links(content, HASHTAGS, |tag| hashtag_path(tags_dir, tag));
+}
+
+/// Gives every link that `selector` finds the path that `path_of` makes from its name.
+fn point_links(content: &web_sys::Element, selector: &str, path_of: impl Fn(&str) -> String) {
+    for link in elements(content, selector) {
+        // The name is kept apart from the `href`: this runs again on the same links when
+        // the tag directory changes, and must not add a second prefix.
+        let name = link.get_attribute(PAGE_OF_LINK).unwrap_or_else(|| {
+            let name = link.get_attribute("href").unwrap_or_default();
+            let _ = link.set_attribute(PAGE_OF_LINK, &name);
+            name
+        });
+        let _ = link.set_attribute("href", &path_of(&name));
     }
 }
 
