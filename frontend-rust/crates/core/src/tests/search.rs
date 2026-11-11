@@ -158,6 +158,40 @@ fn open_today_opens_the_journal_of_today_and_clears_the_query() {
     assert!(h.pending_timer_ids().is_empty());
 }
 
+// `Open Today` の下の結果は、番号が1つずれても、選んだものが開く。矢印キーは `Open Today` も通って折り返す。
+#[test]
+fn the_entries_below_open_today_open_what_they_show_and_the_arrow_keys_pass_open_today() {
+    let hits = || vec![page_hit("Today I learned"), item_hit("Diary", "i1")];
+    let mut h = Harness::new();
+    // Open Today, Today I learned, create "today", Diary: four entries
+    searched(&mut h, "today", hits());
+    h.send(Event::SearchResultClicked { index: 1 });
+    assert_eq!(urls(&h), ["/pages/Today I learned"]);
+
+    searched(&mut h, "today", hits());
+    key(&mut h, SearchKey::Up);
+    assert_eq!(h.view().search.selected_index, Some(3));
+    key(&mut h, SearchKey::Enter);
+    assert_eq!(urls(&h)[1..], ["/pages/Diary#i1"]);
+
+    searched(&mut h, "today", hits());
+    key(&mut h, SearchKey::Down);
+    assert_eq!(h.view().search.selected_index, Some(0));
+    key(&mut h, SearchKey::Enter);
+    assert_eq!(urls(&h)[2..], ["/today"]);
+}
+
+// 検索の答えが届く前でも、矢印キーで `Open Today` を選べる。
+#[test]
+fn the_arrow_keys_select_open_today_before_the_answer_arrives() {
+    let mut h = Harness::new();
+    typed(&mut h, "today");
+    key(&mut h, SearchKey::Down);
+    assert_eq!(h.view().search.selected_index, Some(0));
+    key(&mut h, SearchKey::Enter);
+    assert_eq!(urls(&h), ["/today"]);
+}
+
 // `#タグ` を含む検索語では、ページ作成の項目は出ない。
 #[test]
 fn a_query_with_a_tag_offers_no_page_to_create() {
