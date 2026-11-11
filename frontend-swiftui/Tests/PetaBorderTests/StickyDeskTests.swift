@@ -139,6 +139,39 @@ final class StickyDeskTests: XCTestCase {
         XCTAssertEqual(nextRun().stickies.map(\.id), [first.id, second.id])
     }
 
+    // 付箋紙のツールは、タイトルバーにある。ウィンドウにフォーカスがないときは隠れ、フォーカスが戻ると出る。
+    func testTheToolsAreInTheTitleBarAndAreHiddenWithoutTheFocus() async throws {
+        let sticky = desk.add()
+        let tools = try XCTUnwrap(sticky.window.titlebarAccessoryViewControllers.first)
+
+        desk.windowDidBecomeKey(Notification(name: NSWindow.didBecomeKeyNotification, object: sticky.window))
+        XCTAssertFalse(tools.view.isHidden)
+
+        desk.windowDidResignKey(Notification(name: NSWindow.didResignKeyNotification, object: sticky.window))
+        XCTAssertTrue(tools.view.isHidden)
+    }
+
+    // タイトルバーの検索のツールを使うと、付箋紙に検索欄が出る。
+    func testTheSearchToolOfTheTitleBarOpensTheSearchBox() async throws {
+        let sticky = desk.add(url: "/pages/with-tools")
+        // The screen has the page, not only the shell: the screen closes the search box when
+        // a page comes
+        try await waitUntil("the page is shown") { sticky.window.title == "with-tools" }
+        XCTAssertFalse(hasSearchBox(sticky))
+
+        sticky.look.searching = true
+
+        try await waitUntil("the search box is there") { self.hasSearchBox(sticky) }
+    }
+
+    private func hasSearchBox(_ sticky: Sticky) -> Bool {
+        func look(_ view: NSView) -> Bool {
+            if let field = view as? NSTextField, field.accessibilityIdentifier() == "search" { return true }
+            return view.subviews.contains(where: look)
+        }
+        return sticky.window.contentView.map(look) ?? false
+    }
+
     // 新しい付箋紙は黄色である。色を変えると、ウィンドウの色が変わり、次の起動でもその色で戻る。
     func testTheColorOfAStickyIsChangedAndComesBack() async throws {
         let sticky = desk.add()
