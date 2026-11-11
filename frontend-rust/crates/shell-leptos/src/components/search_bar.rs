@@ -66,9 +66,9 @@ pub fn SearchBar() -> impl IntoView {
                             let s = search.get();
                             let selected = s.selected_index;
                             s.results.into_iter().map(|entry| {
-                                let SearchEntry { index, kind, title, snippet } = entry;
-                                let is_selected = selected == Some(index);
-                                let click = move |_: web_sys::MouseEvent| core.send(Event::SearchResultClicked { index });
+                                let SearchEntry { position, kind, title, snippet } = entry;
+                                let is_selected = selected == Some(position);
+                                let click = move |_: web_sys::MouseEvent| core.send(Event::SearchResultClicked { position });
                                 match kind {
                                     SearchKind::Today => view! {
                                         <div class="search-today" class:selected=is_selected on:mousedown=click>

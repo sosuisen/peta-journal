@@ -686,7 +686,7 @@ pub enum Event {
     SearchQueryChanged(String),
     SearchKey(SearchKey),
     SearchResultClicked {
-        index: usize,
+        position: usize,
     },
     SearchDropdown(bool),
 
@@ -1394,7 +1394,7 @@ fn dispatch(event: Event, model: &mut Model) -> Cmd {
 
         SearchQueryChanged(q) => screens::search::query_changed(model, q),
         SearchKey(key) => screens::search::key(model, key),
-        SearchResultClicked { index } => screens::search::result_clicked(model, index),
+        SearchResultClicked { position } => screens::search::result_clicked(model, position),
         SearchDropdown(show) => {
             model.search.show_dropdown = show;
             done()

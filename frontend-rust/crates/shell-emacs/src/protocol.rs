@@ -116,7 +116,7 @@ pub enum Inbound {
         query: String,
     },
     SearchResult {
-        index: usize,
+        position: usize,
     },
     Answer {
         req: u64,

@@ -16,6 +16,6 @@ extension Shell {
 
     /// The user chose an entry of what was found. `index` is the one the entry carries.
     public func pick(_ index: UInt64) {
-        send(.searchResultClicked(index: index))
+        send(.searchResultClicked(position: index))
     }
 }

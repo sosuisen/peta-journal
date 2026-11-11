@@ -555,7 +555,7 @@ final class ShellTests: XCTestCase {
         XCTAssertEqual(shell.view.search.query, "apple")
         try await waitUntil("the page is found") { self.pagesFound(shell) == ["apple-pie"] }
         XCTAssertTrue(shell.view.search.showDropdown)
-        shell.pick(shell.view.search.results[0].index)
+        shell.pick(shell.view.search.results[0].position)
 
         try await waitUntil("the page found is shown") { shell.title == "apple-pie" }
         XCTAssertEqual(shell.view.search.query, "")
@@ -597,7 +597,7 @@ final class ShellTests: XCTestCase {
 
         shell.search("swift")
         try await waitUntil("the page is found") { self.pagesFound(shell) == ["swift-notes"] }
-        shell.pick(shell.view.search.results[0].index)
+        shell.pick(shell.view.search.results[0].position)
 
         try await waitUntil("the page found is shown") { shell.title == "swift-notes" }
         XCTAssertEqual(shell.url, "/pages/swift-notes")
@@ -651,12 +651,12 @@ final class ShellTests: XCTestCase {
         let earlier = try XCTUnwrap(shell.view.outline.rows.first { $0.dateHeader != nil })
         let today = try XCTUnwrap(journal(shell)).displayDate
 
-        shell.scrolled(top: Int(earlier.index), shown: 0...Int(earlier.index))
+        shell.scrolled(top: Int(earlier.position), shown: 0...Int(earlier.position))
 
         XCTAssertEqual(earlier.dateHeader, "2020年1月2日 木曜日")
         XCTAssertEqual(shell.title, "2020年1月2日 木曜日")
 
-        shell.scrolled(top: 0, shown: 0...Int(earlier.index))
+        shell.scrolled(top: 0, shown: 0...Int(earlier.position))
 
         XCTAssertEqual(shell.title, "\(today) (Today)")
     }

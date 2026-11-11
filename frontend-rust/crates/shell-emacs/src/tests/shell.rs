@@ -840,11 +840,13 @@ fn search_results_are_numbered_and_open_by_their_number() {
         })
         .unwrap();
     assert_eq!(entries.first().unwrap().title, "rust");
-    assert_eq!(entries.first().unwrap().index, 0);
+    assert_eq!(entries.first().unwrap().position, 0);
     let last = entries.last().unwrap();
     assert_eq!(last.snippet, "rust本");
 
-    driver.send(Inbound::SearchResult { index: last.index });
+    driver.send(Inbound::SearchResult {
+        position: last.position,
+    });
     assert!(
         driver.waiting(|op| matches!(op, ApiOp::GetOrCreateDoc { title, .. } if title == "memo"))
     );

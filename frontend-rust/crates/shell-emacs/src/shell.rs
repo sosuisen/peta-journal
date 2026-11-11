@@ -274,7 +274,9 @@ impl<H: Host> Shell<H> {
                 self.send(Event::SearchDropdown(true));
                 self.send(Event::SearchQueryChanged(query));
             }
-            Inbound::SearchResult { index } => self.send(Event::SearchResultClicked { index }),
+            Inbound::SearchResult { position } => {
+                self.send(Event::SearchResultClicked { position })
+            }
             Inbound::Answer { req, yes } => self.answer(req, yes),
             // The popup of the web frontend has a place on the screen. Emacs shows the names
             // with its own completion, so the place is not used

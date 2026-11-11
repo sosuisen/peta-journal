@@ -627,7 +627,7 @@ public sealed class ShellTests : IDisposable
         Assert.Equal("apple", shell.View.Search.Query);
         main.WaitUntil("the page is found", () => PagesFound(shell) is ["apple-pie"]);
         Assert.True(shell.View.Search.ShowDropdown);
-        shell.Pick(shell.View.Search.Results[0].Index);
+        shell.Pick(shell.View.Search.Results[0].Position);
 
         main.WaitUntil("the page found is shown", () => shell.Title == "apple-pie");
         Assert.Equal("", shell.View.Search.Query);
@@ -675,7 +675,7 @@ public sealed class ShellTests : IDisposable
 
         shell.Search("winui");
         main.WaitUntil("the page is found", () => PagesFound(shell) is ["winui-notes"]);
-        shell.Pick(shell.View.Search.Results[0].Index);
+        shell.Pick(shell.View.Search.Results[0].Position);
 
         main.WaitUntil("the page found is shown", () => shell.Title == "winui-notes");
         Assert.Equal("/pages/winui-notes", shell.Url);
@@ -762,12 +762,12 @@ public sealed class ShellTests : IDisposable
         var earlier = shell.View.Outline.Rows.First(row => row.DateHeader is not null);
         var today = Journal(shell)!.DisplayDate;
 
-        shell.Scrolled((int)earlier.Index, 0, (int)earlier.Index);
+        shell.Scrolled((int)earlier.Position, 0, (int)earlier.Position);
 
         Assert.Equal("2020年1月2日 木曜日", earlier.DateHeader);
         Assert.Equal("2020年1月2日 木曜日", shell.Title);
 
-        shell.Scrolled(0, 0, (int)earlier.Index);
+        shell.Scrolled(0, 0, (int)earlier.Position);
 
         Assert.Equal($"{today} (Today)", shell.Title);
     }

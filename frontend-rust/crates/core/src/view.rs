@@ -44,7 +44,7 @@ impl TaskState {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Row {
     pub item: ItemRef,
-    pub index: usize,
+    pub position: usize,
     pub indent_px: i32,
     pub is_editing: bool,
     pub is_selected: bool,
@@ -74,7 +74,7 @@ pub struct Row {
 pub struct WikiView {
     pub item_id: Option<String>,
     pub suggestions: Vec<String>,
-    pub index: usize,
+    pub selected_index: usize,
     pub x: f64,
     pub y: f64,
 }
@@ -286,11 +286,11 @@ pub struct SearchView {
     pub searching: bool,
 }
 
-/// One line of the search results. `index` is what `Event::SearchResultClicked` takes.
+/// One line of the search results. `position` is what `Event::SearchResultClicked` takes.
 #[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct SearchEntry {
-    pub index: usize,
+    pub position: usize,
     pub kind: SearchKind,
     /// The path of the page, or of the page to create.
     pub title: String,
@@ -434,7 +434,7 @@ fn outline(model: &Model) -> OutlineView {
     // Cumulative zoom: the product of the zooms of the item and its ancestors
     let mut stack: Vec<(i32, f64)> = Vec::new();
     let mut rows = Vec::with_capacity(visible.len());
-    for (index, item) in visible.iter().enumerate() {
+    for (position, item) in visible.iter().enumerate() {
         while stack
             .last()
             .map(|(level, _)| *level >= item.level)
@@ -451,10 +451,10 @@ fn outline(model: &Model) -> OutlineView {
         let is_broken = state.is_broken_transclusion(&item.id);
         let date_header = (item.item_type == "journal"
             && item.name != journal_date
-            && starts_date_group(visible, own_ids, index))
+            && starts_date_group(visible, own_ids, position))
         .then(|| format_journal_date(&item.name));
         rows.push(Row {
-            index,
+            position,
             indent_px: (item.level - 1) * 24,
             is_editing,
             is_selected: selected.contains(&item.id),
@@ -484,7 +484,7 @@ fn outline(model: &Model) -> OutlineView {
         wiki: WikiView {
             item_id: model.wiki.item_id.clone(),
             suggestions: model.wiki.suggestions.clone(),
-            index: model.wiki.index,
+            selected_index: model.wiki.index,
             x: model.wiki.x,
             y: model.wiki.y,
         },
@@ -553,8 +553,8 @@ fn search(model: &Model) -> SearchView {
         .chain(creates)
         .chain(hits(SearchKind::Item, &model.search.item_results))
         .enumerate()
-        .map(|(index, (kind, title, snippet))| SearchEntry {
-            index,
+        .map(|(position, (kind, title, snippet))| SearchEntry {
+            position,
             kind,
             title,
             snippet,
