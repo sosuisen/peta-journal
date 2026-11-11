@@ -183,7 +183,8 @@ While items are selected, no item has the cursor and the keys mean this:
 
 A click into the text of an item also ends the selection.
 
-A click on the box of a task steps its state, as the key does: open, running, done, and then
+The box of a task is half as large again as the text. A click on it steps the state of the
+task, as the key does: open, running, done, and then
 no task any more.
 
 Each window is a sticky with a page of its own. Its title bar shows the name of the page, and

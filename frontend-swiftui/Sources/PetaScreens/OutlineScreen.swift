@@ -125,12 +125,17 @@ private struct ItemEditor: View {
         HStack(alignment: .top) {
             // Without the bullet an item with no text cannot be seen
             ForEach(Array(row.marks.enumerated()), id: \.offset) { place, mark in
-                let text = Text(mark).foregroundStyle(.secondary).font(.system(size: NSFont.systemFontSize * zoom))
-                // The mark after the bullet is the state of a task: a click steps it
+                let size = NSFont.systemFontSize * zoom
                 if place == 0 {
-                    text
+                    Text(mark).foregroundStyle(.secondary).font(.system(size: size))
                 } else {
-                    text.contentShape(Rectangle()).onTapGesture { shell.clickedTask(of: row.item.id) }
+                    // The mark after the bullet is the state of a task: a click steps it. It is
+                    // half as large again, to be seen and hit. It keeps the height of a line
+                    // of the text, so that it stays in the middle of the first line
+                    Text(mark).foregroundStyle(.secondary).font(.system(size: size * 1.5))
+                        .frame(height: NSLayoutManager().defaultLineHeight(for: .systemFont(ofSize: size)))
+                        .contentShape(Rectangle())
+                        .onTapGesture { shell.clickedTask(of: row.item.id) }
                 }
             }
             ItemText(
