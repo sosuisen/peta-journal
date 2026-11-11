@@ -327,6 +327,23 @@ final class ShellTests: XCTestCase {
         try await waitUntil("the task is done") { shell.view.outline.rows[0].task == .done }
     }
 
+    // 子を隠した項目のバレットは、二重の円である。子を表示すると、ふつうのバレットに戻る。
+    func testTheBulletOfAnItemWithHiddenChildrenIsADoubleCircle() async throws {
+        let shell = try await shellWithPage()
+        try await twoItems(shell)
+        let (first, second) = (shell.view.outline.rows[0].item.id, shell.view.outline.rows[1].item.id)
+        XCTAssertTrue(shell.pressed(.tab, in: second, editor("", cursor: 0)))
+        XCTAssertEqual(shell.view.outline.rows[0].marks, ["•"])
+
+        XCTAssertTrue(shell.pressed(.fold, in: first, editor("first", cursor: 0)))
+        try await waitUntil("the child is hidden") { shell.view.outline.rows.count == 1 }
+        XCTAssertEqual(shell.view.outline.rows[0].marks, ["◉"])
+
+        XCTAssertTrue(shell.pressed(.unfold, in: first, editor("first", cursor: 0)))
+        try await waitUntil("the child is shown") { shell.view.outline.rows.count == 2 }
+        XCTAssertEqual(shell.view.outline.rows[0].marks, ["•"])
+    }
+
     // 折りたたむキーは子の項目を隠し、開くキーは子の項目を表示する。切り替えではない。
     func testTheFoldKeyHidesTheChildrenAndTheUnfoldKeyShowsThem() async throws {
         let shell = try await shellWithPage()
