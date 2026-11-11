@@ -127,6 +127,18 @@ final class StickyDeskTests: XCTestCase {
         XCTAssertEqual(nextRun().stickies.map(\.id), [second.id])
     }
 
+    // アプリを終えるときに閉じられる付箋紙は、次の起動で戻る。アプリを終えると、macOSがウィンドウをすべて閉じるためである。
+    func testStickiesThatAreClosedAsTheAppEndsComeBack() async throws {
+        let first = desk.add()
+        let second = desk.add()
+
+        desk.end()
+        first.window.close()
+        second.window.close()
+
+        XCTAssertEqual(nextRun().stickies.map(\.id), [first.id, second.id])
+    }
+
     // 新しい付箋紙は黄色である。色を変えると、ウィンドウの色が変わり、次の起動でもその色で戻る。
     func testTheColorOfAStickyIsChangedAndComesBack() async throws {
         let sticky = desk.add()

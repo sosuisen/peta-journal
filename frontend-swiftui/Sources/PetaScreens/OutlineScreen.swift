@@ -82,6 +82,9 @@ public struct OutlineScreen: View {
             if searching || shell.url == nil {
                 SearchBox(shell: shell) { searching = false }
                     .padding([.horizontal, .bottom])
+                    // What was found comes before the items: they share the window otherwise,
+                    // and only a few entries are seen
+                    .layoutPriority(1)
             }
             if shell.url == nil {
                 Text("Search for a page to show here").foregroundStyle(.secondary)

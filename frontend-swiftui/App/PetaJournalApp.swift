@@ -36,6 +36,12 @@ final class Stickies: NSObject, NSApplicationDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    /// Quitting closes the windows, and that is not the user closing the stickies.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        desk?.end()
+        return .terminateNow
+    }
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         true
     }

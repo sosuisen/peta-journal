@@ -372,6 +372,25 @@ final class OutlineScreenTests: XCTestCase {
         try await waitUntil("the search box is closed") { self.searchField() == nil }
     }
 
+    // 検索結果がウィンドウに入りきらないときも、検索欄はウィンドウの中にとどまる。
+    func testTheSearchBoxStaysInsideTheWindowWhenTheResultsDoNotFit() async throws {
+        for number in 1...30 {
+            shell.open("/pages/berry-\(number)")
+            try await waitUntil("page \(number) is shown") { self.shell.title == "berry-\(number)" }
+        }
+        window.contentView = NSHostingView(rootView: OutlineScreen(shell: shell, searching: true))
+        try await waitUntil("the search box has the cursor") { self.searchField()?.currentEditor() != nil }
+        let typing = try XCTUnwrap(searchField()?.currentEditor() as? NSTextView)
+
+        typing.insertText("berry", replacementRange: typing.selectedRange())
+        try await waitUntil("the pages are found") { self.shell.view.search.results.count > 13 }
+        // The screen follows the core a moment later
+        try await Task.sleep(nanoseconds: 300_000_000)
+
+        let field = try XCTUnwrap(searchField())
+        XCTAssertLessThanOrEqual(field.convert(field.bounds, to: nil).maxY, window.contentLayoutRect.maxY)
+    }
+
     // ページのない画面には、検索欄が最初から出ていて、カーソルがそこにある。
     func testAScreenWithoutAPageStartsWithTheSearchBox() async throws {
         let empty = Shell(server: server.address, url: nil, clipboard: { nil })
