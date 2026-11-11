@@ -131,6 +131,22 @@ fn the_query_today_puts_open_today_at_the_top_of_the_list_before_the_answer_arri
     );
 }
 
+/// The kinds of the listed entries.
+fn kinds(h: &Harness) -> Vec<SearchKind> {
+    h.view().search.results.iter().map(|r| r.kind).collect()
+}
+
+// `today` は大文字小文字と前後の空白を区別しない。`today` を含むだけの検索語では `Open Today` は出ない。
+#[test]
+fn the_query_today_is_matched_without_its_case_and_the_spaces_around_it() {
+    let mut h = Harness::new();
+    typed(&mut h, " Today ");
+    assert_eq!(kinds(&h), [SearchKind::Today]);
+
+    typed(&mut h, "today plan");
+    assert_eq!(kinds(&h), []);
+}
+
 // `#タグ` を含む検索語では、ページ作成の項目は出ない。
 #[test]
 fn a_query_with_a_tag_offers_no_page_to_create() {
