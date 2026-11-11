@@ -219,6 +219,7 @@ impl AppState {
                 page_service: Arc::clone(&page_service),
                 item_service: Arc::clone(&item_service),
                 journal_service: Arc::clone(&journal_service),
+                atlas: Arc::clone(&atlas),
                 extensions: Arc::clone(&extensions),
                 pages: pages.clone(),
                 items: items.clone(),
