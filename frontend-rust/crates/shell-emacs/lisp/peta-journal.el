@@ -80,7 +80,7 @@ on its line.")
 (defface peta-journal-done '((t :inherit font-lock-string-face))
   "The mark of a finished task.")
 
-(defface peta-journal-running '((t :inherit peta-journal-bullet :height 1.3))
+(defface peta-journal-running '((t :inherit peta-journal-bullet :height 1.7))
   "The mark of a running task.
 Larger than the text: in many fonts the box with a line is smaller than the
 boxes of the other states.")
