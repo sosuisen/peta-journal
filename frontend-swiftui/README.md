@@ -178,10 +178,16 @@ While items are selected, no item has the cursor and the keys mean this:
 | Backspace, Delete | deletes the selected items |
 | Shift+Option+Up, Down | moves the selected items up or down |
 | Tab, Shift+Tab, Shift+Option+Right, Left | indents, outdents the selected items |
-| Command+C, Command+X | copies, cuts the selected items as Markdown |
+| Command+C, Command+X | copies, cuts the selected items as Markdown, and as HTML for other apps |
 | Command+Z, Control+Z | undo; with Shift, redo |
 
 A click into the text of an item also ends the selection.
+
+A copy puts two things on the clipboard: the Markdown as plain text, and the same as HTML
+(ADR 027). An app that takes rich text reads the HTML and keeps lists, bold and links. In the
+HTML a wikilink and a hashtag are whole URLs that open the page in the web frontend, at the
+address of the journal server (`-server`): this app has no address that another app opens.
+`copiedHtml` of the core library makes the HTML.
 
 An item whose body is one heading line (`## Title`) shows its Markdown at the size of its
 heading, in bold, also while it is edited: the text keeps its size when the cursor goes in and
