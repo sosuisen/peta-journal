@@ -1,2 +1,2 @@
-mod shell;
 mod html;
+mod shell;

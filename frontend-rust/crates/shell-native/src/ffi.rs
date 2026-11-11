@@ -49,3 +49,10 @@ impl PetaCore {
         self.shell.view()
     }
 }
+
+/// The HTML of an item, from its AST as the JSON that the view model carries (ADR 025). It
+/// needs no core: a shell asks for the items it shows.
+#[boltffi::export]
+pub fn item_html(ast: String) -> Result<String, String> {
+    crate::item_html(&ast)
+}

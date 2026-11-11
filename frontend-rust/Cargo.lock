@@ -2135,6 +2135,8 @@ dependencies = [
  "crux_core",
  "facet",
  "flatmarkdown",
+ "flatmarkdown-ast",
+ "flatmarkdown-ast2html",
  "peta-core",
  "peta-server-client",
  "serde",

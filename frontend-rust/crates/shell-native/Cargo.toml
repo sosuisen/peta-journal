@@ -14,6 +14,10 @@ peta-core = { path = "../core" }
 peta-server-client = { path = "../server-client" }
 crux_core = "=0.20.0"
 serde = { workspace = true }
+# The HTML of an item (ADR 025). The same version as `flatmarkdown-ast`: a release has all the
+# crates of flatmarkdown (ADR 020)
+flatmarkdown-ast = { workspace = true }
+flatmarkdown-ast2html = "=0.7.0"
 chrono = "0.4.45"
 facet = { version = "=0.46.5", optional = true }
 boltffi = { version = "=0.32.1", optional = true }
