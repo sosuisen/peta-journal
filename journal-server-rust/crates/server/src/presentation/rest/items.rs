@@ -27,7 +27,6 @@ pub fn routes() -> Router<SharedState> {
         .route("/api/items/transcluded", post(transcluded_items))
         .route("/api/items/shift-level", post(shift_levels))
         .route("/api/items/export", post(export_tree_markdown))
-        .route("/api/items/export-page", post(export_page_markdown))
         .route("/api/items/import", post(import_tree_markdown))
         .route("/api/items/parse", post(parse_flat_markdown))
         .route(
@@ -60,12 +59,6 @@ struct TypesQuery {
     types: Option<String>,
     without_property: Option<String>,
     fields: Option<String>,
-}
-
-#[derive(Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-struct PageIdQuery {
-    page_id: Option<String>,
 }
 
 async fn create_item(
@@ -349,18 +342,6 @@ async fn export_tree_markdown(
     Json(req): Json<ItemIdsInput>,
 ) -> HttpResult<Json<TreeMarkdownAnswer>> {
     blocking(move || Ok(Json(state.journal.export_tree_markdown(req)?))).await
-}
-
-async fn export_page_markdown(
-    State(state): State<SharedState>,
-    Query(q): Query<PageIdQuery>,
-) -> HttpResult<Json<TreeMarkdownAnswer>> {
-    blocking(move || {
-        Ok(Json(
-            state.journal.export_page_markdown(q.page_id.as_deref())?,
-        ))
-    })
-    .await
 }
 
 async fn import_tree_markdown(
