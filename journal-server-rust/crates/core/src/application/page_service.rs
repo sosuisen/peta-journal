@@ -180,6 +180,13 @@ impl PageService {
         self.items.find_by_page_id(page_id)
     }
 
+    /// The document a title names in a folder, when there is one. Nothing is made: an app
+    /// that only reads asks this before it opens a page (ADR 030).
+    pub fn find_doc(&self, title: &str, dir_path: &str) -> AppResult<Option<Page>> {
+        let conn = self.items.db().conn()?;
+        self.find_doc_in(&conn, &to_nfc(dir_path), &to_nfc(title))
+    }
+
     /// Gets an existing document page by title and directory, or creates a new one.
     pub fn get_or_create_doc(
         &self,

@@ -46,6 +46,13 @@ impl App {
         std::fs::write(file, text).unwrap();
     }
 
+    /// Puts a journal into the Markdown folder, as a download does.
+    fn download_journal(&self, name: &str, text: &str) {
+        let folder = self.markdown().join("markdown/journals");
+        std::fs::create_dir_all(&folder).unwrap();
+        std::fs::write(folder.join(format!("{name}.md")), text).unwrap();
+    }
+
     /// Takes a doc page out of the Markdown folder, as a sync does when Dropbox lost it.
     fn remove(&self, name: &str) {
         std::fs::remove_file(self.markdown().join("markdown/docs").join(name)).unwrap();
@@ -173,14 +180,55 @@ fn a_page_is_opened_by_its_url() {
 #[test]
 fn the_journal_of_today_opens_with_the_date_of_the_clock() {
     let app = App::new();
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    app.download_journal(&today, "the weather was fine\n");
     let core = app.open(Arc::default());
+    core.sync();
 
     core.open("/today".into()).unwrap();
 
-    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
     wait_until("the journal of today shows", || {
-        shown(&core).contains(&today)
+        shown(&core).contains("the weather was fine")
     });
+}
+
+// フォルダーの名前のURLは、そのフォルダーのindexページを開く。
+#[test]
+fn the_url_of_a_folder_opens_its_index_page() {
+    let app = App::new();
+    app.download("work/plan.md", "the plan\n");
+    let core = app.open(Arc::default());
+    core.sync();
+
+    core.open("/pages/work".into()).unwrap();
+
+    wait_until("the index page shows", || shown(&core).contains("index"));
+}
+
+// まだないページのURLは、開かずにエラーの文になる。ページもジャーナルも作られない。
+#[test]
+fn a_url_of_a_page_that_is_not_there_opens_nothing_and_makes_no_page() {
+    let app = App::new();
+    app.download("notes.md", "an apple\n");
+    let core = app.open(Arc::default());
+    core.sync();
+    let before = core.core.pages.find_all().unwrap().len();
+
+    assert!(core.open("/pages/ghost".into()).is_err());
+    assert!(core.open("/pages/nowhere/ghost#item".into()).is_err());
+    assert!(core.open("/pages/2001-02-03".into()).is_err());
+    assert!(core.open("/today".into()).is_err());
+
+    assert_eq!(core.core.pages.find_all().unwrap().len(), before);
+}
+
+// 設定の画面のURLは、ページがなくても開く。
+#[test]
+fn the_url_of_the_settings_opens_without_a_page() {
+    let app = App::new();
+    let core = app.open(Arc::default());
+
+    assert!(core.open("/settings".into()).is_ok());
 }
 
 // 読めないバイト列は、イベントとしても答えとしても、エラーの文として返る。
@@ -300,5 +348,30 @@ fn a_new_markdown_folder_starts_no_watcher() {
 fn the_html_of_an_item_comes_from_its_ast() {
     let ast = r#"{"type":"document","children":[{"type":"paragraph","children":[{"type":"text","value":"text"}]}]}"#;
 
-    assert_eq!(item_html(ast.into()).unwrap(), "<p>text</p>\n");
+    assert_eq!(item_html(ast.into(), "tags/".into()), "<p>text</p>\n");
+}
+
+// ページへのリンクとタグは、HTMLの中で、そのページのURLへのリンクになる。タグのページは、タグのフォルダーの下にある。
+#[test]
+fn a_link_to_a_page_and_a_tag_lead_to_the_urls_of_their_pages() {
+    let ast = r#"{"type":"document","children":[{"type":"paragraph","children":[
+        {"type":"wikilink","url":"work/plan","children":[{"type":"text","value":"work/plan"}]},
+        {"type":"hashtag","value":"topic"}]}]}"#;
+
+    let html = item_html(ast.into(), "tags/".into());
+
+    assert!(
+        html.contains(r#"<a href="/pages/work/plan">work/plan</a>"#),
+        "{html}"
+    );
+    assert!(
+        html.contains(r##"<a href="/pages/tags/topic">#topic</a>"##),
+        "{html}"
+    );
+}
+
+// 読めないASTからは、何も出ない。
+#[test]
+fn an_ast_that_cannot_be_read_gives_no_html() {
+    assert_eq!(item_html("{".into(), String::new()), "");
 }

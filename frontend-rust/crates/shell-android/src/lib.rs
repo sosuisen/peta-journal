@@ -14,6 +14,9 @@ use journal_core::infrastructure::export::reconcile_service::MissingFilesPrompt;
 use journal_core::journal::FolderWatch;
 use peta_core::effects::{ApiError, ApiOp, ApiOutput, ApiResult, LocalDateTimeDto, SseEvent};
 use peta_core::rest::ClientId;
+use peta_core::screens::page::split_doc_path;
+use peta_core::util::filename::is_journal_file_name;
+use peta_core::Route;
 use peta_embedded_journal::{EmbeddedJournal, EventQueue};
 use peta_shell_native::{Host, NativeShell};
 
@@ -181,10 +184,32 @@ impl PetaCore {
         }
     }
 
-    /// Opens what the URL names, such as `/pages/notes` or `/today`.
+    /// Opens what the URL names, such as `/pages/notes` or `/today`. A page that is not there
+    /// is an error, and it is not made: the app only reads (ADR 030).
     pub fn open(&self, url: String) -> Result<(), String> {
-        let opened = self.shell.open(&url);
-        opened.map_err(|nothing| format!("nothing to open at {:?}", nothing.0))
+        let nothing = format!("nothing to open at {url:?}");
+        match Route::parse_url(&url) {
+            Some(route) if self.is_there(&route) => self.shell.open(&url).ok().ok_or(nothing),
+            _ => Err(nothing),
+        }
+    }
+
+    /// True when the route shows without a new page. The core makes the page of a route
+    /// that has none, as the web app does for a link to a new page.
+    fn is_there(&self, route: &Route) -> bool {
+        let Route::Page { name, .. } = route else {
+            return true;
+        };
+        let today = Local::now().format("%Y-%m-%d").to_string();
+        let name = if name == "today" { &today } else { name };
+        let page = if is_journal_file_name(name) {
+            let journals = &self.core.pages;
+            journals.find_by_type_dir_path_file_name("journal", "", name)
+        } else {
+            let (dir_path, title) = split_doc_path(name);
+            self.core.page_service.find_doc(&title, &dir_path)
+        };
+        matches!(page, Ok(Some(_)))
     }
 
     /// Takes an event of the shell. The error says why the bytes could not be read.
@@ -203,10 +228,14 @@ impl PetaCore {
     }
 }
 
-/// The HTML of an item, from its AST as the JSON that the view model carries (ADR 025).
+/// The HTML of an item, from its AST as the JSON that the view model carries (ADR 025). A
+/// link to a page and a tag are links to the URL of their page, such as `/pages/notes`, for
+/// `PetaCore::open`. A tag page is under `tags_dir`. The URL is encoded as a web address is.
+/// An AST that cannot be read gives no HTML.
 #[boltffi::export]
-pub fn item_html(ast: String) -> Result<String, String> {
-    peta_shell_native::item_html(&ast)
+pub fn item_html(ast: String, tags_dir: String) -> String {
+    // The app has no address: the URLs are paths
+    peta_shell_native::copied_html(&ast, "", &tags_dir)
 }
 
 #[cfg(test)]

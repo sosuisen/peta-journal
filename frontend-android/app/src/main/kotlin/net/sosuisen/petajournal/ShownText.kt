@@ -32,19 +32,20 @@ data class TableRow(val header: Boolean, val cells: List<AnnotatedString>)
  * 030). Only the blocks at the top of the item are told apart: a code block inside a list or a
  * quote stays in the text.
  *
- * [onLink] gets the `href` of a link that the user touched. An item whose AST cannot be read
- * shows its body as it is.
+ * [onLink] gets the `href` of a link that the user touched. A link to a page and a tag have
+ * the URL of their page, such as `/pages/notes`, encoded as a web address is. The page of a
+ * tag is under [tagsDir]. An item whose AST cannot be read shows its body as it is.
  */
-fun shownBlocks(item: Item, onLink: (String) -> Unit): List<ShownBlock> {
+fun shownBlocks(item: Item, tagsDir: String, onLink: (String) -> Unit): List<ShownBlock> {
     if (item.ast.isEmpty()) return listOf(ShownBlock.Text(AnnotatedString(item.body)))
     return try {
-        Reader(onLink).read(JSONObject(item.ast))
+        Reader(tagsDir, onLink).read(JSONObject(item.ast))
     } catch (unreadable: JSONException) {
         listOf(ShownBlock.Text(AnnotatedString(item.body)))
     }
 }
 
-private class Reader(private val onLink: (String) -> Unit) {
+private class Reader(private val tagsDir: String, private val onLink: (String) -> Unit) {
     private val blocks = mutableListOf<ShownBlock>()
 
     /** The nodes since the last block of its own kind, which become one text together. */
@@ -88,7 +89,7 @@ private class Reader(private val onLink: (String) -> Unit) {
     /** The text of the blocks, by way of their HTML. */
     private fun text(nodes: JSONArray): AnnotatedString {
         val document = JSONObject().put("type", "document").put("children", nodes)
-        val text = AnnotatedString.fromHtml(itemHtml(document.toString()), linkInteractionListener = { link ->
+        val text = AnnotatedString.fromHtml(itemHtml(document.toString(), tagsDir), linkInteractionListener = { link ->
             if (link is LinkAnnotation.Url) onLink(link.url)
         })
         // A paragraph of the HTML ends with line breaks, which would be empty lines under it

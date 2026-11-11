@@ -3,6 +3,7 @@ package net.sosuisen.petajournal
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import net.sosuisen.petajournal.core.FfiException
 import net.sosuisen.petajournal.types.Event
 import net.sosuisen.petajournal.types.Request
 import net.sosuisen.petajournal.types.SearchEntry
@@ -55,6 +56,26 @@ class Shell(
         }
     }
 
+    /** The page that a link named and that is not there, until another page opens. */
+    var missing: String? by mutableStateOf(null)
+        private set
+
+    /**
+     * The user touched a link to a page. [url] is the URL of the page, such as `/pages/notes`.
+     * A link to a page that is not there opens nothing: the first version makes no page.
+     */
+    fun follow(url: String) = open(url)
+
+    private fun open(url: String) {
+        missing = try {
+            border.open(url)
+            null
+        } catch (nothing: FfiException) {
+            url.removePrefix(PAGES).substringBefore('#')
+        }
+        show()
+    }
+
     /** The user typed into the search field. */
     fun search(query: String) = send(Event.SearchQueryChanged(query))
 
@@ -80,8 +101,7 @@ class Shell(
                 is ShellEffect.Render -> show()
                 is ShellEffect.Navigate -> {
                     // The core names what it wants open, as after a search result was chosen
-                    border.open(effect.value.url)
-                    show()
+                    open(effect.value.url)
                 }
                 // What the first screen is asked waits for no answer: the title to set, and
                 // the item to scroll to
@@ -95,5 +115,10 @@ class Shell(
         closed = true
         worker.execute { border.close() }
         worker.shutdown()
+    }
+
+    companion object {
+        /** What the URL of a page starts with, before the path of the page. */
+        const val PAGES = "/pages/"
     }
 }
