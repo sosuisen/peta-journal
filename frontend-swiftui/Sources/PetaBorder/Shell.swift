@@ -1,6 +1,7 @@
 import AppKit
 import Combine
 import Foundation
+import PetaCore
 @preconcurrency import PetaTypes
 
 /// What one window shows, kept up to date with the core. The views draw `view` and tell this
@@ -23,21 +24,27 @@ public final class Shell: ObservableObject {
     @Published public private(set) var focus: FocusOrder?
     private let border: Border
     private let clipboard: () -> String?
-    private let copy: (String) -> Void
+    private let copy: (String, String?) -> Void
+    /// The address of the journal server. It serves the web frontend too, so a link that
+    /// another app is to open starts with it.
+    private let server: String
     private let browse: (URL) -> Void
     /// The questions that wait behind the one on screen.
     private var later: [Question] = []
 
     /// Starts a core for the journal server at `server` and opens what `url` names, or nothing
     /// when there is no URL: a page is then to be searched for. `clipboard`
-    /// gives the text on the clipboard when the core asks for it, and `copy` puts text there.
+    /// gives the text on the clipboard when the core asks for it, and `copy` puts text there,
+    /// with the same as HTML when there is any.
     /// `browse` opens an address outside the journal.
     public init(
         server: String, url: String?,
         clipboard: @escaping () -> String? = { NSPasteboard.general.string(forType: .string) },
-        copy: @escaping (String) -> Void = { text in
+        copy: @escaping (String, String?) -> Void = { text, html in
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(text, forType: .string)
+            // An app that takes rich text reads this, and keeps lists, bold and links
+            if let html { NSPasteboard.general.setString(html, forType: .html) }
         },
         browse: @escaping (URL) -> Void = { NSWorkspace.shared.open($0) }
     ) {
@@ -51,6 +58,7 @@ public final class Shell: ObservableObject {
         self.border = border
         self.clipboard = clipboard
         self.copy = copy
+        self.server = server
         self.browse = browse
         view = Shell.must { try border.view() }
         inbox.shell = self
@@ -187,10 +195,13 @@ public final class Shell: ObservableObject {
             ask(Question(id: id, message: message, kind: .confirmDestructive))
         case .prompt(let message):
             ask(Question(id: id, message: message, kind: .prompt))
-        case .copyText(let text), .copyMarkdown(let text, _):
-            // Markdown goes as plain text. Its AST comes with it, for a shell that also puts
-            // HTML on the clipboard (ADR 027): no rich text is made here
-            copy(text)
+        case .copyText(let text):
+            copy(text, nil)
+        case .copyMarkdown(let markdown, let ast):
+            // The HTML is for other apps (ADR 027). Its links to pages open the web frontend,
+            // as those of a copy made there: this app has no address that another app opens
+            let html = copiedHtml(ast: ast, appUrl: server, tagsDir: view.config.tagsDir)
+            copy(markdown, html.isEmpty ? nil : html)
         case .readClipboardText:
             Shell.must { try border.answer(id, with: .text(clipboard())) }
         default:
