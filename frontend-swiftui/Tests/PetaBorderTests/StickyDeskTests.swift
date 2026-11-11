@@ -27,7 +27,10 @@ final class StickyDeskTests: XCTestCase {
             desk.stickies.forEach { $0.window.close() }
         }
         server?.stop()
-        try? FileManager.default.removeItem(at: file.deletingLastPathComponent())
+        // A test that was skipped for want of a server never got as far as naming the file
+        if let file {
+            try? FileManager.default.removeItem(at: file.deletingLastPathComponent())
+        }
     }
 
     /// The app as it starts the next time, with what the file kept.
