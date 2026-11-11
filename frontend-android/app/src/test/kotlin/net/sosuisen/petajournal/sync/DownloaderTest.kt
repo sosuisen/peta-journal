@@ -217,6 +217,18 @@ class DownloaderTest {
         assertEquals(emptyList<String>(), cloud.downloaded)
     }
 
+    // クラウドが全部を答えたときは、そこにないassetsのファイルも消える。
+    @Test
+    fun a_whole_list_deletes_the_asset_files_that_are_not_in_it() {
+        cloud.answers[null] = Changes(listOf(cloud.file("assets/a.png", "a"), cloud.file("assets/b.png", "b")), "c1", whole = true)
+        run()
+        cloud.answers["c1"] = Changes(listOf(cloud.file("assets/b.png", "b")), "c2", whole = true)
+
+        run()
+
+        assertEquals(mapOf("assets/b.png" to "b"), here())
+    }
+
     // 進み具合は、最初に0個、そのあと1個取るごとに、全体の数と一緒に伝わる。取らないファイルは数えない。
     @Test
     fun the_progress_counts_the_files_to_download_from_zero_to_all() {
