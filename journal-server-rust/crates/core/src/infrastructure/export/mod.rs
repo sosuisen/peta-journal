@@ -8,5 +8,4 @@ pub mod outline_parser;
 pub mod page_link_converter;
 pub mod page_matcher;
 pub mod path_mapper;
-pub mod pending_delete_prompt;
 pub mod reconcile_service;

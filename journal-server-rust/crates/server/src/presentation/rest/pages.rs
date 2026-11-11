@@ -8,14 +8,14 @@ use axum::{Extension, Json, Router};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::domain::model::Page;
-use crate::error::{parse_id, AppError, AppResult};
+use crate::error::{parse_id, AppError, AppResult, HttpResult};
 use crate::infrastructure::launcher;
 use crate::presentation::client_id::ClientId;
-use crate::presentation::dto::{
+use crate::state::{blocking, SharedState};
+use journal_core::domain::model::Page;
+use journal_core::dto::{
     backlink_dto, page_dto_with, BacklinkEntryDto, ItemDto, ItemFields, PageDto,
 };
-use crate::state::{blocking, SharedState};
 
 pub fn routes() -> Router<SharedState> {
     Router::new()
@@ -113,7 +113,7 @@ async fn get_page(
     State(state): State<SharedState>,
     Path(id): Path<String>,
     Query(q): Query<FieldsQuery>,
-) -> AppResult<Response> {
+) -> HttpResult<Response> {
     let page_id = parse_id(&id)?;
     blocking(move || {
         let page = state
@@ -147,7 +147,7 @@ async fn get_page(
 async fn get_or_create_doc(
     State(state): State<SharedState>,
     Json(req): Json<GetOrCreateDocRequest>,
-) -> AppResult<Json<GetOrCreateDocResponse>> {
+) -> HttpResult<Json<GetOrCreateDocResponse>> {
     blocking(move || {
         let mut result = state
             .page_service
@@ -169,7 +169,7 @@ async fn update_page(
     Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
     Json(req): Json<UpdatePageRequest>,
-) -> AppResult<Json<UpdatePageResponse>> {
+) -> HttpResult<Json<UpdatePageResponse>> {
     let page_id = parse_id(&id)?;
     blocking(move || {
         let (page, changed) = state.item_service.update_page(
@@ -194,7 +194,7 @@ async fn demote_page(
     Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
     Json(req): Json<DemotePageRequest>,
-) -> AppResult<Json<UpdatePageResponse>> {
+) -> HttpResult<Json<UpdatePageResponse>> {
     let page_id = parse_id(&id)?;
     blocking(move || {
         let (page, changed) = state
@@ -216,7 +216,7 @@ async fn upsert_property(
     Extension(client): Extension<ClientId>,
     Path((id, key)): Path<(String, String)>,
     Json(req): Json<UpsertPropertyRequest>,
-) -> AppResult<Json<UpdatePageResponse>> {
+) -> HttpResult<Json<UpdatePageResponse>> {
     let page_id = parse_id(&id)?;
     blocking(move || {
         let tags_before = state.properties.find_tags("page", &id)?;
@@ -244,7 +244,7 @@ async fn delete_property(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
     Path((id, key)): Path<(String, String)>,
-) -> AppResult<Json<UpdatePageResponse>> {
+) -> HttpResult<Json<UpdatePageResponse>> {
     let page_id = parse_id(&id)?;
     blocking(move || {
         let page = state.page_service.delete_property(&page_id, &key)?;
@@ -260,7 +260,7 @@ async fn delete_page(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
     Path(id): Path<String>,
-) -> AppResult<StatusCode> {
+) -> HttpResult<StatusCode> {
     let page_id = parse_id(&id)?;
     blocking(move || {
         state.page_service.delete_page(&page_id)?;
@@ -275,7 +275,7 @@ async fn delete_page(
 async fn open_export_folder(
     State(state): State<SharedState>,
     Path(id): Path<String>,
-) -> AppResult<StatusCode> {
+) -> HttpResult<StatusCode> {
     let page_id = parse_id(&id)?;
     blocking(move || {
         let page = state
@@ -298,7 +298,7 @@ async fn open_export_folder(
 async fn get_recent(
     State(state): State<SharedState>,
     Query(q): Query<RecentQuery>,
-) -> AppResult<Json<PagesResponse>> {
+) -> HttpResult<Json<PagesResponse>> {
     blocking(move || {
         let page_type = q.page_type.filter(|t| !t.is_empty());
         let pages = state
@@ -312,7 +312,7 @@ async fn get_recent(
 async fn get_backlinks(
     State(state): State<SharedState>,
     Path(id): Path<String>,
-) -> AppResult<Json<GetBacklinksResponse>> {
+) -> HttpResult<Json<GetBacklinksResponse>> {
     let page_id = parse_id(&id)?;
     blocking(move || {
         let entries = state.page_service.get_backlinks(&page_id)?;
@@ -326,7 +326,7 @@ async fn get_backlinks(
 async fn get_children(
     State(state): State<SharedState>,
     Path(id): Path<String>,
-) -> AppResult<Json<PagesResponse>> {
+) -> HttpResult<Json<PagesResponse>> {
     let page_id = parse_id(&id)?;
     blocking(move || {
         let pages = state.pages.find_by_parent_id(&page_id)?;

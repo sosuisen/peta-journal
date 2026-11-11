@@ -14,7 +14,8 @@ cargo test
 | Crate | What it is |
 |---|---|
 | `crates/hmtid` | HMTID (human-readable monotonic timestamp identifier), a port of the `hmtid` npm package |
-| `crates/server` | The server: `domain/` (models, fractional index, hashtags), `application/` (page, item, journal and search use cases), `infrastructure/` (SQLite, tantivy search, markdown export/import/reconcile, folder watcher), `presentation/` (REST, SSE, MCP, the files of the web frontend) |
+| `crates/core` | `journal-core`, the library under the server (ADR 029): `domain/` (models, fractional index, hashtags), `application/` (page, item, journal and search use cases, extensions), `infrastructure/` (SQLite, tantivy search, markdown export/import/reconcile), `dto` (the answers as JSON). It does not depend on tokio or axum |
+| `crates/server` | The server over `journal-core`: `presentation/` (REST, SSE, MCP, the files of the web frontend), the folder watcher, the periodic tasks, and what hands over to the OS (folder dialog, launcher) |
 
 ## Client ID
 
@@ -139,7 +140,8 @@ shard's output is in `target/mutants-shards/shard<k>.log`.
 The script passes `--in-place` to cargo mutants. It is needed because `peta-atlas` is a path
 dependency outside this workspace, which the copy cargo-mutants normally works in cannot reach.
 For a few mutants, `cargo mutants --in-diff /tmp/pr.diff --in-place` runs them one by one in
-this tree. The files no test can run (the entry
+this tree. `cargo cov` measures `journal-core` and `journal-server` together, as the tests of
+the server run most of the core. The files no test can run (the entry
 point, the native folder dialog, the launcher) are left out of both; `.cargo/config.toml` and
 `.cargo/mutants.toml` say which and why.
 

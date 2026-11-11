@@ -12,13 +12,13 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use crate::application::item_service::MoveRequest;
-use crate::domain::journal_name::JournalName;
-use crate::domain::model::{BacklinkEntry, Item, ItemPosition, Page, SearchResult};
 use crate::error::{parse_id, AppError, AppResult};
-use crate::infrastructure::export::export_service::format_instant;
-use crate::presentation::dto::{ItemDto, ItemFields};
 use crate::state::{blocking, SharedState};
+use journal_core::application::item_service::MoveRequest;
+use journal_core::domain::journal_name::JournalName;
+use journal_core::domain::model::{BacklinkEntry, Item, ItemPosition, Page, SearchResult};
+use journal_core::dto::{ItemDto, ItemFields};
+use journal_core::infrastructure::export::export_service::format_instant;
 
 // ---- JSON of the domain records, the way the Java server's Jackson wrote them ----
 
@@ -99,7 +99,7 @@ where
     T: Send + 'static,
     F: FnOnce() -> AppResult<T> + Send + 'static,
 {
-    blocking(f).await.map_err(mcp_error)
+    blocking(f).await.map_err(|refusal| mcp_error(refusal.0))
 }
 
 /// Tells the clients that a tool changed the page. A client that shows the page reads it again.
@@ -350,7 +350,7 @@ impl JournalMcp {
         })
     }
 
-    fn export_json(r: crate::application::item_service::TreeMarkdownExport) -> Value {
+    fn export_json(r: journal_core::application::item_service::TreeMarkdownExport) -> Value {
         json!({
             "treeMarkdown": r.tree_markdown,
             "ast": r.ast,

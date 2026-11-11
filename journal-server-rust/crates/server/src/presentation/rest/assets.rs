@@ -2,13 +2,13 @@
 
 use std::path::Path as FsPath;
 
-use crate::domain::asset_name::saved_name;
 use crate::state::{blocking, SharedState};
 use axum::extract::{DefaultBodyLimit, Multipart, Path, State};
 use axum::http::{header, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::Router;
+use journal_core::domain::asset_name::saved_name;
 
 /// The largest upload. The default of 2MB refused large screenshots. A file is held in memory
 /// while it is saved, so the limit stays. See docs/plans.md for what is still open about it.

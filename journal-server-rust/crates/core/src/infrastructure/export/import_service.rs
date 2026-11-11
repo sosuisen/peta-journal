@@ -27,7 +27,6 @@ use crate::application::page_service::PageService;
 use crate::domain::model::Page;
 use crate::error::AppResult;
 use crate::infrastructure::persistence::db::now_millis;
-use crate::presentation::sse::SseBroadcaster;
 
 use super::export_service::{mtime_millis, MarkdownExportService};
 use super::file_sync_state::FileSyncStateRepository;
@@ -48,6 +47,12 @@ pub enum Outcome {
     Error,
 }
 
+/// Hears of the pages that a file changed. The journal server tells its clients, which read
+/// the page again.
+pub trait ImportEvents: Send + Sync {
+    fn page_changed(&self, page_id: &hmtid::Hmtid);
+}
+
 /// A file that waits, with the file of the same page and when it began to wait.
 struct Wait {
     other: String,
@@ -60,7 +65,7 @@ pub struct MarkdownImportService {
     item_merger: ItemMerger,
     file_sync_state: FileSyncStateRepository,
     export: Arc<MarkdownExportService>,
-    sse: SseBroadcaster,
+    events: Arc<dyn ImportEvents>,
     /// Takes the tags of the front matter, and keeps the tag pages in step with them and
     /// with the hashtags of the imported bodies.
     page_service: Arc<PageService>,
@@ -85,7 +90,7 @@ impl MarkdownImportService {
         item_merger: ItemMerger,
         file_sync_state: FileSyncStateRepository,
         export: Arc<MarkdownExportService>,
-        sse: SseBroadcaster,
+        events: Arc<dyn ImportEvents>,
         page_service: Arc<PageService>,
         copy_wait: Duration,
     ) -> MarkdownImportService {
@@ -95,7 +100,7 @@ impl MarkdownImportService {
             item_merger,
             file_sync_state,
             export,
-            sse,
+            events,
             page_service,
             copy_wait,
             waiting: Mutex::new(BTreeMap::new()),
@@ -238,8 +243,7 @@ impl MarkdownImportService {
                 &union(&merge.tags_after, &page_tags),
             );
             self.page_service.sync_atlases();
-            self.sse
-                .broadcast_pages_updated_from(page.id.as_str(), "file");
+            self.events.page_changed(&page.id);
         }
         std::fs::remove_file(&file)?;
         tracing::info!("Merged and deleted {rel_path}");
@@ -436,8 +440,7 @@ impl MarkdownImportService {
             self.page_service.sync_atlases();
         }
         if page_changed {
-            self.sse
-                .broadcast_pages_updated_from(page.id.as_str(), "file");
+            self.events.page_changed(&page.id);
             tracing::info!(
                 "Imported {rel_path} ({} items, {}, {} ms)",
                 items.len(),

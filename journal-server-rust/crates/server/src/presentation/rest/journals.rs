@@ -7,13 +7,13 @@ use chrono::NaiveDate;
 use hmtid::Hmtid;
 use serde::{Deserialize, Serialize};
 
-use crate::application::journal_service::MostRecentJournalResult;
-use crate::domain::journal_name::JournalName;
-use crate::domain::model::ItemPosition;
-use crate::error::{parse_id, AppError, AppResult};
+use crate::error::{parse_id, AppError, AppResult, HttpResult};
 use crate::presentation::client_id::ClientId;
-use crate::presentation::dto::{ItemDto, PageDto};
 use crate::state::{blocking, SharedState};
+use journal_core::application::journal_service::MostRecentJournalResult;
+use journal_core::domain::journal_name::JournalName;
+use journal_core::domain::model::ItemPosition;
+use journal_core::dto::{ItemDto, PageDto};
 
 pub fn routes() -> Router<SharedState> {
     Router::new()
@@ -76,7 +76,7 @@ struct WeekQuery {
 async fn get_or_create(
     State(state): State<SharedState>,
     Path(name): Path<String>,
-) -> AppResult<Json<GetOrCreateJournalResponse>> {
+) -> HttpResult<Json<GetOrCreateJournalResponse>> {
     blocking(move || {
         let mut result = state
             .journal_service
@@ -100,11 +100,9 @@ async fn move_items(
     Extension(client): Extension<ClientId>,
     Path(name): Path<String>,
     Json(req): Json<MoveToJournalRequest>,
-) -> AppResult<Json<MoveToJournalResponse>> {
-    let JournalName::Daily(date) = name.parse::<JournalName>()? else {
-        return Err(AppError::bad_request(
-            "Items move to the journal of a day only",
-        ));
+) -> HttpResult<Json<MoveToJournalResponse>> {
+    let JournalName::Daily(date) = name.parse::<JournalName>().map_err(AppError::from)? else {
+        return Err(AppError::bad_request("Items move to the journal of a day only").into());
     };
     let item_ids: Vec<Hmtid> = req
         .item_ids
@@ -158,7 +156,7 @@ fn to_response(
 async fn most_recent_before(
     State(state): State<SharedState>,
     Query(q): Query<DateQuery>,
-) -> AppResult<Json<MostRecentResponse>> {
+) -> HttpResult<Json<MostRecentResponse>> {
     let date = q.date.unwrap_or_default();
     let before = NaiveDate::parse_from_str(&date, "%Y-%m-%d")
         .map_err(|e| AppError::bad_request(format!("Invalid date '{date}': {e}")))?;
@@ -176,7 +174,7 @@ async fn most_recent_before(
 async fn most_recent_weekly_before(
     State(state): State<SharedState>,
     Query(q): Query<WeekQuery>,
-) -> AppResult<Json<MostRecentResponse>> {
+) -> HttpResult<Json<MostRecentResponse>> {
     let week = q.week.unwrap_or_default();
     blocking(move || {
         to_response(

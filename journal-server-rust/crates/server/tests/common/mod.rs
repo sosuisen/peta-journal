@@ -86,7 +86,7 @@ pub fn start_with(
                     // folder scans and the folder watcher would do the same work at times
                     // the test does not know. They wrote a page halfway through a test's
                     // change, and a scan of the test found nothing as theirs was running.
-                    state.tantivy.start_background_commits();
+                    state.start_index_commits();
                     let app = journal_server::build_router(state.clone());
                     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
                     tx.send((listener.local_addr().unwrap(), state)).unwrap();

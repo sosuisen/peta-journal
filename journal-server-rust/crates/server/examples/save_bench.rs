@@ -1,6 +1,6 @@
 //! Times the steps of an item body save against a throw-away server state.
+use journal_core::domain::model::ItemPosition;
 use journal_server::config::Settings;
-use journal_server::domain::model::ItemPosition;
 use journal_server::state::{AppState, BuildOptions};
 use std::sync::Arc;
 use std::time::Instant;
@@ -54,7 +54,7 @@ fn main() {
         let it = state.items.find_by_id(&id).unwrap().unwrap();
         find.push(t.elapsed().as_secs_f64() * 1000.0);
         let t = Instant::now();
-        let p = journal_server::domain::model::ItemPatch::new(
+        let p = journal_core::domain::model::ItemPatch::new(
             Some(body.clone()),
             Some(String::new()),
             Some(vec![]),
@@ -67,7 +67,7 @@ fn main() {
         {
             let mut conn = state.items.db().conn().unwrap();
             let tx = conn.immediate().unwrap();
-            journal_server::infrastructure::persistence::ItemRepository::patch_in(&tx, &id, &p)
+            journal_core::infrastructure::persistence::ItemRepository::patch_in(&tx, &id, &p)
                 .unwrap();
             tx.commit().unwrap();
         }
@@ -76,7 +76,7 @@ fn main() {
         {
             let mut conn = state.items.db().conn().unwrap();
             let tx = conn.immediate().unwrap();
-            journal_server::infrastructure::persistence::PropertyRepository::sync_tags_in(
+            journal_core::infrastructure::persistence::PropertyRepository::sync_tags_in(
                 &tx,
                 "item",
                 id.as_str(),
@@ -90,7 +90,7 @@ fn main() {
         {
             let mut conn = state.items.db().conn().unwrap();
             let tx = conn.immediate().unwrap();
-            journal_server::infrastructure::persistence::PageRepository::save_in(&tx, &doc.page)
+            journal_core::infrastructure::persistence::PageRepository::save_in(&tx, &doc.page)
                 .unwrap();
             tx.commit().unwrap();
         }

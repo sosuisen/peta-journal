@@ -9,13 +9,13 @@ use anyhow::Context;
 use hmtid::Hmtid;
 use serde::{Deserialize, Serialize};
 
-use crate::application::config_service::ConfigService;
 use crate::config::{AssetNamesStep, Settings};
-use crate::domain::asset_name::{is_saved_name, relink, saved_name};
-use crate::domain::id_generator::IdGenerator;
-use crate::domain::model::Item;
-use crate::infrastructure::persistence::ItemRepository;
 use crate::state::{AppState, BuildOptions};
+use journal_core::application::config_service::ConfigService;
+use journal_core::domain::asset_name::{is_saved_name, relink, saved_name};
+use journal_core::domain::id_generator::IdGenerator;
+use journal_core::domain::model::Item;
+use journal_core::infrastructure::persistence::ItemRepository;
 
 /// One file of `assets/` and the name it moves to.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

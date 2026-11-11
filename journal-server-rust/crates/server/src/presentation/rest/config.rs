@@ -6,7 +6,7 @@ use axum::{Extension, Json, Router};
 use serde::{Deserialize, Serialize};
 
 use crate::application::folder_chooser;
-use crate::error::AppResult;
+use crate::error::{AppResult, HttpResult};
 use crate::presentation::client_id::ClientId;
 use crate::state::{blocking, SharedState};
 
@@ -111,14 +111,14 @@ fn definitions_response(state: &SharedState) -> AppResult<PropertyDefinitionsRes
 
 async fn property_definitions(
     State(state): State<SharedState>,
-) -> AppResult<Json<PropertyDefinitionsResponse>> {
+) -> HttpResult<Json<PropertyDefinitionsResponse>> {
     blocking(move || Ok(Json(definitions_response(&state)?))).await
 }
 
 async fn add_property_definition(
     State(state): State<SharedState>,
     Json(req): Json<AddPropertyDefinitionRequest>,
-) -> AppResult<Json<PropertyDefinitionsResponse>> {
+) -> HttpResult<Json<PropertyDefinitionsResponse>> {
     blocking(move || {
         state.properties.insert_definition(
             req.key.as_deref().unwrap_or("").trim(),
@@ -136,7 +136,7 @@ async fn delete_property_definition(
     State(state): State<SharedState>,
     Extension(client): Extension<ClientId>,
     Path(key): Path<String>,
-) -> AppResult<Json<PropertyDefinitionsResponse>> {
+) -> HttpResult<Json<PropertyDefinitionsResponse>> {
     blocking(move || {
         for page_id in state.page_service.delete_property_definition(&key)? {
             state.sse.broadcast_pages_updated(&client, page_id.as_str());
@@ -146,7 +146,7 @@ async fn delete_property_definition(
     .await
 }
 
-async fn browse_folder() -> AppResult<Json<BrowseFolderResponse>> {
+async fn browse_folder() -> HttpResult<Json<BrowseFolderResponse>> {
     blocking(move || {
         let choice = folder_chooser::choose_folder();
         Ok(Json(BrowseFolderResponse {
@@ -160,7 +160,7 @@ async fn browse_folder() -> AppResult<Json<BrowseFolderResponse>> {
 async fn update_config(
     State(state): State<SharedState>,
     Json(req): Json<UpdateConfigRequest>,
-) -> AppResult<Json<ConfigResponse>> {
+) -> HttpResult<Json<ConfigResponse>> {
     blocking(move || {
         if let Some(dir) = &req.markdown_dir {
             state.config.set_markdown_dir(dir);

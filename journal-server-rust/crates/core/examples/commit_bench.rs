@@ -1,9 +1,9 @@
 //! Times the parts of an item save: markdown parsing, the SQLite patch and the search index commit.
 use hmtid::Hmtid;
-use journal_server::application::markdown_parser::MarkdownParser;
-use journal_server::domain::model::Item;
-use journal_server::domain::search::SearchIndex;
-use journal_server::infrastructure::search::TantivySearchService;
+use journal_core::application::markdown_parser::MarkdownParser;
+use journal_core::domain::model::Item;
+use journal_core::domain::search::SearchIndex;
+use journal_core::infrastructure::search::TantivySearchService;
 use std::time::Instant;
 
 fn main() {

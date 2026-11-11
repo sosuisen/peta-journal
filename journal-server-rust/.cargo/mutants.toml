@@ -8,7 +8,7 @@ exclude_globs = [
     "crates/server/src/main.rs",
     "crates/server/src/application/folder_chooser.rs",
     "crates/server/src/infrastructure/launcher.rs",
-    "crates/server/src/infrastructure/export/pending_delete_prompt.rs",
+    "crates/server/src/infrastructure/pending_delete_prompt.rs",
 ]
 
 # Single mutants that no test can catch, skipped by name, as agreed with the user:

@@ -11,7 +11,7 @@ mod common;
 use std::path::Path;
 
 use common::*;
-use journal_server::infrastructure::export::import_service::Outcome;
+use journal_core::infrastructure::export::import_service::Outcome;
 use serde_json::{json, Value};
 
 /// Installs an extension function: a folder with a `config.json` and a `main.js`.

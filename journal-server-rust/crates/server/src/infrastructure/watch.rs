@@ -6,18 +6,19 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use journal_core::infrastructure::export::reconcile_service::MissingFilesPrompt;
 use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use parking_lot::Mutex;
 
-use crate::domain::search::SearchIndex;
-use crate::infrastructure::persistence::db::now_millis;
+use journal_core::domain::search::SearchIndex;
+use journal_core::infrastructure::persistence::db::now_millis;
 
-use super::export::export_service::MarkdownExportService;
-use super::export::file_sync_state::FileSyncStateRepository;
-use super::export::import_service::{MarkdownImportService, Outcome};
-use super::export::path_mapper;
-use super::export::pending_delete_prompt::PendingDeletePrompt;
-use super::export::reconcile_service::MarkdownReconcileService;
+use super::pending_delete_prompt::PendingDeletePrompt;
+use journal_core::infrastructure::export::export_service::MarkdownExportService;
+use journal_core::infrastructure::export::file_sync_state::FileSyncStateRepository;
+use journal_core::infrastructure::export::import_service::{MarkdownImportService, Outcome};
+use journal_core::infrastructure::export::path_mapper;
+use journal_core::infrastructure::export::reconcile_service::MarkdownReconcileService;
 
 const MAX_RETRIES: i32 = 3;
 

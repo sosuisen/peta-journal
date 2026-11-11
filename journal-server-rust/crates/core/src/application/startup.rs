@@ -1,16 +1,11 @@
-//! Startup checks: the markdown directory, the search index rebuild, the missing tag pages
-//! and the atlas pages.
+//! Startup steps: the search index rebuild, the missing tag pages and the atlas pages.
 
-use std::path::Path;
 use std::sync::Arc;
 
 use crate::domain::search::SearchIndex;
-use crate::infrastructure::export::export_service::MarkdownExportService;
 use crate::infrastructure::persistence::{ItemRepository, PageRepository};
 
 use super::atlas_service::AtlasService;
-use super::config_service::ConfigService;
-use super::folder_chooser;
 use super::page_service::PageService;
 
 /// Creates the tag pages that are missing. Tags added before tag pages were made have none.
@@ -34,47 +29,6 @@ pub fn ensure_tag_pages(page_service: &PageService) {
 pub fn bring_atlases_up_to_date(atlas: &AtlasService) {
     if let Err(e) = atlas.sync_all() {
         tracing::warn!("The atlas pages were not brought up to date: {e}");
-    }
-}
-
-/// Makes sure a markdown directory is configured (asking with the native folder chooser if not),
-/// creates its sub directories and queues a first export when it is empty.
-pub fn check_configuration(config: &ConfigService, export: &MarkdownExportService) {
-    let mut markdown_dir = config.markdown_dir();
-    tracing::info!("Current markdown directory: [{markdown_dir}]");
-    if markdown_dir.trim().is_empty() {
-        tracing::warn!("Markdown directory not configured. Opening folder chooser...");
-        let choice = folder_chooser::choose_folder();
-        tracing::info!(
-            "Folder chooser returned: selected={}, path=[{}]",
-            choice.selected,
-            choice.path
-        );
-        if choice.selected && !choice.path.is_empty() {
-            config.set_markdown_dir(&choice.path);
-            markdown_dir = choice.path;
-            tracing::info!("Markdown directory configured: {markdown_dir}");
-        } else {
-            tracing::error!(
-                "No markdown directory selected. Application may not function correctly."
-            );
-        }
-    }
-    if !markdown_dir.trim().is_empty() {
-        ensure_sub_dirs(Path::new(&markdown_dir));
-        export.export_all_if_empty(&markdown_dir);
-    }
-}
-
-fn ensure_sub_dirs(markdown_path: &Path) {
-    for name in ["assets", "docs", "journals"] {
-        let dir = markdown_path.join(name);
-        if !dir.exists() {
-            match std::fs::create_dir_all(&dir) {
-                Ok(_) => tracing::info!("Created directory: {}", dir.display()),
-                Err(e) => tracing::error!("Failed to create directory: {}: {e}", dir.display()),
-            }
-        }
     }
 }
 
