@@ -392,16 +392,14 @@ app-item-view .item-content h4 { font-size: 1.1em; margin: 0; }
 app-item-view .item-content h5 { font-size: 1em; margin: 0; }
 app-item-view .item-content ul, app-item-view .item-content ol { padding-left: 1.5em; margin: 0; }
 app-item-view .item-content li > p { margin: 0; }
-app-item-view .wiki-link { color: #007bff; cursor: pointer; text-decoration: underline; }
-app-item-view .wiki-link:hover { color: #0056b3; }
-app-item-view .wiki-link-new { color: #d9534f; }
-app-item-view .wiki-link-new:hover { color: #c9302c; }
-app-item-view .hashtag-link {
+app-item-view a[data-wikilink] { color: #007bff; cursor: pointer; text-decoration: underline; }
+app-item-view a[data-wikilink]:hover { color: #0056b3; }
+app-item-view a.hashtag {
   color: #007bff; cursor: pointer; text-decoration: none; background: #e8f0fe; border-radius: 4px; padding: 1px 5px; font-size: 0.9em;
 }
-app-item-view .hashtag-link:hover { background: #d0e3fc; color: #0056b3; }
-app-item-view .item-content a:not(.wiki-link):not(.hashtag-link) { color: #007bff; cursor: pointer; text-decoration: underline; }
-app-item-view .item-content a:not(.wiki-link):hover { color: #0056b3; }
+app-item-view a.hashtag:hover { background: #d0e3fc; color: #0056b3; }
+app-item-view .item-content a:not([data-wikilink]):not(.hashtag) { color: #007bff; cursor: pointer; text-decoration: underline; }
+app-item-view .item-content a:not([data-wikilink]):hover { color: #0056b3; }
 app-item-view input[type="checkbox"] { cursor: pointer; margin-right: 4px; }
 app-item-view .footnote { font-size: 0.9em; color: #555; }
 app-item-view .footnote p { margin: 0; }
@@ -414,7 +412,8 @@ app-item-view code {
 app-item-view pre {
   background: #fffbf0; padding: 16px; border-radius: 6px; border: 1px solid #e8ddc3; overflow-x: auto; margin: 8px 0; position: relative;
 }
-app-item-view pre code { background: none; padding: 0; color: inherit; font-size: 0.875em; border-radius: 0; display: block; }
+/* The padding that highlight.js gives a block it colours: a block without a language is the same size */
+app-item-view pre code { background: none; padding: 1em; color: inherit; font-size: 0.875em; border-radius: 0; display: block; }
 app-item-view pre code.hljs { background: none; }
 app-item-view .code-lang-label {
   position: absolute; top: 8px; right: 12px; background: transparent; border: none; border-radius: 3px; padding: 2px 6px;

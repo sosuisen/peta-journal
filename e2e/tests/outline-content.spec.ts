@@ -67,10 +67,68 @@ test.describe('outline content', () => {
     await server.itemsSettled(pageId, i => i[0].body.endsWith(`${target.title}]]`));
     await page.reload();  // shows the item as rendered text instead of the editor
 
-    await page.locator('app-outline-item a.wiki-link', { hasText: target.title }).click();
+    await page.locator('app-outline-item a[data-wikilink]', { hasText: target.title }).click();
 
     await expect(page).toHaveURL(new RegExp(`/pages/${target.title}$`));
     await expect(page.locator('app-outline-item').first()).toBeVisible();
+  });
+
+  // 表示中の項目のウィキリンクは、ブラウザがそのまま開けるように、/pages/ の下を指す
+  test('a wiki link in a shown item points under /pages/ for the browser', async ({ page, request }) => {
+    const target = await new Server(request).newDocPage('Pointed');
+    await page.keyboard.type(`go to [[${target.title}`);  // the editor closes the link itself
+    await server.itemsSettled(pageId, i => i[0].body.endsWith(`${target.title}]]`));
+    await page.reload();
+
+    await expect(page.locator('app-outline-item a[data-wikilink]'))
+      .toHaveAttribute('href', `/pages/${target.title}`);
+  });
+
+  // 表示中の項目のハッシュタグは、タグのページを指す
+  test('a hashtag in a shown item points at the page of the tag', async ({ page }) => {
+    const tag = `tag${Date.now()}`;
+    await page.keyboard.type(`about #${tag}`);
+    await server.itemsSettled(pageId, i => i[0].body.endsWith(tag));
+    await page.reload();
+
+    await expect(page.locator('app-outline-item a.hashtag'))
+      .toHaveAttribute('href', new RegExp(`^/pages/(.*/)?${tag}$`));
+  });
+
+  // 画像のURLの w と h は、表示中の画像の幅と高さになる
+  test('the w and h of an image URL size the shown image', async ({ page }) => {
+    await pasteText(page, '![pic](pic.png#w=120&h=80)');
+    await server.itemsSettled(pageId, i => i[0].body.includes('pic.png'));
+    await page.reload();
+
+    const image = page.locator('app-outline-item img');
+    await expect(image).toHaveAttribute('width', '120');
+    await expect(image).toHaveAttribute('height', '80');
+  });
+
+  // 言語を書いたコードブロックは、色が付き、言語の札が出る
+  test('a code block that names its language is coloured and shows the name', async ({ page }) => {
+    await page.keyboard.type('```rust');  // the editor closes the fence itself
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('fn main() {}');
+    await server.itemsSettled(pageId, i => i[0].body.includes('fn main'));
+    await page.reload();
+
+    await expect(page.locator('app-outline-item pre code.hljs')).toHaveCount(1);
+    await expect(page.locator('app-outline-item .code-lang-label')).toHaveText('rust');
+  });
+
+  // 言語を書かないコードブロックは、色を付けず、札も出さない
+  test('a code block without a language is neither coloured nor named', async ({ page }) => {
+    await page.keyboard.type('```');  // the editor closes the fence itself
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('plain words');
+    await server.itemsSettled(pageId, i => i[0].body.includes('plain words'));
+    await page.reload();
+
+    await expect(page.locator('app-outline-item pre code')).toHaveText(/plain words/);
+    await expect(page.locator('app-outline-item pre code.hljs')).toHaveCount(0);
+    await expect(page.locator('app-outline-item .code-lang-label')).toHaveCount(0);
   });
 
   test('Enter inside a code fence adds a line and the caret follows it', async ({ page }) => {

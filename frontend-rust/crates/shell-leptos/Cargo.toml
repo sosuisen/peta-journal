@@ -12,7 +12,7 @@ path = "src/main.rs"
 [dependencies]
 peta-core = { path = "../core" }
 peta-atlas = { path = "../../../atlas-rust", features = ["marks"] }
-fm-leptos = { path = "../fm-leptos" }
+flatmarkdown-ast = { workspace = true }
 flatmarkdown = "=0.7.0"
 flatmarkdown-ast2html = "=0.7.0"
 crux_core = "=0.20.0"
