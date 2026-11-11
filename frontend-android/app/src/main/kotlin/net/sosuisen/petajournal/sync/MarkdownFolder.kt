@@ -71,6 +71,15 @@ class MarkdownFolder(private val root: File, private val temp: File) {
 
     companion object {
         const val MARKDOWN = ".md"
+
+        /** The folder of the images of the pages, with the `/` after it. */
+        const val ASSETS = "assets/"
+
+        /**
+         * True for a file that the app copies from the cloud: a page, or an image of a page.
+         * [path] is in lower case. The cloud holds more, such as the settings of other apps.
+         */
+        fun keeps(path: String): Boolean = path.endsWith(MARKDOWN) || path.startsWith(ASSETS)
     }
 }
 
