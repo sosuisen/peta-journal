@@ -9,15 +9,33 @@ import XCTest
 final class StickyDeskTests: XCTestCase {
     private var server: JournalServer!
     private var desk: StickyDesk!
+    /// Where the stickies are kept between two runs of the app.
+    private var file: URL!
+    /// The desks of a test that plays a second run of the app.
+    private var later: [StickyDesk] = []
 
     override func setUp() async throws {
         server = try JournalServer(port: 18098)
-        desk = StickyDesk(server: server.address)
+        file = FileManager.default.temporaryDirectory
+            .appendingPathComponent("peta-stickies-\(UUID().uuidString)")
+            .appendingPathComponent("stickies.json")
+        desk = StickyDesk(server: server.address, store: StickyStore(file: file))
     }
 
     override func tearDown() async throws {
-        desk?.stickies.forEach { $0.window.close() }
+        for desk in [desk].compactMap({ $0 }) + later {
+            desk.stickies.forEach { $0.window.close() }
+        }
         server?.stop()
+        try? FileManager.default.removeItem(at: file.deletingLastPathComponent())
+    }
+
+    /// The app as it starts the next time, with what the file kept.
+    private func nextRun() -> StickyDesk {
+        let desk = StickyDesk(server: server.address, store: StickyStore(file: file))
+        later.append(desk)
+        desk.open()
+        return desk
     }
 
     private func waitUntil(_ what: String, _ done: () -> Bool) async throws {
@@ -72,5 +90,40 @@ final class StickyDeskTests: XCTestCase {
         first.window.close()
 
         XCTAssertEqual(desk.stickies.map(\.id), [second.id])
+    }
+
+    // 何も保存されていないときは、ページのない付箋紙が1つ開く。
+    func testTheDeskOpensOneStickyWhenNothingIsKept() async throws {
+        desk.open()
+
+        XCTAssertEqual(desk.stickies.count, 1)
+        XCTAssertNil(desk.stickies[0].shell.url)
+    }
+
+    // 付箋紙のページ、位置、大きさは、次の起動で戻る。
+    func testStickiesComeBackWithTheirPageAndTheirFrame() async throws {
+        let sticky = desk.add()
+        desk.add()
+        sticky.shell.open("/pages/kept")
+        try await waitUntil("the page is shown") { sticky.shell.title == "kept" }
+        let frame = NSRect(x: 120, y: 130, width: 400, height: 500)
+        sticky.window.setFrame(frame, display: true)
+
+        let next = nextRun()
+
+        XCTAssertEqual(next.stickies.map(\.id), desk.stickies.map(\.id))
+        XCTAssertEqual(next.stickies[0].window.frame, frame)
+        XCTAssertNil(next.stickies[1].shell.url)
+        try await waitUntil("the page is shown again") { next.stickies[0].shell.title == "kept" }
+    }
+
+    // 閉じた付箋紙は、次の起動で戻らない。
+    func testAStickyThatIsClosedDoesNotComeBack() async throws {
+        let first = desk.add()
+        let second = desk.add()
+
+        first.window.close()
+
+        XCTAssertEqual(nextRun().stickies.map(\.id), [second.id])
     }
 }
