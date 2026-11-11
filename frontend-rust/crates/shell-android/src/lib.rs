@@ -17,7 +17,8 @@ use peta_core::rest::ClientId;
 use peta_embedded_journal::{EmbeddedJournal, EventQueue};
 use peta_shell_native::{Host, NativeShell};
 
-/// The app has no watcher, and the first version does not ask about missing files.
+/// The app has no watcher, and it asks nothing about missing files: `PetaCore::sync` deletes
+/// their pages (ADR 030).
 struct Quiet;
 
 impl MissingFilesPrompt for Quiet {
@@ -152,12 +153,32 @@ impl PetaCore {
     }
 
     /// Takes in the files of the markdown folder, and makes them found by the search. The
-    /// shell calls this after a download from Dropbox. Answers with the number of files taken
-    /// in.
+    /// pages of the files that have gone are deleted. The shell calls this after a download
+    /// from Dropbox. Answers with the number of files taken in.
     pub fn sync(&self) -> u32 {
         let summary = self.core.reconcile.scan();
+        self.delete_pages_of_missing_files();
         self.core.search.flush();
         u32::try_from(summary.imported).unwrap_or(0)
+    }
+
+    /// Deletes the pages whose files have gone, without asking: the data of the app is a
+    /// copy of Dropbox (ADR 030).
+    ///
+    /// The page of a folder cannot go before the pages under it, so the files are gone
+    /// through again while a page went. A page that cannot go stays, for the next sync.
+    fn delete_pages_of_missing_files(&self) {
+        loop {
+            let missing = self.core.file_sync_state.find_missing();
+            let deleted = missing
+                .unwrap_or_default()
+                .iter()
+                .filter(|file| self.core.page_service.delete_page(&file.page_id).is_ok())
+                .count();
+            if deleted == 0 {
+                break;
+            }
+        }
     }
 
     /// Opens what the URL names, such as `/pages/notes` or `/today`.

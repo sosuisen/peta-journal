@@ -42,7 +42,13 @@ impl App {
     /// Puts a doc page into the Markdown folder, as a download does.
     fn download(&self, name: &str, text: &str) {
         let file = self.markdown().join("markdown/docs").join(name);
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
         std::fs::write(file, text).unwrap();
+    }
+
+    /// Takes a doc page out of the Markdown folder, as a sync does when Dropbox lost it.
+    fn remove(&self, name: &str) {
+        std::fs::remove_file(self.markdown().join("markdown/docs").join(name)).unwrap();
     }
 
     fn open(&self, shell: Arc<Kept>) -> PetaCore {
@@ -65,6 +71,18 @@ fn event(event: &Event) -> Vec<u8> {
 /// The view model as text, to look for a word in it.
 fn shown(core: &PetaCore) -> String {
     String::from_utf8_lossy(&core.view()).into_owned()
+}
+
+/// The doc pages the journal holds, each as its folder and its name, without the root page.
+fn page_names(core: &PetaCore) -> Vec<String> {
+    let pages = core.core.pages.find_all().unwrap();
+    let mut names: Vec<String> = pages
+        .iter()
+        .map(|page| format!("{}{}", page.dir_path, page.name))
+        .filter(|name| name != "index")
+        .collect();
+    names.sort();
+    names
 }
 
 /// Waits for what the threads of the shell do. A test that waits in vain fails here.
@@ -191,16 +209,76 @@ fn the_app_does_not_open_when_its_data_folder_cannot_be_made() {
     assert!(opened.is_err());
 }
 
-// ファイルが消えたページがあっても、取り込みは終わる。最初の版は、消えたファイルについて尋ねない。
+// Dropboxで消えたファイルのページは、次の取り込みで、尋ねられずにアプリからも消える。
 #[test]
-fn a_sync_ends_when_the_file_of_a_page_has_gone() {
+fn the_page_of_a_file_that_has_gone_is_deleted_by_the_next_sync() {
     let app = App::new();
-    app.download("notes.md", "- text\n");
+    app.download(
+        "notes.md", "- text
+",
+    );
+    app.download(
+        "other.md", "- text
+",
+    );
     let core = app.open(Arc::default());
     core.sync();
-    std::fs::remove_file(app.markdown().join("markdown/docs/notes.md")).unwrap();
+    app.remove("notes.md");
 
     assert_eq!(core.sync(), 0);
+
+    assert_eq!(page_names(&core), ["other"]);
+}
+
+// フォルダーごと消えたときは、子のページもフォルダーのページも、1回の取り込みで消える。
+#[test]
+fn the_pages_of_a_folder_that_has_gone_are_deleted_by_one_sync() {
+    let app = App::new();
+    app.download(
+        "other.md", "- text
+",
+    );
+    app.download(
+        "work/index.md",
+        "- text
+",
+    );
+    app.download(
+        "work/plan.md",
+        "- text
+",
+    );
+    let core = app.open(Arc::default());
+    core.sync();
+    app.remove("work/index.md");
+    app.remove("work/plan.md");
+
+    core.sync();
+
+    assert_eq!(page_names(&core), ["other"]);
+}
+
+// 子のページが残っているフォルダーのページは、ファイルが消えても残る。取り込みは終わる。
+#[test]
+fn the_page_of_a_folder_stays_while_a_page_under_it_is_left() {
+    let app = App::new();
+    app.download(
+        "work/index.md",
+        "- text
+",
+    );
+    app.download(
+        "work/plan.md",
+        "- text
+",
+    );
+    let core = app.open(Arc::default());
+    core.sync();
+    app.remove("work/index.md");
+
+    core.sync();
+
+    assert_eq!(page_names(&core), ["work/index", "work/plan"]);
 }
 
 // Markdownのフォルダーの設定が変わっても、アプリは何も見張らないので、何も起きない。
