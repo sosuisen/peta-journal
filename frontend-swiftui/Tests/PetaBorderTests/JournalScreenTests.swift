@@ -78,17 +78,19 @@ final class JournalScreenTests: XCTestCase {
         scroll.reflectScrolledClipView(scroll.contentView)
     }
 
-    /// The texts that the window shows to the accessibility of macOS.
-    private func texts() -> [String] {
-        var found: [String] = []
-        func look(_ element: Any, _ depth: Int) {
-            guard depth < 40, let element = element as? NSAccessibilityElementProtocol & NSObject else { return }
-            if let text = element.value(forKey: "accessibilityLabel") as? String, !text.isEmpty { found.append(text) }
-            if let text = element.value(forKey: "accessibilityValue") as? String, !text.isEmpty { found.append(text) }
-            for child in (element.value(forKey: "accessibilityChildren") as? [Any]) ?? [] { look(child, depth + 1) }
+    /// The editors of the items, from the top of the window down.
+    private func editors() -> [NSTextView] {
+        var found: [NSTextView] = []
+        func look(_ view: NSView) {
+            if let editor = view as? NSTextView { found.append(editor) }
+            view.subviews.forEach(look)
         }
-        look(host as Any, 0)
-        return found
+        look(host)
+        return found.sorted { top(of: $0) > top(of: $1) }
+    }
+
+    private func top(of view: NSView) -> CGFloat {
+        view.convert(view.bounds, to: nil).maxY
     }
 
     // ジャーナルを前の日までスクロールすると、タイトルはその日の日付になる。今日まで戻ると、今日の日付に「(Today)」が付く。
@@ -104,12 +106,20 @@ final class JournalScreenTests: XCTestCase {
         try await waitUntil("the title is the date of today again") { self.shell.title.hasSuffix(" (Today)") }
     }
 
-    // 前の日の最初の項目の上に、その日の日付が出る。
-    func testTheDateOfAnEarlierDayStandsAboveItsFirstItem() async throws {
-        try scroll(to: 1)
-
-        try await waitUntil("the date of the earlier day is on screen") {
-            self.texts().contains("2020年1月2日 木曜日")
+    // 前の日の最初の項目の上には、区切り線とその日の日付が入る。テストは画面の文字を読めないので、その項目がほかの項目より下に離れていることで確かめる。
+    func testTheFirstItemOfAnEarlierDayStandsApartForItsDate() async throws {
+        // The two days are as long as each other: the first item of the earlier one is halfway
+        try scroll(to: 0.5)
+        try await waitUntil("the end of today and the start of the earlier day are on screen") {
+            let shown = self.editors().map(\.string)
+            return shown.contains("today 39") && shown.contains("long ago 1")
         }
+
+        let shown = editors()
+        let last = try XCTUnwrap(shown.firstIndex { $0.string == "today 40" })
+        let usual = top(of: shown[last - 1]) - top(of: shown[last])
+        let apart = top(of: shown[last]) - top(of: shown[last + 1])
+        XCTAssertEqual(shell.view.outline.rows[41].dateHeader, "2020年1月2日 木曜日")
+        XCTAssertGreaterThan(apart, usual + 20)
     }
 }
