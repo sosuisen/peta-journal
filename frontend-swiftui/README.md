@@ -183,8 +183,11 @@ While items are selected, no item has the cursor and the keys mean this:
 
 A click into the text of an item also ends the selection.
 
-The box of a task is drawn by the screen and is not a letter: the three states are of one size,
-and the box stands in the middle of the first line of the text. A click on it steps the state
+The bullet of an item is a dot. While the children of the item are hidden, a pale circle lies
+around the dot, as in the web frontend.
+
+The bullet and the box of a task are drawn by the screen and are not letters: the three states of the box are of one size,
+and both stand in the middle of the first line of the text. A click on it steps the state
 of the task, as the key does: open, running, done, and then no task any more.
 
 Each window is a sticky with a page of its own. Its title bar shows the name of the page, and
