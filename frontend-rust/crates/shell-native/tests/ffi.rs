@@ -5,7 +5,7 @@
 use crux_core::bridge::{BincodeFfiFormat, FfiFormat, Request};
 use peta_core::effects::UiOp;
 use peta_core::Event;
-use peta_shell_native::ffi::{item_html, PetaCore, PetaShell};
+use peta_shell_native::ffi::{copied_html, item_html, PetaCore, PetaShell};
 use peta_shell_native::ShellEffectFfi;
 use std::sync::{Arc, Mutex};
 
@@ -87,4 +87,15 @@ fn a_shell_in_another_language_gets_the_html_of_an_item() {
     let ast = r#"{"type":"document","children":[{"type":"paragraph","children":[{"type":"text","value":"text"}]}]}"#;
 
     assert_eq!(item_html(ast.into()), Ok("<p>text</p>\n".into()));
+}
+
+// 別の言語のシェルの入口から、コピーのHTMLを作れる。ウィキリンクは、ブラウザ版のページへのリンクになる。
+#[test]
+fn a_shell_in_another_language_gets_the_html_of_a_copy() {
+    let ast = r#"{"type":"document","children":[{"type":"paragraph","children":[{"type":"wikilink","url":"Idea","children":[{"type":"text","value":"Idea"}]}]}]}"#;
+
+    assert_eq!(
+        copied_html(ast.into(), "http://localhost:8087".into(), "tags/".into()),
+        "<p><a href=\"http://localhost:8087/pages/Idea\">Idea</a></p>\n"
+    );
 }
