@@ -68,8 +68,13 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
         window.titlebarAppearsTransparent = true
         window.backgroundColor = StickyLook.color(of: look.color)
         window.level = look.alwaysOnTop ? .floating : .normal
-        window.contentView = NSHostingView(
-            rootView: OutlineScreen(shell: shell, look: look, onAdd: { [weak self] in self?.add() }))
+        window.contentView = NSHostingView(rootView: OutlineScreen(shell: shell, look: look))
+        let tools = NSTitlebarAccessoryViewController()
+        tools.layoutAttribute = .trailing
+        let buttons = NSHostingView(rootView: StickyTools(look: look, onAdd: { [weak self] in self?.add() }))
+        buttons.frame.size = buttons.fittingSize
+        tools.view = buttons
+        window.addTitlebarAccessoryViewController(tools)
         if let kept {
             window.setFrame(NSRect(x: kept.x, y: kept.y, width: kept.width, height: kept.height), display: false)
         } else {
@@ -106,6 +111,7 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
             }
             .store(in: &sticky.hears)
         window.makeKeyAndOrderFront(nil)
+        buttons.isHidden = !window.isKeyWindow
         return sticky
     }
 
@@ -145,6 +151,22 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
 
     public func windowDidResize(_ notification: Notification) {
         sticky(of: notification).map { keep($0) }
+    }
+
+    /// The tools are for the sticky that is worked on. On the others they are only in the way
+    /// of the paper.
+    public func windowDidBecomeKey(_ notification: Notification) {
+        showTools(true, of: notification)
+    }
+
+    public func windowDidResignKey(_ notification: Notification) {
+        showTools(false, of: notification)
+    }
+
+    private func showTools(_ shown: Bool, of notification: Notification) {
+        // The view, not its controller: hiding the controller leaves the view on screen
+        // until the title bar is laid out again
+        sticky(of: notification)?.window.titlebarAccessoryViewControllers.forEach { $0.view.isHidden = !shown }
     }
 
     /// The app is ending. The windows that macOS closes from here on were not closed by the

@@ -11,6 +11,8 @@ public final class StickyLook: ObservableObject {
     @Published public var alwaysOnTop: Bool
     /// How large the page is shown: 1 is the usual size.
     @Published public private(set) var zoom: Double
+    /// The search box is on screen. This is not kept: the box is closed in the next run.
+    @Published public var searching = false
 
     /// The colors the menu of a sticky offers. They are those of the stickies app for Windows.
     public static let colors: [(name: String, hex: String)] = [

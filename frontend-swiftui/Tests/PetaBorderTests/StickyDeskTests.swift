@@ -145,16 +145,18 @@ final class StickyDeskTests: XCTestCase {
         let tools = try XCTUnwrap(sticky.window.titlebarAccessoryViewControllers.first)
 
         desk.windowDidBecomeKey(Notification(name: NSWindow.didBecomeKeyNotification, object: sticky.window))
-        XCTAssertFalse(tools.isHidden)
+        XCTAssertFalse(tools.view.isHidden)
 
         desk.windowDidResignKey(Notification(name: NSWindow.didResignKeyNotification, object: sticky.window))
-        XCTAssertTrue(tools.isHidden)
+        XCTAssertTrue(tools.view.isHidden)
     }
 
     // タイトルバーの検索のツールを使うと、付箋紙に検索欄が出る。
     func testTheSearchToolOfTheTitleBarOpensTheSearchBox() async throws {
         let sticky = desk.add(url: "/pages/with-tools")
-        try await waitUntil("the page is shown") { sticky.shell.title == "with-tools" }
+        // The screen has the page, not only the shell: the screen closes the search box when
+        // a page comes
+        try await waitUntil("the page is shown") { sticky.window.title == "with-tools" }
         XCTAssertFalse(hasSearchBox(sticky))
 
         sticky.look.searching = true

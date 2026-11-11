@@ -157,7 +157,9 @@ While items are selected, no item has the cursor and the keys mean this:
 
 A click into the text of an item also ends the selection.
 
-Each window is a sticky with a page of its own. The button with the plus, or Command+N, opens
+Each window is a sticky with a page of its own. Its title bar shows the name of the page, and
+the tools of the sticky at the right. The tools are hidden while the window does not have the
+focus. The button with the plus, or Command+N, opens
 another sticky. The app ends when the last one is closed.
 
 The menu with the palette gives the sticky another color: yellow, pink, green, blue or white.
