@@ -59,14 +59,15 @@ class MarkdownFolder(private val root: File, private val temp: File) {
     }
 
     /**
-     * Deletes every Markdown file whose path is not in [paths], which are in lower case. It is
-     * for a list of all that the cloud holds: what is not in it has gone.
+     * Deletes every file that the app copies and whose path is not in [paths], which are in
+     * lower case. It is for a list of all that the cloud holds: what is not in it has gone.
      */
     fun keepOnly(paths: Set<String>) {
         root.walkBottomUp()
-            .filter { it.isFile && it.name.endsWith(MARKDOWN, ignoreCase = true) }
-            .filter { it.relativeTo(root).invariantSeparatorsPath.lowercase() !in paths }
-            .forEach { it.delete() }
+            .filter { it.isFile }
+            .map { it to it.relativeTo(root).invariantSeparatorsPath.lowercase() }
+            .filter { (_, path) -> keeps(path) && path !in paths }
+            .forEach { (file, _) -> file.delete() }
     }
 
     companion object {
