@@ -99,19 +99,12 @@ private struct ItemEditor: View {
     /// How large the item is shown: 1 is the usual size.
     let zoom: Double
 
-    /// What stands before the text: the state of a task, or whether children are hidden.
-    private var mark: String {
-        if let task = row.task {
-            if task == .done { return "☑" }
-            return task == .running ? "◐" : "☐"
-        }
-        return row.isCollapsed ? "▸" : "•"
-    }
-
     var body: some View {
         HStack(alignment: .top) {
             // Without the bullet an item with no text cannot be seen
-            Text(mark).foregroundStyle(.secondary).font(.system(size: NSFont.systemFontSize * zoom))
+            ForEach(row.marks, id: \.self) { mark in
+                Text(mark).foregroundStyle(.secondary).font(.system(size: NSFont.systemFontSize * zoom))
+            }
             ItemText(
                 item: row.item, isFirst: row.index == 0, request: shell.view.outline.focusRequest,
                 order: shell.focus, shell: shell, cursors: cursors, zoom: zoom)
