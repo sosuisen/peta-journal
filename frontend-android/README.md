@@ -35,6 +35,9 @@ cd peta-journal/frontend-android
 ./gradlew :app:connectedDebugAndroidTest    # runs the tests on a device or an emulator
 ```
 
+The package holds the core for both kinds of device, about 70MB each. `-Pabi=x86_64` packs
+only one, for an emulator with little room.
+
 `generate.sh` does the same as `generate.ps1`, for Git Bash. Run it again after a change in
 Rust. `generated/` is not kept in the repository:
 
@@ -82,8 +85,10 @@ file that Dropbox lost is deleted in the app, and so is its page, without a ques
   what the user did. The core calls from its own threads; `Shell` moves each request to the
   main thread, in order. `sync()` takes in the files of the Markdown folder on a thread of
   its own.
-- `ShownText` makes the text of an item as it is shown. Rust makes HTML of the AST of the
-  item, and `AnnotatedString.fromHtml` of Compose reads the HTML.
+- `ShownText` makes the parts of an item as it is shown. Rust makes HTML of the AST of the
+  item, and `AnnotatedString.fromHtml` of Compose reads the HTML. That loses the line breaks
+  of a code block and the cells of a table, so `ShownText` reads those two from the AST, and
+  the screen draws them with parts of their own.
 - `JournalScreen` is the one screen: the search field, and under it the results or the page.
 - `MainActivity` and `JournalModel` open the journal in the folders of the app:
   `files/markdown` for the Markdown files and `files/data` for the database, the index and
@@ -97,6 +102,7 @@ file that Dropbox lost is deleted in the app, and so is its page, without a ques
 ## Not there yet
 
 - A sign-out, and a sync while the app is not on screen.
-- Code blocks and tables. `fromHtml` loses their line breaks and cells.
+- A code block or a table inside a list or a quote. Only those at the top of an item get a
+  part of their own.
 - Links to pages and tags. Only a link to a web address opens.
 - The marks of tasks, and images.

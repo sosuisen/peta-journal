@@ -52,7 +52,10 @@ class JournalScreenTest {
         compose.runOnUiThread { shell.close() }
     }
 
-    /** Puts a doc page into the Markdown folder, as a download does. */
+    /**
+     * Puts a doc page into the Markdown folder, as a download does. A file without the lines
+     * that the core writes above each item is one item, with the whole text as its body.
+     */
     private fun download(name: String, text: String) = File(root, "markdown/docs/$name").writeText(text)
 
     /**
@@ -80,7 +83,7 @@ class JournalScreenTest {
 
     /** A cloud with one page, or one that cannot be reached. */
     private class OnePage(private val reachable: Boolean = true) : Cloud {
-        private val text = "- 京都で会議がありました。\n".toByteArray()
+        private val text = "京都で会議がありました。\n".toByteArray()
 
         override fun changes(cursor: String?): Changes {
             if (!reachable) throw IOException("the network is gone")
@@ -102,7 +105,7 @@ class JournalScreenTest {
     // 検索すると、取り込んだページが結果に出る。結果を選ぶと、そのページの項目が見える。
     @Test
     fun a_page_that_was_taken_in_is_found_by_the_search_and_opens() {
-        download("notes.md", "- 今日は東京都で会議がありました。\n")
+        download("notes.md", "今日は東京都で会議がありました。\n")
         start()
 
         type("会議")
@@ -115,7 +118,7 @@ class JournalScreenTest {
     // 項目は、Markdownの記号ではなく、飾りの付いた文字で見える。
     @Test
     fun an_item_shows_its_decoration_and_not_the_marks_of_markdown() {
-        download("notes.md", "- some **bold** text\n")
+        download("notes.md", "some **bold** text\n")
         start()
 
         type("notes")
@@ -123,6 +126,37 @@ class JournalScreenTest {
         compose.onAllNodes(shown("notes")).onFirst().performClick()
 
         waitFor("some bold text")
+    }
+
+    /** Opens the page `notes`, which a test has put into the Markdown folder. */
+    private fun openNotes() {
+        start()
+        type("notes")
+        waitFor("notes")
+        compose.onAllNodes(shown("notes")).onFirst().performClick()
+    }
+
+    // コードブロックは、行が分かれたまま、書かれたとおりに見える。フェンスの記号は見えない。
+    @Test
+    fun a_code_block_shows_its_lines_as_they_were_written() {
+        download("notes.md", "before\n\n```kotlin\nval x = 1\n  val y = 2\n```\n\nafter\n")
+
+        openNotes()
+
+        waitFor("before")
+        compose.onNode(hasText("val x = 1\n  val y = 2")).assertExists()
+        compose.onNode(hasText("after")).assertExists()
+    }
+
+    // 表は、セルごとに分かれて見える。セルの中の文字の飾りも付く。
+    @Test
+    fun a_table_shows_each_cell_apart() {
+        download("notes.md", "| name | count |\n|---|---|\n| **apple** | 2 |\n")
+
+        openNotes()
+
+        waitFor("name")
+        for (cell in listOf("name", "count", "apple", "2")) compose.onNode(hasText(cell)).assertExists()
     }
 
     // ページを作る結果（今日のジャーナル、入力した名前のページ）は、結果に出ない。最初の版は何も変えない。
