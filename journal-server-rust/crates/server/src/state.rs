@@ -234,7 +234,11 @@ impl AppState {
         }
         let dir = config.markdown_dir();
         if !dir.trim().is_empty() {
-            configuration::ensure_sub_dirs(std::path::Path::new(&dir));
+            // Only the server makes the folders. A command run by hand must not make a
+            // markdown directory that is not there, as when its drive is not mounted
+            if options.interactive {
+                configuration::ensure_sub_dirs(std::path::Path::new(&dir));
+            }
             export.export_all_if_empty(&dir);
         }
         startup::rebuild_search_index(&pages, &items, &search);
