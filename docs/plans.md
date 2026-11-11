@@ -442,7 +442,7 @@
       - 定期の仕事は、最初の版では誰も回さない（2026-11-11にユーザーが決めた。ADR 030に書く）。Kotlinが、Dropboxからのダウンロードのあとに`sync()`を1回呼ぶ。Rustは、その場でフォルダーをスキャンし、索引を確定して戻る。書き出しの待ち行列は回さない。最初の版はページを変えないためである
       - 理由: ファイルが変わる時を知っているのはKotlinである。Androidは裏に回ったアプリのスレッドを止めるので、Rustの中のタイマーは当てにできない。裏での同期が要るなら、WorkManagerがKotlinから`sync()`を呼ぶ
       - 編集を入れる次の版で、索引のコミットと書き出しを回すスレッドをどこに置くかを決める
-  - [ ] 構成図（`docs/frontend-architecture.svg`）に、`journal-core`とembed版を描き足す
+  - [x] 構成図（`docs/frontend-architecture.svg`）に、`journal-core`とembed版を描き足す。Androidの列を右に足した。Kotlinのアプリは、まだ「作成中」である
 - [ ] Androidのシェルを作る。最初の版は、Dropboxからの取り込み、検索、ページの表示までである。編集とアップロードは、次の版にする
   - ファイルは、Dropbox SDKでAPIを通して取る。Dropbox SDKは、PCのDropboxアプリの役をする。アプリ内のフォルダーとDropboxの間で、ファイルを運ぶだけである
   - Android SDK、AVD、Gradleのキャッシュは、`D:\Android`にある（2026-11-11に移した）。元の場所には、ジャンクションを残してある
