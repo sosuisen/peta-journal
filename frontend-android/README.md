@@ -89,6 +89,11 @@ file that Dropbox lost is deleted in the app, and so is its page, without a ques
   item, and `AnnotatedString.fromHtml` of Compose reads the HTML. That loses the line breaks
   of a code block and the cells of a table, so `ShownText` reads those two from the AST, and
   the screen draws them with parts of their own.
+- A link to a page and a tag have the URL of their page in the HTML, such as `/pages/notes`.
+  A touch gives the URL to `Shell.follow`. The core opens the page only when it is there:
+  the web app makes the page of a link to a new page, and this app only reads. The screen
+  then says that the page is not there yet.
+- A task has a checkbox that shows where it stands. A touch does not change it.
 - `JournalScreen` is the one screen: the search field, and under it the results or the page.
 - `MainActivity` and `JournalModel` open the journal in the folders of the app:
   `files/markdown` for the Markdown files and `files/data` for the database, the index and
@@ -104,5 +109,5 @@ file that Dropbox lost is deleted in the app, and so is its page, without a ques
 - A sign-out, and a sync while the app is not on screen.
 - A code block or a table inside a list or a quote. Only those at the top of an item get a
   part of their own.
-- Links to pages and tags. Only a link to a web address opens.
-- The marks of tasks, and images.
+- Links to other things than a page or a web address, such as a file.
+- Images.
