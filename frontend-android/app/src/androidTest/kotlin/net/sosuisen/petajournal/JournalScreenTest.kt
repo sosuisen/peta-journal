@@ -1,0 +1,109 @@
+package net.sosuisen.petajournal
+
+import android.os.Handler
+import android.os.Looper
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import net.sosuisen.petajournal.types.SearchKind
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Before
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import java.io.File
+
+/** The screen with a real core under it, on the folders of a test. */
+@RunWith(AndroidJUnit4::class)
+class JournalScreenTest {
+    @get:Rule
+    val compose = createComposeRule()
+
+    private lateinit var root: File
+    private lateinit var shell: Shell
+
+    @Before
+    fun emptyFolders() {
+        val cache = InstrumentationRegistry.getInstrumentation().targetContext.cacheDir
+        root = File(cache, "journal-test").apply { deleteRecursively() }
+        File(root, "markdown/docs").mkdirs()
+    }
+
+    @After
+    fun close() {
+        compose.runOnUiThread { shell.close() }
+    }
+
+    /** Puts a doc page into the Markdown folder, as a download does. */
+    private fun download(name: String, text: String) = File(root, "markdown/docs/$name").writeText(text)
+
+    /** Opens the app on the folders, and waits until the files are taken in. */
+    private fun start() {
+        val main = Handler(Looper.getMainLooper())
+        compose.runOnUiThread {
+            shell = Shell(File(root, "data"), File(root, "markdown")) { main.post(it) }
+            shell.sync()
+        }
+        compose.setContent { JournalScreen(shell) }
+        compose.waitUntil(WAIT_MS) { !shell.syncing }
+    }
+
+    private fun type(query: String) = compose.onNodeWithTag(SEARCH_TAG).performTextInput(query)
+
+    /** A text on the screen that is not what the search field holds. */
+    private fun shown(text: String): SemanticsMatcher = hasText(text, substring = true) and !hasSetTextAction()
+
+    private fun waitFor(text: String) =
+        compose.waitUntil(WAIT_MS) { compose.onAllNodes(shown(text)).fetchSemanticsNodes().isNotEmpty() }
+
+    // 検索すると、取り込んだページが結果に出る。結果を選ぶと、そのページの項目が見える。
+    @Test
+    fun a_page_that_was_taken_in_is_found_by_the_search_and_opens() {
+        download("notes.md", "- 今日は東京都で会議がありました。\n")
+        start()
+
+        type("会議")
+        waitFor("notes")
+        compose.onAllNodes(shown("notes")).onFirst().performClick()
+
+        waitFor("今日は東京都で会議がありました。")
+    }
+
+    // 項目は、Markdownの記号ではなく、飾りの付いた文字で見える。
+    @Test
+    fun an_item_shows_its_decoration_and_not_the_marks_of_markdown() {
+        download("notes.md", "- some **bold** text\n")
+        start()
+
+        type("notes")
+        waitFor("notes")
+        compose.onAllNodes(shown("notes")).onFirst().performClick()
+
+        waitFor("some bold text")
+    }
+
+    // ページを作る結果（今日のジャーナル、入力した名前のページ）は、結果に出ない。最初の版は何も変えない。
+    @Test
+    fun the_results_that_make_a_page_are_left_out() {
+        start()
+
+        type("nothing-like-this")
+        compose.waitUntil(WAIT_MS) { shell.view.search.results.any { it.kind == SearchKind.CREATE } }
+
+        assertEquals(0, compose.onAllNodes(shown("nothing-like-this")).fetchSemanticsNodes().size)
+        assertEquals(0, compose.onAllNodes(shown("Open Today")).fetchSemanticsNodes().size)
+    }
+
+    private companion object {
+        /** The search waits a moment after the last key, and the first sync opens the index. */
+        const val WAIT_MS = 10_000L
+    }
+}
