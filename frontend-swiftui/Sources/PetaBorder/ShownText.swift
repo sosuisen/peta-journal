@@ -10,9 +10,11 @@ import PetaTypes
 /// macOS runs work of its own in the middle of it.
 @MainActor
 public enum ShownText {
-    /// Wikilinks and hashtags name a page by its path, not by an address. As links of the text
-    /// they get this address, to tell them from links that lead out of the journal.
-    private static let pages = URL(string: "peta-page://page/")!
+    /// Wikilinks and hashtags name a page or a tag, and have no address. As links of the text
+    /// they get an address of this kind, to tell them from links that lead out of the journal:
+    /// the host says whether it is a page or a tag.
+    private static let pages = URL(string: "peta-link://page/")!
+    private static let tags = "tag"
 
     /// The text of the item. An item whose AST cannot be read shows its body as it is: nothing
     /// that was written is left out.
@@ -23,10 +25,13 @@ public enum ShownText {
         return text(ofHTML: html, zoom: zoom)
     }
 
-    /// The path of the page that a link of the text names, when it is a wikilink or a hashtag.
-    public static func page(_ link: URL) -> String? {
-        guard link.scheme == pages.scheme, link.host == pages.host else { return nil }
-        return String(link.path.dropFirst())
+    /// What a link of the shown text leads to. Nothing for a link that stays in the item, as
+    /// the one of a footnote.
+    public static func target(of link: URL) -> LinkTarget? {
+        guard link.scheme == pages.scheme else { return .out(link) }
+        let name = String(link.path.dropFirst())
+        if name.isEmpty { return nil }
+        return link.host == tags ? .tag(name) : .page(name)
     }
 
     static func text(ofHTML html: String, zoom: Double) -> NSAttributedString {
@@ -75,6 +80,10 @@ public enum ShownText {
     /// `ast_to_html` has one form for each, so the text is put in by its form.
     private static func withWhatMacOSDrops(_ html: String) -> String {
         var kept = html
+        // Not left out by macOS, but a hashtag would look like a wikilink: both have only a name
+        kept = kept.replacingOccurrences(
+            of: "<a href=\"([^\"]*)\" class=\"hashtag\">", with: "<a href=\"//\(tags)/$1\">",
+            options: .regularExpression)
         kept = kept.replacingOccurrences(of: "<input type=\"checkbox\" checked disabled>", with: "☑ ")
         kept = kept.replacingOccurrences(of: "<input type=\"checkbox\" disabled>", with: "☐ ")
         kept = kept.replacingOccurrences(of: "<hr />", with: "<p>────────</p>")
@@ -86,6 +95,16 @@ public enum ShownText {
             of: "<img src=\"[^\"]*\" alt=\"([^\"]*)\"[^>]*/>", with: "[$1]", options: .regularExpression)
         return kept
     }
+}
+
+/// What a link of a shown text leads to.
+public enum LinkTarget: Equatable {
+    /// The page of a wikilink, by its path.
+    case page(String)
+    /// The tag of a hashtag, by its name. Its page lies in the folder of the tags.
+    case tag(String)
+    /// An address outside the journal.
+    case out(URL)
 }
 
 /// The shown texts of a screen that were made already. To make one takes two or three

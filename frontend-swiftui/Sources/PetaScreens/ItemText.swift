@@ -40,6 +40,7 @@ struct ItemText: NSViewRepresentable {
             if let view { editor.gotCursor(in: view) }
         }
         view.onCursorLeft = { [editor = context.coordinator] in editor.lostCursor() }
+        view.onLink = { [shell] link in shell.follow(link) }
         view.onKey = { [editor = context.coordinator] key, view in editor.pressed(key, in: view) }
         return view
     }
@@ -221,6 +222,11 @@ final class Editor: NSObject, NSTextViewDelegate {
 final class ItemTextView: NSTextView {
     var onCursor: (() -> Void)?
     var onCursorLeft: (() -> Void)?
+    /// A link of the shown text was clicked.
+    var onLink: ((URL) -> Void)?
+    /// The link under the mouse, when the window last asked which view is there. It asks right
+    /// before it gives the cursor to the view that is clicked.
+    private var aimed: URL?
     /// The text with its decoration that the view shows, when it does not show Markdown.
     var shown: NSAttributedString?
     /// A key of the outline that is no command of a text view. True when it was taken.
@@ -273,6 +279,39 @@ final class ItemTextView: NSTextView {
         typingAttributes = plain
         setSelectedRange(NSRange(location: cursor, length: 0))
         invalidateIntrinsicContentSize()
+    }
+
+    /// The link of the shown text at a place of the view. Markdown has no links.
+    private func link(at place: NSPoint) -> URL? {
+        guard shown != nil, let layoutManager, let textContainer, let textStorage else { return nil }
+        let inText = NSPoint(x: place.x - textContainerOrigin.x, y: place.y - textContainerOrigin.y)
+        let glyph = layoutManager.glyphIndex(for: inText, in: textContainer)
+        // Beside the text the nearest letter is named: only a click on the letter counts
+        let box = layoutManager.boundingRect(forGlyphRange: NSRange(location: glyph, length: 1), in: textContainer)
+        guard box.contains(inText) else { return nil }
+        let letter = layoutManager.characterIndexForGlyph(at: glyph)
+        guard letter < textStorage.length else { return nil }
+        return textStorage.attribute(.link, at: letter, effectiveRange: nil) as? URL
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        let hit = super.hitTest(point)
+        aimed = hit === self ? link(at: convert(point, from: superview)) : nil
+        return hit
+    }
+
+    /// A click on a link does not put the cursor in the item: the item would turn into
+    /// Markdown before the click arrives, and the link would be gone.
+    override var acceptsFirstResponder: Bool {
+        aimed == nil && super.acceptsFirstResponder
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        if let link = link(at: convert(event.locationInWindow, from: nil)) {
+            onLink?(link)
+            return
+        }
+        super.mouseDown(with: event)
     }
 
     override func becomeFirstResponder() -> Bool {

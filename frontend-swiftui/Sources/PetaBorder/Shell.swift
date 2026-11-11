@@ -18,19 +18,22 @@ public final class Shell: ObservableObject {
     private let border: Border
     private let clipboard: () -> String?
     private let copy: (String) -> Void
+    private let browse: (URL) -> Void
     /// The questions that wait behind the one on screen.
     private var later: [Question] = []
 
     /// Starts a core for the journal server at `server` and opens what `url` names, or nothing
     /// when there is no URL: a page is then to be searched for. `clipboard`
     /// gives the text on the clipboard when the core asks for it, and `copy` puts text there.
+    /// `browse` opens an address outside the journal.
     public init(
         server: String, url: String?,
         clipboard: @escaping () -> String? = { NSPasteboard.general.string(forType: .string) },
         copy: @escaping (String) -> Void = { text in
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(text, forType: .string)
-        }
+        },
+        browse: @escaping (URL) -> Void = { NSWorkspace.shared.open($0) }
     ) {
         let inbox = Inbox()
         let border = Border(server: server) { requests in
@@ -42,6 +45,7 @@ public final class Shell: ObservableObject {
         self.border = border
         self.clipboard = clipboard
         self.copy = copy
+        self.browse = browse
         view = Shell.must { try border.view() }
         inbox.shell = self
         if let url { open(url) }
@@ -51,6 +55,17 @@ public final class Shell: ObservableObject {
     public func open(_ url: String) {
         guard (try? border.open(url)) != nil else { return }
         self.url = url
+    }
+
+    /// The user clicked a link of a shown item. A wikilink and a hashtag open their page here,
+    /// as in the web frontend; any other link opens in the browser.
+    public func follow(_ link: URL) {
+        switch ShownText.target(of: link) {
+        case .page(let path): open("/pages/\(path)")
+        case .tag(let name): open("/pages/\(view.config.tagsDir)\(name)")
+        case .out(let address): browse(address)
+        case nil: break
+        }
     }
 
     /// The user put the cursor in the item.

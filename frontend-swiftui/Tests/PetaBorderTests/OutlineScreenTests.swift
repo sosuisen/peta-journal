@@ -86,7 +86,9 @@ final class OutlineScreenTests: XCTestCase {
         try await waitUntil("the first item is decorated") { self.editors()[0].string == "Idea #todo out plain" }
     }
 
-    /// A click on the first letter of the word, as AppKit gives it to the window.
+    /// A click on the first letter of the word. The window of a test takes no click: the tests
+    /// do not come to the front. So this does what a window does with one: it asks which view
+    /// is there, gives it the cursor if the view takes it, and then hands it the click.
     private func click(on word: String, in editor: NSTextView) throws {
         let letter = NSRange(location: (editor.string as NSString).range(of: word).location, length: 1)
         let layout = try XCTUnwrap(editor.layoutManager)
@@ -103,7 +105,9 @@ final class OutlineScreenTests: XCTestCase {
         }
         // A text view waits for the button to come up before it goes on
         NSApp.postEvent(try mouse(.leftMouseUp), atStart: false)
-        window.sendEvent(try mouse(.leftMouseDown))
+        let hit = try XCTUnwrap(window.contentView?.hitTest(place))
+        if hit.acceptsFirstResponder { window.makeFirstResponder(hit) }
+        hit.mouseDown(with: try mouse(.leftMouseDown))
     }
 
     // 装飾付きの項目のウィキリンクをクリックすると、そのページが開く。
