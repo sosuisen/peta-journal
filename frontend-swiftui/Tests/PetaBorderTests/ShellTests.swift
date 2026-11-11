@@ -503,6 +503,32 @@ final class ShellTests: XCTestCase {
         XCTAssertFalse(shell.view.search.showDropdown)
     }
 
+    // 「today」と検索すると、今日のジャーナルが候補に出る。新しいページを作る候補としては出ない。選ぶと、今日のジャーナルが開く。
+    func testASearchForTodayOffersTheJournalOfTodayAndPickingItOpensIt() async throws {
+        let shell = try await shellWithTwoPages()
+
+        shell.search("today")
+        try await waitUntil("the search is answered") { shell.view.search.results.count == 1 }
+        let entry = shell.view.search.results[0]
+        XCTAssertEqual(entry.label, "today")
+        XCTAssertEqual(entry.hint, "The journal of today")
+        shell.pick(entry.index)
+
+        try await waitUntil("the journal of today is shown") { shell.title == "Today" }
+        XCTAssertEqual(shell.url, "/pages/today")
+    }
+
+    // ないページの名前を検索すると、そのページを作る候補が出る。
+    func testASearchForAPageThatIsNotThereOffersToCreateIt() async throws {
+        let shell = try await shellWithTwoPages()
+
+        shell.search("pear")
+        try await waitUntil("the search is answered") { shell.view.search.results.count == 1 }
+
+        XCTAssertEqual(shell.view.search.results[0].label, "Create \"pear\"")
+        XCTAssertEqual(shell.view.search.results[0].hint, "")
+    }
+
     // 検索の候補は、下矢印で選び、Enterで開く。
     func testAFoundPageIsChosenWithDownAndOpenedWithEnter() async throws {
         let shell = try await shellWithTwoPages()
