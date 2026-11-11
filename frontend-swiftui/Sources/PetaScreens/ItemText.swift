@@ -19,6 +19,8 @@ struct ItemText: NSViewRepresentable {
     let texts: ShownTexts
     /// What `texts` counts. It is here only to have the row drawn again when it goes up.
     let changes: Int
+    /// The level of the heading when the item is one heading line, and 0 otherwise.
+    var heading = 0
     /// The first item of the page: the cursor goes here when the core names no item.
     let isFirst: Bool
     let request: FocusRequest?
@@ -46,13 +48,13 @@ struct ItemText: NSViewRepresentable {
     }
 
     func updateNSView(_ view: ItemTextView, context: Context) {
-        let size = NSFont.systemFontSize * CGFloat(zoom)
+        let font = ItemTextView.markdownFont(heading: heading, zoom: zoom)
         context.coordinator.body = item.body
-        context.coordinator.size = size
+        context.coordinator.font = font
         // The view with the cursor is Markdown at once, before the core counts its item as
         // edited: what is typed right after a click must not be lost
         if isEditing || view.window?.firstResponder === view {
-            edit(view, size: size)
+            edit(view, font: font)
         } else {
             show(view)
         }
@@ -60,9 +62,9 @@ struct ItemText: NSViewRepresentable {
     }
 
     /// The Markdown of the item, to type into.
-    private func edit(_ view: ItemTextView, size: CGFloat) {
+    private func edit(_ view: ItemTextView, font: NSFont) {
         guard view.isMarkdown else {
-            view.showMarkdown(item.body, size: size)
+            view.showMarkdown(item.body, font: font)
             return
         }
         // Text that is still being composed is not in the core yet, and must not be lost to
@@ -72,8 +74,10 @@ struct ItemText: NSViewRepresentable {
             view.string = item.body
             view.setSelectedRange(NSRange(location: cursor, length: 0))
         }
-        if view.font?.pointSize != size {
-            view.font = .systemFont(ofSize: size)
+        if view.font != font {
+            view.font = font
+            // What is typed next has the font too, also in a text that is still empty
+            view.typingAttributes[.font] = font
             // The text is as high as its lines, which are of another height now
             view.invalidateIntrinsicContentSize()
         }
@@ -115,9 +119,9 @@ final class Editor: NSObject, NSTextViewDelegate {
     private let itemId: String
     private let cursors: Cursors
     private let texts: ShownTexts
-    /// The Markdown of the item and the size of its letters, as the screen last drew them.
+    /// The Markdown of the item and the font of its letters, as the screen last drew them.
     var body = ""
-    var size = NSFont.systemFontSize
+    var font = NSFont.systemFont(ofSize: NSFont.systemFontSize)
 
     init(shell: Shell, itemId: String, cursors: Cursors, texts: ShownTexts) {
         self.shell = shell
@@ -172,7 +176,7 @@ final class Editor: NSObject, NSTextViewDelegate {
 
     /// The text view got the cursor, by a click or by an order of the core.
     func gotCursor(in view: ItemTextView) {
-        if !view.isMarkdown { view.showMarkdown(body, size: size) }
+        if !view.isMarkdown { view.showMarkdown(body, font: font) }
         // Only the user puts the cursor here while items are selected, and that ends the
         // selection. The core still names this item as the one with the cursor then
         let selecting = shell.view.outline.selectionMode
@@ -259,6 +263,15 @@ final class ItemTextView: NSTextView {
         return view
     }
 
+    /// The font of the Markdown of an item. An item that is one heading line has the size of
+    /// its heading, in bold, as the web frontend has: the text keeps its size when the cursor
+    /// goes in and out.
+    static func markdownFont(heading: Int, zoom: Double) -> NSFont {
+        let size = NSFont.systemFontSize * CGFloat(zoom)
+        guard (1...5).contains(heading) else { return .systemFont(ofSize: size) }
+        return .boldSystemFont(ofSize: size * CGFloat(Row.headingScales[heading - 1]))
+    }
+
     /// The view shows the Markdown of its item, and can be typed into.
     var isMarkdown: Bool {
         shown == nil && isEditable
@@ -267,10 +280,10 @@ final class ItemTextView: NSTextView {
     /// Shows the Markdown of the item in place of its text with decoration. The cursor stays as
     /// far into the text as it was: in the text with decoration that is not the same place,
     /// but one near it.
-    func showMarkdown(_ body: String, size: CGFloat) {
+    func showMarkdown(_ body: String, font: NSFont) {
         let cursor = min(selectedRange().location, (body as NSString).length)
         let plain: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: size), .foregroundColor: NSColor.labelColor,
+            .font: font, .foregroundColor: NSColor.labelColor,
         ]
         shown = nil
         isEditable = true
