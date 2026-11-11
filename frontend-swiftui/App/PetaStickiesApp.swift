@@ -7,7 +7,7 @@ import SwiftUI
 /// The stickies of the run before come back. `-stickies` names the file that keeps them.
 /// With `-url` the app shows only that page instead, and keeps nothing.
 @main
-struct PetaJournalApp: App {
+struct PetaStickiesApp: App {
     @NSApplicationDelegateAdaptor(Stickies.self) private var stickies
 
     var body: some Scene {

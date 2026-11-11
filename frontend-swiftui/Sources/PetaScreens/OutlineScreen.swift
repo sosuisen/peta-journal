@@ -96,7 +96,7 @@ public struct OutlineScreen: View {
         .background(SelectionKeys(shell: shell, selecting: shell.view.outline.selectionMode))
         .background(Color(nsColor: StickyLook.color(of: look.color)))
         // The name of the window. A window without a name is hard to find among the others
-        .navigationTitle(shell.title.isEmpty ? "PetaJournal" : shell.title)
+        .navigationTitle(shell.title.isEmpty ? "PetaStickies" : shell.title)
         .frame(minWidth: 480, minHeight: 320)
         .onChange(of: shell.question) { _ in typed = "" }
         // The page that was searched for is here
