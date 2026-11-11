@@ -579,7 +579,7 @@ final class ShellTests: XCTestCase {
         let shell = Shell(server: server.address, url: "/journals/2020-01-02")
         try await waitUntil("the journal is shown") { !shell.view.outline.rows.isEmpty }
 
-        XCTAssertEqual(shell.title, "2020年1月2日")
+        XCTAssertEqual(shell.title, "2020年1月2日 木曜日")
     }
 
     // 今日のジャーナルを前の日までスクロールすると、タイトルはその日の日付になり、「(Today)」は付かない。今日まで戻ると、また付く。
@@ -594,8 +594,8 @@ final class ShellTests: XCTestCase {
 
         shell.scrolled(top: Int(earlier.index), shown: 0...Int(earlier.index))
 
-        XCTAssertEqual(earlier.dateHeader, "2020年1月2日")
-        XCTAssertEqual(shell.title, "2020年1月2日")
+        XCTAssertEqual(earlier.dateHeader, "2020年1月2日 木曜日")
+        XCTAssertEqual(shell.title, "2020年1月2日 木曜日")
 
         shell.scrolled(top: 0, shown: 0...Int(earlier.index))
 

@@ -7,8 +7,14 @@ import Foundation
 /// what the user did. All of it runs on the main thread.
 @MainActor
 public final class Shell: ObservableObject {
-    @Published public private(set) var view: ViewModel
+    @Published public private(set) var view: ViewModel {
+        didSet { name() }
+    }
+    /// The name of what is open. For a journal it is the date of the day at the top of the
+    /// window, with "(Today)" behind the date of today.
     @Published public private(set) var title = ""
+    /// The name that the core gave to what is open.
+    private var named = ""
     /// What is open, as the URL that opens it again. `nil` when nothing was opened yet.
     @Published public private(set) var url: String?
     /// What the core asks the user now. The core waits until it is answered.
@@ -66,6 +72,30 @@ public final class Shell: ObservableObject {
         case .out(let address): browse(address)
         case nil: break
         }
+    }
+
+    /// Sets the title. The core names every journal by the day it was opened for; the day at
+    /// the top of the window is only in the view model.
+    private func name() {
+        var new = named
+        if case .journal(let journal) = view.screen, !journal.displayDate.isEmpty {
+            // The days below the one that was opened have their date above their first item
+            let top = view.outline.rows.first { $0.dateHeader == journal.displayDate }
+            let day = top?.item.name ?? journal.currentDate
+            new = day == view.today ? "\(journal.displayDate) (Today)" : journal.displayDate
+        }
+        // Not set again when it is the same: everything that watches the title would run
+        if title != new { title = new }
+    }
+
+    /// The window was scrolled: the row at `top` is the first that can be seen, and the rows
+    /// of `shown` are drawn. A journal tells the day at the top by this, and loads the days
+    /// before when the end of what it has comes near.
+    public func scrolled(top: Int, shown: ClosedRange<Int>) {
+        send(
+            .outlineScrolled(
+                scrolledFromTop: top > 0, topVisibleIndex: UInt64(top), renderedStart: UInt64(shown.lowerBound),
+                renderedEnd: UInt64(shown.upperBound + 1)))
     }
 
     /// The user put the cursor in the item.
@@ -144,7 +174,8 @@ public final class Shell: ObservableObject {
     private func show(_ op: UiOp, asked id: UInt32) {
         switch op {
         case .setTitle(let title):
-            self.title = title
+            named = title
+            name()
         case .confirm(let message):
             ask(Question(id: id, message: message, kind: .confirm))
         case .confirmDestructive(let message):
