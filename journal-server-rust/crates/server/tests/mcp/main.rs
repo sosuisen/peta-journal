@@ -151,6 +151,10 @@ async fn an_item_is_created_read_updated_and_deleted() {
     assert_eq!(updated["item"]["level"], json!(2));
     assert_eq!(updated["item"]["collapsed"], json!(true));
 
+    // A level of 1 is a level to set
+    let outdented = call(&mcp, "update_item", json!({ "itemId": id, "level": 1 })).await;
+    assert_eq!(outdented["item"]["level"], json!(1));
+
     let deleted = call(&mcp, "delete_item", json!({ "itemId": id })).await;
     assert_eq!(deleted, json!({ "deleted": true }));
     let error = call_err(&mcp, "get_item", json!({ "itemId": id, "fields": "" })).await;
