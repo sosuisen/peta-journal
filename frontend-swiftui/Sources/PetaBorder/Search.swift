@@ -19,3 +19,23 @@ extension Shell {
         send(.searchResultClicked(index: index))
     }
 }
+
+/// How an entry of what was found reads on screen.
+extension SearchEntry {
+    /// The core opens the journal of today for the name "today", and makes no page of it. To
+    /// the core it is still a page that is not there, so it comes as an entry that creates.
+    private var isToday: Bool {
+        kind == .create && title == "today"
+    }
+
+    /// The first line: the page, or what choosing the entry does.
+    public var label: String {
+        kind == .create && !isToday ? "Create \"\(title)\"" : title
+    }
+
+    /// The second line, or nothing. The snippet of a page found by its name is the name again.
+    public var hint: String {
+        if isToday { return "The journal of today" }
+        return snippet == title ? "" : snippet
+    }
+}

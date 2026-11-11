@@ -175,6 +175,8 @@ between 30% and 300%. Color, pin and zoom are kept with each sticky.
 The button with the magnifying glass, or Command+F, opens the search box. What is typed there
 is searched for a moment later. Down and Up choose an entry, Enter opens it, and Escape hides
 the entries, then closes the box. The entry "Create" makes a page with the typed name.
+Searching for `today` gives the journal of today. A sticky that shows it follows the date:
+on the next day it shows the journal of that day.
 
 ## Tests
 
