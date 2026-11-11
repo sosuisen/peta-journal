@@ -2,6 +2,13 @@
 
 # plans
 
+## CI
+
+- [ ] 2026-11-25に、止めているCIを戻す。`gh workflow enable CI`を実行する
+  - 請求の問題でどのジョブも走らないので、2026-11-11から2週間ほど止める。止めるのは`gh workflow disable CI`である
+  - 止めている間は、手元の確認だけが頼りである。`atlas-rust`、`ext-web-app/todo`、`ext-desktop-app/stickies`、wasm向けの`cargo check`、Emacsのテストも、触ったら手元で回す
+  - 戻したら、`main`で一度走らせて、止めていた間の変更を確かめる
+
 ## 検索ボックスから今日のジャーナルを開く
 
 - [x] 検索語が`today`のとき、結果の一覧の先頭に`Open Today`を出す
