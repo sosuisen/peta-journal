@@ -27,6 +27,8 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
     public private(set) var stickies: [Sticky] = []
     private let server: String
     private let store: StickyStore?
+    /// The app is ending.
+    private var ending = false
 
     /// The stickies show pages of the journal server at `server`.
     public init(server: String, store: StickyStore? = nil) {
@@ -145,10 +147,15 @@ public final class StickyDesk: NSObject, NSWindowDelegate {
         sticky(of: notification).map { keep($0) }
     }
 
-    /// A sticky that the user closed does not come back. The windows are not closed when the
-    /// app is ended, so the stickies that are open then do come back.
+    /// The app is ending. The windows that macOS closes from here on were not closed by the
+    /// user, and so their stickies stay kept.
+    public func end() {
+        ending = true
+    }
+
+    /// A sticky that the user closed does not come back.
     public func windowWillClose(_ notification: Notification) {
-        guard let closed = sticky(of: notification) else { return }
+        guard !ending, let closed = sticky(of: notification) else { return }
         stickies.removeAll { $0 === closed }
         store?.remove(closed.id)
     }
