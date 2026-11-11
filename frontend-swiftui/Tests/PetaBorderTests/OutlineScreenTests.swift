@@ -320,6 +320,26 @@ final class OutlineScreenTests: XCTestCase {
         return font?.fontDescriptor.symbolicTraits.contains(.bold) ?? false
     }
 
+    /// The color of a letter, as numbers that can be compared.
+    private func color(_ editor: NSTextView, at place: Int) -> [CGFloat]? {
+        let color = editor.textStorage?.attribute(.foregroundColor, at: place, effectiveRange: nil) as? NSColor
+        guard let seen = color?.usingColorSpace(.sRGB) else { return nil }
+        return [seen.redComponent, seen.greenComponent, seen.blueComponent, seen.alphaComponent]
+            .map { ($0 * 100).rounded() / 100 }
+    }
+
+    // 装飾付きの項目の文字と、編集中の項目の文字は、同じ色である。
+    func testTheTextOfAShownItemHasTheColorOfTheTextThatIsEdited() async throws {
+        try await boldItemAndTheCursorInTheNext()
+        try await waitUntil("the first item is decorated") { self.editors()[0].string == "bold text" }
+        let edited = editors()[1]
+        edited.insertText("typed", replacementRange: edited.selectedRange())
+
+        XCTAssertNotNil(color(edited, at: 0))
+        XCTAssertEqual(color(editors()[0], at: 0), color(edited, at: 0))
+        XCTAssertEqual(color(editors()[0], at: 6), color(edited, at: 0))
+    }
+
     // 編集していない項目は、装飾付きで出る。Markdownの記号は出ない。
     func testAnItemThatIsNotEditedIsShownWithItsDecoration() async throws {
         try await boldItemAndTheCursorInTheNext()

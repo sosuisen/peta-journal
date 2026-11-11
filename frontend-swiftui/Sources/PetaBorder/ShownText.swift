@@ -44,6 +44,16 @@ public enum ShownText {
             documentAttributes: nil)
         // macOS reads any text as HTML, so this is not expected to happen
         guard let text = read else { return plain(html, zoom: zoom) }
+        // macOS gives no color, or pure black, to text that has no color of its own, and both
+        // are drawn in black. The Markdown of an item is written in the color of labels: the
+        // text keeps its color when the cursor goes in and out
+        text.enumerateAttribute(.foregroundColor, in: NSRange(location: 0, length: text.length)) { color, range, _ in
+            if let seen = (color as? NSColor)?.usingColorSpace(.sRGB) {
+                let black = seen.redComponent + seen.greenComponent + seen.blueComponent == 0
+                guard black, seen.alphaComponent == 1 else { return }
+            }
+            text.addAttribute(.foregroundColor, value: NSColor.labelColor, range: range)
+        }
         // Every block ends its line, the last one too
         while text.string.hasSuffix("\n") {
             text.deleteCharacters(in: NSRange(location: text.length - 1, length: 1))
@@ -54,7 +64,10 @@ public enum ShownText {
     private static func plain(_ text: String, zoom: Double) -> NSAttributedString {
         NSAttributedString(
             string: text,
-            attributes: [.font: NSFont.systemFont(ofSize: NSFont.systemFontSize * zoom)])
+            attributes: [
+                .font: NSFont.systemFont(ofSize: NSFont.systemFontSize * zoom),
+                .foregroundColor: NSColor.labelColor,
+            ])
     }
 
     /// How the text looks. This is the look of this shell: it is not kept the same as the
