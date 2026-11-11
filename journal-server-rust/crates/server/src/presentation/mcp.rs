@@ -16,7 +16,7 @@ use crate::error::{parse_id, AppError, AppResult};
 use crate::state::{blocking, SharedState};
 use journal_core::application::item_service::MoveRequest;
 use journal_core::domain::journal_name::JournalName;
-use journal_core::domain::model::{BacklinkEntry, Item, ItemPosition, Page, SearchResult};
+use journal_core::domain::model::{BacklinkEntry, Item, ItemPosition, Page};
 use journal_core::dto::{ItemDto, ItemFields};
 use journal_core::infrastructure::export::export_service::format_instant;
 
@@ -58,14 +58,9 @@ fn items_json(items: &[Item]) -> Value {
     Value::Array(items.iter().map(item_json).collect())
 }
 
-fn search_result_json(r: &SearchResult) -> Value {
-    json!({
-        "pageId": r.page_id.to_string(),
-        "pageTitle": r.page_title,
-        "itemId": r.item_id,
-        "snippet": r.snippet,
-        "score": r.score,
-    })
+/// The answer of an operation of the journal (ADR 029), as the JSON a tool gives back.
+fn answer_json(answer: &impl serde::Serialize) -> Value {
+    serde_json::to_value(answer).expect("an answer of the journal is plain data")
 }
 
 fn backlink_json(e: &BacklinkEntry) -> Value {
@@ -278,6 +273,15 @@ pub struct SearchArgs {
     /// Maximum number of results (default 20)
     #[serde(rename = "maxResults", default)]
     pub max_results: i64,
+}
+
+impl SearchArgs {
+    /// The number the caller named. Zero or less means that it named none.
+    fn max_results(&self) -> Option<usize> {
+        usize::try_from(self.max_results)
+            .ok()
+            .filter(|max| *max > 0)
+    }
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -700,14 +704,9 @@ impl JournalMcp {
         Parameters(a): Parameters<SearchArgs>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
-        let max = if a.max_results > 0 { a.max_results } else { 20 };
-        let results = run(move || {
-            state
-                .combined_search
-                .search_page_names_internal(&a.query, max as usize)
-        })
-        .await?;
-        ok(json!({ "results": results.iter().map(search_result_json).collect::<Vec<_>>() }))
+        let answer =
+            run(move || state.journal.search_page_names(&a.query, a.max_results())).await?;
+        ok(answer_json(&answer))
     }
 
     #[tool(
@@ -718,13 +717,8 @@ impl JournalMcp {
         Parameters(a): Parameters<SearchArgs>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
-        let max = if a.max_results > 0 {
-            a.max_results as usize
-        } else {
-            20
-        };
-        let results = run(move || state.combined_search.search(&a.query, max)).await?;
-        ok(json!({ "results": results.iter().map(search_result_json).collect::<Vec<_>>() }))
+        let answer = run(move || state.journal.search_combined(&a.query, a.max_results())).await?;
+        ok(answer_json(&answer))
     }
 
     // ---- config ----

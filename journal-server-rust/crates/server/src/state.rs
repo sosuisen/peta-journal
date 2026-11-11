@@ -36,6 +36,7 @@ use journal_core::infrastructure::persistence::{
     Db, ItemRepository, PageRepository, PropertyRepository,
 };
 use journal_core::infrastructure::search::{TantivySearchService, COMMIT_INTERVAL};
+use journal_core::journal::Journal;
 
 pub struct AppState {
     pub settings: Settings,
@@ -57,7 +58,9 @@ pub struct AppState {
     pub page_service: Arc<PageService>,
     pub atlas: Arc<AtlasService>,
     pub journal_service: Arc<JournalService>,
-    pub combined_search: Arc<CombinedSearchService>,
+    /// The entrance that REST and MCP share (ADR 029). The operations move here one area at a
+    /// time; the handlers of the other areas still call the services above.
+    pub journal: Arc<Journal>,
     pub functions: Arc<ExtensionFunctionService>,
     pub extensions: Arc<ExtensionService>,
     pub confirm: Arc<ConfirmService>,
@@ -148,6 +151,7 @@ impl AppState {
             properties.clone(),
             items.clone(),
         ));
+        let journal = Arc::new(Journal::new(combined_search, properties.clone()));
 
         let page_matcher = PageMatcher::new(
             pages.clone(),
@@ -246,7 +250,7 @@ impl AppState {
             page_service,
             atlas,
             journal_service,
-            combined_search,
+            journal,
             functions,
             extensions,
             confirm,

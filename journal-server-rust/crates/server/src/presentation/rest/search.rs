@@ -1,11 +1,11 @@
 use axum::extract::{Query, State};
 use axum::routing::get;
 use axum::{Json, Router};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use crate::error::HttpResult;
 use crate::state::{blocking, SharedState};
-use journal_core::dto::{search_result_dto, SearchResultDto};
+use journal_core::journal::SearchAnswer;
 
 pub fn routes() -> Router<SharedState> {
     Router::new()
@@ -21,24 +21,15 @@ struct SearchQuery {
     max_results: Option<usize>,
 }
 
-#[derive(Serialize)]
-struct SearchResponse {
-    results: Vec<SearchResultDto>,
-}
-
 async fn search_page_names(
     State(state): State<SharedState>,
     Query(q): Query<SearchQuery>,
-) -> HttpResult<Json<SearchResponse>> {
+) -> HttpResult<Json<SearchAnswer>> {
     let query = q.q.unwrap_or_default();
-    let max_results = q.max_results.unwrap_or(20);
     blocking(move || {
-        let results = state
-            .combined_search
-            .search_page_names_internal(&query, max_results)?;
-        Ok(Json(SearchResponse {
-            results: results.iter().map(search_result_dto).collect(),
-        }))
+        Ok(Json(
+            state.journal.search_page_names(&query, q.max_results)?,
+        ))
     })
     .await
 }
@@ -46,32 +37,15 @@ async fn search_page_names(
 async fn search_combined(
     State(state): State<SharedState>,
     Query(q): Query<SearchQuery>,
-) -> HttpResult<Json<SearchResponse>> {
+) -> HttpResult<Json<SearchAnswer>> {
     let query = q.q.unwrap_or_default();
-    let max_results = q.max_results.unwrap_or(20);
-    blocking(move || {
-        let results = state.combined_search.search(&query, max_results)?;
-        Ok(Json(SearchResponse {
-            results: results.iter().map(search_result_dto).collect(),
-        }))
-    })
-    .await
+    blocking(move || Ok(Json(state.journal.search_combined(&query, q.max_results)?))).await
 }
 
 async fn search_by_tag(
     State(state): State<SharedState>,
     Query(q): Query<SearchQuery>,
-) -> HttpResult<Json<SearchResponse>> {
+) -> HttpResult<Json<SearchAnswer>> {
     let tag = q.q.unwrap_or_default();
-    let max_results = q.max_results.unwrap_or(20);
-    blocking(move || {
-        let ids = state
-            .properties
-            .find_item_ids_by_tag_value_ignoring_case(&tag, max_results as i64)?;
-        let results = state.combined_search.results_for_items(&ids)?;
-        Ok(Json(SearchResponse {
-            results: results.iter().map(search_result_dto).collect(),
-        }))
-    })
-    .await
+    blocking(move || Ok(Json(state.journal.search_by_tag(&tag, q.max_results)?))).await
 }

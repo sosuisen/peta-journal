@@ -157,11 +157,12 @@ impl Folder {
     /// Whether a search for the word finds the page
     fn finds(&self, page_id: &Hmtid, word: &str) -> bool {
         self.state
-            .combined_search
-            .search(word, 10)
+            .journal
+            .search_combined(word, Some(10))
             .unwrap()
+            .results
             .iter()
-            .any(|r| &r.page_id == page_id)
+            .any(|r| r.page_id == page_id.as_str())
     }
 
     fn is_missing(&self, rel_path: &str) -> bool {
