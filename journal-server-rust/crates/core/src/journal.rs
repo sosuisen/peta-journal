@@ -5,14 +5,17 @@
 //! services, runs the extensions, tells the clients which pages changed, and builds the
 //! answer. The answers are the JSON shapes of the REST API.
 //!
-//! The operations come here one area at a time. The search, the pages, the items and the
-//! journals are here. The other areas are still in the handlers of the journal server.
+//! The operations come here one area at a time. The search, the pages, the items, the
+//! journals and the atlas pages are here. The other areas are still in the handlers of the
+//! journal server.
 
+mod atlas;
 mod items;
 mod journals;
 mod pages;
 mod search;
 
+pub use atlas::{AtlasCalloutInput, AtlasGroupInput, AtlasLinkInput, AtlasTitleInput};
 pub use items::{
     BatchAnswer, BatchInput, BatchOpInput, CreateItemInput, CursorDto, DeletedItemsAnswer,
     FlatMarkdownAnswer, FlatMarkdownInput, ItemAnswer, ItemIdsInput, ItemsAnswer, MergeItemsInput,
@@ -31,6 +34,7 @@ use std::sync::Arc;
 
 use hmtid::Hmtid;
 
+use crate::application::atlas_service::AtlasService;
 use crate::application::combined_search::CombinedSearchService;
 use crate::application::extension_service::ExtensionService;
 use crate::application::flat_markdown_splitter::FlatMarkdownSplitter;
@@ -61,6 +65,7 @@ pub struct JournalServices {
     pub page_service: Arc<PageService>,
     pub item_service: Arc<ItemService>,
     pub journal_service: Arc<JournalService>,
+    pub atlas: Arc<AtlasService>,
     pub extensions: Arc<ExtensionService>,
     pub pages: PageRepository,
     pub items: ItemRepository,
