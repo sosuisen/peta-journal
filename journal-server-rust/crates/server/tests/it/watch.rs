@@ -9,6 +9,7 @@ use std::time::{Duration, Instant};
 
 use hmtid::Hmtid;
 use journal_core::infrastructure::export::import_service::{MarkdownImportService, Outcome};
+use journal_core::journal::UpdateConfigInput;
 use journal_server::config::Settings;
 use journal_server::infrastructure::pending_delete_prompt::PendingDeletePrompt;
 use journal_server::infrastructure::watch::{FileImport, MarkdownFolderWatcher};
@@ -228,6 +229,25 @@ async fn a_file_deleted_outside_is_held_as_missing_and_its_page_stays() {
     })
     .await;
     assert_eq!(folder.outline(&page), ["1:still here"]);
+}
+
+// Markdownフォルダーの設定を変えると、すぐに新しいフォルダーが見張られる。
+#[tokio::test]
+async fn a_new_markdown_directory_is_watched_at_once() {
+    let folder = Folder::watched();
+    let moved = folder._dir.path().join("moved");
+    std::fs::create_dir_all(moved.join("docs")).unwrap();
+    // The watcher looks at the setting by itself 3 seconds after its start, and then every
+    // 15 seconds. After the first look, only the change of the setting can move it in time
+    tokio::time::sleep(Duration::from_millis(3500)).await;
+
+    folder.state.journal.update_config(UpdateConfigInput {
+        markdown_dir: Some(moved.to_string_lossy().into_owned()),
+        ..UpdateConfigInput::default()
+    });
+    std::fs::write(moved.join("docs/moved.md"), "in the new folder\n").unwrap();
+
+    eventually("the file is a page", || folder.page("moved").is_some()).await;
 }
 
 // 空のファイルが先に作られても、ページは中身が書かれてから作られる。
