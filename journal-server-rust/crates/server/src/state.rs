@@ -116,10 +116,7 @@ impl AppState {
             folder_chooser::ask_for_markdown_dir(&core.config);
             // Only the server makes the folders. A command run by hand must not make a
             // markdown directory that is not there, as when its drive is not mounted
-            let dir = core.config.markdown_dir();
-            if !dir.trim().is_empty() {
-                configuration::ensure_sub_dirs(std::path::Path::new(&dir));
-            }
+            configuration::ensure_sub_dirs(&core.config.markdown_dir());
         }
         core.start_up();
 
