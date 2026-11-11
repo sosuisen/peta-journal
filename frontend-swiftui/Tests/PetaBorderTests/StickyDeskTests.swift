@@ -154,9 +154,9 @@ final class StickyDeskTests: XCTestCase {
     // タイトルバーの検索のツールを使うと、付箋紙に検索欄が出る。
     func testTheSearchToolOfTheTitleBarOpensTheSearchBox() async throws {
         let sticky = desk.add(url: "/pages/with-tools")
-        // The screen has the page, not only the shell: the screen closes the search box when
-        // a page comes
         try await waitUntil("the page is shown") { sticky.window.title == "with-tools" }
+        // The screen follows the shell a moment later, and closes the search box when a page comes
+        try await Task.sleep(nanoseconds: 300_000_000)
         XCTAssertFalse(hasSearchBox(sticky))
 
         sticky.look.searching = true
