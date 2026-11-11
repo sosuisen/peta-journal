@@ -21,6 +21,9 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // The core is about 70MB for each kind of device. `-Pabi=x86_64` packs only one, for
+        // an emulator with little room
+        (findProperty("abi") as String?)?.let { ndk.abiFilters += it }
         manifestPlaceholders["dropboxKey"] = dropboxKey
         buildConfigField("String", "DROPBOX_KEY", "\"$dropboxKey\"")
         buildConfigField("String", "DROPBOX_FOLDER", "\"$dropboxFolder\"")

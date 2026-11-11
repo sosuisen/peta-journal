@@ -1,6 +1,13 @@
 package net.sosuisen.petajournal
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,6 +30,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import net.sosuisen.petajournal.sync.SyncState
 import net.sosuisen.petajournal.types.Row
@@ -126,9 +135,9 @@ private fun Outline(title: String, rows: List<Row>) {
 @Composable
 private fun OutlineRow(row: Row) {
     val uriHandler = LocalUriHandler.current
-    val text = remember(row.item.ast, row.item.body) {
+    val blocks = remember(row.item.ast, row.item.body) {
         // A link to a page or a tag has no address, and opens nothing yet
-        shownText(row.item) { href -> if (isWebAddress(href)) uriHandler.openUri(href) }
+        shownBlocks(row.item) { href -> if (isWebAddress(href)) uriHandler.openUri(href) }
     }
     Column {
         row.dateHeader?.let { date ->
@@ -136,7 +145,51 @@ private fun OutlineRow(row: Row) {
         }
         Row(Modifier.padding(start = row.indentPx.dp, top = 3.dp, bottom = 3.dp)) {
             Text(if (row.showBullet) "•" else "", modifier = Modifier.width(22.dp))
-            Text(text, style = MaterialTheme.typography.bodyLarge)
+            Column {
+                for (block in blocks) {
+                    when (block) {
+                        is ShownBlock.Text -> Text(block.text, style = MaterialTheme.typography.bodyLarge)
+                        is ShownBlock.Code -> CodeBlock(block)
+                        is ShownBlock.Table -> TableBlock(block)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** The lines of the code as they were written. A long line is scrolled sideways, not broken. */
+@Composable
+private fun CodeBlock(code: ShownBlock.Code) {
+    Text(
+        code.lines,
+        style = MaterialTheme.typography.bodyMedium,
+        fontFamily = FontFamily.Monospace,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .horizontalScroll(rememberScrollState())
+            .padding(8.dp),
+    )
+}
+
+/** The cells of a table, each in a box, in columns of the same width. */
+@Composable
+private fun TableBlock(table: ShownBlock.Table) {
+    val line = MaterialTheme.colorScheme.outlineVariant
+    Column(Modifier.padding(vertical = 4.dp)) {
+        for (row in table.rows) {
+            Row(Modifier.height(IntrinsicSize.Min)) {
+                for (cell in row.cells) {
+                    Text(
+                        cell,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = if (row.header) FontWeight.Bold else null,
+                        modifier = Modifier.weight(1f).fillMaxHeight().border(0.5.dp, line).padding(6.dp),
+                    )
+                }
+            }
         }
     }
 }
