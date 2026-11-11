@@ -161,7 +161,8 @@ cargo cov --html     # target/llvm-cov/html/index.html, line by line
 ```
 
 `cargo cov` is an alias in `.cargo/config.toml`. It measures `peta-core`, `peta-page-links`,
-`peta-server-client`, `peta-embedded-journal`, `peta-shell-emacs` and `peta-shell-native`. The wasm shell `peta-frontend` (`crates/shell-leptos`) is left out: it only runs in
+`peta-server-client`, `peta-embedded-journal`, `peta-shell-emacs`, `peta-shell-native` and
+`peta-shell-android`. The wasm shell `peta-frontend` (`crates/shell-leptos`) is left out: it only runs in
 the browser, so the E2E tests cover it instead.
 
 No file of `peta-shell-emacs` is left out. Its tests start the program itself, and `cargo cov`
@@ -179,13 +180,16 @@ shell (ADR 024). The types that cross to such a shell are generated from the Rus
 cd peta-journal/frontend-rust
 cargo run -p peta-shell-native --features facet_typegen --bin codegen -- swift <folder>
 cargo run -p peta-shell-native --features facet_typegen --bin codegen -- csharp <folder>
+cargo run -p peta-shell-native --features facet_typegen --bin codegen -- kotlin <folder>
 ```
 
-The first writes the Swift package `PetaTypes` under `<folder>/swift`, and the second the C#
-project `PetaTypes` under `<folder>/csharp`. The generated code is not kept in the repository.
+The first writes the Swift package `PetaTypes` under `<folder>/swift`, the second the C#
+project `PetaTypes` under `<folder>/csharp`, and the third the Kotlin package
+`net.sosuisen.petajournal.types` under `<folder>/kotlin`. The generated code is not kept in the
+repository.
 
-The C# types are not written by the generator that Crux brings (facet_generate 0.19): its C# does
-not compile for these types. `src/codegen.rs` calls a later version of the same generator
+The C# and the Kotlin types are not written by the generator that Crux brings (facet_generate
+0.19): its C# and its Kotlin do not compile for these types. `src/codegen.rs` calls a later version of the same generator
 directly (ADR 028). The tests of the generation need the feature too:
 `cargo test -p peta-shell-native --features facet_typegen`.
 
@@ -196,6 +200,28 @@ tools it needs. `frontend-winui/README.md` does so for the WinUI shell.
 A type that crosses has `#[cfg_attr(feature = "facet_typegen", derive(facet::Facet))]`. The
 generator reads the shape of the Rust type, not what serde writes. A type with a hand-written
 `Serialize` has to write that same shape in bincode, as `PropertyValue` and `ItemPosition` do.
+
+### Core of the Android shell
+
+`crates/shell-android` holds the core for the Android shell. It has no journal server to ask:
+the journal core (`journal-server-rust/crates/core`) runs inside the app (ADR 029). The shell
+puts Markdown files into a folder of the app and calls `sync()`, which takes them in and makes
+them found by the search. Nothing runs at times of its own: no watcher, no scan, no export.
+
+BoltFFI packs the crate for Android, and the generator writes the Kotlin types beside it:
+
+```
+cd peta-journal/frontend-rust
+cargo run -p peta-shell-native --features facet_typegen --bin codegen -- kotlin ../frontend-android/generated
+cd crates/shell-android
+boltffi pack android --release
+```
+
+This needs the Android NDK (`ANDROID_NDK_HOME`) and the Rust targets `aarch64-linux-android` and
+`x86_64-linux-android`. The output is `frontend-android/generated`: the libraries under
+`jniLibs`, and the Kotlin under `kotlin`. It is not kept in the repository.
+
+The tests of the crate run on the development machine, with `cargo test -p peta-shell-android`.
 
 ### Emacs frontend
 

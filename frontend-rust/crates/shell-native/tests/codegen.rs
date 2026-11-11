@@ -109,3 +109,40 @@ fn csharp_reads_an_optional_plain_enum_as_a_value() {
         "FacetHelpers.DeserializeOption(deserializer, d => TaskStateBincode.Deserialize(d))"
     ));
 }
+
+/// The Kotlin source with the types of the border.
+fn kotlin_types(out: &Path) -> String {
+    let file = out.join("kotlin/net/sosuisen/petajournal/types/Types.kt");
+    std::fs::read_to_string(&file).unwrap_or_else(|e| panic!("{}: {e}", file.display()))
+}
+
+// Kotlinの型が生成される。シェルが送るイベント、描くビューモデル、シェルへの依頼とその答えが入る。
+#[test]
+fn the_kotlin_types_of_the_border_are_written() {
+    let kotlin = kotlin_types(&generated_for("kotlin", "kotlin-types"));
+
+    for declared in [
+        "sealed interface Event",
+        "data class ViewModel",
+        "sealed interface ShellEffect",
+        "data class Requests",
+        "sealed interface UiOutput",
+        "data class PageView",
+    ] {
+        assert!(
+            kotlin.contains(&format!(
+                "
+{declared}"
+            )),
+            "{declared}"
+        );
+    }
+}
+
+// 生成されたKotlinで、変種の名前は、Kotlinのリストを隠さない。隠すとKotlinがコンパイルできない（facet_generate 0.19の不具合）。
+#[test]
+fn a_variant_does_not_hide_the_list_of_kotlin() {
+    let kotlin = kotlin_types(&generated_for("kotlin", "kotlin-list"));
+
+    assert!(kotlin.contains("val value: kotlin.collections.List<String>"));
+}

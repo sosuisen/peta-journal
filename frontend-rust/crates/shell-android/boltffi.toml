@@ -1,0 +1,23 @@
+# How BoltFFI packs this crate for the Android shell. Run `boltffi pack android --release` in
+# this folder. It needs the Android NDK: set ANDROID_NDK_HOME.
+
+[package]
+name = "peta-shell-android"
+crate = "peta_shell_android"
+
+[targets.apple]
+enabled = false
+
+[targets.wasm]
+enabled = false
+
+[targets.android]
+enabled = true
+output = "../../../frontend-android/generated"
+min_sdk = 26
+architectures = ["arm64", "x86_64"]
+# For speed and not for size, as for the other native shells
+cargo_args = ["--config", "profile.release.opt-level=3"]
+
+[targets.android.kotlin]
+package = "net.sosuisen.petajournal.core"
