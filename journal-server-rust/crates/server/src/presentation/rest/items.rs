@@ -28,7 +28,6 @@ pub fn routes() -> Router<SharedState> {
         .route("/api/items/shift-level", post(shift_levels))
         .route("/api/items/export", post(export_tree_markdown))
         .route("/api/items/export-page", post(export_page_markdown))
-        .route("/api/items/export-subtree", post(export_subtree_markdown))
         .route("/api/items/import", post(import_tree_markdown))
         .route("/api/items/parse", post(parse_flat_markdown))
         .route(
@@ -67,12 +66,6 @@ struct TypesQuery {
 #[serde(rename_all = "camelCase", default)]
 struct PageIdQuery {
     page_id: Option<String>,
-}
-
-#[derive(Deserialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-struct ItemIdQuery {
-    item_id: Option<String>,
 }
 
 async fn create_item(
@@ -365,20 +358,6 @@ async fn export_page_markdown(
     blocking(move || {
         Ok(Json(
             state.journal.export_page_markdown(q.page_id.as_deref())?,
-        ))
-    })
-    .await
-}
-
-async fn export_subtree_markdown(
-    State(state): State<SharedState>,
-    Query(q): Query<ItemIdQuery>,
-) -> HttpResult<Json<TreeMarkdownAnswer>> {
-    blocking(move || {
-        Ok(Json(
-            state
-                .journal
-                .export_subtree_markdown(q.item_id.as_deref())?,
         ))
     })
     .await

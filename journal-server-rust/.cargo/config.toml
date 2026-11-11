@@ -10,7 +10,8 @@
 # These files are left out of the measurement, as agreed on 2026-11-02, because no ordinary
 # test can run them: they hand over to the OS.
 # - src/main.rs: the entry point, which binds the port and waits for Ctrl-C
-# - application/folder_chooser.rs: the native folder dialog (osascript, PowerShell, zenity)
+# - application/folder_chooser.rs: the native folder dialog (osascript, PowerShell, zenity),
+#   and the question at startup that opens it
 # - infrastructure/launcher.rs: opens a URL or a folder with the OS
 # - infrastructure/pending_delete_prompt.rs: opens the browser through the launcher
 # All four are in the server crate. cargo-mutants skips the same files; see .cargo/mutants.toml.

@@ -668,8 +668,8 @@ impl Journal {
     }
 
     /// The item and all its descendants.
-    pub fn export_subtree_markdown(&self, item_id: Option<&str>) -> AppResult<TreeMarkdownAnswer> {
-        let item_id = parse_id(required(item_id, "itemId")?)?;
+    pub fn export_subtree_markdown(&self, item_id: &str) -> AppResult<TreeMarkdownAnswer> {
+        let item_id = parse_id(item_id)?;
         Ok(self
             .services
             .item_service

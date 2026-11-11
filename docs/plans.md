@@ -380,9 +380,14 @@
       - プロパティ（`properties`）: MCPにはなく、RESTにはある
       - 親のないページの`parentId`: MCPは`null`、RESTは空の文字
       - トランスクルージョンの木（`transcludedTrees`）: MCPの`get_page_by_id`にはなく、RESTの`GET /api/pages/{id}`にはある
-    - 今の形で書いている道具は、`get_page_by_id`、`get_or_create_doc`、`update_page`、`get_recent_pages`、`get_backlinks`、`get_or_create_journal`、`get_most_recent_journal_before`と、項目の道具のうち4つである。項目の道具のほかのもの（`get_item`、`update_item`など）は、すでにRESTの形（`ItemDto`）で書いている
+    - 今の形で書いている道具は、`get_page_by_id`、`get_or_create_doc`、`update_page`、`get_recent_pages`、`get_backlinks`、`get_or_create_journal`、`get_most_recent_journal_before`と、項目の道具のうち4つである。その4つは、`create_item`、`update_item`、`move_items`、`get_items_by_type`である。項目の道具のほかのもの（`get_item`、`cycle_task`など）は、すでにRESTの形（`ItemDto`）で書いている
     - MCPの答えが変わるので、MCPを使う側を先に確かめる。`peta-journal`、`kcg-lecture`、`report`などのスキルと、日付を文字として読んでいるところである
     - 入口へ下ろし終えてから行う。途中でそろえると、下ろす作業と答えの変更が1つのPRに混ざる
+  - [ ] ミューテーションテストが、`AppResult`と`HttpResult`を返す関数の中身を置き換えられるようにする
+    - `cargo-mutants`は、戻り値の型を名前で見る。`Result`は知っているが、型の別名の`AppResult`と`HttpResult`は知らない。そのため「`Ok(既定値)`を返す」ミュータントを作らず、`AppResult::new()`のような、ビルドできないものを作る
+    - 項目を入口へ下ろしたPR（2026-11-11）では、467個のうち429個がこれだった。入口の操作とハンドラーには、関数の中身を丸ごと置き換える検査が効いていない。演算子のミュータント（`!`、`==`、`<`）は効いている
+    - ビルドできないものは、`-E "(App|Http)Result::(new|from|from_iter)\("`で外して回せる。時間は省けるが、検査は増えない
+    - 直す方法の候補は、戻り値を`Result<T, AppError>`と書くことである。書き換えは広い。ほかの方法があるかは、調べていない
   - [ ] 変わったページの知らせを、外から渡すトレイトにする。ジャーナルサーバーは`SseBroadcaster`で実装する
   - [ ] フロントエンドの側に、`shell-native`の`Host`を`journal-core`で実装するクレートを作る。答えはJSONに書いて、コアの`rest.rs`の読み取りに渡す
   - [ ] 構成図（`docs/frontend-architecture.svg`）に、`journal-core`とembed版を描き足す

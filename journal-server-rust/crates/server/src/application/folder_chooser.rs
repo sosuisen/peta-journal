@@ -2,6 +2,30 @@
 
 use std::process::Command;
 
+use journal_core::application::config_service::ConfigService;
+
+/// Asks the user for the markdown directory when none is configured, and saves the answer.
+pub fn ask_for_markdown_dir(config: &ConfigService) {
+    let markdown_dir = config.markdown_dir();
+    tracing::info!("Current markdown directory: [{markdown_dir}]");
+    if !markdown_dir.trim().is_empty() {
+        return;
+    }
+    tracing::warn!("Markdown directory not configured. Opening folder chooser...");
+    let choice = choose_folder();
+    tracing::info!(
+        "Folder chooser returned: selected={}, path=[{}]",
+        choice.selected,
+        choice.path
+    );
+    if choice.selected && !choice.path.is_empty() {
+        config.set_markdown_dir(&choice.path);
+        tracing::info!("Markdown directory configured: {}", choice.path);
+    } else {
+        tracing::error!("No markdown directory selected. Application may not function correctly.");
+    }
+}
+
 /// Result of a folder selection dialog.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FolderChoice {
