@@ -97,6 +97,13 @@ trunk build                 # debug files in dist/, for development
 trunk build --release       # small files in dist/, for daily use and distribution
 ```
 
+A script at the top of the repository does the same from any folder:
+
+```powershell
+./build-frontend.ps1        # trunk build --release (on macOS and Linux: ./build-frontend.sh)
+./build-frontend.ps1 -Dev   # trunk build (on macOS and Linux: ./build-frontend.sh --dev)
+```
+
 The journal server serves `dist/` at `http://localhost:8087`; see "Build and run" of the Rust
 server above. `trunk serve` is not used: `Trunk.toml` has no proxy to the journal server, so its
 page cannot reach the API.
@@ -228,10 +235,10 @@ in `e2e/` do not run there, so run them by hand. A warning from clippy does not 
 
 ## Development Workflow
 
-1. Build the frontend: `cd frontend-rust/crates/shell-leptos && trunk build`
+1. Build the frontend: `./build-frontend.ps1 -Dev` (or `./build-frontend.sh --dev`)
 2. Start the journal server: `cd journal-server-rust && cargo run`
 3. Open `http://localhost:8087`
 
-After a change to the frontend, run `trunk build` again and reload the browser. The journal
+After a change to the frontend, run the script again and reload the browser. The journal
 server keeps running.
 
