@@ -5,12 +5,21 @@
 //! services, runs the extensions, tells the clients which pages changed, and builds the
 //! answer. The answers are the JSON shapes of the REST API.
 //!
-//! The operations come here one area at a time. The search and the pages are here. The
-//! other areas are still in the handlers of the journal server.
+//! The operations come here one area at a time. The search, the pages and the items are
+//! here. The other areas are still in the handlers of the journal server.
 
+mod items;
 mod pages;
 mod search;
 
+pub use items::{
+    BatchAnswer, BatchInput, BatchOpInput, CreateItemInput, CursorDto, DeletedItemsAnswer,
+    FlatMarkdownAnswer, FlatMarkdownInput, ItemAnswer, ItemIdsInput, ItemsAnswer, MergeItemsInput,
+    MoveItemsInput, ParsedFlatItem, ParsedItemsAnswer, PasteAnswer, PasteInput, PropertyInput,
+    ShiftLevelsInput, SplitAnswer, SplitInput, StashAnswer, StashInput, TaskStateInput,
+    TranscludedItemsAnswer, TransclusionInput, TreeMarkdownAnswer, TreeMarkdownInput,
+    UpdateItemInput,
+};
 pub use pages::{BacklinksAnswer, DocAnswer, PageAnswer, PageWithItems, PagesAnswer};
 pub use search::SearchAnswer;
 
@@ -20,11 +29,12 @@ use hmtid::Hmtid;
 
 use crate::application::combined_search::CombinedSearchService;
 use crate::application::extension_service::ExtensionService;
+use crate::application::flat_markdown_splitter::FlatMarkdownSplitter;
 use crate::application::item_service::ItemService;
 use crate::application::page_service::PageService;
 use crate::domain::client_id::ClientId;
 use crate::dto::ItemDtoAssembler;
-use crate::infrastructure::persistence::{PageRepository, PropertyRepository};
+use crate::infrastructure::persistence::{ItemRepository, PageRepository, PropertyRepository};
 
 /// Who made a change. The clients that show pages are told with it (ADR-015).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -47,7 +57,9 @@ pub struct JournalServices {
     pub item_service: Arc<ItemService>,
     pub extensions: Arc<ExtensionService>,
     pub pages: PageRepository,
+    pub items: ItemRepository,
     pub properties: PropertyRepository,
+    pub splitter: FlatMarkdownSplitter,
     pub dtos: ItemDtoAssembler,
 }
 
