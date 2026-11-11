@@ -205,6 +205,20 @@ final class OutlineScreenTests: XCTestCase {
         XCTAssertEqual(focused?.selectedRange(), NSRange(location: 3, length: 0))
     }
 
+    // Command+Enterは、項目をタスクにし、押すたびに状態を進める。Control+Enterも同じである。
+    func testCommandEnterMakesTheItemATaskAndStepsItsState() async throws {
+        let editor = editors()[0]
+        type("to do", into: editor)
+
+        press(36, "\r", [.command], in: editor)
+        try await waitUntil("the item is a task") { self.shell.view.outline.rows[0].task == .notStarted }
+        press(36, "\r", [.command], in: editor)
+        try await waitUntil("the task is running") { self.shell.view.outline.rows[0].task == .running }
+        press(36, "\r", [.control], in: editor)
+        try await waitUntil("the task is done") { self.shell.view.outline.rows[0].task == .done }
+        XCTAssertEqual(bodies(), ["to do"])
+    }
+
     // Tabは、文字を入れずに、項目を字下げする。
     func testTabIndentsTheItemAndTypesNothing() async throws {
         let editor = editors()[0]
