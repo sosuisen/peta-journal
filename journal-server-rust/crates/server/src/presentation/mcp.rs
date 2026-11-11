@@ -18,7 +18,7 @@ use journal_core::dto::{BacklinkEntryDto, ItemDto, ItemFields, PageDto};
 use journal_core::infrastructure::export::export_service::format_instant;
 use journal_core::journal::{
     ChangedBy, CreateItemInput, ItemIdsInput, MoveItemsInput, PropertyInput, TransclusionInput,
-    TreeMarkdownInput, UpdateItemInput,
+    TreeMarkdownInput, UpdateConfigInput, UpdateItemInput,
 };
 
 // ---- JSON of the domain records, the way the Java server's Jackson wrote them ----
@@ -325,16 +325,6 @@ impl JournalMcp {
             state,
             tool_router: Self::tool_router(),
         }
-    }
-
-    fn config_json(&self) -> Value {
-        json!({
-            "markdownDir": self.state.config.markdown_dir(),
-            "weekNumbering": self.state.config.week_numbering(),
-            "logicalOutdent": self.state.config.logical_outdent(),
-            "tagsDir": self.state.config.tags_dir(),
-            "homeLink": self.state.config.home_link(),
-        })
     }
 
     // ---- items ----
@@ -654,7 +644,7 @@ impl JournalMcp {
         description = "Get server configuration (markdownDir, weekNumbering, logicalOutdent, tagsDir)"
     )]
     async fn get_config(&self) -> Result<CallToolResult, McpError> {
-        ok(self.config_json())
+        ok(answer_json(&self.state.journal.config()))
     }
 
     #[tool(description = "Update server configuration")]
@@ -662,22 +652,16 @@ impl JournalMcp {
         &self,
         Parameters(a): Parameters<UpdateConfigArgs>,
     ) -> Result<CallToolResult, McpError> {
-        if let Some(w) = &a.week_numbering {
-            self.state.config.set_week_numbering(w);
-        }
-        if let Some(d) = &a.markdown_dir {
-            self.state.config.set_markdown_dir(d);
-        }
-        if let Some(l) = a.logical_outdent {
-            self.state.config.set_logical_outdent(l);
-        }
-        if let Some(t) = &a.tags_dir {
-            self.state.config.set_tags_dir(t);
-        }
-        if let Some(h) = &a.home_link {
-            self.state.config.set_home_link(h);
-        }
-        ok(self.config_json())
+        let state = Arc::clone(&self.state);
+        let input = UpdateConfigInput {
+            markdown_dir: a.markdown_dir,
+            week_numbering: a.week_numbering,
+            logical_outdent: a.logical_outdent,
+            tags_dir: a.tags_dir,
+            home_link: a.home_link,
+        };
+        let r = run(move || Ok(state.journal.update_config(input))).await?;
+        ok(answer_json(&r))
     }
 
     // ---- navigation ----
