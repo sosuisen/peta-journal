@@ -2074,6 +2074,7 @@ dependencies = [
  "js-sys",
  "leptos",
  "leptos_router",
+ "percent-encoding",
  "peta-atlas",
  "peta-core",
  "serde",

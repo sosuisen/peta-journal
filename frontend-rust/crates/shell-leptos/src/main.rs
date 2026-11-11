@@ -5,6 +5,7 @@ mod core;
 mod dom;
 mod effects;
 mod listeners;
+mod page_links;
 
 use crate::components::layout::MainLayout;
 use crate::core::CoreHandle;

@@ -466,7 +466,7 @@ impl FakeApi {
             ApiOp::TranscludedItems { .. } => ApiOutput::ItemIds(Vec::new()),
             ApiOp::ExportTreeMarkdown { .. } => ApiOutput::TreeExport(TreeExport {
                 tree_markdown: "- tree".into(),
-                ast: String::new(),
+                ast: "{\"type\":\"document\"}".into(),
                 flat_markdown: "flat".into(),
             }),
             ApiOp::SetTransclusion {

@@ -13,8 +13,8 @@ path = "src/main.rs"
 peta-core = { path = "../core" }
 peta-atlas = { path = "../../../atlas-rust", features = ["marks"] }
 flatmarkdown-ast = { workspace = true }
-flatmarkdown = "=0.7.0"
 flatmarkdown-ast2html = "=0.7.0"
+percent-encoding = "2.3.2"
 crux_core = "=0.20.0"
 leptos = { version = "0.8", features = ["csr"] }
 leptos_router = { version = "0.8" }
@@ -40,3 +40,8 @@ web-sys = { version = "0.3", features = [
   "BlobPropertyBag", "Clipboard", "ClipboardItem", "Navigator", "SelectionMode", "KeyboardEventInit",
   "HtmlSelectElement", "HtmlButtonElement", "ScrollIntoViewOptions", "CssStyleDeclaration",
 ] }
+
+# The parser is for tests only: they make an AST from markdown. The app gets every AST from
+# the server and parses no markdown (ADR 027).
+[dev-dependencies]
+flatmarkdown = "=0.7.0"
