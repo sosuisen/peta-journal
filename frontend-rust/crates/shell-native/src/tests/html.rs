@@ -1,6 +1,7 @@
-//! The HTML of an item, which a native shell draws (ADR 025).
+//! The HTML of an item, which a native shell draws (ADR 025), and the HTML of a copy, which it
+//! puts on the clipboard (ADR 027).
 
-use crate::item_html;
+use crate::{copied_html, item_html};
 use flatmarkdown::{parse_body_with, BodyOptions, LinkResolution};
 
 /// The AST of a body, as the journal server makes it: with wikilinks and hashtags.
@@ -37,4 +38,69 @@ fn an_item_without_a_body_has_no_html() {
 #[test]
 fn an_ast_that_cannot_be_read_is_an_error() {
     assert!(item_html("{\"type\":").is_err());
+}
+
+const APP: &str = "http://localhost:8087";
+
+// コピーのASTから、HTMLができる。リストの入れ子も残る。
+#[test]
+fn the_ast_of_a_copy_becomes_html() {
+    let ast = ast_of("- a **bold**\n  - b");
+
+    assert_eq!(
+        copied_html(&ast, APP, "tags/"),
+        "<ul>\n<li>a <strong>bold</strong><ul>\n<li>b</li>\n</ul>\n</li>\n</ul>\n"
+    );
+}
+
+// コピーのHTMLでは、ウィキリンクが、ブラウザ版でそのページを開くふつうのリンクになる。表示する文字は変わらない。
+#[test]
+fn a_wikilink_of_a_copy_opens_its_page_in_the_browser() {
+    let ast = ast_of("see [[Dir/Page|alias]]");
+
+    assert_eq!(
+        copied_html(&ast, APP, "tags/"),
+        "<p>see <a href=\"http://localhost:8087/pages/Dir/Page\">alias</a></p>\n"
+    );
+}
+
+// コピーのHTMLでは、ハッシュタグが、タグ用ディレクトリの下のページを開くリンクになる。リストの中にあっても同じである。
+#[test]
+fn a_hashtag_of_a_copy_opens_the_page_of_the_tag_in_the_browser() {
+    let ast = ast_of("- a\n  - about #topic");
+
+    assert_eq!(
+        copied_html(&ast, APP, "tags/"),
+        "<ul>\n<li>a<ul>\n<li>about <a href=\"http://localhost:8087/pages/tags/topic\">#topic</a></li>\n</ul>\n</li>\n</ul>\n"
+    );
+}
+
+// 空白や日本語を含むページ名は、1つのURLとして読めるように符号化される。ページの中の場所を指す # は残る。
+#[test]
+fn a_page_name_of_a_copy_is_encoded_into_one_url() {
+    let ast = ast_of("[[Other Page]] [[メモ#place]]");
+
+    assert_eq!(
+        copied_html(&ast, APP, ""),
+        "<p><a href=\"http://localhost:8087/pages/Other%20Page\">Other Page</a> \
+         <a href=\"http://localhost:8087/pages/%E3%83%A1%E3%83%A2#place\">メモ#place</a></p>\n"
+    );
+}
+
+// 外のサイトへのリンクは、そのままである。
+#[test]
+fn a_link_of_a_copy_to_another_site_stays_as_it_is() {
+    let ast = ast_of("[site](https://example.com)");
+
+    assert_eq!(
+        copied_html(&ast, APP, "tags/"),
+        "<p><a href=\"https://example.com\">site</a></p>\n"
+    );
+}
+
+// 空のコピーは、ASTが空の文字列である。読めないASTと同じく、HTMLは空になる。
+#[test]
+fn a_copy_without_an_ast_that_can_be_read_has_no_html() {
+    assert_eq!(copied_html("", APP, "tags/"), "");
+    assert_eq!(copied_html("{\"type\":", APP, "tags/"), "");
 }
