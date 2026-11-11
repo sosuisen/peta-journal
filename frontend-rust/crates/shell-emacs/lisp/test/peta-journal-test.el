@@ -76,7 +76,7 @@
       (list (peta-journal-test--row "a" 1 "x" :task "task")
             (peta-journal-test--row "b" 1 "y" :task "running")
             (peta-journal-test--row "c" 1 "z" :task "done"))
-    (should (equal (peta-journal-test--shown) "• ☐ x\n• ◐ y\n• ☑ z\n"))))
+    (should (equal (peta-journal-test--shown) "• ☐ x\n• ⊟ y\n• ☑ z\n"))))
 
 ;; 折りたたんだ項目は、丸で囲んだ点のバレットで示される。行末には何も足さない。
 (ert-deftest peta-journal-the-bullet-shows-a-collapsed-item ()
@@ -102,7 +102,7 @@
             (peta-journal-test--row "c" 1 "z" :task "running" :bullet "transclusion"
                                     :collapsed t)
             (peta-journal-test--row "d" 1 "w" :task "task" :bullet "broken"))
-    (should (equal (peta-journal-test--shown) "◉ ☐ x\n⊡ ☑ y\n▣ ◐ z\n✗ ☐ w\n"))))
+    (should (equal (peta-journal-test--shown) "◉ ☐ x\n⊡ ☑ y\n▣ ⊟ z\n✗ ☐ w\n"))))
 
 ;; ジャーナルの日付は、項目の上の編集できない行である。
 (ert-deftest peta-journal-a-date-header-is-a-line-above-its-row ()

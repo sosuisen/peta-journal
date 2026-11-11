@@ -58,7 +58,7 @@ A ring around the dot, and a filled square for a transclusion, as the web
 frontend draws them.  A kind that is not here keeps its mark.")
 
 (defconst peta-journal--task-marks
-  '(("task" . "☐") ("running" . "◐") ("done" . "☑"))
+  '(("task" . "☐") ("running" . "⊟") ("done" . "☑"))
   "The mark of each state of a task.
 It comes behind the bullet: a task has the bullet of its kind too, as in the
 web frontend.")
@@ -82,8 +82,8 @@ on its line.")
 
 (defface peta-journal-running '((t :inherit peta-journal-bullet :height 1.3))
   "The mark of a running task.
-Larger than the text: in many fonts the half circle is smaller than the boxes
-of the other states.")
+Larger than the text: in many fonts the box with a line is smaller than the
+boxes of the other states.")
 
 (defface peta-journal-date-header '((t :inherit font-lock-doc-face :weight bold))
   "The date above the first item of a journal day.")
