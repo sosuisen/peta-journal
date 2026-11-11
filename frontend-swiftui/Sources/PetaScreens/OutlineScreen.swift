@@ -11,9 +11,14 @@ public struct OutlineScreen: View {
     /// The search box is on screen.
     @State private var searching: Bool
 
-    /// `searching` opens the search box from the start.
-    public init(shell: Shell, searching: Bool = false) {
+    /// Opens another window, when the screen has a button for that.
+    private let onAdd: (() -> Void)?
+
+    /// `searching` opens the search box from the start. With `onAdd` the screen has a button
+    /// that opens another window.
+    public init(shell: Shell, searching: Bool = false, onAdd: (() -> Void)? = nil) {
         self.shell = shell
+        self.onAdd = onAdd
         _searching = State(initialValue: searching)
     }
 
@@ -33,6 +38,13 @@ public struct OutlineScreen: View {
                 }
                 .keyboardShortcut("f")
                 .help("Search pages")
+                if let onAdd {
+                    Button(action: onAdd) {
+                        Image(systemName: "plus")
+                    }
+                    .keyboardShortcut("n")
+                    .help("New sticky")
+                }
             }
             .padding()
             // Without a page there is nothing to do but to search for one
@@ -49,7 +61,8 @@ public struct OutlineScreen: View {
         }
         .background(SelectionKeys(shell: shell, selecting: shell.view.outline.selectionMode))
         .background(Color(nsColor: .windowBackgroundColor))
-        .navigationTitle(shell.title)
+        // The name of the window. A window without a name is hard to find among the others
+        .navigationTitle(shell.title.isEmpty ? "PetaJournal" : shell.title)
         .frame(minWidth: 480, minHeight: 320)
         .onChange(of: shell.question) { _ in typed = "" }
         // The page that was searched for is here
