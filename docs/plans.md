@@ -433,7 +433,10 @@
     - [x] 変更の知らせと拡張機能の質問を、フロントエンドのコアに流す（`EventQueue`）。ジャーナルには`EventSink`として渡し、シェルは`read`で`SseEvent`として読む
       - メッセージのJSONは、`journal-core`の`events.rs`（`ClientMessages`）が書く。サーバーの`SseBroadcaster`は、運ぶだけになった。`CoreHost`の中身は、7つから3つになった（`events`、`missing_files`、`folder_watch`）
       - 誰も読んでいないときのメッセージは捨てる。クライアントのつながっていないサーバーと同じである
-    - [ ] `Host`を実装する。`call`は`EmbeddedJournal::call`、`events`は`EventQueue::read`を呼ぶだけである。置き場所は、Androidのためのクレートである（2026-11-11にユーザーが決めた）。`shell-native`には足さない。定期の仕事（索引のコミット、書き出し、スキャン）を誰が回すかは、ADR 030で決める
+    - [ ] `Host`を実装する。`call`は`EmbeddedJournal::call`、`events`は`EventQueue::read`を呼ぶだけである。置き場所は、Androidのためのクレートである（2026-11-11にユーザーが決めた）。`shell-native`には足さない
+      - 定期の仕事は、最初の版では誰も回さない（2026-11-11にユーザーが決めた。ADR 030に書く）。Kotlinが、Dropboxからのダウンロードのあとに`sync()`を1回呼ぶ。Rustは、その場でフォルダーをスキャンし、索引を確定して戻る。書き出しの待ち行列は回さない。最初の版はページを変えないためである
+      - 理由: ファイルが変わる時を知っているのはKotlinである。Androidは裏に回ったアプリのスレッドを止めるので、Rustの中のタイマーは当てにできない。裏での同期が要るなら、WorkManagerがKotlinから`sync()`を呼ぶ
+      - 編集を入れる次の版で、索引のコミットと書き出しを回すスレッドをどこに置くかを決める
   - [ ] 構成図（`docs/frontend-architecture.svg`）に、`journal-core`とembed版を描き足す
 - [ ] Androidのシェルを作る。最初の版は、Dropboxからの取り込み、検索、ページの表示までである。編集とアップロードは、次の版にする
   - ファイルは、Dropbox SDKでAPIを通して取る。Dropbox SDKは、PCのDropboxアプリの役をする。アプリ内のフォルダーとDropboxの間で、ファイルを運ぶだけである
