@@ -10,17 +10,21 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import net.sosuisen.petajournal.sync.SyncState
 import net.sosuisen.petajournal.types.Row
 import net.sosuisen.petajournal.types.ScreenView
 import net.sosuisen.petajournal.types.SearchEntry
@@ -32,10 +36,11 @@ const val SEARCH_TAG = "search"
 
 /**
  * The one screen of the app: a search field, and under it the results of the search or the
- * page that is open.
+ * page that is open. Between them is where the sync with the cloud stands; [cloud] is `null`
+ * in an app that syncs nothing.
  */
 @Composable
-fun JournalScreen(shell: Shell) {
+fun JournalScreen(shell: Shell, cloud: SyncState? = null, onSignIn: () -> Unit = {}, onSync: () -> Unit = {}) {
     val view = shell.view
     MaterialTheme {
         Surface(Modifier.fillMaxSize()) {
@@ -47,6 +52,7 @@ fun JournalScreen(shell: Shell) {
                     placeholder = { Text("Search") },
                     modifier = Modifier.fillMaxWidth().padding(8.dp).testTag(SEARCH_TAG),
                 )
+                cloud?.let { SyncLine(it, onSignIn, onSync) }
                 if (shell.syncing) {
                     LinearProgressIndicator(Modifier.fillMaxWidth())
                 }
@@ -73,6 +79,23 @@ private fun title(view: ViewModel): String =
         is ScreenView.Journal -> screen.value.displayDate
         else -> ""
     }
+
+@Composable
+private fun SyncLine(state: SyncState, onSignIn: () -> Unit, onSync: () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        when (state) {
+            SyncState.SignedOut -> Button(onSignIn) { Text("Sign in to Dropbox") }
+            SyncState.Idle -> TextButton(onSync) { Text("Sync") }
+            is SyncState.Downloading -> Text("Downloading ${state.done} of ${state.total}", Modifier.padding(8.dp))
+            is SyncState.Failed -> {
+                Text("Sync failed: ${state.reason}", Modifier.weight(1f).padding(8.dp))
+                TextButton(onSync) { Text("Try again") }
+                // A credential that Dropbox no longer takes is replaced by a new sign-in
+                TextButton(onSignIn) { Text("Sign in") }
+            }
+        }
+    }
+}
 
 @Composable
 private fun Results(entries: List<SearchEntry>, onPick: (SearchEntry) -> Unit) {
