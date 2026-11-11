@@ -1,9 +1,8 @@
 # Android frontend (frontend-android)
 
-The Android shell of PetaJournal, written in Kotlin with Jetpack Compose. It is a Walking
-Skeleton so far: a page is searched for and opened, and its items are shown with their
-decoration. It changes nothing. The download from Dropbox is not there yet, so the app shows
-only the files that are put into its Markdown folder by hand or by a test.
+The Android shell of PetaJournal, written in Kotlin with Jetpack Compose. It downloads the
+Markdown folder from Dropbox, and a page is searched for and opened, with its items shown with
+their decoration. It changes nothing, in the app or in Dropbox.
 
 The core is the same Crux core as in the other frontends. There is no journal server on a
 phone, so the journal core runs inside the app (ADR 029). `frontend-rust/crates/shell-android`
@@ -31,7 +30,8 @@ data and how it draws an item.
 ```
 cd peta-journal/frontend-android
 ./generate.ps1                              # makes generated/ from the Rust crates
-./gradlew :app:assembleDebug                # builds the app
+./gradlew :app:assembleDebug                # builds the app, without the sync
+./gradlew :app:testDebugUnitTest            # runs the tests that need no device
 ./gradlew :app:connectedDebugAndroidTest    # runs the tests on a device or an emulator
 ```
 
@@ -43,10 +43,34 @@ Rust. `generated/` is not kept in the repository:
   BoltFFI.
 - `generated/jniLibs`: the core as a library, for `arm64-v8a` and `x86_64`.
 
-The tests need a running device or emulator: the core is a native library, and BoltFFI cannot
-pack it for the JVM of a Windows machine yet (ADR 030). The device must be unlocked. An
-emulator with a screen lock starts locked, and no app can start on it until someone types the
-PIN.
+The tests of the screen need a running device or emulator: the core is a native library, and
+BoltFFI cannot pack it for the JVM of a Windows machine yet (ADR 030). The device must be
+unlocked. An emulator with a screen lock starts locked, and no app can start on it until
+someone types the PIN. The tests of the download (`app/src/test`) use no core and run on the
+development machine.
+
+## Dropbox
+
+The app reads Dropbox with the App key of a Dropbox app, which each builder registers at
+<https://www.dropbox.com/developers/apps>:
+
+- Access type: Full Dropbox, to read the folder that the PC already uses.
+- Permissions: `files.metadata.read` and `files.content.read`. The app asks for no more.
+- No redirect URI is needed, and the App secret is not used: the sign-in is PKCE.
+
+The key and the path of the Markdown folder in Dropbox come from outside the repository, as
+Gradle properties:
+
+```
+./gradlew :app:assembleDebug -PdropboxKey=<App key> -PdropboxFolder=/PetaJournal
+```
+
+They can also stand in `~/.gradle/gradle.properties`, as `dropboxKey=...` and
+`dropboxFolder=...`. An app that is built without a key syncs nothing and shows no sign-in.
+
+The app syncs when it comes to the front and when "Sync" is touched. The first sync downloads
+every Markdown file, several at a time. A later sync asks Dropbox only for what changed. A
+file that Dropbox lost is deleted in the app, and so is its page, without a question.
 
 ## The code
 
@@ -63,11 +87,16 @@ PIN.
 - `JournalScreen` is the one screen: the search field, and under it the results or the page.
 - `MainActivity` and `JournalModel` open the journal in the folders of the app:
   `files/markdown` for the Markdown files and `files/data` for the database, the index and
-  the settings.
+  the settings. They also keep the credential of Dropbox, and start the sign-in and the sync.
+- `sync/Downloader` brings the Markdown folder of the app up to date with the cloud. It knows
+  the cloud only as `Cloud`, so its tests need no Dropbox. `MarkdownFolder` is the folder of
+  the app, where a path is found without regard to case, as in Dropbox. `DropboxCloud` is
+  `Cloud` by the Dropbox SDK. `CloudSync` runs one download at a time and tells the screen
+  where it stands.
 
 ## Not there yet
 
-- The download from Dropbox.
+- A sign-out, and a sync while the app is not on screen.
 - Code blocks and tables. `fromHtml` loses their line breaks and cells.
 - Links to pages and tags. Only a link to a web address opens.
 - The marks of tasks, and images.

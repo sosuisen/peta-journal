@@ -249,9 +249,9 @@ Its tests do not run in CI.
 
 ## Android frontend (frontend-android)
 
-The shell for Android, in Kotlin with Jetpack Compose. It is a Walking Skeleton so far: a page
-is searched for and opened, and nothing is changed. The journal core runs inside the app (ADR
-029, ADR 030). `frontend-android/README.md` describes the tools, the build of the app and the
+The shell for Android, in Kotlin with Jetpack Compose. It downloads the Markdown folder from
+Dropbox, and a page is searched for and opened. Nothing is changed. The journal core runs
+inside the app (ADR 029, ADR 030). `frontend-android/README.md` describes the tools, the build of the app and the
 tests. Its tests need a device or an emulator, and do not run in CI.
 
 ## Atlas crate (atlas-rust)

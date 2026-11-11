@@ -3,6 +3,13 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// The App key of the Dropbox app and the Markdown folder in Dropbox, such as `/PetaJournal`.
+// They come from outside and are not kept in the repository (ADR 030):
+// `gradlew -PdropboxKey=... -PdropboxFolder=... :app:assembleDebug`, or the same two names in
+// the gradle.properties of the user. Without a key, the app is built without the sync
+val dropboxKey = (findProperty("dropboxKey") as String?).orEmpty()
+val dropboxFolder = (findProperty("dropboxFolder") as String?).orEmpty()
+
 android {
     namespace = "net.sosuisen.petajournal"
     compileSdk = 37
@@ -14,6 +21,9 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        manifestPlaceholders["dropboxKey"] = dropboxKey
+        buildConfigField("String", "DROPBOX_KEY", "\"$dropboxKey\"")
+        buildConfigField("String", "DROPBOX_FOLDER", "\"$dropboxFolder\"")
     }
 
     // What generate.ps1 makes from the Rust crates: the types of the border, the class that
@@ -22,6 +32,7 @@ android {
     sourceSets["main"].jniLibs.directories.add("../generated/jniLibs")
 
     buildFeatures {
+        buildConfig = true
         compose = true
     }
 }
@@ -31,6 +42,10 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.activity:activity-compose:1.13.0")
+    implementation("com.dropbox.core:dropbox-core-sdk:8.0.2")
+    implementation("com.dropbox.core:dropbox-android-sdk:8.0.2")
+
+    testImplementation("junit:junit:4.13.2")
 
     androidTestImplementation(platform("androidx.compose:compose-bom:2026.09.00"))
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
