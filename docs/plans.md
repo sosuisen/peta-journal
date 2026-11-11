@@ -446,7 +446,7 @@
 - [ ] Androidのシェルを作る。最初の版は、Dropboxからの取り込み、検索、ページの表示までである。編集とアップロードは、次の版にする
   - ファイルは、Dropbox SDKでAPIを通して取る。Dropbox SDKは、PCのDropboxアプリの役をする。アプリ内のフォルダーとDropboxの間で、ファイルを運ぶだけである
   - Android SDK、AVD、Gradleのキャッシュは、`D:\Android`にある（2026-11-11に移した）。元の場所には、ジャンクションを残してある
-  - [ ] 捨てるブランチで確かめる
+  - [x] 捨てるブランチで確かめる
     - [x] `journal-core`に当たる依存が、Android（`arm64`）向けにビルドできるか。`rquickjs`のほかは通った。tantivyとlinderaを入れたライブラリは53.0MBだった（2026-11-11）
     - 確かめに使ったコードは、ワークツリー`.claude/worktrees/spike-android-checks`にある（コミットしていない）。`frontend-rust/crates/shell-android`は、`Host`のクレートの下書きになる
     - [x] 端末かエミュレーターで、SQLite、tantivy、辞書が動くか。メモリーが足りるか。エミュレーター（`x86_64`、Android 15、メモリー2GB）で動いた（2026-11-11）
@@ -464,7 +464,15 @@
       - エミュレーターなしのJVM向けの`desktop_pack`は、Windowsでは通らない。BoltFFI 0.32.1が`rust-lld.exe`をCのコンパイラーとして使う。それを外しても、静的ライブラリのリンクが記号の重複（`LNK2005`）で止まる
       - 回避: PC向けの`cdylib`をビルドし、`jni_glue.c`を`cl`でそのインポートライブラリにリンクする。この形で、PCのJVMから同じ確かめが通った。`jni.h`のあるJDKと、Visual Studioの開発者シェルが要る
       - Android Gradle Plugin 9.5.1は、Gradle 9.6.0以上を求める。Composeの今の版（BOM 2026.09.00）は、`compileSdk` 37を求める。手元のSDKは36までである
-    - [ ] Dropbox SDKで、PKCEの認証、再帰の一覧、ダウンロードが通るか。Dropboxのアプリの登録は、ユーザーが行う
+    - [x] Dropbox SDKで、PKCEの認証、再帰の一覧、ダウンロードが通るか。通った（2026-11-12、Dropbox SDK 8.0.2、エミュレーター）
+      - Dropboxのアプリは、ユーザーが登録した。アクセスの種類はFull Dropboxで、Markdownのフォルダーは`/_PetaJournal`である
+      - 認証: `Auth.startOAuth2PKCE`に、権限`files.metadata.read`と`files.content.read`を渡した。App secretは要らない。短い寿命のアクセストークンと、リフレッシュトークンが取れた
+      - 一覧: `listFolderBuilder(...).withRecursive(true)`と`listFolderContinue`の4回の呼び出しで、816件（ファイルは764個）を8.2秒で取れた。Markdownは655個、5.4MBだった。次の回に変更だけを尋ねるためのカーソルも取れた
+      - ダウンロード: Markdownの5個（1.5KB）を、1個ずつ順に取って5.3秒かかった。1個に約1秒である。この速さだと、655個に約11分かかる。同時に取ったときの速さは、測っていない
+      - ファイルごとに、`rev`と`content_hash`が付く
+      - 要るもの: Dropbox SDK 8.0.2はKotlin 2.4のライブラリを連れてくる。Android Gradle Plugin 9.5.1に付くKotlin 2.2.0では読めないので、Kotlinのプラグインを2.4.21にする。マニフェストには、`AuthActivity`（スキームは`db-<App key>`）と、`queries`の`com.dropbox.android`が要る
+      - エミュレーターのメモリーが2GBだと、サインインの途中でChromeが落ちた。4GBで通った。端末に画面ロックがないと、サインインの途中でAndroidが設定を求め、戻りの呼び出しが届かなかった
+      - 確かめのあと、アプリは消した。App keyは、ビルドの引数（`-PdropboxKey`）で渡した。ファイルには残していない
     - [x] Composeの`AnnotatedString.fromHtml`が、`ast_to_html`のHTMLをどこまで描けるか。文字の飾りとリンクまでである（2026-11-11、Compose BOM 2025.10.00）
       - 描けるもの: 太字、斜体、取り消し線、見出し、上付きと下付き、リンク
       - リンクは、ウィキリンクもハッシュタグも`LinkAnnotation.Url`になる。`data-wikilink`と`class="hashtag"`は消える。見分ける手がかりは`href`だけである
