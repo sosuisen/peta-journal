@@ -658,8 +658,8 @@ impl Journal {
             .into())
     }
 
-    pub fn export_page_markdown(&self, page_id: &str) -> AppResult<TreeMarkdownAnswer> {
-        let page_id = parse_id(page_id)?;
+    pub fn export_page_markdown(&self, page_id: Option<&str>) -> AppResult<TreeMarkdownAnswer> {
+        let page_id = parse_id(required(page_id, "pageId")?)?;
         Ok(self
             .services
             .item_service
@@ -668,8 +668,8 @@ impl Journal {
     }
 
     /// The item and all its descendants.
-    pub fn export_subtree_markdown(&self, item_id: &str) -> AppResult<TreeMarkdownAnswer> {
-        let item_id = parse_id(item_id)?;
+    pub fn export_subtree_markdown(&self, item_id: Option<&str>) -> AppResult<TreeMarkdownAnswer> {
+        let item_id = parse_id(required(item_id, "itemId")?)?;
         Ok(self
             .services
             .item_service
