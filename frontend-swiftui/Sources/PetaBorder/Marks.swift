@@ -9,6 +9,8 @@ extension Row {
         guard let task else { return [bullet] }
         // Not a switch: the optimizing compiler of Swift 6.4.2 crashes on one over this enum
         if task == .done { return [bullet, "☑"] }
-        return [bullet, task == .running ? "◐" : "☐"]
+        // The box with a line is the one all shells mean for a running task: the checkbox of
+        // the web that is neither checked nor empty
+        return [bullet, task == .running ? "⊟" : "☐"]
     }
 }

@@ -219,6 +219,22 @@ final class OutlineScreenTests: XCTestCase {
         XCTAssertEqual(shell.view.outline.rows[0].marks, ["•", "☐"])
     }
 
+    // 進行中のタスクは、横線の入った箱で出る。完了したタスクは、チェックの入った箱で出る。
+    func testARunningTaskIsABoxWithALineAndADoneTaskABoxWithACheck() async throws {
+        let editor = editors()[0]
+        type("to do", into: editor)
+        press(Self.returnKey, "\r", .control, in: editor)
+        try await waitUntil("the item is a task") { self.shell.view.outline.rows[0].task == .notStarted }
+
+        press(Self.returnKey, "\r", .control, in: editors()[0])
+        try await waitUntil("the task is running") { self.shell.view.outline.rows[0].task == .running }
+        XCTAssertEqual(shell.view.outline.rows[0].marks, ["•", "⊟"])
+
+        press(Self.returnKey, "\r", .control, in: editors()[0])
+        try await waitUntil("the task is done") { self.shell.view.outline.rows[0].task == .done }
+        XCTAssertEqual(shell.view.outline.rows[0].marks, ["•", "☑"])
+    }
+
     // Shift+Option+下矢印は、項目を下へ動かす。カーソルは、その項目に残る。
     func testShiftOptionDownMovesTheItemDown() async throws {
         try await twoItems()
