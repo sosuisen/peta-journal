@@ -7,9 +7,15 @@ use std::process::Command;
 
 /// Runs the program for a new folder of this test, and gives the folder.
 fn generated(test: &str) -> PathBuf {
+    generated_for("swift", test)
+}
+
+/// Runs the program for the language and a new folder of this test, and gives the folder.
+fn generated_for(language: &str, test: &str) -> PathBuf {
     let out = Path::new(env!("CARGO_TARGET_TMPDIR")).join(test);
     let _ = std::fs::remove_dir_all(&out);
     let status = Command::new(env!("CARGO_BIN_EXE_codegen"))
+        .arg(language)
         .arg(&out)
         .status()
         .unwrap();
@@ -58,4 +64,48 @@ fn no_tuple_is_written() {
         .filter(|line| line.contains("public var") && line.contains(": [("))
         .collect();
     assert!(tuples.is_empty(), "{tuples:?}");
+}
+
+/// The C# source with the types of the border.
+fn csharp_types(out: &Path) -> String {
+    let file = out.join("csharp/PetaTypes/PetaTypes.cs");
+    std::fs::read_to_string(&file).unwrap_or_else(|e| panic!("{}: {e}", file.display()))
+}
+
+// C#の型が生成される。シェルが送るイベント、描くビューモデル、シェルへの依頼とその答えが入る。
+#[test]
+fn the_csharp_types_of_the_border_are_written() {
+    let csharp = csharp_types(&generated_for("csharp", "csharp-types"));
+
+    for declared in [
+        "abstract record Event",
+        "partial class ViewModel",
+        "abstract record ShellEffect",
+        "partial class Requests",
+        "abstract record UiOutput",
+        "partial class PageView",
+    ] {
+        assert!(
+            csharp.contains(&format!("public {declared} ")),
+            "{declared}"
+        );
+    }
+}
+
+// 生成されたC#で、変種の名前は、その変種が持つ型の名前を隠さない。隠すとC#がコンパイルできない（facet_generate 0.19の不具合）。
+#[test]
+fn a_csharp_variant_does_not_hide_the_type_it_holds() {
+    let csharp = csharp_types(&generated_for("csharp", "csharp-variants"));
+
+    assert!(csharp.contains("record SelectionKey(global::PetaTypes.SelectionKey Value) : Event;"));
+}
+
+// 生成されたC#は、フィールドのないenumの`Option`を、値型として読む。参照型として読むとC#がコンパイルできない（facet_generate 0.19の不具合）。
+#[test]
+fn csharp_reads_an_optional_plain_enum_as_a_value() {
+    let csharp = csharp_types(&generated_for("csharp", "csharp-options"));
+
+    assert!(csharp.contains(
+        "FacetHelpers.DeserializeOption(deserializer, d => TaskStateBincode.Deserialize(d))"
+    ));
 }

@@ -23,3 +23,16 @@ module_name = "PetaCore"
 [targets.apple.spm]
 package_name = "PetaCore"
 layout = "ffi-only"
+
+# The WinUI shell (ADR 028). Run `boltffi pack csharp --release` in this folder;
+# ../../../frontend-winui/README.md has the whole build.
+[targets.csharp]
+enabled = true
+output = "../../../frontend-winui/generated/PetaCore"
+package_output = "../../../frontend-winui/generated/packages"
+namespace = "PetaCore"
+module_class = "PetaNative"
+package_id = "PetaCore"
+runtime_identifiers = ["win-x64"]
+# For speed and not for size, as for the SwiftUI shell above
+cargo_args = ["--features", "ffi", "--config", "profile.release.opt-level=3"]

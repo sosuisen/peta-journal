@@ -5,9 +5,10 @@ edition.workspace = true
 license.workspace = true
 description = "PetaJournal native frontends: the Crux core behind a border of bytes, for the SwiftUI and WinUI3 shells (ADR 024)"
 
-# The static library is what a native shell links with
+# What a native shell links with: the SwiftUI shell with the static library, and the WinUI shell
+# with the dynamic one (BoltFFI packs no other for C#)
 [lib]
-crate-type = ["lib", "staticlib"]
+crate-type = ["lib", "staticlib", "cdylib"]
 
 [dependencies]
 peta-core = { path = "../core" }
@@ -20,6 +21,9 @@ flatmarkdown-ast = { workspace = true }
 flatmarkdown-ast2html = "=0.7.0"
 chrono = "0.4.45"
 facet = { version = "=0.46.5", optional = true }
+# Writes the C# types. Crux 0.20.0 brings 0.19 of this generator, whose C# does not compile
+# for the types of the border (ADR 028)
+facet_generate = { version = "=0.22.3", optional = true }
 boltffi = { version = "=0.32.1", optional = true }
 
 [dev-dependencies]
@@ -32,7 +36,12 @@ flatmarkdown = "=0.7.0"
 ffi = ["dep:boltffi"]
 # Describes the types that cross the border, to generate the types of the shells from them.
 # `#[effect(facet_typegen)]` asks for this name
-facet_typegen = ["dep:facet", "crux_core/facet_typegen", "peta-core/facet_typegen"]
+facet_typegen = [
+    "dep:facet",
+    "dep:facet_generate",
+    "crux_core/facet_typegen",
+    "peta-core/facet_typegen",
+]
 
 # Writes the Swift types of the border: `cargo run -p peta-shell-native --features facet_typegen
 # --bin codegen -- <folder>`
