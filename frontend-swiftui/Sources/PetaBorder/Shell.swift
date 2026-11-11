@@ -187,8 +187,9 @@ public final class Shell: ObservableObject {
             ask(Question(id: id, message: message, kind: .confirmDestructive))
         case .prompt(let message):
             ask(Question(id: id, message: message, kind: .prompt))
-        case .copyText(let text), .copyMarkdown(let text):
-            // Markdown goes as plain text: no rich text is made of it here
+        case .copyText(let text), .copyMarkdown(let text, _):
+            // Markdown goes as plain text. Its AST comes with it, for a shell that also puts
+            // HTML on the clipboard (ADR 027): no rich text is made here
             copy(text)
         case .readClipboardText:
             Shell.must { try border.answer(id, with: .text(clipboard())) }
