@@ -95,7 +95,8 @@ under `build/Build/Products/Release`).
 Or open `PetaJournal.xcodeproj` in Xcode and run it there. The project is not kept in the
 repository: run `xcodegen generate` again after a change in `project.yml` or a new file in `App/`.
 
-Without arguments the app opens today's journal of the server at `http://localhost:8087`. To
+Without arguments the app opens no page of the server at `http://localhost:8087`: its window
+shows the search box, to search for a page. To
 choose the server and the page:
 
 ```

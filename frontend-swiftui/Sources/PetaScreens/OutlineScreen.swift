@@ -35,14 +35,16 @@ public struct OutlineScreen: View {
                 .help("Search pages")
             }
             .padding()
-            if searching {
+            // Without a page there is nothing to do but to search for one
+            if searching || shell.url == nil {
                 SearchBox(shell: shell) { searching = false }
                     .padding([.horizontal, .bottom])
             }
-            List(shell.view.outline.rows, id: \.item.id) { row in
-                ItemEditor(row: row, shell: shell, cursors: cursors)
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(row.isSelected ? Color.accentColor.opacity(0.25) : nil)
+            if shell.url == nil {
+                Text("Search for a page to show here").foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                rows
             }
         }
         .background(SelectionKeys(shell: shell, selecting: shell.view.outline.selectionMode))
@@ -74,7 +76,16 @@ public struct OutlineScreen: View {
         }
     }
 
+    private var rows: some View {
+        List(shell.view.outline.rows, id: \.item.id) { row in
+            ItemEditor(row: row, shell: shell, cursors: cursors)
+                .listRowSeparator(.hidden)
+                .listRowBackground(row.isSelected ? Color.accentColor.opacity(0.25) : nil)
+        }
+    }
+
     private var status: String {
+        if shell.url == nil { return "" }
         let items = shell.view.outline.rows.count
         // Not a switch: the optimizing compiler of Swift 6.4.2 crashes on one over this enum
         let connection = shell.view.connection

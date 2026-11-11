@@ -527,6 +527,22 @@ final class ShellTests: XCTestCase {
         XCTAssertFalse(shell.view.search.showDropdown)
         XCTAssertEqual(shell.title, "swift-notes")
     }
+
+    // ページを指定しないシェルは、何も開かない。検索はできて、選んだページが開く。開いた場所は、シェルが覚えている。
+    func testAShellWithoutAPageOpensNothingUntilAPageIsFound() async throws {
+        let other = try await shellWithPage()
+        XCTAssertEqual(other.url, "/pages/swift-notes")
+        let shell = Shell(server: server.address, url: nil, clipboard: { nil })
+        XCTAssertNil(shell.url)
+        XCTAssertEqual(shell.view.outline.rows.count, 0)
+
+        shell.search("swift")
+        try await waitUntil("the page is found") { self.pagesFound(shell) == ["swift-notes"] }
+        shell.pick(shell.view.search.results[0].index)
+
+        try await waitUntil("the page found is shown") { shell.title == "swift-notes" }
+        XCTAssertEqual(shell.url, "/pages/swift-notes")
+    }
 }
 
 /// What the shell put on the clipboard.
