@@ -2679,7 +2679,6 @@ dependencies = [
 name = "peta-embedded-journal"
 version = "0.1.0"
 dependencies = [
- "hmtid",
  "journal-core",
  "peta-core",
  "serde",

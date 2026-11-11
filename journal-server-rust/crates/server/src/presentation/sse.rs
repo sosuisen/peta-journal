@@ -1,4 +1,5 @@
-//! Server-sent events: tells connected clients which pages changed.
+//! Server-sent events: carries the messages of the journal core to the connected clients.
+//! The core writes the messages (`journal_core::events`).
 
 use std::convert::Infallible;
 
@@ -9,13 +10,7 @@ use tokio_stream::wrappers::errors::BroadcastStreamRecvError;
 use tokio_stream::wrappers::BroadcastStream;
 use tokio_stream::StreamExt;
 
-use journal_core::application::atlas_service::AtlasEvents;
-use journal_core::application::confirm_service::ConfirmEvents;
-use journal_core::application::extension_service::ExtensionEvents;
-use journal_core::infrastructure::export::import_service::ImportEvents;
-use journal_core::journal::{ChangedBy, JournalEvents};
-
-use crate::presentation::client_id::ClientId;
+use journal_core::events::EventSink;
 
 #[derive(Debug, Clone)]
 pub struct SseBroadcaster {
@@ -45,73 +40,12 @@ impl SseBroadcaster {
         });
         Sse::new(first.chain(rest)).keep_alive(KeepAlive::default())
     }
-
-    /// Tells of a change that a client made through the API. The other clients read the page
-    /// again. The client that made the change knows its own ID and does not (ADR-015).
-    pub fn broadcast_pages_updated(&self, client: &ClientId, page_id: &str) {
-        let json = serde_json::json!({
-            "type": "pagesUpdated",
-            "pageId": page_id,
-            "source": "app",
-            "clientId": client.as_str(),
-        });
-        // An error only means that nobody is listening right now
-        let _ = self.tx.send(json.to_string());
-    }
-
-    /// `source` is `file` for changes picked up from the markdown folder, `server` for an atlas
-    /// the server wrote by itself, `extension` for items that extensions wrote, and `mcp` for
-    /// changes that an MCP tool made.
-    pub fn broadcast_pages_updated_from(&self, page_id: &str, source: &str) {
-        let json = format!(
-            "{{\"type\":\"pagesUpdated\",\"pageId\":\"{page_id}\",\"source\":\"{source}\"}}"
-        );
-        // An error only means that nobody is listening right now
-        let _ = self.tx.send(json);
-    }
 }
 
-/// Extensions write items after the answer of a tag add, so a client that shows the page reads
-/// it again.
-impl ExtensionEvents for SseBroadcaster {
-    /// Its own source: the clients reload the page, as `server` would reload only an atlas.
-    fn page_changed(&self, page_id: &hmtid::Hmtid) {
-        self.broadcast_pages_updated_from(page_id.as_str(), "extension");
-    }
-}
-
-/// A file of the markdown folder changed the page, so a client that shows it reads it again.
-impl ImportEvents for SseBroadcaster {
-    fn page_changed(&self, page_id: &hmtid::Hmtid) {
-        self.broadcast_pages_updated_from(page_id.as_str(), "file");
-    }
-}
-
-/// A change made through the journal (ADR 029), by a client or by an MCP tool.
-impl JournalEvents for SseBroadcaster {
-    fn page_changed(&self, page_id: &hmtid::Hmtid, by: &ChangedBy) {
-        match by {
-            ChangedBy::Client(client) => self.broadcast_pages_updated(client, page_id.as_str()),
-            ChangedBy::Mcp => self.broadcast_pages_updated_from(page_id.as_str(), "mcp"),
-        }
-    }
-}
-
-impl ConfirmEvents for SseBroadcaster {
-    /// Every client gets the question. The first one to answer wins.
-    fn ask_user(&self, request_id: &str, message: &str) -> bool {
-        let json = serde_json::json!({
-            "type": "confirm",
-            "requestId": request_id,
-            "message": message,
-        });
-        // An error means that no client listens, so no one can answer
-        self.tx.send(json.to_string()).is_ok()
-    }
-}
-
-impl AtlasEvents for SseBroadcaster {
-    fn atlas_changed(&self, atlas_id: &hmtid::Hmtid) {
-        self.broadcast_pages_updated_from(atlas_id.as_str(), "server");
+impl EventSink for SseBroadcaster {
+    /// Every connected client gets the message.
+    fn send(&self, message: String) -> bool {
+        // An error means that no client listens right now
+        self.tx.send(message).is_ok()
     }
 }

@@ -8,13 +8,13 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::application::atlas_service::{AtlasEvents, AtlasService};
+use crate::application::atlas_service::AtlasService;
 use crate::application::combined_search::CombinedSearchService;
 use crate::application::config_service::ConfigService;
-use crate::application::confirm_service::{ConfirmEvents, ConfirmService};
+use crate::application::confirm_service::ConfirmService;
 use crate::application::extension_functions::ExtensionFunctionService;
 use crate::application::extension_runtime::ExtensionRuntime;
-use crate::application::extension_service::{ExtensionEvents, ExtensionService};
+use crate::application::extension_service::ExtensionService;
 use crate::application::flat_markdown_splitter::FlatMarkdownSplitter;
 use crate::application::item_service::ItemService;
 use crate::application::journal_service::JournalService;
@@ -24,10 +24,11 @@ use crate::application::startup;
 use crate::domain::id_generator::IdGenerator;
 use crate::domain::search::SearchIndex;
 use crate::dto::ItemDtoAssembler;
+use crate::events::{ClientMessages, EventSink};
 use crate::infrastructure::export::export_queue_repository::ExportQueueRepository;
 use crate::infrastructure::export::export_service::MarkdownExportService;
 use crate::infrastructure::export::file_sync_state::FileSyncStateRepository;
-use crate::infrastructure::export::import_service::{ImportEvents, MarkdownImportService};
+use crate::infrastructure::export::import_service::MarkdownImportService;
 use crate::infrastructure::export::item_merger::ItemMerger;
 use crate::infrastructure::export::outline_parser::OutlineMarkdownParser;
 use crate::infrastructure::export::page_matcher::PageMatcher;
@@ -37,7 +38,7 @@ use crate::infrastructure::export::reconcile_service::{
 use crate::infrastructure::persistence::database_initializer;
 use crate::infrastructure::persistence::{Db, ItemRepository, PageRepository, PropertyRepository};
 use crate::infrastructure::search::TantivySearchService;
-use crate::journal::{FolderWatch, Journal, JournalEvents, JournalServices};
+use crate::journal::{FolderWatch, Journal, JournalServices};
 
 /// A person may step away before answering a question of an extension, so the wait is long.
 const CONFIRM_WAIT: Duration = Duration::from_secs(60);
@@ -54,14 +55,11 @@ pub struct CoreSettings {
     pub export_overwrite_wait: Duration,
 }
 
-/// What the app around the core does for it: telling its clients of changes, asking the
-/// user, and watching the markdown folder.
+/// What the app around the core does for it: carrying the messages to its clients, asking
+/// the user about missing files, and watching the markdown folder.
 pub struct CoreHost {
-    pub journal_events: Arc<dyn JournalEvents>,
-    pub atlas_events: Arc<dyn AtlasEvents>,
-    pub import_events: Arc<dyn ImportEvents>,
-    pub extension_events: Arc<dyn ExtensionEvents>,
-    pub confirm_events: Arc<dyn ConfirmEvents>,
+    /// The changes of pages and the questions of the extensions go here
+    pub events: Arc<dyn EventSink>,
     pub missing_files: Arc<dyn MissingFilesPrompt>,
     pub folder_watch: Arc<dyn FolderWatch>,
 }
@@ -98,6 +96,7 @@ impl JournalCore {
     /// Opens the database and the search index and wires the services. It changes no page
     /// and writes no file: `start_up` does that.
     pub fn build(settings: &CoreSettings, host: CoreHost) -> anyhow::Result<JournalCore> {
+        let messages = Arc::new(ClientMessages::new(host.events));
         let ids = Arc::new(IdGenerator::new());
         let db = Arc::new(Db::open(&settings.db_path)?);
         database_initializer::initialize(&db, &ids)?;
@@ -131,7 +130,7 @@ impl JournalCore {
             Arc::clone(&search),
             Arc::clone(&export),
             Arc::clone(&ids),
-            host.atlas_events,
+            messages.clone(),
         ));
         let page_service = Arc::new(PageService::new(
             pages.clone(),
@@ -187,7 +186,7 @@ impl JournalCore {
             item_merger,
             file_sync_state.clone(),
             Arc::clone(&export),
-            host.import_events,
+            messages.clone(),
             Arc::clone(&page_service),
             settings.import_copy_wait,
         ));
@@ -201,14 +200,14 @@ impl JournalCore {
             Arc::clone(&search),
         ));
         let functions = Arc::new(ExtensionFunctionService::load(Arc::clone(&config)));
-        let confirm = Arc::new(ConfirmService::new(host.confirm_events, CONFIRM_WAIT));
+        let confirm = Arc::new(ConfirmService::new(messages.clone(), CONFIRM_WAIT));
         let extensions = Arc::new(ExtensionService::new(
             ExtensionRuntime::new(Arc::new(splitter.clone()), Arc::clone(&ids))
                 .with_confirmer(confirm.clone()),
             Arc::clone(&functions),
             Arc::clone(&item_service),
             Arc::clone(&page_service),
-            host.extension_events,
+            messages.clone(),
         ));
         let dtos = ItemDtoAssembler::new(properties.clone(), items.clone());
         let journal = Arc::new(Journal::new(
@@ -228,7 +227,7 @@ impl JournalCore {
                 splitter: splitter.clone(),
                 dtos: dtos.clone(),
             },
-            host.journal_events,
+            messages,
         ));
 
         Ok(JournalCore {

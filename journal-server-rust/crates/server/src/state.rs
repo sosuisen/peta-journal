@@ -91,11 +91,7 @@ impl AppState {
                 export_overwrite_wait: Duration::from_secs(settings.export_overwrite_wait_secs),
             },
             CoreHost {
-                journal_events: Arc::new(sse.clone()),
-                atlas_events: Arc::new(sse.clone()),
-                import_events: Arc::new(sse.clone()),
-                extension_events: Arc::new(sse.clone()),
-                confirm_events: Arc::new(sse.clone()),
+                events: Arc::new(sse.clone()),
                 missing_files: prompt.clone(),
                 folder_watch: watcher_restart.clone(),
             },
