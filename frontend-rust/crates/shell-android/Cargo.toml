@@ -1,0 +1,23 @@
+[package]
+name = "peta-shell-android"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "PetaJournal Android frontend: the Crux core with a journal core inside the app (ADR 029)"
+
+[lib]
+crate-type = ["lib", "staticlib", "cdylib"]
+
+[dependencies]
+peta-core = { path = "../core" }
+peta-shell-native = { path = "../shell-native" }
+peta-embedded-journal = { path = "../embedded-journal" }
+journal-core = { path = "../../../journal-server-rust/crates/core", default-features = false }
+chrono = "0.4.45"
+boltffi = "=0.32.1"
+
+[dev-dependencies]
+tempfile = "3"
+# Writes an event as the Kotlin shell does
+crux_core = "=0.20.0"
+serde_json = { workspace = true }

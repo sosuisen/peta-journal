@@ -8,6 +8,7 @@ members = [
     "crates/shell-leptos",
     "crates/shell-emacs",
     "crates/shell-native",
+    "crates/shell-android",
 ]
 
 [workspace.package]

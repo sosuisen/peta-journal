@@ -2732,6 +2732,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "peta-shell-android"
+version = "0.1.0"
+dependencies = [
+ "boltffi",
+ "chrono",
+ "crux_core",
+ "journal-core",
+ "peta-core",
+ "peta-embedded-journal",
+ "peta-shell-native",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "peta-shell-emacs"
 version = "0.1.0"
 dependencies = [
