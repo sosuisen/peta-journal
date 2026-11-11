@@ -141,6 +141,12 @@ A click on a link of an item that shows its decoration opens what the link names
 folder of the tags, and any other link opens in the browser. Such a click does not put the
 cursor in the item. A click beside the links does, and the item shows its Markdown.
 
+A journal (`/today`, `/journals/2026-11-11`) shows the days before below the day that was
+opened. Above the first item of each earlier day there is a line and the date of that day. The
+title bar shows the date of the day at the top of the window, with "(Today)" behind the date of
+today. The screen tells the core which rows are drawn (`Shell.scrolled`); the core says which day
+is at the top, and loads earlier days when the end comes near.
+
 ## Keys
 
 The keys are those of the web frontend, but for folding: there the Mac has Command where
@@ -241,7 +247,9 @@ So a jump shows Markdown for about a tenth of a second. Scrolling line by line m
 texts at a time. The cursor going to another item takes 16 ms in the shell and the core and
 27 ms to draw; about 10 ms of that is for drawing all rows in view again.
 
-The tests start the server themselves, on ports 18094, 18095 and 18097, with all its files in a temporary folder.
+`JournalScreenTests` put a journal of two days in a window and scroll it.
+
+The tests start the server themselves, on ports 18094, 18095, 18097 to 18100, with all its files in a temporary folder.
 They check that the server writes its Markdown there before they use it, so the notes of whoever
 runs the tests are never touched.
 

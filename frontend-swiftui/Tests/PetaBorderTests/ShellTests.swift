@@ -543,6 +543,64 @@ final class ShellTests: XCTestCase {
         try await waitUntil("the page found is shown") { shell.title == "swift-notes" }
         XCTAssertEqual(shell.url, "/pages/swift-notes")
     }
+
+    /// The journal on screen, once it is there.
+    private func journal(_ shell: Shell) -> JournalView? {
+        if case .journal(let journal) = shell.view.screen { return journal }
+        return nil
+    }
+
+    /// Makes the journal of a day long ago, with one item, and waits until the server has it.
+    private func journalOfADayLongAgo() async throws {
+        let old = Shell(server: server.address, url: "/journals/2020-01-02")
+        try await waitUntil("the old journal is shown") { !old.view.outline.rows.isEmpty }
+        let pageId = try XCTUnwrap(journal(old)?.pageId)
+        let item = old.view.outline.rows[0].item.id
+        old.startEditing(item)
+        old.typed("written long ago", into: item)
+        try await waitUntil("the old journal is saved") {
+            let saved = (try? self.server.get("/api/pages/\(pageId)")) ?? Data()
+            return String(decoding: saved, as: UTF8.self).contains("written long ago")
+        }
+    }
+
+    // 今日のジャーナルのタイトルは、今日の日付に「(Today)」を付けたものである。
+    func testTheTitleOfTheJournalOfTodayIsItsDateMarkedAsToday() async throws {
+        let shell = Shell(server: server.address, url: "/today")
+        try await waitUntil("the journal is shown") { !shell.view.outline.rows.isEmpty }
+
+        let date = try XCTUnwrap(journal(shell)).displayDate
+        XCTAssertFalse(date.isEmpty)
+        XCTAssertEqual(shell.title, "\(date) (Today)")
+    }
+
+    // 今日でない日のジャーナルのタイトルは、その日付だけである。
+    func testTheTitleOfTheJournalOfAnotherDayIsItsDateAlone() async throws {
+        let shell = Shell(server: server.address, url: "/journals/2020-01-02")
+        try await waitUntil("the journal is shown") { !shell.view.outline.rows.isEmpty }
+
+        XCTAssertEqual(shell.title, "2020年1月2日 木曜日")
+    }
+
+    // 今日のジャーナルを前の日までスクロールすると、タイトルはその日の日付になり、「(Today)」は付かない。今日まで戻ると、また付く。
+    func testScrollingTheJournalToAnEarlierDayShowsThatDateInTheTitle() async throws {
+        try await journalOfADayLongAgo()
+        let shell = Shell(server: server.address, url: "/today")
+        try await waitUntil("the earlier day is shown under today") {
+            shell.view.outline.rows.contains { $0.dateHeader != nil }
+        }
+        let earlier = try XCTUnwrap(shell.view.outline.rows.first { $0.dateHeader != nil })
+        let today = try XCTUnwrap(journal(shell)).displayDate
+
+        shell.scrolled(top: Int(earlier.index), shown: 0...Int(earlier.index))
+
+        XCTAssertEqual(earlier.dateHeader, "2020年1月2日 木曜日")
+        XCTAssertEqual(shell.title, "2020年1月2日 木曜日")
+
+        shell.scrolled(top: 0, shown: 0...Int(earlier.index))
+
+        XCTAssertEqual(shell.title, "\(today) (Today)")
+    }
 }
 
 /// What the shell put on the clipboard.

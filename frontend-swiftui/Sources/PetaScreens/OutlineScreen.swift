@@ -8,6 +8,7 @@ public struct OutlineScreen: View {
     @ObservedObject private var look: StickyLook
     @StateObject private var cursors = Cursors()
     @StateObject private var texts = ShownTexts()
+    @StateObject private var seen = SeenRows()
     /// What is typed into the prompt on screen.
     @State private var typed = ""
 
@@ -47,8 +48,9 @@ public struct OutlineScreen: View {
         // The name of the window. A window without a name is hard to find among the others
         .navigationTitle(shell.title.isEmpty ? "PetaStickies" : shell.title)
         .onChange(of: shell.question) { _ in typed = "" }
-        // The page that was searched for is here
-        .onChange(of: shell.title) { _ in look.searching = false }
+        // The page that was searched for is here. Not by the title: that of a journal changes
+        // when it is scrolled
+        .onChange(of: shell.url) { _ in look.searching = false }
         .alert(
             shell.question?.message ?? "",
             isPresented: Binding(get: { shell.question != nil }, set: { _ in }),
@@ -76,6 +78,9 @@ public struct OutlineScreen: View {
             ItemEditor(row: row, shell: shell, cursors: cursors, texts: texts, zoom: look.zoom)
                 .listRowSeparator(.hidden)
                 .listRowBackground(row.isSelected ? Color.accentColor.opacity(0.25) : Color.clear)
+                // A journal tells the day at the top of the window by the rows that are drawn
+                .onAppear { seen.changed(row.item.id, shown: true, in: shell) }
+                .onDisappear { seen.changed(row.item.id, shown: false, in: shell) }
         }
         // The paper shows through the list
         .scrollContentBackground(.hidden)
@@ -103,6 +108,20 @@ private struct ItemEditor: View {
     let zoom: Double
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // The first item of a day of a journal, below another day: a line between the
+            // days, and the date of this one
+            if let date = row.dateHeader {
+                Divider()
+                Text(date).font(.system(size: NSFont.systemFontSize * 1.3 * zoom, weight: .bold))
+                    .padding(.vertical, 8)
+            }
+            text
+        }
+        .padding(.leading, CGFloat(row.indentPx) * zoom)
+    }
+
+    private var text: some View {
         HStack(alignment: .top) {
             // Without the bullet an item with no text cannot be seen
             ForEach(row.marks, id: \.self) { mark in
@@ -114,6 +133,29 @@ private struct ItemEditor: View {
                 request: shell.view.outline.focusRequest, order: shell.focus, shell: shell, cursors: cursors,
                 zoom: zoom)
         }
-        .padding(.leading, CGFloat(row.indentPx) * zoom)
+    }
+}
+
+/// The rows that the list has drawn. SwiftUI tells of each row when it comes and when it
+/// goes; the shell is told once of all that changed in one turn of the main queue.
+@MainActor
+private final class SeenRows: ObservableObject {
+    private var ids: Set<String> = []
+    private var waits = false
+    private var told: ClosedRange<Int>?
+
+    func changed(_ id: String, shown: Bool, in shell: Shell) {
+        if shown { ids.insert(id) } else { ids.remove(id) }
+        guard !waits else { return }
+        waits = true
+        DispatchQueue.main.async { [self] in
+            waits = false
+            // Only a journal does something with it, and every time costs a view model
+            guard case .journal = shell.view.screen else { return }
+            let places = shell.view.outline.rows.filter { ids.contains($0.item.id) }.map { Int($0.index) }
+            guard let first = places.min(), let last = places.max(), told != first...last else { return }
+            told = first...last
+            shell.scrolled(top: first, shown: first...last)
+        }
     }
 }
