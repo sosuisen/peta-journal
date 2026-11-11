@@ -343,7 +343,8 @@ final class ItemTextView: NSTextView {
             // A line break inside the item. Enter alone splits the item
             insertText("\n", replacementRange: selectedRange())
             return true
-        case (returnKey, [.control]): return onKey?(.taskCycle, self) ?? false
+        // Command as on a Mac, and Control as in the web frontend
+        case (returnKey, [.command]), (returnKey, [.control]): return onKey?(.taskCycle, self) ?? false
         // Taken also when there is nothing to fold: otherwise AppKit would put the cursor at
         // the start or the end of the text
         case (up, [.command]):

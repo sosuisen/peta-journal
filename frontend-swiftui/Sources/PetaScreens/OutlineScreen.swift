@@ -124,8 +124,14 @@ private struct ItemEditor: View {
     private var text: some View {
         HStack(alignment: .top) {
             // Without the bullet an item with no text cannot be seen
-            ForEach(row.marks, id: \.self) { mark in
-                Text(mark).foregroundStyle(.secondary).font(.system(size: NSFont.systemFontSize * zoom))
+            ForEach(Array(row.marks.enumerated()), id: \.offset) { place, mark in
+                let text = Text(mark).foregroundStyle(.secondary).font(.system(size: NSFont.systemFontSize * zoom))
+                // The mark after the bullet is the state of a task: a click steps it
+                if place == 0 {
+                    text
+                } else {
+                    text.contentShape(Rectangle()).onTapGesture { shell.clickedTask(of: row.item.id) }
+                }
             }
             ItemText(
                 item: row.item, isEditing: row.isEditing, shown: texts.text(of: row.item, zoom: zoom),
