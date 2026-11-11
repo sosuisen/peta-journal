@@ -14,9 +14,7 @@ use serde_json::{json, Value};
 
 use crate::error::{AppError, AppResult};
 use crate::state::{blocking, SharedState};
-use journal_core::domain::journal_name::JournalName;
-use journal_core::domain::model::{Item, Page};
-use journal_core::dto::{item_dto, page_dto, BacklinkEntryDto, ItemDto, ItemFields, PageDto};
+use journal_core::dto::{BacklinkEntryDto, ItemDto, ItemFields, PageDto};
 use journal_core::infrastructure::export::export_service::format_instant;
 use journal_core::journal::{
     ChangedBy, CreateItemInput, ItemIdsInput, MoveItemsInput, PropertyInput, TransclusionInput,
@@ -64,18 +62,6 @@ fn item_record_json(i: &ItemDto) -> Value {
 
 fn item_records_json(items: &[ItemDto]) -> Value {
     Value::Array(items.iter().map(item_record_json).collect())
-}
-
-fn page_json(p: &Page) -> Value {
-    page_record_json(&page_dto(p))
-}
-
-fn item_json(i: &Item) -> Value {
-    item_record_json(&item_dto(i, None, None))
-}
-
-fn items_json(items: &[Item]) -> Value {
-    Value::Array(items.iter().map(item_json).collect())
 }
 
 /// The answer of an operation of the journal (ADR 029), as the JSON a tool gives back.
@@ -718,19 +704,12 @@ impl JournalMcp {
         Parameters(a): Parameters<JournalNameArgs>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
-        let r = run(move || {
-            let mut r = state
-                .journal_service
-                .get_or_create_journal_by_name(a.file_name.parse::<JournalName>()?)?;
-            if r.created {
-                r.items = state.extensions.page_created(&r.page)?;
-            }
-            Ok(r)
-        })
-        .await?;
-        ok(
-            json!({ "page": page_json(&r.page), "items": items_json(&r.items), "created": r.created }),
-        )
+        let r = run(move || state.journal.get_or_create_journal(&a.file_name)).await?;
+        ok(json!({
+            "page": page_record_json(&r.page),
+            "items": item_records_json(&r.items),
+            "created": r.created,
+        }))
     }
 
     #[tool(description = "Get the most recent daily journal before the specified date")]
@@ -739,15 +718,13 @@ impl JournalMcp {
         Parameters(a): Parameters<BeforeDateArgs>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
-        let before =
-            chrono::NaiveDate::parse_from_str(&a.before_date, "%Y-%m-%d").map_err(|e| {
-                McpError::invalid_params(format!("Invalid date '{}': {e}", a.before_date), None)
-            })?;
-        let r = run(move || state.journal_service.get_most_recent_journal_before(before)).await?;
-        match r.page {
-            Some(page) => ok(
-                json!({ "found": true, "page": page_json(&page), "items": items_json(&r.items) }),
-            ),
+        let r = run(move || state.journal.most_recent_journal_before(&a.before_date)).await?;
+        match &r.page {
+            Some(page) => ok(json!({
+                "found": true,
+                "page": page_record_json(page),
+                "items": item_records_json(&r.items),
+            })),
             None => ok(json!({ "found": false })),
         }
     }

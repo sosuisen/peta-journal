@@ -5,10 +5,11 @@
 //! services, runs the extensions, tells the clients which pages changed, and builds the
 //! answer. The answers are the JSON shapes of the REST API.
 //!
-//! The operations come here one area at a time. The search, the pages and the items are
-//! here. The other areas are still in the handlers of the journal server.
+//! The operations come here one area at a time. The search, the pages, the items and the
+//! journals are here. The other areas are still in the handlers of the journal server.
 
 mod items;
+mod journals;
 mod pages;
 mod search;
 
@@ -19,6 +20,9 @@ pub use items::{
     ShiftLevelsInput, SplitAnswer, SplitInput, StashAnswer, StashInput, TaskStateInput,
     TranscludedItemsAnswer, TransclusionInput, TreeMarkdownAnswer, TreeMarkdownInput,
     UpdateItemInput,
+};
+pub use journals::{
+    JournalAnswer, MostRecentJournalAnswer, MoveToJournalInput, MovedToJournalAnswer,
 };
 pub use pages::{BacklinksAnswer, DocAnswer, PageAnswer, PageWithItems, PagesAnswer};
 pub use search::SearchAnswer;
@@ -31,6 +35,7 @@ use crate::application::combined_search::CombinedSearchService;
 use crate::application::extension_service::ExtensionService;
 use crate::application::flat_markdown_splitter::FlatMarkdownSplitter;
 use crate::application::item_service::ItemService;
+use crate::application::journal_service::JournalService;
 use crate::application::page_service::PageService;
 use crate::domain::client_id::ClientId;
 use crate::dto::ItemDtoAssembler;
@@ -55,6 +60,7 @@ pub struct JournalServices {
     pub combined_search: Arc<CombinedSearchService>,
     pub page_service: Arc<PageService>,
     pub item_service: Arc<ItemService>,
+    pub journal_service: Arc<JournalService>,
     pub extensions: Arc<ExtensionService>,
     pub pages: PageRepository,
     pub items: ItemRepository,
