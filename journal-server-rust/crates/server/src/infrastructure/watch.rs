@@ -286,10 +286,23 @@ impl MarkdownFolderWatcher {
 }
 
 /// Lets the journal restart the watcher when the markdown directory setting changes.
-pub struct WatcherRestart(pub Arc<MarkdownFolderWatcher>);
+///
+/// The watcher is made of services of the journal core, and the core is built with this. So
+/// the watcher is put in after both are built.
+#[derive(Default)]
+pub struct WatcherRestart(std::sync::OnceLock<Arc<MarkdownFolderWatcher>>);
+
+impl WatcherRestart {
+    pub fn set(&self, watcher: Arc<MarkdownFolderWatcher>) {
+        // Set once, by the build of the state
+        let _ = self.0.set(watcher);
+    }
+}
 
 impl FolderWatch for WatcherRestart {
     fn restart(&self) {
-        self.0.restart();
+        if let Some(watcher) = self.0.get() {
+            watcher.restart();
+        }
     }
 }
