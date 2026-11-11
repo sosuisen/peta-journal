@@ -56,3 +56,10 @@ impl PetaCore {
 pub fn item_html(ast: String) -> Result<String, String> {
     crate::item_html(&ast)
 }
+
+/// The HTML of a copy, from the AST that comes with the Markdown to copy (ADR 027). The links
+/// to pages lead to `app_url`, where the web frontend is served.
+#[boltffi::export]
+pub fn copied_html(ast: String, app_url: String, tags_dir: String) -> String {
+    crate::copied_html(&ast, &app_url, &tags_dir)
+}
