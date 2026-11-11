@@ -81,18 +81,32 @@ class DownloaderTest {
         assertEquals(mapOf("docs/notes.md" to "- a", "journals/2026/2026-11-12.md" to "- b"), here())
     }
 
-    // Markdownでないファイルは取らない。最初の版は画像を描かない。
+    // assetsのフォルダーのファイルは、Markdownでなくても取る。ページの画像である。
     @Test
-    fun a_file_that_is_not_markdown_is_not_downloaded() {
+    fun a_file_of_the_assets_folder_is_downloaded() {
         cloud.answers[null] = Changes(
-            listOf(cloud.file("assets/picture.png", "png"), cloud.file("docs/Notes.MD", "- a")),
+            listOf(cloud.file("Assets/Picture.PNG", "png"), cloud.file("docs/Notes.MD", "- a")),
             cursor = "c1",
             whole = true,
         )
 
         run()
 
-        assertEquals(mapOf("docs/Notes.MD" to "- a"), here())
+        assertEquals(mapOf("Assets/Picture.PNG" to "png", "docs/Notes.MD" to "- a"), here())
+    }
+
+    // assetsの外にある、Markdownでないファイルは取らない。
+    @Test
+    fun a_file_that_is_neither_markdown_nor_an_asset_is_not_downloaded() {
+        cloud.answers[null] = Changes(
+            listOf(cloud.file("docs/picture.png", "png"), cloud.file(".obsidian/app.json", "{}"), cloud.file("assets.png", "png")),
+            cursor = "c1",
+            whole = true,
+        )
+
+        run()
+
+        assertEquals(emptyMap<String, String>(), here())
     }
 
     // 次の回は、前の回のカーソルから後の変更だけを尋ね、変わったファイルだけを取る。
