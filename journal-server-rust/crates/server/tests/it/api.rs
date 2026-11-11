@@ -990,7 +990,15 @@ async fn editing_a_source_item_updates_the_stored_copy_in_its_transcluders() {
 
     // The exported file of the host page is built from the stored copy, not from the source
     assert_eq!(items(&page.id).await[0].body, "after");
-    let (_, exported) = post("/api/items/export", json!({ "itemIds": [host.id] })).await;
+    let exported: Value = client()
+        .post(url("/api/items/export-page"))
+        .query(&[("pageId", page.id.as_str())])
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
     assert!(
         exported["flatMarkdown"].as_str().unwrap().contains("after"),
         "{}",
@@ -3772,6 +3780,52 @@ async fn exported_items_come_back_through_import_and_parse_unchanged() {
         field_of_each(&parsed, "items", "level"),
         rows.iter().map(|r| json!(r.level)).collect::<Vec<_>>()
     );
+}
+
+// ページ全体のエクスポートは、その項目のエクスポートと同じになる。
+#[tokio::test]
+async fn a_whole_page_exports_like_its_items() {
+    let page = new_doc_page("markdown-page").await;
+    let rows = fill(&page.id, &["one", "  two"]).await;
+    let ids: Vec<&str> = rows.iter().map(|r| r.id.as_str()).collect();
+
+    let by_page: Value = client()
+        .post(url("/api/items/export-page"))
+        .query(&[("pageId", page.id.as_str())])
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let (_, by_items) = post("/api/items/export", json!({ "itemIds": ids })).await;
+
+    assert_eq!(by_items["treeMarkdown"], by_page["treeMarkdown"]);
+}
+
+// 項目とその子孫のエクスポートは、その項目たちのエクスポートと同じになる。兄弟は入らない。
+#[tokio::test]
+async fn a_subtree_exports_like_its_items() {
+    let page = new_doc_page("markdown-subtree").await;
+    let rows = fill(&page.id, &["one", "  two", "sibling"]).await;
+
+    let by_subtree: Value = client()
+        .post(url("/api/items/export-subtree"))
+        .query(&[("itemId", rows[0].id.as_str())])
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let (_, by_items) = post(
+        "/api/items/export",
+        json!({ "itemIds": [rows[0].id, rows[1].id] }),
+    )
+    .await;
+
+    assert_eq!(by_items["treeMarkdown"], by_subtree["treeMarkdown"]);
+    assert_eq!(by_subtree["treeMarkdown"], json!("- one\n  - two"));
 }
 
 // ---- Folder sync ----

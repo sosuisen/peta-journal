@@ -475,7 +475,7 @@ impl JournalMcp {
         Parameters(a): Parameters<ItemIdArgs>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
-        let r = run(move || state.journal.export_subtree_markdown(&a.item_id)).await?;
+        let r = run(move || state.journal.export_subtree_markdown(Some(&a.item_id))).await?;
         ok(answer_json(&r))
     }
 
@@ -600,7 +600,7 @@ impl JournalMcp {
         Parameters(a): Parameters<PageIdArgs>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
-        let r = run(move || state.journal.export_page_markdown(&a.page_id)).await?;
+        let r = run(move || state.journal.export_page_markdown(Some(&a.page_id))).await?;
         ok(answer_json(&r))
     }
 
