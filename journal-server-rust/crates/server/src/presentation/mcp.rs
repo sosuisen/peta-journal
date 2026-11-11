@@ -820,9 +820,12 @@ impl JournalMcp {
         Parameters(a): Parameters<RecentPagesArgs>,
     ) -> Result<CallToolResult, McpError> {
         let state = Arc::clone(&self.state);
-        // Zero or less means that the caller named no number
-        let max = Some(a.max_results).filter(|max| *max > 0);
-        let r = run(move || state.journal.recent_pages(max, Some(&a.page_type))).await?;
+        let r = run(move || {
+            state
+                .journal
+                .recent_pages(Some(a.max_results), Some(&a.page_type))
+        })
+        .await?;
         ok(json!({ "pages": r.pages.iter().map(page_record_json).collect::<Vec<_>>() }))
     }
 }

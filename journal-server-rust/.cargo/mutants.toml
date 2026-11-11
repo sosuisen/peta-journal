@@ -11,6 +11,10 @@ exclude_globs = [
     "crates/server/src/infrastructure/pending_delete_prompt.rs",
 ]
 
+# Every mutant runs the tests of the whole workspace. By default a mutant runs the tests of
+# its own crate only, and most of journal-core is tested through the server (ADR 029).
+test_workspace = true
+
 # Single mutants that no test can catch, skipped by name, as agreed with the user:
 # - The quiet time of the folder watcher (2026-11-05). With `+` for `-` the watcher takes a
 #   file in at once, and the page ends the same. How often a file was taken in does not show.

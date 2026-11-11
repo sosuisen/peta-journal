@@ -181,7 +181,8 @@ impl Journal {
         Ok(())
     }
 
-    /// The pages that changed last, newest first. An empty `page_type` means every type.
+    /// The pages that changed last, newest first. An empty `page_type` means every type. A
+    /// number of zero or less means the same as no number.
     pub fn recent_pages(
         &self,
         max_results: Option<i64>,
