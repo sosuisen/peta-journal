@@ -1,0 +1,14 @@
+import PetaTypes
+
+extension Row {
+    /// What stands before the text of the item: the bullet, and after it the state of a task.
+    /// Every item has a bullet, a task as well. That is so in all shells: the bullet is what
+    /// makes the item a part of the outline, and the state of the task is said on top of it.
+    public var marks: [String] {
+        let bullet = isCollapsed ? "▸" : "•"
+        guard let task else { return [bullet] }
+        // Not a switch: the optimizing compiler of Swift 6.4.2 crashes on one over this enum
+        if task == .done { return [bullet, "☑"] }
+        return [bullet, task == .running ? "◐" : "☐"]
+    }
+}
