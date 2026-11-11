@@ -3853,6 +3853,29 @@ async fn a_change_made_to_the_file_is_merged_into_the_page() {
     );
 }
 
+// ファイルから取り込んだ変更は、ファイルからの変更としてクライアントに知らされる。
+#[tokio::test]
+async fn the_clients_hear_of_a_change_taken_in_from_the_file() {
+    let _folder = FOLDER_SCAN.lock().await;
+    let page = new_doc_page("sync-import-event").await;
+    fill(&page.id, &["before the edit"]).await;
+    wait_until(&page, "the page is exported", || {
+        read(&file_of(&page)).contains("before the edit")
+    })
+    .await;
+    let mut events = client().get(url("/api/events")).send().await.unwrap();
+
+    std::fs::write(
+        file_of(&page),
+        read(&file_of(&page)).replace("before the edit", "edited on disk, a bit longer"),
+    )
+    .unwrap();
+    scan().await;
+
+    let event = event_with(&mut events, &format!("\"pageId\":\"{}\"", page.id)).await;
+    assert_eq!(event["source"], "file");
+}
+
 /// Exports the page, and returns its file once it is there.
 async fn exported_file_of(page: &PageRef) -> std::path::PathBuf {
     let file = file_of(page);
