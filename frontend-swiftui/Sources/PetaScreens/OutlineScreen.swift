@@ -125,12 +125,12 @@ private struct ItemEditor: View {
         HStack(alignment: .top) {
             // Without the bullet an item with no text cannot be seen
             ForEach(Array(row.marks.enumerated()), id: \.offset) { place, mark in
-                let size = NSFont.systemFontSize * zoom
+                let line = NSLayoutManager().defaultLineHeight(for: .systemFont(ofSize: NSFont.systemFontSize * zoom))
                 if place == 0 {
-                    Text(mark).foregroundStyle(.secondary).font(.system(size: size))
+                    Bullet(mark: mark, line: line)
                 } else {
                     // The mark after the bullet is the state of a task: a click steps it
-                    TaskBox(mark: mark, line: NSLayoutManager().defaultLineHeight(for: .systemFont(ofSize: size)))
+                    TaskBox(mark: mark, line: line)
                         .onTapGesture { shell.clickedTask(of: row.item.id) }
                 }
             }
@@ -140,6 +140,28 @@ private struct ItemEditor: View {
                 request: shell.view.outline.focusRequest, order: shell.focus, shell: shell, cursors: cursors,
                 zoom: zoom)
         }
+    }
+}
+
+/// The bullet of an item: a dot, with a pale circle around it while its children are hidden.
+/// It is drawn here as the web frontend draws it, and not written as a letter: a letter does
+/// not stand in the middle of its line.
+private struct Bullet: View {
+    let mark: String
+    /// How high a line of the text of the item is. The bullet stands in the middle of the first.
+    let line: CGFloat
+
+    var body: some View {
+        let side = (line * 0.85).rounded()
+        ZStack {
+            if mark == "◉" {
+                Circle().opacity(0.3)
+            }
+            Circle().frame(width: side * 0.42, height: side * 0.42)
+        }
+        .foregroundStyle(.secondary)
+        .frame(width: side, height: side)
+        .frame(height: line)
     }
 }
 
