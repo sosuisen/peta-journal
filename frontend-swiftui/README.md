@@ -163,6 +163,9 @@ another sticky. The app ends when the last one is closed.
 The menu with the palette gives the sticky another color: yellow, pink, green, blue or white.
 A sticky is light in every color, also when the Mac is in dark mode.
 
+The button with the pin keeps the sticky on top of the windows of other apps, until it is
+pressed again.
+
 The button with the magnifying glass, or Command+F, opens the search box. What is typed there
 is searched for a moment later. Down and Up choose an entry, Enter opens it, and Escape hides
 the entries, then closes the box. The entry "Create" makes a page with the typed name.

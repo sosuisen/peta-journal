@@ -85,4 +85,18 @@ final class StickyStoreTests: XCTestCase {
 
         XCTAssertEqual(StickyStore(file: file).stickies.map(\.color), ["#FFFDD0"])
     }
+
+    // 常に手前に表示するかどうかは、保存される。その設定のない古いファイルの付箋紙は、手前に表示しない。
+    func testStayingOnTopIsKeptAndAStickyWithoutItDoesNotStayOnTop() throws {
+        let store = StickyStore(file: file)
+        var pinned = sticky("a")
+        pinned.alwaysOnTop = true
+        store.put(pinned)
+        XCTAssertEqual(StickyStore(file: file).stickies.map(\.alwaysOnTop), [true])
+
+        let old = #"[{"id": "b", "x": 1, "y": 2, "width": 3, "height": 4}]"#
+        try Data(old.utf8).write(to: file)
+
+        XCTAssertEqual(StickyStore(file: file).stickies.map(\.alwaysOnTop), [false])
+    }
 }

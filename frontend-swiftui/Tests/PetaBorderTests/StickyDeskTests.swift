@@ -147,4 +147,19 @@ final class StickyDeskTests: XCTestCase {
         XCTAssertEqual(StickyLook.color(of: "#FF8000"), NSColor(srgbRed: 1, green: 128 / 255, blue: 0, alpha: 1))
         XCTAssertEqual(StickyLook.color(of: "blue"), StickyLook.color(of: "#FFFDD0"))
     }
+
+    // 付箋紙を常に手前に表示すると、ウィンドウがほかのウィンドウの上にとどまる。次の起動でも同じである。やめると、普通のウィンドウに戻る。
+    func testAStickyStaysOnTopOfOtherWindowsAndComesBackSo() async throws {
+        let sticky = desk.add()
+        XCTAssertEqual(sticky.window.level, .normal)
+
+        sticky.look.alwaysOnTop = true
+
+        XCTAssertEqual(sticky.window.level, .floating)
+        let next = nextRun()
+        XCTAssertTrue(next.stickies[0].look.alwaysOnTop)
+        XCTAssertEqual(next.stickies[0].window.level, .floating)
+        sticky.look.alwaysOnTop = false
+        XCTAssertEqual(sticky.window.level, .normal)
+    }
 }
