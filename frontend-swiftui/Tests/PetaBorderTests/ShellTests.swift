@@ -480,12 +480,38 @@ final class ShellTests: XCTestCase {
         XCTAssertEqual(selected(shell), ["second"])
     }
 
+    // 選んだ項目をコピーすると、HTMLもクリップボードに載る。ウィキリンクとハッシュタグは、ブラウザ版のページを開くリンクになる。Markdownのほうは変わらない。
+    func testCopyAlsoPutsHTMLOnTheClipboardWithLinksThatOpenInTheBrowser() async throws {
+        let copied = Copied()
+        let shell = Shell(
+            server: server.address, url: "/pages/swift-notes", clipboard: { nil },
+            copy: { text, html in
+                copied.text = text
+                copied.html = html
+            })
+        try await waitUntil("the page is shown") { !shell.view.outline.rows.isEmpty }
+        let item = shell.view.outline.rows[0].item.id
+        shell.startEditing(item)
+        shell.typed("see [[Idea]] #topic", into: item)
+        XCTAssertTrue(shell.pressed(.selectDown, in: item, editor("see [[Idea]] #topic", cursor: 0)))
+
+        shell.selection(.copy)
+
+        try await waitUntil("the clipboard has the item") { copied.text != nil }
+        XCTAssertEqual(copied.text, "- see [[Idea]] #topic")
+        let tags = shell.view.config.tagsDir
+        XCTAssertEqual(
+            copied.html,
+            "<ul>\n<li>see <a href=\"\(server.address)/pages/Idea\">Idea</a> "
+                + "<a href=\"\(server.address)/pages/\(tags)topic\">#topic</a></li>\n</ul>\n")
+    }
+
     // 選んだ項目をコピーすると、Markdownがクリップボードに載る。
     func testCopyPutsTheSelectedItemsOnTheClipboard() async throws {
         let copied = Copied()
         let shell = Shell(
             server: server.address, url: "/pages/swift-notes", clipboard: { nil },
-            copy: { copied.text = $0 })
+            copy: { text, _ in copied.text = text })
         try await waitUntil("the page is shown") { !shell.view.outline.rows.isEmpty }
         try await secondOfTwoSelected(shell)
         shell.selection(.extendUp)
@@ -640,4 +666,5 @@ final class ShellTests: XCTestCase {
 @MainActor
 private final class Copied {
     var text: String?
+    var html: String?
 }

@@ -19,7 +19,7 @@ final class OutlineScreenTests: XCTestCase {
 
     override func setUp() async throws {
         server = try JournalServer(port: 18094)
-        shell = Shell(server: server.address, url: "/pages/screen", clipboard: { nil }, copy: { [weak self] in self?.copied = $0 },
+        shell = Shell(server: server.address, url: "/pages/screen", clipboard: { nil }, copy: { [weak self] text, _ in self?.copied = text },
             browse: { [weak self] in self?.browsed = $0 })
         try await waitUntil("the page is shown") { !self.shell.view.outline.rows.isEmpty }
         window = NSWindow(
