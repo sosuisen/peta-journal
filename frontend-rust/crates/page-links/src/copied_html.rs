@@ -4,7 +4,7 @@
 //! becomes a whole URL, which opens from that app. The AST comes from the server: only there
 //! a link into the app is a node of its own kind.
 
-use crate::page_links::AppLinks;
+use crate::links::AppLinks;
 use flatmarkdown_ast::Node;
 use flatmarkdown_ast2html::ast_to_html;
 

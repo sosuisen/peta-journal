@@ -1,0 +1,16 @@
+[package]
+name = "peta-page-links"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "PetaJournal frontends: where a link to a page of the app leads, and the HTML of a copy with such links (ADR 027)"
+
+[dependencies]
+# The same version as `flatmarkdown-ast`: a release has all the crates of flatmarkdown (ADR 020)
+flatmarkdown-ast = { workspace = true }
+flatmarkdown-ast2html = "=0.7.0"
+percent-encoding = "2.3.2"
+
+[dev-dependencies]
+# The parser, to make the AST of a test from Markdown, as the journal server makes it
+flatmarkdown = "=0.7.0"
