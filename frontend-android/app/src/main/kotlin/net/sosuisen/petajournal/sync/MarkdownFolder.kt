@@ -5,7 +5,8 @@ import java.io.OutputStream
 import java.security.MessageDigest
 
 /**
- * The Markdown folder of the app: a copy of the folder in the cloud (ADR 030).
+ * The Markdown folder of the app: a copy of the pages and their images in the folder in the
+ * cloud (ADR 030).
  *
  * The cloud does not tell `Notes.md` from `notes.md`, and the file system of a phone does. So
  * a path of the cloud is looked up here without regard to case, and a file never lies here
