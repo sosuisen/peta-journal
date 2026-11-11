@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1330" height="1130" viewBox="0 0 1330 1130" role="img">
 <title>PetaJournal frontends: browser, SwiftUI, WinUI3, Emacs, todo and stickies</title>
-<desc>Three frontends share one core, and a fourth is planned. The browser frontend is one WASM binary with shell-leptos (Rust, Leptos) and peta-core (Rust, Crux), and talks to the server with fetch and EventSource. It shows an item from the HTML that flatmarkdown-ast2html makes of its AST, and adds the link targets, the image sizes and the code colours itself. The SwiftUI frontend is frontend-swiftui (SwiftUI), connected by bincode over BoltFFI to a Rust library with shell-native, peta-core and server-client (Rust, ureq). shell-native makes the HTML of an item with flatmarkdown-ast2html, and the app draws it. The WinUI3 frontend is planned. It will use the same Rust library with shell-native. The Emacs frontend is peta-journal.el (Emacs Lisp), connected by JSON lines over stdin and stdout to a Rust process with shell-emacs, peta-core and server-client. Two more frontends do not use the core. The todo frontend (TypeScript, React) talks to the server with fetch and EventSource, and renders the AST with flatmarkdown-ast2react, a TypeScript package. The stickies frontend (C#, WinUI3) talks to the server with HttpClient, and renders the AST with flatmarkdown-ast2html. The local server is journal-server (Rust, axum) with REST and SSE at /api/events. It also serves MCP at /mcp. The server keeps its pages in a SQLite database. It syncs the pages with .md files in a local folder, in both directions. An AI agent talks to it as an MCP client over Streamable HTTP.</desc>
+<desc>Three frontends share one core, and a fourth is planned. The browser frontend is one WASM binary with shell-leptos (Rust, Leptos) and peta-core (Rust, Crux), and talks to the server with fetch and EventSource. It shows an item from the HTML that flatmarkdown-ast2html makes of its AST, and adds the link targets, the image sizes and the code colours itself. It parses no Markdown: the HTML of a copy comes from the AST of the server too. The SwiftUI frontend is frontend-swiftui (SwiftUI), connected by bincode over BoltFFI to a Rust library with shell-native, peta-core and server-client (Rust, ureq). shell-native makes the HTML of an item with flatmarkdown-ast2html, and the app draws it. The WinUI3 frontend is planned. It will use the same Rust library with shell-native. The Emacs frontend is peta-journal.el (Emacs Lisp), connected by JSON lines over stdin and stdout to a Rust process with shell-emacs, peta-core and server-client. Two more frontends do not use the core. The todo frontend (TypeScript, React) talks to the server with fetch and EventSource, and renders the AST with flatmarkdown-ast2react, a TypeScript package. The stickies frontend (C#, WinUI3) talks to the server with HttpClient, and renders the AST with flatmarkdown-ast2html. The local server is journal-server (Rust, axum) with REST and SSE at /api/events. It also serves MCP at /mcp. The server keeps its pages in a SQLite database. It syncs the pages with .md files in a local folder, in both directions. An AI agent talks to it as an MCP client over Streamable HTTP.</desc>
 <defs>
 <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#5F5E5A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></marker>
 <pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="8" stroke="#993C1D" stroke-width="1.5" stroke-opacity="0.16" /></pattern>
@@ -220,12 +220,10 @@ text { font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", "Noto Sans JP", s
 <text x="447" y="634" text-anchor="middle" dominant-baseline="central">読み書き</text>
 
 <g class="chip">
-<rect x="82" y="167" width="88" height="18" rx="9" />
-<text x="126" y="176" text-anchor="middle" dominant-baseline="central">flatmarkdown</text>
-<rect x="176" y="167" width="62" height="18" rx="9" />
-<text x="207" y="176" text-anchor="middle" dominant-baseline="central">ast2html</text>
-<rect x="244" y="167" width="36" height="18" rx="9" />
-<text x="262" y="176" text-anchor="middle" dominant-baseline="central">ast</text>
+<rect x="82" y="167" width="62" height="18" rx="9" />
+<text x="113" y="176" text-anchor="middle" dominant-baseline="central">ast2html</text>
+<rect x="150" y="167" width="36" height="18" rx="9" />
+<text x="168" y="176" text-anchor="middle" dominant-baseline="central">ast</text>
 <rect x="244" y="459" width="36" height="18" rx="9" />
 <text x="262" y="468" text-anchor="middle" dominant-baseline="central">ast</text>
 <rect x="574" y="459" width="36" height="18" rx="9" />
